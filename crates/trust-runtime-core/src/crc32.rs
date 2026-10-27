@@ -61,7 +61,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn compact_matches_ieee_vectors_acceleration_and_real_artifacts() {
+    fn compact_matches_ieee_vectors_and_acceleration() {
         assert_eq!(compact(b""), 0);
         assert_eq!(compact(b"123456789"), 0xcbf4_3926);
         let mut data = [0u8; 4097];
@@ -85,21 +85,6 @@ mod tests {
             511, 512, 513, 1023, 1024, 1025, 2047, 2048, 2049, 4095, 4096, 4097,
         ] {
             assert_eq!(compact(&data[..length]), crc32fast::hash(&data[..length]));
-        }
-        for bytes in [
-            &include_bytes!(
-                "../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
-            )[..],
-            &include_bytes!(
-                "../../trust-runtime/tests/fixtures/portability/stbc-2.0/numeric-v2.stbc"
-            )[..],
-        ] {
-            assert_eq!(compact(bytes), crc32fast::hash(bytes));
-            assert_eq!(checksum(bytes), compact(bytes));
-            // The header checksum covers the section table and later payload.
-            let start = u32::from_le_bytes(bytes[16..20].try_into().unwrap()) as usize;
-            let expected = u32::from_le_bytes(bytes[20..24].try_into().unwrap());
-            assert_eq!(compact(&bytes[start..]), expected);
         }
     }
 

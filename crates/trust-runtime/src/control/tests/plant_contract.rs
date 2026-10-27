@@ -149,8 +149,32 @@ fn plant_capabilities_reports_the_closed_runtime_surface() {
             "plant.remove",
             "plant.status",
             "plant.trace.read",
-            "plant.trace.clear"
+            "plant.trace.clear",
+            "plant.edit",
+            "plant.signals"
         ]))
+    );
+    // The plant editor's tables (specification 47 §20.1): every model in the selector's order.
+    assert_eq!(
+        result
+            .pointer("/editor/models")
+            .and_then(serde_json::Value::as_array)
+            .map(|models| models
+                .iter()
+                .map(|model| model["kind"].clone())
+                .collect::<Vec<_>>()),
+        Some(vec![
+            json!("static_gain"),
+            json!("first_order"),
+            json!("first_order_dead_time"),
+            json!("integrator"),
+            json!("second_order"),
+            json!("piecewise_linear"),
+            json!("state_space"),
+            json!("gravity_tank"),
+            json!("gravity_tank_cascade"),
+            json!("robot_joint")
+        ])
     );
     fs::remove_dir_all(root).expect("remove capabilities fixture");
 }

@@ -14,27 +14,28 @@ pub fn run_deploy(
     let source_bundle = RuntimeBundle::load(&bundle)?;
     validate_bundle(&source_bundle)?;
     let root = root.unwrap_or(std::env::current_dir()?);
-    let bundles_dir = root.join("bundles");
+    let bundles_dir = root.join(BUNDLES_DIR);
     let deployments_dir = root.join("deployments");
     fs::create_dir_all(&bundles_dir)?;
     fs::create_dir_all(&deployments_dir)?;
 
-    let current_link = root.join("current");
-    let previous_link = root.join("previous");
+    let current_link = root.join(CURRENT_LINK);
+    let previous_link = root.join(PREVIOUS_LINK);
     validate_pointer_slot(&current_link)?;
     validate_pointer_slot(&previous_link)?;
     let current_target = resolve_existing_bundle_link(&bundles_dir, &current_link)?;
 
     let bundle_name = label.unwrap_or_else(default_bundle_label);
-    validate_bundle_label(&bundle_name)?;
-    let dest = bundles_dir.join(&bundle_name);
-    if dest.exists() {
-        anyhow::bail!("deployment already exists: {}", dest.display());
-    }
+    let in_use: Vec<PathBuf> = current_target
+        .iter()
+        .cloned()
+        .chain(previous_link.canonicalize().ok())
+        .collect();
+    let dest = claim_label(&bundles_dir, &bundle_name, &in_use)?;
     validate_summary_slots(&deployments_dir, &bundle_name)?;
 
     let summary = match (|| -> anyhow::Result<BundleChangeSummary> {
-        copy_bundle(&source_bundle, &dest)?;
+        copy_bundle(&source_bundle.root, &dest, &source_bundle.runtime)?;
         let bundle = RuntimeBundle::load(&dest)?;
         validate_bundle(&bundle)?;
         let previous_bundle = current_target
@@ -58,6 +59,7 @@ pub fn run_deploy(
     ) {
         Ok(states) => states,
         Err(error) => {
+            let error = anyhow::Error::from(error);
             if let Err(cleanup_error) = fs::remove_dir_all(&dest) {
                 return Err(error.context(format!(
                     "also failed to remove rejected bundle '{}': {cleanup_error}",
@@ -78,7 +80,7 @@ pub fn run_deploy(
         let candidate_cleanup = fs::remove_dir_all(&dest);
         if let Err(restore_error) = pointer_restore {
             return Err(error.context(format!(
-                "also failed to restore deployment pointers: {restore_error:#}"
+                "also failed to restore deployment pointers: {restore_error}"
             )));
         }
         if let Err(cleanup_error) = candidate_cleanup {
@@ -113,33 +115,17 @@ pub fn run_deploy(
 
 pub fn run_rollback(root: Option<PathBuf>) -> anyhow::Result<()> {
     let root = root.unwrap_or(std::env::current_dir()?);
-    let bundles_dir = root.join("bundles");
-    let current_link = root.join("current");
-    let previous_link = root.join("previous");
-    let current_target = resolve_existing_bundle_link(&bundles_dir, &current_link)?
-        .ok_or_else(|| anyhow::anyhow!("no current project link at {}", current_link.display()))?;
-    let previous_target =
-        resolve_existing_bundle_link(&bundles_dir, &previous_link)?.ok_or_else(|| {
-            anyhow::anyhow!(
-                "no previous project link at {} (nothing to rollback)",
-                previous_link.display()
-            )
-        })?;
-
-    swap_deployment_pointers(
-        &current_link,
-        &previous_link,
-        &current_target,
-        &previous_target,
-    )?;
-
+    let rolled = rollback(&root)?;
     println!(
         "{}",
         style::success(format!(
             "Rolled back to project {}",
-            previous_target.display()
+            rolled.current.display()
         ))
     );
-    println!("Current project version: {}", current_link.display());
+    println!(
+        "Current project version: {}",
+        root.join(CURRENT_LINK).display()
+    );
     Ok(())
 }

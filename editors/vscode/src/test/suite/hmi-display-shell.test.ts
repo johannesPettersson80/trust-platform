@@ -381,7 +381,7 @@ suite("HMI display: browser shell", () => {
     const host = new FakeHost("/hmi/overview", { status: 200, body: OVERVIEW });
     const element = container();
     await startDisplay(element, host, drawing);
-    socketOf(host).send({ period_ms: 250 });
+    socketOf(host).send({ period_ms: 250, stale_ms: 750 });
     socketOf(host).send({ cycle: 1, values: { "Main.Speed": { value: 1180 } } });
     host.paint();
     assert.ok(element.querySelector("svg")?.textContent?.includes("1180"), element.innerHTML);
@@ -407,6 +407,7 @@ suite("HMI display: browser shell", () => {
     const host = new FakeHost("/hmi/overview", { status: 200, body: OVERVIEW });
     const element = container();
     await startDisplay(element, host, drawing);
+    socketOf(host).send({ period_ms: 250, stale_ms: 750 });
     socketOf(host).send({ cycle: 1, values: { "Main.Speed": { value: 1180 } } });
     host.paint();
     host.advance(1000);

@@ -1,10 +1,6 @@
 /**
  * Type definitions for Blockly Editor webview
  */
-import type {
-  RuntimeExtensionToWebviewMessage,
-  RuntimeWebviewToExtensionMessage,
-} from "../../visual/runtime/runtimeMessages";
 
 /**
  * Block category in toolbox
@@ -99,11 +95,6 @@ export interface VSCodeAPI {
 }
 
 /**
- * Execution mode: Simulation (mock) or Hardware (real I/O)
- */
-export type ExecutionMode = "simulation" | "hardware";
-
-/**
  * Messages sent from webview to extension
  */
 export type WebviewToExtensionMessage =
@@ -112,22 +103,15 @@ export type WebviewToExtensionMessage =
   | { type: "error"; error: string }
   | { type: "openAsText" }
   | { type: "validate" }
-  | { type: "generateCode" }
-  | { type: "executeBlock"; blockId: string }
-  | RuntimeWebviewToExtensionMessage;
+  | { type: "generateCode" };
 
 /**
- * Messages sent from extension to webview
+ * Messages sent from extension to webview: the document text, and the Structured Text the
+ * language server generated with its warnings.
  */
 export type ExtensionToWebviewMessage =
   | { type: "update"; content: string }
-  | { type: "codeGenerated"; code: string; variables: Array<[string, string]>; errors: string[] }
-  | { type: "executionStarted"; mode: ExecutionMode; code: string }
-  | { type: "executionStopped" }
-  | { type: "blockExecuted"; blockId: string }
-  | { type: "highlightBlock"; blockId: string }
-  | { type: "unhighlightBlock"; blockId: string }
-  | RuntimeExtensionToWebviewMessage;
+  | { type: "codeGenerated"; code: string; errors: string[] };
 
 /**
  * PLC I/O configuration
@@ -137,15 +121,6 @@ export interface IOConfig {
   type: "digital" | "analog";
   direction: "input" | "output";
   description?: string;
-}
-
-/**
- * Generated ST code result
- */
-export interface GeneratedCode {
-  structuredText: string;
-  variables: Map<string, string>;
-  errors: string[];
 }
 
 /**

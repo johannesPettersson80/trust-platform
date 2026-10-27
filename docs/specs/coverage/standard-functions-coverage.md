@@ -39,6 +39,16 @@ suites cover this relocation. Clock access remains an explicit platform service.
 These source/test mappings do not establish a passed A4 batch, bounded RUN or
 hardware qualification; current evidence stays in the portability checklist.
 
+Spec 34 §5.2.1 gives every function and function block below a version-1 import
+contract (`trust-runtime-core::stdlib::contracts`) and lists each family with its IEC
+table: its TIME-08 charges, failure codes and capability. The registration stays the
+one list of registered functions; each family names its contract there. Source-free
+preparation refuses an import without a contract or one that does not match it with
+`runtime_import_unsupported`. `crates/trust-runtime-core/tests/import_contracts.rs`
+compares the table with the registration entry by entry, keeps each family's
+failures within its contract over a value corpus, and checks Tables 43–46's
+parameters and hidden state. No row below changes.
+
 ## Table 22 - Data Type Conversion Function Forms
 - [x] `SRC_TO_DST` typed conversion
 - [x] `TO_DST` overloaded conversion (deprecated)
@@ -259,6 +269,7 @@ Runtime text-conversion behavior:
 Runtime note:
 - The shipped VM/runtime applies the `DEV-017` element model consistently across `LEN`, `LEFT`, `RIGHT`, `MID`, `INSERT`, `DELETE`, `REPLACE`, and `FIND`.
 - Native runtime string tests assert these operations directly.
+- A result longer than the implementer maximum of 65,535 bytes (`STRING`) or UTF-16 code units (`WSTRING`) is the error `runtime_string_capacity_exceeded` (§6.6.2.5.11; `docs/IEC_DECISIONS.md` 2026-10-17), asserted for `CONCAT`, `INSERT` and `REPLACE` and for `WSTRING_TO_STRING` (Table 27). The assignment helper `__TRUST_LIMIT_STRING` cuts to a capacity in bytes or code units.
 
 ## Table 35 - Time/Duration Arithmetic Functions
 - [x] ADD (overloaded)
@@ -372,3 +383,27 @@ branches remain explicit test debt and are not implied by these checked rows.
 
 SPLIT_DATE/TOD/LTOD/DT/LDT VM output handling retains exact binding and transaction semantics; output slice shapes are checked before writes. The native short-arity case asserts that destinations remain unchanged.
 Ties-to-even parity uses exact integer parity only on representable half-integers; exponent-boundary and randomized native equivalence assertions preserve the original remainder-based result.
+
+## Compiled programs (specification 44 §6.8)
+
+A program compiled into a native module calls the program library (`trust-plc-lib`) instead of the
+runtime's functions. `crates/trust-runtime/tests/native_stdlib.rs` runs each family compiled and in
+the runtime in lockstep and compares every result and every fault. Compiled today:
+
+- Tables 22 to 27 conversions between the integers, the reals and the bit strings, `TIME` and
+  `DWORD`, between the date and time types, numbers and characters to and from `STRING`, numbers
+  to and from `CHAR`, and BCD; the other conversions are refused at build (NX-09).
+- Table 23 numerical functions: `ABS`, `SQRT`, `LN`, `LOG`, `EXP`, `SIN`, `COS`, `TAN`, `ASIN`,
+  `ACOS`, `ATAN`, `ATAN2`, `EXPT`; Table 24 `ADD`, `SUB`, `MUL`, `DIV` in function form, `MOVE`.
+- Table 26 `SHL`, `SHR`, `ROL`, `ROR`; Tables 29 to 31 `SEL`, `MAX`, `MIN`, `LIMIT`, `MUX`, `GT`,
+  `GE`, `EQ`, `LE`, `LT`, `NE`.
+- Table 34 `LEN`, `LEFT`, `RIGHT`, `MID`, `CONCAT`, `INSERT`, `DELETE`, `REPLACE`, `FIND`.
+- Tables 43 to 46: `SR`, `RS`, `R_TRIG`, `F_TRIG`, the counters in all five count types, `TP`,
+  `TON`, `TOF`.
+- Tables 36 and 37: the date and time operators and functions (`ADD_TOD_TIME`, `SUB_DT_DT`,
+  `MUL_TIME`, `CONCAT_DATE`, `CONCAT_DT`, `SPLIT_DATE`, `SPLIT_DT`, `DAY_OF_WEEK`, … and their
+  long forms) and the conversions between the date and time types.
+- The assertion functions of the non-IEC extensions (MP-014) on scalars (`ASSERT_TRUE`,
+  `ASSERT_FALSE`, `ASSERT_EQUAL`, `ASSERT_NOT_EQUAL`, `ASSERT_GREATER`, `ASSERT_LESS`,
+  `ASSERT_GREATER_OR_EQUAL`, `ASSERT_LESS_OR_EQUAL`, `ASSERT_NEAR`), with the runtime's messages.
+- Not yet: `WSTRING` and `WCHAR` texts, and assertions of texts.

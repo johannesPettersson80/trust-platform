@@ -46,4 +46,11 @@ export const runtimeDeployDeps: DeployDeps = {
     const answer: unknown = await response.json().catch(() => null);
     return { status: response.status, body: answer };
   },
+  async address(controlEndpoint, topology) {
+    const answer = await vscode.commands.executeCommand<{ ok?: boolean; url?: string | null } | undefined>(
+      "trust-lsp.hmiDeployTarget",
+      { controlEndpoint, topology },
+    );
+    return answer?.ok === true && typeof answer.url === "string" ? answer.url : undefined;
+  },
 };

@@ -75,6 +75,8 @@ suite("HMI in the truST sidebar", () => {
     const executeCommand = vscode.commands.executeCommand;
     const calls: unknown[][] = [];
     (vscode.commands as any).executeCommand = async (...args: unknown[]) => {
+      // The language server reads the start page from screen.toml (`trust-lsp.hmiFileParse`).
+      if (args[0] === "trust-lsp.hmiFileParse") return executeCommand(...(args as [string, ...unknown[]]));
       calls.push(args);
     };
     const withScreens = project({ "hmi/screen.toml": SCREEN, "hmi/pages/overview.toml": PAGE });

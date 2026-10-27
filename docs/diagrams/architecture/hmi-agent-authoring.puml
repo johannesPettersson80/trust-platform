@@ -3,8 +3,8 @@
 title HMI agent authoring - shared editor services
 actor "Customer's existing agent" as customer
 component "VS Code language-model tool API\nagent/tools.ts" as vscode
-component "Stdio MCP proxy\nagent/mcpClient.ts" as proxy
-component "Explicit workspace connection\nagent/connect.ts + bridge.ts\nprivate loopback capability" as mcp
+component "Stdio MCP server\ntrust-lsp hmi-agent (Rust)\nversions, ids, limits, timeouts, cancellation" as proxy
+component "Explicit workspace connection\nagent/connect.ts + bridge.ts\nprivate loopback capability, invokes tools only" as mcp
 component "Common request boundary\nagent/boundary.ts" as boundary
 component "Read-only context and inspection\nagent/queries.ts" as queries
 component "Authoring operations\nagent/service.ts + geometryQuality.ts" as service
@@ -29,7 +29,7 @@ component "Bounded ordinary value-card painting\ndisplay/valuePaintQueue.ts\nwho
 explore --> paint : shared display lifecycle
 customer --> vscode : native tools
 customer --> proxy : stdio tools and PNGs
-proxy --> mcp : private authenticated JSON-RPC
+proxy --> mcp : checked tool calls over the private loopback
 mcp --> vscode : same tool implementation
 vscode --> lifetime : request budget / cancellation
 lifetime --> native : cancel read-only requests

@@ -1,3 +1,7 @@
+//! The IEC STRING binding cases of `IEC_STRING_001`: in-out and output copy-back of bounded strings.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -194,7 +198,7 @@ fn run_runtime(
 }
 
 fn compile_reject(probe: &mut StringBindingProbe, source: &str, expected: &str) -> Option<String> {
-    match CompileSession::from_source(source).build_runtime() {
+    match CompileSession::from_source(source).declarations() {
         Ok(_) => Some(format!("fixture compiled but expected {expected}")),
         Err(error) => {
             let rendered = error.to_string();
@@ -348,9 +352,9 @@ FUNCTION_BLOCK Bind
 VAR_IN_OUT narrow : STRING[5]; wide_narrow : WSTRING[5]; END_VAR
 END_FUNCTION_BLOCK
 PROGRAM Test
-VAR fb : Bind; text : STRING[20]; unbounded_text : STRING; wide_text : WSTRING[20]; wide_equal : WSTRING[5]; END_VAR
+VAR fb : Bind; text : STRING[20]; default_text : STRING; wide_text : WSTRING[20]; wide_equal : WSTRING[5]; END_VAR
 fb(narrow := text, wide_narrow := wide_text);
-fb(narrow := unbounded_text, wide_narrow := wide_equal);
+fb(narrow := default_text, wide_narrow := wide_equal);
 END_PROGRAM
 "#;
 
@@ -400,13 +404,14 @@ FUNCTION_BLOCK Observe VAR_IN_OUT text : WSTRING[3]; END_VAR END_FUNCTION_BLOCK
 PROGRAM Main VAR fb : Observe; caller_text : WSTRING[6] := "ABCDEF"; END_VAR fb(text := caller_text); END_PROGRAM
 "#;
 
+// "Å" is two bytes of UTF-8 and one UTF-16 code unit (docs/IEC_DECISIONS.md 2026-10-17).
 const UNICODE_LITERAL_BOUND: &str = r#"
-PROGRAM Main VAR narrow : STRING[1] := 'Å'; wide : WSTRING[1] := "Å"; END_VAR END_PROGRAM
+PROGRAM Main VAR narrow : STRING[2] := 'Å'; wide : WSTRING[1] := "Å"; END_VAR END_PROGRAM
 "#;
 
 const UNICODE_ASSIGNMENT_BOUND: &str = r#"
 PROGRAM Main
-VAR source : STRING[3] := 'ÅBC'; wide_source : WSTRING[3] := "ÅBC"; narrow : STRING[2]; wide_narrow : WSTRING[2]; END_VAR
+VAR source : STRING[4] := 'ÅBC'; wide_source : WSTRING[3] := "ÅBC"; narrow : STRING[3]; wide_narrow : WSTRING[2]; END_VAR
 narrow := source; wide_narrow := wide_source;
 END_PROGRAM
 "#;

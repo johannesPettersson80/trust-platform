@@ -1,5 +1,5 @@
-use crate::harness::{CompileSession, SourceFile};
-use crate::Runtime;
+use crate::harness::{lower_application, CompileSession, SourceFile};
+use crate::RuntimeBuilder;
 use trust_hir::{Type, TypeId};
 
 fn source_files(files: &[(&str, &str)]) -> Vec<SourceFile> {
@@ -9,27 +9,28 @@ fn source_files(files: &[(&str, &str)]) -> Vec<SourceFile> {
         .collect()
 }
 
-fn runtime(files: &[(&str, &str)]) -> Runtime {
-    CompileSession::from_sources(source_files(files))
-        .build_runtime()
+fn runtime(files: &[(&str, &str)]) -> RuntimeBuilder {
+    lower_application(&source_files(files), files.len() > 1)
+        .and_then(|lowered| lowered.construct(&[]))
+        .map(|(builder, _)| builder)
         .unwrap_or_else(|error| panic!("derived-type constant fixture must compile: {error}"))
 }
 
 fn compile_error(files: &[(&str, &str)]) -> String {
-    match CompileSession::from_sources(source_files(files)).build_runtime() {
+    match CompileSession::from_sources(source_files(files)).declarations() {
         Ok(_) => panic!("derived-type constant fixture must fail"),
         Err(error) => error.to_string(),
     }
 }
 
-fn type_id(runtime: &Runtime, name: &str) -> TypeId {
+fn type_id(runtime: &RuntimeBuilder, name: &str) -> TypeId {
     runtime
         .registry()
         .lookup(name)
         .unwrap_or_else(|| panic!("missing type {name}"))
 }
 
-fn resolved_type_id(runtime: &Runtime, mut type_id: TypeId) -> TypeId {
+fn resolved_type_id(runtime: &RuntimeBuilder, mut type_id: TypeId) -> TypeId {
     loop {
         match runtime.registry().get(type_id) {
             Some(Type::Alias { target, .. }) => type_id = *target,
@@ -38,7 +39,7 @@ fn resolved_type_id(runtime: &Runtime, mut type_id: TypeId) -> TypeId {
     }
 }
 
-fn resolved_type<'a>(runtime: &'a Runtime, name: &str) -> &'a Type {
+fn resolved_type<'a>(runtime: &'a RuntimeBuilder, name: &str) -> &'a Type {
     let type_id = resolved_type_id(runtime, type_id(runtime, name));
     runtime
         .registry()
@@ -46,28 +47,28 @@ fn resolved_type<'a>(runtime: &'a Runtime, name: &str) -> &'a Type {
         .unwrap_or_else(|| panic!("missing resolved type {name}"))
 }
 
-fn array_dimensions(runtime: &Runtime, name: &str) -> Vec<(i64, i64)> {
+fn array_dimensions(runtime: &RuntimeBuilder, name: &str) -> Vec<(i64, i64)> {
     match resolved_type(runtime, name) {
         Type::Array { dimensions, .. } => dimensions.clone(),
         other => panic!("expected array type {name}, got {other:?}"),
     }
 }
 
-fn string_capacity(runtime: &Runtime, name: &str) -> u32 {
+fn string_capacity(runtime: &RuntimeBuilder, name: &str) -> u32 {
     match resolved_type(runtime, name) {
         Type::String { max_len: Some(len) } | Type::WString { max_len: Some(len) } => *len,
         other => panic!("expected bounded string type {name}, got {other:?}"),
     }
 }
 
-fn subrange_bounds(runtime: &Runtime, name: &str) -> (i64, i64) {
+fn subrange_bounds(runtime: &RuntimeBuilder, name: &str) -> (i64, i64) {
     match resolved_type(runtime, name) {
         Type::Subrange { lower, upper, .. } => (*lower, *upper),
         other => panic!("expected subrange type {name}, got {other:?}"),
     }
 }
 
-fn enum_values(runtime: &Runtime, name: &str) -> Vec<(String, i64)> {
+fn enum_values(runtime: &RuntimeBuilder, name: &str) -> Vec<(String, i64)> {
     match resolved_type(runtime, name) {
         Type::Enum { values, .. } => values
             .iter()

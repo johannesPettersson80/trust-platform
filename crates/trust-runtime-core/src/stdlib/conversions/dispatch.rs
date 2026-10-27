@@ -118,3 +118,48 @@ fn convert_value(
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::stdlib::conversions::ConversionType::{DInt, Int, LInt, SInt, UDInt, USInt};
+
+    /// Worked cases of specification 07 §2.1, under the IEC rules: a representable integer keeps its value exactly, and
+    /// a value outside the target's range is `RuntimeError::Overflow`, never wrapped or saturated:
+    /// UDINT_TO_DINT(70000) is 70000, INT_TO_DINT(-1234) is -1234, UDINT_TO_DINT(4294967295),
+    /// DINT_TO_SINT(128) and LINT_TO_USINT(-1) overflow. Catches wrapping, saturation and a sign
+    /// extended or dropped.
+    #[test]
+    fn worked_integer_conversions_of_specification_07() {
+        let convert = |value: Value, src, dst| {
+            apply_conversion(
+                ConversionSpec::Convert {
+                    src: Some(src),
+                    dst,
+                },
+                core::slice::from_ref(&value),
+                ConversionProfile::Iec,
+            )
+        };
+        assert_eq!(
+            convert(Value::UDInt(70_000), UDInt, DInt),
+            Ok(Value::DInt(70_000))
+        );
+        assert_eq!(
+            convert(Value::Int(-1234), Int, DInt),
+            Ok(Value::DInt(-1234))
+        );
+        assert_eq!(
+            convert(Value::UDInt(u32::MAX), UDInt, DInt),
+            Err(RuntimeError::Overflow)
+        );
+        assert_eq!(
+            convert(Value::DInt(128), DInt, SInt),
+            Err(RuntimeError::Overflow)
+        );
+        assert_eq!(
+            convert(Value::LInt(-1), LInt, USInt),
+            Err(RuntimeError::Overflow)
+        );
+    }
+}

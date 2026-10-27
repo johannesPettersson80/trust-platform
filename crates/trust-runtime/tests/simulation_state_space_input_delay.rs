@@ -5,7 +5,7 @@ use trust_runtime::error::RuntimeError;
 use trust_runtime::io::IoAddress;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
 // Reuse the existing scalar delay assertions in this focused validation binary.
 #[path = "simulation_plant_delay_defaults.rs"]
@@ -129,7 +129,7 @@ d = [[0.0, 0.0]]
     )
 }
 
-fn rig(text: &str) -> (SimulationController, Runtime) {
+fn rig(text: &str) -> (SimulationController, CompiledRuntime) {
     let loaded = load(text);
     assert!(
         loaded.is_ok(),
@@ -148,7 +148,7 @@ fn rig(text: &str) -> (SimulationController, Runtime) {
     (simulation, runtime)
 }
 
-fn command(runtime: &mut Runtime, heater: f64, load: f64) {
+fn command(runtime: &mut CompiledRuntime, heater: f64, load: f64) {
     for (address, value) in [("%QL0", heater), ("%QL8", load)] {
         runtime
             .write_io(
@@ -159,18 +159,14 @@ fn command(runtime: &mut Runtime, heater: f64, load: f64) {
     }
 }
 
-fn temperature(runtime: &Runtime) -> f64 {
-    let Value::LWord(bits) = runtime
-        .io()
-        .read(&IoAddress::parse("%IL0").unwrap())
-        .unwrap()
-    else {
+fn temperature(runtime: &CompiledRuntime) -> f64 {
+    let Value::LWord(bits) = runtime.read_io(&IoAddress::parse("%IL0").unwrap()).unwrap() else {
         panic!("LREAL temperature process image");
     };
     f64::from_bits(bits)
 }
 
-fn step(simulation: &mut SimulationController, runtime: &mut Runtime, millis: i64) -> f64 {
+fn step(simulation: &mut SimulationController, runtime: &mut CompiledRuntime, millis: i64) -> f64 {
     let previous = temperature(runtime);
     simulation
         .apply_post_cycle(Duration::from_millis(millis), runtime)

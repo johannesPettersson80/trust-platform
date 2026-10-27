@@ -328,6 +328,29 @@ fn an_operator_changes_a_permitted_setpoint_and_sees_it_confirmed_by_readback() 
     );
 }
 
+/// Specification 39, §12.8: a number entry is sent as the operator typed it and the runtime reads
+/// it, a comma or a point before the decimals, so `61,5` writes 61.5; text that is no number is
+/// refused with the reason and writes nothing. Catches a runtime that writes the text as it came,
+/// takes `61,5` as 61 or 615, or leaves the check to the browser.
+#[test]
+fn a_typed_number_entry_is_read_by_the_runtime() {
+    let plant = plant("setpoint-entry");
+    let answer = plant.command("c-comma", "sp", "write", Some(json!("61,5")));
+    assert_eq!(
+        (&answer["outcome"], &answer["readback"]),
+        (&json!("applied"), &json!(61.5)),
+        "{answer}"
+    );
+    let refused = plant.command("c-word", "sp", "write", Some(json!("fast")));
+    assert_eq!(refused["outcome"], json!("refused"), "{refused}");
+    assert!(
+        refused["reason"]
+            .as_str()
+            .is_some_and(|reason| reason.contains("enter a number, not \"fast\"")),
+        "{refused}"
+    );
+}
+
 /// Specification 39, §5.9 item 5: the page says which role each control needs (the policy's,
 /// raised by the control's own), so the display dims what the signed-in role may not use; a control
 /// the policy does not cover is listed without a role.

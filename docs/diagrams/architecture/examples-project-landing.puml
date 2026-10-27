@@ -4,7 +4,8 @@ skinparam componentStyle uml2
 title truST Example Projects: Landing And Retained Reopening
 component "Create project command" as create
 component "Example copy workflow" as copy
-component "copiedLessonReadme.ts\ncatalog-resolved named / numbered lesson links\nauthored labels and current lesson numbers\nexternal / unresolved links remain unchanged" as copied_readme
+component "trust-lsp.copyExample (language server)\nfolder name rule of trust-runtime new\ncatalog-resolved named / numbered lesson links\nauthored labels and current lesson numbers\nexternal / unresolved links remain unchanged" as copied_readme
+component "trust-lsp.examplesCatalog (language server)\nmanifest and lesson contracts\navailability / copyable / retained progress" as catalog
 component "examples.ts\nmessage adapter / selected lesson payload" as gallery
 component "galleryWebview.ts\nshared-theme gallery rendering" as view
 component "controlLesson.ts\ncanonical lesson detail projection" as detail
@@ -22,11 +23,13 @@ component "Open source document" as main
 component "Open Markdown lesson preview" as readme
 create --> landing : starter Main path
 copy --> locations : await lesson ID / destination path persist
-copy --> copied_readme : adapt destination README only
+copy --> copied_readme : check folder name /\nadapt destination README only
 copied_readme --> readme : gallery continuation guidance\nno assumed sibling project folders
 locations --> state : immutable retained records\nexact duplicates stored once
 copy --> landing : await copied project / file / example intent
 landing --> state : one current intent\nmatching legacy migration
+gallery --> catalog : load entries / stored progress
+catalog --> gallery : entries with availability
 gallery --> view : render shell
 gallery --> detail : full selected lesson metadata
 detail --> gallery : lesson name / context / complete teaching text

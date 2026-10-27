@@ -63,13 +63,9 @@ fn generic_fixture() -> (ControlState, TestHarness) {
 fn generic_fixture_for(source: &str) -> (ControlState, TestHarness) {
     let mut state = simulated_control_state(source);
     let mut harness = simulated_harness(source);
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
+    // The first scan publishes the program's state, which the requests read (specification 44 §8.8).
     harness.cycle();
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     (state, harness)
 }
 #[test]
@@ -135,12 +131,11 @@ fn generic_parameter_mode_race_rejects_every_write_at_commit() {
     let (state, mut harness) = generic_fixture();
     let before = generic_status(&state);
     assert!(generic_apply(&state, &before).ok);
-    let Value::Instance(id) = harness.runtime().storage().get_global("Main").unwrap() else {
-        panic!("program");
-    };
+    // A Live Values write of the mode, applied at the cycle start before the task's boundary.
     state
         .debug
-        .enqueue_instance_write(*id, "Manual", Value::Bool(false));
+        .try_enqueue_global_write("Main.Manual", Value::Bool(false))
+        .expect("queue the mode write");
     harness.cycle();
     let after = generic_status(&state);
     assert_eq!(after["status"], "rejected");
@@ -179,10 +174,10 @@ fn generic_parameter_forcing_race_rejects_without_partial_commit() {
     let (state, mut harness) = generic_fixture();
     let before = generic_status(&state);
     assert!(generic_apply(&state, &before).ok);
-    let Value::Instance(id) = harness.runtime().storage().get_global("Main").unwrap() else {
-        panic!("program")
-    };
-    state.debug.force_instance(*id, "Kp", Value::LReal(2.0));
+    state
+        .debug
+        .try_force_global("Main.Kp", Value::LReal(2.0))
+        .expect("force the parameter");
     harness.cycle();
     let after = generic_status(&state);
     assert_eq!(after["status"], "rejected");
@@ -227,36 +222,23 @@ fn generic_parameter_client_simulation_label_cannot_bypass_physical_review() {
 
 #[test]
 fn generic_parameter_direct_address_binding_is_not_mutated_as_symbolic_storage() {
-    let (state, mut harness) = generic_fixture();
-    let Value::Instance(id) = harness.runtime().storage().get_global("Main").unwrap() else {
-        panic!("program")
-    };
-    let reference = harness
-        .runtime()
-        .storage()
-        .resolved_instance_field_ref(*id, "Kp")
-        .unwrap();
-    harness
-        .runtime_mut()
-        .bind_checked_io(
-            reference,
-            crate::io::IoAddress::parse("%QL0").unwrap(),
-            "Main.Kp".into(),
-        )
-        .expect("bind the parameter");
-    let before = generic_status(&state);
-    assert!(generic_apply(&state, &before).ok);
-    let cycle = harness.cycle();
-    assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
-    let after = generic_status(&state);
-    assert_eq!(
-        after["status"], "rejected",
-        "addressed parameter must not report symbolic application"
+    // A compiled program's bindings are its image's (specification 44 §5.6): a parameter bound to an
+    // address is refused when the binding is reviewed, before any write is accepted, and the
+    // refusal names the address binding.
+    let (state, mut harness) = generic_fixture_for("PROGRAM Main VAR Kp AT %QL0 : LREAL := 2.0; Ki : LREAL := 0.5; Manual : BOOL := TRUE; Observed : LREAL; END_VAR Observed := Kp + Ki; END_PROGRAM");
+    let status = handle_request_value(
+        json!({"id":8501,"type":"control.parameters.status","params":{"binding":generic_binding()}}),
+        &state,
+        None,
     );
     assert!(
-        after["reason"].as_str().unwrap().contains("addressed"),
-        "{after}"
+        !status.ok,
+        "addressed parameter must not report symbolic application"
     );
+    assert!(refusal_text(&status).contains("addressed"), "{:?}", status.error);
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
+    assert_eq!(studio_value(&harness, "Main.Kp"), Value::LReal(2.0));
 }
 
 #[test]
@@ -266,7 +248,6 @@ fn generic_parameter_identical_reload_cannot_reuse_reviewed_program_revision() {
     assert!(generic_apply(&state, &before).ok);
     harness.reload_source("PROGRAM Main VAR Kp : LREAL := 2.0; Ki : LREAL := 0.5; Manual : BOOL := TRUE; Observed : LREAL; END_VAR Observed := Kp + Ki; END_PROGRAM").unwrap();
     harness.cycle();
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
     let after = generic_status(&state);
     assert_ne!(
         before["program_revision"], after["program_revision"],
@@ -283,12 +264,10 @@ fn generic_parameter_external_value_race_retains_rejection_and_invalidates_rollb
     let (state, mut harness) = generic_fixture();
     let before = generic_status(&state);
     assert!(generic_apply(&state, &before).ok);
-    let Value::Instance(id) = harness.runtime().storage().get_global("Main").unwrap() else {
-        panic!("program")
-    };
     state
         .debug
-        .enqueue_instance_write(*id, "Kp", Value::LReal(3.0));
+        .try_enqueue_global_write("Main.Kp", Value::LReal(3.0))
+        .expect("queue the external write");
     harness.cycle();
     let after = generic_status(&state);
     assert_eq!(
@@ -349,6 +328,63 @@ fn generic_parameter_transaction_waits_for_owning_task_and_controller_observes_c
     );
     assert_eq!(after.result.unwrap()["status"], "applied");
     assert_eq!(harness.get_output("Main.Observed"), Some(Value::LReal(5.0)));
+}
+
+/// Protocol annex E7.4, E9.3 and E9.4: a set its task's end confirmed is applied, and a fault later in the same scan, in a
+/// program outside every task, which runs after the tasks, does not undo that outcome: it ends the session, which drops
+/// the retained previous values, so `previous_values` is null. Studio's 4.0 and 1.0 stay in the program, since a fault
+/// reverts a transfer's members (A6.3) but no confirmed parameter. Catches a confirmation that waits for the scan's end
+/// and is then lost to the fault, reported as `runtime interrupted before parameter confirmation`.
+#[test]
+fn generic_parameter_set_confirmed_before_a_later_fault_in_its_scan_stays_applied() {
+    // Main runs in MainTask, first one interval after the start; Late runs in every scan after the tasks and divides by
+    // its divisor.
+    let (state, mut harness) = generic_fixture_for(
+        "PROGRAM MainProgram VAR Kp : LREAL := 2.0; Ki : LREAL := 0.5; Manual : BOOL := TRUE; \
+         Observed : LREAL; END_VAR Observed := Kp + Ki; END_PROGRAM \
+         PROGRAM Divider VAR Divisor : DINT := 1; Quotient : DINT; END_VAR \
+         Quotient := DINT#100 / Divisor; END_PROGRAM \
+         CONFIGURATION Plant RESOURCE Controller ON PLC \
+         TASK MainTask (INTERVAL := T#20ms, PRIORITY := 1); \
+         PROGRAM Main WITH MainTask : MainProgram; PROGRAM Late : Divider; \
+         END_RESOURCE END_CONFIGURATION",
+    );
+    let mut binding = generic_binding();
+    binding["task_name"] = json!("MainTask");
+    let status = |state: &ControlState| {
+        let response = handle_request_value(
+            json!({"id":8514,"type":"control.parameters.status","params":{"binding":binding}}),
+            state,
+            None,
+        );
+        assert!(response.ok, "{:?}", response.error);
+        response.result.unwrap()
+    };
+    let before = status(&state);
+    let applied = handle_request_value(
+        json!({"id":8515,"type":"control.parameters.apply","params":{"transaction_id":"fault-apply",
+            "binding":binding,"expected_program_revision":before["program_revision"],"expected_binding_revision":before["binding_revision"],
+            "expected_active_revision":before["active_revision"],"expected_values":before["values"],"values":{"Main.Kp":4.0,"Main.Ki":1.0},
+            "source":"simulation","physical_approved":false
+        }}),
+        &state,
+        None,
+    );
+    assert!(applied.ok, "{:?}", applied.error);
+    // The scan in which MainTask first runs ends in a division by zero after the task.
+    studio_set(&mut harness, "Late.Divisor", Value::DInt(0));
+    harness.advance_time(crate::value::Duration::from_millis(20));
+    assert!(
+        !harness.cycle().errors.is_empty(),
+        "the scan faults after MainTask"
+    );
+    let after = status(&state);
+    assert_eq!(after["status"], "applied", "{after}");
+    assert_eq!(after["transaction_id"], "fault-apply");
+    assert!(after["reason"].is_null(), "{after}");
+    assert!(after["previous_values"].is_null(), "{after}");
+    assert_eq!(after["values"]["Main.Kp"], 4.0);
+    assert_eq!(after["values"]["Main.Ki"], 1.0);
 }
 
 #[test]
@@ -490,15 +526,14 @@ fn generic_parameter_physical_target_needs_approval_at_apply() {
 
 #[test]
 fn generic_parameter_physical_target_at_the_boundary_needs_approval() {
-    let (state, harness) = generic_fixture();
+    let (state, mut harness) = generic_fixture();
     let before = generic_status(&state);
     assert!(generic_apply_as(&state, &before, "boundary-approval", "simulation", false).ok);
-    // The target turns physical after the review and before the boundary, for example when a fieldbus client appears.
-    let metadata = harness.runtime().metadata_snapshot();
-    let mut storage = harness.runtime().storage().clone();
-    state
-        .debug
-        .commit_parameters("$background", &mut storage, &metadata, true, &[]);
+    // The target turns physical after the review and before the boundary, for example when a fieldbus client appears:
+    // the boundary of the programs outside every task, at which the scan commits the set.
+    harness
+        .runtime_mut()
+        .with_program(|program| state.debug.commit_parameters("$background", program, true));
     let after = generic_status(&state);
     assert_eq!(after["status"], "rejected");
     assert_eq!(
@@ -516,12 +551,10 @@ fn generic_parameter_status_keeps_the_retained_values_and_the_rollback() {
     assert!(harness.cycle().errors.is_empty());
     let applied = generic_status(&state);
     assert_eq!(applied["status"], "applied");
-    let Value::Instance(id) = harness.runtime().storage().get_global("Main").unwrap() else {
-        panic!("program");
-    };
     state
         .debug
-        .enqueue_instance_write(*id, "Kp", Value::LReal(3.0));
+        .try_enqueue_global_write("Main.Kp", Value::LReal(3.0))
+        .expect("queue the external write");
     assert!(harness.cycle().errors.is_empty());
     let after = generic_status(&state);
     assert_eq!(
@@ -660,8 +693,8 @@ fn runtime_epoch_is_unique_across_runtime_instances_and_takes_a_new_value_on_rel
     let source = "PROGRAM Main VAR Kp : LREAL := 2.0; END_VAR END_PROGRAM";
     let mut first = TestHarness::from_source(source).unwrap();
     let mut second = TestHarness::from_source(source).unwrap();
-    let first_debug = first.runtime_mut().enable_debug();
-    let second_debug = second.runtime_mut().enable_debug();
+    let first_debug = studio_debug(&mut first);
+    let second_debug = studio_debug(&mut second);
     let first_epoch = first_debug.runtime_epoch();
     assert_ne!(
         first_epoch,

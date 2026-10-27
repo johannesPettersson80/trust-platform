@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::sync::{Arc, Mutex};
 use std::time::Duration as StdDuration;
 
@@ -21,7 +23,7 @@ fn state() -> ControlState {
 
 fn result(response: ControlResponse) -> Value {
     assert!(response.ok, "request failed: {:?}", response.error);
-    response.result.expect("response result")
+    response.into_result_value().expect("response result")
 }
 
 fn assert_unavailable(response: ControlResponse) {
@@ -53,48 +55,6 @@ fn driver(name: &str, health: IoDriverHealth) -> IoDriverStatus {
 }
 
 #[test]
-fn io_health_ok_has_exact_public_shape() {
-    assert_eq!(
-        io_health_to_json(&driver("simulated", IoDriverHealth::Ok)),
-        json!({"name": "simulated", "status": "ok"})
-    );
-}
-
-#[test]
-fn io_health_degraded_retains_error_detail() {
-    assert_eq!(
-        io_health_to_json(&driver(
-            "mqtt",
-            IoDriverHealth::Degraded {
-                error: SmolStr::new("broker reconnecting"),
-            },
-        )),
-        json!({
-            "name": "mqtt",
-            "status": "degraded",
-            "error": "broker reconnecting",
-        })
-    );
-}
-
-#[test]
-fn io_health_faulted_retains_error_detail() {
-    assert_eq!(
-        io_health_to_json(&driver(
-            "ethercat",
-            IoDriverHealth::Faulted {
-                error: SmolStr::new("bus lost"),
-            },
-        )),
-        json!({
-            "name": "ethercat",
-            "status": "faulted",
-            "error": "bus lost",
-        })
-    );
-}
-
-#[test]
 fn status_baseline_preserves_runtime_identity_and_modes() {
     let value = result(handle_status(1, &state()));
 
@@ -102,7 +62,7 @@ fn status_baseline_preserves_runtime_identity_and_modes() {
     assert_eq!(value.get("resource"), Some(&json!("RESOURCE")));
     assert_eq!(value.get("plc_name"), Some(&json!("RESOURCE")));
     assert_eq!(value.get("control_mode"), Some(&json!("debug")));
-    assert_eq!(value.get("execution_backend"), Some(&json!("vm")));
+    assert_eq!(value.get("execution_backend"), Some(&json!("native")));
     assert_eq!(
         value.get("execution_backend_source"),
         Some(&json!("default"))
@@ -190,6 +150,29 @@ fn openot_status_projects_every_applicable_operator_warning() {
 }
 
 #[test]
+fn host_status_reports_the_os_and_architecture_as_platform() {
+    let value = result(handle_status(24, &state()));
+    assert_eq!(
+        value.get("platform"),
+        Some(&json!(format!(
+            "{}-{}",
+            std::env::consts::OS,
+            std::env::consts::ARCH
+        )))
+    );
+}
+
+#[test]
+fn host_status_reports_that_it_keeps_control_after_shutdown() {
+    // Specification 11 `status` and 34 STATE-08 (decision Q11 on computers, 18 October 2026):
+    // `shutdown` stops the program and trust-runtime keeps running, so it reports `keeps_control`.
+    // Wrong behaviour: it still reports `process`, which tells the Devices panel that nothing could
+    // start it again.
+    let value = result(handle_status(25, &state()));
+    assert_eq!(value.get("program_control"), Some(&json!("keeps_control")));
+}
+
+#[test]
 fn status_preserves_io_driver_registration_order() {
     let state = state();
     state.io_health.lock().expect("io health").extend([
@@ -259,6 +242,36 @@ fn status_reports_live_simulation_speed_lowest_achieved_speed_and_program_revisi
         value.pointer("/simulation_achieved_time_scale"),
         Some(&json!(7.25)),
         "several resources report the lowest achieved speed"
+    );
+}
+
+#[test]
+fn a_host_without_realtime_or_openot_persistence_reports_the_shared_blocks_byte_for_byte() {
+    // Spec 34 ARCH-11: a chip reports these blocks with the same shared functions; the host's
+    // own builder makes the same bytes for its default posture.
+    let default = crate::linux_rt::LinuxRtRuntimeStatus::from_config(
+        crate::linux_rt::LinuxRtConfig::default(),
+    );
+    assert_eq!(
+        posture_json(&default).to_string(),
+        trust_runtime_services::status::absent_realtime_profile().to_string()
+    );
+    let value = result(handle_status(30, &state()));
+    assert_eq!(
+        value["realtime"].to_string(),
+        trust_runtime_services::status::absent_realtime_profile().to_string()
+    );
+    assert_eq!(
+        value["openot_persistence"].to_string(),
+        trust_runtime_services::status::disabled_openot_persistence().to_string()
+    );
+
+    let mut configured = default;
+    configured.requested.priority = 50;
+    assert_eq!(
+        realtime_status_json(&configured)["requested"]["priority"],
+        json!(50),
+        "a configured posture is reported as configured"
     );
 }
 
@@ -516,4 +529,42 @@ fn status_and_task_stats_share_profiling_enabled_state() {
         Some(&json!(false))
     );
     assert_eq!(tasks.get("profiling_enabled"), Some(&json!(false)));
+}
+
+/// A runtime that cannot write its endpoint file keeps running, and its status says why (spec 11,
+/// section 6.8.0a).
+#[test]
+fn status_reports_whether_the_endpoint_file_was_published() {
+    use crate::settings::EndpointFileState;
+
+    let state = state();
+    assert_eq!(
+        result(handle_status(1, &state)).get("endpoint_file"),
+        Some(&json!({"state": "not_used", "error": null}))
+    );
+
+    state
+        .settings
+        .lock()
+        .expect("settings")
+        .control_endpoint_file = EndpointFileState::Published;
+    assert_eq!(
+        result(handle_status(2, &state)).get("endpoint_file"),
+        Some(&json!({"state": "published", "error": null}))
+    );
+
+    state
+        .settings
+        .lock()
+        .expect("settings")
+        .control_endpoint_file = EndpointFileState::Unavailable(SmolStr::new(
+        "write /plc/.trust-runtime/control.json: Permission denied",
+    ));
+    assert_eq!(
+        result(handle_status(3, &state)).get("endpoint_file"),
+        Some(&json!({
+            "state": "unavailable",
+            "error": "write /plc/.trust-runtime/control.json: Permission denied",
+        }))
+    );
 }

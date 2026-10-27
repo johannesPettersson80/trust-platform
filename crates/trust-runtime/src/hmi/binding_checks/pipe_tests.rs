@@ -2,7 +2,7 @@
 //! one pipe, and its flow binding a number or a boolean of the program.
 
 use super::*;
-use crate::harness::TestHarness;
+use crate::harness::CompileSession;
 use crate::hmi::page_files::parse_page;
 
 const PROGRAM: &str = r#"
@@ -30,16 +30,17 @@ size = [128, 108]
 "#;
 
 fn problems(pipes: &str) -> Vec<BindingProblem> {
-    let mut harness = TestHarness::from_source(PROGRAM).expect("the program compiles");
-    harness.cycle();
+    let declarations = CompileSession::from_source(PROGRAM)
+        .declarations()
+        .expect("the program compiles");
     let text = format!("format = 1\ntitle = \"Pipes\"\n{OBJECTS}{pipes}");
     let page = parse_page("hmi/pages/pipes.toml", &text).expect("the page loads");
-    let metadata = harness.runtime().metadata_snapshot();
+    let metadata = declarations.metadata().clone();
     check_page(
         &page,
         Catalogue::shipped(),
         &metadata,
-        harness.runtime().storage(),
+        declarations.storage(),
     )
 }
 

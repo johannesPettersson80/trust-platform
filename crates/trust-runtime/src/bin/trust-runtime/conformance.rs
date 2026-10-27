@@ -16,16 +16,22 @@ use trust_runtime::connectors::{
     ConnectorHealth, ConnectorState, EthercatProjection, ModbusProjection, MqttSessionProjection,
     OpcUaServerSnapshotState,
 };
-use trust_runtime::harness::TestHarness;
-use trust_runtime::io::{IoDriverErrorPolicy, IoDriverHealth};
+use trust_runtime::device_link::{self, DeviceLink};
+use trust_runtime::harness::{CompileSession, SourceFile};
+use trust_runtime::io::{IoAddress, IoDriverErrorPolicy, IoDriverHealth};
+use trust_runtime::native::{self, Target, Toolchain};
 use trust_runtime::opcua::OpcUaClientConnectionState;
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::RestartMode;
+
+use crate::cli::ConformanceArgs;
 
 include!("conformance/models.rs");
 include!("conformance/runner.rs");
 include!("conformance/discovery.rs");
 include!("conformance/execution.rs");
+include!("conformance/native_execution.rs");
+include!("conformance/device_execution.rs");
 include!("conformance/series_values.rs");
 include!("conformance/time_utils.rs");
 include!("conformance/tests.rs");

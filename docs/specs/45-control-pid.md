@@ -235,6 +235,28 @@ anti-windup correction. It is not the pre-correction candidate. This extension
 does not expose a separate integral state or alter the positional/incremental
 equations, mode semantics or initialization contract.
 
+`ModeValue : PIDMode` and `ModeObserved : BOOL` are a second truST observation
+extension: two internal members that every `Update` sets after its state commit
+(Section 3.15), `ModeValue` to the mode of the `Input` the call ran in and
+`ModeObserved` to TRUE. The mode arrives with each call, so the instance holds
+it nowhere else; a tool reads these members to learn the mode the controller
+last ran in, as Control Studio does to confirm Manual mode before it changes
+the controller's parameters (`control-studio-runtime-protocol.md`, E7.3 and
+E7.7). They are declared `VAR NON_RETAIN`, so a cold or warm restart gives them
+their initial values, `Auto` (the first value of `PIDMode`) and FALSE, also in
+an instance declared `RETAIN` (IEC 61131-3 Ed.3 §6.5.6.2): `ModeObserved` is
+FALSE until the first `Update` after a start. An online change keeps them, as it
+keeps every member of an instance (specification 44 §12.2), until the next
+`Update` sets them again. They change no output, history or parameter:
+subsequent `Update` results are identical to those of a controller without
+them.
+
+`HeldMeasurement : LREAL` and `MeasurementHeld : BOOL` are the simulation
+extension of specification 46 §13.2: a simulated plant's `pid:` feedback target
+holds a measurement there, which `Update` takes as `Input.ProcessValue` while
+one is held. Without such a plant `MeasurementHeld` stays FALSE and `Update`
+computes as this specification describes.
+
 ### 3.2 Configuration
 
 `Configure` atomically copies the complete parameter record. It does not alter

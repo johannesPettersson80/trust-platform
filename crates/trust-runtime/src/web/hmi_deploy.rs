@@ -5,8 +5,7 @@
 
 use std::io::Read;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{mpsc, Arc, Mutex};
-use std::time::Duration;
+use std::sync::{Arc, Mutex};
 
 use serde_json::{json, Value};
 use smol_str::SmolStr;
@@ -24,11 +23,7 @@ use crate::hmi::bundle::checks::{check_bundle_with_remote, Program};
 use crate::hmi::bundle::store::{BundleStore, Versions};
 use crate::hmi::bundle::{HmiBundle, MAX_BYTES};
 use crate::hmi::catalogue::Catalogue;
-use crate::scheduler::ResourceCommand;
 use crate::security::AccessRole;
-
-/// How long the running program may take to give a snapshot for the checks.
-const SNAPSHOT_TIMEOUT: Duration = Duration::from_secs(3);
 
 static AUDIT_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
@@ -146,7 +141,7 @@ fn deploy(mut request: Request, ctx: &HmiDeployContext<'_>) {
         }
     };
     let version = bundle.short_version();
-    let Some(storage) = snapshot(ctx) else {
+    let Some(declarations) = running_declarations(ctx) else {
         audit(
             ctx,
             "hmi.deploy",
@@ -161,25 +156,12 @@ fn deploy(mut request: Request, ctx: &HmiDeployContext<'_>) {
             &json!({ "ok": false, "error": "the running program cannot be read" }),
         );
     };
-    let metadata = ctx
-        .control_state
-        .metadata
-        .lock()
-        .map(|metadata| metadata.clone())
-        .ok();
-    let Some(metadata) = metadata else {
-        return respond(
-            request,
-            503,
-            &json!({ "ok": false, "error": "the running program cannot be read" }),
-        );
-    };
     let problems = check_bundle_with_remote(
         &bundle,
         Catalogue::shipped(),
         &Program {
-            metadata: &metadata,
-            storage: &storage,
+            metadata: declarations.metadata(),
+            storage: declarations.storage(),
         },
         &ctx.access.write,
         &ctx.control_state
@@ -280,16 +262,26 @@ fn rollback(request: Request, ctx: &HmiDeployContext<'_>) {
 }
 
 /// The running program's variables, for the checks.
-fn snapshot(ctx: &HmiDeployContext<'_>) -> Option<crate::memory::VariableStorage> {
-    let (respond_to, reply) = mpsc::channel();
-    ctx.control_state
-        .resource
-        .send_command(ResourceCommand::Snapshot { respond_to })
-        .ok()?;
-    reply
-        .recv_timeout(SNAPSHOT_TIMEOUT)
+/// The declarations of the running program, built from the sources it runs, which a program
+/// change replaces (specification 39, §16.4): what a bundle's bindings are checked against.
+/// `None` when the program's sources are not at hand or do not compile.
+fn running_declarations(ctx: &HmiDeployContext<'_>) -> Option<crate::harness::Declarations> {
+    let files = ctx.control_state.source_files();
+    if files.is_empty() {
+        return None;
+    }
+    let sources = files
+        .iter()
+        .map(|file| {
+            crate::harness::SourceFile::with_path(
+                file.path.to_string_lossy().as_ref(),
+                file.text.clone(),
+            )
+        })
+        .collect();
+    crate::harness::CompileSession::from_sources(sources)
+        .declarations()
         .ok()
-        .map(|snapshot| snapshot.storage)
 }
 
 fn short(version: &Option<String>) -> Value {

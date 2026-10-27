@@ -1,9 +1,12 @@
 // The HMI Builder webview as it is shipped (media/hmiBuilderWebview.js), in a DOM, for the webview
-// tests: mouse and keyboard events in, the messages it posts out.
+// tests: mouse and keyboard events in, the messages it posts out. Its questions to the language
+// server's rules (`rust`, specification 39 §17.3) are answered by the language server, as the
+// editor answers them.
 
 import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
+import * as vscode from "vscode";
 
 import type { HmiObjectModel, HmiPageModel } from "../../hmiBuilder/drawing/model";
 import type { Catalogue } from "../../hmiBuilder/editor/catalogue";
@@ -140,6 +143,21 @@ for (const component of CATALOGUE.components) {
 
 export const SCREEN: ScreenModel = { size: [1280, 720], theme: "dark" };
 
+let languageServer: Promise<void> | undefined;
+
+/** Resolves once the language server's HMI Builder rules are registered, or after a minute, when
+ * the question that waited says why it was not answered. */
+function languageServerReady(): Promise<void> {
+  languageServer ??= (async () => {
+    const deadline = Date.now() + 60000;
+    while (!(await vscode.commands.getCommands(true)).includes("trust-lsp.hmiVariablePicker")) {
+      if (Date.now() > deadline) return;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  })();
+  return languageServer;
+}
+
 export function object(
   id: string,
   type: string,
@@ -180,7 +198,11 @@ export class Webview {
     this.window = dom.window;
     this.document = dom.window.document;
     this.window.acquireVsCodeApi = () => ({
-      postMessage: (message: unknown) => this.posted.push(JSON.parse(JSON.stringify(message))),
+      postMessage: (message: unknown) => {
+        const posted = JSON.parse(JSON.stringify(message));
+        this.posted.push(posted);
+        if (posted.type === "rust") void this.answer(posted);
+      },
       getState: () => undefined,
       setState: () => undefined,
     });
@@ -192,6 +214,23 @@ export class Webview {
     this.window.dispatchEvent(new this.window.MessageEvent("message", { data: message }));
   }
 
+  /** Answers a question to the language server's rules as the editor does: with the language
+   * server's answer, or why there is none. */
+  private async answer(question: { id: number; command: string; argument: unknown }): Promise<void> {
+    await languageServerReady();
+    let answer: unknown;
+    try {
+      answer = await vscode.commands.executeCommand(question.command, question.argument);
+    } catch (error) {
+      answer = { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+    try {
+      this.send({ type: "rustAnswer", id: question.id, answer });
+    } catch {
+      // The test closed the webview meanwhile.
+    }
+  }
+
   /** Waits for the webview's "ready", as the editor does before it sends anything. */
   async ready(): Promise<void> {
     await this.until("ready", () => this.posted.some((message) => message.type === "ready"));
@@ -199,11 +238,14 @@ export class Webview {
 
   async loaded(page: HmiPageModel = PAGE): Promise<void> {
     await this.ready();
+    await languageServerReady();
     this.send({ type: "catalogue", catalogue: CATALOGUE });
     this.send({ type: "screen", screen: SCREEN });
     this.send({ type: "page", model: page });
     const first = page.object[0]?.id ?? "speed";
     await this.until("the page on the canvas", () => this.document.querySelector(`svg [data-object="${first}"]`));
+    // The Components panel's entries are the language server's answer (§21.3 item 1).
+    await this.until("the components", () => this.document.querySelector("[data-component]"));
   }
 
   query(selector: string): any {

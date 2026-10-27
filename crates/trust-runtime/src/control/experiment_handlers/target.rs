@@ -3,11 +3,11 @@
 //! writes are. The trajectory, the guards and the restoration are the same for both.
 
 use super::values::{numeric_value, snapshot_type, snapshot_value};
-use crate::debug::DebugControl;
+use crate::debug::{ControlWrite, DebugControl};
 use crate::io::{validate_process_image_address, IoAddress, IoSnapshot};
-use crate::memory::VariableStorage;
-use crate::runtime::RuntimeMetadata;
-use crate::value::{Value, ValueRef};
+use crate::memory::Generation;
+use crate::runtime::{Located, ProgramRead};
+use crate::value::Value;
 use serde_json::{json, Value as JsonValue};
 use trust_hir::TypeId;
 
@@ -22,18 +22,24 @@ pub(super) enum ExperimentTarget {
 #[derive(Clone, Debug)]
 pub(super) struct SymbolTarget {
     path: String,
-    reference: ValueRef,
+    /// Where the variable lies in the program generation `generation`, which the path resolved to
+    /// at the start; the place names the variable only in that generation.
+    at: Located,
+    generation: Generation,
     /// The variable's value when the experiment started; every write takes its type.
     current: Value,
 }
 
 impl ExperimentTarget {
-    /// The target a start request names: exactly one of `address` and `symbol`.
+    /// The target a start request names: exactly one of `address` and `symbol`. A variable is
+    /// resolved in `program`, the program as the last scan left it, of the program generation
+    /// `generation`.
     pub(super) fn decode(
         address: Option<&str>,
         symbol: Option<&str>,
         debug: &DebugControl,
-        metadata: Option<&RuntimeMetadata>,
+        program: Option<&dyn ProgramRead>,
+        generation: Generation,
     ) -> Result<Self, Refusal> {
         match (address, symbol) {
             (Some(text), None) => {
@@ -46,7 +52,9 @@ impl ExperimentTarget {
                     text: text.to_string(),
                 })
             }
-            (None, Some(path)) => SymbolTarget::decode(path, debug, metadata).map(Self::Symbol),
+            (None, Some(path)) => {
+                SymbolTarget::decode(path, debug, program, generation).map(Self::Symbol)
+            }
             _ => Err((
                 "an experiment writes one target: give either `address` or `symbol`".into(),
                 "invalid_target",
@@ -54,7 +62,8 @@ impl ExperimentTarget {
         }
     }
 
-    /// Whether the experiment writes a variable, whose reference names the program that resolved it.
+    /// Whether the experiment writes a variable, whose place names it only in the program that
+    /// resolved it.
     pub(super) fn is_symbol(&self) -> bool {
         matches!(self, Self::Symbol(_))
     }
@@ -101,53 +110,55 @@ impl ExperimentTarget {
         }
     }
 
-    /// The target's value in the latest completed scan, `None` when it cannot be read: an address
-    /// from the I/O snapshot, a variable from the debug snapshot through the reference it
+    /// The target's value in a scan, `None` when it cannot be read: an address from the scan's I/O
+    /// snapshot, a variable from `program`, the program as the scan left it, at the place it
     /// resolved to at the start (a reloaded program that moved it reads as missing).
-    pub(super) fn current(&self, debug: &DebugControl, snapshot: &IoSnapshot) -> Option<Value> {
+    pub(super) fn observed(
+        &self,
+        io: &IoSnapshot,
+        program: Option<&dyn ProgramRead>,
+    ) -> Option<Value> {
         match self {
-            Self::Address { address, .. } => snapshot_value(snapshot, address).cloned(),
-            Self::Symbol(symbol) => debug
-                .with_snapshot(|captured| {
-                    crate::debug::resolve_control_parameter_path(&captured.storage, &symbol.path)
-                        .ok()
-                        .filter(|resolved| resolved.reference == symbol.reference)
-                        .map(|resolved| resolved.value)
+            Self::Address { address, .. } => snapshot_value(io, address).cloned(),
+            Self::Symbol(symbol) => program
+                .and_then(|program| {
+                    crate::debug::resolve_control_parameter_path(program, &symbol.path).ok()
                 })
-                .flatten(),
+                .filter(|resolved| resolved.at == symbol.at)
+                .map(|resolved| resolved.value),
         }
     }
 
-    /// The target's value in the scan an observer was given: an address from that scan's I/O snapshot, a variable from its
-    /// storage through the reference it resolved to at the start (a reloaded program that moved it reads as missing).
-    pub(super) fn observed(&self, io: &IoSnapshot, storage: &VariableStorage) -> Option<Value> {
+    /// Whether the target is forced: the address, or a forced variable holding the variable in
+    /// `program`, the program as the scan left it.
+    pub(super) fn forced(
+        &self,
+        debug: &DebugControl,
+        program: Option<&dyn ProgramRead>,
+        snapshot: &IoSnapshot,
+    ) -> bool {
         match self {
-            Self::Address { address, .. } => snapshot_value(io, address).cloned(),
+            Self::Address { address, .. } => snapshot.forced.iter().any(|forced| forced == address),
             Self::Symbol(symbol) => {
-                crate::debug::resolve_control_parameter_path(storage, &symbol.path)
-                    .ok()
-                    .filter(|resolved| resolved.reference == symbol.reference)
-                    .map(|resolved| resolved.value)
+                program.is_some_and(|program| debug.forces_place(program, &symbol.at))
             }
         }
     }
 
-    /// Whether the target is forced: the address, or a forced variable holding the variable.
-    pub(super) fn forced(&self, debug: &DebugControl, snapshot: &IoSnapshot) -> bool {
-        match self {
-            Self::Address { address, .. } => snapshot.forced.iter().any(|forced| forced == address),
-            Self::Symbol(symbol) => debug.forces_reference(&symbol.reference),
-        }
-    }
-
-    /// Queues a write for the next scan boundary. A variable's write carries the runtime epoch its reference was
-    /// resolved in, so a write that outlives that epoch is dropped instead of reaching the program that replaced it.
+    /// Queues a write for the next scan boundary. A variable's write carries the runtime epoch its place was resolved
+    /// in, so a write that outlives that epoch is dropped instead of reaching the program that replaced it.
     pub(super) fn write(&self, debug: &DebugControl, value: Value, epoch: u64) {
         match self {
             Self::Address { address, .. } => debug.enqueue_io_write(address.clone(), value),
-            Self::Symbol(symbol) => {
-                debug.enqueue_reference_write(symbol.reference.clone(), value, epoch);
-            }
+            Self::Symbol(symbol) => debug.enqueue_control_write(
+                ControlWrite {
+                    at: symbol.at,
+                    generation: symbol.generation,
+                    label: symbol.path.as_str().into(),
+                    value,
+                },
+                epoch,
+            ),
         }
     }
 }
@@ -155,11 +166,12 @@ impl ExperimentTarget {
 impl SymbolTarget {
     /// A variable a Control Studio experiment may write: a REAL, LREAL or integer variable of a
     /// compiled program, not constant, external, IN_OUT or addressed (an addressed one is written
-    /// by its address), read from the latest completed scan.
+    /// by its address), read from `program`, the program as the last scan left it.
     fn decode(
         path: &str,
         debug: &DebugControl,
-        metadata: Option<&RuntimeMetadata>,
+        program: Option<&dyn ProgramRead>,
+        generation: Generation,
     ) -> Result<Self, Refusal> {
         let refuse = |reason: &str| {
             (
@@ -170,7 +182,6 @@ impl SymbolTarget {
         if path.trim().is_empty() || path.len() > 256 {
             return Err(refuse("give a variable path of 1 to 256 characters"));
         }
-        let metadata = metadata.ok_or_else(|| refuse("the program's metadata is unavailable"))?;
         // Until a scan of a reloaded program completes, the debug snapshot still holds the program before the reload.
         if debug.snapshot_is_stale() {
             return Err((
@@ -178,17 +189,14 @@ impl SymbolTarget {
                 "stale_scan",
             ));
         }
-        if !metadata.control_parameter_writable(path) {
+        let program = program.ok_or_else(|| refuse("no runtime scan has been captured yet"))?;
+        if !crate::debug::control_parameter_writable(&program.program_image(), path) {
             return Err(refuse(
                 "name a variable of a compiled program that is not constant, external, IN_OUT \
                  or addressed",
             ));
         }
-        let resolved = debug
-            .with_snapshot(|captured| {
-                crate::debug::resolve_control_parameter_path(&captured.storage, path)
-            })
-            .ok_or_else(|| refuse("no runtime scan has been captured yet"))?
+        let resolved = crate::debug::resolve_control_parameter_path(program, path)
             .map_err(|reason| refuse(reason.as_str()))?;
         if !matches!(
             resolved.value,
@@ -209,7 +217,8 @@ impl SymbolTarget {
         }
         Ok(Self {
             path: path.to_string(),
-            reference: resolved.reference,
+            at: resolved.at,
+            generation,
             current: resolved.value,
         })
     }

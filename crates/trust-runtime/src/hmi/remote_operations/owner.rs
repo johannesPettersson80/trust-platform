@@ -76,7 +76,7 @@ pub fn configure_owner(
             if pulse.is_some_and(|ms|ms==0 || ms>60_000) {return Err("remote pulses must last between 1 ms and 60 seconds".into());}
             let result=exchange.write_with_pulse(path.clone(),action,Duration::from_secs(2),pulse.map(Duration::from_millis));
             let Some(written)=result else { return Ok(json!({"ok":false,"unknown":true,"error":"owner write outcome was not available before its deadline"})); };
-            let written=written?;
+            let written=written.map_err(|refused|refused.reason)?;
             Ok(json!({"ok":true,"old":json_of(&written.old),"readback":json_of(&written.readback)}))
         })().unwrap_or_else(|reason|json!({"ok":false,"error":reason}));
         if let Some(audit)=&audit {
@@ -147,7 +147,9 @@ mod tests {
         let writer = std::thread::spawn(move || copy.remote_operations.receive(&input));
         let deadline = std::time::Instant::now() + Duration::from_secs(2);
         while !writer.is_finished() && std::time::Instant::now() < deadline {
-            exchange.serve(plant.runtime_mut(), &[]);
+            plant
+                .runtime_mut()
+                .with_program(|program| exchange.serve(program, 0, &[]));
             std::thread::yield_now();
         }
         let answer = writer.join().unwrap();

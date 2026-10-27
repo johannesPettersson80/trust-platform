@@ -10,7 +10,7 @@ import type {
   LadderElement,
   MathNode,
   Timer as TimerType,
-} from "../ladderEngine.types";
+} from "../ladderProgram.types";
 import { canvasColor, t, tint } from "../../webview/theme";
 
 export interface DrawNodeContext {

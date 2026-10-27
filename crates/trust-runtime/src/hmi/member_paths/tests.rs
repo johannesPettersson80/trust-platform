@@ -2,7 +2,7 @@
 //! arrays, resolved against a compiled program after one scan.
 
 use super::*;
-use crate::harness::TestHarness;
+use crate::harness::{CompileSession, TestHarness};
 
 const PROGRAM: &str = r#"
 TYPE Reading :
@@ -52,7 +52,16 @@ fn scanned() -> TestHarness {
 
 fn value(harness: &TestHarness, path: &str) -> Option<Value> {
     let parsed = MemberPath::parse(path).unwrap_or_else(|error| panic!("{path}: {error}"));
-    resolve_member(&parsed, harness.runtime().storage()).cloned()
+    harness
+        .runtime()
+        .with_program_view(|program| member_value(&parsed, program))
+}
+
+/// The declarations of `source`, which the editor resolves paths in.
+fn declarations(source: &str) -> Declarations {
+    CompileSession::from_source(source)
+        .declarations()
+        .expect("the program compiles")
 }
 
 #[test]
@@ -221,9 +230,8 @@ END_VAR
     Block();
 END_PROGRAM
 "#;
-    let mut harness = TestHarness::from_source(source).expect("the program compiles");
-    harness.cycle();
-    let storage = harness.runtime().storage();
+    let declarations = declarations(source);
+    let storage = declarations.storage();
     let path = |text: &str| MemberPath::parse(text).expect("a path");
     assert_eq!(
         resolve_member(&path("Main.Block.Value"), storage),
@@ -254,9 +262,8 @@ END_PROGRAM
 /// Specification 39, §7.8: what each named part of a path names, so a rename can follow it.
 #[test]
 fn each_named_part_of_a_path_names_its_declaring_type_or_structure() {
-    let harness = scanned();
-    let steps =
-        |path: &str| path_steps(&MemberPath::parse(path).expect("a path"), harness.runtime());
+    let declarations = declarations(PROGRAM);
+    let steps = |path: &str| path_steps(&MemberPath::parse(path).expect("a path"), &declarations);
     let root = PathStep::Root {
         instance_type: Some("Main".into()),
     };
@@ -288,11 +295,10 @@ fn each_named_part_of_a_path_names_its_declaring_type_or_structure() {
 #[test]
 fn an_inherited_member_names_the_base_that_declares_it() {
     let source = "FUNCTION_BLOCK Base\nVAR_INPUT\n    Gain : INT := 1;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nFUNCTION_BLOCK Scaled EXTENDS Base\nVAR_INPUT\n    Value : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROGRAM Main\nVAR\n    Block : Scaled;\nEND_VAR\n    Block(Value := 1);\nEND_PROGRAM\n";
-    let mut harness = TestHarness::from_source(source).expect("compiles");
-    harness.cycle();
+    let declarations = declarations(source);
     let steps = path_steps(
         &MemberPath::parse("Main.Block.Gain").expect("a path"),
-        harness.runtime(),
+        &declarations,
     );
     assert_eq!(
         steps.and_then(|steps| steps.last().cloned()),
@@ -308,10 +314,10 @@ fn an_inherited_member_names_the_base_that_declares_it() {
 #[test]
 fn a_configured_program_instance_names_its_program_type() {
     let source = "PROGRAM TankLevelControl\nVAR\n    Level : REAL;\nEND_VAR\nEND_PROGRAM\n\nCONFIGURATION Plant\nRESOURCE Cpu ON PLC\n    TASK Fast (INTERVAL := T#100ms, PRIORITY := 1);\n    PROGRAM Tank WITH Fast : TankLevelControl;\nEND_RESOURCE\nEND_CONFIGURATION\n";
-    let harness = TestHarness::from_source(source).expect("compiles");
+    let declarations = declarations(source);
     let steps = path_steps(
         &MemberPath::parse("Tank.Level").expect("a path"),
-        harness.runtime(),
+        &declarations,
     );
     assert_eq!(
         steps,

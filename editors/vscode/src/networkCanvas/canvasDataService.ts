@@ -5,6 +5,8 @@ import type { RuntimeTarget } from "../runtimeTarget";
 import { getBinaryPath } from "../binary";
 import {
   createPlantSessionRegistry,
+  plantEditorClient,
+  type PlantEditorClient,
   PlantSessionRegistry,
   ProjectPlantTopologyService,
   removePlantCandidate,
@@ -92,6 +94,17 @@ export async function removeProjectPlant(
     operationId,
     expectedRevision
   );
+}
+
+/**
+ * The plant setup editor's requests (`plant.edit`, `plant.signals` and the editor tables) through the
+ * same per-project session (specification 47 §20.1).
+ */
+export function projectPlantEditor(
+  context: vscode.ExtensionContext,
+  projectDir: string
+): PlantEditorClient {
+  return plantEditorClient(plantSessionRegistry(context).forProject(projectDir));
 }
 
 /** Reads plant configuration through the canvas' existing per-project command session. */

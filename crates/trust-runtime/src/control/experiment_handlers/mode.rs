@@ -5,9 +5,9 @@ use serde::Deserialize;
 use serde_json::Value as JsonValue;
 
 use super::values::numeric_value;
-use crate::debug::{resolve_control_parameter_path, DebugControl};
-use crate::memory::VariableStorage;
-use crate::value::{Value, ValueRef};
+use crate::debug::resolve_control_parameter_path;
+use crate::runtime::{Located, ProgramRead};
+use crate::value::Value;
 
 type Refusal = (String, &'static str);
 
@@ -21,7 +21,8 @@ pub(super) struct ModeBindingParams {
 #[derive(Clone, Debug)]
 pub(super) struct ModeBinding {
     path: String,
-    reference: ValueRef,
+    /// Where the mode signal lies in the program the binding was resolved in.
+    at: Located,
     /// The value that means Manual, as a number: a bool is 1 or 0, an enumeration its numeric value.
     manual: f64,
     /// Whether the experiment needs Manual (true) or Auto (false).
@@ -29,12 +30,12 @@ pub(super) struct ModeBinding {
 }
 
 impl ModeBinding {
-    /// Resolves the binding at start. The symbol must exist and hold a bool, a number or an enumeration, and the loop must
-    /// already be in the mode the experiment needs.
+    /// Resolves the binding at start in `program`, the program as the last scan left it. The symbol must exist and hold a
+    /// bool, a number or an enumeration, and the loop must already be in the mode the experiment needs.
     pub(super) fn start(
         params: ModeBindingParams,
         manual_required: bool,
-        debug: &DebugControl,
+        program: Option<&dyn ProgramRead>,
     ) -> Result<Self, Refusal> {
         let manual = match &params.manual_value {
             JsonValue::Bool(value) => f64::from(u8::from(*value)),
@@ -51,11 +52,9 @@ impl ModeBinding {
                 ))
             }
         };
-        let resolved = debug
-            .with_snapshot(|captured| {
-                resolve_control_parameter_path(&captured.storage, &params.symbol)
-            })
-            .ok_or_else(|| invalid_mode(&params.symbol, "no runtime scan has been captured yet"))?
+        let program = program
+            .ok_or_else(|| invalid_mode(&params.symbol, "no runtime scan has been captured yet"))?;
+        let resolved = resolve_control_parameter_path(program, &params.symbol)
             .map_err(|reason| invalid_mode(&params.symbol, reason.as_str()))?;
         let mode = mode_number(&resolved.value).ok_or_else(|| {
             invalid_mode(
@@ -75,20 +74,21 @@ impl ModeBinding {
         }
         Ok(Self {
             path: params.symbol,
-            reference: resolved.reference,
+            at: resolved.at,
             manual,
             manual_required,
         })
     }
 
-    /// Whether the loop holds the mode the experiment needs in this scan's storage. `Err` names why the mode cannot be read.
+    /// Whether the loop holds the mode the experiment needs in `program`, the program as the scan left it. `Err` names
+    /// why the mode cannot be read.
     pub(super) fn holds_required_mode(
         &self,
-        storage: &VariableStorage,
+        program: &dyn ProgramRead,
     ) -> Result<bool, &'static str> {
-        let mode = resolve_control_parameter_path(storage, &self.path)
+        let mode = resolve_control_parameter_path(program, &self.path)
             .ok()
-            .filter(|resolved| resolved.reference == self.reference)
+            .filter(|resolved| resolved.at == self.at)
             .and_then(|resolved| mode_number(&resolved.value))
             .ok_or("bad_runtime_data")?;
         Ok((mode == self.manual) == self.manual_required)

@@ -22,24 +22,6 @@ export class DiscoveryRequestTracker<TOwner extends object> {
   }
 }
 
-export function candidateDisabledReason(
-  protocol: string,
-  discoverProtocols: ReadonlySet<string>,
-  sessionCurrent: boolean,
-  originCurrent = true
-): string | undefined {
-  if (!sessionCurrent) {
-    return "Discovery context changed. Scan again before adding this result.";
-  }
-  if (!originCurrent) {
-    return "The runtime that found this result is no longer available. Scan again before adding it.";
-  }
-  if (!discoverProtocols.has(protocol)) {
-    return "This discovery action is no longer available. Refresh the runtime and scan again.";
-  }
-  return undefined;
-}
-
 export function isActiveWebviewSession(
   requestSessionId: string,
   activeSessionId: string | undefined

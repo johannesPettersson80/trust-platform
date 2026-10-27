@@ -10,13 +10,24 @@ use super::{
 use crate::value::Duration;
 use crate::watchdog::{FaultPolicy, WatchdogAction, WatchdogPolicy};
 
-fn fresh_runtime() -> crate::Runtime {
-    crate::RuntimeBuilder::new()
-        .build()
-        .expect("admit the policy fixture")
+/// A compiled program with a retain file, so that each of the three policies applies to it. The
+/// build needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+fn fresh_runtime() -> crate::CompiledRuntime {
+    let mut runtime = crate::harness::TestHarness::from_source("PROGRAM Main\nEND_PROGRAM\n")
+        .expect("build the policy fixture")
+        .into_runtime();
+    let path =
+        std::env::temp_dir().join(format!("trust-policy-update-{}.retain", std::process::id()));
+    runtime
+        .set_retain_store(
+            Some(Box::new(crate::retain::FileRetainStore::new(path))),
+            None,
+        )
+        .expect("set the retain file");
+    runtime
 }
 
-fn policies_of(runtime: &crate::Runtime) -> SchedulerPolicies {
+fn policies_of(runtime: &crate::CompiledRuntime) -> SchedulerPolicies {
     SchedulerPolicies {
         watchdog: runtime.watchdog_policy(),
         fault_policy: runtime.fault_policy(),
@@ -127,7 +138,7 @@ fn the_faulted_wait_applies_the_whole_policy_set_without_ending_the_wait() {
         "a policy update is not an online change, so the faulted wait continues"
     );
     assert_eq!(
-        policies_of(runner.runtime()),
+        policies_of(runner.program()),
         requested,
         "the faulted wait applies every policy"
     );

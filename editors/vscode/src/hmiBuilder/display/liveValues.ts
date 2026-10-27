@@ -12,9 +12,13 @@ export interface WireValue {
   staleMs?: number;
 }
 
-/** A message of the value stream: the expected update period first, then values. */
+/** A message of the value stream: the expected update period with the stale limit first, then
+ * values. */
 export interface StreamMessage {
   period_ms?: number;
+  /** How long values may go without a new cycle count or a message before they are stale, as the
+   * runtime decides it (§5.3 item 2). */
+  stale_ms?: number;
   cycle?: number;
   values?: Record<string, WireValue | null>;
   /** Bound paths the running program does not have (§16.3). */
@@ -26,10 +30,6 @@ export interface LiveValueOptions {
   trendSpansMs?: Record<string, number>;
 }
 
-/** The update period until the runtime sends its own (§11.1). */
-const DEFAULT_PERIOD_MS = 250;
-/** A value is stale after this many expected update periods without news (§5.3). */
-const FRESH_PERIODS = 3;
 /** The most samples a trend path keeps, whatever its span. */
 const MAX_SAMPLES = 20_000;
 /** Beyond this span a trend path keeps one sample a second. */
@@ -39,7 +39,8 @@ export class LiveValueStore {
   private readonly trendSpansMs: Record<string, number>;
   private readonly values = new Map<string, WireValue | null>();
   private readonly history = new Map<string, Array<[number, number]>>();
-  private periodMs = DEFAULT_PERIOD_MS;
+  /** The stale limit the runtime sent; until it has, no value is stale by its age. */
+  private staleLimitMs: number | undefined;
   private cycle: number | undefined;
   private lastAdvanceMs: number | undefined;
   private lastMessageMs: number | undefined;
@@ -51,7 +52,7 @@ export class LiveValueStore {
 
   receive(message: StreamMessage, atMs: number): void {
     this.disconnectedAtMs = undefined;
-    if (message.period_ms !== undefined && message.period_ms > 0) this.periodMs = message.period_ms;
+    if (message.stale_ms !== undefined) this.staleLimitMs = message.stale_ms;
     if (message.cycle === undefined || message.values === undefined) return;
     this.lastMessageMs = atMs;
     // An update carries only what changed (§18 phase 5): the missing paths when their list did.
@@ -101,11 +102,12 @@ export class LiveValueStore {
     return this.disconnectedAtMs !== undefined || this.staleness(nowMs) !== undefined;
   }
 
-  /** The age of the values when they count as stale, otherwise undefined. */
+  /** The age of the values when they count as stale, otherwise undefined: the stream is closed, or
+   * the cycle count has not advanced or no message has arrived for the runtime's limit (§11.1). */
   private staleness(nowMs: number): number | undefined {
     if (this.lastAdvanceMs === undefined || this.lastMessageMs === undefined) return undefined;
-    const limit = FRESH_PERIODS * this.periodMs;
-    const stalled = nowMs - this.lastAdvanceMs > limit || nowMs - this.lastMessageMs > limit;
+    const limit = this.staleLimitMs;
+    const stalled = limit !== undefined && (nowMs - this.lastAdvanceMs > limit || nowMs - this.lastMessageMs > limit);
     return this.disconnectedAtMs !== undefined || stalled ? nowMs - this.lastAdvanceMs : undefined;
   }
 

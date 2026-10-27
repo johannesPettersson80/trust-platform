@@ -1,5 +1,6 @@
 use super::super::calls::NameResolveOutcome;
 use super::super::*;
+use crate::types::checked_string_length;
 
 impl<'a> TypeChecker<'a> {
     pub(in crate::type_check) fn infer_paren_expr(&mut self, node: &SyntaxNode) -> TypeId {
@@ -42,6 +43,9 @@ impl<'a> TypeChecker<'a> {
         {
             if let Some(type_id) = self.resolve_sizeof_type_ref(&type_ref) {
                 self.validate_sizeof_target_type(type_id, node.text_range());
+                // The compiled-program generator reads the operand's type, of which SIZEOF is the
+                // size (specification 44 §3).
+                self.record_expression_type(&type_ref, type_id);
             } else {
                 self.diagnostics.error(
                     DiagnosticCode::UndefinedType,
@@ -59,6 +63,7 @@ impl<'a> TypeChecker<'a> {
             match self.resolve_sizeof_expr_target_type(&expr) {
                 Ok(type_id) => {
                     self.validate_sizeof_target_type(type_id, expr.text_range());
+                    self.record_expression_type(&expr, type_id);
                 }
                 Err(SizeOfOperandError::UnknownName(name)) => {
                     self.diagnostics.error(
@@ -280,8 +285,15 @@ impl<'a> TypeChecker<'a> {
                     &len_expr,
                     "STRING/WSTRING length must be a constant integer expression",
                 )?;
-                let len = u32::try_from(len).ok()?;
-                return Some(self.register_sized_string_type(is_wide, len));
+                match checked_string_length(len) {
+                    Ok(len) => return Some(self.symbols.register_string_type(is_wide, len)),
+                    // Reported once; the default type keeps SIZEOF from a second diagnostic.
+                    Err(error) => self.diagnostics.error(
+                        DiagnosticCode::OutOfRange,
+                        len_expr.text_range(),
+                        error.message(),
+                    ),
+                }
             }
             return Some(if is_wide {
                 TypeId::WSTRING
@@ -355,24 +367,6 @@ impl<'a> TypeChecker<'a> {
             )),
             _ => None,
         }
-    }
-
-    fn register_sized_string_type(&mut self, is_wide: bool, max_len: u32) -> TypeId {
-        let name = if is_wide {
-            format!("WSTRING[{max_len}]")
-        } else {
-            format!("STRING[{max_len}]")
-        };
-        let ty = if is_wide {
-            Type::WString {
-                max_len: Some(max_len),
-            }
-        } else {
-            Type::String {
-                max_len: Some(max_len),
-            }
-        };
-        self.symbols.register_type(name, ty)
     }
 
     fn validate_sizeof_target_type(&mut self, type_id: TypeId, range: TextRange) {

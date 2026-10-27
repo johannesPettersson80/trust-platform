@@ -5,24 +5,26 @@ import type {
   PlantSignalCatalog,
   PlantSignalDirection,
 } from "../plant/signalCatalog";
-import { validateManualPlantSignalAddress } from "../plant/signalCatalog";
 
+/** Asks Rust to bind a port to an address (empty clears it); the reason it was refused, if it was. */
+type BindPort = (direction: PlantSignalDirection, index: number, address: string) => Promise<string | undefined>;
+
+/**
+ * The plant's ports and the compiled PLC signals they bind to (specification 47 §8). Rust checks
+ * each chosen or typed address and binds it in its compiled spelling.
+ */
 export function PlantSignalPicker({
   catalog,
-  usedFeedbackTargets,
   commandSources,
   feedbackTargets,
   labels,
-  onCommandSource,
-  onFeedbackTarget,
+  onBind,
 }: {
   catalog: PlantSignalCatalog;
-  usedFeedbackTargets: readonly string[];
   commandSources: readonly string[];
   feedbackTargets: readonly string[];
   labels: { commands: string[]; feedbacks: string[] };
-  onCommandSource: (index: number, address: string) => void;
-  onFeedbackTarget: (index: number, address: string) => void;
+  onBind: BindPort;
 }) {
   if (catalog.status === "compile_error") {
     return (
@@ -42,10 +44,8 @@ export function PlantSignalPicker({
         direction="%Q → plant"
         signalDirection="command"
         candidates={catalog.commands}
-        catalog={catalog}
-        usedFeedbackTargets={usedFeedbackTargets}
         value={commandSources[index]}
-        onChange={(address) => onCommandSource(index, address)}
+        onBind={(address) => onBind("command", index, address)}
       />)}
       {labels.feedbacks.map((label, index) => <SignalSelect
         key={`feedback-${index}`}
@@ -55,10 +55,8 @@ export function PlantSignalPicker({
         direction="plant → %I"
         signalDirection="feedback"
         candidates={catalog.feedbacks}
-        catalog={catalog}
-        usedFeedbackTargets={[...usedFeedbackTargets, ...feedbackTargets.filter((_, other) => other !== index)]}
         value={feedbackTargets[index]}
-        onChange={(address) => onFeedbackTarget(index, address)}
+        onBind={(address) => onBind("feedback", index, address)}
       />)}
     </div>
   );
@@ -71,10 +69,8 @@ function SignalSelect({
   signalDirection,
   portIndex,
   candidates,
-  catalog,
-  usedFeedbackTargets,
   value,
-  onChange,
+  onBind,
 }: {
   name: string;
   label: string;
@@ -82,54 +78,28 @@ function SignalSelect({
   signalDirection: PlantSignalDirection;
   portIndex: number;
   candidates: readonly PlantSignalCandidate[];
-  catalog: PlantSignalCatalog;
-  usedFeedbackTargets: readonly string[];
   value?: string;
-  onChange: (address: string) => void;
+  onBind: (address: string) => Promise<string | undefined>;
 }) {
   const [manualOpen, setManualOpen] = React.useState(false);
   const [manualAddress, setManualAddress] = React.useState(value ?? "");
   const [manualError, setManualError] = React.useState<string>();
+  // The choice shows at once while Rust binds it.
+  const [choosing, setChoosing] = React.useState<string>();
   const selectRef = React.useRef<HTMLSelectElement>(null);
   const manualInputRef = React.useRef<HTMLInputElement>(null);
   const selected = candidates.find((candidate) => candidate.address === value);
-  const explainError = (address: string, message: string) =>
-    `${label} ${address.trim().toUpperCase()}: ${message}`;
-  const applyManualAddress = () => {
-    const result = validateManualPlantSignalAddress(
-      catalog,
-      signalDirection,
-      manualAddress,
-      { usedFeedbackTargets }
-    );
-    if (!result.ok) {
-      setManualError(explainError(manualAddress, result.message));
-      requestAnimationFrame(() => manualInputRef.current?.focus());
-      return;
-    }
-    setManualAddress(result.address);
-    setManualError(undefined);
-    onChange(result.address);
+  // A bound address shows in its compiled spelling once Rust has bound it.
+  React.useEffect(() => setManualAddress(value ?? ""), [value]);
+  const bind = async (address: string, focus: () => HTMLElement | null) => {
+    const refusal = await onBind(address);
+    setManualError(refusal);
+    if (refusal) requestAnimationFrame(() => focus()?.focus());
   };
+  const applyManualAddress = () => void bind(manualAddress, () => manualInputRef.current);
   const applyPickerAddress = (address: string) => {
-    if (!address) {
-      setManualError(undefined);
-      onChange("");
-      return;
-    }
-    const result = validateManualPlantSignalAddress(
-      catalog,
-      signalDirection,
-      address,
-      { usedFeedbackTargets }
-    );
-    if (!result.ok) {
-      setManualError(explainError(address, result.message));
-      requestAnimationFrame(() => selectRef.current?.focus());
-      return;
-    }
-    setManualError(undefined);
-    onChange(result.address);
+    setChoosing(address);
+    void bind(address, () => selectRef.current).finally(() => setChoosing(undefined));
   };
   return (
     <div style={{ display: "grid", gap: 4 }}>
@@ -146,7 +116,7 @@ function SignalSelect({
         name={name}
         data-plant-port-direction={signalDirection}
         data-plant-port-index={portIndex}
-        value={value ?? ""}
+        value={choosing ?? value ?? ""}
         aria-invalid={Boolean(manualError)}
         aria-describedby={manualError ? `${name}-error` : undefined}
         onChange={(event) => applyPickerAddress(event.target.value)}

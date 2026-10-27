@@ -1,54 +1,67 @@
 import React from "react";
 
+import type { PlantUncertaintyDraft } from "../plant/uncertaintyEditor";
 import {
-  createPlantUncertainty,
-  movePlantUncertainty,
-  plantUncertaintyGeneratorFields,
-  plantUncertaintyFieldLabel,
-  PLANT_UNCERTAINTY_GENERATORS,
-  PLANT_UNCERTAINTY_MODES,
-  PLANT_UNCERTAINTY_TARGETS,
-  validatePlantUncertainties,
-  type PlantUncertaintyDraft,
-} from "../plant/uncertaintyEditor";
-import {
-  applyPlantImperfectionType,
-  plantImperfectionExpectation,
-  plantImperfectionTypeForRow,
-  PLANT_IMPERFECTION_TYPES,
-  type PlantImperfectionType,
-} from "../plant/imperfectionPresets";
+  numberText,
+  type PlantEditAction,
+  type PlantEditorIssue,
+  type PlantEditorTables,
+  type PlantEditorView,
+  type PlantEditResult,
+} from "../plant/editorSession";
 
+/**
+ * The ordered imperfection effects (specification 47 §11). Rust adds, duplicates, moves, removes
+ * and re-types effects with their defaults and checks them; plain values go into the draft as
+ * typed.
+ */
 export function PlantImperfectionsEditor({
   rows,
-  modelParameters,
+  facts,
+  tables,
+  parameters,
+  issues,
   onChange,
+  onAction,
   activeIndex,
   onActiveIndexChange,
 }: {
   rows: PlantUncertaintyDraft[];
-  modelParameters: string[];
+  facts: PlantEditorView["effects"];
+  tables: PlantEditorTables;
+  parameters: readonly string[];
+  issues: readonly PlantEditorIssue[];
   onChange: (rows: PlantUncertaintyDraft[]) => void;
+  onAction: (action: PlantEditAction) => Promise<PlantEditResult>;
   activeIndex: number;
   onActiveIndexChange: (index: number) => void;
 }) {
   const [advancedIds, setAdvancedIds] = React.useState<string[]>([]);
   const [adding, setAdding] = React.useState(false);
-  const issues = validatePlantUncertainties(rows, modelParameters);
   const update = (index: number, patch: Partial<PlantUncertaintyDraft>) =>
     onChange(rows.map((row, candidate) => candidate === index ? { ...row, ...patch } : row));
   const issueFor = (index: number, field: string) =>
-    issues.find((issue) => issue.row === index && issue.field === field);
-  const freshRow = () => {
-    let sequence = 1;
-    while (rows.some((row) => row.id === `effect_${sequence}`)) sequence += 1;
-    return createPlantUncertainty(sequence);
+    issues.find((issue) =>
+      issue.target.kind === "effect" && issue.target.row === index && issue.target.field === field)?.message;
+  // An applied edit names the row it created or changed; the editor opens that row.
+  const act = async (action: PlantEditAction) => {
+    const result = await onAction(action);
+    const outcome = result.ok ? result.answer.outcome : undefined;
+    if (outcome?.kind === "applied" && outcome.index !== undefined) onActiveIndexChange(outcome.index);
+    return outcome;
   };
-  const move = (index: number, delta: -1 | 1) => {
-    onChange(movePlantUncertainty(rows, index, delta));
+  const move = async (index: number, delta: -1 | 1) => {
+    const result = await onAction({ kind: "move_effect", index, delta });
+    if (!result.ok || result.answer.outcome?.kind !== "applied") return;
     if (activeIndex === index) onActiveIndexChange(index + delta);
     else if (activeIndex === index + delta) onActiveIndexChange(index);
   };
+  const remove = async (index: number) => {
+    const result = await onAction({ kind: "remove_effect", index });
+    if (!result.ok || result.answer.outcome?.kind !== "applied") return;
+    onActiveIndexChange(activeIndex > index ? activeIndex - 1 : Math.min(activeIndex, rows.length - 2));
+  };
+  const generators = tables.uncertaintyGenerators.map((generator) => generator.id);
   return (
     <section className="trust-section">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -65,12 +78,11 @@ export function PlantImperfectionsEditor({
       </div>
       <p className="trust-help">Optional ordered effects make the simulated process less ideal. Order changes behavior.</p>
       {adding && <div role="group" aria-label="Choose an effect" style={{ display: "grid", gap: 5 }}>
-        {PLANT_IMPERFECTION_TYPES.map((type) => (
+        {tables.imperfectionTypes.map((type) => (
           <button key={type.id} type="button" className="trust-button" data-plant-uncertainty-add-type={type.id}
             onClick={() => {
-              onChange([...rows, applyPlantImperfectionType(type.id, freshRow())]);
-              onActiveIndexChange(rows.length);
               setAdding(false);
+              void act({ kind: "add_effect", preset: type.id });
             }} style={{ textAlign: "left", whiteSpace: "normal" }}>
             <strong>{type.label}</strong><span className="trust-help" style={{ display: "block" }}>{type.expectation}</span>
           </button>
@@ -79,17 +91,17 @@ export function PlantImperfectionsEditor({
       {rows.length === 0 && <p className="trust-help">No imperfections configured.</p>}
       <div style={{ display: "grid", gap: 10 }}>
         {rows.map((row, index) => {
-          const type = plantImperfectionTypeForRow(row);
+          const fact = facts[index];
+          const preset = fact?.preset ?? "custom";
           const advancedOpen = advancedIds.includes(row.id);
           const open = index === Math.min(activeIndex, rows.length - 1);
-          const boundary = row.target === "measurement" ? "Sensor" : row.target === "command" ? "Command" : "Process";
-          const label = PLANT_IMPERFECTION_TYPES.find((entry) => entry.id === type)?.label ?? type;
+          const boundary = fact?.boundary ?? "";
           return (
           <div key={`${row.id}:${index}`} data-plant-uncertainty-row={index} data-plant-uncertainty-card={index}
-            data-plant-uncertainty-kind={type} data-plant-uncertainty-boundary={boundary}
+            data-plant-uncertainty-kind={preset} data-plant-uncertainty-boundary={boundary}
             data-plant-uncertainty-focused={open ? index : undefined} style={CARD}>
             <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
-              <strong style={{ flex: 1, fontSize: 11.5 }}>{index + 1}. {label}</strong>
+              <strong style={{ flex: 1, fontSize: 11.5 }}>{index + 1}. {fact?.label ?? row.generator}</strong>
               <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10.5 }}>
                 <input type="checkbox" checked={row.enabled} onChange={(event) => update(index, { enabled: event.target.checked })} /> Include
               </label>
@@ -97,53 +109,40 @@ export function PlantImperfectionsEditor({
                 aria-expanded={open} onClick={() => onActiveIndexChange(open ? -1 : index)}>{open ? "Close" : "Edit"}</button>
               <span className="trust-help" style={{ flex: "0 0 100%" }}>{boundary} · {row.enabled ? "Included" : "Excluded"} · {row.id}</span>
               <div style={{ display: "flex", flex: "0 0 100%", justifyContent: "flex-end", gap: 6 }}>
-                <button type="button" className="trust-button" data-plant-uncertainty-up aria-label={`Move effect ${index + 1} up`} disabled={index === 0} onClick={() => move(index, -1)}>↑</button>
-                <button type="button" className="trust-button" data-plant-uncertainty-down aria-label={`Move effect ${index + 1} down`} disabled={index === rows.length - 1} onClick={() => move(index, 1)}>↓</button>
-                <button type="button" className="trust-button" data-plant-uncertainty-duplicate onClick={() => {
-                  const copy = { ...row, id: freshRow().id, enabled: true };
-                  onChange([...rows.slice(0, index + 1), copy, ...rows.slice(index + 1)]);
-                  onActiveIndexChange(index + 1);
-                }}>Duplicate</button>
-                <button type="button" className="trust-button" data-plant-uncertainty-remove onClick={() => {
-                  onChange(rows.filter((_, candidate) => candidate !== index));
-                  onActiveIndexChange(activeIndex > index ? activeIndex - 1 : Math.min(activeIndex, rows.length - 2));
-                }}>Remove</button>
+                <button type="button" className="trust-button" data-plant-uncertainty-up aria-label={`Move effect ${index + 1} up`} disabled={index === 0} onClick={() => void move(index, -1)}>↑</button>
+                <button type="button" className="trust-button" data-plant-uncertainty-down aria-label={`Move effect ${index + 1} down`} disabled={index === rows.length - 1} onClick={() => void move(index, 1)}>↓</button>
+                <button type="button" className="trust-button" data-plant-uncertainty-duplicate onClick={() => void act({ kind: "duplicate_effect", index })}>Duplicate</button>
+                <button type="button" className="trust-button" data-plant-uncertainty-remove onClick={() => void remove(index)}>Remove</button>
               </div>
             </div>
             {open && <div style={GRID}>
-              <label style={FIELD}><span style={LABEL}>Effect type</span><select data-plant-imperfection-type value={type} onChange={(event) => {
-                const requested = event.target.value as PlantImperfectionType;
-                onChange(rows.map((candidate, candidateIndex) => candidateIndex === index ? applyPlantImperfectionType(requested, candidate) : candidate));
+              <label style={FIELD}><span style={LABEL}>Effect type</span><select data-plant-imperfection-type value={preset} onChange={(event) => {
+                const requested = event.target.value;
+                void act({ kind: "apply_effect_preset", index, preset: requested });
                 if (requested === "custom") setAdvancedIds((current) => current.includes(row.id) ? current : [...current, row.id]);
-              }} style={INPUT}>{PLANT_IMPERFECTION_TYPES.map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select></label>
-              <p data-plant-imperfection-expectation className="trust-help" style={{ gridColumn: "1 / -1", margin: 0 }}>{plantImperfectionExpectation(type)}</p>
-              <NumberField label="Start (s)" field="start_s" value={row.start_s} issue={issueFor(index, "start_s")?.message} onChange={(value) => update(index, { start_s: value })} />
-              <NumberField label="End (s, optional)" field="end_s" value={row.end_s} issue={issueFor(index, "end_s")?.message} onChange={(value) => update(index, { end_s: value })} />
-              {row.mode !== "hold" && plantUncertaintyGeneratorFields(row.generator).map((field) =>
+              }} style={INPUT}>{tables.imperfectionTypes.map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select></label>
+              <p data-plant-imperfection-expectation className="trust-help" style={{ gridColumn: "1 / -1", margin: 0 }}>{fact?.expectation}</p>
+              <NumberField label="Start (s)" field="start_s" value={row.start_s} issue={issueFor(index, "start_s")} onChange={(value) => update(index, { start_s: value })} />
+              <NumberField label="End (s, optional)" field="end_s" value={row.end_s} issue={issueFor(index, "end_s")} onChange={(value) => update(index, { end_s: value })} />
+              {(fact?.fields ?? []).map((field) =>
                 field === "dropout_policy" ? (
-                  <SelectField key={field} label="Dropout action" field={field} value={row.dropout_policy ?? ""} values={["hold_last", "replace", "fault"]} issue={issueFor(index, field)?.message} onChange={(value) => update(index, { dropout_policy: value as any })} />
-                ) : field === "replacement_value" && row.dropout_policy !== "replace" ? null : (
-                  <NumberField key={field} label={plantUncertaintyFieldLabel(field)} field={field} value={row[field as keyof PlantUncertaintyDraft] as number | undefined} issue={issueFor(index, field)?.message} onChange={(value) => update(index, { [field]: value })} />
+                  <SelectField key={field} label={tables.uncertaintyFieldLabels[field] ?? field} field={field} value={row.dropout_policy ?? ""} values={tables.uncertaintyDropoutPolicies} issue={issueFor(index, field)} onChange={(value) => update(index, { dropout_policy: value })} />
+                ) : (
+                  <NumberField key={field} label={tables.uncertaintyFieldLabels[field] ?? field} field={field} value={row[field as keyof PlantUncertaintyDraft] as number | undefined} issue={issueFor(index, field)} onChange={(value) => update(index, { [field]: value })} />
                 )
               )}
               <button type="button" className="trust-button" data-plant-imperfection-advanced aria-expanded={advancedOpen} onClick={() => setAdvancedIds((current) => advancedOpen ? current.filter((id) => id !== row.id) : [...current, row.id])} style={{ gridColumn: "1 / -1", justifySelf: "start" }}>
                 {advancedOpen ? "Hide" : "Show"} runtime mapping
               </button>
               {advancedOpen && <div style={{ ...GRID, gridColumn: "1 / -1", width: "100%" }}>
-                <TextField label="Effect ID" field="id" value={row.id} issue={issueFor(index, "id")?.message} onChange={(value) => update(index, { id: value })} />
-                <SelectField label="Target" field="target" value={row.target} values={PLANT_UNCERTAINTY_TARGETS} onChange={(value) => update(index, value === "parameter" ? { target: value as any, parameter: modelParameters[0] ?? "", channel: undefined } : { target: value as any, channel: 0, parameter: undefined })} />
-                <SelectField label="Mode" field="mode" value={row.mode} values={PLANT_UNCERTAINTY_MODES} issue={issueFor(index, "mode")?.message} onChange={(value) => update(index, { mode: value as any })} />
-                <SelectField label="Generator" field="generator" value={row.generator} values={PLANT_UNCERTAINTY_GENERATORS} issue={issueFor(index, "generator")?.message} onChange={(value) => {
-                  const generator = value as PlantUncertaintyDraft["generator"];
-                  if (generator === "dropout") update(index, { generator, target: "measurement", mode: "replace", channel: 0, parameter: undefined, rate_per_s: 1, duration_s: 1, dropout_policy: "hold_last" });
-                  else if (generator === "quantise") update(index, { generator, mode: "replace", quantum: row.quantum ?? 0.1 });
-                  else if (generator === "clip") update(index, { generator, mode: "replace", minimum: row.minimum ?? 0, maximum: row.maximum ?? 1 });
-                  else update(index, { generator });
-                }} />
+                <TextField label="Effect ID" field="id" value={row.id} issue={issueFor(index, "id")} onChange={(value) => update(index, { id: value })} />
+                <SelectField label="Target" field="target" value={row.target} values={tables.uncertaintyTargets} issue={issueFor(index, "target")} onChange={(value) => void act({ kind: "set_effect_target", index, target: value })} />
+                <SelectField label="Mode" field="mode" value={row.mode} values={tables.uncertaintyModes} issue={issueFor(index, "mode")} onChange={(value) => update(index, { mode: value })} />
+                <SelectField label="Generator" field="generator" value={row.generator} values={generators} issue={issueFor(index, "generator")} onChange={(value) => void act({ kind: "set_effect_generator", index, generator: value })} />
                 {row.target === "parameter" ? (
-                  <SelectField label="Parameter" field="parameter" value={row.parameter ?? ""} values={modelParameters} issue={issueFor(index, "parameter")?.message} onChange={(value) => update(index, { parameter: value })} />
+                  <SelectField label="Parameter" field="parameter" value={row.parameter ?? ""} values={parameters} issue={issueFor(index, "parameter")} onChange={(value) => update(index, { parameter: value })} />
                 ) : (
-                  <NumberField label="Channel" field="channel" value={row.channel} issue={issueFor(index, "channel")?.message} onChange={(value) => update(index, { channel: value })} />
+                  <NumberField label="Channel" field="channel" value={row.channel} issue={issueFor(index, "channel")} onChange={(value) => update(index, { channel: value })} />
                 )}
               </div>}
             </div>}
@@ -160,7 +159,7 @@ function TextField({ label, field, value, issue, onChange }: { label: string; fi
 }
 
 function NumberField({ label, field, value, issue, onChange }: { label: string; field: string; value?: number; issue?: string; onChange: (value: number | undefined) => void }) {
-  return <label style={FIELD}><span style={LABEL}>{label}</span><input type="number" step="any" data-plant-uncertainty-field={field} value={value ?? ""} aria-invalid={Boolean(issue)} onChange={(event) => onChange(event.target.value.trim() ? Number(event.target.value) : undefined)} style={INPUT} />{issue && <span data-plant-uncertainty-error={field} style={ERROR}>{issue}</span>}</label>;
+  return <label style={FIELD}><span style={LABEL}>{label}</span><input type="number" step="any" data-plant-uncertainty-field={field} value={numberText(value)} aria-invalid={Boolean(issue)} onChange={(event) => onChange(event.target.value.trim() ? Number(event.target.value) : undefined)} style={INPUT} />{issue && <span data-plant-uncertainty-error={field} style={ERROR}>{issue}</span>}</label>;
 }
 
 function SelectField({ label, field, value, values, issue, onChange }: { label: string; field: string; value: string; values: readonly string[]; issue?: string; onChange: (value: string) => void }) {

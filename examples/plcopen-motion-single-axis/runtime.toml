@@ -9,7 +9,6 @@ cycle_interval_ms = 10
 execution_backend = "vm"
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-motion-starter.sock"
 mode = "production"
 debug_enabled = false
 

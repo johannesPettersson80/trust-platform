@@ -1,24 +1,23 @@
-//! The state of every link the runtime runs, written into the program's `Comm.Link` blocks at the
-//! start of each scan (specification 42): its state and since when, its counters and response
-//! time, and what its blocks ask of it: to switch an `io.toml` driver's link off, to test it, to
-//! start its counters again.
+//! The state of every link the runtime runs, written into the program's `Comm.Link` blocks after
+//! the inputs are read and before the program runs, each scan (specification 42): its state and
+//! since when, its counters and response time, and what its blocks ask of it: to switch an
+//! `io.toml` driver's link off, to test it, to start its counters again. The blocks are found and
+//! their members reached through the image's symbol and type tables, and written through the
+//! runtime's checks at that access point (specification 44 §13.3).
 
 use rustc_hash::{FxHashMap, FxHashSet};
 use smol_str::SmolStr;
+use trust_runtime_core::native::image::{type_kind, Header, Image, TypeRecord};
 
 use crate::ads::diagnostics::{AdsConnectionStatus, AdsConnectionStatusState};
-use crate::hmi::instance_walk::instances_of;
-use crate::hmi::member_paths::find_ignoring_case;
 use crate::io::IoDriverHealth;
-use crate::memory::{InstanceId, VariableStorage};
 use crate::opcua::{OpcUaClientConnectionState, OpcUaClientConnectionStatus};
 use crate::value::{Duration, EnumValue, Value};
 
 use super::ads_subsystem::AdsSubsystem;
-use super::io_subsystem::{IoSubsystem, LinkIo};
+use super::io_subsystem::{set_link_enabled, test_link, IoDriverEntry, LinkIo};
 use super::opcua_client_subsystem::OpcUaClientSubsystem;
-use super::RuntimeMetadata;
-use crate::debug::ScanWrites;
+use super::program_access::{Located, ProgramRead, ProgramWrite, Walk};
 
 /// The block the runtime fills (§4).
 pub(crate) const LINK_BLOCK: &str = "Comm.Link";
@@ -28,8 +27,6 @@ const MAX_LINKS: usize = 1_000;
 const WALK_PERIOD_MS: i64 = 1_000;
 /// The length of `LastError` and `TestResult`.
 const TEXT_LENGTH: usize = 120;
-/// Deepest base chain followed.
-const MAX_DEPTH: usize = 32;
 
 /// A link's state (§3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,7 +71,25 @@ pub(crate) struct LinkReading {
 
 /// An I/O driver's health as its link's state (§3 item 1); switched off, it is `Disabled`.
 pub(crate) fn io_reading(io: &LinkIo<'_>) -> LinkReading {
-    let (state, error) = match (&io.health, io.enabled) {
+    driver_reading(
+        io.link.clone(),
+        &io.health,
+        io.enabled,
+        io.response,
+        io.detail.as_deref(),
+    )
+}
+
+/// The reading of the driver of `link` with `health`, switched on when `enabled`, whose last read
+/// and write took `response`, and that words its protocol's state as `detail`.
+fn driver_reading(
+    link: SmolStr,
+    health: &IoDriverHealth,
+    enabled: bool,
+    response: std::time::Duration,
+    detail: Option<&str>,
+) -> LinkReading {
+    let (state, error) = match (health, enabled) {
         (_, false) => (LinkState::Disabled, None),
         (IoDriverHealth::Ok, true) => (LinkState::Connected, None),
         (IoDriverHealth::Degraded { error }, true) => {
@@ -83,12 +98,26 @@ pub(crate) fn io_reading(io: &LinkIo<'_>) -> LinkReading {
         (IoDriverHealth::Faulted { error }, true) => (LinkState::Failed, Some(error.to_string())),
     };
     LinkReading {
-        name: io.link.clone(),
+        name: link,
         state,
         error,
-        response_ms: i64::try_from(io.response.as_millis()).unwrap_or(i64::MAX),
-        detail: io.detail.as_ref().map(ToString::to_string),
+        response_ms: i64::try_from(response.as_millis()).unwrap_or(i64::MAX),
+        detail: detail.map(ToString::to_string),
     }
+}
+
+/// Each linked driver's reading in this scan, without the facts a link's state does not need.
+fn driver_readings(drivers: &[IoDriverEntry]) -> impl Iterator<Item = LinkReading> + '_ {
+    drivers.iter().filter_map(|entry| {
+        let link = entry.link.clone()?;
+        Some(driver_reading(
+            link,
+            &entry.driver.health(),
+            entry.enabled,
+            entry.read_time + entry.write_time,
+            entry.driver.detail().as_deref(),
+        ))
+    })
 }
 
 /// An ADS client connection's report as its link's state (§3 item 2).
@@ -163,11 +192,92 @@ struct Tracked {
 /// What one block asks of its link in this scan: its name, whether the link may run, and the
 /// rising edges of its `Test` and `Reset`.
 #[derive(Debug)]
-pub(super) struct LinkRequest {
-    pub(super) name: String,
-    pub(super) enable: bool,
-    pub(super) test: bool,
-    pub(super) reset: bool,
+struct LinkRequest {
+    name: String,
+    enable: bool,
+    test: bool,
+    reset: bool,
+}
+
+/// Where the members of one block that the runtime reads and writes lie in the program (§4), each
+/// by its declared name; a member the block's type lacks is none, and the block shows the rest.
+#[derive(Debug, Clone, Copy)]
+struct Members {
+    name: Option<Located>,
+    enable: Option<Located>,
+    test: Option<Located>,
+    reset: Option<Located>,
+    state: Option<Located>,
+    connected: Option<Located>,
+    disabled: Option<Located>,
+    known: Option<Located>,
+    state_time: Option<Located>,
+    last_good_age: Option<Located>,
+    last_error: Option<Located>,
+    exchanges: Option<Located>,
+    failures: Option<Located>,
+    response_time: Option<Located>,
+    test_result: Option<Located>,
+    detail: Option<Located>,
+}
+
+impl Members {
+    /// The members of the block at `at`, its inherited ones included, compared without case.
+    fn of<P: ProgramRead + ?Sized>(program: &P, at: &Located) -> Self {
+        let member = |name: &str| program.member(at, name);
+        Self {
+            name: member("Name"),
+            enable: member("Enable"),
+            test: member("Test"),
+            reset: member("Reset"),
+            state: member("State"),
+            connected: member("Connected"),
+            disabled: member("Disabled"),
+            known: member("Known"),
+            state_time: member("StateTime"),
+            last_good_age: member("LastGoodAge"),
+            last_error: member("LastError"),
+            exchanges: member("Exchanges"),
+            failures: member("Failures"),
+            response_time: member("ResponseTime"),
+            test_result: member("TestResult"),
+            detail: member("Detail"),
+        }
+    }
+}
+
+/// A `Comm.Link` instance of the program, as the last walk found it (§4 item 5): where it and its
+/// members lie, valid in the program it was found in, and its `Test` and `Reset` in the last scan,
+/// for their rising edges.
+#[derive(Debug, Clone)]
+struct Block {
+    at: Located,
+    members: Members,
+    /// The enumeration its `State` is of, which a written state names; none when its `State` is no
+    /// enumeration.
+    state_type: Option<SmolStr>,
+    test: bool,
+    reset: bool,
+}
+
+impl Block {
+    fn new<P: ProgramRead + ?Sized>(program: &P, at: Located, test: bool, reset: bool) -> Self {
+        let members = Members::of(program, &at);
+        let state_type = members
+            .state
+            .and_then(|state| program.read_at(&state).ok())
+            .and_then(|state| match state {
+                Value::Enum(state) => Some(state.type_name().clone()),
+                _ => None,
+            });
+        Self {
+            at,
+            members,
+            state_type,
+            test,
+            reset,
+        }
+    }
 }
 
 /// The links' states and the program's `Comm.Link` blocks.
@@ -177,12 +287,24 @@ pub(super) struct LinkSubsystem {
     tracked: FxHashMap<SmolStr, Tracked>,
     /// When the runtime first looked for each name it does not run (§4 item 3).
     unknown_since: FxHashMap<String, i64>,
-    blocks: Vec<InstanceId>,
+    /// The program the blocks were found in, by its image's header, and whether its types hold the
+    /// block at all.
+    program: Option<(Header, bool)>,
+    blocks: Vec<Block>,
     walked_ms: Option<i64>,
-    /// Each block's `Test` and `Reset` in the last scan, for their rising edges.
-    inputs: FxHashMap<InstanceId, (bool, bool)>,
     /// The outcome of each link's last test, by name (§4 item 7).
     tests: FxHashMap<String, String>,
+}
+
+/// The scan's sources of the links' states (§3): the `io.toml` drivers, which the blocks switch off
+/// and test (§4 items 6 and 7), and the ADS and OPC UA client connections.
+pub(super) struct LinkSources<'a> {
+    /// The drivers of `io.toml`, in their order.
+    pub(super) drivers: &'a mut [IoDriverEntry],
+    pub(super) ads: &'a AdsSubsystem,
+    pub(super) opcua: &'a OpcUaClientSubsystem,
+    /// The size of the input image the drivers read, for a link test's spare image.
+    pub(super) input_len: usize,
 }
 
 impl LinkSubsystem {
@@ -190,39 +312,141 @@ impl LinkSubsystem {
         Self::default()
     }
 
+    /// Notes the link of an `io.toml` driver configured with `enabled = false`, which reads
+    /// `Disabled` (§3 item 1).
     pub(super) fn add_disabled(&mut self, link: SmolStr) {
         if !self.disabled.contains(&link) {
             self.disabled.push(link);
         }
     }
 
+    /// Fills the program's `Comm.Link` blocks with the state of their links, after the inputs
+    /// are read and before the program runs (§4 item 1); first it does what the blocks asked in
+    /// the last scan: switching `io.toml` drivers' links off or on, from the next read on, testing
+    /// them, starting their counters again. A program without the block is skipped.
+    pub(super) fn apply_link_states(
+        &mut self,
+        program: &mut dyn ProgramWrite,
+        links: LinkSources<'_>,
+        now_ms: i64,
+    ) {
+        let LinkSources {
+            drivers,
+            ads,
+            opcua,
+            input_len,
+        } = links;
+        if !self.find_blocks(&*program, now_ms) {
+            return;
+        }
+        let requests = self.requests(&*program);
+        // A link runs while none of its blocks switches it off (§4 item 6).
+        let off: FxHashSet<&str> = requests
+            .iter()
+            .filter(|request| !request.enable)
+            .map(|request| request.name.as_str())
+            .collect();
+        let links: Vec<SmolStr> = drivers
+            .iter()
+            .filter_map(|entry| entry.link.clone())
+            .collect();
+        for link in &links {
+            set_link_enabled(drivers, link, !off.contains(link.as_str()));
+        }
+        let mut tests = Vec::new();
+        for request in requests.iter().filter(|request| request.test) {
+            let outcome = match test_link(drivers, &request.name, input_len) {
+                Some(Ok(time)) => format!("answered in {} ms", time.as_millis()),
+                Some(Err(error)) => error,
+                None if request.name.starts_with("ads:")
+                    || request.name.starts_with("opcua_client:") =>
+                {
+                    "a client connection is not tested this way".to_string()
+                }
+                None => format!("no link {} in this runtime", request.name),
+            };
+            tests.push((request.name.clone(), outcome));
+        }
+        let resets: FxHashSet<String> = requests
+            .iter()
+            .filter(|request| request.reset)
+            .map(|request| request.name.clone())
+            .collect();
+        let mut readings: Vec<LinkReading> = driver_readings(drivers).collect();
+        if ads.connection_count() > 0 {
+            readings.extend(ads.status_report().connections.iter().map(ads_reading));
+        }
+        if opcua.connection_count() > 0 {
+            readings.extend(opcua.status_report().connections.iter().map(opcua_reading));
+        }
+        self.apply(program, readings, tests, &resets, now_ms);
+    }
+
+    /// Finds the program's blocks again once a second, and at once in a program other than the
+    /// one they were found in (an online change), whose places are that program's alone; a block
+    /// found again at its place keeps its last `Test` and `Reset`. A program whose types do not
+    /// hold the block is not searched (§4 item 5): false then.
+    fn find_blocks<P: ProgramRead + ?Sized>(&mut self, program: &P, now_ms: i64) -> bool {
+        let image = program.program_image();
+        let header = *image.header();
+        let changed = self.program.is_none_or(|(found_in, _)| found_in != header);
+        if changed {
+            self.program = Some((header, declares_block(&image)));
+        }
+        if !self.program.is_some_and(|(_, declares)| declares) {
+            self.blocks.clear();
+            return false;
+        }
+        let due = changed
+            || self
+                .walked_ms
+                .is_none_or(|walked| now_ms < walked || now_ms - walked >= WALK_PERIOD_MS);
+        if !due {
+            return true;
+        }
+        self.walked_ms = Some(now_ms);
+        let found = blocks_of(program);
+        let same = found.len() == self.blocks.len()
+            && found
+                .iter()
+                .zip(&self.blocks)
+                .all(|(at, block)| *at == block.at);
+        if changed || !same {
+            let previous = std::mem::take(&mut self.blocks);
+            self.blocks = found
+                .into_iter()
+                .map(|at| {
+                    let (test, reset) = previous
+                        .iter()
+                        .find(|block| block.at == at)
+                        .map_or((false, false), |block| (block.test, block.reset));
+                    Block::new(program, at, test, reset)
+                })
+                .collect();
+        }
+        true
+    }
+
     /// What each block asks of its link, the program having called it in the last scan.
-    fn requests(&mut self, storage: &VariableStorage) -> Vec<LinkRequest> {
+    fn requests<P: ProgramRead + ?Sized>(&mut self, program: &P) -> Vec<LinkRequest> {
         let mut requests = Vec::with_capacity(self.blocks.len());
-        for &part in &self.blocks {
-            let Some(instance) = storage.get_instance(part) else {
-                continue;
+        for block in &mut self.blocks {
+            let flag = |at: Option<Located>, otherwise: bool| match read(program, at) {
+                Some(Value::Bool(value)) => value,
+                _ => otherwise,
             };
-            let flag =
-                |name: &str, otherwise: bool| match find_ignoring_case(&instance.variables, name) {
-                    Some(Value::Bool(value)) => *value,
-                    _ => otherwise,
-                };
-            let name = match find_ignoring_case(&instance.variables, "Name") {
-                Some(Value::String(name)) => name.trim().to_string(),
-                _ => String::new(),
-            };
-            let (test, reset) = (flag("Test", false), flag("Reset", false));
-            let (was_test, was_reset) = self
-                .inputs
-                .insert(part, (test, reset))
-                .unwrap_or((false, false));
+            let (test, reset) = (
+                flag(block.members.test, false),
+                flag(block.members.reset, false),
+            );
             requests.push(LinkRequest {
-                name,
-                enable: flag("Enable", true),
-                test: test && !was_test,
-                reset: reset && !was_reset,
+                name: name_of(program, block),
+                enable: flag(block.members.enable, true),
+                test: test && !block.test,
+                reset: reset && !block.reset,
             });
+            block.test = test;
+            block.reset = reset;
         }
         requests
     }
@@ -231,7 +455,7 @@ impl LinkSubsystem {
     /// writes every `Comm.Link` block of the program.
     fn apply(
         &mut self,
-        writes: &mut dyn ScanWrites,
+        program: &mut dyn ProgramWrite,
         readings: Vec<LinkReading>,
         tests: Vec<(String, String)>,
         resets: &FxHashSet<String>,
@@ -255,8 +479,8 @@ impl LinkSubsystem {
             }
         }
         self.tests.extend(tests);
-        for id in self.blocks.clone() {
-            self.fill(writes, id, now_ms);
+        for index in 0..self.blocks.len() {
+            self.fill(program, index, now_ms);
         }
     }
 
@@ -289,43 +513,12 @@ impl LinkSubsystem {
         }
     }
 
-    /// Finds the blocks again once a second, and at once when a known block is gone or no longer
-    /// a link (an online change).
-    fn find_blocks(
-        &mut self,
-        storage: &VariableStorage,
-        holdings: &crate::hmi::instance_holdings::Holdings<'_>,
-        is_program: &dyn Fn(&str) -> bool,
-        now_ms: i64,
-    ) {
-        let gone = self
-            .blocks
-            .iter()
-            .any(|id| link_part(storage, *id).is_none());
-        let due = self
-            .walked_ms
-            .is_none_or(|walked| now_ms < walked || now_ms - walked >= WALK_PERIOD_MS);
-        if gone || due {
-            self.blocks = instances_of(storage, holdings, LINK_BLOCK, MAX_LINKS, is_program)
-                .into_iter()
-                .filter_map(|found| link_part(storage, found.id))
-                .collect();
-            self.walked_ms = Some(now_ms);
-            let blocks: FxHashSet<InstanceId> = self.blocks.iter().copied().collect();
-            self.inputs.retain(|id, _| blocks.contains(id));
-        }
-    }
-
-    /// Writes one block's outputs from the link its `Name` names (§4).
-    fn fill(&mut self, writes: &mut dyn ScanWrites, part: InstanceId, now_ms: i64) {
-        let name = match writes
-            .storage()
-            .get_instance(part)
-            .and_then(|instance| find_ignoring_case(&instance.variables, "Name"))
-        {
-            Some(Value::String(name)) => name.trim().to_string(),
-            _ => String::new(),
+    /// Writes the outputs of block `index` from the link its `Name` names (§4).
+    fn fill(&mut self, program: &mut dyn ProgramWrite, index: usize, now_ms: i64) {
+        let Some(block) = self.blocks.get(index) else {
+            return;
         };
+        let name = name_of(&*program, block);
         let test = self.tests.get(name.as_str()).cloned().unwrap_or_default();
         let (state, known, state_ms, good_ms, error, counts) = match self.tracked.get(name.as_str())
         {
@@ -355,204 +548,125 @@ impl LinkSubsystem {
                 )
             }
         };
-        let (word, value) = state.name_and_value();
-        if let Some(Value::Enum(current)) = writes
-            .storage()
-            .get_instance(part)
-            .and_then(|instance| find_ignoring_case(&instance.variables, "State"))
-        {
-            let next = EnumValue::from_canonical_parts(
-                current.type_name().clone(),
-                SmolStr::new(word),
-                value,
-            );
-            set_member(writes, part, "State", Value::Enum(Box::new(next)));
-        }
-        set_member(writes, part, "Connected", Value::Bool(state.exchanges()));
-        set_member(
-            writes,
-            part,
-            "Disabled",
-            Value::Bool(state == LinkState::Disabled),
-        );
-        set_member(writes, part, "Known", Value::Bool(known));
-        set_member(
-            writes,
-            part,
-            "StateTime",
-            Value::Time(Duration::from_millis(state_ms)),
-        );
-        set_member(
-            writes,
-            part,
-            "LastGoodAge",
-            Value::Time(Duration::from_millis(good_ms)),
-        );
-        set_member(
-            writes,
-            part,
-            "LastError",
-            Value::String(SmolStr::new(clip(&error))),
-        );
-        let (exchanges, failures, response_ms) = counts;
-        set_member(
-            writes,
-            part,
-            "Exchanges",
-            Value::UDInt(u32::try_from(exchanges).unwrap_or(u32::MAX)),
-        );
-        set_member(
-            writes,
-            part,
-            "Failures",
-            Value::UDInt(u32::try_from(failures).unwrap_or(u32::MAX)),
-        );
-        set_member(
-            writes,
-            part,
-            "ResponseTime",
-            Value::Time(Duration::from_millis(response_ms)),
-        );
-        set_member(
-            writes,
-            part,
-            "TestResult",
-            Value::String(SmolStr::new(clip(&test))),
-        );
         let detail = self
             .tracked
             .get(name.as_str())
             .map(|link| link.detail.clone())
             .unwrap_or_default();
-        set_member(
-            writes,
-            part,
-            "Detail",
+        let members = block.members;
+        if let Some(type_name) = &block.state_type {
+            let (word, value) = state.name_and_value();
+            let next =
+                EnumValue::from_canonical_parts(type_name.clone(), SmolStr::new(word), value);
+            write(program, members.state, Value::Enum(Box::new(next)));
+        }
+        write(program, members.connected, Value::Bool(state.exchanges()));
+        write(
+            program,
+            members.disabled,
+            Value::Bool(state == LinkState::Disabled),
+        );
+        write(program, members.known, Value::Bool(known));
+        write(
+            program,
+            members.state_time,
+            Value::Time(Duration::from_millis(state_ms)),
+        );
+        write(
+            program,
+            members.last_good_age,
+            Value::Time(Duration::from_millis(good_ms)),
+        );
+        write(
+            program,
+            members.last_error,
+            Value::String(SmolStr::new(clip(&error))),
+        );
+        let (exchanges, failures, response_ms) = counts;
+        write(
+            program,
+            members.exchanges,
+            Value::UDInt(u32::try_from(exchanges).unwrap_or(u32::MAX)),
+        );
+        write(
+            program,
+            members.failures,
+            Value::UDInt(u32::try_from(failures).unwrap_or(u32::MAX)),
+        );
+        write(
+            program,
+            members.response_time,
+            Value::Time(Duration::from_millis(response_ms)),
+        );
+        write(
+            program,
+            members.test_result,
+            Value::String(SmolStr::new(clip(&test))),
+        );
+        write(
+            program,
+            members.detail,
             Value::String(SmolStr::new(clip(&detail))),
         );
+    }
+}
+
+/// Whether the program's types hold the block (§4 item 5: a program without the Comm library is
+/// not searched).
+fn declares_block(image: &Image<'_>) -> bool {
+    image.table::<TypeRecord>().is_ok_and(|types| {
+        types.iter().any(|record| {
+            record.kind == type_kind::FUNCTION_BLOCK
+                && image
+                    .string(record.name)
+                    .is_some_and(|name| name.eq_ignore_ascii_case(LINK_BLOCK))
+        })
+    })
+}
+
+/// Every instance of the block or of a block derived from it, at any depth of the program, where
+/// it is declared, in declaration order, at most [`MAX_LINKS`] (§4 item 1); a block's own members
+/// are not searched.
+fn blocks_of<P: ProgramRead + ?Sized>(program: &P) -> Vec<Located> {
+    let mut found = Vec::new();
+    program.instances(&mut |_, at| {
+        if !program.is_a(&at, LINK_BLOCK) {
+            return Walk::Descend;
+        }
+        found.push(at);
+        if found.len() >= MAX_LINKS {
+            Walk::Stop
+        } else {
+            Walk::Skip
+        }
+    });
+    found
+}
+
+/// The value at the member `at`, when the block has it and it reads.
+fn read<P: ProgramRead + ?Sized>(program: &P, at: Option<Located>) -> Option<Value> {
+    program.read_at(&at?).ok()
+}
+
+/// The link the block's `Name` names, without the spaces around it.
+fn name_of<P: ProgramRead + ?Sized>(program: &P, block: &Block) -> String {
+    match read(program, block.members.name) {
+        Some(Value::String(name)) => name.trim().to_string(),
+        _ => String::new(),
+    }
+}
+
+/// Writes a member the block declares through the runtime's checks. A member the runtime refuses
+/// keeps its value; the block shows the rest.
+fn write(program: &mut dyn ProgramWrite, at: Option<Located>, value: Value) {
+    if let Some(at) = at {
+        let _ = program.write_at(&at, &value);
     }
 }
 
 /// A text cut to the length of the block's strings.
 fn clip(text: &str) -> String {
     text.chars().take(TEXT_LENGTH).collect()
-}
-
-/// The `Comm.Link` part of an instance whose type is, or extends, the block.
-fn link_part(storage: &VariableStorage, id: InstanceId) -> Option<InstanceId> {
-    let mut current = Some(id);
-    for _ in 0..MAX_DEPTH {
-        let id = current?;
-        let instance = storage.get_instance(id)?;
-        if instance.type_name.eq_ignore_ascii_case(LINK_BLOCK) {
-            return Some(id);
-        }
-        current = instance.parent;
-    }
-    None
-}
-
-/// Writes a member the block declares, under its declared name, through the scan's checked
-/// writes. A member the runtime refuses keeps its value; the block shows the rest.
-fn set_member(writes: &mut dyn ScanWrites, part: InstanceId, name: &str, value: Value) {
-    let storage = writes.storage();
-    let Some(reference) = storage
-        .get_instance(part)
-        .and_then(|instance| {
-            instance
-                .variables
-                .keys()
-                .find(|key| key.eq_ignore_ascii_case(name))
-                .cloned()
-        })
-        .and_then(|key| storage.ref_for_instance(part, &key))
-    else {
-        return;
-    };
-    writes.write(&reference, value);
-}
-
-/// The scan's services the link states come from.
-pub(super) struct LinkSources<'a> {
-    pub(super) io: &'a mut IoSubsystem,
-    pub(super) ads: &'a AdsSubsystem,
-    pub(super) opcua: &'a OpcUaClientSubsystem,
-    pub(super) metadata: &'a RuntimeMetadata,
-    /// The size of the input image, for a link test's spare image.
-    pub(super) input_len: usize,
-}
-
-impl LinkSubsystem {
-    /// Fills the program's `Comm.Link` blocks with the state of their links, after the inputs
-    /// are read and before the program runs (§4 item 1); first it does what the blocks asked in
-    /// the last scan: switching `io.toml` drivers' links off or on, testing them, starting their
-    /// counters again. A program without the block is skipped.
-    pub(super) fn apply_link_states(
-        &mut self,
-        sources: LinkSources<'_>,
-        writes: &mut dyn ScanWrites,
-        now_ms: i64,
-    ) {
-        let LinkSources {
-            io,
-            ads,
-            opcua,
-            metadata,
-            input_len,
-        } = sources;
-        if find_ignoring_case(metadata.function_blocks(), LINK_BLOCK).is_none() {
-            return;
-        }
-        {
-            let programs = metadata.program_templates();
-            let is_program = |name: &str| find_ignoring_case(programs, name).is_some();
-            let holdings = crate::hmi::instance_holdings::Holdings::new(
-                metadata.function_blocks(),
-                metadata.classes(),
-                metadata.program_templates(),
-                metadata.registry(),
-            );
-            self.find_blocks(writes.storage(), &holdings, &is_program, now_ms);
-        }
-        let requests = self.requests(writes.storage());
-        // A link runs while none of its blocks switches it off (§4 item 6).
-        let off: FxHashSet<&str> = requests
-            .iter()
-            .filter(|request| !request.enable)
-            .map(|request| request.name.as_str())
-            .collect();
-        let links: Vec<SmolStr> = io.link_ios().map(|io| io.link.clone()).collect();
-        for link in &links {
-            io.set_link_enabled(link, !off.contains(link.as_str()));
-        }
-        let mut tests = Vec::new();
-        for request in requests.iter().filter(|request| request.test) {
-            let outcome = match io.test_link(&request.name, input_len) {
-                Some(Ok(time)) => format!("answered in {} ms", time.as_millis()),
-                Some(Err(error)) => error,
-                None if request.name.starts_with("ads:")
-                    || request.name.starts_with("opcua_client:") =>
-                {
-                    "a client connection is not tested this way".to_string()
-                }
-                None => format!("no link {} in this runtime", request.name),
-            };
-            tests.push((request.name.clone(), outcome));
-        }
-        let resets: FxHashSet<String> = requests
-            .iter()
-            .filter(|request| request.reset)
-            .map(|request| request.name.clone())
-            .collect();
-        let mut readings: Vec<LinkReading> = io.link_ios().map(|io| io_reading(&io)).collect();
-        if ads.connection_count() > 0 {
-            readings.extend(ads.status_report().connections.iter().map(ads_reading));
-        }
-        if opcua.connection_count() > 0 {
-            readings.extend(opcua.status_report().connections.iter().map(opcua_reading));
-        }
-        self.apply(writes, readings, tests, &resets, now_ms);
-    }
 }
 
 #[cfg(test)]

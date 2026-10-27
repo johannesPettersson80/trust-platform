@@ -5,7 +5,7 @@ use trust_runtime::error::RuntimeError;
 use trust_runtime::io::IoAddress;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
 static NEXT_CONFIG: AtomicU64 = AtomicU64::new(0);
 
@@ -58,7 +58,7 @@ initial_applied = 75.0
     )
 }
 
-fn runtime(bindings: &[(&str, &str, TypeId)]) -> Runtime {
+fn runtime(bindings: &[(&str, &str, TypeId)]) -> CompiledRuntime {
     let typed: Vec<(IoAddress, TypeId)> = bindings
         .iter()
         .map(|(_, address, value_type)| (IoAddress::parse(address).unwrap(), *value_type))
@@ -66,7 +66,7 @@ fn runtime(bindings: &[(&str, &str, TypeId)]) -> Runtime {
     trust_runtime::harness::runtime_with_bindings(&typed).expect("compile the plant's bindings")
 }
 
-fn heater_runtime() -> Runtime {
+fn heater_runtime() -> CompiledRuntime {
     runtime(&[
         ("command", "%QL0", TypeId::LREAL),
         ("temperature", "%IL0", TypeId::LREAL),
@@ -74,7 +74,7 @@ fn heater_runtime() -> Runtime {
     ])
 }
 
-fn write(runtime: &mut Runtime, address: &str, value: f64) {
+fn write(runtime: &mut CompiledRuntime, address: &str, value: f64) {
     runtime
         .write_io(
             &IoAddress::parse(address).unwrap(),
@@ -83,10 +83,9 @@ fn write(runtime: &mut Runtime, address: &str, value: f64) {
         .unwrap();
 }
 
-fn read(runtime: &Runtime, address: &str) -> f64 {
+fn read(runtime: &CompiledRuntime, address: &str) -> f64 {
     match runtime
-        .io()
-        .read(&IoAddress::parse(address).unwrap())
+        .read_io(&IoAddress::parse(address).unwrap())
         .unwrap()
     {
         Value::LWord(bits) => f64::from_bits(bits),
@@ -94,7 +93,7 @@ fn read(runtime: &Runtime, address: &str) -> f64 {
     }
 }
 
-fn step(simulation: &mut SimulationController, runtime: &mut Runtime, millis: i64) {
+fn step(simulation: &mut SimulationController, runtime: &mut CompiledRuntime, millis: i64) {
     simulation
         .apply_post_cycle(Duration::from_millis(millis), runtime)
         .unwrap();
@@ -378,10 +377,7 @@ gain = 1.0
             "valid process feedback cannot publish before the applied conversion succeeds"
         );
         assert_eq!(
-            runtime
-                .io()
-                .read(&IoAddress::parse("%IB8").unwrap())
-                .unwrap(),
+            runtime.read_io(&IoAddress::parse("%IB8").unwrap()).unwrap(),
             Value::Byte(50)
         );
     }

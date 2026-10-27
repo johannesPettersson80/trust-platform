@@ -157,7 +157,7 @@ END_PROGRAM
 
     let response = handle_request_value(json!({"id": 9203, "type": "status"}), &state, None);
     assert!(response.ok, "status failed: {:?}", response.error);
-    let result = response.result.expect("status result");
+    let result = response.result_value().expect("status result");
     let io_drivers = result.get("io_drivers").expect("io_drivers");
 
     assert_connector_fixture(io_drivers, "phase0/io_driver/status_io_drivers.json");
@@ -263,7 +263,7 @@ END_PROGRAM
     assert!(legacy.ok, "status failed: {:?}", legacy.error);
     assert_eq!(
         legacy
-            .result
+            .result_value()
             .as_ref()
             .and_then(|value| value.pointer("/io_drivers/0/status"))
             .and_then(serde_json::Value::as_str),

@@ -227,13 +227,35 @@ if (RENDERED_TEST_ENABLED) {
         await session.setValue('[data-plant-input-delay-cell="0"]', "0.15");
         await session.setValue('[data-plant-input-delay-cell="1"]', "0.35");
         await session.setValue('[data-plant-state-space-dimension="inputs"]', "3");
-        assert.deepStrictEqual(await readInputDelays(session), ["0.15", "0.35", "0"], "a new input receives zero delay");
+        // The resize is the language server's: the third delay shows once it answered.
+        await pollValue(
+          "a new input receives zero delay",
+          async () => JSON.stringify(await readInputDelays(session)),
+          (value) => value === JSON.stringify(["0.15", "0.35", "0"]),
+          8_000
+        );
+        // Each resize is the language server's: the matrices, the delays and its question show once
+        // it answered.
+        const cells = (matrix: string) => session.inner(`return String(d.querySelectorAll('[data-plant-matrix-cell^="${matrix}:"]').length);`);
         await session.setValue('[data-plant-state-space-dimension="states"]', "2");
+        await pollValue("two states", () => cells("a"), (value) => value === "4", 8_000);
         assert.deepStrictEqual(await readInputDelays(session), ["0.15", "0.35", "0"], "state dimension changes preserve input delays");
         await session.setValue('[data-plant-state-space-dimension="inputs"]', "2");
+        await pollValue(
+          "the question before inputs are removed",
+          () => session.inner("return String(Boolean(d.querySelector('[data-plant-state-space-resize-apply]')));"),
+          (value) => value === "true",
+          8_000
+        );
         await session.inner("d.querySelector('[data-plant-state-space-resize-apply]').click();return 'RESIZED';");
+        await pollValue("two inputs", async () => JSON.stringify(await readInputDelays(session)), (value) => value === JSON.stringify(["0.15", "0.35"]), 8_000);
         await session.setValue('[data-plant-state-space-dimension="inputs"]', "1");
-        const confirmation = await session.inner("return d.querySelector('[data-plant-state-space-resize-confirm]')?.textContent||'';");
+        const confirmation = await pollValue(
+          "destructive input resizing must name its delay loss",
+          () => session.inner("return d.querySelector('[data-plant-state-space-resize-confirm]')?.textContent||'';"),
+          (value) => /nonzero.*delay|delay.*nonzero/i.test(value),
+          8_000
+        );
         assert.match(confirmation, /nonzero.*delay|delay.*nonzero/i, "destructive input resizing must name its delay loss");
         await session.inner("d.querySelector('[data-plant-state-space-resize-cancel]').click();return 'CANCELLED';");
         assert.deepStrictEqual(await readInputDelays(session), ["0.15", "0.35"], "Cancel preserves both existing delays");
@@ -253,7 +275,13 @@ if (RENDERED_TEST_ENABLED) {
         await pollSave(session.inner, false, "fully bound state-space ports");
         await session.setValue('[data-plant-input-delay-cell="1"]', "-1");
         await pollSave(session.inner, true, "negative input delay");
-        assert.match(await session.inner("return d.querySelector('[data-plant-input-delays]')?.textContent||'';"), /0|nonnegative/);
+        // Save is held while the check runs; the delay's problem shows once Rust answered.
+        await pollValue(
+          "the negative delay's problem",
+          () => session.inner("return d.querySelector('[data-plant-input-delays] [data-plant-input-delay-error]')?.textContent||'';"),
+          (value) => /0 s or greater|nonnegative/i.test(value),
+          8_000
+        );
         await session.inner("d.querySelector('[data-plant-validation-summary] button')?.click();return 'FOCUSED';");
         await pollValue("invalid input delay owns focus", () => session.inner("return d.activeElement?.getAttribute('data-plant-input-delay-cell')||'';"), (value) => value === "1", 5_000);
         const delayFieldTops = JSON.parse(await session.inner("return JSON.stringify([...d.querySelectorAll('[data-plant-input-delay-cell]')].map(field=>Math.round(field.getBoundingClientRect().top)));"));
@@ -274,19 +302,31 @@ if (RENDERED_TEST_ENABLED) {
         await session.setValue('[data-plant-engineering-field="step_ms"]', "1");
         await session.setValue('[data-plant-input-delay-cell="0"]', "100");
         await pollSave(session.inner, true, "input delays exceeding the native history bound");
-        assert.match(await session.inner("return d.querySelector('[data-plant-input-delays]')?.textContent||'';"), /history/i);
+        await pollValue(
+          "the delays' history problem",
+          () => session.inner("return d.querySelector('[data-plant-input-delays]')?.textContent||'';"),
+          (value) => /history/i.test(value),
+          8_000
+        );
         await session.setValue('[data-plant-input-delay-cell="0"]', "0.15");
 
         await session.setValue('select[name="plant-feedback-target-1"]', "");
         await pollSave(session.inner, true, "cleared second state-space output");
-        const afterClear = await preservedFirstPortState(session);
-        assert.deepStrictEqual(afterClear, {
+        const cleared = {
           command0: "%QL0",
           feedback0: "%IL0",
           feedback1: "",
           inputScale0: "2",
           outputScale0: "4",
-        }, "clearing output 2 must retain output 1, input 1, and their conversions");
+        };
+        // The binding is the language server's; the ports show it once it answered.
+        const afterClear = await pollValue(
+          "clearing output 2 must retain output 1, input 1, and their conversions",
+          () => preservedFirstPortState(session),
+          (value) => JSON.stringify(value) === JSON.stringify(cleared),
+          8_000
+        );
+        assert.deepStrictEqual(afterClear, cleared, "clearing output 2 must retain output 1, input 1, and their conversions");
 
         await chooseAddress(session, "plant-feedback-target-1", "%IL16");
         await pollSave(session.inner, false, "changed second state-space output");
@@ -458,6 +498,13 @@ async function saveAndReopenPlant(session: RenderedPlantSession): Promise<void> 
     "persisted plant editor",
     async () => session.inner("var panel=d.querySelector('aside[aria-label=\"Plant properties\"]');return (panel?.textContent||'').includes('Configure plant')?'OPEN':'WAIT';"),
     (value) => value === "OPEN",
+    20_000
+  );
+  // The editor shows the saved plant's fields once Rust has opened it.
+  await pollValue(
+    "persisted plant fields",
+    async () => session.inner("return String(Boolean(d.querySelector('select[name=plant-model]')));"),
+    (value) => value === "true",
     20_000
   );
 }

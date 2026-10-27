@@ -192,7 +192,7 @@ fn abort_runtime_fixture(
     simulation_path: Option<&std::path::Path>,
 ) -> (
     ControlState,
-    crate::Runtime,
+    crate::CompiledRuntime,
     Option<crate::simulation::SimulationController>,
     u64,
 ) {
@@ -202,15 +202,15 @@ fn abort_runtime_fixture(
             "src/process.st",
             source,
         )]);
-    let mut runtime = session.build_runtime().expect("compile actual ST program");
+    let mut runtime = TestHarness::from_session(session)
+        .expect("compile actual ST program")
+        .into_runtime();
     // A simulated resource: the scans of this fixture report a simulated target (Specification 35, A2.4).
     runtime.set_simulation_enabled(true);
-    runtime
-        .apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)
-        .unwrap();
-    state.debug = runtime.enable_debug();
+    let debug = crate::debug::DebugControl::new();
+    runtime.set_debug_control(debug.clone());
+    state.debug = debug;
     state.connect_experiments();
-    *state.metadata.lock().unwrap() = runtime.metadata_snapshot();
     let simulation = simulation_path.map(|path| {
         crate::simulation::SimulationController::new(
             crate::simulation::SimulationConfig::load(path).unwrap(),
@@ -222,7 +222,7 @@ fn abort_runtime_fixture(
 fn abort_runtime_scan(
     fixture: &mut (
         ControlState,
-        crate::Runtime,
+        crate::CompiledRuntime,
         Option<crate::simulation::SimulationController>,
         u64,
     ),
@@ -236,7 +236,10 @@ fn abort_runtime_scan(
             )
             .unwrap();
     }
-    runtime.advance_time(crate::value::Duration::from_millis(100));
+    let now = runtime.current_time();
+    runtime.set_current_time(crate::value::Duration::from_nanos(
+        now.as_nanos() + crate::value::Duration::from_millis(100).as_nanos(),
+    ));
     runtime.execute_cycle().expect("execute actual owning task");
     *scan += 1;
     if let Some(simulation) = simulation.as_mut() {
@@ -247,7 +250,11 @@ fn abort_runtime_scan(
             )
             .unwrap();
     }
-    let mut snapshot = runtime.io().snapshot();
+    // The control's view of the process image: the snapshot the scan published (specification 44 §13.3).
+    let mut snapshot = state
+        .debug
+        .latest_io_snapshot()
+        .expect("the scan's I/O snapshot");
     snapshot.scan = Some(*scan);
     *state.io_snapshot.lock().unwrap() = Some(snapshot);
 }
@@ -259,7 +266,7 @@ fn abort_runtime_scan(
 fn abort_runtime_until_restoration(
     fixture: &mut (
         ControlState,
-        crate::Runtime,
+        crate::CompiledRuntime,
         Option<crate::simulation::SimulationController>,
         u64,
     ),
@@ -275,7 +282,7 @@ fn abort_runtime_until_restoration(
 fn abort_runtime_until(
     fixture: &mut (
         ControlState,
-        crate::Runtime,
+        crate::CompiledRuntime,
         Option<crate::simulation::SimulationController>,
         u64,
     ),
@@ -315,10 +322,9 @@ fn abort_runtime_start(
     assert!(response.ok, "{:?}", response.error);
 }
 
-fn abort_runtime_output(runtime: &crate::Runtime) -> f64 {
+fn abort_runtime_output(runtime: &crate::CompiledRuntime) -> f64 {
     match runtime
-        .io()
-        .read(&crate::io::IoAddress::parse("%QL0").unwrap())
+        .read_io(&crate::io::IoAddress::parse("%QL0").unwrap())
         .unwrap()
     {
         Value::LWord(bits) => f64::from_bits(bits),

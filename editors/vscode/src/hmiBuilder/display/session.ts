@@ -1,13 +1,19 @@
-// The session on the runtime display (specification 39, §12.4, §12.8): who is logged in, the
-// session bar with Log in or Log out, the login dialog, and what happens when the session ends.
+// The session on the runtime display (specification 39, §12.4, §12.8): who is logged in, what the
+// runtime says the session may do, the session bar with Log in or Log out, the login dialog, and
+// what happens when the session ends.
 
 import type { DisplayHost } from "./runtimeDisplay";
 import { button, element, labelledInput, Overlay } from "./overlay";
 import { say } from "../drawing/speech";
 
+/** A session as the runtime reports it, with what it may do (§12.4 item 4). */
 export interface Session {
   user: string;
   role: string;
+  /** The roles it may act as; a control whose needed role is not among them is locked. */
+  acts_as?: string[];
+  /** Whether it may change settings (§21.4 item 1). */
+  may_change_settings?: boolean;
 }
 
 export class SessionControl {
@@ -43,10 +49,20 @@ export class SessionControl {
     return this.session?.role;
   }
 
+  /** The roles the session may act as, as the runtime says; none without a session. */
+  get actsAs(): readonly string[] {
+    return this.session?.acts_as ?? [];
+  }
+
+  /** Whether the session may change settings, as the runtime says (§21.4 item 1). */
+  get mayChangeSettings(): boolean {
+    return this.session?.may_change_settings === true;
+  }
+
   /** The session the stream reports; only a session that ends asks to log in again. */
   receive(session: Session | null | undefined): void {
     const had = this.session !== undefined;
-    this.session = session ?? undefined;
+    this.session = sessionOf(session);
     this.showBar();
     if (had && !this.session) this.showLogin(say("Your session ended. Log in to operate."));
   }
@@ -127,11 +143,19 @@ export class SessionControl {
   }
 }
 
+/** A session from a login, session or stream answer, with the facts the runtime gives it. */
 function sessionOf(body: unknown): Session | undefined {
-  const session = body as { user?: unknown; role?: unknown } | null;
-  return typeof session?.user === "string" && typeof session.role === "string"
-    ? { user: session.user, role: session.role }
-    : undefined;
+  const session = body as { user?: unknown; role?: unknown; acts_as?: unknown; may_change_settings?: unknown } | null;
+  if (typeof session?.user !== "string" || typeof session.role !== "string") return undefined;
+  const actsAs = Array.isArray(session.acts_as)
+    ? session.acts_as.filter((role): role is string => typeof role === "string")
+    : [];
+  return {
+    user: session.user,
+    role: session.role,
+    acts_as: actsAs,
+    may_change_settings: session.may_change_settings === true,
+  };
 }
 
 function roleName(role: string): string {

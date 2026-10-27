@@ -1,5 +1,9 @@
+//! SIZEOF of variables and types in a running program, and the operands the build refuses.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use trust_hir::types::POINTER_REFERENCE_HANDLE_SIZE_BYTES;
-use trust_runtime::harness::{CompileSession, SourceFile, TestHarness};
+use trust_runtime::harness::{SourceFile, TestHarness};
 
 #[test]
 fn sizeof_variable_and_type_operands_build_and_run() {
@@ -219,9 +223,9 @@ fn sizeof_rejects_call_operands_during_build() {
         END_PROGRAM
     "#;
 
-    let err = CompileSession::from_source(source)
-        .build_runtime()
-        .expect_err("SIZEOF(call) should fail");
+    let Err(err) = TestHarness::from_source(source) else {
+        panic!("SIZEOF(call) should fail");
+    };
     let rendered = err.to_string();
     assert!(rendered.contains("SIZEOF"), "{rendered}");
 }
@@ -244,9 +248,9 @@ fn sizeof_rejects_function_block_instance_operands_during_build() {
         END_PROGRAM
     "#;
 
-    let err = CompileSession::from_source(source)
-        .build_runtime()
-        .expect_err("SIZEOF(fb instance) should fail");
+    let Err(err) = TestHarness::from_source(source) else {
+        panic!("SIZEOF(fb instance) should fail");
+    };
     let rendered = err.to_string();
     assert!(rendered.contains("SIZEOF"), "{rendered}");
 }
@@ -260,16 +264,16 @@ fn sizeof_rejects_unknown_identifiers_during_build() {
         END_PROGRAM
     "#;
 
-    let err = CompileSession::from_source(source)
-        .build_runtime()
-        .expect_err("unknown SIZEOF operand should fail");
+    let Err(err) = TestHarness::from_source(source) else {
+        panic!("unknown SIZEOF operand should fail");
+    };
     let rendered = err.to_string();
     assert!(rendered.contains("SIZEOF"), "{rendered}");
 }
 
 #[test]
 fn sizeof_complete_program_fixture_supports_variable_and_type_operands() {
-    let sources = vec![
+    let sources = [
         SourceFile::with_path(
             "types.st",
             include_str!("fixtures/complete_program/types.st"),
@@ -284,8 +288,11 @@ fn sizeof_complete_program_fixture_supports_variable_and_type_operands() {
         ),
     ];
 
-    CompileSession::from_sources(sources)
-        .label_errors(true)
-        .build_runtime()
-        .expect("complete program with SIZEOF should compile");
+    let texts = sources
+        .iter()
+        .map(|source| source.text.as_str())
+        .collect::<Vec<_>>();
+    if let Err(error) = TestHarness::from_sources(&texts) {
+        panic!("complete program with SIZEOF should compile: {error}");
+    }
 }

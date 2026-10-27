@@ -1,3 +1,8 @@
+//! `trust-runtime setup`: the project it creates, with its program built.
+//!
+//! The tests that build a project need the toolchain of specification 44 §4.6 at
+//! `TRUST_TOOLCHAIN`.
+
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -148,7 +153,7 @@ fn setup_cli_mode_writes_artifacts_and_next_steps() {
     );
     assert!(project.join("runtime.toml").is_file());
     assert!(project.join("io.toml").is_file());
-    assert!(project.join("program.stbc").is_file());
+    assert!(project.join("program.tpi").is_file());
     assert!(project.join("src").join("main.st").is_file());
     assert!(project.join("src").join("config.st").is_file());
 
@@ -179,7 +184,7 @@ fn setup_cli_treats_project_path_glob_characters_literally() {
         "literal project path setup failed:\n{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(project.join("program.stbc").is_file());
+    assert!(project.join("program.tpi").is_file());
 
     let _ = std::fs::remove_dir_all(project);
 }

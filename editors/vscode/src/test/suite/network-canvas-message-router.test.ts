@@ -8,6 +8,14 @@ suite("Network Canvas message routing", () => {
     const decoded = decodeCanvasMessage(input);
     assert.strictEqual(decoded, input);
     assert.strictEqual(decoded?.query, "faulted");
+    // The browse pane asks the server to check a typed ADS port (specification 25 §5.4).
+    const port = { type: "checkAdsPort", requestId: 3, text: "301" } as const;
+    assert.strictEqual(decodeCanvasMessage(port), port);
+    // A runtime node's Identify (specification 25 §5.12).
+    const identify = { type: "identifyRuntime", name: "line", endpoint: "tcp://10.0.0.9:5510" } as const;
+    assert.strictEqual(decodeCanvasMessage(identify), identify);
+    // The retired schema form's client-side field errors are no longer a message of the canvas.
+    assert.strictEqual(decodeCanvasMessage({ type: "commApplyClientError" }), undefined);
   });
 
   test("routes saved plant removal without rewriting its payload", () => {

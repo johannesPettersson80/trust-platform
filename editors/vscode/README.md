@@ -1,172 +1,90 @@
-# truST LSP for VS Code
+# truST: IEC 61131-3 Structured Text for VS Code
 
-**truST LSP** brings IEC 61131-3 Structured Text productivity to VS Code:
+Write, compile and debug IEC 61131-3 Structured Text, commission control loops with Control Studio,
+and design operator screens, all in one extension. Programs compile to native code, and the
+complete compiler toolchain is part of the extension, so there is nothing else to install.
 
-- Fast diagnostics and semantic highlighting
-- Go to definition/references, rename, and formatting
-- Runtime panel with live I/O control
-- Debugging with breakpoints, step, continue, and runtime values
-- ST test workflow with CodeLens + Test Explorer
+![Control Studio identifies a plant, tunes a PI controller, shows its frequency response and validates it](https://raw.githubusercontent.com/johannesPettersson80/trust-platform/main/docs/public/assets/images/readme/control-studio.gif)
 
----
+## Highlights
 
-## Quick Start (1 minute)
+- **Language server.** Diagnostics as you type that name the IEC 61131-3 rule, completion, hover,
+  go to definition, find references, rename across files, formatting and refactorings, for
+  Structured Text with classes, interfaces, methods and namespaces.
+- **Native execution.** Structured Text compiles through Rust into native code. The extension
+  carries the compiler toolchain of its platform (`rustc`, `rust-lld`, the target libraries and the
+  PLC program library), and the first build installs it: no download and no Rust installation of
+  your own, offline too.
+- **Run and debug.** Run on the built-in simulator or on a runtime, with breakpoints, stepping, call
+  stack and variables on the compiled program. Live Values reads, writes and forces inputs, outputs
+  and memory while the program runs.
+- **Control Studio.** Identify a plant from experiments, tune and validate a controller against the
+  model, apply it to a running loop with a bumpless transfer, and restore the previous settings
+  when needed.
+- **HMI Builder.** Design operator screens with drag and drop, stored as TOML pages that diff and
+  review like code. The runtime serves them at `/hmi`, with trends and alarms.
+- **Devices & Connections.** Find and configure Modbus TCP, MQTT with Sparkplug B, OPC UA, Beckhoff
+  ADS, EtherCAT and GPIO devices, and the runtimes of a project.
+- **Tests and interchange.** Structured Text tests in the Testing view and through CodeLens,
+  PLCopen XML import and export, and visual editors for ladder, SFC, Blockly and statecharts that
+  keep a Structured Text companion.
 
-1. Install **truST LSP** from the Marketplace.
-2. Open a folder with `.st` / `.pou` files.
-3. Start editing. Language features start automatically.
+## Quick start
 
-Command line install:
+1. Run **truST: Create Project** from the Command Palette (`Ctrl+Shift+P`), or press **Start from
+   example** in the truST side panel.
+2. Press **Start** on the Run card. The first build installs the compiler toolchain, then the
+   program runs on the simulator.
+3. Open **Live Values** to watch and force the I/O, set a breakpoint, and step through the scan.
+4. Open **Control Studio** to tune a loop, or run **truST: New HMI Screen** to design an operator
+   screen.
 
-```bash
-code --install-extension trust-platform.trust-lsp
-```
+![The debugger stepping through a compiled program, with its locals and call stack](https://raw.githubusercontent.com/johannesPettersson80/trust-platform/main/docs/public/assets/images/readme/debugger.png)
 
----
+![Operating the tank example at /hmi: a setpoint change, the high-level alarm and its acknowledgement](https://raw.githubusercontent.com/johannesPettersson80/trust-platform/main/docs/public/assets/images/readme/hmi-operation.gif)
 
-## Open the Runtime Panel (super quick)
+## Commands you will use most
 
-1. Press `Ctrl+Shift+P`
-2. Run **`Structured Text: Open Runtime Panel`**
-3. Pick **Local** or **External**
-4. Press **Start**
-5. Set Inputs and watch Outputs update
+| Command | What it does |
+| --- | --- |
+| **truST: Create Project** | Creates a project folder from a starter or an example. |
+| **truST: Compile** | Checks the project's sources and shows the problems. |
+| **truST: Start Debugging** / **truST: Attach Debugger** | Runs the program under the debugger, or attaches to a running runtime. |
+| **truST: Open Live Values** | Shows and forces the program's I/O and memory. |
+| **truST: Open Control Studio** | Identifies, tunes, validates and applies controllers. |
+| **truST: Open Devices & Connections** | Finds and configures devices, runtimes and connections. |
+| **truST: New HMI Screen** | Adds an operator screen to the project. |
+| **truST: Import PLCopen XML** / **truST: Export PLCopen XML** | Exchanges projects with other PLC tools. |
+| **truST: Run All Tests** | Runs the project's Structured Text tests. |
+| **truST: Install Toolchain from File** | Installs a toolchain bundle file, for example another release's. |
 
----
+## Build an HMI with your agent
 
-## What You Can Do
+The agent you already use in VS Code can author HMI pages with truST's nine `hmi_*` tools: they
+read the project's HMI and Structured Text documents, browse the component library, compose or
+refine a draft, and return rendered previews for the agent to inspect. A review opens in the HMI
+Builder with before and after images, where you apply or discard it; applying uses VS Code's Undo.
+The tools do not deploy the HMI or operate the controller. For an MCP client, run
+**truST: HMI: Connect Agent Tools** in the workspace and use the configuration it shows.
 
-- Catch issues early with IEC-aware diagnostics
-- Refactor safely: rename symbols and move namespaces
-- Debug real logic with breakpoints + runtime state
-- Drive and observe process I/O directly in the panel
-- Run ST tests from CodeLens (`TEST_PROGRAM` / `TEST_FUNCTION_BLOCK`) and Test Explorer
+## Requirements
 
----
+- VS Code 1.109 or later on Windows x64, macOS (Intel or Apple silicon) or Linux (x64 or arm64).
+- About 650 MB of disk space for the installed compiler toolchain.
 
-## Build an HMI with your agent (feature preview)
+## Settings
 
-Use the agent you already run in VS Code. truST supplies engineering tools; it does not ask you
-for a separate model-provider account. The tools read the active project's saved and unsaved
-HMI/ST documents, browse component images, compose or refine an isolated draft, and return real
-rendered previews for your agent to inspect.
+The extension needs no settings to start. The **truST** section of the Settings editor holds the
+options, for example `trust.diagnostics.showIecReferences`, and the executable paths
+(`trust.languageServer.executablePath`, `trust.runtime.executablePath`,
+`trust.debugAdapter.executablePath`) for using your own builds.
 
-VS Code agents can discover the nine `hmi_*` tools directly. For an MCP client, run
-**truST: HMI: Connect Agent Tools** in the desired workspace. The command opens connection
-instructions for that window. Use the shown configuration in your agent's MCP settings; the
-connection ends when the workspace/window closes. Do not share the private connection file.
+## Links
 
-A typical request is: “Inspect my project and component library. Propose a tank overview with
-readable level and temperature readings. Render it, fix any clipped labels, and show me the
-review before applying it.” Ask the agent to use `sourceFile` when refining an existing page.
-Review opens a read-only proposal in the HMI Builder with before/after images, object changes
-and findings. Apply or discard there, or ask the agent to do it. Project context lists saved drafts
-so your agent can resume them after a restart. Application checks source revisions, uses
-VS Code Undo, and reports saving separately. These authoring tools do not deploy the HMI or
-operate the controller.
+- [Documentation](https://johannespettersson80.github.io/trust-platform/)
+- [Examples and the control course](https://github.com/johannesPettersson80/trust-platform/tree/main/examples)
+- [Changelog](https://github.com/johannesPettersson80/trust-platform/blob/main/CHANGELOG.md)
+- [Issues](https://github.com/johannesPettersson80/trust-platform/issues)
+- [Source code](https://github.com/johannesPettersson80/trust-platform)
 
-Use `hmi_browse_library` to discover the five composition families. Search for an exact family
-ID to receive its synthetic reference image and normal builder object model. References use
-`Example` paths; replace these with inspected project bindings. Composition accepts explicit
-`layout.regions`, `layout.gap`, `layout.flow` and per-item `pinnedAt` coordinates to preserve the
-intended hierarchy and existing equipment placement. Impossible layouts report their conflicts.
-For target displays, pass up to three content `viewports` to `hmi_validate_draft`. It reports
-projected control sizes, overlap rectangles, page bounds and the shared visual warnings; inspect
-the images as well, since geometry checks do not establish visual quality or physical performance.
-Project image previews support static PNG/JPEG/SVG assets and unsaved SVG edits; changing an
-asset after review blocks Apply until a fresh review. A failure before any editor transaction is
-invoked can be retried; an uncertain editor outcome requires source inspection and cannot be
-bypassed with another request key.
-
-This feature is still under implementation: complete IDE-agent acceptance, the full visual
-matrix, project-image previews, complete faceplate browsing and transaction recovery are tracked in
-[the HMI checklist](../../docs/internal/testing/checklists/hmi-builder-implementation-checklist.md).
-Read-only tool/image access has been verified in the actual Codex IDE window as well as the CLI.
-Complete authoring journeys and other IDE chat clients remain separate acceptance checks.
-
----
-
-## Example Projects
-
-`examples/` are **not bundled** inside the Marketplace extension package.
-
-Use the GitHub repo examples instead:
-
-- Guided tutorial index: https://github.com/johannesPettersson80/trust-platform/tree/main/examples/README.md
-- Filling line demo: https://github.com/johannesPettersson80/trust-platform/tree/main/examples/filling_line
-- Plant demo: https://github.com/johannesPettersson80/trust-platform/tree/main/examples/plant_demo
-
-Open it in VS Code:
-
-1. Clone the repo
-2. `File -> Open Folder...`
-3. Select `trust-platform/examples/filling_line`
-4. Run `Structured Text: Open Runtime Panel`
-
----
-
-## Screenshots
-
-### Debug + Runtime in one view
-![Debug + Runtime](https://raw.githubusercontent.com/johannesPettersson80/trust-platform/main/editors/vscode/assets/debug.png)
-
-### Runtime I/O panel
-![Runtime I/O panel](https://raw.githubusercontent.com/johannesPettersson80/trust-platform/main/editors/vscode/assets/hero-runtime.png)
-
-### Rename across files
-![Rename across files](https://raw.githubusercontent.com/johannesPettersson80/trust-platform/main/editors/vscode/assets/rename.png)
-
----
-
-## Commands You’ll Use Most
-
-- `Structured Text: New Project`
-- `Structured Text: Import PLCopen XML`
-- `Structured Text: Open Runtime Panel`
-- `Structured Text: Start Debugging`
-- `Structured Text: Attach Debugger`
-- `Structured Text: Run All Tests`
-- `Structured Text: Run Test`
-- `Structured Text: Move Namespace`
-- `Structured Text: Create/Select Configuration`
-
-## PLCopen XML Import (UI Flow)
-
-Use this when you want to create a truST project from an existing PLCopen XML file.
-
-1. Press `Ctrl+Shift+P`.
-2. Run **`Structured Text: Import PLCopen XML`**.
-3. Pick the input XML file.
-4. Pick the target project folder.
-5. Confirm overwrite when importing into a non-empty folder.
-
-The command runs `trust-runtime plcopen import --json` in the background and
-lets you open the imported project and migration report after completion.
-
----
-
-## Language Model Tool Contract (Contributor Note)
-
-When adding or renaming a VS Code LM tool, keep the name in sync in exactly
-three places:
-
-1. `package.json` -> `activationEvents` entries using `onLanguageModelTool:<name>`
-2. `package.json` -> `contributes.languageModelTools[].name`
-3. `src/lm-tools.ts` -> `registerLanguageModelTools(...)`
-
-The extension test suite now checks this contract in
-`src/test/suite/lm-tools-contract.test.ts`. If one of the three surfaces drifts,
-tool discovery will silently break for Copilot/LM clients and the test should
-fail.
-
----
-
-## Advanced Setup (optional)
-
-Set custom binary paths if needed:
-
-- `trust-lsp.server.path`
-- `trust-lsp.debug.adapter.path`
-- `trust-lsp.runtime.cli.path`
-
-Full docs: https://github.com/johannesPettersson80/trust-platform/tree/main/docs
+Licensed under MIT OR Apache-2.0.

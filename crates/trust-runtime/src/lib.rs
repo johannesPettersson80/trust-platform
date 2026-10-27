@@ -13,6 +13,11 @@ include!("../../../tests/support/generated_output_oracle.rs");
 /// Portable runtime-core compatibility surface.
 pub use trust_runtime_core as runtime_core;
 
+/// The allocation count of a computer: each thread's allocator operations, which the program's
+/// allocator counts and the runtime reports with its scans.
+#[path = "host/allocation_count.rs"]
+pub mod allocation_count;
+
 /// Beckhoff ADS client integration contracts.
 #[cfg(feature = "full")]
 #[path = "host/ads/mod.rs"]
@@ -33,9 +38,6 @@ pub mod bundle_builder;
 #[cfg(feature = "full")]
 #[path = "host/bundle_template.rs"]
 pub mod bundle_template;
-/// Bytecode metadata configuration helpers.
-#[cfg(feature = "full")]
-pub mod bytecode;
 /// Runtime bundle configuration.
 #[cfg(feature = "full")]
 pub mod config;
@@ -53,22 +55,35 @@ pub(crate) mod datetime {
 #[cfg(feature = "full")]
 #[path = "host/debug/mod.rs"]
 pub mod debug;
+/// The deployment record next to `program.tpi`, written with each program for the devices that
+/// admit a container by it.
+#[cfg(feature = "full")]
+#[path = "host/deployment.rs"]
+pub mod deployment;
 /// Local discovery (mDNS) for runtimes.
 #[cfg(feature = "full")]
 #[path = "host/discovery.rs"]
 pub mod discovery;
+/// The stable runtime ID and the platform a runtime runs on.
+#[cfg(feature = "full")]
+#[path = "host/runtime_id.rs"]
+pub mod runtime_id;
 /// Runtime errors and configuration.
 pub mod error {
     pub use trust_runtime_core::error::*;
 }
-/// Expression and statement evaluation.
+/// A device's control link from the engineering computer, on which the conformance suite and the
+/// test runner run stepped scans (specification 44 §14.2).
 #[cfg(feature = "full")]
-#[path = "host/eval/mod.rs"]
-pub mod eval;
-/// Runtime execution backend selection and provenance.
+#[path = "host/device_link.rs"]
+pub mod device_link;
+/// Where the reported execution backend came from.
 #[cfg(feature = "full")]
 #[path = "host/execution_backend.rs"]
 pub mod execution_backend;
+/// The `fleet.topology` report that runtimes send and tools read.
+#[cfg(feature = "full")]
+pub mod fleet_topology;
 /// Test harness for runtime execution.
 #[cfg(feature = "full")]
 #[path = "host/harness/mod.rs"]
@@ -105,6 +120,14 @@ pub mod mesh;
 #[cfg(feature = "full")]
 #[path = "host/metrics.rs"]
 pub mod metrics;
+/// Compiled programs: the build of a project into a native program image (specification 44).
+#[cfg(feature = "full")]
+#[path = "host/native/mod.rs"]
+pub mod native;
+/// The files that `trust-runtime new` writes for a new project.
+#[cfg(feature = "full")]
+#[path = "host/new_project.rs"]
+pub mod new_project;
 /// OPC UA profile and IEC-to-OPC UA mapping helpers.
 #[cfg(feature = "full")]
 #[path = "host/opcua/mod.rs"]
@@ -137,9 +160,18 @@ pub mod retain;
 /// Runtime cloud contract and UI projection helpers.
 #[cfg(feature = "full")]
 pub mod runtime_cloud;
+/// The sources a debug session compiles: the simulator's source selection (specification 13,
+/// `stReload`; specification 38 §3).
+#[cfg(feature = "full")]
+#[path = "host/runtime_sources.rs"]
+pub mod runtime_sources;
 /// Resource scheduling helpers and clocks.
 #[cfg(feature = "full")]
 pub mod scheduler;
+/// The one search for everything truST can talk to: sources, devices and presence.
+#[cfg(feature = "full")]
+#[path = "host/search/mod.rs"]
+pub mod search;
 /// Security roles and authorization helpers.
 #[cfg(feature = "full")]
 #[path = "host/security/mod.rs"]
@@ -162,6 +194,10 @@ pub mod stdlib;
 /// Task scheduling and cycle execution.
 #[cfg(feature = "full")]
 pub mod task;
+/// The test declarations of a project's Structured Text (specification 22, "Test POU discovery").
+#[cfg(feature = "full")]
+#[path = "host/test_discovery.rs"]
+pub mod test_discovery;
 /// Terminal UI for runtime monitoring.
 #[cfg(feature = "full")]
 #[path = "host/ui/mod.rs"]
@@ -180,24 +216,20 @@ pub mod web;
 mod runtime;
 
 #[cfg(feature = "full")]
-pub(crate) use runtime::types::GlobalInitValue;
 #[cfg(feature = "full")]
 pub use runtime::{
-    RestartMode, RetainPolicy, RetainSnapshot, Runtime, RuntimeBuilder, RuntimeMetadata,
+    Access, BoundGlobal, CompiledDebugger, CompiledRuntime, CompiledState, CompiledVariable,
+    Located, NamedVariable, PathError, ProgramRead, ProgramWrite, RestartMode, RetainPolicy,
+    RetainSnapshot, RuntimeBuilder, RuntimeMetadata, View, Walk,
 };
 
-#[cfg(not(feature = "full"))]
-#[path = "host/runtime_only.rs"]
-mod runtime_only;
-#[cfg(not(feature = "full"))]
-pub use runtime_only::Runtime;
 #[cfg(not(feature = "full"))]
 pub use trust_runtime_core::retain::{RestartMode, RetainPolicy, RetainSnapshot};
 
 // These are the canonical core records, not alternative hosted semantics.
 #[cfg(not(feature = "full"))]
 pub use trust_runtime_core::{
-    bytecode, memory, program_model, retain, scheduler, stdlib, task, value, watchdog,
+    memory, program_model, retain, scheduler, stdlib, task, value, watchdog,
 };
 /// Direct I/O address records for the source-free hosted composition.
 #[cfg(not(feature = "full"))]
@@ -207,6 +239,3 @@ pub mod io {
 }
 #[path = "host/host_clock.rs"]
 mod host_clock;
-#[cfg(feature = "register-ir")]
-#[path = "runtime/register_environment.rs"]
-mod register_environment;

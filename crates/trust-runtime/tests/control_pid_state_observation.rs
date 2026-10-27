@@ -1,7 +1,10 @@
 //! Spec 45: the public state snapshot observes the actual PID without mutation.
 use trust_runtime::harness::{CompileSession, SourceFile};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
+
+mod control_heater_support;
+use control_heater_support::{compile, value, LessonRuntime};
 
 const LIBRARY: &str = include_str!("../../../libraries/control/src/control.st");
 const CONFIGURATION: &str = r#"
@@ -13,37 +16,29 @@ END_RESOURCE
 END_CONFIGURATION
 "#;
 
-fn execute(source: &str) -> Runtime {
-    let session = CompileSession::from_sources(vec![
+fn session(source: &str) -> CompileSession {
+    CompileSession::from_sources(vec![
         SourceFile::with_path("Control/control.st", LIBRARY),
         SourceFile::with_path("src/Main.st", format!("{source}\n{CONFIGURATION}")),
-    ]);
-    let mut runtime = session.build_runtime().expect("compile actual PID project");
-    runtime
-        .apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)
-        .unwrap();
+    ])
+}
+
+fn execute(source: &str) -> CompiledRuntime {
+    let mut runtime = compile(session(source));
     runtime.advance_time(Duration::from_millis(100));
     runtime.execute_cycle().expect("execute actual PID project");
     runtime
 }
 
-fn program_value(runtime: &Runtime, name: &str) -> Value {
-    let Value::Instance(program) = runtime.storage().get_global("P1").unwrap() else {
-        panic!("configured Main program");
-    };
-    runtime
-        .storage()
-        .get_instance_var(*program, name)
-        .unwrap()
-        .clone()
+fn program_value(runtime: &CompiledRuntime, name: &str) -> Value {
+    value(runtime, &format!("P1.{name}")).unwrap()
 }
 
 #[test]
 fn control_pid_get_state_returns_an_independent_nonmutating_snapshot() {
     // Reach the real runtime interface before compiling any call to the new
     // method. Its absence must be an assertion red, not a compiler failure.
-    let probe = execute(
-        r#"
+    let probe_source = r#"
 USING Control;
 PROGRAM Main
 VAR
@@ -65,10 +60,16 @@ Input.ProcessValue := LREAL#20.0;
 Input.CycleTime := LREAL#0.1;
 Output := Controller.Update(Input := Input);
 END_PROGRAM
-"#,
-    );
+"#;
+    let probe = execute(probe_source);
     assert_eq!(program_value(&probe, "Output"), Value::LReal(30.0));
-    let definition = probe.function_blocks().get("CONTROL.PID").unwrap();
+    // The executed program is built from these declarations (specification 44 §3).
+    let declarations = session(probe_source).declarations().unwrap();
+    let definition = declarations
+        .metadata()
+        .function_blocks()
+        .get("CONTROL.PID")
+        .unwrap();
     assert!(
         definition.methods.iter().any(|method| method.name.eq_ignore_ascii_case("GetState")),
         "the executed Control.PID runtime interface must dispatch the public GetState observation method"

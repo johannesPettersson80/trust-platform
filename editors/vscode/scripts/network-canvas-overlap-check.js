@@ -157,6 +157,13 @@ const FIXTURES = [
               controlEndpoint: "tcp://127.0.0.1:9902",
               managed: true,
               managedName: "cell1",
+              // The controls the language server gives the node (trust-devices canvas::fleet).
+              controls: [
+                { action: "managedStart", label: "Start", kind: "primary", enabled: false },
+                { action: "setAsRunTarget", label: "Set as run target", kind: "secondary", enabled: true },
+                { action: "openRuntimeLogs", label: "Logs", kind: "secondary", enabled: true },
+                { action: "openRuntimeSettings", label: "Settings", kind: "secondary", enabled: true },
+              ],
               endpoints: [
                 { id: "endpoint:connected", kind: "service", protocol: "opcua", name: "Connected", role: "client", health: "connected", detail: "connected" },
                 { id: "endpoint:degraded", kind: "service", protocol: "opcua", name: "Degraded", role: "client", health: "degraded", detail: "degraded" },
@@ -176,6 +183,13 @@ const FIXTURES = [
               detail: "Starting managed local runtime…",
               managed: true,
               managedName: "cell-starting",
+              // The controls the language server gives the node (trust-devices canvas::fleet).
+              controls: [
+                { action: "none", label: "Updating…", kind: "primary", enabled: false },
+                { action: "setAsRunTarget", label: "Set as run target", kind: "secondary", enabled: true },
+                { action: "openRuntimeLogs", label: "Logs", kind: "secondary", enabled: true },
+                { action: "openRuntimeSettings", label: "Settings", kind: "secondary", enabled: true },
+              ],
               endpoints: [],
             },
             {
@@ -187,6 +201,13 @@ const FIXTURES = [
               detail: "Stopping managed local runtime…",
               managed: true,
               managedName: "cell-stopping",
+              // The controls the language server gives the node (trust-devices canvas::fleet).
+              controls: [
+                { action: "none", label: "Updating…", kind: "primary", enabled: false },
+                { action: "setAsRunTarget", label: "Set as run target", kind: "secondary", enabled: true },
+                { action: "openRuntimeLogs", label: "Logs", kind: "secondary", enabled: true },
+                { action: "openRuntimeSettings", label: "Settings", kind: "secondary", enabled: true },
+              ],
               endpoints: [],
             },
             {

@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 include!("tests/helpers.rs");
 include!("tests/ads_product_surfaces.rs");
 include!("tests/debug_boundary.rs");
@@ -14,16 +16,26 @@ include!("tests/control_endpoint_source_contract.rs");
 include!("tests/control_request_boundary_contract.rs");
 include!("tests/io_write_integer_literals.rs");
 include!("tests/variable_write_integer_literals.rs");
+include!("tests/live_values_pipeline.rs");
 include!("tests/request_queue_bounds.rs");
 include!("tests/rejected_force_removal.rs");
-include!("tests/refused_request_reporting.rs");
 include!("tests/production_step_and_debug_hold.rs");
 include!("tests/pause_resume_resource_state.rs");
 include!("tests/concurrency_requests.rs");
 include!("tests/reload_withdrawal.rs");
 include!("tests/resource_queue_bounds.rs");
 include!("tests/config_set_lock_order.rs");
+include!("tests/capabilities.rs");
 
+// The tests of `comm.search.*` keep a module of their own: their `search_request` builds a control
+// request, and Control Studio's search tests below name their search parameters so.
+mod comm_search {
+    use super::*;
+
+    include!("tests/search.rs");
+}
+
+include!("tests/identify.rs");
 include!("tests/control_studio_experiment.rs");
 include!("tests/control_studio_pid_apply.rs");
 include!("tests/plant_contract.rs");

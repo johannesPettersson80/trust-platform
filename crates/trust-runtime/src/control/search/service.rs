@@ -2,7 +2,7 @@ use super::{
     contracts::Request,
     run_contracts::RunRequest,
     snapshot::Snapshot,
-    worker::{WorkerInput, MAX_OUTPUT},
+    worker::{BuildSetting, WorkerInput, MAX_OUTPUT},
     workload::{Purpose, Workload},
 };
 use serde_json::{json, Value};
@@ -131,6 +131,11 @@ impl SearchService {
         });
         let jobs = self.job.clone();
         let count = candidates.len();
+        // The workers build with the runtime's toolchain in its temporary folder (annex E8.1).
+        let build = BuildSetting {
+            toolchain: toolchain_folder(),
+            temporary_folder: Some(std::env::temp_dir()),
+        };
         std::thread::spawn(move || {
             let _lease = Lease;
             let deadline = Instant::now() + Duration::from_millis(request.wall_budget_ms());
@@ -143,7 +148,8 @@ impl SearchService {
                 if cancel.load(Ordering::SeqCst) || Instant::now() >= deadline {
                     break;
                 }
-                let input = request.input(snapshot.clone(), index, parameters.clone());
+                let input =
+                    request.input(snapshot.clone(), index, parameters.clone(), build.clone());
                 let limit = deadline
                     .min(Instant::now() + Duration::from_millis(request.per_trial_wall_ms()));
                 let mut trial=run_child(&input,&cancel,limit,&captured_samples).unwrap_or_else(|reason|json!({"index":index,"parameters":parameters,"status":"failed","reason":reason,"score":null}));
@@ -253,7 +259,11 @@ impl SearchService {
         if purpose == Purpose::Run {
             let mut result = json!({"job_id":job.id,"project_revision":job.revision,"status":job.status,"cancel_requested":job.cancel.load(Ordering::SeqCst),"reason":job.reason,"source_basis":"loaded-runtime-sources","io_provenance":"isolated-simulation-no-physical-drivers"});
             result["captured_sample_count"] = json!(job.captured_samples.load(Ordering::SeqCst));
+            // The run is shared only once the job has ended (annex E8.4): the worker's run is
+            // stored a moment before the job's terminal status, and a status read between the two
+            // must not carry it.
             if include_results != Some(false)
+                && !matches!(job.status.as_str(), "queued" | "running")
                 && let Some(run) = job.trials.first().and_then(|trial| trial.get("run"))
             {
                 result["run"] = run.clone();
@@ -303,6 +313,18 @@ impl SearchService {
             json!({"job_id":job.id,"project_revision":job.revision,"status":job.status,"cancel_requested":job.cancel.load(Ordering::SeqCst),"trial_count":job.count,"trials":trials,"unattempted_trials":(job.trials.len()..job.count).collect::<Vec<_>>(),"ranking":ranking.iter().map(|t|t["index"].clone()).collect::<Vec<_>>(),"reason":job.reason,"source_basis":"loaded-runtime-sources","io_provenance":"isolated-simulation-no-physical-drivers"}),
         )
     }
+}
+/// The folder of the toolchain this runtime builds programs with, which each worker compiles its
+/// run's program with, since its environment is cleared (protocol annex E8.1): the folder
+/// `TRUST_TOOLCHAIN` names, else this release's installed bundle, as the tools find it
+/// (specification 44 §4.6); `None` without either, and the worker reports the missing toolchain.
+fn toolchain_folder() -> Option<std::path::PathBuf> {
+    std::env::var_os("TRUST_TOOLCHAIN")
+        .map(std::path::PathBuf::from)
+        .or_else(|| {
+            crate::native::bundle::installed_folder()
+                .filter(|folder| folder.join(crate::native::bundle::MANIFEST_FILE).is_file())
+        })
 }
 fn snapshot_revision(guard: &Option<Job>) -> Option<&str> {
     guard.as_ref().map(|job| job.revision.as_str())
@@ -376,5 +398,45 @@ fn run_child(
                 "io_provenance":"isolated-simulation-no-physical-drivers","run":run})),
             _ => Err(reason),
         },
+    }
+}
+
+#[cfg(test)]
+mod run_answer_tests {
+    use super::*;
+
+    fn service(status: &str) -> SearchService {
+        SearchService {
+            job: Arc::new(Mutex::new(Some(Job {
+                purpose: Purpose::Run,
+                id: "job".into(),
+                fingerprint: String::new(),
+                revision: "rev".into(),
+                project: "project".into(),
+                status: status.into(),
+                trials: vec![json!({"status": "executed", "run": {"samples": []}})],
+                count: 1,
+                cancel: Arc::new(AtomicBool::new(false)),
+                captured_samples: Arc::new(AtomicU64::new(0)),
+                reason: None,
+            }))),
+            used_ids: Arc::default(),
+        }
+    }
+
+    /// Annex E8.4: a run appears only once its job has ended. The worker's run is stored before
+    /// the job's terminal status, so a status read in between found a running job with a run, which
+    /// Control Studio refuses ("returned a run before the job ended"). Catches a running job's
+    /// answer that carries the run, and a completed one that leaves it out.
+    #[test]
+    fn a_run_is_answered_only_once_its_job_has_ended() {
+        let running = service("running")
+            .inspect_for(Purpose::Run, "job", "rev", "project", false, None)
+            .expect("the running job's status");
+        assert!(running.get("run").is_none(), "{running}");
+        let completed = service("completed")
+            .inspect_for(Purpose::Run, "job", "rev", "project", false, None)
+            .expect("the completed job's status");
+        assert!(completed.get("run").is_some(), "{completed}");
     }
 }

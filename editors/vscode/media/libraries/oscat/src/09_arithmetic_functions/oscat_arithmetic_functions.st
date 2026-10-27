@@ -160,28 +160,28 @@ VAR_OUTPUT
     UD : BOOL;
 END_VAR
 VAR
-    TxMs : DINT;
-    LastMs : DINT;
-    DeltaMs : DINT;
+    TxMs : DWORD;
+    LastMs : DWORD;
+    DeltaMs : UDINT;
     INIT : BOOL;
 END_VAR
 
-TxMs := DWORD_TO_DINT(T_PLC_MS());
+TxMs := T_PLC_MS();
 IF NOT INIT THEN
     INIT := TRUE;
     LastMs := TxMs;
     OUT := IN;
 END_IF;
-DeltaMs := TxMs - LastMs;
+DeltaMs := T_PLC_ELAPSED(NOW := TxMs, LAST := LastMs);
 
 IF NOT RMP THEN
     OUT := IN;
     BUSY := FALSE;
 ELSIF OUT > IN THEN
-    OUT := OUT - DINT_TO_REAL(DeltaMs) * REAL#0.001 * KF;
+    OUT := OUT - UDINT_TO_REAL(DeltaMs) * REAL#0.001 * KF;
     OUT := MAX(IN, OUT);
 ELSIF OUT < IN THEN
-    OUT := OUT + DINT_TO_REAL(DeltaMs) * REAL#0.001 * KR;
+    OUT := OUT + UDINT_TO_REAL(DeltaMs) * REAL#0.001 * KR;
     OUT := MIN(IN, OUT);
 END_IF;
 

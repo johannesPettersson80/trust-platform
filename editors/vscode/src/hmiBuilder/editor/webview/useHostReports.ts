@@ -16,6 +16,8 @@ export interface HostReports {
   formats?: DrawFrame["formats"];
   pages?: { pages: PageEntry[]; current: string };
   problems: Record<string, string[]>;
+  /** The write-policy point each problem names, by object id and problem (§12.2.3). */
+  points: Record<string, Record<string, string>>;
   warnings: Record<string, QualityWarning[]>;
   colourWarnings: QualityWarning[];
   targets: ClickTargets;
@@ -33,6 +35,7 @@ export function useHostReports(): HostReports {
   const [formats, setFormats] = useState<DrawFrame["formats"]>();
   const [pages, setPages] = useState<HostReports["pages"]>();
   const [problems, setProblems] = useState<Record<string, string[]>>({});
+  const [points, setPoints] = useState<Record<string, Record<string, string>>>({});
   const [warnings, setWarnings] = useState<Record<string, QualityWarning[]>>({});
   const [colourWarnings, setColourWarnings] = useState<QualityWarning[]>([]);
   const [targets, setTargets] = useState<ClickTargets>({ pages: [], popups: [], faceplates: [] });
@@ -57,6 +60,7 @@ export function useHostReports(): HostReports {
           return;
         case "problems":
           setProblems(message.problems);
+          setPoints(message.points ?? {});
           setWarnings(message.warnings ?? {});
           return;
         case "colourWarnings":
@@ -93,6 +97,7 @@ export function useHostReports(): HostReports {
     formats,
     pages,
     problems,
+    points,
     warnings,
     colourWarnings,
     targets,

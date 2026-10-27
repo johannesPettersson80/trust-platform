@@ -1,46 +1,39 @@
 import * as vscode from "vscode";
 
-import { getTrustConfiguration } from "./configuration";
 import { getSelectedRuntimeId } from "./selectedRuntime";
 import { listManagedRuntimes } from "./localRuntime";
 import { runtimeLifecycleService, type RuntimeLifecycleSnapshot } from "./runtimeLifecycle";
 import {
-  runtimeTargetFromStatus,
-  simulationSpeed,
-  type SimulationSpeed,
-} from "./controlStudio/runtimeTarget";
-import {
   sendRuntimeControlRequest,
   type RuntimeControlRequestOptions,
 } from "./runtimeControlClient";
+import { projectRequest } from "./projectRequest";
 import {
-  remoteLabelFromEndpoint,
-  selectedRuntime,
+  resolveRunTargets,
   SIMULATOR_RUNTIME_ID,
-  type RemoteRuntime,
   type RuntimeModelSnapshot,
   type SelectedRuntime,
 } from "./trustHomeModel";
 
-/** The speeds the chooser offers (specification 46, §6.1: a whole number from 1 to 100). */
-export const SIMULATION_SPEEDS: readonly number[] = [1, 2, 5, 10, 20, 50, 100];
+// The project's speed, the speeds to offer, saving a chosen speed and whether the running simulator takes it at once are the
+// language server's answers (`trust-lsp.simulationSpeed`, specification 46 §6.1 item 5). This module shows the chooser, sends
+// the request the server names to the runtime, and reads the runtime's own speed words.
 
 /** The status bar's refresh while a simulator runs: the Devices & Connections canvas cadence, never faster. */
 export const SPEED_REFRESH_INTERVAL_MS = 1500;
 
-const SIMULATION_FILE = "simulation.toml";
-const STATUS_REQUEST_TIMEOUT_MS = 750;
 const CONFIG_REQUEST_TIMEOUT_MS = 2000;
-
-/** Any table header: `[name]` or `[[name]]`, optionally followed by a comment. */
-const TABLE_HEADER = /^\s*\[\[?\s*[A-Za-z_][A-Za-z0-9_.-]*\s*\]\]?\s*(#.*)?$/;
-const SIMULATION_HEADER = /^\s*\[simulation\]\s*(#.*)?$/;
-const TIME_SCALE_KEY = /^\s*time_scale\s*=/;
-const TIME_SCALE_VALUE = /^\s*time_scale\s*=\s*(\d+)\s*(#.*)?$/;
+const SIMULATION_SPEED_COMMAND = "trust-lsp.simulationSpeed";
 
 const speedChanged = new vscode.EventEmitter<void>();
 /** Fires after the chosen speed is saved or applied, so the status bar and the sidebar show it at once. */
 export const onDidChangeSimulationSpeed = speedChanged.event;
+
+/** A simulation's speed: the configured whole-number speed and, once measured, the achieved speed (specification 46, §6.1). */
+export interface SimulationSpeed {
+  readonly configured: number;
+  readonly achieved?: number;
+}
 
 /** What one status read of a running runtime reports: whether it simulates every attached I/O, its speeds, and the speed words
  * and the behind flag the runtime gives for them (specification 35, B9.2). */
@@ -74,79 +67,6 @@ export function latestSimulatorSpeedRead(): SimulationSpeedRead | undefined {
   return latestReads.get(SIMULATOR_RUNTIME_ID);
 }
 
-// ---- simulation.toml (pure: no VS Code API) ----
-
-interface TableRange {
-  /** The index of the `[simulation]` header line. */
-  readonly start: number;
-  /** The index of the first line after the table, or the line count. */
-  readonly end: number;
-}
-
-function simulationTable(lines: readonly string[]): TableRange | undefined {
-  const start = lines.findIndex((line) => SIMULATION_HEADER.test(line));
-  if (start < 0) {
-    return undefined;
-  }
-  const next = lines.findIndex((line, index) => index > start && TABLE_HEADER.test(line));
-  return { start, end: next < 0 ? lines.length : next };
-}
-
-/**
- * The file text with `[simulation] time_scale = scale`. Only that value changes: comments, `enabled`, `[[plants]]`,
- * `[[couplings]]` and every other key stay as they were. A missing table is inserted before the first table header,
- * after any leading comments; a missing file becomes just the table.
- */
-export function withSimulationTimeScale(text: string | undefined, scale: number): string {
-  if (text === undefined || text.trim() === "") {
-    return `[simulation]\ntime_scale = ${scale}\n`;
-  }
-  const eol = text.includes("\r\n") ? "\r\n" : "\n";
-  const lines = text.split(/\r?\n/);
-  const table = simulationTable(lines);
-  if (table) {
-    const key = lines.findIndex(
-      (line, index) => index > table.start && index < table.end && TIME_SCALE_KEY.test(line)
-    );
-    if (key >= 0) {
-      lines[key] = lines[key].replace(
-        /^(\s*time_scale\s*=\s*)[^#]*?(\s*(#.*)?)$/,
-        (_whole: string, head: string, tail: string) => `${head}${scale}${tail}`
-      );
-    } else {
-      lines.splice(table.start + 1, 0, `time_scale = ${scale}`);
-    }
-    return lines.join(eol);
-  }
-  const firstTable = lines.findIndex((line) => TABLE_HEADER.test(line));
-  if (firstTable < 0) {
-    const base = text.endsWith("\n") ? text : `${text}${eol}`;
-    return `${base}${eol}[simulation]${eol}time_scale = ${scale}${eol}`;
-  }
-  lines.splice(firstTable, 0, "[simulation]", `time_scale = ${scale}`, "");
-  return lines.join(eol);
-}
-
-/** The speed the project saves in `[simulation] time_scale`: 1 when the file, the table or a valid whole number is missing. */
-export function savedSimulationSpeed(text: string | undefined): number {
-  if (text === undefined) {
-    return 1;
-  }
-  const lines = text.split(/\r?\n/);
-  const table = simulationTable(lines);
-  if (!table) {
-    return 1;
-  }
-  for (let index = table.start + 1; index < table.end; index += 1) {
-    const match = TIME_SCALE_VALUE.exec(lines[index]);
-    if (match) {
-      const scale = Number(match[1]);
-      return Number.isInteger(scale) && scale >= 1 && scale <= 100 ? scale : 1;
-    }
-  }
-  return 1;
-}
-
 export interface SpeedChoice {
   readonly speed: number;
   readonly label: string;
@@ -154,9 +74,9 @@ export interface SpeedChoice {
   readonly detail?: string;
 }
 
-/** The chooser's entries, with the current speed marked. */
-export function speedChoices(current: number): SpeedChoice[] {
-  return SIMULATION_SPEEDS.map((speed) => ({
+/** The chooser's entries for the speeds the language server offers, with the current speed marked. */
+export function speedChoices(current: number, speeds: readonly number[]): SpeedChoice[] {
+  return speeds.map((speed) => ({
     speed,
     label: `${speed}×`,
     ...(speed === current ? { description: "current" } : {}),
@@ -175,58 +95,44 @@ export type RuntimeRequestSender = (
   options?: RuntimeControlRequestOptions
 ) => Promise<unknown>;
 
-/** Whether the selected target is a simulator that is running (A2.4: the selected target decides where a speed goes). */
+/** Whether the selected target is a simulator that is running: the status bar and the sidebar show its speed then. Where a
+ * saved speed goes is the language server's decision (`trust-lsp.simulationSpeed`). */
 export function isRunningSimulator(selected: Pick<SelectedRuntime, "kind" | "status">): boolean {
   return selected.kind === "simulator" && selected.status === "running";
 }
 
-/**
- * Applies a speed to the running simulator with `config.set` (specification 46, §6.1 item 5). Returns "saved-only" when
- * the selected target is not a running simulator. A refusal by the runtime throws its RuntimeControlError.
- */
-export async function applyLiveSimulationSpeed(
-  input: {
-    readonly selected: Pick<SelectedRuntime, "kind" | "status">;
-    readonly endpoint: string;
-    readonly authToken: string | undefined;
-    readonly speed: number;
-  },
-  send: RuntimeRequestSender = sendRuntimeControlRequest
-): Promise<"applied" | "saved-only"> {
-  if (!isRunningSimulator(input.selected) || input.endpoint.trim() === "") {
-    return "saved-only";
-  }
-  await send(
-    input.endpoint,
-    input.authToken,
-    "config.set",
-    { "simulation.time_scale": input.speed },
-    { timeoutMs: CONFIG_REQUEST_TIMEOUT_MS }
-  );
-  return "applied";
+/** The request the language server names for the running simulator after a save. */
+export interface LiveSpeedRequest {
+  readonly request: string;
+  readonly params: unknown;
 }
 
-/** The speeds and simulation facts the runtime reports, or undefined when its status cannot be read. */
-export async function readRuntimeSpeed(
+/** Sends the language server's request to the runtime; a refusal by the runtime throws its RuntimeControlError. */
+export async function sendLiveSpeed(
+  live: LiveSpeedRequest,
   endpoint: string,
   authToken: string | undefined,
   send: RuntimeRequestSender = sendRuntimeControlRequest
+): Promise<void> {
+  await send(endpoint, authToken, live.request, live.params, { timeoutMs: CONFIG_REQUEST_TIMEOUT_MS });
+}
+
+/** The speeds and simulation facts the runtime reports, or undefined when its status cannot be read: the language server
+ * asks the runtime's `status` and reads it (`trust-lsp.runTargets`, action `speed`, specification 35 A2.4 and B9.2). */
+export async function readRuntimeSpeed(
+  endpoint: string,
+  authToken: string | undefined
 ): Promise<SimulatorStatusRead | undefined> {
-  try {
-    const report = await send(endpoint, authToken, "status", undefined, {
-      timeoutMs: STATUS_REQUEST_TIMEOUT_MS,
-    });
-    const target = runtimeTargetFromStatus(report);
-    return {
-      simulated: target.simulated,
-      ...simulationSpeed(target),
-      speedText: target.speedText,
-      speedBehind: target.speedBehind,
-      paused: typeof report === "object" && report !== null && (report as { state?: unknown }).state === "paused",
-    };
-  } catch {
+  const answer = await projectRequest<{ read: (SimulatorStatusRead & { achieved: number | null }) | null }>(
+    "trust-lsp.runTargets",
+    { action: "speed", endpoint, authToken },
+    { wait: false }
+  );
+  if (!answer.ok || !answer.read) {
     return undefined;
   }
+  const { achieved, ...read } = answer.read;
+  return achieved === null ? read : { ...read, achieved };
 }
 
 /** The last status read from a runtime. Refreshes between the 1.5 s ticks reuse it, so they add no requests. */
@@ -261,12 +167,12 @@ export async function selectedTarget(
   snapshot: RuntimeLifecycleSnapshot
 ): Promise<SelectedRuntime> {
   const managed = await listManagedRuntimes(context);
-  return selectedRuntime({
+  const targets = await resolveRunTargets({
     snapshot: toModelSnapshot(snapshot),
-    remotes: fleetRemotes(),
     managed,
     selectedId: getSelectedRuntimeId(),
   });
+  return targets.selected;
 }
 
 /** The speed the page shows: its configured speed and the words for it (specification 35, B9.2). */
@@ -294,71 +200,41 @@ export async function shownSimulatorSpeed(
 
 // ---- project file and command ----
 
-/** The project folder that holds runtime.toml, as the debug configuration finds it: the folder, else its bundle/ folder. */
-async function projectDirectory(root: vscode.Uri): Promise<vscode.Uri> {
-  if (await fileExists(vscode.Uri.joinPath(root, "runtime.toml"))) {
-    return root;
-  }
-  const bundle = vscode.Uri.joinPath(root, "bundle");
-  if (await fileExists(vscode.Uri.joinPath(bundle, "runtime.toml"))) {
-    return bundle;
-  }
-  return root;
-}
-
-async function simulationFile(): Promise<vscode.Uri | undefined> {
-  const root = runtimeLifecycleService.runtimeConfigTarget();
-  if (!root) {
+/** The saved speed and the speeds to offer, or undefined without a project folder or a running language server. */
+async function savedSpeeds(wait: boolean): Promise<{ speed: number; speeds: readonly number[] } | undefined> {
+  const folder = runtimeLifecycleService.runtimeConfigTarget();
+  if (!folder) {
     return undefined;
   }
-  return vscode.Uri.joinPath(await projectDirectory(root), SIMULATION_FILE);
-}
-
-async function fileExists(uri: vscode.Uri): Promise<boolean> {
-  try {
-    await vscode.workspace.fs.stat(uri);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** The file's text, or undefined when it does not exist. A file that exists but cannot be read is an error. */
-async function readSimulationFile(uri: vscode.Uri): Promise<string | undefined> {
-  try {
-    return Buffer.from(await vscode.workspace.fs.readFile(uri)).toString("utf8");
-  } catch (error) {
-    if (await fileExists(uri)) {
-      throw error;
-    }
-    return undefined;
-  }
+  const answer = await projectRequest<{ speed: number; speeds: number[] }>(
+    SIMULATION_SPEED_COMMAND,
+    { action: "read", folder: folder.fsPath },
+    { wait }
+  );
+  return answer.ok ? { speed: answer.speed, speeds: answer.speeds } : undefined;
 }
 
 async function savedSpeed(): Promise<number> {
-  const file = await simulationFile();
-  if (!file) {
-    return 1;
-  }
-  try {
-    return savedSimulationSpeed(await readSimulationFile(file));
-  } catch {
-    return 1;
-  }
+  return (await savedSpeeds(false))?.speed ?? 1;
 }
 
-/** The "Simulation Speed…" command: saves the chosen speed and, for a running selected simulator, applies it live. */
+/** The "Simulation Speed…" command: saves the chosen speed and, when the language server says so, applies it live. */
 export async function changeSimulationSpeed(context: vscode.ExtensionContext): Promise<void> {
-  const file = await simulationFile();
-  if (!file) {
+  const folder = runtimeLifecycleService.runtimeConfigTarget();
+  if (!folder) {
     void vscode.window.showWarningMessage("Open a truST project before choosing a simulation speed.");
+    return;
+  }
+  const offered = await savedSpeeds(true);
+  if (!offered) {
+    void vscode.window.showErrorMessage("The simulation speed cannot be read: the truST language server is not running.");
     return;
   }
   const snapshot = await runtimeLifecycleService.snapshot();
   const selected = await selectedTarget(context, snapshot);
   const current = (await shownSimulatorSpeed(snapshot, selected)).configured;
   const pick = await vscode.window.showQuickPick(
-    speedChoices(current).map((choice) => ({
+    speedChoices(current, offered.speeds).map((choice) => ({
       label: choice.label,
       description: choice.description,
       detail: choice.detail,
@@ -372,22 +248,24 @@ export async function changeSimulationSpeed(context: vscode.ExtensionContext): P
   if (!pick) {
     return;
   }
-  await vscode.workspace.fs.writeFile(
-    file,
-    Buffer.from(withSimulationTimeScale(await readSimulationFile(file), pick.speed), "utf8")
-  );
-  announceSpeedChange();
   const endpoint = snapshot.status.endpoint;
+  const saved = await projectRequest<{ live: LiveSpeedRequest | null }>(SIMULATION_SPEED_COMMAND, {
+    action: "save",
+    folder: folder.fsPath,
+    speed: pick.speed,
+    target: { kind: selected.kind, status: selected.status, endpoint },
+  });
+  if (!saved.ok) {
+    void vscode.window.showErrorMessage(`The simulation speed was not saved: ${saved.error}`);
+    return;
+  }
+  announceSpeedChange();
+  if (!saved.live) {
+    return;
+  }
   try {
-    const applied = await applyLiveSimulationSpeed({
-      selected,
-      endpoint,
-      authToken: isRunningSimulator(selected) ? await runtimeLifecycleService.controlAuthToken(endpoint) : undefined,
-      speed: pick.speed,
-    });
-    if (applied === "applied") {
-      announceSpeedChange();
-    }
+    await sendLiveSpeed(saved.live, endpoint, await runtimeLifecycleService.controlAuthToken(endpoint));
+    announceSpeedChange();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     void vscode.window.showErrorMessage(
@@ -415,20 +293,4 @@ function toModelSnapshot(snapshot: RuntimeLifecycleSnapshot): RuntimeModelSnapsh
     endpointReachable: snapshot.status.endpointReachable,
     starting: snapshot.starting,
   };
-}
-
-/** The fleet endpoints from settings, as the status bar reads them (runtime.fleetEndpoints). */
-function fleetRemotes(): RemoteRuntime[] {
-  const endpoints = getTrustConfiguration().get<string[]>("runtime.fleetEndpoints", []) ?? [];
-  const seen = new Set<string>();
-  const remotes: RemoteRuntime[] = [];
-  for (const raw of endpoints) {
-    const endpoint = (raw ?? "").trim();
-    if (!endpoint || seen.has(endpoint)) {
-      continue;
-    }
-    seen.add(endpoint);
-    remotes.push({ id: endpoint, label: remoteLabelFromEndpoint(endpoint) });
-  }
-  return remotes;
 }

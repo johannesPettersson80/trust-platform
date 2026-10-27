@@ -412,6 +412,17 @@ fn deploying_needs_the_deploy_permission_and_is_audited() {
 const RENAMED: &str =
     "PROGRAM Main\nVAR\n    Height : REAL;\n    Setpoint : REAL;\nEND_VAR\nEND_PROGRAM\n";
 
+/// Stops the program as the control `shutdown` does and waits until the resource is Stopped, which
+/// a program deployment needs (specification 34 §11.2, decision Q11).
+fn stop_program(plant: &Plant) {
+    plant.running.handle.stop_program();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while plant.running.handle.state() != trust_runtime::scheduler::ResourceState::Stopped {
+        assert!(Instant::now() < deadline, "the resource stops");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
 fn project_deploy(base: &str, extra: Value) -> (u16, Value) {
     let mut body = json!({ "sources": [{ "path": "src/main.st", "content": RENAMED }] });
     if let (Some(body), Some(extra)) = (body.as_object_mut(), extra.as_object()) {
@@ -451,6 +462,7 @@ fn a_program_deployment_that_would_break_bindings_lists_them_and_changes_nothing
 #[test]
 fn the_program_deploys_together_with_an_updated_bundle() {
     let plant = plant("program-with-hmi", WebAuthMode::Local, None);
+    stop_program(&plant);
     let updated = bundle("Updated", "Main.Height");
     let (status, answer) = project_deploy(&plant.running.base, json!({ "hmi": updated.to_json() }));
     assert_eq!(status, 200, "{answer}");
@@ -470,6 +482,7 @@ fn the_program_deploys_together_with_an_updated_bundle() {
 #[test]
 fn accepting_broken_bindings_deploys_the_program_alone() {
     let plant = plant("program-accept", WebAuthMode::Local, None);
+    stop_program(&plant);
     let (status, answer) = project_deploy(
         &plant.running.base,
         json!({ "accept_broken_bindings": true }),
@@ -482,4 +495,28 @@ fn accepting_broken_bindings_deploys_the_program_alone() {
         "the bindings that stay broken are named: {answer}"
     );
     assert!(plant_root(&plant).join("src/main.st").exists());
+}
+
+/// Specification 39 §16.4 item 6 and specification 34 §11.2 (decision Q11): a program deployment
+/// that passes the HMI's binding check is still taken only while the resource is Stopped; while
+/// it runs, the answer is `resource_not_running` and nothing is written. Catches a deployment that
+/// installs into a running resource, and a binding check that is skipped after the state check.
+#[test]
+fn a_program_deployment_that_passes_the_bindings_waits_for_a_stopped_resource() {
+    let plant = plant("program-running", WebAuthMode::Local, None);
+    let (status, answer) = project_deploy(
+        &plant.running.base,
+        json!({ "accept_broken_bindings": true }),
+    );
+    assert_eq!(status, 200, "{answer}");
+    assert_eq!(answer["ok"], json!(false), "{answer}");
+    assert_eq!(
+        answer["error_code"],
+        json!("resource_not_running"),
+        "{answer}"
+    );
+    assert!(
+        !plant_root(&plant).join("src/main.st").exists(),
+        "nothing is written"
+    );
 }

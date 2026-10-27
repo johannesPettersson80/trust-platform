@@ -3,14 +3,17 @@
 
 use trust_hir::TypeId;
 
-use super::{CompileError, CompileSession};
+use super::{CompileError, TestHarness};
 use crate::io::{IoAddress, IoSize};
-use crate::memory::IoArea;
-use crate::Runtime;
+use crate::CompiledRuntime;
 
 /// Builds a runtime whose only program declares a located variable of each `(address, type)`,
-/// so that its process image binds those addresses with those types.
-pub fn runtime_with_bindings(bindings: &[(IoAddress, TypeId)]) -> Result<Runtime, CompileError> {
+/// so that its process image binds those addresses with those types. The program is built for
+/// this computer and started as the test harness starts one, with the toolchain of specification
+/// 44 §4.6 at `TRUST_TOOLCHAIN`.
+pub fn runtime_with_bindings(
+    bindings: &[(IoAddress, TypeId)],
+) -> Result<CompiledRuntime, CompileError> {
     let mut vars = String::new();
     for (index, (address, type_id)) in bindings.iter().enumerate() {
         let text = address_text(address)?;
@@ -18,35 +21,18 @@ pub fn runtime_with_bindings(bindings: &[(IoAddress, TypeId)]) -> Result<Runtime
             .ok_or_else(|| CompileError::new(format!("binding {text} needs an elementary type")))?;
         vars.push_str(&format!("    Bound{index} AT {text} : {type_name};\n"));
     }
-    CompileSession::from_source(format!("PROGRAM Main\nVAR\n{vars}END_VAR\nEND_PROGRAM\n"))
-        .build_runtime()
+    TestHarness::from_source(&format!("PROGRAM Main\nVAR\n{vars}END_VAR\nEND_PROGRAM\n"))
+        .map(TestHarness::into_runtime)
 }
 
-/// A flat address as ST writes it: `%IX0.1`, `%QL8`.
+/// A flat elementary address as ST writes it: `%IX0.1`, `%QL8`.
 fn address_text(address: &IoAddress) -> Result<String, CompileError> {
-    let area = match address.area {
-        IoArea::Input => 'I',
-        IoArea::Output => 'Q',
-        IoArea::Memory => 'M',
-    };
-    if address.path.len() > 1 || address.wildcard {
+    if address.path.len() > 1 || address.wildcard || matches!(address.size, IoSize::Bytes(_)) {
         return Err(CompileError::new(
             "a test binding needs an elementary flat address",
         ));
     }
-    let byte = address.byte;
-    Ok(match address.size {
-        IoSize::Bit => format!("%{area}X{byte}.{}", address.bit),
-        IoSize::Byte => format!("%{area}B{byte}"),
-        IoSize::Word => format!("%{area}W{byte}"),
-        IoSize::DWord => format!("%{area}D{byte}"),
-        IoSize::LWord => format!("%{area}L{byte}"),
-        IoSize::Bytes(_) => {
-            return Err(CompileError::new(
-                "a test binding needs an elementary flat address",
-            ))
-        }
-    })
+    Ok(address.to_string())
 }
 
 fn elementary_type_name(type_id: TypeId) -> Option<&'static str> {

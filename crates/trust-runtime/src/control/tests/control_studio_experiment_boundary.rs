@@ -133,10 +133,10 @@ fn symbolic_experiment_stops_at_a_reload_and_writes_nothing_to_the_ended_referen
     assert!(started.ok, "{:?}", started.error);
     // The first scan queues the step, which the reload then drops.
     experiment_scan(&state, 0);
-    // The reload ends the program the variable's reference was resolved in.
+    // The reload ends the program the variable's place was resolved in.
     state.debug.invalidate_control_program();
     assert!(
-        state.debug.drain_var_writes().is_empty(),
+        state.debug.drain_control_writes().is_empty(),
         "the queued write resolved against the ended program is dropped"
     );
     // A status request only reads: the reload is settled by the next scan (Specification 35, A6.7).
@@ -148,34 +148,49 @@ fn symbolic_experiment_stops_at_a_reload_and_writes_nothing_to_the_ended_referen
     assert_eq!(status["restoration"], "failed");
     assert_eq!(status["restoration_reason"], "program_reloaded");
     assert!(
-        state.debug.drain_var_writes().is_empty(),
-        "no restoration is written against the old reference"
+        state.debug.drain_control_writes().is_empty(),
+        "no restoration is written against the old place"
     );
 }
 
 #[test]
 fn reload_drops_queued_writes_resolved_against_the_ended_program() {
     let state = symbol_experiment_state();
-    let snapshot = state.debug.snapshot().expect("a runtime snapshot");
-    let reference = snapshot
-        .storage
-        .ref_for_global("Main")
-        .expect("program instance reference");
-    let Value::Instance(program) = snapshot
-        .storage
-        .get_global("Main")
-        .expect("program instance")
-    else {
-        panic!("program instance");
-    };
+    let program = state.debug.published_program().expect("a runtime snapshot");
+    let at = crate::runtime::ProgramRead::locate(&*program, "Main.ManualOutput")
+        .expect("the variable's place");
+    let (main, _) = program
+        .program_image()
+        .find_symbol("MAIN")
+        .expect("the program instance's symbol");
+    let generation = state.debug.generation();
+    state.debug.enqueue_control_write(
+        crate::debug::ControlWrite {
+            at,
+            generation,
+            label: "Main.ManualOutput".into(),
+            value: Value::LReal(1.0),
+        },
+        state.debug.runtime_epoch(),
+    );
     state
         .debug
-        .enqueue_reference_write(reference, Value::LReal(1.0), state.debug.runtime_epoch());
+        .try_enqueue_instance_write(
+            generation,
+            crate::memory::InstanceId(main),
+            "ManualOutput",
+            Value::LReal(2.0),
+        )
+        .expect("queue the instance write");
     state
         .debug
-        .enqueue_instance_write(*program, "ManualOutput", Value::LReal(2.0));
-    state.debug.enqueue_global_write("Gate", Value::Bool(true));
+        .try_enqueue_global_write("Gate", Value::Bool(true))
+        .expect("queue the global write");
     state.debug.invalidate_control_program();
+    assert!(
+        state.debug.drain_control_writes().is_empty(),
+        "a place names its variable only in the program that ended"
+    );
     let writes = state.debug.drain_var_writes();
     assert_eq!(writes.len(), 1, "{writes:?}");
     assert_eq!(
@@ -228,14 +243,9 @@ fn symbolic_experiment_is_refused_until_a_scan_of_the_reloaded_program_completes
     state.debug.invalidate_control_program();
     let refused = start_symbol_experiment(&state, json!({"experiment_id": "symbol-2"}));
     assert_eq!(refused.error_code.as_deref(), Some("stale_scan"));
-    // A completed scan of the reloaded program refreshes the snapshot the variable is resolved in.
-    let snapshot = state.debug.snapshot().expect("a runtime snapshot");
-    state
-        .debug
-        .refresh_snapshot_from_storage(&snapshot.storage, snapshot.now);
-    state
-        .debug
-        .finish_transfer_cycle(&snapshot.storage, snapshot.now, snapshot.storage_abi);
+    // A completed scan of the reloaded program publishes the state the variable is resolved in, and its end marks it
+    // current.
+    state.debug.finish_transfer_cycle();
     let started = start_symbol_experiment(&state, json!({"experiment_id": "symbol-2"}));
     assert!(started.ok, "{:?}", started.error);
 }
@@ -244,17 +254,22 @@ fn symbolic_experiment_is_refused_until_a_scan_of_the_reloaded_program_completes
 fn a_variable_write_resolved_in_an_ended_epoch_is_dropped_when_it_is_queued() {
     let state = symbol_experiment_state();
     let epoch = state.debug.runtime_epoch();
-    let snapshot = state.debug.snapshot().expect("a runtime snapshot");
-    let reference = snapshot
-        .storage
-        .ref_for_global("Main")
-        .expect("program instance reference");
+    let generation = state.debug.generation();
+    let program = state.debug.published_program().expect("a runtime snapshot");
+    let at = crate::runtime::ProgramRead::locate(&*program, "Main.ManualOutput")
+        .expect("the variable's place");
     state.debug.invalidate_control_program();
-    state
-        .debug
-        .enqueue_reference_write(reference, Value::LReal(1.0), epoch);
+    state.debug.enqueue_control_write(
+        crate::debug::ControlWrite {
+            at,
+            generation,
+            label: "Main.ManualOutput".into(),
+            value: Value::LReal(1.0),
+        },
+        epoch,
+    );
     assert!(
-        state.debug.drain_var_writes().is_empty(),
+        state.debug.drain_control_writes().is_empty(),
         "a write from an ended epoch never reaches the program that replaced it"
     );
 }

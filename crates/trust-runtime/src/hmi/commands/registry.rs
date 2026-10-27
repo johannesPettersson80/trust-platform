@@ -48,6 +48,10 @@ pub struct CommandAnswer {
     /// Why it was refused or timed out.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    /// The stable code of a refusal that has one: `runtime_string_capacity_exceeded` for a text
+    /// longer than its point holds (specification 39, §12.8 item 5).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
     /// For a pulse: it has ended.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub ended: bool,
@@ -61,6 +65,7 @@ impl CommandAnswer {
             outcome,
             readback: None,
             reason: None,
+            error_code: None,
             ended: false,
         }
     }
@@ -70,6 +75,15 @@ impl CommandAnswer {
         Self {
             reason: Some(reason.into()),
             ..Self::new(id, Outcome::Refused)
+        }
+    }
+
+    /// The refusal of a write the runtime did not make: its reason, and its stable code when it has
+    /// one.
+    pub fn write_refused(id: &str, refused: super::write::WriteRefused) -> Self {
+        Self {
+            error_code: refused.error_code.map(str::to_string),
+            ..Self::refused(id, refused.reason)
         }
     }
 }

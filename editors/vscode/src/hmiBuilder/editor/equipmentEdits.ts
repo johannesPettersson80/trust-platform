@@ -33,12 +33,16 @@ export function refusal(answer: ProjectEditAnswer | undefined, fallback: string)
   return answer?.errors?.[0]?.message ?? answer?.error ?? fallback;
 }
 
-/** Whether a setting's value in the project and a value from the PLC are the same: numbers within
- * a rounding difference, anything else exactly. */
-export function sameSetting(project: unknown, running: boolean | number | string): boolean {
-  if (typeof project === "number" && typeof running === "number")
-    return Math.abs(project - running) <= 1e-9 * Math.max(1, Math.abs(project), Math.abs(running));
-  return project === running;
+/** Whether a setting's value in the project and a value from the PLC are the same, as the language
+ * server compares them (`trust-lsp.hmiChecks`, specification 39 §21.4 item 6). */
+export async function sameSetting(project: unknown, running: boolean | number | string): Promise<boolean> {
+  const answer = await vscode.commands.executeCommand<{ ok?: boolean; error?: string; same?: boolean }>(
+    "trust-lsp.hmiChecks",
+    { action: "sameSetting", project: project ?? null, running },
+  );
+  if (answer?.ok !== true || typeof answer.same !== "boolean")
+    throw new Error(answer?.error ?? "The truST language server could not compare the setting.");
+  return answer.same;
 }
 
 /** `plant.toml` as the editor or the disk has it; undefined when the project has none. */
@@ -137,7 +141,7 @@ export async function keepEquipmentSettings(
   const known = new Map((described.settings ?? []).map((setting) => [setting.member, setting.value]));
   const settings: Record<string, boolean | number | string> = {};
   for (const [member, value] of Object.entries(values))
-    if (known.has(member) && !sameSetting(known.get(member), value)) settings[member] = value;
+    if (known.has(member) && !(await sameSetting(known.get(member), value))) settings[member] = value;
   const kept = Object.keys(settings);
   if (kept.length) {
     if ((await plantManifest(project)) !== manifest)

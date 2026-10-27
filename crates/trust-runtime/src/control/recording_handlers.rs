@@ -1,4 +1,5 @@
 use super::{ControlResponse, ControlState};
+use crate::runtime::ProgramRead;
 use serde::Deserialize;
 use serde_json::{json, Value};
 #[derive(Deserialize)]
@@ -37,22 +38,25 @@ pub(super) fn dispatch(
             let spec: crate::debug::IoRecordingSpec =
                 serde_json::from_value(params).map_err(|error| error.to_string())?;
             let identity = spec.recording_id.clone();
-            let metadata = state
-                .metadata
-                .lock()
-                .map_err(|_| "runtime metadata unavailable")?;
+            // The program as the last scan left it, whose tasks and revision the recording names
+            // (specification 44 §13.3).
+            let program = state.debug.published_program();
             // A task recording samples a task the program runs; another would record nothing.
             if let Some(task) = spec.task.as_deref()
-                && !metadata
-                    .tasks()
-                    .iter()
-                    .any(|configured| configured.name.eq_ignore_ascii_case(task))
+                && !program.as_ref().is_some_and(|program| {
+                    crate::debug::control_program_tasks(&program.program_image())
+                        .iter()
+                        .any(|configured| configured.name.eq_ignore_ascii_case(task))
+                })
             {
                 return Err(format!("The program runs no task named {task}."));
             }
-            state
-                .debug
-                .start_io_recording_for_program(spec, &metadata)?;
+            state.debug.start_io_recording_for_program(
+                spec,
+                program
+                    .as_deref()
+                    .map(|program| program as &dyn ProgramRead),
+            )?;
             return Ok(json!({"recording_id": identity, "status": "recording"}));
         }
         if operation == "control.recording.status" {

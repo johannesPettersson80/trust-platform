@@ -105,10 +105,9 @@ fn lesson58_the_split_range_holds_the_vessel_under_excess_heat_where_heating_alo
 
 const LESSON59: &str = "09-industrial-control-structures/55-override-control";
 
-fn flag(runtime: &trust_runtime::Runtime, address: &str) -> bool {
+fn flag(runtime: &trust_runtime::CompiledRuntime, address: &str) -> bool {
     match runtime
-        .io()
-        .read(&IoAddress::parse(address).unwrap())
+        .read_io(&IoAddress::parse(address).unwrap())
         .unwrap()
     {
         Value::Bool(value) => value,
@@ -231,7 +230,7 @@ struct Smith {
 /// One update at rest in Manual; then the PI gains (Kp, Ki) and the model (K, T, θ) are written as Control Studio's Apply
 /// writes them, the controller goes to Auto and the setpoint steps 35 → 35.5 °C (at %ML0), for `updates`.
 /// Control Studio's Smith setup binds these program variables; `set_instance_var` would silently add a missing one.
-fn lesson60_assert_interface(runtime: &trust_runtime::Runtime) {
+fn lesson60_assert_interface(runtime: &trust_runtime::CompiledRuntime) {
     let p1 = program(runtime);
     for name in [
         "Auto",
@@ -242,7 +241,7 @@ fn lesson60_assert_interface(runtime: &trust_runtime::Runtime) {
         "CorrectionC",
     ] {
         assert!(
-            runtime.storage().get_instance_var(p1, name).is_some(),
+            exists(runtime, &format!("{p1}.{name}")),
             "Control Studio's Smith setup binds P1.{name}"
         );
     }

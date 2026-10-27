@@ -87,7 +87,7 @@ fn all_stock_panel_fields_resolve_against_the_existing_compiler_metadata() {
         "PROGRAM HmiAssetContract END_PROGRAM",
     ));
     let runtime = trust_runtime::harness::CompileSession::from_sources(sources)
-        .build_runtime()
+        .declarations()
         .unwrap();
     let bundle = plant_assets();
     for (file, text) in &bundle.files {
@@ -98,11 +98,8 @@ fn all_stock_panel_fields_resolve_against_the_existing_compiler_metadata() {
         let panel = super::super::bundle::faceplate(&bundle, &pair.faceplate)
             .unwrap()
             .unwrap();
-        let problems = trust_runtime::hmi::binding_checks::check_pair(
-            &pair,
-            &panel,
-            &runtime.metadata_snapshot(),
-        );
+        let problems =
+            trust_runtime::hmi::binding_checks::check_pair(&pair, &panel, runtime.metadata());
         assert!(problems.is_empty(), "{file}: {problems:?}");
         let (panel_file, bytes) =
             super::super::bundle::faceplate_text(&bundle, &pair.faceplate).unwrap();
@@ -112,8 +109,7 @@ fn all_stock_panel_fields_resolve_against_the_existing_compiler_metadata() {
             &String::from_utf8_lossy(bytes),
         )
         .unwrap();
-        let problems =
-            super::super::command_checks::check(&runtime.metadata_snapshot(), &pair, &model);
+        let problems = super::super::command_checks::check(runtime.metadata(), &pair, &model);
         assert!(problems.is_empty(), "{file} commands: {problems:?}");
         if pair.block == "Plant.FB_Pump" {
             let mut invalid = model.clone();
@@ -124,13 +120,11 @@ fn all_stock_panel_fields_resolve_against_the_existing_compiler_metadata() {
                 .find(|o| o.get("command").is_some())
                 .unwrap();
             control["command"]["method"] = serde_json::json!("MissingMethod");
-            assert!(super::super::command_checks::check(
-                &runtime.metadata_snapshot(),
-                &pair,
-                &invalid
-            )
-            .iter()
-            .any(|(_, message)| message.contains("MissingMethod")));
+            assert!(
+                super::super::command_checks::check(runtime.metadata(), &pair, &invalid)
+                    .iter()
+                    .any(|(_, message)| message.contains("MissingMethod"))
+            );
             let control = invalid["object"]
                 .as_array_mut()
                 .unwrap()
@@ -138,13 +132,11 @@ fn all_stock_panel_fields_resolve_against_the_existing_compiler_metadata() {
                 .find(|o| o.get("command").is_some())
                 .unwrap();
             control["command"]["interface"] = serde_json::json!("Customer.Unimplemented");
-            assert!(super::super::command_checks::check(
-                &runtime.metadata_snapshot(),
-                &pair,
-                &invalid
-            )
-            .iter()
-            .any(|(_, message)| message.contains("does not implement")));
+            assert!(
+                super::super::command_checks::check(runtime.metadata(), &pair, &invalid)
+                    .iter()
+                    .any(|(_, message)| message.contains("does not implement"))
+            );
         }
     }
 }

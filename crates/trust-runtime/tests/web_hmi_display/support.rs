@@ -13,7 +13,6 @@ use serde_json::{json, Value};
 use smol_str::SmolStr;
 use trust_runtime::config::{ControlMode, WebAuthMode, WebConfig};
 use trust_runtime::control::{ControlState, SourceFile, SourceRegistry};
-use trust_runtime::debug::DebugVariableHandles;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::hmi::access::config::HmiAccessConfig;
 use trust_runtime::linux_rt::LinuxRtRuntimeStatus;
@@ -262,7 +261,8 @@ fn start_inner(
     sources.extend_from_slice(programs);
     sources.push(SCREENS);
     let mut harness = TestHarness::from_sources(&sources).expect("the program compiles");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = trust_runtime::debug::DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
     let historian = historian.then(|| {
         let service = trust_runtime::historian::HistorianService::new(
             trust_runtime::historian::HistorianConfig {
@@ -278,7 +278,6 @@ fn start_inner(
         service.clone().start_sampler(debug.clone());
         service
     });
-    let metadata = harness.runtime().metadata_snapshot();
     let handle = ResourceRunner::new(
         harness.into_runtime(),
         StdClock::new(),
@@ -288,8 +287,10 @@ fn start_inner(
     .expect("the resource starts");
     let state = Arc::new(ControlState {
         debug,
+        identify: trust_runtime::io::IdentifyHandle::default(),
         resource: handle.control(),
-        metadata: Arc::new(Mutex::new(metadata)),
+        // Empty, as `trust-runtime run` gives it: the web server reads the running program's
+        // image, never a description of its sources (specification 39, §21.2, §21.4).
         sources: SourceRegistry::new(
             programs
                 .iter()
@@ -324,20 +325,22 @@ fn start_inner(
         controllers: trust_runtime::control::ControllerParameterService::default(),
         searches: trust_runtime::control::search::SearchService::default(),
         resource_name: SmolStr::new("RESOURCE"),
+        runtime_id: SmolStr::new("hmi-display-test"),
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
-        debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
         historian,
         openot_persistence_status: None,
         pairing: None,
         ads_doctor_jobs: Arc::new(Mutex::new(
             trust_runtime::control::AdsDoctorJobStore::default(),
         )),
+        search: Default::default(),
         ads_client_config: Arc::new(Mutex::new(None)),
         opcua_client_config: Arc::new(Mutex::new(None)),
         ads_server_config: Arc::new(Mutex::new(None)),
         #[cfg(feature = "ads-server")]
         ads_server_runtime: Arc::new(Mutex::new(None)),
+        transfers: trust_runtime::control::new_transfer_session(),
     });
     let control = Arc::clone(&state);
     let listen = format!("127.0.0.1:{}", free_port());

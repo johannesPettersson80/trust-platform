@@ -9,10 +9,7 @@ import {
 import type { Node } from "@xyflow/react";
 import type { CommSchemaResponse } from "../../communication/schemaForm";
 import type { DiscoverCandidate } from "../offlineComm";
-import {
-  adsConnectionsForTarget,
-  adsTagSelectionsFromConnections,
-} from "../adsTagBatch";
+import type { DiscoveredAdsFacts } from "../canvasCommands";
 import { browseAction } from "./browseActions";
 import {
   buildDiscoverOrigins,
@@ -54,6 +51,7 @@ export function useDiscoverPaneLifecycle(
 
 export function useDiscoverActions({
   nodes,
+  discoveredAds,
   schema,
   post,
   openBrowse,
@@ -64,6 +62,8 @@ export function useDiscoverActions({
   setEditMode,
 }: {
   nodes: readonly Node[];
+  /** What the server says about each ADS device of the last search (`trust-lsp.devicesTopology`). */
+  discoveredAds: readonly DiscoveredAdsFacts[];
   schema?: CommSchemaResponse;
   post: (message: unknown) => void;
   openBrowse: (
@@ -79,11 +79,20 @@ export function useDiscoverActions({
 }) {
   const origins = useMemo(() => buildDiscoverOrigins(nodes), [nodes]);
   const protocols = useMemo(() => discoverableProtocols(schema), [schema]);
+  const factsOf = useCallback(
+    (candidate: DiscoverCandidate) =>
+      discoveredAds.find((facts) => facts.id === candidate.id),
+    [discoveredAds]
+  );
   const isOnCanvas = useCallback(
     (candidate: DiscoverCandidate) =>
-      candidate.protocol === "ads" &&
-      configuredAdsConnections(nodes, candidate.params).length > 0,
-    [nodes]
+      candidate.protocol === "ads" && factsOf(candidate)?.on_canvas === true,
+    [factsOf]
+  );
+  // Why a result cannot be added now is the server's (`trust-lsp.devicesTopology`).
+  const disabledReason = useCallback(
+    (candidate: DiscoverCandidate) => factsOf(candidate)?.disabled_reason,
+    [factsOf]
   );
 
   const add = useCallback(
@@ -92,9 +101,11 @@ export function useDiscoverActions({
       close();
       setSelectedId(undefined);
       if (browseAction(candidate.protocol)?.mode === "tags") {
-        const target = candidate.protocol === "ads"
-          ? mergeConfiguredAdsTags(candidate.params, nodes)
-          : candidate.params;
+        const imported = factsOf(candidate)?.imported_ads_symbols ?? [];
+        const target =
+          candidate.protocol === "ads" && imported.length > 0
+            ? { ...candidate.params, imported_ads_symbols: imported }
+            : candidate.params;
         if (candidate.protocol === "ads") {
           post({
             type: "addAdsDevice",
@@ -109,55 +120,22 @@ export function useDiscoverActions({
         );
         return;
       }
-      setDraft(draftForDiscoveredCandidate(candidate, nodes));
+      setDraft(draftForDiscoveredCandidate(candidate, factsOf(candidate), nodes));
     },
-    [clearApplyResult, close, nodes, openBrowse, post, setDraft, setSelectedId]
+    [clearApplyResult, close, factsOf, nodes, openBrowse, post, setDraft, setSelectedId]
   );
 
   const adopt = useCallback(
     (candidate: DiscoverCandidate) => {
-      const host = hostForDiscoveredRuntime(candidate);
+      const host = hostForDiscoveredRuntime(factsOf(candidate));
       if (host) {
         post({ type: "addHost", endpoint: host.endpoint, label: host.label });
       }
       close();
       setEditMode(false);
     },
-    [close, post, setEditMode]
+    [close, factsOf, post, setEditMode]
   );
 
-  return { origins, protocols, add, isOnCanvas, adopt };
-}
-
-export function mergeConfiguredAdsTags(
-  target: Record<string, unknown>,
-  nodes: readonly Node[],
-): Record<string, unknown> {
-  const connections = nodes.flatMap((node) => {
-    const params = isRecord(node.data.params) ? node.data.params : undefined;
-    return params && Array.isArray(params.connections)
-      ? params.connections
-      : [];
-  });
-  const imported = adsTagSelectionsFromConnections(connections, target);
-  return imported.length > 0
-    ? { ...target, imported_ads_symbols: imported }
-    : target;
-}
-
-function configuredAdsConnections(
-  nodes: readonly Node[],
-  target: Record<string, unknown>,
-): Record<string, unknown>[] {
-  const connections = nodes.flatMap((node) => {
-    const params = isRecord(node.data.params) ? node.data.params : undefined;
-    return params && Array.isArray(params.connections)
-      ? params.connections
-      : [];
-  });
-  return adsConnectionsForTarget(connections, target);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return { origins, protocols, add, isOnCanvas, disabledReason, adopt };
 }

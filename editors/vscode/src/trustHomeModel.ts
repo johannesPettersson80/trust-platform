@@ -1,16 +1,12 @@
-// Pure model for the truST sidebar — NO vscode import, so it's unit-testable standalone.
-// The sidebar (trustHomeView.ts WebviewView) renders these; the contract test asserts the dropdown
-// options, the single state-specific action, and the honesty rules.
-//
-// Product goal (vscode-ux-overhaul-plan.md §0/§6): one runtime selector + ONE state-specific action.
-// Button labels are LITERAL verbs (Start / Stop / Connect / Disconnect) — never "toggle"/"attach".
-// HARD honesty rule: a remote NEVER renders "Stop" (we don't own its process) — it renders
-// "Disconnect" (we only drop our own connection).
+// The sidebar's run targets and the one action of the selected target are the language server's answer
+// (`trust-lsp.runTargets`, action `selection`, specification 25 §5.1 and §6.1): the Simulator, the managed runtimes, the
+// configured runtimes and the runtime the extension is online with; Start and Stop for the processes the extension owns,
+// Connect and Disconnect for the runtimes whose session it owns, a remote never stopped. The sidebar, the status bar and
+// the speed chooser render this answer.
 
-import {
-  managedRuntimeLabel,
-  type ManagedRuntime,
-} from "./localRuntimeModel";
+import { getTrustConfiguration } from "./configuration";
+import type { ManagedRuntime } from "./localRuntimeModel";
+import { projectRequest } from "./projectRequest";
 
 export type RuntimeKind = "simulator" | "local" | "remote";
 
@@ -34,17 +30,20 @@ export interface RuntimeOption {
   readonly id: string;
   readonly label: string;
   readonly kind: RuntimeKind;
+  /** The control endpoint that selecting the target points the runtime settings at; none for the Simulator and a managed
+   * runtime that does not run. */
+  readonly runEndpoint?: string;
 }
 
 export interface PrimaryAction {
   readonly action: RuntimeAction;
-  // The button text — a literal verb: "Start" | "Stop" | "Connect" | "Disconnect", or a disabled
-  // progress label ("Starting…" | "Connecting…").
+  // The button text — a literal verb, or a disabled progress label ("Starting…" | "Connecting…").
   readonly label: string;
   readonly enabled: boolean;
-  // When the action is disabled for a known reason (e.g. unreachable), the line shown under the button
-  // so the user knows why + what to do next (§0.5.10). Omitted when there's nothing to explain.
+  // Why the action is disabled and what to do next, when there is something to explain.
   readonly hint?: string;
+  /** Whether the compile gate can block the action: an enabled Start (specification 25 §6.6). */
+  readonly gateable?: boolean;
 }
 
 export interface PrimaryActionGate {
@@ -56,8 +55,9 @@ export interface SelectedRuntime {
   readonly label: string;
   readonly kind: RuntimeKind;
   readonly status: RuntimeStatus;
-  readonly statusLabel: string; // human-facing: "Stopped" | "Running" | "Connected" | …
+  readonly statusLabel: string;
   readonly primary: PrimaryAction;
+  readonly runEndpoint?: string;
 }
 
 export interface RemoteRuntime {
@@ -65,7 +65,7 @@ export interface RemoteRuntime {
   readonly label: string; // friendly host name
 }
 
-// The honest slice of RuntimeStatusPayload the model needs, plus the starting flag.
+// The slice of the lifecycle status the language server needs, plus the starting flag.
 export interface RuntimeModelSnapshot {
   readonly runtimeMode: "simulate" | "online";
   readonly runtimeState: "running" | "connected" | "stopped";
@@ -75,220 +75,68 @@ export interface RuntimeModelSnapshot {
   readonly starting: boolean;
 }
 
-export interface RuntimeModelInput {
+export interface RunTargets {
+  readonly options: readonly RuntimeOption[];
+  readonly remotes: readonly RemoteRuntime[];
+  readonly selected: SelectedRuntime;
+  /** Whether the stored selection names one of the options; when not, the Simulator is selected. */
+  readonly selectionValid: boolean;
+  /** The name the status bar gives the runtime the extension is connected to; none while it is connected to none. */
+  readonly connectedLabel?: string;
+}
+
+export interface RunTargetsInput {
   readonly snapshot: RuntimeModelSnapshot;
-  readonly remotes: ReadonlyArray<RemoteRuntime>;
-  // Managed local runtimes (fleet.toml projects on this computer we own — Phase 9). Each becomes a
-  // select-only dropdown entry of kind "local" with Start/Stop driven by its own reported state.
   readonly managed: ReadonlyArray<ManagedRuntime>;
   readonly selectedId: string;
 }
 
-// The dropdown is SELECT-ONLY (§0.5.3): Simulator (default) → managed local runtimes → configured
-// remotes → the runtime the extension is online with (a successful Connect, spec 25 §5.1) when no entry
-// names it yet. There is NO "Add…/Connect…" entry — adding/connecting happens in Devices & Connections.
-export function runtimeOptions(
-  remotes: ReadonlyArray<RemoteRuntime>,
-  managed: ReadonlyArray<ManagedRuntime>,
-  online?: Pick<RuntimeModelSnapshot, "runtimeMode" | "endpoint">
-): RuntimeOption[] {
-  const options: RuntimeOption[] = [
-    {
-      id: SIMULATOR_RUNTIME_ID,
-      label: "Simulator",
-      kind: "simulator",
+/** The run targets and the selected one, as the language server answers them. Without its answer the Simulator is shown
+ * with no action and the reason. */
+export async function resolveRunTargets(input: RunTargetsInput): Promise<RunTargets> {
+  const answer = await projectRequest<RunTargets>("trust-lsp.runTargets", {
+    action: "selection",
+    snapshot: input.snapshot,
+    fleetEndpoints: getTrustConfiguration().get<string[]>("runtime.fleetEndpoints", []) ?? [],
+    managed: input.managed.map(({ name, controlEndpoint, state }) => ({ name, controlEndpoint, state })),
+    selectedId: input.selectedId,
+  });
+  if (answer.ok) {
+    return {
+      options: answer.options.map(withoutNulls),
+      remotes: answer.remotes,
+      selected: withoutNulls({ ...answer.selected, primary: withoutNulls(answer.selected.primary) }),
+      selectionValid: answer.selectionValid,
+      ...(answer.connectedLabel ? { connectedLabel: answer.connectedLabel } : {}),
+    };
+  }
+  const simulator: RuntimeOption = { id: SIMULATOR_RUNTIME_ID, label: "Simulator", kind: "simulator" };
+  return {
+    options: [simulator],
+    remotes: [],
+    selected: {
+      ...simulator,
+      status: "unavailable",
+      statusLabel: "Status unavailable",
+      primary: { action: "none", label: "Start", enabled: false, hint: answer.error },
     },
-  ];
-  for (const local of managed) {
-    options.push({
-      id: local.name,
-      label: managedRuntimeLabel(local.name),
-      kind: "local",
-    });
-  }
-  for (const remote of remotes) {
-    options.push({ id: remote.id, label: remote.label, kind: "remote" });
-  }
-  const endpoint = online?.runtimeMode === "online" ? online.endpoint.trim() : "";
-  if (
-    endpoint &&
-    !options.some((option) => option.id === endpoint) &&
-    !managed.some((local) => local.controlEndpoint === endpoint)
-  ) {
-    options.push({ id: endpoint, label: remoteLabelFromEndpoint(endpoint), kind: "remote" });
-  }
-  return options;
+    selectionValid: input.selectedId === SIMULATOR_RUNTIME_ID,
+  };
 }
 
-// Resolve the selected runtime + its single state-specific action. Falls back to the simulator if the
-// stored selection is no longer in the inventory (removed/stale).
-export function selectedRuntime(input: RuntimeModelInput): SelectedRuntime {
-  const options = runtimeOptions(input.remotes, input.managed, input.snapshot);
-  const chosen =
-    options.find((option) => option.id === input.selectedId) ?? options[0];
-  switch (chosen.kind) {
-    case "remote":
-      return remoteRuntime(chosen, input.snapshot);
-    case "local":
-      return managedRuntime(chosen, input.managed);
-    case "simulator":
-    default:
-      return simulatorRuntime(chosen, input.snapshot);
-  }
-}
-
+/** The selected target with the compile gate's verdict on its primary action: the language server says which action the
+ * gate can block (`gateable`) and the gate gives the reason. */
 export function withPrimaryActionGate(
   selected: SelectedRuntime,
   gate: PrimaryActionGate | undefined
 ): SelectedRuntime {
-  if (!gate?.reason || selected.primary.action !== "start" || !selected.primary.enabled) {
+  if (!gate?.reason || !selected.primary.gateable) {
     return selected;
   }
-  return {
-    ...selected,
-    primary: {
-      ...selected.primary,
-      enabled: false,
-      hint: gate.reason,
-    },
-  };
+  return { ...selected, primary: { ...selected.primary, enabled: false, hint: gate.reason } };
 }
 
-// A managed local runtime: we own the process → Start/Stop (never Connect), driven by its reported state.
-function managedRuntime(
-  option: RuntimeOption,
-  managed: ReadonlyArray<ManagedRuntime>
-): SelectedRuntime {
-  const state =
-    managed.find((local) => local.name === option.id)?.state ?? "unavailable";
-  switch (state) {
-    case "running":
-      return runtime(option, "running", "Running", {
-        action: "stop",
-        label: "Stop",
-        enabled: true,
-      });
-    case "stopped":
-      return runtime(option, "stopped", "Stopped", {
-        action: "start",
-        label: "Start",
-        enabled: true,
-      });
-    case "starting":
-      return runtime(option, "starting", "Starting…", {
-        action: "none",
-        label: "Starting…",
-        enabled: false,
-      });
-    case "stopping":
-      return runtime(option, "stopping", "Stopping…", {
-        action: "none",
-        label: "Stopping…",
-        enabled: false,
-      });
-    case "unavailable":
-    default:
-      return runtime(option, "unavailable", "Status unavailable", {
-        action: "start",
-        label: "Start",
-        enabled: false,
-        hint: "Status unavailable — refresh managed runtimes before starting.",
-      });
-  }
-}
-
-// The simulator: we own the (debug) process → Start/Stop, driven by the lifecycle snapshot.
-function simulatorRuntime(
-  option: RuntimeOption,
-  snapshot: RuntimeModelSnapshot
-): SelectedRuntime {
-  if (snapshot.starting) {
-    return runtime(option, "starting", "Starting…", {
-      action: "none",
-      label: "Starting…",
-      enabled: false,
-    });
-  }
-  const running =
-    snapshot.runtimeMode === "simulate" && snapshot.runtimeState === "running";
-  if (running) {
-    return runtime(option, "running", "Running", {
-      action: "stop",
-      label: "Stop",
-      enabled: true,
-    });
-  }
-  return runtime(option, "stopped", "Stopped", {
-    action: "start",
-    label: "Start",
-    enabled: true,
-  });
-}
-
-function remoteRuntime(
-  option: RuntimeOption,
-  snapshot: RuntimeModelSnapshot
-): SelectedRuntime {
-  const isActiveEndpoint = snapshot.endpoint === option.id;
-  const connected =
-    isActiveEndpoint &&
-    snapshot.runtimeMode === "online" &&
-    snapshot.runtimeState === "connected";
-  if (connected) {
-    // HONESTY: never "Stop" a remote we don't own — only drop our connection.
-    return runtime(option, "connected", "Connected", {
-      action: "disconnect",
-      label: "Disconnect",
-      enabled: true,
-    });
-  }
-  if (snapshot.starting && isActiveEndpoint) {
-    return runtime(option, "starting", "Connecting…", {
-      action: "none",
-      label: "Connecting…",
-      enabled: false,
-    });
-  }
-  if (isActiveEndpoint && snapshot.endpointConfigured && !snapshot.endpointReachable) {
-    // Known-unreachable (we probed and it's down): Connect is DISABLED with a reason — never a button
-    // that just fails (§0.5.10). Diagnosing/starting a remote happens in Devices & Connections.
-    return runtime(option, "unreachable", "Not reachable", {
-      action: "connect",
-      label: "Connect",
-      enabled: false,
-      hint: "Not reachable — open Devices & Connections to start or diagnose this runtime.",
-    });
-  }
-  return runtime(option, "disconnected", "Not connected", {
-    action: "connect",
-    label: "Connect",
-    enabled: true,
-  });
-}
-
-function runtime(
-  option: RuntimeOption,
-  status: RuntimeStatus,
-  statusLabel: string,
-  primary: PrimaryAction
-): SelectedRuntime {
-  return {
-    id: option.id,
-    label: option.label,
-    kind: option.kind,
-    status,
-    statusLabel,
-    primary,
-  };
-}
-
-// Friendly label from a control endpoint string. Keep the port when present so two runtimes on the
-// same host do not both render as "127.0.0.1" in the Run target dropdown.
-export function remoteLabelFromEndpoint(endpoint: string): string {
-  const trimmed = endpoint.trim();
-  if (!trimmed) {
-    return "runtime";
-  }
-  const withoutScheme = trimmed.replace(/^[a-z]+:\/\//i, "");
-  return withoutScheme.split("/")[0] || withoutScheme || "runtime";
+/** `value` without the members the language server sent as `null`. */
+function withoutNulls<T extends object>(value: T): T {
+  return Object.fromEntries(Object.entries(value).filter(([, member]) => member !== null)) as T;
 }

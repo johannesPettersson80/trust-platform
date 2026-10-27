@@ -43,7 +43,7 @@ suite("HMI display: My Symbols", () => {
     const { host, root } = await openedWith(new Host(data()));
     const mixer = object(root, "mixer");
     assert.ok(mixer.querySelector('[data-part="rotor"]'), `the symbol's drawing: ${mixer.outerHTML}`);
-    host.sockets[0].send({ period_ms: 250 });
+    host.sockets[0].send({ period_ms: 250, stale_ms: 750 });
     host.sockets[0].send({ cycle: 1, values: { "Main.Running": { value: true } } });
     await settle(host);
     assert.strictEqual(object(root, "mixer").querySelector('[data-part="rotor"]')?.getAttribute("class"), "hmi-spin");

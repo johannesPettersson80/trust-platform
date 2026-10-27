@@ -203,12 +203,7 @@ fn every_combination_runs_at_time_scale_10() {
 fn run_matrix(time_scale: u32) {
     let project = unique_dir(&format!("matrix-{time_scale}x"));
     let _remove_project = RemoveDir(project.clone());
-    let socket = project.join(SOCKET_NAME);
-    assert!(
-        socket.as_os_str().len() <= MAX_SOCKET_PATH_BYTES,
-        "the control socket path is {} bytes; use a shorter TMPDIR (the limit is {MAX_SOCKET_PATH_BYTES})",
-        socket.as_os_str().len()
-    );
+    let socket = control_socket(&project);
     write_matrix_project(&project, &socket, time_scale);
     build_project(&project);
     let mut runtime = start_runtime(&project, time_scale);
@@ -1130,12 +1125,7 @@ fn write_matrix_project(project: &Path, socket: &Path, time_scale: u32) {
         "cycle_interval_ms",
         &RESOURCE_CYCLE_MS.to_string(),
     );
-    let runtime = set_key(
-        &runtime,
-        "endpoint",
-        &format!("\"unix://{}\"", socket.display()),
-    );
-    let runtime = set_key(&runtime, "auth_token", &format!("\"{TOKEN}\""));
+    let runtime = set_control_endpoint(&runtime, socket);
     fs::write(
         project.join("runtime.toml"),
         format!("{runtime}\n[runtime.web]\nenabled = false\n"),
@@ -1198,6 +1188,19 @@ rate_down_per_s = 25.0
     )
 }
 
+/// Gives a copy's `runtime.toml` text the matrix's control endpoint, the socket in the copy, and its known token. Both
+/// keys are optional and the example names neither (specification 11, section 6.8.0a), so they are set in the
+/// `[runtime.control]` table, added there when absent.
+fn set_control_endpoint(text: &str, socket: &Path) -> String {
+    let mut document = text
+        .parse::<toml_edit::DocumentMut>()
+        .expect("parse runtime.toml");
+    let control = &mut document["runtime"]["control"];
+    control["endpoint"] = toml_edit::value(format!("unix://{}", socket.display()));
+    control["auth_token"] = toml_edit::value(TOKEN);
+    document.to_string()
+}
+
 /// Replaces the value of one `key = value` line of a TOML text, and fails when the text has no such line.
 fn set_key(text: &str, key: &str, value: &str) -> String {
     let mut replaced = false;
@@ -1234,6 +1237,27 @@ fn copy_dir(from: &Path, to: &Path) {
             fs::copy(entry.path(), &target).expect("copy an example file");
         }
     }
+}
+
+/// The runtime's control socket: in the project folder while that path fits a socket address
+/// (`MAX_SOCKET_PATH_BYTES`), else beside the folder under the folder's name, as under the release
+/// guard's long `TMPDIR`.
+fn control_socket(project: &Path) -> PathBuf {
+    let socket = project.join(SOCKET_NAME);
+    if socket.as_os_str().len() <= MAX_SOCKET_PATH_BYTES {
+        return socket;
+    }
+    let name = project
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let short = project.with_file_name(format!("{name}.sock"));
+    assert!(
+        short.as_os_str().len() <= MAX_SOCKET_PATH_BYTES,
+        "the control socket path is {} bytes; use a shorter TMPDIR (the limit is {MAX_SOCKET_PATH_BYTES})",
+        short.as_os_str().len()
+    );
+    short
 }
 
 /// A fresh folder under the temporary directory. The name stays short because a unix socket path has a length limit.

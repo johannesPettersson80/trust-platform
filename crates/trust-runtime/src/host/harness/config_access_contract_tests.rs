@@ -1,18 +1,23 @@
-use super::*;
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use crate::harness::config::ensure_wildcards_resolved;
-use crate::harness::{CompileSession, TestHarness, WildcardRequirement};
+use crate::harness::{
+    lower_application, CompileSession, SourceFile, TestHarness, WildcardRequirement,
+};
 use crate::memory::{IoArea, MemoryLocation};
 use crate::value::{Value, ValueRef};
+use crate::RuntimeBuilder;
 
-fn compile_runtime(source: &str) -> Runtime {
-    CompileSession::from_source(source)
-        .build_runtime()
+/// The declarations of `source` as the front end constructs them.
+fn compile_runtime(source: &str) -> RuntimeBuilder {
+    lower_application(&[SourceFile::new(source)], false)
+        .and_then(|lowered| lowered.construct(&[]))
+        .map(|(builder, _)| builder)
         .unwrap_or_else(|error| panic!("source must compile: {error}"))
 }
 
 fn compile_error(source: &str) -> String {
-    match CompileSession::from_source(source).build_runtime() {
+    match CompileSession::from_source(source).declarations() {
         Ok(_) => panic!("source must fail compilation"),
         Err(error) => error.to_string(),
     }
@@ -80,10 +85,7 @@ END_CONFIGURATION
     harness
         .set_access("Alias", Value::Int(8))
         .expect("write alias");
-    assert_eq!(
-        harness.runtime().storage().get_global("Shared"),
-        Some(&Value::Int(8))
-    );
+    assert_eq!(harness.get_output("Shared"), Some(Value::Int(8)));
 }
 
 #[test]
@@ -147,7 +149,10 @@ END_CONFIGURATION
 "#,
     );
     assert!(runtime.storage().get_global("DirectWord").is_some());
-    assert!(runtime.access_map().get("DirectWord").is_none());
+    assert!(!runtime
+        .access_paths()
+        .iter()
+        .any(|access| access.name == "DirectWord"));
     assert!(runtime
         .io()
         .bindings()
@@ -160,6 +165,7 @@ fn configuration_contract_runtime_wildcard_guard_sorts_and_deduplicates_names() 
     let reference = ValueRef {
         location: MemoryLocation::Global,
         offset: 0,
+        generation: crate::memory::Generation::FIRST,
         path: Vec::new(),
     };
     let requirements = vec![
@@ -379,7 +385,7 @@ END_CONFIGURATION
     );
     assert_eq!(
         error.stable_code(),
-        crate::error::RuntimeError::InvalidAlias.stable_code()
+        crate::error::StableErrorCode::RuntimeInvalidAlias
     );
     assert!(!harness.runtime().faulted());
     assert_eq!(harness.get_access("Observed"), Some(Value::Int(5)));
@@ -780,7 +786,7 @@ END_CONFIGURATION
 }
 
 #[test]
-fn source_artifact_configuration_cannot_expose_or_initialize_external_aliases() {
+fn source_configuration_cannot_expose_or_initialize_external_aliases() {
     for (declaration, expected) in [
         (
             "VAR_ACCESS SharedAccess : P.Shared : INT READ_ONLY; END_VAR",
@@ -793,13 +799,13 @@ fn source_artifact_configuration_cannot_expose_or_initialize_external_aliases() 
     ] {
         let source = format!("VAR_GLOBAL Shared : INT; END_VAR PROGRAM Main VAR_EXTERNAL Shared : INT; END_VAR END_PROGRAM CONFIGURATION C PROGRAM P : Main; {declaration} END_CONFIGURATION");
         let error = CompileSession::from_source(source)
-            .build_bytecode_bytes()
+            .declarations()
             .unwrap_err();
         assert!(error.to_string().contains(expected), "{error}");
     }
     let source = "VAR_GLOBAL Shared : INT; END_VAR PROGRAM Main VAR_EXTERNAL Shared : INT; END_VAR VAR_ACCESS SharedAccess : Shared : INT READ_ONLY; END_VAR END_PROGRAM";
     let error = CompileSession::from_source(source)
-        .build_bytecode_bytes()
+        .declarations()
         .unwrap_err();
     assert!(
         error

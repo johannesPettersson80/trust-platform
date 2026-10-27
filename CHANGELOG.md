@@ -6,250 +6,510 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-- Security: tokio 1.53.3 (RUSTSEC-2026-0386), rustls-webpki 0.103.16 (RUSTSEC-2026-0382), webpki-roots 1.0.10
-  (RUSTSEC-2026-0381) and ctutils 0.4.4 (RUSTSEC-2026-0385).
+### Added
+
+- `Control.PID` has two documented extensions (specification 45 §3.1): the simulation members
+  `HeldMeasurement`/`MeasurementHeld`, which a plant's `pid:` feedback writes before the scan so that
+  `Update` takes the simulated measurement, and the observation members `ModeValue`/`ModeObserved`,
+  the mode the last `Update` ran in, which Control Studio's PID writes check. A project that carries
+  an older copy of the Control library gets a plant fault naming its `pid:` target until the copy is
+  updated.
+- New control operation `comm.compare` (Viewer) and `trust-runtime discover --compare --project <dir>`
+  compare a search with the project's Modbus TCP, EtherCAT, MQTT, OPC UA and ADS devices: they list the
+  configured devices that were not found, the found devices that the project does not use, and the devices
+  whose identity differs (an EtherCAT SubDevice in another position, a Modbus device with another product
+  code). The Devices & Connections Discover pane marks each card `In the project`, `Not in the project` or
+  `Differs from the project` with the facts that differ (`On canvas` is that mark for a TwinCAT device), and
+  its `Compare with project` action lists the comparison of a finished search. A `modbus-tcp` connection
+  form now offers the optional expected `vendor_name`, `product_code` and `revision`, so a Save keeps them.
+- New control operation `identify` (Operator) and `trust-runtime identify --duration-s <n>`: for 1
+  to 60 seconds a runtime blinks the output that `[runtime.identify] output` names (an I/O address
+  such as `%QX0.7`, or a GPIO line such as `gpio:17`) at 2 Hz and reports `identifying` in
+  `status`. It works in every state of the resource: a running, paused, stopped or faulted runtime
+  blinks, an output that `[[io.safe_state]]` names keeps its safe value while a stop or a fault is
+  in force, and a restart that reloads a stopped program reads `[runtime.identify]` again. A project
+  whose program uses that output is refused when it loads, and by `validate`, `check` and
+  `ide serve` too. Devices & Connections offers `Identify` on a runtime, for ten seconds, and shows
+  the runtime's answer. A chip answers `identify_not_configured` until its firmware drives an output.
+- Find a project's runtime with `trust-runtime ctl --project <dir> endpoint
+  --json`; every failure is a JSON error with a stable code, and VS Code shows
+  its message. `ctl`, the `ui` console, debug attach and VS Code (Live Values,
+  the runtime target, Start in online mode, Devices & Connections) ask again at
+  each connection, so they follow a runtime that restarted on another port. A
+  runtime that does not answer is reported as not running, and an endpoint file
+  that you cannot read is skipped for the configured endpoint. Changing
+  `control.auth_token` while the runtime runs withdraws the generated token.
+  Ctrl+C on Windows, `ctl shutdown --exit` and a config UI stop remove the
+  endpoint file; a plain `shutdown` keeps the runtime and its file. The web IDE
+  settings offer no endpoint by default. An empty value or Reset removes the
+  endpoint and the control and mesh tokens; Reset used to write empty tokens,
+  which the runtime refused. mDNS announces a control endpoint only when another
+  computer can reach it: a socket path or a loopback port is never announced.
+  `ctl` with a `serial://` endpoint or a `tcp://` endpoint on another host takes
+  the token from `--token`, `TRUST_CTL_TOKEN` or the project's `runtime.toml`,
+  never from the endpoint file of the project's own runtime. Control Studio's
+  command line without `--endpoint` asks `trust-runtime` for the project's
+  runtime in the same way, and takes the token it reports when neither
+  `TRUST_CONTROL_TOKEN` nor `--token-file` gives one; before, it read only the
+  endpoint written in `runtime.toml`.
+- Create a project folder with `trust-runtime new --parent <folder> --name
+  <name>`. It writes the files of a new truST project, prints the project and
+  its `src/Main.st` with `--json`, and refuses a folder that is not empty unless
+  `--force` is given, which overwrites only the scaffold files and keeps an
+  existing `.gitignore`. Names that Windows cannot use as one folder name, such
+  as `C:x` or `CON`, are refused on every platform. New Project in VS Code uses
+  it and writes the same files as before, without the endpoint line. It now asks
+  before it uses a folder that is not empty, also one without truST files, as
+  specification 25 requires, and an empty or refused name gets the command's
+  message. Every way of creating a project now lists `/.trust-runtime/` in its
+  `.gitignore`.
 - Control Studio reattaches an interrupted operation when it reopens after VS Code restarted: it follows a
   dispatched identification step to its end, completes a journal without one, and ends an identification whose
   simulator restarted or reloaded its program since, saying so with both program revisions. The refusal
   "This loop has an unfinished operation" now offers **Resume**; before, the loop stayed blocked with no way
   out on the page (specification 35, A8.6; acceptance test, 26 October 2026). `trust-control-studio identify
   --resume` makes the same reattach.
-- Discover truST runtimes listens for its whole mDNS browse window, 2,000 ms by default, instead of ending at
-  the first quiet 100 ms, so runtimes that answer a little later are found (specification 11).
-- A new Ladder, SFC, Statechart or Blockly program opens in its visual editor, with its Structured Text
-  companion beside it, instead of as JSON text or only the companion; a `.sfc.json` opened as text also opens in
-  the SFC editor. The new-Ladder template is valid schema version 2 (specification 25, §11.4).
-- HMI Live mode on the simulator says where alarms show instead of showing zero alarm counts, and its read-only
-  explanation names the simulator (specification 39, §11).
-- Connect changes nothing until the runtime answers: a refused Connect (unreachable, missing or rejected token)
-  leaves the target, the runtime settings and the status bar as they were, and the runtime's node in Devices &
-  Connections keeps its place with the failure and a **Set auth token** action. After a successful Connect the side
-  panel's Target, its picker and the status bar name the runtime. A runtime that answers with debugging disabled
-  becomes the target, and Live Values says how to enable debugging (specification 25, §5.1).
-- Choosing another run target in the side panel or with **Set as run target** ends the session with the previous
-  one; the status bar, Live Values and HMI Live follow the side panel's Target instead of staying on the runtime
-  that was connected before (specification 25, §5.1).
-- Devices & Connections gives a connected runtime's node its endpoint, so it offers **Disconnect** and **Set as run
-  target** for that runtime; before, Connect was disabled on it and **Set as run target** selected the Simulator. A
-  running simulator is drawn live: its node green ("Running"), and its simulated I/O and plants with their live state,
-  because the VS Code simulator now reports its I/O drivers' health and its simulation's active configuration revision
-  as the runtime binary does (specification 47, §20.4). A card name such as "Simulated I/O" wraps instead of ending in
-  an ellipsis.
-- A runtime that answers Connect with debugging disabled reads "debugging disabled" in the status bar and in Live
-  Values' state, instead of "connected" in one and "Not connected" in the other (specification 25, §4.4).
-- The status bar says "Simulator ×10 paused" while the program is held at a breakpoint, as the runtime reports it,
-  instead of "running".
-- Live Values starts a numeric row's write box empty, as the prepared value of a CODESYS or TwinCAT watch list; a REAL
-  no longer fills the box with 17 cut-off digits, and the current value stays in the Value column (specification 25,
-  §4.3).
-- Control Studio's Bode plots draw the phase unwrapped, as MATLAB and python-control do: the Frequency tool, the
-  feedback result, the engineering plots and the measured response keep the phase continuous instead of jumping
-  between −180° and +180°, and a delay adds its −ω·L exactly, so `e^(−s)/(s + 1)` reads −657.25° at 10 rad/s
-  instead of 62.75°. The phase axis ticks every 45°, 90°, 180° or 360°, whichever gives at most eight steps, and
-  the crossover markers sit on their curves. The margins are unchanged (numerical annex N4.3).
-- Completion lists a namespace as a namespace (LSP Module kind), not as a variable.
-- A missing expression (`Level := ;`) gives one error; the statement keeps its `;`, so no second "expected ';'"
-  follows.
-- The alarm list's Value column never reads "2.5 > 2.5": when the tag's decimals round a reading onto its limit, it
-  shows more decimals ("2.53 > 2.50"), and its sign compares the two numbers shown (specification 39, §5.9).
-- High contrast themes mark the active part of the HMI Builder's Build/Live switch.
-- Control Studio names a plotted plant input "Output" on its axis, as in its legend, instead of "Applied input"
-  (specification 35, B9.9). In the narrow loop setup form, each **Change** link stays at the start of its row.
-- Create project opens its name box with a selected suggestion instead of "Project name is required." before
-  anything is typed.
-- `trust-runtime` commands run with `--json` report an error without the command-line tip, so VS Code no longer
-  suggests `trust-runtime wizard` after a failed PLCopen export (specification 11, 6.8.1d).
-- The HMI Builder, Control Studio, simulated plants and `Comm.Link` blocks run on the shared execution
-  engine. The screens are served at the end of each scan in which the program called `Hmi.Display`, after
-  that scan's outputs are published, instead of directly after the calling task, so a command reaches every
-  task before any output it affects is published (specification 39, §18). Control Studio's task-boundary
-  parameter and transfer commits, the link states and a simulated plant's controller measurement now pass
-  through the engine's checked writes and service hooks instead of a copy of the program's storage.
-- Function-block and class instances follow IEC 61131-3 §6.5.6 over a warm restart, an online change and a
-  power loss, on every runtime, embedded or hosted: an instance declared RETAIN, alone or as an element of an
-  instance array, keeps its whole tree, including an unqualified nested instance such as a `CTU` or `TON`
-  inside it; a variable or nested instance its type declares NON_RETAIN starts over, also in a RETAIN global
-  after a warm restart of the running runtime; a variable its type declares RETAIN is kept in every instance
-  (`@program-instance/...` and `@global-instance/...` in the retain store, specification 10 §4.8).
-- A variable bound to a marker (`%M`) starts from its initialized value after construction and a cold
-  restart, and from its retained value after a warm restart or a retain-store load, instead of from a zero
-  or pre-restart image (specification 11 §6.5).
-- The HMI's command, settings and one-off read queues hold at most 1,024 requests each; a request past the
-  bound is refused at once with `request queue full`.
-- A production build (`trust-runtime build`, `run`, a debug or Control Studio session) of a configured project
-  leaves its `TEST_PROGRAM`s unbound and does not instantiate them, so a runnable project such as a control
-  course lesson keeps its tests beside its configuration; an unbound ordinary `PROGRAM` is still refused
-  (specification 22).
-- A call on an element of a function-block instance array (`Pumps[2](Start := TRUE)`), an instance array's
-  element initializers (`[(PT := T#100ms), 2((PT := T#50ms))]`) and a named instance-array type's initializer
-  (`TYPE TONS : ARRAY[1..50] OF TON := [50(PT := T#100ms)]`) are accepted by the bytecode producer and
-  validator again.
-- Security: the VS Code extension takes `markdown-it` 15.0.3, which fixes two quadratic-time denial-of-service
-  defects in rendering (GHSA-vfgh-jcmw-g37q, GHSA-gfr2-rv44-r23c).
-- Security: the HMI's file routes (screens, panels, pairs, texts, symbols and images) read only regular
-  files inside the project's `hmi/` folder; a link, a linked folder or an `io.toml` is never read, so no HMI
-  route can disclose the I/O configuration's credentials.
-
-- Share compact, lossless floating-point text codecs across runtime platforms,
-  preserving both conversion directions and existing diagnostic spelling.
-
-- Count the work limit the way a PLC program sees it: one unit per executed
-  instruction, plus per-element work when arrays, references or text are copied.
-  Lookups, safety checks and other engine bookkeeping no longer count, and
-  passing an array as VAR_IN_OUT copies nothing, as IEC passes it by reference.
-  Each program or task function-block invocation in a scan has its own
-  1,000,000-unit allowance again, so the OpenOT telemetry and database examples,
-  OSCAT OOP and PLCopen Motion libraries run under the default limits. The stack
-  and register executors charge the same total. Program construction and restart
-  get their own allowance from the preparation profile (64 Mi units by default on
-  hosted runtimes).
-- Hosted execution prepares lookup indexes and frame plans once and moves owned
-  call values instead of copying them; lifetime checks, transactional outputs and
-  failure cleanup are unchanged.
-- Calls do less work. Literal and plain scalar defaults are written straight into
-  the new frame, and on hosted runtimes a function, function block or method that
-  calls no other user POU runs directly inside the calling instruction (not while
-  debugging). Results, faults and work-limit charges are unchanged; such calls no
-  longer reserve call-handler memory.
-
-- The HMI's shipped symbols take their design size, label and ports from one table in the runtime (`symbol_geometry.json`):
-  the language server's pipe routes read it, and the editor's drawing reads the module generated from it, so both meet the same
-  ports.
-- The HMI Builder's quality warnings (touch targets, missing units, unbound objects, cut texts, low contrast, colours that look
-  like an alarm's, and a program without `Hmi.Display`) are decided by the language server (`trust-lsp.hmiQuality`); the editor
-  reports only what its drawing measures. The warnings and their sentences are unchanged.
-- Control Studio's Apply of a PID group waits until every member's output has settled at the validated operating point, and
-  compares every member's plant input in Manual; it compared the primary member alone.
-- The VS Code simulator's control server takes the program's sources again on every reload, so Validate's isolated runs, a
-  finite search and breakpoints use the program as edited; they kept the sources the simulator started with.
-- Control Studio starts its engine again on a request a minute after a failed start, so an engine installed or repaired meanwhile
-  is used without reloading the window.
-- Control Studio shows the block of an Apply's checkpoint at once when an Apply or a Restore fails after its first write (the
-  failed update carries the stages), and an engine operation that ends before the panel follows it still reaches the page with
-  its final answer.
-- Control Studio's experiment-settings and declared-analysis parameter tools write to a physical target: a review of such a write
-  shows an approval box, and the write carries the engineer's approval (it was always sent unapproved, so the engine refused it).
-- Control Studio's resumed identification (`trust-control-studio identify --resume`) answers the kept recording's samples and the
-  restoration its experiment confirmed, as a fresh identification does.
-- Control Studio's measured frequency response names its recording by what it recorded and when, for example "PRBS recorded
-  2026-10-22 14:05:31 UTC", instead of the study's `rec-…` identifier.
-- Control Studio's Tune page shows the analysis it restores after a reopen as the chosen one: Analyze… offers its Close, and the Tune
-  button names the analysis's action.
-- Control Studio no longer shows a settings change that the engine refuses during a running operation as the end of that
-  operation: the refusal shows on its editor's page, and the running work keeps its Abort.
-- Control Studio's engine refuses Apply's review and confirmation for the validation the newest Apply already applied, with
-  Validate as the next action, as the page's withheld offer always said; a request from the command line could apply it again.
-- Control Studio's Identify no longer refuses a loop with "the loop's Auto/Manual mode is unavailable" when another reader, such
-  as the panel's live values, had just changed the runtime's signal inspection: the engine waits for the runtime's next scan, up to
-  twenty task periods of 50–100 ms, before it counts a run's or a review's sample as unavailable.
-- Control Studio's panel in VS Code is now presentation only: every rule, check and decision runs in its Rust engine, and the
-  TypeScript route and session are removed. A loop the engine does not run shows the engine's refusal and its next action.
-  Export (JSON of the workflow result, CSV of the selected signal table, B10.5), the Channels… mapping, the loop monitor's live
-  values and the target label, the study inputs, and the loop setup's step-by-step save now run through the engine; the HMI
-  Builder opens an equipment's loops through it.
-- The Tune page's initial-state response reads its Step and Duration in the engine: a time typed as `15 min`, `90 s` or `1 h 30 min`
-  is read as its seconds, and a text that is no time is refused with its sentence and the field marked, instead of silently taking the default.
-- Control Studio's Requirements… and experiment Limits… dialogs no longer check ranges themselves: the engine refuses a value
-  outside its range, a reversed range, or a blank or unreadable number, with its sentence under the field that holds it. A PID group's Tune designs each
-  member to its own output's requirements.
-- Control Studio's verification scenarios are named and checked by the engine: a scenario added in the Requirements editor has no
-  name until the list is saved and then takes the first free `scenario-N`, a timed change whose time is not a whole number of the
-  loop's task periods is refused when the list changes (not when Validate runs), and the advanced fields are read by the engine as
-  the text typed. The setup form's optional gain-schedule points and the PID group's decoupler matrix follow the engine's answer.
-- Control Studio's Apply, Restore and Keep follow the engine: it states which of them is offered after open and after each outcome,
-  and how a review is confirmed (a press on a simulated target, an approval on a physical one). A confirmed Restore now ends its
-  recovery and unlocks the page, a refused Apply, Restore or Keep keeps the engine's offers, and cancelling the approval of a
-  recovery's Restore review frees the Review restore button again. The stage tabs enable what the engine's stage availability
-  allows, and a finished project test that restored its declared values releases the experiment settings.
-- Control Studio's experiment-settings tool runs on the engine again, for the course projects that declare their experiment's
-  settings (lessons 21, 65, 71, 74, 75, 78 and 79): the settings are reviewed and applied within their bounds, frozen while a project
-  test works on them, and released after its restoration is confirmed, also after an Abort or a failed test. The engine refuses an
-  Identify start whose method the loop cannot run, with the Method list's own sentence; after a refused method choice the
-  Method list shows the method the study still holds.
-- The VS Code simulator's control status reports the tasks of the loaded program and the cycle its runner takes, also after a
-  reload. It reported a fixed 10 ms cycle, so Control Studio sized the recordings and Apply observations of a loop on a
-  background task in the simulator for 10 ms executions instead of the task's own period.
-- Control Studio reviews a project test on any runtime: on a stopped Simulator the review answers with a Start simulator button,
-  and a physical target is reviewed and run without a Simulator start first (the page used to start the Simulator before every first
-  review, so a physical target could not review its project test).
-- Control Studio's Restore on a runtime that was restarted or reloaded since Apply says that nothing could be restored, keeps the
-  Apply's checkpoint as history and offers Validate again, instead of leaving the loop blocked. After any Restore, Apply is offered
-  again only once a new validation passes, also when the panel is reopened. While a checkpoint waits for its Restore,
-  Identify, Tune, Validate, Reset and the imports are refused with the reason, also after the panel is reopened.
-- Control Studio's loop setup form sends every number as it was typed, and the engine refuses one it cannot read under its field
-  (a browser number field used to blank text such as `1,5` before the engine saw it).
-- Control Studio's project test that declares a baseline records from the start of its plan, so the recording times a lesson
-  gives are the recording's own; a test that declares none still waits for a steady baseline first, so its fit has one. Every
-  project test keeps each scan of its hold: a 30.1 s test keeps all 300 scans of its 30 s hold.
-- Control Studio's project test of a loop that names a hold parameter (lesson 21) is reviewed and planned from the hold the runtime
-  applies: the review shows the baseline, the hold and one restoration sample (35.1 s for a 30 s hold), and refuses a hold that cannot
-  be read, lies outside its bounds or exceeds the declared maximum.
+- Added: the `mqtt` driver on a chip with a network: the ESP32-C6 runs the computer's MQTT 3.1.1
+  session, typed points, raw mode and Sparkplug B from one shared implementation, keeps the session
+  alive between the scans and while the program is stopped, and ends it in order when the program is
+  replaced. A broker can be named by a host name, looked up with the chip's name servers. The C6
+  keeps 16 received messages (1,024 payload bytes), packets of up to 1,024 bytes and 2,048 bytes
+  waiting to be sent, and counts the driver's buffers when it loads the program. TLS and symbolic
+  `mappings` are refused on the C6 for now, with the reason.
+- Added: the `modbus-tcp` driver on a chip with a network: the ESP32-C6 reads and writes a Modbus TCP
+  server over Wi-Fi with the computer's keys, checks and deadlines, from one shared implementation
+  of the driver's exchange that builds every frame with the `trust-modbus` crate.
+- Added: the `analog`, `pwm`, `counter` and `can` I/O drivers, with the same `io.toml` keys on a
+  chip and on Linux (specification 11 §6.5): on the ESP32-C6 over its ADC, LEDC, PCNT and TWAI
+  controllers, on Linux over IIO, sysfs PWM, the counter subsystem and SocketCAN. macOS and Windows
+  refuse them with the reason. `trust-runtime` on Linux now links `socketcan`.
+- Added: `trust-runtime build` also writes `build/install.<target>.bin`, the container that
+  `trust-runtime ctl install` installs on a device, so a chip's program no longer needs a developer
+  tool to pack it (specification 44 §4.1).
+- Added: `trust-runtime ctl capabilities` prints what a runtime reports of its device: a chip's
+  network and address, its firmware slots, its memory for programs and its last reset.
+- Added: `trust-runtime firmware install --reset-settings` also erases a chip's device settings and
+  pairings through its boot loader on USB, so a chip whose control token is lost boots without a
+  token, without pairing tokens and without a network.
+- Added: a chip pairs clients as a computer does, with `pair.start`, `pair.claim`, `pair.list` and
+  `pair.revoke` (specification 11 §6.9.6). The ESP32-C6 keeps its pairings in two flash sectors at
+  `0x7F6000` and `0x7F7000`, taken from its program store, whose slots are now 2,060 KiB at
+  `0x3F0000` and `0x5F3000`: install the firmware again with `trust-runtime firmware install`, then
+  the program. A chip pairs only while it serves a network and its clock is set.
+- Added: a chip trusts the keys its `device.toml` names under `[signing] trusted_keys` (specification
+  44 §5.11): it then runs only programs one of them signed, at an install, a restart and an online
+  change, and `status` reports `signature: trusted`. A computer's install also checks the
+  signature against its own `device.toml`, where before only its start did.
+- Added: a chip on a network is found by the same discovery as every truST runtime (specification
+  34 PORT-06): it announces `_trust._plc._tcp.local.` over mDNS with its runtime ID, version,
+  platform and control endpoint when it takes an address, answers browses, and withdraws itself
+  before a reset it makes. A chip whose `device.toml` names a time server sets its clock from it
+  with SNTP once it has an address and every hour (TARGET-06); `capabilities` reports the server,
+  the last correction and why a request took no time.
+- Added: a chip joins its network and serves its control connection over it (specification 34
+  PORT-06). An ESP32-C6 whose `device.toml` names a Wi-Fi network joins it at boot, takes its
+  address from DHCP or the settings, and joins again after a loss; with a control token in the new
+  `[control]` section it serves the control protocol on TCP port 9901 (`[control] port`), so
+  `trust-runtime ctl --endpoint tcp://<address>:9901 --token <token>` reaches it as it reaches a
+  computer, installs included. The token is then required on every link. One client holds the
+  network connection at a time; a second is told that the device is busy (`server_busy`), and a
+  tool connects again for about a second and a half, as a chip frees its connection a moment after
+  a client closes it. The chip answers ping on its address, leaves its network before a reset it
+  makes itself, and derives a WPA2 passphrase's key at boot, so that joining never stalls its
+  program's scans. `capabilities` reports the chip's network, its address and the reason a radio did
+  not start. The radio's code takes 80
+  KiB of the C6's program region, now 112 KiB; a chip without Wi-Fi settings starts no radio and
+  keeps its heap whole.
+- Added: a chip keeps its own settings, `device.toml` (specification 34 TARGET-02): its name, its
+  Wi-Fi network and address, Bluetooth, its time server, the keys whose signed programs it trusts
+  and the wiring values it cannot detect. `trust-runtime ctl device-set <device.toml>` stores them
+  while the program is stopped, `ctl device-get` reads them back without the Wi-Fi password, and
+  `ctl device-reset` restarts the chip with them. A setting the chip has no hardware for is refused
+  with the reason.
+- Added: truST is installed on a chip and updated from the tools (specification 34 TARGET-04).
+  `trust-runtime firmware install --chip esp32c6 <folder>` writes the release's firmware through the
+  chip's own boot loader over USB, and `trust-runtime ctl firmware <image>` updates a chip that runs
+  truST over its control connection: the image goes into the firmware slot that does not run, the
+  chip checks it, restarts into it and runs it on trial until its boot is done; a firmware that does
+  not finish its boot is rolled back by the boot loader, and the command says so. `capabilities`
+  reports a chip's firmware slot, version and rollback. The ESP32-C6's flash layout changes for the
+  second firmware slot (the program store is now two slots of 2,064 KiB), so a chip needs a fresh
+  `firmware install` and its program installed again once.
+- Added: `--endpoint serial:///dev/ttyACM0` (`serial://COM5` on Windows) reaches a chip over its USB
+  port in `trust-runtime ctl`, `ads server` and `discover`, and `trust-runtime ctl install
+  <container> [--restart cold|warm]` installs a program on a chip or a computer.
+- Added: the tools say which update is needed when a runtime runs another truST release
+  (specification 34 TARGET-05): `trust-runtime ctl` and the tools that open a device's link write,
+  for example, `warning: the runtime runs truST 0.30.9 and these tools are truST 0.31.0: update
+  the runtime to truST 0.31.0`, and the Devices panel names the update in the runtime's inspector.
+  The older side is the one to update. `ctl` reads the version with `status` as request 0, so the
+  action's request keeps id 1 on a socket, a serial port and a chip's network alike
+  (specification 11, 6.8.1).
+- Added: a chip answers `config.get` and `config.set` as trust-runtime does (specification 34
+  TARGET-07): the log level, the cycle watchdog, the fault policy, retain and control of its
+  installed program, in trust-runtime's keys, by the same rules. A change is committed before the
+  reply, the program takes a new watchdog, fault policy or retain save interval at its next
+  boundary, the hardware watchdog follows a new cycle watchdog timeout, and a control token set this
+  way is required from then on. A chip answered both with `unsupported request`.
+- Added: a `STRUCT OVERLAP` may hold structures, other overlaps and arrays, as IEC 61131-3
+  §6.4.4.7.1's own example `Com_data` does (specification 02 §3.6): each lies over the shared
+  bytes in its own layout, its members and elements read and write those bytes, and a whole member
+  is copied member by member. The build refused such a member with "which is no elementary value".
+  A string stays refused, as IEC leaves the overlapping of strings out of the standard.
+- Added: a body may name a directly represented variable, `%QX0.2 := %IX0.1;`, in a program,
+  function block, function or method, as IEC 61131-3 §6.5.5.1 permits (specification 03 §5). The
+  build refused it with "the name %IX0.1 is not compiled yet". Each address is a variable at that
+  address, sampled, published and kept as a variable declared `AT` it is.
+- Added: the ESP32-C6 has a wall clock, so a program that calls `CURRENT_DT` installs and runs
+  there. The chip takes its time from the computer that talks to it: `trust-runtime` and
+  `trust-dev` send the new request `clock.set` with their own clock whenever they open the chip's
+  control link (specification 11, the runtime clock contract). The C6 counts the time with its
+  crystal and keeps it across every reset but a loss of power; until a computer sets it, its clock
+  counts from 1970-01-01 at power-up and replies carry no time. trust-runtime on a computer
+  refuses `clock.set` with `clock_not_settable`: its operating system holds its clock.
+- Added: a program type may have several instances in a configuration, each with its own
+  variables, task, `RETAIN` or `NON_RETAIN`, `VAR_CONFIG` values and access paths (IEC 61131-3
+  §6.8.2, Table 62 6a; specification 18 §2.4), where the build refused a second instance with "not
+  supported yet". The connections of a program's inputs and outputs in the configuration,
+  `PROGRAM P1 WITH Fast : P(x1 := %IX1.1, x2 := w, out1 => %QW5)` (Table 62 8a, 8b, 9a, 9b), now
+  run: an input connected to a direct address reads it and an output writes it, and the others
+  are made at every activation, inputs before the body and outputs after it. The build used to
+  accept them and ignore them. A connection the program does not declare, an output connected
+  with `:=`, an input with `=>` or a value of another type is refused with the reason.
+- Added: compiled programs run every construct the bytecode engine ran (specification 44 0.23):
+  `EN`/`ENO`, outputs given by position, `RETURN` with a value, `JMP` and labels, `VAR_STAT`,
+  `UNION`, `STRUCT OVERLAP`, `POINTER TO` and `ADR`, `?=`, `WSTRING`, `IS_VALID`, edge-qualified
+  inputs, function blocks run by a task, located structures and arrays, hierarchical addresses
+  (`%IX1.2.3`), `VAR_CONFIG` locations and initial values, `VAR_ACCESS` names, `CURRENT_DT`, `ARRAY[*]` parameters and pointers with
+  `LOWER_BOUND`/`UPPER_BOUND`, a function's own function block instance with its initial values,
+  and a structure that refers to itself. A write to an element of an `ARRAY[*]` input is refused at
+  build: an input is the caller's array (specification 03 §6). `DATE`, `TOD` and `DT` at a direct
+  address are refused with the name of their long form. The kernel interface is version 5, so
+  images built before must be rebuilt.
+- Added: `trust-runtime build --target <device or CPU>` compiles a project into native machine code
+  for that device, in a program image (`build/program.<target>.tpi`) with its memory figure in
+  `build.json` and, with `--emit-source`, the generated Rust (specification 44). The reference plant
+  program `examples/vat_pasteurizer` (batch control with a PID loop, twelve alarms, status texts, a
+  plant simulation) needs 18,978 bytes of RAM on the ESP32-C6 as a debug image (its memory figure)
+  instead of about 160 KB, and on a
+  computer it computes the same values as the runtime, bit for bit, scan after scan. Building needs
+  the toolchain folder at `TRUST_TOOLCHAIN`. The build also writes the image's deployment record,
+  and `cargo xtask portability pack-project` packs an image like `program.stbc`. The ESP32-C6
+  firmware built with `build-firmware esp32c6 <report> --native` admits the image where it lies in
+  its program slot and runs its code from a 128 KiB region of its RAM, through the same program
+  store, install, `status`, `tasks.stats` and `io.read` as today; the pasteurizer's control task
+  takes about 0.06 ms there, 0.18 ms at worst over an hour, and its 86 KB image installs over USB.
+  A compiled program keeps its `RETAIN` variables across a power cut as an interpreted one does:
+  the ESP32-C6 saves them into its checkpoint log in the same format, byte for byte, restores them
+  at a warm start with the same conversions, and checks at an install that the new program accepts
+  them. Online change and the debugger of a compiled program follow (specification 44 M3).
+- Added: `trust-runtime conformance --execution-backend native` runs the conformance suite on
+  compiled programs: each case is built for this computer and run by the kernel, and its trace is
+  compared with the same expected artifacts (specification 44 §14.2). A project without a
+  `CONFIGURATION` now compiles as the runtime runs it, each `PROGRAM` as an instance of its name.
+- Added: the control request `cycle.step` runs one scan of a stopped program at a time the client
+  gives, with the values it gives written before and the values it names read after, on a computer
+  and on a chip alike (specification 11 §6.8.1). The scan touches no driver and starts no task, its
+  fault is reported and not latched, and a cold restart in it loads a program installed since the
+  last one. `trust-runtime conformance --execution-backend native --device <port> --target esp32c6`
+  runs the conformance suite on a device with it: each case is compiled for the device, installed
+  and stepped cycle by cycle, and its trace is compared with the same expected artifacts. A step's
+  `run` names a program instance whose body runs once in place of the cycle, and
+  `trust-dev test --execution-backend native --device <port> --target esp32c6` runs a project's
+  tests on a device with it: the project is compiled and installed once, and each test is one step
+  that restarts the program cold and runs its test program (specification 22). The test image runs
+  no test program by itself, so a device that restarts or resets with it installed runs no test.
+- Added: release images. A project whose `trust-lsp.toml` says `[build] debug = false` is compiled
+  without debug hooks by `trust-runtime build --target`, `bench project --execution-backend native`
+  and `trust-dev test --execution-backend native`; without the setting each builds a debug image, as
+  `trust-runtime build` did before, so `trust-dev test` now tests the kind of image the project
+  deploys (its test images had no hooks). A release image says so in its header and in the build's
+  report (`"debug": false`), still ends a loop that never ends at the statement budget, which then
+  counts the passes through loops, and cannot be debugged (specification 44 §13.2). On an x86-64
+  computer the pasteurizer's control task takes 150 ns per activation as a release image instead of
+  221 to 231 ns, and its code is 21,184 bytes instead of 47,504.
+- Added: compiled programs may be recursive, as interpreted ones are: a function, a method or a
+  function block that calls itself, directly, through others or through an interface, runs within
+  a call depth that the kernel works out from the task's stack, the stack beyond the program's
+  bound in the bytes one turn of its largest cycle takes, which the build reports as `call_level`.
+  A recursion that does not end ends the scan with the error a call beyond the bytecode engine's
+  call levels gives (`call depth exceeded`) instead of overrunning the stack
+  (specification 44 §6.4, §8.5). The kernel interface is version 3: a kernel refuses an image of
+  another version, so a chip's firmware and its programs are updated together.
+- Added: the debugger of compiled programs (specification 44 §13.2). A debug image names its POUs
+  and their frame variables in its symbol table and links each call's frame into the kernel's
+  context, so a breakpoint set by line (`breakpoints.set`, resolved through the image's statement
+  table as `LINE_TABLE` resolves it), a pause and `step_in`, `step_over` and `step_out` hold the
+  scan at the statement, and `debug.stack`, `debug.scopes` and `debug.variables` show the call
+  stack and the variables of the held scan: each frame's instance and frame variables, the
+  globals, the retained variables and the instances, through the shared request service on a chip
+  and a computer alike. Live Values queued while the scan is held reach it when the hold ends. A
+  release image refuses the debugger with `the program was built without debug hooks ([build]
+  debug = false)`. The kernel interface is version 4, so a chip's firmware and its programs are
+  updated together. On the ESP32-C6 a breakpoint in a function holds the scan with the call stack
+  of the function, its function block and the program, steps and resumes, over USB. Watch
+  expressions, hover and the debug console's `evaluate`, breakpoint conditions, hit counts and
+  logpoints work on compiled programs too: VS Code's debugger compiles each expression with the
+  project's types into the portable form of specification 11 §6.13.2, which the runtime evaluates
+  in the held frame without parsing ST text, on a computer and a chip alike, and a logpoint's
+  message appears in the debug console. An enumeration literal such as `Mode#Run` takes its number
+  from the program the runtime runs.
+- Added: VS Code's simulator runs the program compiled for this computer where the truST toolchain
+  is installed (specification 44 NX-16): a launch builds the project as `trust-runtime build` does,
+  without touching the project's `program.tpi` or `program.stbc`, runs it in the debug adapter on
+  trust-runtime's own scheduler with the `io.toml` drivers and a control server at the launch's
+  endpoint, and debugs it as an attached runtime: breakpoints with their conditions, hit counts and
+  logpoints, stepping, the call stack, watches, Live Values and the I/O panel. `stopOnEntry` holds
+  the first statement, and "Reload" builds the project again and changes the running program
+  online. Without the toolchain, or with a construct the native build does not compile yet, the
+  simulator runs the bytecode engine and says why in the debug console; `"executionBackend": "vm"`
+  in the launch configuration asks for it.
+- Added: program images are signed, and a runtime can run only the images of keys it trusts
+  (specification 44 §5.11). `trust-runtime build` signs the image it writes with the key the
+  project's `trust-lsp.toml` names in `[signing] key`, or else with your own key,
+  `signing-key.pem` in truST's configuration folder (`~/.config/trust` on Linux), which the first
+  build creates, readable by you alone and never printed; the build's report names the signer's
+  public key. A runtime whose `device.toml` in that folder lists `[signing] trusted_keys` installs,
+  starts and changes online only images one of those keys signed, and refuses an image changed
+  after signing; without the list it checks no signature and runs unsigned images too, as before.
+  `status` reports `signature`: `none` or `trusted`.
+- Added: truST installs the compiler for compiled programs itself (specification 44 §4.6). The
+  first build that needs it downloads this release's toolchain bundle (about 220 MB, once) into
+  truST's data folder (`~/.local/share/trust/toolchains/` on Linux), checks it against the
+  release's `SHA256SUMS` and its own manifest, and uses it from then on.
+  `trust-runtime toolchain status` names the toolchain the tools use, and
+  `trust-runtime toolchain install [--from <file>]` installs it, also without internet from a
+  bundle file. VS Code installs it before a debug launch with its progress shown, and has the
+  commands "truST: Install Toolchain" and "truST: Install Toolchain from File". `TRUST_TOOLCHAIN`
+  still names a development toolchain, and nothing is downloaded then. Each release publishes the
+  bundle of every platform it builds the tools for.
+- Added: a runtime refuses a program image built with another release's toolchain, naming both
+  program libraries, and an image with an I/O binding outside its process image, each with its
+  reason (specification 44 §10.2); an image names the hash of its sources. The toolchain's library
+  folders name their release in a `LIBRARY` file: a toolchain folder of an earlier build needs
+  `scripts/native/build_toolchain_libraries.sh` again.
+- Added: trust-runtime on Linux, Windows and macOS runs compiled programs (specification 44 §8.8):
+  `trust-runtime build` writes the project's program image for this computer, `program.tpi`, with
+  its deployment record, when the Rust toolchain of truST is installed (`TRUST_TOOLCHAIN`; without
+  it the build still writes `program.stbc` and says so, and `--execution-backend vm` asks for it),
+  and `run` and `play` run `program.tpi` with the cycle a chip runs: the `io.toml` drivers, the
+  retain file the bytecode engine writes (each restores the other's), the watchdog and fault
+  policies, Live Values, online change with an image, `cycle.step`, `program.install` of an image
+  into the project or its program store, and the debugger with breakpoints, stepping and the call
+  stack, answered by the same code as on a chip. `status` reports `execution_backend: "native"`.
+  The HMI, the ADS and OPC UA servers and the historian show a compiled program's variables as they
+  show an interpreted program's, the ADS and OPC UA clients bind their points to its globals, the
+  MQTT tag mappings bind its program variables, and the OpenOT telemetry reads its producers.
+  `runtime.toml` `[resource] max_statements_per_scan` sets the statements one task activation may
+  run (default 1,000,000). A build of `program.stbc` removes an earlier `program.tpi`, and
+  `trust-runtime fleet start` builds as `trust-runtime build` does, so a computer runs the program
+  the last build wrote. `trust-dev test` runs a project's tests compiled where the toolchain is
+  installed; `--execution-backend bytecode` keeps the bytecode engine. A global declared `AT` a
+  process-image address now compiles. A project with a construct the native build does not compile
+  yet is built as `program.stbc` with a note naming the construct, by `trust-runtime build`,
+  `fleet start` and `trust-dev test`, so it runs as before. `capabilities` on an x86-64 or AArch64 computer lists the image format
+  `44.1` beside STBC 2.0 and 3.0.
+- Added: online change of a compiled program (specification 44 §12). `bytecode.reload` with a
+  program image changes the running program at its next boundary and keeps its values as an
+  interpreted program's change keeps them: the process images by address, every variable by its
+  name, a structure's or an instance's members by name, a changed number, text or enumeration value
+  when its new type holds it, an array's elements at the indices both arrays have, and references
+  pointed at the same variable or made `NULL`, with the `online_change_value` events; the tasks go
+  on with their schedule and the outputs keep their levels. The device works out what to carry from
+  the two images it holds, so no tool keeps a copy of what a device runs. On the ESP32-C6 the new
+  image is uploaded into the program region, 192 KiB of the RAM the C6 executes that its heap keeps
+  for programs, and runs there, since an online change writes no flash: an image with debug hooks
+  changes online, and a change can follow a change (the reference pasteurizer, 90,200 bytes,
+  changed three times in a row on the bench).
+- Added: Live Values reach compiled programs as they reach interpreted ones: `set` and `var.force`
+  of a variable by its name, its retain key or its instance, applied at the cycle start and a force
+  held every scan until `var.unforce`; `io.write` and `io.force` of the input and marker images
+  before the program samples them, and of the output image before the outputs reach the drivers
+  (specification 44 §13.3). Before, each was refused with a `WriteRejected` event.
+- Added: `trust-runtime bench project --execution-backend native` runs a project compiled for this
+  computer on the kernel, cycle after cycle in logical time, and reports each task's time per
+  activation and the image's code and memory figure (specification 44 §14.3).
+- Added: compiled programs take references (`REF_TO`, `REF()`, `^`, `NULL`) and `VAR_IN_OUT` in
+  function blocks, functions and methods, and the Siemens profile's `#local` names. The PLCopen
+  motion single-axis library and its demonstration, OSCAT's `TICKER` and twelve example projects
+  now compile, and each runs as the runtime runs it: every variable of every scan compared, 846,000
+  values over 30 seconds of the vat pasteurizer.
+- Added: compiled programs take classes, function blocks that extend others, interfaces and
+  properties (IEC 61131-3 §6.6.5 to §6.6.8): a call through an interface, a `VAR_IN_OUT`, a
+  reference or `THIS` reaches the method of the instance's class, `SUPER` the base's, a property is
+  read through its `GET` and written through its `SET`, and a method's `VAR_OUTPUT` reaches the
+  variable given with `=>`. The five PLCopen motion object-oriented examples compile and run as the
+  runtime runs them, about 375,000 values over 500 scans each; the conformance suite passes 20 of
+  its 21 cases on compiled programs. A function block that neither implements an interface nor
+  takes part in inheritance keeps its size.
+- Added: compiled programs take the string functions and the characters of a string (`LEN`,
+  `LEFT`, `RIGHT`, `MID`, `INSERT`, `DELETE`, `REPLACE`, `FIND`, `s[i]`), the numerical functions,
+  `EXPT`, `ATAN2`, the bit shifts, `MUX`, `MOVE`, the comparison and arithmetic functions in their
+  function forms, the counters in all their count types, `SR`, `RS` and Mitsubishi's `DIFU` and
+  `DIFD`, each giving the runtime's results and faults on every input the comparison tried. The
+  conformance suite passes all 21 cases on compiled programs, and the Mitsubishi example compiles.
+- Added: compiled programs take dates and times: the operators on `DATE`, `TIME_OF_DAY`,
+  `DATE_AND_TIME` and their long forms, the date and time functions (`CONCAT_DATE`, `SPLIT_DT`,
+  `DAY_OF_WEEK`, `ADD_TOD_TIME`, `MUL_TIME`, …), the conversions between the date and time types
+  and their literals, each giving the runtime's results and faults on every input the comparison
+  tried. A date and time range fault of a compiled program is reported as the runtime reports it,
+  not as an overflow.
+- Added: compiled programs convert numbers to and from text as the runtime does (`REAL_TO_STRING`
+  spells the shortest digits that read back, `STRING_TO_INT` takes white space, `_`, bases and
+  signs), numbers to and from characters, and BCD (`USINT_TO_BCD_BYTE`, `BYTE_BCD_TO_USINT`).
+- Added: `trust-dev test --execution-backend native` runs a project's `TEST_PROGRAM`s compiled for
+  the computer, each after a cold restart, with the bytecode runner's results and the runtime's
+  messages of failed assertions (`ASSERT_EQUAL`, `ASSERT_NEAR`, `ASSERT_TRUE`, …).
+- Added: compiled tests compare texts in `ASSERT_EQUAL` and the other comparisons, with the
+  runtime's message of a failed one (`expected 'N', actual 'NE'`); a compiled method takes a
+  function block instance as an input, the caller's instance, and a method that returns its own
+  instance (`SetVolume := THIS`) chains (`b.SetVolume(10).Build()`); a `RETAIN` variable of a
+  function block compiles and is kept as the runtime keeps it; `trust-dev test --execution-backend
+  native` runs `TEST_FUNCTION_BLOCK`s too. The OSCAT examples' tests give the same results compiled
+  and interpreted.
+- Added: every program has a memory figure, the bytes of memory it holds while it runs, which the
+  runtime computes when it prepares the program: the prepared program, its persistent variables, the
+  activation stack for its deepest call chain, the operand stack, the engine's own state and, when
+  the project keeps retained values, their capture. The runtime reserves exactly that when it builds
+  the program, and no scan adds to it. `status` reports it in `metrics.program_memory`, and
+  `trust-runtime build` prints it for the computer that builds (`program_memory` with `--ci`). A chip
+  measures the memory it has for programs when it boots, reports it in `capabilities` as
+  `program_memory_bytes`, and refuses a program whose figure is more, naming both numbers: at its
+  install, before any byte is written, at its load and at an online change. A computer has no maximum.
+- Added: `status` reports in `metrics.scan_allocations` the allocator operations made during the
+  scans since the program started, on every runtime: `engine`, those the engine made running the
+  program, which is zero, and `services`, those the services made in and around the scans. A chip
+  counts them with its heap and a computer with the trust-runtime program's allocator; a runtime
+  that does not count them reports `null`. A scan that faults, a call refused at the call-depth
+  limit and an output publication that the drivers refuse allocate nothing either.
+- The ESP32-C6 changes its running program online. `bytecode.reload` (Admin) works on a chip as on a
+  computer: the change is applied at the program's next scan boundary, without a reset, the lines keep
+  their pins and output levels, and a change that fails leaves the program running as it was. The chip
+  and the computer build the new program with one replacement: it installs the next generation, so a
+  reference taken before the change is refused as stale after it, and the retained values carry over,
+  with the retained function-block instances and references when the new program declares the same
+  retained storage. The new program is prepared in the heap that remains less a reserve: 8 KiB of
+  working memory, and the length of the newest checkpoint's payload when the running program keeps
+  retained values. A program that needs more, by any limit of its preparation, is refused with
+  `insufficient memory` and its numbers, and not as a damaged program; the dry run of
+  `program.install` on a chip takes the same limits, so a program that cannot fit is refused instead
+  of resetting the chip.
+- The ESP32-C6 loads a newly installed program in place. `restart` of the stopped program drops the
+  program, its pins and its memory, then reads, checks and prepares the newest installed container,
+  claims its pins and starts it cold or warm, without a reset, so the USB connection stays up. A
+  program that cannot start leaves the resource faulted with the reason, and the next `restart` tries
+  again. `program.active` answers on a chip, reading only the headers and records of the two
+  containers. A chip's transfer ids now carry a boot count that it keeps in flash, so an id never
+  repeats across boots, a loss of power included. The count's two 4 KiB sectors are declared: the
+  chip file `chips/esp32c6.toml` names them (`boot_counter_a` at `0x9000`, `boot_counter_b` at
+  `0xA000`), the chip file reader refuses a counter sector that is not one erase unit or that
+  overlaps another region, and `partitions.csv` declares them as the data partitions `bootcnt_a`
+  and `bootcnt_b`, which the next firmware flash writes to the board.
+- New control operations to move and install a program. The transfer operations and
+  `program.install` work the same on a computer and on a chip (specification 34 PORT-05 and §11.2).
+  `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (Admin)
+  move a program into the runtime in checked parts of 4,096 bytes, each part with its CRC-32 and the
+  whole upload with its SHA-256; `transfer.get` reads a reply that a runtime holds whole back in
+  parts. `program.install` (Admin) installs the finished upload as the program the runtime starts
+  next. It works only while the program is stopped (send `shutdown` first) and answers
+  `resource_not_running` otherwise. It checks the container, the deployment record and its
+  admission, the retained values against the newest saved ones, and the program's preparation, in
+  that order, and changes nothing when one of them refuses. The reply is
+  `{"status":"installed","sequence":n,"program_sha256":"...","bytes":n}`. `bytecode.reload` also
+  takes `transfer` in place of `bytes`; it is still an online change that writes nothing, so a stop
+  and a `restart` start the installed program again. `program.active` (Viewer) reports the installed
+  program and the one before it, on a computer and on a chip. A chip answers `program.install` after
+  its whole commit: specification 11 §6.8.1 gives the time a client waits for that reply, worked out
+  from the container's size.
+- The ESP32-C6 installs a program over its USB control link. Its `stbc` flash region is two program
+  slots of 3,056 KiB, and `program.install` writes the slot that does not hold the newest program,
+  one 4 KiB erase or one 256-byte page in each pass of the control loop, reads the bytes back, and
+  commits the container with the last four bytes of its magic, so a power loss or a failed step
+  leaves the previous program running. At power-on and after a reset the chip starts the committed
+  container with the highest install sequence; a damaged newest container refuses the start with
+  its reason, and the older one is not started in its place. `capabilities` reports one slot,
+  3,129,344 bytes, as the chip's `application_slot_bytes`, and the chip refuses a program that does
+  not fit it. The steps to install are in `firmware/trust-esp32c6/README.md`.
+- The ESP32-C6 runs truST as a runtime, first on the ESP32-C6-DevKitC-1
+  (`firmware/trust-esp32c6`), with the same runtime code as `trust-runtime`. It starts the
+  installed project at power-on, claims the GPIO pins the project's `io.toml` names, and answers
+  the control connection on its USB port as `trust-runtime` does: `status`, `health`,
+  `tasks.stats`, `events.tail`, `faults`, `pause`, `resume`, `restart` and `shutdown`, and Live
+  Values (read, write, force and release). `shutdown` stops the program and the chip stays
+  reachable; `restart` starts it again. After a panic or a hardware-watchdog reset the chip reports
+  the cause as its last fault. `cargo xtask portability pack-project` packs a project for it.
+- New control operation `capabilities` (Viewer) on every runtime: the device descriptor that
+  program admission uses (bytecode versions, scheduling profiles, limits, the application slot,
+  the event store's default and maximum) and the last reset; a computer answers `null` where only
+  a chip has a value.
+- RETAIN variables on the ESP32-C6: with `[runtime.retain] mode = "file"` the chip saves them into
+  its checkpoint flash at `save_interval_ms` and at `shutdown`, and power-on and a reset start the
+  program warm with the newest saved values, so an interrupted save loses at most that save. The
+  `path` key has no meaning on a chip. Retained values the program no longer declares, or whose
+  type changed, are reported in the event log at the start, as on a computer.
+- `[runtime.events] capacity` in `runtime.toml` sets how many events the event store keeps
+  (1 to 1,000,000; 1,000 by default on a computer), as PLC vendors size their diagnostic buffer
+  per device. `status` reports it as `event_capacity`, and a chip receives it in its deployment
+  record.
+- Every runtime has a stable runtime ID: generated once, kept in the project's
+  `.trust-runtime/runtime_id`, the same after every restart and different for two
+  runtimes on one computer. `status` reports it as `runtime_id`, and the mDNS
+  announcement carries it with the truST version, the platform and whether control
+  needs a token. Announcing and browsing follow `discovery.interfaces`, use the
+  computer's real host name, and never announce a local socket or a web server that
+  is off. `trust-runtime ide serve` and setup mode announce themselves too, and setup
+  prints its page under the computer's own `.local` name.
+- `ads.import_symbols.remove` removes imported ADS tag points from a project's `ads.toml`
+  and regenerates the generated ST, and `trust-runtime ads remove-symbols` runs the same
+  function from the command line. `trust-runtime comm test` runs the `comm.test` request's
+  code from the command line.
+- `comm.apply` answers the `instance_id` of the connection it wrote for `add`, `upsert`
+  and `edit`, and an ADS tag import enables `[runtime.ads]` in the project's
+  `runtime.toml` itself, live and through `trust-runtime ads import-symbols`, keeping
+  every other line and comment.
+- `trust-runtime discover` also finds MQTT brokers and OPC UA servers by their mDNS
+  announcements, and OPC UA servers through the local discovery server's FindServers, and
+  confirms each with the same probe as a known address.
+- `trust-runtime discover` runs one search for truST runtimes, ADS, Modbus TCP, MQTT and
+  OPC UA from this computer or inside a runtime, and for EtherCAT (after you confirm the
+  scan) and GPIO inside a runtime. It shows one device per thing found, with every
+  protocol on it, while the search runs. Runtimes serve the same search as
+  `comm.search.start`, `comm.search.status` and `comm.search.cancel`.
+- The search also lists the USB devices and serial ports of the computer it runs on,
+  without opening or writing any of them: an STM32 on its boot loader, the ESP32-C6,
+  ST-LINK probes, USB-serial adapters and truST runtimes on USB, each with the serial
+  ports behind it, and every serial port with the USB device behind it
+  (`trust-runtime discover --only usb,serial`).
+- The STM32F407 is a supported chip, first on the STM32F407G-DISC1
+  (`firmware/trust-stm32f407`). The STM32F4 adapter selects the chip with its
+  `stm32f407` Cargo feature, the default. On the F407 it measures the
+  board's crystal before it starts the 168 MHz clock, and falls back to the
+  internal oscillator when there is none. Pins are named like `PD12` and checked
+  against the chip's pin table when the firmware is built.
+- Each supported chip is described once, in `chips/<chip>.toml`: its identity,
+  processor, clock limits, flash and RAM with the firmware's layout, interfaces and
+  pins, and the runtime components its firmware holds (today the engine). The files
+  exist for the STM32F407 and the ESP32-C6. `cargo xtask portability build-firmware`
+  now takes the chip name (`stm32f407`, `esp32c6`) and builds that chip's one
+  firmware from its file; a bench board's name is refused with its chip's name.
+  `inspect` and `verify` still take the bench board.
+- Every standard function and function block has a versioned contract that states the
+  work and allocation it charges, the faults it can raise and the capability it needs
+  (specification 34 §5.2.1). A program whose call or function-block declaration does
+  not match the contract is refused when it is loaded, with the code
+  `runtime_import_unsupported` and a message that names the function, for example
+  `unsupported import 'TON': a parameter's type or direction differs from the
+  contract`. Before, such a program was also refused, but the message did not say
+  which function.
+- `trust-runtime build` also writes `deployment-record.bin` next to `program.stbc`:
+  the program's deployment record, with its identity, the limits it requests and the
+  built-in imports it needs (specification 34 §5.1.1). The runtime checks a project's
+  record when it loads it and runs the program with the record's limits; a project
+  without a record keeps the default limits. `--ci` reports the record's path as
+  `deployment_record`.
 - Control Studio keeps each experiment's trajectory, approval, stop reason, abort state and restoration, and the simulated plant's
   configuration, seed, events and actuator, in the study's recording files, and the JSON export writes them; a failed Validate
   requirement names its value and its limit.
-- Control Studio's Identify page takes the model's words from the engine: the Recorded-data fit starts from the engine's default
-  numbers (the first import no longer clears them), the model line names the model type, the gain, the time constants and the delay
-  as the engine words them (an integrator's rate gain per second, `°C`), and a failed check keeps the evidence the engine sent with
-  it. A plant handoff shows the plant's summary line from the runtime's `plant.status`. The simulation's speed (`×10`, or
-  `×9.4 of ×10` when it falls behind) is the runtime's own words on every surface.
-- Control Studio's loop discovery no longer refuses a loop that declares an addressed BOOL signal, such as the course's
-  experiment activation, fault and state indications: the compiled process image now lists BOOL bits beside the numeric
-  variables, so the setup page and the Tune page's controller list find these loops.
-- Every Control Studio structure now runs on its Rust engine, so the course's last lessons on the old route move over: state
-  feedback, LQR and LQG design on a supplied state-space model (lessons 68, 69 and 72), with the closed-loop poles and the
-  Riccati stages; the measured MIMO paths with the gain matrix, the relative gain array, the static decoupler and the pairing
-  (lessons 61 and 62); and the finite search over a program's coefficients (lesson 89), whose trials run the program against
-  the selected model and are ranked by the integral of squared error. The cascade, the Smith predictor, the gain schedule, the
-  ON/OFF controller and the PID group with its static decoupler also tune, validate, apply and restore through the engine.
-- Recorded-data fit, the manual identification of the Identify page, runs on the engine with its held-step settings and the
-  sensor-lag comparison: the accepted model becomes the study's model that Tune designs on, and the chosen structure is now
-  checked on the independent recording. A project test made while the identification waits for its independent recording keeps
-  that recording for the check and leaves the model in place (lesson 26).
-- A project test on the engine now shows "Project test completed. Outputs restored." and its recorded signals in the chart, and a
-  refusal shows its whole text. A project test of a loop whose signals are all addressed no longer ends with "Identification
-  requires the complete recording from the connected runtime.".
-- Validate binds every input and output of the model through the loop's channels, so lesson 84's measured-disturbance
-  feedforward validates its draw-off cases on the full two-input model.
-- Loop setup is checked by the engine for every structure: the state-feedback, LQG and search-law setups and the five
-  structures' setups are written by the engine, and each refusal is shown under the field it names.
-- Loops whose program runs its own law now run on Control Studio's engine: a PID that the program computes itself
-  (`controller.project` with a parallel PID seed) and the program's P controller. Tune designs the gains on the model,
-  Validate runs the actual program, and Apply and Restore write and return the program's gain variables.
-- The course's remaining loops of these kinds now run on Control Studio's engine: the schema-1 observation loops (lessons 1, 2,
-  3 and 80), the loops with a declared analysis (lessons 44, 45, 47 and 48), whose gain chosen on the root locus or from the
-  Routh interval is reviewed and written to the program's variable, the measured-disturbance feedforward (lesson 84), whose
-  Tune designs the PI and the feedforward together and whose Validate also runs the measured disturbance, and the trajectory
-  feedforward (lesson 90), whose Tune designs the PID with its rate and acceleration feedforward gains on an integrating model
-  with a lag.
-- The Tune page's long analyses no longer lose their result when the calculation ends before the page has subscribed to it.
-- Control Studio's Tune page analysis now runs in its engine for every loop: Bode, the measured frequency response, Nyquist
-  and loop response, root locus, Routh–Hurwitz, the pole-zero map, lead/lag design, the initial-state response,
-  controllability and observability, and the relative gain array. Long calculations show Abort. Reopening a loop shows the last
-  tool with its inputs and calculates it again, and the root locus, Routh, feedback and measured-response results are kept in
-  the loop's study.
-- Loops without a controller law, such as the course's observation and open-loop lessons, now open on Control Studio's
-  engine: Identify serves them, and Tune, Validate and Apply say that they do not apply.
-- Control Studio's Open recording… (with any method except Recorded-data fit) and Open model… run in its engine. An opened
-  file is kept as a recording of the study. Its channels can be chosen with their units, including archived channels that
-  the loop does not bind. Two independent runs, from one file or from two files and from a simulation or a connected
-  runtime, are fitted with independent validation. A supplied model becomes the study's model, which Tune designs on.
-- Choosing an identification setting that Identify cannot use now names the rule it breaks, for example "Relay
-  identification needs an explicitly declared process direction.", instead of a general refusal.
-- Control Studio's panel in VS Code now runs on its engine, `trust-control-studio serve`, so the panel and the command line
-  decide everything the same way: identification, tuning, validation, Apply, Restore and Keep, which stages are available, and
-  every refusal with its next action. Reopening a loop shows its identified model with the response plot, its candidate, its
-  requirements (Automatic's values marked Automatic), its last current validation and Apply's offers, and it follows an operation
-  that kept running while the panel was closed; Abort still stops it. Tune predicts the current settings beside the candidate when
-  a runtime is connected. Validate also runs the Manual-to-Auto entry that Apply performs and needs it to pass; its table shows
-  failures first and counts the passing range, state and transfer checks in one row. Reset clears the model, its plot and the
-  tuning and validation results that depended on it.
-- Control Studio's Apply no longer starts when the process has only touched its settling band. It waits until every measured output
-  has stayed inside its band for a settle dwell: the longer of twenty samples at the loop's task period and a tenth of the expected
-  settling time (B6.2, B3.4).
-- Control Studio's Apply observation no longer fails a long test with "The recorded response does not
-  cover the reviewed duration.". Its recording is planned longer than the test duration by the
-  target change's allowance and three record periods (B6.3, A4.2), so a response that starts up to
-  one and a half record periods after the change still covers the whole reviewed duration.
 - Control Studio has its own engine, the program `trust-control-studio`, so it also runs without
   VS Code. `trust-control-studio identify --project <folder> --loop <id>` identifies a loop's plant
   against its configured runtime and prints the model, its equation and its key numbers (or, with
@@ -279,20 +539,6 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   values into the project's sources. An Apply cancelled with Ctrl-C exits with status 130 and
   keeps the receipt of its restoration. `trust-control-studio setup` discovers a loop's bindings in
   the compiled project and saves the loop file.
-- Control Studio's Identify waits for a steady start as long as two measuring windows of the
-  expected settling time, so a slowly settling process is no longer refused as "still changing";
-  its window always holds at least 20 samples; a closed-loop setpoint step ends early only when
-  the plant input has settled too; and a loop found in Auto gets its setpoint back after the
-  experiment, also when the program sets the setpoint from the measurement while in Manual.
-- Control Studio's Validate tests the candidate at the operating point Apply starts from: when the
-  configured simulated plant cannot start there (for example after an Apply whose setpoint change
-  stays in force), every case runs on the qualified model, and the result says why. Long Tune
-  predictions keep each period's extremes on the chart instead of millions of points.
-- The HMI agent's page authoring (composition, edits, drafts, reviews and requests) runs in the
-  language server, written in Rust; the review's interactive exploration of the project's pages
-  works again.
-- The room heating example (`examples/room_heating`) uses a small tank and room, so its slowest
-  mode settles in minutes instead of hours.
 - `trust-control-studio tune --project <folder> --loop <id>` designs a controller candidate from the
   study's identified model, without touching the running controller: Automatic chooses the
   simplest structure that meets the requirements (and lists why the simpler ones were rejected);
@@ -308,21 +554,6 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   Automatic places the closed-loop poles of a delay-free model when no formula response meets the
   requirements. The engine's `controlStudio/preview` predicts entered settings at once and stores
   nothing.
-- Control Studio's engine identifies with one least-squares fit on every path: the delay and time
-  constants are searched on grids scaled to the recording, with no fixed limit on the delay, so a
-  slow process keeps its real dead time. A model with a clearly resolved delay is preferred to the
-  same model without it. A pulse is fitted with its return to baseline. Before fitting, every
-  recorded sample of the plant input and the measured output is checked against the loop's limits;
-  a recording that left them is kept, not fitted.
-- Runtime: an isolated test run or search now validates a candidate in a program that sets its own
-  parameter record during its first execution, as a program that designs or loads its startup gains
-  does (the first scan in which its task runs). The candidate is written again at the task boundary
-  after that scan, as Apply writes a record into a running program, and must hold from there; before,
-  such a program's candidate was always refused as "not adopted". A program that overwrites the
-  record later is still refused.
-- Runtime: an experiment on an addressed signal with a declared type now reports its last applied
-  trajectory point (`last_applied`, Control Studio runtime protocol E5.6). It stayed empty because
-  the value read back was compared with the value in the process image's raw form.
 - Control Studio tunes long processes. Experiments may run for up to 24 h and execute at the
   loop task's executions on the runtime's own time, so a busy computer or a faster simulation
   does not change them. Identify holds its step until the response has settled. At the time
@@ -345,75 +576,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   refused with that explanation, and a cooling loop is tuned with negative gains, also by the
   relay rule. A slow, self-regulating process is no longer taken for an integrating one, and a
   response too small for the measured noise is refused with the noise named.
-- Control Studio pages are simpler:
-  - Each failure is one line with one button for what to do next (**Limits…**,
-    **Requirements…**, **Connect runtime…**, **Loop setup…** and so on); clicking the line shows
-    the details.
-  - Durations are entered and shown as "90 s", "15 min" or "2 h".
-  - Signals are named by their role (Measurement, Output, Setpoint) with the symbol on hover.
-  - The model shows as a formula with one line of its key numbers.
-  - Manual tuning previews the response while you type.
-  - The analysis tools are under **Analyze…**.
-  - Requirements shows the main rows, with the test design under **More…**.
-  - **Apply** sits directly under the results table.
-  - Loop setup shows what it found in the code as a short summary with **Change** links, and no
-    longer asks for an identification step or duration. Only when the project runs its own
-    experiment does it ask how long to record it.
-- Control Studio: maximum overshoot is a requirement you can declare, in percent of the setpoint
-  change. Limits nobody declared (a fixed 20 % overshoot, 2 % steady-state error, 6 dB gain
-  margin and others) are no longer applied.
-- Control Studio: when the target is simulated and the project's simulated plant drives the loop,
-  Validate runs against that plant, otherwise against the checked model. Apply on a loop in Auto
-  starts from wherever the controller's output is; a loop in Manual must hold the validated output
-  within the controller's response to the measured noise, no longer to within 0.0001 %. Entering
-  Auto allows the controller's response to the measured noise, from an identification in Auto as
-  well as in Manual, so a noisy loop is no longer reverted at the switch. **Restore previous
-  settings** returns a loop that was in Auto before Apply to Auto, also for `Control.PID`; it used to
-  leave it in Manual. Apply observes the response on the runtime's time and continues after
-  a VS Code restart. Any measured output that
-  leaves its permitted range restores the previous settings at once. A failed Apply leaves the
-  loop in the mode it was found in.
-- Control Studio keeps each loop's study in the project, under `control-studio/<loop id>/`: one
-  study file and one file per recording. Studies kept by earlier versions move there on first
-  open.
-- Runtime: live writes on a physical plant need approval, decided by the runtime from what it
-  knows about its own I/O, never from a label in the request; controller rollback needs it too.
-  A controller transfer is all-or-nothing: a failed check or a fault reverts it in the same scan,
-  and BOOL values come back as BOOL. Measured values are checked with tolerance bands instead of
-  exact comparison. Status requests never change state. A program reload or restart stops a
-  running experiment safely, and only one live write runs at a time.
-- Simulation: time advances by exactly one cycle per cycle, so a busy computer slows the
-  simulation instead of skipping cycles, and the runtime reports the speed it reached. The speed
-  (1× to 100×) can be changed while the simulation runs (`config.set`
-  `simulation.time_scale`), also in the VS Code simulator, which now uses the project's speed.
 - VS Code: **truST: Simulation Speed…** chooses 1× to 100× and saves it in `simulation.toml`. The
   status bar, the Home view, Control Studio and Devices & Connections show the speed, and say
   when the computer cannot keep it ("×6.8 of ×10").
 - HMI: while the runtime runs a simulation, the operator screens show a **SIMULATION** badge with
   its speed, in all eleven languages.
-- Runtime: an I/O driver named `none` no longer makes simulation mode refuse to start.
-- Runtime: `trust-runtime ctl status` works against a runtime that reports no fault; it failed with
-  "status result 'fault' must be a string".
-- Control Studio: loop setup bounds a `Control.PID`'s rate limits widely enough for the Plant
-  library's "no rate limit" value (±10⁹), so loops built with the Plant library validate and apply.
-
-- Rebuild the Plant library and the HMI Builder around plain IEC 61131-3 objects. Devices are
-  commanded by mode: Auto by the program through `Auto…` inputs, Manual by the operator through
-  methods such as `Start`, `Stop`, `Open`, `Close`, `SetSpeed` and `SetPosition` (each returning
-  whether it was accepted), Out of service by nobody; a mode change never moves anything. Take
-  control, request identities, command contexts, registration and the settings provider are
-  removed. Fail positions, always-on supervision, latched trips and drives starting at 0 % are
-  part of every device; settings are ordinary RETAIN members described once in the component
-  definition. Limit alarms use `Alarm.LimitAlarm`. A PID loop is no library block: Create PLC
-  code writes it as ordinary code around the real `Control.PID` (see below), with negative gains
-  for reverse action.
-- RETAIN members of function block instances, also inherited and nested ones, survive a warm
-  restart and a power loss; an instance initialiser may set an inherited member, also of a
-  function block declared in another file or a library (such initialisers were refused as
-  unknown fields).
-- One HMI page format for the editor, the runtime, `hmi check` and the language server:
-  equipment objects record `block`, `instance` and `faceplate`, panels live in `hmi/panels`, and
-  docked panels are composed by the loader. Deploying sends the files as written.
 - HMI Builder: the palette lists Equipment, Instruments, Controllers and Groups and sequences
   first; the inspector shows a device's tag, its hardware status with one button and its key
   settings with their real values and units. **Create PLC code** writes one declaration and one
@@ -422,16 +589,6 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   controllers and equipment. Edits are never dropped, the toolbar keeps one row, canvas keys act
   only while the canvas has the focus, a just-placed device shows its settings at once, and an
   attached level sensor touches its tank's wall.
-- HMI runtime: a pulse always ends, replay records are counted per user, every HMI write route
-  checks the request's origin, and the active bundle is read once per activation.
-- HMI display: a control whose interlock permit reads FALSE is greyed with the permit's reason as
-  its tooltip (Start and Stop in Auto read "Auto: switch to Manual"); a refused command names the
-  reason alone, without an "interlocked:" prefix. Trends inside panels placed on a page keep
-  their history, the PID panel shows the measurement and draws it in its trend, and a device's
-  Reset is enabled only while it has a fault.
-- HMI alarms: the runtime decides which actions an alarm offers each user and how it sounds, and
-  refuses an action the alarm's state does not allow, with its reason. Acknowledging an
-  acknowledged alarm, or shelving one that is not in the active list, is now refused.
 - VS Code: the truST sidebar has an HMI destination, and *truST: Open HMI* opens the project's
   start page in the HMI Builder, or the new-screen dialog for a project without screens.
 - HMI Builder: **My equipment** lists the project's own function blocks in the Components panel;
@@ -445,39 +602,6 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   state's pictures; the symbol editor offers all three.
 - HMI Builder: **Languages…** in the top bar and Screen settings choose the screens' languages
   as tick boxes of truST's eleven languages by their own names, with the default marked.
-- HMI alarms: an alarm is listed once, where it is declared, not again under each block that
-  refers to its instrument through an interface; the same holds for displays and link blocks.
-- HMI display: a setpoint entry's number no longer reaches into its label; Plant panels keep
-  every label and button text whole and show one message line, the devices' new `ReasonText`
-  (why the device is blocked, else why a command would be refused), with no empty line; Out of
-  service and Return to service are lit only while they can act; a refusal's notice and mark go
-  once a later command is accepted.
-- HMI Builder: Live mode always shows the real run target; its test values and recordings are
-  removed.
-- VS Code: Initialize truST here makes a project of an empty folder, or one with other files,
-  without asking; it asks only before replacing a project's own files. Adding the Plant library
-  now declares it in `trust-lsp.toml` when that file is not open (it was copied but not declared),
-  and leaves the library's example projects out of the project. A new HMI screen's files are
-  written at once; its first page no longer shows an unsaved, empty file's problem. Create PLC
-  code saves the program it edits and writes the files it creates with their text, so closing VS
-  Code afterwards no longer loses the code or leaves an empty `screens.st` that blocked the next
-  run (an empty one left by an earlier version is taken over).
-- HMI Builder: renaming equipment in the program (Rename Symbol) also renames the instance its
-  page objects show, and their tag when it is the instance's name; before, the object kept
-  pointing at the old instance. Create PLC code also accepts a rename that moves a call to
-  another place in the name order, instead of refusing the region as changed by hand.
-- HMI Builder: Apply connections and the inspector's equipment changes save the project design
-  (`plant.toml`) and the files they create; before, the change stayed unsaved in a file without
-  an editor and was lost when VS Code closed.
-- HMI Builder: a terminal needed only with feedback that the block leaves off by default (a
-  variable-speed fan's speed feedback) is optional, so the fan shows Connected instead of Partly
-  connected and Create PLC code no longer lists it as missing. Connecting such a terminal, a
-  control valve's position feedback for example, switches its feedback on in the declaration
-  (`HasFeedback := TRUE`); before, the valve ignored the connected feedback.
-- Compiler: the direct I/O warning (W011) concerns addresses declared inside function blocks,
-  functions, methods and classes only; a program's I/O list no longer gets a warning per entry.
-- HMI Builder: a process symbol without bindings, such as a tank or a hand valve drawn on a
-  page, is a drawing and is no longer warned of as unbound.
 - HMI Builder: the inspector shows every setting of a piece of equipment, the key ones first
   and the others under More settings, so alarm limits, alarm texts, signal ranges and feedback
   flags can be set before the PLC code runs; the equipment definitions now offer the feedback
@@ -493,99 +617,17 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - A simulated plant can give a `Control.PID` its measurement directly with a `pid:<instance>`
   feedback target. Model checks then work however the program computes the measurement
   (transmitter scaling, filters, fault holds).
-- Isolated Control Studio runs start from the running PLC's inputs, so blocks fed by inputs the
-  run's plant does not write see real signals.
 - HMI Builder: a PID controller's Controlled equipment offers heaters and variable-speed drives
   as well as valves; Create PLC code drives the heater's power (`EH101.AutoPower := TIC101_Output`)
   or the drive's speed, by what the equipment is, or another controller's setpoint (a cascade).
-- PID loops are ordinary code: **Create PLC code** writes each loop as ST around the real
-  `Control.PID` (Configure, Initialize, Update), the way the control course does, instead of a
-  Plant library block around it. Its values are variables beside the PID (`TIC101_Setpoint`,
-  `TIC101_Manual`, `TIC101_ManualOutput`, `TIC101_Output`) with one parameter record
-  (`TIC101_Parameters`) that the HMI's settings and Control Studio share; those the operator and
-  the engineer set are retained. A bad measurement holds the output and the loop restarts from
-  the next good one without a bump; Manual and Auto change without a bump. Create PLC code adds
-  the `USING` directives and the write rules the loop's panel needs. `FB_PIDLoop`,
-  `FB_CascadeLoop`, `ILoop`, `E_LoopMode` and the cascade panel are removed; a cascade is two
-  linked loops. Component definitions may name variables beside the instance (`{instance}_…`),
-  and a switch may name its two words (`options = ["Auto", "Manual"]`).
 - New example `examples/room_heating`: a hot water tank and a room, built in the HMI Builder, with
   both temperature loops written by Create PLC code as ordinary `Control.PID` code and set up in
   Control Studio from the code; a start/stop sequence, protections, alarms, trends, settings and
   English, German and Swedish screens.
-- HMI: a loop controller shows its measurement in its setpoint's and its transmitter's unit and
-  decimals (`42.2 → 45.0 °C`, before `42.191 → 45.0 °C`), and so do its panel and trend; the
-  panel's output reads with one decimal.
-- Create PLC code no longer adds a second `USING` for a namespace whose directive follows a
-  comment at the top of the file.
-- Control Studio: identification can switch a loop to Manual whose code copies the output into
-  the manual output in Auto. The switch was refused with "transfer values changed before task
-  boundary", because that manual output moves every scan; the runtime now accepts a state the
-  transfer declares as set by the program, and Manual starts from the held output. A loop whose
-  output has no I/O address (the program hands it on, as in `EH101.AutoPower := TIC101_Output`)
-  is no longer refused with "automatic tracking needs a mapped committed output": the transfer
-  holds the output's value at the task boundary. Returning such a loop to Auto after
-  identification allows the PID's own first step (its integral step on the error identification
-  made and its response to the measured noise) instead of failing the whole identification with
-  "violates reviewed transfer tolerance", and it no longer writes back the manual output from
-  before identification, which only held the output of that moment.
-- Control Studio records a loop at its own task's executions instead of every resource cycle. A
-  100 ms loop in a 10 ms resource filled the 12000-sample recording in 120 s, so a 600 s
-  identification lost its step and failed with "Identification samples have gaps or inconsistent
-  timing"; it now holds 1200 s. `control.recording.start` takes an optional `task`.
-- Control Studio experiments run on the runtime's clock: in a simulation at 10x a 600 s
-  identification excites the process for 600 s of process time (60 s of wall time) instead of
-  6000 s. Restoration and staleness deadlines stay on the wall clock.
-- Control Studio's model check accepts a live plant's recording: it required samples on an exact
-  time grid, which only a simulator gives, and reported "The independent recording has missing or
-  irregular scans" for every live loop whose task runs every 100 or 110 ms. It now compares on an
-  even grid at the recording's median spacing; missing samples and gaps are still refused.
-- Control Studio treats a connected runtime that reports its own simulation mode as a simulation:
-  it identifies, tunes and validates against it without VS Code's local simulator, which cannot
-  be operated from the HMI.
-- HMI Builder: equipment is renamed in the inspector (its tag), which renames it in the program,
-  the pages and plant.toml; new equipment gets the first free name per program instead of the
-  same name twice; the Objects list names untagged equipment by its block; objects placed one
-  after another step aside instead of piling up; a digital signal is drawn as an instrument
-  bubble with its tag's letters (FS for FS-101); Create PLC code lists open connections in full.
-- Devices & Connections: Connect hardware's help for a terminal without a fitting PLC signal
-  shows the declaration to add (for example `TT101_Raw AT %IL0 : LREAL;`) instead of pointing to
-  a device.
-- Runtime: `trust-runtime check` and `validate` report a runtime.toml resource name the program's
-  configuration does not declare ("runtime.toml names resource 'Simulator', but the program's
-  configuration declares resource 'MainRes'; use the same name in both"); before, both said the
-  project was ok and only `run` refused it.
-- Examples: every example's runtime.toml now names the resource its program's configuration
-  declares, so each starts with `trust-runtime run`; 88 examples (the OSCAT, communication and
-  starter examples among them) named a resource their program lacks. The ADS server example
-  appears in TwinCAT under its resource name, `CommRes`.
-- New projects: the runtime starts as written. The scaffold no longer declares an empty mesh
-  `auth_token`, which the runtime refuses ("runtime.mesh.auth_token must not be empty"), and its
-  runtime.toml names the configuration's resource (`MainRes`) instead of one the program lacks
-  ("invalid bytecode metadata 'resource 'Simulator''").
-- New projects: the runtime's web server is on for this computer (127.0.0.1:8080), so a deployed
-  HMI opens in a browser at once, and RETAIN values are kept in `retain.bin`, so commissioned
-  settings and operator setpoints survive a restart.
-- HMI: the labels and buttons of the panels a project shows, its own and its libraries' (a placed
-  sequence panel, an equipment popup), are in the Texts table and switch with the display's
-  language; a panel placed on a page no longer stays in English.
 - HMI: a loop controller shows its loop as on a P&ID: a dashed signal line from its measuring
   instrument and one to the equipment it acts on, routed around the other objects. The lines
   follow the controller's configured measurement and controlled equipment, so the picture never
   contradicts the PLC code.
-- HMI: a switch's toggle keeps a control's usual size (at most 32 px high) in a taller object, in
-  proportion to its label; the whole object still takes the click.
-- HMI: an `active` or `alarm` part of a project's own symbol drawn as a line is painted on its
-  line; it no longer fills the outline solid. An active part also glows softly, as a lit status
-  does (a heater element while it heats).
-- HMI: `currentColor` in a project's own symbol (My Symbols) is the built-in symbols' line colour,
-  so such a drawing follows the dark and light themes instead of drawing black.
-- HMI: a duration rounds its seconds to the object's decimals ("2 min 54 s" instead of
-  "2 min 54.353 s"); without decimals it reads as before.
-- Plant library: protection, interlock and permissive panels show only the conditions in use (with a
-  text, or unhealthy), from the new `InUse[1..8]` output, instead of all eight rows.
-- Plant library: the sequence panel shows the state, the step name and the step time in rows wide
-  enough for them ("Heat the room", "28 min 1 s"); they were cut or ran into each other.
 - HMI Builder: Screen settings list the runtime display's users and add or remove one
   (**Add user…**, also **HMI: Add User** in the command palette); the password is stored only as
   the hash `trust-runtime hmi-password` makes. A new project no longer needs a hand-edited
@@ -596,88 +638,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   adds the rules of its controls, so a new settings page works at once.
 - HMI Builder: Screen settings edit the top bar's title, and a new screen's title is the project
   folder's name in words ("Room heating", not "room-heating").
-- HMI Builder: the inspector's Add pen field empties once the pen is added; leaving the field
-  no longer adds the same pen a second time.
-- HMI Builder: a trend pen added in the inspector is named as its legend should read: the tag for
-  a transmitter's value ("TT101"), the tag and member for another member ("TIC101 setpoint"),
-  instead of the variable's last part ("Value", "Value2").
-- HMI: pipes are drawn over layout panels, so a panel used as an area of the plant (a room) no
-  longer hides the pipes that cross it; they stay under the equipment symbols.
-- Devices & Connections: a simulated plant's input can read a memory value (`%M`), such as a
-  window opening the HMI sets, as the simulation specification allows; before, only `%Q`
-  outputs were offered and a memory address was refused.
-- Libraries: the empty page names Plant too, and the descriptions of the libraries to add wrap
-  inside their cards instead of running into the next one.
-- Devices & Connections: Connect hardware from the HMI Builder opens the equipment's connections
-  instead of a blank canvas (the canvas is now bundled with the automatic JSX runtime).
-- Compiler: passing an instance to an interface it implements, such as a transmitter to a PID
-  loop's `Measurement`, no longer warns of an implicit conversion; only elementary conversions
-  do.
-- HMI display: the equipment Settings dialog speaks the screen's language, and after Apply its
-  Cancel reads Close until the next edit; a panel's trend takes the opening object's unit pen by
-  pen, so a controller's output no longer reads in the measurement's unit, and a trend's pens of
-  one unit share their scale, so a setpoint is read against its measurement. The runtime keeps
-  the history of the trends inside panels for each instance a page opens them for, so a panel's
-  trend opens filled.
-
-- Keep explicit synthetic alarm exploration usable without executing PLC alarm sources;
-  label preview-only rows and use declaration checks for draft validation.
-
-- Restore declaration-only HMI field diagnostics and source locations, and patch the
-  shell-quote development dependency.
-
-- Preserve FB input/output/in-out members, inherited ones included, in declaration-only HMI
-  metadata.
-- Instrument OpenOT declarations using parsed token boundaries so single-line programs
-  and keyword text in comments/strings retain their telemetry.
-
-- Replace automatic HMI-to-PLC source synchronization with the explicit Create PLC code and
-  Create HMI actions. Ordinary authoring reads declarations instead of compiling or executing
-  PLC source.
-
 - Add opt-in compiler/HMI request timing logs for preprocessing, analysis, cache waits and settings-probe execution, without recording source text or PLC values.
-
-- Prepare OpenOT compiler metadata once per operation and skip its semantic analysis for
-  sources without OpenOT attributes; preserve ordinary compiler errors and telemetry output.
-
-- Reduce cold HMI equipment discovery and settings loading work by resolving imported types at catalogued source locations and excluding executable bodies from declaration precollection.
-
-- HMI repair: keep project inspection off the language-server transport task, show readable PLC command refusals and name equipment popups from their selected PLC instance.
-
-
-- Keep live panel controls attached during value updates, and install bundled library
-  files without opening every source as a dirty editor. Reuse bounded pristine LSP compilations
-  for unchanged source text, invalidating edits and discarding any runtime borrowed mutably.
-
-- Synthetic HMI exploration resolves implicit equipment faceplate instances using the editor's
-  existing binding rules, including alarm-to-equipment navigation. Configured-project alarm
-  discovery now executes its first due preview scan instead of returning an empty alarm list.
-
-- Keep narrow bar labels separate from stale ages. Ordinary value updates retain SVG text
-  nodes and start bounded painting in the current drawing turn. Agent validation identifies
-  uneven spacing and misaligned rows of repeated equipment cards.
-
-- VS Code agent draft inspection shares the authoring store used by composition and MCP.
-  Stale value ages refresh immediately even when ordinary value painting is deferred.
-
-- Keep equipment-alarm badges clear of trend range, export and expand controls.
-
-- HMI peer discovery includes runtimes that were already online at startup. Ordinary value
-  cards coalesce whole-card paints across animation frames while urgent state/control changes
-  remain immediate. Browser performance evidence measures completion of all updated values.
-
 - HMI agent authoring gains project/selection provenance, exact draft inspection, multi-page
   proposals, viewport images, additional synthetic states, explicit incomplete-design saving,
   and revision-bound visual review. Incomplete pages fail native deployment checks. The existing
   builder can explore a synthetic proposal without runtime writes and open a placed controller's
   configured Control Studio loop. HMI CI uses a shared parity/browser gate and installed-VSIX smoke.
-
-- HMI draft application can recover from definite pre-commit failures, while unknown editor
-  outcomes prevent duplicate application even with another request key. Clean cached editor
-  models no longer resurrect deleted source files.
 - HMI preview manifests identify the compiled renderer, actual fonts, source/frame revisions
   and PNG content; native-scale crops retain exact full-page pixels.
-
 - HMI agent previews now include project PNG/JPEG/SVG images and unsaved SVG edits, reject
   unsupported animated or externally dependent SVG resources, and prevent applying an image
   proposal after its reviewed asset content changes.
@@ -687,38 +655,23 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - HMI agent composition accepts explicit regions, grid spacing, fill direction and pinned
   equipment. Library queries expose versioned composition guidance and shared-renderer
   references for process, equipment, repeated-unit, investigation and settings pages.
-
-
 - Add an in-development HMI authoring toolset for existing VS Code agents and scoped local MCP
   clients: project context, visual component browsing, isolated draft composition/refinement,
   validation, browser-rendered previews and reviewed editor application with Undo. Dirty ST and
   HMI documents are respected; changed program revisions block stale application. Committed
   outcomes survive late cancellation, and retries retain their original application receipts.
-- Agent previews embed the shipped multilingual fonts and isolate project symbol definitions.
-  Library sheets include rendered object bounds and keep synthetic equipment visible.
 - HMI draft review shows a read-only before/after comparison in the existing builder, with
   object changes, findings and explicit Apply/Discard actions. Drafts can be rediscovered after
   restart, verify stored content hashes, and support inspection by page region. Undo clears
   diagnostics for a newly created page that it removes.
-
 - Specify agent-driven HMI authoring: visual catalogue discovery, revisioned drafts,
   composition, rendered review, editor transactions and CI/release acceptance. Implementation
   is tracked separately; no direct Codex SDK integration is shipped by this specification.
-
-- Runtime mesh now enforces configured peer tokens and TLS using the runtime's certificate
-  material. A requested TLS connection cannot silently start as plaintext; wrong or missing
-  peer credentials are rejected.
 - Runtime mesh publish lists can select nested program/equipment members and array elements
   through the shared member-path resolver, while retaining existing global-name behavior.
-
 - Plant HMI showcase pages combine process views, placed equipment panels, live readings,
   trends and alarms. Pipes approach a tank inlet around its body, scaled faceplate animations
   stay aligned, and compact trend axes keep their labels separated.
-- HMI Builder starts new page views at a readable 75% minimum with scrolling; Fit and saved
-  zoom remain available. Design trends show identified sample history using the declared
-  ranges; Live mode keeps actual history only. Alarm counters and disabled-control labels
-  remain readable in both themes.
-
 - HMI bars, gauges and split bars support validated display limit bands and an atomic
   inspector editor. Values can inherit project units and decimal precision without writing
   overrides into their page files; explicit object settings remain available.
@@ -728,26 +681,21 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   Alarm readings retain the unit captured when raised, and their value column accommodates
   unit text. Numeric entry inherits units without rounding the editable value or widening
   the control's write range.
-
 - HMI Builder Live controls use a named HMI login with the runtime's existing roles,
   confirmations, outcomes and audit path. The operating view requires the saved project's
   deployed bundle; simulator/test/recording sources stay read-only. Leaving Live, editing HMI
   files, changing targets or disconnecting closes the connection without replaying commands.
-
 - Alarm details offer **Show equipment**, which opens the equipment's page and briefly outlines
   it without acknowledging or writing. Missing equipment has an explanation; the labels are
   included in all built-in languages.
-
 - HMI trends support a fixed range for each pen and independent automatic scales. The inspector
   applies both limits together; the axis follows the first visible pen in its colour. Existing
   shared ranges remain the fallback, and CSV exports keep original values.
-
 - HMI symbol definitions can be read with their cleaned SVG and written as validated TOML
   through the language server, supporting visual editing without changing the original artwork.
   Open a definition with HMI Builder to select parts, edit typed animation rules, bindings and
   ports, and try preview values. The editor uses the existing truST theme and shared HMI drawing;
   invalid text keeps the last valid preview while visual edits are paused.
-
 - HMI Builder files (`docs/specs/39-hmi-builder.md`): the language server reads, checks and writes the new HMI pages
   (`hmi/pages/*.toml`) and screen layout (`hmi/screen.toml`) through `trust-lsp.hmiFileParse`, `trust-lsp.hmiFileFormat`
   (canonical TOML: fixed key order, sorted bindings, one value per line) and `trust-lsp.hmiFileCheck` (every binding
@@ -773,8 +721,6 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
     resizes by its top edge. A narrow editor shows the side panels as strips. The arrangement is remembered for the
     user in every page.
   - Unsaved builder edits come back after a VS Code restart, in the builder.
-- Binding checks: a write binding to a `VAR_GLOBAL CONSTANT` is refused ("is a constant and cannot be written"), as for
-  other constants.
 - Operating the runtime HMI: setpoint entries and buttons on `/hmi` pages send commands (`POST /api/hmi/command`) for a
   logged-in user. Users, session times and a deny-by-default write policy are set in `runtime.toml` under
   `[runtime.web.hmi]`; `trust-runtime hmi-password` prints a user's stored password hash. A page's controls can only
@@ -906,12 +852,6 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   with screens calls `Hmi.Display` to show live values, and its alarms are read and recorded at that call. New HMI
   Screen adds the library, a `Screens` program calling it and its task (every 250 ms, priority 10), the HMI Builder
   warns at the top of `hmi/screen.toml` when no program calls it, and the examples with screens call it.
-- The runtime display's value stream sends every value once, then only the values that changed, and the cycle count
-  alone when nothing changed; the list of paths the program lacks comes when it changes. Trends still get a sample per
-  cycle.
-- Turning parts on the runtime display (pump impellers, fans, motor rotors) are drawn in a layer of their own above
-  the page, which the browser turns by itself; a value update no longer restyles and repaints them. The display lays
-  out a page once per screen size instead of at every update.
 - Values of a link without data: each `io.toml` driver declares the input bytes it fills (Modbus TCP points or block,
   MQTT input points or raw topic, EtherCAT modules, GPIO input lines). A page value located there (an `AT %I…`
   declaration or a `VAR_CONFIG` entry) shows as stale, with the link's time since its last data, while that link
@@ -920,21 +860,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   selected runtime's web server (found from the endpoints the runtime reports, with its control token). The editor
   check's or the runtime's problems stop it and are listed with file and line; the simulator has no web server, so
   Deploy says to use Live mode or start a runtime. After a deployment the editor offers Roll back.
-- Deploying the HMI version that is already active no longer replaces the kept previous bundle with a copy of it, so
-  Roll back still goes back after Deploy is pressed twice.
 - HMI Builder quality checks: the Problems view and the editor warn about touch targets below 44 × 44 px, numbers
   bound to REAL or LREAL without a unit (`unit = ""` says a number has none; the inspector offers No unit), objects
   that take bindings but have none, labels and texts cut to fit, and project colours that lower the contrast of the
   drawing's text or look like the warning or an alarm colour. Warnings never stop a deployment.
 - HMI Builder Colours: with nothing selected, the inspector lists the screen theme's colour tokens with a colour picker
   each; a chosen colour is written to `[colors.<theme>]` of `hmi/screen.toml`, and Reset brings back the default.
-- HMI colours and text: the light theme takes deeper shades so every text and sign of the drawing has enough contrast
-  (WCAG 2.1), and the dark theme's unknown grey is lighter. "Not in running program", a setpoint's limits and a
-  refusal's reason are now 14 px. Short setpoint entries and numeric inputs draw one line without overlapping, a short
-  value card cuts a long label instead of running it under the number, and a button's outcome sign no longer covers its
-  text. New page buttons are 48 px high, new setpoint entries 240 × 96 and new numeric inputs 208 × 48.
-- HMI Builder: the editor uses truST's shared webview tokens, so it matches the other truST editors and follows high
-  contrast and forced colours.
 - New example `examples/hmi_tank_level`: a tank level loop with the real `Control.PID`, Alarm library alarms (a high
   level, a high-high trip and a pump overload trip with first out, and an own level-rise detection suppressed by design in
   Auto), and screens built in the HMI Builder. It runs in the simulator and on `trust-runtime`, and is in the example
@@ -942,25 +873,20 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - New tutorial `examples/tutorials/24_hmi_alarms`: declaring alarms and operating them in the HMI's runtime display —
   priorities, acknowledge, shelve, first out on a trip, equipment alarms and own detection.
 - HMI Builder: Add pen adds a variable to a trend as a pen named after its last part.
-- HMI: bars and split bars draw their label above the bars.
 - HMI Builder: P&ID-based symbols for a pump, an on/off valve and a control valve, offered under Equipment. What moves in
   the plant moves in the symbol: a running pump's impeller turns, a valve's ball or plug stands where the valve is, and a
   closed valve is drawn filled. The tag and state word stand under the symbol, with fault, manual, out-of-service and stale
   signs beside them; nothing turns when the viewer asks for reduced motion.
-- HMI: `symbols = "rendered"` in `hmi/screen.toml` is an error; the symbols are two-dimensional.
 - HMI: languages. `languages` in `hmi/screen.toml` and `hmi/texts/<tag>.toml` per language translate every text of a
   project, and every word truST shows can be changed. truST ships its own words in English, Chinese (Simplified),
   German, Spanish, Japanese, Portuguese (Brazil), French, Korean, Italian, Turkish and Swedish. The runtime display
   has a language button; the browser keeps the choice and `?lang=` fixes a panel to a language. Numbers follow the
   language.
-- HMI: text is measured with the widths of the font the HMI ships, so labels and words are placed where they really end.
 - HMI Builder: a language picker above the canvas shows the page in each of the project's languages; in another
   language a click on a text edits its translation in place, written to `hmi/texts/<tag>.toml`. The Texts tab lists
   every text in every language with the missing ones marked, and Longest lengthens every text by 40 % to find the
   objects too small for a translation. The Problems view checks text files and warns of every text cut in any
   language.
-- HMI: text objects, button labels and the state word under a symbol are cut with "…" when they do not fit; signs
-  never are.
 - Language server: `trust-lsp.hmiTexts` gives the editor a project's languages and texts; `trust-lsp.hmiFileParse`
   and `trust-lsp.hmiFileFormat` read and write `hmi/texts/<tag>.toml`.
 - HMI: Chinese, Japanese and Korean show in truST's own fonts (Noto Sans, subset to GB 2312, JIS X 0208 and modern
@@ -968,11 +894,6 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Libraries: the Equipment library (specification 41): motors, fixed- and variable-speed pumps, on/off and control
   valves and tanks with Auto, Manual and Out of service, interlocks and permissives with reasons, feedback monitoring
   with latched faults, Alarm library alarms, counters and safe restart behaviour.
-- Runtime: a function block's inputs and outputs declared `RETAIN` or `NON_RETAIN` keep or reset their values over a
-  warm restart as declared (IEC 61131-3 §6.5.6.2); before, they followed the instance's declaration.
-- Examples: the tank example, tutorial 12 and plant_demo show their pumps and valves with the P&ID symbols; the alarm
-  tutorial's pictures are renewed.
-- HMI: every component cuts a label, title, text or tag that does not fit with "…", ending before its state chips.
 - HMI pipes (`[[pipe]]` in page files): a pipe joins two ports of the symbols (pump, valves, junction), is routed
   around the objects with few bends and follows them when they move. A process line is solid, a signal line dashed.
   A pipe shows flow only from its own `flow` binding while it reports flow, backwards when negative; never from a
@@ -998,8 +919,6 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   library now needs the Control library too. New symbols: motor and loop controller.
 - New example `examples/hmi_equipment`: a pump, a control valve, a tank and a PID loop of the Equipment library on a
   simulated tank, each opening its faceplate.
-- HMI: a mode selector offers the modes of the enumeration it is bound to and shows them as words ("Out of service");
-  a symbol with a click opens it anywhere in its box; in a faceplate only the symbol carries the alarm mark.
 - Equipment library: the equipment of a PLC programmer's plants, built on two bases. Motors (`Fan`, `Agitator`,
   `Blower`, `Conveyor`), drives (`VFDMotor`, `VariableSpeedPump`, `VariableSpeedFan`, `DosingPump`),
   `ReversingMotor`, `TwoSpeedMotor`, `Heater`; actuators (`Cylinder`, `Damper`, `ModulatingDamper`, `MotorValve`,
@@ -1010,16 +929,6 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   cylinder, motor valve, weigh scale, analyzer, level switch and pressure switch.
 - Manuals for the Equipment, Alarm and Control libraries, under Develop › Libraries, like the OSCAT and PLCopen
   Motion manuals; a test compiles and runs every example in them.
-- Fixed: `Control.SmithPredictorFOPDT.Initialize` ignored the initial `ProcessValue`; it now sets the initial
-  correction from it, and `Update` reports the latest applied correction also when no model interval runs
-  (specification 37 §2.3).
-- HMI: a table shows a `BOOL` as a lit or empty mark, field names as words ("First out"), texts whole and from the
-  left, and leaves out the empty rows at the end of an array of structures with their count. A duration reads as
-  "1 h 2 min 3.5 s" instead of `T#1h2m3s500ms`. A faceplate's values take the unit of the object that opens it.
-- Fixed: the runtime display did not send the values that pipes' `flow` bindings name, so pipes never showed flow.
-- HMI: the runtime display changes a page in place where its drawing changed instead of rebuilding it on every update;
-  on a Raspberry Pi 5 a page of 30 turning pumps and 270 changing values went from 27 to 47 frames per second, and
-  turning symbols no longer restart their animation on each update.
 - HMI Builder: **Create HMI Pages from Program** writes an overview page with a symbol for each instance whose block
   has an equipment pair, bound to it and opening its faceplate; **Add Missing Variables to Program** declares and
   calls in the program what a page drawn first binds, as one change shown for approval; **Create HMI Settings
@@ -1066,44 +975,23 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   an object added or deleted, and the pipes between them reach the other view at once; positions, displays and
   texts stay each view's own. **Generate Process Screen from P&ID** writes a linked page bound to the same
   instances.
-- Replace the experimental direct-model HMI draft command with tools for the customer’s existing
-  agent; the extension does not require a separate language-model provider.
 - HMI screen tests in CI (`scripts/hmi-screen-tests`, HMI Screen Tests job): an operator journey through the
   tank-level example in the runtime, and the drawing compared with approved screenshots in both themes.
-- Fixed: the runtime display's top bar and side bar were 1 and 21 px larger than their 56 and 232 px, so the Operator
-  panel template's page did not fit a 1920 × 1080 screen exactly.
-- Fixed: an enumeration value was reported ambiguous because another namespace that the code neither is in nor uses
-  had a value of that name, so a project with the Equipment and Control libraries did not compile. The pair link check
-  now finds members a block inherits.
 - HMI Builder: a symbol shows its ports under the pointer; drag from a port to another to draw a pipe, or onto a pipe
   to branch into it through a new junction. Click a pipe to select it, set its line style and flow in the inspector,
   drag it to bend it (Straighten undoes that), and delete it with Delete. A valve or a junction dropped onto a pipe
   splits it into two pipes through it; deleting an object deletes its pipes.
 - HMI Builder: the messages a program gives its alarms are listed in the Texts tab to translate like any other text;
   `trust-lsp.hmiBindings` gives them as `alarms`.
-- HMI: with a top bar that does not show the user, the session stands under the bar instead of covering its end.
-- HMI Builder: a saved change to `hmi/screen.toml` reaches the open builder at once.
 - The examples whose old HMI was removed have screens again, built for the HMI Builder: plant_demo,
   web_ui_complete_project, hardware_8do, memory_marker_counter, network_canvas_demo, communication/ads_server_basic and
   tutorial 12.
-- VS Code's simulator now runs projects that use libraries through `[dependencies]` in `trust-lsp.toml`, as
-  `trust-runtime build` does; before, their types did not resolve.
-- A program instance named in a configuration (`PROGRAM Tank WITH Fast : TankLevelControl`) is now known by its program's
-  type, so renaming the program's variables also renames them in the HMI bindings.
-- Function block inheritance: a call of a derived function block binds the inputs and outputs it inherits
-  (`MyAlarm(Message := 'Tank high', Priority := AlarmPriority#High)`), which the compiler refused as unknown
-  parameters. A base named with its namespace (`EXTENDS Alarm.Alarm`) is no longer dropped when the program is
-  compiled for the runtime. HMI paths and the editor's variable list reach inherited members.
-- Warm restart: a function block instance declared `RETAIN` keeps its variables' values, except those its type
-  declares `NON_RETAIN` (IEC 61131-3 §6.5.6.2); before, it started over. The retain file written for a power loss
-  does not hold instance values yet.
 - The runtime shows these pages read-only at `/hmi` (the first page by name) and `/hmi/<page>` when the project has
   `hmi/screen.toml`; without it, `/hmi` says the project has no HMI. Pages are read when opened, and a file that does
   not load shows its errors with file and line. Values stream over `/ws/hmi?page=<page>` every 250 ms (or the scan
   period, if longer), including members of function block instances such as `Control.PID`, structure fields and
   array elements; a value whose program stops scanning or whose connection drops turns stale with its age. The page
   data and the stream need the Viewer role. The HMI ships the Inter font (SIL Open Font License).
-
 - CODESYS conversion profile (docs/specs/07-standard-functions.md 2.10): a project whose
   `trust-lsp.toml` sets `vendor_profile` to `codesys`, `beckhoff` or `twincat` (TwinCAT is
   built on CODESYS) runs its conversion functions with the CODESYS rules: they round half away from zero, keep the low-order bits of the target width
@@ -1125,6 +1013,1395 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - `BYTE_TO_BOOL`, `WORD_TO_BOOL`, `DWORD_TO_BOOL` and `LWORD_TO_BOOL` (and `TO_BOOL` of a
   bit string) are available and transfer the rightmost bit, as IEC 61131-3 Table 24
   specifies: `BYTE_TO_BOOL(16#80) = FALSE`, `BYTE_TO_BOOL(16#81) = TRUE`.
+- `trust-lsp check [--project DIR] [--format text|json] [--file PATH]... [--deny-warnings]` prints the diagnostics the
+  editor shows for every source file of a project, without an LSP client (docs/specs/14-lsp.md §7.7): the project is
+  loaded from `trust-lsp.toml` exactly as the language server loads a workspace folder, paths are relative to the
+  project in the platform's form, and the exit status is 0 without errors, 1 with errors (or warnings under
+  `--deny-warnings`) and 2 for a usage or I/O problem, including a `--file` that is not one of the project's source
+  files.
+- Control Studio designs a trajectory feedforward (Specification 35 §17.16): for a PID whose program adds `Kv·ṙ + Ka·r̈` of a planned trajectory, Tune designs the PID as for `Control.PID` and sets `Kv = b/n` and `Ka = a/n` from a model `n/(a·s² + b·s)`, which for torque to angle are the friction B and the inertia J. The PID's margins and Auto-entry allowance apply, a gain outside its declared range is refused, and Tune names all five values.
+- Control Studio Requirements offers **Measurement noise** whenever the loop declares a measurement filter (a low-pass or notch) among its tuning components; that filter's validation needs the noise band.
+- Control Studio designs P for a delayed integrating process (SIMC's Kp = 1/(K′(λ + L))) and checks it like PI; Apply on an integrating process starts from the level where it rests instead of waiting for the identification's level to return.
+- Control Studio Requirements always offers an optional **Input disturbance**, a constant load added to the plant input in its own trial; Automatic tuning checks that load trial on the model for every family and refuses a design whose gains leave their declared range, naming the gain it needs.
+- Control Studio identification fits an integrating process with its delay, so SIMC's integrating PI is available for an identified tank.
+- Control Studio applies a static decoupler: a PID group whose program writes `u = D·v` in Auto has Tune calculate `D = K⁻¹·diag(K)` and each PI through it, and Apply write the gains and `D` together, each controller starting at its share of the plant inputs (Specification 35 §17.15). The runtime's controller transfer gains the `decoupled-output` initialization formula, and an isolated run records up to 64 channels (was 32), so a group's transfer check fits; the channel-sample budget is unchanged.
+- Control Studio setup form: **Gain schedule** sets up a `Control.PID` whose program interpolates its gains between two to four operating points; it writes one loop per point, identified, tuned, validated and applied at that point with the schedule active (Specification 35 §17.14).
+- Control Studio setup form sets up LQG: the state-feedback structure's LQG design takes the program's estimates, their gains and observer gains, the noise variances and the model file the estimator implements (Specification 35 §17.1).
+- Control Studio Tune shows a state-feedback candidate's gain, phase and delay margins and Ms for its loop broken at the plant input (Specification 35 §17.10).
+- Control Studio setup form: **Smith predictor** sets up a `Control.PID` that reads the measurement plus the program's predicted correction (Specification 35 §17.13). Tune writes the model's gain, time constant and delay into the program and designs the PI for the process without its delay, refusing a settling time no longer than the delay. Tune now shows the margins beside every candidate on the Tune page itself: the page rebuilt the candidate without them.
+- Control Studio setup form: **Feedforward** sets up a `Control.PID` whose program adds a feedforward from a measured disturbance (Specification 35 §17.12). Identify fits one model from the controller output and the disturbance, Tune designs the PI and the feedforward gain, lead and lag from both paths and shows the predicted deviation with and without feedforward, Validate adds a measured-disturbance step, and Apply starts the feedforward state at the measured disturbance so the switch does not bump. The runtime's controller transfer gains the `scaled-measurement` initialization formula.
+- Control Studio: a cascade set up in the form is one loop tuned together (Specification 35 §17.11): one identification of the plant input to both measurements, the inner controller designed first and the outer one through the predicted closed inner loop, one validation of both in Auto, and one Apply and Restore that switch both controllers together. The runtime's controller transfer switches additional controller modes at the same task boundary (`additional_modes`).
+- Control Studio setup form: **Other law** sets up a law Studio has no design formula for (MPC, ratio, split range, override, gain schedule, …): Tune searches up to 64 combinations of the program's coefficient values on the actual ST and uses the best one that meets every requirement (Specification 35 §17.1). Family names read as words ("Paired PI", "State feedback").
+- Control Studio setup form: **Own P, PI or PID** sets up a P, PI or PID law the program computes itself from its own gain variables (Specification 35 §17.1). Tune designs the gains to the requirements as for `Control.PID`, offers only the families the law has, and checks them on the actual ST; validation starts the integral term and the derivative's previous value bumplessly.
+- Control Studio Tune shows every PID-family candidate's gain, phase and delay margin and peak sensitivity Ms (Specification 35 §17.10). Automatic tuning places the closed-loop poles for the declared settling band when no formula response settles in time, so tight bands on delay-free models are met instead of refused.
+- Control Studio accepts loop signals without an I/O address: the controller output and setpoint may be program variables, and the measurement may be one the program only reads (Specification 35 §17.1). Plant simulation reads and writes such program variables by their symbolic path (Specification 46 §13), so validation runs on them. A measurement the program computes itself is refused with the reason.
+- Control Studio: each member of a PID group has its own identification step, and Tune predicts every member's response with the current and tuned gains by running the program on the group model (as for switching, state-feedback and other project-owned controllers). Applying a cascade's inner loop is refused, before anything is written, while its outer controller is in Auto, and the runtime rejects the transfer if the outer controller switches to Auto before it takes effect. A loop whose gain stays below one now gets its predicted response, with an unbounded phase margin. Setup names the controller action by the direction the output moves.
+- The examples gallery offers the five Control Studio examples (PID loop, cascade, interacting loops, ON/OFF control, state feedback), and the Control Studio guide links them.
+- Tune shows the predicted response of an ON/OFF or state-feedback candidate and of the current settings, as it does for `Control.PID`: it runs the program's own ST with both settings on the identified model in isolated simulation. Nothing is written to the running controller.
+- The setup form sets up an existing state-feedback law in the program, designed by LQR or pole placement: the instance that runs it, the plant input, the controlled output with its setpoint, and one to three further measured outputs, each with the variable that holds its gain, plus the reference gain. Studio identifies the plant with the measured outputs as the model's states, so every gain belongs to one measured signal. `examples/control-state-feedback-commissioning` holds the second of two tanks in series with both levels fed back to the pump.
+- The setup form sets up an existing ON/OFF controller in the program: the instance that switches the output, its measurement, setpoint and output (switched between the output's minimum and maximum), Auto/Manual signal and manual output, the hysteresis and minimum ON and OFF times that Tune designs, and the retained output-on state and optional time in state. It also asks for the switched equipment's own minimum ON and OFF times, such as a compressor's restart protection; Tune never proposes shorter times. `examples/control-onoff-commissioning` is a cold room held by a switching compressor. The step-by-step setup remains for P-only controllers and imported adapters.
+- Tune shows a PID group's result: every member's designed gains and, per member, its own path (gain, time constant, delay), the relative gain of the pairing and the gain the member has with the other loops closed. The setup form names a group's model channels after their signals, as Identify does, so a group set up in the form can be tuned from its identified model.
+- The setup form offers **PID group** when a program has several `Control.PID` instances: the included members, each filled in from its own calls, share one Auto/Manual signal and are written as one group loop that Tune designs from the group model.
+- Simulation plants may take a program variable in `%M` memory as a command source, not only a `%Q` output (Specification 46 §13.1). Control Studio uses this to validate the outer loop of a cascade: its model is driven by the inner setpoint the outer controller writes.
+- Control Studio's SIMC rule tunes second-order models by Skogestad's half rule (τ = τ₁ + τ₂/2, θ = θ + τ₂/2) instead of asking for a first-order model; a second-order model with complex poles is still refused with the reason.
+- PID groups can be tuned from their identified multivariable model (Specification 35 §17.9): each member's PI is designed by SIMC on its own path, reduced by the two-point method, for the gain it sees when the other loops are closed (Kᵢᵢ/λᵢᵢ). A pairing with a non-positive relative gain is refused with the pairing to use. A group declares this with the project seed `{ "kind": "decentralized-pid", "family": "PI" }`.
+- Two example projects for Control Studio setup: `examples/control-cascade-commissioning` (a jacketed vessel under a two-`Control.PID` cascade) and `examples/control-two-zone-commissioning` (two heated zones sharing a wall, one `Control.PID` each). Their READMEs say how to set them up and in which order to tune.
+- Control Studio's Requirements editor has an optional Auto-entry tolerance in the controller's output unit, as the auto-commissioning specification requires; blank keeps the automatic allowance. A state-feedback or LQG controller with a noisy measurement can now be applied with a reviewed tolerance instead of the 1e-6 default.
+- After a Feedback relay identification, Control Studio shows the measured relay cycle under the identified model (number of cycles, relay amplitude d, cycle amplitude a, period Pu and Ku = 4d/(πa)), or why the cycles are not usable. When the cycles qualify, Tune offers **Relay rule (Ziegler–Nichols PI)**, which proposes Kp = 0.45·Ku and Ti = Pu/1.2 for validation. The relay results stay visible through Validate.
+- Control Studio Validate can report command activity, the total movement of the applied command (Σ|Δu|, in percentage points for a % command), as a measured row, or check it against a declared maximum.
+- Control Studio Tune offers **Setpoint weight (β)** beside the PI and PID gains when the controller law declares the `Control.PID` setpoint-weight field; the predicted response and the validated and applied parameter record use the entered β, and calculated candidates keep β = 1. Dimensionless settings no longer show a stray "1" as their unit.
+- Control Studio Tune offers **Measurement filter time (Tf)** when the controller law declares the program's measurement filter; the predicted response and loop analysis include the filter lag, Tf is written with the gains, and calculated candidates bypass the filter (Tf = 0).
+- Control Studio's Tune predicts the response of a supplied integrating plant, alone or behind a lag, such as a shaft driven by torque (θ/u = 1/(s(Js + B))), using the exact held-input step.
+- Control Studio's Tune offers **Derivative setpoint weight (γ)** for PD and PID when the loop's law declares `derivativeSetpointWeightSymbol`: γ = 0 differentiates the measurement, γ = 1 the error; calculated candidates use γ = 0, and the prediction includes the resulting derivative kick.
+- Instance arrays accept element initializers, `[(PT := T#100ms), (PT := T#300ms)]`, and repetitions written `50((PT := T#100ms))` or `50(PT := T#100ms)`; an array type declared with an initializer gives it to every variable of the type, and a cold restart re-applies it.
+
+### Changed
+
+- The VS Code extension carries the complete compiler toolchain of its platform: `rustc`,
+  `rust-lld`, the target libraries and the PLC program library (specification 44 §4.6). The first
+  build installs it from the extension itself, with no download and no Rust installation, offline
+  too; the bundle adds about 180 to 210 MB to the extension package, depending on the platform.
+  `trust-runtime toolchain install` also takes a bundle that lies beside the tools before it would
+  download one.
+- The runtime display's number entries (setpoint, numeric input) send what the operator typed, and the runtime
+  reads it, with a comma or a point before the decimals, and checks its limits; a refused entry shows the
+  runtime's reason, such as `150 is above the highest allowed value 100` (specification 39 §12.8).
+- The MCP configuration that **HMI: Connect Agent Tools** shows now starts the agent's HMI tools
+  with `trust-lsp hmi-agent <connection file>` (specification 43 §3.1) instead of VS Code's Node
+  runtime; replace an older `trust_hmi` entry with it.
+- The simulated-plant editor in Devices & Connections takes its rules from the runtime (new plant
+  operations `plant.edit` and `plant.signals`, specification 47 §20.1), so the editor, the runtime
+  and its validation agree. Visible changes:
+  - an I/O driver named `sim`, `noop` or `none` no longer blocks plant signals (specification 46
+    §6.1);
+  - a new plant suggests the first plant ID the project does not use (`new_plant`, `new_plant_2`, …);
+  - a saved scenario event with an unknown action is shown and flagged instead of silently dropped;
+  - piecewise-curve and state-space cell errors block Save like every other error;
+  - a draft the runtime's own validation refuses shows the runtime's reason and cannot be saved.
+- An HMI command or alarm action whose text is longer than its target holds is refused with the
+  stable code `runtime_string_capacity_exceeded`, never cut (specification 39 §12.8).
+- The HMI Builder's project rules moved into the language server (`trust-lsp.hmi…` commands,
+  specification 39 §17.3); the editor applies their answers. Visible changes: **Allow writing**
+  and **Add user…** leave a `runtime.toml` that does not load, or that lists its write rules or
+  users inline, as it is and say why instead of appending to it (§12.2, §12.8); **Import Symbol**
+  refuses a file that is no XML drawing; a new page or panel in a project without
+  `hmi/screen.toml` gets a 1920 × 1080 dark screen layout, and Create Pages from Program and Create
+  HMI Settings Page create one that loads instead of `format = 1` alone; renaming a page, panel or
+  popup in the Explorer updates the links to it again (the files holding them were never found)
+  and changes only the links to that kind of file; a title made from a file name never starts or
+  ends with a space.
+- The HMI runtime display takes from the runtime what a session may do and when values are stale:
+  the login and session answers and the value stream's session carry `acts_as` and
+  `may_change_settings`, and the stream's first message the stale limit `stale_ms`. The Settings
+  dialog sends each entry as typed and the runtime reads and checks it, a decimal comma included
+  (`1,5`), so its refusals, such as `Start timeout: 700 is above the maximum 600 s`, come from the
+  runtime (specification 39 §11.1, §12.4, §21.4).
+- A program deployment through the web interface lists the HMI bindings it would break before it
+  says that the resource must be stopped (specification 39 §16.4).
+- The VS Code extension's project rules now live in the language server: the side panel's Start, Update and Debug
+  gates, the project that Compile checks, whether `trust-lsp.toml` can be read, the simulation speed file, the
+  Libraries panel and its quick fix, the namespace move's checks, the Testing view's tests and the examples gallery
+  (specification 25, §1.1, §3.1, §6, §7, §11). What users see change: a `trust-lsp.toml` shows **Project needs
+  repair** exactly when the language server cannot load it (valid TOML such as `[ project ]` no longer does, a value
+  of the wrong kind such as `include_paths = "src"` under `[project]` now does); a test inside a `NAMESPACE`,
+  also a dotted `NAMESPACE A.B`, has its namespace-qualified name in the Testing view and in `trust-dev test`, so its
+  result reaches it; Libraries lists and edits `[dependencies.<name>]` tables, adds a new entry right after the last
+  one, removes an entry with the comment above it and offers **View source** only when the library has a source file;
+  the namespace move refuses a path that is not identifiers joined by dots, or holds a keyword, before it starts.
+  Start's default CONFIGURATION takes the `[resource]` name and cycle of the project's `runtime.toml`, else `Res` and
+  10 ms (it was always `Res` and 100 ms, which `trust-runtime check` refused in a project whose resource has another
+  name), and never overwrites an existing file; Start accepts a CONFIGURATION whose PROGRAM comes from a local library
+  dependency or has a namespace-qualified name; a copied example's folder name follows the rule of a new project's
+  name (specification 25 §3.1, §6.8, §11.6).
+- The rules of the Ladder, Blockly, Statechart and SFC editors moved from the
+  extension into the language server (`trust-lsp.visual*` commands): the
+  Structured Text companion and runtime entry, the file checks and formats, the
+  Ladder edits, new-program templates and import checks. What changes for you:
+  - A word, double-word or long-word address that a visual program names
+    (`%MW4`, `%ID0`, `%QL8`) is typed `WORD`, `DWORD` or `LWORD` in the
+    generated Structured Text, as its size is in IEC 61131-3; it was `INT`,
+    `DINT` or `LINT`. Declare a variable of the type you want at the address to
+    compute with it.
+  - A Ladder `DIV` block with a zero divisor faults like any Structured Text
+    division; it used to write 0.
+  - Ladder operands qualified with `LOCAL::`, `GLOBAL::`, `LOCAL.`, `GLOBAL.`,
+    `L::` or `G::` reach the variable of that scope; they were copied into the
+    Structured Text, which then did not compile. A timer or counter first on
+    its rung is no longer refused as "Undeclared ladder symbol 'TRUE'", and an
+    address the runtime refuses (`%IX0.9`) is reported with its element.
+  - New Ladder elements, rungs, branch nodes and wires get numbered ids
+    (`contact_1`, `rung_2`) and new blocks numbered instances (`T_1`) instead of
+    time stamps.
+  - A Statechart name follows the rule of the other visual programs (letters,
+    digits, hyphens and underscores). An imported Statechart or Blockly file
+    whose name lacks the suffix of its kind gets it, so it opens in its editor,
+    and a Blockly import checks that the file is a Blockly workspace.
+  - Generate in the Blockly and SFC editors writes the Structured Text
+    companion and runtime entry that run the program; it used to write a
+    separate `PROGRAM` file over the companion, and for an `.sfc` file it
+    overwrote the chart itself. SFC Preview ST only shows the companion, and SFC
+    Validate shows what it finds.
+  - Saving a statechart keeps its `id`, and saving an SFC keeps its name,
+    author, description and creation date; they used to be replaced.
+  - The Blockly editor's Save writes a file its companion can be made of, a
+    Blockly chain that leads back to itself is reported instead of crashing the
+    generator, and Blockly and Statechart text uses the IEC escapes `$'` and `$$`.
+  - Statechart Validate checks what the companion needs (an `id`, a state, an
+    action type for each mapping in use), the action-mapping panel counts
+    actions that transitions name, and an action writing an address the runtime
+    refuses is reported instead of being skipped.
+  - An `.sfc` file gets its Structured Text companion on save, like `.sfc.json`.
+  - An SFC runs by IEC 61131-3 (`sfc-profile.md`): a parallel split enters all
+    its branches together and its join leaves them together, so charts with
+    parallel branches no longer stay in their first step; transitions that can
+    clear together do, and a numbered transition (`priority`) wins over the
+    others of its step; the qualifiers S, R, L, D, P, SD, DS, SL and the new P1
+    and P0 work, with a duration typed as `T#2s`. An action runs one more scan
+    after it ends, with `<action>.Q` FALSE, as IEC actions do in CODESYS and
+    TwinCAT: guard code that must only run while the step is active with
+    `IF <action>.Q THEN`, or use P1. Validate, saving and Preview ST refuse a
+    chart the companion cannot run (an action name that is not an identifier,
+    a time qualifier without a duration, two initial steps in one sequence)
+    instead of writing Structured Text that does not compile. The SFC examples
+    run: their conditions such as `T#1s` and their `log` calls are replaced.
+  - The language server reads the Ladder number fields (timer and counter
+    presets, position) and the Statechart timer and mapping value as typed: a
+    blank or non-numeric Ladder number is refused with a message instead of
+    being stored as 0, a Statechart timer of `1e3` is 1000 ms instead of 1,
+    and a negative timer is refused instead of ignored.
+  - Right-clicking a Ladder element or rung no longer replaces the editor with a
+    script error.
+  - The editors' own simulators and runtime panels, which nothing could start
+    any more, were removed; a visual program runs through its runtime entry from
+    the truST sidebar and shows its values in Live Values.
+- Projects no longer share one control socket. When `[runtime.control]` omits
+  `endpoint`, the runtime listens on a socket of its own project, or on a
+  loopback port with a generated token on Windows, and writes where it listens
+  to `.trust-runtime/control.json`. On Windows the generated token goes into a
+  per-user file under `%LOCALAPPDATA%\trust\runtimes`, never into the project
+  folder. A runtime that cannot write the file still starts, logs a warning and
+  reports it in its status. A runtime in a read-only or foreign project folder,
+  which cannot keep its stable runtime ID in `.trust-runtime/runtime_id`, now
+  starts too: it keeps the ID in `runtimes/<hash>.id` of truST's folder in your
+  state folder, where it refused to start before. Project templates and examples
+  no longer use `/tmp/trust-runtime.sock`, and the control course lessons, the
+  commissioning
+  examples and the HMI examples no longer commit a `tcp://` endpoint and an
+  example token, so new Windows projects, and every example that does not name
+  its own socket, start on Windows. Eleven examples keep the Unix socket their
+  instructions name and run on Linux and macOS only: `ads_server_basic`,
+  `mqtt_traffic_light`, `hardware_8do`, `plcopen_motion_single_axis_demo`, the
+  five `plcopen_motion_oop_*` examples, and tutorials 09 and 12.
+- Connect changes nothing until the runtime answers: a refused Connect (unreachable, missing or rejected token)
+  leaves the target, the runtime settings and the status bar as they were, and the runtime's node in Devices &
+  Connections keeps its place with the failure and a **Set auth token** action. After a successful Connect the side
+  panel's Target, its picker and the status bar name the runtime. A runtime that answers with debugging disabled
+  becomes the target, and Live Values says how to enable debugging (specification 25, §5.1).
+- The rules of Devices & Connections moved from the extension into the language server
+  (`trust-lsp.devicesTopology`, `trust-lsp.devicesCanvasAct`) and the runtime: the fleet view, its health roll-up
+  and search, the forms' Apply, Test and Save, the ADS ports, tag imports and removals, Expose, EtherCAT channels
+  and adding a runtime (specification 25, §5). What changes for you:
+  - **Connect existing runtime** refuses an address that is neither `host:port` nor a `tcp://` or `unix://`
+    endpoint, with the address help; it used to add the text to the fleet as an endpoint.
+  - A runtime's own state outranks a connected connection, so a running simulator reads "Running".
+  - **Test** in an OPC UA client's edit form tests its first connection, as the summary's **Test** does; it used to
+    send the whole list of connections, which the test could not read.
+  - After **Save**, the canvas selects the saved connection; it selected nothing, because it looked for the
+    connection under an ID that no node carries. When the runtime names no connection, only a single matching
+    connection of the protocol is selected; with several it used to pick the last one.
+  - While nothing reports the project's runtime, the canvas draws the simulator also beside other configured
+    runtimes, the project's runtime in simulate mode shows the simulator's state, the search dims a local
+    connection instead of relabelling it, a start failure is one fault instead of two, and a failed Connect to
+    another runtime no longer marks the simulator.
+  - `trust-runtime comm discover --protocol ads --ads-port <port>`, repeatable, names the ADS ports each find is
+    checked on, and a live ADS browse that fails before the device's port answers returns an empty tree with the
+    classified reason instead of a request error (specification 11).
+- Live Values starts a numeric row's write box empty, as the prepared value of a CODESYS or TwinCAT watch list; a REAL
+  no longer fills the box with 17 cut-off digits, and the current value stays in the Value column (specification 25,
+  §4.3).
+- Control Studio's Bode plots draw the phase unwrapped, as MATLAB and python-control do: the Frequency tool, the
+  feedback result, the engineering plots and the measured response keep the phase continuous instead of jumping
+  between −180° and +180°, and a delay adds its −ω·L exactly, so `e^(−s)/(s + 1)` reads −657.25° at 10 rad/s
+  instead of 62.75°. The phase axis ticks every 45°, 90°, 180° or 360°, whichever gives at most eight steps, and
+  the crossover markers sit on their curves. The margins are unchanged (numerical annex N4.3).
+- Control Studio names a plotted plant input "Output" on its axis, as in its legend, instead of "Applied input"
+  (specification 35, B9.9). In the narrow loop setup form, each **Change** link stays at the start of its row.
+- The HMI Builder, Control Studio, simulated plants and `Comm.Link` blocks run on the shared execution
+  engine. The screens are served at the end of each scan in which the program called `Hmi.Display`, after
+  that scan's outputs are published, instead of directly after the calling task, so a command reaches every
+  task before any output it affects is published (specification 39, §18). Control Studio's task-boundary
+  parameter and transfer commits, the link states and a simulated plant's controller measurement now pass
+  through the engine's checked writes and service hooks instead of a copy of the program's storage.
+- The HMI's command, settings and one-off read queues hold at most 1,024 requests each; a request past the
+  bound is refused at once with `request queue full`.
+- A production build (`trust-runtime build`, `run`, a debug or Control Studio session) of a configured project
+  leaves its `TEST_PROGRAM`s unbound and does not instantiate them, so a runnable project such as a control
+  course lesson keeps its tests beside its configuration; an unbound ordinary `PROGRAM` is still refused
+  (specification 22).
+- Changed: the computer's `mqtt` driver runs on the shared implementation of the chips, so both
+  apply spec 32 alike. Refusals read `mqtt: <key>: <reason>`; unknown `sparkplug` keys, scaling on
+  a Boolean point, topics that are not exact, a broker with user info or an unknown scheme, an
+  empty `username` and strings with U+0000 are refused, and bad TLS files are refused when the
+  driver starts rather than at each connect. The connection opens when the driver starts; a read
+  without a new message reports `mqtt input not fresh` at once; a write while the session starts
+  waits at most 40 ms and reports `mqtt connecting`; typed inputs write only their own bytes of
+  the image, where they overwrote other drivers' bytes; a dropped driver sends DISCONNECT (and
+  with Sparkplug B its NDEATH first); health names the transport's reason.
+- Changed: a chip's `modbus-tcp` and `mqtt` connections send what their driver queued before they
+  close, so a program's last bytes reach the server when the program is replaced, and a chip's
+  refusal for want of memory after claiming the drivers also counts the drivers' buffers
+  (`... checkpoint buffer, debugger and the drivers' buffers need <k>`).
+- Changed: the computer's `modbus-tcp` driver runs on the shared exchange of the chips, so both apply
+  spec 11's rules alike. Every response is checked (function, byte count, write echo, MBAP
+  protocol and length) and a failed check gives the connection up as a transport error; a response
+  of another transaction is discarded and reading goes on; images larger than one request are
+  split at the quantity limits; FC16's byte count no longer wraps above 254 bytes; an exception
+  keeps the connection and stays an `IoAddress` error naming the function and address; the
+  reconnect backoff follows transport failures only and covers outputs too; health shows the
+  failure's own text; input failures no longer leave a safe state unconfirmed; mapped reads leave
+  unmapped bytes and the other bits of a byte alone. Refusals read `modbus-tcp: <key>: <reason>`,
+  unknown keys, port 0 and `timeout_ms = 0` are refused, FC05 and FC15 (or FC06 and FC16) on one
+  coil or register are refused as one table, and a validation no longer starts a worker. IPv6
+  servers (`[addr]:port`) stay supported.
+- Changed: pairing is the same code on every runtime. A claim at the limit of enabled tokens replies
+  `at most 256 pairing tokens may be enabled; revoke one first`, and a claim or revoke whose write
+  fails replies with the write's error and changes no token, where both replied `invalid or expired
+  code` or claimed success before. A pairing file that cannot be read grants nothing and is no
+  longer overwritten by the next claim. A runtime without random numbers refuses to pair instead of
+  using predictable ones. The computer writes `pairings.json` to a new file and renames it over the
+  old one.
+- Changed: the deployment record is version 2: section 8 carries each I/O driver's `params` table
+  (specification 34 §5.1.1), from which a chip runs its drivers with the keys, defaults and checks of
+  a computer. Version 1 records still read; a chip refuses their drivers other than `gpio` with
+  `rebuild the project`.
+- Changed: a program image is signed with Ed25519ph (RFC 8032), over the SHA-512 of the image with
+  the context `truST program image`, where it was pure Ed25519 (specification 44 §5.11). A chip
+  hashes an online change's image as its parts arrive, so that checking the signature no longer
+  holds the running program's scans while the whole image is hashed. Images signed before this
+  change are refused; build them again. The chips build their signature code for speed.
+- Changed: every runtime records each program's calls in `tasks.stats`' top contributors, a chip as
+  a computer; a forced marker reads its forced value between scans; a program loaded by
+  `CompiledRuntime::load` starts at its starting values; an input of an enumeration type that holds
+  no declared value of it is refused before the scan reads it; trust-hir refuses a `VAR_ACCESS` path
+  to a `VAR_TEMP`, `VAR_EXTERNAL` or `VAR_IN_OUT` variable and an enumeration literal that names no
+  value of its type; a `VAR_CONFIG` entry that completes `AT %Q*` with an address of another area is
+  refused at build (IEC 61131-3 §6.5.5.4).
+- Changed: a chip whose resource is Stopped writes an upload into its program store as the parts
+  arrive, instead of holding it in its heap, so a program as large as a program slot installs: on
+  the ESP32-C6 up to 3,056 KiB, where the heap held about 100 KB. `transfer.begin` erases the first
+  unit of the slot the install will commit, each `transfer.part` is answered once its bytes are
+  written and read back, and `program.install` checks the container in the slot and programs only
+  its header, the magic last (specification 34 §5.1). An upload begun while the program runs is held
+  in memory as before. A client waits up to 5 seconds for each begin and part reply.
+- Changed: the native build works out a program's starting values from its declarations itself and
+  no longer lowers the statements for the bytecode engine (specification 44 §3, §6.7), so it builds
+  what the bytecode build refuses: a constant array indexed by a variable, `DATE - DATE`, `SUPER()`,
+  a `CHAR` above 127, an enumeration value as a standard function's argument, and a function that
+  calls itself by its bare name. Compiled programs also take a program instance declared `RETAIN`
+  in its configuration, a call of an instance that is an element of an array (`Pumps[2](...)`), and
+  an `LWORD` or `ULINT` literal above `LINT` in a statement.
+- Changed: a call beyond the call levels ends the scan with `call depth exceeded`, in both engines,
+  instead of `invalid bytecode 'vm call stack overflow'`.
+- Changed: compiled programs make their checks where they can fail and nowhere else, none dropped
+  (specification 44 §6.5, §6.6): an array element at a constant index inside the bounds is not
+  checked when the scan runs; a chain of real `+ - *` on variables and literals checks its result at
+  its last operation, which faults in the same cases and statement as a check of each; and a release
+  image keeps a `FOR` loop's counter in a register when nothing in the body but the loop can change
+  it. On an x86-64 computer the pasteurizer's control task takes 140 to 151 ns per activation as a
+  release image instead of 150 ns (RuSTy 140 to 141 ns), and its code is 20,188 bytes instead of
+  21,184.
+- Changed: a control request costs less on a chip: a request line is read straight into the request,
+  without first building a JSON value of the whole line (on the ESP32-C6 about 0.08 ms less per
+  request), and a chip answers `program.active` from the identities it has read until an install
+  writes its program store, instead of reading the store at every request (1.7 ms instead of 4.6
+  ms). The cycle percentiles that `status` reports are read by selection from a copy on the stack,
+  with no allocation per request; on the ESP32-C6 they still take 0.5 to 0.8 ms of a `status`.
+  Replies and refusals are unchanged. A chip still serves requests between cycles: on the ESP32-C6 a
+  request takes about 0.9 ms, `status` 4.7 ms and `events.tail` 7.4 ms, so a client that polls it
+  delays the activations of a 1 ms task until milestone M5 serves requests in a context the tasks
+  preempt (specification 34 STATE-08).
+- Changed: `shutdown` stops a faulted resource as it stops a running one, on a chip and on a
+  computer: the outputs take the safe state again, the retained values are saved, and the resource
+  is Stopped, keeping its fault in `status` until the next start. A program that faults at every
+  start can therefore be stopped, replaced with `program.install` and started; before, a faulted
+  resource stayed faulted and took no install. A process that exits after stopping a faulted
+  resource still exits with status 1. The device link's stop no longer restarts a faulted program
+  on its way to Stopped.
+- Changed: the stack a compiled program needs is the deepest chain of calls the build reads from
+  the module, not the sum of every function's frame; calls through interfaces that come back to a
+  function, as a decorator's do, count once for each instance.
+- Changed: `status`, `health`, `tasks.stats`, `io.list` and `io.read` write their replies as text
+  without building a JSON value first, and a reply is written into its parts in blocks rather than
+  piece by piece. On the ESP32-C6 a `status` holds the scan loop about 6 ms instead of 9, an
+  `io.read` about 2 ms instead of 6. The replies are the same text as before.
+- Changed: the kernel interface of compiled programs is version 2: a kernel reads the real of
+  `STRING_TO_REAL` with the runtime's own reader for the program. An image built before must be
+  rebuilt.
+- Changed: an install keeps one copy of the uploaded container while it commits, not two, so a chip
+  installs a program twice as large from the same heap.
+- Changed: a program takes less of a chip's memory. Each table of a prepared program holds exactly
+  its entries, and a chip boots the program it has installed where it lies in its flash, without
+  copying it into its heap: it reads the program's declarations and initializers there and keeps on
+  its heap only the part of each that a scan reads. On the ESP32-C6 the bench program `v1p`, an
+  8,290-byte container, takes 15,112 bytes of heap instead of 19,052, at the same scan speed. A
+  computer's program and the candidate of an online change are prepared from their bytes and take
+  no more memory than before. An install writes the program slot that does not hold the running
+  program, so a container that was installed but has not started yet is replaced by the next
+  install.
+- Changed: scans are faster on every runtime, most on the chips. A program reads and writes its own
+  and the global scalar variables, and the outputs of its timers and other standard function
+  blocks, where they lie, without looking them up by name. A program body without calls to user
+  POUs runs from compact code built when the program is loaded, which also calls the standard
+  function blocks and converts values directly. A standard function block reaches its variables at
+  places found when the program is loaded. Inputs and markers are sampled straight into their
+  variables and outputs published straight from them, a chip decodes its I/O snapshot only when a
+  request reads it, the debugger's statement hook runs only while a debugger is attached, and
+  retained values are encoded only when a save is due. Results, charged work and faults are
+  unchanged. A cycle reaches its programs at places found when the program is loaded, a call of a
+  timer whose preset is a TIME or an LTIME also runs where it lies, and a scan with no queued writes
+  or forces skips the Live Values queues. The ESP32-C6 reads its clock from the CPU's cycle counter
+  between waits, and its RAM code list holds the code that every scan runs. It copies, fills and
+  compares short values with its own routines in RAM instead of the ROM's, and reads its clock and
+  its heap's operation count without a critical section. A BOOL, integer, bit
+  string or character bound at its own width is sampled and published by copying its bytes. Compact
+  code computes the arithmetic, comparisons and logic of integers and BOOLs on their stored values,
+  without building general values, and a program body that keeps no variable in a call frame starts
+  without one. A body whose operand kinds are all known when the program is loaded runs on the
+  operands' bits, without building cells or values. Compact code converts an integer to another
+  integer type, and a TIME to a DWORD, directly. The cycle, task
+  and call statistics are kept in whole nanoseconds and turned into milliseconds when they are read,
+  so a chip records a scan without software floating point. With debugging enabled, the debugger's
+  statement hook is called only at statement starts instead of at every instruction. The ESP32-C6
+  gives 24 KiB of its heap to the code that runs from RAM, and 16,320 bytes more, which its heap
+  takes back from the chip's LP SRAM as a third region that an allocation reaches only when the
+  other two are full: its heap is 112 KiB (114,688 bytes, also the longest reply), of which a
+  program can use 56,076 bytes (80,652 before). On the ESP32-C6 the scan of a 2-statement program
+  went from 0.90 ms to 0.021 ms (its cycle from 2.9 ms to 0.12 ms), and that of a 15-statement
+  program with a timer, an edge trigger and three conversions from 6.8 ms to 0.19 ms (its cycle
+  from 9.9 ms to 0.31 ms).
+- Changed: a chip's main stack decides how many call levels it admits, and its heap no longer
+  does: the ESP32-C6 admits 7 (its 78 KiB stack window less 2 KiB of headroom and the 34,008 bytes
+  its install takes, at 6,144 bytes a level, measured on the bench), and the STM32U5A9 the same until
+  its own bench. A program that needs more call levels is refused at its install, its load and its
+  online change with `insufficient stack` and both numbers, instead of `invalid bytecode 'vm call
+  stack overflow'`. A chip now takes trust-runtime's limits of constructed values, construction
+  bytes and process image, which its memory figure checks; only its preparation bytes and validation
+  scratch still scale with its heap. The C6 measures its whole stack (the 24 KiB window was filled by
+  installing any program), and the U5A9's main stack is 78 KiB.
+- Changed: an online change keeps the value of every variable that the new program declares at the
+  same place and by the same name, retained or not, function-block members, timers' state and edge
+  memories included, as CODESYS and TwinCAT do. A variable whose declaration changed keeps what
+  fits: a value converted when the new type holds it (`INT` to `DINT`, a value inside a new
+  subrange, an enumeration value by name), structure and function-block members by name, array
+  elements by index; anything else starts with its initial value. References keep naming the same
+  variable, or become NULL when it is gone. Before, every variable that was not retained took its
+  initial value at an online change, and a retained value that did not fit its new declaration, or a
+  retained function-block instance in a changed program, refused the change; no value refuses a
+  change now. Each variable that did not keep its value as it was is recorded as an
+  `online_change_value` event (at most 32 per change, then their count). A change that recovers a
+  faulted program keeps the value that caused the fault, so the new code must handle it.
+- Changed: an online change keeps the retained values the running program holds and applies no
+  retain file or checkpoint over them, on a computer and on a chip, as CODESYS and TwinCAT do: the
+  file holds older values and stays the source of a warm restart after a stop or a power loss.
+  Before, a retained value that changed after the last save went back to the saved value, and a
+  retain file that could not be read refused the change. A chip's change therefore keeps only its
+  working memory free (8,192 bytes on the ESP32-C6); the check of an install still keeps room for
+  the newest checkpoint.
+- Changed: the tasks of a program that an online change installs continue the running program's
+  schedule, so the first scan after the change runs the tasks that are due. Before, every task's
+  interval started again at the change, so the first scan after it ran no task and the outputs that
+  the program assigns showed their initial values for a cycle.
+- Changed: a chip's checkpoint store reserves the capture of the retained values for the program's
+  largest payload when the program loads, and grows it before an online change commits, so the first
+  scans no longer allocate it. A warm start reads the newest checkpoint into the store's own buffer
+  instead of a second one, which leaves the ESP32-C6 16,300 bytes more for programs.
+- Changed: on a computer the runtime's default executor, the register tier, allocates nothing in a
+  scan either, as the chips' executor does: texts, arrays, structures, enumerations and references
+  are handled where they lie, and function results and inputs are copied as bytes. Programs read,
+  write and are charged exactly as before. The profile's clone counters now count only the values
+  actually cloned, so a program that compares or copies enumerations, texts or compound values shows
+  fewer clones than before.
+- Changed: every runtime, on a computer and on a chip, keeps a program's variables in flat memory
+  blocks (specification 34 MEM-12): each variable at its declared size and alignment, texts inline
+  and references in 16 bytes, in blocks reserved once when the program is built. What the tools
+  show, the debugger, Live Values and the variable reads, is read from those blocks. A program's
+  construction allowance now also covers the working memory its scans need, which is reserved when
+  the program is built: for example the buffer a character write edits a text in, sized for the
+  largest text the program declares, up to three bytes for each `WSTRING` character. The value store
+  the runtimes kept before is removed: the flat blocks are the only store, and a program reads,
+  writes and is charged exactly as it was on the value store, which the tests keep as recorded facts.
+- Changed: `debug.variables` lists a large array in pages on every runtime, as the Debug Adapter Protocol
+  does: it takes `filter`, `start` and `count`, an array's entry reports `indexedVariables` and a
+  structure's `namedVariables`, and a request without `start` and `count` lists the first 100
+  elements. A chip lists an array of 300 structures page by page within its 256 variable handles,
+  and `trust-debug` passes VS Code's paging on to an attached runtime.
+- Changed: `breakpoints.list` entries now carry `file_id`, `path`, `line` and `column` beside `start` and
+  `end`, the shape a chip gives too (a chip has no source text, so it gives no byte offsets).
+- Changed: `shutdown` on a computer now stops the PLC program and keeps `trust-runtime` running
+  in the Stopped state, as it does on a chip, and as CODESYS and TwinCAT keep their runtime up
+  while the application is stopped. The control server, the web UI and the other services stay up,
+  `status` reports `state: stopped` and `program_control: keeps_control`, and `restart` (Operator)
+  starts the installed program again, loading the program and the resource configuration the
+  project folder names now. The process ends on SIGINT or SIGTERM, or by the new explicit exit,
+  `shutdown` with `{"exit": true}` (Admin), which `trust-runtime ctl shutdown --exit` sends. Before,
+  `shutdown` ended the process. Scripts that waited for the process to exit after `shutdown` must
+  send the exit; `trust-runtime fleet runtime stop` does. `fleet runtime start` now starts the
+  program of a runtime whose process answers while its program is stopped.
+- Changed: a program install now works only while the PLC program is stopped, on every runtime. The
+  web deployment (`POST /api/deploy`) and the web rollback (`POST /api/rollback`) answer
+  `resource_not_running`, as `program.install` does, while the program runs, and change nothing;
+  stop the program with `shutdown` first, install, and `restart`. The web IDE's Deploy button
+  shows that refusal while the program runs.
+- Changed: `trust-runtime deploy`, the web deployment and rollback, and `program.install` write a
+  computer's project through a program store. The program is admitted (its record, its admission
+  against the runtime and a dry-run preparation) before anything the runtime starts from changes,
+  so a program the runtime cannot prepare is refused and the project is left as it was; before, it
+  was written and failed at the next start. Each file is written through a temporary file and a
+  rename. `current` is replaced by one rename, and `previous` by a second, and a rollback does the
+  same, so a stop between two steps leaves a project that starts. Every bundle holds its install
+  sequence in `install-sequence`. `trust-runtime deploy` removes the `bundles/<label>` that an
+  interrupted deployment left, where it refused the label; a label that `current` or `previous` still
+  names is refused as before. A web deployment of sources only now creates a new bundle with a new
+  sequence.
+- Changed: `cargo xtask portability pack-project` writes the `TRSTA002` container with install
+  sequence 1, which is the container `program.install` commits into an empty store. The ESP32-C6
+  reads `TRSTA002` only: written into slot A at `0x200000`, a packed container is a committed
+  program, and the first install after it takes slot B with sequence 2. A `TRSTA001` container that
+  an earlier `pack-project` wrote is not read any more: a chip that holds only that container
+  refuses `restart` with `no installed program: slot A holds a TRSTA001 container, which is not
+  committed (only TRSTA002 is read)`, and the project is packed again.
+- The work and memory a program's copies cost are now counted by what the program copies, the
+  same on every computer and chip (specification 34 TIME-08). Copying a number or other scalar
+  costs no memory; a STRING costs its bytes, a WSTRING two bytes per character unit, and a
+  structure or an array 16 bytes per field or element, and one work unit for each structure,
+  array, field and element, however the runtime shares the value internally. Before, a scalar copy
+  was counted as a full value (32 bytes on a chip), so a long loop on a chip could stop with a
+  memory-limit fault although it allocated nothing; and the counts differed between 32- and
+  64-bit machines. A program near its work or memory limit may now be refused at a different
+  point.
+- `trust-runtime build` now fills the deployment record's configuration section (specification 34
+  §5.1.1, section 7) from the project's `runtime.toml` and `io.toml` with the runtime's own
+  parsers and checks, so a chip receives the resource, cycle, control, log, retain, watchdog,
+  fault, task, I/O-driver and safe-state settings a computer reads from those files; a value the
+  section cannot hold is refused with its file, key and value, and no record is written.
+- Preparation resolves every native call once, into a call plan: the formal index of each
+  actual (named and positional), the presence pattern, the output descriptors, and the callee
+  (a function's prepared POU, a function block's POU, a method through the prepared owner and
+  method table, a built-in function block's kind and parameters). A scan reads the plan and
+  resolves no argument names and builds no uppercase type-name key, and an interface attempt
+  compares prepared POUs while still charging the type-name bytes TIME-08 prescribes. Every
+  result, charge and refusal is unchanged.
+- Construction sizes the engine's per-call reservations (the stack executor's operand,
+  frame and pending-call storage, the initializer stacks, the call-frame and instance
+  pre-reservation) to the program's static call depth instead of `max_call_depth`, so a
+  chip no longer has to reserve the whole ceiling. The validator walks every call target
+  from every entry, counts a method and interface call over every implementing POU, and
+  treats a nested instance declaration as the initialization it runs. A recursive
+  program has no static depth and reserves for `max_call_depth`, exactly as before, and
+  the admission ceiling and the runtime depth check are unchanged, so every result,
+  charge and refusal stays the same.
+- A `STRING` without a length is now `STRING[80]`, as in TwinCAT and CODESYS: it
+  holds at most 80 bytes of UTF-8, and a `WSTRING` without a length at most 80 UTF-16
+  code units. Before, it had no limit. A longer value is cut at assignment, never in
+  the middle of a character, and an HMI write of a longer text to a program variable
+  is refused with `runtime_string_capacity_exceeded`. Declare `STRING[n]` for a longer
+  text; n is at most 65,535, and a larger length is a compile error. `STRING[n]` now
+  holds n bytes rather than n characters, so a text with letters outside ASCII (such
+  as `ä`, two bytes) holds fewer than n characters; `LEN` and indexing still count
+  characters. A string function or conversion whose result would be longer than
+  65,535 now fails with `runtime_string_capacity_exceeded`.
+- The Devices & Connections ADS Browse pane's `Create route` creates the TwinCAT route
+  through the runtime's guarded `ads.route_add`, which takes the TwinCAT administrator
+  login once and never stores or echoes it, and then Browse retries. The extension host
+  no longer edits an ADS file itself: removing a tag runs `trust-runtime ads
+  remove-symbols` and shows its report.
+- Share compact, lossless floating-point text codecs across runtime platforms,
+  preserving both conversion directions and existing diagnostic spelling.
+- Count the work limit the way a PLC program sees it: one unit per executed
+  instruction, plus per-element work when arrays, references or text are copied.
+  Lookups, safety checks and other engine bookkeeping no longer count, and
+  passing an array as VAR_IN_OUT copies nothing, as IEC passes it by reference.
+  Each program or task function-block invocation in a scan has its own
+  1,000,000-unit allowance again, so the OpenOT telemetry and database examples,
+  OSCAT OOP and PLCopen Motion libraries run under the default limits. The stack
+  and register executors charge the same total. Program construction and restart
+  get their own allowance from the preparation profile (64 Mi units by default on
+  hosted runtimes).
+- Hosted execution prepares lookup indexes and frame plans once and moves owned
+  call values instead of copying them; lifetime checks, transactional outputs and
+  failure cleanup are unchanged.
+- Calls do less work. Literal and plain scalar defaults are written straight into
+  the new frame, and on hosted runtimes a function, function block or method that
+  calls no other user POU runs directly inside the calling instruction (not while
+  debugging). Results, faults and work-limit charges are unchanged; such calls no
+  longer reserve call-handler memory.
+- The HMI's shipped symbols take their design size, label and ports from one table in the runtime (`symbol_geometry.json`):
+  the language server's pipe routes read it, and the editor's drawing reads the module generated from it, so both meet the same
+  ports.
+- The HMI Builder's quality warnings (touch targets, missing units, unbound objects, cut texts, low contrast, colours that look
+  like an alarm's, and a program without `Hmi.Display`) are decided by the language server (`trust-lsp.hmiQuality`); the editor
+  reports only what its drawing measures. The warnings and their sentences are unchanged.
+- Control Studio's measured frequency response names its recording by what it recorded and when, for example "PRBS recorded
+  2026-10-22 14:05:31 UTC", instead of the study's `rec-…` identifier.
+- Control Studio's panel in VS Code is now presentation only: every rule, check and decision runs in its Rust engine, and the
+  TypeScript route and session are removed. A loop the engine does not run shows the engine's refusal and its next action.
+  Export (JSON of the workflow result, CSV of the selected signal table, B10.5), the Channels… mapping, the loop monitor's live
+  values and the target label, the study inputs, and the loop setup's step-by-step save now run through the engine; the HMI
+  Builder opens an equipment's loops through it.
+- The Tune page's initial-state response reads its Step and Duration in the engine: a time typed as `15 min`, `90 s` or `1 h 30 min`
+  is read as its seconds, and a text that is no time is refused with its sentence and the field marked, instead of silently taking the default.
+- Control Studio's Requirements… and experiment Limits… dialogs no longer check ranges themselves: the engine refuses a value
+  outside its range, a reversed range, or a blank or unreadable number, with its sentence under the field that holds it. A PID group's Tune designs each
+  member to its own output's requirements.
+- Control Studio's verification scenarios are named and checked by the engine: a scenario added in the Requirements editor has no
+  name until the list is saved and then takes the first free `scenario-N`, a timed change whose time is not a whole number of the
+  loop's task periods is refused when the list changes (not when Validate runs), and the advanced fields are read by the engine as
+  the text typed. The setup form's optional gain-schedule points and the PID group's decoupler matrix follow the engine's answer.
+- Control Studio's Apply, Restore and Keep follow the engine: it states which of them is offered after open and after each outcome,
+  and how a review is confirmed (a press on a simulated target, an approval on a physical one). A confirmed Restore now ends its
+  recovery and unlocks the page, a refused Apply, Restore or Keep keeps the engine's offers, and cancelling the approval of a
+  recovery's Restore review frees the Review restore button again. The stage tabs enable what the engine's stage availability
+  allows, and a finished project test that restored its declared values releases the experiment settings.
+- Control Studio's experiment-settings tool runs on the engine again, for the course projects that declare their experiment's
+  settings (lessons 21, 65, 71, 74, 75, 78 and 79): the settings are reviewed and applied within their bounds, frozen while a project
+  test works on them, and released after its restoration is confirmed, also after an Abort or a failed test. The engine refuses an
+  Identify start whose method the loop cannot run, with the Method list's own sentence; after a refused method choice the
+  Method list shows the method the study still holds.
+- Control Studio's project test that declares a baseline records from the start of its plan, so the recording times a lesson
+  gives are the recording's own; a test that declares none still waits for a steady baseline first, so its fit has one. Every
+  project test keeps each scan of its hold: a 30.1 s test keeps all 300 scans of its 30 s hold.
+- Control Studio's project test of a loop that names a hold parameter (lesson 21) is reviewed and planned from the hold the runtime
+  applies: the review shows the baseline, the hold and one restoration sample (35.1 s for a 30 s hold), and refuses a hold that cannot
+  be read, lies outside its bounds or exceeds the declared maximum.
+- Control Studio's Identify page takes the model's words from the engine: the Recorded-data fit starts from the engine's default
+  numbers (the first import no longer clears them), the model line names the model type, the gain, the time constants and the delay
+  as the engine words them (an integrator's rate gain per second, `°C`), and a failed check keeps the evidence the engine sent with
+  it. A plant handoff shows the plant's summary line from the runtime's `plant.status`. The simulation's speed (`×10`, or
+  `×9.4 of ×10` when it falls behind) is the runtime's own words on every surface.
+- Every Control Studio structure now runs on its Rust engine, so the course's last lessons on the old route move over: state
+  feedback, LQR and LQG design on a supplied state-space model (lessons 68, 69 and 72), with the closed-loop poles and the
+  Riccati stages; the measured MIMO paths with the gain matrix, the relative gain array, the static decoupler and the pairing
+  (lessons 61 and 62); and the finite search over a program's coefficients (lesson 89), whose trials run the program against
+  the selected model and are ranked by the integral of squared error. The cascade, the Smith predictor, the gain schedule, the
+  ON/OFF controller and the PID group with its static decoupler also tune, validate, apply and restore through the engine.
+- Recorded-data fit, the manual identification of the Identify page, runs on the engine with its held-step settings and the
+  sensor-lag comparison: the accepted model becomes the study's model that Tune designs on, and the chosen structure is now
+  checked on the independent recording. A project test made while the identification waits for its independent recording keeps
+  that recording for the check and leaves the model in place (lesson 26).
+- Validate binds every input and output of the model through the loop's channels, so lesson 84's measured-disturbance
+  feedforward validates its draw-off cases on the full two-input model.
+- Loop setup is checked by the engine for every structure: the state-feedback, LQG and search-law setups and the five
+  structures' setups are written by the engine, and each refusal is shown under the field it names.
+- Loops whose program runs its own law now run on Control Studio's engine: a PID that the program computes itself
+  (`controller.project` with a parallel PID seed) and the program's P controller. Tune designs the gains on the model,
+  Validate runs the actual program, and Apply and Restore write and return the program's gain variables.
+- The course's remaining loops of these kinds now run on Control Studio's engine: the schema-1 observation loops (lessons 1, 2,
+  3 and 80), the loops with a declared analysis (lessons 44, 45, 47 and 48), whose gain chosen on the root locus or from the
+  Routh interval is reviewed and written to the program's variable, the measured-disturbance feedforward (lesson 84), whose
+  Tune designs the PI and the feedforward together and whose Validate also runs the measured disturbance, and the trajectory
+  feedforward (lesson 90), whose Tune designs the PID with its rate and acceleration feedforward gains on an integrating model
+  with a lag.
+- Control Studio's Tune page analysis now runs in its engine for every loop: Bode, the measured frequency response, Nyquist
+  and loop response, root locus, Routh–Hurwitz, the pole-zero map, lead/lag design, the initial-state response,
+  controllability and observability, and the relative gain array. Long calculations show Abort. Reopening a loop shows the last
+  tool with its inputs and calculates it again, and the root locus, Routh, feedback and measured-response results are kept in
+  the loop's study.
+- Loops without a controller law, such as the course's observation and open-loop lessons, now open on Control Studio's
+  engine: Identify serves them, and Tune, Validate and Apply say that they do not apply.
+- Control Studio's Open recording… (with any method except Recorded-data fit) and Open model… run in its engine. An opened
+  file is kept as a recording of the study. Its channels can be chosen with their units, including archived channels that
+  the loop does not bind. Two independent runs, from one file or from two files and from a simulation or a connected
+  runtime, are fitted with independent validation. A supplied model becomes the study's model, which Tune designs on.
+- Choosing an identification setting that Identify cannot use now names the rule it breaks, for example "Relay
+  identification needs an explicitly declared process direction.", instead of a general refusal.
+- Control Studio's panel in VS Code now runs on its engine, `trust-control-studio serve`, so the panel and the command line
+  decide everything the same way: identification, tuning, validation, Apply, Restore and Keep, which stages are available, and
+  every refusal with its next action. Reopening a loop shows its identified model with the response plot, its candidate, its
+  requirements (Automatic's values marked Automatic), its last current validation and Apply's offers, and it follows an operation
+  that kept running while the panel was closed; Abort still stops it. Tune predicts the current settings beside the candidate when
+  a runtime is connected. Validate also runs the Manual-to-Auto entry that Apply performs and needs it to pass; its table shows
+  failures first and counts the passing range, state and transfer checks in one row. Reset clears the model, its plot and the
+  tuning and validation results that depended on it.
+- Control Studio's Validate tests the candidate at the operating point Apply starts from: when the
+  configured simulated plant cannot start there (for example after an Apply whose setpoint change
+  stays in force), every case runs on the qualified model, and the result says why. Long Tune
+  predictions keep each period's extremes on the chart instead of millions of points.
+- The HMI agent's page authoring (composition, edits, drafts, reviews and requests) runs in the
+  language server, written in Rust; the review's interactive exploration of the project's pages
+  works again.
+- The room heating example (`examples/room_heating`) uses a small tank and room, so its slowest
+  mode settles in minutes instead of hours.
+- Control Studio's engine identifies with one least-squares fit on every path: the delay and time
+  constants are searched on grids scaled to the recording, with no fixed limit on the delay, so a
+  slow process keeps its real dead time. A model with a clearly resolved delay is preferred to the
+  same model without it. A pulse is fitted with its return to baseline. Before fitting, every
+  recorded sample of the plant input and the measured output is checked against the loop's limits;
+  a recording that left them is kept, not fitted.
+- Control Studio pages are simpler:
+  - Each failure is one line with one button for what to do next (**Limits…**,
+    **Requirements…**, **Connect runtime…**, **Loop setup…** and so on); clicking the line shows
+    the details.
+  - Durations are entered and shown as "90 s", "15 min" or "2 h".
+  - Signals are named by their role (Measurement, Output, Setpoint) with the symbol on hover.
+  - The model shows as a formula with one line of its key numbers.
+  - Manual tuning previews the response while you type.
+  - The analysis tools are under **Analyze…**.
+  - Requirements shows the main rows, with the test design under **More…**.
+  - **Apply** sits directly under the results table.
+  - Loop setup shows what it found in the code as a short summary with **Change** links, and no
+    longer asks for an identification step or duration. Only when the project runs its own
+    experiment does it ask how long to record it.
+- Control Studio: maximum overshoot is a requirement you can declare, in percent of the setpoint
+  change. Limits nobody declared (a fixed 20 % overshoot, 2 % steady-state error, 6 dB gain
+  margin and others) are no longer applied.
+- Control Studio: when the target is simulated and the project's simulated plant drives the loop,
+  Validate runs against that plant, otherwise against the checked model. Apply on a loop in Auto
+  starts from wherever the controller's output is; a loop in Manual must hold the validated output
+  within the controller's response to the measured noise, no longer to within 0.0001 %. Entering
+  Auto allows the controller's response to the measured noise, from an identification in Auto as
+  well as in Manual, so a noisy loop is no longer reverted at the switch. **Restore previous
+  settings** returns a loop that was in Auto before Apply to Auto, also for `Control.PID`; it used to
+  leave it in Manual. Apply observes the response on the runtime's time and continues after
+  a VS Code restart. Any measured output that
+  leaves its permitted range restores the previous settings at once. A failed Apply leaves the
+  loop in the mode it was found in.
+- Control Studio keeps each loop's study in the project, under `control-studio/<loop id>/`: one
+  study file and one file per recording. Studies kept by earlier versions move there on first
+  open.
+- Runtime: live writes on a physical plant need approval, decided by the runtime from what it
+  knows about its own I/O, never from a label in the request; controller rollback needs it too.
+  A controller transfer is all-or-nothing: a failed check or a fault reverts it in the same scan,
+  and BOOL values come back as BOOL. Measured values are checked with tolerance bands instead of
+  exact comparison. Status requests never change state. A program reload or restart stops a
+  running experiment safely, and only one live write runs at a time.
+- Simulation: time advances by exactly one cycle per cycle, so a busy computer slows the
+  simulation instead of skipping cycles, and the runtime reports the speed it reached. The speed
+  (1× to 100×) can be changed while the simulation runs (`config.set`
+  `simulation.time_scale`), also in the VS Code simulator, which now uses the project's speed.
+- Rebuild the Plant library and the HMI Builder around plain IEC 61131-3 objects. Devices are
+  commanded by mode: Auto by the program through `Auto…` inputs, Manual by the operator through
+  methods such as `Start`, `Stop`, `Open`, `Close`, `SetSpeed` and `SetPosition` (each returning
+  whether it was accepted), Out of service by nobody; a mode change never moves anything. Take
+  control, request identities, command contexts, registration and the settings provider are
+  removed. Fail positions, always-on supervision, latched trips and drives starting at 0 % are
+  part of every device; settings are ordinary RETAIN members described once in the component
+  definition. Limit alarms use `Alarm.LimitAlarm`. A PID loop is no library block: Create PLC
+  code writes it as ordinary code around the real `Control.PID` (see below), with negative gains
+  for reverse action.
+- One HMI page format for the editor, the runtime, `hmi check` and the language server:
+  equipment objects record `block`, `instance` and `faceplate`, panels live in `hmi/panels`, and
+  docked panels are composed by the loader. Deploying sends the files as written.
+- HMI display: a control whose interlock permit reads FALSE is greyed with the permit's reason as
+  its tooltip (Start and Stop in Auto read "Auto: switch to Manual"); a refused command names the
+  reason alone, without an "interlocked:" prefix. Trends inside panels placed on a page keep
+  their history, the PID panel shows the measurement and draws it in its trend, and a device's
+  Reset is enabled only while it has a fault.
+- HMI alarms: the runtime decides which actions an alarm offers each user and how it sounds, and
+  refuses an action the alarm's state does not allow, with its reason. Acknowledging an
+  acknowledged alarm, or shelving one that is not in the active list, is now refused.
+- Compiler: the direct I/O warning (W011) concerns addresses declared inside function blocks,
+  functions, methods and classes only; a program's I/O list no longer gets a warning per entry.
+- Isolated Control Studio runs start from the running PLC's inputs, so blocks fed by inputs the
+  run's plant does not write see real signals.
+- PID loops are ordinary code: **Create PLC code** writes each loop as ST around the real
+  `Control.PID` (Configure, Initialize, Update), the way the control course does, instead of a
+  Plant library block around it. Its values are variables beside the PID (`TIC101_Setpoint`,
+  `TIC101_Manual`, `TIC101_ManualOutput`, `TIC101_Output`) with one parameter record
+  (`TIC101_Parameters`) that the HMI's settings and Control Studio share; those the operator and
+  the engineer set are retained. A bad measurement holds the output and the loop restarts from
+  the next good one without a bump; Manual and Auto change without a bump. Create PLC code adds
+  the `USING` directives and the write rules the loop's panel needs. `FB_PIDLoop`,
+  `FB_CascadeLoop`, `ILoop`, `E_LoopMode` and the cascade panel are removed; a cascade is two
+  linked loops. Component definitions may name variables beside the instance (`{instance}_…`),
+  and a switch may name its two words (`options = ["Auto", "Manual"]`).
+- HMI: a loop controller shows its measurement in its setpoint's and its transmitter's unit and
+  decimals (`42.2 → 45.0 °C`, before `42.191 → 45.0 °C`), and so do its panel and trend; the
+  panel's output reads with one decimal.
+- Control Studio treats a connected runtime that reports its own simulation mode as a simulation:
+  it identifies, tunes and validates against it without VS Code's local simulator, which cannot
+  be operated from the HMI.
+- HMI Builder: equipment is renamed in the inspector (its tag), which renames it in the program,
+  the pages and plant.toml; new equipment gets the first free name per program instead of the
+  same name twice; the Objects list names untagged equipment by its block; objects placed one
+  after another step aside instead of piling up; a digital signal is drawn as an instrument
+  bubble with its tag's letters (FS for FS-101); Create PLC code lists open connections in full.
+- Devices & Connections: Connect hardware's help for a terminal without a fitting PLC signal
+  shows the declaration to add (for example `TT101_Raw AT %IL0 : LREAL;`) instead of pointing to
+  a device.
+- New projects: the runtime's web server is on for this computer (127.0.0.1:8080), so a deployed
+  HMI opens in a browser at once, and RETAIN values are kept in `retain.bin`, so commissioned
+  settings and operator setpoints survive a restart.
+- HMI: a switch's toggle keeps a control's usual size (at most 32 px high) in a taller object, in
+  proportion to its label; the whole object still takes the click.
+- HMI: a duration rounds its seconds to the object's decimals ("2 min 54 s" instead of
+  "2 min 54.353 s"); without decimals it reads as before.
+- Plant library: protection, interlock and permissive panels show only the conditions in use (with a
+  text, or unhealthy), from the new `InUse[1..8]` output, instead of all eight rows.
+- Keep explicit synthetic alarm exploration usable without executing PLC alarm sources;
+  label preview-only rows and use declaration checks for draft validation.
+- Replace automatic HMI-to-PLC source synchronization with the explicit Create PLC code and
+  Create HMI actions. Ordinary authoring reads declarations instead of compiling or executing
+  PLC source.
+- Prepare OpenOT compiler metadata once per operation and skip its semantic analysis for
+  sources without OpenOT attributes; preserve ordinary compiler errors and telemetry output.
+- Reduce cold HMI equipment discovery and settings loading work by resolving imported types at catalogued source locations and excluding executable bodies from declaration precollection.
+- Agent previews embed the shipped multilingual fonts and isolate project symbol definitions.
+  Library sheets include rendered object bounds and keep synthetic equipment visible.
+- HMI Builder starts new page views at a readable 75% minimum with scrolling; Fit and saved
+  zoom remain available. Design trends show identified sample history using the declared
+  ranges; Live mode keeps actual history only. Alarm counters and disabled-control labels
+  remain readable in both themes.
+- The runtime display's value stream sends every value once, then only the values that changed, and the cycle count
+  alone when nothing changed; the list of paths the program lacks comes when it changes. Trends still get a sample per
+  cycle.
+- Turning parts on the runtime display (pump impellers, fans, motor rotors) are drawn in a layer of their own above
+  the page, which the browser turns by itself; a value update no longer restyles and repaints them. The display lays
+  out a page once per screen size instead of at every update.
+- HMI colours and text: the light theme takes deeper shades so every text and sign of the drawing has enough contrast
+  (WCAG 2.1), and the dark theme's unknown grey is lighter. "Not in running program", a setpoint's limits and a
+  refusal's reason are now 14 px. Short setpoint entries and numeric inputs draw one line without overlapping, a short
+  value card cuts a long label instead of running it under the number, and a button's outcome sign no longer covers its
+  text. New page buttons are 48 px high, new setpoint entries 240 × 96 and new numeric inputs 208 × 48.
+- HMI Builder: the editor uses truST's shared webview tokens, so it matches the other truST editors and follows high
+  contrast and forced colours.
+- HMI: bars and split bars draw their label above the bars.
+- HMI: text is measured with the widths of the font the HMI ships, so labels and words are placed where they really end.
+- HMI: text objects, button labels and the state word under a symbol are cut with "…" when they do not fit; signs
+  never are.
+- Examples: the tank example, tutorial 12 and plant_demo show their pumps and valves with the P&ID symbols; the alarm
+  tutorial's pictures are renewed.
+- HMI: every component cuts a label, title, text or tag that does not fit with "…", ending before its state chips.
+- HMI: a mode selector offers the modes of the enumeration it is bound to and shows them as words ("Out of service");
+  a symbol with a click opens it anywhere in its box; in a faceplate only the symbol carries the alarm mark.
+- HMI: a table shows a `BOOL` as a lit or empty mark, field names as words ("First out"), texts whole and from the
+  left, and leaves out the empty rows at the end of an array of structures with their count. A duration reads as
+  "1 h 2 min 3.5 s" instead of `T#1h2m3s500ms`. A faceplate's values take the unit of the object that opens it.
+- HMI: the runtime display changes a page in place where its drawing changed instead of rebuilding it on every update;
+  on a Raspberry Pi 5 a page of 30 turning pumps and 270 changing values went from 27 to 47 frames per second, and
+  turning symbols no longer restart their animation on each update.
+- Replace the experimental direct-model HMI draft command with tools for the customer’s existing
+  agent; the extension does not require a separate language-model provider.
+- Editor and project diagnostics are faster on large projects: a file's analysis no longer rescans every project
+  file for global constants and `VAR_CONFIG` entries, reuses the project symbol merge it already computed, and imports
+  other files' symbols without re-indexing the whole table per import (measured on a 400-file project: diagnostics after
+  an edit in 0.14 s instead of 1.8 s). The reported diagnostics are the same; symbol-table walks now run in declaration
+  order, so lists built from them, such as unused-symbol warnings, quick fixes and the runtime web IDE's symbol
+  search, follow the declaration order, and the errors for incomplete addresses without a `VAR_CONFIG` mapping are
+  listed in declaration order (they followed hash order). `scripts/perf/project_scaling.py` measures project-size
+  scaling over LSP.
+- Control course: all 89 lessons follow the lesson template and the lesson map (`docs/specs/control-course-lesson-template.md`,
+  `docs/specs/control-course-lesson-map.md`). Each lesson starts from the previous lesson's result and explains its new
+  idea in four steps: a plain definition, what it means in words (with a comparison a PLC engineer knows), the formula
+  with every symbol explained, and a worked example on the lesson's own plant. It ends with **Check yourself** (three
+  questions with answers) and shows one figure drawn from its own Control Studio run, with numbered marks that answer its
+  predictions. Every number comes from a real run or is labelled as calculated.
+  Lessons that introduce a plant show it in **Devices & Connections**; lessons 10 and 45 change the plant there (a sensor
+  bias, a starting level) instead of in `simulation.toml`. Thirteen lessons explain a new mathematical tool in a **Math you
+  need** box. Control Studio now does the design in the lessons whose map says so: lead/lag design (56), the cascade
+  (63), the Smith predictor (67), the PID group (71) and corner-case validation (86, 89). Trajectory feedforward is now
+  lesson 61, directly after lesson 60 on the same axis, and feedforward control lesson 62. Lesson 22 designs from a saved
+  heater model so its result is repeatable. Lesson 40 gained its missing debug configuration. Stale values were corrected
+  against the recorded runs: for example, lesson 25 now quotes lesson 20's measured 4.42 s ultimate period, and lesson 50
+  its recorded lowest velocity.
+- Control Studio Validate names an error measured from a reference other than the setpoint after that reference, for example "Maximum error from planned angle", instead of calling it a steady-state error.
+- Control Studio's Manual tuning names a project controller's gains as its Automatic result does, instead of showing their raw conventions.
+- Control Studio says why P is refused: unavailable on a delayed process, with the gain its offset would need, or unable to damp a shaft by the settling time; these refusals point to choosing another controller.
+- Control Studio Requirements refuses a validation duration shorter than the latest check of a declared scenario and names the duration it needs; Validate refuses such a campaign the same way instead of failing with a generic sample-window error.
+- Control Studio's Automatic tuning designs PI, PD and PID to the requirements, as it already did for P. It uses the response nearest the declared one (More robust, Balanced, Faster) whose predicted response settles within the settling band by the settling time and stays within the allowed error; when none can, Tune names the requirement the fastest response misses and by how much. It previously always used the declared response, so a PI could miss the settling time that Validate then failed. The PID example's README follows the current workflow with measured results.
+- Apply waits, bounded and cancellable, for the process to return to the operating point the settings were validated at, showing the measurement's validated and current value, and then continues on its own. It asked the user to press Apply again. A manual output that differs from the validated point is refused at once with the value to return it to, because the process cannot settle by itself; Abort ends the wait without writing anything.
+- Control Studio names a PID group member's gains as it names a single PID's ("P1.Zone1 · Proportional gain (Kp)"), shows each member's path gain and its gain with the other loops closed in their unit (for example °C/%), and names a group's one-setpoint validation runs after the setpoint they change ("P1.Zone1C setpoint alone").
+- The setup form names a controller variable it cannot offer because it has no I/O address, and how to map it (`AT %I`, `%Q` or `%M` in `VAR_CONFIG`), instead of leaving the field empty without a reason.
+- The setup form fills in each controller from its own compiled calls when the program has several PIDs: choosing a controller brings its parameter record, setpoint, measurement, manual output and output, and both controllers of a recognised cascade are filled in. Fields the user has chosen are kept. Previously only a program with a single PID was prefilled.
+- Control Studio's setup form asks for the identification duration next to the identification step, instead of writing a fixed 60 s experiment into every loop. The duration depends on the process: a cascade's inner loop is identified over a few seconds from its fast response, a slow process over minutes.
+- Control Studio's **Configure control loop** opens one form instead of a chain of prompts. The form is prefilled from the compiled program: the language server now reports how controllers are called (`controlSymbols.links`), so a `Control.PID`'s parameter record, setpoint, measurement, manual output and output come from its own `Configure`/`Update` calls, and a cascade (one PID's output feeding another's setpoint) is recognised and saved as two linked loops. The form asks only for what the program cannot say (units, ranges, the Auto/Manual signal, the identification step, and the startup-done flag when the program writes its own parameters) and writes the complete loop definition, including the seven retained `Control.PID` states. Loop discovery now compiles projects with their declared library dependencies; previously every project that used a vendored library failed setup with "cannot resolve type 'Control.PID'".
+- Control Studio's additional-lag warning speaks of the process and the sensor instead of water, the unreachable code of the earlier Studio panel (71 files) is removed, the Routh–Hurwitz details show stability boundaries as decimals with the exact values on hover, and calculation tables use the shared table style.
+- Tune explains a requested test change beyond the identified range: it names the range the model was measured in and the largest change it supports, instead of "Tune again".
+- Control Studio webview tests that had to be enabled by hand now run in the VS Code suite (29 more rendered journeys); a rendered run in which no test passes fails.
+- The control course was reviewed as a sequence. Lessons 11–13 and 15–17 are rewritten in the course's concise format with recorded results: Lesson 11 teaches the integral time T_i = K_p/K_i and keeps a Ki = 0.6 candidate recorded in Control Studio, and Lesson 21 compares that candidate. Lessons 5–10 have concise procedures. Derivation steps that were skipped are shown (complex roots and overshoot in Lesson 33, critical damping in 34, the PID characteristic equation in 35, transform pairs in 44, determinants in 70–71, the Riccati cost in 73 and others), terms are defined before use, wrong lesson references are corrected, and a corrupted formula in Lesson 77 is repaired. The gallery texts of the lessons follow their READMEs again, without the spaces an earlier conversion had removed.
+- Tune shows why it is unavailable beside the Tune controller button when the ready model cannot be tuned by the selected controller. A recovered failed Apply now says "previous controller parameters restored" for every controller type, not "PID".
+- Control Studio writes powers of s as superscripts (6s² + 5s + 1) in model equations and Routh texts, and analysis tables align their headers with their columns and separate the columns.
+- Control Studio refuses a validation run that exceeds the runtime's recording limits before starting it and names the limit: at most 32 recorded channels and 250,000 channel samples per run. The runtime's own refusal also names the exceeded limit instead of "execution exceeds cycle, sample or declaration bounds".
+- Control Studio's Tune page names the recommended controller configuration as soon as a model is ready ("P1.Controller · PI — recommended") and keeps it marked when another configuration is chosen. Its predicted response compares the tuned controller with the one running in the project (Tuned / Current), and units read with a multiplication dot, such as %/(°C·s).
+- Control Studio refuses to tune a model without measurement evidence or independent validation and now says so, with "Identify model" as the next step instead of "Tune again". This applies alike to supplied models and to models returned by Identify.
+- Control Studio Validate shows the control requirements and any failed or inconclusive check as rows, and summarizes the passing generated range, rate, controller-state, unchanged-parameter and transfer checks in one row. Requirements declared by a lesson or project scenario always keep their own rows. A refused Apply no longer reports the completed transfer check as missing.
+- Lesson 19 (model-based PI tuning) now uses Control Studio's Tune, Validate and Apply with the real `Control.PID`: its program keeps applied gains and the operator setpoint, designs its startup gains by coefficient matching, and declares the setpoint-peak and 30 kW load trials for validation.
+- Control Studio writes °C instead of degC in relay results and in the recorded-error and settling failure messages.
+- The Feedback relay test measures the process noise during its baseline and switches just above it (mean ± twice the noise half-range) instead of at ±0.5 % of the measurement range, so the relay cycle meets the small-hysteresis assumption of Ku ≈ 4d/(πa).
+- Validate's Auto-entry check allows the controller's proportional response to the measured process noise (twice Kp times the noise half-range from the model's recording) unless a transfer tolerance is reviewed; noise-free plants keep the exact check.
+- Lesson 20 (relay tuning) now runs Control Studio's bounded Feedback relay test (d = 10 points) on the same heater and real `Control.PID` as Lesson 19, derives the relay-rule PI candidate in Tune, validates it against the Lesson 19 setpoint and load trials, and applies it.
+- The Validate results table is taller, so a complete results list fits without an inner scroll bar.
+- Lesson 21 (tuning comparison) validates the manual, model-based and relay PI candidates on the same heater in Control Studio, with the same setpoint and load trials, settling within ±0.1 °C and command activity, and selects by the declared rule.
+- A project step test records the hold the learner applied. When a loop names its hold parameter (`experiment.holdParameter`), Review project test reads the applied value and plans the baseline, the whole hold and one restoration sample (35.1 s for a 30 s hold) instead of a fixed maximum.
+- Lesson 22 (setpoint weighting) runs the Lesson 21 controller (Kp 13, Ki 3.5) on the same noisy heater with the real `Control.PID`, compares β = 1, 0.5 and the calculated 0.3 in Control Studio and explains why the integral's growth during the delivery delay still saturates the heater at β = 0.5.
+- Lesson 23 (measurement filtering) filters the heater measurement before the real `Control.PID`, compares Tf = 0, 1 and 2 s on setpoint, load and noise trials in Control Studio (93 % less noise-driven command movement at 1 s; 2 s no longer settles), and starts the filter from the fresh measurement at Auto entry so Apply stays exactly bumpless.
+- Lesson 24 (sampling and timing) updates the heater's real `Control.PID` on the measured time between acquisitions, rejects intervals that are not positive or longer than half the loop's 4.46 s ultimate period (holding the command and restarting the filter), and compares normal, 1 s, late and wrongly timed updates under the Lesson 23 load requirements in Control Studio. Its first scan no longer divides by a zero interval when Control Studio's verification starts from preset controller states.
+- Lesson 25 (controller initialization) replaces the booster-pump example with the heater and its real `Control.PID`: every retained value (outputs, setpoint and measurement references, rates, filter and timing) is initialized from the running heater at startup or once per request, automatic control waits for that initialization, Manual no longer updates the controller, and Control Studio compares an initialized start with one whose stored values are 0 before Apply initializes the controller at the Auto-entry boundary.
+- Lesson 26 (bumpless transfer) replaces the booster-pump example with the heater: while Manual commands the heater the real `Control.PID` tracks the applied command, setpoint and measurement (I = u_a − P), and the transfer scan reconstructs the manual command with no integral step. Control Studio shows a 60 % manual hold switched to Auto without a jump (60 % → 60 %, recovery settled in 18.7 s) next to the untracked jump to 87.7 %.
+- Lesson 27 (parameter updates) replaces the booster-pump example with the heater: the program adopts a changed parameter record together with its filter time only as a whole and only if it is valid (an 80 %/20 % limit pair or a negative filter time changes nothing), `Control.PID`'s incremental form keeps the command across a gain change (I re-based by P_old − P_new), and Control Studio refuses Kp 150 before validating and applying a Kp 10 / Ki 2.7 set.
+- Lesson 28 (measurement validity) replaces the booster-pump example with the heater: a sensor section supplies the reading with a quality flag and its acquisition age, readings with bad quality, outside 0–80 °C or older than 0.5 s latch a fault that removes heat in the same scan, freezes the controller and filter and clears the Auto request and manual demand, and recovery needs an acknowledgement, three consecutive fresh valid acquisitions and a new Auto request. Control Studio validates an invalid-value and a stale-sensor trial (0 % from detection, recovered within 0.034 °C).
+- Lesson 29 (heater commissioning) replaces the four-heater capstone with the complete Lesson 28 heater controller: a capacity check from the energy balance (75, 90, 90 and 105 % holding commands; 37 °C at full power under 30 kW), a commissioning record declared before any result, and one Control Studio trial per requirement (setpoint, load, startup, manual transfer, saturation, capacity, stale sensor) before the Lesson 21–23 controller replaces the introductory PI through one parameter update.
+- Lesson 30 (actuator tracking) replaces the software-only rate example with a hot-water valve whose stem moves at 0.5 %/s and publishes its measured position: the program distinguishes requested, bounded and measured position and tracks the measured stem in the integral (I_next = I* + Δt/T_t (x − u_r)). Control Studio compares it with bounded-target tracking (peak 37.03 °C and 25.4 s settling versus 37.74 °C with the request at 100 %).
+- Control Studio records a declared actuator's measured position as the applied input and the manipulated variable as the requested output, so Identify fits the plant from what the actuator reached and plots the actual stem ramp, named after the actuator signal, instead of an ideal request step.
+- Lesson 31 (valve characteristics) replaces the valve-bench example with the Lesson 30 hot-water valve in two pressure arrangements (regulated 100 kPa and a fixed 128.125 kPa supply with pipe loss 12.5 q²) driven by the same stem: a project-scripted staircase in Control Studio records stem, flows and pressures, and the program keeps only steady points to derive the installed slopes (0.020 versus 0.015 kg/(s·point)) and the heat at stated temperatures.
+- Lesson 32 (valve stiction) replaces the flow-loop example with two hot-water valves probed from Control Studio: one ignores request changes below a 1-point command deadband, the other accepts every request but holds its stem until the positioner force F = k_s (u_t − x) exceeds 50 N and stops where it falls to 20 N. The recording shows the unchanged accepted target, the 55 N breakaway at 80.5 %, the stop at 78.5 % and the path-dependent 74 % after a reversal.
+- Control Studio's response chart changes an auxiliary signal's line style after every three colours, as the live monitor plot does, so two displayed signals never draw with the same stroke.
+- Lesson 33 (position control) replaces the lesson-function torque calculation with `Control.PID` in its P configuration on a simulated rotary axis (J = 1 kg·m², B = 1 N·m·s/rad, ±20 N·m): the program latches the velocity at the first arrival at a new target and removes torque outside ±2 rad or ±10 rad/s. Control Studio identifies the axis from a supplied state-space model, predicts and validates Kp 4 and 16 against the declared peak, late-error and torque limits (overshoot 0.46 and 0.72 rad, arrival at 1.27 and 3.29 rad/s), and Automatic tuning reports that P cannot provide the damping.
+- Control Studio names a failed operation by its page ("Tuning failed: …", "Identification failed: …") instead of its internal action.
+- Lesson 34 (PD control) replaces the two lesson-function shafts with the Lesson 33 axis under `Control.PID` in its PD configuration (Kp 16, Kd 7 = 2√(J·Kp) − B, derivative on the measured angle). Control Studio compares P with the program's PD, shows the derivative kick of differentiating the error (366 N·m requested, 0.02 s at the 20 N·m limit), validates and applies the critically damped PD (no overshoot, 1.52 s), and Automatic tuning proposes Kp 1.56, Kd 1, which meets the 4 s requirement with a tenth of the torque.
+- Lesson 35 (PID load rejection) replaces the self-scripted trial program with the Lesson 34 axis lifting a 2 kg weight on a 0.1 m drum (τL = 1.962 N·m, a second plant input) under `Control.PID` in its PID configuration (Kp 16, Ki 12, Kd 7, β 0.3) with ±0.001 rad angle noise. Control Studio shows PD holding the load 0.124 rad low, PID holding it within 0.0015 rad, β = 1 overshooting the unloaded step by 0.23 rad and β = 0.3 passing every requirement and being applied.
+- Control Studio's Auto-entry check now allows the full controller response to measurement noise, including derivative (Kd·4n/Δt) and integral (Ki·Δt·n) terms, and, when no identification recording measured the noise (for example with a supplied model), measures it with a one-second resting run of the transfer trial's plant.
+- Lesson 36 (derivative filtering) replaces the self-scripted two-filter program with the Lesson 35 controller plus a first-order measurement filter on the angle (α = Δt/(Tf + Δt)), so `Control.PID` differentiates the filtered angle and D uses the filtered velocity. Control Studio compares Tf 0 (183 N·m torque activity per step), 0.5 s (0.27 rad overshoot from late braking) and 0.1 s (29 N·m, unchanged step), and applies Tf = 0.1 s.
+- Lesson 37 (discrete PID) replaces the hand-written positional controller that drove the axis with `Control.PID` (Kp 16, Ki 4, Kd 7, the Lesson 36 filter) and records the positional reading of every update: error, P, trial integral, D, request and the retained integral. A project experiment in Control Studio couples the drum load and steps the target to 1.5 rad; the recorded updates, including the clamp at 20 N·m with tracking, follow the discrete order exactly.
+- Lesson 38 (positional and incremental PID) replaces the positioning-table program, whose incremental path was a P-only shadow calculation, with the Lesson 37 axis under `Control.PID` (incremental with Ki > 0) and derives the increment Δu = Kp·Δe + Ki·e·Δt − Kd·Δω_f + γ from two consecutive positional requests. From the same inputs the program runs a positional form with its tracking, Manual (I = u_a − P − D) and gain-revision rules, a second `Control.PID` with Tt = Δt that keeps the applied torque, and the positional form without the gain rule. A project experiment in Control Studio clamps the Auto-entry request at 20 N·m and revises Kp from 16 to 24: the positional torque equals `Control.PID`'s at every update, while keeping the applied torque leaves a constant 4.49 N·m difference after the clamp and skipping the gain rule a 0.72 N·m one.
+- Lesson 39 (servo commissioning) replaces the flexible indexing-table capstone with the drum axis of Lessons 33–38 and one integrated program: encoder validity with a latched fault (zero torque, then acknowledgement, three fresh readings and a new Auto request), whole-set parameter updates, one torque writer, initialization, bumpless transfer and the filtered `Control.PID`. The filter now runs in every mode, because restarting it at the Auto entry made the incremental D brake a falling load the wrong way (−5.5 N·m) after a fault. Control Studio validates the Lesson 36 candidate against declared positioning, load, torque-limit, startup, transfer and measurement-fault trials and applies it.
+- Lesson 40 (volume balance) replaces the net-flow program, which wrote the balance into a single-input integrator, with a tank plant that has separate inlet and outlet pump inputs (A = 0.5 m², ±0.0005 m level noise) and a model level the program advances with the balance from the measured level. A Control Studio project experiment raises the inflow to 0.012 m³/s for 10 s: the level reaches 0.2896 m against the model's 0.2902 m and then holds 0.29 m with equal flows.
+- Lesson 41 (gravity outflow) replaces the program that calculated the outflow from the measured level with two models advanced from the applied inflow: the gravity balance A·dh/dt = q_in − c·√h, which stops at a negative level instead of repairing it, and Lesson 40's constant outflow. In a 200 s Control Studio experiment at 0.011 m³/s the tank settles at the predicted (0.011/0.020)² = 0.3025 m, the gravity model follows within 0.0009 m, and the constant-outflow model ends 0.35 m too high.
+- Lesson 42 (linearization) replaces the program that simulated its own tangent against unused tanks with two identical gravity tanks stepped to 0.011 and 0.015 m³/s from the same state, each with a tangent model built at 0.25 m (g = 0.020 m²/s, K = 50 s/m², τ = 25 s). The Control Studio recording shows the small step within 0.0028 m of its tangent and the large step's error growing to 0.061 m, in line with the exact equilibrium error v²/c².
+- Lesson 43 (gain scheduling) replaces the hand-written scheduled tank controller with a `LevelController` block around `Control.PID` (Kp = A/λ, Ki fixed at the 0.25 m design level or scheduled as c/(2λ√h) from the measured level; the retained request keeps the holding flow when Ki changes). Six tanks compare fixed and scheduled gains at 0.09, 0.25 and 0.49 m in Control Studio: the fixed loop needs 48 s at 0.09 m against the 30 s requirement, the scheduled loop 23–24 s at every level.
+- Lesson 44 (Laplace transforms) replaces the gravity-tank program, which did not match the lesson's heater, with the heater under `Control.PID` P control (Kp 5) and two predictions of a 35 → 36 °C step: the transfer function H(s) = 0.2·Kp/(5s + 1 + 0.2·Kp) without the delivery delay, and the same loop recomputed with the 1 s delay. In Control Studio the heater settles at the predicted 35.50 °C with 77.50 %; the delay-free rise is off by up to 0.157 °C, while the recomputed loop follows within 0.021 °C.
+- Lesson 45 (poles and zeros) replaces four abstract response models with the lesson's heater and shaft: the heater returns from 36 to 35 °C in open loop and the shaft steps to 1 rad under `Control.PID` P control (Kp 4). The program calculates the poles from the physical values (−0.2 s⁻¹; −0.5 ± j1.936 s⁻¹) and writes their predicted responses. In Control Studio the water follows its pole within the ±0.02 °C noise and the shaft swings every 3.24 s as predicted; its 0.016 rad larger swings match the pole shift of the 20 ms torque hold (σ = −0.48).
+- Lesson 46 (characteristic equations) replaces the crane stability project, which belonged to Lesson 48, with the shaft under `Control.PID` PD control (Kp 16, Kd 7) knocked by a 10 N·m, 0.1 s external torque. The program forms s² + 8s + 16 = (s + 4)² and, for the sampled law (P 10 ms and D 20 ms late), 0.86s² + 7.84s + 16 = 0, and predicts the motion after the knock from both. In Control Studio the shaft returns without passing its target; (s + 4)² is up to 0.0096 rad off, the sampled-law roots −3.08 and −6.03 s⁻¹ follow within 0.0012 rad. The heater's PI loop with its integral is worked as a calculation with both modes.
+- Control Studio's root locus on **Tune** draws the pole paths across the varied gain's declared range, labels the inspected gains, marks the selected candidate and names the fixed parameters. It previously showed only unconnected points for the inspected gains, with the selected value in the caption.
+- Lesson 47 (root locus) declares the shaft with its braking connected, G₇(s) = 1/[s(s + 8)], with Kp varied and Kd = 7 fixed, and runs the chosen gain and an alternative on two identical shafts. In Control Studio Kp = 16 settles within ±0.02 rad in 1.46 s, Kp = 12 needs 2.16 s and Kp = 20 settles in 1.04 s with its first torque at the drive's 20 N·m limit.
+- Control Studio's Routh–Hurwitz result names the method that completed a table with a row of zeros (the auxiliary polynomial, not ε), and its calculation details list the first-column signs of the table they come from together with every special case, such as the origin pole and the replaced row.
+- Lesson 48 (Routh–Hurwitz stability) is shortened around the specified cases Kp = 1, 0 and −1: the table, the interval Kp > 0 with the excluded boundary, and the three recorded shaft trials.
+- Lesson 49 (periodic excitation) replaces the flexible-drive multisine, which did not match the lesson's heater, with three copies of the heater driven by `PeriodicExcitation`: u = 75 + 5·sin(ω·t) % for five periods at 0.1, 0.2 and 0.4 rad/s. In Control Studio the first cycle carries the start (mean up to 35.15 °C), and cycles 3–5 repeat about 35.000 °C with half swings of 0.91, 0.72 and 0.46 °C.
+- Lesson 50 (frequency response) replaces the flexible-drive project with the heater driven by Lesson 49's sine at 0.2 rad/s and a supplied heater model. Control Studio measures M = 0.1416 °C/point and φ = −57.07° against the model's 0.1414 and −56.46°.
+- Lesson 51 (sensitivity functions) replaces the precision-drive project with two PI-controlled heaters (Kp 5, Ki 1): one receives a 10 kW sinusoidal heat load, the other 0.05 °C of sinusoidal measurement noise in its reading. In Control Studio the load moves the water by 0.559 °C and the noise moves it by 0.040 °C and the command by 0.28 %, as |S| = |T| = 0.790 and |CS| = 5.59 at 0.2 rad/s predict.
+- Lesson 52 (loop shaping) replaces the single-trial heater program with nine heaters: the PI with the lead element (1 + Tz·s)/(1 + 2s) for Tz = 2 (F = 1), 3 and 10 s, each on a target step, a 30 kW load and 0.05 °C of noise, started together by Control Studio. The lesson calculates the crossover, phase margin and noise-to-command gain of the complete loop. In Control Studio only Tz = 3 s meets every requirement: the baseline lets the load pull the water to 33.75 °C, and Tz = 10 s moves the command by 1.41 % under the noise and saturates on the step.
+- Lesson 53 (Nyquist stability) replaces the conveyor-oven program, which did not match its heater text, with two heaters under `Control.PID` P control (Kp 10 %/°C about 75 %) with 1 s and 8 s delivery delays. The lesson derives Z = P + N from the angle of 1 + L and calculates the critical delay of 6.05 s. In Control Studio the 1 s loop counts N = 0 and settles; the 8 s loop counts N = 2, Z = 2, and its recorded oscillation grows 1.44 times per 22.6 s period.
+- Lesson 54 (sampled-data stability) replaces the positioning-table program, which did not match its shaft text, with two shafts under the same PD (Kp 16, Kd 7) with one update of computation delay, updated every 0.02 s and every 0.6 s, and simulated in 10 ms steps for both. The lesson derives the exact held-torque update and the characteristic polynomial in z. Control Studio's pole maps of the two sampled loops show all poles inside the unit circle for 0.02 s and a pair at |z| = 2.41 for 0.6 s. The recording shows the 0.02 s shaft settling at the 0.01 rad target without overshoot and the 0.6 s shaft growing until the abort at 2.82 s.
+- Lesson 55 (feedforward control) replaces the conveyor-oven program, which did not match its heater text, with three PI heaters (`Control.PID`, Kp 5, Ki 1) under the same 30 kW extraction. The first runs PI alone; the second adds the feedforward D_m/2 through `Control.PID`'s `FeedForward` input; the third takes it from a 36 kW estimate. The lesson derives the ideal feedforward −G_D/G_u = 0.5·e^(+s), which is not realizable, and the unavoidable 0.5438 °C drop. In Control Studio both feedforward heaters fall only to 34.456 °C, against 33.75 °C for PI alone; with the wrong estimate PI trims its part to 72 %.
+- Lesson 56 (cascade control) replaces the reactor program, which did not match its jacketed-vessel text, with five jacketed vessels. A single-loop PI and a cascade each run the 35 → 37 °C setpoint step and a 30 kW jacket loss, and one cascade runs its inner loop alone. The outer `Control.PID` outputs the jacket setpoint in °C and the inner one the heater in %, with model-based gains 0.5/0.12 and 5/10 against the single loop's 2.5/0.1. In Control Studio both pass the setpoint test. On the jacket loss, the cascade keeps the vessel above 34.80 °C while the single loop falls to 31.74 °C. The inner loop reaches 63.2 % in 0.5 s, against 9.7 s for the vessel.
+- Lesson 57 (ratio control) replaces the blending-skid program, which did not match its dosing text, with two calibrated additive pumps under ratio stations (R = 0.1, `Control.PID` PI 10/10 from the model-based rule). One carrier steps from 100 to 150 L/min, the other stops. Below 5 L/min of carrier the station commands 0 % in the same update, evaluates no ratio and sums the tail volume. In Control Studio the ratio is back within ±0.005 after 0.9 s, and the stopped pump still delivers 0.175 L, below the 0.20 L limit.
+- Lesson 58 (split-range control) replaces the reactor program, which did not match its text, with three jacketed vessels from Lesson 56 fitted with a cooler. The split-range cascade's inner `Control.PID` requests net heat, limited to −100…200 kW, which is then split into heater Q/2 and cooler −Q, never both. With 60 kW entering the jacket, Control Studio shows the split range handing over to the cooler in one update and holding 35.40 °C at 30 % cooler, while the heater-only cascade lets the vessel rise to 48.3 °C.
+- Lesson 59 (override control) replaces its reactor program with three heater-only jacketed vessels under a 42 °C jacket limit: the vessel PI alone, and an override with and without tracking. The override low-selects between a vessel PI and a jacket-limit PI (setpoint 41.8 °C), and the controller not selected runs in `Control.PID` Track mode. In Control Studio only the tracked override keeps the jacket at or below 42 °C (41.83 °C). It holds the vessel at the feasible 38.16 °C for an infeasible 40 °C request, and gives the heater back in the same update when 37 °C is requested. Without tracking the jacket reaches 43.17 °C and the vessel stays stuck for 19.8 s.
+- Lesson 60 (Smith prediction) replaces its program with four heaters. A fast PI (λ = 1 s) runs on the measurement and inside a `SmithPi` predictor fed with its delay-free and delayed heater models; the same predictor and the slow PI then run on heaters whose delay is 1.5 s. In Control Studio, with the matching model the predictor's residual stays below 5·10⁻¹⁰ K: the step reaches 63 % at 2.0 s with no overshoot, against 56 % overshoot on the measurement. It rejects a 10 kW load no better. With the 1.5 s heater it overshoots by 17 %, while the slow PI does not.
+- Lesson 61 (vessel commissioning) replaces its single-vessel trial selector with five jacketed vessels and one `ReactorTrain` block per vessel. The block owns the heater, tracks with the controllers not in charge, keeps the transfer update as a tracking update, and latches zero heat on an invalid reading. The heat balance rules out cooling, and no jacket limit is specified, so the lesson compares the single loop and the cascade on the same requirements. In Control Studio both meet the 35 → 37 °C step; on the 30 kW jacket loss the single loop falls to 31.74 °C, while the cascade holds 34.80 °C. The recommended cascade then passes the lifecycle case: 15.000 % on the transfer update and 15.144 % on the next, and 0 % in the update of a 0 °C sensor reading, still latched after the reading recovers. Lessons 53–61 also replace the lesson metadata's baseline and change summaries left over from the programs these lessons replaced.
+- Lesson 62 (multivariable process paths) replaces its distillation-column program with the README's two vessels coupled through an 8 kW/°C wall. One recording steps heater 1 and then heater 2 with the other fixed, and `CoupledVesselModel` advances the supplied balances from the old temperatures. Control Studio's **Measured MIMO paths** reads the four paths from settled windows: gains 0.1380, 0.0607, 0.0611 and 0.1376 °C per point against K's 0.1385 and 0.0615, all rises within 0.005 °C of the prediction.
+- Lesson 63 (relative gain array) replaces its distillation-column program with two pairs of the coupled vessels: isolated steps on one, and on the other the same steps with the other heater corrected by −(4/9)·5 points so that its vessel ends where it started. In Control Studio the compensated gain is 0.1109 against the isolated 0.1380 °C/point, a ratio of 1.245 against 81/65 = 1.246, and **Measured MIMO paths** gives the array 1.2426/−0.2426: the diagonal pairing is chosen. The fixed correction holds the other vessel only at equilibrium; it dips to 34.906 °C at 3.0 s.
+- Control Studio's **Measured MIMO paths** shows each matrix with one precision, so a relative gain row visibly sums to one (1.2426 and −0.2426 instead of 1.24 and −0.2426), and the relative gain array and decoupler tables use the gain matrix's table layout.
+- Lesson 64 (decentralized PI) replaces its distillation-column program with four pairs of the coupled vessels, one `Control.PID` PI per vessel, on both target directions and a 10 kW load on each vessel. The gains are Control Studio's declared experiment settings, so each gain set is its own run. With Kp 5 and Ki 1 every changed- and loaded-vessel requirement passes, but the unchanged vessel strays +0.284 °C, beyond ±0.2 °C. The bounded retunes (Kp 6: +0.272 °C; Ki 1.2: +0.288 °C) do not help, so the lesson keeps Kp 5 and Ki 1 for static decoupling.
+- Lesson 65 (static decoupling) replaces its distillation-column program with six pairs of the coupled vessels: paired PI on the vessel-1 target and load, and `DecoupledPi` on all four events. `DecoupledPi` uses the same gains through u = 75 + M·v, M = [[1, −4/9], [−4/9, 1]]: virtual integrals start at zero, the bias is added after the map, and physical limiting is tracked through M⁻¹. In Control Studio the map lowers heater 2 to 70.47 % in the first update and keeps the unchanged vessel within −0.152 °C, against +0.284 °C paired, so decoupled PI meets every Lesson 64 requirement. Under the loads it moves the other vessel more, −0.155 against −0.068 °C.
+- Lesson 66 (multivariable design selection) replaces its distillation-column program with three sets of the coupled vessels, with walls of 6, 8 and 10 kW/°C. The declared experiment setting Coupling Case selects which set a run exercises. Both architectures run in one block, `TwoVesselPi`, with cross gain 0 for paired PI and 4/9 for Lesson 65's decoupler, frozen for 8 kW/°C. In Control Studio the decoupler passes all 12 of its cases, both directions and both loads at each coupling, with the unchanged vessel at −0.179/−0.152/−0.131 °C. Paired PI fails the unchanged-vessel limit in all six target cases (+0.233/+0.284/+0.328 °C), so the decoupler is chosen for the tested couplings.
+- Lesson 67 (state-space models) replaces its single-cascade program with two copies of the two-tank gravity cascade and `CascadeModel`, the README's local model advanced by one explicit one-second step from both old states. The lesson first calculates the supplied model's **Initial-state response** in Control Studio: from tank 1 at 0.27 m, tank 2 rises on the stored water to 0.007358 m above rest at 25 s. It then records both tanks through a ±0.001 m³/s pump change, with both model levels within 0.00057 m of the tanks while the pump is changed. A level outside 0.05–0.45 m or a clock interval outside 1 ± 0.05 s latches zero flow.
+- Control Studio's **Initial-state response** draws **Total** as the wide process-value line, with **Zero-state input** and **Initial condition** over it as dashed and dotted auxiliary lines, so a part that equals the total stays visible; before, all three used the chart's default colours and the total was faint. Its calculation table shows each column in one notation (0.000769 instead of 7.69e-4 above 0.001477).
+- Lesson 68 (controllability) replaces its program with Lesson 67's cascade and model, steered by a pulse pair designed from the model: 0.011 m³/s for 20 s, then 0.009 m³/s for the 11 s after which the model returns tank 1 to rest. Control Studio's **Controllability and observability** shows rank 2 of 2 with [B, AB] = [2, −0.08; 0, 0.08]. In the recording, tank 1 is back at 0.2501 m with tank 2 at 0.2603 m at 31 s. Tank 2 then drains, because no constant flow holds unequal levels.
+- Control Studio's **Controllability and observability** reports each rank out of the state count. Under **Calculation details** it lists the declared state, input and output order, the matrices A, B, C, D, [B, AB, …] and [C; CA; …] with one precision per matrix, and what the ranks do not establish. Before, the second matrix column appeared in exponent notation (−8.00e-2 for −0.08), and the order and the scope were missing.
+- Lesson 69 (observability) replaces its single non-equilibrium cascade with two copies of Lesson 67's cascade, both driven by Lesson 68's pulse pair. Tank 1 is reconstructed from tank 2's readings alone as y + 25·Δy, from exact readings on one copy and on the other from readings 5 mm off in alternate directions. The true tank 1 level is read only to score the reconstruction. In Control Studio the observability rank is 2 of 2 with [C; CA] = [0, 1; 0.04, −0.04]. The exact readings reconstruct tank 1 within 1.3 mm (RMS 0.00047 m); the noisy ones are off by 0.255 m RMS, since each 5 mm error enters through a derivative multiplied by 25 s.
+- Lesson 70 (state feedback) replaces its magnetic-bearing project with two copies of the two-tank cascade. It is the first lesson to use Control Studio's state-feedback design end to end. The supplied model declares only the physical cascade; Studio derives the local model with both levels measured. **State-space design** places z = e^(−0.08) and e^(−0.12) and calculates K = [0.0562, 0.0369] m²/s and the reference gain 0.1131. **Validate** runs the actual program against the nonlinear cascade (settling 33 s and 25 s), and **Apply** commissions Auto. After a 0.01 m³ slug into tank 1, tank 2 rises 3.2 mm with feedback against 7.3 mm without, and both levels are within 0.35 mm of rest 50 s later.
+- Lesson 71 (state observers) replaces its magnetic-bearing project with Lesson 67's cascade and four `TankObserver`s. It uses L = [0.48, 0.28] s⁻¹ for the error poles −0.16 and −0.20 s⁻¹ and the stronger L = [2.52, 0.64] s⁻¹, each fed exact and ±5 mm tank-2 readings, after a slug that the observers do not see. Control Studio checks the supplied error model: **Poles and zeros** shows −0.16 and −0.20 s⁻¹, and **Initial-state response** shows the predicted decay. The taught gain estimates tank 1 within 2 mm from 22 s with exact readings and from 30 s with noisy ones (RMS 1.43 mm, against 255 mm for Lesson 69's differentiation). The stronger gain converges by 12 s but carries 9.2 mm RMS of noise.
+- Lesson 72 (Kalman filtering) replaces its weigh-feeder project with Lesson 67's cascade and a two-state Kalman filter of tank 1 from tank 2's reading, which carries 5 mm of pseudo-random noise restarted with each experiment. The filter calculates its gain from the model's and the reading's uncertainty every second and updates its covariance in Joseph form. It also reports the RMS error it claims, next to the actual RMS error scored against the true level. With the true reading uncertainty, tank 1 is estimated within 2 mm from 25 s after the unseen slug, with an RMS error of 0.23 mm against a claimed 0.54 mm. Assuming 0.25 mm raises the gain on tank 1 to 19.5 and gives 1.01 mm while the filter claims 0.34 mm. Assuming 100 mm gives a smooth but late estimate (1.87 mm).
+- Lesson 73 (LQR control) replaces its suspension project with Lesson 70's cascade under a gain designed by Control Studio's finite-horizon LQR. The design uses 20 steps, Q = diag(400, 400) with the same terminal weight, and R = 40000 or 160000. The program adds the level cost 400(x1² + x2²) and the effort cost 40000(q − 0.010)² of the applied flow for 60 s after a slug, the same scales for both designs, and records the largest level deviation 50–60 s after it. K0 = [0.0784, 0.0245] m²/s keeps tank 2 within +3.0 mm (level 0.489, effort 0.288); four times the effort weight gives [0.0344, 0.0098], +4.4 mm (0.913, 0.100). Both meet the 2 mm late requirement, and each design has the lower cost by its own weights.
+- Lesson 74 (LQG control) replaces its suspension project with two cascades under the same gains from Control Studio's LQG design. The design supplies a one-second model that measures only tank 2, and gives K = [0.0787, 0.0239] m²/s with a steady Kalman gain L. One cascade measures both levels; the other feeds the gain with its estimate, predicting from the last applied command and correcting with the reading. During the project experiment both read tank 2 with the same 5 mm noise, and after a slug the estimator is not told about, the full-state loop stays within 0.58 mm 50–60 s later. With the model's error alone as process covariance, L = [0.0023, 0.0068]: the estimate misses the slug and the loop is 5.3 mm high. Allowing tank-1 upsets (L = [0.239, 0.106]) brings it to 1.7 mm.
+- Lesson 75 (model predictive control) replaces its building-zone project with two of Lesson 13's heaters that share a 100-point supply. Every second the program predicts both heaters three seconds ahead for the 231 command pairs on a 5-point grid within the supply. It rejects plans that leave 26–33 °C, scores squared temperature errors plus a 0.002 move weight, and applies the first move of the cheapest plan; the cost splits into one part per heater, which keeps the search to 42 predictions. Raising heater 1 from 28 to 31 °C, the first plan borrows supply from heater 2 (70/30), and both targets are met within 8 s at 55/40. With 30 kW more taken from heater 2 the targets need 110 points: the plans use the whole supply, 50/50, and both heaters settle 1 °C low. The old test that loaded the building project is retired.
+- Lesson 76 (Lyapunov stability) gets a program and a matching plant: an upright arm (J = 1 kg·m², B = 1 N·m·s/rad, G = 4 N·m, ±20 N·m) under τ = −16φ − 7ω, with V = ½Jω² + ½Kpφ² + G(cos φ − 1) and its certificate V ≤ 0.1 J published every 20 ms. Before, the project had no program, a mismatched arm simulation and a library copy. A Control Studio experiment setting chooses the start angle; the experiment holds the arm there with gravity compensation and then releases it. From 0.1 rad the state stays inside the certificate, V never increases, and the torque peaks at 1.6 N·m. From 0.2 rad, outside the proven region, the arm also returns and enters the region after 0.46 s: unproved, not unstable.
+- Lesson 77 (feedback linearization) replaces its industrial-joint project with Lesson 76's upright arm under τ = 16(r − φ) − 7ω − Ĝ·sin φ, with the controller's gravity coefficient Ĝ as a Control Studio experiment setting. For a 0.1 rad target, no compensation rests at 0.1332 rad and misses both the 0.12 rad peak and 0.01 rad error requirements. Ĝ = 3.5 N·m rests at 0.1032 rad, and the nominal Ĝ = 4 N·m holds 0.1000 rad with gravity's own −0.399 N·m.
+- Lesson 78 (adaptive control) replaces its extruder project with two of Lesson 13's heaters whose heat loss has dropped to 8 kW/°C, each held by the real `Control.PID` (heater B in Manual during the estimation windows). From one-second heat balances the program estimates the heat loss by least squares, Ĥ = Σxy/Σx², over two 30 s windows. It accepts a window only for 7–13 kW/°C, at least 1 °C of temperature span, residuals within 5 kW and agreeing halves, and then sets Ki = Ĥ/(aλ). The steady window is rejected even though it gives 8.0 kW/°C, because it cannot separate the change from an unknown extraction. The step window is accepted and sets Ki to 0.4. On a 3 °C step the revised heater follows the λ = 10 s design (63 % at 9.9 s, no overshoot), while the old gains rise faster and overshoot slightly.
+- Lesson 79 (robust control) replaces its flexible-wing project with eighteen of Lesson 13's heaters spanning heat loss 8–12 kW/°C and delivery delay 0.8–1.2 s, each held by its own `Control.PID` in an array of `HeaterCase` blocks. A capacity check shows that holding 38 °C would need 108 % at 12 kW/°C, so the requirements use a 35 → 36 °C step and a 10 kW extraction. The heat loss varies gain and time constant together, and a small-gain bound, W·|T0| ≤ 0.254, proves stability for every heater in the range with Kp = 2.5 and Ki = 0.5. In Control Studio that candidate passes all eighteen cases; Kp = 30 and Ki = 6, tuned for the nominal heater, settles faster there but leaves the 8 and 10 kW/°C heaters with 1.2 s delay oscillating (7 of 9 step cases).
+- Lesson 80 (networked control) replaces its pumping-header project with six of Lesson 13's heaters, each under a remote `Control.PID` whose commands travel as packets over a simulated network, with a local `Control.PID` as fallback. The reusable `CommandReceiver` accepts a packet only if it belongs to the current connection, has a newer sequence number and is 0–200 ms old; it holds the last command for at most 300 ms and then hands over to the local PI, which has tracked the applied command. Remote control returns only after an acknowledgement, three fresh packets and a remote command within 0.1 point of the applied one. In Control Studio a dropped, a reordered, a late and an old-session packet are each held or rejected by their own check, an outage switches to local control at 5.4 s, and the acknowledged heater returns to remote control at 8.2 s; the transfers change the command by at most 0.026 points, and all six heaters meet the step requirement.
+- Lesson 81 (fault-aware control) replaces its pumping project with six of Lesson 13's heaters, each measured by two temperature sensors and held by a `Control.PID`. The reusable `SensorSelector` accepts a reading only if it is 0–80 °C and at most 0.5 s old, uses sensor A when valid and B otherwise, latches zero heat when two fresh readings differ by more than 0.4 °C for 0.2 s or no reading is valid, and restarts only after three fresh agreeing readings and a new Auto request; each change of sensor re-initializes `Control.PID` with the applied command so the command does not jump. In Control Studio a stale sensor is used until its reading is older than 0.5 s, an out-of-range sensor is replaced at once, a sustained disagreement latches zero heat at 5.2 s while two short ones do not, losing both sensors latches, and the restored heater restarts at 12.0 s from zero with only the integral step.
+- Lesson 82 (independent design) replaces its compressed-air project with a matched comparison on twelve of Lesson 13's heaters: PI against PI with feedforward of a measured 10 kW draw-off, each at heat losses of 8, 10 and 12 kW/°C with a setpoint step and a draw-off, against requirements and a decision rule declared before the test. A feasibility check shows that every requirement needs at most 96 %. Both candidates meet the setpoint requirement; only the feedforward candidate keeps the draw-off within 0.3 °C (about 0.18 °C, the fall during the 1 s delivery delay, at every heat loss), so the declared rule recommends it.
+- While running with debug control attached, the debug snapshot shows the last completed cycle, including its last statement; a pause, step or breakpoint still snapshots the exact storage at the stop.
+- Lesson 14 (identification experiments) uses that recording: its record ends just after the step returns, for any permitted hold. The lesson explains the steady start, step size and hold through the drift, uncertainty and first-order response calculations, with the recorded results.
+
+### Fixed
+
+- Stopping or stepping in a compiled program shows the program's file again. The debugger named the
+  file by its path relative to the project, which VS Code could not open ("Could not load source
+  'src/Main.st': unsupported command"); it now names the project's file, for stack frames and
+  logpoints (specification 13, "Stack Trace and Navigation").
+- A return to Auto is no longer refused when the plant moves while the transfer waits for its task:
+  the runtime now takes the error the controller enters Auto with in the scan of the entry and adds
+  its integral step to the first-output allowance (specification 35 A6.4, protocol annex E6.9). Before,
+  Control Studio fixed that error from a status read earlier, so Identify's return to Auto after a
+  step, Apply's Auto entry and Restore could be refused with "first controller output … violates
+  reviewed transfer tolerance" on a fast plant.
+- A project opened through a symbolic link works like any other: a breakpoint set in a file named
+  through the link reaches the program (the debug adapter resolves the path as the build did,
+  instead of comparing its text), and the HMI editor's library check no longer fails when the
+  temporary folder lies behind a link, as it does on macOS (`/var` → `/private/var`).
+- Debugging a compiled program writes variables again: Set Value in the Variables view and an
+  assignment in the Debug Console change a variable, a structure member or an array element while
+  the debugger holds the scan (the new `debug.set` request) and between scans (`set`); Live Values
+  writes, forces and releases by path (`global:Main.Pumps[2].Speed`) with typed IEC literals
+  (`T#5s`, `REAL#2.5`, an enumeration's value); the debug adapter repeats a write that meets a busy
+  runtime instead of the extension; and a write to an I/O address outside the program's process
+  image is refused instead of growing the image (specifications 11, 13 and 44).
+- I/O addresses are written the same way everywhere, in the form the address parser reads
+  (specification 10 §9.2): Live Values and the fleet now show an unresolved wildcard as `%Q*`
+  instead of `%QX*`, which could not be sent back; the fleet, setup and debugger replies keep a
+  hierarchical address's whole path (`%QW3.4.5`, not `%QW3`), so the debugger finds such an I/O row
+  by its name; and a refusal names a `STRING` binding by its declared address (`%QB24`).
+- HMI method commands and equipment settings work on a runtime started with `trust-runtime run`,
+  whether debugging is on or off: they are checked against the running program's own tables, so a
+  command that names only some of a method's inputs leaves the others at the values the interface
+  declares (specification 39 §21.2). Before, the runtime had no program description to check them
+  against and refused them.
+- Alarm comments take 120 characters in any language: `Request.Comment` of the alarm library is a
+  `WSTRING[120]`, and the HMI writes `WSTRING` points (specification 40 §4). A comment of 61 "ä"
+  was refused before.
+- Discover truST runtimes listens for its whole mDNS browse window, 2,000 ms by default, instead of ending at
+  the first quiet 100 ms, so runtimes that answer a little later are found (specification 11).
+- A new Ladder, SFC, Statechart or Blockly program opens in its visual editor, with its Structured Text
+  companion beside it, instead of as JSON text or only the companion; a `.sfc.json` opened as text also opens in
+  the SFC editor. The new-Ladder template is valid schema version 2 (specification 25, §11.4).
+- HMI Live mode on the simulator says where alarms show instead of showing zero alarm counts, and its read-only
+  explanation names the simulator (specification 39, §11).
+- Choosing another run target in the side panel or with **Set as run target** ends the session with the previous
+  one; the status bar, Live Values and HMI Live follow the side panel's Target instead of staying on the runtime
+  that was connected before (specification 25, §5.1).
+- Devices & Connections gives a connected runtime's node its endpoint, so it offers **Disconnect** and **Set as run
+  target** for that runtime; before, Connect was disabled on it and **Set as run target** selected the Simulator. A
+  running simulator is drawn live: its node green ("Running"), and its simulated I/O and plants with their live state,
+  because the VS Code simulator now reports its I/O drivers' health and its simulation's active configuration revision
+  as the runtime binary does (specification 47, §20.4). A card name such as "Simulated I/O" wraps instead of ending in
+  an ellipsis.
+- A runtime that answers Connect with debugging disabled reads "debugging disabled" in the status bar and in Live
+  Values' state, instead of "connected" in one and "Not connected" in the other (specification 25, §4.4).
+- The status bar says "Simulator ×10 paused" while the program is held at a breakpoint, as the runtime reports it,
+  instead of "running".
+- Completion lists a namespace as a namespace (LSP Module kind), not as a variable.
+- A missing expression (`Level := ;`) gives one error; the statement keeps its `;`, so no second "expected ';'"
+  follows.
+- The alarm list's Value column never reads "2.5 > 2.5": when the tag's decimals round a reading onto its limit, it
+  shows more decimals ("2.53 > 2.50"), and its sign compares the two numbers shown (specification 39, §5.9).
+- High contrast themes mark the active part of the HMI Builder's Build/Live switch.
+- Create project opens its name box with a selected suggestion instead of "Project name is required." before
+  anything is typed.
+- `trust-runtime` commands run with `--json` report an error without the command-line tip, so VS Code no longer
+  suggests `trust-runtime wizard` after a failed PLCopen export (specification 11, 6.8.1d).
+- Function-block and class instances follow IEC 61131-3 §6.5.6 over a warm restart, an online change and a
+  power loss, on every runtime, embedded or hosted: an instance declared RETAIN, alone or as an element of an
+  instance array, keeps its whole tree, including an unqualified nested instance such as a `CTU` or `TON`
+  inside it; a variable or nested instance its type declares NON_RETAIN starts over, also in a RETAIN global
+  after a warm restart of the running runtime; a variable its type declares RETAIN is kept in every instance
+  (`@program-instance/...` and `@global-instance/...` in the retain store, specification 10 §4.8).
+- A variable bound to a marker (`%M`) starts from its initialized value after construction and a cold
+  restart, and from its retained value after a warm restart or a retain-store load, instead of from a zero
+  or pre-restart image (specification 11 §6.5).
+- A call on an element of a function-block instance array (`Pumps[2](Start := TRUE)`), an instance array's
+  element initializers (`[(PT := T#100ms), 2((PT := T#50ms))]`) and a named instance-array type's initializer
+  (`TYPE TONS : ARRAY[1..50] OF TON := [50(PT := T#100ms)]`) are accepted by the bytecode producer and
+  validator again.
+- Fixed: installing a program again on a chip no longer fails for memory. The chip takes its
+  checkpoint buffer once at boot and lends it to each program that keeps retained values, where
+  each start asked the heap for 16,300 bytes in one block, which a heap fragmented by the programs
+  before had lost; and a dropped `modbus-tcp` or `mqtt` driver closes its connection in order and
+  gives its socket back before the next program claims its drivers.
+- Fixed: the `mqtt` driver's Sparkplug B profile follows Sparkplug 3.0's rules for an edge node:
+  a clean session; the NDEATH will at QoS 1 and without a sequence number; `bdSeq` an `Int64`
+  that counts the connections from `birth_death_seq` (now 0 to 255) and wraps after 255; the
+  NCMD subscription before the NBIRTH; a `Node Control/Rebirth` metric in the NBIRTH, whose
+  metrics carry the newest image's values or null; and a rebirth when a host asks for one in
+  NCMD. A broker's delivery at QoS 1 is acknowledged, and an empty `client_id` is allowed with
+  Sparkplug, as its session is clean.
+- Fixed: a chip counts what a program keeps beside its memory figure: a debug program's buffer of
+  debugger stops at its install and load, and its I/O drivers' blocks when they are claimed, so a
+  program the heap cannot hold is refused with the numbers instead of running out of heap at its
+  start; a chip whose heap has no block for the checkpoint buffer refuses the start instead of
+  panicking. `capabilities` reports a chip's heap (`capacity_bytes`, `used_bytes`, `peak_bytes`),
+  and a panic for want of heap names the request and the free bytes.
+- Fixed: a project's `io.toml` can no longer claim the ESP32-C6's flash pins, GPIO24 to GPIO30; a
+  line there would have taken the flash the chip runs from.
+- Fixed: `status` on a chip reported `signature: none` while the chip checked signatures against the
+  keys of its device settings.
+- Fixed: `config.set` refuses a `log.level` that is not one of `error`, `warn`, `warning`, `info`,
+  `debug` and `trace`, and trust-runtime writes its log lines by a level changed with `config.set`
+  at once; it took any text and kept logging by the level it started with.
+- Fixed: a chip whose program hung or panicked comes back faulted, as trust-runtime's resource
+  stays faulted (specification 34 TARGET-08). After the hardware watchdog's reset the program is
+  Faulted with `watchdog timeout` while `runtime.watchdog.hang_action` is `fault`, the default, and
+  runs again with `abort`; after a panic it is Faulted with `resource panic '<location>'`. The fault
+  is logged, the safe outputs follow the watchdog's action or the fault policy, and a `restart`
+  runs the program. The chip ran the program again after either reset, so a program that hung or
+  panicked did so again in a loop of resets without saying so. A program whose load ended the boot
+  is not loaded again at the next boot, which comes back faulted in the same way; a `restart` loads
+  it again.
+- Fixed: a program's memory figure counts what its load keeps on a chip, the cycle's copies of the
+  process images and a debug image's line table (specification 44 §10.4), so a chip refuses at its
+  install a program it could not load. With Wi-Fi, the ESP32-C6 had admitted the reference debug
+  image, whose load then ran out of memory. The C6's Wi-Fi driver takes 56 KiB of its heap, its
+  measured peak with a fifth more, instead of 64 KiB.
+- Fixed: the ESP32-C6 holds a reply up to its whole heap, 180,160 bytes; the capacity left out the
+  main heap's 64 KiB since the bytecode engine's RAM code was freed. The STM32U5A9 holds a reply
+  longer than the 8,192-byte frame in parts, as the C6 and trust-runtime do, up to its 1 MiB heap
+  (specification 34 PORT-05); it refused such a reply.
+- Fixed: the variables of function block and class instances are retained as IEC 61131-3
+  §6.5.6.2 says, by the bytecode engine and by compiled programs: a member declared `VAR RETAIN` or
+  `VAR PERSISTENT`, and each member without a qualifier of its own in an instance declared
+  `RETAIN`, keeps its value at a warm restart and is written to the retain checkpoint under its
+  path (`@program/Main/Line.Count`, `Plant.Pumps[2].Hours`); a standard function block keeps its
+  inputs and outputs and starts its own state again (specification 11 §6.7). Before, such members
+  started from their initial values. A compiled program's image is format version 2, whose retain
+  records name an area and an offset; a kernel refuses an image of format 1, so programs are built
+  again.
+- Fixed: the OSCAT library's PLC timers wrap as upstream's do and no block faults when they
+  wrap. `T_PLC_US`, the milliseconds times 1000, overflowed after 71.6 minutes of uptime, so every
+  program with `CTRL_PID`, `FT_PT1` or `FT_DERIV` stopped with an overflow then; `T_PLC_MS`
+  overflowed after 49.7 days; and the 57 blocks that time with them subtracted two readings in
+  checked arithmetic, so each faulted when its timer wrapped, or at 2^31 when it took the timer as
+  DINT. `T_PLC_MS` and `T_PLC_US` now wrap modulo 2^32, the new `T_PLC_ELAPSED(NOW, LAST)` gives the
+  time between two readings across a wrap, and every block uses it (specification 31 §2.1).
+  `CYCLE_TIME` also measures its least cycle again: upstream starts it at the largest 32-bit time,
+  which the port had written as -1 ms. `D_TRIG` gives the difference of a falling input modulo
+  2^32 as upstream does instead of faulting, and `DT_SIMU` no longer faults on a first call long
+  after the start, where it scaled the whole uptime by `SPEED` (after 24.9 days at 2.0).
+- Fixed: the OSCAT library took a `DWORD` as a number through `DWORD_TO_REAL` and
+  `REAL_TO_DWORD`, which IEC 61131-3 Table 25 makes binary transfers, in 25 places: `FT_PT2`
+  divided by zero on its second scan, `FT_PT1`, `FLOW_METER`, `M_TX`, `HEAT_METER` and
+  `FT_Profile` overflowed once time passed, `RDM` and `RDMDW` failed when the PLC timer's bits
+  formed no number, and `MULTIME`, `AIN`, `DT_SIMU`, `FILTER_DW` and `FILTER_MAV_DW` gave wrong
+  values above 2^23. They now convert through `UDINT` (specification 31 §2.2). The boiler-room
+  example's gas meter reading is fixed the same way.
+- Fixed: in the bytecode engine, `THIS` in a base's method reached through `SUPER` is the own
+  instance, so `THIS.m()` there runs the instance's override (IEC 61131-3 §6.6.5.6, §6.6.5.7), and
+  `SUPER` there names the base of that method's class. Before, the method ran on the base part and
+  `THIS.m()` ran the base's `m`; compiled programs already followed the standard.
+- Fixed: in the bytecode engine, a call through an interface that names no instance ends the scan
+  with `null reference dereference`, as compiled programs report it (specification 10), instead of
+  `type mismatch`.
+- Fixed: a call of a derived function block takes the inputs and outputs it inherits as arguments
+  (IEC 61131-3 §6.6.7.2.7), two interfaces of one type compare with `=` and `<>` (§6.6.6.5.1), a
+  derived instance that adds no in-out of its own is taken for a base's `VAR_IN_OUT` (§6.6.8.3),
+  and a `VAR_EXTERNAL` inside a `NAMESPACE` finds a `VAR_GLOBAL` declared outside it (§6.9).
+  Before, the front end refused each of them (E204, E201, E205, E101).
+- Fixed: an integer literal for a `BYTE`, `WORD`, `DWORD` or `LWORD` takes the unsigned range of
+  its width (IEC 61131-3 §6.3.2, Table 5): `DWORD := 4294967295` and
+  `LWORD := 16#FFFF_FFFF_FFFF_FFFF` compile, `BYTE := 256` is refused. Before, a bit string took
+  the `DINT` range and a typed `LWORD` literal above `LINT` was refused.
+- Fixed: VS Code's debugger, attached to a running runtime, answered every watch and `evaluate`
+  with an error, because it read the runtime's answer in the debug adapter protocol's spelling;
+  and it set a breakpoint with a condition, a hit count or a log message as a plain breakpoint,
+  which stopped every time. Now the answer is read as the runtime sends it, a runtime on the
+  bytecode engine gets no breakpoint whose options it cannot honor (the editor shows it unverified
+  with the reason), and every breakpoint is answered in the order the editor asked.
+- Fixed: Live Values `set`, `var.force`, `io.write` and `io.force` of an integer on a compiled
+  program: the integer takes the declared type of its variable, or of the variable bound at its
+  address, as it does on an interpreted program; it was refused as a type mismatch unless the
+  variable was a `LINT`.
+- Fixed: VS Code's debugger, attached to a running runtime, keeps the breakpoints the editor
+  already had: they arrive while the attach waits for the configuration, and the adapter now sends
+  them once it connects and reports each one verified, or why not. Before, they never reached the
+  runtime, so an attached session stopped only at breakpoints set after it started.
+- Fixed: debugging on a chip: a chip that starts without a program and then loads one keeps the
+  stops that `debug.stops` reports, so the debugger sees its program stop (it saw none); the
+  control link answers the debug operations of a compiled program (`unsupported request` before);
+  `io.read` shows a forced output with its forced value; and a compiled image names its source
+  files by their path in the project (`src/main.st`), so a debugger on another computer finds them.
+- Fixed: a typed literal finds its type through a namespace that a `USING` directive names
+  (`PIDMode#Auto`, IEC 61131-3 §6.9.4). Before, the front end refused it (E102).
+- Fixed: after a `restart`, a start after `shutdown` or a recovery from a fault, trust-runtime on a
+  computer went on with the cycle grid of the program before, so its next cycle could come less than
+  an interval after the restart, when the restarted tasks were not yet due, and their first
+  activation came an interval late; the grid now begins at the restart's first cycle, as on a chip
+  (specification 10 §4.3). A chip's recovery from a fault by `restart` now begins the grid at its
+  first scan too, instead of at the poll of the faulted wait.
+- Fixed: the ESP32-C6 no longer ends a reply with a full 64-byte USB packet. The host passes on a
+  transfer's bytes only after a shorter packet, so a reply whose length was a multiple of 64 bytes
+  (a 1,984-byte `status`, for example) kept its last 64 bytes in the host until the next request,
+  and the client timed out; the last 64 bytes now go out as 63 and 1.
+- Fixed: a compiled function's result, outputs and locals and a function block's `VAR_TEMP`
+  started each call at zero, not at their declared initial value or their type's default (an
+  enumeration's first value, a subrange's lower bound, a structure's members' initial values), and
+  an input a call left out took zero instead of its default; initial values of a function's locals
+  and outputs did not compile.
+- Fixed: a compiled program refused `T0 := -273.15` for a `REAL`: a literal with a sign takes the
+  type of where it goes; a `CASE` on a `STRING` or a `REAL`, which the language allows, did not
+  compile; and a text made of literals only (`CONCAT('N', 'E')`, `'AB' > 'B'`, a `CASE` label) gave
+  a module with writable data, which the build refused.
+- Fixed: a compiled program for a computer whose code copied, filled or compared a large block,
+  such as a long `STRING` or a large array, did not link: the module had no `memcpy` and called the
+  memory functions through a global offset table it may not have.
+- Fixed: `ABS(-0.0)` of a compiled program kept the minus sign of zero; it is `0.0`, as in the
+  runtime.
+- Fixed: a compiled program bound a standard function's formal arguments by position, so
+  `LIMIT(MX := 10, IN := x, MN := 0)` took 10 as the minimum.
+- Fixed: a compiled method that returned a structure, a string or an interface received its result
+  place where its instance belonged; methods returning one did not compile.
+- Fixed: a compiled program gave two arrays of one storage one type, so `ARRAY[1..3] OF INT` was
+  indexed by the bounds of an `ARRAY[0..2] OF INT` declared before it, and an array of one
+  enumeration took the values of another of the same base.
+- Fixed: a warm restart of a compiled program kept a retained function block instance or reference,
+  which the runtime gives its initial value again (specification 10).
+- Fixed: a compiled program's variable located at `%M` took the marker image's 0 at its first scan
+  instead of its initial value, and a restart cleared the process images; the variable's value is
+  now published into the marker image at every start, and the images are carried over a restart,
+  as specification 11 §6.7 says.
+- Fixed: a periodic task lost activations. The resource paced each cycle one interval after the
+  previous cycle had started, so every late wake added to the next interval and a 10 ms task lost
+  about one activation in 200 cycles on the ESP32-C6, counted as overruns. Cycles now keep a fixed
+  grid of the cycle interval on computers and chips (specification 10 §4.3): a late wake no longer
+  moves the next cycle, and a cycle longer than its interval starts the next one at once.
+- Fixed: an ESP32-C6 could accept a program whose memory figure fitted the memory it reported for
+  programs and then reset at every boot: its control loop, built after the program, needed blocks
+  (its event store alone is 19,296 bytes) that the program's blocks had left no room for, though the
+  free bytes were enough. The chip now builds its control loop before it loads the installed
+  program, and a program that cannot start leaves the chip Stopped with the reason.
+- Fixed: a chip builds the default of a global or a program variable that is an array, a structure or
+  a text in the variable's own bytes. Before, it built the default as a value of every element on the
+  heap at once, 32 bytes per element on the ESP32-C6, so an array of a few thousand elements could not
+  be loaded there, and an online change to a program with an array of 1,000 elements was refused with
+  `arithmetic overflow`.
+- Fixed: on the ESP32-C6 a force that names an instance by its identity (`var.force` with
+  `instance:<id>:<name>`) is applied after a restart. Every restart installs the next generation of
+  the program's state, but the loop's Live Values kept the generation of the program's first start, so
+  the scan refused such a force as stale and withdrew it with a `write_rejected` event. The loop now
+  gives its Live Values the program's generation after a `restart`, the recovery of a faulted
+  resource, the automatic restart of the fault policy and the start of a stopped program, and when it
+  takes a program that started warm, at boot or when it loads one in place.
+- Fixed: the ESP32-C6 holds a reply longer than its 8,192-byte frame, up to the 114,688 bytes of its
+  heap, as a computer does, so `trust-runtime ctl events --limit 200` over USB is no longer refused
+  with `reply longer than 8192 bytes`. A reply the heap has no room for is refused with
+  `no room for a reply longer than <n> bytes`, and never resets the chip.
+- Fixed: on the ESP32-C6 a firmware panic drove every configured output low before the chip
+  reset, whatever `[[io.safe_state]]` named. It now drives each output to its safe value, as the
+  STM32U5A9 and the stop and fault paths do.
+- A stop request (control `shutdown`, SIGINT, SIGTERM) now ends a runtime whose
+  scan the debugger holds, at a breakpoint or after a debug-mode pause. It releases
+  the hold, the suspended scan runs to its end, and the ordinary stop path follows:
+  stop outputs, retained-value save, exit. Before, the process waited for a `resume`
+  and a service manager's SIGTERM timed out.
+- A variable located at `%M` now starts with its declared initial value (IEC 61131-3
+  §6.5.6): at the first start, after a cold restart, after a warm restart when it is
+  `NON_RETAIN` or unqualified, and after an online change. A `RETAIN` one keeps its
+  retained value. Before, the first scan copied the zeroed or carried marker image
+  over the initialized variable. A variable that is bound to `%M` after the start (a
+  checked binding update) now keeps its current value in the same way.
+- A runtime no longer faults with `Overflow` after about four billion calls since its
+  last restart (about a day at 50 calls a millisecond), nor after as many function-block
+  or class instances declared inside functions and methods.
+- A reference taken before a warm or cold restart or an online change no longer reaches
+  the new program's variables: a write or read through it is refused with
+  `runtime_reference_lifetime`, and a queued debugger or HMI write that named an instance
+  before the change is reported as `write_rejected` instead of changing the instance that
+  now has that number. Engineering aliases, I/O bindings and ADS and OPC UA client points
+  follow the restart. For Rust embedders, `ValueRef` carries a `generation` and its
+  `offset` is a `u32`; see the embedding migration guide (specification 34 §11.3).
+- Control Studio's Apply of a PID group waits until every member's output has settled at the validated operating point, and
+  compares every member's plant input in Manual; it compared the primary member alone.
+- The VS Code simulator's control server takes the program's sources again on every reload, so Validate's isolated runs, a
+  finite search and breakpoints use the program as edited; they kept the sources the simulator started with.
+- Control Studio starts its engine again on a request a minute after a failed start, so an engine installed or repaired meanwhile
+  is used without reloading the window.
+- Control Studio shows the block of an Apply's checkpoint at once when an Apply or a Restore fails after its first write (the
+  failed update carries the stages), and an engine operation that ends before the panel follows it still reaches the page with
+  its final answer.
+- Control Studio's experiment-settings and declared-analysis parameter tools write to a physical target: a review of such a write
+  shows an approval box, and the write carries the engineer's approval (it was always sent unapproved, so the engine refused it).
+- Control Studio's resumed identification (`trust-control-studio identify --resume`) answers the kept recording's samples and the
+  restoration its experiment confirmed, as a fresh identification does.
+- Control Studio's Tune page shows the analysis it restores after a reopen as the chosen one: Analyze… offers its Close, and the Tune
+  button names the analysis's action.
+- Control Studio no longer shows a settings change that the engine refuses during a running operation as the end of that
+  operation: the refusal shows on its editor's page, and the running work keeps its Abort.
+- Control Studio's engine refuses Apply's review and confirmation for the validation the newest Apply already applied, with
+  Validate as the next action, as the page's withheld offer always said; a request from the command line could apply it again.
+- Control Studio's Identify no longer refuses a loop with "the loop's Auto/Manual mode is unavailable" when another reader, such
+  as the panel's live values, had just changed the runtime's signal inspection: the engine waits for the runtime's next scan, up to
+  twenty task periods of 50–100 ms, before it counts a run's or a review's sample as unavailable.
+- The VS Code simulator's control status reports the tasks of the loaded program and the cycle its runner takes, also after a
+  reload. It reported a fixed 10 ms cycle, so Control Studio sized the recordings and Apply observations of a loop on a
+  background task in the simulator for 10 ms executions instead of the task's own period.
+- Control Studio reviews a project test on any runtime: on a stopped Simulator the review answers with a Start simulator button,
+  and a physical target is reviewed and run without a Simulator start first (the page used to start the Simulator before every first
+  review, so a physical target could not review its project test).
+- Control Studio's Restore on a runtime that was restarted or reloaded since Apply says that nothing could be restored, keeps the
+  Apply's checkpoint as history and offers Validate again, instead of leaving the loop blocked. After any Restore, Apply is offered
+  again only once a new validation passes, also when the panel is reopened. While a checkpoint waits for its Restore,
+  Identify, Tune, Validate, Reset and the imports are refused with the reason, also after the panel is reopened.
+- Control Studio's loop setup form sends every number as it was typed, and the engine refuses one it cannot read under its field
+  (a browser number field used to blank text such as `1,5` before the engine saw it).
+- Control Studio's loop discovery no longer refuses a loop that declares an addressed BOOL signal, such as the course's
+  experiment activation, fault and state indications: the compiled process image now lists BOOL bits beside the numeric
+  variables, so the setup page and the Tune page's controller list find these loops.
+- A project test on the engine now shows "Project test completed. Outputs restored." and its recorded signals in the chart, and a
+  refusal shows its whole text. A project test of a loop whose signals are all addressed no longer ends with "Identification
+  requires the complete recording from the connected runtime.".
+- The Tune page's long analyses no longer lose their result when the calculation ends before the page has subscribed to it.
+- Control Studio's Apply no longer starts when the process has only touched its settling band. It waits until every measured output
+  has stayed inside its band for a settle dwell: the longer of twenty samples at the loop's task period and a tenth of the expected
+  settling time (B6.2, B3.4).
+- Control Studio's Apply observation no longer fails a long test with "The recorded response does not
+  cover the reviewed duration.". Its recording is planned longer than the test duration by the
+  target change's allowance and three record periods (B6.3, A4.2), so a response that starts up to
+  one and a half record periods after the change still covers the whole reviewed duration.
+- Control Studio's Identify waits for a steady start as long as two measuring windows of the
+  expected settling time, so a slowly settling process is no longer refused as "still changing";
+  its window always holds at least 20 samples; a closed-loop setpoint step ends early only when
+  the plant input has settled too; and a loop found in Auto gets its setpoint back after the
+  experiment, also when the program sets the setpoint from the measurement while in Manual.
+- Runtime: an isolated test run or search now validates a candidate in a program that sets its own
+  parameter record during its first execution, as a program that designs or loads its startup gains
+  does (the first scan in which its task runs). The candidate is written again at the task boundary
+  after that scan, as Apply writes a record into a running program, and must hold from there; before,
+  such a program's candidate was always refused as "not adopted". A program that overwrites the
+  record later is still refused.
+- Runtime: an experiment on an addressed signal with a declared type now reports its last applied
+  trajectory point (`last_applied`, Control Studio runtime protocol E5.6). It stayed empty because
+  the value read back was compared with the value in the process image's raw form.
+- Runtime: an I/O driver named `none` no longer makes simulation mode refuse to start.
+- Runtime: `trust-runtime ctl status` works against a runtime that reports no fault; it failed with
+  "status result 'fault' must be a string".
+- Control Studio: loop setup bounds a `Control.PID`'s rate limits widely enough for the Plant
+  library's "no rate limit" value (±10⁹), so loops built with the Plant library validate and apply.
+- RETAIN members of function block instances, also inherited and nested ones, survive a warm
+  restart and a power loss; an instance initialiser may set an inherited member, also of a
+  function block declared in another file or a library (such initialisers were refused as
+  unknown fields).
+- HMI runtime: a pulse always ends, replay records are counted per user, every HMI write route
+  checks the request's origin, and the active bundle is read once per activation.
+- HMI alarms: an alarm is listed once, where it is declared, not again under each block that
+  refers to its instrument through an interface; the same holds for displays and link blocks.
+- HMI display: a setpoint entry's number no longer reaches into its label; Plant panels keep
+  every label and button text whole and show one message line, the devices' new `ReasonText`
+  (why the device is blocked, else why a command would be refused), with no empty line; Out of
+  service and Return to service are lit only while they can act; a refusal's notice and mark go
+  once a later command is accepted.
+- VS Code: Initialize truST here makes a project of an empty folder, or one with other files,
+  without asking; it asks only before replacing a project's own files. Adding the Plant library
+  now declares it in `trust-lsp.toml` when that file is not open (it was copied but not declared),
+  and leaves the library's example projects out of the project. A new HMI screen's files are
+  written at once; its first page no longer shows an unsaved, empty file's problem. Create PLC
+  code saves the program it edits and writes the files it creates with their text, so closing VS
+  Code afterwards no longer loses the code or leaves an empty `screens.st` that blocked the next
+  run (an empty one left by an earlier version is taken over).
+- HMI Builder: renaming equipment in the program (Rename Symbol) also renames the instance its
+  page objects show, and their tag when it is the instance's name; before, the object kept
+  pointing at the old instance. Create PLC code also accepts a rename that moves a call to
+  another place in the name order, instead of refusing the region as changed by hand.
+- HMI Builder: Apply connections and the inspector's equipment changes save the project design
+  (`plant.toml`) and the files they create; before, the change stayed unsaved in a file without
+  an editor and was lost when VS Code closed.
+- HMI Builder: a terminal needed only with feedback that the block leaves off by default (a
+  variable-speed fan's speed feedback) is optional, so the fan shows Connected instead of Partly
+  connected and Create PLC code no longer lists it as missing. Connecting such a terminal, a
+  control valve's position feedback for example, switches its feedback on in the declaration
+  (`HasFeedback := TRUE`); before, the valve ignored the connected feedback.
+- HMI Builder: a process symbol without bindings, such as a tank or a hand valve drawn on a
+  page, is a drawing and is no longer warned of as unbound.
+- Create PLC code no longer adds a second `USING` for a namespace whose directive follows a
+  comment at the top of the file.
+- Control Studio: identification can switch a loop to Manual whose code copies the output into
+  the manual output in Auto. The switch was refused with "transfer values changed before task
+  boundary", because that manual output moves every scan; the runtime now accepts a state the
+  transfer declares as set by the program, and Manual starts from the held output. A loop whose
+  output has no I/O address (the program hands it on, as in `EH101.AutoPower := TIC101_Output`)
+  is no longer refused with "automatic tracking needs a mapped committed output": the transfer
+  holds the output's value at the task boundary. Returning such a loop to Auto after
+  identification allows the PID's own first step (its integral step on the error identification
+  made and its response to the measured noise) instead of failing the whole identification with
+  "violates reviewed transfer tolerance", and it no longer writes back the manual output from
+  before identification, which only held the output of that moment.
+- Control Studio records a loop at its own task's executions instead of every resource cycle. A
+  100 ms loop in a 10 ms resource filled the 12000-sample recording in 120 s, so a 600 s
+  identification lost its step and failed with "Identification samples have gaps or inconsistent
+  timing"; it now holds 1200 s. `control.recording.start` takes an optional `task`.
+- Control Studio experiments run on the runtime's clock: in a simulation at 10x a 600 s
+  identification excites the process for 600 s of process time (60 s of wall time) instead of
+  6000 s. Restoration and staleness deadlines stay on the wall clock.
+- Control Studio's model check accepts a live plant's recording: it required samples on an exact
+  time grid, which only a simulator gives, and reported "The independent recording has missing or
+  irregular scans" for every live loop whose task runs every 100 or 110 ms. It now compares on an
+  even grid at the recording's median spacing; missing samples and gaps are still refused.
+- Runtime: `trust-runtime check` and `validate` report a runtime.toml resource name the program's
+  configuration does not declare ("runtime.toml names resource 'Simulator', but the program's
+  configuration declares resource 'MainRes'; use the same name in both"); before, both said the
+  project was ok and only `run` refused it.
+- Examples: every example's runtime.toml now names the resource its program's configuration
+  declares, so each starts with `trust-runtime run`; 88 examples (the OSCAT, communication and
+  starter examples among them) named a resource their program lacks. The ADS server example
+  appears in TwinCAT under its resource name, `CommRes`.
+- New projects: the runtime starts as written. The scaffold no longer declares an empty mesh
+  `auth_token`, which the runtime refuses ("runtime.mesh.auth_token must not be empty"), and its
+  runtime.toml names the configuration's resource (`MainRes`) instead of one the program lacks
+  ("invalid bytecode metadata 'resource 'Simulator''").
+- HMI: the labels and buttons of the panels a project shows, its own and its libraries' (a placed
+  sequence panel, an equipment popup), are in the Texts table and switch with the display's
+  language; a panel placed on a page no longer stays in English.
+- HMI: an `active` or `alarm` part of a project's own symbol drawn as a line is painted on its
+  line; it no longer fills the outline solid. An active part also glows softly, as a lit status
+  does (a heater element while it heats).
+- HMI: `currentColor` in a project's own symbol (My Symbols) is the built-in symbols' line colour,
+  so such a drawing follows the dark and light themes instead of drawing black.
+- Plant library: the sequence panel shows the state, the step name and the step time in rows wide
+  enough for them ("Heat the room", "28 min 1 s"); they were cut or ran into each other.
+- HMI Builder: the inspector's Add pen field empties once the pen is added; leaving the field
+  no longer adds the same pen a second time.
+- HMI Builder: a trend pen added in the inspector is named as its legend should read: the tag for
+  a transmitter's value ("TT101"), the tag and member for another member ("TIC101 setpoint"),
+  instead of the variable's last part ("Value", "Value2").
+- HMI: pipes are drawn over layout panels, so a panel used as an area of the plant (a room) no
+  longer hides the pipes that cross it; they stay under the equipment symbols.
+- Devices & Connections: a simulated plant's input can read a memory value (`%M`), such as a
+  window opening the HMI sets, as the simulation specification allows; before, only `%Q`
+  outputs were offered and a memory address was refused.
+- Libraries: the empty page names Plant too, and the descriptions of the libraries to add wrap
+  inside their cards instead of running into the next one.
+- Devices & Connections: Connect hardware from the HMI Builder opens the equipment's connections
+  instead of a blank canvas (the canvas is now bundled with the automatic JSX runtime).
+- Compiler: passing an instance to an interface it implements, such as a transmitter to a PID
+  loop's `Measurement`, no longer warns of an implicit conversion; only elementary conversions
+  do.
+- HMI display: the equipment Settings dialog speaks the screen's language, and after Apply its
+  Cancel reads Close until the next edit; a panel's trend takes the opening object's unit pen by
+  pen, so a controller's output no longer reads in the measurement's unit, and a trend's pens of
+  one unit share their scale, so a setpoint is read against its measurement. The runtime keeps
+  the history of the trends inside panels for each instance a page opens them for, so a panel's
+  trend opens filled.
+- Restore declaration-only HMI field diagnostics and source locations, and patch the
+  shell-quote development dependency.
+- Preserve FB input/output/in-out members, inherited ones included, in declaration-only HMI
+  metadata.
+- Instrument OpenOT declarations using parsed token boundaries so single-line programs
+  and keyword text in comments/strings retain their telemetry.
+- HMI repair: keep project inspection off the language-server transport task, show readable PLC command refusals and name equipment popups from their selected PLC instance.
+- Keep live panel controls attached during value updates, and install bundled library
+  files without opening every source as a dirty editor. Reuse bounded pristine LSP compilations
+  for unchanged source text, invalidating edits and discarding any runtime borrowed mutably.
+- Synthetic HMI exploration resolves implicit equipment faceplate instances using the editor's
+  existing binding rules, including alarm-to-equipment navigation. Configured-project alarm
+  discovery now executes its first due preview scan instead of returning an empty alarm list.
+- Keep narrow bar labels separate from stale ages. Ordinary value updates retain SVG text
+  nodes and start bounded painting in the current drawing turn. Agent validation identifies
+  uneven spacing and misaligned rows of repeated equipment cards.
+- VS Code agent draft inspection shares the authoring store used by composition and MCP.
+  Stale value ages refresh immediately even when ordinary value painting is deferred.
+- Keep equipment-alarm badges clear of trend range, export and expand controls.
+- HMI peer discovery includes runtimes that were already online at startup. Ordinary value
+  cards coalesce whole-card paints across animation frames while urgent state/control changes
+  remain immediate. Browser performance evidence measures completion of all updated values.
+- HMI draft application can recover from definite pre-commit failures, while unknown editor
+  outcomes prevent duplicate application even with another request key. Clean cached editor
+  models no longer resurrect deleted source files.
+- Binding checks: a write binding to a `VAR_GLOBAL CONSTANT` is refused ("is a constant and cannot be written"), as for
+  other constants.
+- Deploying the HMI version that is already active no longer replaces the kept previous bundle with a copy of it, so
+  Roll back still goes back after Deploy is pressed twice.
+- Runtime: a function block's inputs and outputs declared `RETAIN` or `NON_RETAIN` keep or reset their values over a
+  warm restart as declared (IEC 61131-3 §6.5.6.2); before, they followed the instance's declaration.
+- Fixed: `Control.SmithPredictorFOPDT.Initialize` ignored the initial `ProcessValue`; it now sets the initial
+  correction from it, and `Update` reports the latest applied correction also when no model interval runs
+  (specification 37 §2.3).
+- Fixed: the runtime display did not send the values that pipes' `flow` bindings name, so pipes never showed flow.
+- Fixed: the runtime display's top bar and side bar were 1 and 21 px larger than their 56 and 232 px, so the Operator
+  panel template's page did not fit a 1920 × 1080 screen exactly.
+- Fixed: an enumeration value was reported ambiguous because another namespace that the code neither is in nor uses
+  had a value of that name, so a project with the Equipment and Control libraries did not compile. The pair link check
+  now finds members a block inherits.
+- HMI: with a top bar that does not show the user, the session stands under the bar instead of covering its end.
+- HMI Builder: a saved change to `hmi/screen.toml` reaches the open builder at once.
+- VS Code's simulator now runs projects that use libraries through `[dependencies]` in `trust-lsp.toml`, as
+  `trust-runtime build` does; before, their types did not resolve.
+- A program instance named in a configuration (`PROGRAM Tank WITH Fast : TankLevelControl`) is now known by its program's
+  type, so renaming the program's variables also renames them in the HMI bindings.
+- Function block inheritance: a call of a derived function block binds the inputs and outputs it inherits
+  (`MyAlarm(Message := 'Tank high', Priority := AlarmPriority#High)`), which the compiler refused as unknown
+  parameters. A base named with its namespace (`EXTENDS Alarm.Alarm`) is no longer dropped when the program is
+  compiled for the runtime. HMI paths and the editor's variable list reach inherited members.
+- Warm restart: a function block instance declared `RETAIN` keeps its variables' values, except those its type
+  declares `NON_RETAIN` (IEC 61131-3 §6.5.6.2); before, it started over. The retain file written for a power loss
+  does not hold instance values yet.
 - Runtime CASE ranges (`1..5:`) match unsigned integer and bit-string selectors.
   Range bounds were compared as `LINT`, so a `USINT`, `UDINT`, `BYTE` or `WORD`
   selector aborted the cycle with `TypeMismatch` (bytecode VM) or
@@ -1151,227 +2428,115 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   61131-3 §6.3.2 specifies: `x := 1`, `F(flag := 1)`, `x = 1`, `x AND 1`, a structure or
   array default such as `active : BOOL := 1` and `BOOL#1` are accepted and run, while
   `x := 2`, `x := INT#1` and `x := 1 + 0` stay errors.
-- `trust-lsp check [--project DIR] [--format text|json] [--file PATH]... [--deny-warnings]` prints the diagnostics the
-  editor shows for every source file of a project, without an LSP client (docs/specs/14-lsp.md §7.7): the project is
-  loaded from `trust-lsp.toml` exactly as the language server loads a workspace folder, paths are relative to the
-  project in the platform's form, and the exit status is 0 without errors, 1 with errors (or warnings under
-  `--deny-warnings`) and 2 for a usage or I/O problem, including a `--file` that is not one of the project's source
-  files.
-- Editor and project diagnostics are faster on large projects: a file's analysis no longer rescans every project
-  file for global constants and `VAR_CONFIG` entries, reuses the project symbol merge it already computed, and imports
-  other files' symbols without re-indexing the whole table per import (measured on a 400-file project: diagnostics after
-  an edit in 0.14 s instead of 1.8 s). The reported diagnostics are the same; symbol-table walks now run in declaration
-  order, so lists built from them, such as unused-symbol warnings, quick fixes and the runtime web IDE's symbol
-  search, follow the declaration order, and the errors for incomplete addresses without a `VAR_CONFIG` mapping are
-  listed in declaration order (they followed hash order). `scripts/perf/project_scaling.py` measures project-size
-  scaling over LSP.
-- Control course: all 89 lessons follow the lesson template and the lesson map (`docs/specs/control-course-lesson-template.md`,
-  `docs/specs/control-course-lesson-map.md`). Each lesson starts from the previous lesson's result and explains its new
-  idea in four steps: a plain definition, what it means in words (with a comparison a PLC engineer knows), the formula
-  with every symbol explained, and a worked example on the lesson's own plant. It ends with **Check yourself** (three
-  questions with answers) and shows one figure drawn from its own Control Studio run, with numbered marks that answer its
-  predictions. Every number comes from a real run or is labelled as calculated.
-  Lessons that introduce a plant show it in **Devices & Connections**; lessons 10 and 45 change the plant there (a sensor
-  bias, a starting level) instead of in `simulation.toml`. Thirteen lessons explain a new mathematical tool in a **Math you
-  need** box. Control Studio now does the design in the lessons whose map says so: lead/lag design (56), the cascade
-  (63), the Smith predictor (67), the PID group (71) and corner-case validation (86, 89). Trajectory feedforward is now
-  lesson 61, directly after lesson 60 on the same axis, and feedforward control lesson 62. Lesson 22 designs from a saved
-  heater model so its result is repeatable. Lesson 40 gained its missing debug configuration. Stale values were corrected
-  against the recorded runs: for example, lesson 25 now quotes lesson 20's measured 4.42 s ultimate period, and lesson 50
-  its recorded lowest velocity.
-
-- Control Studio designs a trajectory feedforward (Specification 35 §17.16): for a PID whose program adds `Kv·ṙ + Ka·r̈` of a planned trajectory, Tune designs the PID as for `Control.PID` and sets `Kv = b/n` and `Ka = a/n` from a model `n/(a·s² + b·s)`, which for torque to angle are the friction B and the inertia J. The PID's margins and Auto-entry allowance apply, a gain outside its declared range is refused, and Tune names all five values.
-- Control Studio Validate names an error measured from a reference other than the setpoint after that reference, for example "Maximum error from planned angle", instead of calling it a steady-state error.
-- Control Studio's Manual tuning names a project controller's gains as its Automatic result does, instead of showing their raw conventions.
 - Control Studio's measured frequency response lists and plots its tones in ascending frequency with the phase unwrapped, as on a model's Bode plot; a resonance's phase turn was shown as a jump from −177° to +171°.
-- Control Studio Requirements offers **Measurement noise** whenever the loop declares a measurement filter (a low-pass or notch) among its tuning components; that filter's validation needs the noise band.
-- Control Studio designs P for a delayed integrating process (SIMC's Kp = 1/(K′(λ + L))) and checks it like PI; Apply on an integrating process starts from the level where it rests instead of waiting for the identification's level to return.
-- Control Studio Requirements always offers an optional **Input disturbance**, a constant load added to the plant input in its own trial; Automatic tuning checks that load trial on the model for every family and refuses a design whose gains leave their declared range, naming the gain it needs.
-- Control Studio identification fits an integrating process with its delay, so SIMC's integrating PI is available for an identified tank.
-- Control Studio says why P is refused: unavailable on a delayed process, with the gain its offset would need, or unable to damp a shaft by the settling time; these refusals point to choosing another controller.
 - Control Studio Automatic tuning starts from the More robust response also when every requirement is entered; before, a fully entered task started from Balanced while generated criteria started from More robust, so the same requirements could design different controllers.
-- Control Studio Requirements refuses a validation duration shorter than the latest check of a declared scenario and names the duration it needs; Validate refuses such a campaign the same way instead of failing with a generic sample-window error.
 - Control Studio: the Auto-entry allowance of a program's own P, PI or PID covers the measured noise through its gains, as for `Control.PID`; a noisy measurement no longer fails the transfer check at a near-zero tolerance.
 - Control Studio: when Automatic tuning cannot meet the requirements, the next step it names is revising the requirements, and the Tune page no longer shows the previous candidate beside the refusal.
-- Control Studio applies a static decoupler: a PID group whose program writes `u = D·v` in Auto has Tune calculate `D = K⁻¹·diag(K)` and each PI through it, and Apply write the gains and `D` together, each controller starting at its share of the plant inputs (Specification 35 §17.15). The runtime's controller transfer gains the `decoupled-output` initialization formula, and an isolated run records up to 64 channels (was 32), so a group's transfer check fits; the channel-sample budget is unchanged.
-- Control Studio setup form: **Gain schedule** sets up a `Control.PID` whose program interpolates its gains between two to four operating points; it writes one loop per point, identified, tuned, validated and applied at that point with the schedule active (Specification 35 §17.14).
-- Control Studio setup form sets up LQG: the state-feedback structure's LQG design takes the program's estimates, their gains and observer gains, the noise variances and the model file the estimator implements (Specification 35 §17.1).
-- Control Studio Tune shows a state-feedback candidate's gain, phase and delay margins and Ms for its loop broken at the plant input (Specification 35 §17.10).
-- Control Studio setup form: **Smith predictor** sets up a `Control.PID` that reads the measurement plus the program's predicted correction (Specification 35 §17.13). Tune writes the model's gain, time constant and delay into the program and designs the PI for the process without its delay, refusing a settling time no longer than the delay. Tune now shows the margins beside every candidate on the Tune page itself: the page rebuilt the candidate without them.
 - Control Studio setup form offers as Auto/Manual signal only BOOLs without an I/O address, which Apply can switch, and says why when a program has none; previously an addressed mode was accepted and Apply refused it after identification, tuning and validation. Tune's peak sensitivity Ms is the peak over every frequency: a strictly proper loop's sensitivity tends to one beyond the plotted range, so Ms is never shown below one for it.
-- Control Studio setup form: **Feedforward** sets up a `Control.PID` whose program adds a feedforward from a measured disturbance (Specification 35 §17.12). Identify fits one model from the controller output and the disturbance, Tune designs the PI and the feedforward gain, lead and lag from both paths and shows the predicted deviation with and without feedforward, Validate adds a measured-disturbance step, and Apply starts the feedforward state at the measured disturbance so the switch does not bump. The runtime's controller transfer gains the `scaled-measurement` initialization formula.
-- Control Studio: a cascade set up in the form is one loop tuned together (Specification 35 §17.11): one identification of the plant input to both measurements, the inner controller designed first and the outer one through the predicted closed inner loop, one validation of both in Auto, and one Apply and Restore that switch both controllers together. The runtime's controller transfer switches additional controller modes at the same task boundary (`additional_modes`).
-- Control Studio setup form: **Other law** sets up a law Studio has no design formula for (MPC, ratio, split range, override, gain schedule, …): Tune searches up to 64 combinations of the program's coefficient values on the actual ST and uses the best one that meets every requirement (Specification 35 §17.1). Family names read as words ("Paired PI", "State feedback").
-- Control Studio setup form: **Own P, PI or PID** sets up a P, PI or PID law the program computes itself from its own gain variables (Specification 35 §17.1). Tune designs the gains to the requirements as for `Control.PID`, offers only the families the law has, and checks them on the actual ST; validation starts the integral term and the derivative's previous value bumplessly.
-- Control Studio Tune shows every PID-family candidate's gain, phase and delay margin and peak sensitivity Ms (Specification 35 §17.10). Automatic tuning places the closed-loop poles for the declared settling band when no formula response settles in time, so tight bands on delay-free models are met instead of refused.
-- Control Studio accepts loop signals without an I/O address: the controller output and setpoint may be program variables, and the measurement may be one the program only reads (Specification 35 §17.1). Plant simulation reads and writes such program variables by their symbolic path (Specification 46 §13), so validation runs on them. A measurement the program computes itself is refused with the reason.
-- Control Studio: each member of a PID group has its own identification step, and Tune predicts every member's response with the current and tuned gains by running the program on the group model (as for switching, state-feedback and other project-owned controllers). Applying a cascade's inner loop is refused, before anything is written, while its outer controller is in Auto, and the runtime rejects the transfer if the outer controller switches to Auto before it takes effect. A loop whose gain stays below one now gets its predicted response, with an unbounded phase margin. Setup names the controller action by the direction the output moves.
-- Security: dependencies updated for new advisories: rustls 0.23.45 (RUSTSEC-2026-0285), salsa 0.28.5 (RUSTSEC-2026-0308; the compiler's value-returning queries keep returning values), event-listener 5.4.2 (RUSTSEC-2026-0221), ratatui 0.30.2 with lru 0.18 (RUSTSEC-2026-0253), non-yanked spin 0.9.9 and 0.10.1, and the VS Code extension's `brace-expansion` 2.1.7 and 5.0.12 (GHSA-q2hr-2g5m-vwhr, GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p). The seven tracked advisory exceptions were re-reviewed (no upstream fix for opcua 0.12, tiny_http 0.12 or zenoh's `paste`) and renewed until 2026-12-29.
-- Control Studio's Automatic tuning designs PI, PD and PID to the requirements, as it already did for P. It uses the response nearest the declared one (More robust, Balanced, Faster) whose predicted response settles within the settling band by the settling time and stays within the allowed error; when none can, Tune names the requirement the fastest response misses and by how much. It previously always used the declared response, so a PI could miss the settling time that Validate then failed. The PID example's README follows the current workflow with measured results.
-- The examples gallery offers the five Control Studio examples (PID loop, cascade, interacting loops, ON/OFF control, state feedback), and the Control Studio guide links them.
 - Control Studio stays responsive during long studies: the host no longer resends every recorded identification run with each status message, sends the model-check recording only with results, and posts Apply's waiting progress only when the reading changes. A study with several long recordings could freeze the page for seconds at a time.
 - Apply observes its test duration in the runtime's own time, bounded to max(3 × the duration, the duration + 60 s) of wall-clock time. It waited a fixed wall-clock time, so a runtime running behind real time (under load, or on a slower controller) was stopped early and a correct controller failed with "The recorded response does not cover the reviewed duration". `control.transfer.status` now reports `runtime_time_ns`, the runtime clock of the scan it reports.
-- Control Studio no longer contains built-in physical model families: the thermal-balance and gravity-tank models, their identification, the step-by-step setup's unit-based choice of them ("Thermal energy balance" for W and °C, "Gravity-tank volume balance" for m³/s and m) and their native simulation are removed. Models are transfer functions or state-space models; a physical plant is supplied as one, identified from recordings or simulated by the project's plant. Lessons 68 and 69 supply the equivalent linearized two-tank state-space model.
-- Tune shows the predicted response of an ON/OFF or state-feedback candidate and of the current settings, as it does for `Control.PID`: it runs the program's own ST with both settings on the identified model in isolated simulation. Nothing is written to the running controller.
-- Apply waits, bounded and cancellable, for the process to return to the operating point the settings were validated at, showing the measurement's validated and current value, and then continues on its own. It asked the user to press Apply again. A manual output that differs from the validated point is refused at once with the value to return it to, because the process cannot settle by itself; Abort ends the wait without writing anything.
 - Apply of a state-feedback (LQR or pole-placement) law no longer fails its Auto entry when the process rests inside the settling band but not exactly at the operating point: without a reviewed Auto-entry tolerance, the first output may differ by the law's response to that accepted deviation, Σ|K|·band plus the reference gain's share (Specification 35 §12).
-- Control Studio names a PID group member's gains as it names a single PID's ("P1.Zone1 · Proportional gain (Kp)"), shows each member's path gain and its gain with the other loops closed in their unit (for example °C/%), and names a group's one-setpoint validation runs after the setpoint they change ("P1.Zone1C setpoint alone").
 - Validate lists each check once: an ON/OFF controller's switching levels and dwell times are no longer repeated by its on-off output's identical checks, and the dwell rows read "Minimum ON time" and "Minimum OFF time". Result labels show program symbols exactly as declared ("P1.Tank2SetpointM", not "P1.Tank2Setpoint M").
 - Control Studio setup records a program instance's program type (`Main` for `PROGRAM P1 WITH MainTask : Main`) in the loop file; it recorded the instance name.
-- The setup form sets up an existing state-feedback law in the program, designed by LQR or pole placement: the instance that runs it, the plant input, the controlled output with its setpoint, and one to three further measured outputs, each with the variable that holds its gain, plus the reference gain. Studio identifies the plant with the measured outputs as the model's states, so every gain belongs to one measured signal. `examples/control-state-feedback-commissioning` holds the second of two tanks in series with both levels fed back to the pump.
-- The setup form sets up an existing ON/OFF controller in the program: the instance that switches the output, its measurement, setpoint and output (switched between the output's minimum and maximum), Auto/Manual signal and manual output, the hysteresis and minimum ON and OFF times that Tune designs, and the retained output-on state and optional time in state. It also asks for the switched equipment's own minimum ON and OFF times, such as a compressor's restart protection; Tune never proposes shorter times. `examples/control-onoff-commissioning` is a cold room held by a switching compressor. The step-by-step setup remains for P-only controllers and imported adapters.
-- Tune shows a PID group's result: every member's designed gains and, per member, its own path (gain, time constant, delay), the relative gain of the pairing and the gain the member has with the other loops closed. The setup form names a group's model channels after their signals, as Identify does, so a group set up in the form can be tuned from its identified model.
 - Control Studio validates a cascade's outer loop on its identified model, which contains the closed inner loop, instead of on the project's plant: that run started the program from its declared values, with the inner controller in Manual, so the outer loop could never pass.
-- The setup form offers **PID group** when a program has several `Control.PID` instances: the included members, each filled in from its own calls, share one Auto/Manual signal and are written as one group loop that Tune designs from the group model.
 - A PID loop's bias is bounded as an offset of up to the output span either way. It was bounded to the output range, so a cascade's outer controller, whose output is a temperature setpoint, could not be validated with its zero bias.
 - A variable mapped to `%M` memory (for example with `VAR_CONFIG … AT %ML16`) starts from its declared or `VAR_CONFIG` initial value at a cold start, and from its retained value at a warm restart, as IEC 61131-3 §6.5.1 and §6.5.6.1 require. Previously the first cycle replaced it with the zero memory image, and a cold restart kept the image from before the restart, so programs had to set such variables in startup code.
-- Simulation plants may take a program variable in `%M` memory as a command source, not only a `%Q` output (Specification 46 §13.1). Control Studio uses this to validate the outer loop of a cascade: its model is driven by the inner setpoint the outer controller writes.
-- Control Studio's SIMC rule tunes second-order models by Skogestad's half rule (τ = τ₁ + τ₂/2, θ = θ + τ₂/2) instead of asking for a first-order model; a second-order model with complex poles is still refused with the reason.
-- PID groups can be tuned from their identified multivariable model (Specification 35 §17.9): each member's PI is designed by SIMC on its own path, reduced by the two-point method, for the gain it sees when the other loops are closed (Kᵢᵢ/λᵢᵢ). A pairing with a non-positive relative gain is refused with the pairing to use. A group declares this with the project seed `{ "kind": "decentralized-pid", "family": "PI" }`.
-- The setup form names a controller variable it cannot offer because it has no I/O address, and how to map it (`AT %I`, `%Q` or `%M` in `VAR_CONFIG`), instead of leaving the field empty without a reason.
-- Two example projects for Control Studio setup: `examples/control-cascade-commissioning` (a jacketed vessel under a two-`Control.PID` cascade) and `examples/control-two-zone-commissioning` (two heated zones sharing a wall, one `Control.PID` each). Their READMEs say how to set them up and in which order to tune.
-- The setup form fills in each controller from its own compiled calls when the program has several PIDs: choosing a controller brings its parameter record, setpoint, measurement, manual output and output, and both controllers of a recognised cascade are filled in. Fields the user has chosen are kept. Previously only a program with a single PID was prefilled.
-- Control Studio's setup form asks for the identification duration next to the identification step, instead of writing a fixed 60 s experiment into every loop. The duration depends on the process: a cascade's inner loop is identified over a few seconds from its fast response, a slow process over minutes.
 - The setup form asks for the startup-done flag whenever the program itself writes a value that validation starts from (the setpoint, a manual output, the Auto/Manual signal or the parameter record) or calls the PID's `Initialize`, for a single loop and for both loops of a cascade. The language server reports every symbol a program assigns (`controlSymbols.writes`). Previously only parameter-record writes were found, and the inner loop of a cascade whose startup code reset the manual outputs was validated with a setpoint step that never reached the process.
-- Control Studio's **Configure control loop** opens one form instead of a chain of prompts. The form is prefilled from the compiled program: the language server now reports how controllers are called (`controlSymbols.links`), so a `Control.PID`'s parameter record, setpoint, measurement, manual output and output come from its own `Configure`/`Update` calls, and a cascade (one PID's output feeding another's setpoint) is recognised and saved as two linked loops. The form asks only for what the program cannot say (units, ranges, the Auto/Manual signal, the identification step, and the startup-done flag when the program writes its own parameters) and writes the complete loop definition, including the seven retained `Control.PID` states. Loop discovery now compiles projects with their declared library dependencies; previously every project that used a vendored library failed setup with "cannot resolve type 'Control.PID'".
-- Control Studio's additional-lag warning speaks of the process and the sensor instead of water, the unreachable code of the earlier Studio panel (71 files) is removed, the Routh–Hurwitz details show stability boundaries as decimals with the exact values on hover, and calculation tables use the shared table style.
-- Tune explains a requested test change beyond the identified range: it names the range the model was measured in and the largest change it supports, instead of "Tune again".
-- Control Studio webview tests that had to be enabled by hand now run in the VS Code suite (29 more rendered journeys); a rendered run in which no test passes fails.
 - Control Studio keeps the validation results visible after a failed Apply. A rejected Auto entry that recovered previously replaced the passing rows with "Inconclusive · Scenario did not complete." for every validated scenario, and the failure and its recovery now read as two sentences.
-- The control course was reviewed as a sequence. Lessons 11–13 and 15–17 are rewritten in the course's concise format with recorded results: Lesson 11 teaches the integral time T_i = K_p/K_i and keeps a Ki = 0.6 candidate recorded in Control Studio, and Lesson 21 compares that candidate. Lessons 5–10 have concise procedures. Derivation steps that were skipped are shown (complex roots and overshoot in Lesson 33, critical damping in 34, the PID characteristic equation in 35, transform pairs in 44, determinants in 70–71, the Riccati cost in 73 and others), terms are defined before use, wrong lesson references are corrected, and a corrupted formula in Lesson 77 is repaired. The gallery texts of the lessons follow their READMEs again, without the spaces an earlier conversion had removed.
 - Control Studio's response chart keeps each row's axis name within its row. When a name such as "P1.ObservedKp (percentage-point/°C)" is wider than a short row, its unit moves to a second line; previously the names of stacked rows ran into each other.
 - Control Studio's Identify waits, bounded and abortable, until the measured output is steady before it excites the plant, as the step-identification workflow requires. Pressing Identify plant again right after an experiment previously stepped a plant that was still falling, so the fit failed or its operating point was off.
 - Identify with the Automatic method fits the simple models to a closed-loop setpoint step, as it already did for step, relay, PRBS and multisine tests; the fit now follows the experiment that actually ran instead of the requested method.
 - Validate's Auto-entry check starts the controller where the project's plant actually rests, measured by holding it at rest, instead of at the fitted model's operating point. A small offset in the fitted operating point previously failed the exact transfer check.
 - When Apply is refused because the process has not yet settled at the validated operating point, Apply stays available for the "Apply again" the message asks for.
-- Tune shows why it is unavailable beside the Tune controller button when the ready model cannot be tuned by the selected controller. A recovered failed Apply now says "previous controller parameters restored" for every controller type, not "PID".
-- Control Studio writes powers of s as superscripts (6s² + 5s + 1) in model equations and Routh texts, and analysis tables align their headers with their columns and separate the columns.
 - Measured MIMO path analysis rejects a baseline or settled window that contains the input step instead of averaging both command levels, and explains every rejection in plain words.
 - Tune accepts a supplied model on a loop that declares no identification experiment.
-- Control Studio's Requirements editor has an optional Auto-entry tolerance in the controller's output unit, as the auto-commissioning specification requires; blank keeps the automatic allowance. A state-feedback or LQG controller with a noisy measurement can now be applied with a reviewed tolerance instead of the 1e-6 default.
-- Control Studio refuses a validation run that exceeds the runtime's recording limits before starting it and names the limit: at most 32 recorded channels and 250,000 channel samples per run. The runtime's own refusal also names the exceeded limit instead of "execution exceeds cycle, sample or declaration bounds".
 - The runtime scheduler keeps its cycles on the cycle-interval grid: a late wake-up no longer delays every later cycle, and a stall longer than one interval moves the grid instead of replaying the missed cycles. With 0.5 ms of wake-up latency, 100 cycles of 10 ms previously ended 50 ms late.
-- Control Studio's Tune page names the recommended controller configuration as soon as a model is ready ("P1.Controller · PI — recommended") and keeps it marked when another configuration is chosen. Its predicted response compares the tuned controller with the one running in the project (Tuned / Current), and units read with a multiplication dot, such as %/(°C·s).
 - Control Studio Apply recovers when the controller's first Auto output breaks the reviewed transfer tolerance. The runtime now fails that transfer, publishes the output held at the transfer instead of the rejected one, and keeps running, so Studio's Manual recovery and the restoration of the previous gains complete. Previously the rejection faulted and halted the runtime, and recovery ended with "The parameter-operation identity remains unresolved".
-- Control Studio refuses to tune a model without measurement evidence or independent validation and now says so, with "Identify model" as the next step instead of "Tune again". This applies alike to supplied models and to models returned by Identify.
 - Control Studio Apply now accepts a process that has settled at the validated operating point within the requirement settling band, instead of demanding an exact match that a live or noisy process never reaches. When the process has not settled, Apply names the measured and validated values and offers "Apply again" rather than "Tune again".
-- Control Studio Validate shows the control requirements and any failed or inconclusive check as rows, and summarizes the passing generated range, rate, controller-state, unchanged-parameter and transfer checks in one row. Requirements declared by a lesson or project scenario always keep their own rows. A refused Apply no longer reports the completed transfer check as missing.
 - Control loops treat a signal declared without a unit as dimensionless, so identification and validation recordings no longer fail with "Invalid run channels or sample structure".
-- Lesson 19 (model-based PI tuning) now uses Control Studio's Tune, Validate and Apply with the real `Control.PID`: its program keeps applied gains and the operator setpoint, designs its startup gains by coefficient matching, and declares the setpoint-peak and 30 kW load trials for validation.
-- After a Feedback relay identification, Control Studio shows the measured relay cycle under the identified model (number of cycles, relay amplitude d, cycle amplitude a, period Pu and Ku = 4d/(πa)), or why the cycles are not usable. When the cycles qualify, Tune offers **Relay rule (Ziegler–Nichols PI)**, which proposes Kp = 0.45·Ku and Ti = Pu/1.2 for validation. The relay results stay visible through Validate.
-- Control Studio writes °C instead of degC in relay results and in the recorded-error and settling failure messages.
 - After Apply, Control Studio keeps the study draft instead of warning "Could not retain the workflow draft": a commissioning recording may include the loop's additional signals, and only duplicate channels are rejected.
 - Control Studio keeps large studies in workspace storage by storing each recorded run once and its samples column-wise, instead of reporting "Study evidence is invalid" after several validations.
 - Control Studio identifies a relay, PRBS or multisine recording by first fitting the simple models (static, integrating, first-order and first-order with delay), simulated under the recorded input from the baseline before the first change, and keeps the simplest adequate one. Relay recordings of delayed processes no longer fail Identify with "No identifiable adequate state model"; they give the same delayed first-order model as a step test.
-- The Feedback relay test measures the process noise during its baseline and switches just above it (mean ± twice the noise half-range) instead of at ±0.5 % of the measurement range, so the relay cycle meets the small-hysteresis assumption of Ku ≈ 4d/(πa).
-- Validate's Auto-entry check allows the controller's proportional response to the measured process noise (twice Kp times the noise half-range from the model's recording) unless a transfer tolerance is reviewed; noise-free plants keep the exact check.
-- Lesson 20 (relay tuning) now runs Control Studio's bounded Feedback relay test (d = 10 points) on the same heater and real `Control.PID` as Lesson 19, derives the relay-rule PI candidate in Tune, validates it against the Lesson 19 setpoint and load trials, and applies it.
-- Control Studio Validate can report command activity, the total movement of the applied command (Σ|Δu|, in percentage points for a % command), as a measured row, or check it against a declared maximum.
-- The Validate results table is taller, so a complete results list fits without an inner scroll bar.
-- Lesson 21 (tuning comparison) validates the manual, model-based and relay PI candidates on the same heater in Control Studio, with the same setpoint and load trials, settling within ±0.1 °C and command activity, and selects by the declared rule.
-- A project step test records the hold the learner applied. When a loop names its hold parameter (`experiment.holdParameter`), Review project test reads the applied value and plans the baseline, the whole hold and one restoration sample (35.1 s for a 30 s hold) instead of a fixed maximum.
-- Control Studio Tune offers **Setpoint weight (β)** beside the PI and PID gains when the controller law declares the `Control.PID` setpoint-weight field; the predicted response and the validated and applied parameter record use the entered β, and calculated candidates keep β = 1. Dimensionless settings no longer show a stray "1" as their unit.
-- Lesson 22 (setpoint weighting) runs the Lesson 21 controller (Kp 13, Ki 3.5) on the same noisy heater with the real `Control.PID`, compares β = 1, 0.5 and the calculated 0.3 in Control Studio and explains why the integral's growth during the delivery delay still saturates the heater at β = 0.5.
-- Control Studio Tune offers **Measurement filter time (Tf)** when the controller law declares the program's measurement filter; the predicted response and loop analysis include the filter lag, Tf is written with the gains, and calculated candidates bypass the filter (Tf = 0).
-- Lesson 23 (measurement filtering) filters the heater measurement before the real `Control.PID`, compares Tf = 0, 1 and 2 s on setpoint, load and noise trials in Control Studio (93 % less noise-driven command movement at 1 s; 2 s no longer settles), and starts the filter from the fresh measurement at Auto entry so Apply stays exactly bumpless.
-- Lesson 24 (sampling and timing) updates the heater's real `Control.PID` on the measured time between acquisitions, rejects intervals that are not positive or longer than half the loop's 4.46 s ultimate period (holding the command and restarting the filter), and compares normal, 1 s, late and wrongly timed updates under the Lesson 23 load requirements in Control Studio. Its first scan no longer divides by a zero interval when Control Studio's verification starts from preset controller states.
 - The Requirements editor limits scenario event times by the validation duration currently entered. It previously used the duration present when the dialog opened and, with none entered, rejected every event after time zero ("Value must be 0.").
-- Lesson 25 (controller initialization) replaces the booster-pump example with the heater and its real `Control.PID`: every retained value (outputs, setpoint and measurement references, rates, filter and timing) is initialized from the running heater at startup or once per request, automatic control waits for that initialization, Manual no longer updates the controller, and Control Studio compares an initialized start with one whose stored values are 0 before Apply initializes the controller at the Auto-entry boundary.
-- Lesson 26 (bumpless transfer) replaces the booster-pump example with the heater: while Manual commands the heater the real `Control.PID` tracks the applied command, setpoint and measurement (I = u_a − P), and the transfer scan reconstructs the manual command with no integral step. Control Studio shows a 60 % manual hold switched to Auto without a jump (60 % → 60 %, recovery settled in 18.7 s) next to the untracked jump to 87.7 %.
-- Lesson 27 (parameter updates) replaces the booster-pump example with the heater: the program adopts a changed parameter record together with its filter time only as a whole and only if it is valid (an 80 %/20 % limit pair or a negative filter time changes nothing), `Control.PID`'s incremental form keeps the command across a gain change (I re-based by P_old − P_new), and Control Studio refuses Kp 150 before validating and applying a Kp 10 / Ki 2.7 set.
 - Control Studio's manual Tune message for an out-of-range value keeps the field's symbol as labelled ("Enter proportional gain (Kp) between 0 and 100." instead of "(kp)").
-- Lesson 28 (measurement validity) replaces the booster-pump example with the heater: a sensor section supplies the reading with a quality flag and its acquisition age, readings with bad quality, outside 0–80 °C or older than 0.5 s latch a fault that removes heat in the same scan, freezes the controller and filter and clears the Auto request and manual demand, and recovery needs an acknowledgement, three consecutive fresh valid acquisitions and a new Auto request. Control Studio validates an invalid-value and a stale-sensor trial (0 % from detection, recovered within 0.034 °C).
-- Lesson 29 (heater commissioning) replaces the four-heater capstone with the complete Lesson 28 heater controller: a capacity check from the energy balance (75, 90, 90 and 105 % holding commands; 37 °C at full power under 30 kW), a commissioning record declared before any result, and one Control Studio trial per requirement (setpoint, load, startup, manual transfer, saturation, capacity, stale sensor) before the Lesson 21–23 controller replaces the introductory PI through one parameter update.
-- Lesson 30 (actuator tracking) replaces the software-only rate example with a hot-water valve whose stem moves at 0.5 %/s and publishes its measured position: the program distinguishes requested, bounded and measured position and tracks the measured stem in the integral (I_next = I* + Δt/T_t (x − u_r)). Control Studio compares it with bounded-target tracking (peak 37.03 °C and 25.4 s settling versus 37.74 °C with the request at 100 %).
-- Control Studio records a declared actuator's measured position as the applied input and the manipulated variable as the requested output, so Identify fits the plant from what the actuator reached and plots the actual stem ramp, named after the actuator signal, instead of an ideal request step.
-- Lesson 31 (valve characteristics) replaces the valve-bench example with the Lesson 30 hot-water valve in two pressure arrangements (regulated 100 kPa and a fixed 128.125 kPa supply with pipe loss 12.5 q²) driven by the same stem: a project-scripted staircase in Control Studio records stem, flows and pressures, and the program keeps only steady points to derive the installed slopes (0.020 versus 0.015 kg/(s·point)) and the heat at stated temperatures.
-- Lesson 32 (valve stiction) replaces the flow-loop example with two hot-water valves probed from Control Studio: one ignores request changes below a 1-point command deadband, the other accepts every request but holds its stem until the positioner force F = k_s (u_t − x) exceeds 50 N and stops where it falls to 20 N. The recording shows the unchanged accepted target, the 55 N breakaway at 80.5 %, the stop at 78.5 % and the path-dependent 74 % after a reversal.
-- Control Studio's response chart changes an auxiliary signal's line style after every three colours, as the live monitor plot does, so two displayed signals never draw with the same stroke.
-- Lesson 33 (position control) replaces the lesson-function torque calculation with `Control.PID` in its P configuration on a simulated rotary axis (J = 1 kg·m², B = 1 N·m·s/rad, ±20 N·m): the program latches the velocity at the first arrival at a new target and removes torque outside ±2 rad or ±10 rad/s. Control Studio identifies the axis from a supplied state-space model, predicts and validates Kp 4 and 16 against the declared peak, late-error and torque limits (overshoot 0.46 and 0.72 rad, arrival at 1.27 and 3.29 rad/s), and Automatic tuning reports that P cannot provide the damping.
-- Control Studio's Tune predicts the response of a supplied integrating plant, alone or behind a lag, such as a shaft driven by torque (θ/u = 1/(s(Js + B))), using the exact held-input step.
 - Control Studio no longer blocks the editor for several seconds when a controller is tuned again after a validation: the retained draft is not read back and decoded again after each store, and evidence is compared through a single-pass canonical text.
-- Control Studio names a failed operation by its page ("Tuning failed: …", "Identification failed: …") instead of its internal action.
 - Control Studio's charts label a fitted axis at its regular ticks only, so the padded ends (such as "1.58" above "1.5") no longer crowd them.
-- Lesson 34 (PD control) replaces the two lesson-function shafts with the Lesson 33 axis under `Control.PID` in its PD configuration (Kp 16, Kd 7 = 2√(J·Kp) − B, derivative on the measured angle). Control Studio compares P with the program's PD, shows the derivative kick of differentiating the error (366 N·m requested, 0.02 s at the 20 N·m limit), validates and applies the critically damped PD (no overshoot, 1.52 s), and Automatic tuning proposes Kp 1.56, Kd 1, which meets the 4 s requirement with a tenth of the torque.
-- Control Studio's Tune offers **Derivative setpoint weight (γ)** for PD and PID when the loop's law declares `derivativeSetpointWeightSymbol`: γ = 0 differentiates the measurement, γ = 1 the error; calculated candidates use γ = 0, and the prediction includes the resulting derivative kick.
 - Control Studio retains the workflow draft once after a burst of settings edits instead of for every edit, so typing controller settings after a validation no longer blocks the editor; results and resets are still retained at once.
-- Lesson 35 (PID load rejection) replaces the self-scripted trial program with the Lesson 34 axis lifting a 2 kg weight on a 0.1 m drum (τL = 1.962 N·m, a second plant input) under `Control.PID` in its PID configuration (Kp 16, Ki 12, Kd 7, β 0.3) with ±0.001 rad angle noise. Control Studio shows PD holding the load 0.124 rad low, PID holding it within 0.0015 rad, β = 1 overshooting the unloaded step by 0.23 rad and β = 0.3 passing every requirement and being applied.
-- Control Studio's Auto-entry check now allows the full controller response to measurement noise, including derivative (Kd·4n/Δt) and integral (Ki·Δt·n) terms, and, when no identification recording measured the noise (for example with a supplied model), measures it with a one-second resting run of the transfer trial's plant.
-- Lesson 36 (derivative filtering) replaces the self-scripted two-filter program with the Lesson 35 controller plus a first-order measurement filter on the angle (α = Δt/(Tf + Δt)), so `Control.PID` differentiates the filtered angle and D uses the filtered velocity. Control Studio compares Tf 0 (183 N·m torque activity per step), 0.5 s (0.27 rad overshoot from late braking) and 0.1 s (29 N·m, unchanged step), and applies Tf = 0.1 s.
-- Lesson 37 (discrete PID) replaces the hand-written positional controller that drove the axis with `Control.PID` (Kp 16, Ki 4, Kd 7, the Lesson 36 filter) and records the positional reading of every update: error, P, trial integral, D, request and the retained integral. A project experiment in Control Studio couples the drum load and steps the target to 1.5 rad; the recorded updates, including the clamp at 20 N·m with tracking, follow the discrete order exactly.
-- Lesson 38 (positional and incremental PID) replaces the positioning-table program, whose incremental path was a P-only shadow calculation, with the Lesson 37 axis under `Control.PID` (incremental with Ki > 0) and derives the increment Δu = Kp·Δe + Ki·e·Δt − Kd·Δω_f + γ from two consecutive positional requests. From the same inputs the program runs a positional form with its tracking, Manual (I = u_a − P − D) and gain-revision rules, a second `Control.PID` with Tt = Δt that keeps the applied torque, and the positional form without the gain rule. A project experiment in Control Studio clamps the Auto-entry request at 20 N·m and revises Kp from 16 to 24: the positional torque equals `Control.PID`'s at every update, while keeping the applied torque leaves a constant 4.49 N·m difference after the clamp and skipping the gain rule a 0.72 N·m one.
 - Control Studio's response plot on Identify, Tune and Validate shows hovered values rounded like its other charts (1.9 instead of 1.9017502305516345) and keeps the tooltip inside the plot.
-- Lesson 39 (servo commissioning) replaces the flexible indexing-table capstone with the drum axis of Lessons 33–38 and one integrated program: encoder validity with a latched fault (zero torque, then acknowledgement, three fresh readings and a new Auto request), whole-set parameter updates, one torque writer, initialization, bumpless transfer and the filtered `Control.PID`. The filter now runs in every mode, because restarting it at the Auto entry made the incremental D brake a falling load the wrong way (−5.5 N·m) after a fault. Control Studio validates the Lesson 36 candidate against declared positioning, load, torque-limit, startup, transfer and measurement-fault trials and applies it.
 - Control Studio runs a loop's declared verification scenario on the project's plant even when its id matches a generated model case such as `load-rejection`; such a trial previously ran silently on the supplied model, without the plant's other inputs.
 - The debug-session simulator that Control Studio runs keeps its cycles on the task-period grid: a late wake-up no longer delays every later cycle, and a stall longer than one period is skipped rather than replayed. Simulated time previously fell about 2.5 % behind wall time even when every cycle fitted its period, so Apply on a 20 ms loop failed with "The recorded response does not cover the reviewed duration".
-- Lesson 40 (volume balance) replaces the net-flow program, which wrote the balance into a single-input integrator, with a tank plant that has separate inlet and outlet pump inputs (A = 0.5 m², ±0.0005 m level noise) and a model level the program advances with the balance from the measured level. A Control Studio project experiment raises the inflow to 0.012 m³/s for 10 s: the level reaches 0.2896 m against the model's 0.2902 m and then holds 0.29 m with equal flows.
 - Control Studio draws the applied output in its response plots as steps, held from one update to the next, instead of joining samples with ramps that misplace a command step by a whole update.
-- Lesson 41 (gravity outflow) replaces the program that calculated the outflow from the measured level with two models advanced from the applied inflow: the gravity balance A·dh/dt = q_in − c·√h, which stops at a negative level instead of repairing it, and Lesson 40's constant outflow. In a 200 s Control Studio experiment at 0.011 m³/s the tank settles at the predicted (0.011/0.020)² = 0.3025 m, the gravity model follows within 0.0009 m, and the constant-outflow model ends 0.35 m too high.
-- Lesson 42 (linearization) replaces the program that simulated its own tangent against unused tanks with two identical gravity tanks stepped to 0.011 and 0.015 m³/s from the same state, each with a tangent model built at 0.25 m (g = 0.020 m²/s, K = 50 s/m², τ = 25 s). The Control Studio recording shows the small step within 0.0028 m of its tangent and the large step's error growing to 0.061 m, in line with the exact equilibrium error v²/c².
-- Lesson 43 (gain scheduling) replaces the hand-written scheduled tank controller with a `LevelController` block around `Control.PID` (Kp = A/λ, Ki fixed at the 0.25 m design level or scheduled as c/(2λ√h) from the measured level; the retained request keeps the holding flow when Ki changes). Six tanks compare fixed and scheduled gains at 0.09, 0.25 and 0.49 m in Control Studio: the fixed loop needs 48 s at 0.09 m against the 30 s requirement, the scheduled loop 23–24 s at every level.
-- Lesson 44 (Laplace transforms) replaces the gravity-tank program, which did not match the lesson's heater, with the heater under `Control.PID` P control (Kp 5) and two predictions of a 35 → 36 °C step: the transfer function H(s) = 0.2·Kp/(5s + 1 + 0.2·Kp) without the delivery delay, and the same loop recomputed with the 1 s delay. In Control Studio the heater settles at the predicted 35.50 °C with 77.50 %; the delay-free rise is off by up to 0.157 °C, while the recomputed loop follows within 0.021 °C.
-- Lesson 45 (poles and zeros) replaces four abstract response models with the lesson's heater and shaft: the heater returns from 36 to 35 °C in open loop and the shaft steps to 1 rad under `Control.PID` P control (Kp 4). The program calculates the poles from the physical values (−0.2 s⁻¹; −0.5 ± j1.936 s⁻¹) and writes their predicted responses. In Control Studio the water follows its pole within the ±0.02 °C noise and the shaft swings every 3.24 s as predicted; its 0.016 rad larger swings match the pole shift of the 20 ms torque hold (σ = −0.48).
-- Lesson 46 (characteristic equations) replaces the crane stability project, which belonged to Lesson 48, with the shaft under `Control.PID` PD control (Kp 16, Kd 7) knocked by a 10 N·m, 0.1 s external torque. The program forms s² + 8s + 16 = (s + 4)² and, for the sampled law (P 10 ms and D 20 ms late), 0.86s² + 7.84s + 16 = 0, and predicts the motion after the knock from both. In Control Studio the shaft returns without passing its target; (s + 4)² is up to 0.0096 rad off, the sampled-law roots −3.08 and −6.03 s⁻¹ follow within 0.0012 rad. The heater's PI loop with its integral is worked as a calculation with both modes.
-- Control Studio's root locus on **Tune** draws the pole paths across the varied gain's declared range, labels the inspected gains, marks the selected candidate and names the fixed parameters. It previously showed only unconnected points for the inspected gains, with the selected value in the caption.
-- Lesson 47 (root locus) declares the shaft with its braking connected, G₇(s) = 1/[s(s + 8)], with Kp varied and Kd = 7 fixed, and runs the chosen gain and an alternative on two identical shafts. In Control Studio Kp = 16 settles within ±0.02 rad in 1.46 s, Kp = 12 needs 2.16 s and Kp = 20 settles in 1.04 s with its first torque at the drive's 20 N·m limit.
-- Control Studio's Routh–Hurwitz result names the method that completed a table with a row of zeros (the auxiliary polynomial, not ε), and its calculation details list the first-column signs of the table they come from together with every special case, such as the origin pole and the replaced row.
-- Lesson 48 (Routh–Hurwitz stability) is shortened around the specified cases Kp = 1, 0 and −1: the table, the interval Kp > 0 with the excluded boundary, and the three recorded shaft trials.
-- Lesson 49 (periodic excitation) replaces the flexible-drive multisine, which did not match the lesson's heater, with three copies of the heater driven by `PeriodicExcitation`: u = 75 + 5·sin(ω·t) % for five periods at 0.1, 0.2 and 0.4 rad/s. In Control Studio the first cycle carries the start (mean up to 35.15 °C), and cycles 3–5 repeat about 35.000 °C with half swings of 0.91, 0.72 and 0.46 °C.
 - Control Studio's measured frequency response works on a completed project experiment: the recording is offered to the analysis, a first scan without a cycle time no longer disqualifies it, the fit per segment is exact for a sine about any operating point (it read 0.46 instead of 0.14 °C/point before), and leftover samples no longer reject the record. Model Bode plots keep the phase continuous instead of wrapping it past ±180°.
-- Lesson 50 (frequency response) replaces the flexible-drive project with the heater driven by Lesson 49's sine at 0.2 rad/s and a supplied heater model. Control Studio measures M = 0.1416 °C/point and φ = −57.07° against the model's 0.1414 and −56.46°.
 - Control Studio's Loop response sensitivity view draws S, T and CS with their own theme colours and strokes; CS was a dim default colour on dark themes.
-- Lesson 51 (sensitivity functions) replaces the precision-drive project with two PI-controlled heaters (Kp 5, Ki 1): one receives a 10 kW sinusoidal heat load, the other 0.05 °C of sinusoidal measurement noise in its reading. In Control Studio the load moves the water by 0.559 °C and the noise moves it by 0.040 °C and the command by 0.28 %, as |S| = |T| = 0.790 and |CS| = 5.59 at 0.2 rad/s predict.
-- Lesson 52 (loop shaping) replaces the single-trial heater program with nine heaters: the PI with the lead element (1 + Tz·s)/(1 + 2s) for Tz = 2 (F = 1), 3 and 10 s, each on a target step, a 30 kW load and 0.05 °C of noise, started together by Control Studio. The lesson calculates the crossover, phase margin and noise-to-command gain of the complete loop. In Control Studio only Tz = 3 s meets every requirement: the baseline lets the load pull the water to 33.75 °C, and Tz = 10 s moves the command by 1.41 % under the noise and saturates on the step.
 - Control Studio's Nyquist view states the count as the criterion does: P open-loop right-half-plane poles, N clockwise encirclements of −1 and Z = P + N. It previously printed a counterclockwise count without P or Z. The plot keeps equal units on both axes, so circles stay round and distances to −1 read true. Arrows show the direction of both frequency branches, and −1 is marked.
-- Lesson 53 (Nyquist stability) replaces the conveyor-oven program, which did not match its heater text, with two heaters under `Control.PID` P control (Kp 10 %/°C about 75 %) with 1 s and 8 s delivery delays. The lesson derives Z = P + N from the angle of 1 + L and calculates the critical delay of 6.05 s. In Control Studio the 1 s loop counts N = 0 and settles; the 8 s loop counts N = 2, Z = 2, and its recorded oscillation grows 1.44 times per 22.6 s period.
 - Control Studio's pole-zero map keeps equal units on both axes, like the Nyquist view: the unit circle of a sampled model stays a circle, and a pole's distance from it reads true.
-- Lesson 54 (sampled-data stability) replaces the positioning-table program, which did not match its shaft text, with two shafts under the same PD (Kp 16, Kd 7) with one update of computation delay, updated every 0.02 s and every 0.6 s, and simulated in 10 ms steps for both. The lesson derives the exact held-torque update and the characteristic polynomial in z. Control Studio's pole maps of the two sampled loops show all poles inside the unit circle for 0.02 s and a pair at |z| = 2.41 for 0.6 s. The recording shows the 0.02 s shaft settling at the 0.01 rad target without overshoot and the 0.6 s shaft growing until the abort at 2.82 s.
-- Lesson 55 (feedforward control) replaces the conveyor-oven program, which did not match its heater text, with three PI heaters (`Control.PID`, Kp 5, Ki 1) under the same 30 kW extraction. The first runs PI alone; the second adds the feedforward D_m/2 through `Control.PID`'s `FeedForward` input; the third takes it from a 36 kW estimate. The lesson derives the ideal feedforward −G_D/G_u = 0.5·e^(+s), which is not realizable, and the unavoidable 0.5438 °C drop. In Control Studio both feedforward heaters fall only to 34.456 °C, against 33.75 °C for PI alone; with the wrong estimate PI trims its part to 72 %.
-- Lesson 56 (cascade control) replaces the reactor program, which did not match its jacketed-vessel text, with five jacketed vessels. A single-loop PI and a cascade each run the 35 → 37 °C setpoint step and a 30 kW jacket loss, and one cascade runs its inner loop alone. The outer `Control.PID` outputs the jacket setpoint in °C and the inner one the heater in %, with model-based gains 0.5/0.12 and 5/10 against the single loop's 2.5/0.1. In Control Studio both pass the setpoint test. On the jacket loss, the cascade keeps the vessel above 34.80 °C while the single loop falls to 31.74 °C. The inner loop reaches 63.2 % in 0.5 s, against 9.7 s for the vessel.
-- Lesson 57 (ratio control) replaces the blending-skid program, which did not match its dosing text, with two calibrated additive pumps under ratio stations (R = 0.1, `Control.PID` PI 10/10 from the model-based rule). One carrier steps from 100 to 150 L/min, the other stops. Below 5 L/min of carrier the station commands 0 % in the same update, evaluates no ratio and sums the tail volume. In Control Studio the ratio is back within ±0.005 after 0.9 s, and the stopped pump still delivers 0.175 L, below the 0.20 L limit.
-- Lesson 58 (split-range control) replaces the reactor program, which did not match its text, with three jacketed vessels from Lesson 56 fitted with a cooler. The split-range cascade's inner `Control.PID` requests net heat, limited to −100…200 kW, which is then split into heater Q/2 and cooler −Q, never both. With 60 kW entering the jacket, Control Studio shows the split range handing over to the cooler in one update and holding 35.40 °C at 30 % cooler, while the heater-only cascade lets the vessel rise to 48.3 °C.
-- Lesson 59 (override control) replaces its reactor program with three heater-only jacketed vessels under a 42 °C jacket limit: the vessel PI alone, and an override with and without tracking. The override low-selects between a vessel PI and a jacket-limit PI (setpoint 41.8 °C), and the controller not selected runs in `Control.PID` Track mode. In Control Studio only the tracked override keeps the jacket at or below 42 °C (41.83 °C). It holds the vessel at the feasible 38.16 °C for an infeasible 40 °C request, and gives the heater back in the same update when 37 °C is requested. Without tracking the jacket reaches 43.17 °C and the vessel stays stuck for 19.8 s.
-- Lesson 60 (Smith prediction) replaces its program with four heaters. A fast PI (λ = 1 s) runs on the measurement and inside a `SmithPi` predictor fed with its delay-free and delayed heater models; the same predictor and the slow PI then run on heaters whose delay is 1.5 s. In Control Studio, with the matching model the predictor's residual stays below 5·10⁻¹⁰ K: the step reaches 63 % at 2.0 s with no overshoot, against 56 % overshoot on the measurement. It rejects a 10 kW load no better. With the 1.5 s heater it overshoots by 17 %, while the slow PI does not.
-- Lesson 61 (vessel commissioning) replaces its single-vessel trial selector with five jacketed vessels and one `ReactorTrain` block per vessel. The block owns the heater, tracks with the controllers not in charge, keeps the transfer update as a tracking update, and latches zero heat on an invalid reading. The heat balance rules out cooling, and no jacket limit is specified, so the lesson compares the single loop and the cascade on the same requirements. In Control Studio both meet the 35 → 37 °C step; on the 30 kW jacket loss the single loop falls to 31.74 °C, while the cascade holds 34.80 °C. The recommended cascade then passes the lifecycle case: 15.000 % on the transfer update and 15.144 % on the next, and 0 % in the update of a 0 °C sensor reading, still latched after the reading recovers. Lessons 53–61 also replace the lesson metadata's baseline and change summaries left over from the programs these lessons replaced.
-- Lesson 62 (multivariable process paths) replaces its distillation-column program with the README's two vessels coupled through an 8 kW/°C wall. One recording steps heater 1 and then heater 2 with the other fixed, and `CoupledVesselModel` advances the supplied balances from the old temperatures. Control Studio's **Measured MIMO paths** reads the four paths from settled windows: gains 0.1380, 0.0607, 0.0611 and 0.1376 °C per point against K's 0.1385 and 0.0615, all rises within 0.005 °C of the prediction.
 - Control Studio's **Measured MIMO paths** summary shows channel units in the course notation (°C instead of degC), and the pairing line no longer touches the **Static decoupler** disclosure.
-- Lesson 63 (relative gain array) replaces its distillation-column program with two pairs of the coupled vessels: isolated steps on one, and on the other the same steps with the other heater corrected by −(4/9)·5 points so that its vessel ends where it started. In Control Studio the compensated gain is 0.1109 against the isolated 0.1380 °C/point, a ratio of 1.245 against 81/65 = 1.246, and **Measured MIMO paths** gives the array 1.2426/−0.2426: the diagonal pairing is chosen. The fixed correction holds the other vessel only at equilibrium; it dips to 34.906 °C at 3.0 s.
-- Control Studio's **Measured MIMO paths** shows each matrix with one precision, so a relative gain row visibly sums to one (1.2426 and −0.2426 instead of 1.24 and −0.2426), and the relative gain array and decoupler tables use the gain matrix's table layout.
-- Lesson 64 (decentralized PI) replaces its distillation-column program with four pairs of the coupled vessels, one `Control.PID` PI per vessel, on both target directions and a 10 kW load on each vessel. The gains are Control Studio's declared experiment settings, so each gain set is its own run. With Kp 5 and Ki 1 every changed- and loaded-vessel requirement passes, but the unchanged vessel strays +0.284 °C, beyond ±0.2 °C. The bounded retunes (Kp 6: +0.272 °C; Ki 1.2: +0.288 °C) do not help, so the lesson keeps Kp 5 and Ki 1 for static decoupling.
-- Lesson 65 (static decoupling) replaces its distillation-column program with six pairs of the coupled vessels: paired PI on the vessel-1 target and load, and `DecoupledPi` on all four events. `DecoupledPi` uses the same gains through u = 75 + M·v, M = [[1, −4/9], [−4/9, 1]]: virtual integrals start at zero, the bias is added after the map, and physical limiting is tracked through M⁻¹. In Control Studio the map lowers heater 2 to 70.47 % in the first update and keeps the unchanged vessel within −0.152 °C, against +0.284 °C paired, so decoupled PI meets every Lesson 64 requirement. Under the loads it moves the other vessel more, −0.155 against −0.068 °C.
-- Lesson 66 (multivariable design selection) replaces its distillation-column program with three sets of the coupled vessels, with walls of 6, 8 and 10 kW/°C. The declared experiment setting Coupling Case selects which set a run exercises. Both architectures run in one block, `TwoVesselPi`, with cross gain 0 for paired PI and 4/9 for Lesson 65's decoupler, frozen for 8 kW/°C. In Control Studio the decoupler passes all 12 of its cases, both directions and both loads at each coupling, with the unchanged vessel at −0.179/−0.152/−0.131 °C. Paired PI fails the unchanged-vessel limit in all six target cases (+0.233/+0.284/+0.328 °C), so the decoupler is chosen for the tested couplings.
-- Lesson 67 (state-space models) replaces its single-cascade program with two copies of the two-tank gravity cascade and `CascadeModel`, the README's local model advanced by one explicit one-second step from both old states. The lesson first calculates the supplied model's **Initial-state response** in Control Studio: from tank 1 at 0.27 m, tank 2 rises on the stored water to 0.007358 m above rest at 25 s. It then records both tanks through a ±0.001 m³/s pump change, with both model levels within 0.00057 m of the tanks while the pump is changed. A level outside 0.05–0.45 m or a clock interval outside 1 ± 0.05 s latches zero flow.
-- Control Studio's **Initial-state response** draws **Total** as the wide process-value line, with **Zero-state input** and **Initial condition** over it as dashed and dotted auxiliary lines, so a part that equals the total stays visible; before, all three used the chart's default colours and the total was faint. Its calculation table shows each column in one notation (0.000769 instead of 7.69e-4 above 0.001477).
-- Lesson 68 (controllability) replaces its program with Lesson 67's cascade and model, steered by a pulse pair designed from the model: 0.011 m³/s for 20 s, then 0.009 m³/s for the 11 s after which the model returns tank 1 to rest. Control Studio's **Controllability and observability** shows rank 2 of 2 with [B, AB] = [2, −0.08; 0, 0.08]. In the recording, tank 1 is back at 0.2501 m with tank 2 at 0.2603 m at 31 s. Tank 2 then drains, because no constant flow holds unequal levels.
-- Control Studio's **Controllability and observability** reports each rank out of the state count. Under **Calculation details** it lists the declared state, input and output order, the matrices A, B, C, D, [B, AB, …] and [C; CA; …] with one precision per matrix, and what the ranks do not establish. Before, the second matrix column appeared in exponent notation (−8.00e-2 for −0.08), and the order and the scope were missing.
-- Lesson 69 (observability) replaces its single non-equilibrium cascade with two copies of Lesson 67's cascade, both driven by Lesson 68's pulse pair. Tank 1 is reconstructed from tank 2's readings alone as y + 25·Δy, from exact readings on one copy and on the other from readings 5 mm off in alternate directions. The true tank 1 level is read only to score the reconstruction. In Control Studio the observability rank is 2 of 2 with [C; CA] = [0, 1; 0.04, −0.04]. The exact readings reconstruct tank 1 within 1.3 mm (RMS 0.00047 m); the noisy ones are off by 0.255 m RMS, since each 5 mm error enters through a derivative multiplied by 25 s.
-- Lesson 70 (state feedback) replaces its magnetic-bearing project with two copies of the two-tank cascade. It is the first lesson to use Control Studio's state-feedback design end to end. The supplied model declares only the physical cascade; Studio derives the local model with both levels measured. **State-space design** places z = e^(−0.08) and e^(−0.12) and calculates K = [0.0562, 0.0369] m²/s and the reference gain 0.1131. **Validate** runs the actual program against the nonlinear cascade (settling 33 s and 25 s), and **Apply** commissions Auto. After a 0.01 m³ slug into tank 1, tank 2 rises 3.2 mm with feedback against 7.3 mm without, and both levels are within 0.35 mm of rest 50 s later.
 - Control Studio's control requirements, and the requirements it proposes automatically, now apply only to outputs with a setpoint. A model that also measures an auxiliary output, such as the upstream tank used by state feedback, no longer receives requirements for it. Before, those requirements made the loop invalid, and **Tune controller** stayed disabled without an explanation.
-- Lesson 71 (state observers) replaces its magnetic-bearing project with Lesson 67's cascade and four `TankObserver`s. It uses L = [0.48, 0.28] s⁻¹ for the error poles −0.16 and −0.20 s⁻¹ and the stronger L = [2.52, 0.64] s⁻¹, each fed exact and ±5 mm tank-2 readings, after a slug that the observers do not see. Control Studio checks the supplied error model: **Poles and zeros** shows −0.16 and −0.20 s⁻¹, and **Initial-state response** shows the predicted decay. The taught gain estimates tank 1 within 2 mm from 22 s with exact readings and from 30 s with noisy ones (RMS 1.43 mm, against 255 mm for Lesson 69's differentiation). The stronger gain converges by 12 s but carries 9.2 mm RMS of noise.
-- Lesson 72 (Kalman filtering) replaces its weigh-feeder project with Lesson 67's cascade and a two-state Kalman filter of tank 1 from tank 2's reading, which carries 5 mm of pseudo-random noise restarted with each experiment. The filter calculates its gain from the model's and the reading's uncertainty every second and updates its covariance in Joseph form. It also reports the RMS error it claims, next to the actual RMS error scored against the true level. With the true reading uncertainty, tank 1 is estimated within 2 mm from 25 s after the unseen slug, with an RMS error of 0.23 mm against a claimed 0.54 mm. Assuming 0.25 mm raises the gain on tank 1 to 19.5 and gives 1.01 mm while the filter claims 0.34 mm. Assuming 100 mm gives a smooth but late estimate (1.87 mm).
 - Control Studio's finite-horizon **Riccati stages**, the Routh table's entries, the pole view's cancelled factor and allowed-level limits now show each list or matrix with one precision. Before, the digits followed each entry's position in its row, so equal values read differently (14.5 beside 14) and small gains appeared in exponent notation (7.84e-2).
-- Lesson 73 (LQR control) replaces its suspension project with Lesson 70's cascade under a gain designed by Control Studio's finite-horizon LQR. The design uses 20 steps, Q = diag(400, 400) with the same terminal weight, and R = 40000 or 160000. The program adds the level cost 400(x1² + x2²) and the effort cost 40000(q − 0.010)² of the applied flow for 60 s after a slug, the same scales for both designs, and records the largest level deviation 50–60 s after it. K0 = [0.0784, 0.0245] m²/s keeps tank 2 within +3.0 mm (level 0.489, effort 0.288); four times the effort weight gives [0.0344, 0.0098], +4.4 mm (0.913, 0.100). Both meet the 2 mm late requirement, and each design has the lower cost by its own weights.
 - Control Studio's state-space design fields show a draft error only under the field it concerns, such as **Terminal weights**, and clear it once the design reads. Before, one missing entry put the same message under every filled field, and the messages stayed after the design became valid.
 - Control Studio writes channel counts in the singular where needed ("1 input, 2 outputs") and shows a dimensionless tuned value without a unit, for example an estimator gain of 0.2393 instead of "0.2393 1".
-- Lesson 74 (LQG control) replaces its suspension project with two cascades under the same gains from Control Studio's LQG design. The design supplies a one-second model that measures only tank 2, and gives K = [0.0787, 0.0239] m²/s with a steady Kalman gain L. One cascade measures both levels; the other feeds the gain with its estimate, predicting from the last applied command and correcting with the reading. During the project experiment both read tank 2 with the same 5 mm noise, and after a slug the estimator is not told about, the full-state loop stays within 0.58 mm 50–60 s later. With the model's error alone as process covariance, L = [0.0023, 0.0068]: the estimate misses the slug and the loop is 5.3 mm high. Allowing tank-1 upsets (L = [0.239, 0.106]) brings it to 1.7 mm.
-- Lesson 75 (model predictive control) replaces its building-zone project with two of Lesson 13's heaters that share a 100-point supply. Every second the program predicts both heaters three seconds ahead for the 231 command pairs on a 5-point grid within the supply. It rejects plans that leave 26–33 °C, scores squared temperature errors plus a 0.002 move weight, and applies the first move of the cheapest plan; the cost splits into one part per heater, which keeps the search to 42 predictions. Raising heater 1 from 28 to 31 °C, the first plan borrows supply from heater 2 (70/30), and both targets are met within 8 s at 55/40. With 30 kW more taken from heater 2 the targets need 110 points: the plans use the whole supply, 50/50, and both heaters settle 1 °C low. The old test that loaded the building project is retired.
-- Lesson 76 (Lyapunov stability) gets a program and a matching plant: an upright arm (J = 1 kg·m², B = 1 N·m·s/rad, G = 4 N·m, ±20 N·m) under τ = −16φ − 7ω, with V = ½Jω² + ½Kpφ² + G(cos φ − 1) and its certificate V ≤ 0.1 J published every 20 ms. Before, the project had no program, a mismatched arm simulation and a library copy. A Control Studio experiment setting chooses the start angle; the experiment holds the arm there with gravity compensation and then releases it. From 0.1 rad the state stays inside the certificate, V never increases, and the torque peaks at 1.6 N·m. From 0.2 rad, outside the proven region, the arm also returns and enters the region after 0.46 s: unproved, not unstable.
-- Lesson 77 (feedback linearization) replaces its industrial-joint project with Lesson 76's upright arm under τ = 16(r − φ) − 7ω − Ĝ·sin φ, with the controller's gravity coefficient Ĝ as a Control Studio experiment setting. For a 0.1 rad target, no compensation rests at 0.1332 rad and misses both the 0.12 rad peak and 0.01 rad error requirements. Ĝ = 3.5 N·m rests at 0.1032 rad, and the nominal Ĝ = 4 N·m holds 0.1000 rad with gravity's own −0.399 N·m.
-- Lesson 78 (adaptive control) replaces its extruder project with two of Lesson 13's heaters whose heat loss has dropped to 8 kW/°C, each held by the real `Control.PID` (heater B in Manual during the estimation windows). From one-second heat balances the program estimates the heat loss by least squares, Ĥ = Σxy/Σx², over two 30 s windows. It accepts a window only for 7–13 kW/°C, at least 1 °C of temperature span, residuals within 5 kW and agreeing halves, and then sets Ki = Ĥ/(aλ). The steady window is rejected even though it gives 8.0 kW/°C, because it cannot separate the change from an unknown extraction. The step window is accepted and sets Ki to 0.4. On a 3 °C step the revised heater follows the λ = 10 s design (63 % at 9.9 s, no overshoot), while the old gains rise faster and overshoot slightly.
-- Lesson 79 (robust control) replaces its flexible-wing project with eighteen of Lesson 13's heaters spanning heat loss 8–12 kW/°C and delivery delay 0.8–1.2 s, each held by its own `Control.PID` in an array of `HeaterCase` blocks. A capacity check shows that holding 38 °C would need 108 % at 12 kW/°C, so the requirements use a 35 → 36 °C step and a 10 kW extraction. The heat loss varies gain and time constant together, and a small-gain bound, W·|T0| ≤ 0.254, proves stability for every heater in the range with Kp = 2.5 and Ki = 0.5. In Control Studio that candidate passes all eighteen cases; Kp = 30 and Ki = 6, tuned for the nominal heater, settles faster there but leaves the 8 and 10 kW/°C heaters with 1.2 s delay oscillating (7 of 9 step cases).
-- Lesson 80 (networked control) replaces its pumping-header project with six of Lesson 13's heaters, each under a remote `Control.PID` whose commands travel as packets over a simulated network, with a local `Control.PID` as fallback. The reusable `CommandReceiver` accepts a packet only if it belongs to the current connection, has a newer sequence number and is 0–200 ms old; it holds the last command for at most 300 ms and then hands over to the local PI, which has tracked the applied command. Remote control returns only after an acknowledgement, three fresh packets and a remote command within 0.1 point of the applied one. In Control Studio a dropped, a reordered, a late and an old-session packet are each held or rejected by their own check, an outage switches to local control at 5.4 s, and the acknowledged heater returns to remote control at 8.2 s; the transfers change the command by at most 0.026 points, and all six heaters meet the step requirement.
-- Lesson 81 (fault-aware control) replaces its pumping project with six of Lesson 13's heaters, each measured by two temperature sensors and held by a `Control.PID`. The reusable `SensorSelector` accepts a reading only if it is 0–80 °C and at most 0.5 s old, uses sensor A when valid and B otherwise, latches zero heat when two fresh readings differ by more than 0.4 °C for 0.2 s or no reading is valid, and restarts only after three fresh agreeing readings and a new Auto request; each change of sensor re-initializes `Control.PID` with the applied command so the command does not jump. In Control Studio a stale sensor is used until its reading is older than 0.5 s, an out-of-range sensor is replaced at once, a sustained disagreement latches zero heat at 5.2 s while two short ones do not, losing both sensors latches, and the restored heater restarts at 12.0 s from zero with only the integral step.
-- Lesson 82 (independent design) replaces its compressed-air project with a matched comparison on twelve of Lesson 13's heaters: PI against PI with feedforward of a measured 10 kW draw-off, each at heat losses of 8, 10 and 12 kW/°C with a setpoint step and a draw-off, against requirements and a decision rule declared before the test. A feasibility check shows that every requirement needs at most 96 %. Both candidates meet the setpoint requirement; only the feedforward candidate keeps the draw-off within 0.3 °C (about 0.18 °C, the fall during the 1 s delivery delay, at every heat loss), so the declared rule recommends it.
 - Arrays of function block and class instances work as IEC 61131-3 Table 11 and the truST data-type specification describe: `Timers : ARRAY[1..2] OF TON;` creates one independent instance per element, including each element's nested instances, in programs, function blocks, methods, named array types and globals. `Timers[i](IN := x)` calls an element, `Timers[i].Q` reads it, and restart re-creates every element. The runtime previously refused such declarations with "init failed ...: type mismatch" and could not compile a call through a subscript.
-- Instance arrays accept element initializers, `[(PT := T#100ms), (PT := T#300ms)]`, and repetitions written `50((PT := T#100ms))` or `50(PT := T#100ms)`; an array type declared with an initializer gives it to every variable of the type, and a cold restart re-applies it.
 - A function-block input may be assigned through its instance before the call, `Delay.IN := Start; Delay();`, as IEC 61131-3 Figure 13 and the statement specification allow; the checker previously rejected it with E301. A function block still may not assign its own inputs.
 - A warm restart no longer restores the instance identity of a `RETAIN` global function block, class or instance array: the instances are re-created, as the runtime specification requires, instead of pointing at unrelated instances after the restart.
-- While running with debug control attached, the debug snapshot shows the last completed cycle, including its last statement; a pause, step or breakpoint still snapshots the exact storage at the stop.
-- Lesson 14 (identification experiments) uses that recording: its record ends just after the step returns, for any permitted hold. The lesson explains the steady start, step size and hold through the drift, uncertainty and first-order response calculations, with the recorded results.
 - Keep chart tick labels distinct when small temperature changes occur around a nonzero operating point.
-
 - Keep rejected independent model predictions inspectable after save/reopen without allowing acceptance. Preserve the model overlay when restoring hidden experiment signal selections.
 - Keep Lesson18 on the same native heater used for identification, and use the permitted40s estimation hold for its independent validation handoff. Preserve the lesson's fixed error and timing requirements.
+
+### Removed
+
+- Removed: the bytecode engine. Every runtime now runs the project compiled into a program image
+  (specification 44 §15): `trust-runtime build` writes `program.tpi`, and `run`, `play`, `fleet
+  start`, `conformance`, `bench project`, `trust-dev test` and the VS Code simulator run it. The STBC
+  format with its encoder, loaders, validator and virtual machine is deleted, and so are the
+  `--execution-backend` options of `run`, `play`, `build`, `conformance`, `bench` and `trust-dev
+  test` and the debug launch's `executionBackend`, which entries below still name. A project that
+  holds only an old `program.stbc` is refused with "rebuild the project"; `runtime.execution_backend`
+  in `runtime.toml` still loads with `vm` or `native` and selects nothing. Retain files written
+  before restore unchanged. `trust-bundle-gen` writes `program.tpi`, `trust-runtime check` no longer
+  reports a bytecode size, and `cargo xtask portability` loses its STBC actions (`pack`, `verify`,
+  `footprint`, `compare-benchmarks`). The STM32F407 firmware and its adapter are deleted with the
+  engine they ran: the chips are the ESP32-C6 and the STM32U5A9. The engine's error codes, which
+  nothing reports any more, leave the stable vocabulary: `bytecode_*`, every `vm_*` code but
+  `vm_call_stack_overflow`, `runtime_invalid_bytecode`, `runtime_invalid_bytecode_metadata`,
+  `runtime_unsupported_bytecode_version`, `runtime_condition_not_bool`, `runtime_case_selector_type`,
+  `runtime_invalid_control_flow`, `runtime_type_nesting_exceeds`, `runtime_undefined_task`,
+  `runtime_undefined_label`, `runtime_invalid_task_single`, `runtime_constant_write`,
+  `runtime_staging_violation`, `runtime_visibility_violation`, `runtime_program_root_replacement`
+  and `runtime_preparation_limit`.
+- The NUCLEO-F401RE firmware is retired; the STM32 chip is the STM32F407. The STM32F4
+  adapter has no `stm32f401` feature, and `cargo xtask portability` no longer accepts
+  `nucleo-f401re`.
+- HMI Builder: Live mode always shows the real run target; its test values and recordings are
+  removed.
+- HMI: `symbols = "rendered"` in `hmi/screen.toml` is an error; the symbols are two-dimensional.
+- Control Studio no longer contains built-in physical model families: the thermal-balance and gravity-tank models, their identification, the step-by-step setup's unit-based choice of them ("Thermal energy balance" for W and °C, "Gravity-tank volume balance" for m³/s and m) and their native simulation are removed. Models are transfer functions or state-space models; a physical plant is supplied as one, identified from recordings or simulated by the project's plant. Lessons 68 and 69 supply the equivalent linearized two-tank state-space model.
+
+### Security
+
+- Security: tokio 1.54.1 (RUSTSEC-2026-0386), rustls-webpki 0.103.16 (RUSTSEC-2026-0382), webpki-roots 1.0.11
+  (RUSTSEC-2026-0381) and ctutils 0.4.6 (RUSTSEC-2026-0385).
+- Security: the VS Code extension takes undici 7.30.1 through Blockly's jsdom (GHSA-4qv8-2p9j-2685,
+  GHSA-f72v-6w45-q472, GHSA-xjj6-f33q-929c), and its development tools serialize-javascript 7.1.4 and, through an
+  `overrides` entry for the packaging tool's Azure sign-in, `@azure/msal-node` 7.1.1 (GHSA-xcx6-jx8p-x3h5), so
+  that `npm audit` reports no vulnerability.
+- Security: the VS Code extension takes `markdown-it` 15.0.3, which fixes two quadratic-time denial-of-service
+  defects in rendering (GHSA-vfgh-jcmw-g37q, GHSA-gfr2-rv44-r23c).
+- Security: the HMI's file routes (screens, panels, pairs, texts, symbols and images) read only regular
+  files inside the project's `hmi/` folder; a link, a linked folder or an `io.toml` is never read, so no HMI
+  route can disclose the I/O configuration's credentials.
+- Security: a web deployment (`/api/deploy`) is now checked against the signature policy of the
+  project's installed `runtime.toml`. Before, the check read `[runtime.deploy] require_signed` and
+  `keyring_path` from the `runtime.toml` the deployment itself carried, so a deployment could turn
+  the requirement off, or name a keyring of its own, and install an unsigned program.
+- The web IDE's `/api/discovery` and `/api/probe` need the same web login as the other
+  routes, and `/api/probe` takes its target and credentials in a POST body instead of
+  the URL. `config.get` and `config.set` cover `discovery.host_group`;
+  `comm.capabilities` reports discovery and mesh peer health; a runtime listening on a
+  wildcard address reports its real network addresses instead of `127.0.0.1`.
+- Runtime mesh now enforces configured peer tokens and TLS using the runtime's certificate
+  material. A requested TLS connection cannot silently start as plaintext; wrong or missing
+  peer credentials are rejected.
+- Security: dependencies updated for new advisories: rustls 0.23.45 (RUSTSEC-2026-0285), salsa 0.28.5 (RUSTSEC-2026-0308; the compiler's value-returning queries keep returning values), event-listener 5.4.2 (RUSTSEC-2026-0221), ratatui 0.30.2 with lru 0.18 (RUSTSEC-2026-0253), non-yanked spin 0.9.9 and 0.10.1, and the VS Code extension's `brace-expansion` 2.1.7 and 5.0.12 (GHSA-q2hr-2g5m-vwhr, GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p). The seven tracked advisory exceptions were re-reviewed (no upstream fix for opcua 0.12, tiny_http 0.12 or zenoh's `paste`) and renewed until 2026-12-29.
 
 ### Removed
 
@@ -2285,7 +3450,7 @@ Target release: `v0.24.75`
   report their application failure without turning an invalid request into a PLC fault.
 
 - Add the NUCLEO-F401RE reference composition for the shared runtime, with bounded memory, separately installed STBC artifacts, and remote GPIO/watchdog evidence tooling. The full-function F401 bring-up passes saved-artifact traces, numeric checks, GPIO safe outputs, depth-four calls and independent-watchdog reset; production qualification remains separate.
-- Add the ESP32-C6-DevKitC-1 reference composition (`firmware/trust-esp32c6-reference` on the new `trust-platform-esp32` adapter). It runs the same saved application bundle, oracle and trace grammar as the NUCLEO-F401RE on RISC-V with software floating point, and executes the interpreter's scan path from internal RAM: from flash, one task activation took 11.07 ms against the 10 ms period. On the owned board the bring-up passes the 101-row trace, numeric checks, GPIO safe outputs, depth-four calls and the MWDT0 watchdog reset, with a 1.97 ms slowest main scan and a 10,856-byte stack peak; production qualification remains separate.
+- Add the ESP32-C6-DevKitC-1 reference composition (`firmware/trust-esp32c6` on the new `trust-platform-esp32` adapter). It runs the same saved application bundle, oracle and trace grammar as the NUCLEO-F401RE on RISC-V with software floating point, and executes the interpreter's scan path from internal RAM: from flash, one task activation took 11.07 ms against the 10 ms period. On the owned board the bring-up passes the 101-row trace, numeric checks, GPIO safe outputs, depth-four calls and the MWDT0 watchdog reset, with a 1.97 ms slowest main scan and a 10,856-byte stack peak; production qualification remains separate.
 
 - Add explicit STBC 2.0 authoring and portable byte-level validation for declared
   storage, construction roots, compiled initializer recipes and access bindings.
@@ -2476,6 +3641,10 @@ Target release: `v0.24.75`
 
 ### Fixed
 
+- A `POINTER TO ARRAY[*] OF T` again accepts the address of a concrete
+  `ARRAY[a..b] OF T` of the same rank, so the OSCAT array helpers and `CRC_GEN`
+  run on the shared engine; a different element type or rank is still a type
+  mismatch.
 - OPC UA startup now waits until this process's own server has bound its listen address, so another process holding the port can no longer pass for a started server on platforms where the check before startup does not see it (seen on macOS). A bind that fails during startup reports the same "listen address … is unavailable" error as that check.
 - `trust-dev ctl` and `trust-runtime ui` keep the project's control token when
   `--endpoint` is given, as `trust-runtime ctl` does; they used to drop it.

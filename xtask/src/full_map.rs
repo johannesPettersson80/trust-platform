@@ -17,7 +17,9 @@ use crate::software_map::{
 };
 
 mod external_safety;
+mod unbuilt_sources;
 pub use external_safety::external_safety_gate;
+use unbuilt_sources::{check_unbuilt_sources, UnbuiltSourceAllowance};
 
 pub fn architecture_doctor_full_map(root: &Path) -> Result<()> {
     let policy = FullMapPolicy::load(root)?;
@@ -82,6 +84,8 @@ struct FullMapPolicy {
     dependency_hygiene: DependencyHygienePolicy,
     unsafe_concurrency: UnsafeConcurrencyPolicy,
     diagram_policy: DiagramPolicy,
+    #[serde(default)]
+    unbuilt_source_allowlist: Vec<UnbuiltSourceAllowance>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -768,8 +772,8 @@ fn run_policy_checks(root: &Path, map: &SoftwareMap, policy: &FullMapPolicy) -> 
         check_hir_zero_silent_bug_doctor(root),
         check_runtime_boundary_fail_closed_doctor(root),
         check_runtime_safety_fail_closed_doctor(root),
-        check_runtime_vm_mutation_evidence(root),
         check_diagram_claims(map, policy),
+        check_unbuilt_sources(root, &map.packages, &policy.unbuilt_source_allowlist),
     ]
 }
 
@@ -2598,146 +2602,6 @@ fn runtime_safety_fail_closed_check_from_output(
     }
 }
 
-#[derive(Debug, Clone)]
-struct RuntimeVmMutationShardEvidence {
-    shard: String,
-    total: u64,
-    caught: u64,
-    missed: u64,
-    timeout: u64,
-    unviable: u64,
-    outcomes_path: String,
-}
-
-fn check_runtime_vm_mutation_evidence(root: &Path) -> FullMapCheck {
-    let mut evidence = Vec::new();
-    let mut missing = Vec::new();
-    let mut errors = Vec::new();
-    let out_root = root.join("target/gate-artifacts/runtime-vm-mutants");
-    for shard in RUNTIME_VM_MUTATION_SHARDS {
-        match read_runtime_vm_mutation_shard_evidence(root, &out_root, shard) {
-            Ok(Some(item)) => evidence.push(item),
-            Ok(None) => missing.push((*shard).to_string()),
-            Err(error) => errors.push(error),
-        }
-    }
-    runtime_vm_mutation_evidence_check_from_parts(evidence, missing, errors)
-}
-
-fn read_runtime_vm_mutation_shard_evidence(
-    root: &Path,
-    out_root: &Path,
-    shard: &str,
-) -> Result<Option<RuntimeVmMutationShardEvidence>, String> {
-    let outcomes_path = out_root.join(shard).join("mutants.out/outcomes.json");
-    if !outcomes_path.is_file() {
-        return Ok(None);
-    }
-    let source = fs::read_to_string(&outcomes_path)
-        .map_err(|error| format!("read {}: {error}", rel_path(root, &outcomes_path)))?;
-    let json = serde_json::from_str::<serde_json::Value>(&source)
-        .map_err(|error| format!("parse {}: {error}", rel_path(root, &outcomes_path)))?;
-    let count = |name: &str| -> Result<u64, String> {
-        json.get(name)
-            .and_then(serde_json::Value::as_u64)
-            .ok_or_else(|| {
-                format!(
-                    "{} is missing numeric field '{name}'",
-                    rel_path(root, &outcomes_path)
-                )
-            })
-    };
-    Ok(Some(RuntimeVmMutationShardEvidence {
-        shard: shard.to_string(),
-        total: count("total_mutants")?,
-        caught: count("caught")?,
-        missed: count("missed")?,
-        timeout: count("timeout")?,
-        unviable: count("unviable")?,
-        outcomes_path: rel_path(root, &outcomes_path),
-    }))
-}
-
-fn runtime_vm_mutation_evidence_check_from_parts(
-    evidence: Vec<RuntimeVmMutationShardEvidence>,
-    missing: Vec<String>,
-    errors: Vec<String>,
-) -> FullMapCheck {
-    let mut details = Vec::new();
-    details.push(format!(
-        "expected shards: {}",
-        RUNTIME_VM_MUTATION_SHARDS.len()
-    ));
-    details.push(format!("present shards: {}", evidence.len()));
-    for item in &evidence {
-        details.push(format!(
-            "{}: {} total / {} caught / {} unviable / {} missed / {} timeout ({})",
-            item.shard,
-            item.total,
-            item.caught,
-            item.unviable,
-            item.missed,
-            item.timeout,
-            item.outcomes_path
-        ));
-    }
-    for shard in &missing {
-        details.push(format!(
-            "{shard}: missing target/gate-artifacts/runtime-vm-mutants/{shard}/mutants.out/outcomes.json"
-        ));
-    }
-    details.extend(errors.iter().map(|error| format!("error: {error}")));
-
-    let mut failures = errors;
-    failures.extend(evidence.iter().filter_map(|item| {
-        if item.missed > 0 || item.timeout > 0 {
-            Some(format!(
-                "{} has {} missed and {} timeout mutants",
-                item.shard, item.missed, item.timeout
-            ))
-        } else {
-            None
-        }
-    }));
-
-    if !failures.is_empty() {
-        return FullMapCheck::fail(
-            "FULLMAP-RUNTIMEVM-MUT",
-            "runtime VM mutation evidence has unexplained survivors",
-            failures,
-        );
-    }
-    if !missing.is_empty() {
-        return FullMapCheck::partial(
-            "FULLMAP-RUNTIMEVM-MUT",
-            "runtime VM mutation evidence artifacts are incomplete",
-            details,
-        );
-    }
-    FullMapCheck::pass(
-        "FULLMAP-RUNTIMEVM-MUT",
-        "runtime VM mutation shards have zero missed and timeout mutants",
-        details,
-    )
-}
-
-const RUNTIME_VM_MUTATION_SHARDS: &[&str] = &[
-    "call-root",
-    "call-bindings",
-    "call-stdlib",
-    "call-symbols",
-    "register-ir-root",
-    "register-ir-interpreter",
-    "register-ir-lower-root",
-    "register-ir-lower-decode",
-    "register-ir-lower-fuse",
-    "register-ir-lower-verify",
-    "register-ir-tier1-root",
-    "register-ir-tier1-compile",
-    "register-ir-tier1-execute",
-    "register-ir-tier1-state",
-];
-
 fn command_stream_details(label: &str, stream: &str) -> Vec<String> {
     let mut details = stream
         .lines()
@@ -3331,13 +3195,21 @@ fn is_test_like_source_path(path: &str) -> bool {
 fn is_panic_like_scan_path(path: &str) -> bool {
     path.starts_with("crates/trust-runtime/src/")
         || path.starts_with("crates/trust-platform-stm32f4/src/")
-        || path.starts_with("firmware/trust-nucleo-f401re/src/")
+        || is_firmware_source_path(path)
         || path.starts_with("crates/trust-board-fixture/src/")
+        || path.starts_with("crates/trust-runtime-services/src/")
         || path.starts_with("crates/trust-platform-esp32/src/")
-        || path.starts_with("firmware/trust-esp32c6-reference/src/")
         || path.starts_with("crates/trust-hir/src/")
         || path.starts_with("crates/trust-lsp/src/")
         || path.starts_with("crates/trust-ide/src/")
+}
+
+/// The sources of a firmware workspace, `firmware/<workspace>/src/`: every chip's firmware is
+/// scanned, whatever its folder is called.
+fn is_firmware_source_path(path: &str) -> bool {
+    path.strip_prefix("firmware/")
+        .and_then(|rest| rest.split_once('/'))
+        .is_some_and(|(_, inner)| inner.starts_with("src/"))
 }
 
 fn is_concurrency_scan_path(path: &str) -> bool {
@@ -5285,64 +5157,6 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
     }
 
     #[test]
-    fn runtime_vm_mutation_clean_evidence_passes_full_map_check() {
-        let check = runtime_vm_mutation_evidence_check_from_parts(
-            vec![RuntimeVmMutationShardEvidence {
-                shard: "register-ir-tier1-state".to_string(),
-                total: 32,
-                caught: 31,
-                missed: 0,
-                timeout: 0,
-                unviable: 1,
-                outcomes_path:
-                    "target/gate-artifacts/runtime-vm-mutants/register-ir-tier1-state/mutants.out/outcomes.json"
-                        .to_string(),
-            }],
-            Vec::new(),
-            Vec::new(),
-        );
-
-        assert_eq!(check.status, CheckStatus::Pass);
-        assert!(check
-            .details
-            .iter()
-            .any(|detail| detail.contains("register-ir-tier1-state: 32 total")));
-    }
-
-    #[test]
-    fn runtime_vm_mutation_missing_evidence_is_partial_full_map_check() {
-        let check = runtime_vm_mutation_evidence_check_from_parts(
-            Vec::new(),
-            vec!["register-ir-tier1-state".to_string()],
-            Vec::new(),
-        );
-
-        assert_eq!(check.status, CheckStatus::Partial);
-    }
-
-    #[test]
-    fn known_bad_runtime_vm_mutation_survivor_fails_full_map_check() {
-        let check = runtime_vm_mutation_evidence_check_from_parts(
-            vec![RuntimeVmMutationShardEvidence {
-                shard: "register-ir-tier1-state".to_string(),
-                total: 32,
-                caught: 30,
-                missed: 1,
-                timeout: 0,
-                unviable: 1,
-                outcomes_path:
-                    "target/gate-artifacts/runtime-vm-mutants/register-ir-tier1-state/mutants.out/outcomes.json"
-                        .to_string(),
-            }],
-            Vec::new(),
-            Vec::new(),
-        );
-
-        assert!(check.is_fail());
-        assert!(check.details.iter().any(|detail| detail.contains("missed")));
-    }
-
-    #[test]
     fn unsafe_summary_with_remaining_hotspots_is_a_finding() {
         let check = check_unsafe_concurrency_summary(&base_map());
 
@@ -5359,7 +5173,7 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
             "trust-firmware-safety-{}-{suffix}",
             std::process::id()
         ));
-        let firmware = root.join("firmware/trust-nucleo-f401re");
+        let firmware = root.join("firmware/demo");
         fs::create_dir_all(firmware.join("src"))?;
         fs::create_dir_all(firmware.join("target/debug"))?;
         fs::write(
@@ -5376,11 +5190,30 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
         assert_eq!(summary.unregistered_unsafe_sites.len(), 1);
         assert_eq!(
             summary.production_unsafe_sites[0].path,
-            "firmware/trust-nucleo-f401re/src/main.rs"
+            "firmware/demo/src/main.rs"
         );
         assert_eq!(summary.production_unsafe_sites[0].line, 2);
         assert_eq!(summary.unregistered_concurrency_boundaries.len(), 1);
         Ok(())
+    }
+
+    #[test]
+    fn every_firmware_workspace_source_is_scanned_and_nothing_beside_it() {
+        for path in [
+            "firmware/demo/src/main.rs",
+            "firmware/trust-stm32f407/src/board.rs",
+            "firmware/trust-esp32c6/src/main.rs",
+        ] {
+            assert!(is_panic_like_scan_path(path), "{path}");
+            assert!(is_concurrency_scan_path(path), "{path}");
+        }
+        for path in [
+            "firmware/demo/build.rs",
+            "firmware/src/main.rs",
+            "firmware-tools/demo/src/main.rs",
+        ] {
+            assert!(!is_panic_like_scan_path(path), "{path}");
+        }
     }
 
     #[test]
@@ -5813,6 +5646,7 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
                 ],
                 allowed_aliases: Vec::new(),
             },
+            unbuilt_source_allowlist: Vec::new(),
         }
     }
 }

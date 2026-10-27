@@ -12,7 +12,7 @@
           "id": "act_init_1",
           "name": "InitSystem",
           "qualifier": "N",
-          "body": "system_ready := TRUE;\nlog('System initialized');"
+          "body": "system_ready := TRUE;"
         }
       ]
     },
@@ -27,7 +27,7 @@
           "id": "act_prep_1",
           "name": "PrepareMaterials",
           "qualifier": "N",
-          "body": "materials_ready := TRUE;\nlog('Materials prepared');"
+          "body": "materials_ready := TRUE;"
         }
       ]
     },
@@ -41,8 +41,9 @@
         {
           "id": "act_heat_1",
           "name": "HeatProcess",
-          "qualifier": "N",
-          "body": "heater_on := TRUE;\ntemperature := 150;"
+          "qualifier": "L",
+          "time": "T#2s",
+          "body": "heater_on := HeatProcess.Q;\nIF HeatProcess.Q THEN\n  temperature := 150;\nEND_IF;"
         }
       ]
     },
@@ -56,8 +57,9 @@
         {
           "id": "act_mix_1",
           "name": "MixIngredients",
-          "qualifier": "N",
-          "body": "mixer_on := TRUE;\nmix_speed := 500;"
+          "qualifier": "L",
+          "time": "T#3s",
+          "body": "mixer_on := MixIngredients.Q;\nIF MixIngredients.Q THEN\n  mix_speed := 500;\nELSE\n  mix_speed := 0;\nEND_IF;"
         }
       ]
     },
@@ -71,8 +73,9 @@
         {
           "id": "act_polish_1",
           "name": "PolishSurface",
-          "qualifier": "N",
-          "body": "polisher_on := TRUE;\npolish_level := 100;"
+          "qualifier": "L",
+          "time": "T#1500ms",
+          "body": "polisher_on := PolishSurface.Q;\nIF PolishSurface.Q THEN\n  polish_level := 100;\nEND_IF;"
         }
       ]
     },
@@ -87,7 +90,7 @@
           "id": "act_finish_1",
           "name": "CompleteProcess",
           "qualifier": "N",
-          "body": "process_complete := TRUE;\nlog('Process finished successfully');"
+          "body": "process_complete := TRUE;"
         }
       ]
     }
@@ -136,7 +139,7 @@
     {
       "id": "trans_heat_join",
       "name": "T6_HeatDone",
-      "condition": "T#2s",
+      "condition": "NOT HeatProcess.Q",
       "sourceStepId": "step_heat",
       "targetStepId": "join_parallel",
       "priority": 1
@@ -144,7 +147,7 @@
     {
       "id": "trans_mix_join",
       "name": "T7_MixDone",
-      "condition": "T#3s",
+      "condition": "NOT MixIngredients.Q",
       "sourceStepId": "step_mix",
       "targetStepId": "join_parallel",
       "priority": 1
@@ -152,7 +155,7 @@
     {
       "id": "trans_polish_join",
       "name": "T8_PolishDone",
-      "condition": "T#1500ms",
+      "condition": "NOT PolishSurface.Q",
       "sourceStepId": "step_polish",
       "targetStepId": "join_parallel",
       "priority": 1

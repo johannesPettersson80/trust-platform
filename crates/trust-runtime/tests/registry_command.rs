@@ -1,10 +1,16 @@
+//! The `trust-runtime registry` commands: the profile, publishing, downloading and verifying a
+//! project package, and the private registry's access control.
+//!
+//! The tests that build a project need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::process::{Command, Output};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use smol_str::SmolStr;
-use trust_runtime::bundle_builder::build_program_stbc;
+use trust_runtime::bundle_builder::build_program_image;
 use trust_runtime::bundle_template::{build_io_config_auto, render_io_toml, render_runtime_toml};
+use trust_runtime::native::{Target, Toolchain};
 
 static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -32,8 +38,8 @@ fn make_runtime_toml_portable(runtime_toml: String) -> String {
     #[cfg(windows)]
     {
         return runtime_toml.replacen(
-            "endpoint = \"unix:///tmp/trust-runtime.sock\"",
-            "endpoint = \"tcp://127.0.0.1:0\"\nauth_token = \"trust-ci-token\"",
+            "[runtime.control]\n",
+            "[runtime.control]\nendpoint = \"tcp://127.0.0.1:0\"\nauth_token = \"trust-ci-token\"\n",
             1,
         );
     }
@@ -68,8 +74,12 @@ END_PROGRAM
         ),
     )
     .expect("write config source");
-    let report = build_program_stbc(root, None).expect("build program.stbc");
-    assert!(report.program_path.is_file(), "program.stbc should exist");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let target = Target::this_cpu().expect("a computer target");
+    let report = build_program_image(root, None, target, &toolchain, false, true)
+        .expect("build program.tpi");
+    assert!(report.image.is_file(), "program.tpi should exist");
 }
 
 fn run_registry_command(args: &[&str]) -> Output {
@@ -254,11 +264,11 @@ fn registry_publish_download_verify_round_trip() {
 
     assert!(download.join("runtime.toml").is_file());
     assert!(download.join("io.toml").is_file());
-    assert!(download.join("program.stbc").is_file());
+    assert!(download.join("program.tpi").is_file());
     assert!(download.join("src").join("main.st").is_file());
     assert_eq!(
-        std::fs::read(project.join("program.stbc")).expect("read source bytecode"),
-        std::fs::read(download.join("program.stbc")).expect("read downloaded bytecode")
+        std::fs::read(project.join("program.tpi")).expect("read the built program image"),
+        std::fs::read(download.join("program.tpi")).expect("read the downloaded program image")
     );
 
     let _ = std::fs::remove_dir_all(project);

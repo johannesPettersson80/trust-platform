@@ -1,10 +1,9 @@
 //! Lesson 40, Your own PID law: the program's own positional PID drives the drum axis that holds the weight.
 use trust_runtime::debug::DebugControl;
 use trust_runtime::io::IoAddress;
-use trust_runtime::memory::InstanceId;
 use trust_runtime::simulation::SimulationController;
 use trust_runtime::value::Value;
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
 mod control_heater_support;
 use control_heater_support::*;
@@ -12,23 +11,24 @@ use control_heater_support::*;
 const PROJECT: &str = "03-production-quality-digital-pid/86-own-pid-law";
 const HOLDING_TORQUE: f64 = 1.962;
 
-fn own_law(runtime: &Runtime, program: InstanceId) -> InstanceId {
-    let Some(Value::Instance(own)) = runtime.storage().get_instance_var(program, "Own").cloned()
-    else {
-        panic!("the program's own PositionalPid must drive the axis");
-    };
+fn own_law(runtime: &CompiledRuntime, program: &str) -> String {
+    let own = format!("{program}.Own");
+    assert!(
+        exists(runtime, &own),
+        "the program's own PositionalPid must drive the axis"
+    );
     own
 }
 
-fn own_number(runtime: &Runtime, own: InstanceId, name: &str) -> f64 {
-    match runtime.storage().get_instance_var(own, name) {
-        Some(Value::LReal(value)) => *value,
+fn own_number(runtime: &CompiledRuntime, own: &str, name: &str) -> f64 {
+    match value(runtime, &format!("{own}.{name}")) {
+        Some(Value::LReal(value)) => value,
         other => panic!("Own.{name}: {other:?}"),
     }
 }
 
 fn step(
-    runtime: &mut Runtime,
+    runtime: &mut CompiledRuntime,
     simulation: &mut SimulationController,
     debug: &DebugControl,
     update: u64,
@@ -40,9 +40,9 @@ fn step(
 /// the designed gains, the integral term at the present torque, the previous measurement at the present angle,
 /// and Auto, all at one task boundary. `integral` is `None` when the setup did not name the integral term.
 fn start_in_auto(
-    runtime: &mut Runtime,
+    runtime: &mut CompiledRuntime,
     debug: &DebugControl,
-    program: InstanceId,
+    program: &str,
     gains: (f64, f64, f64),
     integral: Option<f64>,
 ) {
@@ -58,11 +58,11 @@ fn start_in_auto(
     );
     let own = own_law(runtime, program);
     if let Some(integral) = integral {
-        debug.enqueue_instance_write(own, "IntegralNm", Value::LReal(integral));
+        enqueue_instance_write(debug, &own, "IntegralNm", Value::LReal(integral));
     }
     let angle = number(runtime, "%IL0");
-    debug.enqueue_instance_write(own, "PreviousAngleRad", Value::LReal(angle));
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(debug, &own, "PreviousAngleRad", Value::LReal(angle));
+    enqueue_instance_write(debug, program, "AutoMode", Value::Bool(true));
 }
 
 #[test]
@@ -100,8 +100,8 @@ fn own_pid_law_continues_from_the_holding_torque_with_the_state_control_studio_s
     let own = own_law(&runtime, program);
     // Lesson 39's gain-revision rule still runs: it adds (Kp,old − Kp,new)·e and (Kd,new − Kd,old)·ω of the
     // previous update, which at rest are only measurement noise.
-    let revision = (16.0 - 30.0) * own_number(&runtime, own, "PreviousErrorRad")
-        - (7.0 - 10.0) * own_number(&runtime, own, "PreviousVelocityRadS");
+    let revision = (16.0 - 30.0) * own_number(&runtime, &own, "PreviousErrorRad")
+        - (7.0 - 10.0) * own_number(&runtime, &own, "PreviousVelocityRadS");
     let (kp, ki, kd) = (30.0, 20.0, 10.0);
     start_in_auto(
         &mut runtime,
@@ -135,7 +135,7 @@ fn own_pid_law_continues_from_the_holding_torque_with_the_state_control_studio_s
         lowest > -0.005,
         "the weight does not sag after the switch: lowest angle {lowest} rad"
     );
-    let integral = own_number(&runtime, own_law(&runtime, program), "IntegralNm");
+    let integral = own_number(&runtime, &own_law(&runtime, program), "IntegralNm");
     assert!(
         (integral - HOLDING_TORQUE).abs() < 0.05,
         "the integral term still carries the weight: {integral} N·m"
@@ -180,7 +180,7 @@ fn own_pid_law_brakes_the_drum_and_removes_torque_at_the_travel_limit() {
     let mut aborted_at = None;
     for update in 1..200 {
         step(&mut runtime, &mut simulation, &debug, update);
-        if runtime.storage().get_instance_var(program, "SafetyAbort") == Some(&Value::Bool(true)) {
+        if value(&runtime, &format!("{program}.SafetyAbort")) == Some(Value::Bool(true)) {
             aborted_at.get_or_insert(update);
             assert_eq!(number(&runtime, "%QL0"), 0.0, "an abort removes the torque");
             assert_eq!(

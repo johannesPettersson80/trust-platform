@@ -15,7 +15,7 @@ import { runtimeLifecycleService } from "../../runtimeLifecycle";
 import { LiveOperator, LiveOperatorDeps } from "./liveOperator";
 import { runtimeLiveOperatorDeps } from "./liveOperatorRuntime";
 import type { QualityWarning } from "./quality";
-import { isPidFile, syncLinked } from "./pidSync";
+import { isPid, syncLinked } from "./pidSync";
 import { DeployDeps, deployBundle, rollbackBundle } from "./deploy";
 import { runtimeDeployDeps } from "./deployRuntime";
 import { LiveConnection, LivePoller, runtimeLiveConnection } from "./liveMode";
@@ -33,7 +33,7 @@ import {
   languageServerScreen,
   languageServerVariables,
 } from "./languageServerPageFiles";
-import { HostToWebview, KEEP_SETTINGS_PATH, WebviewToHost } from "./messages";
+import { HostToWebview, KEEP_SETTINGS_PATH, RUST_RULES, WebviewToHost } from "./messages";
 import { renameEquipment } from "./renameEquipment";
 import { writeScreenColour, writeScreenLanguages } from "./screenFile";
 import { changeEquipmentPicture, createOwnEquipment } from "./ownEquipment";
@@ -91,6 +91,7 @@ function isProjectSource(file: vscode.Uri, project: vscode.Uri): boolean {
 /** Where the editor gets the binding checks' problems of its page (§7.6). */
 export interface ProblemSource {
   objectProblems(uri: vscode.Uri): Record<string, string[]>;
+  objectPoints?(uri: vscode.Uri): Record<string, Record<string, string>>;
   /** The quality warnings of a page, by object id (§14.1 item 4). */
   objectWarnings?(uri: vscode.Uri): Record<string, QualityWarning[]>;
   /** The warnings about a project's own colours (§14.1 item 4). */
@@ -220,7 +221,7 @@ export class HmiBuilderEditorProvider implements vscode.CustomTextEditorProvider
       }
     };
     const sync = new PageSync(document, post, this.files, (model) => {
-      void syncLinked(project, document.uri, model, screenSize, this.files);
+      void syncLinked(project, document.uri, model, screenSize);
       loadedModel = model;
       void sendComposition();
       void sendPlaced();
@@ -281,6 +282,7 @@ export class HmiBuilderEditorProvider implements vscode.CustomTextEditorProvider
         post({
           type: "problems",
           problems: this.problems.objectProblems(document.uri),
+          points: this.problems.objectPoints?.(document.uri) ?? {},
           warnings: this.problems.objectWarnings?.(document.uri) ?? {},
         });
       }
@@ -300,7 +302,7 @@ export class HmiBuilderEditorProvider implements vscode.CustomTextEditorProvider
       post({ type: "arrangement", arrangement: this.context.globalState.get(ARRANGEMENT_KEY) ?? null });
       const zoom = workspaceState?.get<number>(zoomKey);
       if (typeof zoom === "number") post({ type: "zoom", zoom });
-      if (isPidFile(document.uri)) post({ type: "view", view: "pid" });
+      if (await isPid(project, document.uri)) post({ type: "view", view: "pid" });
       await sendCatalogue();
       await sendScreen();
       sendTexts();
@@ -541,6 +543,11 @@ export class HmiBuilderEditorProvider implements vscode.CustomTextEditorProvider
           case "copy":
             void vscode.env.clipboard.writeText(message.text);
             return;
+          case "rust":
+            void answerRust(message.command, message.argument).then((answer) =>
+              post({ type: "rustAnswer", id: message.id, answer }),
+            );
+            return;
           case "zoom":
             void workspaceState?.update(zoomKey, message.zoom);
             return;
@@ -692,6 +699,19 @@ export class HmiBuilderEditorProvider implements vscode.CustomTextEditorProvider
 <script src="${script}"></script>
 </body>
 </html>`;
+  }
+}
+
+/** The language server's answer to one of the webview's rule questions (§17.3); a command that is
+ * not one of `RUST_RULES` is refused. */
+async function answerRust(command: string, argument: unknown): Promise<unknown> {
+  if (!(Object.values(RUST_RULES) as string[]).includes(command))
+    return { ok: false, error: `${command} is not one of the HMI Builder's rules.` };
+  try {
+    const answer = await vscode.commands.executeCommand<unknown>(command, argument);
+    return answer ?? { ok: false, error: "The truST language server gave no answer." };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
 

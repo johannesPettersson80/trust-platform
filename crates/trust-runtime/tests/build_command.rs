@@ -1,3 +1,9 @@
+//! `trust-runtime build` (specification 11 §6.8.1d; specification 44 NX-15): the project's
+//! program image `program.tpi`, the CI report of its sources and dependencies, and a failed build
+//! that leaves an earlier program in place.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
+
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -101,8 +107,8 @@ END_FUNCTION
     assert_eq!(payload["status"], "ok");
     assert_eq!(payload["project"], project.display().to_string());
     assert_eq!(
-        payload["program"],
-        project.join("program.stbc").display().to_string()
+        payload["image"],
+        project.join("program.tpi").display().to_string()
     );
     assert_eq!(
         payload["source_count"].as_u64(),
@@ -128,7 +134,7 @@ END_FUNCTION
         payload["dependency_roots"],
         serde_json::json!([dependency.canonicalize().expect("canonical dependency")])
     );
-    assert!(project.join("program.stbc").is_file());
+    assert!(project.join("program.tpi").is_file());
 
     let _ = std::fs::remove_dir_all(project);
 }
@@ -147,8 +153,8 @@ Counter :=
 END_PROGRAM
 "#,
     );
-    let program_path = project.join("program.stbc");
-    std::fs::write(&program_path, b"previous-bytecode").expect("write existing bytecode");
+    let program_path = project.join("program.tpi");
+    std::fs::write(&program_path, b"previous-image").expect("write existing program image");
 
     let output = run_build(&project, &["--ci"]);
     assert_eq!(output.status.code(), Some(11));
@@ -158,8 +164,8 @@ END_PROGRAM
         String::from_utf8_lossy(&output.stderr)
     );
     assert_eq!(
-        std::fs::read(&program_path).expect("read preserved bytecode"),
-        b"previous-bytecode"
+        std::fs::read(&program_path).expect("read preserved program image"),
+        b"previous-image"
     );
 
     let _ = std::fs::remove_dir_all(project);
@@ -168,8 +174,14 @@ END_PROGRAM
 #[test]
 fn build_human_mode_discovers_current_project_and_summarizes_sources() {
     let project = unique_temp_dir("build-human");
-    write_file(&project.join("runtime.toml"), "");
-    write_file(&project.join("io.toml"), "");
+    // The build writes the deployment record, which carries the project's configuration
+    // (specification 44 §10.1), so the project has a complete `runtime.toml` and a valid
+    // `io.toml`.
+    write_file(&project.join("runtime.toml"), RUNTIME_TOML);
+    write_file(
+        &project.join("io.toml"),
+        "[io]\ndrivers = [{ name = \"loopback\", enabled = true }]\n",
+    );
     for index in 0..6 {
         write_file(
             &project.join(format!("src/program_{index}.st")),
@@ -194,7 +206,37 @@ fn build_human_mode_discovers_current_project_and_summarizes_sources() {
     assert!(stdout.contains("Wrote"));
     assert!(stdout.contains("Sources: 6 file(s)"));
     assert!(stdout.contains(" - ... +1"));
-    assert!(project.join("program.stbc").is_file());
+    assert!(project.join("program.tpi").is_file());
 
     let _ = std::fs::remove_dir_all(project);
 }
+
+/// The `runtime.toml` of a project whose resource runs a cycle every 10 ms, with the sections every
+/// project must have at their defaults.
+const RUNTIME_TOML: &str = "[bundle]
+version = 1
+
+[resource]
+name = \"Probe\"
+cycle_interval_ms = 10
+
+[runtime.control]
+endpoint = \"unix:///tmp/trust-build-human.sock\"
+mode = \"production\"
+debug_enabled = false
+
+[runtime.log]
+level = \"info\"
+
+[runtime.retain]
+mode = \"none\"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 1000
+action = \"halt\"
+
+[runtime.fault]
+policy = \"halt\"
+";

@@ -10,7 +10,7 @@ use trust_runtime::harness::TestHarness;
 use trust_runtime::hmi::alarms::EventKind;
 use trust_runtime::hmi::commands::write::WriteAction;
 use trust_runtime::hmi::exchange::HmiExchange;
-use trust_runtime::hmi::member_paths::{resolve_member, MemberPath};
+use trust_runtime::hmi::member_paths::{member_value, MemberPath};
 use trust_runtime::value::{Duration, Value};
 
 const ALARM: &str = include_str!("../../../libraries/alarm/src/alarm.st");
@@ -99,8 +99,9 @@ impl Plant {
 
     fn variable(&self, path: &str) -> Value {
         let path = MemberPath::parse(path).expect("a path");
-        resolve_member(&path, self.harness.runtime().storage())
-            .cloned()
+        self.harness
+            .runtime()
+            .with_program_view(|program| member_value(&path, program))
             .unwrap_or_else(|| panic!("{path:?} exists"))
     }
 

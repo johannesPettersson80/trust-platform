@@ -6,10 +6,9 @@ use control_heater_support::*;
 
 const LESSON82: &str = "14-integrated-capstones/84-independent";
 
-fn flag(runtime: &trust_runtime::Runtime, address: &str) -> bool {
+fn flag(runtime: &trust_runtime::CompiledRuntime, address: &str) -> bool {
     match runtime
-        .io()
-        .read(&IoAddress::parse(address).unwrap())
+        .read_io(&IoAddress::parse(address).unwrap())
         .unwrap()
     {
         Value::Bool(value) => value,
@@ -64,8 +63,13 @@ fn lesson82_draw_off(feedforward_gain: f64) -> (f64, f64, f64, f64) {
     let debug = runtime.enable_debug();
     let program = program(&runtime);
     scan(&mut runtime, &mut simulation, &debug, 0, &[]);
-    debug.enqueue_instance_write(program, "FeedforwardGain", Value::LReal(feedforward_gain));
-    debug.enqueue_instance_write(program, "Auto", Value::Bool(true));
+    enqueue_instance_write(
+        &debug,
+        program,
+        "FeedforwardGain",
+        Value::LReal(feedforward_gain),
+    );
+    enqueue_instance_write(&debug, program, "Auto", Value::Bool(true));
     scan(&mut runtime, &mut simulation, &debug, 100, &[]);
     let before = number(&runtime, "%QL0");
     scan(

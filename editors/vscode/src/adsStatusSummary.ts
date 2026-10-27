@@ -1,3 +1,6 @@
+// The `ads.status` answer of a runtime (specification 11, "ADS status summary"). Its `view` is the
+// summary the tools show, which the runtime computes; this module only reads it.
+
 export interface AdsConnectionStatus {
   name: string;
   state: string;
@@ -6,10 +9,19 @@ export interface AdsConnectionStatus {
   summary: string;
 }
 
+/** The summary of the report that the runtime answers with it. */
+export interface AdsStatusView {
+  text: string;
+  overall: string;
+  device_count: number;
+  degraded_count: number;
+}
+
 export interface AdsStatusReport {
   overall: string;
   summary: string;
   connections: AdsConnectionStatus[];
+  view?: AdsStatusView;
 }
 
 export interface AdsStatusSummary {
@@ -19,10 +31,12 @@ export interface AdsStatusSummary {
   degradedCount: number;
 }
 
+/** The runtime's summary of its ADS status; a report without one has no summary to show. */
 export function summarizeAdsStatus(
   status: AdsStatusReport | undefined
 ): AdsStatusSummary {
-  if (!status) {
+  const view = status?.view;
+  if (!view) {
     return {
       text: "ADS status unavailable",
       overall: "unknown",
@@ -30,32 +44,10 @@ export function summarizeAdsStatus(
       degradedCount: 0,
     };
   }
-  const connections = Array.isArray(status.connections)
-    ? status.connections
-    : [];
-  const deviceCount = connections.length;
-  if (deviceCount === 0) {
-    return {
-      text: status.summary || "ADS is not configured.",
-      overall: normalizeOverall(status.overall),
-      deviceCount,
-      degradedCount: 0,
-    };
-  }
-  const degradedCount = connections.filter(
-    (connection) =>
-      connection.degraded_points > 0 ||
-      !["connected", "disabled"].includes(connection.state)
-  ).length;
   return {
-    text: `ADS: ${deviceCount} device${deviceCount === 1 ? "" : "s"} · ${degradedCount} degraded`,
-    overall: normalizeOverall(status.overall),
-    deviceCount,
-    degradedCount,
+    text: view.text,
+    overall: view.overall,
+    deviceCount: view.device_count,
+    degradedCount: view.degraded_count,
   };
-}
-
-function normalizeOverall(value: string | undefined): string {
-  const normalized = (value ?? "unknown").toLowerCase();
-  return normalized.length > 0 ? normalized : "unknown";
 }

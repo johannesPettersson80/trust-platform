@@ -1,10 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type { DiscoverCandidate } from "../offlineComm";
-import { respondingAdsPorts } from "../adsDiscoveryPorts";
-import { candidateDisabledReason } from "../discoverySession";
-import {
-  adsTargetNetId,
-} from "./adsTargetPort";
+import { adsTargetNetId, respondingAdsPorts } from "./adsTargetPort";
 import { discoveryConfidenceLabel, discoverySourceLabel } from "./connectorPresentation";
 import type {
   DiscoverOrigin,
@@ -56,10 +52,10 @@ export function DiscoverPane({
   progress,
   results,
   error,
-  sessionCurrent,
   onScan,
   onAdd,
   isOnCanvas,
+  disabledReason,
   onAdopt,
   onOpenAdsPortSettings,
   onClose,
@@ -70,10 +66,10 @@ export function DiscoverPane({
   progress: readonly DiscoverProgressRow[];
   results: readonly DiscoverCandidate[];
   error?: string;
-  sessionCurrent: boolean;
   onScan: (req: DiscoverRequest) => void;
   onAdd: (candidate: DiscoverCandidate) => void;
   isOnCanvas: (candidate: DiscoverCandidate) => boolean;
+  disabledReason: (candidate: DiscoverCandidate) => string | undefined;
   onAdopt: (candidate: DiscoverCandidate) => void;
   onOpenAdsPortSettings: () => void;
   onClose: () => void;
@@ -127,11 +123,9 @@ export function DiscoverPane({
   };
   const selectedScanRows = allRows.filter((r) => checked.has(r.key) && !runtimeScanDisabledReason(r));
   const scanDisabled = scanning || selectedScanRows.length === 0;
-  const visibleResults = results.filter(
-    (candidate) =>
-      candidate.protocol !== "ads" ||
-      respondingAdsPorts(candidate.params).length > 0
-  );
+  // The extension sends only the finds the cards show; the server left out an ADS find that no
+  // port answered (specification 25 §2).
+  const visibleResults = results;
 
   // The schema can resolve after this pane mounts. ADS is the one first-run default; after the user
   // changes the visible choices, keep that choice for the next discovery session.
@@ -331,13 +325,7 @@ export function DiscoverPane({
               const displayEndpoint = formatDiscoveredEndpoint(endpoint);
               const respondingPorts = isAds ? respondingAdsPorts(c.params) : [];
               const onCanvas = isAds && isOnCanvas(c);
-              const sessionDisabledReason = candidateDisabledReason(
-                c.protocol,
-                discoverProtocols,
-                sessionCurrent,
-                !c.originRuntimeId ||
-                  origins.some((candidateOrigin) => candidateOrigin.id === c.originRuntimeId)
-              );
+              const sessionDisabledReason = disabledReason(c);
               const detail = isRuntime
                 ? runtimeDiscoveryDetail(host, displayEndpoint)
                 : [
@@ -355,6 +343,16 @@ export function DiscoverPane({
                     {onCanvas && (
                       <div style={ON_CANVAS_LABEL}>On canvas</div>
                     )}
+                    {(c.warnings ?? []).map((warning) => (
+                      <div
+                        key={warning}
+                        data-role="discovery-warning"
+                        className="trust-field__message"
+                        style={{ marginTop: 4 }}
+                      >
+                        {warning}
+                      </div>
+                    ))}
                     {isAds && respondingPorts.length > 0 && (
                       <div data-role="responding-ads-ports" style={ADS_RESPONDING_PORTS}>
                         <span style={ADS_RESPONDING_LABEL}>ADS ports</span>

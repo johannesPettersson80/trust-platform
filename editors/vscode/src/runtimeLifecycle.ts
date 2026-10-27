@@ -4,21 +4,15 @@ import { affectsTrustConfiguration, getTrustConfiguration } from "./configuratio
 import { debugChannel, DEBUG_TYPE } from "./debug/configuration";
 import { runtimeSourceOptionsForTarget } from "./runtimeSourceOptions";
 import { getControlAuthToken } from "./runtimeAuth";
+import { resolveRuntimeConnection } from "./runtimeConnection";
 import {
   classifyRuntimeStartFailure,
   type NetworkCanvasRuntimeFailure as RuntimeStartFailure,
   type NetworkCanvasRuntimeFailureKind as RuntimeStartFailureKind,
 } from "./networkCanvas/runtimeFailures";
-import {
-  probeEndpointReachable,
-  runtimeStatusPayload,
-} from "./io-panel/status";
+import { runtimeStatusPayload } from "./io-panel/status";
 import type { IoState, RuntimeStatusPayload } from "./io-panel/types";
-import {
-  isRuntimeControlAuthError,
-  requestRuntimeStatus,
-  runtimeControlAuthErrorKind,
-} from "./runtimeControlClient";
+import { projectRequest } from "./projectRequest";
 
 const SESSION_WAIT_TIMEOUT_MS = 8000;
 const SESSION_WAIT_POLL_MS = 100;
@@ -33,6 +27,21 @@ export type { RuntimeStartFailure, RuntimeStartFailureKind };
 export type RuntimeLifecycleResult =
   | { readonly ok: true; readonly message: string }
   | { readonly ok: false; readonly failure: RuntimeStartFailure };
+
+// The runtime a Connect attempt talks to: its endpoint and token, or why it has none, and whether it is the
+// workspace project's own runtime, which trust-runtime finds at each attempt (spec 11 §6.8.0a).
+type OnlineConnection = {
+  readonly endpoint: string;
+  readonly authToken?: string;
+  readonly problem?: string;
+  readonly followsProject: boolean;
+};
+
+// The language server's answer to a Connect (`trust-lsp.runTargets`, action `connect`).
+type ConnectAnswer =
+  | { readonly outcome: "attach"; readonly sessionName: string }
+  | { readonly outcome: "debugDisabled"; readonly failure: RuntimeStartFailure }
+  | { readonly outcome: "failed"; readonly failure: RuntimeStartFailure };
 
 export type RuntimeLifecycleSnapshot = {
   readonly sessionId?: string;
@@ -230,7 +239,7 @@ class RuntimeLifecycleService {
       );
       return { ok: true, message: "I/O state requested." };
     } catch (err) {
-      const failure = classifyRuntimeStartFailure(err);
+      const failure = await classifyRuntimeStartFailure(err);
       const ioFailure = {
         ...failure,
         message: `I/O state request failed: ${failure.message}`,
@@ -281,7 +290,22 @@ class RuntimeLifecycleService {
   async startRuntime(targetLabel?: string): Promise<RuntimeLifecycleResult> {
     const status = await this.snapshot();
     if (status.status.runtimeMode === "online") {
-      return this.startOnlineRuntime(status.status, targetLabel);
+      // Spec 11 §6.8.0a — the endpoint and token are resolved again for this connection attempt, so a
+      // workspace runtime that restarted on another port is found. An endpoint named in the settings is used as
+      // it is, with the token stored for it (§0.6.8, legacy setting fallback, never plaintext-only).
+      const target = this.runtimeConfigTarget();
+      const named = getTrustConfiguration(target).get<string>("runtime.controlEndpoint", "").trim();
+      const connection = await resolveRuntimeConnection(target);
+      return this.startOnlineRuntime(
+        {
+          endpoint:
+            connection.endpoint ?? (status.status.endpointConfigured ? status.status.endpoint : ""),
+          authToken: connection.authToken,
+          problem: connection.problem?.message,
+          followsProject: !named,
+        },
+        targetLabel
+      );
     }
     return this.startLocalSimulator();
   }
@@ -294,13 +318,12 @@ class RuntimeLifecycleService {
     targetLabel?: string
   ): Promise<RuntimeLifecycleResult> {
     const trimmed = endpoint.trim();
-    if (!trimmed) {
-      return {
-        ok: false,
-        failure: { kind: "failed_spawn", message: "Runtime endpoint not set." },
-      };
-    }
-    return this.startOnlineRuntime({ endpoint: trimmed, endpointConfigured: true }, targetLabel);
+    // §0.6.8 — the token stored for that endpoint (legacy setting fallback), never plaintext-only. A blank endpoint
+    // is the language server's to refuse.
+    return this.startOnlineRuntime(
+      { endpoint: trimmed, authToken: await getControlAuthToken(trimmed), followsProject: false },
+      targetLabel
+    );
   }
 
   // The reason an online target has no session, when the lifecycle reported it for `endpoint`: the
@@ -345,7 +368,7 @@ class RuntimeLifecycleService {
       return { ok: true, message: "Simulator running." };
     } catch (err) {
       this.starting = false;
-      this.failure = classifyRuntimeStartFailure(err);
+      this.failure = await classifyRuntimeStartFailure(err);
       debugChannel().appendLine(
         `Simulator start failed: ${this.failure.message}`
       );
@@ -367,7 +390,7 @@ class RuntimeLifecycleService {
         if (await this.waitForSessionGone(SESSION_WAIT_TIMEOUT_MS)) {
           return this.markStopped("Runtime stopped.");
         }
-        return { ok: false, failure: classifyRuntimeStartFailure(err) };
+        return { ok: false, failure: await classifyRuntimeStartFailure(err) };
       }
       if (await this.waitForSessionGone(SESSION_WAIT_TIMEOUT_MS)) {
         return this.markStopped("Runtime stopped.");
@@ -403,84 +426,39 @@ class RuntimeLifecycleService {
   // Connect points the runtime settings at it; a failed one leaves the previous target, settings and
   // status bar as they were, and its failure names the endpoint so the runtime's node can show it.
   private async startOnlineRuntime(
-    status: Pick<RuntimeStatusPayload, "endpoint" | "endpointConfigured">,
+    connection: OnlineConnection,
     targetLabel?: string
   ): Promise<RuntimeLifecycleResult> {
-    if (!status.endpointConfigured) {
-      return {
-        ok: false,
-        failure: {
-          kind: "failed_spawn",
-          message: "Runtime endpoint not set.",
-        },
-      };
+    // The probe, the `status` request with the endpoint's token and the reading of its answer are the language
+    // server's (`trust-lsp.runTargets`, action `connect`, specification 25 §5.1 and §6.4).
+    const answer = await projectRequest<ConnectAnswer>("trust-lsp.runTargets", {
+      action: "connect",
+      endpoint: connection.endpoint,
+      authToken: connection.authToken,
+      problem: connection.problem,
+      targetLabel,
+    });
+    if (!answer.ok) {
+      return { ok: false, failure: { kind: "stale_runtime", message: answer.error } };
     }
-
-    const reachable = await probeEndpointReachable(status.endpoint);
-    if (!reachable) {
-      return {
-        ok: false,
-        failure: {
-          kind: "stale_runtime",
-          message: runtimeNotReachableMessage(status.endpoint),
-          detail: status.endpoint,
-          endpoint: status.endpoint,
-        },
-      };
+    if (answer.outcome === "failed") {
+      return { ok: false, failure: answer.failure };
     }
-
-    // §0.6.8 — token from SecretStorage first (legacy setting fallback), never plaintext-only.
-    const authToken = (await getControlAuthToken(status.endpoint)) ?? "";
-    let runtimeInfo: unknown;
-    try {
-      runtimeInfo = await requestRuntimeStatus(status.endpoint, authToken || undefined, {
-        timeoutMs: 1000,
-      });
-    } catch (err) {
-      if (isRuntimeControlAuthError(err)) {
-        const authKind = runtimeControlAuthErrorKind(err);
-        return {
-          ok: false,
-          failure: {
-            kind: "workspace_permission",
-            message:
-              authKind === "missing" || !authToken
-                ? "No auth token provided — this runtime requires one."
-                : "Auth token rejected — check it and try again.",
-            endpoint: status.endpoint,
-          },
-        };
-      }
-      return {
-        ok: false,
-        failure: {
-          kind: "stale_runtime",
-          message: `Runtime status check failed: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-          endpoint: status.endpoint,
-        },
-      };
-    }
-    if (runtimeDebugDisabled(runtimeInfo)) {
+    const endpoint = connection.endpoint.trim();
+    if (answer.outcome === "debugDisabled") {
       // The runtime answered, so it is the target; Live Values says why it has no session.
-      const failure: RuntimeStartFailure = {
-        kind: "debug_disabled",
-        message:
-          "Remote debugging is disabled for this runtime. Set debug_enabled = true under [runtime.control] in its runtime.toml, restart the runtime, then connect again.",
-        endpoint: status.endpoint,
-      };
-      this.failure = failure;
-      await this.useOnlineEndpoint(status.endpoint);
-      return { ok: true, message: failure.message };
+      this.failure = answer.failure;
+      await this.useConnectedRuntime(endpoint, connection.followsProject);
+      return { ok: true, message: answer.failure.message };
     }
+    const authToken = connection.authToken ?? "";
     const runtimeOptions = runtimeSourceOptionsForTarget();
     const folder = vscode.workspace.workspaceFolders?.[0];
     const debugConfig: vscode.DebugConfiguration = {
       type: DEBUG_TYPE,
       request: "attach",
-      name: remoteDebugSessionName(targetLabel, status.endpoint),
-      endpoint: status.endpoint,
+      name: answer.sessionName,
+      endpoint,
       authToken: authToken || undefined,
       targetLabel,
       internalConsoleOptions: "neverOpen",
@@ -497,11 +475,31 @@ class RuntimeLifecycleService {
     } catch (err) {
       return {
         ok: false,
-        failure: { ...classifyRuntimeStartFailure(err), endpoint: status.endpoint },
+        failure: { ...(await classifyRuntimeStartFailure(err)), endpoint },
       };
     }
-    await this.useOnlineEndpoint(status.endpoint);
+    await this.useConnectedRuntime(endpoint, connection.followsProject);
     return { ok: true, message: "Attached to runtime." };
+  }
+
+  // The workspace project's runtime is asked of trust-runtime at each connection attempt (spec 11 §6.8.0a), so a
+  // successful Connect to it leaves `runtime.controlEndpoint` empty and the next attempt follows a restart on
+  // another port. Any other runtime is named there (specification 25, section 5.1).
+  private async useConnectedRuntime(endpoint: string, followsProject: boolean): Promise<void> {
+    if (!followsProject) {
+      await this.useOnlineEndpoint(endpoint);
+      return;
+    }
+    const target = this.runtimeConfigTarget();
+    const config = getTrustConfiguration(target);
+    const scope = this.runtimeConfigScope(target);
+    if (!config.get<boolean>("runtime.controlEndpointEnabled", true)) {
+      await config.update("runtime.controlEndpointEnabled", true, scope);
+    }
+    if (config.get<string>("runtime.mode", "simulate") !== "online") {
+      await config.update("runtime.mode", "online", scope);
+    }
+    this.emitChanged();
   }
 
   // A successful Connect, or selecting a runtime as the run target, points the runtime settings at it: its
@@ -660,133 +658,26 @@ function structuredTextSessionKey(session: vscode.DebugSession): string {
   return session.id ?? session.name;
 }
 
+/** The I/O state that the debug adapter's `stIoState` event carries. The adapter writes it as Live Values shows it: values in
+ * IEC text, types in capitals, the ADS tags apart (trust-debug `adapter/io_values.rs`, specification 25 §4.3); this keeps
+ * only the entries of the event's shape. */
 export function normalizeIoState(value: unknown): IoState {
   if (!isRecord(value)) {
     return EMPTY_IO_STATE;
   }
-  const scan =
-    typeof value.scan === "number" && Number.isFinite(value.scan)
-      ? value.scan
-      : undefined;
-  const inputs = normalizeIoEntries(value.inputs);
-  const outputs = normalizeIoEntries(value.outputs);
-  const memory = normalizeIoEntries(value.memory);
-  const ads = [...inputs, ...outputs, ...memory].filter(isAdsLiveValue);
+  const entries = (list: unknown): IoState["inputs"] =>
+    Array.isArray(list) ? list.filter(isIoEntry) : [];
   return {
-    scan,
-    inputs: inputs.filter((entry) => !isAdsLiveValue(entry)),
-    outputs: outputs.filter((entry) => !isAdsLiveValue(entry)),
-    memory: memory.filter((entry) => !isAdsLiveValue(entry)),
-    ads,
+    scan: typeof value.scan === "number" && Number.isFinite(value.scan) ? value.scan : undefined,
+    inputs: entries(value.inputs),
+    outputs: entries(value.outputs),
+    memory: entries(value.memory),
+    ads: entries(value.ads),
   };
 }
 
-function isAdsLiveValue(entry: IoState["inputs"][number]): boolean {
-  return (
-    entry.address.startsWith("global:") &&
-    /^ADS(?:\s|$)/i.test(entry.source?.trim() ?? "")
-  );
-}
-
-function normalizeIoEntries(value: unknown): IoState["inputs"] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value
-    .map((entry): IoState["inputs"][number] | undefined => {
-      if (!isRecord(entry)) {
-        return undefined;
-      }
-      const address = typeof entry.address === "string" ? entry.address : "";
-      const rawValue = typeof entry.value === "string" ? entry.value : "";
-      if (!address || rawValue.length === 0) {
-        return undefined;
-      }
-      const normalized: IoState["inputs"][number] = {
-        address,
-        value: formatIoValue(rawValue),
-        forced: entry.forced === true,
-      };
-      if (typeof entry.writable === "boolean") {
-        normalized.writable = entry.writable;
-      }
-      if (typeof entry.name === "string") {
-        normalized.name = entry.name;
-      }
-      if (typeof entry.source === "string") {
-        normalized.source = entry.source;
-      }
-      const valueType =
-        typeof entry.valueType === "string"
-          ? entry.valueType
-          : typeof entry.value_type === "string"
-            ? entry.value_type
-            : typeof entry.type === "string"
-              ? entry.type
-              : undefined;
-      if (valueType) {
-        normalized.valueType = valueType.toUpperCase();
-      }
-      return normalized;
-    })
-    .filter((entry): entry is IoState["inputs"][number] => entry !== undefined);
-}
-
-function formatIoValue(rawValue: string): string {
-  const trimmed = rawValue.trim();
-  const boolMatch = /^Bool\((true|false)\)$/i.exec(trimmed);
-  if (boolMatch) {
-    return boolMatch[1].toLowerCase() === "true" ? "TRUE" : "FALSE";
-  }
-  const simpleValue = /^(?:S?Int|DInt|LInt|U?Int|UDInt|ULInt|Real|LReal|Byte|Word|DWord|LWord)\((.*)\)$/i.exec(trimmed);
-  if (simpleValue) {
-    return simpleValue[1];
-  }
-  return rawValue;
-}
-
-function runtimeDebugDisabled(value: unknown): boolean {
-  if (!isRecord(value)) {
-    return false;
-  }
-  if (value.debug_enabled === false) {
-    return true;
-  }
-  const controlStatus = value.control_status;
-  return isRecord(controlStatus) && controlStatus.debug_enabled === false;
-}
-
-function runtimeNotReachableMessage(endpoint: string): string {
-  if (endpoint.trim().startsWith("unix://")) {
-    return "Local runtime is stopped. Start it to connect.";
-  }
-  return `Runtime is not reachable at ${shortRuntimeEndpointLabel(endpoint)}.`;
-}
-
-function remoteDebugSessionName(
-  targetLabel: string | undefined,
-  endpoint: string
-): string {
-  const label = targetLabel?.trim() || shortRuntimeEndpointLabel(endpoint);
-  return label ? `truST Remote (${label})` : "truST Remote";
-}
-
-function shortRuntimeEndpointLabel(endpoint: string): string {
-  const text = endpoint.trim();
-  if (!text) {
-    return "the configured endpoint";
-  }
-  if (text.startsWith("tcp://")) {
-    try {
-      return new URL(text).host || "the configured endpoint";
-    } catch {
-      return "the configured endpoint";
-    }
-  }
-  if (text.startsWith("unix://")) {
-    return "the local control socket";
-  }
-  return text;
+function isIoEntry(entry: unknown): entry is IoState["inputs"][number] {
+  return isRecord(entry) && typeof entry.address === "string" && typeof entry.value === "string";
 }
 
 function delay(ms: number): Promise<void> {

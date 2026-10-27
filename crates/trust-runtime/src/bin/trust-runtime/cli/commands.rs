@@ -5,7 +5,7 @@
     about = "Structured Text runtime CLI",
     infer_subcommands = true,
     arg_required_else_help = false,
-    after_help = "Examples:\n  trust-runtime                         # start (first run opens setup)\n  trust-runtime --verbose               # show startup details\n  trust-runtime ide serve --project .   # standalone browser IDE\n  trust-runtime ui --project ./my-plc   # terminal UI\n  trust-runtime check --project ./my-plc --json # check sources/config without writing bytecode\n  trust-runtime comm topology --project ./my-plc --json # inspect offline comm topology\n  trust-runtime comm discover --protocol ads --json # find communication targets from this host\n  trust-runtime fleet runtime add --fleet-root ./fleet --name cell1 --json # scaffold sibling runtime\n  trust-runtime play --project ./my-plc # compatibility\n\nWorkbench commands:\n  use trust-dev test/docs/commit/agent serve. Deprecated trust-runtime aliases remain only until the removal window, no earlier than 2026-10-05."
+    after_help = "Examples:\n  trust-runtime                         # start (first run opens setup)\n  trust-runtime --verbose               # show startup details\n  trust-runtime ide serve --project .   # standalone browser IDE\n  trust-runtime ui --project ./my-plc   # terminal UI\n  trust-runtime check --project ./my-plc --json # check sources/config without writing the program image\n  trust-runtime comm topology --project ./my-plc --json # inspect offline comm topology\n  trust-runtime comm discover --protocol ads --json # find communication targets from this host\n  trust-runtime fleet runtime add --fleet-root ./fleet --name cell1 --json # scaffold sibling runtime\n  trust-runtime play --project ./my-plc # compatibility\n\nWorkbench commands:\n  use trust-dev test/docs/commit/agent serve. Deprecated trust-runtime aliases remain only until the removal window, no earlier than 2026-10-05."
 )]
 pub struct Cli {
     /// Show verbose startup details.
@@ -39,9 +39,6 @@ pub enum Command {
         /// Simulation time acceleration factor (>= 1).
         #[arg(long, default_value_t = 1)]
         time_scale: u32,
-        /// Override execution backend (`vm`).
-        #[arg(long = "execution-backend", value_enum)]
-        execution_backend: Option<ExecutionBackendArg>,
     },
     /// Start the runtime with project auto-detection (production UX).
     #[command(
@@ -69,9 +66,6 @@ pub enum Command {
         /// Simulation time acceleration factor (>= 1).
         #[arg(long, default_value_t = 1)]
         time_scale: u32,
-        /// Override execution backend (`vm`).
-        #[arg(long = "execution-backend", value_enum)]
-        execution_backend: Option<ExecutionBackendArg>,
     },
     /// Interactive TUI for monitoring and control.
     Ui {
@@ -97,18 +91,18 @@ pub enum Command {
     /// Send control commands to a running runtime.
     Ctl {
         /// Project folder directory (to read control endpoint).
-        #[arg(long = "project", alias = "bundle")]
+        #[arg(long = "project", alias = "bundle", global = true)]
         project: Option<PathBuf>,
-        /// Control endpoint (tcp://host:port or unix://path).
-        #[arg(long)]
+        /// Control endpoint (tcp://host:port, unix://path or serial://port for a chip on USB).
+        #[arg(long, global = true)]
         endpoint: Option<String>,
         /// Control auth token (overrides project value).
-        #[arg(long)]
+        #[arg(long, global = true)]
         token: Option<String>,
         #[command(subcommand)]
         action: ControlAction,
     },
-    /// Validate a project folder (config + bytecode).
+    /// Validate a project folder (config + program image).
     Validate {
         /// Project folder directory.
         #[arg(long = "project", alias = "bundle")]
@@ -117,7 +111,7 @@ pub enum Command {
         #[arg(long, action = ArgAction::SetTrue)]
         ci: bool,
     },
-    /// Check project sources and config without writing program.stbc.
+    /// Check project sources and config without writing program.tpi.
     Check {
         /// Project folder directory (defaults to auto-detect or current directory).
         #[arg(long = "project", alias = "bundle")]
@@ -144,7 +138,7 @@ pub enum Command {
         #[arg(long, default_value_t = trust_runtime::hmi::access::password::DEFAULT_ITERATIONS)]
         iterations: u32,
     },
-    /// Build program.stbc from project sources.
+    /// Build the project: this computer's program image (program.tpi), or a device's with --target.
     Build {
         /// Project folder directory (defaults to auto-detect or current directory).
         #[arg(long = "project", alias = "bundle")]
@@ -155,6 +149,15 @@ pub enum Command {
         /// Enable CI-friendly behavior and machine-readable output.
         #[arg(long, action = ArgAction::SetTrue)]
         ci: bool,
+        /// Compile the project into a program image for this target, in the project's build
+        /// folder, instead of this computer's program image (specification 44 §4.1): a device
+        /// (esp32c6, stm32u5a9), a CPU (x86_64, aarch64, riscv32imac, thumbv8m), a Rust target
+        /// triple, or `host`.
+        #[arg(long)]
+        target: Option<String>,
+        /// With --target: keep the generated Rust crate next to the image.
+        #[arg(long, action = ArgAction::SetTrue)]
+        emit_source: bool,
     },
     /// Deprecated alias for `trust-dev test`.
     #[command(
@@ -215,6 +218,16 @@ pub enum Command {
         #[command(subcommand)]
         action: PlantAction,
     },
+    /// Search for devices: truST runtimes, ADS, Modbus TCP, MQTT, OPC UA, EtherCAT and GPIO.
+    #[command(
+        after_help = "Examples:\n  trust-runtime discover\n  trust-runtime discover --only modbus_tcp,mqtt --host 192.168.1.20 --json\n  trust-runtime discover --cidr 192.168.1.0/24 --deadline-ms 20000\n  trust-runtime discover --endpoint tcp://192.168.1.5:5680 --confirm-fieldbus ethercat:eth1"
+    )]
+    Discover(DiscoverArgs),
+    /// Make a runtime show where it is: it blinks its identify output.
+    #[command(
+        after_help = "Examples:\n  trust-runtime identify --endpoint tcp://192.168.1.5:5680 --token <token> --duration-s 10\n  trust-runtime identify --project ./my-plc --duration-s 30"
+    )]
+    Identify(IdentifyArgs),
     /// Offline fleet manifest and sibling-runtime workflows.
     Fleet {
         #[command(subcommand)]
@@ -290,6 +303,11 @@ pub enum Command {
         #[command(subcommand)]
         action: AgentAction,
     },
+    /// Create a project folder with the files that a new truST project starts from.
+    #[command(
+        after_help = "Examples:\n  trust-runtime new --parent ./projects --name my-plc\n  trust-runtime new --parent ./projects --name my-plc --json\n  trust-runtime new --parent ./projects --name my-plc --force --json"
+    )]
+    New(NewArgs),
     /// Guided wizard to create a new project folder.
     #[command(alias = "init")]
     Wizard {
@@ -356,20 +374,48 @@ pub enum Command {
     #[command(
         after_help = "Examples:\n  trust-runtime conformance\n  trust-runtime conformance --suite-root ./conformance --output ./conformance/reports/local.json\n  trust-runtime conformance --update-expected"
     )]
-    Conformance {
-        /// Conformance suite root directory.
-        #[arg(long = "suite-root")]
-        suite_root: Option<PathBuf>,
-        /// Summary output file path (JSON).
-        #[arg(long = "output")]
-        output: Option<PathBuf>,
-        /// Refresh expected artifacts from current runtime behavior.
-        #[arg(long, action = ArgAction::SetTrue)]
-        update_expected: bool,
-        /// Optional case-insensitive substring filter for case IDs.
-        #[arg(long)]
-        filter: Option<String>,
+    Conformance(ConformanceArgs),
+    /// The compiler toolchain that builds compiled programs (specification 44 §4.6).
+    #[command(
+        after_help = "Examples:\n  trust-runtime toolchain status\n  trust-runtime toolchain install\n  trust-runtime toolchain install --from ./trust-toolchain-linux-x64.tar.gz"
+    )]
+    Toolchain {
+        #[command(subcommand)]
+        action: ToolchainAction,
     },
+    /// Install truST's firmware on a chip (specification 34 TARGET-04).
+    #[command(
+        after_help = "Examples:\n  trust-runtime firmware install --chip esp32c6 ./trust-firmware-esp32c6\n  trust-runtime firmware install --chip esp32c6 --port /dev/ttyACM0 ./trust-firmware-esp32c6\n\nUpdate a chip that runs truST over its control connection:\n  trust-runtime ctl --endpoint serial:///dev/ttyACM0 firmware ./trust-firmware-esp32c6/firmware.bin"
+    )]
+    Firmware {
+        #[command(subcommand)]
+        action: FirmwareAction,
+    },
+}
+
+/// The options of `conformance`.
+#[derive(Debug, clap::Args)]
+pub struct ConformanceArgs {
+    /// Conformance suite root directory.
+    #[arg(long = "suite-root")]
+    pub suite_root: Option<PathBuf>,
+    /// Summary output file path (JSON).
+    #[arg(long = "output")]
+    pub output: Option<PathBuf>,
+    /// Refresh expected artifacts from current runtime behavior.
+    #[arg(long, action = ArgAction::SetTrue)]
+    pub update_expected: bool,
+    /// Optional case-insensitive substring filter for case IDs.
+    #[arg(long)]
+    pub filter: Option<String>,
+    /// The serial port of a device that runs the runtime cases, or
+    /// `tcp://<host>:<port>` of a bridge to that port: each case is compiled for the device's
+    /// `--target`, installed, and stepped cycle by cycle with `cycle.step` (specification 44 §14.2).
+    #[arg(long, requires = "target")]
+    pub device: Option<String>,
+    /// The device's target, as `trust-runtime build --target` names it: `esp32c6`, `stm32u5a9`.
+    #[arg(long, requires = "device")]
+    pub target: Option<String>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -413,7 +459,19 @@ pub enum ConfigUiAction {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum ExecutionBackendArg {
-    Vm,
+/// The options of `trust-runtime new` (specification 25, Create Project).
+#[derive(Debug, Args)]
+pub struct NewArgs {
+    /// Folder that holds the new project folder.
+    #[arg(long)]
+    pub parent: PathBuf,
+    /// Name of the new project folder.
+    #[arg(long)]
+    pub name: String,
+    /// Overwrite the scaffold files of an existing project folder; other files are kept.
+    #[arg(long, action = ArgAction::SetTrue)]
+    pub force: bool,
+    /// Print the result, or the error, as JSON.
+    #[arg(long, action = ArgAction::SetTrue)]
+    pub json: bool,
 }

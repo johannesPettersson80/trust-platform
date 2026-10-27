@@ -2,7 +2,7 @@
 //! loop controller has signal lines, from an instrument and to equipment.
 
 use super::*;
-use crate::harness::TestHarness;
+use crate::harness::CompileSession;
 use crate::hmi::page_files::parse_page;
 
 const OBJECTS: &str = r#"
@@ -20,18 +20,18 @@ size = [160, 32]
 "#;
 
 fn problems(objects: &str) -> Vec<(String, Option<String>, String)> {
-    let mut harness =
-        TestHarness::from_source("PROGRAM Plant\nVAR\n    T : REAL;\nEND_VAR\nEND_PROGRAM\n")
+    let declarations =
+        CompileSession::from_source("PROGRAM Plant\nVAR\n    T : REAL;\nEND_VAR\nEND_PROGRAM\n")
+            .declarations()
             .expect("the program compiles");
-    harness.cycle();
     let text = format!("format = 1\ntitle = \"Instruments\"\n{OBJECTS}{objects}");
     let page = parse_page("hmi/pages/instruments.toml", &text).expect("the page loads");
-    let metadata = harness.runtime().metadata_snapshot();
+    let metadata = declarations.metadata().clone();
     check_page(
         &page,
         Catalogue::shipped(),
         &metadata,
-        harness.runtime().storage(),
+        declarations.storage(),
     )
     .into_iter()
     .map(|problem| (problem.object, problem.property, problem.message))

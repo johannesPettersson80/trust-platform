@@ -5,7 +5,6 @@ pub struct PlayOptions {
     pub beginner: bool,
     pub simulation: bool,
     pub time_scale: u32,
-    pub execution_backend: Option<crate::cli::ExecutionBackendArg>,
 }
 
 pub fn run_default(verbose: bool) -> anyhow::Result<()> {
@@ -16,7 +15,6 @@ pub fn run_default(verbose: bool) -> anyhow::Result<()> {
         beginner: false,
         simulation: false,
         time_scale: 1,
-        execution_backend: None,
     };
     match detect_bundle_path(None) {
         Ok(path) => run_play(Some(path), default_options),
@@ -67,7 +65,6 @@ pub fn run_play(project: Option<PathBuf>, options: PlayOptions) -> anyhow::Resul
         options.beginner,
         options.simulation,
         options.time_scale,
-        options.execution_backend,
     )
 }
 
@@ -84,11 +81,14 @@ pub fn run_validate(bundle: PathBuf, ci: bool) -> anyhow::Result<()> {
 pub(crate) fn validate_json_payload(bundle: PathBuf) -> anyhow::Result<serde_json::Value> {
     let bundle = RuntimeBundle::load(&bundle)?;
     let _tls_materials = load_tls_materials(&bundle.runtime.tls, Some(bundle.root.as_path()))?;
-    let control_endpoint = ControlEndpoint::parse(bundle.runtime.control_endpoint.as_str())?;
-    if matches!(control_endpoint, ControlEndpoint::Tcp(_))
-        && bundle.runtime.control_auth_token.is_none()
-    {
-        anyhow::bail!("tcp control endpoint requires runtime.control.auth_token");
+    // An omitted endpoint is the platform default, which generates its own token when it is TCP.
+    if let Some(configured) = bundle.runtime.control_endpoint.as_deref() {
+        let control_endpoint = ControlEndpoint::parse(configured)?;
+        if matches!(control_endpoint, ControlEndpoint::Tcp(_))
+            && bundle.runtime.control_auth_token.is_none()
+        {
+            anyhow::bail!("tcp control endpoint requires runtime.control.auth_token");
+        }
     }
     let registry = IoDriverRegistry::default_registry();
     for driver in &bundle.io.drivers {
@@ -99,11 +99,13 @@ pub(crate) fn validate_json_payload(bundle: PathBuf) -> anyhow::Result<serde_jso
             .validate(driver.name.as_str(), &driver.params)
             .map_err(anyhow::Error::from)?;
     }
-    let module = BytecodeModule::decode(&bundle.bytecode)?;
-    module.validate()?;
-    let metadata = module.metadata()?;
-    // Launch's own rule and error (spec 11 §6.7.1); never the primary resource.
-    trust_runtime::harness::configured_resource(&metadata, bundle.runtime.resource_name.as_str())?;
+    // The program image is admitted as the computer admits it at its start (specification 44
+    // §10.2, §8.8).
+    trust_runtime::native::admit_on_this_computer(&bundle.image)?;
+    trust_runtime::native::check_resource(&bundle.image, &bundle.runtime.resource_name)?;
+    // Launch's own identify check (spec 11, "Identify", load): a project that `validate` accepts is
+    // a project that `run` accepts.
+    check_bundle_identify_output(&bundle)?;
     let io_drivers = enabled_io_driver_names(&bundle);
     Ok(json!({
         "version": 1,
@@ -111,7 +113,10 @@ pub(crate) fn validate_json_payload(bundle: PathBuf) -> anyhow::Result<serde_jso
         "status": "ok",
         "project": bundle.root.display().to_string(),
         "resource": bundle.runtime.resource_name.to_string(),
-        "control_endpoint": bundle.runtime.control_endpoint.to_string(),
+        "control_endpoint": project_control_endpoint_text(
+            &bundle.root,
+            bundle.runtime.control_endpoint.as_deref(),
+        ),
         "io_driver": io_drivers.first().cloned().unwrap_or_default(),
         "io_drivers": io_drivers,
     }))
@@ -123,7 +128,13 @@ pub(crate) fn resource_mismatch(name: &str, declared: &[&str]) -> String {
     let declared = match declared {
         [] => "no resource".to_string(),
         [one] => format!("resource '{one}'"),
-        many => format!("the resources {}", many.iter().map(|name| format!("'{name}'")).collect::<Vec<_>>().join(", ")),
+        many => format!(
+            "the resources {}",
+            many.iter()
+                .map(|name| format!("'{name}'"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
     };
     format!(
         "runtime.toml names resource '{name}', but the program's configuration declares {declared}; use the same name in both"

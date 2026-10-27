@@ -1,122 +1,113 @@
-// Shared FB/component placement: definitions come from the native project catalogue.
+// Equipment objects (specification 39, §6 item 5, §8.5, §21.3): the Components panel's entries,
+// the definition an object shows, the instances the inspector offers, and the object a placement,
+// a binding or a loop's connected equipment makes are the language server's rules
+// (`trust-lsp.hmiEquipmentEdit`). The webview asks for them here and shows the answers.
+
 import type { HmiObjectModel, HmiPageModel } from "../drawing/model";
 import type { Catalogue, ComponentDefinition, EquipmentDefinition } from "./catalogue";
-import type { VariableNode } from "./messages";
+import type { EquipmentDetails } from "./equipmentDetails";
+import { RUST_RULES, type CallRust, type VariableNode } from "./messages";
 
-export function componentTitle(component: ComponentDefinition): string | undefined {
-  return component.equipment?.title;
-}
-
-export function paletteComponents(catalogue: Catalogue): ComponentDefinition[] {
-  const definitions = catalogue.equipment ?? [];
-  const mapped = new Set(definitions.map((definition) => definition.symbol));
-  const entries = definitions.flatMap((definition) => {
-    const drawing = catalogue.components.find((item) => item.type === definition.symbol);
-    return drawing ? [{ ...drawing, equipment: definition, category: "equipment" }] : [];
+/** The Components panel's entries: each definition with its drawing, then the components no
+ * definition maps; in a P&ID only what it may hold (§18 phase 4 item 1). */
+export async function palette(call: CallRust, catalogue: Catalogue, pid: boolean): Promise<ComponentDefinition[]> {
+  const answer = await call<{ palette: ComponentDefinition[] }>(RUST_RULES.equipment, {
+    action: "palette",
+    catalogue,
+    pid,
   });
-  // Existing unmapped artwork remains usable; never advertise it as an implemented PLC FB.
-  return [
-    ...entries,
-    ...catalogue.components.filter((component) => !mapped.has(component.type) || component.category !== "equipment"),
-  ];
+  return answer.palette;
 }
 
-export function allVariables(nodes: VariableNode[]): VariableNode[] {
-  return nodes.flatMap((node) => [node, ...allVariables(node.children ?? [])]);
-}
-export function matchingInstances(nodes: VariableNode[], block: string): VariableNode[] {
-  return allVariables(nodes).filter(
-    (node) => node.kind === "function-block" && node.type.toLowerCase() === block.toLowerCase(),
-  );
-}
-
-export function equipmentFor(
-  catalogue: Catalogue | undefined,
-  object: HmiObjectModel,
-): EquipmentDefinition | undefined {
-  return catalogue?.equipment?.find((definition) => definition.block.toLowerCase() === object.block?.toLowerCase());
+/** The definition each block shows, by the block as the objects record it. */
+export async function definitions(
+  call: CallRust,
+  equipment: EquipmentDefinition[],
+  blocks: string[],
+): Promise<Record<string, EquipmentDefinition>> {
+  const answer = await call<{ definitions: Record<string, EquipmentDefinition> }>(RUST_RULES.equipment, {
+    action: "definitions",
+    equipment,
+    blocks,
+  });
+  return answer.definitions;
 }
 
-/** What a definition's member starts with to name a variable beside the instance, named after it
- * (specification 39, §8.5): a loop's `{instance}_Setpoint` is `Main.TIC101_Setpoint`. */
-export const INSTANCE_PLACEHOLDER = "{instance}";
-
-/** The path of a definition's member of an instance: `Running` of `Main.P101` is
- * `Main.P101.Running`, `{instance}_Setpoint` of `Main.TIC101` is `Main.TIC101_Setpoint`. */
-export function memberPath(instance: string, member: string): string {
-  return member.startsWith(INSTANCE_PLACEHOLDER)
-    ? `${instance}${member.slice(INSTANCE_PLACEHOLDER.length)}`
-    : `${instance}.${member}`;
+/** What the inspector offers an equipment object (§21.3 item 2). */
+export interface InstanceChoices {
+  /** The declared instances of its block. */
+  declared: string[];
+  /** Whether its instance is one of them. */
+  current: boolean;
+  /** The programs equipment can run in. */
+  programs: Array<{ path: string; name: string }>;
+  /** The program and the name of its instance, or the program a new one goes to. */
+  program: string;
+  name: string;
 }
 
-export function bindEquipment(
+export function instanceChoices(
+  call: CallRust,
+  block: string,
+  instance: string | undefined,
+  variables: VariableNode[],
+): Promise<InstanceChoices> {
+  return call<InstanceChoices>(RUST_RULES.equipment, { action: "instances", block, instance, variables });
+}
+
+/** A new object of a definition, bound to the first free instance when the project has one
+ * program (§21.3 item 3). */
+export async function placed(
+  call: CallRust,
   object: HmiObjectModel,
   definition: EquipmentDefinition,
-  instance: string,
-): HmiObjectModel {
-  const bind = Object.fromEntries(
-    Object.entries(definition.bindings).map(([property, member]) => [
-      property,
-      {
-        path: memberPath(instance, member),
-        direction: "read" as const,
-        ...(definition.quality?.[property] ? { quality: memberPath(instance, definition.quality[property]) } : {}),
-      },
-    ]),
-  );
-  const click = object.click?.faceplate ? { ...object.click, faceplate: definition.panel, instance } : object.click;
-  return {
-    ...object,
-    block: definition.block,
-    instance,
-    faceplate: definition.panel,
-    // This stored legacy tag is a projection of the instance, never an independent editor field.
-    tag: instance.split(".").pop(),
-    bind,
-    ...(click ? { click } : {}),
-  };
-}
-
-/** A screen service program is not an equipment execution destination. */
-export function equipmentPrograms(nodes: VariableNode[]): VariableNode[] {
-  return nodes.filter(
-    (node) =>
-      node.kind === "program" &&
-      !allVariables(node.children ?? []).some(
-        (member) => member.kind === "function-block" && member.type.toLowerCase() === "hmi.display",
-      ),
-  );
-}
-
-/** Only choose the target automatically when the project has one program instance. */
-export function newEquipmentInstance(
-  definition: EquipmentDefinition,
-  nodes: VariableNode[],
+  variables: VariableNode[],
   page: HmiPageModel,
-): string | undefined {
-  const programs = equipmentPrograms(nodes);
-  if (programs.length > 1) return undefined;
-  return freeEquipmentInstance(definition, nodes, page, programs[0]?.path ?? "Main");
+): Promise<HmiObjectModel> {
+  const answer = await call<{ object: HmiObjectModel }>(RUST_RULES.equipment, {
+    action: "place",
+    object,
+    definition,
+    variables,
+    page,
+  });
+  return answer.object;
 }
 
-/** The first free instance of a program for a definition: its block's name and a number no
- * declaration or object of the page holds (`Main.Pump2` after `Main.Pump1`). */
-export function freeEquipmentInstance(
+/** The object bound to an instance, or to a name in a program: without one its own name, else the
+ * program's first free name; nothing when that names no instance. */
+export async function boundTo(
+  call: CallRust,
+  object: HmiObjectModel,
   definition: EquipmentDefinition,
-  nodes: VariableNode[],
-  page: HmiPageModel | undefined,
-  program: string,
-): string | undefined {
-  const prefix = definition.block.split(".").pop()?.replace(/^FB_/, "") ?? "Equipment";
-  const used = new Set(
-    [
-      ...allVariables(nodes).map((node) => node.path),
-      ...(page?.object ?? []).flatMap((object) => (object.instance ? [object.instance] : [])),
-    ].map((name) => name.toLowerCase()),
-  );
-  for (let index = 1; index <= 10000; index += 1) {
-    const instance = `${program}.${prefix}${index}`;
-    if (!used.has(instance.toLowerCase())) return instance;
-  }
-  return undefined;
+  to: { instance: string } | { program: string; name?: string },
+  variables: VariableNode[],
+  page: HmiPageModel,
+): Promise<HmiObjectModel | undefined> {
+  const answer = await call<{ object?: HmiObjectModel }>(RUST_RULES.equipment, {
+    action: "bind",
+    object,
+    definition,
+    ...to,
+    variables,
+    page,
+  });
+  return answer.object;
+}
+
+/** A loop controller with its signal lines following its connected equipment (§6 item 5);
+ * nothing when they already do. */
+export async function withLoopSignals(
+  call: CallRust,
+  object: HmiObjectModel,
+  page: HmiPageModel,
+  dependencies: EquipmentDetails["dependencies"],
+): Promise<HmiObjectModel | undefined> {
+  const answer = await call<{ object?: HmiObjectModel }>(RUST_RULES.equipment, {
+    action: "loopSignals",
+    object,
+    page,
+    dependencies,
+  });
+  return answer.object;
 }

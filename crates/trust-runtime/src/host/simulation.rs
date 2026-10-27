@@ -16,7 +16,7 @@ use crate::error::RuntimeError;
 use crate::io::{IoAddress, IoSize};
 use crate::memory::IoArea;
 use crate::value::{Duration, Value};
-use crate::Runtime;
+use crate::CompiledRuntime;
 
 #[path = "simulation/plant.rs"]
 mod plant;
@@ -296,8 +296,24 @@ impl SimulationController {
         self
     }
 
+    /// The controller as a restart of the program leaves it (specification 46 §5.3): every plant
+    /// recreated from its configuration, the plant-local random streams, the disturbances, the
+    /// couplings and the pending effects back at their start, and the same configuration revision,
+    /// so that a cold and a warm restart do not carry plant state across.
     #[must_use]
-    pub fn runtime_snapshot_for(&self, runtime: &Runtime) -> SimulationRuntimeSnapshot {
+    pub fn recreated(&self) -> Self {
+        let fresh = Self::new(self.config.clone());
+        match &self.active_configuration_revision {
+            Some(revision) => fresh.with_active_configuration_revision(revision.clone()),
+            None => fresh,
+        }
+    }
+
+    /// The snapshot that the scheduler's `SimulationSnapshot` command answers with: the plants'
+    /// status and trace, and whether all of `runtime`'s attached I/O is simulated (specification
+    /// 35, A2.4), which an isolated run of Control Studio requires (A2.6).
+    #[must_use]
+    pub fn runtime_snapshot_for(&self, runtime: &CompiledRuntime) -> SimulationRuntimeSnapshot {
         let mut snapshot = self.runtime_snapshot();
         snapshot.simulation_only_io = Some(runtime.simulation_only_io());
         snapshot
@@ -346,6 +362,9 @@ impl SimulationController {
         self.plants.clear_trace();
     }
 
+    /// Clears one plant's trace for the scheduler's `SimulationTraceClear` command (specification
+    /// 47, `plant.trace.clear`): refused when the active configuration is not the revision the
+    /// request read, or when no plant has the ID.
     pub fn clear_plant_trace(
         &mut self,
         plant_id: &str,
@@ -369,10 +388,19 @@ impl SimulationController {
         self.config.time_scale.max(1)
     }
 
+    /// The simulation's work before a scan at simulation time `now`, on the scan thread
+    /// (specification 46, §2 step 1 and §13.2): the scripted disturbances and the delayed coupling and
+    /// physics effects that are due are written to the input image, and each plant publishes its
+    /// completed feedback to its feedback targets, so that the scan reads them.
+    ///
+    /// # Errors
+    ///
+    /// The simulation fault of a disturbance, an effect or a plant whose feedback cannot be written,
+    /// which latches the runtime's fault through its fault policy for a disturbance or an effect.
     pub fn apply_pre_cycle(
         &mut self,
         now: Duration,
-        runtime: &mut Runtime,
+        runtime: &mut CompiledRuntime,
     ) -> Result<(), RuntimeError> {
         if !self.enabled() {
             return Ok(());
@@ -387,10 +415,7 @@ impl SimulationController {
             match &disturbance.kind {
                 SimulationDisturbanceKind::SetInput { target, value } => {
                     if let Err(err) = runtime.write_io(target, value.clone()) {
-                        let msg = format!(
-                            "simulation disturbance failed for {}: {err}",
-                            format_io(target)
-                        );
+                        let msg = format!("simulation disturbance failed for {target}: {err}");
                         return Err(runtime.simulation_fault(msg));
                     }
                 }
@@ -411,7 +436,7 @@ impl SimulationController {
             if let Err(err) = runtime.write_io(&effect.target, effect.value.clone()) {
                 let msg = format!(
                     "simulation delayed effect failed for {}: {err}",
-                    format_io(&effect.target)
+                    effect.target
                 );
                 return Err(runtime.simulation_fault(msg));
             }
@@ -422,10 +447,19 @@ impl SimulationController {
         Ok(())
     }
 
+    /// The simulation's work after a scan that ended at simulation time `now` (specification 46,
+    /// §2 steps 3 to 5, §6.2): the couplings and physics joints read the outputs the scan
+    /// committed and queue their effects, and each plant reads its command sources from the program
+    /// as the scan left it and advances through the elapsed time; nothing is written to the program,
+    /// and the new feedback waits for the next [`Self::apply_pre_cycle`].
+    ///
+    /// # Errors
+    ///
+    /// The simulation fault of a source that cannot be read or a plant that cannot advance.
     pub fn apply_post_cycle(
         &mut self,
         now: Duration,
-        runtime: &Runtime,
+        runtime: &CompiledRuntime,
     ) -> Result<(), RuntimeError> {
         if !self.enabled() {
             return Ok(());
@@ -433,7 +467,7 @@ impl SimulationController {
 
         for idx in 0..self.config.couplings.len() {
             let coupling = self.config.couplings[idx].clone();
-            let source_value = runtime.io().read(&coupling.source)?;
+            let source_value = runtime.read_io(&coupling.source)?;
             let next_value = derive_coupling_value(&coupling, &source_value)?;
             if self.last_coupling_values[idx].as_ref() == Some(&next_value) {
                 continue;
@@ -525,7 +559,7 @@ impl PhysicsController {
     fn step(
         &mut self,
         _now: Duration,
-        runtime: &Runtime,
+        runtime: &CompiledRuntime,
     ) -> Result<Vec<PhysicsEffect>, RuntimeError> {
         let dt_s = self.step.as_nanos() as f64 / 1_000_000_000.0;
         let mut effects = Vec::new();
@@ -557,15 +591,14 @@ impl PhysicsJointState {
         }
     }
 
-    fn enabled(&self, runtime: &Runtime) -> Result<bool, RuntimeError> {
+    fn enabled(&self, runtime: &CompiledRuntime) -> Result<bool, RuntimeError> {
         runtime
-            .io()
-            .read(&self.config.enable_source)
+            .read_io(&self.config.enable_source)
             .map(|value| value_to_bool(&value))
             .map_err(|err| {
                 simulation_fault(format!(
                     "physics enable read failed for {}: {err}",
-                    format_io(&self.config.enable_source)
+                    self.config.enable_source
                 ))
             })
     }
@@ -973,7 +1006,7 @@ fn validate_physics_targets(
         {
             return Err(invalid_config(format!(
                 "physics feedback target {} conflicts with coupling target",
-                format_io(&joint.feedback_target)
+                joint.feedback_target
             )));
         }
         if physics.joints[..idx]
@@ -982,7 +1015,7 @@ fn validate_physics_targets(
         {
             return Err(invalid_config(format!(
                 "physics feedback target {} conflicts with another physics joint target",
-                format_io(&joint.feedback_target)
+                joint.feedback_target
             )));
         }
     }
@@ -1000,8 +1033,7 @@ fn validate_plant_targets(
             .any(|coupling| addresses_overlap(target, &coupling.target))
         {
             return Err(invalid_config(format!(
-                "plant '{plant_id}' feedback target {} conflicts with coupling target",
-                format_io(target)
+                "plant '{plant_id}' feedback target {target} conflicts with coupling target"
             )));
         }
         if physics.is_some_and(|physics| {
@@ -1012,8 +1044,7 @@ fn validate_plant_targets(
                     .any(|joint| addresses_overlap(target, &joint.feedback_target))
         }) {
             return Err(invalid_config(format!(
-                "plant '{plant_id}' feedback target {} conflicts with physics feedback target",
-                format_io(target)
+                "plant '{plant_id}' feedback target {target} conflicts with physics feedback target"
             )));
         }
     }
@@ -1250,27 +1281,6 @@ fn invalid_config(message: impl Into<String>) -> RuntimeError {
 
 fn simulation_fault(message: impl Into<String>) -> RuntimeError {
     RuntimeError::SimulationFault(SmolStr::new(message.into()))
-}
-
-fn format_io(address: &IoAddress) -> String {
-    let area = match address.area {
-        IoArea::Input => "I",
-        IoArea::Output => "Q",
-        IoArea::Memory => "M",
-    };
-    let size = match address.size {
-        IoSize::Bit => "X",
-        IoSize::Byte => "B",
-        IoSize::Word => "W",
-        IoSize::DWord => "D",
-        IoSize::LWord => "L",
-        IoSize::Bytes(_) => "B",
-    };
-    if address.size == IoSize::Bit {
-        format!("%{area}{size}{}.{}", address.byte, address.bit)
-    } else {
-        format!("%{area}{size}{}", address.byte)
-    }
 }
 
 #[cfg(test)]

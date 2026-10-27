@@ -4,10 +4,8 @@ use object::read::elf::ProgramHeader;
 use object::{Object, ObjectSection, ObjectSymbol};
 use serde_json::{json, Value};
 
-const VECTOR: std::ops::Range<u64> = 0x0800_0000..0x0800_4000;
-const CODE: std::ops::Range<u64> = 0x0801_0000..0x0808_0000;
-const RAM: std::ops::Range<u64> = 0x2000_0000..0x2001_4000;
-const FLASH_GROWTH_TARGET: u64 = 16 * 1024;
+mod reader;
+mod stm32u5a9;
 
 fn contained(start: u64, bytes: u64, region: &std::ops::Range<u64>) -> bool {
     start >= region.start
@@ -16,239 +14,14 @@ fn contained(start: u64, bytes: u64, region: &std::ops::Range<u64>) -> bool {
             .is_some_and(|end| end <= region.end)
 }
 
-fn add_flash_load(loads: &mut Vec<(u64, u64)>, start: u64, length: u64) -> Result<()> {
-    ensure!(
-        contained(start, length, &VECTOR) || contained(start, length, &CODE),
-        "ELF load at {start:#x} + {length} overlaps application/persistence or leaves flash"
-    );
-    for &(previous, previous_length) in loads.iter() {
-        ensure!(
-            start + length <= previous || previous + previous_length <= start,
-            "overlapping flash load segments"
-        );
-    }
-    loads.push((start, length));
-    Ok(())
-}
-
-fn readonly_tail(
-    start: u64,
-    length: u64,
-    flags: object::elf::SectionFlags,
-    vector_end: u64,
-    alignment: u64,
-) -> Result<()> {
-    ensure!(
-        start >= vector_end
-            && start.is_multiple_of(32)
-            && alignment.is_power_of_two()
-            && start.is_multiple_of(alignment)
-            && contained(start, length, &VECTOR),
-        "immutable firmware data overlaps vectors or leaves sector 0"
-    );
-    ensure!(
-        flags.contains(object::elf::SHF_ALLOC)
-            && !flags.intersects(object::elf::SHF_WRITE | object::elf::SHF_EXECINSTR),
-        "sector-0 firmware data must be allocated read-only non-executable data"
-    );
-    Ok(())
-}
-
-fn upper_span(end: u64) -> Result<u64> {
-    ensure!(
-        (CODE.start..=CODE.end).contains(&end),
-        "firmware load end leaves the executable region"
-    );
-    Ok(end - CODE.start)
-}
-
-fn meets_flash_growth_target(free_bytes: u64) -> bool {
-    free_bytes >= FLASH_GROWTH_TARGET
-}
-
 /// Inspects a linked image with the policy of its board, and records the board in the report.
 pub(super) fn inspect(board: &BoardProfile, bytes: &[u8]) -> Result<Value> {
     let mut report = match board.board {
-        Board::NucleoF401re => inspect_stm32f401(bytes)?,
         Board::Esp32c6Devkitc1 => inspect_esp32c6(board, bytes)?,
+        Board::RiverdiRvt50hqsnwc00B => stm32u5a9::inspect(board, bytes)?,
     };
     report["board"] = board.name.into();
     Ok(report)
-}
-
-/// The F401 (ARM Cortex-M4F) image policy.
-fn inspect_stm32f401(bytes: &[u8]) -> Result<Value> {
-    let file = object::File::parse(bytes).context("decode firmware ELF")?;
-    ensure!(
-        file.architecture() == object::Architecture::Arm
-            && !file.is_64()
-            && file.is_little_endian(),
-        "firmware must be ARM32 little-endian ELF"
-    );
-    let object::FileFlags::Elf { e_flags, .. } = file.flags() else {
-        anyhow::bail!("firmware is not ELF");
-    };
-    ensure!(
-        e_flags.contains(object::elf::FileFlags(object::elf::EF_ARM_ABI_FLOAT_HARD)),
-        "firmware lacks hard-float ABI flag"
-    );
-    ensure!(
-        CODE.contains(&(file.entry() & !1)),
-        "reset entry is outside executable partition"
-    );
-    let vectors = file
-        .section_by_name(".vector_table")
-        .context("missing vector table")?;
-    ensure!(
-        vectors.address() == VECTOR.start && contained(vectors.address(), vectors.size(), &VECTOR),
-        "vector table exceeds sector 0"
-    );
-    let table = vectors.data()?;
-    ensure!(table.len() >= 8, "truncated vector table");
-    let initial_sp = u32::from_le_bytes(table[..4].try_into()?);
-    ensure!(
-        initial_sp == 0x2001_8000,
-        "unexpected initial stack pointer"
-    );
-    let reset_vector = u32::from_le_bytes(table[4..8].try_into()?);
-    ensure!(
-        reset_vector & 1 == 1 && u64::from(reset_vector) == file.entry(),
-        "reset vector differs from Thumb ELF entry"
-    );
-    let symbol = |name: &str| -> Result<u64> {
-        file.symbols()
-            .find(|s| s.name().ok() == Some(name))
-            .map(|s| s.address())
-            .with_context(|| format!("missing linker symbol {name}"))
-    };
-    ensure!(
-        symbol("_stack_end")? == RAM.end && symbol("_stack_start")? == u64::from(initial_sp),
-        "linker did not reserve the 16 KiB stack region"
-    );
-    let tail = file
-        .section_by_name(".firmware_rodata")
-        .context("missing immutable firmware data")?;
-    let object::SectionFlags::Elf { sh_flags, .. } = tail.flags() else {
-        anyhow::bail!("immutable firmware data is not an ELF section");
-    };
-    readonly_tail(
-        tail.address(),
-        tail.size(),
-        sh_flags,
-        vectors.address() + vectors.size(),
-        tail.align(),
-    )?;
-    ensure!(
-        tail.address() == symbol("__firmware_rodata_start")?
-            && tail.address() + tail.size() == symbol("__firmware_rodata_end")?,
-        "immutable firmware data differs from linker bounds"
-    );
-    let code_end = symbol("__firmware_load_end")?;
-    let code_span = upper_span(code_end)?;
-    let code_free_bytes = CODE.end - code_end;
-    let flash_growth_target_met = meets_flash_growth_target(code_free_bytes);
-    let code = file
-        .section_by_name(".text")
-        .context("missing executable firmware section")?;
-    ensure!(
-        code.address() == CODE.start
-            && contained(code.address(), code.size(), &CODE)
-            && (code.address()..code.address() + code.size()).contains(&(file.entry() & !1)),
-        "reset handler is outside executable firmware section"
-    );
-    let object::SectionFlags::Elf { sh_flags, .. } = code.flags() else {
-        anyhow::bail!("firmware code is not an ELF section");
-    };
-    ensure!(
-        sh_flags.contains(object::elf::SHF_EXECINSTR | object::elf::SHF_ALLOC),
-        "firmware text is not allocated executable code"
-    );
-    let elf = object::read::elf::ElfFile32::<object::Endianness>::parse(bytes)?;
-    let endian = elf.endian();
-    let mut loads = Vec::new();
-    let mut flash_bytes = 0_u64;
-    for segment in elf.elf_program_headers() {
-        if segment.p_type(endian) != object::elf::PT_LOAD || segment.p_filesz(endian) == 0 {
-            continue;
-        }
-        let start = u64::from(segment.p_paddr(endian));
-        let length = u64::from(segment.p_filesz(endian));
-        add_flash_load(&mut loads, start, length)?;
-        if VECTOR.contains(&start) {
-            ensure!(
-                !segment
-                    .p_flags(endian)
-                    .intersects(object::elf::PF_W | object::elf::PF_X),
-                "sector-0 load segment is writable or executable"
-            );
-        } else {
-            ensure!(
-                start + length <= code_end,
-                "firmware load exceeds recorded upper end"
-            );
-        }
-        let offset = u64::from(segment.p_offset(endian));
-        ensure!(
-            offset
-                .checked_add(length)
-                .is_some_and(|end| end <= bytes.len() as u64),
-            "ELF load extends beyond file"
-        );
-        flash_bytes += length;
-    }
-    ensure!(!loads.is_empty(), "firmware has no flash load segments");
-    let mut sections = Vec::new();
-    let mut ram_bytes = 0_u64;
-    for section in file.sections() {
-        let object::SectionFlags::Elf { sh_flags, .. } = section.flags() else {
-            continue;
-        };
-        if !sh_flags.contains(object::elf::SHF_ALLOC) || section.size() == 0 {
-            continue;
-        }
-        let start = section.address();
-        let size = section.size();
-        if (RAM.start..0x2001_8000).contains(&start) {
-            ensure!(
-                contained(start, size, &RAM),
-                "static section overlaps MSP reserve"
-            );
-            ram_bytes += size;
-        } else {
-            ensure!(
-                contained(start, size, &VECTOR) || contained(start, size, &CODE),
-                "allocated section outside firmware regions"
-            );
-            if VECTOR.contains(&start) {
-                ensure!(
-                    matches!(section.name()?, ".vector_table" | ".firmware_rodata"),
-                    "unexpected allocated section in vector/data sector"
-                );
-            } else {
-                ensure!(
-                    start + size <= code_end,
-                    "section exceeds recorded upper end"
-                );
-            }
-        }
-        sections.push(json!({"name":section.name()?,"address":start,"bytes":size}));
-    }
-    ensure!(
-        (72 * 1024..=80 * 1024).contains(&ram_bytes),
-        "static RAM does not match heap/static reservation"
-    );
-    Ok(
-        json!({"firmware_sha256":super::digest(bytes), "flash_load_bytes":flash_bytes,
-        "static_ram_bytes_including_heap":ram_bytes,"other_static_ram_bytes":ram_bytes-72*1024,
-        "heap_reserved_bytes":72*1024,"stack_reserved_bytes":16*1024,
-        "application_sector_bytes":16*1024,"persistence_reserved_bytes":32*1024,"firmware_code_capacity_bytes":448*1024,
-        "firmware_code_span_bytes":code_span,"firmware_code_free_bytes":code_free_bytes,
-        "firmware_code_growth_target_bytes":FLASH_GROWTH_TARGET,
-        "firmware_code_growth_target_met":flash_growth_target_met,
-        "sector0_span_bytes":tail.address()+tail.size()-VECTOR.start,
-        "sector0_free_bytes":VECTOR.end-tail.address()-tail.size(),
-        "load_segments":loads,"sections":sections}),
-    )
 }
 
 // ESP32-C6 windows from esp-hal 1.2.2 (`ld/esp32c6/memory.x`): flash-mapped code and read-only
@@ -257,6 +30,13 @@ const C6_FLASH: std::ops::Range<u64> = 0x4200_0000..0x4280_0000;
 const C6_HP_SRAM: std::ops::Range<u64> = 0x4080_0000..0x4088_0000;
 /// `_stack_start` in esp-hal 1.2.2's C6 memory map; the composition's fixed stack window ends here.
 const C6_STACK_TOP: u64 = 0x4086_E610;
+/// The C6's main-stack window: the 78 KiB the composition budgets at the top of the esp-hal stack
+/// region (specification 34, D.2); `trust_platform_esp32::profile::MAIN_STACK` gives the firmware the
+/// same.
+pub(super) const C6_STACK_WINDOW_BYTES: u64 = 78 * 1024;
+/// The margin above the window the C6 build requires. Below it the boot-time stack paint reaches
+/// static data, as the S1b-5c firmware did (specification 34, D.2, the S1b-5d guard).
+pub(super) const C6_STACK_MARGIN_MINIMUM_BYTES: u64 = 4 * 1024;
 const C6_RTC_FAST: std::ops::Range<u64> = 0x5000_0000..0x5000_4000;
 // e_machine and e_flags values of the RISC-V ELF psABI.
 const EM_RISCV: u16 = 243;
@@ -277,12 +57,7 @@ struct Esp32c6Image {
     stack_end: Option<u64>,
     /// Size of the firmware's allocator arena, when the symbol is present.
     heap_arena_bytes: Option<u64>,
-    /// Addresses of every copy of the VM dispatch loop (spec 34 D.2: it executes from HP SRAM).
-    dispatch_addresses: Vec<u64>,
 }
-
-/// The VM dispatch loop's v0-mangled path; the length prefixes keep the match exact.
-const C6_DISPATCH_SYMBOL: &str = "18trust_runtime_core2vm8dispatch20execute_with_buffers";
 
 fn c6_window(start: u64, bytes: u64) -> Option<&'static str> {
     [
@@ -293,6 +68,60 @@ fn c6_window(start: u64, bytes: u64) -> Option<&'static str> {
     .into_iter()
     .find(|(_, window)| contained(start, bytes, window))
     .map(|(name, _)| name)
+}
+
+/// The allocated, non-empty sections of a linked image: name, address and byte length, in the
+/// image's own order.
+pub(super) fn allocated_sections(bytes: &[u8]) -> Result<Vec<(String, u64, u64)>> {
+    let file = object::File::parse(bytes).context("decode firmware ELF")?;
+    let mut sections = Vec::new();
+    for section in file.sections() {
+        let object::SectionFlags::Elf { sh_flags, .. } = section.flags() else {
+            continue;
+        };
+        if sh_flags.contains(object::elf::SHF_ALLOC) && section.size() != 0 {
+            sections.push((
+                section.name()?.to_owned(),
+                section.address(),
+                section.size(),
+            ));
+        }
+    }
+    Ok(sections)
+}
+
+/// The ESP32-C6 stack region from a linked image's section table, and its margin above the window.
+///
+/// The region is `.stack`, which runs from `_bss_end` to the composition's fixed stack top. The
+/// build requires it to hold the 78 KiB window plus at least 4 KiB of margin, the same rule the
+/// linker guard asserts (specification 34, D.2); a smaller region lets the boot-time stack paint
+/// reach static data, as the S1b-5c firmware did. `cargo xtask portability build-firmware esp32c6`
+/// refuses the image here, so the check catches a regression even if the linker script is bypassed.
+pub(super) fn c6_stack_region(sections: &[(String, u64, u64)]) -> Result<Value> {
+    let (_, start, bytes) = sections
+        .iter()
+        .find(|(name, ..)| name == ".stack")
+        .context("linked image has no .stack region")?;
+    let end = start
+        .checked_add(*bytes)
+        .context("stack region overflows the address space")?;
+    ensure!(
+        end == C6_STACK_TOP,
+        "the .stack region ends at {end:#x}, not the composition's fixed stack top {C6_STACK_TOP:#x}"
+    );
+    let margin_bytes = bytes.saturating_sub(C6_STACK_WINDOW_BYTES);
+    ensure!(
+        margin_bytes >= C6_STACK_MARGIN_MINIMUM_BYTES,
+        "the stack region of {bytes} bytes leaves {margin_bytes} bytes above the {C6_STACK_WINDOW_BYTES} byte stack window, less than the {C6_STACK_MARGIN_MINIMUM_BYTES} byte margin the build requires"
+    );
+    Ok(json!({
+        "region_start": start,
+        "region_end": end,
+        "region_bytes": bytes,
+        "window_bytes": C6_STACK_WINDOW_BYTES,
+        "margin_bytes": margin_bytes,
+        "margin_minimum_bytes": C6_STACK_MARGIN_MINIMUM_BYTES,
+    }))
 }
 
 /// The ESP32-C6 image policy. The ELF is read into `Esp32c6Image`; the checks are in
@@ -312,19 +141,7 @@ fn inspect_esp32c6(board: &BoardProfile, bytes: &[u8]) -> Result<Value> {
             .context("truncated ELF header")?
             .try_into()?,
     );
-    let mut sections = Vec::new();
-    for section in file.sections() {
-        let object::SectionFlags::Elf { sh_flags, .. } = section.flags() else {
-            continue;
-        };
-        if sh_flags.contains(object::elf::SHF_ALLOC) && section.size() != 0 {
-            sections.push((
-                section.name()?.to_owned(),
-                section.address(),
-                section.size(),
-            ));
-        }
-    }
+    let sections = allocated_sections(bytes)?;
     let elf = object::read::elf::ElfFile32::<object::Endianness>::parse(bytes)?;
     let endian = elf.endian();
     let mut loads = Vec::new();
@@ -356,11 +173,6 @@ fn inspect_esp32c6(board: &BoardProfile, bytes: &[u8]) -> Result<Value> {
             .symbols()
             .find(|s| s.name().is_ok_and(|name| name.contains("HEAP_MEMORY")))
             .map(|s| s.size()),
-        dispatch_addresses: file
-            .symbols()
-            .filter(|s| s.name().is_ok_and(|name| name.contains(C6_DISPATCH_SYMBOL)))
-            .map(|s| s.address())
-            .collect(),
     };
     let mut report = check_esp32c6(board, &image)?;
     report["firmware_sha256"] = super::digest(bytes).into();
@@ -450,18 +262,6 @@ fn check_esp32c6(board: &BoardProfile, image: &Esp32c6Image) -> Result<Value> {
         c6_window(end, stack_region_bytes) == Some("hp_sram"),
         "stack region lies outside HP SRAM"
     );
-    // From flash the interpreter stalled on code fetches; scan-time code must execute from RAM.
-    ensure!(
-        !image.dispatch_addresses.is_empty(),
-        "the VM dispatch loop symbol is missing from the image"
-    );
-    ensure!(
-        image
-            .dispatch_addresses
-            .iter()
-            .all(|&address| contained(address, 1, &C6_HP_SRAM)),
-        "the VM dispatch loop does not execute from HP SRAM"
-    );
     let ram_code_bytes = image
         .sections
         .iter()
@@ -483,7 +283,6 @@ fn check_esp32c6(board: &BoardProfile, image: &Esp32c6Image) -> Result<Value> {
         "stack_headroom_minimum_bytes": board.stack_headroom_bytes,
         "heap_arena_bytes": image.heap_arena_bytes,
         "ram_code_bytes": ram_code_bytes,
-        "dispatch_loop_in_hp_sram": true,
         "application_partition_bytes": board.application_bytes,
         "load_segments": segments,
         "sections": sections,
@@ -493,90 +292,6 @@ fn check_esp32c6(board: &BoardProfile, image: &Esp32c6Image) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn flash_and_ram_boundaries_do_not_admit_reserved_regions_or_overflow() {
-        assert!(contained(VECTOR.start, 16 * 1024, &VECTOR));
-        assert!(!contained(VECTOR.start, 16 * 1024 + 1, &VECTOR));
-        assert!(!contained(0x0800_4000, 1, &CODE));
-        assert!(!contained(0x0800_8000, 1, &CODE));
-        assert!(!contained(0x0800_c000, 1, &CODE));
-        assert!(!contained(0x0800_ffff, 2, &CODE));
-        assert!(contained(CODE.start, 448 * 1024, &CODE));
-        assert!(!contained(CODE.start, 448 * 1024 + 1, &CODE));
-        assert!(!contained(0x2001_3fff, 2, &RAM));
-        assert!(!contained(u64::MAX, 2, &RAM));
-        assert!(inspect_stm32f401(b"not a linked firmware image").is_err());
-    }
-
-    #[test]
-    fn discontiguous_loads_preserve_application_and_checkpoint_sectors() {
-        let mut loads = Vec::new();
-        add_flash_load(&mut loads, VECTOR.start, 16 * 1024).unwrap();
-        add_flash_load(&mut loads, CODE.start, 432 * 1024).unwrap();
-        assert!(add_flash_load(&mut loads, VECTOR.start + 404, 8).is_err());
-        assert!(
-            add_flash_load(&mut Vec::new(), VECTOR.start, CODE.start - VECTOR.start + 1).is_err()
-        );
-        assert!(add_flash_load(&mut Vec::new(), CODE.end - 4, 8).is_err());
-        assert!(add_flash_load(&mut Vec::new(), u64::MAX, 2).is_err());
-    }
-
-    #[test]
-    fn immutable_tail_rejects_vector_overlap_alignment_and_mutable_or_code_sections() {
-        let flags = object::elf::SHF_ALLOC;
-        readonly_tail(VECTOR.start + 416, 15_968, flags, VECTOR.start + 404, 32).unwrap();
-        assert!(readonly_tail(VECTOR.start + 416, 15_969, flags, VECTOR.start + 404, 32).is_err());
-        assert!(readonly_tail(VECTOR.start + 400, 8, flags, VECTOR.start + 404, 32).is_err());
-        assert!(readonly_tail(VECTOR.start + 404, 8, flags, VECTOR.start + 404, 32).is_err());
-        assert!(readonly_tail(VECTOR.start + 416, 8, flags, VECTOR.start + 404, 64).is_err());
-        for forbidden in [object::elf::SHF_WRITE, object::elf::SHF_EXECINSTR] {
-            assert!(readonly_tail(
-                VECTOR.start + 416,
-                8,
-                flags | forbidden,
-                VECTOR.start + 404,
-                32
-            )
-            .is_err());
-        }
-        assert!(readonly_tail(
-            VECTOR.start + 416,
-            8,
-            object::elf::SectionFlags(0),
-            VECTOR.start + 404,
-            32
-        )
-        .is_err());
-        readonly_tail(
-            VECTOR.start + 416,
-            8,
-            flags | object::elf::SHF_MERGE,
-            VECTOR.start + 404,
-            32,
-        )
-        .unwrap();
-    }
-
-    #[test]
-    fn upper_flash_bounds_are_hard_and_growth_target_is_report_only() {
-        assert_eq!(upper_span(CODE.start).unwrap(), 0);
-        assert_eq!(upper_span(CODE.end).unwrap(), 448 * 1024);
-        assert_eq!(
-            upper_span(CODE.end - FLASH_GROWTH_TARGET).unwrap(),
-            432 * 1024
-        );
-        assert!(upper_span(CODE.start - 1).is_err());
-        assert!(upper_span(CODE.end + 1).is_err());
-        assert!(upper_span(u64::MAX).is_err());
-
-        let near_old_threshold_end = CODE.end - (FLASH_GROWTH_TARGET - 1);
-        assert!(upper_span(near_old_threshold_end).is_ok());
-        let free_bytes = CODE.end - near_old_threshold_end;
-        assert_eq!(free_bytes, FLASH_GROWTH_TARGET - 1);
-        assert!(!meets_flash_growth_target(free_bytes));
-        assert!(meets_flash_growth_target(FLASH_GROWTH_TARGET));
-    }
-
     /// The measured layout of the C6 probe image: flash code and data, RAM segments loaded from
     /// the image, and the esp-hal stack region that ends at `_stack_start`.
     fn c6_image() -> Esp32c6Image {
@@ -604,13 +319,12 @@ mod tests {
             stack_start: Some(0x4086_e610),
             stack_end: Some(0x4080_50d8),
             heap_arena_bytes: None,
-            dispatch_addresses: vec![0x4080_0100],
         }
     }
 
     #[test]
     fn c6_requires_the_fixed_stack_top_the_composition_measures() {
-        let board = BoardProfile::esp32c6_devkitc_1();
+        let board = BoardProfile::esp32c6_devkitc_1().unwrap();
         let mut image = c6_image();
         image.stack_start = Some(C6_STACK_TOP + 0x100);
         let error = check_esp32c6(&board, &image).unwrap_err().to_string();
@@ -618,23 +332,8 @@ mod tests {
     }
 
     #[test]
-    fn c6_requires_the_dispatch_loop_in_hp_sram() {
-        let board = BoardProfile::esp32c6_devkitc_1();
-        let mut image = c6_image();
-        image.dispatch_addresses = vec![0x4080_0100, 0x4201_0400];
-        let error = check_esp32c6(&board, &image).unwrap_err().to_string();
-        assert!(error.contains("does not execute from HP SRAM"), "{error}");
-        image.dispatch_addresses.clear();
-        let error = check_esp32c6(&board, &image).unwrap_err().to_string();
-        assert!(error.contains("missing"), "{error}");
-        image.dispatch_addresses = vec![0x4080_0100];
-        let report = check_esp32c6(&board, &image).unwrap();
-        assert_eq!(report["dispatch_loop_in_hp_sram"], true);
-    }
-
-    #[test]
     fn c6_accepts_the_measured_layout_and_reports_each_region() {
-        let board = BoardProfile::esp32c6_devkitc_1();
+        let board = BoardProfile::esp32c6_devkitc_1().unwrap();
         let report = check_esp32c6(&board, &c6_image()).unwrap();
         assert_eq!(report["image_load_bytes"], 27_186);
         assert_eq!(report["flash_mapped_bytes"], 23_470);
@@ -648,7 +347,7 @@ mod tests {
 
     #[test]
     fn c6_rejects_a_section_or_load_outside_every_window() {
-        let board = BoardProfile::esp32c6_devkitc_1();
+        let board = BoardProfile::esp32c6_devkitc_1().unwrap();
         let mut stray = c6_image();
         stray.sections.push((".stray".into(), 0x3000_0000, 4));
         assert!(check_esp32c6(&board, &stray).is_err());
@@ -673,7 +372,7 @@ mod tests {
 
     #[test]
     fn c6_rejects_an_arm_image_and_hard_float_or_rve_flags() {
-        let board = BoardProfile::esp32c6_devkitc_1();
+        let board = BoardProfile::esp32c6_devkitc_1().unwrap();
         let mut arm = c6_image();
         arm.riscv32 = false;
         assert!(check_esp32c6(&board, &arm).is_err());
@@ -691,12 +390,13 @@ mod tests {
 
     #[test]
     fn c6_requires_the_stack_region_to_hold_the_window_and_headroom() {
-        let board = BoardProfile::esp32c6_devkitc_1();
+        let board = BoardProfile::esp32c6_devkitc_1().unwrap();
+        // The 78 KiB window plus the 2 KiB headroom of the board profile: 80 KiB.
         let mut short = c6_image();
-        short.stack_end = Some(0x4086_e610 - (18 * 1024 - 1));
+        short.stack_end = Some(0x4086_e610 - (80 * 1024 - 1));
         assert!(check_esp32c6(&board, &short).is_err());
         let mut exact = c6_image();
-        exact.stack_end = Some(0x4086_e610 - 18 * 1024);
+        exact.stack_end = Some(0x4086_e610 - 80 * 1024);
         assert!(check_esp32c6(&board, &exact).is_ok());
         let mut missing = c6_image();
         missing.stack_start = None;
@@ -704,8 +404,40 @@ mod tests {
     }
 
     #[test]
+    fn c6_build_reports_the_stack_margin_and_refuses_a_region_below_the_window_and_margin() {
+        // Specification 34 D.2: the region holds the 78 KiB window plus at least a 4 KiB margin.
+        let table = |start: u64, bytes: u64| vec![(".stack".to_owned(), start, bytes)];
+        // S1b-5c's measured region, 0x3F20 = 16,160 bytes: below the window, so outside the margin.
+        let error = c6_stack_region(&table(C6_STACK_TOP - 0x3F20, 0x3F20))
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.contains("16160") && error.contains("79872") && error.contains("4096"),
+            "{error}"
+        );
+        // An 81 KiB region, the 78 KiB window with 3 KiB above it, is refused. A build that still
+        // budgets the 24 KiB window, or 78 KiB with the 2 KiB headroom, would pass it.
+        assert!(c6_stack_region(&table(C6_STACK_TOP - 81 * 1024, 81 * 1024)).is_err());
+        // The window plus exactly the minimum margin, 82 KiB, passes and reports its margin.
+        let report = c6_stack_region(&table(C6_STACK_TOP - 82 * 1024, 82 * 1024)).unwrap();
+        assert_eq!(report["region_bytes"], 83_968);
+        assert_eq!(report["window_bytes"], 79_872);
+        assert_eq!(report["margin_bytes"], 4_096);
+        assert_eq!(report["margin_minimum_bytes"], 4_096);
+        // One byte under the minimum margin is refused.
+        assert!(c6_stack_region(&table(C6_STACK_TOP - (82 * 1024 - 1), 82 * 1024 - 1)).is_err());
+        // The 85,980-byte region of the C1-24 build (0x4085_9634 to 0x4086_E610) leaves 6,108
+        // bytes above the window.
+        let report = c6_stack_region(&table(C6_STACK_TOP - 85_980, 85_980)).unwrap();
+        assert_eq!(report["margin_bytes"], 6_108);
+        // A missing region and one that does not end at the fixed stack top are refused.
+        assert!(c6_stack_region(&[]).is_err());
+        assert!(c6_stack_region(&table(C6_STACK_TOP - 82 * 1024 - 4, 82 * 1024)).is_err());
+    }
+
+    #[test]
     fn c6_rejects_an_image_larger_than_the_factory_partition() {
-        let board = BoardProfile::esp32c6_devkitc_1();
+        let board = BoardProfile::esp32c6_devkitc_1().unwrap();
         let mut too_large = c6_image();
         too_large.loads.push((0x4240_0000, 0x1F0000));
         assert!(check_esp32c6(&board, &too_large).is_err());
@@ -716,10 +448,24 @@ mod tests {
 
     #[test]
     fn c6_reports_the_heap_arena_when_the_firmware_exports_one() {
-        let board = BoardProfile::esp32c6_devkitc_1();
+        let board = BoardProfile::esp32c6_devkitc_1().unwrap();
         let mut image = c6_image();
-        image.heap_arena_bytes = Some(72 * 1024);
+        image.heap_arena_bytes = Some(48 * 1024);
         let report = check_esp32c6(&board, &image).unwrap();
-        assert_eq!(report["heap_arena_bytes"], 73_728);
+        assert_eq!(report["heap_arena_bytes"], 49_152);
+    }
+
+    #[test]
+    fn c6_ram_windows_are_the_ram_regions_of_the_chip_file() {
+        // HP SRAM and the RTC fast memory (LP SRAM), as chips/esp32c6.toml records them.
+        let chip = crate::portability::board::chip("esp32c6").unwrap();
+        let regions: Vec<_> = chip
+            .memory
+            .ram
+            .iter()
+            .map(|region| u64::from(region.start)..region.end())
+            .collect();
+        assert_eq!(regions, [C6_HP_SRAM, C6_RTC_FAST]);
+        assert!(contained(C6_STACK_TOP, 0, &C6_HP_SRAM));
     }
 }

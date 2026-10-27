@@ -3,12 +3,16 @@ use trust_runtime::harness::{CompileSession, SourceFile};
 use trust_runtime::io::IoAddress;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
+
+mod control_heater_support;
+use control_heater_support::{compile, LessonRuntime};
 const PROJECT:&str="../../examples/control/01-feedback-foundations-and-temperature-control/03-cold-storage-hysteresis-dwell";
 const MAIN:&str=include_str!("../../../examples/control/01-feedback-foundations-and-temperature-control/03-cold-storage-hysteresis-dwell/src/Main.st");
-fn number(r: &Runtime, a: &str) -> f64 {
-    match r.io().read(&IoAddress::parse(a).unwrap()).unwrap() {
+fn number(r: &CompiledRuntime, a: &str) -> f64 {
+    match r.read_io(&IoAddress::parse(a).unwrap()).unwrap() {
         Value::LWord(b) => f64::from_bits(b),
+        Value::LReal(v) => v,
         Value::DWord(v) => v as f64,
         Value::Bool(v) => {
             if v {
@@ -42,9 +46,7 @@ fn delivered_dwell_runs_without_hidden_setup() {
             );
         let session =
             CompileSession::from_sources(vec![SourceFile::with_path("src/Main.st", source)]);
-        let mut r = session.build_runtime().unwrap();
-        r.apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)
-            .unwrap();
+        let mut r = compile(session);
         let debug = r.enable_debug();
         let project = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(PROJECT);
         let mut sim = SimulationController::new(

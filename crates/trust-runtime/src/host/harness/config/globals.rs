@@ -107,10 +107,9 @@ pub(super) fn apply_globals(
                 storage.set_global(init.name.clone(), value);
                 continue;
             }
-            let value = crate::harness::initializer::default_value_for_type_id_with_abi(
+            let value = crate::harness::initializer::default_value_for_type_id(
                 storage,
                 &registry,
-                crate::value::StorageAbi::LegacyTemporal32,
                 &initializer_catalog,
                 &profile,
                 None,
@@ -131,10 +130,9 @@ pub(super) fn apply_globals(
                 {
                     continue;
                 }
-                let value = crate::harness::initializer::evaluate_initializer_with_abi(
+                let value = crate::harness::initializer::evaluate_initializer(
                     storage,
                     &registry,
-                    crate::value::StorageAbi::LegacyTemporal32,
                     &initializer_catalog,
                     &profile,
                     None,
@@ -192,46 +190,7 @@ pub(super) fn apply_globals(
                 &mut bindings,
             )?;
         }
-        if let Some(_fb_name) = super::function_block_type_name(init.type_id, &registry) {
-            runtime.register_global_meta(
-                init.name.clone(),
-                init.type_id,
-                init.retain,
-                crate::GlobalInitValue::FunctionBlock {
-                    #[cfg(test)]
-                    type_name: _fb_name,
-                },
-            );
-            continue;
-        }
-        if let Some(_class_name) = super::class_type_name(init.type_id, &registry) {
-            runtime.register_global_meta(
-                init.name.clone(),
-                init.type_id,
-                init.retain,
-                crate::GlobalInitValue::Class {
-                    #[cfg(test)]
-                    type_name: _class_name,
-                },
-            );
-            continue;
-        }
-        let value = runtime
-            .storage()
-            .get_global(init.name.as_ref())
-            .cloned()
-            .ok_or_else(|| {
-                CompileError::new(format!(
-                    "global '{}' was not initialized before metadata registration",
-                    init.name
-                ))
-            })?;
-        runtime.register_global_meta(
-            init.name.clone(),
-            init.type_id,
-            init.retain,
-            crate::GlobalInitValue::Value(value),
-        );
+        runtime.register_global_type(init.name.clone(), init.type_id);
     }
 
     let mut visited = std::collections::HashSet::new();

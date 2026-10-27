@@ -1,0 +1,159 @@
+{
+  "access_tooltip": "{access} on the device",
+  "added_aria_label": "Already added: {path}",
+  "added_label": "Added",
+  "breadcrumb": "Devices & Connections",
+  "close_label": "Close",
+  "details": {
+    "rows": [
+      {
+        "label": "AMS Net ID",
+        "value": "5.23.91.12.1.1",
+        "wide": false
+      },
+      {
+        "label": "Host",
+        "value": "192.168.10.5",
+        "wide": false
+      }
+    ],
+    "summary": "Connection details"
+  },
+  "done_label": "Done",
+  "id": "browse:ads",
+  "kind": "ads_tags",
+  "loading": false,
+  "port_help": "Each ADS port is a separate server and symbol namespace. The server must support Symbol Upload.",
+  "port_input": {
+    "browse": {
+      "emphasis": "primary",
+      "enabled": true,
+      "id": "browse_port",
+      "label": "Browse this port",
+      "op": {
+        "action": "browse.port",
+        "kind": "rust",
+        "payload": {
+          "pane": "browse:ads",
+          "request": {
+            "kind": "symbols",
+            "port": 851,
+            "seq": 3,
+            "session": "dc-golden",
+            "source": {
+              "connection": "endpoint:line",
+              "connection_name": "Line"
+            },
+            "trust_server_certificate": false
+          }
+        }
+      }
+    },
+    "hide_label": "Hide advanced",
+    "label": "ADS port",
+    "placeholder": "851",
+    "show_label": "Advanced: browse another ADS port"
+  },
+  "port_suggestions": [
+    {
+      "label": "I/O",
+      "value": "301"
+    },
+    {
+      "label": "Motion",
+      "value": "501"
+    },
+    {
+      "label": "PLC runtime 1",
+      "value": "851"
+    },
+    {
+      "label": "PLC runtime 2",
+      "value": "852"
+    }
+  ],
+  "port_summary": "1 responding ADS port: 852",
+  "ports": [
+    {
+      "port": 851,
+      "state_text": "1 tag",
+      "tags": [
+        {
+          "access": "read/write",
+          "action": {
+            "emphasis": "quiet",
+            "enabled": true,
+            "id": "851:ads:symbol:MAIN.Counter",
+            "label": "Select MAIN.Counter",
+            "op": {
+              "action": "ads.tags_set",
+              "kind": "rust",
+              "payload": {
+                "connection": "endpoint:line",
+                "pane": "browse:ads",
+                "port": 851,
+                "runtime": "runtime:line",
+                "ticked": [
+                  "MAIN.Counter"
+                ]
+              }
+            }
+          },
+          "added": false,
+          "children": [],
+          "key": "851:ads:symbol:MAIN.Counter",
+          "name": "Counter",
+          "path": "MAIN.Counter",
+          "select_label": "Select MAIN.Counter",
+          "selectable": true,
+          "type_label": "INT"
+        }
+      ],
+      "title": "ADS port 851"
+    },
+    {
+      "browse": {
+        "emphasis": "secondary",
+        "enabled": true,
+        "id": "browse_852",
+        "label": "Browse port 852",
+        "op": {
+          "kind": "ui",
+          "ui": {
+            "kind": "open",
+            "pane": {
+              "kind": "browse",
+              "request": {
+                "kind": "symbols",
+                "port": 852,
+                "seq": 4,
+                "session": "dc-golden",
+                "source": {
+                  "connection": "endpoint:line",
+                  "connection_name": "Line"
+                },
+                "trust_server_certificate": false
+              }
+            }
+          }
+        }
+      },
+      "empty_text": "Tags have not been loaded from this port yet.",
+      "port": 852,
+      "state_text": "0 tags",
+      "tags": [],
+      "title": "ADS port 852"
+    }
+  ],
+  "search": {
+    "no_match": "No matching tags on this port.",
+    "placeholder": "Search tags on all ADS ports"
+  },
+  "subtitle": "Line",
+  "title": "Browse tags",
+  "tree": [],
+  "write_toggle": {
+    "enabled": true,
+    "label": "Allow writes for newly added tags"
+  }
+}

@@ -1,24 +1,12 @@
 import * as assert from "assert";
 import { normalizePlantTopology } from "../../networkCanvas/plant/projection";
 import { createPlantEditDraft } from "../../networkCanvas/plant/addFlow";
-import { plantCandidateFromEditorDraft } from "../../networkCanvas/plant/editorModel";
 import type { PlantContractMessage } from "../../networkCanvas/plant/contract";
 
+// Rust builds the candidate from the draft and carries the saved fields the editor does not manage
+// (specification 47 §13.2); the projection hands it the saved plant as it was read.
 suite("Plant configuration preservation", () => {
-  test("saved dynamics require replacement confirmation even before an edit", () => {
-    const { planPlantStartingPointChange } = require("../../networkCanvas/plant/editorModel");
-    const plan = planPlantStartingPointChange({
-      currentStartingPoint: "custom_state_space", requestedStartingPoint: "tank",
-      modelValuesTouched: false, hasSavedConfiguration: true,
-    });
-    assert.strictEqual(plan.kind, "confirm", "saved custom dynamics are not an untouched new proposal");
-    assert.match(plan.message, /replace/i);
-    assert.strictEqual(planPlantStartingPointChange({
-      currentStartingPoint: "tank", requestedStartingPoint: "servo",
-      modelValuesTouched: false, hasSavedConfiguration: false,
-    }).kind, "apply", "an untouched new proposal can still change directly");
-  });
-  test("label edits preserve model validity through projection and serialization", () => {
+  test("a saved plant reopens with its whole saved table, copied, for Rust to carry", () => {
     const validity = { state_minimum: [-10, -20], state_maximum: [10, 20] };
     const saved = {
       id: "custom", name: "Custom model", description: "Existing model", enabled: true,
@@ -37,6 +25,7 @@ suite("Plant configuration preservation", () => {
     };
     const projected = normalizePlantTopology(response)[0];
     assert.ok(projected.configuration);
+    assert.deepStrictEqual(projected.configuration.preservedConfiguration, saved);
     const draft = createPlantEditDraft({
       ...projected.configuration, id: "plant:custom", projectId: "project:test",
       uncertainties: undefined, scenarioEvents: [],
@@ -45,16 +34,10 @@ suite("Plant configuration preservation", () => {
       commandSources: projected.commandSources, feedbackTargets: projected.feedbackTargets,
       savedConfigurationRevision: "sha256:saved",
     });
-    const candidate = plantCandidateFromEditorDraft(draft);
-    assert.deepStrictEqual(candidate.validity, validity, "a label edit must not remove model validity");
-    assert.deepStrictEqual(candidate, { ...saved, name: "Renamed model", scenario_events: [] });
-    const cleared = plantCandidateFromEditorDraft({
-      ...draft, actuator: undefined,
-      preservedConfiguration: { ...draft.preservedConfiguration, actuator: { lag_s: 99 }, name: "Stale name" },
-    });
-    assert.strictEqual(cleared.actuator, undefined, "saved extras must not resurrect a cleared effect");
-    assert.strictEqual(cleared.name, "Renamed model", "editable identity remains authoritative");
-    (candidate.validity as typeof validity).state_minimum[0] = -99;
-    assert.strictEqual(validity.state_minimum[0], -10, "candidate editing must not mutate the read response");
+    assert.deepStrictEqual(draft.preservedConfiguration, saved);
+    assert.strictEqual(draft.originalPlantId, "custom", "the checks know the plant's own saved ID");
+    assert.strictEqual(draft.startingPoint, "", "Rust opens the draft and names its starting point");
+    (draft.preservedConfiguration!.validity as typeof validity).state_minimum[0] = -99;
+    assert.strictEqual(validity.state_minimum[0], -10, "editing the draft must not mutate the read response");
   });
 });

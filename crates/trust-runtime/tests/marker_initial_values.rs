@@ -34,8 +34,7 @@ fn marker_variables_start_from_their_initialized_values() {
     assert_eq!(
         harness
             .runtime()
-            .io()
-            .read(&IoAddress::parse("%MW0").unwrap())
+            .read_io(&IoAddress::parse("%MW0").unwrap())
             .unwrap(),
         Value::Word(42),
         "the marker holds the initialized value before the first cycle"

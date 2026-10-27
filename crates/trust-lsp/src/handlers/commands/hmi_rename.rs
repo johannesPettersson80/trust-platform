@@ -134,16 +134,17 @@ fn found_parts<C: ServerContext>(
     found
 }
 
-/// The named parts of a path that name what is renamed, resolved against the program.
+/// The named parts of a path that name what is renamed, resolved against the program's
+/// declarations.
 fn matched_parts(
     identity: &RenameIdentity,
-    runtime: &trust_runtime::Runtime,
+    declarations: &trust_runtime::harness::Declarations,
     path: &str,
 ) -> Vec<Range<usize>> {
     let Ok(parsed) = MemberPath::parse(path) else {
         return Vec::new();
     };
-    let Some(steps) = path_steps(&parsed, runtime) else {
+    let Some(steps) = path_steps(&parsed, declarations) else {
         return Vec::new();
     };
     let parts = named_parts(path);

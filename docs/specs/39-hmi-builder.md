@@ -142,7 +142,11 @@ long-term history storage.
      the next Ctrl+D repeats that step. **Smart numbering:** a copied binding's last number is
      moved to the next one when that variable exists in the program (`TT101` to `TT102`,
      `P101.Running` to `P102.Running`); otherwise it stays as it was. An instrument keeps what it
-     measures only when that was copied with it.
+     measures only when that was copied with it. Decided on 26 October 2026, when these rules
+     moved into the language server (`trust-lsp.hmiClipboard`; the editor asks and commits its
+     answer): a copy gets the first free id of its type (item 6); a pasted pipe's bends move with
+     it; the next number keeps its zero padding (`TT009` to `TT010`), a pipe's flow binding is
+     numbered as an object's, and the program's variables are compared without regard to case.
    - **Align and distribute:** with two or more objects selected, align left, centre, right, top,
      middle or bottom to the selection's outer edges; with three or more, distribute horizontally
      or vertically with equal gaps. While dragging, guides snap to other objects' edges and
@@ -152,7 +156,19 @@ long-term history storage.
      group; a double-click edits one member. The visible group box (§5) is a separate component.
    - **Layer order:** bring forward, send backward, bring to front, send to back (Ctrl+],
      Ctrl+[, and with Shift); the order is the objects' order in the page file.
-   - **Pages** are organised in VS Code's Explorer (§3.2 item 2). **Layers panel:** the objects front to back;
+   - **Pages** are organised in VS Code's Explorer (§3.2 item 2). New HMI Page and New HMI Panel
+     ask for a name of 1–64 letters, digits, `-` and `_`, and title the file with its name in
+     words, as a new screen is titled (§4 item 8): each run of `-` and `_` is one space, so
+     `room_heating-2` is "Room heating 2". A new panel is 240 × 720, without fields and docked
+     nowhere (`[panel]` with `scope = "manual"` and `dock = "left"`). A rename updates the links
+     to the renamed file, and only those: a page's in `start_page`, in a docked panel's `pages`
+     and in `[object.click] page`; a panel's in an object's `faceplate`, in
+     `[object.click] faceplate` and in a definition's `faceplate`; a popup's in
+     `[object.click] popup` (§4 item 9, §8.7). Decided on 26 October 2026, when these rules moved
+     into the language server (`trust-lsp.hmiFiles`): a separator at the start or end of a name
+     had become a space in the title, and a popup's rename had also changed the links to a panel
+     of the same name, and the reverse.
+   - **Layers panel:** the objects front to back;
      a click selects, dragging reorders; the eye hides an object in the editor only, never in the
      runtime; the lock, saved in the file as `locked = true`, stops it being selected or moved on
      the canvas.
@@ -232,7 +248,11 @@ editor, Live mode and the runtime feed it the same way.
    - symbol style: `flat`, the two-dimensional symbols of §14.2;
    - top bar: title, logo, clock, alarm counter, logged-in user, page title;
    - navigation: side bar left or right, tabs on top, or none.
-   Templates provide complete screen layouts to start from.
+   Templates provide complete screen layouts to start from. A page or panel made in a project
+   without `hmi/screen.toml` (New HMI Page, New HMI Panel, Create Pages from Program, Create
+   Settings Page) also makes it, with the defaults of §3.4: 1920×1080, the dark theme and flat
+   symbols, without navigation (decided on 26 October 2026: New HMI Page had written 1280×720,
+   and Create Pages from Program a file without size, theme and symbols, which does not load).
 2. Pages are free: a page is not tied to a program, and its objects may bind to variables of any
    program.
 3. Navigation is built from the page list: order, title, icon, hidden pages, page groups.
@@ -332,6 +352,10 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
     - **Overview:** for a 1280 × 800 panel, a top bar with title, clock and user, and tabs; page
       size 1280 × 696.
     - **Single page:** 1024 × 768, without top bar or navigation.
+
+    The first page is `hmi/pages/overview.toml`, "Overview": first in the navigation, with the
+    `overview` icon and a heading "Overview". An existing screen layout is left as it is, and an
+    existing first page is kept.
 
     Unless the program already calls `Hmi.Display`, it also adds the HMI library, a `Screens`
     program that calls it and its task, so the new screen shows live values (§18 phase 5).
@@ -437,7 +461,10 @@ lines.
    - **estimated**: marked as estimated, for example with an "est." label;
    - **unknown**: shown as unknown (a "?" and a neutral hatch), never as the last good state.
 2. **Stale data.** A value that is stale keeps its last value with a stale marking and its age.
-   Each binding has a freshness limit, by default three expected update periods.
+   Each binding has a freshness limit, by default three expected update periods. The runtime
+   decides the limit and sends it with the expected update period (`stale_ms`, §11.1); the
+   display compares the age of its newest update with it and has no limit of its own
+   (26 October 2026).
 3. **Animations.** An animation (rotation, flow, blinking state) represents a current
    observation only. It shall stop while its data is stale, unknown or merely commanded.
 4. **Symbol states.** Symbols have states: running, stopped, fault, manual, out of service; open,
@@ -867,7 +894,10 @@ Planned with the user on 3 October 2026.
    (the measurement, and the controlled equipment, the one that drives an input) sets both, as does
    picking them on the page, and selecting a controller whose lines differ from its configuration
    brings them in line; a line goes to the page object that shows the configured instance, and
-   there is none when the page does not show it. So the picture never contradicts the PLC code
+   there is none when the page does not show it. The language server sets the lines
+   (`trust-lsp.hmiEquipmentEdit`); decided on 26 October 2026, when the rule moved there: the
+   instance is compared without regard to case, and of several connected measurements (or
+   controlled equipment) the first that is connected decides. So the picture never contradicts the PLC code
    Create PLC code writes from the same configuration. The checks report a line to an object that
    is not on the page or is the controller itself, signal lines on anything but a loop
    controller, a `measures` that names no instrument and an `acts_on` that names no equipment.
@@ -902,6 +932,15 @@ Planned with the user on 3 October 2026.
    - the tree refreshes from edited declarations, including unsaved source and pending design
      instances. Unrelated executable-code errors do not prevent drawing or selecting equipment.
      No compilation or PLC execution is part of loading the picker.
+   - the language server decides what a binding is offered, the binding a typed, picked or
+     dropped variable gives and what a variable dropped on the canvas creates
+     (`trust-lsp.hmiVariablePicker`); the editor shows its answers, and its search narrows the
+     tree to the variables whose path holds the words, without regard to case. Decided on
+     26 October 2026, when these rules moved into the language server: a binding keeps its own
+     direction, and a new one takes the first its property allows (item 4); a refusal names the
+     component in words, as "a numeric input's value"; a dropped variable is bound by the first
+     property of the new component that accepts it; a pipe's flow is offered numbers and booleans
+     (§6 item 6), and a panel's fields come first, as `$Name` (§8.7).
 2. **Paths:**
    - bindings use runtime instance paths, for example `FeedArea.P101.Running`;
    - paths reach members of function block instances, structure fields and array elements
@@ -1075,6 +1114,27 @@ check (§8.6) checks such a member where an instance is bound, against the varia
 declares, not against the block. The Plant library's PID controller (`block = "Control.PID"`)
 uses it for a loop written as ordinary code (§10.5).
 
+**Objects of a definition** (the editor's rules, decided on 26 October 2026 when they moved into
+the language server, `trust-lsp.hmiEquipmentEdit`; the editor asks and shows the answers):
+
+- The Components panel offers each definition with its drawing (the component its `symbol`
+  names), then every component whose drawing no definition names and every component that is
+  not equipment (§21.3 item 1); a P&ID offers only what it may hold (§18 phase 4 item 1).
+- An object shows the definition whose `block` is its own `block`, compared without regard to
+  case, as IEC names are.
+- Bound to an instance, an object reads each `[bind]` member of it (with its `[quality]` member)
+  and records the definition's `block`, the instance, the definition's panel as its `faceplate`,
+  and the instance's last name as its `tag`; a click that opens a panel opens the definition's,
+  for the instance.
+- A new object gets the first free instance of the project's program: the block's last name
+  without `FB_` and the first number from 1 that no variable of the program and no object of the
+  page holds, without regard to case (`Main.Pump2` after `Main.Pump1`, `Main.Pump3` when an object
+  of the page already holds `Main.Pump2`). A program that holds an `Hmi.Display` serves the
+  screens and takes no equipment; with no program yet the instance goes to `Main`, and with
+  several the user chooses.
+- In the inspector a tag is a name of the program (letters, digits and `_`, not starting with a
+  digit); a program chosen without one keeps the object's own name, or gives its first free one.
+
 ### 8.6 Link check
 
 A field whose member the block does not have, or whose member holds a kind of value the field
@@ -1193,7 +1253,7 @@ is not a block call but the ordinary code of §10.5.
    left unsaved in `plant.toml`, which has no editor, was lost when VS Code closed).
 3. Missing required hardware terminals and dependencies are listed with the equipment and page;
    generation never invents addresses, process logic or task periods. A project without a task
-   asks for its control cycle.
+   asks for its control cycle, a whole number of milliseconds from 1 to 60 000.
 
 ### 10.5 PID loops as ordinary code
 
@@ -1276,7 +1336,9 @@ declaration's real values.
    - **Source:** the run target the extension has selected, the simulator or a runtime, reached
      through its control endpoint. Live mode reads the page's bound paths with the control request
      `hmi.read` (`{ "paths": […] }`, Viewer role, at most 1 000 paths) every 250 ms; the answer has
-     the stream's cycle count, values and missing paths (§11.1), and values turn stale as there.
+     the stream's cycle count, values and missing paths (§11.1), with `period_ms` (250) and
+     `stale_ms` (750), and values turn stale as there (refined 26 October 2026, when the stale rule
+     moved into the runtime).
    - **Commands (phase 1):** Live mode observes. Controls show their values but send nothing, and
      the editor says to operate in the runtime display. Item 4 needs the HMI session of a named
      user (§12.8, item 2), which the control endpoint does not carry; it applies once the editor
@@ -1319,27 +1381,30 @@ Milestone 1A shows pages read-only in the browser; commands follow in 1B (§12) 
    shows on the next load; a file that does not load shows its errors (file, line and message)
    instead of the page. The files are the active bundle's (§16.4).
 2. **Live values.** A page subscribes to the paths its objects and pipes bind, over a websocket. The
-   runtime first sends the expected update period, the larger of its scan period and 250 ms; then,
+   runtime first sends the expected update period, the larger of its scan period and 250 ms, with
+   the stale limit, three such periods: `{ "period_ms", "stale_ms" }` (26 October 2026); then,
    after each call of `Hmi.Display` (§18 phase 5), at most four times a second, the runtime's
    cycle count with the values that changed since the page's last update: every subscribed
    path's value in the first update, then only those that changed, and none when nothing changed,
    so the cycle count alone shows that the program runs. When the calls come less often, it sends their
-   measured period as the new expected update period. A page that has just opened gets its first
-   values at the next call:
+   measured period as the new expected update period, with its stale limit in the same message.
+   A page that has just opened gets its first values at the next call:
    - a path that does not resolve in the running program, holds a reference, or has more than
      20 000 elements is unknown; the paths that do not resolve are also listed (`missing`) in the
      first update and whenever that list changes, and their objects are marked "Not in running
      program" (§16.3);
    - an array carries the declared lower bound of each dimension; a structure or function block
-     instance carries its members by name, in their declared order; a real that is not finite, and an integer too large
+     instance carries its members by name, in their declared order, an instance of a derived
+     function block or class its base's members first, as it holds them (IEC 61131-3 §6.6.5,
+     `EXTENDS`; as the online views of TwinCAT and CODESYS show them); a real that is not finite, and an integer too large
      for a JSON number, are sent as text;
    - time and date values are sent as IEC literals (for example `T#1s500ms`), and an
      enumerated value by its name;
    - a value located at an input of a link that exchanges no data carries `staleMs`, the time
      since that link's last data, and shows as stale while the stream itself is fresh
      (specification 42, §5 item 4);
-   - when the cycle count has not advanced, or no message has arrived, for three expected update
-     periods, every value is stale and shows its age (§5.3);
+   - when the cycle count has not advanced, or no message has arrived, for the stale limit the
+     runtime sent (`stale_ms`), every value is stale and shows its age (§5.3);
    - **redraw** (decided on 3 October 2026 while the user was away, approved by the user on 3 October 2026): after the first
      drawing, an update changes the drawn page in place, only where its new drawing differs from
      the last: a new value sets a text, and an unchanged object, a turning symbol included, keeps
@@ -1378,7 +1443,10 @@ authorized change.
    the controls it creates, and Create PLC code those of the PID loops it writes (§10.5 item 6).
    A point `runtime.toml` already names is left as it is, a
    `runtime.toml` with unsaved changes is left unsaved, and saving `runtime.toml` checks the
-   project's pages again. The policy stays explicit: each rule is in the file, deployed only
+   project's pages again. A `runtime.toml` that does not load, that lists its write rules inline
+   (`write = [...]`) or that writes `[runtime.web.hmi]` as an inline table is left as it is, with
+   the reason, for the user to add the rule (decided 26 October 2026, when the rules moved into the
+   language server: appending a table there would make the file fail to load). The policy stays explicit: each rule is in the file, deployed only
    through an authorized deployment.
 4. **Every request checked:** the runtime authorizes every command against the policy, the
    active HMI bundle, the session's role and the limits.
@@ -1401,6 +1469,16 @@ backend change, delivered with its own tests in milestone 1B.
 2. Sessions expire after an idle time and after an absolute time, both configured in the runtime.
 3. On expiry the page stays visible read-only, the controls are disabled at once, and a login
    prompt appears. Pending commands are not resent.
+4. **What a session may do** (26 October 2026): the runtime tells the page, in the login answer,
+   the session answer and the value stream (§12.8 item 3):
+   - `acts_as`: the roles the session may act as, its own and every lower one in the order
+     Viewer, Operator, Engineer, Admin (§12.8 item 1; specification 11, §6.9.5), for example
+     `["viewer", "operator"]` for an Operator;
+   - `may_change_settings`: whether it may change settings, `true` for an Engineer or a higher
+     role (§21.4 item 1).
+
+   The page locks a control whose needed role (§5.9 item 5) is not in `acts_as`, and a control
+   no role may use; it ranks no roles itself.
 
 ### 12.5 Command lifecycle
 
@@ -1472,7 +1550,9 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
      whatever its case, the role, and a password of at least 8 characters, and appends the user
      with the hash `trust-runtime hmi-password` makes; the password itself is never written.
      **Remove** asks first and deletes the user's table. The rest of `runtime.toml` stays as it
-     is, and the file is saved unless it has unsaved changes of the user's own. Write rules are
+     is, and the file is saved unless it has unsaved changes of the user's own. A `runtime.toml`
+     that does not load or lists its users inline is left as it is, with the reason (as for write
+     rules, §12.2 item 3). Write rules are
      added from the controls that need them (§12.2 item 3).
 2. **Reading and commanding:**
    - pages, values and the login request pass the runtime's web authentication with the Viewer
@@ -1480,13 +1560,17 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
    - every command also needs an HMI session of a named user, so the audit log names a person.
      This holds even where the web authentication grants more, for example a local browser.
 3. **Login:**
-   - `POST /api/hmi/login` with `{ "user", "password" }` starts a session. It returns the user,
-     the role and both expiry times, and sets an `HttpOnly`, `SameSite=Strict` session cookie;
+   - `POST /api/hmi/login` with `{ "user", "password" }` starts a session. It returns `user`,
+     `role`, `acts_as` and `may_change_settings` (§12.4 item 4) and both expiry times
+     (`idle_seconds`, `expires_seconds`), and sets an `HttpOnly`, `SameSite=Strict` session
+     cookie;
    - a wrong user and a wrong password give the same answer;
    - after five failed attempts a user is refused for a minute;
-   - `POST /api/hmi/logout` ends the session, and `GET /api/hmi/session` reports it, or
-     `"session": null` when there is none;
-   - the value stream reports the session's end within one period.
+   - `POST /api/hmi/logout` ends the session, and `GET /api/hmi/session` reports it with the same
+     fields, or `"session": null` when there is none;
+   - the value stream reports the session when it opens, as
+     `{ "session": { "user", "role", "acts_as", "may_change_settings" } }`, and its end, as
+     `{ "session": null }`, within one period.
 4. **Controls** declare in the page file:
    - `role`: the lowest role, which can only raise the policy's;
    - `confirm`: a question asked before sending;
@@ -1506,14 +1590,22 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
      call of `Hmi.Display` (§18 phase 5) and answers with that outcome; a command the program has
      not taken within the time limit is withdrawn, so it is never applied later.
    - Confirmation by the feedback, a pulse's end and every later outcome reach the browser on the
-     value stream as `{ "command": { "id", "outcome", "readback"?, "reason"? } }`.
+     value stream as `{ "command": { "id", "outcome", "readback"?, "reason"?, "error_code"? } }`.
    - A command id is remembered for ten minutes; a repeated id gets the first answer without a
      second write.
    - `action` is `write` with a `value` (setpoint entry, numeric input, slider, switch), the
      button's `action` (`set`, `reset` or `toggle`), or `pulse` (pulse button).
    - The target is the control's writing binding. A command needs a session, a permission that
      covers it (§12.2), a value within the limits that fits the target's type, and a permissive
-     `interlock`. Otherwise it is refused with the reason.
+     `interlock`. Otherwise it is refused with the reason. A target whose type is an alias of an
+     enumeration takes its base enumeration's value names and numbers (IEC 61131-3 §6.4.4.9;
+     26 October 2026).
+   - A text fits its target when it is no longer than the target's capacity: `n` bytes of UTF-8
+     for a `STRING[n]` and `n` UTF-16 code units for a `WSTRING[n]`, where a `STRING` or
+     `WSTRING` declared without a length is a `STRING[80]` or a `WSTRING[80]`
+     (docs/IEC_DECISIONS.md, 2026-10-17). A longer text is refused, never cut, and its answer
+     carries the stable code `runtime_string_capacity_exceeded` in `error_code` beside the
+     reason (specification 10, §10.2); `error_code` is absent from every other answer.
    - Confirmation: by `feedback` reaching `expect` (for buttons TRUE after `set` and `pulse`,
      FALSE after `reset`). For a written value without `feedback`, the target reads back the
      requested value in a later scan. Either must happen within `timeout`, or the command times
@@ -1836,11 +1928,11 @@ switches the language of the runtime display with one click.
    buttons and notices. A project text is the text the engineer typed; a tag is a name and is
    shown as it is.
 2. **Languages:** `languages` in `hmi/screen.toml` lists the project's languages as BCP 47 tags,
-   the first being the language its texts are written in; without it, `["en"]`. truST ships its
-   own words in 11 languages: English (`en`), Chinese, Simplified (`zh-Hans`), German (`de`),
-   Spanish (`es`), Japanese (`ja`), Portuguese, Brazil (`pt-BR`), French (`fr`), Korean (`ko`),
-   Italian (`it`), Turkish (`tr`) and Swedish (`sv`). A project may list other languages; their
-   words are its own. Beside Inter, truST ships a font for Chinese, Japanese and Korean (Noto
+   at least one, the first being the language its texts are written in; without it, `["en"]`.
+   truST ships its own words in 11 languages: English (`en`), Chinese, Simplified (`zh-Hans`),
+   German (`de`), Spanish (`es`), Japanese (`ja`), Portuguese, Brazil (`pt-BR`), French (`fr`),
+   Korean (`ko`), Italian (`it`), Turkish (`tr`) and Swedish (`sv`). A project may list other
+   languages; their words are its own. Beside Inter, truST ships a font for Chinese, Japanese and Korean (Noto
    Sans, SIL Open Font License), subset to GB 2312, JIS X 0208 and every modern Hangul syllable,
    with all characters of truST's words in those languages; a browser loads one only for a page
    that shows such text, and a page in Japanese or Korean takes its own forms first. Text beyond
@@ -2052,7 +2144,11 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
    - the deployment may carry an updated bundle (`hmi` in the deploy request); it must pass
      against the new program and is activated with it;
    - with `accept_broken_bindings`, the program is deployed alone and the answer still lists the
-     broken bindings.
+     broken bindings;
+   - the check runs before the resource's state is looked at, so a deployment that would break
+     bindings is answered with them whatever the state; a deployment that passes is then taken
+     only while the resource is Stopped, as every installation is (specification 34 §11.2,
+     decision Q11), and is otherwise refused with `resource_not_running` and nothing written.
 
    A binding the running program does not have is shown on the page as "not in running
    program" (§11.1).
@@ -2093,8 +2189,8 @@ and tutorials are rebuilt with the builder.
 
 1. **Drawing module** (TypeScript): draws a page from its model and live values, including value
    states and staleness; shared by the runtime and the editor.
-2. **Page model and TOML serializer** (TypeScript) for the editor; **loader and validator**
-   (Rust) in the runtime.
+2. **Page model** (TypeScript) for the editor; **loader, validator and canonical writer** (Rust)
+   in the runtime, which the editor reaches through the language server (§17.3 item 5).
 3. **HMI Builder** custom editor: React for panels and inspector; the drawing module plus an
    editing layer for the canvas.
 4. **Runtime modules:**
@@ -2114,7 +2210,17 @@ and tutorials are rebuilt with the builder.
    - the variable tree with members; each variable says which kinds of value it holds and
      whether a binding may write it, by the rules of the binding checks (§7.6);
    - **Add missing variables to program**;
-   - rename and references across HMI files.
+   - rename and references across HMI files;
+   - the editor's own project rules (refined 26 October 2026, when they moved out of the
+     extension, AGENTS.md: all logic is in Rust): the write rules a page needs and the users in
+     `runtime.toml` (§12.2 item 3, §12.8), the Pages panel's order and names, new page, panel and
+     screen files and the references a rename keeps (§3.3 item 8, §4.10, §8.7), Import Symbol
+     (§14.4 item 5), translations (§14.5), a page and its P&ID (§18 phase 4), equipment
+     bindings, instances and loop lines (§6 item 5, §8.5), the variable picker (§7.1), copy and
+     paste (§3.3 item 8), the deployment's web server (§16.2 item 8) and the bundled libraries'
+     install, each a `trust-lsp.hmi…` command whose answer the extension applies. The runtime
+     display's own checks are the runtime's: the page looks up the session's facts (§12.4 item 4),
+     sends entries as typed (§21.4) and takes the stale limit from the stream (§11.1).
 6. **Plant library**: ST function blocks (specification `trust-plant-library`), panels and
    component definitions.
 7. **Symbol library**: the symbol definitions and their shared style (§14.3).
@@ -2273,11 +2379,19 @@ Decided on 3 October 2026 while the user was away, approved by the user on 3 Oct
    and the pipes between such objects are one in both views: changed in one, they change in the
    other, saved or not. Positions and sizes are each view's own; texts, lines, displays and
    controls belong to their view alone. An object added to one view comes into the other at
-   the same place scaled from one view's size to the other's.
+   the same place scaled from one view's size to the other's. The language server keeps the two
+   one (`trust-lsp.hmiPidSync`): it names the files a changed page or P&ID shares objects with
+   and gives each one's new text, which the editor writes, into the open document when there is
+   one. Decided on 26 October 2026, when the rule moved there: a process object is a junction,
+   one of the project's own symbols (`my:<name>`) or a type with a shipped symbol (§6 item 1);
+   a scaled place is rounded to the nearest whole pixel, halves upward; an added object keeps
+   its size; the bends of a pipe are each view's own, and a pipe new to a view comes without
+   bends.
 3. **Generate Process Screen from P&ID** writes `hmi/pages/<name>.toml` linked to the P&ID, if
    it has no such page: the P&ID's title, its process objects and their pipes, each placed
    where it stands on the P&ID scaled to the screen's design size, bound as on the P&ID. It
-   opens in the builder.
+   opens in the builder. The language server makes the page (`trust-lsp.hmiPidSync`); a file
+   that is not a P&ID, or a P&ID that does not load, is refused with the reason.
 4. **Agent-driven page authoring** uses the customer's existing agent and truST engineering
    tools, as specified in [43 — Agent-driven HMI authoring](43-hmi-agent-authoring.md).
    The agent inspects program context and the visual library, composes an editable draft,
@@ -2684,6 +2798,24 @@ specification that contradicts it.
    values (the setpoint's `value`, the mode selector's `mode`), so they may only read, also
    where the control writes its binding otherwise. The binding checks of the runtime,
    `hmi check` and the editor share this rule.
+5. **The running program decides** (26 October 2026, native execution). The runtime makes the
+   checks of item 2 on the program that runs, through its image's tables (specification 44
+   §5.4, §5.7, §5.8, §13.3), whether debugging is enabled or not, never on a description of the
+   project's sources. The instance's type lists the interfaces it implements, itself, through a
+   base or through an interface that extends one (IEC 61131-3 §6.6.6.4). The interface
+   declares the method when the image has the method's tool symbol, whose parts are its inputs,
+   with their types, and its result. A method without a tool entry, one that takes an output,
+   an in-out, a function block instance or an `ARRAY[*]`, is refused with "HMI methods accept
+   only input parameters". Each argument names an input, compared without case. The command
+   sends only the inputs its arguments name: an input it leaves out takes the initial value the
+   interface declares, as in a call through the interface that leaves it out (IEC 61131-3
+   §6.6.1). So no input is required: the binding checks of `hmi check`, of a deployment and of
+   the editor accept a command that leaves inputs out, as the runtime does. Each value is
+   converted to its input's type as an HMI write converts a value (§12.8): an enumeration's value
+   by one of its names or numbers, also for an input whose type is an alias of an enumeration,
+   which has its base's values (IEC 61131-3 §6.4.4.9); and a text no longer than the input's
+   `STRING[n]` or `WSTRING[n]` holds, else the command is refused before the call, never cut,
+   with `runtime_string_capacity_exceeded` in `error_code`, as a write is (§12.8 item 5).
 
 ### 21.3 Builder
 
@@ -2720,23 +2852,37 @@ specification that contradicts it.
 
 ### 21.4 Settings dialog
 
-1. Engineers only: the Settings button appears in an Engineer session, and the route refuses
-   other roles.
+1. Engineers only: the Settings button appears in a session whose `may_change_settings` is true
+   (an Engineer or a higher role, §12.4 item 4), and the route refuses other roles.
 2. It lists the definition's `[[settings]]` in order: plain title, value with its unit, and a
    help line only where the definition gives one.
 3. Apply and Cancel stay visible at the bottom at every window size; the result ("Applied", or
-   the refusal naming the field) appears beside Apply.
+   the runtime's refusal naming the field) appears beside Apply.
 4. `POST /api/hmi/settings`:
    - `{ "faceplate": <address>, "action": "read" }` returns the settings and current values;
-   - `{ "faceplate", "action": "apply", "changes": {member: value}, "expected": {member: value} }`
+   - `{ "faceplate", "action": "apply", "changes": {member: entry}, "expected": {member: value} }`
      checks the role, each value's type and limits, and that the current values still equal
      `expected` (else "Changed meanwhile: refresh", keeping the draft); then writes all changes
-     at one boundary between scans, audits each, and returns the values read back.
+     at one boundary between scans, audits each, and returns the values read back;
+   - each change is the field's entry as the dialog holds it (26 October 2026): a checkbox's
+     `true` or `false`, a list's chosen value as its text, a text field's text. The dialog sends
+     the fields whose entry differs from what they showed and checks nothing itself. The runtime
+     reads the entry: a number, also as text, trimmed and with `,` read as the decimal separator
+     (`"1,5"` is 1.5), whole for an integer, in the setting's unit and within its `min` and
+     `max`; `true` or `false`, in any case, for a flag; a choice by its value or that value's
+     text. A refusal begins with the setting's title and names the field in `field`, for example
+     `Start timeout: enter a number, not "soon"`, `Preset: enter a whole number, not 2.5`,
+     `Start timeout: 700 is above the maximum 600 s` or `Speed: choose one of its values`;
+   - a value's type is its variable's in the running program's type table (specification 44
+     §5.8; 26 October 2026, native execution), whether debugging is enabled or not: an
+     enumeration's value is one of the names or numbers that type declares, an alias of an
+     enumeration's one of its base's (IEC 61131-3 §6.4.4.9).
 5. There is no provider, revision, request number, import, export or defaults transaction.
 6. **Keep in project** (decided with the user on 7 October 2026): opened in the HMI Builder's
    Live mode, the dialog also has Keep in project, beside Apply. It keeps the values the PLC has,
    as last read or applied, not an edit that is not applied: those that differ from the project's
-   values are written as one project edit, as a change in the inspector is (§21.3 item 2), so
+   values (numbers by more than 10⁻⁹ of the larger of 1 and their sizes, a rounding difference
+   being no change; anything else when not equal) are written as one project edit, as a change in the inspector is (§21.3 item 2), so
    commissioning ends with the values in `plant.toml` and the generated declaration. Equipment
    declared by hand is refused with "copy the values there". A browser shows no such button.
 

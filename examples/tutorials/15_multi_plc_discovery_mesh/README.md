@@ -38,7 +38,7 @@ Expected result:
 
 ## Step 2: Configure unique runtime endpoints
 
-Why: each runtime needs unique control/web/mesh endpoints on one host.
+Why: two runtimes on one host need unique web and mesh ports. Each project gets its own control endpoint by default, so this step leaves the control endpoint to that default.
 
 Set PLC-A runtime config:
 
@@ -52,7 +52,6 @@ name = "PlcA"
 cycle_interval_ms = 100
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime-plc-a.sock"
 mode = "production"
 debug_enabled = false
 
@@ -103,7 +102,6 @@ name = "PlcB"
 cycle_interval_ms = 100
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime-plc-b.sock"
 mode = "production"
 debug_enabled = false
 
@@ -148,7 +146,7 @@ Expected result:
 
 ## Step 3: Build both projects
 
-Why: each node still needs valid bytecode before it can run.
+Why: each node still needs its compiled program before it can run.
 
 ```bash
 trust-runtime build --project /tmp/trust-plc-a --sources /tmp/trust-plc-a/src
@@ -156,7 +154,7 @@ trust-runtime build --project /tmp/trust-plc-b --sources /tmp/trust-plc-b/src
 ```
 
 Expected result:
-- `program.stbc` exists in both folders
+- `program.tpi` exists in both folders
 
 ## Step 4: Start both runtimes
 

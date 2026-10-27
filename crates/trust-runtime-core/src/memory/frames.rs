@@ -2,9 +2,9 @@ use super::*;
 
 impl VariableStorage {
     pub fn push_frame(&mut self, owner: impl Into<SmolStr>) -> FrameId {
-        let id = FrameId(self.next_frame_id);
-        self.next_frame_id += 1;
-        self.frames.push(LocalFrame {
+        let id = FrameId(self.activations.next_frame_id);
+        self.activations.next_frame_id += 1;
+        self.activations.frames.push(LocalFrame {
             id,
             owner: owner.into(),
             variables: IndexMap::default(),
@@ -19,9 +19,9 @@ impl VariableStorage {
         owner: impl Into<SmolStr>,
         instance_id: InstanceId,
     ) -> FrameId {
-        let id = FrameId(self.next_frame_id);
-        self.next_frame_id += 1;
-        self.frames.push(LocalFrame {
+        let id = FrameId(self.activations.next_frame_id);
+        self.activations.next_frame_id += 1;
+        self.activations.frames.push(LocalFrame {
             id,
             owner: owner.into(),
             variables: IndexMap::default(),
@@ -32,26 +32,30 @@ impl VariableStorage {
     }
 
     pub fn pop_frame(&mut self) -> Option<LocalFrame> {
-        self.frames.pop()
+        self.activations.frames.pop()
     }
 
     pub fn remove_frame(&mut self, frame_id: FrameId) -> Option<LocalFrame> {
-        let idx = self.frames.iter().position(|frame| frame.id == frame_id)?;
-        Some(self.frames.remove(idx))
+        let idx = self
+            .activations
+            .frames
+            .iter()
+            .position(|frame| frame.id == frame_id)?;
+        Some(self.activations.frames.remove(idx))
     }
 
     #[must_use]
     pub fn frames(&self) -> &[LocalFrame] {
-        &self.frames
+        &self.activations.frames
     }
 
     #[must_use]
     pub fn current_frame(&self) -> Option<&LocalFrame> {
-        self.frames.last()
+        self.activations.frames.last()
     }
 
     pub fn current_frame_mut(&mut self) -> Option<&mut LocalFrame> {
-        self.frames.last_mut()
+        self.activations.frames.last_mut()
     }
 
     pub fn set_local(&mut self, name: impl Into<SmolStr>, value: Value) -> bool {
@@ -76,8 +80,8 @@ impl VariableStorage {
     }
 
     pub fn clear_frames(&mut self) {
-        self.frames.clear();
-        self.next_frame_id = 0;
+        self.activations.frames.clear();
+        self.activations.next_frame_id = 0;
     }
 
     /// Temporarily treat the provided frame as the current frame.
@@ -86,16 +90,47 @@ impl VariableStorage {
         frame_id: FrameId,
         f: impl FnOnce(&mut Self) -> T,
     ) -> Option<T> {
-        let idx = self.frames.iter().position(|frame| frame.id == frame_id)?;
-        if idx + 1 == self.frames.len() {
+        let idx = self
+            .activations
+            .frames
+            .iter()
+            .position(|frame| frame.id == frame_id)?;
+        if idx + 1 == self.activations.frames.len() {
             return Some(f(self));
         }
 
-        let frame = self.frames.remove(idx);
-        self.frames.push(frame);
+        let frame = self.activations.frames.remove(idx);
+        self.activations.frames.push(frame);
         let result = f(self);
-        let frame = self.frames.pop().expect("frame stack empty after eval");
-        self.frames.insert(idx, frame);
+        let frame = self
+            .activations
+            .frames
+            .pop()
+            .expect("frame stack empty after eval");
+        self.activations.frames.insert(idx, frame);
         Some(result)
+    }
+
+    /// The local at `offset` in the frame `id`, in its declaration order.
+    pub(super) fn local_slot(&self, id: FrameId, offset: usize) -> Option<&Value> {
+        self.activations
+            .frames
+            .iter()
+            .find(|frame| frame.id == id)
+            .and_then(|frame| frame.variables.get_index(offset).map(|(_, value)| value))
+    }
+
+    /// The local at `offset` in the frame `id`, to write.
+    pub(super) fn local_slot_mut(&mut self, id: FrameId, offset: usize) -> Option<&mut Value> {
+        self.activations
+            .frames
+            .iter_mut()
+            .find(|frame| frame.id == id)
+            .and_then(|frame| {
+                frame
+                    .variables
+                    .get_index_mut(offset)
+                    .map(|(_, value)| value)
+            })
     }
 }

@@ -46,6 +46,8 @@ suite("Plant add picker", () => {
     );
   });
 
+  // The proposal itself (temperature starting point, first free plant ID) is Rust's `open` edit
+  // (specification 47 §7); the add flow only starts an unsaved draft on the chosen runtime.
   test("creates one local unsaved plant draft for the chosen runtime", () => {
     let api:
       | {
@@ -64,32 +66,19 @@ suite("Plant add picker", () => {
       api?.createPlantDraft?.({ id: "runtime:local", name: "Simulator" }),
       {
         id: "draft:plant:runtime:local",
-        plantId: "new_plant",
+        plantId: "",
+        displayName: "",
+        description: "",
         runtimeId: "runtime:local",
         runtimeName: "Simulator",
-        displayName: "New simulated plant",
-        description: "",
         enabled: true,
-        startingPoint: "temperature",
-        model: "first_order_dead_time",
-        parameters: {
-          gain: 1,
-          time_constant_s: 10,
-          dead_time_s: 1,
-          input_bias: 0,
-          output_bias: 0,
-          initial_delayed_input: 0,
-        },
-        initialState: [0],
+        startingPoint: "",
+        model: "",
+        parameters: {},
+        initialState: [],
         modelValuesTouched: false,
         commandSources: [],
         feedbackTargets: [],
-        initialInput: [],
-        inputScale: [],
-        inputOffset: [],
-        outputScale: [],
-        outputOffset: [],
-        scenarioEvents: [],
         dirty: true,
         persisted: false,
         focusSection: "plant",

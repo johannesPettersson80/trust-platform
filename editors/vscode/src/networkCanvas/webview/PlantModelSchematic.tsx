@@ -1,9 +1,6 @@
 import React from "react";
 
-import type { PlantModelKind } from "../plant/editorModel";
-import { plantModelDescriptor } from "../plant/modelDescriptors";
-
-const SUMMARIES: Readonly<Record<PlantModelKind, string>> = {
+const SUMMARIES: Readonly<Record<string, string>> = {
   static_gain: "An input step produces an immediate scaled output step.",
   first_order: "A step approaches its new level gradually.",
   first_order_dead_time: "A step waits, then approaches its new level gradually.",
@@ -16,14 +13,14 @@ const SUMMARIES: Readonly<Record<PlantModelKind, string>> = {
   robot_joint: "Torque moves the joint; gravity varies with angle, while friction resists motion.",
 };
 
-export function PlantModelSchematic({ model }: { model: PlantModelKind }) {
-  const descriptor = plantModelDescriptor(model);
-  const summary = SUMMARIES[model];
+/** A drawing of the model's typical behavior, named with Rust's product name for it. */
+export function PlantModelSchematic({ model, productName }: { model: string; productName: string }) {
+  const summary = SUMMARIES[model] ?? "";
   return (
     <figure
       data-plant-model-diagram={model}
       role="img"
-      aria-label={`${descriptor.productName}: ${summary}`}
+      aria-label={`${productName}: ${summary}`}
       style={FIGURE}
     >
       <figcaption style={CAPTION}>Typical behavior</figcaption>
@@ -45,7 +42,7 @@ export function PlantModelSchematic({ model }: { model: PlantModelKind }) {
   );
 }
 
-function SchematicArtwork({ model }: { model: PlantModelKind }) {
+function SchematicArtwork({ model }: { model: string }) {
   switch (model) {
     case "static_gain":
       return <>
@@ -120,6 +117,8 @@ function SchematicArtwork({ model }: { model: PlantModelKind }) {
         <path d="M140 38 A30 30 0 0 0 151 22" style={OUTPUT_TRACE} />
         <Label x={164} y={12}>angle</Label><Label x={185} y={59}>speed</Label>
       </>;
+    default:
+      return null;
   }
 }
 

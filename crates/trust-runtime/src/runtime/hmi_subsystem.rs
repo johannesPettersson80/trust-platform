@@ -1,36 +1,65 @@
-//! The program's `Hmi.Display` calls (specification 39, §18 Phase 5): at the end of each scan in
-//! which the program called the block, between scans, the runtime serves the HMI exchange, so the
-//! screens follow the interval and priority of the task the user chose for them.
+//! The program's `Hmi.Display` calls (specification 39, §18 Phase 5 item 4): at the end of a scan in
+//! which the program called the block, after the scan's outputs are published and before the next
+//! scan, the runtime serves the HMI exchange from the program, so the screens follow the interval and
+//! priority of the task the user chose for them; the method commands the screens asked for are called
+//! then, between scans (§21.2 item 2). The blocks are found and their call counts read through the
+//! program's tables (specification 44 §13.3).
 
 use std::sync::Arc;
 
-use rustc_hash::FxHashMap;
+use smol_str::SmolStr;
+use trust_runtime_core::io_image::PreparedIoBinding;
 
+use super::hmi_stale::LinkWatch;
+use super::io_subsystem::LinkIo;
+use super::program_access::{Located, ProgramWrite};
+use crate::hmi::alarms::AlarmEvent;
 use crate::hmi::exchange::HmiExchange;
-use crate::hmi::instance_walk::instances_of;
-use crate::hmi::member_paths::find_ignoring_case;
-use crate::memory::InstanceId;
-use crate::value::Value;
-
-use super::installed::Runtime;
+use crate::hmi::program_instances::{declares_block, instances_of};
+use crate::value::{Duration, Value};
 
 /// The block a program calls to serve its screens.
 pub(crate) const DISPLAY_BLOCK: &str = "Hmi.Display";
 /// Most blocks followed.
 const MAX_DISPLAYS: usize = 16;
-/// How often the program's blocks are found again, for an online change that adds one.
+/// How often the program's blocks are found again.
 const WALK_PERIOD_MS: i64 = 1_000;
+
+/// What the runtime knows of the scan that ended: what a call of `Hmi.Display` copies
+/// with the screens' values and marks stale.
+pub(crate) struct HmiScan<'a> {
+    /// The runtime's cycle count, which the copy carries.
+    pub(crate) cycle: u64,
+    /// The `io.toml` links as their drivers report them in this scan (specification 42, §5
+    /// item 4).
+    pub(crate) links: &'a [LinkIo<'a>],
+    /// The process image's bindings and the names of the variables they bind.
+    pub(crate) bindings: &'a [PreparedIoBinding],
+    pub(crate) binding_names: &'a [Option<SmolStr>],
+}
+
+/// What the calls of `Hmi.Display` in a scan leave for the runtime between scans.
+pub(crate) struct Served {
+    /// The exchange whose method commands are due (specification 39, §21.2 item 2).
+    pub(crate) exchange: Arc<HmiExchange>,
+    /// The alarm records the calls made, for the OpenOT history (specification 40, §5.2).
+    pub(crate) alarm_records: Vec<AlarmEvent>,
+}
 
 /// The exchange and the program's `Hmi.Display` blocks.
 #[derive(Default)]
-pub(super) struct HmiSubsystem {
+pub(crate) struct HmiSubsystem {
     exchange: Option<Arc<HmiExchange>>,
-    displays: Vec<InstanceId>,
-    /// Each block's call count when last looked at.
-    seen: FxHashMap<InstanceId, u64>,
+    /// Where each block's call count lies, and the count when last looked at.
+    displays: Vec<(Located, Option<u64>)>,
+    /// When the blocks were last found, on the program's logical time.
     walked_ms: Option<i64>,
+    /// Whether the program declares the block, once looked at.
+    declared: Option<bool>,
     /// When each link last exchanged data (specification 42, §5 item 4).
-    pub(super) links: super::hmi_stale::LinkWatch,
+    links: LinkWatch,
+    /// What the calls since the last scan's end left.
+    served: Option<Served>,
 }
 
 impl std::fmt::Debug for HmiSubsystem {
@@ -38,100 +67,175 @@ impl std::fmt::Debug for HmiSubsystem {
         f.debug_struct("HmiSubsystem")
             .field("exchange", &self.exchange.is_some())
             .field("displays", &self.displays.len())
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
 impl HmiSubsystem {
-    pub(super) fn new() -> Self {
-        Self::default()
+    /// Shares the exchange with the web server; the method commands queued for an earlier program
+    /// are withdrawn.
+    pub(crate) fn set_exchange(&mut self, exchange: Arc<HmiExchange>) {
+        exchange.methods.invalidate();
+        self.exchange = Some(exchange);
+    }
+
+    /// The exchange, once shared.
+    pub(crate) fn exchange(&self) -> Option<Arc<HmiExchange>> {
+        self.exchange.clone()
+    }
+
+    /// The program restarted or changed online: its blocks are found again in it, and the method
+    /// commands queued for it are withdrawn, never called on the new one.
+    pub(crate) fn program_changed(&mut self) {
+        if let Some(exchange) = &self.exchange {
+            exchange.methods.invalidate();
+        }
+        self.displays.clear();
+        self.walked_ms = None;
+        self.declared = None;
+    }
+
+    /// At the end of a scan, at the program's logical time `now`: serves the exchange when a block's
+    /// call count grew since it was last looked at, so the program called `Hmi.Display` in that
+    /// scan, in whichever task. The queued pulse ends, commands and settings are applied, the values
+    /// the open screens and the trends show are copied, those at the inputs of a link without data
+    /// marked stale, and the alarms read. A program without the block is not searched; a scan without
+    /// a call does no HMI work.
+    pub(crate) fn serve_after_scan(
+        &mut self,
+        program: &mut dyn ProgramWrite,
+        now: Duration,
+        scan: &HmiScan<'_>,
+    ) {
+        let Some(exchange) = self.exchange.clone() else {
+            return;
+        };
+        let declared = *self
+            .declared
+            .get_or_insert_with(|| declares_block(&*program, DISPLAY_BLOCK));
+        if !declared {
+            return;
+        }
+        let now_ms = now.as_millis();
+        self.find_displays(&*program, now_ms);
+        let mut called = false;
+        for (calls, seen) in &mut self.displays {
+            let Ok(Value::UDInt(count)) = program.read_at(calls) else {
+                continue;
+            };
+            let count = u64::from(count);
+            if seen.map_or(count > 0, |last| last != count) {
+                called = true;
+            }
+            *seen = Some(count);
+        }
+        if !called {
+            return;
+        }
+        let silent =
+            self.links
+                .silent_inputs(now_ms, scan.links, scan.bindings, scan.binding_names);
+        let records = exchange.serve(program, scan.cycle, &silent);
+        self.served
+            .get_or_insert_with(|| Served {
+                exchange: Arc::clone(&exchange),
+                alarm_records: Vec::new(),
+            })
+            .alarm_records
+            .extend(records);
+    }
+
+    /// After a scan: what its calls of `Hmi.Display` left, `None` when it made none.
+    pub(crate) fn take_served(&mut self) -> Option<Served> {
+        self.served.take()
+    }
+
+    /// Finds the blocks once a second, at most [`MAX_DISPLAYS`], for an online change that adds
+    /// one; a block found before keeps the count last seen.
+    fn find_displays(&mut self, program: &dyn super::program_access::ProgramRead, now_ms: i64) {
+        let due = self
+            .walked_ms
+            .is_none_or(|walked| now_ms < walked || now_ms - walked >= WALK_PERIOD_MS);
+        if !due {
+            return;
+        }
+        let found: Vec<Located> = instances_of(program, DISPLAY_BLOCK, MAX_DISPLAYS)
+            .into_iter()
+            .filter_map(|display| program.member(&display.at, "Calls"))
+            .collect();
+        self.displays = found
+            .into_iter()
+            .map(|calls| {
+                let seen = self
+                    .displays
+                    .iter()
+                    .find(|(known, _)| *known == calls)
+                    .and_then(|(_, seen)| *seen);
+                (calls, seen)
+            })
+            .collect();
+        self.walked_ms = Some(now_ms);
     }
 }
 
-impl Runtime {
-    /// Shares the HMI exchange with the web server.
-    pub fn set_hmi_exchange(&mut self, exchange: Arc<HmiExchange>) {
-        exchange.methods.invalidate();
-        self.hmi.exchange = Some(exchange);
-    }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::harness::TestHarness;
 
-    /// The HMI exchange, once shared.
-    #[must_use]
-    pub fn hmi_exchange(&self) -> Option<Arc<HmiExchange>> {
-        self.hmi.exchange.clone()
-    }
+    const HMI: &str = include_str!("../../../../libraries/hmi/src/hmi.st");
+    const PROGRAM: &str =
+        "PROGRAM Screens\nVAR\n    Display : Hmi.Display;\nEND_VAR\n    Display();\nEND_PROGRAM\n";
 
-    /// After a scan: serves the exchange when the program called `Hmi.Display` in it. A program
-    /// without the block is not searched. A method command that faults faults the resource:
-    /// its PLC code ran and its effect is unknown.
-    pub(super) fn serve_hmi_after_cycle(&mut self) -> Result<(), crate::error::RuntimeError> {
-        let Some(exchange) = self.hmi.exchange.clone() else {
-            return Ok(());
+    /// The end of a scan of `harness`'s program at its time, served by `hmi`.
+    fn scan_end(harness: &mut TestHarness, hmi: &mut HmiSubsystem) {
+        let now = harness.current_time();
+        let scan = HmiScan {
+            cycle: harness.cycle_count(),
+            links: &[],
+            bindings: &[],
+            binding_names: &[],
         };
-        if find_ignoring_case(self.function_blocks(), DISPLAY_BLOCK).is_none() {
-            return Ok(());
-        }
-        self.find_displays();
-        let mut called = false;
-        for index in 0..self.hmi.displays.len() {
-            let id = self.hmi.displays[index];
-            let calls = match self
-                .storage()
-                .get_instance(id)
-                .and_then(|instance| find_ignoring_case(&instance.variables, "Calls"))
-            {
-                Some(Value::UDInt(calls)) => u64::from(*calls),
-                _ => continue,
-            };
-            let last = self.hmi.seen.insert(id, calls);
-            if last.map_or(calls > 0, |last| last != calls) {
-                called = true;
-            }
-        }
-        if called {
-            let silent = self.silent_inputs();
-            exchange.methods.serve(self)?;
-            exchange.serve(self, &silent);
-        }
-        Ok(())
+        harness
+            .runtime_mut()
+            .with_program(|program| hmi.serve_after_scan(program, now, &scan));
     }
 
-    /// Finds the blocks once a second, and at once when a known one is gone (an online change).
-    fn find_displays(&mut self) {
-        let now_ms = self.current_time().as_millis();
-        let gone = self
-            .hmi
-            .displays
-            .iter()
-            .any(|id| self.state.storage().get_instance(*id).is_none());
-        let due = self
-            .hmi
-            .walked_ms
-            .is_none_or(|walked| now_ms < walked || now_ms - walked >= WALK_PERIOD_MS);
-        if !(gone || due) {
-            return;
-        }
-        let metadata = std::sync::Arc::clone(&self.metadata);
-        let programs = metadata.program_templates();
-        let is_program = |name: &str| find_ignoring_case(programs, name).is_some();
-        let holdings = crate::hmi::instance_holdings::Holdings::new(
-            metadata.function_blocks(),
-            metadata.classes(),
-            metadata.program_templates(),
-            metadata.registry(),
-        );
-        self.hmi.displays = instances_of(
-            self.state.storage(),
-            &holdings,
-            DISPLAY_BLOCK,
-            MAX_DISPLAYS,
-            &is_program,
-        )
-        .into_iter()
-        .map(|found| found.id)
-        .collect();
-        self.hmi.walked_ms = Some(now_ms);
-        let displays = self.hmi.displays.clone();
-        self.hmi.seen.retain(|id, _| displays.contains(id));
+    /// Specification 39, §18 Phase 5 item 4: the end of a scan serves the exchange only when a
+    /// block's call count grew since it was last looked at, once per growth; a scan without a call
+    /// serves nothing, and the serving is handed over once after the scan. Catches serving at every
+    /// scan end, a count that is not looked at again, and a hand-over that repeats.
+    #[test]
+    fn a_scan_end_serves_the_exchange_only_after_the_program_called_the_block() {
+        let mut harness = TestHarness::from_sources(&[HMI, PROGRAM]).expect("compiles");
+        let exchange = Arc::new(HmiExchange::new());
+        let mut hmi = HmiSubsystem::default();
+        hmi.set_exchange(Arc::clone(&exchange));
+        scan_end(&mut harness, &mut hmi);
+        assert_eq!(exchange.calls(), 0, "the block has not been called");
+        assert!(hmi.take_served().is_none());
+        harness.cycle();
+        scan_end(&mut harness, &mut hmi);
+        assert_eq!(exchange.calls(), 1, "called once: served once");
+        scan_end(&mut harness, &mut hmi);
+        assert_eq!(exchange.calls(), 1, "no call since: nothing served");
+        assert!(hmi.take_served().is_some(), "handed over after the scan");
+        assert!(hmi.take_served().is_none(), "and only once");
+        harness.cycle();
+        scan_end(&mut harness, &mut hmi);
+        assert_eq!(exchange.calls(), 2, "called again: served again");
+    }
+
+    /// Specification 39, §21.2: a restart or an online change withdraws the method commands queued
+    /// for the program that ran, so none is called on the new one. Catches a generation that a
+    /// changed program keeps.
+    #[test]
+    fn a_changed_program_withdraws_the_queued_method_commands() {
+        let exchange = Arc::new(HmiExchange::new());
+        let mut hmi = HmiSubsystem::default();
+        hmi.set_exchange(Arc::clone(&exchange));
+        let before = exchange.methods.generation();
+        hmi.program_changed();
+        assert_ne!(exchange.methods.generation(), before);
     }
 }

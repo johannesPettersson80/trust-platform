@@ -6,10 +6,8 @@ name = "runtime-wan"
 cycle_interval_ms = 100
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime-wan.sock"
 mode = "production"
 debug_enabled = false
-auth_token = "REPLACE_WITH_LONG_RANDOM_TOKEN"
 
 [runtime.web]
 enabled = true

@@ -116,7 +116,7 @@ suite("HMI Builder editor: named Live operation", function () {
             : path === "/api/hmi/command"
               ? { outcome: "applied" }
               : user
-                ? { ok: true, user, role: "operator" }
+                ? { ok: true, user, role: "operator", acts_as: ["viewer", "operator"], may_change_settings: false }
                 : { ok: true, session: null };
           view.send({ type: "operateReply", id, request, status: 200, body });
         }

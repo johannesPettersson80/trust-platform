@@ -1,17 +1,7 @@
 import type { RoutePlan, SymbolNode } from "../offlineComm";
-import {
-  adsConnectionsForTarget,
-  adsTagSelectionsFromConnections,
-  normalizeAdsTagSelections,
-  type AdsTagBatchImportResult,
-} from "../adsTagBatch";
-import {
-  adsDiscoveryPorts,
-  adsPortBrowseEvidence,
-} from "../adsDiscoveryPorts";
-import { adsTargetPort, withAdsTargetPort } from "./adsTargetPort";
 import { browseAction } from "./browseActions";
 import type { BrowseErrorView } from "./browseErrorModel";
+import type { AdsTagBatchImportResult } from "./types";
 
 export interface BrowsePanelState {
   readonly label: string;
@@ -152,11 +142,7 @@ export function planBrowseOpen(
   if (!action) {
     return undefined;
   }
-  const normalizedTarget = action.local
-    ? { local: true }
-    : protocol === "ads"
-      ? withAdsTargetPort(target, adsTargetPort(target))
-      : target;
+  const normalizedTarget: Record<string, unknown> = action.local ? { local: true } : target;
   const panel: BrowsePanelState = {
     label,
     protocol,
@@ -165,8 +151,11 @@ export function planBrowseOpen(
     actionLabel: action.actionLabel,
     mode: action.mode,
   };
+  // A search that already browsed the device's ports answered their trees with the target.
   const hasAdsDiscoveryEvidence =
-    protocol === "ads" && adsPortBrowseEvidence(normalizedTarget).length > 0;
+    protocol === "ads" &&
+    Array.isArray(normalizedTarget.ads_port_browse_results) &&
+    normalizedTarget.ads_port_browse_results.length > 0;
   return {
     panel,
     loading: protocol !== "ads" || !hasAdsDiscoveryEvidence,
@@ -185,41 +174,6 @@ export function browseRequestFor(
   return action
     ? { protocol: panel.protocol, target, kind: action.kind }
     : undefined;
-}
-
-export function normalizeEndpointBrowseTarget(
-  protocol: string,
-  params: Record<string, unknown>
-): Record<string, unknown> {
-  const connections = params.connections;
-  if (
-    (protocol === "opcua_client" || protocol === "ads") &&
-    Array.isArray(connections) &&
-    connections.length > 0
-  ) {
-    const first = connections[0];
-    if (isRecord(first)) {
-      if (protocol === "ads") {
-        const matchingConnections = adsConnectionsForTarget(
-          connections,
-          first,
-        );
-        const imported = adsTagSelectionsFromConnections(connections, first);
-        return {
-          ...first,
-          connections: connections.filter(isRecord),
-          responding_ads_ports: adsDiscoveryPorts(
-            matchingConnections.flatMap((connection) =>
-              isRecord(connection) ? [connection.ams_port] : [],
-            ),
-          ),
-          imported_ads_symbols: imported,
-        };
-      }
-      return first;
-    }
-  }
-  return params;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

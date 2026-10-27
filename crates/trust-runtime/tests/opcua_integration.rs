@@ -1,4 +1,8 @@
 #![cfg(feature = "opcua-wire")]
+//! The OPC UA server against a reference client, serving the variables of a compiled program's
+//! published snapshot.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use std::net::TcpListener;
 use std::path::PathBuf;
@@ -7,6 +11,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use trust_runtime::config::{validate_runtime_toml_text, RuntimeConfig};
+use trust_runtime::debug::DebugControl;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::opcua::{
     start_wire_server, OpcUaClientIdentity, OpcUaClientOptions, OpcUaDataType, OpcUaVariant,
@@ -63,28 +68,21 @@ fn load_runtime_fixture(name: &str, port: u16) -> RuntimeConfig {
 
 fn snapshot_provider() -> Arc<dyn Fn() -> Option<trust_runtime::debug::DebugSnapshot> + Send + Sync>
 {
-    let mut harness = TestHarness::from_source(include_str!("fixtures/opcua/program/main.st"))
-        .expect("build opcua harness");
-    let _ = harness.runtime_mut().enable_debug();
-    harness.cycle();
-    let snapshot = trust_runtime::debug::DebugSnapshot {
-        storage_abi: Default::default(),
-        storage: harness.runtime().storage().clone(),
-        now: harness.runtime().current_time(),
-    };
+    let snapshot = fixture_snapshot();
     Arc::new(move || Some(snapshot.clone()))
 }
 
+/// The snapshot the fixture program publishes at the end of its first scan.
 fn fixture_snapshot() -> trust_runtime::debug::DebugSnapshot {
     let mut harness = TestHarness::from_source(include_str!("fixtures/opcua/program/main.st"))
         .expect("build opcua harness");
-    let _ = harness.runtime_mut().enable_debug();
-    harness.cycle();
-    trust_runtime::debug::DebugSnapshot {
-        storage_abi: Default::default(),
-        storage: harness.runtime().storage().clone(),
-        now: harness.runtime().current_time(),
-    }
+    let debug = DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
+    debug
+        .snapshot()
+        .expect("the scan publishes the program's state")
 }
 
 fn start_fixture_server(name: &str) -> trust_runtime::opcua::OpcUaWireServer {

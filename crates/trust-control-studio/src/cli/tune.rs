@@ -51,7 +51,7 @@ pub(super) fn run(
     follow::ended(followed, as_json, tune_output::tune_text, stdout, stderr)
 }
 
-/// The request that the arguments make (§0.1b). With a runtime, `--endpoint` or the project's `runtime.toml`, the request carries
+/// The request that the arguments make (§0.1b). With a runtime, `--endpoint` or the project's own runtime, the request carries
 /// its connection, so that Tune reads the running controller's settings for the comparison (B4.5); without one it carries none,
 /// and Tune designs without the comparison. `automatic` names no formula method, so the request carries none; the pinned settings
 /// of B4.2 have no argument. The settings that `--setting` names go in the request; the engine decides whether the method takes them.
@@ -71,8 +71,9 @@ fn request(args: &TuneArgs, environment: Environment<'_>) -> Result<TuneRequest,
     })
 }
 
-/// The runtime that the arguments name, read as `identify` reads it (§0.1b): `--endpoint`, else the project's `runtime.toml`, with
-/// the token of `--token-file` or `TRUST_CONTROL_TOKEN`. A project with no runtime gives none. A runtime or token file that the
+/// The runtime that the arguments name, read as `identify` reads it (§0.1b): `--endpoint`, else the project's own runtime as
+/// `trust-runtime ctl --project <folder> endpoint` reports it, with the token of `--token-file` or `TRUST_CONTROL_TOKEN`, else the
+/// report's. A project whose runtime trust-runtime cannot report gives none. A runtime or token file that the
 /// arguments name must be readable, so a refusal names it, as `identify` refuses it.
 ///
 /// # Errors

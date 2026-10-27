@@ -1,14 +1,22 @@
 import * as assert from "assert";
-import * as fs from "fs";
-import * as path from "path";
+import * as vscode from "vscode";
 
 import {
-  mergeFleetTopologies,
-  type FleetTopologyResponse,
-} from "../../networkCanvas/fleetTopology";
-import { buildCanvasGraph } from "../../networkCanvas/graphData";
-import { buildNetworkCanvasModel } from "../../networkCanvas/model";
+  DEVICES_TOPOLOGY_COMMAND,
+  requestCanvasTopology,
+  type CanvasRuntimeReport,
+} from "../../networkCanvas/canvasCommands";
+import type { FleetTopologyResponse } from "../../networkCanvas/fleetTopology";
+import { canvasGraph } from "../../networkCanvas/graphData";
 import { buildGraph } from "../../networkCanvas/webview/layout";
+import type { NCGraph } from "../../networkCanvas/webview/types";
+
+// The owner-scoped identities (specification 25 §5.6) are the language server's: the Rust tests in
+// crates/trust-devices/src/topology/tests/identity.rs port this suite's identity assertions
+// (`equal_raw_ids_under_different_owners_stay_distinct`, `cross_runtime_link_scopes_each_end`,
+// `normalization_is_idempotent_and_leaves_its_input_unchanged`, `ambiguous_reference_drops_only_its_link`
+// and the others). These tests prove that the canvas draws what the server answers: every node and
+// edge once, with each link's status and detail.
 
 type LegacyMeshStatus = "connected" | "degraded" | "error";
 type FleetRuntime = FleetTopologyResponse["hosts"][number]["runtimes"][number];
@@ -125,142 +133,104 @@ function legacyMeshSnapshot(options: {
   };
 }
 
-function topologyRuntimes(topology: FleetTopologyResponse): FleetRuntime[] {
-  return topology.hosts.flatMap((host) => [
-    ...host.runtimes,
-    ...host.containers.flatMap((container) => container.runtimes),
-  ]);
+async function languageServerReady(): Promise<void> {
+  const deadline = Date.now() + 30000;
+  while (!(await vscode.commands.getCommands(true)).includes(DEVICES_TOPOLOGY_COMMAND)) {
+    if (Date.now() > deadline) assert.fail("the language server's devices commands are not available");
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
 }
 
-function cloneTopology(topology: FleetTopologyResponse): FleetTopologyResponse {
-  return JSON.parse(JSON.stringify(topology)) as FleetTopologyResponse;
-}
-
-function sourceOf(value: unknown): string | undefined {
-  return (value as { source?: string }).source;
-}
-
-function renderedIdentitySets(topology: FleetTopologyResponse): {
-  nodeIds: string[];
-  edgeIds: string[];
-  meshHandleIds: string[];
-} {
-  const rendered = buildGraph(
-    buildCanvasGraph(buildNetworkCanvasModel({ topology }), topology)
-  );
+/**
+ * The canvas drawn from `snapshots`, each the answer of its own configured runtime. Nothing reports the
+ * project's runtime, so the simulator stands for it on this computer (specification 25 §5.6); `peers`
+ * leaves it out.
+ */
+async function drawn(snapshots: readonly FleetTopologyResponse[]) {
+  const peers: CanvasRuntimeReport[] = snapshots.map((snapshot, index) => ({
+    endpoint: `tcp://10.0.0.${index + 1}:5680`,
+    label: `runtime ${index + 1}`,
+    reach: "reachable",
+    topology: { ok: snapshot },
+    connectors: { ok: { connectors: [] } },
+  }));
+  const answer = await requestCanvasTopology({
+    peers,
+    run_mode: "online",
+    search_query: "",
+    discovered: [],
+  });
+  assert.strictEqual(answer.topology_error, undefined, "every snapshot reads");
+  const graph = canvasGraph(answer.fleet);
+  const rendered = buildGraph(graph);
   const bus = rendered.nodes.find((node) => node.id === "bus:mesh");
   const meshHandleIds = (
     (bus?.data as { handles?: Array<{ id: string }> } | undefined)?.handles ?? []
   ).map((handle) => handle.id);
-  return {
-    nodeIds: rendered.nodes.map((node) => node.id),
-    edgeIds: rendered.edges.map((edge) => edge.id),
-    meshHandleIds,
-  };
+  return { graph, rendered, meshHandleIds, peers: peerHosts(graph) };
+}
+
+/** The computers of the configured runtimes: every computer but the one the simulator is drawn on. */
+function peerHosts(graph: NCGraph) {
+  return graph.hosts.filter((host) => host.id !== "host:this-computer");
+}
+
+function assertDrawnOnce(label: string, drawing: Awaited<ReturnType<typeof drawn>>): void {
+  const nodeIds = drawing.rendered.nodes.map((node) => node.id);
+  const edgeIds = drawing.rendered.edges.map((edge) => edge.id);
+  assert.strictEqual(new Set(nodeIds).size, nodeIds.length, `${label}: duplicate node IDs`);
+  assert.strictEqual(new Set(edgeIds).size, edgeIds.length, `${label}: duplicate edge IDs`);
+  assert.strictEqual(
+    new Set(drawing.meshHandleIds).size,
+    drawing.meshHandleIds.length,
+    `${label}: duplicate mesh handles`
+  );
 }
 
 suite("Network Canvas fleet identity", function () {
-  test("legacy mesh identity normalization covers topology schemas v2 through v4", () => {
+  this.timeout(60000);
+  suiteSetup(languageServerReady);
+
+  test("legacy mesh snapshots of every schema draw each runtime, peer and link once with its detail", async () => {
     for (const schemaVersion of [2, 3, 4] as const) {
-      const first = legacyMeshSnapshot({
-        schemaVersion,
-        hostId: "host:line-a",
-        runtimeId: "RESOURCE",
-        peerAddress: "tcp/192.168.77.11:7447",
-        status: "degraded",
-        detail: "peer A degraded",
-      });
-      const second = legacyMeshSnapshot({
-        schemaVersion,
-        hostId: "host:line-b",
-        runtimeId: "RESOURCE",
-        peerAddress: "tcp/192.168.77.12:7447",
-        status: "error",
-        detail: "peer B failed",
-      });
-      const beforeFirst = cloneTopology(first);
-      const beforeSecond = cloneTopology(second);
-
-      const merged = mergeFleetTopologies([first, second]);
-      const runtimes = topologyRuntimes(merged);
-      const endpointIds = runtimes.flatMap((runtime) =>
-        runtime.endpoints.map((endpoint) => endpoint.id)
-      );
-      const externalIds = merged.external.map((external) => external.id);
-      assert.deepStrictEqual(first, beforeFirst, "normalization mutated the first input");
-      assert.deepStrictEqual(second, beforeSecond, "normalization mutated the second input");
-      assert.strictEqual(merged.hosts.length, 2, `schema ${schemaVersion}`);
-      assert.strictEqual(runtimes.length, 2, `schema ${schemaVersion}`);
-      assert.strictEqual(new Set(runtimes.map((runtime) => runtime.runtime_id)).size, 2);
-      assert.strictEqual(new Set(endpointIds).size, 2);
-      assert.strictEqual(externalIds.length, 2);
-      assert.strictEqual(new Set(externalIds).size, 2);
-      assert.strictEqual(merged.links.length, 2);
-      assert.strictEqual(new Set(merged.links.map((link) => link.id)).size, 2);
-      assert.ok(merged.links.every((link) => endpointIds.includes(link.from)));
-      assert.ok(merged.links.every((link) => externalIds.includes(link.to)));
+      const drawing = await drawn([
+        legacyMeshSnapshot({
+          schemaVersion,
+          hostId: "host:line-a",
+          runtimeId: "RESOURCE",
+          peerAddress: "tcp/192.168.77.11:7447",
+          status: "degraded",
+          detail: "peer A degraded",
+        }),
+        legacyMeshSnapshot({
+          schemaVersion,
+          hostId: "host:line-b",
+          runtimeId: "RESOURCE",
+          peerAddress: "tcp/192.168.77.12:7447",
+          status: "error",
+          detail: "peer B failed",
+        }),
+      ]);
+      assertDrawnOnce(`schema ${schemaVersion}`, drawing);
+      assert.strictEqual(drawing.peers.length, 2, `schema ${schemaVersion}`);
       assert.deepStrictEqual(
-        runtimes.map((runtime) => runtime.name),
-        ["RESOURCE", "RESOURCE"],
-        `schema ${schemaVersion} changed runtime display names`
-      );
-      assert.deepStrictEqual(
-        merged.external.map((external) => external.name).sort(),
+        drawing.graph.external
+          .filter((external) => external.kind === "peer")
+          .map((external) => external.name)
+          .sort(),
         ["tcp/192.168.77.11:7447", "tcp/192.168.77.12:7447"]
-      );
-      assert.deepStrictEqual(
-        merged.links
-          .map((link) => ({
-            status: link.status,
-            detail: link.detail,
-            secure: link.secure,
-          }))
-          .sort((left, right) =>
-            String(left.detail).localeCompare(String(right.detail))
-          ),
-        [
-          { status: "degraded", detail: "peer A degraded", secure: true },
-          { status: "error", detail: "peer B failed", secure: true },
-        ]
-      );
-      if (schemaVersion === 4) {
-        assert.ok(merged.hosts.every((host) => sourceOf(host) === "self"));
-        assert.ok(runtimes.every((runtime) => sourceOf(runtime) === "self"));
-        assert.ok(
-          runtimes.every((runtime) =>
-            runtime.endpoints.every((endpoint) => sourceOf(endpoint) === "self")
-          )
-        );
-        assert.ok(merged.external.every((external) => sourceOf(external) === "config"));
-      }
-
-      const rendered = buildGraph(
-        buildCanvasGraph(buildNetworkCanvasModel({ topology: merged }), merged)
-      );
-      assert.strictEqual(
-        new Set(rendered.nodes.map((node) => node.id)).size,
-        rendered.nodes.length,
-        `schema ${schemaVersion} rendered duplicate node IDs`
-      );
-      assert.strictEqual(
-        new Set(rendered.edges.map((edge) => edge.id)).size,
-        rendered.edges.length,
-        `schema ${schemaVersion} rendered duplicate edge IDs`
       );
       for (const detail of ["peer A degraded", "peer B failed"]) {
         assert.ok(
-          rendered.edges.some((edge) => edge.data?.detail === detail),
+          drawing.rendered.edges.some((edge) => edge.data?.detail === detail),
           `schema ${schemaVersion} lost ${detail}`
         );
       }
     }
   });
 
-  test("same-host and container-owned legacy mesh peers keep lossless owner identity", () => {
-    const scenarios: Array<{
-      label: string;
-      snapshots: FleetTopologyResponse[];
-    }> = [
+  test("same-host and container-owned runtimes with colliding raw IDs stay distinct on the canvas", async () => {
+    const scenarios: Array<{ label: string; snapshots: FleetTopologyResponse[] }> = [
       {
         label: "same host, runtime IDs that collide after display sanitization",
         snapshots: [
@@ -331,284 +301,24 @@ suite("Network Canvas fleet identity", function () {
     ];
 
     for (const scenario of scenarios) {
-      const merged = mergeFleetTopologies(scenario.snapshots);
-      const runtimes = topologyRuntimes(merged);
-      const endpointIds = runtimes.flatMap((runtime) =>
-        runtime.endpoints.map((endpoint) => endpoint.id)
-      );
-      const containerIds = merged.hosts.flatMap((host) =>
-        host.containers.map((container) => container.container_id)
-      );
-      const externalIds = merged.external.map((external) => external.id);
+      const drawing = await drawn(scenario.snapshots);
+      assertDrawnOnce(scenario.label, drawing);
+      const runtimes = drawing.peers.flatMap((host) => [
+        ...host.runtimes,
+        ...host.containers.flatMap((container) => container.runtimes),
+      ]);
       assert.strictEqual(runtimes.length, 2, scenario.label);
-      assert.strictEqual(new Set(runtimes.map((runtime) => runtime.runtime_id)).size, 2);
-      assert.strictEqual(new Set(endpointIds).size, 2);
-      if (containerIds.length > 0) {
-        assert.strictEqual(containerIds.length, 2);
-        assert.strictEqual(new Set(containerIds).size, 2, scenario.label);
-      }
-      assert.strictEqual(externalIds.length, 2);
-      assert.strictEqual(new Set(externalIds).size, 2);
-      assert.strictEqual(merged.links.length, 2);
-      assert.strictEqual(new Set(merged.links.map((link) => link.id)).size, 2);
-      assert.ok(merged.links.every((link) => endpointIds.includes(link.from)));
-      assert.ok(merged.links.every((link) => externalIds.includes(link.to)));
-      assert.ok(merged.hosts.every((host) => sourceOf(host) === "self"));
+      assert.strictEqual(new Set(runtimes.map((runtime) => runtime.id)).size, 2, scenario.label);
+      const links = drawing.graph.links;
+      assert.strictEqual(links.length, 2, scenario.label);
+      const ids = new Set([
+        ...runtimes.flatMap((runtime) => runtime.endpoints.map((endpoint) => endpoint.id)),
+        ...drawing.graph.external.map((external) => external.id),
+      ]);
       assert.ok(
-        merged.hosts.every((host) =>
-          host.containers.every((container) => sourceOf(container) === "self")
-        )
-      );
-      assert.ok(runtimes.every((runtime) => sourceOf(runtime) === "self"));
-      assert.ok(
-        runtimes.every((runtime) =>
-          runtime.endpoints.every((endpoint) => sourceOf(endpoint) === "self")
-        )
-      );
-      assert.ok(merged.external.every((external) => sourceOf(external) === "config"));
-      assert.deepStrictEqual(
-        new Set(merged.shared[0]?.used_by ?? []),
-        new Set(runtimes.map((runtime) => runtime.runtime_id))
-      );
-      const identities = renderedIdentitySets(merged);
-      assert.strictEqual(new Set(identities.nodeIds).size, identities.nodeIds.length, scenario.label);
-      assert.strictEqual(new Set(identities.edgeIds).size, identities.edgeIds.length, scenario.label);
-      assert.strictEqual(
-        new Set(identities.meshHandleIds).size,
-        identities.meshHandleIds.length,
-        scenario.label
+        links.every((link) => ids.has(link.from) && ids.has(link.to)),
+        `${scenario.label}: every link names a node of the graph`
       );
     }
-  });
-
-  test("a cross-runtime link resolves and scopes each endpoint independently", () => {
-    const left = legacyMeshSnapshot({
-      schemaVersion: 4,
-      hostId: "host:cross-runtime",
-      runtimeId: "LEFT",
-      peerAddress: "tcp/192.168.77.51:7447",
-      status: "connected",
-      detail: "left ready",
-    });
-    const right = legacyMeshSnapshot({
-      schemaVersion: 4,
-      hostId: "host:cross-runtime",
-      runtimeId: "RIGHT",
-      peerAddress: "tcp/192.168.77.52:7447",
-      status: "connected",
-      detail: "right ready",
-    });
-    const rawFrom = left.hosts[0].runtimes[0].endpoints[0].id;
-    const rawTo = right.hosts[0].runtimes[0].endpoints[0].id;
-    const topology: FleetTopologyResponse = {
-      schema_version: 4,
-      hosts: [
-        {
-          ...left.hosts[0],
-          runtimes: [left.hosts[0].runtimes[0], right.hosts[0].runtimes[0]],
-        },
-      ],
-      links: [
-        {
-          id: "link:cross-runtime",
-          from: rawFrom,
-          to: rawTo,
-          protocol: "mesh",
-          role: "peer",
-          direction: "bidirectional",
-          same_host: true,
-          status: "connected",
-          secure: true,
-          detail: "Cross-runtime mesh route ready.",
-        },
-      ],
-      shared: [],
-      external: [],
-    };
-
-    const normalized = mergeFleetTopologies([topology]);
-    const endpointIds = topologyRuntimes(normalized).flatMap((runtime) =>
-      runtime.endpoints.map((endpoint) => endpoint.id)
-    );
-    assert.strictEqual(normalized.links.length, 1);
-    assert.ok(endpointIds.includes(normalized.links[0].from));
-    assert.ok(endpointIds.includes(normalized.links[0].to));
-    assert.notStrictEqual(normalized.links[0].from, rawFrom);
-    assert.notStrictEqual(normalized.links[0].to, rawTo);
-    assert.notStrictEqual(normalized.links[0].id, "link:cross-runtime");
-  });
-
-  test("a singleton legacy snapshot is normalized idempotently through display ingress", () => {
-    const snapshot = legacyMeshSnapshot({
-      schemaVersion: 4,
-      hostId: "host:singleton",
-      runtimeId: "RESOURCE",
-      peerAddress: "tcp/192.168.77.40:7447",
-      status: "degraded",
-      detail: "singleton peer degraded",
-    });
-    const before = cloneTopology(snapshot);
-    const once = mergeFleetTopologies([snapshot]);
-    const twice = mergeFleetTopologies([once]);
-    const inputRuntime = topologyRuntimes(snapshot)[0];
-    const outputRuntime = topologyRuntimes(once)[0];
-
-    assert.deepStrictEqual(snapshot, before, "normalization mutated its input");
-    assert.deepStrictEqual(twice, once, "normalization must be idempotent");
-    assert.notStrictEqual(once, snapshot);
-    assert.notStrictEqual(once.hosts[0], snapshot.hosts[0]);
-    assert.notStrictEqual(outputRuntime, inputRuntime);
-    assert.notStrictEqual(outputRuntime.endpoints[0], inputRuntime.endpoints[0]);
-    assert.notStrictEqual(once.links[0], snapshot.links[0]);
-    assert.notStrictEqual(once.shared[0], snapshot.shared[0]);
-    assert.notStrictEqual(once.shared[0].used_by, snapshot.shared[0].used_by);
-    assert.notStrictEqual(once.external[0], snapshot.external[0]);
-    assert.notStrictEqual(outputRuntime.runtime_id, "RESOURCE");
-    assert.notStrictEqual(outputRuntime.endpoints[0]?.id, "endpoint:RESOURCE:mesh");
-    assert.notStrictEqual(once.external[0]?.id, "external:mesh:0");
-    assert.strictEqual(once.external[0]?.name, "tcp/192.168.77.40:7447");
-    assert.strictEqual(once.links[0]?.detail, "singleton peer degraded");
-    assert.strictEqual(once.links[0]?.secure, true);
-
-    const refreshSource = fs.readFileSync(
-      path.join(
-        __dirname,
-        "..",
-        "..",
-        "..",
-        "src",
-        "networkCanvas",
-        "refreshData.ts"
-      ),
-      "utf8"
-    );
-    assert.match(
-      refreshSource,
-      /mergeFleetTopologies\(\[live\.topology, offline\.topology\]\)/,
-      "a lone live topology must pass through the same normalization ingress as merged responses"
-    );
-  });
-
-  test("repeated snapshots from one complete owner deduplicate", () => {
-    const repeated = legacyMeshSnapshot({
-      schemaVersion: 4,
-      hostId: "host:repeat",
-      runtimeId: "RESOURCE",
-      peerAddress: "tcp/192.168.77.41:7447",
-      status: "connected",
-      detail: "peer ready",
-    });
-    const deduplicated = mergeFleetTopologies([repeated, cloneTopology(repeated)]);
-    assert.strictEqual(topologyRuntimes(deduplicated).length, 1);
-    assert.strictEqual(deduplicated.external.length, 1);
-    assert.strictEqual(deduplicated.links.length, 1);
-  });
-
-  test("ambiguous ownership omits only affected references", () => {
-    const ambiguous = legacyMeshSnapshot({
-      schemaVersion: 4,
-      hostId: "host:ambiguous",
-      runtimeId: "RESOURCE",
-      peerAddress: "tcp/192.168.77.42:7447",
-      status: "degraded",
-      detail: "ambiguous peer",
-    });
-    const originalRuntime = ambiguous.hosts[0].runtimes[0];
-    const duplicateRuntime: FleetRuntime = {
-      ...cloneTopology({
-        schema_version: 4,
-        hosts: [
-          {
-            ...ambiguous.hosts[0],
-            containers: [],
-            runtimes: [originalRuntime],
-          },
-        ],
-        links: [],
-        shared: [],
-        external: [],
-      }).hosts[0].runtimes[0],
-      name: "Second RESOURCE",
-    };
-    const auxEndpointId = "endpoint:AUX:opcua";
-    const auxExternalId = "external:opcua:aux";
-    const auxRuntime: FleetRuntime = {
-      runtime_id: "AUX",
-      name: "Auxiliary runtime",
-      mode: "online",
-      cycle_ms: 10,
-      health: "connected",
-      detail: "Running.",
-      source: "self",
-      endpoints: [
-        {
-          id: auxEndpointId,
-          kind: "service",
-          protocol: "opcua_client",
-          name: "OPC UA client",
-          role: "client",
-          health: "connected",
-          detail: "Auxiliary OPC UA link ready.",
-          owned: true,
-          supports_test: false,
-          source: "self",
-        },
-      ],
-    };
-    ambiguous.hosts[0].runtimes = [auxRuntime];
-    ambiguous.hosts[0].containers = [
-      {
-        container_id: "Cell A",
-        name: "Cell A",
-        image: "runtime:latest",
-        status: "running",
-        runtimes: [originalRuntime],
-        ...{ source: "self" },
-      },
-      {
-        container_id: "Cell B",
-        name: "Cell B",
-        image: "runtime:latest",
-        status: "running",
-        runtimes: [duplicateRuntime],
-        ...{ source: "self" },
-      },
-    ];
-    ambiguous.links.push({
-      id: "link:opcua:aux",
-      from: auxEndpointId,
-      to: auxExternalId,
-      protocol: "opcua_client",
-      role: "client",
-      direction: "outbound",
-      same_host: false,
-      status: "connected",
-      secure: true,
-      detail: "Auxiliary OPC UA peer ready.",
-    });
-    ambiguous.external.push({
-      id: auxExternalId,
-      kind: "server",
-      name: "opc.tcp://aux.example:4840",
-      via_protocol: ["opcua_client"],
-      direction: "outbound",
-      ...{ source: "config" },
-    });
-    ambiguous.shared[0].used_by.push("AUX");
-    const before = cloneTopology(ambiguous);
-
-    const rejected = mergeFleetTopologies([ambiguous]);
-    const runtimes = topologyRuntimes(rejected);
-    const aux = runtimes.find((runtime) => runtime.name === "Auxiliary runtime");
-    assert.deepStrictEqual(ambiguous, before, "fail-closed normalization mutated input");
-    assert.strictEqual(runtimes.length, 3);
-    assert.strictEqual(new Set(runtimes.map((runtime) => runtime.runtime_id)).size, 3);
-    assert.strictEqual(rejected.links.length, 1, "the uniquely owned AUX link must survive");
-    assert.strictEqual(rejected.links[0].protocol, "opcua_client");
-    assert.strictEqual(rejected.external.length, 1, "the unrelated AUX external must survive");
-    assert.strictEqual(rejected.external[0].name, "opc.tcp://aux.example:4840");
-    assert.strictEqual(rejected.shared.length, 1, "the global shared system remains visible");
-    assert.ok(aux, "the uniquely owned AUX runtime must survive");
-    assert.deepStrictEqual(rejected.shared[0].used_by, [aux.runtime_id]);
   });
 });

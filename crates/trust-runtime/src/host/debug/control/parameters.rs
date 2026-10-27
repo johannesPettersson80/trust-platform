@@ -1,19 +1,23 @@
 //! Typed custom-controller parameter bindings and task-boundary transactions.
+use super::program_facts;
 use super::symbol_path::{self, ResolvedSymbol};
 use super::transfer::{check_physical_review, check_target_source};
 use super::{DebugControl, PendingVarTarget};
-use crate::memory::VariableStorage;
-use crate::runtime::RuntimeMetadata;
-use crate::value::{Value, ValueRef};
+use crate::runtime::{Located, ProgramRead, ProgramWrite};
+use crate::value::Value;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashMap, HashSet};
+use trust_runtime_core::native::image::Image;
 
+#[path = "parameters/control_pid.rs"]
+mod control_pid;
 #[path = "parameters/operations.rs"]
 mod operations;
 #[path = "parameters/session.rs"]
 mod session;
+pub(crate) use control_pid::{ControlPidOutcome, ControlPidView, ControlPidWrite};
 
 /// Longest identifier a parameter transaction accepts, in characters (E7.3).
 const MAX_IDENTIFIER_CHARS: usize = 128;
@@ -103,8 +107,97 @@ struct Pending {
     candidate: BTreeMap<String, f64>,
     rollback: bool,
     committed: bool,
-    /// Each parameter's reference and the value it held before the commit, in the order of the binding's parameters.
-    restore_points: Vec<(ValueRef, Value)>,
+    /// Each parameter's place and the value it held before the commit, in the order of the binding's parameters.
+    restore_points: Vec<(Located, Value)>,
+    /// What the owning task's end found (E7.4). The record takes it once the scan that ran the task is published
+    /// ([`ParameterRegistry::settle`]): until then the published program still holds the values from before the
+    /// commit, which status reports with the set pending (E7.2).
+    confirmation: Option<Confirmation>,
+    /// Whose set it is, which decides how its members are checked and written.
+    kind: SetKind,
+}
+
+/// Whose set a pending set is (E7.1, E7.7).
+#[derive(Clone, Debug)]
+enum SetKind {
+    /// A client's binding (`control.parameters.*`, E7.1): REAL and LREAL members within their declared bounds, written
+    /// as numbers, and the binding's BOOL mode signal.
+    Binding,
+    /// A `Control.PID`'s parameter record (`control.pid.*`, E7.7): each field written in its own type, the mode the
+    /// controller observed, and the controller's operating domain.
+    ControlPid(control_pid::Set),
+}
+
+impl SetKind {
+    /// The set's binding still holds at its task's boundary (E7.4): a client's is the binding its status reviewed
+    /// and valid against the program of `image` (E7.1); a controller's record still belongs to the task.
+    fn check_binding(
+        &self,
+        registry: &ParameterRegistry,
+        request: &ApplyRequest,
+        image: &Image<'_>,
+    ) -> Result<(), String> {
+        match self {
+            Self::Binding => {
+                let record = registry
+                    .records
+                    .get(&request.binding.loop_id)
+                    .ok_or("binding unavailable")?;
+                if record.binding_revision != request.expected_binding_revision {
+                    return Err("binding changed before task boundary".into());
+                }
+                check_binding(&request.binding, image)
+            }
+            Self::ControlPid(set) => set.check_binding(&request.binding, image),
+        }
+    }
+
+    /// Manual is observed now in `program` (E7.3 step 7, E7.7), `registry` knowing which tasks ran in the program.
+    fn check_mode(
+        &self,
+        registry: &ParameterRegistry,
+        binding: &Binding,
+        program: &dyn ProgramRead,
+    ) -> Result<(), String> {
+        match self {
+            Self::Binding => manual(binding, program),
+            Self::ControlPid(set) => set.check_mode(
+                program,
+                &binding.task_name,
+                registry.task_ran(&binding.task_name),
+            ),
+        }
+    }
+
+    /// The values the set writes are within their bounds (E7.3 step 10; specification 45 §2.4).
+    fn validate(&self, binding: &Binding, candidate: &BTreeMap<String, f64>) -> Result<(), String> {
+        match self {
+            Self::Binding => validate_candidate(binding, candidate),
+            Self::ControlPid(set) => set.validate(),
+        }
+    }
+
+    /// The value `parameter` takes, `number` being its candidate number: a client's member in its REAL or LREAL type,
+    /// a controller's field as the write sets it.
+    fn value(&self, parameter: &Parameter, number: f64) -> Result<Value, String> {
+        match self {
+            Self::Binding => Ok(if parameter.iec_type == "REAL" {
+                Value::Real(number as f32)
+            } else {
+                Value::LReal(number)
+            }),
+            Self::ControlPid(set) => set.value(&parameter.symbol),
+        }
+    }
+}
+
+/// What a committed set's task end found (E7.4).
+#[derive(Clone, Debug)]
+enum Confirmation {
+    /// Every parameter holds the value Studio wrote.
+    Applied,
+    /// The program changed the parameters named, in the order of the binding.
+    ChangedByProgram(String),
 }
 #[derive(Debug)]
 pub(super) struct ParameterRegistry {
@@ -119,6 +212,11 @@ pub(super) struct ParameterRegistry {
     reloaded: bool,
     /// Until a scan of the current epoch completes, the debug snapshot still holds the program before the boundary.
     snapshot_stale: bool,
+    /// How the controllers' writes ended (E7.7), which the controllers' status reports.
+    control_pid: control_pid::Writes,
+    /// The tasks that ran since the epoch began, by their names in upper case: a controller's record of its mode is the
+    /// current program's only once its task ran in it (E7.7).
+    tasks_run: HashSet<String>,
 }
 impl Default for ParameterRegistry {
     fn default() -> Self {
@@ -131,6 +229,8 @@ impl Default for ParameterRegistry {
             pending: None,
             reloaded: false,
             snapshot_stale: false,
+            control_pid: control_pid::Writes::default(),
+            tasks_run: HashSet::new(),
         }
     }
 }
@@ -140,7 +240,10 @@ fn hash(value: impl std::fmt::Debug) -> String {
         hex::encode(Sha256::digest(format!("{value:?}").as_bytes()))
     )
 }
-fn check_binding(binding: &Binding, metadata: &RuntimeMetadata) -> Result<(), String> {
+/// Checks a binding against the program of `image` (E7.1): its parameters are writable members, and
+/// every member belongs to a program instance that its declared task runs, or that no task runs for
+/// `$background`.
+fn check_binding(binding: &Binding, image: &Image<'_>) -> Result<(), String> {
     if binding.loop_id.trim().is_empty()
         || binding.parameters.is_empty()
         || binding.parameters.len() > MAX_PARAMETERS
@@ -149,9 +252,10 @@ fn check_binding(binding: &Binding, metadata: &RuntimeMetadata) -> Result<(), St
             "a named loop needs 1 to {MAX_PARAMETERS} parameters"
         ));
     }
+    let tasks = program_facts::program_tasks(image);
     let mut symbols = HashSet::new();
     for parameter in &binding.parameters {
-        if !metadata.control_parameter_writable(&parameter.symbol) {
+        if !program_facts::parameter_writable(image, &parameter.symbol) {
             return Err("parameter must be a writable, unaddressed, non-aliased member".into());
         }
         if !symbols.insert(parameter.symbol.to_ascii_uppercase())
@@ -176,15 +280,10 @@ fn check_binding(binding: &Binding, metadata: &RuntimeMetadata) -> Result<(), St
         .chain(std::iter::once(binding.mode.symbol.as_str()))
     {
         let root = symbol.split('.').next().unwrap_or_default();
-        if !metadata
-            .programs()
-            .keys()
-            .any(|name| name.eq_ignore_ascii_case(root))
-        {
+        if !program_facts::is_program_instance(image, root) {
             return Err("parameter root is not a compiled program".into());
         }
-        let owners: Vec<_> = metadata
-            .tasks()
+        let owners: Vec<_> = tasks
             .iter()
             .filter(|task| {
                 task.programs
@@ -202,20 +301,22 @@ fn check_binding(binding: &Binding, metadata: &RuntimeMetadata) -> Result<(), St
     }
     Ok(())
 }
-fn values(binding: &Binding, storage: &VariableStorage) -> Result<BTreeMap<String, f64>, String> {
+fn values(binding: &Binding, program: &dyn ProgramRead) -> Result<BTreeMap<String, f64>, String> {
     binding
         .parameters
         .iter()
-        .map(|p| Ok((p.symbol.clone(), parameter_number(storage, p)?)))
+        .map(|p| Ok((p.symbol.clone(), parameter_number(program, p)?)))
         .collect()
 }
 
-/// A parameter's runtime value as a finite number of its declared IEC type.
-fn parameter_number(storage: &VariableStorage, parameter: &Parameter) -> Result<f64, String> {
-    let value = symbol_path::resolve(storage, &parameter.symbol)?.value;
+/// A parameter's runtime value as a finite number of its declared IEC type; an enumeration member of a controller's
+/// record (E7.7) as its variant's number.
+fn parameter_number(program: &dyn ProgramRead, parameter: &Parameter) -> Result<f64, String> {
+    let value = symbol_path::resolve(program, &parameter.symbol)?.value;
     let number = match (parameter.iec_type.as_str(), value) {
         ("LREAL", Value::LReal(v)) => v,
         ("REAL", Value::Real(v)) => f64::from(v),
+        (control_pid::ENUMERATION, Value::Enum(v)) => v.numeric_value() as f64,
         _ => return Err("parameter IEC type does not match runtime".into()),
     };
     if !number.is_finite() {
@@ -227,11 +328,13 @@ fn parameter_number(storage: &VariableStorage, parameter: &Parameter) -> Result<
     Ok(number)
 }
 
+/// The variable a Control Studio symbol path names in `program` (`Main.Controller.Gain`), with its
+/// place and its value there.
 pub(crate) fn resolve_path(
-    storage: &VariableStorage,
+    program: &dyn ProgramRead,
     symbol: &str,
 ) -> Result<ResolvedSymbol, String> {
-    symbol_path::resolve(storage, symbol)
+    symbol_path::resolve(program, symbol)
 }
 
 /// The outcome of a loop as a status reports it.
@@ -245,27 +348,25 @@ struct Outcome {
 impl DebugControl {
     /// Reads the parameters of a loop. It changes only the review marker of the loop (E7.2): the transaction record is
     /// only read, so a status never resets a rejection, a retained previous value or a stopped transaction's reason.
-    pub(crate) fn parameter_status(
-        &self,
-        params: JsonValue,
-        metadata: &RuntimeMetadata,
-    ) -> Result<JsonValue, String> {
+    pub(crate) fn parameter_status(&self, params: JsonValue) -> Result<JsonValue, String> {
         let request: StatusRequest = serde_json::from_value(params).map_err(|e| e.to_string())?;
-        check_binding(&request.binding, metadata)?;
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().map_err(|_| "debug state unavailable")?;
-        let snapshot = state
-            .snapshot
-            .as_ref()
+        // The record and the values are read under one lock (E7.2): the scan publishes the program
+        // before it settles a confirmed set ([`Self::finish_transfer_cycle`]), so an outcome read
+        // here comes with the values of the scan that decided it, or of a later one.
+        let mut state = self.lock();
+        let program = self
+            .published_program()
             .ok_or("runtime snapshot unavailable")?;
-        let current = values(&request.binding, &snapshot.storage)?;
+        let image = program.program_image();
+        check_binding(&request.binding, &image)?;
+        let current = values(&request.binding, &*program)?;
         if !matches!(
-            resolve_path(&snapshot.storage, &request.binding.mode.symbol)?.value,
+            resolve_path(&*program, &request.binding.mode.symbol)?.value,
             Value::Bool(_)
         ) {
             return Err("mode must be BOOL".into());
         }
-        let program_revision = state.parameters.program_revision(metadata);
+        let program_revision = state.parameters.program_revision(&image);
         let binding_revision =
             hash(serde_json::to_string(&request.binding).map_err(|e| e.to_string())?);
         state.parameters.reviews.insert(
@@ -310,8 +411,8 @@ fn validate_candidate(binding: &Binding, candidate: &BTreeMap<String, f64>) -> R
     }
     Ok(())
 }
-fn manual(binding: &Binding, storage: &VariableStorage) -> Result<(), String> {
-    if resolve_path(storage, &binding.mode.symbol)?.value != Value::Bool(binding.mode.manual_value)
+fn manual(binding: &Binding, program: &dyn ProgramRead) -> Result<(), String> {
+    if resolve_path(program, &binding.mode.symbol)?.value != Value::Bool(binding.mode.manual_value)
     {
         return Err("confirmed Manual mode required".into());
     }
@@ -404,37 +505,117 @@ fn rollback_target(
 }
 
 impl ParameterRegistry {
-    /// The identifier of the pending parameter transaction, when one is pending (A6.6).
-    pub(super) fn pending_id(&self) -> Option<&str> {
-        self.pending
-            .as_ref()
-            .map(|pending| pending.request.transaction_id.as_str())
+    /// The pending set named by its kind and identifier, as a refusal names the live write that is running (A6.6,
+    /// E9.1): `a parameter transaction <id>`, or `a controller write to <instance>`.
+    pub(super) fn pending_label(&self) -> Option<String> {
+        self.pending.as_ref().map(|pending| match &pending.kind {
+            SetKind::Binding => {
+                format!("a parameter transaction {}", pending.request.transaction_id)
+            }
+            SetKind::ControlPid(set) => format!("a controller write to {}", set.instance()),
+        })
     }
-    pub(super) fn program_revision(&self, metadata: &RuntimeMetadata) -> String {
-        hash((self.session, metadata.control_program_revision()))
+
+    /// Records why `pending` ended without being applied: a client's record turns rejected with the reason (E7.4,
+    /// A6.7); a controller's write keeps it for the controller's status (E7.7).
+    fn reject(&mut self, pending: &Pending, reason: String) {
+        match &pending.kind {
+            SetKind::Binding => {
+                if let Some(record) = self.records.get_mut(&pending.request.binding.loop_id) {
+                    record.status = "rejected".into();
+                    record.reason = Some(reason);
+                }
+            }
+            SetKind::ControlPid(set) => self.control_pid.record(
+                set,
+                pending.request.transaction_id.clone(),
+                ControlPidOutcome::Rejected(reason),
+            ),
+        }
+    }
+    /// The program revision (annex E1.1): from the session, which a reload or a restart ends and
+    /// which started from a value fixed at the process's start, and the revision of the sources of
+    /// the program of `image`.
+    pub(super) fn program_revision(&self, image: &Image<'_>) -> String {
+        hash((self.session, program_facts::source_revision(image)))
     }
     pub(super) fn snapshot_is_stale(&self) -> bool {
         self.snapshot_stale
     }
 
+    /// Records the outcome of a parameter set that its task's end decided, once the scan that ran the task is
+    /// published (E7.2, E7.4): applied, with the values it replaced retained for a rollback unless it was one, or
+    /// rejected with the parameters the program changed. A set its task has not confirmed stays pending.
+    pub(super) fn settle(&mut self) {
+        let Some(Pending {
+            request,
+            candidate,
+            rollback,
+            confirmation: Some(confirmation),
+            kind,
+            ..
+        }) = self
+            .pending
+            .take_if(|pending| pending.confirmation.is_some())
+        else {
+            return;
+        };
+        if let SetKind::ControlPid(set) = &kind {
+            let outcome = match confirmation {
+                Confirmation::Applied => ControlPidOutcome::Applied,
+                Confirmation::ChangedByProgram(symbols) => ControlPidOutcome::Rejected(format!(
+                    "controller changed parameter values before confirmation: {symbols}"
+                )),
+            };
+            self.control_pid
+                .record(set, request.transaction_id, outcome);
+            return;
+        }
+        let Some(record) = self.records.get_mut(&request.binding.loop_id) else {
+            return;
+        };
+        match confirmation {
+            Confirmation::Applied => {
+                record.previous = if rollback {
+                    None
+                } else {
+                    Some(request.expected_values)
+                };
+                record.active = candidate;
+                record.status = "applied".into();
+                record.reason = None;
+            }
+            Confirmation::ChangedByProgram(symbols) => {
+                record.previous = None;
+                record.status = "rejected".into();
+                record.reason = Some(format!(
+                    "controller changed parameter values before confirmation: {symbols}"
+                ));
+            }
+        }
+    }
+
     /// Starts a new session at a reload or a restart. The identities and the reviews of the old session end with it.
-    /// A transaction that was still pending ends rejected with its reason, and every record keeps its status and
-    /// reason, so status reports why it stopped (A6.7). Previous values end with the session that retained them.
+    /// A set its task's end already confirmed keeps that outcome; a transaction that was still pending ends rejected
+    /// with its reason, and every record keeps its status and reason, so status reports why it stopped (A6.7).
+    /// Previous values end with the session that retained them.
     pub(super) fn interrupt(&mut self) {
+        self.settle();
         self.session = session::new_session();
         self.used_operations.clear();
         self.cancelled_operations.clear();
         self.reviews.clear();
-        if let Some(pending) = self.pending.take()
-            && let Some(record) = self.records.get_mut(&pending.request.binding.loop_id)
-        {
-            record.status = "rejected".into();
-            record.reason = Some("runtime interrupted before parameter confirmation".into());
+        if let Some(pending) = self.pending.take() {
+            self.reject(
+                &pending,
+                "runtime interrupted before parameter confirmation".into(),
+            );
         }
         for record in self.records.values_mut() {
             record.previous = None;
         }
         self.snapshot_stale = true;
+        self.tasks_run.clear();
     }
 
     /// The outcome of a loop, shown only for the binding that owns the record.
@@ -475,14 +656,30 @@ impl ParameterRegistry {
     pub(super) fn mark_snapshot_current(&mut self) {
         self.snapshot_stale = false;
     }
+
+    /// Records the tasks that ran in a published scan of the epoch, each with the intervals it missed (E7.7).
+    pub(super) fn record_task_runs(&mut self, tasks: &[(smol_str::SmolStr, u64)]) {
+        self.tasks_run
+            .extend(tasks.iter().map(|(name, _)| name.to_ascii_uppercase()));
+    }
+
+    /// Whether `task` ran since the epoch began, after the last reload or restart: a named task once a scan of the
+    /// epoch ran it, `$background`, whose programs run in every scan, once a scan of the epoch completed (E7.7).
+    pub(super) fn task_ran(&self, task: &str) -> bool {
+        if task == "$background" {
+            !self.snapshot_stale
+        } else {
+            self.tasks_run.contains(&task.to_ascii_uppercase())
+        }
+    }
 }
 impl DebugControl {
-    /// Accepts a parameter transaction for the next task boundary of its owning task. `physical_target` is the
-    /// runtime's target fact (A2.4): the request's source label must agree with it, and a physical target needs approval.
+    /// Accepts a parameter transaction for the next task boundary of its owning task, against the
+    /// program as the last scan left it. `physical_target` is the runtime's target fact (A2.4): the
+    /// request's source label must agree with it, and a physical target needs approval.
     pub(crate) fn parameter_apply(
         &self,
         params: JsonValue,
-        metadata: &RuntimeMetadata,
         rollback: bool,
         physical_target: bool,
     ) -> Result<JsonValue, String> {
@@ -492,9 +689,11 @@ impl DebugControl {
         }
         check_target_source(&request.source, physical_target)?;
         check_physical_review(physical_target, request.physical_approved)?;
-        check_binding(&request.binding, metadata)?;
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().map_err(|_| "debug state unavailable")?;
+        let program = self.published_program();
+        if let Some(program) = &program {
+            check_binding(&request.binding, &program.program_image())?;
+        }
+        let mut state = self.lock();
         let id = &request.transaction_id;
         if id.is_empty()
             || id.chars().count() > MAX_IDENTIFIER_CHARS
@@ -507,25 +706,22 @@ impl DebugControl {
                 "parameter identity capacity reached ({MAX_TRANSACTION_IDENTITIES})"
             ));
         }
-        if let Some(pending) = state.parameters.pending_id() {
-            return Err(format!("a parameter transaction {pending} is pending"));
+        if let Some(pending) = state.parameters.pending_label() {
+            return Err(format!("{pending} is pending"));
         }
         if let Some(pending) = state.transfers.pending_id() {
             return Err(format!("a controller transfer {pending} is pending"));
         }
-        if !state.forced_vars.is_empty() || !state.forced_io.is_empty() {
+        if !state.live_values.forced_vars.is_empty() || !state.live_values.forced_io.is_empty() {
             return Err("release active forcing before parameter application".into());
         }
         if state.parameters.snapshot_is_stale() {
             return Err(STALE_SNAPSHOT.into());
         }
-        let snapshot = state
-            .snapshot
-            .as_ref()
-            .ok_or("runtime snapshot unavailable")?;
-        let current = values(&request.binding, &snapshot.storage)?;
-        manual(&request.binding, &snapshot.storage)?;
-        let program_revision = state.parameters.program_revision(metadata);
+        let program = program.ok_or("runtime snapshot unavailable")?;
+        let current = values(&request.binding, &*program)?;
+        manual(&request.binding, &*program)?;
+        let program_revision = state.parameters.program_revision(&program.program_image());
         let binding_revision =
             hash(serde_json::to_string(&request.binding).map_err(|e| e.to_string())?);
         check_expected(&request, &program_revision, &binding_revision, &current)?;
@@ -572,63 +768,52 @@ impl DebugControl {
             rollback,
             committed: false,
             restore_points: Vec::new(),
+            confirmation: None,
+            kind: SetKind::Binding,
         });
         Ok(json!({"status":"pending","confirmed":false}))
     }
+
+    /// The program was reloaded (an online change, specification 35 A6.7): Control Studio's runtime
+    /// epoch ends as at a restart, the program is marked reloaded, so that an experiment it stops
+    /// reports `program_reloaded`, and a queued write resolved against the program that ended is
+    /// dropped. Global and retained names are looked up again when applied, so their writes stay.
     pub(crate) fn invalidate_control_program(&self) {
-        let mut state = self.state.0.lock().expect("debug state poisoned");
-        state.parameters.interrupt();
+        let mut state = self.lock();
+        state.end_control_epoch();
         state.parameters.mark_program_reloaded();
-        state.transfers.interrupt();
-        state.recordings.interrupt();
-        state.signals.clear();
-        // A queued write resolved against the program that ended names its variable only in that program, so a
-        // reference, an instance or a frame is dropped. Global and retained names are looked up again when applied.
-        state.pending_var_writes.retain(|write| {
+        state.live_values.pending_var_writes.retain(|write| {
             matches!(
                 write.target,
                 PendingVarTarget::Global(_) | PendingVarTarget::Retain(_)
             )
         });
-        state
-            .pending_lvalue_writes
-            .retain(|write| write.frame_id.is_none());
     }
 
     /// The runtime epoch the current program runs in; a reload or a restart ends it.
     pub(crate) fn runtime_epoch(&self) -> u64 {
-        self.state
-            .0
-            .lock()
-            .expect("debug state poisoned")
-            .parameters
-            .epoch()
+        self.lock().parameters.epoch()
     }
 
-    /// The program revision that status reports and that every family result compares (A2.2). The caller holds the
-    /// metadata lock first; this takes the debug lock second, the only order in which the two are taken.
-    pub(crate) fn program_revision(&self, metadata: &RuntimeMetadata) -> String {
-        self.state
-            .0
-            .lock()
-            .expect("debug state poisoned")
-            .parameters
-            .program_revision(metadata)
+    /// The program revision that status reports and that every family result compares (A2.2), of
+    /// the program as the last scan left it; none before a scan ended.
+    pub(crate) fn program_revision(&self) -> Option<String> {
+        let program = self.published_program()?;
+        Some(
+            self.lock()
+                .parameters
+                .program_revision(&program.program_image()),
+        )
     }
 
     /// Whether the debug snapshot still holds the program before the last reload or restart.
     pub(crate) fn snapshot_is_stale(&self) -> bool {
-        self.state
-            .0
-            .lock()
-            .expect("debug state poisoned")
-            .parameters
-            .snapshot_stale
+        self.lock().parameters.snapshot_stale
     }
 
     /// Starts a control experiment in `epoch`, unless the runtime has moved on since the request read it.
     pub(crate) fn begin_experiment(&self, epoch: u64) -> bool {
-        let mut state = self.state.0.lock().expect("debug state poisoned");
+        let mut state = self.lock();
         if state.parameters.epoch() != epoch {
             return false;
         }
@@ -638,7 +823,7 @@ impl DebugControl {
 
     /// Why an experiment started in `epoch` must stop, or `None` while that epoch lasts.
     pub(crate) fn experiment_boundary(&self, epoch: u64) -> Option<&'static str> {
-        let state = self.state.0.lock().expect("debug state poisoned");
+        let state = self.lock();
         if state.parameters.epoch() == epoch {
             None
         } else if state.parameters.reloaded {
@@ -647,120 +832,105 @@ impl DebugControl {
             Some("runtime_restarted")
         }
     }
+
     /// The live write that is pending, named by kind and identifier (A6.6), or `None` when none is pending.
     pub(crate) fn pending_transaction_label(&self) -> Option<String> {
-        let state = self.state.0.lock().expect("debug state poisoned");
+        let state = self.lock();
         state
             .transfers
             .pending_id()
             .map(|id| format!("a controller transfer {id}"))
-            .or_else(|| {
-                state
-                    .parameters
-                    .pending_id()
-                    .map(|id| format!("a parameter transaction {id}"))
-            })
+            .or_else(|| state.parameters.pending_label())
     }
+
+    /// Whether a parameter set waits for, or was committed at, its task's boundary.
     pub(crate) fn has_parameter_transaction(&self) -> bool {
-        self.state
-            .0
-            .lock()
-            .expect("debug state poisoned")
-            .parameters
-            .pending
-            .is_some()
+        self.lock().parameters.pending.is_some()
     }
-    /// Commits a pending parameter set at its owning task's boundary, before the task runs (E7.4). `physical_target` is
-    /// the runtime's target fact: a physical target needs the approval that the request carries.
+
+    /// Commits a pending parameter set at its owning task's start, before the task's programs run
+    /// (E7.4): `task` is the task's name, `$background` for the programs outside every task, and
+    /// `program` the program at that access point, written through the runtime's checks
+    /// (specification 44 §13.3). The set is written whole or not at all. `physical_target` is the
+    /// runtime's target fact: a physical target needs the approval that the request carries.
     pub(crate) fn commit_parameters(
         &self,
         task: &str,
-        writes: &mut dyn super::ScanWrites,
-        metadata: &RuntimeMetadata,
+        program: &mut dyn ProgramWrite,
         physical_target: bool,
-        io_bindings: &[crate::io::IoBinding],
     ) {
-        let mut state = self.state.0.lock().expect("debug state poisoned");
+        let mut state = self.lock();
         let Some(mut pending) = state.parameters.pending.take() else {
             return;
         };
-        if !pending.request.binding.task_name.eq_ignore_ascii_case(task) {
+        // A set is committed once: one its task already wrote waits for its task's end, or for the
+        // end of the scan that confirmed it.
+        if pending.committed || !pending.request.binding.task_name.eq_ignore_ascii_case(task) {
             state.parameters.pending = Some(pending);
             return;
         }
         let request = &pending.request;
-        let storage = writes.storage();
-        let validate = (|| -> Result<Vec<(ValueRef, Value, Value)>, String> {
-            if request.expected_program_revision
-                != hash((
-                    state.parameters.session,
-                    metadata.control_program_revision(),
-                ))
-            {
+        let validate = (|| -> Result<Vec<(Located, Value, Value)>, String> {
+            let image = program.program_image();
+            if request.expected_program_revision != state.parameters.program_revision(&image) {
                 return Err("program changed before task boundary".into());
             }
-            let record = state
-                .parameters
-                .records
-                .get(&request.binding.loop_id)
-                .ok_or("binding unavailable")?;
-            if record.binding_revision != request.expected_binding_revision {
-                return Err("binding changed before task boundary".into());
-            }
-            check_binding(&request.binding, metadata)?;
+            pending
+                .kind
+                .check_binding(&state.parameters, request, &image)?;
             if physical_target && !request.physical_approved {
                 return Err("attached I/O requires explicit physical review".into());
             }
-            if !state.forced_vars.is_empty() || !state.forced_io.is_empty() {
+            if !state.live_values.forced_vars.is_empty() || !state.live_values.forced_io.is_empty()
+            {
                 return Err("forcing changed before task boundary".into());
             }
+            let bound = program_facts::bound_places(&image);
             for parameter in &request.binding.parameters {
-                let reference = resolve_path(storage, &parameter.symbol)?.reference;
-                if io_bindings.iter().any(|binding| match &binding.target {
-                    crate::io::IoTarget::Name(name) => name.eq_ignore_ascii_case(&parameter.symbol),
-                    crate::io::IoTarget::Reference(value) => value == &reference,
-                }) {
+                let at = resolve_path(&*program, &parameter.symbol)?.at;
+                if bound.iter().any(|(place, _)| *place == at.place) {
                     return Err("addressed parameters require the I/O parameter adapter".into());
                 }
             }
-            manual(&request.binding, storage)?;
-            let observed = values(&request.binding, storage)?;
+            pending
+                .kind
+                .check_mode(&state.parameters, &request.binding, &*program)?;
+            let observed = values(&request.binding, &*program)?;
             if let Some(mismatch) = first_value_mismatch(&request.expected_values, &observed) {
                 return Err(format!(
                     "parameter values changed before task boundary: {mismatch}"
                 ));
             }
-            validate_candidate(&request.binding, &pending.candidate)?;
+            pending
+                .kind
+                .validate(&request.binding, &pending.candidate)?;
             let mut planned = Vec::with_capacity(request.binding.parameters.len());
             for parameter in &request.binding.parameters {
                 let ResolvedSymbol {
-                    reference,
+                    at,
                     value: previous,
-                } = resolve_path(storage, &parameter.symbol)?;
-                let value = pending.candidate[&parameter.symbol];
-                let value = if parameter.iec_type == "REAL" {
-                    Value::Real(value as f32)
-                } else {
-                    Value::LReal(value)
-                };
-                planned.push((reference, previous, value));
+                } = resolve_path(&*program, &parameter.symbol)?;
+                let value = pending
+                    .kind
+                    .value(parameter, pending.candidate[&parameter.symbol])?;
+                planned.push((at, previous, value));
             }
             Ok(planned)
         })();
         // The set is written together: a member the runtime refuses puts back the members
         // already written, so the task runs with the whole set or none of it.
         let committed = validate.and_then(|planned| {
-            let mut restore_points: Vec<(ValueRef, Value)> = Vec::with_capacity(planned.len());
-            for ((reference, previous, value), parameter) in
+            let mut restore_points: Vec<(Located, Value)> = Vec::with_capacity(planned.len());
+            for ((at, previous, value), parameter) in
                 planned.into_iter().zip(&request.binding.parameters)
             {
-                if !writes.write(&reference, value) {
-                    for (reference, previous) in restore_points.iter().rev() {
-                        writes.write(reference, previous.clone());
+                if program.write_at(&at, &value).is_err() {
+                    for (at, previous) in restore_points.iter().rev() {
+                        let _ = program.write_at(at, previous);
                     }
                     return Err(format!("parameter {} is not writable", parameter.symbol));
                 }
-                restore_points.push((reference, previous));
+                restore_points.push((at, previous));
             }
             Ok(restore_points)
         });
@@ -770,86 +940,54 @@ impl DebugControl {
                 pending.committed = true;
                 state.parameters.pending = Some(pending);
             }
-            Err(reason) => {
-                if let Some(record) = state.parameters.records.get_mut(&request.binding.loop_id) {
-                    record.status = "rejected".into();
-                    record.reason = Some(reason);
-                }
-            }
+            Err(reason) => state.parameters.reject(&pending, reason),
         }
     }
-    /// Confirms a committed parameter set after the task's programs ran. A set the program changed is rejected before
-    /// any output is published: each member still holding Studio's value returns to the value it had before the apply,
-    /// and each member the program changed keeps the program's value, which the rejection names.
-    pub(crate) fn confirm_parameters(
-        &self,
-        task: &str,
-        writes: &mut dyn super::ScanWrites,
-        now: crate::value::Duration,
-        storage_abi: crate::value::StorageAbi,
-    ) {
-        let mut state = self.state.0.lock().expect("debug state poisoned");
-        let Some(pending) = state.parameters.pending.take() else {
+
+    /// Confirms a committed parameter set at its task's end, after the task's programs ran and
+    /// before any output is published, `program` being the program at that access point (E7.4). A
+    /// set the program changed is rejected: each member still holding Studio's value returns to the
+    /// value it had before the apply, at once, and each member the program changed keeps the
+    /// program's value, which the rejection names. The record takes the outcome once the scan is
+    /// published ([`Self::finish_transfer_cycle`]), so status never reports an outcome with the
+    /// values of the scan before it (E7.2).
+    pub(crate) fn confirm_parameters(&self, task: &str, program: &mut dyn ProgramWrite) {
+        let mut state = self.lock();
+        let Some(mut pending) = state.parameters.pending.take() else {
             return;
         };
-        if !pending.committed || !pending.request.binding.task_name.eq_ignore_ascii_case(task) {
+        if !pending.committed
+            || pending.confirmation.is_some()
+            || !pending.request.binding.task_name.eq_ignore_ascii_case(task)
+        {
             state.parameters.pending = Some(pending);
             return;
         }
         let mut program_changed = Vec::new();
         for parameter in &pending.request.binding.parameters {
-            if parameter_number(writes.storage(), parameter)
-                != Ok(pending.candidate[&parameter.symbol])
-            {
+            if parameter_number(&*program, parameter) != Ok(pending.candidate[&parameter.symbol]) {
                 program_changed.push(parameter.symbol.as_str());
             }
         }
-        if program_changed.is_empty() {
-            if let Some(record) = state
-                .parameters
-                .records
-                .get_mut(&pending.request.binding.loop_id)
-            {
-                record.previous = if pending.rollback {
-                    None
-                } else {
-                    Some(pending.request.expected_values.clone())
-                };
-                record.active = pending.candidate.clone();
-                record.status = "applied".into();
-                record.reason = None;
-            }
+        let confirmation = if program_changed.is_empty() {
+            Confirmation::Applied
         } else {
-            for (parameter, (reference, previous)) in pending
+            for (parameter, (at, previous)) in pending
                 .request
                 .binding
                 .parameters
                 .iter()
                 .zip(&pending.restore_points)
             {
-                if parameter_number(writes.storage(), parameter)
+                if parameter_number(&*program, parameter)
                     == Ok(pending.candidate[&parameter.symbol])
                 {
-                    writes.write(reference, previous.clone());
+                    let _ = program.write_at(at, previous);
                 }
             }
-            if let Some(record) = state
-                .parameters
-                .records
-                .get_mut(&pending.request.binding.loop_id)
-            {
-                record.previous = None;
-                record.status = "rejected".into();
-                record.reason = Some(format!(
-                    "controller changed parameter values before confirmation: {}",
-                    program_changed.join(", ")
-                ));
-            }
-        }
-        state.snapshot = Some(crate::debug::DebugSnapshot {
-            storage_abi,
-            storage: writes.storage().clone(),
-            now,
-        });
+            Confirmation::ChangedByProgram(program_changed.join(", "))
+        };
+        pending.confirmation = Some(confirmation);
+        state.parameters.pending = Some(pending);
     }
 }

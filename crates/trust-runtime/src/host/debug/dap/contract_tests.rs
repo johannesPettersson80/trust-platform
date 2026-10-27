@@ -78,6 +78,8 @@ fn debug_variable_uses_camel_case_and_omits_optional_fields() {
             r#type: None,
             variables_reference: 0,
             evaluate_name: None,
+            indexed_variables: None,
+            named_variables: None,
         })
         .expect("serialize variable"),
         json!({
@@ -263,6 +265,7 @@ fn nonnull_reference_allocates_reference_handle() {
     let value_ref = ValueRef {
         location: MemoryLocation::Global,
         offset: 3,
+        generation: crate::memory::Generation::FIRST,
         path: Vec::new(),
     };
     let variable = variable_from_value(

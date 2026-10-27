@@ -1,4 +1,6 @@
-//! Additive HMI variable metadata on the mesh's existing catalogue query (§7.9).
+//! Additive HMI variable metadata on the mesh's existing catalogue query (specification 39 §7
+//! item 9): the scan thread answers it with the typed publish catalogue of the running program
+//! (`hmi::variable_tree::published_variables`).
 use std::sync::mpsc;
 
 use serde_json::json;

@@ -3,17 +3,20 @@ use trust_runtime::harness::{CompileSession, SourceFile};
 use trust_runtime::io::IoAddress;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
+
+mod control_heater_support;
+use control_heater_support::{compile, LessonRuntime};
 const PROJECT: &str =
     "../../examples/control/01-feedback-foundations-and-temperature-control/02-cold-storage-on-off";
 const MAIN: &str = include_str!("../../../examples/control/01-feedback-foundations-and-temperature-control/02-cold-storage-on-off/src/Main.st");
-fn number(runtime: &Runtime, address: &str) -> f64 {
+fn number(runtime: &CompiledRuntime, address: &str) -> f64 {
     match runtime
-        .io()
-        .read(&IoAddress::parse(address).unwrap())
+        .read_io(&IoAddress::parse(address).unwrap())
         .unwrap()
     {
         Value::LWord(bits) => f64::from_bits(bits),
+        Value::LReal(value) => value,
         Value::DWord(value) => value as f64,
         other => panic!("unexpected {address}: {other:?}"),
     }
@@ -23,10 +26,7 @@ fn delivered_on_off_experiment_starts_switches_and_stops() {
     for preparation in [0, 100] {
         let session =
             CompileSession::from_sources(vec![SourceFile::with_path("src/Main.st", MAIN)]);
-        let mut runtime = session.build_runtime().unwrap();
-        runtime
-            .apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)
-            .unwrap();
+        let mut runtime = compile(session);
         let debug = runtime.enable_debug();
         let project = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(PROJECT);
         let mut simulation = SimulationController::new(
@@ -108,10 +108,7 @@ fn delivered_on_off_experiment_starts_switches_and_stops() {
 #[test]
 fn learner_abort_stops_cooling_without_automatic_range_trip() {
     let session = CompileSession::from_sources(vec![SourceFile::with_path("src/Main.st", MAIN)]);
-    let mut runtime = session.build_runtime().unwrap();
-    runtime
-        .apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)
-        .unwrap();
+    let mut runtime = compile(session);
     let debug = runtime.enable_debug();
     for abort in [false, true, true] {
         debug.enqueue_io_write(

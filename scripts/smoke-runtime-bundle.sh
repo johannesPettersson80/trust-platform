@@ -37,8 +37,8 @@ if [[ "$DO_GEN" -eq 1 ]]; then
   fi
 fi
 
-if [[ ! -f "$BUNDLE/program.stbc" ]]; then
-  echo "Missing $BUNDLE/program.stbc" >&2
+if [[ ! -f "$BUNDLE/program.tpi" ]]; then
+  echo "Missing $BUNDLE/program.tpi" >&2
   exit 1
 fi
 
@@ -68,5 +68,6 @@ for _ in $(seq 1 50); do
 done
 
 "$BIN" ctl --project "$BUNDLE" --token trust-demo-token status
-"$BIN" ctl --project "$BUNDLE" --token trust-demo-token shutdown >/dev/null
+# `shutdown` alone stops the program and keeps the runtime running; `--exit` ends the process too.
+"$BIN" ctl --project "$BUNDLE" --token trust-demo-token shutdown --exit >/dev/null
 wait "$PID"

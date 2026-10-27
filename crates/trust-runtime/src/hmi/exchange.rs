@@ -19,11 +19,11 @@ pub(crate) use settings_jobs::{SettingChange, SettingsJob, SettingsOutcome};
 
 use crate::debug::RequestQueueFull;
 use crate::hmi::alarms::{read_alarms, AlarmEvent, AlarmSnapshot, OperatorAction, RuntimeAlarms};
-use crate::hmi::commands::write::{write_point, WriteAction, Written};
+use crate::hmi::commands::write::{write_point, WriteAction, WriteRefused, Written};
 use crate::hmi::display_values::{self, HmiRead};
 use crate::hmi::member_paths::MemberPath;
 use crate::runtime::hmi_stale::{silent_age, SilentInput};
-use crate::runtime::Runtime;
+use crate::runtime::program_access::ProgramWrite;
 
 /// Most commands, settings jobs and one-off reads waiting for the next call each. A request
 /// past the bound is refused at once with `request queue full` and changes nothing, as for the
@@ -94,7 +94,7 @@ struct PendingWrite {
     pulse: Option<Duration>,
     /// Told what happens to the pulse's end once the pulse has started.
     report: Option<PulseEndReport>,
-    respond_to: Sender<Result<Written, String>>,
+    respond_to: Sender<Result<Written, WriteRefused>>,
 }
 
 #[derive(Default)]
@@ -243,7 +243,7 @@ impl HmiExchange {
         &self,
         path: MemberPath,
         action: WriteAction,
-    ) -> Receiver<Result<Written, String>> {
+    ) -> Receiver<Result<Written, WriteRefused>> {
         self.queue_write_with_id(path, action, None, None).1
     }
 
@@ -254,13 +254,13 @@ impl HmiExchange {
         action: WriteAction,
         pulse: Option<Duration>,
         report: Option<PulseEndReport>,
-    ) -> (u64, Receiver<Result<Written, String>>) {
+    ) -> (u64, Receiver<Result<Written, WriteRefused>>) {
         let (respond_to, outcome) = mpsc::channel();
         let mut state = self.state();
         state.next_id += 1;
         let id = state.next_id;
         if state.writes.len() >= MAX_PENDING {
-            let _ = respond_to.send(Err(RequestQueueFull.to_string()));
+            let _ = respond_to.send(Err(RequestQueueFull.to_string().into()));
             return (id, outcome);
         }
         state.writes.push(PendingWrite {
@@ -281,7 +281,7 @@ impl HmiExchange {
         path: MemberPath,
         action: WriteAction,
         timeout: Duration,
-    ) -> Option<Result<Written, String>> {
+    ) -> Option<Result<Written, WriteRefused>> {
         self.write_with_pulse(path, action, timeout, None)
     }
 
@@ -292,7 +292,7 @@ impl HmiExchange {
         action: WriteAction,
         timeout: Duration,
         pulse: Option<Duration>,
-    ) -> Option<Result<Written, String>> {
+    ) -> Option<Result<Written, WriteRefused>> {
         self.write_reporting(path, action, timeout, pulse, None)
     }
 
@@ -307,7 +307,7 @@ impl HmiExchange {
         timeout: Duration,
         pulse: Duration,
         report: PulseEndReport,
-    ) -> Option<Result<Written, String>> {
+    ) -> Option<Result<Written, WriteRefused>> {
         self.write_reporting(path, action, timeout, Some(pulse), Some(report))
     }
 
@@ -318,7 +318,7 @@ impl HmiExchange {
         timeout: Duration,
         pulse: Option<Duration>,
         report: Option<PulseEndReport>,
-    ) -> Option<Result<Written, String>> {
+    ) -> Option<Result<Written, WriteRefused>> {
         let (id, outcome) = self.queue_write_with_id(path, action, pulse, report);
         match outcome.recv_timeout(timeout) {
             Ok(result) => Some(result),
@@ -473,11 +473,18 @@ impl HmiExchange {
             .command(path, message, user, outcome, detail);
     }
 
-    /// Serves the screens from the running program, after a task in which it called
-    /// `Hmi.Display`: applies the queued commands, copies the values the open screens show, reads
-    /// the alarms, and hands the records to the OpenOT history. The program is read outside the
+    /// Serves the screens from the running program at a call of `Hmi.Display`: ends the pulses
+    /// that are due, applies the queued commands and settings, copies the values the open screens
+    /// and the trends show, marks the values at the inputs of a link without data stale (`silent`)
+    /// and reads the alarms. `cycle` is the runtime's cycle count, which the copy carries. Returns
+    /// the alarm records the call made, for the OpenOT history. The program is read outside the
     /// lock, which the web server only takes to copy or queue.
-    pub(crate) fn serve(&self, runtime: &mut Runtime, silent: &[SilentInput]) {
+    pub(crate) fn serve(
+        &self,
+        program: &mut dyn ProgramWrite,
+        cycle: u64,
+        silent: &[SilentInput],
+    ) -> Vec<AlarmEvent> {
         let (writes, settings, union, waiting, due) = {
             let mut state = self.state();
             let due = state.pulse_ends.take_due(Instant::now());
@@ -508,14 +515,15 @@ impl HmiExchange {
             .into_iter()
             .filter_map(|end| {
                 end.end(|path| {
-                    write_point(runtime, path, &WriteAction::Set(serde_json::json!(false)))
+                    write_point(program, path, &WriteAction::Set(serde_json::json!(false)))
+                        .map_err(|refused| refused.reason)
                 })
             })
             .collect();
         self.state().pulse_ends.retry(unwritten);
         let mut replaced = Vec::new();
         for write in writes {
-            let outcome = write_point(runtime, &write.path, &write.action);
+            let outcome = write_point(program, &write.path, &write.action);
             if outcome.is_ok() {
                 let mut state = self.state();
                 // A later command to the point replaces an end still waiting there; a pulse's
@@ -537,17 +545,17 @@ impl HmiExchange {
         }
         // Settings take effect together at this call, before the screens' copy (§21.4 item 4).
         for pending in settings {
-            let outcome = settings_jobs::run(runtime, &pending.job);
+            let outcome = settings_jobs::run(program, &pending.job);
             let _ = pending.respond_to.send(outcome);
         }
-        let mut read = display_values::read(runtime, &union.paths);
+        let mut read = display_values::read(&*program, cycle, &union.paths);
         self.remote_values.overlay(&union.paths, &mut read);
         let (trended, trended_paths) = {
             let state = self.state();
             (Arc::clone(&state.trended), Arc::clone(&state.trended_paths))
         };
         let trend_read = (!trended_paths.is_empty()).then(|| {
-            let mut read = display_values::read(runtime, &trended_paths);
+            let mut read = display_values::read(&*program, cycle, &trended_paths);
             self.remote_values.overlay(&trended_paths, &mut read);
             read
         });
@@ -559,7 +567,7 @@ impl HmiExchange {
                 wire.stale_ms = silent_age(path, silent);
             }
         }
-        let statuses = read_alarms(runtime);
+        let statuses = read_alarms(&*program);
         let records = {
             let mut state = self.state();
             let copy = HmiCopy { union, read };
@@ -588,9 +596,7 @@ impl HmiExchange {
             records
         };
         self.served.notify_all();
-        if !records.is_empty() {
-            runtime.publish_alarm_records(&records);
-        }
+        records
     }
 }
 
@@ -625,7 +631,7 @@ mod queue_bound_tests {
         let refused = exchange.queue_write(path, WriteAction::Toggle);
         assert_eq!(
             refused.try_recv().ok(),
-            Some(Err("request queue full".to_string()))
+            Some(Err(WriteRefused::from("request queue full")))
         );
         assert!(queued.iter().all(|outcome| outcome.try_recv().is_err()));
     }
@@ -650,15 +656,18 @@ mod remote_pulse_tests {
             None,
         );
         drop(reply);
-        exchange.serve(plant.runtime_mut(), &[]);
-        assert_eq!(
-            crate::hmi::member_paths::resolve_member(&path, plant.runtime().storage()),
-            Some(&crate::value::Value::Bool(true))
-        );
-        exchange.serve(plant.runtime_mut(), &[]);
-        assert_eq!(
-            crate::hmi::member_paths::resolve_member(&path, plant.runtime().storage()),
-            Some(&crate::value::Value::Bool(false))
-        );
+        let value = |plant: &crate::harness::TestHarness| {
+            plant
+                .runtime()
+                .with_program_view(|program| crate::hmi::member_paths::member_value(&path, program))
+        };
+        plant
+            .runtime_mut()
+            .with_program(|program| exchange.serve(program, 0, &[]));
+        assert_eq!(value(&plant), Some(crate::value::Value::Bool(true)));
+        plant
+            .runtime_mut()
+            .with_program(|program| exchange.serve(program, 0, &[]));
+        assert_eq!(value(&plant), Some(crate::value::Value::Bool(false)));
     }
 }

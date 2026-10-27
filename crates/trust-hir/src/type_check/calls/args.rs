@@ -527,10 +527,63 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                 }),
             ) => formal_len == actual_len,
             _ => {
-                self.checker.is_assignable(formal, actual)
-                    && self.checker.is_assignable(actual, formal)
+                (self.checker.is_assignable(formal, actual)
+                    && self.checker.is_assignable(actual, formal))
+                    || self.derived_instance_for_in_out(formal, actual)
             }
         }
+    }
+
+    /// Whether `actual` is a function block or class type derived from `formal` that declares no
+    /// in-out of its own, nor does any type between them: an in-out of `formal` takes an instance
+    /// of it (IEC 61131-3 §6.6.8.3). Additional inputs and outputs are allowed, which the standard
+    /// leaves to the implementer (`docs/IEC_DECISIONS.md`).
+    fn derived_instance_for_in_out(&self, formal: TypeId, actual: TypeId) -> bool {
+        let (Some(base), Some(derived)) = (
+            self.checker.type_owner_symbol(formal),
+            self.checker.type_owner_symbol(actual),
+        ) else {
+            return false;
+        };
+        let class_like = |id: SymbolId| {
+            self.checker.symbols.get(id).is_some_and(|symbol| {
+                matches!(symbol.kind, SymbolKind::FunctionBlock | SymbolKind::Class)
+            })
+        };
+        if base == derived
+            || !class_like(base)
+            || !class_like(derived)
+            || !self.checker.resolve_ref().is_same_or_derived(derived, base)
+        {
+            return false;
+        }
+        let mut current = derived;
+        for _ in 0..self.checker.symbols.len() {
+            if current == base {
+                return true;
+            }
+            let adds_in_out = self.checker.symbols.iter().any(|symbol| {
+                symbol.parent == Some(current)
+                    && matches!(
+                        symbol.kind,
+                        SymbolKind::Parameter {
+                            direction: ParamDirection::InOut
+                        }
+                    )
+            });
+            if adds_in_out {
+                return false;
+            }
+            let Some(next) = self.checker.symbols.extends_name(current).and_then(|name| {
+                self.checker
+                    .symbols
+                    .resolve_oop_reference_for_owner(current, name.as_str())
+            }) else {
+                return false;
+            };
+            current = next;
+        }
+        false
     }
 
     fn invalid_output_argument_type_message(&self, param: &ParamInfo, arg_type: TypeId) -> String {
@@ -666,23 +719,13 @@ impl<'a, 'b> CallChecker<'a, 'b> {
             _ => Vec::new(),
         };
 
+        ids.sort_by_key(|id| id.0);
         if ids.is_empty() {
-            // A function block's parameters include those it inherits (IEC 61131-3 Edition 3,
-            // 6.6.5.3): the base's first, then its own, each in declaration order.
-            let mut chain = vec![symbol_id];
-            let mut current = symbol_id;
-            while let Some(base) = self.checker.symbols.extends_name(current).and_then(|name| {
-                self.checker
-                    .symbols
-                    .resolve_oop_reference_for_owner(current, name.as_str())
-            }) {
-                if chain.contains(&base) {
-                    break;
-                }
-                chain.push(base);
-                current = base;
-            }
-            for owner in chain.into_iter().rev() {
+            // A function block's inputs, outputs and in-outs, after those it inherits from its
+            // bases, base first and each in declaration order: a derived function block inherits
+            // all variables of its base (IEC 61131-3 §6.6.7.2.7, §6.6.5), and a call of it
+            // connects them too.
+            for owner in self.inheritance_chain(symbol_id) {
                 let mut own: Vec<SymbolId> = self
                     .checker
                     .symbols
@@ -696,8 +739,6 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                 own.sort_by_key(|id| id.0);
                 ids.extend(own);
             }
-        } else {
-            ids.sort_by_key(|id| id.0);
         }
 
         ids.into_iter()
@@ -712,6 +753,25 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                 })
             })
             .collect()
+    }
+
+    /// `symbol_id` and the types it extends, the furthest base first.
+    fn inheritance_chain(&self, symbol_id: SymbolId) -> Vec<SymbolId> {
+        let mut chain = vec![symbol_id];
+        let mut current = symbol_id;
+        while let Some(base) = self.checker.symbols.extends_name(current).and_then(|name| {
+            self.checker
+                .symbols
+                .resolve_oop_reference_for_owner(current, name.as_str())
+        }) {
+            if chain.contains(&base) {
+                break;
+            }
+            chain.push(base);
+            current = base;
+        }
+        chain.reverse();
+        chain
     }
 
     pub(in crate::type_check) fn collect_call_args(&self, node: &SyntaxNode) -> Vec<CallArg> {

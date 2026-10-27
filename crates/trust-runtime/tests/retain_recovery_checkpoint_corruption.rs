@@ -79,7 +79,8 @@ fn live_harness(checkpoint: &Path) -> TestHarness {
     }
     harness
         .runtime_mut()
-        .set_retain_store(Some(Box::new(FileRetainStore::new(checkpoint))), None);
+        .set_retain_store(Some(Box::new(FileRetainStore::new(checkpoint))), None)
+        .expect("the retain file is set");
     harness
 }
 

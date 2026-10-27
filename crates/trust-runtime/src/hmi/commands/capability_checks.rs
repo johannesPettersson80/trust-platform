@@ -1,7 +1,9 @@
-//! Method commands checked against the compiled program and the control that sends them
+//! Method commands checked against the project's declarations and the control that sends them
 //! (specification 39, §21.2 item 2): the block implements the interface, the interface declares
 //! the method, the method returns BOOL and takes inputs only, and every input fits its type, the
-//! control's options and its limits.
+//! control's options and its limits. The binding checks of `hmi check`, of a deployment and of the
+//! editor check a command so; the running runtime checks it against the program that runs, through
+//! that program's image (`program_checks`).
 use super::capability::{Argument, MethodCommand};
 use crate::{
     hmi::page_files::{HmiObject, HmiScalar},
@@ -10,7 +12,6 @@ use crate::{
     value::Value,
 };
 use serde_json::{json, Value as Json};
-use smol_str::SmolStr;
 use std::collections::BTreeSet;
 use trust_hir::symbols::ParamDirection;
 
@@ -119,7 +120,8 @@ pub(crate) fn declared_method_in<'a>(
 /// Validate a declared command without executing the PLC or changing any instance: `block`
 /// implements the interface, the interface declares the method, the method returns BOOL (TRUE
 /// when the instance accepts the command) and takes inputs only, and the arguments name its
-/// inputs, each fixed value fitting its type.
+/// inputs, each fixed value fitting its type. An input the arguments leave out is no error: a call
+/// gives it the initial value the interface declares (IEC 61131-3 §6.6.1).
 pub fn check(
     metadata: &RuntimeMetadata,
     block: &str,
@@ -165,16 +167,6 @@ pub fn check(
     if entered > 1 {
         return Err("One visual control supplies one entered value".into());
     }
-    for parameter in &method.params {
-        if parameter.default.is_none()
-            && !command
-                .arguments
-                .keys()
-                .any(|name| parameter.name.eq_ignore_ascii_case(name))
-        {
-            return Err(format!("Required argument {} is missing", parameter.name));
-        }
-    }
     Ok(())
 }
 
@@ -208,43 +200,6 @@ pub(crate) fn entered_value(
     Ok(value.clone())
 }
 
-/// The method's inputs converted to their exact PLC types: the fixed values the command declares
-/// and `entered`, the value the control sent, already checked by [`entered_value`]. Call only
-/// after [`check`].
-pub(crate) fn inputs(
-    metadata: &RuntimeMetadata,
-    command: &MethodCommand,
-    entered: Option<&Json>,
-) -> Result<Vec<(SmolStr, Value)>, String> {
-    let method = declared_method(metadata, &command.interface, &command.method)
-        .ok_or("the command's method is not declared")?;
-    let takes_value = command
-        .arguments
-        .values()
-        .any(|value| matches!(value, Argument::Input { input: true }));
-    if entered.is_some() && !takes_value {
-        return Err("this control sends no value".into());
-    }
-    let mut result = Vec::new();
-    for parameter in &method.params {
-        let Some((_, argument)) = command
-            .arguments
-            .iter()
-            .find(|(name, _)| name.eq_ignore_ascii_case(&parameter.name))
-        else {
-            continue;
-        };
-        let requested = match argument {
-            Argument::Input { .. } => entered.cloned().ok_or("this control needs a value")?,
-            Argument::Constant(value) => scalar(value),
-        };
-        let value = convert(metadata, parameter.type_id, &requested)
-            .map_err(|e| format!("{}: {e}", parameter.name))?;
-        result.push((parameter.name.clone(), value));
-    }
-    Ok(result)
-}
-
 /// A requested value as a value of a parameter's type.
 fn convert(
     metadata: &RuntimeMetadata,
@@ -257,7 +212,8 @@ fn convert(
     crate::hmi::write_value::value_for_target_in(metadata.registry(), &default, requested)
 }
 
-fn scalar(value: &HmiScalar) -> Json {
+/// A fixed argument of a command as the value a control would send.
+pub(super) fn scalar(value: &HmiScalar) -> Json {
     match value {
         HmiScalar::Bool(flag) => json!(flag),
         HmiScalar::Number(number) => json!(number),
@@ -319,10 +275,11 @@ END_PROGRAM
 "#;
 
     fn metadata() -> RuntimeMetadata {
-        crate::harness::TestHarness::from_source(SOURCE)
+        crate::harness::CompileSession::from_source(SOURCE)
+            .declarations()
             .expect("the program compiles")
-            .runtime()
-            .metadata_snapshot()
+            .metadata()
+            .clone()
     }
 
     fn command(interface: &str, method: &str, value: Argument) -> MethodCommand {
@@ -406,25 +363,18 @@ END_PROGRAM
     }
 
     #[test]
-    fn an_enumeration_input_takes_the_value_of_that_name() {
+    fn an_input_the_command_leaves_out_is_no_error() {
+        // IEC 61131-3 §6.6.1 and specification 39 §21.2 item 5: an input a call does not give
+        // takes its initial value, the one the interface declares or else its type's, so the
+        // authoring checks accept a command that names none of SetSpeed's inputs, as the running
+        // runtime does. Catches the refusal "Required argument Value is missing" in `hmi check`,
+        // a deployment or the editor for a command the runtime calls.
         let metadata = metadata();
-        let set_mode = command("IDevice", "SetMode", Argument::Input { input: true });
-        let inputs = inputs(&metadata, &set_mode, Some(&json!("OutOfService"))).expect("inputs");
-        assert_eq!(inputs.len(), 1);
-        assert_eq!(inputs[0].0.as_str(), "Value");
-        let Value::Enum(mode) = &inputs[0].1 else {
-            panic!("an enumeration value: {:?}", inputs[0].1);
+        let speed = MethodCommand {
+            arguments: BTreeMap::new(),
+            ..command("ISpeed", "SetSpeed", Argument::Input { input: true })
         };
-        assert_eq!(mode.variant_name().as_str(), "OutOfService");
-        assert!(inputs_of_text(&metadata, &set_mode, "Sideways").is_err());
-    }
-
-    fn inputs_of_text(
-        metadata: &RuntimeMetadata,
-        command: &MethodCommand,
-        text: &str,
-    ) -> Result<Vec<(SmolStr, Value)>, String> {
-        inputs(metadata, command, Some(&json!(text)))
+        assert_eq!(check(&metadata, "Drive", &speed), Ok(()));
     }
 
     #[test]

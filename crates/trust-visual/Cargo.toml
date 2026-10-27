@@ -1,0 +1,17 @@
+[package]
+name = "trust-visual"
+description = "The visual programs of truST (Ladder, Blockly, Statechart, SFC): file formats, checks, editor edits, the Structured Text companion and runtime entry, new-program templates and import rules"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+trust-runtime-core.workspace = true
+trust-syntax.workspace = true
+
+[lints]
+workspace = true

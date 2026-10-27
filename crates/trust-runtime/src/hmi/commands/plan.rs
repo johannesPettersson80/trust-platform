@@ -17,6 +17,9 @@ pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
 /// How long a pulse lasts when the pulse button does not say.
 pub const DEFAULT_PULSE: Duration = Duration::from_secs(1);
 /// Controls whose command is confirmed by the value read back.
+/// The controls whose entry is a number typed as text.
+const NUMBER_ENTRIES: &[&str] = &["setpoint", "numeric-input"];
+
 const VALUE_CONTROLS: &[&str] = &[
     "setpoint",
     "numeric-input",
@@ -134,7 +137,16 @@ pub fn plan(
                 return Err(format!("this control sends write, not {action}"));
             }
             let value = value.ok_or("a write needs a value")?;
-            (WriteAction::Set(value.clone()), value.clone(), None, None)
+            // A number entry as the operator typed it, a comma or a point before the decimals
+            // (specification 39 §12.8); its limits are checked as any number's.
+            let value = if NUMBER_ENTRIES.contains(&kind) && value.is_string() {
+                crate::hmi::setting_values::entered_number(value)
+                    .map(|(number, _)| number)
+                    .ok_or_else(|| format!("enter a number, not {value}"))?
+            } else {
+                value.clone()
+            };
+            (WriteAction::Set(value.clone()), value, None, None)
         }
         _ => return Err(format!("\"{}\" sends no command", object.id)),
     };

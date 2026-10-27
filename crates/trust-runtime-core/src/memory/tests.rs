@@ -7,6 +7,7 @@ fn variable_storage_clone_recovers_from_poisoned_cache_lock() {
     let poisoned = std::sync::Arc::clone(&storage);
     let _ = std::thread::spawn(move || {
         let _guard = poisoned
+            .values
             .instance_field_offsets
             .write()
             .expect("test cache lock");
@@ -15,7 +16,7 @@ fn variable_storage_clone_recovers_from_poisoned_cache_lock() {
     .join();
 
     let cloned = (*storage).clone();
-    assert!(cloned.globals.is_empty());
+    assert!(cloned.values.globals.is_empty());
 }
 
 #[test]
@@ -36,6 +37,7 @@ fn instance_field_cache_is_scoped_per_instance() {
     assert!(second_ref.is_none());
 
     let cache = storage
+        .values
         .instance_field_offsets
         .read()
         .expect("cache poisoned");
@@ -51,6 +53,7 @@ fn direct_instance_field_miss_cache_invalidates_on_new_insert() {
     assert!(storage.ref_for_instance(instance, "LATE").is_none());
     assert_eq!(
         storage
+            .values
             .instance_field_offsets
             .read()
             .expect("cache poisoned")
@@ -60,6 +63,7 @@ fn direct_instance_field_miss_cache_invalidates_on_new_insert() {
 
     assert!(storage.set_instance_var(instance, "LATE", Value::Bool(true)));
     assert!(storage
+        .values
         .instance_field_offsets
         .read()
         .expect("cache poisoned")
@@ -91,6 +95,7 @@ fn recursive_instance_field_cache_invalidates_when_child_adds_shadowing_field() 
     assert_eq!(inherited.location, MemoryLocation::Instance(base));
     assert_eq!(
         storage
+            .values
             .recursive_instance_field_resolutions
             .read()
             .expect("cache poisoned")
@@ -98,12 +103,13 @@ fn recursive_instance_field_cache_invalidates_when_child_adds_shadowing_field() 
             .copied(),
         Some(RecursiveInstanceFieldResolution {
             owner_depth: 1,
-            offset: inherited.offset,
+            offset: inherited.offset as usize,
         })
     );
 
     assert!(storage.set_instance_var(derived, "ACC", Value::DInt(22)));
     assert!(storage
+        .values
         .recursive_instance_field_resolutions
         .read()
         .expect("cache poisoned")
@@ -249,31 +255,31 @@ fn direct_slot_helpers_cover_global_local_and_instance_locations() {
 
     assert_eq!(local_ref.location, MemoryLocation::Local(frame_id));
     assert!(matches!(
-        storage.read_direct_slot_by_location(MemoryLocation::Global, global_ref.offset),
+        storage.read_direct_slot_by_location(MemoryLocation::Global, global_ref.offset as usize),
         Some(&Value::DInt(1))
     ));
     assert!(matches!(
-        storage.read_direct_slot_by_location(local_ref.location, local_ref.offset),
+        storage.read_direct_slot_by_location(local_ref.location, local_ref.offset as usize),
         Some(&Value::DInt(2))
     ));
     assert!(matches!(
-        storage.read_direct_slot_by_location(instance_ref.location, instance_ref.offset),
+        storage.read_direct_slot_by_location(instance_ref.location, instance_ref.offset as usize),
         Some(&Value::DInt(3))
     ));
 
     assert!(storage.write_direct_slot_by_location(
         MemoryLocation::Global,
-        global_ref.offset,
+        global_ref.offset as usize,
         Value::DInt(11)
     ));
     assert!(storage.write_direct_slot_by_location(
         local_ref.location,
-        local_ref.offset,
+        local_ref.offset as usize,
         Value::DInt(12)
     ));
     assert!(storage.write_direct_slot_by_location(
         instance_ref.location,
-        instance_ref.offset,
+        instance_ref.offset as usize,
         Value::DInt(13)
     ));
 
@@ -305,10 +311,10 @@ fn direct_slot_helpers_match_empty_path_ref_helpers() {
 
     for reference in refs {
         let direct = storage
-            .read_direct_slot_by_location(reference.location, reference.offset)
+            .read_direct_slot_by_location(reference.location, reference.offset as usize)
             .expect("direct slot read");
         let generic = storage
-            .read_by_ref_parts(reference.location, reference.offset, &[])
+            .read_by_ref_parts(reference.location, reference.offset as usize, &[])
             .expect("generic empty-path read");
         assert_eq!(direct, generic);
     }
@@ -355,6 +361,7 @@ fn recursive_lookup_does_not_cache_parent_chain_miss() {
         .ref_for_instance_recursive(derived, "LATE")
         .is_none());
     assert!(storage
+        .values
         .recursive_instance_field_resolutions
         .read()
         .expect("cache poisoned")

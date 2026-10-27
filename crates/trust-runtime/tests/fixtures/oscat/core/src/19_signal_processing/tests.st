@@ -237,3 +237,29 @@ ASSERT_FALSE(IN := TrendReal.TD);
 ASSERT_TRUE(IN := TrendReal.Q);
 ASSERT_NEAR(EXPECTED := REAL#1.0, ACTUAL := TrendReal.D, DELTA := REAL#0.0001);
 END_TEST_PROGRAM
+
+(* AIN scales the reading's bits as a number (OSCAT classic guide): of a 30-bit range,
+   16#20000000 is half of 16#3FFFFFFF, 5.0 of 0..10 (10.0 * 536870912.0 / 1073741824.0, the
+   divisor rounded to the nearest REAL). Taken as REAL bit patterns (DWORD_TO_REAL, a binary
+   transfer in IEC 61131-3 Table 25) the two give 5.4E-19. *)
+TEST_PROGRAM oscat_ain_scales_a_30_bit_reading
+ASSERT_EQUAL(EXPECTED := REAL#5.0, ACTUAL := AIN(in := DWORD#16#20000000, Bits := BYTE#30, sign := BYTE#255, low := REAL#0.0, high := REAL#10.0));
+END_TEST_PROGRAM
+
+(* The DWORD filters average the values as numbers (OSCAT classic guide). 16#7FC00000 is
+   2,143,289,344, a number like any other, but as a REAL bit pattern it is not a number, which
+   DWORD_TO_REAL refuses with an overflow (specification 31 §2.2). The moving average of
+   3,000,000,000 and 1,000,000,000 over two values is 2,000,000,000; as bit patterns the first is a
+   negative REAL and the average is 16#3B1AC9CC. *)
+TEST_PROGRAM oscat_dword_filters_take_values_whose_pattern_is_no_real
+VAR
+    DWordFilter : FILTER_DW;
+    MovingAverage : FILTER_MAV_DW;
+END_VAR
+DWordFilter(X := DWORD#16#7FC00000, T := T#0s);
+ASSERT_EQUAL(EXPECTED := DWORD#16#7FC00000, ACTUAL := DWordFilter.Y);
+MovingAverage(X := DWORD#3000000000, N := UINT#2, RST := TRUE);
+ASSERT_EQUAL(EXPECTED := DWORD#3000000000, ACTUAL := MovingAverage.Y);
+MovingAverage(X := DWORD#1000000000, N := UINT#2, RST := FALSE);
+ASSERT_EQUAL(EXPECTED := DWORD#2000000000, ACTUAL := MovingAverage.Y);
+END_TEST_PROGRAM

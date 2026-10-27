@@ -5,16 +5,18 @@ use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use serde::Serialize;
 use serde_json::json;
 
 use crate::ads::diagnostics::{AdsConnectionStatus, AdsConnectionStatusState, AdsStatusReport};
 use crate::ads::{AdsClientConfig, AdsConnectionConfig, AdsPointAddress};
 use crate::config::{IoConfig, IoDriverConfig};
 use crate::discovery::DiscoveryEntry;
-use crate::io::{IoAddress, IoDriverHealth, IoDriverStatus, IoSnapshot, IoSnapshotEntry};
+use crate::fleet_topology::{
+    FleetContainer, FleetDiscovered, FleetEndpoint, FleetEndpointChild, FleetExternal, FleetHost,
+    FleetLink, FleetRuntime, FleetShared, FleetTopology, FLEET_TOPOLOGY_SCHEMA_VERSION,
+};
+use crate::io::{IoDriverHealth, IoDriverStatus, IoSnapshot, IoSnapshotEntry};
 use crate::linux_rt::LinuxRtRuntimeStatus;
-use crate::memory::IoArea;
 use crate::opcua::{OpcUaClientConfig, OpcUaClientConnectionState, OpcUaClientStatusReport};
 use crate::scheduler::ResourceCommand;
 use crate::settings::RuntimeSettings;
@@ -24,7 +26,6 @@ use super::{ControlResponse, ControlState};
 
 mod offline;
 
-const FLEET_TOPOLOGY_SCHEMA_VERSION: u32 = 4;
 const DISCOVERY_STALE_AFTER_MS: u64 = 120_000;
 const ADS_STATUS_TIMEOUT: Duration = Duration::from_millis(250);
 const OPCUA_CLIENT_STATUS_TIMEOUT: Duration = Duration::from_millis(250);
@@ -79,22 +80,21 @@ pub(super) fn build_project_fleet_topology_value(
 
 mod endpoints;
 use endpoints::*;
-mod host;
+pub(crate) mod host;
 use host::*;
 mod io;
 use io::*;
 mod links;
 use links::*;
 mod protocols;
+pub(crate) use protocols::mesh_peer_matches_target;
 use protocols::*;
 mod runtime;
 use runtime::*;
 mod topology;
 use topology::*;
-mod types;
-use types::*;
 
-fn build_fleet_topology(state: &ControlState) -> Result<FleetTopologyResponse, String> {
+fn build_fleet_topology(state: &ControlState) -> Result<FleetTopology, String> {
     let settings = state
         .settings
         .lock()
@@ -179,7 +179,7 @@ fn build_fleet_topology(state: &ControlState) -> Result<FleetTopologyResponse, S
     );
     let discovered = topology_discovered(&runtime_id, discovery_entries.as_slice());
 
-    Ok(FleetTopologyResponse {
+    Ok(FleetTopology {
         schema_version: FLEET_TOPOLOGY_SCHEMA_VERSION,
         hosts,
         links,

@@ -1,1541 +1,258 @@
-use super::*;
-use std::collections::VecDeque;
-use std::sync::atomic::AtomicUsize;
+//! The computer's `mqtt` driver (specification 32; specification 11 §6.5, deadline integrity and
+//! safe-state handoff confirmation). The driver's logic is the shared exchange of
+//! `trust_runtime_services::io_drivers::mqtt`, whose own tests prove its rules byte for byte. These
+//! tests prove that the computer reads `io.toml` by those rules, reads its TLS files and builds its
+//! TLS client, and carries the exchange: its transport against a broker stand-in (`broker`) over
+//! real connections, and its scan side, with the session, reconnection, freshness, the handoff,
+//! the health of both paths and the safe state.
+//!
+//! These are the computer's earlier tests, moved onto the shared exchange. Where the shared rules
+//! decide an expected text or an error kind otherwise than the computer did, the test names the
+//! rule that decides it.
+//!
+//! The tests that run a program build it: they need the toolchain of specification 44 §4.6 at
+//! `TRUST_TOOLCHAIN`.
 
-include!("tests/nonfinite_case.rs");
-include!("tests/safe_state.rs");
-include!("tests/tag_mapping.rs");
-include!("tests/incoming_overflow.rs");
-include!("tests/input_output_health.rs");
+mod broker;
+mod incoming_overflow;
+mod input_output_health;
+mod nonfinite_case;
+mod point_map_contract;
+// The verification catalog runs these tests as `io::mqtt::tests::safe_state_cases::*`.
+#[path = "tests/safe_state.rs"]
+mod safe_state_cases;
+mod security;
+mod session;
+mod sparkplug;
+mod tag_mapping;
 
-const MQTT_CI_TIMING_SLACK: StdDuration = StdDuration::from_millis(100);
+use std::net::TcpListener;
+use std::thread;
+use std::time::{Duration, Instant};
 
-#[derive(Default)]
-struct MockState {
-    connected: bool,
-    last_error: Option<SmolStr>,
-    payloads: VecDeque<MqttInboundPayload>,
-    published: Vec<(SmolStr, Vec<u8>)>,
-    fail_publish_once: bool,
-    /// Time each session read takes before it returns payloads, to model a silent broker.
-    take_delay: Option<StdDuration>,
+use smol_str::SmolStr;
+use trust_runtime_services::io_drivers::mqtt::{MqttParams, SCAN_WAIT_MS};
+
+use self::broker::{Broker, PATIENCE};
+use super::MqttIoDriver;
+use crate::error::RuntimeError;
+use crate::io::{IoDriver, IoDriverHealth};
+
+/// What a scan call may take beyond its bound on a loaded test machine.
+const TIMING_SLACK: Duration = Duration::from_millis(100);
+
+/// The longest that a write waits for the worker, [`SCAN_WAIT_MS`] (specification 11, deadline
+/// integrity).
+const SCAN_WAIT: Duration = Duration::from_millis(SCAN_WAIT_MS);
+
+/// The `io.toml` table `text`.
+fn table(text: &str) -> toml::Value {
+    toml::from_str(text).expect("a TOML table")
 }
 
-struct MockSession {
-    state: Arc<Mutex<MockState>>,
+/// The parameters of the table `text`, as the computer reads them by the shared rules.
+fn read(text: &str) -> Result<MqttParams, RuntimeError> {
+    MqttIoDriver::read_params(&table(text))
 }
 
-impl MqttSession for MockSession {
-    fn is_connected(&self) -> bool {
-        let guard = self.state.lock().unwrap_or_else(|e| e.into_inner());
-        guard.connected
-    }
+/// The refusal of `key` for `reason` by the shared rules, after the driver's name.
+fn refused<T>(key: &str, reason: &str) -> Result<T, RuntimeError> {
+    Err(RuntimeError::InvalidConfig(
+        format!("mqtt: {key}: {reason}").into(),
+    ))
+}
 
-    fn take_payloads(&mut self) -> Vec<MqttInboundPayload> {
-        let delay = self
-            .state
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .take_delay;
-        if let Some(delay) = delay {
-            thread::sleep(delay);
+/// What validating the table `text` gives, which starting its driver must give too: the computer
+/// refuses a configuration before any worker starts (specification 32 §2). Only for a table that
+/// is refused, since a driver that starts connects to its broker.
+fn refusal(text: &str) -> Result<(), RuntimeError> {
+    let value = table(text);
+    let validated = MqttIoDriver::validate_params(&value);
+    assert_eq!(
+        MqttIoDriver::from_params(&value).map(drop),
+        validated,
+        "the start and the validation of {text}"
+    );
+    validated
+}
+
+/// The driver of the table `text`, started.
+fn start(text: &str) -> MqttIoDriver {
+    MqttIoDriver::from_params(&table(text)).expect("the driver starts")
+}
+
+/// The table of the broker stand-in `broker` with the keys `rest`.
+fn at(broker: &Broker, rest: &str) -> String {
+    format!("broker = \"{}\"\n{rest}", broker.endpoint())
+}
+
+/// A broker on the loopback at which nothing listens: the port of a listener closed again.
+fn nothing_listens() -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("a free port");
+    listener.local_addr().expect("its address").to_string()
+}
+
+/// Reads the inputs into `image` until a read finds the session running and a message since the
+/// last read. Under `on_error = "fault"` a read without one fails with `mqtt input not fresh`, or
+/// with the link's condition, and leaves the image as it was (specification 32 §8), so the reads
+/// before the broker's messages arrive change nothing. Gives the first other result.
+fn read_fresh(driver: &mut MqttIoDriver, image: &mut [u8]) -> Result<(), RuntimeError> {
+    let deadline = Instant::now() + PATIENCE;
+    loop {
+        match driver.read_inputs(image) {
+            Err(RuntimeError::IoFreshness(_)) if Instant::now() < deadline => {
+                thread::sleep(Duration::from_millis(1));
+            }
+            result => return result,
         }
-        let mut guard = self.state.lock().unwrap_or_else(|e| e.into_inner());
-        guard.payloads.drain(..).collect()
-    }
-
-    fn publish(&mut self, topic: &str, payload: &[u8]) -> Result<(), RuntimeError> {
-        let mut guard = self.state.lock().unwrap_or_else(|e| e.into_inner());
-        if guard.fail_publish_once {
-            guard.fail_publish_once = false;
-            guard.last_error = Some(SmolStr::new("publish failed"));
-            return Err(RuntimeError::IoDriver("publish failed".into()));
-        }
-        guard
-            .published
-            .push((SmolStr::new(topic), payload.to_vec()));
-        Ok(())
-    }
-
-    fn last_error(&self) -> Option<SmolStr> {
-        let guard = self.state.lock().unwrap_or_else(|e| e.into_inner());
-        guard.last_error.clone()
     }
 }
 
-struct MockFactory {
-    state: Arc<Mutex<MockState>>,
-    attempts: Arc<AtomicUsize>,
-    fail_first: bool,
-    always_fail: bool,
-}
-
-impl MqttSessionFactory for MockFactory {
-    fn connect(&self, _config: &MqttIoConfig) -> Result<Box<dyn MqttSession>, RuntimeError> {
-        let attempt = self.attempts.fetch_add(1, Ordering::SeqCst);
-        if self.always_fail || (self.fail_first && attempt == 0) {
-            return Err(RuntimeError::IoDriver("connect failed".into()));
-        }
-        Ok(Box::new(MockSession {
-            state: Arc::clone(&self.state),
-        }))
-    }
-
-    fn incoming_dropped(&self) -> u64 {
-        0
+/// Waits until `done` holds, at most [`PATIENCE`]; fails the test with `what` otherwise.
+fn eventually(what: &str, mut done: impl FnMut() -> bool) {
+    let deadline = Instant::now() + PATIENCE;
+    while !done() {
+        assert!(Instant::now() < deadline, "no {what} within {PATIENCE:?}");
+        thread::sleep(Duration::from_millis(1));
     }
 }
 
-fn params(text: &str) -> toml::Value {
-    toml::from_str(text).expect("parse toml params")
-}
-
-fn packet(topic: &str, payload: impl Into<Vec<u8>>) -> MqttInboundPayload {
-    MqttInboundPayload {
-        topic: SmolStr::new(topic),
-        payload: payload.into(),
+/// A degraded condition with `text`.
+fn degraded(text: &str) -> IoDriverHealth {
+    IoDriverHealth::Degraded {
+        error: SmolStr::new(text),
     }
 }
 
-fn expect_config_error(result: Result<MqttIoDriver, RuntimeError>) -> String {
-    match result {
-        Ok(_) => panic!("expected MQTT config validation failure"),
-        Err(err) => err.to_string(),
+/// A faulted condition with `text`.
+fn faulted(text: &str) -> IoDriverHealth {
+    IoDriverHealth::Faulted {
+        error: SmolStr::new(text),
     }
 }
 
-fn tls_fixture_path(name: &str) -> String {
-    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/tls")
-        .join(name)
-        .to_string_lossy()
-        .replace('\\', "/")
+/// Whether `health` is faulted with a text that starts with `start`.
+fn faulted_with(health: &IoDriverHealth, start: &str) -> bool {
+    matches!(health, IoDriverHealth::Faulted { error } if error.starts_with(start))
+}
+
+/// The verification case `RT_SAFE_NAN_001` through the driver and the broker stand-in
+/// (`nonfinite_case`), which the verification catalog runs as
+/// `io::mqtt::tests::nonfinite_mapped_payload_batch_cannot_leak_partial_values_after_recovery`.
+#[test]
+fn nonfinite_mapped_payload_batch_cannot_leak_partial_values_after_recovery() {
+    nonfinite_case::run_nonfinite_mqtt_case();
+}
+
+/// The scalar types, as a refusal lists them (specification 32 §6).
+const TYPES: &str = "bool, u16, i16, u32, i32 or f32, or an alias: boolean, uint16, word, int16, \
+                     int, uint32, dword, int32, dint, float or real";
+
+/// A typed point without its type, a numeric point with a bit, and a scale of 0, which cannot be
+/// inverted for an output, are refused with the key and the rule (specification 32 §7), when the
+/// driver is validated and when it starts. The shared rules' texts replace the computer's
+/// (`mqtt input_points.data_type is required ...`), since the rules are one implementation on
+/// every runtime (specification 34 ARCH-11). Catches a typed point taken with a guessed type, and
+/// a scale that would divide by zero.
+#[test]
+fn typed_point_map_rejects_invalid_config() {
+    assert_eq!(
+        refusal(
+            "broker = \"127.0.0.1:1883\"\n[[input_points]]\ntopic = \"line/in/missing\"\n\
+             image_offset = 0\n"
+        ),
+        refused(
+            "input_points[0].data_type",
+            &format!("is required, {TYPES}")
+        )
+    );
+    assert_eq!(
+        refusal(
+            "broker = \"127.0.0.1:1883\"\n[[output_points]]\ntopic = \"line/out/numeric\"\n\
+             image_offset = 0\nimage_bit = 1\ndata_type = \"u16\"\n"
+        ),
+        refused(
+            "output_points[0].image_bit",
+            "is only for bool points, not for a u16 point"
+        )
+    );
+    assert_eq!(
+        refusal(
+            "broker = \"127.0.0.1:1883\"\n[[output_points]]\ntopic = \"line/out/scaled\"\n\
+             image_offset = 0\ndata_type = \"u16\"\nscale = 0.0\n"
+        ),
+        refused(
+            "output_points[0].scale",
+            "must be a finite number other than 0, not 0.0"
+        )
+    );
+}
+
+/// The Sparkplug B profile needs its `group_id`, takes no input points and needs an output point
+/// for a metric (specification 32 §9). The shared rules' texts replace the computer's (`outbound
+/// output_points only`, `requires at least one output_point metric`). Catches a node published
+/// under a topic without its group, and a profile that would subscribe to inputs it never claims.
+#[test]
+fn sparkplug_profile_rejects_unsupported_shapes() {
+    assert_eq!(
+        refusal(
+            "broker = \"127.0.0.1:1883\"\n[sparkplug]\nenabled = true\n\
+             edge_node_id = \"runtime-a\"\n[[output_points]]\ntopic = \"legacy/out/speed\"\n\
+             image_offset = 0\ndata_type = \"u16\"\n"
+        ),
+        refused(
+            "sparkplug.group_id",
+            "is required, a non-empty MQTT topic level without /, +, # and control characters"
+        )
+    );
+    assert_eq!(
+        refusal(
+            "broker = \"127.0.0.1:1883\"\n[sparkplug]\nenabled = true\ngroup_id = \"trust\"\n\
+             edge_node_id = \"runtime-a\"\n[[input_points]]\ntopic = \"legacy/in/ready\"\n\
+             image_offset = 0\nimage_bit = 0\ndata_type = \"bool\"\n[[output_points]]\n\
+             topic = \"legacy/out/speed\"\nimage_offset = 1\ndata_type = \"u16\"\n"
+        ),
+        refused(
+            "input_points",
+            "is not taken with Sparkplug, whose profile publishes output points only"
+        )
+    );
+    assert_eq!(
+        refusal(
+            "broker = \"127.0.0.1:1883\"\n[sparkplug]\nenabled = true\ngroup_id = \"trust\"\n\
+             edge_node_id = \"runtime-a\"\n"
+        ),
+        refused(
+            "output_points",
+            "is required with Sparkplug, at least one output point for a metric"
+        )
+    );
 }
 
 /// Specification 42, §4 item 9: the driver's own words name the broker and whether the session
-/// is connected, or why it is not.
+/// is connected, or why it is not. The broker stand-in accepts the session, then closes the
+/// connection, and the backoff of `reconnect_ms` keeps the session down. Catches a detail without
+/// the broker, one that reads connected after the broker went away, and one that hides the cause.
 #[test]
 fn mqtt_detail_names_the_broker_and_the_sessions_state() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        ..MockState::default()
-    }));
-    let factory = Arc::new(MockFactory {
-        state: Arc::clone(&state),
-        attempts: Arc::new(AtomicUsize::new(0)),
-        fail_first: false,
-        always_fail: false,
-    });
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-topic_in = "line/in"
-topic_out = "line/out"
-on_error = "warn"
-reconnect_ms = 10
-"#,
-        ),
-        factory,
-    )
-    .expect("construct mqtt driver");
-    let mut inputs = [0u8; 4];
-    let wait_for = |driver: &mut MqttIoDriver, inputs: &mut [u8], expected: &str| {
-        let deadline = Instant::now() + StdDuration::from_millis(500);
-        loop {
-            let _ = driver.read_inputs(inputs);
-            let detail = driver.detail().map(|text| text.to_string()).unwrap_or_default();
-            if detail == expected {
-                return;
-            }
-            assert!(Instant::now() < deadline, "detail {detail:?}, expected {expected:?}");
-            std::thread::sleep(StdDuration::from_millis(5));
-        }
-    };
-    wait_for(&mut driver, &mut inputs, "127.0.0.1:1883, connected");
-    {
-        let mut guard = state.lock().unwrap_or_else(|e| e.into_inner());
-        guard.connected = false;
-        guard.last_error = Some(SmolStr::new("connection reset by broker"));
-    }
-    wait_for(
-        &mut driver,
-        &mut inputs,
-        "127.0.0.1:1883, disconnected: connection reset by broker",
+    let broker = Broker::start();
+    let mut driver = start(&at(&broker, "on_error = \"warn\"\nreconnect_ms = 60000"));
+    let connected = format!("{}, connected", broker.endpoint());
+    let lost = format!(
+        "{}, disconnected: the broker closed the connection",
+        broker.endpoint()
     );
-}
-
-#[test]
-fn contract_test_reads_and_writes_payloads() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        payloads: VecDeque::from([packet("line/in", vec![1, 0, 1])]),
-        ..MockState::default()
-    }));
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let factory = Arc::new(MockFactory {
-        state: Arc::clone(&state),
-        attempts: Arc::clone(&attempts),
-        fail_first: false,
-        always_fail: false,
-    });
-
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-topic_in = "line/in"
-topic_out = "line/out"
-"#,
-        ),
-        factory.clone(),
-    )
-    .expect("construct mqtt driver");
-
-    let mut inputs = [0u8; 4];
-    driver.read_inputs(&mut inputs).expect("read inputs");
-    assert_eq!(&inputs[..3], &[1, 0, 1]);
-    driver.write_outputs(&[9, 8, 7]).expect("write outputs");
-    assert!(matches!(driver.health(), IoDriverHealth::Ok));
-
-    let guard = state.lock().unwrap_or_else(|e| e.into_inner());
-    assert_eq!(
-        guard.published,
-        vec![(SmolStr::new("line/out"), vec![9, 8, 7])]
-    );
-}
-
-#[test]
-fn mqtt_raw_read_uses_newest_payload_from_drained_batch() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        payloads: VecDeque::from([
-            packet("line/in", vec![1, 2, 3]),
-            packet("line/in", vec![7, 8, 9]),
-        ]),
-        ..MockState::default()
-    }));
-    let factory = Arc::new(MockFactory {
-        state: Arc::clone(&state),
-        attempts: Arc::new(AtomicUsize::new(0)),
-        fail_first: false,
-        always_fail: false,
-    });
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-topic_in = "line/in"
-"#,
-        ),
-        factory,
-    )
-    .expect("construct mqtt driver");
-
-    let mut inputs = [0u8; 3];
-    driver
-        .read_inputs(&mut inputs)
-        .expect("read newest payload");
-    assert_eq!(inputs, [7, 8, 9]);
-}
-
-#[test]
-fn typed_point_map_reads_json_text_and_binary_payloads() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        payloads: VecDeque::from([
-            packet("line/in/ready", b"true".to_vec()),
-            packet("line/in/temp", b"100".to_vec()),
-            packet("line/in/count", 42u32.to_be_bytes().to_vec()),
-        ]),
-        ..MockState::default()
-    }));
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let factory = Arc::new(MockFactory {
-        state: Arc::clone(&state),
-        attempts,
-        fail_first: false,
-        always_fail: false,
-    });
-
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-
-[[input_points]]
-topic = "line/in/ready"
-image_offset = 0
-image_bit = 2
-data_type = "bool"
-payload_format = "json"
-
-[[input_points]]
-topic = "line/in/temp"
-image_offset = 1
-data_type = "i16"
-payload_format = "text"
-scale = 0.5
-offset = -10.0
-
-[[input_points]]
-topic = "line/in/count"
-image_offset = 3
-data_type = "u32"
-payload_format = "binary_be"
-"#,
-        ),
-        factory,
-    )
-    .expect("construct mapped mqtt driver");
-
-    let mut inputs = [0u8; 7];
-    driver.read_inputs(&mut inputs).expect("read mapped inputs");
-
-    assert_eq!(inputs[0] & 0b0000_0100, 0b0000_0100);
-    assert_eq!(i16::from_le_bytes([inputs[1], inputs[2]]), 40);
-    assert_eq!(
-        u32::from_le_bytes([inputs[3], inputs[4], inputs[5], inputs[6]]),
-        42
-    );
-    assert!(matches!(driver.health(), IoDriverHealth::Ok));
-}
-
-#[test]
-fn nonfinite_mapped_payload_batch_cannot_leak_partial_values_after_recovery() {
-    run_nonfinite_mqtt_case();
-}
-
-#[test]
-fn typed_point_map_writes_json_text_and_binary_payloads() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        ..MockState::default()
-    }));
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let factory = Arc::new(MockFactory {
-        state: Arc::clone(&state),
-        attempts,
-        fail_first: false,
-        always_fail: false,
-    });
-
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-
-[[output_points]]
-topic = "line/out/enable"
-image_offset = 0
-image_bit = 1
-data_type = "bool"
-payload_format = "text"
-
-[[output_points]]
-topic = "line/out/speed"
-image_offset = 1
-data_type = "u16"
-payload_format = "json"
-scale = 0.5
-offset = 10.0
-
-[[output_points]]
-topic = "line/out/count"
-image_offset = 3
-data_type = "i32"
-payload_format = "binary_be"
-"#,
-        ),
-        factory,
-    )
-    .expect("construct mapped mqtt driver");
-
-    let mut outputs = [0u8; 7];
-    outputs[0] = 0b0000_0010;
-    outputs[1..3].copy_from_slice(&60u16.to_le_bytes());
-    outputs[3..7].copy_from_slice(&(-42i32).to_le_bytes());
-    driver
-        .write_outputs(&outputs)
-        .expect("write mapped outputs");
-
-    let guard = state.lock().unwrap_or_else(|e| e.into_inner());
-    assert_eq!(
-        guard.published,
-        vec![
-            (SmolStr::new("line/out/enable"), b"true".to_vec()),
-            (SmolStr::new("line/out/speed"), b"100".to_vec()),
-            (
-                SmolStr::new("line/out/count"),
-                (-42i32).to_be_bytes().to_vec()
-            ),
-        ]
-    );
-}
-
-#[test]
-fn typed_point_map_rejects_invalid_config() {
-    let missing_type = MqttIoDriver::from_params(&params(
-        r#"
-broker = "127.0.0.1:1883"
-
-[[input_points]]
-topic = "line/in/missing"
-image_offset = 0
-"#,
-    ));
-    let error = expect_config_error(missing_type);
-    assert!(error.contains("input_points.data_type"));
-
-    let numeric_bit = MqttIoDriver::from_params(&params(
-        r#"
-broker = "127.0.0.1:1883"
-
-[[output_points]]
-topic = "line/out/numeric"
-image_offset = 0
-image_bit = 1
-data_type = "u16"
-"#,
-    ));
-    let error = expect_config_error(numeric_bit);
-    assert!(error.contains("numeric point maps"));
-
-    let zero_scale = MqttIoDriver::from_params(&params(
-        r#"
-broker = "127.0.0.1:1883"
-
-[[output_points]]
-topic = "line/out/scaled"
-image_offset = 0
-data_type = "u16"
-scale = 0.0
-"#,
-    ));
-    let error = expect_config_error(zero_scale);
-    assert!(error.contains("scale"));
-}
-
-#[test]
-fn on_error_warn_connect_failure_degrades_without_runtime_error() {
-    let state = Arc::new(Mutex::new(MockState::default()));
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let factory = Arc::new(MockFactory {
-        state,
-        attempts,
-        fail_first: false,
-        always_fail: true,
-    });
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-reconnect_ms = 1
-on_error = "warn"
-"#,
-        ),
-        factory,
-    )
-    .expect("construct mqtt driver");
-
-    let mut inputs = [0u8; 1];
-    driver
-        .read_inputs(&mut inputs)
-        .expect("warn policy should degrade health without faulting the scan");
-    assert!(matches!(driver.health(), IoDriverHealth::Degraded { .. }));
-}
-
-#[test]
-fn on_error_ignore_publish_failure_degrades_without_runtime_error() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        fail_publish_once: true,
-        ..MockState::default()
-    }));
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let factory = Arc::new(MockFactory {
-        state,
-        attempts,
-        fail_first: false,
-        always_fail: false,
-    });
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-on_error = "ignore"
-"#,
-        ),
-        factory,
-    )
-    .expect("construct mqtt driver");
-
-    driver
-        .write_outputs(&[1, 2, 3])
-        .expect("ignore policy should degrade health without faulting the scan");
-    assert!(matches!(driver.health(), IoDriverHealth::Degraded { .. }));
-}
-
-#[test]
-fn sparkplug_profile_configures_namespace_topics_and_last_will() {
-    let config = MqttIoConfig::from_params(&params(
-        r#"
-broker = "127.0.0.1:1883"
-client_id = "sparkplug-test"
-
-[sparkplug]
-enabled = true
-group_id = "trust"
-edge_node_id = "runtime-a"
-birth_death_seq = 7
-
-[[output_points]]
-topic = "legacy/out/speed"
-metric_name = "drive/speed"
-image_offset = 0
-data_type = "u16"
-payload_format = "json"
-"#,
-    ))
-    .expect("parse sparkplug config");
-
-    let sparkplug = config.sparkplug.as_ref().expect("sparkplug config");
-    assert_eq!(sparkplug.nbirth_topic(), "spBv1.0/trust/NBIRTH/runtime-a");
-    assert_eq!(sparkplug.ndata_topic(), "spBv1.0/trust/NDATA/runtime-a");
-    assert_eq!(sparkplug.ndeath_topic(), "spBv1.0/trust/NDEATH/runtime-a");
-
-    let options = build_mqtt_options(&config).expect("build mqtt options");
-    assert!(!options.clean_session());
-    let will = options.last_will().expect("sparkplug NDEATH will");
-    assert_eq!(will.topic, "spBv1.0/trust/NDEATH/runtime-a");
-    assert_eq!(will.qos, QoS::AtMostOnce);
-    assert!(!will.retain);
-    assert!(
-        will.message
-            .windows(b"bdSeq".len())
-            .any(|window| window == b"bdSeq"),
-        "NDEATH payload should contain bdSeq metric name"
-    );
-}
-
-#[test]
-fn sparkplug_payload_encoding_matches_tahu_wire_shape_for_scalar_metrics() {
-    let config = SparkplugConfig {
-        namespace: SmolStr::new("spBv1.0"),
-        spec_version: SmolStr::new("3.0.0"),
-        group_id: SmolStr::new("trust"),
-        edge_node_id: SmolStr::new("runtime-a"),
-        birth_death_seq: 3,
-    };
-    let point = MqttOutputPoint::from_toml(MqttPointToml {
-        topic: "legacy/out/speed".to_owned(),
-        image_offset: 0,
-        image_bit: None,
-        data_type: Some("u16".to_owned()),
-        payload_format: Some("json".to_owned()),
-        metric_name: Some("drive/speed".to_owned()),
-        scale: Some(0.5),
-        offset: Some(10.0),
-    })
-    .expect("point config");
-    let mut image = [0u8; 2];
-    image.copy_from_slice(&60u16.to_le_bytes());
-
-    let payload = encode_sparkplug_ndata_at(&[point], &image, 5, 123).expect("encode NDATA");
-
-    assert_eq!(&payload[..2], &[0x08, 0x7b], "payload timestamp field");
-    assert!(
-        payload.ends_with(&[0x18, 0x05]),
-        "payload seq field should be encoded as field 3"
-    );
-    assert!(
-        payload
-            .windows(b"drive/speed".len())
-            .any(|window| window == b"drive/speed"),
-        "payload should contain metric name"
-    );
-    assert!(
-        payload
-            .windows(2)
-            .any(|window| window == [0x20, SPARKPLUG_DATATYPE_UINT16 as u8].as_slice()),
-        "metric datatype should be UInt16"
-    );
-    assert!(
-        payload
-            .windows(2)
-            .any(|window| window == [0x50, 0x64].as_slice()),
-        "scaled value should encode raw 100 in int_value field"
-    );
-
-    let birth = encode_sparkplug_nbirth_at(&config, &[], 0, 123);
-    assert!(
-        birth
-            .windows(b"bdSeq".len())
-            .any(|window| window == b"bdSeq"),
-        "NBIRTH should include bdSeq"
-    );
-}
-
-#[test]
-fn sparkplug_profile_publishes_birth_then_data_payload() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        ..MockState::default()
-    }));
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let factory = Arc::new(MockFactory {
-        state: Arc::clone(&state),
-        attempts,
-        fail_first: false,
-        always_fail: false,
-    });
-
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-client_id = "sparkplug-runtime"
-
-[sparkplug]
-enabled = true
-group_id = "trust"
-edge_node_id = "runtime-a"
-birth_death_seq = 11
-
-[[output_points]]
-topic = "legacy/out/enabled"
-metric_name = "drive/enabled"
-image_offset = 0
-image_bit = 1
-data_type = "bool"
-payload_format = "json"
-
-[[output_points]]
-topic = "legacy/out/speed"
-metric_name = "drive/speed"
-image_offset = 1
-data_type = "u16"
-payload_format = "json"
-scale = 0.5
-offset = 10.0
-"#,
-        ),
-        factory,
-    )
-    .expect("construct sparkplug mqtt driver");
-
-    let mut outputs = [0u8; 3];
-    outputs[0] = 0b0000_0010;
-    outputs[1..3].copy_from_slice(&60u16.to_le_bytes());
-    driver
-        .write_outputs(&outputs)
-        .expect("write sparkplug outputs");
-
-    let guard = state.lock().unwrap_or_else(|e| e.into_inner());
-    assert_eq!(guard.published.len(), 2);
-    assert_eq!(guard.published[0].0, "spBv1.0/trust/NBIRTH/runtime-a");
-    assert_eq!(guard.published[1].0, "spBv1.0/trust/NDATA/runtime-a");
-    assert!(
-        guard.published[0]
-            .1
-            .windows(b"bdSeq".len())
-            .any(|window| window == b"bdSeq"),
-        "NBIRTH should include bdSeq"
-    );
-    assert!(
-        guard.published[1]
-            .1
-            .windows(b"drive/enabled".len())
-            .any(|window| window == b"drive/enabled"),
-        "NDATA should include first metric"
-    );
-    assert!(
-        guard.published[1]
-            .1
-            .windows(b"drive/speed".len())
-            .any(|window| window == b"drive/speed"),
-        "NDATA should include second metric"
-    );
-}
-
-#[test]
-fn sparkplug_profile_rejects_unsupported_shapes() {
-    let missing_identity = MqttIoDriver::from_params(&params(
-        r#"
-broker = "127.0.0.1:1883"
-
-[sparkplug]
-enabled = true
-edge_node_id = "runtime-a"
-
-[[output_points]]
-topic = "legacy/out/speed"
-image_offset = 0
-data_type = "u16"
-"#,
-    ));
-    let error = expect_config_error(missing_identity);
-    assert!(error.contains("group_id"));
-
-    let inputs = MqttIoDriver::from_params(&params(
-        r#"
-broker = "127.0.0.1:1883"
-
-[sparkplug]
-enabled = true
-group_id = "trust"
-edge_node_id = "runtime-a"
-
-[[input_points]]
-topic = "legacy/in/ready"
-image_offset = 0
-image_bit = 0
-data_type = "bool"
-
-[[output_points]]
-topic = "legacy/out/speed"
-image_offset = 1
-data_type = "u16"
-"#,
-    ));
-    let error = expect_config_error(inputs);
-    assert!(error.contains("outbound output_points only"));
-
-    let no_outputs = MqttIoDriver::from_params(&params(
-        r#"
-broker = "127.0.0.1:1883"
-
-[sparkplug]
-enabled = true
-group_id = "trust"
-edge_node_id = "runtime-a"
-"#,
-    ));
-    let error = expect_config_error(no_outputs);
-    assert!(error.contains("requires at least one output_point"));
-}
-
-#[test]
-fn reconnection_test_retries_after_connect_failure() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        ..MockState::default()
-    }));
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let factory = Arc::new(MockFactory {
-        state,
-        attempts: Arc::clone(&attempts),
-        fail_first: true,
-        always_fail: false,
-    });
-
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-reconnect_ms = 1
-"#,
-        ),
-        factory.clone(),
-    )
-    .expect("construct mqtt driver");
-
-    let mut inputs = [0u8; 1];
-    driver
-        .read_inputs(&mut inputs)
-        .expect_err("first read should report connect failure");
-    assert!(matches!(driver.health(), IoDriverHealth::Faulted { .. }));
-    thread::sleep(StdDuration::from_millis(2));
-    {
-        let mut guard = factory.state.lock().unwrap_or_else(|e| e.into_inner());
-        guard.payloads.push_back(packet("trust/io/in", vec![1]));
-    }
-    driver.read_inputs(&mut inputs).expect("second read");
-    assert!(
-        attempts.load(Ordering::SeqCst) >= 2,
-        "expected at least two connect attempts"
-    );
-    assert!(matches!(driver.health(), IoDriverHealth::Ok));
-}
-
-#[test]
-fn security_test_rejects_remote_insecure_broker() {
-    let result = MqttIoDriver::from_params(&params(
-        r#"
-broker = "10.10.0.9:1883"
-"#,
-    ));
-    assert!(result.is_err(), "expected security validation failure");
-    let error = match result {
-        Ok(_) => panic!("expected insecure remote broker validation failure"),
-        Err(err) => err.to_string(),
-    };
-    assert!(error.contains("allow_insecure_remote"));
-
-    let ok = MqttIoDriver::from_params(&params(
-        r#"
-broker = "10.10.0.9:1883"
-allow_insecure_remote = true
-"#,
-    ));
-    assert!(ok.is_ok(), "explicit insecure override should be allowed");
-}
-
-#[test]
-fn security_test_allows_remote_broker_when_tls_configured() {
-    let ca_path = tls_fixture_path("server-cert.pem");
-    let result = MqttIoDriver::from_params(&params(&format!(
-        r#"
-broker = "mqtt.example.test:8883"
-tls = true
-tls_ca_path = "{ca_path}"
-"#
-    )));
-
-    assert!(
-        result.is_ok(),
-        "remote MQTT with explicit TLS trust should be accepted"
-    );
-}
-
-#[test]
-fn security_test_mqtts_scheme_implies_tls() {
-    let ca_path = tls_fixture_path("server-cert.pem");
-    let config = MqttIoConfig::from_params(&params(&format!(
-        r#"
-broker = "mqtts://mqtt.example.test:8883"
-tls_ca_path = "{ca_path}"
-"#
-    )))
-    .expect("mqtts broker should enable TLS");
-
-    assert!(config.tls.is_some());
-    assert_eq!(config.endpoint.host.as_str(), "mqtt.example.test");
-    assert_eq!(config.endpoint.port, 8883);
-}
-
-#[test]
-fn security_test_rejects_tls_without_ca_path() {
-    let result = MqttIoDriver::from_params(&params(
-        r#"
-broker = "mqtt.example.test:8883"
-tls = true
-"#,
-    ));
-    assert!(result.is_err(), "TLS without trust roots must be rejected");
-    let error = match result {
-        Ok(_) => panic!("expected TLS without trust roots to fail"),
-        Err(err) => err.to_string(),
-    };
-    assert!(error.contains("tls_ca_path"));
-}
-
-#[test]
-fn security_test_rejects_tls_fields_when_tls_disabled() {
-    let ca_path = tls_fixture_path("server-cert.pem");
-    let result = MqttIoDriver::from_params(&params(&format!(
-        r#"
-broker = "127.0.0.1:1883"
-tls = false
-tls_ca_path = "{ca_path}"
-"#
-    )));
-    assert!(
-        result.is_err(),
-        "TLS file paths with tls=false must be rejected"
-    );
-    let error = match result {
-        Ok(_) => panic!("expected TLS paths with tls=false to fail"),
-        Err(err) => err.to_string(),
-    };
-    assert!(error.contains("tls=true"));
-}
-
-#[test]
-fn security_test_allows_empty_alpn_list_when_tls_disabled() {
-    let result = MqttIoDriver::from_params(&params(
-        r#"
-broker = "127.0.0.1:1883"
-tls = false
-tls_alpn = []
-"#,
-    ));
-
-    assert!(
-        result.is_ok(),
-        "empty TLS ALPN list is the schema default and must not block non-TLS MQTT"
-    );
-}
-
-#[test]
-fn security_test_rejects_partial_mtls_pair() {
-    let ca_path = tls_fixture_path("server-cert.pem");
-    let cert_path = tls_fixture_path("server-cert.pem");
-    let result = MqttIoDriver::from_params(&params(&format!(
-        r#"
-broker = "mqtt.example.test:8883"
-tls = true
-tls_ca_path = "{ca_path}"
-tls_client_cert_path = "{cert_path}"
-"#
-    )));
-    assert!(result.is_err(), "mTLS requires cert and key together");
-    let error = match result {
-        Ok(_) => panic!("expected partial mTLS config to fail"),
-        Err(err) => err.to_string(),
-    };
-    assert!(error.contains("mTLS"));
-}
-
-#[test]
-fn tls_transport_test_builds_rumqttc_tls_transport() {
-    let ca_path = tls_fixture_path("server-cert.pem");
-    let cert_path = tls_fixture_path("server-cert.pem");
-    let key_path = tls_fixture_path("server-key.pem");
-    let config = MqttIoConfig::from_params(&params(&format!(
-        r#"
-broker = "mqtt.example.test:8883"
-client_id = "tls-test"
-keep_alive_s = 11
-tls = true
-tls_ca_path = "{ca_path}"
-tls_client_cert_path = "{cert_path}"
-tls_client_key_path = "{key_path}"
-tls_alpn = ["mqtt"]
-"#
-    )))
-    .expect("parse TLS config");
-
-    let options = build_mqtt_options(&config).expect("build TLS mqtt options");
-    assert_eq!(options.keep_alive(), StdDuration::from_secs(11));
-    match options.transport() {
-        Transport::Tls(TlsConfiguration::NativeConnector(_)) => {
-            assert_eq!(
-                config.tls.as_ref().expect("tls config").ca,
-                std::fs::read(ca_path).expect("read ca")
-            );
-            let (cert, key) = config
-                .tls
-                .as_ref()
-                .expect("tls config")
-                .client_auth
-                .as_ref()
-                .expect("mTLS client auth");
-            assert_eq!(cert, &std::fs::read(cert_path).expect("read cert"));
-            assert_eq!(key, &std::fs::read(key_path).expect("read key"));
-            assert_eq!(
-                config.tls.as_ref().expect("tls config").alpn,
-                Some(vec!["mqtt".to_owned()])
-            );
-        }
-        _ => panic!("expected rumqttc TLS transport"),
-    }
-}
-
-#[test]
-fn cycle_impact_test_driver_calls_are_non_blocking_without_session() {
-    let state = Arc::new(Mutex::new(MockState::default()));
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let factory = Arc::new(MockFactory {
-        state,
-        attempts,
-        fail_first: false,
-        always_fail: true,
-    });
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-reconnect_ms = 1
-"#,
-        ),
-        factory,
-    )
-    .expect("construct mqtt driver");
-
-    let mut inputs = [0u8; 8];
-    let mut max_elapsed = StdDuration::ZERO;
-    for _ in 0..400 {
-        let started = Instant::now();
+    let mut inputs = [0_u8; 4];
+    let mut detail = || {
         let _ = driver.read_inputs(&mut inputs);
-        max_elapsed = max_elapsed.max(started.elapsed());
-
-        let started = Instant::now();
-        let _ = driver.write_outputs(&[1, 2, 3, 4]);
-        max_elapsed = max_elapsed.max(started.elapsed());
-    }
-    assert!(
-        max_elapsed < MQTT_WORKER_SCAN_WAIT_BOUND + MQTT_CI_TIMING_SLACK,
-        "each driver call should stay within the scan-thread bound, max_elapsed={max_elapsed:?}"
-    );
-}
-
-#[test]
-fn mqtt_read_inputs_returns_within_scan_bound_without_fresh_payload() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        ..MockState::default()
-    }));
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let factory = Arc::new(MockFactory {
-        state,
-        attempts,
-        fail_first: false,
-        always_fail: false,
-    });
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-on_error = "warn"
-"#,
-        ),
-        factory,
-    )
-    .expect("construct mqtt driver");
-
-    let mut inputs = [0u8; 8];
-    let started = Instant::now();
-    driver
-        .read_inputs(&mut inputs)
-        .expect("warn policy should degrade without faulting");
-    let elapsed = started.elapsed();
-
-    assert!(
-        elapsed < MQTT_WORKER_SCAN_WAIT_BOUND + MQTT_CI_TIMING_SLACK,
-        "MQTT read_inputs must return within the scan-thread bound when no fresh broker payload is available, elapsed={elapsed:?}"
-    );
-    assert!(matches!(driver.health(), IoDriverHealth::Degraded { .. }));
-}
-
-#[test]
-fn mqtt_write_outputs_returns_within_scan_bound_while_session_connecting() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: false,
-        ..MockState::default()
-    }));
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let factory = Arc::new(MockFactory {
-        state,
-        attempts,
-        fail_first: false,
-        always_fail: false,
-    });
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-on_error = "warn"
-"#,
-        ),
-        factory,
-    )
-    .expect("construct mqtt driver");
-
-    let started = Instant::now();
-    driver
-        .write_outputs(&[1, 2, 3])
-        .expect("warn policy should degrade without faulting");
-    let elapsed = started.elapsed();
-
-    assert!(
-        elapsed < MQTT_WORKER_SCAN_WAIT_BOUND + MQTT_CI_TIMING_SLACK,
-        "MQTT write_outputs must return within the scan-thread bound while session readiness is pending, elapsed={elapsed:?}"
-    );
-    assert!(matches!(driver.health(), IoDriverHealth::Degraded { .. }));
-}
-
-#[test]
-fn mqtt_stale_snapshot_is_returned_without_fresh_payload() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        payloads: VecDeque::from([packet("line/in", vec![7, 8, 9])]),
-        ..MockState::default()
-    }));
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let factory = Arc::new(MockFactory {
-        state,
-        attempts,
-        fail_first: false,
-        always_fail: false,
-    });
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-topic_in = "line/in"
-on_error = "warn"
-"#,
-        ),
-        factory,
-    )
-    .expect("construct mqtt driver");
-
-    let mut first = [0u8; 4];
-    driver.read_inputs(&mut first).expect("initial payload");
-    assert_eq!(&first[..3], &[7, 8, 9]);
-
-    let mut stale = [0u8; 4];
-    let started = Instant::now();
-    driver
-        .read_inputs(&mut stale)
-        .expect("warn policy should return stale snapshot without fresh payload");
-    let elapsed = started.elapsed();
-
-    assert!(
-        elapsed < MQTT_WORKER_SCAN_WAIT_BOUND + MQTT_CI_TIMING_SLACK,
-        "stale MQTT snapshot must be returned without waiting for broker freshness, elapsed={elapsed:?}"
-    );
-    assert_eq!(
-        &stale[..3],
-        &[7, 8, 9],
-        "worker snapshot should preserve the last known MQTT input image"
-    );
-    assert!(matches!(driver.health(), IoDriverHealth::Degraded { .. }));
-}
-
-#[test]
-fn mqtt_default_fault_rejects_stale_snapshot_when_refresh_times_out() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        payloads: VecDeque::from([packet("line/in", vec![7, 8, 9])]),
-        ..MockState::default()
-    }));
-    let factory = Arc::new(MockFactory {
-        state: Arc::clone(&state),
-        attempts: Arc::new(AtomicUsize::new(0)),
-        fail_first: false,
-        always_fail: false,
-    });
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-topic_in = "line/in"
-"#,
-        ),
-        factory,
-    )
-    .expect("construct mqtt driver");
-
-    driver.read_inputs(&mut [0u8; 4]).expect("initial payload");
-    {
-        // The broker goes silent: a session read now takes longer than the scan's refresh wait.
-        let mut guard = state.lock().unwrap_or_else(|e| e.into_inner());
-        guard.take_delay = Some(StdDuration::from_millis(100));
-    }
-    let mut stale = [0xA5; 4];
-    let error = driver
-        .read_inputs(&mut stale)
-        .expect_err("default fault policy must reject a stale snapshot");
-    assert!(matches!(error, RuntimeError::IoFreshness(_)));
-    assert!(error.to_string().contains("mqtt input refresh pending"));
-    assert_eq!(stale, [0xA5; 4], "faulted read exposed stale input bytes");
-    assert!(matches!(driver.health(), IoDriverHealth::Faulted { .. }));
-}
-
-#[test]
-fn mqtt_no_fresh_payload_follows_on_error_policy() {
-    for (policy, should_error) in [("fault", true), ("warn", false), ("ignore", false)] {
-        let state = Arc::new(Mutex::new(MockState {
-            connected: true,
-            ..MockState::default()
-        }));
-        let attempts = Arc::new(AtomicUsize::new(0));
-        let factory = Arc::new(MockFactory {
-            state,
-            attempts,
-            fail_first: false,
-            always_fail: false,
-        });
-        let mut driver = MqttIoDriver::from_params_with_factory(
-            &params(&format!(
-                r#"
-broker = "127.0.0.1:1883"
-on_error = "{policy}"
-"#
-            )),
-            factory,
-        )
-        .expect("construct mqtt driver");
-        let mut inputs = [0u8; 4];
-
-        let started = Instant::now();
-        let result = driver.read_inputs(&mut inputs);
-        let elapsed = started.elapsed();
-
-        assert!(
-            elapsed < MQTT_WORKER_SCAN_WAIT_BOUND + MQTT_CI_TIMING_SLACK,
-            "{policy} no-fresh-payload handling must be scan-bounded, elapsed={elapsed:?}"
-        );
-        assert_eq!(
-            result.is_err(),
-            should_error,
-            "{policy} result should match on_error policy for no-fresh-payload"
-        );
-        match (policy, driver.health()) {
-            ("fault", IoDriverHealth::Faulted { .. }) => {}
-            ("warn" | "ignore", IoDriverHealth::Degraded { .. }) => {}
-            (_, other) => panic!("unexpected {policy} health for no-fresh-payload: {other:?}"),
-        }
-    }
-}
-
-#[test]
-fn mqtt_reconnect_backoff_is_bounded_and_non_spinning() {
-    let state = Arc::new(Mutex::new(MockState::default()));
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let factory = Arc::new(MockFactory {
-        state,
-        attempts: Arc::clone(&attempts),
-        fail_first: false,
-        always_fail: true,
-    });
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-reconnect_ms = 100
-on_error = "warn"
-"#,
-        ),
-        factory,
-    )
-    .expect("construct mqtt driver");
-
-    let mut inputs = [0u8; 1];
-    for _ in 0..50 {
         driver
-            .read_inputs(&mut inputs)
-            .expect("warn policy should degrade without faulting");
-    }
-
-    let attempts = attempts.load(Ordering::SeqCst);
-    assert!(
-        attempts <= 3,
-        "MQTT reconnect backoff must avoid scan-thread driven reconnect spinning, attempts={attempts}"
-    );
-}
-
-#[test]
-fn mqtt_output_handoff_is_bounded_when_scan_outpaces_worker() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: false,
-        ..MockState::default()
-    }));
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let factory = Arc::new(MockFactory {
-        state,
-        attempts,
-        fail_first: false,
-        always_fail: false,
+            .detail()
+            .map(|text| text.to_string())
+            .unwrap_or_default()
+    };
+    eventually("a connected session in the detail", || {
+        detail() == connected
     });
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-on_error = "warn"
-"#,
-        ),
-        factory,
-    )
-    .expect("construct mqtt driver");
-
-    let started = Instant::now();
-    for value in 0..32u8 {
-        driver
-            .write_outputs(&[value, value.wrapping_add(1)])
-            .expect("warn policy should not fault when worker handoff is backpressured");
-    }
-    let elapsed = started.elapsed();
-
-    assert!(
-        elapsed < MQTT_WORKER_SCAN_WAIT_BOUND + MQTT_CI_TIMING_SLACK,
-        "output command handoff must stay bounded when the scan thread outpaces the MQTT worker, elapsed={elapsed:?}"
-    );
-}
-
-#[test]
-fn mqtt_default_fault_rejects_output_handoff_timeout() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: false,
-        ..MockState::default()
-    }));
-    let factory = Arc::new(MockFactory {
-        state,
-        attempts: Arc::new(AtomicUsize::new(0)),
-        fail_first: false,
-        always_fail: false,
-    });
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-"#,
-        ),
-        factory,
-    )
-    .expect("construct mqtt driver");
-
-    let error = driver
-        .write_outputs(&[1, 2, 3])
-        .expect_err("default fault policy must reject a pending output handoff");
-    assert!(error.to_string().contains("mqtt output handoff pending"));
-    assert!(matches!(driver.health(), IoDriverHealth::Faulted { .. }));
-}
-
-#[test]
-fn mqtt_policy_preserves_typed_output_preflight_failure() {
-    for (policy, should_error) in [("fault", true), ("warn", false), ("ignore", false)] {
-        let state = Arc::new(Mutex::new(MockState {
-            connected: true,
-            ..MockState::default()
-        }));
-        let factory = Arc::new(MockFactory {
-            state: Arc::clone(&state),
-            attempts: Arc::new(AtomicUsize::new(0)),
-            fail_first: false,
-            always_fail: false,
-        });
-        let mut driver = MqttIoDriver::from_params_with_factory(
-            &params(
-                format!(
-                    r#"
-broker = "127.0.0.1:1883"
-on_error = "{policy}"
-
-[[output_points]]
-topic = "line/out"
-image_offset = 4
-data_type = "u16"
-payload_format = "binary_le"
-"#
-                )
-                .as_str(),
-            ),
-            factory,
-        )
-        .expect("construct mqtt driver");
-
-        let result = driver.write_outputs(&[1]);
-        assert_eq!(result.is_err(), should_error, "{policy}");
-        let health = driver.health();
-        let detail = match (&health, policy) {
-            (IoDriverHealth::Faulted { error }, "fault")
-            | (IoDriverHealth::Degraded { error }, "warn" | "ignore") => error,
-            _ => panic!("unexpected {policy} health: {health:?}"),
-        };
-        assert!(
-            detail.contains("image range 4..6 exceeds process image size 1"),
-            "unexpected {policy} typed-output detail: {detail}"
-        );
-        assert!(
-            state
-                .lock()
-                .unwrap_or_else(|error| error.into_inner())
-                .published
-                .is_empty(),
-            "failed {policy} preflight must not publish"
-        );
-    }
-}
-
-#[test]
-fn mqtt_policy_preserves_sparkplug_output_preflight_failure() {
-    for (policy, should_error) in [("fault", true), ("warn", false), ("ignore", false)] {
-        let state = Arc::new(Mutex::new(MockState {
-            connected: true,
-            ..MockState::default()
-        }));
-        let factory = Arc::new(MockFactory {
-            state: Arc::clone(&state),
-            attempts: Arc::new(AtomicUsize::new(0)),
-            fail_first: false,
-            always_fail: false,
-        });
-        let mut driver = MqttIoDriver::from_params_with_factory(
-            &params(
-                format!(
-                    r#"
-broker = "127.0.0.1:1883"
-client_id = "sparkplug-preflight-{policy}"
-on_error = "{policy}"
-
-[sparkplug]
-enabled = true
-group_id = "trust"
-edge_node_id = "runtime-a"
-
-[[output_points]]
-topic = "legacy/out/speed"
-metric_name = "drive/speed"
-image_offset = 4
-data_type = "u16"
-payload_format = "json"
-"#
-                )
-                .as_str(),
-            ),
-            factory,
-        )
-        .expect("construct Sparkplug MQTT driver");
-
-        let result = driver.write_outputs(&[1]);
-        assert_eq!(result.is_err(), should_error, "{policy}");
-        let health = driver.health();
-        let detail = match (&health, policy) {
-            (IoDriverHealth::Faulted { error }, "fault")
-            | (IoDriverHealth::Degraded { error }, "warn" | "ignore") => error,
-            _ => panic!("unexpected {policy} health: {health:?}"),
-        };
-        assert!(
-            detail.contains("image range 4..6 exceeds process image size 1"),
-            "unexpected {policy} Sparkplug preflight detail: {detail}"
-        );
-        assert!(
-            state
-                .lock()
-                .unwrap_or_else(|error| error.into_inner())
-                .published
-                .iter()
-                .all(|(topic, _)| !topic.contains("/NDATA/")),
-            "failed {policy} Sparkplug preflight must not publish NDATA"
-        );
-    }
-}
-
-#[test]
-fn mqtt_driver_drop_is_bounded_while_session_is_connecting() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: false,
-        ..MockState::default()
-    }));
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let factory = Arc::new(MockFactory {
-        state,
-        attempts,
-        fail_first: false,
-        always_fail: false,
-    });
-
-    let started = Instant::now();
-    let driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-on_error = "warn"
-"#,
-        ),
-        factory,
-    )
-    .expect("construct mqtt driver");
-    drop(driver);
-    let elapsed = started.elapsed();
-
-    assert!(
-        elapsed < MQTT_WORKER_SCAN_WAIT_BOUND + MQTT_CI_TIMING_SLACK,
-        "dropping the MQTT driver must not wait for a worker blocked on session readiness, elapsed={elapsed:?}"
-    );
-}
-
-#[test]
-fn fail_closed_disconnected_read_returns_freshness_error() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: false,
-        last_error: Some(SmolStr::new("broker disconnected")),
-        ..MockState::default()
-    }));
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let factory = Arc::new(MockFactory {
-        state,
-        attempts,
-        fail_first: false,
-        always_fail: false,
-    });
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-reconnect_ms = 1
-"#,
-        ),
-        factory,
-    )
-    .expect("construct mqtt driver");
-
-    let mut inputs = [0u8; 1];
-    let err = driver
-        .read_inputs(&mut inputs)
-        .expect_err("disconnected MQTT read must fail closed");
-    match err {
-        RuntimeError::IoFreshness(message) => assert!(
-            message.contains("mqtt"),
-            "expected MQTT freshness context, got {message}"
-        ),
-        other => panic!("expected MQTT freshness error, got {other}"),
-    }
-}
-
-#[test]
-fn fail_closed_publish_failure_returns_output_error() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        fail_publish_once: true,
-        ..MockState::default()
-    }));
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let factory = Arc::new(MockFactory {
-        state,
-        attempts,
-        fail_first: false,
-        always_fail: false,
-    });
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-"#,
-        ),
-        factory,
-    )
-    .expect("construct mqtt driver");
-
-    let err = driver
-        .write_outputs(&[1, 2, 3])
-        .expect_err("MQTT publish failure must fail closed");
-    assert!(
-        err.to_string().contains("publish"),
-        "expected publish error, got {err}"
-    );
-}
-
-#[test]
-fn fail_closed_connect_failure_is_observable() {
-    let state = Arc::new(Mutex::new(MockState::default()));
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let factory = Arc::new(MockFactory {
-        state,
-        attempts,
-        fail_first: false,
-        always_fail: true,
-    });
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-reconnect_ms = 1
-"#,
-        ),
-        factory,
-    )
-    .expect("construct mqtt driver");
-
-    let mut inputs = [0u8; 1];
-    let err = driver
-        .read_inputs(&mut inputs)
-        .expect_err("MQTT connect failure must be observable");
-    assert!(
-        err.to_string().contains("connect"),
-        "expected connect error, got {err}"
-    );
+    broker.close_connection();
+    eventually("the lost session in the detail", || detail() == lost);
 }

@@ -13,7 +13,8 @@ project/
   io.toml
   simulation.toml
   hmi/
-  program.stbc
+  program.tpi
+  deployment-record.bin
 ```
 
 ## 2. File Ownership
@@ -26,7 +27,8 @@ project/
 | `io.toml` | driver selection and safe-state I/O behavior |
 | `simulation.toml` | deterministic virtual coupling and fault injection |
 | `hmi/` | HMI pages and screen layout, specified in `docs/specs/39-hmi-builder.md` |
-| `program.stbc` | compiled bytecode artifact |
+| `program.tpi` | the program image this computer runs, written by `trust-runtime build` (specification 44 §4.1, NX-15) |
+| `deployment-record.bin` | the program image's deployment record (specification 34 §5.1.1) |
 
 ## 3. Separation of Concerns
 
@@ -52,13 +54,13 @@ admission.
 ## 4. Lifecycle
 
 1. Author/edit source files in `src/`
-2. Build to `program.stbc`
+2. Build to `program.tpi` with `trust-runtime build`
 3. Validate configuration and bundle contents
 4. Run or reload the runtime
 5. Drive HMI, tests, harness scenarios, or agent workflows against the same project
 
 ## 5. Related Specs
 
-- `12-bytecode.md` for `program.stbc`
+- `44-native-execution.md` for `program.tpi`
 - `20-agent-api-v1.md` for runtime agent orchestration
 - `21-harness-protocol.md` for deterministic harness execution

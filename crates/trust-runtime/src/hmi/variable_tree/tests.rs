@@ -1,7 +1,7 @@
 //! Specification 39, §7.1–7.2: the variable tree of a compiled program.
 
 use super::*;
-use crate::harness::TestHarness;
+use crate::harness::{CompileSession, Declarations, SourceFile};
 use crate::hmi::member_paths::{resolve_member, MemberPath};
 
 const PROGRAM: &str = r#"
@@ -42,12 +42,18 @@ END_VAR
 END_PROGRAM
 "#;
 
-fn tree_of(sources: &[&str]) -> (TestHarness, Vec<VariableNode>) {
-    let mut harness = TestHarness::from_sources(sources).expect("the program compiles");
-    harness.cycle();
-    let metadata = harness.runtime().metadata_snapshot();
-    let tree = variable_tree(&metadata, harness.runtime().storage()).expect("tree");
-    (harness, tree)
+/// The tree of the declarations of `sources`, as the editor builds it.
+fn tree_of(sources: &[&str]) -> (Declarations, Vec<VariableNode>) {
+    let declarations = CompileSession::from_sources(
+        sources
+            .iter()
+            .map(|source| SourceFile::new(*source))
+            .collect(),
+    )
+    .declarations()
+    .expect("the program compiles");
+    let tree = variable_tree(declarations.metadata(), declarations.storage()).expect("tree");
+    (declarations, tree)
 }
 
 fn child<'a>(node: &'a VariableNode, name: &str) -> &'a VariableNode {
@@ -66,7 +72,7 @@ fn names(node: &VariableNode) -> Vec<&str> {
 
 #[test]
 fn program_instances_are_roots_with_members_in_declaration_order() {
-    let (_harness, tree) = tree_of(&[PROGRAM]);
+    let (_declarations, tree) = tree_of(&[PROGRAM]);
     let main = tree.iter().find(|node| node.name == "Main").expect("Main");
     assert_eq!(main.kind, VariableKind::Program);
     assert_eq!(main.path, "Main");
@@ -85,7 +91,7 @@ fn program_instances_are_roots_with_members_in_declaration_order() {
 
 #[test]
 fn function_block_members_carry_their_declaration() {
-    let (_harness, tree) = tree_of(&[PROGRAM]);
+    let (_declarations, tree) = tree_of(&[PROGRAM]);
     let p101 = child(&tree[0], "P101");
     assert_eq!(
         (p101.kind, p101.type_name.as_str()),
@@ -102,7 +108,7 @@ fn function_block_members_carry_their_declaration() {
 
 #[test]
 fn internal_runtime_storage_is_not_listed() {
-    let (_harness, tree) = tree_of(&[PROGRAM]);
+    let (_declarations, tree) = tree_of(&[PROGRAM]);
     let p101 = child(&tree[0], "P101");
     assert_eq!(
         names(p101),
@@ -112,7 +118,7 @@ fn internal_runtime_storage_is_not_listed() {
 
 #[test]
 fn structures_list_their_fields() {
-    let (_harness, tree) = tree_of(&[PROGRAM]);
+    let (_declarations, tree) = tree_of(&[PROGRAM]);
     let level = child(&tree[0], "Level");
     assert_eq!(
         (level.kind, level.type_name.as_str()),
@@ -125,7 +131,7 @@ fn structures_list_their_fields() {
 
 #[test]
 fn arrays_appear_once_with_bounds_and_an_element_template() {
-    let (_harness, tree) = tree_of(&[PROGRAM]);
+    let (_declarations, tree) = tree_of(&[PROGRAM]);
     let pumps = child(&tree[0], "Pumps");
     assert_eq!(pumps.kind, VariableKind::Array);
     assert_eq!(pumps.type_name, "ARRAY[1..3] OF Pump");
@@ -157,7 +163,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let (harness, tree) = tree_of(&[PROGRAM, control, loop_program]);
+    let (declarations, tree) = tree_of(&[PROGRAM, control, loop_program]);
     let mut paths = Vec::new();
     fn collect(node: &VariableNode, paths: &mut Vec<String>) {
         paths.push(node.path.clone());
@@ -177,7 +183,7 @@ END_PROGRAM
     for path in &paths {
         let parsed = MemberPath::parse(path).unwrap_or_else(|error| panic!("{path}: {error}"));
         assert!(
-            resolve_member(&parsed, harness.runtime().storage()).is_some(),
+            resolve_member(&parsed, declarations.storage()).is_some(),
             "{path} does not resolve"
         );
     }
@@ -185,7 +191,7 @@ END_PROGRAM
 
 #[test]
 fn the_tree_serializes_with_the_documented_field_names() {
-    let (_harness, tree) = tree_of(&[PROGRAM]);
+    let (_declarations, tree) = tree_of(&[PROGRAM]);
     let json = serde_json::to_value(child(&tree[0], "Pumps")).expect("json");
     assert_eq!(json["type"], "ARRAY[1..3] OF Pump");
     assert_eq!(json["kind"], "array");
@@ -251,7 +257,7 @@ fn every_node(tree: &[VariableNode]) -> Vec<&VariableNode> {
 #[test]
 fn each_variable_says_which_kinds_of_value_it_holds() {
     use crate::hmi::catalogue::ValueKind as Kind;
-    let (_harness, tree) = tree_of(&[PROGRAM]);
+    let (_declarations, tree) = tree_of(&[PROGRAM]);
     let main = root(&tree, "Main");
     let p101 = child(main, "P101");
     assert_eq!(child(main, "Count").kinds, [Kind::Number, Kind::Value]);
@@ -267,7 +273,7 @@ fn each_variable_says_which_kinds_of_value_it_holds() {
 
 #[test]
 fn each_variable_says_whether_a_binding_may_write_it() {
-    let (_harness, tree) = tree_of(&[WRITES]);
+    let (_declarations, tree) = tree_of(&[WRITES]);
     let plant = root(&tree, "Plant");
     let valve = child(plant, "V1");
     let writable = |node: &VariableNode| (node.path.clone(), node.writable);
@@ -319,8 +325,8 @@ fn a_write_target_is_offered_exactly_when_the_binding_checks_accept_it() {
     use crate::hmi::catalogue::{Catalogue, ValueKind};
     use crate::hmi::page_files::parse_page;
     for sources in [&[PROGRAM][..], &[WRITES][..]] {
-        let (harness, tree) = tree_of(sources);
-        let metadata = harness.runtime().metadata_snapshot();
+        let (declarations, tree) = tree_of(sources);
+        let metadata = declarations.metadata().clone();
         let mut compared = 0;
         for node in every_node(&tree) {
             let component = if node.kinds.contains(&ValueKind::Number) {
@@ -339,7 +345,7 @@ fn a_write_target_is_offered_exactly_when_the_binding_checks_accept_it() {
                 &page,
                 Catalogue::shipped(),
                 &metadata,
-                harness.runtime().storage(),
+                declarations.storage(),
             );
             assert_eq!(
                 node.writable,
@@ -359,7 +365,7 @@ fn a_write_target_is_offered_exactly_when_the_binding_checks_accept_it() {
 #[test]
 fn a_global_constant_cannot_be_written() {
     let source = "VAR_GLOBAL CONSTANT\n    Limit : REAL := 5.0;\nEND_VAR\nVAR_GLOBAL\n    Speed : REAL;\nEND_VAR\n\nPROGRAM Main\nVAR\n    X : REAL;\nEND_VAR\n    X := Limit + Speed;\nEND_PROGRAM\n";
-    let (_harness, tree) = tree_of(&[source]);
+    let (_declarations, tree) = tree_of(&[source]);
     let limit = root(&tree, "Limit");
     assert_eq!(
         (limit.writable, limit.write_block.as_deref()),

@@ -1,3 +1,6 @@
+//! The benchmarks' tests. The init and project benchmarks build the project for this computer:
+//! the tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use super::*;
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -65,9 +68,6 @@ version = 1
 [resource]
 name = "BenchRes"
 cycle_interval_ms = 10
-
-[runtime]
-execution_backend = "vm"
 
 [runtime.control]
 endpoint = "unix:///tmp/trust-runtime.sock"
@@ -169,22 +169,6 @@ END_PROGRAM
     .expect("write source");
 }
 
-fn write_project_bench_sizeof_fixture(project: &std::path::Path) {
-    write_project_bench_fixture(project);
-    fs::write(
-        project.join("src/main.st"),
-        r#"VAR_GLOBAL
-    g_size : DINT;
-END_VAR
-
-PROGRAM Main
-g_size := SIZEOF(INT);
-END_PROGRAM
-"#,
-    )
-    .expect("write source");
-}
-
 #[test]
 fn init_bench_json_output_contains_startup_latency_fields() {
     let project =
@@ -202,6 +186,12 @@ fn init_bench_json_output_contains_startup_latency_fields() {
     assert_eq!(
         value.get("benchmark").and_then(serde_json::Value::as_str),
         Some("init")
+    );
+    assert_eq!(
+        value
+            .pointer("/report/execution_backend")
+            .and_then(serde_json::Value::as_str),
+        Some("native")
     );
     assert_eq!(
         value
@@ -249,7 +239,6 @@ fn project_bench_json_output_contains_budget_and_watched_globals() {
         samples: 4,
         warmup_cycles: 1,
         watch: vec!["g_cycles".into(), "g_missing".into()],
-        tier1: false,
         output: BenchOutputFormat::Json,
     })
     .expect("run project benchmark");
@@ -269,8 +258,9 @@ fn project_bench_json_output_contains_budget_and_watched_globals() {
         value
             .pointer("/report/execution_backend")
             .and_then(serde_json::Value::as_str),
-        Some("vm")
+        Some("native")
     );
+    // One warmup cycle and four measured cycles run the program five times, each adding one.
     assert_eq!(
         value
             .pointer("/report/watched_globals/g_cycles")
@@ -287,137 +277,9 @@ fn project_bench_json_output_contains_budget_and_watched_globals() {
         .and_then(serde_json::Value::as_u64)
         .is_some());
     assert!(value
-        .pointer("/report/vm_profile/register_programs_executed")
+        .pointer("/report/native_image/bytes")
         .and_then(serde_json::Value::as_u64)
-        .is_some());
-    assert!(value
-        .pointer("/report/vm_profile/hot_blocks")
-        .and_then(serde_json::Value::as_array)
-        .is_some());
-    assert_eq!(
-        value
-            .pointer("/report/vm_profile/hot_blocks/0/pou_name")
-            .and_then(serde_json::Value::as_str),
-        Some("Main")
-    );
-    assert!(value
-        .pointer("/report/vm_profile/register_lowering_cache/hit_ratio")
-        .and_then(serde_json::Value::as_f64)
-        .is_some());
-    assert!(value
-        .pointer("/report/vm_profile/ref_ops/load_ref")
-        .and_then(serde_json::Value::as_u64)
-        .is_some());
-    assert!(value
-        .pointer("/report/vm_profile/call_ops/frame_pushes")
-        .and_then(serde_json::Value::as_u64)
-        .is_some());
-    assert!(value
-        .pointer("/report/vm_profile/value_ops/read_value_clones")
-        .and_then(serde_json::Value::as_u64)
-        .is_some());
-    assert!(value
-        .pointer("/report/vm_profile/tier1_specialized_executor")
-        .is_none());
-
-    let _ = fs::remove_dir_all(project);
-}
-
-#[test]
-fn project_bench_table_output_contains_tier1_executor_stats_when_enabled() {
-    let project = unique_temp_dir("project-bench-table");
-    write_project_bench_fixture(&project);
-
-    let (report, format) = execute_bench(BenchAction::Project {
-        project: project.clone(),
-        samples: 4,
-        warmup_cycles: 1,
-        watch: vec!["g_cycles".into()],
-        tier1: true,
-        output: BenchOutputFormat::Table,
-    })
-    .expect("run project benchmark");
-    let rendered = render_bench_output(&report, format).expect("render table");
-    assert!(
-        rendered.contains("tier1-specialized-executor:"),
-        "{rendered}"
-    );
-
-    let _ = fs::remove_dir_all(project);
-}
-
-#[test]
-fn project_bench_json_output_omits_tier1_executor_stats_by_default() {
-    let project = unique_temp_dir("project-bench-no-tier1");
-    write_project_bench_fixture(&project);
-
-    let (report, format) = execute_bench(BenchAction::Project {
-        project: project.clone(),
-        samples: 4,
-        warmup_cycles: 1,
-        watch: vec!["g_cycles".into()],
-        tier1: false,
-        output: BenchOutputFormat::Json,
-    })
-    .expect("run project benchmark");
-    let rendered = render_bench_output(&report, format).expect("render json");
-    let value: serde_json::Value = serde_json::from_str(&rendered).expect("parse bench json");
-    assert!(value
-        .pointer("/report/vm_profile/tier1_specialized_executor")
-        .is_none());
-
-    let _ = fs::remove_dir_all(project);
-}
-
-#[test]
-fn project_bench_retains_preparation_failure_reasons_without_run_compilation() {
-    let project = unique_temp_dir("project-bench-tier1-compile-failure");
-    write_project_bench_sizeof_fixture(&project);
-
-    let (report, format) = execute_bench(BenchAction::Project {
-        project: project.clone(),
-        samples: 80,
-        warmup_cycles: 1,
-        watch: vec!["g_size".into()],
-        tier1: true,
-        output: BenchOutputFormat::Json,
-    })
-    .expect("run project benchmark");
-    let rendered = render_bench_output(&report.clone(), format).expect("render json");
-    let value: serde_json::Value = serde_json::from_str(&rendered).expect("parse bench json");
-    assert_eq!(
-        value
-            .pointer(
-                "/report/vm_profile/register_preparation/specialization_failure_reasons/0/reason"
-            )
-            .and_then(serde_json::Value::as_str),
-        Some("unsupported_instr:size_of_type")
-    );
-
-    for counter in ["compile_attempts", "compile_successes", "compile_failures"] {
-        let path = format!("/report/vm_profile/tier1_specialized_executor/{counter}");
-        assert_eq!(
-            value.pointer(&path).and_then(serde_json::Value::as_u64),
-            Some(0),
-            "RUN must not compile: {counter}"
-        );
-    }
-    assert_eq!(
-        value
-            .pointer("/report/watched_globals/g_size")
-            .and_then(serde_json::Value::as_u64),
-        Some(2)
-    );
-    let rendered_table =
-        render_bench_output(&report, BenchOutputFormat::Table).expect("render table");
-    assert!(
-        rendered_table.contains("preparation-failure-reasons:"),
-        "{rendered_table}"
-    );
-    assert!(
-        rendered_table.contains("unsupported_instr:size_of_type"),
-        "{rendered_table}"
-    );
+        .is_some_and(|bytes| bytes > 0));
 
     let _ = fs::remove_dir_all(project);
 }
@@ -540,7 +402,7 @@ fn dispatch_bench_reports_requested_payload_size_without_a_hidden_cap() {
 #[test]
 fn project_workload_rejects_missing_project_folder() {
     let missing = unique_temp_dir("missing-project");
-    let err = ProjectBenchWorkload::normalize(missing, 10, 0, Vec::new(), false)
+    let err = ProjectBenchWorkload::normalize(missing, 10, 0, Vec::new())
         .expect_err("missing project should fail");
     assert!(err.to_string().contains("--project"));
 }
@@ -549,7 +411,7 @@ fn project_workload_rejects_missing_project_folder() {
 fn project_workload_rejects_zero_samples() {
     let project = unique_temp_dir("zero-samples");
     fs::create_dir_all(&project).expect("create project dir");
-    let err = ProjectBenchWorkload::normalize(project.clone(), 0, 0, Vec::new(), false)
+    let err = ProjectBenchWorkload::normalize(project.clone(), 0, 0, Vec::new())
         .expect_err("zero samples should fail");
     assert!(err.to_string().contains("--samples"));
     let _ = fs::remove_dir_all(project);

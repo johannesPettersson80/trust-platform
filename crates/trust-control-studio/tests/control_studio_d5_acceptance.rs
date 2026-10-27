@@ -47,7 +47,8 @@ use common::engine::{
     RUNTIME_ID,
 };
 use common::{
-    copy_dir, inspect_until_available, run_trust_runtime, trust_runtime, wait_for_status, RemoveDir,
+    control_socket, copy_dir, inspect_until_available, run_trust_runtime, trust_runtime,
+    wait_for_status, RemoveDir,
 };
 
 /// The reference project, a copy of which the journey runs on.
@@ -550,12 +551,7 @@ fn room_heating_tic101_is_identified_tuned_validated_applied_restored_and_kept()
     let _remove = RemoveDir(folder.clone());
     let project = folder.join("project");
     copy_dir(Path::new(ROOM_HEATING), &project);
-    let socket = project.join(".control.sock");
-    assert!(
-        socket.as_os_str().len() <= 100,
-        "the socket path {} is too long; use a shorter TMPDIR",
-        socket.display()
-    );
+    let socket = control_socket(&project);
     let web_port = reserve_port();
     prepare_attached_project(&project, &socket, web_port);
     run_trust_runtime(&["build", "--project", &project.display().to_string()]);

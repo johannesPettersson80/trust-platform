@@ -90,16 +90,30 @@ async function createPagesFromProgram(args: CreatePagesArgs): Promise<CreatePage
   return { page: page.toString(), count };
 }
 
+/** The names of the project's page files, `hmi/pages/<name>.toml`. */
+async function pageNames(folder: vscode.Uri): Promise<string[]> {
+  try {
+    const entries = await vscode.workspace.fs.readDirectory(vscode.Uri.joinPath(folder, "hmi", "pages"));
+    return entries.filter(([file]) => file.endsWith(".toml")).map(([file]) => file.slice(0, -".toml".length));
+  } catch {
+    return [];
+  }
+}
+
 /** A new page, never over an existing one, opened in the HMI Builder; a screen layout when the
- * project has none (§4.10). */
+ * project has none (§4.10). The language server names the page and gives the screen layout. */
 async function writeNewPage(folder: vscode.Uri, name: string, text: string): Promise<vscode.Uri> {
-  const pages = vscode.Uri.joinPath(folder, "hmi", "pages");
-  let page = vscode.Uri.joinPath(pages, `${name}.toml`);
-  for (let number = 2; await exists(page); number += 1) page = vscode.Uri.joinPath(pages, `${name}-${number}.toml`);
   const screen = vscode.Uri.joinPath(folder, "hmi", "screen.toml");
+  const placed = await vscode.commands.executeCommand<{ ok?: boolean; error?: string; file?: string; screen?: string }>(
+    "trust-lsp.hmiChecks",
+    { action: "newPage", name, pages: await pageNames(folder), hasScreen: await exists(screen) },
+  );
+  if (placed?.ok !== true || placed.file === undefined)
+    throw new Error(placed?.error ?? "The truST language server could not place the HMI page.");
+  const page = vscode.Uri.joinPath(folder, placed.file);
   const edit = new vscode.WorkspaceEdit();
-  if (!(await exists(screen))) {
-    edit.createFile(screen, { overwrite: false, ignoreIfExists: false, contents: Buffer.from("format = 1\n", "utf8") });
+  if (placed.screen !== undefined) {
+    edit.createFile(screen, { overwrite: false, ignoreIfExists: false, contents: Buffer.from(placed.screen, "utf8") });
   }
   edit.createFile(page, { overwrite: false, ignoreIfExists: false, contents: Buffer.from(text, "utf8") });
   if (!(await vscode.workspace.applyEdit(edit))) throw new Error("VS Code could not create the HMI page.");

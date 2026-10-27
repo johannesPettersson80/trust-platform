@@ -18,6 +18,7 @@ pub(crate) mod method_exchange;
 pub mod my_symbols;
 pub mod page_files;
 pub mod presentation;
+pub(crate) mod program_instances;
 pub mod remote_operations;
 pub mod remote_values;
 pub mod setting_values;

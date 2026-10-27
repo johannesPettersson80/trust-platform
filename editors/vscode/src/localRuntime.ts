@@ -1,34 +1,25 @@
 import { execFile } from "child_process";
-import * as fs from "fs";
-import * as path from "path";
 import * as vscode from "vscode";
 
 import { getBinaryPath } from "./binary";
+import type { ManagedLifecycleResult, ManagedRuntime } from "./localRuntimeModel";
+import { projectRequest } from "./projectRequest";
+import { resolveProjectControlEndpoint } from "./projectControlEndpoint";
 import { setControlAuthToken } from "./runtimeAuth";
-import {
-  formatManagedRuntimeLogs,
-  isManagedLifecycleSuccess,
-  parseRuntimeControlAuthToken,
-  toManagedRuntimes,
-  type FleetListResponse,
-  type FleetRuntimeStatusResponse,
-  type ManagedLifecycleResult,
-  type ManagedRuntime,
-} from "./localRuntimeModel";
 
 // §0.6.1 / Phase 9 — managed local runtimes: fleet.toml runtime projects on THIS computer whose process
-// the extension owns. Shells `trust-runtime fleet …` (offline; no running runtime required to list/stop).
-// Every call returns empty/false on ANY failure (no fleet.toml, old binary, bad JSON) so the UI degrades
-// honestly instead of breaking.
+// the extension owns. The language server lists them with their states, says whether a Start or a Stop
+// reached its state and makes their logs readable (`trust-lsp.runTargets`, actions `managed`,
+// `managedOutcome` and `managedLogs`, specification 25 §5.1 and §6.5); Start, Stop and the logs run
+// `trust-runtime fleet …`. Every call returns empty/false on ANY failure (no fleet.toml, old binary, no
+// answer) so the UI degrades honestly instead of breaking.
+
+const RUN_TARGETS_COMMAND = "trust-lsp.runTargets";
 
 const changeEmitter = new vscode.EventEmitter<void>();
 export const onDidChangeManagedRuntimes = changeEmitter.event;
 
 let logChannel: vscode.OutputChannel | undefined;
-const runtimeAuthTokenCache = new Map<
-  string,
-  { readonly mtimeMs: number; readonly token?: string }
->();
 const importedRuntimeAuthTokens = new Map<string, string>();
 
 export function registerLocalRuntime(context: vscode.ExtensionContext): void {
@@ -89,36 +80,15 @@ export async function listManagedRuntimes(
   if (!root) {
     return [];
   }
-  const bin = binary(context);
-  const list = await runJson<FleetListResponse>(
-    bin,
-    ["fleet", "list", "--fleet-root", root, "--json"],
-    root
-  );
-  if (!list?.runtimes?.length) {
+  const answer = await projectRequest<{ runtimes: ManagedRuntime[] }>(RUN_TARGETS_COMMAND, {
+    action: "managed",
+    fleetRoot: root,
+  });
+  if (!answer.ok) {
     return [];
   }
-  const statuses = new Map<string, FleetRuntimeStatusResponse>();
-  await Promise.all(
-    list.runtimes.map(async (entry) => {
-      if (!entry?.name) {
-        return;
-      }
-      const status = await runJson<FleetRuntimeStatusResponse>(
-        bin,
-        ["fleet", "runtime", "status", "--fleet-root", root, "--name", entry.name, "--json"],
-        root
-      );
-      if (status) {
-        statuses.set(entry.name, status);
-      }
-    })
-  );
-  const managed = toManagedRuntimes(list, statuses).map((runtime) => ({
-    ...runtime,
-    projectPath: resolveManagedProjectPath(root, runtime.projectPath),
-  }));
-  await syncManagedRuntimeAuthTokens(managed);
+  const managed = answer.runtimes.map(withoutNulls);
+  await syncManagedRuntimeAuthTokens(binary(context), managed);
   return managed;
 }
 
@@ -131,36 +101,27 @@ async function lifecycle(
   if (!root) {
     return { ok: false, message: "No fleet runtime project found." };
   }
-  const result = await runJson<FleetRuntimeStatusResponse>(
+  const response = await runJson<unknown>(
     binary(context),
     ["fleet", "runtime", action, "--fleet-root", root, "--name", name, "--json"],
     root
   );
   changeEmitter.fire();
-  if (!result) {
-    return {
-      ok: false,
-      message: "The runtime tools didn't respond.",
-    };
+  const answer = await projectRequest<{ success: boolean } & Omit<ManagedLifecycleResult, "ok">>(RUN_TARGETS_COMMAND, {
+    action: "managedOutcome",
+    lifecycle: action,
+    name,
+    fleetRoot: root,
+    response: response ?? null,
+  });
+  if (!answer.ok) {
+    return { ok: false, message: answer.error };
   }
-  // HONEST: success only when the backend reports the REACHED state ("running"/"stopped"), not the
-  // transient "starting"/"stopping" (process up but control not yet reachable / stop not complete).
-  const controlEndpoint = result.control_endpoint;
-  const projectPath = resolveManagedProjectPath(root, result.path);
-  if (controlEndpoint && projectPath) {
-    const token = readManagedRuntimeAuthToken(projectPath);
-    if (token && importedRuntimeAuthTokens.get(controlEndpoint) !== token) {
-      await setControlAuthToken(controlEndpoint, token);
-      importedRuntimeAuthTokens.set(controlEndpoint, token);
-    }
+  const { success, ...outcome } = withoutNulls(answer);
+  if (outcome.controlEndpoint && outcome.projectPath) {
+    await importManagedRuntimeAuthToken(binary(context), outcome.projectPath);
   }
-  return {
-    ok: isManagedLifecycleSuccess(action, result.status),
-    status: result.status,
-    message: result.message,
-    controlEndpoint,
-    projectPath,
-  };
+  return { ...outcome, ok: success };
 }
 
 export function startManagedRuntime(
@@ -197,25 +158,35 @@ export async function showManagedRuntimeLogs(
     ["fleet", "runtime", "logs", "--fleet-root", root, "--name", name, "--lines", "200"],
     { cwd: root, timeout: 15_000, maxBuffer: 16 * 1024 * 1024 },
     (_error, stdout, stderr) => {
-      logChannel?.append(formatManagedRuntimeLogs(stdout, stderr, name));
+      void projectRequest<{ text: string }>(RUN_TARGETS_COMMAND, { action: "managedLogs", name, stdout, stderr }).then(
+        (answer) => logChannel?.append(answer.ok ? answer.text : `${answer.error}\n`)
+      );
     }
   );
 }
 
-function resolveManagedProjectPath(
-  fleetRoot: string,
-  runtimePath: string | undefined
-): string | undefined {
-  const normalized = (runtimePath ?? "").trim();
-  if (!normalized) {
-    return undefined;
+// The token comes from `trust-runtime ctl --project <dir> endpoint --json` (spec 11 §6.8.0a), which
+// reads the project's endpoint file and runtime.toml; the extension never parses them. The token is
+// stored for the endpoint that the runtime reports, and imported again only when it changes.
+async function importManagedRuntimeAuthToken(
+  bin: string,
+  projectPath: string
+): Promise<void> {
+  const resolved = await resolveProjectControlEndpoint(bin, projectPath);
+  if (!resolved.ok) {
+    return;
   }
-  return path.isAbsolute(normalized)
-    ? normalized
-    : path.join(fleetRoot, normalized);
+  const endpoint = resolved.value.endpoint;
+  const token = resolved.value.authToken;
+  if (!token || importedRuntimeAuthTokens.get(endpoint) === token) {
+    return;
+  }
+  await setControlAuthToken(endpoint, token);
+  importedRuntimeAuthTokens.set(endpoint, token);
 }
 
 async function syncManagedRuntimeAuthTokens(
+  bin: string,
   runtimes: ReadonlyArray<ManagedRuntime>
 ): Promise<void> {
   await Promise.all(
@@ -223,33 +194,12 @@ async function syncManagedRuntimeAuthTokens(
       if (!runtime.controlEndpoint || !runtime.projectPath) {
         return;
       }
-      const token = readManagedRuntimeAuthToken(runtime.projectPath);
-      if (!token) {
-        return;
-      }
-      if (importedRuntimeAuthTokens.get(runtime.controlEndpoint) === token) {
-        return;
-      }
-      await setControlAuthToken(runtime.controlEndpoint, token);
-      importedRuntimeAuthTokens.set(runtime.controlEndpoint, token);
+      await importManagedRuntimeAuthToken(bin, runtime.projectPath);
     })
   );
 }
 
-function readManagedRuntimeAuthToken(projectPath: string): string | undefined {
-  const runtimeToml = path.join(projectPath, "runtime.toml");
-  try {
-    const stat = fs.statSync(runtimeToml);
-    const cached = runtimeAuthTokenCache.get(projectPath);
-    if (cached && cached.mtimeMs === stat.mtimeMs) {
-      return cached.token;
-    }
-    const text = fs.readFileSync(runtimeToml, "utf8");
-    const token = parseRuntimeControlAuthToken(text);
-    runtimeAuthTokenCache.set(projectPath, { mtimeMs: stat.mtimeMs, token });
-    return token;
-  } catch {
-    runtimeAuthTokenCache.delete(projectPath);
-    return undefined;
-  }
+/** `value` without the members the language server sent as `null`, which the extension's types leave out. */
+function withoutNulls<T extends object>(value: T): T {
+  return Object.fromEntries(Object.entries(value).filter(([, member]) => member !== null)) as T;
 }

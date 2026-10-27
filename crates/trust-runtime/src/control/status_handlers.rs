@@ -1,12 +1,21 @@
-use std::sync::atomic::Ordering;
+//! The host's status surface. The `status`, `health`, `tasks.stats`, `events.tail` and `faults`
+//! operations are shared runtime code (spec 34 ARCH-11, `trust_runtime_services::status`); this
+//! module projects the host-only blocks they report (the Linux realtime posture and the `OpenOT`
+//! persistence state), adds to `status` the runtime facts that Control Studio reads
+//! (control-studio-runtime-protocol E1.3) and whether the runtime published its endpoint file
+//! (specification 11 §6.8.0a), and answers the historian operations. Without a realtime
+//! profile or an `OpenOT` persistence status the host reports the shared blocks that every runtime
+//! reports then.
 
-use crate::io::{IoDriverHealth, IoDriverStatus};
+use crate::linux_rt::{LinuxRtConfig, LinuxRtRuntimeStatus};
+use crate::runtime::program_access::ProgramRead;
 use crate::simulation::speed::speed_facts;
 use serde_json::{json, Value};
-
-use super::types::{
-    debug_stop_reason_label, runtime_event_to_json, HistorianAlertsParams, HistorianQueryParams,
+use trust_runtime_services::status::{
+    absent_realtime_profile, disabled_openot_persistence, invalid_params, validate_object_fields,
 };
+
+use super::types::{HistorianAlertsParams, HistorianQueryParams};
 use super::{ControlResponse, ControlState};
 
 #[cfg(test)]
@@ -21,179 +30,173 @@ mod event_contract_tests;
 #[path = "status_handlers/historian_contract_tests.rs"]
 mod historian_contract_tests;
 
+// The in-crate status contract tests call the shared handlers through these wrappers; `status`
+// carries the runtime facts that the host adds, as the control connection answers it.
+#[cfg(test)]
 pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
-    let status = state.resource.state();
-    let error = state.resource.last_error().map(|err| err.to_string());
-    // A debugger hold keeps the scan paused even while the resource reports
-    // running; faults and clean stops keep their own state.
-    let debug_hold = state.debug.hold_reason();
-    let faulted_or_stopped = matches!(
-        status,
-        crate::scheduler::ResourceState::Faulted | crate::scheduler::ResourceState::Stopped
-    );
-    let state_label = match debug_hold {
-        Some(_) if !faulted_or_stopped => "paused".to_string(),
-        _ => format!("{status:?}").to_ascii_lowercase(),
-    };
-    let debug_hold_label = debug_hold.map(debug_stop_reason_label);
-    let Ok(settings) = state.settings.lock().map(|guard| guard.clone()) else {
-        return unavailable(id, "runtime settings");
-    };
-    let simulation = settings.simulation.clone();
-    let Ok(io_health) = state
-        .io_health
-        .lock()
-        .map(|guard| guard.iter().map(io_health_to_json).collect::<Vec<_>>())
-    else {
-        return unavailable(id, "I/O health");
-    };
-    let Ok(metrics) = state.metrics.lock().map(|guard| guard.snapshot()) else {
-        return unavailable(id, "runtime metrics");
-    };
-    let Ok(realtime) = state.realtime_status.lock().map(|guard| guard.clone()) else {
-        return unavailable(id, "realtime status");
-    };
-    let Ok(control_mode) = state
-        .control_mode
-        .lock()
-        .map(|mode| format!("{:?}", *mode).to_ascii_lowercase())
-    else {
-        return unavailable(id, "control mode");
-    };
-    let Ok(tasks) = state.metadata.lock().map(|metadata| {
-        metadata
-            .tasks()
-            .iter()
-            .map(|task| json!({"name": task.name.as_str(), "interval_ms": task.interval.as_millis()}))
-            .collect::<Vec<_>>()
-    }) else {
-        return unavailable(id, "runtime metadata");
-    };
-    // The same program revision the family results report (specification 35, A2.3).
-    let Ok(program_revision) = state
-        .metadata
-        .lock()
-        .map(|metadata| state.debug.program_revision(&metadata))
-    else {
-        return unavailable(id, "runtime metadata");
-    };
-    // Runtime settings are the single source of truth for selected backend mode/source.
-    let execution_backend = settings.execution_backend.as_str();
-    let execution_backend_source = settings.execution_backend_source.as_str();
-    // The target kind and the speed words come from one function, so every surface names the speed alike (specification 35, B9.2).
-    let only_io = state.debug.simulation_only_io().unwrap_or(false);
-    let speed = speed_facts(
-        simulation.enabled,
-        only_io,
-        simulation.time_scale,
-        metrics.simulation_achieved_time_scale,
-    );
-    let openot_persistence = match openot_persistence_status_json(state) {
-        Ok(status) => status,
-        Err(surface) => return unavailable(id, surface),
-    };
-    ControlResponse::ok(
-        id,
-        json!({
-            "state": state_label,
-            "fault": error,
-            "resource": state.resource_name.as_str(),
-            "plc_name": state.resource_name.as_str(),
-            "uptime_ms": metrics.uptime_ms,
-            "debug_enabled": state.debug_enabled.load(Ordering::Relaxed),
-            "control_mode": control_mode,
-            "debug_hold": debug_hold_label.map(|label| json!({"reason": label})),
-            "execution_backend": execution_backend,
-            "execution_backend_source": execution_backend_source,
-            "simulation_mode": simulation.mode_label.as_str(),
-            "simulation_enabled": simulation.enabled,
-            "simulation_only_io": only_io,
-            "simulated": speed.simulated,
-            "simulation_time_scale": simulation.time_scale,
-            "simulation_achieved_time_scale": metrics.simulation_achieved_time_scale,
-            "simulation_speed_text": speed.speed_text(),
-            "simulation_speed_behind": speed.speed_behind(),
-            "simulation_warning": simulation.warning.as_str(),
-            "cycle_interval_ms": settings.cycle_interval.as_millis(),
-            "tasks": tasks,
-            "session_epoch": state.debug.runtime_epoch(),
-            "program_revision": program_revision,
-            "openot_persistence": openot_persistence,
-            "metrics": {
-                "cycle_ms": {
-                    "min": metrics.cycle.min_ms,
-                    "avg": metrics.cycle.avg_ms,
-                    "max": metrics.cycle.max_ms,
-                    "last": metrics.cycle.last_ms,
-                    "p50": metrics.cycle_percentiles.p50_ms,
-                    "p95": metrics.cycle_percentiles.p95_ms,
-                    "p99": metrics.cycle_percentiles.p99_ms,
-                    "window_samples": metrics.cycle_percentiles.window_samples,
-                },
-                "overruns": metrics.overruns,
-                "faults": metrics.faults,
-                "profiling": {
-                    "enabled": metrics.profiling.enabled,
-                    "top": metrics
-                        .profiling
-                        .top_contributors
-                        .iter()
-                        .map(|entry| {
-                            json!({
-                                "key": entry.key.as_str(),
-                                "kind": entry.kind.as_str(),
-                                "name": entry.name.as_str(),
-                                "avg_cycle_ms": entry.avg_cycle_ms,
-                                "cycle_pct": entry.cycle_pct,
-                                "last_ms": entry.last_ms,
-                                "last_cycle_pct": entry.last_cycle_pct,
-                            })
-                        })
-                        .collect::<Vec<_>>(),
-                },
-                "execution_backend": execution_backend,
-            },
-            "realtime": {
-                "profile": realtime.requested.profile_name(),
-                "enabled": realtime.requested.enabled,
-                "strict": realtime.requested.strict,
-                "require_preempt_rt_kernel": realtime.requested.require_preempt_rt_kernel,
-                "requested": {
-                    "lock_memory": realtime.requested.lock_memory,
-                    "scheduler": realtime.requested.scheduler.as_str(),
-                    "priority": realtime.requested.priority,
-                    "cpu_affinity": realtime.requested.cpu_affinity,
-                },
-                "observed": {
-                    "kernel_realtime": realtime.kernel_realtime,
-                    "scheduler": realtime.active_scheduler.map(|value| value.as_str()),
-                    "priority": realtime.active_priority,
-                    "cpu_affinity": realtime.active_cpu_affinity,
-                    "memory_locked_kb": realtime.memory_locked_kb,
-                },
-                "runtime_applied": {
-                    "memory_lock": realtime.memory_lock_applied,
-                    "affinity": realtime.affinity_applied_by_runtime,
-                    "scheduler": realtime.scheduler_applied_by_runtime,
-                },
-                "active": realtime.active,
-                "warnings": realtime
-                    .warnings
-                    .iter()
-                    .map(|value| value.as_str())
-                    .collect::<Vec<_>>(),
-                "errors": realtime
-                    .errors
-                    .iter()
-                    .map(|value| value.as_str())
-                    .collect::<Vec<_>>(),
-            },
-            "io_drivers": io_health,
-        }),
-    )
+    let mut response = trust_runtime_services::status::status(id, state);
+    attach_runtime_facts(&mut response, state);
+    response
 }
 
-fn openot_persistence_status_json(state: &ControlState) -> Result<Value, &'static str> {
+#[cfg(test)]
+pub(super) fn handle_health(id: u64, state: &ControlState) -> ControlResponse {
+    trust_runtime_services::status::health(id, state)
+}
+
+#[cfg(test)]
+pub(super) fn handle_task_stats(id: u64, state: &ControlState) -> ControlResponse {
+    trust_runtime_services::status::task_stats(id, state)
+}
+
+#[cfg(test)]
+pub(super) fn handle_events_tail(
+    id: u64,
+    params: Option<serde_json::Value>,
+    state: &ControlState,
+) -> ControlResponse {
+    trust_runtime_services::status::events_tail(id, params.as_ref(), state)
+}
+
+#[cfg(test)]
+pub(super) fn handle_faults(
+    id: u64,
+    params: Option<serde_json::Value>,
+    state: &ControlState,
+) -> ControlResponse {
+    trust_runtime_services::status::faults(id, params.as_ref(), state)
+}
+
+/// Adds the runtime facts that Control Studio reads from `status` (control-studio-runtime-protocol
+/// E1.3; specification 35, A2.2 to A2.4 and B9.2) to a successful `status` reply: the session epoch
+/// and the program revision, whether the target is simulated and how fast its simulation runs, and
+/// the task and cycle intervals, and the state of the endpoint file (specification 11 §6.8.0a). A
+/// fact that cannot be read answers `<value> unavailable`, as `status` answers for the first value
+/// it cannot read.
+pub(super) fn attach_runtime_facts(response: &mut ControlResponse, state: &ControlState) {
+    if !response.ok {
+        return;
+    }
+    let facts = match runtime_facts(state) {
+        Ok(facts) => facts,
+        Err(value) => {
+            *response = response.replaced_by_error(format!("{value} unavailable"));
+            return;
+        }
+    };
+    if let Some(Value::Object(mut result)) = response.result_value() {
+        result.extend(facts);
+        response.result = Some(Value::Object(result));
+    }
+}
+
+/// The runtime facts of `status`, or the name of the value that cannot be read.
+fn runtime_facts(state: &ControlState) -> Result<serde_json::Map<String, Value>, &'static str> {
+    let (simulation_enabled, time_scale, cycle_interval, endpoint_file) = {
+        let settings = state.settings.lock().map_err(|_| "runtime settings")?;
+        (
+            settings.simulation.enabled,
+            settings.simulation.time_scale,
+            settings.cycle_interval,
+            settings.control_endpoint_file.clone(),
+        )
+    };
+    let achieved = state
+        .metrics
+        .lock()
+        .map_err(|_| "runtime metrics")?
+        .snapshot()
+        .simulation_achieved_time_scale;
+    // The program's tasks and its revision come from the image it runs, as the scan thread last
+    // published it (specification 44 §5.2, §5.5): none before a program was published.
+    let program = state.debug.published_program();
+    let tasks = program
+        .as_ref()
+        .map(|program| crate::debug::control_program_tasks(&program.program_image()))
+        .unwrap_or_default()
+        .iter()
+        .map(|task| json!({"name": task.name.as_str(), "interval_ms": task.interval.as_millis()}))
+        .collect::<Vec<_>>();
+    // The same program revision the family results report (specification 35, A2.3).
+    let program_revision = state.debug.program_revision();
+    // The target kind and the speed words come from one function, so every surface names the speed
+    // alike (specification 35, B9.2).
+    let only_io = state.debug.simulation_only_io().unwrap_or(false);
+    let speed = speed_facts(simulation_enabled, only_io, time_scale, achieved);
+    let facts = [
+        ("simulation_only_io", json!(only_io)),
+        ("simulated", json!(speed.simulated)),
+        ("simulation_achieved_time_scale", json!(achieved)),
+        ("simulation_speed_text", json!(speed.speed_text())),
+        ("simulation_speed_behind", json!(speed.speed_behind())),
+        ("cycle_interval_ms", json!(cycle_interval.as_millis())),
+        ("tasks", json!(tasks)),
+        ("session_epoch", json!(state.debug.runtime_epoch())),
+        ("program_revision", json!(program_revision)),
+        // A runtime that cannot write its endpoint file keeps running and says why here
+        // (specification 11 §6.8.0a).
+        (
+            "endpoint_file",
+            json!({"state": endpoint_file.as_str(), "error": endpoint_file.error()}),
+        ),
+    ];
+    Ok(facts
+        .into_iter()
+        .map(|(name, value)| (name.to_string(), value))
+        .collect())
+}
+
+/// The `realtime` block of `status`: the requested and observed Linux realtime posture. A host
+/// without a realtime profile has the default posture and reports the shared block of a runtime
+/// without one, which is the block `posture_json` builds for that posture.
+pub(super) fn realtime_status_json(realtime: &LinuxRtRuntimeStatus) -> Value {
+    if *realtime == LinuxRtRuntimeStatus::from_config(LinuxRtConfig::default()) {
+        return absent_realtime_profile();
+    }
+    posture_json(realtime)
+}
+
+/// The `realtime` block of a requested realtime posture and what was observed of it.
+fn posture_json(realtime: &LinuxRtRuntimeStatus) -> Value {
+    json!({
+        "profile": realtime.requested.profile_name(),
+        "enabled": realtime.requested.enabled,
+        "strict": realtime.requested.strict,
+        "require_preempt_rt_kernel": realtime.requested.require_preempt_rt_kernel,
+        "requested": {
+            "lock_memory": realtime.requested.lock_memory,
+            "scheduler": realtime.requested.scheduler.as_str(),
+            "priority": realtime.requested.priority,
+            "cpu_affinity": realtime.requested.cpu_affinity,
+        },
+        "observed": {
+            "kernel_realtime": realtime.kernel_realtime,
+            "scheduler": realtime.active_scheduler.map(|value| value.as_str()),
+            "priority": realtime.active_priority,
+            "cpu_affinity": realtime.active_cpu_affinity,
+            "memory_locked_kb": realtime.memory_locked_kb,
+        },
+        "runtime_applied": {
+            "memory_lock": realtime.memory_lock_applied,
+            "affinity": realtime.affinity_applied_by_runtime,
+            "scheduler": realtime.scheduler_applied_by_runtime,
+        },
+        "active": realtime.active,
+        "warnings": realtime
+            .warnings
+            .iter()
+            .map(|value| value.as_str())
+            .collect::<Vec<_>>(),
+        "errors": realtime
+            .errors
+            .iter()
+            .map(|value| value.as_str())
+            .collect::<Vec<_>>(),
+    })
+}
+
+/// The `openot_persistence` block of `status`, or the name of the status that cannot be read.
+pub(super) fn openot_persistence_status_json(state: &ControlState) -> Result<Value, &'static str> {
     Ok(match state.openot_persistence_status.as_ref() {
         Some(status) => {
             let status = status.lock().map_err(|_| "OpenOT persistence status")?;
@@ -252,158 +255,8 @@ fn openot_persistence_status_json(state: &ControlState) -> Result<Value, &'stati
                 "warnings": warnings,
             })
         }
-        None => json!({
-            "state": "disabled",
-            "backend": null,
-            "schema_generation": null,
-            "documents_read": 0,
-            "documents_committed": 0,
-            "documents_duplicated": 0,
-            "remote_pending": 0,
-            "projection_rows_committed": 0,
-            "unclassified_event_count": 0,
-            "reconciled_part_count": 0,
-            "pending_part_count": 0,
-            "documents_retried": 0,
-            "pending": 0,
-            "rejected": 0,
-            "unresolved": 0,
-            "loss_range_count": 0,
-            "lost_record_count": 0,
-            "cursor_abs": 0,
-            "head_abs": 0,
-            "cursor_lag": 0,
-            "last_success_time_ns": null,
-            "last_error": null,
-            "warnings": [],
-        }),
+        None => disabled_openot_persistence(),
     })
-}
-
-pub(super) fn handle_health(id: u64, state: &ControlState) -> ControlResponse {
-    let status = state.resource.state();
-    let error = state.resource.last_error().map(|err| err.to_string());
-    let Ok(io_health) = state.io_health.lock().map(|guard| guard.clone()) else {
-        return unavailable(id, "I/O health");
-    };
-    let Ok(realtime) = state.realtime_status.lock().map(|guard| guard.clone()) else {
-        return unavailable(id, "realtime status");
-    };
-    let has_faulted_driver = io_health
-        .iter()
-        .any(|entry| matches!(entry.health, IoDriverHealth::Faulted { .. }));
-    let ok = matches!(
-        status,
-        crate::scheduler::ResourceState::Running
-            | crate::scheduler::ResourceState::Ready
-            | crate::scheduler::ResourceState::Paused
-    ) && error.is_none()
-        && !has_faulted_driver
-        && realtime.errors.is_empty();
-    ControlResponse::ok(
-        id,
-        json!({
-            "ok": ok,
-            "state": format!("{status:?}").to_ascii_lowercase(),
-            "fault": error,
-            "io_drivers": io_health.iter().map(io_health_to_json).collect::<Vec<_>>(),
-        }),
-    )
-}
-
-pub(super) fn handle_task_stats(id: u64, state: &ControlState) -> ControlResponse {
-    let Ok(metrics) = state.metrics.lock().map(|guard| guard.snapshot()) else {
-        return unavailable(id, "runtime metrics");
-    };
-    let mut tasks = metrics
-        .tasks
-        .iter()
-        .map(|task| {
-            json!({
-                "name": task.name.as_str(),
-                "min_ms": task.min_ms,
-                "avg_ms": task.avg_ms,
-                "max_ms": task.max_ms,
-                "last_ms": task.last_ms,
-                "overruns": task.overruns,
-            })
-        })
-        .collect::<Vec<_>>();
-    tasks.sort_by(|left, right| left["name"].as_str().cmp(&right["name"].as_str()));
-    let top_contributors = metrics
-        .profiling
-        .top_contributors
-        .iter()
-        .map(|entry| {
-            json!({
-                "key": entry.key.as_str(),
-                "kind": entry.kind.as_str(),
-                "name": entry.name.as_str(),
-                "avg_cycle_ms": entry.avg_cycle_ms,
-                "cycle_pct": entry.cycle_pct,
-                "last_ms": entry.last_ms,
-                "last_cycle_pct": entry.last_cycle_pct,
-            })
-        })
-        .collect::<Vec<_>>();
-    ControlResponse::ok(
-        id,
-        json!({
-            "tasks": tasks,
-            "profiling_enabled": metrics.profiling.enabled,
-            "top_contributors": top_contributors,
-        }),
-    )
-}
-
-pub(super) fn handle_events_tail(
-    id: u64,
-    params: Option<serde_json::Value>,
-    state: &ControlState,
-) -> ControlResponse {
-    let limit = match parse_bounded_limit(params.as_ref(), 50, 1_000, &["limit"]) {
-        Ok(limit) => limit,
-        Err(error) => return invalid_params(id, error),
-    };
-    let Ok(events) = state
-        .events
-        .lock()
-        .map(|guard| guard.iter().rev().take(limit).cloned().collect::<Vec<_>>())
-    else {
-        return unavailable(id, "event store");
-    };
-    let payload = events
-        .into_iter()
-        .map(runtime_event_to_json)
-        .collect::<Vec<_>>();
-    ControlResponse::ok(id, json!({ "events": payload }))
-}
-
-pub(super) fn handle_faults(
-    id: u64,
-    params: Option<serde_json::Value>,
-    state: &ControlState,
-) -> ControlResponse {
-    let limit = match parse_bounded_limit(params.as_ref(), 50, 1_000, &["limit"]) {
-        Ok(limit) => limit,
-        Err(error) => return invalid_params(id, error),
-    };
-    let Ok(faults) = state.events.lock().map(|guard| {
-        guard
-            .iter()
-            .rev()
-            .filter(|event| matches!(event, crate::debug::RuntimeEvent::Fault { .. }))
-            .take(limit)
-            .cloned()
-            .collect::<Vec<_>>()
-    }) else {
-        return unavailable(id, "event store");
-    };
-    let faults = faults
-        .into_iter()
-        .map(runtime_event_to_json)
-        .collect::<Vec<_>>();
-    ControlResponse::ok(id, json!({ "faults": faults }))
 }
 
 pub(super) fn handle_historian_query(
@@ -479,76 +332,4 @@ pub(super) fn handle_historian_alerts(
     }
     let items = historian.alerts(params.limit.unwrap_or(200));
     ControlResponse::ok(id, json!({ "items": items }))
-}
-
-fn parse_bounded_limit(
-    params: Option<&serde_json::Value>,
-    default: usize,
-    maximum: usize,
-    allowed_fields: &[&str],
-) -> Result<usize, &'static str> {
-    let Some(params) = params else {
-        return Ok(default);
-    };
-    validate_object_fields(params, allowed_fields, &["limit"])?;
-    let Some(value) = params.get("limit") else {
-        return Ok(default);
-    };
-    let Some(limit) = value.as_u64().and_then(|value| usize::try_from(value).ok()) else {
-        return Err("limit must be an integer");
-    };
-    if !(1..=maximum).contains(&limit) {
-        return Err("limit is outside the supported range");
-    }
-    Ok(limit)
-}
-
-fn validate_object_fields(
-    value: &serde_json::Value,
-    allowed_fields: &[&str],
-    non_null_fields: &[&str],
-) -> Result<(), &'static str> {
-    let Some(object) = value.as_object() else {
-        return Err("parameters must be an object");
-    };
-    if object
-        .keys()
-        .any(|key| !allowed_fields.contains(&key.as_str()))
-    {
-        return Err("unknown parameter field");
-    }
-    if non_null_fields
-        .iter()
-        .any(|field| object.get(*field).is_some_and(serde_json::Value::is_null))
-    {
-        return Err("parameter fields must not be null");
-    }
-    Ok(())
-}
-
-fn invalid_params(id: u64, error: impl std::fmt::Display) -> ControlResponse {
-    ControlResponse::error(id, format!("invalid params: {error}"))
-}
-
-fn unavailable(id: u64, component: &str) -> ControlResponse {
-    ControlResponse::error(id, format!("{component} unavailable"))
-}
-
-fn io_health_to_json(entry: &IoDriverStatus) -> serde_json::Value {
-    match &entry.health {
-        IoDriverHealth::Ok => json!({
-            "name": entry.name.as_str(),
-            "status": "ok",
-        }),
-        IoDriverHealth::Degraded { error } => json!({
-            "name": entry.name.as_str(),
-            "status": "degraded",
-            "error": error.as_str(),
-        }),
-        IoDriverHealth::Faulted { error } => json!({
-            "name": entry.name.as_str(),
-            "status": "faulted",
-            "error": error.as_str(),
-        }),
-    }
 }

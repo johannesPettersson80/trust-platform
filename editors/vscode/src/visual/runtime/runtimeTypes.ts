@@ -1,16 +1,7 @@
-export type RuntimeUiMode = "local" | "external";
+// The right pane of the visual editors: its width persists per editor kind (specification 25
+// §11.4, specification 16 §6). The editors have no runtime pane of their own (specification 17 §5).
 
-export type RuntimeUiStatus = "idle" | "running" | "stopped" | "error";
-
-export type RightPaneView = "io" | "settings" | "tools";
 export type RightPaneEditorKind = "ladder" | "statechart" | "blockly" | "sfc";
-
-export interface RuntimeUiState {
-  mode: RuntimeUiMode;
-  isExecuting: boolean;
-  status: RuntimeUiStatus;
-  lastError?: string;
-}
 
 export interface RightPaneResizeConfig {
   minWidth: number;
@@ -23,9 +14,3 @@ export interface RightPaneResizeState {
   width: number;
   isResizing: boolean;
 }
-
-export const DEFAULT_RUNTIME_UI_STATE: RuntimeUiState = {
-  mode: "local",
-  isExecuting: false,
-  status: "idle",
-};

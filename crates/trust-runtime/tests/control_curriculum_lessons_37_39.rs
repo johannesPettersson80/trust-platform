@@ -254,13 +254,9 @@ fn lreal(value: f64) -> Value {
     Value::LWord(value.to_bits())
 }
 
-fn program_flag(
-    runtime: &trust_runtime::Runtime,
-    program: trust_runtime::memory::InstanceId,
-    name: &str,
-) -> bool {
-    match runtime.storage().get_instance_var(program, name) {
-        Some(Value::Bool(value)) => *value,
+fn program_flag(runtime: &trust_runtime::CompiledRuntime, program: &str, name: &str) -> bool {
+    match value(runtime, &format!("{program}.{name}")) {
+        Some(Value::Bool(value)) => value,
         other => panic!("{name}: {other:?}"),
     }
 }
@@ -271,10 +267,10 @@ fn lesson39_verification(
     auto: bool,
     integral_gain: f64,
 ) -> (
-    trust_runtime::Runtime,
+    trust_runtime::CompiledRuntime,
     trust_runtime::simulation::SimulationController,
     trust_runtime::debug::DebugControl,
-    trust_runtime::memory::InstanceId,
+    &'static str,
 ) {
     let (mut runtime, simulation) = setup(LESSON39);
     let debug = runtime.enable_debug();
@@ -351,7 +347,7 @@ fn lesson39_commissions_the_candidate_at_one_boundary() {
     let program = program(&runtime);
     for step in 0..100 {
         if step == 25 {
-            debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+            enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
         }
         scan_every(&mut runtime, &mut simulation, &debug, step * 20, 20, &[]);
     }
@@ -427,11 +423,11 @@ fn lesson39_automatic_control_needs_integral_action() {
 #[test]
 fn lesson39_the_transfer_from_manual_keeps_the_holding_torque() {
     let (mut runtime, mut simulation, debug, program) = lesson39_verification(false, 12.0);
-    debug.enqueue_instance_write(program, "LoadTorqueNm", Value::LReal(1.962));
+    enqueue_instance_write(&debug, program, "LoadTorqueNm", Value::LReal(1.962));
     let mut record = Vec::new();
     for step in 0..300 {
         if step == 100 {
-            debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+            enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
         }
         scan_every(
             &mut runtime,
@@ -493,7 +489,7 @@ fn lesson39_fault_trial(
     updates: u64,
 ) -> Vec<(f64, f64, bool)> {
     let (mut runtime, mut simulation, debug, program) = lesson39_verification(true, 12.0);
-    debug.enqueue_instance_write(program, "LoadTorqueNm", Value::LReal(1.962));
+    enqueue_instance_write(&debug, program, "LoadTorqueNm", Value::LReal(1.962));
     let mut record = Vec::new();
     for step in 0..updates {
         for (at, name, value) in [
@@ -503,7 +499,7 @@ fn lesson39_fault_trial(
             (restart, "AutoMode", true),
         ] {
             if step == at {
-                debug.enqueue_instance_write(program, name, Value::Bool(value));
+                enqueue_instance_write(&debug, program, name, Value::Bool(value));
             }
         }
         scan_every(&mut runtime, &mut simulation, &debug, step * 20, 20, &[]);

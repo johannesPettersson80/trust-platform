@@ -49,6 +49,16 @@ use crate::config::{OpenOtPersistenceBackend, OpenOtPersistenceConfig};
     feature = "openot-real-database-tests"
 ))]
 use crate::config::{OpenOtPersistenceTlsMode, OpenOtPostgreSqlPersistenceConfig};
+
+/// The longest a test waits for the persistence worker to reach a state. It is a wait bound, not a
+/// timing requirement: each loop ends as soon as its condition holds, and the worker opens SQLite
+/// and validates the schema on its own thread, which a machine running the whole suite in
+/// parallel can delay by seconds.
+#[cfg(any(
+    feature = "openot-database-sqlite",
+    feature = "openot-real-database-tests"
+))]
+const SERVICE_WAIT: Duration = Duration::from_secs(30);
 #[test]
 fn operator_status_redacts_backend_secrets_and_sensitive_paths() {
     let secret = "password=plant-secret token=operator-token /private/customer/history.db";
@@ -236,9 +246,7 @@ fn service_faults_incompatible_pre_release_schema_without_spending_reconnect_bud
     let mut service = OpenOtPersistenceService::start(&config, &root)
         .expect("local schema validation belongs to supervised worker")
         .expect("enabled service");
-    // A wait bound, not a timing requirement: the worker opens SQLite and validates the schema
-    // on its own thread, which a loaded machine can delay well past a few hundred milliseconds.
-    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    let deadline = std::time::Instant::now() + SERVICE_WAIT;
     while service.status().state == OpenOtPersistenceState::Starting
         && std::time::Instant::now() < deadline
     {
@@ -306,7 +314,7 @@ fn enabled_service_persists_shared_memory_record_off_thread_and_stops() {
     let mut service = OpenOtPersistenceService::start(&config, &root)
         .expect("start service")
         .expect("enabled service");
-    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    let deadline = std::time::Instant::now() + SERVICE_WAIT;
     while service.status().documents_committed < 1 && std::time::Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(10));
     }
@@ -368,7 +376,7 @@ fn service_supplies_compiled_definition_to_typed_database_projection() {
     let mut service = OpenOtPersistenceService::start(&config, &root)
         .expect("start typed logging service")
         .expect("enabled typed logging service");
-    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    let deadline = std::time::Instant::now() + SERVICE_WAIT;
     while service.status().documents_committed < 1 && std::time::Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(10));
     }
@@ -460,7 +468,7 @@ fn sqlite_service_restart_uses_durable_checkpoint_and_catches_up_once() {
     let mut first = OpenOtPersistenceService::start(&config, &root)
         .expect("start first service")
         .expect("enabled first service");
-    let first_deadline = std::time::Instant::now() + Duration::from_secs(5);
+    let first_deadline = std::time::Instant::now() + SERVICE_WAIT;
     while first.status().documents_committed < 1 && std::time::Instant::now() < first_deadline {
         std::thread::sleep(Duration::from_millis(10));
     }
@@ -477,7 +485,7 @@ fn sqlite_service_restart_uses_durable_checkpoint_and_catches_up_once() {
     let mut second = OpenOtPersistenceService::start(&config, &root)
         .expect("restart service")
         .expect("enabled restarted service");
-    let second_deadline = std::time::Instant::now() + Duration::from_secs(5);
+    let second_deadline = std::time::Instant::now() + SERVICE_WAIT;
     while (second.status().state != OpenOtPersistenceState::Ready
         || second.status().cursor_abs <= baseline_cursor)
         && std::time::Instant::now() < second_deadline
@@ -505,7 +513,7 @@ fn sqlite_service_restart_uses_durable_checkpoint_and_catches_up_once() {
     let mut third = OpenOtPersistenceService::start(&config, &root)
         .expect("start caught-up service")
         .expect("enabled caught-up service");
-    let third_deadline = std::time::Instant::now() + Duration::from_secs(5);
+    let third_deadline = std::time::Instant::now() + SERVICE_WAIT;
     while third.status().state != OpenOtPersistenceState::Ready
         && std::time::Instant::now() < third_deadline
     {
@@ -610,7 +618,7 @@ fn shutdown_drains_records_published_after_the_last_worker_poll() {
     let mut service = OpenOtPersistenceService::start(&config, &root)
         .expect("start service")
         .expect("enabled service");
-    let ready_deadline = std::time::Instant::now() + Duration::from_secs(2);
+    let ready_deadline = std::time::Instant::now() + SERVICE_WAIT;
     while service.status().state != OpenOtPersistenceState::Ready
         && std::time::Instant::now() < ready_deadline
     {
@@ -688,7 +696,7 @@ fn shutdown_uses_a_fresh_head_when_an_older_poll_still_has_buffered_records() {
     let mut service = OpenOtPersistenceService::start(&config, &root)
         .expect("start service")
         .expect("enabled service");
-    let first_commit_deadline = std::time::Instant::now() + Duration::from_secs(2);
+    let first_commit_deadline = std::time::Instant::now() + SERVICE_WAIT;
     while service.status().documents_committed < 1
         && std::time::Instant::now() < first_commit_deadline
     {
@@ -784,7 +792,7 @@ fn postgresql_service_reconnects_and_catches_up_after_real_server_restart() {
     let mut service = OpenOtPersistenceService::start(&config, &root)
         .expect("start PostgreSQL service")
         .expect("enabled service");
-    wait_for_status(&service, Duration::from_secs(5), |status| {
+    wait_for_status(&service, SERVICE_WAIT, |status| {
         status.state == OpenOtPersistenceState::Retrying
     });
     assert_eq!(service.status().schema_version, None);
@@ -793,7 +801,7 @@ fn postgresql_service_reconnects_and_catches_up_after_real_server_restart() {
         .status()
         .expect("start real PostgreSQL after persistence startup");
     assert!(started.success());
-    wait_for_status(&service, Duration::from_secs(5), |status| {
+    wait_for_status(&service, SERVICE_WAIT, |status| {
         status.state == OpenOtPersistenceState::Ready && status.cursor_abs > 0
     });
     assert_eq!(service.status().schema_version, Some(1));
@@ -806,7 +814,7 @@ fn postgresql_service_reconnects_and_catches_up_after_real_server_restart() {
     publisher
         .append_record(&Record::new(11, 2, 0, 7, EVENT_HEARTBEAT))
         .expect("publish during outage");
-    wait_for_status(&service, Duration::from_secs(5), |status| {
+    wait_for_status(&service, SERVICE_WAIT, |status| {
         status.state == OpenOtPersistenceState::Retrying
     });
     let started = std::process::Command::new("docker")
@@ -815,7 +823,7 @@ fn postgresql_service_reconnects_and_catches_up_after_real_server_restart() {
         .expect("restart real PostgreSQL");
     assert!(started.success());
 
-    wait_for_status(&service, Duration::from_secs(15), |status| {
+    wait_for_status(&service, SERVICE_WAIT, |status| {
         status.state == OpenOtPersistenceState::Ready
             && status.cursor_abs == status.head_abs
             && status.cursor_abs > 64
@@ -898,7 +906,7 @@ fn unresolved_document_keeps_caught_up_service_degraded() {
     let mut service = OpenOtPersistenceService::start(&config, &root)
         .expect("start service")
         .expect("enabled service");
-    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    let deadline = std::time::Instant::now() + SERVICE_WAIT;
     while service.status().documents_committed < 1 && std::time::Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(10));
     }

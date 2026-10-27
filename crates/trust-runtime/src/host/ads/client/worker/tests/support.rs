@@ -5,10 +5,11 @@ use trust_ads_core::{
     AdsDataTypeDescriptor, IecDataType, PointAccess, PointQuality, SymbolDescriptor, SymbolFlag,
     UpdateMode,
 };
-use trust_hir::TypeId;
 
-use crate::memory::{MemoryLocation, VariableStorage};
-use crate::value::{Value, ValueRef};
+use std::collections::BTreeMap;
+
+use crate::runtime::{BoundGlobal, NamedGlobals};
+use crate::value::Value;
 
 use super::super::super::AdsConnectionBridge;
 use super::super::*;
@@ -307,14 +308,9 @@ pub(super) fn point(
 
 pub(super) fn binding(point: AdsPointConfig) -> AdsBinding {
     AdsBinding {
+        target: BoundGlobal(point.point_name.as_str().into()),
         point,
-        reference: ValueRef {
-            location: MemoryLocation::Global,
-            offset: 0,
-            path: Vec::new(),
-        },
-        quality_reference: None,
-        type_id: TypeId::REAL,
+        quality_target: None,
         retain: false,
     }
 }
@@ -363,34 +359,32 @@ pub(super) fn worker_fixture(
 pub(super) fn output_fixture(
     initial: Value,
 ) -> (
-    VariableStorage,
+    NamedGlobals,
     AdsConnectionBridge,
     AdsConnectionWorker<ScriptedAdsTransport>,
 ) {
-    typed_output_fixture(initial, real_descriptor(), TypeId::REAL)
+    typed_output_fixture(initial, real_descriptor())
 }
 
 pub(super) fn typed_output_fixture(
     initial: Value,
     descriptor: AdsDataTypeDescriptor,
-    type_id: TypeId,
 ) -> (
-    VariableStorage,
+    NamedGlobals,
     AdsConnectionBridge,
     AdsConnectionWorker<ScriptedAdsTransport>,
 ) {
-    let mut storage = VariableStorage::new();
-    storage.set_global("out", initial);
-    let reference = storage.ref_for_global("out").expect("output reference");
+    // The program's one output global, held apart from it: the bridge-only corpus captures its
+    // outputs by name, as a scan's boundaries reach a compiled program's variables (specification
+    // 44 §13.3).
+    let storage = NamedGlobals(BTreeMap::from([("out", initial)]));
     let mut output = binding(point(
         "out",
         "MAIN.Out",
         PointAccess::Write,
         UpdateMode::Poll,
     ));
-    output.reference = reference;
     output.point.data_type = descriptor;
-    output.type_id = type_id;
     let transport = ScriptedAdsTransport::for_bindings(std::slice::from_ref(&output));
     let (bridge, worker) =
         AdsConnectionBridge::with_transport(transport, vec![output]).expect("output bridge");

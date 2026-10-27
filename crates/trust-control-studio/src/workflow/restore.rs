@@ -28,6 +28,7 @@ use trust_control::commissioning::application_texts::review_changed;
 use trust_control::commissioning::checkpoint::{CheckpointStage, CommissioningCheckpoint};
 use trust_control::commissioning::checkpoint_restore as rules;
 use trust_control::commissioning::commissioning_result::{TransferOwner, TransferStatus};
+use trust_control::commissioning::found_mode::AutoReentry;
 use trust_control::commissioning::gain_schedule_adapter::check_restore_mode;
 use trust_control::commissioning::parameter_application::ParameterOwner;
 use trust_control::commissioning::parameter_binding::runtime_binding_of;
@@ -252,15 +253,10 @@ pub(crate) fn restore_with_approval(
                 progress(&texts::to_auto(
                     &checkpoint.binding.mode.symbol,
                     entry.tolerance,
+                    entry.entry_error_gain,
                     &checkpoint.binding.output.unit,
                 ));
-                let write = writes.transfer(
-                    entry.values,
-                    false,
-                    entry.tolerance,
-                    entry.tracking,
-                    current,
-                );
+                let write = writes.entry(entry, current);
                 let entered = apply_transfer(client, journal, &mut checkpoint, &write)?;
                 (entered.values, true)
             }
@@ -421,10 +417,26 @@ impl Writes {
             values,
             manual,
             tolerance,
+            entry_error_gain: None,
             tracking: Some(tracking),
             reviewed: Some(reviewed),
             source: self.source,
             physical_approved: self.physical_approved,
+        }
+    }
+
+    /// The Auto entry `entry` of this Restore, reviewed on `reviewed` (A6.3), with the factor of the error at entry that the
+    /// runtime adds to its allowance (E6.9).
+    fn entry(self, entry: AutoReentry, reviewed: TransferStatus) -> TransferWrite {
+        TransferWrite {
+            entry_error_gain: entry.entry_error_gain,
+            ..self.transfer(
+                entry.values,
+                false,
+                entry.tolerance,
+                entry.tracking,
+                reviewed,
+            )
         }
     }
 }

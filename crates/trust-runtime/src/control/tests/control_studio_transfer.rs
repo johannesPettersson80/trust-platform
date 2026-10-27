@@ -8,16 +8,17 @@ fn transfer_binding() -> serde_json::Value {
 }
 
 fn transfer_fixture() -> (ControlState, TestHarness) {
-    let source = "PROGRAM Main VAR Kp : LREAL := 2.0; Manual : BOOL := TRUE; ManualCommand : LREAL := 2.0; SP AT %ML0 : LREAL := 10.0; PV : LREAL := 10.0; MV AT %QL0 : LREAL; Alias : LREAL := 10.0; END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := Kp * (SP-PV); END_IF; END_PROGRAM";
-    let mut state = simulated_control_state(source);
-    let mut harness = simulated_harness(source);
-    state.debug = harness.runtime_mut().enable_debug();
+    transfer_fixture_with_alias("Alias : LREAL := 10.0;")
+}
+
+/// The transfer fixture whose `Alias` variable is declared as `alias`: unbound, or bound to an address that the image's
+/// bindings then name (specification 44 §5.6).
+fn transfer_fixture_with_alias(alias: &str) -> (ControlState, TestHarness) {
+    let source = format!("PROGRAM Main VAR Kp : LREAL := 2.0; Manual : BOOL := TRUE; ManualCommand : LREAL := 2.0; SP AT %ML0 : LREAL := 10.0; PV : LREAL := 10.0; MV AT %QL0 : LREAL; {alias} END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := Kp * (SP-PV); END_IF; END_PROGRAM");
+    let mut state = simulated_control_state(&source);
+    let mut harness = simulated_harness(&source);
+    state.debug = studio_debug(&mut harness);
     assert!(harness.cycle().errors.is_empty());
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     (state, harness)
 }
 
@@ -139,15 +140,16 @@ fn controller_transfer_competing_value_or_force_rejects_whole_set() {
         let (state, mut harness) = transfer_fixture();
         let before = transfer_status(&state);
         assert!(queue_transfer(&state, &before).ok);
-        let Value::Instance(id) = harness.runtime().storage().get_global("Main").unwrap() else {
-            panic!("program instance");
-        };
         if forced {
-            state.debug.force_instance(*id, "Kp", Value::LReal(2.0));
+            state
+                .debug
+                .try_force_global("Main.Kp", Value::LReal(2.0))
+                .expect("force the gain");
         } else {
             state
                 .debug
-                .enqueue_instance_write(*id, "Kp", Value::LReal(3.0));
+                .try_enqueue_global_write("Main.Kp", Value::LReal(3.0))
+                .expect("queue the gain write");
         }
         assert!(harness.cycle().errors.is_empty());
         let after = transfer_status(&state);
@@ -164,13 +166,8 @@ fn controller_transfer_guards_a_bool_member_and_rejects_the_transfer_when_it_cha
     let source = "PROGRAM Main VAR Kp : LREAL := 2.0; Manual : BOOL := TRUE; OuterAuto : BOOL := FALSE; ManualCommand : LREAL := 2.0; SP AT %ML0 : LREAL := 10.0; PV : LREAL := 10.0; MV AT %QL0 : LREAL; END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := Kp * (SP-PV); END_IF; END_PROGRAM";
     let mut state = simulated_control_state(source);
     let mut harness = simulated_harness(source);
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
     assert!(harness.cycle().errors.is_empty());
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     let mut binding = transfer_binding();
     binding["guards"].as_array_mut().unwrap().push(
         json!({"symbol":"Main.OuterAuto","iec_type":"BOOL","unit":"1","minimum":0,"maximum":1}),
@@ -203,12 +200,10 @@ fn controller_transfer_guards_a_bool_member_and_rejects_the_transfer_when_it_cha
         None,
     );
     assert!(queued.ok, "{:?}", queued.error);
-    let Value::Instance(id) = harness.runtime().storage().get_global("Main").unwrap() else {
-        panic!("program instance")
-    };
     state
         .debug
-        .enqueue_instance_write(*id, "OuterAuto", Value::Bool(true));
+        .try_enqueue_global_write("Main.OuterAuto", Value::Bool(true))
+        .expect("queue the outer mode write");
     assert!(harness.cycle().errors.is_empty());
     let after = status(&state);
     assert_eq!(
@@ -225,13 +220,8 @@ fn controller_transfer_switches_additional_modes_with_the_mode_and_returns_them_
     let source = "PROGRAM Main VAR Kp : LREAL := 2.0; Manual : BOOL := TRUE; OuterManual : BOOL := TRUE; ManualCommand : LREAL := 2.0; SP AT %ML0 : LREAL := 10.0; PV : LREAL := 10.0; MV AT %QL0 : LREAL; END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := Kp * (SP-PV); END_IF; END_PROGRAM";
     let mut state = simulated_control_state(source);
     let mut harness = simulated_harness(source);
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
     assert!(harness.cycle().errors.is_empty());
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     let mut binding = transfer_binding();
     binding["additional_modes"] = json!([{"symbol":"Main.OuterManual","manual_value":true}]);
     let status = |state: &ControlState| {
@@ -293,19 +283,9 @@ fn controller_transfer_switches_additional_modes_with_the_mode_and_returns_them_
 #[test]
 fn controller_transfer_rejects_other_targets_overlapping_its_memory_state() {
     for address in ["%ML0", "%ML4"] {
-        let (state, mut harness) = transfer_fixture();
-        let Value::Instance(id) = harness.runtime().storage().get_global("Main").unwrap() else {
-            panic!("program instance");
-        };
-        let reference = harness
-            .runtime()
-            .storage()
-            .resolved_instance_field_ref(*id, "Alias")
-            .unwrap();
-        harness
-            .runtime_mut()
-            .bind_checked_io(reference, crate::io::IoAddress::parse(address).unwrap(), "Main.Alias".into())
-            .expect("bind the alias");
+        // The alias's binding is the program image's (specification 44 §5.6).
+        let (state, mut harness) =
+            transfer_fixture_with_alias(&format!("Alias AT {address} : LREAL := 10.0;"));
         let before = transfer_status(&state);
         assert!(queue_transfer(&state, &before).ok);
         assert!(harness.cycle().errors.is_empty());
@@ -448,8 +428,7 @@ fn controller_transfer_rejected_first_output_fails_the_transfer_without_halting_
     assert_eq!(
         harness
             .runtime()
-            .io()
-            .read(&crate::io::IoAddress::parse("%QL0").unwrap())
+            .read_io(&crate::io::IoAddress::parse("%QL0").unwrap())
             .unwrap(),
         Value::LWord(2.0_f64.to_bits()),
         "the rejected first output image is not published"
@@ -550,8 +529,7 @@ fn controller_transfer_failed_manual_to_manual_transfer_reverts_the_whole_set() 
     assert_eq!(
         harness
             .runtime()
-            .io()
-            .read(&crate::io::IoAddress::parse("%QL0").unwrap())
+            .read_io(&crate::io::IoAddress::parse("%QL0").unwrap())
             .unwrap(),
         Value::LWord(2.0_f64.to_bits()),
         "the rejected step is not published"
@@ -581,19 +559,8 @@ fn controller_transfer_stop_before_commit_retains_terminal_outcome_without_write
 
 #[test]
 fn controller_transfer_rejects_an_aliased_output_owner_before_switching_mode() {
-    let (state, mut harness) = transfer_fixture();
-    let Value::Instance(id) = harness.runtime().storage().get_global("Main").unwrap() else {
-        panic!("program instance");
-    };
-    let reference = harness
-        .runtime()
-        .storage()
-        .resolved_instance_field_ref(*id, "Alias")
-        .unwrap();
-    harness
-        .runtime_mut()
-        .bind_checked_io(reference, crate::io::IoAddress::parse("%QL0").unwrap(), "Main.Alias".into())
-        .expect("bind the alias");
+    // The alias's binding is the program image's (specification 44 §5.6).
+    let (state, mut harness) = transfer_fixture_with_alias("Alias AT %QL0 : LREAL := 10.0;");
     let before = transfer_status(&state);
     assert!(queue_transfer(&state, &before).ok);
     assert!(harness.cycle().errors.is_empty());
@@ -833,15 +800,14 @@ fn controller_transfer_tracks_fresh_pv_and_committed_output_at_task_boundary() {
         "a reviewed tracking policy must use the owning boundary: {:?}",
         response.error
     );
-    let Value::Instance(id) = harness.runtime().storage().get_global("Main").unwrap() else {
-        panic!("program instance");
-    };
     state
         .debug
-        .enqueue_instance_write(*id, "PV", Value::LReal(10.1));
+        .try_enqueue_global_write("Main.PV", Value::LReal(10.1))
+        .expect("queue the measurement write");
     state
         .debug
-        .enqueue_instance_write(*id, "MV", Value::LReal(4.0));
+        .try_enqueue_global_write("Main.MV", Value::LReal(4.0))
+        .expect("queue the output variable write");
     assert!(harness.cycle().errors.is_empty());
     let after = transfer_status(&state);
     assert_eq!(after["status"], "applied");
@@ -855,12 +821,96 @@ fn controller_transfer_tracks_fresh_pv_and_committed_output_at_task_boundary() {
     assert_eq!(after["transaction"]["applied_values"]["Main.SP"], 11.1);
 }
 
+/// An Auto entry with `entry_error_gain` at reference 11.0 and Manual command 2.0 V.
+fn entry_with_error_gain(
+    state: &ControlState,
+    before: &serde_json::Value,
+    gain: f64,
+    manual: bool,
+    tracked: bool,
+) -> ControlResponse {
+    let mut params = json!({
+        "transaction_id":format!("entry-error-{gain}-{manual}-{tracked}"),"binding":transfer_binding(),
+        "expected_program_revision":before["program_revision"],"expected_binding_revision":before["binding_revision"],
+        "expected_values":before["values"],"values":{"Main.SP":11.0,"Main.ManualCommand":2.0},
+        "manual":manual,"maximum_output_change":0.000001,"entry_error_gain":gain,
+        "source":"simulation","physical_approved":false});
+    if tracked {
+        params["tracking"] = json!({"kind":"proportional","reference_symbol":"Main.SP",
+            "manual_command_symbol":"Main.ManualCommand","process_variable":"Main.PV","gain_symbol":"Main.Kp",
+            "align_reference":false});
+    }
+    handle_request_value(
+        json!({"id":8650,"type":"control.transfer.apply","params":params}),
+        state,
+        None,
+    )
+}
+
+/// Annex E6.9 and specification 35 A6.4: the first output after an Auto entry may move by `maximum_output_change` plus
+/// `entry_error_gain` times the error the controller enters with, taken in the transfer's own scan. The measurement falls
+/// from the reviewed 10.0 to 9.9 before the boundary, so the controller enters with e = 11.0 − 9.9 = 1.1 and its first
+/// output Kp·e = 2.2 V is 0.2 V above the held 2.0 V. A gain of 0.19 allows 1e-6 + 0.19·1.1 = 0.209 V and the entry is
+/// applied; a gain of 0.18 allows 0.198 V and the entry is refused. Catches a runtime that leaves the gain out (1e-6 refuses
+/// both), and one that takes the reviewed error 1.0 (0.19 V refuses the first).
+#[test]
+fn controller_transfer_allows_the_integral_step_on_the_error_it_enters_with() {
+    for (gain, applied) in [(0.19, true), (0.18, false)] {
+        let (state, mut harness) = transfer_fixture();
+        let before = transfer_status(&state);
+        let response = entry_with_error_gain(&state, &before, gain, false, true);
+        assert!(response.ok, "gain {gain}: {:?}", response.error);
+        state
+            .debug
+            .try_enqueue_global_write("Main.PV", Value::LReal(9.9))
+            .expect("queue the measurement write");
+        assert!(harness.cycle().errors.is_empty());
+        let after = transfer_status(&state);
+        assert_eq!(after["transaction"]["initial_values"]["Main.PV"], 9.9);
+        if applied {
+            assert_eq!(after["status"], "applied", "gain {gain}: {after}");
+            assert_eq!(after["values"]["Main.Manual"], false);
+            let output = after["values"]["Main.MV"].as_f64().unwrap();
+            assert!((output - 2.2).abs() < 1e-9, "first output {output}");
+        } else {
+            assert_eq!(after["status"], "failed", "gain {gain}: {after}");
+            assert!(after["transaction"]["reason"]
+                .as_str()
+                .unwrap()
+                .contains("violates reviewed transfer tolerance"));
+            assert_eq!(after["values"]["Main.Manual"], true);
+        }
+    }
+}
+
+/// Annex E6.5 check 6: `entry_error_gain` is a finite number of zero or more, sent with an Auto entry that carries the
+/// tracking naming the reference and the process variable. Catches a runtime that accepts a negative gain, a gain on a
+/// Manual transfer, or a gain without the tracking it reads the error through.
+#[test]
+fn controller_transfer_refuses_an_entry_error_gain_it_cannot_apply() {
+    let (state, _harness) = transfer_fixture();
+    let before = transfer_status(&state);
+    for (gain, manual, tracked) in [(-0.1, false, true), (0.1, true, true), (0.1, false, false)] {
+        let response = entry_with_error_gain(&state, &before, gain, manual, tracked);
+        assert!(
+            !response.ok,
+            "gain {gain}, manual {manual}, tracked {tracked}"
+        );
+        assert_eq!(refusal_text(&response), "invalid entry error gain");
+    }
+    assert_eq!(
+        transfer_status(&state)["status"],
+        before["status"],
+        "a refused apply writes no record"
+    );
+}
+
 #[test]
 fn controller_transfer_uses_declared_applied_feedback_as_output_basis() {
     let source = "PROGRAM Main VAR Kp : LREAL := 2.0; Manual : BOOL := TRUE; ManualCommand : LREAL := 2.0; SP AT %ML0 : LREAL := 10.0; PV : LREAL := 10.0; MV AT %QL0 : LREAL; Applied AT %IL0 : LREAL; END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := Kp * (SP-PV); END_IF; END_PROGRAM";
     let mut state = simulated_control_state(source);
     let mut harness = simulated_harness(source);
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
     assert!(harness.cycle().errors.is_empty());
     harness
         .set_direct_input("%IL0", Value::LWord(2.0_f64.to_bits()))
@@ -868,17 +918,11 @@ fn controller_transfer_uses_declared_applied_feedback_as_output_basis() {
     assert_eq!(
         harness
             .runtime()
-            .io()
-            .read(&crate::io::IoAddress::parse("%IL0").unwrap())
+            .read_io(&crate::io::IoAddress::parse("%IL0").unwrap())
             .unwrap(),
         Value::LWord(2.0_f64.to_bits())
     );
     assert!(harness.cycle().errors.is_empty());
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     let number = |symbol: &str, unit: &str| json!({"symbol":symbol,"iec_type":"LREAL","unit":unit,"minimum":-20,"maximum":20});
     let binding = json!({"loop_id":"applied-feedback-loop","task_name":"$background",
         "mode":{"symbol":"Main.Manual","manual_value":true},
@@ -893,9 +937,6 @@ fn controller_transfer_uses_declared_applied_feedback_as_output_basis() {
     assert!(status.ok, "applied feedback status: {:?}", status.error);
     let before = status.result.unwrap();
     assert_eq!(before["values"]["Main.Applied"], 2.0);
-    let Value::Instance(id) = harness.runtime().storage().get_global("Main").unwrap() else {
-        panic!("program instance");
-    };
     let apply = handle_request_value(
         json!({"id":8631,"type":"control.transfer.apply","params":{
         "transaction_id":"applied-feedback-basis","binding":binding,
@@ -914,7 +955,8 @@ fn controller_transfer_uses_declared_applied_feedback_as_output_basis() {
     );
     state
         .debug
-        .enqueue_instance_write(*id, "Applied", Value::LReal(2.0));
+        .try_enqueue_global_write("Main.Applied", Value::LReal(2.0))
+        .expect("queue the feedback write");
     assert!(harness.cycle().errors.is_empty());
     let after = handle_request_value(
         json!({"id":8632,"type":"control.transfer.status","params":{"binding":binding}}),
@@ -1000,12 +1042,10 @@ fn controller_transfer_recovers_parallel_pid_to_manual_after_a_live_state_update
         "a reviewed PID recovery must remain task-boundary-safe: {:?}",
         response.error
     );
-    let Value::Instance(id) = harness.runtime().storage().get_global("Main").unwrap() else {
-        panic!("program instance");
-    };
     state
         .debug
-        .enqueue_instance_write(*id, "Integral", Value::LReal(1.0));
+        .try_enqueue_global_write("Main.Integral", Value::LReal(1.0))
+        .expect("queue the live state write");
     assert!(harness.cycle().errors.is_empty());
     let after = transfer_status_for(&state, pid_transfer_binding());
     assert_eq!(after["status"], "applied");
@@ -1030,13 +1070,8 @@ fn pid_transfer_fixture() -> (ControlState, TestHarness) {
     let source = "PROGRAM Main VAR Kp : LREAL := 2.0; Ki : LREAL := 1.0; Kd : LREAL := 3.0; Integral : LREAL := 0.0; PreviousError : LREAL := 0.0; Manual : BOOL := TRUE; ManualCommand : LREAL := 2.0; SP AT %ML0 : LREAL := 10.0; PV : LREAL := 10.0; MV AT %QL0 : LREAL; END_VAR IF Manual THEN MV := ManualCommand; ELSE Integral := Integral + Ki * (SP-PV) * LREAL#0.02; MV := Kp * (SP-PV) + Integral + Kd * ((SP-PV) - PreviousError) / LREAL#0.02; PreviousError := SP-PV; END_IF; END_PROGRAM";
     let mut state = simulated_control_state(source);
     let mut harness = simulated_harness(source);
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
     assert!(harness.cycle().errors.is_empty());
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     (state, harness)
 }
 
@@ -1059,13 +1094,8 @@ fn controller_transfer_declared_model_output_formula_uses_fresh_boundary_measure
     let source = "PROGRAM Main VAR Manual : BOOL := TRUE; SP : LREAL := 10.0; PV : LREAL := 10.0; ManualCommand : LREAL := 2.0; MV AT %QL0 : LREAL; Filter : LREAL := 0.0; END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := ManualCommand; END_IF; END_PROGRAM";
     let mut state = simulated_control_state(source);
     let mut harness = simulated_harness(source);
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
     assert!(harness.cycle().errors.is_empty());
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     let binding = json!({"loop_id":"declared-formula-loop","task_name":"$background",
         "mode":{"symbol":"Main.Manual","manual_value":true},
         "states":[
@@ -1098,12 +1128,10 @@ fn controller_transfer_declared_model_output_formula_uses_fresh_boundary_measure
         "queue declared formula transfer: {:?}",
         apply.error
     );
-    let Value::Instance(id) = harness.runtime().storage().get_global("Main").unwrap() else {
-        panic!("program instance");
-    };
     state
         .debug
-        .enqueue_instance_write(*id, "PV", Value::LReal(10.25));
+        .try_enqueue_global_write("Main.PV", Value::LReal(10.25))
+        .expect("queue the measurement write");
     assert!(harness.cycle().errors.is_empty());
     let after = handle_request_value(
         json!({"id":8622,"type":"control.transfer.status","params":{"binding":binding}}),
@@ -1124,13 +1152,8 @@ fn controller_transfer_accepts_a_manual_output_that_follows_the_output_in_auto()
     let source = "PROGRAM Main VAR Manual : BOOL := TRUE; SP : LREAL := 10.0; PV : LREAL := 10.0; ManualCommand : LREAL := 2.0; MV AT %QL0 : LREAL; Filter : LREAL := 0.0; END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := ManualCommand + 0.0001; ManualCommand := MV; END_IF; END_PROGRAM";
     let mut state = simulated_control_state(source);
     let mut harness = simulated_harness(source);
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
     assert!(harness.cycle().errors.is_empty());
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     let binding = json!({"loop_id":"tracking-manual-loop","task_name":"$background",
         "mode":{"symbol":"Main.Manual","manual_value":true},
         "states":[
@@ -1170,13 +1193,8 @@ fn controller_transfer_to_manual_accepts_a_manual_output_that_follows_the_output
     let source = "PROGRAM Main VAR Manual : BOOL := FALSE; SP : LREAL := 10.0; PV : LREAL := 10.0; ManualCommand : LREAL := 2.0; MV AT %QL0 : LREAL := 2.0; Filter : LREAL := 0.0; END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := MV + 0.001; ManualCommand := MV; END_IF; END_PROGRAM";
     let mut state = simulated_control_state(source);
     let mut harness = simulated_harness(source);
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
     assert!(harness.cycle().errors.is_empty());
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     let binding = json!({"loop_id":"tracking-leave-auto","task_name":"$background",
         "mode":{"symbol":"Main.Manual","manual_value":true},
         "states":[
@@ -1203,10 +1221,6 @@ fn controller_transfer_to_manual_accepts_a_manual_output_that_follows_the_output
     );
     assert!(apply.ok, "{:?}", apply.error);
     assert!(harness.cycle().errors.is_empty());
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     let after = transfer_status_for(&state, binding);
     assert_eq!(
         after["status"], "applied",
@@ -1229,13 +1243,8 @@ fn controller_transfer_holds_an_output_the_program_hands_on_without_an_address()
     let source = "PROGRAM Main VAR Manual : BOOL := FALSE; SP : LREAL := 10.0; PV : LREAL := 10.0; ManualCommand : LREAL := 2.0; MV : LREAL := 2.0; Heater AT %QL0 : LREAL; Filter : LREAL := 0.0; END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := MV + 0.001; ManualCommand := MV; END_IF; Heater := MV; END_PROGRAM";
     let mut state = simulated_control_state(source);
     let mut harness = simulated_harness(source);
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
     assert!(harness.cycle().errors.is_empty());
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     let binding = json!({"loop_id":"tracking-unaddressed-output","task_name":"$background",
         "mode":{"symbol":"Main.Manual","manual_value":true},
         "states":[
@@ -1259,10 +1268,6 @@ fn controller_transfer_holds_an_output_the_program_hands_on_without_an_address()
     );
     assert!(apply.ok, "{:?}", apply.error);
     assert!(harness.cycle().errors.is_empty());
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     let after = transfer_status_for(&state, binding);
     assert_eq!(
         after["status"], "applied",
@@ -1272,6 +1277,38 @@ fn controller_transfer_holds_an_output_the_program_hands_on_without_an_address()
     let held = after["values"]["Main.ManualCommand"].as_f64().unwrap();
     let output = after["values"]["Main.MV"].as_f64().unwrap();
     assert_eq!(held, output, "Manual holds the output it took over: {after}");
+}
+
+// Control Studio's tests read a compiled program through the program access seam (specification 44 §13.3).
+use crate::runtime::ProgramRead as _;
+
+/// A debug control attached to `harness`'s runtime, as trust-runtime attaches its control: each scan publishes the
+/// program's state into it, and the scan calls Control Studio's services at its access points (specification 44 §8.8,
+/// §13.3).
+fn studio_debug(harness: &mut TestHarness) -> crate::debug::DebugControl {
+    let debug = crate::debug::DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
+    debug
+}
+
+/// The value at `path` in the program of `harness`, as its last scan left it.
+fn studio_value(harness: &TestHarness, path: &str) -> Value {
+    harness
+        .runtime()
+        .with_program_view(|program| program.value(path))
+        .unwrap_or_else(|| panic!("{path} names a value"))
+}
+
+/// Writes `value` at `path` in the program of `harness` between scans, as the program itself would.
+fn studio_set(harness: &mut TestHarness, path: &str, value: Value) {
+    harness.runtime_mut().with_program(|program| {
+        let at = program
+            .locate(path)
+            .unwrap_or_else(|error| panic!("{path}: {error}"));
+        program
+            .write_at(&at, &value)
+            .unwrap_or_else(|error| panic!("{path}: {error}"));
+    });
 }
 
 /// A simulated target: simulation is enabled, and the scans that follow publish that all I/O is simulated (A2.4).
@@ -1331,14 +1368,15 @@ fn tracked_transfer_apply(
     )
 }
 
-/// Writes a field of the fixture's program instance into a copy of the storage, so that a task boundary can be checked
-/// without running the program.
-fn write_main_field(storage: &mut crate::memory::VariableStorage, field: &str, value: Value) {
-    let Value::Instance(id) = storage.get_global("Main").unwrap() else {
-        panic!("program instance");
-    };
-    let reference = storage.resolved_instance_field_ref(*id, field).unwrap();
-    assert!(storage.write_by_ref(reference, value));
+/// Writes a field of the fixture's program instance into the program between scans, so that a task boundary can be
+/// checked without running the program.
+fn write_main_field(program: &mut dyn crate::runtime::ProgramWrite, field: &str, value: Value) {
+    let at = program
+        .locate(&format!("Main.{field}"))
+        .unwrap_or_else(|error| panic!("Main.{field}: {error}"));
+    program
+        .write_at(&at, &value)
+        .unwrap_or_else(|error| panic!("Main.{field}: {error}"));
 }
 
 #[test]
@@ -1375,16 +1413,15 @@ fn controller_transfer_physical_target_needs_approval_at_apply() {
 
 #[test]
 fn controller_transfer_physical_target_at_the_boundary_needs_approval() {
-    let (state, harness) = transfer_fixture();
+    let (state, mut harness) = transfer_fixture();
     let before = transfer_status(&state);
     let applied = transfer_apply_request(&state, &before, "boundary-approval", "simulation", false);
     assert!(applied.ok, "{:?}", applied.error);
-    // The target turns physical after the review and before the boundary, for example when a fieldbus client appears.
-    let metadata = harness.runtime().metadata_snapshot();
-    let mut storage = harness.runtime().storage().clone();
-    state
-        .debug
-        .commit_transfer("$background", &mut storage, &metadata, true, &[]);
+    // The target turns physical after the review and before the boundary, for example when a fieldbus client appears:
+    // the boundary of the programs outside every task, at which the scan commits the transfer.
+    harness
+        .runtime_mut()
+        .with_program(|program| state.debug.commit_transfer("$background", program, true));
     let after = transfer_status(&state);
     assert_eq!(after["status"], "rejected");
     assert_eq!(
@@ -1423,16 +1460,14 @@ fn controller_transfer_status_of_another_binding_leaves_the_record_unchanged() {
 
 #[test]
 fn controller_transfer_measurement_outside_its_range_is_rejected_at_the_boundary() {
-    let (state, harness) = transfer_fixture();
+    let (state, mut harness) = transfer_fixture();
     let before = transfer_status(&state);
     let response = tracked_transfer_apply(&state, &before, "measured-out-of-range");
     assert!(response.ok, "{:?}", response.error);
-    let metadata = harness.runtime().metadata_snapshot();
-    let mut storage = harness.runtime().storage().clone();
-    write_main_field(&mut storage, "PV", Value::LReal(25.0));
-    state
-        .debug
-        .commit_transfer("$background", &mut storage, &metadata, false, &[]);
+    harness.runtime_mut().with_program(|program| {
+        write_main_field(program, "PV", Value::LReal(25.0));
+        state.debug.commit_transfer("$background", program, false);
+    });
     let after = transfer_status(&state);
     assert_eq!(after["status"], "rejected");
     assert!(
@@ -1446,15 +1481,13 @@ fn controller_transfer_measurement_outside_its_range_is_rejected_at_the_boundary
 
 #[test]
 fn controller_transfer_bad_quality_measurement_is_rejected_at_the_boundary() {
-    let (state, harness) = transfer_fixture();
+    let (state, mut harness) = transfer_fixture();
     let before = transfer_status(&state);
     assert!(tracked_transfer_apply(&state, &before, "measured-not-finite").ok);
-    let metadata = harness.runtime().metadata_snapshot();
-    let mut storage = harness.runtime().storage().clone();
-    write_main_field(&mut storage, "PV", Value::LReal(f64::NAN));
-    state
-        .debug
-        .commit_transfer("$background", &mut storage, &metadata, false, &[]);
+    harness.runtime_mut().with_program(|program| {
+        write_main_field(program, "PV", Value::LReal(f64::NAN));
+        state.debug.commit_transfer("$background", program, false);
+    });
     let after = transfer_status(&state);
     assert_eq!(after["status"], "rejected");
     assert_eq!(after["reason"], "Main.PV has bad quality: not a finite number");
@@ -1479,23 +1512,20 @@ fn controller_transfer_fault_reverts_the_committed_members_in_the_same_scan() {
     let (state, mut harness) = transfer_fixture();
     let before = transfer_status(&state);
     assert!(queue_transfer(&state, &before).ok);
-    let metadata = harness.runtime().metadata_snapshot();
-    state.debug.commit_transfer(
-        "$background",
-        &mut harness.runtime_mut().boundary_writes(),
-        &metadata,
-        false,
-        &[],
-    );
+    // The boundary of the programs outside every task, through the program access seam (specification 44 §13.3).
+    harness
+        .runtime_mut()
+        .with_program(|program| state.debug.commit_transfer("$background", program, false));
     assert_eq!(
         harness.get_output("Main.Manual"),
         Some(Value::Bool(false)),
         "the commit wrote the mode"
     );
-    state.debug.fail_transfer(
-        "runtime fault in the owning task",
-        &mut harness.runtime_mut().boundary_writes(),
-    );
+    harness.runtime_mut().with_program(|program| {
+        state
+            .debug
+            .fail_transfer("runtime fault in the owning task", program);
+    });
     assert_eq!(
         harness.get_output("Main.Manual"),
         Some(Value::Bool(true)),
@@ -1516,13 +1546,8 @@ fn controller_transfer_restores_a_bool_output_as_bool_after_a_rejected_first_out
     let source = "PROGRAM Main VAR Manual : BOOL := TRUE; SP : LREAL := 10.0; ManualCommand : LREAL := 2.0; PV : LREAL := 10.0; Valve : BOOL := FALSE; END_VAR IF Manual THEN Valve := FALSE; ELSE Valve := TRUE; END_IF; END_PROGRAM";
     let mut state = simulated_control_state(source);
     let mut harness = simulated_harness(source);
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
     assert!(harness.cycle().errors.is_empty());
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     let binding = json!({"loop_id":"valve-loop","task_name":"$background",
         "mode":{"symbol":"Main.Manual","manual_value":true},
         "states":[{"symbol":"Main.SP","iec_type":"LREAL","unit":"m","minimum":-20,"maximum":20},

@@ -2,6 +2,8 @@
 
 #![allow(missing_docs)]
 
+use trust_runtime_services::access::PairingService;
+
 use super::*;
 
 pub(super) struct OpsRouteContext<'a> {
@@ -64,14 +66,16 @@ pub(super) fn handle_ops_route(
                     return OpsRouteOutcome::Handled;
                 }
             };
-        let body = if let Some(store) = pairing.as_ref() {
-            let code = store.start_pairing();
-            json!({
-                "code": code.code,
-                "expires_at": code.expires_at,
-            })
-        } else {
-            json!({ "error": "pairing unavailable" })
+        // The same rules and refusals as `pair.start` (specification 11 §6.9.6).
+        let body = match pairing {
+            Some(store) => match PairingService::start(store, store.now_secs()) {
+                Ok(code) => json!({
+                    "code": code.code,
+                    "expires_at": code.expires_at,
+                }),
+                Err(error) => json!({ "error": error.to_string() }),
+            },
+            None => json!({ "error": "pairing unavailable" }),
         };
         let response = Response::from_string(body.to_string())
             .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
@@ -87,20 +91,27 @@ pub(super) fn handle_ops_route(
                 return OpsRouteOutcome::Handled;
             }
         };
+        // The same rules and refusals as `pair.claim` (specification 11 §6.9.6): a role that is
+        // not one of the four is refused, not read as Operator.
         let code = payload.get("code").and_then(|value| value.as_str());
-        let requested_role = payload
-            .get("role")
-            .and_then(|value| value.as_str())
-            .and_then(AccessRole::parse);
-        let token = code.and_then(|value| {
-            pairing
-                .as_ref()
-                .and_then(|store| store.claim(value, requested_role))
-        });
-        let body = if let Some(token) = token {
-            json!({ "token": token })
-        } else {
-            json!({ "error": "invalid code" })
+        let requested_role = match payload.get("role") {
+            None | Some(serde_json::Value::Null) => Ok(None),
+            Some(value) => value
+                .as_str()
+                .and_then(AccessRole::parse)
+                .map(Some)
+                .ok_or("invalid role"),
+        };
+        let body = match (pairing, code, requested_role) {
+            (None, _, _) => json!({ "error": "pairing unavailable" }),
+            (Some(_), None, _) => json!({ "error": "missing code" }),
+            (Some(_), Some(_), Err(error)) => json!({ "error": error }),
+            (Some(store), Some(code), Ok(role)) => {
+                match PairingService::claim(store, code, role, store.now_secs()) {
+                    Ok(token) => json!({ "token": token }),
+                    Err(error) => json!({ "error": error.to_string() }),
+                }
+            }
         };
         let response = Response::from_string(body.to_string())
             .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
@@ -210,6 +221,8 @@ pub(super) fn handle_ops_route(
             let _ = request.respond(response);
             return OpsRouteOutcome::Handled;
         };
+        // The new program is checked against the HMI's bindings first (specification 39 §16.4
+        // item 6), so a deployment that would break them is answered with them in any state.
         let (hmi, broken) = match super::hmi_program_check::check_program_change(
             &payload,
             ctx.hmi_store,
@@ -229,6 +242,14 @@ pub(super) fn handle_ops_route(
                 return OpsRouteOutcome::Handled;
             }
         };
+        // A deployment installs a program, so it is accepted only while the resource is Stopped,
+        // as `program.install` is (specification 34 §11.2). A refusal writes nothing.
+        if let Some(refusal) = refusal_unless_stopped(&**control_state) {
+            let response = Response::from_string(refusal.to_string())
+                .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
+            let _ = request.respond(response);
+            return OpsRouteOutcome::Handled;
+        }
         let result = apply_deploy(bundle_root, payload);
         let body = match result {
             Ok(result) => {
@@ -285,6 +306,15 @@ pub(super) fn handle_ops_route(
             let _ = request.respond(response);
             return OpsRouteOutcome::Handled;
         };
+        // A rollback changes which program the runtime starts next, as a deployment does, so it is
+        // accepted only while the resource is Stopped (specification 34 §11.2, decision Q11). A
+        // refusal changes no link.
+        if let Some(refusal) = refusal_unless_stopped(&**control_state) {
+            let response = Response::from_string(refusal.to_string())
+                .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
+            let _ = request.respond(response);
+            return OpsRouteOutcome::Handled;
+        }
         let root = bundle_root
             .parent()
             .map(PathBuf::from)

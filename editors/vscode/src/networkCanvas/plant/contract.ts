@@ -29,7 +29,23 @@ const CAPABILITY_FIELDS = new Set([
   "model_kinds",
   "limits",
   "operations",
+  "editor",
 ]);
+
+const EDIT_FIELDS = new Set([
+  "contract",
+  "schema_version",
+  "operation",
+  "project_id",
+  "draft",
+  "outcome",
+  "issues",
+  "can_save",
+  "view",
+  "candidate",
+]);
+
+const SIGNALS_FIELDS = new Set(["contract", "schema_version", "operation", "project_id", "signals"]);
 
 const READ_FIELDS = new Set([
   "contract",
@@ -457,7 +473,8 @@ export function decodePlantContractResponse(
       !limits ||
       Object.keys(limits).some((key) => key !== "max_trace_rows_per_plant") ||
       !Number.isSafeInteger(limits.max_trace_rows_per_plant) ||
-      (limits.max_trace_rows_per_plant as number) < 0
+      (limits.max_trace_rows_per_plant as number) < 0 ||
+      (message.editor !== undefined && !record(message.editor))
     ) {
       return { kind: "status_unavailable", reason: "malformed_payload" };
     }
@@ -465,6 +482,23 @@ export function decodePlantContractResponse(
   }
   if (message.operation === "plant.status") {
     return activeStatusResponse(message)
+      ? { kind: "accepted", message: message as unknown as PlantContractMessage }
+      : { kind: "status_unavailable", reason: "malformed_payload" };
+  }
+  // The editor's answers (specification 47 §20.1) are rendered as Rust gives them.
+  if (message.operation === "plant.edit") {
+    return hasOnlyFields(message, EDIT_FIELDS) &&
+      record(message.draft) &&
+      Array.isArray(message.issues) &&
+      typeof message.can_save === "boolean" &&
+      record(message.view) &&
+      record(message.candidate) &&
+      (message.outcome === undefined || record(message.outcome))
+      ? { kind: "accepted", message: message as unknown as PlantContractMessage }
+      : { kind: "status_unavailable", reason: "malformed_payload" };
+  }
+  if (message.operation === "plant.signals") {
+    return hasOnlyFields(message, SIGNALS_FIELDS) && record(message.signals)
       ? { kind: "accepted", message: message as unknown as PlantContractMessage }
       : { kind: "status_unavailable", reason: "malformed_payload" };
   }

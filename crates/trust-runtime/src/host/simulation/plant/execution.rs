@@ -115,7 +115,7 @@ impl PlantInstance {
         elapsed_nanos: i64,
         max_substeps: usize,
         next_trace_sequence: &mut u64,
-        runtime: &Runtime,
+        runtime: &CompiledRuntime,
     ) -> Result<(), RuntimeError> {
         if let Err(error) =
             self.advance_inner(elapsed_nanos, max_substeps, next_trace_sequence, runtime)
@@ -142,7 +142,7 @@ impl PlantInstance {
         elapsed_nanos: i64,
         max_substeps: usize,
         next_trace_sequence: &mut u64,
-        runtime: &Runtime,
+        runtime: &CompiledRuntime,
     ) -> Result<(), RuntimeError> {
         self.accumulator_nanos = self.accumulator_nanos.saturating_add(elapsed_nanos.max(0));
         let step_nanos = self.config.step.as_nanos();

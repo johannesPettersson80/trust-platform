@@ -29,13 +29,15 @@ pub(super) fn register_access_bindings(
         };
         let resolved = resolve_access_path(runtime, &decl.path)?;
         match resolved {
-            ResolvedAccess::Variable { reference, partial } => {
-                runtime.access_map_mut().bind_with_mode(
-                    decl.name.clone(),
-                    reference,
+            ResolvedAccess::Variable {
+                partial, symbol, ..
+            } => {
+                runtime.register_access(NamedAccess {
+                    name: decl.name.clone(),
+                    symbol,
                     partial,
                     writable,
-                );
+                });
             }
             ResolvedAccess::Direct(_) => {
                 return Err(CompileError::new(

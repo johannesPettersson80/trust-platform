@@ -1,9 +1,7 @@
 import { debugChannel } from "./debug/configuration";
 import { waitForEndpointReachable } from "./io-panel/status";
-import {
-  managedRuntimeLabel,
-  type ManagedLifecycleResult,
-} from "./localRuntimeModel";
+import type { ManagedLifecycleResult } from "./localRuntimeModel";
+import { projectRequest } from "./projectRequest";
 import { runtimeLifecycleService } from "./runtimeLifecycle";
 import { setSelectedRuntimeId } from "./selectedRuntime";
 
@@ -36,9 +34,10 @@ export async function attachManagedRuntimeAfterStart(
   // failure below — we never fabricate a connection.
   await waitForEndpointReachable(result.controlEndpoint);
 
+  // The session takes the runtime's name in the sidebar, which the language server gives with the outcome.
   const connect = await runtimeLifecycleService.connectRemote(
     result.controlEndpoint,
-    managedRuntimeLabel(name)
+    result.label ?? name
   );
   if (!connect.ok) {
     return {
@@ -55,22 +54,23 @@ export async function disconnectManagedRuntimeAfterStop(
   result: ManagedLifecycleResult
 ): Promise<void> {
   const snapshot = await runtimeLifecycleService.snapshot();
-  const stoppedEndpoint = result.controlEndpoint?.trim();
-  const attachedEndpoint = snapshot.status.endpoint.trim();
-  const attachedLabel = snapshot.status.targetLabel?.trim();
-  const managedLabel = managedRuntimeLabel(name);
-  const sameEndpoint =
-    !!stoppedEndpoint && attachedEndpoint === stoppedEndpoint;
-  const sameManagedTarget = attachedLabel === managedLabel;
-  if (
-    snapshot.status.runtimeMode === "online" &&
-    snapshot.status.runtimeState === "connected" &&
-    (sameEndpoint || sameManagedTarget)
-  ) {
+  // The language server decides whether this Stop ends the attached session (specification 25 §5.1).
+  const answer = await projectRequest<{ ends: boolean }>("trust-lsp.runTargets", {
+    action: "managedStopEndsSession",
+    stoppedEndpoint: result.controlEndpoint ?? null,
+    stoppedLabel: result.label ?? null,
+    attached: {
+      mode: snapshot.status.runtimeMode,
+      state: snapshot.status.runtimeState,
+      endpoint: snapshot.status.endpoint,
+      label: snapshot.status.targetLabel ?? null,
+    },
+  });
+  if (answer.ok && answer.ends) {
     await runtimeLifecycleService.stopRuntime();
     return;
   }
-  if (!stoppedEndpoint) {
+  if (!result.controlEndpoint?.trim()) {
     debugChannel().appendLine(
       `Managed runtime ${name} stopped without a reported control endpoint; no matching Live Values session was connected.`
     );

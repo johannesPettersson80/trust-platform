@@ -68,6 +68,29 @@ mod tests {
     }
 
     #[test]
+    fn parse_new_project_flags() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "new",
+            "--parent",
+            "projects",
+            "--name",
+            "my-plc",
+            "--force",
+            "--json",
+        ]);
+        match cli.command.expect("command") {
+            Command::New(args) => {
+                assert_eq!(args.parent, PathBuf::from("projects"));
+                assert_eq!(args.name, "my-plc");
+                assert!(args.force);
+                assert!(args.json);
+            }
+            other => panic!("expected new command, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn runtime_help_names_trust_dev_workbench_commands_and_removal_window() {
         let mut help = Vec::new();
         Cli::command()
@@ -729,6 +752,7 @@ mod tests {
                     unit_id,
                     probe_read_address,
                     probe_read_quantity,
+                    ads_ports,
                     passive,
                     json,
                 } => {
@@ -741,12 +765,38 @@ mod tests {
                     assert_eq!(unit_id, Some(17));
                     assert_eq!(probe_read_address, Some(400));
                     assert_eq!(probe_read_quantity, Some(2));
+                    assert!(ads_ports.is_empty());
                     assert!(passive);
                     assert!(json);
                 }
                 other => panic!("expected comm discover action, got {other:?}"),
             },
             other => panic!("expected comm command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_comm_discover_ads_ports_in_order() {
+        // Specification 11 §6.8.1a: `comm discover` forwards the ADS ports the caller names, each
+        // `--ads-port` once, in the order given; the request merges and sorts them. A wrong
+        // implementation keeps only the last port or drops the flag.
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "comm",
+            "discover",
+            "--protocol",
+            "ads",
+            "--ads-port",
+            "851",
+            "--ads-port",
+            "301",
+            "--json",
+        ]);
+        match cli.command.expect("command") {
+            Command::Comm {
+                action: CommAction::Discover { ads_ports, .. },
+            } => assert_eq!(ads_ports, vec![851, 301]),
+            other => panic!("expected comm discover command, got {other:?}"),
         }
     }
 
@@ -1200,47 +1250,55 @@ mod tests {
     }
 
     #[test]
-    fn parse_run_execution_backend_flag() {
-        let cli = Cli::parse_from([
-            "trust-runtime",
-            "run",
-            "--project",
-            "project",
-            "--execution-backend",
-            "vm",
-        ]);
-        match cli.command.expect("command") {
-            Command::Run {
-                execution_backend, ..
-            } => assert_eq!(execution_backend, Some(ExecutionBackendArg::Vm)),
-            other => panic!("expected run command, got {other:?}"),
+    fn no_command_takes_an_execution_backend() {
+        // Specification 44 §15: every runtime runs compiled programs, so no command selects an
+        // execution backend or the bytecode engine's tier-1 executor. Catches an option that is
+        // still accepted and then ignored, which would let a script believe it chose the bytecode
+        // engine.
+        let commands: [&[&str]; 6] = [
+            &[
+                "trust-runtime",
+                "run",
+                "--project",
+                "project",
+                "--execution-backend",
+                "vm",
+            ],
+            &["trust-runtime", "play", "--execution-backend", "vm"],
+            &["trust-runtime", "build", "--execution-backend", "vm"],
+            &[
+                "trust-runtime",
+                "conformance",
+                "--execution-backend",
+                "native",
+            ],
+            &[
+                "trust-runtime",
+                "bench",
+                "project",
+                "--project",
+                "project",
+                "--execution-backend",
+                "native",
+            ],
+            &[
+                "trust-runtime",
+                "bench",
+                "project",
+                "--project",
+                "project",
+                "--tier1",
+            ],
+        ];
+        for command in commands {
+            let err =
+                Cli::try_parse_from(command.iter().copied()).expect_err("the option is refused");
+            assert_eq!(
+                err.kind(),
+                clap::error::ErrorKind::UnknownArgument,
+                "{command:?}: {err}"
+            );
         }
-    }
-
-    #[test]
-    fn parse_run_execution_backend_rejects_interpreter_flag() {
-        let err = Cli::try_parse_from([
-            "trust-runtime",
-            "run",
-            "--project",
-            "project",
-            "--execution-backend",
-            "interpreter",
-        ])
-        .expect_err("interpreter backend should be rejected by CLI");
-        assert!(err.to_string().contains("invalid value 'interpreter'"));
-    }
-
-    #[test]
-    fn parse_play_execution_backend_rejects_interpreter_flag() {
-        let err = Cli::try_parse_from([
-            "trust-runtime",
-            "play",
-            "--execution-backend",
-            "interpreter",
-        ])
-        .expect_err("interpreter backend should be rejected by CLI");
-        assert!(err.to_string().contains("invalid value 'interpreter'"));
     }
 
     #[test]
@@ -1353,18 +1411,44 @@ mod tests {
             "timers",
         ]);
         match cli.command.expect("command") {
-            Command::Conformance {
+            Command::Conformance(ConformanceArgs {
                 suite_root,
                 output,
                 update_expected,
                 filter,
-            } => {
+                device,
+                target,
+            }) => {
                 assert_eq!(suite_root, Some(PathBuf::from("conformance")));
                 assert_eq!(output, Some(PathBuf::from("summary.json")));
                 assert!(update_expected);
                 assert_eq!(filter.as_deref(), Some("timers"));
+                assert_eq!((device, target), (None, None));
             }
             other => panic!("expected conformance command, got {other:?}"),
+        }
+        // A device names its target, and a target names its device (specification 44 §14.2): a
+        // parser that took one alone would build the cases for no device, or step a device with
+        // cases built for this computer.
+        let on_device = Cli::parse_from([
+            "trust-runtime",
+            "conformance",
+            "--device",
+            "/dev/ttyACM0",
+            "--target",
+            "esp32c6",
+        ]);
+        match on_device.command.expect("command") {
+            Command::Conformance(ConformanceArgs { device, target, .. }) => {
+                assert_eq!(device.as_deref(), Some("/dev/ttyACM0"));
+                assert_eq!(target.as_deref(), Some("esp32c6"));
+            }
+            other => panic!("expected conformance command, got {other:?}"),
+        }
+        for alone in [["--device", "/dev/ttyACM0"], ["--target", "esp32c6"]] {
+            let parsed =
+                Cli::try_parse_from(["trust-runtime", "conformance"].into_iter().chain(alone));
+            assert!(parsed.is_err(), "{alone:?} alone must be refused");
         }
     }
 
@@ -1394,7 +1478,6 @@ mod tests {
                     samples,
                     warmup_cycles,
                     watch,
-                    tier1,
                     output,
                 } => {
                     assert_eq!(
@@ -1410,29 +1493,7 @@ mod tests {
                             "g_motion_demo_last_error"
                         ]
                     );
-                    assert!(!tier1);
                     assert_eq!(output, BenchOutputFormat::Json);
-                }
-                other => panic!("expected bench project action, got {other:?}"),
-            },
-            other => panic!("expected bench command, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn parse_bench_project_command_with_tier1() {
-        let cli = Cli::parse_from([
-            "trust-runtime",
-            "bench",
-            "project",
-            "--project",
-            "examples/plcopen_motion_single_axis_demo",
-            "--tier1",
-        ]);
-        match cli.command.expect("command") {
-            Command::Bench { action } => match action {
-                BenchAction::Project { tier1, .. } => {
-                    assert!(tier1);
                 }
                 other => panic!("expected bench project action, got {other:?}"),
             },
@@ -1503,6 +1564,88 @@ mod tests {
                 other => panic!("expected bench mesh-zenoh action, got {other:?}"),
             },
             other => panic!("expected bench command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_ads_remove_symbols_command() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "ads",
+            "remove-symbols",
+            "--project",
+            "plant",
+            "--host",
+            "192.168.77.11",
+            "--target-net-id",
+            "100.67.6.217.1.1",
+            "--ams-port",
+            "301",
+            "--path",
+            "Task 4.Inputs.Var 1",
+            "--path",
+            "Task 4.Inputs.Var 2",
+            "--json",
+        ]);
+        match cli.command.expect("command") {
+            Command::Ads { action } => match action {
+                AdsAction::RemoveSymbols {
+                    project,
+                    host,
+                    target_net_id,
+                    ams_port,
+                    paths,
+                    json,
+                } => {
+                    assert_eq!(project, PathBuf::from("plant"));
+                    assert_eq!(host.as_deref(), Some("192.168.77.11"));
+                    assert_eq!(target_net_id.as_deref(), Some("100.67.6.217.1.1"));
+                    assert_eq!(ams_port, 301);
+                    assert_eq!(
+                        paths,
+                        vec![
+                            "Task 4.Inputs.Var 1".to_string(),
+                            "Task 4.Inputs.Var 2".to_string()
+                        ]
+                    );
+                    assert!(json);
+                }
+                other => panic!("expected ads remove-symbols action, got {other:?}"),
+            },
+            other => panic!("expected ads command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_comm_test_command() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "comm",
+            "test",
+            "--project",
+            "plant",
+            "--protocol",
+            "simulated",
+            "--params",
+            "{}",
+            "--json",
+        ]);
+        match cli.command.expect("command") {
+            Command::Comm { action } => match action {
+                CommAction::Test {
+                    project,
+                    protocol,
+                    params,
+                    json,
+                } => {
+                    assert_eq!(project, PathBuf::from("plant"));
+                    assert_eq!(protocol, "simulated");
+                    assert_eq!(params, "{}");
+                    assert!(json);
+                }
+                other => panic!("expected comm test action, got {other:?}"),
+            },
+            other => panic!("expected comm command, got {other:?}"),
         }
     }
 }

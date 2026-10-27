@@ -663,10 +663,12 @@ fn isolated_run_rejects_search_grid_and_fractional_integer_state() {
 #[test]
 fn isolated_run_cancel_retains_samples_already_received_from_the_worker() {
     let (mut state, _root) = search_fixture();
+    // The run must still be running when the cancellation arrives: the compiled program's 100,000
+    // loop passes take a few tenths of a millisecond in each of its 12,000 scans (specification 44).
     state.sources = SourceRegistry::new(vec![SourceFile {
         id: 1,
         path: PathBuf::from("Main.st"),
-        text: "PROGRAM Main VAR PV AT %IL0 : LREAL; MV AT %QL0 : LREAL; Work : DINT; Scratch : LREAL; END_VAR FOR Work := 1 TO 100 DO Scratch := Scratch + 0.0001; END_FOR; MV := 1.0; END_PROGRAM".into(),
+        text: "PROGRAM Main VAR PV AT %IL0 : LREAL; MV AT %QL0 : LREAL; Work : DINT; Scratch : LREAL; END_VAR FOR Work := 1 TO 100000 DO Scratch := Scratch + 0.0001; END_FOR; MV := 1.0; END_PROGRAM".into(),
     }]);
     let revision = handle_request_value(
         json!({"id":8870,"type":"control.simulation.run.status","params":{}}),
@@ -777,9 +779,12 @@ fn isolated_run_cancel_retains_samples_already_received_from_the_worker() {
 #[test]
 fn isolated_run_wall_budget_retains_the_received_prefix_as_failed_evidence() {
     let (mut state, _root) = search_fixture();
+    // The run must outlast its one-second wall budget: the compiled program's 100,000 loop passes
+    // take a few tenths of a millisecond in each of its 12,000 scans (specification 44), and a
+    // scan stays within its 100 ms deadline and its statement budget (NX-10).
     state.sources = SourceRegistry::new(vec![SourceFile {
         id: 1, path: PathBuf::from("Main.st"),
-        text: "PROGRAM Main VAR PV AT %IL0 : LREAL; MV AT %QL0 : LREAL; Work : DINT; Scratch : LREAL; END_VAR FOR Work := 1 TO 1000 DO Scratch := Scratch + 0.0001; END_FOR; MV := 1.0; END_PROGRAM".into(),
+        text: "PROGRAM Main VAR PV AT %IL0 : LREAL; MV AT %QL0 : LREAL; Work : DINT; Scratch : LREAL; END_VAR FOR Work := 1 TO 100000 DO Scratch := Scratch + 0.0001; END_FOR; MV := 1.0; END_PROGRAM".into(),
     }]);
     let revision = handle_request_value(
         json!({"id":8880,"type":"control.simulation.run.status","params":{}}),
@@ -1016,6 +1021,64 @@ fn isolated_run_record_every_averages_each_period_and_keeps_the_partial_last_one
         assert!(sample.get("quality").is_none(), "every channel is good: {details}");
     }
     assert_eq!(samples[3]["timeSeconds"], json!(0.009), "{details}");
+}
+
+/// Specification 07 §2.10: an isolated run compiles the project's Structured Text with the conversion rules of its
+/// `vendor_profile`, as every tool that executes the project's code does, and a profile that names no rules leaves the
+/// run not ready. Worked from the table of 2.10: `REAL_TO_INT(2.5)` is 3 under the CODESYS rules (half away from zero) and
+/// 2 under the IEC rules (ties to even), which `siemens` selects. Catches a worker that compiles every project with the
+/// IEC rules, and a misspelled profile run under them.
+#[test]
+fn isolated_run_compiles_with_the_conversion_rules_of_the_project_vendor_profile() {
+    let (mut state, root) = search_fixture();
+    state.sources = SourceRegistry::new(vec![SourceFile {
+        id: 1,
+        path: PathBuf::from("Main.st"),
+        text: "PROGRAM Main VAR Half : REAL := 2.5; Rounded : INT; PV AT %IL0 : LREAL; MV AT %QL0 : LREAL; END_VAR Rounded := REAL_TO_INT(Half); END_PROGRAM".into(),
+    }]);
+    let settings = root.path().join("trust-lsp.toml");
+    for (vendor_profile, rounded) in [("codesys", 3.0), ("siemens", 2.0)] {
+        std::fs::write(
+            &settings,
+            format!("[project]\nvendor_profile = \"{vendor_profile}\"\n"),
+        )
+        .unwrap();
+        let revision = handle_request_value(
+            json!({"id":8910,"type":"control.simulation.run.status","params":{}}),
+            &state,
+            None,
+        )
+        .result
+        .unwrap()["project_revision"]
+            .clone();
+        let mut request = isolated_run_request(revision);
+        request["step_ms"] = json!(20);
+        request["duration_ms"] = json!(200);
+        request["max_total_cycles"] = json!(11);
+        request["observations"] = json!([{"symbol":"Main.Rounded","unit":"1"}]);
+        let result = isolated_run_to_end(&state, request);
+        assert_eq!(result["status"], "completed", "{vendor_profile}: {result}");
+        assert_eq!(
+            channel_value(&result["run"], 0, "Main.Rounded"),
+            rounded,
+            "{vendor_profile}"
+        );
+    }
+    std::fs::write(&settings, "[project]\nvendor_profile = \"codesis\"\n").unwrap();
+    let readiness = handle_request_value(
+        json!({"id":8911,"type":"control.simulation.run.status","params":{}}),
+        &state,
+        None,
+    )
+    .result
+    .unwrap();
+    assert_eq!(readiness["ready"], false, "{readiness}");
+    assert!(
+        readiness["reason"]
+            .as_str()
+            .is_some_and(|reason| reason.contains("unknown vendor_profile 'codesis'")),
+        "{readiness}"
+    );
 }
 
 /// Starts an isolated run of `request` and polls it until its job is terminal; returns the last status answer.

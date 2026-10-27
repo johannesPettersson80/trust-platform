@@ -11,18 +11,17 @@ pub(super) fn start_test_server_with_options_and_profile(
     if let Ok(mut settings) = state.settings.lock() {
         settings.runtime_cloud.profile = profile;
     }
-    let port = reserve_loopback_port();
-    let listen = format!("127.0.0.1:{port}");
+    // The system chooses the port when the server binds, so no other test can take it first.
     let config = WebConfig {
         enabled: true,
-        listen: SmolStr::new(listen.clone()),
+        listen: SmolStr::new("127.0.0.1:0"),
         auth,
         tls: false,
         hmi: Default::default(),
     };
-    let _server = start_web_server(&config, state, discovery, pairing, Some(project_root), None)
+    let server = start_web_server(&config, state, discovery, pairing, Some(project_root), None)
         .expect("start web server");
-    let base = format!("http://{listen}");
+    let base = format!("http://{}", server.listen);
     wait_for_server(&base);
     base
 }
@@ -31,16 +30,14 @@ pub(super) fn start_test_server_config_ui(
     state: Arc<ControlState>,
     project_root: PathBuf,
 ) -> String {
-    let port = reserve_loopback_port();
-    let listen = format!("127.0.0.1:{port}");
     let config = WebConfig {
         enabled: true,
-        listen: SmolStr::new(listen.clone()),
+        listen: SmolStr::new("127.0.0.1:0"),
         auth: WebAuthMode::Local,
         tls: false,
         hmi: Default::default(),
     };
-    let _server = trust_runtime::web::start_web_server_with_mode(
+    let server = trust_runtime::web::start_web_server_with_mode(
         &config,
         state,
         Some(Arc::new(DiscoveryState::new())),
@@ -50,7 +47,7 @@ pub(super) fn start_test_server_config_ui(
         trust_runtime::web::WebServerMode::StandaloneIde,
     )
     .expect("start config-ui web server");
-    let base = format!("http://{listen}");
+    let base = format!("http://{}", server.listen);
     for _ in 0..80 {
         let mode = ureq::get(&format!("{base}/api/ui/mode")).call();
         if let Ok(mut response) = mode {

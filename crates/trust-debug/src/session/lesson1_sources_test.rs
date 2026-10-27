@@ -1,6 +1,7 @@
 use super::{
     canonicalize_lossy, collect_sources, CompileSession, HarnessSourceFile, SourceOptions,
 };
+use trust_runtime::harness::TestHarness;
 
 #[test]
 fn lesson1_simulator_source_selection_excludes_native_tests() {
@@ -57,33 +58,58 @@ fn control_lessons_exclude_test_sources_and_preserve_explicit_test_discovery() {
     );
 }
 
+/// Specification 44 NX-16: the simulator builds each delivered lesson's sources for this computer,
+/// with the conversion rules of the lesson's `vendor_profile` (specification 07 §2.10). The lessons
+/// are built on several threads, each in a folder of its own, with the toolchain of §4.6 at
+/// `TRUST_TOOLCHAIN`.
 #[test]
 fn control_lesson_simulator_sources_compile_as_delivered_programs() {
-    let mut failures = Vec::new();
-    for (lesson, project) in delivered_control_projects() {
-        let entry = project.join("src/Main.st");
-        let sources = collect_sources(
-            entry.to_str().unwrap(),
-            &SourceOptions {
-                root: Some(project.to_string_lossy().into_owned()),
-                include_globs: vec!["**/*.st".to_owned()],
-                ..SourceOptions::default()
-            },
-        )
-        .unwrap();
-        let files = sources
-            .into_iter()
-            .map(|(name, text)| HarnessSourceFile::with_path(name, text))
-            .collect::<Vec<_>>();
-        if let Err(error) = CompileSession::from_sources(files).build_runtime() {
-            failures.push(format!("{lesson}: {error}"));
+    let lessons = std::sync::Mutex::new(delivered_control_projects());
+    let failures = std::sync::Mutex::new(Vec::new());
+    let builders = std::thread::available_parallelism().map_or(4, |count| count.get().min(8));
+    std::thread::scope(|scope| {
+        for _ in 0..builders {
+            scope.spawn(|| loop {
+                let Some((lesson, project)) = lessons.lock().unwrap().pop() else {
+                    break;
+                };
+                if let Err(error) = build_lesson(&project) {
+                    failures.lock().unwrap().push(format!("{lesson}: {error}"));
+                }
+            });
         }
-    }
+    });
+    let mut failures = failures.into_inner().unwrap();
+    failures.sort();
     assert!(
         failures.is_empty(),
         "delivered Simulator programs must compile:\n{}",
         failures.join("\n")
     );
+}
+
+/// Builds the lesson at `project` as the simulator builds it: the sources its entry selects, with
+/// the conversion rules of its `vendor_profile`.
+fn build_lesson(project: &std::path::Path) -> Result<(), String> {
+    let entry = project.join("src/Main.st");
+    let sources = collect_sources(
+        entry.to_str().unwrap(),
+        &SourceOptions {
+            root: Some(project.to_string_lossy().into_owned()),
+            include_globs: vec!["**/*.st".to_owned()],
+            ..SourceOptions::default()
+        },
+    )
+    .map_err(|error| error.to_string())?;
+    let files = sources
+        .into_iter()
+        .map(|(name, text)| HarnessSourceFile::with_path(name, text))
+        .collect::<Vec<_>>();
+    let profile =
+        trust_runtime::native::conversion_profile(project).map_err(|error| error.to_string())?;
+    TestHarness::from_session(CompileSession::from_sources(files).with_conversion_profile(profile))
+        .map(|_| ())
+        .map_err(|error| error.to_string())
 }
 
 fn delivered_control_projects() -> Vec<(String, std::path::PathBuf)> {

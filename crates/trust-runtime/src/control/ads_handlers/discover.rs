@@ -16,7 +16,18 @@ pub(in crate::control) fn handle_ads_discover(
     };
 
     #[cfg(feature = "ads-wire")]
+    let mut request = request;
+
+    #[cfg(feature = "ads-wire")]
     {
+        // A broadcast round derives its directed and broadcast targets from this computer's
+        // interfaces, the same way the ADS source of a search does (E26, specification 11).
+        if request.include_broadcast
+            && let Err(error) =
+                crate::ads::onboarding::discover::interface_targets_for_request(&mut request)
+        {
+            return ControlResponse::error(id, error);
+        }
         let mut wire = crate::ads::onboarding::AdsRsOnboardingWire::default();
         match discover_targets(&mut wire, &request) {
             Ok(results) => serialize_results(id, results),

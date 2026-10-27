@@ -5,7 +5,7 @@
 
 use serde_json::{json, Value};
 use trust_runtime::config::WebAuthMode;
-use trust_runtime::harness::TestHarness;
+use trust_runtime::harness::CompileSession;
 use trust_runtime::hmi::access::config::{HmiAccessConfig, HmiUser};
 use trust_runtime::hmi::access::password::{hash_password, PasswordHash};
 use trust_runtime::security::AccessRole;
@@ -242,10 +242,15 @@ fn apply_writes_every_change_and_answers_with_the_values_read_back() {
     // restart and a power loss.
     let mut sources = SOURCES.to_vec();
     sources.push(PROGRAM);
-    let metadata = TestHarness::from_sources(&sources)
-        .expect("the Plant library compiles")
-        .runtime()
-        .metadata_snapshot();
+    let declarations = CompileSession::from_sources(
+        sources
+            .iter()
+            .map(|source| trust_runtime::harness::SourceFile::new(*source))
+            .collect(),
+    )
+    .declarations()
+    .expect("the Plant library compiles");
+    let metadata = declarations.metadata();
     let block = metadata
         .function_blocks()
         .values()
@@ -312,4 +317,51 @@ fn a_value_changed_meanwhile_is_refused_and_nothing_is_written() {
     let again = read(&running, &erik);
     assert_eq!(number(&again, "StartTimeout"), Some(5.0));
     assert_eq!(number(&again, "ServiceInterval"), Some(4000.0));
+}
+
+/// §21.4 item 4: the dialog sends each entry as its field holds it, and the runtime reads it. For
+/// the pump, "soon" for the start timeout is no number: refused naming the setting and its field,
+/// and the service interval of the same request is not written. Then "7,5" is 7.5 s (a comma is
+/// the decimal separator) and " 2500 " is 2 500 h. Catches a text entry refused or written as
+/// text, a comma not read as the decimal separator, a refusal without its field, and a refused
+/// request that writes part of its changes.
+#[test]
+fn the_entries_as_the_dialog_holds_them_are_read_and_checked_by_the_runtime() {
+    let running = start_plant("settings-entries");
+    let erik = session_cookie(&running.base, "erik");
+    let refused = settings(
+        &running,
+        &erik,
+        json!({
+            "faceplate": PANEL,
+            "action": "apply",
+            "changes": { "ServiceInterval": "2500", "StartTimeout": "soon" },
+            "expected": { "ServiceInterval": 4000, "StartTimeout": 5 },
+        }),
+    );
+    assert_eq!(refused["ok"], json!(false), "{refused}");
+    assert_eq!(refused["field"], json!("StartTimeout"), "{refused}");
+    assert_eq!(
+        refused["error"],
+        json!("Start timeout: enter a number, not \"soon\""),
+        "{refused}"
+    );
+    assert_eq!(
+        number(&read(&running, &erik), "ServiceInterval"),
+        Some(4000.0),
+        "all or none"
+    );
+    let answer = settings(
+        &running,
+        &erik,
+        json!({
+            "faceplate": PANEL,
+            "action": "apply",
+            "changes": { "StartTimeout": "7,5", "ServiceInterval": " 2500 " },
+            "expected": { "StartTimeout": 5, "ServiceInterval": 4000 },
+        }),
+    );
+    assert_eq!(answer["ok"], json!(true), "{answer}");
+    assert_eq!(number(&answer, "StartTimeout"), Some(7.5));
+    assert_eq!(number(&answer, "ServiceInterval"), Some(2500.0));
 }

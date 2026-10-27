@@ -20,8 +20,8 @@ use trust_control_studio::runtime_client::RuntimeClient;
 use trust_control_studio::{loops, storage};
 
 use super::{
-    copy_dir, inspect_until_available, prepare_runtime_toml, run_trust_runtime, start_runtime,
-    wait_for_status, RemoveDir, Runtime, TOKEN,
+    control_socket, copy_dir, inspect_until_available, prepare_runtime_toml, run_trust_runtime,
+    start_runtime, wait_for_status, RemoveDir, Runtime, TOKEN,
 };
 
 /// The runtime that the engine's verbs name for a project's loops; every example's loop is bound to it.
@@ -229,12 +229,7 @@ impl Lab {
         let project = folder.join("project");
         copy_dir(Path::new(example), &project);
         remove_test_programs(&project);
-        let socket = project.join(".control.sock");
-        assert!(
-            socket.as_os_str().len() <= 100,
-            "the socket path {} is too long; use a shorter TMPDIR",
-            socket.display()
-        );
+        let socket = control_socket(&project);
         prepare_runtime_toml(&project, &socket);
         set_time_scale(&project, time_scale);
         run_trust_runtime(&["build", "--project", &project.display().to_string()]);

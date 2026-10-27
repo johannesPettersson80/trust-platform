@@ -32,6 +32,18 @@ async function isEmptyFile(uri: vscode.Uri): Promise<boolean> {
 }
 let openConnections: vscode.OutputChannel | undefined;
 
+/** The control cycle typed in milliseconds, or why it cannot be one: the language server checks it
+ * (`trust-lsp.hmiChecks`, specification 39 §10.3 item 3). */
+async function controlCycle(text: string): Promise<{ milliseconds?: number; problem?: string }> {
+  const answer = await vscode.commands.executeCommand<{
+    ok?: boolean;
+    error?: string;
+    milliseconds?: number;
+    problem?: string;
+  }>("trust-lsp.hmiChecks", { action: "cycle", text });
+  return answer?.ok === true ? answer : { problem: answer?.error ?? "The truST language server is not running." };
+}
+
 /** What is still to connect, each on its own line: a notification cuts a long list short. */
 async function showOpenConnections(notes: Array<{ instance?: string; message: string }>): Promise<void> {
   const count = notes.length === 1 ? "1 connection is" : `${notes.length} connections are`;
@@ -74,13 +86,10 @@ export async function createPlcCode(args: { folder?: string } = {}): Promise<boo
       const period = await vscode.window.showInputBox({
         title: "PLC control cycle",
         prompt: "This project has no task yet. Choose its cycle in milliseconds.",
-        validateInput: (text) =>
-          /^\d+$/.test(text) && Number(text) >= 1 && Number(text) <= 60000
-            ? undefined
-            : "Enter a whole number from 1 to 60000 milliseconds.",
+        validateInput: async (text) => (await controlCycle(text)).problem,
       });
       if (period === undefined) return false;
-      cycle_ms = Number(period);
+      cycle_ms = (await controlCycle(period)).milliseconds;
       answer = await prepare();
     }
     if (answer?.needsScreenTask) {

@@ -9,7 +9,7 @@ use trust_runtime::hmi::catalogue::Catalogue;
 
 use super::{
     colour_warnings, display_warning, object_warnings, oklab_distance, text_contrast,
-    variable_type, Backing, ColourQuality, DrawnText, LanguageCuts, PageQuality, NO_DISPLAY,
+    variable_type, Backing, ColourQuality, DrawnText, LanguageCuts, Mix, PageQuality, NO_DISPLAY,
 };
 
 /// The variable picker's tree of a pump station (the TypeScript test's `VARIABLES`): REAL, LREAL, DINT and BOOL values, and an array
@@ -418,6 +418,58 @@ fn the_contrast_ratio_is_the_wcag_ratio_and_large_or_bold_text_and_signs_need_th
         (ratio - 5.2808).abs() < 1e-3,
         "black text on white under half-transparent black: {ratio}"
     );
+}
+
+#[test]
+fn a_gradients_stops_and_samples_are_alternatives_and_the_worst_one_counts() {
+    // The drawing gives a radial glow's stops, and a linear gradient's colour at the text's two
+    // ends and middle, as alternatives in one layer; taking the best of them would pass a text
+    // that cannot be read on the other side. (Moved from the extension's test of its own copy of
+    // this rule, deleted 26 October 2026.)
+    let palette: BTreeMap<String, String> = [
+        ("white", "#ffffff"),
+        ("black", "#000000"),
+        ("grey", "#777777"),
+    ]
+    .into_iter()
+    .map(|(token, colour)| (token.to_owned(), colour.to_owned()))
+    .collect();
+    let opaque = |token: &str, mix: Option<Mix>| Backing {
+        token: token.to_owned(),
+        opacity: 1.0,
+        mix,
+    };
+    // #777 on white is 4.478, on black (0.18448 + 0.05) / 0.05 = 4.690: the glow counts at white.
+    // 19 px bold is large text, which needs 3:1.
+    let mut glow = drawn("Graded", "grey", "white", 19.0, true, false);
+    glow.behind = vec![vec![opaque("white", None), opaque("black", None)]];
+    let (ratio, needed) = text_contrast(&glow, &palette);
+    assert!(
+        (ratio - 4.478).abs() < 1e-3,
+        "the worse of the two stops: {ratio}"
+    );
+    assert_eq!(needed, 3.0);
+    // White text sampled at 46.15 %, 50 % and 53.85 % of a white-to-black gradient: the lighter end
+    // gives grey 0.5385, luminance 0.25143, so (1 + 0.05) / (0.25143 + 0.05) = 3.4835.
+    let mut linear = drawn("AB", "white", "white", 14.0, false, false);
+    linear.behind = vec![[0.4615, 0.5, 0.5385]
+        .into_iter()
+        .map(|share| {
+            opaque(
+                "white",
+                Some(Mix {
+                    token: "black".to_owned(),
+                    share,
+                }),
+            )
+        })
+        .collect()];
+    let (ratio, needed) = text_contrast(&linear, &palette);
+    assert!(
+        (ratio - 3.483_485).abs() < 1e-5,
+        "where the text lies, at its lighter end: {ratio}"
+    );
+    assert_eq!(needed, 4.5);
 }
 
 #[test]

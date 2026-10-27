@@ -1,13 +1,14 @@
 //! Method commands through the HMI command endpoint (specification 39, §21.2, §21.5 item 2):
 //! `action = "invoke"`. The runtime finds the command from the active page, never from the
-//! request, and checks the session's role, the control's interlock, the instance's interface and
-//! the inputs; only then does it record the command for its retries and call the method at the
-//! next display boundary. The method's BOOL result is the outcome: TRUE accepted, FALSE refused
-//! with the instance's `CommandText` as the reason.
+//! request, and checks the session's role, the control's interlock, and the instance's interface
+//! and the inputs against the running program's image; only then does it record the command for
+//! its retries and call the method at the next display boundary. The method's BOOL result is the
+//! outcome: TRUE accepted, FALSE refused with the instance's `CommandText` as the reason.
 use super::*;
 use crate::hmi::access::policy::{command_role, own_limits, require_role};
 use crate::hmi::commands::{
-    capability::MethodCommand, capability_checks, plan::interlock, registry::ScopedBegin,
+    capability::MethodCommand, capability_checks, plan::interlock, program_checks,
+    registry::ScopedBegin,
 };
 use crate::hmi::member_paths::PathSegment;
 use crate::hmi::method_exchange::{Invocation, Reply};
@@ -48,8 +49,8 @@ impl Commands {
         }
         let authorized = match self.authorize_capability(&request, &session) {
             Ok(authorized) => authorized,
-            Err(reason) => {
-                let answer = CommandAnswer::refused(&id, reason);
+            Err(refused) => {
+                let answer = CommandAnswer::write_refused(&id, refused);
                 self.capability_audit(&request, &session, None, &answer);
                 return answer;
             }
@@ -68,12 +69,14 @@ impl Commands {
     }
 
     /// The checks of §21.2 item 2 in order: the control on the active page and its command, the
-    /// session's role, the interlock, the instance's interface and method, and the inputs.
+    /// session's role, the interlock, the instance's interface and method, and the inputs. A
+    /// refusal is a [`WriteRefused`]: its reason, and the stable code of an input's text longer
+    /// than the input holds (§12.8 item 5).
     fn authorize_capability(
         &self,
         request: &CommandRequest,
         session: &SessionInfo,
-    ) -> Result<Authorized, String> {
+    ) -> Result<Authorized, WriteRefused> {
         let exchange = crate::control::hmi_ports::hmi_exchange(&self.control_state);
         let state = self.control_state.clone();
         let type_of = move |path: &str| instance_type(&state, path);
@@ -89,10 +92,7 @@ impl Commands {
             return Err("the page is out of date; reload it".into());
         }
         let Some(Ok(page)) = page else {
-            return Err(format!(
-                "the project has no page \"{}\" that loads",
-                request.page
-            ));
+            return Err(format!("the project has no page \"{}\" that loads", request.page).into());
         };
         let object = page
             .objects
@@ -115,10 +115,17 @@ impl Commands {
         if let Some((permit, reason)) = interlock(&object)?
             && let Some(refusal) = self.interlocked(&permit, reason.as_ref())
         {
-            return Err(refusal);
+            return Err(refusal.into());
         }
-        let block = instance_type(&self.control_state, &command.instance)
+        // The instance, the interface, the method and its inputs are those of the program that
+        // runs, read from its image's tables whatever the debugging switch (specification 44
+        // §5.4, §5.7, §13.3).
+        let program = self
+            .control_state
+            .program_image()
             .ok_or("the equipment is not available")?;
+        let image = program.image();
+        let equipment = program_checks::equipment(&image, &command.instance)?;
         let entered = match request.value.as_ref() {
             Some(value) => {
                 let (low, high) = self.limits(&object)?;
@@ -126,15 +133,7 @@ impl Commands {
             }
             None => None,
         };
-        let inputs = {
-            let metadata = self
-                .control_state
-                .metadata
-                .lock()
-                .map_err(|_| "PLC metadata unavailable")?;
-            capability_checks::check(&metadata, &block, &command)?;
-            capability_checks::inputs(&metadata, &command, entered.as_ref())?
-        };
+        let inputs = program_checks::method_inputs(&image, &equipment, &command, entered.as_ref())?;
         Ok(Authorized {
             object,
             command,

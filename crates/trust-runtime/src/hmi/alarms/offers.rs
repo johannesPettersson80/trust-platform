@@ -10,7 +10,8 @@ use crate::security::AccessRole;
 /// The shelving durations an operator chooses from: 15 min, 1 h, 4 h, 8 h and 24 h.
 pub const SHELVE_FOR_SECONDS: [u32; 5] = [900, 3_600, 14_400, 28_800, 86_400];
 
-/// The longest comment: the length of the instance's `Request.Comment` field.
+/// The longest comment, in the UTF-16 code units of the instance's `Request.Comment` field, a
+/// `WSTRING[120]`.
 pub const COMMENT_MAX_CHARS: usize = 120;
 
 /// The list an alarm is in (specification 39, §5.7 item 4). An alarm in none of them is normal.

@@ -1,8 +1,9 @@
 import React from "react";
-import { visibleSchemaFields, type CommFieldSchema, type CommProtocolSchema } from "../../communication/schemaForm";
+import type { CommFieldSchema, CommProtocolSchema } from "../../communication/schemaForm";
 
-// Shared schema-driven form bits used by the editable inspector (and the add flow):
-// turn a protocol schema + a params object into editable string values and back.
+// Shared schema-driven form bits used by the editable inspector (and the add flow): a protocol
+// schema and a params object as the editable text values the form shows. The form posts those
+// values as typed; the server converts them by the fields' types (specification 25 §5.9).
 
 export function defaultsFor(protocol: CommProtocolSchema): Record<string, string> {
   const values: Record<string, string> = {};
@@ -28,17 +29,6 @@ export function valuesFor(
   return values;
 }
 
-export function buildParams(
-  protocol: CommProtocolSchema,
-  values: Record<string, string>
-): Record<string, unknown> {
-  const params: Record<string, unknown> = {};
-  for (const field of visibleSchemaFields(protocol, values)) {
-    params[field.id] = coerce(field, values[field.id] ?? "");
-  }
-  return params;
-}
-
 function stringifyDefault(value: unknown): string {
   if (value === undefined || value === null) {
     return "";
@@ -47,33 +37,6 @@ function stringifyDefault(value: unknown): string {
     return JSON.stringify(value, null, 0);
   }
   return String(value);
-}
-
-export function coerce(field: CommFieldSchema, raw: string): unknown {
-  const t = field.type;
-  if (t === "number") {
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : raw;
-  }
-  if (t === "bool" || t === "boolean") {
-    return raw === "true";
-  }
-  if (t === "json_object") {
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return raw;
-    }
-  }
-  if (t === "json_array") {
-    try {
-      const parsed = JSON.parse(raw || "[]");
-      return Array.isArray(parsed) ? parsed : raw;
-    } catch {
-      return raw;
-    }
-  }
-  return raw;
 }
 
 type JsonObject = Record<string, unknown>;

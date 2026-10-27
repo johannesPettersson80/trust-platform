@@ -60,7 +60,6 @@ import {
   STDebugStartTool,
 } from "./lm-tools/debugTools";
 
-export { __testSetRuntimeControlRequestHandler } from "./lm-tools/shared";
 
 export function registerLanguageModelTools(
   context: vscode.ExtensionContext,

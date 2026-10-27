@@ -641,7 +641,7 @@ VAR_INPUT
     M : REAL;
 END_VAR
 
-MULTIME := DWORD_TO_TIME(REAL_TO_DWORD(DWORD_TO_REAL(TIME_TO_DWORD(t)) * M));
+MULTIME := DWORD_TO_TIME(UDINT_TO_DWORD(REAL_TO_UDINT(UDINT_TO_REAL(DWORD_TO_UDINT(TIME_TO_DWORD(t))) * M)));
 END_FUNCTION
 
 FUNCTION DAY_OF_WEEK : INT
@@ -983,7 +983,7 @@ IF SET_RTC OR NOT init THEN
     XDT := SDT;
     XMS := SMS;
 ELSE
-    XMS := XMS + UDINT_TO_INT(DWORD_TO_UDINT(Tx) - DWORD_TO_UDINT(last));
+    XMS := XMS + UDINT_TO_INT(T_PLC_ELAPSED(NOW := Tx, LAST := last));
     IF XMS > INT#999 THEN
         XDT := ADD_DT_TIME(XDT, T#1s);
         XMS := XMS - INT#1000;
@@ -1304,8 +1304,8 @@ VAR
     state : INT;
     edge : BOOL;
     tx : TIME;
-    ty : TIME;
-    last : TIME;
+    ty : DWORD;
+    last : DWORD;
     bits : ARRAY[0..58] OF BOOL;
     cnt : INT;
     i : INT;
@@ -1315,8 +1315,8 @@ VAR
     day : INT;
     month : INT;
     year : INT;
-    last_sync : TIME;
-    t1 : TIME;
+    last_sync : DWORD;
+    t1 : DWORD;
     tz : TIME;
     zone_offset : TIME;
     init : BOOL;
@@ -1324,8 +1324,10 @@ END_VAR
 
 TP := FALSE;
 
-t1 := DWORD_TO_TIME(T_PLC_MS());
-tx := SUB_TIME(t1, last);
+(* The timer readings are DWORDs that wrap after 2^32 ms; the times between them are taken
+   across the wrap. *)
+t1 := T_PLC_MS();
+tx := DWORD_TO_TIME(UDINT_TO_DWORD(T_PLC_ELAPSED(NOW := t1, LAST := last)));
 
 IF REC XOR edge THEN
     edge := REC;
@@ -1346,7 +1348,7 @@ IF REC XOR edge THEN
         ERROR := TRUE;
         state := INT#0;
     END_IF;
-    last := ADD_TIME(last, tx);
+    last := t1;
     IF REC AND state = INT#58 THEN
         ERROR := FALSE;
 
@@ -1468,13 +1470,13 @@ IF TP THEN
     SYNC := TRUE;
     last_sync := last;
     ty := last;
-ELSIF init AND SUB_TIME(t1, ty) >= T#1s THEN
+ELSIF init AND T_PLC_ELAPSED(NOW := t1, LAST := ty) >= UDINT#1000 THEN
     RTC := ADD_DT_TIME(RTC, T#1s);
     RTC1 := ADD_DT_TIME(RTC1, T#1s);
-    ty := ADD_TIME(ty, T#1s);
-    SYNC := SUB_TIME(ty, last_sync) < SYNC_TIMEOUT AND last_sync > T#0s;
+    ty := ULINT_TO_DWORD((DWORD_TO_ULINT(ty) + ULINT#1000) MOD ULINT#4294967296);
+    SYNC := DWORD_TO_TIME(UDINT_TO_DWORD(T_PLC_ELAPSED(NOW := ty, LAST := last_sync))) < SYNC_TIMEOUT AND last_sync > DWORD#0;
     WDAY := DAY_OF_WEEK(DT_TO_DATE(RTC1));
     DS := DST_EN AND DST(utc);
 END_IF;
-MSEC := DWORD_TO_INT(TIME_TO_DWORD(SUB_TIME(t1, ty)));
+MSEC := DWORD_TO_INT(UDINT_TO_DWORD(T_PLC_ELAPSED(NOW := t1, LAST := ty)));
 END_FUNCTION_BLOCK

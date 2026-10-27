@@ -69,15 +69,16 @@ export class CommandSurface {
     return Object.fromEntries(this.entered);
   }
 
-  /** The controls the signed-in role may not use: the role that may, or "none" (§5.9 item 5).
-   * Without a session every control is read-only instead. */
+  /** The controls the session may not use: the role that may, or "none" (§5.9 item 5). The page
+   * data names the role each control needs and the session the roles it may act as (§12.4 item 4),
+   * both from the runtime. Without a session every control is read-only instead. */
   locked(): Record<string, string> {
-    const role = this.session.role;
-    if (this.session.readOnly || role === undefined) return {};
+    if (this.session.readOnly) return {};
+    const actsAs = this.session.actsAs;
     const locked: Record<string, string> = {};
     for (const [id, needed] of Object.entries(this.surface.roles ?? {})) {
       if (needed === null) locked[id] = "none";
-      else if (rank(role) < rank(needed)) locked[id] = needed;
+      else if (!actsAs.includes(needed)) locked[id] = needed;
     }
     return locked;
   }
@@ -275,7 +276,7 @@ export class CommandSurface {
     this.redraw();
   }
 
-  /** Asks for a number within the control's limits, then sends it. */
+  /** Asks for a number, shows the control's limits, and sends what is typed. */
   private showEntry(object: HmiObjectModel): void {
     const path = object.bind.value?.path ?? "";
     const live = this.liveAt(path);
@@ -297,8 +298,6 @@ export class CommandSurface {
         ? `${say("Between {min} and {max}", { min: limit(object.min), max: limit(object.max) })}${unit ? ` ${unit}` : ""}`
         : "";
     if (limits) form.append(element(form, "p", limits, "hmi-hint"));
-    const error = element(form, "p", "", "hmi-error");
-    form.append(error);
     // On a touch screen a large keypad types the number, and no device keyboard covers it.
     if (this.overlay.touched) {
       input.inputMode = "none";
@@ -326,7 +325,6 @@ export class CommandSurface {
           if (key === "back") input.value = input.value.slice(0, -1);
           else if (key === "sign") input.value = input.value.startsWith("-") ? input.value.slice(1) : `-${input.value}`;
           else if (key !== "." || !input.value.includes(".")) input.value += key;
-          error.textContent = "";
         });
         keypad.append(pressed);
       }
@@ -342,20 +340,11 @@ export class CommandSurface {
     form.append(actions);
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      const value = Number(input.value.trim().replace(",", "."));
-      if (input.value.trim() === "" || !Number.isFinite(value)) {
-        error.textContent = say("Enter a number.");
-        return;
-      }
-      if ((object.min !== undefined && value < object.min) || (object.max !== undefined && value > object.max)) {
-        error.textContent = say("Enter a number between {min} and {max}.", {
-          min: limit(object.min),
-          max: limit(object.max),
-        });
-        return;
-      }
+      // The entry as typed: the runtime reads the number and checks its limits, and its refusal
+      // names the reason (specification 39 §12.8).
+      const entry = input.value.trim();
       this.overlay.closeDialog();
-      this.asked(object, () => void this.send(object, "write", value));
+      this.asked(object, () => void this.send(object, "write", entry));
     });
     input.focus();
   }
@@ -368,9 +357,4 @@ export function commandId(): string {
   if (crypto?.getRandomValues) crypto.getRandomValues(random);
   else for (let index = 0; index < random.length; index += 1) random[index] = Math.floor(Math.random() * 2 ** 32);
   return `c-${Date.now().toString(36)}-${Array.from(random, (part) => part.toString(36)).join("")}`;
-}
-
-/** Where a role stands: an Engineer may do what an Operator may (§12.8 item 1). */
-function rank(role: string): number {
-  return ["viewer", "operator", "engineer", "admin"].indexOf(role);
 }

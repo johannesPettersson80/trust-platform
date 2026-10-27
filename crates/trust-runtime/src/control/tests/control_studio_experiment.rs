@@ -810,11 +810,8 @@ fn experiment_scan(state: &ControlState, time_ms: i64) {
         .expect("I/O snapshot")
         .clone()
         .expect("fixture I/O");
-    let storage = state
-        .debug
-        .with_snapshot(|snapshot| snapshot.storage.clone())
-        .expect("debug snapshot");
+    let program = state.debug.published_program().expect("debug snapshot");
     state
         .debug
-        .push_control_snapshot_at(io, time_ms * 1_000_000, &storage, &[], true, true);
+        .push_control_snapshot_at(io, time_ms * 1_000_000, &*program, &[], true, true);
 }

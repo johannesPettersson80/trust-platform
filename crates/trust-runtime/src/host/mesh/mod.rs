@@ -11,6 +11,8 @@ mod security;
 mod startup_publish;
 mod version;
 
+pub(crate) use mapping::published_values;
+pub(crate) use models::{query_identities, MeshIdentityReply};
 pub use models::{
     MeshLivelinessEvent, MeshLivelinessSnapshot, MeshQosProfile, MeshReadiness, MeshService,
     MeshTopologyEvidence,

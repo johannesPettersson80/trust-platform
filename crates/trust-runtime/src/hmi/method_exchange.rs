@@ -2,9 +2,9 @@
 //! (specification 39, §21.2 item 2). HTTP handlers queue a call only after resolving the control
 //! and checking the session, the role, the interlock and the inputs; the runtime makes one call
 //! per boundary, between scans.
-use super::member_paths::{resolve_member, MemberPath};
-use crate::runtime::InvocationError;
-use crate::{error::RuntimeError, value::Value, Runtime};
+use super::member_paths::{member_value, MemberPath};
+use crate::runtime::{CompiledRuntime, InvocationError};
+use crate::{error::RuntimeError, value::Value};
 use smol_str::SmolStr;
 use std::collections::VecDeque;
 use std::sync::{
@@ -18,7 +18,8 @@ const CAPACITY: usize = 32;
 // One call per boundary: each gets the same budget, independent of queue position. Distinct
 // operator commands cannot overwrite one another before the FB's next cyclic call.
 const PER_BOUNDARY: usize = 1;
-const INSTRUCTION_BUDGET: usize = 32768;
+/// The statements and loop passes the calls of one boundary may use together.
+const INSTRUCTION_BUDGET: u32 = 32768;
 
 /// One method call.
 pub(crate) struct Invocation {
@@ -96,7 +97,14 @@ impl MethodExchange {
         Ok(receiver)
     }
 
-    pub(crate) fn serve(&self, runtime: &mut Runtime) -> Result<(), RuntimeError> {
+    /// Makes the boundary's call between scans, after a scan in which the program called
+    /// `Hmi.Display` (§21.2 item 2), and answers it.
+    ///
+    /// # Errors
+    ///
+    /// The fault of a method that faulted; the resource has faulted then, as at a faulted scan,
+    /// and the work queued before it is withdrawn.
+    pub(crate) fn serve(&self, runtime: &mut CompiledRuntime) -> Result<(), RuntimeError> {
         let mut budget = INSTRUCTION_BUDGET;
         self.serve_with(|invocation| {
             let value = runtime.invoke_hmi_method(
@@ -108,10 +116,12 @@ impl MethodExchange {
             )?;
             // Read at the same boundary, before any scan changes it.
             let reason = match (&value, &invocation.reason) {
-                (Value::Bool(false), Some(path)) => match resolve_member(path, runtime.storage()) {
-                    Some(Value::String(text)) => Some(text.to_string()),
-                    _ => None,
-                },
+                (Value::Bool(false), Some(path)) => {
+                    match runtime.with_program_view(|program| member_value(path, program)) {
+                        Some(Value::String(text)) => Some(text.to_string()),
+                        _ => None,
+                    }
+                }
                 _ => None,
             };
             Ok((value, reason))

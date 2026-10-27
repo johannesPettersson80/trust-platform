@@ -76,7 +76,7 @@ fn execute(record: &mut ExperimentRecord, debug: &DebugControl, view: &ScanView<
     match record
         .mode
         .as_ref()
-        .map(|mode| mode.holds_required_mode(view.storage))
+        .map(|mode| mode.holds_required_mode(view.program))
     {
         Some(Ok(false)) => {
             finish_record(
@@ -113,7 +113,7 @@ fn execute(record: &mut ExperimentRecord, debug: &DebugControl, view: &ScanView<
         );
         return;
     }
-    if record.target.forced(debug, view.io) {
+    if record.target.forced(debug, Some(view.program), view.io) {
         finish_record(
             record,
             debug,
@@ -125,7 +125,7 @@ fn execute(record: &mut ExperimentRecord, debug: &DebugControl, view: &ScanView<
     }
     let current = record
         .target
-        .observed(view.io, view.storage)
+        .observed(view.io, Some(view.program))
         .as_ref()
         .and_then(numeric_value)
         .filter(|value| value.is_finite());
@@ -220,7 +220,7 @@ fn confirm_applied_point(record: &mut ExperimentRecord, view: &ScanView<'_>) {
     let Some(index) = record.queued_point else {
         return;
     };
-    let Some(observed) = record.target.observed(view.io, view.storage) else {
+    let Some(observed) = record.target.observed(view.io, Some(view.program)) else {
         return;
     };
     let (at, written) = record.trajectory[index].clone();
@@ -323,7 +323,7 @@ fn confirm_restoration(record: &mut ExperimentRecord, view: &ScanView<'_>) {
 /// Whether the target reads back its restoration value and, with an abort binding, the abort input is observed inactive
 /// in a scan after the restoring write.
 fn restoration_confirmed(record: &mut ExperimentRecord, view: &ScanView<'_>) -> bool {
-    if record.target.observed(view.io, view.storage).as_ref()
+    if record.target.observed(view.io, Some(view.program)).as_ref()
         != Some(&record.restoration_observed_value)
     {
         return false;

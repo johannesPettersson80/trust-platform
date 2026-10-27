@@ -2,6 +2,8 @@ import { alarmScenario } from "../../hmiBuilder/agent/alarmScenario";
 import { operationTimeout } from "../../hmiBuilder/agent/lifetime";
 import { isLocalSimulator, executeSimulatorJourney, SimulatorJourney } from "../../hmiBuilder/agent/simulator";
 import * as assert from "assert";
+import * as vscode from "vscode";
+import { languageServerReady } from "./hmiBuilderHost";
 import { scenarioFrame } from "../../hmiBuilder/agent/scenarios";
 import type { Catalogue } from "../../hmiBuilder/editor/catalogue";
 import type { HmiPageModel } from "../../hmiBuilder/drawing/model";
@@ -58,31 +60,16 @@ suite("HMI completed authoring contracts", () => {
     for (const name of ["hmi_compose_page", "hmi_edit_draft", "hmi_validate_draft"])
       assert.strictEqual(operationTimeout(name), operationTimeout("hmi_get_context"));
   });
-  test("simulator journeys refuse physical mode and nonlocal endpoints without fallback", () => {
-    assert.ok(
-      isLocalSimulator({
-        simulator: true,
-        endpoint: "tcp://127.0.0.1:9100",
-        url: "http://127.0.0.1:8080",
-        label: "Fixture",
-      }),
-    );
-    assert.ok(
-      !isLocalSimulator({
-        simulator: false,
-        endpoint: "tcp://127.0.0.1:9100",
-        url: "http://127.0.0.1:8080",
-        label: "Forwarded PLC",
-      }),
-    );
-    assert.ok(
-      !isLocalSimulator({
-        simulator: true,
-        endpoint: "tcp://192.168.1.2:9100",
-        url: "http://192.168.1.2:8080",
-        label: "Remote",
-      }),
-    );
+  // The target rule is trust-lsp's (`trust-lsp.hmiAgent.checkTarget`, specification 43 AT-08), proven by the Rust tests
+  // in crates/trust-lsp/src/handlers/commands/hmi_agent/target_tests.rs. This proves that the extension asks it.
+  test("simulator journeys ask trust-lsp whether the target is a local simulator", async function () {
+    this.timeout(60000);
+    await vscode.extensions.getExtension("trust-platform.trust-lsp")?.activate();
+    await languageServerReady();
+    const local = { simulator: true, endpoint: "tcp://127.0.0.1:9100", url: "http://127.0.0.1:8080", label: "Fixture" };
+    assert.strictEqual(await isLocalSimulator(local), true);
+    assert.strictEqual(await isLocalSimulator({ ...local, simulator: false, label: "Forwarded PLC" }), false);
+    assert.strictEqual(await isLocalSimulator(undefined), false);
   });
   test("simulator journeys retain denied and expired-login outcomes and never replay commands", async () => {
     for (const status of [401, 403]) {

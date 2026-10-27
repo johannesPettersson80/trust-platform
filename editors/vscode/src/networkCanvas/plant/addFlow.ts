@@ -1,15 +1,12 @@
 import type { NCGraph, NCPlant, NCHost, NCRuntime } from "../webview/types";
-import {
-  createPlantEditorDraft,
-  startingPointForPlantModel,
-  type PlantModelKind,
-  type PlantParameters,
-  type PlantActuatorSettings,
-  type PlantEditorDraft,
+import type {
+  PlantModelKind,
+  PlantParameters,
+  PlantActuatorSettings,
+  PlantEditorDraft,
 } from "./editorModel";
 import type { PlantUncertaintyDraft } from "./uncertaintyEditor";
 import type { PlantScenarioEventDraft } from "./scenarioEventEditor";
-import { preservedPlantConfiguration } from "./preservedConfiguration";
 
 export const PLANT_DRAG_MIME = "application/vnd.trust.simulated-plant+json";
 
@@ -22,6 +19,11 @@ export interface PlantDraft extends PlantEditorDraft {
   activeConfigurationDigest?: string;
 }
 
+/**
+ * The draft of a saved plant as the canvas read it. Rust's `open` edit makes its defaults explicit
+ * (specification 47 §9): the starting point, an omitted initial state and the conversions it does
+ * not set.
+ */
 export function createPlantEditDraft(input: {
   preservedConfiguration?: Record<string, unknown>;
   id: string;
@@ -40,7 +42,6 @@ export function createPlantEditDraft(input: {
   commandSources: string[];
   feedbackTargets: string[];
   stepMs?: number;
-  projectStepMs?: number;
   initialInput?: number[];
   inputScale?: number[];
   inputOffset?: number[];
@@ -52,12 +53,12 @@ export function createPlantEditDraft(input: {
   savedConfigurationRevision: string;
   activeConfigurationDigest?: string;
 }): PlantDraft {
+  const copy = <T>(value: T | undefined) => (value === undefined ? undefined : structuredClone(value));
   return {
-    ...(input.preservedConfiguration ? {
-      preservedConfiguration: preservedPlantConfiguration(input.preservedConfiguration),
-    } : {}),
+    preservedConfiguration: copy(input.preservedConfiguration),
     id: input.id,
     projectId: input.projectId,
+    originalPlantId: input.plantId,
     plantId: input.plantId,
     displayName: input.displayName,
     description: input.description,
@@ -65,7 +66,7 @@ export function createPlantEditDraft(input: {
     runtimeName: input.runtimeName,
     enabled: input.enabled,
     ...(input.enabledDefaulted ? { enabledDefaulted: true } : {}),
-    startingPoint: startingPointForPlantModel(input.model),
+    startingPoint: "",
     model: input.model,
     parameters: structuredClone(input.parameters),
     initialState: [...input.initialState],
@@ -74,15 +75,14 @@ export function createPlantEditDraft(input: {
     commandSources: [...input.commandSources],
     feedbackTargets: [...input.feedbackTargets],
     stepMs: input.stepMs,
-    ...(input.projectStepMs === undefined ? {} : { projectStepMs: input.projectStepMs }),
-    initialInput: input.initialInput ? [...input.initialInput] : Array(input.commandSources.length).fill(0),
-    inputScale: input.inputScale ? [...input.inputScale] : Array(input.commandSources.length).fill(1),
-    inputOffset: input.inputOffset ? [...input.inputOffset] : Array(input.commandSources.length).fill(0),
-    outputScale: input.outputScale ? [...input.outputScale] : Array(input.feedbackTargets.length).fill(1),
-    outputOffset: input.outputOffset ? [...input.outputOffset] : Array(input.feedbackTargets.length).fill(0),
-    actuator: input.actuator ? { ...input.actuator } : undefined,
-    uncertainties: input.uncertainties?.map((effect) => ({ ...effect })),
-    scenarioEvents: input.scenarioEvents?.map((event) => ({ ...event })) ?? [],
+    initialInput: copy(input.initialInput),
+    inputScale: copy(input.inputScale),
+    inputOffset: copy(input.inputOffset),
+    outputScale: copy(input.outputScale),
+    outputOffset: copy(input.outputOffset),
+    actuator: copy(input.actuator),
+    uncertainties: copy(input.uncertainties),
+    scenarioEvents: copy(input.scenarioEvents),
     savedConfigurationRevision: input.savedConfigurationRevision,
     activeConfigurationDigest: input.activeConfigurationDigest,
     dirty: false,
@@ -91,14 +91,27 @@ export function createPlantEditDraft(input: {
   };
 }
 
+/**
+ * A new plant's draft on a runtime. Rust's `open` edit proposes its model, values and the first free
+ * plant ID (specification 47 §7).
+ */
 export function createPlantDraft(target: { id: string; name: string }): PlantDraft {
   return {
     id: `draft:plant:${target.id}`,
-    ...createPlantEditorDraft({
-      runtimeId: target.id,
-      runtimeName: target.name,
-      existingPlantIds: [],
-    }),
+    plantId: "",
+    displayName: "",
+    description: "",
+    runtimeId: target.id,
+    runtimeName: target.name,
+    enabled: true,
+    startingPoint: "",
+    model: "",
+    parameters: {},
+    initialState: [],
+    modelValuesTouched: false,
+    commandSources: [],
+    feedbackTargets: [],
+    dirty: true,
     persisted: false,
     focusSection: "plant",
   };

@@ -14,7 +14,7 @@ pub use protocol::{
     PauseArguments, ReloadArguments, Request, Response, Scope, ScopesArguments, ScopesResponseBody,
     SetBreakpointsArguments, SetBreakpointsResponseBody, Source, SourceBreakpoint, StackFrame,
     StackTraceArguments, StackTraceResponseBody, StepInArguments, StepOutArguments,
-    StoppedEventBody, Thread, ThreadsResponseBody, Variable, VariablesArguments,
+    StoppedEventBody, Thread, ThreadsResponseBody, Variable, VariablesArguments, VariablesFilter,
     VariablesResponseBody,
 };
 pub use runtime::DebugRuntime;

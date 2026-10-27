@@ -3,7 +3,7 @@
   "displayName": "truST",
   "description": "truST \u2014 IEC 61131-3 Structured Text language support",
   "icon": "icon.png",
-  "version": "0.24.75",
+  "version": "0.25.0",
   "publisher": "trust-platform",
   "license": "MIT OR Apache-2.0",
   "engines": {
@@ -1681,7 +1681,7 @@
         "canBeReferencedInPrompt": true,
         "icon": "$(debug-alt)",
         "userDescription": "Attach the debugger to a running runtime.",
-        "modelDescription": "Attaches the Structured Text debugger using runtime.toml (runtime.control.endpoint).",
+        "modelDescription": "Attaches the Structured Text debugger to the workspace project's running runtime. trust-runtime resolves the endpoint and token: the project's endpoint file, then runtime.control.endpoint in runtime.toml, then the platform default.",
         "inputSchema": {
           "type": "object",
           "properties": {}
@@ -4817,6 +4817,16 @@
         "icon": "$(check-all)"
       },
       {
+        "command": "trust-lsp.toolchain.install",
+        "title": "Install Toolchain",
+        "category": "truST"
+      },
+      {
+        "command": "trust-lsp.toolchain.installFromFile",
+        "title": "Install Toolchain from File",
+        "category": "truST"
+      },
+      {
         "command": "trust-lsp.openSettings",
         "title": "Open truST Settings",
         "category": "truST",
@@ -5141,13 +5151,14 @@
     "build:control-studio": "node ./scripts/build-control-studio-webview.js",
     "build:hmi-drawing": "node ./scripts/build-hmi-drawing.js",
     "build:hmi-builder": "node ./scripts/build-hmi-builder-webview.js",
+    "build:devices-panel": "node ./scripts/build-devices-panel-webview.js",
     "clean:out": "node -e \"require('fs').rmSync('out', { recursive: true, force: true })\"",
     "typecheck:webview": "tsc -p ./tsconfig.webview.json",
     "generate:control-studio-types": "node ./scripts/generate-control-studio-types.js",
     "build:test-tools": "cargo build --locked --manifest-path ../../Cargo.toml -p xtask",
     "generate:symbol-geometry": "node ./scripts/generate-symbol-geometry.js",
     "check:canvas-geometry": "npm run build:test-tools && node ./scripts/network-canvas-overlap-check.js --require-browser",
-    "compile": "npm run build:libraries && npm run build:examples && npm run build:panel && npm run build:statechart && npm run build:blockly && npm run build:ladder && npm run build:sfc && npm run build:network-canvas && npm run build:control-studio && npm run build:hmi-builder && npm run clean:out && tsc -p ./ && npm run typecheck:webview",
+    "compile": "npm run build:libraries && npm run build:examples && npm run build:panel && npm run build:statechart && npm run build:blockly && npm run build:ladder && npm run build:sfc && npm run build:network-canvas && npm run build:control-studio && npm run build:hmi-builder && npm run build:devices-panel && npm run clean:out && tsc -p ./ && npm run typecheck:webview",
     "watch": "concurrently \"node ./scripts/watch-io-panel.js\" \"node ./scripts/build-statechart-webview.js --watch\" \"node ./scripts/build-blockly-webview.js --watch\" \"node ./scripts/build-ladder-webview.js --watch\" \"node ./scripts/build-sfc-webview.js --watch\"",
     "lint": "eslint src --ext ts,tsx",
     "format:hmi": "prettier --write \"src/hmiBuilder/**/*.{ts,tsx,css}\" \"src/networkCanvas/equipment*.ts\" \"src/networkCanvas/webview/EquipmentConnections.tsx\" \"src/test/suite/hmi*.ts\"",
@@ -5189,5 +5200,8 @@
     "mocha": "12.0.3",
     "prettier": "3.9.9",
     "typescript": "6.0.3"
+  },
+  "overrides": {
+    "@azure/msal-node": "^7.1.1"
   }
 }

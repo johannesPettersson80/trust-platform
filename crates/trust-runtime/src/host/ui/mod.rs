@@ -23,8 +23,8 @@ use ratatui::{
 };
 
 use crate::bundle::detect_bundle_path;
-use crate::bundle_builder::build_program_stbc;
-use crate::config::RuntimeBundle;
+use crate::bundle_builder::build_program_image;
+use crate::control::endpoint::control_token_from_env;
 use crate::control::ControlEndpoint;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
@@ -43,7 +43,7 @@ mod console_contract_tests;
 #[cfg(test)]
 mod tests;
 
-use client::ControlClient;
+use client::{ConsoleTarget, ControlClient};
 use state::*;
 
 const COLOR_TEAL: Color = Color::Rgb(0, 168, 150);
@@ -64,7 +64,8 @@ pub fn run_ui(
     no_input: bool,
     beginner: bool,
 ) -> anyhow::Result<()> {
-    let (endpoint, auth_token, bundle_root) = resolve_endpoint(bundle, endpoint, token)?;
+    let target = ConsoleTarget::new(bundle, endpoint, token.or_else(control_token_from_env))?;
+    let bundle_root = target.project().map(Path::to_path_buf);
     let console_config = bundle_root
         .as_ref()
         .map(|root| load_console_config(root))
@@ -83,7 +84,7 @@ pub fn run_ui(
         refresh_ms
     };
     let mut state = UiState::new(layout, beginner, bundle_root);
-    let mut client = ControlClient::connect(endpoint.clone(), auth_token.clone())?;
+    let mut client = target.connect()?;
     let mut last_refresh = Instant::now();
     let refresh = StdDuration::from_millis(refresh_ms);
 
@@ -123,9 +124,9 @@ pub fn run_ui(
                             );
                         }
                         state.connected = false;
-                        if let Ok(new_client) =
-                            ControlClient::connect(endpoint.clone(), auth_token.clone())
-                        {
+                        // The target is resolved again, so a runtime that restarted on another
+                        // port or with another token is found through its new endpoint file.
+                        if let Ok(new_client) = target.connect() {
                             client = new_client;
                         }
                     }
@@ -149,15 +150,6 @@ pub fn run_ui(
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;
     result
-}
-
-fn resolve_endpoint(
-    bundle: Option<PathBuf>,
-    endpoint: Option<String>,
-    token: Option<String>,
-) -> anyhow::Result<(ControlEndpoint, Option<String>, Option<PathBuf>)> {
-    let token = token.or_else(|| std::env::var("TRUST_CTL_TOKEN").ok());
-    client::resolve_endpoint(bundle, endpoint, token)
 }
 
 fn load_console_config(root: &Path) -> ConsoleConfig {

@@ -7,7 +7,7 @@ Output := Output + 1;
 END_PROGRAM
 "#;
     let mut harness = TestHarness::from_source(source).expect("compile custom ST");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = studio_debug(&mut harness);
     harness.cycle();
     let mut state = control_test_state(source);
     state.debug = debug;
@@ -85,7 +85,7 @@ Output := Output + 1;
 END_PROGRAM
 "#;
     let mut harness = TestHarness::from_source(source).expect("compile the task fixture");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = studio_debug(&mut harness);
     harness.cycle();
     let mut state = control_test_state(source);
     state.debug = debug;
@@ -187,7 +187,7 @@ fn recording_fixture() -> (TestHarness, ControlState) {
     let source =
         "PROGRAM Main\nVAR Output AT %QD0 : DINT := 0; END_VAR\nOutput := Output + 1;\nEND_PROGRAM";
     let mut harness = TestHarness::from_source(source).expect("compile recording fixture");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = studio_debug(&mut harness);
     harness.cycle();
     let mut state = control_test_state(source);
     state.debug = debug;
@@ -263,10 +263,10 @@ fn control_recording_reports_capacity_and_preserves_actual_force_flags() {
         "invalid limits must not allocate a recording"
     );
     assert!(start_recording(&state, 2).ok);
-    state.debug.force_io(
-        crate::io::IoAddress::parse("%QD0").unwrap(),
-        Value::DWord(77),
-    );
+    state
+        .debug
+        .try_force_io(crate::io::IoAddress::parse("%QD0").unwrap(), Value::DWord(77))
+        .expect("force the output");
     recording_cycle(&mut harness);
     recording_cycle(&mut harness);
     recording_cycle(&mut harness);
@@ -354,7 +354,7 @@ Output := Output + 1;
 END_PROGRAM
 "#;
     let mut harness = TestHarness::from_source(source).expect("compile the task fixture");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = studio_debug(&mut harness);
     harness.cycle();
     let mut state = control_test_state(source);
     state.debug = debug;
@@ -380,7 +380,7 @@ fn advance_and_cycle(harness: &mut TestHarness, milliseconds: &[i64]) {
 fn record_every_averages_each_period_and_times_it_at_the_mean_of_its_executions() {
     let source = "PROGRAM Main\nVAR Output AT %QD0 : DINT := -1; END_VAR\nOutput := Output + 1;\nEND_PROGRAM";
     let mut harness = TestHarness::from_source(source).expect("compile recording fixture");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = studio_debug(&mut harness);
     harness.cycle();
     let mut state = control_test_state(source);
     state.debug = debug;
@@ -421,7 +421,7 @@ fn record_every_averages_each_period_and_times_it_at_the_mean_of_its_executions(
 fn a_bool_channel_takes_the_last_execution_of_each_record_period() {
     let source = "PROGRAM Main\nVAR Flag AT %QX0.0 : BOOL := FALSE; END_VAR\nFlag := NOT Flag;\nEND_PROGRAM";
     let mut harness = TestHarness::from_source(source).expect("compile BOOL fixture");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = studio_debug(&mut harness);
     harness.cycle();
     let mut state = control_test_state(source);
     state.debug = debug;
@@ -448,7 +448,10 @@ fn a_record_period_takes_the_worst_quality_of_its_executions() {
     harness.cycle();
     let address = crate::io::IoAddress::parse("%QD0").unwrap();
     assert!(start_with(&state, "quality", json!({"record_every": 3})).ok);
-    state.debug.force_io(address.clone(), Value::DWord(77));
+    state
+        .debug
+        .try_force_io(address.clone(), Value::DWord(77))
+        .expect("force the output");
     recording_cycle(&mut harness);
     recording_cycle(&mut harness);
     state.debug.release_io(&address);

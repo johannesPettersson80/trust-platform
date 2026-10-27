@@ -1,20 +1,11 @@
 import { prepareBundledLibraries } from "./libraryEdit";
-// Explorer owns page/panel organisation; native formats own their text.
+// Explorer owns page/panel organisation; native formats own their text. The language server
+// (`trust-lsp.hmiFiles`, specification 39 §3.3 item 8) decides a new file's name, text and the
+// screen layout a project without one gets, and the links a renamed file keeps; this module asks,
+// creates the files it is given and edits the files whose links change.
 import * as vscode from "vscode";
-import type { HmiPageModel } from "../drawing/model";
-import { sameModel } from "./pageDocument";
 
 const VIEW = "trust-lsp.hmiBuilder";
-const NAME = /^[A-Za-z0-9_-]{1,64}$/;
-interface HmiAddress {
-  project: vscode.Uri;
-  folder: string;
-  name: string;
-}
-function address(uri: vscode.Uri): HmiAddress | undefined {
-  const match = /^(.*)\/hmi\/(pages|panels|popups)\/([^/]+)\.toml$/.exec(uri.path);
-  return match ? { project: uri.with({ path: match[1] }), folder: match[2], name: match[3] } : undefined;
-}
 function projectOf(uri?: vscode.Uri): vscode.Uri | undefined {
   if (uri) {
     const index = uri.path.indexOf("/hmi");
@@ -23,6 +14,36 @@ function projectOf(uri?: vscode.Uri): vscode.Uri | undefined {
     return vscode.workspace.getWorkspaceFolder(uri)?.uri;
   }
   return vscode.workspace.workspaceFolders?.length === 1 ? vscode.workspace.workspaceFolders[0].uri : undefined;
+}
+
+/** An answer of the language server: `ok`, or why not. */
+type Answer<T> = T & { ok?: boolean; error?: string };
+
+/** The language server's answer to a request about HMI files, or `undefined` while it is not running. */
+async function files<T>(request: Record<string, unknown>): Promise<Answer<T> | undefined> {
+  try {
+    return await vscode.commands.executeCommand<Answer<T>>("trust-lsp.hmiFiles", request);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Why `name` cannot name an HMI file, for the name box while it is typed; `undefined` when it can. */
+async function nameProblem(name: string): Promise<string | undefined> {
+  const answer = await files<{ problem?: string }>({ action: "name", name });
+  if (answer?.ok !== true) return answer?.error ?? "The truST language server is not running yet.";
+  return answer.problem;
+}
+
+/** Whether the project has its screen layout; another failure than a missing file is thrown. */
+async function hasScreen(screen: vscode.Uri): Promise<boolean> {
+  try {
+    await vscode.workspace.fs.stat(screen);
+    return true;
+  } catch (error) {
+    if (!(error instanceof vscode.FileSystemError) || error.code !== "FileNotFound") throw error;
+    return false;
+  }
 }
 
 export async function createHmiFile(
@@ -41,43 +62,25 @@ export async function createHmiFile(
     (await vscode.window.showInputBox({
       title: kind === "page" ? "New HMI page" : "New HMI panel",
       prompt: "Name",
-      validateInput: (value) => (NAME.test(value) ? undefined : "Use 1–64 letters, digits, - or _."),
+      validateInput: nameProblem,
     }));
   if (!name) return;
-  if (!NAME.test(name)) throw new Error("Invalid HMI file name.");
-  const file = vscode.Uri.joinPath(project, "hmi", kind === "page" ? "pages" : "panels", `${name}.toml`);
-  const title = name.replace(/[-_]/g, " ").replace(/^./, (letter) => letter.toUpperCase());
-  const model: HmiPageModel = {
-    title,
-    object: [],
-    pipe: [],
-    ...(kind === "panel"
-      ? {
-          size: [240, 720] as [number, number],
-          fields: {},
-          panel: { scope: "manual" as const, pages: [], dock: "left" as const, order: 0 },
-        }
-      : {}),
-  };
-  const formatted = await vscode.commands.executeCommand<{ ok: boolean; text?: string }>("trust-lsp.hmiFileFormat", {
+  const screen = vscode.Uri.joinPath(project, "hmi", "screen.toml");
+  const created = await files<{ file?: string; text?: string; screen?: string }>({
+    action: "create",
     kind,
-    model,
+    name,
+    hasScreen: await hasScreen(screen),
   });
-  if (!formatted?.ok || formatted.text === undefined) throw new Error("The HMI definition could not be created.");
+  if (created?.ok !== true || created.file === undefined || created.text === undefined)
+    throw new Error(created?.error ?? "The HMI definition could not be created.");
+  const file = vscode.Uri.joinPath(project, created.file);
   const edit = new vscode.WorkspaceEdit();
   edit.createFile(file, { overwrite: false, ignoreIfExists: false });
-  edit.insert(file, new vscode.Position(0, 0), formatted.text);
-  const screen = vscode.Uri.joinPath(project, "hmi", "screen.toml");
-  try {
-    await vscode.workspace.fs.stat(screen);
-  } catch (error) {
-    if (!(error instanceof vscode.FileSystemError) || error.code !== "FileNotFound") throw error;
+  edit.insert(file, new vscode.Position(0, 0), created.text);
+  if (created.screen !== undefined) {
     edit.createFile(screen, { overwrite: false, ignoreIfExists: false });
-    edit.insert(
-      screen,
-      new vscode.Position(0, 0),
-      'format = 1\nsize = [1280, 720]\ntheme = "dark"\nsymbols = "flat"\n\n[navigation]\nstyle = "none"\n',
-    );
+    edit.insert(screen, new vscode.Position(0, 0), created.screen);
   }
   const installed = extensionPath ?? vscode.extensions.getExtension("trust-platform.trust-lsp")?.extensionPath;
   if (!installed) throw new Error("The truST extension library location is unavailable.");
@@ -97,76 +100,49 @@ export async function createHmiFile(
   return file;
 }
 
-/** Preserve references, including sidebar assignments, through ordinary Explorer rename. */
-export function renamedReferences(
-  model: Record<string, unknown>,
-  folder: string,
-  before: string,
-  after: string,
-): Record<string, unknown> {
-  const next = structuredClone(model);
-  if (folder === "pages") {
-    if (next.start_page === before) next.start_page = after;
-    const panel = next.panel as { pages?: string[] } | undefined;
-    if (panel?.pages) panel.pages = panel.pages.map((name) => (name === before ? after : name));
-  }
-  for (const object of (next.object ?? []) as Array<{ faceplate?: string; click?: Record<string, string> }>) {
-    if (folder !== "pages" && object.faceplate === before) object.faceplate = after;
-    const click = object.click;
-    if (!click) continue;
-    if (folder === "pages" && click.page === before) click.page = after;
-    if (folder !== "pages") for (const key of ["popup", "faceplate"]) if (click[key] === before) click[key] = after;
-  }
-  if (folder !== "pages" && next.faceplate === before) next.faceplate = after;
-  return next;
+/** The renamed pages, panels and popups of one project, as the language server groups them. */
+interface RenamedProject {
+  path: string;
+  index: number;
+  renames: Array<{ folder: string; before: string; after: string }>;
 }
 
+/** Preserve references, including sidebar assignments, through ordinary Explorer rename: the
+ * language server says which renames are of HMI files and gives the new text of each file whose
+ * links change. */
 async function referenceEdits(
   renames: readonly { oldUri: vscode.Uri; newUri: vscode.Uri }[],
 ): Promise<vscode.WorkspaceEdit> {
   const edit = new vscode.WorkspaceEdit();
-  const changes = new Map<
-    string,
-    { document: vscode.TextDocument; version: number; kind: string; model: Record<string, unknown> }
-  >();
-  for (const rename of renames) {
-    const old = address(rename.oldUri),
-      next = address(rename.newUri);
-    if (!old || !next || old.folder !== next.folder || old.project.toString() !== next.project.toString()) continue;
-    const files = await vscode.workspace.findFiles(
-      new vscode.RelativePattern(old.project, "hmi/{screen.toml,{pages,panels,popups,pairs}/*.toml}"),
-    );
-    for (const uri of files) {
-      const key = uri.toString();
-      let entry = changes.get(key);
-      if (!entry) {
-        const document = await vscode.workspace.openTextDocument(uri);
-        const version = document.version;
-        const kind = uri.path.endsWith("/screen.toml")
-          ? "screen"
-          : uri.path.includes("/pairs/")
-            ? "pair"
-            : (address(uri)?.folder.replace(/s$/, "") ?? "page");
-        const parsed = await vscode.commands.executeCommand<{ ok: boolean; model?: Record<string, unknown> }>(
-          "trust-lsp.hmiFileParse",
-          { kind, text: document.getText(), file: uri.path },
-        );
-        if (!parsed?.ok || !parsed.model) continue;
-        entry = { document, version, kind, model: parsed.model };
-      }
-      const updated = renamedReferences(entry.model, old.folder, old.name, next.name);
-      if (!sameModel(updated, entry.model)) changes.set(key, { ...entry, model: updated });
+  const scope = await files<{ projects?: RenamedProject[]; pattern?: string }>({
+    action: "renames",
+    renames: renames.map(({ oldUri, newUri }) => ({ from: oldUri.path, to: newUri.path })),
+  });
+  // Without the language server no link can be read, so the rename goes ahead without them.
+  if (scope === undefined) return edit;
+  if (scope.ok !== true) throw new Error(scope.error ?? "HMI references could not be updated.");
+  for (const renamed of scope.projects ?? []) {
+    const project = renames[renamed.index].oldUri.with({ path: renamed.path });
+    const opened = new Map<string, { document: vscode.TextDocument; version: number }>();
+    const texts: Record<string, string> = {};
+    for (const uri of await vscode.workspace.findFiles(new vscode.RelativePattern(project, scope.pattern ?? ""))) {
+      const document = await vscode.workspace.openTextDocument(uri);
+      opened.set(uri.path, { document, version: document.version });
+      texts[uri.path] = document.getText();
     }
-  }
-  for (const { document, version, kind, model } of changes.values()) {
-    const result = await vscode.commands.executeCommand<{ ok: boolean; text?: string }>("trust-lsp.hmiFileFormat", {
-      kind,
-      model,
+    const answer = await files<{ write?: Array<{ file: string; text: string }> }>({
+      action: "references",
+      renames: renamed.renames,
+      files: texts,
     });
-    if (!result?.ok || result.text === undefined) throw new Error("HMI references could not be updated.");
-    if (document.version !== version)
-      throw new Error("An HMI file changed during rename. Your edits were preserved; review its page links.");
-    edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), result.text);
+    if (answer?.ok !== true) throw new Error(answer?.error ?? "HMI references could not be updated.");
+    for (const { file, text } of answer.write ?? []) {
+      const target = opened.get(file);
+      if (!target) continue;
+      if (target.document.version !== target.version)
+        throw new Error("An HMI file changed during rename. Your edits were preserved; review its page links.");
+      edit.replace(target.document.uri, new vscode.Range(0, 0, target.document.lineCount, 0), text);
+    }
   }
   return edit;
 }

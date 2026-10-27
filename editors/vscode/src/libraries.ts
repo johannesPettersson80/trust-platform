@@ -1,35 +1,28 @@
 import { prepareBundledLibraries } from "./hmiBuilder/editor/libraryEdit";
-import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import type { LanguageClient } from "vscode-languageclient/node";
 
-import {
-  collectSymbolSummaries,
-  classifyGitPin,
-  parseDependencyEntries,
-  parsePackageVersion,
-  posixPath,
-  removeDependency,
-  upsertDependency,
-  type DependencySpec,
-  type LibraryDependencyEntry,
-  type SymbolSummary,
-} from "./librariesModel";
+import { projectRequest, type ProjectAnswer } from "./projectRequest";
+
+// The Libraries panel (specification 25 §7, §11.6). Every rule about a project's libraries is the language server's
+// (`trust-lsp.projectLibraries`): the entries and their status, versions and updates, the symbols and their snippets,
+// vendoring, the manifest edits and where a declaration goes. This module asks the user, forwards the request and
+// shows the answer. The Plant library is installed with its HMI components by the HMI Builder's library install.
 
 export const OPEN_LIBRARIES_COMMAND = "trust-lsp.libraries.open";
 export const ADD_LIBRARY_COMMAND = "trust-lsp.libraries.add";
 export const REMOVE_LIBRARY_COMMAND = "trust-lsp.libraries.remove";
 export const UPDATE_LIBRARY_COMMAND = "trust-lsp.libraries.update";
 
+const LIBRARIES_REQUEST = "trust-lsp.projectLibraries";
+
 type CuratedLibraryId = "oscat" | "plcopen_motion" | "plant";
 
-interface CuratedLibrary {
+/** A curated library's card. */
+interface CuratedCard {
   readonly id: CuratedLibraryId;
   readonly label: string;
-  readonly dependencyName: string;
-  readonly folderName: string;
-  readonly packagedPath: readonly string[];
   readonly purpose: string;
 }
 
@@ -41,27 +34,47 @@ interface AddLibraryArgs {
         readonly kind: "git";
         readonly name: string;
         readonly url: string;
-        readonly pin?: { readonly rev?: string; readonly tag?: string; readonly branch?: string };
+        /** The tag, branch or commit as typed. */
+        readonly pin?: string;
         readonly version?: string;
       };
   readonly simulateCancel?: boolean;
 }
 
+type LibrarySource = NonNullable<AddLibraryArgs["source"]>;
+
+/** One symbol of a library, as the language server answers it. */
+interface LibrarySymbol {
+  readonly name: string;
+  readonly kind: "function_block" | "function" | "type";
+  readonly file: string;
+  readonly declaration: string;
+  readonly snippet: string;
+}
+
+/** One entry of the panel, as the language server answers it. */
 interface LibraryViewEntry {
   readonly name: string;
   readonly label: string;
-  readonly version?: string;
+  readonly version?: string | null;
   readonly source: "bundled" | "local" | "git";
-  readonly path?: string;
+  readonly path?: string | null;
+  readonly firstSource?: string | null;
   readonly status: "resolved" | "resolving" | "failed";
   readonly detail: string;
-  readonly symbols: SymbolSummary[];
+  readonly symbols: LibrarySymbol[];
   readonly updateAvailable?: {
-    readonly current?: string;
+    readonly current: string;
     readonly next: string;
     readonly curatedId: CuratedLibraryId;
-  };
-  readonly canFixPath?: boolean;
+  } | null;
+  readonly canFixPath: boolean;
+}
+
+interface LibrariesSnapshot {
+  readonly libraries: LibraryViewEntry[];
+  readonly curated: CuratedCard[];
+  readonly error?: string;
 }
 
 interface ProjectInfoLibrary {
@@ -69,33 +82,6 @@ interface ProjectInfoLibrary {
   readonly version?: string;
   readonly path?: string;
 }
-
-const CURATED: readonly CuratedLibrary[] = [
-  {
-    id: "plant",
-    label: "Plant",
-    dependencyName: "Plant",
-    folderName: "plant",
-    packagedPath: ["media", "libraries", "plant"],
-    purpose: "Reusable equipment, instruments, sequences and their HMI components",
-  },
-  {
-    id: "oscat",
-    label: "OSCAT",
-    dependencyName: "OSCAT",
-    folderName: "oscat",
-    packagedPath: ["media", "libraries", "oscat"],
-    purpose: "General-purpose utility blocks and functions",
-  },
-  {
-    id: "plcopen_motion",
-    label: "PLCopen Motion",
-    dependencyName: "PLCopenMotionSingleAxis",
-    folderName: "plcopen_motion",
-    packagedPath: ["media", "libraries", "plcopen_motion"],
-    purpose: "Single-axis motion control blocks",
-  },
-];
 
 const panelByRoot = new Map<string, LibrariesPanel>();
 
@@ -164,28 +150,31 @@ export function registerLibraries(
         return false;
       }
       const ok = await updateCuratedLibrary(context, root, id, true);
-      await refreshPanel(root);
+      if (ok) {
+        // A failed update has already shown its error in the panel.
+        await refreshPanel(root);
+      }
       return ok;
     })
   );
 }
 
+/** The panel's entries and curated cards for the project in `root`, as the language server answers them. */
 export async function projectLibrariesSnapshot(
   context: vscode.ExtensionContext,
   root: vscode.Uri,
   getClient?: () => LanguageClient | undefined
-): Promise<LibraryViewEntry[]> {
-  const manifest = await readProjectManifest(root);
-  const dependencies = parseDependencyEntries(manifest);
-  const projectInfo = await readProjectInfo(root, getClient);
-  const byName = new Map(projectInfo.map((lib) => [String(lib.name ?? ""), lib]));
-  const entries: LibraryViewEntry[] = [];
-  for (const dep of dependencies) {
-    const info = byName.get(dep.name);
-    entries.push(await viewEntryForDependency(context, root, dep, info));
-  }
-  entries.sort((a, b) => a.label.localeCompare(b.label));
-  return entries;
+): Promise<LibrariesSnapshot> {
+  const resolved = await readProjectInfo(root, getClient);
+  const answer = await librariesRequest<{ libraries: LibraryViewEntry[]; curated: CuratedCard[] }>({
+    action: "view",
+    root: root.fsPath,
+    bundled: bundledLibraries(context),
+    resolved,
+  });
+  return answer.ok
+    ? { libraries: answer.libraries, curated: answer.curated }
+    : { libraries: [], curated: [], error: answer.error };
 }
 
 class LibrariesPanel {
@@ -222,12 +211,12 @@ class LibrariesPanel {
 
   async refresh(error = ""): Promise<void> {
     this.lastError = error;
-    const libraries = await projectLibrariesSnapshot(this.context, this.root, this.getClient);
+    const snapshot = await projectLibrariesSnapshot(this.context, this.root, this.getClient);
     await this.panel.webview.postMessage({
       type: "state",
-      libraries,
-      error: this.lastError,
-      curated: CURATED,
+      libraries: snapshot.libraries,
+      error: this.lastError || snapshot.error || "",
+      curated: snapshot.curated,
     });
   }
 
@@ -275,7 +264,7 @@ class LibrariesPanel {
               kind: "git",
               name: msg.gitName,
               url: msg.gitUrl,
-              pin: msg.gitPin ? classifyGitPin(msg.gitPin) : undefined,
+              pin: msg.gitPin || undefined,
               version: msg.gitVersion || undefined,
             },
           });
@@ -293,7 +282,7 @@ class LibrariesPanel {
         return;
       case "openSource":
         if (msg.path) {
-          await openFirstSourceFile(msg.path);
+          await openLibrarySource(msg.path);
         }
         return;
       case "fixPath":
@@ -651,15 +640,6 @@ class LibrariesPanel {
     function symbolText(symbol) {
       return [symbol.name, symbol.kind, symbol.declaration, symbol.file].join(' ').toLowerCase();
     }
-    function instanceName(name) {
-      const base = String(name || 'libraryBlock').replace(/[^A-Za-z0-9_]/g, '');
-      return (base.charAt(0).toLowerCase() + base.slice(1)) || 'libraryBlock';
-    }
-    function declarationText(symbol) {
-      if (symbol.kind === 'function_block') return instanceName(symbol.name) + ' : ' + symbol.name + ';';
-      if (symbol.kind === 'type') return 'value : ' + symbol.name + ';';
-      return symbol.name + '(...)';
-    }
     function findSymbol(libraryName, key) {
       const lib = (lastState.libraries || []).find((candidate) => candidate.name === libraryName);
       return (lib?.symbols || []).find((symbol) => symbolKey(symbol) === key);
@@ -674,7 +654,7 @@ class LibrariesPanel {
         return '<div class="symbol-detail"><div class="row-detail">Search or select a symbol to see its declaration and insert it into Structured Text.</div></div>';
       }
       const key = symbolKey(symbol);
-      return '<div class="symbol-detail"><div><div class="symbol-kind">' + esc(kindLabel(symbol.kind)) + '</div><strong>' + esc(symbol.name) + '</strong></div><code class="symbol-declaration">' + esc(symbol.declaration || declarationText(symbol)) + '</code><div class="row-detail">Insert snippet: <code>' + esc(declarationText(symbol)) + '</code></div><div class="symbol-detail-actions"><button class="trust-button trust-button--primary" data-symbol-insert="' + esc(lib.name) + '" data-symbol-key="' + esc(key) + '">Insert declaration</button><button class="trust-button" data-symbol-copy="' + esc(lib.name) + '" data-symbol-key="' + esc(key) + '">Copy snippet</button></div></div>';
+      return '<div class="symbol-detail"><div><div class="symbol-kind">' + esc(kindLabel(symbol.kind)) + '</div><strong>' + esc(symbol.name) + '</strong></div><code class="symbol-declaration">' + esc(symbol.declaration || symbol.snippet) + '</code><div class="row-detail">Insert snippet: <code>' + esc(symbol.snippet) + '</code></div><div class="symbol-detail-actions"><button class="trust-button trust-button--primary" data-symbol-insert="' + esc(lib.name) + '" data-symbol-key="' + esc(key) + '">Insert declaration</button><button class="trust-button" data-symbol-copy="' + esc(lib.name) + '" data-symbol-key="' + esc(key) + '">Copy snippet</button></div></div>';
     }
     function renderSymbolBrowser(lib) {
       const symbols = lib.symbols || [];
@@ -703,7 +683,7 @@ class LibrariesPanel {
     function libraryRow(lib) {
       const statusClass = lib.status === 'resolved' ? 'ok' : lib.status === 'failed' ? 'error' : 'warn';
       const update = lib.updateAvailable ? '<button class="trust-button" data-update="' + esc(lib.updateAvailable.curatedId) + '">Update to ' + esc(lib.updateAvailable.next) + '</button>' : '';
-      const open = lib.path ? '<button class="trust-button" data-open="' + esc(lib.path) + '">View source</button>' : '';
+      const open = lib.firstSource ? '<button class="trust-button" data-open="' + esc(lib.firstSource) + '">View source</button>' : '';
       const fix = lib.canFixPath ? '<button class="trust-button" data-fix="' + esc(lib.name) + '">Fix path</button>' : '';
       return '<details data-library-row="' + esc(lib.name) + '"' + (openLibraries[lib.name] ? ' open' : '') + '><summary><div><div class="row-title"><strong>' + esc(lib.label) + '</strong><span class="badge">' + esc(lib.source) + '</span><span class="badge ' + statusClass + '">' + esc(lib.status) + '</span>' + (lib.version ? '<span class="badge">' + esc(lib.version) + '</span>' : '') + '</div><div class="row-detail">' + esc(lib.detail) + '</div></div><div class="row-actions">' + update + fix + open + '<button class="trust-button trust-button--danger" data-remove="' + esc(lib.name) + '">Remove</button></div></summary><div class="contents"><div class="symbol-count">' + esc(countLabel((lib.symbols || []).length, 'symbol')) + '</div>' + renderSymbolBrowser(lib) + '</div></details>';
     }
@@ -743,11 +723,11 @@ class LibrariesPanel {
       }));
       document.querySelectorAll('[data-symbol-insert]').forEach((el) => el.addEventListener('click', () => {
         const symbol = findSymbol(el.getAttribute('data-symbol-insert'), el.getAttribute('data-symbol-key'));
-        if (symbol) vscode.postMessage({ type: 'insertDeclaration', text: declarationText(symbol) });
+        if (symbol) vscode.postMessage({ type: 'insertDeclaration', text: symbol.snippet });
       }));
       document.querySelectorAll('[data-symbol-copy]').forEach((el) => el.addEventListener('click', () => {
         const symbol = findSymbol(el.getAttribute('data-symbol-copy'), el.getAttribute('data-symbol-key'));
-        if (symbol) vscode.postMessage({ type: 'copySymbol', text: declarationText(symbol) });
+        if (symbol) vscode.postMessage({ type: 'copySymbol', text: symbol.snippet });
       }));
       document.getElementById('retryAdd')?.addEventListener('click', () => { addPanel.hidden = false; });
     }
@@ -774,17 +754,8 @@ async function addLibrary(
     return { ok: false, message: "No library added." };
   }
   try {
-    switch (source.kind) {
-      case "curated":
-        await addCuratedLibrary(context, root, source.id);
-        return { ok: true };
-      case "local":
-        await addLocalLibrary(root, source.path, source.createManifest);
-        return { ok: true };
-      case "git":
-        await addGitLibrary(root, source);
-        return { ok: true };
-    }
+    void vscode.window.showInformationMessage(await addFromSource(context, root, source));
+    return { ok: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const panel = panelByRoot.get(root.fsPath);
@@ -794,10 +765,56 @@ async function addLibrary(
   }
 }
 
-async function promptLibrarySource(): Promise<AddLibraryArgs["source"] | undefined> {
+/** Adds the library `source` names and answers the message for the user; a refusal throws its reason. */
+async function addFromSource(
+  context: vscode.ExtensionContext,
+  root: vscode.Uri,
+  source: LibrarySource
+): Promise<string> {
+  if (source.kind === "curated" && source.id === "plant") {
+    await addPlantLibrary(context, root);
+    return "Plant components added to this project.";
+  }
+  const answer = await librariesRequest<{ message: string }>({
+    action: "add",
+    root: root.fsPath,
+    bundled: bundledLibraries(context),
+    source,
+  });
+  if (answer.ok) {
+    return answer.message;
+  }
+  const needsManifest = (answer as { needsManifest?: boolean }).needsManifest === true;
+  if (needsManifest && source.kind === "local" && source.createManifest === undefined) {
+    const create =
+      (await vscode.window.showWarningMessage(
+        "This folder is not a truST library. Create a library manifest?",
+        "Create",
+        "Cancel"
+      )) === "Create";
+    return addFromSource(context, root, { ...source, createManifest: create });
+  }
+  throw new Error(answer.error);
+}
+
+/** The Plant library, with its HMI components, through the HMI Builder's bundled-library install. */
+async function addPlantLibrary(context: vscode.ExtensionContext, root: vscode.Uri): Promise<void> {
+  const edit = new vscode.WorkspaceEdit();
+  const verify = await prepareBundledLibraries(
+    root,
+    context.extensionPath,
+    [{ name: "Plant", folder: "plant" }],
+    edit,
+  );
+  await verify();
+  if (!(await vscode.workspace.applyEdit(edit))) throw new Error("The Plant library could not be added.");
+}
+
+async function promptLibrarySource(): Promise<LibrarySource | undefined> {
+  const curated = await librariesRequest<{ curated: CuratedCard[] }>({ action: "curated" });
   const pick = await vscode.window.showQuickPick(
     [
-      ...CURATED.map((library) => ({
+      ...(curated.ok ? curated.curated : []).map((library) => ({
         label: library.label,
         description: library.purpose,
         source: { kind: "curated" as const, id: library.id },
@@ -853,86 +870,7 @@ async function promptLibrarySource(): Promise<AddLibraryArgs["source"] | undefin
     prompt: "Tag, branch, or commit",
     placeHolder: "v1.0.0",
   });
-  return {
-    kind: "git",
-    name,
-    url,
-    pin: pin ? classifyGitPin(pin) : undefined,
-  };
-}
-
-async function addCuratedLibrary(
-  context: vscode.ExtensionContext,
-  root: vscode.Uri,
-  id: CuratedLibraryId
-): Promise<void> {
-  const library = curatedById(id);
-  if (id === "plant") {
-    const edit = new vscode.WorkspaceEdit();
-    const verify = await prepareBundledLibraries(
-      root,
-      context.extensionPath,
-      [{ name: "Plant", folder: "plant" }],
-      edit,
-    );
-    await verify();
-    if (!(await vscode.workspace.applyEdit(edit))) throw new Error("The Plant library could not be added.");
-    void vscode.window.showInformationMessage("Plant components added to this project.");
-    return;
-  }
-  const source = packagedLibraryPath(context, library);
-  if (!fs.existsSync(source)) {
-    throw new Error(`Bundled ${library.label} files are missing from the extension.`);
-  }
-  const destination = path.join(root.fsPath, "libraries", library.folderName);
-  await copyDirectory(source, destination);
-  const version = readPackageVersion(destination);
-  await writeDependency(root, library.dependencyName, {
-    path: posixPath(path.relative(root.fsPath, destination)),
-    version,
-  });
-  void vscode.window.showInformationMessage(`${library.label} added to this project.`);
-}
-
-async function addLocalLibrary(
-  root: vscode.Uri,
-  folderPath: string,
-  createManifest?: boolean
-): Promise<void> {
-  if (!fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) {
-    throw new Error("No library added — the selected folder does not exist.");
-  }
-  const manifest = path.join(folderPath, "trust-lsp.toml");
-  if (!fs.existsSync(manifest)) {
-    const create =
-      createManifest ??
-      ((await vscode.window.showWarningMessage(
-        "This folder is not a truST library. Create a library manifest?",
-        "Create",
-        "Cancel"
-      )) === "Create");
-    if (!create) {
-      throw new Error("No library added — the folder needs a truST library manifest.");
-    }
-    fs.writeFileSync(manifest, `[package]\nversion = "0.1.0"\n\n[project]\ninclude_paths = ["src"]\n`);
-    fs.mkdirSync(path.join(folderPath, "src"), { recursive: true });
-  }
-  const name = path.basename(folderPath).replace(/[^A-Za-z0-9_]/g, "_") || "LocalLibrary";
-  const version = readPackageVersion(folderPath);
-  await writeDependency(root, name, {
-    path: posixPath(path.relative(root.fsPath, folderPath)),
-    version,
-  });
-  void vscode.window.showInformationMessage(`${name} added to this project.`);
-}
-
-async function addGitLibrary(
-  root: vscode.Uri,
-  source: Extract<NonNullable<AddLibraryArgs["source"]>, { kind: "git" }>
-): Promise<void> {
-  const spec: DependencySpec = { git: source.url, version: source.version, ...source.pin };
-  await writeDependency(root, source.name, spec);
-  void vscode.window.showInformationMessage(`${source.name} added from Git.`);
+  return { kind: "git", name, url, pin: pin || undefined };
 }
 
 async function removeLibrary(
@@ -950,9 +888,12 @@ async function removeLibrary(
       return false;
     }
   }
-  const manifest = await readProjectManifest(root);
-  await writeProjectManifest(root, removeDependency(manifest, name));
-  void vscode.window.showInformationMessage(`${name} removed from this project.`);
+  const answer = await librariesRequest<{ message: string }>({ action: "remove", root: root.fsPath, name });
+  if (!answer.ok) {
+    void vscode.window.showWarningMessage(answer.error);
+    return false;
+  }
+  void vscode.window.showInformationMessage(answer.message);
   return true;
 }
 
@@ -962,43 +903,29 @@ async function updateCuratedLibrary(
   id: CuratedLibraryId,
   confirm: boolean
 ): Promise<boolean> {
-  const library = curatedById(id);
-  const destination = path.join(root.fsPath, "libraries", library.folderName);
-  const next = readPackageVersion(packagedLibraryPath(context, library)) ?? "unknown";
-  const current = readPackageVersion(destination) ?? "unknown";
+  const plan = await librariesRequest<{ label: string; current: string; next: string }>({
+    action: "updatePlan",
+    root: root.fsPath,
+    bundled: bundledLibraries(context),
+    id,
+  });
+  if (!plan.ok) {
+    void vscode.window.showWarningMessage(plan.error);
+    return false;
+  }
   if (confirm) {
     const selected = await vscode.window.showInformationMessage(
-      `Update ${library.label} from ${current} to ${next}?`,
+      `Update ${plan.label} from ${plan.current} to ${plan.next}?`,
       "Update",
       "Cancel"
     );
     if (selected !== "Update") {
-      void vscode.window.showInformationMessage(`${library.label} update skipped.`);
+      void vscode.window.showInformationMessage(`${plan.label} update skipped.`);
       return false;
     }
   }
-  await addCuratedLibrary(context, root, id);
-  return true;
-}
-
-async function writeDependency(
-  root: vscode.Uri,
-  name: string,
-  spec: DependencySpec
-): Promise<void> {
-  const manifest = await readProjectManifest(root);
-  await writeProjectManifest(root, upsertDependency(manifest, name, spec));
-}
-
-async function readProjectManifest(root: vscode.Uri): Promise<string> {
-  const uri = vscode.Uri.joinPath(root, "trust-lsp.toml");
-  const bytes = await vscode.workspace.fs.readFile(uri);
-  return Buffer.from(bytes).toString("utf8");
-}
-
-async function writeProjectManifest(root: vscode.Uri, content: string): Promise<void> {
-  const uri = vscode.Uri.joinPath(root, "trust-lsp.toml");
-  await vscode.workspace.fs.writeFile(uri, Buffer.from(content));
+  const result = await addLibrary(context, root, { source: { kind: "curated", id } });
+  return result.ok;
 }
 
 async function requireProjectRoot(): Promise<vscode.Uri | undefined> {
@@ -1016,51 +943,6 @@ async function requireProjectRoot(): Promise<vscode.Uri | undefined> {
   }
 }
 
-function countLabel(count: number, singular: string, plural = `${singular}s`): string {
-  return `${count} ${count === 1 ? singular : plural}`;
-}
-
-async function viewEntryForDependency(
-  context: vscode.ExtensionContext,
-  root: vscode.Uri,
-  dependency: LibraryDependencyEntry,
-  projectInfo?: ProjectInfoLibrary
-): Promise<LibraryViewEntry> {
-  const curated = CURATED.find((candidate) => candidate.dependencyName === dependency.name);
-  const label = curated?.label ?? dependency.name;
-  const source = curated ? "bundled" : dependency.source;
-  const manifestPath = resolveDependencyPath(root.fsPath, dependency);
-  const resolvedPath = curated ? manifestPath : projectInfo?.path ?? manifestPath;
-  const exists = resolvedPath ? fs.existsSync(resolvedPath) : false;
-  const status = exists ? "resolved" : dependency.source === "git" ? "resolving" : "failed";
-  const packageVersion = resolvedPath ? readPackageVersion(resolvedPath) : undefined;
-  const version = curated
-    ? packageVersion ?? dependency.version ?? projectInfo?.version
-    : projectInfo?.version ?? packageVersion ?? dependency.version;
-  const symbols = exists && resolvedPath ? await readSymbols(resolvedPath) : [];
-  const nextVersion = curated ? readPackageVersion(packagedLibraryPath(context, curated)) : undefined;
-  const updateAvailable =
-    curated && nextVersion && version && version !== nextVersion
-      ? { current: version, next: nextVersion, curatedId: curated.id }
-      : undefined;
-  return {
-    name: dependency.name,
-    label,
-    version,
-    source,
-    path: resolvedPath,
-    status,
-    detail: status === "failed"
-      ? "Path is missing. Fix or remove this library."
-      : status === "resolving"
-        ? "Waiting for the dependency resolver to pin this Git library."
-        : `${countLabel(symbols.length, "symbol")} available`,
-    symbols,
-    updateAvailable,
-    canFixPath: status === "failed" && Boolean(dependency.path),
-  };
-}
-
 async function fixLibraryPath(root: vscode.Uri, name: string): Promise<boolean> {
   const selected = await vscode.window.showOpenDialog({
     canSelectFiles: false,
@@ -1073,23 +955,23 @@ async function fixLibraryPath(root: vscode.Uri, name: string): Promise<boolean> 
   if (!folder) {
     return false;
   }
-  const manifestPath = path.join(folder.fsPath, "trust-lsp.toml");
-  if (!fs.existsSync(manifestPath)) {
-    const message = "No library path changed — the selected folder needs a truST library manifest.";
+  const answer = await librariesRequest<{ message: string }>({
+    action: "fixPath",
+    root: root.fsPath,
+    name,
+    folder: folder.fsPath,
+  });
+  if (!answer.ok) {
     const panel = panelByRoot.get(root.fsPath);
-    await panel?.refresh(message);
-    void vscode.window.showWarningMessage(message);
+    await panel?.refresh(answer.error);
+    void vscode.window.showWarningMessage(answer.error);
     return false;
   }
-  const version = readPackageVersion(folder.fsPath);
-  await writeDependency(root, name, {
-    path: posixPath(path.relative(root.fsPath, folder.fsPath)),
-    version,
-  });
-  void vscode.window.showInformationMessage(`${name} path updated.`);
+  void vscode.window.showInformationMessage(answer.message);
   return true;
 }
 
+/** The libraries the language server resolved for the project (`trust-lsp.projectInfo`), passed on to the panel's view. */
 async function readProjectInfo(
   root: vscode.Uri,
   getClient?: () => LanguageClient | undefined
@@ -1112,77 +994,23 @@ async function readProjectInfo(
   }
 }
 
-async function readSymbols(rootPath: string): Promise<SymbolSummary[]> {
-  const files = await findStFiles(rootPath);
-  return collectSymbolSummaries(
-    files.map((file) => ({
-      file,
-      text: fs.readFileSync(file, "utf8"),
-    }))
-  );
+function librariesRequest<T extends object>(argument: object): Promise<ProjectAnswer<T>> {
+  return projectRequest<T>(LIBRARIES_REQUEST, argument);
 }
 
-async function findStFiles(rootPath: string): Promise<string[]> {
-  const out: string[] = [];
-  const stack = [rootPath];
-  while (stack.length > 0) {
-    const current = stack.pop()!;
-    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-      const full = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(full);
-      } else if (/\.(st|pou)$/i.test(entry.name)) {
-        out.push(full);
-      }
-    }
+/** The extension's bundled curated libraries. */
+function bundledLibraries(context: vscode.ExtensionContext): string {
+  return path.join(context.extensionPath, "media", "libraries");
+}
+
+async function openLibrarySource(file: string): Promise<void> {
+  try {
+    const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(file));
+    await vscode.window.showTextDocument(doc, { preview: false });
+    void vscode.window.showInformationMessage("Library source opened from the vendored project copy.");
+  } catch {
+    // The file went away since the panel was drawn; the next refresh shows that.
   }
-  return out.sort();
-}
-
-function resolveDependencyPath(root: string, dependency: LibraryDependencyEntry): string | undefined {
-  if (dependency.path) {
-    return path.isAbsolute(dependency.path) ? dependency.path : path.join(root, dependency.path);
-  }
-  return undefined;
-}
-
-function readPackageVersion(rootPath: string): string | undefined {
-  const manifest = path.join(rootPath, "trust-lsp.toml");
-  if (!fs.existsSync(manifest)) {
-    return undefined;
-  }
-  return parsePackageVersion(fs.readFileSync(manifest, "utf8"));
-}
-
-function packagedLibraryPath(context: vscode.ExtensionContext, library: CuratedLibrary): string {
-  return path.join(context.extensionPath, ...library.packagedPath);
-}
-
-function curatedById(id: CuratedLibraryId): CuratedLibrary {
-  const library = CURATED.find((candidate) => candidate.id === id);
-  if (!library) {
-    throw new Error(`Unknown curated library: ${id}`);
-  }
-  return library;
-}
-
-async function copyDirectory(source: string, destination: string): Promise<void> {
-  fs.rmSync(destination, { recursive: true, force: true });
-  fs.mkdirSync(destination, { recursive: true });
-  fs.cpSync(source, destination, { recursive: true });
-}
-
-async function openFirstSourceFile(rootPath: string): Promise<void> {
-  if (!fs.existsSync(rootPath)) {
-    return;
-  }
-  const file = (await findStFiles(rootPath))[0];
-  if (!file) {
-    return;
-  }
-  const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(file));
-  await vscode.window.showTextDocument(doc, { preview: false });
-  void vscode.window.showInformationMessage("Library source opened from the vendored project copy.");
 }
 
 async function insertDeclarationText(text: string): Promise<void> {
@@ -1194,7 +1022,7 @@ async function insertDeclarationText(text: string): Promise<void> {
     );
     return;
   }
-  const declarationEdit = declarationInsertion(editor.document, text);
+  const declarationEdit = await declarationInsertion(editor.document, text);
   if (declarationEdit) {
     await editor.edit((edit) => edit.insert(declarationEdit.position, declarationEdit.text));
     const line = declarationEdit.position.line;
@@ -1215,29 +1043,23 @@ function structuredTextEditorForInsertion(): vscode.TextEditor | undefined {
 }
 
 function isStructuredTextDocument(document: vscode.TextDocument): boolean {
-  return /\.(st|pou)$/i.test(document.uri.fsPath);
+  return document.languageId === "structured-text";
 }
 
-function declarationInsertion(
+/** Where the language server puts a declaration snippet in `document`: below its first VAR line, or nowhere. */
+async function declarationInsertion(
   document: vscode.TextDocument,
   text: string
-): { position: vscode.Position; text: string } | undefined {
-  const trimmed = text.trim();
-  if (!/^[A-Za-z_][A-Za-z0-9_]*\s*:/.test(trimmed)) {
+): Promise<{ position: vscode.Position; text: string } | undefined> {
+  const answer = await librariesRequest<{ insertion: { line: number; text: string } | null }>({
+    action: "insertion",
+    text: document.getText(),
+    snippet: text,
+  });
+  if (!answer.ok || !answer.insertion) {
     return undefined;
   }
-  for (let line = 0; line < document.lineCount; line += 1) {
-    if (!/^\s*VAR\b/i.test(document.lineAt(line).text)) {
-      continue;
-    }
-    const nextLine = line + 1 < document.lineCount ? document.lineAt(line + 1).text : "";
-    const indent = nextLine.match(/^\s+(?=\S)/)?.[0] ?? "    ";
-    return {
-      position: new vscode.Position(line + 1, 0),
-      text: `${indent}${trimmed}\n`,
-    };
-  }
-  return undefined;
+  return { position: new vscode.Position(answer.insertion.line, 0), text: answer.insertion.text };
 }
 
 async function refreshPanel(root: vscode.Uri): Promise<void> {

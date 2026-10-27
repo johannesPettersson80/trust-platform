@@ -26,6 +26,10 @@ Editor visual para Sequential Function Chart (SFC) basado en el estándar **IEC 
     - **SD**: Stored and Delayed
     - **DS**: Delayed and Stored
     - **SL**: Stored and Limited
+    - **P1**: Pulso al activarse el paso
+    - **P0**: Pulso al desactivarse el paso
+  - L, D, SD, DS y SL llevan una duración como `T#2s`
+  - Una acción se ejecuta un ciclo más después de terminar, con `<acción>.Q` en FALSE
 
 ### Funcionalidades del Editor
 
@@ -109,50 +113,69 @@ Init (Initial Step)
   v
 Step1
   Actions:
-    - StartMotor (N): motor := TRUE
+    - StartMotor (N): motor := StartMotor.Q
   |
   | T2: sensor1 = TRUE
   |
   v
 Step2
   Actions:
-    - StopMotor (N): motor := FALSE
+    - (motor vuelve a FALSE: el último ciclo de StartMotor escribió StartMotor.Q)
 ```
 
 ## Generación de Código ST
 
-El editor puede generar código Structured Text automáticamente:
+Cada SFC se ejecuta como Structured Text: al guardarlo (o con Generate ST) se escriben junto al
+archivo el compañero `<nombre>.st`, un `FUNCTION_BLOCK`, y la entrada de runtime
+`<nombre>.visual.runtime.st`. Preview ST muestra el compañero sin escribirlo. El compañero ejecuta
+el diagrama según IEC 61131-3 §6.7 (`docs/specs/sfc-profile.md`): en cada ciclo se ejecutan las
+acciones de los pasos activos, luego se evalúan todas las transiciones con los pasos activos antes
+de la evolución y se franquean juntas. Para `motor.sfc.json`, con la acción StartMotor (N) en
+Step1:
 
 ```st
-PROGRAM SFC_Program
-
+FUNCTION_BLOCK FB_motor_SFC
 VAR
+  // Steps: TRUE while the step is active (IEC 61131-3 6.7.2)
   Init_active : BOOL := TRUE;
   Step1_active : BOOL := FALSE;
-  Step2_active : BOOL := FALSE;
+  // Actions: the flags Q and A and the action control (6.7.4.6)
+  StartMotor : FB_motor_SFC_ACTION;
+  // Transitions: TRUE after a scan in which the transition cleared (6.7.5)
+  SFC_T1 : BOOL;
 END_VAR
 
-// SFC Logic
-// Transition: Init -> Step1
-IF Init_active AND (start_button = TRUE) THEN
-  Init_active := FALSE;
-  Step1_active := TRUE;
+// Action StartMotor: N Step1
+StartMotor.A := StartMotor.Q; // Q of the previous scan
+StartMotor.Q := Step1_active;
+StartMotor.A := StartMotor.A OR StartMotor.Q;
+IF StartMotor.A THEN
+  motor := StartMotor.Q;
 END_IF;
 
-// Step actions
-IF Step1_active THEN
-  // Action: StartMotor (N)
-  motor := TRUE;
-END_IF;
+// SFC_T1: Init -> Step1 (T1)
+SFC_T1 := Init_active AND (start_button = TRUE);
+
+Init_active := Init_active AND NOT SFC_T1;
+Step1_active := Step1_active OR SFC_T1;
+END_FUNCTION_BLOCK
+
+TYPE FB_motor_SFC_ACTION :
+STRUCT
+  Q : BOOL; // the action flag
+  A : BOOL; // the activation: the action's statements run while A is TRUE
+END_STRUCT;
+END_TYPE
 ```
 
 ## Validación
 
-El editor valida:
-- Presencia de al menos un step inicial
-- No duplicados en nombres de steps
-- Transiciones con condiciones válidas
-- Referencias válidas entre steps y transitions
+El editor valida lo que el compañero necesita (`docs/specs/sfc-profile.md`), entre otras cosas:
+- Presencia de un step inicial, y uno por secuencia
+- No duplicados en nombres de steps, y nombres que forman identificadores
+- Transiciones con condiciones entre steps, divergencias y convergencias existentes
+- Divergencias y convergencias paralelas bien formadas
+- Nombres de acción que son identificadores, qualifiers conocidos y una duración para L, D, SD, DS y SL
 
 ## Compatibilidad
 

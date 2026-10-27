@@ -9,7 +9,6 @@ use tower_lsp::lsp_types::Url;
 use trust_hir::types::Type;
 use trust_runtime::hmi::page_files::{parse_page, write_page};
 use trust_runtime::program_model::VarDef;
-use trust_runtime::value::Value as StValue;
 use trust_runtime::RetainPolicy;
 
 use super::hmi_files::{refused, single_argument};
@@ -83,21 +82,13 @@ pub(super) fn propose_settings_page_value<C: ServerContext>(
         Err(message) => return refused(message),
     };
     let runtime = &project.runtime;
-    // Each program instance with the settings its program declares retained.
+    // Each configured program instance with the settings its program declares retained (the
+    // project's declarations, specification 44 §6.7).
     let with_settings: Vec<(String, Vec<&VarDef>)> = runtime
-        .storage()
-        .globals()
+        .metadata()
+        .programs()
         .iter()
-        .filter_map(|(name, value)| {
-            let StValue::Instance(id) = value else {
-                return None;
-            };
-            let type_name = runtime.storage().get_instance(*id)?.type_name.clone();
-            let program = runtime
-                .program_templates()
-                .iter()
-                .find(|(key, _)| key.eq_ignore_ascii_case(&type_name))?
-                .1;
+        .filter_map(|(name, program)| {
             let settings: Vec<&VarDef> = program
                 .vars
                 .iter()
@@ -128,7 +119,7 @@ pub(super) fn propose_settings_page_value<C: ServerContext>(
     let mut count = 0u32;
     for var in settings {
         let path = format!("{program}.{}", var.name);
-        let (kind, options) = match setting_control(runtime.registry(), var.type_id) {
+        let (kind, options) = match setting_control(runtime.metadata().registry(), var.type_id) {
             Ok(control) => control,
             Err(reason) => {
                 skipped.push(json!({ "variable": path, "message": reason }));

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Copy the repository's saved STBC containers into the local seed corpora of the
-# bytecode_admission and bytecode_reprepare fuzz targets.
+# Copy the program images under the repository into the local seed corpus of the image_admission
+# fuzz target. `trust-runtime build` writes a project's image as program.tpi, and
+# `trust-runtime build --target <device>` writes a device's image in the project's build folder.
 #
 # fuzz/.gitignore ignores corpus/, so the copies stay untracked. Each copy is named after its
 # repository path with "/" replaced by "__", which keeps files with the same basename apart.
@@ -10,7 +11,7 @@ set -euo pipefail
 
 fuzz_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$fuzz_dir/.." && pwd)"
-corpora=(bytecode_admission bytecode_reprepare)
+corpora=(image_admission)
 
 seeds=()
 while IFS= read -r -d '' seed; do
@@ -19,11 +20,11 @@ done < <(
   cd -- "$repo_dir" && find . \
     \( -path ./target -o -path ./fuzz/target -o -path ./fuzz/corpus -o -path ./fuzz/artifacts \
       -o -path ./fuzz/coverage -o -name node_modules -o -name .git \) -prune \
-    -o -type f -name '*.stbc' -print0
+    -o -type f -name '*.tpi' -print0
 )
 
 if ((${#seeds[@]} == 0)); then
-  echo "seeds.sh: no *.stbc files under $repo_dir" >&2
+  echo "seeds.sh: no *.tpi program images under $repo_dir; build a project first" >&2
   exit 1
 fi
 

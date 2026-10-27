@@ -1,39 +1,43 @@
-//! Debug runtime facade for the adapter.
+//! Debug runtime facade for the adapter: the session's sources and the project's declarations.
 
-use std::sync::{Arc, Mutex};
-
+use trust_hir::types::TypeRegistry;
 use trust_runtime::control::SourceFile as ControlSourceFile;
-use trust_runtime::debug::DebugControl;
 use trust_runtime::harness::CompileError;
-use trust_runtime::io::IoDriverStatus;
-use trust_runtime::scheduler::SimulationSpeed;
-use trust_runtime::simulation::SimulationController;
-use trust_runtime::{Runtime, RuntimeMetadata};
+use trust_runtime::stdlib::conversions::ConversionProfile;
+use trust_runtime::value::DateTimeProfile;
+use trust_runtime::RuntimeMetadata;
 
-use crate::protocol::{Breakpoint, SetBreakpointsArguments, SetBreakpointsResponseBody, Source};
-use crate::session::{SimulationFacts, SourceFile, SourceOptionsUpdate};
+use crate::protocol::Source;
+use crate::session::{SourceFile, SourceOptionsUpdate};
 
 /// Narrow interface for debug adapters.
 pub trait DebugRuntime: Send {
     fn update_source_options(&mut self, update: SourceOptionsUpdate);
+    /// The project folder the source options name, against which the file labels of a compiled
+    /// program resolve (specification 13, "Stack Trace and Navigation").
+    fn source_root(&self) -> Option<&str>;
     fn set_program_path(&mut self, path: String);
-    fn reload_program(&mut self, path: Option<&str>) -> Result<Vec<Breakpoint>, CompileError>;
-    fn set_breakpoints(&mut self, args: &SetBreakpointsArguments) -> SetBreakpointsResponseBody;
-    fn take_breakpoint_report(&mut self) -> Option<String>;
-    fn debug_control(&self) -> DebugControl;
-    fn runtime_handle(&self) -> Arc<Mutex<Runtime>>;
-    fn simulation_handle(&self) -> Arc<Mutex<Option<SimulationController>>>;
+    /// The program file of the last launch.
+    fn program_path(&self) -> Option<&str>;
+    /// The sources of the program at `path` by the source options, registered as the session's
+    /// sources, whose declarations the session keeps: the sources a launch builds (specification 44
+    /// NX-16).
+    fn launch_sources(&mut self, path: &str) -> Result<Vec<(String, String)>, CompileError>;
+    /// Reads the declarations of the project the source options name, as an attach knows its
+    /// program.
+    fn load_project(&mut self) -> Result<(), CompileError>;
+    /// The declarations of the session's project: its tasks, whose debugger threads the client sees
+    /// (specification 13, "Multi-Task Thread Model").
     fn metadata(&self) -> &RuntimeMetadata;
     fn source_file_for_path(&self, path: &str) -> Option<&SourceFile>;
     fn source_for_file_id(&self, file_id: u32) -> Option<Source>;
     fn source_text_for_file_id(&self, file_id: u32) -> Option<&str>;
     fn control_sources(&self) -> Vec<ControlSourceFile>;
-    /// Whether the loaded program is simulated, and its configured speed (specification 35, A2.4).
-    fn simulation_facts(&self) -> SimulationFacts;
-    /// The health of the program's I/O drivers after each cycle, the same list for every reload: the control server reports
-    /// it in `fleet.topology`, as the runtime binary does (specification 47; Devices & Connections shows the simulator's I/O
-    /// live).
-    fn io_health(&self) -> Arc<Mutex<Vec<IoDriverStatus>>>;
-    /// The speed of the simulator loop, which `config.set` changes (specification 46, §6.1 item 5).
-    fn simulation_speed(&self) -> SimulationSpeed;
+    /// The types and the date and time profile of the project the source options name, from its
+    /// declarations, with which the debug expressions of a runtime that runs a compiled program
+    /// are compiled (specification 11 §6.13.2).
+    fn project_expression_types(&self) -> Result<(TypeRegistry, DateTimeProfile), CompileError>;
+    /// The conversion rules of the launched project's `vendor_profile`, so that a debug session
+    /// computes what `trust-runtime run` computes (docs/specs/07-standard-functions.md 2.10).
+    fn conversion_profile(&self) -> ConversionProfile;
 }

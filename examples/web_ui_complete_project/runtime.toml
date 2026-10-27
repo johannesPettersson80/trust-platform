@@ -6,7 +6,6 @@ name = "Cpu"
 cycle_interval_ms = 20
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime.sock"
 mode = "debug"
 debug_enabled = true
 

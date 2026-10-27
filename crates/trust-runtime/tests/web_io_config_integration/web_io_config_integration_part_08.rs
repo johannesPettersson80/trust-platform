@@ -73,8 +73,18 @@ fn runtime_cloud_discovery_endpoint_exposes_secure_transport_metadata() {
     }]);
 
     let state = control_state_named(source_fixture(), "runtime-a");
-    let base = start_test_server_with_discovery(state, project.clone(), Some(discovery));
+    let (pairing, token) = create_pairing_token(project.join("pairings.json"), AccessRole::Viewer);
+    let base = start_test_server_with_options(
+        state,
+        project.clone(),
+        Some(discovery),
+        Some(pairing),
+        WebAuthMode::Token,
+    );
+    // The runtime discovery route passes the web authentication (specification 11, runtime
+    // discovery).
     let body = ureq::get(&format!("{base}/api/discovery"))
+        .header("X-Trust-Token", token.as_str())
         .call()
         .expect("load discovery endpoint")
         .body_mut()

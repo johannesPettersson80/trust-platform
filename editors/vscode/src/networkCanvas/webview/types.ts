@@ -1,5 +1,8 @@
 // Data contract sent from the extension panel to the React Flow webview.
-// One canvas, fed from the honest buildNetworkCanvasModel() output.
+import type { RuntimeNodeControl } from "./runtimeNodeControls";
+import type { CanvasAdsClientSummary } from "../fleetModel";
+
+// One canvas, fed from the graph that `trust-lsp.devicesTopology` answers.
 
 // The local simulator runtime node's stable id — the contract for "this is the process we own"
 // (Start/Stop), vs. a remote/fleet runtime (Connect/Disconnect). Shared so the inspector, layout, and
@@ -37,6 +40,39 @@ export interface NCConnectorStatus {
   };
 }
 
+// The tags of one ADS port, as the server answers them (`trust-lsp.devicesTopology` and
+// `trust-lsp.devicesCanvasAct`): each port once, its paths sorted.
+export interface AdsTagPortSelection {
+  readonly port: number;
+  readonly paths: readonly string[];
+}
+
+// One tag of one ADS port, which the tag browser removes.
+export interface AdsTagPortPath {
+  readonly port: number;
+  readonly path: string;
+}
+
+// One port's part of an ADS tag add or removal, as the server answers it.
+export interface AdsTagPortImportResult {
+  readonly port: number;
+  readonly paths: readonly string[];
+  readonly applied: boolean;
+  readonly addedCount: number;
+  readonly message: string;
+}
+
+// The result of an ADS tag add or removal, with the summary the tag browser shows.
+export interface AdsTagBatchImportResult {
+  readonly operation?: "add" | "remove";
+  readonly applied: boolean;
+  readonly addedCount: number;
+  readonly removedCount?: number;
+  readonly restartRequired: boolean;
+  readonly ports: readonly AdsTagPortImportResult[];
+  readonly summary: string;
+}
+
 export interface NCEndpoint {
   id: string;
   kind: string;
@@ -47,6 +83,12 @@ export interface NCEndpoint {
   runtimeHealth?: string;
   detail: string;
   dimmed?: boolean;
+  // The target the browse pane opens with, for an ADS or OPC UA client connection (server's answer).
+  browseTarget?: Record<string, unknown>;
+  // Whether a filter that hides it reports it (server's answer).
+  attention?: boolean;
+  // The ADS client's summary (server's answer).
+  adsSummary?: CanvasAdsClientSummary;
   live?: {
     value?: unknown;
     last_seen_ms?: number;
@@ -88,6 +130,12 @@ export interface NCRuntime {
   simulationSpeedText?: string;
   endpoints: NCEndpoint[];
   plants?: NCPlant[];
+  // `Identify`: whether it can be asked now, and why not (server's answer).
+  identify?: { enabled: boolean; reason?: string };
+  // The controls the language server gives the node, the primary one first (specification 25 §5.5).
+  controls?: RuntimeNodeControl[];
+  // Whether a search can start from the runtime, and why not (specification 25 §2).
+  discovery?: { ready: boolean; reason?: string };
 }
 
 export type NCPlantState =
@@ -131,7 +179,6 @@ export interface NCPlant {
     enabledDefaulted?: boolean;
     initialStateDefaulted?: boolean;
     stepMs?: number;
-    projectStepMs?: number;
     initialInput?: number[];
     inputScale?: number[];
     inputOffset?: number[];
@@ -191,6 +238,8 @@ export interface NCFault {
   label: string;
   targetNodeId: string;
   severity: "warning" | "error";
+  // The fault of the add form's refused result, hidden while the form is edited (server's answer).
+  form?: boolean;
 }
 
 export interface NCEmptyAction {
@@ -272,6 +321,7 @@ export interface EndpointNodeData extends Record<string, unknown> {
   detail: string;
   health: string;
   dimmed: boolean;
+  browseTarget?: Record<string, unknown>;
   live?: {
     value?: unknown;
     last_seen_ms?: number;

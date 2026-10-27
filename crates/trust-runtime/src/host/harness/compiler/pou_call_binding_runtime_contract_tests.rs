@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use crate::harness::TestHarness;
 use crate::value::Value;
 
@@ -28,10 +30,7 @@ result := Encode(second := Next(), first := Next());
 END_PROGRAM
 "#);
     assert_eq!(harness.get_output("result"), Some(Value::Int(21)));
-    assert_eq!(
-        harness.runtime().storage().get_global("trace"),
-        Some(&Value::Int(2))
-    );
+    assert_eq!(harness.get_output("trace"), Some(Value::Int(2)));
 }
 
 #[test]
@@ -53,10 +52,7 @@ result := Sum(left := Next(), right := Next());
 END_PROGRAM
 "#);
     assert_eq!(harness.get_output("result"), Some(Value::Int(3)));
-    assert_eq!(
-        harness.runtime().storage().get_global("trace"),
-        Some(&Value::Int(2))
-    );
+    assert_eq!(harness.get_output("trace"), Some(Value::Int(2)));
 }
 
 #[test]
@@ -194,10 +190,7 @@ END_PROGRAM
 "#);
     assert_eq!(harness.get_output("result"), Some(Value::Int(0)));
     assert_eq!(harness.get_output("ok"), Some(Value::Bool(false)));
-    assert_eq!(
-        harness.runtime().storage().get_global("trace"),
-        Some(&Value::Int(0))
-    );
+    assert_eq!(harness.get_output("trace"), Some(Value::Int(0)));
 }
 
 #[test]
@@ -219,10 +212,7 @@ result := Controlled(value := Next(), EN := FALSE);
 END_PROGRAM
 "#);
     assert_eq!(harness.get_output("result"), Some(Value::Int(0)));
-    assert_eq!(
-        harness.runtime().storage().get_global("trace"),
-        Some(&Value::Int(0))
-    );
+    assert_eq!(harness.get_output("trace"), Some(Value::Int(0)));
 }
 
 #[test]
@@ -379,7 +369,10 @@ END_PROGRAM
 }
 
 #[test]
-fn pou_call_runtime_error_does_not_copy_function_in_out() {
+fn pou_call_runtime_error_keeps_what_the_body_wrote_to_an_in_out() {
+    // Specification 10 §7.5 step 7: an in-out is the caller's variable itself, so the write the
+    // body completed before the fault remains (9), and the call returns no result (0). A snapshot
+    // copied back only on return would leave 5.
     let mut harness = TestHarness::from_source(
         r#"
 FUNCTION Fail : INT
@@ -396,7 +389,8 @@ END_PROGRAM
     .expect("runtime-error fixture must compile");
     let cycle = harness.cycle();
     assert!(!cycle.errors.is_empty(), "division by zero must fail");
-    assert_eq!(harness.get_output("target"), Some(Value::Int(5)));
+    assert_eq!(harness.get_output("target"), Some(Value::Int(9)));
+    assert_eq!(harness.get_output("result"), Some(Value::Int(0)));
 }
 
 #[test]

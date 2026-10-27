@@ -99,6 +99,8 @@ impl RuntimeWritePort for AdsServerRuntimeWritePort {
                 format!("failed to decode ADS write for '{}': {err}", symbol.name),
             )
         })?;
+        // A compiled program resolves the global's name through its symbol table when it applies
+        // the write (specification 44 §13.3).
         self.debug
             .try_enqueue_global_write(global_name, value)
             .map_err(|refused| {
@@ -172,9 +174,9 @@ mod tests {
         let mut storage = VariableStorage::new();
         storage.set_global("setpoint", Value::Real(0.0));
         crate::debug::DebugSnapshot {
-            storage_abi: Default::default(),
             storage,
             now: Duration::from_millis(10),
+            compiled: None,
         }
     }
 

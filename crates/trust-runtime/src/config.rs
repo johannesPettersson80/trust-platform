@@ -8,10 +8,11 @@ use glob::Pattern;
 use indexmap::IndexMap;
 use serde::Deserialize;
 use smol_str::SmolStr;
+use trust_runtime_services::events::{EVENT_STORE_CAPACITY_MAX, EVENT_STORE_CAPACITY_MIN};
 
 use crate::ads::server::{AdsServerClientConfig, AdsServerRuntimeConfig, AdsServerSourcePin};
 use crate::error::RuntimeError;
-use crate::execution_backend::{ExecutionBackend, ExecutionBackendSource};
+use crate::execution_backend::ExecutionBackendSource;
 use crate::historian::{AlertRule, HistorianConfig, RecordingMode};
 use crate::io::{IoAddress, IoSafeState, IoSize};
 use crate::linux_rt::{LinuxRtConfig, LinuxRtSchedulerPolicy};
@@ -23,8 +24,17 @@ use crate::value::Duration;
 use crate::value::Value;
 use crate::watchdog::{FaultPolicy, HangAction, RetainMode, WatchdogAction, WatchdogPolicy};
 
+/// The runtimes that this computer manages under a fleet root: `fleet.toml`, their control
+/// tokens and their status.
+pub mod fleet_manifest;
+mod identify;
+mod key_removal;
 mod parser;
+/// The truST runtime projects of a folder.
+pub mod workspace_projects;
 
+pub use identify::IdentifyOutputConfig;
+pub use key_removal::remove_runtime_toml_key;
 pub use parser::ControlMode;
 
 #[cfg(unix)]
@@ -37,3 +47,6 @@ include!("config/loaders.rs");
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod identify_tests;

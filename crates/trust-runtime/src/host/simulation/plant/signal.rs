@@ -5,12 +5,17 @@
 use crate::debug::resolve_control_parameter_path;
 use crate::error::RuntimeError;
 use crate::io::IoAddress;
-use crate::memory::{InstanceId, IoArea, VariableStorage};
-use crate::value::{Value, ValueRef};
-use crate::Runtime;
+use crate::memory::IoArea;
+use crate::value::Value;
+use crate::{CompiledRuntime, Located, ProgramRead, ProgramWrite};
 
 /// The prefix of a Control.PID measurement target, `pid:Main.TIC101`.
 const CONTROLLER_PREFIX: &str = "pid:";
+
+/// The members in which a Control.PID holds the measurement a plant gives it, the Control library's
+/// simulation extension (Specification 46 §13.2): the value, and whether one is held.
+const HELD_MEASUREMENT: &str = "HeldMeasurement";
+const MEASUREMENT_HELD: &str = "MeasurementHeld";
 
 #[derive(Clone, Debug, PartialEq)]
 pub(super) enum PlantSignal {
@@ -80,12 +85,16 @@ impl PlantSignal {
         }
     }
 
-    pub(super) fn read(&self, runtime: &Runtime) -> Result<f64, RuntimeError> {
+    /// The signal's value as the last scan left the program: a command source's command, or the
+    /// measurement a `pid:` target holds.
+    pub(super) fn read(&self, runtime: &CompiledRuntime) -> Result<f64, RuntimeError> {
         match self {
-            Self::Address(address) => super::numeric_io::read_numeric(&runtime.io(), address),
-            Self::Symbol(symbol) => super::numeric_io::decode_storage(&resolve(runtime, symbol)?.1),
+            Self::Address(address) => super::numeric_io::read_numeric(runtime, address),
+            Self::Symbol(symbol) => runtime.with_program_view(|program| {
+                super::numeric_io::decode_storage(&resolve(program, symbol)?.1)
+            }),
             Self::Controller(path) => runtime
-                .controller_measurement(controller_instance(runtime, path)?)
+                .with_program_view(|program| controller_instance(program, path)?.held(program))?
                 .ok_or_else(|| {
                     RuntimeError::SimulationFault(
                         format!(
@@ -98,46 +107,90 @@ impl PlantSignal {
     }
 }
 
+/// Where a Control.PID instance holds the measurement a plant gives it (Specification 46 §13.2):
+/// while one is held, each `Update` takes it as `Input.ProcessValue`.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct HeldMeasurement {
+    value: Located,
+    held: Located,
+}
+
+impl HeldMeasurement {
+    /// The measurement held, `None` while none is.
+    fn held<P: ProgramRead + ?Sized>(&self, program: &P) -> Result<Option<f64>, RuntimeError> {
+        if program.read_at(&self.held)? != Value::Bool(true) {
+            return Ok(None);
+        }
+        match program.read_at(&self.value)? {
+            Value::LReal(value) => Ok(Some(value)),
+            _ => Err(RuntimeError::TypeMismatch),
+        }
+    }
+
+    /// Holds `value` for every later `Update` of the instance, until the next publish replaces it.
+    pub(super) fn hold(
+        &self,
+        program: &mut dyn ProgramWrite,
+        value: f64,
+    ) -> Result<(), RuntimeError> {
+        program.write_at(&self.value, &Value::LReal(value))?;
+        program.write_at(&self.held, &Value::Bool(true))
+    }
+
+    /// Removes the held measurement: `Update` takes the program's own `ProcessValue` again.
+    pub(super) fn release(&self, program: &mut dyn ProgramWrite) -> Result<(), RuntimeError> {
+        program.write_at(&self.held, &Value::Bool(false))
+    }
+}
+
 /// The Control.PID instance a `pid:` target names, refused with a plain reason when the path
 /// names no instance of the Control library's `PID`.
-pub(super) fn controller_instance(
-    runtime: &Runtime,
+pub(super) fn controller_instance<P: ProgramRead + ?Sized>(
+    program: &P,
     path: &str,
-) -> Result<InstanceId, RuntimeError> {
+) -> Result<HeldMeasurement, RuntimeError> {
     let fault = |reason: &str| {
         RuntimeError::SimulationFault(format!("plant feedback target pid:{path}: {reason}").into())
     };
-    let resolved =
-        resolve_control_parameter_path(runtime.storage(), path).map_err(|reason| fault(&reason))?;
-    let Value::Instance(id) = resolved.value else {
-        return Err(fault("names no function block instance"));
-    };
-    if !is_control_pid(runtime.storage(), id) {
-        return Err(fault("is not an instance of Control.PID"));
+    let at = program
+        .locate(path)
+        .map_err(|error| fault(&error.to_string()))?;
+    if !is_control_pid(program, &at) {
+        // A value reads; an instance holds none.
+        return Err(fault(if program.read_at(&at).is_ok() {
+            "names no function block instance"
+        } else {
+            "is not an instance of Control.PID"
+        }));
     }
-    Ok(id)
+    match (
+        program.member(&at, HELD_MEASUREMENT),
+        program.member(&at, MEASUREMENT_HELD),
+    ) {
+        (Some(value), Some(held)) => Ok(HeldMeasurement { value, held }),
+        _ => Err(fault(
+            "is a Control.PID without the simulation members HeldMeasurement and MeasurementHeld",
+        )),
+    }
 }
 
 /// An instance of `Control.PID`: its type, by its qualified name, or by its own name with the
 /// controller's parameter record and state.
-fn is_control_pid(storage: &VariableStorage, id: InstanceId) -> bool {
-    let Some(instance) = storage.get_instance(id) else {
-        return false;
-    };
-    match instance.type_name.to_ascii_uppercase().as_str() {
-        "CONTROL.PID" => true,
-        "PID" => {
-            storage.get_instance_var(id, "ParametersValue").is_some()
-                && storage.get_instance_var(id, "StateValue").is_some()
-        }
-        _ => false,
-    }
+fn is_control_pid<P: ProgramRead + ?Sized>(program: &P, at: &Located) -> bool {
+    program.is_a(at, "Control.PID")
+        || (program.is_a(at, "PID")
+            && program.member(at, "ParametersValue").is_some()
+            && program.member(at, "StateValue").is_some())
 }
 
-/// The program variable's storage reference and current value.
-pub(super) fn resolve(runtime: &Runtime, symbol: &str) -> Result<(ValueRef, Value), RuntimeError> {
-    let resolved = resolve_control_parameter_path(runtime.storage(), symbol).map_err(|reason| {
+/// Where the program variable lies, and its value as the program holds it, found as Control Studio
+/// finds a symbol.
+pub(super) fn resolve(
+    program: &dyn ProgramRead,
+    symbol: &str,
+) -> Result<(Located, Value), RuntimeError> {
+    let resolved = resolve_control_parameter_path(program, symbol).map_err(|reason| {
         RuntimeError::SimulationFault(format!("plant signal {symbol}: {reason}").into())
     })?;
-    Ok((resolved.reference, resolved.value))
+    Ok((resolved.at, resolved.value))
 }

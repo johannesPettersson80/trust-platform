@@ -15,13 +15,8 @@ fn qualified_live_write_commits_one_generation_and_preserves_readonly_rejection(
             notification_mode: AdsNotificationMode::OnChange,
             allow_retain_read: false,
         },
-        reference: ValueRef {
-            location: crate::memory::MemoryLocation::Global,
-            offset: 0,
-            path: Vec::new(),
-        },
-        quality_reference: None,
-        type_id: TypeId::INT,
+        target: BoundGlobal("point".into()),
+        quality_target: None,
         retain: false,
     };
     let mut bridge = AdsConnectionBridge::new(vec![binding]).unwrap();

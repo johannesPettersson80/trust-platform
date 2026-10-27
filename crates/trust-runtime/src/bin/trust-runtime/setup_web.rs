@@ -1,12 +1,16 @@
 //! Browser-based setup wizard for first-time configuration.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 use tiny_http::{Header, Method, Response, Server, StatusCode};
+
+use trust_runtime::config::DiscoveryConfig;
+use trust_runtime::discovery::{mdns_host_name, start_discovery_with_state, DiscoveryState};
+use trust_runtime::error::RuntimeError;
 
 use crate::setup::SetupDefaults;
 use crate::wizard;
@@ -172,6 +176,34 @@ button { padding: 10px 14px; border-radius: 8px; border: 1px solid #0f766e; back
 
 pub fn run_setup_web(options: SetupWebOptions) -> anyhow::Result<()> {
     let listen = format!("{}:{}", options.bind, options.port);
+    // Setup mode announces its setup web port over mDNS, like a running runtime (specification
+    // 11, runtime discovery).
+    let announcement = setup_announcement(
+        options.bundle_root.as_path(),
+        mdns_host_name().as_str(),
+        options.port,
+    )?;
+    let announce_listen = listen.clone();
+    let announce_name = options.defaults.resource_name.clone();
+    let announce_id = announcement.runtime_id.clone();
+    let discovery = DiscoveryConfig {
+        enabled: true,
+        service_name: SmolStr::new("truST"),
+        advertise: true,
+        interfaces: Vec::new(),
+        host_group: None,
+    };
+    let _announce = start_discovery_with_state(
+        &discovery,
+        &announce_name,
+        announce_id.as_str(),
+        None,
+        Some(announce_listen.as_str()),
+        false,
+        None,
+        Arc::new(DiscoveryState::new()),
+    )?;
+
     let token = if options.token_required {
         Some(generate_token()?)
     } else {
@@ -187,7 +219,7 @@ pub fn run_setup_web(options: SetupWebOptions) -> anyhow::Result<()> {
         expires_at,
         done: false,
     }));
-    print_setup_urls(&state);
+    print_setup_urls(&state, &announcement);
     let server = Server::http(&listen).map_err(|err| anyhow::anyhow!("setup web bind: {err}"))?;
     for mut request in server.incoming_requests() {
         let path = request.url().to_string();
@@ -406,7 +438,7 @@ fn extract_query_param(query: &str, key: &str) -> Option<String> {
     None
 }
 
-fn print_setup_urls(state: &Arc<Mutex<SetupState>>) {
+fn print_setup_urls(state: &Arc<Mutex<SetupState>>, announcement: &SetupAnnouncement) {
     let guard = state.lock().ok();
     if guard.is_none() {
         return;
@@ -414,11 +446,10 @@ fn print_setup_urls(state: &Arc<Mutex<SetupState>>) {
     let guard = guard.unwrap();
     let token = guard.token.as_deref();
     let bind = guard.options.bind.as_str();
-    let port = guard.options.port;
     let base = if bind == "0.0.0.0" {
-        format!("http://trust.local:{port}/setup")
+        announcement.url.clone()
     } else {
-        format!("http://localhost:{port}/setup")
+        format!("http://localhost:{}/setup", announcement.port)
     };
     if let Some(token) = token {
         println!("Setup URL (mDNS): {base}?token={token}");
@@ -432,6 +463,31 @@ fn print_setup_urls(state: &Arc<Mutex<SetupState>>) {
         println!("Setup URL: {base}");
         println!("No browser available? Run: trust-runtime setup and choose CLI setup.");
     }
+}
+
+/// The mDNS announcement of setup mode (specification 11, runtime discovery): the setup web port,
+/// the stable runtime ID of `bundle_root`, and the setup URL built from the operating system's
+/// host name.
+#[derive(Debug, Clone)]
+struct SetupAnnouncement {
+    runtime_id: SmolStr,
+    port: u16,
+    url: String,
+}
+
+/// The announcement setup mode makes for `bundle_root` and `port`, with the operating system's
+/// host name from `host_name()` (specification 11, runtime discovery).
+fn setup_announcement(
+    bundle_root: &Path,
+    host_name: &str,
+    port: u16,
+) -> Result<SetupAnnouncement, RuntimeError> {
+    let runtime_id = trust_runtime::runtime_id::stable_runtime_id(bundle_root)?;
+    Ok(SetupAnnouncement {
+        runtime_id,
+        port,
+        url: format!("http://{host_name}.local:{port}/setup"),
+    })
 }
 
 fn generate_token() -> anyhow::Result<String> {
@@ -468,6 +524,8 @@ fn now_secs() -> u64 {
 
 #[cfg(test)]
 mod tests {
+    //! Setup builds the project's program: the tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
     use super::*;
 
     fn unique_temp_dir(prefix: &str) -> PathBuf {
@@ -479,6 +537,29 @@ mod tests {
             "trust-runtime-{prefix}-{}-{nanos}",
             std::process::id()
         ))
+    }
+
+    /// R5 (E37): setup mode announces its setup web port over mDNS, with the stable runtime ID of
+    /// its `bundle_root` and the operating system's host name, and the printed address uses that
+    /// host name, `http://<host_name>.local:<port>/setup`, instead of the fixed `trust.local`
+    /// (specification 11: "`trust-runtime ide serve` and setup mode announce and browse in the
+    /// same way as a running runtime").
+    #[test]
+    fn setup_mode_announces_over_mdns() {
+        let root = unique_temp_dir("setup-announce");
+        std::fs::create_dir_all(root.join(".trust-runtime")).expect("state directory");
+        std::fs::write(root.join(".trust-runtime/runtime_id"), "setup-id")
+            .expect("write runtime ID");
+
+        let announcement = setup_announcement(&root, "plc-a-a1", 18080).expect("announcement");
+        assert_eq!(announcement.runtime_id, SmolStr::new("setup-id"));
+        assert_eq!(announcement.port, 18080);
+        assert_eq!(
+            announcement.url, "http://plc-a-a1.local:18080/setup",
+            "the printed address uses the host name, not the fixed trust.local"
+        );
+
+        std::fs::remove_dir_all(root).ok();
     }
 
     #[test]
@@ -648,6 +729,8 @@ mod tests {
     fn apply_setup_persists_runtime_artifacts() {
         let root = unique_temp_dir("setup-web-artifacts");
         std::fs::create_dir_all(&root).expect("create root");
+        // An existing .gitignore is kept and gains the endpoint folder (spec 11, section 6.8.0a).
+        std::fs::write(root.join(".gitignore"), "target/\n").expect("write .gitignore");
         let defaults = SetupDefaults::from_bundle(&root);
         let state = Arc::new(Mutex::new(SetupState {
             options: SetupWebOptions {
@@ -673,9 +756,17 @@ mod tests {
         };
         let message = apply_setup(&state, payload).expect("apply setup");
         assert!(message.contains("Setup complete"));
+        let gitignore = std::fs::read_to_string(root.join(".gitignore")).expect("read .gitignore");
+        assert!(gitignore.starts_with("target/\n"), "{gitignore}");
+        assert!(
+            gitignore.lines().any(|line| line == "/.trust-runtime/"),
+            "{gitignore}"
+        );
         assert!(root.join("runtime.toml").is_file());
         assert!(root.join("io.toml").is_file());
-        assert!(root.join("program.stbc").is_file());
+        assert!(root
+            .join(trust_runtime::native::PROGRAM_IMAGE_FILE)
+            .is_file());
         assert!(root.join("src").join("main.st").is_file());
         assert!(root.join("src").join("config.st").is_file());
         let runtime = trust_runtime::config::RuntimeConfig::load(root.join("runtime.toml"))
@@ -687,16 +778,11 @@ mod tests {
         assert!(config_source.contains("RESOURCE setup_web_plc ON PLC"));
         assert!(config_source.contains("INTERVAL := T#25ms"));
         let bundle = trust_runtime::config::RuntimeBundle::load(&root).expect("load setup bundle");
-        let module = trust_runtime::bytecode::BytecodeModule::decode(&bundle.bytecode)
-            .expect("decode setup bytecode");
-        module.validate().expect("validate setup bytecode");
-        let metadata = module.metadata().expect("load setup metadata");
-        let resource = metadata
-            .primary_resource()
-            .expect("setup bytecode resource metadata");
-        assert_eq!(resource.name, "setup_web_plc");
-        assert_eq!(resource.tasks.len(), 1);
-        assert_eq!(resource.tasks[0].interval.as_millis(), 25);
+        trust_runtime::native::admit_on_this_computer(&bundle.image)
+            .expect("admit the setup program");
+        let program = trust_runtime::CompiledRuntime::load(bundle.image, "setup_web_plc")
+            .expect("load the setup program");
+        assert_eq!(program.tasks().len(), 1, "the configuration's one task");
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -733,7 +819,9 @@ mod tests {
 
         assert!(message.contains("Setup complete"));
         assert!(root.join("runtime.toml").is_file());
-        assert!(root.join("program.stbc").is_file());
+        assert!(root
+            .join(trust_runtime::native::PROGRAM_IMAGE_FILE)
+            .is_file());
         assert!(
             !root.join("io.toml").exists(),
             "default use_system_io must remove project io.toml"

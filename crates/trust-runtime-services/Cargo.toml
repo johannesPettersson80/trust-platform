@@ -1,0 +1,43 @@
+[package]
+name = "trust-runtime-services"
+description = "Shared truST runtime services that build without an operating system"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Declared directly: the workspace serde and serde_json entries enable std.
+serde = { version = "1.0.229", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1.0.152", default-features = false, features = ["alloc", "raw_value"] }
+indexmap.workspace = true
+smol_str = { workspace = true }
+# The standard base64 of a part's data and of a reply's data (specification 34, PORT-05), with
+# alloc only: the chips build this crate without std. The version is the one Cargo.lock locks.
+base64 = { version = "0.23.1", default-features = false, features = ["alloc"] }
+# The kernel and its records: program images, resource state, restart mode, watchdog and fault
+# policies, durations and runtime errors. The workspace entry builds the core without std.
+trust-runtime-core = { workspace = true }
+# The fixed-size reset record a chip keeps across a reset, which the shared chip platform reads into
+# the `capabilities` reply. The memory crate depends on no runtime or compiler.
+trust-platform-memory = { workspace = true }
+# The Modbus protocol of the shared `modbus-tcp` driver's exchange (specification 11 §6.5): every
+# frame is built and checked by this one crate on every runtime.
+trust-modbus = { workspace = true }
+
+[dev-dependencies]
+# The stand-in modules of the compiled cycle's tests are written against the kernel interface
+# (specification 44 §8.2).
+trust-plc-abi = { workspace = true }
+
+# Deliberately not `[lints] workspace = true`: the workspace's `unsafe_code = "forbid"` cannot be
+# lowered by a crate, and the integration test's test-only counting allocator must implement the
+# unsafe `GlobalAlloc` trait. The library keeps `#![forbid(unsafe_code)]`; every other workspace
+# lint is repeated here so this crate is not held to a lower standard.
+[lints.rust]
+unsafe_code = "warn"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"

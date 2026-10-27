@@ -13,6 +13,7 @@ participant "StopCoordinator\n(core.rs)" as stopCoord
 participant "Runner Thread\ncore.rs" as runner
 participant "Runtime\ncycle.rs" as runtime
 participant "DebugHook\nhook.rs" as hook
+participant "RunControl\n(trust-runtime-services\ndebug/run.rs)" as services
 
 vscode -> adapter : next(threadId) (DAP request)
 activate adapter
@@ -23,17 +24,18 @@ session --> adapter : DebugControl ref
 
 adapter -> control : step_over(threadId)\n(thread-scoped)
 activate control
-control -> control : apply_action(StepOver)
+control -> services : apply(StepOver(threadId))
 note right
-    state.step = StepState {
+    decided in trust-runtime-services:
+    StepState {
         kind: Over,
-        target_depth: current_depth,
-        thread_id
+        target_depth: depth of thread,
+        started: previous mode was Paused
     }
-    state.mode = Running
+    mode = Running
     clear pending_stop
 end note
-control -> control : cvar.notify_all()
+control -> control : cvar.notify_all() (resumed)
 deactivate control
 
 adapter --> vscode : ok response
@@ -49,19 +51,34 @@ activate runtime
 runtime -> control : begin_cycle()\nclear stopped breakpoint identities
 
 loop for each statement
+    note over runtime
+        Statement starts and byte spans come from the
+        LINE_TABLE bound at install; DEBUG_MAP is read
+        only for a module without one.
+    end note
     runtime -> hook : on_statement(location, call_depth)
     activate hook
 
-    hook -> hook : match breakpoint identity once per scan\nthen check step condition
+    hook -> services : boundary(call_depth, breakpoint match)
     note right
+        the step decides first:
         if step.started &&
            call_depth <= target_depth
+        the breakpoint match (count, cycle guard,
+        condition) runs only when no step stops
     end note
 
     alt should pause
-        hook -> hook : update_snapshot()
+        hook -> hook : publish the halted state
         hook -> stopThread : emit DebugStop(Step, threadId)\n(generation ok)
-        hook -> hook : cvar.wait() [BLOCKS]
+        hook -> hook : cvar.wait() [BLOCKS]\n(the hold: Mutex + Condvar only)
+        note right
+            On a chip the hold is the hold pass of
+            the resource loop (runner/hold.rs): it
+            serves the link, runs the idle work,
+            feeds the watchdog and waits, until
+            RunControl says the scan is released.
+        end note
     else continue
         hook --> runtime : return
     end

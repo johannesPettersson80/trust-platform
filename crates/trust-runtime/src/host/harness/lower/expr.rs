@@ -20,6 +20,52 @@ use super::super::{
     coerce_value_to_type, lower_type_ref, resolve_type_name, CompileError, LoweringContext,
 };
 
+/// The literal parsers that the compiled-program generator shares with this lowering
+/// (specification 44 §6.6), so that the same text gives the same value in both.
+pub(crate) mod literal_text {
+    use super::{CompileError, Value};
+
+    /// The magnitude of an integer literal, with its base prefix and separators.
+    pub(crate) fn int(text: &str) -> Result<u64, CompileError> {
+        super::parse_int_literal(text)
+    }
+
+    /// A real literal in binary64.
+    pub(crate) fn real(text: &str) -> Result<f64, CompileError> {
+        super::parse_real_literal(text)
+    }
+
+    /// A real literal rounded once to binary32, as `REAL#` rounds it.
+    pub(crate) fn real32(text: &str) -> Result<f32, CompileError> {
+        super::parse_real_literal_f32(text)
+    }
+
+    /// The text of a string literal, its `$` escapes resolved.
+    pub(crate) fn string(text: &str, wide: bool) -> Result<String, CompileError> {
+        super::parse_string_literal(text, wide)
+    }
+
+    /// A duration literal.
+    pub(crate) fn time(text: &str) -> Result<Value, CompileError> {
+        super::parse_time_literal(text)
+    }
+
+    /// A `DATE` or `LDATE` literal, in the date and time profile of every runtime.
+    pub(crate) fn date(text: &str) -> Result<Value, CompileError> {
+        super::parse_date_literal(text, super::DateTimeProfile::default())
+    }
+
+    /// A `TIME_OF_DAY` or `LTIME_OF_DAY` literal.
+    pub(crate) fn time_of_day(text: &str) -> Result<Value, CompileError> {
+        super::parse_tod_literal(text, super::DateTimeProfile::default())
+    }
+
+    /// A `DATE_AND_TIME` or `LDATE_AND_TIME` literal.
+    pub(crate) fn date_and_time(text: &str) -> Result<Value, CompileError> {
+        super::parse_dt_literal(text, super::DateTimeProfile::default())
+    }
+}
+
 include!("expr/lowering.rs");
 include!("expr/literals.rs");
 include!("expr/integer_literals.rs");

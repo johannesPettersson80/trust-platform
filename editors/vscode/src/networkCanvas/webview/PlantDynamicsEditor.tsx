@@ -1,136 +1,135 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
+import type { PlantDraft } from "../plant/addFlow";
+import type { PlantParameterValue } from "../plant/editorModel";
 import {
-  plantDynamicsFields,
-  validatePlantDynamics,
-  type PlantEditorDraft,
-  type PlantParameterValue,
-} from "../plant/editorModel";
-import { plantModelDescriptor } from "../plant/modelDescriptors";
-import { plantStartingStateFields } from "../plant/startingConditions";
+  numberText,
+  type PlantEditAction,
+  type PlantEditorIssue,
+  type PlantEditorView,
+  type PlantEditResult,
+  type PlantFieldView,
+} from "../plant/editorSession";
 import { PlantPiecewiseEditor } from "./PlantPiecewiseEditor";
 import { PlantStateSpaceEditor } from "./PlantStateSpaceEditor";
 
+/**
+ * The model's dynamics fields as Rust lays them out (specification 47 §9). What the user types goes
+ * into the draft as the value it spells; Rust's checks say whether it is valid.
+ */
 export function PlantDynamicsEditor({
   draft,
+  view,
+  issues,
   onChange,
-  onRawValidityChange,
+  onAction,
 }: {
-  draft: PlantEditorDraft;
-  onChange: (draft: PlantEditorDraft) => void;
-  onRawValidityChange?: (field: string, message?: string) => void;
+  draft: PlantDraft;
+  view: PlantEditorView;
+  issues: readonly PlantEditorIssue[];
+  onChange: (draft: PlantDraft) => void;
+  onAction: (action: PlantEditAction) => Promise<PlantEditResult>;
 }) {
-  const [parseErrors, setParseErrors] = useState<Record<string, string>>({});
-  const [rawValues, setRawValues] = useState<Record<string, string>>({});
+  const [texts, setTexts] = useState<Record<string, string>>({});
   const [modelDetailsOpen, setModelDetailsOpen] = useState(false);
   const [activeHelpKey, setActiveHelpKey] = useState<string>();
   const [summaryHelpKey, setSummaryHelpKey] = useState<string>();
   const helpButtons = useRef(new Map<string, HTMLButtonElement>());
-  const allFields = plantDynamicsFields(draft.model);
-  const temperatureView = draft.model === "first_order_dead_time" && draft.startingPoint === "temperature_example";
-  const fields = temperatureView ? [] : draft.model === "first_order_dead_time"
-    ? allFields.filter((field) => ["gain", "time_constant_s", "dead_time_s"].includes(field.key))
-    : plantStartingStateFields(draft.model).length > 0 ? allFields.filter((field) => field.key !== "initial_state") : allFields;
-  const modelDetailFields = temperatureView ? allFields : draft.model === "first_order_dead_time"
-    ? allFields.filter((field) => !["gain", "time_constant_s", "dead_time_s"].includes(field.key))
-    : [];
-  const descriptor = plantModelDescriptor(draft.model);
-  useEffect(() => {
-    setRawValues((current) => Object.fromEntries(Object.entries(current).filter(([key]) => parseErrors[key])));
-  }, [draft.parameters, draft.initialState, parseErrors]);
-  const shape = plantModelShape(draft, descriptor);
-  const issues = useMemo(
-    () => validatePlantDynamics(draft),
-    [draft]
-  );
+  const temperatureView = Boolean(view.temperature);
+  const { fields, details } = view.dynamics;
   const issueFor = (key: string) =>
-    parseErrors[key] ?? issues.find((issue) => issue.field === key || issue.field.startsWith(`${key}.`))?.message;
-
-  const valueFor = (key: string): PlantParameterValue =>
+    issues.find((issue) => issue.target.kind === "dynamics" && issue.target.key === key)?.message;
+  const valueFor = (key: string): unknown =>
     key === "initial_state" ? draft.initialState : draft.parameters[key];
-
-  const update = (key: string, value: PlantParameterValue) => {
-    setParseErrors((current) => {
-      const next = { ...current };
-      delete next[key];
-      return next;
-    });
+  const write = (key: string, value: unknown) => {
     if (key === "initial_state") {
       onChange({ ...draft, initialState: value as number[], modelValuesTouched: true });
-    } else {
-      onChange({
-        ...draft,
-        parameters: { ...draft.parameters, [key]: value },
-        modelValuesTouched: true,
-      });
+      return;
     }
-  };
-
-  const clearOptionalParameter = (key: string) => {
-    setParseErrors((current) => {
-      const next = { ...current };
-      delete next[key];
-      return next;
-    });
     const parameters = { ...draft.parameters };
-    delete parameters[key];
+    if (value === undefined) delete parameters[key];
+    else parameters[key] = value as PlantParameterValue;
     onChange({ ...draft, parameters, modelValuesTouched: true });
   };
-
-  const updateStructured = (key: string, raw: string, matrix: boolean) => {
-    try {
-      const value = JSON.parse(raw) as unknown;
-      const rows = matrix ? value : [value];
-      if (
-        !Array.isArray(value) ||
-        !Array.isArray(rows) ||
-        rows.flat(Infinity).length === 0 ||
-        rows.flat(Infinity).some((entry) => typeof entry !== "number" || !Number.isFinite(entry)) ||
-        (matrix && (value as unknown[]).some((row) => !Array.isArray(row)))
-      ) {
-        throw new Error();
-      }
-      update(key, value as number[] | number[][]);
-      onRawValidityChange?.(key);
-    } catch {
-      const message = matrix
-        ? "Enter a matrix such as [[0, 1], [-1, 0]]."
-        : "Enter a list such as [0, 1, 2].";
-      onRawValidityChange?.(key, message);
-      setParseErrors((current) => ({
-        ...current,
-        [key]: message,
-      }));
-    }
+  // An empty field holds no value (Rust says whether one is needed); a number field holds the
+  // number its text spells, a list or matrix field what its text reads as, or the text itself.
+  const enter = (field: PlantFieldView, text: string) => {
+    setTexts((current) => ({ ...current, [field.key]: text }));
+    write(field.key, spelled(field, text));
   };
+  // The field being typed in keeps its text; any other field shows the draft's value once the draft
+  // holds another value than its text spells, as after an edit of the temperature example's fields.
+  const [focused, setFocused] = useState<string>();
+  useEffect(() => {
+    setTexts((current) => {
+      const kept = Object.entries(current).filter(([key, text]) => {
+        const field = [...fields, ...details].find((candidate) => candidate.key === key);
+        const value = key === "initial_state" ? draft.initialState : draft.parameters[key];
+        return key === focused || !field || JSON.stringify(spelled(field, text)) === JSON.stringify(value);
+      });
+      return kept.length === Object.keys(current).length ? current : Object.fromEntries(kept);
+    });
+  }, [draft, fields, details, focused]);
+  const textFor = (field: PlantFieldView) => {
+    const value = valueFor(field.key);
+    return texts[field.key] ??
+      (field.valueKind === "number" ? numberText(value) : value === undefined ? "" : JSON.stringify(value));
+  };
+  const input = (field: PlantFieldView, issue: string | undefined) => {
+    const common = {
+      name: `plant-dynamics-${field.key}`,
+      "data-plant-dynamics-field": field.key,
+      "aria-invalid": Boolean(issue),
+      "aria-describedby": issue ? `plant-dynamics-error-${field.key}` : undefined,
+      value: textFor(field),
+      onFocus: () => setFocused(field.key),
+      onBlur: () => setFocused((current) => (current === field.key ? undefined : current)),
+    };
+    return field.valueKind === "number" ? (
+      <input
+        {...common}
+        type="text"
+        inputMode="decimal"
+        placeholder={field.defaultValue !== undefined ? `Default: ${field.defaultValue}`
+          : field.optional ? "Unbounded" : undefined}
+        onChange={(event) => enter(field, event.target.value)}
+        style={INPUT}
+      />
+    ) : (
+      <textarea
+        {...common}
+        rows={field.valueKind === "matrix" ? 3 : 2}
+        onChange={(event) => enter(field, event.target.value)}
+        spellCheck={false}
+        style={{ ...INPUT, resize: "vertical", fontFamily: "var(--vscode-editor-font-family)" }}
+      />
+    );
+  };
+  const error = (key: string, issue: string | undefined) => issue && (
+    <span id={`plant-dynamics-error-${key}`} data-plant-dynamics-error={key} style={ERROR}>
+      {issue}
+    </span>
+  );
 
   return (
     <section className="trust-section">
       {!temperatureView && <div className="trust-section__title">Dynamics</div>}
       {!temperatureView && <p data-plant-model-name className="trust-help" style={{ marginTop: 7 }}>
-        {count(shape.states, "state")} · {count(shape.inputs, "input")} · {count(shape.outputs, "output")}
+        {count(view.model.states, "state")} · {count(view.model.inputs, "input")} · {count(view.model.outputs, "output")}
       </p>}
-      {draft.model === "piecewise_linear" ? (
-        <PlantPiecewiseEditor draft={draft} onChange={onChange} />
-      ) : draft.model === "state_space" ? (
-        <PlantStateSpaceEditor draft={draft} onChange={onChange} />
+      {view.piecewise ? (
+        <PlantPiecewiseEditor draft={draft} facts={view.piecewise} issues={issues} onChange={onChange} onAction={onAction} />
+      ) : view.stateSpace ? (
+        <PlantStateSpaceEditor draft={draft} facts={view.stateSpace} issues={issues} onChange={onChange} onAction={onAction} />
       ) : (
       <>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 8 }}>
         {fields.map((field) => {
           const issue = issueFor(field.key);
-          const value = valueFor(field.key);
-          const label = fopdtLabel(draft.model, field.key, field.label);
-          const common = {
-            name: `plant-dynamics-${field.key}`,
-            "data-plant-dynamics-field": field.key,
-            "aria-invalid": Boolean(issue),
-            "aria-describedby": issue ? `plant-dynamics-error-${field.key}` : undefined,
-          };
           return (
             <label key={field.key} style={FIELD}>
               <span style={HELP_LABEL}>
-                <span style={LABEL}>{label}</span>
+                <span style={LABEL}>{field.label}</span>
                 <button
                   ref={(button) => {
                     if (button) helpButtons.current.set(field.key, button);
@@ -138,7 +137,7 @@ export function PlantDynamicsEditor({
                   }}
                   type="button"
                   data-plant-parameter-help={field.key}
-                  aria-label={`Help for ${label}`}
+                  aria-label={`Help for ${field.label}`}
                   aria-expanded={activeHelpKey === field.key}
                   aria-describedby={summaryHelpKey === field.key ? `plant-parameter-help-summary-${field.key}` : undefined}
                   title={`${field.plainTerm}: ${field.effect}`}
@@ -162,13 +161,7 @@ export function PlantDynamicsEditor({
                   style={HELP_BUTTON}
                 >?</button>
               </span>
-              {draft.model === "first_order_dead_time" && (
-                <span className="trust-help">
-                  {field.key === "time_constant_s"
-                    ? "After the delay, about 63% of the remaining output change occurs in this time."
-                    : field.effect}
-                </span>
-              )}
+              {field.help && <span className="trust-help">{field.help}</span>}
               {summaryHelpKey === field.key && activeHelpKey !== field.key && (
                 <span
                   id={`plant-parameter-help-summary-${field.key}`}
@@ -184,7 +177,7 @@ export function PlantDynamicsEditor({
                 <span
                   data-plant-parameter-help-popover={field.key}
                   role="dialog"
-                  aria-label={`Help for ${label}`}
+                  aria-label={`Help for ${field.label}`}
                   tabIndex={-1}
                   autoFocus
                   onKeyDown={(event) => {
@@ -201,78 +194,25 @@ export function PlantDynamicsEditor({
                   <code>{field.storedKey}</code>
                 </span>
               )}
-              {field.valueKind === "number" ? (
-                <input
-                  {...common}
-                  type="text"
-                  inputMode="decimal"
-                  step="any"
-                  placeholder={field.defaultValue !== undefined ? `Default: ${field.defaultValue}`
-                    : field.optional ? "Unbounded" : undefined}
-                  value={rawValues[field.key] ?? (typeof value === "number" ? String(value) : "")}
-                  onChange={(event) => {
-                    setRawValues((current) => ({ ...current, [field.key]: event.target.value }));
-                    if (field.optional && !event.target.value.trim()) {
-                      onRawValidityChange?.(field.key);
-                      clearOptionalParameter(field.key);
-                      return;
-                    }
-                    const parsed = Number(event.target.value);
-                    if (event.target.value.trim() && Number.isFinite(parsed)) {
-                      update(field.key, parsed);
-                      onRawValidityChange?.(field.key);
-                    } else {
-                      const message = `${label} must be a finite number.`;
-                      onRawValidityChange?.(field.key, message);
-                      setParseErrors((current) => ({
-                        ...current,
-                        [field.key]: message,
-                      }));
-                    }
-                  }}
-                  style={INPUT}
-                />
-              ) : (
-                <textarea
-                  {...common}
-                  rows={field.valueKind === "matrix" ? 3 : 2}
-                  value={rawValues[field.key] ?? JSON.stringify(value)}
-                  onChange={(event) =>
-                    (setRawValues((current) => ({ ...current, [field.key]: event.target.value })),
-                    updateStructured(field.key, event.target.value, field.valueKind === "matrix"))
-                  }
-                  spellCheck={false}
-                  style={{ ...INPUT, resize: "vertical", fontFamily: "var(--vscode-editor-font-family)" }}
-                />
-              )}
-              {issue && (
-                <span
-                  id={`plant-dynamics-error-${field.key}`}
-                  data-plant-dynamics-error={field.key}
-                  style={ERROR}
-                >
-                  {issue}
-                </span>
-              )}
+              {input(field, issue)}
+              {error(field.key, issue)}
             </label>
           );
         })}
       </div>
-      {modelDetailFields.length > 0 && (
+      {details.length > 0 && (
         <div style={{ marginTop: 8 }}>
           <button type="button" className="trust-button" data-plant-model-details aria-expanded={modelDetailsOpen} onClick={() => setModelDetailsOpen((open) => !open)}>Model details</button>
           {modelDetailsOpen && <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 8, marginTop: 8 }}>
-            {temperatureView && <div data-plant-temperature-equation className="trust-help" style={{ overflowWrap: "anywhere" }}>
-              <div>Settled temperature (°C) = {String(draft.parameters.output_bias ?? 0)} + {String(draft.parameters.gain ?? 1)} × (power − {String(draft.parameters.input_bias ?? 0)}).</div>
-              <div>Power is heater command in %. Gain: {String(draft.parameters.gain ?? 1)} °C / %. Full-power rise: {Number(draft.parameters.gain ?? 1) * 100} °C.</div>
-              <div>This is the equilibrium target, not an immediate temperature jump. Delay and response time determine how temperature approaches it.</div>
+            {view.temperature && <div data-plant-temperature-equation className="trust-help" style={{ overflowWrap: "anywhere" }}>
+              {view.temperature.equation.map((line) => <div key={line}>{line}</div>)}
             </div>}
-            {modelDetailFields.map((field) => {
+            {details.map((field) => {
               const issue = issueFor(field.key);
-              const value = valueFor(field.key);
-              return <label key={field.key} style={FIELD}><span style={LABEL}>{field.label}</span>
-                {field.valueKind === "number" ? <input name={`plant-dynamics-${field.key}`} data-plant-dynamics-field={field.key} type="text" inputMode="decimal" value={rawValues[field.key] ?? (typeof value === "number" ? String(value) : "")} aria-invalid={Boolean(issue)} aria-describedby={issue ? `plant-dynamics-error-${field.key}` : undefined} onChange={(event) => { const raw = event.target.value; setRawValues((current) => ({ ...current, [field.key]: raw })); const parsed = Number(raw); if (raw.trim() && Number.isFinite(parsed)) { update(field.key, parsed); onRawValidityChange?.(field.key); } else { const message = `${field.label} must be a finite number.`; setParseErrors((current) => ({ ...current, [field.key]: message })); onRawValidityChange?.(field.key, message); } }} style={INPUT} /> : <textarea name={`plant-dynamics-${field.key}`} data-plant-dynamics-field={field.key} rows={2} value={rawValues[field.key] ?? JSON.stringify(value)} aria-invalid={Boolean(issue)} aria-describedby={issue ? `plant-dynamics-error-${field.key}` : undefined} onChange={(event) => { setRawValues((current) => ({ ...current, [field.key]: event.target.value })); updateStructured(field.key, event.target.value, field.valueKind === "matrix"); }} style={{ ...INPUT, resize: "vertical", fontFamily: "var(--vscode-editor-font-family)" }} />}
-                {issue && <span id={`plant-dynamics-error-${field.key}`} data-plant-dynamics-error={field.key} style={ERROR}>{issue}</span>}
+              return <label key={field.key} style={FIELD}>
+                <span style={LABEL}>{field.label}</span>
+                {input(field, issue)}
+                {error(field.key, issue)}
               </label>;
             })}
           </div>}
@@ -284,31 +224,23 @@ export function PlantDynamicsEditor({
   );
 }
 
-function plantModelShape(
-  draft: PlantEditorDraft,
-  descriptor: ReturnType<typeof plantModelDescriptor>
-): { states: number; inputs: number; outputs: number } {
-  if (draft.model !== "state_space") return descriptor;
-  const b = draft.parameters.b;
-  const c = draft.parameters.c;
-  return {
-    states: draft.initialState.length,
-    inputs: Array.isArray(b) && Array.isArray(b[0]) ? b[0].length : descriptor.inputs,
-    outputs: Array.isArray(c) ? c.length : descriptor.outputs,
-  };
+/** What a list or matrix field's text reads as: its JSON value, or the text itself. */
+/** The value a field's text spells, as it goes into the draft. */
+function spelled(field: PlantFieldView, text: string): unknown {
+  if (!text.trim()) return field.key === "initial_state" ? [] : undefined;
+  return field.valueKind === "number" ? Number(text) : readList(text);
+}
+
+function readList(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
 }
 
 function count(value: number, label: string): string {
   return `${value} ${label}${value === 1 ? "" : "s"}`;
-}
-
-function fopdtLabel(model: string, key: string, fallback: string): string {
-  if (model !== "first_order_dead_time") return fallback;
-  return ({
-    gain: "Response gain",
-    time_constant_s: "Response time (s)",
-    dead_time_s: "Delay before response (s)",
-  } as Record<string, string>)[key] ?? fallback;
 }
 
 const FIELD: React.CSSProperties = {

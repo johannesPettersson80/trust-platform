@@ -113,9 +113,12 @@ if (RENDERED_TEST_ENABLED) {
           (value) => value === "signals:6",
           8_000
         );
-        assert.match(
-          await inner("return (d.querySelector('[data-plant-optional-summary=actuator]')?.textContent||'').replace(/\\s+/g,' ').trim();"),
-          /maximum 80/i
+        // The summary is the language server's answer for the draft, which comes after the edit.
+        await pollValue(
+          "actuator summary names the maximum",
+          async () => inner("return (d.querySelector('[data-plant-optional-summary=actuator]')?.textContent||'').replace(/\\s+/g,' ').trim();"),
+          (value) => /maximum 80/i.test(value),
+          8_000
         );
         await setValue('[data-plant-engineering-field="input_scale.0"]', "2");
 
@@ -165,16 +168,23 @@ if (RENDERED_TEST_ENABLED) {
           8_000
         );
         await inner("var row=d.querySelector('[data-plant-scenario-event-row=\"0\"]');var include=row?.querySelector('input[type=checkbox]');include?.click();return 'INCLUDED';");
-        assert.match(
-          await inner("return (d.querySelector('[data-plant-optional-summary=signals]')?.textContent||'').replace(/\\s+/g,' ').trim();"),
-          /1 scaling or offset value changed/i
+        await pollValue(
+          "signal summary counts the changed scaling",
+          async () => inner("return (d.querySelector('[data-plant-optional-summary=signals]')?.textContent||'').replace(/\\s+/g,' ').trim();"),
+          (value) => /1 scaling or offset value changed/i.test(value),
+          8_000
         );
 
         await setValue("input[name=plant-dynamics-gain]", "bad");
         await pollSave(inner, true, "invalid dynamics while optional destination is open");
         await openOptionalDestination(session, "scenarios");
-        const preserved = JSON.parse(await inner("var gain=d.querySelector('input[name=plant-dynamics-gain]');return JSON.stringify({value:gain?.value,invalid:gain?.getAttribute('aria-invalid'),editors:d.querySelectorAll('[data-plant-optional-editor]').length,summaries:d.querySelectorAll('[data-plant-optional-summary]').length});"));
-        assert.deepStrictEqual(preserved, { value: "bad", invalid: "true", editors: 0, summaries: 4 });
+        // The gain's problem shows again once the language server has answered the draft as it is now.
+        await pollValue(
+          "invalid gain kept while the optional destination closes",
+          async () => inner("var gain=d.querySelector('input[name=plant-dynamics-gain]');return JSON.stringify({value:gain?.value,invalid:gain?.getAttribute('aria-invalid'),editors:d.querySelectorAll('[data-plant-optional-editor]').length,summaries:d.querySelectorAll('[data-plant-optional-summary]').length});"),
+          (value) => value === JSON.stringify({ value: "bad", invalid: "true", editors: 0, summaries: 4 }),
+          8_000
+        );
         await pollSave(inner, true, "invalid dynamics after closing optional destination");
 
         await setValue("input[name=plant-dynamics-gain]", "1");

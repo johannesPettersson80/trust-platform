@@ -1,6 +1,13 @@
+use trust_runtime_core::memory::IoArea;
+use trust_runtime_core::native::variables::{CompiledAccessPoint, CompiledVariables};
+use trust_runtime_services::live_values::apply::{self, WriteSink};
+use trust_runtime_services::live_values::queues::REQUEST_QUEUE_CAPACITY;
+
 impl DebugControl {
     /// Queue a one-shot I/O write. A refused write is reported as `write_rejected` and queues
     /// nothing; protocol and control producers use `try_enqueue_io_write` to receive the refusal.
+    /// Control Studio's experiments and abort bindings write their addresses this way
+    /// (specification 35, A3.5).
     pub fn enqueue_io_write(&self, address: IoAddress, value: Value) {
         if self.try_enqueue_io_write(address.clone(), value).is_err() {
             self.report_refused_request(SmolStr::new(format!("{address:?}")));
@@ -14,41 +21,21 @@ impl DebugControl {
         address: IoAddress,
         value: Value,
     ) -> Result<(), RequestQueueFull> {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().expect("debug state poisoned");
-        if state.io_writes.len() >= REQUEST_QUEUE_CAPACITY {
-            return Err(RequestQueueFull);
-        }
-        state.io_writes.push((address, value));
-        Ok(())
+        self.lock().live_values.try_enqueue_io_write(address, value)
     }
 
     /// Withdraw the one-shot I/O write queued last for `address` and `value`. A caller uses it
     /// when its own checked write failed after the request was queued.
     pub fn withdraw_io_write(&self, address: &IoAddress, value: &Value) {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().expect("debug state poisoned");
-        if let Some(index) = state
-            .io_writes
-            .iter()
-            .rposition(|(queued, queued_value)| queued == address && queued_value == value)
-        {
-            state.io_writes.remove(index);
-        }
+        self.lock().live_values.withdraw_io_write(address, value);
     }
 
-    /// Drain queued input writes.
+    /// Drain the queued one-shot I/O writes. The scan applies the queue in place through the
+    /// shared Live Values code, so only the tests read the queued writes directly.
+    #[cfg(test)]
     #[must_use]
-    pub fn drain_io_writes(&self) -> Vec<(IoAddress, Value)> {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().expect("debug state poisoned");
-        std::mem::take(&mut state.io_writes)
-    }
-
-    /// Queue a pending variable write to apply at the next cycle boundary. A refused write is
-    /// reported as `write_rejected`; see `enqueue_io_write`.
-    pub fn enqueue_global_write(&self, name: impl Into<SmolStr>, value: Value) {
-        self.enqueue_var_write(PendingVarTarget::Global(name.into()), value);
+    pub(crate) fn drain_io_writes(&self) -> Vec<(IoAddress, Value)> {
+        self.lock().live_values.drain_io_writes()
     }
 
     /// Queue a global write from a control or protocol request. A new target past the queue
@@ -61,11 +48,6 @@ impl DebugControl {
         self.try_enqueue_var_write(PendingVarTarget::Global(name.into()), value)
     }
 
-    /// Queue a pending retained variable write to apply at the next cycle boundary.
-    pub fn enqueue_retain_write(&self, name: impl Into<SmolStr>, value: Value) {
-        self.enqueue_var_write(PendingVarTarget::Retain(name.into()), value);
-    }
-
     /// Queue a retained write from a control or protocol request. A new target past the queue
     /// bound is refused.
     pub fn try_enqueue_retain_write(
@@ -76,61 +58,99 @@ impl DebugControl {
         self.try_enqueue_var_write(PendingVarTarget::Retain(name.into()), value)
     }
 
-    /// Queue a pending instance variable write to apply at the next cycle boundary.
-    pub fn enqueue_instance_write(
-        &self,
-        instance_id: InstanceId,
-        name: impl Into<SmolStr>,
-        value: Value,
-    ) {
-        self.enqueue_var_write(PendingVarTarget::Instance(instance_id, name.into()), value);
-    }
-
     /// Queue an instance write from a control or protocol request. A new target past the queue
-    /// bound is refused.
+    /// bound is refused. `generation` is the installation generation in which `instance_id` was
+    /// resolved: the boundary rejects the write when another generation is installed (spec 34
+    /// §4.3.1).
     pub fn try_enqueue_instance_write(
         &self,
+        generation: Generation,
         instance_id: InstanceId,
         name: impl Into<SmolStr>,
         value: Value,
     ) -> Result<(), RequestQueueFull> {
-        self.try_enqueue_var_write(PendingVarTarget::Instance(instance_id, name.into()), value)
+        self.try_enqueue_var_write(
+            PendingVarTarget::Instance(generation, instance_id, name.into()),
+            value,
+        )
     }
 
-    /// Queue a pending local variable write to apply at the next cycle boundary.
-    pub fn enqueue_local_write(&self, frame_id: FrameId, name: impl Into<SmolStr>, value: Value) {
-        self.enqueue_var_write(PendingVarTarget::Local(frame_id, name.into()), value);
-    }
-
-    /// Queue a write of the variable (or field) a storage reference names, applied at the next
-    /// cycle boundary as the other debug writes are. A reference that no longer names a variable
-    /// when the write is applied is skipped: its writer confirms the value it reads back.
-    /// `epoch` is the runtime epoch the reference was resolved in: once a reload or restart has ended it, the write is
-    /// dropped, because the reference names a variable only in the program that ended. A new target past the queue bound
-    /// is refused and reported as `write_rejected`.
-    pub(crate) fn enqueue_reference_write(
-        &self,
-        reference: crate::value::ValueRef,
-        value: Value,
-        epoch: u64,
-    ) {
-        let target = PendingVarTarget::Reference(reference);
-        let label = pending_var_label(&target);
-        let queued = {
-            let (lock, _) = &*self.state;
-            let mut state = lock.lock().expect("debug state poisoned");
+    /// Queue an experiment's write of a program variable by place, applied at the next cycle start
+    /// (specification 35, experiments by variable name, A3.5): a later write to a place already
+    /// queued in the same generation replaces the earlier one in place. `epoch` is the runtime
+    /// epoch the place was resolved in: once a reload or restart has ended it, the write is dropped,
+    /// because the place names the variable only in the program that ended. A new place past the
+    /// queue bound is refused and reported as `write_rejected`.
+    pub(crate) fn enqueue_control_write(&self, write: ControlWrite, epoch: u64) {
+        let refused = {
+            let mut state = self.lock();
             if state.parameters.epoch() != epoch {
                 return;
             }
-            state.try_upsert_var_write(target, value)
+            if let Some(queued) = state
+                .control_writes
+                .iter_mut()
+                .find(|queued| queued.at == write.at && queued.generation == write.generation)
+            {
+                queued.value = write.value;
+                return;
+            }
+            if state.control_writes.len() >= REQUEST_QUEUE_CAPACITY {
+                Some(write.label)
+            } else {
+                state.control_writes.push(write);
+                None
+            }
         };
-        if queued.is_err() {
+        if let Some(label) = refused {
             self.report_refused_request(label);
         }
     }
 
+    /// Apply Control Studio's queued writes of program variables at the cycle start, before the Live
+    /// Values, so that a force still holds its variable (specification 35, A3.5; specification 44
+    /// §13.3): each at its place, converted to the place's type. A write resolved in another program
+    /// generation than `generation` is dropped, since its place names nothing in this program; a
+    /// write the program refuses is reported as `write_rejected` at `time`, never a fault: the writer
+    /// reads its variable back.
+    pub(crate) fn apply_control_writes(
+        &self,
+        program: &mut dyn ProgramWrite,
+        generation: Generation,
+        time: Duration,
+    ) {
+        let writes = {
+            let mut state = self.lock();
+            if state.control_writes.is_empty() {
+                return;
+            }
+            std::mem::take(&mut state.control_writes)
+        };
+        for write in writes {
+            if write.generation != generation {
+                continue;
+            }
+            if let Err(error) = program.write_at(&write.at, &write.value) {
+                self.push_runtime_event(RuntimeEvent::WriteRejected {
+                    target: write.label,
+                    error: error.to_string(),
+                    time,
+                });
+            }
+        }
+    }
+
+    /// Drain Control Studio's queued writes of program variables. The scan applies them in place,
+    /// so only the control tests read them directly.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn drain_control_writes(&self) -> Vec<ControlWrite> {
+        std::mem::take(&mut self.lock().control_writes)
+    }
+
     /// Queue a local write from a control or protocol request. A new target past the queue bound
-    /// is refused.
+    /// is refused; the scan refuses the queued write, since a local of a paused frame is not
+    /// reachable from it.
     pub fn try_enqueue_local_write(
         &self,
         frame_id: FrameId,
@@ -140,79 +160,23 @@ impl DebugControl {
         self.try_enqueue_var_write(PendingVarTarget::Local(frame_id, name.into()), value)
     }
 
-    /// Queue a pending lvalue write to apply at the next cycle boundary. A refused write is
-    /// reported as `write_rejected`; see `enqueue_io_write`.
-    pub fn enqueue_lvalue_write(&self, frame_id: Option<FrameId>, target: LValue, value: Value) {
-        let label = SmolStr::new(format!("{target:?}"));
-        let queued = self.try_write_lvalue(frame_id, target, value, |_| {
-            Ok::<(), std::convert::Infallible>(())
-        });
-        if queued.is_err() {
-            self.report_refused_request(label);
-        }
-    }
-
-    /// Apply a debugger lvalue write to the paused snapshot and queue it for the next cycle
-    /// boundary, under one lock. A full queue refuses the request with `RequestQueueFull` before
-    /// the snapshot changes. `write_snapshot` applies the value to the snapshot, when there is
-    /// one; its error is returned inside `Ok` and queues nothing.
-    pub fn try_write_lvalue<E>(
-        &self,
-        frame_id: Option<FrameId>,
-        target: LValue,
-        value: Value,
-        write_snapshot: impl FnOnce(&mut DebugSnapshot) -> Result<(), E>,
-    ) -> Result<Result<(), E>, RequestQueueFull> {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().expect("debug state poisoned");
-        if state.pending_lvalue_writes.len() >= REQUEST_QUEUE_CAPACITY {
-            return Err(RequestQueueFull);
-        }
-        if let Some(snapshot) = state.snapshot.as_mut()
-            && let Err(error) = write_snapshot(snapshot)
-        {
-            return Ok(Err(error));
-        }
-        state.pending_lvalue_writes.push(PendingLValueWrite {
-            frame_id,
-            target,
-            value,
-        });
-        Ok(Ok(()))
-    }
-
-    /// Drain pending variable writes.
+    /// Drain pending variable writes. The scan applies the queue in place through the shared Live
+    /// Values code, so only the control tests read the queued writes directly.
+    #[cfg(test)]
     #[must_use]
     pub(crate) fn drain_var_writes(&self) -> Vec<PendingVarWrite> {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().expect("debug state poisoned");
-        std::mem::take(&mut state.pending_var_writes)
+        self.lock().live_values.drain_var_writes()
     }
 
-    /// Drain pending lvalue writes.
-    #[must_use]
-    pub(crate) fn drain_lvalue_writes(&self) -> Vec<PendingLValueWrite> {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().expect("debug state poisoned");
-        std::mem::take(&mut state.pending_lvalue_writes)
-    }
-
-    /// Clear queued writes and active forces at a terminating runtime boundary.
+    /// Clear queued writes and active forces at a terminating runtime boundary (a fault or the
+    /// safe outputs), and interrupt Control Studio's recordings, parameter sets and transfers and
+    /// its signal inspection, which belonged to the run that ended (specification 35, A6.7).
+    /// A transfer committed in a scan that faults is reverted in that scan before this
+    /// interruption, by [`Self::fail_transfer`] (specification 35, A6.3).
     pub(crate) fn clear_runtime_mutations(&self) {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().expect("debug state poisoned");
-        state.recordings.interrupt();
-        state.parameters.interrupt();
-        state.transfers.interrupt();
-        state.signals.clear();
-        state.clear_runtime_mutations();
-    }
-
-    fn enqueue_var_write(&self, target: PendingVarTarget, value: Value) {
-        let label = pending_var_label(&target);
-        if self.try_enqueue_var_write(target, value).is_err() {
-            self.report_refused_request(label);
-        }
+        let mut state = self.lock();
+        state.end_control_epoch();
+        state.live_values.clear();
     }
 
     fn try_enqueue_var_write(
@@ -220,15 +184,7 @@ impl DebugControl {
         target: PendingVarTarget,
         value: Value,
     ) -> Result<(), RequestQueueFull> {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().expect("debug state poisoned");
-        state.try_upsert_var_write(target, value)
-    }
-
-    /// Force a global variable to the given value. A refused force is reported as
-    /// `write_rejected`; see `enqueue_io_write`.
-    pub fn force_global(&self, name: impl Into<SmolStr>, value: Value) {
-        self.set_forced_var(ForcedVarTarget::Global(name.into()), value);
+        self.lock().live_values.try_upsert_var_write(target, value)
     }
 
     /// Force a global variable from a control or protocol request. A new target past the queue
@@ -241,11 +197,6 @@ impl DebugControl {
         self.try_set_forced_var(ForcedVarTarget::Global(name.into()), value)
     }
 
-    /// Force a retained global variable to the given value.
-    pub fn force_retain(&self, name: impl Into<SmolStr>, value: Value) {
-        self.set_forced_var(ForcedVarTarget::Retain(name.into()), value);
-    }
-
     /// Force a retained variable from a control or protocol request. A new target past the queue
     /// bound is refused.
     pub fn try_force_retain(
@@ -256,20 +207,51 @@ impl DebugControl {
         self.try_set_forced_var(ForcedVarTarget::Retain(name.into()), value)
     }
 
-    /// Force an instance variable to the given value.
-    pub fn force_instance(&self, instance_id: InstanceId, name: impl Into<SmolStr>, value: Value) {
-        self.set_forced_var(ForcedVarTarget::Instance(instance_id, name.into()), value);
-    }
-
     /// Force an instance variable from a control or protocol request. A new target past the queue
-    /// bound is refused.
+    /// bound is refused. `generation` is the installation generation in which `instance_id` was
+    /// resolved: the scan boundary rejects and removes the force once another generation is
+    /// installed (spec 34 §4.3.1).
     pub fn try_force_instance(
         &self,
+        generation: Generation,
         instance_id: InstanceId,
         name: impl Into<SmolStr>,
         value: Value,
     ) -> Result<(), RequestQueueFull> {
-        self.try_set_forced_var(ForcedVarTarget::Instance(instance_id, name.into()), value)
+        self.try_set_forced_var(
+            ForcedVarTarget::Instance(generation, instance_id, name.into()),
+            value,
+        )
+    }
+
+    /// The installation generation of the attached runtime. A request that names an instance by
+    /// a bare identity, as a control client does, belongs to the generation installed when the
+    /// request is accepted (specification 11, debug mutation lifecycle).
+    #[must_use]
+    pub fn generation(&self) -> Generation {
+        self.lock().generation
+    }
+
+    /// The installation generation of the runtime the control is attached to, which a request that
+    /// names an instance by a bare identity belongs to. Attaching the control is no restart: the
+    /// queued writes and the active forces stay.
+    pub(crate) fn set_generation(&self, generation: Generation) {
+        self.lock().generation = generation;
+    }
+
+    /// A restart or replacement committed `generation`: clear the queued writes and active forces
+    /// of the previous lifecycle, end Control Studio's epoch, whose experiments and transactions
+    /// were bound to the program before (specification 35, A6.7), and record the new generation,
+    /// under one lock.
+    ///
+    /// A replacement (an online change) also calls [`Self::invalidate_control_program`], which marks
+    /// the program reloaded, so that an experiment it stops reports `program_reloaded` rather than
+    /// `runtime_restarted` (specification 35, A6.7).
+    pub(crate) fn begin_lifecycle(&self, generation: Generation) {
+        let mut state = self.lock();
+        state.end_control_epoch();
+        state.live_values.clear();
+        state.generation = generation;
     }
 
     /// Release a forced global variable.
@@ -288,132 +270,63 @@ impl DebugControl {
         });
     }
 
-    /// Release a forced instance variable.
+    /// Release a forced instance variable, in whichever generation it was forced.
     pub fn release_instance(&self, instance_id: InstanceId, name: &str) {
         self.clear_forced_var(|target| match target {
-            ForcedVarTarget::Instance(current_id, current_name) => {
+            ForcedVarTarget::Instance(_, current_id, current_name) => {
                 *current_id == instance_id && current_name.as_str() == name
             }
             _ => false,
         });
     }
 
-    /// Force an I/O address to the given value. A refused force is reported as `write_rejected`;
-    /// see `enqueue_io_write`.
-    pub fn force_io(&self, address: IoAddress, value: Value) {
-        if self.try_force_io(address.clone(), value).is_err() {
-            self.report_refused_request(SmolStr::new(format!("{address:?}")));
-        }
-    }
-
     /// Force an I/O address from a control or protocol request. A new address past the queue
     /// bound is refused; re-forcing an existing address is never refused.
     pub fn try_force_io(&self, address: IoAddress, value: Value) -> Result<(), RequestQueueFull> {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().expect("debug state poisoned");
-        state.try_upsert_forced_io(address, value)
+        self.lock().live_values.try_upsert_forced_io(address, value)
     }
 
     /// The value of the active variable force on `target`, when the target is forced.
     pub fn forced_var_value(&self, target: &ForcedVarTarget) -> Option<Value> {
-        let (lock, _) = &*self.state;
-        let state = lock.lock().expect("debug state poisoned");
-        state
-            .forced_vars
-            .iter()
-            .find(|entry| entry.target == *target)
-            .map(|entry| entry.value.clone())
+        self.lock().live_values.forced_var_value(target)
     }
 
     /// Put back the variable force that a failed checked write had replaced: `previous` is the
     /// value forced before the failed request, or `None` when the target was not forced.
     pub fn restore_var_force(&self, target: &ForcedVarTarget, previous: Option<Value>) {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().expect("debug state poisoned");
-        match previous {
-            Some(value) => state.upsert_forced_var(target.clone(), value),
-            None => state.forced_vars.retain(|entry| entry.target != *target),
-        }
+        self.lock().live_values.restore_var_force(target, previous);
     }
 
     /// The value of the active I/O force on `address`, when the address is forced.
     pub fn forced_io_value(&self, address: &IoAddress) -> Option<Value> {
-        let (lock, _) = &*self.state;
-        let state = lock.lock().expect("debug state poisoned");
-        state
-            .forced_io
-            .iter()
-            .find(|(current, _)| current == address)
-            .map(|(_, value)| value.clone())
+        self.lock().live_values.forced_io_value(address)
     }
 
     /// Put back the I/O force that a failed checked write had replaced: `previous` is the value
     /// forced before the failed request, or `None` when the address was not forced.
     pub fn restore_io_force(&self, address: &IoAddress, previous: Option<Value>) {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().expect("debug state poisoned");
-        match previous {
-            Some(value) => state.upsert_forced_io(address.clone(), value),
-            None => state.forced_io.retain(|(current, _)| current != address),
-        }
+        self.lock().live_values.restore_io_force(address, previous);
     }
 
     /// Release a forced I/O address.
     pub fn release_io(&self, address: &IoAddress) {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().expect("debug state poisoned");
-        state.forced_io.retain(|(current, _)| current != address);
+        self.lock().live_values.release_io(address);
     }
 
-    /// Whether a forced variable holds the variable (or field) a reference names, judged on the
-    /// latest completed scan's storage.
-    pub(crate) fn forces_reference(&self, reference: &crate::value::ValueRef) -> bool {
-        let (lock, _) = &*self.state;
-        let state = lock.lock().expect("debug state poisoned");
-        let Some(snapshot) = state.snapshot.as_ref() else {
-            return false;
-        };
+    /// Whether an active variable force holds the variable at `at` of `program`, the program a
+    /// Control Studio service resolved the variable in: the forced variable itself, or a forced
+    /// structure or instance whose bytes hold it, judged by place (specification 35, A6.5).
+    pub(crate) fn forces_place(&self, program: &dyn ProgramRead, at: &Located) -> bool {
+        let state = self.lock();
         state
+            .live_values
             .forced_vars
             .iter()
-            .any(|force| symbol_path::forced_holds(&snapshot.storage, &force.target, reference))
+            .any(|force| symbol_path::forced_holds(program, state.generation, &force.target, at))
     }
 
     pub(crate) fn forced_snapshot(&self) -> ForcedSnapshot {
-        let (lock, _) = &*self.state;
-        let state = lock.lock().expect("debug state poisoned");
-        ForcedSnapshot {
-            vars: state.forced_vars.clone(),
-            io: state.forced_io.clone(),
-        }
-    }
-
-    /// Remove an I/O force whose application the scan boundary rejected, so the rejected value is
-    /// not applied again. The entry goes only while it still holds the rejected value: a newer
-    /// force on the same address survives.
-    pub(crate) fn discard_rejected_io_force(&self, address: &IoAddress, value: &Value) {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().expect("debug state poisoned");
-        state
-            .forced_io
-            .retain(|(current, current_value)| !(current == address && current_value == value));
-    }
-
-    /// Remove a variable force whose application the scan boundary rejected. As for I/O forces,
-    /// the entry goes only while it still holds the rejected value.
-    pub(crate) fn discard_rejected_var_force(&self, target: &ForcedVarTarget, value: &Value) {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().expect("debug state poisoned");
-        state
-            .forced_vars
-            .retain(|entry| !(entry.target == *target && entry.value == *value));
-    }
-
-    fn set_forced_var(&self, target: ForcedVarTarget, value: Value) {
-        let label = forced_var_label(&target);
-        if self.try_set_forced_var(target, value).is_err() {
-            self.report_refused_request(label);
-        }
+        self.lock().live_values.forced_snapshot()
     }
 
     fn try_set_forced_var(
@@ -421,150 +334,111 @@ impl DebugControl {
         target: ForcedVarTarget,
         value: Value,
     ) -> Result<(), RequestQueueFull> {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().expect("debug state poisoned");
-        state.try_upsert_forced_var(target, value)
+        self.lock().live_values.try_upsert_forced_var(target, value)
     }
 
     fn clear_forced_var(&self, predicate: impl Fn(&ForcedVarTarget) -> bool) {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().expect("debug state poisoned");
-        state.forced_vars.retain(|entry| !predicate(&entry.target));
+        self.lock().live_values.clear_forced_vars(predicate);
     }
 
     /// Report a refused write from a caller with no error channel as `write_rejected`, stamped
-    /// with the time of the last snapshot. The refused request itself queues nothing.
+    /// with the time of the last published state. The refused request itself queues nothing.
     fn report_refused_request(&self, target: SmolStr) {
-        let time = {
-            let (lock, _) = &*self.state;
-            let state = lock.lock().expect("debug state poisoned");
-            state
-                .snapshot
-                .as_ref()
-                .map_or(crate::value::Duration::ZERO, |snapshot| snapshot.now)
-        };
+        let time = self.snapshot_time().unwrap_or(Duration::ZERO);
         self.push_runtime_event(RuntimeEvent::WriteRejected {
             target,
             error: RequestQueueFull.to_string(),
             time,
         });
     }
-}
 
-/// The destination label of a pending write, as the runtime reports it in events.
-fn pending_var_label(target: &PendingVarTarget) -> SmolStr {
-    match target {
-        PendingVarTarget::Global(name) | PendingVarTarget::Retain(name) => name.clone(),
-        PendingVarTarget::Instance(id, name) => SmolStr::new(format!("{}.{name}", id.0)),
-        PendingVarTarget::Local(id, name) => SmolStr::new(format!("{}.{name}", id.0)),
-        PendingVarTarget::Reference(reference) => SmolStr::new(format!("{reference:?}")),
+    /// Apply the queued Live Values of the program at `point` of its scan, through its symbol table
+    /// (specification 44 §13.3): the variable writes and forces at the cycle start and when a hold
+    /// ends, the image writes and the input and marker forces after the drivers read the inputs,
+    /// and the output forces before the outputs reach the drivers. An instance target of another
+    /// generation than `generation` is refused. Control Studio's task-boundary transactions are no
+    /// Live Values: they commit at their task's start ([`Self::commit_parameters`],
+    /// [`Self::commit_transfer`]) and are confirmed at its end.
+    pub(crate) fn apply_compiled_live_values(
+        &self,
+        point: CompiledAccessPoint,
+        generation: Generation,
+        variables: &mut dyn CompiledVariables,
+        time: Duration,
+    ) -> Result<(), RuntimeError> {
+        let mut sink = RejectedEvents::default();
+        let result = {
+            let mut state = self.lock();
+            let queues = &mut state.live_values;
+            if queues.is_idle() {
+                return Ok(());
+            }
+            match point {
+                CompiledAccessPoint::CycleStart | CompiledAccessPoint::HoldEnd => {
+                    apply::compiled_cycle_start(queues, generation, variables, time, &mut sink)
+                }
+                CompiledAccessPoint::AfterInputs => apply::compiled_images(
+                    queues,
+                    &[IoArea::Input, IoArea::Memory],
+                    variables,
+                    time,
+                    &mut sink,
+                ),
+                // The variable forces again after the scan, then the marker and output forces,
+                // before the outputs reach the drivers (specification 10 §4.7, step 6).
+                CompiledAccessPoint::BeforeOutputs => apply::compiled_forces(
+                    queues, generation, variables, time, &mut sink,
+                )
+                .and_then(|()| {
+                    apply::compiled_images(
+                        queues,
+                        &[IoArea::Memory, IoArea::Output],
+                        variables,
+                        time,
+                        &mut sink,
+                    )
+                }),
+                // Live Values reach the program at the cycle's boundaries only (specification 44
+                // §13.3); a task's boundaries belong to the services that commit there.
+                CompiledAccessPoint::TaskStart(_) | CompiledAccessPoint::TaskEnd(_) => Ok(()),
+            }
+        };
+        // The refusals are reported after the state lock is released, through the normal event
+        // path.
+        for event in sink.events {
+            self.push_runtime_event(event);
+        }
+        result
     }
 }
 
-/// The destination label of a variable force, as the runtime reports it in events.
-fn forced_var_label(target: &ForcedVarTarget) -> SmolStr {
-    match target {
-        ForcedVarTarget::Global(name) | ForcedVarTarget::Retain(name) => name.clone(),
-        ForcedVarTarget::Instance(id, name) => SmolStr::new(format!("{}.{name}", id.0)),
+/// The refusals one shared Live Values apply reported. They are held until the debug state lock is
+/// released, so the report reuses the normal event path instead of taking the lock again.
+#[derive(Default)]
+struct RejectedEvents {
+    events: Vec<RuntimeEvent>,
+}
+
+impl WriteSink for RejectedEvents {
+    fn refused(&mut self, target: &str, error: &RuntimeError, time: Duration) {
+        self.events.push(RuntimeEvent::WriteRejected {
+            target: SmolStr::new(target),
+            error: error.to_string(),
+            time,
+        });
     }
 }
 
 impl DebugState {
-    fn clear_runtime_mutations(&mut self) {
-        self.io_writes.clear();
-        self.pending_var_writes.clear();
-        self.pending_lvalue_writes.clear();
-        self.forced_vars.clear();
-        self.forced_io.clear();
-    }
-
-    /// Replace the pending write to `target` in place, or append it. Host-internal writers that
-    /// are not bounded requests reach this through the unbounded wrappers.
-    fn upsert_var_write(&mut self, target: PendingVarTarget, value: Value) {
-        if let Some(entry) = self
-            .pending_var_writes
-            .iter_mut()
-            .find(|entry| entry.target == target)
-        {
-            entry.value = value;
-        } else {
-            self.pending_var_writes
-                .push(PendingVarWrite { target, value });
-        }
-    }
-
-    /// `upsert_var_write` for a control or protocol request. Replacing a queued target is never
-    /// refused; a new target past the queue bound is.
-    fn try_upsert_var_write(
-        &mut self,
-        target: PendingVarTarget,
-        value: Value,
-    ) -> Result<(), RequestQueueFull> {
-        let is_new = self
-            .pending_var_writes
-            .iter()
-            .all(|entry| entry.target != target);
-        if is_new && self.pending_var_writes.len() >= REQUEST_QUEUE_CAPACITY {
-            return Err(RequestQueueFull);
-        }
-        self.upsert_var_write(target, value);
-        Ok(())
-    }
-
-    fn upsert_forced_var(&mut self, target: ForcedVarTarget, value: Value) {
-        if let Some(entry) = self
-            .forced_vars
-            .iter_mut()
-            .find(|entry| entry.target == target)
-        {
-            entry.value = value;
-        } else {
-            self.forced_vars.push(ForcedVar { target, value });
-        }
-    }
-
-    /// `upsert_forced_var` for a control or protocol request, with the same bound as
-    /// `try_upsert_var_write`.
-    fn try_upsert_forced_var(
-        &mut self,
-        target: ForcedVarTarget,
-        value: Value,
-    ) -> Result<(), RequestQueueFull> {
-        let is_new = self.forced_vars.iter().all(|entry| entry.target != target);
-        if is_new && self.forced_vars.len() >= REQUEST_QUEUE_CAPACITY {
-            return Err(RequestQueueFull);
-        }
-        self.upsert_forced_var(target, value);
-        Ok(())
-    }
-
-    fn upsert_forced_io(&mut self, address: IoAddress, value: Value) {
-        if let Some(entry) = self
-            .forced_io
-            .iter_mut()
-            .find(|(current, _)| *current == address)
-        {
-            entry.1 = value;
-        } else {
-            self.forced_io.push((address, value));
-        }
-    }
-
-    /// `upsert_forced_io` for a control or protocol request, with the same bound as
-    /// `try_upsert_var_write`.
-    fn try_upsert_forced_io(
-        &mut self,
-        address: IoAddress,
-        value: Value,
-    ) -> Result<(), RequestQueueFull> {
-        let is_new = self
-            .forced_io
-            .iter()
-            .all(|(current, _)| *current != address);
-        if is_new && self.forced_io.len() >= REQUEST_QUEUE_CAPACITY {
-            return Err(RequestQueueFull);
-        }
-        self.upsert_forced_io(address, value);
-        Ok(())
+    /// End Control Studio's runtime epoch: the recordings, the parameter set and the transfer of
+    /// the run that ended are interrupted with their reasons, and the signal inspection is cleared
+    /// (specification 35, A6.7).
+    fn end_control_epoch(&mut self) {
+        // A place resolved in the run that ended names its variable only there.
+        self.control_writes.clear();
+        self.recordings.interrupt();
+        self.parameters.interrupt();
+        self.transfers.interrupt();
+        self.signals.clear();
     }
 }

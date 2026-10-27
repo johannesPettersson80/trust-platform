@@ -2,7 +2,7 @@ use super::*;
 use crate::simulation::SimulationConfig;
 use crate::value::Value;
 
-fn integrator_dead_time_system(config: &str) -> (PlantSystem, Runtime) {
+fn integrator_dead_time_system(config: &str) -> (PlantSystem, CompiledRuntime) {
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
@@ -19,7 +19,7 @@ fn integrator_dead_time_system(config: &str) -> (PlantSystem, Runtime) {
     (PlantSystem::new(&config.plant_system), runtime)
 }
 
-fn write_lreal(runtime: &mut Runtime, address: &str, value: f64) {
+fn write_lreal(runtime: &mut CompiledRuntime, address: &str, value: f64) {
     runtime
         .write_io(
             &IoAddress::parse(address).unwrap(),
@@ -28,10 +28,9 @@ fn write_lreal(runtime: &mut Runtime, address: &str, value: f64) {
         .unwrap();
 }
 
-fn read_lreal(runtime: &Runtime, address: &str) -> f64 {
+fn read_lreal(runtime: &CompiledRuntime, address: &str) -> f64 {
     match runtime
-        .io()
-        .read(&IoAddress::parse(address).unwrap())
+        .read_io(&IoAddress::parse(address).unwrap())
         .unwrap()
     {
         Value::LWord(bits) => f64::from_bits(bits),

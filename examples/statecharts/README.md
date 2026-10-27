@@ -2,7 +2,7 @@
 
 Docs category: `docs/public/examples/visual-editors.md`
 
-This directory contains example UML StateChart files for the truST LSP StateChart Editor.
+This directory contains example UML StateChart files for the truST StateChart Editor.
 
 ## Files
 
@@ -66,63 +66,29 @@ Sequential turn-on/turn-off pattern:
   - Hardware setup
   - Action mappings explained
   - How to run with real hardware
-  - Troubleshooting
+- **[HARDWARE_EXECUTION.md](HARDWARE_EXECUTION.md)**: How a statechart drives real I/O
 
 ## Quick Start
 
-### Test in VS Code (Simulation)
+A statechart runs as Structured Text, like every visual program
+(`docs/specs/17-visual-editors-runtime-unification.md`):
 
-**Option 1: Quick Script**
-```bash
-cd examples/statecharts
-./test-snake.sh
-```
+1. Open a `.statechart.json` file; the StateChart editor opens with the diagram.
+2. Save it. Beside the file truST writes the companion `<name>.st`, a
+   `FUNCTION_BLOCK FB_<name>_STATECHART`, and the runtime entry
+   `<name>.visual.runtime.st`, which runs the companion every 20 ms.
+3. Start it from the truST sidebar, like any Structured Text program.
+4. Raise events: each event of an untimed transition is a `BOOL` input
+   `EV_<EVENT>` of the instance `fb_<name>`. Set it to `TRUE` in the
+   debugger's Variables view (Set Value) and back to `FALSE`; every scan in
+   which it is `TRUE` takes that event's transition from the active state.
+   A transition with `after` fires on its own timer.
+5. Watch the outputs in Live Values; the active state is the instance's
+   `STATE_NAME` output.
 
-**Option 2: Manual**
-1. Open VS Code: `cd editors/vscode && code .`
-2. Press **F5** to start Extension Development Host
-3. In dev window: **Ctrl+O** → Browse to `.statechart.json` file
-4. Editor opens automatically with visual diagram
-
-### Run the Snake Animation
-
-1. **Select Mode**: Choose **🖥️ Simulation** (default) or **🔌 Hardware**
-2. **Click ▶️ Start** in Execution Panel (top right)
-3. **Click START** button (appears in Available Events)
-4. **Click TICK** repeatedly to step through animation
-5. Watch the active state **light up green** as it becomes active!
-
-### Execution Modes
-
-#### 🖥️ Simulation Mode (Default)
-- **No hardware required** - perfect for testing
-- Actions logged to console only
-- Great for learning and debugging state logic
-- Works immediately, no setup needed
-
-#### 🔌 Hardware Mode  
-- **Requires trust-runtime backend** running with your hardware
-- Actions execute on **real I/O** (EtherCAT, GPIO, etc.)
-- LEDs actually turn on/off following state transitions
-- Backend project: `../hardware_8do/`
-- See [HARDWARE_EXECUTION.md](HARDWARE_EXECUTION.md) for complete setup guide
-
-**Quick Hardware Setup:**
-```bash
-# Terminal 1: Start the backend
-cd examples/hardware_8do
-sudo ./start.sh
-
-# Terminal 2: Open VS Code and test
-cd editors/vscode
-code .
-# Press F5, open a .statechart.json, select 🔌 Hardware mode
-```
-
-### View Logs
-- **Help > Toggle Developer Tools > Console**
-- **Simulation mode:** `🖥️  [SIM] Executing action: turnOn_DO0`
-- **Hardware mode:** `🔌 [HW] turnOn_DO0 → WRITE true to %QX0.0`
+The editor has no simulation or hardware mode of its own: its TypeScript
+engine, runtime client and execution panel were removed on 26 October 2026
+(`docs/specs/25-vscode-product-contract.md` §11.4.1).
 
 ## Action Mappings Reference
 
@@ -156,6 +122,11 @@ code .
 }
 ```
 
+In the companion, `WRITE_OUTPUT` and `SET_MULTIPLE` write their addresses (a
+direct address such as `%QX0.0` becomes the global `ld_io_QX0_0`, which the
+runtime entry declares `AT %QX0.0`), `WRITE_VARIABLE` writes the variable, and
+`LOG` becomes a comment: it has no effect when the program runs.
+
 ### IEC 61131-3 Address Format
 
 | Format | Type | Example | Description |
@@ -186,35 +157,15 @@ code .
 - `trust-runtime` with EtherCAT support
 - Network interface with raw socket capability
 - Linux kernel with EtherCAT drivers (or ethercrab userspace driver)
+- A project `io.toml` that maps `%QX0.0`–`%QX0.7` to the EL2008
+  (`examples/hardware_8do/io.toml` has an EK1100 + EL2008 and a Raspberry Pi
+  GPIO setup)
 
-## Hardware Test Project 🔧
+## Running on Hardware 🔧
 
-Ready-to-use trust project for hardware mode testing:
-
-```bash
-cd hardware-project
-
-# 1. Build project
-./build.sh
-
-# 2. Start runtime (Terminal 1)
-./run.sh
-
-# 3. Test connection (Terminal 2)
-./test-connection.sh
-
-# 4. Open StateChart editor and select 🔌 Hardware mode!
-```
-
-**What's included:**
-- ✅ Pre-configured trust-lsp.toml with control endpoint
-- ✅ runtime.toml with fast cycle (10ms)
-- ✅ io.toml with EtherCAT (EK1100 + EL2008) and GPIO examples
-- ✅ Minimal ST program (required but does nothing)
-- ✅ Build & run scripts
-- ✅ Connection test utility
-
-See [hardware-project/README.md](hardware-project/README.md) for complete documentation.
+The runtime entry declares every address the chart writes as a global `AT`
+that address, so the project's I/O configuration drives the hardware with the
+values the companion writes. See [HARDWARE_EXECUTION.md](HARDWARE_EXECUTION.md).
 
 ---
 
@@ -254,7 +205,7 @@ END_PROGRAM
 ```
 
 **Pros:** Visual representation, clear state transitions, easy to debug
-**Cons:** Requires StateChart runtime integration
+**Cons:** Actions are limited to the mapped types (`WRITE_OUTPUT`, `WRITE_VARIABLE`, `SET_MULTIPLE`, `LOG`)
 
 ## Creating New StateCharts
 

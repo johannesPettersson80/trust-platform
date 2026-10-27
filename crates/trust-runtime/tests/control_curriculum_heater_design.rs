@@ -6,24 +6,32 @@ use trust_runtime::io::IoAddress;
 use trust_runtime::scheduler::{ManualClock, ResourceRunner};
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
-fn number(runtime: &Runtime, address: &str) -> f64 {
+mod control_heater_support;
+use control_heater_support::{
+    compile, enqueue_instance_write, exists, program, type_name, value, LessonRuntime,
+};
+
+fn number(runtime: &CompiledRuntime, address: &str) -> f64 {
     match runtime
-        .io()
-        .read(&IoAddress::parse(address).unwrap())
+        .read_io(&IoAddress::parse(address).unwrap())
         .unwrap()
     {
         Value::LWord(bits) => f64::from_bits(bits),
+        Value::LReal(value) => value,
         other => panic!("expected LREAL at {address}, got {other:?}"),
     }
 }
 
-fn setup(relative: &str) -> (Runtime, SimulationController) {
+fn setup(relative: &str) -> (CompiledRuntime, SimulationController) {
     setup_with(relative, &[])
 }
 
-fn setup_with(relative: &str, replacements: &[(&str, &str)]) -> (Runtime, SimulationController) {
+fn setup_with(
+    relative: &str,
+    replacements: &[(&str, &str)],
+) -> (CompiledRuntime, SimulationController) {
     let project = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/control")
         .join(relative);
@@ -38,10 +46,7 @@ fn setup_with(relative: &str, replacements: &[(&str, &str)]) -> (Runtime, Simula
             include_str!("../../../libraries/control/src/control.st"),
         ),
     ]);
-    let mut runtime = session.build_runtime().unwrap();
-    runtime
-        .apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)
-        .unwrap();
+    let runtime = compile(session);
     let simulation =
         SimulationController::new(SimulationConfig::load(project.join("simulation.toml")).unwrap());
     (runtime, simulation)
@@ -159,16 +164,17 @@ fn lesson16_resource_schedule_keeps_native_probe_and_abort_in_physical_units() {
     assert_eq!(period, Duration::from_millis(50));
     let (mut runtime, mut simulation) = setup(relative);
     let debug = runtime.enable_debug();
-    let instance = match runtime.storage().get_global("P1") {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected the delivered P1 instance, got {other:?}"),
-    };
+    let instance = "P1";
+    assert!(
+        exists(&runtime, instance),
+        "expected the delivered P1 instance"
+    );
     let clock = ManualClock::new();
     let mut runner = ResourceRunner::new(runtime, clock.clone(), period);
     for tick in 0..=1000 {
         let now = Duration::from_millis(tick * 50);
         simulation
-            .apply_pre_cycle(now, runner.runtime_mut())
+            .apply_pre_cycle(now, runner.program_mut())
             .unwrap();
         debug.enqueue_io_write(
             IoAddress::parse("%MX80.0").unwrap(),
@@ -193,11 +199,8 @@ fn lesson16_resource_schedule_keeps_native_probe_and_abort_in_physical_units() {
                 "one task execution per 100 ms"
             );
             assert_eq!(
-                runner
-                    .runtime()
-                    .storage()
-                    .get_instance_var(instance, "TemperatureC"),
-                Some(&Value::LReal(number(runner.runtime(), "%IL8"))),
+                value(runner.program(), &format!("{instance}.TemperatureC")),
+                Some(Value::LReal(number(runner.program(), "%IL8"))),
                 "the program reads the native probe input"
             );
         } else {
@@ -209,8 +212,8 @@ fn lesson16_resource_schedule_keeps_native_probe_and_abort_in_physical_units() {
         assert!(!events
             .iter()
             .any(|event| matches!(event, RuntimeEvent::TaskOverrun { .. })));
-        let water = number(runner.runtime(), "%IL0");
-        let probe = number(runner.runtime(), "%IL8");
+        let water = number(runner.program(), "%IL0");
+        let probe = number(runner.program(), "%IL8");
         if tick <= 40 {
             assert!((water - 35.0).abs() < 1e-9 && (probe - 35.0).abs() < 1e-9,
                 "operating point and delayed prehistory must not create a startup pulse: {water}, {probe}");
@@ -220,13 +223,13 @@ fn lesson16_resource_schedule_keeps_native_probe_and_abort_in_physical_units() {
             assert!((probe - 35.88318).abs() < 0.04);
         }
         if tick >= 800 {
-            assert_eq!(number(runner.runtime(), "%QL0"), 0.0);
+            assert_eq!(number(runner.program(), "%QL0"), 0.0);
         }
         if tick == 1000 {
             assert!((20.0..30.0).contains(&water) && (20.0..30.0).contains(&probe),
                 "zero physical heating must cool both native states despite deviation-coordinate actuator limits");
         }
-        simulation.apply_post_cycle(now, runner.runtime()).unwrap();
+        simulation.apply_post_cycle(now, runner.program()).unwrap();
         clock.advance(period);
     }
 }
@@ -236,10 +239,11 @@ fn lesson17_preserves_heater_probe_dynamics_with_declared_bounded_measurement_er
     let (mut runtime, mut simulation) =
         setup("05-experiments-identification-and-validation/25-parameter-identifiability");
     let debug = runtime.enable_debug();
-    let instance = match runtime.storage().get_global("P1") {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected the delivered P1 instance, got {other:?}"),
-    };
+    let instance = "P1";
+    assert!(
+        exists(&runtime, instance),
+        "expected the delivered P1 instance"
+    );
     let mut maximum_error = 0.0_f64;
     for scan in 0..401 {
         simulation
@@ -249,16 +253,16 @@ fn lesson17_preserves_heater_probe_dynamics_with_declared_bounded_measurement_er
         runtime.advance_time(Duration::from_millis(100));
         runtime.execute_cycle().unwrap();
         let measured_input = runtime
-            .io()
-            .read(&IoAddress::parse("%IL16").unwrap())
+            .read_io(&IoAddress::parse("%IL16").unwrap())
             .ok()
             .and_then(|value| match value {
                 Value::LWord(bits) => Some(Value::LReal(f64::from_bits(bits))),
+                Value::LReal(value) => Some(Value::LReal(value)),
                 _ => None,
             });
         assert_eq!(
-            runtime.storage().get_instance_var(instance, "TemperatureC"),
-            measured_input.as_ref(),
+            value(&runtime, &format!("{instance}.TemperatureC")),
+            measured_input,
             "the reusable lesson must read measured temperature from the native PLC input"
         );
         if scan == 0 {
@@ -311,10 +315,11 @@ fn lesson18_runs_independent_hot_reset_holdouts_and_an_immediate_physical_load()
             &[("TrialKind : INT := 0;", &chosen_trial)],
         );
         let debug = runtime.enable_debug();
-        let instance = match runtime.storage().get_global("P1") {
-            Some(Value::Instance(id)) => *id,
-            other => panic!("expected the delivered P1 instance, got {other:?}"),
-        };
+        let instance = "P1";
+        assert!(
+            exists(&runtime, instance),
+            "expected the delivered P1 instance"
+        );
         for scan in 0..451 {
             simulation
                 .apply_pre_cycle(Duration::from_millis(scan * 100), &mut runtime)
@@ -326,8 +331,8 @@ fn lesson18_runs_independent_hot_reset_holdouts_and_an_immediate_physical_load()
             runtime.advance_time(Duration::from_millis(100));
             runtime.execute_cycle().unwrap();
             assert_eq!(
-                runtime.storage().get_instance_var(instance, "TemperatureC"),
-                Some(&Value::LReal(number(&runtime, "%IL8"))),
+                value(&runtime, &format!("{instance}.TemperatureC")),
+                Some(Value::LReal(number(&runtime, "%IL8"))),
                 "the validation lesson must read its probe from native plant input"
             );
             if scan < 50 {
@@ -369,7 +374,7 @@ fn lesson18_runs_independent_hot_reset_holdouts_and_an_immediate_physical_load()
     }
 }
 
-fn lesson19_scan(runtime: &mut Runtime, simulation: &mut SimulationController, scan: i64) {
+fn lesson19_scan(runtime: &mut CompiledRuntime, simulation: &mut SimulationController, scan: i64) {
     simulation
         .apply_pre_cycle(Duration::from_millis(scan * 100), runtime)
         .unwrap();
@@ -380,13 +385,8 @@ fn lesson19_scan(runtime: &mut Runtime, simulation: &mut SimulationController, s
         .unwrap();
 }
 
-fn lesson19_gain(
-    runtime: &Runtime,
-    program: trust_runtime::memory::InstanceId,
-    field: &str,
-) -> f64 {
-    let Some(Value::Struct(parameters)) = runtime.storage().get_instance_var(program, "Parameters")
-    else {
+fn lesson19_gain(runtime: &CompiledRuntime, program: &str, field: &str) -> f64 {
+    let Some(Value::Struct(parameters)) = value(runtime, &format!("{program}.Parameters")) else {
         panic!("Lesson19 must keep a complete Control.PID parameter record");
     };
     match parameters.field(field) {
@@ -399,9 +399,7 @@ fn lesson19_gain(
 fn lesson19_executes_the_gains_control_studio_applies_without_overwriting_them() {
     let (mut runtime, mut simulation) = setup("06-pid-tuning-methods/30-model-based-pi-tuning");
     let debug = runtime.enable_debug();
-    let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
-        panic!("Lesson19 must execute its P1 program");
-    };
+    let program = program(&runtime);
     for scan in 0..10 {
         lesson19_scan(&mut runtime, &mut simulation, scan);
         assert_eq!(
@@ -416,26 +414,17 @@ fn lesson19_executes_the_gains_control_studio_applies_without_overwriting_them()
         assert!((number(&runtime, "%IL8") - number(&runtime, "%IL0")).abs() < 1e-12,
             "The controller must use the same heater measurement validated in Lesson18, without an unmodelled probe lag");
     }
-    let Some(Value::Instance(controller)) =
-        runtime.storage().get_instance_var(program, "Controller")
-    else {
-        panic!("Lesson19 must instantiate the real Control.PID block");
-    };
+    let controller = format!("{program}.Controller");
+    assert!(
+        exists(&runtime, &controller),
+        "Lesson19 must instantiate the real Control.PID block"
+    );
     assert_eq!(
-        runtime
-            .storage()
-            .get_instance(*controller)
-            .unwrap()
-            .type_name
-            .as_str(),
+        type_name(&runtime, &controller).unwrap().as_str(),
         "Control.PID"
     );
     // Control Studio's Apply writes the complete reviewed record at a task boundary.
-    let mut proposed = runtime
-        .storage()
-        .get_instance_var(program, "Parameters")
-        .unwrap()
-        .clone();
+    let mut proposed = value(&runtime, &format!("{program}.Parameters")).unwrap();
     let Value::Struct(ref mut record) = proposed else {
         panic!("complete Control.PID parameter record");
     };
@@ -448,12 +437,12 @@ fn lesson19_executes_the_gains_control_studio_applies_without_overwriting_them()
     for scan in 10..13 {
         lesson19_scan(&mut runtime, &mut simulation, scan);
         assert_eq!(
-            runtime.storage().get_instance_var(program, "Parameters"),
-            Some(&proposed),
+            value(&runtime, &format!("{program}.Parameters")),
+            Some(proposed.clone()),
             "cyclic code must preserve the gains Control Studio applied"
         );
     }
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     debug.enqueue_io_write(
         IoAddress::parse("%ML0").unwrap(),
         Value::LWord(38.0_f64.to_bits()),
@@ -465,8 +454,8 @@ fn lesson19_executes_the_gains_control_studio_applies_without_overwriting_them()
         number(&runtime, "%QL0")
     );
     assert_eq!(
-        runtime.storage().get_instance_var(program, "TemperatureC"),
-        Some(&Value::LReal(number(&runtime, "%IL8"))),
+        value(&runtime, &format!("{program}.TemperatureC")),
+        Some(Value::LReal(number(&runtime, "%IL8"))),
         "Lesson19 must read the native heater input"
     );
     for scan in 14..20 {
@@ -513,9 +502,7 @@ fn lesson19_startup_design_uses_coefficient_matching_and_inhibits_invalid_models
             &[(before, after)],
         );
         let debug = runtime.enable_debug();
-        let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
-            panic!("Lesson19 must execute its P1 program");
-        };
+        let program = program(&runtime);
         lesson19_scan(&mut runtime, &mut simulation, 0);
         assert!(
             (lesson19_gain(&runtime, program, "ProportionalGain") - kp).abs() < 1e-12,
@@ -525,7 +512,7 @@ fn lesson19_startup_design_uses_coefficient_matching_and_inhibits_invalid_models
             (lesson19_gain(&runtime, program, "IntegralGain") - ki).abs() < 1e-12,
             "{after}: with Ti = tau the rule gives Ki = Kp/tau = {ki}"
         );
-        debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+        enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
         debug.enqueue_io_write(
             IoAddress::parse("%ML0").unwrap(),
             Value::LWord(38.0_f64.to_bits()),
@@ -548,9 +535,7 @@ fn lesson19_startup_design_uses_coefficient_matching_and_inhibits_invalid_models
 fn lesson20_executes_the_gains_control_studio_applies_without_overwriting_them() {
     let (mut runtime, mut simulation) = setup("06-pid-tuning-methods/29-relay-tuning");
     let debug = runtime.enable_debug();
-    let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
-        panic!("Lesson20 must execute its P1 program");
-    };
+    let program = program(&runtime);
     for scan in 0..10 {
         lesson19_scan(&mut runtime, &mut simulation, scan);
         assert_eq!(
@@ -563,27 +548,16 @@ fn lesson20_executes_the_gains_control_studio_applies_without_overwriting_them()
             "the same heater holds 35°C within the ±.02°C noise"
         );
     }
-    let Some(Value::Instance(controller)) = runtime
-        .storage()
-        .get_instance_var(program, "Controller")
-        .cloned()
-    else {
-        panic!("Lesson20 must instantiate the real Control.PID block");
-    };
+    let controller = format!("{program}.Controller");
+    assert!(
+        exists(&runtime, &controller),
+        "Lesson20 must instantiate the real Control.PID block"
+    );
     assert_eq!(
-        runtime
-            .storage()
-            .get_instance(controller)
-            .unwrap()
-            .type_name
-            .as_str(),
+        type_name(&runtime, &controller).unwrap().as_str(),
         "Control.PID"
     );
-    let mut proposed = runtime
-        .storage()
-        .get_instance_var(program, "Parameters")
-        .unwrap()
-        .clone();
+    let mut proposed = value(&runtime, &format!("{program}.Parameters")).unwrap();
     let Value::Struct(ref mut record) = proposed else {
         panic!("complete Control.PID parameter record");
     };
@@ -596,15 +570,14 @@ fn lesson20_executes_the_gains_control_studio_applies_without_overwriting_them()
     for scan in 10..13 {
         lesson19_scan(&mut runtime, &mut simulation, scan);
         assert_eq!(
-            runtime.storage().get_instance_var(program, "Parameters"),
-            Some(&proposed),
+            value(&runtime, &format!("{program}.Parameters")),
+            Some(proposed.clone()),
             "cyclic code must preserve the gains Control Studio applied"
         );
     }
     // Velocity form from the retained state: the setpoint started at the noisy measured 35 °C.
     let (setpoint_before, pv_before) = {
-        let Some(Value::Struct(state)) =
-            runtime.storage().get_instance_var(controller, "StateValue")
+        let Some(Value::Struct(state)) = value(&runtime, &format!("{controller}.StateValue"))
         else {
             panic!("Control.PID must retain its executed state");
         };
@@ -614,7 +587,7 @@ fn lesson20_executes_the_gains_control_studio_applies_without_overwriting_them()
         };
         (field("Setpoint"), field("ProcessValue"))
     };
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     debug.enqueue_io_write(
         IoAddress::parse("%ML0").unwrap(),
         Value::LWord(38.0_f64.to_bits()),
@@ -665,9 +638,7 @@ fn lesson20_startup_design_uses_the_relay_rule_and_inhibits_invalid_cycles() {
         let (mut runtime, mut simulation) =
             setup_with("06-pid-tuning-methods/29-relay-tuning", &[(before, after)]);
         let debug = runtime.enable_debug();
-        let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
-            panic!("Lesson20 must execute its P1 program");
-        };
+        let program = program(&runtime);
         lesson19_scan(&mut runtime, &mut simulation, 0);
         assert!(
             (lesson19_gain(&runtime, program, "ProportionalGain") - kp).abs() < 1e-9,
@@ -677,7 +648,7 @@ fn lesson20_startup_design_uses_the_relay_rule_and_inhibits_invalid_cycles() {
             (lesson19_gain(&runtime, program, "IntegralGain") - ki).abs() < 1e-9,
             "{after}: relay rule gives Ki = Kp/(Pu/1.2) = {ki}"
         );
-        debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+        enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
         debug.enqueue_io_write(
             IoAddress::parse("%ML0").unwrap(),
             Value::LWord(38.0_f64.to_bits()),
@@ -703,9 +674,7 @@ fn lesson20_startup_design_uses_the_relay_rule_and_inhibits_invalid_cycles() {
 fn executes_the_pi_control_studio_applies(project: &str, kp: f64, ki: f64) {
     let (mut runtime, mut simulation) = setup(project);
     let debug = runtime.enable_debug();
-    let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
-        panic!("{project} must execute its P1 program");
-    };
+    let program = program(&runtime);
     for scan in 0..10 {
         lesson19_scan(&mut runtime, &mut simulation, scan);
         assert_eq!(
@@ -718,27 +687,16 @@ fn executes_the_pi_control_studio_applies(project: &str, kp: f64, ki: f64) {
             "the heater holds 35°C within its ±.02°C noise"
         );
     }
-    let Some(Value::Instance(controller)) = runtime
-        .storage()
-        .get_instance_var(program, "Controller")
-        .cloned()
-    else {
-        panic!("{project} must instantiate the real Control.PID block");
-    };
+    let controller = format!("{program}.Controller");
+    assert!(
+        exists(&runtime, &controller),
+        "{project} must instantiate the real Control.PID block"
+    );
     assert_eq!(
-        runtime
-            .storage()
-            .get_instance(controller)
-            .unwrap()
-            .type_name
-            .as_str(),
+        type_name(&runtime, &controller).unwrap().as_str(),
         "Control.PID"
     );
-    let Some(mut proposed) = runtime
-        .storage()
-        .get_instance_var(program, "Parameters")
-        .cloned()
-    else {
+    let Some(mut proposed) = value(&runtime, &format!("{program}.Parameters")) else {
         panic!("{project} must keep the complete Control.PID parameter record that Control Studio applies");
     };
     let Value::Struct(ref mut record) = proposed else {
@@ -753,14 +711,13 @@ fn executes_the_pi_control_studio_applies(project: &str, kp: f64, ki: f64) {
     for scan in 10..13 {
         lesson19_scan(&mut runtime, &mut simulation, scan);
         assert_eq!(
-            runtime.storage().get_instance_var(program, "Parameters"),
-            Some(&proposed),
+            value(&runtime, &format!("{program}.Parameters")),
+            Some(proposed.clone()),
             "{project}: cyclic code must preserve the gains Control Studio applied"
         );
     }
     let (setpoint_before, pv_before) = {
-        let Some(Value::Struct(state)) =
-            runtime.storage().get_instance_var(controller, "StateValue")
+        let Some(Value::Struct(state)) = value(&runtime, &format!("{controller}.StateValue"))
         else {
             panic!("Control.PID must retain its executed state");
         };
@@ -770,7 +727,7 @@ fn executes_the_pi_control_studio_applies(project: &str, kp: f64, ki: f64) {
         };
         (field("Setpoint"), field("ProcessValue"))
     };
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     debug.enqueue_io_write(
         IoAddress::parse("%ML0").unwrap(),
         Value::LWord(38.0_f64.to_bits()),
@@ -934,10 +891,7 @@ fn heater_design_lessons_latch_invalid_measurements_and_command_zero_heat_on_abo
             "invalid measurement inhibits heating"
         );
         assert_eq!(
-            runtime
-                .io()
-                .read(&IoAddress::parse(abort).unwrap())
-                .unwrap(),
+            runtime.read_io(&IoAddress::parse(abort).unwrap()).unwrap(),
             Value::Bool(true)
         );
     }

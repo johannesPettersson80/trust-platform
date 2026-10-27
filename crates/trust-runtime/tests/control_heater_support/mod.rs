@@ -1,15 +1,19 @@
-//! Shared harness for the control lessons that execute the real `Control.PID` project.
+//! Shared harness for the control lessons that execute the real `Control.PID` project, compiled for
+//! this computer (the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`). A lesson's values
+//! are read through the program access seam, by their paths below the program instance (`P1`), as
+//! the last scan left them, and written between scans as Control Studio's Apply writes them.
 #![allow(dead_code)]
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use trust_runtime::harness::{CompileSession, SourceFile};
+use trust_runtime::debug::DebugControl;
+use trust_runtime::error::RuntimeError;
+use trust_runtime::harness::{CompileSession, SourceFile, TestHarness};
 use trust_runtime::io::IoAddress;
-use trust_runtime::memory::InstanceId;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
 pub fn project_dir(relative: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -17,20 +21,29 @@ pub fn project_dir(relative: &str) -> PathBuf {
         .join(relative)
 }
 
-pub fn number(runtime: &Runtime, address: &str) -> f64 {
+/// The LREAL at the process-image `address`: the image holds its bits, a typed read its value.
+pub fn number(runtime: &CompiledRuntime, address: &str) -> f64 {
     match runtime
-        .io()
-        .read(&IoAddress::parse(address).unwrap())
+        .read_io(&IoAddress::parse(address).unwrap())
         .unwrap()
     {
         Value::LWord(bits) => f64::from_bits(bits),
+        Value::LReal(value) => value,
         other => panic!("expected LREAL at {address}, got {other:?}"),
     }
 }
 
-pub fn setup(relative: &str) -> (Runtime, SimulationController) {
+/// The program of `session`, built for this computer and started cold, as `trust-runtime` starts
+/// a program it loads.
+pub fn compile(session: CompileSession) -> CompiledRuntime {
+    TestHarness::from_session(session)
+        .unwrap_or_else(|error| panic!("the lesson must compile: {error}"))
+        .into_runtime()
+}
+
+pub fn setup(relative: &str) -> (CompiledRuntime, SimulationController) {
     let project = project_dir(relative);
-    let session = CompileSession::from_sources(vec![
+    let runtime = compile(CompileSession::from_sources(vec![
         SourceFile::with_path(
             "src/Main.st",
             std::fs::read_to_string(project.join("src/Main.st")).unwrap(),
@@ -39,20 +52,72 @@ pub fn setup(relative: &str) -> (Runtime, SimulationController) {
             "Control/control.st",
             include_str!("../../../../libraries/control/src/control.st"),
         ),
-    ]);
-    let mut runtime = session.build_runtime().unwrap();
-    runtime
-        .apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)
-        .unwrap();
+    ]));
     let simulation =
         SimulationController::new(SimulationConfig::load(project.join("simulation.toml")).unwrap());
     (runtime, simulation)
 }
 
+/// What the lessons do with a compiled runtime between its scans, through its debug control and the
+/// program access seam.
+pub trait LessonRuntime {
+    /// Attaches a debug control: the process-image and variable writes queued on it reach the
+    /// program at the next scan's access points (specification 44 §13.3).
+    fn enable_debug(&mut self) -> DebugControl;
+
+    /// Moves the program's logical time on by `period`: the next scan runs at the later time.
+    fn advance_time(&mut self, period: Duration);
+
+    /// Writes the variable `name` of the instance `instance` (`P1`) between scans, as
+    /// [`write_path`] writes it.
+    ///
+    /// # Errors
+    ///
+    /// As [`write_path`].
+    fn write_instance(
+        &mut self,
+        instance: &str,
+        name: &str,
+        value: Value,
+    ) -> Result<(), RuntimeError>;
+}
+
+impl LessonRuntime for CompiledRuntime {
+    fn enable_debug(&mut self) -> DebugControl {
+        let debug = DebugControl::new();
+        self.set_debug_control(debug.clone());
+        debug
+    }
+
+    fn advance_time(&mut self, period: Duration) {
+        let now = self.current_time();
+        self.set_current_time(Duration::from_nanos(
+            now.as_nanos().saturating_add(period.as_nanos()),
+        ));
+    }
+
+    fn write_instance(
+        &mut self,
+        instance: &str,
+        name: &str,
+        value: Value,
+    ) -> Result<(), RuntimeError> {
+        write_path(self, &format!("{instance}.{name}"), &value)
+    }
+}
+
+/// Queues a write of the variable `name` of the program instance `instance`, which the next scan
+/// takes at its start, before the program runs (specification 44 §13.3).
+pub fn enqueue_instance_write(debug: &DebugControl, instance: &str, name: &str, value: Value) {
+    debug
+        .try_enqueue_global_write(format!("{instance}.{name}"), value)
+        .expect("the write queue takes the write");
+}
+
 pub fn scan(
-    runtime: &mut Runtime,
+    runtime: &mut CompiledRuntime,
     simulation: &mut SimulationController,
-    debug: &trust_runtime::debug::DebugControl,
+    debug: &DebugControl,
     now_ms: u64,
     writes: &[(&str, Value)],
 ) {
@@ -61,9 +126,9 @@ pub fn scan(
 
 /// One task cycle of `period_ms`: the plant advances by the same period.
 pub fn scan_every(
-    runtime: &mut Runtime,
+    runtime: &mut CompiledRuntime,
     simulation: &mut SimulationController,
-    debug: &trust_runtime::debug::DebugControl,
+    debug: &DebugControl,
     now_ms: u64,
     period_ms: u64,
     writes: &[(&str, Value)],
@@ -81,36 +146,87 @@ pub fn scan_every(
         .unwrap();
 }
 
-pub fn program(runtime: &Runtime) -> InstanceId {
-    let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
-        panic!("the lesson must execute its P1 program");
-    };
-    program
+/// The value at `path` (`P1.Controller.StateValue`), as the last scan left it; `None` for a path
+/// that names nothing or an instance.
+pub fn value(runtime: &CompiledRuntime, path: &str) -> Option<Value> {
+    runtime.with_program_view(|program| program.value(path))
 }
 
-pub fn program_number(runtime: &Runtime, program: InstanceId, name: &str) -> f64 {
-    match runtime.storage().get_instance_var(program, name) {
-        Some(Value::LReal(value)) => *value,
+/// Whether `path` names a variable, a member or an instance of the program.
+pub fn exists(runtime: &CompiledRuntime, path: &str) -> bool {
+    runtime.with_program_view(|program| program.locate(path).is_ok())
+}
+
+/// The process-image address the program binds the variable `name` (`P1.TemperatureC`) to
+/// (specification 44 §5.6); `None` for a name that names no variable or a variable bound nowhere.
+pub fn bound_address(runtime: &CompiledRuntime, name: &str) -> Option<IoAddress> {
+    let symbol = runtime.find_variable(name).ok()?;
+    runtime
+        .io_bindings()
+        .iter()
+        .find(|binding| binding.symbol == symbol)
+        .map(|binding| binding.address.clone())
+}
+
+/// The IEC name of the type of the variable or instance at `path` (`Control.PID`); `None` for a
+/// path that names nothing.
+pub fn type_name(runtime: &CompiledRuntime, path: &str) -> Option<String> {
+    runtime.with_program_view(|program| {
+        let at = program.locate(path).ok()?;
+        Some(program.type_name_of(&at).to_string())
+    })
+}
+
+/// Writes `value` at `path` between scans, converted to the place's type, as Control Studio's
+/// Apply writes a program variable; the place keeps its value when the write is refused.
+///
+/// # Errors
+///
+/// [`RuntimeError::UndefinedVariable`] for a path that names nothing, and the refusal of a value
+/// the place does not take.
+pub fn write_path(
+    runtime: &mut CompiledRuntime,
+    path: &str,
+    value: &Value,
+) -> Result<(), RuntimeError> {
+    runtime.with_program(|program| {
+        let at = program
+            .locate(path)
+            .map_err(|_| RuntimeError::UndefinedVariable(path.into()))?;
+        program.write_at(&at, value)
+    })
+}
+
+/// The program instance `P1` the lessons execute.
+pub fn program(runtime: &CompiledRuntime) -> &'static str {
+    assert!(
+        exists(runtime, "P1"),
+        "the lesson must execute its P1 program"
+    );
+    "P1"
+}
+
+pub fn program_number(runtime: &CompiledRuntime, program: &str, name: &str) -> f64 {
+    match value(runtime, &format!("{program}.{name}")) {
+        Some(Value::LReal(value)) => value,
         other => panic!("{name}: {other:?}"),
     }
 }
 
-fn controller(runtime: &Runtime, program: InstanceId) -> InstanceId {
-    let Some(Value::Instance(controller)) = runtime
-        .storage()
-        .get_instance_var(program, "Controller")
-        .cloned()
-    else {
-        panic!("the lesson must execute Control.PID");
-    };
+fn controller(runtime: &CompiledRuntime, program: &str) -> String {
+    let controller = format!("{program}.Controller");
+    assert!(
+        exists(runtime, &controller),
+        "the lesson must execute Control.PID"
+    );
     controller
 }
 
-pub fn controller_state(runtime: &Runtime, program: InstanceId, field: &str) -> f64 {
-    let Some(Value::Struct(state)) = runtime
-        .storage()
-        .get_instance_var(controller(runtime, program), "StateValue")
-    else {
+pub fn controller_state(runtime: &CompiledRuntime, program: &str, field: &str) -> f64 {
+    let Some(Value::Struct(state)) = value(
+        runtime,
+        &format!("{}.StateValue", controller(runtime, program)),
+    ) else {
         panic!("Control.PID must keep its state record");
     };
     match state.field(field) {
@@ -120,29 +236,13 @@ pub fn controller_state(runtime: &Runtime, program: InstanceId, field: &str) -> 
 }
 
 /// Writes Control.PID's seven retained values, as Control Studio's verification and Apply do.
-pub fn set_controller_state(runtime: &mut Runtime, program: InstanceId, values: &[(&str, f64)]) {
-    let controller = controller(runtime, program);
-    let Some(Value::Struct(state)) = runtime
-        .storage()
-        .get_instance_var(controller, "StateValue")
-        .cloned()
-    else {
-        panic!("Control.PID must keep its state record");
-    };
-    let mut state = (*state).clone();
-    for (field, value) in values {
-        assert!(
-            state.set_existing_field((*field).into(), Value::LReal(*value)),
-            "Control.PID state {field}"
-        );
-    }
-    assert!(runtime
-        .write_instance(controller, "StateValue", Value::Struct(Arc::new(state)))
-        .is_ok());
+pub fn set_controller_state(runtime: &mut CompiledRuntime, program: &str, values: &[(&str, f64)]) {
+    let path = format!("{}.StateValue", controller(runtime, program));
+    set_record(runtime, &path, values, "Control.PID state");
 }
 
-pub fn input_cycle_time(runtime: &Runtime, program: InstanceId) -> f64 {
-    let Some(Value::Struct(input)) = runtime.storage().get_instance_var(program, "Input") else {
+pub fn input_cycle_time(runtime: &CompiledRuntime, program: &str) -> f64 {
+    let Some(Value::Struct(input)) = value(runtime, &format!("{program}.Input")) else {
         panic!("the lesson must keep the Control.PID input record");
     };
     match input.field("CycleTime") {
@@ -153,41 +253,45 @@ pub fn input_cycle_time(runtime: &Runtime, program: InstanceId) -> f64 {
 
 /// Replaces fields of one program record (for example `Parameters`) in a single write, as Control Studio's Apply does.
 pub fn set_program_record(
-    runtime: &mut Runtime,
-    program: InstanceId,
+    runtime: &mut CompiledRuntime,
+    program: &str,
     record: &str,
     values: &[(&str, f64)],
 ) {
-    let Some(Value::Struct(current)) = runtime.storage().get_instance_var(program, record).cloned()
-    else {
-        panic!("the lesson must keep the {record} record");
+    let path = format!("{program}.{record}");
+    set_record(runtime, &path, values, record);
+}
+
+/// Replaces fields of the record at `path` in a single write; `label` names the record in a
+/// failure.
+fn set_record(runtime: &mut CompiledRuntime, path: &str, values: &[(&str, f64)], label: &str) {
+    let Some(Value::Struct(current)) = value(runtime, path) else {
+        panic!("the lesson must keep the {label} record");
     };
     let mut next = (*current).clone();
     for (field, value) in values {
         assert!(
             next.set_existing_field((*field).into(), Value::LReal(*value)),
-            "{record}.{field}"
+            "{label}.{field}"
         );
     }
-    assert!(runtime
-        .write_instance(program, record, Value::Struct(Arc::new(next)))
-        .is_ok());
+    assert!(write_path(runtime, path, &Value::Struct(Arc::new(next))).is_ok());
 }
 
-pub fn program_dint(runtime: &Runtime, program: InstanceId, name: &str) -> i64 {
-    match runtime.storage().get_instance_var(program, name) {
-        Some(Value::DInt(value)) => i64::from(*value),
+pub fn program_dint(runtime: &CompiledRuntime, program: &str, name: &str) -> i64 {
+    match value(runtime, &format!("{program}.{name}")) {
+        Some(Value::DInt(value)) => i64::from(value),
         other => panic!("{name}: {other:?}"),
     }
 }
 
 pub fn program_record_number(
-    runtime: &Runtime,
-    program: InstanceId,
+    runtime: &CompiledRuntime,
+    program: &str,
     record: &str,
     field: &str,
 ) -> f64 {
-    let Some(Value::Struct(value)) = runtime.storage().get_instance_var(program, record) else {
+    let Some(Value::Struct(value)) = value(runtime, &format!("{program}.{record}")) else {
         panic!("the lesson must keep the {record} record");
     };
     match value.field(field) {
@@ -196,8 +300,8 @@ pub fn program_record_number(
     }
 }
 
-pub fn program_array(runtime: &Runtime, program: InstanceId, name: &str) -> Vec<Value> {
-    match runtime.storage().get_instance_var(program, name) {
+pub fn program_array(runtime: &CompiledRuntime, program: &str, name: &str) -> Vec<Value> {
+    match value(runtime, &format!("{program}.{name}")) {
         Some(Value::Array(array)) => array.elements().to_vec(),
         other => panic!("{name}: {other:?}"),
     }

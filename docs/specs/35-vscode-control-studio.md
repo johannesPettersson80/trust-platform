@@ -498,10 +498,17 @@ is the same: a verb adds none and drops none.
 - Common arguments: `--project <folder>` (default: the current folder), `--loop <id>`,
   `--journal-dir <folder>` (default: truST's folder in the user's local state folder, by the
   platform's convention, where the extension's engine keeps them too, A8.3), `--json`.
-- The runtime is the project's configured runtime (its `runtime.toml`), or `--endpoint
-  tcp://host:port | unix:///path`. Its control token comes from the environment variable
-  `TRUST_CONTROL_TOKEN` or from `--token-file <file>`, never from an argument: arguments are
-  visible to other users of the computer.
+- The runtime is `--endpoint tcp://host:port | unix:///path`, else the project's own runtime,
+  whose endpoint and token `trust-runtime ctl --project <folder> endpoint --json` reports
+  (specification 11 §6.8.0a: the endpoint file of the running runtime, else the endpoint of its
+  `runtime.toml`, else the platform default). The engine runs the `trust-runtime` beside it, else
+  the one on the PATH, and reads no project file for it. When trust-runtime cannot be started or
+  reports no endpoint, for example because the runtime is not running, the command says why and
+  names `--endpoint` as the other way to name the runtime. Its control token comes from the
+  environment variable `TRUST_CONTROL_TOKEN` or from `--token-file <file>`, never from an argument:
+  arguments are visible to other users of the computer. Without either, the token is the one the
+  report gives: the token that the project's runtime generated for its start, or the one its
+  `runtime.toml` configures.
 - Output: each progress update is one line on standard error. The result goes to standard output,
   as readable text, or with `--json` as the same object the method answers (`{"result": …}` or
   `{"failure": …}`).
@@ -852,7 +859,9 @@ legitimately change are compared exactly:
   (A4.2). n is zero without a baseline. Other laws use the allowance of their
   Part C template. A reviewed tolerance replaces the allowance. Validate's
   initialization case, Apply's Auto entry and the return to Auto after a failed
-  Apply use the same allowance;
+  Apply use the same allowance. The runtime reads e in the scan of the Auto
+  entry (annex E6.9), because an error read before the transfer is out of date
+  once the plant moves;
 - a state declared as bounded, for example a manual output that the program
   copies from the output, stays within its declared bounds.
 

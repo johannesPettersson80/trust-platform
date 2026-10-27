@@ -221,7 +221,11 @@ impl TreeBuilder<'_> {
             .get_instance(id)
             .ok_or_else(|| format!("the instance {} is not in storage", node.path))?;
         let type_name = instance.type_name.as_str();
-        node.kind = if find(self.metadata.program_templates(), type_name).is_some() {
+        // A compiled program's storage names a configured PROGRAM instance after itself, so a root
+        // is a program when the configuration declares an instance of its name.
+        let configured = self.ancestors.is_empty()
+            && find(self.metadata.programs(), node.name.as_str()).is_some();
+        node.kind = if configured || find(self.metadata.program_templates(), type_name).is_some() {
             VariableKind::Program
         } else {
             VariableKind::FunctionBlock

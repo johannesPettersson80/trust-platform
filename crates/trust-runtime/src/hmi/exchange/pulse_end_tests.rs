@@ -11,7 +11,7 @@ use serde_json::json;
 use super::{HmiExchange, PulseEnd, PulseEndReport};
 use crate::harness::TestHarness;
 use crate::hmi::commands::write::{WriteAction, Written};
-use crate::hmi::member_paths::{resolve_member, MemberPath};
+use crate::hmi::member_paths::{member_value, MemberPath};
 use crate::value::Value;
 
 fn plant() -> TestHarness {
@@ -26,7 +26,16 @@ fn pulse_path() -> MemberPath {
 }
 
 fn value(plant: &TestHarness, path: &MemberPath) -> Option<Value> {
-    resolve_member(path, plant.runtime().storage()).cloned()
+    plant
+        .runtime()
+        .with_program_view(|program| member_value(path, program))
+}
+
+/// One call of `Hmi.Display` serving the exchange from the plant's program.
+fn serve(exchange: &HmiExchange, plant: &mut TestHarness) {
+    plant
+        .runtime_mut()
+        .with_program(|program| exchange.serve(program, 0, &[]));
 }
 
 /// A report that keeps what it is told.
@@ -53,14 +62,14 @@ fn a_pulse_end_is_scheduled_as_the_pulse_starts_and_written_after_its_duration()
     let exchange = HmiExchange::new();
     let (report, told) = recorder();
     pulse_and_leave(&exchange, Duration::from_millis(80), report);
-    exchange.serve(plant.runtime_mut(), &[]);
+    serve(&exchange, &mut plant);
     assert_eq!(value(&plant, &pulse_path()), Some(Value::Bool(true)));
     assert_eq!(
         exchange.state().pulse_ends.len(),
         1,
         "scheduled with the start"
     );
-    exchange.serve(plant.runtime_mut(), &[]);
+    serve(&exchange, &mut plant);
     assert_eq!(
         value(&plant, &pulse_path()),
         Some(Value::Bool(true)),
@@ -68,7 +77,7 @@ fn a_pulse_end_is_scheduled_as_the_pulse_starts_and_written_after_its_duration()
     );
     assert!(told.lock().unwrap().is_empty());
     std::thread::sleep(Duration::from_millis(100));
-    exchange.serve(plant.runtime_mut(), &[]);
+    serve(&exchange, &mut plant);
     assert_eq!(value(&plant, &pulse_path()), Some(Value::Bool(false)));
     assert_eq!(exchange.state().pulse_ends.len(), 0);
     assert_eq!(
@@ -89,13 +98,13 @@ fn a_pulse_end_due_while_no_call_runs_is_written_at_the_next_call() {
     let exchange = HmiExchange::new();
     let (report, told) = recorder();
     pulse_and_leave(&exchange, Duration::from_millis(10), report);
-    exchange.serve(plant.runtime_mut(), &[]);
+    serve(&exchange, &mut plant);
     // The program does not call Hmi.Display for longer than any request would have waited.
     let paused = Instant::now();
     std::thread::sleep(Duration::from_millis(50));
     assert!(paused.elapsed() >= Duration::from_millis(50));
     assert_eq!(value(&plant, &pulse_path()), Some(Value::Bool(true)));
-    exchange.serve(plant.runtime_mut(), &[]);
+    serve(&exchange, &mut plant);
     assert_eq!(value(&plant, &pulse_path()), Some(Value::Bool(false)));
     assert!(matches!(
         told.lock().unwrap().as_slice(),
@@ -114,7 +123,7 @@ fn an_end_that_cannot_be_written_stays_due_and_is_tried_at_every_call() {
         .pulse_ends
         .schedule(gone, Instant::now(), Duration::ZERO, Some(report));
     for _ in 0..3 {
-        exchange.serve(plant.runtime_mut(), &[]);
+        serve(&exchange, &mut plant);
         assert_eq!(
             exchange.state().pulse_ends.len(),
             1,
@@ -135,10 +144,10 @@ fn a_later_command_to_the_point_replaces_the_waiting_end_and_tells_it() {
     let exchange = HmiExchange::new();
     let (report, told) = recorder();
     pulse_and_leave(&exchange, Duration::from_secs(60), report);
-    exchange.serve(plant.runtime_mut(), &[]);
+    serve(&exchange, &mut plant);
     assert_eq!(value(&plant, &pulse_path()), Some(Value::Bool(true)));
     let reply = exchange.queue_write(pulse_path(), WriteAction::Set(json!(false)));
-    exchange.serve(plant.runtime_mut(), &[]);
+    serve(&exchange, &mut plant);
     assert!(reply.try_recv().unwrap().is_ok());
     assert_eq!(value(&plant, &pulse_path()), Some(Value::Bool(false)));
     assert_eq!(exchange.state().pulse_ends.len(), 0);
@@ -159,7 +168,7 @@ fn a_pulse_that_is_not_applied_schedules_no_end() {
         Some(Duration::ZERO),
         Some(report),
     );
-    exchange.serve(plant.runtime_mut(), &[]);
+    serve(&exchange, &mut plant);
     assert!(reply.try_recv().unwrap().is_err());
     assert_eq!(exchange.state().pulse_ends.len(), 0);
     assert!(told.lock().unwrap().is_empty());

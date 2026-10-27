@@ -56,7 +56,7 @@ pub(super) fn run(
 }
 
 /// The request that the arguments make (§0.1b). Validate reaches the runtime for its model check and its isolated simulations,
-/// so the request carries the connection that `identify` takes: the runtime of `--endpoint` or of the project's `runtime.toml`,
+/// so the request carries the connection that `identify` takes: the runtime of `--endpoint` or the project's own runtime,
 /// with the token of `TRUST_CONTROL_TOKEN` or of `--token-file`.
 fn request(args: &ValidateArgs, environment: Environment<'_>) -> Result<ValidateRequest, Failure> {
     let places = places(&args.common, environment)?;

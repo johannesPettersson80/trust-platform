@@ -31,13 +31,10 @@ fn plants(targets: &[&str]) -> String {
     config
 }
 
-fn value(runtime: &Runtime, symbol: &str) -> f64 {
-    match crate::debug::resolve_control_parameter_path(runtime.storage(), symbol)
-        .unwrap()
-        .value
-    {
-        crate::value::Value::LReal(value) => value,
-        other => panic!("expected LREAL, got {other:?}"),
+fn value(runtime: &CompiledRuntime, symbol: &str) -> f64 {
+    match runtime.with_program_view(|program| program.value(symbol)) {
+        Some(crate::value::Value::LReal(value)) => value,
+        other => panic!("expected LREAL at {symbol}, got {other:?}"),
     }
 }
 

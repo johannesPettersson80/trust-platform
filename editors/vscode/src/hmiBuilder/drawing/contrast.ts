@@ -1,5 +1,6 @@
 // Text contrast in the drawing (specification 39, §14.1 items 1 and 4): what each text lies on,
-// and how well it stands out with a palette.
+// as only the drawing knows it. How well it stands out with a palette, and what it needs, are the
+// language server's rules (`trust-lsp.hmiQuality`), which take these texts.
 
 import type { SvgNode } from "./svg";
 
@@ -24,57 +25,6 @@ export interface DrawnText {
   sign: boolean;
   /** The object the text belongs to. */
   object?: string;
-}
-
-type Rgba = [number, number, number, number];
-
-/** A hex colour (`#rgb`, `#rrggbb` or `#rrggbbaa`) as red, green, blue and alpha from 0 to 1. */
-function parseHex(hex: string): Rgba | undefined {
-  const digits = hex.trim().replace(/^#/, "");
-  const full = digits.length === 3 ? [...digits].map((digit) => digit + digit).join("") : digits;
-  if (!/^(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(full)) return undefined;
-  const channel = (index: number): number => parseInt(full.slice(index, index + 2), 16) / 255;
-  return [channel(0), channel(2), channel(4), full.length === 8 ? channel(6) : 1];
-}
-
-function linear(channel: number): number {
-  return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-}
-
-function luminance([red, green, blue]: Rgba): number {
-  return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue);
-}
-
-function ratioOf(a: Rgba, b: Rgba): number {
-  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (light + 0.05) / (dark + 0.05);
-}
-
-/** The WCAG 2.1 contrast ratio of two opaque colours, from 1 to 21. */
-export function contrastRatio(foreground: string, background: string): number {
-  const [a, b] = [parseHex(foreground), parseHex(background)];
-  if (!a || !b) return 1;
-  return Math.round(ratioOf(a, b) * 1e6) / 1e6;
-}
-
-function oklab(colour: Rgba): [number, number, number] {
-  const [r, g, b] = [linear(colour[0]), linear(colour[1]), linear(colour[2])];
-  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
-  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
-  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
-  return [
-    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
-    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
-    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
-  ];
-}
-
-/** The distance of two colours in OKLab, where 1 is black to white. */
-export function oklabDistance(a: string, b: string): number {
-  const [x, y] = [parseHex(a), parseHex(b)];
-  if (!x || !y) return Infinity;
-  const [p, q] = [oklab(x), oklab(y)];
-  return Math.round(Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) * 1e6) / 1e6;
 }
 
 /** A shape's paint: one backing, or a gradient's stops. */
@@ -330,40 +280,4 @@ export function drawnTexts(svg: SvgNode): DrawnText[] {
   };
   walk(svg, 0, 0, { opacity: 1 }, undefined);
   return texts;
-}
-
-/** `top` drawn at alpha `alpha` over `bottom`. */
-function over(top: Rgba, alpha: number, bottom: Rgba): Rgba {
-  return [0, 1, 2].map((index) => top[index] * alpha + bottom[index] * (1 - alpha)).concat(1) as Rgba;
-}
-
-/**
- * A text's contrast with a palette at its worst over what lies behind it, and the contrast it needs:
- * 4.5:1, or 3:1 for text of at least 24 px, or 18.66 px and bold (WCAG 2.1, 1.4.3), and 3:1 for
- * a sign, which is a graphic (1.4.11).
- */
-export function textContrast(drawn: DrawnText, palette: Record<string, string>): { ratio: number; needed: number } {
-  const needed = drawn.sign || drawn.size >= 24 || (drawn.bold && drawn.size >= 18.66) ? 3 : 4.5;
-  const plain = (token: string): Rgba | undefined => parseHex(palette[token] ?? "");
-  const colour = (token: string, mix?: Backing["mix"]): Rgba | undefined => {
-    const [from, to] = [plain(token), mix ? plain(mix.token) : undefined];
-    if (!from || !mix || !to) return from;
-    return [0, 1, 2, 3].map((index) => from[index] + (to[index] - from[index]) * mix.share) as Rgba;
-  };
-  // The colours behind the text, built up from the bottom; each gradient stop is a possibility.
-  let below: Rgba[] = [[0, 0, 0, 1]];
-  for (const layer of [...drawn.behind].reverse()) {
-    const next: Rgba[] = [];
-    for (const base of below) {
-      for (const backing of layer) {
-        const paint = colour(backing.token, backing.mix);
-        if (paint) next.push(over(paint, paint[3] * backing.opacity, base));
-      }
-    }
-    if (next.length > 0) below = next.slice(0, 64);
-  }
-  const ink = colour(drawn.colour);
-  if (!ink) return { ratio: 1, needed };
-  const ratio = Math.min(...below.map((background) => ratioOf(over(ink, ink[3], background), background)));
-  return { ratio: Math.round(ratio * 1e6) / 1e6, needed };
 }

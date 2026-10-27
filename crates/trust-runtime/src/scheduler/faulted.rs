@@ -2,8 +2,10 @@
 //! lifecycle (hosted runtime)"; specification 34 STATE-06).
 //!
 //! A halting fault leaves the scan thread alive and idle. It executes no task and commits no
-//! outputs. It waits here for a recovery request (a restart, or an online change), serves
-//! read-only and configuration commands, and ends only on a stop request.
+//! outputs. It waits here for a recovery request (a restart, or an online change) and serves
+//! read-only and configuration commands. A `shutdown` stops the faulted resource as it stops a
+//! running one, and an exit request does the same and ends the thread (specification 34 STATE-08);
+//! the scan loop runs both stops.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::RecvTimeoutError;
@@ -11,28 +13,35 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration as StdDuration;
 
+use trust_runtime_services::resource::commands::{faulted_command_effect, FaultedCommandEffect};
+
 use super::supervisor::ScanSupervision;
 use super::{
-    apply_resource_command, recover_mutex_lock, set_last_error, set_resource_state,
+    apply_runner_command, command_class, recover_mutex_lock, set_last_error, set_resource_state,
     AutomaticRestartLimiter, Clock, ResourceCommand, ResourceRunner, ResourceState, RuntimeError,
+    StepRefusal,
 };
 
-/// Poll period of the faulted wait. A command wakes the wait at once. A restart request or a
-/// stop request is seen within this period, so the wait never spins.
-const FAULTED_WAIT_POLL: StdDuration = StdDuration::from_millis(10);
+/// Poll period of the faulted wait, the shared one. A command wakes the wait at once. A restart
+/// request or a stop request is seen within this period, so the wait never spins.
+pub(super) const FAULTED_WAIT_POLL: StdDuration =
+    trust_runtime_services::resource::supervisor::FAULTED_WAIT_POLL;
 
 /// How the faulted wait ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum FaultedWait {
     /// A recovery succeeded. The resource is `Running` again and the scan loop resumes.
     Resumed,
-    /// A stop request ended the thread. The resource stays `Faulted`. No second safe-state write
-    /// and no retain save happen here, so the last periodic checkpoint stays authoritative.
-    Stopped,
+    /// A `shutdown` asked to stop the faulted resource (specification 34 STATE-08). The scan loop
+    /// stops it and waits in the state the stop leaves.
+    StopRequested,
+    /// An exit request, the explicit exit or a termination signal, ends the thread. The scan loop
+    /// stops the resource first, as a `shutdown` does.
+    Exit,
 }
 
 /// Records a halting fault whose fault action has already run, then waits for recovery or stop.
-/// `last_error` keeps this root fault until a recovery succeeds.
+/// `last_error` keeps this root fault until the next start.
 pub(super) fn halt_and_wait<C: Clock + Clone>(
     runner: &mut ResourceRunner<C>,
     stop: &AtomicBool,
@@ -54,7 +63,8 @@ pub(super) fn halt_and_wait<C: Clock + Clone>(
     )
 }
 
-/// Waits in the faulted state until a recovery succeeds or a stop is requested.
+/// Waits in the faulted state until a recovery succeeds, a `shutdown` asks for a stop or an exit is
+/// requested.
 pub(super) fn wait_while_faulted<C: Clock + Clone>(
     runner: &mut ResourceRunner<C>,
     stop: &AtomicBool,
@@ -64,19 +74,31 @@ pub(super) fn wait_while_faulted<C: Clock + Clone>(
     automatic_restarts: &mut AutomaticRestartLimiter,
 ) -> FaultedWait {
     loop {
-        // A stop request is checked first, so no recovery runs after a stop.
+        // An exit request is checked first, so no recovery runs after it. The thread ends, so
+        // identify ends and drives its output off.
         if stop.load(Ordering::SeqCst) {
-            return FaultedWait::Stopped;
+            runner.runtime.end_identify();
+            return FaultedWait::Exit;
+        }
+        // The program scans nothing, so identify blinks from here, except an output that the safe
+        // state of the fault holds at its safe value (specification 11, "Identify").
+        runner.runtime.drive_identify_while_idle();
+        // A `shutdown` stops the faulted resource as it stops a running one (specification 34,
+        // STATE-08). The start after the stop arms the debugger again, as after any stop.
+        if supervision.take_program_stop() {
+            return FaultedWait::StopRequested;
         }
         let online_change_applied = match next_command(runner) {
             Some(command) => serve_command(runner, command),
             None => false,
         };
         if online_change_applied {
+            // The running program is the one the online change gave it, not a stopped one.
+            runner.reload_required = false;
             return finish_recovery(state, last_error, supervision, automatic_restarts);
         }
         if let Some(mode) = take_pending_restart(runner) {
-            match runner.restart_with_retain_store(mode) {
+            match runner.restart_or_reload(mode) {
                 Ok(()) => {
                     return finish_recovery(state, last_error, supervision, automatic_restarts);
                 }
@@ -120,7 +142,9 @@ pub(super) fn take_pending_restart<C: Clock + Clone>(
 }
 
 /// Waits up to one poll period for a command. A missing or closed channel still paces the wait.
-fn next_command<C: Clock + Clone>(runner: &ResourceRunner<C>) -> Option<ResourceCommand> {
+pub(super) fn next_command<C: Clock + Clone>(
+    runner: &ResourceRunner<C>,
+) -> Option<ResourceCommand> {
     let Some(commands) = runner.command_rx.as_ref() else {
         thread::sleep(FAULTED_WAIT_POLL);
         return None;
@@ -135,34 +159,51 @@ fn next_command<C: Clock + Clone>(runner: &ResourceRunner<C>) -> Option<Resource
     }
 }
 
-/// Serves one command while faulted. Returns true when an online change was applied.
+/// Serves one command while faulted, by the shared faulted-wait rules. Returns true when an
+/// online change was applied.
 pub(super) fn serve_command<C: Clock + Clone>(
     runner: &mut ResourceRunner<C>,
     command: ResourceCommand,
 ) -> bool {
-    match command {
-        // The control plane refuses pause and resume while faulted. They are ignored if they arrive.
-        ResourceCommand::Pause | ResourceCommand::Resume => false,
-        // Variable writes are dropped: fault handling is a clearing boundary (spec 11 section 6.9.2).
-        ResourceCommand::MeshApply { .. } => false,
-        ResourceCommand::ReloadBytecode {
-            bytes,
-            claim,
-            respond_to,
-        } => {
-            // A withdrawn reload is skipped: it neither commits nor ends the faulted wait.
-            if !claim.take() {
-                return false;
-            }
-            let result = runner.runtime.apply_online_change_bytes(&bytes, None);
-            let applied = result.is_ok();
-            let _ = respond_to.send(result);
-            applied
-        }
+    if let ResourceCommand::StepCycle { respond_to, .. } = command {
+        // A faulted program takes no step (specification 11 section 6.8.1).
+        let _ = respond_to.send(Err(StepRefusal::NotStopped(ResourceState::Faulted)));
+        return false;
+    }
+    match faulted_command_effect(command_class(&command)) {
+        // The control plane refuses pause and resume while faulted; they are ignored if they
+        // arrive. Variable writes are dropped: fault handling is a clearing boundary (spec 11
+        // section 6.9.2).
+        FaultedCommandEffect::Ignore | FaultedCommandEffect::Discard => false,
+        FaultedCommandEffect::Recover => apply_recovery_reload(runner, command),
         // Configuration updates and read-only reports answer exactly as they do while running.
-        other => {
-            apply_resource_command(&mut runner.runtime, other);
+        FaultedCommandEffect::Apply => {
+            apply_runner_command(&mut runner.runtime, runner.refuse_mesh_catalogue, command);
             false
         }
     }
+}
+
+/// Applies a reload while faulted. Returns true when the online change was applied, which ends
+/// the fault.
+fn apply_recovery_reload<C: Clock + Clone>(
+    runner: &mut ResourceRunner<C>,
+    command: ResourceCommand,
+) -> bool {
+    let ResourceCommand::ReloadBytecode {
+        bytes,
+        claim,
+        respond_to,
+    } = command
+    else {
+        return false;
+    };
+    // A withdrawn reload is skipped: it neither commits nor ends the faulted wait.
+    if !claim.take() {
+        return false;
+    }
+    let result = runner.runtime.apply_online_change_bytes(&bytes);
+    let applied = result.is_ok();
+    let _ = respond_to.send(result);
+    applied
 }

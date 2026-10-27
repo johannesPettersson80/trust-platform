@@ -20,7 +20,7 @@ fn lesson34_step(changes: &[(&str, f64)], seconds: f64) -> Motion {
     if !changes.is_empty() {
         set_program_record(&mut runtime, program, "Parameters", changes);
     }
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     let mut motion = Vec::new();
     for step in 25..(25 + (seconds / 0.02).round() as u64) {
         scan_every(
@@ -141,8 +141,8 @@ fn lesson35_run(changes: &[(&str, f64)], setpoint: f64, load: f64, seconds: f64)
         program,
         &[("SetpointRate", 0.0), ("ProcessValueRate", 0.0)],
     );
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
-    debug.enqueue_instance_write(program, "LoadTorqueNm", Value::LReal(load));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "LoadTorqueNm", Value::LReal(load));
     let mut motion = Vec::new();
     for step in 25..(25 + (seconds / 0.02).round() as u64) {
         scan_every(
@@ -285,7 +285,7 @@ fn lesson36_step(filter_time: Option<f64>, seconds: f64) -> Motion {
         program,
         &[("SetpointRate", 0.0), ("ProcessValueRate", 0.0)],
     );
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     let mut motion = Vec::new();
     for step in 25..(25 + (seconds / 0.02).round() as u64) {
         scan_every(

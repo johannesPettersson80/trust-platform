@@ -23,7 +23,7 @@ enum Event {
 /// One update at rest with both PIs in Manual; then, as Control Studio's Apply writes them, the gains (Kp, Ki) of both
 /// members and Auto, together with `event`, for `updates`.
 /// Control Studio's PID-group setup binds these program variables; `set_instance_var` would silently add a missing one.
-fn lesson64_assert_interface(runtime: &trust_runtime::Runtime) {
+fn lesson64_assert_interface(runtime: &trust_runtime::CompiledRuntime) {
     let p1 = program(runtime);
     for name in [
         "VesselsAuto",
@@ -35,7 +35,7 @@ fn lesson64_assert_interface(runtime: &trust_runtime::Runtime) {
         "Load2Kw",
     ] {
         assert!(
-            runtime.storage().get_instance_var(p1, name).is_some(),
+            exists(runtime, &format!("{p1}.{name}")),
             "Control Studio's PID-group setup binds P1.{name}"
         );
     }
@@ -228,7 +228,7 @@ fn lesson64_the_paired_loops_meet_every_own_vessel_requirement_but_not_the_other
 const LESSON65: &str = "10-multivariable-control/64-decoupling";
 
 /// Control Studio's decoupled PID group binds these program variables; `set_instance_var` would silently add a missing one.
-fn lesson65_assert_interface(runtime: &trust_runtime::Runtime) {
+fn lesson65_assert_interface(runtime: &trust_runtime::CompiledRuntime) {
     let p1 = program(runtime);
     for name in [
         "VesselsAuto",
@@ -244,7 +244,7 @@ fn lesson65_assert_interface(runtime: &trust_runtime::Runtime) {
         "D22",
     ] {
         assert!(
-            runtime.storage().get_instance_var(p1, name).is_some(),
+            exists(runtime, &format!("{p1}.{name}")),
             "Control Studio's decoupled PID group binds P1.{name}"
         );
     }
@@ -255,7 +255,11 @@ const LESSON65_STUDIO_D: [[f64; 2]; 2] = [[81.0 / 65.0, -36.0 / 65.0], [-36.0 / 
 
 /// As Control Studio's Apply does: the decoupler, both members' gains and the controllers' starting requests v = D⁻¹·u for
 /// the present heater commands (Specification 35 §17.15), then Auto.
-fn lesson65_apply(runtime: &mut trust_runtime::Runtime, d: [[f64; 2]; 2], gains: (f64, f64)) {
+fn lesson65_apply(
+    runtime: &mut trust_runtime::CompiledRuntime,
+    d: [[f64; 2]; 2],
+    gains: (f64, f64),
+) {
     let p1 = program(runtime);
     for (name, value) in [
         ("D11", d[0][0]),
@@ -282,15 +286,9 @@ fn lesson65_apply(runtime: &mut trust_runtime::Runtime, d: [[f64; 2]; 2], gains:
         (-d[1][0] * heaters[0] + d[0][0] * heaters[1]) / determinant,
     ];
     for (member, request) in ["Vessel1", "Vessel2"].into_iter().zip(requests) {
-        let Some(Value::Instance(pid)) = runtime.storage().get_instance_var(p1, member).cloned()
-        else {
-            panic!("{member} is a Control.PID instance")
-        };
-        let Some(Value::Struct(state)) = runtime
-            .storage()
-            .get_instance_var(pid, "StateValue")
-            .cloned()
-        else {
+        let pid = format!("{p1}.{member}");
+        assert!(exists(runtime, &pid), "{member} is a Control.PID instance");
+        let Some(Value::Struct(state)) = value(runtime, &format!("{pid}.StateValue")) else {
             panic!("{member} keeps its state record")
         };
         let mut state = (*state).clone();
@@ -301,7 +299,11 @@ fn lesson65_apply(runtime: &mut trust_runtime::Runtime, d: [[f64; 2]; 2], gains:
             );
         }
         assert!(runtime
-            .write_instance(pid, "StateValue", Value::Struct(std::sync::Arc::new(state)))
+            .write_instance(
+                &pid,
+                "StateValue",
+                Value::Struct(std::sync::Arc::new(state))
+            )
             .is_ok());
     }
     assert!(runtime
@@ -443,9 +445,7 @@ struct Cases {
 /// One update at rest with Control Studio's coupling setting, then the project experiment (activation at %MX16.0).
 fn lesson66_run(coupling: f64, updates: u64) -> Vec<Cases> {
     let (mut runtime, mut simulation) = setup(LESSON66);
-    let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
-        panic!("P1 program")
-    };
+    let program = program(&runtime);
     assert!(runtime
         .write_instance(program, "CouplingCase", Value::LReal(coupling))
         .is_ok());

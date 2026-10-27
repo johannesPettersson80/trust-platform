@@ -1,8 +1,6 @@
 import type { NCPlant } from "../webview/types";
 import type { PlantContractMessage } from "./contract";
 import { scenarioEventsForPlant } from "./scenarioEventEditor";
-import { preservedPlantConfiguration } from "./preservedConfiguration";
-import { plantModelDescriptor } from "./modelDescriptors";
 
 export interface PlantTopologyService {
   read(): Promise<PlantContractMessage>;
@@ -27,10 +25,6 @@ export function normalizePlantTopology(
 ): NCPlant[] {
   const savedPlants = records(saved.plants);
   const savedConfiguration = record(saved.saved_configuration);
-  const configuredProjectStep = record(savedConfiguration?.simulation)?.plant_step_ms;
-  const projectStepMs = savedConfiguration && configuredProjectStep === undefined ? 10
-    : typeof configuredProjectStep === "number" && Number.isSafeInteger(configuredProjectStep) && configuredProjectStep > 0
-      ? configuredProjectStep : undefined;
   const configuredPlants = records(savedConfiguration?.plants);
   const statusIsCurrent =
     status?.operation === "plant.status" &&
@@ -84,23 +78,20 @@ export function normalizePlantTopology(
     const parameters = configured ? numericRecord(configured.parameters) : undefined;
     const enabledDefaulted = configured !== undefined && configured.enabled === undefined;
     const initialStateDefaulted = configured !== undefined && configured.initial_state === undefined;
-    const stateCount = descriptor.model === "state_space"
-      ? (Array.isArray(parameters?.a) ? parameters.a.length : 0)
-      : plantModelDescriptor(descriptor.model).states;
+    // An omitted initial state is sized by Rust when the editor opens the plant.
     const initialState = initialStateDefaulted
-      ? Array<number>(stateCount).fill(0)
+      ? []
       : configured ? numberArray(configured.initial_state) : undefined;
     if (configured && parameters && initialState) {
       plant.configuration = {
         description: typeof configured.description === "string" ? configured.description : "",
         parameters,
         initialState,
-        ...(projectStepMs === undefined ? {} : { projectStepMs }),
         ...(enabledDefaulted ? { enabledDefaulted: true } : {}),
         ...(initialStateDefaulted ? { initialStateDefaulted: true } : {}),
+        // Save carries the saved fields the editor does not manage (Rust picks them).
+        preservedConfiguration: configured,
       };
-      const preserved = preservedPlantConfiguration(configured);
-      if (Object.keys(preserved).length > 0) plant.configuration.preservedConfiguration = preserved;
       if (typeof configured.step_ms === "number") plant.configuration.stepMs = configured.step_ms;
       for (const [key, value] of [
         ["initialInput", numberArray(configured.initial_input)],

@@ -5,7 +5,6 @@
 //! a warm restart of the running runtime.
 
 use trust_runtime::harness::TestHarness;
-use trust_runtime::hmi::member_paths::{resolve_member, MemberPath};
 use trust_runtime::retain::FileRetainStore;
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::RestartMode;
@@ -59,9 +58,8 @@ END_CONFIGURATION
 "#;
 
 fn value(harness: &TestHarness, path: &str) -> Value {
-    let path = MemberPath::parse(path).expect("a path");
-    resolve_member(&path, harness.runtime().storage())
-        .cloned()
+    harness
+        .get_output(path)
         .unwrap_or_else(|| panic!("{path:?} exists"))
 }
 
@@ -142,12 +140,14 @@ fn retain_instance_trees_survive_a_power_loss_without_their_non_retain_parts() {
     ));
     let _ = std::fs::remove_file(&path);
     let mut before = TestHarness::from_source(SOURCE).expect("compile and initialize");
-    before.runtime_mut().set_retain_store(
-        Some(Box::new(FileRetainStore::new(&path))),
-        Some(Duration::from_millis(1)),
-    );
+    before
+        .runtime_mut()
+        .set_retain_store(
+            Some(Box::new(FileRetainStore::new(&path))),
+            Some(Duration::from_millis(1)),
+        )
+        .expect("set the retain store");
     three_scans(&mut before);
-    before.runtime_mut().mark_retain_dirty();
     before
         .runtime_mut()
         .save_retain_store()
@@ -156,14 +156,69 @@ fn retain_instance_trees_survive_a_power_loss_without_their_non_retain_parts() {
 
     // A power loss: a new runtime of the same program reads the store at start.
     let mut after = TestHarness::from_source(SOURCE).expect("compile and initialize again");
-    after.runtime_mut().set_retain_store(
-        Some(Box::new(FileRetainStore::new(&path))),
-        Some(Duration::from_millis(1)),
-    );
     after
         .runtime_mut()
-        .load_retain_store()
+        .set_retain_store(
+            Some(Box::new(FileRetainStore::new(&path))),
+            Some(Duration::from_millis(1)),
+        )
+        .expect("set the retain store");
+    after
+        .restart_with_retain(RestartMode::Warm)
         .expect("load the retain store");
     assert_kept_and_started_over(&after);
     let _ = std::fs::remove_file(&path);
+}
+
+/// IEC 61131-3 Ed.3 §6.5.6.2: on a warm restart a variable that is not kept takes its
+/// variable-specific initial value first, the one an instance initializer gives it, before its
+/// type's. The `NON_RETAIN` input of a `RETAIN` global instance initialized `(Speed := 50)`, which
+/// the program's calls set to 60, starts over at 50, not at its type's 10, while the instance's
+/// unqualified output is kept: a warm restart takes every variable that is not kept from the
+/// starting memory, which holds the instance initializer's values (specification 44 §6.7).
+/// Catches a warm restart that gives such a variable its type's initial value, or keeps it.
+#[test]
+fn a_warm_restart_gives_a_variable_that_is_not_kept_its_instance_initial_value() {
+    const DRIVE: &str = r#"
+FUNCTION_BLOCK Drive
+VAR_INPUT NON_RETAIN
+    Speed : INT := 10;
+END_VAR
+VAR_OUTPUT
+    Runs : DINT;
+END_VAR
+    Runs := Runs + 1;
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR_EXTERNAL
+    Fan : Drive;
+END_VAR
+    Fan(Speed := 60);
+END_PROGRAM
+
+CONFIGURATION Config
+VAR_GLOBAL RETAIN
+    Fan : Drive := (Speed := 50);
+END_VAR
+RESOURCE Res ON PLC
+    TASK Fast(INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM P1 WITH Fast : Main;
+END_RESOURCE
+END_CONFIGURATION
+"#;
+    let mut harness = TestHarness::from_source(DRIVE).expect("compile and initialize");
+    three_scans(&mut harness);
+    assert_eq!(value(&harness, "Fan.Speed"), Value::Int(60));
+    harness.restart(RestartMode::Warm).expect("warm restart");
+    assert_eq!(
+        value(&harness, "Fan.Runs"),
+        Value::DInt(3),
+        "the unqualified output of a RETAIN instance is kept"
+    );
+    assert_eq!(
+        value(&harness, "Fan.Speed"),
+        Value::Int(50),
+        "a NON_RETAIN variable starts over at the instance initializer's value"
+    );
 }

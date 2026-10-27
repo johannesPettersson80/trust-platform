@@ -24,7 +24,7 @@ code --install-extension trust-platform.trust-lsp
 3. Optional confidence check:
 
 ```bash
-cargo test -p trust-runtime tutorial_examples_parse_typecheck_and_compile_to_bytecode
+cargo test -p trust-runtime tutorial_examples_parse_typecheck_and_compile
 ```
 
 ## How To Work Through This Path
@@ -405,6 +405,6 @@ Transport gating reminders:
 
 Current regression coverage verifies:
 
-- parse/type-check/bytecode compile of tutorial sources,
+- parse, type-check and compile of the tutorial sources into program images,
 - deterministic runtime behavior for selected scenarios,
 - no unexpected LSP diagnostics on tutorial files.

@@ -10,6 +10,8 @@ mod period;
 use period::RecordPeriod;
 
 use super::DebugControl;
+use crate::memory::Generation;
+use crate::runtime::ProgramRead;
 
 /// Most channels one recording holds (specification 35, A7).
 const MAX_CHANNELS: usize = 32;
@@ -145,7 +147,7 @@ impl IoRecordingRegistry {
         &mut self,
         spec: IoRecordingSpec,
         snapshot: Option<&IoSnapshot>,
-        storage: Option<&crate::memory::VariableStorage>,
+        program: Option<&dyn ProgramRead>,
     ) -> Result<(), String> {
         if spec.recording_id.is_empty()
             || spec.recording_id.len() > 128
@@ -170,7 +172,7 @@ impl IoRecordingRegistry {
             ));
         }
         let snapshot = snapshot.ok_or("A current runtime I/O snapshot is required.")?;
-        let targets = super::signals::resolve_bindings(&spec.bindings, snapshot, storage)?;
+        let targets = super::signals::resolve_bindings(&spec.bindings, snapshot, program)?;
         // A task's executions are not consecutive scans; its missed intervals mark the gaps.
         let expected_scan = if spec.task.is_some() {
             None
@@ -202,14 +204,16 @@ impl IoRecordingRegistry {
         );
         Ok(())
     }
-    /// Captures a published scan; `tasks` are the tasks that ran in it, each with the intervals it
+    /// Captures a published scan, `program` being the program as the scan left it in the program
+    /// generation `generation`; `tasks` are the tasks that ran in it, each with the intervals it
     /// missed before it.
     pub fn capture_coherent(
         &mut self,
         snapshot: &IoSnapshot,
         runtime_time_ns: Option<i64>,
-        storage: Option<&crate::memory::VariableStorage>,
+        program: &dyn ProgramRead,
         forced_vars: &[super::ForcedVar],
+        generation: Generation,
         tasks: &[(smol_str::SmolStr, u64)],
     ) {
         let captured_at_ms = SystemTime::now()
@@ -280,8 +284,8 @@ impl IoRecordingRegistry {
                 sequence,
                 runtime_time_ns,
                 snapshot,
-                storage,
-                forced_vars,
+                program,
+                (forced_vars, generation),
                 captured_at_ms.unwrap_or(0),
             );
             if record.samples.len() == record.spec.maximum_samples {
@@ -459,8 +463,8 @@ impl Recording {
         sequence: u64,
         time_ns: Option<i64>,
         snapshot: &IoSnapshot,
-        storage: Option<&crate::memory::VariableStorage>,
-        forced_vars: &[super::ForcedVar],
+        program: &dyn ProgramRead,
+        forces: (&[super::ForcedVar], Generation),
         captured_at_ms: u64,
     ) {
         if !time_ns
@@ -478,8 +482,8 @@ impl Recording {
             &self.targets,
             &self.spec.bindings,
             snapshot,
-            storage,
-            forced_vars,
+            Some(program),
+            forces,
         );
         self.period.add(time_ns, captured, captured_at_ms);
         if self.period.executions() == self.spec.record_every {
@@ -523,11 +527,7 @@ impl DebugControl {
         revision: &str,
         from_sample: Option<usize>,
     ) -> Result<IoRecordingStatus, String> {
-        let (lock, _) = &*self.state;
-        lock.lock()
-            .map_err(|_| "Runtime recording state is unavailable.")?
-            .recordings
-            .status(id, revision, from_sample)
+        self.lock().recordings.status(id, revision, from_sample)
     }
 }
 pub(super) fn snapshot_value<'a>(

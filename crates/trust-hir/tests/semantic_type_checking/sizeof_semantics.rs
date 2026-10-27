@@ -315,3 +315,72 @@ END_CLASS
         DiagnosticCode::InvalidOperation,
     );
 }
+
+/// The dimensions of the array type `name`, which `source` declares without an error.
+fn declared_array_dimensions(source: &str, name: &str) -> Vec<(i64, i64)> {
+    let mut db = Database::new();
+    let file = FileId(0);
+    db.set_source_text(file, source.to_string());
+    let diagnostics = db.diagnostics(file);
+    assert!(
+        !diagnostics.iter().any(|diagnostic| diagnostic.is_error()),
+        "{diagnostics:?}"
+    );
+    let symbols = db.file_symbols(file);
+    let symbol = symbols
+        .get(symbols.lookup(name).expect("type declaration"))
+        .expect("declared symbol");
+    let resolved = symbols.resolve_alias_type(symbol.type_id);
+    let Some(Type::Array { dimensions, .. }) = symbols.type_by_id(resolved) else {
+        panic!("expected array type")
+    };
+    dimensions.clone()
+}
+
+#[test]
+fn test_sizeof_temporal_types_are_eight_bytes_in_array_bounds() {
+    // TIME, DATE, TOD and DT occupy eight bytes on every platform, so SIZEOF(..)-1 is 7; a
+    // four-byte type would give 3.
+    for type_name in ["TIME", "DATE", "TOD", "DT"] {
+        let dimensions = declared_array_dimensions(
+            &format!("TYPE Bytes : ARRAY[0..SIZEOF({type_name})-1] OF BYTE; END_TYPE"),
+            "Bytes",
+        );
+        assert_eq!(dimensions, vec![(0, 7)], "{type_name}");
+    }
+}
+
+#[test]
+fn test_sizeof_located_structure_includes_gaps_and_temporal_extent() {
+    // marker takes byte 0 and stamp takes bytes 8 through 15, so the structure extends over 16
+    // bytes, the gap included. Summing the field sizes would give 9.
+    let dimensions = declared_array_dimensions(
+        r#"
+TYPE Packet :
+STRUCT
+    marker AT %B0 : BYTE;
+    stamp AT %B8 : TIME;
+END_STRUCT;
+Bytes : ARRAY[0..SIZEOF(Packet)-1] OF BYTE;
+END_TYPE
+"#,
+        "Bytes",
+    );
+    assert_eq!(dimensions, vec![(0, 15)]);
+}
+
+#[test]
+fn test_relative_layout_gives_a_temporal_field_eight_bytes() {
+    // stamp takes bytes 0 through 7: a field at byte 4 overlaps it (a four-byte TIME would not)
+    // and a field at byte 8 does not (a longer TIME would).
+    let overlaps = |tail_address: &str| {
+        error_messages(&format!(
+            "TYPE Packet : STRUCT stamp AT %B0 : TIME; tail AT {tail_address} : INT; \
+             END_STRUCT; END_TYPE"
+        ))
+        .iter()
+        .any(|message| message.contains("relative structure fields overlap"))
+    };
+    assert!(overlaps("%B4"));
+    assert!(!overlaps("%B8"));
+}

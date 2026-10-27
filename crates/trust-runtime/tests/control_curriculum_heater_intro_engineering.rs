@@ -3,22 +3,27 @@ use trust_runtime::harness::{CompileSession, SourceFile};
 use trust_runtime::io::IoAddress;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
-fn number(r: &Runtime, a: &str) -> f64 {
-    match r.io().read(&IoAddress::parse(a).unwrap()).unwrap() {
+use trust_runtime::CompiledRuntime;
+
+mod control_heater_support;
+use control_heater_support::{bound_address, compile, exists, type_name, value, LessonRuntime};
+
+fn number(r: &CompiledRuntime, a: &str) -> f64 {
+    match r.read_io(&IoAddress::parse(a).unwrap()).unwrap() {
         Value::LWord(b) => f64::from_bits(b),
+        Value::LReal(v) => v,
         Value::DWord(b) => f32::from_bits(b) as f64,
         v => panic!("{a}: {v:?}"),
     }
 }
-fn setup(relative: &str, replacements: &[(&str, &str)]) -> (Runtime, SimulationController) {
+fn setup(relative: &str, replacements: &[(&str, &str)]) -> (CompiledRuntime, SimulationController) {
     setup_with_events(relative, replacements, "")
 }
 fn setup_with_events(
     relative: &str,
     replacements: &[(&str, &str)],
     events: &str,
-) -> (Runtime, SimulationController) {
+) -> (CompiledRuntime, SimulationController) {
     let p = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/control")
         .join(relative);
@@ -35,9 +40,7 @@ fn setup_with_events(
         ));
     }
     let session = CompileSession::from_sources(sources);
-    let mut r = session.build_runtime().unwrap();
-    r.apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)
-        .unwrap();
+    let r = compile(session);
     static NEXT_CONFIG: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let sequence = NEXT_CONFIG.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let stamp = std::time::SystemTime::now()
@@ -167,17 +170,13 @@ fn hot_trial_bad_measurement_latches_stop_and_cannot_be_cleared_by_reenabling_th
                 runtime.advance_time(Duration::from_millis(100));
                 runtime.execute_cycle().unwrap();
                 assert_pid_stopped(&runtime, project);
-                let Value::Instance(program) = runtime.storage().get_global("P1").unwrap() else {
-                    panic!("P1");
-                };
+                assert!(exists(&runtime, "P1"), "P1");
                 assert_eq!(
-                    runtime.storage().get_instance_var(*program, "SafetyAbort"),
-                    Some(&Value::Bool(true)),
+                    value(&runtime, "P1.SafetyAbort"),
+                    Some(Value::Bool(true)),
                     "{project}: latched input fault"
                 );
-                let Some(Value::Struct(input)) =
-                    runtime.storage().get_instance_var(*program, "Input")
-                else {
+                let Some(Value::Struct(input)) = value(&runtime, "P1.Input") else {
                     panic!("PID input record");
                 };
                 assert_eq!(
@@ -190,34 +189,18 @@ fn hot_trial_bad_measurement_latches_stop_and_cannot_be_cleared_by_reenabling_th
     }
 }
 
-fn assert_pid_stopped(runtime: &Runtime, project: &str) {
+fn assert_pid_stopped(runtime: &CompiledRuntime, project: &str) {
     assert_eq!(number(runtime, "%QL0"), 0.0, "{project}: heating stops");
     assert_eq!(number(runtime, "%QL8"), 0.0, "{project}: extraction stops");
-    let Value::Instance(program) = runtime.storage().get_global("P1").unwrap() else {
-        panic!("P1");
-    };
+    assert!(exists(runtime, "P1"), "P1");
+    assert_eq!(value(runtime, "P1.AutoMode"), Some(Value::Bool(false)));
+    let controller = "P1.Controller";
+    assert!(exists(runtime, controller), "actual Control.PID");
     assert_eq!(
-        runtime.storage().get_instance_var(*program, "AutoMode"),
-        Some(&Value::Bool(false))
-    );
-    let Some(Value::Instance(controller)) =
-        runtime.storage().get_instance_var(*program, "Controller")
-    else {
-        panic!("actual Control.PID");
-    };
-    assert_eq!(
-        runtime
-            .storage()
-            .get_instance(*controller)
-            .unwrap()
-            .type_name
-            .as_str(),
+        type_name(runtime, controller).unwrap().as_str(),
         "Control.PID"
     );
-    let Some(Value::Struct(state)) = runtime
-        .storage()
-        .get_instance_var(*controller, "StateValue")
-    else {
+    let Some(Value::Struct(state)) = value(runtime, "P1.Controller.StateValue") else {
         panic!("PID state");
     };
     for field in [
@@ -301,32 +284,22 @@ fn diagnosis_uses_actual_pid_output_and_preserves_accepted_parameters() {
     debug.enqueue_io_write(IoAddress::parse("%MX112.0").unwrap(), Value::Bool(true));
     runtime.advance_time(Duration::from_millis(100));
     runtime.execute_cycle().unwrap();
-    let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
-        panic!("the delivered diagnosis program");
-    };
-    let Some(Value::Instance(controller)) =
-        runtime.storage().get_instance_var(program, "Controller")
-    else {
-        panic!("diagnosis must execute the existing Control.PID instance");
-    };
+    let program = "P1";
+    assert!(exists(&runtime, program), "the delivered diagnosis program");
+    let controller = format!("{program}.Controller");
+    assert!(
+        exists(&runtime, &controller),
+        "diagnosis must execute the existing Control.PID instance"
+    );
     assert_eq!(
-        runtime
-            .storage()
-            .get_instance(*controller)
-            .unwrap()
-            .type_name
-            .as_str(),
+        type_name(&runtime, &controller).unwrap().as_str(),
         "Control.PID"
     );
     assert!(
         (number(&runtime, "%QL0") - 81.15).abs() < 1e-9,
         "preserve the same hot target experiment"
     );
-    let mut accepted = runtime
-        .storage()
-        .get_instance_var(program, "Parameters")
-        .unwrap()
-        .clone();
+    let mut accepted = value(&runtime, &format!("{program}.Parameters")).unwrap();
     let Value::Struct(ref mut parameters) = accepted else {
         panic!("complete PID parameter record");
     };
@@ -340,8 +313,8 @@ fn diagnosis_uses_actual_pid_output_and_preserves_accepted_parameters() {
         runtime.advance_time(Duration::from_millis(100));
         runtime.execute_cycle().unwrap();
         assert_eq!(
-            runtime.storage().get_instance_var(program, "Parameters"),
-            Some(&accepted)
+            value(&runtime, &format!("{program}.Parameters")),
+            Some(accepted.clone())
         );
         assert_eq!(
             number(&runtime, "%QL0"),
@@ -359,18 +332,9 @@ fn diagnosis_receives_measured_and_reference_temperatures_through_distinct_nativ
         ("P1.WaterTemperatureC", "%IL16"),
         ("P1.AppliedPowerPct", "%IL8"),
     ] {
-        let binding = runtime
-            .io()
-            .bindings()
-            .iter()
-            .find(|binding| {
-                binding
-                    .display_name
-                    .as_deref()
-                    .is_some_and(|name| name.eq_ignore_ascii_case(symbol))
-            })
+        let binding = bound_address(&runtime, symbol)
             .expect("diagnostic observation must have a compiled I/O binding");
-        assert_eq!(binding.address, IoAddress::parse(address).unwrap(),
+        assert_eq!(binding, IoAddress::parse(address).unwrap(),
             "the application must observe native measurements instead of summing or biasing simulated paths in ST");
     }
 }
@@ -417,29 +381,19 @@ fn manual_tuning_updates_one_actual_pid_parameter_without_replacing_the_accepted
         ("IntegralGain", 0.6, 81.18),
     ] {
         let (mut runtime, mut simulation) = setup("06-pid-tuning-methods/28-manual-pi-tuning", &[]);
-        let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
-            panic!("delivered manual tuning program");
-        };
-        let Some(Value::Instance(controller)) =
-            runtime.storage().get_instance_var(program, "Controller")
-        else {
-            panic!("manual PI tuning must use the existing Control.PID instance");
-        };
-        let controller = *controller;
+        let program = "P1";
+        assert!(exists(&runtime, program), "delivered manual tuning program");
+        let controller = format!("{program}.Controller");
+        assert!(
+            exists(&runtime, &controller),
+            "manual PI tuning must use the existing Control.PID instance"
+        );
         assert_eq!(
-            runtime
-                .storage()
-                .get_instance(controller)
-                .unwrap()
-                .type_name
-                .as_str(),
+            type_name(&runtime, &controller).unwrap().as_str(),
             "Control.PID"
         );
-        let mut accepted = runtime
-            .storage()
-            .get_instance_var(program, "Parameters")
-            .unwrap()
-            .clone();
+        let mut accepted =
+            control_heater_support::value(&runtime, &format!("{program}.Parameters")).unwrap();
         let Value::Struct(ref mut record) = accepted else {
             panic!("complete actual PID parameter record");
         };
@@ -459,7 +413,7 @@ fn manual_tuning_updates_one_actual_pid_parameter_without_replacing_the_accepted
             "one-gain prediction through the actual block"
         );
         let Some(Value::Struct(state)) =
-            runtime.storage().get_instance_var(controller, "StateValue")
+            control_heater_support::value(&runtime, &format!("{controller}.StateValue"))
         else {
             panic!("actual PID histories");
         };
@@ -471,8 +425,8 @@ fn manual_tuning_updates_one_actual_pid_parameter_without_replacing_the_accepted
             runtime.advance_time(Duration::from_millis(100));
             runtime.execute_cycle().unwrap();
             assert_eq!(
-                runtime.storage().get_instance_var(program, "Parameters"),
-                Some(&accepted),
+                control_heater_support::value(&runtime, &format!("{program}.Parameters")),
+                Some(accepted.clone()),
                 "cyclic application code must preserve all accepted settings"
             );
         }
@@ -483,19 +437,9 @@ fn manual_tuning_updates_one_actual_pid_parameter_without_replacing_the_accepted
 fn manual_tuning_observes_the_native_sensor_and_applied_actuator() {
     let (runtime, _) = setup("06-pid-tuning-methods/28-manual-pi-tuning", &[]);
     for (symbol, address) in [("P1.TemperatureC", "%IL0"), ("P1.AppliedPowerPct", "%IL8")] {
-        let binding = runtime
-            .io()
-            .bindings()
-            .iter()
-            .find(|binding| {
-                binding
-                    .display_name
-                    .as_deref()
-                    .is_some_and(|name| name.eq_ignore_ascii_case(symbol))
-            })
-            .expect("compiled manual tuning observation");
+        let binding = bound_address(&runtime, symbol).expect("compiled manual tuning observation");
         assert_eq!(
-            binding.address,
+            binding,
             IoAddress::parse(address).unwrap(),
             "normal native plant feedback, without ST plant composition"
         );
@@ -724,8 +668,7 @@ fn energy_balance_fault_latches_and_fresh_runtime_restores_both_temperature_owne
                 assert_eq!(number(&runtime, "%QL0"), 0.0, "fault removes heat");
                 assert_eq!(
                     runtime
-                        .io()
-                        .read(&IoAddress::parse("%MX40.1").unwrap())
+                        .read_io(&IoAddress::parse("%MX40.1").unwrap())
                         .unwrap(),
                     Value::Bool(true),
                     "valid PV and a new enable do not clear a latched fault"
@@ -757,15 +700,13 @@ fn energy_balance_fault_latches_and_fresh_runtime_restores_both_temperature_owne
             assert_eq!(number(&fresh, "%MD16"), 75.0, "full delay history resets");
             assert_eq!(
                 fresh
-                    .io()
-                    .read(&IoAddress::parse("%MX40.1").unwrap())
+                    .read_io(&IoAddress::parse("%MX40.1").unwrap())
                     .unwrap(),
                 Value::Bool(false)
             );
             assert_eq!(
                 fresh
-                    .io()
-                    .read(&IoAddress::parse("%MX40.2").unwrap())
+                    .read_io(&IoAddress::parse("%MX40.2").unwrap())
                     .unwrap(),
                 Value::Bool(false)
             );
@@ -800,13 +741,13 @@ fn identification_experiment_requires_a_real_five_second_baseline_before_motion(
                 "early confirmation cannot skip the baseline"
             );
             assert_eq!(
-                r.io().read(&IoAddress::parse("%MX64.4").unwrap()).unwrap(),
+                r.read_io(&IoAddress::parse("%MX64.4").unwrap()).unwrap(),
                 Value::Bool(true)
             );
         }
         if scan == 59 {
             assert_eq!(
-                r.io().read(&IoAddress::parse("%MX64.2").unwrap()).unwrap(),
+                r.read_io(&IoAddress::parse("%MX64.2").unwrap()).unwrap(),
                 Value::Bool(true)
             );
         }
@@ -890,7 +831,7 @@ fn identification_experiment_rejects_spread_and_bad_quality_in_actual_samples() 
             r.execute_cycle().unwrap();
             if scan == 60 {
                 assert_eq!(
-                    r.io().read(&IoAddress::parse("%MX64.2").unwrap()).unwrap(),
+                    r.read_io(&IoAddress::parse("%MX64.2").unwrap()).unwrap(),
                     Value::Bool(false)
                 );
                 assert_eq!(number(&r, "%QL0"), if bad_quality { 0.0 } else { 75.0 });

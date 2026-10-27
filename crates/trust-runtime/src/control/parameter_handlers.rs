@@ -25,15 +25,11 @@ pub(super) fn dispatch(
         return Some(apply(id, operation, params, state));
     }
     let result = (|| {
-        let metadata = state
-            .metadata
-            .lock()
-            .map_err(|_| "runtime metadata unavailable")?;
         let params = params.ok_or("missing parameters")?;
         if operation == "control.parameters.status" {
-            state.debug.parameter_status(params, &metadata)
+            state.debug.parameter_status(params)
         } else {
-            state.debug.parameter_cancel(params, &metadata)
+            state.debug.parameter_cancel(params)
         }
     })();
     Some(match result {
@@ -45,16 +41,6 @@ pub(super) fn dispatch(
 /// Applying or rolling back a parameter set writes live values, so it is refused while an experiment is running or
 /// restoring. Its physical or simulated target is the runtime's fact from its latest scan (A2.4).
 fn apply(id: u64, operation: &str, params: Option<Value>, state: &ControlState) -> ControlResponse {
-    let metadata = match state.metadata.lock() {
-        Ok(metadata) => metadata,
-        Err(_) => {
-            return ControlResponse::error_with_code(
-                id,
-                "runtime metadata unavailable".into(),
-                "invalid_parameter_request",
-            )
-        }
-    };
     let Some(params) = params else {
         return ControlResponse::error_with_code(
             id,
@@ -69,11 +55,7 @@ fn apply(id: u64, operation: &str, params: Option<Value>, state: &ControlState) 
     experiment_handlers::answer_live_write(
         id,
         state,
-        || {
-            state
-                .debug
-                .parameter_apply(params, &metadata, rollback, !simulated)
-        },
+        || state.debug.parameter_apply(params, rollback, !simulated),
         "invalid_parameter_request",
     )
 }

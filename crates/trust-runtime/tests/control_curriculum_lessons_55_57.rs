@@ -106,7 +106,7 @@ struct Jacketed {
     jacket_setpoint: f64,
 }
 
-fn lesson56_read(runtime: &trust_runtime::Runtime) -> Jacketed {
+fn lesson56_read(runtime: &trust_runtime::CompiledRuntime) -> Jacketed {
     Jacketed {
         jacket: [number(runtime, "%IL0"), number(runtime, "%IL16")],
         vessel: [number(runtime, "%IL8"), number(runtime, "%IL24")],
@@ -119,7 +119,7 @@ fn lesson56_read(runtime: &trust_runtime::Runtime) -> Jacketed {
 /// Apply writes them) and `writes` are queued with it.
 fn lesson56_run(
     updates: u64,
-    start: impl Fn(&mut trust_runtime::Runtime),
+    start: impl Fn(&mut trust_runtime::CompiledRuntime),
     writes: &[(&str, Value)],
 ) -> Vec<Jacketed> {
     let (mut runtime, mut simulation) = setup(LESSON56);
@@ -144,7 +144,7 @@ fn lesson56_run(
 }
 
 /// Control Studio's cascade setup binds these program variables; `set_instance_var` would silently add a missing one.
-fn lesson56_auto(runtime: &mut trust_runtime::Runtime, outer: bool, inner: bool) {
+fn lesson56_auto(runtime: &mut trust_runtime::CompiledRuntime, outer: bool, inner: bool) {
     let p1 = program(runtime);
     for name in [
         "OuterAuto",
@@ -155,7 +155,7 @@ fn lesson56_auto(runtime: &mut trust_runtime::Runtime, outer: bool, inner: bool)
         "InnerManualPct",
     ] {
         assert!(
-            runtime.storage().get_instance_var(p1, name).is_some(),
+            exists(runtime, &format!("{p1}.{name}")),
             "Control Studio's cascade setup binds P1.{name}"
         );
     }
@@ -276,10 +276,9 @@ struct Ratio {
     evaluated: [bool; 2],
 }
 
-fn flag(runtime: &trust_runtime::Runtime, address: &str) -> bool {
+fn flag(runtime: &trust_runtime::CompiledRuntime, address: &str) -> bool {
     match runtime
-        .io()
-        .read(&IoAddress::parse(address).unwrap())
+        .read_io(&IoAddress::parse(address).unwrap())
         .unwrap()
     {
         Value::Bool(value) => value,

@@ -58,6 +58,11 @@ pub fn start_web_server_with_mode(
     control_state
         .web_listener_bound
         .store(true, Ordering::Relaxed);
+    // Port 0 lets the system choose the port: the server is reached at the one it chose.
+    let listen = match server.server_addr().to_ip() {
+        Some(address) if listen.ends_with(":0") => address.to_string(),
+        _ => listen,
+    };
     let auth = config.auth;
     let web_url = format_web_url(&listen, config.tls);
     let auth_token = control_state.auth_token.clone();

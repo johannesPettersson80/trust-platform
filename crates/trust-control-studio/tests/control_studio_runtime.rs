@@ -34,8 +34,8 @@ use trust_control_studio::runtime_client::RuntimeClient;
 use trust_control_studio::{loops, storage};
 
 use common::{
-    copy_dir, inspect_until_available, prepare_runtime_toml, run_trust_runtime, start_runtime,
-    wait_for_status, RemoveDir, DEADLINE, TOKEN,
+    control_socket, copy_dir, inspect_until_available, prepare_runtime_toml, run_trust_runtime,
+    start_runtime, wait_for_status, RemoveDir, DEADLINE, TOKEN,
 };
 
 const EXAMPLE: &str = concat!(
@@ -55,12 +55,7 @@ fn opens_inspects_records_keeps_and_releases_on_a_real_runtime() {
     let _remove = RemoveDir(folder.clone());
     let project = folder.join("project");
     copy_dir(Path::new(EXAMPLE), &project);
-    let socket = project.join(".control.sock");
-    assert!(
-        socket.as_os_str().len() <= 100,
-        "the socket path {} is too long; use a shorter TMPDIR",
-        socket.display()
-    );
+    let socket = control_socket(&project);
     prepare_runtime_toml(&project, &socket);
     run_trust_runtime(&["build", "--project", &project.display().to_string()]);
 

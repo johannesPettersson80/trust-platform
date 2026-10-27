@@ -272,9 +272,7 @@ impl SymbolCollector<'_> {
                 }
             }
             Type::Struct { fields, .. } => {
-                if self.temporal_storage == TemporalStorage::Uniform64
-                    && fields.iter().any(|field| field.address.is_some())
-                {
+                if fields.iter().any(|field| field.address.is_some()) {
                     let mut end = 0u128;
                     for field in fields {
                         let address = field.address.as_deref()?;
@@ -312,7 +310,6 @@ impl SymbolCollector<'_> {
             Type::WString {
                 max_len: Some(max_len),
             } => u64::from(*max_len).checked_mul(2),
-            Type::Time | Type::Date | Type::Tod | Type::Dt => Some(self.temporal_storage.bytes()),
             Type::Pointer { .. } | Type::Reference { .. } => {
                 Some(POINTER_REFERENCE_HANDLE_SIZE_BYTES)
             }

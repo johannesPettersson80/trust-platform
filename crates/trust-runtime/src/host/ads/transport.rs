@@ -102,6 +102,37 @@ impl fmt::Display for AdsTransportError {
 
 impl std::error::Error for AdsTransportError {}
 
+/// A failed index-group read: the target answered with an ADS error, or no usable reply came back.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AdsIndexReadError {
+    /// The target answered with this ADS error code and the code's name.
+    Ads { code: u32, description: String },
+    /// The connection failed, closed, or gave no usable reply.
+    Transport(String),
+}
+
+impl fmt::Display for AdsIndexReadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Ads { code, description } => write!(f, "ADS error {code:#x}: {description}"),
+            Self::Transport(message) => f.write_str(message),
+        }
+    }
+}
+
+/// A read-only index-group read over a connected ADS transport. It has no write, so a caller
+/// that holds only this seam cannot change the target (specification 11, O20).
+pub trait AdsIndexRead {
+    /// Reads from `index_offset` of `index_group` into `buffer` and returns the bytes the target
+    /// sent.
+    fn read_index(
+        &mut self,
+        index_group: u32,
+        index_offset: u32,
+        buffer: &mut [u8],
+    ) -> Result<usize, AdsIndexReadError>;
+}
+
 pub trait AdsTransport {
     fn connect(&mut self) -> Result<(), AdsTransportError>;
     fn disconnect(&mut self) -> Result<(), AdsTransportError>;

@@ -22,7 +22,9 @@
     "src/controlStudio/webview/**/*.ts",
     "src/hmiBuilder/display/webview/**/*.ts",
     "src/hmiBuilder/editor/webview/**/*.ts",
-    "src/hmiBuilder/editor/webview/**/*.tsx"
+    "src/hmiBuilder/editor/webview/**/*.tsx",
+    "src/devicesPanel/webview/**/*.ts",
+    "src/devicesPanel/webview/**/*.tsx"
   ],
   "exclude": [
     "node_modules",

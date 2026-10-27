@@ -204,6 +204,16 @@ catalog_test_id = "TEST_RELEASE_SOURCE_BUILD_TRACE_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_015194B2C0732782DE76"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-platform-esp32/tests/chip_file.rs"
+name = "the_instruction_set_of_the_chip_file_is_the_one_the_firmware_checks_at_boot"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_01738D1F280F23FE73C5"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-plcopen/src/plcopen/tests/semantic_export_contract.rs"
@@ -612,6 +622,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_03FB20D6EDCED3298BDD"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "the_sources_name_their_documents_and_where_values_were_measured"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_0406A06BEAB076654E1A"
@@ -1072,6 +1092,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_0719F34CFA3F057F2205"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-platform-stm32f4/tests/chip_file.rs"
+name = "the_f407_chip_table_has_the_identity_clock_and_memory_of_the_chip_file"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_071D080A80B525F9344F"
@@ -1704,6 +1734,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_0A7218F1E31D2C654128"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-core/src/ports.rs"
+name = "instant_and_span_arithmetic_saturates_and_never_goes_negative"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_0A7BF32F17C90B0F3E9E"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/harness/coerce_contract_tests.rs"
@@ -1912,6 +1952,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_0B876FCD91BE28C2EF91"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "an_overrunning_scan_follows_the_watchdog_action"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_0B99FDCBB6619CE54230"
@@ -2594,6 +2644,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_0FC115006F1F62CC79C3"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "a_pause_holds_the_scans_from_the_next_boundary_and_the_resume_reports_the_missed_activations"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_0FDE0651813D4BBE97E2"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-lsp/src/config/dependency_contract_tests.rs"
@@ -2682,6 +2742,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_1055DB2D7E27A8360280"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-platform-esp32/tests/chip_file.rs"
+name = "the_c6_profile_has_the_identity_clock_and_partitions_of_the_chip_file"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_1063801D01604BC3E73B"
@@ -2782,6 +2852,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_10FAE934AF432E8296A7"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-core/src/ports.rs"
+name = "a_time_value_becomes_a_span_only_when_it_is_not_negative"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_11083FC725D628FA2D58"
@@ -3264,6 +3344,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_12FF6AFBA9297BB2442B"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/timing_contract_tests.rs"
+name = "the_faulted_wait_takes_a_restart_at_its_next_poll_and_keeps_the_records"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_1314155F0CE1BE5BF80D"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/web/http_post_policy/contract_tests.rs"
@@ -3542,6 +3632,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_1451ECE15594305C05AB"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/catalog.rs"
+name = "two_files_of_one_name_are_refused"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_1457A9906F0797F91748"
@@ -4664,13 +4764,13 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
-discovery_id = "DISC_1A54FB3BD7AFBA32F5B0"
+discovery_id = "DISC_A0DC7334328B65BCFDBA"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/hot_reload.rs"
-name = "hot_reload_retain_migration_failure_preserves_live_runtime"
+name = "hot_reload_retained_value_that_does_not_fit_takes_its_initial_value"
 ignore_state = "not_ignored"
 disposition = "catalog_mapped"
-catalog_test_id = "TEST_AUTO_1A54FB3BD7AFBA32F5B0"
+catalog_test_id = "TEST_AUTO_A0DC7334328B65BCFDBA"
 last_reviewed = "2026-07-28"
 
 [[reviews]]
@@ -4952,6 +5052,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_1BDAE0E0A7B21D549E00"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "ram_regions_are_distinct_below_4_gib_and_apart_from_the_flash"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_1BF24C3528CDD049F69D"
@@ -7124,6 +7234,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_263D68C091BACE3F44EA"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "a_stop_attempts_both_steps_and_faults_with_the_first_failure"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_265444021E11E0C2B452"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/phase11_seam_contract.rs"
@@ -7162,6 +7282,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_VM_COERCION_FUNCTION_OUTPUT_WIDENING_001"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_266D6694D33B1B18EA04"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/catalog.rs"
+name = "the_catalog_holds_every_file_of_the_chips_directory"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_2688D261DB07DF820C3B"
@@ -7844,6 +7974,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_2A2C23A819CA4AAC7915"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-platform-stm32f4/tests/chip_file.rs"
+name = "the_f407_chip_table_has_the_ports_and_kept_pins_of_the_chip_file"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_2A3D91720CB33A5CF1F0"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-lsp/src/document_text/contract_tests.rs"
@@ -8154,6 +8294,36 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_2C493DAEC6EB62CB0C9E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "restarts_requested_together_coalesce_and_cold_keeps_precedence"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
+discovery_id = "DISC_2C4D6C1C0C31CCF8BB84"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "the_sectors_add_up_to_the_flash_below_4_gib"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
+discovery_id = "DISC_2C55A77E09D817F8042C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "fault_policy_restart_restarts_in_place_with_backoff_until_the_budget_is_spent"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_2C5B399B7FE2BBBF8C80"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/web/web_helpers/contract_tests.rs"
@@ -8382,6 +8552,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_2D9BC40F4BDC300236EE"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "each_interface_list_names_each_peripheral_once"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_2DA70F6537840928573C"
@@ -8614,6 +8794,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_2ECEEA4E899FC0408406"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "an_stm32f4_device_id_has_the_twelve_bits_of_dev_id"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_2EF333970C227C26B570"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-plcopen/src/plcopen/tests/project_model_contract.rs"
@@ -8834,6 +9024,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_30275025A2BA85CD36E5"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "both_real_files_are_accepted_and_survive_a_rewrite"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_3051A67AFAB8922002D7"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-plcopen/src/plcopen/tests/semantic_import_contract.rs"
@@ -9032,6 +9232,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_313362C92D4B4492B831"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/catalog.rs"
+name = "both_files_record_what_was_measured_on_the_owners_chips"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_314A078CF59E31EDDBE5"
@@ -9404,6 +9614,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_334267F34E9FB6AB8A9B"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runner_transcript_parity.rs"
+name = "the_single_thread_loop_answers_the_transcript_exactly_as_the_threaded_host"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_334A080D759F0E976846"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/control/status_handlers/event_contract_tests.rs"
@@ -9542,6 +9762,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_340DF753A96CB8611B9A"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "the_rust_target_is_of_the_familys_architecture"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_341F517AB5E4C0FB9DA2"
@@ -10574,6 +10804,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_3ACBD28903706CA3B871"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/catalog.rs"
+name = "a_component_names_the_chips_whose_firmware_holds_it"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_3AD22DAB902E4DC22D04"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/harness/compiler/variable_contract_tests.rs"
@@ -10652,6 +10892,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_3B4495F8C361BBFC3D6D"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "restart_from_stopped_starts_with_the_empty_records_of_a_new_process"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_3B57F5E40216294A1A02"
@@ -11654,6 +11904,16 @@ catalog_test_id = "TEST_IEC_STRING_FUNCTION_INOUT_REJECTION_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_40FD44DD00961461819C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "run_serves_until_a_port_fails_and_returns_the_failure"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_410323FB7819AE21B86F"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/web/ide/utils/analysis/contract_tests.rs"
@@ -12074,6 +12334,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_43193F794685EA94E2AD"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "texts_the_format_requires_are_not_empty"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_431C35B7BB70B5CE4ACA"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-syntax/tests/parser_action_contract.rs"
@@ -12242,6 +12512,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_43BF4410F592EB9D39D4"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "shutdown_while_faulted_keeps_the_fault_and_a_restart_starts_the_program_anew"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_43C2FF569D3EC0849567"
@@ -14184,6 +14464,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_4E4661CD5D32E8A6335F"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "the_retained_values_a_restart_dropped_are_recorded_at_the_programs_time"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_4E4B12E475E278B7C492"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-dev/src/docs/tests/discovery_contract.rs"
@@ -14244,6 +14534,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_4E8BB81C0D04886C90ED"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-platform-esp32/tests/chip_file.rs"
+name = "the_bench_module_flash_holds_the_whole_layout"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_4E8E4144D9AEFFEEE9C4"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs"
@@ -14302,6 +14602,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_4EBC1029CFEE7ACCC1E1"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/metrics/contract_tests.rs"
+name = "calls_whose_text_kind_name_is_the_same_share_one_entry"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_4EC1E2704E837E2B2330"
@@ -16424,6 +16734,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_5A51301EF00BE70089DF"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "no_memory_region_or_erase_unit_is_empty"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_5A83F98038D22DC3CF2D"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/connectors_status.rs"
@@ -16524,6 +16844,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_5B092EAFDA23A42D3875"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-core/src/ports.rs"
+name = "wake_tokens_compare_by_their_counter_value"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_5B2C186DD6F236ABE002"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/web/setup_support/contract_tests.rs"
@@ -16612,6 +16942,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_5BAE3BFF755DAFC6607D"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "a_source_path_names_a_key_of_the_file_outside_sources"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_5BB8AAA11262A9CCD1B6"
@@ -17534,6 +17874,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_61148230E939CAF6E2B4"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "each_family_counts_its_pins_in_its_own_key"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_6117892A8881C16FF37A"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/control/variable_handlers/contract_tests.rs"
@@ -17854,6 +18204,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_62E3068458D67C5B197D"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/events/contract_tests.rs"
+name = "wall_clock_readings_become_event_times_and_an_unset_clock_stays_unset"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_62E9CB7472736394A4DC"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-syntax/tests/parser_reference_contract.rs"
@@ -17954,6 +18314,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_63685A0150D32D8CDCBA"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "requests_are_served_between_scans_without_running_a_scan"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_6369C85EC8935422EECC"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/web/auth_helpers/contract_tests.rs"
@@ -17962,6 +18332,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_636CB8D8E6B5C60C383F"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/control/tests/authorization_trace.rs"
+name = "control_authorization_trace_cases"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_CONTROL_AUTHORIZATION_TRACE_001"
+last_reviewed = "2026-07-18"
 
 [[reviews]]
 discovery_id = "DISC_636E685979D8C4AA44FC"
@@ -18042,6 +18422,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_63C1EEAA8A83625FD3CB"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "an_unknown_key_is_refused_in_every_table"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_63DE0CB3EFF1AB073A2A"
@@ -19744,13 +20134,13 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
-discovery_id = "DISC_6D63E21F9D9B39D9AF6D"
+discovery_id = "DISC_F48BA48F6FB8942539AE"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/hot_reload.rs"
-name = "hot_reload_migrates_retain_and_resets_nonretain_and_instances"
+name = "hot_reload_keeps_retained_and_other_values_and_instances"
 ignore_state = "not_ignored"
 disposition = "catalog_mapped"
-catalog_test_id = "TEST_AUTO_6D63E21F9D9B39D9AF6D"
+catalog_test_id = "TEST_AUTO_F48BA48F6FB8942539AE"
 last_reviewed = "2026-07-28"
 
 [[reviews]]
@@ -19942,6 +20332,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_6F021E46F54AD6EA68CD"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "layout_regions_do_not_overlap_and_the_chip_starts_from_the_first"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_6F07682F7C946DA6BE9A"
@@ -20552,6 +20952,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_7227A7AF7D4AC09DD35D"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "safe_halt_applies_the_safe_outputs_and_reports_their_failure_with_its_root"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_724075E158536B7B36FE"
@@ -21532,6 +21942,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_774A7A0E57C84FC7A579"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/link_contract_tests.rs"
+name = "a_busy_link_cannot_hold_back_a_due_scan"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_775DD162712C30C68B0D"
@@ -22634,6 +23054,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_7D2DC1666A5664E69FAD"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "ports_are_letters_a_to_k_with_1_to_16_pins_listed_once"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_7D3EEFA2CCAA1BABA221"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/control/comm_handlers/capability_contract_tests.rs"
@@ -23294,6 +23724,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_8100E35B1EFC778B3B2C"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "the_layout_has_the_regions_of_its_family_and_no_others"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_8102AF4AC6C7A27841A4"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/debug/resolve/contract_tests.rs"
@@ -23524,6 +23964,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_82037BF366E0CC07D92C"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/fb_timers_full.rs"
+name = "timer_variants"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_IEC_TIMER_RUNTIME_VARIANTS_001"
+last_reviewed = "2026-07-18"
+
+[[reviews]]
 discovery_id = "DISC_820EE8CAB3DD38C2DBAE"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/retain_snapshot.rs"
@@ -23562,6 +24012,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_8244981D99F1D3812578"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "a_stop_drops_the_requests_before_it_and_a_restart_after_it_starts_the_program"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_824FDC081517880E54D1"
@@ -24594,6 +25054,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_8846FC9E6434D9FE87DC"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "power_on_runs_the_program_and_scans_on_the_cycle_beat"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_8848619D9CD8FED672F4"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/stdlib_helper_contract.rs"
@@ -24682,6 +25152,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_88D24CA6F2013AB95316"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "a_paused_program_stops_like_a_running_one_and_a_failed_start_faults"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_88E9E5442E09E15049EA"
@@ -26044,6 +26524,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_9012B9250C81B5C230B2"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "the_firmware_clock_and_the_crystals_lie_within_the_chips_limits"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_9013259ADE842AF5B9E2"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/debug/control/tests/state_stream_contract.rs"
@@ -26062,6 +26552,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_9019B07A4D7B28D67C7D"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/catalog.rs"
+name = "the_component_words_are_the_closed_list_of_appendix_h3"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_902361A55AC2BF4CC8DA"
@@ -26244,6 +26744,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_911597A197C1097E069F"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "a_missing_key_a_wrong_type_or_a_word_outside_a_closed_list_is_refused"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_912DBC79BB72DDBDFD8C"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/metrics_contract_tests.rs"
@@ -26332,6 +26842,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_91D1D908921E5AF41EAD"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/link_contract_tests.rs"
+name = "requests_the_device_does_not_serve_answer_unsupported_until_the_platform_serves_them"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_91E6B308BA7075CA0ACA"
@@ -26442,6 +26962,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_927D9278F566D9DD7D1A"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "a_clean_scan_renews_the_automatic_restart_budget"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_92806FAD2642EB1196E9"
@@ -27504,6 +28034,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_97D9AB370203B37A3DCC"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/resource/operations/contract_tests.rs"
+name = "a_device_without_an_operating_system_takes_a_restart_while_stopped"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_97E1E4C86EBC46DC89FC"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/harness/compiler/action_profile_contract_tests.rs"
@@ -28214,6 +28754,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_9C50B10F9167DC0ADC5E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/link_contract_tests.rs"
+name = "frames_that_cannot_be_request_lines_get_invalid_request_without_an_audit_record"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_9C66247D74AB254260F4"
 discovery_source_kind = "rust_integration_test"
 path = "crates/verification-cases/tests/release_evidence_trace_cases.rs"
@@ -28414,6 +28964,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_9D814CD188A5173672BB"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "restart_while_running_restarts_in_place_at_the_next_boundary_and_keeps_a_pause"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_9D8B2AF2786484B05C36"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/member_access_use_rejection.rs"
@@ -28482,6 +29042,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_9DC62C547895CF5C3B8E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-lsp/src/handlers/tests/core_part_05.rs"
+name = "lsp_did_close_unsaved_dependency_reverts_cross_file_semantics_to_disk"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_LSP_DOCUMENT_CLOSE_DISK_RELOAD_001"
+last_reviewed = "2026-07-18"
 
 [[reviews]]
 discovery_id = "DISC_9DCB4253FE9CDF509A3A"
@@ -29954,6 +30524,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_A52CC919C30AE4825299"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/timing_contract_tests.rs"
+name = "a_full_command_queue_refuses_a_command_with_resource_busy_as_trust_runtime_does"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_A52F22D5EE6E231B111B"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-syntax/tests/parser_partial_access_contract.rs"
@@ -30644,6 +31224,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_A8EB0CC35BB7E5C41BD9"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/dispatch/contract_tests.rs"
+name = "a_disabled_feature_event_has_no_time_while_the_wall_clock_is_not_set"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_A8EDD4677B496BFB6468"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ui/commands/contract_tests.rs"
@@ -30812,6 +31402,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_A99160170E9B5D4481B9"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/dispatch/contract_tests.rs"
+name = "a_reply_longer_than_the_link_moves_is_replaced_by_an_error_and_never_cut"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_A994671B91ECC9B1B150"
@@ -31054,6 +31654,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_AAD0CCFECCA381746326"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "a_scan_records_the_events_and_metrics_that_trust_runtime_records"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_AAD1BD5139CE7346B29A"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/simulation_contract_tests.rs"
@@ -31092,6 +31702,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_AB0611B65A43AD0C7C07"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/metrics/contract_tests.rs"
+name = "restart_clears_every_record_and_measures_uptime_with_the_new_clock"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_AB15FD1DE9EB680AA061"
@@ -31292,6 +31912,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_AC4BAD9C03A529390433"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "the_name_is_the_files_name_in_small_letters_and_digits"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_AC4E8A08E3E4CE658491"
@@ -31532,6 +32162,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_ADEA45677870DB64A3FA"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "the_rust_target_agrees_with_the_fpu_and_the_instruction_set"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_AE0121E2D8810945EBBB"
@@ -31964,6 +32604,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_B05A1560E9EAABF4704C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "stopped_and_faulted_resources_refuse_pause_and_resume_as_trust_runtime_does"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_B06A9449DE6EB3BFC3B7"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-dev/src/agent/contract_tests.rs"
@@ -32244,6 +32894,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_B24CD10D63B62350E0BC"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/catalog.rs"
+name = "the_esp32c6_file_describes_the_chip_of_appendix_d2"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_B254712EE60927F14875"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/web/config_ui_routes/workspace/contract_tests.rs"
@@ -32392,6 +33052,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_CONFORMANCE_EDGE_SEQUENCE_001"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_B3008746F3B983961E19"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "restart_from_stopped_starts_the_program_at_once_as_a_new_process_would"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_B3279408C74EE0102E2C"
@@ -33054,6 +33724,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_B78D4C67EB5DE7068AD6"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "a_layout_region_lies_inside_the_flash_on_erase_unit_boundaries"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_B7A3101067E7BABB2B54"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/harness/coerce_contract_tests.rs"
@@ -33184,6 +33864,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_B841F84D067087C58C57"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "a_failing_scan_halts_the_program_until_a_restart_recovers_it"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_B84BF9AD335A518F63DB"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-plcopen/src/plcopen/tests/project_model_contract.rs"
@@ -33224,6 +33914,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_B86330C1FFFBF67AE4E5"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/timing_contract_tests.rs"
+name = "at_a_poll_of_the_faulted_wait_a_restart_comes_before_a_stop"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_B86BE216AD90976F6B21"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/harness/lower/expression_operator_runtime_contract_tests.rs"
@@ -33242,6 +33942,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_B87B65AD40095B925E2F"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/timing_contract_tests.rs"
+name = "power_on_counts_logical_time_from_the_program_start_not_from_the_chip_reset"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_B8965054C1E61AAE3D92"
@@ -34262,6 +34972,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_BDFD46DFDBD972DF6BDE"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/resource/commands/contract_tests.rs"
+name = "reload_claim_codes_decode_to_their_state_and_nothing_else"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_BE1A94FDE7C7D6460519"
@@ -36004,6 +36724,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_C7C92660F06B7789FD25"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/catalog.rs"
+name = "the_stm32f407_file_describes_the_chip_of_appendix_d4"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_C7DA129A28650DD2357D"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/metrics_contract_tests.rs"
@@ -36902,6 +37632,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_CD1628D570217A55F884"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "the_firmware_is_a_crate_under_firmware_that_holds_the_engine"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_CD173CC22F3B09CAE518"
@@ -39594,6 +40334,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_DBDB6DB0695F35C09564"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "a_reserved_pin_is_a_pin_of_the_chip_listed_once"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_DBE569E6575D903D9519"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/harness/compiler/pou_object_contract_tests.rs"
@@ -39672,6 +40422,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_DC58CD03CA6CA63361BD"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/timing_contract_tests.rs"
+name = "the_loop_feeds_the_hardware_watchdog_in_every_state_and_never_waits_past_its_feed_interval"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_DC58D5E02F131174A879"
@@ -39892,6 +40652,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_DD923FE95FCE629CDB6A"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/link_contract_tests.rs"
+name = "the_access_rights_follow_the_peer_of_the_link"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_DDA759DC285FFED0BB01"
@@ -40944,6 +41714,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_E29E6A10BA3FDB67C795"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/link_contract_tests.rs"
+name = "a_reply_longer_than_the_link_moves_is_replaced_by_an_error_and_never_cut"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_E2B43550DA8DA6922BC0"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-lsp/src/index_cache/contract_tests.rs"
@@ -40962,6 +41742,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_E2D2F300DD6BA634D548"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/events/contract_tests.rs"
+name = "retained_value_changes_become_their_runtime_events_with_the_host_text"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_E2D6D67D3D4756612F17"
@@ -41344,6 +42134,16 @@ catalog_test_id = "TEST_VM_SUBRANGE_BOUNDS_TRANSACTION_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_E4E3C943BAE356E30C30"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "a_scan_the_engine_stops_at_its_deadline_faults_twice_as_on_the_host"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_E4E42500EC8A6DBA618F"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/simulation_contract_tests.rs"
@@ -41722,6 +42522,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_E71F0A7D37940DAAA6EC"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "each_family_describes_its_flash_in_its_own_table"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_E72EFAA018DAB54FAAC0"
@@ -43354,6 +44164,16 @@ catalog_test_id = "TEST_REVIEW_FIELD_RENAME_CROSS_FILE_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_EF779925EABE359749A3"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "a_source_path_is_listed_once_and_not_inside_another"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_EF795E128DA3EC9A4023"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-dev/src/docs/tests/discovery_contract.rs"
@@ -43514,6 +44334,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_F0C0DFA10D701D84575F"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "the_loop_waits_for_its_next_scan_or_a_wake_and_never_spins"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_F0CDB016ECC023180E5E"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/stdlib_fb_contract.rs"
@@ -43552,6 +44382,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_VM_COERCION_RETURN_WIDENING_001"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_F1086259733126D55DB2"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-platform-stm32f4/tests/chip_file.rs"
+name = "the_crystal_measurement_accepts_the_crystals_of_the_chip_file"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_F10B4DBA42214439C3C3"
@@ -43922,6 +44762,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_F348BE0FB839ABD6885A"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "a_failed_restart_faults_a_running_program_and_keeps_a_faulted_one_faulted"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_F3538B9BA1B04DB06D30"
@@ -44392,6 +45242,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_F5FA85C5345C07ECABB3"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "shutdown_stops_the_program_at_the_next_boundary_and_the_device_keeps_serving"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_F606E55679E4C3E88ECC"
@@ -46084,6 +46944,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_FDDAB0AEDDB069DF8BDF"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-core/src/ports.rs"
+name = "a_borrowed_clock_reads_the_same_clock"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_FDE1B5B9C014CC5BF7BC"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs"
@@ -46242,6 +47112,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_FEF4B9A477E6E5F2D5EE"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/catalog.rs"
+name = "a_refusal_names_the_file"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_FEF58248C1DF32B2A6C7"
@@ -46461,33 +47341,4 @@ name = "bounded_string_initializers_count_unicode_scalar_values"
 ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_IEC_STRING_UNICODE_LITERAL_BOUND_001"
-last_reviewed = "2026-07-18"
-[[reviews]]
-discovery_id = "DISC_636CB8D8E6B5C60C383F"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/control/tests/authorization_trace.rs"
-name = "control_authorization_trace_cases"
-ignore_state = "not_ignored"
-disposition = "catalog_mapped"
-catalog_test_id = "TEST_CONTROL_AUTHORIZATION_TRACE_001"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_82037BF366E0CC07D92C"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/fb_timers_full.rs"
-name = "timer_variants"
-ignore_state = "not_ignored"
-disposition = "catalog_mapped"
-catalog_test_id = "TEST_IEC_TIMER_RUNTIME_VARIANTS_001"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_9DC62C547895CF5C3B8E"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-lsp/src/handlers/tests/core_part_05.rs"
-name = "lsp_did_close_unsaved_dependency_reverts_cross_file_semantics_to_disk"
-ignore_state = "not_ignored"
-disposition = "catalog_mapped"
-catalog_test_id = "TEST_LSP_DOCUMENT_CLOSE_DISK_RELOAD_001"
 last_reviewed = "2026-07-18"

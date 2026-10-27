@@ -1,13 +1,3 @@
-fn control_request(kind: &str, params: Option<serde_json::Value>) -> ControlRequest {
-    ControlRequest {
-        id: 7,
-        r#type: kind.into(),
-        params,
-        auth: None,
-        request_id: None,
-    }
-}
-
 #[test]
 fn shutdown_prepares_success_before_signalling_resource_stop() {
     let state = control_test_state("PROGRAM Main END_PROGRAM");
@@ -16,7 +6,7 @@ fn shutdown_prepares_success_before_signalling_resource_stop() {
 
     assert!(response.ok, "shutdown response must be successful");
     assert!(
-        !state.resource.stop_requested(),
+        !state.resource.stop_requested() && !state.resource.program_stop_requested(),
         "resource stop must remain deferred until the response write boundary"
     );
 }
@@ -36,182 +26,57 @@ fn web_shutdown_dispatch_defers_resource_stop_until_transport_completion() {
     let serialized =
         write_then_complete_web_control_responses_port(&mut responses, &state, |responses| {
             assert!(
-                !state.resource.stop_requested(),
+                !state.resource.stop_requested() && !state.resource.program_stop_requested(),
                 "web dispatch must not stop the resource before the response write boundary"
             );
             serde_json::to_value(&responses[0]).expect("serialized web response")
         });
     assert_eq!(serialized["id"], json!(42));
     assert_eq!(serialized["result"]["status"], json!("stopping"));
+    // Decision Q11 on computers (18 October 2026), specification 34 STATE-08: `shutdown` stops the
+    // program and leaves the scan thread, so the process, running. Before it ended the thread.
+    assert!(
+        state.resource.program_stop_requested(),
+        "transport completion must apply the deferred program stop"
+    );
+    assert!(
+        !state.resource.stop_requested(),
+        "a plain shutdown must not end the scan thread"
+    );
+}
+
+#[test]
+fn the_explicit_exit_ends_the_scan_thread_only_after_the_response_is_written() {
+    // Specification 34 STATE-08: `shutdown` with `{"exit": true}` also ends the process. The reply
+    // is written first, and the exit is requested after it. Wrong behaviour: the exit is
+    // requested before the reply, or it is requested as the program stop alone.
+    let state = control_test_state("PROGRAM Main END_PROGRAM");
+
+    let response = dispatch_web_control_request_port(
+        json!({"id": 43, "type": "shutdown", "params": {"exit": true}}),
+        &state,
+        Some("web"),
+        None,
+    );
+    assert!(response.ok, "the explicit exit is answered like shutdown");
+    let mut responses = [response];
+    let serialized =
+        write_then_complete_web_control_responses_port(&mut responses, &state, |responses| {
+            assert!(
+                !state.resource.stop_requested(),
+                "the exit must wait for the response write boundary"
+            );
+            serde_json::to_value(&responses[0]).expect("serialized web response")
+        });
+    assert_eq!(serialized["result"]["status"], json!("stopping"));
     assert!(
         state.resource.stop_requested(),
-        "transport completion must apply the deferred resource stop"
+        "transport completion must apply the exit"
     );
 }
 
-#[test]
-fn access_capabilities_are_exact_for_each_role() {
-    for (role, mutation_allowed, reason) in [
-        (
-            AccessRole::Viewer,
-            false,
-            Some("Viewer role — connect with an engineer token to write or force."),
-        ),
-        (
-            AccessRole::Operator,
-            false,
-            Some("Operator role — connect with an engineer token to write or force."),
-        ),
-        (AccessRole::Engineer, true, None),
-        (AccessRole::Admin, true, None),
-    ] {
-        let access = access_capabilities_json(role);
-        assert_eq!(access["role"], json!(role.as_str()));
-        assert_eq!(access["io"]["write"], json!(mutation_allowed));
-        assert_eq!(access["io"]["force"], json!(mutation_allowed));
-        assert_eq!(access["io"]["release"], json!(mutation_allowed));
-        // Specification 39, decision 12: the legacy HMI write capability is removed.
-        assert!(access.get("hmi").is_none(), "{access}");
-        assert_eq!(
-            access["reason"],
-            reason.map_or(serde_json::Value::Null, |text| json!(text))
-        );
-    }
-}
-
-#[test]
-fn capability_reason_capitalization_handles_empty_ascii_and_unicode() {
-    assert_eq!(capitalize_role(""), "");
-    assert_eq!(capitalize_role("viewer"), "Viewer");
-    assert_eq!(capitalize_role("operator"), "Operator");
-    assert_eq!(capitalize_role("åskådare"), "Åskådare");
-}
-
-#[test]
-fn attaching_access_mutates_only_object_results() {
-    let mut object = ControlResponse::ok(1, json!({"status": "running"}));
-    attach_access_capabilities(&mut object, AccessRole::Viewer);
-    assert_eq!(
-        object
-            .result
-            .as_ref()
-            .and_then(|value| value.get("access"))
-            .and_then(|value| value.get("role")),
-        Some(&json!("viewer"))
-    );
-
-    let mut array = ControlResponse::ok(2, json!([]));
-    attach_access_capabilities(&mut array, AccessRole::Admin);
-    assert_eq!(array.result, Some(json!([])));
-
-    let mut scalar = ControlResponse::ok(3, json!("running"));
-    attach_access_capabilities(&mut scalar, AccessRole::Admin);
-    assert_eq!(scalar.result, Some(json!("running")));
-
-    let mut error = ControlResponse::error(4, "failed".into());
-    attach_access_capabilities(&mut error, AccessRole::Admin);
-    assert!(error.result.is_none());
-}
-
-#[test]
-fn credential_channel_classification_covers_complete_trust_partition() {
-    for client in [
-        None,
-        Some("unix"),
-        Some("loopback"),
-        Some("127.0.0.1:1"),
-        Some("127.255.255.255:65535"),
-        Some("[::1]:1"),
-    ] {
-        assert_eq!(
-            classify_comm_credential_channel(client),
-            "trusted_same_host",
-            "client={client:?}"
-        );
-    }
-    for client in [
-        Some(""),
-        Some("local"),
-        Some("localhost:1"),
-        Some("192.0.2.1:1"),
-        Some("[2001:db8::1]:1"),
-        Some("127.0.0.1"),
-        Some("tcp://127.0.0.1:1"),
-        Some("UNIX"),
-        Some(" unix"),
-    ] {
-        assert_eq!(
-            classify_comm_credential_channel(client),
-            "untrusted_remote_plain_tcp",
-            "client={client:?}"
-        );
-    }
-}
-
-#[test]
-fn credential_channel_is_injected_for_exact_communication_operations() {
-    for kind in [
-        "comm.apply",
-        "comm.test",
-        "comm.browse_symbols",
-        "ads.import_symbols.apply",
-    ] {
-        let mut request = control_request(kind, None);
-        stamp_comm_credential_channel(&mut request, Some("unix"));
-        assert_eq!(
-            request
-                .params
-                .as_ref()
-                .and_then(|params| params.get("credential_channel")),
-            Some(&json!("trusted_same_host")),
-            "kind={kind}"
-        );
-    }
-}
-
-#[test]
-fn credential_channel_replaces_caller_supplied_value() {
-    let mut request = control_request(
-        "comm.apply",
-        Some(json!({
-            "protocol": "modbus_tcp",
-            "credential_channel": "caller-controlled"
-        })),
-    );
-    stamp_comm_credential_channel(&mut request, Some("192.0.2.1:9000"));
-
-    let params = request.params.expect("params");
-    assert_eq!(params["protocol"], json!("modbus_tcp"));
-    assert_eq!(
-        params["credential_channel"],
-        json!("untrusted_remote_plain_tcp")
-    );
-}
-
-#[test]
-fn credential_channel_does_not_rewrite_nonobject_params() {
-    for params in [json!(null), json!([]), json!("params"), json!(7)] {
-        let mut request = control_request("comm.test", Some(params.clone()));
-        stamp_comm_credential_channel(&mut request, Some("unix"));
-        assert_eq!(request.params, Some(params));
-    }
-}
-
-#[test]
-fn credential_channel_is_not_injected_into_other_operations() {
-    for kind in [
-        "status",
-        "ads.import_symbols",
-        "comm.schema",
-        "comm.discover",
-        "io.write",
-    ] {
-        let original = Some(json!({"credential_channel": "caller"}));
-        let mut request = control_request(kind, original.clone());
-        stamp_comm_credential_channel(&mut request, Some("unix"));
-        assert_eq!(request.params, original, "kind={kind}");
-    }
-}
+// The access-capability and credential-channel tests moved with the request pipeline to
+// trust-runtime-services (`dispatch/contract_tests.rs`, `access/credential_channel/contract_tests.rs`).
 
 fn auth_state() -> ControlState {
     let mut state = control_test_state(

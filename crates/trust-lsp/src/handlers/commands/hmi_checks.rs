@@ -98,7 +98,7 @@ pub(super) fn check_value_with_context<C: ServerContext>(context: &C, args: Vec<
         Ok(project) => project,
         Err(message) => return refused(message),
     };
-    let metadata = project.runtime.metadata_snapshot();
+    let metadata = project.runtime.metadata();
     // The project's own symbols are components of its pages (§14.4).
     let catalogue = match super::hmi_symbols::project_catalogue(&project.root, &project.open) {
         Ok(catalogue) => catalogue,
@@ -106,12 +106,12 @@ pub(super) fn check_value_with_context<C: ServerContext>(context: &C, args: Vec<
     };
     let mut problems = match &faceplate {
         Some(faceplate) => {
-            check_faceplate(faceplate, &catalogue, &metadata, project.runtime.storage())
+            check_faceplate(faceplate, &catalogue, metadata, project.runtime.storage())
         }
         None => trust_runtime::hmi::binding_checks::check_page_with_remote(
             &page,
             &catalogue,
-            &metadata,
+            metadata,
             project.runtime.storage(),
             &args.remote,
         ),
@@ -144,6 +144,7 @@ pub(super) fn check_value_with_context<C: ServerContext>(context: &C, args: Vec<
                 "object": problem.object,
                 "property": problem.property,
                 "message": problem.message,
+                "point": problem.point,
             })
         })
         .collect::<Vec<_>>();
@@ -180,7 +181,7 @@ fn pair_value<C: ServerContext>(context: &C, args: &CheckArgs, file: &str) -> Va
             "line": line("faceplate"),
             "message": format!("the faceplate `{}` does not load: {}", pair.faceplate, errors.first().map(|error| error.message.clone()).unwrap_or_default()),
         })],
-        Some(Ok(faceplate)) => check_pair(&pair, &faceplate, &project.runtime.metadata_snapshot())
+        Some(Ok(faceplate)) => check_pair(&pair, &faceplate, project.runtime.metadata())
             .into_iter()
             .map(|problem| {
                 let at = match (&problem.field, &problem.binding) {
@@ -204,7 +205,7 @@ fn pair_value<C: ServerContext>(context: &C, args: &CheckArgs, file: &str) -> Va
             &String::from_utf8_lossy(bytes),
         )
     {
-        problems.extend(super::hmi_authoring::command_checks::check(&project.runtime.metadata_snapshot(),&pair,&panel).into_iter()
+        problems.extend(super::hmi_authoring::command_checks::check(project.runtime.metadata(),&pair,&panel).into_iter()
                     .map(|(object,message)|json!({"line":line("faceplate"),"object":object,"message":message})));
     }
     json!({ "ok": true, "problems": problems })
@@ -307,9 +308,8 @@ pub(super) fn bundle_value_with_context<C: ServerContext>(context: &C, args: Vec
             Vec::new()
         }
     };
-    let metadata = project.runtime.metadata_snapshot();
     let program = Program {
-        metadata: &metadata,
+        metadata: project.runtime.metadata(),
         storage: project.runtime.storage(),
     };
     problems.extend(

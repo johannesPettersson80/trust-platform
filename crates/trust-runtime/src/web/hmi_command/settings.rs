@@ -7,11 +7,11 @@
 //! Each write is audited. There is no provider, revision or request number.
 
 use super::*;
-use crate::hmi::access::policy::require_role;
+use crate::hmi::access::policy::{require_role, SETTINGS_ROLE};
+use crate::hmi::commands::program_checks;
 use crate::hmi::exchange::{SettingChange, SettingsJob, SettingsOutcome};
 use crate::hmi::page_files::HmiSetting;
 use crate::hmi::setting_values::{requested_write, shown_setting, ShownSetting};
-use crate::security::AccessRole;
 use crate::value::Value;
 
 /// The refusal when a value changed since the dialog read it.
@@ -113,8 +113,8 @@ impl Commands {
         session: Option<&SessionInfo>,
     ) -> Result<Json, Refusal> {
         let session = session.ok_or_else(|| Refusal::new("log in to change settings"))?;
-        // Engineers only (§21.4 item 1).
-        require_role(AccessRole::Engineer, session.role).map_err(Refusal::new)?;
+        // The settings role and above (§21.4 item 1).
+        require_role(SETTINGS_ROLE, session.role).map_err(Refusal::new)?;
         let target = self.settings_target(&request.faceplate)?;
         match request.action.as_str() {
             "read" => {
@@ -173,42 +173,42 @@ impl Commands {
         let before = self.settings_job(target, Vec::new())?;
         let mut changed = Vec::new();
         let mut changes = Vec::new();
-        {
-            let metadata = self
-                .control_state
-                .metadata
-                .lock()
-                .map_err(|_| Refusal::new("PLC metadata unavailable"))?;
-            for (member, requested) in &request.changes {
-                let index = target
-                    .settings
-                    .iter()
-                    .position(|setting| setting.member.eq_ignore_ascii_case(member))
-                    .ok_or_else(|| {
-                        Refusal::about(format!("{member} is not a setting of this panel"), member)
-                    })?;
-                let setting = &target.settings[index];
-                if changed.contains(&index) {
-                    return Err(Refusal::about(
-                        format!("{}: changed twice", setting.title),
-                        &setting.member,
-                    ));
-                }
-                let current = before.values[index].as_ref().ok_or_else(|| {
-                    Refusal::about(
-                        format!("{}: the value cannot be read", setting.title),
-                        &setting.member,
-                    )
+        // An enumeration's values are those the running program's type table declares
+        // (specification 44 §5.8), whatever the debugging switch.
+        let program = self.control_state.program_image();
+        for (member, requested) in &request.changes {
+            let index = target
+                .settings
+                .iter()
+                .position(|setting| setting.member.eq_ignore_ascii_case(member))
+                .ok_or_else(|| {
+                    Refusal::about(format!("{member} is not a setting of this panel"), member)
                 })?;
-                let write = requested_write(metadata.registry(), setting, current, requested)
-                    .map_err(|reason| Refusal::about(reason, &setting.member))?;
-                changed.push(index);
-                changes.push(SettingChange {
-                    path: member_path(&target.instance, &setting.member)?,
-                    unchanged: current.clone(),
-                    write,
-                });
+            let setting = &target.settings[index];
+            if changed.contains(&index) {
+                return Err(Refusal::about(
+                    format!("{}: changed twice", setting.title),
+                    &setting.member,
+                ));
             }
+            let current = before.values[index].as_ref().ok_or_else(|| {
+                Refusal::about(
+                    format!("{}: the value cannot be read", setting.title),
+                    &setting.member,
+                )
+            })?;
+            let path = member_path(&target.instance, &setting.member)?;
+            let unit = before.shown[index].unit.as_deref();
+            let write = requested_write(setting, unit, current, requested, |name| {
+                program_checks::member_enumeration(&program.as_ref()?.image(), &path, name)
+            })
+            .map_err(|reason| Refusal::about(reason, &setting.member))?;
+            changed.push(index);
+            changes.push(SettingChange {
+                path,
+                unchanged: current.clone(),
+                write,
+            });
         }
         // The values must still be the ones the dialog showed (§21.4 item 4).
         for &index in &changed {

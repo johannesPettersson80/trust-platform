@@ -20,6 +20,7 @@ use serde_json::{json, Value as JsonValue};
 use super::{ControlResponse, ControlState};
 use crate::debug::DebugControl;
 use crate::io::IoAddress;
+use crate::runtime::ProgramRead;
 use crate::value::Value;
 use trust_hir::TypeId;
 
@@ -265,6 +266,17 @@ pub(super) fn answer_live_write(
     write: impl FnOnce() -> Result<JsonValue, String>,
     error_code: &'static str,
 ) -> ControlResponse {
+    answer_live_write_coded(id, state, || {
+        write().map_err(|message| (message, error_code))
+    })
+}
+
+/// [`answer_live_write`] for a write whose refusals carry their own codes.
+pub(super) fn answer_live_write_coded(
+    id: u64,
+    state: &ControlState,
+    write: impl FnOnce() -> Result<JsonValue, (String, &'static str)>,
+) -> ControlResponse {
     let active = match state.experiments.active.lock() {
         Ok(active) => active,
         Err(_) => {
@@ -282,7 +294,7 @@ pub(super) fn answer_live_write(
     drop(active);
     match result {
         Ok(value) => ControlResponse::ok(id, value),
-        Err(message) => ControlResponse::error_with_code(id, message, error_code),
+        Err((message, error_code)) => ControlResponse::error_with_code(id, message, error_code),
     }
 }
 
@@ -350,25 +362,29 @@ pub(super) fn handle_start(
             "physical_approval_required",
         );
     }
-    let (task, interval) = match experiment_task(&params.task, state) {
+    // Read before the program is read and the target resolved: a reload that lands in between makes the start refuse
+    // rather than resolve a variable in a program the experiment would not be bound to.
+    let expected_epoch = state.debug.runtime_epoch();
+    let generation = state.debug.generation();
+    // The program as the last scan left it, which the task, the target and the mode are found in (specification 44
+    // §13.3).
+    let published = state.debug.published_program();
+    let program = published
+        .as_deref()
+        .map(|program| program as &dyn ProgramRead);
+    let (task, interval) = match experiment_task(&params.task, state, program) {
         Ok(task) => task,
         Err((message, code)) => return error(id, message, code),
     };
-
-    // Read before the target is resolved: a reload that lands in between makes the start refuse rather than
-    // resolve a variable in a program the experiment would not be bound to.
-    let expected_epoch = state.debug.runtime_epoch();
-    let target = {
-        let metadata = state.metadata.lock().ok();
-        match ExperimentTarget::decode(
-            params.address.as_deref(),
-            params.symbol.as_deref(),
-            &state.debug,
-            metadata.as_deref(),
-        ) {
-            Ok(target) => target,
-            Err((message, code)) => return error(id, message, code),
-        }
+    let target = match ExperimentTarget::decode(
+        params.address.as_deref(),
+        params.symbol.as_deref(),
+        &state.debug,
+        program,
+        generation,
+    ) {
+        Ok(target) => target,
+        Err((message, code)) => return error(id, message, code),
     };
     let declared_type = match params
         .value_type
@@ -413,7 +429,7 @@ pub(super) fn handle_start(
     let Some(started_scan) = snapshot.scan else {
         return error(id, "no completed runtime scan yet", "io_unavailable");
     };
-    if target.forced(&state.debug, &snapshot) {
+    if target.forced(&state.debug, program, &snapshot) {
         return error(id, "experiment signal is forced", "forced_signal");
     }
     if declared_type.is_some() && target.runtime_type(&snapshot) != declared_type {
@@ -439,7 +455,7 @@ pub(super) fn handle_start(
     // An observation never writes this signal, so a changing PV between review
     // and start is normal plant behavior rather than a restoration conflict.
     if params.kind != "observation"
-        && target.current(&state.debug, &snapshot).as_ref() != Some(&restoration_observed_value)
+        && target.observed(&snapshot, program).as_ref() != Some(&restoration_observed_value)
     {
         return error(
             id,
@@ -533,7 +549,7 @@ pub(super) fn handle_start(
     let mode =
         match (mode_requirement(&params.kind), params.mode_binding) {
             (Some(manual_required), Some(binding)) => {
-                match ModeBinding::start(binding, manual_required, &state.debug) {
+                match ModeBinding::start(binding, manual_required, program) {
                     Ok(mode) => Some(mode),
                     Err((message, code)) => return error(id, message, code),
                 }
@@ -623,11 +639,12 @@ pub(super) fn handle_start(
     )
 }
 
-/// The task an experiment follows and its period: the configured task's interval, or the resource cycle for the
-/// background programs (Specification 35, A3.5).
+/// The task an experiment follows and its period: the task's interval in `program`'s image, the program as the last scan
+/// left it, or the resource cycle for the background programs (Specification 35, A3.5).
 fn experiment_task(
     task: &str,
     state: &ControlState,
+    program: Option<&dyn ProgramRead>,
 ) -> Result<(String, Duration), (String, &'static str)> {
     if task.trim().is_empty() {
         return Err((
@@ -648,22 +665,16 @@ fn experiment_task(
             .cycle_interval;
         return Ok((BACKGROUND_TASK.to_string(), std_duration(cycle)));
     }
-    let metadata = state.metadata.lock().map_err(|_| {
+    let program = program.ok_or_else(|| {
         (
-            "runtime metadata unavailable".to_string(),
-            "experiment_state_unavailable",
+            "no completed runtime scan yet; the runtime's program is not known".to_string(),
+            "io_unavailable",
         )
     })?;
-    metadata
-        .tasks()
-        .iter()
+    crate::debug::control_program_tasks(&program.program_image())
+        .into_iter()
         .find(|configured| configured.name.eq_ignore_ascii_case(task))
-        .map(|configured| {
-            (
-                configured.name.to_string(),
-                std_duration(configured.interval),
-            )
-        })
+        .map(|configured| (configured.name.to_string(), configured.interval))
         .ok_or_else(|| {
             (
                 format!("experiment task {task} is not configured"),

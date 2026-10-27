@@ -225,11 +225,16 @@ export function buildGraph(
         endpointCount: rt.endpoints.length,
         plantCount: rt.plants?.length ?? 0,
         container: containerTag,
-        controlEndpoint: rt.controlEndpoint ?? controlEndpointFromSyntheticRuntimeId(rt.id),
+        controlEndpoint: rt.controlEndpoint,
         attached: rt.attached,
         managed: rt.managed,
         managedName: rt.managedName,
         runTarget: rt.runTarget,
+        identify: rt.identify,
+        // The node's controls and whether a search can start from it, as the language server
+        // gives them (specification 25 §5.15).
+        controls: rt.controls,
+        discovery: rt.discovery,
         simulationTimeScale: rt.simulationTimeScale,
         simulationAchievedTimeScale: rt.simulationAchievedTimeScale,
         simulationSpeedText: rt.simulationSpeedText,
@@ -267,6 +272,8 @@ export function buildGraph(
           live: ep.live,
           connector: ep.connector,
           params: ep.params,
+          browseTarget: ep.browseTarget,
+          adsSummary: ep.adsSummary,
           category: ep.category,
           profile: ep.profile,
           display_name: ep.display_name,
@@ -694,14 +701,4 @@ export function buildGraph(
   }
 
   return { nodes, edges };
-}
-
-function controlEndpointFromSyntheticRuntimeId(id: string): string | undefined {
-  const prefix = "fleet:";
-  const suffix = ":runtime";
-  if (!id.startsWith(prefix) || !id.endsWith(suffix)) {
-    return undefined;
-  }
-  const endpoint = id.slice(prefix.length, -suffix.length).trim();
-  return endpoint.length > 0 ? endpoint : undefined;
 }

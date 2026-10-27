@@ -97,7 +97,8 @@ pub struct Common {
     /// The project folder (default: the current folder).
     #[arg(long, value_name = "FOLDER")]
     pub project: Option<PathBuf>,
-    /// The runtime's control endpoint, `tcp://host:port` or `unix:///path` (default: the project's runtime.toml).
+    /// The runtime's control endpoint, `tcp://host:port` or `unix:///path` (default: the project's own runtime, as
+    /// `trust-runtime ctl --project <folder> endpoint` reports it).
     #[arg(long, value_name = "ENDPOINT", value_parser = parse_endpoint)]
     pub endpoint: Option<String>,
     /// The file that holds the runtime's control token. Its one trailing line break is not part of it.

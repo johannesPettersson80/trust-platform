@@ -31,6 +31,10 @@ include!("client.rs");
 include!("client_cache.rs");
 include!("client_bridge.rs");
 mod client_cycle_port;
+mod client_endpoints;
+#[cfg(feature = "opcua-wire")]
+pub(crate) use client_endpoints::endpoint_info_from_wire;
+pub use client_endpoints::OpcUaClientEndpointInfo;
 include!("client_worker.rs");
 
 #[cfg(test)]

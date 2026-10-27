@@ -95,7 +95,8 @@ Two thin adapters expose the same versioned contracts:
 
 1. VS Code tools via `contributes.languageModelTools` and `vscode.lm.registerTool`.
 2. A local MCP adapter for the Codex IDE client, forwarding to the active VS Code authoring
-   service. It must see the same unsaved documents, selection and draft state.
+   service. It must see the same unsaved documents, selection and draft state. Its MCP rules are
+   in `trust-lsp hmi-agent` (§3.1).
 
 The MCP bridge is opt-in, local-only, scoped to one selected VS Code window/workspace, with an
 unpredictable per-session capability and authenticated connection. Discovery must distinguish
@@ -114,6 +115,78 @@ The implementation architecture diagram shall show both adapters, document servi
 validation, renderer, draft store and editor transaction boundary. SOLID/KISS/DRY acceptance:
 small responsibility-specific modules, no file grown past roughly 1,000 lines, shared semantics
 across adapters, no second model orchestration layer.
+
+### 3.1 The MCP adapter: `trust-lsp hmi-agent` (26 October 2026)
+
+The MCP adapter is the stdio MCP server `trust-lsp hmi-agent <connection file>`, a subcommand of
+the language server binary that the extension already ships. It owns every rule of the MCP
+connection (AGENTS.md: all logic is in Rust): message form, protocol version, request ids, limits
+and cancellation. The extension's loopback (`agent/bridge.ts`) checks only the transport and
+invokes the VS Code tools. Rust tests: `crates/trust-lsp/src/hmi_agent_mcp/tests/`.
+
+The adapter lists the loopback's tools with its own annotations, whatever the loopback sends:
+`hmi_compose_page`, `hmi_edit_draft`, `hmi_apply_draft` and `hmi_preview_states` change the
+draft or the project and are not read-only, `hmi_apply_draft` writes the project's files and is
+destructive, every other tool only reads, and no tool reaches beyond the workspace
+(`openWorldHint` false).
+
+**Connection.** **HMI: Connect Agent Tools** starts one loopback per workspace of the window, on
+127.0.0.1 with an ephemeral port and a random 64-digit hexadecimal capability, and writes the
+connection file `{ "url", "capability", "workspaceId" }` with mode 600 into the extension's
+private storage. The configuration entry it shows names the trust-lsp binary that the extension
+launches as its language server, with the arguments `["hmi-agent", <connection file>]`. The
+server refuses a file that group or other users may access (Unix), a URL other than
+`http://127.0.0.1:<port>/mcp` without credentials, query or fragment, a capability other than 64
+lowercase hexadecimal digits, and an empty workspace. It then asks the loopback for its tools. When
+any of this fails, it writes "Unable to open the private HMI authoring connection. Connect from VS
+Code first." to standard error and ends with status 1; a usage error ends with status 2. At the end
+of standard input it waits until the calls in progress have answered and ends with status 0.
+
+**Messages.** Standard input carries one JSON-RPC 2.0 message per line, ended by `\n` or `\r\n`.
+Standard output carries only the answers, one per line, and never the capability. Parameters that
+are not an object are read as none.
+
+| Message | Answer |
+| --- | --- |
+| A line over 8 MiB (8,388,608 bytes before its line end), discarded unread | the failure answer below, id `null` |
+| Not JSON, or not UTF-8 | -32700 "Invalid JSON.", id `null` |
+| Not an object with `jsonrpc` "2.0" and a string `method`, a batch included | -32600 "Invalid request.", with its id when that is a string or a number, otherwise `null` |
+| An `id` that is not a string or a number | -32600 "Invalid request id.", id `null` |
+| A notification (no `id`) | none; `notifications/cancelled` cancels the call with its `requestId` |
+| `initialize` | `protocolVersion`: the client's when it is 2025-11-25, 2025-06-18, 2025-03-26 or 2024-11-05, otherwise 2025-11-25; `capabilities: { tools: {} }`; `serverInfo` `trust-hmi-authoring` 1.0.0; the instructions "Use the connected VS Code project's HMI tools. Inspect context and the visual library before editing. Render and inspect proposals, validate bindings, and review changes before applying. Authoring is separate from deployment and equipment operation." |
+| `ping` | `{}` |
+| `tools/list` | the loopback's tools as it listed them at the start: the `hmi_` language-model tools of `package.json`, defined once |
+| `tools/call` | the tool's result, after the checks below |
+| Any other method | -32601 "Unknown method." |
+
+**Tool calls.** `tools/call` checks, in this order: `name` is a listed tool (-32602 "Unknown
+authoring tool."); `arguments` is an object (-32602 "Tool arguments must be an object.");
+`arguments.workspaceId` is absent or the connection's workspace (-32602 "The tool belongs to
+another workspace."); no call with the same id is in progress and fewer than eight calls run
+(-32600 "Duplicate request id or too many active requests."). Ids are compared as JSON values, so
+7 and "7" are two ids. The call then runs with the connection's workspace set in its arguments, on
+its own thread, so that `ping` and cancellation are answered while calls run. Every other message
+is answered before the next line is read, so at most eight requests are in progress at once. A
+cancellation, or a call still running 120 seconds after it started, cancels the call at the
+loopback once; the tool then answers its cancellation, or its committed outcome (§4), as the
+call's result. The result is the tool's: `structuredContent`, `isError` and `content`, images
+included.
+
+**Failure.** A call whose exchange with the loopback fails is answered -32000 "HMI authoring
+connection unavailable or request limit exceeded. Reconnect in the selected VS Code window." with
+its id: the loopback cannot be reached, answers with a status other than 200, answers more than
+64 MiB counted in raw bytes, answers no JSON, or has not answered 125 seconds after the call
+started. The answer is read whole and parsed once complete (Repairs — 7 October 2026, item 3).
+
+**Loopback.** The loopback refuses a request with an `Origin` header (403), without the bearer
+capability (401, compared in constant time), on another path (404), with a method other than POST
+(405), without a JSON content type (415), with a body over 8 MiB (413), or with a body that is not
+the route's JSON object (400). Its routes: `POST /mcp/tools` answers `{ "tools" }`;
+`POST /mcp/call` with `{ "id", "name", "arguments" }` invokes the named VS Code tool for the
+loopback's own workspace, whatever the arguments name, and answers the tool's result (409 while a
+call with that id runs, 500 when the tool fails); `POST /mcp/cancel` with `{ "id" }` cancels the
+call with that id. The server gives each call its own id with a random prefix, so two servers on
+one connection never share one. The loopback holds no MCP rule.
 
 ## 4. Common tool contract
 
@@ -615,6 +688,11 @@ that marker only as an explicit subsequent change, still subject to normal engin
 Named simulation journeys are connected explicitly through **Connect Named HMI Simulator Journey**.
 The selected target must report simulation mode and expose a local HMI web endpoint. A physical
 mode, non-loopback endpoint, changed target or absent HMI endpoint is refused without fallback.
+`trust-lsp.hmiAgent.checkTarget` decides whether a target is a local simulator, when the journey
+is connected and before each of its requests: the target reports simulation mode, its HMI web
+address names `localhost`, `127.0.0.1` or `[::1]`, and its control endpoint is `tcp://` to one of
+those hosts with a port, `unix://` or `npipe:`. Without the language server's answer the target is
+refused.
 The user supplies a named simulator HMI login through the editor; credentials never become tool
 inputs or outputs. Context lists opaque session IDs and expiry. Sessions last at most ten minutes.
 `hmi_preview_states` may explicitly select `mode: simulator`, a `sessionId` and up to twelve steps.
@@ -666,9 +744,10 @@ record cold elapsed time separately. File and canvas editing shall not wait on d
 
 These repairs supersede conflicting statements above. Native tests: the draft store's Rust tests
 (`crates/trust-lsp/src/handlers/commands/hmi_agent/drafts_tests.rs`, `review_apply_tests.rs`), the pipe tests
-(`pipe_edits_tests.rs`, `pipe_rules_tests.rs`), and the extension's transport and editor-transaction suites
-`editors/vscode/src/test/suite/hmi-agent-mcp-utf8.test.ts` and `hmi-agent-apply.test.ts` (the TypeScript draft and pipe
-suites moved to Rust with the authoring operations, §3).
+(`pipe_edits_tests.rs`, `pipe_rules_tests.rs`), the stdio MCP server's tests (`crates/trust-lsp/src/hmi_agent_mcp/tests/`,
+§3.1) and the extension's editor-transaction suite `editors/vscode/src/test/suite/hmi-agent-apply.test.ts` (the
+TypeScript draft and pipe suites moved to Rust with the authoring operations, §3; the TypeScript stdio client and its
+UTF-8 suite moved to Rust with the MCP rules, §3.1).
 
 1. **Bounded draft storage.** Edit and creation receipts keep the committed revision, the file
    content hashes and the receipt data (object-level changes, findings, creation data); they
@@ -694,9 +773,9 @@ suites moved to Rust with the authoring operations, §3).
    re-versioning a page in an editor without changing its text is not a conflict. Disk reads
    drop a UTF-8 byte order mark, as the editor model does. Snapshot revisions still report the
    observed editor version with the content hash.
-3. **UTF-8 on the MCP connection.** The stdio client decodes each HTTP response body as one byte
-   stream, so a multi-byte character split across network chunks reaches the agent intact. The
-   response size limit counts raw bytes.
+3. **UTF-8 on the MCP connection.** The stdio server, `trust-lsp hmi-agent` (§3.1), reads each
+   loopback answer whole and parses it once complete, so a multi-byte character split across
+   network reads reaches the agent intact. The answer size limit counts raw bytes.
 4. **One pipe rule.** Agent pipe operations use the builder's own pipe editing. A port counts
    only when the canvas offers it: a catalogue port of an object on the page that the shared
    drawing places. Connect uses the canvas's `addPipe`: a pipe joins two different ports that

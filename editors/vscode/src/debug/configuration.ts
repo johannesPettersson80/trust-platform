@@ -1,22 +1,19 @@
-import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import {
   runtimeSourceOptionsForTarget,
   type RuntimeSourceOptions,
 } from "../runtimeSourceOptions";
+import {
+  resolveProjectControlEndpoint,
+  type ProjectControlEndpointResult,
+} from "../projectControlEndpoint";
+import { workspaceProjectDir } from "../runtimeConnection";
+import { projectRequest } from "../projectRequest";
 
 export const DEBUG_TYPE = "structured-text";
 const DEBUG_CHANNEL = "Structured Text Debugger";
-const ST_GLOB = "**/*.{st,ST,pou,POU}";
-const ST_EXCLUDE_GLOB = "**/{node_modules,target,.git}/**";
-const PRAGMA_SCAN_LINES = 20;
 const LAST_CONFIG_KEY = "trust-lsp.lastConfigurationUri";
-
-type RuntimeControlConfig = {
-  endpoint?: string;
-  authToken?: string;
-};
 
 let output: vscode.OutputChannel | undefined;
 let workspaceState: vscode.Memento | undefined;
@@ -59,263 +56,55 @@ export function runtimeSourceOptions(target?: vscode.Uri): RuntimeSourceOptions 
   return runtimeSourceOptionsForTarget(target);
 }
 
-function findRuntimeToml(folder?: vscode.WorkspaceFolder): string | undefined {
-  if (!folder) {
-    return undefined;
-  }
-  const root = folder.uri.fsPath;
-  const direct = path.join(root, "runtime.toml");
-  if (fs.existsSync(direct)) {
-    return direct;
-  }
-  const bundle = path.join(root, "bundle", "runtime.toml");
-  if (fs.existsSync(bundle)) {
-    return bundle;
-  }
-  return undefined;
-}
-
-export function loadRuntimeControlConfig(
+// The endpoint and token of a project's runtime come from `trust-runtime ctl --project <dir> endpoint
+// --json` (spec 11 §6.8.0a); the extension does not read runtime.toml for them.
+export async function resolveRuntimeControlForFolder(
+  bin: string,
   folder?: vscode.WorkspaceFolder
-): RuntimeControlConfig | undefined {
-  const runtimeToml = findRuntimeToml(folder);
-  if (!runtimeToml) {
-    return undefined;
+): Promise<ProjectControlEndpointResult> {
+  const projectDir = await workspaceProjectDir(folder);
+  if (!projectDir) {
+    return {
+      ok: false,
+      code: "no_project",
+      message: "Attach needs a project with runtime.toml in the workspace folder.",
+    };
   }
-  try {
-    const text = fs.readFileSync(runtimeToml, "utf8");
-    return parseRuntimeControl(text);
-  } catch {
-    return undefined;
-  }
+  return resolveProjectControlEndpoint(bin, projectDir);
 }
 
-function parseRuntimeControl(text: string): RuntimeControlConfig {
-  const config: RuntimeControlConfig = {};
-  let section = "";
-  const lines = text.split(/\r?\n/);
-  for (const raw of lines) {
-    const line = stripInlineComment(raw).trim();
-    if (!line) {
-      continue;
-    }
-    if (line.startsWith("[") && line.endsWith("]")) {
-      section = line.slice(1, -1).trim();
-      continue;
-    }
-    if (section !== "runtime.control") {
-      continue;
-    }
-    const match = line.match(/^([A-Za-z0-9_]+)\s*=\s*(.+)$/);
-    if (!match) {
-      continue;
-    }
-    const key = match[1];
-    const value = parseTomlString(match[2]);
-    if (!value) {
-      continue;
-    }
-    if (key === "endpoint") {
-      config.endpoint = value;
-    } else if (key === "auth_token") {
-      config.authToken = value;
-    }
-  }
-  return config;
-}
+const RUN_ENTRY_COMMAND = "trust-lsp.runEntry";
 
-function stripInlineComment(line: string): string {
-  let inSingle = false;
-  let inDouble = false;
-  for (let i = 0; i < line.length; i += 1) {
-    const ch = line[i];
-    if (ch === "'" && !inDouble) {
-      inSingle = !inSingle;
-    } else if (ch === '"' && !inSingle) {
-      inDouble = !inDouble;
-    } else if (ch === "#" && !inSingle && !inDouble) {
-      return line.slice(0, i);
-    }
-  }
-  return line;
-}
-
-function parseTomlString(value: string): string | undefined {
-  const trimmed = value.trim();
-  if (
-    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-    (trimmed.startsWith("'") && trimmed.endsWith("'"))
-  ) {
-    return trimmed.slice(1, -1);
-  }
-  return undefined;
-}
-
-async function findStructuredTextUris(): Promise<vscode.Uri[]> {
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders || workspaceFolders.length === 0) {
-    return [];
-  }
-  return vscode.workspace.findFiles(ST_GLOB, ST_EXCLUDE_GLOB);
-}
-
-async function readStructuredText(
-  uri: vscode.Uri
-): Promise<string | undefined> {
-  const openDoc = vscode.workspace.textDocuments.find(
-    (doc) => doc.uri.toString() === uri.toString()
-  );
-  if (openDoc) {
-    return openDoc.getText();
-  }
-  try {
-    const data = await vscode.workspace.fs.readFile(uri);
-    return new TextDecoder("utf-8").decode(data);
-  } catch {
-    return undefined;
-  }
-}
-
-function containsConfiguration(source: string): boolean {
-  return /\bCONFIGURATION\b/i.test(source);
-}
-
-async function findConfigurationUris(): Promise<vscode.Uri[]> {
-  const uris = await findStructuredTextUris();
-  const configs: vscode.Uri[] = [];
-  for (const uri of uris) {
-    const text = await readStructuredText(uri);
-    if (text && containsConfiguration(text)) {
-      configs.push(uri);
-    }
-  }
-  return configs;
-}
-
-export async function isConfigurationFile(uri: vscode.Uri): Promise<boolean> {
-  const text = await readStructuredText(uri);
-  return !!text && containsConfiguration(text);
-}
+// The simulator's entry is the language server's answer (`trust-lsp.runEntry`, specification 25 §11.6): which files declare
+// a CONFIGURATION and which one a session starts from, the PROGRAM types and the workspace folder of a default CONFIGURATION,
+// writing it, and whether a CONFIGURATION names only PROGRAM types the simulator's sources declare. This module asks, shows
+// the pickers and messages, and remembers the last choice.
 
 type ProgramTypeOption = {
   name: string;
   uri: vscode.Uri;
 };
 
-function buildGlobAlternation(globs: string[]): string | undefined {
-  const normalized = globs.map((glob) => glob.trim()).filter(Boolean);
-  if (normalized.length === 0) {
-    return undefined;
-  }
-  if (normalized.length === 1) {
-    return normalized[0];
-  }
-  return `{${normalized.join(",")}}`;
+type ProgramAnswer = { name: string; path: string };
+
+function workspaceFolderPaths(): string[] {
+  return (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri.fsPath);
 }
 
-async function hasRuntimeIgnorePragma(
-  uri: vscode.Uri,
-  pragmas: string[]
-): Promise<boolean> {
-  if (pragmas.length === 0) {
+function filePath(uri: vscode.Uri | undefined): string | undefined {
+  return uri?.scheme === "file" ? uri.fsPath : undefined;
+}
+
+export async function isConfigurationFile(uri: vscode.Uri): Promise<boolean> {
+  const path = filePath(uri);
+  if (!path) {
     return false;
   }
-  const text = await readStructuredText(uri);
-  if (!text) {
-    return false;
-  }
-  const lines = text.split(/\r?\n/).slice(0, PRAGMA_SCAN_LINES);
-  for (const line of lines) {
-    for (const pragma of pragmas) {
-      if (pragma && line.includes(pragma)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-async function collectRuntimeSourceUris(
-  target?: vscode.Uri
-): Promise<vscode.Uri[]> {
-  const runtimeOptions = runtimeSourceOptions(target);
-  const includeGlobs = runtimeOptions.runtimeIncludeGlobs ?? [];
-  const excludeGlobs = runtimeOptions.runtimeExcludeGlobs ?? [];
-  const ignorePragmas = runtimeOptions.runtimeIgnorePragmas ?? [];
-  const runtimeRoot = runtimeOptions.runtimeRoot;
-  if (!runtimeRoot) {
-    return [];
-  }
-  const baseUri = vscode.Uri.file(runtimeRoot);
-  const excludePattern = buildGlobAlternation(excludeGlobs);
-  const exclude = excludePattern
-    ? new vscode.RelativePattern(baseUri, excludePattern)
-    : undefined;
-  const patterns = includeGlobs.length > 0 ? includeGlobs : [ST_GLOB];
-
-  const candidates: vscode.Uri[] = [];
-  for (const include of patterns) {
-    const pattern = new vscode.RelativePattern(baseUri, include);
-    const matches = await vscode.workspace.findFiles(pattern, exclude);
-    candidates.push(...matches);
-  }
-
-  const unique = new Map<string, vscode.Uri>();
-  for (const candidate of candidates) {
-    unique.set(candidate.fsPath, candidate);
-  }
-  if (target?.fsPath) {
-    unique.set(target.fsPath, target);
-  }
-
-  const filtered: vscode.Uri[] = [];
-  for (const candidate of unique.values()) {
-    if (target && candidate.fsPath === target.fsPath) {
-      filtered.push(candidate);
-      continue;
-    }
-    if (await hasRuntimeIgnorePragma(candidate, ignorePragmas)) {
-      continue;
-    }
-    filtered.push(candidate);
-  }
-  return filtered;
-}
-
-function collectProgramTypesFromSource(
-  source: string,
-  uri: vscode.Uri
-): ProgramTypeOption[] {
-  const programRegex =
-    /\bPROGRAM\s+([A-Za-z_][A-Za-z0-9_]*)\b(?!\s+WITH\b)/gi;
-  const results: ProgramTypeOption[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = programRegex.exec(source)) !== null) {
-    const name = match[1];
-    if (name) {
-      results.push({ name, uri });
-    }
-  }
-  return results;
-}
-
-async function collectProgramTypes(
-  sourceUris?: vscode.Uri[]
-): Promise<ProgramTypeOption[]> {
-  const uris = sourceUris ?? (await collectRuntimeSourceUris());
-  const programs = new Map<string, ProgramTypeOption>();
-  for (const uri of uris) {
-    const text = await readStructuredText(uri);
-    if (!text) {
-      continue;
-    }
-    for (const entry of collectProgramTypesFromSource(text, uri)) {
-      if (!programs.has(entry.name)) {
-        programs.set(entry.name, entry);
-      }
-    }
-  }
-  return Array.from(programs.values());
+  const answer = await projectRequest<{ configuration: boolean }>(RUN_ENTRY_COMMAND, {
+    action: "declares",
+    path,
+  });
+  return answer.ok && answer.configuration;
 }
 
 function relativePathLabel(uri: vscode.Uri): string {
@@ -333,30 +122,6 @@ function isInteractiveMode(mode: SelectionMode): boolean {
   return mode === "interactive";
 }
 
-export function selectWorkspaceFolderPathForMode(
-  mode: SelectionMode,
-  folders: readonly string[],
-  preferredPath?: string,
-  activePath?: string
-): string | undefined {
-  if (preferredPath) {
-    return preferredPath;
-  }
-  if (folders.length === 0) {
-    return undefined;
-  }
-  if (folders.length === 1) {
-    return folders[0];
-  }
-  if (mode === "interactive") {
-    return undefined;
-  }
-  if (activePath && folders.includes(activePath)) {
-    return activePath;
-  }
-  return folders[0];
-}
-
 function programPicks(programs: ProgramTypeOption[]): Array<{
   label: string;
   description: string;
@@ -369,68 +134,52 @@ function programPicks(programs: ProgramTypeOption[]): Array<{
   }));
 }
 
+function programOption(program: ProgramAnswer): ProgramTypeOption {
+  return { name: program.name, uri: vscode.Uri.file(program.path) };
+}
+
 async function pickProgramTypeWithMode(
   mode: SelectionMode
 ): Promise<ProgramTypeOption | undefined> {
-  const preferred = preferredStructuredTextUri();
-  if (preferred) {
-    const text = await readStructuredText(preferred);
-    if (text) {
-      const programs = collectProgramTypesFromSource(text, preferred);
-      if (programs.length > 0) {
-        if (!isInteractiveMode(mode)) {
-          return programs[0];
-        }
-        if (programs.length === 1) {
-          return programs[0];
-        }
-        const picked = await vscode.window.showQuickPick(programPicks(programs), {
-          placeHolder: "Select the PROGRAM type to run.",
-          ignoreFocusOut: true,
-        });
-        return picked?.program;
-      }
+  const answer = await projectRequest<{ programs: ProgramAnswer[]; chosen: ProgramAnswer | null; note: string | null }>(
+    RUN_ENTRY_COMMAND,
+    {
+      action: "programs",
+      active: filePath(preferredStructuredTextUri()),
+      options: runtimeSourceOptions(),
+      interactive: isInteractiveMode(mode),
     }
-  }
-
-  const programs = await collectProgramTypes();
-  if (programs.length === 0) {
-    vscode.window.showErrorMessage(
-      "No PROGRAM declarations found to create a configuration."
-    );
+  );
+  if (!answer.ok) {
+    vscode.window.showErrorMessage(answer.error);
     return undefined;
   }
-  if (isInteractiveMode(mode)) {
-    const picked = await vscode.window.showQuickPick(programPicks(programs), {
-      placeHolder: "Select the PROGRAM type to run.",
-      ignoreFocusOut: true,
-    });
-    return picked?.program;
+  if (answer.note) {
+    debugChannel().appendLine(answer.note);
   }
-  programs.sort((a, b) => a.name.localeCompare(b.name));
-  if (programs.length > 1) {
-    debugChannel().appendLine(
-      `Multiple PROGRAM types found; using ${programs[0].name}.`
-    );
+  if (answer.chosen) {
+    return programOption(answer.chosen);
   }
-  return programs[0];
+  const picked = await vscode.window.showQuickPick(programPicks(answer.programs.map(programOption)), {
+    placeHolder: "Select the PROGRAM type to run.",
+    ignoreFocusOut: true,
+  });
+  return picked?.program;
 }
 
 async function pickWorkspaceFolderWithMode(
-  preferred: vscode.WorkspaceFolder | undefined,
+  program: ProgramTypeOption,
   mode: SelectionMode
 ): Promise<vscode.WorkspaceFolder | undefined> {
   const folders = vscode.workspace.workspaceFolders ?? [];
-  if (preferred) {
-    return preferred;
-  }
-  if (folders.length === 1) {
-    return folders[0];
-  }
-  if (folders.length === 0) {
-    return undefined;
-  }
-  if (isInteractiveMode(mode)) {
+  const answer = await projectRequest<{ folder: string | null; pick: boolean }>(RUN_ENTRY_COMMAND, {
+    action: "folder",
+    programPath: filePath(program.uri),
+    active: filePath(preferredStructuredTextUri()),
+    folders: workspaceFolderPaths(),
+    interactive: isInteractiveMode(mode),
+  });
+  if (answer.ok && answer.pick) {
     const picked = await vscode.window.showQuickPick(
       folders.map((folder) => ({
         label: folder.name,
@@ -444,64 +193,30 @@ async function pickWorkspaceFolderWithMode(
     );
     return picked?.folder;
   }
-  const active = preferredStructuredTextUri();
-  const activeFolderPath = active
-    ? vscode.workspace.getWorkspaceFolder(active)?.uri.fsPath
+  return answer.ok && answer.folder
+    ? folders.find((folder) => folder.uri.fsPath === answer.folder)
     : undefined;
-  const selectedPath = selectWorkspaceFolderPathForMode(
-    mode,
-    folders.map((folder) => folder.uri.fsPath),
-    undefined,
-    activeFolderPath
-  );
-  return folders.find((folder) => folder.uri.fsPath === selectedPath);
-}
-
-async function nextConfigurationUri(
-  folder: vscode.WorkspaceFolder
-): Promise<vscode.Uri> {
-  const baseName = "configuration";
-  for (let index = 0; index < 100; index += 1) {
-    const suffix = index === 0 ? "" : `_${index + 1}`;
-    const candidate = vscode.Uri.joinPath(
-      folder.uri,
-      `${baseName}${suffix}.st`
-    );
-    try {
-      await vscode.workspace.fs.stat(candidate);
-    } catch {
-      return candidate;
-    }
-  }
-  return vscode.Uri.joinPath(folder.uri, "configuration.st");
 }
 
 async function createDefaultConfigurationWithMode(
   program: ProgramTypeOption,
   mode: SelectionMode
 ): Promise<vscode.Uri | undefined> {
-  const preferredFolder = vscode.workspace.getWorkspaceFolder(program.uri);
-  const folder = await pickWorkspaceFolderWithMode(preferredFolder, mode);
+  const folder = await pickWorkspaceFolderWithMode(program, mode);
   if (!folder) {
     vscode.window.showErrorMessage("No workspace folder available.");
     return undefined;
   }
-
-  const configUri = await nextConfigurationUri(folder);
-  const content = [
-    "CONFIGURATION Conf",
-    "  RESOURCE Res ON PLC",
-    "    TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);",
-    `    PROGRAM P1 WITH MainTask : ${program.name};`,
-    "  END_RESOURCE",
-    "END_CONFIGURATION",
-    "",
-  ].join("\n");
-
-  await vscode.workspace.fs.writeFile(
-    configUri,
-    Buffer.from(content, "utf8")
-  );
+  const answer = await projectRequest<{ path: string }>(RUN_ENTRY_COMMAND, {
+    action: "create",
+    folder: folder.uri.fsPath,
+    program: program.name,
+  });
+  if (!answer.ok) {
+    vscode.window.showErrorMessage(answer.error);
+    return undefined;
+  }
+  const configUri = vscode.Uri.file(answer.path);
   if (isInteractiveMode(mode)) {
     const doc = await vscode.workspace.openTextDocument(configUri);
     await vscode.window.showTextDocument(doc, { preview: false });
@@ -520,76 +235,59 @@ function rememberConfiguration(uri: vscode.Uri | undefined): void {
   void workspaceState.update(LAST_CONFIG_KEY, uri.toString());
 }
 
-function pickConfigurationFromState(
-  configs: vscode.Uri[]
-): vscode.Uri | undefined {
+/** The CONFIGURATION file remembered from the last start, as a path. */
+function rememberedConfigurationPath(): string | undefined {
   const stored = workspaceState?.get<string>(LAST_CONFIG_KEY);
   if (!stored) {
     return undefined;
   }
-  return configs.find((config) => config.toString() === stored);
-}
-
-function pickConfigurationFromActiveFolder(
-  configs: vscode.Uri[]
-): vscode.Uri | undefined {
-  const active = preferredStructuredTextUri();
-  if (!active) {
+  try {
+    return filePath(vscode.Uri.parse(stored));
+  } catch {
     return undefined;
   }
-  const activeFolder = vscode.workspace.getWorkspaceFolder(active);
-  if (!activeFolder) {
-    return undefined;
-  }
-  const sameFolder = configs.filter(
-    (config) =>
-      vscode.workspace.getWorkspaceFolder(config)?.uri.fsPath ===
-      activeFolder.uri.fsPath
-  );
-  if (sameFolder.length === 1) {
-    return sameFolder[0];
-  }
-  return undefined;
 }
 
 async function ensureConfigurationEntryWithMode(
   mode: SelectionMode
 ): Promise<vscode.Uri | undefined> {
-  const configs = await findConfigurationUris();
-  if (configs.length === 1) {
-    rememberConfiguration(configs[0]);
-    return configs[0];
+  const answer = await projectRequest<{ configurations: string[]; chosen: string | null; note: string | null }>(
+    RUN_ENTRY_COMMAND,
+    {
+      action: "configurations",
+      folders: workspaceFolderPaths(),
+      remembered: rememberedConfigurationPath(),
+      active: filePath(preferredStructuredTextUri()),
+      interactive: isInteractiveMode(mode),
+    }
+  );
+  if (!answer.ok) {
+    vscode.window.showErrorMessage(answer.error);
+    return undefined;
   }
-  if (configs.length > 1) {
-    if (isInteractiveMode(mode)) {
-      const picked = await vscode.window.showQuickPick(
-        configs.map((config) => ({
-          label: path.basename(config.fsPath),
-          description: relativePathLabel(config),
-          uri: config,
-        })),
-        {
-          placeHolder: "Multiple CONFIGURATION files found. Select one to run.",
-          ignoreFocusOut: true,
-        }
-      );
-      if (picked?.uri) {
-        rememberConfiguration(picked.uri);
+  if (answer.chosen) {
+    if (answer.note) {
+      debugChannel().appendLine(answer.note);
+    }
+    const chosen = vscode.Uri.file(answer.chosen);
+    rememberConfiguration(chosen);
+    return chosen;
+  }
+  if (answer.configurations.length > 0) {
+    const picked = await vscode.window.showQuickPick(
+      answer.configurations.map((configPath) => {
+        const uri = vscode.Uri.file(configPath);
+        return { label: path.basename(configPath), description: relativePathLabel(uri), uri };
+      }),
+      {
+        placeHolder: "Multiple CONFIGURATION files found. Select one to run.",
+        ignoreFocusOut: true,
       }
-      return picked?.uri;
-    }
-    const fromState = pickConfigurationFromState(configs);
-    if (fromState) {
-      return fromState;
-    }
-    const fromActive = pickConfigurationFromActiveFolder(configs);
-    const picked =
-      fromActive ?? configs.sort((a, b) => a.fsPath.localeCompare(b.fsPath))[0];
-    debugChannel().appendLine(
-      `Multiple CONFIGURATION files found; using ${picked.fsPath}.`
     );
-    rememberConfiguration(picked);
-    return picked;
+    if (picked?.uri) {
+      rememberConfiguration(picked.uri);
+    }
+    return picked?.uri;
   }
 
   if (isInteractiveMode(mode)) {
@@ -640,48 +338,20 @@ export async function __testCreateDefaultConfigurationAuto(
   );
 }
 
-function extractProgramTypesFromConfiguration(source: string): string[] {
-  const regex =
-    /\bPROGRAM\s+[A-Za-z_][A-Za-z0-9_]*(?:\s+WITH\s+[A-Za-z_][A-Za-z0-9_]*)?\s*:\s*([A-Za-z_][A-Za-z0-9_\.]*)/gi;
-  const types: string[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(source)) !== null) {
-    if (match[1]) {
-      types.push(match[1]);
-    }
-  }
-  return types;
-}
-
 export async function validateConfiguration(
   configUri: vscode.Uri
 ): Promise<boolean> {
-  const text = await readStructuredText(configUri);
-  if (!text) {
-    vscode.window.showErrorMessage("Failed to read CONFIGURATION file.");
+  const answer = await projectRequest<{ problem: string | null }>(RUN_ENTRY_COMMAND, {
+    action: "check",
+    program: configUri.fsPath,
+    options: runtimeSourceOptions(configUri),
+  });
+  if (!answer.ok) {
+    vscode.window.showErrorMessage(answer.error);
     return false;
   }
-  const types = extractProgramTypesFromConfiguration(text);
-  if (types.length === 0) {
-    vscode.window.showErrorMessage(
-      "CONFIGURATION has no PROGRAM entries. Add a PROGRAM binding."
-    );
-    return false;
-  }
-  const sourceUris = await collectRuntimeSourceUris(configUri);
-  const programTypes = await collectProgramTypes(sourceUris);
-  const available = new Set(
-    programTypes.map((entry) => entry.name.toUpperCase())
-  );
-  const missing = types.filter(
-    (typeName) => !available.has(typeName.toUpperCase())
-  );
-  if (missing.length > 0) {
-    vscode.window.showErrorMessage(
-      `Unknown PROGRAM type(s): ${missing.join(
-        ", "
-      )}. Check that the file defining them is in the workspace and included in runtime sources.`
-    );
+  if (answer.problem) {
+    vscode.window.showErrorMessage(answer.problem);
     return false;
   }
   return true;

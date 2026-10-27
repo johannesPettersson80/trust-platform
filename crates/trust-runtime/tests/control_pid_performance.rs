@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
-use trust_runtime::harness::{CompileSession, SourceFile};
+use trust_runtime::harness::{CompileSession, SourceFile, TestHarness};
 use trust_runtime::io::IoAddress;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
 const REFERENCE_KP: f64 = 0.667;
 const REFERENCE_KI: f64 = 0.667;
@@ -71,18 +71,15 @@ fn temp_simulation_path(name: &str) -> PathBuf {
     ))
 }
 
-fn read_lreal(runtime: &Runtime, address: &IoAddress) -> f64 {
-    match runtime
-        .io()
-        .read(address)
-        .expect("read LREAL process image")
-    {
+fn read_lreal(runtime: &CompiledRuntime, address: &IoAddress) -> f64 {
+    match runtime.read_io(address).expect("read LREAL process image") {
         Value::LWord(bits) => f64::from_bits(bits),
+        Value::LReal(value) => value,
         other => panic!("expected LWORD storage for LREAL binding, got {other:?}"),
     }
 }
 
-fn write_lreal(runtime: &mut Runtime, address: &IoAddress, value: f64) {
+fn write_lreal(runtime: &mut CompiledRuntime, address: &IoAddress, value: f64) {
     runtime
         .write_io(address, Value::LWord(value.to_bits()))
         .expect("write LREAL process-image bits");
@@ -249,16 +246,18 @@ fn run_loop_with_intervals(
     let nominal_cycle_time =
         intervals_ms.iter().sum::<i64>() as f64 / intervals_ms.len() as f64 / 1_000.0;
     let source = controller_source(controller, nominal_cycle_time, setpoint_body);
-    let mut runtime = CompileSession::from_sources(vec![
-        SourceFile::with_path(
-            "Control/control.st",
-            include_str!("../../../libraries/control/src/control.st"),
-        ),
-        SourceFile::with_path("main.st", source),
-    ])
-    .label_errors(true)
-    .build_runtime()
-    .unwrap_or_else(|error| panic!("compile {name} Control.PID fixture: {error}"));
+    let mut runtime = TestHarness::from_session(
+        CompileSession::from_sources(vec![
+            SourceFile::with_path(
+                "Control/control.st",
+                include_str!("../../../libraries/control/src/control.st"),
+            ),
+            SourceFile::with_path("main.st", source),
+        ])
+        .label_errors(true),
+    )
+    .unwrap_or_else(|error| panic!("compile {name} Control.PID fixture: {error}"))
+    .into_runtime();
 
     let path = temp_simulation_path(name);
     std::fs::write(&path, plant_configuration).expect("write plant configuration");

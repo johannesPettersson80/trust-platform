@@ -39,6 +39,21 @@ pub enum CommAction {
         #[arg(long, action = ArgAction::SetTrue)]
         json: bool,
     },
+    /// Run the comm.test request from this host and print its answer.
+    Test {
+        /// Project folder directory.
+        #[arg(long = "project", alias = "bundle")]
+        project: PathBuf,
+        /// Communication protocol id, for example modbus-tcp, mqtt or simulated.
+        #[arg(long)]
+        protocol: String,
+        /// JSON object containing protocol parameters.
+        #[arg(long)]
+        params: String,
+        /// Print machine-readable JSON.
+        #[arg(long, action = ArgAction::SetTrue)]
+        json: bool,
+    },
     /// Discover communication targets and return setup-form parameters.
     ///
     /// Discovery confidence is explicit: `confirmed` means protocol proof,
@@ -72,6 +87,10 @@ pub enum CommAction {
         /// Optional Modbus safe read quantity, defaults to 1 when --probe-read-address is set.
         #[arg(long = "probe-read-quantity")]
         probe_read_quantity: Option<u16>,
+        /// ADS port probed on every ADS find. Repeat for several ports; without it the ports are
+        /// 301, 501, 851, 852, 853 and 854.
+        #[arg(long = "ads-port")]
+        ads_ports: Vec<u16>,
         /// Passive/read-only discovery. Active write probes are never used.
         #[arg(long, default_value_t = true, action = ArgAction::Set)]
         passive: bool,

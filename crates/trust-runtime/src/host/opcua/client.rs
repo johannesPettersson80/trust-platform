@@ -1,12 +1,5 @@
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct OpcUaClientEndpointInfo {
-    pub endpoint_url: String,
-    pub application_name: Option<String>,
-    pub security_policy: OpcUaSecurityPolicy,
-    pub security_mode: OpcUaMessageSecurityMode,
-    pub anonymous_supported: bool,
-    pub username_supported: bool,
-}
+#[cfg(feature = "opcua-wire")]
+mod client_browse;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OpcUaBrowseNode {
@@ -17,6 +10,15 @@ pub struct OpcUaBrowseNode {
     pub data_type: String,
     pub writable: bool,
     pub children: Vec<OpcUaBrowseNode>,
+}
+
+/// The browsed OPC UA tree and any depth or node bound that cut it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpcUaBrowseResult {
+    /// The tree under the OPC UA Objects folder.
+    pub nodes: Vec<OpcUaBrowseNode>,
+    /// Warnings naming a bound that limited the tree; empty when the whole tree was read.
+    pub warnings: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -213,6 +215,41 @@ pub fn classify_opcua_client_browse_error(error: &RuntimeError) -> OpcUaClientEr
 #[cfg(feature = "opcua-wire")]
 pub fn discover_opcua_client_endpoints(
     endpoint_url: &str,
+    timeout: std::time::Duration,
+) -> Result<Vec<OpcUaClientEndpointInfo>, RuntimeError> {
+    // The GetEndpoints call runs on its own thread, so a server that never answers cannot hold a
+    // search past its deadline; on timeout the thread is left to finish or die on its own.
+    let url = endpoint_url.to_string();
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let handle = std::thread::Builder::new()
+        .name("opcua-discover".to_string())
+        .spawn(move || {
+            let _ = sender.send(discover_opcua_client_endpoints_blocking(url.as_str()));
+        })
+        .map_err(|err| {
+            RuntimeError::ControlError(format!("start OPC UA discovery: {err}").into())
+        })?;
+    match receiver.recv_timeout(timeout) {
+        Ok(result) => {
+            let _ = handle.join();
+            result
+        }
+        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => Err(RuntimeError::ControlError(
+            format!(
+                "OPC UA discovery of {endpoint_url} did not answer within {} ms",
+                timeout.as_millis()
+            )
+            .into(),
+        )),
+        Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Err(RuntimeError::ControlError(
+            "OPC UA discovery ended without an answer".into(),
+        )),
+    }
+}
+
+#[cfg(feature = "opcua-wire")]
+fn discover_opcua_client_endpoints_blocking(
+    endpoint_url: &str,
 ) -> Result<Vec<OpcUaClientEndpointInfo>, RuntimeError> {
     let client = build_opcua_client(
         "truST OPC UA discovery",
@@ -222,16 +259,97 @@ pub fn discover_opcua_client_endpoints(
     let endpoints = client
         .get_server_endpoints_from_url(endpoint_url)
         .map_err(opcua_status_error)?;
-    Ok(endpoints
-        .into_iter()
-        .filter_map(endpoint_info_from_wire)
-        .collect::<Vec<_>>())
+    Ok(endpoints.into_iter().map(endpoint_info_from_wire).collect())
 }
 
 #[cfg(not(feature = "opcua-wire"))]
 pub fn discover_opcua_client_endpoints(
     _endpoint_url: &str,
+    _timeout: std::time::Duration,
 ) -> Result<Vec<OpcUaClientEndpointInfo>, RuntimeError> {
+    Err(opcua_wire_feature_error())
+}
+
+/// One server that a discovery server listed in its `FindServers` answer (specification 11,
+/// "Sources"): what it calls itself and the discovery URLs through which it can be asked for its
+/// endpoints.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct OpcUaFoundServer {
+    /// The server's application name, when it announces one.
+    pub(crate) application_name: Option<String>,
+    /// The discovery URLs it announces, in order.
+    pub(crate) discovery_urls: Vec<String>,
+}
+
+/// Asks the discovery server at `discovery_url` for the servers it lists, through `FindServers`.
+#[cfg(feature = "opcua-wire")]
+pub(crate) fn discover_opcua_discovery_servers(
+    discovery_url: &str,
+    timeout: std::time::Duration,
+) -> Result<Vec<OpcUaFoundServer>, RuntimeError> {
+    // The FindServers call runs on its own thread, so a discovery server that never answers cannot
+    // hold a search past its deadline; on timeout the thread is left to finish or die on its own.
+    let url = discovery_url.to_string();
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let handle = std::thread::Builder::new()
+        .name("opcua-find-servers".to_string())
+        .spawn(move || {
+            let _ = sender.send(find_servers_blocking(url.as_str()));
+        })
+        .map_err(|err| {
+            RuntimeError::ControlError(format!("start OPC UA FindServers: {err}").into())
+        })?;
+    match receiver.recv_timeout(timeout) {
+        Ok(result) => {
+            let _ = handle.join();
+            result
+        }
+        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => Err(RuntimeError::ControlError(
+            format!(
+                "OPC UA FindServers at {discovery_url} did not answer within {} ms",
+                timeout.as_millis()
+            )
+            .into(),
+        )),
+        Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Err(RuntimeError::ControlError(
+            "OPC UA FindServers ended without an answer".into(),
+        )),
+    }
+}
+
+#[cfg(feature = "opcua-wire")]
+fn find_servers_blocking(discovery_url: &str) -> Result<Vec<OpcUaFoundServer>, RuntimeError> {
+    let mut client = build_opcua_client(
+        "truST OPC UA discovery",
+        "urn:trust:runtime:opcua:discover",
+        false,
+    )?;
+    let servers = client
+        .find_servers(discovery_url)
+        .map_err(opcua_status_error)?;
+    Ok(servers.into_iter().map(found_server_from_wire).collect())
+}
+
+/// One server of a `FindServers` answer, as truST keeps it.
+#[cfg(feature = "opcua-wire")]
+fn found_server_from_wire(server: ::opcua::types::ApplicationDescription) -> OpcUaFoundServer {
+    OpcUaFoundServer {
+        application_name: localized_text(server.application_name),
+        discovery_urls: server
+            .discovery_urls
+            .unwrap_or_default()
+            .into_iter()
+            .map(|url| url.as_ref().trim().to_string())
+            .filter(|url| !url.is_empty())
+            .collect(),
+    }
+}
+
+#[cfg(not(feature = "opcua-wire"))]
+pub(crate) fn discover_opcua_discovery_servers(
+    _discovery_url: &str,
+    _timeout: std::time::Duration,
+) -> Result<Vec<OpcUaFoundServer>, RuntimeError> {
     Err(opcua_wire_feature_error())
 }
 
@@ -272,7 +390,7 @@ pub fn browse_opcua_client_nodes(
     trust_server_certificate: bool,
     max_depth: usize,
     max_nodes: usize,
-) -> Result<Vec<OpcUaBrowseNode>, RuntimeError> {
+) -> Result<OpcUaBrowseResult, RuntimeError> {
     let session = connect_opcua_client_session(
         endpoint_url,
         security,
@@ -281,20 +399,13 @@ pub fn browse_opcua_client_nodes(
         "truST OPC UA browse",
         "urn:trust:runtime:opcua:browse",
     )?;
-    let tree = {
+    let result = {
         let session = session.read();
-        browse_children(
-            &session,
-            ::opcua::types::NodeId::objects_folder_id(),
-            "",
-            0,
-            max_depth.max(1),
-            &mut 0,
-            max_nodes.max(1),
-        )?
+        let source = client_browse::SessionBrowseSource { session: &session };
+        client_browse::browse_tree(&source, max_depth.max(1), max_nodes.max(1))?
     };
     session.read().disconnect();
-    Ok(tree)
+    Ok(result)
 }
 
 #[cfg(not(feature = "opcua-wire"))]
@@ -305,7 +416,7 @@ pub fn browse_opcua_client_nodes(
     _trust_server_certificate: bool,
     _max_depth: usize,
     _max_nodes: usize,
-) -> Result<Vec<OpcUaBrowseNode>, RuntimeError> {
+) -> Result<OpcUaBrowseResult, RuntimeError> {
     Err(opcua_wire_feature_error())
 }
 
@@ -550,208 +661,12 @@ fn connect_opcua_client_session(
 }
 
 #[cfg(feature = "opcua-wire")]
-fn endpoint_info_from_wire(
-    endpoint: ::opcua::types::EndpointDescription,
-) -> Option<OpcUaClientEndpointInfo> {
-    let security_policy = security_policy_from_uri(endpoint.security_policy_uri.as_ref())?;
-    let security_mode = security_mode_from_wire(endpoint.security_mode)?;
-    let (anonymous_supported, username_supported) =
-        endpoint
-            .user_identity_tokens
-            .as_ref()
-            .map_or((false, false), |tokens| {
-                let anonymous = tokens.iter().any(|token| {
-                    matches!(token.token_type, ::opcua::types::UserTokenType::Anonymous)
-                });
-                let username = tokens.iter().any(|token| {
-                    matches!(token.token_type, ::opcua::types::UserTokenType::UserName)
-                });
-                (anonymous, username)
-            });
-    Some(OpcUaClientEndpointInfo {
-        endpoint_url: endpoint.endpoint_url.to_string(),
-        application_name: localized_text(endpoint.server.application_name),
-        security_policy,
-        security_mode,
-        anonymous_supported,
-        username_supported,
-    })
-}
-
-#[cfg(feature = "opcua-wire")]
-fn browse_children(
-    session: &::opcua::client::prelude::Session,
-    node_id: ::opcua::types::NodeId,
-    parent_path: &str,
-    depth: usize,
-    max_depth: usize,
-    count: &mut usize,
-    max_nodes: usize,
-) -> Result<Vec<OpcUaBrowseNode>, RuntimeError> {
-    if depth >= max_depth || *count >= max_nodes {
-        return Ok(Vec::new());
-    }
-    let Some(results) = session
-        .browse(&[::opcua::types::BrowseDescription {
-            node_id,
-            browse_direction: ::opcua::types::BrowseDirection::Forward,
-            reference_type_id: ::opcua::types::ReferenceTypeId::HierarchicalReferences.into(),
-            include_subtypes: true,
-            node_class_mask: (::opcua::types::NodeClassMask::OBJECT
-                | ::opcua::types::NodeClassMask::VARIABLE)
-                .bits(),
-            result_mask: ::opcua::types::BrowseDescriptionResultMask::all().bits(),
-        }])
-        .map_err(opcua_status_error)?
-    else {
-        return Ok(Vec::new());
-    };
-    let Some(result) = results.first() else {
-        return Ok(Vec::new());
-    };
-    let references = result.references.clone().unwrap_or_default();
-    let mut nodes = Vec::new();
-    for reference in references {
-        if *count >= max_nodes {
-            break;
-        }
-        let node_id = reference.node_id.node_id.clone();
-        if node_id.is_null() {
-            continue;
-        }
-        let name = localized_text(reference.display_name)
-            .unwrap_or_else(|| reference.browse_name.name.to_string());
-        let path = if parent_path.is_empty() {
-            name.clone()
-        } else {
-            format!("{parent_path}/{name}")
-        };
-        let is_variable = reference.node_class == ::opcua::types::NodeClass::Variable;
-        let (data_type_id, data_type, writable) = if is_variable {
-            variable_metadata(session, node_id.clone())
-        } else {
-            ("Object".to_string(), "object".to_string(), false)
-        };
-        *count += 1;
-        let children = browse_children(
-            session,
-            node_id.clone(),
-            path.as_str(),
-            depth + 1,
-            max_depth,
-            count,
-            max_nodes,
-        )?;
-        nodes.push(OpcUaBrowseNode {
-            id: node_id.to_string(),
-            name,
-            path,
-            data_type_id,
-            data_type,
-            writable,
-            children,
-        });
-    }
-    Ok(nodes)
-}
-
-#[cfg(feature = "opcua-wire")]
-fn variable_metadata(
-    session: &::opcua::client::prelude::Session,
-    node_id: ::opcua::types::NodeId,
-) -> (String, String, bool) {
-    let values = session
-        .read(
-            &[
-                ::opcua::types::ReadValueId {
-                    node_id: node_id.clone(),
-                    attribute_id: ::opcua::types::AttributeId::DataType as u32,
-                    index_range: ::opcua::types::UAString::null(),
-                    data_encoding: ::opcua::types::QualifiedName::null(),
-                },
-                ::opcua::types::ReadValueId {
-                    node_id,
-                    attribute_id: ::opcua::types::AttributeId::UserAccessLevel as u32,
-                    index_range: ::opcua::types::UAString::null(),
-                    data_encoding: ::opcua::types::QualifiedName::null(),
-                },
-            ],
-            ::opcua::types::TimestampsToReturn::Neither,
-            0.0,
-        )
-        .unwrap_or_default();
-    let data_type_id = values
-        .first()
-        .and_then(|value| value.value.as_ref())
-        .map(|value| value.to_string())
-        .unwrap_or_else(|| "Value".to_string());
-    let data_type = opcua_data_type_for_apply(data_type_id.as_str())
-        .map(str::to_string)
-        .unwrap_or_else(|| "unknown".to_string());
-    let writable = values
-        .get(1)
-        .and_then(|value| value.value.as_ref())
-        .and_then(|value| match value {
-            ::opcua::types::Variant::Byte(bits) => Some(bits & 0b10 != 0),
-            ::opcua::types::Variant::UInt16(bits) => Some(bits & 0b10 != 0),
-            ::opcua::types::Variant::UInt32(bits) => Some(bits & 0b10 != 0),
-            _ => None,
-        })
-        .unwrap_or(false);
-    (data_type_id, data_type, writable)
-}
-
-#[cfg(feature = "opcua-wire")]
-fn opcua_data_type_for_apply(data_type_id: &str) -> Option<&'static str> {
-    match data_type_id {
-        "i=1" | "ns=0;i=1" => Some("bool"),
-        "i=2" | "ns=0;i=2" | "i=4" | "ns=0;i=4" => Some("int16"),
-        "i=3" | "ns=0;i=3" | "i=5" | "ns=0;i=5" => Some("uint16"),
-        "i=6" | "ns=0;i=6" => Some("int32"),
-        "i=7" | "ns=0;i=7" => Some("uint32"),
-        "i=8" | "ns=0;i=8" => Some("int64"),
-        "i=9" | "ns=0;i=9" => Some("uint64"),
-        "i=10" | "ns=0;i=10" => Some("float"),
-        "i=11" | "ns=0;i=11" => Some("double"),
-        "i=12" | "ns=0;i=12" => Some("string"),
-        _ => None,
-    }
-}
-
-#[cfg(feature = "opcua-wire")]
 fn localized_text(value: ::opcua::types::LocalizedText) -> Option<String> {
     let text = value.to_string();
     if text.trim().is_empty() {
         None
     } else {
         Some(text)
-    }
-}
-
-#[cfg(feature = "opcua-wire")]
-fn security_policy_from_uri(uri: &str) -> Option<OpcUaSecurityPolicy> {
-    if uri.ends_with("#None") {
-        Some(OpcUaSecurityPolicy::None)
-    } else if uri.ends_with("#Basic256Sha256") {
-        Some(OpcUaSecurityPolicy::Basic256Sha256)
-    } else if uri.ends_with("#Aes128_Sha256_RsaOaep") {
-        Some(OpcUaSecurityPolicy::Aes128Sha256RsaOaep)
-    } else {
-        None
-    }
-}
-
-#[cfg(feature = "opcua-wire")]
-fn security_mode_from_wire(
-    mode: ::opcua::types::MessageSecurityMode,
-) -> Option<OpcUaMessageSecurityMode> {
-    match mode {
-        ::opcua::types::MessageSecurityMode::None => Some(OpcUaMessageSecurityMode::None),
-        ::opcua::types::MessageSecurityMode::Sign => Some(OpcUaMessageSecurityMode::Sign),
-        ::opcua::types::MessageSecurityMode::SignAndEncrypt => {
-            Some(OpcUaMessageSecurityMode::SignAndEncrypt)
-        }
-        _ => None,
     }
 }
 

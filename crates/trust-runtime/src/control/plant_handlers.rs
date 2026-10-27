@@ -10,6 +10,8 @@ use toml_edit::{ArrayOfTables, DocumentMut, Item};
 use super::{ControlResponse, ControlState, PlantControlService};
 use crate::scheduler::{ResourceCommand, ResourceControl, StdClock};
 
+mod edit;
+mod editor;
 mod remove;
 mod status;
 mod trace;
@@ -59,6 +61,8 @@ pub(super) fn dispatch(
         "plant.save" => handle_plant_save(id, params, context),
         "plant.remove" => remove::handle_plant_remove(id, params, context),
         "plant.validate" => handle_plant_validate(id, params, context),
+        "plant.edit" => edit::handle_plant_edit(id, params, context),
+        "plant.signals" => edit::handle_plant_signals(id, params, context),
         _ => return None,
     })
 }
@@ -153,7 +157,10 @@ pub(super) fn handle_plant_capabilities(
                 "plant.status",
                 "plant.trace.read",
                 "plant.trace.clear",
+                "plant.edit",
+                "plant.signals",
             ],
+            "editor": editor::editor_tables(),
         }),
     )
 }

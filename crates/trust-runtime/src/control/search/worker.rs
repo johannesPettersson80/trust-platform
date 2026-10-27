@@ -1,16 +1,28 @@
 use super::{
     contracts::Request,
+    program::IsolatedProgram,
     record_period::{period_count, period_time_seconds, RecordPeriod},
     snapshot::{digest, Snapshot},
 };
-use crate::{
-    value::{Duration, Value},
-    Runtime,
-};
+use crate::harness::SourceFile;
+use crate::value::{Duration, Value};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Read;
+use std::path::PathBuf;
+/// What the worker builds the run's program with (specification 44 §4.6): the toolchain the
+/// runtime builds with, and the runtime's temporary folder, which it builds in. The worker's
+/// environment is cleared (annex E8.1), so the runtime names both; without them the worker uses
+/// the toolchain the tools find and its own temporary folder.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct BuildSetting {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub toolchain: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub temporary_folder: Option<PathBuf>,
+}
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct TrialInput {
@@ -18,12 +30,16 @@ pub(super) struct TrialInput {
     pub request: Request,
     pub index: usize,
     pub parameters: BTreeMap<String, f64>,
+    #[serde(default)]
+    pub build: BuildSetting,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct RunInput {
     pub snapshot: Snapshot,
     pub run: super::run_contracts::RunRequest,
+    #[serde(default)]
+    pub build: BuildSetting,
 }
 #[derive(Serialize)]
 #[serde(untagged)]
@@ -32,16 +48,19 @@ pub(super) enum WorkerInput {
     Run(RunInput),
 }
 impl WorkerInput {
-    fn plan(self) -> Result<super::execution_plan::ExecutionPlan, String> {
+    /// The plan of the run and what it builds its program with.
+    fn plan(self) -> Result<(super::execution_plan::ExecutionPlan, BuildSetting), String> {
         match self {
             Self::Search(input) => super::execution_plan::ExecutionPlan::search(
                 input.snapshot,
                 &input.request,
                 input.index,
                 input.parameters,
-            ),
+            )
+            .map(|plan| (plan, input.build)),
             Self::Run(input) => {
                 super::execution_plan::ExecutionPlan::run(input.snapshot, &input.run)
+                    .map(|plan| (plan, input.build))
             }
         }
     }
@@ -88,7 +107,10 @@ pub fn stdio() -> Result<(), String> {
     } else {
         WorkerInput::Search(serde_json::from_value(envelope).map_err(|e| e.to_string())?)
     };
-    let mut output = match input.plan().and_then(|plan| execute(&plan)) {
+    let mut output = match input
+        .plan()
+        .and_then(|(plan, build)| execute(&plan, &build))
+    {
         Ok(value) => value,
         Err(reason) => json!({"status":"failed","reason":reason}),
     };
@@ -100,57 +122,6 @@ pub fn stdio() -> Result<(), String> {
     );
     Ok(())
 }
-fn numeric(value: Value) -> Result<f64, String> {
-    crate::debug::numeric_control_value(&value)
-        .ok_or_else(|| "signal is not an exactly representable numeric/BOOL value".into())
-}
-fn read(runtime: &Runtime, symbol: &str) -> Result<f64, String> {
-    let value =
-        numeric(crate::debug::resolve_control_parameter_path(runtime.storage(), symbol)?.value)?;
-    if !value.is_finite() {
-        return Err(format!("nonfinite signal {symbol}"));
-    }
-    Ok(value)
-}
-fn assign(runtime: &mut Runtime, symbol: &str, number: f64) -> Result<(), String> {
-    let resolved = crate::debug::resolve_control_parameter_path(runtime.storage(), symbol)?;
-    let value = crate::debug::control_number_as(&resolved.value, number)?;
-    let reference = resolved.reference;
-    let addresses: Vec<_> = runtime
-        .io()
-        .bindings()
-        .iter()
-        .filter(|binding| match &binding.target {
-            crate::io::IoTarget::Name(name) => name.eq_ignore_ascii_case(symbol),
-            crate::io::IoTarget::Reference(value) => value == &reference,
-        })
-        .map(|binding| (binding.address.clone(), binding.value_type))
-        .collect();
-    for (address, kind) in addresses {
-        let io_value = match kind {
-            Some(kind) => crate::io::coerce_to_io(value.clone(), kind, address.size)
-                .map_err(|error| error.to_string())?,
-            None => value.clone(),
-        };
-        runtime
-            .write_io(&address, io_value)
-            .map_err(|e| e.to_string())?;
-    }
-    if runtime.write_reference(&reference, value).is_err() {
-        return Err(format!("cannot assign scalar binding {symbol}"));
-    }
-    Ok(())
-}
-/// The program instance a parameter belongs to: the first segment of its symbol when that names a program of the runtime, as
-/// `P1` in `P1.Parameters.IntegralGain`; `None` for a parameter outside every program.
-fn owning_program(runtime: &Runtime, symbol: &str) -> Option<String> {
-    let first = symbol.split('.').next()?;
-    runtime
-        .programs()
-        .keys()
-        .find(|name| name.eq_ignore_ascii_case(first))
-        .map(ToString::to_string)
-}
 
 /// Keeps the run's parameter values through a scan (protocol annex E8.3). A program may set its own parameter record during
 /// its first execution, its startup, which is the first scan in which its task runs: the run's values are then written again
@@ -158,22 +129,25 @@ fn owning_program(runtime: &Runtime, symbol: &str) -> Option<String> {
 /// must hold from that boundary to the end of the run. A program that changes one after its first execution would not keep
 /// an applied candidate either, so the run fails. `started` holds the programs that have executed in an earlier scan.
 fn hold_candidate(
-    runtime: &mut Runtime,
+    program: &mut IsolatedProgram,
     parameters: &BTreeMap<String, f64>,
     started: &mut BTreeSet<String>,
 ) -> Result<(), String> {
-    let program_names: Vec<String> = runtime.programs().keys().map(ToString::to_string).collect();
-    let starting: BTreeSet<String> = program_names
-        .into_iter()
-        .filter(|name| !started.contains(name) && runtime.program_ran_in_last_cycle(name))
+    let starting: BTreeSet<String> = program
+        .programs()
+        .iter()
+        .filter(|name| {
+            !started.contains(*name) && program.runtime().program_ran_in_last_cycle(name)
+        })
+        .cloned()
         .collect();
     for (symbol, value) in parameters {
-        if read(runtime, symbol)? == *value {
+        if program.read(symbol)? == *value {
             continue;
         }
         // A parameter outside every program may be set by the startup of whichever program first executes.
-        let in_startup = match owning_program(runtime, symbol) {
-            Some(program) => starting.contains(&program),
+        let in_startup = match program.owning_program(symbol) {
+            Some(owner) => starting.contains(owner),
             None => started.is_empty() && !starting.is_empty(),
         };
         if !in_startup {
@@ -181,8 +155,8 @@ fn hold_candidate(
                 "ST changed controller parameter {symbol}; candidate not adopted"
             ));
         }
-        assign(runtime, symbol, *value)?;
-        if read(runtime, symbol)? != *value {
+        program.assign(symbol, *value)?;
+        if program.read(symbol)? != *value {
             return Err("candidate must use exact runtime floating-point representation".into());
         }
     }
@@ -190,7 +164,55 @@ fn hold_candidate(
     Ok(())
 }
 
-fn execute(input: &super::execution_plan::ExecutionPlan) -> Result<JsonValue, String> {
+/// The elementary IEC type of a parameter's value, which a run's declared `iec_type` must name.
+fn parameter_type(value: &Value) -> Option<&'static str> {
+    match value {
+        Value::Bool(_) => Some("BOOL"),
+        Value::Real(_) => Some("REAL"),
+        Value::LReal(_) => Some("LREAL"),
+        _ => None,
+    }
+}
+
+/// Checks that each parameter of `input` names a writable, unaddressed REAL or LREAL member, or a
+/// fixed configuration BOOL, of the type its declaration gives (protocol annex E8.4, E8.5), in the
+/// run's program.
+fn check_parameters(
+    input: &super::execution_plan::ExecutionPlan,
+    program: &mut IsolatedProgram,
+) -> Result<(), String> {
+    for symbol in input.parameters.keys() {
+        if !program.parameter_writable(symbol) {
+            return Err(format!("{symbol} is not a writable unaddressed parameter"));
+        }
+        let value = program.value(symbol)?;
+        let fixed_bool = input.evaluation.is_none()
+            && input
+                .parameter_types
+                .get(symbol)
+                .is_some_and(|kind| kind == "BOOL")
+            && matches!(value, Value::Bool(_));
+        if !matches!(value, Value::Real(_) | Value::LReal(_)) && !fixed_bool {
+            return Err("parameters require REAL/LREAL values".into());
+        }
+        if input
+            .parameter_types
+            .get(symbol)
+            .is_some_and(|expected| parameter_type(&value) != Some(expected.as_str()))
+        {
+            return Err("parameter IEC type does not match actual ST".into());
+        }
+        if !program.bound_addresses(symbol).is_empty() {
+            return Err("parameters cannot target addressed storage".into());
+        }
+    }
+    Ok(())
+}
+
+fn execute(
+    input: &super::execution_plan::ExecutionPlan,
+    build: &BuildSetting,
+) -> Result<JsonValue, String> {
     if input.snapshot.sources.is_empty()
         || input.snapshot.sources.len() > 64
         || input
@@ -222,20 +244,19 @@ fn execute(input: &super::execution_plan::ExecutionPlan) -> Result<JsonValue, St
     {
         return Err("worker live input revision mismatch".into());
     }
-    let sources = input
+    let sources: Vec<SourceFile> = input
         .snapshot
         .sources
         .iter()
-        .map(|s| crate::harness::SourceFile::with_path(&s.path, &s.text))
+        .map(|s| SourceFile::with_path(&s.path, &s.text))
         .collect();
     // Compiling installs the admitted executable before any PLC scan deadline is armed. The
     // parent still bounds all preparation by the job budget.
-    let mut runtime = crate::harness::CompileSession::from_sources(sources)
-        .build_runtime()
-        .map_err(|e| e.to_string())?;
+    let mut program =
+        IsolatedProgram::compile(&sources, input.snapshot.conversion_rules()?, build)?;
     // The first scan sees every bound input as the live plant had it; the run's plant then
     // writes only its own feedback targets.
-    super::process_inputs::apply(&mut runtime, &input.snapshot.process_inputs)?;
+    super::process_inputs::apply(program.runtime_mut(), &input.snapshot.process_inputs)?;
     let mut config = crate::simulation::SimulationConfig::from_toml_text(
         &input.simulation,
         "isolated execution simulation",
@@ -246,46 +267,13 @@ fn execute(input: &super::execution_plan::ExecutionPlan) -> Result<JsonValue, St
     }
     config.seed = input.settings.seed;
     let mut simulator = crate::simulation::SimulationController::new(config);
-    let metadata = runtime.metadata_snapshot();
-    for symbol in input.parameters.keys() {
-        if !metadata.control_parameter_writable(symbol) {
-            return Err(format!("{symbol} is not a writable unaddressed parameter"));
-        }
-        let resolved = crate::debug::resolve_control_parameter_path(runtime.storage(), symbol)?;
-        let value = resolved.value;
-        let fixed_bool = input.evaluation.is_none()
-            && input
-                .parameter_types
-                .get(symbol)
-                .is_some_and(|kind| kind == "BOOL")
-            && matches!(value, Value::Bool(_));
-        if !matches!(value, Value::Real(_) | Value::LReal(_)) && !fixed_bool {
-            return Err("parameters require REAL/LREAL values".into());
-        }
-        if input.parameter_types.get(symbol).is_some_and(|expected| {
-            crate::debug::dap::value_type_name(&value).as_ref() != Some(expected)
-        }) {
-            return Err("parameter IEC type does not match actual ST".into());
-        }
-        let reference = resolved.reference;
-        if runtime
-            .io()
-            .bindings()
-            .iter()
-            .any(|binding| match &binding.target {
-                crate::io::IoTarget::Name(name) => name.eq_ignore_ascii_case(symbol),
-                crate::io::IoTarget::Reference(value) => value == &reference,
-            })
-        {
-            return Err("parameters cannot target addressed storage".into());
-        }
-    }
+    check_parameters(input, &mut program)?;
     for (symbol, value) in &input.settings.initial_values {
-        assign(&mut runtime, symbol, *value)?;
+        program.assign(symbol, *value)?;
     }
     for (symbol, value) in &input.parameters {
-        assign(&mut runtime, symbol, *value)?;
-        if read(&runtime, symbol)? != *value {
+        program.assign(symbol, *value)?;
+        if program.read(symbol)? != *value {
             return Err("candidate must use exact runtime floating-point representation".into());
         }
     }
@@ -342,9 +330,9 @@ fn execute(input: &super::execution_plan::ExecutionPlan) -> Result<JsonValue, St
         for sequence in 0..=n {
             let ms = sequence * input.settings.step_ms;
             let now = Duration::from_millis(ms as i64);
-            runtime.set_current_time(now);
+            program.runtime_mut().set_current_time(now);
             simulator
-                .apply_pre_cycle(now, &mut runtime)
+                .apply_pre_cycle(now, program.runtime_mut())
                 .map_err(|e| e.to_string())?;
             for event in input
                 .settings
@@ -352,27 +340,30 @@ fn execute(input: &super::execution_plan::ExecutionPlan) -> Result<JsonValue, St
                 .iter()
                 .filter(|event| event.at_ms == ms)
             {
-                assign(&mut runtime, &event.symbol, event.value)?;
+                program.assign(&event.symbol, event.value)?;
             }
             if let Some(relay) = &input.feedback_relay {
-                let measured = read(&runtime, &relay.process_variable)?;
+                let measured = program.read(&relay.process_variable)?;
                 let command =
                     relay.command_at(ms, measured, &mut relay_high, &mut relay_last_switch_ms)?;
-                assign(&mut runtime, &relay.command, command)?;
+                program.assign(&relay.command, command)?;
             }
-            runtime.set_execution_deadline(Some(
+            program.runtime_mut().set_execution_deadline(Some(
                 std::time::Instant::now()
                     + std::time::Duration::from_millis(input.settings.per_trial_wall_ms.min(100)),
             ));
-            runtime.execute_cycle().map_err(|e| e.to_string())?;
-            hold_candidate(&mut runtime, &input.parameters, &mut started_programs)?;
+            program
+                .runtime_mut()
+                .execute_cycle()
+                .map_err(|e| e.to_string())?;
+            hold_candidate(&mut program, &input.parameters, &mut started_programs)?;
             let mut readings = Vec::with_capacity(input.settings.observations.len());
             for channel in &input.settings.observations {
-                readings.push(read(&runtime, &channel.symbol)?);
+                readings.push(program.read(&channel.symbol)?);
             }
             if let Some(evaluation) = &input.evaluation {
-                let error = read(&runtime, &evaluation.objective.reference_symbol)?
-                    - read(&runtime, &evaluation.objective.feedback_symbol)?;
+                let error = program.read(&evaluation.objective.reference_symbol)?
+                    - program.read(&evaluation.objective.feedback_symbol)?;
                 if let Some(previous) = previous_error {
                     score +=
                         (previous * previous + error * error) * 0.5 * input.settings.step_ms as f64
@@ -381,7 +372,7 @@ fn execute(input: &super::execution_plan::ExecutionPlan) -> Result<JsonValue, St
                 previous_error = Some(error);
                 for bound in &evaluation.requirements {
                     if ms >= bound.start_ms && ms <= bound.end_ms {
-                        let value = read(&runtime, &bound.symbol)?;
+                        let value = program.read(&bound.symbol)?;
                         if (value < bound.minimum || value > bound.maximum)
                             && !violations.contains(&bound.id)
                         {
@@ -419,7 +410,7 @@ fn execute(input: &super::execution_plan::ExecutionPlan) -> Result<JsonValue, St
                 period = RecordPeriod::default();
             }
             simulator
-                .apply_post_cycle(now, &runtime)
+                .apply_post_cycle(now, program.runtime())
                 .map_err(|e| e.to_string())?;
         }
         Ok(())

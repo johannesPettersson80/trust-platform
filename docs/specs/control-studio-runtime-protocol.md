@@ -83,7 +83,7 @@ A refused request has no effect. The answer has `ok` set to false, an `error` te
 | `physical_approval_required` | experiments and `control.pid.apply` | A physical write has no approval. |
 | `invalid_transfer_request` | transfers | The transfer request is malformed or breaks a check of E6.5 or E6.6. |
 | `invalid_parameter_request` | parameters | The parameter request is malformed or breaks a check of E7.3 or E7.5. |
-| `invalid_controller_request` | `control.pid.*` | The PID request is malformed or sets an invalid field. |
+| `invalid_controller_request` | `control.pid.*` | The PID request is malformed, sets an invalid field, or breaks a check of E7.7 when it is accepted. |
 | `controller_unavailable`, `controller_write_pending`, `stale_controller_revision`, `rollback_unavailable`, `rollback_revision_mismatch` | `control.pid.*` | The controller record is missing, a write is pending, or a revision does not match. |
 | `signals_unavailable` | `control.signals.inspect` | The inspection request cannot be served. |
 | `recording_unavailable` | recordings | The recording request cannot be served. |
@@ -129,7 +129,7 @@ Studio reads these facts from the `status` operation (A2.3). It never takes them
 | `tasks` | array | One `{name, interval_ms}` entry for each scheduled task. An event task has `interval_ms` 0. |
 | `cycle_interval_ms` | integer | The resource cycle interval. |
 
-The VS Code simulator reports these fields as the runtime does: `tasks` lists the tasks of the program it has loaded, and `cycle_interval_ms` is the cycle its managed runner takes, the smallest positive task interval (spec 13); it reports both again after a reload.
+The VS Code simulator reports these fields as the runtime does: `tasks` lists the tasks of the program it has loaded, each with its own interval, and `cycle_interval_ms` is the resource cycle it runs with, the project's as the deployed runtime takes it (`[resource] cycle_interval_ms` of `runtime.toml`, or 10 ms without one; spec 13); it reports both again after a reload.
 
 The result has other fields that describe the runtime state, its drivers and its metrics. This annex does not use them.
 
@@ -574,6 +574,7 @@ Access: Engineer. Request fields. Every field is required except `tracking`.
 | `values` | object | Exactly the states that the transfer does not compute. |
 | `manual` | boolean | `true` leaves the loop in Manual. `false` leaves it in Auto. |
 | `maximum_output_change` | number | Finite, zero or more. Required for every apply. |
+| `entry_error_gain` | number | Optional. Finite, zero or more. Only on an apply with `manual` false and a `tracking` object (E6.9). |
 | `source` | string | `simulation` or `physical`. |
 | `physical_approved` | boolean | Required. It MUST be true for a `physical` source (E10.2). |
 | `tracking` | object or null | Optional (E6.4). |
@@ -585,7 +586,7 @@ The checks run in this order. The first failed check is the refusal.
 3. The request decodes, with no unknown field.
 4. `transaction_id` is valid and `source` is `simulation` or `physical`.
 5. A `physical` source without `physical_approved` is refused with the text `physical review required`.
-6. `maximum_output_change` is finite and zero or more.
+6. `maximum_output_change` is finite and zero or more. An `entry_error_gain` is finite and zero or more, and comes with `manual` false and a `tracking` object; otherwise the refusal is `invalid entry error gain`.
 7. The binding is valid (E6.2).
 8. The tracking object is valid (E6.4).
 9. The values are exactly the states that the transfer does not compute.
@@ -620,7 +621,7 @@ The transfer MUST check that each measurement is fresh, of good quality and with
 
 After the owning task executes, the runtime reads the observed mode, states and output.
 
-- The transaction is `failed` when a state or the mode changed, when the output is invalid or out of range, or when the output differs from its held value by more than `maximum_output_change` at the first execution. The record keeps its evidence.
+- The transaction is `failed` when a state or the mode changed, when the output is invalid or out of range, or when the output differs from its held value by more than the tolerance of E6.9 at the first execution. The record keeps its evidence.
 - A failed check returns every member that the transaction wrote to the value it had before the transaction, in the same scan. It also returns each output to its value at the boundary. The rejected outputs are not published. The loop keeps the mode it had (A6.3). `restored` is true when every mode and state write-back succeeded.
 - A passing check is not yet `applied`. The transaction stays `pending` with the confirmation `post-st`.
 - The transaction becomes `applied` with the confirmation `output-image` when the cycle's output image commits successfully. This applies to addressed and unaddressed outputs alike.
@@ -642,6 +643,8 @@ The `transaction` object has these fields: `id`, `program_revision`, `binding_re
 ### E6.9 Output-change tolerance
 
 `maximum_output_change` is the reviewed tolerance for the output change at the first execution after the transfer. A reviewed value replaces the allowance of A6.4. Studio computes or reviews the value. The runtime checks against the value it receives. For additional outputs, the tolerance is scaled by the ratio of the output spans.
+
+The A6.4 allowance of an Auto entry has a term on the error the controller enters with, `Ki·Δt·|e|`. Only the runtime reads that error: a status that Studio reads before the apply is out of date once the plant moves before the task boundary. Studio therefore sends the allowance without that term as `maximum_output_change`, and `|Ki|·Δt` as `entry_error_gain`. The runtime then checks the first output against `maximum_output_change + entry_error_gain × |r − y|`, where r is the tracking's reference as the transfer writes it and y is the tracking's process variable, both read at the commit, in the scan the controller executes with them. Studio sends no `entry_error_gain` with a reviewed tolerance, which replaces the allowance, or when the allowance has no integral term.
 
 ### E6.10 Cancel
 
@@ -754,6 +757,13 @@ The `control.pid.*` operations address one Control.PID instance by its `instance
 - No `control.pid.cancel` operation exists.
 
 A `control.pid.*` write is a parameter change. It MUST be committed at the owning task's boundary and confirmed after that task executes (A5.2, A6.8). It MUST follow the checks of E7.3 to E7.5 and of E10: the mode, forcing, the I/O authority, the approval and one live write at a time (A6.5, A6.6, A2.4, A2.5). A bounds check of each value MUST apply. When the program changes a written value, the rule of E7.4 MUST apply, with its rejection and its restoration (A6.8). The PID adapter of `control.parameters.*` MAY implement `control.pid.*`.
+
+The runtime implements a `control.pid.*` write as that adapter: one parameter set whose members are the fields of the instance's `ParametersValue`, each written in its own type (the LREAL fields, and AntiWindup as its variant), confirmed as E7.4 confirms a set.
+
+- **Owning task.** It is the task that runs the program instance with which `instance_path` starts, or `$background` for a program outside every task. A controller outside every program instance, such as a global instance, has no owning task and is refused (E2.3).
+- **Mode.** The mode is the controller's own. `Control.PID` records the mode its last `Update` ran in (`ModeValue`) and whether an `Update` has run since the start (`ModeObserved`), as specification 45 §3.1 states. A write needs `ModeObserved` TRUE and `ModeValue` Manual, and the owning task must have executed in the current program generation. An online change keeps every member (specification 44 §12.2), so until the task runs in the changed program the members still hold the old program's last mode. A restart clears them. As A6.7 refuses experiments until a scan of a reloaded program completes, a write waits for that execution: `$background`, whose programs run in every scan, once a scan has completed. This is checked when the write is accepted and again at the task boundary. The reason of a failed check starts with `confirmed Manual mode required: the controller <instance_path> has not run in Manual mode`. It then names the mode of the controller's last `Update`, says that no `Update` has run since the start, or says that the task has not run since the program was loaded or restarted. An instance without these members records no mode, and its write is refused.
+- **Bounds.** Every LREAL field is finite, and the record lies in the operating domain of specification 45 §2.4: `OutputMinimum <= OutputMaximum`, `RateMinimum <= 0 <= RateMaximum`, and `TrackingTime > 0` when `IntegralGain <> 0`. A rollback's record is checked too.
+- **Outcome.** A check that fails when the write is accepted refuses it with `invalid_controller_request`. A check that fails at the boundary, a rejection after the task, and a write that a reload or restart stopped all leave the write unapplied. `control.pid.status` then reports `confirmed` true, no `pending_revision`, and the reason. A reload or restart also drops the revision a rollback returns to (E9.3).
 
 ### E7.8 Unsupported forms
 

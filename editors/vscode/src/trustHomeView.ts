@@ -1,4 +1,4 @@
-import { affectsTrustConfiguration, getTrustConfiguration } from "./configuration";
+import { affectsTrustConfiguration } from "./configuration";
 import * as vscode from "vscode";
 
 import {
@@ -7,12 +7,10 @@ import {
   type RuntimeLifecycleSnapshot,
 } from "./runtimeLifecycle";
 import {
-  remoteLabelFromEndpoint,
-  runtimeOptions,
-  selectedRuntime,
+  resolveRunTargets,
   SIMULATOR_RUNTIME_ID,
   withPrimaryActionGate,
-  type RemoteRuntime,
+  type RunTargets,
   type RuntimeModelSnapshot,
   type SelectedRuntime,
 } from "./trustHomeModel";
@@ -24,9 +22,9 @@ import { selectRunTarget } from "./runTargetSelection";
 import { CHECK_PROGRAM_COMMAND, onDidCheckProgram } from "./checkProgram";
 import { onDidDebugReload } from "./debug";
 import {
-  compileGateReason,
-  isConfigDiagnosticPath,
-  validityLine,
+  compileGate,
+  type CompileGate,
+  type CompileGateState,
   type ValidityLine,
 } from "./compileGate";
 import {
@@ -43,7 +41,6 @@ import {
   attachManagedRuntimeAfterStart,
   disconnectManagedRuntimeAfterStop,
 } from "./managedRuntimeSession";
-import type { ManagedRuntime } from "./localRuntimeModel";
 import { onDidChangeSimulationSpeed, shownSimulatorSpeed } from "./simulationSpeed";
 import { getWorkspaceProjectState } from "./workspaceProject";
 
@@ -58,13 +55,7 @@ type CompileState =
   | { readonly kind: "unknown" }
   | { readonly kind: "dirty" }
   | { readonly kind: "clean"; readonly summary: string }
-  | {
-      readonly kind: "failed";
-      readonly summary: string;
-      readonly errors: number;
-      readonly sourceErrors: number;
-      readonly configErrors: number;
-    };
+  | { readonly kind: "failed"; readonly summary: string; readonly report: CheckProgramResponse };
 
 type ButtonTone = "neutral" | "primary" | "success" | "warning" | "danger" | "disabled";
 type ButtonVariant = "outline" | "filled";
@@ -99,13 +90,13 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       })
     );
     this.context.subscriptions.push(
-      onDidDebugReload((result) => {
+      onDidDebugReload(async (result) => {
         if (result.ok) {
           this.sourceChanged = false;
           this.applyMessage = "Running simulation updated.";
           this.applyMessageKind = "success";
         } else if (this.sourceChanged) {
-          this.applyMessage = `Update failed: ${reloadFailureMessage(result, validityLine())}`;
+          this.applyMessage = `Update failed: ${reloadFailureMessage(result, (await compileGate()).validity)}`;
           this.applyMessageKind = "error";
         }
         void this.render();
@@ -145,47 +136,13 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     void this.render();
   }
 
-  private readRemotes(): RemoteRuntime[] {
-    const endpoints =
-      getTrustConfiguration().get<string[]>("runtime.fleetEndpoints", []) ?? [];
-    const seen = new Set<string>();
-    const remotes: RemoteRuntime[] = [];
-    for (const raw of endpoints) {
-      const endpoint = (raw ?? "").trim();
-      if (!endpoint || seen.has(endpoint)) {
-        continue;
-      }
-      seen.add(endpoint);
-      remotes.push({ id: endpoint, label: remoteLabelFromEndpoint(endpoint) });
-    }
-    return remotes;
-  }
-
-  private storedSelectedId(
-    remotes: RemoteRuntime[],
-    managed: ManagedRuntime[],
-    snapshot: RuntimeModelSnapshot
-  ): string {
-    // Read the ONE shared store (§0.5.11) — written by this dropdown AND by graph nodes (Connect / Set
-    // as run target). Fall back to the simulator if the stored target is no longer in the inventory.
-    const stored = getSelectedRuntimeId();
-    const valid = runtimeOptions(remotes, managed, snapshot).some(
-      (option) => option.id === stored
-    );
-    return valid ? stored : SIMULATOR_RUNTIME_ID;
-  }
-
-  private resolveSelected(
-    snapshot: RuntimeLifecycleSnapshot,
-    remotes: RemoteRuntime[],
-    managed: ManagedRuntime[]
-  ): SelectedRuntime {
-    const modelSnapshot = toModelSnapshot(snapshot);
-    return selectedRuntime({
-      snapshot: modelSnapshot,
-      remotes,
-      managed,
-      selectedId: this.storedSelectedId(remotes, managed, modelSnapshot),
+  /** The run targets and the selected one, as the language server answers them for the one shared selection (§0.5.11),
+   * written by this sidebar and by the Devices & Connections nodes. */
+  private async runTargets(snapshot: RuntimeLifecycleSnapshot): Promise<RunTargets> {
+    return await resolveRunTargets({
+      snapshot: toModelSnapshot(snapshot),
+      managed: await listManagedRuntimes(this.context),
+      selectedId: getSelectedRuntimeId(),
     });
   }
 
@@ -196,29 +153,17 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     const workspaceState = await getWorkspaceProjectState();
     const projectOpen = workspaceState.kind === "trust";
     const snapshot = await runtimeLifecycleService.snapshot();
-    const remotes = this.readRemotes();
-    const managed = await listManagedRuntimes(this.context);
-    const options = runtimeOptions(remotes, managed, toModelSnapshot(snapshot));
-    const selectedRaw = this.resolveSelected(snapshot, remotes, managed);
-    const diagnostics = validityLine();
-    const primaryGate = primaryActionGateReason(
-      selectedRaw,
-      this.compileState,
-      diagnostics
-    );
-    const selected = withPrimaryActionGate(
-      selectedRaw,
-      primaryGate ? { reason: primaryGate } : undefined
-    );
+    const { options, selected: selectedRaw } = await this.runTargets(snapshot);
+    const gate = await compileGate(this.gateState(), selectedRaw.status);
+    // The compile gate blocks the action the language server names gateable, an enabled Start (specification 25 §6.6).
+    const selected = withPrimaryActionGate(selectedRaw, { reason: gate.reasons.start ?? "" });
     // Update running simulation is SIMULATOR-ONLY and only when the running sim's source changed.
     // Remote apply/restart/deploy lives on the runtime node, never here.
     const canApply =
       selected.kind === "simulator" &&
       selected.status === "running" &&
       this.sourceChanged;
-    const updateGate = canApply
-      ? compileGateReason(this.compileState, diagnostics, "update")
-      : undefined;
+    const updateGate = canApply ? gate.reasons.update ?? undefined : undefined;
     // A connected runtime that keeps debugging disabled is not a failed simulator Start.
     const lifecycleFailureMessage =
       snapshot.failure &&
@@ -241,14 +186,11 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       (selected.kind === "simulator" && selected.status === "running")
         ? applyMessage
         : "";
-    const compile = compileButtonState(this.compileState, diagnostics);
+    const compile = compileButtonState(this.compileState, gate);
     const buttons = {
       compile,
       action: runtimeActionButtonState(selected),
-      debug: debugButtonState(
-        selected,
-        compileGateReason(this.compileState, diagnostics, "debug")
-      ),
+      debug: debugButtonState(gate),
       deploy: deployButtonState(selected, this.compileState),
     };
     const actionHint = !buttons.action.enabled ? buttons.action.title : selected.primary.hint ?? "";
@@ -356,11 +298,9 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 
   private async onSelect(id: string): Promise<void> {
     if (id) {
-      // A remote's id is its endpoint; a managed runtime has one while it runs; the Simulator has none.
-      const managed = (await listManagedRuntimes(this.context)).find((local) => local.name === id);
-      const endpoint =
-        id === SIMULATOR_RUNTIME_ID ? undefined : managed ? (managed.state === "running" ? managed.controlEndpoint : undefined) : id;
-      await selectRunTarget(id, endpoint);
+      // The language server names the endpoint that selecting the target points the runtime settings at.
+      const { options } = await this.runTargets(await runtimeLifecycleService.snapshot());
+      await selectRunTarget(id, options.find((option) => option.id === id)?.runEndpoint);
     }
     this.applyMessage = "";
     this.applyMessageKind = "";
@@ -368,10 +308,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
   }
 
   private async chooseTarget(): Promise<void> {
-    const snapshot = await runtimeLifecycleService.snapshot();
-    const remotes = this.readRemotes();
-    const managed = await listManagedRuntimes(this.context);
-    const options = runtimeOptions(remotes, managed, toModelSnapshot(snapshot));
+    const { options } = await this.runTargets(await runtimeLifecycleService.snapshot());
     const currentId = getSelectedRuntimeId() || SIMULATOR_RUNTIME_ID;
     const items: Array<vscode.QuickPickItem & { id?: string }> = [];
     for (const group of [
@@ -413,16 +350,16 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
   }
 
   private setCompileState(result: CheckProgramResponse): void {
-    const issueCounts = classifyCompileIssues(result);
     this.compileState = result.ok
       ? { kind: "clean", summary: compileSummary(result) }
-      : {
-          kind: "failed",
-          summary: compileSummary(result),
-          errors: result.errors ?? result.issues?.length ?? 1,
-          sourceErrors: issueCounts.sourceErrors,
-          configErrors: issueCounts.configErrors,
-        };
+      : { kind: "failed", summary: compileSummary(result), report: result };
+  }
+
+  /** The last Compile as the gates read it (`trust-lsp.compileGate`). */
+  private gateState(): CompileGateState {
+    return this.compileState.kind === "failed"
+      ? { kind: "failed", report: this.compileState.report }
+      : { kind: this.compileState.kind };
   }
 
   private async showWarning(
@@ -440,19 +377,9 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
   }
 
   private async runAction(): Promise<void> {
-    const snapshot = await runtimeLifecycleService.snapshot();
-    const remotes = this.readRemotes();
-    const managed = await listManagedRuntimes(this.context);
-    const selectedRaw = this.resolveSelected(snapshot, remotes, managed);
-    const gateReason = primaryActionGateReason(
-      selectedRaw,
-      this.compileState,
-      validityLine()
-    );
-    const selected = withPrimaryActionGate(
-      selectedRaw,
-      gateReason ? { reason: gateReason } : undefined
-    );
+    const { selected: selectedRaw } = await this.runTargets(await runtimeLifecycleService.snapshot());
+    const gate = await compileGate(this.gateState(), selectedRaw.status);
+    const selected = withPrimaryActionGate(selectedRaw, { reason: gate.reasons.start ?? "" });
     if (!selected.primary.enabled && selected.primary.hint) {
       this.applyMessage = selected.primary.hint;
       this.applyMessageKind = "error";
@@ -555,7 +482,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 
   private async applyChanges(): Promise<void> {
     // Sim-only update (§0.6.6). The button is only shown when canApply, but guard anyway.
-    const gateReason = compileGateReason(this.compileState, validityLine(), "update");
+    const gateReason = (await compileGate(this.gateState())).reasons.update;
     if (gateReason) {
       this.applyMessage = gateReason;
       this.applyMessageKind = "error";
@@ -568,7 +495,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       this.applyMessage = "Running simulation updated.";
       this.applyMessageKind = "success";
     } else {
-      const reason = reloadFailureMessage(result, validityLine());
+      const reason = reloadFailureMessage(result, (await compileGate()).validity);
       this.sourceChanged = true;
       this.applyMessage = `Update failed: ${reason}`;
       this.applyMessageKind = "error";
@@ -1191,8 +1118,9 @@ function displayProjectName(name: string): string {
 
 function compileButtonState(
   state: CompileState,
-  diagnostics: ValidityLine
+  gate: CompileGate
 ): SidebarButtonState {
+  const diagnostics = gate.validity;
   if (!diagnostics.ok) {
     return {
       state: "diagnostics-failed",
@@ -1218,7 +1146,7 @@ function compileButtonState(
     case "failed":
       return {
         state: "failed",
-        label: `Compile ${state.errors}`,
+        label: `Compile ${gate.compile?.errors ?? 1}`,
         title: state.summary,
         icon: "codicon-error",
         tone: "danger",
@@ -1308,56 +1236,17 @@ function runtimeActionButtonState(selected: SelectedRuntime): SidebarButtonState
   }
 }
 
-function debugButtonState(
-  selected: SelectedRuntime,
-  launchGateReason?: string
-): SidebarButtonState {
-  const disabled =
-    selected.status === "unreachable" ||
-    selected.status === "starting" ||
-    Boolean(launchGateReason);
+function debugButtonState(gate: CompileGate): SidebarButtonState {
+  const enabled = gate.debug.enabled;
   return {
-    state: disabled ? "disabled" : "ready",
+    state: enabled ? "ready" : "disabled",
     label: "Debug",
-    title: launchGateReason ||
-      (disabled ? "Debug is unavailable until the target is reachable." : "Start debugging"),
+    title: gate.debug.title,
     icon: "codicon-debug-alt",
-    tone: disabled ? "disabled" : "neutral",
+    tone: enabled ? "neutral" : "disabled",
     variant: "outline",
-    enabled: !disabled,
+    enabled,
   };
-}
-
-function primaryActionGateReason(
-  selected: SelectedRuntime,
-  compileState: CompileState,
-  diagnostics: ValidityLine
-): string | undefined {
-  if (selected.primary.action !== "start") {
-    return undefined;
-  }
-  return compileGateReason(compileState, diagnostics, "start");
-}
-
-function classifyCompileIssues(response: CheckProgramResponse): {
-  sourceErrors: number;
-  configErrors: number;
-} {
-  let sourceErrors = 0;
-  let configErrors = 0;
-  for (const issue of response.issues ?? []) {
-    if ((issue.severity ?? "").toLowerCase() !== "error") {
-      continue;
-    }
-    const file = issue.file ?? "";
-    const code = issue.code ?? "";
-    if (isConfigDiagnosticPath(file) || /config/i.test(code)) {
-      configErrors += 1;
-    } else {
-      sourceErrors += 1;
-    }
-  }
-  return { sourceErrors, configErrors };
 }
 
 function deployButtonState(

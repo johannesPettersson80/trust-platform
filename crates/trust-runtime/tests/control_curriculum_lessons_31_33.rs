@@ -27,13 +27,7 @@ fn flags(values: &[Value]) -> Vec<bool> {
 
 /// A 5 s baseline at 75 %, then the program's staircase; returns the runtime after `seconds` of experiment
 /// and the highest stem position reached.
-fn lesson31_after(
-    seconds: u64,
-) -> (
-    trust_runtime::Runtime,
-    trust_runtime::memory::InstanceId,
-    f64,
-) {
+fn lesson31_after(seconds: u64) -> (trust_runtime::CompiledRuntime, &'static str, f64) {
     let (mut runtime, mut simulation) = setup(LESSON31);
     let debug = runtime.enable_debug();
     let program = program(&runtime);
@@ -127,8 +121,8 @@ fn lesson31_records_qualified_steady_flows_for_both_pressure_arrangements() {
         "fixed-supply 75 → 80 % slope: {fixed_slope}"
     );
     assert_eq!(
-        runtime.storage().get_instance_var(program, "Active"),
-        Some(&Value::Bool(false)),
+        value(&runtime, &format!("{program}.Active")),
+        Some(Value::Bool(false)),
         "the staircase has finished"
     );
     assert_eq!(number(&runtime, "%QL0"), 75.0, "the valve returns to 75 %");
@@ -151,11 +145,9 @@ fn lesson32_probe_trace() -> Vec<(f64, f64, f64, f64, f64, f64)> {
     let mut trace = Vec::new();
     for step in 50..(50 + 1300) {
         scan(&mut runtime, &mut simulation, &debug, step * 100, &[]);
-        let force = runtime
-            .storage()
-            .get_instance_var(program, "StickyForceN")
+        let force = value(&runtime, &format!("{program}.StickyForceN"))
             .and_then(|value| match value {
-                Value::LReal(number) => Some(*number),
+                Value::LReal(number) => Some(number),
                 _ => None,
             })
             .unwrap_or(f64::NAN);
@@ -280,7 +272,7 @@ fn lesson33_step(gain: f64, setpoint: f64, seconds: f64) -> (Motion, f64, bool) 
         "Parameters",
         &[("ProportionalGain", gain)],
     );
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     let mut motion = Vec::new();
     for step in 25..(25 + (seconds / 0.02).round() as u64) {
         scan_every(
@@ -299,9 +291,7 @@ fn lesson33_step(gain: f64, setpoint: f64, seconds: f64) -> (Motion, f64, bool) 
         ));
     }
     let aborted = matches!(
-        runtime
-            .io()
-            .read(&trust_runtime::io::IoAddress::parse("%MX24.0").unwrap()),
+        runtime.read_io(&trust_runtime::io::IoAddress::parse("%MX24.0").unwrap()),
         Ok(Value::Bool(true))
     );
     (motion, number(&runtime, "%ML16"), aborted)

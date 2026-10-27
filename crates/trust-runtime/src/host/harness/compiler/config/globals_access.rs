@@ -152,7 +152,6 @@ fn lower_var_config_block(
             .transpose()?;
         let address = config_init_address(&config_init)?;
         inits.push(ConfigInit {
-            display_name: Some(super::super::config::access_path_display(&path)),
             path,
             address,
             type_id,

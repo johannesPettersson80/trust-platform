@@ -6,11 +6,11 @@ use std::io::{self, BufRead, Write};
 use anyhow::{anyhow, Context};
 use serde::Deserialize;
 use serde_json::{json, Map, Value as JsonValue};
-use trust_runtime::bundle_builder::project_conversion_profile;
 use trust_runtime::harness::{
     decode_json_value, encode_json_value, BoundaryEntry, BoundaryError, HarnessAutomation,
     HarnessAutomationError,
 };
+use trust_runtime::native::conversion_profile;
 use trust_runtime::stdlib::conversions::{ConversionProfile, VENDOR_PROFILES};
 use trust_runtime::RestartMode;
 
@@ -56,7 +56,7 @@ fn main() -> anyhow::Result<()> {
         Some(project) if !project.is_dir() => {
             return Err(anyhow!("project folder not found: {}", project.display()));
         }
-        Some(project) => project_conversion_profile(project)?,
+        Some(project) => conversion_profile(project)?,
         None => ConversionProfile::Iec,
     };
     let stdin = io::stdin();

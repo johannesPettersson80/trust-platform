@@ -1,18 +1,18 @@
 //! The command line's settings (specification 35, §0.1b): the journal folder by the platform's
 //! convention, the control token from the environment or from a file, and the runtime's endpoint
-//! from `--endpoint` or from the project's `runtime.toml`. This module reads the environment and the
-//! files it is given, and decides no Control Studio rule.
+//! from `--endpoint` or, for the project's own runtime, from trust-runtime's report of it
+//! (specification 11 §6.8.0a). This module reads the environment and the files it is given, and
+//! decides no Control Studio rule.
 
 use std::ffi::OsString;
 use std::fs;
-use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::runtime::RuntimeConnection;
 use trust_runtime_client::ControlEndpoint;
 
-use crate::runtime_file;
+use crate::project_endpoint::RuntimeTool;
 
 /// The environment variable that holds the runtime's control token (§0.1b).
 pub const TOKEN_VARIABLE: &str = "TRUST_CONTROL_TOKEN";
@@ -113,21 +113,44 @@ pub fn control_token(
     }
 }
 
-/// The runtime a live verb connects to: `--endpoint` when it is given, else the endpoint that the
-/// project's `runtime.toml` configures. The control token comes from [`control_token`].
+/// The runtime a live verb connects to: `--endpoint` when it is given, else the project's own
+/// runtime, whose endpoint `trust-runtime ctl --project <folder> endpoint --json` reports
+/// (specification 11 §6.8.0a: the endpoint file of the running runtime, else the endpoint of the
+/// project's `runtime.toml`, else the platform default). The control token comes from
+/// [`control_token`]; when that gives none, it is the token of the report, which the project's
+/// runtime generated or its `runtime.toml` configures.
 ///
 /// # Errors
-/// No endpoint is given or configured, the endpoint is neither `tcp://` nor `unix://`, or the token
-/// cannot be read.
+/// trust-runtime cannot report the project's runtime, the endpoint is neither `tcp://` nor
+/// `unix://`, or the token cannot be read.
 pub fn runtime_connection(
     endpoint: Option<&str>,
     project: &Path,
     token_file: Option<&Path>,
     environment: Environment<'_>,
 ) -> Result<RuntimeConnection, Failure> {
-    let endpoint = match endpoint {
-        Some(endpoint) => endpoint.to_string(),
-        None => configured_endpoint(project)?,
+    runtime_connection_with(
+        endpoint,
+        project,
+        token_file,
+        environment,
+        &RuntimeTool::new(None),
+    )
+}
+
+/// [`runtime_connection`] with the trust-runtime that reports the project's runtime.
+fn runtime_connection_with(
+    endpoint: Option<&str>,
+    project: &Path,
+    token_file: Option<&Path>,
+    environment: Environment<'_>,
+    tool: &RuntimeTool,
+) -> Result<RuntimeConnection, Failure> {
+    let (endpoint, reported_token) = if let Some(endpoint) = endpoint {
+        (endpoint.to_string(), None)
+    } else {
+        let reported = tool.project_endpoint(project)?;
+        (reported.endpoint, reported.auth_token)
     };
     if ControlEndpoint::parse(&endpoint).is_none() {
         return Err(Failure::new(
@@ -140,37 +163,8 @@ pub fn runtime_connection(
     }
     Ok(RuntimeConnection {
         endpoint,
-        token: control_token(token_file, environment)?,
+        token: control_token(token_file, environment)?.or(reported_token),
         runtime_id: None,
-    })
-}
-
-/// The endpoint that the project's `runtime.toml` configures.
-fn configured_endpoint(project: &Path) -> Result<String, Failure> {
-    let file = project.join("runtime.toml");
-    let text = match fs::read_to_string(&file) {
-        Ok(text) => text,
-        Err(error) if error.kind() == ErrorKind::NotFound => {
-            return Err(Failure::new(
-                "This project has no runtime.toml, so it names no runtime. Pass --endpoint tcp://host:port.",
-                Cause::Settings,
-                NextAction::ConnectRuntime,
-            ));
-        }
-        Err(error) => {
-            return Err(Failure::new(
-                &format!("{} cannot be read: {error}.", file.display()),
-                Cause::Settings,
-                NextAction::ConnectRuntime,
-            ));
-        }
-    };
-    runtime_file::control_endpoint(&text).ok_or_else(|| {
-        Failure::new(
-            "runtime.toml does not configure the control endpoint in [runtime.control]. Pass --endpoint tcp://host:port.",
-            Cause::Settings,
-            NextAction::ConnectRuntime,
-        )
     })
 }
 
@@ -306,31 +300,67 @@ mod tests {
         assert_eq!(failure.next_action, NextAction::None);
     }
 
+    /// Wrong behaviour caught: `--endpoint` ignored, or an endpoint of another scheme accepted.
     #[test]
-    fn the_endpoint_is_the_argument_or_the_projects_runtime_toml() {
+    fn an_endpoint_argument_is_used_as_it_is() {
         let folder = scratch("connection");
         let variables = environment(&[]);
-        let given = runtime_connection(Some("tcp://127.0.0.1:5195"), &folder.0, None, &variables)
-            .expect("the argument");
+        let tool = RuntimeTool::new(Some(PathBuf::from("/nonexistent/trust-runtime-test")));
+        let given = runtime_connection_with(
+            Some("tcp://127.0.0.1:5195"),
+            &folder.0,
+            None,
+            &variables,
+            &tool,
+        )
+        .expect("the argument, without asking trust-runtime");
         assert_eq!(given.endpoint, "tcp://127.0.0.1:5195");
         assert_eq!(given.token, None);
-        let missing =
-            runtime_connection(None, &folder.0, None, &variables).expect_err("no runtime.toml");
-        assert_eq!(missing.next_action, NextAction::ConnectRuntime);
-        fs::write(
-            folder.0.join("runtime.toml"),
-            "[runtime.control]\nendpoint = \"tcp://127.0.0.1:5196\"\n",
-        )
-        .expect("runtime.toml");
-        assert_eq!(
-            runtime_connection(None, &folder.0, None, &variables)
-                .expect("configured")
-                .endpoint,
-            "tcp://127.0.0.1:5196"
-        );
         assert!(
-            runtime_connection(Some("http://runtime"), &folder.0, None, &variables).is_err(),
+            runtime_connection_with(Some("http://runtime"), &folder.0, None, &variables, &tool)
+                .is_err(),
             "only tcp:// and unix:// endpoints"
+        );
+    }
+
+    /// Without `--endpoint` the project's own runtime is the one trust-runtime reports (specification
+    /// 11 §6.8.0a), with the report's token unless the engine's own token is given (§0.1b). Wrong
+    /// behaviour caught: the project's `runtime.toml` read directly, so a runtime on the platform
+    /// default or on a port chosen at its start is not found; the report's token winning over
+    /// `TRUST_CONTROL_TOKEN`; or a runtime that is not running reported without a way out.
+    #[cfg(unix)]
+    #[test]
+    fn without_an_endpoint_the_project_runtime_is_the_one_trust_runtime_reports() {
+        let folder = scratch("reported");
+        let tool = crate::project_endpoint::stub_tool(
+            &folder.0,
+            r#"{"endpoint":"tcp://127.0.0.1:41234","auth_token":"generated-token","source":"endpoint_file","endpoint_file_skipped":null}"#,
+            0,
+        );
+
+        let reported = runtime_connection_with(None, &folder.0, None, &environment(&[]), &tool)
+            .expect("the reported runtime");
+        assert_eq!(reported.endpoint, "tcp://127.0.0.1:41234");
+        assert_eq!(reported.token.as_deref(), Some("generated-token"));
+
+        let own = environment(&[(TOKEN_VARIABLE, "engine-token")]);
+        let with_own_token = runtime_connection_with(None, &folder.0, None, &own, &tool)
+            .expect("the reported runtime");
+        assert_eq!(with_own_token.token.as_deref(), Some("engine-token"));
+
+        let not_running = crate::project_endpoint::stub_tool(
+            &folder.0,
+            r#"{"error":{"code":"not_running","message":"runtime is not running: no endpoint file at /p/.trust-runtime/control.json"}}"#,
+            1,
+        );
+        let failure =
+            runtime_connection_with(None, &folder.0, None, &environment(&[]), &not_running)
+                .expect_err("no runtime runs");
+        assert_eq!(failure.next_action, NextAction::ConnectRuntime);
+        assert!(
+            failure.message.contains("--endpoint"),
+            "{}",
+            failure.message
         );
     }
 }

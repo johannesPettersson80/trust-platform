@@ -198,6 +198,7 @@ pub(in crate::handlers::commands) fn check<C: ServerContext>(
                             "Choose an instance exposing public {}.{}",
                             command.interface, command.method
                         ),
+                        point: None,
                     });
                 }
             }
@@ -208,7 +209,7 @@ pub(in crate::handlers::commands) fn check<C: ServerContext>(
                 .position(|object| object.id == problem.object)
                 .unwrap_or(usize::MAX)
         });
-        let problems=problems.into_iter().map(|problem|json!({"line":problem_line(text,&problem.object,problem.property.as_deref()),"object":problem.object,"property":problem.property,"message":problem.message})).collect::<Vec<_>>();
+        let problems=problems.into_iter().map(|problem|json!({"line":problem_line(text,&problem.object,problem.property.as_deref()),"object":problem.object,"property":problem.property,"message":problem.message,"point":problem.point})).collect::<Vec<_>>();
         Ok(json!({"ok":true,"problems":problems,"validation":"declarations"}))
     };
     result().unwrap_or_else(super::super::hmi_files::refused)

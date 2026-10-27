@@ -1,10 +1,9 @@
 //! Lesson 61, Trajectory feedforward: `Control.PID` follows a planned motion profile on the drum axis and adds the
 //! torque of the plan, Kv·ṙ + Ka·r̈, that Control Studio designs from the model.
 use trust_runtime::debug::DebugControl;
-use trust_runtime::memory::InstanceId;
 use trust_runtime::simulation::SimulationController;
 use trust_runtime::value::Value;
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
 mod control_heater_support;
 use control_heater_support::*;
@@ -13,7 +12,7 @@ const PROJECT: &str = "09-industrial-control-structures/90-trajectory-feedforwar
 const CYCLE_S: f64 = 0.02;
 
 fn step(
-    runtime: &mut Runtime,
+    runtime: &mut CompiledRuntime,
     simulation: &mut SimulationController,
     debug: &DebugControl,
     update: u64,
@@ -25,8 +24,8 @@ fn lreal(value: f64) -> Value {
     Value::LWord(value.to_bits())
 }
 
-fn aborted(runtime: &Runtime, program: InstanceId) -> bool {
-    runtime.storage().get_instance_var(program, "SafetyAbort") == Some(&Value::Bool(true))
+fn aborted(runtime: &CompiledRuntime, program: &str) -> bool {
+    value(runtime, &format!("{program}.SafetyAbort")) == Some(Value::Bool(true))
 }
 
 /// Auto at rest with the given PID and feedforward gains, then a 1 rad setpoint: per scan after the setpoint, the time,
@@ -48,9 +47,14 @@ fn move_one_radian(gains: [f64; 3], feedforward: [f64; 2]) -> (Vec<[f64; 6]>, bo
             ("DerivativeGain", gains[2]),
         ],
     );
-    debug.enqueue_instance_write(program, "RateGain", Value::LReal(feedforward[0]));
-    debug.enqueue_instance_write(program, "AccelerationGain", Value::LReal(feedforward[1]));
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "RateGain", Value::LReal(feedforward[0]));
+    enqueue_instance_write(
+        &debug,
+        program,
+        "AccelerationGain",
+        Value::LReal(feedforward[1]),
+    );
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     step(&mut runtime, &mut simulation, &debug, 10);
     let mut samples = Vec::new();
     let mut stopped = false;

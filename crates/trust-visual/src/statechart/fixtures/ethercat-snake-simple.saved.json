@@ -1,0 +1,167 @@
+{
+  "id": "stateMachine",
+  "initial": "Init",
+  "states": {
+    "Init": {
+      "entry": [
+        "initSystem",
+        "turnOffAll"
+      ],
+      "on": {
+        "START": {
+          "target": "LED_0"
+        }
+      }
+    },
+    "LED_0": {
+      "entry": [
+        "turnOn_DO0",
+        "logState0"
+      ],
+      "exit": [
+        "turnOff_DO0"
+      ],
+      "on": {
+        "TICK": {
+          "target": "LED_1"
+        }
+      }
+    },
+    "LED_1": {
+      "entry": [
+        "turnOn_DO1",
+        "logState1"
+      ],
+      "exit": [
+        "turnOff_DO1"
+      ],
+      "on": {
+        "TICK": {
+          "target": "LED_2"
+        }
+      }
+    },
+    "LED_2": {
+      "entry": [
+        "turnOn_DO2",
+        "logState2"
+      ],
+      "exit": [
+        "turnOff_DO2"
+      ],
+      "on": {
+        "TICK": {
+          "target": "LED_1_Back"
+        }
+      }
+    },
+    "LED_1_Back": {
+      "entry": [
+        "turnOn_DO1",
+        "logState1Back"
+      ],
+      "exit": [
+        "turnOff_DO1"
+      ],
+      "on": {
+        "TICK": {
+          "target": "LED_0_Back"
+        }
+      }
+    },
+    "LED_0_Back": {
+      "entry": [
+        "turnOn_DO0",
+        "logState0Back"
+      ],
+      "exit": [
+        "turnOff_DO0"
+      ],
+      "on": {
+        "TICK": {
+          "target": "LED_1",
+          "actions": [
+            "cycleComplete"
+          ]
+        }
+      }
+    }
+  },
+  "actionMappings": {
+    "initSystem": {
+      "action": "LOG",
+      "message": "🐍 Simple Snake initialized - 3 LEDs"
+    },
+    "turnOffAll": {
+      "action": "SET_MULTIPLE",
+      "targets": [
+        {
+          "address": "%QX0.0",
+          "value": false
+        },
+        {
+          "address": "%QX0.1",
+          "value": false
+        },
+        {
+          "address": "%QX0.2",
+          "value": false
+        }
+      ]
+    },
+    "turnOn_DO0": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.0",
+      "value": true
+    },
+    "turnOn_DO1": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.1",
+      "value": true
+    },
+    "turnOn_DO2": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.2",
+      "value": true
+    },
+    "turnOff_DO0": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.0",
+      "value": false
+    },
+    "turnOff_DO1": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.1",
+      "value": false
+    },
+    "turnOff_DO2": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.2",
+      "value": false
+    },
+    "logState0": {
+      "action": "LOG",
+      "message": "→ LED 0: ●○○"
+    },
+    "logState1": {
+      "action": "LOG",
+      "message": "→ LED 1: ○●○"
+    },
+    "logState2": {
+      "action": "LOG",
+      "message": "→ LED 2: ○○● (reversing)"
+    },
+    "logState1Back": {
+      "action": "LOG",
+      "message": "← LED 1: ○●○"
+    },
+    "logState0Back": {
+      "action": "LOG",
+      "message": "← LED 0: ●○○ (cycle complete)"
+    },
+    "cycleComplete": {
+      "action": "LOG",
+      "message": "🔁 Cycle complete, restarting..."
+    }
+  }
+}

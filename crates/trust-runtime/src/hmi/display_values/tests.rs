@@ -4,7 +4,7 @@ use serde_json::json;
 
 use super::*;
 use crate::harness::TestHarness;
-use crate::hmi::member_paths::{resolve_member, MemberPath};
+use crate::hmi::member_paths::{locate_member, MemberPath};
 use crate::value::{
     DateTimeValue, DateValue, Duration, LDateTimeValue, LDateValue, LTimeOfDayValue, TimeOfDayValue,
 };
@@ -67,12 +67,7 @@ fn json_of(wire: WireValue) -> Json {
 }
 
 fn wire(value: Value) -> Option<Json> {
-    wire_value(
-        &value,
-        &VariableStorage::default(),
-        DateTimeProfile::default(),
-    )
-    .map(json_of)
+    wire_value(&value, DateTimeProfile::default()).map(json_of)
 }
 
 fn shown(value: Value) -> Json {
@@ -89,12 +84,17 @@ fn scanned() -> TestHarness {
     harness
 }
 
-fn wire_at(harness: &TestHarness, path: &str) -> Option<Json> {
+/// The value at `path` in the running program, as the display receives it.
+fn wire_of(harness: &TestHarness, path: &str) -> Option<WireValue> {
     let parsed = MemberPath::parse(path).unwrap_or_else(|error| panic!("{path}: {error}"));
-    let runtime = harness.runtime();
-    let value =
-        resolve_member(&parsed, runtime.storage()).unwrap_or_else(|| panic!("{path} resolves"));
-    wire_value(value, runtime.storage(), runtime.profile()).map(json_of)
+    harness.runtime().with_program_view(|program| {
+        let at = locate_member(&parsed, program).unwrap_or_else(|| panic!("{path} resolves"));
+        located_wire_value(program, &at, DateTimeProfile::default())
+    })
+}
+
+fn wire_at(harness: &TestHarness, path: &str) -> Option<Json> {
+    wire_of(harness, path).map(json_of)
 }
 
 #[test]
@@ -224,12 +224,7 @@ fn structures_and_function_block_instances_carry_their_members_by_name() {
 
 /// The members as the display receives them, in the order they are sent.
 fn sent_text(harness: &TestHarness, path: &str) -> String {
-    let parsed = MemberPath::parse(path).unwrap_or_else(|error| panic!("{path}: {error}"));
-    let runtime = harness.runtime();
-    let value =
-        resolve_member(&parsed, runtime.storage()).unwrap_or_else(|| panic!("{path} resolves"));
-    let wire = wire_value(value, runtime.storage(), runtime.profile())
-        .unwrap_or_else(|| panic!("{path} is shown"));
+    let wire = wire_of(harness, path).unwrap_or_else(|| panic!("{path} is shown"));
     serde_json::to_string(&wire).expect("the value serializes")
 }
 

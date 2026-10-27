@@ -2,19 +2,22 @@ use trust_runtime::harness::{CompileSession, SourceFile};
 use trust_runtime::io::IoAddress;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
+
+mod control_heater_support;
+use control_heater_support::{compile, LessonRuntime};
 
 const MAIN: &str = include_str!(
     "../../../examples/control/07-classical-stability-and-frequency-design/45-root-locus/src/Main.st"
 );
 
-fn read(runtime: &Runtime, address: &str) -> f64 {
+fn read(runtime: &CompiledRuntime, address: &str) -> f64 {
     match runtime
-        .io()
-        .read(&IoAddress::parse(address).unwrap())
+        .read_io(&IoAddress::parse(address).unwrap())
         .unwrap()
     {
         Value::LWord(bits) => f64::from_bits(bits),
+        Value::LReal(value) => value,
         other => panic!("expected LREAL bits at {address}, got {other:?}"),
     }
 }
@@ -27,10 +30,7 @@ fn root_locus_shaft_candidates_meet_the_declared_step_requirements() {
         let source = MAIN.replace("Kp : LREAL := 16.0;", &format!("Kp : LREAL := {gain}.0;"));
         let session =
             CompileSession::from_sources(vec![SourceFile::with_path("src/Main.st", source)]);
-        let mut runtime = session.build_runtime().unwrap();
-        runtime
-            .apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)
-            .unwrap();
+        let mut runtime = compile(session);
         let debug = runtime.enable_debug();
         let mut simulation = SimulationController::new(
             SimulationConfig::load(project.join("simulation.toml")).unwrap(),
@@ -74,9 +74,7 @@ fn root_locus_shaft_candidates_meet_the_declared_step_requirements() {
 #[test]
 fn root_locus_shaft_applies_selected_gain_and_fixed_measured_velocity_braking() {
     let session = CompileSession::from_sources(vec![SourceFile::with_path("src/Main.st", MAIN)]);
-    let mut runtime = session.build_runtime().expect("compile lesson ST");
-    let bytecode = session.build_bytecode_module().unwrap().encode().unwrap();
-    runtime.apply_bytecode_bytes(&bytecode, None).unwrap();
+    let mut runtime = compile(session);
     let debug = runtime.enable_debug();
     for (angle, velocity, expected) in
         [(0.0_f64, 0.0_f64, 16.0), (0.5, 0.5, 4.5), (-1.0, 0.0, 20.0)]

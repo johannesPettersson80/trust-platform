@@ -100,6 +100,13 @@ enum Command {
         /// Enable CI-friendly behavior (`human` output defaults to `junit`).
         #[arg(long, action = clap::ArgAction::SetTrue)]
         ci: bool,
+        /// The serial port of a device that runs the tests compiled for its `--target`, or
+        /// `tcp://<host>:<port>` of a bridge to that port (specification 44 §14.2).
+        #[arg(long, requires = "target")]
+        device: Option<String>,
+        /// The device's target, as `trust-runtime build --target` names it: `esp32c6`.
+        #[arg(long, requires = "device")]
+        target: Option<String>,
     },
 }
 
@@ -157,6 +164,11 @@ fn run() -> anyhow::Result<()> {
             timeout,
             output,
             ci,
-        } => test::run_test(project, filter, list, timeout, output, ci),
+            device,
+            target,
+        } => {
+            let runner = test::TestRunner::of(device.zip(target));
+            test::run_test(project, filter, list, timeout, output, ci, runner)
+        }
     }
 }

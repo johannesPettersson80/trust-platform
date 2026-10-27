@@ -196,11 +196,11 @@ pub(super) fn validate(binding: &Binding, symbol: &str, formula: &Formula) -> Re
 pub(super) fn calculate(
     binding: &Binding,
     formula: &Formula,
-    storage: &VariableStorage,
+    program: &dyn ProgramRead,
     outputs: &BTreeMap<String, f64>,
 ) -> Result<f64, String> {
     let weight = |symbol: &Option<String>, fixed: &Option<f64>, default: f64| match symbol {
-        Some(symbol) => guard_number(binding, storage, symbol),
+        Some(symbol) => guard_number(binding, program, symbol),
         None => Ok(fixed.unwrap_or(default)),
     };
     match formula {
@@ -209,7 +209,7 @@ pub(super) fn calculate(
             .copied()
             .ok_or("initialization output is missing".into()),
         Formula::ModelOutput { process_variable } => {
-            guard_number(binding, storage, process_variable)
+            guard_number(binding, program, process_variable)
         }
         Formula::ModelInputIs {
             output_symbol,
@@ -230,20 +230,20 @@ pub(super) fn calculate(
         } => Ok(outputs
             .get(output_symbol)
             .ok_or("initialization output is missing")?
-            - guard_number(binding, storage, gain_symbol)?
+            - guard_number(binding, program, gain_symbol)?
                 * (weight(weight_symbol, fixed, 1.0)? - 1.0)
-                * guard_number(binding, storage, process_variable)?),
+                * guard_number(binding, program, process_variable)?),
         Formula::WeightedError {
             process_variable,
             weight_symbol,
             weight: fixed,
         } => Ok((weight(weight_symbol, fixed, 0.0)? - 1.0)
-            * guard_number(binding, storage, process_variable)?),
+            * guard_number(binding, program, process_variable)?),
         Formula::ScaledMeasurement {
             process_variable,
             gain_symbol,
-        } => Ok(guard_number(binding, storage, gain_symbol)?
-            * guard_number(binding, storage, process_variable)?),
+        } => Ok(guard_number(binding, program, gain_symbol)?
+            * guard_number(binding, program, process_variable)?),
         Formula::DecoupledOutput {
             output_symbols,
             matrix_symbols,
@@ -254,7 +254,7 @@ pub(super) fn calculate(
                 .map(|entries| {
                     entries
                         .iter()
-                        .map(|symbol| guard_number(binding, storage, symbol))
+                        .map(|symbol| guard_number(binding, program, symbol))
                         .collect::<Result<Vec<_>, String>>()
                 })
                 .collect::<Result<Vec<_>, String>>()?;
@@ -275,12 +275,12 @@ pub(super) fn calculate(
             denominator_symbols,
         } => {
             let denominator = 1.0
-                + guard_number(binding, storage, &denominator_symbols[0])?
-                + guard_number(binding, storage, &denominator_symbols[1])?;
+                + guard_number(binding, program, &denominator_symbols[0])?
+                + guard_number(binding, program, &denominator_symbols[1])?;
             if denominator.abs() <= 1e-12 {
                 return Err("notch initialization has a singular DC denominator".into());
             }
-            Ok(guard_number(binding, storage, process_variable)? / denominator)
+            Ok(guard_number(binding, program, process_variable)? / denominator)
         }
     }
 }

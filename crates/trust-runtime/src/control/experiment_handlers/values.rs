@@ -168,6 +168,8 @@ pub(super) fn snapshot_value<'a>(
         })
 }
 
+/// The elementary type an address's binding holds its value in: the binding's type, or the IEC
+/// name a compiled program's snapshot gives it (specification 44 §13.3).
 pub(super) fn snapshot_type(snapshot: &IoSnapshot, address: &IoAddress) -> Option<TypeId> {
     snapshot
         .inputs
@@ -175,7 +177,14 @@ pub(super) fn snapshot_type(snapshot: &IoSnapshot, address: &IoAddress) -> Optio
         .chain(&snapshot.outputs)
         .chain(&snapshot.memory)
         .find(|entry| &entry.address == address)
-        .and_then(|entry| entry.value_type)
+        .and_then(|entry| {
+            entry.value_type.or_else(|| {
+                entry
+                    .value_type_name
+                    .as_deref()
+                    .and_then(|name| experiment_type_id(name).ok())
+            })
+        })
 }
 
 pub(super) fn experiment_value(

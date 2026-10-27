@@ -54,18 +54,9 @@ export function withVisibleGraphSummary(graph: NCGraph): NCGraph {
   return { ...graph, summary: graphSummaryFromVisibleGraph(graph) };
 }
 
+// Whether a connection needs attention is the server's word (`trust-lsp.devicesTopology`).
 function needsAttention(endpoint: NCEndpoint): boolean {
-  switch (endpoint.health) {
-    case "connected":
-    case "configured":
-    case "configured_policy":
-    case "disabled":
-    case "stopped":
-    case "simulate":
-      return false;
-    default:
-      return endpoint.health.trim().length > 0;
-  }
+  return endpoint.attention === true;
 }
 
 export function filterReport(graph: NCGraph, hidden: ReadonlySet<string>): FilterReport {

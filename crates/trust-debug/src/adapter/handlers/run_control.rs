@@ -1,4 +1,4 @@
-//! Continue/pause/step handlers.
+//! Continue/pause/step handlers, answered by the runtime the session is connected to.
 //! - handle_continue: resume execution
 //! - handle_pause: request pause
 //! - handle_next/step_in/step_out: stepping commands
@@ -6,13 +6,12 @@
 use serde_json::Value;
 use std::sync::atomic::Ordering;
 
-use trust_runtime::debug::DebugMode;
-
 use crate::protocol::{
     ContinueArguments, ContinueResponseBody, NextArguments, PauseArguments, Request,
     StepInArguments, StepOutArguments,
 };
 
+use super::super::remote::RemoteSession;
 use super::super::{DebugAdapter, DispatchOutcome};
 
 impl DebugAdapter {
@@ -20,212 +19,124 @@ impl DebugAdapter {
         &mut self,
         request: Request<Value>,
     ) -> DispatchOutcome {
-        let Some(_args) = request
+        if request
             .arguments
             .clone()
             .and_then(|value| serde_json::from_value::<ContinueArguments>(value).ok())
-        else {
+            .is_none()
+        {
             return DispatchOutcome {
                 responses: vec![self.error_response(&request, "invalid continue args")],
                 ..DispatchOutcome::default()
             };
-        };
-
-        if let Some(remote) = self.remote_session.as_mut() {
-            self.pause_expected.store(false, Ordering::SeqCst);
-            if let Err(err) = remote.resume() {
-                return DispatchOutcome {
-                    responses: vec![self.error_response(&request, &err.to_string())],
-                    ..DispatchOutcome::default()
-                };
-            }
-            return DispatchOutcome {
-                responses: vec![self.ok_response(
-                    &request,
-                    Some(ContinueResponseBody {
-                        all_threads_continued: Some(true),
-                    }),
-                )],
-                stop_gate: Some(self.stop_gate.enter()),
-                ..DispatchOutcome::default()
-            };
         }
-
         self.pause_expected.store(false, Ordering::SeqCst);
-        self.session.debug_control().continue_run();
-
-        DispatchOutcome {
-            responses: vec![self.ok_response(
-                &request,
-                Some(ContinueResponseBody {
-                    all_threads_continued: Some(true),
-                }),
-            )],
-            stop_gate: Some(self.stop_gate.enter()),
-            ..DispatchOutcome::default()
-        }
+        self.run_control(
+            &request,
+            RemoteSession::resume,
+            Some(ContinueResponseBody {
+                all_threads_continued: Some(true),
+            }),
+            Vec::new(),
+        )
     }
 
     pub(in crate::adapter) fn handle_pause(&mut self, request: Request<Value>) -> DispatchOutcome {
-        let Some(_args) = request
+        if request
             .arguments
             .clone()
             .and_then(|value| serde_json::from_value::<PauseArguments>(value).ok())
-        else {
+            .is_none()
+        {
             return DispatchOutcome {
                 responses: vec![self.error_response(&request, "invalid pause args")],
                 ..DispatchOutcome::default()
             };
-        };
-
-        if let Some(remote) = self.remote_session.as_mut() {
+        }
+        if self.remote_session.is_some() {
             self.pause_expected.store(true, Ordering::SeqCst);
-            if let Err(err) = remote.pause() {
-                return DispatchOutcome {
-                    responses: vec![self.error_response(&request, &err.to_string())],
-                    ..DispatchOutcome::default()
-                };
-            }
-            return DispatchOutcome {
-                responses: vec![self.ok_response::<Value>(&request, None)],
-                events: vec![self.debug_output_message("[trust-debug] pause requested")],
-                stop_gate: Some(self.stop_gate.enter()),
-                ..DispatchOutcome::default()
-            };
         }
-
-        if matches!(self.session.debug_control().mode(), DebugMode::Paused) {
-            return DispatchOutcome {
-                responses: vec![self.ok_response::<Value>(&request, None)],
-                events: vec![
-                    self.debug_output_message("[trust-debug] pause ignored (already paused)")
-                ],
-                ..DispatchOutcome::default()
-            };
-        }
-
-        self.pause_expected.store(true, Ordering::SeqCst);
-        // DAP pause is effectively "pause the debuggee". Thread ids are advisory here,
-        // and thread-scoped pause can miss if the runtime reports thread transitions.
-        self.session.debug_control().pause();
-
-        DispatchOutcome {
-            responses: vec![self.ok_response::<Value>(&request, None)],
-            events: vec![self.debug_output_message("[trust-debug] pause requested")],
-            stop_gate: Some(self.stop_gate.enter()),
-            ..DispatchOutcome::default()
-        }
+        let events = vec![self.debug_output_message("[trust-debug] pause requested")];
+        self.run_control(&request, RemoteSession::pause, None::<Value>, events)
     }
+
     pub(in crate::adapter) fn handle_next(&mut self, request: Request<Value>) -> DispatchOutcome {
-        let Some(_args) = request
+        if request
             .arguments
             .clone()
             .and_then(|value| serde_json::from_value::<NextArguments>(value).ok())
-        else {
+            .is_none()
+        {
             return DispatchOutcome {
                 responses: vec![self.error_response(&request, "invalid next args")],
                 ..DispatchOutcome::default()
             };
-        };
-
-        if let Some(remote) = self.remote_session.as_mut() {
-            if let Err(err) = remote.step_over() {
-                return DispatchOutcome {
-                    responses: vec![self.error_response(&request, &err.to_string())],
-                    ..DispatchOutcome::default()
-                };
-            }
-            return DispatchOutcome {
-                responses: vec![self.ok_response::<Value>(&request, None)],
-                stop_gate: Some(self.stop_gate.enter()),
-                ..DispatchOutcome::default()
-            };
         }
-
-        self.session
-            .debug_control()
-            .step_over_thread(_args.thread_id);
-
-        DispatchOutcome {
-            responses: vec![self.ok_response::<Value>(&request, None)],
-            stop_gate: Some(self.stop_gate.enter()),
-            ..DispatchOutcome::default()
-        }
+        self.run_control(
+            &request,
+            RemoteSession::step_over,
+            None::<Value>,
+            Vec::new(),
+        )
     }
 
     pub(in crate::adapter) fn handle_step_in(
         &mut self,
         request: Request<Value>,
     ) -> DispatchOutcome {
-        let Some(_args) = request
+        if request
             .arguments
             .clone()
             .and_then(|value| serde_json::from_value::<StepInArguments>(value).ok())
-        else {
+            .is_none()
+        {
             return DispatchOutcome {
                 responses: vec![self.error_response(&request, "invalid stepIn args")],
                 ..DispatchOutcome::default()
             };
-        };
-
-        if let Some(remote) = self.remote_session.as_mut() {
-            if let Err(err) = remote.step_in() {
-                return DispatchOutcome {
-                    responses: vec![self.error_response(&request, &err.to_string())],
-                    ..DispatchOutcome::default()
-                };
-            }
-            return DispatchOutcome {
-                responses: vec![self.ok_response::<Value>(&request, None)],
-                stop_gate: Some(self.stop_gate.enter()),
-                ..DispatchOutcome::default()
-            };
         }
-
-        self.session.debug_control().step_thread(_args.thread_id);
-
-        DispatchOutcome {
-            responses: vec![self.ok_response::<Value>(&request, None)],
-            stop_gate: Some(self.stop_gate.enter()),
-            ..DispatchOutcome::default()
-        }
+        self.run_control(&request, RemoteSession::step_in, None::<Value>, Vec::new())
     }
 
     pub(in crate::adapter) fn handle_step_out(
         &mut self,
         request: Request<Value>,
     ) -> DispatchOutcome {
-        let Some(_args) = request
+        if request
             .arguments
             .clone()
             .and_then(|value| serde_json::from_value::<StepOutArguments>(value).ok())
-        else {
+            .is_none()
+        {
             return DispatchOutcome {
                 responses: vec![self.error_response(&request, "invalid stepOut args")],
                 ..DispatchOutcome::default()
             };
-        };
+        }
+        self.run_control(&request, RemoteSession::step_out, None::<Value>, Vec::new())
+    }
 
-        if let Some(remote) = self.remote_session.as_mut() {
-            if let Err(err) = remote.step_out() {
-                return DispatchOutcome {
-                    responses: vec![self.error_response(&request, &err.to_string())],
-                    ..DispatchOutcome::default()
-                };
-            }
+    /// Sends one run-control request to the connected runtime and answers `request` with `body`
+    /// and `events`; the stop that follows waits for the answer.
+    fn run_control<T: serde::Serialize>(
+        &mut self,
+        request: &Request<Value>,
+        send: fn(&mut RemoteSession) -> Result<(), String>,
+        body: Option<T>,
+        events: Vec<Value>,
+    ) -> DispatchOutcome {
+        let Some(remote) = self.remote_session.as_mut() else {
+            return self.not_connected(request);
+        };
+        if let Err(error) = send(remote) {
             return DispatchOutcome {
-                responses: vec![self.ok_response::<Value>(&request, None)],
-                stop_gate: Some(self.stop_gate.enter()),
+                responses: vec![self.error_response(request, &error)],
                 ..DispatchOutcome::default()
             };
         }
-
-        self.session
-            .debug_control()
-            .step_out_thread(_args.thread_id);
-
         DispatchOutcome {
-            responses: vec![self.ok_response::<Value>(&request, None)],
+            responses: vec![self.ok_response(request, body)],
+            events,
             stop_gate: Some(self.stop_gate.enter()),
             ..DispatchOutcome::default()
         }

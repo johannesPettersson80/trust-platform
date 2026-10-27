@@ -5,8 +5,10 @@
 
 mod definition;
 mod drawing;
+mod starter;
 mod write;
 
+pub use starter::starter_definition;
 pub use write::write_symbol;
 
 use std::collections::{BTreeMap, BTreeSet};

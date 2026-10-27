@@ -61,18 +61,20 @@ fn instrument_program_block(block: &str, annotations: &[Annotation]) -> String {
     };
     let var_end = usize::from(var_end.text_range().start());
     let end_program = usize::from(end_program.text_range().start());
+
+    // The generated declarations stand on the line of the first `END_VAR`, just before the token,
+    // and the generated calls on the line of `END_PROGRAM`, so that every line of the source keeps
+    // its number for diagnostics, breakpoints and stepping (specification 27 §10.3).
     let mut out = String::with_capacity(block.len() + 2048);
     out.push_str(&block[..var_end]);
-    out.push('\n');
     for declaration in hidden_declarations(annotations) {
-        out.push_str(&declaration);
-        out.push('\n');
+        out.push_str(declaration.trim());
+        out.push(' ');
     }
     out.push_str(&block[var_end..end_program]);
-    out.push('\n');
     for statement in hidden_statements(annotations) {
-        out.push_str(&statement);
-        out.push('\n');
+        out.push_str(&statement.trim().replace('\n', " "));
+        out.push(' ');
     }
     out.push_str(&block[end_program..]);
 

@@ -9,13 +9,9 @@ fn lreal(value: f64) -> Value {
     Value::LWord(value.to_bits())
 }
 
-fn flag(
-    runtime: &trust_runtime::Runtime,
-    program: trust_runtime::memory::InstanceId,
-    name: &str,
-) -> bool {
-    match runtime.storage().get_instance_var(program, name) {
-        Some(Value::Bool(value)) => *value,
+fn flag(runtime: &trust_runtime::CompiledRuntime, program: &str, name: &str) -> bool {
+    match value(runtime, &format!("{program}.{name}")) {
+        Some(Value::Bool(value)) => value,
         other => panic!("{name}: {other:?}"),
     }
 }
@@ -24,10 +20,10 @@ fn flag(
 fn lesson28_in_auto(
     until_step: u64,
 ) -> (
-    trust_runtime::Runtime,
+    trust_runtime::CompiledRuntime,
     trust_runtime::simulation::SimulationController,
     trust_runtime::debug::DebugControl,
-    trust_runtime::memory::InstanceId,
+    &'static str,
 ) {
     let (mut runtime, mut simulation) = setup(LESSON28);
     let debug = runtime.enable_debug();
@@ -35,7 +31,7 @@ fn lesson28_in_auto(
     for step in 0..5 {
         scan(&mut runtime, &mut simulation, &debug, step * 100, &[]);
     }
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     for step in 5..until_step {
         scan(&mut runtime, &mut simulation, &debug, step * 100, &[]);
     }
@@ -115,7 +111,7 @@ fn lesson28_a_frozen_sensor_fails_once_its_reading_is_older_than_half_a_second()
 #[test]
 fn lesson28_recovers_after_acknowledgement_and_three_fresh_valid_samples() {
     let (mut runtime, mut simulation, debug, program) = lesson28_in_auto(100);
-    let set = |runtime: &mut trust_runtime::Runtime, name: &str, value: Value| {
+    let set = |runtime: &mut trust_runtime::CompiledRuntime, name: &str, value: Value| {
         assert!(
             runtime.write_instance(program, name, value).is_ok(),
             "{name}"
@@ -123,7 +119,7 @@ fn lesson28_recovers_after_acknowledgement_and_three_fresh_valid_samples() {
     };
     let mut step = 100;
     let mut next =
-        |runtime: &mut trust_runtime::Runtime,
+        |runtime: &mut trust_runtime::CompiledRuntime,
          simulation: &mut trust_runtime::simulation::SimulationController| {
             scan(runtime, simulation, &debug, step * 100, &[]);
             step += 1;
@@ -198,7 +194,7 @@ fn lesson28_recovers_after_acknowledgement_and_three_fresh_valid_samples() {
         "the filter restarts from the fresh measurement"
     );
     // Only a new Auto request resumes control, from the applied 0 % without a jump.
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     next(&mut runtime, &mut simulation);
     assert_eq!(
         number(&runtime, "%QL0"),
@@ -272,10 +268,10 @@ fn lesson29_in_auto(
     setpoint: f64,
     load_kw: f64,
 ) -> (
-    trust_runtime::Runtime,
+    trust_runtime::CompiledRuntime,
     trust_runtime::simulation::SimulationController,
     trust_runtime::debug::DebugControl,
-    trust_runtime::memory::InstanceId,
+    &'static str,
 ) {
     let (mut runtime, mut simulation) = setup(LESSON29);
     let debug = runtime.enable_debug();
@@ -283,7 +279,7 @@ fn lesson29_in_auto(
     for step in 0..5 {
         scan(&mut runtime, &mut simulation, &debug, step * 100, &[]);
     }
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     assert!(runtime
         .write_instance(program, "DisturbanceKw", Value::LReal(load_kw))
         .is_ok());
@@ -461,7 +457,7 @@ fn lesson30_setpoint_step(track_measured: bool, seconds: u64) -> Vec<(f64, f64, 
     for step in 0..5 {
         scan(&mut runtime, &mut simulation, &debug, step * 100, &[]);
     }
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     let mut trace = Vec::new();
     for step in 5..(5 + seconds * 10) {
         scan(

@@ -53,6 +53,7 @@ change something. The demo passwords equal the user names; replace them with
   level is back below the limit.
 
 To deploy the screens from the editor, make the runtime the run target: in VS Code's settings set
-`trust.runtime.mode` to `online`, `trust.runtime.controlEndpoint` to `tcp://127.0.0.1:9100` and
-`trust.runtime.authTokenFallback` to the `auth_token` of `runtime.toml`. Then press **Deploy** in
-the builder; **Roll back** returns to the previous screens.
+`trust.runtime.mode` to `online` and leave `trust.runtime.controlEndpoint` empty. The extension then
+finds the running runtime, and its token where it has one, through the project's endpoint file
+`.trust-runtime/control.json`. Then press **Deploy** in the builder; **Roll back** returns to the
+previous screens.

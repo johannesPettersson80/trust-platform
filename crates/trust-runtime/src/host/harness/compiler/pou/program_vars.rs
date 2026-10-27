@@ -7,7 +7,6 @@ fn lower_program_var_blocks(
     let mut globals = Vec::new();
     let mut vars = Vec::new();
     let mut temps = Vec::new();
-    let mut external_names = Vec::new();
     for var_block in program
         .children()
         .filter(|child| child.kind() == SyntaxKind::VarBlock)
@@ -94,9 +93,8 @@ fn lower_program_var_blocks(
                         });
                     }
                 }
-                VarBlockKind::External => {
-                    external_names.extend(parts.names);
-                }
+                // A program's external variables name globals, which it reaches by name.
+                VarBlockKind::External => {}
                 VarBlockKind::Global => {
                     for name in parts.names {
                         globals.push(GlobalInit {
@@ -136,7 +134,6 @@ fn lower_program_var_blocks(
     }
     Ok(ProgramVars {
         globals,
-        external_names,
         vars,
         temps,
     })

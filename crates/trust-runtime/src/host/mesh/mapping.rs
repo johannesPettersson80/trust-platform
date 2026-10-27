@@ -5,6 +5,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 
+use crate::runtime::program_access::ProgramRead;
 use crate::scheduler::{ResourceCommand, ResourceControl, StdClock};
 use crate::value::Value;
 
@@ -83,6 +84,21 @@ pub(crate) fn parse_subscribe_mapping(remote: &str) -> Option<(SmolStr, SmolStr)
         return None;
     }
     Some((SmolStr::new(peer), SmolStr::new(key)))
+}
+
+/// The values of the published names `names` as `program` holds them, each under the name as it
+/// was published (specification 39 §7 item 9): a global, a program's variable, or a program or
+/// equipment path such as `Main.P101.Running` or `Main.Levels[2]`, found through the image's symbol
+/// and type tables and compared without case. Only the values asked for are read; a name that names
+/// nothing, and an instance, which holds no single value, are left out.
+pub(crate) fn published_values(
+    program: &dyn ProgramRead,
+    names: &[SmolStr],
+) -> IndexMap<SmolStr, Value> {
+    names
+        .iter()
+        .filter_map(|name| Some((name.clone(), program.value(name)?)))
+        .collect()
 }
 
 pub(crate) fn snapshot_globals(

@@ -1,3 +1,8 @@
+//! The platform clocks: monotonic time, the runtime clock behind `TIME()`, and a scheduler that
+//! follows its injected clock only.
+//!
+//! The tests that run a program need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::time::Duration as StdDuration;
 
 use trust_runtime::harness::TestHarness;
@@ -75,26 +80,16 @@ END_PROGRAM
     let mut runner = ResourceRunner::new(runtime, clock.clone(), Duration::from_millis(1));
 
     runner.tick().unwrap();
-    let program = match runner.runtime().storage().get_global("P") {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected program instance, got {other:?}"),
-    };
     assert_eq!(
-        runner
-            .runtime()
-            .storage()
-            .get_instance_var(program, "counter"),
-        Some(&Value::Int(0)),
+        runner.program().read_variable("P.counter"),
+        Ok(Value::Int(0)),
         "a fixed injected clock must not make a periodic task ready"
     );
 
     clock.advance(Duration::from_millis(1));
     runner.tick().unwrap();
     assert_eq!(
-        runner
-            .runtime()
-            .storage()
-            .get_instance_var(program, "counter"),
-        Some(&Value::Int(1))
+        runner.program().read_variable("P.counter"),
+        Ok(Value::Int(1))
     );
 }

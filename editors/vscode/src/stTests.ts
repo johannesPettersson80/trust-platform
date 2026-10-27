@@ -3,21 +3,29 @@ import * as path from "path";
 import { spawn } from "child_process";
 import * as vscode from "vscode";
 import { getBinaryPath } from "./binary";
+import { projectRequest } from "./projectRequest";
 
-const ST_SOURCE_GLOB = "**/*.{st,ST,pou,POU}";
-const ST_SOURCE_EXCLUDE = "**/{node_modules,target,.git}/**";
+// Native Testing for Structured Text (specification 25 §11.1). The language server finds the tests and the project each
+// runs in, and gives the keys that tie a `trust-dev test` result to its test (`trust-lsp.testDiscovery`, specification
+// 22 "Test POU discovery"). This module keeps the Testing view, the Run Test lenses and the pass/fail decorations, runs
+// `trust-dev test` and shows its results.
 
-type TestKind = "TEST_PROGRAM" | "TEST_FUNCTION_BLOCK";
+const TEST_DISCOVERY_COMMAND = "trust-lsp.testDiscovery";
+
 type TestOutcome = "passed" | "failed" | "error";
 
+/** One test as the language server describes it. */
 type DiscoveredTest = {
   id: string;
   key: string;
-  uri: vscode.Uri;
+  nameKey: string;
+  path: string;
+  fileKey: string;
   line: number; // 1-based
   name: string;
-  kind: TestKind;
+  kind: string;
   projectRoot: string;
+  projectKey: string;
 };
 
 type RuntimeSummary = {
@@ -43,6 +51,25 @@ type RuntimePayload = {
   tests: RuntimeCase[];
 };
 
+/** One run result with the keys of the test it belongs to, as the language server gives them. */
+type KeyedCase = {
+  key: string | null;
+  nameKey: string;
+  path: string;
+  fileKey: string;
+  line: number;
+  kind: string;
+  name: string;
+  status: string;
+  message?: string | null;
+  outcome: TestOutcome | null;
+};
+
+type KeyedResults = {
+  projectKey: string;
+  cases: KeyedCase[];
+};
+
 type RunAllArgs = {
   projectUri?: vscode.Uri | string;
   uri?: vscode.Uri | string;
@@ -59,20 +86,17 @@ type LastResultEntry = {
   uri: string;
   line: number;
   name: string;
-  kind: TestKind;
+  kind: string;
   status: TestOutcome;
   message?: string;
+  key: string;
+  projectKey: string;
 };
 
 type RuntimeCommandResult = {
   exitCode: number;
   stdout: string;
   stderr: string;
-};
-
-const TEST_KIND_SET: Record<TestKind, true> = {
-  TEST_PROGRAM: true,
-  TEST_FUNCTION_BLOCK: true,
 };
 
 export const ST_TEST_RUN_ALL_COMMAND = "trust-lsp.test.runAll";
@@ -101,36 +125,66 @@ function toUri(input?: vscode.Uri | string): vscode.Uri | undefined {
   }
 }
 
-function normalizeFsPath(fsPath: string): string {
-  const normalized = path.normalize(path.resolve(fsPath));
-  return process.platform === "win32"
-    ? normalized.toLocaleLowerCase()
-    : normalized;
+function workspaceFolderPaths(): string[] {
+  return (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri.fsPath);
 }
 
-function discoveredTestKey(
-  fsPath: string,
-  line: number,
-  kind: TestKind,
-  name: string
-): string {
-  return `${normalizeFsPath(fsPath)}::${line}::${kind}::${name.toLocaleLowerCase()}`;
+function filePath(uri: vscode.Uri | undefined): string | undefined {
+  return uri?.scheme === "file" ? uri.fsPath : undefined;
 }
 
-function runtimeCaseKey(projectRoot: string, test: RuntimeCase): string | undefined {
-  const kindText = test.kind.toUpperCase();
-  if (kindText !== "TEST_PROGRAM" && kindText !== "TEST_FUNCTION_BLOCK") {
-    return undefined;
+/** The files of the editors with unsaved changes, whose text the language server reads instead. */
+function unsavedPaths(): string[] {
+  return vscode.workspace.textDocuments
+    .filter((document) => document.isDirty && document.uri.scheme === "file")
+    .map((document) => document.uri.fsPath);
+}
+
+/** The tests of `documents`, or of every Structured Text file in the workspace without them; `editors` asks for the
+ * documents' editor text (their code lenses). */
+async function discoverTests(documents?: readonly vscode.Uri[], editors = false): Promise<DiscoveredTest[]> {
+  const files = documents
+    ?.filter((uri) => uri.scheme === "file")
+    .map((uri) => (editors ? { path: uri.fsPath, uri: uri.toString() } : { path: uri.fsPath }));
+  if (files && files.length === 0) {
+    return [];
   }
-  const kind = kindText as TestKind;
-  const file = path.isAbsolute(test.file)
-    ? test.file
-    : path.join(projectRoot, test.file);
-  const line = Number.isFinite(test.line) ? test.line : 0;
-  if (line <= 0) {
-    return undefined;
+  const answer = await projectRequest<{ tests: DiscoveredTest[] }>(TEST_DISCOVERY_COMMAND, {
+    action: "discover",
+    folders: workspaceFolderPaths(),
+    unsaved: unsavedPaths(),
+    ...(files ? { files } : {}),
+  });
+  return answer.ok ? answer.tests : [];
+}
+
+/** The project a run command uses, as the language server chooses it. */
+async function resolveProjectRoot(
+  args?: RunAllArgs | RunOneArgs
+): Promise<{ root: string; projectKey: string } | undefined> {
+  const answer = await projectRequest<{ root: string | null; projectKey: string | null }>(TEST_DISCOVERY_COMMAND, {
+    action: "project",
+    projectPath: filePath(toUri((args as RunAllArgs | undefined)?.projectUri)),
+    path: filePath(toUri(args?.uri)),
+    activePath: filePath(vscode.window.activeTextEditor?.document.uri),
+    folders: workspaceFolderPaths(),
+  });
+  return answer.ok && answer.root && answer.projectKey
+    ? { root: answer.root, projectKey: answer.projectKey }
+    : undefined;
+}
+
+/** The results of a run with the keys of their tests. */
+async function keyedResults(projectRoot: string, payload: RuntimePayload): Promise<KeyedResults> {
+  const answer = await projectRequest<KeyedResults>(TEST_DISCOVERY_COMMAND, {
+    action: "results",
+    projectRoot,
+    tests: payload.tests,
+  });
+  if (!answer.ok) {
+    throw new Error(answer.error);
   }
-  return discoveredTestKey(file, line, kind, test.name);
+  return answer;
 }
 
 function isRuntimePayload(value: unknown): value is RuntimePayload {
@@ -157,124 +211,6 @@ function extractJsonPayload(stdout: string): string {
     return stdout.trim();
   }
   return stdout.slice(start, end + 1);
-}
-
-function discoverTestsFromText(
-  uri: vscode.Uri,
-  text: string,
-  projectRoot: string
-): DiscoveredTest[] {
-  const tests: DiscoveredTest[] = [];
-  const lines = text.split(/\r?\n/);
-  for (let idx = 0; idx < lines.length; idx += 1) {
-    const lineText = lines[idx];
-    const match = lineText.match(
-      /^\s*(TEST_PROGRAM|TEST_FUNCTION_BLOCK)\s+([A-Za-z_][A-Za-z0-9_]*)\b/i
-    );
-    if (!match) {
-      continue;
-    }
-    const kind = match[1].toUpperCase() as TestKind;
-    const name = match[2];
-    const line = idx + 1;
-    const key = discoveredTestKey(uri.fsPath, line, kind, name);
-    tests.push({
-      id: `${uri.toString()}::${line}::${kind}::${name}`,
-      key,
-      uri,
-      line,
-      name,
-      kind,
-      projectRoot,
-    });
-  }
-  return tests;
-}
-
-async function readText(uri: vscode.Uri): Promise<string | undefined> {
-  const open = vscode.workspace.textDocuments.find(
-    (doc) => doc.uri.toString() === uri.toString()
-  );
-  if (open?.isDirty) {
-    return open.getText();
-  }
-  try {
-    const bytes = await vscode.workspace.fs.readFile(uri);
-    return new TextDecoder("utf-8").decode(bytes);
-  } catch {
-    if (open) {
-      return open.getText();
-    }
-    return undefined;
-  }
-}
-
-function hasProjectSourceFolder(root: string): boolean {
-  return (
-    fs.existsSync(path.join(root, "src")) ||
-    fs.existsSync(path.join(root, "sources"))
-  );
-}
-
-function nearestProjectRoot(fsPath: string): string | undefined {
-  let current = fs.existsSync(fsPath) && fs.statSync(fsPath).isDirectory()
-    ? fsPath
-    : path.dirname(fsPath);
-  while (true) {
-    if (hasProjectSourceFolder(current)) {
-      return current;
-    }
-    const parent = path.dirname(current);
-    if (parent === current) {
-      return undefined;
-    }
-    current = parent;
-  }
-}
-
-function resolveProjectRootFromUri(uri?: vscode.Uri): string | undefined {
-  if (!uri) {
-    return undefined;
-  }
-  const nearest = nearestProjectRoot(uri.fsPath);
-  if (nearest) {
-    return nearest;
-  }
-  const folder = vscode.workspace.getWorkspaceFolder(uri);
-  return folder?.uri.fsPath;
-}
-
-function resolveProjectRoot(args?: RunAllArgs | RunOneArgs): string | undefined {
-  const directUri = toUri((args as RunAllArgs | undefined)?.projectUri);
-  if (directUri && hasProjectSourceFolder(directUri.fsPath)) {
-    return directUri.fsPath;
-  }
-
-  const uriArg = toUri(args?.uri);
-  if (uriArg) {
-    const nearest = nearestProjectRoot(uriArg.fsPath);
-    if (nearest) {
-      return nearest;
-    }
-    if (hasProjectSourceFolder(uriArg.fsPath)) {
-      return uriArg.fsPath;
-    }
-    const fromUri = resolveProjectRootFromUri(uriArg);
-    if (fromUri) {
-      return fromUri;
-    }
-  }
-
-  const active = vscode.window.activeTextEditor?.document.uri;
-  if (active) {
-    const fromActive = resolveProjectRootFromUri(active);
-    if (fromActive) {
-      return fromActive;
-    }
-  }
-
-  const first = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  return first;
 }
 
 function siblingTrustDevBinary(candidate: string | undefined): string | undefined {
@@ -364,17 +300,22 @@ async function executeRuntimeTests(
   return parsed;
 }
 
-function asOutcome(status: string): TestOutcome | undefined {
-  if (status === "passed" || status === "failed" || status === "error") {
-    return status;
-  }
-  return undefined;
-}
-
-function toTestMessage(caseResult: RuntimeCase): vscode.TestMessage {
+function toTestMessage(caseResult: KeyedCase): vscode.TestMessage {
   return new vscode.TestMessage(
     caseResult.message?.trim() || `Test ${caseResult.status}`
   );
+}
+
+/** A keyed result in the shape `trust-lsp.test.runOne` answers. */
+function runtimeCase(result: KeyedCase): RuntimeCase {
+  return {
+    name: result.name,
+    kind: result.kind,
+    status: result.status,
+    file: result.path,
+    line: result.line,
+    message: result.message,
+  };
 }
 
 export function registerStTestIntegration(context: vscode.ExtensionContext): void {
@@ -386,8 +327,10 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
 
   const testById = new Map<string, DiscoveredTest>();
   const itemById = new Map<string, vscode.TestItem>();
-  const resultByKey = new Map<string, RuntimeCase>();
-  const stateByUriLine = new Map<string, Map<number, LastResultEntry>>();
+  const resultByKey = new Map<string, KeyedCase & { projectKey: string }>();
+  const stateByFileKey = new Map<string, Map<number, LastResultEntry>>();
+  /** The language server's file key of each document URI it described, for the decorations. */
+  const fileKeyByUri = new Map<string, string>();
 
   const passDecoration = vscode.window.createTextEditorDecorationType({
     isWholeLine: true,
@@ -415,13 +358,19 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
   });
   context.subscriptions.push(passDecoration, failDecoration, errorDecoration);
 
+  function rememberFileKeys(entries: ReadonlyArray<{ path: string; fileKey: string }>): void {
+    for (const entry of entries) {
+      fileKeyByUri.set(vscode.Uri.file(entry.path).toString(), entry.fileKey);
+    }
+  }
+
   function applyDecorations(): void {
     for (const editor of vscode.window.visibleTextEditors) {
       if (!isStructuredTextDocument(editor.document)) {
         continue;
       }
-      const uriKey = normalizeFsPath(editor.document.uri.fsPath);
-      const byLine = stateByUriLine.get(uriKey);
+      const fileKey = fileKeyByUri.get(editor.document.uri.toString());
+      const byLine = fileKey ? stateByFileKey.get(fileKey) : undefined;
       const pass: vscode.DecorationOptions[] = [];
       const fail: vscode.DecorationOptions[] = [];
       const error: vscode.DecorationOptions[] = [];
@@ -448,16 +397,20 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
     }
   }
 
-  function clearProjectResults(projectRoot: string): void {
-    const normalizedRoot = normalizeFsPath(projectRoot);
-    for (const key of Array.from(resultByKey.keys())) {
-      if (key.startsWith(normalizedRoot)) {
+  function clearProjectResults(projectKey: string): void {
+    for (const [key, result] of Array.from(resultByKey.entries())) {
+      if (result.projectKey === projectKey) {
         resultByKey.delete(key);
       }
     }
-    for (const uriKey of Array.from(stateByUriLine.keys())) {
-      if (uriKey.startsWith(normalizedRoot)) {
-        stateByUriLine.delete(uriKey);
+    for (const [fileKey, lineMap] of Array.from(stateByFileKey.entries())) {
+      for (const [line, entry] of Array.from(lineMap.entries())) {
+        if (entry.projectKey === projectKey) {
+          lineMap.delete(line);
+        }
+      }
+      if (lineMap.size === 0) {
+        stateByFileKey.delete(fileKey);
       }
     }
   }
@@ -469,66 +422,52 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
         resultByKey.delete(key);
       }
     }
-    for (const [uriKey, lineMap] of Array.from(stateByUriLine.entries())) {
+    for (const [fileKey, lineMap] of Array.from(stateByFileKey.entries())) {
       for (const [line, entry] of Array.from(lineMap.entries())) {
-        const entryUri = toUri(entry.uri);
-        const entryFsPath = entryUri?.fsPath;
-        if (!entryFsPath) {
-          lineMap.delete(line);
-          continue;
-        }
-        const key = discoveredTestKey(entryFsPath, entry.line, entry.kind, entry.name);
-        if (!validKeys.has(key)) {
+        if (!validKeys.has(entry.key)) {
           lineMap.delete(line);
         }
       }
       if (lineMap.size === 0) {
-        stateByUriLine.delete(uriKey);
+        stateByFileKey.delete(fileKey);
       }
     }
     applyDecorations();
   }
 
-  function updateResultState(
-    payload: RuntimePayload,
-    projectRoot: string,
-    replaceProject: boolean
-  ): void {
+  function updateResultState(results: KeyedResults, replaceProject: boolean): void {
     if (replaceProject) {
-      clearProjectResults(projectRoot);
+      clearProjectResults(results.projectKey);
     }
-    for (const testCase of payload.tests) {
-      const key = runtimeCaseKey(projectRoot, testCase);
-      if (!key) {
+    rememberFileKeys(results.cases);
+    for (const testCase of results.cases) {
+      if (!testCase.key) {
         continue;
       }
-      resultByKey.set(key, testCase);
-      const outcome = asOutcome(testCase.status);
-      if (!outcome) {
+      resultByKey.set(testCase.key, { ...testCase, projectKey: results.projectKey });
+      if (!testCase.outcome) {
         continue;
       }
-      const absoluteFile = path.isAbsolute(testCase.file)
-        ? testCase.file
-        : path.join(projectRoot, testCase.file);
-      const uriKey = normalizeFsPath(absoluteFile);
-      const lineMap = stateByUriLine.get(uriKey) ?? new Map<number, LastResultEntry>();
+      const lineMap = stateByFileKey.get(testCase.fileKey) ?? new Map<number, LastResultEntry>();
       lineMap.set(testCase.line, {
-        uri: vscode.Uri.file(absoluteFile).toString(),
+        uri: vscode.Uri.file(testCase.path).toString(),
         line: testCase.line,
         name: testCase.name,
-        kind: testCase.kind.toUpperCase() as TestKind,
-        status: outcome,
+        kind: testCase.kind,
+        status: testCase.outcome,
         message: testCase.message ?? undefined,
+        key: testCase.key,
+        projectKey: results.projectKey,
       });
-      stateByUriLine.set(uriKey, lineMap);
+      stateByFileKey.set(testCase.fileKey, lineMap);
     }
     applyDecorations();
   }
 
-  function updateTestItemState(projectRoot: string): void {
-    const normalizedRoot = normalizeFsPath(projectRoot);
+  /** Sets each test item's error from its last result; with `projectKey`, only the items of that project. */
+  function updateTestItemState(projectKey?: string): void {
     for (const test of testById.values()) {
-      if (!normalizeFsPath(test.projectRoot).startsWith(normalizedRoot)) {
+      if (projectKey !== undefined && test.projectKey !== projectKey) {
         continue;
       }
       const item = itemById.get(test.id);
@@ -536,12 +475,7 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
         continue;
       }
       const runtimeCase = resultByKey.get(test.key);
-      if (!runtimeCase) {
-        item.error = undefined;
-        continue;
-      }
-      const outcome = asOutcome(runtimeCase.status);
-      if (!outcome || outcome === "passed") {
+      if (!runtimeCase || !runtimeCase.outcome || runtimeCase.outcome === "passed") {
         item.error = undefined;
       } else {
         item.error = runtimeCase.message?.trim() || `Test ${runtimeCase.status}`;
@@ -549,28 +483,17 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
     }
   }
 
-  function discoveredTestsForProject(projectRoot: string): DiscoveredTest[] {
-    const normalizedRoot = normalizeFsPath(projectRoot);
-    return Array.from(testById.values()).filter((test) =>
-      normalizeFsPath(test.projectRoot).startsWith(normalizedRoot)
-    );
+  function discoveredTestsForProject(projectKey: string): DiscoveredTest[] {
+    return Array.from(testById.values()).filter((test) => test.projectKey === projectKey);
   }
 
   function runtimeResultForTarget(
     target: DiscoveredTest,
-    payload: RuntimePayload
-  ): RuntimeCase | undefined {
-    const exact = payload.tests.find((testCase) => {
-      const key = runtimeCaseKey(target.projectRoot, testCase);
-      return !!key && key === target.key;
-    });
-    if (exact) {
-      return exact;
-    }
-    return payload.tests.find(
-      (testCase) =>
-        testCase.kind.toUpperCase() === target.kind &&
-        testCase.name.toLocaleLowerCase() === target.name.toLocaleLowerCase()
+    results: KeyedResults
+  ): KeyedCase | undefined {
+    return (
+      results.cases.find((testCase) => testCase.key === target.key) ??
+      results.cases.find((testCase) => testCase.nameKey === target.nameKey)
     );
   }
 
@@ -600,47 +523,31 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
   }
 
   async function refreshDiscoveredTests(): Promise<void> {
-    const fileUris = await vscode.workspace.findFiles(ST_SOURCE_GLOB, ST_SOURCE_EXCLUDE);
+    const discovered = await discoverTests();
     const fileItems = new Map<string, vscode.TestItem>();
     testById.clear();
     itemById.clear();
+    rememberFileKeys(discovered);
 
-    for (const uri of fileUris) {
-      const projectRoot = resolveProjectRootFromUri(uri);
-      if (!projectRoot) {
-        continue;
-      }
-      const text = await readText(uri);
-      if (!text) {
-        continue;
-      }
-      const discovered = discoverTestsFromText(uri, text, projectRoot);
-      if (discovered.length === 0) {
-        continue;
-      }
-
+    for (const test of discovered) {
+      const uri = vscode.Uri.file(test.path);
       const fileId = `file:${uri.toString()}`;
       let fileItem = fileItems.get(fileId);
       if (!fileItem) {
-        fileItem = controller.createTestItem(fileId, path.basename(uri.fsPath), uri);
+        fileItem = controller.createTestItem(fileId, path.basename(test.path), uri);
         fileItems.set(fileId, fileItem);
       }
-
-      for (const test of discovered) {
-        const line = Math.max(0, test.line - 1);
-        const range = new vscode.Range(line, 0, line, 0);
-        const label = `${test.kind} ${test.name}`;
-        const item = controller.createTestItem(test.id, label, test.uri);
-        item.range = range;
-        fileItem.children.add(item);
-        testById.set(test.id, test);
-        itemById.set(test.id, item);
-      }
+      const line = Math.max(0, test.line - 1);
+      const item = controller.createTestItem(test.id, `${test.kind} ${test.name}`, uri);
+      item.range = new vscode.Range(line, 0, line, 0);
+      fileItem.children.add(item);
+      testById.set(test.id, test);
+      itemById.set(test.id, item);
     }
 
     controller.items.replace(Array.from(fileItems.values()));
     pruneResultsToDiscoveredTests();
-    updateTestItemState(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "");
+    updateTestItemState();
   }
 
   let refreshTimer: NodeJS.Timeout | undefined;
@@ -654,15 +561,11 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
   }
 
   const codeLensProvider: vscode.CodeLensProvider = {
-    provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
+    async provideCodeLenses(document: vscode.TextDocument): Promise<vscode.CodeLens[]> {
       if (!isStructuredTextDocument(document)) {
         return [];
       }
-      const projectRoot = resolveProjectRootFromUri(document.uri);
-      if (!projectRoot) {
-        return [];
-      }
-      const discovered = discoverTestsFromText(document.uri, document.getText(), projectRoot);
+      const discovered = await discoverTests([document.uri], true);
       return discovered.map((test) => {
         const line = Math.max(0, test.line - 1);
         const range = new vscode.Range(line, 0, line, 0);
@@ -672,7 +575,7 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
           command: ST_TEST_RUN_ONE_COMMAND,
           arguments: [
             {
-              uri: test.uri.toString(),
+              uri: document.uri.toString(),
               line: test.line,
               kind: test.kind,
               name: test.name,
@@ -690,40 +593,35 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
   );
 
   async function resolveSingleTarget(args?: RunOneArgs): Promise<DiscoveredTest | undefined> {
-    const root = resolveProjectRoot(args);
-    if (!root) {
+    const project = await resolveProjectRoot(args);
+    if (!project) {
       return undefined;
     }
 
     const uri = toUri(args?.uri);
-    if (uri && args?.name && args?.line && args?.kind) {
-      const kind = args.kind.toUpperCase();
-      if (kind in TEST_KIND_SET) {
-        const key = discoveredTestKey(uri.fsPath, args.line, kind as TestKind, args.name);
-        const existing = Array.from(testById.values()).find((test) => test.key === key);
-        if (existing) {
-          return existing;
-        }
-        return {
-          id: `${uri.toString()}::${args.line}::${kind}::${args.name}`,
-          key,
-          uri,
-          line: args.line,
-          name: args.name,
-          kind: kind as TestKind,
-          projectRoot: root,
-        };
+    if (uri?.scheme === "file" && args?.name && args?.line && args?.kind) {
+      const answer = await projectRequest<{ test: DiscoveredTest | null }>(TEST_DISCOVERY_COMMAND, {
+        action: "identify",
+        path: uri.fsPath,
+        line: args.line,
+        kind: args.kind,
+        name: args.name,
+        projectRoot: project.root,
+      });
+      if (answer.ok && answer.test) {
+        const named = answer.test;
+        return Array.from(testById.values()).find((test) => test.key === named.key) ?? named;
       }
     }
 
-    const discovered = discoveredTestsForProject(root);
+    const discovered = discoveredTestsForProject(project.projectKey);
     if (discovered.length === 0) {
       return undefined;
     }
     const pick = await vscode.window.showQuickPick(
       discovered.map((test) => ({
         label: test.name,
-        description: `${test.kind} (${path.basename(test.uri.fsPath)}:${test.line})`,
+        description: `${test.kind} (${path.basename(test.path)}:${test.line})`,
         test,
       })),
       { title: "Select Structured Text test to run" }
@@ -731,31 +629,33 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
     return pick?.test;
   }
 
-  async function runAll(projectRoot: string): Promise<RuntimePayload> {
+  async function runAll(projectRoot: string): Promise<{ payload: RuntimePayload; results: KeyedResults }> {
     const payload = await executeRuntimeTests(context, projectRoot);
-    updateResultState(payload, projectRoot, true);
-    updateTestItemState(projectRoot);
-    return payload;
+    const results = await keyedResults(projectRoot, payload);
+    updateResultState(results, true);
+    updateTestItemState(results.projectKey);
+    return { payload, results };
   }
 
-  async function runOne(target: DiscoveredTest): Promise<RuntimeCase | undefined> {
+  async function runOne(target: DiscoveredTest): Promise<KeyedCase | undefined> {
     const payload = await executeRuntimeTests(context, target.projectRoot, target.name);
-    updateResultState(payload, target.projectRoot, false);
-    updateTestItemState(target.projectRoot);
-    return runtimeResultForTarget(target, payload);
+    const results = await keyedResults(target.projectRoot, payload);
+    updateResultState(results, false);
+    updateTestItemState(results.projectKey);
+    return runtimeResultForTarget(target, results);
   }
 
   context.subscriptions.push(
     vscode.commands.registerCommand(
       ST_TEST_RUN_ALL_COMMAND,
       async (args?: RunAllArgs): Promise<RuntimePayload | undefined> => {
-        const projectRoot = resolveProjectRoot(args);
-        if (!projectRoot) {
+        const project = await resolveProjectRoot(args);
+        if (!project) {
           vscode.window.showErrorMessage("No project folder found for ST test run.");
           return undefined;
         }
         try {
-          const payload = await runAll(projectRoot);
+          const { payload } = await runAll(project.root);
           const summary = payload.summary;
           const level = summary.failed + summary.errors > 0 ? "error" : "info";
           const message = `ST tests: ${summary.passed} passed, ${summary.failed} failed, ${summary.errors} errors`;
@@ -797,7 +697,7 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
           } else {
             vscode.window.showErrorMessage(summary);
           }
-          return result;
+          return runtimeCase(result);
         } catch (error) {
           const detail = error instanceof Error ? error.message : String(error ?? "unknown error");
           vscode.window.showErrorMessage(`Failed to run ST test: ${detail}`);
@@ -808,9 +708,9 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand(ST_TEST_STATE_COMMAND, (): LastResultEntry[] => {
+    vscode.commands.registerCommand(ST_TEST_STATE_COMMAND, () => {
       const entries: LastResultEntry[] = [];
-      for (const byLine of stateByUriLine.values()) {
+      for (const byLine of stateByFileKey.values()) {
         for (const entry of byLine.values()) {
           entries.push(entry);
         }
@@ -818,7 +718,14 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
       entries.sort((a, b) =>
         a.uri.localeCompare(b.uri) || a.line - b.line || a.name.localeCompare(b.name)
       );
-      return entries;
+      return entries.map(({ uri, line, name, kind, status, message }) => ({
+        uri,
+        line,
+        name,
+        kind,
+        status,
+        message,
+      }));
     })
   );
 
@@ -827,18 +734,7 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
       ST_TEST_DISCOVER_COMMAND,
       async (args?: { uri?: vscode.Uri | string }): Promise<DiscoveredTest[]> => {
         const uri = toUri(args?.uri);
-        if (!uri) {
-          return [];
-        }
-        const projectRoot = resolveProjectRootFromUri(uri);
-        if (!projectRoot) {
-          return [];
-        }
-        const text = await readText(uri);
-        if (!text) {
-          return [];
-        }
-        return discoverTestsFromText(uri, text, projectRoot);
+        return uri ? discoverTests([uri]) : [];
       }
     )
   );
@@ -873,9 +769,9 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
             if (token.isCancellationRequested) {
               break;
             }
-            let payload: RuntimePayload | undefined;
+            let results: KeyedResults;
             try {
-              payload = await runAll(projectRoot);
+              results = (await runAll(projectRoot)).results;
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
               for (const test of tests) {
@@ -893,7 +789,7 @@ export function registerStTestIntegration(context: vscode.ExtensionContext): voi
                 continue;
               }
               run.started(item);
-              const result = runtimeResultForTarget(test, payload);
+              const result = runtimeResultForTarget(test, results);
               if (!result) {
                 run.skipped(item);
                 continue;

@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from "react";
 
-import { respondingAdsPorts } from "../adsDiscoveryPorts";
+import { useAdsPortCheck } from "./adsPortCheck";
 import {
-  adsPortDraftIsStale,
   adsTargetNetId,
   adsTargetPort,
-  parseAdsPortInput,
+  respondingAdsPorts,
   withAdsTargetPort,
 } from "./adsTargetPort";
 
@@ -14,22 +13,32 @@ export function AdsBrowseTargetControls({
   loading,
   onBrowse,
   onDraftStaleChange,
+  post,
 }: {
   target: Record<string, unknown>;
   loading: boolean;
   onBrowse: (target: Record<string, unknown>) => void;
   onDraftStaleChange: (stale: boolean) => void;
+  /** Posts to the extension, which has the server check a typed ADS port. */
+  post?: (message: unknown) => void;
 }) {
   const targetPort = adsTargetPort(target);
-  const [portDraft, setPortDraft] = useState(String(targetPort));
-  const parsedPort = parseAdsPortInput(portDraft);
+  const [portDraft, setPortDraft] = useState(targetPort === undefined ? "" : String(targetPort));
+  const parsedPort = useAdsPortCheck(post, portDraft);
   const netId = adsTargetNetId(target);
   const discoveredPorts = respondingAdsPorts(target);
 
   useEffect(() => {
-    setPortDraft(String(targetPort));
+    setPortDraft(targetPort === undefined ? "" : String(targetPort));
     onDraftStaleChange(false);
   }, [onDraftStaleChange, targetPort]);
+
+  // The draft is stale while the port the server read from it is not the browsed one.
+  useEffect(() => {
+    if (!parsedPort.pending) {
+      onDraftStaleChange(parsedPort.port === undefined || parsedPort.port !== targetPort);
+    }
+  }, [onDraftStaleChange, parsedPort.pending, parsedPort.port, targetPort]);
 
   return (
     <div className="trust-section" style={SECTION}>
@@ -53,11 +62,7 @@ export function AdsBrowseTargetControls({
                     : "trust-button"
                 }
                 style={PORT_BUTTON}
-                onClick={() => {
-                  const draft = String(port);
-                  setPortDraft(draft);
-                  onDraftStaleChange(adsPortDraftIsStale(draft, target));
-                }}
+                onClick={() => setPortDraft(String(port))}
               >
                 {port}
               </button>
@@ -78,11 +83,7 @@ export function AdsBrowseTargetControls({
             value={portDraft}
             aria-invalid={Boolean(parsedPort.error)}
             aria-describedby={parsedPort.error ? "ads-browse-port-error" : undefined}
-            onChange={(event) => {
-              const draft = event.target.value;
-              setPortDraft(draft);
-              onDraftStaleChange(adsPortDraftIsStale(draft, target));
-            }}
+            onChange={(event) => setPortDraft(event.target.value)}
             className="trust-input"
             style={{ marginTop: 4 }}
           />
@@ -95,7 +96,7 @@ export function AdsBrowseTargetControls({
         </label>
         <button
           data-role="browse-ads-symbols"
-          disabled={loading || Boolean(parsedPort.error)}
+          disabled={loading || parsedPort.pending || Boolean(parsedPort.error)}
           title={parsedPort.error}
           className="trust-button trust-button--primary"
           style={{ alignSelf: "flex-end" }}

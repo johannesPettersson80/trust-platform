@@ -180,7 +180,7 @@ applies in the next scan and then clears:
 | Shelve | Operator | `Shelve : TIME` | the duration, 1 s to 24 h |
 | Unshelve | Operator | `Unshelve : BOOL` | — |
 | Reset | Operator | `Reset : BOOL` | — |
-| Comment | Operator | `Comment : STRING[120]` | the text |
+| Comment | Operator | `Comment : WSTRING[120]` | the text, 1 to 120 characters in any language |
 | Out of service | Engineer | `RemoveFromService : BOOL` | — |
 | In service | Engineer | `ReturnToService : BOOL` | — |
 
@@ -293,7 +293,9 @@ Beside the runtime display's requests (specification 39, §12.8):
    last message.
 3. **Operator actions:** `POST /api/hmi/alarm` with `{ "id", "alarm", "action", "value"? }`:
    - `alarm` is a path from the alarm list; `action` is `acknowledge`, `shelve` (`value`: seconds,
-     1 to 86 400), `unshelve`, `reset`, `comment` (`value`: 1 to 120 characters),
+     1 to 86 400), `unshelve`, `reset`, `comment` (`value`: 1 to 120 characters, counted as the UTF-16 code
+     units the `WSTRING[120]` field holds them, so a character outside the Basic Multilingual Plane
+     counts two),
      `remove-from-service` or `return-to-service`;
    - it needs an HMI session with the action's role (§4). The library defines the actions and
      their roles, so no write-policy entry is needed;

@@ -43,13 +43,8 @@ END_PROGRAM
 fn control_signals_read_inherited_members_structure_fields_and_enumerations() {
     let mut state = control_test_state(SIGNAL_PATHS_SOURCE);
     let mut harness = TestHarness::from_source(SIGNAL_PATHS_SOURCE).unwrap();
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
     harness.cycle();
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     let bindings = json!([
         {"id": "inherited", "symbol": "Main.Probe.Value", "iec_type": "LREAL"},
         {"id": "block-field", "symbol": "Main.Keeper.State.ProcessValue", "iec_type": "LREAL"},
@@ -86,13 +81,8 @@ fn control_signals_read_inherited_members_structure_fields_and_enumerations() {
 fn an_enumeration_needs_its_own_type_name_and_a_missing_member_is_refused() {
     let mut state = control_test_state(SIGNAL_PATHS_SOURCE);
     let mut harness = TestHarness::from_source(SIGNAL_PATHS_SOURCE).unwrap();
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
     harness.cycle();
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     for (symbol, iec_type) in [
         ("Main.Input.Mode", "DINT"),
         ("Main.Input.Missing", "LREAL"),

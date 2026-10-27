@@ -20,7 +20,7 @@ const exampleTopicAction = (require("../../examples/topics") as {
   exampleTopicAction?: (actionId: string) => unknown;
 }).exampleTopicAction;
 const validateExampleFolderName = (require("../../examples/copy") as {
-  validateExampleFolderName?: (value: string) => string | undefined;
+  validateExampleFolderName?: (value: string) => Promise<string | undefined>;
 }).validateExampleFolderName;
 
 function lessonEntry(id: string, entryPath: string, sequence: number): ExampleEntry {
@@ -100,6 +100,8 @@ suite("Control gallery model", () => {
     });
 
     test("isolates missing, invalid JSON, and schema-invalid lessons while retaining valid entries", async () => {
+      // The rule is the language server's (`trust-lsp.examplesCatalog`, Rust tests in project/examples_tests.rs); this
+      // proves the gallery loads through it and keeps its answer.
       const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), "trust-example-load-"));
       const examplesRoot = path.join(root, "media", "examples");
       await fs.promises.mkdir(examplesRoot, { recursive: true });
@@ -156,13 +158,16 @@ suite("Control gallery model", () => {
       });
     });
 
-    test("project names reject traversal, separators, and platform-invalid names", () => {
+    // The rule is the language server's (trust-lsp.copyExample; examples_tests.rs holds every case). This proves the prompt
+    // reaches it and shows its sentence.
+    test("project names reject traversal, separators, and platform-invalid names", async () => {
       assert.strictEqual(typeof validateExampleFolderName, "function");
       if (!validateExampleFolderName) return;
-      for (const invalid of ["", ".", "..", "lesson/name", "lesson\\name", "lesson<1>", "CON"]) {
-        assert.ok(validateExampleFolderName(invalid), `expected '${invalid}' to be rejected`);
+      for (const invalid of ["lesson/name", "CON"]) {
+        const problem = await validateExampleFolderName(invalid);
+        assert.ok(problem?.startsWith("The project name "), `expected '${invalid}' to be rejected: ${problem}`);
       }
-      assert.strictEqual(validateExampleFolderName("cold-storage-lesson"), undefined);
+      assert.strictEqual(await validateExampleFolderName("cold-storage-lesson"), undefined);
     });
 
     test("copy boundary refuses an existing destination without changing it or writing handoff state", async () => {
@@ -234,7 +239,12 @@ suite("Control gallery model", () => {
       (vscode.window as unknown as { showOpenDialog: typeof vscode.window.showOpenDialog }).showOpenDialog = async () => [vscode.Uri.file(base)];
       (vscode.window as unknown as { showInputBox: typeof vscode.window.showInputBox }).showInputBox = async () => inputCount++ === 0 ? "existing-example" : "fresh-example";
       (vscode.window as unknown as { showWarningMessage: typeof vscode.window.showWarningMessage }).showWarningMessage = async () => "Choose another name";
-      (vscode.commands as unknown as { executeCommand: typeof vscode.commands.executeCommand }).executeCommand = async <T>() => undefined as T;
+      // The language server checks the copy's folder name (`trust-lsp.copyExample`); the other commands, such as
+      // opening the folder, do nothing here.
+      (vscode.commands as unknown as { executeCommand: typeof vscode.commands.executeCommand }).executeCommand = async <T>(
+        command: string,
+        ...rest: unknown[]
+      ) => (command === "trust-lsp.copyExample" ? await previousExecute<T>(command, ...rest) : (undefined as T));
       try {
         const copied = await copyModule.copyExample(context, {
           id: "empty-simulator", title: "Empty simulator", description: "", path: "empty-simulator", hardware: "none",

@@ -62,16 +62,24 @@ pub trait SemanticDatabase: SourceDatabase {
 /// The main database struct.
 pub struct Database {
     sources: FxHashMap<FileId, Arc<String>>,
-    temporal_storage: TemporalStorage,
     salsa_state: Mutex<salsa_backend::SalsaState>,
     source_revision: AtomicU64,
 }
 
+/// What the analysis of one file learned: its symbols with the project's, its diagnostics, the type
+/// of each expression and the symbol each name resolved to, by text range.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileAnalysis {
+    /// The file's symbols, merged with the project's.
     pub symbols: Arc<SymbolTable>,
+    /// The file's diagnostics.
     pub diagnostics: Arc<Vec<Diagnostic>>,
+    /// The type of each expression, by its text range.
     pub expression_types: Arc<FxHashMap<(u32, u32), TypeId>>,
+    /// The symbol each name, member and call of the file resolved to, by text range; for a call,
+    /// the POU whose parameters it binds.
+    pub resolved_symbols: Arc<FxHashMap<(u32, u32), SymbolId>>,
+    /// The file's declarations as the authoring tools read them.
     pub declaration_catalog: Arc<DeclarationCatalog>,
 }
 
@@ -79,7 +87,6 @@ impl Default for Database {
     fn default() -> Self {
         Self {
             sources: FxHashMap::default(),
-            temporal_storage: TemporalStorage::default(),
             salsa_state: Mutex::new(salsa_backend::SalsaState::default()),
             source_revision: AtomicU64::new(1),
         }
@@ -91,7 +98,6 @@ impl Database {
     pub(crate) fn new_with_salsa_observability() -> Self {
         Self {
             sources: FxHashMap::default(),
-            temporal_storage: TemporalStorage::default(),
             salsa_state: Mutex::new(salsa_backend::SalsaState::with_event_observability(
                 true, false,
             )),

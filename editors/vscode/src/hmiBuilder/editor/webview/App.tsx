@@ -8,21 +8,21 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 import { LiveValueStore, StreamMessage } from "../../display/liveValues";
 import { trendSpans } from "../../display/shared";
 import { adaptPage } from "../../drawing/adaptive";
-import type { HmiBindingDirection, HmiPageModel } from "../../drawing/model";
+import type { HmiPageModel } from "../../drawing/model";
 import { tokensCss } from "../../drawing/tokens";
 import { alignObjects, distributeObjects } from "../align";
 import type { Catalogue, ComponentDefinition } from "../catalogue";
-import { copyText, PASTE_STEP, pasted, variablePaths } from "../clipboard";
+import { copyText, duplicated, PASTE_STEP, pasted } from "../clipboard";
 import type { DeployOutcome } from "../deploy";
 import { addObject, cornerFor, deleteObjects, freeCorner, Point, updateObject, visiblePageCentre } from "../editing";
-import { bindEquipment, newEquipmentInstance } from "../equipment";
+import { definitions, palette as paletteOf, placed as placedEquipment } from "../equipment";
 import { languageTables } from "../languages";
 import { groupObjects, reorder, ungroupObjects, withLock } from "../layers";
 import { DEFAULT_SCREEN, FaceplateEntry, HostToWebview, LiveState, ScreenModel, VariableNode } from "../messages";
 import type { FileError } from "../pageDocument";
 import { deletePipes, pipeIndex, splitPipe } from "../pipes";
 import { addPlaced, besideSymbol, panelOf, placedPaths, placedSize, symbolInstance } from "../placed";
-import { bindingDirection, componentForVariable, variableLabel, whyNoComponent } from "../variables";
+import { dropped } from "../variables";
 
 import { BottomPanel, BottomTab } from "./BottomPanel";
 import { Canvas } from "./Canvas";
@@ -41,6 +41,7 @@ import { useDependencyPick } from "./dependencyPick";
 import { boundPaths, pageArea } from "./liveFrames";
 import { componentName } from "./names";
 import { PickerValues } from "./pickerValues";
+import { refusalText, Rust, rustChannel, useRustAnswer, useRustRules, withObject } from "./rust";
 import { useCanvasShortcuts } from "./useCanvasShortcuts";
 import { useCanvasZoom } from "./useCanvasZoom";
 import { useEquipmentEditing } from "./useEquipmentEditing";
@@ -89,6 +90,7 @@ export function App({ api, fontUrl, assetBase }: AppProps) {
         formats,
         pages,
         problems,
+        points,
         warnings,
         colourWarnings,
         targets,
@@ -147,6 +149,8 @@ export function App({ api, fontUrl, assetBase }: AppProps) {
     const [deploying, setDeploying] = useState(false);
     const [deployed, setDeployed] = useState<{ action: "deploy" | "rollback"; outcome: DeployOutcome }>();
     const variableDrag = useRef<VariableDrag>(undefined);
+    // The language server's rules (AGENTS.md: all logic is in Rust), asked through the editor.
+    const channel = useMemo(() => rustChannel(api), [api]);
     const { arrangement, shown, adopt, remember, collapse, open, dragEdge } = usePanelArrangement(api);
     const hostPage = useRef<HmiPageModel>(undefined);
     /** The last duplicate, so the next Ctrl+D repeats the step its copy was moved by (§3.3 item 8). */
@@ -200,6 +204,39 @@ export function App({ api, fontUrl, assetBase }: AppProps) {
         setMode(next);
     };
 
+    const commit = useCallback(
+        (next: HmiPageModel): void => {
+            if (paused || !page) return;
+            setRefused(undefined);
+            setPage(next);
+            // A second answer arriving before the next drawing changes this page, not the one before.
+            latest.current.page = next;
+            api.postMessage({ type: "edit", model: next });
+        },
+        [api, paused, page],
+    );
+    /** What a host message acts on, as it is now. */
+    const latest = useRef({ page, variables, commit });
+    latest.current = { page, variables, commit };
+    const rust = useRustRules(channel.call, latest, setSelection, setNotice);
+    const changePage = rust.change;
+    const showError = (error: unknown): void => setNotice(refusalText(error));
+    // The Components panel's entries and the definition each equipment object shows are the language
+    // server's (§21.3 item 1, §8.5), kept here so a panel opened again shows them at once.
+    const palette = useRustAnswer(
+        channel.call,
+        [catalogue, pidView],
+        (call) => (catalogue ? paletteOf(call, catalogue, pidView) : undefined),
+        true,
+    );
+    const blocks = [...new Set((page?.object ?? []).flatMap((object) => (object.block ? [object.block] : [])))].sort();
+    const shownEquipment = useRustAnswer(
+        channel.call,
+        [catalogue, blocks.join("\n")],
+        (call) => (catalogue && blocks.length > 0 ? definitions(call, catalogue.equipment ?? [], blocks) : undefined),
+        true,
+    );
+
     useEffect(() => {
         const onMessage = (event: MessageEvent<HostToWebview>): void => {
             const message = event.data;
@@ -237,15 +274,17 @@ export function App({ api, fontUrl, assetBase }: AppProps) {
                     // The page opens at the zoom it was last left at, instead of fitted (§3.3 item 8).
                     restore(message.zoom);
                     return;
+                case "rustAnswer":
+                    channel.receive(message);
+                    return;
                 case "clipboard": {
                     // A paste: the clipboard's objects land next to where they were copied (§3.3 item 8).
-                    const { page: current, variables: known, commit: apply } = latest.current;
-                    const result = current
-                        ? pasted(current, message.text, PASTE_STEP, variablePaths(known ?? []))
-                        : undefined;
-                    if (!result) return;
-                    apply(result.page);
-                    setSelection(result.ids);
+                    const text = message.text;
+                    changePage((current) =>
+                        pasted(channel.call, current, text, PASTE_STEP, latest.current.variables ?? []).then(
+                            (result) => result && { page: result.page, select: result.ids },
+                        ),
+                    );
                     return;
                 }
                 case "arrangement":
@@ -280,7 +319,7 @@ export function App({ api, fontUrl, assetBase }: AppProps) {
         window.addEventListener("message", onMessage);
         api.postMessage({ type: "ready" });
         return () => window.removeEventListener("message", onMessage);
-    }, [adopt, api, restore]);
+    }, [adopt, api, restore, channel, changePage]);
 
     const tables = useMemo(() => (projectTexts ? languageTables(projectTexts) : []), [projectTexts]);
     // The language shown; a language no longer in the project falls back to the first.
@@ -317,19 +356,6 @@ export function App({ api, fontUrl, assetBase }: AppProps) {
         if (!arrangement.bottom.open) remember({ ...arrangement, bottom: { ...arrangement.bottom, open: true } });
     };
 
-    const commit = useCallback(
-        (next: HmiPageModel): void => {
-            if (paused || !page) return;
-            setRefused(undefined);
-            setPage(next);
-            api.postMessage({ type: "edit", model: next });
-        },
-        [api, paused, page],
-    );
-    /** What a host message acts on, as it is now. */
-    const latest = useRef({ page, variables, commit });
-    latest.current = { page, variables, commit };
-
     const visibleCentre = (): Point => {
         const area = canvasRef.current?.getBoundingClientRect();
         const sheet = canvasRef.current?.querySelector('[data-part="canvas-page"]')?.getBoundingClientRect();
@@ -341,32 +367,33 @@ export function App({ api, fontUrl, assetBase }: AppProps) {
 
     const add = (component: ComponentDefinition, centre: Point): void => {
         if (paused || !page) return;
-        const corner = freeCorner(
-            page,
-            cornerFor(component.size, centre, canvasScreen.size),
-            component.size,
-            canvasScreen.size,
-        );
-        const added = addObject(page, component, corner);
-        if (component.equipment) {
-            const definition = component.equipment;
+        const size = canvasScreen.size;
+        const ports = portsOf(catalogue);
+        const placeOn = (current: HmiPageModel) =>
+            addObject(
+                current,
+                component,
+                freeCorner(current, cornerFor(component.size, centre, size), component.size, size),
+            );
+        const definition = component.equipment;
+        if (!definition) {
+            const added = placeOn(page);
+            // A valve added onto a pipe splits it (§6, item 4).
+            commit(splitPipe(added.page, added.id, ports, size));
+            setSelection([added.id]);
+        } else {
             // One of the project's own blocks placed for the first time: its files are written (§21.9).
             if (definition.proposed) api.postMessage({ type: "ensureEquipment", block: definition.block });
-            const instance = newEquipmentInstance(definition, variables ?? [], page);
-            added.page = {
-                ...added.page,
-                object: added.page.object.map((object) =>
-                    object.id !== added.id
-                        ? object
-                        : instance
-                          ? bindEquipment(object, definition, instance)
-                          : { ...object, block: definition.block, faceplate: definition.panel },
-                ),
-            };
+            const known = variables ?? [];
+            // The language server binds the new object to its instance (§21.3 item 3).
+            changePage(async (current) => {
+                const added = placeOn(current);
+                const object = added.page.object.find((candidate) => candidate.id === added.id);
+                if (!object) return undefined;
+                const bound = await placedEquipment(channel.call, object, definition, known, current);
+                return { page: splitPipe(withObject(added.page, bound), added.id, ports, size), select: [added.id] };
+            });
         }
-        // A valve added onto a pipe splits it (§6, item 4).
-        commit(splitPipe(added.page, added.id, portsOf(catalogue), canvasScreen.size));
-        setSelection([added.id]);
         // The new object takes the keys: the card or the search that added it gives up the focus
         // (§21.3 item 6), so the arrows move what was just placed.
         const focused = document.activeElement as HTMLElement | null;
@@ -410,30 +437,24 @@ export function App({ api, fontUrl, assetBase }: AppProps) {
         setSelection([added.id]);
     };
 
-    /** A variable dropped on the page: the matching component, bound to it and named after it. */
+    /** A variable dropped on the page: the component the language server says it makes, bound to it
+     * and named after it (§7.1), or why it makes none. */
     const dropVariable = (node: VariableNode, centre: Point): void => {
         if (paused || !page || !catalogue) return;
-        const found = componentForVariable(catalogue, node);
-        if (!found) {
-            setNotice(whyNoComponent(node));
-            return;
-        }
-        const definition = found.component.properties?.[found.property];
-        const direction = (definition ? bindingDirection(definition) : "read") as HmiBindingDirection;
-        const corner = freeCorner(
-            page,
-            cornerFor(found.component.size, centre, canvasScreen.size),
-            found.component.size,
-            canvasScreen.size,
-        );
-        const added = addObject(page, found.component, corner);
-        commit(
-            updateObject(added.page, added.id, {
-                bind: { [found.property]: { path: node.path, direction } },
-                label: variableLabel(node.path),
-            }),
-        );
-        setSelection([added.id]);
+        const size = canvasScreen.size;
+        void dropped(channel.call, catalogue.components, node).then((made) => {
+            if ("refused" in made) {
+                setNotice(made.refused);
+                return;
+            }
+            const component = catalogue.components.find((candidate) => candidate.type === made.type);
+            const { page: current, commit: apply } = latest.current;
+            if (!component || !current) return;
+            const corner = freeCorner(current, cornerFor(component.size, centre, size), component.size, size);
+            const added = addObject(current, component, corner);
+            apply(updateObject(added.page, added.id, { bind: made.bind, label: made.label }));
+            setSelection([added.id]);
+        }, showError);
     };
 
     useEffect(() => {
@@ -485,17 +506,19 @@ export function App({ api, fontUrl, assetBase }: AppProps) {
             api.postMessage({ type: "paste" });
             return;
         }
-        if (action === "copy" || action === "cut" || action === "duplicate") {
-            const text = copyText(page, objects);
-            if (!text) return;
-            if (action !== "duplicate") {
+        if (action === "copy" || action === "cut") {
+            const cut = action === "cut" ? selection : undefined;
+            void copyText(channel.call, page, objects).then((text) => {
+                if (!text) return;
                 api.postMessage({ type: "copy", text });
-                if (action === "cut") {
-                    commit(deleteObjects(deletePipes(page, selection), selection));
-                    setSelection([]);
-                }
-                return;
-            }
+                const { page: current, commit: apply } = latest.current;
+                if (!cut || !current) return;
+                apply(deleteObjects(deletePipes(current, cut), cut));
+                setSelection([]);
+            }, showError);
+            return;
+        }
+        if (action === "duplicate") {
             // A duplicate of the last duplicate's copies repeats the step they were moved by.
             const last = lastDuplicate.current;
             const source =
@@ -504,11 +527,14 @@ export function App({ api, fontUrl, assetBase }: AppProps) {
                     : undefined;
             const copy = source ? page.object.find((object) => object.id === last?.copies[0]) : undefined;
             const step: Point = source && copy ? [copy.at[0] - source.at[0], copy.at[1] - source.at[1]] : PASTE_STEP;
-            const result = pasted(page, text, step, variablePaths(variables ?? []));
-            if (!result) return;
-            commit(result.page);
-            setSelection(result.ids);
-            lastDuplicate.current = { sources: objects, copies: result.ids };
+            const known = variables ?? [];
+            changePage((current) =>
+                duplicated(channel.call, current, objects, step, known).then((result) => {
+                    if (!result) return undefined;
+                    lastDuplicate.current = { sources: objects, copies: result.ids };
+                    return { page: result.page, select: result.ids };
+                }),
+            );
             return;
         }
         if (objects.length === 0) return;
@@ -624,318 +650,319 @@ export function App({ api, fontUrl, assetBase }: AppProps) {
     };
 
     return (
-        <PickerValues.Provider value={pickerValues}>
-            <div className="hb-app">
-                <style>{tokensCss(screen.colors ?? {}, fontUrl)}</style>
-                <TopBar
-                    title={page?.title}
-                    zoom={zoom}
-                    onZoom={setZoom}
-                    onFit={fit}
-                    onOpenAsText={() => api.postMessage({ type: "openAsText" })}
-                    mode={mode}
-                    operating={operating}
-                    live={live}
-                    onMode={switchMode}
-                    deploying={deploying}
-                    onDeploy={() => api.postMessage({ type: "deploy" })}
-                    onCreatePlcCode={() => api.postMessage({ type: "createPlcCode" })}
-                    onCreateHmi={() => api.postMessage({ type: "createHmi" })}
-                    languages={projectTexts?.languages}
-                    language={table?.tag}
-                    onLanguage={(tag) => {
-                        setLanguage(tag);
-                        setTranslating(undefined);
-                    }}
-                    shipped={projectTexts?.shipped}
-                    onLanguages={(languages) => api.postMessage({ type: "screenLanguages", languages })}
-                    longest={longest}
-                    onLongest={() => setLongest((on) => !on)}
-                    screenSize={page && !page.size && !pidView ? screenSize : undefined}
-                    pidView={pidView}
-                    onScreenSize={setScreenSize}
-                />
-                {deployed ? (
-                    <DeployNotice
-                        action={deployed.action}
-                        outcome={deployed.outcome}
-                        onRollback={() => api.postMessage({ type: "rollback" })}
-                        onClose={() => setDeployed(undefined)}
+        <Rust.Provider value={rust}>
+            <PickerValues.Provider value={pickerValues}>
+                <div className="hb-app">
+                    <style>{tokensCss(screen.colors ?? {}, fontUrl)}</style>
+                    <TopBar
+                        title={page?.title}
+                        zoom={zoom}
+                        onZoom={setZoom}
+                        onFit={fit}
+                        onOpenAsText={() => api.postMessage({ type: "openAsText" })}
+                        mode={mode}
+                        operating={operating}
+                        live={live}
+                        onMode={switchMode}
+                        deploying={deploying}
+                        onDeploy={() => api.postMessage({ type: "deploy" })}
+                        onCreatePlcCode={() => api.postMessage({ type: "createPlcCode" })}
+                        onCreateHmi={() => api.postMessage({ type: "createHmi" })}
+                        languages={projectTexts?.languages}
+                        language={table?.tag}
+                        onLanguage={(tag) => {
+                            setLanguage(tag);
+                            setTranslating(undefined);
+                        }}
+                        shipped={projectTexts?.shipped}
+                        onLanguages={(languages) => api.postMessage({ type: "screenLanguages", languages })}
+                        longest={longest}
+                        onLongest={() => setLongest((on) => !on)}
+                        screenSize={page && !page.size && !pidView ? screenSize : undefined}
+                        pidView={pidView}
+                        onScreenSize={setScreenSize}
                     />
-                ) : null}
-                {menuAt && page ? (
-                    <ContextMenu
-                        at={menuAt}
-                        entries={menuEntries(page, selection)}
-                        onAction={act}
-                        onClose={closeMenu}
-                    />
-                ) : null}
-                {errors ? (
-                    <Banner
-                        heading="This page does not load. Editing is paused until the text loads again."
-                        errors={errors}
-                    />
-                ) : null}
-                {refused ? <Banner heading="The change could not be written." errors={refused} /> : null}
-                {dependencyPick.notice}
-                <div
-                    className="hb-body"
-                    data-operating={operating}
-                    style={{ gridTemplateColumns: `${shown.left}px minmax(0, 1fr) ${shown.right}px` }}
-                >
-                    {mode === "live" && pages?.current ? (
-                        <LiveOperating
-                            api={api}
-                            page={pages.current}
-                            fontUrl={fontUrl}
-                            assetBase={assetBase}
-                            onActive={setOperating}
+                    {deployed ? (
+                        <DeployNotice
+                            action={deployed.action}
+                            outcome={deployed.outcome}
+                            onRollback={() => api.postMessage({ type: "rollback" })}
+                            onClose={() => setDeployed(undefined)}
                         />
                     ) : null}
-                    <div className="hb-side hb-side-left">
-                        {shown.leftCollapsed ? (
-                            <PanelStrip title="Components" panel="components" onOpen={() => open("left")} />
-                        ) : (
-                            <>
-                                <div className="hb-left">
-                                    <div className="hb-left-tabs" role="tablist">
-                                        {(["components", "layers"] as const).map((tab) => (
-                                            <button
-                                                key={tab}
-                                                type="button"
-                                                role="tab"
-                                                data-left-tab={tab}
-                                                aria-selected={leftTab === tab}
-                                                onClick={() => setLeftTab(tab)}
-                                            >
-                                                {tab === "components" ? "Components" : "Objects"}
-                                            </button>
-                                        ))}
-                                        <button
-                                            type="button"
-                                            className="hb-collapse"
-                                            data-action="collapse-components"
-                                            title="Hide the side panel"
-                                            aria-label="Hide the side panel"
-                                            onClick={() => collapse("left")}
-                                        >
-                                            ‹
-                                        </button>
-                                    </div>
-                                    {leftTab === "layers" && page ? (
-                                        <LayersPanel
-                                            page={page}
-                                            selection={selection}
-                                            hidden={hiddenObjects}
-                                            readOnly={paused}
-                                            onSelect={setSelection}
-                                            onHide={(id) =>
-                                                setHiddenObjects((current) =>
-                                                    current.includes(id)
-                                                        ? current.filter((hidden) => hidden !== id)
-                                                        : [...current, id],
-                                                )
-                                            }
-                                            onCommit={commit}
-                                        />
-                                    ) : (
-                                        <ComponentsPanel
-                                            catalogue={
-                                                pidView && catalogue
-                                                    ? {
-                                                          ...catalogue,
-                                                          components: catalogue.components.filter(
-                                                              (component) =>
-                                                                  component.category === "equipment" ||
-                                                                  component.type === "text" ||
-                                                                  component.type === "line",
-                                                          ),
-                                                      }
-                                                    : catalogue
-                                            }
-                                            theme={screen.theme}
-                                            onAdd={(component) => add(component, visibleCentre())}
-                                            onDragStart={startComponentDrag}
-                                            faceplates={pidView ? [] : faceplates}
-                                            onPlaceFaceplate={(faceplate) => placeFaceplate(faceplate, visibleCentre())}
-                                            onFaceplateDragStart={startFaceplateDrag}
-                                        />
-                                    )}
-                                </div>
-                                <div
-                                    className="hb-resize hb-resize-x"
-                                    data-resize="left"
-                                    title="Drag to resize"
-                                    onMouseDown={(event) => dragEdge("left", event)}
-                                />
-                            </>
-                        )}
-                    </div>
-                    {page ? (
-                        <Canvas
-                            page={preview?.page ?? page}
-                            composition={preview ? undefined : composition}
-                            currentPage={pages?.current}
-                            sharedSelection={sharedSelection}
-                            onSharedSelect={(name) => {
-                                setSelection([]);
-                                setSharedSelection(name);
-                            }}
-                            screen={canvasScreen}
-                            catalogue={catalogue}
-                            formats={formats}
-                            selection={preview ? [] : selection}
-                            zoom={zoom}
-                            assetBase={assetBase}
-                            paused={paused || preview !== undefined}
-                            pid={pidView}
-                            problems={problems}
-                            warnings={warningTexts}
-                            live={mode === "live" ? liveStore.current?.frame(Date.now()) : undefined}
-                            previews={previews}
-                            speech={speech}
-                            onObjectClick={objectClicked}
-                            dependencyPick={dependencyPick.choose}
-                            dependencyIds={dependencyPick.ids}
-                            translation={translation}
-                            onTranslate={(value) => {
-                                if (translation && table) translate(table.tag, translation.text, value);
-                                setTranslating(undefined);
-                            }}
-                            onTranslateCancel={() => setTranslating(undefined)}
-                            onSelect={(ids) => {
-                                setSharedSelection(undefined);
-                                setSelection(ids);
-                            }}
-                            onCommit={commit}
-                            canvasRef={canvasRef}
-                            hidden={hiddenObjects}
-                            onContextMenu={(at) => setMenuAt(at)}
-                            placed={placed}
+                    {menuAt && page ? (
+                        <ContextMenu
+                            at={menuAt}
+                            entries={menuEntries(page, selection)}
+                            onAction={act}
+                            onClose={closeMenu}
                         />
-                    ) : (
-                        <div className="hb-canvas hb-loading" ref={canvasRef}>
-                            {errors ? null : "Loading the page…"}
-                        </div>
-                    )}
-                    <div className="hb-side hb-side-right">
-                        {shown.rightCollapsed ? (
-                            <PanelStrip title="Inspector" panel="inspector" onOpen={() => open("right")} />
-                        ) : (
-                            <>
-                                {page ? (
-                                    sharedSelection ? (
-                                        <aside className="hb-panel hb-inspector">
-                                            <h2>Shared panel</h2>
-                                            <p>{sharedSelection}</p>
-                                            <p className="hb-hint">
-                                                Edit this panel once to update every page that uses it.
-                                            </p>
+                    ) : null}
+                    {errors ? (
+                        <Banner
+                            heading="This page does not load. Editing is paused until the text loads again."
+                            errors={errors}
+                        />
+                    ) : null}
+                    {refused ? <Banner heading="The change could not be written." errors={refused} /> : null}
+                    {dependencyPick.notice}
+                    <div
+                        className="hb-body"
+                        data-operating={operating}
+                        style={{ gridTemplateColumns: `${shown.left}px minmax(0, 1fr) ${shown.right}px` }}
+                    >
+                        {mode === "live" && pages?.current ? (
+                            <LiveOperating
+                                api={api}
+                                page={pages.current}
+                                fontUrl={fontUrl}
+                                assetBase={assetBase}
+                                onActive={setOperating}
+                            />
+                        ) : null}
+                        <div className="hb-side hb-side-left">
+                            {shown.leftCollapsed ? (
+                                <PanelStrip title="Components" panel="components" onOpen={() => open("left")} />
+                            ) : (
+                                <>
+                                    <div className="hb-left">
+                                        <div className="hb-left-tabs" role="tablist">
+                                            {(["components", "layers"] as const).map((tab) => (
+                                                <button
+                                                    key={tab}
+                                                    type="button"
+                                                    role="tab"
+                                                    data-left-tab={tab}
+                                                    aria-selected={leftTab === tab}
+                                                    onClick={() => setLeftTab(tab)}
+                                                >
+                                                    {tab === "components" ? "Components" : "Objects"}
+                                                </button>
+                                            ))}
                                             <button
                                                 type="button"
-                                                onClick={() =>
-                                                    api.postMessage({ type: "openSharedPanel", name: sharedSelection })
-                                                }
+                                                className="hb-collapse"
+                                                data-action="collapse-components"
+                                                title="Hide the side panel"
+                                                aria-label="Hide the side panel"
+                                                onClick={() => collapse("left")}
                                             >
-                                                Edit shared panel
+                                                ‹
                                             </button>
-                                        </aside>
-                                    ) : (
-                                        <Inspector
-                                            page={page}
-                                            selection={selection}
-                                            catalogue={catalogue}
-                                            paused={paused}
-                                            variables={variables}
-                                            variablesProblem={variablesProblem}
-                                            variableDrag={variableDrag}
-                                            targets={targets}
-                                            warnings={selection.length === 1 ? warnings[selection[0]] : undefined}
-                                            problems={selection.length === 1 ? problems[selection[0]] : undefined}
-                                            onAllowWriting={(point) => api.postMessage({ type: "allowWriting", point })}
-                                            screen={screen}
-                                            colourWarnings={colourWarnings}
-                                            onColour={(theme, token, value) =>
-                                                api.postMessage({
-                                                    type: "colour",
-                                                    theme,
-                                                    token,
-                                                    ...(value !== undefined ? { value } : {}),
-                                                })
-                                            }
-                                            onCommit={commit}
-                                            onSelect={setSelection}
-                                            onNotice={setNotice}
-                                            onCollapse={() => collapse("right")}
-                                            writtenIn={
-                                                table && table.tag !== tables[0]?.tag ? tables[0]?.name : undefined
-                                            }
-                                            preview={
-                                                mode === "design"
-                                                    ? {
-                                                          states: previews,
-                                                          onPreview: (id, state) =>
-                                                              setPreviews((current) => withPreview(current, id, state)),
-                                                      }
-                                                    : undefined
-                                            }
-                                            equipmentEditor={equipmentEditing}
-                                            placing={{
-                                                studio: (id) => api.postMessage({ type: "openControlStudio", id }),
-                                                answer: fitting,
-                                                ask: askInstances,
-                                                open: (name) => api.postMessage({ type: "openFaceplate", name }),
-                                            }}
-                                        />
-                                    )
-                                ) : (
-                                    <aside className="hb-panel hb-inspector" />
-                                )}
-                                <div
-                                    className="hb-resize hb-resize-x"
-                                    data-resize="right"
-                                    title="Drag to resize"
-                                    onMouseDown={(event) => dragEdge("right", event)}
-                                />
-                            </>
+                                        </div>
+                                        {leftTab === "layers" && page ? (
+                                            <LayersPanel
+                                                page={page}
+                                                selection={selection}
+                                                hidden={hiddenObjects}
+                                                readOnly={paused}
+                                                onSelect={setSelection}
+                                                onHide={(id) =>
+                                                    setHiddenObjects((current) =>
+                                                        current.includes(id)
+                                                            ? current.filter((hidden) => hidden !== id)
+                                                            : [...current, id],
+                                                    )
+                                                }
+                                                onCommit={commit}
+                                            />
+                                        ) : (
+                                            <ComponentsPanel
+                                                palette={palette}
+                                                theme={screen.theme}
+                                                onAdd={(component) => add(component, visibleCentre())}
+                                                onDragStart={startComponentDrag}
+                                                faceplates={pidView ? [] : faceplates}
+                                                onPlaceFaceplate={(faceplate) =>
+                                                    placeFaceplate(faceplate, visibleCentre())
+                                                }
+                                                onFaceplateDragStart={startFaceplateDrag}
+                                            />
+                                        )}
+                                    </div>
+                                    <div
+                                        className="hb-resize hb-resize-x"
+                                        data-resize="left"
+                                        title="Drag to resize"
+                                        onMouseDown={(event) => dragEdge("left", event)}
+                                    />
+                                </>
+                            )}
+                        </div>
+                        {page ? (
+                            <Canvas
+                                page={preview?.page ?? page}
+                                composition={preview ? undefined : composition}
+                                currentPage={pages?.current}
+                                sharedSelection={sharedSelection}
+                                onSharedSelect={(name) => {
+                                    setSelection([]);
+                                    setSharedSelection(name);
+                                }}
+                                screen={canvasScreen}
+                                catalogue={catalogue}
+                                formats={formats}
+                                selection={preview ? [] : selection}
+                                zoom={zoom}
+                                assetBase={assetBase}
+                                paused={paused || preview !== undefined}
+                                pid={pidView}
+                                problems={problems}
+                                warnings={warningTexts}
+                                live={mode === "live" ? liveStore.current?.frame(Date.now()) : undefined}
+                                previews={previews}
+                                speech={speech}
+                                onObjectClick={objectClicked}
+                                dependencyPick={dependencyPick.choose}
+                                dependencyIds={dependencyPick.ids}
+                                translation={translation}
+                                onTranslate={(value) => {
+                                    if (translation && table) translate(table.tag, translation.text, value);
+                                    setTranslating(undefined);
+                                }}
+                                onTranslateCancel={() => setTranslating(undefined)}
+                                onSelect={(ids) => {
+                                    setSharedSelection(undefined);
+                                    setSelection(ids);
+                                }}
+                                onCommit={commit}
+                                canvasRef={canvasRef}
+                                hidden={hiddenObjects}
+                                onContextMenu={(at) => setMenuAt(at)}
+                                placed={placed}
+                            />
+                        ) : (
+                            <div className="hb-canvas hb-loading" ref={canvasRef}>
+                                {errors ? null : "Loading the page…"}
+                            </div>
                         )}
+                        <div className="hb-side hb-side-right">
+                            {shown.rightCollapsed ? (
+                                <PanelStrip title="Inspector" panel="inspector" onOpen={() => open("right")} />
+                            ) : (
+                                <>
+                                    {page ? (
+                                        sharedSelection ? (
+                                            <aside className="hb-panel hb-inspector">
+                                                <h2>Shared panel</h2>
+                                                <p>{sharedSelection}</p>
+                                                <p className="hb-hint">
+                                                    Edit this panel once to update every page that uses it.
+                                                </p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        api.postMessage({
+                                                            type: "openSharedPanel",
+                                                            name: sharedSelection,
+                                                        })
+                                                    }
+                                                >
+                                                    Edit shared panel
+                                                </button>
+                                            </aside>
+                                        ) : (
+                                            <Inspector
+                                                page={page}
+                                                selection={selection}
+                                                catalogue={catalogue}
+                                                definitions={shownEquipment}
+                                                paused={paused}
+                                                variables={variables}
+                                                variablesProblem={variablesProblem}
+                                                variableDrag={variableDrag}
+                                                targets={targets}
+                                                warnings={selection.length === 1 ? warnings[selection[0]] : undefined}
+                                                problems={selection.length === 1 ? problems[selection[0]] : undefined}
+                                                points={selection.length === 1 ? points[selection[0]] : undefined}
+                                                onAllowWriting={(point) =>
+                                                    api.postMessage({ type: "allowWriting", point })
+                                                }
+                                                screen={screen}
+                                                colourWarnings={colourWarnings}
+                                                onColour={(theme, token, value) =>
+                                                    api.postMessage({
+                                                        type: "colour",
+                                                        theme,
+                                                        token,
+                                                        ...(value !== undefined ? { value } : {}),
+                                                    })
+                                                }
+                                                onCommit={commit}
+                                                onSelect={setSelection}
+                                                onNotice={setNotice}
+                                                onCollapse={() => collapse("right")}
+                                                writtenIn={
+                                                    table && table.tag !== tables[0]?.tag ? tables[0]?.name : undefined
+                                                }
+                                                preview={
+                                                    mode === "design"
+                                                        ? {
+                                                              states: previews,
+                                                              onPreview: (id, state) =>
+                                                                  setPreviews((current) =>
+                                                                      withPreview(current, id, state),
+                                                                  ),
+                                                          }
+                                                        : undefined
+                                                }
+                                                equipmentEditor={equipmentEditing}
+                                                placing={{
+                                                    studio: (id) => api.postMessage({ type: "openControlStudio", id }),
+                                                    answer: fitting,
+                                                    ask: askInstances,
+                                                    open: (name) => api.postMessage({ type: "openFaceplate", name }),
+                                                }}
+                                            />
+                                        )
+                                    ) : (
+                                        <aside className="hb-panel hb-inspector" />
+                                    )}
+                                    <div
+                                        className="hb-resize hb-resize-x"
+                                        data-resize="right"
+                                        title="Drag to resize"
+                                        onMouseDown={(event) => dragEdge("right", event)}
+                                    />
+                                </>
+                            )}
+                        </div>
                     </div>
+                    {!operating ? (
+                        <BottomPanel
+                            variables={variables}
+                            problem={variablesProblem}
+                            open={arrangement.bottom.open}
+                            height={shown.bottomHeight}
+                            tab={bottomTab}
+                            onTab={showTab}
+                            onResizeStart={(event) => dragEdge("bottom", event)}
+                            onDragStart={startVariableDrag}
+                            texts={projectTexts}
+                            onTranslate={translate}
+                        />
+                    ) : null}
+                    {notice ? (
+                        <div className="hb-notice" data-part="notice" role="status">
+                            {notice}
+                        </div>
+                    ) : null}
+                    {placing ? (
+                        <InstanceChooser
+                            title={placing.faceplate.title ?? placing.faceplate.name}
+                            instances={fitting?.faceplate === placing.faceplate.name ? fitting.instances : undefined}
+                            problem={fitting?.faceplate === placing.faceplate.name ? fitting.problem : undefined}
+                            onChoose={placeFor}
+                            onCancel={() => setPlacing(undefined)}
+                        />
+                    ) : null}
+                    {ghost ? (
+                        <div className="hb-ghost" style={{ left: ghost.at[0] + 12, top: ghost.at[1] + 12 }}>
+                            {ghost.text}
+                        </div>
+                    ) : null}
                 </div>
-                {!operating ? (
-                    <BottomPanel
-                        variables={variables}
-                        problem={variablesProblem}
-                        open={arrangement.bottom.open}
-                        height={shown.bottomHeight}
-                        tab={bottomTab}
-                        onTab={showTab}
-                        onResizeStart={(event) => dragEdge("bottom", event)}
-                        onDragStart={startVariableDrag}
-                        texts={projectTexts}
-                        onTranslate={translate}
-                    />
-                ) : null}
-                {notice ? (
-                    <div className="hb-notice" data-part="notice" role="status">
-                        {notice}
-                    </div>
-                ) : null}
-                {placing ? (
-                    <InstanceChooser
-                        title={placing.faceplate.title ?? placing.faceplate.name}
-                        instances={fitting?.faceplate === placing.faceplate.name ? fitting.instances : undefined}
-                        problem={fitting?.faceplate === placing.faceplate.name ? fitting.problem : undefined}
-                        onChoose={placeFor}
-                        onCancel={() => setPlacing(undefined)}
-                    />
-                ) : null}
-                {ghost ? (
-                    <div className="hb-ghost" style={{ left: ghost.at[0] + 12, top: ghost.at[1] + 12 }}>
-                        {ghost.text}
-                    </div>
-                ) : null}
-            </div>
-        </PickerValues.Provider>
+            </PickerValues.Provider>
+        </Rust.Provider>
     );
 }

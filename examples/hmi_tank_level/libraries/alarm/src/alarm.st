@@ -33,7 +33,7 @@ STRUCT
     Shelve : TIME;
     Unshelve : BOOL;
     Reset : BOOL;
-    Comment : STRING[120];
+    Comment : WSTRING[120];
     RemoveFromService : BOOL;
     ReturnToService : BOOL;
 END_STRUCT
@@ -122,7 +122,7 @@ END_VAR
     Request.Shelve := T#0s;
     Request.Unshelve := FALSE;
     Request.Reset := FALSE;
-    Request.Comment := '';
+    Request.Comment := "";
     Request.RemoveFromService := FALSE;
     Request.ReturnToService := FALSE;
 

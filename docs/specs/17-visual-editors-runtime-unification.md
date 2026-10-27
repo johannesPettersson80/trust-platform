@@ -27,14 +27,28 @@ Applies to runtime actions:
 
 ## 3. Runtime Entry Contract
 
-For each visual source file, the extension generates:
+For each visual source file `<base>.<kind suffix>`, the language server
+generates (`trust-lsp.visualCompanion`, crate `trust-visual`) and the extension
+writes beside it, on save, on Sync Structured Text and on the editor's
+Generate:
 
-1. Companion function-block file: sibling `*.st`
-2. Launch wrapper: sibling `*.visual.runtime.st` with:
-   - `PROGRAM` that instantiates the generated companion FB
-   - `CONFIGURATION` + `RESOURCE` + `TASK` + `PROGRAM ... WITH TASK ...`
+1. Companion function-block file: sibling `<base>.st`, a banner naming the
+   source and one `FUNCTION_BLOCK FB_<base>_<KIND>`; for an SFC with actions,
+   also the `TYPE FB_<base>_SFC_ACTION` of its action flags
+   (`sfc-profile.md`).
+2. Launch wrapper: sibling `<base>.visual.runtime.st` with:
+   - `PROGRAM PRG_<base>_VISUAL` that calls the instance `fb_<base>` of the
+     generated companion FB
+   - `CONFIGURATION CFG_<base>_VISUAL` whose `VAR_GLOBAL` declares that instance
+     and the program's globals (a direct address the companion names as
+     `ld_io_<address> AT <address>`, typed by its size per `03-variables.md`
+     §5), and `RESOURCE` + `TASK TASK_<base>_VISUAL(INTERVAL := T#20ms,
+     PRIORITY := 1)` + `PROGRAM PLC_PRG_<base> WITH TASK_<base>_VISUAL :
+     PRG_<base>_VISUAL`
 
-The wrapper file is the launch entry for local debug sessions.
+`<base>` in identifiers is the base name made an IEC identifier (other
+characters become `_`). The wrapper file is the launch entry for local debug
+sessions.
 
 ## 3.1 Editor-to-ST Mapping
 
@@ -53,17 +67,13 @@ authoring happens in different editors.
 
 ## 4. Command Routing Contract
 
-Visual editors MUST call the same extension command handlers used by ST runtime flows:
-
-- `trust-lsp.debug.start` for local launch
-- `trust-lsp.debug.attach` for external mode attach
-- `trust-lsp.debug.stop` for stop
-- `trust-lsp.debug.io.write` for runtime write
-- `trust-lsp.debug.io.force` for runtime force
-- `trust-lsp.debug.io.release` for force release
-
-`trust-lsp.debug.start` MUST accept visual source URIs by auto-generating the companion and
-wrapper before launch.
+The visual editors have no runtime actions of their own (§5). A visual program
+is started, attached, stopped, written and forced like any Structured Text
+program, through the shared runtime commands (`trust-lsp.debug.start`,
+`trust-lsp.debug.attach`, `trust-lsp.debug.stop`, `trust-lsp.debug.io.write`,
+`trust-lsp.debug.io.force`, `trust-lsp.debug.io.release`) from the truST
+sidebar and Live Values; its runtime entry is a `CONFIGURATION` like any other
+Structured Text configuration of the project.
 
 ## 5. UI Behavior Contract
 
@@ -84,16 +94,15 @@ generation, launch, attach, or debug-command route.
   (`runtime.toml`/debug attach path).
 - Full end-to-end parity evidence requires manual visual verification in
   Extension Development Host for Ladder, Statechart, Blockly, and SFC editors.
-- Editor-specific authoring schemas are still separate; this specification only
-  unifies execution/debug after companion generation.
+- Editor-specific authoring schemas are still separate; their rules (format
+  checks, edits, companion generation) are in `trust-visual`
+  (`25-vscode-product-contract.md` §11.4).
 
 ## 7. Implementation Anchors
 
-- `editors/vscode/src/visual/companionSt.ts`
-- `editors/vscode/src/visual/runtime/stRuntimeCommands.ts`
+- `crates/trust-visual/src/companion.rs` (companion and runtime entry)
+- `crates/trust-visual/src/{ladder,blockly,statechart,sfc}` (the generators)
+- `crates/trust-lsp/src/handlers/commands/visual.rs` (the `trust-lsp.visual*` commands)
+- `editors/vscode/src/visual/companionSt.ts` (writes the files)
 - `editors/vscode/src/debug.ts`
 - `editors/vscode/src/ioPanel.ts`
-- `editors/vscode/src/ladder/ladderEditor.ts`
-- `editors/vscode/src/statechart/stateChartEditor.ts`
-- `editors/vscode/src/blockly/blocklyEditor.ts`
-- `editors/vscode/src/sfc`

@@ -4,11 +4,15 @@ Use CI mode to run deterministic build/validate/test checks for a PLC project fo
 
 ## CI commands
 
-Build bytecode with machine-readable output:
+Build the program image (`program.tpi`) with machine-readable output:
 
 ```bash
 trust-runtime build --project <project-folder> --ci
 ```
+
+The build needs the compiler toolchain. `trust-runtime build` installs it on the first build that
+needs it; install it beforehand on a runner with `trust-runtime toolchain install`, or from a
+bundle file with `trust-runtime toolchain install --from <bundle>`.
 
 Validate project config + bundle with machine-readable output:
 

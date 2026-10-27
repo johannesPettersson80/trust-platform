@@ -1,37 +1,29 @@
 //! Saved artifacts: writable connections that coincide only at run time commit in formal
 //! declaration order, and an input may snapshot the single output or in-out target it shares
 //! (spec 10 §7.5 steps 4-6 and the closing overlap paragraph).
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
-use trust_runtime::harness::CompileSession;
+use trust_runtime::harness::TestHarness;
 use trust_runtime::value::Value;
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
-fn saved_runtime(source: &str) -> Runtime {
-    let bytes = CompileSession::from_source(source)
-        .build_bytecode_module()
-        .unwrap()
-        .encode()
-        .unwrap();
-    Runtime::from_bytes(&bytes, Default::default()).expect("saved artifact constructs state")
+fn saved_runtime(source: &str) -> CompiledRuntime {
+    TestHarness::from_source(source)
+        .expect("the program compiles and its image loads")
+        .into_runtime()
 }
 
-fn program_var(runtime: &Runtime, name: &str) -> Value {
-    let Some(Value::Instance(main)) = runtime.storage().get_global("Main") else {
-        panic!("missing program root");
-    };
+fn program_var(runtime: &CompiledRuntime, name: &str) -> Value {
     runtime
-        .storage()
-        .get_instance_var(*main, name)
-        .cloned()
-        .unwrap_or_else(|| panic!("missing Main.{name}"))
+        .read_variable(&format!("Main.{name}"))
+        .unwrap_or_else(|error| panic!("missing Main.{name}: {error}"))
 }
 
-fn global(runtime: &Runtime, name: &str) -> Value {
+fn global(runtime: &CompiledRuntime, name: &str) -> Value {
     runtime
-        .storage()
-        .get_global(name)
-        .cloned()
-        .unwrap_or_else(|| panic!("missing global {name}"))
+        .read_variable(name)
+        .unwrap_or_else(|error| panic!("missing global {name}: {error}"))
 }
 
 fn array_elements(value: &Value) -> Vec<Value> {

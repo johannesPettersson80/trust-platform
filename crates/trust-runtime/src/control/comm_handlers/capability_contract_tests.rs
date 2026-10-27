@@ -954,10 +954,30 @@ fn capability_contract_absent_params_return_no_audit_details() {
         "comm.test",
         "comm.discover",
         "comm.browse_symbols",
+        "comm.search.start",
     ] {
         assert!(
             audit_details_for_comm_request(kind, None).is_none(),
             "{kind}"
         );
     }
+}
+
+#[test]
+fn capability_contract_search_start_audit_records_what_it_scans() {
+    let params = json!({
+        "only": ["ethercat"],
+        "confirm_fieldbus_scan": true,
+        "fieldbus": [{ "bus": "ethercat", "adapter": "eth1", "token": "no-secret-here" }],
+    });
+    let details =
+        audit_details_for_comm_request("comm.search.start", Some(&params)).expect("audit details");
+    assert_eq!(
+        details,
+        json!({
+            "only": ["ethercat"],
+            "confirm_fieldbus_scan": true,
+            "fieldbus": [{ "bus": "ethercat", "adapter": "eth1" }],
+        })
+    );
 }

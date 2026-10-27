@@ -43,6 +43,8 @@ pub struct TransferWrite {
     pub manual: bool,
     /// The reviewed output change allowed at the first execution (E6.9).
     pub tolerance: f64,
+    /// The factor of the error at entry that the runtime adds to `tolerance`, for an Auto entry (E6.9).
+    pub entry_error_gain: Option<f64>,
     /// The tracking of an Auto entry, when the transfer has one (E6.4).
     pub tracking: Option<TransferTracking>,
     /// The status the write was reviewed on; the session reads one when this is absent.
@@ -151,6 +153,7 @@ impl<'c> TransferSession<'c> {
                 values: &input.values,
                 manual: input.manual,
                 maximum_output_change: input.tolerance,
+                entry_error_gain: input.entry_error_gain,
                 tracking: input.tracking.as_ref(),
                 source: input.source,
                 physical_approved: input.physical_approved,

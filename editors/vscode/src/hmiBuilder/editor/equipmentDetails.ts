@@ -166,7 +166,7 @@ export class EquipmentEditorBridge {
       const settings: Record<string, boolean | number | string> = {};
       for (const setting of answer.settings ?? []) {
         const value = values[setting.member];
-        if (value === undefined || value === null || sameSetting(setting.value, value)) continue;
+        if (value === undefined || value === null || (await sameSetting(setting.value, value))) continue;
         settings[setting.member] = value;
       }
       const kept = Object.keys(settings);

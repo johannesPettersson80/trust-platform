@@ -1,0 +1,386 @@
+{
+  "name": "SFC_Program",
+  "steps": [
+    {
+      "id": "step_init",
+      "name": "Init",
+      "initial": true,
+      "x": 300,
+      "y": 50,
+      "actions": [
+        {
+          "id": "action_init_system",
+          "name": "InitSystem",
+          "qualifier": "N",
+          "body": "// Initialize Snake System for EL2008\n// Turn off all 8 LEDs\n%QX0.0 := FALSE;\n%QX0.1 := FALSE;\n%QX0.2 := FALSE;\n%QX0.3 := FALSE;\n%QX0.4 := FALSE;\n%QX0.5 := FALSE;\n%QX0.6 := FALSE;\n%QX0.7 := FALSE;"
+        }
+      ]
+    },
+    {
+      "id": "step_led0",
+      "name": "LED_0",
+      "initial": false,
+      "x": 300,
+      "y": 170,
+      "actions": [
+        {
+          "id": "action_led0_on",
+          "name": "TurnOnLED0",
+          "qualifier": "L",
+          "time": "T#300ms",
+          "body": "%QX0.0 := TurnOnLED0.Q;"
+        }
+      ]
+    },
+    {
+      "id": "step_led1",
+      "name": "LED_1",
+      "initial": false,
+      "x": 300,
+      "y": 240,
+      "actions": [
+        {
+          "id": "action_led1_on",
+          "name": "TurnOnLED1",
+          "qualifier": "L",
+          "time": "T#300ms",
+          "body": "%QX0.1 := TurnOnLED1.Q;"
+        }
+      ]
+    },
+    {
+      "id": "step_led2",
+      "name": "LED_2",
+      "initial": false,
+      "x": 300,
+      "y": 310,
+      "actions": [
+        {
+          "id": "action_led2_on",
+          "name": "TurnOnLED2",
+          "qualifier": "L",
+          "time": "T#300ms",
+          "body": "%QX0.2 := TurnOnLED2.Q;"
+        }
+      ]
+    },
+    {
+      "id": "step_led3",
+      "name": "LED_3",
+      "initial": false,
+      "x": 300,
+      "y": 380,
+      "actions": [
+        {
+          "id": "action_led3_on",
+          "name": "TurnOnLED3",
+          "qualifier": "L",
+          "time": "T#300ms",
+          "body": "%QX0.3 := TurnOnLED3.Q;"
+        }
+      ]
+    },
+    {
+      "id": "step_led4",
+      "name": "LED_4",
+      "initial": false,
+      "x": 300,
+      "y": 450,
+      "actions": [
+        {
+          "id": "action_led4_on",
+          "name": "TurnOnLED4",
+          "qualifier": "L",
+          "time": "T#300ms",
+          "body": "%QX0.4 := TurnOnLED4.Q;"
+        }
+      ]
+    },
+    {
+      "id": "step_led5",
+      "name": "LED_5",
+      "initial": false,
+      "x": 300,
+      "y": 520,
+      "actions": [
+        {
+          "id": "action_led5_on",
+          "name": "TurnOnLED5",
+          "qualifier": "L",
+          "time": "T#300ms",
+          "body": "%QX0.5 := TurnOnLED5.Q;"
+        }
+      ]
+    },
+    {
+      "id": "step_led6",
+      "name": "LED_6",
+      "initial": false,
+      "x": 300,
+      "y": 590,
+      "actions": [
+        {
+          "id": "action_led6_on",
+          "name": "TurnOnLED6",
+          "qualifier": "L",
+          "time": "T#300ms",
+          "body": "%QX0.6 := TurnOnLED6.Q;"
+        }
+      ]
+    },
+    {
+      "id": "step_led7",
+      "name": "LED_7",
+      "initial": false,
+      "x": 300,
+      "y": 660,
+      "actions": [
+        {
+          "id": "action_led7_on",
+          "name": "TurnOnLED7",
+          "qualifier": "L",
+          "time": "T#300ms",
+          "body": "%QX0.7 := TurnOnLED7.Q;"
+        }
+      ]
+    },
+    {
+      "id": "step_led6_back",
+      "name": "LED_6_Back",
+      "initial": false,
+      "x": 300,
+      "y": 730,
+      "actions": [
+        {
+          "id": "action_led6_back_on",
+          "name": "TurnOnLED6Back",
+          "qualifier": "L",
+          "time": "T#300ms",
+          "body": "%QX0.6 := TurnOnLED6Back.Q;"
+        }
+      ]
+    },
+    {
+      "id": "step_led5_back",
+      "name": "LED_5_Back",
+      "initial": false,
+      "x": 300,
+      "y": 800,
+      "actions": [
+        {
+          "id": "action_led5_back_on",
+          "name": "TurnOnLED5Back",
+          "qualifier": "L",
+          "time": "T#300ms",
+          "body": "%QX0.5 := TurnOnLED5Back.Q;"
+        }
+      ]
+    },
+    {
+      "id": "step_led4_back",
+      "name": "LED_4_Back",
+      "initial": false,
+      "x": 300,
+      "y": 870,
+      "actions": [
+        {
+          "id": "action_led4_back_on",
+          "name": "TurnOnLED4Back",
+          "qualifier": "L",
+          "time": "T#300ms",
+          "body": "%QX0.4 := TurnOnLED4Back.Q;"
+        }
+      ]
+    },
+    {
+      "id": "step_led3_back",
+      "name": "LED_3_Back",
+      "initial": false,
+      "x": 300,
+      "y": 940,
+      "actions": [
+        {
+          "id": "action_led3_back_on",
+          "name": "TurnOnLED3Back",
+          "qualifier": "L",
+          "time": "T#300ms",
+          "body": "%QX0.3 := TurnOnLED3Back.Q;"
+        }
+      ]
+    },
+    {
+      "id": "step_led2_back",
+      "name": "LED_2_Back",
+      "initial": false,
+      "x": 300,
+      "y": 1010,
+      "actions": [
+        {
+          "id": "action_led2_back_on",
+          "name": "TurnOnLED2Back",
+          "qualifier": "L",
+          "time": "T#300ms",
+          "body": "%QX0.2 := TurnOnLED2Back.Q;"
+        }
+      ]
+    },
+    {
+      "id": "step_led1_back",
+      "name": "LED_1_Back",
+      "initial": false,
+      "x": 300,
+      "y": 1080,
+      "actions": [
+        {
+          "id": "action_led1_back_on",
+          "name": "TurnOnLED1Back",
+          "qualifier": "L",
+          "time": "T#300ms",
+          "body": "%QX0.1 := TurnOnLED1Back.Q;"
+        }
+      ]
+    },
+    {
+      "id": "step_led0_back",
+      "name": "LED_0_Back",
+      "initial": false,
+      "x": 300,
+      "y": 1150,
+      "actions": [
+        {
+          "id": "action_led0_back_on",
+          "name": "TurnOnLED0Back",
+          "qualifier": "L",
+          "time": "T#300ms",
+          "body": "%QX0.0 := TurnOnLED0Back.Q;"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "trans_init_to_led0",
+      "name": "T_Start",
+      "condition": "start_button = TRUE",
+      "sourceStepId": "step_init",
+      "targetStepId": "step_led0"
+    },
+    {
+      "id": "trans_led0_to_led1",
+      "name": "T_Tick1",
+      "condition": "NOT TurnOnLED0.Q",
+      "sourceStepId": "step_led0",
+      "targetStepId": "step_led1"
+    },
+    {
+      "id": "trans_led1_to_led2",
+      "name": "T_Tick2",
+      "condition": "NOT TurnOnLED1.Q",
+      "sourceStepId": "step_led1",
+      "targetStepId": "step_led2"
+    },
+    {
+      "id": "trans_led2_to_led3",
+      "name": "T_Tick3",
+      "condition": "NOT TurnOnLED2.Q",
+      "sourceStepId": "step_led2",
+      "targetStepId": "step_led3"
+    },
+    {
+      "id": "trans_led3_to_led4",
+      "name": "T_Tick4",
+      "condition": "NOT TurnOnLED3.Q",
+      "sourceStepId": "step_led3",
+      "targetStepId": "step_led4"
+    },
+    {
+      "id": "trans_led4_to_led5",
+      "name": "T_Tick5",
+      "condition": "NOT TurnOnLED4.Q",
+      "sourceStepId": "step_led4",
+      "targetStepId": "step_led5"
+    },
+    {
+      "id": "trans_led5_to_led6",
+      "name": "T_Tick6",
+      "condition": "NOT TurnOnLED5.Q",
+      "sourceStepId": "step_led5",
+      "targetStepId": "step_led6"
+    },
+    {
+      "id": "trans_led6_to_led7",
+      "name": "T_Tick7",
+      "condition": "NOT TurnOnLED6.Q",
+      "sourceStepId": "step_led6",
+      "targetStepId": "step_led7"
+    },
+    {
+      "id": "trans_led7_to_led6_back",
+      "name": "T_Tick8",
+      "condition": "NOT TurnOnLED7.Q",
+      "sourceStepId": "step_led7",
+      "targetStepId": "step_led6_back"
+    },
+    {
+      "id": "trans_led6_back_to_led5_back",
+      "name": "T_Tick9",
+      "condition": "NOT TurnOnLED6Back.Q",
+      "sourceStepId": "step_led6_back",
+      "targetStepId": "step_led5_back"
+    },
+    {
+      "id": "trans_led5_back_to_led4_back",
+      "name": "T_Tick10",
+      "condition": "NOT TurnOnLED5Back.Q",
+      "sourceStepId": "step_led5_back",
+      "targetStepId": "step_led4_back"
+    },
+    {
+      "id": "trans_led4_back_to_led3_back",
+      "name": "T_Tick11",
+      "condition": "NOT TurnOnLED4Back.Q",
+      "sourceStepId": "step_led4_back",
+      "targetStepId": "step_led3_back"
+    },
+    {
+      "id": "trans_led3_back_to_led2_back",
+      "name": "T_Tick12",
+      "condition": "NOT TurnOnLED3Back.Q",
+      "sourceStepId": "step_led3_back",
+      "targetStepId": "step_led2_back"
+    },
+    {
+      "id": "trans_led2_back_to_led1_back",
+      "name": "T_Tick13",
+      "condition": "NOT TurnOnLED2Back.Q",
+      "sourceStepId": "step_led2_back",
+      "targetStepId": "step_led1_back"
+    },
+    {
+      "id": "trans_led1_back_to_led0_back",
+      "name": "T_Tick14",
+      "condition": "NOT TurnOnLED1Back.Q",
+      "sourceStepId": "step_led1_back",
+      "targetStepId": "step_led0_back"
+    },
+    {
+      "id": "trans_led0_back_to_led1",
+      "name": "T_Cycle",
+      "condition": "NOT TurnOnLED0Back.Q",
+      "sourceStepId": "step_led0_back",
+      "targetStepId": "step_led1"
+    }
+  ],
+  "variables": [
+    {
+      "name": "start_button",
+      "type": "BOOL",
+      "initialValue": "FALSE",
+      "comment": "Set TRUE to start the snake"
+    }
+  ],
+  "metadata": {
+    "modified": "2026-10-26T12:00:00.000Z",
+    "version": "1.0"
+  }
+}

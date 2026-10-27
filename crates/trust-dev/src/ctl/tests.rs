@@ -6,9 +6,6 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use smol_str::SmolStr;
-use trust_runtime::bundle_template::render_runtime_toml;
-
 use super::resolve_control_target;
 
 static PROJECT_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -28,12 +25,9 @@ impl ScratchProject {
     /// A project whose `runtime.toml` names the endpoint and the control token.
     fn with_target(endpoint: &str, token: &str) -> Self {
         let project = Self::new();
-        let runtime = render_runtime_toml(&SmolStr::new("ctl-test"), 10).replacen(
-            "endpoint = \"unix:///tmp/trust-runtime.sock\"",
-            &format!("endpoint = \"{endpoint}\"\nauth_token = \"{token}\""),
-            1,
-        );
-        std::fs::write(project.path().join("runtime.toml"), runtime).expect("write runtime config");
+        let control = format!("endpoint = \"{endpoint}\"\nauth_token = \"{token}\"");
+        std::fs::write(project.path().join("runtime.toml"), runtime_toml(&control))
+            .expect("write runtime config");
         project
     }
 
@@ -54,6 +48,44 @@ impl Drop for ScratchProject {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.0);
     }
+}
+
+/// A complete runtime.toml, valid for the loader, whose `[runtime.control]` table holds
+/// `control_lines`.
+fn runtime_toml(control_lines: &str) -> String {
+    format!(
+        r#"
+[bundle]
+version = 1
+
+[resource]
+name = "ctl-test"
+cycle_interval_ms = 10
+
+[runtime]
+execution_backend = "vm"
+
+[runtime.control]
+{control_lines}
+mode = "production"
+debug_enabled = false
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 5000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"
+"#
+    )
 }
 
 #[test]
@@ -115,4 +147,34 @@ fn a_target_is_required() {
         err.to_string().contains("--endpoint or --project required"),
         "{err}"
     );
+}
+
+#[test]
+fn a_stale_endpoint_file_reports_that_the_runtime_is_not_running() {
+    let project = ScratchProject::new();
+    let closed = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
+    let address = closed.local_addr().expect("listener address");
+    drop(closed);
+    let published = trust_runtime::control::endpoint::PublishedEndpoint::publish(
+        &project.path(),
+        &trust_runtime::control::ControlEndpoint::Tcp(address),
+        None,
+    )
+    .expect("publish a stale endpoint file");
+
+    let Err(error) = super::call_control_request(
+        Some(project.path()),
+        None,
+        Some("explicit-token".to_string()),
+        "status",
+        None,
+    ) else {
+        panic!("nothing listens at the published endpoint");
+    };
+
+    assert!(
+        error.to_string().starts_with("runtime is not running"),
+        "{error:#}"
+    );
+    drop(published);
 }

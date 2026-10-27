@@ -102,7 +102,9 @@ END_PROGRAM
         "legacy status failed: {:?}",
         legacy_status.error
     );
-    let legacy_result = legacy_status.result.expect("legacy status result");
+    let legacy_result = legacy_status
+        .result_value()
+        .expect("legacy status result");
     assert!(legacy_result.get("connectors").is_none());
     assert_eq!(
         legacy_result.get("io_drivers"),

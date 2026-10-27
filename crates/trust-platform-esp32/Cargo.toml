@@ -10,3 +10,48 @@ rust-version.workspace = true
 esp-hal = { version = "=1.2.2", features = ["esp32c6", "unstable"] }
 esp-storage = { version = "=0.10.0", features = ["esp32c6"] }
 critical-section = "1.2.0"
+# Wi-Fi (checklist L3; specification 34 ARCH-12): the radio driver without esp-alloc (the firmware
+# exports the C allocator over an arena of its own), the scheduler the driver needs, and the driver
+# trait its station implements. Pinned: esp-radio is a beta.
+esp-radio = { version = "=1.0.0-beta.1", default-features = false, features = ["esp32c6", "wifi", "unstable"] }
+esp-rtos = { version = "=0.4.0", features = ["esp32c6", "esp-radio"] }
+embassy-net-driver = "=0.2.0"
+
+[dependencies]
+# The engine's platform contracts (`MonotonicClock`, `RunnerWait`, `WakeSignal`,
+# `HardwareWatchdog`) and the runner's `ProcessIo` port this adapter implements, and the shared
+# line link of its USB control port. Both build without an operating system, so the chip build and
+# the host build of `usb_service` resolve them; the workspace entry builds the core without std.
+trust-runtime-core.workspace = true
+trust-runtime-services.workspace = true
+# The kernel interface: the C6 calls a compiled program's module from its program code region or
+# where its image lies (specification 44 §10.3).
+trust-plc-abi = { workspace = true }
+
+# The shared reset record the adapter keeps in persistent RTC fast memory, so the C6 and the F407
+# store the same record.
+trust-platform-memory.workspace = true
+
+# The chip's network (checklist L3): the interface, DHCP and the control connection over TCP that
+# every chip with a network shares, and the smoltcp it re-exports for the radio's frames.
+trust-platform-net.workspace = true
+# The SHA-256 a firmware image carries, which `firmware.install` checks before it selects the image
+# (specification 34 TARGET-04); the version the core already takes, without std.
+sha2 = { version = "0.11.0", default-features = false }
+
+# The C6's `Platform` for the resource loop answers `status` with a resource name (`SmolStr`) and
+# the shared realtime and persistence blocks (`serde_json`), as trust-runtime-services builds them.
+smol_str.workspace = true
+serde_json = { version = "1.0.152", default-features = false, features = ["alloc"] }
+
+# The host test tests/chip_file.rs compares the profile with chips/esp32c6.toml. A dev-dependency
+# is resolved only for this workspace's own tests, never for a firmware build.
+[dev-dependencies]
+trust-chips.workspace = true
+
+[features]
+# Bench only, never in a release: hooks that let the C6 bench prove the I/O drivers on a board
+# without wires (checklist T1). A `counter` input counts the pad of a `pwm` output of the same
+# record listed before it, the `can` controller runs in TWAI self-test mode and receives its own
+# frames from its `tx` pad, and every `analog` input's pad takes its internal pull-up.
+bench-loopback = []

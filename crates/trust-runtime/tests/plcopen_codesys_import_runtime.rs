@@ -1,7 +1,11 @@
+//! CODESYS and generic PLCopen XML imported into a project whose sources compile and run.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use trust_runtime::harness::{CompileSession, SourceFile, TestHarness};
+use trust_runtime::harness::TestHarness;
 use trust_runtime::plcopen::{
     import_xml_to_project, import_xml_to_project_with_options, PlcopenImportGlobalVarMode,
     PlcopenImportOptions,
@@ -402,16 +406,25 @@ END_VAR</xhtml>
     assert!(gvl_text.contains("CONFIGURATION GVL_Globals"));
     assert!(gvl_text.contains("GVL : GVL_TYPE;"));
 
-    let session = CompileSession::from_sources(vec![
-        SourceFile::new(gvl_text),
-        SourceFile::new(prg_text),
-        SourceFile::new(function_text),
-    ])
-    .with_extra_program_instances(["PLC_PRG"]);
-    let mut runtime = session
-        .build_runtime()
+    // The imported configuration holds the globals only; CODESYS calls PLC_PRG from its task, so
+    // the configuration names it here as an explicit instance.
+    let configured = gvl_text.replacen(
+        "END_CONFIGURATION",
+        "PROGRAM PLC_PRG : PLC_PRG;\nEND_CONFIGURATION",
+        1,
+    );
+    assert_ne!(
+        configured, gvl_text,
+        "the imported GVL ends its configuration"
+    );
+    let mut harness = TestHarness::from_sources(&[&configured, &prg_text, &function_text])
         .expect("compile imported strict GVL project with explicit PLC_PRG instance");
-    runtime.execute_cycle().expect("execute imported PLC_PRG");
+    let result = harness.cycle();
+    assert!(
+        result.errors.is_empty(),
+        "execute imported PLC_PRG: {:?}",
+        result.errors
+    );
 
     let _ = std::fs::remove_dir_all(project);
 }

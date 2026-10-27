@@ -4,6 +4,7 @@ import * as path from "path";
 import { randomUUID } from "crypto";
 import * as vscode from "vscode";
 import type { LspClientProvider } from "../../lm-tools/shared";
+import { getBinaryPath } from "../../binary";
 import { HmiAgentTool, workspaceIdentity } from "./tools";
 import { startAgentBridge, AgentBridge, BridgeTool } from "./bridge";
 
@@ -62,13 +63,7 @@ export function registerAgentConnection(context: vscode.ExtensionContext, getCli
               name: tool.name,
               description: tool.modelDescription,
               inputSchema: tool.inputSchema,
-              annotations: {
-                readOnlyHint: !["hmi_compose_page", "hmi_edit_draft", "hmi_apply_draft", "hmi_preview_states"].includes(
-                  tool.name,
-                ),
-                destructiveHint: tool.name === "hmi_apply_draft",
-                openWorldHint: false,
-              },
+              // The MCP server annotates each tool (specification 43 §3.1).
             }));
           const bridge = await startAgentBridge({
             workspaceId,
@@ -118,15 +113,11 @@ export function registerAgentConnection(context: vscode.ExtensionContext, getCli
           connection = { bridge, connectionFile };
           connections.set(workspaceId, connection);
         }
-        const executable = process.execPath;
-        const entry = context.asAbsolutePath("out/hmiBuilder/agent/mcpClient.js");
-        const configuration = {
-          command: executable,
-          args: [entry, connection.connectionFile],
-          env: { ELECTRON_RUN_AS_NODE: "1" },
-        };
+        // The agent starts the truST language server's stdio MCP server, which owns the MCP rules (spec 43, §3.1).
+        const command = getBinaryPath(context, "trust-lsp", "server.path");
+        const configuration = { command, args: ["hmi-agent", connection.connectionFile] };
         if (args?.reveal !== false) {
-          const toml = `[mcp_servers.trust_hmi]\ncommand = ${JSON.stringify(executable)}\nargs = ${JSON.stringify(configuration.args)}\nenv = { ELECTRON_RUN_AS_NODE = "1" }\n`;
+          const toml = `[mcp_servers.trust_hmi]\ncommand = ${JSON.stringify(command)}\nargs = ${JSON.stringify(configuration.args)}\n`;
           const document = await vscode.workspace.openTextDocument({
             language: "markdown",
             content: `# Connect your agent to ${folder.name}\n\nThis connection reads the current project, including unsaved HMI edits.\nKeep this VS Code window open. Reconnect after restarting it.\n\n## Codex MCP configuration\n\nAdd this entry through your agent's MCP settings. This command does not modify those settings.\n\n\`\`\`toml\n${toml}\`\`\`\n\nThe connection file is private. Do not copy its contents into your project.\n\nTools cover project discovery, isolated drafts, validation, rendered previews and reviewed application. Authoring does not deploy or operate equipment.\n`,

@@ -1,8 +1,4 @@
 import type { Edge, Node } from "@xyflow/react";
-import type {
-  RuntimeExtensionToWebviewMessage,
-  RuntimeWebviewToExtensionMessage,
-} from "../../visual/runtime/runtimeMessages";
 
 /**
  * Step types for Sequential Function Chart (IEC 61131-3)
@@ -15,7 +11,8 @@ export type StepType = "normal" | "initial" | "final";
 export type SfcNodeType = "step" | "parallelSplit" | "parallelJoin";
 
 /**
- * Action qualifiers according to IEC 61131-3
+ * Action qualifiers of IEC 61131-3 Table 59. The language server runs them
+ * (`sfc-profile.md`, "Execution of a visual SFC").
  */
 export type ActionQualifier =
   | "N"  // Non-stored (normal)
@@ -26,7 +23,9 @@ export type ActionQualifier =
   | "P"  // Pulse
   | "SD" // Stored and time delayed
   | "DS" // Delayed and stored
-  | "SL"; // Stored and time limited
+  | "SL" // Stored and time limited
+  | "P1" // Pulse on the rising edge
+  | "P0"; // Pulse on the falling edge
 
 /**
  * SFC Action definition
@@ -36,7 +35,11 @@ export interface SfcAction {
   name: string;
   qualifier: ActionQualifier;
   body: string;
-  time?: number; // For time-based qualifiers (L, D, SD, DS, SL)
+  /**
+   * The duration of a time-related qualifier as typed (a TIME literal such as `T#2s`), or a
+   * number of milliseconds; the language server checks it.
+   */
+  time?: number | string;
 }
 
 /**
@@ -47,12 +50,6 @@ export interface StepNodeData extends Record<string, unknown> {
   type: StepType;
   actions?: SfcAction[];
   description?: string;
-  isActive?: boolean; // For real-time highlighting during execution
-  hasBreakpoint?: boolean; // Debug: step has a breakpoint
-  isCurrentDebugStep?: boolean; // Debug: execution paused at this step
-  onToggleBreakpoint?: () => void; // Debug: toggle breakpoint callback
-  x?: number;
-  y?: number;
 }
 
 /**
@@ -64,8 +61,6 @@ export interface ParallelNodeData extends Record<string, unknown> {
   label: string;
   nodeType: "parallelSplit" | "parallelJoin";
   branchCount?: number; // Number of parallel branches
-  completedBranches?: Set<string>; // For joins: track which branches completed
-  isActive?: boolean; // For runtime highlighting
 }
 
 /**
@@ -110,66 +105,60 @@ export interface SfcVariable {
   comment?: string;
 }
 
-export interface SfcParallelSplit {
-  id: string;
-  name: string;
-  x: number;
-  y: number;
-  branchIds: string[];
-}
-
-export interface SfcParallelJoin {
-  id: string;
-  name: string;
-  x: number;
-  y: number;
-  branchIds: string[];
-  nextStepId?: string;
-}
-
 /**
- * SFC Workspace/Program structure
+ * The canvas graph of an SFC file, as the language server reads and writes it
+ * (`trust-lsp.visualParse` / `trust-lsp.visualFormat`).
  */
-export interface SfcWorkspace {
-  name: string;
-  steps: Array<{
-    id: string;
-    name: string;
-    initial?: boolean;
-    x: number;
-    y: number;
-    actions?: SfcAction[];
-  }>;
-  transitions: Array<{
-    id: string;
-    name: string;
-    condition: string;
-    sourceStepId: string;
-    targetStepId: string;
-    priority?: number;
-  }>;
-  parallelSplits?: SfcParallelSplit[];
-  parallelJoins?: SfcParallelJoin[];
+export interface SfcGraph {
+  nodes: SfcNode[];
+  edges: SfcTransitionEdge[];
   variables?: SfcVariable[];
-  metadata?: {
-    author?: string;
-    version?: string;
-    description?: string;
-    created?: string;
-    modified?: string;
-  };
 }
 
 /**
- * Execution state for SFC
+ * A canvas edit the language server answers (`trust-lsp.visualEdit`, kind `sfc`).
  */
-export interface SfcExecutionState {
-  activeSteps: string[];
-  mode: "simulation" | "hardware";
-  timestamp?: number;
-  status?: "stopped" | "running" | "paused";
-  breakpoints?: string[]; // Step IDs with breakpoints
-  currentStep?: string | null; // Current step when paused
+export type SfcEdit =
+  | {
+      op: "connect";
+      connection: {
+        source: string | null;
+        target: string | null;
+        sourceHandle?: string | null;
+        targetHandle?: string | null;
+      };
+      fallback: { sourceHandle: string | null; targetHandle: string | null };
+      stamp: string;
+    }
+  | { op: "setBranchCount"; nodeId: string; branchCount: number | null }
+  | {
+      op: "addNode";
+      nodeType: SfcNodeType;
+      position: { x: number; y: number };
+      wire: boolean;
+      stamp: string;
+    };
+
+/**
+ * The answer to an edit.
+ */
+export interface SfcEditAnswer {
+  ok: boolean;
+  errors?: Array<{ message: string }>;
+  edge?: SfcTransitionEdge | null;
+  node?: SfcNode;
+  branchCount?: number;
+  removedEdgeIds?: string[];
+}
+
+/**
+ * An edit request of the webview.
+ */
+export interface SfcEditRequest {
+  type: "edit";
+  requestId: number;
+  graph: SfcGraph;
+  edit: SfcEdit;
 }
 
 /**
@@ -177,39 +166,28 @@ export interface SfcExecutionState {
  */
 export type SfcWebviewToExtensionMessage =
   | { type: "ready" }
-  | { type: "save"; content: string }
-  | { type: "error"; error: string }
+  | { type: "save"; graph: SfcGraph }
   | { type: "openAsText" }
-  | { type: "addStep" }
-  | { type: "addTransition" }
-  | { type: "deleteSelected" }
-  | { type: "validate" }
-  | { type: "generateST"; content?: string }
-  | { type: "autoLayout" }
-  | { type: "debugPause" }
-  | { type: "debugResume" }
-  | { type: "debugStepOver" }
-  | { type: "toggleBreakpoint"; stepId: string }
-  | RuntimeWebviewToExtensionMessage;
+  | { type: "validate"; graph: SfcGraph }
+  | { type: "previewST"; graph: SfcGraph }
+  | { type: "generateST"; graph: SfcGraph }
+  | SfcEditRequest;
 
 /**
  * Messages from extension to webview
  */
 export type SfcExtensionToWebviewMessage =
-  | { type: "init"; content: string }
-  | { type: "update"; content: string }
-  | { type: "executionState"; state: SfcExecutionState }
-  | { type: "executionStopped" }
+  | { type: "update"; graph?: SfcGraph; error?: string }
   | { type: "validationResult"; errors: ValidationError[] }
   | { type: "codeGenerated"; code?: string; errors?: string[] }
-  | RuntimeExtensionToWebviewMessage;
+  | { type: "editResult"; requestId: number; answer: SfcEditAnswer };
 
 /**
  * Validation error
  */
 export interface ValidationError {
   id: string;
-  type: "step" | "transition" | "action" | "connection";
+  type: "step" | "transition" | "action" | "connection" | "variable";
   message: string;
   elementId?: string;
 }

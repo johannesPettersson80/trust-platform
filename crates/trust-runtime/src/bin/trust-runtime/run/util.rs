@@ -46,8 +46,12 @@ fn should_auto_create(path: &Path) -> anyhow::Result<bool> {
         anyhow::bail!("project folder is not a directory: {}", path.display());
     }
     let runtime_toml = path.join("runtime.toml");
-    let program_stbc = path.join("program.stbc");
-    Ok(!runtime_toml.is_file() || !program_stbc.is_file())
+    // A project's program is its image for this computer (specification 44 §8.8); a project that
+    // holds only the bytecode engine's program.stbc is built again, its own files kept.
+    let has_program = path
+        .join(trust_runtime::native::PROGRAM_IMAGE_FILE)
+        .is_file();
+    Ok(!runtime_toml.is_file() || !has_program)
 }
 
 #[derive(Debug, PartialEq, Eq)]

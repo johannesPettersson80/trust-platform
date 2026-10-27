@@ -388,7 +388,7 @@ IF SupplyDeviationAlarm.Update(MeasuredValue := Deviation) THEN
 END_IF;
 StatusValue.ActiveAlarmCount := Historian.AlarmCount;
 StatusValue.HighestAlarmClass := Historian.HighestClass;
-StatusValue.GasMeterReadingM3 := DWORD_TO_REAL(GasMeter.Update(Up := RunningCommand, Down := FALSE));
+StatusValue.GasMeterReadingM3 := UDINT_TO_REAL(DWORD_TO_UDINT(GasMeter.Update(Up := RunningCommand, Down := FALSE)));
 Update := StatusValue;
 END_METHOD
 

@@ -1,8 +1,16 @@
 # Runtime Semantics
 
 ## Status and scope
-- Current runtime (production): bytecode-VM execution over STBC modules (`ExecutionBackend::BytecodeVm`).
-- `run`/`play` accept `vm` only; `interpreter` is rejected in CLI/config startup selection.
+- Current runtime (production): every runtime runs the program compiled into a program image for
+  its CPU (specification 44). The bytecode engine, STBC and its VM, was deleted on 24 October 2026
+  (specification 44 §15).
+- `runtime.execution_backend` selects nothing: `vm` and `native` load, and `interpreter` is
+  refused (specification 11, "Runtime execution-backend report contract").
+- Where this document describes the bytecode engine's internals (the VM and its stack, register-IR
+  and tier-1 paths, STBC containers and their preparation, the test-only host evaluator, and the
+  in-process `Runtime` with its registration and evaluation API), it records that deleted engine.
+  Where it states how a program behaves, the statement holds for compiled programs, and its
+  references to bytecode read as references to the program image (specification 44).
 - Helper evaluation remains only for const-folding, initializer/config evaluation, and debug expression/write flows.
 - Runtime startup materializes TYPE defaults, struct/union member defaults,
   aggregate VAR initializers, VAR_CONFIG overrides, and legal FB instance
@@ -16,16 +24,16 @@
 
 IEC 61131-3 Edition 3.0 (2013) - Runtime Execution
 
-This specification defines the `trust-runtime` execution engine for IEC 61131-3 Structured Text with cycle-based deterministic execution. Scheduled task/program execution is bytecode-VM only; helper evaluation exists only for bounded non-cycle flows.
+This specification defines the `trust-runtime` execution engine for IEC 61131-3 Structured Text with cycle-based deterministic execution. Scheduled task/program execution runs the compiled program (specification 44 §8.8); helper evaluation exists only for bounded non-cycle flows.
 
 ### 1. Overview
 
 #### 1.1 Design Goals
 
-1. **VM-first execution**: Execute validated STBC bytecode in the runtime VM dispatch loop
+1. **Compiled execution**: Run the program compiled into a program image, which the runtime admits before it runs (specification 44)
 2. **Cycle-based execution**: Execute programs in discrete cycles, not continuous loops
 3. **Deterministic**: Same inputs produce same outputs, ordered iteration via IndexMap
-4. **Testable**: First-class support for unit testing PLC logic, VM behavior-lock checks, and runtime vertical validation
+4. **Testable**: First-class support for unit testing PLC logic, behavior-lock checks, and runtime vertical validation
 5. **Zero unsafe**: Follows `unsafe_code = "forbid"` convention
 
 #### 1.2 Architecture
@@ -35,17 +43,16 @@ crates/trust-runtime/
 ├── Cargo.toml
 ├── src/
 │   ├── lib.rs            # Public API, Runtime struct
-│   ├── bytecode/         # STBC encode/decode + metadata/debug maps
-│   ├── eval/             # Shared model facade + test-only evaluator internals
+│   ├── host/native/      # Build of compiled programs: generator, toolchain, program image
 │   ├── helper_eval/      # Storage-native helper evaluators for const/debug/config flows
 │   ├── harness/initializer.rs # Runtime initializer materialization service
 │   ├── program_model/    # Shared runtime/program AST + operator contracts
-│   ├── runtime/          # Runtime core + VM dispatch/execution subsystems
+│   ├── runtime/          # Runtime core: the compiled program on the chips' cycle
 │   ├── stdlib/           # Standard functions + FBs
 │   ├── value/            # Value types + date/time profile
 │   ├── io/               # I/O drivers
 │   ├── control/          # Control protocol server
-│   ├── debug/            # Debug hooks + state
+│   ├── debug/            # Live Values queues and forces, events, compiled debugger
 │   ├── web/              # Browser UI server
 │   ├── ui.rs             # TUI
 │   ├── scheduler.rs      # Resource scheduling + clocks
@@ -55,7 +62,7 @@ crates/trust-runtime/
 └── tests/
 ```
 
-> Historical note: older code snippets later in this document still show `EvalContext`-style conceptual APIs from the pre-VM migration era. Those snippets are background/reference material only and do not override the VM-only production contract above.
+> Historical note: older code snippets later in this document still show `EvalContext`-style conceptual APIs from the pre-VM migration era. Those snippets are background/reference material only and do not override the compiled-execution production contract above.
 
 #### 1.2.1 Initializer and reference architecture contract
 
@@ -81,10 +88,11 @@ require their exact runtime family and width.
 STRING and WSTRING accept their own tag, the other string tag, and the
 documented character inputs. CHAR and WCHAR accept their exact tag or an
 exactly one-scalar STRING/WSTRING input; CHAR additionally requires an ASCII
-scalar and WCHAR requires a scalar representable by `u16`. Bounded string
-initializers truncate by Unicode scalar count, not UTF-8 byte count. These are
-initializer-materialization rules and do not create additional source-level
-implicit conversion operators.
+scalar and WCHAR requires a scalar representable by `u16`. String
+initializers truncate to the declared capacity, counted in UTF-8 bytes for
+STRING and UTF-16 code units for WSTRING, and never split a character (section
+2.3.1). These are initializer-materialization rules and do not create
+additional source-level implicit conversion operators.
 
 Derived initializer coercion resolves aliases and subranges through their
 target/base type. A partial fixed-array initializer fills leading elements in
@@ -171,9 +179,10 @@ LWORD carries the signed 64-bit nanosecond value as its two's-complement bit
 pattern, in both directions (specification 12 §4.1). DATE, TOD and DT have an
 implementer-specific width in Table 10, so they are refused at direct addresses;
 the L forms or an explicit conversion are the supported paths.
-A bounded STRING occupies exactly its declared byte capacity. Unbounded
-STRING, WSTRING, function-block, class, interface, pointer, reference, and
-other non-materializable layouts are rejected.
+A STRING occupies exactly its declared byte capacity; a STRING without a
+length occupies 80 bytes (`STRING[80]`). WSTRING, function-block, class,
+interface, pointer, reference, and other non-materializable layouts are
+rejected.
 
 An absolute field address has an `%I`, `%Q`, or `%M` area. A relative
 structured-field address has `%X`, `%B`, `%W`, `%D`, or `%L` followed by a
@@ -199,19 +208,13 @@ central `trust-syntax` classifier. These are architectural dependency
 contracts: their source-bound checks do not substitute for executable
 initializer semantics.
 
-The VM and register-IR paths preserve bounded allocation behavior:
-
-- partial dynamic-reference indexing and field lookup borrow the existing
-  `ValueRef` path rather than cloning the complete reference;
-- function-block reference execution reads through the borrowed reference;
-- register-IR decode stores instruction operands inline rather than allocating
-  one `Vec` per decoded instruction; and
-- VM local initialization populates VM frame slots without creating temporary
-  runtime storage frames.
+The bounded-allocation rules of the bytecode engine's VM and register-IR paths
+were deleted with that engine (specification 44 §15); a compiled program owns
+no heap (specification 44 §7.1).
 
 The reviewed initializer service modules remain at most 400 lines and reviewed
 functions remain at most 60 lines. The checked-in initializer benchmark action,
-include, fixture, VM backend selection, and authentication fixture value remain
+include, fixture, and authentication fixture value remain
 present as the reproducible performance-test entrypoint. These caps and fixture
 checks are maintainability and benchmark-contract gates; they do not establish
 a general runtime performance result.
@@ -316,7 +319,10 @@ same-family target or NULL.
 Dereference reads and writes traverse the retained storage identity. A null
 dereference returns `RuntimeError::NullReference` before any load or store;
 the destination of a failed read and the target storage of a failed write
-remain unchanged.
+remain unchanged. A `POINTER TO ARRAY[*] OF T` target accepts the address of a
+concrete `ARRAY[a..b] OF T` of the same rank, a different element type or rank
+staying a type mismatch, and indexing through it is checked against those
+concrete bounds.
 
 #### 2.1.1 User-facing value presentation
 
@@ -358,11 +364,15 @@ calendar values.
 #### 2.2 Compound Type Values
 
 ```rust
-/// Reference to a value in memory.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// Reference to a value in memory. `generation` is the installation generation
+/// of the storage the reference was taken in (specification 34 §11.3); a
+/// reference of another generation names no state.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ValueRef {
     pub location: MemoryLocation,
-    pub offset: usize,
+    pub offset: u32,
+    pub generation: Generation,
+    pub path: RefPath,
 }
 
 /// Array value with bounds tracking.
@@ -470,11 +480,19 @@ storage and reports `runtime_type_mismatch`.
 
 #### 2.3.1 Bounded String Runtime Writes
 
-Every write into declared `STRING[n]` or `WSTRING[n]` storage applies the
-receiving declaration's capacity in Unicode scalar values. Initializers,
-ordinary assignment, function and function-block input copy-in, output
-copy-back, and function-result assignment truncate only the excess suffix and
-preserve the first `n` scalar values. An in-bound value is stored unchanged.
+Every STRING and WSTRING is bounded (`docs/IEC_DECISIONS.md` 2026-10-17): a
+declaration without a length is `STRING[80]` or `WSTRING[80]`. Every write into
+declared `STRING[n]` or `WSTRING[n]` storage applies the receiving
+declaration's capacity: `n` bytes of UTF-8 for `STRING[n]`, `n` UTF-16 code
+units for `WSTRING[n]`. Initializers, ordinary assignment, function and
+function-block input copy-in, output copy-back, function-result assignment,
+retained-value restore and sampled process-image input truncate only the excess
+suffix: they keep the longest prefix of whole characters that fits, so a cut
+never splits a character. An in-bound value is stored unchanged.
+
+In an STBC type table, a STRING or WSTRING `max_length` of 0, which earlier
+producers wrote for a declaration without a length, is the default capacity 80
+(specification 12 §6.2).
 
 `VAR_IN_OUT` does not convert or resize its actual argument: the string family
 and effective declared capacity must match exactly after alias resolution, and
@@ -510,7 +528,10 @@ element model:
   current scalar count reports lower bound 1 and that count as the upper
   bound; and
 - a successful indexed write replaces exactly one scalar and preserves all
-  other scalar values.
+  other scalar values. The result is bounded like any other store
+  (`02-data-types.md` §6, Character Access): a `CHAR` outside ASCII written
+  over an ASCII character of a `STRING` that already fills its capacity makes
+  the text one byte too long, and the text is then cut at its capacity.
 
 Indexed writes validate the index before validating replacement width or
 shape. An out-of-range write therefore returns `IndexOutOfBounds` even when
@@ -783,15 +804,17 @@ The portable runtime core SHALL preserve these value and program-model rules:
   enumerations to their storage type; sums ordinary structure fields and uses
   the complete relative extent, including gaps, for located/overlapping
   structures under the uniform ABI; selects the largest union variant; multiplies fixed inclusive array dimensions by the
-  element size; uses the declared bounded string capacity (twice that capacity
-  for `WSTRING`); and uses the runtime reference-handle width for references
-  and pointers. Unknown types, unbounded strings, wildcard or reversed array
-  dimensions, and unsupported types are rejected. Any representable dimension
+  element size; uses the declared string capacity (twice that capacity for
+  `WSTRING`; 80 and 160 for a `STRING` and `WSTRING` without a length); and uses
+  the runtime reference-handle width for references and pointers. Unknown
+  types, wildcard or reversed array dimensions, and unsupported types are
+  rejected. Any representable dimension
   product or byte-size overflow is rejected rather than wrapped. Legacy ABI
   calculations retain their historical structure field-sum rule; the selected
   ABI follows the artifact, not the target processor (section 2.5).
 - Portable runtime-value size calculation uses the exact elementary tag width,
-  counts string content in Unicode scalar elements (`WSTRING` twice), resolves
+  counts string content in the units of its capacity (UTF-8 bytes for
+  `STRING`, two bytes per UTF-16 code unit for `WSTRING`), resolves
   located structures through their admitted layout and otherwise sums structure
   fields, multiplies a validated array extent by its element size,
   resolves an enumeration through its declared base type, and uses the runtime
@@ -897,43 +920,32 @@ or cross-version identifiers.
 
 #### 3.2 Variable Storage
 
-```rust
-/// Storage for runtime variables.
-#[derive(Debug, Default)]
-pub struct VariableStorage {
-    /// Global variables (VAR_GLOBAL)
-    globals: IndexMap<SmolStr, Value>,
+A program's variables live in flat blocks of bytes that preparation lays out
+from the TYPE_TABLE, each variable at its declared size and alignment
+(specification 34 MEM-12, owner decision of 19 October 2026, as CODESYS and
+TwinCAT keep them):
 
-    /// Local variable frames (call stack)
-    frames: Vec<LocalFrame>,
+- the **persistent block** holds the globals, the programs and every function
+  block or class instance they declare, inline, for the installation's
+  generation;
+- the **activation stack** holds the variables of each function and method call
+  and its per-call instances, last in first out, sized from the deepest static
+  call chain;
+- the **operand stack** holds the temporaries of an expression.
 
-    /// FB/Class instances
-    instances: FxHashMap<InstanceId, InstanceData>,
+Sizes: `BOOL`, `SINT`, `USINT`, `BYTE`, `CHAR` 1 byte; `INT`, `UINT`, `WORD`,
+`WCHAR` 2; `DINT`, `UDINT`, `DWORD`, `REAL` 4; `LINT`, `ULINT`, `LWORD`,
+`LREAL` and every temporal type 8; an enumeration its base type; `STRING[n]` a
+2-byte length and `n` bytes of UTF-8, `WSTRING[n]` the length and `n` UTF-16
+code units; structures and arrays packed in declaration order at natural
+alignment; a reference 16 bytes (its target's block, offset and generation).
+The engine reads and writes each value in place; a scan allocates nothing.
 
-    /// Retain variables (persist across warm restart)
-    retain: IndexMap<SmolStr, Value>,
-
-    /// Next instance ID
-    next_instance_id: u32,
-}
-
-/// A local variable frame for function/method calls.
-#[derive(Debug)]
-pub struct LocalFrame {
-    pub id: FrameId,
-    pub owner: SmolStr,        // POU name
-    pub variables: IndexMap<SmolStr, Value>,
-    pub return_value: Option<Value>,
-}
-
-/// Data for a single FB/Class instance.
-#[derive(Debug)]
-pub struct InstanceData {
-    pub type_name: SmolStr,
-    pub variables: IndexMap<SmolStr, Value>,
-    pub parent: Option<InstanceId>,  // For inheritance
-}
-```
+The `Value` tree of §3.1 is the boundary type: engineering reads materialize a
+`Value` from the bytes, and engineering writes convert a `Value` into them,
+checked whole first. Until checklist item C1 completes, the engine still keeps
+part of its state in the earlier map-based storage, whose public type,
+`VariableStorage`, it keeps as a compatibility view.
 
 #### 3.2.1 Variable-storage reference and layout contract
 
@@ -1089,12 +1101,12 @@ impl Runtime {
 
 #### 4.1.1 Runtime Core State and Control Boundaries
 
-A newly constructed runtime has resource name `RESOURCE`, the bytecode-VM
-execution backend, zero logical time and cycle count, empty user storage,
-registries, task state, debug state, and protocol connections, and the default
-date/time profile. Construction registers the reviewed standard function-block
-definitions and their function-block types before user declarations are
-accepted.
+A newly constructed runtime has resource name `RESOURCE`, runs the compiled
+program (specification 44 §8.8), and has zero logical time and cycle count,
+empty user storage, registries, task state, debug state, and protocol
+connections, and the default date/time profile. Construction registers the
+reviewed standard function-block definitions and their function-block types
+before user declarations are accepted.
 
 Runtime declaration registration preserves these lookup and lifecycle rules:
 
@@ -1111,7 +1123,11 @@ Runtime declaration registration preserves these lookup and lifecycle rules:
 
 Task registration records the current logical time as its initial scheduling
 baseline. If its `SINGLE` variable already contains `TRUE`, the saved sample is
-initialized to `TRUE` so registration creates no artificial rising edge. Each
+initialized to `TRUE` so registration creates no artificial rising edge. A
+compiled program registers its tasks when its task timing starts before its
+first scan, after its cold or warm initialization, so its starting or retained
+`SINGLE` values count; a reset of the timing after its first scan, at a
+restart, clears the saved samples instead (§4.8). Each
 distinct task name receives one stable nonzero debugger thread identifier,
 reused if that task name is registered again. When at least one registered
 program is absent from every task's program list, one separate stable
@@ -1188,13 +1204,11 @@ derived local-initialization plans. Read-only declaration accessors expose the
 same registered definitions; the standard-library accessor exposes the
 runtime's registered built-ins.
 
-Execution-backend selection is one transaction: after success, both the runtime
-selector and an attached metrics sink report the selected backend. Register-VM
-profiling, register-IR lowering-cache reuse, and tier-1 specialization each
-have independent enable controls and snapshots. Resetting one diagnostic
-surface clears its cache/counters without changing its current enabled state or
-configured capacity/threshold. With no bytecode module loaded, resolving any
-VM POU identifier returns no name.
+Every runtime runs the compiled program, so no execution backend is selected:
+`status` and its metrics report the backend `native` (specification 11,
+"Runtime execution-backend report contract"). The bytecode engine's register-VM
+profiling, register-IR lowering cache and tier-1 specialization were deleted
+with it (specification 44 §15).
 
 The process-image accessors share the one input, output, and memory image.
 Driver health publication replaces the prior sink contents in driver
@@ -1288,6 +1302,22 @@ For a baseline of 0 ms, a 25 ms task sampled every 10 ms shall run at 30, 50,
 fixed sampling grid and no skipped cycles, sampling lateness is less than one
 10 ms cycle; this is not a bound on OS delays or task completion under load.
 
+The resource keeps that sampling grid. A cycle's nominal start is one cycle
+interval after the nominal start of the cycle before it, never one interval
+after the moment the cycle before it actually started, so the time a wake takes
+is not added to the next interval: with a 10 ms cycle and every wake 1 ms late,
+the cycles start at 0, 11, 21 and 31 ms, not at 0, 11, 22 and 33 ms, and a 10 ms
+task misses no activation. A cycle that ends after the next nominal start makes
+the next cycle start at once, without a burst of cycles to catch up; the grid
+continues from that start, and the tasks count the deadlines that passed as
+missed under the rule above. A restart, a pause and a start begin the grid again
+from their first cycle. A restart, a recovery from a fault by a restart
+included, and a start begin the tasks' timing again at the moment their first
+cycle starts, so the grid begins at that moment: the next cycle's nominal start
+is one interval after it, when the tasks are due, and no cycle between finds
+them not yet due. This holds on every runtime, a computer's scheduler thread and
+a chip's resource loop alike (specification 34 CYCLE-03).
+
 The SINGLE input must resolve to a BOOL variable; if it is missing or non-BOOL, task execution
 fails with a runtime error.
 
@@ -1319,18 +1349,14 @@ Per IEC 61131-3, within each **scheduled task** execution:
 
 `execute_cycle` determines due tasks (periodic/event) and invokes `execute_task` in scheduler order.
 
-The bytecode executor applies the fixed resource limits in
-`12-bytecode.md` section 4.6. In particular, one top-level VM invocation may
-use at most 1,000,000 work units: one per executed original bytecode
-instruction, plus the value-size work that specification 34 TIME-08 defines
-(array and reference copies, text work, lifetime traversal of reference-holding
-values). Scalar operations add nothing beyond their instruction, and engine
-bookkeeping is never charged. Nested calls share that remaining budget, and
-every execution backend charges the same total. Program construction and
-restart construction run under the separate construction allowance of
-specification 34 TIME-09. Budget exhaustion is reported through the current
-execution-timeout category before the invocation can complete; configured
-deadline and watchdog checks remain independent.
+A compiled program runs each task activation under the statement budget of
+specification 44 NX-10: `[resource] max_statements_per_scan` in `runtime.toml`,
+1,000,000 by default. Each statement and each pass through a loop takes one from
+the budget before it runs; one that finds the budget at zero ends the scan with
+`InfiniteLoop` (section 10), and the stores of the statements that ran stay. A
+release image counts the passes through loops only (specification 44 §13.2).
+Nested calls share the activation's budget. Configured deadline and watchdog
+checks remain independent.
 
 ```rust
 impl Runtime {
@@ -1382,6 +1408,10 @@ pub struct EvalContext<'a> {
 
 #### 4.6 Portable Bytecode, Scheduler, and VM Helper Contracts
 
+> The bytecode, frame and operand stack, constant-pool and VM dispatch
+> contracts of this section were the bytecode engine's and were deleted with it
+> (specification 44 §15); the ready-task order holds for the compiled cycle.
+
 The portable runtime core SHALL preserve these bytecode and execution-helper
 contracts:
 
@@ -1407,13 +1437,11 @@ public compatibility promise.
 
 #### 4.7 Runtime Metadata, Cycle, I/O, and Metrics Transactions
 
-Applying bytecode is fail-closed. Container validation, metadata extraction,
-VM materialization, resource selection, task-reference validation, and
-process-image limit validation must all succeed before the executable module is
-committed. A failed application preserves the prior executable module, resource
-identity, tasks, scheduling state, and process-image sizes. Applying metadata
-without executable bytecode intentionally clears the executable VM and all
-derived VM caches.
+Applying a program image is fail-closed. The image's admission (specification
+44 §10.2), its process-image bindings and, at an online change, the checks of
+specification 44 §12 must all succeed before the program is committed. A failed
+application preserves the prior program, resource identity, tasks, scheduling
+state, and process-image sizes.
 
 Named resource selection is case-insensitive and does not silently select the
 primary resource when the requested name is absent. The sole compatibility
@@ -1437,8 +1465,11 @@ One successful scan cycle has this transaction order:
    and function-block references;
 4. execute each unscheduled program once in declaration order;
 5. stage retain persistence when configured;
-6. materialize process/protocol outputs, enforce the output-commit deadline,
-   and write every registered driver;
+6. reapply forced variable values, so that a forced variable holds its forced
+   value between scans and a forced output variable reaches its output whatever
+   the program wrote, then the forced output addresses; materialize
+   process/protocol outputs, enforce the output-commit deadline, and write every
+   registered driver;
 7. publish OpenOT scan telemetry, refresh I/O health, record metrics and debug
    events, then saturating-increment the cycle number.
 
@@ -1517,8 +1548,8 @@ snapshot finds each path in the rebuilt instance and migrates the value to the
 variable's declared type as for program variables; a path the program no
 longer has, or a variable it no longer keeps (now declared `NON_RETAIN`, or an
 unqualified variable of an instance no longer kept as a whole), is dropped
-with a `RetainOrphanDropped` event. The shared execution engine implements
-these rules for every runtime, hosted or embedded.
+with a `RetainOrphanDropped` event. Every runtime, hosted or embedded, implements
+these rules.
 
 An instance initializer may name a variable, input or output that the block
 declares or inherits from a block it extends (IEC 61131-3 Ed.3 §6.6.5.3):
@@ -1533,12 +1564,13 @@ resets OpenOT scan-relative producer state. Warm restart restores eligible
 values after reconstructing instances with stable identity order; cold restart
 uses declaration initializers only.
 
-Online change is one composed transaction: load the retain snapshot, prepare a
-warm restart and retained-value migration, validate and materialize the new
-bytecode, then commit restart and retained storage. It returns metadata from
-the committed runtime. Any failure before commit leaves the old executable
-runtime usable; protocol-server refresh belongs to the owning host after this
-core swap succeeds.
+Online change is one transaction (specification 44 §12, specification 11
+section 6.7.1): admit the new image and work its copy plan out from the two
+images; every variable the new program declares at the same place and by the
+same name keeps its value, retained or not, and no retain store is read; then
+commit at a scan boundary. Any failure before commit leaves the old program
+running; protocol-server refresh belongs to the owning host after this swap
+succeeds.
 
 ### 5. Statement Execution
 
@@ -1610,6 +1642,9 @@ pub enum StmtResult {
 
 #### 5.4 Host-stage statement execution contract
 
+> The test-only host evaluator that this section specifies was deleted with the
+> bytecode engine (specification 44 §15); the section stays as its record.
+
 The test-only host evaluator preserves the following bounded statement results
 for the portable program model:
 
@@ -1626,10 +1661,14 @@ for the portable program model:
 
 These are exact observed host-stage partitions, not proof of every statement,
 selector type, branch, loop direction, loop bound, or error case described by
-IEC 61131-3 Ed.3 section 7.3.3. Production execution remains the validated
-STBC/VM path.
+IEC 61131-3 Ed.3 section 7.3.3. Production execution runs the compiled program
+(specification 44).
 
 #### 5.5 Host-stage statement debug hook
+
+> The statement hook of the deleted bytecode engine's host stage; a compiled
+> program begins each statement with the statement hook of specification 44
+> §13.2 instead.
 
 In the default debug-enabled runtime build, executing the reviewed expression
 statement invokes the supplied statement hook exactly once before the
@@ -1661,9 +1700,9 @@ increment failure occur before the mutation described in section 5.3.
 `EXIT`, `CONTINUE`, `RETURN`, labels, and `JMP` retain
 their explicit control-flow identity. Source locations, when available, are
 registered in statement order and do not change execution semantics.
-The current bytecode publication boundary rejects a program containing `JMP`
-with the stable unsupported C5 edge-case diagnostic; retaining the lowered
-identity does not claim executable jump support.
+The native build (specification 44) refuses a program containing `JMP` or a
+label with a diagnostic naming the statement; retaining the lowered identity
+does not claim executable jump support.
 
 #### 5.6.1 Portable statement representation contract
 
@@ -2034,6 +2073,9 @@ authorize helper evaluation as production cyclic execution.
 
 #### 6.12 Host-stage expression evaluation contract
 
+> The test-only host evaluator that this section specifies was deleted with the
+> bytecode engine (specification 44 §15); the section stays as its record.
+
 The test-only host evaluator preserves these exact reviewed expression
 partitions while constructing and exercising the portable program model:
 
@@ -2069,8 +2111,8 @@ partitions while constructing and exercising the portable program model:
 This is bounded host-stage product authority for the named observations. It
 does not use one fixture to certify every expression form, numeric type
 combination, temporal boundary, reference lifetime, inheritance graph, or
-failure partition in IEC 61131-3 Ed.3 section 7.3.2. Production execution
-remains the validated STBC/VM path.
+failure partition in IEC 61131-3 Ed.3 section 7.3.2. Production execution runs
+the compiled program (specification 44).
 
 #### 6.12.1 Source-to-runtime expression lowering
 
@@ -2253,7 +2295,10 @@ lowering:
   selected concrete implementation without widening access to any other
   member;
 - `SUPER.member` selects the inherited implementation but remains subject to
-  the inherited member's visibility;
+  the inherited member's visibility; the base's method runs on the caller's
+  own instance, so `THIS` in it is that instance and `THIS.m()` binds to the
+  instance's class (IEC 61131-3 §6.6.5.6, §6.6.5.7), and `SUPER` in it names
+  the base of the method's own class (specification 12, `LOAD_SUPER`);
 - an inaccessible member produces a compile error and no runnable
   program/class/function-block model; and
 - runtime metadata must not synthesize callable entries for rejected access
@@ -2279,18 +2324,20 @@ transaction:
    caller targets, copy only `FALSE` to a connected `ENO`, and return the
    declared type default for a value-producing callable.
 4. Otherwise evaluate each actual exactly once from left to right in source
-   order. Bind formal names without reordering evaluation. Snapshot inputs and
-   in-outs; initialize function/method outputs per call and use stored
-   function-block inputs/outputs.
+   order. Bind formal names without reordering evaluation. Pass inputs by
+   value. A `VAR_IN_OUT` is the caller's variable itself (IEC 61131-3 Ed.3
+   §6.6.1.2.2; specification 44 §6.4): the body reads and writes it in place.
+   Initialize function/method outputs per call and use stored function-block
+   inputs/outputs.
 5. Initialize `ENO` to `TRUE`, execute the body, and allow the body to set it
    `FALSE`.
-6. On normal return, capture every result/output/in-out/ENO value, validate the
-   complete destination set, then commit all connected transfers. `ENO =
-   FALSE` set by a normally returning body does not cancel its other
-   transfers.
-7. On a runtime execution error, report the error, force the call's ENO
-   disposition to false, and commit no result, output, in-out, or receiver /
-   function-block instance mutation through the failed call boundary.
+6. On normal return, copy the result and every connected output and `ENO` to
+   its target, in formal declaration order. `ENO = FALSE` set by a normally
+   returning body does not cancel its other transfers.
+7. On a runtime execution error, report the error; the call transfers no
+   result, output or `ENO`. What the body wrote before the error, to an
+   in-out, to its own instance or receiver, or to a global, remains, as the
+   writes of every completed statement do (specification 11 §6.6).
 
 A call cannot map the same or overlapping caller storage to two writable
 formals when the source shows the overlap: the same variable, a variable and
@@ -2298,13 +2345,17 @@ one of its members or elements, or elements whose index expressions are
 written identically. The compiler rejects such a call before execution.
 Writable connections that coincide only at run time, such as `A[i]` and `A[j]`
 with `i = j`, or a dereferenced reference and the variable it designates, are
-not an error: step 6 commits the transfers in formal declaration order, so the
-value of the last declared formal remains. An input may snapshot storage that
+not an error: step 6 copies the outputs in formal declaration order, so the
+value of the last declared output remains, and in-outs that designate the same
+storage are that one variable, so each write of the body is seen by the next. An input may snapshot storage that
 is also the single target of one output or in-out. These implementer-specific rules are
 recorded in
 [`IEC_DECISIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DECISIONS.md#2026-07-30---pou-call-evaluation-execution-control-and-output-transfer).
 
 #### 7.6 Host-stage POU evaluation contract
+
+> The test-only host evaluator that this section specifies was deleted with the
+> bytecode engine (specification 44 §15); the section stays as its record.
 
 The test-only host evaluator retains a stage-accurate compatibility contract
 for constructing and executing the portable POU model before bytecode
@@ -2339,7 +2390,7 @@ lowering:
   `VAR_INPUT inc := INT#5` initializer in instance storage.
 
 These rules specify the host-stage model exercised by focused unit tests.
-Production program execution remains the STBC/VM path.
+Production program execution runs the compiled program (specification 44).
 
 #### 7.7 Source-to-runtime POU assembly
 
@@ -2409,8 +2460,9 @@ The runtime registry represents the following declaration contracts:
 - `REF_TO` retains its target type according to IEC Table 12;
 - the truST `POINTER TO` extension retains its target type under the separate
   pointer policy in `02-data-types.md`; and
-- bounded `STRING[n]` and `WSTRING[n]` retain their character capacity in the
-  resolved target type.
+- `STRING[n]` and `WSTRING[n]` retain their capacity in the resolved target
+  type, and a `STRING` or `WSTRING` without a length resolves to the built-in
+  type of capacity 80.
 
 Every integer constant operand that defines a subrange bound, array dimension,
 bounded-string capacity, or explicit enumeration value is imported from the
@@ -2420,7 +2472,7 @@ partial constant map. The selected value remains stable across source
 permutations and retains declaration-site namespace/`USING` resolution.
 
 Fixed bounds are inclusive and require `lower <= upper`. String capacities are
-positive. Enumeration explicit values and implicit successors fit the
+1 to 65,535. Enumeration explicit values and implicit successors fit the
 declared integer base; continuation uses checked arithmetic and never
 saturates or wraps. Undefined, mutable, ambiguous, cyclic, non-integer,
 out-of-domain, or otherwise invalid operands fail compilation before the type
@@ -2831,6 +2883,17 @@ Malformed input returns `RuntimeError::InvalidIoAddress` without producing a
 partial address. This parsing contract is IEC-conforming product behavior, not
 an IEC decision or deviation.
 
+Every reply, refusal and name that shows an address writes it in the form the
+parser reads, so that a client can send it back: `%`, the area, the size
+prefix written out (`X` for a bit), the location path's components separated
+by dots and, for a bit, the bit index (`%IX0.1`; `%IX5.0` for `%IX5` or
+`%I5`; `%QW3.4.5`). A wildcard is written `%I*`, `%Q*` or `%M*`, never with a
+size, and the byte window of a `STRING` binding as the byte address it is
+declared at (`%QB24`). Live Values (`io.list`, `io.read`), the debugger, the
+fleet and setup replies, online-change and configuration refusals, and the
+names the native build gives directly represented variables all use this one
+text, `IoAddress`'s `Display` in `trust-runtime-core`.
+
 #### 9.3 Address Examples
 
 | Address | Area | Size | Offset |
@@ -2933,12 +2996,18 @@ variants map to `runtime_<variant-name>` in lower snake case, including
 `runtime_type_mismatch`, `runtime_division_by_zero`,
 `runtime_modulo_by_zero`, `runtime_overflow`,
 `runtime_index_out_of_bounds`, `runtime_subrange_violation`,
-`runtime_null_reference`, `runtime_for_step_zero`,
-`runtime_condition_not_bool`, `runtime_watchdog_timeout`, and
-`runtime_execution_timeout`. Bytecode and VM structural errors retain the
-more specific `bytecode_*` or `vm_*` code specified in
-`docs/specs/12-bytecode.md` rather than collapsing to
-`runtime_invalid_bytecode`.
+`runtime_null_reference`, `runtime_for_step_zero`, `runtime_watchdog_timeout`, and
+`runtime_execution_timeout`. A call deeper than the kernel gives an activation keeps
+`vm_call_stack_overflow` (specification 44 §6.4). The codes of the bytecode container and its
+virtual machine (`bytecode_*`, every other `vm_*` code, `runtime_invalid_bytecode`,
+`runtime_invalid_bytecode_metadata`, `runtime_unsupported_bytecode_version`) and of the checks
+that engine made while it ran (`runtime_condition_not_bool`, `runtime_case_selector_type`,
+`runtime_invalid_control_flow`, `runtime_type_nesting_exceeds`, `runtime_undefined_task`,
+`runtime_undefined_label`, `runtime_invalid_task_single`, `runtime_constant_write`,
+`runtime_staging_violation`, `runtime_visibility_violation`,
+`runtime_program_root_replacement`, `runtime_preparation_limit`) left the vocabulary with the
+engine (specification 44 §15): what they reported is refused when the project is built or when
+its image is admitted, or cannot happen in a compiled program.
 
 The mapping is exhaustive for the committed `RuntimeError` enum. Adding or
 renaming a variant requires an explicit stable-code mapping and review.
@@ -2948,14 +3017,18 @@ must compare the code, not message substrings.
 
 Conversion boundaries preserve the committed error identity:
 
-- converting a `BytecodeError` produces `RuntimeError::Bytecode`, preserving
-  the source bytecode stable code and its rendered diagnostic detail;
 - converting either `DateTimeError` value produces
   `RuntimeError::DateTimeRange` with the original value and
   `runtime_date_time_range`;
 - converting `DateTimeCalcError::InvalidDate`, `InvalidResolution`, or
   `Overflow` normalizes to `RuntimeError::Overflow` and
   `runtime_overflow`.
+
+`RuntimeError::StringCapacityExceeded` maps to
+`runtime_string_capacity_exceeded`: a string function or conversion whose
+result would be longer than the implementer maximum of 65,535 UTF-8 bytes
+(`STRING`) or UTF-16 code units (`WSTRING`), IEC 61131-3 Ed.3 §6.6.2.5.11
+(specification 07 §8.1).
 
 HMI command admission is specified in `docs/specs/39-hmi-builder.md`.
 
@@ -3010,7 +3083,7 @@ behavior.
 ```rust
 /// Test harness for PLC code unit testing.
 pub struct TestHarness {
-    runtime: Runtime,
+    runtime: CompiledRuntime,
 }
 
 impl TestHarness {
@@ -3038,7 +3111,7 @@ impl TestHarness {
     /// Runs until a condition is met.
     pub fn run_until<F>(&mut self, condition: F) -> Vec<CycleResult>
     where
-        F: Fn(&Runtime) -> bool;
+        F: Fn(&CompiledRuntime) -> bool;
 
     /// Advances simulation time, saturating at the signed Duration bounds.
     pub fn advance_time(&mut self, duration: Duration);
@@ -3073,26 +3146,35 @@ JSON-line transport contract, physical I/O behavior, or wall-clock timing.
 `CompileSession::from_source` owns one source and leaves diagnostics unlabeled
 by default. `from_sources` owns all sources in caller order and enables
 per-source labels when more than one source is present; an explicit
-`label_errors` selection overrides that default. Runtime, bytecode-module, and
-encoded-byte builds first complete source instrumentation and then compile the
-same ordered source set. A source/path helper requires equal list lengths.
-Parse, semantic, lowering, instrumentation, and bytecode-encoding failures are
-returned as `CompileError`, never as a partial runtime or module.
+`label_errors` selection overrides that default. `declarations` first completes
+source instrumentation and then lowers the declarations of the same ordered
+source set into their starting state (specification 44 §6.7). A source/path
+helper requires equal list lengths. Parse, semantic, lowering, and
+instrumentation failures are returned as `CompileError`, never as partial
+declarations.
 
-`TestHarness::from_source` and `from_sources` build the host runtime and apply a
-runtime-aligned bytecode module before publishing the harness. Read-only,
-mutable, and consuming runtime accessors expose that same runtime. Every call
+`TestHarness::from_source` and `from_sources` build the sources into a debug
+program image for this computer with the toolchain of specification 44 §4.6,
+named by `TRUST_TOOLCHAIN` or installed, load it into a compiled runtime, and
+only then publish the harness; a build or load failure is a `CompileError`. Read-only, mutable, and consuming runtime accessors expose
+that same runtime. Every call
 to `cycle` increments the completed-cycle count exactly once, even when the
 cycle returns a runtime error, and reports the post-cycle virtual time.
 `run_cycles(0)` is passive. Direct-address parsing failures retain their runtime
 error at direct I/O methods and are translated to a boundary error at
-`bind_direct`.
+`bind_direct`. A direct binding at an input or output address that the program's
+own area holds reads and writes the program's process image; one at an address
+outside it, a variable the program declares without `AT`, lives in the
+harness's own image, because the program's images are exactly its areas
+(specification 44 §5.6).
 
-Reload is transactional. It compiles and bytecode-initializes a replacement,
-applies the prior retain snapshot, preserves debug-control ownership, virtual
-time, and completed-cycle count, and only then replaces the live harness.
-Compilation or retain migration failure leaves the entire old harness usable.
-Single- and multi-source reloads have the same state rule.
+Reload is an online change (specification 44 §12). It builds the replacement's
+image as `from_source` does and changes the running program to it: the new
+program takes the running program's values, every variable that it declares at
+the same place and by the same name, retained or not, and its task schedule;
+the debug control stays attached, and the virtual time and completed-cycle
+count are kept. A build failure or a refused change leaves the entire old
+harness usable. Single- and multi-source reloads have the same state rule.
 
 ##### 11.1.1 Debug expression and assignment-target parsing
 

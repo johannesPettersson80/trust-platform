@@ -29,7 +29,7 @@ use super::application_records::ReviewedParameter;
 use super::application_texts::physical_approval_needed;
 use super::checkpoint::{CheckpointStage, CommissioningCheckpoint};
 use super::commissioning_result::{TransferState, TransferStatus};
-use super::entry_allowance::{auto_entry_allowance, auto_entry_error};
+use super::entry_allowance::{auto_entry_allowance, auto_entry_error_gain};
 use super::found_mode::{found_mode_of, reenter_found_mode, AutoReentry, FoundMode};
 use super::parameter_application::ParameterReview;
 use super::parameter_status::{same_parameter_values, ParameterStatus, RecordState};
@@ -435,7 +435,7 @@ fn auto_entry(
     let entry = match &checkpoint.recovery_tracking {
         TransferTracking::Proportional(_) => {
             // `proportionalEntryValues`: the reference aligned to the held output at the restored gain, and the Manual command at the held
-            // output. The allowance is the entry's own (`entryTolerance`), with the error the loop enters with.
+            // output. The allowance is the entry's own (`entryTolerance`); the runtime adds the step on the error the loop enters with.
             let step = auto_entry_step(
                 loop_definition,
                 binding,
@@ -446,13 +446,15 @@ fn auto_entry(
             )?;
             AutoReentry {
                 values: step.values,
-                tolerance: entry_tolerance(loop_definition, checkpoint, observed)?,
+                tolerance: entry_tolerance(loop_definition, checkpoint)?,
+                entry_error_gain: entry_error_gain(loop_definition, checkpoint),
                 tracking: step.tracking,
             }
         }
         TransferTracking::ParallelPid(_) => AutoReentry {
             values: restore_states(checkpoint, observed)?,
-            tolerance: entry_tolerance(loop_definition, checkpoint, observed)?,
+            tolerance: entry_tolerance(loop_definition, checkpoint)?,
+            entry_error_gain: entry_error_gain(loop_definition, checkpoint),
             tracking: TransferTracking::ParallelPid(parallel_pid_tracking(
                 loop_definition,
                 binding,
@@ -465,7 +467,8 @@ fn auto_entry(
             };
             AutoReentry {
                 values: profile.states(binding, observed)?,
-                tolerance: entry_tolerance(loop_definition, checkpoint, observed)?,
+                tolerance: entry_tolerance(loop_definition, checkpoint)?,
+                entry_error_gain: entry_error_gain(loop_definition, checkpoint),
                 tracking: profile.tracking(binding, true)?,
             }
         }
@@ -513,6 +516,7 @@ pub fn restore_reference_step(
     Ok(Some(AutoReentry {
         values: restore_states(checkpoint, observed)?,
         tolerance: transfer_target_allowance(binding).ok_or_else(binding_failure)?,
+        entry_error_gain: None,
         tracking,
     }))
 }
@@ -532,12 +536,11 @@ fn declared_profile(
     controller_adapter(loop_definition)?.declared_profile(&checkpoint.model, &values)
 }
 
-/// The allowed output change of the Auto entry (`entryTolerance`, A6.3, A6.4): the allowance of Apply's entry, for the restored record,
-/// the noise Apply measured and the error the loop enters with.
+/// The allowed output change of the Auto entry (`entryTolerance`, A6.3, A6.4): the allowance of Apply's entry, for the restored record
+/// and the noise Apply measured. The runtime adds the integral step on the error the loop enters with ([`entry_error_gain`]).
 fn entry_tolerance(
     loop_definition: &LoopDefinition,
     checkpoint: &CommissioningCheckpoint,
-    observed: &BTreeMap<String, TransferValue>,
 ) -> Result<f64, Failure> {
     auto_entry_allowance(
         loop_definition,
@@ -545,7 +548,20 @@ fn entry_tolerance(
         &checkpoint.task,
         &checkpoint.origin.values,
         checkpoint.process_noise,
-        auto_entry_error(loop_definition, observed),
+        None,
+    )
+}
+
+/// The factor of the error at entry that the runtime adds to [`entry_tolerance`] (annex E6.9), as Apply's entry has it.
+fn entry_error_gain(
+    loop_definition: &LoopDefinition,
+    checkpoint: &CommissioningCheckpoint,
+) -> Option<f64> {
+    auto_entry_error_gain(
+        loop_definition,
+        &checkpoint.task,
+        &checkpoint.origin.values,
+        checkpoint.process_noise,
     )
 }
 

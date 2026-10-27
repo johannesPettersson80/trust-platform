@@ -4,13 +4,8 @@ fn controller_transfer_scaled_measurement_formula_multiplies_the_fresh_measureme
     let source = "PROGRAM Main VAR Manual : BOOL := TRUE; SP : LREAL := 10.0; PV : LREAL := 10.0; ManualCommand : LREAL := 2.0; MV AT %QL0 : LREAL; Load : LREAL := 30.0; Kff : LREAL := 0.5; FeedState : LREAL := 0.0; END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := ManualCommand; END_IF; END_PROGRAM";
     let mut state = simulated_control_state(source);
     let mut harness = simulated_harness(source);
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
     assert!(harness.cycle().errors.is_empty());
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     let binding = json!({"loop_id":"scaled-measurement-loop","task_name":"$background",
         "mode":{"symbol":"Main.Manual","manual_value":true},
         "states":[
@@ -48,13 +43,11 @@ fn controller_transfer_scaled_measurement_formula_multiplies_the_fresh_measureme
         "queue scaled-measurement transfer: {:?}",
         apply.error
     );
-    let Value::Instance(id) = harness.runtime().storage().get_global("Main").unwrap() else {
-        panic!("program instance");
-    };
     // The disturbance moves before the boundary: the state follows the fresh measurement, not the reviewed one.
     state
         .debug
-        .enqueue_instance_write(*id, "Load", Value::LReal(36.0));
+        .try_enqueue_global_write("Main.Load", Value::LReal(36.0))
+        .expect("queue the disturbance write");
     assert!(harness.cycle().errors.is_empty());
     let after = handle_request_value(
         json!({"id":8722,"type":"control.transfer.status","params":{"binding":binding}}),
@@ -77,13 +70,8 @@ fn controller_transfer_decoupled_output_formula_starts_each_member_at_its_share_
     let source = "PROGRAM Main VAR Manual : BOOL := TRUE; SP : LREAL := 35.0; PV : LREAL := 35.0; ManualOne : LREAL := 50.0; ManualTwo : LREAL := 50.0; HeaterOne AT %QL0 : LREAL; HeaterTwo AT %QL8 : LREAL; D11 : LREAL := 1.0; D12 : LREAL := -0.5; D21 : LREAL := -0.5; D22 : LREAL := 1.0; RequestOne : LREAL := 0.0; RequestTwo : LREAL := 0.0; END_VAR HeaterOne := ManualOne; HeaterTwo := ManualTwo; END_PROGRAM";
     let mut state = simulated_control_state(source);
     let mut harness = simulated_harness(source);
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
     assert!(harness.cycle().errors.is_empty());
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     let member = |symbol: &str, unit: &str, minimum: f64, maximum: f64| json!({"symbol":symbol,"iec_type":"LREAL","unit":unit,"minimum":minimum,"maximum":maximum});
     let binding = json!({"loop_id":"decoupled-output-loop","task_name":"$background",
         "mode":{"symbol":"Main.Manual","manual_value":true},

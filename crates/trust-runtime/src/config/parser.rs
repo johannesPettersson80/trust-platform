@@ -50,6 +50,7 @@ struct BundleSection {
 struct ResourceSection {
     name: String,
     cycle_interval_ms: u64,
+    max_statements_per_scan: Option<u64>,
     tasks: Option<Vec<TaskSection>>,
 }
 
@@ -69,6 +70,8 @@ struct RuntimeSection {
     execution_backend: Option<String>,
     control: ControlSection,
     log: LogSection,
+    events: Option<EventsSection>,
+    identify: Option<IdentifySection>,
     retain: RetainSection,
     watchdog: WatchdogSection,
     fault: FaultSection,
@@ -90,7 +93,7 @@ struct RuntimeSection {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ControlSection {
-    endpoint: String,
+    endpoint: Option<String>,
     auth_token: Option<String>,
     debug_enabled: Option<bool>,
     mode: Option<String>,
@@ -118,6 +121,23 @@ impl ControlMode {
 #[serde(deny_unknown_fields)]
 struct LogSection {
     level: String,
+}
+
+/// `[runtime.events]`: the event store's capacity (specification 11, the event store).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EventsSection {
+    /// `capacity`, 1 to 1,000,000; absent uses the device's default.
+    capacity: Option<usize>,
+}
+
+/// `[runtime.identify]`: the output that `identify` blinks (specification 11, "Identify").
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct IdentifySection {
+    /// `output`: an I/O address such as `%QX0.7` or a GPIO line such as `gpio:17`; absent means
+    /// the runtime has no identify output.
+    output: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

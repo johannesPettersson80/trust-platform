@@ -13,13 +13,26 @@ import { DisplayHost, PageData, SocketLike, startDisplay } from "../../hmiBuilde
 
 const { JSDOM } = require("jsdom") as { JSDOM: new (html: string) => any };
 
+/** An Operator's session as the runtime answers it, with what it may do (§12.4 item 4). */
 export const ANNA = {
   ok: true,
   user: "anna",
   role: "operator",
+  acts_as: ["viewer", "operator"],
+  may_change_settings: false,
   session: "s1",
   idle_seconds: 900,
   expires_seconds: 43200,
+};
+
+/** An Engineer's session as the runtime answers it. */
+export const ERIK = {
+  ...ANNA,
+  user: "erik",
+  role: "engineer",
+  acts_as: ["viewer", "operator", "engineer"],
+  may_change_settings: true,
+  session: "s2",
 };
 
 export type Answer = { status: number; body: unknown } | "fail";

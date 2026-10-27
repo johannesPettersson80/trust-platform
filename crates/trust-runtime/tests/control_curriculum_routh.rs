@@ -2,7 +2,10 @@ use trust_runtime::harness::{CompileSession, SourceFile};
 use trust_runtime::io::IoAddress;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
+
+mod control_heater_support;
+use control_heater_support::{compile, LessonRuntime};
 
 const MAIN: &str = include_str!(
     "../../../examples/control/07-classical-stability-and-frequency-design/44-routh-hurwitz/src/Main.st"
@@ -13,13 +16,13 @@ fn project_path() -> std::path::PathBuf {
         .join("../../examples/control/07-classical-stability-and-frequency-design/44-routh-hurwitz")
 }
 
-fn read(runtime: &Runtime, address: &str) -> f64 {
+fn read(runtime: &CompiledRuntime, address: &str) -> f64 {
     match runtime
-        .io()
-        .read(&IoAddress::parse(address).unwrap())
+        .read_io(&IoAddress::parse(address).unwrap())
         .unwrap()
     {
         Value::LWord(bits) => f64::from_bits(bits),
+        Value::LReal(value) => value,
         other => panic!("expected LREAL bits at {address}, got {other:?}"),
     }
 }
@@ -28,10 +31,7 @@ fn run_gain(gain: i32) -> Vec<(f64, f64, f64, bool)> {
     let project = project_path();
     let source = MAIN.replace("Kp : LREAL := 1.0;", &format!("Kp : LREAL := {gain}.0;"));
     let session = CompileSession::from_sources(vec![SourceFile::with_path("src/Main.st", source)]);
-    let mut runtime = session.build_runtime().expect("compile lesson ST");
-    runtime
-        .apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)
-        .unwrap();
+    let mut runtime = compile(session);
     let debug = runtime.enable_debug();
     let mut simulation =
         SimulationController::new(SimulationConfig::load(project.join("simulation.toml")).unwrap());
@@ -48,8 +48,7 @@ fn run_gain(gain: i32) -> Vec<(f64, f64, f64, bool)> {
             read(&runtime, "%IL8"),
             read(&runtime, "%QL0"),
             runtime
-                .io()
-                .read(&IoAddress::parse("%MX96.3").unwrap())
+                .read_io(&IoAddress::parse("%MX96.3").unwrap())
                 .unwrap()
                 == Value::Bool(true),
         ));

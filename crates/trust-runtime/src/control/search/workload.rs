@@ -2,7 +2,7 @@ use super::{
     contracts::Request,
     run_contracts::RunRequest,
     snapshot::Snapshot,
-    worker::{RunInput, TrialInput, WorkerInput},
+    worker::{BuildSetting, RunInput, TrialInput, WorkerInput},
 };
 use std::collections::BTreeMap;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -58,11 +58,14 @@ impl Workload {
             Self::Run(request) => request.wall_budget_ms,
         }
     }
+    /// The worker's input for the candidate `index` with `parameters`, which builds the program
+    /// with what `build` names.
     pub fn input(
         &self,
         snapshot: Snapshot,
         index: usize,
         parameters: BTreeMap<String, f64>,
+        build: BuildSetting,
     ) -> WorkerInput {
         match self {
             Self::Search(request) => WorkerInput::Search(TrialInput {
@@ -70,10 +73,12 @@ impl Workload {
                 request: request.clone(),
                 index,
                 parameters,
+                build,
             }),
             Self::Run(run) => WorkerInput::Run(RunInput {
                 snapshot,
                 run: run.clone(),
+                build,
             }),
         }
     }

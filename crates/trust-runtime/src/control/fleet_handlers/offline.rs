@@ -7,20 +7,19 @@ use super::{
     ads_client_links, ads_client_params, ads_server_params, endpoint_from_driver_config,
     endpoint_id, fleet_link, host_name, local_host, opcua_client_links, opcua_client_params,
     runtime_cloud_configured, topology_external, topology_shared, FleetEndpoint, FleetRuntime,
-    FleetTopologyResponse, CONFIGURED_PROJECT_RUNTIME_NOT_RUNNING_DETAIL,
+    FleetTopology, CONFIGURED_PROJECT_RUNTIME_NOT_RUNNING_DETAIL,
     CONFIGURED_RUNTIME_TOML_NOT_RUNNING_DETAIL, FLEET_TOPOLOGY_SCHEMA_VERSION,
     OFFLINE_CONFIGURED_DRIVER_DETAILS,
 };
 use crate::config::{IoConfig, IoDriverConfig, RuntimeConfig};
+use crate::control::endpoint::project_control_endpoint_text;
 use crate::settings::RuntimeSettings;
 
 #[cfg(test)]
 #[path = "offline/contract_tests.rs"]
 mod contract_tests;
 
-pub(super) fn build_project_fleet_topology(
-    project_root: &Path,
-) -> Result<FleetTopologyResponse, String> {
+pub(super) fn build_project_fleet_topology(project_root: &Path) -> Result<FleetTopology, String> {
     let runtime = RuntimeConfig::load(project_root.join("runtime.toml"))
         .map_err(|error| format!("failed to load runtime.toml: {error}"))?;
     let io_drivers = load_project_io_drivers(project_root)?;
@@ -61,7 +60,10 @@ pub(super) fn build_project_fleet_topology(
     host.runtimes.push(FleetRuntime {
         runtime_id: runtime_id.clone(),
         name: runtime.resource_name.to_string(),
-        control_endpoint: Some(runtime.control_endpoint.to_string()),
+        control_endpoint: project_control_endpoint_text(
+            project_root,
+            runtime.control_endpoint.as_deref(),
+        ),
         web_listen: settings
             .web
             .enabled
@@ -86,7 +88,7 @@ pub(super) fn build_project_fleet_topology(
     links.sort_by(|left, right| left.id.cmp(&right.id));
     links.dedup_by(|left, right| left.id == right.id);
 
-    Ok(FleetTopologyResponse {
+    Ok(FleetTopology {
         schema_version: FLEET_TOPOLOGY_SCHEMA_VERSION,
         hosts: vec![host],
         links,

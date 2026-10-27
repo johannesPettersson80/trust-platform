@@ -1,0 +1,3 @@
+# A bounded-C corpus fixture is its own project, so no tool reads two fixtures as one.
+[project]
+include_paths = ["src"]

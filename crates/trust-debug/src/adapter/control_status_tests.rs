@@ -1,18 +1,20 @@
 //! The tasks and the cycle interval that the debug simulator's control status reports (specification 35, A2.3; annex E1.3).
-//! `status` describes what the simulator runs: the tasks of the loaded program, and the cycle its managed runner takes
-//! (specification 13). The control server is exercised over its TCP endpoint, as the other control tests are.
+//! `status` describes what the simulator runs: the tasks of the loaded program, each with its own interval, and the resource
+//! cycle it runs with, the project's as the deployed runtime takes it: `[resource] cycle_interval_ms` of `runtime.toml`, or
+//! 10 ms without one (specification 13). The control server is exercised over its TCP endpoint, as the other control tests
+//! are; the tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use std::fs;
-use std::path::{Path, PathBuf};
-use std::thread;
-use std::time::{Duration as StdDuration, Instant};
 
 use serde_json::{json, Value};
+use trust_runtime::value::Duration;
 
-use super::simulation_speed_tests::{control_status, source_options, start_control_server};
-use super::tests_part_02::{reserve_loopback_addr, unique_project_root};
-use crate::protocol::{MessageType, Request, Response};
-use crate::{DebugAdapter, DebugSession};
+use super::simulation_speed_tests::{
+    assert_cycles_step, control_status, disconnect, launched, launched_state, next_cycle_ends,
+    project_with, reload,
+};
+use super::tests_part_02::reserve_loopback_addr;
+use crate::DebugAdapter;
 
 /// One task of 100 ms.
 const ONE_TASK: &str = r#"PROGRAM Main
@@ -55,23 +57,6 @@ END_RESOURCE
 END_CONFIGURATION
 "#;
 
-/// Writes `program` as the project's only source file and loads it.
-fn loaded_program(label: &str, program: &str) -> (DebugSession, PathBuf) {
-    let root = unique_project_root(label);
-    let main = root.join("main.st");
-    fs::write(&main, program).unwrap();
-    let mut session = DebugSession::new(
-        trust_runtime::RuntimeBuilder::new()
-            .build()
-            .expect("admit an empty runtime"),
-    );
-    session.update_source_options(source_options(&root));
-    session
-        .reload_program(Some(main.to_string_lossy().as_ref()))
-        .unwrap();
-    (session, root)
-}
-
 /// The `(name, interval_ms)` pairs of the task list in `status`, ordered by name. The names are in lower case, because a task
 /// name matches without regard to case (annex E4.2).
 fn listed_tasks(status: &Value) -> Vec<(String, i64)> {
@@ -95,58 +80,22 @@ fn listed_tasks(status: &Value) -> Vec<(String, i64)> {
     tasks
 }
 
-/// The `stReload` request for the program at `program`.
-fn reload_request(program: &Path) -> Request<Value> {
-    Request {
-        seq: 1,
-        message_type: MessageType::Request,
-        command: "stReload".to_string(),
-        arguments: Some(json!({ "program": program.to_string_lossy() })),
-    }
-}
-
-/// Runs the managed runner until it has completed a cycle, stops it, and returns the cycles it completed and the process time
-/// it reached, in ms.
-fn run_the_runner_for_a_cycle(adapter: &mut DebugAdapter) -> (i64, i64) {
-    let runtime_handle = adapter.session().runtime_handle();
-    adapter.start_runner();
-    let deadline = Instant::now() + StdDuration::from_secs(2);
-    while runtime_handle.lock().unwrap().cycle_counter() == 0 {
-        assert!(
-            Instant::now() < deadline,
-            "the runner did not complete a cycle"
-        );
-        thread::sleep(StdDuration::from_millis(1));
-    }
-    adapter.stop_runner();
-    let runtime = runtime_handle.lock().unwrap();
-    (
-        i64::try_from(runtime.cycle_counter()).expect("a cycle count fits an i64"),
-        runtime.current_time().as_millis(),
-    )
-}
-
-/// Asserts that the cycle in `status` is the step the managed runner takes: each cycle it completes advances process time by
+/// Asserts that the cycle in `status` is the step the simulator takes: each cycle it completes advances process time by
 /// exactly the reported cycle (specification 46, §6.1 item 1).
-fn assert_the_runner_takes_the_reported_cycle(adapter: &mut DebugAdapter, status: &Value) {
+fn assert_the_runner_takes_the_reported_cycle(adapter: &DebugAdapter, status: &Value) {
     let reported = status["cycle_interval_ms"]
         .as_i64()
         .expect("status reports a cycle interval");
-    let (cycles, process_ms) = run_the_runner_for_a_cycle(adapter);
-    assert_eq!(
-        process_ms,
-        cycles * reported,
-        "{cycles} completed cycles advance process time by the reported {reported} ms each: {status}"
-    );
+    let cycles = next_cycle_ends(&launched_state(adapter), 4);
+    assert_cycles_step(&cycles, Duration::from_millis(reported));
 }
 
 #[test]
 fn status_lists_the_task_and_reports_the_cycle_the_runner_takes() {
-    let (session, root) = loaded_program("status-one-task", ONE_TASK);
-    let mut adapter = DebugAdapter::new(session);
+    let root = project_with("status-one-task", ONE_TASK, None, None);
     let addr = reserve_loopback_addr();
     let auth = "status-one-task-token";
-    start_control_server(&mut adapter, &root, addr, auth);
+    let mut adapter = launched(&root, addr, auth);
 
     let status = control_status(addr, auth);
     assert_eq!(
@@ -154,19 +103,24 @@ fn status_lists_the_task_and_reports_the_cycle_the_runner_takes() {
         vec![("maintask".to_string(), 100)],
         "{status}"
     );
-    // The runner takes the interval of its only task as its cycle (specification 13), not a constant.
-    assert_eq!(status["cycle_interval_ms"], json!(100), "{status}");
-    assert_the_runner_takes_the_reported_cycle(&mut adapter, &status);
+    // Without a runtime.toml the simulator runs the 10 ms resource cycle (specification 13); the task keeps its 100 ms.
+    assert_eq!(status["cycle_interval_ms"], json!(10), "{status}");
+    assert_the_runner_takes_the_reported_cycle(&adapter, &status);
+    disconnect(&mut adapter);
     fs::remove_dir_all(root).ok();
 }
 
 #[test]
-fn status_lists_every_task_and_reports_the_shortest_interval_as_the_cycle() {
-    let (session, root) = loaded_program("status-two-tasks", TWO_TASKS);
-    let mut adapter = DebugAdapter::new(session);
+fn status_lists_every_task_and_reports_the_cycle_of_the_project_runtime_toml() {
+    let root = project_with("status-two-tasks", TWO_TASKS, None, None);
+    fs::write(
+        root.join("runtime.toml"),
+        trust_runtime::bundle_template::render_runtime_toml(&smol_str::SmolStr::new("Res"), 20),
+    )
+    .unwrap();
     let addr = reserve_loopback_addr();
     let auth = "status-two-tasks-token";
-    start_control_server(&mut adapter, &root, addr, auth);
+    let mut adapter = launched(&root, addr, auth);
 
     let status = control_status(addr, auth);
     assert_eq!(
@@ -174,33 +128,31 @@ fn status_lists_every_task_and_reports_the_shortest_interval_as_the_cycle() {
         vec![("fasttask".to_string(), 40), ("slowtask".to_string(), 250)],
         "{status}"
     );
-    assert_eq!(status["cycle_interval_ms"], json!(40), "{status}");
-    assert_the_runner_takes_the_reported_cycle(&mut adapter, &status);
+    // The project's runtime.toml gives the resource cycle, 20 ms, not the shortest task interval (specification 13).
+    assert_eq!(status["cycle_interval_ms"], json!(20), "{status}");
+    assert_the_runner_takes_the_reported_cycle(&adapter, &status);
+    disconnect(&mut adapter);
     fs::remove_dir_all(root).ok();
 }
 
 #[test]
-fn a_reload_updates_the_tasks_and_the_cycle_that_status_reports() {
-    let (session, root) = loaded_program("status-reload", ONE_TASK);
+fn a_reload_updates_the_tasks_and_keeps_the_cycle_that_status_reports() {
+    let root = project_with("status-reload", ONE_TASK, None, None);
     let main = root.join("main.st");
-    let mut adapter = DebugAdapter::new(session);
     let addr = reserve_loopback_addr();
     let auth = "status-reload-token";
-    start_control_server(&mut adapter, &root, addr, auth);
+    let mut adapter = launched(&root, addr, auth);
     let before = control_status(addr, auth);
     assert_eq!(
         listed_tasks(&before),
         vec![("maintask".to_string(), 100)],
         "{before}"
     );
-    assert_eq!(before["cycle_interval_ms"], json!(100), "{before}");
+    assert_eq!(before["cycle_interval_ms"], json!(10), "{before}");
 
-    // The program now has other tasks, and the runner starts again with the cycle they give.
+    // The program now has other tasks; the reload changes the program online and keeps the project's cycle.
     fs::write(&main, TWO_TASKS).unwrap();
-    let outcome = adapter.dispatch_request(reload_request(&main));
-    assert_eq!(outcome.responses.len(), 1);
-    let response: Response<Value> = serde_json::from_value(outcome.responses[0].clone()).unwrap();
-    assert!(response.success, "stReload failed: {:?}", response.message);
+    reload(&mut adapter, &main);
 
     let after = control_status(addr, auth);
     assert_eq!(
@@ -208,7 +160,8 @@ fn a_reload_updates_the_tasks_and_the_cycle_that_status_reports() {
         vec![("fasttask".to_string(), 40), ("slowtask".to_string(), 250)],
         "a reload replaces the tasks that status lists: {after}"
     );
-    assert_eq!(after["cycle_interval_ms"], json!(40), "{after}");
-    assert_the_runner_takes_the_reported_cycle(&mut adapter, &after);
+    assert_eq!(after["cycle_interval_ms"], json!(10), "{after}");
+    assert_the_runner_takes_the_reported_cycle(&adapter, &after);
+    disconnect(&mut adapter);
     fs::remove_dir_all(root).ok();
 }

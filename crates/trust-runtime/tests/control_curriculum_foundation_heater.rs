@@ -3,30 +3,33 @@ use trust_runtime::harness::{CompileSession, SourceFile};
 use trust_runtime::io::IoAddress;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
-fn process_value(runtime: &Runtime) -> f64 {
-    let Value::Instance(program) = runtime.storage().get_global("P1").unwrap() else {
-        panic!("P1 program");
-    };
-    let Some(Value::LReal(value)) = runtime.storage().get_instance_var(*program, "ProcessValue")
-    else {
+use trust_runtime::CompiledRuntime;
+
+mod control_heater_support;
+use control_heater_support::{bound_address, compile, exists, type_name, value, LessonRuntime};
+
+fn process_value(runtime: &CompiledRuntime) -> f64 {
+    let program = "P1";
+    assert!(exists(runtime, program), "P1 program");
+    let Some(Value::LReal(value)) = value(runtime, &format!("{program}.ProcessValue")) else {
         panic!("measured ProcessValue");
     };
-    *value
+    value
 }
-fn number(r: &Runtime, a: &str) -> f64 {
-    match r.io().read(&IoAddress::parse(a).unwrap()).unwrap() {
+fn number(r: &CompiledRuntime, a: &str) -> f64 {
+    match r.read_io(&IoAddress::parse(a).unwrap()).unwrap() {
         Value::LWord(b) => f64::from_bits(b),
+        Value::LReal(v) => v,
         v => panic!("{a}: {v:?}"),
     }
 }
-fn setup(folder: &str) -> (Runtime, SimulationController) {
+fn setup(folder: &str) -> (CompiledRuntime, SimulationController) {
     setup_source(folder, |source| source)
 }
 fn setup_source(
     folder: &str,
     source: impl FnOnce(String) -> String,
-) -> (Runtime, SimulationController) {
+) -> (CompiledRuntime, SimulationController) {
     let p = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/control/01-feedback-foundations-and-temperature-control")
         .join(folder);
@@ -40,9 +43,7 @@ fn setup_source(
             std::fs::read_to_string(p.join("libraries/control/src/control.st")).unwrap(),
         ),
     ]);
-    let mut r = session.build_runtime().unwrap();
-    r.apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)
-        .unwrap();
+    let r = compile(session);
     (
         r,
         SimulationController::new(SimulationConfig::load(p.join("simulation.toml")).unwrap()),
@@ -53,18 +54,9 @@ fn setup_source(
 fn heater_p_and_pi_read_the_single_native_sensor_input() {
     for folder in ["04-water-heater-p", "05-water-heater-pi"] {
         let (runtime, _) = setup(folder);
-        let binding = runtime
-            .io()
-            .bindings()
-            .iter()
-            .find(|binding| {
-                binding
-                    .display_name
-                    .as_deref()
-                    .is_some_and(|name| name.eq_ignore_ascii_case("P1.ProcessValue"))
-            })
+        let binding = bound_address(&runtime, "P1.ProcessValue")
             .expect("the actual ProcessValue must have a compiled I/O binding");
-        assert_eq!(binding.address, IoAddress::parse("%IL0").unwrap(),
+        assert_eq!(binding, IoAddress::parse("%IL0").unwrap(),
             "{folder}: ProcessValue must read the normal sensor input, not an ST-composed simulation value");
     }
 }
@@ -89,26 +81,21 @@ fn proportional_heater_output_is_owned_by_the_actual_control_pid_instance() {
         runtime.advance_time(Duration::from_millis(100));
         runtime.execute_cycle().unwrap();
 
-        let Value::Instance(program) = runtime.storage().get_global("P1").unwrap() else {
-            panic!("the delivered lesson must execute its P1 program");
-        };
-        let Some(Value::Instance(controller)) =
-            runtime.storage().get_instance_var(*program, "Controller")
-        else {
-            panic!("the delivered P lesson must execute a real Control.PID instance");
-        };
+        let program = "P1";
+        assert!(
+            exists(&runtime, program),
+            "the delivered lesson must execute its P1 program"
+        );
+        let controller = format!("{program}.Controller");
+        assert!(
+            exists(&runtime, &controller),
+            "the delivered P lesson must execute a real Control.PID instance"
+        );
         assert_eq!(
-            runtime
-                .storage()
-                .get_instance(*controller)
-                .unwrap()
-                .type_name
-                .as_str(),
+            type_name(&runtime, &controller).unwrap().as_str(),
             "Control.PID"
         );
-        let Some(Value::Struct(state)) = runtime
-            .storage()
-            .get_instance_var(*controller, "StateValue")
+        let Some(Value::Struct(state)) = value(&runtime, &format!("{controller}.StateValue"))
         else {
             panic!("the real PID must retain its executed controller history");
         };
@@ -129,14 +116,8 @@ fn proportional_heater_output_is_owned_by_the_actual_control_pid_instance() {
 
     // Change only the actual block's configured limit. A parallel handwritten
     // output assignment would still apply its 30% diagnostic request here.
-    let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
-        unreachable!();
-    };
-    let mut parameters = runtime
-        .storage()
-        .get_instance_var(program, "Parameters")
-        .unwrap()
-        .clone();
+    let program = "P1";
+    let mut parameters = value(&runtime, &format!("{program}.Parameters")).unwrap();
     let Value::Struct(ref mut record) = parameters else {
         panic!("the application must configure the complete PID parameter record");
     };
@@ -326,26 +307,21 @@ fn integral_action_uses_actual_control_pid_and_retains_its_output_state() {
             assert_eq!(number(&runtime, "%ML56"), expected_integral);
             continue;
         }
-        let Value::Instance(program) = runtime.storage().get_global("P1").unwrap() else {
-            panic!("the delivered PI lesson must execute its P1 program");
-        };
-        let Some(Value::Instance(controller)) =
-            runtime.storage().get_instance_var(*program, "Controller")
-        else {
-            panic!("the delivered PI lesson must execute a real Control.PID instance");
-        };
+        let program = "P1";
+        assert!(
+            exists(&runtime, program),
+            "the delivered PI lesson must execute its P1 program"
+        );
+        let controller = format!("{program}.Controller");
+        assert!(
+            exists(&runtime, &controller),
+            "the delivered PI lesson must execute a real Control.PID instance"
+        );
         assert_eq!(
-            runtime
-                .storage()
-                .get_instance(*controller)
-                .unwrap()
-                .type_name
-                .as_str(),
+            type_name(&runtime, &controller).unwrap().as_str(),
             "Control.PID"
         );
-        let Some(Value::Struct(state)) = runtime
-            .storage()
-            .get_instance_var(*controller, "StateValue")
+        let Some(Value::Struct(state)) = value(&runtime, &format!("{controller}.StateValue"))
         else {
             panic!("the real PI block must retain its nominal output history");
         };
@@ -365,14 +341,8 @@ fn integral_action_uses_actual_control_pid_and_retains_its_output_state() {
         assert_eq!(number(&runtime, "%ML56"), expected_integral);
     }
 
-    let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
-        unreachable!();
-    };
-    let mut parameters = runtime
-        .storage()
-        .get_instance_var(program, "Parameters")
-        .unwrap()
-        .clone();
+    let program = "P1";
+    let mut parameters = value(&runtime, &format!("{program}.Parameters")).unwrap();
     let Value::Struct(ref mut record) = parameters else {
         panic!("the PI application must configure the complete PID parameter record");
     };
@@ -397,15 +367,8 @@ fn integral_action_uses_actual_control_pid_and_retains_its_output_state() {
     );
     runtime.advance_time(Duration::from_millis(100));
     runtime.execute_cycle().unwrap();
-    let Some(Value::Instance(controller)) =
-        runtime.storage().get_instance_var(program, "Controller")
-    else {
-        unreachable!();
-    };
-    let Some(Value::Struct(state)) = runtime
-        .storage()
-        .get_instance_var(*controller, "StateValue")
-    else {
+    let controller = format!("{program}.Controller");
+    let Some(Value::Struct(state)) = value(&runtime, &format!("{controller}.StateValue")) else {
         unreachable!();
     };
     let Some(Value::LReal(nominal)) = state.field("NominalOutput") else {
@@ -612,26 +575,18 @@ fn response_trial_is_owned_by_actual_control_pid_and_preserves_accepted_limits()
     debug.enqueue_io_write(IoAddress::parse("%MX112.0").unwrap(), Value::Bool(true));
     runtime.advance_time(Duration::from_millis(100));
     runtime.execute_cycle().unwrap();
-    let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
-        panic!("delivered lesson program");
-    };
-    let Some(Value::Instance(controller)) =
-        runtime.storage().get_instance_var(program, "Controller")
-    else {
-        panic!("lesson 9 must execute the actual Control.PID instance");
-    };
-    let controller = *controller;
+    let program = "P1";
+    assert!(exists(&runtime, program), "delivered lesson program");
+    let controller = format!("{program}.Controller");
+    assert!(
+        exists(&runtime, &controller),
+        "lesson 9 must execute the actual Control.PID instance"
+    );
     assert_eq!(
-        runtime
-            .storage()
-            .get_instance(controller)
-            .unwrap()
-            .type_name
-            .as_str(),
+        type_name(&runtime, &controller).unwrap().as_str(),
         "Control.PID"
     );
-    let Some(Value::Struct(state)) = runtime.storage().get_instance_var(controller, "StateValue")
-    else {
+    let Some(Value::Struct(state)) = value(&runtime, &format!("{controller}.StateValue")) else {
         panic!("actual PID histories");
     };
     assert_eq!(state.field("ProcessValue"), Some(&Value::LReal(35.0)));
@@ -643,11 +598,7 @@ fn response_trial_is_owned_by_actual_control_pid_and_preserves_accepted_limits()
 
     // Only the accepted library parameter changes. A handwritten parallel
     // output owner would ignore this limit and continue applying about 81%.
-    let mut accepted = runtime
-        .storage()
-        .get_instance_var(program, "Parameters")
-        .unwrap()
-        .clone();
+    let mut accepted = value(&runtime, &format!("{program}.Parameters")).unwrap();
     let Value::Struct(ref mut fields) = accepted else {
         panic!("complete accepted PID record");
     };
@@ -661,8 +612,8 @@ fn response_trial_is_owned_by_actual_control_pid_and_preserves_accepted_limits()
         runtime.advance_time(Duration::from_millis(100));
         runtime.execute_cycle().unwrap();
         assert_eq!(
-            runtime.storage().get_instance_var(program, "Parameters"),
-            Some(&accepted)
+            value(&runtime, &format!("{program}.Parameters")),
+            Some(accepted.clone())
         );
         assert_eq!(
             number(&runtime, "%QL0"),
@@ -688,19 +639,10 @@ fn response_trial_is_owned_by_actual_control_pid_and_preserves_accepted_limits()
 #[test]
 fn response_trial_reads_one_native_temperature_sensor_with_independent_input_delays() {
     let (mut runtime, mut simulation) = setup("09-setpoint-and-disturbance-response");
-    let binding = runtime
-        .io()
-        .bindings()
-        .iter()
-        .find(|binding| {
-            binding
-                .display_name
-                .as_deref()
-                .is_some_and(|name| name.eq_ignore_ascii_case("P1.TemperatureC"))
-        })
+    let binding = bound_address(&runtime, "P1.TemperatureC")
         .expect("actual temperature must have a compiled I/O binding");
     assert_eq!(
-        binding.address,
+        binding,
         IoAddress::parse("%IL0").unwrap(),
         "lesson 9 must receive one physical sensor value, not sum simulated paths inside ST"
     );
@@ -728,12 +670,11 @@ fn response_trial_uses_the_published_source_initializer_after_a_fresh_start() {
             source.replace("TrialKind : INT := 0;", "TrialKind : INT := 1;")
         });
     let debug = runtime.enable_debug();
-    let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
-        panic!("P1 program");
-    };
+    let program = "P1";
+    assert!(exists(&runtime, program), "P1 program");
     assert_eq!(
-        runtime.storage().get_instance_var(program, "TrialKind"),
-        Some(&Value::Int(1)),
+        value(&runtime, &format!("{program}.TrialKind")),
+        Some(Value::Int(1)),
         "compiled saved initializer"
     );
     for scan in 0..12 {
@@ -746,7 +687,7 @@ fn response_trial_uses_the_published_source_initializer_after_a_fresh_start() {
         );
         runtime.advance_time(Duration::from_millis(100));
         runtime.execute_cycle().unwrap();
-        assert_eq!(runtime.storage().get_instance_var(program, "TrialKind"), Some(&Value::Int(1)),
+        assert_eq!(value(&runtime, &format!("{program}.TrialKind")), Some(Value::Int(1)),
             "fresh scans must preserve the published source-selected load trial without a hidden memory write");
         assert_eq!(number(&runtime, "%ML0"), 35.0);
         assert_eq!(
@@ -774,9 +715,8 @@ fn response_trial_latches_out_of_range_temperature_and_stops_both_commands() {
         runtime.advance_time(Duration::from_millis(100));
         runtime.execute_cycle().unwrap();
         assert_eq!(number(&runtime, "%QL8"), 30.0);
-        let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
-            panic!("P1");
-        };
+        let program = "P1";
+        assert!(exists(&runtime, program), "P1");
         for measured in [bad_temperature, 35.0] {
             debug.enqueue_io_write(
                 IoAddress::parse("%IL0").unwrap(),
@@ -795,17 +735,12 @@ fn response_trial_latches_out_of_range_temperature_and_stops_both_commands() {
                 "bad measurement or latched fault removes extraction"
             );
             assert_eq!(
-                runtime.storage().get_instance_var(program, "SafetyAbort"),
-                Some(&Value::Bool(true))
+                value(&runtime, &format!("{program}.SafetyAbort")),
+                Some(Value::Bool(true))
             );
-            let Some(Value::Instance(controller)) =
-                runtime.storage().get_instance_var(program, "Controller")
-            else {
-                panic!("actual PID");
-            };
-            let Some(Value::Struct(state)) = runtime
-                .storage()
-                .get_instance_var(*controller, "StateValue")
+            let controller = format!("{program}.Controller");
+            assert!(exists(&runtime, &controller), "actual PID");
+            let Some(Value::Struct(state)) = value(&runtime, &format!("{controller}.StateValue"))
             else {
                 panic!("PID histories");
             };
@@ -833,12 +768,11 @@ fn configured_io_address(folder: &str, symbol: &str) -> IoAddress {
     IoAddress::parse(line.split_whitespace().nth(2).unwrap()).unwrap()
 }
 
-fn program_flag(runtime: &Runtime, name: &str) -> bool {
-    let Value::Instance(program) = runtime.storage().get_global("P1").unwrap() else {
-        panic!("P1 program");
-    };
-    match runtime.storage().get_instance_var(*program, name) {
-        Some(Value::Bool(value)) => *value,
+fn program_flag(runtime: &CompiledRuntime, name: &str) -> bool {
+    let program = "P1";
+    assert!(exists(runtime, program), "P1 program");
+    match value(runtime, &format!("{program}.{name}")) {
+        Some(Value::Bool(value)) => value,
         value => panic!("{name}: {value:?}"),
     }
 }

@@ -31,7 +31,13 @@ pub fn evaluate_task_readiness(
         due_at = Some(now);
     }
     if periodic_due {
-        let intervals = elapsed / interval_nanos;
+        // A task due within its second interval passed one deadline, which needs no division, a
+        // software one on a 32-bit chip (checklist P1-6); `elapsed` is at least an interval here.
+        let intervals = if elapsed < interval_nanos.saturating_mul(2) {
+            1
+        } else {
+            elapsed / interval_nanos
+        };
         if intervals > 1 {
             missed_intervals = (intervals - 1) as u64;
             state.overrun_count = state.overrun_count.saturating_add(missed_intervals);

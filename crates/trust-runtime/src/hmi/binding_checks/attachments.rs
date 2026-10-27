@@ -62,6 +62,7 @@ fn signal_problems(page: &HmiPage, catalogue: &Catalogue) -> Vec<BindingProblem>
                     object: object.id.clone(),
                     property: Some(key.to_string()),
                     message,
+                    point: None,
                 });
             }
         }
@@ -104,6 +105,7 @@ fn attachment_problems(page: &HmiPage, catalogue: &Catalogue) -> Vec<BindingProb
                 object: object.id.clone(),
                 property: Some("attach".to_string()),
                 message,
+                point: None,
             })
         })
         .collect()

@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 
 use trust_hir::TypeId;
-use trust_runtime::harness::{CompileSession, SourceFile};
+use trust_runtime::harness::{CompileSession, SourceFile, TestHarness};
 use trust_runtime::io::IoAddress;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
 fn temp_simulation_path(name: &str) -> PathBuf {
     let stamp = std::time::SystemTime::now()
@@ -18,18 +18,14 @@ fn temp_simulation_path(name: &str) -> PathBuf {
     ))
 }
 
-fn write_lreal(runtime: &mut Runtime, address: &IoAddress, value: f64) {
+fn write_lreal(runtime: &mut CompiledRuntime, address: &IoAddress, value: f64) {
     runtime
         .write_io(address, Value::LWord(value.to_bits()))
         .expect("write LREAL process-image bits");
 }
 
-fn read_lreal(runtime: &Runtime, address: &IoAddress) -> f64 {
-    match runtime
-        .io()
-        .read(address)
-        .expect("read LREAL process image")
-    {
+fn read_lreal(runtime: &CompiledRuntime, address: &IoAddress) -> f64 {
+    match runtime.read_io(address).expect("read LREAL process image") {
         Value::LWord(bits) => f64::from_bits(bits),
         other => panic!("expected LWORD storage for LREAL binding, got {other:?}"),
     }
@@ -348,17 +344,18 @@ width = 2.0
         .unwrap();
 
     let mut now_ms = 0;
-    let mut advance = |input: f64, simulation: &mut SimulationController, runtime: &mut Runtime| {
-        now_ms += 10;
-        write_lreal(runtime, &command, input);
-        simulation
-            .apply_post_cycle(Duration::from_millis(now_ms), runtime)
-            .unwrap();
-        simulation
-            .apply_pre_cycle(Duration::from_millis(now_ms), runtime)
-            .unwrap();
-        read_lreal(runtime, &feedback)
-    };
+    let mut advance =
+        |input: f64, simulation: &mut SimulationController, runtime: &mut CompiledRuntime| {
+            now_ms += 10;
+            write_lreal(runtime, &command, input);
+            simulation
+                .apply_post_cycle(Duration::from_millis(now_ms), runtime)
+                .unwrap();
+            simulation
+                .apply_pre_cycle(Duration::from_millis(now_ms), runtime)
+                .unwrap();
+            read_lreal(runtime, &feedback)
+        };
 
     assert_eq!(advance(0.5, &mut simulation, &mut runtime), 0.0);
     assert_eq!(advance(2.0, &mut simulation, &mut runtime), 1.0);
@@ -563,7 +560,7 @@ gain = 0.5
         simulation.apply_post_cycle(now, &runtime).unwrap();
         simulation.apply_pre_cycle(now, &mut runtime).unwrap();
         assert_eq!(
-            runtime.io().read(&feedback).unwrap(),
+            runtime.read_io(&feedback).unwrap(),
             Value::Word(expected as u16)
         );
     }
@@ -622,7 +619,7 @@ d = [[1.0], [100000.0]]
     assert!(message.contains("state_space"), "{message}");
     assert!(message.contains("feedback publish"), "{message}");
     assert_eq!(read_lreal(&runtime, &feedback_real), 0.0);
-    assert_eq!(runtime.io().read(&feedback_int).unwrap(), Value::Word(0));
+    assert_eq!(runtime.read_io(&feedback_int).unwrap(), Value::Word(0));
     let _ = std::fs::remove_file(path);
 }
 
@@ -1132,6 +1129,64 @@ gain = 1.0
     simulation.clear_trace();
     assert!(simulation.trace_snapshot().rows.is_empty());
     assert_eq!(simulation.trace_snapshot().dropped_rows, 0);
+    let _ = std::fs::remove_file(path);
+}
+
+/// Specification 46 §5.3: a cold and a warm restart recreate every plant from its configuration.
+/// An integrator with gain 1 driven by 2.0 for three 100 ms steps holds the state 0.6 at 300 ms;
+/// the controller a restart leaves (`recreated`) holds the configured initial state 0.0 at 0 ms,
+/// with an empty trace and the same policy. Catches plant state carried across a restart, which a
+/// warm restart could be mistaken for as continuity of the process.
+#[test]
+fn a_restart_recreates_every_plant_from_its_configuration() {
+    let path = temp_simulation_path("restart-recreates");
+    std::fs::write(
+        &path,
+        r#"
+[simulation]
+enabled = true
+seed = 42
+plant_step_ms = 100
+
+[[plants]]
+id = "observed"
+model = "integrator"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [0.0]
+[plants.parameters]
+gain = 1.0
+"#,
+    )
+    .unwrap();
+    let mut simulation = SimulationController::new(SimulationConfig::load(&path).unwrap());
+    let command = IoAddress::parse("%QL0").unwrap();
+    let feedback = IoAddress::parse("%IL0").unwrap();
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback, TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
+    simulation
+        .apply_pre_cycle(Duration::ZERO, &mut runtime)
+        .unwrap();
+    write_lreal(&mut runtime, &command, 2.0);
+    for step in 1..=3 {
+        let now = Duration::from_millis(step * 100);
+        simulation.apply_post_cycle(now, &runtime).unwrap();
+        simulation.apply_pre_cycle(now, &mut runtime).unwrap();
+    }
+    let before = simulation.status();
+    assert!((before.plants[0].state[0] - 0.6).abs() <= 1e-12);
+    assert_eq!(before.plants[0].simulated_time, Duration::from_millis(300));
+
+    let restarted = simulation.recreated();
+    let after = restarted.status();
+    assert_eq!(after.restart_policy, "reset_on_cold_and_warm_restart");
+    assert_eq!(after.plants.len(), 1);
+    assert_eq!(after.plants[0].state, vec![0.0]);
+    assert_eq!(after.plants[0].simulated_time, Duration::ZERO);
+    assert!(restarted.trace_snapshot().rows.is_empty());
     let _ = std::fs::remove_file(path);
 }
 
@@ -2110,16 +2165,18 @@ Input.Mode := PIDMode#Auto;
 Command := Controller.Update(Input := Input);
 END_PROGRAM
 "#;
-    let mut runtime = CompileSession::from_sources(vec![
-        SourceFile::with_path(
-            "Control/control.st",
-            include_str!("../../../libraries/control/src/control.st"),
-        ),
-        SourceFile::with_path("main.st", controller_source),
-    ])
-    .label_errors(true)
-    .build_runtime()
-    .expect("compile Control.PID closed-loop fixture");
+    let mut runtime = TestHarness::from_session(
+        CompileSession::from_sources(vec![
+            SourceFile::with_path(
+                "Control/control.st",
+                include_str!("../../../libraries/control/src/control.st"),
+            ),
+            SourceFile::with_path("main.st", controller_source),
+        ])
+        .label_errors(true),
+    )
+    .expect("compile Control.PID closed-loop fixture")
+    .into_runtime();
 
     let path = temp_simulation_path("pid-closed-loop");
     std::fs::write(

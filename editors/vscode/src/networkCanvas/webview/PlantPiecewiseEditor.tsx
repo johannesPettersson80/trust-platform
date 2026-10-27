@@ -1,58 +1,79 @@
 import React from "react";
 
+import type { PlantDraft } from "../plant/addFlow";
 import {
-  appendPiecewisePoint,
-  movePiecewisePoint,
-  piecewiseParametersFromPoints,
-  piecewisePointsFromParameters,
-  validatePiecewisePoints,
-  type PlantPiecewisePoint,
-} from "../plant/piecewiseEditor";
-import type { PlantEditorDraft } from "../plant/editorModel";
+  numberText,
+  typedNumber,
+  type PlantEditAction,
+  type PlantEditorIssue,
+  type PlantEditorView,
+  type PlantEditResult,
+} from "../plant/editorSession";
 
+/**
+ * The piecewise-linear curve's points (specification 47 §9). Rust adds and moves points and checks
+ * them; a point's values go into the draft as typed.
+ */
 export function PlantPiecewiseEditor({
   draft,
+  facts,
+  issues,
   onChange,
+  onAction,
 }: {
-  draft: PlantEditorDraft;
-  onChange: (draft: PlantEditorDraft) => void;
+  draft: PlantDraft;
+  facts: NonNullable<PlantEditorView["piecewise"]>;
+  issues: readonly PlantEditorIssue[];
+  onChange: (draft: PlantDraft) => void;
+  onAction: (action: PlantEditAction) => Promise<PlantEditResult>;
 }) {
-  const points = piecewisePointsFromParameters(draft.parameters);
-  const issues = validatePiecewisePoints(points);
-  const commit = (next: PlantPiecewisePoint[]) => onChange({
+  const points = (key: "input_points" | "output_points") => {
+    const value = draft.parameters[key];
+    return Array.isArray(value) ? [...value] as number[] : [];
+  };
+  const write = (inputs: number[], outputs: number[]) => onChange({
     ...draft,
-    parameters: { ...draft.parameters, ...piecewiseParametersFromPoints(next) },
+    parameters: { ...draft.parameters, input_points: inputs, output_points: outputs },
     modelValuesTouched: true,
   });
-  const update = (index: number, patch: Partial<PlantPiecewisePoint>) =>
-    commit(points.map((point, candidate) => candidate === index ? { ...point, ...patch } : point));
+  const update = (index: number, field: "input" | "output", value: number) => {
+    const inputs = points("input_points");
+    const outputs = points("output_points");
+    (field === "input" ? inputs : outputs)[index] = value;
+    write(inputs, outputs);
+  };
+  const remove = (index: number) => write(
+    points("input_points").filter((_, candidate) => candidate !== index),
+    points("output_points").filter((_, candidate) => candidate !== index)
+  );
+  // The values show as the draft holds them, so typing never waits for Rust; the moves and the
+  // removal follow Rust's last answer.
+  const inputs = points("input_points");
+  const outputs = points("output_points");
   const issueFor = (index: number, field: "input" | "output") =>
-    issues.find((issue) => issue.row === index && issue.field === field)?.message;
+    issues.find((issue) =>
+      issue.target.kind === "piecewise" && issue.target.row === index && issue.target.field === field)?.message;
 
   return (
     <div data-plant-piecewise-editor style={{ display: "grid", gap: 8 }}>
       <p className="trust-help" style={{ margin: 0 }}>
         Define a static input/output curve. Values between points are linearly interpolated; input points must increase from top to bottom.
       </p>
-      {points.map((point, index) => {
-        const up = movePiecewisePoint(points, index, -1);
-        const down = movePiecewisePoint(points, index, 1);
-        return (
-          <div key={index} data-plant-piecewise-row={index} style={ROW}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <strong style={{ flex: 1, fontSize: 11.5 }}>Point {index + 1}</strong>
-              <button type="button" className="trust-button" data-plant-piecewise-up aria-label={`Move point ${index + 1} up`} disabled={!up.moved} onClick={() => commit(up.points)}>↑</button>
-              <button type="button" className="trust-button" data-plant-piecewise-down aria-label={`Move point ${index + 1} down`} disabled={!down.moved} onClick={() => commit(down.points)}>↓</button>
-              <button type="button" className="trust-button" data-plant-piecewise-remove disabled={points.length <= 2} onClick={() => commit(points.filter((_, candidate) => candidate !== index))}>Remove</button>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 7 }}>
-              <NumberField label="Input" role="input" value={point.input} issue={issueFor(index, "input")} onChange={(input) => update(index, { input })} />
-              <NumberField label="Output" role="output" value={point.output} issue={issueFor(index, "output")} onChange={(output) => update(index, { output })} />
-            </div>
+      {inputs.map((input, index) => (
+        <div key={index} data-plant-piecewise-row={index} style={ROW}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <strong style={{ flex: 1, fontSize: 11.5 }}>Point {index + 1}</strong>
+            <button type="button" className="trust-button" data-plant-piecewise-up aria-label={`Move point ${index + 1} up`} disabled={!facts.points[index]?.canMoveUp} onClick={() => void onAction({ kind: "move_point", index, delta: -1 })}>↑</button>
+            <button type="button" className="trust-button" data-plant-piecewise-down aria-label={`Move point ${index + 1} down`} disabled={!facts.points[index]?.canMoveDown} onClick={() => void onAction({ kind: "move_point", index, delta: 1 })}>↓</button>
+            <button type="button" className="trust-button" data-plant-piecewise-remove disabled={!facts.canRemove} onClick={() => remove(index)}>Remove</button>
           </div>
-        );
-      })}
-      <button type="button" className="trust-button" data-plant-piecewise-add onClick={() => commit(appendPiecewisePoint(points))}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 7 }}>
+            <NumberField label="Input" role="input" value={input} issue={issueFor(index, "input")} onChange={(value) => update(index, "input", value)} />
+            <NumberField label="Output" role="output" value={outputs[index]} issue={issueFor(index, "output")} onChange={(value) => update(index, "output", value)} />
+          </div>
+        </div>
+      ))}
+      <button type="button" className="trust-button" data-plant-piecewise-add onClick={() => void onAction({ kind: "append_point" })}>
         + Add point
       </button>
     </div>
@@ -68,7 +89,7 @@ function NumberField({
 }: {
   label: string;
   role: "input" | "output";
-  value: number;
+  value: unknown;
   issue?: string;
   onChange: (value: number) => void;
 }) {
@@ -80,9 +101,9 @@ function NumberField({
         step="any"
         data-plant-piecewise-input={role === "input" ? "" : undefined}
         data-plant-piecewise-output={role === "output" ? "" : undefined}
-        value={Number.isFinite(value) ? value : ""}
+        value={numberText(value)}
         aria-invalid={Boolean(issue)}
-        onChange={(event) => onChange(event.target.value.trim() ? Number(event.target.value) : Number.NaN)}
+        onChange={(event) => onChange(typedNumber(event.target.value))}
         style={INPUT}
       />
       {issue && <span data-plant-piecewise-error={role} style={ERROR}>{issue}</span>}

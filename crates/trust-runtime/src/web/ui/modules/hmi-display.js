@@ -787,22 +787,19 @@
   }
 
   // src/hmiBuilder/display/liveValues.ts
-  var DEFAULT_PERIOD_MS = 250;
-  var FRESH_PERIODS = 3;
   var MAX_SAMPLES = 2e4;
   var LONG_SPAN_MS = 6e5;
   var LiveValueStore = class {
     constructor(options = {}) {
       this.values = /* @__PURE__ */ new Map();
       this.history = /* @__PURE__ */ new Map();
-      this.periodMs = DEFAULT_PERIOD_MS;
       /** The paths the running program does not have, from the newest update (§16.3). */
       this.missing = [];
       this.trendSpansMs = options.trendSpansMs ?? {};
     }
     receive(message, atMs) {
       this.disconnectedAtMs = void 0;
-      if (message.period_ms !== void 0 && message.period_ms > 0) this.periodMs = message.period_ms;
+      if (message.stale_ms !== void 0) this.staleLimitMs = message.stale_ms;
       if (message.cycle === void 0 || message.values === void 0) return;
       this.lastMessageMs = atMs;
       if (message.missing !== void 0) this.missing = message.missing;
@@ -842,11 +839,12 @@
     isStale(nowMs) {
       return this.disconnectedAtMs !== void 0 || this.staleness(nowMs) !== void 0;
     }
-    /** The age of the values when they count as stale, otherwise undefined. */
+    /** The age of the values when they count as stale, otherwise undefined: the stream is closed, or
+     * the cycle count has not advanced or no message has arrived for the runtime's limit (§11.1). */
     staleness(nowMs) {
       if (this.lastAdvanceMs === void 0 || this.lastMessageMs === void 0) return void 0;
-      const limit2 = FRESH_PERIODS * this.periodMs;
-      const stalled = nowMs - this.lastAdvanceMs > limit2 || nowMs - this.lastMessageMs > limit2;
+      const limit = this.staleLimitMs;
+      const stalled = limit !== void 0 && (nowMs - this.lastAdvanceMs > limit || nowMs - this.lastMessageMs > limit);
       return this.disconnectedAtMs !== void 0 || stalled ? nowMs - this.lastAdvanceMs : void 0;
     }
     /**
@@ -1626,15 +1624,16 @@
     drafts() {
       return Object.fromEntries(this.entered);
     }
-    /** The controls the signed-in role may not use: the role that may, or "none" (§5.9 item 5).
-     * Without a session every control is read-only instead. */
+    /** The controls the session may not use: the role that may, or "none" (§5.9 item 5). The page
+     * data names the role each control needs and the session the roles it may act as (§12.4 item 4),
+     * both from the runtime. Without a session every control is read-only instead. */
     locked() {
-      const role = this.session.role;
-      if (this.session.readOnly || role === void 0) return {};
+      if (this.session.readOnly) return {};
+      const actsAs = this.session.actsAs;
       const locked = {};
       for (const [id, needed] of Object.entries(this.surface.roles ?? {})) {
         if (needed === null) locked[id] = "none";
-        else if (rank(role) < rank(needed)) locked[id] = needed;
+        else if (!actsAs.includes(needed)) locked[id] = needed;
       }
       return locked;
     }
@@ -1794,7 +1793,7 @@
       }
       this.redraw();
     }
-    /** Asks for a number within the control's limits, then sends it. */
+    /** Asks for a number, shows the control's limits, and sends what is typed. */
     showEntry(object) {
       const path = object.bind.value?.path ?? "";
       const live = this.liveAt(path);
@@ -1810,11 +1809,9 @@
       input.value = typeof current2 === "number" ? String(current2) : "";
       field2.append(input);
       form.append(field2);
-      const limit2 = (value) => value === void 0 ? say("any") : formatValue(value, {});
-      const limits = object.min !== void 0 || object.max !== void 0 ? `${say("Between {min} and {max}", { min: limit2(object.min), max: limit2(object.max) })}${unit ? ` ${unit}` : ""}` : "";
+      const limit = (value) => value === void 0 ? say("any") : formatValue(value, {});
+      const limits = object.min !== void 0 || object.max !== void 0 ? `${say("Between {min} and {max}", { min: limit(object.min), max: limit(object.max) })}${unit ? ` ${unit}` : ""}` : "";
       if (limits) form.append(element(form, "p", limits, "hmi-hint"));
-      const error = element(form, "p", "", "hmi-error");
-      form.append(error);
       if (this.overlay.touched) {
         input.inputMode = "none";
         const keypad = element(form, "div", "", "hmi-keypad");
@@ -1841,7 +1838,6 @@
             if (key === "back") input.value = input.value.slice(0, -1);
             else if (key === "sign") input.value = input.value.startsWith("-") ? input.value.slice(1) : `-${input.value}`;
             else if (key !== "." || !input.value.includes(".")) input.value += key;
-            error.textContent = "";
           });
           keypad.append(pressed);
         }
@@ -1857,20 +1853,9 @@
       form.append(actions);
       form.addEventListener("submit", (event) => {
         event.preventDefault();
-        const value = Number(input.value.trim().replace(",", "."));
-        if (input.value.trim() === "" || !Number.isFinite(value)) {
-          error.textContent = say("Enter a number.");
-          return;
-        }
-        if (object.min !== void 0 && value < object.min || object.max !== void 0 && value > object.max) {
-          error.textContent = say("Enter a number between {min} and {max}.", {
-            min: limit2(object.min),
-            max: limit2(object.max)
-          });
-          return;
-        }
+        const entry = input.value.trim();
         this.overlay.closeDialog();
-        this.asked(object, () => void this.send(object, "write", value));
+        this.asked(object, () => void this.send(object, "write", entry));
       });
       input.focus();
     }
@@ -1881,9 +1866,6 @@
     if (crypto?.getRandomValues) crypto.getRandomValues(random);
     else for (let index = 0; index < random.length; index += 1) random[index] = Math.floor(Math.random() * 2 ** 32);
     return `c-${Date.now().toString(36)}-${Array.from(random, (part) => part.toString(36)).join("")}`;
-  }
-  function rank(role) {
-    return ["viewer", "operator", "engineer", "admin"].indexOf(role);
   }
 
   // src/hmiBuilder/display/alarmActions.ts
@@ -2187,10 +2169,18 @@
     get role() {
       return this.session?.role;
     }
+    /** The roles the session may act as, as the runtime says; none without a session. */
+    get actsAs() {
+      return this.session?.acts_as ?? [];
+    }
+    /** Whether the session may change settings, as the runtime says (§21.4 item 1). */
+    get mayChangeSettings() {
+      return this.session?.may_change_settings === true;
+    }
     /** The session the stream reports; only a session that ends asks to log in again. */
     receive(session) {
       const had = this.session !== void 0;
-      this.session = session ?? void 0;
+      this.session = sessionOf(session);
       this.showBar();
       if (had && !this.session) this.showLogin(say("Your session ended. Log in to operate."));
     }
@@ -2267,7 +2257,14 @@
   };
   function sessionOf(body) {
     const session = body;
-    return typeof session?.user === "string" && typeof session.role === "string" ? { user: session.user, role: session.role } : void 0;
+    if (typeof session?.user !== "string" || typeof session.role !== "string") return void 0;
+    const actsAs = Array.isArray(session.acts_as) ? session.acts_as.filter((role) => typeof role === "string") : [];
+    return {
+      user: session.user,
+      role: session.role,
+      acts_as: actsAs,
+      may_change_settings: session.may_change_settings === true
+    };
   }
   function roleName(role) {
     return role.charAt(0).toUpperCase() + role.slice(1);
@@ -2279,31 +2276,6 @@
   }
   function settingText(value) {
     return value === null ? "" : String(value);
-  }
-  function limit(value, unit) {
-    return unit ? `${value} ${unit}` : String(value);
-  }
-  function enteredValue(setting, entered) {
-    if (setting.choices?.length) {
-      const choice = setting.choices.find((candidate) => String(candidate.value) === String(entered));
-      if (!choice) throw new Error(`${setting.title}: choose one of its values.`);
-      return choice.value;
-    }
-    if (setting.kind === "bool") return entered === true || entered === "true";
-    if (setting.kind !== "integer" && setting.kind !== "real" && setting.kind !== "time") return String(entered);
-    const text2 = String(entered).trim().replace(",", ".");
-    const number = Number(text2);
-    if (text2 === "" || !Number.isFinite(number)) throw new Error(`${setting.title}: enter a number.`);
-    if (setting.kind === "integer" && !Number.isInteger(number))
-      throw new Error(`${setting.title}: enter a whole number.`);
-    if (setting.min !== void 0 && number < setting.min)
-      throw new Error(`${setting.title}: ${number} is below the minimum ${limit(setting.min, setting.unit)}.`);
-    if (setting.max !== void 0 && number > setting.max)
-      throw new Error(`${setting.title}: ${number} is above the maximum ${limit(setting.max, setting.unit)}.`);
-    return number;
-  }
-  function settingChanged(setting, value) {
-    return value !== setting.value;
   }
 
   // src/hmiBuilder/display/settings.ts
@@ -2321,9 +2293,6 @@
 .hmi-settings-result { flex: 1; min-width: 0; margin: 0; color: var(--hmi-muted); font-size: 13px; }
 .hmi-settings-result[data-refused] { color: var(--hmi-alarm); }
 `;
-  function mayChangeSettings(role) {
-    return role === "engineer" || role === "admin";
-  }
   function field(form, setting) {
     const document2 = form.ownerDocument;
     if (setting.choices?.length) {
@@ -2376,7 +2345,7 @@
         this.session.showLogin(say("Log in to change settings."));
         return;
       }
-      if (!mayChangeSettings(this.session.role)) {
+      if (!this.session.mayChangeSettings) {
         this.overlay.notice(say("This needs the {role} role.", { role: say("Engineer") }));
         return;
       }
@@ -2408,6 +2377,7 @@
       let shown = [];
       let instance;
       const inputs = /* @__PURE__ */ new Map();
+      const showing = /* @__PURE__ */ new Map();
       let busy = false;
       const report = (text2, refused = false) => {
         result.textContent = text2;
@@ -2423,12 +2393,14 @@
       const render = (settings, draft) => {
         shown = settings;
         inputs.clear();
+        showing.clear();
         fields.replaceChildren();
         for (const setting of settings) {
           const label = element(fields, "label", "", "hmi-settings-field");
           label.setAttribute("data-member", setting.member);
           label.append(element(label, "span", settingLabel(setting)));
           const input = field(form, setting);
+          showing.set(setting.member, read(input));
           const kept = draft.get(setting.member);
           if (kept !== void 0) write(input, kept);
           label.append(input);
@@ -2445,12 +2417,7 @@
           const input = inputs.get(setting.member);
           if (!input) continue;
           const entered = read(input);
-          let edited = true;
-          try {
-            edited = settingChanged(setting, enteredValue(setting, entered));
-          } catch {
-          }
-          if (edited) draft.set(setting.member, entered);
+          if (entered !== showing.get(setting.member)) draft.set(setting.member, entered);
         }
         return draft;
       };
@@ -2491,22 +2458,12 @@
         const changes = {};
         const expected = {};
         inputs.forEach((input) => input.removeAttribute("aria-invalid"));
+        const draft = drafted();
         for (const setting of shown) {
-          const input = inputs.get(setting.member);
-          if (!input) continue;
-          let value;
-          try {
-            value = enteredValue(setting, read(input));
-          } catch (error) {
-            input.setAttribute("aria-invalid", "true");
-            input.focus();
-            report(error instanceof Error ? error.message : String(error), true);
-            return;
-          }
-          if (settingChanged(setting, value)) {
-            changes[setting.member] = value;
-            expected[setting.member] = setting.value;
-          }
+          const entered = draft.get(setting.member);
+          if (entered === void 0) continue;
+          changes[setting.member] = entered;
+          expected[setting.member] = setting.value;
         }
         if (Object.keys(changes).length === 0) {
           report(say("There are no changes to apply."));
@@ -2986,7 +2943,7 @@
     showSettingsButton() {
       const button2 = this.settingsButton;
       if (!button2) return;
-      const shown = mayChangeSettings(this.popups.context.operation.session.role);
+      const shown = this.popups.context.operation.session.mayChangeSettings;
       const placed = button2.parentElement === this.header;
       if (shown && !placed) this.header.querySelector(".hmi-popup-heading")?.after(button2);
       else if (!shown && placed) button2.remove();

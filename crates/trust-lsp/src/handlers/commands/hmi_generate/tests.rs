@@ -541,7 +541,7 @@ fn the_generated_loop_runs_bumpless_and_holds_on_a_bad_measurement() {
     // §10.5 executed: the code Create PLC code writes, compiled with the Plant, Control and Alarm
     // libraries and scanned on the VM at the task's 100 ms.
     use trust_runtime::harness::TestHarness;
-    use trust_runtime::hmi::member_paths::{resolve_member, MemberPath};
+    use trust_runtime::hmi::member_paths::{member_value, MemberPath};
     use trust_runtime::value::{Duration, Value as StValue};
     let fixture = loop_fixture(LOOP_MAIN, LOOP_DESIGN);
     let shown = loop_shown(&[
@@ -573,9 +573,12 @@ fn the_generated_loop_runs_bumpless_and_holds_on_a_bad_measurement() {
     };
     let read = |harness: &TestHarness, path: &str| -> f64 {
         let parsed = MemberPath::parse(&format!("Main.{path}")).expect("a path");
-        match resolve_member(&parsed, harness.runtime().storage()) {
-            Some(StValue::LReal(value)) => *value,
-            Some(StValue::Bool(flag)) => f64::from(u8::from(*flag)),
+        match harness
+            .runtime()
+            .with_program_view(|program| member_value(&parsed, program))
+        {
+            Some(StValue::LReal(value)) => value,
+            Some(StValue::Bool(flag)) => f64::from(u8::from(flag)),
             other => panic!("{path} is {other:?}"),
         }
     };

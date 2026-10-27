@@ -194,11 +194,16 @@ pub(in crate::db) fn check_global_external_links_with_project(
                 let namespace = symbol_id
                     .map(|id| namespace_path_for_symbol(symbols, id))
                     .unwrap_or_default();
-                let key = GlobalKey {
-                    namespace,
-                    name: normalized_name(name.as_str()),
-                };
-                let Some(global) = globals.get(&key) else {
+                // The global the external names: in its own namespace or the nearest enclosing one,
+                // up to the global namespace (IEC 61131-3 §6.9.1, §6.9.3).
+                let normalized = normalized_name(name.as_str());
+                let global = (0..=namespace.len()).rev().find_map(|depth| {
+                    globals.get(&GlobalKey {
+                        namespace: namespace[..depth].to_vec(),
+                        name: normalized.clone(),
+                    })
+                });
+                let Some(global) = global else {
                     diagnostics.error(
                         DiagnosticCode::UndefinedVariable,
                         range,

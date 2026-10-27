@@ -40,6 +40,7 @@ import {
   type PlantDraft,
 } from "../plant/addFlow";
 import type { PlantSignalCatalog } from "../plant/signalCatalog";
+import { receivePlantEditResult, type PlantEditorTables } from "../plant/editorSession";
 
 interface VsCodeApi {
   postMessage(msg: unknown): void;
@@ -70,7 +71,6 @@ function Canvas() {
     progress: discoverProgress,
     results: discoverResults,
     error: discoverError,
-    sessionCurrent: discoverSessionCurrent,
     prepareReady: prepareDiscoveryReady,
     handleMessage: handleDiscoveryMessage,
     startScan: onDiscoverScan,
@@ -123,6 +123,7 @@ function Canvas() {
     feedbacks: [],
     error: "Compiled PLC signals are not available yet.",
   });
+  const [plantEditorTables, setPlantEditorTables] = useState<PlantEditorTables>();
   const { fitView, screenToFlowPosition, getIntersectingNodes } = useReactFlow();
   const clearApplyResult = useCallback(() => {
     setApplyResult(undefined);
@@ -161,8 +162,12 @@ function Canvas() {
     if (!msg) {
       return false;
     }
+    if (receivePlantEditResult(msg)) {
+      return true;
+    }
     if (msg.type === "meta") {
       if (msg.plantSignals) setPlantSignals(msg.plantSignals as PlantSignalCatalog);
+      if (msg.plantEditor) setPlantEditorTables(msg.plantEditor as PlantEditorTables);
       return false;
     }
     if (msg.type === "plantSaveResult") {
@@ -209,7 +214,7 @@ function Canvas() {
     }
     return false;
   }, []);
-  const { graph, schema, reachable, setupMessage } = useCanvasHostState({
+  const { graph, schema, reachable, setupMessage, discoveredAds } = useCanvasHostState({
     handleDiscoveryMessage,
     handleBrowseMessage,
     handleMessage: handlePlantMessage,
@@ -501,9 +506,11 @@ function Canvas() {
     protocols: discoverProtocols,
     add: onDiscoverAdd,
     isOnCanvas: isDiscoveredDeviceOnCanvas,
+    disabledReason: discoveredDisabledReason,
     adopt: onDiscoverAdopt,
   } = useDiscoverActions({
     nodes: built.nodes,
+    discoveredAds,
     schema,
     post,
     openBrowse,
@@ -672,10 +679,10 @@ function Canvas() {
       progress: discoverProgress,
       results: discoverResults,
       error: discoverError,
-      sessionCurrent: discoverSessionCurrent,
       onScan: onDiscoverScan,
       onAdd: onDiscoverAdd,
       isOnCanvas: isDiscoveredDeviceOnCanvas,
+      disabledReason: discoveredDisabledReason,
       onAdopt: onDiscoverAdopt,
       onOpenAdsPortSettings: () => post({ type: "openAdsDiscoverySettings" }),
       onClose: closeDiscoverPane,
@@ -709,21 +716,15 @@ function Canvas() {
   if (plantDraft) {
     drawerRoutes.plantDraft = {
       draft: plantDraft,
-      existingPlantIds: built.nodes
-        .filter((node) => node.data.kind === "plant" && node.id !== plantDraft.id)
-        .map((node) => String((node.data as { plantId?: string }).plantId ?? node.id)),
-      usedFeedbackTargets: built.nodes
-        .filter((node) => node.data.kind === "plant" && node.id !== plantDraft.id)
-        .flatMap((node) =>
-          Array.isArray((node.data as { feedbackTargets?: unknown }).feedbackTargets)
-            ? ((node.data as { feedbackTargets: string[] }).feedbackTargets)
-            : []
-        ),
       signalCatalog: plantSignals,
+      tables: plantEditorTables,
+      post,
       onChange: (next) => {
         setPlantSaveError(undefined);
         setPlantDraft({ ...next, dirty: true });
       },
+      // Rust's opened draft: defaults made explicit, not a user change.
+      onOpened: (next) => setPlantDraft(next),
       saving: plantSaving,
       saveError: plantSaveError,
       saveConflict: plantSaveConflict,
@@ -827,6 +828,7 @@ function Canvas() {
       onAddTags: onAddAdsTags,
       onRemoveTag: onRemoveAdsTag,
       onClose: closeBrowse,
+      post,
     };
   } else if (browseTags) {
     drawerRoutes.browseTags = {
@@ -847,6 +849,7 @@ function Canvas() {
       onBrowseTarget,
       onAddTags,
       onClose: closeBrowse,
+      post,
     };
   }
 

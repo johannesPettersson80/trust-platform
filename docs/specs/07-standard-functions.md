@@ -131,6 +131,12 @@ Binary transfer between bit strings and numeric types as listed in Table 25:
 - Numeric to bit: `SINT/INT/DINT/LINT/USINT/UINT/UDINT/ULINT` to `BYTE/WORD/DWORD/LWORD`,
   `REAL_TO_DWORD` and `LREAL_TO_LWORD`
 - `BOOL` to `SINT/INT/DINT/LINT/USINT/UINT/UDINT/ULINT` results in 0 or 1
+- Table 25 has no other pair of a bit string and a real (no `DWORD_TO_LREAL`, no `WORD_TO_REAL`),
+  so a bit string's numeric value reaches a real through an integer:
+  `UDINT_TO_LREAL(DWORD_TO_UDINT(d))`.
+- A bit string takes no arithmetic operator: the arithmetic functions take `ANY_NUM` (§6.6.2.5.8,
+  Table 29), so its value is converted to an integer first, as `DWORD_TO_UDINT(TIME_TO_DWORD(t))`
+  is before it is divided.
 
 `REAL`/`LREAL` to a bit string of another width and `BOOL` to `REAL`/`LREAL` are
 not in Table 25; truST provides them as the extensions of section 2.9.
@@ -267,6 +273,11 @@ The following requirements bind runtime execution of IEC 61131-3 Tables
 - Numeric and bit-string text output is decimal. Integral finite real output
   retains a `.0` suffix. Character conversion requires exactly one Unicode
   scalar for text input and checks the target `CHAR`/`WCHAR` code range.
+- A text result longer than the implementer maximum of 65,535 bytes
+  (`STRING`) or UTF-16 code units (`WSTRING`) raises
+  `RuntimeError::StringCapacityExceeded` (IEC 61131-3 Ed.3 §6.6.2.5.11), for
+  example a `WSTRING_TO_STRING` of 30,000 characters that each need three bytes
+  of UTF-8.
 - BCD encoding accepts unsigned integers only and fails with
   `RuntimeError::Overflow` when the decimal digits do not fit the destination
   bit string. BCD decoding rejects every nibble above nine with
@@ -609,10 +620,14 @@ Pos := FIND('ABCABC', 'BC');           // 2 (first occurrence)
 **Position Notes**:
 - Position 1 is the first character
 - FIND returns 0 if not found
-- Runtime positions and lengths count Unicode scalar values, not UTF-8 bytes.
-  Thus `LEN('ÄBC') = 3`, `LEFT('ÄBC', 1) = 'Ä'`, and
-  `FIND('ÄBC', 'B') = 2`. The same element-count rule applies to the reviewed
-  `WSTRING` length.
+- Runtime positions and lengths count Unicode scalar values (characters),
+  not UTF-8 bytes (DEV-017). Thus `LEN('ÄBC') = 3`, `LEFT('ÄBC', 1) = 'Ä'`,
+  and `FIND('ÄBC', 'B') = 2`. The same element-count rule applies to the
+  reviewed `WSTRING` length.
+- A declared capacity counts storage units instead: `STRING[n]` holds `n`
+  bytes of UTF-8 and `WSTRING[n]` `n` UTF-16 code units (`02-data-types.md`
+  §6). `'ÄBC'` is three characters in four bytes, so it fits `STRING[4]` but
+  not `STRING[3]`.
 
 ### 8.1 Runtime String Boundary Contract
 
@@ -634,9 +649,18 @@ Pos := FIND('ABCABC', 'BC');           // 2 (first occurrence)
 - `FIND` returns the one-based position of the first match and zero when no
   match exists. An empty `IN2` matches at position 1. A found position that cannot be represented as `INT` raises
   `RuntimeError::Overflow`.
-- The internal `__TRUST_LIMIT_STRING(IN, L)` assignment helper truncates by
-  Unicode scalar count, preserves the string family, and rejects a negative or
-  otherwise non-`u32` capacity with `RuntimeError::Overflow`.
+- A result longer than the implementer maximum of 65,535 bytes (`STRING`) or
+  UTF-16 code units (`WSTRING`) is an error (IEC 61131-3 Ed.3 §6.6.2.5.11,
+  Table 34): `CONCAT`, `INSERT`, `REPLACE`, `LEFT`, `RIGHT`, `MID` and
+  `DELETE` raise `RuntimeError::StringCapacityExceeded`
+  (`runtime_string_capacity_exceeded`) and return no value. The conversions to
+  `STRING` and `WSTRING` (§2) apply the same maximum; a `WSTRING` of 65,535 code
+  units can need up to 196,605 bytes as `STRING`.
+- The internal `__TRUST_LIMIT_STRING(IN, L)` assignment helper keeps the
+  longest prefix of whole characters within `L` bytes of UTF-8 (`STRING`) or
+  `L` UTF-16 code units (`WSTRING`), returns a value that fits unchanged,
+  preserves the string family, and rejects a negative or otherwise non-`u32`
+  capacity with `RuntimeError::Overflow`.
 
 ## 9. Date and Time Functions (Tables 35-36)
 
@@ -715,7 +739,9 @@ precision; IEC does not define this host-clock function.
 The function has this complete product contract:
 
 - it samples `std::time::SystemTime` once per call and interprets that sample
-  as a UTC Unix timestamp;
+  as a UTC Unix timestamp; on a device without an operating system it reads the
+  device's clock, which counts from `DT#1970-01-01-00:00:00` at power-up until
+  a time source sets it (specification 34, TARGET-06);
 - it returns a timezone-naive `DT` whose epoch is
   `DT#1970-01-01-00:00:00` and whose fixed resolution is one millisecond;
 - it truncates a positive sub-millisecond remainder toward the preceding

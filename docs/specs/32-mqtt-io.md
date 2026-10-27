@@ -19,8 +19,15 @@ are not IEC decisions or deviations.
 
 Implementation owners:
 
-- `crates/trust-runtime/src/io/mqtt/**`: MQTT configuration, payload codecs,
-  session, worker, driver, and Sparkplug profile;
+- `crates/trust-runtime-services/src/io_drivers/mqtt/**`: the one implementation
+  of the driver's logic that every runtime calls (specification 34 ARCH-11): the
+  parameters, the MQTT 3.1.1 packets, typed points and payloads, the Sparkplug B
+  profile, and the session with the broker as a state machine without a
+  transport or a clock;
+- `crates/trust-runtime/src/io/mqtt.rs` and `io/mqtt/{worker,tls}.rs`: the
+  computer's transport, a worker thread over TCP with TLS, and its `IoDriver`;
+- `crates/trust-platform-esp32/src/drivers/mqtt.rs`: the ESP32-C6's transport
+  over its network's client links (specification 34 Appendix D.2);
 - `crates/trust-runtime/src/io/mqtt_tag_mapping.rs`: startup-only adapter from
   compiled PLC symbols to typed process-image points;
 - `crates/trust-runtime/src/runtime/installed_bindings.rs`: the shared binding
@@ -218,8 +225,10 @@ cannot busy-loop. Driver drop requests shutdown and returns within its bounded
 deadline even while a first connection is pending; this does not claim that a
 detached worker has already joined.
 
-Backoff follows connection failures only: a failed connect, a lost session or a
-failed publish. Input freshness is an input-path condition: the worker checks for
+Backoff follows connection failures only: a failed connect, or a lost session,
+which a transmission that fails ends. A handoff that cannot be encoded, a point
+that does not convert or a packet above the packet limit, is a publish condition:
+nothing of it is published and the session stays. Input freshness is an input-path condition: the worker checks for
 new input without waiting, so an input read never holds the worker or delays
 output publication. A read that finds no message newer than the previous read
 reports stale input under the policy below, but a connected session stays
@@ -236,6 +245,13 @@ with the output-path detail on a tie, and an incoming-queue overflow degrades it
 further (specification 34 §11.1). A direction the configuration disables is
 always healthy: a driver without outputs has nothing to deliver for a safe
 state, and a driver without inputs reports no input condition.
+
+The session is clean (MQTT 3.1.1 §3.1.2.4), with or without Sparkplug B, so a
+broker may also accept an empty `client_id` and assign one (MQTT-3.1.3-6). The
+client subscribes at quality of service 0, and with Sparkplug B to its NCMD topic
+at 1; a PUBLISH that a broker delivers at quality of service 1 is acknowledged
+with PUBACK and taken as any message, and one at 2 is a protocol error that ends
+the session.
 
 Under the default `fault` policy, disconnected or stale input, a bounded read
 without a snapshot, missed refresh/handoff deadlines, completed connection or
@@ -256,23 +272,65 @@ input bytes it fills, so that values located there turn stale while the link
 exchanges no data: the bytes of each input point; with a raw input topic and no
 input points, the whole input image from its start; with neither, none.
 
-## 9. Sparkplug B outbound profile
+## 9. Sparkplug B edge node profile
 
-The optional Sparkplug B node profile applies to typed `output_points` and uses
-namespace `spBv1.0`, specification version `3.0.0`, required `group_id`, and
-required `edge_node_id`. It requires at least one output point and no input
-points.
+The optional Sparkplug B profile makes the driver a Sparkplug edge node (Eclipse
+Sparkplug 3.0.0, namespace `spBv1.0`, specification version `3.0.0`) whose
+metrics are its typed `output_points`. `group_id` and `edge_node_id` are
+required; `birth_death_seq`, 0 to 255 and 0 by default, is the `bdSeq` of the
+first connection. The profile requires at least one output point and no input
+points. Topics are `<namespace>/<group_id>/<type>/<edge_node_id>` for the types
+`NBIRTH`, `NDATA`, `NDEATH` and `NCMD`. Metric names are trimmed, nonempty, and
+contain no control characters.
 
-Session establishment publishes NBIRTH, configures NDEATH as the MQTT last
-will, and then publishes NDATA scalar metrics. Topics are
-`<namespace>/<group_id>/NBIRTH/<edge_node_id>`,
-`<namespace>/<group_id>/NDEATH/<edge_node_id>`, and
-`<namespace>/<group_id>/NDATA/<edge_node_id>`. Birth precedes data for each
-accepted session. Metric names are trimmed, nonempty, and contain no control
-characters.
+The node follows these rules of Sparkplug 3.0, named by their conformance ids:
 
-Device topics, DBIRTH/DDATA, templates, aliases, command subscriptions, and
-store-and-forward are not claimed. Structural protobuf bytes or substring
+- The CONNECT is a clean session
+  (`tck-id-principles-persistence-clean-session-311`), and its will is the
+  NDEATH at quality of service 1, not retained, on the node's NDEATH topic
+  (`tck-id-message-flow-edge-node-birth-publish-will-message-qos`, `-will-retained`,
+  `-will-message-topic`).
+- `bdSeq` is an `Int64` metric. Each CONNECT's will carries the next value, one
+  more than the previous connection's, and 0 after 255; the session's NBIRTH and
+  an orderly NDEATH carry the same value
+  (`tck-id-message-flow-edge-node-birth-publish-will-message-payload-bdSeq`,
+  `tck-id-payloads-nbirth-bdseq-repeat`, `tck-id-payloads-ndeath-bdseq`). A
+  runtime that starts again begins again at `birth_death_seq`.
+- After the CONNACK the node subscribes to its NCMD topic at quality of service
+  1 and then publishes its NBIRTH at quality of service 0, not retained
+  (`tck-id-message-flow-edge-node-ncmd-subscribe`, `-birth-publish-nbirth-qos`,
+  `-birth-publish-nbirth-retained`, `-birth-publish-connect`). Birth precedes
+  data for each session.
+- The NBIRTH holds a timestamp, the `bdSeq` metric, the metric
+  `Node Control/Rebirth`, a `Boolean` with false and without an alias, and each
+  output point's metric with its name, its data type and the value of the newest
+  output image, or `is_null` before the first image
+  (`tck-id-payloads-nbirth-rebirth-req`, `tck-id-payloads-metric-datatype-req`);
+  its sequence number is the next of the node's count, 0 to 255
+  (`tck-id-payloads-nbirth-seq`).
+- Each handoff publishes one NDATA with every output metric and its value, and a
+  sequence number one more than the node's previous message, 0 after 255
+  (`tck-id-payloads-ndata-seq-inc`). An image that does not convert publishes
+  nothing and takes no number.
+- The NDEATH holds the `bdSeq` metric alone and no sequence number
+  (`tck-id-payloads-ndeath-seq`). An orderly stop publishes it, then sends
+  DISCONNECT, after which the broker drops the will
+  (`tck-id-operational-behavior-edge-node-intentional-disconnect-ndeath`;
+  DISCONNECT is allowed, `-intentional-disconnect-packet`).
+- An NCMD whose metric `Node Control/Rebirth` is true asks for a rebirth: the
+  node publishes a new NBIRTH of the session, with its `bdSeq` and the values of
+  the newest output image, before any later NDATA
+  (`tck-id-operational-behavior-data-commands-rebirth-action-1` to `-3`). A
+  chip whose outgoing bound has no room for the NBIRTH ends the session instead,
+  and the next session begins with its birth. Other NCMD metrics are not taken:
+  the metrics are the program's outputs, which the program owns.
+- Timestamps are the milliseconds since the Unix epoch of the runtime's wall
+  clock, in UTC; they are 0 until the clock is set, as on a chip before its time
+  service has answered.
+
+Device topics, DBIRTH, DDATA, DDEATH and DCMD, templates, aliases, properties,
+datasets, primary host awareness (`STATE`), store-and-forward and writes to
+metrics through NCMD are not claimed. Structural protobuf bytes or substring
 assertions alone do not prove reference Eclipse Tahu interoperability.
 
 ## 10. Discovery and test evidence
@@ -294,14 +352,18 @@ Return code zero is `confirmed`; codes 4 and 5 are `likely` with
 `auth_required = true`; other valid rejection codes are `likely` without that
 flag. Every valid CONNACK, including a rejection, is followed by DISCONNECT.
 
-Discovery is directed only. A missing host returns no candidates and an
-explicit directed-host warning. A directed target accepts a host, IPv4 address,
-or bracketed IPv6 address. With no explicit port, distinct resolved addresses
-are probed at 1883 and 8883 in deterministic address/port order; an explicit
-nonzero port probes only that endpoint. Userinfo, paths, queries, fragments,
-invalid ports, ambiguous unbracketed IPv6, duplicate socket addresses, and
-unresolved targets reject before probing. A port-8883 TCP connection remains
-only MQTTS reachability until a TLS MQTT exchange succeeds.
+In the one search, the MQTT source finds brokers through mDNS
+`_mqtt._tcp.local.` and through the search's directed hosts. A `comm.discover`
+request has no mDNS browse and is directed only: a missing host returns no
+candidates and an explicit directed-host warning. A directed target accepts a
+host, IPv4 address, or bracketed IPv6 address. With no explicit port, every
+distinct resolved address is probed at 1883 and 8883 in deterministic
+address/port order; an explicit nonzero port probes only that endpoint.
+Userinfo, paths, queries, fragments, invalid ports, ambiguous unbracketed
+IPv6, duplicate socket addresses, and unresolved targets reject before
+probing. A port-8883 TLS handshake without an MQTT exchange is MQTTS
+reachability, never identified; a failed TLS handshake is only
+`port_reachable`.
 
 The communication Test operation is intentionally weaker than discovery. It is
 a bounded TCP-reachability probe, not an MQTT handshake. It accepts `mqtt://`
@@ -333,11 +395,15 @@ The closest native owners include:
 - `crates/trust-runtime/src/bin/trust-runtime/run/tests/mqtt_tag_mapping.rs`
   for bindings installed before the worker starts and atomic refusal of a
   mapping set with an unknown tag;
-- `crates/trust-runtime/src/io/mqtt/tests/point_map_contract.rs` and
-  `io/mqtt/point_map.rs` tests for typed payload conversion and transaction
-  integrity;
-- `crates/trust-runtime/src/io/mqtt/tests.rs` for configuration, session,
-  security, worker deadlines, freshness, reconnect, and Sparkplug behavior;
+- `crates/trust-runtime-services/src/io_drivers/mqtt/tests/*.rs` for the
+  shared rules byte by byte: parameters, packets, typed points and payloads, the
+  session and its health, a chip's bounds, and the Sparkplug B payloads and
+  session;
+- `crates/trust-runtime/src/io/mqtt/tests/point_map_contract.rs` for typed
+  payload conversion and transaction integrity on the computer;
+- `crates/trust-runtime/src/io/mqtt/tests.rs` and `io/mqtt/tests/*.rs` for the
+  computer's wiring against a broker stand-in: configuration, session,
+  security and TLS, worker deadlines, freshness, reconnect, and Sparkplug;
 - runtime interface/control/DAP contract tests for enumeration TypeId and
   `valueType` preservation; and
 - `scripts/mqtt_mosquitto_e2e.sh`, invoked by

@@ -246,6 +246,11 @@ expand the valid IEC initializer grammar.
   existing normative omission recorded as DEV-003.
 - A program-instance name that resolves to more than one resource target is
   ambiguous and is rejected before target type or initializer checks.
+- A `VAR_CONFIG` location entry (`out AT %QX0.1 : BOOL;`) may name an incomplete
+  location (`AT %Q*`) by its variable's name alone when no global has that name
+  and exactly one program instance declares a variable of that name at an
+  incomplete location; the entry completes that variable. A name that several
+  program instances declare at incomplete locations is rejected as ambiguous.
 - truST does not yet model every IEC communication-service topology or every
   cross-resource access-path form; that remaining normative omission is
   recorded as DEV-003.
@@ -483,6 +488,20 @@ See `10-runtime-semantics.md` §9 for the language/runtime I/O contract and
 %QW2.5.7.1    // Additional levels are implementer-specific
 ```
 
+### Use in Bodies
+
+A body may name a directly represented variable as it names any variable:
+`%QX0.2 := %IX0.1;`. IEC 61131-3 Ed.3 §6.5.5.1 permits it "in the body of
+functions, function blocks, programs, methods, and in configurations and
+resource", as deprecated functionality. Each address that a body names is one
+variable of the size's type (the table above), at that address as a global
+declared `AT` it: the scan samples an input at the input sample, publishes an
+output at the output sample, and a marker keeps its value from scan to scan
+(`11-runtime-engine.md` §6.4; specification 44 §5.6). Two spellings of one
+address, `%I0.1` and `%IX0.1`, name the same variable. An address in a
+declaration (`AT`), in the configuration or in an initial value binds the
+variable it belongs to instead.
+
 ### Symbolic Mapping with AT
 
 ```
@@ -509,6 +528,7 @@ END_VAR
 **Rules**:
 - Incomplete direct addresses (`%I*`, `%Q*`, `%M*`) are not allowed in `VAR_INPUT` or `VAR_IN_OUT` sections. (IEC 61131-3 Ed.3, 6.5.5.4)
 - Each incomplete direct address must be fully specified in a `VAR_CONFIG` entry using `AT` and a concrete address (no `*`). (IEC 61131-3 Ed.3, 6.5.5.4)
+- The asterisk stands for the size prefix and the address only, so the entry keeps the declared area: `%Q*` is completed by a `%Q` address, and an entry of another area is an error. (IEC 61131-3 Ed.3, 6.5.5.4)
 
 ## 6. Variable-Length Arrays (Tables 15-16, Section 6.5.4.5)
 
@@ -550,6 +570,18 @@ END_FUNCTION
   rejects declaration locations outside the allowed set above.
 - Dimensions must match at call site
 - Multiple dimensions: `ARRAY[*, *] OF INT`
+- A variable-length parameter is the caller's array with its bounds, whatever its
+  direction: an in-out and an output read and write the caller's elements in
+  place, and `LOWER_BOUND`/`UPPER_BOUND` give the caller's bounds. An input is
+  the caller's array too, which the function or method reads; a program image has
+  no memory of a size the caller decides, so a write to an element of a
+  variable-length input is refused at build with a message that names the input
+  (declare it `VAR_IN_OUT` instead).
+- A `POINTER TO` or `REF_TO` a variable-length array holds the bounds of the
+  array it names beside the reference, and an index through it is checked
+  against those bounds (specification 10 §2.1); `ADR` or `REF` of an array, of a
+  variable-length parameter, or another such pointer gives it its array and
+  bounds.
 
 ## 7. Variable Scope Rules (Section 6.5.2.2)
 

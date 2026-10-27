@@ -126,7 +126,11 @@ fn the_stream_sends_the_update_period_then_the_page_values_with_the_cycle_count(
     let running = start(&root, WebAuthMode::Local, None);
     let mut socket = open_stream(&running.base, "?page=overview").expect("the stream opens");
 
-    assert_eq!(next_message(&mut socket), json!({ "period_ms": 250 }));
+    // The period with the stale limit, three periods (§5.3 item 2): the page computes no limit.
+    assert_eq!(
+        next_message(&mut socket),
+        json!({ "period_ms": 250, "stale_ms": 750 })
+    );
     let mut first = next_message(&mut socket);
     // The first read may come before the first scan; wait for one taken after it.
     while first["values"]["Main.P101.Running"]["value"] != json!(true) {

@@ -224,9 +224,14 @@ fn queryables_are_available_when_mesh_session_starts() {
             }
         }
     });
-    let service = super::start_mesh(&mesh_config(), SmolStr::new("runtime-a"), resource)
-        .expect("start mesh")
-        .expect("mesh service");
+    let service = super::start_mesh(
+        &mesh_config(),
+        SmolStr::new("runtime-a"),
+        SmolStr::new(STABLE_ID),
+        resource,
+    )
+    .expect("start mesh")
+    .expect("mesh service");
     assert!(service.readiness().session_established);
     assert!(service.readiness().identity_queryable_ready);
     assert!(service.readiness().catalog_queryable_ready);
@@ -237,8 +242,65 @@ fn mesh_tls_requires_certificate_materials_instead_of_starting_plaintext() {
     let (resource, _commands) = ResourceControl::stub(StdClock::new());
     let mut config = mesh_config();
     config.tls = true;
-    let result = super::start_mesh(&config, "tls-required".into(), resource);
-    assert!(result.is_err(), "TLS requested without certificate material must not start a plaintext session");
+    // Specification 39 §7 item 9: requesting mesh TLS requires the runtime's certificate material
+    // and an actual TLS transport, never a plaintext fallback.
+    let result = super::start_mesh(
+        &config,
+        "tls-required".into(),
+        SmolStr::new(STABLE_ID),
+        resource,
+    );
+    assert!(
+        result.is_err(),
+        "TLS requested without certificate material must not start a plaintext session"
+    );
+}
+
+/// The stable runtime ID of the started mesh in these tests: sixteen random bytes in lowercase hex,
+/// as `runtime_id` generates them.
+const STABLE_ID: &str = "0f1e2d3c4b5a69788796a5b4c3d2e1f0";
+
+#[test]
+fn identity_answer_of_a_started_mesh_gives_its_stable_runtime_id() {
+    // Spec 11, "Sources" (the mesh peers paragraph): a started runtime answers its identity with the
+    // stable runtime ID beside the mesh name that keys its identity queryable. Wrong behaviour: the
+    // producer drops the stable ID, so a search cannot merge the answer with the mDNS find.
+    let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
+    std::thread::spawn(move || {
+        while let Ok(command) = cmd_rx.recv() {
+            if let ResourceCommand::MeshSnapshot { respond_to, .. } = command {
+                let _ = respond_to.send(IndexMap::new());
+            }
+        }
+    });
+    let service = super::start_mesh(
+        &mesh_config(),
+        SmolStr::new("line-a"),
+        SmolStr::new(STABLE_ID),
+        resource,
+    )
+    .expect("start mesh")
+    .expect("mesh service");
+    let session = service
+        .topology_evidence()
+        .session()
+        .cloned()
+        .expect("the mesh has a session");
+    let answers =
+        super::query_identities(&session, &["line-a".to_string()], StdDuration::from_secs(5));
+    let (_, answer) = answers
+        .into_iter()
+        .next()
+        .expect("the runtime answers its own identity query");
+    let answer = answer.expect("the answer is an identity");
+    assert_eq!(answer.identity.runtime_id, "line-a");
+    assert_eq!(answer.name.as_deref(), Some("line-a"));
+    assert_eq!(answer.stable_runtime_id.as_deref(), Some(STABLE_ID));
+    assert_eq!(answer.version.as_deref(), Some(env!("CARGO_PKG_VERSION")));
+    assert_eq!(
+        answer.platform.as_deref(),
+        Some(format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH).as_str())
+    );
 }
 
 fn mesh_config() -> MeshConfig {
@@ -264,12 +326,14 @@ fn mesh_catalogue_exposes_the_published_variables_typed_metadata() {
     )
     .unwrap();
     harness.cycle();
-    let nodes = crate::hmi::variable_tree::published_variables(
-        &harness.runtime().metadata_snapshot(),
-        harness.runtime().storage(),
-        &["Main.Level".to_string()],
-    )
-    .unwrap();
+    // The typed publish catalogue as the scan thread answers the `MeshCatalogue` command: from the
+    // program as its last scan left it.
+    let nodes = harness
+        .runtime()
+        .with_program_view(|program| {
+            crate::hmi::variable_tree::published_variables(program, &["Main.Level".to_string()])
+        })
+        .unwrap();
     let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
     std::thread::spawn(move || {
         while let Ok(command) = cmd_rx.recv() {
@@ -289,9 +353,14 @@ fn mesh_catalogue_exposes_the_published_variables_typed_metadata() {
     let mut config = mesh_config();
     config.publish = vec!["Main.Level".into()];
     let runtime_name = format!("hmi-catalog-{}", std::process::id());
-    let service = super::start_mesh(&config, runtime_name.clone().into(), resource)
-        .unwrap()
-        .unwrap();
+    let service = super::start_mesh(
+        &config,
+        runtime_name.clone().into(),
+        SmolStr::new(STABLE_ID),
+        resource,
+    )
+    .unwrap()
+    .unwrap();
     let replies = service
         .session
         .as_ref()
@@ -316,4 +385,44 @@ fn mesh_catalogue_exposes_the_published_variables_typed_metadata() {
     );
     assert_eq!(catalogue[0]["variable"]["path"], "Main.Level");
     assert_eq!(catalogue[0]["variable"]["writable"], true);
+}
+
+#[test]
+fn mesh_publish_snapshot_reads_only_requested_nested_equipment_members() {
+    let mut harness = crate::harness::TestHarness::from_source(
+        r#"
+FUNCTION_BLOCK Pump
+VAR_OUTPUT
+    Running : BOOL;
+    Speed : REAL;
+END_VAR
+    Running := TRUE;
+    Speed := 1460.0;
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR
+    P101 : Pump;
+    Levels : ARRAY[1..2] OF INT := [12, 24];
+END_VAR
+    P101();
+END_PROGRAM
+"#,
+    )
+    .expect("the publish fixture compiles");
+    harness.cycle();
+    let snapshot = harness.runtime().snapshot_globals(&[
+        "Main.P101.Running".into(),
+        "main.p101.speed".into(),
+        "Main.Levels[2]".into(),
+        "Main.Missing".into(),
+        "Main.Levels[9]".into(),
+    ]);
+    assert_eq!(snapshot.get("Main.P101.Running"), Some(&Value::Bool(true)));
+    assert_eq!(snapshot.get("main.p101.speed"), Some(&Value::Real(1460.0)));
+    assert_eq!(snapshot.get("Main.Levels[2]"), Some(&Value::Int(24)));
+    assert_eq!(
+        snapshot.len(),
+        3,
+        "no missing paths or unrequested instance members are published"
+    );
 }

@@ -6,7 +6,7 @@ cd "$(dirname "$0")" || exit 1
 echo "=== Recompilando y ejecutando ==="
 
 # Limpiar y recompilar
-rm -rf .trust-lsp program.stbc
+rm -rf .trust-lsp program.tpi deployment-record.bin
 trust-runtime build --project . --sources src
 
 if [ $? -ne 0 ]; then

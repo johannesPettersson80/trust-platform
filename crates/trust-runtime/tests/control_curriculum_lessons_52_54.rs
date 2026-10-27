@@ -148,10 +148,9 @@ struct Delayed {
     abort: [bool; 2],
 }
 
-fn flag(runtime: &trust_runtime::Runtime, address: &str) -> bool {
+fn flag(runtime: &trust_runtime::CompiledRuntime, address: &str) -> bool {
     match runtime
-        .io()
-        .read(&IoAddress::parse(address).unwrap())
+        .read_io(&IoAddress::parse(address).unwrap())
         .unwrap()
     {
         Value::Bool(value) => value,

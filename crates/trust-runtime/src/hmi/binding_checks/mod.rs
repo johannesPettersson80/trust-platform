@@ -44,6 +44,10 @@ pub struct BindingProblem {
     pub property: Option<String>,
     /// Plain description.
     pub message: String,
+    /// The point a control writes that no rule of the write policy covers, which the editor's
+    /// quick fix allows (specification 39, §12.2.3); none for any other problem.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub point: Option<String>,
 }
 
 /// Checks every object and binding of a page.
@@ -160,6 +164,7 @@ fn problem(object: &HmiObject, property: Option<&str>, message: String) -> Bindi
         object: object.id.clone(),
         property: property.map(str::to_string),
         message,
+        point: None,
     }
 }
 

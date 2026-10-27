@@ -6,10 +6,8 @@ name = "runtime-plant"
 cycle_interval_ms = 100
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime-plant.sock"
 mode = "production"
 debug_enabled = false
-auth_token = "REPLACE_WITH_LONG_RANDOM_TOKEN"
 
 [runtime.web]
 enabled = true

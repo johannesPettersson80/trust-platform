@@ -95,7 +95,7 @@ rust_client --> running : control.signals.inspect, control.recording.*, control.
 rust_client --> isolated : control.simulation.run.start, status, cancel
 rust_client --> runtime_executor : control.experiment.start, status, finish, abort
 rust_commissioning --> transactions : adopt/restore complete binding
-isolated --> running : prepare bytecode, then bounded actual-ST scans
+isolated --> running : build the native image, then bounded actual-ST scans
 transactions --> running : coherent parameter/state update
 runtime_executor --> running : writes at the loop task's executions
 lsp_inline --> rust_client : trust-runtime-client

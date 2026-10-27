@@ -1,8 +1,6 @@
 import * as assert from "assert";
 import * as vscode from "vscode";
 
-import { validateLadderProgramValue } from "../../visual/ladderToSt";
-
 // Specification 25, §11.4: creating a Ladder, Blockly, Statechart, or SFC program opens the new
 // file in its visual editor, in the active editor group and with focus. With
 // trust.visual.openStructuredTextCompanionOnCreate on, the generated Structured Text companion
@@ -147,7 +145,11 @@ suite("New visual programs open in their visual editor", function () {
     await createProgram(LADDER, "conveyor");
     const file = vscode.Uri.joinPath(folder, "conveyor.ladder.json");
     const text = Buffer.from(await vscode.workspace.fs.readFile(file)).toString("utf8");
-    assert.doesNotThrow(() => validateLadderProgramValue(JSON.parse(text)));
+    const answer = await vscode.commands.executeCommand<{ ok: boolean; errors?: unknown }>(
+      "trust-lsp.visualValidate",
+      { kind: "ladder", text }
+    );
+    assert.strictEqual(answer?.ok, true, JSON.stringify(answer?.errors));
   });
   test("Ladder opens the new program in its visual editor", () => opensInItsVisualEditor(LADDER));
   test("Ladder opens the companion beside without focus", () => opensCompanionBeside(LADDER));

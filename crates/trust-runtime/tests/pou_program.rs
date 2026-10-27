@@ -1,60 +1,36 @@
-use trust_runtime::eval::expr::{Expr, LValue};
-use trust_runtime::eval::ops::BinaryOp;
-use trust_runtime::eval::stmt::Stmt;
-use trust_runtime::task::{ProgramDef, TaskConfig};
-use trust_runtime::value::{Duration, Value};
-use trust_runtime::RuntimeBuilder;
+//! A program instance run by its task: an event task runs it on a rising edge of its SINGLE input.
+//!
+//! The test needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
+use trust_runtime::harness::TestHarness;
+use trust_runtime::value::Value;
+
+/// `TestProg` counts in an event task that a rising edge of `trigger` starts.
+const COUNTING: &str = r#"
+CONFIGURATION C
+VAR_GLOBAL
+    trigger : BOOL := FALSE;
+    count : INT := 0;
+END_VAR
+RESOURCE R ON PLC
+    TASK T (SINGLE := trigger, PRIORITY := 0);
+    PROGRAM P WITH T : TestProg;
+END_RESOURCE
+END_CONFIGURATION
+
+PROGRAM TestProg
+count := count + 1;
+END_PROGRAM
+"#;
 
 #[test]
 fn program_cycle() {
-    let mut runtime = RuntimeBuilder::new();
-    for (name, type_id, value) in [
-        ("trigger", trust_hir::TypeId::BOOL, Value::Bool(false)),
-        ("count", trust_hir::TypeId::INT, Value::Int(0)),
-    ] {
-        runtime
-            .register_global(trust_runtime::program_model::VarDef {
-                name: name.into(),
-                type_id,
-                initializer: Some(Expr::Literal(value)),
-                retain: trust_runtime::RetainPolicy::Unspecified,
-                static_storage: false,
-                external: false,
-                in_out: false,
-                constant: false,
-                address: None,
-            })
-            .unwrap();
-    }
-
-    let program = ProgramDef {
-        name: "TestProg".into(),
-        vars: Vec::new(),
-        temps: Vec::new(),
-        using: Vec::new(),
-        body: vec![Stmt::Assign {
-            target: LValue::Name("count".into()),
-            value: Expr::Binary {
-                op: BinaryOp::Add,
-                left: Box::new(Expr::Name("count".into())),
-                right: Box::new(Expr::Literal(Value::Int(1))),
-            },
-            location: None,
-        }],
-    };
-
-    runtime.register_program(program);
-    runtime.register_task(TaskConfig {
-        name: "T".into(),
-        interval: Duration::ZERO,
-        single: Some("trigger".into()),
-        priority: 0,
-        programs: vec!["TestProg".into()],
-        fb_instances: Vec::new(),
-    });
-
-    let mut runtime = runtime.build().unwrap();
-    runtime.write_global("trigger", Value::Bool(true)).unwrap();
+    let mut runtime = TestHarness::from_source(COUNTING)
+        .expect("the program compiles")
+        .into_runtime();
+    runtime
+        .write_variable("trigger", &Value::Bool(true))
+        .unwrap();
     runtime.execute_cycle().unwrap();
-    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(1)));
+    assert_eq!(runtime.read_variable("count"), Ok(Value::Int(1)));
 }

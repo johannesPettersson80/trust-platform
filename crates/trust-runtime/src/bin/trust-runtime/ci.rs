@@ -37,7 +37,9 @@ pub fn classify_error(message: &str) -> i32 {
     if msg.contains("invalid project folder")
         || msg.contains("invalid config")
         || msg.contains("missing runtime.toml")
-        || msg.contains("missing program.stbc")
+        || msg.contains("missing program.tpi")
+        || msg.contains("holds program.stbc of the bytecode engine")
+        || msg.contains("of runtime.toml is not the RESOURCE")
         || msg.contains("missing io.toml")
         || msg.contains("tcp control endpoint requires")
     {
@@ -96,7 +98,10 @@ mod tests {
             EXIT_INVALID_CONFIG
         );
         assert_eq!(classify_error("invalid config value"), EXIT_INVALID_CONFIG);
-        assert_eq!(classify_error("missing program.stbc"), EXIT_INVALID_CONFIG);
+        assert_eq!(
+            classify_error("missing program.tpi at /project/program.tpi (run `trust-runtime build` to build the project)"),
+            EXIT_INVALID_CONFIG
+        );
         assert_eq!(classify_error("missing io.toml"), EXIT_INVALID_CONFIG);
         assert_eq!(
             classify_error("TCP control endpoint requires a host and port"),

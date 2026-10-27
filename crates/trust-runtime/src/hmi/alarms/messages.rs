@@ -3,8 +3,11 @@
 
 use serde::Serialize;
 
+use trust_runtime_core::native::image::TaskRecord;
+
 use super::status::read_alarms;
-use crate::runtime::Runtime;
+use crate::runtime::CompiledRuntime;
+use crate::value::Duration;
 
 /// An alarm and the message the program gives it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -16,24 +19,29 @@ pub struct AlarmMessage {
 }
 
 /// The messages the program gives its alarms in its first scan, as the running program sets them;
-/// alarms without one are left out. The scan runs within the runtime's instruction budget, so a
+/// alarms without one are left out. The scan runs within the runtime's statement budget, so a
 /// program that runs away stops there and keeps the messages it gave before.
-pub fn alarm_messages(runtime: &mut Runtime) -> Vec<AlarmMessage> {
+pub fn alarm_messages(runtime: &mut CompiledRuntime) -> Vec<AlarmMessage> {
     // A newly compiled configured project is at time zero, before any periodic task is due.
     // Advance only this preview runtime to cover one invocation of every periodic task;
     // executing at zero silently omitted all alarm messages in configured projects.
-    if let Some(interval) = runtime
-        .tasks()
-        .iter()
-        .map(|task| task.interval)
-        .filter(|interval| interval.as_nanos() > 0)
-        .max_by_key(|interval| interval.as_nanos())
-    {
-        runtime.advance_time(interval);
+    let longest = runtime.with_program_view(|program| {
+        program
+            .program_image()
+            .table::<TaskRecord>()
+            .ok()
+            .and_then(|tasks| tasks.iter().map(|task| task.interval_ns).max())
+            .unwrap_or(0)
+    });
+    if longest > 0 {
+        let interval = i64::try_from(longest).unwrap_or(i64::MAX);
+        let now = runtime.current_time().as_nanos().saturating_add(interval);
+        runtime.set_current_time(Duration::from_nanos(now));
     }
     // A scan cut short records a fault; the messages already given stay readable.
     let _ = runtime.execute_cycle();
-    read_alarms(runtime)
+    runtime
+        .with_program_view(read_alarms)
         .into_iter()
         .filter(|alarm| !alarm.message.trim().is_empty())
         .map(|alarm| AlarmMessage {

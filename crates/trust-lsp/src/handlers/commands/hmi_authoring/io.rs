@@ -318,7 +318,7 @@ pub(in crate::handlers::commands) fn status(rows: &[Value]) -> &'static str {
 }
 
 pub(in crate::handlers::commands) fn binding_json(binding: &Binding) -> Value {
-    json!({"path":binding.path,"address":super::super::canonical_io_address(&binding.address),"type":binding.type_name,"direction":match binding.address.area{IoArea::Input=>"input",IoArea::Output=>"output",_=>"memory"}})
+    json!({"path":binding.path,"address":binding.address.to_string(),"type":binding.type_name,"direction":match binding.address.area{IoArea::Input=>"input",IoArea::Output=>"output",_=>"memory"}})
 }
 
 #[cfg(test)]

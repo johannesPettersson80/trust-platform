@@ -1,61 +1,79 @@
 import React, { useState } from "react";
 
+import type { PlantDraft } from "../plant/addFlow";
 import {
-  parseStateSpacePaste,
-  planStateSpaceResize,
-  stateSpaceDimensions,
-  validateStateSpace,
-  validateStateSpaceInputDelays,
-  type PlantStateSpaceDimensions,
-} from "../plant/stateSpaceEditor";
-import type { PlantEditorDraft } from "../plant/editorModel";
+  numberText,
+  typedNumber,
+  type PlantEditAction,
+  type PlantEditorIssue,
+  type PlantEditorView,
+  type PlantEditResult,
+} from "../plant/editorSession";
 
 type MatrixName = "a" | "b" | "c" | "d";
+type Dimensions = { states: number; inputs: number; outputs: number };
 
+/**
+ * The state-space matrices, input delays and initial state (specification 47 §9). Rust resizes the
+ * matrices, reads pasted blocks and checks every cell; cell values go into the draft as typed.
+ */
 export function PlantStateSpaceEditor({
   draft,
+  facts,
+  issues,
   onChange,
+  onAction,
 }: {
-  draft: PlantEditorDraft;
-  onChange: (draft: PlantEditorDraft) => void;
+  draft: PlantDraft;
+  facts: NonNullable<PlantEditorView["stateSpace"]>;
+  issues: readonly PlantEditorIssue[];
+  onChange: (draft: PlantDraft) => void;
+  onAction: (action: PlantEditAction) => Promise<PlantEditResult>;
 }) {
-  const dimensions = stateSpaceDimensions(draft.parameters);
-  const [pending, setPending] = useState<ReturnType<typeof planStateSpaceResize>>();
-  const [pasteError, setPasteError] = useState<string>();
-  const issues = validateStateSpace({ parameters: draft.parameters, initialState: draft.initialState, dimensions });
-  const delays = draft.parameters.input_delays_s;
-  const delayValues = Array.from({ length: dimensions.inputs }, (_, index) =>
-    delays === undefined ? 0 : Array.isArray(delays) && typeof delays[index] === "number" ? delays[index] as number : Number.NaN);
-  const delayIssues = validateStateSpaceInputDelays({ ...draft, inputs: dimensions.inputs });
-  const commit = (parameters: PlantEditorDraft["parameters"], initialState = draft.initialState) => {
-    setPasteError(undefined);
-    onChange({ ...draft, parameters, initialState, modelValuesTouched: true });
-  };
-  const requestDimension = (field: keyof PlantStateSpaceDimensions, value: number) => {
-    if (!Number.isSafeInteger(value) || value < 1) return;
-    const plan = planStateSpaceResize({
-      parameters: draft.parameters,
-      initialState: draft.initialState,
-      dimensions,
-      requested: { ...dimensions, [field]: value },
-    });
-    if (plan.kind === "confirm") setPending(plan);
-    else commit(plan.parameters, plan.initialState);
-  };
-  const updateMatrixCell = (name: MatrixName, row: number, column: number, value: number) => {
-    const matrix = (draft.parameters[name] as number[][]).map((candidate) => [...candidate]);
-    matrix[row][column] = value;
-    commit({ ...draft.parameters, [name]: matrix });
-  };
-  const pasteMatrix = (event: React.ClipboardEvent, name: MatrixName, rows: number, columns: number) => {
-    const parsed = parseStateSpacePaste(event.clipboardData.getData("text"));
-    if (!parsed || parsed.length !== rows || parsed.some((row) => row.length !== columns)) {
-      setPasteError(`${name.toUpperCase()} paste must contain ${rows} rows and ${columns} columns.`);
-      return;
+  const { dimensions } = facts;
+  const [pending, setPending] = useState<{ message: string; requested: Partial<Dimensions> }>();
+  const [refusal, setRefusal] = useState<string>();
+  const ask = async (action: PlantEditAction) => {
+    const result = await onAction(action);
+    if (!result.ok) {
+      setRefusal(result.message);
+      return undefined;
     }
-    event.preventDefault();
-    commit({ ...draft.parameters, [name]: parsed });
+    const outcome = result.answer.outcome;
+    setRefusal(outcome?.kind === "rejected" ? outcome.message : undefined);
+    return outcome;
   };
+  // A change names only its dimension: Rust keeps the draft's others as they are when it applies it.
+  const requestDimension = async (field: keyof Dimensions, text: string) => {
+    const requested: Partial<Dimensions> = { [field]: Number(text) };
+    const outcome = await ask({ kind: "resize_state_space", ...requested });
+    if (outcome?.kind === "confirm") setPending({ message: outcome.message, requested });
+  };
+  const write = (parameters: PlantDraft["parameters"], initialState = draft.initialState) =>
+    onChange({ ...draft, parameters, initialState, modelValuesTouched: true });
+  const updateMatrixCell = (name: MatrixName, row: number, column: number, value: number) => {
+    const matrix = matrixOf(draft.parameters[name]).map((cells) => [...cells]);
+    if (!matrix[row]) return;
+    matrix[row][column] = value;
+    write({ ...draft.parameters, [name]: matrix });
+  };
+  // Every paste goes to Rust: a block the matrix's size replaces it, one number the cell pasted into.
+  const pasteMatrix = (event: React.ClipboardEvent, name: MatrixName) => {
+    event.preventDefault();
+    const cell = (event.target as HTMLElement).dataset?.plantMatrixCell?.split(":");
+    void ask({
+      kind: "paste_matrix",
+      matrix: name,
+      text: event.clipboardData.getData("text"),
+      ...(cell ? { row: Number(cell[1]), column: Number(cell[2]) } : {}),
+    });
+  };
+  const delays = draft.parameters.input_delays_s;
+  const delayIssues = issues.flatMap((issue) => issue.target.kind === "input_delay"
+    ? [{ column: issue.target.column, message: issue.message }] : []);
+  const cellIssue = (matrix: string, row: number, column: number) => issues.find((issue) =>
+    issue.target.kind === "matrix" && issue.target.matrix === matrix &&
+    issue.target.row === row && issue.target.column === column)?.message;
 
   return (
     <div data-plant-state-space-editor style={{ display: "grid", gap: 9 }}>
@@ -66,84 +84,104 @@ export function PlantStateSpaceEditor({
         {(["states", "inputs", "outputs"] as const).map((field) => (
           <label key={field} style={FIELD}>
             <span style={LABEL}>{field[0].toUpperCase() + field.slice(1)}</span>
-            <input type="number" min={1} step={1} data-plant-state-space-dimension={field} value={dimensions[field]} onChange={(event) => requestDimension(field, Number(event.target.value))} style={INPUT} />
+            <input type="number" min={1} step={1} data-plant-state-space-dimension={field} value={dimensions[field]} onChange={(event) => void requestDimension(field, event.target.value)} style={INPUT} />
           </label>
         ))}
       </div>
-      {pending?.kind === "confirm" && (
+      {pending && (
         <div data-plant-state-space-resize-confirm role="alert" style={CONFIRM}>
           <span>{pending.message}</span>
           <div style={{ display: "flex", gap: 6 }}>
             <button type="button" className="trust-button" data-plant-state-space-resize-cancel onClick={() => setPending(undefined)}>Cancel</button>
-            <button type="button" className="trust-button trust-button--primary" data-plant-state-space-resize-apply onClick={() => { commit(pending.parameters, pending.initialState); setPending(undefined); }}>Resize and remove values</button>
+            <button type="button" className="trust-button trust-button--primary" data-plant-state-space-resize-apply onClick={() => {
+              const { requested } = pending;
+              setPending(undefined);
+              void ask({ kind: "resize_state_space", ...requested, confirmed: true });
+            }}>Resize and remove values</button>
           </div>
         </div>
       )}
-      {pasteError && <div data-plant-state-space-error role="alert" style={ERROR}>{pasteError}</div>}
+      {refusal && <div data-plant-state-space-error role="alert" style={ERROR}>{refusal}</div>}
       <div data-plant-input-delays style={MATRIX_CARD}>
         <strong style={{ fontSize: 11.5 }}>Input delays (s)</strong>
         <p className="trust-help" style={{ margin: 0 }}>Time before each input reaches the process. Zero means no delay.</p>
         <div style={{ overflowX: "auto", paddingBottom: 2 }}>
           <div style={{ display: "grid", alignItems: "start", gridTemplateColumns: `repeat(${dimensions.inputs}, minmax(80px, 1fr))`, gap: 5, minWidth: dimensions.inputs * 84 }}>
-            {delayValues.map((value, column) => {
+            {facts.delays.map((value, column) => {
               const issue = delayIssues.find((candidate) => candidate.column === column);
               const errorId = `plant-input-delay-error-${column}`;
               return <label key={column} style={FIELD}>
                 <span style={LABEL}>Input {column + 1}</span>
                 <input type="number" min={0} step="any" data-plant-input-delay-cell={column}
-                  aria-label={`Input ${column + 1} delay (seconds)`} value={Number.isFinite(value) ? value : ""}
-                  aria-invalid={Boolean(issue) || delayIssues.some((candidate) => candidate.column === undefined)}
+                  aria-label={`Input ${column + 1} delay (seconds)`}
+                  value={Array.isArray(delays) ? numberText(delays[column]) : numberText(value)}
+                  aria-invalid={Boolean(issue) || delayIssues.some((candidate) => candidate.column === null)}
                   aria-describedby={issue ? errorId : undefined}
                   onChange={(event) => {
-                    const next = Array.isArray(delays) ? [...delays] : [...delayValues];
-                    next[column] = event.target.value.trim() ? Number(event.target.value) : Number.NaN;
-                    commit({ ...draft.parameters, input_delays_s: next as number[] });
+                    const next = Array.isArray(delays) ? [...delays] : facts.delays.map((delay) => delay ?? Number.NaN);
+                    next[column] = typedNumber(event.target.value);
+                    write({ ...draft.parameters, input_delays_s: next as number[] });
                   }} style={INPUT} />
                 {issue && <span id={errorId} data-plant-input-delay-error style={ERROR}>{issue.message}</span>}
               </label>;
             })}
           </div>
         </div>
-        {delayIssues.filter((issue) => issue.column === undefined).map((issue) =>
+        {delayIssues.filter((issue) => issue.column === null).map((issue) =>
           <span key={issue.message} role="alert" data-plant-input-delay-error style={ERROR}>{issue.message}</span>)}
-        {delays !== undefined && <button type="button" className="trust-button" data-plant-input-delay-defaults
+        {facts.delaysExplicit && <button type="button" className="trust-button" data-plant-input-delay-defaults
           style={{ justifySelf: "start" }} onClick={() => {
             const next = { ...draft.parameters };
             delete next.input_delays_s;
-            commit(next);
+            write(next);
           }}>Use zero defaults</button>}
       </div>
-      <MatrixGrid name="a" label="A · state dynamics" value={draft.parameters.a as number[][]} issues={issues} onChange={updateMatrixCell} onPaste={(event) => pasteMatrix(event, "a", dimensions.states, dimensions.states)} />
-      <MatrixGrid name="b" label="B · input to state" value={draft.parameters.b as number[][]} issues={issues} onChange={updateMatrixCell} onPaste={(event) => pasteMatrix(event, "b", dimensions.states, dimensions.inputs)} />
-      <MatrixGrid name="c" label="C · state to output" value={draft.parameters.c as number[][]} issues={issues} onChange={updateMatrixCell} onPaste={(event) => pasteMatrix(event, "c", dimensions.outputs, dimensions.states)} />
-      <MatrixGrid name="d" label="D · direct input to output" value={draft.parameters.d as number[][]} issues={issues} onChange={updateMatrixCell} onPaste={(event) => pasteMatrix(event, "d", dimensions.outputs, dimensions.inputs)} />
+      {([
+        ["a", "A · state dynamics"],
+        ["b", "B · input to state"],
+        ["c", "C · state to output"],
+        ["d", "D · direct input to output"],
+      ] as const).map(([name, label]) => (
+        <MatrixGrid key={name} name={name} label={label} value={matrixOf(draft.parameters[name])}
+          cellIssue={cellIssue} onChange={updateMatrixCell}
+          onPaste={(event) => pasteMatrix(event, name)} />
+      ))}
       <div style={MATRIX_CARD}>
         <strong style={{ fontSize: 11.5 }}>Initial state</strong>
         <div style={{ overflowX: "auto", paddingBottom: 2 }}>
           <div style={{ display: "grid", gridTemplateColumns: `repeat(${dimensions.states}, minmax(58px, 1fr))`, gap: 5, minWidth: dimensions.states * 62 }}>
             {draft.initialState.map((value, column) => {
-              const issue = issues.find((candidate) => candidate.matrix === "initial_state" && candidate.column === column);
-              return <label key={column} style={FIELD}><span style={INDEX}>x{column + 1}</span><input type="number" step="any" data-plant-initial-state-cell={column} value={Number.isFinite(value) ? value : ""} aria-invalid={Boolean(issue)} onChange={(event) => { const next = [...draft.initialState]; next[column] = event.target.value.trim() ? Number(event.target.value) : Number.NaN; commit(draft.parameters, next); }} style={INPUT} />{issue && <span data-plant-state-space-error style={ERROR}>{issue.message}</span>}</label>;
+              const issue = cellIssue("initial_state", 0, column);
+              return <label key={column} style={FIELD}><span style={INDEX}>x{column + 1}</span><input type="number" step="any" data-plant-initial-state-cell={column} value={Number.isFinite(value) ? value : ""} aria-invalid={Boolean(issue)} onChange={(event) => { const next = [...draft.initialState]; next[column] = typedNumber(event.target.value); write(draft.parameters, next); }} style={INPUT} />{issue && <span data-plant-state-space-error style={ERROR}>{issue}</span>}</label>;
             })}
           </div>
         </div>
+        {draft.initialState.length === 0 && cellIssue("initial_state", 0, 0) &&
+          <span data-plant-state-space-error style={ERROR}>{cellIssue("initial_state", 0, 0)}</span>}
       </div>
     </div>
   );
 }
 
-function MatrixGrid({ name, label, value, issues, onChange, onPaste }: {
+function matrixOf(value: unknown): number[][] {
+  return Array.isArray(value) ? value.map((row) => (Array.isArray(row) ? row as number[] : [])) : [];
+}
+
+function MatrixGrid({ name, label, value, cellIssue, onChange, onPaste }: {
   name: MatrixName;
   label: string;
   value: number[][];
-  issues: ReturnType<typeof validateStateSpace>;
+  cellIssue: (matrix: string, row: number, column: number) => string | undefined;
   onChange: (name: MatrixName, row: number, column: number, value: number) => void;
   onPaste: (event: React.ClipboardEvent) => void;
 }) {
   const columns = value[0]?.length ?? 0;
+  // A matrix without cells shows its shape issue (reported at its first cell) here.
+  const shapeIssue = columns === 0 ? cellIssue(name, 0, 0) : undefined;
   return (
     <div style={MATRIX_CARD} onPaste={onPaste}>
       <strong style={{ fontSize: 11.5 }}>{label}</strong>
+      {shapeIssue && <span data-plant-state-space-error style={ERROR}>{shapeIssue}</span>}
       <div style={{ overflowX: "auto", paddingBottom: 2 }}>
         <div style={{ display: "grid", gridTemplateColumns: `28px repeat(${columns}, minmax(58px, 1fr))`, gap: 5, minWidth: 28 + columns * 62 }}>
           <span />
@@ -151,8 +189,8 @@ function MatrixGrid({ name, label, value, issues, onChange, onPaste }: {
           {value.flatMap((row, rowIndex) => [
             <span key={`r${rowIndex}`} style={INDEX}>r{rowIndex + 1}</span>,
             ...row.map((cell, columnIndex) => {
-              const issue = issues.find((candidate) => candidate.matrix === name && candidate.row === rowIndex && candidate.column === columnIndex);
-              return <label key={`${rowIndex}:${columnIndex}`} style={FIELD}><input type="number" step="any" data-plant-matrix-cell={`${name}:${rowIndex}:${columnIndex}`} aria-label={`${name.toUpperCase()} row ${rowIndex + 1} column ${columnIndex + 1}`} value={Number.isFinite(cell) ? cell : ""} aria-invalid={Boolean(issue)} onChange={(event) => onChange(name, rowIndex, columnIndex, event.target.value.trim() ? Number(event.target.value) : Number.NaN)} style={INPUT} />{issue && <span data-plant-state-space-error style={ERROR}>{issue.message}</span>}</label>;
+              const message = cellIssue(name, rowIndex, columnIndex);
+              return <label key={`${rowIndex}:${columnIndex}`} style={FIELD}><input type="number" step="any" data-plant-matrix-cell={`${name}:${rowIndex}:${columnIndex}`} aria-label={`${name.toUpperCase()} row ${rowIndex + 1} column ${columnIndex + 1}`} value={Number.isFinite(cell) ? cell : ""} aria-invalid={Boolean(message)} onChange={(event) => onChange(name, rowIndex, columnIndex, typedNumber(event.target.value))} style={INPUT} />{message && <span data-plant-state-space-error style={ERROR}>{message}</span>}</label>;
             }),
           ])}
         </div>

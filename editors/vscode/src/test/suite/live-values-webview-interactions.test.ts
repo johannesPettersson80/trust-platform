@@ -31,6 +31,52 @@ function extensionRoot(): string {
   return path.resolve(__dirname, "..", "..", "..");
 }
 
+/** One row state's operations as the language server answers them (run_targets/live_values.rs, `rows`). */
+function operations(
+  write: boolean,
+  force: boolean,
+  release: boolean,
+  reasons: { write?: string; force?: string; release?: string } = {},
+): Record<string, unknown> {
+  return {
+    write,
+    force,
+    release,
+    writeReason: write ? null : (reasons.write ?? null),
+    forceReason: force ? null : (reasons.force ?? null),
+    releaseReason: release ? null : (reasons.release ?? null),
+  };
+}
+
+/** The Simulator's status as the language server answers it: its session may do everything, an input is written,
+ * forced and released, an output and a memory location are forced but never written (specification 25 §4.1, §4.2). */
+function simulatorSection(writable: boolean): Record<string, unknown> {
+  const sectionReason = writable ? undefined : "Program-driven — use Force to override";
+  const readOnly = "Read-only ADS tag. Enable writes when adding the tag, then restart the runtime.";
+  return {
+    live: operations(writable, true, false, { write: sectionReason }),
+    forced: operations(false, false, true, {
+      write: "Release force before writing this value.",
+      force: "Force is not available for this value.",
+    }),
+    readOnly: operations(false, false, false, { write: sectionReason ?? readOnly, force: readOnly }),
+  };
+}
+
+const SIMULATOR_STATUS = {
+  running: true,
+  runtimeMode: "simulate",
+  runtimeState: "running",
+  access: { role: "admin", allowWrite: true, allowForce: true, allowRelease: true, reason: null },
+  rows: {
+    inputs: simulatorSection(true),
+    outputs: simulatorSection(false),
+    memory: simulatorSection(false),
+    ads: simulatorSection(true),
+  },
+  forceRequiresArm: false,
+};
+
 function createHarness(): LiveValuesHarness {
   const dom = new JSDOM(
     `<!doctype html><html><body>
@@ -51,6 +97,10 @@ function createHarness(): LiveValuesHarness {
     "utf8",
   );
   dom.window.eval(source);
+  // The panel's first status, as the extension sends it when the panel opens.
+  dom.window.dispatchEvent(
+    new dom.window.MessageEvent("message", { data: { type: "runtimeStatus", payload: SIMULATOR_STATUS } }),
+  );
 
   return {
     window: dom.window,

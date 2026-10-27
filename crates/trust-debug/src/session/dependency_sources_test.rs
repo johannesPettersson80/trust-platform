@@ -1,8 +1,11 @@
 //! The simulator compiles a project's local package dependencies (`[dependencies]` in
 //! `trust-lsp.toml`), as `trust-runtime build` and the language server do, so a project that
 //! uses the Alarm or Control library from outside its own folder runs in VS Code's simulator.
+//! The program is built for this computer (specification 44 NX-16) with the toolchain of §4.6
+//! at `TRUST_TOOLCHAIN`.
 
 use super::{collect_sources, CompileSession, HarnessSourceFile, SourceOptions};
+use trust_runtime::harness::TestHarness;
 
 #[test]
 fn the_simulator_compiles_the_sources_of_the_project_dependencies() {
@@ -56,13 +59,12 @@ fn the_simulator_compiles_the_sources_of_the_project_dependencies() {
             && names.iter().any(|name| name == "control.st"),
         "the Alarm and Control libraries' sources: {names:?}"
     );
-    CompileSession::from_sources(
+    TestHarness::from_session(CompileSession::from_sources(
         sources
             .into_iter()
             .map(|(path, text)| HarnessSourceFile::with_path(path, text))
             .collect(),
-    )
-    .build_runtime()
+    ))
     .expect("the program compiles with its dependencies");
     std::fs::remove_dir_all(project).ok();
 }

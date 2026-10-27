@@ -2,7 +2,6 @@
 
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::{SocketAddr, TcpStream};
-#[cfg(unix)]
 use std::path::PathBuf;
 
 use serde::Deserialize;
@@ -11,7 +10,14 @@ use serde_json::{json, Value};
 use crate::protocol::{
     AttachArguments, Breakpoint, BreakpointLocation, BreakpointLocationsResponseBody,
     EvaluateResponseBody, IoStateEntry, IoStateEventBody, Scope, Source, StackFrame, Variable,
+    VariablesArguments,
 };
+use trust_runtime::control::endpoint::{
+    control_token_from_env, resolve_control_target, ControlTarget, ControlTargetError,
+};
+use trust_runtime::control::ControlEndpoint;
+
+pub(in crate::adapter) mod writes;
 
 type RemoteResult<T> = std::result::Result<T, String>;
 
@@ -45,6 +51,9 @@ struct ControlResponse {
     result: Option<Value>,
     #[serde(default)]
     error: Option<String>,
+    /// The stable code of a refusal that has one (specification 11).
+    #[serde(default)]
+    error_code: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -53,6 +62,15 @@ pub struct RemoteStop {
     pub thread_id: Option<u32>,
     pub file_id: Option<u32>,
     pub breakpoint_generation: Option<u64>,
+}
+
+/// A logpoint's message that `debug.stops` returned (specification 11 §6.13.2).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RemoteLog {
+    pub text: String,
+    pub path: Option<String>,
+    pub line: Option<u32>,
+    pub column: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -78,6 +96,19 @@ impl RemoteSession {
         })
     }
 
+    /// Connects to a resolved target. Nothing listening at the endpoint file's endpoint or at the
+    /// platform default means that the runtime is not running (spec 11, section 6.8.0a).
+    fn connect_target(target: &ControlTarget) -> RemoteResult<Self> {
+        let endpoint = to_remote_endpoint(target.endpoint.clone());
+        let client =
+            ControlClient::open(endpoint.clone()).map_err(|error| target.connect_error(&error))?;
+        Ok(Self {
+            endpoint,
+            token: target.auth_token.clone(),
+            client,
+        })
+    }
+
     pub fn endpoint(&self) -> &RemoteEndpoint {
         &self.endpoint
     }
@@ -96,25 +127,38 @@ impl RemoteSession {
         Ok(RemoteDebugState { paused, last_stop })
     }
 
-    pub fn debug_stops(&mut self) -> RemoteResult<Vec<RemoteStop>> {
+    /// The stops and the logpoint messages since the last call (specification 11 §6.13.2,
+    /// §6.13.3).
+    pub fn debug_stops(&mut self) -> RemoteResult<(Vec<RemoteStop>, Vec<RemoteLog>)> {
         let payload = self.request("debug.stops", None)?;
         let stops = payload
             .get("stops")
             .and_then(|value| value.as_array())
             .map(|stops| stops.iter().filter_map(parse_stop).collect())
             .unwrap_or_default();
-        Ok(stops)
+        let logs = payload
+            .get("logs")
+            .and_then(|value| value.as_array())
+            .map(|logs| logs.iter().filter_map(parse_log).collect())
+            .unwrap_or_default();
+        Ok((stops, logs))
     }
 
+    /// `breakpoints.set` of the zero-based `lines` of `source`, with each line's `options` when
+    /// any line has some (specification 11 §6.13.2).
     pub fn set_breakpoints(
         &mut self,
         source: &str,
         lines: Vec<u32>,
+        options: Option<Vec<Value>>,
     ) -> RemoteResult<(Vec<Breakpoint>, Option<u32>, Option<u64>)> {
-        let params = json!({
-            "source": source,
+        let mut params = json!({
+            "source": resolved_source(source),
             "lines": lines,
         });
+        if let Some(options) = options {
+            params["options"] = Value::Array(options);
+        }
         let payload = self.request("breakpoints.set", Some(params))?;
         let resolved = payload
             .get("resolved")
@@ -155,7 +199,7 @@ impl RemoteSession {
 
     pub fn clear_breakpoints(&mut self, source: &str) -> RemoteResult<()> {
         let params = json!({
-            "source": source,
+            "source": resolved_source(source),
             "lines": [],
         });
         let _payload = self.request("breakpoints.clear", Some(params))?;
@@ -171,7 +215,7 @@ impl RemoteSession {
         end_column: Option<u32>,
     ) -> RemoteResult<BreakpointLocationsResponseBody> {
         let params = json!({
-            "source": source,
+            "source": resolved_source(source),
             "line": line,
             "column": column,
             "end_line": end_line,
@@ -220,11 +264,22 @@ impl RemoteSession {
         serde_json::from_value::<Vec<Scope>>(scopes).map_err(|err| err.to_string())
     }
 
-    pub fn variables(&mut self, variables_reference: u32) -> RemoteResult<Vec<Variable>> {
-        let payload = self.request(
-            "debug.variables",
-            Some(json!({ "variables_reference": variables_reference })),
-        )?;
+    /// The children of `args.variables_reference`. The client's `filter`, `start` and `count` go
+    /// to the runtime as they are, and an argument the client left out is left out: the runtime
+    /// cuts the page, and its entries carry their `indexedVariables` and `namedVariables`
+    /// (specification 13, "Variables / Evaluate").
+    pub fn variables(&mut self, args: &VariablesArguments) -> RemoteResult<Vec<Variable>> {
+        let mut params = json!({ "variables_reference": args.variables_reference });
+        if let Some(filter) = args.filter {
+            params["filter"] = json!(filter);
+        }
+        if let Some(start) = args.start {
+            params["start"] = json!(start);
+        }
+        if let Some(count) = args.count {
+            params["count"] = json!(count);
+        }
+        let payload = self.request("debug.variables", Some(params))?;
         let vars = payload
             .get("variables")
             .cloned()
@@ -232,17 +287,25 @@ impl RemoteSession {
         serde_json::from_value::<Vec<Variable>>(vars).map_err(|err| err.to_string())
     }
 
-    pub fn evaluate(
+    /// `debug.evaluate` of the compiled expression `expr`, version 1 (specification 11 §6.13.2).
+    pub fn evaluate_compiled(
         &mut self,
-        expression: &str,
+        expr: &[u8],
         frame_id: Option<u32>,
     ) -> RemoteResult<EvaluateResponseBody> {
-        let params = json!({
-            "expression": expression,
-            "frame_id": frame_id,
-        });
+        let mut params = compiled_expression(expr);
+        params["frame_id"] = json!(frame_id);
         let payload = self.request("debug.evaluate", Some(params))?;
-        serde_json::from_value::<EvaluateResponseBody>(payload).map_err(|err| err.to_string())
+        evaluate_body(payload)
+    }
+
+    /// `bytecode.reload` with the program `image`: the runtime changes its running program online
+    /// (specification 44 §12).
+    pub fn reload_program(&mut self, image: &[u8]) -> RemoteResult<()> {
+        use base64::Engine as _;
+        let params = json!({ "bytes": base64::engine::general_purpose::STANDARD.encode(image) });
+        let _ = self.request("bytecode.reload", Some(params))?;
+        Ok(())
     }
 
     pub fn pause(&mut self) -> RemoteResult<()> {
@@ -341,33 +404,45 @@ impl RemoteSession {
         })
     }
 
+    /// `io.write` of `value` at `address`, sent again while the runtime is busy
+    /// (`write_request`).
     pub fn io_write(&mut self, address: &str, value: &str) -> RemoteResult<()> {
         let params = json!({
             "address": address,
             "value": value,
         });
-        let _ = self.request("io.write", Some(params))?;
+        let _ = self.write_request("io.write", &params)?;
         Ok(())
     }
 
+    /// `io.force` of `value` at `address`, sent again while the runtime is busy
+    /// (`write_request`).
     pub fn io_force(&mut self, address: &str, value: &str) -> RemoteResult<()> {
         let params = json!({
             "address": address,
             "value": value,
         });
-        let _ = self.request("io.force", Some(params))?;
+        let _ = self.write_request("io.force", &params)?;
         Ok(())
     }
 
+    /// `io.unforce` of `address`, sent again while the runtime is busy
+    /// (`write_request`).
     pub fn io_unforce(&mut self, address: &str) -> RemoteResult<()> {
         let params = json!({
             "address": address,
         });
-        let _ = self.request("io.unforce", Some(params))?;
+        let _ = self.write_request("io.unforce", &params)?;
         Ok(())
     }
 
     fn request(&mut self, kind: &str, params: Option<Value>) -> RemoteResult<Value> {
+        let response = self.exchange(kind, params)?;
+        answer(response)
+    }
+
+    /// Sends the request `kind` with `params` and reads the runtime's response.
+    fn exchange(&mut self, kind: &str, params: Option<Value>) -> RemoteResult<ControlResponse> {
         let mut payload = json!({
             "id": self.client.next_id(),
             "type": kind,
@@ -376,35 +451,123 @@ impl RemoteSession {
         if let Some(token) = self.token.as_deref() {
             payload["auth"] = json!(token);
         }
-        let response = self.client.request(payload)?;
-        if !response.ok {
-            let message = response
-                .error
-                .unwrap_or_else(|| "request failed".to_string());
-            return Err(message);
-        }
-        Ok(response.result.unwrap_or_else(|| json!({})))
+        self.client.request(payload)
     }
 }
 
+/// The result of the runtime's `response`, or the text of its refusal.
+fn answer(response: ControlResponse) -> RemoteResult<Value> {
+    if !response.ok {
+        let message = response
+            .error
+            .unwrap_or_else(|| "request failed".to_string());
+        return Err(message);
+    }
+    Ok(response.result.unwrap_or_else(|| json!({})))
+}
+
+/// A compiled expression, version 1, as a control request carries it: `expr_version` and the base64
+/// of its bytes (specification 11 §6.13.2).
+pub fn compiled_expression(bytes: &[u8]) -> Value {
+    use base64::Engine as _;
+    json!({
+        "expr_version": 1,
+        "expr": base64::engine::general_purpose::STANDARD.encode(bytes),
+    })
+}
+
+/// A `debug.evaluate` answer as the control protocol carries it, in snake case (specification 11
+/// §6.13.2).
+#[derive(Debug, Deserialize)]
+struct EvaluateReply {
+    result: String,
+    #[serde(default, rename = "type")]
+    type_name: Option<String>,
+    #[serde(default)]
+    variables_reference: u32,
+}
+
+/// The DAP body of the `debug.evaluate` answer `payload`.
+fn evaluate_body(payload: Value) -> RemoteResult<EvaluateResponseBody> {
+    let reply = serde_json::from_value::<EvaluateReply>(payload).map_err(|err| err.to_string())?;
+    Ok(EvaluateResponseBody {
+        result: reply.result,
+        r#type: reply.type_name,
+        variables_reference: reply.variables_reference,
+        named_variables: None,
+        indexed_variables: None,
+    })
+}
+
+/// Attaches to a running runtime (spec 13 attach arguments; spec 11, sections 6.8.0a and 6.8.1).
+/// The explicit `endpoint` argument is used as it is. Without one, the project folder named by
+/// `runtimeRoot` resolves the endpoint: the endpoint file, then the configured endpoint, then the
+/// platform default. The token is the explicit `authToken`, else `TRUST_CTL_TOKEN`, else the
+/// project's token.
 pub fn attach_from_args(
     args: &AttachArguments,
 ) -> RemoteResult<(RemoteSession, Option<RemoteDebugState>)> {
-    let endpoint = args
+    attach_with_env_token(args, control_token_from_env())
+}
+
+/// [`attach_from_args`] with the `TRUST_CTL_TOKEN` value given, so that tests do not depend on the
+/// environment.
+pub(super) fn attach_with_env_token(
+    args: &AttachArguments,
+    env_token: Option<String>,
+) -> RemoteResult<(RemoteSession, Option<RemoteDebugState>)> {
+    let target = resolve_attach_target(args, env_token)?;
+    let mut session = RemoteSession::connect_target(&target)?;
+    let state = session.debug_state().ok();
+    let _ = session.debug_stops();
+    Ok((session, state))
+}
+
+/// The endpoint and token that an attach request names (spec 13).
+pub(super) fn resolve_attach_target(
+    args: &AttachArguments,
+    env_token: Option<String>,
+) -> RemoteResult<ControlTarget> {
+    let explicit = args
         .additional
         .get("endpoint")
         .and_then(|value| value.as_str())
-        .ok_or_else(|| "attach requires endpoint".to_string())?;
+        .map(RemoteEndpoint::parse)
+        .transpose()?
+        .map(to_control_endpoint);
+    let project = args
+        .additional
+        .get("runtimeRoot")
+        .and_then(|value| value.as_str())
+        .map(PathBuf::from);
     let token = args
         .additional
         .get("authToken")
         .and_then(|value| value.as_str())
-        .map(|value| value.to_string());
-    let endpoint = RemoteEndpoint::parse(endpoint)?;
-    let mut session = RemoteSession::connect(endpoint, token)?;
-    let state = session.debug_state().ok();
-    let _ = session.debug_stops();
-    Ok((session, state))
+        .map(str::to_string)
+        .or(env_token);
+    resolve_control_target(project.as_deref(), explicit, token.as_deref()).map_err(|error| {
+        match error {
+            ControlTargetError::NoTarget => "attach requires endpoint or runtimeRoot".to_string(),
+            other => other.to_string(),
+        }
+    })
+}
+
+fn to_control_endpoint(endpoint: RemoteEndpoint) -> ControlEndpoint {
+    match endpoint {
+        RemoteEndpoint::Tcp(addr) => ControlEndpoint::Tcp(addr),
+        #[cfg(unix)]
+        RemoteEndpoint::Unix(path) => ControlEndpoint::Unix(path),
+    }
+}
+
+fn to_remote_endpoint(endpoint: ControlEndpoint) -> RemoteEndpoint {
+    match endpoint {
+        ControlEndpoint::Tcp(addr) => RemoteEndpoint::Tcp(addr),
+        #[cfg(unix)]
+        ControlEndpoint::Unix(path) => RemoteEndpoint::Unix(path),
+    }
 }
 
 #[derive(Debug)]
@@ -415,14 +578,18 @@ struct ControlClient {
 
 impl ControlClient {
     fn connect(endpoint: RemoteEndpoint, _token: Option<String>) -> RemoteResult<Self> {
+        Self::open(endpoint).map_err(|err| err.to_string())
+    }
+
+    /// Opens the connection, keeping the operating-system error so that a caller can tell a
+    /// runtime that is not running from another failure.
+    fn open(endpoint: RemoteEndpoint) -> io::Result<Self> {
         let stream = match endpoint {
-            RemoteEndpoint::Tcp(addr) => {
-                ControlStream::Tcp(TcpStream::connect(addr).map_err(|err| err.to_string())?)
-            }
+            RemoteEndpoint::Tcp(addr) => ControlStream::Tcp(TcpStream::connect(addr)?),
             #[cfg(unix)]
-            RemoteEndpoint::Unix(path) => ControlStream::Unix(
-                std::os::unix::net::UnixStream::connect(path).map_err(|err| err.to_string())?,
-            ),
+            RemoteEndpoint::Unix(path) => {
+                ControlStream::Unix(std::os::unix::net::UnixStream::connect(path)?)
+            }
         };
         Ok(Self {
             seq: 1,
@@ -491,6 +658,24 @@ impl Write for ControlStream {
     }
 }
 
+fn parse_log(value: &Value) -> Option<RemoteLog> {
+    let number = |key: &str| {
+        value
+            .get(key)
+            .and_then(Value::as_u64)
+            .and_then(|number| u32::try_from(number).ok())
+    };
+    Some(RemoteLog {
+        text: value.get("text")?.as_str()?.to_string(),
+        path: value
+            .get("path")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        line: number("line"),
+        column: number("column"),
+    })
+}
+
 fn parse_stop(value: &Value) -> Option<RemoteStop> {
     let reason = value.get("reason")?.as_str()?.to_string();
     let thread_id = value
@@ -510,4 +695,60 @@ fn parse_stop(value: &Value) -> Option<RemoteStop> {
         file_id,
         breakpoint_generation,
     })
+}
+
+/// `source` as the runtime's build named it: through the symbolic links of this computer, as the
+/// build reads the project's files (`trust_runtime::runtime_sources`), so that a project opened
+/// through a link finds its sources (specification 13, "Breakpoint evaluation, source resolution,
+/// and hook contract"). A path that does not resolve is sent as given.
+/// The client's path of a file the runtime names by `path` (specification 13, "Stack Trace and
+/// Navigation"): a label, the path relative to the project root that a compiled program's file table
+/// holds, under `root`, the folder the program was built from; a path that is absolute already, or one
+/// with no root to resolve it against, stays as it is.
+pub(super) fn client_source_path(root: Option<&std::path::Path>, path: String) -> String {
+    let Some(root) = root.filter(|_| std::path::Path::new(&path).is_relative()) else {
+        return path;
+    };
+    let mut file = root.to_path_buf();
+    file.extend(path.split('/'));
+    file.to_string_lossy().into_owned()
+}
+
+fn resolved_source(source: &str) -> String {
+    trust_runtime::runtime_sources::canonicalize_lossy(std::path::Path::new(source))
+        .to_string_lossy()
+        .into_owned()
+}
+
+#[cfg(test)]
+mod client_source_path_tests {
+    use std::path::Path;
+
+    use super::client_source_path;
+
+    /// Specification 13, "Stack Trace and Navigation": a label, relative to the project root with `/`
+    /// separators, becomes the file under the root; an absolute path, and a label with no root to
+    /// resolve it against, stay as they are. Catches frames that keep the label, which the editor
+    /// cannot open, and paths that the adapter would move although the runtime named the file.
+    #[test]
+    fn a_label_resolves_under_the_project_root_and_a_path_stays() {
+        let root = std::env::temp_dir().join("project");
+        assert_eq!(
+            client_source_path(Some(&root), String::from("src/lib/Main.st")),
+            root.join("src")
+                .join("lib")
+                .join("Main.st")
+                .to_string_lossy()
+        );
+        let absolute = root
+            .join("src")
+            .join("Main.st")
+            .to_string_lossy()
+            .into_owned();
+        assert_eq!(client_source_path(Some(&root), absolute.clone()), absolute);
+        assert_eq!(
+            client_source_path(None::<&Path>, String::from("src/Main.st")),
+            "src/Main.st"
+        );
+    }
 }

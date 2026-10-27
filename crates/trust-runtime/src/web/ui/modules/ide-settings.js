@@ -26,7 +26,7 @@ const SETTINGS_CATEGORIES = [
     fields: [
       { key: "resource.name", label: "Resource Name", type: "text", default: "trust-runtime" },
       { key: "log.level", label: "Log Level", type: "select", options: ["error", "warn", "info", "debug", "trace"], default: "info" },
-      { key: "control.endpoint", label: "Control Endpoint", type: "text", default: "unix:///tmp/trust-runtime.sock" },
+      { key: "control.endpoint", label: "Control Endpoint", type: "text", default: "", hint: "Leave empty for the platform default: a socket in the project's .trust-runtime folder on Linux and macOS, a free loopback port on Windows." },
       { key: "control.mode", label: "Control Mode", type: "select", options: ["production", "debug"], default: "production" },
       { key: "control.debug_enabled", label: "Debug Enabled", type: "toggle", default: false },
     ],
@@ -447,10 +447,12 @@ const SETTINGS_IO_GLOBAL_KEYS = new Set([
 const SETTINGS_RUNTIME_BINDINGS = {
   "resource.name": { section: "resource", key: "name" },
   "log.level": { section: "runtime.log", key: "level" },
-  "control.endpoint": { section: "runtime.control", key: "endpoint" },
+  // Optional keys: an empty value removes the key instead of writing an empty string, which the
+  // runtime refuses. An empty endpoint leaves the platform default (spec 11 §6.8.0a).
+  "control.endpoint": { section: "runtime.control", key: "endpoint", removeWhenEmpty: true },
   "control.mode": { section: "runtime.control", key: "mode" },
   "control.debug_enabled": { section: "runtime.control", key: "debug_enabled" },
-  "control.auth_token": { section: "runtime.control", key: "auth_token" },
+  "control.auth_token": { section: "runtime.control", key: "auth_token", removeWhenEmpty: true },
   "resource.cycle_interval_ms": { section: "resource", key: "cycle_interval_ms" },
   "resource.tasks_json": { section: "resource", key: "tasks", format: "resource-task-rules-json" },
   "watchdog.enabled": { section: "runtime.watchdog", key: "enabled" },
@@ -480,7 +482,7 @@ const SETTINGS_RUNTIME_BINDINGS = {
   "mesh.role": { section: "runtime.mesh", key: "role" },
   "mesh.listen": { section: "runtime.mesh", key: "listen" },
   "mesh.tls": { section: "runtime.mesh", key: "tls" },
-  "mesh.auth_token": { section: "runtime.mesh", key: "auth_token" },
+  "mesh.auth_token": { section: "runtime.mesh", key: "auth_token", removeWhenEmpty: true },
   "mesh.connect_json": { section: "runtime.mesh", key: "connect", format: "string-array-json" },
   "mesh.publish_json": { section: "runtime.mesh", key: "publish", format: "string-array-json" },
   "mesh.subscribe_json": { section: "runtime.mesh", key: "subscribe", format: "string-map-json" },
@@ -1843,6 +1845,20 @@ function settingsTomlUpsert(text, section, key, formattedValue) {
   return `${lines.join(newline)}${newline}`;
 }
 
+// The runtime.toml text without one key, edited by the runtime in Rust; nothing is written here.
+async function settingsTomlRemoveKey(text, section, key) {
+  const result = await apiJson("/api/ide/runtime-toml/remove-key", {
+    method: "POST",
+    headers: apiHeaders(),
+    body: JSON.stringify({ text: String(text || ""), section, key }),
+    timeoutMs: 4000,
+  });
+  if (!result || typeof result.text !== "string") {
+    throw new Error("runtime.toml key removal returned no text");
+  }
+  return result.text;
+}
+
 function settingsIsConflictError(err) {
   const message = String(err?.message || err || "").toLowerCase();
   return message.includes("409") || message.includes("conflict") || message.includes("stale write");
@@ -2299,14 +2315,18 @@ async function settingsPersistRuntimeValue(key, value) {
       settingsState.runtimeSnapshotSource = snapshot.source;
     }
 
-    const formatted = settingsTomlEncodeBindingValue(binding, value)
-      ?? settingsFormatTomlValue(field, value);
-    const nextText = settingsTomlUpsert(
-      settingsState.runtimeConfigText,
-      binding.section,
-      binding.key,
-      formatted,
-    );
+    const removeKey = binding.removeWhenEmpty === true && String(value ?? "").trim() === "";
+    const nextText = removeKey
+      ? await settingsTomlRemoveKey(settingsState.runtimeConfigText, binding.section, binding.key)
+      : settingsTomlUpsert(
+        settingsState.runtimeConfigText,
+        binding.section,
+        binding.key,
+        settingsTomlEncodeBindingValue(binding, value) ?? settingsFormatTomlValue(field, value),
+      );
+    if (removeKey && nextText === settingsState.runtimeConfigText) {
+      return; // the key is already absent, so there is nothing to save
+    }
 
     try {
       const saved = await settingsWriteRuntimeConfigSnapshot(

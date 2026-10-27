@@ -3,10 +3,15 @@ use trust_runtime::harness::{CompileSession, SourceFile};
 use trust_runtime::io::IoAddress;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
-fn number(r: &Runtime, a: &str) -> f64 {
-    match r.io().read(&IoAddress::parse(a).unwrap()).unwrap() {
+use trust_runtime::CompiledRuntime;
+
+mod control_heater_support;
+use control_heater_support::{compile, LessonRuntime};
+
+fn number(r: &CompiledRuntime, a: &str) -> f64 {
+    match r.read_io(&IoAddress::parse(a).unwrap()).unwrap() {
         Value::LWord(b) => f64::from_bits(b),
+        Value::LReal(v) => v,
         v => panic!("{a}: {v:?}"),
     }
 }
@@ -24,9 +29,7 @@ fn cold_room_core_assessment_uses_eight_second_dwell_and_only_the_declared_door_
             );
         let session =
             CompileSession::from_sources(vec![SourceFile::with_path("src/Main.st", source)]);
-        let mut r = session.build_runtime().unwrap();
-        r.apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)
-            .unwrap();
+        let mut r = compile(session);
         let debug = r.enable_debug();
         let mut sim =
             SimulationController::new(SimulationConfig::load(p.join("simulation.toml")).unwrap());

@@ -51,6 +51,7 @@ fn restoring_a_control_pid_found_in_auto_returns_it_to_auto_with_the_noise_allow
                 ("Main.PreviousError".to_owned(), 0.0),
             ]),
             tolerance,
+            entry_error_gain: None,
             tracking: TransferTracking::ParallelPid(tracking),
         })
     })
@@ -88,6 +89,7 @@ fn a_proportional_loop_found_in_auto_returns_to_auto_with_its_proportional_track
         Some(AutoReentry {
             values: BTreeMap::new(),
             tolerance: 0.04,
+            entry_error_gain: None,
             tracking: TransferTracking::Proportional(
                 proportional_tracking(&loop_definition, &binding, false).ok()?,
             ),

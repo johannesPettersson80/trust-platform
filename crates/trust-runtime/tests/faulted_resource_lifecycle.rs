@@ -4,6 +4,8 @@
 //! A halting fault leaves the resource thread alive in `Faulted`. The thread executes no task and
 //! commits no outputs, serves reads and configuration updates, and recovers only through a restart
 //! or an online change. A stop request ends it, still `Faulted`.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
@@ -13,7 +15,8 @@ use std::time::{Duration as WallDuration, Instant};
 use indexmap::IndexMap;
 use smol_str::SmolStr;
 use trust_runtime::error::RuntimeError;
-use trust_runtime::harness::{bytecode_bytes_from_source, TestHarness};
+use trust_runtime::harness::{SourceFile, TestHarness};
+use trust_runtime::native::{build, Options, Target, Toolchain};
 use trust_runtime::retain::RetainStore;
 use trust_runtime::scheduler::{
     ResourceCommand, ResourceControl, ResourceHandle, ResourceRunner, ResourceState, StdClock,
@@ -35,6 +38,28 @@ END_VAR
 
 PROGRAM Main
     cycles := cycles + DINT#1;
+    quotient := DINT#100 / divisor;
+END_PROGRAM
+"#;
+
+/// The fixed program an online change gives a faulted resource: the same globals, and a body that
+/// handles the divisor 0 that faulted the running program. An online change keeps every value
+/// (specification 11 §6.7.1, decision OC-1), the divisor 0 included, so the new code must handle it.
+const GUARDED_PROGRAM: &str = r#"
+VAR_GLOBAL RETAIN
+    retained_value : DINT := DINT#0;
+END_VAR
+VAR_GLOBAL
+    divisor : DINT := DINT#1;
+    cycles : DINT := DINT#0;
+    quotient : DINT := DINT#0;
+END_VAR
+
+PROGRAM Main
+    cycles := cycles + DINT#1;
+    IF divisor = DINT#0 THEN
+        divisor := DINT#1;
+    END_IF;
     quotient := DINT#100 / divisor;
 END_PROGRAM
 "#;
@@ -72,10 +97,33 @@ fn global(control: &ResourceControl<StdClock>, name: &str) -> Value {
         .expect("command channel open");
     let snapshot = rx.recv_timeout(WAIT).expect("snapshot reply");
     snapshot
-        .storage
-        .get_global(name)
-        .cloned()
+        .compiled
+        .as_ref()
+        .and_then(|state| state.value(name))
         .unwrap_or_else(|| panic!("global {name} exists"))
+}
+
+/// The program image of `source` for this computer.
+fn image(source: &str) -> Vec<u8> {
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let work = std::env::temp_dir().join(format!(
+        "trust-faulted-lifecycle-{}-{:?}",
+        std::process::id(),
+        thread::current().id()
+    ));
+    let built = build(
+        &[SourceFile::new(source)],
+        &Options {
+            target: Target::this_cpu().expect("a computer target"),
+            hooks: true,
+        },
+        &toolchain,
+        &work,
+    )
+    .expect("build replacement image");
+    let _ = std::fs::remove_dir_all(&work);
+    built.image
 }
 
 fn inject_divide_by_zero(control: &ResourceControl<StdClock>, retained_value: Option<i32>) {
@@ -202,7 +250,8 @@ fn failing_restart_stays_faulted_with_the_new_error_until_a_restart_succeeds() {
     let mut harness = TestHarness::from_source(DIVIDE_PROGRAM).expect("fault fixture compiles");
     harness
         .runtime_mut()
-        .set_retain_store(Some(Box::new(UnreadableRetainStore)), None);
+        .set_retain_store(Some(Box::new(UnreadableRetainStore)), None)
+        .expect("the retain store is set; it is read at the next warm restart");
     let signal: RestartSignal = Arc::new(Mutex::new(None));
     let runner = ResourceRunner::new(
         harness.into_runtime(),
@@ -241,7 +290,8 @@ fn online_change_recovers_a_faulted_resource() {
     let control = handle.control();
     fault_running_resource(&handle, &control, None);
 
-    let bytes = bytecode_bytes_from_source(DIVIDE_PROGRAM).expect("build replacement bytecode");
+    // The replacement keeps the divisor 0 that faulted the program, and handles it.
+    let bytes = image(GUARDED_PROGRAM);
     let (reply_tx, reply_rx) = mpsc::channel();
     control
         .send_command(ResourceCommand::ReloadBytecode {
@@ -259,12 +309,20 @@ fn online_change_recovers_a_faulted_resource() {
         handle.state() == ResourceState::Running
     });
     assert_eq!(handle.last_error(), None);
-    assert_eq!(global(&control, "divisor"), Value::DInt(1));
+    // The first scan of the new program repairs the divisor it kept, and the resource runs on.
+    wait_until("the new program handles the kept divisor", || {
+        matches!(global(&control, "divisor"), Value::DInt(1))
+    });
+    assert_eq!(handle.state(), ResourceState::Running);
     stop_and_join(handle);
 }
 
 #[test]
-fn stop_while_faulted_ends_the_thread_and_keeps_the_faulted_state() {
+fn an_exit_while_faulted_stops_the_resource_and_keeps_the_fault() {
+    // Specification 11 section 6.6 and 34 STATE-08: an exit request stops a faulted resource as
+    // `shutdown` does and ends the thread; the resource ends Stopped with the root fault kept, so
+    // the process exits with status 1. Wrong behaviour: the exit hangs in the faulted wait, or it
+    // drops the fault, which would give a service manager a clean exit status.
     let (mut handle, _signal) = spawn(DIVIDE_PROGRAM);
     let control = handle.control();
     fault_running_resource(&handle, &control, None);
@@ -284,7 +342,7 @@ fn stop_while_faulted_ends_the_thread_and_keeps_the_faulted_state() {
         .expect("joiner thread")
         .expect("resource thread ends without panicking");
 
-    assert_eq!(control.state(), ResourceState::Faulted);
+    assert_eq!(control.state(), ResourceState::Stopped);
     assert_eq!(control.last_error(), Some(RuntimeError::DivisionByZero));
 }
 

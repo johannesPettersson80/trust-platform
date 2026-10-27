@@ -10,14 +10,16 @@ A PLC project folder typically contains:
 ```
 runtime.toml
 io.toml
-program.stbc
+program.tpi
+deployment-record.bin
 trust-lsp.toml
 src/
 ```
 
 - `runtime.toml`: runtime configuration (tasks, control, web, watchdog, retain).
 - `io.toml`: I/O driver config and safe-state outputs.
-- `program.stbc`: compiled bytecode.
+- `program.tpi`: the program image, the project compiled for this computer's CPU.
+- `deployment-record.bin`: the deployment record that names the image and the configuration.
 - `trust-lsp.toml`: optional project config for include paths, package dependencies, vendor profile, and runtime-assisted editor features.
 - `src/`: project-owned Structured Text sources.
 
@@ -83,17 +85,25 @@ Apply/restart behavior:
 
 ## Build Flow
 
-Compile sources into bytecode:
+Compile the sources into the program image `program.tpi` (the first build installs the compiler
+toolchain when none is installed):
 ```
 trust-runtime build --project <project-folder>
 ```
 
-Validate a project folder (config + bytecode):
+For a device, `--target esp32c6` or `--target stm32u5a9` writes the device's image into the
+project's `build/` folder instead.
+
+Validate a project folder (config + program image):
 ```
 trust-runtime validate --project <project-folder>
 ```
 
 ### Host-Specific Performance Builds
+
+These builds tune the `trust-runtime` binary itself. The PLC program runs as the compiled code of
+its program image, which `trust-runtime build` compiles with fixed flags; these settings do not
+change it.
 
 Use the portable release build when the binary needs to run across different CPU families or when you are preparing a shared/distributed artifact:
 

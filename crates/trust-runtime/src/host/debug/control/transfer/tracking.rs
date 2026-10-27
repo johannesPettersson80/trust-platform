@@ -96,25 +96,23 @@ pub(super) fn accepts_live_measurement(policy: &Tracking, symbol: &str) -> bool 
                 .any(|measurement| measurement == symbol))
 }
 
+/// The applied actuator feedback `member`, read from `program`: it must reach the program through an
+/// input binding among the program's bindings `bound`, and lie inside its reviewed range.
 pub(super) fn fresh_applied_feedback(
     member: &NumberMember,
-    storage: &VariableStorage,
-    io_bindings: &[IoBinding],
+    program: &dyn ProgramRead,
+    bound: &[(Place, IoAddress)],
 ) -> Result<f64, String> {
-    let reference = parameters::resolve_path(storage, &member.symbol)?.reference;
-    let mapped = io_bindings.iter().any(|binding| {
-        binding.address.area == IoArea::Input
-            && match &binding.target {
-                IoTarget::Name(name) => name.eq_ignore_ascii_case(&member.symbol),
-                IoTarget::Reference(value) => value == &reference,
-            }
-    });
+    let at = parameters::resolve_path(program, &member.symbol)?.at;
+    let mapped = bindings_at(bound, &at)
+        .into_iter()
+        .any(|index| bound[index].1.area == IoArea::Input);
     if !mapped {
         return Err(
             "applied actuator feedback must be acquired through a declared input binding".into(),
         );
     }
-    let value = number(storage, member)?;
+    let value = number(program, member)?;
     if value < member.minimum || value > member.maximum {
         return Err(format!(
             "applied actuator feedback {} = {value} is outside its reviewed range [{}, {}]",
@@ -124,26 +122,27 @@ pub(super) fn fresh_applied_feedback(
     Ok(value)
 }
 
+/// The value an output is held at while a transfer starts, read from `program` and, for an output
+/// bound among the program's bindings `bound`, from the last committed I/O `snapshot`.
 pub(super) fn held_output(
     output: &NumberMember,
-    storage: &VariableStorage,
-    io_bindings: &[IoBinding],
+    program: &dyn ProgramRead,
+    bound: &[(Place, IoAddress)],
     snapshot: Option<&crate::io::IoSnapshot>,
 ) -> Result<f64, String> {
-    let reference = parameters::resolve_path(storage, &output.symbol)?.reference;
-    let mapped = io_bindings.iter().find(|entry| match &entry.target {
-        IoTarget::Name(name) => name.eq_ignore_ascii_case(&output.symbol),
-        IoTarget::Reference(value) => value == &reference,
-    });
+    let at = parameters::resolve_path(program, &output.symbol)?.at;
+    let mapped = bindings_at(bound, &at)
+        .first()
+        .map(|&index| &bound[index].1);
     // An output the program hands on in its own code, such as a PID's output that drives a heater
     // block owning the I/O, holds what the last scan left at the task boundary: the value that
     // scan drove the plant with (specification 35, §17.1). A mapped one holds what the last I/O
     // commit sent.
     let Some(mapped) = mapped else {
-        return reviewed_image(output, number(storage, output)?);
+        return reviewed_image(output, number(program, output)?);
     };
     let value = snapshot
-        .and_then(|snapshot| super::super::recording::snapshot_value(snapshot, &mapped.address))
+        .and_then(|snapshot| super::super::recording::snapshot_value(snapshot, mapped))
         .ok_or("committed output snapshot unavailable")?;
     let number = match (output.iec_type.as_str(), value) {
         ("REAL", Value::Real(value)) => f64::from(*value),
@@ -175,7 +174,7 @@ pub(super) fn calculate(
     binding: &Binding,
     policy: &Tracking,
     requested: &BTreeMap<String, f64>,
-    storage: &VariableStorage,
+    program: &dyn ProgramRead,
     outputs: &BTreeMap<String, f64>,
     manual: bool,
 ) -> Result<BTreeMap<String, f64>, String> {
@@ -188,7 +187,7 @@ pub(super) fn calculate(
             // An Auto entry sets each reference to its measurement, so that its first output is bumpless (E6.4, A6.4).
             let align_references = policy.align_output == Some(true);
             if align_references {
-                let pv = guard_number(binding, storage, &policy.process_variable)?;
+                let pv = guard_number(binding, program, &policy.process_variable)?;
                 values.insert(
                     policy.reference_symbol.clone(),
                     rounded(state(binding, &policy.reference_symbol)?, pv)?,
@@ -200,7 +199,7 @@ pub(super) fn calculate(
             );
             for channel in &policy.additional_references {
                 if align_references {
-                    let pv = guard_number(binding, storage, &channel.process_variable)?;
+                    let pv = guard_number(binding, program, &channel.process_variable)?;
                     values.insert(
                         channel.reference_symbol.clone(),
                         rounded(state(binding, &channel.reference_symbol)?, pv)?,
@@ -228,20 +227,20 @@ pub(super) fn calculate(
                         .as_ref()
                         .and_then(|formulas| formulas.get(symbol))
                     {
-                        formulas::calculate(binding, formula, storage, outputs)?
+                        formulas::calculate(binding, formula, program, outputs)?
                     } else {
                         *initial
                     }
                 } else {
-                    number(storage, member)?
+                    number(program, member)?
                 };
                 values.insert(symbol.clone(), rounded(member, value)?);
             }
             Ok(values)
         }
-        "proportional" => calculate_proportional(binding, policy, requested, storage, output),
+        "proportional" => calculate_proportional(binding, policy, requested, program, output),
         "parallel-pid-v1" => {
-            calculate_parallel_pid(binding, policy, requested, storage, output, manual)
+            calculate_parallel_pid(binding, policy, requested, program, output, manual)
         }
         _ => Err("unsupported controller-state tracking kind".into()),
     }
@@ -374,7 +373,7 @@ fn calculate_proportional(
     binding: &Binding,
     policy: &Tracking,
     requested: &BTreeMap<String, f64>,
-    storage: &VariableStorage,
+    program: &dyn ProgramRead,
     output: f64,
 ) -> Result<BTreeMap<String, f64>, String> {
     let mut values = requested.clone();
@@ -401,11 +400,11 @@ fn calculate_proportional(
             .iter()
             .find(|member| member.symbol == policy.process_variable)
             .ok_or("tracking PV unavailable")?;
-        let gain = number(storage, gain)?;
+        let gain = number(program, gain)?;
         if gain == 0.0 {
             return Err("a zero P gain cannot align the reference".into());
         }
-        let reference = number(storage, pv)? + output / gain;
+        let reference = number(program, pv)? + output / gain;
         values.insert(
             policy.reference_symbol.clone(),
             rounded(member(&policy.reference_symbol)?, reference)?,
@@ -418,7 +417,7 @@ fn calculate_parallel_pid(
     binding: &Binding,
     policy: &Tracking,
     requested: &BTreeMap<String, f64>,
-    storage: &VariableStorage,
+    program: &dyn ProgramRead,
     output: f64,
     manual: bool,
 ) -> Result<BTreeMap<String, f64>, String> {
@@ -467,10 +466,10 @@ fn calculate_parallel_pid(
     let reference = *requested
         .get(&policy.reference_symbol)
         .ok_or("tracking PID reference value is missing")?;
-    let proportional_gain = guard_number(binding, storage, proportional_gain_symbol)?;
-    let integral_gain = guard_number(binding, storage, integral_gain_symbol)?;
-    let _derivative_gain = guard_number(binding, storage, derivative_gain_symbol)?;
-    let process_variable = guard_number(binding, storage, &policy.process_variable)?;
+    let proportional_gain = guard_number(binding, program, proportional_gain_symbol)?;
+    let integral_gain = guard_number(binding, program, integral_gain_symbol)?;
+    let _derivative_gain = guard_number(binding, program, derivative_gain_symbol)?;
+    let process_variable = guard_number(binding, program, &policy.process_variable)?;
     let proportional = proportional_gain * (proportional_weight * reference - process_variable);
     let integral =
         output - proportional - integral_gain * (reference - process_variable) * cycle_seconds;
@@ -495,7 +494,7 @@ pub(super) fn expected_state_after_scan(
     binding: &Binding,
     policy: &Tracking,
     applied: &BTreeMap<String, f64>,
-    storage: &VariableStorage,
+    program: &dyn ProgramRead,
     member: &NumberMember,
     manual: bool,
 ) -> Result<f64, String> {
@@ -513,12 +512,12 @@ pub(super) fn expected_state_after_scan(
         .derivative_state_symbol
         .as_deref()
         .ok_or("tracking PID derivative state is missing")?;
-    let reference = number(storage, state(binding, &policy.reference_symbol)?)?;
-    let process_variable = guard_number(binding, storage, &policy.process_variable)?;
+    let reference = number(program, state(binding, &policy.reference_symbol)?)?;
+    let process_variable = guard_number(binding, program, &policy.process_variable)?;
     if member.symbol == integral_state {
         let integral_gain = guard_number(
             binding,
-            storage,
+            program,
             policy
                 .integral_gain_symbol
                 .as_deref()
@@ -541,6 +540,22 @@ pub(super) fn expected_state_after_scan(
     Ok(initial)
 }
 
+/// The error the controller enters Auto with, `|r − y|` (A6.4, E6.9): the reference as the transfer
+/// writes it, `applied` holding every state it writes, less the process variable of this scan.
+pub(super) fn entry_error(
+    binding: &Binding,
+    policy: &Tracking,
+    applied: &BTreeMap<String, f64>,
+    program: &dyn ProgramRead,
+) -> Result<f64, String> {
+    let reference = match applied.get(&policy.reference_symbol) {
+        Some(reference) => *reference,
+        None => number(program, state(binding, &policy.reference_symbol)?)?,
+    };
+    let process_variable = guard_number(binding, program, &policy.process_variable)?;
+    Ok((reference - process_variable).abs())
+}
+
 fn state<'a>(binding: &'a Binding, symbol: &str) -> Result<&'a NumberMember, String> {
     binding
         .states
@@ -549,13 +564,13 @@ fn state<'a>(binding: &'a Binding, symbol: &str) -> Result<&'a NumberMember, Str
         .ok_or("tracking state unavailable".into())
 }
 
-fn guard_number(binding: &Binding, storage: &VariableStorage, symbol: &str) -> Result<f64, String> {
+fn guard_number(binding: &Binding, program: &dyn ProgramRead, symbol: &str) -> Result<f64, String> {
     let member = binding
         .guards
         .iter()
         .find(|member| member.symbol == symbol)
         .ok_or("tracking guard unavailable")?;
-    number(storage, member)
+    number(program, member)
 }
 
 fn rounded(member: &NumberMember, value: f64) -> Result<f64, String> {

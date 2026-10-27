@@ -72,7 +72,7 @@ enum Cancelling {
 }
 
 /// Reads the loop's journal and, when it names the operation to cancel, starts its cancellation on
-/// the runtime of `--endpoint` or of the project's `runtime.toml`, as an operation of `studio` with
+/// the runtime of `--endpoint` or the project's own runtime, as an operation of `studio` with
 /// the studio's own list of recordings to release (D7).
 fn start(
     args: &CancelArgs,

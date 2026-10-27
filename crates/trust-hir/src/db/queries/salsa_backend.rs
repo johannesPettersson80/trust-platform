@@ -208,7 +208,6 @@ pub(super) fn project_inputs(state: &SalsaState) -> ProjectInputs {
 pub(super) struct SourceInput {
     #[returns(ref)]
     pub(super) text: String,
-    pub(super) temporal_storage: TemporalStorage,
 }
 
 #[salsa::input]
@@ -296,9 +295,7 @@ pub(super) fn file_symbols_query(
         project_files: files.as_ref(),
         catalog: catalog.as_ref(),
     };
-    let (symbols, _) = SymbolCollector::with_project_types(&provider)
-        .with_temporal_storage(*input.temporal_storage(db))
-        .collect(&root);
+    let (symbols, _) = SymbolCollector::with_project_types(&provider).collect(&root);
     Arc::new(symbols)
 }
 
@@ -321,7 +318,6 @@ pub(super) fn project_symbol_tables_query(
         cancellation_checkpoint(db);
         let root = SyntaxNode::new_root(parse_green(db, input).clone());
         let (symbols, _) = SymbolCollector::with_project_types(&provider)
-            .with_temporal_storage(*input.temporal_storage(db))
             .collect_with_project_constants(&root, &constants);
         project_tables.insert(file_id, Arc::new(symbols));
     }
@@ -401,7 +397,6 @@ pub(super) fn analyze_query(
     let constants = project_constant_expressions(db, project_files);
     let (mut symbols, mut diagnostics, pending_types, deferred_initializers) =
         SymbolCollector::with_project_types(&provider)
-            .with_temporal_storage(*target_input.temporal_storage(db))
             .collect_for_project_with_constants(&root, &constants);
     // The merge is a deterministic function of the local table and the other files'
     // tables. When this file's table equals the one merged_project_symbols_query started
@@ -422,7 +417,6 @@ pub(super) fn analyze_query(
             &root,
             &config_inits,
             deferred_initializers,
-            *target_input.temporal_storage(db),
         );
     symbols = checked_symbols;
     diagnostics.extend(access_config_diagnostics);
@@ -508,7 +502,8 @@ pub(super) fn analyze_query(
     Arc::new(FileAnalysis {
         symbols: Arc::new(symbols),
         diagnostics: Arc::new(diagnostics),
-        expression_types: Arc::new(expression_types),
+        expression_types: Arc::new(expression_types.types),
+        resolved_symbols: Arc::new(expression_types.symbols),
         declaration_catalog: Arc::new(declaration_catalog),
     })
 }
@@ -565,6 +560,7 @@ fn empty_analysis() -> Arc<FileAnalysis> {
         symbols: Arc::new(SymbolTable::default()),
         diagnostics: Arc::new(Vec::new()),
         expression_types: Arc::new(FxHashMap::default()),
+        resolved_symbols: Arc::new(FxHashMap::default()),
         declaration_catalog: Arc::new(DeclarationCatalog::default()),
     })
 }

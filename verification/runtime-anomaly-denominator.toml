@@ -166,6 +166,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_015194B2C0732782DE76"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-platform-esp32/tests/chip_file.rs"
+name = "the_instruction_set_of_the_chip_file_is_the_one_the_firmware_checks_at_boot"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_016A7FD66DC071E76D88"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/ads_cli_command.rs"
@@ -425,6 +434,15 @@ name = "writes_deref_target_without_eval_context"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_03FB20D6EDCED3298BDD"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "the_sources_name_their_documents_and_where_values_were_measured"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_040086F27F6121D463D9"
@@ -821,6 +839,15 @@ name = "uri_to_path_decodes_drive_letter"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_0719F34CFA3F057F2205"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-platform-stm32f4/tests/chip_file.rs"
+name = "the_f407_chip_table_has_the_identity_clock_and_memory_of_the_chip_file"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_073A7799860E865C0654"
@@ -1228,6 +1255,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_0A7218F1E31D2C654128"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-core/src/ports.rs"
+name = "instant_and_span_arithmetic_saturates_and_never_goes_negative"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_0A97A0F0172B859013CF"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-ads-server/src/listener.rs"
@@ -1352,6 +1388,15 @@ name = "pointer_to_wildcard_array_writes_through_correctly"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_0B876FCD91BE28C2EF91"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "an_overrunning_scan_follows_the_watchdog_action"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_0B8FF43D4A58EAAA3781"
@@ -1876,6 +1921,15 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_0FC115006F1F62CC79C3"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "a_pause_holds_the_scans_from_the_next_boundary_and_the_resume_reports_the_missed_activations"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_0FE21931EF5D71E9C8F4"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-debug/src/adapter/stop.rs"
@@ -1939,6 +1993,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_1055DB2D7E27A8360280"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-platform-esp32/tests/chip_file.rs"
+name = "the_c6_profile_has_the_identity_clock_and_partitions_of_the_chip_file"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_105F7B3C79DD106058B2"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_09/io_control.rs"
@@ -2000,6 +2063,15 @@ name = "security_test_allows_empty_alpn_list_when_tls_disabled"
 disposition = "reviewed_nonmapping"
 reason_code = "different_safety_domain"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_10FAE934AF432E8296A7"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-core/src/ports.rs"
+name = "a_time_value_becomes_a_span_only_when_it_is_not_negative"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_10FC0967AAC88DCD2303"
@@ -2236,6 +2308,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_12FF6AFBA9297BB2442B"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/timing_contract_tests.rs"
+name = "the_faulted_wait_takes_a_restart_at_its_next_poll_and_keeps_the_records"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_1303DC4F31325352DB04"
 discovery_source_kind = "rust_unit_test"
 path = "crates/verification-cases/src/lib.rs"
@@ -2306,6 +2387,15 @@ name = "plcopen_export_import_json_reports_include_compatibility_diagnostics"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_1451ECE15594305C05AB"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/catalog.rs"
+name = "two_files_of_one_name_are_refused"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_1466DAFE96EF828CB3AF"
@@ -3179,6 +3269,15 @@ name = "test_override_final_method_error"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_1BDAE0E0A7B21D549E00"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "ram_regions_are_distinct_below_4_gib_and_apart_from_the_flash"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_1BFF32209422803BD36C"
@@ -4207,15 +4306,6 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_45C7EDEC1165A02CE9CC"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime-core/src/vm/budget.rs"
-name = "work_charges_poll_at_stride_and_do_not_refund_a_failed_charge"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-10-11"
-
-[[reviews]]
 discovery_id = "DISC_251A2BD74865B4BDB6A6"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-hir/src/diagnostics.rs"
@@ -4315,6 +4405,15 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_263D68C091BACE3F44EA"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "a_stop_attempts_both_steps_and_faults_with_the_first_failure"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_26463DA494D8A83680CC"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/vm/call/tests/write_targets.rs"
@@ -4367,6 +4466,15 @@ name = "test_array_index_literal_out_of_bounds"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_266D6694D33B1B18EA04"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/catalog.rs"
+name = "the_catalog_holds_every_file_of_the_chips_directory"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_2687F2B4F5BD983D1FEC"
@@ -4828,6 +4936,15 @@ reason_code = "different_safety_domain"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_2A2C23A819CA4AAC7915"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-platform-stm32f4/tests/chip_file.rs"
+name = "the_f407_chip_table_has_the_ports_and_kept_pins_of_the_chip_file"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_2A4BDACD2DFE7087A51C"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/subrange_trace_cases.rs"
@@ -5107,6 +5224,33 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_2C493DAEC6EB62CB0C9E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "restarts_requested_together_coalesce_and_cold_keeps_precedence"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
+discovery_id = "DISC_2C4D6C1C0C31CCF8BB84"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "the_sectors_add_up_to_the_flash_below_4_gib"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
+discovery_id = "DISC_2C55A77E09D817F8042C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "fault_policy_restart_restarts_in_place_with_backoff_until_the_budget_is_spent"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_2C565AD9DB6A270EB008"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-debug/src/adapter/tests_part_01.rs"
@@ -5341,6 +5485,15 @@ reason_code = "different_safety_domain"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_2D9BC40F4BDC300236EE"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "each_interface_list_names_each_peripheral_once"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_2DA737B4BF7113D48C66"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/vm/call/tests/function_blocks.rs"
@@ -5485,6 +5638,15 @@ reason_code = "different_safety_domain"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_2ECEEA4E899FC0408406"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "an_stm32f4_device_id_has_the_twelve_bits_of_dev_id"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_2EEB083ACDA59C7173DC"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/openot_capstone.rs"
@@ -5611,6 +5773,15 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_30275025A2BA85CD36E5"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "both_real_files_are_accepted_and_survive_a_rewrite"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_304148B8830BC92C411B"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/bench/tests.rs"
@@ -5726,6 +5897,15 @@ name = "default_null_reference"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_313362C92D4B4492B831"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/catalog.rs"
+name = "both_files_record_what_was_measured_on_the_owners_chips"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_314498D9CCD74BBC02FE"
@@ -5980,6 +6160,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_334267F34E9FB6AB8A9B"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/runner_transcript_parity.rs"
+name = "the_single_thread_loop_answers_the_transcript_exactly_as_the_threaded_host"
+disposition = "reviewed_nonmapping"
+reason_code = "no_taxonomy_stimulus_or_response"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_33434D605346ED72DE26"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/onboarding/discover/local_fallback_tests.rs"
@@ -6095,6 +6284,15 @@ name = "simulation_time_advance_saturates_at_duration_limit"
 disposition = "mapped"
 mapping_id = "ANOM_MAP_TIMER_DURATION_OVERFLOW_SIM_CLOCK_001"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_340DF753A96CB8611B9A"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "the_rust_target_is_of_the_familys_architecture"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_3418DE949E799427C04E"
@@ -6718,6 +6916,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_3ACBD28903706CA3B871"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/catalog.rs"
+name = "a_component_names_the_chips_whose_firmware_holds_it"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_3ACEF1562B2872038FA3"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-ads-core/src/routing.rs"
@@ -6752,6 +6959,15 @@ name = "ads_status_control_request_returns_runtime_ads_status_schema"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_3B4495F8C361BBFC3D6D"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "restart_from_stopped_starts_with_the_empty_records_of_a_new_process"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_3B655BA3C32E90F046DE"
@@ -7330,6 +7546,15 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_40FD44DD00961461819C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "run_serves_until_a_port_fails_and_returns_the_failure"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_4107870DD0A2782B8BCA"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/ads_cli_command.rs"
@@ -7555,6 +7780,15 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_43193F794685EA94E2AD"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "texts_the_format_requires_are_not_empty"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_432185877835FBC0AC24"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_09/io_control.rs"
@@ -7634,6 +7868,15 @@ name = "interpreted_ref_field_reports_null_reference_base"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_43BF4410F592EB9D39D4"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "shutdown_while_faulted_keeps_the_fault_and_a_restart_starts_the_program_anew"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_43C5B1FEB74DB222685B"
@@ -7859,6 +8102,15 @@ name = "reload_transaction_trace_cases"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_45C7EDEC1165A02CE9CC"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-core/src/vm/budget.rs"
+name = "work_charges_poll_at_stride_and_do_not_refund_a_failed_charge"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-11"
 
 [[reviews]]
 discovery_id = "DISC_45CB6C9BAD8DCCF0A59F"
@@ -8671,6 +8923,15 @@ reason_code = "different_safety_domain"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_4E4661CD5D32E8A6335F"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "the_retained_values_a_restart_dropped_are_recorded_at_the_programs_time"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_4E4AC1E5F94C1FC77609"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_standard_functions.rs"
@@ -8716,6 +8977,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_4E8BB81C0D04886C90ED"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-platform-esp32/tests/chip_file.rs"
+name = "the_bench_module_flash_holds_the_whole_layout"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_4E8E4144D9AEFFEEE9C4"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs"
@@ -8732,6 +9002,15 @@ name = "bounded_function_result_truncates_at_receiving_assignment"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_4EBC1029CFEE7ACCC1E1"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/metrics/contract_tests.rs"
+name = "calls_whose_text_kind_name_is_the_same_share_one_entry"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_4EC2BCF75B5E61513924"
@@ -10075,6 +10354,15 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_5A51301EF00BE70089DF"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "no_memory_region_or_erase_unit_is_empty"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_5A83D1A380180FF9C29E"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/trust_harness_command.rs"
@@ -10145,6 +10433,15 @@ name = "test_missing_semicolon"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_5B092EAFDA23A42D3875"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-core/src/ports.rs"
+name = "wake_tokens_compare_by_their_counter_value"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_5B224949604858E91F2E"
@@ -10280,6 +10577,15 @@ name = "parse_settings_includes_simulation_fields"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_5BAE3BFF755DAFC6607D"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "a_source_path_names_a_key_of_the_file_outside_sources"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_5BB73AD55EC9E14E7E44"
@@ -10876,6 +11182,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_61148230E939CAF6E2B4"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "each_family_counts_its_pins_in_its_own_key"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_613C825C95E9BD7589DA"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/st_test_cli_command.rs"
@@ -11029,6 +11344,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_62E3068458D67C5B197D"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/events/contract_tests.rs"
+name = "wall_clock_readings_become_event_times_and_an_unset_clock_stays_unset"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_62EE1C62EF5E3188BDF8"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
@@ -11065,6 +11389,15 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_63685A0150D32D8CDCBA"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "requests_are_served_between_scans_without_running_a_scan"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_636CB8D8E6B5C60C383F"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/control/tests/authorization_trace.rs"
@@ -11081,6 +11414,15 @@ name = "sparkplug_profile_configures_namespace_topics_and_last_will"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_63C1EEAA8A83625FD3CB"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "an_unknown_key_is_refused_in_every_table"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_63C256CF98DBC46CDFD6"
@@ -12109,10 +12451,10 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_6D63E21F9D9B39D9AF6D"
+discovery_id = "DISC_F48BA48F6FB8942539AE"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/hot_reload.rs"
-name = "hot_reload_migrates_retain_and_resets_nonretain_and_instances"
+name = "hot_reload_keeps_retained_and_other_values_and_instances"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
@@ -12332,6 +12674,15 @@ name = "web_ide_project_open_endpoint_supports_no_bundle_startup"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_6F021E46F54AD6EA68CD"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "layout_regions_do_not_overlap_and_the_chip_starts_from_the_first"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_6F0D45350672CC2CBF21"
@@ -12710,6 +13061,15 @@ name = "raw_task_info_base_address_reads_full_task_info_block"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_7227A7AF7D4AC09DD35D"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "safe_halt_applies_the_safe_outputs_and_reports_their_failure_with_its_root"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_72551A20B1AE70779134"
@@ -13259,6 +13619,15 @@ name = "import_symbols_apply_acknowledged_writable_symbols_as_read_write"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_774A7A0E57C84FC7A579"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/link_contract_tests.rs"
+name = "a_busy_link_cannot_hold_back_a_due_scan"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_775E89618CD46526919D"
@@ -13936,6 +14305,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_7D2DC1666A5664E69FAD"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "ports_are_letters_a_to_k_with_1_to_16_pins_listed_once"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_7D2DD5D31B5A5FC44DBC"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/st_test_cli_command.rs"
@@ -14323,6 +14701,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_8100E35B1EFC778B3B2C"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "the_layout_has_the_regions_of_its_family_and_no_others"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_812ED0CC7B4EAB354F6E"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-lsp/src/state/mod.rs"
@@ -14429,6 +14816,15 @@ name = "test_cyclic_cross_file_type_import_reports_primary_diagnostic"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_8244981D99F1D3812578"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "a_stop_drops_the_requests_before_it_and_a_restart_after_it_starts_the_program"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_825048A5CCB4563DE83C"
@@ -15034,6 +15430,15 @@ reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_8846FC9E6434D9FE87DC"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "power_on_runs_the_program_and_scans_on_the_cycle_beat"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_886FA242D29116F3F256"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/debug_control.rs"
@@ -15086,6 +15491,15 @@ name = "apply_deploy_rejects_unknown_or_expired_signing_keys"
 disposition = "reviewed_nonmapping"
 reason_code = "different_safety_domain"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_88D24CA6F2013AB95316"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "a_paused_program_stops_like_a_running_one_and_a_failed_start_faults"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_88DB109C895639DD3D9D"
@@ -15844,6 +16258,24 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_9012B9250C81B5C230B2"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "the_firmware_clock_and_the_crystals_lie_within_the_chips_limits"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
+discovery_id = "DISC_9019B07A4D7B28D67C7D"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/catalog.rs"
+name = "the_component_words_are_the_closed_list_of_appendix_h3"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_9021DDAE534AEED37274"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/vm/call/tests/stdlib_binding.rs"
@@ -15941,6 +16373,15 @@ name = "semantic_kernel_cross_file_resolution_tracks_lsp_style_dependency_edits"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_911597A197C1097E069F"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "a_missing_key_a_wrong_type_or_a_word_outside_a_closed_list_is_refused"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_912A1D0AEA9E0C84B9A9"
@@ -16051,6 +16492,15 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_91D1D908921E5AF41EAD"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/link_contract_tests.rs"
+name = "requests_the_device_does_not_serve_answer_unsupported_until_the_platform_serves_them"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_91E6375542C2C252AB6B"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_standard_functions.rs"
@@ -16094,6 +16544,15 @@ name = "namespaced_extends_member_resolution_prefers_scoped_base_over_global"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_927D9278F566D9DD7D1A"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "a_clean_scan_renews_the_automatic_restart_budget"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_9280A9739478FD9C554E"
@@ -16562,6 +17021,15 @@ name = "test_adr_sizeof"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_97D9AB370203B37A3DCC"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/resource/operations/contract_tests.rs"
+name = "a_device_without_an_operating_system_takes_a_restart_while_stopped"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_97F01C37478B90D58DB0"
@@ -17095,6 +17563,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_9C50B10F9167DC0ADC5E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/link_contract_tests.rs"
+name = "frames_that_cannot_be_request_lines_get_invalid_request_without_an_audit_record"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_9C66247D74AB254260F4"
 discovery_source_kind = "rust_integration_test"
 path = "crates/verification-cases/tests/release_evidence_trace_cases.rs"
@@ -17201,6 +17678,15 @@ name = "test_var_config_duplicate_program_instance_name_is_ambiguous"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_9D814CD188A5173672BB"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "restart_while_running_restarts_in_place_at_the_next_boundary_and_keeps_a_pause"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_9D86737DA32D043858A7"
@@ -18103,6 +18589,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_A52CC919C30AE4825299"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/timing_contract_tests.rs"
+name = "a_full_command_queue_refuses_a_command_with_resource_busy_as_trust_runtime_does"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_A542BF00CD94824D5DB6"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/control/tests/core.rs"
@@ -18625,6 +19120,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_A8EB0CC35BB7E5C41BD9"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/dispatch/contract_tests.rs"
+name = "a_disabled_feature_event_has_no_time_while_the_wall_clock_is_not_set"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_A8ED715318640DA93A0E"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-lsp/src/handlers/tests/core_part_04.rs"
@@ -18668,6 +19172,15 @@ name = "parse_ads_add_route_password_stdin_command"
 disposition = "reviewed_nonmapping"
 reason_code = "different_safety_domain"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_A99160170E9B5D4481B9"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/dispatch/contract_tests.rs"
+name = "a_reply_longer_than_the_link_moves_is_replaced_by_an_error_and_never_cut"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_A99473E37DB519A2555B"
@@ -18805,6 +19318,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_AAD0CCFECCA381746326"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "a_scan_records_the_events_and_metrics_that_trust_runtime_records"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_AAD54BEEA40B87DE33E6"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/plcopen_migration.rs"
@@ -18839,6 +19361,15 @@ name = "wide_string_index_reads_and_writes_unicode_scalar_elements"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_AB0611B65A43AD0C7C07"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/metrics/contract_tests.rs"
+name = "restart_clears_every_record_and_measures_uptime_with_the_new_clock"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_AB15FD1DE9EB680AA061"
@@ -18956,6 +19487,15 @@ name = "write_by_ref_path_preserves_struct_copy_on_write_isolation"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_AC4BAD9C03A529390433"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "the_name_is_the_files_name_in_small_letters_and_digits"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_AC58EF6C393A0C878A3E"
@@ -19145,6 +19685,15 @@ name = "lsp_references_variable"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_ADEA45677870DB64A3FA"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "the_rust_target_agrees_with_the_fpu_and_the_instruction_set"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_AE02817D6CB569DFC8B4"
@@ -19352,6 +19901,15 @@ name = "test_type_alias"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_B05A1560E9EAABF4704C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "stopped_and_faulted_resources_refuse_pause_and_resume_as_trust_runtime_does"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_B0616A747435CAE04D2A"
@@ -19588,6 +20146,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_B24CD10D63B62350E0BC"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/catalog.rs"
+name = "the_esp32c6_file_describes_the_chip_of_appendix_d2"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_B250BBD3C58F1A2851EA"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/control/tests/core.rs"
@@ -19703,6 +20270,15 @@ name = "analyze_salsa_keeps_cross_file_function_block_body_bound_to_real_pou_sco
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_B3008746F3B983961E19"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "restart_from_stopped_starts_the_program_at_once_as_a_new_process_would"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_B31BC0A4A82144E40B10"
@@ -20155,6 +20731,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_B78D4C67EB5DE7068AD6"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "a_layout_region_lies_inside_the_flash_on_erase_unit_boundaries"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_B7BD910E8880AC232E6C"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs"
@@ -20227,6 +20812,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_B841F84D067087C58C57"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "a_failing_scan_halts_the_program_until_a_restart_recovers_it"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_B85454F23BEECE60D719"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/debug_stepping.rs"
@@ -20234,6 +20828,24 @@ name = "breakpoint_set_while_running_hits_on_subsequent_cycle"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_B86330C1FFFBF67AE4E5"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/timing_contract_tests.rs"
+name = "at_a_poll_of_the_faulted_wait_a_restart_comes_before_a_stop"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
+discovery_id = "DISC_B87B65AD40095B925E2F"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/timing_contract_tests.rs"
+name = "power_on_counts_logical_time_from_the_program_start_not_from_the_chip_reset"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_B88734C266501D2AF32C"
@@ -20864,6 +21476,15 @@ name = "encoder_roundtrip_validates"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_BDFD46DFDBD972DF6BDE"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/resource/commands/contract_tests.rs"
+name = "reload_claim_codes_decode_to_their_state_and_nothing_else"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_BE2359D13DCE953DC558"
@@ -22000,6 +22621,15 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_C7C92660F06B7789FD25"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/catalog.rs"
+name = "the_stm32f407_file_describes_the_chip_of_appendix_d4"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_C7CD0E2BD09743A9A515"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/config/tests.rs"
@@ -22565,6 +23195,15 @@ name = "test_formal_call_unknown_parameter_error"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_CD1628D570217A55F884"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "the_firmware_is_a_crate_under_firmware_that_holds_the_engine"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_CD493AEA579984A9D671"
@@ -24016,6 +24655,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_DBDB6DB0695F35C09564"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "a_reserved_pin_is_a_pin_of_the_chip_listed_once"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_DBFE8331AF87D467BFB3"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime-core/src/watchdog.rs"
@@ -24041,6 +24689,15 @@ name = "trust_dev_commit_dry_run_reports_project_changes"
 disposition = "reviewed_nonmapping"
 reason_code = "different_safety_domain"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_DC58CD03CA6CA63361BD"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/timing_contract_tests.rs"
+name = "the_loop_feeds_the_hardware_watchdog_in_every_state_and_never_waits_past_its_feed_interval"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_DC6A59A72613FBA3CFA8"
@@ -24122,6 +24779,15 @@ name = "bind_vm_function_block_arguments_supports_mixed_out_and_inout_rebinding"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_DD923FE95FCE629CDB6A"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/link_contract_tests.rs"
+name = "the_access_rights_follow_the_peer_of_the_link"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_DD95439A5C1FC7F35099"
@@ -24772,6 +25438,15 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_E29E6A10BA3FDB67C795"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/link_contract_tests.rs"
+name = "a_reply_longer_than_the_link_moves_is_replaced_by_an_error_and_never_cut"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_E2A35826BCDD97347312"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/server/tests.rs"
@@ -24788,6 +25463,15 @@ name = "strict_hook_returns_error_when_profile_verification_fails"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_E2D2F300DD6BA634D548"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/events/contract_tests.rs"
+name = "retained_value_changes_become_their_runtime_events_with_the_host_text"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_E3109D9552128C78FFF0"
@@ -24995,6 +25679,15 @@ name = "unified_shell_ide_io_config_route_tracks_active_workspace"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_E4E3C943BAE356E30C30"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "a_scan_the_engine_stops_at_its_deadline_faults_twice_as_on_the_host"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_E4F8E0421394E0F9C0ED"
@@ -25283,6 +25976,15 @@ name = "runtime_schema_rejects_openot_st_fb_both_producer_aliases"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_E71F0A7D37940DAAA6EC"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "each_family_describes_its_flash_in_its_own_table"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_E726DF21E9F7F87134B0"
@@ -26428,6 +27130,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_EF779925EABE359749A3"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/rules.rs"
+name = "a_source_path_is_listed_once_and_not_inside_another"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_EF8A426CE4FC01441600"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/namespaces.rs"
@@ -26572,6 +27283,15 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_F0C0DFA10D701D84575F"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "the_loop_waits_for_its_next_scan_or_a_wake_and_never_spins"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_F0D6D66A63F032BFA86B"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/vm/register_ir/tests/profile.rs"
@@ -26588,6 +27308,15 @@ name = "return_value_widening_executes_as_runtime_target_type"
 disposition = "reviewed_nonmapping"
 reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_F1086259733126D55DB2"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-platform-stm32f4/tests/chip_file.rs"
+name = "the_crystal_measurement_accepts_the_crystals_of_the_chip_file"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_F10AD29A2D63DBFAF259"
@@ -26858,6 +27587,15 @@ name = "next_action_kinds_match_contract_names"
 disposition = "reviewed_nonmapping"
 reason_code = "supporting_internal_contract_only"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_F348BE0FB839ABD6885A"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/scan_contract_tests.rs"
+name = "a_failed_restart_faults_a_running_program_and_keeps_a_faulted_one_faulted"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_F3555CD7ED8E088DF038"
@@ -27146,6 +27884,15 @@ name = "refactor_move_namespace_edit_snapshot"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_F5FA85C5345C07ECABB3"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-services/src/runner/contract_tests.rs"
+name = "shutdown_stops_the_program_at_the_next_boundary_and_the_device_keeps_serving"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_F5FBFB925CD26F2D0DED"
@@ -28156,6 +28903,15 @@ reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_FDDAB0AEDDB069DF8BDF"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-core/src/ports.rs"
+name = "a_borrowed_clock_reads_the_same_clock"
+disposition = "reviewed_nonmapping"
+reason_code = "supporting_internal_contract_only"
+last_reviewed = "2026-10-17"
+
+[[reviews]]
 discovery_id = "DISC_FDE1B5B9C014CC5BF7BC"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs"
@@ -28307,6 +29063,15 @@ name = "struct_value_new_canonicalizes_alias_fields_and_rejects_type_drift"
 disposition = "reviewed_nonmapping"
 reason_code = "outside_runtime_safety_scope"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_FEF4B9A477E6E5F2D5EE"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-chips/tests/catalog.rs"
+name = "a_refusal_names_the_file"
+disposition = "reviewed_nonmapping"
+reason_code = "outside_runtime_safety_scope"
+last_reviewed = "2026-10-17"
 
 [[reviews]]
 discovery_id = "DISC_FEFED9A28C00D7D4A293"

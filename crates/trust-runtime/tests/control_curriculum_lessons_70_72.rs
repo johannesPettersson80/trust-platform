@@ -11,10 +11,9 @@ const LESSON72: &str = "11-state-space-estimation-and-predictive-control/71-kalm
 /// Control Studio's sampled pole placement for z = e^(−0.08), e^(−0.12) at 1 s: K = [K1, K2] and the reference gain N.
 const STUDIO_GAINS: [f64; 3] = [0.05616014, 0.0369345, 0.11309464];
 
-fn flag(runtime: &trust_runtime::Runtime, address: &str) -> bool {
+fn flag(runtime: &trust_runtime::CompiledRuntime, address: &str) -> bool {
     match runtime
-        .io()
-        .read(&IoAddress::parse(address).unwrap())
+        .read_io(&IoAddress::parse(address).unwrap())
         .unwrap()
     {
         Value::Bool(value) => value,

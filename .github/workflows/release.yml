@@ -40,7 +40,7 @@ jobs:
             --tag "${{ github.ref_name }}"
 
   runtime-vm-validation:
-    name: Runtime VM Validation
+    name: Runtime Validation
     needs: release-preflight
     runs-on: ubuntu-latest
     steps:
@@ -55,7 +55,16 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Run MP-060 full VM benchmark gate
+      - name: Toolchain for compiled programs (specification 44 §4.6)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup target add riscv32imac-unknown-none-elf thumbv8m.main-none-eabihf \
+            x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+          bash scripts/native/build_toolchain_libraries.sh "${RUNNER_TEMP}/trust-toolchain"
+          echo "TRUST_TOOLCHAIN=${RUNNER_TEMP}/trust-toolchain" >> "${GITHUB_ENV}"
+
+      - name: Run the full scan benchmark gate
         run: |
           OUT_DIR=artifacts/release/runtime-vm-bench \
           TRUST_VM_BENCH_PROFILE=full \
@@ -63,7 +72,7 @@ jobs:
           TRUST_VM_BENCH_HOST_CODEGEN=generic \
           ./scripts/runtime_vm_bench_gate.sh
 
-      - name: Run MP-060 VM determinism and reliability gate
+      - name: Run the runtime determinism and reliability gate
         run: |
           OUT_DIR=artifacts/release/runtime-vm-determinism \
           TRUST_VM_DETERMINISM_ITERATIONS=3 \
@@ -109,9 +118,71 @@ jobs:
     uses: ./.github/workflows/openot-real-databases.yml
     secrets: inherit
 
+  toolchain-bundle:
+    # The toolchain bundle of each platform (specification 44 §4.6), written on that platform with
+    # its own trust-runtime from rustup's pinned release and the program libraries.
+    name: Toolchain bundle (${{ matrix.platform }})
+    needs: release-preflight
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x64
+          - os: ubuntu-24.04-arm
+            platform: linux-arm64
+          - os: macos-15-intel
+            platform: darwin-x64
+          - os: macos-latest
+            platform: darwin-arm64
+          - os: windows-latest
+            platform: win32-x64
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Checkout OpenOT reference sibling
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: bash scripts/checkout_openot_ref.sh
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          targets: riscv32imac-unknown-none-elf,thumbv8m.main-none-eabihf,x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu
+
+      - name: Install Windows vendored OpenSSL Perl prerequisites
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          choco install strawberryperl -y --no-progress
+          "C:\Strawberry\perl\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "PERL=C:\Strawberry\perl\bin\perl.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Write the bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          folder="${RUNNER_TEMP}/trust-toolchain"
+          bash scripts/native/build_toolchain_libraries.sh "${folder}"
+          cargo build --locked --release -p trust-runtime --bin trust-runtime
+          mkdir -p toolchain-artifacts
+          archive="toolchain-artifacts/trust-toolchain-${{ matrix.platform }}.tar.gz"
+          target/release/trust-runtime toolchain bundle "${folder}" "${archive}"
+          # The bundle installs as a user's would.
+          target/release/trust-runtime toolchain install --from "${archive}"
+          ls -l toolchain-artifacts
+
+      - name: Upload toolchain bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: toolchain-${{ matrix.platform }}
+          path: toolchain-artifacts/*.tar.gz
+
   build:
     name: Build (${{ matrix.target }})
-    needs: release-preflight
+    # The extension carries its platform's toolchain bundle (specification 44 §4.6).
+    needs: [release-preflight, toolchain-bundle]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -265,6 +336,12 @@ jobs:
           '@ | Set-Content -Path dist/trust-lsp-${{ matrix.platform }}/README.txt
           Compress-Archive -Path dist/trust-lsp-${{ matrix.platform }}/* -DestinationPath trust-lsp-${{ matrix.platform }}.zip
 
+      - name: Carry the toolchain bundle (specification 44 §4.6)
+        uses: actions/download-artifact@v8
+        with:
+          name: toolchain-${{ matrix.platform }}
+          path: editors/vscode/bin
+
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -296,6 +373,25 @@ jobs:
         working-directory: editors/vscode
         run: npx --no-install vsce package --target ${{ matrix.platform }}
 
+      - name: Check the extension carries the toolchain bundle
+        shell: bash
+        working-directory: editors/vscode
+        run: |
+          set -euo pipefail
+          python=$(command -v python3 || command -v python)
+          "$python" - "${{ matrix.platform }}" <<'PY'
+          import glob
+          import sys
+          import zipfile
+
+          platform = sys.argv[1]
+          [vsix] = glob.glob("*.vsix")
+          wanted = f"extension/bin/trust-toolchain-{platform}.tar.gz"
+          if wanted not in zipfile.ZipFile(vsix).namelist():
+              sys.exit(f"{vsix} does not carry {wanted}")
+          print(f"{vsix} carries {wanted}")
+          PY
+
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v7
         with:
@@ -320,7 +416,7 @@ jobs:
 
   publish:
     name: Publish
-    needs: [release-preflight, build, runtime-vm-validation, openot-real-databases]
+    needs: [release-preflight, build, toolchain-bundle, runtime-vm-validation, openot-real-databases]
     runs-on: ubuntu-latest
     env:
       VSCE_PAT: ${{ secrets.VSCE_PAT }}
@@ -346,6 +442,13 @@ jobs:
         with:
           path: trust-lsp-artifacts
           pattern: trust-lsp-*
+          merge-multiple: true
+
+      - name: Download toolchain bundles
+        uses: actions/download-artifact@v8
+        with:
+          path: toolchain-artifacts
+          pattern: toolchain-*
           merge-multiple: true
 
       - name: Download release conformance artifact
@@ -376,6 +479,7 @@ jobs:
             --artifact-root vsix-artifacts \
             --artifact-root runtime-artifacts \
             --artifact-root trust-lsp-artifacts \
+            --artifact-root toolchain-artifacts \
             --artifact-root release-evidence \
             --tag "${GITHUB_REF_NAME}" \
             --commit "${GITHUB_SHA}" \
@@ -396,7 +500,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          find vsix-artifacts runtime-artifacts trust-lsp-artifacts release-evidence -type f \
+          find vsix-artifacts runtime-artifacts trust-lsp-artifacts toolchain-artifacts release-evidence -type f \
             \( -name '*.vsix' -o -name '*.tar.gz' -o -name '*.zip' \
               -o -name 'release-provenance.json' \
               -o -name 'conformance-status.json' \
@@ -473,6 +577,7 @@ jobs:
             runtime-artifacts/*.zip
             trust-lsp-artifacts/*.tar.gz
             trust-lsp-artifacts/*.zip
+            toolchain-artifacts/*.tar.gz
             release-evidence/release-provenance.json
             release-evidence/conformance-status.json
             release-evidence/conformance-status.md

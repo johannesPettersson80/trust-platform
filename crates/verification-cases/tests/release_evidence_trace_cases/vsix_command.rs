@@ -28,6 +28,9 @@ fn vsix_contract_rejects_unlocked_tool_missing_target_and_missing_binaries() {
             "trust-lsp.exe editors/vscode/bin/",
             "trust-debug.exe editors/vscode/bin/",
             "trust-runtime.exe editors/vscode/bin/",
+            "needs: [release-preflight, toolchain-bundle]",
+            "name: toolchain-${{ matrix.platform }}\n          path: editors/vscode/bin",
+            "wanted = f\"extension/bin/trust-toolchain-{platform}.tar.gz\"",
         ]
         .into_iter()
         .map(|fragment| {
@@ -47,6 +50,7 @@ fn vsix_contract_rejects_unlocked_tool_missing_target_and_missing_binaries() {
             assert!(output.status.success(), "{stderr}");
             let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
             assert_eq!(result["embedded_binaries"], 3);
+            assert_eq!(result["carried_toolchain"], true);
             assert_eq!(result["targets"].as_array().unwrap().len(), 5);
         } else {
             assert!(!output.status.success(), "accepted missing {label}");

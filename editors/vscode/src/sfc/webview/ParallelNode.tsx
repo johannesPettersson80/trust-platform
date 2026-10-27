@@ -8,13 +8,6 @@ const JOIN_OUTPUT_HANDLE = "out";
 const SPLIT_BRANCH_PREFIX = "branch-out-";
 const JOIN_BRANCH_PREFIX = "branch-in-";
 
-function normalizeBranchCount(branchCount: number | undefined): number {
-  if (typeof branchCount !== "number" || !Number.isFinite(branchCount)) {
-    return MIN_PARALLEL_BRANCHES;
-  }
-  return Math.max(MIN_PARALLEL_BRANCHES, Math.floor(branchCount));
-}
-
 /**
  * Custom node component for SFC Parallel Split/Join markers
  * Represents IEC 61131-3 parallel divergence and convergence
@@ -22,7 +15,8 @@ function normalizeBranchCount(branchCount: number | undefined): number {
 export const ParallelNode = memo(
   ({ data, selected }: NodeProps<SfcParallelNode>) => {
     const isSplit = data.nodeType === "parallelSplit";
-    const branchCount = normalizeBranchCount(data.branchCount);
+    // The language server keeps the branch count a whole number of at least two.
+    const branchCount = data.branchCount ?? MIN_PARALLEL_BRANCHES;
     const width = Math.max(120, branchCount * 52);
     const branchPositions = Array.from({ length: branchCount }, (_, index) => ({
       index,
@@ -37,15 +31,9 @@ export const ParallelNode = memo(
         border: "3px double",
         borderColor: selected
           ? "var(--vscode-focusBorder)"
-          : data.isActive
-          ? "var(--vscode-charts-green)"
           : "var(--vscode-editor-foreground)",
-        background: data.isActive
-          ? "var(--vscode-charts-green)"
-          : "var(--vscode-editor-background)",
-        color: data.isActive
-          ? "var(--vscode-editor-background)"
-          : "var(--vscode-editor-foreground)",
+        background: "var(--vscode-editor-background)",
+        color: "var(--vscode-editor-foreground)",
         fontFamily: "var(--vscode-font-family)",
         fontSize: "11px",
         fontWeight: 600,

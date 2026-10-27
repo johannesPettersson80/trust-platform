@@ -1,22 +1,22 @@
 //! Guarded, task-bound controller transfer transactions.
 
+use super::program_facts::{self, BindingLeaf, ProgramTask};
 use super::{parameters, DebugControl};
-use crate::io::{IoBinding, IoTarget};
-use crate::memory::{IoArea, VariableStorage};
-use crate::runtime::RuntimeMetadata;
-use crate::value::{Duration, Value, ValueRef};
+use crate::io::IoAddress;
+use crate::memory::IoArea;
+use crate::runtime::{Located, ProgramRead, ProgramWrite};
+use crate::value::Value;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value as JsonValue};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
+use trust_runtime_core::native::image::Image;
+use trust_runtime_core::native::memory::Place;
 
-/// A transfer staged at the task boundary: the storage to commit, the values it applies, the values found before it (kept in
-/// the transfer record), the outputs held while it starts, and the reference and value each written member held before the
-/// commit.
 /// A transfer's planned writes (destination, value before, value to write, refusal text),
 /// applied values, initial values, held outputs and task-boundary output values.
 type StagedTransfer = (
-    Vec<(ValueRef, Value, Value, String)>,
+    Vec<(Located, Value, Value, String)>,
     BTreeMap<String, f64>,
     JsonValue,
     BTreeMap<String, f64>,
@@ -101,6 +101,10 @@ struct ApplyRequest {
     values: BTreeMap<String, f64>,
     manual: bool,
     maximum_output_change: f64,
+    /// The factor of the error at entry in the first output's allowance, `|Ki|·Δt` (E6.9): the
+    /// error the controller enters Auto with is known only in the transfer's own scan.
+    #[serde(default)]
+    entry_error_gain: Option<f64>,
     source: String,
     physical_approved: bool,
     tracking: Option<tracking::Tracking>,
@@ -138,9 +142,12 @@ struct Pending {
     initial_outputs: BTreeMap<String, f64>,
     /// Output members as they stood at the task boundary, restored if the first output is rejected.
     boundary_outputs: BTreeMap<String, f64>,
-    /// The reference and the pre-commit value of every member the commit wrote: restored if the transfer is rejected.
-    restore_points: Vec<(ValueRef, Value)>,
+    /// The place and the pre-commit value of every member the commit wrote: restored if the transfer is rejected.
+    restore_points: Vec<(Located, Value)>,
     applied_values: BTreeMap<String, f64>,
+    /// `entry_error_gain` times the error the controller entered Auto with, taken at the commit:
+    /// the first output may move this much more than `maximum_output_change` (E6.9).
+    entry_allowance: f64,
 }
 
 /// Runtime-owned transfer transaction state.  It deliberately never uses the
@@ -231,20 +238,15 @@ fn root(symbol: &str) -> Result<&str, String> {
     Ok(root)
 }
 
-fn declared_member(
-    metadata: &RuntimeMetadata,
-    symbol: &str,
-) -> Result<crate::runtime::metadata::ControlBindingLeaf, String> {
+fn declared_member(image: &Image<'_>, symbol: &str) -> Result<BindingLeaf, String> {
     root(symbol)?;
-    metadata
-        .control_binding_leaf(symbol)
+    program_facts::binding_leaf(image, symbol)
         .ok_or_else(|| "transfer member is not a declared scalar leaf".into())
 }
 
-fn check_owner(binding: &Binding, metadata: &RuntimeMetadata, symbol: &str) -> Result<(), String> {
+fn check_owner(binding: &Binding, tasks: &[ProgramTask], symbol: &str) -> Result<(), String> {
     let root = root(symbol)?;
-    let owners: Vec<_> = metadata
-        .tasks()
+    let owners: Vec<_> = tasks
         .iter()
         .filter(|task| {
             task.programs
@@ -275,7 +277,10 @@ fn valid_number(member: &NumberMember) -> bool {
         && member.minimum <= member.maximum
 }
 
-fn check_binding(binding: &Binding, metadata: &RuntimeMetadata) -> Result<(), String> {
+/// Checks a binding against the program of `image` (E6.2): its members are declared scalar leaves
+/// of one program instance that its declared task runs, its modes are mutable and unaddressed, and
+/// its states are mutable and unaddressed or bound to distinct marker addresses.
+fn check_binding(binding: &Binding, image: &Image<'_>) -> Result<(), String> {
     if binding.loop_id.trim().is_empty() || binding.loop_id.chars().count() > MAX_IDENTIFIER_CHARS {
         return Err(format!(
             "transfer loop_id must be 1 to {MAX_IDENTIFIER_CHARS} characters"
@@ -313,6 +318,7 @@ fn check_binding(binding: &Binding, metadata: &RuntimeMetadata) -> Result<(), St
             return Err("actuator tracking coordinates do not match".into());
         }
     }
+    let tasks = program_facts::program_tasks(image);
     let mut symbols = HashSet::new();
     let program_root = root(&binding.mode.symbol)?;
     for member in binding
@@ -331,8 +337,8 @@ fn check_binding(binding: &Binding, metadata: &RuntimeMetadata) -> Result<(), St
         if !root(&member.symbol)?.eq_ignore_ascii_case(program_root) {
             return Err("transfer members must belong to one compiled program".into());
         }
-        declared_member(metadata, &member.symbol)?;
-        check_owner(binding, metadata, &member.symbol)?;
+        declared_member(image, &member.symbol)?;
+        check_owner(binding, &tasks, &member.symbol)?;
     }
     if binding.additional_modes.len() > 8 {
         return Err("transfer switches at most 8 additional modes".into());
@@ -344,22 +350,22 @@ fn check_binding(binding: &Binding, metadata: &RuntimeMetadata) -> Result<(), St
         if !root(&mode.symbol)?.eq_ignore_ascii_case(program_root) {
             return Err("transfer members must belong to one compiled program".into());
         }
-        let variable = declared_member(metadata, &mode.symbol)?;
-        check_owner(binding, metadata, &mode.symbol)?;
-        if variable.constant || variable.external || variable.in_out || variable.address.is_some() {
+        let variable = declared_member(image, &mode.symbol)?;
+        check_owner(binding, &tasks, &mode.symbol)?;
+        if variable.constant || variable.in_out || variable.direct {
             return Err("mode must be mutable, nonexternal and unaddressed".into());
         }
     }
     let mut state_addresses = Vec::new();
     for member in &binding.states {
-        let variable = declared_member(metadata, &member.symbol)?;
+        let variable = declared_member(image, &member.symbol)?;
         if variable.constant
-            || variable.external
             || variable.in_out
-            || variable
-                .address
-                .as_ref()
-                .is_some_and(|address| address.area != IoArea::Memory)
+            || (variable.direct
+                && variable
+                    .address
+                    .as_ref()
+                    .is_none_or(|address| address.area != IoArea::Memory))
         {
             return Err("state must be mutable and unaddressed or uniquely memory-bound".into());
         }
@@ -377,8 +383,8 @@ fn check_binding(binding: &Binding, metadata: &RuntimeMetadata) -> Result<(), St
 }
 
 /// A member's runtime value as a finite number of its declared IEC type.
-fn number(storage: &VariableStorage, member: &NumberMember) -> Result<f64, String> {
-    let value = parameters::resolve_path(storage, &member.symbol)?.value;
+fn number(program: &dyn ProgramRead, member: &NumberMember) -> Result<f64, String> {
+    let value = parameters::resolve_path(program, &member.symbol)?.value;
     let value = match (member.iec_type.as_str(), value) {
         ("REAL", Value::Real(value)) => f64::from(value),
         ("LREAL", Value::LReal(value)) => value,
@@ -399,10 +405,10 @@ fn number(storage: &VariableStorage, member: &NumberMember) -> Result<f64, Strin
     Ok(value)
 }
 
-fn observed(binding: &Binding, storage: &VariableStorage) -> Result<JsonValue, String> {
+fn observed(binding: &Binding, program: &dyn ProgramRead) -> Result<JsonValue, String> {
     let mut values = Map::new();
     for mode in std::iter::once(&binding.mode).chain(binding.additional_modes.iter()) {
-        let Value::Bool(value) = parameters::resolve_path(storage, &mode.symbol)?.value else {
+        let Value::Bool(value) = parameters::resolve_path(program, &mode.symbol)?.value else {
             return Err("transfer mode must be BOOL".into());
         };
         values.insert(mode.symbol.clone(), JsonValue::Bool(value));
@@ -414,7 +420,7 @@ fn observed(binding: &Binding, storage: &VariableStorage) -> Result<JsonValue, S
         .chain(std::iter::once(&binding.output))
         .chain(binding.additional_outputs.iter())
     {
-        values.insert(member.symbol.clone(), json!(number(storage, member)?));
+        values.insert(member.symbol.clone(), json!(number(program, member)?));
     }
     Ok(JsonValue::Object(values))
 }
@@ -576,33 +582,40 @@ fn check_revisions(
     Ok(())
 }
 
+/// The process-image addresses bound at `at`, among the program's bindings `bound`, by their
+/// positions in `bound`.
+fn bindings_at(bound: &[(Place, IoAddress)], at: &Located) -> Vec<usize> {
+    bound
+        .iter()
+        .enumerate()
+        .filter(|(_, (place, _))| *place == at.place)
+        .map(|(index, _)| index)
+        .collect()
+}
+
+/// Checks the process-image binding of the member `symbol`, `bound` being the program's bindings
+/// (E6.6): at most one, in one of `allowed_areas`, explicit and overlapping no other binding.
 fn check_io_target(
     symbol: &str,
     allowed_areas: &[IoArea],
-    storage: &VariableStorage,
-    io_bindings: &[IoBinding],
+    program: &dyn ProgramRead,
+    bound: &[(Place, IoAddress)],
 ) -> Result<(), String> {
-    let reference = parameters::resolve_path(storage, symbol)?.reference;
-    let bindings: Vec<_> = io_bindings
-        .iter()
-        .filter(|binding| match &binding.target {
-            IoTarget::Name(name) => name.eq_ignore_ascii_case(symbol),
-            IoTarget::Reference(value) => value == &reference,
-        })
-        .collect();
+    let at = parameters::resolve_path(program, symbol)?.at;
+    let bindings = bindings_at(bound, &at);
     if bindings.len() > 1
         || bindings
             .iter()
-            .any(|binding| !allowed_areas.contains(&binding.address.area))
+            .any(|&index| !allowed_areas.contains(&bound[index].1.area))
     {
         return Err("transfer target has an ambiguous or disallowed I/O binding".into());
     }
-    for binding in bindings {
-        if binding.address.wildcard
-            || binding.address.path.len() != 1
-            || io_bindings.iter().any(|other| {
-                !std::ptr::eq(other, binding)
-                    && super::recording::overlap(&other.address, &binding.address)
+    for index in bindings {
+        let address = &bound[index].1;
+        if address.wildcard
+            || address.path.len() != 1
+            || bound.iter().enumerate().any(|(other, (_, other_address))| {
+                other != index && super::recording::overlap(other_address, address)
             })
         {
             return Err("transfer target overlaps another I/O binding".into());
@@ -612,33 +625,31 @@ fn check_io_target(
 }
 
 impl DebugControl {
-    /// Reads the transfer of a loop. It changes only the review marker of the loop (E6.3, E6.10): the transaction
-    /// record is only read.
-    pub(crate) fn transfer_status(
-        &self,
-        params: JsonValue,
-        metadata: &RuntimeMetadata,
-    ) -> Result<JsonValue, String> {
+    /// Reads the transfer of a loop from the program as the last scan left it. It changes only the
+    /// review marker of the loop (E6.3, E6.10): the transaction record is only read.
+    pub(crate) fn transfer_status(&self, params: JsonValue) -> Result<JsonValue, String> {
         let request: StatusRequest =
             serde_json::from_value(params).map_err(|error| error.to_string())?;
-        check_binding(&request.binding, metadata)?;
+        // The record and the values are read under one lock (E6.3): the scan publishes the program
+        // before it marks a transfer applied ([`Self::finish_transfer_cycle`]), so an outcome read
+        // here comes with the values of the scan that decided it, or of a later one.
+        let mut state = self.lock();
+        let program = self
+            .published_program()
+            .ok_or("runtime snapshot unavailable")?;
+        let image = program.program_image();
+        check_binding(&request.binding, &image)?;
         let binding_revision = binding_revision(&request.binding)?;
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().map_err(|_| "debug state unavailable")?;
-        let program_revision = state.parameters.program_revision(metadata);
+        let program_revision = state.parameters.program_revision(&image);
         if let Some(pending) = &state.transfers.pending
             && pending.request.binding.loop_id == request.binding.loop_id
             && binding_revision != pending.request.expected_binding_revision
         {
             return Err("cannot replace a reviewed binding while its transfer is pending".into());
         }
-        let snapshot = state
-            .snapshot
-            .as_ref()
-            .ok_or("runtime snapshot unavailable")?;
-        let values = observed(&request.binding, &snapshot.storage)?;
+        let values = observed(&request.binding, &*program)?;
         // The runtime clock of the reported scan lets a client observe durations in runtime time.
-        let runtime_time_ns = snapshot.now.as_nanos();
+        let runtime_time_ns = program.now().as_nanos();
         state.transfers.review(
             &request.binding.loop_id,
             &binding_revision,
@@ -652,12 +663,12 @@ impl DebugControl {
         )
     }
 
-    /// Accepts a transfer for the next task boundary of its owning task. `physical_target` is the runtime's own
-    /// target fact (A2.4): the request's source label must agree with it, and a physical target needs approval.
+    /// Accepts a transfer for the next task boundary of its owning task, against the program as
+    /// the last scan left it. `physical_target` is the runtime's own target fact (A2.4): the
+    /// request's source label must agree with it, and a physical target needs approval.
     pub(crate) fn transfer_apply(
         &self,
         params: JsonValue,
-        metadata: &RuntimeMetadata,
         physical_target: bool,
     ) -> Result<JsonValue, String> {
         let request: ApplyRequest =
@@ -673,24 +684,32 @@ impl DebugControl {
         if !request.maximum_output_change.is_finite() || request.maximum_output_change < 0.0 {
             return Err("invalid maximum output change".into());
         }
-        check_binding(&request.binding, metadata)?;
+        if request.entry_error_gain.is_some_and(|gain| {
+            !gain.is_finite() || gain < 0.0 || request.manual || request.tracking.is_none()
+        }) {
+            return Err("invalid entry error gain".into());
+        }
+        let program = self
+            .published_program()
+            .ok_or("runtime snapshot unavailable")?;
+        let image = program.program_image();
+        check_binding(&request.binding, &image)?;
         if let Some(policy) = &request.tracking {
             tracking::validate(&request.binding, policy, request.manual)?;
         }
         check_value_set(&request)?;
         let binding_revision = binding_revision(&request.binding)?;
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().map_err(|_| "debug state unavailable")?;
+        let mut state = self.lock();
         if let Some(id) = state.transfers.pending_id() {
             return Err(format!("a controller transfer {id} is pending"));
         }
-        if let Some(id) = state.parameters.pending_id() {
-            return Err(format!("a parameter transaction {id} is pending"));
+        if let Some(pending) = state.parameters.pending_label() {
+            return Err(format!("{pending} is pending"));
         }
-        if !state.forced_vars.is_empty() || !state.forced_io.is_empty() {
+        if !state.live_values.forced_vars.is_empty() || !state.live_values.forced_io.is_empty() {
             return Err("release active forcing before transfer".into());
         }
-        let program_revision = state.parameters.program_revision(metadata);
+        let program_revision = state.parameters.program_revision(&image);
         state.transfers.epoch_revision = Some(program_revision.clone());
         let transaction_key = (program_revision.clone(), request.transaction_id.clone());
         if state.transfers.used_transactions.contains(&transaction_key) {
@@ -704,14 +723,10 @@ impl DebugControl {
         if state.parameters.snapshot_is_stale() {
             return Err(parameters::STALE_SNAPSHOT.into());
         }
-        let snapshot = state
-            .snapshot
-            .as_ref()
-            .ok_or("runtime snapshot unavailable")?;
-        let values = observed(&request.binding, &snapshot.storage)?;
+        let values = observed(&request.binding, &*program)?;
         let initial_outputs = std::iter::once(&request.binding.output)
             .chain(request.binding.additional_outputs.iter())
-            .map(|output| Ok((output.symbol.clone(), number(&snapshot.storage, output)?)))
+            .map(|output| Ok((output.symbol.clone(), number(&*program, output)?)))
             .collect::<Result<BTreeMap<_, _>, String>>()?;
         check_revisions(&request, &program_revision, &binding_revision)?;
         same_values(
@@ -769,23 +784,20 @@ impl DebugControl {
             boundary_outputs: BTreeMap::new(),
             restore_points: Vec::new(),
             applied_values,
+            entry_allowance: 0.0,
         });
         Ok(json!({"status":"pending","confirmed":false}))
     }
 
+    /// Whether a transfer waits for, or was committed at, its task's boundary.
     pub(crate) fn has_transfer_transaction(&self) -> bool {
-        self.state
-            .0
-            .lock()
-            .expect("debug state poisoned")
-            .transfers
-            .has_pending()
+        self.lock().transfers.has_pending()
     }
 
     pub(crate) fn transfer_cancel(&self, params: JsonValue) -> Result<JsonValue, String> {
         let request: CancelRequest =
             serde_json::from_value(params).map_err(|error| error.to_string())?;
-        let mut state = self.state.0.lock().map_err(|_| "debug state unavailable")?;
+        let mut state = self.lock();
         if request.transaction_id.is_empty()
             || request.transaction_id.chars().count() > MAX_IDENTIFIER_CHARS
             || state.transfers.epoch_revision.as_ref() != Some(&request.expected_program_revision)
@@ -863,17 +875,18 @@ impl DebugControl {
         )
     }
 
-    /// Commits a pending transfer at its owning task's boundary, before the task runs (E6.6). `physical_target` is the
-    /// runtime's target fact: a physical target needs the approval that the request carries.
+    /// Commits a pending transfer at its owning task's start, before the task's programs run
+    /// (E6.6): `task` is the task's name, `$background` for the programs outside every task, and
+    /// `program` the program at that access point, written through the runtime's checks
+    /// (specification 44 §13.3). Its members are written whole or not at all. `physical_target` is
+    /// the runtime's target fact: a physical target needs the approval that the request carries.
     pub(crate) fn commit_transfer(
         &self,
         task: &str,
-        writes: &mut dyn super::ScanWrites,
-        metadata: &RuntimeMetadata,
+        program: &mut dyn ProgramWrite,
         physical_target: bool,
-        io_bindings: &[IoBinding],
     ) {
-        let mut state = self.state.0.lock().expect("debug state poisoned");
+        let mut state = self.lock();
         let Some(mut pending) = state.transfers.pending.take() else {
             return;
         };
@@ -882,9 +895,10 @@ impl DebugControl {
             return;
         }
         let request = &pending.request;
-        let storage = writes.storage();
+        let mut entry_allowance = 0.0;
         let result = (|| -> Result<StagedTransfer, String> {
-            if request.expected_program_revision != state.parameters.program_revision(metadata) {
+            let image = program.program_image();
+            if request.expected_program_revision != state.parameters.program_revision(&image) {
                 return Err("program changed before task boundary".into());
             }
             let record = state
@@ -899,14 +913,17 @@ impl DebugControl {
             {
                 return Err("transfer binding changed before task boundary".into());
             }
-            check_binding(&request.binding, metadata)?;
+            check_binding(&request.binding, &image)?;
             if physical_target && !request.physical_approved {
                 return Err("attached I/O requires explicit physical review".into());
             }
-            if !state.forced_vars.is_empty() || !state.forced_io.is_empty() {
+            if !state.live_values.forced_vars.is_empty() || !state.live_values.forced_io.is_empty()
+            {
                 return Err("forcing changed before task boundary".into());
             }
-            let mut current = observed(&request.binding, storage)?;
+            let program: &dyn ProgramRead = &*program;
+            let bound = program_facts::bound_places(&image);
+            let mut current = observed(&request.binding, program)?;
             same_values(
                 &request.binding,
                 &request.expected_values,
@@ -914,12 +931,12 @@ impl DebugControl {
                 request.tracking.as_ref(),
             )?;
             for member in &request.binding.states {
-                check_io_target(&member.symbol, &[IoArea::Memory], storage, io_bindings)?;
+                check_io_target(&member.symbol, &[IoArea::Memory], program, &bound)?;
             }
             for mode in std::iter::once(&request.binding.mode)
                 .chain(request.binding.additional_modes.iter())
             {
-                check_io_target(&mode.symbol, &[], storage, io_bindings)?;
+                check_io_target(&mode.symbol, &[], program, &bound)?;
             }
             let mut held_outputs = BTreeMap::new();
             for output in std::iter::once(&request.binding.output)
@@ -928,8 +945,8 @@ impl DebugControl {
                 check_io_target(
                     &output.symbol,
                     &[IoArea::Output, IoArea::Memory],
-                    storage,
-                    io_bindings,
+                    program,
+                    &bound,
                 )?;
                 let measured = request.binding.tracking_outputs.get(&output.symbol);
                 // An output is held at its committed output image when it is addressed, and at its task-boundary
@@ -941,12 +958,12 @@ impl DebugControl {
                         .iter()
                         .find(|member| &member.symbol == feedback)
                         .ok_or("applied feedback is missing")?;
-                    tracking::fresh_applied_feedback(member, storage, io_bindings)?
+                    tracking::fresh_applied_feedback(member, program, &bound)?
                 } else {
                     tracking::held_output(
                         output,
-                        storage,
-                        io_bindings,
+                        program,
+                        &bound,
                         state.latest_io_snapshot.as_ref(),
                     )?
                 };
@@ -960,21 +977,26 @@ impl DebugControl {
                     &request.binding,
                     policy,
                     &request.values,
-                    storage,
+                    program,
                     &held_outputs,
                     request.manual,
                 )?
             } else {
                 request.values.clone()
             };
+            // The error the controller enters Auto with is the one of this scan (A6.4, E6.9).
+            if let (Some(gain), Some(policy)) = (request.entry_error_gain, &request.tracking) {
+                entry_allowance =
+                    gain * tracking::entry_error(&request.binding, policy, &applied, program)?;
+            }
             // Each written member's value is taken before its write, so a rejected transfer can put it back.
             let mut planned = Vec::new();
             for mode in std::iter::once(&request.binding.mode)
                 .chain(request.binding.additional_modes.iter())
             {
-                let resolved = parameters::resolve_path(storage, &mode.symbol)?;
+                let resolved = parameters::resolve_path(program, &mode.symbol)?;
                 planned.push((
-                    resolved.reference,
+                    resolved.at,
                     resolved.value,
                     Value::Bool(if request.manual {
                         mode.manual_value
@@ -985,9 +1007,9 @@ impl DebugControl {
                 ));
             }
             for member in &request.binding.states {
-                let resolved = parameters::resolve_path(storage, &member.symbol)?;
+                let resolved = parameters::resolve_path(program, &member.symbol)?;
                 planned.push((
-                    resolved.reference,
+                    resolved.at,
                     resolved.value,
                     write_value(member, applied[&member.symbol])?,
                     format!("transfer state {} is not writable", member.symbol),
@@ -996,7 +1018,7 @@ impl DebugControl {
             let boundary_outputs = std::iter::once(&request.binding.output)
                 .chain(request.binding.additional_outputs.iter())
                 .filter_map(|member| {
-                    number(storage, member)
+                    number(program, member)
                         .ok()
                         .map(|value| (member.symbol.clone(), value))
                 })
@@ -1007,15 +1029,15 @@ impl DebugControl {
         // already written, so the task runs with the whole transfer or none of it.
         let result = result.and_then(
             |(planned, applied, initial, held_outputs, boundary_outputs)| {
-                let mut restore_points: Vec<(ValueRef, Value)> = Vec::with_capacity(planned.len());
-                for (reference, previous, value, refusal) in planned {
-                    if !writes.write(&reference, value) {
-                        for (reference, previous) in restore_points.iter().rev() {
-                            writes.write(reference, previous.clone());
+                let mut restore_points: Vec<(Located, Value)> = Vec::with_capacity(planned.len());
+                for (at, previous, value, refusal) in planned {
+                    if program.write_at(&at, &value).is_err() {
+                        for (at, previous) in restore_points.iter().rev() {
+                            let _ = program.write_at(at, previous);
                         }
                         return Err(refusal);
                     }
-                    restore_points.push((reference, previous));
+                    restore_points.push((at, previous));
                 }
                 Ok((
                     applied,
@@ -1036,6 +1058,7 @@ impl DebugControl {
                 pending.initial_outputs = held_outputs;
                 pending.boundary_outputs = boundary_outputs;
                 pending.restore_points = restore_points;
+                pending.entry_allowance = entry_allowance;
                 pending.committed = true;
                 state.transfers.pending = Some(pending);
             }
@@ -1048,8 +1071,12 @@ impl DebugControl {
         }
     }
 
-    pub(crate) fn confirm_transfer_task(&self, task: &str, writes: &mut dyn super::ScanWrites) {
-        let mut state = self.state.0.lock().expect("debug state poisoned");
+    /// Checks a committed transfer at its task's end, `program` being the program at that access
+    /// point: its modes and states as committed and its first output inside the reviewed tolerance
+    /// (E6.7). A failed check reverts the whole transfer in the same scan, before the outputs are
+    /// published.
+    pub(crate) fn confirm_transfer_task(&self, task: &str, program: &mut dyn ProgramWrite) {
+        let mut state = self.lock();
         let Some(mut pending) = state.transfers.pending.take() else {
             return;
         };
@@ -1058,8 +1085,8 @@ impl DebugControl {
             return;
         }
         let request = &pending.request;
-        let storage = writes.storage();
         let verification = (|| -> Result<JsonValue, String> {
+            let program: &dyn ProgramRead = &*program;
             for mode in std::iter::once(&request.binding.mode)
                 .chain(request.binding.additional_modes.iter())
             {
@@ -1068,14 +1095,14 @@ impl DebugControl {
                 } else {
                     !mode.manual_value
                 };
-                if parameters::resolve_path(storage, &mode.symbol)?.value
+                if parameters::resolve_path(program, &mode.symbol)?.value
                     != Value::Bool(expected_mode)
                 {
                     return Err("controller changed transfer mode before confirmation".into());
                 }
             }
             for member in &request.binding.states {
-                let actual = number(storage, member)?;
+                let actual = number(program, member)?;
                 if request
                     .tracking
                     .as_ref()
@@ -1094,7 +1121,7 @@ impl DebugControl {
                         &request.binding,
                         policy,
                         &pending.applied_values,
-                        storage,
+                        program,
                         member,
                         request.manual,
                     )?
@@ -1124,14 +1151,15 @@ impl DebugControl {
                 basis.maximum - basis.minimum
             };
             let primary_span = span(&request.binding.output);
+            let allowed = request.maximum_output_change + pending.entry_allowance;
             for member in std::iter::once(&request.binding.output)
                 .chain(request.binding.additional_outputs.iter())
             {
-                let output = number(storage, member)?;
+                let output = number(program, member)?;
                 let tolerance = if member.symbol == request.binding.output.symbol {
-                    request.maximum_output_change
+                    allowed
                 } else if primary_span > 0.0 {
-                    request.maximum_output_change * span(member) / primary_span
+                    allowed * span(member) / primary_span
                 } else {
                     0.0
                 };
@@ -1150,7 +1178,7 @@ impl DebugControl {
                     ));
                 }
             }
-            observed(&request.binding, storage)
+            observed(&request.binding, program)
         })();
         match verification {
             Ok(observed_values) => {
@@ -1165,7 +1193,7 @@ impl DebugControl {
                 // The whole transaction is reverted before the output commit: the members the commit wrote return to
                 // the values they held before it, and the output members to their task-boundary values. The rejected
                 // output is never published, and the next scan starts from the state the transfer found.
-                let restored = restore::restore(&pending, writes);
+                let restored = restore::restore(&pending, program);
                 if let Some(record) = state
                     .transfers
                     .records
@@ -1179,15 +1207,15 @@ impl DebugControl {
         }
     }
 
-    pub(crate) fn finish_transfer_cycle(
-        &self,
-        storage: &VariableStorage,
-        now: Duration,
-        storage_abi: crate::value::StorageAbi,
-    ) {
-        let mut state = self.state.0.lock().expect("debug state poisoned");
-        // This scan refreshed the debug snapshot in the current epoch, so experiments may resolve variables against it.
+    /// A scan ended (its debug state published) without a fault (A5.3, E6.7): the epoch's snapshot is
+    /// current from now on, so experiments may resolve variables against it; a parameter set its
+    /// task's end confirmed or rejected takes that outcome, now that status reads the values it
+    /// left (E7.2, E7.4); and a transfer verified at its task's end is applied, since its first
+    /// output reached the output image.
+    pub(crate) fn finish_transfer_cycle(&self) {
+        let mut state = self.lock();
         state.parameters.mark_snapshot_current();
+        state.parameters.settle();
         let Some(pending) = state.transfers.pending.take() else {
             return;
         };
@@ -1204,21 +1232,18 @@ impl DebugControl {
             record.reason = None;
             record.confirmation = Some("output-image".into());
         }
-        state.snapshot = Some(crate::debug::DebugSnapshot {
-            storage_abi,
-            storage: storage.clone(),
-            now,
-        });
     }
 
-    /// Fails the pending transfer when its owning task execution faults. A committed transfer wrote its members in this
-    /// scan, so they are reverted in the same scan and `restored` reports whether every write-back succeeded (A6.3).
-    pub(crate) fn fail_transfer(&self, reason: &str, writes: &mut dyn super::ScanWrites) {
-        let mut state = self.state.0.lock().expect("debug state poisoned");
+    /// Fails the pending transfer when the scan that runs its owning task faults, `program` being
+    /// the program the fault left, before the fault's action is applied. A committed transfer wrote
+    /// its members in this scan, so they are reverted in the same scan and `restored` reports
+    /// whether every write-back succeeded (A6.3).
+    pub(crate) fn fail_transfer(&self, reason: &str, program: &mut dyn ProgramWrite) {
+        let mut state = self.lock();
         let Some(pending) = state.transfers.pending.take() else {
             return;
         };
-        let restored = pending.committed && restore::restore(&pending, writes);
+        let restored = pending.committed && restore::restore(&pending, program);
         if let Some(record) = state
             .transfers
             .records

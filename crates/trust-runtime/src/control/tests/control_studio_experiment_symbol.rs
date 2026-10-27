@@ -63,12 +63,6 @@ fn start_symbol_experiment(state: &ControlState, overrides: serde_json::Value) -
     )
 }
 
-fn symbol_value(storage: &crate::memory::VariableStorage, symbol: &str) -> Value {
-    crate::debug::resolve_control_parameter_path(storage, symbol)
-        .expect("the variable resolves")
-        .value
-}
-
 #[test]
 fn a_symbolic_experiment_writes_the_variable_and_restores_it_on_abort() {
     let state = symbol_experiment_state();
@@ -79,16 +73,14 @@ fn a_symbolic_experiment_writes_the_variable_and_restores_it_on_abort() {
     assert_eq!(result["symbol"], "Main.ManualOutput");
     assert!(result.get("address").is_none());
     assert!(
-        state.debug.drain_var_writes().is_empty(),
+        state.debug.drain_control_writes().is_empty(),
         "the start request writes nothing"
     );
     experiment_scan(&state, 0);
-    let writes = state.debug.drain_var_writes();
+    let writes = state.debug.drain_control_writes();
     assert_eq!(writes.len(), 1, "{writes:?}");
-    assert!(matches!(
-        writes[0].target,
-        crate::debug::PendingVarTarget::Reference(_)
-    ));
+    // A write of the variable at the place its path resolved to, no process image.
+    assert_eq!(writes[0].label, "Main.ManualOutput");
     assert_eq!(writes[0].value, Value::LReal(40.0));
     assert!(
         state.debug.drain_io_writes().is_empty(),
@@ -104,7 +96,7 @@ fn a_symbolic_experiment_writes_the_variable_and_restores_it_on_abort() {
     let aborted = aborted.result.unwrap();
     assert_eq!(aborted["symbol"], "Main.ManualOutput");
     assert_eq!(aborted["stop_reason"], "user_abort");
-    let restored = state.debug.drain_var_writes();
+    let restored = state.debug.drain_control_writes();
     assert_eq!(restored.len(), 1, "{restored:?}");
     assert_eq!(restored[0].value, Value::LReal(12.5));
 }
@@ -118,7 +110,7 @@ fn a_symbolic_experiment_writes_in_the_variables_own_type() {
     );
     assert!(started.ok, "start failed: {:?}", started.error);
     experiment_scan(&state, 0);
-    let writes = state.debug.drain_var_writes();
+    let writes = state.debug.drain_control_writes();
     assert_eq!(writes[0].value, Value::Real(22.5));
     let aborted = handle_request_value(
         json!({"id": 8303, "type": "control.experiment.abort", "params": {"experiment_id": "symbol-1"}}),
@@ -134,7 +126,7 @@ fn a_symbolic_experiment_writes_in_the_variables_own_type() {
     );
     assert!(started.ok, "start failed: {:?}", started.error);
     experiment_scan(&state, 0);
-    assert_eq!(state.debug.drain_var_writes()[0].value, Value::DInt(5));
+    assert_eq!(state.debug.drain_control_writes()[0].value, Value::DInt(5));
 }
 
 #[test]
@@ -159,25 +151,17 @@ fn a_symbolic_experiment_is_refused_with_a_plain_reason() {
             response.error
         );
         assert!(state.debug.drain_var_writes().is_empty());
+        assert!(state.debug.drain_control_writes().is_empty());
     }
 }
 
 #[test]
 fn a_forced_variable_takes_no_experiment() {
     let state = symbol_experiment_state();
-    let main = match state
-        .debug
-        .snapshot()
-        .expect("a captured scan")
-        .storage
-        .get_global("Main")
-    {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("the program instance, got {other:?}"),
-    };
     state
         .debug
-        .force_instance(main, "ManualOutput", Value::LReal(1.0));
+        .try_force_global("Main.ManualOutput", Value::LReal(1.0))
+        .expect("force the variable");
     let response = start_symbol_experiment(&state, json!({}));
     assert!(!response.ok);
     assert_eq!(response.error_code.as_deref(), Some("forced_signal"));
@@ -187,15 +171,10 @@ fn a_forced_variable_takes_no_experiment() {
 fn a_symbolic_experiment_changes_the_running_variable_and_its_restoration_is_confirmed() {
     let mut state = symbol_experiment_state();
     let mut harness = TestHarness::from_source(SYMBOL_EXPERIMENT_SOURCE).unwrap();
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
     harness.runtime_mut().set_simulation_enabled(true);
     state.connect_experiments();
     harness.cycle();
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     let started = start_symbol_experiment(&state, json!({}));
     assert!(started.ok, "start failed: {:?}", started.error);
     // The first scan queues the step, and the next scan applies it before the program runs.
@@ -204,7 +183,7 @@ fn a_symbolic_experiment_changes_the_running_variable_and_its_restoration_is_con
     harness.advance_time(crate::value::Duration::from_millis(20));
     assert!(harness.cycle().errors.is_empty());
     assert_eq!(
-        symbol_value(harness.runtime().storage(), "Main.ManualOutput"),
+        studio_value(&harness, "Main.ManualOutput"),
         Value::LReal(40.0),
         "the step reaches the running program at the next scan"
     );
@@ -218,10 +197,7 @@ fn a_symbolic_experiment_changes_the_running_variable_and_its_restoration_is_con
     assert!(aborted.ok, "abort failed: {:?}", aborted.error);
     harness.advance_time(crate::value::Duration::from_millis(20));
     assert!(harness.cycle().errors.is_empty());
-    assert_eq!(
-        symbol_value(harness.runtime().storage(), "Main.ManualOutput"),
-        Value::LReal(12.5)
-    );
+    assert_eq!(studio_value(&harness, "Main.ManualOutput"), Value::LReal(12.5));
     // The restoration is applied before the program runs in this cycle, and confirmed by this cycle's scan.
     let status = handle_request_value(
         json!({"id": 8305, "type": "control.experiment.status", "params": {"experiment_id": "symbol-1"}}),

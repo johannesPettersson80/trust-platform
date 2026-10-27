@@ -1,11 +1,12 @@
 // The runtime display's users from the editor (specification 39, §12.8): Screen settings list who
-// may log in, and add or remove a user. The password is stored only as the hash
-// `trust-runtime hmi-password` makes, in the project's runtime.toml; the password itself is never
-// written.
+// may log in, and add or remove a user. The language server (`trust-lsp.hmiUsers`) checks the name
+// and the password's length and writes the user; the password is stored only as the hash
+// `trust-runtime hmi-password` makes, in the project's runtime.toml, and never reaches the language
+// server or the file.
 
 import { execFile } from "child_process";
 import * as vscode from "vscode";
-import { appended, editRuntimeToml, sectionsOf } from "./runtimeToml";
+import { editRuntimeToml } from "./runtimeToml";
 import { projectWithHmi } from "./symbolImport";
 
 export const ADD_USER_COMMAND = "trust-lsp.hmiBuilder.addUser";
@@ -18,40 +19,29 @@ export interface HmiUserEntry {
   role: string;
 }
 
-const USER = "[[runtime.web.hmi.user]]";
-
-/** The users runtime.toml lists, in its order. */
-export function usersIn(text: string): HmiUserEntry[] {
-  const lines = text.split(/\r?\n/);
-  return sectionsOf(lines)
-    .filter((section) => section.header === USER)
-    .map((section) => {
-      const user: HmiUserEntry = { name: "", role: "" };
-      for (const line of lines.slice(section.start + 1, section.end)) {
-        const value = /^\s*(name|role)\s*=\s*"([^"]*)"/.exec(line);
-        if (value) user[value[1] as "name" | "role"] = value[2];
-      }
-      return user;
-    });
+interface UsersAnswer {
+  ok?: boolean;
+  error?: string;
+  users?: HmiUserEntry[];
+  problem?: string | null;
+  text?: string;
 }
 
-/** A user's table, appended to runtime.toml. */
-export function userText(name: string, role: HmiRole, hash: string): string {
-  return `\n${USER}\nname = ${JSON.stringify(name)}\nrole = "${role}"\npassword = ${JSON.stringify(hash)}\n`;
+const NO_ANSWER = "The truST language server is not running.";
+
+async function users(argument: Record<string, unknown>): Promise<UsersAnswer> {
+  const answer = await vscode.commands.executeCommand<UsersAnswer | undefined>("trust-lsp.hmiUsers", argument);
+  if (answer?.ok !== true) throw new Error(answer?.error ?? NO_ANSWER);
+  return answer;
 }
 
-/** runtime.toml without the user's table, with the blank lines that end it. */
-export function withoutUser(text: string, name: string): string {
-  const lines = text.split("\n");
-  const section = sectionsOf(lines)
-    .filter((candidate) => candidate.header === USER)
-    .find((candidate) =>
-      lines
-        .slice(candidate.start + 1, candidate.end)
-        .some((line) => (/^\s*name\s*=\s*"([^"]*)"/.exec(line)?.[1] ?? "").toLowerCase() === name.toLowerCase()),
-    );
-  if (!section) return text;
-  return [...lines.slice(0, section.start), ...lines.slice(section.end)].join("\n");
+/** Why the name or the password cannot be taken, or undefined. */
+async function problem(argument: Record<string, unknown>): Promise<string | undefined> {
+  try {
+    return (await users(argument)).problem ?? undefined;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
 }
 
 /** The stored hash of a password, made by `trust-runtime hmi-password` from standard input. */
@@ -59,7 +49,7 @@ function hashOf(binary: string, password: string, cwd: string): Promise<string> 
   return new Promise((resolve, reject) => {
     const child = execFile(binary, ["hmi-password"], { cwd, timeout: 60_000 }, (error, stdout, stderr) => {
       const hash = stdout.trim();
-      if (error || !hash.startsWith("pbkdf2-sha256:")) reject(new Error(stderr.trim() || error?.message || "no hash"));
+      if (error || hash === "") reject(new Error(stderr.trim() || error?.message || "no hash"));
       else resolve(hash);
     });
     child.stdin?.end(password);
@@ -96,34 +86,35 @@ async function addUser(binary: string, args: AddUserArgs): Promise<string | unde
     void vscode.window.showErrorMessage("Open a project with an HMI (hmi/screen.toml) to add a user to.");
     return undefined;
   }
-  const taken = usersIn(await runtimeText(root)).map((user) => user.name.toLowerCase());
+  const runtimeToml = await runtimeText(root);
+  const nameProblem = (name: string) => problem({ action: "checkName", runtimeToml, name });
   const name = (
     args.name ??
     (await vscode.window.showInputBox({
       title: "Add HMI user",
       prompt: "The name the user logs in with on the runtime display",
-      validateInput: (value) =>
-        !value.trim()
-          ? "Give the user a name"
-          : taken.includes(value.trim().toLowerCase())
-            ? "A user of this name exists already"
-            : undefined,
+      validateInput: nameProblem,
     }))
   )?.trim();
-  if (!name || taken.includes(name.toLowerCase())) return undefined;
+  if (name === undefined || (await nameProblem(name)) !== undefined) return undefined;
   const role = args.role ?? (await vscode.window.showQuickPick(ROLES, { title: `What ${name} may do` }))?.role;
   if (!role) return undefined;
+  // Only the password's length in characters goes to the language server, never the password.
+  const passwordProblem = (value: string) => problem({ action: "checkPassword", characters: [...value].length });
   const password =
     args.password ??
     (await vscode.window.showInputBox({
       title: `Password of ${name}`,
       password: true,
-      validateInput: (value) => (value.length < 8 ? "Use at least 8 characters" : undefined),
+      validateInput: passwordProblem,
     }));
-  if (password === undefined || password.length < 8) return undefined;
+  if (password === undefined || (await passwordProblem(password)) !== undefined) return undefined;
   try {
     const hash = await hashOf(binary, password, root.fsPath);
-    await editRuntimeToml(root, (text) => appended(text, userText(name, role, hash)));
+    await editRuntimeToml(
+      root,
+      async (text) => (await users({ action: "add", runtimeToml: text, name, role, hash })).text ?? text,
+    );
   } catch (error) {
     void vscode.window.showErrorMessage(
       `${name} was not added: ${error instanceof Error ? error.message : String(error)}`,
@@ -134,12 +125,19 @@ async function addUser(binary: string, args: AddUserArgs): Promise<string | unde
 }
 
 async function removeUser(args: { project: string; name: string }): Promise<boolean> {
-  return editRuntimeToml(vscode.Uri.parse(args.project), (text) => withoutUser(text, args.name));
+  return editRuntimeToml(
+    vscode.Uri.parse(args.project),
+    async (text) => (await users({ action: "remove", runtimeToml: text, name: args.name })).text ?? text,
+  );
 }
 
-/** The users of a project, for Screen settings. */
+/** The users of a project, for Screen settings; none while the language server cannot read them. */
 export async function projectUsers(root: vscode.Uri): Promise<HmiUserEntry[]> {
-  return usersIn(await runtimeText(root));
+  try {
+    return (await users({ action: "list", runtimeToml: await runtimeText(root) })).users ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export function registerHmiUsers(binary: () => string): vscode.Disposable {

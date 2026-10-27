@@ -36,7 +36,6 @@ pub(crate) fn config_inits_of(roots: &[SyntaxNode]) -> Vec<SyntaxNode> {
 
 pub(super) struct SymbolCollector<'a> {
     table: SymbolTable,
-    temporal_storage: TemporalStorage,
     diagnostics: DiagnosticBuilder,
     pending_types: Vec<PendingType>,
     /// Parent symbol stack for nested declarations.
@@ -58,15 +57,9 @@ impl<'a> SymbolCollector<'a> {
         Self::build(Some(project_types))
     }
 
-    pub(super) fn with_temporal_storage(mut self, storage: TemporalStorage) -> Self {
-        self.temporal_storage = storage;
-        self
-    }
-
     fn build(project_types: Option<&'a dyn ProjectTypeProvider>) -> Self {
         Self {
             table: SymbolTable::new(),
-            temporal_storage: TemporalStorage::default(),
             diagnostics: DiagnosticBuilder::new(),
             pending_types: Vec::new(),
             parent_stack: Vec::new(),
@@ -134,16 +127,14 @@ impl<'a> SymbolCollector<'a> {
 
     /// `config_inits`: the project's `ConfigInit` nodes in project order (`config_inits_of`
     /// over the project's configuration roots); `deferred`: the initialisers that
-    /// `collect_for_project_with_constants` left to the check after the merge;
-    /// `temporal_storage`: the storage the file's time and date types take.
+    /// `collect_for_project_with_constants` left to the check after the merge.
     pub(crate) fn validate_project_after_merge(
         table: SymbolTable,
         root: &SyntaxNode,
         config_inits: &[SyntaxNode],
         deferred: Vec<DeferredInitializer>,
-        temporal_storage: TemporalStorage,
     ) -> (SymbolTable, Vec<Diagnostic>) {
-        let mut collector = Self::build(None).with_temporal_storage(temporal_storage);
+        let mut collector = Self::build(None);
         collector.table = table;
         for initializer in deferred {
             collector.check_aggregate_initializer_fields(initializer.type_id, &initializer.list);

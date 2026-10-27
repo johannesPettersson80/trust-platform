@@ -27,6 +27,11 @@ fn unique_temp_dir(prefix: &str) -> PathBuf {
     path
 }
 
+/// A runtime's control socket for one `ctl` command. Before the action's request, `ctl` reads the
+/// runtime's truST version with `status`, request 0 (specification 34 TARGET-05); the fake answers
+/// it as a runtime of this release does, so the command prints no update. The action's request is
+/// request 1 (specification 11, 6.8.1): the fake hands it to the test, answers it with `response`
+/// and ends.
 fn spawn_control_server(response: Value) -> (String, Receiver<Value>, JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind control test server");
     let endpoint = format!(
@@ -34,7 +39,7 @@ fn spawn_control_server(response: Value) -> (String, Receiver<Value>, JoinHandle
         listener.local_addr().expect("control test server address")
     );
     let (request_tx, request_rx) = mpsc::channel();
-    let server = std::thread::spawn(move || {
+    let server = std::thread::spawn(move || loop {
         let (mut stream, _) = listener.accept().expect("accept control client");
         stream
             .set_read_timeout(Some(Duration::from_secs(5)))
@@ -44,11 +49,32 @@ fn spawn_control_server(response: Value) -> (String, Receiver<Value>, JoinHandle
             .expect("set control test write timeout");
         let mut reader = BufReader::new(stream.try_clone().expect("clone control test stream"));
         let mut line = String::new();
-        reader.read_line(&mut line).expect("read control request");
-        let request = serde_json::from_str(line.trim_end()).expect("parse control request");
-        request_tx.send(request).expect("send captured request");
-        writeln!(stream, "{}", serde_json::to_string(&response).unwrap())
-            .expect("write control response");
+        while reader.read_line(&mut line).expect("read control request") > 0 {
+            let request: Value =
+                serde_json::from_str(line.trim_end()).expect("parse control request");
+            line.clear();
+            if request["id"] == json!(1) {
+                request_tx.send(request).expect("send captured request");
+                writeln!(stream, "{}", serde_json::to_string(&response).unwrap())
+                    .expect("write control response");
+                return;
+            }
+            assert_eq!(
+                (&request["id"], &request["type"]),
+                (&json!(0), &json!("status")),
+                "before the action's request only the version check, request 0: {request}"
+            );
+            let status = json!({
+                "id": request["id"],
+                "ok": true,
+                "result": {
+                    "state": "running",
+                    "fault": null,
+                    "version": env!("CARGO_PKG_VERSION"),
+                },
+            });
+            writeln!(stream, "{status}").expect("write version check response");
+        }
     });
     (endpoint, request_rx, server)
 }
@@ -71,8 +97,8 @@ fn write_project_with_control_token(root: &Path, token: &str) {
 
 fn write_project_with_control_target(root: &Path, endpoint: &str, token: &str) {
     let runtime = render_runtime_toml(&SmolStr::new("ctl-test"), 10).replacen(
-        "endpoint = \"unix:///tmp/trust-runtime.sock\"",
-        &format!("endpoint = \"{endpoint}\"\nauth_token = \"{token}\""),
+        "[runtime.control]\n",
+        &format!("[runtime.control]\nendpoint = \"{endpoint}\"\nauth_token = \"{token}\"\n"),
         1,
     );
     std::fs::write(root.join("runtime.toml"), runtime).expect("write runtime config");

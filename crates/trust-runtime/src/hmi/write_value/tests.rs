@@ -63,9 +63,21 @@ fn a_value_that_is_not_finite_is_refused() {
     refused(Value::LReal(0.0), json!("NaN"), "number");
 }
 
+/// Specification 39, §12.8 item 5: a WSTRING takes text as a STRING does, up to 255 characters,
+/// and its declared capacity then decides in UTF-16 code units. Catches a WSTRING point refused
+/// whatever its text, a text turned into a STRING, and a text longer than the HMI writes.
+#[test]
+fn a_wstring_takes_text_of_any_language() {
+    assert_eq!(
+        value_for_target(&Value::WString("".into()), &json!("Kühlung geprüft")),
+        Ok(Value::WString("Kühlung geprüft".into()))
+    );
+    refused(Value::WString("".into()), json!(1), "text");
+    refused(Value::WString("".into()), json!("ä".repeat(256)), "255");
+}
+
 #[test]
 fn other_types_cannot_be_written_from_the_hmi() {
-    refused(Value::WString("x".into()), json!("y"), "cannot be written");
     refused(Value::Char(b'x'), json!("y"), "cannot be written");
 }
 

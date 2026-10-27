@@ -106,13 +106,26 @@ fn collect_snapshot_samples(
     patterns: &[Pattern],
     timestamp_ms: u128,
 ) -> Vec<HistorianSample> {
+    // A compiled program's variables are read from its state through its symbol table
+    // (specification 44 §8.8, §13.3).
+    if let Some(state) = snapshot.compiled.as_deref() {
+        return compiled_samples(
+            &state.variables(),
+            &|symbol| state.value_of(symbol),
+            &|symbol| state.members(symbol),
+            state.now(),
+            config,
+            patterns,
+            timestamp_ms,
+        );
+    }
     let mut samples = Vec::<HistorianSample>::new();
     let mut values = Vec::<(String, HistorianValue)>::new();
     for (name, value) in snapshot.storage.globals() {
         flatten_value(
             name.as_str(),
             value,
-            &snapshot.storage,
+            Some(&snapshot.storage),
             config,
             patterns,
             &mut values,
@@ -123,7 +136,7 @@ fn collect_snapshot_samples(
         flatten_value(
             path.as_str(),
             value,
-            &snapshot.storage,
+            Some(&snapshot.storage),
             config,
             patterns,
             &mut values,
@@ -141,10 +154,69 @@ fn collect_snapshot_samples(
     samples
 }
 
+/// The samples of a compiled program at its logical time `now`, flattened as an interpreted
+/// program's are: each variable of its program instances and each global by its declared full name
+/// (`Vat.RegState`), a structure's members and an array's elements under their paths, and an
+/// instance of a function block or a class, which holds no value, by its members (`Vat.Timer.Q`).
+/// `value_of` reads a variable's value from its symbol and `members_of` lists an instance's
+/// members. A compiled program has no retain bank: its retained variables are recorded by their
+/// names, as an interpreted program's are.
+fn compiled_samples(
+    variables: &[crate::CompiledVariable],
+    value_of: &dyn Fn(u32) -> Option<Value>,
+    members_of: &dyn Fn(u32) -> Vec<crate::CompiledVariable>,
+    now: crate::value::Duration,
+    config: &HistorianConfig,
+    patterns: &[Pattern],
+    timestamp_ms: u128,
+) -> Vec<HistorianSample> {
+    let mut values = Vec::<(String, HistorianValue)>::new();
+    for variable in variables {
+        flatten_compiled(
+            variable,
+            value_of,
+            members_of,
+            config,
+            patterns,
+            &mut values,
+        );
+    }
+    values
+        .into_iter()
+        .map(|(variable, value)| HistorianSample {
+            timestamp_ms,
+            source_time_ns: now.as_nanos(),
+            variable,
+            value,
+        })
+        .collect()
+}
+
+/// Records the compiled program's `variable` at its full name, an instance by its members.
+fn flatten_compiled(
+    variable: &crate::CompiledVariable,
+    value_of: &dyn Fn(u32) -> Option<Value>,
+    members_of: &dyn Fn(u32) -> Vec<crate::CompiledVariable>,
+    config: &HistorianConfig,
+    patterns: &[Pattern],
+    out: &mut Vec<(String, HistorianValue)>,
+) {
+    if variable.instance {
+        for member in members_of(variable.symbol) {
+            flatten_compiled(&member, value_of, members_of, config, patterns, out);
+        }
+    } else if let Some(value) = value_of(variable.symbol) {
+        flatten_value(variable.name.as_str(), &value, None, config, patterns, out);
+    }
+}
+
+/// Records `value` at `path`, or each of its members and elements under their own paths.
+/// `storage` holds the instances an interpreted program's values name; a compiled program's values
+/// name none.
 fn flatten_value(
     path: &str,
     value: &Value,
-    storage: &crate::memory::VariableStorage,
+    storage: Option<&crate::memory::VariableStorage>,
     config: &HistorianConfig,
     patterns: &[Pattern],
     out: &mut Vec<(String, HistorianValue)>,
@@ -169,7 +241,7 @@ fn flatten_value(
             }
         }
         Value::Instance(instance_id) => {
-            if let Some(instance) = storage.get_instance(*instance_id) {
+            if let Some(instance) = storage.and_then(|storage| storage.get_instance(*instance_id)) {
                 for (field, field_value) in &instance.variables {
                     let nested = format!("{path}.{field}");
                     flatten_value(nested.as_str(), field_value, storage, config, patterns, out);

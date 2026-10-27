@@ -29,7 +29,8 @@ This document is implementation-agnostic but aligns with the DAP definitions in
 - **Adapter**: `trust-debug` process handling DAP requests.
 - **Runtime**: `trust-runtime` process executing ST code.
 - **Statement**: A single executable ST statement with a source location.
-- **Location**: `(file_id, start_offset, end_offset)` in source text.
+- **Location**: `(file_id, start_offset, end_offset)` in source text, a half-open byte range. A
+  runtime without source text reconstructs it from the module's line table (specification 12 §6.13).
 - **Task**: IEC task representing a cyclic execution unit.
 
 ### Source Mapping
@@ -37,12 +38,38 @@ This document is implementation-agnostic but aligns with the DAP definitions in
 1) Every executable statement **must** be assigned a location at the **first non-trivia token** in
    its syntax node. The location span covers the full statement text range.
 2) Each source file loaded in a debug session has a unique `file_id` and is registered in the
-   adapter with its path and full text.
+   adapter with its path and, when the tool has it, its full text. Every statement's position
+   comes from the program image's statement table (specification 44 §5.9), which carries each
+   statement's file, POU, and start and end line and column. The text serves
+   presentation only: a runtime that holds the text projects those positions to byte offsets, and
+   a runtime without the text reports line and column.
 3) The adapter converts runtime locations to `(line, column)` for DAP using 1-based coordinates
    when `linesStartAt1` / `columnsStartAt1` are true.
 4) A breakpoint source path relative to the selected project resolves against
    that project root and binds to the already registered source/file ID. It
    must not resolve outside the project root.
+
+**One resolver on every runtime (owner, 18 October 2026).** Breakpoints and stepping resolve through
+the program image's statement table (specification 44 §5.9) on trust-runtime and on a chip, and on
+any other runtime of the shared services. A runtime needs no ST source text, no compiler and no HIR
+to resolve them: the image carries the statement spans and the file labels. The rules below ("Breakpoint
+evaluation, source resolution, and hook contract", "Stepping Semantics", "Safe Points") are
+unchanged; only their input changes, from recompiled sources to the artifact.
+
+Moving to that table changes no answer. For a given program, breakpoint resolution, step stops, stop
+locations, stack-frame locations and breakpoint-location listings return exactly what the
+source-based resolver returned before, including the case where a breakpoint on an `IF` line
+resolves to the `IF` statement. The body statements of that `IF` start inside its span, so the
+start-inside rule of the hook contract matches them too, but the cycle guard allows one stop per
+breakpoint per scan, at the first matching statement, which is the `IF` statement. A difference
+from these answers is a defect in the statement table, not a new behaviour
+(owner, 18 October 2026). A release image has no statement hooks to hold at and is not
+debuggable (specification 44 §13.2).
+
+A file's identity in an answer is its label, the source path relative to the project root with `/`
+separators, or the fallback label `file_<file_id>` of specification 12 §7.5.1.4. The runtime's file
+index is internal and is never part of an answer a client depends on, so numbering the files in the
+table changes nothing a user or tool sees.
 
 ### Breakpoints
 
@@ -52,6 +79,8 @@ This document is implementation-agnostic but aligns with the DAP definitions in
 - Passing an empty list clears all breakpoints for that source in both adapter and runtime.
 - Breakpoints are **statement-based** and resolved to the first statement whose location is at or
   after the requested `(line, column)`.
+- A request names its source by a path. A runtime without source text matches the path to the file
+  labels of the program image (specification 44 §5.3; specification 11 §6.13.3).
 - Column snapping:
   - If the client omits a column, the adapter snaps to the first non-whitespace column on that line.
   - If a column is provided but points before the first non-whitespace column, the adapter snaps
@@ -78,6 +107,16 @@ This document is implementation-agnostic but aligns with the DAP definitions in
 - `ContinueRequest` resumes all threads.
 - Any pending pause request is cleared.
 - A `StoppedEvent` is emitted only if a breakpoint, step, or pause condition is hit after resuming.
+
+**Hold duration (owner, 18 October 2026).** A debugger hold — a breakpoint stop, a debug-mode pause
+or a completed step — lasts until a continue or a stop, on every runtime, trust-runtime and a chip
+alike, however long the operator waits. Neither a timeout, the cycle watchdog, a missed deadline, a
+full command queue, a detach, an attach nor a configuration change releases it. The one end that is
+not a continue is an explicit stop, so a breakpoint, pause or step never delays a stop
+(specification 11 §6.9). A chip's hold loop serves the control connection and feeds the hardware
+watchdog while it waits, so a long hold neither resets the device nor loses a queued request
+(specification 34 STATE-07). trust-runtime's hold loop does so: it watches the stop request and releases the hold when one
+arrives (owner, 18 October 2026; `crates/trust-runtime/tests/debugger_hold_stop.rs`).
 
 #### Pause
 
@@ -108,8 +147,18 @@ This document is implementation-agnostic but aligns with the DAP definitions in
   explicitly requests termination.
 
 Attach arguments (adapter-specific):
-- `endpoint` (required): control endpoint, e.g. `unix:///tmp/trust-runtime.sock` or `tcp://127.0.0.1:9000`
-- `authToken` (optional): control auth token (same value used by `trust-runtime ctl`)
+- `endpoint` (optional): control endpoint, e.g. `unix:///run/plc/control.sock` or
+  `tcp://127.0.0.1:9000`. Without it the adapter resolves the endpoint of the project named by
+  `runtimeRoot` in the order of specification 11 §6.8.0a (endpoint file, configured endpoint,
+  platform default).
+- `runtimeRoot` (optional): the project folder, used for that resolution and for the project's
+  token.
+- `authToken` (optional): control auth token (same value used by `trust-runtime ctl`), with the
+  credential precedence of specification 11 §6.8.1.
+
+Without `endpoint` and `runtimeRoot`, attach fails with `attach requires endpoint or runtimeRoot`.
+When nothing listens at an endpoint that came from the endpoint file or the platform default,
+attach reports that the runtime is not running (specification 11 §6.8.0a).
 
 Attach requires `runtime.control.debug_enabled=true`. If disabled, the adapter must report an
 error and remain disconnected.
@@ -125,10 +174,11 @@ that surface. Runtime role denials carry the stable control error code
 `insufficient_role`; the adapter must preserve that authorization category when
 reporting the failed request.
 
-Current attach limitation: arbitrary `setVariable` / `setExpression` variable writes are not
-supported in attach mode. Live Values I/O operations are the supported write path while attached:
-`stIoWrite`, `stIoForce`, and `stIoRelease` forward to the runtime control endpoint and must surface
-runtime authorization/capability errors honestly.
+Every session, a launch's and an attach's alike, writes, forces and releases variables through the
+runtime it is connected to, as "setVariable and setExpression" below says (the owner, 26 October
+2026: "did you run a program, simulate and force values etc? did you test all workflows?"). The Live
+Values I/O operations `stIoWrite`, `stIoForce`, and `stIoRelease` forward to the runtime control
+endpoint, and every write surfaces the runtime's authorization and capability errors honestly.
 
 For a managed local debug session, Live Values writes and forces to a declared
 `REAL` or `LREAL` address parse the submitted text as that IEC floating-point
@@ -158,7 +208,10 @@ endpoint and is not covered by this managed-session rule.
   rejected with a `write_rejected` event; it shall not redirect to a newer frame
   or fault the PLC solely because the engineering request is stale. H implements
   this rule through specification 34 HOST-09. Continue does not copy a detached
-  debugger frame back into live VM locals or change next-scan write timing.
+  debugger frame back into a program's locals. A write or a force queued while a
+  scan is held is applied when the hold ends, before the held statement runs
+  (specification 44 §13.2). A debugger's write at a hold (`debug.set`) is not
+  queued: it goes into the held scan at once.
 - A successful force remains active across scans, pause/resume, and a
   non-terminating detach until an authorized release or a runtime clearing
   boundary.
@@ -204,7 +257,8 @@ The following are required semantics for DAP step requests:
 3) **Step Out** (`stepOut`):
    - Resume execution and stop at the next statement **after returning** to the caller.
 
-Stepping is statement-granular, not instruction-granular.
+Stepping is statement-granular, not instruction-granular. A step boundary is a statement start
+recorded in the program image's statement table (specification 44 §5.9), on every runtime.
 
 ### Stopped Events
 
@@ -236,31 +290,36 @@ the current and deeper frames and stops after returning to the caller. Each
 step resumes from a paused state and pauses again at exactly that boundary.
 
 The runtime updates the active frame location at each statement boundary.
-Watch-change state is recomputed for each stop from the current storage, and
-resuming a paused multi-task scan preserves the configured task execution
+Resuming a paused multi-task scan preserves the configured task execution
 order; a pause must not restart or reorder the remaining tasks.
 
 A conditional breakpoint whose expression is false does not pause; a true
 condition follows ordinary breakpoint stop behavior. A hit-count breakpoint
 stops exactly when its accepted threshold is reached. A logpoint evaluates its
 registered fragments, appends one formatted output record, and never pauses
-execution solely because the logpoint was reached.
+execution solely because the logpoint was reached. A condition and a logpoint
+fragment are expressions in the compiled form of specification 11 §6.13.2; a
+runtime evaluates the compiled form it was sent and parses no text.
 
 Debug-control event delivery is loss-resistant at the local process boundary.
 If a registered runtime-event receiver has been dropped, the event is retained
-in the in-memory runtime-event buffer. If a registered log receiver has been
-dropped, the formatted logpoint record is retained in the in-memory debug log
-buffer. Receiver failure must not discard the first fault or log record.
+in the in-memory runtime-event buffer. A logpoint's formatted record is kept in
+the debugger's bounded log buffer until `debug.stops` drains it (specification
+11 §6.13.2). Receiver failure must not discard the first fault or log record.
 
 #### Breakpoint evaluation, source resolution, and hook contract
 
-A runtime breakpoint matches only the same file ID and a strictly overlapping
-half-open source span; spans that merely touch at one endpoint do not match.
+A runtime breakpoint matches a statement only when the statement has the breakpoint's file ID and
+starts inside the breakpoint's half-open source span: `breakpoint.start <= statement.start <
+breakpoint.end`. A statement that starts at the breakpoint's end does not match. An enclosing
+statement starts before the statement the breakpoint names, so it does not match: a breakpoint on a
+body statement stops at that statement, not at the first instruction of the compound statement
+around it. Each statement's span covers its full text (Source Mapping, rule 1).
 Breakpoints are inspected in registration order and the first eligible stopping
-breakpoint owns the stop. The cycle-suppression identity is
-`(file_id,start,end,generation)` and suppresses only an ordinary stop from that
-exact identity. It does not suppress a distinct location, a later generation,
-or logpoint output.
+breakpoint owns the stop. The cycle-suppression identity is the breakpoint's
+`(file_id,start,end,generation)`, and it suppresses only an ordinary stop from that
+exact identity. It does not suppress a breakpoint at a different location, a later
+generation, or logpoint output.
 
 The hit counter increments with saturating arithmetic whenever location
 identity matches and the exact stop has not been cycle-suppressed. Hit
@@ -285,6 +344,16 @@ LF, including a final LF; CR remains part of the preceding line. Offset
 projection clamps an offset beyond the source to source end. Location
 projection uses the location start.
 
+**Hosted runtime mapping (owner, 18 October 2026).** A runtime that holds the
+source text resolves through the image's statement table and projects each table
+position to the byte offsets above through that text. Those offsets are the ones
+the statement index held before, so the answers are byte-identical and the text
+decides no answer. A runtime without the text reports line and column from the
+table, and a client maps them to bytes with its own copy of the sources.
+The statement table carries statement positions only (file, POU, start and end
+line and column); it stores no line starts and no line lengths (specification 44
+§5.9), so a runtime cannot compute byte offsets without the text.
+
 Breakpoint resolution first rejects an unavailable line, clamps the requested
 column to that line's byte end, and ignores statements from other file IDs. On
 the requested line it selects the statement with the greatest start column not
@@ -292,37 +361,28 @@ after the request; if none exists, it selects the smallest start column after
 the request. If no statement starts on that line, it selects the narrowest
 statement containing the clamped offset, using inclusive runtime location
 ends for compatibility. Otherwise it selects the globally earliest later
-statement. An empty candidate set returns no location.
+statement. An empty candidate set returns no location. Statements, their spans
+and the line extents come from the statement table on every runtime, so these
+rules are one implementation, not one per platform (owner, 18 October 2026).
 
-Every debug hook call records the supplied location and call depth before
-making a stop decision. Context-bearing calls additionally discard frame
-locations for frames no longer present and bind the current frame to the
-statement. A pause, step, or breakpoint stop snapshots the exact storage and
-runtime time at that boundary and recomputes watches before publishing the
-stop. While running, the snapshot shows the storage and runtime time at the end
-of the last completed cycle; a statement that does not stop copies no storage.
-Without attached debug control, the runtime invokes no statement hook and
-resolves no statement location. Stop publication always updates `last_stop` and the ordered local stop
-buffer; a configured live receiver also gets one owned copy, while receiver
-closure cannot discard the buffered stop. A non-target runtime thread never
-consumes or blocks on another thread's pause or step.
-
-`NoopDebugHook` has no runtime side effect, and the trait's default
-context-bearing callback delegates exactly once to the context-free callback.
-Debug tracing is disabled unless `ST_DEBUG_TRACE` is present, including when
-its value is empty. When enabled, each record is prefixed
-`[trust-runtime][debug]`. `ST_DEBUG_TRACE_LOG` selects the append-only log file
-and takes precedence over the compatibility variable `ST_DEBUG_DAP_LOG`.
-Opening, locking, writing, or flushing the optional trace file may report a
-diagnostic but must never change debugger control flow.
+At every statement start the debugger records the statement's location and
+call depth before it makes a stop decision, discards the locations of frames no
+longer present, and binds the current frame to the statement. A pause, step, or
+breakpoint stop holds the scan, and the reads answer from a copy of the held
+scan's memory and call stack until the scan is released (specification 44
+§13.2). Stop publication always updates `last_stop` and the ordered stop buffer
+that `debug.stops` drains. A non-target runtime thread never consumes or blocks
+on another thread's pause or step.
 
 #### Runtime debug state, mutation, and projection invariants
 
 A newly created runtime debug control starts running with current thread `1`,
-no target thread, breakpoint, stop, snapshot, watch, buffered event, queued
-mutation, or active force. An explicit pause transitions a running control to
+no target thread, breakpoint, stop, snapshot, buffered event, queued mutation,
+or active force. An explicit pause transitions a running control to
 paused, records one pending `pause` reason, clears step state and the captured
-snapshot, and optionally binds the requested thread. Pausing an already paused
+snapshot (the halted state of the last stop: reads then answer from the last scan
+that ended, completed or faulted, if there is one, specification 11 section 6.13.1), and optionally
+binds the requested thread. Pausing an already paused
 control is ignored and does not replace the original pending reason or target.
 Stop-on-entry follows the same one-pending-stop rule but records `entry` and is
 not thread-targeted.
@@ -349,9 +409,7 @@ State-query snapshots are owned copies. Reading breakpoints, frame locations,
 the latest stop, the runtime snapshot, or the active forces cannot allow a
 caller to mutate debug-control state. Draining logs, stops, runtime events, or
 queued mutations returns the complete current sequence in arrival order and
-atomically leaves that sequence empty. Mutating a captured runtime snapshot is
-possible only when one exists; absence returns `None` and does not invoke the
-callback.
+atomically leaves that sequence empty.
 
 Runtime-event streaming is single-subscriber. With a live sender, each event
 is delivered once and is not also buffered. When no sender is configured, the
@@ -362,13 +420,8 @@ telemetry: a configured live sender receives a coherent owned snapshot, while
 no sender or a closed receiver produces no synthetic snapshot or runtime
 fault. Registering a new sender replaces the previous sender.
 
-Watch expressions retain their most recently evaluated value. Refresh marks a
-sticky change flag when any watch moves between a value, a different value,
-or evaluation failure. Reading that flag returns the accumulated edge and
-clears it. Clearing watches removes both expressions and the pending edge.
-Refreshing directly from storage replaces the stored snapshot with an owned
-storage copy and exact supplied runtime time; later source-storage mutation
-cannot rewrite that captured state.
+The runtime keeps no watch expressions: a client evaluates its watches with
+`debug.evaluate` (specification 11 §6.13.2).
 
 Queued I/O writes preserve every request in arrival order. Pending global,
 retained, instance, and local variable writes use their complete target as
@@ -381,7 +434,9 @@ writes plus all variable and I/O forces atomically.
 
 DAP variable handles are positive session-local identifiers. Allocation
 preserves the complete handle kind, does not alias two live handles, and clear
-invalidates every old handle before restarting allocation at `1`. Scalar and
+invalidates every old handle before restarting allocation at `1`; a bounded
+table also releases the handles of an array's oldest pages when a later page
+needs the room (specification 11 §6.13.3, "Handle bound"). Scalar and
 null values have `variablesReference = 0`; structs, arrays, instances,
 non-null references, and scope roots allocate expandable handles. Primitive
 type names use canonical IEC spelling, while a struct or enum uses its
@@ -389,7 +444,11 @@ declared public type name. A caller-supplied display or declared type overrides
 derived presentation without changing expandability.
 
 Entry and array projections preserve input/field/element order and stable
-evaluate names. Instance-list entries use `<type>#<normalized-id>` as their
+evaluate names. A page of an array names each element `[<index>]` by its zero-based
+position in the whole array, not in the page, and an entry whose value is an array or a
+structure reports `indexedVariables` (its elements) or `namedVariables` (its members),
+the size of the whole container (specification 11 §6.13.3, "Variable pages").
+Instance-list entries use `<type>#<normalized-id>` as their
 display name, the public type name as both value and type, and no evaluate
 name. An I/O entry uses its declared symbol name when present and otherwise a
 canonical uppercase direct address; its value is the runtime debug value,
@@ -419,17 +478,104 @@ including at `0` and `u64::MAX`.
 2) The **top frame** location is the current statement location.
 3) For multi-file projects, when execution enters a function in another file, the top frame’s
    `source.path` must reflect that file, and the editor should navigate there.
+4) A runtime without source text names a frame's file by its label in `source.path`, and reports the
+   frame's line and column from the statement table (specification 44 §5.9; specification 11
+   §6.13.3).
+5) The adapter answers the client with the file itself: a label resolves under the project root,
+   the folder a launch built the program from or the runtime root an attach names, as a breakpoint's
+   relative path resolves the other way ("Source Mapping", rule 4), so that the editor opens the project's
+   file. A path that is absolute already stays. The same holds for a logpoint's source.
 
 ### Variables / Evaluate
 
 - `VariablesRequest` and `ScopesRequest` return locals, globals, retain, and instance scopes.
+- `VariablesRequest` takes the DAP arguments `filter` (`indexed` or `named`), `start` and `count`,
+  and a `Variable` reports `indexedVariables` (the elements of an array) and `namedVariables` (the
+  members of a structure), so that a client that supports variable paging lists a large container in
+  chunks, which VS Code shows as `[0..99]`, `[100..199]` and so on, and asks for each chunk with those
+  arguments. In an attach session the adapter passes `filter`, `start` and `count` unchanged to the
+  runtime's `debug.variables`, which cuts the page (specification 11 §6.13.3, "Variable pages"), and
+  passes the counts of the runtime's reply on unchanged; an argument that the client leaves out is
+  left out, and a `start` of `0` is a value and is sent. A request without `start` and `count` lists
+  an array's first page of 100 elements. A launch session lists the program that it runs in its own
+  process, which has no handle bound, and does not page: it reports no counts.
+- Values are those of the runtime's published debug state (specification 11 §6.13.1): the storage
+  as it stood at the end of the last scan that ended, completed or faulted (after a fault, the
+  storage as the fault left it), one consistent state and never half a scan, and never a copy the
+  runtime makes per statement; while a hold is active, the halted state.
 - `EvaluateRequest` in `hover` or `watch` context must not have side effects.
   Explicitly whitelisted pure standard functions, conversions, and
   split-date/time helpers are accepted; user-defined, unknown, and impure calls
   are rejected.
-- `setVariable` and `setExpression` are allowed only when paused. Attached runtimes use the
-  side-effecting Live Values I/O custom requests (`stIoWrite`, `stIoForce`, `stIoRelease`) instead
-  of `setExpression` for I/O writes and forcing.
+- Evaluate, watch, conditional-breakpoint and logpoint expressions are **compiled by the tool**, not
+  by the runtime (owner, 18 October 2026). The adapter compiles the user's ST text, beside the
+  language server, into the portable compiled form of specification 11 §6.13.2 and sends that form
+  with the form's version. The runtime parses no ST text for any of the four and needs neither the
+  parser, the HIR nor the authoring type registry. The same form serves all four surfaces; the
+  runtime's answer, its stable errors and their mapping onto DAP (`<error: ...>` in a logpoint
+  fragment, a false condition that does not stop, a failed evaluate response) are specified there.
+  The user's text stays in the editor for display and is recompiled after a reload.
+- `setVariable` and `setExpression` write, force and release a variable, as "setVariable and
+  setExpression" below says; the Live Values I/O custom requests (`stIoWrite`, `stIoForce`,
+  `stIoRelease`) write, force and release a process-image address.
+
+### setVariable and setExpression
+
+The owner, 26 October 2026: "did you run a program, simulate and force values etc? did you test all
+workflows?". A debug session writes, forces and releases a variable as CODESYS and TwinCAT write,
+force and release values, through the runtime's `debug.set`, `set`, `var.force` and `var.unforce`
+(specification 11 §6.13.4 and "Runtime control I/O and variable mutation contract"):
+
+- **The value text.** `X` writes the value `X`; `force: X`, `force X` and `!X` force it; `release`,
+  `unforce` and `auto` release the force and write no value. `X` is an IEC 61131-3 literal of the
+  variable's declared type (specification 11, "Runtime control I/O and variable mutation contract"):
+  `3.5` for a `REAL`, `T#5s` for a `TIME`, `'text'` for a `STRING`, `Red` or `Color#Red` for an
+  enumeration, `TRUE` and `41` as before.
+- **The variable.** `setVariable` names the variable a listing showed, by the listing's
+  `variablesReference` and the variable's `name`: a global, a retained variable, a local of a frame
+  on the held call stack (a variable of the instance the frame runs on, or a frame variable), a
+  member of an instance, a member of a structure or an element of an array. A child of an evaluated
+  value, a watch expression's structure for example, is a copy, not a variable, and is refused with a
+  reason that says to write the variable by its path. `setExpression` names an I/O address or the
+  name of an I/O row, which are written, forced and released at the address with the I/O requests,
+  or else a variable path (`Main.Pumps[2].Speed`, `GVL.Table[1, 3]`), the names compared without
+  case, whose first name is looked up among the variables of the request's `frameId` first while the
+  debugger holds the scan. The Live Values commands `trust-lsp.debug.expr.write`, `.force` and
+  `.release` send `setExpression` with `X`, `force: X` and `release`.
+- **At a hold** (a breakpoint, a step or a pause), a write goes into the held scan at once
+  (specification 44 §13.2): the statements after the stop see it and the Variables view shows it on
+  its next read. A force is written at once as well and is held from then on as a Live Values force
+  (`var.force`) by the variable's path; a release ends it (`var.unforce`). A local of a frame has no
+  path: it is written at a hold and is never forced.
+- **While the program runs**, a write is applied once at the start of the next scan (`set`), and a
+  force holds the variable at its value at every scan start and again before the outputs are
+  sampled until it is released (`var.force`, `var.unforce`), by the variable's path. The runtime
+  first finds the variable and admits the value (`debug.set`), so a refusal reaches the user before
+  anything is queued.
+- **Refusals.** A path the program does not hold, a constant, an instance, which holds no value of
+  its own, and a value its type refuses fail the request with the runtime's reason; nothing is
+  written, queued or forced.
+- **A busy runtime.** A runtime whose command queue is full refuses a request with the stable code
+  `resource_busy` and queues nothing (specification 11 §6.9). The adapter then sends that request of
+  the write, force or release again after 75, 150, 250, 400 and 600 ms, at most five times more, and
+  answers with the runtime's last answer. This holds for `setVariable`, `setExpression` and the Live
+  Values I/O requests `stIoWrite`, `stIoForce` and `stIoRelease`; the client shows the answer and
+  sends nothing again itself (26 October 2026: the retry the extension made moved into the
+  adapter, with the extension's waits).
+- **The answer** carries the value the runtime reports, written or admitted, and its type, with
+  `variablesReference` 0. After each write, force and release the adapter sends `invalidated` with
+  the area `variables`, so that the client reads the variables again; a write of an I/O row also
+  sends `stIoState`.
+- **The process image as it changes.** While a session is connected to its runtime, the simulator's
+  or an attached one, the adapter reads the runtime's I/O on a connection of its own every 150 ms
+  and sends `stIoState` whenever the image differs from the one it sent last, so that Live Values
+  and Control Studio follow the scans without asking for each one (specification 25 §4.4); a paused
+  program, whose image does not change, sends nothing.
+
+Compiler scratch slots of a frame (the `@scratch/<slot>` rows, which hold a `FOR` loop's end and step
+temporaries) are never listed to a user: no scope or variable list shows them. Where an internal
+reader shows them, such as a published snapshot read by a test or a tool, they hold the values the
+running code stored in those slots.
 
 ### Variable Visibility
 
@@ -467,6 +613,11 @@ Debugger safe points align with Structured Text statement boundaries. The
 runtime may pause only before executing a statement and never within
 expression evaluation. (IEC 61131-3 Ed.3, §7.3.3.1, Table 72)
 
+A runtime holds only at a statement's start and nowhere inside it: a compiled program begins each
+statement with the statement hook, before any of its work (specification 44 §6.6, §13.2), so a
+statement's start is the boundary the runtime may hold at and the unit a step returns to. A release
+image has no statement hook and never holds (specification 44 §13.2).
+
 ### Reload / Hot Reload
 
 - `stReload` replaces runtime sources and revalidates breakpoints.
@@ -481,10 +632,14 @@ expression evaluation. (IEC 61131-3 Ed.3, §7.3.3.1, Table 72)
   reload preserves the previous watch set and cache. Ordinary same-schema restart
   does not require a watch-schema replacement.
 - If the session was paused before reload, it remains paused after reload.
-- Source compilation and runtime reload are fail-closed. A compile,
-  bytecode-validation, resource-validation, or retained-state preparation
-  error returns a failed response and preserves the previously running program
-  and its live state. The adapter must not emit a successful reload or replace
+- A reload of a launch is an online change of the running program
+  (specification 44 §12): the simulator keeps its cycle, the `io.toml` drivers
+  and the plants of `simulation.toml` that the launch attached, so a changed
+  `io.toml` or plant configuration takes effect at the next launch.
+- Source compilation and runtime reload are fail-closed. A build error, a
+  refused image or a refused online change (specification 44 §12) returns a
+  failed response and preserves the previously running program and its live
+  state. The adapter must not emit a successful reload or replace
   its current metadata on that path.
 - The runtime transaction and state-preservation boundary is normative in
   `docs/specs/11-runtime-engine.md#671-online-change-transaction`.
@@ -539,6 +694,19 @@ The lifecycle obeys these rules:
   executed or rejected. A second start request, whether it is the same or the
   other start kind, fails immediately and cannot replace or mutate the first
   pending request.
+- Breakpoint setup while an attach is pending is kept for the attachment
+  (24 October 2026: VS Code sends its breakpoints after `initialized` and
+  before `configurationDone`, so an attach that dropped them never stopped at
+  a breakpoint the editor already had). The adapter records each source's
+  latest breakpoints and answers them unverified, each with an id of its own
+  and the message `pending until the attach completes`. Once the attach
+  connects, it sends each recorded source's breakpoints to the runtime
+  (`breakpoints.set`, the lines in ascending order) and reports each
+  breakpoint's result with a `breakpoint` event (reason `changed`) carrying
+  that id: verified at the resolved line and column, or unverified with `no
+  statement at or after this line` for a line the runtime does not resolve,
+  which lies after the file's last statement. A failed attach drops the
+  record. Breakpoints set after the attach connects go to the runtime at once.
 - Configuration requests, including breakpoint setup, may occur while a start
   is pending and cannot execute or discard that start. `configurationDone`
   first returns its own successful response, then executes the exact pending
@@ -648,12 +816,17 @@ The debug adapter SHALL preserve the following protocol and session contracts:
   Pausing without an active storage frame targets the global runtime, and the
   DAP thread list projects configured runtime tasks without changing their
   identity.
-- The managed debug runner uses the smallest positive configured task interval
-  as its cycle-pacing deadline; a program whose tasks have no positive interval
-  (background tasks only) is paced at 10 ms. The control status reports that
+- The simulator is a computer's runtime (specification 44 NX-16) and runs with
+  the project's resource cycle, as the deployed runtime does: the
+  `[resource] cycle_interval_ms` of the project's `runtime.toml`, or 10 ms
+  without one. Its tasks keep their own intervals and run at the first cycle at
+  or after they are due (specification 10 §4.3). The control status reports that
   cycle (`cycle_interval_ms`), also after a reload. It executes at least one cycle
   while active, does not hot-loop between deadlines, and remains responsive to
   stop requests.
+- A `restart` request to the simulator's control server restarts its program as
+  trust-runtime restarts one (specification 11 §6.7): cold with the starting
+  values, warm with the retained values kept.
 - Stack, scope, and I/O-state projection SHALL use a captured runtime snapshot
   and SHALL NOT wait on the live runtime mutex after that snapshot is
   available. When no storage frame or source location exists, a synthetic Main
@@ -663,7 +836,9 @@ The debug adapter SHALL preserve the following protocol and session contracts:
 - Evaluate accepts side-effect-free value and type expressions, including
   names resolved through active `USING` namespaces. Impure or unknown calls are
   rejected. Primitive values use stable user-facing debugger formatting.
-- Source discovery expands ordinary and nested brace globs. Hit-condition
+- Source discovery expands ordinary and nested brace globs. It is the
+  simulator's source selection of specification 25 §11.6
+  (`trust_runtime::runtime_sources`), which the language server shares. Hit-condition
   parsing accepts the documented comparison operators, while logpoint
   templates accept valid interpolation and reject malformed messages.
 - Reload with no breakpoint requests clears prior breakpoints. Reload with
@@ -747,6 +922,8 @@ from the DAP references above and the current runtime/adapter architecture.
 #### 8) Multi‑Task Thread Model
 
 - If multiple IEC tasks are configured, each must map to a distinct DAP thread ID.
+- The thread IDs are 1, 2, ... in the order the resource declares its tasks, and the programs that run
+  outside every task are one more thread after the last task (specification 11 §6.13.3).
 - `step*` and `pause` must apply to the thread specified by the request.
 
 #### 9) Cyclic Task Breakpoint Safety

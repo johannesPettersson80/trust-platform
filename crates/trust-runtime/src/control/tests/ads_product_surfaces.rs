@@ -90,17 +90,19 @@ fn generated_ads_globals_are_first_class_product_surface_variables() {
     let _ = std::fs::remove_file(history_path);
 
     let opc_temp = crate::opcua::map_iec_value(
-        snapshot
-            .storage
-            .get_global("line1_temp")
+        &snapshot
+            .compiled
+            .as_deref()
+            .and_then(|state| state.value("line1_temp"))
             .expect("line1_temp global"),
     )
     .expect("line1_temp maps to OPC UA");
     assert_eq!(opc_temp.data_type, crate::opcua::OpcUaDataType::Float);
     let opc_quality = crate::opcua::map_iec_value(
-        snapshot
-            .storage
-            .get_global("line1_temp_quality")
+        &snapshot
+            .compiled
+            .as_deref()
+            .and_then(|state| state.value("line1_temp_quality"))
             .expect("line1_temp_quality global"),
     )
     .expect("line1_temp_quality maps to OPC UA");
@@ -115,12 +117,13 @@ fn ads_example_source() -> String {
     format!("{ADS_GENERATED_ST}\n{ADS_MAIN_ST}\n{ADS_CONFIG_ST}")
 }
 
+/// The variables of the compiled program's `Globals` scope, through the handle of that scope that
+/// the program's debugger hands out (specification 44 §13.2).
 fn debug_global_variables(state: &ControlState) -> Vec<serde_json::Value> {
-    let globals_ref = state
-        .debug_variables
-        .lock()
-        .expect("debug variable handles")
-        .alloc(crate::debug::dap::VariableHandle::Globals);
+    let globals_ref = debugger_handle(
+        &state.debug,
+        crate::debug::dap::VariableHandle::CompiledGlobals,
+    );
     let variables = handle_request_value(
         json!({
             "id": 713,

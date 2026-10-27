@@ -23,13 +23,12 @@ pub fn run_hmi_check(project: Option<PathBuf>, json: bool) -> anyhow::Result<()>
     let bundle = HmiBundle::read(&root)
         .with_context(|| format!("read the HMI files of {}", root.display()))?;
     let sources = collect_project_source_files(&root, None)?;
-    let runtime = CompileSession::from_sources(sources)
-        .build_runtime()
+    let declarations = CompileSession::from_sources(sources)
+        .declarations()
         .map_err(|error| anyhow::anyhow!("the program does not compile: {error}"))?;
-    let metadata = runtime.metadata_snapshot();
     let program = Program {
-        metadata: &metadata,
-        storage: runtime.storage(),
+        metadata: declarations.metadata(),
+        storage: declarations.storage(),
     };
     let policy = match std::fs::read_to_string(root.join("runtime.toml")) {
         Ok(text) => {

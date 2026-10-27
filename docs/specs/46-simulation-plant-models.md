@@ -1271,6 +1271,22 @@ command source written `pid:` rejects configuration. A path that names no
 A held value is removed when the runtime restarts or loads another program; the
 plant then gives it again at its next publish.
 
+The `PID` holds the value in two internal members, the Control library's
+simulation extension: `HeldMeasurement : LREAL` and `MeasurementHeld : BOOL`,
+declared `VAR NON_RETAIN`. The plant writes both between scans, before the
+program runs, through the runtime's checked writes (specification 44 §13.3): the
+value, then `MeasurementHeld := TRUE`. `Update` works on a local copy of its
+`Input` whose `ProcessValue` is `HeldMeasurement` while `MeasurementHeld` is
+TRUE; while it is FALSE the copy is `Input` unchanged, so a controller without a
+plant computes exactly as before. A restart gives both members their initial
+values, FALSE and 0.0, also in an instance declared `RETAIN` (IEC 61131-3 Ed.3
+§6.5.6.2; specification 10 §4.8). An online change carries an instance's members
+by name (specification 44 §12.2), so before the plants first publish into a
+newly loaded program each plant sets `MeasurementHeld := FALSE` in the instances
+its `pid:` targets name there. An instance of a `PID` without the two members,
+from a Control library older than the extension, faults the plant at its first
+publish, naming the target.
+
 In an isolated run (Specification 35) the copy of the program starts with the
 running PLC's bound process-image inputs, and the run's plant writes only its
 own feedback targets: every other input keeps the value the running PLC had.

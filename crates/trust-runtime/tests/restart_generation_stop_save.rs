@@ -53,7 +53,9 @@ fn requested_stop_with_failed_retain_save_faults_instead_of_stopping() {
     )
     .expect("compile retain fixture")
     .into_runtime();
-    runtime.set_retain_store(Some(Box::new(FailingRetainStore)), None);
+    runtime
+        .set_retain_store(Some(Box::new(FailingRetainStore)), None)
+        .expect("the retain store is set");
 
     let runner = ResourceRunner::new(runtime, StepClock::new(), Duration::from_millis(1));
     let mut handle = runner

@@ -112,6 +112,12 @@ fn logging_in_starts_a_session_named_in_a_safe_cookie() {
         (&json!("anna"), &json!("operator")),
         "{body}"
     );
+    // §12.4 item 4: an Operator acts as a Viewer and an Operator, and changes no settings.
+    assert_eq!(
+        (&body["acts_as"], &body["may_change_settings"]),
+        (&json!(["viewer", "operator"]), &json!(false)),
+        "{body}"
+    );
     assert_eq!(body["idle_seconds"], json!(900), "{body}");
     for part in [
         "trust_hmi_session=",
@@ -134,9 +140,53 @@ fn logging_in_starts_a_session_named_in_a_safe_cookie() {
         (200, &json!("anna"), &json!("operator")),
         "{session}"
     );
+    assert_eq!(
+        (&session["acts_as"], &session["may_change_settings"]),
+        (&json!(["viewer", "operator"]), &json!(false)),
+        "{session}"
+    );
     // No session is an answer, not an error, so a logged-out browser logs nothing.
     let (status, _, none) = call("GET", &running.base, "/api/hmi/session", None, None);
     assert_eq!((status, &none["session"]), (200, &Value::Null), "{none}");
+}
+
+/// §12.4 item 4 and §21.4 item 1: the runtime tells the page what a session may do. An Engineer
+/// acts as a Viewer, an Operator and an Engineer (roles are ordered, §12.8 item 1) and may change
+/// settings, in the login answer and the session answer alike. Catches an Engineer's page that
+/// locks an Operator's control, and one that hides the Settings dialog.
+#[test]
+fn an_engineers_session_acts_as_every_lower_role_and_may_change_settings() {
+    let root = hmi_project("login-engineer");
+    let running = start_with_access(
+        &root,
+        WebAuthMode::Local,
+        None,
+        access(Duration::from_secs(900)),
+    );
+    let (status, set_cookie, body) = login(&running.base, "erik", "secret");
+    assert_eq!(status, 200, "{body}");
+    let facts = |answer: &Value| {
+        (
+            answer["role"].clone(),
+            answer["acts_as"].clone(),
+            answer["may_change_settings"].clone(),
+        )
+    };
+    let engineer = (
+        json!("engineer"),
+        json!(["viewer", "operator", "engineer"]),
+        json!(true),
+    );
+    assert_eq!(facts(&body), engineer, "{body}");
+    let cookie = cookie_of(&set_cookie);
+    let (status, _, session) = call(
+        "GET",
+        &running.base,
+        "/api/hmi/session",
+        Some(&cookie),
+        None,
+    );
+    assert_eq!((status, facts(&session)), (200, engineer), "{session}");
 }
 
 #[test]
@@ -251,7 +301,12 @@ fn the_value_stream_reports_the_session_and_its_end() {
     }
     assert_eq!(
         sessions.first(),
-        Some(&json!({ "user": "anna", "role": "operator" })),
+        Some(&json!({
+            "user": "anna",
+            "role": "operator",
+            "acts_as": ["viewer", "operator"],
+            "may_change_settings": false,
+        })),
         "{sessions:?}"
     );
     assert_eq!(

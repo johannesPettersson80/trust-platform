@@ -1,36 +1,20 @@
-pub(super) fn apply_program_retain_overrides(
-    program_defs: &mut IndexMap<SmolStr, ProgramDef>,
-    programs: &[ProgramInstanceConfig],
-    using: &[SmolStr],
-) -> Result<(), CompileError> {
-    let mut retain_by_type: std::collections::HashMap<SmolStr, crate::RetainPolicy> =
-        std::collections::HashMap::new();
-    for program in programs {
-        let Some(policy) = program.retain else {
-            continue;
-        };
-        let type_name = super::resolve_program_type_name(program_defs, &program.type_name, using)?;
-        if let Some(existing) = retain_by_type.insert(type_name.clone(), policy)
-            && existing != policy
-        {
-            return Err(CompileError::new(
-                "conflicting RETAIN/NON_RETAIN qualifiers for program type",
-            ));
+/// Gives each unqualified variable of a program instance the instance's `RETAIN` or `NON_RETAIN`
+/// (IEC 61131-3 §6.5.6.2), but a function block or class instance, which follows its own type's
+/// declarations. Each instance has its own qualifier, so that two instances of one program type
+/// may differ.
+fn apply_instance_retain(
+    instance: &mut ProgramDef,
+    policy: crate::RetainPolicy,
+    registry: &trust_hir::types::TypeRegistry,
+) {
+    for var in &mut instance.vars {
+        let holds_instance = crate::harness::function_block_type_name(var.type_id, registry)
+            .is_some()
+            || crate::harness::class_type_name(var.type_id, registry).is_some();
+        if matches!(var.retain, crate::RetainPolicy::Unspecified) && !holds_instance {
+            var.retain = policy;
         }
     }
-
-    for (type_name, policy) in retain_by_type {
-        let key = SmolStr::new(type_name.to_ascii_uppercase());
-        let Some(program) = program_defs.get_mut(&key) else {
-            continue;
-        };
-        for var in &mut program.vars {
-            if matches!(var.retain, crate::RetainPolicy::Unspecified) {
-                var.retain = policy;
-            }
-        }
-    }
-    Ok(())
 }
 
 pub(super) fn register_program_instances(
@@ -45,7 +29,6 @@ pub(super) fn register_program_instances(
     let mut bindings = Vec::new();
     let mut visited = std::collections::HashSet::new();
     let mut seen_instances = std::collections::HashSet::new();
-    let mut seen_types = std::collections::HashSet::new();
     for program in programs {
         let instance_key = program.name.to_ascii_uppercase();
         if !seen_instances.insert(instance_key.clone()) {
@@ -54,21 +37,20 @@ pub(super) fn register_program_instances(
                 program.name
             )));
         }
+        // A program type may have several instances, each with its own variables (IEC 61131-3
+        // §6.8.2, Table 62 6a).
         let type_name = super::resolve_program_type_name(program_defs, &program.type_name, using)?;
-        let type_key = type_name.to_ascii_uppercase();
-        if !seen_types.insert(type_key.clone()) {
-            return Err(CompileError::new(
-                "multiple instances of the same PROGRAM type are not supported yet",
-            ));
-        }
-        let def_key = SmolStr::new(type_key);
+        let def_key = SmolStr::new(type_name.to_ascii_uppercase());
         let def = program_defs
             .get(&def_key)
             .ok_or_else(|| CompileError::new("unknown PROGRAM type"))?;
         let mut instance = def.clone();
         instance.name = program.name.clone();
+        if let Some(policy) = program.retain {
+            apply_instance_retain(&mut instance, policy, &registry);
+        }
         runtime
-            .materialize_legacy_program(instance.clone())
+            .instantiate_program(instance.clone())
             .map_err(|err| CompileError::new(format!("PROGRAM init error: {err}")))?;
         runtime.set_program_type(program.name.as_str(), def.name.clone());
         let instance_id = match runtime.storage().get_global(program.name.as_ref()) {

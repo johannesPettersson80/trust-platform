@@ -1,11 +1,16 @@
 import * as assert from "assert";
 
-import { DeployDeps, deployBundle, rollbackBundle, webAddress } from "../../hmiBuilder/editor/deploy";
+import { DeployDeps, deployBundle, rollbackBundle } from "../../hmiBuilder/editor/deploy";
+import { runtimeDeployDeps } from "../../hmiBuilder/editor/deployRuntime";
+import { languageServerReady } from "./hmiBuilderHost";
 
 // Specification 39, §16.2 item 8: Deploy from the editor checks the bundle, finds the selected
-// runtime's web server and sends the bundle there; the simulator has no web server.
+// runtime's web server and sends the bundle there; the simulator has no web server. Which address
+// the runtime's topology gives is the language server's rule (`trust-lsp.hmiDeployTarget`, tested in
+// Rust); here it is injected with the other outside calls.
 
 const BUNDLE = { format: 1, files: { "hmi/screen.toml": "format = 1\n" } };
+const WEB = { listen: "0.0.0.0:8080", tls: false };
 
 function topology(web?: { listen: string; tls: boolean }) {
   const endpoints = web
@@ -27,29 +32,21 @@ function deps(overrides: Partial<DeployDeps> = {}) {
   const base: DeployDeps = {
     bundle: async () => ({ ok: true, bundle: BUNDLE, version: "abc123", problems: [] }),
     target: async () => ({ endpoint: "tcp://192.168.1.20:9000", token: "secret", label: "Line 1", simulator: false }),
-    control: async () => topology({ listen: "0.0.0.0:8080", tls: false }),
+    control: async () => topology(WEB),
     post: async (url, token, body) => {
       posts.push({ url, token, body });
       // The runtime answers with the versions now active and kept (§16.4).
       return { status: 200, body: { ok: true, active: "abc123", previous: "old999" } };
     },
+    address: async (endpoint, given) =>
+      endpoint === "tcp://192.168.1.20:9000" && JSON.stringify(given) === JSON.stringify(topology(WEB))
+        ? "http://192.168.1.20:8080"
+        : undefined,
   };
   return { posts, deps: { ...base, ...overrides } };
 }
 
 suite("HMI Builder: Deploy from the editor", () => {
-  test("the web server's address comes from the control endpoint's host and the listen port", () => {
-    assert.strictEqual(webAddress("tcp://192.168.1.20:9000", "0.0.0.0:8080", false), "http://192.168.1.20:8080");
-    assert.strictEqual(webAddress("unix:///run/trust/control.sock", "127.0.0.1:8080", true), "https://127.0.0.1:8080");
-    assert.strictEqual(
-      webAddress("tcp://plc.local:9000", "10.0.0.5:8443", true),
-      "https://10.0.0.5:8443",
-      "a listen address of its own wins",
-    );
-    assert.strictEqual(webAddress("tcp://[::1]:9000", "[::]:8080", false), "http://[::1]:8080");
-    assert.strictEqual(webAddress("tcp://plc.local:9000", "not an address", false), undefined);
-  });
-
   test("a checked bundle goes to the runtime's web server with its administrator access", async () => {
     const { posts, deps: injected } = deps();
     const outcome = await deployBundle("/project", injected);
@@ -109,5 +106,20 @@ suite("HMI Builder: Deploy from the editor", () => {
     const outcome = await rollbackBundle(injected);
     assert.deepStrictEqual(outcome, { ok: true, version: "old999", target: "Line 1" });
     assert.strictEqual(posts[0].url, "http://192.168.1.20:8080/api/hmi/rollback");
+  });
+});
+
+// The real address comes from the language server.
+suite("HMI Builder: Deploy from the editor, the web server's address", function () {
+  this.timeout(60000);
+
+  suiteSetup(languageServerReady);
+
+  test("the runtime's topology and control endpoint give the address", async () => {
+    assert.strictEqual(
+      await runtimeDeployDeps.address("tcp://192.168.1.20:9000", topology(WEB)),
+      "http://192.168.1.20:8080",
+    );
+    assert.strictEqual(await runtimeDeployDeps.address("tcp://192.168.1.20:9000", topology()), undefined);
   });
 });

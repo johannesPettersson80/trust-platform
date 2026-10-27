@@ -1,21 +1,36 @@
 import React from "react";
 
+import type { PlantDraft } from "../plant/addFlow";
 import {
-  validatePlantSignalEngineering,
-  type PlantEditorDraft,
-} from "../plant/editorModel";
+  numberText,
+  typedNumber,
+  type PlantEditorIssue,
+  type PlantEditorView,
+} from "../plant/editorSession";
 
 type VectorKey = "initialInput" | "inputScale" | "inputOffset" | "outputScale" | "outputOffset";
 
+/**
+ * The signal conversions and the plant step (specification 47 §8). Values go into the draft as
+ * typed; a conversion the draft does not hold shows Rust's effective value.
+ */
 export function PlantSignalEngineeringEditor({
   draft,
+  rows,
+  issues,
   onChange,
 }: {
-  draft: PlantEditorDraft;
-  onChange: (draft: PlantEditorDraft) => void;
+  draft: PlantDraft;
+  rows: PlantEditorView["signals"];
+  issues: readonly PlantEditorIssue[];
+  onChange: (draft: PlantDraft) => void;
 }) {
-  const issues = validatePlantSignalEngineering(draft);
-  const issue = (field: string) => issues.find((candidate) => candidate.field === field)?.message;
+  const issue = (key: string) =>
+    issues.find((candidate) => candidate.target.kind === "signal" && candidate.target.key === key)?.message;
+  const valueOf = (key: VectorKey, index: number, effective: number | null | undefined): string => {
+    const own = draft[key];
+    return numberText(own && index < own.length ? own[index] : effective);
+  };
   const updateVector = (key: VectorKey, index: number, value: number) => {
     const current = [...(draft[key] ?? [])];
     current[index] = value;
@@ -52,9 +67,9 @@ export function PlantSignalEngineeringEditor({
         <div key={`command:${address}:${index}`} style={GROUP}>
           <strong>Command {index + 1} · <code>{address}</code></strong>
           <div style={GRID}>
-            <VectorField label="Initial input" field="initial_input" index={index} value={draft.initialInput?.[index] ?? 0} issue={issue("initial_input")} onChange={(value) => updateVector("initialInput", index, value)} />
-            <VectorField label="Input scale" field="input_scale" index={index} value={draft.inputScale?.[index] ?? 1} issue={issue("input_scale")} onChange={(value) => updateVector("inputScale", index, value)} />
-            <VectorField label="Input offset" field="input_offset" index={index} value={draft.inputOffset?.[index] ?? 0} issue={issue("input_offset")} onChange={(value) => updateVector("inputOffset", index, value)} />
+            <VectorField label="Initial input" field="initial_input" index={index} value={valueOf("initialInput", index, rows.commands[index]?.initialInput)} issue={issue("initial_input")} onChange={(value) => updateVector("initialInput", index, value)} />
+            <VectorField label="Input scale" field="input_scale" index={index} value={valueOf("inputScale", index, rows.commands[index]?.inputScale)} issue={issue("input_scale")} onChange={(value) => updateVector("inputScale", index, value)} />
+            <VectorField label="Input offset" field="input_offset" index={index} value={valueOf("inputOffset", index, rows.commands[index]?.inputOffset)} issue={issue("input_offset")} onChange={(value) => updateVector("inputOffset", index, value)} />
           </div>
         </div>
       ))}
@@ -62,8 +77,8 @@ export function PlantSignalEngineeringEditor({
         <div key={`feedback:${address}:${index}`} style={GROUP}>
           <strong>Feedback {index + 1} · <code>{address}</code></strong>
           <div style={GRID}>
-            <VectorField label="Output scale" field="output_scale" index={index} value={draft.outputScale?.[index] ?? 1} issue={issue("output_scale")} onChange={(value) => updateVector("outputScale", index, value)} />
-            <VectorField label="Output offset" field="output_offset" index={index} value={draft.outputOffset?.[index] ?? 0} issue={issue("output_offset")} onChange={(value) => updateVector("outputOffset", index, value)} />
+            <VectorField label="Output scale" field="output_scale" index={index} value={valueOf("outputScale", index, rows.feedbacks[index]?.outputScale)} issue={issue("output_scale")} onChange={(value) => updateVector("outputScale", index, value)} />
+            <VectorField label="Output offset" field="output_offset" index={index} value={valueOf("outputOffset", index, rows.feedbacks[index]?.outputOffset)} issue={issue("output_offset")} onChange={(value) => updateVector("outputOffset", index, value)} />
           </div>
         </div>
       ))}
@@ -82,7 +97,7 @@ function VectorField({
   label: string;
   field: string;
   index: number;
-  value: number;
+  value: string;
   issue?: string;
   onChange: (value: number) => void;
 }) {
@@ -93,12 +108,10 @@ function VectorField({
         data-plant-engineering-field={`${field}.${index}`}
         type="number"
         step="any"
-        value={Number.isFinite(value) ? value : ""}
+        value={value}
         aria-invalid={Boolean(issue)}
         aria-describedby={issue ? `plant-engineering-error-${field}` : undefined}
-        onChange={(event) => onChange(
-          event.target.value.trim() ? Number(event.target.value) : Number.NaN
-        )}
+        onChange={(event) => onChange(typedNumber(event.target.value))}
         style={INPUT}
       />
       {issue && <span id={`plant-engineering-error-${field}`} style={ERROR}>{issue}</span>}

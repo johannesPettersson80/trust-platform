@@ -1,13 +1,29 @@
+//! Automatic restarts of a faulted resource under `FaultPolicy::Restart` (spec 11 §6.6): bounded
+//! to three attempts, one scan each, and never for a contained panic.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration as StdDuration, Instant};
 
 use trust_runtime::error::RuntimeError;
+use trust_runtime::harness::TestHarness;
 use trust_runtime::io::IoDriver;
 use trust_runtime::scheduler::{Clock, ResourceHandle, ResourceRunner, ResourceState};
 use trust_runtime::value::Duration;
 use trust_runtime::watchdog::FaultPolicy;
-use trust_runtime::{Runtime, RuntimeBuilder};
+use trust_runtime::CompiledRuntime;
+
+/// A program with one input bit, so the input image has the byte the driver reads.
+const ONE_INPUT: &str = "
+VAR_GLOBAL
+    sensor AT %IX0.0 : BOOL;
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+";
 
 #[derive(Clone, Debug)]
 struct StepClock {
@@ -68,10 +84,10 @@ impl IoDriver for PanickingReadDriver {
     }
 }
 
-fn runtime_with_input_driver(policy: FaultPolicy, driver: Box<dyn IoDriver>) -> Runtime {
-    let mut builder = RuntimeBuilder::new();
-    builder.io_mut().resize(1, 0, 0);
-    let mut runtime = builder.build().expect("install declared test runtime");
+fn runtime_with_input_driver(policy: FaultPolicy, driver: Box<dyn IoDriver>) -> CompiledRuntime {
+    let mut runtime = TestHarness::from_source(ONE_INPUT)
+        .expect("the one-input program compiles")
+        .into_runtime();
     runtime.set_fault_policy(policy);
     runtime.add_io_driver("restart-generation-input", driver);
     runtime
@@ -100,10 +116,13 @@ fn persistent_cycle_fault_escalates_to_restart_limit_after_three_attempts() {
         .spawn("restart-limit-cycle-fault")
         .expect("spawn runner");
     wait_for_fault(&handle);
+    assert_eq!(handle.state(), ResourceState::Faulted);
     handle.stop();
     handle.join().expect("runner join");
 
-    assert_eq!(handle.state(), ResourceState::Faulted);
+    // A shutdown of the Faulted resource stops it, and its fault stays in `last_error` until the
+    // next start (specification 34 STATE-08; the owner, 23 October 2026).
+    assert_eq!(handle.state(), ResourceState::Stopped);
     match handle
         .last_error()
         .expect("restart escalation should set last_error")
@@ -134,10 +153,13 @@ fn failed_restart_sequence_stays_faulted_with_exactly_one_scan_per_attempt() {
         .spawn("state06-restart-sequence")
         .expect("spawn runner");
     wait_for_fault(&handle);
+    assert_eq!(handle.state(), ResourceState::Faulted);
     handle.stop();
     handle.join().expect("runner join");
 
-    assert_eq!(handle.state(), ResourceState::Faulted);
+    // A shutdown of the Faulted resource stops it, and its fault stays in `last_error` until the
+    // next start (specification 34 STATE-08; the owner, 23 October 2026).
+    assert_eq!(handle.state(), ResourceState::Stopped);
     assert_eq!(
         reads.load(Ordering::SeqCst),
         4,
@@ -158,10 +180,13 @@ fn contained_resource_panic_is_never_retried_under_the_restart_policy() {
     let runner = ResourceRunner::new(runtime, StepClock::new(), Duration::from_millis(1));
     let mut handle = runner.spawn("panic-not-restarted").expect("spawn runner");
     wait_for_fault(&handle);
+    assert_eq!(handle.state(), ResourceState::Faulted);
     handle.stop();
     handle.join().expect("runner join");
 
-    assert_eq!(handle.state(), ResourceState::Faulted);
+    // A shutdown of the Faulted resource stops it, and its fault stays in `last_error` until the
+    // next start (specification 34 STATE-08; the owner, 23 October 2026).
+    assert_eq!(handle.state(), ResourceState::Stopped);
     assert!(
         matches!(handle.last_error(), Some(RuntimeError::ResourcePanic(_))),
         "a contained panic must stay a ResourcePanic"

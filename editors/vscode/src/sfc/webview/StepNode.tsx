@@ -21,34 +21,11 @@ const baseHandleStyle: React.CSSProperties = {
  * Custom node component for SFC steps following IEC 61131-3 standard
  */
 export const StepNode = memo(({ data, selected }: NodeProps<SfcStepNode>) => {
-  const handleDoubleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (data.onToggleBreakpoint) {
-      data.onToggleBreakpoint();
-    }
-  };
-
   // IEC 61131-3: Simple rectangular steps
   const isInitial = data.type === "initial";
   const isFinal = data.type === "final";
 
-  const borderColor = selected
-    ? t.accent
-    : data.isCurrentDebugStep
-    ? t.warn
-    : t.text;
-
-  const backgroundColor = data.isActive
-    ? t.ok
-    : data.isCurrentDebugStep
-    ? tint(t.warn, 0.2)
-    : t.canvas;
-
-  const textColor = data.isActive
-    ? t.onAccent
-    : t.text;
-  
-  const borderWidth = data.isActive ? "3px" : "2px";
+  const borderColor = selected ? t.accent : t.text;
 
   // Simple rectangular box per IEC 61131-3
   const stepStyle: React.CSSProperties = {
@@ -57,13 +34,13 @@ export const StepNode = memo(({ data, selected }: NodeProps<SfcStepNode>) => {
     padding: "10px 14px",
     border: isInitial
       ? `4px double ${borderColor}`
-      : `${borderWidth} solid ${borderColor}`,
+      : `2px solid ${borderColor}`,
     borderRadius: "2px",
-    background: backgroundColor,
-    color: textColor,
+    background: t.canvas,
+    color: t.text,
     fontFamily: "var(--vscode-font-family)",
     fontSize: "13px",
-    fontWeight: data.isActive ? 700 : isInitial ? 600 : 500,
+    fontWeight: isInitial ? 600 : 500,
     textAlign: "center",
     position: "relative",
     cursor: "pointer",
@@ -72,11 +49,7 @@ export const StepNode = memo(({ data, selected }: NodeProps<SfcStepNode>) => {
     alignItems: "center",
     justifyContent: "center",
     boxSizing: "border-box",
-    boxShadow: data.isActive
-      ? `0 0 0 3px ${borderColor}, 0 4px 12px ${tint(t.ok, 0.4)}`
-      : selected
-      ? `0 0 0 2px ${t.accent}`
-      : "none",
+    boxShadow: selected ? `0 0 0 2px ${t.accent}` : "none",
   };
 
   // Final step: double bottom border
@@ -85,29 +58,7 @@ export const StepNode = memo(({ data, selected }: NodeProps<SfcStepNode>) => {
   }
 
   return (
-    <div
-      style={stepStyle}
-      onDoubleClick={handleDoubleClick}
-      title="Double-click to toggle breakpoint"
-    >
-      {/* Breakpoint indicator */}
-      {data.hasBreakpoint && (
-        <div
-          style={{
-            position: "absolute",
-            top: "-8px",
-            left: "-8px",
-            width: "16px",
-            height: "16px",
-            borderRadius: "50%",
-            background: t.breakpoint,
-            border: `2px solid ${t.canvas}`,
-            boxShadow: `0 0 4px ${tint(t.breakpoint, 0.6)}`,
-            zIndex: 10,
-          }}
-          title="Breakpoint"
-        />
-      )}
+    <div style={stepStyle}>
 
       {isInitial && (
         <div

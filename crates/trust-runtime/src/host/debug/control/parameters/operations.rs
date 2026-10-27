@@ -10,11 +10,9 @@ struct CancelRequest {
     expected_binding_revision: String,
 }
 impl DebugControl {
-    pub(crate) fn parameter_cancel(
-        &self,
-        params: JsonValue,
-        metadata: &RuntimeMetadata,
-    ) -> Result<JsonValue, String> {
+    /// Cancels a parameter transaction, or fences an identifier the runtime does not hold, of the
+    /// program as the last scan left it (E7.6).
+    pub(crate) fn parameter_cancel(&self, params: JsonValue) -> Result<JsonValue, String> {
         let request: CancelRequest =
             serde_json::from_value(params).map_err(|error| error.to_string())?;
         if request.transaction_id.is_empty()
@@ -22,8 +20,13 @@ impl DebugControl {
         {
             return Err("invalid parameter transaction identity".into());
         }
-        let mut state = self.state.0.lock().map_err(|_| "debug state unavailable")?;
-        if state.parameters.program_revision(metadata) != request.expected_program_revision {
+        let program = self
+            .published_program()
+            .ok_or("runtime snapshot unavailable")?;
+        let mut state = self.lock();
+        if state.parameters.program_revision(&program.program_image())
+            != request.expected_program_revision
+        {
             return Err("parameter program epoch changed".into());
         }
         let reviewed = state

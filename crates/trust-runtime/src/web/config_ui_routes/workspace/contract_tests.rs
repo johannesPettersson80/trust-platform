@@ -105,7 +105,7 @@ fn absent_or_empty_host_group_stays_absent() {
 fn generated_runtime_toml_binds_the_runtime_identity() {
     let text = render_new_runtime_toml("line_a", Some("plant_1"));
     assert!(text.contains("name = \"line_a\""));
-    assert!(text.contains("endpoint = \"unix:///tmp/line_a.sock\""));
+    assert!(!text.contains("endpoint"));
     assert!(text.contains("service_name = \"line_a\""));
     assert!(text.contains("host_group = \"plant_1\""));
     assert!(text.contains("profile = \"dev\""));
@@ -360,6 +360,11 @@ fn runtime_creation_writes_the_complete_minimal_bundle() {
     assert!(std::fs::read_to_string(runtime_root.join("runtime.toml"))
         .expect("runtime text")
         .contains("host_group = \"plant-1\""));
+    assert_eq!(
+        std::fs::read_to_string(runtime_root.join(".gitignore")).expect("gitignore text"),
+        crate::control::endpoint::ENDPOINT_DIR_GITIGNORE,
+        "a created runtime ignores its endpoint folder (spec 11, section 6.8.0a)"
+    );
 }
 
 #[test]

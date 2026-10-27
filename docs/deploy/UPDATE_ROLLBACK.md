@@ -19,8 +19,8 @@ This document describes a production‑safe update strategy for truST.
 
 ## Update Procedure (Warm)
 
-1. Build a new project folder:
-   - `program.stbc`
+1. Build a new project folder with `trust-runtime build --project /path/to/project`:
+   - `program.tpi` and `deployment-record.bin`
    - `runtime.toml`
    - `io.toml`
 2. Deploy with versioning (keeps last two known‑good projects):
@@ -45,6 +45,10 @@ trust-runtime ctl --project /opt/trust/current restart cold
 ```
 
 ## Notes
+- Run `trust-runtime ctl` as the user that runs the runtime (`sudo` for a service that runs as
+  root): the project's endpoint file and its default control socket belong to that user. A project
+  with a TCP `endpoint` and `auth_token` in `runtime.toml` can also be controlled by another user,
+  because `ctl` skips an endpoint file it cannot read.
 - Project versioning is enforced by `bundle.version` (internal).
 - Store retain data outside the project folder for safe rollback.
 - Use OS supervision (systemd) to ensure restarts are reliable.

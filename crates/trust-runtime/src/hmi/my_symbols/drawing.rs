@@ -324,7 +324,7 @@ fn line(document: &Document<'_>, node: Node<'_, '_>) -> usize {
 }
 
 /// The drawing's coordinates: its viewBox, or else its width and height from 0, 0.
-fn view_box(root: Node<'_, '_>) -> Option<[f64; 4]> {
+pub(super) fn view_box(root: Node<'_, '_>) -> Option<[f64; 4]> {
     if let Some(text) = root.attribute("viewBox") {
         let numbers: Vec<f64> = text
             .split(|c: char| c == ',' || c.is_whitespace())

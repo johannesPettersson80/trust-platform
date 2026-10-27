@@ -1,46 +1,37 @@
-# Runtime Execution Backend Policy
+# Upgrading Projects From The Bytecode Engine
 
-This note defines the current `trust-runtime` execution-backend contract after legacy interpreter removal from the production runtime path.
+Every truST runtime runs the project's program compiled into a program image for its CPU
+(specification 44). The bytecode engine, its `program.stbc` and the `--execution-backend` option
+are removed.
 
-## Current Runtime Contract
+## Upgrade A Project
 
-- Production task/program execution is bytecode-VM only.
-- `runtime.execution_backend = "vm"` is accepted.
-- `runtime.execution_backend = "interpreter"` is rejected by runtime config validation.
-- `--execution-backend=vm` is accepted on `trust-runtime run` and `trust-runtime play`.
-- `--execution-backend=interpreter` is rejected by CLI argument parsing.
-- Live `config.set` writes to `runtime.execution_backend` remain rejected; backend mode is startup-only.
+1. Rebuild the project: `trust-runtime build --project <dir>` writes the program image
+   `program.tpi` and its deployment record `deployment-record.bin` into the project folder. The
+   first build that needs the compiler toolchain installs it; `trust-runtime toolchain status`
+   shows the toolchain the tools use.
+2. Delete `program.stbc` if the project still holds it. Nothing reads it.
+3. Remove `runtime.execution_backend` from `runtime.toml`. It selects nothing: `vm` and `native`
+   still load, so a project written before still starts; `interpreter` and any other value are
+   refused.
+4. Remove `--execution-backend` from scripts. `trust-runtime run`, `play`, `build`, `conformance`
+   and `bench`, and `trust-dev test`, no longer take it.
 
-## What Still Uses Helper Evaluation
+For a device, `trust-runtime build --project <dir> --target esp32c6` (or `stm32u5a9`) writes the
+device's image into the project's `build/` folder. A device refuses a program in the STBC format.
 
-The runtime still has small storage-native helper evaluators for non-cycle flows:
+## What The Runtime Reports
 
-- compile-time constant folding
-- initializer/config/build evaluation
-- debug watch/logpoint expression reads
-- debug lvalue writes
+- A project that holds `program.stbc` and no `program.tpi`: `run`, `play` and `validate` stop
+  with ``the project holds program.stbc of the bytecode engine, which this runtime does not run:
+  rebuild the project with `trust-runtime build --project <dir>` ``.
+- A project with no program: ``missing program.tpi at <path> (run `trust-runtime build` to build
+  the project)``.
+- `status` and `config.get` report `execution_backend` as `native`. `config.set` refuses
+  `runtime.execution_backend`; the key is read only when the runtime starts.
 
-Those helper paths do not constitute a second runtime backend and are not used for scheduled task/program execution.
+## Retained Values
 
-## Enforcement and Evidence
-
-- Runtime/tests enforcing VM-only production selection:
-  - `crates/trust-runtime/src/bin/trust-runtime/run/tests.rs`
-  - `crates/trust-runtime/src/config/tests.rs`
-  - `crates/trust-runtime/src/control/tests/core.rs`
-- CI/runtime guardrails:
-  - `scripts/runtime_vm_production_backend_guard.sh`
-  - `scripts/runtime_vm_bench_gate.sh`
-  - `scripts/runtime_vm_determinism_reliability_gate.sh`
-- Release evidence gates:
-  - `.github/workflows/ci.yml`
-  - `.github/workflows/release.yml`
-  - `.github/workflows/nightly-reliability.yml`
-
-## Operator Expectations
-
-1. Remove any legacy `runtime.execution_backend = "interpreter"` setting from projects.
-2. Use `runtime.execution_backend = "vm"` or omit the field and rely on the VM default.
-3. Treat backend mode as startup-only.
-4. For cross-machine performance comparisons, pin portable builds with `TRUST_RUNTIME_HOST_CODEGEN=generic`.
-5. Use `TRUST_RUNTIME_HOST_CODEGEN=native` only for self-built, hardware-specific deployments where maximum local performance matters more than binary portability.
+A computer keeps the retained values in the retain file in the format the bytecode engine wrote,
+so a warm restart after the upgrade restores the values the old runtime saved (specification 44
+§8.8, §15).

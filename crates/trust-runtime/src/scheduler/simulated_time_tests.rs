@@ -86,7 +86,7 @@ impl Clock for HostClock {
 fn run_cycles(
     runner: ResourceRunner<HostClock>,
     cycles: usize,
-    mut on_cycle: impl FnMut(usize, &mut Runtime),
+    mut on_cycle: impl FnMut(usize, &mut crate::CompiledRuntime),
 ) {
     let mut run = 0_usize;
     let stop = Arc::new(AtomicBool::new(false));

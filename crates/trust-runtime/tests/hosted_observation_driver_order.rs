@@ -1,12 +1,43 @@
 //! A later driver's failure restores flat Q but cannot revoke an earlier driver's accepted write.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 use std::sync::{Arc, Mutex};
 
 use trust_runtime::error::RuntimeError;
+use trust_runtime::harness::TestHarness;
 use trust_runtime::io::{IoAddress, IoDriver};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
-const GPIO: &[u8] = include_bytes!("fixtures/portability/f401/gpio.stbc");
+/// A program that copies the button at `%IX0.0` to the lamp at `%QX0.0` every 10 ms.
+const GPIO: &str = r#"
+PROGRAM Gpio
+VAR
+    button AT %IX0.0 : BOOL;
+    led AT %QX0.0 : BOOL;
+END_VAR
+led := button;
+END_PROGRAM
+
+CONFIGURATION BoardProbe
+RESOURCE Controller ON PLC
+TASK Scan (INTERVAL := T#10ms, PRIORITY := 0);
+PROGRAM Plant WITH Scan : Gpio;
+END_RESOURCE
+END_CONFIGURATION
+"#;
+
+/// The program of [`GPIO`], loaded.
+fn gpio() -> CompiledRuntime {
+    TestHarness::from_source(GPIO)
+        .expect("the GPIO program compiles")
+        .into_runtime()
+}
+
+/// The output image's byte.
+fn output_byte(runtime: &CompiledRuntime) -> Result<Value, RuntimeError> {
+    runtime.read_io(&IoAddress::parse("%QB0").expect("output byte address"))
+}
 
 struct RecordingDriver {
     attempts: Arc<Mutex<Vec<Vec<u8>>>>,
@@ -32,7 +63,7 @@ impl IoDriver for RecordingDriver {
 /// window, while the effect an earlier driver already accepted is not rolled back.
 #[test]
 fn hosted_observation_earlier_driver_effect_is_kept_when_a_later_driver_fails() {
-    let mut runtime = Runtime::from_bytes(GPIO, Default::default()).unwrap();
+    let mut runtime = gpio();
     let first = Arc::new(Mutex::new(Vec::new()));
     let second = Arc::new(Mutex::new(Vec::new()));
     runtime
@@ -65,8 +96,8 @@ fn hosted_observation_earlier_driver_effect_is_kept_when_a_later_driver_fails() 
     );
     assert_eq!(second.lock().unwrap().as_slice(), &[vec![1]]);
     assert_eq!(
-        runtime.io().outputs(),
-        &[0],
+        output_byte(&runtime),
+        Ok(Value::Byte(0)),
         "the touched flat Q window returns to the last published image"
     );
     assert!(runtime.faulted());

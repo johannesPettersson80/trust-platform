@@ -1,5 +1,11 @@
+//! `control.pid.*` (protocol annex E7.7): a `Control.PID`'s parameter record read, written and
+//! rolled back. A write is a parameter set over the record's fields that the runtime commits at the
+//! boundary of the task that runs the controller and confirms after that task
+//! ([`crate::debug::DebugControl::control_pid_apply`]); this service keeps each controller's
+//! revisions, its pending write and the revision a rollback returns to.
 use super::experiment_handlers::contradicted_source;
 use super::{ControlResponse, ControlState};
+use crate::debug::{ControlPidOutcome, ControlPidView, ControlPidWrite};
 use crate::memory::InstanceId;
 use crate::value::{EnumValue, Value};
 use serde::Deserialize;
@@ -14,19 +20,26 @@ pub struct ControllerParameterService {
 }
 #[derive(Clone, Debug)]
 struct ControllerRecord {
+    /// The controller instance's symbol in the program image, which a write of its members names
+    /// (specification 44 §13.3).
     instance_id: InstanceId,
+    /// The runtime epoch the record was taken in: a reload or a restart ends it, and with it the
+    /// revision a rollback returns to (E9.3).
+    epoch: u64,
     active_revision: String,
     active: Value,
     previous: Option<(String, Value)>,
     pending: Option<PendingChange>,
-    /// Why the last pending write was dropped: superseded by another write, or interrupted by a new program instance
-    /// (Specification 35, A6.7). A new write clears it.
+    /// Why the last write did not take effect: refused at its task's boundary, rejected because the
+    /// program changed a field it wrote, or stopped by a reload or restart (E7.4, A6.7); or why a
+    /// new program instance dropped it. A new write clears it.
     reason: Option<String>,
 }
 #[derive(Clone, Debug)]
 struct PendingChange {
+    /// The identity of the parameter set that carries the write (E7.7), which its outcome names.
+    transaction: String,
     revision: String,
-    value: Value,
     completes_rollback: bool,
 }
 #[derive(Deserialize)]
@@ -144,42 +157,46 @@ fn apply(id: u64, params: Option<JsonValue>, state: &ControlState) -> ControlRes
             "transaction_pending",
         );
     }
-    // A live parameter write waits for a running experiment, as transfers and parameter sets do.
-    super::experiment_handlers::answer_live_write(
-        id,
-        state,
-        || {
-            state.debug.enqueue_instance_write(
-                current.instance_id,
-                "ParametersValue",
-                candidate.clone(),
+    // A live parameter write waits for a running experiment, as transfers and parameter sets do. The write is the
+    // parameter set of E7.7, checked as a set is (mode, forcing, I/O authority, approval, bounds) and committed at the
+    // boundary of the task that runs the controller.
+    super::experiment_handlers::answer_live_write_coded(id, state, || {
+        let transaction = state
+            .debug
+            .control_pid_apply(&ControlPidWrite {
+                instance: &params.instance_path,
+                current: &current.active,
+                candidate: &candidate,
+                rollback: false,
+                physical_target: !simulated_target,
+                physical_approved: params.physical_approved,
+            })
+            .map_err(|reason| (reason, "invalid_controller_request"))?;
+        state
+            .controllers
+            .records
+            .lock()
+            .expect("controller state poisoned")
+            .insert(
+                params.instance_path.clone(),
+                ControllerRecord {
+                    instance_id: current.instance_id,
+                    epoch: current.epoch,
+                    active_revision: current.active_revision.clone(),
+                    active: current.active.clone(),
+                    previous: Some((current.active_revision.clone(), current.active.clone())),
+                    pending: Some(PendingChange {
+                        transaction,
+                        revision: pending_revision.clone(),
+                        completes_rollback: false,
+                    }),
+                    reason: None,
+                },
             );
-            state
-                .controllers
-                .records
-                .lock()
-                .expect("controller state poisoned")
-                .insert(
-                    params.instance_path,
-                    ControllerRecord {
-                        instance_id: current.instance_id,
-                        active_revision: current.active_revision.clone(),
-                        active: current.active.clone(),
-                        previous: Some((current.active_revision.clone(), current.active)),
-                        pending: Some(PendingChange {
-                            revision: pending_revision.clone(),
-                            value: candidate,
-                            completes_rollback: false,
-                        }),
-                        reason: None,
-                    },
-                );
-            Ok(
-                json!({ "previous_revision": current.active_revision, "pending_revision": pending_revision }),
-            )
-        },
-        "controller_unavailable",
-    )
+        Ok(
+            json!({ "previous_revision": current.active_revision, "pending_revision": pending_revision }),
+        )
+    })
 }
 fn rollback(id: u64, params: Option<JsonValue>, state: &ControlState) -> ControlResponse {
     let params: RollbackParams = match decode(params) {
@@ -218,7 +235,7 @@ fn rollback(id: u64, params: Option<JsonValue>, state: &ControlState) -> Control
             "transaction_pending",
         );
     }
-    let (instance_id, revision, value) = {
+    let (revision, value) = {
         let records = state
             .controllers
             .records
@@ -252,38 +269,47 @@ fn rollback(id: u64, params: Option<JsonValue>, state: &ControlState) -> Control
                 "rollback_revision_mismatch",
             );
         }
-        (record.instance_id, revision, value)
+        (revision, value)
     };
-    // The experiment lock is taken before the controller records, in the same order as apply.
-    super::experiment_handlers::answer_live_write(
-        id,
-        state,
-        || {
-            let mut records = state
-                .controllers
-                .records
-                .lock()
-                .expect("controller state poisoned");
-            let record = records
-                .get_mut(&params.instance_path)
-                .filter(|record| {
-                    record.active_revision == params.expected_active_revision
-                        && record.pending.is_none()
-                })
-                .ok_or_else(|| "controller revision changed before rollback".to_string())?;
-            state
-                .debug
-                .enqueue_instance_write(instance_id, "ParametersValue", value.clone());
-            record.pending = Some(PendingChange {
-                revision: revision.clone(),
-                value,
-                completes_rollback: true,
-            });
-            record.reason = None;
-            Ok(json!({ "pending_revision": revision }))
-        },
-        "stale_controller_revision",
-    )
+    // The experiment lock is taken before the controller records, in the same order as apply. The rollback is the
+    // parameter set of E7.7 that writes the retained record back (E7.5).
+    super::experiment_handlers::answer_live_write_coded(id, state, || {
+        let mut records = state
+            .controllers
+            .records
+            .lock()
+            .expect("controller state poisoned");
+        let record = records
+            .get_mut(&params.instance_path)
+            .filter(|record| {
+                record.active_revision == params.expected_active_revision
+                    && record.pending.is_none()
+            })
+            .ok_or_else(|| {
+                (
+                    "controller revision changed before rollback".to_string(),
+                    "stale_controller_revision",
+                )
+            })?;
+        let transaction = state
+            .debug
+            .control_pid_apply(&ControlPidWrite {
+                instance: &params.instance_path,
+                current: &record.active,
+                candidate: &value,
+                rollback: true,
+                physical_target: !simulated_target,
+                physical_approved: params.physical_approved,
+            })
+            .map_err(|reason| (reason, "invalid_controller_request"))?;
+        record.pending = Some(PendingChange {
+            transaction,
+            revision: revision.clone(),
+            completes_rollback: true,
+        });
+        record.reason = None;
+        Ok(json!({ "pending_revision": revision }))
+    })
 }
 /// The target's class from the runtime's latest scan (Specification 35, A2.4). Before the first scan the runtime's target is
 /// not known, so no controller write is served.
@@ -296,48 +322,15 @@ fn target_class(id: u64, state: &ControlState) -> Result<bool, ControlResponse> 
         )
     })
 }
-/// Reads the instance at `path` and its current `ParametersValue` from the runtime snapshot.
-fn read_controller(state: &ControlState, path: &str) -> Result<(InstanceId, Value), String> {
-    let snapshot = state
-        .debug
-        .snapshot()
-        .ok_or("runtime snapshot unavailable")?;
-    let mut parts = path.split('.');
-    let root = parts
-        .next()
-        .filter(|value| !value.is_empty())
-        .ok_or("instance path is empty")?;
-    let &Value::Instance(mut instance_id) = snapshot
-        .storage
-        .get_global(root)
-        .ok_or("program instance was not found")?
-    else {
-        return Err("program binding is not an instance".into());
-    };
-    for part in parts {
-        let Value::Instance(next) = snapshot
-            .storage
-            .get_instance_var_recursive(instance_id, part)
-            .ok_or("controller instance was not found")?
-        else {
-            return Err("controller path does not resolve to an instance".into());
-        };
-        instance_id = *next;
-    }
-    let active = snapshot
-        .storage
-        .get_instance_var_recursive(instance_id, "ParametersValue")
-        .cloned()
-        .ok_or("Control.PID ParametersValue is unavailable")?;
-    Ok((instance_id, active))
-}
 fn fresh_record(
     instance_id: InstanceId,
+    epoch: u64,
     active: Value,
     reason: Option<String>,
 ) -> ControllerRecord {
     ControllerRecord {
         instance_id,
+        epoch,
         active_revision: revision(&active),
         active,
         previous: None,
@@ -345,72 +338,80 @@ fn fresh_record(
         reason,
     }
 }
-/// The record the runtime's values imply. A pending write that the values confirm becomes active. A pending write that
-/// another write or a new program instance superseded is dropped, with the reason kept for status (Specification 35, A6.7).
-fn reconcile(
-    stored: Option<ControllerRecord>,
-    instance_id: InstanceId,
-    active: Value,
-) -> ControllerRecord {
-    let snapshot_revision = revision(&active);
+/// The record the runtime's values imply, `view` being the controller as the last scan left it with the outcome of its
+/// last write. A pending write whose set was applied becomes active; one that was refused at its task's boundary,
+/// rejected after the task or stopped by a reload or restart is dropped with its reason (E7.4, E7.7, A6.7). A new
+/// program instance drops the record, and a new runtime epoch the revision a rollback returns to (E9.3).
+fn reconcile(stored: Option<ControllerRecord>, view: ControlPidView) -> ControllerRecord {
+    let ControlPidView {
+        instance_id,
+        record: active,
+        outcome,
+        epoch,
+    } = view;
+    let active_revision = revision(&active);
     let Some(mut record) = stored else {
-        return fresh_record(instance_id, active, None);
+        return fresh_record(instance_id, epoch, active, None);
     };
     if record.instance_id != instance_id {
         return fresh_record(
             instance_id,
+            epoch,
             active,
             Some(
                 "the program was reloaded or replaced; its pending write and rollback record were dropped".into(),
             ),
         );
     }
-    if let Some(pending) = record.pending.clone() {
-        if pending.revision == snapshot_revision {
-            record.active_revision = pending.revision;
-            record.active = pending.value;
-            record.pending = None;
-            record.reason = None;
-            if pending.completes_rollback {
-                record.previous = None;
-            }
-        } else if record.active_revision != snapshot_revision {
-            // An external write won the race. The queued candidate did not become active, so it is dropped and says why.
-            return fresh_record(
-                instance_id,
-                active,
-                Some(
-                    "an external write changed the controller before the queued write was applied; the queued write was dropped"
-                        .into(),
-                ),
-            );
-        }
-    } else if record.active_revision != snapshot_revision {
-        record.active_revision = snapshot_revision;
-        record.active = active;
+    if record.epoch != epoch {
+        record.epoch = epoch;
         record.previous = None;
     }
+    if let Some(pending) = record.pending.clone() {
+        if let Some((_, ended)) =
+            outcome.filter(|(transaction, _)| *transaction == pending.transaction)
+        {
+            record.pending = None;
+            match ended {
+                ControlPidOutcome::Applied => {
+                    record.reason = None;
+                    if pending.completes_rollback {
+                        record.previous = None;
+                    }
+                }
+                ControlPidOutcome::Rejected(reason) => {
+                    record.reason = Some(reason);
+                    record.previous = None;
+                }
+            }
+        }
+    } else if record.active_revision != active_revision {
+        // The program or another writer changed the record: the revision a rollback returns to no longer follows it.
+        record.previous = None;
+    }
+    record.active_revision = active_revision;
+    record.active = active;
     record
 }
 /// The controller record as the runtime's values show it. Nothing is stored (Specification 35, E0.1).
 fn projected_record(state: &ControlState, path: &str) -> Result<ControllerRecord, String> {
-    let (instance_id, active) = read_controller(state, path)?;
+    let view = state.debug.control_pid_view(path)?;
     let records = state
         .controllers
         .records
         .lock()
         .map_err(|_| "controller state unavailable")?;
-    Ok(reconcile(records.get(path).cloned(), instance_id, active))
+    Ok(reconcile(records.get(path).cloned(), view))
 }
 /// The controller record as the runtime's values show it, stored for the apply or rollback that asked for it.
 fn stored_record(state: &ControlState, path: &str) -> Result<ControllerRecord, String> {
-    let (instance_id, active) = read_controller(state, path)?;
+    let view = state.debug.control_pid_view(path)?;
     let mut records = state
         .controllers
         .records
         .lock()
         .map_err(|_| "controller state unavailable")?;
-    let record = reconcile(records.get(path).cloned(), instance_id, active);
+    let record = reconcile(records.get(path).cloned(), view);
     records.insert(path.to_owned(), record.clone());
     Ok(record)
 }

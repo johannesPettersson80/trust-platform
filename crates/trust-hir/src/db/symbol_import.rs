@@ -577,17 +577,11 @@ impl<'a> SymbolImporter<'a> {
                     .register_type(name.clone(), Type::Alias { name, target })
             }
             Type::String { max_len } => match max_len {
-                Some(len) => self.target.register_type(
-                    SmolStr::new(format!("STRING[{}]", len)),
-                    Type::String { max_len: Some(len) },
-                ),
+                Some(len) => self.target.register_string_type(false, len),
                 None => TypeId::STRING,
             },
             Type::WString { max_len } => match max_len {
-                Some(len) => self.target.register_type(
-                    SmolStr::new(format!("WSTRING[{}]", len)),
-                    Type::WString { max_len: Some(len) },
-                ),
+                Some(len) => self.target.register_string_type(true, len),
                 None => TypeId::WSTRING,
             },
             _ => type_id,

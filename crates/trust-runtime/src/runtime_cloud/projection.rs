@@ -225,6 +225,124 @@ pub fn presence_record_from_observation(
     }
 }
 
+/// The stale window of runtime cloud presence: a runtime last seen this long ago is stale. Runtime
+/// cloud peer liveliness should not flap under the normal mDNS refresh cadence (specification 11,
+/// "Runtime cloud presence").
+pub const RUNTIME_CLOUD_STALE_TIMEOUT_NS: u64 = 30_000_000_000;
+/// The partition window of runtime cloud presence: a runtime with no mesh endpoint last seen this
+/// long ago is partitioned (specification 11, "Runtime cloud presence").
+pub const RUNTIME_CLOUD_PARTITION_TIMEOUT_NS: u64 = 120_000_000_000;
+/// The site that the runtime cloud projects its peers in.
+pub const RUNTIME_CLOUD_DEFAULT_SITE: &str = "default-site";
+/// The thresholds of runtime cloud presence.
+pub const RUNTIME_CLOUD_PRESENCE: PresenceThresholds = PresenceThresholds {
+    stale_timeout_ns: RUNTIME_CLOUD_STALE_TIMEOUT_NS,
+    partition_timeout_ns: RUNTIME_CLOUD_PARTITION_TIMEOUT_NS,
+};
+
+/// What discovery saw of a runtime, as far as its presence goes (specification 11, "Runtime cloud
+/// presence"): whether its announcement names an address, a mesh port and a web port, and when it
+/// was last seen. The discovery layer fills it, so that the projection reads no transport type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DiscoverySighting {
+    /// The announcement names at least one address.
+    pub has_address: bool,
+    /// The announcement names a mesh port.
+    pub mesh_port: bool,
+    /// The announcement names a web port.
+    pub web_port: bool,
+    /// When the runtime was last seen, on the clock of `now_ns`.
+    pub last_seen_ns: u64,
+}
+
+/// The presence observation of a runtime that discovery saw, at `now_ns` (specification 11,
+/// "Runtime cloud presence"). `runtime_id` and `display_name` name it in the projection. A runtime
+/// with a web endpoint whose announcement is 30 s old or more, or dated after `now_ns`, is seen now
+/// when `web_answers` says that its web endpoint accepts a connection; `web_answers` is asked for
+/// no other runtime.
+pub fn presence_observation_from_discovery(
+    site: &str,
+    runtime_id: &str,
+    display_name: &str,
+    entry: DiscoverySighting,
+    now_ns: u64,
+    web_answers: impl FnOnce() -> bool,
+) -> RuntimePeerObservation {
+    let has_address = entry.has_address;
+    let mesh_reachable = entry.mesh_port && has_address;
+    let web_reachable = entry.web_port && has_address;
+    let stale_by_age = entry.last_seen_ns > now_ns
+        || now_ns.saturating_sub(entry.last_seen_ns) >= RUNTIME_CLOUD_STALE_TIMEOUT_NS;
+    let peer_live = stale_by_age && web_reachable && web_answers();
+    RuntimePeerObservation {
+        runtime_id: runtime_id.to_string(),
+        site: site.to_string(),
+        display_name: display_name.to_string(),
+        mesh_reachable,
+        last_seen_ns: if peer_live {
+            now_ns
+        } else {
+            entry.last_seen_ns
+        },
+    }
+}
+
+/// The address that a runtime's web endpoint is connected to: an IPv4 loopback address, then any
+/// other IPv4 address that is neither unspecified nor multicast, then an IPv6 loopback address,
+/// then an IPv6 address that is neither unspecified, multicast nor link-local, and last any
+/// address that is not unspecified.
+pub fn select_preferred_peer_address(addresses: &[std::net::IpAddr]) -> Option<std::net::IpAddr> {
+    addresses
+        .iter()
+        .copied()
+        .find(|addr| addr.is_ipv4() && addr.is_loopback())
+        .or_else(|| {
+            addresses.iter().copied().find(|addr| {
+                matches!(
+                    addr,
+                    std::net::IpAddr::V4(v4) if !v4.is_unspecified() && !v4.is_multicast()
+                )
+            })
+        })
+        .or_else(|| {
+            addresses
+                .iter()
+                .copied()
+                .find(|addr| addr.is_ipv6() && addr.is_loopback())
+        })
+        .or_else(|| {
+            addresses.iter().copied().find(|addr| {
+                matches!(
+                    addr,
+                    std::net::IpAddr::V6(v6)
+                        if !v6.is_unspecified() && !v6.is_multicast() && !v6.is_unicast_link_local()
+                )
+            })
+        })
+        .or_else(|| {
+            addresses
+                .iter()
+                .copied()
+                .find(|addr| !addr.is_unspecified())
+        })
+}
+
+/// Whether a runtime's web endpoint accepts a TCP connection within 200 milliseconds. The probe
+/// connects and sends nothing (specification 11, "Runtime cloud presence").
+pub fn runtime_cloud_peer_appears_live(
+    addresses: &[std::net::IpAddr],
+    web_port: Option<u16>,
+) -> bool {
+    let Some(port) = web_port else {
+        return false;
+    };
+    let Some(address) = select_preferred_peer_address(addresses) else {
+        return false;
+    };
+    let socket = std::net::SocketAddr::new(address, port);
+    std::net::TcpStream::connect_timeout(&socket, std::time::Duration::from_millis(200)).is_ok()
+}
+
 pub fn project_runtime_cloud_state(
     context: UiContext,
     local_runtime_id: &str,
@@ -610,6 +728,102 @@ mod tests {
         let partitioned = presence_record_from_observation(&observation, 200, thresholds);
         assert!(partitioned.stale);
         assert!(partitioned.partitioned);
+    }
+
+    fn presence_entry(
+        last_seen_ns: u64,
+        mesh_port: Option<u16>,
+        web_port: Option<u16>,
+    ) -> DiscoverySighting {
+        DiscoverySighting {
+            has_address: true,
+            mesh_port: mesh_port.is_some(),
+            web_port: web_port.is_some(),
+            last_seen_ns,
+        }
+    }
+
+    #[test]
+    fn presence_observation_asks_the_web_endpoint_only_about_an_old_announcement() {
+        // Spec 11, "Runtime cloud presence": the web endpoint is asked only about an announcement
+        // that is 30 s old or more, or dated after now; an answer means the runtime was seen now.
+        let now_ns = 200_000_000_000;
+        let fresh = presence_entry(199_000_000_000, Some(7443), Some(8080));
+        let mut asked_fresh = false;
+        let observation = presence_observation_from_discovery(
+            "site-a",
+            "runtime-b",
+            "Mixer-02",
+            fresh,
+            now_ns,
+            || {
+                asked_fresh = true;
+                true
+            },
+        );
+        assert_eq!(observation.last_seen_ns, 199_000_000_000);
+        assert!(!asked_fresh, "a fresh announcement is not asked");
+
+        let old = presence_entry(100_000_000_000, Some(7443), Some(8080));
+        let answered = presence_observation_from_discovery(
+            "site-a",
+            "runtime-b",
+            "Mixer-02",
+            old,
+            now_ns,
+            || true,
+        );
+        assert_eq!(
+            answered.last_seen_ns, 200_000_000_000,
+            "an old announcement whose web endpoint answers is seen now"
+        );
+        let silent = presence_observation_from_discovery(
+            "site-a",
+            "runtime-b",
+            "Mixer-02",
+            old,
+            now_ns,
+            || false,
+        );
+        assert_eq!(
+            silent.last_seen_ns, 100_000_000_000,
+            "an old announcement whose web endpoint does not answer keeps its time"
+        );
+
+        let dated_ahead = presence_entry(300_000_000_000, Some(7443), Some(8080));
+        let mut asked_ahead = false;
+        let observation = presence_observation_from_discovery(
+            "site-a",
+            "runtime-b",
+            "Mixer-02",
+            dated_ahead,
+            now_ns,
+            || {
+                asked_ahead = true;
+                false
+            },
+        );
+        assert!(asked_ahead, "an announcement dated after now is asked");
+        assert_eq!(observation.last_seen_ns, 300_000_000_000);
+
+        let no_web = presence_entry(100_000_000_000, Some(7443), None);
+        let mut asked_without_web = false;
+        let observation = presence_observation_from_discovery(
+            "site-a",
+            "runtime-b",
+            "Mixer-02",
+            no_web,
+            now_ns,
+            || {
+                asked_without_web = true;
+                true
+            },
+        );
+        assert!(
+            !asked_without_web,
+            "a runtime without a web endpoint is not asked"
+        );
+        assert_eq!(observation.last_seen_ns, 100_000_000_000);
     }
 
     #[test]

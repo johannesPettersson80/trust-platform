@@ -260,6 +260,14 @@ fn code_action_with_ticket(
         actions.push(action);
     }
 
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
+    // The library quick fix and the namespace move of specification 25 (§7, §1.1).
+    actions.extend(crate::handlers::commands::project::code_actions(
+        state, &doc, &params,
+    ));
+
     Some(actions)
 }
 

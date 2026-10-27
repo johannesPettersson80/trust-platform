@@ -40,6 +40,18 @@ fn manifest(root: &Path, open: &BTreeMap<PathBuf, String>) -> Result<toml::Table
     };
     toml::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))
 }
+/// `path` with its folder resolved through symbolic links; a file an editor has not saved yet may
+/// not exist, so only its folder is resolved.
+fn resolved(path: &Path) -> PathBuf {
+    match (
+        path.parent().and_then(|folder| folder.canonicalize().ok()),
+        path.file_name(),
+    ) {
+        (Some(folder), Some(name)) => folder.join(name),
+        _ => path.to_path_buf(),
+    }
+}
+
 fn dependency_path(value: &toml::Value) -> Result<&str, String> {
     value
         .as_str()
@@ -57,7 +69,15 @@ pub(crate) fn dependency_roots(
     }) {
         return trust_runtime::bundle_builder::dependency_roots(root).map_err(|e| e.to_string());
     }
+    // The unsaved files under the names the resolved roots give them (through symbolic links).
+    let open: BTreeMap<PathBuf, String> = open
+        .iter()
+        .map(|(path, text)| (resolved(path), text.clone()))
+        .collect();
     let view = temporary()?;
+    // The snapshot's folder as the dependency roots name it: resolved through symbolic links, as a
+    // temporary folder behind one is (`/var` on macOS), so that each root maps back to its folder.
+    let snapshot = view.0.canonicalize().map_err(|e| e.to_string())?;
     let root = root.canonicalize().map_err(|e| e.to_string())?;
     let mut ids = BTreeMap::from([(root.clone(), 0usize)]);
     let mut pending = VecDeque::from([root]);
@@ -66,9 +86,9 @@ pub(crate) fn dependency_roots(
             return Err("An editing snapshot supports at most 256 local library roots".into());
         }
         let id = ids[&real];
-        let folder = view.0.join(id.to_string());
+        let folder = snapshot.join(id.to_string());
         std::fs::create_dir_all(folder.join("src")).map_err(|e| e.to_string())?;
-        let mut table = manifest(&real, open)?;
+        let mut table = manifest(&real, &open)?;
         if let Some(dependencies) = table
             .get_mut("dependencies")
             .and_then(toml::Value::as_table_mut)
@@ -90,7 +110,7 @@ pub(crate) fn dependency_roots(
                     next
                 });
                 let path = toml::Value::String(
-                    view.0
+                    snapshot
                         .join(target_id.to_string())
                         .to_string_lossy()
                         .into_owned(),
@@ -112,11 +132,11 @@ pub(crate) fn dependency_roots(
         .map_err(|e| e.to_string())?;
     }
     let result =
-        trust_runtime::bundle_builder::dependency_roots(&view.0.join("0")).map_err(|e| {
+        trust_runtime::bundle_builder::dependency_roots(&snapshot.join("0")).map_err(|e| {
             let mut message = e.to_string();
             for (real, id) in &ids {
                 message = message.replace(
-                    &view.0.join(id.to_string()).to_string_lossy().to_string(),
+                    &snapshot.join(id.to_string()).to_string_lossy().to_string(),
                     &real.to_string_lossy(),
                 );
             }
@@ -126,7 +146,7 @@ pub(crate) fn dependency_roots(
         .into_iter()
         .map(|p| {
             ids.iter()
-                .find(|(_, id)| view.0.join(id.to_string()) == p)
+                .find(|(_, id)| snapshot.join(id.to_string()) == p)
                 .map(|(real, _)| real.clone())
                 .ok_or("Dependency snapshot mapping disappeared".into())
         })

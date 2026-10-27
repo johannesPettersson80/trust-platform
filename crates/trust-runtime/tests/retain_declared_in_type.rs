@@ -4,7 +4,6 @@
 //! instance declared `RETAIN`.
 
 use trust_runtime::harness::TestHarness;
-use trust_runtime::hmi::member_paths::{resolve_member, MemberPath};
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::RestartMode;
 
@@ -48,9 +47,8 @@ END_PROGRAM
 "#;
 
 fn value(harness: &TestHarness, path: &str) -> Value {
-    let path = MemberPath::parse(path).expect("a path");
-    resolve_member(&path, harness.runtime().storage())
-        .cloned()
+    harness
+        .get_output(path)
         .unwrap_or_else(|| panic!("{path:?} exists"))
 }
 

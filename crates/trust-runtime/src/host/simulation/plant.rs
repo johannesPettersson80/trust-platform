@@ -4,9 +4,9 @@ use serde::Deserialize;
 
 use crate::error::RuntimeError;
 use crate::io::IoAddress;
-use crate::memory::IoArea;
+use crate::memory::{Generation, IoArea};
 use crate::value::Duration;
-use crate::Runtime;
+use crate::CompiledRuntime;
 
 #[cfg(test)]
 #[path = "plant/cascade_tests.rs"]
@@ -14,7 +14,7 @@ mod cascade_tests;
 
 /// A runtime whose program declares an LREAL at each `(name, address)`: a plant test's bindings.
 #[cfg(test)]
-fn lreal_bound_runtime(bindings: &[(&str, &str)]) -> Runtime {
+fn lreal_bound_runtime(bindings: &[(&str, &str)]) -> CompiledRuntime {
     let typed: Vec<(&str, &str)> = bindings
         .iter()
         .map(|(_, address)| (*address, "LREAL"))
@@ -904,6 +904,9 @@ pub(super) struct PlantSystem {
     max_substeps_per_cycle: usize,
     last_time: Duration,
     next_trace_sequence: u64,
+    /// The program generation the plants last published into: a restart or a newly loaded program
+    /// starts the next, whose Control.PID instances hold no measurement of this simulation.
+    published_generation: Option<Generation>,
 }
 
 impl PlantSystem {
@@ -918,17 +921,33 @@ impl PlantSystem {
             max_substeps_per_cycle: config.max_substeps_per_cycle,
             last_time: Duration::ZERO,
             next_trace_sequence: 0,
+            published_generation: None,
         }
     }
 
-    pub(super) fn publish(&mut self, runtime: &mut Runtime) -> Result<(), RuntimeError> {
+    /// Publishes every plant's completed feedback before the next scan, in plant order
+    /// (Specification 46 §13.2, §14). In a program generation the plants have not published into,
+    /// the measurements held for Control.PID instances are removed first: a restart or a newly
+    /// loaded program removes them, and each plant gives its own again at its next publish.
+    pub(super) fn publish(&mut self, runtime: &mut CompiledRuntime) -> Result<(), RuntimeError> {
+        let generation = runtime.generation();
+        if self.published_generation != Some(generation) {
+            for plant in &mut self.plants {
+                plant.release_held_measurements(runtime)?;
+            }
+            self.published_generation = Some(generation);
+        }
         for plant in &mut self.plants {
             plant.publish(runtime)?;
         }
         Ok(())
     }
 
-    pub(super) fn advance(&mut self, now: Duration, runtime: &Runtime) -> Result<(), RuntimeError> {
+    pub(super) fn advance(
+        &mut self,
+        now: Duration,
+        runtime: &CompiledRuntime,
+    ) -> Result<(), RuntimeError> {
         let elapsed = now.as_nanos().saturating_sub(self.last_time.as_nanos());
         self.last_time = now;
         for plant in &mut self.plants {

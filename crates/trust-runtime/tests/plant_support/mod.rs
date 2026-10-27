@@ -1,15 +1,15 @@
 //! Shared harness for the native tests of the truST Plant library (specification
 //! `docs/specs/trust-plant-library.md`, §14). A test compiles the real library sources, with the
-//! Alarm and Control libraries they depend on, together with one test program `Main`, and scans
-//! it on the VM with an explicit clock. Methods are called from PLC code, so an operator command
-//! is a one-shot BOOL input the test program executes and clears in the next scan.
+//! Alarm and Control libraries they depend on, together with one test program `Main`, for this
+//! computer (the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`), and scans it with an
+//! explicit clock. Methods are called from PLC code, so an operator command is a one-shot BOOL
+//! input the test program executes and clears in the next scan.
 #![allow(dead_code)]
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use trust_runtime::harness::TestHarness;
-use trust_runtime::hmi::member_paths::{resolve_member, MemberPath};
 use trust_runtime::retain::FileRetainStore;
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::RestartMode;
@@ -60,7 +60,7 @@ const PROGRAM_INSTANCE: &str = "Main";
 /// The scan period of [`Rig::scan`].
 pub const SCAN_MS: i64 = 100;
 
-/// The library and one test program on the VM.
+/// The library and one test program, compiled.
 pub struct Rig {
     harness: TestHarness,
     programs: Vec<String>,
@@ -127,12 +127,13 @@ impl Rig {
         self.scan();
     }
 
-    /// Reads a member path below the test program, for example `P101.RunCommand`.
+    /// Reads a member path below the test program, for example `P101.RunCommand`, as the last
+    /// scan left it.
     pub fn value(&self, path: &str) -> Value {
         let full = format!("{PROGRAM_INSTANCE}.{path}");
-        let parsed = MemberPath::parse(&full).unwrap_or_else(|error| panic!("{error}"));
-        resolve_member(&parsed, self.harness.runtime().storage())
-            .cloned()
+        self.harness
+            .runtime()
+            .with_program_view(|program| program.value(&full))
             .unwrap_or_else(|| panic!("{full} exists"))
     }
 
@@ -203,7 +204,8 @@ impl Rig {
     }
 
     /// A power loss (Plant §4.8.2, §11): the retain store is saved, the PLC goes off, and a new
-    /// runtime of the same project loads the store at start. Nothing has run after the start.
+    /// runtime of the same project loads the store at start, a warm start from the retain file
+    /// (specification 44 §11). Nothing has run after the start.
     pub fn power_loss(self) -> Self {
         let path = store_path();
         let _ = std::fs::remove_file(&path);
@@ -213,26 +215,32 @@ impl Rig {
                 programs,
             } = self;
             let runtime = harness.runtime_mut();
-            runtime.set_retain_store(
-                Some(Box::new(FileRetainStore::new(&path))),
-                Some(Duration::from_millis(1)),
-            );
-            runtime.mark_retain_dirty();
+            runtime
+                .set_retain_store(
+                    Some(Box::new(FileRetainStore::new(&path))),
+                    Some(Duration::from_millis(1)),
+                )
+                .expect("the retain store is set before the power loss");
             runtime
                 .save_retain_store()
                 .expect("the retain store is saved before the power loss");
             programs
         };
         let mut harness = compile(&programs);
-        let runtime = harness.runtime_mut();
-        runtime.set_retain_store(
-            Some(Box::new(FileRetainStore::new(&path))),
-            Some(Duration::from_millis(1)),
-        );
-        runtime
-            .load_retain_store()
+        harness
+            .runtime_mut()
+            .set_retain_store(
+                Some(Box::new(FileRetainStore::new(&path))),
+                Some(Duration::from_millis(1)),
+            )
+            .expect("the retain store is set at start");
+        harness
+            .restart_with_retain(RestartMode::Warm)
             .expect("the retain store is loaded at start");
-        runtime.set_retain_store(None, None);
+        harness
+            .runtime_mut()
+            .set_retain_store(None, None)
+            .expect("the retain store is detached");
         let _ = std::fs::remove_file(&path);
         Self { harness, programs }
     }

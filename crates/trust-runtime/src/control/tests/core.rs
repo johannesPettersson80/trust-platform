@@ -1,5 +1,16 @@
 #[test]
 fn breakpoints_set_accepts_project_relative_source_path() {
+    // Specification 13, "Source Mapping" rule 4 and "SetBreakpoints"; specification 11 §6.13.3,
+    // "File identity"; specification 44 §13.2: a compiled program's breakpoints resolve through the
+    // file labels of its image, and `trust-runtime build` labels a project's file by its path
+    // relative to the project root (specification 44 §5.3). A request names the file by a path that
+    // is its label or ends with it after a `/`, and the reply names the file by the index of its
+    // entry in the image's file table. Worked: the one file, labelled `src/main.st`, is file 0; the
+    // project-relative `src/main.st` and the absolute `<root>/src/main.st` both bind it, and the
+    // zero-based line 5 resolves to its statement `run := NOT run;` at line 5, column 0;
+    // `lib/main.st` ends with no label and is refused with `unknown source path`.
+    // Wrong behaviour caught: a project-relative path that does not bind, a file numbered by
+    // anything but its table index, and a path bound to a file whose label it does not end with.
     let source = r#"
 PROGRAM Main
 VAR
@@ -8,35 +19,54 @@ END_VAR
 run := NOT run;
 END_PROGRAM
 "#;
-    let mut state = control_test_state(source);
+    let state = control_test_state(source);
+    // The program as the project's build labels it, on the debugger that the control state asks.
+    let mut runtime =
+        crate::CompiledRuntime::load(labelled_program_image("src/main.st", source), "RESOURCE")
+            .expect("the labelled image loads");
+    runtime.set_debug_control(state.debug.clone());
     let project_root = std::env::temp_dir().join("trust-breakpoints-project-relative");
-    state.project_root = Some(project_root.clone());
-    state.sources = SourceRegistry::new(vec![SourceFile {
-        id: 1,
-        path: project_root.join("src").join("main.st"),
-        text: source.to_string(),
-    }]);
+    let absolute = project_root.join("src").join("main.st");
 
-    let response = handle_request_value(
+    for path in ["src/main.st", absolute.to_str().expect("a UTF-8 path")] {
+        let response = handle_request_value(
+            json!({
+                "id": 101,
+                "type": "breakpoints.set",
+                "params": { "source": path, "lines": [5] }
+            }),
+            &state,
+            None,
+        );
+        assert!(
+            response.ok,
+            "the breakpoint source {path} should bind: {:?}",
+            response.error
+        );
+        let result = response.result.expect("breakpoint result");
+        assert_eq!(
+            result.get("file_id").and_then(serde_json::Value::as_u64),
+            Some(0),
+            "{path}"
+        );
+        assert_eq!(
+            result["resolved"],
+            json!([{ "line": 5, "column": 0 }]),
+            "{path}"
+        );
+    }
+
+    let unknown = handle_request_value(
         json!({
-            "id": 101,
+            "id": 102,
             "type": "breakpoints.set",
-            "params": { "source": "src/main.st", "lines": [6] }
+            "params": { "source": "lib/main.st", "lines": [5] }
         }),
         &state,
         None,
     );
-
-    assert!(
-        response.ok,
-        "project-relative breakpoint source should bind: {:?}",
-        response.error
-    );
-    let result = response.result.expect("breakpoint result");
-    assert_eq!(
-        result.get("file_id").and_then(serde_json::Value::as_u64),
-        Some(1)
-    );
+    assert!(!unknown.ok, "a path that ends with no label binds no file");
+    assert_eq!(unknown.error.as_deref(), Some("unknown source path"));
 }
 
 #[test]
@@ -2800,6 +2830,8 @@ fn connected_ads_status() -> crate::ads::diagnostics::AdsStatusReport {
         connections: vec![crate::ads::diagnostics::AdsConnectionStatus {
             name: "line1".to_string(),
             target: Some(crate::ads::diagnostics::TargetIdentity {
+                os_version: None,
+                fingerprint: None,
                 name: Some("TwinCAT".to_string()),
                 ip: "192.168.77.20".to_string(),
                 ams_net_id: "5.23.91.12.1.1".to_string(),
@@ -4284,7 +4316,7 @@ fn ads_server_status_rejects_external_claim_without_live_server_evidence() {
         None,
     );
     assert!(status.ok, "ads.server.status failed: {:?}", status.error);
-    let result = status.result.expect("status result");
+    let result = status.result_value().expect("status result");
     assert_eq!(
         result
             .get("external_client_verified")
@@ -4493,8 +4525,8 @@ END_PROGRAM
 
     let read = handle_request_value(json!({"id": 41, "type": "io.read"}), &state, None);
     assert!(read.ok, "io.read should succeed: {:?}", read.error);
-    let snapshot = read
-        .result
+    let read_result = read.result_value();
+    let snapshot = read_result
         .as_ref()
         .and_then(|result| result.get("snapshot"))
         .expect("snapshot result");
@@ -4536,8 +4568,8 @@ END_PROGRAM
         "io.read should succeed: {:?}",
         next_read.error
     );
-    let forced = next_read
-        .result
+    let next_read_result = next_read.result_value();
+    let forced = next_read_result
         .as_ref()
         .and_then(|result| result.get("snapshot"))
         .and_then(|snapshot| snapshot.get("outputs"))
@@ -4654,25 +4686,19 @@ END_PROGRAM
 
     let status = handle_request_value(json!({"id": 30, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
-    let result = status.result.expect("status result");
+    let result = status.result_value().expect("status result");
+    // Every runtime runs compiled programs (specification 44 §15).
     assert_eq!(
         result
             .get("execution_backend")
             .and_then(serde_json::Value::as_str),
-        Some("vm")
+        Some("native")
     );
     assert_eq!(
         result
             .get("execution_backend_source")
             .and_then(serde_json::Value::as_str),
         Some("default")
-    );
-    assert_eq!(
-        result
-            .get("metrics")
-            .and_then(|metrics| metrics.get("execution_backend"))
-            .and_then(serde_json::Value::as_str),
-        Some("vm")
     );
 }
 
@@ -4689,7 +4715,7 @@ END_PROGRAM
 
     let status = handle_request_value(json!({"id": 31, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
-    let status_result = status.result.expect("status result");
+    let status_result = status.result_value().expect("status result");
     let status_backend = status_result
         .get("execution_backend")
         .and_then(serde_json::Value::as_str)
@@ -4783,10 +4809,14 @@ END_PROGRAM
     ]);
     // The scan cycle reports the runtime's I/O as not simulation-only: its fieldbus driver is physical. A mix of simulated and physical
     // I/O is physical, so the target stays physical with the simulation enabled (specification 35, A2.4).
+    let program = state
+        .debug
+        .published_program()
+        .expect("the fixture's first scan published the program");
     state.debug.push_control_snapshot_at(
         crate::io::IoSnapshot::default(),
         0,
-        &crate::memory::VariableStorage::default(),
+        &*program,
         &[],
         false,
         false,
@@ -4794,7 +4824,7 @@ END_PROGRAM
 
     let status = handle_request_value(json!({"id": 33, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
-    let result = status.result.expect("status result");
+    let result = status.result_value().expect("status result");
 
     assert_eq!(
         result.get("state").and_then(serde_json::Value::as_str),
@@ -4992,7 +5022,7 @@ END_PROGRAM
 
     let health = handle_request_value(json!({"id": 34, "type": "health"}), &state, None);
     assert!(health.ok, "health should succeed: {:?}", health.error);
-    let result = health.result.expect("health result");
+    let result = health.result_value().expect("health result");
 
     assert_eq!(
         result.get("ok").and_then(serde_json::Value::as_bool),
@@ -5185,12 +5215,12 @@ END_PROGRAM
 
     let status = handle_request_value(json!({"id": 25, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
-    let result = status.result.expect("status result");
+    let result = status.result_value().expect("status result");
     assert_eq!(
         result
             .get("execution_backend")
             .and_then(serde_json::Value::as_str),
-        Some("vm")
+        Some("native")
     );
     assert_eq!(
         result
@@ -5211,7 +5241,7 @@ END_PROGRAM
 
     let status = handle_request_value(json!({"id": 26, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
-    let status_result = status.result.expect("status result");
+    let status_result = status.result_value().expect("status result");
     assert_eq!(
         status_result
             .get("realtime")
@@ -5334,8 +5364,8 @@ END_PROGRAM
         None,
     );
     assert!(viewer_status.ok, "viewer should read status");
-    let viewer_access = viewer_status
-        .result
+    let viewer_status_result = viewer_status.result_value();
+    let viewer_access = viewer_status_result
         .as_ref()
         .and_then(|value| value.get("access"))
         .expect("viewer access capabilities");
@@ -5501,8 +5531,8 @@ END_PROGRAM
 
     let status = handle_request_value(json!({"id": 903, "type": "status"}), &state, Some("unix"));
     assert!(status.ok, "local Unix control should read status");
-    let access = status
-        .result
+    let status_result = status.result_value();
+    let access = status_result
         .as_ref()
         .and_then(|value| value.get("access"))
         .expect("access capabilities");
@@ -5556,8 +5586,8 @@ END_PROGRAM
         Some("unix"),
     );
     assert!(status.ok, "viewer token should read status over Unix");
-    let access = status
-        .result
+    let status_result = status.result_value();
+    let access = status_result
         .as_ref()
         .and_then(|value| value.get("access"))
         .expect("access capabilities");
@@ -5844,4 +5874,49 @@ END_VAR
 setpoint := setpoint;
 END_PROGRAM
 "#
+}
+
+/// R1: the runtime ID belongs to the state, not to the process. Two states in one process report
+/// their own IDs, and reading `status` creates no file (specification 11, `status`: the runtime's
+/// stable runtime ID, and the read-only-status precedent of `bin/trust-runtime/lifecycle.rs`).
+/// The fault kept one process-wide `OnceLock`, so the second state reported the first state's ID
+/// and the first read created `<project>/.trust-runtime/runtime_id`.
+#[test]
+fn status_runtime_id_is_the_states_and_reading_it_writes_no_file() {
+    let first_root = temp_dir("status-runtime-id-a");
+    let second_root = temp_dir("status-runtime-id-b");
+
+    let mut first = control_test_state("PROGRAM Main\nEND_PROGRAM\n");
+    first.runtime_id = SmolStr::new("rt-a");
+    set_project_root(&mut first, &first_root);
+    let mut second = control_test_state("PROGRAM Main\nEND_PROGRAM\n");
+    second.runtime_id = SmolStr::new("rt-b");
+    set_project_root(&mut second, &second_root);
+
+    let first_status = handle_request_value(json!({"id": 601, "type": "status"}), &first, None);
+    let second_status = handle_request_value(json!({"id": 602, "type": "status"}), &second, None);
+    assert_eq!(
+        first_status
+            .result_value()
+            .as_ref()
+            .and_then(|result| result.get("runtime_id")),
+        Some(&json!("rt-a")),
+        "the first state reports its own runtime ID"
+    );
+    assert_eq!(
+        second_status
+            .result_value()
+            .as_ref()
+            .and_then(|result| result.get("runtime_id")),
+        Some(&json!("rt-b")),
+        "the second state in the same process reports its own runtime ID"
+    );
+    assert!(
+        !first_root.join(".trust-runtime").exists(),
+        "reading status must not create runtime state"
+    );
+    assert!(
+        !second_root.join(".trust-runtime").exists(),
+        "reading status must not create runtime state"
+    );
 }

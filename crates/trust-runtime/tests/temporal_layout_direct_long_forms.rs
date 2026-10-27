@@ -1,15 +1,13 @@
 //! Long temporal types at direct addresses, end to end through the harness (IEC 61131-3 Table 10;
 //! spec 10 section 1.2 and spec 12 section 4.1). Each LDATE, LTOD and LDT image is one LWORD that
 //! carries the signed nanoseconds of its value, the same as the LTIME image pinned in
-//! `temporal_layout_direct_views.rs`. DATE, TOD and DT stay refused at direct addresses: the harness
-//! and the bytecode path refuse them by name here, and the codec boundary refuses them in
-//! trust-runtime-core `tests/temporal_layout_direct_long_forms.rs`.
+//! `temporal_layout_direct_views.rs`. DATE, TOD and DT stay refused at direct addresses: the build
+//! refuses them by name here, and the codec boundary refuses them in trust-runtime-core
+//! `tests/temporal_layout_direct_long_forms.rs`.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 #![cfg(feature = "full")]
-use trust_runtime::{
-    bytecode::BytecodeVersion,
-    harness::{CompileSession, TestHarness},
-    value::Value,
-};
+use trust_runtime::{harness::TestHarness, value::Value};
 
 /// 1970-01-02 is one day, 86 400 s, after the LDATE epoch.
 /// 01:02:03.004 is 3 723.004 s after midnight.
@@ -48,8 +46,7 @@ END_PROGRAM
 }
 
 /// IEC 61131-3 Table 10 gives DATE, TOD and DT no fixed width, so a direct binding of any of them
-/// is a compile error that names the type and the long form to use instead. The source-free
-/// bytecode path refuses the same declaration.
+/// is a compile error that names the type and the long form to use instead.
 #[test]
 fn date_tod_and_dt_at_a_direct_address_are_refused_by_name() {
     for (declaration, type_name, long_form) in [
@@ -67,12 +64,6 @@ fn date_tod_and_dt_at_a_direct_address_are_refused_by_name() {
             "{message}"
         );
         assert!(message.contains(long_form), "{message}");
-        assert!(
-            CompileSession::from_source(&source)
-                .build_bytecode_module_for_version(BytecodeVersion::SOURCE_FREE)
-                .is_err(),
-            "{declaration} must be refused by the bytecode path"
-        );
     }
 }
 

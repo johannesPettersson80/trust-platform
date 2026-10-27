@@ -3,27 +3,28 @@
 //! the process: a high level, a high-high trip and a pump overload trip that mark the first out,
 //! and a fast rise detected by a block that extends the base.
 
-use trust_runtime::debug::DebugControl;
-use trust_runtime::harness::{CompileSession, SourceFile};
+use smol_str::SmolStr;
+use trust_runtime::harness::{CompileSession, SourceFile, TestHarness};
 use trust_runtime::hmi::alarms::{read_alarms, AlarmStatus, Priority};
-use trust_runtime::hmi::member_paths::{resolve_member, MemberPath};
+use trust_runtime::hmi::member_paths::{member_value, MemberPath};
 use trust_runtime::io::IoAddress;
 use trust_runtime::value::{Duration, EnumValue, Value};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
 /// The tank of `simulation.toml`: 0.2 m² with an outlet of c = 0.02 m^(5/2)/s.
 const AREA: f64 = 0.2;
 const OUTLET: f64 = 0.02;
 
 struct Process {
-    runtime: Runtime,
-    debug: DebugControl,
+    runtime: CompiledRuntime,
+    /// The example's sources, whose declarations a deployment checks the screens against.
+    session: CompileSession,
     level: f64,
 }
 
 impl Process {
     fn new(level: f64) -> Self {
-        let mut runtime = CompileSession::from_sources(vec![
+        let session = CompileSession::from_sources(vec![
             SourceFile::with_path(
                 "Control/control.st",
                 include_str!("../../../examples/hmi_tank_level/libraries/control/src/control.st"),
@@ -40,13 +41,13 @@ impl Process {
                 "src/main.st",
                 include_str!("../../../examples/hmi_tank_level/src/Main.st"),
             ),
-        ])
-        .build_runtime()
-        .expect("the example compiles with its libraries");
-        let debug = runtime.enable_debug();
+        ]);
+        let runtime = TestHarness::from_session(session.clone())
+            .expect("the example compiles with its libraries")
+            .into_runtime();
         Self {
             runtime,
-            debug,
+            session,
             level,
         }
     }
@@ -55,11 +56,14 @@ impl Process {
     /// inflow the program gives it.
     fn run(&mut self, seconds: f64) {
         for _ in 0..(seconds * 10.0).round() as usize {
-            self.debug.enqueue_io_write(
-                IoAddress::parse("%IL0").unwrap(),
-                Value::LWord(self.level.to_bits()),
-            );
-            self.runtime.advance_time(Duration::from_millis(100));
+            self.runtime
+                .write_io(
+                    &IoAddress::parse("%IL0").unwrap(),
+                    Value::LWord(self.level.to_bits()),
+                )
+                .expect("the level input");
+            let now = self.runtime.current_time().as_nanos() + 100_000_000;
+            self.runtime.set_current_time(Duration::from_nanos(now));
             self.runtime.execute_cycle().expect("a cycle");
             let inflow = self.real("Tank.Inflow");
             self.level =
@@ -79,8 +83,9 @@ impl Process {
     }
 
     fn value(&self, path: &str) -> Value {
-        resolve_member(&MemberPath::parse(path).unwrap(), self.runtime.storage())
-            .cloned()
+        let parsed = MemberPath::parse(path).unwrap();
+        self.runtime
+            .with_program_view(|program| member_value(&parsed, program))
             .unwrap_or_else(|| panic!("{path} is in the program"))
     }
 
@@ -101,12 +106,8 @@ impl Process {
 
     /// Sets a variable of the program, as a write from the runtime display does.
     fn set(&mut self, name: &str, value: Value) {
-        let Some(Value::Instance(program)) = self.runtime.storage().get_global("Tank").cloned()
-        else {
-            panic!("the program instance Tank");
-        };
         self.runtime
-            .write_instance(program, name, value)
+            .write_variable(&format!("Tank.{name}"), &value)
             .expect("write the instance variable");
     }
 
@@ -115,18 +116,17 @@ impl Process {
         let Value::Enum(current) = self.value("Tank.Mode") else {
             panic!("Mode is an enumeration");
         };
-        let mode = EnumValue::from_serialized_parts(
-            self.runtime.registry(),
-            current.type_name(),
-            name,
+        let mode = EnumValue::from_canonical_parts(
+            current.type_name().clone(),
+            SmolStr::new(name),
             number,
-        )
-        .expect("a PID mode");
+        );
         self.set("Mode", Value::Enum(Box::new(mode)));
     }
 
     fn alarm(&self, path: &str) -> AlarmStatus {
-        read_alarms(&self.runtime)
+        self.runtime
+            .with_program_view(read_alarms)
             .into_iter()
             .find(|alarm| alarm.path.eq_ignore_ascii_case(path))
             .unwrap_or_else(|| panic!("the alarm {path}"))
@@ -294,13 +294,16 @@ fn the_example_screens_pass_the_deployment_checks_against_its_program() {
         &std::fs::read_to_string(root.join("runtime.toml")).expect("runtime.toml"),
     )
     .expect("the write policy");
-    let metadata = process.runtime.metadata_snapshot();
+    let declarations = process
+        .session
+        .declarations()
+        .expect("the example's declarations");
     let problems = check_bundle(
         &bundle,
         Catalogue::shipped(),
         &Program {
-            metadata: &metadata,
-            storage: process.runtime.storage(),
+            metadata: declarations.metadata(),
+            storage: declarations.storage(),
         },
         &access.write,
     );

@@ -178,6 +178,30 @@ fn capitalized(role: AccessRole) -> String {
     name[..1].to_uppercase() + &name[1..]
 }
 
+/// The roles a session of `role` may act as (specification 39, §12.3, §12.4 item 4, §12.8 item 1):
+/// its own and every lower one, Viewer, Operator, Engineer, Admin in that order, since an Engineer
+/// may do what an Operator may. The page looks the role a control needs up in this list.
+pub fn acts_as(role: AccessRole) -> Vec<AccessRole> {
+    [
+        AccessRole::Viewer,
+        AccessRole::Operator,
+        AccessRole::Engineer,
+        AccessRole::Admin,
+    ]
+    .into_iter()
+    .filter(|lower| role.allows(*lower))
+    .collect()
+}
+
+/// The lowest role that changes an instance's settings (specification 39, §21.4 item 1).
+pub const SETTINGS_ROLE: AccessRole = AccessRole::Engineer;
+
+/// Whether a session of `role` may change settings (specification 39, §21.4 item 1): an Engineer
+/// or a higher role.
+pub fn may_change_settings(role: AccessRole) -> bool {
+    role.allows(SETTINGS_ROLE)
+}
+
 /// Whether a number is within the permission's limits.
 pub fn within_limits(permission: &Permission, value: f64) -> Result<(), String> {
     if let Some(min) = permission.min.filter(|min| value < *min) {

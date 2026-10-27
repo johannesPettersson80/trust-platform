@@ -167,3 +167,52 @@ END_PROGRAM
     );
     harness.assert_eq("Out", 21i16);
 }
+
+/// IEC 61131-3 Edition 3, 6.6.5.3 (Tables 48 and 64–66): a function block that extends a base
+/// declared in a namespace holds the base's variables, so its method writes an inherited variable
+/// and the program reads it through the instance. Two calls of `Start`: `Running` is TRUE and
+/// `Starts` is 2. Catches a derived instance laid out without its base, whose method cannot name
+/// `Running`, and a base's variable that the derived instance holds twice.
+#[test]
+fn a_method_writes_a_variable_inherited_from_a_base_in_a_namespace() {
+    let library = r#"
+NAMESPACE Lib
+FUNCTION_BLOCK Device
+VAR_OUTPUT
+    Running : BOOL;
+    Starts : DINT;
+END_VAR
+END_FUNCTION_BLOCK
+END_NAMESPACE
+"#;
+    let program = r#"
+FUNCTION_BLOCK Pump EXTENDS Lib.Device
+METHOD PUBLIC Start
+    Running := TRUE;
+    Starts := Starts + 1;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    Feed : Pump;
+    IsRunning : BOOL;
+    Count : DINT;
+END_VAR
+    Feed.Start();
+    IsRunning := Feed.Running;
+    Count := Feed.Starts;
+END_PROGRAM
+"#;
+    let mut harness = TestHarness::from_sources(&[library, program]).expect("compiled");
+    for _ in 0..2 {
+        let result = harness.cycle();
+        assert!(
+            result.errors.is_empty(),
+            "the scan runs: {:?}",
+            result.errors
+        );
+    }
+    harness.assert_eq("IsRunning", true);
+    harness.assert_eq("Count", 2i32);
+}

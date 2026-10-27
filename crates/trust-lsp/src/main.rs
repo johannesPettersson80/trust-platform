@@ -7,6 +7,7 @@ mod command_line;
 mod config;
 mod external_diagnostics;
 mod handlers;
+mod hmi_agent_mcp;
 mod index_cache;
 mod library_docs;
 mod library_graph;
@@ -29,7 +30,11 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 use tracing::info;
 
-use crate::handlers::EXECUTE_COMMANDS;
+use crate::handlers::HMI_BUILDER_COMMANDS;
+use crate::handlers::PROJECT_COMMANDS;
+use crate::handlers::RUN_TARGET_COMMANDS;
+use crate::handlers::VISUAL_COMMANDS;
+use crate::handlers::{DEVICES_COMMANDS, EXECUTE_COMMANDS};
 use crate::state::ServerState;
 use crate::telemetry::TelemetryEvent;
 
@@ -135,7 +140,13 @@ impl LanguageServer for StLanguageServer {
                 execute_command_provider: Some(ExecuteCommandOptions {
                     commands: EXECUTE_COMMANDS
                         .iter()
-                        .map(|command| command.to_string())
+                        .copied()
+                        .chain(DEVICES_COMMANDS)
+                        .chain(VISUAL_COMMANDS)
+                        .chain(PROJECT_COMMANDS)
+                        .chain(RUN_TARGET_COMMANDS)
+                        .chain(HMI_BUILDER_COMMANDS)
+                        .map(str::to_owned)
                         .collect(),
                     ..Default::default()
                 }),
@@ -613,7 +624,11 @@ impl LanguageServer for StLanguageServer {
     }
 
     async fn execute_command(&self, params: ExecuteCommandParams) -> Result<Option<Value>> {
-        if params.command == "trust-lsp.moveNamespace" {
+        // The namespace move applies its edit through the client, and the Devices & Connections
+        // commands hand their work to their own blocking thread (design §1.5).
+        if params.command == "trust-lsp.moveNamespace"
+            || DEVICES_COMMANDS.contains(&params.command.as_str())
+        {
             return Ok(handlers::execute_command(&self.client, &self.state, params).await);
         }
         let state = Arc::clone(&self.state);
@@ -837,6 +852,10 @@ async fn main() {
     }
     if command_line_command {
         std::process::exit(command_line::run(&args[2..]).await);
+    }
+    // The HMI authoring tools, served to an agent over MCP (specification 43, §3.1).
+    if args.get(1).map(String::as_str) == Some("hmi-agent") {
+        std::process::exit(hmi_agent_mcp::run(&args[2..]));
     }
 
     info!("Starting ST Language Server");

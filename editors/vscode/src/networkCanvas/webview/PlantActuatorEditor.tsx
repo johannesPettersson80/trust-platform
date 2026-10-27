@@ -1,19 +1,20 @@
 import React, { useRef, useState } from "react";
 
-import {
-  PLANT_ACTUATOR_FIELDS,
-  validatePlantActuator,
-  type PlantActuatorSettings,
-} from "../plant/editorModel";
+import type { PlantActuatorSettings } from "../plant/editorModel";
+import type { PlantEditorIssue, PlantEditorTables } from "../plant/editorSession";
 
+/** The actuator settings with Rust's field help and checks (specification 47 §10). */
 export function PlantActuatorEditor({
   value,
+  fields,
+  issues,
   onChange,
 }: {
   value: PlantActuatorSettings;
+  fields: PlantEditorTables["actuatorFields"];
+  issues: readonly PlantEditorIssue[];
   onChange: (value: PlantActuatorSettings) => void;
 }) {
-  const issues = validatePlantActuator(value);
   const [activeHelpKey, setActiveHelpKey] = useState<string>();
   const [summaryHelpKey, setSummaryHelpKey] = useState<string>();
   const helpButtons = useRef(new Map<string, HTMLButtonElement>());
@@ -24,8 +25,10 @@ export function PlantActuatorEditor({
         Optional limits and dynamics between the PLC command and the process. Empty rates are unbounded; zero prevents movement in that direction.
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-        {PLANT_ACTUATOR_FIELDS.map((field) => {
-          const issue = issues.find((candidate) => candidate.field === field.key);
+        {fields.map((field) => {
+          const key = field.key as keyof PlantActuatorSettings;
+          const issue = issues.find((candidate) =>
+            candidate.target.kind === "actuator" && candidate.target.key === field.key);
           return (
             <label key={field.key} style={{ display: "grid", gap: 4 }}>
               <span style={HELP_LABEL}>
@@ -92,17 +95,15 @@ export function PlantActuatorEditor({
                 type="number"
                 step="any"
                 data-plant-actuator-field={field.key}
-                value={value[field.key] ?? ""}
+                value={value[key] ?? ""}
                 aria-invalid={Boolean(issue)}
                 aria-describedby={issue ? `plant-actuator-error-${field.key}` : undefined}
                 placeholder={field.blankMeaning}
                 onChange={(event) => {
+                  // An empty field leaves the setting out; Rust says what that means.
                   const next = { ...value };
-                  if (event.target.value.trim() === "") delete next[field.key];
-                  else {
-                    const parsed = Number(event.target.value);
-                    if (Number.isFinite(parsed)) next[field.key] = parsed;
-                  }
+                  if (event.target.value.trim() === "") delete next[key];
+                  else next[key] = Number(event.target.value);
                   onChange(next);
                 }}
                 style={INPUT}

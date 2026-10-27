@@ -33,8 +33,8 @@ use trust_control_studio::runtime_client::transfers::{
 use trust_control_studio::runtime_client::RuntimeClient;
 
 use common::{
-    copy_dir, prepare_runtime_toml, run_trust_runtime, start_runtime, wait_for_status, RemoveDir,
-    TOKEN,
+    control_socket, copy_dir, prepare_runtime_toml, run_trust_runtime, start_runtime,
+    wait_for_status, RemoveDir, TOKEN,
 };
 
 /// The lesson's project, a copy of which the test runs.
@@ -127,12 +127,7 @@ fn the_transactions_of_lesson_30_are_confirmed_by_the_runtime() {
     let _remove = RemoveDir(folder.clone());
     let project = folder.join("project");
     copy_dir(Path::new(EXAMPLE), &project);
-    let socket = project.join(".control.sock");
-    assert!(
-        socket.as_os_str().len() <= 100,
-        "the socket path {} is too long; use a shorter TMPDIR",
-        socket.display()
-    );
+    let socket = control_socket(&project);
     prepare_runtime_toml(&project, &socket);
     run_trust_runtime(&["build", "--project", &project.display().to_string()]);
 
@@ -181,6 +176,7 @@ fn the_transactions_of_lesson_30_are_confirmed_by_the_runtime() {
                     values: state_values(&observed, &binding),
                     manual: true,
                     tolerance: OUTPUT_SPAN,
+                    entry_error_gain: None,
                     tracking: Some(recovery.clone()),
                     reviewed: None,
                     source: ApplySource::Simulation,
@@ -246,6 +242,7 @@ fn the_transactions_of_lesson_30_are_confirmed_by_the_runtime() {
                     values: states,
                     manual: false,
                     tolerance: OUTPUT_SPAN,
+                    entry_error_gain: None,
                     tracking: Some(tracking),
                     reviewed: None,
                     source: ApplySource::Simulation,

@@ -1,11 +1,13 @@
 import React from "react";
-import { StateChartNode, StateChartEdge, StateType } from "./types";
+import { ReadValue, StateChartNode, StateChartEdge, StateType } from "./types";
 
 interface PropertiesPanelProps {
   selectedNode?: StateChartNode | null;
   selectedEdge?: StateChartEdge | null;
   onUpdateNode: (id: string, data: Partial<StateChartNode["data"]>) => void;
   onUpdateEdge: (id: string, data: Partial<StateChartEdge["data"]>) => void;
+  /** Asks the language server for the value of typed text (the auto-transition timer). */
+  readValue: ReadValue;
 }
 
 export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
@@ -13,6 +15,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   selectedEdge,
   onUpdateNode,
   onUpdateEdge,
+  readValue,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
 
@@ -86,7 +89,12 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           ) : selectedNode ? (
             <NodeProperties node={selectedNode} onUpdate={onUpdateNode} />
           ) : selectedEdge ? (
-            <EdgeProperties edge={selectedEdge} onUpdate={onUpdateEdge} />
+            <EdgeProperties
+              key={selectedEdge.id}
+              edge={selectedEdge}
+              onUpdate={onUpdateEdge}
+              readValue={readValue}
+            />
           ) : null}
         </div>
       )}
@@ -194,18 +202,22 @@ const NodeProperties: React.FC<{
 const EdgeProperties: React.FC<{
   edge: StateChartEdge;
   onUpdate: (id: string, data: Partial<StateChartEdge["data"]>) => void;
-}> = ({ edge, onUpdate }) => {
+  readValue: ReadValue;
+}> = ({ edge, onUpdate, readValue }) => {
   const data = edge.data || {};
-  
-  // Local state for the timer input to allow free typing
+
+  // The timer text as typed, and why the language server did not take it.
   const [timerValue, setTimerValue] = React.useState<string>(
     data.after !== undefined ? String(data.after) : ""
   );
+  const [timerError, setTimerError] = React.useState<string | null>(null);
+  // The latest timer text: only its answer is stored or shown.
+  const timerRequest = React.useRef(0);
 
-  // Update local state when edge changes (e.g., different edge selected)
+  // Show the stored delay when it changes (the panel is made anew for each edge).
   React.useEffect(() => {
     setTimerValue(data.after !== undefined ? String(data.after) : "");
-  }, [edge.id, data.after]);
+  }, [data.after]);
 
   const handleEventChange = (event: string) => {
     onUpdate(edge.id, { ...data, event });
@@ -215,19 +227,22 @@ const EdgeProperties: React.FC<{
     onUpdate(edge.id, { ...data, guard });
   };
 
+  // The language server reads the delay (`afterDelay`): none for blank text, or milliseconds.
   const handleAfterChange = (value: string) => {
-    // Update local state immediately for responsive UI
     setTimerValue(value);
-    
-    // Update edge data with parsed value
-    if (value === "" || value === null || value === undefined) {
-      onUpdate(edge.id, { ...data, after: undefined });
-    } else {
-      const parsed = parseInt(value, 10);
-      if (!isNaN(parsed) && parsed >= 0) {
-        onUpdate(edge.id, { ...data, after: parsed });
+    timerRequest.current += 1;
+    const request = timerRequest.current;
+    void readValue("afterDelay", value).then((answer) => {
+      if (request !== timerRequest.current) {
+        return;
       }
-    }
+      if (answer.ok) {
+        setTimerError(null);
+        onUpdate(edge.id, { after: answer.after ?? undefined });
+      } else {
+        setTimerError(answer.errors?.[0]?.message ?? "The delay was not stored.");
+      }
+    });
   };
 
   const handleDescriptionChange = (description: string) => {
@@ -290,6 +305,11 @@ const EdgeProperties: React.FC<{
               min="0"
               step="1"
             />
+            {timerError && (
+              <div role="alert" style={{ fontSize: "11px", color: "var(--trust-danger)" }}>
+                {timerError}
+              </div>
+            )}
             <div style={{ fontSize: "11px", color: "var(--trust-text-muted)", marginTop: "4px" }}>
               Leave empty for manual events. Set delay for automatic transitions.
             </div>

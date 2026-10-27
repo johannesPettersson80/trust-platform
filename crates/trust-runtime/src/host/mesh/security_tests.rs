@@ -6,6 +6,10 @@ use std::net::TcpListener;
 use std::time::{Duration, Instant};
 use zenoh::Wait;
 
+/// The stable runtime ID the started meshes announce: sixteen random bytes in lowercase hex, as
+/// `runtime_id` generates them.
+const STABLE_ID: &str = "0f1e2d3c4b5a69788796a5b4c3d2e1f0";
+
 fn config(listen: String, connect: Vec<String>, token: Option<&str>) -> MeshConfig {
     MeshConfig {
         enabled: true,
@@ -30,6 +34,7 @@ fn configured_mesh_authentication_rejects_wrong_and_missing_peer_tokens() {
     let owner = super::start_mesh(
         &config(address.clone(), Vec::new(), Some("mesh-test-owner-token")),
         format!("auth-owner-{}", std::process::id()).into(),
+        STABLE_ID.into(),
         resource,
     )
     .unwrap()
@@ -51,6 +56,7 @@ fn configured_mesh_authentication_rejects_wrong_and_missing_peer_tokens() {
         let peer = super::start_mesh(
             &config("127.0.0.1:0".into(), vec![address.clone()], token),
             format!("auth-{label}-{}", std::process::id()).into(),
+            STABLE_ID.into(),
             resource,
         )
         .unwrap()
@@ -108,6 +114,7 @@ fn mesh_tls_socket_presents_the_configured_certificate() {
     let _owner = super::start_mesh_with_tls(
         &configured,
         "tls-socket-test".into(),
+        STABLE_ID.into(),
         resource,
         Some(&materials),
     )

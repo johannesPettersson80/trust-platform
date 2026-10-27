@@ -75,7 +75,9 @@ fn v4_6_a_manual_apply_accepts_a_plant_input_within_the_auto_entry_allowance_and
 #[test]
 fn the_auto_entry_allowance_is_the_a6_4_bound_of_the_pid_and_it_aligns_the_output() {
     // TS control-studio-apply-process-time, "enters Auto ... within the A6.4 allowance for the measured noise" (the first Auto entry):
-    // Kp·2n + Ki·Δt·(|e| + n) with e = 2 − 2.004 and Δt = 20 ms.
+    // Kp·2n + Ki·Δt·n with Δt = 20 ms, which the transfer sends, and the gain Ki·Δt = 0.01 with which the runtime adds Ki·Δt·|e| for
+    // the error at the entry (annex E6.9); e = 2 − 2.004 at this reading would be out of date by then. Catches an entry that keeps
+    // the error of the reading in its tolerance, or that sends no gain.
     let loop_definition = pid_loop("LREAL", json!([]));
     let model = first_order_model();
     let task = requirements();
@@ -84,11 +86,17 @@ fn the_auto_entry_allowance_is_the_a6_4_bound_of_the_pid_and_it_aligns_the_outpu
     let step = campaign
         .auto_entry_step(&manual)
         .expect("the Auto entry builds");
-    let expected = 2.0 * 2.0 * NOISE + 0.5 * 0.02 * (0.004 + NOISE);
+    let expected = 2.0 * 2.0 * NOISE + 0.5 * 0.02 * NOISE;
     assert!(
         (step.tolerance - expected).abs() < 1e-9,
         "{}",
         step.tolerance
+    );
+    assert!(
+        step.entry_error_gain
+            .is_some_and(|gain| (gain - 0.5 * 0.02).abs() < 1e-12),
+        "{:?}",
+        step.entry_error_gain
     );
     assert!(
         matches!(step.tracking, TransferTracking::ParallelPid(ref tracking) if tracking.align_output)

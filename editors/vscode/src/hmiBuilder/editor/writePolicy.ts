@@ -2,10 +2,9 @@
 // rule covers gets its rule in the project's runtime.toml in one action, with the control's own
 // role and limits, so the policy grows by exactly what the page asks and never wider.
 
+import type { HmiProblems } from "./problems";
 import * as vscode from "vscode";
-import type { HmiObjectModel } from "../drawing/model";
-import { notWritable } from "./policyProblems";
-import { appended, editRuntimeToml } from "./runtimeToml";
+import { editRuntimeToml } from "./runtimeToml";
 
 export const ALLOW_WRITING_COMMAND = "trust-lsp.hmiBuilder.allowWriting";
 
@@ -16,112 +15,46 @@ export interface WriteRule {
   max?: number;
 }
 
-/** The rule a control needs to write a point: its role, Engineer when it names none (§12.3), and
- * its limits. */
-export function ruleFor(object: Pick<HmiObjectModel, "role" | "min" | "max">, point: string): WriteRule {
-  return {
-    path: point,
-    role: object.role ?? "engineer",
-    ...(typeof object.min === "number" ? { min: object.min } : {}),
-    ...(typeof object.max === "number" ? { max: object.max } : {}),
-  };
+/** What `trust-lsp.hmiWriteRules` answers. */
+interface WriteRulesAnswer {
+  ok?: boolean;
+  error?: string;
+  root?: string;
+  rules?: WriteRule[];
+  text?: string;
+  added?: string[];
 }
 
-/** The points runtime.toml's `[[runtime.web.hmi.write]]` rules name, in lower case; undefined
- * when it lists its rules inline, where a new table would not load. */
-export function ruledPoints(text: string): Set<string> | undefined {
-  const points = new Set<string>();
-  let section = "";
-  for (const line of text.split(/\r?\n/)) {
-    const header = /^\s*(\[\[?)\s*([^\]]+?)\s*\]\]?\s*(#.*)?$/.exec(line);
-    if (header) {
-      section = `${header[1]}${header[2]}`;
-      continue;
-    }
-    if (section === "[runtime.web.hmi" && /^\s*write\s*=/.test(line)) return undefined;
-    const point = /^\s*path\s*=\s*"([^"]*)"/.exec(line);
-    if (section === "[[runtime.web.hmi.write" && point) points.add(point[1].toLowerCase());
-  }
-  return points;
-}
+const NO_ANSWER = "The truST language server is not running, so runtime.toml could not be changed.";
 
-/** The TOML of rules, appended to runtime.toml. */
-export function rulesText(rules: WriteRule[]): string {
-  const number = (value: number) => (Number.isInteger(value) ? value.toFixed(1) : String(value));
-  return rules
-    .map((rule) =>
-      [
-        "",
-        "[[runtime.web.hmi.write]]",
-        `path = ${JSON.stringify(rule.path)}`,
-        `role = "${rule.role}"`,
-        ...(rule.min !== undefined ? [`min = ${number(rule.min)}`] : []),
-        ...(rule.max !== undefined ? [`max = ${number(rule.max)}`] : []),
-      ].join("\n"),
-    )
-    .join("\n")
-    .concat("\n");
+async function writeRules(argument: Record<string, unknown>): Promise<WriteRulesAnswer> {
+  const answer = await vscode.commands.executeCommand<WriteRulesAnswer | undefined>(
+    "trust-lsp.hmiWriteRules",
+    argument,
+  );
+  if (answer?.ok !== true) throw new Error(answer?.error ?? NO_ANSWER);
+  return answer;
 }
 
 /** Adds to the project's runtime.toml the rules for the points it does not name yet, and saves it
- * unless it had unsaved changes of the user's own; answers the points added. */
+ * unless it had unsaved changes of the user's own; answers the points added. The language server
+ * decides which rules are new and writes them (§12.2 item 3). */
 export async function allowWriting(root: vscode.Uri, rules: WriteRule[]): Promise<string[]> {
-  let added: WriteRule[] = [];
-  await editRuntimeToml(root, (text) => {
-    const named = ruledPoints(text);
-    if (!named)
-      throw new Error("runtime.toml lists its write rules inline under [runtime.web.hmi]; add the rule there by hand.");
-    added = rules.filter(
-      (rule, index) =>
-        !named.has(rule.path.toLowerCase()) &&
-        rules.findIndex((other) => other.path.toLowerCase() === rule.path.toLowerCase()) === index,
-    );
-    return added.length > 0 ? appended(text, rulesText(added)) : text;
+  let added: string[] = [];
+  await editRuntimeToml(root, async (text) => {
+    const answer = await writeRules({ action: "add", runtimeToml: text, rules });
+    added = answer.added ?? [];
+    return answer.text ?? text;
   });
-  return added.map((rule) => rule.path);
+  return added;
 }
 
-/** The project of a page, popup or panel file, the folder that holds its `hmi/`, and the file's
- * kind as the language server reads it. */
-function placeOf(file: vscode.Uri): { root: vscode.Uri; kind: string } | undefined {
-  const parts = file.path.split("/");
-  const hmi = parts.lastIndexOf("hmi");
-  const folder = parts[hmi + 1];
-  if (hmi < 1 || !["pages", "popups", "panels"].includes(folder)) return undefined;
-  return { root: file.with({ path: parts.slice(0, hmi).join("/") }), kind: folder.replace(/s$/, "") };
-}
-
-/** The rules a page's controls need, one per point they write, or for `point` only. Several
- * controls writing one point give the lowest role they ask and the widest limits, so none of them
- * asks more than the rule allows. */
+/** The rules a page's controls need, one per point they write, or for `point` only, as the
+ * language server derives them, and the project whose runtime.toml takes them. */
 export async function pageRules(page: vscode.Uri, point?: string): Promise<{ root: vscode.Uri; rules: WriteRule[] }> {
-  const place = placeOf(page);
-  if (!place) throw new Error("The page is not in a project's hmi folder.");
   const text = (await vscode.workspace.openTextDocument(page)).getText();
-  const parsed = await vscode.commands.executeCommand<{ ok?: boolean; model?: { object?: HmiObjectModel[] } }>(
-    "trust-lsp.hmiFileParse",
-    { kind: place.kind, text, file: page.path },
-  );
-  const byPoint = new Map<string, WriteRule[]>();
-  for (const object of parsed?.model?.object ?? []) {
-    for (const binding of Object.values(object.bind ?? {})) {
-      if (binding.direction === "read" || (point && binding.path.toLowerCase() !== point.toLowerCase())) continue;
-      const key = binding.path.toLowerCase();
-      byPoint.set(key, [...(byPoint.get(key) ?? []), ruleFor(object, binding.path)]);
-    }
-  }
-  if (point && byPoint.size === 0) byPoint.set(point.toLowerCase(), [{ path: point, role: "engineer" }]);
-  const rules = [...byPoint.values()].map((found): WriteRule => {
-    const mins = found.map((rule) => rule.min);
-    const maxes = found.map((rule) => rule.max);
-    return {
-      path: found[0].path,
-      role: found.some((rule) => rule.role === "operator") ? "operator" : "engineer",
-      ...(mins.every((value) => value !== undefined) ? { min: Math.min(...(mins as number[])) } : {}),
-      ...(maxes.every((value) => value !== undefined) ? { max: Math.max(...(maxes as number[])) } : {}),
-    };
-  });
-  return { root: place.root, rules };
+  const answer = await writeRules({ action: "forPage", file: page.path, text, ...(point ? { point } : {}) });
+  return { root: page.with({ path: answer.root ?? "" }), rules: answer.rules ?? [] };
 }
 
 export interface AllowWritingArgs {
@@ -133,9 +66,12 @@ export interface AllowWritingArgs {
 
 /** The quick fix of a write-policy problem in a page file (§12.2.3). */
 class AllowWritingActions implements vscode.CodeActionProvider {
+  /** `pointOf` gives the point a problem names, as the language server named it. */
+  constructor(private readonly pointOf: (uri: vscode.Uri, diagnostic: vscode.Diagnostic) => string | undefined) {}
+
   provideCodeActions(document: vscode.TextDocument, _range: vscode.Range, context: vscode.CodeActionContext) {
     return context.diagnostics.flatMap((diagnostic) => {
-      const point = notWritable(diagnostic.message);
+      const point = this.pointOf(document.uri, diagnostic);
       if (!point) return [];
       const action = new vscode.CodeAction(
         `Allow the runtime display to write ${point} (runtime.toml)`,
@@ -155,7 +91,7 @@ class AllowWritingActions implements vscode.CodeActionProvider {
 
 /** The command, used by the builder's inspector and the quick fix, and the quick fix. Saving
  * runtime.toml checks the project's pages again (`HmiProblems`). */
-export function registerWritePolicy(): vscode.Disposable {
+export function registerWritePolicy(problems: HmiProblems): vscode.Disposable {
   return vscode.Disposable.from(
     vscode.commands.registerCommand(ALLOW_WRITING_COMMAND, async (args: AllowWritingArgs) => {
       try {
@@ -168,7 +104,7 @@ export function registerWritePolicy(): vscode.Disposable {
     }),
     vscode.languages.registerCodeActionsProvider(
       { scheme: "file", pattern: "**/hmi/{pages,popups,panels}/*.toml" },
-      new AllowWritingActions(),
+      new AllowWritingActions((uri, diagnostic) => problems.pointOf(uri, diagnostic)),
       { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] },
     ),
   );

@@ -138,12 +138,12 @@ hardware_8do/
 
 ## Control Endpoint
 
-The runtime exposes a Unix socket at `/tmp/trust-debug.sock` that allows:
-- Direct I/O manipulation (`writeIo`, `forceIo`, `unforceIo`)
-- Runtime inspection
-- Variable monitoring
+The runtime's control endpoint serves Live Values: reading, writing and forcing
+the outputs, inputs and variables while the program runs.
 
-Visual editors (Ladder, Blockly, Statechart) connect to this endpoint to control hardware without generating ST code.
+Visual programs (Ladder, Blockly, Statechart) run as the Structured Text
+companion their editor writes on save; they reach the hardware through the
+same process image as any Structured Text program.
 
 ## Troubleshooting
 

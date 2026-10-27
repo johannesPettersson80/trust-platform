@@ -1,104 +1,106 @@
-// The variable picker's rules (specification 39, §7.1): what a binding is offered, why a dropped
-// variable is refused, and which component a variable dropped on the canvas creates. Pure
-// functions on the language server's variable tree, shared by the webview and the tests.
+// The variable picker (specification 39, §7.1). What a binding is offered, the binding a typed,
+// picked or dropped variable gives and the object a variable dropped on the canvas creates are the
+// language server's rules (`trust-lsp.hmiVariablePicker`), the binding checks' (§7.6); the webview
+// asks for them here. Listing the tree, an array's element under the array, and searching it by
+// path are the picker's own presentation.
 
-import type { Catalogue, ComponentDefinition, PropertyDefinition } from "./catalogue";
-import type { VariableNode } from "./messages";
+import type { HmiBindingModel, HmiObjectModel, HmiPageModel } from "../drawing/model";
+import type { ComponentDefinition } from "./catalogue";
+import { RUST_RULES, type CallRust, type VariableNode } from "./messages";
 
-/** A variable as the picker lists it, with the children that remain after filtering. */
+/** A variable as the picker lists it, with the rows under it. `offered` is false for a row that
+ * only holds the variables a binding may have. */
 export interface PickerRow {
   node: VariableNode;
+  offered?: boolean;
   children: PickerRow[];
 }
 
-/** The catalogue's kinds of value in the binding checks' words. */
-const KIND_WORDS: Record<string, string> = {
-  number: "a number",
-  boolean: "a boolean",
-  text: "text",
-  time: "a time",
-  enumeration: "an enumeration",
-  structure: "a structure",
-  array: "an array",
-  value: "a single value",
-};
-
-/** The direction a binding of the property has: the existing binding's, or the first the
- * property allows. */
-export function bindingDirection(definition: PropertyDefinition, existing?: string): string {
-  return existing ?? definition.directions[0] ?? "read";
+/** A binding the picker offers variables for. */
+export interface PickerBinding {
+  /** The bound object's component type, `pipe` for a pipe's flow (§6 item 6). */
+  type: string;
+  property: string;
+  /** The component's definition in the catalogue. */
+  component?: ComponentDefinition;
+  /** The binding's own direction, when it has one. */
+  direction?: string;
+  /** A faceplate's fields, offered first as `$Name` (§8.7). */
+  fields?: HmiPageModel["fields"];
 }
 
-/** Why the variable cannot be bound to a component's property, in plain words; undefined when it
- * can. The same rules as the binding checks (§7.6), whose results the tree carries. */
-export function refusal(
-  component: string,
-  property: string,
-  definition: PropertyDefinition,
-  node: VariableNode,
-  direction: string,
-): string | undefined {
-  if (!definition.accepts.some((kind) => node.kinds.includes(kind))) {
-    const needed = definition.accepts.map((kind) => KIND_WORDS[kind] ?? kind).join(" or ");
-    return `"${node.path}" is ${node.type}; a ${component.replace(/-/g, " ")}'s ${property} needs ${needed}`;
-  }
-  if (direction !== "read" && !node.writable) {
-    return `"${node.path}" ${node.writeBlock ?? "is read-only"} and cannot be written`;
-  }
-  return undefined;
-}
-
-/** A variable's children as the picker lists them: members or fields, or an array's element. */
-function childrenOf(node: VariableNode): VariableNode[] {
-  return node.array ? [node.array.element] : (node.children ?? []);
-}
-
-/** The tree with only the variables `keep` accepts and the programs, blocks and structures that
- * hold them. */
-export function pickerTree(nodes: VariableNode[], keep: (node: VariableNode) => boolean): PickerRow[] {
-  return nodes.flatMap((node) => {
-    const children = pickerTree(childrenOf(node), keep);
-    return keep(node) || children.length > 0 ? [{ node, children }] : [];
+/** The rows a binding's picker lists: the variables it may have and those that hold them. */
+export async function offeredRows(
+  call: CallRust,
+  variables: VariableNode[],
+  binding: PickerBinding,
+): Promise<PickerRow[]> {
+  const answer = await call<{ rows: PickerRow[] }>(RUST_RULES.variablePicker, {
+    action: "offered",
+    variables,
+    ...binding,
   });
+  return answer.rows;
 }
 
-/** Search: the variable's path contains the words, without regard to case. */
-export function matchesSearch(node: VariableNode, search: string): boolean {
-  return node.path.toLowerCase().includes(search.trim().toLowerCase());
+/** The object with its property bound to a typed or picked path (an empty one removes the
+ * binding), or to a dropped variable, which it may refuse, saying why. */
+export async function bound(
+  call: CallRust,
+  component: ComponentDefinition | undefined,
+  object: HmiObjectModel,
+  property: string,
+  given: { path: string } | { variable: VariableNode },
+): Promise<{ object: HmiObjectModel } | { refused: string }> {
+  const answer = await call<{ object?: HmiObjectModel; refused?: string }>(RUST_RULES.variablePicker, {
+    action: "bind",
+    component,
+    object,
+    property,
+    ...given,
+  });
+  return answer.object ? { object: answer.object } : { refused: answer.refused ?? "" };
 }
 
-/** The component a variable dropped on the canvas creates, and the property bound to it (§7.1):
- * a boolean makes a Status, a structure or an array a Table, any other single value a Value;
- * program and function block instances make nothing. */
-export function componentForVariable(
-  catalogue: Catalogue,
-  node: VariableNode,
-): { component: ComponentDefinition; property: string } | undefined {
-  const has = (kind: string): boolean => node.kinds.includes(kind);
-  const type = has("boolean")
-    ? "status"
-    : has("structure") || has("array")
-      ? "table"
-      : has("value")
-        ? "value"
-        : undefined;
-  const component = catalogue.components.find((candidate) => candidate.type === type);
-  const property = Object.entries(component?.properties ?? {}).find(([, definition]) =>
-    definition.accepts.some(has),
-  )?.[0];
-  return component && property ? { component, property } : undefined;
+/** The object a variable dropped on the canvas creates: its type, its binding and its label. */
+export interface DroppedVariable {
+  type: string;
+  bind: Record<string, HmiBindingModel>;
+  label: string;
 }
 
-/** The label of an object made from a variable: the last part of its path. */
-export function variableLabel(path: string): string {
-  return path.slice(path.lastIndexOf(".") + 1);
+/** What a variable dropped on the canvas creates, or why it creates nothing. */
+export async function dropped(
+  call: CallRust,
+  components: ComponentDefinition[],
+  variable: VariableNode,
+): Promise<DroppedVariable | { refused: string }> {
+  const answer = await call<Partial<DroppedVariable> & { refused?: string }>(RUST_RULES.variablePicker, {
+    action: "drop",
+    components,
+    variable,
+  });
+  return answer.type !== undefined && answer.bind && answer.label !== undefined
+    ? { type: answer.type, bind: answer.bind, label: answer.label }
+    : { refused: answer.refused ?? "" };
 }
 
-/** What the editor says when a dropped variable creates nothing: a program or function block
- * instance, whose members can be dropped instead. */
-export function whyNoComponent(node: VariableNode): string {
-  if (node.kind === "program") return `"${node.path}" is a program: drag one of its variables onto the page`;
-  if (node.kind === "function-block")
-    return `"${node.path}" is a function block instance (${node.type}): drag one of its members onto the page`;
-  return `"${node.path}" (${node.type}) has no component to show it`;
+/** The rows of a whole tree: each variable with an array's element, or its members, under it. */
+export function treeRows(nodes: VariableNode[]): PickerRow[] {
+  return nodes.map((node) => ({
+    node,
+    children: treeRows(node.array ? [node.array.element] : (node.children ?? [])),
+  }));
+}
+
+/** Search: the rows whose path contains the words, without regard to case, with the rows that
+ * hold them; a row that only holds others is not a match itself. */
+export function searched(rows: PickerRow[], search: string): PickerRow[] {
+  const words = search.trim().toLowerCase();
+  if (!words) return rows;
+  return rows.flatMap((row) => {
+    const children = searched(row.children, words);
+    const matches = row.offered !== false && row.node.path.toLowerCase().includes(words);
+    return matches || children.length > 0 ? [{ ...row, children }] : [];
+  });
 }

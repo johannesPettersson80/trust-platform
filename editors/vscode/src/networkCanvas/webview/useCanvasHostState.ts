@@ -4,6 +4,7 @@ import type {
   CommApplyResponse,
   CommSchemaResponse,
 } from "../../communication/schemaForm";
+import type { DiscoveredAdsFacts } from "../canvasCommands";
 import type { NCGraph } from "./types";
 
 const EMPTY_GRAPH: NCGraph = {
@@ -41,6 +42,7 @@ export function useCanvasHostState({
   const [schema, setSchema] = useState<CommSchemaResponse | undefined>();
   const [reachable, setReachable] = useState(false);
   const [setupMessage, setSetupMessage] = useState<string | undefined>();
+  const [discoveredAds, setDiscoveredAds] = useState<readonly DiscoveredAdsFacts[]>([]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -63,6 +65,11 @@ export function useCanvasHostState({
           typeof message.setupMessage === "string"
             ? message.setupMessage
             : undefined
+        );
+        setDiscoveredAds(
+          Array.isArray(message.discoveredAds)
+            ? (message.discoveredAds as DiscoveredAdsFacts[])
+            : []
         );
       }
       if (
@@ -90,5 +97,6 @@ export function useCanvasHostState({
     schema,
     reachable,
     setupMessage,
+    discoveredAds,
   };
 }

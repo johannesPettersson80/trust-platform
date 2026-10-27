@@ -137,6 +137,7 @@ fn a_control_pid_loop_found_in_auto_returns_to_auto_through_its_declared_initial
         Some(AutoReentry {
             values: tracking.initialization_values.clone(),
             tolerance,
+            entry_error_gain: None,
             tracking: TransferTracking::DeclaredState(tracking.clone()),
         })
     })

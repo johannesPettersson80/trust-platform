@@ -53,7 +53,9 @@ Runnable payload/config examples:
 
 ## Runtime Execution Backend Migration
 
-Backend mode controls, rollback workflow, compatibility-window policy, and release-evidence expectations for MP-060 are documented in:
+Every runtime runs the program compiled into a program image (`program.tpi`). Upgrading a project
+built for the removed bytecode engine (rebuild it, the `runtime.execution_backend` key, the removed
+`--execution-backend` option) is documented in:
 `docs/guides/RUNTIME_EXECUTION_BACKEND_MIGRATION.md`.
 
 ## Runtime Performance And Benchmark Builds
@@ -118,8 +120,8 @@ Upstream reference material and license capture used for the port live under:
 
 - `docs/internal/references/OSCAT/OSCAT_BASIC/`
 
-LD network-body schema v2 interop profile:
-`docs/guides/PLCOPEN_LD_INTEROP.md`.
+Ladder programs and PLCopen XML (Ladder is not exchanged as PLCopen XML; it runs as
+its Structured Text companion): `docs/guides/PLCOPEN_LD_INTEROP.md`.
 
 ST-complete import/export walkthrough example:
 `examples/plcopen_xml_st_complete/README.md`.
@@ -228,9 +230,10 @@ path = "vendor/siemens"
 version = "0.1.0"
 
 [runtime]
-# Required to surface live inline values from a running runtime/debug session.
-control_endpoint = "unix:///tmp/trust-runtime.sock"
-# Optional auth token (matches runtime control settings).
+# Required to surface live inline values from a running runtime/debug session. Copy the endpoint
+# that `trust-runtime ctl --project <dir> endpoint --json` reports for the project.
+control_endpoint = "unix:///path/to/project/.trust-runtime/control.sock"
+# Only for a tcp:// endpoint: the token that matches the runtime control settings.
 control_auth_token = "optional-token"
 ```
 

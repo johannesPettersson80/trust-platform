@@ -55,6 +55,8 @@ if (RENDERED_TEST_ENABLED) {
         await inner("d.querySelector('[data-plant-uncertainty-row=\\\"0\\\"] [data-plant-uncertainty-down]')?.click();return 'MOVED';");
         await pollValue("moved effect order", async () => inner("return JSON.stringify([...d.querySelectorAll('[data-plant-uncertainty-card]')].map((card)=>card.getAttribute('data-plant-uncertainty-kind')));"), (value) => value === JSON.stringify(["bias", "gaussian_noise"]), 8_000);
         await inner("d.querySelector('[data-plant-uncertainty-row=\\\"1\\\"] [data-plant-uncertainty-up]')?.click();return 'RESTORED';");
+        // A move is the language server's: the rows are in their order again once it answered.
+        await pollValue("restored effect order", async () => inner("return JSON.stringify([...d.querySelectorAll('[data-plant-uncertainty-card]')].map((card)=>card.getAttribute('data-plant-uncertainty-kind')));"), (value) => value === JSON.stringify(["gaussian_noise", "bias"]), 8_000);
         await inner("var include=d.querySelector('[data-plant-uncertainty-row=\\\"0\\\"] input[type=checkbox]');include?.click();return 'ENABLED';");
         await inner("d.querySelector('[data-plant-uncertainty-edit=\\\"0\\\"]')?.click();return 'EDIT_GAUSSIAN_AGAIN';");
 

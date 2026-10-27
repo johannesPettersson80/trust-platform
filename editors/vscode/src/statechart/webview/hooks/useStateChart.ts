@@ -13,7 +13,7 @@ import {
   StateChartNode,
   StateChartEdge,
   StateNodeData,
-  XStateConfig,
+  StatechartGraph,
   StateType,
   ActionMapping,
 } from "../types";
@@ -164,161 +164,91 @@ export const useStateChart = () => {
   }, [nodes.length]);
 
   /**
-   * Export to XState JSON format
+   * The graph the language server writes back as the file (`trust-lsp.visualFormat`): the
+   * states and transitions as drawn, in drawing order, and the action mappings.
    */
-  const exportToXState = useCallback((): XStateConfig => {
-    const states: Record<string, any> = {};
-    let initialState: string | undefined;
-
-    // Convert nodes to XState states
-    nodes.forEach((node) => {
-      const stateConfig: any = {};
-
-      if (node.data.entry && node.data.entry.length > 0) {
-        stateConfig.entry = node.data.entry;
-      }
-
-      if (node.data.exit && node.data.exit.length > 0) {
-        stateConfig.exit = node.data.exit;
-      }
-
-      if (node.data.type === "final") {
-        stateConfig.type = "final";
-      } else if (node.data.type === "compound") {
-        stateConfig.type = "compound";
-      }
-
-      // Find transitions for this state
-      const transitions: Record<string, any> = {};
-      edges
-        .filter((edge) => edge.source === node.id)
-        .forEach((edge) => {
-          const event = edge.data?.event || "NEXT";
-          const targetNode = nodes.find((n) => n.id === edge.target);
-
-          if (targetNode) {
-            const transition: any = { target: targetNode.data.label };
-
-            if (edge.data?.guard) {
-              transition.guard = edge.data.guard;
-            }
-
-            if (edge.data?.actions && edge.data.actions.length > 0) {
-              transition.actions = edge.data.actions;
-            }
-
-            if (edge.data?.after !== undefined) {
-              transition.after = edge.data.after;
-            }
-
-            transitions[event] = transition;
-          }
-        });
-
-      if (Object.keys(transitions).length > 0) {
-        stateConfig.on = transitions;
-      }
-
-      states[node.data.label] = stateConfig;
-
-      if (node.data.type === "initial") {
-        initialState = node.data.label;
-      }
-    });
-
-    return {
-      id: "stateMachine",
-      initial: initialState,
-      states,
+  const exportGraph = useCallback(
+    (): StatechartGraph => ({
+      states: nodes.map((node) => ({
+        id: node.id,
+        label: node.data.label,
+        type: node.data.type,
+        entry: node.data.entry,
+        exit: node.data.exit,
+      })),
+      transitions: edges.map((edge) => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        event: edge.data?.event,
+        guard: edge.data?.guard,
+        actions: edge.data?.actions,
+        after: edge.data?.after,
+      })),
       actionMappings,
-    };
-  }, [nodes, edges, actionMappings]);
+    }),
+    [nodes, edges, actionMappings]
+  );
 
   /**
-   * Import from XState JSON format
+   * Draws the graph the language server read from the file (`trust-lsp.visualParse`), placing
+   * the states on a compact grid so the whole machine stays visible beside the inspector.
    */
-  const importFromXState = useCallback((config: XStateConfig) => {
-    const newNodes: StateChartNode[] = [];
-    const newEdges: StateChartEdge[] = [];
-    const statePositions = new Map<string, { x: number; y: number }>();
-
-    // Compact grid layout: keep the full state machine visible beside the
-    // shared right inspector at normal VS Code widths.
-    const stateNames = Object.keys(config.states);
-    const COLS = stateGridColumns(stateNames.length);
-
-    stateNames.forEach((stateName, index) => {
-      statePositions.set(stateName, stateGridPosition(index, COLS));
+  const importFromXState = useCallback((graph: StatechartGraph) => {
+    const columns = stateGridColumns(graph.states.length);
+    const positions = new Map<string, { x: number; y: number }>();
+    graph.states.forEach((state, index) => {
+      positions.set(state.id, stateGridPosition(index, columns));
     });
 
-    // Create nodes
-    Object.entries(config.states).forEach(([stateName, stateConfig]) => {
-      const isInitial = config.initial === stateName;
-      const isFinal = stateConfig.type === "final";
-      const isCompound = stateConfig.type === "compound";
+    const newNodes: StateChartNode[] = graph.states.map((state) => ({
+      id: state.id,
+      type: "stateNode",
+      position: positions.get(state.id) || { x: 0, y: 0 },
+      data: {
+        label: state.label,
+        type: state.type,
+        entry: state.entry,
+        exit: state.exit,
+      },
+    }));
 
-      let type: StateType = "normal";
-      if (isInitial) type = "initial";
-      else if (isFinal) type = "final";
-      else if (isCompound) type = "compound";
-
-      const node: StateChartNode = {
-        id: `state_${stateName}`,
-        type: "stateNode",
-        position: statePositions.get(stateName) || { x: 0, y: 0 },
-        data: {
-          label: stateName,
-          type,
-          entry: stateConfig.entry || [],
-          exit: stateConfig.exit || [],
-        },
-      };
-
-      newNodes.push(node);
-
-      // Create edges from transitions
-      if (stateConfig.on) {
-        Object.entries(stateConfig.on).forEach(([event, transition]) => {
-          const targetName =
-            typeof transition === "string" ? transition : transition.target;
-          const targetId = `state_${targetName}`;
-          const sourcePosition = statePositions.get(stateName) || { x: 0, y: 0 };
-          const targetPosition = statePositions.get(targetName) || { x: 0, y: 0 };
-
-          const edge: StateChartEdge = {
-            id: `edge_${node.id}_${targetId}_${event}`,
-            source: node.id,
-            target: targetId,
-            type: STATE_TRANSITION_EDGE,
-            ...transitionHandles(sourcePosition, targetPosition),
-            label: event,
-            data: {
-              event,
-              guard:
-                typeof transition === "object" ? transition.guard : undefined,
-              actions:
-                typeof transition === "object" ? transition.actions : undefined,
-              after:
-                typeof transition === "object" ? transition.after : undefined,
-            },
-          };
-
-          newEdges.push(edge);
-        });
-      }
-    });
+    const newEdges: StateChartEdge[] = graph.transitions.map((transition) => ({
+      id: transition.id,
+      source: transition.source,
+      target: transition.target,
+      type: STATE_TRANSITION_EDGE,
+      ...transitionHandles(
+        positions.get(transition.source) || { x: 0, y: 0 },
+        positions.get(transition.target) || { x: 0, y: 0 }
+      ),
+      label: transition.event,
+      data: {
+        event: transition.event,
+        guard: transition.guard,
+        actions: transition.actions,
+        after: transition.after,
+      },
+    }));
 
     setNodes(newNodes);
     setEdges(newEdges);
-    setActionMappings(config.actionMappings || {});
+    setActionMappings(graph.actionMappings);
   }, []);
 
   /**
-   * Update action mappings
+   * Update action mappings: the new mappings, or a change of the mappings as they are then.
    */
-  const updateActionMappings = useCallback((mappings: Record<string, ActionMapping>) => {
-    setActionMappings(mappings);
-  }, []);
+  const updateActionMappings = useCallback(
+    (
+      mappings:
+        | Record<string, ActionMapping>
+        | ((current: Record<string, ActionMapping>) => Record<string, ActionMapping>)
+    ) => {
+      setActionMappings(mappings);
+    },
+    []
+  );
 
   return {
     nodes,
@@ -333,7 +263,7 @@ export const useStateChart = () => {
     updateActionMappings,
     deleteSelected,
     autoLayout,
-    exportToXState,
+    exportGraph,
     importFromXState,
     setNodes,
     setEdges,

@@ -31,7 +31,6 @@ fn lower_program_node(
             using: ctx.using.clone(),
             body,
         },
-        external_names: vars.external_names,
         globals,
         access,
     })
@@ -256,6 +255,7 @@ fn lower_method_node(
         semantic_file_id: ctx.semantic_file_id,
         statement_locations: ctx.statement_locations,
         compile_time_consts: ctx.compile_time_consts.clone(),
+        lower_bodies: ctx.lower_bodies,
     };
 
     let return_type = node
@@ -302,6 +302,7 @@ fn lower_property_methods(
         semantic_file_id: ctx.semantic_file_id,
         statement_locations: ctx.statement_locations,
         compile_time_consts: ctx.compile_time_consts.clone(),
+        lower_bodies: ctx.lower_bodies,
     };
 
     let mut methods = Vec::new();

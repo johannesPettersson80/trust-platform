@@ -127,39 +127,6 @@ pub struct IoStateEventBody {
     pub memory: Vec<IoStateEntry>,
 }
 
-/// Custom event body carrying variable snapshots.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct VarStateEntry {
-    pub name: String,
-    pub value: String,
-}
-
-/// Instance snapshot for custom variable events.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct VarStateInstance {
-    pub id: u32,
-    pub name: String,
-    pub vars: Vec<VarStateEntry>,
-}
-
-/// Custom event body carrying variable snapshots.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct VarStateEventBody {
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub locals: Vec<VarStateEntry>,
-    pub globals: Vec<VarStateEntry>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub instances: Vec<VarStateInstance>,
-    pub retain: Vec<VarStateEntry>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub frame_id: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub paused: Option<bool>,
-}
-
 /// Arguments for custom `stIoWrite` requests.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -173,41 +140,6 @@ pub struct IoWriteArguments {
 #[serde(rename_all = "camelCase")]
 pub struct IoReleaseArguments {
     pub address: String,
-}
-
-/// Supported variable write actions for custom panels.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum VarWriteAction {
-    Write,
-    Force,
-    Release,
-}
-
-/// Supported variable scopes for custom write requests.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum VarWriteScope {
-    Locals,
-    Globals,
-    Instances,
-    Retain,
-}
-
-/// Arguments for custom `stVarWrite` requests.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct VarWriteArguments {
-    pub scope: VarWriteScope,
-    pub name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub value: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub action: Option<VarWriteAction>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub instance_id: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub frame_id: Option<u32>,
 }
 
 /// DAP source reference.
@@ -490,11 +422,26 @@ pub struct ScopesResponseBody {
     pub scopes: Vec<Scope>,
 }
 
-/// Arguments for `variables`.
+/// The kind of child variables a `variables` request asks for (DAP `VariablesArguments.filter`).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum VariablesFilter {
+    Indexed,
+    Named,
+}
+
+/// Arguments for `variables`. `filter`, `start` and `count` page the children of a container, as
+/// a client that supports variable paging asks for them (specification 13, "Variables / Evaluate").
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct VariablesArguments {
     pub variables_reference: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filter: Option<VariablesFilter>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub count: Option<u32>,
 }
 
 /// DAP variable description.
@@ -508,6 +455,10 @@ pub struct Variable {
     pub variables_reference: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub evaluate_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub named_variables: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub indexed_variables: Option<u32>,
 }
 
 /// Response body for `variables`.
@@ -524,20 +475,6 @@ pub struct SetVariableArguments {
     pub variables_reference: u32,
     pub name: String,
     pub value: String,
-}
-
-/// Response body for `setVariable`.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct SetVariableResponseBody {
-    pub value: String,
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
-    pub r#type: Option<String>,
-    pub variables_reference: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub named_variables: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub indexed_variables: Option<u32>,
 }
 
 /// Arguments for `setExpression`.

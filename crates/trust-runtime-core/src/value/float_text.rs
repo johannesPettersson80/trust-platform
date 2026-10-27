@@ -9,15 +9,24 @@ pub(crate) fn parse(text: &str) -> Result<f64, crate::error::RuntimeError> {
 /// Match binary64 Display: shortest round-tripping digits, expanded decimal
 /// notation, no redundant fractional zeros, and a preserved negative zero.
 pub(crate) fn display(value: f64) -> String {
+    let mut text = String::new();
+    display_into(value, &mut text);
+    text
+}
+
+/// [`display`], appended to `out` (C1-12).
+pub(crate) fn display_into(value: f64, out: &mut String) {
     if value.is_nan() {
-        return String::from("NaN");
+        out.push_str("NaN");
+        return;
     }
     if value.is_infinite() {
-        return String::from(if value.is_sign_negative() {
+        out.push_str(if value.is_sign_negative() {
             "-inf"
         } else {
             "inf"
         });
+        return;
     }
     let mut buffer = ryu::Buffer::new();
     let encoded = buffer.format_finite(value);
@@ -60,21 +69,22 @@ pub(crate) fn display(value: f64) -> String {
         (decimal as usize).max(length) + usize::from((decimal as usize) < length)
     };
     // Reserve the actual decimal spelling plus sign and the optional `.0` suffix.
-    let mut text = String::with_capacity(capacity + usize::from(negative) + 2);
+    out.reserve(capacity + usize::from(negative) + 2);
+    let start = out.len();
     if negative {
-        text.push('-');
+        out.push('-');
     }
     if decimal <= 0 {
-        text.push_str("0.");
+        out.push_str("0.");
         for _ in decimal..0 {
-            text.push('0');
+            out.push('0');
         }
         for byte in &digits[..length] {
-            text.push(char::from(*byte));
+            out.push(char::from(*byte));
         }
     } else {
         for index in 0..decimal as usize {
-            text.push(char::from(
+            out.push(char::from(
                 *digits
                     .get(index)
                     .filter(|_| index < length)
@@ -82,21 +92,20 @@ pub(crate) fn display(value: f64) -> String {
             ));
         }
         if (decimal as usize) < length {
-            text.push('.');
+            out.push('.');
             for byte in &digits[decimal as usize..length] {
-                text.push(char::from(*byte));
+                out.push(char::from(*byte));
             }
         }
     }
-    if text.contains('.') {
-        while text.ends_with('0') {
-            text.pop();
+    if out[start..].contains('.') {
+        while out[start..].ends_with('0') {
+            out.pop();
         }
-        if text.ends_with('.') {
-            text.pop();
+        if out[start..].ends_with('.') {
+            out.pop();
         }
     }
-    text
 }
 
 // Test v == (d + 1/2) * 10^e exactly. Factor powers of two from the
@@ -145,11 +154,19 @@ fn is_lower_decimal_halfway(value: f64, digits: &[u8], decimal_exponent: i32) ->
 }
 
 pub(crate) fn real(value: f64) -> String {
-    let mut text = display(value);
-    if !text.contains('.') && !text.contains('e') && !text.contains('E') {
-        text.push_str(".0");
-    }
+    let mut text = String::new();
+    real_into(value, &mut text);
     text
+}
+
+/// [`real`], appended to `out` (C1-12).
+pub(crate) fn real_into(value: f64, out: &mut String) {
+    let start = out.len();
+    display_into(value, out);
+    let text = &out[start..];
+    if !text.contains('.') && !text.contains('e') && !text.contains('E') {
+        out.push_str(".0");
+    }
 }
 
 #[cfg(test)]

@@ -20,6 +20,7 @@ pub(crate) fn check(
             object: object.id.clone(),
             property: Some(property.into()),
             message,
+            point: None,
         };
         let Some(name) = &object.faceplate else {
             problems.push(problem("faceplate", "Choose a panel definition".into()));
@@ -74,7 +75,7 @@ mod tests {
         let (page, _) = super::super::documents::page("main", text, false).unwrap();
         let runtime =
             trust_runtime::harness::CompileSession::from_source("PROGRAM Main END_PROGRAM")
-                .build_runtime()
+                .declarations()
                 .unwrap();
         let mut bundle = HmiBundle::default();
         bundle.files.insert(

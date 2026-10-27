@@ -1,3 +1,8 @@
+//! The safe-state handoff cases: a stop is confirmed only when every driver confirms the safe
+//! outputs it was handed.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::collections::BTreeMap;
 use std::env;
 use std::path::{Path, PathBuf};
@@ -7,10 +12,10 @@ use std::time::{Duration as StdDuration, Instant};
 
 use serde_json::json;
 use trust_runtime::error::RuntimeError;
+use trust_runtime::harness::TestHarness;
 use trust_runtime::io::{IoAddress, IoDriver, IoDriverHealth, IoSafeState};
 use trust_runtime::scheduler::{ResourceControl, ResourceRunner, ResourceState, StdClock};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::RuntimeBuilder;
 use verification_cases::{
     check_case_expectation, check_trace_fields, run_case_file, CaseExecution, CaseRecord,
     CaseResult, ObservedOperation, RunConfig, StateProbe, StateSnapshot, TraceStep,
@@ -128,14 +133,17 @@ fn execute_step(step: &TraceStep) -> Result<Observation, String> {
     let first = Arc::new(Mutex::new(Vec::new()));
     let second = Arc::new(Mutex::new(Vec::new()));
 
-    let mut runtime = RuntimeBuilder::new();
-    runtime.io_mut().resize(0, 1, 0);
+    // One output bit, so the output image has the byte the safe state writes.
+    let mut runtime = TestHarness::from_source(
+        "VAR_GLOBAL lamp AT %QX0.0 : BOOL; END_VAR PROGRAM Main END_PROGRAM",
+    )
+    .map_err(|error| error.to_string())?
+    .into_runtime();
     let mut safe_state = IoSafeState::default();
     safe_state.outputs.push((
         IoAddress::parse("%QX0.0").map_err(|error| error.to_string())?,
         Value::Bool(false),
     ));
-    let mut runtime = runtime.build().map_err(|error| error.to_string())?;
     runtime.set_io_safe_state(safe_state);
     runtime.add_io_driver(
         "first-safe-state",

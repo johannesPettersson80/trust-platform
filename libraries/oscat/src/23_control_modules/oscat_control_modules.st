@@ -13,12 +13,12 @@ VAR_OUTPUT
 	STATUS : BYTE;
 END_VAR
 VAR
-	last : UDINT;
+	last : DWORD;
 	init: BOOL;
 	tx: UDINT;
-	now: UDINT;
+	now: DWORD;
 END_VAR
-now := DWORD_TO_UDINT(T_PLC_MS());
+now := T_PLC_MS();
 IF NOT init THEN
 	last := now;
 	init := TRUE;
@@ -30,7 +30,7 @@ IF IN THEN
 ELSE
 	OUT := FALSE;
 	STATUS := BYTE#100;
-	tx := now - last;
+	tx := T_PLC_ELAPSED(NOW := now, LAST := last);
 	IF (self_act_cycle > T#0s) AND (tx >= DWORD_TO_UDINT(TIME_TO_DWORD(self_act_cycle))) THEN
 		OUT := TRUE;
 		STATUS := BYTE#102;
@@ -354,7 +354,7 @@ VAR
 	tc: REAL;
 END_VAR
 tx := T_PLC_US();
-tc := UDINT_TO_REAL(DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(last));
+tc := UDINT_TO_REAL(T_PLC_ELAPSED(NOW := tx, LAST := last));
 last := tx;
 IF NOT init THEN
 	init := TRUE;
@@ -671,7 +671,7 @@ IF NOT init OR RST THEN
 	tc := 0.0;
 ELSE
 	tx := T_PLC_US();
-	tc := UDINT_TO_REAL(DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(t_last));
+	tc := UDINT_TO_REAL(T_PLC_ELAPSED(NOW := tx, LAST := t_last));
 	t_last := tx;
 	p := KP * IN;
 	i := (IN + in_last) * 5.0E-7 * KI * tc + i;
@@ -718,7 +718,7 @@ IF NOT init OR T = t#0s THEN
 	init := TRUE;
 	out := K * in;
 ELSE
-	out := out + (in * K - out) * UDINT_TO_REAL(DWORD_TO_UDINT(Tx) - DWORD_TO_UDINT(last)) / DWORD_TO_REAL(TIME_TO_DWORD(T)) * 1.0E-3;
+	out := out + (in * K - out) * UDINT_TO_REAL(T_PLC_ELAPSED(NOW := Tx, LAST := last)) / UDINT_TO_REAL(DWORD_TO_UDINT(TIME_TO_DWORD(T))) * 1.0E-3;
 	IF ABS(out) < 1.0E-20 THEN out := 0.0; END_IF;
 END_IF;
 last := tx;
@@ -747,7 +747,7 @@ IF NOT init OR T = T#0s THEN
 	out := K * in;
 	I2 := out;
 ELSE
-	TN := DWORD_TO_REAL(TIME_TO_DWORD(T)) * 1.0E-3;
+	TN := UDINT_TO_REAL(DWORD_TO_UDINT(TIME_TO_DWORD(T))) * 1.0E-3;
 	tn2 := TN * TN;
 	int1(X := in * K / tn2 - I1 * 0.5 * D / TN - I2 / TN2, Y := I1);
 	int2(X := I1,Y := I2);
@@ -778,7 +778,7 @@ IF NOT init THEN
 	x[cnt] := in;
 	init := TRUE;
 	last := tx;
-ELSIF DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(last) >= DWORD_TO_UDINT(TIME_TO_DWORD(T)) / INT_TO_UDINT(length) THEN
+ELSIF T_PLC_ELAPSED(NOW := tx, LAST := last) >= DWORD_TO_UDINT(TIME_TO_DWORD(T)) / INT_TO_UDINT(length) THEN
 	IF cnt = length - 1 THEN cnt := 0; ELSE cnt := cnt + 1; END_IF;
 	Out := X[cnt];
 	x[cnt] := in;
@@ -810,7 +810,7 @@ IF NOT init THEN
 	x[cnt] := in;
 	init := TRUE;
 	last := tx;
-ELSIF DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(last) >= DWORD_TO_UDINT(TIME_TO_DWORD(T)) / INT_TO_UDINT(length) THEN
+ELSIF T_PLC_ELAPSED(NOW := tx, LAST := last) >= DWORD_TO_UDINT(TIME_TO_DWORD(T)) / INT_TO_UDINT(length) THEN
 	IF cnt = length - 1 THEN cnt := 0; ELSE cnt := cnt + 1; END_IF;
 	Out := X[cnt];
 	x[cnt] := in;
@@ -842,7 +842,7 @@ IF NOT init THEN
 	x[cnt] := in;
 	init := TRUE;
 	last := tx;
-ELSIF DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(last) >= DWORD_TO_UDINT(TIME_TO_DWORD(T)) / INT_TO_UDINT(length) THEN
+ELSIF T_PLC_ELAPSED(NOW := tx, LAST := last) >= DWORD_TO_UDINT(TIME_TO_DWORD(T)) / INT_TO_UDINT(length) THEN
 	IF cnt = length - 1 THEN cnt := 0; ELSE cnt := cnt + 1; END_IF;
 	Out := X[cnt];
 	x[cnt] := in;
@@ -977,7 +977,7 @@ IF NOT init THEN
 	init := TRUE;
 	X_last := X;
 ELSIF E THEN
-	Y := (X + X_LAST) * 0.5E-3 * UDINT_TO_REAL(DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(last)) * K + Y;
+	Y := (X + X_LAST) * 0.5E-3 * UDINT_TO_REAL(T_PLC_ELAPSED(NOW := tx, LAST := last)) * K + Y;
 	X_last := X;
 END_IF;
 last := tx;
@@ -1161,7 +1161,7 @@ VAR
 END_VAR
 tx := T_PLC_MS();
 IF rst OR over_temp OR state = 0 THEN
-	IF status > BYTE#0 AND DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(last_change) >= DWORD_TO_UDINT(TIME_TO_DWORD(lockout_time)) AND rst THEN
+	IF status > BYTE#0 AND T_PLC_ELAPSED(NOW := tx, LAST := last_change) >= DWORD_TO_UDINT(TIME_TO_DWORD(lockout_time)) AND rst THEN
 		status := BYTE#110;
 		fail := FALSE;
 		state := 1;
@@ -1200,11 +1200,11 @@ IF NOT ((status > BYTE#0 AND status < BYTE#100) OR rst) THEN
             last_change := tx;
         END_IF;
     2:
-        IF (DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(last_change) >= DWORD_TO_UDINT(TIME_TO_DWORD(pre_heat_time)) AND oil_temp) OR (oil_temp AND NOT oil_temp_last) THEN
+        IF (T_PLC_ELAPSED(NOW := tx, LAST := last_change) >= DWORD_TO_UDINT(TIME_TO_DWORD(pre_heat_time)) AND oil_temp) OR (oil_temp AND NOT oil_temp_last) THEN
             motor := TRUE;
             state := 3;
             last_change := tx;
-        ELSIF DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(last_change) >= DWORD_TO_UDINT(TIME_TO_DWORD(pre_heat_time)) AND NOT oil_temp THEN
+        ELSIF T_PLC_ELAPSED(NOW := tx, LAST := last_change) >= DWORD_TO_UDINT(TIME_TO_DWORD(pre_heat_time)) AND NOT oil_temp THEN
             state := 7;
             pre_heat := FALSE;
             status := BYTE#1;
@@ -1216,7 +1216,7 @@ IF NOT ((status > BYTE#0 AND status < BYTE#100) OR rst) THEN
             last_change := tx;
         END_IF;
     3:
-        IF DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(last_change) >= DWORD_TO_UDINT(TIME_TO_DWORD(pre_vent_time)) - DWORD_TO_UDINT(TIME_TO_DWORD(pre_ignite_time)) THEN
+        IF T_PLC_ELAPSED(NOW := tx, LAST := last_change) >= DWORD_TO_UDINT(TIME_TO_DWORD(pre_vent_time)) - DWORD_TO_UDINT(TIME_TO_DWORD(pre_ignite_time)) THEN
             ignite := TRUE;
             state := 4;
             last_change := tx;
@@ -1228,13 +1228,13 @@ IF NOT ((status > BYTE#0 AND status < BYTE#100) OR rst) THEN
             last_change := tx;
         END_IF;
     4:
-        IF DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(last_change) >= DWORD_TO_UDINT(TIME_TO_DWORD(pre_ignite_time)) THEN
+        IF T_PLC_ELAPSED(NOW := tx, LAST := last_change) >= DWORD_TO_UDINT(TIME_TO_DWORD(pre_ignite_time)) THEN
             coil1 := TRUE;
             state := 5;
             last_change := tx;
         END_IF;
     5:
-        IF DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(last_change) >= DWORD_TO_UDINT(TIME_TO_DWORD(safety_time)) OR flame THEN
+        IF T_PLC_ELAPSED(NOW := tx, LAST := last_change) >= DWORD_TO_UDINT(TIME_TO_DWORD(safety_time)) OR flame THEN
             IF NOT flame THEN
                 state := 7;
                 motor := FALSE;
@@ -1264,10 +1264,10 @@ IF NOT ((status > BYTE#0 AND status < BYTE#100) OR rst) THEN
             coil2 := FALSE;
             last_change := tx;
         ELSE
-            IF DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(last_change) >= DWORD_TO_UDINT(TIME_TO_DWORD(post_ignite_time)) THEN
+            IF T_PLC_ELAPSED(NOW := tx, LAST := last_change) >= DWORD_TO_UDINT(TIME_TO_DWORD(post_ignite_time)) THEN
                 ignite := FALSE;
             END_IF;
-            IF DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(last_change) >= DWORD_TO_UDINT(TIME_TO_DWORD(stage2_delay)) AND stage2 THEN
+            IF T_PLC_ELAPSED(NOW := tx, LAST := last_change) >= DWORD_TO_UDINT(TIME_TO_DWORD(stage2_delay)) AND stage2 THEN
                 coil2 := TRUE;
             ELSE
                 coil2 := FALSE;
@@ -1426,9 +1426,9 @@ IF NOT init THEN
 	init := TRUE;
 	last := tx;
 END_IF;
-IF (DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(last) >= DWORD_TO_UDINT(TIME_TO_DWORD(AVG_TIME))) AND (avg_time > T#0s) THEN
+IF (T_PLC_ELAPSED(NOW := tx, LAST := last) >= DWORD_TO_UDINT(TIME_TO_DWORD(AVG_TIME))) AND (avg_time > T#0s) THEN
 	last := tx;
-	C := (Y - Y_last) * 3.6E6 / DWORD_TO_REAL(TIME_TO_DWORD(AVG_TIME));
+	C := (Y - Y_last) * 3.6E6 / UDINT_TO_REAL(DWORD_TO_UDINT(TIME_TO_DWORD(AVG_TIME)));
 	Y_last := Y;
 END_IF;
 END_FUNCTION_BLOCK
@@ -1796,7 +1796,7 @@ IF NOT init THEN
     cool_stop := SET_DATE(1972,MONTH_OF_DATE(cool_period_stop),DAY_OF_MONTH(cool_period_stop));
 END_IF;
 tx := T_PLC_MS();
-IF force_run OR DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(last_run) >= DWORD_TO_UDINT(TIME_TO_DWORD(cycle_time)) THEN
+IF force_run OR T_PLC_ELAPSED(NOW := tx, LAST := last_run) >= DWORD_TO_UDINT(TIME_TO_DWORD(cycle_time)) THEN
     xdate := SET_DATE(1972,MONTH_OF_DATE(DT_TO_DATE(dt_in)),DAY_OF_MONTH(DT_TO_DATE(dt_in)));
     day := DT_TO_TOD(dt_in) >= start_day AND DT_TO_TOD(dt_in) < start_night;
     t_ext := MULTI_IN(t_ext1, t_ext2, t_ext3, t_ext_default, t_ext_min, t_ext_max, t_ext_config);

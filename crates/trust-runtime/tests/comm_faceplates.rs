@@ -4,7 +4,7 @@
 
 use std::path::Path;
 
-use trust_runtime::harness::TestHarness;
+use trust_runtime::harness::{CompileSession, SourceFile};
 use trust_runtime::hmi::binding_checks::{check_faceplate, check_pair};
 use trust_runtime::hmi::catalogue::Catalogue;
 use trust_runtime::hmi::page_files::{
@@ -52,26 +52,23 @@ fn the_link_block_is_paired_with_the_link_faceplate_and_symbol_and_checks_clean(
         faceplate_text,
         "the faceplate is written canonically"
     );
-    let harness = TestHarness::from_sources(&[
-        ALARM,
-        COMM,
-        "PROGRAM Main\nVAR\n    Unused : BOOL;\nEND_VAR\nEND_PROGRAM\n",
+    // The binding checks read the program's declarations, as the HMI Builder's checks do.
+    let declarations = CompileSession::from_sources(vec![
+        SourceFile::new(ALARM),
+        SourceFile::new(COMM),
+        SourceFile::new("PROGRAM Main\nVAR\n    Unused : BOOL;\nEND_VAR\nEND_PROGRAM\n"),
     ])
+    .declarations()
     .expect("the libraries compile");
-    let metadata = harness.runtime().metadata_snapshot();
+    let metadata = declarations.metadata();
     assert_eq!(
-        check_pair(&pair, &faceplate, &metadata),
+        check_pair(&pair, &faceplate, metadata),
         vec![],
         "the pair against the library"
     );
     let catalogue = Catalogue::shipped();
     assert_eq!(
-        check_faceplate(
-            &faceplate,
-            catalogue,
-            &metadata,
-            harness.runtime().storage()
-        ),
+        check_faceplate(&faceplate, catalogue, metadata, declarations.storage()),
         vec![]
     );
     assert!(

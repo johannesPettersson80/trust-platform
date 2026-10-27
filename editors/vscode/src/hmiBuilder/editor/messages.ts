@@ -144,7 +144,12 @@ export type HostToWebview =
   | { type: "targets"; pages: string[]; popups: string[]; faceplates?: string[] }
   /** The binding checks' problems on this page, and its quality warnings, by object id (§7.6,
    * §14.1 item 4). */
-  | { type: "problems"; problems: Record<string, string[]>; warnings?: Record<string, QualityWarning[]> }
+  | {
+      type: "problems";
+      problems: Record<string, string[]>;
+      points?: Record<string, Record<string, string>>;
+      warnings?: Record<string, QualityWarning[]>;
+    }
   /** The warnings about the project's own colours (§14.1 item 4). */
   | { type: "colourWarnings"; warnings: QualityWarning[] }
   /** Live mode's connection to the run target (§11, item 6). */
@@ -169,7 +174,22 @@ export type HostToWebview =
    * project lacks the faceplate (§8.9). */
   | { type: "placed"; placed: Record<string, PlacedFaceplate | null> }
   /** The instances a faceplate fits, asked for when one is placed (§8.9 item 1). */
-  | { type: "faceplateInstances"; faceplate: string; instances: string[]; problem?: string };
+  | { type: "faceplateInstances"; faceplate: string; instances: string[]; problem?: string }
+  /** The language server's answer to the webview's rule question `id` (§17.3). */
+  | { type: "rustAnswer"; id: number; answer: unknown };
+
+/** The language server's HMI Builder rules the webview asks (AGENTS.md: all logic is in Rust;
+ * specification 39, §17.3), through the editor with a `rust` message; the editor forwards no
+ * other command. */
+export const RUST_RULES = {
+  pidSync: "trust-lsp.hmiPidSync",
+  equipment: "trust-lsp.hmiEquipmentEdit",
+  variablePicker: "trust-lsp.hmiVariablePicker",
+  clipboard: "trust-lsp.hmiClipboard",
+} as const;
+
+/** Asks one of `RUST_RULES`: resolves with its answer, or rejects with the reason it refuses. */
+export type CallRust = <T>(command: string, argument: unknown) => Promise<T>;
 
 /** A faceplate the Faceplates group lists. */
 export interface FaceplateEntry {
@@ -247,7 +267,9 @@ export type WebviewToHost =
   /** The variables the pickers show, to read their current values; none when no picker is open (§3.3 item 8). */
   | { type: "watch"; paths: string[] }
   /** The instances a faceplate fits, for placing it (§8.9 item 1). */
-  | { type: "faceplateInstances"; faceplate: string };
+  | { type: "faceplateInstances"; faceplate: string }
+  /** A question to one of the language server's rules, `RUST_RULES` (§17.3). */
+  | { type: "rust"; id: number; command: string; argument: unknown };
 
 /** Live mode's connection: values arrive, no target runs, or the connection was lost. */
 export type LiveState = "connected" | "none" | "lost";

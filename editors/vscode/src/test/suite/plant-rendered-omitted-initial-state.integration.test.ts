@@ -55,7 +55,15 @@ if (process.env.TRUST_PLANT_RENDERED_TEST === "1") {
           (value) => value === "OPEN",
           20_000
         );
-        await setValue('[data-plant-starting-state="0"]', "2.5");
+        // The editor shows its fields once Rust has opened the saved plant; an edit before then
+        // finds no field.
+        await pollValue(
+          "reopened editor",
+          async () => inner("return String(Boolean(d.querySelector('[data-plant-starting-state=\"0\"]')));"),
+          (value) => value === "true",
+          20_000
+        );
+        assert.strictEqual(await setValue('[data-plant-starting-state="0"]', "2.5"), "2.5");
         await pollSave(inner, false, "explicit nonzero initial-state edit");
         await saveDraft(session);
         simulation = fs.readFileSync(path.join(workspace, "simulation.toml"), "utf8");

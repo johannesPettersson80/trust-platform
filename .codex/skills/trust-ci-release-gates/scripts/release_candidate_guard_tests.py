@@ -6,6 +6,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -373,6 +374,31 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             command_ids.index("remote_clippy"),
             command_ids.index("remote_reclaim_before_test_all"),
         )
+
+    def test_a_command_whose_output_splits_a_character_is_recorded(self) -> None:
+        # Two processes writing to one pipe can split a UTF-8 character; the guard crashed reading
+        # such output (27 October 2026). The broken sequence is replaced, the rest kept.
+        result = guard.run(
+            [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'ok \\xe2 rest')"]
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "ok \ufffd rest")
+
+    def test_remote_validation_builds_the_candidates_toolchain_before_the_tests(self) -> None:
+        # Specification 44 §4.6: the tests that build and run programs need the toolchain of the
+        # candidate's version; the guard builds it into the target, as CI does, before the VS Code
+        # tests and test-all, and gives it to them as TRUST_TOOLCHAIN.
+        commands = candidate_prepare.remote_validation_commands(
+            vscode_changed=True, remote_target="/tmp/trust-target"
+        )
+        command_ids = [command_id for command_id, _command in commands]
+        by_id = dict(commands)
+        self.assertLess(command_ids.index("remote_toolchain"), command_ids.index("remote_vscode"))
+        self.assertLess(command_ids.index("remote_toolchain"), command_ids.index("remote_test_all"))
+        self.assertIn("scripts/native/build_toolchain_libraries.sh", by_id["remote_toolchain"])
+        self.assertIn("scripts/with_cargo_target_lease.sh", by_id["remote_toolchain"])
+        for command_id in ("remote_vscode", "remote_test_all"):
+            self.assertIn("TRUST_TOOLCHAIN=/tmp/trust-target/trust-toolchain", by_id[command_id])
 
     def test_remote_validation_leases_every_cargo_target_user_and_safe_reclaims(self) -> None:
         commands = dict(

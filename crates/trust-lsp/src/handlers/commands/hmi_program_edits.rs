@@ -14,8 +14,6 @@ use tower_lsp::lsp_types::{Range, TextDocumentIdentifier, TextEdit, Url};
 use trust_runtime::hmi::catalogue::{Catalogue, ValueKind};
 use trust_runtime::hmi::member_paths::{resolve_member, MemberPath};
 use trust_runtime::hmi::page_files::{HmiObject, PLACED_FACEPLATE};
-use trust_runtime::memory::{InstanceId, VariableStorage};
-use trust_runtime::value::Value as StValue;
 use trust_syntax::{SyntaxKind, SyntaxNode};
 
 use super::hmi_files::{file_errors, refused, single_argument};
@@ -194,10 +192,13 @@ impl Planner<'_> {
         if MemberPath::parse(path).is_ok_and(|parsed| resolve_member(&parsed, storage).is_some()) {
             return;
         }
-        let Some((program_id, program, name)) = self.place(object, path) else {
+        let Some((declared, program, name)) = self.place(object, path) else {
             return;
         };
-        if member(storage, program_id, &name).is_some() {
+        if declared
+            .iter()
+            .any(|variable| variable.eq_ignore_ascii_case(&name))
+        {
             return;
         }
         let Some(type_name) = type_for(kind) else {
@@ -215,8 +216,10 @@ impl Planner<'_> {
         }
     }
 
-    /// The program instance and the variable a path names directly in it (§10 item 5).
-    fn place(&mut self, object: &str, path: &str) -> Option<(InstanceId, String, String)> {
+    /// The program instance and the variable a path names directly in it (§10 item 5): the
+    /// variables the instance's program declares, the program it runs, and the variable's name.
+    /// The configured program instances are the project's declarations' (specification 44 §6.7).
+    fn place(&mut self, object: &str, path: &str) -> Option<(Vec<String>, String, String)> {
         let segments: Vec<&str> = path.split('.').collect();
         if segments.len() != 2 || !segments.iter().all(|segment| is_identifier(segment)) {
             self.skip(
@@ -225,34 +228,31 @@ impl Planner<'_> {
             );
             return None;
         }
-        let runtime = &self.project.runtime;
-        let found = runtime
-            .storage()
-            .globals()
+        let found = self
+            .project
+            .runtime
+            .metadata()
+            .programs()
             .iter()
-            .find(|(name, _)| name.eq_ignore_ascii_case(segments[0]))
-            .and_then(|(_, value)| match value {
-                StValue::Instance(id) => Some(*id),
-                _ => None,
-            })
-            .and_then(|id| {
-                let type_name = runtime.storage().get_instance(id)?.type_name.clone();
-                runtime
-                    .program_templates()
-                    .keys()
-                    .any(|program| program.eq_ignore_ascii_case(&type_name))
-                    .then(|| {
-                        let program = self
-                            .configured
-                            .iter()
-                            .find(|(instance, _)| instance.eq_ignore_ascii_case(segments[0]))
-                            .map(|(_, program)| program.clone())
-                            .unwrap_or_else(|| type_name.to_string());
-                        (id, program)
-                    })
+            .find(|(instance, _)| instance.eq_ignore_ascii_case(segments[0]))
+            .map(|(_, definition)| {
+                let program = self
+                    .configured
+                    .iter()
+                    .find(|(instance, _)| instance.eq_ignore_ascii_case(segments[0]))
+                    .map_or_else(
+                        || definition.name.to_string(),
+                        |(_, program)| program.clone(),
+                    );
+                let declared = definition
+                    .vars
+                    .iter()
+                    .map(|variable| variable.name.to_string())
+                    .collect();
+                (declared, program)
             });
         match found {
-            Some((id, program)) => Some((id, program, segments[1].to_string())),
+            Some((declared, program)) => Some((declared, program, segments[1].to_string())),
             None => {
                 self.skip(
                     object,
@@ -295,29 +295,6 @@ fn is_identifier(text: &str) -> bool {
         .next()
         .is_some_and(|first| first.is_ascii_alphabetic() || first == '_')
         && characters.all(|character| character.is_ascii_alphanumeric() || character == '_')
-}
-
-/// A member of a program instance, by name in any case.
-fn member<'a>(
-    storage: &'a VariableStorage,
-    program: InstanceId,
-    name: &str,
-) -> Option<&'a StValue> {
-    let mut instance = storage.get_instance(program);
-    for _ in 0..32 {
-        let current = instance?;
-        if let Some((_, value)) = current
-            .variables
-            .iter()
-            .find(|(member, _)| member.eq_ignore_ascii_case(name))
-        {
-            return Some(value);
-        }
-        instance = current
-            .parent
-            .and_then(|parent| storage.get_instance(parent));
-    }
-    None
 }
 
 /// The IEC type of a variable a property's binding needs.

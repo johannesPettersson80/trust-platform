@@ -1,7 +1,6 @@
 // Resolves Live operation from the same selected run target as reads and Deploy (§11).
 import * as path from "path";
 import * as vscode from "vscode";
-import { ownWebServer, webAddress } from "./deploy";
 import { runtimeDeployDeps } from "./deployRuntime";
 import { openLiveSocket, requestLive } from "./liveNetwork";
 import type { LiveOperatorDeps } from "./liveOperator";
@@ -29,8 +28,7 @@ export function runtimeLiveOperatorDeps(root: string, allowSimulator = false): L
         const identity = JSON.stringify([selected.endpoint, selected.token, selected.simulator]);
         if (cached?.identity === identity) return { ...cached.target, label: selected.label };
         const topology = await runtimeDeployDeps.control(selected.endpoint, selected.token, "fleet.topology", {});
-        const web = ownWebServer(topology);
-        const url = web && webAddress(selected.endpoint, web.listen, web.tls);
+        const url = await runtimeDeployDeps.address(selected.endpoint, topology);
         if (!url) return undefined;
         const target = {
           url,

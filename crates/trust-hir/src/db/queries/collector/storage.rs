@@ -1,4 +1,4 @@
-//! Physical relative-layout extents; legacy SIZEOF is a separate compatibility rule.
+//! Physical relative-layout extents.
 use super::*;
 use crate::types::POINTER_REFERENCE_HANDLE_SIZE_BYTES;
 
@@ -18,9 +18,6 @@ impl SymbolCollector<'_> {
                 Type::Alias { target, .. } => self.storage_bits(*target, stack),
                 Type::Subrange { base, .. } | Type::Enum { base, .. } => {
                     self.storage_bits(*base, stack)
-                }
-                Type::Time | Type::Date | Type::Tod | Type::Dt => {
-                    u128::from(self.temporal_storage.bytes()).checked_mul(8)
                 }
                 Type::Array {
                     element,

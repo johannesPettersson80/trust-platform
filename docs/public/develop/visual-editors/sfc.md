@@ -21,6 +21,29 @@ validated through the same runtime loop.
 4. Save and inspect the resulting companion ST/runtime behavior.
 5. Validate the project and run it through the normal runtime loop.
 
+## How a chart runs
+
+The chart runs as its companion Structured Text, by the SFC rules of
+IEC 61131-3 (the details are in `docs/specs/sfc-profile.md`):
+
+- Each scan first runs the actions of the active steps, then clears the
+  transitions whose steps are active and whose conditions hold; a step entered
+  in one scan runs its actions in the next.
+- A parallel split enters all its branches together; its join leaves them
+  together once every branch has reached its last step and the join's
+  conditions hold.
+- When several transitions leave one step, the one with the lowest `priority`
+  number wins, otherwise the one drawn first.
+- Action qualifiers: `N`, `S` and `R` (set and reset across steps), `L`
+  (limited to a duration), `D` (delayed), `P`, `P1` (once when the step
+  starts), `P0` (once when it ends), and `SD`, `DS`, `SL`. Type a duration
+  such as `T#2s` for `L`, `D`, `SD`, `DS` and `SL`.
+- An action runs one more scan after it ends, with `<action>.Q` FALSE, so it
+  can switch its outputs off: `motor := Run.Q;`. Code that must run only while
+  the step is active goes inside `IF <action>.Q THEN`. Transition conditions
+  may read `<action>.Q`, for example `NOT Heat.Q` after an `L` action.
+- The step flag `<step>_active` is TRUE while the step is active.
+
 ## Best for
 
 - procedural phase control

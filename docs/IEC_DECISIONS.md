@@ -6,6 +6,38 @@ Authoritative location:
 
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
+## 2026-10-26 - Action control of the visual SFC companion
+
+- Area: the Structured Text companion of a visual SFC (`docs/specs/sfc-profile.md`, "Execution
+  of a visual SFC")
+- IEC context:
+  - IEC 61131-3 Ed.3 §6.7.4.6 and Table 60: the implementer supports action control with final
+    scan (Figures 22 a and 23 a) or without it (Figures 22 b and 23 b).
+  - Figure 23 a) detects the final scan with an `F_TRIG` on `Q` and the `P0` pulse with an
+    `F_TRIG` on the `P0` input; Table 44 defines `F_TRIG` so that its first call with `CLK`
+    `FALSE` after a cold restart answers `TRUE`. NOTE 3 of §6.7.4.6 says `A` is `TRUE` for one
+    execution "following the falling edge of Q".
+  - §6.7.4.6 sets the `T` input to the duration of an active time-related association and to
+    `t#0s` when there is none; Table 46 NOTE leaves the effect of a change of `PT` during timing
+    to the implementer. A stored and delayed (`SD`) or stored and limited (`SL`) action times on
+    after its step ends.
+- Decision:
+  - Action control with final scan (Table 60 feature 1), as CODESYS and TwinCAT run IEC actions.
+  - A falling edge (the final scan, `P0`) is a change from `TRUE` in the previous scan to
+    `FALSE`; the previous value at a start is `FALSE`, so no action runs at start-up.
+  - Each timer of an action times with the duration of its own association and keeps that
+    duration after the association ends; with several associations of one qualifier and
+    different durations, the first active one in chart order sets it.
+  - The errors of §6.7.4.6 that depend on which steps are active together (more than one active
+    time-related association, `SD` with `SL_FF.Q1`, `SL` with `SD_FF.Q1`) are not detected while
+    the program runs; two time-related associations of one action in one step are refused by
+    Validate.
+- Reason:
+  - A start-up execution of every action and every `P0` action would contradict NOTE 3 and the
+    pulse "on the falling edge" of Table 59, and would switch outputs at power-up.
+  - With `T` at `t#0s` after its step ends, `SD` would act at once and `SL` would end with its
+    step, which contradicts "stored" in Table 59.
+
 ## 2026-10-23 - Unqualified variables of a nested instance in a RETAIN instance
 
 - Area: warm restart and the retain store (function-block and class instances)
@@ -26,6 +58,81 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
     qualifiers of its own; keeping the block's whole tree is what an engineer
     who declares the block `RETAIN` expects, and it matches the retained-object
     transfer of a warm restart of the running runtime.
+
+## 2026-10-23 - A derived instance with additional inputs or outputs in a base's VAR_IN_OUT
+
+- Area: calls of function blocks, methods and functions whose `VAR_IN_OUT` is of a function block
+  or class type
+- IEC context:
+  - IEC 61131-3 Ed.3 §6.6.8.3: "An in-out variable of a type may be assigned an instance of a
+    derived function block type, if the derived function block type has no additional in-out
+    variables. Whether or not an instance of a derived function block type with additional input
+    and output variables can be assigned is Implementer specific."
+- Decision:
+  - A `VAR_IN_OUT` of a function block or class type takes an instance of a type derived from it,
+    directly or through several bases, when neither that type nor any type between them declares
+    a `VAR_IN_OUT` of its own. Additional inputs, outputs and other variables are allowed: an
+    instance of a derived type holds its base's variables first on every runtime, and the call
+    reaches the instance's own methods (dynamic binding, §6.6.8.3).
+  - A derived type that declares an in-out of its own is refused for the base's `VAR_IN_OUT`
+    (`E205`), as the standard says.
+- Tests: `crates/trust-runtime/tests/native_objects.rs`
+  (`a_base_in_out_takes_a_derived_instance_in_both_engines`).
+
+## 2026-10-17 - STRING and WSTRING default length, maximum and capacity unit
+
+- Area: STRING/WSTRING declarations, stores, literals and string functions
+- IEC context:
+  - IEC 61131-3 Ed.3 §6.4.2.2: "The supported maximum length of elements of type
+    STRING and WSTRING shall be Implementer specific values"; a declared maximum
+    length shall not exceed that value.
+  - Table 10 note k: "The maximum allowed length of STRING and WSTRING variables
+    is Implementer specific."
+  - §6.6.2.5.11 and Table 34: it shall be an error if a string function would
+    "produce a string longer than the Implementer specific maximum string
+    length".
+  - §6.6.1.2.2 leaves the result of assigning a longer string to the
+    implementer. The standard gives no length for a declaration without one and
+    no unit for a length stored as UTF-8 or UTF-16.
+- Decision:
+  - `STRING` and `WSTRING` declared without a length are `STRING[80]` and
+    `WSTRING[80]`, the same on every runtime. They are one type with
+    `STRING[80]` and `WSTRING[80]` for assignment, `VAR_IN_OUT` and `REF_TO`,
+    `SIZEOF` gives 80 and 160, and a `STRING` at a direct address occupies 80
+    bytes.
+  - The implementer maximum is 65,535. A declared length of zero or less, or
+    above 65,535, is a compile-time error (`E304`).
+  - `STRING[n]` holds at most n bytes of UTF-8 and `WSTRING[n]` at most n UTF-16
+    code units. A literal that needs more is a compile-time error; a longer value
+    is cut at assignment, as 2026-07-13 decides, and a cut never splits a
+    character.
+  - `LEN`, indexing, and the positions and lengths of `LEFT`, `RIGHT`, `MID`,
+    `INSERT`, `DELETE`, `REPLACE` and `FIND` still count characters (DEV-017). A
+    text with characters outside ASCII therefore holds fewer than n characters
+    in `STRING[n]`, and a text with characters outside the Basic Multilingual
+    Plane fewer than n in `WSTRING[n]`.
+  - A character write that leaves a text longer than its capacity (a `CHAR`
+    outside ASCII over an ASCII character of a full `STRING[n]`) cuts the text
+    at its capacity, as the `REPLACE` and assignment of §6.4.2.2 Example 1 d)
+    would.
+  - A string function, or a conversion to `STRING` or `WSTRING`, whose result
+    would be longer than 65,535 bytes (`STRING`) or code units (`WSTRING`) fails
+    with `runtime_string_capacity_exceeded` instead of returning it.
+  - This supersedes the unit of 2026-07-13 ("Literal bounds and truncation count
+    Unicode scalar values").
+- Reason:
+  - TwinCAT 3 and CODESYS, the IEC 61131-3 environments truST imports from, give
+    a `STRING` without a size 80 characters and count a string's size in bytes
+    (CODESYS also in its UTF-8 mode, where a character outside ASCII takes more
+    than one byte), and both cut a longer value. Imported programs keep their
+    capacities.
+  - A capacity in storage units is what the runtime stores and transfers:
+    specification 10's direct I/O layout ("A bounded STRING occupies exactly its
+    declared byte capacity") and `SIZEOF(STRING[n]) = n`,
+    `SIZEOF(WSTRING[n]) = 2n` already count it, and a `STRING[n]` needs exactly
+    n bytes of memory on every target.
+  - 65,535 is the largest capacity the 16-bit `max_length` of an STBC type
+    records (specification 12).
 
 ## 2026-09-28 - Repeated aggregate element initializers
 
@@ -95,6 +202,14 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
     when `EN` is false. A skipped function-block or void-method call preserves
     its instance state and connected caller targets except for connected
     `ENO := FALSE`.
+  - Amended 24 October 2026 with the native execution the owner approved on 22
+    October 2026 (specification 44 §6.4): a `VAR_IN_OUT` is the caller's
+    variable itself, as IEC 61131-3 Ed.3 §6.6.1.2.2 passes it, not a snapshot
+    copied back. A runtime execution error transfers no result, output or
+    `ENO`, but what the body wrote before the error to an in-out, its instance
+    or receiver, or a global remains, as every completed statement's writes
+    do; outputs still commit in formal declaration order, and in-outs that
+    designate the same storage at run time are one variable.
 - Reason:
   - A source-order, evaluate-once rule makes side effects auditable. Early
     execution-control gating prevents disabled calls from faulting through
@@ -381,6 +496,10 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
   - Literal bounds and truncation count Unicode scalar values. The same rules apply to bounded `STRING[n]` and `WSTRING[n]`.
   - `STRING` and `WSTRING` are separate families. Cross-family assignment or
     parameter transfer requires an explicit standard conversion function.
+  - Superseded in part by 2026-10-17: capacities, literal bounds and truncation
+    count UTF-8 bytes (`STRING`) and UTF-16 code units (`WSTRING`), not Unicode
+    scalar values, and a declaration without a length is `STRING[80]` or
+    `WSTRING[80]`, so no string is unbounded.
 - Reason:
   - Truncation preserves the product's established ordinary-assignment behavior while enforcing every receiving declaration's maximum.
   - Exact-capacity `VAR_IN_OUT` avoids an implicit round trip that can change a caller even when the called POU performs no write.
@@ -417,6 +536,11 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
 
 ## 2026-02-25 - Invalid topology handling
 
+- Superseded 26 October 2026: the TypeScript Ladder engine this entry described was removed. A Ladder
+  program runs as its Structured Text companion (specification 17 §3, specification 25 §11.4), and
+  the Rust check of the `.ladder.json` file (`trust-visual` `ladder::schema`) reports a malformed
+  graph.
+
 - Area: LD graph integrity
 - IEC context: Implementations must provide deterministic behavior and reject malformed programs.
 - Decision:
@@ -426,6 +550,11 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
   - Prevents non-deterministic execution and hidden runtime faults.
 
 ## 2026-02-25 - Buffered write commit boundary
+
+- Superseded 26 October 2026: the TypeScript Ladder engine this entry described was removed. A Ladder
+  program runs as its Structured Text companion, so its writes take effect in rung order within
+  the scan as Structured Text assignments do, and outputs reach the process image at the end of the
+  scan (specification 10).
 
 - Area: scan-cycle write semantics
 - IEC context: PLC scan-cycle model (read -> evaluate -> update outputs)

@@ -51,7 +51,7 @@ fi
 echo "3. Directorio de trabajo: $(pwd)"
 
 echo "4. Limpiando y recompilando..."
-rm -rf .trust-lsp program.stbc
+rm -rf .trust-lsp program.tpi deployment-record.bin
 trust-runtime build --project . --sources src
 
 echo -e "${GREEN}5. Iniciando runtime con EtherCAT...${NC}"

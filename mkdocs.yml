@@ -130,6 +130,7 @@ nav:
           - Driver Matrix: connect/devices-and-fieldbus/driver-matrix.md
           - I/O Binding: connect/devices-and-fieldbus/io-binding.md
           - GPIO: connect/devices-and-fieldbus/gpio.md
+          - Analog, PWM, Counters And CAN: connect/devices-and-fieldbus/analog-pwm-counter-can.md
           - EtherCAT: connect/devices-and-fieldbus/ethercat.md
           - Simulated And Loopback I/O: connect/devices-and-fieldbus/simulated-and-loopback.md
           - Multi Driver: connect/devices-and-fieldbus/multi-driver.md
@@ -224,6 +225,10 @@ nav:
       - Runbooks: examples/runbooks.md
   - Hardware:
       - Overview: hardware/index.md
+      - ESP32-C6 Getting Started: hardware/esp32c6-getting-started.md
+      - Install And Update truST On A Chip: hardware/chip-install-and-update.md
+      - device.toml: hardware/device-toml.md
+      - Supported Chips: hardware/supported-chips.md
       - Supported Platforms And Compatibility: reference/hardware-compatibility.md
       - Raspberry Pi / Target Install Notes: operate/install-on-target.md
       - Linux / PREEMPT_RT: operate/preempt-rt.md
@@ -240,6 +245,7 @@ nav:
           - Overview: reference/config/index.md
           - runtime.toml: reference/config/runtime-toml.md
           - io.toml: reference/config/io-toml.md
+          - device.toml: hardware/device-toml.md
           - ads.toml: reference/config/ads-toml.md
           - simulation.toml: reference/config/simulation-toml.md
           - trust-lsp.toml: reference/config/trust-lsp-toml.md
@@ -263,7 +269,7 @@ nav:
           - 09 Semantic Rules: reference/specifications/09-semantic-rules.md
           - 10 Runtime Semantics: reference/specifications/10-runtime-semantics.md
           - 11 Runtime Engine: reference/specifications/11-runtime-engine.md
-          - 12 Bytecode: reference/specifications/12-bytecode.md
+          - 12 Bytecode (superseded): reference/specifications/12-bytecode.md
           - 13 Debug Adapter: reference/specifications/13-debug-adapter.md
           - 14 LSP: reference/specifications/14-lsp.md
           - 15 Ladder Diagram: reference/specifications/15-ladder-diagram.md
@@ -278,6 +284,7 @@ nav:
           - 24 Release Evidence: reference/specifications/24-release-evidence.md
           - 32 MQTT I/O: reference/specifications/32-mqtt-io.md
           - 34 Runtime Portability: reference/specifications/34-runtime-portability.md
+          - 44 Native Execution: reference/specifications/44-native-execution.md
           - SFC Profile: reference/specifications/sfc-profile.md
       - Hardware Compatibility: reference/hardware-compatibility.md
       - API Lifecycle And Deprecation: reference/api-lifecycle-and-deprecation.md

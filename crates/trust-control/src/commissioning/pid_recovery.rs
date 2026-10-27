@@ -31,7 +31,7 @@ use crate::recording::RecordedRun;
 use crate::validation::engineer_verification_plan::EngineerRequirements;
 
 use super::commissioning_result::{CommissioningResult, TransferState, TransferStatus};
-use super::entry_allowance::{auto_entry_allowance, auto_entry_error, transfer_tolerance};
+use super::entry_allowance::{auto_entry_allowance, auto_entry_error_gain, transfer_tolerance};
 use super::found_mode::{reenter_found_mode, reviewed_mode_of, AutoReentry, FoundMode};
 use super::parameter_application::ParameterReview;
 use super::parameter_status::{same_parameter_values, ParameterStatus, RecordState};
@@ -292,6 +292,7 @@ impl PidCampaign<'_> {
                 self.start.loop_definition,
                 self.start.task.transfer_tolerance,
             )?,
+            entry_error_gain: None,
             tracking: self
                 .start
                 .profile
@@ -380,8 +381,14 @@ impl PidCampaign<'_> {
                 self.start.task,
                 self.restore_values(),
                 self.start.process_noise,
-                auto_entry_error(loop_definition, observed),
+                None,
             )?,
+            entry_error_gain: auto_entry_error_gain(
+                loop_definition,
+                self.start.task,
+                self.restore_values(),
+                self.start.process_noise,
+            ),
             tracking: self
                 .start
                 .profile

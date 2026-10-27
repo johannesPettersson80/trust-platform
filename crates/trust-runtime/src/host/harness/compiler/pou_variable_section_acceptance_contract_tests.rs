@@ -1,10 +1,14 @@
-use crate::harness::CompileSession;
-use crate::value::Value;
-use crate::Runtime;
+//! The tests that build a program image need the toolchain of specification 44 §4.6 at
+//! `TRUST_TOOLCHAIN`.
 
-fn runtime(source: &str) -> Runtime {
-    CompileSession::from_source(source)
-        .build_runtime()
+use crate::harness::{lower_application, SourceFile, TestHarness};
+use crate::value::Value;
+use crate::RuntimeBuilder;
+
+fn runtime(source: &str) -> RuntimeBuilder {
+    lower_application(&[SourceFile::new(source)], false)
+        .and_then(|lowered| lowered.construct(&[]))
+        .map(|(builder, _)| builder)
         .unwrap_or_else(|error| panic!("variable-section fixture must compile: {error}"))
 }
 
@@ -195,7 +199,7 @@ END_PROGRAM
         .expect("Main");
     assert_eq!(program.vars.len(), 5);
     assert_eq!(program.temps.len(), 1);
-    assert!(runtime.globals().contains_key("ProgramGlobal"));
+    assert!(runtime.global_types().contains_key("ProgramGlobal"));
 }
 
 #[test]
@@ -238,7 +242,7 @@ END_PROGRAM
 
 #[test]
 fn pou_variable_section_program_accepts_local_var_access_declaration() {
-    let mut runtime = runtime(
+    let mut harness = TestHarness::from_source(
         r#"
 PROGRAM Main
 VAR
@@ -249,13 +253,14 @@ VAR_ACCESS
 END_VAR
 END_PROGRAM
 "#,
-    );
+    )
+    .unwrap_or_else(|error| panic!("variable-section fixture must compile: {error}"));
 
-    assert_eq!(runtime.read_access("PublicValue"), Some(Value::Int(0)));
-    runtime
-        .write_access("PublicValue", Value::Int(9))
+    assert_eq!(harness.get_access("PublicValue"), Some(Value::Int(0)));
+    harness
+        .set_access("PublicValue", Value::Int(9))
         .expect("READ_WRITE program access must update its owned variable");
-    assert_eq!(runtime.read_access("PublicValue"), Some(Value::Int(9)));
+    assert_eq!(harness.get_access("PublicValue"), Some(Value::Int(9)));
 }
 
 #[test]

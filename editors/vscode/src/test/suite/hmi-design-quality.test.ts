@@ -2,14 +2,20 @@ import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
 
-import { contrastRatio, drawnTexts, oklabDistance, textContrast } from "../../hmiBuilder/drawing/contrast";
+import * as os from "os";
+import * as vscode from "vscode";
+
+import { drawnTexts, type DrawnText } from "../../hmiBuilder/drawing/contrast";
 import { el, findAll, text } from "../../hmiBuilder/drawing/svg";
 import { TOKEN_THEMES } from "../../hmiBuilder/drawing/tokens";
 import type { Catalogue } from "../../hmiBuilder/editor/catalogue";
 import { SPECIMEN_STATES, specimenDrawings } from "../../hmiBuilder/editor/specimen";
+import { languageServerReady } from "./hmiBuilderHost";
 
-// Specification 39, §14.1 items 1 and 4, §3.5 item 2: what each text of the drawing lies on, how
-// well it stands out, and the specimen of every component in every state the checks measure.
+// Specification 39, §14.1 items 1 and 4, §3.5 item 2: what each text of the drawing lies on, and the
+// specimen of every component in every state the checks measure. How well a text stands out and
+// what it needs are the language server's rules (`trust-lsp.hmiQuality`, tested in Rust); the
+// shipped tokens are checked through it.
 
 const CATALOGUE: Catalogue = JSON.parse(
   fs.readFileSync(
@@ -22,17 +28,6 @@ const tokensOf = (layers: Array<Array<{ token: string }>>): string[][] =>
   layers.map((layer) => layer.map((backing) => backing.token));
 
 suite("HMI design system: measuring text", () => {
-  test("the contrast ratio follows WCAG 2.1", () => {
-    assert.strictEqual(contrastRatio("#000000", "#ffffff"), 21);
-    assert.strictEqual(Math.round(contrastRatio("#777777", "#ffffff") * 100) / 100, 4.48);
-    assert.strictEqual(contrastRatio("#fff", "#ffffff"), 1);
-  });
-
-  test("the OKLab distance is 0 for one colour and 1 from black to white", () => {
-    assert.strictEqual(oklabDistance("#22d3ee", "#22d3ee"), 0);
-    assert.ok(Math.abs(oklabDistance("#000000", "#ffffff") - 1) < 0.001, String(oklabDistance("#000000", "#ffffff")));
-  });
-
   test("each text lies on the shapes drawn before it under its middle, topmost first", () => {
     const svg = el("svg", {}, [
       el("rect", { "data-part": "page", x: 0, y: 0, width: 400, height: 200, fill: "var(--hmi-page)" }),
@@ -63,15 +58,7 @@ suite("HMI design system: measuring text", () => {
     assert.strictEqual(by("Outside")?.size, 24);
   });
 
-  test("contrast is taken at a radial glow's strongest stop and through see-through shapes, with the size deciding what is needed", () => {
-    const palette = {
-      page: "#ffffff",
-      veil: "#000000",
-      ink: "#000000",
-      grey: "#777777",
-      light: "#ffffff",
-      dark: "#000000",
-    };
+  test("a see-through shape and a radial glow's stops are what a text lies on, with its size and weight", () => {
     const svg = el("svg", {}, [
       el("defs", {}, [
         el("radialGradient", { id: "g" }, [
@@ -84,51 +71,41 @@ suite("HMI design system: measuring text", () => {
       text("Veiled", { x: 10, y: 50, fill: "var(--hmi-ink)", "font-size": 14 }),
       el("rect", { x: 0, y: 200, width: 400, height: 100, fill: "url(#g)" }),
       text("Graded", { x: 10, y: 250, fill: "var(--hmi-grey)", "font-size": 19, "font-weight": 700 }),
-      text("Plain", { x: 300, y: 380, fill: "var(--hmi-grey)", "font-size": 19 }),
     ]);
     const texts = drawnTexts(svg);
-    const measure = (content: string) =>
-      textContrast(
-        texts.find((drawn) => drawn.text === content)!,
-        palette,
-      );
-    const veiled = measure("Veiled");
-    assert.ok(
-      Math.abs(veiled.ratio - contrastRatio("#000000", "#808080")) < 0.05,
-      `black on half-black over white: ${veiled.ratio}`,
+    const by = (content: string) => texts.find((drawn) => drawn.text === content)!;
+    assert.deepStrictEqual(by("Veiled").behind, [[{ token: "veil", opacity: 0.5 }], [{ token: "page", opacity: 1 }]]);
+    assert.deepStrictEqual(
+      tokensOf(by("Graded").behind),
+      [["light", "dark"], ["page"]],
+      "each stop of the glow is one of what the text may lie on",
     );
-    assert.strictEqual(veiled.needed, 4.5);
-    const graded = measure("Graded");
-    assert.ok(
-      Math.abs(graded.ratio - contrastRatio("#777777", "#ffffff")) < 0.01,
-      `the worse of the two stops: ${graded.ratio}`,
-    );
-    assert.strictEqual(graded.needed, 3, "19 px bold is large text");
-    assert.strictEqual(measure("Plain").needed, 4.5, "19 px regular is not");
+    assert.strictEqual(by("Graded").size, 19);
+    assert.strictEqual(by("Graded").bold, true);
   });
 
-  test("a sign needs 3:1 and words and numbers 4.5:1", () => {
-    const palette = { page: "#ffffff", ink: "#777777" };
+  test("a text of symbols only is a sign, words and numbers are not", () => {
     const svg = el("svg", {}, [
       el("rect", { x: 0, y: 0, width: 400, height: 400, fill: "var(--hmi-page)" }),
       ...["?", "●", "…", "!", "12 s", "→ 70", "Off"].map((content, index) =>
         text(content, { x: 10, y: 30 + index * 40, fill: "var(--hmi-ink)", "font-size": 14 }),
       ),
     ]);
-    const needed = drawnTexts(svg).map((drawn) => [drawn.text, drawn.sign, textContrast(drawn, palette).needed]);
-    assert.deepStrictEqual(needed, [
-      ["?", true, 3],
-      ["●", true, 3],
-      ["…", true, 3],
-      ["!", true, 3],
-      ["12 s", false, 4.5],
-      ["→ 70", false, 4.5],
-      ["Off", false, 4.5],
-    ]);
+    assert.deepStrictEqual(
+      drawnTexts(svg).map((drawn) => [drawn.text, drawn.sign]),
+      [
+        ["?", true],
+        ["●", true],
+        ["…", true],
+        ["!", true],
+        ["12 s", false],
+        ["→ 70", false],
+        ["Off", false],
+      ],
+    );
   });
 
-  test("a horizontal gradient counts where the text lies on it, not at its far stop", () => {
-    const palette = { page: "#000000", light: "#ffffff", dark: "#000000", ink: "#ffffff" };
+  test("a horizontal gradient is taken where the text lies on it, not at its far stop", () => {
     const svg = el("svg", {}, [
       el("defs", {}, [
         el("linearGradient", { id: "h", x1: 0, y1: 0, x2: 1, y2: 0 }, [
@@ -142,14 +119,20 @@ suite("HMI design system: measuring text", () => {
         text("AB", { x: 100, y: 25, fill: "var(--hmi-ink)", "font-size": 14, "text-anchor": "middle" }),
       ]),
     ]);
-    const { ratio } = textContrast(drawnTexts(svg)[0], palette);
-    // The text spans about 46 % to 54 % of the gradient; its lighter end is the worst.
-    const grey = Math.round((1 - (100 - 0.55 * 14) / 200) * 255)
-      .toString(16)
-      .padStart(2, "0");
-    assert.ok(
-      Math.abs(ratio - contrastRatio("#ffffff", `#${grey}${grey}${grey}`)) < 0.1,
-      `${ratio} against #${grey}${grey}${grey}`,
+    // The text is 0.55 × 14 × 2 = 15.4 wide around x 200: from 192.3 to 207.7 on the gradient that runs
+    // from 100 to 300, so at its ends and middle 46.15 %, 50 % and 53.85 % of the way to the dark stop.
+    const [samples] = drawnTexts(svg)[0].behind;
+    assert.deepStrictEqual(
+      samples.map((backing) => [
+        backing.token,
+        backing.mix?.token,
+        Math.round((backing.mix?.share ?? -1) * 10000) / 10000,
+      ]),
+      [
+        ["light", "dark", 0.4615],
+        ["light", "dark", 0.5],
+        ["light", "dark", 0.5385],
+      ],
     );
   });
 
@@ -175,29 +158,31 @@ suite("HMI design system: measuring text", () => {
   });
 });
 
-suite("HMI design system: the shipped tokens", () => {
-  const describe = (layers: Array<Array<{ token: string; opacity: number }>>): string =>
-    layers
-      .map((layer) =>
-        layer.map((backing) => (backing.opacity < 1 ? `${backing.token}@${backing.opacity}` : backing.token)).join("|"),
-      )
-      .join(" over ");
+suite("HMI design system: the shipped tokens", function () {
+  this.timeout(60000);
+
+  suiteSetup(languageServerReady);
 
   for (const theme of ["dark", "light"] as const) {
-    test(`the ${theme} tokens give every text of the drawing enough contrast, in every state`, () => {
-      const failures = new Set<string>();
+    test(`the ${theme} tokens give every text of the drawing enough contrast, in every state`, async () => {
       // The controls of a read-only page are inactive and need no contrast (WCAG 2.1, 1.4.3).
-      for (const drawing of specimenDrawings(CATALOGUE).filter((candidate) => candidate.state !== "read-only")) {
-        for (const drawn of drawnTexts(drawing.svg)) {
-          const { ratio, needed } = textContrast(drawn, TOKEN_THEMES[theme]);
-          if (ratio < needed) {
-            failures.add(
-              `${drawn.object ?? "page"} "${drawn.text}" ${drawn.size}px: ${drawn.colour} on ${describe(drawn.behind)} = ${ratio.toFixed(2)} < ${needed}`,
-            );
-          }
-        }
-      }
-      assert.deepStrictEqual([...failures], []);
+      const texts: DrawnText[] = specimenDrawings(CATALOGUE)
+        .filter((candidate) => candidate.state !== "read-only")
+        .flatMap((drawing) => drawnTexts(drawing.svg));
+      // Every shipped token given as one of the project's colours, so the language server's check of
+      // a project's colours checks them all.
+      const answer = await vscode.commands.executeCommand<{
+        ok?: boolean;
+        colours?: Array<{ kind: string; message: string }>;
+      }>("trust-lsp.hmiQuality", {
+        root_uri: vscode.Uri.file(os.tmpdir()).toString(),
+        colours: { defaults: TOKEN_THEMES, own: { [theme]: Object.entries(TOKEN_THEMES[theme]) }, texts },
+      });
+      assert.strictEqual(answer?.ok, true);
+      assert.deepStrictEqual(
+        (answer?.colours ?? []).filter((warning) => warning.kind === "contrast").map((warning) => warning.message),
+        [],
+      );
     });
   }
 

@@ -14,7 +14,7 @@ function valueAt(store: LiveValueStore, nowMs: number, path: string): LiveValue 
 suite("HMI display: live values", () => {
   test("a received value is confirmed, with an array's lower bounds; a value that does not resolve is unknown", () => {
     const store = new LiveValueStore();
-    store.receive({ period_ms: 250 }, 0);
+    store.receive({ period_ms: 250, stale_ms: 750 }, 0);
     store.receive(
       {
         cycle: 1,
@@ -43,7 +43,7 @@ suite("HMI display: live values", () => {
 
   test("an update carries only the values that changed: the others stay, and the cycle alone keeps them fresh (§18 phase 5)", () => {
     const store = new LiveValueStore();
-    store.receive({ period_ms: 250 }, 0);
+    store.receive({ period_ms: 250, stale_ms: 750 }, 0);
     store.receive({ cycle: 1, values: { A: { value: 1 }, B: { value: 2 } } }, 0);
     for (const [cycle, at] of [
       [2, 250],
@@ -56,17 +56,17 @@ suite("HMI display: live values", () => {
     assert.deepStrictEqual(store.frame(1100).values.B, { value: 2, state: "confirmed" }, "unchanged and fresh");
   });
 
-  test("values turn stale with their age when the cycle count stops for three update periods", () => {
+  test("values turn stale with their age when the cycle count stops for the runtime's stale limit", () => {
     const store = new LiveValueStore();
-    store.receive({ period_ms: 250 }, 0);
+    store.receive({ period_ms: 250, stale_ms: 750 }, 0);
     for (const at of [0, 250, 500, 750, 1000]) store.receive({ cycle: 7, values: { A: { value: 1 } } }, at);
     assert.deepStrictEqual(store.frame(700).values.A, { value: 1, state: "confirmed" });
     assert.deepStrictEqual(store.frame(800).values.A, { value: 1, state: "confirmed", staleMs: 800 });
   });
 
-  test("values turn stale when no message arrives for three update periods, and at once on disconnect", () => {
+  test("values turn stale when no message arrives for the runtime's stale limit, and at once on disconnect", () => {
     const store = new LiveValueStore();
-    store.receive({ period_ms: 500 }, 0);
+    store.receive({ period_ms: 500, stale_ms: 1500 }, 0);
     store.receive({ cycle: 1, values: { A: { value: 1 } } }, 0);
     store.receive({ cycle: 2, values: { A: { value: 2 } } }, 500);
     assert.strictEqual(valueAt(store, 1900, "A").staleMs, undefined);
@@ -77,11 +77,13 @@ suite("HMI display: live values", () => {
     assert.strictEqual(valueAt(store, 2400, "A").staleMs, 200);
   });
 
-  test("the update period defaults to 250 ms until the runtime sends it", () => {
+  test("before the runtime sends its stale limit no value is stale by its age; a closed stream makes them stale", () => {
+    // The limit is the runtime's (§5.3 item 2): the page has none of its own.
     const store = new LiveValueStore();
     store.receive({ cycle: 1, values: { A: { value: 1 } } }, 0);
-    assert.strictEqual(valueAt(store, 700, "A").staleMs, undefined);
-    assert.strictEqual(valueAt(store, 800, "A").staleMs, 800);
+    assert.strictEqual(valueAt(store, 5000, "A").staleMs, undefined);
+    store.disconnected(5000);
+    assert.strictEqual(valueAt(store, 5000, "A").staleMs, 5000);
   });
 
   test("an unknown value stays unknown when the stream stalls", () => {
@@ -92,7 +94,7 @@ suite("HMI display: live values", () => {
 
   test("trend paths keep a sample per new cycle, inside the longest span plus the newest older one", () => {
     const store = new LiveValueStore({ trendSpansMs: { T: 1000, Run: 1000 } });
-    store.receive({ period_ms: 250 }, 0);
+    store.receive({ period_ms: 250, stale_ms: 750 }, 0);
     for (let step = 0; step <= 8; step += 1) {
       store.receive(
         { cycle: step + 1, values: { T: { value: step }, Run: { value: step % 2 === 0 }, Other: { value: step } } },
@@ -119,7 +121,7 @@ suite("HMI display: live values", () => {
 
   test("a value the runtime marks stale shows its age while the stream is fresh (specification 42, §5 item 4)", () => {
     const store = new LiveValueStore();
-    store.receive({ period_ms: 250 }, 0);
+    store.receive({ period_ms: 250, stale_ms: 750 }, 0);
     store.receive({ cycle: 1, values: { Level: { value: 7, staleMs: 2000 }, Other: { value: 3 } } }, 0);
     assert.deepStrictEqual(store.frame(100).values.Level, { value: 7, state: "confirmed", staleMs: 2000 });
     assert.deepStrictEqual(store.frame(100).values.Other, { value: 3, state: "confirmed" }, "a fresh value");
@@ -129,7 +131,7 @@ suite("HMI display: live values", () => {
 
   test("a trend path keeps a sample per new cycle while its value does not change", () => {
     const store = new LiveValueStore({ trendSpansMs: { T: 1000 } });
-    store.receive({ period_ms: 250 }, 0);
+    store.receive({ period_ms: 250, stale_ms: 750 }, 0);
     store.receive({ cycle: 1, values: { T: { value: 4 } } }, 0);
     store.receive({ cycle: 2, values: {} }, 250);
     store.receive({ cycle: 3, values: { Other: { value: 1 } } }, 500);

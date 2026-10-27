@@ -2,7 +2,10 @@ use alloc::{string::String, vec, vec::Vec};
 
 use smol_str::SmolStr;
 
-use crate::{error::RuntimeError, memory::MemoryLocation};
+use crate::{
+    error::RuntimeError,
+    memory::{Generation, MemoryLocation},
+};
 
 /// Reference path segment within composite values.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -19,12 +22,20 @@ pub type RefIndices = Vec<i64>;
 pub type RefPath = Vec<RefSegment>;
 
 /// Reference to a value in memory.
+///
+/// A reference belongs to the installation generation of the storage it was
+/// taken in (specification 34 §11.3). A reference of another generation names
+/// no state: storage reads through it return nothing and checked operations
+/// refuse it with [`RuntimeError::ReferenceLifetime`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ValueRef {
     /// Memory area that owns the referenced root value.
     pub location: MemoryLocation,
-    /// Slot offset within the owning memory area.
-    pub offset: usize,
+    /// Slot offset within the owning memory area. A slot index needs no more
+    /// than 32 bits on any target, which keeps the reference the same size.
+    pub offset: u32,
+    /// Installation generation of the storage the reference was taken in.
+    pub generation: Generation,
     /// Nested path from the root value to the referenced sub-value.
     pub path: RefPath,
 }
@@ -36,18 +47,22 @@ pub struct ValueRefView<'a> {
     pub location: MemoryLocation,
     /// Physical root slot.
     pub offset: usize,
+    /// Installation generation of the storage the reference was taken in.
+    pub generation: Generation,
     /// Borrowed compound path.
     pub path: &'a [RefSegment],
 }
 
 impl ValueRefView<'_> {
     /// Materialize an address when the program explicitly creates a reference.
-    pub fn to_owned(self) -> ValueRef {
-        ValueRef {
+    /// A slot beyond the 32-bit reference domain fails with `Overflow`.
+    pub fn to_owned(self) -> Result<ValueRef, RuntimeError> {
+        Ok(ValueRef {
             location: self.location,
-            offset: self.offset,
+            offset: u32::try_from(self.offset).map_err(|_| RuntimeError::Overflow)?,
+            generation: self.generation,
             path: self.path.into(),
-        }
+        })
     }
 }
 
@@ -56,10 +71,22 @@ impl ValueRef {
     pub fn as_view(&self) -> ValueRefView<'_> {
         ValueRefView {
             location: self.location,
-            offset: self.offset,
+            offset: self.offset as usize,
+            generation: self.generation,
             path: &self.path,
         }
     }
+}
+
+/// The elements of a reference path that a copy of it is charged by (TIME-08): one for each
+/// segment and one for each subscript.
+#[must_use]
+pub fn path_elements(path: &[RefSegment]) -> usize {
+    path.iter()
+        .fold(path.len(), |count, segment| match segment {
+            RefSegment::Index(indices) => count + indices.len(),
+            RefSegment::Field(_) => count,
+        })
 }
 
 pub fn ref_indices_from_iter<I>(indices: I) -> RefIndices
@@ -172,7 +199,10 @@ fn parse_access_index(text: &str) -> Option<u8> {
     u8::try_from(value).ok()
 }
 
-use super::{normalize_assignment_for_target, read_string_element, write_string_element, Value};
+use super::{
+    normalize_assignment_for_target, read_string_element, write_string_element, Value,
+    MAX_STRING_CAPACITY,
+};
 #[cfg(feature = "hir")]
 use trust_hir::types::TypeRegistry;
 #[cfg(feature = "hir")]
@@ -180,10 +210,6 @@ use trust_hir::{Type, TypeId};
 
 #[inline]
 pub fn read_value_path_borrowed<'a>(value: &'a Value, path: &[RefSegment]) -> Option<&'a Value> {
-    let path = match value {
-        Value::Struct(value) => value.physical_canonical_path(path).unwrap_or(path),
-        _ => path,
-    };
     if path.is_empty() {
         return Some(value);
     }
@@ -210,10 +236,6 @@ pub fn read_value_path_borrowed<'a>(value: &'a Value, path: &[RefSegment]) -> Op
 
 #[inline]
 pub fn materialize_value_path(value: &Value, path: &[RefSegment]) -> Option<Value> {
-    let path = match value {
-        Value::Struct(value) => value.physical_canonical_path(path).unwrap_or(path),
-        _ => path,
-    };
     if path.is_empty() {
         return Some(value.clone());
     }
@@ -258,7 +280,8 @@ pub fn write_value_path(target: &mut Value, path: &[RefSegment], value: Value) -
     write_value_path_checked(target, path, value).unwrap_or(false)
 }
 
-/// Checked shared assignment owner. A refused physical write leaves all backing and aliases intact.
+/// Checked shared assignment owner: the value takes the form of the place it is written to, and a
+/// path that names no place writes nothing.
 pub fn write_value_path_checked(
     target: &mut Value,
     path: &[RefSegment],
@@ -268,137 +291,20 @@ pub fn write_value_path_checked(
         Some(template) => normalize_assignment_for_target(template, value),
         None => value,
     };
-    let Some(prepared) = prepare_value_path_write(target, path, &value)? else {
-        return Ok(false);
-    };
-    Ok(commit_value_path_write(target, path, value, prepared))
+    Ok(write_value_path_raw(
+        target,
+        path,
+        value,
+        MAX_STRING_CAPACITY,
+    ))
 }
 
-/// Detached alias preflight shared by execution and finite engineering-write boundaries.
-pub(crate) enum PreparedValuePathWrite {
-    Direct,
-    Physical {
-        depth: usize,
-        layout: alloc::sync::Arc<super::overlap::PhysicalLayout>,
-        patch: super::overlap::PreparedPhysicalWrite,
-    },
-}
-
-impl PreparedValuePathWrite {
-    pub(crate) fn requires_final_deadline_check(&self) -> bool {
-        matches!(self, Self::Physical { .. })
-    }
-    pub(crate) fn validate_aliases(
-        &self,
-        check: &mut impl FnMut(&Value) -> Result<(), crate::error::RuntimeError>,
-    ) -> Result<(), crate::error::RuntimeError> {
-        match self {
-            Self::Direct => Ok(()),
-            Self::Physical { patch, .. } => patch.validate_aliases(check),
-        }
-    }
-}
-
-pub(crate) fn prepare_value_path_write(
-    mut target: &Value,
-    path: &[RefSegment],
-    input: &Value,
-) -> Result<Option<PreparedValuePathWrite>, crate::error::RuntimeError> {
-    for depth in 0..=path.len() {
-        let rest = &path[depth..];
-        if let Value::Struct(structure) = target {
-            if rest.is_empty() && structure.physical_whole_assignment_is_admitted(input) {
-                return Ok(Some(PreparedValuePathWrite::Direct));
-            }
-            if let Some(layout) = structure.physical_layout() {
-                let canonical = layout.canonical_path(rest).unwrap_or(rest);
-                if let Some(patch) = structure.prepare_physical_write(canonical, input)? {
-                    return Ok(Some(PreparedValuePathWrite::Physical {
-                        depth,
-                        layout,
-                        patch,
-                    }));
-                }
-            }
-        }
-        let Some((segment, remaining)) = rest.split_first() else {
-            return Ok(Some(PreparedValuePathWrite::Direct));
-        };
-        target = match (target, segment) {
-            (Value::Struct(value), RefSegment::Field(name)) => match value.field(name) {
-                Some(value) => value,
-                None => return Ok(None),
-            },
-            (Value::Array(value), RefSegment::Index(indices)) => {
-                let Some(offset) = array_offset_i64(value.dimensions(), indices) else {
-                    return Ok(None);
-                };
-                let Some(value) = value.elements().get(offset) else {
-                    return Ok(None);
-                };
-                value
-            }
-            (Value::String(_) | Value::WString(_), RefSegment::Index(_))
-                if remaining.is_empty() =>
-            {
-                return Ok(Some(PreparedValuePathWrite::Direct))
-            }
-            _ => return Ok(None),
-        };
-    }
-    Ok(None)
-}
-
-pub(crate) fn commit_value_path_write(
+fn write_value_path_raw(
     target: &mut Value,
     path: &[RefSegment],
     value: Value,
-    prepared: PreparedValuePathWrite,
+    capacity: usize,
 ) -> bool {
-    match prepared {
-        PreparedValuePathWrite::Direct => write_value_path_raw(target, path, value),
-        PreparedValuePathWrite::Physical {
-            depth,
-            layout,
-            patch,
-        } => {
-            let Some(prefix) = path.get(..depth) else {
-                return false;
-            };
-            let Some(suffix) = path.get(depth..) else {
-                return false;
-            };
-            let Some(root) = value_path_mut_raw(target, prefix) else {
-                return false;
-            };
-            let Value::Struct(structure) = root else {
-                return false;
-            };
-            let path = layout.canonical_path(suffix).unwrap_or(suffix);
-            alloc::sync::Arc::make_mut(structure).commit_physical_write(path, value, patch)
-        }
-    }
-}
-
-fn value_path_mut_raw<'a>(mut value: &'a mut Value, path: &[RefSegment]) -> Option<&'a mut Value> {
-    for segment in path {
-        value = match (value, segment) {
-            (Value::Struct(structure), RefSegment::Field(name)) => {
-                alloc::sync::Arc::make_mut(structure)
-                    .fields
-                    .get_mut(name.as_str())?
-            }
-            (Value::Array(array), RefSegment::Index(indices)) => {
-                let offset = array_offset_i64(array.dimensions(), indices)?;
-                array.elements_mut().get_mut(offset)?
-            }
-            _ => return None,
-        };
-    }
-    Some(value)
-}
-
-fn write_value_path_raw(target: &mut Value, path: &[RefSegment], value: Value) -> bool {
     let Some((segment, rest)) = path.split_first() else {
         *target = value;
         return true;
@@ -408,7 +314,7 @@ fn write_value_path_raw(target: &mut Value, path: &[RefSegment], value: Value) -
             alloc::sync::Arc::make_mut(structure)
                 .fields
                 .get_mut(name.as_str())
-                .is_some_and(|field| write_value_path_raw(field, rest, value))
+                .is_some_and(|field| write_value_path_raw(field, rest, value, capacity))
         }
         (Value::Array(array), RefSegment::Index(indices)) => {
             let Some(offset) = array_offset_i64(array.dimensions(), indices) else {
@@ -417,17 +323,17 @@ fn write_value_path_raw(target: &mut Value, path: &[RefSegment], value: Value) -
             array
                 .elements_mut()
                 .get_mut(offset)
-                .is_some_and(|element| write_value_path_raw(element, rest, value))
+                .is_some_and(|element| write_value_path_raw(element, rest, value, capacity))
         }
         (Value::String(text), RefSegment::Index(indices)) if rest.is_empty() => {
-            let Some(updated) = write_string_path(text, indices, value, false) else {
+            let Some(updated) = write_string_path(text, indices, value, false, capacity) else {
                 return false;
             };
             *text = updated.into();
             true
         }
         (Value::WString(text), RefSegment::Index(indices)) if rest.is_empty() => {
-            let Some(updated) = write_string_path(text, indices, value, true) else {
+            let Some(updated) = write_string_path(text, indices, value, true, capacity) else {
                 return false;
             };
             *text = updated;
@@ -443,10 +349,8 @@ pub fn write_value_path_typed(
     path: &[RefSegment],
     value: Value,
     registry: &TypeRegistry,
+    capacity: usize,
 ) -> bool {
-    if matches!(target, Value::Struct(structure) if structure.physical.is_some()) {
-        return write_value_path(target, path, value);
-    }
     if path.is_empty() {
         *target = normalize_assignment_for_target(target, value);
         return true;
@@ -464,7 +368,9 @@ pub fn write_value_path_typed(
                 }
                 struct_value
                     .field_mut(name.as_str())
-                    .map(|field| write_value_path_typed(field, &path[1..], value, registry))
+                    .map(|field| {
+                        write_value_path_typed(field, &path[1..], value, registry, capacity)
+                    })
                     .unwrap_or(false)
             }
             _ => false,
@@ -478,16 +384,18 @@ pub fn write_value_path_typed(
                 array
                     .elements_mut()
                     .get_mut(offset)
-                    .map(|element| write_value_path_typed(element, &path[1..], value, registry))
+                    .map(|element| {
+                        write_value_path_typed(element, &path[1..], value, registry, capacity)
+                    })
                     .unwrap_or(false)
             }
-            Value::String(text) => write_string_path(text, indices, value, false)
+            Value::String(text) => write_string_path(text, indices, value, false, capacity)
                 .map(|updated| {
                     *target = Value::String(updated.into());
                     true
                 })
                 .unwrap_or(false),
-            Value::WString(text) => write_string_path(text, indices, value, true)
+            Value::WString(text) => write_string_path(text, indices, value, true, capacity)
                 .map(|updated| {
                     *target = Value::WString(updated);
                     true
@@ -723,9 +631,15 @@ pub fn single_string_index(indices: &[i64]) -> Option<i64> {
 }
 
 #[inline]
-fn write_string_path(text: &str, indices: &[i64], value: Value, wide: bool) -> Option<String> {
+fn write_string_path(
+    text: &str,
+    indices: &[i64],
+    value: Value,
+    wide: bool,
+    capacity: usize,
+) -> Option<String> {
     let index = single_string_index(indices)?;
-    write_string_element(text, index, value, wide).ok()
+    write_string_element(text, index, value, wide, capacity).ok()
 }
 
 #[cfg(test)]

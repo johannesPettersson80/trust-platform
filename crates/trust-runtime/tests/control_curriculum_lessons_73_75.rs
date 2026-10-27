@@ -11,10 +11,9 @@ const LESSON73: &str = "11-state-space-estimation-and-predictive-control/69-lqr"
 const LQR_R40000: [f64; 3] = [0.07841259, 0.02451445, 0.12292704];
 const LQR_R160000: [f64; 3] = [0.03442132, 0.00979336, 0.06421468];
 
-fn flag(runtime: &trust_runtime::Runtime, address: &str) -> bool {
+fn flag(runtime: &trust_runtime::CompiledRuntime, address: &str) -> bool {
     match runtime
-        .io()
-        .read(&IoAddress::parse(address).unwrap())
+        .read_io(&IoAddress::parse(address).unwrap())
         .unwrap()
     {
         Value::Bool(value) => value,

@@ -51,21 +51,23 @@ pub fn misfits(
         .collect()
 }
 
-/// The function block instances of the program the faceplate fits, in declaration order, at
-/// most `limit`; `is_program` tells program instances, which are not offered, from blocks.
+/// The function block instances of the project's declarations the faceplate fits, in
+/// declaration order, at most `limit`; `is_program` tells program instances, which are not
+/// offered, from blocks.
 pub fn fitting_instances(
     faceplate: &HmiFaceplate,
     pairs: &[HmiPair],
-    runtime: &crate::Runtime,
+    declarations: &crate::harness::Declarations,
     is_program: &dyn Fn(&str) -> bool,
     limit: usize,
 ) -> Vec<String> {
-    let storage = runtime.storage();
+    let storage = declarations.storage();
+    let metadata = declarations.metadata();
     let holdings = crate::hmi::instance_holdings::Holdings::new(
-        runtime.function_blocks(),
-        runtime.classes(),
-        runtime.program_templates(),
-        runtime.registry(),
+        metadata.function_blocks(),
+        metadata.classes(),
+        metadata.program_templates(),
+        metadata.registry(),
     );
     let takes = |path: &str, id| {
         storage
@@ -73,10 +75,7 @@ pub fn fitting_instances(
             .is_some_and(|data| !is_program(data.type_name.as_str()))
             && misfits(faceplate, pairs, path, storage).is_empty()
     };
-    instances_where(storage, &holdings, limit, is_program, &takes)
-        .into_iter()
-        .map(|found| found.path)
-        .collect()
+    instances_where(storage, &holdings, limit, &takes)
 }
 
 /// A placed faceplate bound to its instance as its popup is (§8.9 item 3): each `$Field` binding

@@ -2,10 +2,8 @@
 
 use serde::Serialize;
 
-use super::discover::{alarm_base, alarm_instances, Found, ALARM_BASE};
-use crate::hmi::member_paths::find_ignoring_case;
-use crate::memory::{InstanceId, VariableStorage};
-use crate::runtime::Runtime;
+use super::discover::{alarm_instances, Found};
+use crate::runtime::program_access::{Located, ProgramRead};
 use crate::value::Value;
 
 /// An alarm's priority (ISA-18.2, EEMUA 191).
@@ -87,31 +85,23 @@ pub struct AlarmStatus {
     pub reading: Reading,
 }
 
-/// The state of every alarm of the running program, read on the runtime thread. A program
-/// without the library is not searched (specification 40, §5, item 5).
-pub fn read_alarms(runtime: &Runtime) -> Vec<AlarmStatus> {
-    if find_ignoring_case(runtime.function_blocks(), ALARM_BASE).is_none() {
-        return Vec::new();
-    }
-    let storage = runtime.storage();
-    let programs = runtime.program_templates();
-    let is_program = |type_name: &str| find_ignoring_case(programs, type_name).is_some();
-    let holdings = super::discover::holdings_of(runtime);
-    alarm_instances(storage, &holdings, &is_program)
+/// The state of every alarm of the running program, read on the runtime thread at a call of
+/// `Hmi.Display`. A program without the library is not searched (specification 40, §5, item 5).
+pub fn read_alarms(program: &dyn ProgramRead) -> Vec<AlarmStatus> {
+    alarm_instances(program)
         .into_iter()
-        .filter_map(|found| read_alarm(storage, found))
+        .filter_map(|found| read_alarm(program, found))
         .collect()
 }
 
-/// One alarm's outputs, read from its base part.
-fn read_alarm(storage: &VariableStorage, found: Found) -> Option<AlarmStatus> {
+/// One alarm's outputs, which a derived alarm inherits from the alarm base.
+fn read_alarm(program: &dyn ProgramRead, found: Found) -> Option<AlarmStatus> {
     let Found {
         path,
-        id,
+        at,
         equipment,
     } = found;
-    let base = alarm_base(storage, id)?;
-    let member = |name: &str| find_ignoring_case(&base.variables, name);
+    let member = |name: &str| member_value(program, &at, name);
     let flag = |name: &str| matches!(member(name), Some(Value::Bool(true)));
     let text = |name: &str| match member(name) {
         Some(Value::String(text)) => text.to_string(),
@@ -124,13 +114,13 @@ fn read_alarm(storage: &VariableStorage, found: Found) -> Option<AlarmStatus> {
         _ => Priority::Low,
     };
     let raise_count = match member("RaiseCount")? {
-        Value::UDInt(count) => *count,
+        Value::UDInt(count) => count,
         _ => 0,
     };
-    let mut reading = reading(storage, id);
+    let mut reading = reading(program, &at);
     if let (Some(reading), Some(equipment)) = (reading.as_mut(), equipment.as_deref())
         && let Some((source, unit)) =
-            crate::hmi::presentation::alarm_value_format(storage, equipment, &path)
+            crate::hmi::presentation::alarm_value_format(program, equipment, &path)
     {
         reading.source = Some(source);
         reading.unit = unit;
@@ -154,32 +144,30 @@ fn read_alarm(storage: &VariableStorage, found: Found) -> Option<AlarmStatus> {
     })
 }
 
-/// A limit alarm's value against its limit: from the first part of the instance, from its own
-/// type down to the alarm base, with a number `Value` and `Limit` (a `LimitAlarm`, or a block that
-/// extends one); its `Direction` says whether the limit is a low one.
-fn reading(storage: &VariableStorage, id: InstanceId) -> Option<Raised> {
-    let mut current = storage.get_instance(id);
-    for _ in 0..8 {
-        let part = current?;
-        let number = |name: &str| match find_ignoring_case(&part.variables, name) {
-            Some(Value::LReal(value)) => Some(*value),
-            Some(Value::Real(value)) => Some(f64::from(*value)),
-            _ => None,
-        };
-        if let (Some(value), Some(limit)) = (number("Value"), number("Limit")) {
-            let low = matches!(
-                find_ignoring_case(&part.variables, "Direction"),
-                Some(Value::Enum(direction)) if direction.variant_name().eq_ignore_ascii_case("Low")
-            );
-            return Some(Raised {
-                value,
-                limit,
-                high: !low,
-                source: None,
-                unit: None,
-            });
-        }
-        current = part.parent.and_then(|parent| storage.get_instance(parent));
-    }
-    None
+/// The value of the member `name` of the instance at `at`, its inherited members included.
+fn member_value(program: &dyn ProgramRead, at: &Located, name: &str) -> Option<Value> {
+    program.read_at(&program.member(at, name)?).ok()
+}
+
+/// A limit alarm's value against its limit: an instance with a number `Value` and `Limit` (a
+/// `LimitAlarm`, or a block that extends one, whose members include its bases'); its `Direction`
+/// says whether the limit is a low one.
+fn reading(program: &dyn ProgramRead, at: &Located) -> Option<Raised> {
+    let number = |name: &str| match member_value(program, at, name) {
+        Some(Value::LReal(value)) => Some(value),
+        Some(Value::Real(value)) => Some(f64::from(value)),
+        _ => None,
+    };
+    let (value, limit) = (number("Value")?, number("Limit")?);
+    let low = matches!(
+        member_value(program, at, "Direction"),
+        Some(Value::Enum(direction)) if direction.variant_name().eq_ignore_ascii_case("Low")
+    );
+    Some(Raised {
+        value,
+        limit,
+        high: !low,
+        source: None,
+        unit: None,
+    })
 }

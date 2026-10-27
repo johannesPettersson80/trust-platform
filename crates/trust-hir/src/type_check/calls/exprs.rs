@@ -135,17 +135,19 @@ impl<'a, 'b> CallChecker<'a, 'b> {
             .checker
             .resolve_ref()
             .resolve_namespace_qualified_symbol(node)
-            && let Some(symbol) = self.checker.symbols.get(symbol_id)
         {
-            if let Some(role) = non_value_role(&symbol.kind) {
-                let name = symbol.name.clone();
-                return self.checker.diagnostic_type_outcome(
-                    DiagnosticCode::InvalidOperation,
-                    node.text_range(),
-                    format!("{role} '{name}' cannot be used as a value"),
-                );
+            self.checker.record_resolved_symbol(node, symbol_id);
+            if let Some(symbol) = self.checker.symbols.get(symbol_id) {
+                if let Some(role) = non_value_role(&symbol.kind) {
+                    let name = symbol.name.clone();
+                    return self.checker.diagnostic_type_outcome(
+                        DiagnosticCode::InvalidOperation,
+                        node.text_range(),
+                        format!("{role} '{name}' cannot be used as a value"),
+                    );
+                }
+                return SemanticOutcome::Resolved(symbol.type_id);
             }
-            return SemanticOutcome::Resolved(symbol.type_id);
         }
 
         let base = &children[0];
@@ -191,6 +193,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         &field_name,
                         member.text_range(),
                     ) {
+                        self.checker.record_resolved_symbol(node, resolved.id);
                         let Some(symbol) = self.checker.symbols.get(resolved.id) else {
                             return self.checker.unknown_type_outcome(member.text_range());
                         };

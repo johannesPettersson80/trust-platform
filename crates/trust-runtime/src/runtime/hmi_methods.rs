@@ -1,73 +1,92 @@
 //! The host HMI's typed, interface-constrained method entry (specification 39, §21.2). No HTTP
-//! handler executes here: the call runs between scans through the shared engine's method entry.
-use super::Runtime;
-use crate::{
-    error::RuntimeError,
-    hmi::member_paths::{resolve_member, MemberPath},
-    value::Value,
-};
+//! handler executes here: the call runs between scans through the kernel's method call of a
+//! compiled program ([`CompiledRuntime::call_method`]); the HMI checks first that the instance
+//! implements the interface and the interface declares the method.
+
 use smol_str::SmolStr;
+use trust_runtime_core::native::memory::{layout, Layout};
+use trust_runtime_core::native::tool::tool_symbol;
+
+use super::CompiledRuntime;
+use crate::error::RuntimeError;
+use crate::hmi::commands::write::path_text;
+use crate::hmi::member_paths::{locate_member, MemberPath};
+use crate::value::Value;
 
 #[derive(Debug)]
 pub(crate) enum InvocationError {
     /// Not called.
     Refused(String),
-    /// The call started and failed.
+    /// The call started and failed; the resource has faulted.
     Fault(RuntimeError),
 }
 
-impl Runtime {
+impl CompiledRuntime {
     /// Calls `method` of the instance at `path` with typed inputs, when its type implements
     /// `interface` and the interface declares the method; the instance's body does not run. The
-    /// call draws on `budget` (work units), which it reduces by the work it used.
+    /// call draws on `budget` (statements and loop passes), which it reduces by the work it used.
     pub(crate) fn invoke_hmi_method(
         &mut self,
         path: &MemberPath,
         interface: &str,
         method: &str,
         inputs: &[(SmolStr, Value)],
-        budget: &mut usize,
+        budget: &mut u32,
     ) -> Result<Value, InvocationError> {
-        let instance_id = match resolve_member(path, self.storage()) {
-            Some(Value::Instance(id)) => *id,
-            _ => {
+        let capable = self.with_program_view(|program| {
+            let at = locate_member(path, program)?;
+            let image = program.program_image();
+            let instance = matches!(layout(&image, at.type_index), Ok(Layout::Instance(_)));
+            // An interface declares the method a tool calls when its tool symbol names it
+            // (specification 44 §5.7, §13.3).
+            Some(
+                instance
+                    && program.implements(&at, interface)
+                    && image.find_symbol(&tool_symbol(interface, method)).is_some(),
+            )
+        });
+        match capable {
+            None => {
                 return Err(InvocationError::Refused(
                     "equipment instance is unavailable".into(),
                 ))
             }
-        };
-        let instance = self
-            .storage()
-            .get_instance(instance_id)
-            .ok_or_else(|| InvocationError::Refused("equipment instance is unavailable".into()))?;
-        if !crate::hmi::commands::capability_checks::implements_in(
-            self.function_blocks(),
-            self.classes(),
-            self.interfaces(),
-            &instance.type_name,
-            interface,
-        ) || crate::hmi::commands::capability_checks::declared_method_in(
-            self.interfaces(),
-            interface,
-            method,
-        )
-        .is_none()
-        {
-            return Err(InvocationError::Refused(
-                "HMI method is not declared by the required interface".into(),
-            ));
+            Some(false) => {
+                return Err(InvocationError::Refused(
+                    "HMI method is not declared by the required interface".into(),
+                ))
+            }
+            Some(true) => {}
         }
         if *budget == 0 {
             return Err(InvocationError::Refused(
                 "HMI method budget is exhausted".into(),
             ));
         }
-        let (value, used) = self
-            .state
-            .execute_instance_method(instance_id, method, inputs, *budget)
-            .map_err(InvocationError::Fault)?;
-        *budget = budget.saturating_sub(used);
-        Ok(value)
+        match self.call_method(&path_text(path), interface, method, inputs, *budget) {
+            Ok((value, used)) => {
+                *budget = budget.saturating_sub(used);
+                Ok(value)
+            }
+            // A method that faulted has faulted the resource, as a faulted scan does.
+            Err(error) if self.faulted() => Err(InvocationError::Fault(error)),
+            Err(error) => Err(InvocationError::Refused(error.to_string())),
+        }
+    }
+
+    /// Serves the HMI's method commands between scans, after a scan in which the program called
+    /// `Hmi.Display` (specification 39, §21.2 item 2): one queued call, answered.
+    ///
+    /// # Errors
+    ///
+    /// The fault of a method that faulted. The resource has faulted then (the fault latched and
+    /// the fault policy's output action applied), so the caller reports the error without
+    /// applying it again.
+    pub(crate) fn serve_hmi_methods(
+        &mut self,
+        exchange: &crate::hmi::exchange::HmiExchange,
+    ) -> Result<(), RuntimeError> {
+        exchange.methods.serve(self)
     }
 }
 
@@ -75,6 +94,7 @@ impl Runtime {
 mod tests {
     use super::*;
     use crate::harness::TestHarness;
+    use crate::hmi::member_paths::member_value;
 
     const PROGRAM: &str = r#"
 INTERFACE ICounter
@@ -100,6 +120,13 @@ VAR Items : ARRAY[1..2] OF Counter; END_VAR
 END_PROGRAM
 "#;
 
+    fn value(harness: &TestHarness, path: &str) -> Option<Value> {
+        let path = MemberPath::parse(path).unwrap();
+        harness
+            .runtime()
+            .with_program_view(|program| member_value(&path, program))
+    }
+
     #[test]
     fn typed_method_runs_on_selected_instance_without_executing_fb_body() {
         let mut harness = TestHarness::from_source(PROGRAM).unwrap();
@@ -122,13 +149,7 @@ END_PROGRAM
             ("Main.Items[2].Total", 3),
             ("Main.Items[2].BodyCalls", 0),
         ] {
-            assert_eq!(
-                resolve_member(
-                    &MemberPath::parse(path).unwrap(),
-                    harness.runtime().storage()
-                ),
-                Some(&Value::DInt(expected))
-            );
+            assert_eq!(value(&harness, path), Some(Value::DInt(expected)));
         }
         assert!(budget < 10000);
     }
@@ -158,12 +179,6 @@ END_PROGRAM
                 &mut budget
             )
             .is_err());
-        assert_eq!(
-            resolve_member(
-                &MemberPath::parse("Main.Items[1].Total").unwrap(),
-                harness.runtime().storage()
-            ),
-            Some(&Value::DInt(0))
-        );
+        assert_eq!(value(&harness, "Main.Items[1].Total"), Some(Value::DInt(0)));
     }
 }

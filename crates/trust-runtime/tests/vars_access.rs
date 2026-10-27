@@ -1,3 +1,8 @@
+//! Access to variables: access paths, VAR_CONFIG bindings, memory wildcards and globals from every
+//! scope.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use trust_runtime::harness::TestHarness;
 use trust_runtime::value::Value;
 
@@ -329,10 +334,10 @@ END_PROGRAM
     harness.cycle();
 
     assert_eq!(harness.get_output("observed"), Some(Value::Int(3)));
-    match harness.runtime().storage().get_global("GVL.shared") {
-        Some(Value::Int(value)) => assert_eq!(i64::from(*value), 4),
-        Some(Value::DInt(value)) => assert_eq!(i64::from(*value), 4),
-        Some(Value::LInt(value)) => assert_eq!(*value, 4),
+    match harness.runtime().read_variable("GVL.shared").ok() {
+        Some(Value::Int(value)) => assert_eq!(i64::from(value), 4),
+        Some(Value::DInt(value)) => assert_eq!(i64::from(value), 4),
+        Some(Value::LInt(value)) => assert_eq!(value, 4),
         other => panic!("unexpected namespaced global value {other:?}"),
     }
 }
@@ -390,22 +395,22 @@ END_CONFIGURATION
     assert_eq!(harness.get_output("observedNamespace"), Some(Value::Int(2)));
     assert_eq!(harness.get_output("observedConfig"), Some(Value::Int(4)));
 
-    match harness.runtime().storage().get_global("gFile") {
-        Some(Value::Int(value)) => assert_eq!(i64::from(*value), 2),
-        Some(Value::DInt(value)) => assert_eq!(i64::from(*value), 2),
-        Some(Value::LInt(value)) => assert_eq!(*value, 2),
+    match harness.runtime().read_variable("gFile").ok() {
+        Some(Value::Int(value)) => assert_eq!(i64::from(value), 2),
+        Some(Value::DInt(value)) => assert_eq!(i64::from(value), 2),
+        Some(Value::LInt(value)) => assert_eq!(value, 2),
         other => panic!("unexpected file-scope global value {other:?}"),
     }
-    match harness.runtime().storage().get_global("gConfig") {
-        Some(Value::Int(value)) => assert_eq!(i64::from(*value), 5),
-        Some(Value::DInt(value)) => assert_eq!(i64::from(*value), 5),
-        Some(Value::LInt(value)) => assert_eq!(*value, 5),
+    match harness.runtime().read_variable("gConfig").ok() {
+        Some(Value::Int(value)) => assert_eq!(i64::from(value), 5),
+        Some(Value::DInt(value)) => assert_eq!(i64::from(value), 5),
+        Some(Value::LInt(value)) => assert_eq!(value, 5),
         other => panic!("unexpected configuration global value {other:?}"),
     }
-    match harness.runtime().storage().get_global("GVL.shared") {
-        Some(Value::Int(value)) => assert_eq!(i64::from(*value), 3),
-        Some(Value::DInt(value)) => assert_eq!(i64::from(*value), 3),
-        Some(Value::LInt(value)) => assert_eq!(*value, 3),
+    match harness.runtime().read_variable("GVL.shared").ok() {
+        Some(Value::Int(value)) => assert_eq!(i64::from(value), 3),
+        Some(Value::DInt(value)) => assert_eq!(i64::from(value), 3),
+        Some(Value::LInt(value)) => assert_eq!(value, 3),
         other => panic!("unexpected namespaced global value {other:?}"),
     }
 }

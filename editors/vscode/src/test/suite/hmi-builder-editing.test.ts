@@ -14,9 +14,10 @@ import {
   updateObject,
   visiblePageCentre,
 } from "../../hmiBuilder/editor/editing";
-import { loopSignals, withLoopSignals } from "../../hmiBuilder/editor/loopSignals";
 
-// Specification 39, §3.3: editing on the 8 px grid.
+// Specification 39, §3.3: editing on the 8 px grid. A loop controller's signal lines are the
+// language server's rule (§6 item 5), proven in
+// crates/trust-lsp/src/handlers/commands/hmi_builder/equipment_tests.rs.
 
 function object(
   id: string,
@@ -204,37 +205,5 @@ suite("HMI Builder editor: editing", () => {
     const page = { title: "P", object: [at(400, 300), at(424, 324)], pipe: [] } as any;
     assert.deepStrictEqual(freeCorner(page, [400, 300], [160, 48], [1280, 720]), [448, 348]);
     assert.deepStrictEqual(freeCorner(page, [100, 100], [160, 48], [1280, 720]), [100, 100], "a free spot stays");
-  });
-
-  test("a loop controller's lines follow its configured measurement and controlled equipment (§6 item 5)", () => {
-    const shown = (id: string, type: string, instance: string): HmiObjectModel => ({
-      id,
-      type,
-      instance,
-      at: [0, 0],
-      size: [128, 108],
-      rotation: 0,
-      bind: {},
-    });
-    const controller = shown("tic", "controller", "Main.TIC101");
-    const page: HmiPageModel = {
-      title: "P",
-      object: [controller, shown("tt", "temperature-sensor", "Main.TT101"), shown("eh", "heater", "Main.EH101")],
-      pipe: [],
-    };
-    const configured = [
-      { drives: false, value: "Main.TT101" },
-      { drives: true, value: "main.eh101" },
-    ];
-    assert.deepStrictEqual(loopSignals(page, configured), { measures: "tt", acts_on: "eh" });
-    const lined = withLoopSignals(controller, page, configured);
-    assert.deepStrictEqual([lined?.measures, lined?.acts_on], ["tt", "eh"]);
-    assert.strictEqual(withLoopSignals(lined!, page, configured), undefined, "nothing to change");
-    const elsewhere = withLoopSignals(lined!, page, [
-      { drives: false, value: "Main.TT101" },
-      { drives: true, value: "Main.TV101" },
-    ]);
-    assert.strictEqual(elsewhere?.acts_on, undefined, "no line to equipment the page does not show");
-    assert.strictEqual(elsewhere?.measures, "tt");
   });
 });

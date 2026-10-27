@@ -57,8 +57,8 @@ fn lesson25_initializes_every_retained_value_from_the_running_heater() {
         "I = u − P"
     );
     assert_eq!(
-        runtime.storage().get_instance_var(program, "Initialized"),
-        Some(&Value::Bool(true))
+        value(&runtime, &format!("{program}.Initialized")),
+        Some(Value::Bool(true))
     );
 }
 
@@ -92,7 +92,7 @@ fn lesson25_manual_leaves_the_controller_state_until_it_is_initialized_again() {
         "the retained output still holds the 75 % from initialization"
     );
     // One explicit initialization request re-aligns every retained value, once.
-    debug.enqueue_instance_write(program, "InitializeRequest", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "InitializeRequest", Value::Bool(true));
     scan(&mut runtime, &mut simulation, &debug, 1000, &[]);
     assert_eq!(
         controller_state(&runtime, program, "NominalOutput"),
@@ -114,7 +114,7 @@ fn lesson25_manual_leaves_the_controller_state_until_it_is_initialized_again() {
         "a request that stays TRUE initializes only once"
     );
     // A new request takes the command actually applied: 120 % is limited to 100 %.
-    debug.enqueue_instance_write(program, "InitializeRequest", Value::Bool(false));
+    enqueue_instance_write(&debug, program, "InitializeRequest", Value::Bool(false));
     scan(
         &mut runtime,
         &mut simulation,
@@ -122,7 +122,7 @@ fn lesson25_manual_leaves_the_controller_state_until_it_is_initialized_again() {
         1500,
         &[("%ML72", lreal(120.0))],
     );
-    debug.enqueue_instance_write(program, "InitializeRequest", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "InitializeRequest", Value::Bool(true));
     scan(
         &mut runtime,
         &mut simulation,
@@ -146,7 +146,7 @@ fn lesson25_first_automatic_command_continues_the_applied_command() {
     for step in 0..5 {
         scan(&mut runtime, &mut simulation, &debug, step * 100, &[]);
     }
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     scan(&mut runtime, &mut simulation, &debug, 500, &[]);
     let first = number(&runtime, "%QL0");
     // Only sensor noise (±0.02 °C) separates the stored and the fresh measurement: |ΔP| ≤ 13·0.04.
@@ -178,7 +178,7 @@ fn lesson25_a_zeroed_controller_state_switches_the_heater_off() {
             ("SaturatedOutput", 0.0),
         ],
     );
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     scan(&mut runtime, &mut simulation, &debug, 500, &[]);
     // ΔP = 13·(0.3·35 − 35) = −318.5 points from the zero references: the request is far below 0 %.
     assert_eq!(
@@ -250,10 +250,10 @@ fn lesson26_manual_hold(
     until_step: u64,
     track_manual: bool,
 ) -> (
-    trust_runtime::Runtime,
+    trust_runtime::CompiledRuntime,
     trust_runtime::simulation::SimulationController,
     trust_runtime::debug::DebugControl,
-    trust_runtime::memory::InstanceId,
+    &'static str,
 ) {
     let (mut runtime, mut simulation) = setup(LESSON26);
     let debug = runtime.enable_debug();
@@ -311,7 +311,7 @@ fn lesson26_transfer_continues_the_manual_command_without_an_integral_step() {
         error > 0.3,
         "the 60 % hold cooled the water below the 35 °C setpoint: e = {error}"
     );
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     scan(&mut runtime, &mut simulation, &debug, 3000, &[]);
     let first = number(&runtime, "%QL0");
     assert!(
@@ -334,7 +334,7 @@ fn lesson26_untracked_transfer_jumps_to_the_stale_output() {
         75.0,
         "without tracking the stored output stays at 75 %"
     );
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     scan(&mut runtime, &mut simulation, &debug, 3000, &[]);
     let first = number(&runtime, "%QL0");
     assert!(
@@ -406,10 +406,10 @@ const LESSON27: &str = "03-production-quality-digital-pid/41-atomic-parameter-up
 fn lesson27_at_38c(
     until_step: u64,
 ) -> (
-    trust_runtime::Runtime,
+    trust_runtime::CompiledRuntime,
     trust_runtime::simulation::SimulationController,
     trust_runtime::debug::DebugControl,
-    trust_runtime::memory::InstanceId,
+    &'static str,
 ) {
     let (mut runtime, mut simulation) = setup(LESSON27);
     let debug = runtime.enable_debug();
@@ -417,7 +417,7 @@ fn lesson27_at_38c(
     for step in 0..5 {
         scan(&mut runtime, &mut simulation, &debug, step * 100, &[]);
     }
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     for step in 5..until_step {
         scan(
             &mut runtime,
@@ -462,10 +462,8 @@ fn lesson27_rejects_an_invalid_parameter_set_and_keeps_the_active_one() {
         "the controller keeps running on the active set: {before} → {after}"
     );
     assert_eq!(
-        runtime
-            .storage()
-            .get_instance_var(program, "ParametersRejected"),
-        Some(&Value::Bool(true))
+        value(&runtime, &format!("{program}.ParametersRejected")),
+        Some(Value::Bool(true))
     );
 }
 

@@ -18,7 +18,7 @@ use crate::validation::engineer_verification_plan::EngineerRequirements;
 
 use super::actuator_feedback::{transfer_output_basis, transfer_target_allowance};
 use super::commissioning_result::{CommissioningChannel, CommissioningStatus};
-use super::entry_allowance::{auto_entry_tolerance, transfer_tolerance};
+use super::entry_allowance::{auto_entry_error_gain, auto_entry_tolerance, transfer_tolerance};
 use super::found_mode::FoundMode;
 use super::observation::CommissioningObservation;
 use super::observation_assessment::{
@@ -43,6 +43,9 @@ pub struct TransferStep {
     pub values: BTreeMap<String, f64>,
     /// The largest change of the first output the transfer accepts (A6.4).
     pub tolerance: f64,
+    /// The factor of the error at entry that the runtime adds to `tolerance` (`entry_error_gain`, annex E6.9), for an Auto
+    /// entry whose allowance has the integral step on that error.
+    pub entry_error_gain: Option<f64>,
     /// The tracking the transfer carries.
     pub tracking: TransferTracking,
 }
@@ -427,6 +430,7 @@ pub fn manual_step(
             live_application_values(loop_definition, binding, observed)?,
         )?,
         tolerance: transfer_tolerance(loop_definition, task.transfer_tolerance)?,
+        entry_error_gain: None,
         tracking: TransferTracking::Proportional(proportional_tracking(
             loop_definition,
             binding,
@@ -460,6 +464,7 @@ pub fn auto_entry_step(
             entry_application_values(loop_definition, binding)?,
         )?,
         tolerance: auto_entry_tolerance(loop_definition, task, gains, process_noise, None)?,
+        entry_error_gain: auto_entry_error_gain(loop_definition, task, gains, process_noise),
         tracking: TransferTracking::Proportional(proportional_tracking(
             loop_definition,
             binding,
@@ -487,6 +492,7 @@ pub fn target_step(
             live_application_values(loop_definition, binding, observed)?,
         )?,
         tolerance: transfer_target_allowance(binding).ok_or_else(binding_failure)?,
+        entry_error_gain: None,
         tracking: TransferTracking::Proportional(proportional_tracking(
             loop_definition,
             binding,

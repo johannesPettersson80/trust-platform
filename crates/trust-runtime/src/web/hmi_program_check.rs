@@ -60,8 +60,8 @@ pub(super) fn check_program_change(
             })
             .collect(),
     );
-    let runtime = match session.build_runtime() {
-        Ok(runtime) => runtime,
+    let declarations = match session.declarations() {
+        Ok(declarations) => declarations,
         Err(error) => {
             return refuse(
                 422,
@@ -69,10 +69,9 @@ pub(super) fn check_program_change(
             )
         }
     };
-    let metadata = runtime.metadata_snapshot();
     let program = Program {
-        metadata: &metadata,
-        storage: runtime.storage(),
+        metadata: declarations.metadata(),
+        storage: declarations.storage(),
     };
     if let Some(updated) = &hmi {
         let problems = check_bundle_with_remote(

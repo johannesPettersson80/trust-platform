@@ -3,12 +3,12 @@
 **/*.rs.bk
 **/Cargo.lock
 !/Cargo.lock
-!/firmware/trust-nucleo-f401re/Cargo.lock
-!/firmware/trust-esp32c6-reference/Cargo.lock
+!/firmware/trust-esp32c6/Cargo.lock
+!/firmware/trust-stm32f407/Cargo.lock
 !/fuzz/Cargo.lock
 !/crates/trust-ads-server/fuzz/Cargo.lock
-/firmware/trust-nucleo-f401re/target/
-/firmware/trust-nucleo-f401re/*.map
+/firmware/trust-stm32f407/target/
+/firmware/trust-stm32f407/*.map
 /.mapping-transaction.lock
 /site/
 /.venv-docs/
@@ -47,6 +47,8 @@ __pycache__/
 .claude-plugin/
 .trust-lsp/
 **/.trust-lsp/
+# A runtime's endpoint file (spec 11 §6.8.0a), left behind in an example after an unclean stop.
+**/.trust-runtime/
 
 # Local debug/lsp binaries (too large for GitHub; built locally)
 editors/vscode/bin/trust-debug
@@ -66,6 +68,9 @@ runtime-*.log.runtime.log
 /io.toml
 /program.stbc
 /examples/**/program.stbc
+/deployment-record.bin
+/examples/**/deployment-record.bin
+/examples/**/hmi/process.auto.svg
 /sources/
 /.merge-pr*/
 

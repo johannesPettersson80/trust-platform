@@ -87,6 +87,82 @@ export async function removePlantCandidate(
   return removed;
 }
 
+/**
+ * The plant setup editor's requests through the project's plant session (specification 47 §20.1):
+ * `plant.edit` checks and changes a draft, `plant.signals` builds the PLC signals a plant can bind
+ * to, and `plant.capabilities` carries the editor's tables and the project identity both need.
+ */
+export class PlantEditorClient {
+  private capabilities?: Promise<PlantContractMessage>;
+
+  constructor(private readonly client: PlantCommandClient) {}
+
+  /** The editor's tables (labels, help, defaults and choices). */
+  async tables(): Promise<Record<string, unknown>> {
+    const editor = (await this.capabilitiesOnce()).editor;
+    if (!editor || typeof editor !== "object" || Array.isArray(editor)) {
+      throw new Error("This trust-runtime does not provide the plant editor.");
+    }
+    return editor as Record<string, unknown>;
+  }
+
+  /** Rust's answer to a draft and, optionally, the edit it asks for. */
+  async edit(request: { draft: unknown; action?: unknown; signals?: unknown }): Promise<PlantContractMessage> {
+    const { project_id } = await this.capabilitiesOnce();
+    return await this.client.request("plant.edit", {
+      contract: "trust.plant",
+      schema_version: 1,
+      project_id,
+      draft: request.draft,
+      ...(request.action === undefined ? {} : { action: request.action }),
+      ...(request.signals === undefined ? {} : { signals: request.signals }),
+    });
+  }
+
+  /** The PLC signals from the compiled bindings, the live values and the communication setup. */
+  async signals(input: {
+    compiled: unknown;
+    live?: unknown;
+    communicationSchema?: unknown;
+    communicationTopology?: unknown;
+  }): Promise<Record<string, unknown>> {
+    const { project_id } = await this.capabilitiesOnce();
+    const answer = await this.client.request("plant.signals", {
+      contract: "trust.plant",
+      schema_version: 1,
+      project_id,
+      compiled: input.compiled ?? null,
+      ...(input.live === undefined ? {} : { live: input.live }),
+      ...(input.communicationSchema === undefined ? {} : { communication_schema: input.communicationSchema }),
+      ...(input.communicationTopology === undefined ? {} : { communication_topology: input.communicationTopology }),
+    });
+    return answer.signals as Record<string, unknown>;
+  }
+
+  private capabilitiesOnce(): Promise<PlantContractMessage> {
+    if (!this.capabilities) {
+      const pending = this.client.request("plant.capabilities", { contract: "trust.plant", schema_version: 1 });
+      this.capabilities = pending;
+      pending.catch(() => {
+        if (this.capabilities === pending) this.capabilities = undefined;
+      });
+    }
+    return this.capabilities;
+  }
+}
+
+const editorClients = new WeakMap<PlantCommandClient, PlantEditorClient>();
+
+/** The editor client of one plant session. */
+export function plantEditorClient(client: PlantCommandClient): PlantEditorClient {
+  let editor = editorClients.get(client);
+  if (!editor) {
+    editor = new PlantEditorClient(client);
+    editorClients.set(client, editor);
+  }
+  return editor;
+}
+
 export class PlantSessionRegistry {
   private readonly sessions = new Map<string, DisposablePlantCommandClient>();
 

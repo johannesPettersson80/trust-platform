@@ -1,25 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-import {
-  adsPortBrowseEvidence,
-  respondingAdsPorts,
-} from "../adsDiscoveryPorts";
-import {
-  adsTagBatchSummary,
-  normalizeAdsTagSelections,
-  type AdsTagBatchImportResult,
-  type AdsTagPortPath,
-  type AdsTagPortSelection,
-} from "../adsTagBatch";
 import type { RoutePlan, SymbolNode } from "../offlineComm";
 import type { BrowseErrorView } from "./browseErrorModel";
-import { classifyBrowseError } from "./browseErrorModel";
+import { useAdsPortCheck } from "./adsPortCheck";
 import {
   adsTargetNetId,
   adsTargetPort,
-  parseAdsPortInput,
+  respondingAdsPorts,
   withAdsTargetPort,
 } from "./adsTargetPort";
+import type {
+  AdsTagBatchImportResult,
+  AdsTagPortPath,
+  AdsTagPortSelection,
+} from "./types";
 import { nodeKey } from "./opcuaClientModel";
 import { SymbolSelectionCheckbox } from "./SymbolSelectionCheckbox";
 import { t, tint } from "./theme";
@@ -49,6 +43,7 @@ export function AdsMultiPortTagBrowser({
   onAddTags,
   onRemoveTag,
   onClose,
+  post,
 }: {
   targetLabel: string;
   target: Record<string, unknown>;
@@ -69,6 +64,8 @@ export function AdsMultiPortTagBrowser({
   ) => void;
   onRemoveTag: (selection: AdsTagPortPath) => void;
   onClose: () => void;
+  /** Posts to the extension, which has the server check a typed ADS port. */
+  post?: (message: unknown) => void;
 }) {
   const incomingViews = useMemo(
     () => adsPortViews(target, tree, routeMissing, routePlan, error, loading),
@@ -144,7 +141,7 @@ export function AdsMultiPortTagBrowser({
     });
   }, [importResult, views]);
 
-  const parsedAdvancedPort = parseAdsPortInput(portDraft);
+  const advancedPort = useAdsPortCheck(post, portDraft);
   const responding = respondingAdsPorts(target);
   const portSummary = responding.length > 0
     ? `${responding.length} responding ADS ${responding.length === 1 ? "port" : "ports"}: ${responding.join(", ")}`
@@ -341,18 +338,18 @@ export function AdsMultiPortTagBrowser({
                 placeholder="851"
               />
             </label>
-            {parsedAdvancedPort.error && (
+            {advancedPort.error && (
               <div className="trust-field__message trust-field__message--error">
-                {parsedAdvancedPort.error}
+                {advancedPort.error}
               </div>
             )}
             <button
               type="button"
-              disabled={loading || !parsedAdvancedPort.port}
-              title={parsedAdvancedPort.error}
+              disabled={loading || !advancedPort.port}
+              title={advancedPort.error}
               onClick={() => {
-                if (parsedAdvancedPort.port) {
-                  onBrowseTarget(withAdsTargetPort(target, parsedAdvancedPort.port));
+                if (advancedPort.port) {
+                  onBrowseTarget(withAdsTargetPort(target, advancedPort.port));
                 }
               }}
               className="trust-button trust-button--primary"
@@ -399,18 +396,22 @@ function adsPortViews(
       routeMissing: false,
     });
   }
-  for (const evidence of adsPortBrowseEvidence(target)) {
+  for (const evidence of portBrowseResults(target)) {
     views.set(evidence.port, {
       port: evidence.port,
       tree: evidence.tree,
       loading: false,
-      routeMissing: evidence.routeMissing,
+      routeMissing: evidence.routeMissing === true,
       routePlan: evidence.routePlan,
-      error: evidence.error ? classifyBrowseError("ads", evidence.error) : undefined,
+      // The recovery of a failed port browse is the server's (`ads_finds`).
+      error: evidence.error ? evidence.error_view : undefined,
     });
   }
   const currentPort = adsTargetPort(target);
-  if (currentTree !== undefined || loading || routeMissing || error || views.size === 0) {
+  if (
+    currentPort !== undefined &&
+    (currentTree !== undefined || loading || routeMissing || error || views.size === 0)
+  ) {
     views.set(currentPort, {
       port: currentPort,
       tree: currentTree,
@@ -477,25 +478,33 @@ function importedPathKey(port: number, path: string): string {
   return `${port}:${path}`;
 }
 
+/** The tags already imported, as the server answered them on the target, as `port:path` keys. */
 function importedTagKeys(target: Record<string, unknown>): ReadonlySet<string> {
-  const rawSelections = normalizeAdsTagSelections(target.imported_ads_symbols);
-  const directPoints = Array.isArray(target.points) ? target.points : [];
-  const directPort = adsTargetPort(target);
-  const pointPaths = directPoints.flatMap((point): string[] => {
-    if (!isRecord(point)) {
-      return [];
-    }
-    const path = point.symbol ?? point.path;
-    return typeof path === "string" && path.trim().length > 0
-      ? [path.trim()]
-      : [];
-  });
-  return new Set([
-    ...rawSelections.flatMap((selection) =>
+  const imported = Array.isArray(target.imported_ads_symbols)
+    ? (target.imported_ads_symbols as AdsTagPortSelection[])
+    : [];
+  return new Set(
+    imported.flatMap((selection) =>
       selection.paths.map((path) => importedPathKey(selection.port, path)),
     ),
-    ...pointPaths.map((path) => importedPathKey(directPort, path)),
-  ]);
+  );
+}
+
+/** One answering port's browse result, as the search answered it on the target. */
+interface AdsPortBrowseResult {
+  readonly port: number;
+  readonly tree: SymbolNode[];
+  readonly routeMissing?: boolean;
+  readonly routePlan?: RoutePlan;
+  readonly error?: { readonly code?: string; readonly message?: string };
+  /** The recovery that the server gives the failed browse. */
+  readonly error_view?: BrowseErrorView;
+}
+
+function portBrowseResults(target: Record<string, unknown>): readonly AdsPortBrowseResult[] {
+  return Array.isArray(target.ads_port_browse_results)
+    ? (target.ads_port_browse_results as AdsPortBrowseResult[])
+    : [];
 }
 
 function selectedImportedTagKeys(
@@ -554,7 +563,7 @@ function ImportResult({ result }: { result: AdsTagBatchImportResult }) {
   const failures = result.ports.filter((port) => !port.applied);
   return (
     <div style={result.applied ? SUCCESS : ROUTE_WARNING}>
-      <strong>{adsTagBatchSummary(result)}</strong>
+      <strong>{result.summary}</strong>
       {result.restartRequired && (
         <div style={{ marginTop: 4 }}>Start or restart the simulator to use the new tags.</div>
       )}
@@ -565,10 +574,6 @@ function ImportResult({ result }: { result: AdsTagBatchImportResult }) {
       ))}
     </div>
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 const PANEL: React.CSSProperties = { position: "absolute", inset: "0 0 0 auto", width: 390, maxWidth: "95vw", zIndex: 8 };

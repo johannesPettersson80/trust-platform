@@ -9,12 +9,19 @@ impl RuntimeToml {
             1,
             "resource.cycle_interval_ms",
         )?;
+        let max_statements_per_scan = self
+            .resource
+            .max_statements_per_scan
+            .and_then(|budget| u32::try_from(budget).ok())
+            .unwrap_or(trust_runtime_core::deployment::HOSTED_MAX_STATEMENTS);
         let tasks = parse_tasks(self.resource.tasks)?;
 
         let RuntimeSection {
             execution_backend,
             control,
             log,
+            events,
+            identify,
             retain,
             watchdog,
             fault,
@@ -32,31 +39,35 @@ impl RuntimeToml {
             opcua_client,
             opcua,
         } = self.runtime;
-        let (execution_backend, execution_backend_source) = match execution_backend
-            .as_deref()
-            .map(str::trim)
-        {
-            Some(value) if !value.is_empty() => {
-                if value.eq_ignore_ascii_case("interpreter") {
-                    return Err(RuntimeError::InvalidConfig(
-                            "runtime.execution_backend='interpreter' is no longer supported for production runtimes; use 'vm'"
-                                .into(),
-                        ));
-                }
-                let backend = ExecutionBackend::parse(value)?;
-                (backend, ExecutionBackendSource::Config)
+        // `runtime.execution_backend` selects nothing: every runtime runs the compiled program
+        // (specification 44 §15). A project that names the bytecode engine's `vm` or `native` still
+        // loads; any other value is refused as before.
+        let execution_backend_source = match execution_backend.as_deref().map(str::trim) {
+            Some(value)
+                if value.eq_ignore_ascii_case("vm") || value.eq_ignore_ascii_case("native") =>
+            {
+                ExecutionBackendSource::Config
             }
-            Some(_) => {
+            Some(value) if value.eq_ignore_ascii_case("interpreter") => {
+                return Err(RuntimeError::InvalidConfig(
+                    "runtime.execution_backend='interpreter' is no longer supported; remove the key, every runtime runs the compiled program"
+                        .into(),
+                ));
+            }
+            Some("") => {
                 return Err(RuntimeError::InvalidConfig(
                     "runtime.execution_backend must not be empty".into(),
                 ));
             }
-            None => (
-                ExecutionBackend::BytecodeVm,
-                ExecutionBackendSource::Default,
-            ),
+            Some(value) => {
+                return Err(RuntimeError::InvalidConfig(
+                    format!("invalid runtime.execution_backend '{value}'").into(),
+                ));
+            }
+            None => ExecutionBackendSource::Default,
         };
 
+        let identify_output = parse_identify_section(identify)?;
         let parsed_control = parse_control(&control)?;
         let parsed_retain_mode = parse_retain_mode(&retain)?;
         let retain_path = parse_optional_path("runtime.retain.path", retain.path)?;
@@ -89,13 +100,15 @@ impl RuntimeToml {
             bundle_version,
             resource_name,
             cycle_interval,
-            execution_backend,
+            max_statements_per_scan,
             execution_backend_source,
-            control_endpoint: SmolStr::new(control.endpoint),
+            control_endpoint: control.endpoint.map(SmolStr::new),
             control_auth_token: parsed_control.auth_token,
             control_debug_enabled: parsed_control.debug_enabled,
             control_mode: parsed_control.mode,
             log_level: SmolStr::new(log.level),
+            event_capacity: events.and_then(|events| events.capacity),
+            identify_output,
             retain_mode: parsed_retain_mode,
             retain_path,
             retain_save_interval: parse_runtime_duration_millis(

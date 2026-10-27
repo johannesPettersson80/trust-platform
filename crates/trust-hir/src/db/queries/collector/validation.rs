@@ -646,6 +646,31 @@ impl SymbolCollector<'_> {
             return;
         };
 
+        // A `VAR_TEMP`, `VAR_EXTERNAL` or `VAR_IN_OUT` variable is no variable of its own that an
+        // access path may expose (IEC 61131-3 Ed.3 §6.8.1, Table 62; specification 03 §2). A path
+        // declared in a program names the program's own variables first.
+        if let Some(target) = self
+            .resolve_in_enclosing_program(node, &access_path)
+            .or_else(|| self.resolve_access_path_target(&access_path))
+            && let Some(SymbolKind::Variable { qualifier }) =
+                self.table.get(target.symbol_id).map(|symbol| &symbol.kind)
+        {
+            let section = match qualifier {
+                VarQualifier::Temp => Some("VAR_TEMP"),
+                VarQualifier::External => Some("VAR_EXTERNAL"),
+                VarQualifier::InOut => Some("VAR_IN_OUT"),
+                _ => None,
+            };
+            if let Some(section) = section {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    access_path.text_range(),
+                    format!("VAR_ACCESS cannot expose {section}"),
+                );
+                return;
+            }
+        }
+
         let decl_id = match self.table.resolve_unique_symbol_name(name.as_str()) {
             UniqueSymbolResolution::Single(id) => id,
             UniqueSymbolResolution::Ambiguous => {
@@ -814,6 +839,32 @@ impl SymbolCollector<'_> {
                 _ => {}
             }
         }
+    }
+
+    /// The target of the access path `access_path` of the declaration `node` when `node` lies in a
+    /// program: its root a variable of that program, then its members and elements.
+    fn resolve_in_enclosing_program(
+        &self,
+        node: &SyntaxNode,
+        access_path: &SyntaxNode,
+    ) -> Option<AccessTarget> {
+        let program = node
+            .ancestors()
+            .find(|ancestor| ancestor.kind() == SyntaxKind::Program)?;
+        let (program_name, _) = program
+            .children()
+            .find(|child| child.kind() == SyntaxKind::Name)
+            .and_then(|child| name_from_node(&child))?;
+        let UniqueSymbolResolution::Single(program_id) =
+            self.table.resolve_unique_symbol_name(program_name.as_str())
+        else {
+            return None;
+        };
+        let parsed = parse_access_path(access_path)?;
+        let root = self
+            .table
+            .resolve_member_symbol_in_hierarchy(program_id, parsed.root.as_str())?;
+        resolve_access_path_target_from_symbol(&self.table, root, &parsed.segments)
     }
 
     pub(super) fn resolve_access_path_target(&self, node: &SyntaxNode) -> Option<AccessTarget> {

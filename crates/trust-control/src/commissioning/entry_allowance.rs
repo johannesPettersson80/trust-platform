@@ -157,6 +157,34 @@ pub fn auto_entry_allowance(
     auto_entry_tolerance(loop_definition, task, values, process_noise, entry_error)
 }
 
+/// The factor of the error at entry in the allowance of [`auto_entry_allowance`], `|Ki|·Δt` (A6.4), which the runtime multiplies by
+/// the error it reads in the scan of the Auto entry (`entry_error_gain`, annex E6.9): the error read before the transfer is out of
+/// date once the plant moves. There is none where the allowance has no integral step on the error: a reviewed tolerance, a binary
+/// output, a state or search law, a law without an integral gain, and the exact check that a missing noise or proportional gain
+/// keeps.
+#[must_use]
+pub fn auto_entry_error_gain(
+    loop_definition: &LoopDefinition,
+    task: &EngineerRequirements,
+    values: &BTreeMap<String, f64>,
+    process_noise: Option<f64>,
+) -> Option<f64> {
+    if loop_definition.controller.on_off.is_some()
+        || task.transfer_tolerance.is_some()
+        || loop_definition.controller.state_feedback.is_some()
+        || search_law(loop_definition)
+        || !process_noise.is_some_and(|noise| noise.abs() > 0.0)
+    {
+        return None;
+    }
+    let symbols = gain_symbols(loop_definition)?;
+    let gain = |symbol: &str| values.get(symbol).copied().filter(|gain| gain.is_finite());
+    gain(symbols.proportional)?;
+    let integral = symbols.integral.and_then(gain)?;
+    let cycle = loop_definition.controller.task_period_ms / 1000.0;
+    (cycle > 0.0).then(|| integral.abs() * cycle)
+}
+
 /// Whether the loop's controller is the search-law form of a program's law (C5): a `controller.project` with tuning axes and no seed.
 fn search_law(loop_definition: &LoopDefinition) -> bool {
     loop_definition

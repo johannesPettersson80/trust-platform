@@ -101,12 +101,7 @@ fn record_at_time_scale(time_scale: u32) -> Vec<Sample> {
     let project = unique_dir(&format!("speed-{time_scale}x"));
     let _remove_project = RemoveDir(project.clone());
     copy_dir(Path::new(LESSON), &project);
-    let socket = project.join(SOCKET_NAME);
-    assert!(
-        socket.as_os_str().len() <= MAX_SOCKET_PATH_BYTES,
-        "the control socket path is {} bytes; use a shorter TMPDIR (the limit is {MAX_SOCKET_PATH_BYTES})",
-        socket.as_os_str().len()
-    );
+    let socket = control_socket(&project);
     prepare_runtime_toml(&project, &socket);
     build_project(&project);
 
@@ -355,34 +350,22 @@ fn build_project(project: &Path) {
 fn prepare_runtime_toml(project: &Path, socket: &Path) {
     let path = project.join("runtime.toml");
     let text = fs::read_to_string(&path).expect("read runtime.toml");
-    let text = set_key(
-        &text,
-        "endpoint",
-        &format!("\"unix://{}\"", socket.display()),
-    );
-    let text = set_key(&text, "auth_token", &format!("\"{TOKEN}\""));
+    let text = set_control_endpoint(&text, socket);
     fs::write(&path, format!("{text}\n[runtime.web]\nenabled = false\n"))
         .expect("write runtime.toml");
 }
 
-/// Replaces the value of one `key = value` line of a TOML text, and fails when the text has no such line.
-fn set_key(text: &str, key: &str, value: &str) -> String {
-    let mut replaced = false;
-    let mut lines = Vec::new();
-    for line in text.lines() {
-        let is_key = line
-            .trim_start()
-            .strip_prefix(key)
-            .is_some_and(|rest| rest.trim_start().starts_with('='));
-        if is_key {
-            lines.push(format!("{key} = {value}"));
-            replaced = true;
-        } else {
-            lines.push(line.to_string());
-        }
-    }
-    assert!(replaced, "runtime.toml has no `{key}` line to replace");
-    lines.join("\n")
+/// Gives a copy's `runtime.toml` text the run's control endpoint, the socket in the copy, and its known token. Both keys
+/// are optional and the lesson names neither (specification 11, section 6.8.0a), so they are set in the
+/// `[runtime.control]` table, added there when absent.
+fn set_control_endpoint(text: &str, socket: &Path) -> String {
+    let mut document = text
+        .parse::<toml_edit::DocumentMut>()
+        .expect("parse runtime.toml");
+    let control = &mut document["runtime"]["control"];
+    control["endpoint"] = toml_edit::value(format!("unix://{}", socket.display()));
+    control["auth_token"] = toml_edit::value(TOKEN);
+    document.to_string()
 }
 
 /// Copies a folder tree. Lesson folders hold only plain files and folders.
@@ -397,6 +380,27 @@ fn copy_dir(from: &Path, to: &Path) {
             fs::copy(entry.path(), &target).expect("copy a lesson file");
         }
     }
+}
+
+/// The runtime's control socket: in the project folder while that path fits a socket address
+/// (`MAX_SOCKET_PATH_BYTES`), else beside the folder under the folder's name, as under the release
+/// guard's long `TMPDIR`.
+fn control_socket(project: &Path) -> PathBuf {
+    let socket = project.join(SOCKET_NAME);
+    if socket.as_os_str().len() <= MAX_SOCKET_PATH_BYTES {
+        return socket;
+    }
+    let name = project
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let short = project.with_file_name(format!("{name}.sock"));
+    assert!(
+        short.as_os_str().len() <= MAX_SOCKET_PATH_BYTES,
+        "the control socket path is {} bytes; use a shorter TMPDIR (the limit is {MAX_SOCKET_PATH_BYTES})",
+        short.as_os_str().len()
+    );
+    short
 }
 
 /// A fresh folder under the temporary directory. The name stays short because a unix socket path has a length limit.

@@ -1,10 +1,13 @@
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
+
 use std::process::{Command, Output};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use smol_str::SmolStr;
-use trust_runtime::bundle_builder::build_program_stbc;
+use trust_runtime::bundle_builder::build_program_image;
 use trust_runtime::bundle_template::{build_io_config_auto, render_io_toml, render_runtime_toml};
+use trust_runtime::native::{Target, Toolchain};
 
 static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -28,23 +31,11 @@ fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
     panic!("failed to allocate unique temp dir for '{prefix}'")
 }
 
-fn make_runtime_toml_portable(runtime_toml: String) -> String {
-    #[cfg(windows)]
-    {
-        return runtime_toml.replacen(
-            "endpoint = \"unix:///tmp/trust-runtime.sock\"",
-            "endpoint = \"tcp://127.0.0.1:0\"\nauth_token = \"trust-ci-token\"",
-            1,
-        );
-    }
-    #[cfg(not(windows))]
-    runtime_toml
-}
-
 fn write_project_fixture(root: &std::path::Path, resource_name: &str) {
     std::fs::create_dir_all(root.join("src")).expect("create source directory");
-    let runtime_toml =
-        make_runtime_toml_portable(render_runtime_toml(&SmolStr::new(resource_name), 100));
+    // The template names no control endpoint, so every platform validates it with its default
+    // (spec 11, section 6.8.0a).
+    let runtime_toml = render_runtime_toml(&SmolStr::new(resource_name), 100);
     let io_template = build_io_config_auto("loopback").expect("build loopback io template");
     let io_toml = render_io_toml(&io_template);
     std::fs::write(root.join("runtime.toml"), runtime_toml).expect("write runtime.toml");
@@ -61,8 +52,12 @@ END_PROGRAM
 "#,
     )
     .expect("write main source");
-    let report = build_program_stbc(root, None).expect("build program.stbc");
-    assert!(report.program_path.is_file(), "program.stbc should exist");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let target = Target::this_cpu().expect("a computer target");
+    let report = build_program_image(root, None, target, &toolchain, false, true)
+        .expect("build program.tpi");
+    assert!(report.image.is_file(), "program.tpi should exist");
 }
 
 fn run_validate(project: &std::path::Path) -> Output {

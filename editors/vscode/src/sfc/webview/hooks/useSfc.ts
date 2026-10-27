@@ -5,21 +5,20 @@ import {
   MarkerType,
   NodeChange,
   XYPosition,
-  addEdge,
   applyEdgeChanges,
   applyNodeChanges,
 } from "@xyflow/react";
 import type {
   ParallelNodeData,
   SfcAction,
+  SfcGraph,
   SfcNode,
-  SfcParallelJoinNode,
-  SfcParallelSplitNode,
+  SfcNodeType,
+  SfcParallelNode,
   SfcStepNode,
   SfcTransitionEdge,
-  SfcWorkspace,
+  SfcVariable,
   StepNodeData,
-  StepType,
   TransitionData,
 } from "../types";
 import {
@@ -30,108 +29,19 @@ import {
   STEP_TARGET_RIGHT,
   STEP_TARGET_TOP,
 } from "../StepNode";
+import { requestEdit, stamp } from "../hostRequests";
 
-const MIN_PARALLEL_BRANCHES = 2;
-const SPLIT_INPUT_HANDLE = "in";
-const JOIN_OUTPUT_HANDLE = "out";
-const SPLIT_BRANCH_PREFIX = "branch-out-";
-const JOIN_BRANCH_PREFIX = "branch-in-";
+// The SFC canvas. The rules of an SFC (the graph of a file and the file of a graph, which
+// connections are allowed, branch counts, new nodes and their wiring) are the language server's;
+// this hook holds the canvas state and draws: where a transition attaches to a step and where a
+// new node is placed.
 
 function isSfcStepNode(node: SfcNode): node is SfcStepNode {
   return node.type === "step";
 }
 
-function isSfcParallelSplitNode(node: SfcNode): node is SfcParallelSplitNode {
-  return node.type === "parallelSplit";
-}
-
-function isSfcParallelJoinNode(node: SfcNode): node is SfcParallelJoinNode {
-  return node.type === "parallelJoin";
-}
-
-function withActiveState(node: SfcNode, isActive: boolean): SfcNode {
-  if (isSfcStepNode(node)) {
-    return {
-      ...node,
-      data: {
-        ...node.data,
-        isActive,
-      },
-    };
-  }
-
-  if (isSfcParallelSplitNode(node)) {
-    return {
-      ...node,
-      data: {
-        ...node.data,
-        isActive,
-      },
-    };
-  }
-
-  return {
-    ...node,
-    data: {
-      ...node.data,
-      isActive,
-    },
-  };
-}
-
-function buildTransitionData(
-  updates: Partial<TransitionData> = {},
-  current?: TransitionData
-): TransitionData {
-  const condition = updates.condition ?? current?.condition ?? "TRUE";
-
-  return {
-    condition,
-    label: updates.label ?? current?.label ?? condition,
-    description: updates.description ?? current?.description,
-    priority: updates.priority ?? current?.priority,
-  };
-}
-
-function normalizeBranchCount(value: number | undefined): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return MIN_PARALLEL_BRANCHES;
-  }
-
-  return Math.max(MIN_PARALLEL_BRANCHES, Math.floor(value));
-}
-
-function parseBranchHandleIndex(
-  handle: string | null | undefined,
-  prefix: string
-): number | null {
-  if (!handle || !handle.startsWith(prefix)) {
-    return null;
-  }
-
-  const parsed = Number.parseInt(handle.slice(prefix.length), 10);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return null;
-  }
-
-  return parsed;
-}
-
-function getBranchCount(node: SfcParallelSplitNode | SfcParallelJoinNode): number {
-  return normalizeBranchCount(node.data.branchCount);
-}
-
-function isSingleHandleTaken(
-  connection: Connection,
-  existingEdges: SfcTransitionEdge[]
-): boolean {
-  return existingEdges.some(
-    (edge) =>
-      edge.source === connection.source &&
-      edge.target === connection.target &&
-      edge.sourceHandle === connection.sourceHandle &&
-      edge.targetHandle === connection.targetHandle
-  );
+function isSfcParallelNode(node: SfcNode): node is SfcParallelNode {
+  return node.type === "parallelSplit" || node.type === "parallelJoin";
 }
 
 const INITIAL_NODES: SfcNode[] = [
@@ -152,6 +62,7 @@ const DEFAULT_NODE_X = 250;
 const DEFAULT_NODE_Y = 50;
 const DEFAULT_NODE_VERTICAL_GAP = 150;
 
+// Where a node added from the toolbar is placed: below the lowest node.
 function nextNodePosition(nodes: SfcNode[]): XYPosition {
   const maxY = nodes.reduce(
     (current, node) => Math.max(current, node.position.y),
@@ -164,24 +75,8 @@ function nextNodePosition(nodes: SfcNode[]): XYPosition {
   };
 }
 
-// The step a newly-added step should wire onto: the lowest step with no outgoing transition (the
-// open end of the chain), falling back to the lowest step. Keeps toolbar-added steps in the flow.
-function terminalStepNode(
-  nodes: SfcNode[],
-  edges: SfcTransitionEdge[]
-): SfcStepNode | null {
-  const steps = nodes.filter(isSfcStepNode);
-  if (steps.length === 0) {
-    return null;
-  }
-  const hasOutgoing = new Set(edges.map((edge) => edge.source));
-  const open = steps.filter((step) => !hasOutgoing.has(step.id));
-  const pool = open.length > 0 ? open : steps;
-  return pool.reduce((lowest, step) =>
-    step.position.y > lowest.position.y ? step : lowest
-  );
-}
-
+// Where a transition between two steps attaches: straight down to the next step, or by the sides
+// when it goes back up or skips steps, so it does not run through other transitions' labels.
 function stepConnectionHandles(
   sourceNode: SfcNode,
   targetNode: SfcNode
@@ -239,13 +134,31 @@ function applyStepConnectionHandles(edge: SfcTransitionEdge, nodes: SfcNode[]) {
   edge.targetHandle = handles.targetHandle;
 }
 
+// An edge of the language server with its arrow.
+function withArrow(edge: SfcTransitionEdge): SfcTransitionEdge {
+  return {
+    ...edge,
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+    },
+  };
+}
+
+// An edge of the language server as the canvas draws it: with its arrow, and attached to the step
+// handles where the edge names none.
+function drawnEdge(edge: SfcTransitionEdge, nodes: SfcNode[]): SfcTransitionEdge {
+  const drawn = withArrow(edge);
+  applyStepConnectionHandles(drawn, nodes);
+  return drawn;
+}
+
 /**
  * Custom hook for managing SFC state and operations
  */
 export function useSfc() {
   const [nodes, setNodes] = useState<SfcNode[]>(INITIAL_NODES);
   const [edges, setEdges] = useState<SfcTransitionEdge[]>(INITIAL_EDGES);
-  const [variables, setVariables] = useState<SfcWorkspace["variables"]>([]);
+  const [variables, setVariables] = useState<SfcVariable[]>([]);
 
   /**
    * Handle node changes (drag, select, etc.)
@@ -262,204 +175,84 @@ export function useSfc() {
   }, []);
 
   /**
-   * Handle new connection (transition) between steps
+   * A transition the user draws; the language server decides whether the chart allows it.
    */
   const onConnect = useCallback(
-    (connection: Connection) => {
-      if (!connection.source || !connection.target) {
-        return;
-      }
-
-      if (connection.source === connection.target) {
-        return;
-      }
-
+    async (connection: Connection) => {
       const sourceNode = nodes.find((node) => node.id === connection.source);
       const targetNode = nodes.find((node) => node.id === connection.target);
-      if (!sourceNode || !targetNode) {
-        return;
-      }
-
-      if (isSingleHandleTaken(connection, edges)) {
-        return;
-      }
-
-      if (isSfcParallelSplitNode(sourceNode)) {
-        const branchIndex = parseBranchHandleIndex(
-          connection.sourceHandle,
-          SPLIT_BRANCH_PREFIX
-        );
-        if (
-          branchIndex === null ||
-          branchIndex >= getBranchCount(sourceNode) ||
-          edges.some(
-            (edge) =>
-              edge.source === sourceNode.id &&
-              edge.sourceHandle === connection.sourceHandle
-          )
-        ) {
-          return;
+      const fallback =
+        sourceNode && targetNode
+          ? stepConnectionHandles(sourceNode, targetNode)
+          : { sourceHandle: null, targetHandle: null };
+      const answer = await requestEdit(
+        { nodes, edges },
+        {
+          op: "connect",
+          connection: {
+            source: connection.source,
+            target: connection.target,
+            sourceHandle: connection.sourceHandle,
+            targetHandle: connection.targetHandle,
+          },
+          fallback: {
+            sourceHandle: fallback.sourceHandle ?? null,
+            targetHandle: fallback.targetHandle ?? null,
+          },
+          stamp: stamp(),
         }
+      );
+      const edge = answer.edge;
+      if (answer.ok && edge) {
+        setEdges((eds) => [...eds, withArrow(edge)]);
       }
-
-      if (isSfcParallelJoinNode(sourceNode)) {
-        if (
-          connection.sourceHandle !== JOIN_OUTPUT_HANDLE ||
-          edges.some(
-            (edge) =>
-              edge.source === sourceNode.id &&
-              edge.sourceHandle === JOIN_OUTPUT_HANDLE
-          )
-        ) {
-          return;
-        }
-      }
-
-      if (isSfcParallelSplitNode(targetNode)) {
-        if (
-          connection.targetHandle !== SPLIT_INPUT_HANDLE ||
-          edges.some(
-            (edge) =>
-              edge.target === targetNode.id &&
-              edge.targetHandle === SPLIT_INPUT_HANDLE
-          )
-        ) {
-          return;
-        }
-      }
-
-      if (isSfcParallelJoinNode(targetNode)) {
-        const branchIndex = parseBranchHandleIndex(
-          connection.targetHandle,
-          JOIN_BRANCH_PREFIX
-        );
-        if (
-          branchIndex === null ||
-          branchIndex >= getBranchCount(targetNode) ||
-          edges.some(
-            (edge) =>
-              edge.target === targetNode.id &&
-              edge.targetHandle === connection.targetHandle
-          )
-        ) {
-          return;
-        }
-      }
-
-      const data = buildTransitionData({ condition: "TRUE", label: "TRUE" });
-      const handles = stepConnectionHandles(sourceNode, targetNode);
-      const newEdge: SfcTransitionEdge = {
-        id: `trans_${Date.now()}`,
-        source: connection.source,
-        target: connection.target,
-        sourceHandle: connection.sourceHandle ?? handles.sourceHandle,
-        targetHandle: connection.targetHandle ?? handles.targetHandle,
-        type: "transition",
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-        },
-        data,
-        label: data.label,
-      };
-
-      setEdges((eds) => addEdge(newEdge, eds));
     },
     [edges, nodes]
   );
 
   /**
-   * Add a new step to the diagram
+   * Add a node; one added from the toolbar (no drop position) is placed below the chart, and a
+   * step added so is wired onto the chart.
    */
-  const addNewStep = useCallback(
-    (type: StepType = "normal", position?: XYPosition) => {
-      const id = `step_${Date.now()}`;
-      const stepCount = nodes.filter((node) => node.type === "step").length;
-      const newStep: SfcStepNode = {
-        id,
-        type: "step",
-        position: position ?? nextNodePosition(nodes),
-        data: {
-          label: `Step${stepCount + 1}`,
-          type,
-          actions: [],
-        },
-      };
-      setNodes((nds) => [...nds, newStep]);
-      // Added from the toolbar (no explicit drop position): wire it onto the current terminal step
-      // so it joins the flow instead of dropping in detached and unconnected.
-      if (!position) {
-        const terminal = terminalStepNode(nodes, edges);
-        if (terminal) {
-          const handles = stepConnectionHandles(terminal, newStep);
-          const data = buildTransitionData({ condition: "TRUE", label: "TRUE" });
-          const wireEdge: SfcTransitionEdge = {
-            id: `trans_${Date.now()}`,
-            source: terminal.id,
-            target: id,
-            sourceHandle: handles.sourceHandle,
-            targetHandle: handles.targetHandle,
-            type: "transition",
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-            },
-            data,
-            label: data.label,
-          };
-          setEdges((eds) => addEdge(wireEdge, eds));
+  const addNode = useCallback(
+    async (nodeType: SfcNodeType, position?: XYPosition) => {
+      const answer = await requestEdit(
+        { nodes, edges },
+        {
+          op: "addNode",
+          nodeType,
+          position: position ?? nextNodePosition(nodes),
+          wire: !position,
+          stamp: stamp(),
         }
+      );
+      const node = answer.node;
+      if (!answer.ok || !node) {
+        return;
       }
-      return id;
+      setNodes((nds) => [...nds, node]);
+      const edge = answer.edge;
+      if (edge) {
+        setEdges((eds) => [...eds, drawnEdge(edge, [...nodes, node])]);
+      }
     },
-    [nodes, edges]
+    [edges, nodes]
   );
 
-  /**
-   * Add a parallel split node
-   */
-  const addParallelSplit = useCallback((position?: XYPosition) => {
-    const id = `split_${Date.now()}`;
-    setNodes((nds) => {
-      const data: ParallelNodeData = {
-        label: "Parallel Split",
-        nodeType: "parallelSplit",
-        branchCount: 2,
-      };
+  const addNewStep = useCallback(
+    (position?: XYPosition) => addNode("step", position),
+    [addNode]
+  );
 
-      const newNode: SfcParallelSplitNode = {
-        id,
-        type: "parallelSplit",
-        position: position ?? nextNodePosition(nds),
-        data,
-      };
+  const addParallelSplit = useCallback(
+    (position?: XYPosition) => addNode("parallelSplit", position),
+    [addNode]
+  );
 
-      return [...nds, newNode];
-    });
-    return id;
-  }, []);
-
-  /**
-   * Add a parallel join node
-   */
-  const addParallelJoin = useCallback((position?: XYPosition) => {
-    const id = `join_${Date.now()}`;
-    setNodes((nds) => {
-      const data: ParallelNodeData = {
-        label: "Parallel Join",
-        nodeType: "parallelJoin",
-        branchCount: 2,
-      };
-
-      const newNode: SfcParallelJoinNode = {
-        id,
-        type: "parallelJoin",
-        position: position ?? nextNodePosition(nds),
-        data,
-      };
-
-      return [...nds, newNode];
-    });
-    return id;
-  }, []);
+  const addParallelJoin = useCallback(
+    (position?: XYPosition) => addNode("parallelJoin", position),
+    [addNode]
+  );
 
   /**
    * Update node data
@@ -478,65 +271,39 @@ export function useSfc() {
   );
 
   /**
-   * Update parallel split/join node data
+   * Update parallel split/join node data; a new branch count is the language server's.
    */
   const updateParallelNodeData = useCallback(
-    (nodeId: string, updates: Partial<ParallelNodeData>) => {
-      const normalizedBranchCount =
-        updates.branchCount === undefined
-          ? undefined
-          : normalizeBranchCount(updates.branchCount);
-
-      setNodes((nds) =>
-        nds.map((node) => {
-          if (
-            node.id !== nodeId ||
-            (!isSfcParallelSplitNode(node) && !isSfcParallelJoinNode(node))
-          ) {
-            return node;
-          }
-
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              ...updates,
-              branchCount:
-                normalizedBranchCount === undefined
-                  ? node.data.branchCount
-                  : normalizedBranchCount,
-            },
-          };
-        })
-      );
-
-      if (normalizedBranchCount !== undefined) {
-        setEdges((eds) =>
-          eds.filter((edge) => {
-            if (edge.source === nodeId) {
-              const splitIndex = parseBranchHandleIndex(
-                edge.sourceHandle,
-                SPLIT_BRANCH_PREFIX
-              );
-              if (splitIndex !== null && splitIndex >= normalizedBranchCount) {
-                return false;
-              }
-            }
-            if (edge.target === nodeId) {
-              const joinIndex = parseBranchHandleIndex(
-                edge.targetHandle,
-                JOIN_BRANCH_PREFIX
-              );
-              if (joinIndex !== null && joinIndex >= normalizedBranchCount) {
-                return false;
-              }
-            }
-            return true;
-          })
+    async (nodeId: string, updates: Partial<ParallelNodeData>) => {
+      const { branchCount, ...rest } = updates;
+      const setData = (data: Partial<ParallelNodeData>) =>
+        setNodes((nds) =>
+          nds.map((node) =>
+            node.id === nodeId && isSfcParallelNode(node)
+              ? { ...node, data: { ...node.data, ...data } }
+              : node
+          )
         );
+      if (Object.keys(rest).length > 0) {
+        setData(rest);
+      }
+      if (branchCount === undefined) {
+        return;
+      }
+      const answer = await requestEdit(
+        { nodes, edges },
+        { op: "setBranchCount", nodeId, branchCount }
+      );
+      if (!answer.ok || answer.branchCount === undefined) {
+        return;
+      }
+      setData({ branchCount: answer.branchCount });
+      const removed = new Set(answer.removedEdgeIds ?? []);
+      if (removed.size > 0) {
+        setEdges((eds) => eds.filter((edge) => !removed.has(edge.id)));
       }
     },
-    []
+    [edges, nodes]
   );
 
   /**
@@ -550,7 +317,7 @@ export function useSfc() {
             return edge;
           }
 
-          const data = buildTransitionData(updates, edge.data);
+          const data = { ...edge.data, ...updates };
           return {
             ...edge,
             data,
@@ -697,241 +464,28 @@ export function useSfc() {
   }, []);
 
   /**
-   * Import SFC workspace from JSON
+   * Show the canvas graph of a file, as the language server read it.
    */
-  const importFromJson = useCallback((workspace: SfcWorkspace) => {
-    const splitById = new Map(
-      (workspace.parallelSplits || []).map((split) => [split.id, split])
-    );
-    const joinById = new Map(
-      (workspace.parallelJoins || []).map((join) => [join.id, join])
-    );
-
-    const stepNodes: SfcStepNode[] = workspace.steps.map((step) => ({
-      id: step.id,
-      type: "step",
-      position: { x: step.x || 250, y: step.y || 50 },
-      data: {
-        label: step.name,
-        type: (step.initial ? "initial" : "normal") as StepType,
-        actions: step.actions || [],
-      },
-    }));
-
-    const splitNodes: SfcParallelSplitNode[] = (
-      workspace.parallelSplits || []
-    ).map((split) => ({
-      id: split.id,
-      type: "parallelSplit",
-      position: { x: split.x || 250, y: split.y || 150 },
-      data: {
-        label: split.name,
-        nodeType: "parallelSplit",
-        branchCount: normalizeBranchCount(split.branchIds.length),
-      },
-    }));
-
-    const joinNodes: SfcParallelJoinNode[] = (workspace.parallelJoins || []).map(
-      (join) => ({
-        id: join.id,
-        type: "parallelJoin",
-        position: { x: join.x || 250, y: join.y || 300 },
-        data: {
-          label: join.name,
-          nodeType: "parallelJoin",
-          branchCount: normalizeBranchCount(join.branchIds.length),
-        },
-      })
-    );
-
-    const allNodes: SfcNode[] = [...stepNodes, ...splitNodes, ...joinNodes];
-
-    const newEdges: SfcTransitionEdge[] = workspace.transitions.map((trans) => {
-      const edge: SfcTransitionEdge = {
-        id: trans.id,
-        source: trans.sourceStepId,
-        target: trans.targetStepId,
-        type: "transition",
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-        },
-        data: buildTransitionData({
-          condition: trans.condition,
-          label: trans.name || trans.condition,
-          priority: trans.priority,
-        }),
-        label: trans.name || trans.condition,
-      };
-
-      const sourceSplit = splitById.get(trans.sourceStepId);
-      if (sourceSplit) {
-        const branchIndex = sourceSplit.branchIds.indexOf(trans.targetStepId);
-        if (branchIndex >= 0) {
-          edge.sourceHandle = `${SPLIT_BRANCH_PREFIX}${branchIndex}`;
-        }
-      }
-
-      const sourceJoin = joinById.get(trans.sourceStepId);
-      if (sourceJoin) {
-        edge.sourceHandle = JOIN_OUTPUT_HANDLE;
-      }
-
-      const targetSplit = splitById.get(trans.targetStepId);
-      if (targetSplit) {
-        edge.targetHandle = SPLIT_INPUT_HANDLE;
-      }
-
-      const targetJoin = joinById.get(trans.targetStepId);
-      if (targetJoin) {
-        const branchIndex = targetJoin.branchIds.indexOf(trans.sourceStepId);
-        if (branchIndex >= 0) {
-          edge.targetHandle = `${JOIN_BRANCH_PREFIX}${branchIndex}`;
-        }
-      }
-
-      applyStepConnectionHandles(edge, allNodes);
-
-      return edge;
-    });
-
-    setNodes(allNodes);
-    setEdges(newEdges);
-    setVariables(workspace.variables || []);
+  const setGraph = useCallback((graph: SfcGraph) => {
+    setNodes(graph.nodes);
+    setEdges(graph.edges.map((edge) => drawnEdge(edge, graph.nodes)));
+    setVariables(graph.variables ?? []);
   }, []);
 
   /**
-   * Export SFC to workspace JSON
+   * The canvas graph, for the language server to save, check or translate.
    */
-  const exportToJson = useCallback((): SfcWorkspace => {
-    const stepNodes = nodes.filter(isSfcStepNode);
-    const parallelSplitNodes = nodes.filter(isSfcParallelSplitNode);
-    const parallelJoinNodes = nodes.filter(isSfcParallelJoinNode);
-
-    const steps = stepNodes.map((node) => ({
-      id: node.id,
-      name: node.data.label,
-      initial: node.data.type === "initial",
-      x: node.position.x,
-      y: node.position.y,
-      actions: node.data.actions || [],
-    }));
-
-    const transitions = edges.map((edge, index) => ({
-      id: edge.id,
-      name: edge.data.label || `T${index + 1}`,
-      condition: edge.data.condition || "TRUE",
-      sourceStepId: edge.source,
-      targetStepId: edge.target,
-      priority: edge.data.priority,
-    }));
-
-    const parallelSplits = parallelSplitNodes.map((node) => {
-      const branchEdges = edges
-        .filter((edge) => edge.source === node.id)
-        .map((edge) => ({
-          edge,
-          index: parseBranchHandleIndex(edge.sourceHandle, SPLIT_BRANCH_PREFIX),
-        }))
-        .filter((entry) => entry.index !== null)
-        .sort((left, right) => (left.index ?? 0) - (right.index ?? 0));
-
-      const branchIds = branchEdges.map((entry) => entry.edge.target);
-
-      return {
-        id: node.id,
-        name: node.data.label,
-        x: node.position.x,
-        y: node.position.y,
-        branchIds,
-      };
-    });
-
-    const parallelJoins = parallelJoinNodes.map((node) => {
-      const branchEdges = edges
-        .filter((edge) => edge.target === node.id)
-        .map((edge) => ({
-          edge,
-          index: parseBranchHandleIndex(edge.targetHandle, JOIN_BRANCH_PREFIX),
-        }))
-        .filter((entry) => entry.index !== null)
-        .sort((left, right) => (left.index ?? 0) - (right.index ?? 0));
-
-      const branchIds = branchEdges.map((entry) => entry.edge.source);
-
-      const outgoingEdge = edges.find(
-        (edge) =>
-          edge.source === node.id && edge.sourceHandle === JOIN_OUTPUT_HANDLE
-      );
-
-      return {
-        id: node.id,
-        name: node.data.label,
-        x: node.position.x,
-        y: node.position.y,
-        branchIds,
-        nextStepId: outgoingEdge?.target,
-      };
-    });
-
-    return {
-      name: "SFC_Program",
-      steps,
-      transitions,
-      parallelSplits: parallelSplits.length > 0 ? parallelSplits : undefined,
-      parallelJoins: parallelJoins.length > 0 ? parallelJoins : undefined,
-      variables: variables || [],
-      metadata: {
-        modified: new Date().toISOString(),
-        version: "1.0",
-      },
-    };
-  }, [nodes, edges, variables]);
+  const currentGraph = useCallback(
+    (): SfcGraph => ({ nodes, edges, variables }),
+    [nodes, edges, variables]
+  );
 
   /**
    * Update variables
    */
-  const updateVariables = useCallback((newVariables: SfcWorkspace["variables"]) => {
+  const updateVariables = useCallback((newVariables: SfcVariable[]) => {
     setVariables(newVariables);
   }, []);
-
-  /**
-   * Highlight active steps during execution
-   */
-  const highlightActiveSteps = useCallback((activeStepIds: string[]) => {
-    setNodes((nds) =>
-      nds.map((node) => withActiveState(node, activeStepIds.includes(node.id)))
-    );
-  }, []);
-
-  /**
-   * Update debug state (breakpoints and current debug step)
-   */
-  const updateDebugState = useCallback(
-    (
-      breakpoints: string[],
-      currentDebugStep: string | null,
-      onToggleBreakpoint: (stepId: string) => void
-    ) => {
-      setNodes((nds) =>
-        nds.map((node) => {
-          if (!isSfcStepNode(node)) {
-            return node;
-          }
-
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              hasBreakpoint: breakpoints.includes(node.id),
-              isCurrentDebugStep: currentDebugStep === node.id,
-              onToggleBreakpoint: () => onToggleBreakpoint(node.id),
-            },
-          };
-        })
-      );
-    },
-    []
-  );
 
   return {
     nodes,
@@ -949,11 +503,9 @@ export function useSfc() {
     deleteAction,
     deleteSelected,
     autoLayout,
-    importFromJson,
-    exportToJson,
+    setGraph,
+    currentGraph,
     updateVariables,
-    highlightActiveSteps,
-    updateDebugState,
     addParallelSplit,
     addParallelJoin,
     setNodes,

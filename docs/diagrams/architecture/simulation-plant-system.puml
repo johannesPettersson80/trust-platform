@@ -7,15 +7,15 @@ skinparam linetype ortho
 title truST Simulation Plant System: Scan And Ownership Boundaries
 
 package "VS Code extension" {
-  component "Plant contract +\nmodel descriptors" as plant_contract
+  component "Plant contract decoder +\ncanvas model names" as plant_contract
   component "Devices & Connections\ngraph shell" as device_graph
   component "Add/configure workflow\nmain-area plant setup" as plant_drawer
   component "Model response / Connections /\nStarting conditions / Optional effects" as plant_sections
   component "PlantModelSchematic\nqualitative themed SVG" as plant_schematic
-  component "Optional teaching example\nphysical wording / exact parameter mapping" as plant_example
-  component "Indexed port bindings\nmodel cardinality / ownership validation" as plant_ports
-  component "Labelled starting-state fields\ncanonical index / finite raw-input guard" as plant_starting
-  component "PlantOptionalSettings\none selected task / configured summaries" as plant_optional
+  component "Optional teaching example\nvalues and units confirmation through plant.edit" as plant_example
+  component "Indexed port bindings\nbound through plant.edit" as plant_ports
+  component "Labelled starting-state fields\ntyped values into the draft" as plant_starting
+  component "PlantOptionalSettings\none selected task / Rust summaries" as plant_optional
   component "Project plant repository\natomic save/remove + revision" as plant_repo
   component "Runtime plant client\nstatus + trace" as plant_client
   component "Stopped-project session\nJSON-lines correlation" as offline_client
@@ -25,13 +25,14 @@ package "VS Code extension" {
 component "Live control transport" as live_transport
 plant_sections --> plant_ports : named command / feedback rows
 plant_sections --> plant_schematic : selected model identity + purpose
-plant_ports --> plant_contract : same canonical draft\npreserve channel order and conversions
+plant_ports --> plant_drawer : bind_port; Rust checks the address\nand keeps channel order and conversions
 plant_sections --> plant_starting : model-specific starting conditions
-plant_starting --> plant_contract : same initial-state vector\nno unit or dynamics conversion
+plant_starting --> plant_drawer : same initial-state vector\nno unit or dynamics conversion
 plant_sections --> plant_optional : actuator / conversions / realism / scenarios
-plant_optional --> plant_contract : read canonical draft summaries\nno secondary settings state
+plant_optional --> plant_drawer : summaries from the plant.edit view\nno secondary settings state
 component "trust-runtime plant serve\nstopped-project producer" as offline_transport
 component "Shared plant handler\nPlantHandlerContext" as plant_operations
+component "Plant editor rules\nplant.edit / plant.signals:\nchecks, defaults, edits, view, candidate" as plant_editor_rules
 component "PlantControlService\nrevision + idempotency" as plant_service
 component "Scheduler command boundary\nstatus / trace / scoped clear" as scheduler_boundary
 component "config.set\nsimulation.time_scale\nrefused without simulation" as config_speed
@@ -41,7 +42,7 @@ component "RuntimeMetrics\nper-resource achieved speed" as metrics_speed
 component "PLC program\nControl.PID" as plc
 component "Process image\n%Q command / %I feedback" as io
 component "Program storage\nunaddressed command / read-only feedback variables" as program_storage
-component "Controller measurement\npid:<instance> feedback, given to that\nControl.PID's Update as Input.ProcessValue" as controller_measurement
+component "Control.PID simulation members\nHeldMeasurement + MeasurementHeld, written\nbefore the scan; Update uses the held value" as controller_measurement
 component "SimulationController\npre/post-cycle orchestration" as simulation
 note right of simulation
 Model-structure teaching project: the existing continuous state-space
@@ -81,17 +82,19 @@ end note
 
 safety --> simulation : permits nonphysical drivers only
 plant_contract --> device_graph : typed topology state
-plant_contract --> plant_drawer : descriptors + validation\nresolve omitted starting state; preserve omission on save
+plant_contract --> plant_drawer : decoded plant.edit answer\n(draft, issues, view, candidate)
 plant_drawer --> plant_sections : one draft and validation state
 plant_sections --> plant_example : explicit example choice and replacement review
-plant_example --> plant_contract : same canonical draft; no browser physics
-plant_drawer --> plant_repo : validate / atomic save or remove
+plant_example --> plant_drawer : same canonical draft; no browser physics
+plant_drawer --> plant_repo : plant.edit per draft change or rule-bearing edit\nvalidate / atomic save or remove
 device_graph --> plant_client : current status request
 plant_client --> live_transport : bounded typed request
-plant_repo --> offline_client : stopped-project read / validate / save / remove
+plant_repo --> offline_client : stopped-project read / edit / signals /\nvalidate / save / remove
 offline_client --> offline_transport : correlated JSON lines
 live_transport --> plant_operations : runtime context
 offline_transport --> plant_operations : project context
+plant_operations --> plant_editor_rules : plant.edit / plant.signals\n(no file write, no runtime state)
+plant_editor_rules --> plant_operations : candidate judged by the runtime's\nplant-configuration validation
 plant_operations --> plant_service : serialize project mutation
 plant_operations --> scheduler_boundary : immutable query / explicit clear
 plant_service --> plant_operations : replay or apply once
@@ -125,8 +128,8 @@ plant --> numeric : queue complete feedback
 numeric --> simulation : checked encoded batch
 simulation --> io : next pre-cycle atomic publication
 simulation --> program_storage : then symbolic feedback, all values checked first
-simulation --> controller_measurement : held for the scan; cleared with the plant
-controller_measurement --> plc : the PID's Update receives it; program variables unchanged
+simulation --> controller_measurement : pid:<instance> feedback, written with the program\n(cleared at a new program generation)
+controller_measurement --> plc : the PID's Update takes it as ProcessValue; Input unchanged
 io --> plc : next scan reads feedback
 plant --> observability : completed state and fault context
 observability --> plant_operations : honest status + bounded trace

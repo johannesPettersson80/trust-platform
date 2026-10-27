@@ -6,10 +6,8 @@ name = "Res"
 cycle_interval_ms = 100
 
 [runtime.control]
-endpoint = "tcp://127.0.0.1:0"
 mode = "debug"
 debug_enabled = true
-auth_token = "trust-example-token"
 
 [runtime.log]
 level = "info"

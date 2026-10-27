@@ -1,5 +1,5 @@
 use super::*;
-use crate::config::RuntimeConfig;
+use crate::control::endpoint::{resolve_control_target, ControlTarget};
 
 pub(super) enum ControlStream {
     Tcp(std::net::TcpStream),
@@ -41,10 +41,7 @@ pub(super) struct ControlClient {
 }
 
 impl ControlClient {
-    pub(super) fn connect(
-        endpoint: ControlEndpoint,
-        token: Option<String>,
-    ) -> anyhow::Result<Self> {
+    pub(super) fn connect(endpoint: ControlEndpoint, token: Option<String>) -> io::Result<Self> {
         let stream = match &endpoint {
             ControlEndpoint::Tcp(addr) => ControlStream::Tcp(std::net::TcpStream::connect(addr)?),
             #[cfg(unix)]
@@ -78,42 +75,67 @@ impl ControlClient {
     }
 }
 
-/// Resolves the endpoint, the token and the project root for the console (spec 11 section
-/// 6.8.1). `token` is the explicit `--token` or `TRUST_CTL_TOKEN`, merged by the caller.
-///
-/// With `--endpoint`, the project named by `--project` still supplies the token when none is
-/// known. It is read only for that purpose, and no project is detected from the working
-/// directory, as `trust-runtime ctl` does not detect one.
-pub(super) fn resolve_endpoint(
-    bundle: Option<PathBuf>,
-    endpoint: Option<String>,
+/// What the console connects to: the project folder, an explicit endpoint and the caller's token
+/// (spec 11, sections 6.8.0a and 6.8.1). The target is resolved again for every connection
+/// attempt, so the console follows a runtime that restarted on another port or with another token.
+pub(super) struct ConsoleTarget {
+    project: Option<PathBuf>,
+    explicit: Option<ControlEndpoint>,
     token: Option<String>,
-) -> anyhow::Result<(ControlEndpoint, Option<String>, Option<PathBuf>)> {
-    let mut auth = token;
-    if let Some(endpoint) = endpoint {
-        if auth.is_none()
-            && let Some(project) = bundle.as_ref()
-        {
-            auth = RuntimeConfig::load(project.join("runtime.toml"))?
-                .control_auth_token
-                .map(|value| value.to_string());
-        }
-        return Ok((ControlEndpoint::parse(&endpoint)?, auth, bundle));
+}
+
+impl ConsoleTarget {
+    /// `token` is the explicit `--token` or `TRUST_CTL_TOKEN`, merged by the caller. Without an
+    /// endpoint, the console finds its project from `--project` or the working directory. With an
+    /// endpoint, the project is the one named by `--project`, if any. It is read only for the
+    /// endpoint file and for a token that the caller did not give.
+    pub(super) fn new(
+        bundle: Option<PathBuf>,
+        endpoint: Option<String>,
+        token: Option<String>,
+    ) -> anyhow::Result<Self> {
+        let explicit = endpoint
+            .as_deref()
+            .map(ControlEndpoint::parse)
+            .transpose()?;
+        let project = match (bundle, explicit.is_some()) {
+            (Some(project), _) => Some(project),
+            (None, true) => None,
+            (None, false) => Some(detect_bundle_path(None).map_err(anyhow::Error::from)?),
+        };
+        Ok(Self {
+            project,
+            explicit,
+            token,
+        })
     }
-    let bundle_path = detect_bundle_path(bundle).map_err(anyhow::Error::from)?;
-    let bundle = RuntimeBundle::load(bundle_path.clone())?;
-    if auth.is_none() {
-        auth = bundle
-            .runtime
-            .control_auth_token
-            .as_ref()
-            .map(|value| value.to_string());
+
+    /// The project folder, when the console has one.
+    pub(super) fn project(&self) -> Option<&Path> {
+        self.project.as_deref()
     }
-    Ok((
-        ControlEndpoint::parse(bundle.runtime.control_endpoint.as_str())?,
-        auth,
-        Some(bundle_path),
-    ))
+
+    /// Resolves the endpoint and the token now, from the current endpoint file.
+    pub(super) fn resolve(&self) -> anyhow::Result<ControlTarget> {
+        Ok(resolve_control_target(
+            self.project.as_deref(),
+            self.explicit.clone(),
+            self.token.as_deref(),
+        )?)
+    }
+
+    /// Resolves the target again and connects to it. A runtime that is not running is reported
+    /// as such (spec 11, section 6.8.0a).
+    pub(super) fn connect(&self) -> anyhow::Result<ControlClient> {
+        connect_console(&self.resolve()?)
+    }
+}
+
+/// Connects the console to a resolved target. Nothing listening at the endpoint file's endpoint
+/// or at the platform default means that the runtime is not running (spec 11, section 6.8.0a).
+pub(super) fn connect_console(target: &ControlTarget) -> anyhow::Result<ControlClient> {
+    ControlClient::connect(target.endpoint.clone(), target.auth_token.clone())
+        .map_err(|error| anyhow::anyhow!(target.connect_error(&error)))
 }
 
 pub(super) fn load_console_config(root: &Path) -> ConsoleConfig {

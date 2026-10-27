@@ -185,6 +185,22 @@ Changes of mode and parameters:
 - `GetState().NominalOutput` is the stored output after the anti-windup, not the request before
   limiting.
 
+The observation extension, beside `GetState`: every `Update` ends by setting two internal members,
+`ModeValue : PIDMode` to the mode the call ran in and `ModeObserved : BOOL` to TRUE
+(specification 45, §3.1). Tools read them; Control Studio confirms Manual mode from them before it
+changes a controller's parameters. The members are `NON_RETAIN`: after a restart `ModeObserved` is
+FALSE until the first `Update`, also in an instance declared `RETAIN`, and an online change keeps
+them until the next `Update`. They change nothing the controller calculates.
+
+The simulation extension: a `PID` also has two internal members, `HeldMeasurement : LREAL` and
+`MeasurementHeld : BOOL`, which only a simulated plant writes, through a `pid:` feedback target
+that names the instance (specification 46, §13.2). While a measurement is held, every `Update`
+works with it as `Input.ProcessValue`; the program's own variables keep what the program wrote, and
+`StateValue.ProcessValue` shows the value the controller used. Without such a plant
+`MeasurementHeld` stays FALSE and `Update` computes exactly as described above. The members are
+`NON_RETAIN`: a restart removes a held measurement, also in an instance declared `RETAIN`, and so
+does a newly loaded program, until the plant publishes again.
+
 ### `LowPass`
 
 Each stage moves towards its input by `CycleTime / (TimeConstant + CycleTime / 2)` of the
@@ -604,16 +620,20 @@ END_PROGRAM
 cargo build -p trust-dev
 cargo test -p trust-runtime --test control_pid_library
 cargo test -p trust-runtime --test control_pid_state_observation
+cargo test -p trust-runtime --test control_pid_mode_observation
 cargo test -p trust-runtime --test control_pid_performance
 cargo test -p trust-runtime --test control_pid_mimo_performance
 cargo test -p trust-runtime --test control_pid_commissioning_example
 cargo test -p trust-runtime --test control_guide
+cargo test -p trust-runtime --lib simulation::plant::pid_signal_tests
 ```
 
 `control_pid_library` runs the library's Structured Text conformance tests in
 `crates/trust-runtime/tests/fixtures/control_pid` with `trust-dev`, so build that first or set
 `TRUST_DEV_BIN`: the PID's equations, modes, limits and anti-windup, the filter, and the three
-structures and the conversion. `control_pid_state_observation` checks `GetState`. The two
+structures and the conversion. `control_pid_state_observation` checks `GetState`, and
+`control_pid_mode_observation` checks `ModeValue` and `ModeObserved`. The two
 performance tests run closed loops against simulated plants; their results are simulation evidence,
 not proof on a physical plant. `control_pid_commissioning_example` checks the commissioning project,
-and `control_guide` compiles and runs every example of this guide.
+`control_guide` compiles and runs every example of this guide, and `pid_signal_tests` checks the
+simulation extension against a simulated plant's `pid:` target.

@@ -4,9 +4,9 @@
 //! initializer may set a member the block inherits.
 
 use trust_runtime::harness::TestHarness;
-use trust_runtime::hmi::member_paths::{resolve_member, MemberPath};
 use trust_runtime::retain::FileRetainStore;
 use trust_runtime::value::{Duration, Value};
+use trust_runtime::RestartMode;
 
 const SOURCE: &str = r#"
 FUNCTION_BLOCK Base
@@ -55,9 +55,8 @@ END_PROGRAM
 "#;
 
 fn value(harness: &TestHarness, path: &str) -> Value {
-    let path = MemberPath::parse(path).expect("a path");
-    resolve_member(&path, harness.runtime().storage())
-        .cloned()
+    harness
+        .get_output(path)
         .unwrap_or_else(|| panic!("{path:?} exists"))
 }
 
@@ -81,16 +80,18 @@ fn instance_retain_members_survive_a_power_loss() {
     let path = store_path("power_loss");
     let _ = std::fs::remove_file(&path);
     let mut before = TestHarness::from_source(SOURCE).expect("compile and initialize");
-    before.runtime_mut().set_retain_store(
-        Some(Box::new(FileRetainStore::new(&path))),
-        Some(Duration::from_millis(1)),
-    );
+    before
+        .runtime_mut()
+        .set_retain_store(
+            Some(Box::new(FileRetainStore::new(&path))),
+            Some(Duration::from_millis(1)),
+        )
+        .expect("set the retain store");
     before.set_input("Arm", Value::Bool(true));
     scan(&mut before);
     before.set_input("Arm", Value::Bool(false));
     scan(&mut before);
     scan(&mut before);
-    before.runtime_mut().mark_retain_dirty();
     before
         .runtime_mut()
         .save_retain_store()
@@ -99,13 +100,15 @@ fn instance_retain_members_survive_a_power_loss() {
 
     // A power loss: a new runtime of the same program reads the store at start.
     let mut after = TestHarness::from_source(SOURCE).expect("compile and initialize again");
-    after.runtime_mut().set_retain_store(
-        Some(Box::new(FileRetainStore::new(&path))),
-        Some(Duration::from_millis(1)),
-    );
     after
         .runtime_mut()
-        .load_retain_store()
+        .set_retain_store(
+            Some(Box::new(FileRetainStore::new(&path))),
+            Some(Duration::from_millis(1)),
+        )
+        .expect("set the retain store");
+    after
+        .restart_with_retain(RestartMode::Warm)
         .expect("load the retain store");
     assert_eq!(
         value(&after, "Main.Pump.Limit"),

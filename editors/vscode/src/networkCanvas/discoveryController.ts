@@ -6,21 +6,11 @@ import type {
   DiscoveryRequestToken,
   DiscoveryRequestTracker,
 } from "./discoverySession";
-import {
-  discoveryProtocolName,
-  discoveryRuntimeFailureMessage,
-} from "./discoveryErrors";
+import { requestCanvasAct } from "./canvasCommands";
 import {
   offlineCommDiscover,
-  offlineBrowseSymbols,
-  type BrowseSymbolsResponse,
   type DiscoverCandidate,
 } from "./offlineComm";
-import {
-  adsDiscoveryPorts,
-  probeAdsCandidatePorts,
-  respondingAdsPorts,
-} from "./adsDiscoveryPorts";
 
 interface DiscoveryRequestItem {
   readonly protocol: string;
@@ -44,6 +34,14 @@ export interface DiscoveryControllerContext {
   readonly runtimeTarget?: RuntimeTarget;
   readonly tracker: DiscoveryRequestTracker<vscode.WebviewPanel>;
   readonly token: DiscoveryRequestToken;
+  /**
+   * The ADS ports that every ADS find is probed on (`trust.ads.discoveryPorts`); the search checks
+   * them and answers the ports that respond (specification 11, "Communication discovery scope and
+   * symbol browsing").
+   */
+  readonly adsPorts?: readonly unknown[];
+  /** Receives the search's candidates once it has answered them. */
+  readonly onCandidates?: (candidates: readonly DiscoverCandidate[]) => void;
 }
 
 export function parseDiscoveryEnvelope(
@@ -95,7 +93,7 @@ export async function runNetworkCanvasDiscovery(
   envelope: DiscoveryMessageEnvelope,
   context: DiscoveryControllerContext
 ): Promise<void> {
-  const { panel, extensionContext, runtimeTarget, tracker, token } = context;
+  const { panel, extensionContext, runtimeTarget, tracker, token, adsPorts } = context;
   const { sessionId, requestId, request } = envelope;
   const viaRuntime =
     request.origin !== "this_host" &&
@@ -103,12 +101,8 @@ export async function runNetworkCanvasDiscovery(
     Boolean(runtimeTarget.endpoint);
   const runtimeRequested = request.origin !== "this_host";
   const all: DiscoverCandidate[] = [];
-  let adsIdentityFound = false;
-  const configuredAdsPorts = adsDiscoveryPorts(
-    vscode.workspace
-      .getConfiguration("trust")
-      .get<unknown[]>("ads.discoveryPorts"),
-  );
+  // The source row's text of an ADS search whose TwinCAT systems no port answered (server's).
+  let adsError: string | undefined;
 
   const postIfCurrent = (payload: Record<string, unknown>): boolean => {
     if (!tracker.isCurrent(token, panel) || !panel.visible) {
@@ -130,7 +124,7 @@ export async function runNetworkCanvasDiscovery(
 
   for (const item of request.items) {
     const { protocol, cidr, host } = item;
-    const label = discoverLabel(protocol, host, cidr);
+    const label = await discoveryText("discover_label", { protocol, host, cidr }, "label", protocol);
     if (
       !postIfCurrent({
         type: "discoverProgress",
@@ -151,15 +145,24 @@ export async function runNetworkCanvasDiscovery(
           runtimeTarget.endpoint,
           runtimeTarget.authToken,
           "comm.discover",
-          { protocol, origin: "runtime", scope: { cidr, host } },
+          {
+            protocol,
+            origin: "runtime",
+            scope: {
+              cidr,
+              host,
+              ...(protocol === "ads" && adsPorts ? { ads_ports: adsPorts } : {}),
+            },
+          },
           { timeoutMs: 8000 }
         );
         candidates = response?.candidates ?? [];
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         postIfCurrent({
           type: "discoverResults",
           candidates: all,
-          error: discoveryRuntimeFailureMessage(protocol, error),
+          error: await discoveryText("discover_failure", { protocol, message }, "text", message),
         });
         return;
       }
@@ -168,93 +171,69 @@ export async function runNetworkCanvasDiscovery(
         extensionContext,
         protocol,
         "this-host",
-        { cidr, host }
+        { cidr, host, adsPorts: protocol === "ads" ? adsPorts : undefined }
       );
       candidates = response?.candidates ?? [];
     }
     if (!tracker.isCurrent(token, panel)) {
       return;
     }
-    const stamped = await Promise.all(
-      candidates.map(async (candidate) => {
-        const discovered = {
-          ...candidate,
-          protocol,
-          originRuntimeId: runtimeRequested ? request.origin : undefined,
-        };
-        if (protocol !== "ads") {
-          return discovered;
-        }
-        return probeAdsCandidatePorts(
-          discovered,
-          configuredAdsPorts,
-          async (target) => {
-            if (viaRuntime && runtimeTarget?.endpoint) {
-              try {
-                return await sendRuntimeControlRequest<BrowseSymbolsResponse>(
-                  runtimeTarget.endpoint,
-                  runtimeTarget.authToken,
-                  "comm.browse_symbols",
-                  { protocol: "ads", kind: "symbols", target },
-                  { timeoutMs: 8_000 },
-                );
-              } catch {
-                return undefined;
-              }
-            }
-            return offlineBrowseSymbols(
-              extensionContext,
-              "ads",
-              target,
-              "symbols",
-            );
-          },
-        );
-      }),
-    );
-    const verified = stamped.filter(
-      (candidate) =>
-        candidate.protocol !== "ads" ||
-        respondingAdsPorts(candidate.params).length > 0,
-    );
-    if (protocol === "ads" && stamped.length > 0) {
-      adsIdentityFound = true;
+    let shown: DiscoverCandidate[] = candidates.map((candidate) => ({
+      ...candidate,
+      protocol,
+      originRuntimeId: runtimeRequested ? request.origin : undefined,
+    }));
+    if (protocol === "ads") {
+      // The cards leave out an ADS find that no port answered (specification 25 §2).
+      const reply = await requestCanvasAct("ads_finds", {
+        candidates: shown,
+        ads_ports: adsPorts ?? [],
+      });
+      const answer = (reply.result ?? {}) as { candidates?: DiscoverCandidate[]; error?: string };
+      shown = answer.candidates ?? [];
+      adsError = answer.error ?? reply.notice?.text;
+      if (!tracker.isCurrent(token, panel)) {
+        return;
+      }
     }
-    all.push(...verified);
+    all.push(...shown);
     if (
       !postIfCurrent({
         type: "discoverProgress",
         protocol,
         label,
         status: "done",
-        count: verified.length,
+        count: shown.length,
       })
     ) {
       return;
     }
   }
 
-  const adsVerificationError =
-    adsIdentityFound && !all.some((candidate) => candidate.protocol === "ads")
-      ? `TwinCAT identity was found, but none of the configured ADS ports ` +
-        `(${configuredAdsPorts.join(", ")}) responded.`
-      : undefined;
-  postIfCurrent({
-    type: "discoverResults",
-    candidates: all,
-    error: adsVerificationError,
-  });
+  if (
+    postIfCurrent({
+      type: "discoverResults",
+      candidates: all,
+      error: adsError,
+    })
+  ) {
+    context.onCandidates?.(all);
+  }
 }
 
-function discoverLabel(protocol: string, host?: string, cidr?: string): string {
-  const label = discoveryProtocolName(protocol);
-  if (host) {
-    return `${label} @ ${host}`;
-  }
-  if (cidr) {
-    return `${label} ${cidr}`;
-  }
-  return label;
+/**
+ * A discovery's words, as the server gives them (specification 25 §2): a progress row's label or the
+ * text of a failure at the selected runtime. Without the server's answer, `fallback` shows.
+ */
+async function discoveryText(
+  op: "discover_label" | "discover_failure",
+  args: Record<string, unknown>,
+  key: "label" | "text",
+  fallback: string
+): Promise<string> {
+  const reply = await requestCanvasAct(op, args);
+  const text = isRecord(reply.result) ? reply.result[key] : undefined;
+  return typeof text === "string" ? text : fallback;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

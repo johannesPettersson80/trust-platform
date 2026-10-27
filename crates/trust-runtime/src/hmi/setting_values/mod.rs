@@ -6,12 +6,12 @@
 
 use serde::Serialize;
 use serde_json::{json, Value as Json};
-use trust_hir::types::TypeRegistry;
+use smol_str::SmolStr;
 
 use crate::hmi::commands::plan::matches;
 use crate::hmi::commands::write::WriteAction;
 use crate::hmi::page_files::{HmiChoice, HmiScalar, HmiSetting};
-use crate::hmi::write_value::{json_of, value_for_target_in};
+use crate::hmi::write_value::{json_of, value_for_target_with};
 use crate::value::Value;
 
 #[cfg(test)]
@@ -158,49 +158,67 @@ pub fn shown_value(setting: &HmiSetting, value: &Value) -> Json {
 }
 
 /// What an Engineer asks to write to a setting, checked against its description and its
-/// variable's type (`current` gives the type): one of its choices' values when it has choices,
-/// else a value of its kind within its limits, a duration in its unit. The answer is the write in
-/// the form the variable takes; a refusal names the setting by its title.
+/// variable's type (`current` gives the type, and `values_of` an enumeration's values by its name,
+/// as the running program's type table declares them): one of its choices' values when it has
+/// choices, else a value of its kind within its limits, a duration in its unit. The answer is the
+/// write in the form the variable takes; a refusal names the setting by its title.
+///
+/// `requested` is the entry as the Settings dialog's field holds it (specification 39, §21.4
+/// item 4): a number may come as text, a flag as `true` or `false`, a choice as its value's text.
+///
+/// # Errors
+///
+/// The refusal, which begins with the setting's title.
 pub fn requested_write(
-    registry: &TypeRegistry,
     setting: &HmiSetting,
+    unit: Option<&str>,
     current: &Value,
     requested: &Json,
+    values_of: impl FnOnce(&str) -> Option<Vec<(SmolStr, i64)>>,
 ) -> Result<WriteAction, String> {
     let title = &setting.title;
     let chosen = if setting.choices.is_empty() {
-        free_value(setting, current, requested)
+        free_value(setting, unit, current, requested)
     } else {
         setting
             .choices
             .iter()
-            .find(|choice| matches(requested, &scalar_json(&choice.value)))
+            .find(|choice| chooses(requested, &choice.value))
             .ok_or_else(|| "choose one of its values".to_string())
             .and_then(|choice| native(&choice.value, current))
     };
     let written = chosen.map_err(|reason| format!("{title}: {reason}"))?;
-    value_for_target_in(registry, current, &written)
+    value_for_target_with(current, &written, values_of)
         .map_err(|reason| format!("{title}: {reason}"))?;
     Ok(WriteAction::Set(written))
 }
 
 /// A value without choices: of the setting's kind, a finite number within its limits in its unit
-/// for a number or a duration; a duration becomes seconds.
-fn free_value(setting: &HmiSetting, current: &Value, requested: &Json) -> Result<Json, String> {
+/// for a number or a duration, whole for an integer; a duration becomes seconds. A refusal states a
+/// limit in `unit`, the unit the dialog shows (a `$Member` unit resolved).
+fn free_value(
+    setting: &HmiSetting,
+    unit: Option<&str>,
+    current: &Value,
+    requested: &Json,
+) -> Result<Json, String> {
     let kind = SettingKind::of(current);
-    if !matches!(
-        kind,
-        SettingKind::Integer | SettingKind::Real | SettingKind::Time
-    ) {
-        return Ok(requested.clone());
+    match kind {
+        SettingKind::Integer | SettingKind::Real | SettingKind::Time => {}
+        SettingKind::Bool => return Ok(entered_flag(requested)),
+        SettingKind::Text | SettingKind::Other => return Ok(requested.clone()),
     }
-    let number = requested
-        .as_f64()
-        .filter(|number| number.is_finite())
-        .ok_or_else(|| format!("enter a number, not {requested}"))?;
+    let (entered, number) =
+        entered_number(requested).ok_or_else(|| format!("enter a number, not {requested}"))?;
+    if kind == SettingKind::Integer && number.fract() != 0.0 {
+        return Err(format!("enter a whole number, not {number}"));
+    }
     let unit = match kind {
         SettingKind::Time => Some(time_unit(setting).0.to_string()),
-        _ => setting.unit.clone().filter(|unit| !unit.starts_with('$')),
+        _ => unit
+            .map(str::trim)
+            .filter(|unit| !unit.is_empty() && !unit.starts_with('$'))
+            .map(str::to_owned),
     };
     let limit = |value: f64| match &unit {
         Some(unit) => format!("{value} {unit}"),
@@ -214,8 +232,56 @@ fn free_value(setting: &HmiSetting, current: &Value, requested: &Json) -> Result
     }
     Ok(match kind {
         SettingKind::Time => json!(number * time_unit(setting).1 / 1.0e9),
-        _ => requested.clone(),
+        _ => entered,
     })
+}
+
+/// A number as a field holds it, as JSON and as its value: a finite JSON number, or a text,
+/// trimmed, with `,` read as the decimal separator (`"1,5"` is 1.5); a whole number in text keeps
+/// all its digits. `None` when it is no finite number.
+pub(crate) fn entered_number(requested: &Json) -> Option<(Json, f64)> {
+    let entered = match requested {
+        Json::Number(_) => requested.clone(),
+        Json::String(text) => {
+            let text = text.trim().replace(',', ".");
+            if let Ok(whole) = text.parse::<i64>() {
+                Json::from(whole)
+            } else if let Ok(whole) = text.parse::<u64>() {
+                Json::from(whole)
+            } else {
+                Json::Number(serde_json::Number::from_f64(text.parse::<f64>().ok()?)?)
+            }
+        }
+        _ => return None,
+    };
+    let value = entered.as_f64().filter(|value| value.is_finite())?;
+    Some((entered, value))
+}
+
+/// A flag as a field holds it: a JSON boolean, or the text `true` or `false` in any case.
+/// Anything else stays as it is, for the variable's type to refuse.
+fn entered_flag(requested: &Json) -> Json {
+    match requested.as_str().map(str::trim) {
+        Some(text) if text.eq_ignore_ascii_case("true") => Json::Bool(true),
+        Some(text) if text.eq_ignore_ascii_case("false") => Json::Bool(false),
+        _ => requested.clone(),
+    }
+}
+
+/// Whether an entry names a choice: its value, or the text of its value as a list of choices
+/// sends it (`"2"` or `"2,0"` for the number 2, `"true"` for TRUE, `"T#1h"` for that text).
+fn chooses(requested: &Json, choice: &HmiScalar) -> bool {
+    let value = scalar_json(choice);
+    if matches(requested, &value) {
+        return true;
+    }
+    match (choice, requested) {
+        (HmiScalar::Number(_), Json::String(_)) => {
+            entered_number(requested).is_some_and(|(number, _)| matches(&number, &value))
+        }
+        (HmiScalar::Bool(_), Json::String(_)) => entered_flag(requested) == value,
+        _ => false,
+    }
 }
 
 /// Whether a choice holds a variable's value: the same boolean, number, duration (a choice's text

@@ -8,8 +8,8 @@ release note.
 
 ![Top-level `trust-runtime --help`](../../assets/images/terminal/runtime-help.gif)
 
-*Figure:* The top-level `trust-runtime` command families exactly as the shipped
-binary reports them.
+*Figure:* The top-level `trust-runtime` command families as the binary reported
+them before `new` was added; the table below lists `new`.
 
 ## Top-level Command Families
 
@@ -18,9 +18,11 @@ binary reports them.
 | `run` / `play` | start a runtime instance |
 | `ui` | interactive terminal UI |
 | `ctl` | send control requests to a running runtime |
-| `check` | validate sources/config without writing `program.stbc` |
-| `build` | generate `program.stbc` |
-| `validate` | validate project config + bundle |
+| `new` | create a project folder with the files a new project starts from |
+| `identify` | make a runtime show where it is by blinking its identify output |
+| `check` | validate sources/config without writing a program image |
+| `build` | compile the project into the program image `program.tpi` |
+| `validate` | validate project config + program image |
 | `hmi check` | check the project's HMI files against its program, for CI |
 | `hmi test` | compare every HMI page's look with its approved screenshot, for CI |
 | `hmi-password` | print the stored hash of an HMI user's password |
@@ -38,6 +40,8 @@ binary reports them.
 | `deploy` / `rollback` | versioned deployment and rollback |
 | `bench` | communication/runtime benchmark surfaces |
 | `conformance` | deterministic conformance suite runner |
+| `toolchain` | the compiler toolchain that builds programs: `status`, `install`, `bundle` |
+| `firmware` | install truST's firmware on a chip through the chip's own boot loader: `install` |
 
 ## Entry-point and Error Contract
 
@@ -57,6 +61,44 @@ build, test, timeout, and internal failures.
 
 ## Common Commands
 
+### New
+
+```text
+Usage: trust-runtime new --parent <FOLDER> --name <NAME> [--force] [--json]
+```
+
+`new` creates the project folder `<FOLDER>/<NAME>` with the files that a new
+truST project starts from: `src/Main.st`, `src/config.st`, `trust-lsp.toml`,
+`runtime.toml`, `io.toml`, `.vscode/launch.json`, `.vscode/settings.json` and
+`.gitignore`. The `runtime.toml` names no control endpoint, so the runtime uses
+the platform default, and `.gitignore` lists `/.trust-runtime/`, the folder that
+holds the endpoint file.
+
+The name is trimmed and must be one plain folder name on every platform. It must
+not be empty or `.` or `..`, and must not contain `/`, `\`, a drive prefix or
+another character that Windows refuses (`: * ? " < > |` and control characters).
+It must not end with a dot, and must not be a device name that Windows reserves
+(`CON`, `PRN`, `AUX`, `NUL`, `COM1` to `COM9`, `LPT1` to `LPT9`, with or without an
+extension). An existing folder that is not empty is refused unless `--force` is
+given. With `--force`, the scaffold files are overwritten and every other file in
+the folder is kept. An existing `.gitignore` is always kept; it only gains the
+`/.trust-runtime/` line when no line ignores that folder yet.
+
+With `--json`, success prints
+`{"project":"<absolute folder>","focus":"<absolute folder>/src/Main.st"}`. A
+refused or failed request prints `{"error":{"code":"<code>","message":"<text>"}}`
+and exits 1. The codes are:
+
+| Code | Meaning |
+| --- | --- |
+| `name` | the name is not one plain folder name on every platform (see above) |
+| `exists` | the folder exists, is not empty, and `--force` is not given |
+| `not-directory` | the folder, or its parent, exists and is not a folder |
+| `io` | a folder or file could not be read or written |
+
+Without `--json`, success prints `Created project <absolute folder>`. A failure
+prints the message with the `Error:` prefix and exits 1.
+
 ### Check
 
 ```text
@@ -65,14 +107,20 @@ Usage: trust-runtime check [OPTIONS]
 
 `check` validates required `runtime.toml` and `io.toml`, optional `ads.toml`
 and `opcua_client.toml`, the source/dependency layout, and compilation without
-writing `program.stbc`. It aggregates independent configuration and compile
-issues in one response instead of stopping at the first failure.
+writing a program image. It runs the build's checks and code generation for
+this computer's CPU and needs no compiler toolchain. It aggregates independent
+configuration and compile issues in one response instead of stopping at the
+first failure.
 
 `--json` and `--ci` emit response version 1 with `ok`, `status`, issue counts,
-stable issue codes, source/dependency lists, and the in-memory bytecode size
-when compilation succeeded. Configuration or source-layout errors exit 10;
-compile errors exit 11. A successful check exits 0 and never writes the
-compiled bytecode artifact.
+stable issue codes, and source/dependency lists. Configuration or source-layout
+errors exit 10; compile errors exit 11. A successful check exits 0 and never
+writes a program image.
+
+When `runtime.toml` sets `[runtime.identify] output`, `check` also makes the
+load check of `run` on the program the sources compile to: a program that uses
+the identify output is the issue `config.identify` (exit 10), with the same text
+`run` prints.
 
 ### Build
 
@@ -85,12 +133,22 @@ Primary options:
 - `--project`
 - `--sources`
 - `--ci`
+- `--target`
+- `--emit-source`
 
 The default source root is `<project>/src`; relative `--sources` values are
-resolved from the project. A successful build writes `program.stbc`. A failed
-source, dependency, or compile step preserves any existing artifact. `--ci`
-emits response version 1 with the output path and complete source/dependency
-identity; build failures exit 11.
+resolved from the project. A successful build writes the program image
+`program.tpi` and its deployment record `deployment-record.bin` into the
+project, and its report to `build/build.json`. `--target` builds for a device
+(`esp32c6`, `stm32u5a9`), a CPU (`x86_64`, `aarch64`, `riscv32imac`,
+`thumbv8m`) or a Rust target triple instead, and writes
+`build/program.<triple>.tpi` and `build/deployment-record.<triple>.bin`;
+`--emit-source` keeps the generated Rust crate in the build folder. The first
+build that needs the compiler toolchain installs it. A failed source,
+dependency, or compile step preserves any existing artifact. `--ci` prints the
+build report: response version 1 with the target, whether the image is a debug
+image, the image and record paths, the image's size, the signing key, and the
+memory figure; build failures exit 11.
 
 ### Validate
 
@@ -102,6 +160,12 @@ Primary options:
 
 - `--project`
 - `--ci`
+
+`validate` makes the same checks as `run` makes when it loads the project, so a
+project it accepts is a project `run` accepts. That includes the identify load
+check: with `[runtime.identify] output` set, a program that uses the output, an
+`io.toml` that maps the GPIO line, or an output beyond the output image is
+refused with the error `run` prints.
 
 ### HMI check
 
@@ -356,6 +420,7 @@ Usage: trust-runtime ctl [OPTIONS] <COMMAND>
 
 Important control subcommands:
 
+- `endpoint [--json]`
 - `status`
 - `health`
 - `stats`
@@ -366,14 +431,94 @@ Important control subcommands:
 - `io-force`
 - `io-unforce`
 - `restart`
-- `shutdown`
+- `install <container> [--restart cold|warm]` (any `--endpoint`, also `serial:///dev/ttyACM0`)
+- `firmware <image> [--wait <seconds>]` (a chip's truST firmware, while its program is stopped)
+- `device-get`, `device-set <device.toml>`, `device-reset` (a chip's own settings: name, network,
+  control token, time server, trusted keys; they apply at the chip's next boot)
+- `shutdown [--exit]`
 - `config-get`
 - `config-set`
+
+`shutdown` stops the program and leaves the runtime running in the Stopped state, with its
+control server, web UI and other services; `restart cold` or `restart warm` starts the
+program again. `shutdown --exit` also ends the runtime's process. Both need the Admin role. A
+chip answers `--exit` as a plain `shutdown`, because its firmware never ends. The process also
+ends on SIGINT or SIGTERM, and `trust-runtime fleet runtime stop` sends the exit.
+
+`firmware` updates a chip's truST firmware: the image goes into the firmware slot that does not
+run, the chip restarts into it and runs it on trial until its boot is done, and the command waits
+until the chip runs it. A firmware that does not finish its boot is rolled back by the chip's boot
+loader, and the command says so. The first install on a chip that does not run truST yet goes
+through the chip's own boot loader:
+
+```text
+trust-runtime firmware install --chip esp32c6 ./trust-firmware-esp32c6
+trust-runtime ctl --endpoint serial:///dev/ttyACM0 shutdown
+trust-runtime ctl --endpoint serial:///dev/ttyACM0 firmware ./trust-firmware-esp32c6/firmware.bin
+```
+
+A chip whose `device.toml` names a Wi-Fi network and sets a control token serves its control
+connection on that network, by default on TCP port 9901, and `ctl` reaches it there with the token,
+which the chip then also asks for on its USB port. `capabilities` reports the chip's address:
+
+```text
+# device.toml
+[network.wifi]
+ssid = "plant-net"
+password = "the network's passphrase"
+
+[control]
+token = "a token of 16 to 128 characters"
+```
+
+```text
+trust-runtime ctl --endpoint serial:///dev/ttyACM0 device-set device.toml
+trust-runtime ctl --endpoint serial:///dev/ttyACM0 device-reset
+trust-runtime ctl --endpoint tcp://192.168.1.50:9901 --token <token> status
+```
+
+`ctl --project <dir> endpoint` prints the endpoint that a client of the project
+uses, and sends nothing to the runtime. With `--json` it prints
+`{"endpoint","auth_token","source","endpoint_file_skipped"}`, where `source` is
+`endpoint_file`, `configured` or `default`. Every failure prints
+`{"error":{"code":"<code>","message":"<text>"}}` and exits 1. The codes are
+`no_project`, `invalid_argument`, `invalid_config`, `endpoint_file_invalid`,
+`endpoint_file_unreadable`, `not_running` and `default_unavailable`; see
+[runtime.toml](../config/runtime-toml.md#default-control-endpoint-and-the-endpoint-file).
 
 ![`trust-runtime ctl --help`](../../assets/images/terminal/ctl-help.gif)
 
 *Figure:* The `ctl` command family and its subcommands for the scriptable
-control API.
+control API. The capture predates `ctl endpoint`.
+
+### Identify
+
+```text
+Usage: trust-runtime identify [OPTIONS] --duration-s <DURATION_S>
+```
+
+`identify` makes a runtime show where it is: for the time asked it blinks the
+output that the runtime's `runtime.toml` names in `[runtime.identify] output`
+(an I/O address such as `%QX0.7`, or a GPIO line such as `gpio:17`) at 2 Hz. It
+works in every state of the resource: running, paused, stopped or faulted. It
+needs the Operator role.
+
+Primary options:
+
+- `--duration-s` (required): how long the runtime blinks, a whole number of
+  seconds from 1 through 60.
+- `--endpoint`: the control endpoint of the runtime, `tcp://host:port` or
+  `unix:///path`.
+- `--token`: the control token. Without it, `TRUST_CTL_TOKEN` is used.
+- `--project`: a project folder whose `runtime.toml` gives the endpoint and the
+  token that `--endpoint` and `--token` do not.
+
+The command prints the runtime's result as one JSON line,
+`{"identifying":true,"duration_s":10}`. A refused request is a command failure
+that prints the runtime's error text and its error code: for example
+`identify_not_configured` for a runtime without `[runtime.identify] output`
+(a chip answers it too until its firmware drives an output), or
+`identify_output_unavailable` when the output cannot be made ready.
 
 ## Common Flows
 

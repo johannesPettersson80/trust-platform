@@ -1,7 +1,7 @@
-import { componentTitle, paletteComponents } from "../equipment";
 // The Components panel (§3.2): search, groups and a picture of each component, drawn by the
 // shared drawing module. Click a component to place it at the centre of the view, or drag it onto
-// the canvas.
+// the canvas. Its entries are the language server's (§21.3 item 1; in a P&ID what it may hold,
+// §18 phase 4 item 1).
 
 import { useMemo, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
@@ -10,12 +10,13 @@ import { drawPage } from "../../drawing";
 import { drawable } from "../../drawing/components";
 import type { HmiObjectModel } from "../../drawing/model";
 import { renderToString } from "../../drawing/svg";
-import type { Catalogue, ComponentDefinition } from "../catalogue";
+import type { ComponentDefinition } from "../catalogue";
 import type { FaceplateEntry } from "../messages";
 import { componentName, GROUPS, inGroup } from "./names";
 
 interface ComponentsPanelProps {
-    catalogue: Catalogue | undefined;
+    /** The panel's entries as the language server gives them; none while it has not. */
+    palette: ComponentDefinition[] | undefined;
     theme: "light" | "dark";
     onAdd: (component: ComponentDefinition) => void;
     onDragStart: (component: ComponentDefinition, event: ReactMouseEvent) => void;
@@ -27,7 +28,7 @@ interface ComponentsPanelProps {
 
 /** Components whose picture shows words of their own rather than a sample value. */
 const displayName = (component: ComponentDefinition): string =>
-    componentTitle(component) ?? componentName(component.type);
+    component.equipment?.title ?? componentName(component.type);
 const componentKey = (component: ComponentDefinition): string => component.equipment?.block ?? component.type;
 
 const WORDED = ["text", "button", "pulse-button", "page-button"];
@@ -50,7 +51,7 @@ function preview(component: ComponentDefinition): string {
 }
 
 export function ComponentsPanel({
-    catalogue,
+    palette,
     theme,
     onAdd,
     onDragStart,
@@ -60,17 +61,11 @@ export function ComponentsPanel({
 }: ComponentsPanelProps) {
     const [search, setSearch] = useState("");
     const previews = useMemo(
-        () =>
-            new Map(
-                (catalogue ? paletteComponents(catalogue) : []).map((component) => [
-                    componentKey(component),
-                    preview(component),
-                ]),
-            ),
-        [catalogue],
+        () => new Map((palette ?? []).map((component) => [componentKey(component), preview(component)])),
+        [palette],
     );
     const wanted = search.trim().toLowerCase();
-    const shown = (catalogue ? paletteComponents(catalogue) : []).filter(
+    const shown = (palette ?? []).filter(
         (component) => drawable(component.type) && (!wanted || displayName(component).toLowerCase().includes(wanted)),
     );
     const shownFaceplates = faceplates.filter(
@@ -91,7 +86,7 @@ export function ComponentsPanel({
                     if (event.key === "Escape") event.currentTarget.blur();
                 }}
             />
-            {catalogue ? null : <p className="hb-hint">Waiting for the truST language server…</p>}
+            {palette ? null : <p className="hb-hint">Waiting for the truST language server…</p>}
             {GROUPS.map((group) => {
                 const members = shown.filter((component) => inGroup(component, group));
                 if (members.length === 0) return null;

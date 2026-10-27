@@ -1,36 +1,50 @@
 // Keeps a page and its P&ID one (specification 39, §18 phase 4 item 2): after each change of one,
-// the other gets the shared process objects and pipes. An open file is edited as a document and
-// left unsaved, as edits are; a closed one is written.
+// the language server (`trust-lsp.hmiPidSync`) names the files that share its process objects and
+// gives each one's new text; this module only reads and writes them. An open file is edited as a
+// document and left unsaved, as edits are; a closed one is written.
 
 import * as path from "path";
 import * as vscode from "vscode";
 
 import type { HmiPageModel } from "../drawing/model";
-import type { PageFiles } from "./pageDocument";
-import { linkedUpdate } from "./pidLink";
+import { RUST_RULES } from "./messages";
 
-/** Whether a file is a P&ID, `hmi/pid/<name>.toml`. */
-export function isPidFile(uri: vscode.Uri): boolean {
-  return (
-    path.basename(path.dirname(uri.fsPath)) === "pid" && path.basename(path.dirname(path.dirname(uri.fsPath))) === "hmi"
-  );
+/** What `linked` answers: whether the file is a P&ID, and the files `sync` needs. */
+interface Linked {
+  ok?: boolean;
+  pid?: boolean;
+  files?: string[];
+  pattern?: string;
 }
 
-/** The files that share process objects with this one: a page's P&ID, or the pages naming a P&ID. */
-async function linkedFiles(
-  project: vscode.Uri,
-  uri: vscode.Uri,
-  model: HmiPageModel,
-  files: PageFiles,
-): Promise<vscode.Uri[]> {
-  if (!isPidFile(uri)) return model.pid ? [vscode.Uri.joinPath(project, "hmi", "pid", `${model.pid}.toml`)] : [];
-  const name = path.basename(uri.fsPath, ".toml");
-  const found: vscode.Uri[] = [];
-  for (const page of await vscode.workspace.findFiles(new vscode.RelativePattern(project, "hmi/pages/*.toml"))) {
-    const read = await files.read(await textOf(page), `hmi/pages/${path.basename(page.fsPath)}`);
-    if (read.ok && read.model.pid === name) found.push(page);
+/** What `sync` answers: the new text of each linked file that changes. */
+interface Synced {
+  ok?: boolean;
+  writes?: Array<{ file: string; text: string }>;
+}
+
+/** A file's path in its project, with `/` between the parts, as the language server names files. */
+export function projectPath(project: vscode.Uri, uri: vscode.Uri): string {
+  return path.relative(project.fsPath, uri.fsPath).split(path.sep).join("/");
+}
+
+/** The file a project path names. */
+function projectFile(project: vscode.Uri, file: string): vscode.Uri {
+  return vscode.Uri.joinPath(project, ...file.split("/"));
+}
+
+async function ask<T>(argument: object): Promise<T | undefined> {
+  try {
+    return await vscode.commands.executeCommand<T>(RUST_RULES.pidSync, argument);
+  } catch {
+    return undefined;
   }
-  return found;
+}
+
+/** Whether a file is a P&ID, which the editor shows in the P&ID view (§18 phase 4 item 1). */
+export async function isPid(project: vscode.Uri, uri: vscode.Uri): Promise<boolean> {
+  const answer = await ask<Linked>({ action: "linked", file: projectPath(project, uri) });
+  return answer?.ok === true && answer.pid === true;
 }
 
 /** Brings the files linked to this one in line with its model; both views have the screen's size. */
@@ -39,30 +53,33 @@ export async function syncLinked(
   uri: vscode.Uri,
   model: HmiPageModel,
   size: [number, number],
-  files: PageFiles,
 ): Promise<void> {
-  for (const linked of await linkedFiles(project, uri, model, files)) {
-    if (linked.toString() === uri.toString()) continue;
-    let text: string;
+  const file = projectPath(project, uri);
+  const linked = await ask<Linked>({ action: "linked", file, model });
+  if (linked?.ok !== true) return;
+  const candidates = [
+    ...(linked.files ?? []).map((name) => projectFile(project, name)),
+    ...(linked.pattern ? await vscode.workspace.findFiles(new vscode.RelativePattern(project, linked.pattern)) : []),
+  ];
+  if (candidates.length === 0) return;
+  const texts: Array<{ file: string; text: string }> = [];
+  for (const candidate of candidates) {
     try {
-      text = await textOf(linked);
+      texts.push({ file: projectPath(project, candidate), text: await textOf(candidate) });
     } catch {
-      continue;
+      // A file that cannot be read keeps its text.
     }
-    const name = `hmi/${path.basename(path.dirname(linked.fsPath))}/${path.basename(linked.fsPath)}`;
-    const read = await files.read(text, name);
-    if (!read.ok) continue;
-    const next = linkedUpdate(model, size, read.model, size);
-    if (!next) continue;
-    const written = await files.write(next);
-    if (!written.ok) continue;
-    const open = vscode.workspace.textDocuments.find((document) => document.uri.toString() === linked.toString());
+  }
+  const synced = await ask<Synced>({ action: "sync", file, model, size, linked: texts });
+  for (const write of synced?.ok === true ? (synced.writes ?? []) : []) {
+    const target = projectFile(project, write.file);
+    const open = vscode.workspace.textDocuments.find((document) => document.uri.toString() === target.toString());
     if (open) {
       const edit = new vscode.WorkspaceEdit();
-      edit.replace(linked, new vscode.Range(0, 0, open.lineCount, 0), written.text);
+      edit.replace(target, new vscode.Range(0, 0, open.lineCount, 0), write.text);
       await vscode.workspace.applyEdit(edit);
     } else {
-      await vscode.workspace.fs.writeFile(linked, Buffer.from(written.text, "utf8"));
+      await vscode.workspace.fs.writeFile(target, Buffer.from(write.text, "utf8"));
     }
   }
 }

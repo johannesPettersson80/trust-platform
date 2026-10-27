@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use serde::Serialize;
@@ -7,6 +8,7 @@ use super::contract::COMM_SCHEMA_VERSION;
 use super::{ControlResponse, ControlState};
 
 mod fields;
+mod picker;
 
 #[cfg(test)]
 #[path = "schema/contract_tests.rs"]
@@ -22,6 +24,8 @@ use fields::{
 struct CommSchemaResponse {
     schema_version: u32,
     protocols: Vec<CommProtocolSchema>,
+    /// The add picker's groups (specification 11, an additive part of version 4).
+    picker_groups: &'static [picker::PickerGroup],
 }
 
 #[derive(Debug, Serialize)]
@@ -30,6 +34,9 @@ struct CommProtocolSchema {
     driver: &'static str,
     title: &'static str,
     purpose: &'static str,
+    /// The protocol's entry in the add picker; `discovery` has none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    picker: Option<picker::PickerEntry>,
     availability: &'static str,
     category: &'static str,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -59,8 +66,14 @@ struct CommFieldSchema {
     validation: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     options: Option<Vec<&'static str>>,
+    /// The label of each option of an `enum` field.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    option_labels: Option<BTreeMap<&'static str, &'static str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     visible_when: Option<serde_json::Value>,
+    /// The words and the seed of a `json_array` field's list editor.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    list: Option<picker::ListTexts>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -119,6 +132,7 @@ fn comm_schema_value(
     serde_json::to_value(CommSchemaResponse {
         schema_version: COMM_SCHEMA_VERSION,
         protocols,
+        picker_groups: &picker::PICKER_GROUPS,
     })
     .map_err(|error| format!("Communication schema serialization failed: {error}"))
 }
@@ -307,6 +321,9 @@ fn communication_protocol_schemas(instances: &[CommConfiguredInstance]) -> Vec<C
         ),
         ads_protocol_schema(),
     ]);
+    for protocol in &mut protocols {
+        picker::describe(protocol);
+    }
     protocols
 }
 
@@ -324,6 +341,7 @@ fn protocol_schema(
         driver: spec.driver,
         title: spec.title,
         purpose: spec.purpose,
+        picker: None,
         availability: "default",
         category: "field_device",
         categories,
@@ -368,6 +386,7 @@ fn runtime_protocol_schema(
         driver: "",
         title,
         purpose,
+        picker: None,
         availability: "default",
         category,
         categories: vec![category],
@@ -399,6 +418,7 @@ fn opcua_client_protocol_schema() -> CommProtocolSchema {
         driver: "",
         title: "OPC UA client",
         purpose: "Read selected nodes from an external OPC UA server.",
+        picker: None,
         availability: "default",
         category: "peer_link",
         categories: vec!["peer_link"],
@@ -428,6 +448,7 @@ fn ads_protocol_schema() -> CommProtocolSchema {
         driver: "",
         title: "ADS client",
         purpose: "Connect this runtime to a TwinCAT or ADS PLC.",
+        picker: None,
         availability: "default",
         category: "peer_link",
         categories: vec!["peer_link"],

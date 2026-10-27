@@ -3,7 +3,7 @@ use trust_runtime::debug::DebugControl;
 use trust_runtime::io::IoAddress;
 use trust_runtime::simulation::SimulationController;
 use trust_runtime::value::Value;
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
 mod control_heater_support;
 use control_heater_support::*;
@@ -11,7 +11,7 @@ use control_heater_support::*;
 const PROJECT: &str = "01-feedback-foundations-and-temperature-control/87-level-control";
 
 fn step(
-    runtime: &mut Runtime,
+    runtime: &mut CompiledRuntime,
     simulation: &mut SimulationController,
     debug: &DebugControl,
     update: u64,
@@ -69,7 +69,7 @@ fn level_control_executes_the_pi_control_studio_applies() {
         controller_state(&runtime, program, "Setpoint"),
         controller_state(&runtime, program, "ProcessValue"),
     );
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     scan_every(
         &mut runtime,
         &mut simulation,
@@ -99,7 +99,7 @@ fn level_control_stops_both_pumps_outside_the_level_range() {
     let mut aborted = false;
     for update in 1..300 {
         step(&mut runtime, &mut simulation, &debug, update);
-        if runtime.storage().get_instance_var(program, "SafetyAbort") == Some(&Value::Bool(true)) {
+        if value(&runtime, &format!("{program}.SafetyAbort")) == Some(Value::Bool(true)) {
             aborted = true;
             assert_eq!(
                 number(&runtime, "%QL0"),

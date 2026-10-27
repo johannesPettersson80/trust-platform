@@ -105,8 +105,13 @@ def remote_validation_commands(
         "CARGO_INCREMENTAL=0 RUSTC_WRAPPER=/usr/bin/env "
         "CARGO_BUILD_RUSTC_WRAPPER=/usr/bin/env"
     )
+    # The toolchain for compiled programs (specification 44 §4.6), built from the candidate as CI
+    # builds it: its program library's hash names the candidate's version, so the tests that
+    # build and run programs need this one and no other.
+    toolchain = str(PurePosixPath(target) / "trust-toolchain")
     target_env = (
         f"{cargo_env} CC=cc CXX=c++ TMPDIR={shlex.quote(target_tmp)} "
+        f"TRUST_TOOLCHAIN={shlex.quote(toolchain)} "
         f"PATH={shlex.quote(target_bin)}:$PATH"
     )
     cross_target_env = (
@@ -158,6 +163,13 @@ def remote_validation_commands(
         ("remote_exact_head", ""),
         ("remote_disk_preflight", disk_preflight),
         ("remote_prepare_target", prepare_target),
+        (
+            "remote_toolchain",
+            leased(
+                f"{target_env} bash scripts/native/build_toolchain_libraries.sh "
+                f"{shlex.quote(toolchain)}"
+            ),
+        ),
     ]
     if vscode_changed:
         commands.append(

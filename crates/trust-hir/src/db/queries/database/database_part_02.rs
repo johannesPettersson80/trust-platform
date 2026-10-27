@@ -24,11 +24,7 @@ impl SourceDatabase for Database {
             if let Some(source) = state.sources.get(&file_id).copied() {
                 source.set_text(&mut state.db).to(text.as_ref().clone());
             } else {
-                let source = salsa_backend::SourceInput::new(
-                    &state.db,
-                    text.as_ref().clone(),
-                    self.temporal_storage,
-                );
+                let source = salsa_backend::SourceInput::new(&state.db, text.as_ref().clone());
                 state.sources.insert(file_id, source);
                 file_set_changed = true;
             }

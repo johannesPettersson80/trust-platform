@@ -160,3 +160,18 @@ OutsideTemp(t_ext1 := REAL#-15.0, t_ext2 := REAL#-14.0, t_ext3 := REAL#-16.0, t_
 ASSERT_TRUE(IN := OutsideTemp.heat);
 ASSERT_FALSE(IN := OutsideTemp.cool);
 END_TEST_PROGRAM
+
+(* FT_PT2's time constant in seconds is its milliseconds as a number times 1.0E-3: 2.0 for T#2s.
+   Taken as the REAL whose bit pattern is 2000 (DWORD_TO_REAL, a binary transfer in IEC 61131-3
+   Table 25) it is 2.8E-45, whose square is zero, and the second scan divides by it. With no time
+   passing between the scans, the integrators keep the output at the input the first scan took:
+   56.0. *)
+TEST_PROGRAM oscat_ft_pt2_runs_a_second_scan_with_its_time_constant
+VAR
+    Pt2 : FT_PT2;
+END_VAR
+Pt2(in := REAL#56.0, T := T#2s, D := REAL#1.0, K := REAL#1.0);
+ASSERT_EQUAL(EXPECTED := REAL#56.0, ACTUAL := Pt2.out);
+Pt2(in := REAL#56.0, T := T#2s, D := REAL#1.0, K := REAL#1.0);
+ASSERT_EQUAL(EXPECTED := REAL#56.0, ACTUAL := Pt2.out);
+END_TEST_PROGRAM

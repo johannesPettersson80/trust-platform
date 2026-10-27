@@ -34,12 +34,8 @@ pub trait IoDriver: Send {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum IoDriverHealth {
-    Ok,
-    Degraded { error: SmolStr },
-    Faulted { error: SmolStr },
-}
+// Driver health is shared runtime code (spec 34 ARCH-11); `status` and `health` report it.
+pub use trust_runtime_services::status::{IoDriverHealth, IoDriverStatus};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IoDriverErrorPolicy {
@@ -60,12 +56,6 @@ impl IoDriverErrorPolicy {
             )),
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct IoDriverStatus {
-    pub name: SmolStr,
-    pub health: IoDriverHealth,
 }
 
 /// Default simulated I/O driver (no-op).

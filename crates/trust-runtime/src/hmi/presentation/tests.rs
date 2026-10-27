@@ -211,35 +211,36 @@ fn a_plant_instrument_and_tank_present_their_unit_range_and_enabled_limits() {
     use crate::hmi::member_paths::MemberPath;
     use crate::hmi::page_files::HmiLimits;
     let harness = crate::harness::TestHarness::from_source(PLANT).expect("the program compiles");
-    let storage = harness.runtime().storage();
-    let path = |text: &str| MemberPath::parse(text).expect("a path");
-    let shown = equipment_presentation(storage, &path("Main.LT101.Value"))
-        .expect("a level instrument is an analog instrument");
-    assert_eq!(shown.unit.as_deref(), Some("m"));
-    assert_eq!(shown.range, Some([0.0, 5.0]));
-    assert_eq!(
-        shown.limits,
-        Some(HmiLimits {
-            low_low: None,
-            low: Some(0.5),
-            high: Some(4.5),
-            high_high: None,
-        }),
-        "only the enabled limits"
-    );
-    assert_eq!(
-        shown.priorities.get("high-high").map(String::as_str),
-        Some("high")
-    );
-    assert!(
-        equipment_presentation(storage, &path("Main.LT101.RangeHigh")).is_none(),
-        "only the physical value is presented"
-    );
-    let tank = equipment_presentation(storage, &path("Main.T101.Level")).expect("a tank");
-    assert_eq!(tank.range, Some([0.0, 4.0]));
-    assert_eq!(tank.limits, None);
-    assert_eq!(
-        alarm_value_format(storage, "Main.LT101", "Main.LT101.HighAlarm"),
-        Some(("Main.LT101.Value".to_string(), Some("m".to_string())))
-    );
+    harness.runtime().with_program_view(|program| {
+        let path = |text: &str| MemberPath::parse(text).expect("a path");
+        let shown = equipment_presentation(program, &path("Main.LT101.Value"))
+            .expect("a level instrument is an analog instrument");
+        assert_eq!(shown.unit.as_deref(), Some("m"));
+        assert_eq!(shown.range, Some([0.0, 5.0]));
+        assert_eq!(
+            shown.limits,
+            Some(HmiLimits {
+                low_low: None,
+                low: Some(0.5),
+                high: Some(4.5),
+                high_high: None,
+            }),
+            "only the enabled limits"
+        );
+        assert_eq!(
+            shown.priorities.get("high-high").map(String::as_str),
+            Some("high")
+        );
+        assert!(
+            equipment_presentation(program, &path("Main.LT101.RangeHigh")).is_none(),
+            "only the physical value is presented"
+        );
+        let tank = equipment_presentation(program, &path("Main.T101.Level")).expect("a tank");
+        assert_eq!(tank.range, Some([0.0, 4.0]));
+        assert_eq!(tank.limits, None);
+        assert_eq!(
+            alarm_value_format(program, "Main.LT101", "Main.LT101.HighAlarm"),
+            Some(("Main.LT101.Value".to_string(), Some("m".to_string())))
+        );
+    });
 }

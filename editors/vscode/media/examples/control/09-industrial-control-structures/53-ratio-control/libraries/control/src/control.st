@@ -74,6 +74,20 @@ VAR
     ParametersValue : PIDParameters;
     StateValue : PIDInitialState;
 END_VAR
+(* truST simulation extension (specification 46, section 13.2): the measurement a simulated
+   plant holds for this controller through a pid: feedback target, written between scans. A
+   restart or a newly loaded program removes it. *)
+VAR NON_RETAIN
+    HeldMeasurement : LREAL;
+    MeasurementHeld : BOOL;
+END_VAR
+(* truST observation extension (specification 45, section 3.1), beside GetState: the mode the
+   last Update ran in, and whether Update has run since the start. A tool reads them; a restart
+   clears them. *)
+VAR NON_RETAIN
+    ModeValue : PIDMode;
+    ModeObserved : BOOL;
+END_VAR
 
 METHOD PUBLIC Configure
 VAR_INPUT
@@ -99,6 +113,7 @@ VAR_INPUT
     Input : PIDInput;
 END_VAR
 VAR
+    Applied : PIDInput;
     LowerLimit : LREAL;
     UpperLimit : LREAL;
     SetpointRate : LREAL;
@@ -114,44 +129,51 @@ VAR
     Output : LREAL;
 END_VAR
 
+(* The input the controller works on: Input, with the measurement a simulated plant holds as
+   ProcessValue while one is held (simulation extension). *)
+Applied := Input;
+IF MeasurementHeld THEN
+    Applied.ProcessValue := HeldMeasurement;
+END_IF;
+
 (* Rate limits are anchored to the actuator-facing saturated history. *)
 LowerLimit := MAX(
     ParametersValue.OutputMinimum,
-    StateValue.SaturatedOutput + Input.CycleTime * ParametersValue.RateMinimum
+    StateValue.SaturatedOutput + Applied.CycleTime * ParametersValue.RateMinimum
 );
 UpperLimit := MIN(
     ParametersValue.OutputMaximum,
-    StateValue.SaturatedOutput + Input.CycleTime * ParametersValue.RateMaximum
+    StateValue.SaturatedOutput + Applied.CycleTime * ParametersValue.RateMaximum
 );
 
-SetpointRate := (Input.Setpoint - StateValue.Setpoint) / Input.CycleTime;
-ProcessValueRate := (Input.ProcessValue - StateValue.ProcessValue) / Input.CycleTime;
+SetpointRate := (Applied.Setpoint - StateValue.Setpoint) / Applied.CycleTime;
+ProcessValueRate := (Applied.ProcessValue - StateValue.ProcessValue) / Applied.CycleTime;
 
-IF Input.Mode = Track THEN
-    StateValue.NominalOutput := Input.TrackingOutput;
+IF Applied.Mode = Track THEN
+    StateValue.NominalOutput := Applied.TrackingOutput;
 END_IF;
 
-IF Input.Mode = Manual THEN
-    NominalOutput := Input.ManualOutput;
+IF Applied.Mode = Manual THEN
+    NominalOutput := Applied.ManualOutput;
 ELSE
     IF ParametersValue.IntegralGain = LREAL#0.0 THEN
         NominalOutput := ParametersValue.Bias
-            + ParametersValue.ProportionalGain * (Input.Setpoint - Input.ProcessValue)
+            + ParametersValue.ProportionalGain * (Applied.Setpoint - Applied.ProcessValue)
             + ParametersValue.DerivativeGain
                 * (ParametersValue.DerivativeSetpointWeight * SetpointRate - ProcessValueRate)
-            + Input.FeedForward;
+            + Applied.FeedForward;
     ELSE
         ProportionalIncrement := ParametersValue.ProportionalGain
             * (ParametersValue.ProportionalSetpointWeight
-                * (Input.Setpoint - StateValue.Setpoint)
-                - (Input.ProcessValue - StateValue.ProcessValue));
-        IntegralIncrement := ParametersValue.IntegralGain * Input.CycleTime
-            * (Input.Setpoint - Input.ProcessValue);
+                * (Applied.Setpoint - StateValue.Setpoint)
+                - (Applied.ProcessValue - StateValue.ProcessValue));
+        IntegralIncrement := ParametersValue.IntegralGain * Applied.CycleTime
+            * (Applied.Setpoint - Applied.ProcessValue);
         DerivativeIncrement := ParametersValue.DerivativeGain
             * (ParametersValue.DerivativeSetpointWeight
                 * (SetpointRate - StateValue.SetpointRate)
                 - (ProcessValueRate - StateValue.ProcessValueRate));
-        FeedForwardIncrement := Input.FeedForward - StateValue.FeedForward;
+        FeedForwardIncrement := Applied.FeedForward - StateValue.FeedForward;
 
         NominalOutput := StateValue.NominalOutput
             + ProportionalIncrement
@@ -171,11 +193,11 @@ ELSE
             END_IF;
             (* Listing 5 deliberately reuses the candidate from before the correction. *)
             NominalOutput := NominalOutput
-                - MIN(Input.CycleTime / ParametersValue.TrackingTime, LREAL#1.0)
+                - MIN(Applied.CycleTime / ParametersValue.TrackingTime, LREAL#1.0)
                     * (NominalOutput - SaturatedCandidate);
         ELSE
             NominalOutput := NominalOutput
-                - Input.CycleTime / ParametersValue.TrackingTime
+                - Applied.CycleTime / ParametersValue.TrackingTime
                     * (NominalOutput - SaturatedCandidate);
         END_IF;
     END_IF;
@@ -184,11 +206,14 @@ END_IF;
 StateValue.NominalOutput := NominalOutput;
 Output := MAX(MIN(NominalOutput, UpperLimit), LowerLimit);
 StateValue.SaturatedOutput := Output;
-StateValue.Setpoint := Input.Setpoint;
+StateValue.Setpoint := Applied.Setpoint;
 StateValue.SetpointRate := SetpointRate;
-StateValue.ProcessValue := Input.ProcessValue;
+StateValue.ProcessValue := Applied.ProcessValue;
 StateValue.ProcessValueRate := ProcessValueRate;
-StateValue.FeedForward := Input.FeedForward;
+StateValue.FeedForward := Applied.FeedForward;
+(* Observation extension: the mode this call ran in. *)
+ModeValue := Applied.Mode;
+ModeObserved := TRUE;
 Update := Output;
 END_METHOD
 END_FUNCTION_BLOCK

@@ -1,7 +1,8 @@
-//! Preallocated bounded trace storage for completed plant substeps.
+//! Preallocated bounded trace storage for completed plant substeps, and the publish of a plant's
+//! feedback before a scan.
 
 use crate::value::Duration;
-use crate::{error::RuntimeError, Runtime};
+use crate::{error::RuntimeError, CompiledRuntime};
 
 use super::super::SimulationTraceRow;
 
@@ -167,33 +168,38 @@ impl super::PlantSystem {
 }
 
 impl super::PlantInstance {
-    pub(super) fn publish(&mut self, runtime: &mut Runtime) -> Result<(), RuntimeError> {
+    /// Publishes the plant's completed feedback before the next scan (Specification 46 §13.2): every
+    /// target is found and every value converted before anything is written, the process-image
+    /// targets are written together, then the program variables, then the measurements held for
+    /// Control.PID instances. A refused target faults the plant with nothing written.
+    pub(super) fn publish(&mut self, runtime: &mut CompiledRuntime) -> Result<(), RuntimeError> {
         if !self.feedback_pending {
             return Ok(());
         }
         let values = &self.queued_feedback;
+        let targets = &self.config.feedback_targets;
         // Program variables are written after the process-image batch, and only when every value converts.
-        let stored_result = self
-            .config
-            .feedback_targets
-            .iter()
-            .zip(values)
-            .filter_map(|(target, value)| match target {
-                super::signal::PlantSignal::Symbol(symbol) => Some((symbol, *value)),
-                super::signal::PlantSignal::Address(_)
-                | super::signal::PlantSignal::Controller(_) => None,
-            })
-            .map(|(symbol, value)| {
-                let (reference, current) = super::signal::resolve(runtime, symbol)?;
-                let encoded =
-                    super::numeric_io::encode_storage(&current, value).map_err(|error| {
-                        RuntimeError::SimulationFault(
-                            format!("plant signal {symbol}: {error}").into(),
-                        )
-                    })?;
-                Ok((reference, encoded))
-            })
-            .collect::<Result<Vec<_>, RuntimeError>>();
+        let stored_result = runtime.with_program_view(|program| {
+            targets
+                .iter()
+                .zip(values)
+                .filter_map(|(target, value)| match target {
+                    super::signal::PlantSignal::Symbol(symbol) => Some((symbol, *value)),
+                    super::signal::PlantSignal::Address(_)
+                    | super::signal::PlantSignal::Controller(_) => None,
+                })
+                .map(|(symbol, value)| {
+                    let (at, current) = super::signal::resolve(program, symbol)?;
+                    let encoded =
+                        super::numeric_io::encode_storage(&current, value).map_err(|error| {
+                            RuntimeError::SimulationFault(
+                                format!("plant signal {symbol}: {error}").into(),
+                            )
+                        })?;
+                    Ok((at, encoded))
+                })
+                .collect::<Result<Vec<_>, RuntimeError>>()
+        });
         let stored = match stored_result {
             Ok(stored) => stored,
             Err(error) => {
@@ -203,19 +209,20 @@ impl super::PlantInstance {
             }
         };
         // Control.PID measurements (`pid:`) are given after every other target is written.
-        let controllers_result = self
-            .config
-            .feedback_targets
-            .iter()
-            .zip(values)
-            .filter_map(|(target, value)| match target {
-                super::signal::PlantSignal::Controller(path) => Some((path, *value)),
-                _ => None,
-            })
-            .map(|(path, value)| {
-                super::signal::controller_instance(runtime, path).map(|instance| (instance, value))
-            })
-            .collect::<Result<Vec<_>, RuntimeError>>();
+        let controllers_result = runtime.with_program_view(|program| {
+            targets
+                .iter()
+                .zip(values)
+                .filter_map(|(target, value)| match target {
+                    super::signal::PlantSignal::Controller(path) => Some((path, *value)),
+                    _ => None,
+                })
+                .map(|(path, value)| {
+                    super::signal::controller_instance(program, path)
+                        .map(|instance| (instance, value))
+                })
+                .collect::<Result<Vec<_>, RuntimeError>>()
+        });
         let controllers = match controllers_result {
             Ok(controllers) => controllers,
             Err(error) => {
@@ -224,14 +231,12 @@ impl super::PlantInstance {
                 return Err(fault);
             }
         };
-        let pending_result = self
-            .config
-            .feedback_targets
+        let pending_result = targets
             .iter()
             .zip(values)
             .filter_map(|(target, value)| target.address().map(|address| (address, value)))
             .map(|(address, value)| {
-                super::numeric_io::encode_numeric(&runtime.io(), address, *value)
+                super::numeric_io::encode_numeric(&*runtime, address, *value)
                     .map(|encoded| (address.clone(), encoded))
             })
             .chain(
@@ -246,7 +251,7 @@ impl super::PlantInstance {
                         let applied = (self.actuators[channel].current_applied()
                             - self.config.input_offset[channel])
                             / self.config.input_scale[channel];
-                        super::numeric_io::encode_numeric(&runtime.io(), address, applied)
+                        super::numeric_io::encode_numeric(&*runtime, address, applied)
                             .map(|encoded| (address.clone(), encoded))
                     }),
             )
@@ -273,20 +278,57 @@ impl super::PlantInstance {
                     .flatten()
                     .count()
         );
-        for (reference, value) in stored {
-            if runtime.write_reference(&reference, value).is_err() {
-                let fault = self.feedback_fault(RuntimeError::SimulationFault(
-                    "a symbolic plant feedback target could not be written".into(),
-                ));
-                self.last_fault = Some(fault.to_string());
-                return Err(fault);
+        let written = runtime.with_program(|program| {
+            if stored
+                .iter()
+                .any(|(at, value)| program.write_at(at, value).is_err())
+            {
+                return Err("a symbolic plant feedback target could not be written");
             }
-        }
-        for (instance, value) in controllers {
-            runtime.set_controller_measurement(instance, value);
+            if controllers
+                .iter()
+                .any(|(instance, value)| instance.hold(program, *value).is_err())
+            {
+                return Err("a Control.PID measurement target could not be written");
+            }
+            Ok(())
+        });
+        if let Err(reason) = written {
+            let fault = self.feedback_fault(RuntimeError::SimulationFault(reason.into()));
+            self.last_fault = Some(fault.to_string());
+            return Err(fault);
         }
         self.published_feedback.clone_from(values);
         self.feedback_pending = false;
+        Ok(())
+    }
+
+    /// Removes the measurements this plant holds for Control.PID instances, in the instances its
+    /// `pid:` targets name in the program now loaded (Specification 46 §13.2). A target that names
+    /// no Control.PID holds nothing, and the plant's next publish faults with it.
+    pub(super) fn release_held_measurements(
+        &mut self,
+        runtime: &mut CompiledRuntime,
+    ) -> Result<(), RuntimeError> {
+        let targets = &self.config.feedback_targets;
+        let released = runtime.with_program(|program| {
+            targets.iter().try_for_each(|target| match target {
+                super::signal::PlantSignal::Controller(path) => {
+                    match super::signal::controller_instance(&*program, path) {
+                        Ok(instance) => instance.release(program),
+                        Err(_) => Ok(()),
+                    }
+                }
+                super::signal::PlantSignal::Address(_) | super::signal::PlantSignal::Symbol(_) => {
+                    Ok(())
+                }
+            })
+        });
+        if let Err(error) = released {
+            let fault = self.feedback_fault(error);
+            self.last_fault = Some(fault.to_string());
+            return Err(fault);
+        }
         Ok(())
     }
 

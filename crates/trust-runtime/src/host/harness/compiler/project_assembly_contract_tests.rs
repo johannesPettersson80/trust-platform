@@ -1,7 +1,9 @@
-use crate::harness::{CompileSession, SourceFile, TestHarness};
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
+use crate::harness::{lower_application, CompileSession, SourceFile, TestHarness};
 use crate::program_model::{Expr, FunctionBlockBase};
 use crate::value::Value;
-use crate::Runtime;
+use crate::RuntimeBuilder;
 use trust_hir::{Type, TypeId};
 
 fn source_files(files: &[(&str, &str)]) -> Vec<SourceFile> {
@@ -11,20 +13,21 @@ fn source_files(files: &[(&str, &str)]) -> Vec<SourceFile> {
         .collect()
 }
 
-fn runtime(files: &[(&str, &str)]) -> Runtime {
-    CompileSession::from_sources(source_files(files))
-        .build_runtime()
+fn runtime(files: &[(&str, &str)]) -> RuntimeBuilder {
+    lower_application(&source_files(files), files.len() > 1)
+        .and_then(|lowered| lowered.construct(&[]))
+        .map(|(builder, _)| builder)
         .unwrap_or_else(|error| panic!("project fixture must compile: {error}"))
 }
 
 fn compile_error(files: &[(&str, &str)]) -> String {
-    match CompileSession::from_sources(source_files(files)).build_runtime() {
+    match CompileSession::from_sources(source_files(files)).declarations() {
         Ok(_) => panic!("project fixture must fail"),
         Err(error) => error.to_string(),
     }
 }
 
-fn type_id(runtime: &Runtime, name: &str) -> TypeId {
+fn type_id(runtime: &RuntimeBuilder, name: &str) -> TypeId {
     runtime
         .registry()
         .lookup(name)

@@ -1,10 +1,9 @@
 //! Lesson 59, Mechanical resonance: Lesson 42's `Control.PID` on the drum axis whose load turns through a flexible
 //! coupling, measuring the load angle through the notch Control Studio tunes.
 use trust_runtime::debug::DebugControl;
-use trust_runtime::memory::InstanceId;
 use trust_runtime::simulation::SimulationController;
 use trust_runtime::value::Value;
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
 mod control_heater_support;
 use control_heater_support::*;
@@ -13,7 +12,7 @@ const PROJECT: &str = "07-classical-stability-and-frequency-design/89-mechanical
 const CYCLE_S: f64 = 0.02;
 
 fn step(
-    runtime: &mut Runtime,
+    runtime: &mut CompiledRuntime,
     simulation: &mut SimulationController,
     debug: &DebugControl,
     update: u64,
@@ -25,8 +24,8 @@ fn lreal(value: f64) -> Value {
     Value::LWord(value.to_bits())
 }
 
-fn aborted(runtime: &Runtime, program: InstanceId) -> bool {
-    runtime.storage().get_instance_var(program, "SafetyAbort") == Some(&Value::Bool(true))
+fn aborted(runtime: &CompiledRuntime, program: &str) -> bool {
+    value(runtime, &format!("{program}.SafetyAbort")) == Some(Value::Bool(true))
 }
 
 /// Auto at the resting angle with the given notch, then a 1 rad setpoint step: the load angle over 8 s and whether the
@@ -38,9 +37,14 @@ fn step_response(frequency_hz: f64, quality: f64) -> (Vec<(f64, f64)>, bool) {
     for update in 0..10 {
         step(&mut runtime, &mut simulation, &debug, update);
     }
-    debug.enqueue_instance_write(program, "NotchFrequencyHz", Value::LReal(frequency_hz));
-    debug.enqueue_instance_write(program, "NotchQuality", Value::LReal(quality));
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(
+        &debug,
+        program,
+        "NotchFrequencyHz",
+        Value::LReal(frequency_hz),
+    );
+    enqueue_instance_write(&debug, program, "NotchQuality", Value::LReal(quality));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     step(&mut runtime, &mut simulation, &debug, 10);
     scan_every(
         &mut runtime,
@@ -128,8 +132,8 @@ fn mechanical_resonance_computes_the_notch_from_its_frequency_and_quality() {
     let debug = runtime.enable_debug();
     let program = program(&runtime);
     step(&mut runtime, &mut simulation, &debug, 0);
-    debug.enqueue_instance_write(program, "NotchFrequencyHz", Value::LReal(3.0));
-    debug.enqueue_instance_write(program, "NotchQuality", Value::LReal(1.0));
+    enqueue_instance_write(&debug, program, "NotchFrequencyHz", Value::LReal(3.0));
+    enqueue_instance_write(&debug, program, "NotchQuality", Value::LReal(1.0));
     step(&mut runtime, &mut simulation, &debug, 1);
     let omega = 2.0 * std::f64::consts::PI * 3.0 * CYCLE_S;
     let alpha = omega.sin() / 2.0;

@@ -1,32 +1,7 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum TestKind {
-    Program,
-    FunctionBlock,
-}
-
-impl TestKind {
-    fn label(self) -> &'static str {
-        match self {
-            Self::Program => "TEST_PROGRAM",
-            Self::FunctionBlock => "TEST_FUNCTION_BLOCK",
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 struct LoadedSource {
     path: PathBuf,
     text: String,
-}
-
-#[derive(Debug, Clone)]
-struct DiscoveredTest {
-    kind: TestKind,
-    name: SmolStr,
-    file: PathBuf,
-    byte_offset: u32,
-    line: usize,
-    source_line: Option<String>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -70,4 +45,3 @@ struct ExecutedTest {
     message: Option<String>,
     duration_ms: u64,
 }
-

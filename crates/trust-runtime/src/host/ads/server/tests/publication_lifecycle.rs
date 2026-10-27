@@ -287,8 +287,8 @@ fn lifecycle_client_count_shutdown_and_drop_are_observable() {
     config.listen = Some(SmolStr::new("127.0.0.1"));
     config.ams_net_id = Some(AmsNetId::new("127.0.0.1.1.1"));
     let runtime_snapshot = snapshot([("setpoint", Value::Real(0.0))]);
-    let start_server = || {
-        super::super::lifecycle::start_ads_server_runtime_on_port(
+    let start_server = |port: u16| {
+        super::super::lifecycle::start_ads_server_runtime_on_ports(
             "RESOURCE",
             &config,
             DebugControl::new(),
@@ -298,13 +298,12 @@ fn lifecycle_client_count_shutdown_and_drop_are_observable() {
                 move || Some(runtime_snapshot.clone())
             }),
             None,
-            0,
+            port,
+            port,
         )
-        .expect("start ADS server")
-        .expect("server enabled")
     };
 
-    let mut shutdown_server = start_server();
+    let mut shutdown_server = outside_ephemeral_range(&start_server);
     let shutdown_addr = shutdown_server.local_addr();
     let shutdown_identify_addr = shutdown_server.identify_bind_addr();
     let client = TcpStream::connect(shutdown_addr).expect("connect client");
@@ -313,22 +312,58 @@ fn lifecycle_client_count_shutdown_and_drop_are_observable() {
     wait_for_client_count(&shutdown_server, 0);
     shutdown_server.shutdown();
     assert!(
-        TcpStream::connect(shutdown_addr).is_err(),
+        within_two_seconds(|| TcpStream::connect(shutdown_addr).is_err()),
         "explicit shutdown must stop the TCP listener"
     );
-    let rebound_identify = UdpSocket::bind(shutdown_identify_addr)
-        .expect("explicit shutdown must release the UDP identify socket");
-    drop(rebound_identify);
+    assert!(
+        within_two_seconds(|| UdpSocket::bind(shutdown_identify_addr).is_ok()),
+        "explicit shutdown must release the UDP identify socket"
+    );
 
-    let drop_server = start_server();
+    let drop_server = outside_ephemeral_range(&start_server);
     let drop_addr = drop_server.local_addr();
     let drop_identify_addr = drop_server.identify_bind_addr();
     drop(drop_server);
     assert!(
-        TcpStream::connect(drop_addr).is_err(),
+        within_two_seconds(|| TcpStream::connect(drop_addr).is_err()),
         "Drop must stop the TCP listener"
     );
-    UdpSocket::bind(drop_identify_addr).expect("Drop must release the UDP identify socket");
+    assert!(
+        within_two_seconds(|| UdpSocket::bind(drop_identify_addr).is_ok()),
+        "Drop must release the UDP identify socket"
+    );
+}
+
+/// Whether `probe` holds within two seconds. A socket the server closes can stay open a moment
+/// longer: a process that a test running beside this one starts holds a copy of every descriptor
+/// until it runs its own program. A server that keeps its sockets fails the probe for all of it.
+fn within_two_seconds(probe: impl Fn() -> bool) -> bool {
+    let deadline = Instant::now() + StdDuration::from_secs(2);
+    loop {
+        if probe() {
+            return true;
+        }
+        if Instant::now() >= deadline {
+            return false;
+        }
+        thread::sleep(StdDuration::from_millis(20));
+    }
+}
+
+/// The server `start` runs on a TCP and UDP port below every operating system's ephemeral range
+/// (Linux 32768–60999, macOS and Windows 49152–65535), the next port tried while one is taken. A
+/// port such a server frees stays free while the test probes it: a test running beside this one
+/// that binds port 0 is never given it, as it could be given a freed ephemeral port, and a connection
+/// to it never takes it as its own source port.
+fn outside_ephemeral_range(
+    start: &dyn Fn(u16) -> Result<Option<super::super::AdsServerRuntime>, RuntimeError>,
+) -> super::super::AdsServerRuntime {
+    let first = 20_000 + u16::try_from(std::process::id() % 4_000).unwrap_or(0) * 2;
+    (first..30_000)
+        .chain(20_000..first)
+        .take(200)
+        .find_map(|port| start(port).ok().flatten())
+        .expect("an ADS server on a free port between 20000 and 29999")
 }
 
 fn wait_for_client_count(server: &super::super::AdsServerRuntime, expected: usize) {

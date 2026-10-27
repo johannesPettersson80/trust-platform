@@ -75,7 +75,7 @@ suite("HMI display: redraw", () => {
     });
     await settle(host);
     host.advance(750);
-    host.sockets[0].send({ cycle: 1, period_ms: 250, values: { "Line.A": { value: 1 } } });
+    host.sockets[0].send({ cycle: 1, period_ms: 250, stale_ms: 750, values: { "Line.A": { value: 1 } } });
     await settle(host);
     const fresh = draws;
     host.advance(250);
@@ -102,7 +102,7 @@ suite("HMI display: redraw", () => {
   test("an update changes only what changed, in place", async () => {
     const { host, root } = await openedWith(new Host(PAGE));
     const stream = host.sockets[0];
-    stream.send({ period_ms: 250 });
+    stream.send({ period_ms: 250, stale_ms: 750 });
     stream.send({
       cycle: 1,
       values: { "Line.Running": { value: true }, "Line.A": { value: 1 }, "Line.B": { value: 2 } },

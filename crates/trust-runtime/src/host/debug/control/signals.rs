@@ -2,9 +2,9 @@
 use super::recording::{numeric, overlap, snapshot_value};
 use super::{DebugControl, ForcedVar};
 use crate::io::{IoAddress, IoSnapshot};
-use crate::memory::VariableStorage;
-use crate::runtime::RuntimeMetadata;
-use crate::value::{Value, ValueRef};
+use crate::memory::Generation;
+use crate::runtime::{Located, ProgramRead};
+use crate::value::Value;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use std::collections::HashSet;
@@ -22,11 +22,11 @@ pub struct SignalBinding {
 pub(super) enum Target {
     Address(IoAddress),
     /// A program variable by its path (Specification 35, control signal reads): a member of an
-    /// instance or one it inherits (`EXTENDS`), a structure field below it, read through the
-    /// storage reference the path resolved to when the selection was made.
+    /// instance or one it inherits (`EXTENDS`), a structure field below it, read at the place the
+    /// path resolved to when the selection was made.
     Symbol {
         path: String,
-        reference: ValueRef,
+        at: Located,
     },
 }
 
@@ -79,13 +79,13 @@ pub(super) struct SignalRegistry {
 pub(super) fn resolve_bindings(
     bindings: &[SignalBinding],
     snapshot: &IoSnapshot,
-    storage: Option<&VariableStorage>,
+    program: Option<&dyn ProgramRead>,
 ) -> Result<Vec<Target>, String> {
     if bindings.is_empty() || bindings.len() > 32 {
         return Err("select 1 to 32 channels".into());
     }
     let mut ids = HashSet::new();
-    let mut selectors = HashSet::new();
+    let mut selectors: Vec<Located> = Vec::new();
     let mut addresses = Vec::new();
     let mut targets = Vec::new();
     for binding in bindings {
@@ -114,12 +114,13 @@ pub(super) fn resolve_bindings(
                     return Err("symbolic member path exceeds supported length".into());
                 }
                 let resolved = super::symbol_path::resolve(
-                    storage.ok_or("current symbolic storage unavailable")?,
+                    program.ok_or("current symbolic storage unavailable")?,
                     path,
                 )?;
-                if !selectors.insert(resolved.reference.clone()) {
+                if selectors.contains(&resolved.at) {
                     return Err("duplicate symbolic target".into());
                 }
+                selectors.push(resolved.at);
                 if numeric(&resolved.value).is_none()
                     || !of_declared_type(&resolved.value, &binding.iec_type)
                 {
@@ -127,7 +128,7 @@ pub(super) fn resolve_bindings(
                 }
                 Target::Symbol {
                     path: path.clone(),
-                    reference: resolved.reference,
+                    at: resolved.at,
                 }
             }
             _ => return Err("each channel requires exactly one address or symbol selector".into()),
@@ -136,12 +137,15 @@ pub(super) fn resolve_bindings(
     }
     Ok(targets)
 }
+/// The values of `targets` in one scan: an address from its I/O snapshot, a variable from
+/// `program`, the program as the scan left it, whose forces `forces` holds with the program
+/// generation they apply to.
 pub(super) fn capture_values(
     targets: &[Target],
     bindings: &[SignalBinding],
     snapshot: &IoSnapshot,
-    storage: Option<&VariableStorage>,
-    forced_vars: &[ForcedVar],
+    program: Option<&dyn ProgramRead>,
+    (forced_vars, generation): (&[ForcedVar], Generation),
 ) -> Captured {
     let mut captured = Captured {
         values: Vec::new(),
@@ -154,16 +158,16 @@ pub(super) fn capture_values(
                 snapshot_value(snapshot, address).cloned(),
                 snapshot.forced.iter().any(|other| overlap(address, other)),
             ),
-            Target::Symbol { path, reference } => {
+            Target::Symbol { path, at } => {
                 // Resolved again each scan: a reloaded program that moved the variable reads
                 // as missing rather than as another variable's value.
-                let value = storage
-                    .and_then(|s| super::symbol_path::resolve(s, path).ok())
-                    .filter(|resolved| resolved.reference == *reference)
+                let value = program
+                    .and_then(|program| super::symbol_path::resolve(program, path).ok())
+                    .filter(|resolved| resolved.at == *at)
                     .map(|resolved| resolved.value);
-                let forced = storage.is_some_and(|storage| {
+                let forced = program.is_some_and(|program| {
                     forced_vars.iter().any(|force| {
-                        super::symbol_path::forced_holds(storage, &force.target, reference)
+                        super::symbol_path::forced_holds(program, generation, &force.target, at)
                     })
                 }) || snapshot
                     .inputs
@@ -227,12 +231,15 @@ impl SignalRegistry {
                 })
         })
     }
+    /// Captures a published scan for the watch, `program` being the program as the scan left it
+    /// in the program generation `generation`.
     pub(super) fn capture(
         &mut self,
         snapshot: &IoSnapshot,
         time: i64,
-        storage: &VariableStorage,
+        program: &dyn ProgramRead,
         forced: &[ForcedVar],
+        generation: Generation,
     ) {
         let Some(watch) = self.watch.as_mut() else {
             return;
@@ -241,8 +248,8 @@ impl SignalRegistry {
             &watch.targets,
             &watch.bindings,
             snapshot,
-            Some(storage),
-            forced,
+            Some(program),
+            (forced, generation),
         );
         let wall = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -253,17 +260,18 @@ impl SignalRegistry {
     }
 }
 impl DebugControl {
-    pub(crate) fn inspect_control_signals(
-        &self,
-        params: JsonValue,
-        metadata: &RuntimeMetadata,
-    ) -> Result<JsonValue, String> {
+    /// Selects the signals Control Studio inspects, or answers the latest coherent scan of the
+    /// selection already made (protocol annex E3), reading the program as the last scan left it.
+    pub(crate) fn inspect_control_signals(&self, params: JsonValue) -> Result<JsonValue, String> {
         let request: Inspect = serde_json::from_value(params).map_err(|e| e.to_string())?;
         if request.loop_revision.is_empty() || request.loop_revision.len() > 256 {
             return Err("loop revision required".into());
         }
-        let mut state = self.state.0.lock().map_err(|_| "debug state unavailable")?;
-        let revision = state.parameters.program_revision(metadata);
+        let program = self
+            .published_program()
+            .ok_or("current runtime scan unavailable")?;
+        let mut state = self.lock();
+        let revision = state.parameters.program_revision(&program.program_image());
         if request
             .expected_program_revision
             .as_ref()
@@ -282,11 +290,7 @@ impl DebugControl {
             .latest_io_snapshot
             .as_ref()
             .ok_or("current runtime scan unavailable")?;
-        let targets = resolve_bindings(
-            &request.bindings,
-            snapshot,
-            state.snapshot.as_ref().map(|s| &s.storage),
-        )?;
+        let targets = resolve_bindings(&request.bindings, snapshot, Some(&*program))?;
         let result = json!({"program_revision":revision,"loop_revision":request.loop_revision,"bindings":request.bindings,"available":false,"reason":"Waiting for the next coherent runtime scan."});
         state.signals.watch = Some(Watch {
             loop_revision: request.loop_revision,

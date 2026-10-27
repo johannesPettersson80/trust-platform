@@ -7,9 +7,7 @@ use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
 fn adapter() -> DebugAdapter {
-    DebugAdapter::new(DebugSession::new(
-        trust_runtime::RuntimeBuilder::new().build().unwrap(),
-    ))
+    DebugAdapter::new(DebugSession::new())
 }
 
 fn request(seq: u32, command: &str, arguments: Option<Value>) -> Request<Value> {
@@ -122,11 +120,6 @@ fn invalid_control_launch(seq: u32) -> Request<Value> {
     )
 }
 
-fn assert_no_launch_actions(actions: LaunchActions) {
-    assert!(!actions.pause_after_launch);
-    assert!(!actions.start_runner_after_launch);
-}
-
 #[test]
 fn lifecycle_starts_new_and_unconfigured_without_pending_work() {
     let adapter = adapter();
@@ -134,7 +127,6 @@ fn lifecycle_starts_new_and_unconfigured_without_pending_work() {
     assert!(!adapter.launch_state.is_configured());
     assert!(!adapter.launch_state.has_pending_launch());
     assert_eq!(adapter.launch_state.pending_since(), None);
-    assert_no_launch_actions(adapter.launch_state.pending_actions());
 }
 
 #[test]
@@ -401,7 +393,6 @@ fn repeated_configuration_done_is_idempotent() {
     assert!(response.success);
     assert_eq!(response.request_seq, 102);
     assert!(!adapter.launch_state.has_pending_launch());
-    assert_no_launch_actions(adapter.launch_state.pending_actions());
 }
 
 #[test]
@@ -451,22 +442,7 @@ fn first_non_configuration_request_force_starts_the_exact_pending_request_once()
 }
 
 #[test]
-fn post_launch_actions_are_consumed_exactly_once() {
-    let mut state = LaunchState::default();
-    state.set_post_launch(LaunchActions {
-        pause_after_launch: true,
-        start_runner_after_launch: true,
-    });
-
-    let first = state.take_actions();
-    assert!(first.pause_after_launch);
-    assert!(first.start_runner_after_launch);
-    assert_no_launch_actions(state.take_actions());
-    assert!(state.is_configured());
-}
-
-#[test]
-fn failed_launch_schedules_no_post_launch_actions() {
+fn failed_launch_runs_no_program() {
     let mut adapter = adapter();
     initialize(&mut adapter);
     adapter.dispatch_request(invalid_control_launch(130));
@@ -474,9 +450,8 @@ fn failed_launch_schedules_no_post_launch_actions() {
     let outcome = adapter.dispatch_request(request(131, "configurationDone", None));
 
     assert!(!response(&outcome.responses[1]).success);
-    assert_no_launch_actions(adapter.launch_state.pending_actions());
-    assert!(adapter.runner.is_none());
-    assert!(adapter.control_server.is_none());
+    assert!(adapter.simulator.is_none());
+    assert!(adapter.remote_session.is_none());
 }
 
 #[test]

@@ -39,8 +39,8 @@ END_PROGRAM
     assert_eq!(build["result"]["command"], json!("build"));
     assert_eq!(build["result"]["source_count"], json!(2));
     assert!(
-        project.join("program.stbc").is_file(),
-        "build should write program.stbc"
+        project.join("program.tpi").is_file(),
+        "build should write program.tpi"
     );
 
     write_request(

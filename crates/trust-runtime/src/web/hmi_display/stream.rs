@@ -1,6 +1,6 @@
 //! The live-value stream of the runtime display (specification 39, §11.1): the expected update
-//! period, then once per period every path's value with the runtime's cycle count. The simulation
-//! the header shows is sent when it changes (specification 46, §6.1).
+//! period with the stale limit, then once per period every path's value with the runtime's cycle
+//! count. The simulation the header shows is sent when it changes (specification 46, §6.1).
 
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -24,8 +24,8 @@ use crate::hmi::member_paths::MemberPath;
 use crate::scheduler::{ResourceControl, StdClock};
 use crate::simulation::speed::speed_facts;
 
-/// The shortest update period, whatever the scan period (§11.1).
-pub(super) const MIN_PERIOD: Duration = Duration::from_millis(250);
+use crate::hmi::display_values::stale_limit;
+pub(super) use crate::hmi::display_values::MIN_PERIOD;
 /// The most streams open at once.
 const MAX_STREAMS: usize = 32;
 
@@ -105,7 +105,7 @@ impl Stream {
         let exchange = resource.hmi_exchange();
         let _screen = ScreenGuard::open(&exchange, readable.clone());
         let mut period = period;
-        send(&mut socket, &json!({ "period_ms": period.as_millis() }))?;
+        send(&mut socket, &period_message(period))?;
         // The session the page connected with (§12.4): reported now, and again when it ends.
         let session_now = || token.as_deref().and_then(|token| sessions.session(token));
         let mut session = session_now();
@@ -154,7 +154,7 @@ impl Stream {
                 .map_or(period, |measured| measured.max(MIN_PERIOD));
             if wanted.abs_diff(period) * 4 > period {
                 period = wanted;
-                send(&mut socket, &json!({ "period_ms": period.as_millis() }))?;
+                send(&mut socket, &period_message(period))?;
             }
             // The values right after the program's next call; without one within a period nothing
             // is sent, so the display turns stale.
@@ -213,12 +213,21 @@ impl Stream {
     }
 }
 
-/// `{"session": {"user", "role"}}`, or `{"session": null}` when there is none.
+/// The expected update period with the stale limit, `{"period_ms", "stale_ms"}` (§11.1): the page
+/// marks every value stale when the cycle count has not advanced, or no message has arrived, for
+/// `stale_ms`, three expected update periods (§5.3 item 2).
+fn period_message(period: Duration) -> Value {
+    json!({
+        "period_ms": period.as_millis(),
+        "stale_ms": stale_limit(period).as_millis(),
+    })
+}
+
+/// `{"session": {"user", "role", "acts_as", "may_change_settings"}}` (§12.4 item 4), or
+/// `{"session": null}` when there is none.
 fn session_message(session: Option<&SessionInfo>) -> Value {
     match session {
-        Some(info) => {
-            json!({ "session": { "user": info.user.as_str(), "role": info.role.as_str() } })
-        }
+        Some(info) => json!({ "session": super::super::hmi_operate::session_facts(info) }),
         None => json!({ "session": null }),
     }
 }
@@ -230,11 +239,11 @@ fn session_message(session: Option<&SessionInfo>) -> Value {
 /// is behind (specification 35, B9.2), both decided by the same function as the status answer; the
 /// page only translates the phrase for a speed that is behind. `None` while that state cannot be read.
 fn simulation_status(control: &ControlState) -> Option<Value> {
-    let (enabled, time_scale) = control
-        .settings
-        .lock()
-        .map(|settings| (settings.simulation.enabled, settings.simulation.time_scale))
-        .ok()?;
+    let Ok(settings) = control.settings.lock() else {
+        return None;
+    };
+    let (enabled, time_scale) = (settings.simulation.enabled, settings.simulation.time_scale);
+    drop(settings);
     let achieved = control
         .metrics
         .lock()
@@ -320,4 +329,25 @@ fn send_text(
     text: String,
 ) -> Result<(), tungstenite::Error> {
     socket.send(Message::text(text))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Specification 39, §5.3 item 2 and §11.1: values are stale after three expected update
+    /// periods, and the runtime sends that limit with each period: 250 ms gives 750 ms, and a
+    /// measured period of 400 ms gives 1 200 ms. Catches a fixed limit that does not follow the
+    /// period, a limit of another number of periods, and a period message without its limit.
+    #[test]
+    fn the_period_message_carries_three_periods_as_the_stale_limit() {
+        assert_eq!(
+            period_message(Duration::from_millis(250)),
+            json!({ "period_ms": 250, "stale_ms": 750 })
+        );
+        assert_eq!(
+            period_message(Duration::from_millis(400)),
+            json!({ "period_ms": 400, "stale_ms": 1200 })
+        );
+    }
 }

@@ -1,34 +1,14 @@
 import * as vscode from "vscode";
 
-import { sendRuntimeControlRequest } from "../runtimeControlClient";
 import type { RuntimeTarget } from "../runtimeTarget";
-import {
-  START_RUNTIME_ACTION,
-  adsImportFailurePrompt,
-} from "./adsImportUx";
-import { buildExposeApplyParams } from "./exposeConfig";
 import type { FleetTopologyResponse } from "./fleetTopology";
 import {
-  ensureAdsRuntimeEnabled,
-  offlineAdsImportSymbols,
-  offlineAdsRemoveTag,
-  offlineBrowseSymbols,
-  offlineCommApply,
-  openGeneratedAdsDocuments,
-  type AdsImportSymbolsReport,
-} from "./offlineComm";
-import {
-  adsConnectionNameForTarget,
-  adsPortBrowseEvidence,
-  respondingAdsPorts,
-} from "./adsDiscoveryPorts";
-import {
-  normalizeAdsTagSelections,
-  planAdsTagAdd,
-  type AdsTagBatchImportResult,
-  type AdsTagPortPath,
-  type AdsTagPortImportResult,
-} from "./adsTagBatch";
+  presentCanvasReply,
+  requestCanvasAct,
+  type CanvasLiveRuntime,
+  type CanvasReply,
+} from "./canvasCommands";
+import { offlineBrowseSymbols } from "./offlineComm";
 
 export interface ProtocolActionDependencies {
   readonly panel: () => vscode.WebviewPanel | undefined;
@@ -39,68 +19,23 @@ export interface ProtocolActionDependencies {
   readonly startRuntime: () => Promise<void>;
 }
 
-/** Owns protocol-specific browse/import mutations outside the panel lifecycle shell. */
+/** The notice action that starts the project's runtime. */
+const START_RUNTIME = "start_runtime";
+
+/**
+ * The browse panes' actions. Each one forwards the pane's choice to `trust-lsp.devicesCanvasAct`,
+ * which plans the connection, imports or removes the tags, and writes the project's files or asks
+ * the runtime that serves the live data (specification 25 §5.4 and §5.8); the canvas shows the
+ * server's answer.
+ */
 export class NetworkCanvasProtocolActions {
   constructor(private readonly dependencies: ProtocolActionDependencies) {}
 
   async addAdsDevice(message: Record<string, unknown>): Promise<void> {
-    const context = this.dependencies.extensionContext();
-    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    const target = isRecord(message.target) ? message.target : {};
-    const label =
-      typeof message.label === "string" && message.label.trim().length > 0
-        ? message.label.trim()
-        : "ADS device";
-    const host = stringField(target, "host", "ip");
-    const targetNetId = stringField(target, "target_net_id", "ams_net_id");
-    const ports = respondingAdsPorts(target);
-    const firstLocalNetId = localAdsNetId(target);
-    if (!context || !projectDir || !host || !targetNetId || ports.length === 0) {
-      await vscode.window.showWarningMessage(
-        "Could not add the ADS device. Scan it again so its address, AMS Net ID, and responding ports are available."
-      );
-      return;
-    }
-    if (!firstLocalNetId) {
-      await vscode.window.showWarningMessage(
-        "Could not add the ADS device because discovery did not return this computer's AMS Net ID. Scan it again and retry."
-      );
-      return;
-    }
-
-    const connections = ports.map((port) => {
-      const portTarget = { ...target, name: label, ams_port: port };
-      return {
-        name: adsConnectionNameForTarget(portTarget, label),
-        target_net_id: targetNetId,
-        host,
-        ams_port: port,
-        local_net_id: localAdsNetId(target, port) ?? firstLocalNetId,
-        transport: "plain",
-        insecure_transport: true,
-        auto_add_route: false,
-        points: [],
-      };
+    await this.perform("ads_add_device", {
+      target: record(message.target),
+      label: typeof message.label === "string" ? message.label : "",
     });
-    const result = await offlineCommApply(
-      context,
-      projectDir,
-      "ads",
-      { enabled: true, connections },
-      "add"
-    );
-    if (result?.applied) {
-      await this.dependencies.refresh();
-      return;
-    }
-    const errors = result?.field_errors
-      ?.map((error) => error.message)
-      .join("; ");
-    await vscode.window.showWarningMessage(
-      `Could not add the ADS device: ${
-        errors ?? result?.message ?? "check the discovered device and try again."
-      }`
-    );
   }
 
   async browseSymbols(message: Record<string, unknown>): Promise<void> {
@@ -125,7 +60,7 @@ export class NetworkCanvasProtocolActions {
     }
     const protocol =
       typeof message.protocol === "string" ? message.protocol : "ads";
-    const target = isRecord(message.target) ? message.target : {};
+    const target = record(message.target);
     const kind =
       message.kind === "channels" || message.kind === "nodes"
         ? message.kind
@@ -141,6 +76,10 @@ export class NetworkCanvasProtocolActions {
       connectionName,
       projectDir
     );
+    // The recovery that a failed browse offers is the server's (specification 25 §5.4 and §11.2).
+    const errorView = result?.error
+      ? (await requestCanvasAct("browse_error", { protocol, error: result.error })).result
+      : undefined;
     if (this.dependencies.panel() !== panel || !panel.visible) {
       return;
     }
@@ -151,177 +90,95 @@ export class NetworkCanvasProtocolActions {
       tree: result?.tree ?? [],
       routeMissing: result?.route?.status === "missing",
       routePlan: result?.route?.route_plan,
-      error: result?.error,
+      errorView,
     });
   }
 
   async addExpose(message: Record<string, unknown>): Promise<void> {
-    const protocol =
-      typeof message.protocol === "string" ? message.protocol : "";
-    const paths = stringPaths(message.paths);
-    const allowWrites = Boolean(message.writable);
-    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    const context = this.dependencies.extensionContext();
-    if (!context || !projectDir || !protocol || paths.length === 0) {
-      return;
-    }
-    const current = this.findEndpointParams(protocol);
-    if (!current) {
-      await vscode.window.showWarningMessage(
-        `Configure the ${protocolDisplayName(protocol)} first, then choose globals to expose.`
-      );
-      return;
-    }
-    const { names, params } = buildExposeApplyParams(
-      current,
-      paths,
-      allowWrites
-    );
-    const result = await offlineCommApply(
-      context,
-      projectDir,
-      protocol,
-      params,
-      "upsert"
-    );
-    if (result?.applied) {
-      const restart =
-        result.lifecycle_effect === "restart_required" ? " Restart to apply." : "";
-      await vscode.window.showInformationMessage(
-        `${protocolDisplayName(protocol)}: exposed ${countLabel(names.length, "global")}.${restart}`
-      );
-      await this.dependencies.refresh();
-    } else {
-      const errors = result?.field_errors
-        ?.map((error) => error.message)
-        .join("; ");
-      await vscode.window.showWarningMessage(
-        `Could not expose globals: ${
-          errors ??
-          result?.message ??
-          "edit the server config in the inspector first."
-        }`
-      );
-    }
+    await this.perform("expose", {
+      protocol: typeof message.protocol === "string" ? message.protocol : "",
+      topology: this.dependencies.topology() ?? {},
+      paths: Array.isArray(message.paths) ? message.paths : [],
+      writable: Boolean(message.writable),
+    });
   }
 
   async addOpcuaConnection(message: Record<string, unknown>): Promise<void> {
-    const connection = isRecord(message.connection)
-      ? message.connection
-      : undefined;
-    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    const context = this.dependencies.extensionContext();
-    if (!context || !projectDir || !connection) {
-      return;
-    }
-    const points = Array.isArray(connection.points)
-      ? connection.points.length
-      : 0;
-    const result = await offlineCommApply(
-      context,
-      projectDir,
-      "opcua_client",
-      { enabled: true, connections: [connection] },
-      "add"
-    );
-    if (result?.applied) {
-      await vscode.window.showInformationMessage(
-        `Added OPC UA client connection with ${points} node(s).${
-          result.lifecycle_effect === "restart_required"
-            ? " Restart the runtime to read it."
-            : ""
-        }`
-      );
-      await this.dependencies.refresh();
-    } else {
-      const errors = result?.field_errors
-        ?.map((error) => error.message)
-        .join("; ");
-      await vscode.window.showWarningMessage(
-        `Could not save the OPC UA client connection: ${
-          errors ?? result?.message ?? "check the endpoint and try again."
-        }`
-      );
-    }
+    await this.perform("opcua_add", {
+      target: record(message.target),
+      label: typeof message.label === "string" ? message.label : "",
+      nodes: Array.isArray(message.nodes) ? message.nodes : [],
+      writable: Boolean(message.writable),
+    });
   }
 
   async addEthercatChannels(message: Record<string, unknown>): Promise<void> {
-    const paths = stringPaths(message.paths, true);
-    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    const context = this.dependencies.extensionContext();
-    if (!context || !projectDir || paths.length === 0) {
-      return;
-    }
-    const target = isRecord(message.target) ? message.target : {};
-    const current =
-      Object.keys(target).length > 0
-        ? target
-        : (this.findEndpointParams("ethercat") ?? {});
-    if (Object.keys(current).length === 0) {
-      await vscode.window.showWarningMessage(
-        "Configure EtherCAT modules first, then browse channels."
-      );
-      return;
-    }
-    const selectedChannels = Array.from(
-      new Set(paths.map((path) => path.trim()))
-    ).sort();
-    const result = await offlineCommApply(
-      context,
-      projectDir,
-      "ethercat",
-      { ...current, selected_channels: selectedChannels },
-      "upsert"
-    );
-    if (result?.applied) {
-      await vscode.window.showInformationMessage(
-        `${countLabel(selectedChannels.length, "EtherCAT channel")} selected.${
-          result.lifecycle_effect === "restart_required" ? " Restart to apply." : ""
-        }`
-      );
-      await this.dependencies.refresh();
-    } else {
-      const errors = result?.field_errors
-        ?.map((error) => error.message)
-        .join("; ");
-      await vscode.window.showWarningMessage(
-        `Could not save EtherCAT channels: ${
-          errors ??
-          result?.message ??
-          "check the configured modules and try again."
-        }`
-      );
-    }
+    await this.perform("ethercat_channels", {
+      target: record(message.target),
+      topology: this.dependencies.topology() ?? {},
+      paths: Array.isArray(message.paths) ? message.paths : [],
+    });
   }
 
   async addTags(message: Record<string, unknown>): Promise<void> {
-    const paths = stringPaths(message.paths);
-    if (paths.length === 0) {
-      return;
-    }
-    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!projectDir) {
-      await vscode.window.showWarningMessage(
-        "Add tags needs an open project so truST can write ads.toml and generated ST."
-      );
-      return;
-    }
-    const runtime = this.dependencies.runtimeTarget();
-    if (
-      !runtime ||
-      runtime.status !== "online_reachable" ||
-      !runtime.endpoint
-    ) {
-      await this.addTagsOffline(message, projectDir, paths);
-      return;
-    }
-    await this.addTagsLive(message, projectDir, paths, runtime);
+    await this.perform(
+      "ads_tags_import",
+      {
+        protocol: typeof message.protocol === "string" ? message.protocol : "",
+        target: record(message.target),
+        paths: Array.isArray(message.paths) ? message.paths : [],
+        writable: Boolean(message.writable),
+      },
+      true
+    );
   }
 
   async addAdsTagsBatch(message: Record<string, unknown>): Promise<void> {
+    await this.tagsBatch(message, "ads_tags_add", {
+      target: record(message.target),
+      selections: Array.isArray(message.selections) ? message.selections : [],
+      writable: Boolean(message.writable),
+      changed_path: typeof message.changedPath === "string" ? message.changedPath : undefined,
+    });
+  }
+
+  async removeAdsTag(message: Record<string, unknown>): Promise<void> {
+    await this.tagsBatch(message, "ads_tag_remove", {
+      target: record(message.target),
+      selection: record(message.selection),
+    });
+  }
+
+  /** The ADS port that the text typed into a browse pane names, or why it names none. */
+  async checkAdsPort(message: Record<string, unknown>): Promise<void> {
     const panel = this.dependencies.panel();
-    const context = this.dependencies.extensionContext();
-    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const text = typeof message.text === "string" ? message.text : "";
+    if (!panel || typeof message.requestId !== "number") {
+      return;
+    }
+    const reply = await requestCanvasAct("ads_port", { text });
+    const result = record(reply.result);
+    if (this.dependencies.panel() === panel && panel.visible) {
+      void panel.webview.postMessage({
+        type: "adsPortChecked",
+        requestId: message.requestId,
+        text,
+        port: typeof result.port === "number" ? result.port : undefined,
+        error:
+          typeof result.error === "string"
+            ? result.error
+            : reply.notice?.text,
+      });
+    }
+  }
+
+  /** A tag browser's add or removal, whose result goes back to the pane that asked for it. */
+  private async tagsBatch(
+    message: Record<string, unknown>,
+    op: string,
+    args: Record<string, unknown>
+  ): Promise<void> {
+    const panel = this.dependencies.panel();
     const browseSessionId =
       typeof message.browseSessionId === "string"
         ? message.browseSessionId
@@ -334,417 +191,53 @@ export class NetworkCanvasProtocolActions {
     if (!panel || !browseSessionId || adsImportRequestId === undefined) {
       return;
     }
-    const selections = normalizeAdsTagSelections(message.selections);
-    const source = isRecord(message.target) ? message.target : {};
-    const writable = Boolean(message.writable);
-    const changedPath = typeof message.changedPath === "string"
-      ? message.changedPath.trim()
-      : "";
-    const runtime = this.dependencies.runtimeTarget();
-    const ports: AdsTagPortImportResult[] = [];
-
-    if (!context || !projectDir) {
-      for (const selection of selections) {
-        ports.push({
-          port: selection.port,
-          paths: selection.paths,
-          applied: false,
-          addedCount: 0,
-          message: "Open a truST project before adding ADS tags.",
-        });
-      }
-    } else {
-      for (const selection of selections) {
-        const plan = planAdsTagAdd(
-          source.connections,
-          source,
-          selection.port,
-          selection.paths,
-        );
-        const target = {
-          ...source,
-          name: plan.connectionName,
-          ams_port: selection.port,
-        };
-        let imported: AdsTagPortImportResult;
-        if (
-          runtime?.status === "online_reachable" &&
-          runtime.endpoint
-        ) {
-          imported = await this.importAdsTagsLive(
-            projectDir,
-            target,
-            [...plan.paths],
-            writable,
-            runtime,
-            plan.connectionName,
-          );
-        } else {
-          const report = await offlineAdsImportSymbols(
-            context,
-            projectDir,
-            target,
-            [...plan.paths],
-            writable,
-            plan.connectionName,
-          );
-          imported = {
-            port: selection.port,
-            paths: plan.paths,
-            applied: report.applied,
-            addedCount: report.applied
-              ? report.selected_count ?? plan.paths.length
-              : 0,
-            message: report.message,
-          };
-        }
-        const changedPaths = changedPath && selection.paths.includes(changedPath)
-          ? [changedPath]
-          : [...selection.paths];
-        ports.push({
-          ...imported,
-          paths: changedPaths,
-          addedCount: imported.applied ? changedPaths.length : 0,
-          message: imported.applied
-            ? `Added ${changedPaths.length} ADS tag${changedPaths.length === 1 ? "" : "s"}.`
-            : imported.message,
-        });
-      }
-    }
-
-    const addedCount = ports.reduce(
-      (count, port) => count + port.addedCount,
-      0
-    );
-    const result: AdsTagBatchImportResult = {
-      operation: "add",
-      applied: ports.some((port) => port.applied),
-      addedCount,
-      restartRequired: ports.some((port) => port.applied),
-      ports,
-    };
-    if (result.applied) {
+    const reply = await requestCanvasAct(op, args, this.context());
+    await presentCanvasReply(reply);
+    if (reply.refresh) {
       await this.dependencies.refresh();
     }
-    if (this.dependencies.panel() === panel && panel.visible) {
+    if (reply.result !== undefined && this.dependencies.panel() === panel && panel.visible) {
       void panel.webview.postMessage({
         type: "adsTagsResult",
         browseSessionId,
         adsImportRequestId,
-        result,
+        result: reply.result,
       });
     }
   }
 
-  async removeAdsTag(message: Record<string, unknown>): Promise<void> {
-    const panel = this.dependencies.panel();
-    const context = this.dependencies.extensionContext();
-    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    const browseSessionId =
-      typeof message.browseSessionId === "string"
-        ? message.browseSessionId
-        : undefined;
-    const adsImportRequestId =
-      typeof message.adsImportRequestId === "number" &&
-      Number.isSafeInteger(message.adsImportRequestId)
-        ? message.adsImportRequestId
-        : undefined;
-    const selection = isRecord(message.selection)
-      ? (message.selection as unknown as AdsTagPortPath)
-      : undefined;
-    const source = isRecord(message.target) ? message.target : {};
-    if (
-      !panel ||
-      !browseSessionId ||
-      adsImportRequestId === undefined ||
-      !selection ||
-      !Number.isInteger(selection.port) ||
-      selection.port < 1 ||
-      selection.port > 65535 ||
-      typeof selection.path !== "string" ||
-      selection.path.trim().length === 0
-    ) {
-      return;
-    }
-
-    const removal = context && projectDir
-      ? await offlineAdsRemoveTag(
-          context,
-          projectDir,
-          source,
-          selection.port,
-          selection.path.trim(),
-        )
-      : {
-          applied: false,
-          removed_count: 0,
-          restart_required: false,
-          message: "Open a truST project before removing ADS tags.",
-        };
-    const result: AdsTagBatchImportResult = {
-      operation: "remove",
-      applied: removal.applied,
-      addedCount: 0,
-      removedCount: removal.removed_count,
-      restartRequired: removal.restart_required,
-      ports: [{
-        port: selection.port,
-        paths: [selection.path.trim()],
-        applied: removal.applied,
-        addedCount: 0,
-        message: removal.message,
-      }],
-    };
-    if (result.applied) {
+  /** One action: the server's answer is shown, and its notice may offer to start the runtime. */
+  private async perform(
+    op: string,
+    args: Record<string, unknown>,
+    live = false
+  ): Promise<CanvasReply> {
+    const reply = await requestCanvasAct(op, args, this.context(live));
+    const chosen = await presentCanvasReply(reply);
+    if (reply.refresh) {
       await this.dependencies.refresh();
     }
-    if (this.dependencies.panel() === panel && panel.visible) {
-      void panel.webview.postMessage({
-        type: "adsTagsResult",
-        browseSessionId,
-        adsImportRequestId,
-        result,
-      });
-    }
-  }
-
-  private async addTagsOffline(
-    message: Record<string, unknown>,
-    projectDir: string,
-    paths: string[]
-  ): Promise<void> {
-    const protocol =
-      typeof message.protocol === "string" ? message.protocol : "";
-    const context = this.dependencies.extensionContext();
-    if (protocol !== "ads" || !context) {
-      await vscode.window.showWarningMessage(
-        "Add tags needs a reachable runtime — it writes ads.toml + the generated ST through the runtime's ADS import pipeline."
-      );
-      return;
-    }
-    const source = isRecord(message.target) ? message.target : {};
-    const report = await offlineAdsImportSymbols(
-      context,
-      projectDir,
-      source,
-      paths,
-      Boolean(message.writable)
-    );
-    if (report.applied) {
-      await vscode.window.showInformationMessage(report.message);
-      await this.dependencies.refresh();
-      return;
-    }
-    const prompt = adsImportFailurePrompt(report.message);
-    const selected = await vscode.window.showWarningMessage(
-      prompt.message,
-      { modal: prompt.modal, detail: prompt.detail },
-      ...prompt.actions
-    );
-    if (selected === START_RUNTIME_ACTION) {
+    if (chosen === START_RUNTIME) {
       await this.dependencies.startRuntime();
     }
+    return reply;
   }
 
-  private async addTagsLive(
-    message: Record<string, unknown>,
-    projectDir: string,
-    paths: string[],
-    runtime: RuntimeTarget
-  ): Promise<void> {
-    const result = await this.importAdsTagsLive(
-      projectDir,
-      isRecord(message.target) ? message.target : {},
-      paths,
-      Boolean(message.writable),
-      runtime
-    );
-    if (result.applied) {
-      await vscode.window.showInformationMessage(
-        `${result.message} Restart the runtime to apply the generated ST symbols.`
-      );
-      await this.dependencies.refresh();
-    } else {
-      await vscode.window.showWarningMessage(`Could not add tags: ${result.message}`);
-    }
-  }
-
-  private async importAdsTagsLive(
-    projectDir: string,
-    source: Record<string, unknown>,
-    paths: string[],
-    writable: boolean,
-    runtime: RuntimeTarget,
-    connectionNameOverride?: string,
-  ): Promise<AdsTagPortImportResult> {
-    const endpoint = runtime.endpoint;
-    const port =
-      typeof source.ams_port === "number" ? source.ams_port : 851;
-    if (!endpoint) {
-      return {
-        port,
-        paths,
-        applied: false,
-        addedCount: 0,
-        message: "The selected runtime has no control endpoint.",
-      };
-    }
-    const target: Record<string, unknown> = {
-      name: typeof source.name === "string" ? source.name : undefined,
-      ip: typeof source.host === "string" ? source.host : source.ip,
-      ams_net_id:
-        typeof source.target_net_id === "string"
-          ? source.target_net_id
-          : source.ams_net_id,
-      ams_port: port,
-      tc_version: source.tc_version,
+  /** The open project, and the runtime that serves the live data while it answers. */
+  private context(live = true): { project?: string; runtime?: CanvasLiveRuntime } {
+    const runtime = this.dependencies.runtimeTarget();
+    return {
+      project: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+      runtime:
+        live && runtime?.status === "online_reachable" && runtime.endpoint
+          ? { endpoint: runtime.endpoint, token: runtime.authToken }
+          : undefined,
     };
-    const connectionName = connectionNameOverride ??
-      adsConnectionNameForTarget(source, "ads_import");
-    try {
-      const report = await sendRuntimeControlRequest<AdsImportSymbolsReport>(
-        endpoint,
-        runtime.authToken,
-        "ads.import_symbols.apply",
-        {
-          connection_name: connectionName,
-          symbols: paths,
-          target,
-          write_acknowledged: writable,
-        },
-        { timeoutMs: 20_000 }
-      );
-      if (!report?.applied) {
-        return {
-          port,
-          paths,
-          applied: false,
-          addedCount: 0,
-          message: report?.message ?? "The runtime rejected the import.",
-        };
-      }
-      const runtimeConfig = ensureAdsRuntimeEnabled(projectDir);
-      if (!runtimeConfig.ok) {
-        return {
-          port,
-          paths,
-          applied: false,
-          addedCount: 0,
-          message: `ADS runtime was not enabled automatically: ${runtimeConfig.message}`,
-        };
-      }
-      await openGeneratedAdsDocuments(report);
-      const addedCount = report.selected_count ?? paths.length;
-      return {
-        port,
-        paths,
-        applied: true,
-        addedCount,
-        message: `Added ${countLabel(addedCount, "ADS tag")}.`,
-      };
-    } catch (error) {
-      return {
-        port,
-        paths,
-        applied: false,
-        addedCount: 0,
-        message: `${
-          error instanceof Error ? error.message : String(error)
-        } (live ADS import needs an ads-wire runtime build).`,
-      };
-    }
-  }
-
-  private findEndpointParams(
-    protocol: string
-  ): Record<string, unknown> | undefined {
-    for (const host of this.dependencies.topology()?.hosts ?? []) {
-      const runtimes = [
-        ...(host.runtimes ?? []),
-        ...(host.containers ?? []).flatMap(
-          (container) => container.runtimes ?? []
-        ),
-      ];
-      for (const runtime of runtimes) {
-        for (const endpoint of runtime.endpoints ?? []) {
-          if (endpoint.protocol === protocol && isRecord(endpoint.params)) {
-            return endpoint.params;
-          }
-        }
-      }
-    }
-    return undefined;
   }
 }
 
-function protocolDisplayName(protocol: string): string {
-  switch (protocol) {
-    case "ads":
-      return "ADS client";
-    case "ads_server":
-      return "ADS server";
-    case "opcua":
-      return "OPC UA server";
-    case "opcua_client":
-      return "OPC UA client";
-    case "modbus_tcp":
-      return "Modbus TCP";
-    default:
-      return protocol.replace(/_/g, " ");
-  }
-}
-
-function countLabel(
-  count: number,
-  singular: string,
-  plural = `${singular}s`
-): string {
-  return `${count} ${count === 1 ? singular : plural}`;
-}
-
-function stringPaths(value: unknown, nonEmpty = false): string[] {
-  return Array.isArray(value)
-    ? value.filter(
-        (path): path is string =>
-          typeof path === "string" && (!nonEmpty || path.trim().length > 0)
-      )
-    : [];
-}
-
-function localAdsNetId(
-  target: Record<string, unknown>,
-  port?: number
-): string | undefined {
-  const configured = stringField(target, "local_net_id", "local_ams_net_id");
-  if (configured) {
-    return configured;
-  }
-  const evidence = adsPortBrowseEvidence(target);
-  const matching = port === undefined
-    ? evidence
-    : evidence.filter((item) => item.port === port);
-  for (const item of [...matching, ...evidence]) {
-    const value = item.routePlan?.local?.ams_net_id;
-    if (typeof value === "string" && value.trim().length > 0) {
-      return value.trim();
-    }
-  }
-  return undefined;
-}
-
-function stringField(
-  value: Record<string, unknown>,
-  ...keys: string[]
-): string | undefined {
-  for (const key of keys) {
-    const item = value[key];
-    if (typeof item === "string" && item.trim().length > 0) {
-      return item.trim();
-    }
-  }
-  return undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+function record(value: unknown): Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }

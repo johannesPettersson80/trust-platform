@@ -181,7 +181,7 @@ pub(super) fn start_ads_server_runtime_on_port(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn start_ads_server_runtime_on_ports(
+pub(super) fn start_ads_server_runtime_on_ports(
     resource_name: &str,
     config: &AdsServerRuntimeConfig,
     debug: DebugControl,

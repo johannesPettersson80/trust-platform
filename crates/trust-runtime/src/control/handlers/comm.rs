@@ -20,6 +20,26 @@ pub(super) fn dispatch(request: &ControlRequest, state: &ControlState) -> Option
             request.params.clone(),
             state,
         ),
+        "comm.search.start" => super::super::comm_handlers::handle_comm_search_start(
+            request.id,
+            request.params.clone(),
+            state,
+        ),
+        "comm.search.status" => super::super::comm_handlers::handle_comm_search_status(
+            request.id,
+            request.params.clone(),
+            state,
+        ),
+        "comm.search.cancel" => super::super::comm_handlers::handle_comm_search_cancel(
+            request.id,
+            request.params.clone(),
+            state,
+        ),
+        "comm.compare" => super::super::comm_handlers::handle_comm_compare(
+            request.id,
+            request.params.clone(),
+            state,
+        ),
         "comm.apply" => super::super::comm_handlers::handle_comm_apply(
             request.id,
             request.params.clone(),

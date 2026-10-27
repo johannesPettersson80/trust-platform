@@ -47,11 +47,22 @@ pub fn stopping_recording(recording_id: &str) -> String {
 }
 
 /// The transfer that returns the loop to Auto, the mode Apply found it in, with the largest first output change it allows (A6.2,
-/// A6.4).
+/// A6.4): `tolerance`, plus `entry_error_gain` times the error the loop enters with when the entry has that step (annex E6.9).
 #[must_use]
-pub fn to_auto(mode_symbol: &str, tolerance: f64, output_unit: &str) -> String {
+pub fn to_auto(
+    mode_symbol: &str,
+    tolerance: f64,
+    entry_error_gain: Option<f64>,
+    output_unit: &str,
+) -> String {
+    let step = entry_error_gain.map_or_else(String::new, |gain| {
+        format!(
+            ", plus {} times the error it enters Auto with",
+            engineering(gain, None)
+        )
+    });
     format!(
-        "Returning the loop to Auto ({mode_symbol}), the mode Apply found it in, with a first output change of at most {}{}.",
+        "Returning the loop to Auto ({mode_symbol}), the mode Apply found it in, with a first output change of at most {}{}{step}.",
         engineering(tolerance, None),
         unit_suffix(output_unit)
     )
@@ -73,4 +84,26 @@ fn values_text(values: &BTreeMap<String, f64>) -> String {
         .map(|(symbol, value)| format!("{symbol} {}", engineering(*value, None)))
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::to_auto;
+
+    /// Annex E6.9: a return to Auto whose allowance has the integral step names that step beside the tolerance Studio sends,
+    /// since the runtime adds it for the error the loop enters with; a return without it names the tolerance alone. Catches a
+    /// text that states only the tolerance sent while the runtime allows more.
+    #[test]
+    fn the_return_to_auto_names_the_step_on_the_error_it_enters_with() {
+        assert_eq!(
+            to_auto("P1.Manual", 0.25, Some(0.01), "%"),
+            "Returning the loop to Auto (P1.Manual), the mode Apply found it in, with a first output change of at most \
+             0.25 %, plus 0.01 times the error it enters Auto with."
+        );
+        assert_eq!(
+            to_auto("P1.Manual", 0.25, None, "%"),
+            "Returning the loop to Auto (P1.Manual), the mode Apply found it in, with a first output change of at most \
+             0.25 %."
+        );
+    }
 }

@@ -1,0 +1,259 @@
+{
+  "name": "SFC_Program",
+  "steps": [
+    {
+      "id": "step_init",
+      "name": "Init",
+      "initial": true,
+      "x": 300,
+      "y": 50,
+      "actions": [
+        {
+          "id": "act_init_1",
+          "name": "InitSystem",
+          "qualifier": "N",
+          "body": "system_ready := TRUE;"
+        }
+      ]
+    },
+    {
+      "id": "step_prepare",
+      "name": "Prepare",
+      "initial": false,
+      "x": 300,
+      "y": 150,
+      "actions": [
+        {
+          "id": "act_prep_1",
+          "name": "PrepareMaterials",
+          "qualifier": "N",
+          "body": "materials_ready := TRUE;"
+        }
+      ]
+    },
+    {
+      "id": "step_heat",
+      "name": "Heat",
+      "initial": false,
+      "x": 150,
+      "y": 350,
+      "actions": [
+        {
+          "id": "act_heat_1",
+          "name": "HeatProcess",
+          "qualifier": "L",
+          "time": "T#2s",
+          "body": "heater_on := HeatProcess.Q;\nIF HeatProcess.Q THEN\n  temperature := 150;\nEND_IF;"
+        }
+      ]
+    },
+    {
+      "id": "step_mix",
+      "name": "Mix",
+      "initial": false,
+      "x": 300,
+      "y": 350,
+      "actions": [
+        {
+          "id": "act_mix_1",
+          "name": "MixIngredients",
+          "qualifier": "L",
+          "time": "T#3s",
+          "body": "mixer_on := MixIngredients.Q;\nIF MixIngredients.Q THEN\n  mix_speed := 500;\nELSE\n  mix_speed := 0;\nEND_IF;"
+        }
+      ]
+    },
+    {
+      "id": "step_polish",
+      "name": "Polish",
+      "initial": false,
+      "x": 450,
+      "y": 350,
+      "actions": [
+        {
+          "id": "act_polish_1",
+          "name": "PolishSurface",
+          "qualifier": "L",
+          "time": "T#1500ms",
+          "body": "polisher_on := PolishSurface.Q;\nIF PolishSurface.Q THEN\n  polish_level := 100;\nEND_IF;"
+        }
+      ]
+    },
+    {
+      "id": "step_finish",
+      "name": "Finish",
+      "initial": false,
+      "x": 300,
+      "y": 550,
+      "actions": [
+        {
+          "id": "act_finish_1",
+          "name": "CompleteProcess",
+          "qualifier": "N",
+          "body": "process_complete := TRUE;"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "trans_init_prepare",
+      "name": "T1_Start",
+      "condition": "system_ready",
+      "sourceStepId": "step_init",
+      "targetStepId": "step_prepare",
+      "priority": 1
+    },
+    {
+      "id": "trans_prepare_split",
+      "name": "T2_ToSplit",
+      "condition": "materials_ready",
+      "sourceStepId": "step_prepare",
+      "targetStepId": "split_parallel",
+      "priority": 1
+    },
+    {
+      "id": "trans_split_heat",
+      "name": "T3_ToHeat",
+      "condition": "TRUE",
+      "sourceStepId": "split_parallel",
+      "targetStepId": "step_heat",
+      "priority": 1
+    },
+    {
+      "id": "trans_split_mix",
+      "name": "T4_ToMix",
+      "condition": "TRUE",
+      "sourceStepId": "split_parallel",
+      "targetStepId": "step_mix",
+      "priority": 2
+    },
+    {
+      "id": "trans_split_polish",
+      "name": "T5_ToPolish",
+      "condition": "TRUE",
+      "sourceStepId": "split_parallel",
+      "targetStepId": "step_polish",
+      "priority": 3
+    },
+    {
+      "id": "trans_heat_join",
+      "name": "T6_HeatDone",
+      "condition": "NOT HeatProcess.Q",
+      "sourceStepId": "step_heat",
+      "targetStepId": "join_parallel",
+      "priority": 1
+    },
+    {
+      "id": "trans_mix_join",
+      "name": "T7_MixDone",
+      "condition": "NOT MixIngredients.Q",
+      "sourceStepId": "step_mix",
+      "targetStepId": "join_parallel",
+      "priority": 1
+    },
+    {
+      "id": "trans_polish_join",
+      "name": "T8_PolishDone",
+      "condition": "NOT PolishSurface.Q",
+      "sourceStepId": "step_polish",
+      "targetStepId": "join_parallel",
+      "priority": 1
+    },
+    {
+      "id": "trans_join_finish",
+      "name": "T9_Complete",
+      "condition": "TRUE",
+      "sourceStepId": "join_parallel",
+      "targetStepId": "step_finish",
+      "priority": 1
+    }
+  ],
+  "parallelSplits": [
+    {
+      "id": "split_parallel",
+      "name": "ParallelSplit1",
+      "x": 300,
+      "y": 250,
+      "branchIds": [
+        "step_heat",
+        "step_mix",
+        "step_polish"
+      ]
+    }
+  ],
+  "parallelJoins": [
+    {
+      "id": "join_parallel",
+      "name": "ParallelJoin1",
+      "x": 300,
+      "y": 450,
+      "branchIds": [
+        "step_heat",
+        "step_mix",
+        "step_polish"
+      ],
+      "nextStepId": "step_finish"
+    }
+  ],
+  "variables": [
+    {
+      "name": "system_ready",
+      "type": "BOOL",
+      "initialValue": "FALSE",
+      "comment": "System initialization flag"
+    },
+    {
+      "name": "materials_ready",
+      "type": "BOOL",
+      "initialValue": "FALSE",
+      "comment": "Materials preparation flag"
+    },
+    {
+      "name": "process_complete",
+      "type": "BOOL",
+      "initialValue": "FALSE",
+      "comment": "Process completion flag"
+    },
+    {
+      "name": "heater_on",
+      "type": "BOOL",
+      "initialValue": "FALSE",
+      "comment": "Heater control"
+    },
+    {
+      "name": "mixer_on",
+      "type": "BOOL",
+      "initialValue": "FALSE",
+      "comment": "Mixer control"
+    },
+    {
+      "name": "polisher_on",
+      "type": "BOOL",
+      "initialValue": "FALSE",
+      "comment": "Polisher control"
+    },
+    {
+      "name": "temperature",
+      "type": "INT",
+      "initialValue": "0",
+      "comment": "Current temperature"
+    },
+    {
+      "name": "mix_speed",
+      "type": "INT",
+      "initialValue": "0",
+      "comment": "Mixer speed RPM"
+    },
+    {
+      "name": "polish_level",
+      "type": "INT",
+      "initialValue": "0",
+      "comment": "Polish intensity"
+    }
+  ],
+  "metadata": {
+    "modified": "2026-10-26T12:00:00.000Z",
+    "version": "1.0"
+  }
+}

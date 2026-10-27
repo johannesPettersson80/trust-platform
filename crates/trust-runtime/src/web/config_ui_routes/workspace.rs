@@ -4,26 +4,7 @@ pub(super) fn load_workspace_model(
     bundle_root: &Option<PathBuf>,
 ) -> Result<WorkspaceModel, RuntimeError> {
     let root = default_bundle_root(bundle_root);
-    let mut runtime_roots = Vec::<PathBuf>::new();
-    if root.join("runtime.toml").is_file() {
-        runtime_roots.push(root.clone());
-    }
-    if let Ok(entries) = fs::read_dir(&root) {
-        for entry in entries.flatten() {
-            let Ok(file_type) = entry.file_type() else {
-                continue;
-            };
-            if !file_type.is_dir() {
-                continue;
-            }
-            let candidate = entry.path();
-            if candidate.join("runtime.toml").is_file() {
-                runtime_roots.push(candidate);
-            }
-        }
-    }
-    runtime_roots.sort();
-    runtime_roots.dedup();
+    let runtime_roots = crate::config::workspace_projects::find_runtime_projects(&root);
     if runtime_roots.is_empty() {
         return Err(RuntimeError::InvalidConfig(
             format!(
@@ -144,7 +125,6 @@ name = "{runtime_id}"
 cycle_interval_ms = 20
 
 [runtime.control]
-endpoint = "unix:///tmp/{runtime_id}.sock"
 mode = "production"
 debug_enabled = false
 
@@ -237,6 +217,21 @@ pub(super) fn create_workspace_runtime(
     )?;
     atomic_write_text(runtime_root.join("io.toml").as_path(), io_text.as_str())?;
     atomic_write_text(runtime_root.join("src/main.st").as_path(), main_st_text)?;
+    // The runtime's endpoint file can hold a token, so the new project ignores its folder (spec 11,
+    // section 6.8.0a).
+    crate::control::endpoint::ensure_endpoint_dir_ignored(
+        &runtime_root,
+        crate::control::endpoint::ENDPOINT_DIR_GITIGNORE,
+    )
+    .map_err(|error| {
+        RuntimeError::InvalidConfig(
+            format!(
+                "failed to write {}: {error}",
+                runtime_root.join(".gitignore").display()
+            )
+            .into(),
+        )
+    })?;
 
     Ok(json!({
         "ok": true,
@@ -494,7 +489,16 @@ pub(super) fn validate_st_sources(
         .map(|(path, text)| HarnessSourceFile::with_path(path.clone(), text.clone()))
         .collect::<Vec<_>>();
 
-    match CompileSession::from_sources(sources).build_bytecode_module() {
+    // The build's front and its generator check the sources for this computer's CPU, as a build for
+    // it would (specification 44 §4.1).
+    let target = crate::native::Target::this_cpu().ok_or_else(|| {
+        RuntimeError::InvalidConfig("this computer's CPU runs no program image".into())
+    })?;
+    let options = crate::native::Options {
+        target,
+        hooks: false,
+    };
+    match crate::native::generate_source(&sources, &options) {
         Ok(_) => Ok(Vec::new()),
         Err(error) => Err(RuntimeError::InvalidConfig(
             format!("ST validation failed: {error}").into(),

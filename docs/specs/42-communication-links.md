@@ -21,12 +21,17 @@ Devices & Connections uses:
 
 | Link | Name |
 |---|---|
-| a driver of `io.toml` (Modbus TCP, MQTT, EtherCAT, GPIO, simulated, loopback) | `<protocol>:<position>`, its position in `io.toml` from 0, for example `modbus_tcp:0`, `mqtt:1` |
+| a driver of `io.toml` (Modbus TCP, Modbus RTU, MQTT, EtherCAT, GPIO, analog, PWM, counter, CAN, simulated, loopback) | `<protocol>:<position>`, its position in `io.toml` from 0, for example `modbus_tcp:0`, `mqtt:1` |
 | an ADS client connection | `ads:<connection>`, for example `ads:line` |
 | an OPC UA client connection | `opcua_client:<connection>` |
 
-The protocols of `io.toml` drivers are `modbus_tcp`, `mqtt`, `ethercat`, `gpio`, `simulated` and
-`loopback` (driver aliases such as `sim` take their protocol's name).
+Every driver of `io.toml` runs a link (26 October 2026, when the drivers every runtime shares
+joined the registry, specification 11 §6.5). The protocols of `io.toml` drivers are `modbus_tcp`,
+`modbus_rtu`, `mqtt`, `ethercat`, `gpio`, `analog`, `pwm`, `counter`, `can`, `simulated` and
+`loopback`. A driver's canonical name and its aliases (specification 11 §6.5) take its protocol's
+name: `modbus-tcp` and `modbus_tcp` are `modbus_tcp`, `modbus-rtu` and `modbus_rtu` are
+`modbus_rtu`, `mqtt-tcp` is `mqtt`, `ether-cat` and `ecat` are `ethercat`, and `sim` and `noop` are
+`simulated`. The driver name `none` attaches no driver and runs no link.
 
 ## 3. The state of a link
 

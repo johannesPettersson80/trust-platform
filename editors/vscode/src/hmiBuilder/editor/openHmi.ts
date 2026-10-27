@@ -23,7 +23,18 @@ export async function startPage(folder: vscode.Uri): Promise<vscode.Uri | undefi
     return undefined;
   }
   const pages = vscode.Uri.joinPath(folder, "hmi", "pages");
-  const named = /^\s*start_page\s*=\s*["']([A-Za-z0-9_-]+)["']/m.exec(text)?.[1];
+  // The screen layout as the language server reads it (`trust-lsp.hmiFileParse`, §4).
+  const parsed = await vscode.commands
+    .executeCommand<{ ok?: boolean; model?: { start_page?: unknown } }>("trust-lsp.hmiFileParse", {
+      kind: "screen",
+      text,
+      file: "hmi/screen.toml",
+    })
+    .then(
+      (answer) => answer,
+      () => undefined,
+    );
+  const named = typeof parsed?.model?.start_page === "string" ? parsed.model.start_page : undefined;
   if (named) {
     const page = vscode.Uri.joinPath(pages, `${named}.toml`);
     if (await exists(page)) return page;

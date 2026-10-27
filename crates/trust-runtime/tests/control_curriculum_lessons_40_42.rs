@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use trust_runtime::io::IoAddress;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::value::Value;
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
 mod control_heater_support;
 use control_heater_support::*;
@@ -164,7 +164,7 @@ fn lesson41_run_from(level: f64, rest: u64, updates: u64) -> Vec<Drained> {
 }
 
 fn lesson41_record(
-    mut runtime: Runtime,
+    mut runtime: CompiledRuntime,
     mut simulation: SimulationController,
     rest: u64,
     updates: u64,

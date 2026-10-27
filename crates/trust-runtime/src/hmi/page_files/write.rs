@@ -345,7 +345,7 @@ pub(super) fn key(name: &str) -> String {
 }
 
 /// A TOML basic string.
-pub(super) fn string(value: &str) -> String {
+pub(crate) fn string(value: &str) -> String {
     let mut quoted = String::with_capacity(value.len() + 2);
     quoted.push('"');
     for c in value.chars() {

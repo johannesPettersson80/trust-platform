@@ -1,11 +1,11 @@
 import * as fs from "fs";
-import * as net from "net";
 import * as path from "path";
 import * as vscode from "vscode";
 
+import { ensureToolchain } from "./toolchain";
 import { getBinaryPath } from "./binary";
 import { getTrustConfiguration } from "./configuration";
-import { localSimControl } from "./simControl";
+import { launchEndpointProblem, localSimControl } from "./simControl";
 import {
   __testCreateDefaultConfigurationAuto,
   __testEnsureConfigurationEntryAuto,
@@ -17,20 +17,17 @@ import {
   ensureConfigurationEntryAuto,
   initializeDebugConfigurationState,
   isConfigurationFile,
-  loadRuntimeControlConfig,
   markSessionProgram,
   maybeReloadForEditor,
   preferredStructuredTextUri,
+  resolveRuntimeControlForFolder,
   runtimeSourceOptions,
-  selectWorkspaceFolderPathForMode,
   validateConfiguration,
 } from "./debug/configuration";
-import { diagnosticsGateReason, validityLine } from "./compileGate";
-import { parseControlEndpoint } from "./runtimeControl";
+import { compileGate } from "./compileGate";
 
 const LAUNCH_WARN_DELAY_MS = 1500;
 const HOT_RELOAD_REQUEST_TIMEOUT_MS = 30000;
-const IO_BUSY_RETRY_DELAYS_MS = [75, 150, 250, 400, 600];
 const DEBUG_STOP_WAIT_TIMEOUT_MS = 8000;
 const DEBUG_STOP_UI_SETTLE_MS = 1000;
 const TEST_CONTROL_ENDPOINT_OVERRIDE_ENV = "TRUST_UX_DEBUG_CONTROL_ENDPOINT";
@@ -53,11 +50,11 @@ function redactDebugConfig(config: vscode.DebugConfiguration): Record<string, un
   return { ...config, controlAuthToken: "***" };
 }
 
-function applyLaunchControlEndpoint(
+async function applyLaunchControlEndpoint(
   config: vscode.DebugConfiguration,
   folder: vscode.WorkspaceFolder | undefined,
   allowTestControlEndpointOverride: boolean
-): void {
+): Promise<void> {
   if (config.request !== "launch" || config.controlEndpoint) {
     return;
   }
@@ -72,46 +69,11 @@ function applyLaunchControlEndpoint(
     }
     return;
   }
-  const sim = localSimControl(folder?.uri.fsPath);
+  const sim = await localSimControl(folder?.uri.fsPath);
   if (sim) {
     config.controlEndpoint = sim.endpoint;
     config.controlAuthToken = sim.authToken;
   }
-}
-
-async function launchControlEndpointError(
-  endpoint: unknown
-): Promise<string | undefined> {
-  if (typeof endpoint !== "string") {
-    return undefined;
-  }
-  const parsed = parseControlEndpoint(endpoint);
-  if (!parsed || parsed.kind !== "tcp") {
-    return undefined;
-  }
-  if (await canConnectToTcpEndpoint(parsed.host, parsed.port)) {
-    return "The runtime port is already in use.";
-  }
-  return undefined;
-}
-
-function canConnectToTcpEndpoint(host: string, port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const socket = net.createConnection({ host, port });
-    let finished = false;
-    const finish = (value: boolean) => {
-      if (finished) {
-        return;
-      }
-      finished = true;
-      socket.removeAllListeners();
-      socket.destroy();
-      resolve(value);
-    };
-    socket.once("connect", () => finish(true));
-    socket.once("error", () => finish(false));
-    socket.setTimeout(300, () => finish(false));
-  });
 }
 
 function remoteAttachDebugSessionName(endpoint: string | undefined): string {
@@ -318,6 +280,8 @@ export async function __testSendIoDebugRequest(
   await sendIoDebugRequest(session, action, address, value);
 }
 
+// Each request goes to the adapter once: the adapter sends a write again while the runtime is
+// busy (specification 13, "setVariable and setExpression"), and its answer is the one shown.
 async function sendIoDebugRequest(
   session: IoDebugRequestSession,
   action: IoDebugAction,
@@ -326,47 +290,21 @@ async function sendIoDebugRequest(
 ): Promise<void> {
   switch (action) {
     case "write":
-      await sendIoCustomRequest(session, "stIoWrite", {
+      await session.customRequest("stIoWrite", {
         address,
         value: value ?? "FALSE",
       });
       return;
     case "force":
-      await sendIoCustomRequest(session, "stIoForce", {
+      await session.customRequest("stIoForce", {
         address,
         value: value ?? "FALSE",
       });
       return;
     case "release":
-      await sendIoCustomRequest(session, "stIoRelease", { address });
+      await session.customRequest("stIoRelease", { address });
       return;
   }
-}
-
-async function sendIoCustomRequest(
-  session: IoDebugRequestSession,
-  command: string,
-  args: Record<string, unknown>
-): Promise<void> {
-  let lastError: unknown;
-  for (let attempt = 0; attempt <= IO_BUSY_RETRY_DELAYS_MS.length; attempt += 1) {
-    try {
-      await session.customRequest(command, args);
-      return;
-    } catch (error) {
-      lastError = error;
-      if (!isRuntimeBusyError(error) || attempt >= IO_BUSY_RETRY_DELAYS_MS.length) {
-        throw error;
-      }
-      await sleep(IO_BUSY_RETRY_DELAYS_MS[attempt]);
-    }
-  }
-  throw lastError;
-}
-
-function isRuntimeBusyError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return /\bruntime busy\b/i.test(message);
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -452,7 +390,11 @@ class StructuredTextDebugAdapterFactory
 class StructuredTextDebugConfigurationProvider
   implements vscode.DebugConfigurationProvider
 {
-  constructor(private readonly allowTestControlEndpointOverride: boolean) {}
+  constructor(
+    private readonly context: vscode.ExtensionContext,
+    private readonly allowTestControlEndpointOverride: boolean,
+    private readonly ensureToolchain: () => Promise<boolean>
+  ) {}
 
   provideDebugConfigurations(
     _folder: vscode.WorkspaceFolder | undefined,
@@ -491,16 +433,17 @@ class StructuredTextDebugConfigurationProvider
 
     if (config.request === "attach") {
       if (!config.endpoint) {
-        const controlConfig = loadRuntimeControlConfig(folder);
-        if (!controlConfig?.endpoint) {
-          vscode.window.showErrorMessage(
-            "Attach requires runtime.control.endpoint in runtime.toml."
-          );
+        const control = await resolveRuntimeControlForFolder(
+          getBinaryPath(this.context, "trust-runtime", "runtime.cli.path"),
+          folder
+        );
+        if (!control.ok) {
+          vscode.window.showErrorMessage(control.message);
           return null;
         }
-        config.endpoint = controlConfig.endpoint;
-        if (controlConfig.authToken && !config.authToken) {
-          config.authToken = controlConfig.authToken;
+        config.endpoint = control.value.endpoint;
+        if (control.value.authToken && !config.authToken) {
+          config.authToken = control.value.authToken;
         }
       }
       const runtimeOptions = runtimeSourceOptions();
@@ -522,6 +465,9 @@ class StructuredTextDebugConfigurationProvider
           config.program = configUri.fsPath;
         }
       }
+      // The launch builds the program compiled (specification 44 NX-16): the toolchain is
+      // installed first when none is (§4.6).
+      await this.ensureToolchain();
     }
 
     if (!config.cwd && folder) {
@@ -536,7 +482,7 @@ class StructuredTextDebugConfigurationProvider
     // Test-mode evidence runners can override the endpoint to force a real TCP bind conflict for
     // ERR-04. This is intentionally not a user setting: production/dev users keep the normal
     // per-workspace Unix socket.
-    applyLaunchControlEndpoint(
+    await applyLaunchControlEndpoint(
       config,
       folder,
       this.allowTestControlEndpointOverride
@@ -664,7 +610,9 @@ export function registerDebugAdapter(
   debugChannel().appendLine("Structured Text debug adapter factory registered.");
 
   const provider = new StructuredTextDebugConfigurationProvider(
-    context.extensionMode === vscode.ExtensionMode.Test
+    context,
+    context.extensionMode === vscode.ExtensionMode.Test,
+    () => ensureToolchain(context)
   );
   context.subscriptions.push(
     vscode.debug.registerDebugConfigurationProvider(DEBUG_TYPE, provider)
@@ -771,15 +719,11 @@ export function registerDebugAdapter(
           folder = vscode.workspace.workspaceFolders?.[0];
         }
 
-        const diagnostics = vscode.languages.getDiagnostics(programUri);
-        if (
-          diagnostics.some(
-            (diagnostic) => diagnostic.severity === vscode.DiagnosticSeverity.Error
-          )
-        ) {
-          vscode.window.showErrorMessage(
-            "Configuration has errors. Fix them before starting a debug session."
-          );
+        // The language server decides whether the project's problems let a debug session start
+        // (`trust-lsp.compileGate`, the sidebar's rule).
+        const debugRefusal = (await compileGate()).reasons.debug;
+        if (debugRefusal) {
+          vscode.window.showErrorMessage(debugRefusal);
           return false;
         }
         if (!(await validateConfiguration(programUri))) {
@@ -802,12 +746,12 @@ export function registerDebugAdapter(
         if (folder) {
           config.cwd = folder.uri.fsPath;
         }
-        applyLaunchControlEndpoint(
+        await applyLaunchControlEndpoint(
           config,
           folder,
           context.extensionMode === vscode.ExtensionMode.Test
         );
-        const launchEndpointError = await launchControlEndpointError(
+        const launchEndpointError = await launchEndpointProblem(
           config.controlEndpoint
         );
         if (launchEndpointError) {
@@ -841,20 +785,21 @@ export function registerDebugAdapter(
   context.subscriptions.push(
     vscode.commands.registerCommand("trust-lsp.debug.attach", async () => {
       const folder = vscode.workspace.workspaceFolders?.[0];
-      const controlConfig = loadRuntimeControlConfig(folder);
-      if (!controlConfig?.endpoint) {
-        vscode.window.showErrorMessage(
-          "Attach requires runtime.control.endpoint in runtime.toml."
-        );
+      const control = await resolveRuntimeControlForFolder(
+        getBinaryPath(context, "trust-runtime", "runtime.cli.path"),
+        folder
+      );
+      if (!control.ok) {
+        vscode.window.showErrorMessage(control.message);
         return false;
       }
       const runtimeOptions = runtimeSourceOptions();
       const config: vscode.DebugConfiguration = {
         type: DEBUG_TYPE,
         request: "attach",
-        name: remoteAttachDebugSessionName(controlConfig.endpoint),
-        endpoint: controlConfig.endpoint,
-        authToken: controlConfig.authToken,
+        name: remoteAttachDebugSessionName(control.value.endpoint),
+        endpoint: control.value.endpoint,
+        authToken: control.value.authToken,
         internalConsoleOptions: "neverOpen",
         ...runtimeOptions,
       };
@@ -1019,7 +964,8 @@ export function registerDebugAdapter(
         );
         return { ok: false, message };
       }
-      const gateReason = diagnosticsGateReason(validityLine(), "update");
+      // Problems decides alone here: the sidebar's Update adds the last Compile (specification 25 §6.6).
+      const gateReason = (await compileGate()).reasons.update ?? undefined;
       if (gateReason) {
         vscode.window.showWarningMessage(gateReason);
         debugReloadEmitter.fire({ ok: false, message: gateReason, gated: true });
@@ -1062,5 +1008,4 @@ export function registerDebugAdapter(
 export {
   __testCreateDefaultConfigurationAuto,
   __testEnsureConfigurationEntryAuto,
-  selectWorkspaceFolderPathForMode,
 };

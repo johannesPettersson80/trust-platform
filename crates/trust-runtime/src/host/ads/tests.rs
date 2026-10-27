@@ -1,15 +1,19 @@
+//! The ADS client's configuration, generator and bridge. The tests that build a program need the
+//! toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::time::{Duration, Instant};
 
-use crate::harness::{CompileSession, SourceFile};
+use crate::harness::{CompileSession, SourceFile, TestHarness};
 use trust_ads_core::{
     AdsDataTypeDescriptor, AdsRoute, AdsSecurityPolicy, AmsNetId, ArrayDimension, IecDataType,
     PointAccess, PointQuality, QualityState, SymbolDescriptor, SymbolFlag, SymbolSnapshot,
     TransportSecurity, UpdateMode,
 };
 use trust_hir::TypeId;
+use trust_runtime_core::native::variables::CompiledVariables;
 use trust_runtime_core::value::Value;
 
-use crate::{RetainPolicy, Runtime, RuntimeBuilder};
+use crate::{CompiledRuntime, RetainPolicy};
 
 use super::*;
 
@@ -325,7 +329,7 @@ END_CONFIGURATION
 "#,
         ),
     ])
-    .build_runtime()
+    .declarations()
     .expect("generated ADS interface compiles without a PLC");
 }
 
@@ -399,7 +403,7 @@ END_CONFIGURATION
 "#,
         ),
     ])
-    .build_runtime()
+    .declarations()
     .expect("single generated ADS file compiles for multiple connections");
 }
 
@@ -616,9 +620,7 @@ fn mock_transport_reports_missing_read_value_as_point_quality_error() {
 
 #[test]
 fn declared_binding_resolution_rejects_missing_global() {
-    let runtime = RuntimeBuilder::new()
-        .build()
-        .expect("install empty binding fixture");
+    let runtime = program_with_globals(Vec::new());
     let connection = connection_with_points(vec![point_config(
         "line1_temp",
         "MAIN.Temperature",
@@ -628,7 +630,7 @@ fn declared_binding_resolution_rejects_missing_global() {
     )]);
 
     let error =
-        resolve_declared_bindings(&runtime, &connection).expect_err("missing global must fail");
+        resolve_compiled_bindings(&runtime, &connection).expect_err("missing global must fail");
 
     assert!(error
         .to_string()
@@ -637,7 +639,7 @@ fn declared_binding_resolution_rejects_missing_global() {
 
 #[test]
 fn declared_binding_resolution_rejects_type_mismatch() {
-    let runtime = runtime_with_globals(vec![(
+    let runtime = program_with_globals(vec![(
         "line1_temp",
         TypeId::DINT,
         Value::DInt(0),
@@ -652,14 +654,14 @@ fn declared_binding_resolution_rejects_type_mismatch() {
     )]);
 
     let error =
-        resolve_declared_bindings(&runtime, &connection).expect_err("type mismatch must fail");
+        resolve_compiled_bindings(&runtime, &connection).expect_err("type mismatch must fail");
 
     assert!(error.to_string().contains("type mismatch"));
 }
 
 #[test]
 fn retain_read_requires_opt_in_and_allowed_binding_starts_stale() {
-    let runtime = runtime_with_globals(vec![(
+    let runtime = program_with_globals(vec![(
         "line1_temp",
         TypeId::REAL,
         Value::Real(0.0),
@@ -673,7 +675,7 @@ fn retain_read_requires_opt_in_and_allowed_binding_starts_stale() {
         false,
     )]);
 
-    let error = resolve_declared_bindings(&runtime, &blocked)
+    let error = resolve_compiled_bindings(&runtime, &blocked)
         .expect_err("retained read target must require opt-in");
 
     assert!(error.to_string().contains("allow_retain_read=true"));
@@ -685,7 +687,7 @@ fn retain_read_requires_opt_in_and_allowed_binding_starts_stale() {
         PointAccess::Read,
         true,
     )]);
-    let bindings = resolve_declared_bindings(&runtime, &allowed).expect("opt-in binding");
+    let bindings = resolve_compiled_bindings(&runtime, &allowed).expect("opt-in binding");
     let bridge = AdsConnectionBridge::new(bindings).expect("bridge");
 
     let status = bridge.status("line1_temp").expect("status");
@@ -699,7 +701,7 @@ fn retain_read_requires_opt_in_and_allowed_binding_starts_stale() {
 
 #[test]
 fn bridge_applies_reads_at_input_phase_and_publishes_writes_at_output_phase() {
-    let runtime = runtime_with_globals(vec![
+    let runtime = program_with_globals(vec![
         (
             "line1_temp",
             TypeId::REAL,
@@ -714,7 +716,7 @@ fn bridge_applies_reads_at_input_phase_and_publishes_writes_at_output_phase() {
         ),
     ]);
     // This bridge-only corpus mutates isolated non-executable fixture storage.
-    let mut storage = runtime.storage().clone();
+    let mut storage = FixtureStorage::of(&runtime);
     let connection = connection_with_points(vec![
         point_config(
             "line1_temp",
@@ -731,7 +733,7 @@ fn bridge_applies_reads_at_input_phase_and_publishes_writes_at_output_phase() {
             false,
         ),
     ]);
-    let bindings = resolve_declared_bindings(&runtime, &connection).expect("bindings");
+    let bindings = resolve_compiled_bindings(&runtime, &connection).expect("bindings");
     let mut transport = MockAdsTransport::new(vec![
         real_symbol("MAIN.Temperature"),
         real_symbol("GVL.Setpoint"),
@@ -742,17 +744,16 @@ fn bridge_applies_reads_at_input_phase_and_publishes_writes_at_output_phase() {
     worker.tick(0).expect("worker tick");
 
     assert_eq!(storage.get_global("line1_temp"), Some(&Value::Real(0.0)));
-    bridge.apply_inputs(&mut storage, 11).expect("apply inputs");
+    bridge
+        .apply_inputs_compiled(&mut storage, 11)
+        .expect("apply inputs");
     assert_eq!(storage.get_global("line1_temp"), Some(&Value::Real(20.5)));
 
-    let setpoint_ref = storage
-        .ref_for_global("line1_setpoint")
-        .expect("setpoint ref");
-    assert!(storage.write_by_ref(setpoint_ref, Value::Real(31.0)));
+    assert!(storage.write_global("line1_setpoint", Value::Real(31.0)));
     assert_eq!(worker.transport().value("line1_setpoint"), None);
 
     bridge
-        .capture_outputs(&mut storage, 12)
+        .capture_outputs_compiled(&mut storage, 12)
         .expect("capture outputs");
     assert_eq!(
         bridge.pending_write("line1_setpoint"),
@@ -768,8 +769,8 @@ fn bridge_applies_reads_at_input_phase_and_publishes_writes_at_output_phase() {
 }
 
 #[test]
-fn bridge_projects_ads_globals_for_live_values_and_queues_writable_points() {
-    let runtime = runtime_with_globals(vec![
+fn bridge_reports_writable_points_and_queues_live_writes_for_them_only() {
+    let runtime = program_with_globals(vec![
         (
             "line1_temp",
             TypeId::REAL,
@@ -799,17 +800,9 @@ fn bridge_projects_ads_globals_for_live_values_and_queues_writable_points() {
             false,
         ),
     ]);
-    let bindings = resolve_declared_bindings(&runtime, &connection).expect("bindings");
+    let bindings = resolve_compiled_bindings(&runtime, &connection).expect("bindings");
     let mut bridge = AdsConnectionBridge::new(bindings).expect("bridge");
 
-    let values = bridge.live_values(runtime.storage(), "line1", 851);
-    assert_eq!(values.len(), 2);
-    assert!(values.iter().all(|value| value.input));
-    assert_eq!(values[0].connection_name, "line1");
-    assert_eq!(values[0].ams_port, 851);
-    assert!(!values[0].writable);
-    assert!(values[1].writable);
-    assert!(!values[0].forced);
     assert_eq!(bridge.live_value_writable("line1_temp"), Some(false));
     assert_eq!(bridge.live_value_writable("line1_setpoint"), Some(true));
     assert_eq!(bridge.live_value_writable("missing"), None);
@@ -877,14 +870,14 @@ fn client_rejects_non_finite_real_and_lreal_before_storage_apply() {
 
     for mode in [UpdateMode::Poll, UpdateMode::Notify] {
         for (case, type_id, data_type, initial, non_finite, size) in &values {
-            let runtime = runtime_with_globals(vec![(
+            let runtime = program_with_globals(vec![(
                 "line1_temp",
                 *type_id,
                 initial.clone(),
                 RetainPolicy::NonRetain,
             )]);
             // This bridge-only corpus mutates isolated non-executable fixture storage.
-            let mut storage = runtime.storage().clone();
+            let mut storage = FixtureStorage::of(&runtime);
             let mut point = point_config(
                 "line1_temp",
                 "MAIN.Temperature",
@@ -894,7 +887,7 @@ fn client_rejects_non_finite_real_and_lreal_before_storage_apply() {
             );
             point.mode = mode;
             let connection = connection_with_points(vec![point]);
-            let bindings = resolve_declared_bindings(&runtime, &connection).expect("bindings");
+            let bindings = resolve_compiled_bindings(&runtime, &connection).expect("bindings");
             let symbol =
                 SymbolDescriptor::new("MAIN.Temperature", data_type.clone(), 0x4020, 0, *size)
                     .with_flag(SymbolFlag::Read)
@@ -935,7 +928,7 @@ fn client_rejects_non_finite_real_and_lreal_before_storage_apply() {
             );
 
             bridge
-                .apply_inputs(&mut storage, 11)
+                .apply_inputs_compiled(&mut storage, 11)
                 .expect("rejecting input must preserve scan execution");
             assert_eq!(
                 storage.get_global("line1_temp"),
@@ -948,14 +941,14 @@ fn client_rejects_non_finite_real_and_lreal_before_storage_apply() {
 
 #[test]
 fn read_write_binding_seeds_write_baseline_from_first_good_read() {
-    let runtime = runtime_with_globals(vec![(
+    let runtime = program_with_globals(vec![(
         "line1_setpoint",
         TypeId::REAL,
         Value::Real(0.0),
         RetainPolicy::NonRetain,
     )]);
     // This bridge-only corpus mutates isolated non-executable fixture storage.
-    let mut storage = runtime.storage().clone();
+    let mut storage = FixtureStorage::of(&runtime);
     let connection = connection_with_points(vec![point_config(
         "line1_setpoint",
         "GVL.Setpoint",
@@ -963,7 +956,7 @@ fn read_write_binding_seeds_write_baseline_from_first_good_read() {
         PointAccess::ReadWrite,
         false,
     )]);
-    let bindings = resolve_declared_bindings(&runtime, &connection).expect("bindings");
+    let bindings = resolve_compiled_bindings(&runtime, &connection).expect("bindings");
     let mut transport = MockAdsTransport::new(vec![real_symbol("GVL.Setpoint")]);
     transport.set_value("line1_setpoint", Value::Real(10.0), PointQuality::good(10));
     let (mut bridge, mut worker) =
@@ -971,23 +964,20 @@ fn read_write_binding_seeds_write_baseline_from_first_good_read() {
     worker.tick(0).expect("worker tick");
 
     bridge
-        .apply_inputs(&mut storage, 11)
+        .apply_inputs_compiled(&mut storage, 11)
         .expect("apply first read");
     assert_eq!(
         storage.get_global("line1_setpoint"),
         Some(&Value::Real(10.0))
     );
     bridge
-        .capture_outputs(&mut storage, 12)
+        .capture_outputs_compiled(&mut storage, 12)
         .expect("unchanged read/write point must not write back");
     assert_eq!(bridge.pending_write("line1_setpoint"), None);
 
-    let setpoint_ref = storage
-        .ref_for_global("line1_setpoint")
-        .expect("setpoint ref");
-    assert!(storage.write_by_ref(setpoint_ref, Value::Real(88.8)));
+    assert!(storage.write_global("line1_setpoint", Value::Real(88.8)));
     bridge
-        .capture_outputs(&mut storage, 13)
+        .capture_outputs_compiled(&mut storage, 13)
         .expect("changed read/write point queues write");
     assert_eq!(
         bridge.pending_write("line1_setpoint"),
@@ -1002,14 +992,14 @@ fn read_write_binding_seeds_write_baseline_from_first_good_read() {
 
 #[test]
 fn spawned_worker_updates_cache_and_scan_applies_snapshot_only() {
-    let runtime = runtime_with_globals(vec![(
+    let runtime = program_with_globals(vec![(
         "line1_temp",
         TypeId::REAL,
         Value::Real(0.0),
         RetainPolicy::NonRetain,
     )]);
     // This bridge-only corpus mutates isolated non-executable fixture storage.
-    let mut storage = runtime.storage().clone();
+    let mut storage = FixtureStorage::of(&runtime);
     let connection = connection_with_points(vec![point_config(
         "line1_temp",
         "MAIN.Temperature",
@@ -1017,7 +1007,7 @@ fn spawned_worker_updates_cache_and_scan_applies_snapshot_only() {
         PointAccess::Read,
         false,
     )]);
-    let bindings = resolve_declared_bindings(&runtime, &connection).expect("bindings");
+    let bindings = resolve_compiled_bindings(&runtime, &connection).expect("bindings");
     let mut transport = MockAdsTransport::new(vec![real_symbol("MAIN.Temperature")]);
     transport.set_value("line1_temp", Value::Real(42.25), PointQuality::good(10));
     let (mut bridge, worker) =
@@ -1038,7 +1028,7 @@ fn spawned_worker_updates_cache_and_scan_applies_snapshot_only() {
     );
 
     bridge
-        .apply_inputs(&mut storage, 50)
+        .apply_inputs_compiled(&mut storage, 50)
         .expect("apply cached input");
     assert_eq!(storage.get_global("line1_temp"), Some(&Value::Real(42.25)));
 
@@ -1047,14 +1037,14 @@ fn spawned_worker_updates_cache_and_scan_applies_snapshot_only() {
 
 #[test]
 fn notify_binding_subscribes_skips_poll_and_applies_at_scan_boundary() {
-    let runtime = runtime_with_globals(vec![(
+    let runtime = program_with_globals(vec![(
         "line1_temp",
         TypeId::REAL,
         Value::Real(0.0),
         RetainPolicy::NonRetain,
     )]);
     // This bridge-only corpus mutates isolated non-executable fixture storage.
-    let mut storage = runtime.storage().clone();
+    let mut storage = FixtureStorage::of(&runtime);
     let mut point = point_config(
         "line1_temp",
         "MAIN.Temperature",
@@ -1064,7 +1054,7 @@ fn notify_binding_subscribes_skips_poll_and_applies_at_scan_boundary() {
     );
     point.mode = UpdateMode::Notify;
     let connection = connection_with_points(vec![point]);
-    let bindings = resolve_declared_bindings(&runtime, &connection).expect("bindings");
+    let bindings = resolve_compiled_bindings(&runtime, &connection).expect("bindings");
     let (mut bridge, mut worker) = AdsConnectionBridge::with_transport(
         MockAdsTransport::new(vec![real_symbol("MAIN.Temperature")]),
         bindings,
@@ -1102,7 +1092,7 @@ fn notify_binding_subscribes_skips_poll_and_applies_at_scan_boundary() {
     );
 
     bridge
-        .apply_inputs(&mut storage, 11)
+        .apply_inputs_compiled(&mut storage, 11)
         .expect("apply cached notification");
     assert_eq!(storage.get_global("line1_temp"), Some(&Value::Real(22.75)));
     assert_eq!(worker.transport().sumup_read_batches(), 0);
@@ -1110,14 +1100,14 @@ fn notify_binding_subscribes_skips_poll_and_applies_at_scan_boundary() {
 
 #[test]
 fn spawned_worker_drains_output_queue_off_scan_thread() {
-    let runtime = runtime_with_globals(vec![(
+    let runtime = program_with_globals(vec![(
         "line1_setpoint",
         TypeId::REAL,
         Value::Real(0.0),
         RetainPolicy::NonRetain,
     )]);
     // This bridge-only corpus mutates isolated non-executable fixture storage.
-    let mut storage = runtime.storage().clone();
+    let mut storage = FixtureStorage::of(&runtime);
     let connection = connection_with_points(vec![point_config(
         "line1_setpoint",
         "GVL.Setpoint",
@@ -1125,19 +1115,16 @@ fn spawned_worker_drains_output_queue_off_scan_thread() {
         PointAccess::Write,
         false,
     )]);
-    let bindings = resolve_declared_bindings(&runtime, &connection).expect("bindings");
+    let bindings = resolve_compiled_bindings(&runtime, &connection).expect("bindings");
     let (mut bridge, worker) = AdsConnectionBridge::with_transport(
         MockAdsTransport::new(vec![real_symbol("GVL.Setpoint")]),
         bindings,
     )
     .expect("bridge");
-    let setpoint_ref = storage
-        .ref_for_global("line1_setpoint")
-        .expect("setpoint ref");
-    assert!(storage.write_by_ref(setpoint_ref, Value::Real(31.0)));
+    assert!(storage.write_global("line1_setpoint", Value::Real(31.0)));
 
     bridge
-        .capture_outputs(&mut storage, 60)
+        .capture_outputs_compiled(&mut storage, 60)
         .expect("queue output");
     assert_eq!(
         bridge.pending_write("line1_setpoint"),
@@ -1159,7 +1146,7 @@ fn spawned_worker_drains_output_queue_off_scan_thread() {
 
 #[test]
 fn notify_binding_resubscribes_after_symbol_version_change() {
-    let runtime = runtime_with_globals(vec![(
+    let runtime = program_with_globals(vec![(
         "line1_temp",
         TypeId::REAL,
         Value::Real(0.0),
@@ -1174,7 +1161,7 @@ fn notify_binding_resubscribes_after_symbol_version_change() {
     );
     point.mode = UpdateMode::Notify;
     let connection = connection_with_points(vec![point]);
-    let bindings = resolve_declared_bindings(&runtime, &connection).expect("bindings");
+    let bindings = resolve_compiled_bindings(&runtime, &connection).expect("bindings");
     let (_bridge, mut worker) = AdsConnectionBridge::with_transport(
         MockAdsTransport::new(vec![real_symbol("MAIN.Temperature")]),
         bindings,
@@ -1208,7 +1195,7 @@ fn notify_binding_resubscribes_after_symbol_version_change() {
 
 #[test]
 fn notify_binding_refresh_disconnects_before_resubscribe() {
-    let runtime = runtime_with_globals(vec![(
+    let runtime = program_with_globals(vec![(
         "line1_temp",
         TypeId::REAL,
         Value::Real(0.0),
@@ -1223,7 +1210,7 @@ fn notify_binding_refresh_disconnects_before_resubscribe() {
     );
     point.mode = UpdateMode::Notify;
     let connection = connection_with_points(vec![point]);
-    let bindings = resolve_declared_bindings(&runtime, &connection).expect("bindings");
+    let bindings = resolve_compiled_bindings(&runtime, &connection).expect("bindings");
     let (_bridge, mut worker) = AdsConnectionBridge::with_transport(
         MockAdsTransport::new(vec![real_symbol("MAIN.Temperature")]),
         bindings,
@@ -1247,14 +1234,14 @@ fn notify_binding_refresh_disconnects_before_resubscribe() {
 
 #[test]
 fn read_bindings_do_not_publish_outputs() {
-    let runtime = runtime_with_globals(vec![(
+    let runtime = program_with_globals(vec![(
         "line1_temp",
         TypeId::REAL,
         Value::Real(0.0),
         RetainPolicy::NonRetain,
     )]);
     // This bridge-only corpus mutates isolated non-executable fixture storage.
-    let mut storage = runtime.storage().clone();
+    let mut storage = FixtureStorage::of(&runtime);
     let connection = connection_with_points(vec![point_config(
         "line1_temp",
         "MAIN.Temperature",
@@ -1262,7 +1249,7 @@ fn read_bindings_do_not_publish_outputs() {
         PointAccess::Read,
         false,
     )]);
-    let bindings = resolve_declared_bindings(&runtime, &connection).expect("bindings");
+    let bindings = resolve_compiled_bindings(&runtime, &connection).expect("bindings");
     let (mut bridge, mut worker) = AdsConnectionBridge::with_transport(
         MockAdsTransport::new(vec![real_symbol("MAIN.Temperature")]),
         bindings,
@@ -1270,10 +1257,9 @@ fn read_bindings_do_not_publish_outputs() {
     .expect("bridge");
     worker.tick(0).expect("worker tick");
 
-    let temp_ref = storage.ref_for_global("line1_temp").expect("temp ref");
-    assert!(storage.write_by_ref(temp_ref, Value::Real(99.0)));
+    assert!(storage.write_global("line1_temp", Value::Real(99.0)));
     bridge
-        .capture_outputs(&mut storage, 20)
+        .capture_outputs_compiled(&mut storage, 20)
         .expect("capture outputs");
 
     assert_eq!(bridge.pending_write("line1_temp"), None);
@@ -1282,7 +1268,7 @@ fn read_bindings_do_not_publish_outputs() {
 
 #[test]
 fn symbol_version_change_revalidates_and_resolves_new_handles() {
-    let runtime = runtime_with_globals(vec![(
+    let runtime = program_with_globals(vec![(
         "line1_temp",
         TypeId::REAL,
         Value::Real(0.0),
@@ -1295,7 +1281,7 @@ fn symbol_version_change_revalidates_and_resolves_new_handles() {
         PointAccess::Read,
         false,
     )]);
-    let bindings = resolve_declared_bindings(&runtime, &connection).expect("bindings");
+    let bindings = resolve_compiled_bindings(&runtime, &connection).expect("bindings");
     let (_bridge, mut worker) = AdsConnectionBridge::with_transport(
         MockAdsTransport::new(vec![real_symbol("MAIN.Temperature")]),
         bindings,
@@ -1320,7 +1306,7 @@ fn symbol_version_change_revalidates_and_resolves_new_handles() {
 
 #[test]
 fn symbol_version_type_mismatch_faults_bridge() {
-    let runtime = runtime_with_globals(vec![(
+    let runtime = program_with_globals(vec![(
         "line1_temp",
         TypeId::REAL,
         Value::Real(0.0),
@@ -1333,7 +1319,7 @@ fn symbol_version_type_mismatch_faults_bridge() {
         PointAccess::Read,
         false,
     )]);
-    let bindings = resolve_declared_bindings(&runtime, &connection).expect("bindings");
+    let bindings = resolve_compiled_bindings(&runtime, &connection).expect("bindings");
     let (bridge, mut worker) = AdsConnectionBridge::with_transport(
         MockAdsTransport::new(vec![real_symbol("MAIN.Temperature")]),
         bindings,
@@ -1365,7 +1351,7 @@ fn symbol_version_type_mismatch_faults_bridge() {
 
 #[test]
 fn reconnect_marks_points_stale_until_backoff_allows_connect() {
-    let runtime = runtime_with_globals(vec![(
+    let runtime = program_with_globals(vec![(
         "line1_temp",
         TypeId::REAL,
         Value::Real(0.0),
@@ -1378,7 +1364,7 @@ fn reconnect_marks_points_stale_until_backoff_allows_connect() {
         PointAccess::Read,
         false,
     )]);
-    let bindings = resolve_declared_bindings(&runtime, &connection).expect("bindings");
+    let bindings = resolve_compiled_bindings(&runtime, &connection).expect("bindings");
     let (bridge, mut worker) = AdsConnectionBridge::with_transport(
         MockAdsTransport::new(vec![real_symbol("MAIN.Temperature")]),
         bindings,
@@ -1399,26 +1385,134 @@ fn reconnect_marks_points_stale_until_backoff_allows_connect() {
     assert_eq!(bridge.state(), AdsConnectionState::Connected);
 }
 
-fn runtime_with_globals(globals: Vec<(&str, TypeId, Value, RetainPolicy)>) -> Runtime {
-    let mut builder = RuntimeBuilder::new();
+/// A compiled program that declares `globals`, each with its type, starting value and retention,
+/// and a `Main` program.
+fn program_with_globals(globals: Vec<(&str, TypeId, Value, RetainPolicy)>) -> CompiledRuntime {
+    let mut source = String::new();
     for (name, type_id, value, retain) in globals {
-        builder
-            .register_global(crate::program_model::VarDef {
-                name: name.into(),
-                type_id,
-                initializer: Some(crate::eval::expr::Expr::Literal(value)),
-                retain,
-                static_storage: false,
-                external: false,
-                in_out: false,
-                constant: false,
-                address: None,
-            })
-            .expect("declare ADS fixture global");
+        let section = match retain {
+            RetainPolicy::Retain => "VAR_GLOBAL RETAIN",
+            _ => "VAR_GLOBAL",
+        };
+        let type_name = match type_id {
+            TypeId::REAL => "REAL",
+            TypeId::LREAL => "LREAL",
+            TypeId::DINT => "DINT",
+            other => panic!("no fixture type for {other:?}"),
+        };
+        let literal = match value {
+            Value::Real(value) => format!("REAL#{value:?}"),
+            Value::LReal(value) => format!("LREAL#{value:?}"),
+            Value::DInt(value) => format!("DINT#{value}"),
+            other => panic!("no fixture literal for {other:?}"),
+        };
+        source.push_str(&format!(
+            "{section}\n    {name} : {type_name} := {literal};\nEND_VAR\n"
+        ));
     }
-    builder
-        .build()
-        .expect("install declared ADS binding fixture")
+    source.push_str("PROGRAM Main\nEND_PROGRAM\n");
+    TestHarness::from_source(&source)
+        .expect("declare the ADS binding fixture")
+        .into_runtime()
+}
+
+/// The globals of a compiled program, held apart from it: the bridge-only corpus mutates isolated
+/// non-executable fixture storage, which it reaches by name as a scan's boundaries reach a
+/// program's variables (specification 44 §13.3).
+struct FixtureStorage {
+    globals: std::collections::BTreeMap<String, Value>,
+}
+
+impl FixtureStorage {
+    /// The globals of `program`, with the values its starting memory gives them.
+    fn of(program: &CompiledRuntime) -> Self {
+        let state = program.snapshot().expect("the program's state");
+        let globals = state
+            .variables()
+            .into_iter()
+            .filter(|variable| variable.program.is_none() && !variable.instance)
+            .filter_map(|variable| {
+                let value = state.value_of(variable.symbol)?;
+                Some((variable.name.to_string(), value))
+            })
+            .collect();
+        Self { globals }
+    }
+
+    fn get_global(&self, name: &str) -> Option<&Value> {
+        self.globals.get(name)
+    }
+
+    /// Writes `value` to the global `name`, as the program would between scans.
+    fn write_global(&mut self, name: &str, value: Value) -> bool {
+        match self.globals.get_mut(name) {
+            Some(slot) => {
+                *slot = value;
+                true
+            }
+            None => false,
+        }
+    }
+}
+
+impl CompiledVariables for FixtureStorage {
+    fn read_named(&self, name: &str) -> Result<Value, crate::error::RuntimeError> {
+        self.get_global(name)
+            .cloned()
+            .ok_or_else(|| crate::error::RuntimeError::UndefinedVariable(name.into()))
+    }
+
+    fn write_named(&mut self, name: &str, value: &Value) -> Result<(), crate::error::RuntimeError> {
+        if self.write_global(name, value.clone()) {
+            Ok(())
+        } else {
+            Err(crate::error::RuntimeError::UndefinedVariable(name.into()))
+        }
+    }
+
+    fn write_retained(
+        &mut self,
+        label: &str,
+        _value: &Value,
+    ) -> Result<(), crate::error::RuntimeError> {
+        Err(crate::error::RuntimeError::UndefinedVariable(label.into()))
+    }
+
+    fn write_member(
+        &mut self,
+        _instance: u32,
+        member: &str,
+        _value: &Value,
+    ) -> Result<(), crate::error::RuntimeError> {
+        Err(crate::error::RuntimeError::UndefinedField(member.into()))
+    }
+
+    fn write_image(
+        &mut self,
+        _address: &crate::io::IoAddress,
+        _value: Value,
+    ) -> Result<(), crate::error::RuntimeError> {
+        Err(crate::error::RuntimeError::InvalidExecutionState)
+    }
+
+    fn program_image(&self) -> trust_runtime_core::native::image::Image<'_> {
+        unreachable!("the fixture holds globals by name, without a program image")
+    }
+
+    fn read_located(
+        &self,
+        _at: &trust_runtime_core::native::reflect::Located,
+    ) -> Result<Value, crate::error::RuntimeError> {
+        Err(crate::error::RuntimeError::InvalidExecutionState)
+    }
+
+    fn write_located(
+        &mut self,
+        _at: &trust_runtime_core::native::reflect::Located,
+        _value: &Value,
+    ) -> Result<(), crate::error::RuntimeError> {
+        Err(crate::error::RuntimeError::InvalidExecutionState)
+    }
 }
 
 fn connection_with_points(points: Vec<AdsPointConfig>) -> AdsConnectionConfig {

@@ -14,6 +14,7 @@ use super::auth_helpers::{auth_error_response, check_auth};
 use super::http_post_policy::hmi_write_route;
 use super::pairing::PairingStore;
 use crate::config::WebAuthMode;
+use crate::hmi::access::policy::{acts_as, may_change_settings};
 use crate::hmi::access::sessions::{LoginRefusal, SessionInfo, SessionStore};
 use crate::security::AccessRole;
 
@@ -247,16 +248,31 @@ fn viewer(request: &Request, ctx: &HmiOperateContext<'_>) -> Result<(), &'static
     .map(|_| ())
 }
 
-/// What a session is, for the page: the user, the role and the time left.
-pub(super) fn info_json(info: &SessionInfo) -> Value {
+/// What a session may do, for the page (§12.4 item 4): the user, the role, the roles it may act as
+/// (`acts_as`, where the page looks up the role a control needs) and whether it may change
+/// settings (`may_change_settings`, §21.4 item 1). The login and session answers and the value
+/// stream carry the same facts, so the page ranks no roles itself.
+pub(super) fn session_facts(info: &SessionInfo) -> Value {
+    let roles: Vec<&str> = acts_as(info.role)
+        .into_iter()
+        .map(AccessRole::as_str)
+        .collect();
     json!({
-        "ok": true,
         "user": info.user.as_str(),
         "role": info.role.as_str(),
-        "session": info.id.as_str(),
-        "idle_seconds": info.idle_expires_in.as_secs(),
-        "expires_seconds": info.expires_in.as_secs(),
+        "acts_as": roles,
+        "may_change_settings": may_change_settings(info.role),
     })
+}
+
+/// What a session is, for the page: its facts ([`session_facts`]), its id and the time left.
+pub(super) fn info_json(info: &SessionInfo) -> Value {
+    let mut answer = session_facts(info);
+    answer["ok"] = json!(true);
+    answer["session"] = json!(info.id.as_str());
+    answer["idle_seconds"] = json!(info.idle_expires_in.as_secs());
+    answer["expires_seconds"] = json!(info.expires_in.as_secs());
+    answer
 }
 
 /// The session token from the request's cookies.

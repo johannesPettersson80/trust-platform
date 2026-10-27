@@ -8,10 +8,9 @@ const LESSON67: &str = "02-derivative-action-and-dynamic-response/20-state-equat
 const LESSON68: &str = "11-state-space-estimation-and-predictive-control/66-controllability";
 const LESSON69: &str = "11-state-space-estimation-and-predictive-control/67-observability";
 
-fn flag(runtime: &trust_runtime::Runtime, address: &str) -> bool {
+fn flag(runtime: &trust_runtime::CompiledRuntime, address: &str) -> bool {
     match runtime
-        .io()
-        .read(&IoAddress::parse(address).unwrap())
+        .read_io(&IoAddress::parse(address).unwrap())
         .unwrap()
     {
         Value::Bool(value) => value,

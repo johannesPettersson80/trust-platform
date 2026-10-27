@@ -1,14 +1,16 @@
 // The Settings dialog of an equipment panel (specification 39, §21.4; Plant §10). Engineers only.
 // It lists the component definition's settings in order, each with its plain title and unit, its
 // value in its unit and a help line only where the definition gives one. Apply and Cancel stay at
-// the bottom at every window size, with the result beside Apply: "Applied", or the refusal naming
-// the field. A refusal keeps the draft. There is no import, export or defaults transaction.
+// the bottom at every window size, with the result beside Apply: "Applied", or the runtime's
+// refusal naming the field. Each changed field is sent as it holds its entry, and the runtime
+// reads and checks it. A refusal keeps the draft. There is no import, export or defaults
+// transaction.
 
 import type { DisplayHost } from "./runtimeDisplay";
 import type { SessionControl } from "./session";
 import { Overlay, element, button } from "./overlay";
 import { say } from "../drawing/speech";
-import { enteredValue, settingChanged, settingLabel, settingText } from "./settingValues";
+import { settingLabel, settingText } from "./settingValues";
 import type { Setting, SettingsReply, SettingValue } from "./settingValues";
 export * from "./settingValues";
 
@@ -26,11 +28,6 @@ export const SETTINGS_CSS = `
 .hmi-settings-result { flex: 1; min-width: 0; margin: 0; color: var(--hmi-muted); font-size: 13px; }
 .hmi-settings-result[data-refused] { color: var(--hmi-alarm); }
 `;
-
-/** Whether a session's role may change settings: Engineers only (§21.4 item 1). */
-export function mayChangeSettings(role: string | undefined): boolean {
-  return role === "engineer" || role === "admin";
-}
 
 type Field = HTMLInputElement | HTMLSelectElement;
 
@@ -97,7 +94,7 @@ export class EquipmentSettings {
       this.session.showLogin(say("Log in to change settings."));
       return;
     }
-    if (!mayChangeSettings(this.session.role)) {
+    if (!this.session.mayChangeSettings) {
       this.overlay.notice(say("This needs the {role} role.", { role: say("Engineer") }));
       return;
     }
@@ -132,6 +129,8 @@ export class EquipmentSettings {
     let shown: Setting[] = [];
     let instance: string | undefined;
     const inputs = new Map<string, Field>();
+    /** What each field held when it showed the runtime's value; a field that differs is edited. */
+    const showing = new Map<string, string | boolean>();
     let busy = false;
     const report = (text: string, refused = false): void => {
       result.textContent = text;
@@ -148,12 +147,14 @@ export class EquipmentSettings {
     const render = (settings: Setting[], draft: Map<string, string | boolean>): void => {
       shown = settings;
       inputs.clear();
+      showing.clear();
       fields.replaceChildren();
       for (const setting of settings) {
         const label = element(fields, "label", "", "hmi-settings-field");
         label.setAttribute("data-member", setting.member);
         label.append(element(label, "span", settingLabel(setting)));
         const input = field(form, setting);
+        showing.set(setting.member, read(input));
         const kept = draft.get(setting.member);
         if (kept !== undefined) write(input, kept);
         label.append(input);
@@ -164,20 +165,15 @@ export class EquipmentSettings {
       apply.disabled = settings.length === 0;
       if (keep) keep.disabled = settings.length === 0;
     };
-    /** What was entered in the fields that were edited. */
+    /** What was entered in the fields that were edited: those that no longer hold what they
+     * showed. */
     const drafted = (): Map<string, string | boolean> => {
       const draft = new Map<string, string | boolean>();
       for (const setting of shown) {
         const input = inputs.get(setting.member);
         if (!input) continue;
         const entered = read(input);
-        let edited = true;
-        try {
-          edited = settingChanged(setting, enteredValue(setting, entered));
-        } catch {
-          // An entry that cannot be sent is an edit too.
-        }
-        if (edited) draft.set(setting.member, entered);
+        if (entered !== showing.get(setting.member)) draft.set(setting.member, entered);
       }
       return draft;
     };
@@ -220,25 +216,17 @@ export class EquipmentSettings {
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       if (busy || !form.isConnected) return;
-      const changes: Record<string, SettingValue> = {};
+      // Each edited field as it holds its entry, with the value it replaces; the runtime reads
+      // and checks the entries and names the field it refuses (§21.4 item 4).
+      const changes: Record<string, string | boolean> = {};
       const expected: Record<string, SettingValue | null> = {};
       inputs.forEach((input) => input.removeAttribute("aria-invalid"));
+      const draft = drafted();
       for (const setting of shown) {
-        const input = inputs.get(setting.member);
-        if (!input) continue;
-        let value: SettingValue;
-        try {
-          value = enteredValue(setting, read(input));
-        } catch (error) {
-          input.setAttribute("aria-invalid", "true");
-          input.focus();
-          report(error instanceof Error ? error.message : String(error), true);
-          return;
-        }
-        if (settingChanged(setting, value)) {
-          changes[setting.member] = value;
-          expected[setting.member] = setting.value;
-        }
+        const entered = draft.get(setting.member);
+        if (entered === undefined) continue;
+        changes[setting.member] = entered;
+        expected[setting.member] = setting.value;
       }
       if (Object.keys(changes).length === 0) {
         report(say("There are no changes to apply."));

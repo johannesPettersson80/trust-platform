@@ -52,7 +52,7 @@ pub(super) fn run(
 }
 
 /// The request that the arguments make (§0.1b). A live campaign and a resume reach the runtime, so they carry its connection:
-/// the runtime of `--endpoint` or of the project's `runtime.toml`. A live campaign starts from the loop's declared settings with
+/// the runtime of `--endpoint` or the project's own runtime (§0.1b). A live campaign starts from the loop's declared settings with
 /// the method asked for (D8). A kept recording fitted again and a reset need no runtime, so their request carries none (E11.1).
 fn request(args: &IdentifyArgs, environment: Environment<'_>) -> Result<IdentifyRequest, Failure> {
     let places = places(&args.common, environment)?;
@@ -93,7 +93,7 @@ fn request(args: &IdentifyArgs, environment: Environment<'_>) -> Result<Identify
     })
 }
 
-/// The runtime of `--endpoint` or of the project's `runtime.toml`, with the token of `TRUST_CONTROL_TOKEN` or `--token-file`
+/// The runtime of `--endpoint` or the project's own runtime, with the token of `TRUST_CONTROL_TOKEN` or `--token-file`
 /// (§0.1b): a refusal names how to connect one (Connect runtime).
 fn connection_of(
     args: &IdentifyArgs,

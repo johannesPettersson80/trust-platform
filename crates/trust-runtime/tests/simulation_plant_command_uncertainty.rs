@@ -2,9 +2,9 @@ use trust_hir::TypeId;
 use trust_runtime::io::IoAddress;
 use trust_runtime::simulation::{SimulationConfig, SimulationController, SimulationTraceRow};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
-fn write_lreal(runtime: &mut Runtime, address: &IoAddress, value: f64) {
+fn write_lreal(runtime: &mut CompiledRuntime, address: &IoAddress, value: f64) {
     runtime
         .write_io(address, Value::LWord(value.to_bits()))
         .expect("write LREAL process-image bits");

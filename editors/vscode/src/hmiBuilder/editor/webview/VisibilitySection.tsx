@@ -5,6 +5,7 @@
 import { useState } from "react";
 
 import type { HmiObjectModel, HmiPageModel } from "../../drawing/model";
+import type { Catalogue } from "../catalogue";
 import type { VariableNode } from "../messages";
 import { BindingPicker } from "./BindingPicker";
 import { Field } from "./Field";
@@ -12,6 +13,7 @@ import { Field } from "./Field";
 interface VisibilitySectionProps {
     page: HmiPageModel;
     selection: string[];
+    catalogue: Catalogue | undefined;
     variables: VariableNode[] | undefined;
     problem: string | undefined;
     readOnly: boolean;
@@ -26,8 +28,19 @@ export function withVisibility(object: HmiObjectModel, path: string): HmiObjectM
     return { ...object, bind };
 }
 
-export function VisibilitySection({ page, selection, variables, problem, readOnly, onCommit }: VisibilitySectionProps) {
+export function VisibilitySection({
+    page,
+    selection,
+    catalogue,
+    variables,
+    problem,
+    readOnly,
+    onCommit,
+}: VisibilitySectionProps) {
     const [picking, setPicking] = useState(false);
+    // Every component takes the same visibility binding; the first selected object's names it.
+    const first = page.object.find((object) => selection.includes(object.id));
+    const component = catalogue?.components.find((candidate) => candidate.type === first?.type);
     const paths = new Set(
         page.object.filter((object) => selection.includes(object.id)).map((object) => object.bind.visible?.path ?? ""),
     );
@@ -61,7 +74,7 @@ export function VisibilitySection({ page, selection, variables, problem, readOnl
                     <BindingPicker
                         variables={variables}
                         problem={problem}
-                        offered={(node) => node.kinds.includes("boolean")}
+                        binding={{ type: first?.type ?? "", property: "visible", component }}
                         onPick={(node) => {
                             setPicking(false);
                             set(node.path);

@@ -1,6 +1,8 @@
 //! Raspberry Pi GPIO driver (configurable backend).
 
-use std::collections::HashSet;
+mod config;
+mod identify;
+
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -10,8 +12,14 @@ use smol_str::SmolStr;
 #[cfg(target_os = "linux")]
 use std::collections::HashMap;
 
+use config::{GpioBackendKind, GpioConfig, GpioInputEntry, GpioOutputEntry};
+
 use crate::error::RuntimeError;
-use crate::io::{IoAddress, IoDriver, IoDriverHealth, IoSize};
+use crate::io::{IoAddress, IoDriver, IoDriverHealth};
+
+mod lines;
+pub use identify::GpioIdentifyLine;
+pub use lines::GpioLine;
 
 pub struct GpioDriver {
     backend: Box<dyn GpioBackend>,
@@ -77,15 +85,8 @@ impl GpioDriver {
     }
 }
 
-pub fn discover_gpio_lines() -> Result<Vec<GpioLineInfo>, RuntimeError> {
-    let mut lines = Vec::new();
-    collect_gpiochip_lines(Path::new("/sys/bus/gpio/devices"), &mut lines)?;
-    if lines.is_empty() {
-        collect_gpiochip_lines(Path::new("/sys/class/gpio"), &mut lines)?;
-    }
-    lines.sort_by(|left, right| left.chip.cmp(&right.chip).then(left.line.cmp(&right.line)));
-    lines.dedup_by(|left, right| left.chip == right.chip && left.line == right.line);
-    Ok(lines)
+pub fn discover_gpio_lines() -> Result<Vec<GpioLine>, RuntimeError> {
+    lines::discover()
 }
 
 impl IoDriver for GpioDriver {
@@ -230,265 +231,6 @@ impl GpioOutput {
             last_written: None,
         })
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum GpioBackendKind {
-    Sysfs,
-    Chardev,
-}
-
-#[derive(Debug)]
-struct GpioConfig {
-    backend: GpioBackendKind,
-    sysfs_base: PathBuf,
-    chip_path: PathBuf,
-    inputs: Vec<GpioInputEntry>,
-    outputs: Vec<GpioOutputEntry>,
-}
-
-#[derive(Debug)]
-struct GpioInputEntry {
-    address: IoAddress,
-    line: u32,
-    invert: bool,
-    debounce_ms: u64,
-}
-
-#[derive(Debug)]
-struct GpioOutputEntry {
-    address: IoAddress,
-    line: u32,
-    invert: bool,
-    initial: bool,
-}
-
-impl GpioConfig {
-    fn parse(params: &toml::Value) -> Result<Self, RuntimeError> {
-        let table = params
-            .as_table()
-            .ok_or_else(|| invalid_gpio("io.params must be a table"))?;
-        let backend = match table.get("backend") {
-            None => GpioBackendKind::Chardev,
-            Some(toml::Value::String(name)) if name.eq_ignore_ascii_case("sysfs") => {
-                GpioBackendKind::Sysfs
-            }
-            Some(toml::Value::String(name))
-                if name.eq_ignore_ascii_case("libgpiod")
-                    || name.eq_ignore_ascii_case("chardev") =>
-            {
-                GpioBackendKind::Chardev
-            }
-            Some(toml::Value::String(name)) => {
-                return Err(invalid_gpio(format!("unsupported gpio backend '{name}'")))
-            }
-            Some(_) => {
-                return Err(invalid_gpio(
-                    "unsupported gpio backend value; expected a string",
-                ))
-            }
-        };
-        let sysfs_base = table
-            .get("sysfs_base")
-            .and_then(|v| v.as_str())
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("/sys/class/gpio"));
-        let chip_path = table
-            .get("chip")
-            .and_then(|v| v.as_str())
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("/dev/gpiochip0"));
-
-        let inputs = parse_gpio_inputs(table.get("inputs"))?;
-        let outputs = parse_gpio_outputs(table.get("outputs"))?;
-        ensure_unique_gpio_mappings(&inputs, &outputs)?;
-
-        Ok(Self {
-            backend,
-            sysfs_base,
-            chip_path,
-            inputs,
-            outputs,
-        })
-    }
-}
-
-fn parse_gpio_inputs(value: Option<&toml::Value>) -> Result<Vec<GpioInputEntry>, RuntimeError> {
-    let Some(value) = value else {
-        return Ok(Vec::new());
-    };
-    let list = value
-        .as_array()
-        .ok_or_else(|| invalid_gpio("io.params.inputs must be an array"))?;
-    let mut entries = Vec::new();
-    for entry in list {
-        let table = entry
-            .as_table()
-            .ok_or_else(|| invalid_gpio("gpio input entry must be a table"))?;
-        let address = parse_address(table, "address")?;
-        ensure_input_address(&address)?;
-        let line = parse_line(table)?;
-        let invert = parse_bool(table, "invert")?.unwrap_or(false);
-        let debounce_ms = parse_u64(table, "debounce_ms")?.unwrap_or(0);
-        entries.push(GpioInputEntry {
-            address,
-            line,
-            invert,
-            debounce_ms,
-        });
-    }
-    Ok(entries)
-}
-
-fn parse_gpio_outputs(value: Option<&toml::Value>) -> Result<Vec<GpioOutputEntry>, RuntimeError> {
-    let Some(value) = value else {
-        return Ok(Vec::new());
-    };
-    let list = value
-        .as_array()
-        .ok_or_else(|| invalid_gpio("io.params.outputs must be an array"))?;
-    let mut entries = Vec::new();
-    for entry in list {
-        let table = entry
-            .as_table()
-            .ok_or_else(|| invalid_gpio("gpio output entry must be a table"))?;
-        let address = parse_address(table, "address")?;
-        ensure_output_address(&address)?;
-        let line = parse_line(table)?;
-        let invert = parse_bool(table, "invert")?.unwrap_or(false);
-        let initial = parse_bool(table, "initial")?.unwrap_or(false);
-        entries.push(GpioOutputEntry {
-            address,
-            line,
-            invert,
-            initial,
-        });
-    }
-    Ok(entries)
-}
-
-fn parse_address(table: &toml::Table, key: &str) -> Result<IoAddress, RuntimeError> {
-    let text = table
-        .get(key)
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| invalid_gpio(format!("gpio entry missing '{key}'")))?;
-    IoAddress::parse(text)
-}
-
-fn parse_line(table: &toml::Table) -> Result<u32, RuntimeError> {
-    if let Some(value) = table.get("line") {
-        let line = value
-            .as_integer()
-            .and_then(|line| u32::try_from(line).ok())
-            .ok_or_else(|| invalid_gpio("gpio entry requires 'line' (BCM) as a nonnegative u32"))?;
-        return Ok(line);
-    }
-    if let Some(value) = table.get("pin") {
-        let line = value
-            .as_integer()
-            .and_then(|line| u32::try_from(line).ok())
-            .ok_or_else(|| invalid_gpio("gpio entry requires 'pin' alias as a nonnegative u32"))?;
-        return Ok(line);
-    }
-    Err(invalid_gpio("gpio entry requires 'line' (BCM)"))
-}
-
-fn parse_bool(table: &toml::Table, key: &str) -> Result<Option<bool>, RuntimeError> {
-    match table.get(key) {
-        None => Ok(None),
-        Some(value) => match value {
-            toml::Value::Boolean(flag) => Ok(Some(*flag)),
-            toml::Value::Integer(num) => Ok(Some(*num != 0)),
-            toml::Value::String(text) => match text.trim().to_ascii_lowercase().as_str() {
-                "true" | "1" => Ok(Some(true)),
-                "false" | "0" => Ok(Some(false)),
-                _ => Err(invalid_gpio(format!("invalid bool '{text}' for {key}"))),
-            },
-            _ => Err(invalid_gpio(format!("invalid type for {key}"))),
-        },
-    }
-}
-
-fn parse_u64(table: &toml::Table, key: &str) -> Result<Option<u64>, RuntimeError> {
-    match table.get(key) {
-        None => Ok(None),
-        Some(value) => match value {
-            toml::Value::Integer(num) if *num >= 0 => Ok(Some(*num as u64)),
-            toml::Value::String(text) => text
-                .trim()
-                .parse::<u64>()
-                .map(Some)
-                .map_err(|_| invalid_gpio(format!("invalid numeric '{text}' for {key}"))),
-            _ => Err(invalid_gpio(format!("invalid type for {key}"))),
-        },
-    }
-}
-
-fn ensure_input_address(address: &IoAddress) -> Result<(), RuntimeError> {
-    if address.wildcard {
-        return Err(invalid_gpio("gpio input address cannot be wildcard"));
-    }
-    if address.size != IoSize::Bit {
-        return Err(invalid_gpio("gpio input address must be bit (%IX...)"));
-    }
-    if !matches!(address.area, crate::memory::IoArea::Input) {
-        return Err(invalid_gpio("gpio input address must be %I"));
-    }
-    map_bit(address)?;
-    Ok(())
-}
-
-fn ensure_output_address(address: &IoAddress) -> Result<(), RuntimeError> {
-    if address.wildcard {
-        return Err(invalid_gpio("gpio output address cannot be wildcard"));
-    }
-    if address.size != IoSize::Bit {
-        return Err(invalid_gpio("gpio output address must be bit (%QX...)"));
-    }
-    if !matches!(address.area, crate::memory::IoArea::Output) {
-        return Err(invalid_gpio("gpio output address must be %Q"));
-    }
-    map_bit(address)?;
-    Ok(())
-}
-
-fn ensure_unique_gpio_mappings(
-    inputs: &[GpioInputEntry],
-    outputs: &[GpioOutputEntry],
-) -> Result<(), RuntimeError> {
-    let mut physical_lines = HashSet::new();
-    let mut input_bits = HashSet::new();
-    let mut output_bits = HashSet::new();
-
-    for entry in inputs {
-        if !physical_lines.insert(entry.line) {
-            return Err(invalid_gpio(format!(
-                "gpio physical line {} is mapped more than once",
-                entry.line
-            )));
-        }
-        if !input_bits.insert((entry.address.byte, entry.address.bit)) {
-            return Err(invalid_gpio(format!(
-                "gpio input process-image bit %IX{}.{} is mapped more than once",
-                entry.address.byte, entry.address.bit
-            )));
-        }
-    }
-    for entry in outputs {
-        if !physical_lines.insert(entry.line) {
-            return Err(invalid_gpio(format!(
-                "gpio physical line {} is mapped more than once",
-                entry.line
-            )));
-        }
-        if !output_bits.insert((entry.address.byte, entry.address.bit)) {
-            return Err(invalid_gpio(format!(
-                "gpio output process-image bit %QX{}.{} is mapped more than once",
-                entry.address.byte, entry.address.bit
-            )));
-        }
-    }
-    Ok(())
 }
 
 fn map_bit(address: &IoAddress) -> Result<(usize, u8), RuntimeError> {
@@ -993,9 +735,13 @@ sysfs_base = "/tmp/gpio"
             }],
             health: IoDriverHealth::Ok,
         };
-        let mut builder = crate::RuntimeBuilder::new();
-        builder.io_mut().resize(0, 1, 0);
-        let mut runtime = builder.build().expect("install GPIO output image");
+        // A program with a one-byte output image; the build needs the toolchain of specification
+        // 44 §4.6 at `TRUST_TOOLCHAIN`.
+        let mut runtime = crate::harness::TestHarness::from_source(
+            "VAR_GLOBAL lamp AT %QX0.0 : BOOL; END_VAR PROGRAM Main END_PROGRAM",
+        )
+        .expect("build the GPIO output program")
+        .into_runtime();
         runtime.add_io_driver("gpio", Box::new(driver));
         runtime.set_io_safe_state(crate::io::IoSafeState {
             outputs: vec![(
@@ -1012,7 +758,10 @@ sysfs_base = "/tmp/gpio"
             writes.lock().expect("recording backend lock").as_slice(),
             &[(27, true)]
         );
-        assert_eq!(runtime.io().outputs(), &[1]);
+        assert_eq!(
+            runtime.read_io(&IoAddress::parse("%QX0.0").expect("output address")),
+            Ok(crate::value::Value::Bool(true))
+        );
     }
 }
 

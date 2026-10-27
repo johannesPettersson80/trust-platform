@@ -2,18 +2,35 @@
 //! form the browser's drawing takes.
 
 use std::fmt::Write as _;
+use std::time::Duration;
 
 use serde::ser::{Serialize, SerializeMap, SerializeSeq, Serializer};
 use serde_json::{json, Value as Json};
 
-use crate::hmi::member_paths::{resolve_member, MemberPath};
-use crate::memory::VariableStorage;
-use crate::runtime::Runtime;
+use trust_runtime_core::native::memory::{layout, Layout};
+
+use crate::hmi::member_paths::{locate_member, MemberPath};
+use crate::runtime::program_access::{Located, ProgramRead};
 use crate::stdlib::time::{split_date, split_dt, split_ldt, split_ltod, split_tod};
 use crate::value::{ArrayValue, DateTimeProfile, LDateTimeValue, Value};
 
 /// The most elements one value may have; a larger value is unknown.
 pub const MAX_ELEMENTS: usize = 20_000;
+
+/// The shortest update period, whatever the scan period (§11.1); the HMI Builder's Live mode reads
+/// at this period too (§11 item 6).
+pub const MIN_PERIOD: Duration = Duration::from_millis(250);
+/// Values are stale after this many expected update periods without a new cycle count or a
+/// message (§5.3 item 2, §11.1).
+const FRESH_PERIODS: u32 = 3;
+
+/// How long values may go without news before they are stale: three expected update periods
+/// (§5.3 item 2). The runtime sends it with the period; the page only compares a message's age with
+/// it.
+#[must_use]
+pub fn stale_limit(period: Duration) -> Duration {
+    period.saturating_mul(FRESH_PERIODS)
+}
 
 /// The largest integer a browser's JSON number holds exactly (2^53 − 1).
 const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
@@ -83,54 +100,88 @@ pub struct HmiRead {
     pub instance_types: Vec<Option<String>>,
 }
 
-/// Reads a display's paths on the runtime thread, without copying the program's storage.
-pub fn read(runtime: &Runtime, paths: &[MemberPath]) -> HmiRead {
-    let storage = runtime.storage();
-    let profile = runtime.profile();
-    let resolved: Vec<Option<&Value>> = paths
-        .iter()
-        .map(|path| resolve_member(path, storage))
-        .collect();
-    HmiRead {
-        cycle: runtime.cycle_counter(),
-        values: resolved
-            .iter()
-            .zip(paths)
-            .map(|(value, path)| {
+/// Reads a display's paths in the running program at a call of `Hmi.Display`, each through the
+/// program's symbol and type tables (specification 44 §13.3), without copying the program's
+/// memory; `cycle` is the runtime's cycle count, which the copy carries. Dates and times are
+/// shown in the default profile, which compiled programs keep them in.
+pub fn read(program: &dyn ProgramRead, cycle: u64, paths: &[MemberPath]) -> HmiRead {
+    let profile = DateTimeProfile::default();
+    let mut read = HmiRead {
+        cycle,
+        values: Vec::with_capacity(paths.len()),
+        present: Vec::with_capacity(paths.len()),
+        instance_types: Vec::with_capacity(paths.len()),
+    };
+    for path in paths {
+        let Some(at) = locate_member(path, program) else {
+            read.values.push(None);
+            read.present.push(false);
+            read.instance_types.push(None);
+            continue;
+        };
+        let instance = matches!(
+            layout(&program.program_image(), at.type_index),
+            Ok(Layout::Instance(_))
+        );
+        read.values
+            .push(located_wire_value(program, &at, profile).map(|mut value| {
+                value.presentation =
+                    crate::hmi::presentation::equipment_presentation(program, path);
                 value
-                    .and_then(|value| wire_value(value, storage, profile))
-                    .map(|mut value| {
-                        value.presentation =
-                            crate::hmi::presentation::equipment_presentation(storage, path);
-                        value
-                    })
+            }));
+        read.present.push(true);
+        read.instance_types
+            .push(instance.then(|| program.type_name_of(&at).to_string()));
+    }
+    read
+}
+
+/// The value at `at` in the running program as the display receives it, or `None` when it cannot
+/// be shown and is unknown: a reference, a value that does not read, or more than
+/// [`MAX_ELEMENTS`] elements. A function block, class or program instance is shown by its
+/// members in their declared order, its inherited members first, and an array of instances by
+/// its elements.
+pub fn located_wire_value(
+    program: &dyn ProgramRead,
+    at: &Located,
+    profile: DateTimeProfile,
+) -> Option<WireValue> {
+    match layout(&program.program_image(), at.type_index).ok()? {
+        Layout::Value => wire_value(&program.read_at(at).ok()?, profile),
+        Layout::Instance(_) => {
+            let mut encoder = Encoder {
+                profile,
+                budget: MAX_ELEMENTS,
+            };
+            Some(WireValue {
+                value: encoder.located(program, at).ok()?,
+                lower_bounds: None,
+                stale_ms: None,
+                presentation: None,
             })
-            .collect(),
-        present: resolved.iter().map(Option::is_some).collect(),
-        instance_types: resolved
-            .iter()
-            .map(|value| match value {
-                Some(Value::Instance(id)) => storage
-                    .get_instance(*id)
-                    .map(|instance| instance.type_name.to_string()),
-                _ => None,
+        }
+        Layout::Instances { dimensions, .. } => {
+            let mut encoder = Encoder {
+                profile,
+                budget: MAX_ELEMENTS,
+            };
+            Some(WireValue {
+                value: encoder.located(program, at).ok()?,
+                lower_bounds: Some(dimensions.iter().map(|(low, _)| *low).collect()),
+                stale_ms: None,
+                presentation: None,
             })
-            .collect(),
+        }
     }
 }
 
 /// A value as the display receives it, or `None` when it cannot be shown and is unknown: null, a
 /// reference, or more than [`MAX_ELEMENTS`] elements.
-pub fn wire_value(
-    value: &Value,
-    storage: &VariableStorage,
-    profile: DateTimeProfile,
-) -> Option<WireValue> {
+pub fn wire_value(value: &Value, profile: DateTimeProfile) -> Option<WireValue> {
     if matches!(value, Value::Null | Value::Reference(_)) {
         return None;
     }
     let mut encoder = Encoder {
-        storage,
         profile,
         budget: MAX_ELEMENTS,
     };
@@ -150,25 +201,71 @@ pub fn wire_value(
 /// The value has more elements than the display takes.
 struct TooLarge;
 
-struct Encoder<'a> {
-    storage: &'a VariableStorage,
+struct Encoder {
     profile: DateTimeProfile,
     /// Elements still allowed in this value.
     budget: usize,
 }
 
-impl Encoder<'_> {
+impl Encoder {
     fn encode(&mut self, value: &Value) -> Result<Shown, TooLarge> {
         self.budget = self.budget.checked_sub(1).ok_or(TooLarge)?;
         Ok(match value {
             Value::Array(array) => self.array(array)?,
             Value::Struct(value) => self.members(value.fields())?,
-            Value::Instance(id) => match self.storage.get_instance(*id) {
-                Some(instance) => self.members(&instance.variables)?,
-                None => Shown::Single(Json::Null),
-            },
             single => Shown::Single(self.single(single)),
         })
+    }
+
+    /// The value at `at` in the program: an instance by its members, an array of instances by its
+    /// elements, any other value as it reads; a member that does not read is null.
+    fn located(&mut self, program: &dyn ProgramRead, at: &Located) -> Result<Shown, TooLarge> {
+        match layout(&program.program_image(), at.type_index) {
+            Ok(Layout::Instance(members)) => {
+                self.budget = self.budget.checked_sub(1).ok_or(TooLarge)?;
+                let mut shown = Vec::with_capacity(members.len());
+                for member in members {
+                    let place = Located {
+                        place: at.place.at(member.offset),
+                        type_index: member.type_index,
+                    };
+                    shown.push((member.name.to_string(), self.located(program, &place)?));
+                }
+                Ok(Shown::Members(shown))
+            }
+            Ok(Layout::Instances {
+                element,
+                dimensions,
+                stride,
+            }) => {
+                self.budget = self.budget.checked_sub(1).ok_or(TooLarge)?;
+                let count = dimensions
+                    .iter()
+                    .map(|(low, high)| usize::try_from(high - low + 1).unwrap_or(0))
+                    .product::<usize>();
+                if count > self.budget {
+                    return Err(TooLarge);
+                }
+                let mut elements = Vec::with_capacity(count);
+                for position in 0..count {
+                    let offset = u32::try_from(position)
+                        .ok()
+                        .and_then(|position| position.checked_mul(stride))
+                        .ok_or(TooLarge)?;
+                    let element = Located {
+                        place: at.place.at(offset),
+                        type_index: element,
+                    };
+                    elements.push(self.located(program, &element)?);
+                }
+                Ok(nest(&mut elements.into_iter(), &dimensions))
+            }
+            Ok(Layout::Value) => match program.read_at(at) {
+                Ok(value) => self.encode(&value),
+                Err(_) => Ok(Shown::Single(Json::Null)),
+            },
+            Err(_) => Ok(Shown::Single(Json::Null)),
+        }
     }
 
     fn single(&self, value: &Value) -> Json {

@@ -1,25 +1,34 @@
+use trust_runtime_core::retain::capture::RetainCapture;
+
 /// Retain storage backend.
 pub trait RetainStore: Send {
     fn load(&self) -> Result<RetainSnapshot, RuntimeError>;
     fn store(&self, snapshot: &RetainSnapshot) -> Result<(), RuntimeError>;
+
+    /// Stores the STRN v3 `payload` a capture staged, as [`RetainStore::store`] stores the snapshot
+    /// it holds: a compiled program's capture writes the payload itself (specification 44 §11).
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::RetainStore`] when the payload does not decode or cannot be stored.
+    fn store_payload(&self, payload: &[u8]) -> Result<(), RuntimeError> {
+        let snapshot = trust_runtime_core::retain::codec::decode_snapshot_payload_v3(payload)?;
+        self.store(&RetainSnapshot::from_values(snapshot.into_values()))
+    }
 }
 
+/// The hosted persistence adapter: a store plus the capture rule shared with the chips
+/// (`trust-runtime-core::retain::capture`, specification 11 §6.7, specification 34 §10).
 pub struct RetainManager {
     store: Option<Box<dyn RetainStore>>,
-    save_interval: Option<Duration>,
-    last_save: Duration,
-    dirty: bool,
-    last_snapshot: Option<RetainSnapshot>,
+    capture: RetainCapture,
 }
 
 impl Default for RetainManager {
     fn default() -> Self {
         Self {
             store: None,
-            save_interval: None,
-            last_save: Duration::ZERO,
-            dirty: false,
-            last_snapshot: None,
+            capture: RetainCapture::new(),
         }
     }
 }
@@ -28,10 +37,10 @@ impl std::fmt::Debug for RetainManager {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RetainManager")
             .field("store_configured", &self.store.is_some())
-            .field("save_interval", &self.save_interval)
-            .field("last_save", &self.last_save)
-            .field("dirty", &self.dirty)
-            .field("has_snapshot", &self.last_snapshot.is_some())
+            .field("save_interval", &self.capture.interval())
+            .field("last_save", &self.capture.last_save())
+            .field("dirty", &self.capture.is_dirty())
+            .field("has_snapshot", &self.capture.has_image())
             .finish()
     }
 }
@@ -44,24 +53,21 @@ impl RetainManager {
         now: Duration,
     ) {
         self.store = store;
-        self.save_interval = save_interval;
-        self.last_save = now;
-        self.dirty = false;
-        self.last_snapshot = None;
+        self.capture.configure(save_interval, now);
     }
 
     pub fn set_save_interval(&mut self, interval: Option<Duration>) {
-        self.save_interval = interval;
+        self.capture.set_interval(interval);
     }
 
     /// The configured checkpoint interval, read back for inspection.
     #[must_use]
     pub fn save_interval(&self) -> Option<Duration> {
-        self.save_interval
+        self.capture.interval()
     }
 
     pub fn mark_dirty(&mut self) {
-        self.dirty = true;
+        self.capture.mark_dirty();
     }
 
     pub fn has_store(&self) -> bool {
@@ -75,20 +81,14 @@ impl RetainManager {
         store.load()
     }
 
+    /// Whether the shared capture rule wants a checkpoint now (specification 11 §6.7).
     pub fn should_save(&self, now: Duration) -> bool {
-        let Some(interval) = self.save_interval else {
-            return false;
-        };
-        if !self.dirty {
-            return false;
-        }
-        if interval.as_nanos() <= 0 {
-            return true;
-        }
-        let elapsed = now.as_nanos().saturating_sub(self.last_save.as_nanos());
-        elapsed >= interval.as_nanos()
+        self.capture.should_save(now)
     }
 
+    /// Stage `snapshot` in the shared capture and let its unchanged-image skip decide whether the
+    /// store is written (specification 11 §6.7). A failed write leaves the snapshot dirty, so a
+    /// later save may retry.
     pub fn save_snapshot(
         &mut self,
         snapshot: RetainSnapshot,
@@ -97,66 +97,101 @@ impl RetainManager {
         let Some(store) = self.store.as_ref() else {
             return Ok(());
         };
-        if self
-            .last_snapshot
-            .as_ref()
-            .is_some_and(|previous| retained_storage_eq(previous, &snapshot))
-        {
-            self.dirty = false;
-            self.last_save = now;
+        if !stage_image(&mut self.capture, snapshot.values())? {
+            self.capture.unchanged(now);
             return Ok(());
         }
         store.store(&snapshot)?;
-        self.last_snapshot = Some(snapshot);
-        self.dirty = false;
-        self.last_save = now;
+        self.capture.accept(now);
         Ok(())
     }
 }
 
-/// Logical `Value` equality intentionally ignores opaque physical storage. A
-/// retention owner must additionally notice physical-only changes, without
-/// allocating a serialized checkpoint just to decide whether to write one.
-fn retained_storage_eq(left: &RetainSnapshot, right: &RetainSnapshot) -> bool {
-    if left.values().len() != right.values().len() {
-        return false;
-    }
-    left.values().iter().zip(right.values().iter()).all(
-        |((left_name, left_value), (right_name, right_value))| {
-            left_name == right_name && retained_value_storage_eq(left_value, right_value, 0)
-        },
-    )
+/// Stage the engine's captured image in the shared capture and report whether it changed
+/// (specification 11 §6.7).
+///
+/// The hosted adapter captures the image through the engine's own snapshot, so this is where the
+/// host's named values meet the portable capture.
+fn stage_image(
+    capture: &mut RetainCapture,
+    values: &indexmap::IndexMap<smol_str::SmolStr, Value>,
+) -> Result<bool, RuntimeError> {
+    capture.stage_values(values)?;
+    Ok(capture.image_changed())
 }
 
-fn retained_value_storage_eq(left: &Value, right: &Value, depth: usize) -> bool {
-    if depth > trust_runtime_core::bytecode::BYTECODE_MAX_TYPE_NESTING {
-        // Do not make an unbounded recursive comparison a save-time hazard.
-        return false;
+/// A compiled program's retained values go to the same store, with the same capture rule, as the
+/// bytecode engine's (specification 44 §11, §8.8): a scan marks them dirty and a due capture writes
+/// them when they changed; a stop writes them when they changed; a warm restart loads them.
+impl trust_runtime_services::runner::CycleRetain for RetainManager {
+    fn persists(&self) -> bool {
+        self.store.is_some()
     }
-    match (left, right) {
-        (Value::Real(left), Value::Real(right)) => left.to_bits() == right.to_bits(),
-        (Value::LReal(left), Value::LReal(right)) => left.to_bits() == right.to_bits(),
-        (Value::Array(left), Value::Array(right)) => {
-            left.dimensions() == right.dimensions()
-                && left.elements().len() == right.elements().len()
-                && left
-                    .elements()
-                    .iter()
-                    .zip(right.elements())
-                    .all(|(left, right)| retained_value_storage_eq(left, right, depth + 1))
+
+    fn reserve(&mut self, bytes: usize) -> Result<(), RuntimeError> {
+        if self.store.is_none() {
+            return Ok(());
         }
-        (Value::Struct(left), Value::Struct(right)) => {
-            std::sync::Arc::ptr_eq(left, right)
-                || (left.physical_checkpoint_eq(right)
-                    && left.type_name() == right.type_name()
-                    && left.fields().len() == right.fields().len()
-                    && left.fields().iter().zip(right.fields().iter()).all(
-                        |((left_name, left_value), (right_name, right_value))| {
-                            left_name == right_name
-                                && retained_value_storage_eq(left_value, right_value, depth + 1)
-                        },
-                    ))
+        self.capture.reserve(bytes)
+    }
+
+    fn capture_with(
+        &mut self,
+        now: Duration,
+        fill: &mut dyn FnMut(&mut RetainCapture) -> Result<(), RuntimeError>,
+    ) -> Result<(), RuntimeError> {
+        if self.store.is_none() {
+            return Ok(());
         }
-        _ => left == right,
+        self.capture.mark_dirty();
+        if !self.capture.should_save(now) {
+            return Ok(());
+        }
+        self.write_captured(now, fill)
+    }
+
+    /// A computer writes its retain file at once, so no save waits for a step.
+    fn step(&mut self) {}
+
+    fn set_save_interval(&mut self, interval: Option<Duration>) {
+        RetainManager::set_save_interval(self, interval);
+    }
+
+    fn save_with(
+        &mut self,
+        now: Duration,
+        fill: &mut dyn FnMut(&mut RetainCapture) -> Result<(), RuntimeError>,
+    ) -> Result<(), RuntimeError> {
+        if self.store.is_none() {
+            return Ok(());
+        }
+        self.write_captured(now, fill)
+    }
+
+    fn recover(&mut self) -> Result<trust_runtime_core::retain::RetainSnapshot, RuntimeError> {
+        self.load().map(|snapshot| snapshot.inner)
+    }
+}
+
+impl RetainManager {
+    /// Captures the values with `fill` and writes them when they differ from the values written
+    /// last (specification 11 §6.7). A failed write leaves the capture dirty, so a later save
+    /// retries.
+    fn write_captured(
+        &mut self,
+        now: Duration,
+        fill: &mut dyn FnMut(&mut RetainCapture) -> Result<(), RuntimeError>,
+    ) -> Result<(), RuntimeError> {
+        let Some(store) = self.store.as_ref() else {
+            return Ok(());
+        };
+        fill(&mut self.capture)?;
+        if !self.capture.image_changed() {
+            self.capture.unchanged(now);
+            return Ok(());
+        }
+        store.store_payload(self.capture.staged_payload())?;
+        self.capture.accept(now);
+        Ok(())
     }
 }

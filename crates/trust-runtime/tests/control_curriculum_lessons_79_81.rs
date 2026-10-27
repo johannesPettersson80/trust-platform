@@ -4,10 +4,9 @@ use trust_runtime::value::Value;
 mod control_heater_support;
 use control_heater_support::*;
 
-fn flag(runtime: &trust_runtime::Runtime, address: &str) -> bool {
+fn flag(runtime: &trust_runtime::CompiledRuntime, address: &str) -> bool {
     match runtime
-        .io()
-        .read(&IoAddress::parse(address).unwrap())
+        .read_io(&IoAddress::parse(address).unwrap())
         .unwrap()
     {
         Value::Bool(value) => value,
@@ -64,8 +63,13 @@ fn lesson79_event(kp: f64, ki: f64, setpoint: f64, extraction_kw: f64) -> (f64, 
         "Parameters",
         &[("ProportionalGain", kp), ("IntegralGain", ki)],
     );
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
-    debug.enqueue_instance_write(program, "DisturbanceKw", Value::LReal(extraction_kw));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(
+        &debug,
+        program,
+        "DisturbanceKw",
+        Value::LReal(extraction_kw),
+    );
     let (mut highest, mut lowest, mut late) = (f64::MIN, f64::MAX, 0.0_f64);
     for step in 1..=600 {
         let writes = if step == 1 {
@@ -126,7 +130,7 @@ fn lesson79_candidate_b_applied_by_control_studio_asks_for_more_than_the_heater_
             "cyclic code must preserve the gains Control Studio applied"
         );
     }
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     scan(
         &mut runtime,
         &mut simulation,
@@ -147,7 +151,7 @@ fn lesson79_an_invalid_measurement_latches_zero_heat_and_ends_the_extraction() {
     let debug = runtime.enable_debug();
     let program = program(&runtime);
     scan(&mut runtime, &mut simulation, &debug, 0, &[]);
-    debug.enqueue_instance_write(program, "DisturbanceKw", Value::LReal(10.0));
+    enqueue_instance_write(&debug, program, "DisturbanceKw", Value::LReal(10.0));
     scan(
         &mut runtime,
         &mut simulation,
@@ -214,40 +218,24 @@ struct Networked {
     recovery_remote: bool,
 }
 
-fn member(
-    runtime: &trust_runtime::Runtime,
-    instance: trust_runtime::memory::InstanceId,
-    name: &str,
-) -> Value {
-    runtime
-        .storage()
-        .get_instance_var(instance, name)
-        .cloned()
-        .unwrap_or_else(|| panic!("missing member {name}"))
+fn member(runtime: &trust_runtime::CompiledRuntime, instance: &str, name: &str) -> Value {
+    value(runtime, &format!("{instance}.{name}")).unwrap_or_else(|| panic!("missing member {name}"))
 }
 
-fn member_instance(
-    runtime: &trust_runtime::Runtime,
-    instance: trust_runtime::memory::InstanceId,
-    name: &str,
-) -> trust_runtime::memory::InstanceId {
-    match member(runtime, instance, name) {
-        Value::Instance(id) => id,
-        other => panic!("{name} is not an instance: {other:?}"),
-    }
+/// The path of the function block instance `name` of `instance`.
+fn member_instance(runtime: &trust_runtime::CompiledRuntime, instance: &str, name: &str) -> String {
+    let path = format!("{instance}.{name}");
+    assert!(exists(runtime, &path), "missing member {name}");
+    path
 }
 
-fn networked_case(
-    runtime: &trust_runtime::Runtime,
-    program: trust_runtime::memory::InstanceId,
-    case: usize,
-) -> trust_runtime::memory::InstanceId {
-    let Some(Value::Array(cases)) = runtime.storage().get_instance_var(program, "Cases") else {
-        panic!("the lesson must keep its six cases");
-    };
-    let Value::Instance(heater) = cases.elements()[case].clone() else {
-        panic!("case {case} is not an instance")
-    };
+/// The path of the networked heater of `case`: `Cases` is `ARRAY[0..5]`, so its element `case` is the case's.
+fn networked_case(runtime: &trust_runtime::CompiledRuntime, program: &str, case: usize) -> String {
+    let heater = format!("{program}.Cases[{case}]");
+    assert!(
+        exists(runtime, &heater),
+        "the lesson must keep its six cases"
+    );
     heater
 }
 
@@ -315,14 +303,14 @@ fn lesson80_run(
         let receiver = |case: usize, name: &str| {
             member(
                 &runtime,
-                member_instance(&runtime, heaters[case], "Receiver"),
+                &member_instance(&runtime, &heaters[case], "Receiver"),
                 name,
             )
         };
         let local = |case: usize| {
             let state = member(
                 &runtime,
-                member_instance(&runtime, heaters[case], "LocalLoop"),
+                &member_instance(&runtime, &heaters[case], "LocalLoop"),
                 "StateValue",
             );
             lreal(&record_field(&state, "SaturatedOutput"))
@@ -332,7 +320,7 @@ fn lesson80_run(
             command: std::array::from_fn(|case| number(&runtime, &format!("%QL{}", 8 * case))),
             sent: std::array::from_fn(|case| {
                 lreal(&record_field(
-                    &member(&runtime, heaters[case], "Sent"),
+                    &member(&runtime, &heaters[case], "Sent"),
                     "CommandPct",
                 ))
             }),
@@ -682,7 +670,7 @@ fn lesson80_both_loops_run_control_pid() {
         for name in ["RemoteLoop", "LocalLoop"] {
             let parameters = member(
                 &runtime,
-                member_instance(&runtime, heater, name),
+                &member_instance(&runtime, &heater, name),
                 "ParametersValue",
             );
             let gain = |field: &str| lreal(&record_field(&parameters, field));
@@ -768,17 +756,13 @@ fn int(value: &Value) -> i64 {
     }
 }
 
-fn sensed_case(
-    runtime: &trust_runtime::Runtime,
-    program: trust_runtime::memory::InstanceId,
-    case: usize,
-) -> trust_runtime::memory::InstanceId {
-    let Some(Value::Array(cases)) = runtime.storage().get_instance_var(program, "Cases") else {
-        panic!("the lesson must keep its six cases");
-    };
-    let Value::Instance(heater) = cases.elements()[case].clone() else {
-        panic!("case {case} is not an instance")
-    };
+/// The path of the sensed heater of `case`: `Cases` is `ARRAY[0..5]`, so its element `case` is the case's.
+fn sensed_case(runtime: &trust_runtime::CompiledRuntime, program: &str, case: usize) -> String {
+    let heater = format!("{program}.Cases[{case}]");
+    assert!(
+        exists(runtime, &heater),
+        "the lesson must keep its six cases"
+    );
     heater
 }
 
@@ -803,7 +787,7 @@ fn lesson81_run(auto_request_s: f64, periods_ms: &[u64]) -> Vec<Sensed> {
         let selector = |case: usize, name: &str| {
             member(
                 &runtime,
-                member_instance(&runtime, heaters[case], "Selector"),
+                &member_instance(&runtime, &heaters[case], "Selector"),
                 name,
             )
         };
@@ -1117,7 +1101,7 @@ fn lesson81_every_heater_runs_control_pid() {
     for case in 0..6 {
         let parameters = member(
             &runtime,
-            member_instance(&runtime, sensed_case(&runtime, p1, case), "Loop"),
+            &member_instance(&runtime, &sensed_case(&runtime, p1, case), "Loop"),
             "ParametersValue",
         );
         let gain = |field: &str| lreal(&record_field(&parameters, field));

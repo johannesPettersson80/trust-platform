@@ -616,3 +616,50 @@ fn each_commands_final_outcome_is_a_record_beside_the_alarms() {
     assert_eq!(trip[0]["outcome"], json!("confirmed"));
     assert_eq!(trip[0]["user"], json!("anna"));
 }
+
+/// Specification 40, §4 and §5 item 3: a comment has 1 to 120 characters in any language, counted
+/// as the UTF-16 code units of `Request.Comment`, a `WSTRING[120]`. A comment of 120 "ä" (240 bytes
+/// of UTF-8) is applied and recorded whole; one of 121 "ä", and one of 61 "𝄞" (outside the Basic
+/// Multilingual Plane, two code units each, 122 in all), are refused with the rule and nothing is
+/// recorded. Catches a field that holds bytes, a limit counted in bytes or in characters, and a
+/// comment cut to fit.
+#[test]
+fn a_comment_has_up_to_120_characters_in_any_language() {
+    let plant = plant("alarms-comment-length");
+    let full = "ä".repeat(120);
+    let answer = plant.act(
+        Some(&plant.anna),
+        "c1",
+        "Tank.High",
+        "comment",
+        Some(json!(full)),
+    );
+    assert_eq!(answer["outcome"], json!("applied"), "{answer}");
+    let alarms = plant.wait_for("the comment is recorded", |alarms| {
+        !records(alarms, "Tank.High", "comment").is_empty()
+    });
+    assert_eq!(
+        records(&alarms, "Tank.High", "comment")[0]["detail"],
+        json!(full)
+    );
+    for (id, text) in [("c2", "ä".repeat(121)), ("c3", "𝄞".repeat(61))] {
+        let answer = plant.act(
+            Some(&plant.anna),
+            id,
+            "Tank.High",
+            "comment",
+            Some(json!(text)),
+        );
+        assert_eq!(answer["outcome"], json!("refused"), "{answer}");
+        assert_eq!(
+            answer["reason"],
+            json!("a comment has 1 to 120 characters"),
+            "{answer}"
+        );
+    }
+    assert_eq!(
+        records(&plant.alarms(), "Tank.High", "comment").len(),
+        1,
+        "only the comment that fits is recorded"
+    );
+}

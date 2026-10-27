@@ -1,26 +1,24 @@
 import { useCallback, useReducer, useRef } from "react";
 
 import type { RoutePlan, SymbolNode } from "../offlineComm";
-import {
-  normalizeAdsTagSelections,
-  type AdsTagPortSelection,
-  type AdsTagPortPath,
-  type AdsTagBatchImportResult,
-} from "../adsTagBatch";
 import type { InspectorNode } from "./NodeInspector";
+import type {
+  AdsTagBatchImportResult,
+  AdsTagPortPath,
+  AdsTagPortSelection,
+} from "./types";
 import {
   EMPTY_BROWSE_SESSION,
   browseRequestFor,
   isCurrentBrowseMessage,
-  normalizeEndpointBrowseTarget,
   planBrowseOpen,
   reduceBrowseSessionState,
   type BrowsePanelState,
   type BrowseSessionState,
   type BrowseSymbolsRequest,
 } from "./browseSessionModel";
-import { classifyBrowseError } from "./browseErrorModel";
-import { buildOpcuaConnection, selectedLeaves } from "./opcuaClientModel";
+import type { BrowseErrorView } from "./browseErrorModel";
+import { selectedLeaves } from "./opcuaClientModel";
 import { withAdsTargetPort } from "./adsTargetPort";
 
 export interface BrowseSessionController extends BrowseSessionState {
@@ -101,11 +99,14 @@ export function useBrowseSession(
   const openNode = useCallback(
     (node: InspectorNode) => {
       const protocol = String(node.data.protocol ?? "");
-      const params =
-        (node.data.params as Record<string, unknown> | undefined) ?? {};
+      // The server answers the target a client connection's browse opens with.
+      const target =
+        (node.data.browseTarget as Record<string, unknown> | undefined) ??
+        (node.data.params as Record<string, unknown> | undefined) ??
+        {};
       open(
         protocol,
-        normalizeEndpointBrowseTarget(protocol, params),
+        target,
         String(node.data.name ?? node.data.label ?? protocol)
       );
     },
@@ -154,12 +155,8 @@ export function useBrowseSession(
       tree,
       routeMissing: Boolean(message.routeMissing),
       routePlan: message.routePlan as RoutePlan | undefined,
-      error: message.error
-        ? classifyBrowseError(
-            protocolRef.current,
-            message.error as { code?: string; message?: string }
-          )
-        : undefined,
+      // The recovery of a failed browse is the server's (`browse_error`).
+      error: message.errorView as BrowseErrorView | undefined,
     });
     return true;
   }, [sessionId]);
@@ -233,8 +230,7 @@ export function useBrowseSession(
       changedPath: string,
     ) => {
       const panel = panelRef.current;
-      const normalized = normalizeAdsTagSelections(selections);
-      if (!panel || panel.protocol !== "ads" || normalized.length === 0) {
+      if (!panel || panel.protocol !== "ads" || selections.length === 0) {
         return;
       }
       const adsImportRequestId = ++adsImportRequestIdRef.current;
@@ -244,7 +240,7 @@ export function useBrowseSession(
         browseSessionId: sessionId,
         adsImportRequestId,
         target: panel.target,
-        selections: normalized,
+        selections,
         writable,
         changedPath,
       });
@@ -277,15 +273,13 @@ export function useBrowseSession(
       if (panel && keys.length > 0) {
         const nodes = selectedLeaves(treeRef.current, new Set(keys));
         if (panel.protocol === "opcua_client") {
-          const connection = buildOpcuaConnection(
-            panel.target,
-            panel.label,
+          post({
+            type: "addOpcuaConnection",
+            target: panel.target,
+            label: panel.label,
             nodes,
-            writable
-          );
-          if (connection) {
-            post({ type: "addOpcuaConnection", connection });
-          }
+            writable,
+          });
         } else if (panel.protocol === "ethercat") {
           post({
             type: "addEthercatChannels",

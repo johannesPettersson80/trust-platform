@@ -18,6 +18,11 @@ use std::sync::{
 };
 use std::time::{Duration, Instant};
 
+/// The stable runtime IDs the owner's and the origin's meshes announce: sixteen random bytes in
+/// lowercase hex each, as `runtime_id` generates them.
+const OWNER_ID: &str = "0f1e2d3c4b5a69788796a5b4c3d2e1f0";
+const ORIGIN_ID: &str = "1e2d3c4b5a69788796a5b4c3d2e1f00f";
+
 fn config(address: String, connect: Vec<String>, publish: Vec<&str>) -> MeshConfig {
     MeshConfig {
         enabled: true,
@@ -96,15 +101,16 @@ fn two_tls_peers_read_and_write_only_published_owner_authorized_variables() {
     let worker = std::thread::spawn(move || {
         while !thread_stop.load(Ordering::Relaxed) {
             plant.cycle();
-            exchange.serve(plant.runtime_mut(), &[]);
+            let cycle = plant.runtime().cycle_counter();
+            plant.runtime_mut().with_program(|program| {
+                exchange.serve(program, cycle, &[]);
+            });
             for command in commands.try_iter() {
                 match command {
                     ResourceCommand::MeshCatalogue { names, respond_to } => {
-                        let _ = respond_to.send(crate::hmi::variable_tree::published_variables(
-                            &plant.runtime().metadata_snapshot(),
-                            plant.runtime().storage(),
-                            &names,
-                        ));
+                        let _ = respond_to.send(plant.runtime().with_program_view(|program| {
+                            crate::hmi::variable_tree::published_variables(program, &names)
+                        }));
                     }
                     ResourceCommand::MeshSnapshot { names, respond_to } => {
                         let _ = respond_to.send(plant.runtime().snapshot_globals(&names));
@@ -125,6 +131,7 @@ fn two_tls_peers_read_and_write_only_published_owner_authorized_variables() {
     let owner = super::start_mesh_with_tls(
         &config(owner_address.clone(), vec![], vec!["Main.Setpoint"]),
         owner_name.clone().into(),
+        OWNER_ID.into(),
         owner_resource,
         Some(&tls),
     )
@@ -142,6 +149,7 @@ fn two_tls_peers_read_and_write_only_published_owner_authorized_variables() {
             vec![],
         ),
         origin_name.clone().into(),
+        ORIGIN_ID.into(),
         origin_resource,
         Some(&tls),
     )

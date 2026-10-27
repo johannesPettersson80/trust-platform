@@ -41,7 +41,7 @@ pub mod timing;
 pub mod type_check;
 pub mod types;
 
-pub use db::{Database, SourceDatabase, TemporalStorage};
+pub use db::{Database, SourceDatabase};
 pub use diagnostics::{Diagnostic, DiagnosticSeverity};
 pub use ident::{is_reserved_keyword, is_valid_identifier};
 pub use project::{Project, SourceKey, SourceRegistry};

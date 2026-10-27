@@ -22,7 +22,7 @@ const vscode=require('vscode'),assert=require('assert'),fs=require('fs'),path=re
 exports.run=async()=>{
   const extension=vscode.extensions.getExtension('trust-platform.trust-lsp');assert.ok(extension,'installed truST extension');
   assert.ok(extension.extensionPath.startsWith(${JSON.stringify(extensions+path.sep)}),'must not load a development checkout');
-  for(const file of ['out/hmiBuilder/agent/mcpClient.js','media/fonts/InterVariable.woff2','media/hmiBuilderWebview.js','bin/trust-lsp'+(process.platform==='win32'?'.exe':'')]) assert.ok(fs.existsSync(path.join(extension.extensionPath,file)),file);
+  for(const file of ['media/fonts/InterVariable.woff2','media/hmiBuilderWebview.js','bin/trust-lsp'+(process.platform==='win32'?'.exe':'')]) assert.ok(fs.existsSync(path.join(extension.extensionPath,file)),file);
   await extension.activate();
   const deadline=Date.now()+60000;
   while(!(await vscode.commands.getCommands(true)).includes('trust-lsp.hmiFileParse')) {if(Date.now()>deadline)throw new Error('Packaged native server did not become available');await new Promise(r=>setTimeout(r,100));}
@@ -33,7 +33,7 @@ exports.run=async()=>{
   const inspected=await call('hmi_inspect_page',{file:'hmi/pages/proposal.toml',draftId:draft.data.draftId,revision:draft.data.revision,ids:['level']});assert.strictEqual(inspected.data.origin,'draft');assert.deepStrictEqual(inspected.data.objects.map(object=>object.id),['level']);
   const image=await call('hmi_render_draft',{draftId:draft.data.draftId,revision:draft.data.revision});assert.ok(image.content.some(part=>part.mimeType==='image/png'),'client-visible packaged PNG');
   assert.ok(!fs.existsSync(path.join(${JSON.stringify(project)},'hmi/pages/proposal.toml')),'draft leaves source untouched');
-  const connection=await vscode.commands.executeCommand('trust-lsp.hmiBuilder.connectAgent',{reveal:false});assert.ok(fs.existsSync(connection.connectionFile),'private bridge descriptor');
+  const connection=await vscode.commands.executeCommand('trust-lsp.hmiBuilder.connectAgent',{reveal:false});assert.ok(fs.existsSync(connection.connectionFile),'private bridge descriptor');assert.deepStrictEqual([connection.configuration.command,...connection.configuration.args],[path.join(extension.extensionPath,'bin','trust-lsp'+(process.platform==='win32'?'.exe':'')),'hmi-agent',connection.connectionFile],'the agent starts the packaged trust-lsp');
   await call('hmi_apply_draft',{draftId:draft.data.draftId,revision:draft.data.revision,action:'discard'});
   source.dispose();
 };`);

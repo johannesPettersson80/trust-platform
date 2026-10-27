@@ -243,9 +243,11 @@ fn the_tracking_carries_the_states_as_they_are_and_bounds_a_manual_command_that_
 }
 
 /// `control-studio-generated-loop.test.ts`, "returns to Auto after identification allowing the PID's own first step, not a fixed
-/// 1e-6" (A6.4): with the noise n = 0.05 that the baseline measured, Kp = 33.3, Ki = 0.0667 and Kd = 0 on a 100 ms task, and the
-/// measurement 2 degC below the setpoint, the first output may move by Kp·2n from the noise and Ki·Δt·(|e| + n) from the
-/// integral: 2·33.3·0.05 + 0.0667·0.1·0.05 + 0.0667·0.1·2 = 3.3436735.
+/// 1e-6" (A6.4, annex E6.9): with the noise n = 0.05 that the baseline measured, Kp = 33.3, Ki = 0.0667 and Kd = 0 on a 100 ms
+/// task, the first output may move by Kp·2n from the noise and Ki·Δt·n from the integral, 2·33.3·0.05 + 0.0667·0.1·0.05 =
+/// 3.3303335, which the transfer sends, and by Ki·Δt·|e| from the error it enters with, which the runtime adds with the gain
+/// Ki·Δt = 0.00667: with the measurement 2 degC below the setpoint at the entry, 3.3436735 in all. Catches a return whose
+/// tolerance keeps the error of the reading before the transfer (3.3436735), or that sends no gain for the integral step.
 #[test]
 fn a_return_to_auto_allows_the_pids_own_first_step() {
     let mut loop_definition = parallel_pid_loop_without_actuator();
@@ -258,7 +260,7 @@ fn a_return_to_auto_allows_the_pids_own_first_step() {
         "LevelPV" => 43.0,
         _ => 0.0,
     });
-    let expected = 2.0 * 33.3 * 0.05 + 0.0667 * 0.1 * 0.05 + 0.0667 * 0.1 * 2.0;
+    let expected = 2.0 * 33.3 * 0.05 + 0.0667 * 0.1 * 0.05;
     let allowance = auto_entry_response(&loop_definition, &observed, Some(0.05));
     assert!(
         (allowance - expected).abs() < 1e-9,
@@ -269,12 +271,19 @@ fn a_return_to_auto_allows_the_pids_own_first_step() {
         (tolerance - expected).abs() < 1e-9,
         "{tolerance} versus {expected}"
     );
+    let gain = mode_entry_error_gain(&loop_definition, false, Some(&observed), Some(0.05))
+        .expect("a PID's Auto entry has the integral step");
+    assert!((gain - 0.0667 * 0.1).abs() < 1e-12, "{gain}");
+    assert!(
+        (tolerance + gain * 2.0 - 3.343_673_5).abs() < 1e-9,
+        "with 2 degC at the entry"
+    );
 }
 
 /// Annex E6.9 and A6.4: a transfer to Manual allows 1e-6, or the loop's faster rate limit over one execution of its task when that
 /// is larger. An Auto entry adds the controller's own response: without a measured noise the exact check of 1e-6 over the 100 %
-/// span, 1e-4, plus the integral step Ki·Δt·|e| = 0.5·0.01·1; a loop without a PID law, or a status that does not report a gain,
-/// adds nothing.
+/// span, 1e-4, and the gain Ki·Δt = 0.5·0.01 = 0.005 for the runtime's integral step on the error at entry; a transfer to Manual,
+/// an entry without a reviewed status, a loop without a PID law, and a status that does not report a gain add nothing.
 #[test]
 fn a_transfer_allows_the_rate_limit_over_one_execution_and_only_a_pid_entry_adds_its_response() {
     let mut loop_definition = parallel_pid_loop_without_actuator();
@@ -291,13 +300,25 @@ fn a_transfer_allows_the_rate_limit_over_one_execution_and_only_a_pid_entry_adds
         1e-6,
         "a transfer to Manual allows no response"
     );
-    assert!(
-        (mode_output_change(&loop_definition, false, Some(&observed), None) - 0.0051).abs() < 1e-12
+    assert_eq!(
+        mode_entry_error_gain(&loop_definition, true, Some(&observed), None),
+        None,
+        "a transfer to Manual has no integral step"
     );
+    assert!(
+        (mode_output_change(&loop_definition, false, Some(&observed), None) - 1e-4).abs() < 1e-12
+    );
+    let gain = mode_entry_error_gain(&loop_definition, false, Some(&observed), None)
+        .expect("an Auto entry has the integral step");
+    assert!((gain - 0.005).abs() < 1e-12, "{gain}");
     assert_eq!(
         mode_output_change(&loop_definition, false, None, None),
         1e-6,
         "an Auto entry without a reviewed status allows no response"
+    );
+    assert_eq!(
+        mode_entry_error_gain(&loop_definition, false, None, None),
+        None
     );
     let mut silent = observed;
     silent.values.remove("Main.Parameters.Ki");
@@ -305,6 +326,10 @@ fn a_transfer_allows_the_rate_limit_over_one_execution_and_only_a_pid_entry_adds
         auto_entry_response(&loop_definition, &silent, Some(0.05)),
         0.0,
         "a gain that the status does not report allows no response"
+    );
+    assert_eq!(
+        mode_entry_error_gain(&loop_definition, false, Some(&silent), Some(0.05)),
+        None
     );
     loop_definition.limits.rate_up_per_s = Some(20.0);
     loop_definition.limits.rate_down_per_s = Some(50.0);
@@ -319,6 +344,10 @@ fn a_transfer_allows_the_rate_limit_over_one_execution_and_only_a_pid_entry_adds
         auto_entry_response(&proportional, &p_observed, Some(0.05)),
         0.0,
         "a proportional law has no PID response"
+    );
+    assert_eq!(
+        mode_entry_error_gain(&proportional, false, Some(&p_observed), Some(0.05)),
+        None
     );
 }
 
@@ -501,8 +530,8 @@ fn a_setpoint_the_program_overwrote_in_manual_returns_after_the_auto_entry() {
 }
 
 /// C2 and A6.4: a program's own PI law answers its first step with the allowance of its seed's variables, with the same formula as a
-/// PID record: 2·Kp·n from P, Ki·Δt·n from I on the noise, and Ki·Δt·|r − y| from the error the step leaves, here 0.5 · 0.01 · 2 for a
-/// setpoint 2 degC above the measurement, so 2 · 2 · 0.05 + 0.5 · 0.01 · 0.05 + 0.5 · 0.01 · 2 = 0.21025 on the 10 ms fixture task.
+/// PID record: 2·Kp·n from P and Ki·Δt·n from I on the noise, 2 · 2 · 0.05 + 0.5 · 0.01 · 0.05 = 0.20025 on the 10 ms fixture task, and
+/// the gain Ki·Δt = 0.5 · 0.01 = 0.005 with which the runtime adds Ki·Δt·|r − y| for the error the step leaves at the entry.
 #[test]
 fn a_program_pi_law_allows_its_own_first_step_from_its_seed_variables() {
     let loop_definition = project_pid_loop();
@@ -514,11 +543,16 @@ fn a_program_pi_law_allows_its_own_first_step_from_its_seed_variables() {
         "LevelPV" => 43.0,
         _ => 0.0,
     });
-    let expected = 2.0 * 2.0 * 0.05 + 0.5 * 0.01 * 0.05 + 0.5 * 0.01 * 2.0;
+    let expected = 2.0 * 2.0 * 0.05 + 0.5 * 0.01 * 0.05;
     let allowance = auto_entry_response(&loop_definition, &observed, Some(0.05));
     assert!(
         (allowance - expected).abs() < 1e-9,
         "{allowance} versus {expected}"
+    );
+    let gain = mode_entry_error_gain(&loop_definition, false, Some(&observed), Some(0.05));
+    assert!(
+        gain.is_some_and(|gain| (gain - 0.005).abs() < 1e-12),
+        "{gain:?}"
     );
 }
 

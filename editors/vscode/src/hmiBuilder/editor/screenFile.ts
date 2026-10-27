@@ -73,9 +73,15 @@ export async function writeScreenColour(
 }
 
 /** Sets the project's languages, the first being the one its texts are written in (§14.5 item 2);
- * gives why they were refused, or `undefined`. */
+ * gives why they were refused, or `undefined`. The language server checks the list
+ * (`trust-lsp.hmiChecks`). */
 export async function writeScreenLanguages(file: vscode.Uri, languages: string[]): Promise<string | undefined> {
-  if (languages.length === 0) return "A project has at least one language.";
+  const checked = await vscode.commands.executeCommand<{ ok?: boolean; error?: string; problem?: string }>(
+    "trust-lsp.hmiChecks",
+    { action: "languages", languages },
+  );
+  if (checked?.ok !== true) return checked?.error ?? "The truST language server is not running.";
+  if (checked.problem !== undefined) return checked.problem;
   const written = await editScreen(file, (model) => ({ ...model, languages }));
   return typeof written === "string" ? written : undefined;
 }

@@ -6,10 +6,8 @@ name = "Cpu"
 cycle_interval_ms = 100
 
 [runtime.control]
-endpoint = "tcp://127.0.0.1:9100"
 mode = "production"
 debug_enabled = false
-auth_token = "trust-example-token"
 
 [runtime.log]
 level = "info"

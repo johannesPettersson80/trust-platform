@@ -5,7 +5,7 @@ import type {
   CommSchemaResponse,
 } from "../../communication/schemaForm";
 import { visibleSchemaFields } from "../../communication/schemaForm";
-import { coerce, Field } from "./SchemaFields";
+import { Field } from "./SchemaFields";
 import { t } from "./theme";
 
 interface Props {
@@ -150,18 +150,14 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
     if (!protocol) {
       return;
     }
-    const params: Record<string, unknown> = {};
-    for (const field of visibleSchemaFields(protocol, values)) {
-      params[field.id] = coerce(field, values[field.id] ?? "");
-    }
-    const action =
-      protocol.supports_multi_instance && protocol.actions.includes("add") ? "add" : "upsert";
     setEditedAfterApplyResult(false);
     setClearedFieldErrors(new Set());
     if (type === "commSave") {
       savingRef.current = true;
     }
-    post({ type, protocol: protocol.id, params, action, runtimeId: target?.id, target: target?.id });
+    // The server converts the typed values by the schema and chooses the add action
+    // (specification 25 §5.9).
+    post({ type, protocol: protocol.id, values, runtimeId: target?.id, target: target?.id });
   };
 
   // On a successful Save, close the panel: this clears the draft preview (no stale "DRAFT" lingering next
@@ -172,7 +168,8 @@ export function AddDevicePanel({ schema, applyResult, reachable, setupMessage, t
     if (savingRef.current && applyResult?.applied) {
       savingRef.current = false;
       if (onSaved) {
-        onSaved(applyResult.instance_id);
+        // The server answers the canvas node that draws the saved connection (specification 25 §5.9).
+        onSaved(applyResult.node_id);
       } else {
         onClose();
       }

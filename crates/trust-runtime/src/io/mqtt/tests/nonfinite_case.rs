@@ -1,7 +1,21 @@
+//! The verification case `RT_SAFE_NAN_001` (specification 11, floating-point boundary admission
+//! policy; specification 32 §7: a partially converted MQTT batch is never committed), run against
+//! the computer's driver and the broker stand-in: a finite batch is accepted, a batch with a
+//! non-finite value is refused whole, and a later finite value recovers without the refused
+//! batch's other value. Each step delivers its batch in one write and reads until the batch has
+//! arrived, so that a step reads exactly its own batch.
+
+use std::thread;
+use std::time::Duration;
+
 use verification_cases::{
     check_case_expectation, check_trace_fields, CaseExecution, CaseRecord, CaseResult,
     ObservedOperation, RunConfig, StateProbe, StateSnapshot, TraceStep,
 };
+
+use super::broker::Broker;
+use super::{at, read_fresh, start, MqttIoDriver};
+use crate::io::{IoDriver, IoDriverHealth};
 
 /// Trace fields that `compare_nonfinite_mqtt_step` compares.
 const NONFINITE_READ_FIELDS: &[&str] = &[
@@ -18,7 +32,10 @@ const NONFINITE_CASE_FILE_DIGEST: &str =
 const NONFINITE_CASE_ID: &str =
     "RT_SAFE_NAN_001_MQTT_MAPPED_BATCH_REJECTION_AND_RECOVERY_ISOLATION";
 
-fn run_nonfinite_mqtt_case() {
+/// Runs the case's trace through the driver: its three steps, the accepted batch, the refused one
+/// and the recovery, each checked against the case file. Catches a partially converted batch
+/// committed, which would show the refused batch's count beside the recovered temperature.
+pub(super) fn run_nonfinite_mqtt_case() {
     let workspace = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .and_then(std::path::Path::parent)
@@ -76,21 +93,10 @@ fn run_nonfinite_mqtt_case_record(
         ));
     }
 
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        ..MockState::default()
-    }));
-    let factory = Arc::new(MockFactory {
-        state: Arc::clone(&state),
-        attempts: Arc::new(AtomicUsize::new(0)),
-        fail_first: false,
-        always_fail: false,
-    });
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-reconnect_ms = 1
+    let broker = Broker::start();
+    let mut driver = start(&at(
+        &broker,
+        r#"reconnect_ms = 1
 
 [[input_points]]
 topic = "line/in/count"
@@ -104,10 +110,10 @@ image_offset = 2
 data_type = "f32"
 payload_format = "text"
 "#,
-        ),
-        factory,
-    )
-    .map_err(|error| format!("construct mapped MQTT driver: {error}"))?;
+    ));
+    broker.wait_for("subscriptions", |record| {
+        record.subscriptions == ["line/in/count", "line/in/temp"]
+    });
 
     let mut inputs = [0u8; 6];
     let mut mismatches = Vec::new();
@@ -120,7 +126,7 @@ payload_format = "text"
         if let Err(error) = check_trace_fields(&step.expected, NONFINITE_READ_FIELDS) {
             mismatches.push(format!("{} step {}: {error}", case.id, step.sequence));
         }
-        let observation = execute_nonfinite_mqtt_step(step, &state, &mut driver, &mut inputs)?;
+        let observation = execute_nonfinite_mqtt_step(step, &broker, &mut driver, &mut inputs)?;
         compare_nonfinite_mqtt_step(step, &observation, &mut mismatches)?;
         observations.push(observation.to_json());
         observed_steps.push(observation);
@@ -217,55 +223,57 @@ impl NonfiniteMqttStepObservation {
     }
 }
 
+/// Runs the trace step `step`: the broker delivers its batch in one write, and the driver reads
+/// until the batch has arrived (a read before it is stale and changes nothing under `fault`).
 fn execute_nonfinite_mqtt_step(
     step: &TraceStep,
-    state: &Arc<Mutex<MockState>>,
+    broker: &Broker,
     driver: &mut MqttIoDriver,
     inputs: &mut [u8; 6],
 ) -> Result<NonfiniteMqttStepObservation, String> {
     let action = nonfinite_trace_string(&step.stimulus, "action")?;
-    {
-        let mut guard = state.lock().unwrap_or_else(|error| error.into_inner());
-        match action.as_str() {
-            "deliver_finite_batch" => {
-                let count = nonfinite_trace_nonnegative_integer(&step.stimulus, "count")?;
-                let temp_milli = nonfinite_trace_nonnegative_integer(&step.stimulus, "temp_milli")?;
-                guard
-                    .payloads
-                    .push_back(packet("line/in/count", count.to_string().into_bytes()));
-                guard.payloads.push_back(packet(
+    let batch: Vec<(&str, Vec<u8>)> = match action.as_str() {
+        "deliver_finite_batch" => {
+            let count = nonfinite_trace_nonnegative_integer(&step.stimulus, "count")?;
+            let temp_milli = nonfinite_trace_nonnegative_integer(&step.stimulus, "temp_milli")?;
+            vec![
+                ("line/in/count", count.to_string().into_bytes()),
+                (
                     "line/in/temp",
                     format_milli_payload(temp_milli).into_bytes(),
-                ));
-            }
-            "deliver_nonfinite_batch" => {
-                let count = nonfinite_trace_nonnegative_integer(&step.stimulus, "count")?;
-                let temp_token = nonfinite_trace_string(&step.stimulus, "temp_token")?;
-                guard
-                    .payloads
-                    .push_back(packet("line/in/count", count.to_string().into_bytes()));
-                guard
-                    .payloads
-                    .push_back(packet("line/in/temp", temp_token.into_bytes()));
-            }
-            "deliver_finite_point_after_wait" => {
-                let temp_milli = nonfinite_trace_nonnegative_integer(&step.stimulus, "temp_milli")?;
-                guard.payloads.push_back(packet(
-                    "line/in/temp",
-                    format_milli_payload(temp_milli).into_bytes(),
-                ));
-            }
-            _ => return Err(format!("unreviewed MQTT trace action {action}")),
+                ),
+            ]
         }
-    }
+        "deliver_nonfinite_batch" => {
+            let count = nonfinite_trace_nonnegative_integer(&step.stimulus, "count")?;
+            let temp_token = nonfinite_trace_string(&step.stimulus, "temp_token")?;
+            vec![
+                ("line/in/count", count.to_string().into_bytes()),
+                ("line/in/temp", temp_token.into_bytes()),
+            ]
+        }
+        "deliver_finite_point_after_wait" => {
+            let temp_milli = nonfinite_trace_nonnegative_integer(&step.stimulus, "temp_milli")?;
+            vec![(
+                "line/in/temp",
+                format_milli_payload(temp_milli).into_bytes(),
+            )]
+        }
+        _ => return Err(format!("unreviewed MQTT trace action {action}")),
+    };
+    let messages: Vec<(&str, &[u8])> = batch
+        .iter()
+        .map(|(topic, payload)| (*topic, payload.as_slice()))
+        .collect();
+    broker.deliver(&messages);
     if action == "deliver_finite_point_after_wait" {
         let wait_ms = nonfinite_trace_nonnegative_integer(&step.stimulus, "wait_ms")?;
-        thread::sleep(StdDuration::from_millis(
+        thread::sleep(Duration::from_millis(
             u64::try_from(wait_ms).map_err(|_| "wait_ms does not fit u64".to_string())?,
         ));
     }
 
-    let result = driver.read_inputs(inputs);
+    let result = read_fresh(driver, inputs);
     let (read_result, error) = match result {
         Ok(()) => ("accepted", None),
         Err(error) => ("rejected", Some(error.to_string())),

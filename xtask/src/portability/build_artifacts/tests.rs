@@ -1,9 +1,9 @@
 use super::*;
 
-const BIN: &str = "trust-nucleo-f401re";
+const BIN: &str = "demo-firmware";
 
 fn record(fresh: bool, executable: Value) -> String {
-    serde_json::json!({"reason":"compiler-artifact", "target":{"name":"trust-nucleo-f401re", "kind":["bin"]}, "fresh":fresh, "executable":executable}).to_string()
+    serde_json::json!({"reason":"compiler-artifact", "target":{"name":"demo-firmware", "kind":["bin"]}, "fresh":fresh, "executable":executable}).to_string()
 }
 
 #[test]
@@ -17,11 +17,7 @@ fn only_a_new_exact_firmware_binary_can_supply_the_executable() {
     assert!(executable(&format!("{current}\n{current}"), BIN).is_err());
     assert!(executable("not cargo JSON", BIN).is_err());
     assert!(executable("{\"reason\":\"build-finished\",\"success\":true}", BIN).is_err());
-    assert!(executable(
-        &current.replace("trust-nucleo-f401re", "another-binary"),
-        BIN
-    )
-    .is_err());
+    assert!(executable(&current.replace("demo-firmware", "another-binary"), BIN).is_err());
     assert!(executable(&current.replace("\"bin\"", "\"lib\""), BIN).is_err());
 }
 
@@ -74,11 +70,10 @@ fn existing_evidence_is_not_overwritten() {
             .as_nanos()
     ));
     let artifacts = Artifacts::prepare(&parent.join("build.json")).unwrap();
-    let board = BoardProfile::nucleo_f401re();
     assert!(artifacts
         .retain(
             &record(false, serde_json::json!(parent.join("missing.elf"))),
-            &board
+            BIN
         )
         .is_err());
     fs::write(&artifacts.map, b"original map").unwrap();
@@ -87,7 +82,7 @@ fn existing_evidence_is_not_overwritten() {
     let executable = parent.join("linked.elf");
     fs::write(&executable, b"linked executable").unwrap();
     let retained = artifacts
-        .retain(&record(false, serde_json::json!(executable)), &board)
+        .retain(&record(false, serde_json::json!(executable)), BIN)
         .unwrap();
     assert_eq!(fs::read(&artifacts.elf).unwrap(), b"linked executable");
     assert_eq!(
@@ -133,11 +128,11 @@ fn executable_is_selected_by_the_board_binary_name() {
     let path = std::env::temp_dir().join("c6 firmware");
     let c6 = serde_json::json!({
         "reason": "compiler-artifact",
-        "target": {"name": "trust-esp32c6-reference", "kind": ["bin"]},
+        "target": {"name": "trust-esp32c6", "kind": ["bin"]},
         "fresh": false,
         "executable": path
     })
     .to_string();
-    assert_eq!(executable(&c6, "trust-esp32c6-reference").unwrap(), path);
+    assert_eq!(executable(&c6, "trust-esp32c6").unwrap(), path);
     assert!(executable(&c6, BIN).is_err());
 }

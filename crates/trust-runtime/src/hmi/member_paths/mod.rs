@@ -2,13 +2,17 @@
 //!
 //! A path such as `FeedArea.P101.Running` or `FeedArea.Pumps[2].Running` starts at a program
 //! instance or a global and walks function block instance members, structure fields and array
-//! elements. The runtime resolves the paths that HMI pages bind; it does not enumerate every
-//! nested member of every instance.
+//! elements. The runtime resolves the paths that HMI pages bind in the running program through
+//! its image's symbol and type tables (specification 44 §13.3); the editor's checks resolve them
+//! in the project's declarations. Neither enumerates every nested member of every instance.
 
 use indexmap::IndexMap;
 use smol_str::SmolStr;
+use trust_runtime_core::native::image::NONE;
 
+use crate::harness::Declarations;
 use crate::memory::VariableStorage;
+use crate::runtime::program_access::{Located, ProgramRead};
 use crate::value::{array_offset_i64, Value};
 
 #[cfg(test)]
@@ -115,7 +119,49 @@ fn is_identifier(name: &str) -> bool {
         && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
-/// Resolves a path against the runtime's storage. Identifiers match without regard to case,
+/// Where `path` lies in the running program: its first name a global or a program instance, then
+/// function block members (inherited ones included), structure fields and array elements within
+/// their declared bounds, matched without regard to case (IEC 61131-3 §6.1.2). `None` for a path
+/// that names nothing, a remote path among them.
+pub fn locate_member(path: &MemberPath, program: &dyn ProgramRead) -> Option<Located> {
+    let image = program.program_image();
+    // A path starts at a global or a program instance (§7.2), never at a program's variable by
+    // its own name.
+    let (_, root) = image.find_symbol(&path.root.to_ascii_uppercase())?;
+    if root.parent != NONE || root.area == 0 {
+        return None;
+    }
+    program.locate(&located_text(path)).ok()
+}
+
+/// The value at `path` in the running program; `None` for a path that names nothing, and for an
+/// instance, which holds no single value.
+pub fn member_value(path: &MemberPath, program: &dyn ProgramRead) -> Option<Value> {
+    let at = locate_member(path, program)?;
+    program.read_at(&at).ok()
+}
+
+/// A path as the program's tables resolve it: `Main.Pumps[2,1].Running`.
+fn located_text(path: &MemberPath) -> String {
+    let mut text = path.root.to_string();
+    for segment in &path.segments {
+        match segment {
+            PathSegment::Field(name) => {
+                text.push('.');
+                text.push_str(name);
+            }
+            PathSegment::Index(indices) => {
+                let list: Vec<String> = indices.iter().map(i64::to_string).collect();
+                text.push('[');
+                text.push_str(&list.join(","));
+                text.push(']');
+            }
+        }
+    }
+    text
+}
+
+/// Resolves a path against the declarations' storage. Identifiers match without regard to case,
 /// as in IEC 61131-3; array indices use the declared bounds.
 pub fn resolve_member<'a>(path: &MemberPath, storage: &'a VariableStorage) -> Option<&'a Value> {
     resolve_member_with(path, storage, |_, _| {})
@@ -166,13 +212,13 @@ pub enum PathStep {
     },
 }
 
-/// One step per named part of a path (indices name no part), or `None` where it does not
-/// resolve.
-pub fn path_steps(path: &MemberPath, runtime: &crate::Runtime) -> Option<Vec<PathStep>> {
-    let storage = runtime.storage();
+/// One step per named part of a path (indices name no part) in the project's declarations, or
+/// `None` where it does not resolve.
+pub fn path_steps(path: &MemberPath, declarations: &Declarations) -> Option<Vec<PathStep>> {
+    let storage = declarations.storage();
     let mut current = find_ignoring_case(storage.globals(), &path.root)?;
     // A program instance a configuration names is of its program's type, not of its own name.
-    let program = runtime.program_type(&path.root);
+    let program = declarations.metadata().program_type(&path.root);
     let root = match current {
         Value::Instance(id) => Some(*id),
         _ => None,

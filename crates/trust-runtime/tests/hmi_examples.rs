@@ -5,7 +5,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use trust_runtime::bundle_builder::collect_project_source_files;
-use trust_runtime::harness::{CompileSession, SourceFile};
+use trust_runtime::harness::{CompileSession, SourceFile, TestHarness};
 use trust_runtime::hmi::access::config::hmi_access_from_runtime_toml;
 use trust_runtime::hmi::bundle::checks::{check_bundle, Program};
 use trust_runtime::hmi::bundle::HmiBundle;
@@ -49,13 +49,16 @@ fn every_example_with_screens_calls_hmi_display() {
     let mut failures = Vec::new();
     for example in EXAMPLES {
         let root = repo.join("examples").join(example);
-        let mut runtime = CompileSession::from_sources(program_sources(&root, example))
-            .build_runtime()
-            .unwrap_or_else(|error| panic!("{example} compiles: {error}"));
+        let mut runtime = TestHarness::from_session(CompileSession::from_sources(program_sources(
+            &root, example,
+        )))
+        .unwrap_or_else(|error| panic!("{example} compiles: {error}"))
+        .into_runtime();
         let exchange = Arc::new(HmiExchange::new());
         runtime.set_hmi_exchange(Arc::clone(&exchange));
         for _ in 0..200 {
-            runtime.advance_time(Duration::from_millis(10));
+            let now = runtime.current_time().as_nanos() + Duration::from_millis(10).as_nanos();
+            runtime.set_current_time(Duration::from_nanos(now));
             if let Err(error) = runtime.execute_cycle() {
                 failures.push(format!("{example}: the cycle fails: {error}"));
                 break;
@@ -84,8 +87,8 @@ fn every_example_screen_passes_the_deployment_checks_against_its_program() {
             failures.push(format!("{example}: no screen layout or page"));
             continue;
         }
-        let runtime = CompileSession::from_sources(program_sources(&root, example))
-            .build_runtime()
+        let declarations = CompileSession::from_sources(program_sources(&root, example))
+            .declarations()
             .unwrap_or_else(|error| panic!("{example} compiles: {error}"));
         let policy = std::fs::read_to_string(root.join("runtime.toml"))
             .ok()
@@ -95,13 +98,12 @@ fn every_example_screen_passes_the_deployment_checks_against_its_program() {
                     .write
             })
             .unwrap_or_default();
-        let metadata = runtime.metadata_snapshot();
         for problem in check_bundle(
             &bundle,
             Catalogue::shipped(),
             &Program {
-                metadata: &metadata,
-                storage: runtime.storage(),
+                metadata: declarations.metadata(),
+                storage: declarations.storage(),
             },
             &policy,
         ) {

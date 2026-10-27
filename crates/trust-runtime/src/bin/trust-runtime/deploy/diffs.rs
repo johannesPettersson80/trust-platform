@@ -129,11 +129,20 @@ fn diff_runtime(previous: Option<&RuntimeConfig>, next: &RuntimeConfig) -> Vec<S
             &next.cycle_interval.as_millis(),
         );
         diff_field(&mut changes, "log_level", &prev.log_level, &next.log_level);
+        // An omitted endpoint is the platform default, which has no text of its own in the config.
+        let prev_endpoint = prev
+            .control_endpoint
+            .as_deref()
+            .unwrap_or("platform default");
+        let next_endpoint = next
+            .control_endpoint
+            .as_deref()
+            .unwrap_or("platform default");
         diff_field(
             &mut changes,
             "control_endpoint",
-            &prev.control_endpoint,
-            &next.control_endpoint,
+            &prev_endpoint,
+            &next_endpoint,
         );
         if prev.control_auth_token.is_some() != next.control_auth_token.is_some() {
             changes.push(format!(

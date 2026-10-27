@@ -8,6 +8,7 @@ mod analysis;
 mod analysis_language;
 mod basic;
 mod files;
+mod settings;
 mod tasks;
 
 pub(super) struct IdeRouteContext<'a> {
@@ -41,6 +42,10 @@ pub(super) fn handle_ide_route(
         IdeRouteOutcome::NotHandled(request) => request,
     };
     let request = match analysis::handle_analysis_route(request, method, url, &ctx) {
+        IdeRouteOutcome::Handled => return IdeRouteOutcome::Handled,
+        IdeRouteOutcome::NotHandled(request) => request,
+    };
+    let request = match settings::handle_settings_route(request, method, url, &ctx) {
         IdeRouteOutcome::Handled => return IdeRouteOutcome::Handled,
         IdeRouteOutcome::NotHandled(request) => request,
     };

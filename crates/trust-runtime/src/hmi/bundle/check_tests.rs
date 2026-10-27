@@ -2,7 +2,7 @@
 
 use super::checks::{check_bundle, BundleProblem, Program};
 use super::HmiBundle;
-use crate::harness::TestHarness;
+use crate::harness::CompileSession;
 use crate::hmi::access::config::hmi_access_from_runtime_toml;
 use crate::hmi::catalogue::Catalogue;
 
@@ -38,9 +38,10 @@ image = "hmi/assets/logo.svg"
 "#;
 
 fn problems(files: &[(&str, &str)]) -> Vec<BundleProblem> {
-    let mut harness = TestHarness::from_source(PROGRAM).expect("the program compiles");
-    harness.cycle();
-    let metadata = harness.runtime().metadata_snapshot();
+    let declarations = CompileSession::from_source(PROGRAM)
+        .declarations()
+        .expect("the program compiles");
+    let metadata = declarations.metadata().clone();
     let policy = hmi_access_from_runtime_toml(
         "[[runtime.web.hmi.write]]\npath = \"Main.Setpoint\"\nrole = \"operator\"\n",
     )
@@ -57,7 +58,7 @@ fn problems(files: &[(&str, &str)]) -> Vec<BundleProblem> {
         Catalogue::shipped(),
         &Program {
             metadata: &metadata,
-            storage: harness.runtime().storage(),
+            storage: declarations.storage(),
         },
         &policy,
     )

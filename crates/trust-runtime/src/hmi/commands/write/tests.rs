@@ -2,10 +2,28 @@
 
 use serde_json::json;
 
-use super::{write_point, write_points, WriteAction, Written};
+use super::{WriteAction, WriteRefused, Written};
 use crate::harness::TestHarness;
-use crate::hmi::member_paths::{resolve_member, MemberPath};
+use crate::hmi::member_paths::{member_value, MemberPath};
+use crate::runtime::CompiledRuntime;
 use crate::value::Value;
+
+/// A command's write at a boundary of the runtime's program, between its scans.
+fn write_point(
+    runtime: &mut CompiledRuntime,
+    path: &MemberPath,
+    action: &WriteAction,
+) -> Result<Written, WriteRefused> {
+    runtime.with_program(|program| super::write_point(program, path, action))
+}
+
+/// Writes together at a boundary of the runtime's program, between its scans.
+fn write_points(
+    runtime: &mut CompiledRuntime,
+    writes: &[(MemberPath, WriteAction)],
+) -> Result<Vec<Written>, WriteRefused> {
+    runtime.with_program(|program| super::write_points(program, writes))
+}
 
 /// The library block and a program calling it, so the running resource serves the screens
 /// (specification 39, §18 Phase 5).
@@ -72,8 +90,9 @@ fn path(text: &str) -> MemberPath {
 }
 
 fn read(harness: &TestHarness, text: &str) -> Value {
-    resolve_member(&path(text), harness.runtime().storage())
-        .cloned()
+    harness
+        .runtime()
+        .with_program_view(|program| member_value(&path(text), program))
         .expect("a variable")
 }
 
@@ -275,4 +294,70 @@ fn points_written_together_are_written_all_or_none() {
         [Value::Real(61.5), Value::Int(3)]
     );
     assert_eq!(read(&harness, "Main.Count"), Value::Int(3));
+}
+
+/// Specification 39, §12.8 item 5: a `STRING[n]` point takes at most `n` bytes of UTF-8. "ÄB" is
+/// three bytes and fits a `STRING[3]`; "ÄÖ" is two characters in four bytes and is refused with
+/// the stable code `runtime_string_capacity_exceeded`, and the point keeps its value. Catches a
+/// capacity counted in characters, and a text cut to fit instead of refused.
+#[test]
+fn a_text_is_counted_in_bytes_of_utf8_against_its_points_capacity() {
+    let source = "PROGRAM Main\nVAR\n    label : STRING[3] := 'OK';\nEND_VAR\nEND_PROGRAM\n";
+    let mut harness = TestHarness::from_source(source).expect("the program compiles");
+    harness.cycle();
+    let fits = write_point(
+        harness.runtime_mut(),
+        &path("Main.label"),
+        &WriteAction::Set(json!("ÄB")),
+    )
+    .expect("three bytes fit STRING[3]");
+    assert_eq!(fits.readback, Value::String("ÄB".into()));
+    let refused = write_point(
+        harness.runtime_mut(),
+        &path("Main.label"),
+        &WriteAction::Set(json!("ÄÖ")),
+    )
+    .expect_err("four bytes do not fit STRING[3]");
+    assert_eq!(
+        refused.error_code,
+        Some("runtime_string_capacity_exceeded"),
+        "{refused}"
+    );
+    assert_eq!(read(&harness, "Main.label"), Value::String("ÄB".into()));
+}
+
+/// Specification 39, §12.8 item 5: `STRING` and `STRING[80]` are one type, so both points take 80
+/// bytes and refuse 81 with `runtime_string_capacity_exceeded`, keeping their value. Catches a
+/// bare `STRING` given another capacity than 80.
+#[test]
+fn a_string_without_a_length_takes_80_bytes() {
+    let source = "PROGRAM Main\nVAR\n    plain : STRING := 'OK';\n    sized : STRING[80] := 'OK';\nEND_VAR\nEND_PROGRAM\n";
+    let mut harness = TestHarness::from_source(source).expect("the program compiles");
+    harness.cycle();
+    let longest = "x".repeat(80);
+    for point in ["Main.plain", "Main.sized"] {
+        let fits = write_point(
+            harness.runtime_mut(),
+            &path(point),
+            &WriteAction::Set(json!(longest)),
+        )
+        .unwrap_or_else(|refused| panic!("80 bytes fit {point}: {refused}"));
+        assert_eq!(fits.readback, Value::String(longest.as_str().into()));
+        let refused = write_point(
+            harness.runtime_mut(),
+            &path(point),
+            &WriteAction::Set(json!("x".repeat(81))),
+        )
+        .expect_err("81 bytes do not fit");
+        assert_eq!(
+            refused.error_code,
+            Some("runtime_string_capacity_exceeded"),
+            "{point}: {refused}"
+        );
+        assert_eq!(
+            read(&harness, point),
+            Value::String(longest.as_str().into()),
+            "{point} keeps its value"
+        );
+    }
 }

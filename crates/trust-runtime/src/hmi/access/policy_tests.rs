@@ -3,7 +3,8 @@
 
 use super::config::WriteRule;
 use super::policy::{
-    authorize, command_role, effective_permission, rule_for, within_limits, Permission,
+    acts_as, authorize, command_role, effective_permission, may_change_settings, rule_for,
+    within_limits, Permission,
 };
 use crate::hmi::member_paths::MemberPath;
 use crate::hmi::page_files::{parse_page, HmiObject};
@@ -166,4 +167,30 @@ fn a_method_command_needs_the_controls_role_raised_by_a_covering_rule() {
         AccessRole::Engineer,
         "the higher of the two"
     );
+}
+
+/// Specification 39, §12.3 and §12.8 item 1: roles are ordered Viewer, Operator, Engineer, Admin,
+/// and a session may act as its own role and every lower one, so the page unlocks a control whose
+/// needed role is in the list. Worked out from that order: a Viewer acts only as a Viewer, an
+/// Operator also not as an Engineer, an Admin as all four. Catches an Operator acting as an
+/// Engineer (an Engineer's control unlocked for an Operator) and an Engineer not acting as an
+/// Operator (an Operator's control locked for an Engineer).
+#[test]
+fn a_session_acts_as_its_own_role_and_every_lower_one() {
+    use AccessRole::{Admin, Engineer, Operator, Viewer};
+    assert_eq!(acts_as(Viewer), [Viewer]);
+    assert_eq!(acts_as(Operator), [Viewer, Operator]);
+    assert_eq!(acts_as(Engineer), [Viewer, Operator, Engineer]);
+    assert_eq!(acts_as(Admin), [Viewer, Operator, Engineer, Admin]);
+}
+
+/// Specification 39, §21.4 item 1: only an Engineer changes settings, and an Admin may do what an
+/// Engineer may (§12.8 item 1). Catches the Settings dialog offered to an Operator or a Viewer, and
+/// refused to an Admin.
+#[test]
+fn only_an_engineer_or_a_higher_role_may_change_settings() {
+    assert!(!may_change_settings(AccessRole::Viewer));
+    assert!(!may_change_settings(AccessRole::Operator));
+    assert!(may_change_settings(AccessRole::Engineer));
+    assert!(may_change_settings(AccessRole::Admin));
 }

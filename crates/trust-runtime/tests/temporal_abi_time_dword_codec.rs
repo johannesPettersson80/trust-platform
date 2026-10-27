@@ -1,26 +1,24 @@
 //! Explicit TIME to DWORD millisecond codec under the uniform temporal ABI (spec 34 §4.3.1).
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 #![cfg(feature = "full")]
-use trust_runtime::{
-    bytecode::BytecodeVersion, error::RuntimeError, harness::CompileSession, Runtime,
-};
-
-fn install_source_free(source: &str) -> Runtime {
-    let module = CompileSession::from_source(source)
-        .build_bytecode_module_for_version(BytecodeVersion::SOURCE_FREE)
-        .unwrap();
-    Runtime::from_bytes(&module.encode().unwrap(), Default::default()).unwrap()
-}
+use trust_runtime::{error::RuntimeError, harness::TestHarness, value::Value};
 
 /// Spec 34 §4.3.1, uniform temporal storage ABI (lines 541-554): existing explicit I/O
 /// codecs remain checked conversions with their existing widths. The TIME to DWORD
 /// millisecond codec keeps all 32 bits, so the largest millisecond count is written as is.
 #[test]
 fn explicit_time_dword_millisecond_codec_accepts_the_largest_unsigned_value() {
-    let mut runtime = install_source_free(
+    let mut harness = TestHarness::from_source(
         "PROGRAM Main VAR elapsed AT %QD0 : TIME; END_VAR elapsed := T#4294967295ms; END_PROGRAM",
+    )
+    .unwrap();
+    let result = harness.cycle();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    assert_eq!(
+        harness.get_direct_output("%QD0"),
+        Ok(Value::DWord(u32::MAX))
     );
-    runtime.execute_cycle().unwrap();
-    assert_eq!(runtime.io().outputs(), &u32::MAX.to_le_bytes());
 }
 
 /// Spec 34 §4.3.1, uniform temporal storage ABI (lines 541-554): a checked conversion
@@ -33,12 +31,16 @@ fn explicit_time_dword_millisecond_codec_refuses_values_outside_the_dword_range(
         let source = format!(
             "PROGRAM Main VAR elapsed AT %QD0 : TIME; END_VAR elapsed := {literal}; END_PROGRAM"
         );
-        let mut runtime = install_source_free(&source);
+        let mut harness = TestHarness::from_source(&source).unwrap();
         assert_eq!(
-            runtime.execute_cycle(),
-            Err(RuntimeError::Overflow),
+            harness.cycle().errors,
+            [RuntimeError::Overflow],
             "{literal}"
         );
-        assert_eq!(runtime.io().outputs(), &[0_u8; 4], "{literal}");
+        assert_eq!(
+            harness.get_direct_output("%QD0"),
+            Ok(Value::DWord(0)),
+            "{literal}"
+        );
     }
 }

@@ -1,3 +1,30 @@
+/// What runs the tests: the kernel on this computer, or a device's kernel over its control link
+/// (specification 44 §14.2).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TestRunner {
+    /// The project compiled for this computer and run by the kernel.
+    Native,
+    /// The project compiled for the device's target and run on the device at `port`.
+    Device {
+        /// A serial port, or `tcp://<host>:<port>` of a bridge to one.
+        port: String,
+        /// The device's target, as `trust-runtime build --target` names it.
+        target: String,
+    },
+}
+
+impl TestRunner {
+    /// The runner on the device that `device` names with its target, when it names one, and on this
+    /// computer otherwise.
+    #[must_use]
+    pub fn of(device: Option<(String, String)>) -> Self {
+        match device {
+            Some((port, target)) => Self::Device { port, target },
+            None => Self::Native,
+        }
+    }
+}
+
 pub fn run_test(
     project: Option<PathBuf>,
     filter: Option<String>,
@@ -5,6 +32,7 @@ pub fn run_test(
     timeout: u64,
     output: TestOutput,
     ci: bool,
+    runner: TestRunner,
 ) -> anyhow::Result<()> {
     let output = effective_output(output, ci);
     let project_root = match project {
@@ -50,8 +78,9 @@ pub fn run_test(
         return Ok(());
     }
 
-    let mut runtime = compile_test_runtime(&project_root, &discovered)?;
     if tests.is_empty() {
+        // A project without tests still compiles, so that its errors fail the run.
+        check_project(&project_root)?;
         let rendered = render_output(
             output,
             &project_root,
@@ -65,43 +94,18 @@ pub fn run_test(
         return Ok(());
     }
 
-    let test_timeout = if timeout == 0 {
-        None
-    } else {
-        Some(StdDuration::from_secs(timeout))
-    };
     let total_started = Instant::now();
-    let mut results = Vec::with_capacity(tests.len());
-    for case in &tests {
-        let case_started = Instant::now();
-        let result = match execute_test_case_in_runtime(&mut runtime, case, test_timeout) {
-            Ok(()) => ExecutedTest {
-                case: case.clone(),
-                outcome: TestOutcome::Passed,
-                message: None,
-                duration_ms: elapsed_ms(case_started.elapsed()),
-            },
-            Err(RuntimeError::AssertionFailed(message)) => ExecutedTest {
-                case: case.clone(),
-                outcome: TestOutcome::Failed,
-                message: Some(message.to_string()),
-                duration_ms: elapsed_ms(case_started.elapsed()),
-            },
-            Err(RuntimeError::ExecutionTimeout) => ExecutedTest {
-                case: case.clone(),
-                outcome: TestOutcome::Error,
-                message: Some(timeout_message(timeout)),
-                duration_ms: elapsed_ms(case_started.elapsed()),
-            },
-            Err(err) => ExecutedTest {
-                case: case.clone(),
-                outcome: TestOutcome::Error,
-                message: Some(err.to_string()),
-                duration_ms: elapsed_ms(case_started.elapsed()),
-            },
-        };
-        results.push(result);
-    }
+    let results = match &runner {
+        TestRunner::Device { port, target } => execute_native_tests_on_device(
+            &project_root,
+            &discovered,
+            &tests,
+            timeout,
+            port,
+            target,
+        )?,
+        TestRunner::Native => execute_native_tests(&project_root, &discovered, &tests, timeout)?,
+    };
     let total_duration_ms = elapsed_ms(total_started.elapsed());
 
     let summary = summarize_results(&results);
@@ -121,4 +125,28 @@ pub fn run_test(
     }
 
     Ok(())
+}
+
+/// The outcome of `case` from its run's `result`: passed, failed with an assertion's message, or an
+/// error, a timeout of `timeout` seconds among them.
+fn executed(
+    case: &DiscoveredTest,
+    result: Result<(), RuntimeError>,
+    timeout: u64,
+    started: Instant,
+) -> ExecutedTest {
+    let (outcome, message) = match result {
+        Ok(()) => (TestOutcome::Passed, None),
+        Err(RuntimeError::AssertionFailed(message)) => {
+            (TestOutcome::Failed, Some(message.to_string()))
+        }
+        Err(RuntimeError::ExecutionTimeout) => (TestOutcome::Error, Some(timeout_message(timeout))),
+        Err(err) => (TestOutcome::Error, Some(err.to_string())),
+    };
+    ExecutedTest {
+        case: case.clone(),
+        outcome,
+        message,
+        duration_ms: elapsed_ms(started.elapsed()),
+    }
 }

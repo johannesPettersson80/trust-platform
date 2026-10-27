@@ -155,6 +155,7 @@ fn transfer(lab: &Lab, manual: bool) {
                 values,
                 manual,
                 tolerance: OUTPUT_SPAN,
+                entry_error_gain: None,
                 tracking: Some(tracking),
                 reviewed: None,
                 source: ApplySource::Simulation,

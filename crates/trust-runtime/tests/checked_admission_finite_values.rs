@@ -1,11 +1,13 @@
 //! Public checked engineering writes apply the finite floating-point admission policy
-//! (spec 34 §4.3.1 "finite floating-point admission", spec 11 finite policy).
+//! (spec 34 §4.3.1 "finite floating-point admission", spec 11 finite policy): the compiled
+//! runtime's variable writes and the harness's `VAR_ACCESS` writes.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 use std::sync::Arc;
 
 use trust_runtime::error::RuntimeError;
-use trust_runtime::harness::CompileSession;
+use trust_runtime::harness::TestHarness;
 use trust_runtime::value::Value;
-use trust_runtime::Runtime;
 
 const SOURCE: &str = r#"
 TYPE Record :
@@ -43,20 +45,8 @@ END_VAR
 END_CONFIGURATION
 "#;
 
-fn build() -> Runtime {
-    CompileSession::from_source(SOURCE)
-        .build_runtime()
-        .expect("finite-policy fixture compiles")
-}
-
-fn probe_instance(runtime: &Runtime) -> trust_runtime::memory::InstanceId {
-    let Some(Value::Instance(program)) = runtime.storage().get_global("P1") else {
-        panic!("program instance P1")
-    };
-    let Some(Value::Instance(probe)) = runtime.storage().get_instance_var(*program, "probe") else {
-        panic!("function block instance probe")
-    };
-    *probe
+fn build() -> TestHarness {
+    TestHarness::from_source(SOURCE).expect("finite-policy fixture compiles")
 }
 
 fn assert_non_finite(error: RuntimeError) {
@@ -80,100 +70,56 @@ fn non_finite_lreals() -> [Value; 3] {
     ]
 }
 
-fn real_bits(value: Option<&Value>) -> Option<u32> {
+fn real_bits(value: Result<Value, RuntimeError>) -> Option<u32> {
     match value {
-        Some(Value::Real(value)) => Some(value.to_bits()),
+        Ok(Value::Real(value)) => Some(value.to_bits()),
         _ => None,
     }
 }
 
-fn lreal_bits(value: Option<&Value>) -> Option<u64> {
+fn lreal_bits(value: Result<Value, RuntimeError>) -> Option<u64> {
     match value {
-        Some(Value::LReal(value)) => Some(value.to_bits()),
+        Ok(Value::LReal(value)) => Some(value.to_bits()),
         _ => None,
     }
 }
 
-/// Spec 34 §4.3.1: checked engineering `write_global` rejects every non-finite REAL and
+/// Spec 34 §4.3.1: a checked engineering write of a global rejects every non-finite REAL and
 /// LREAL with `runtime_non_finite_value` and leaves the global unchanged.
 #[test]
 fn checked_admission_public_write_global_rejects_non_finite_values_with_stable_code() {
-    let mut runtime = build();
+    let mut harness = build();
+    let runtime = harness.runtime_mut();
     for value in non_finite_reals() {
         let error = runtime
-            .write_global("level", value)
+            .write_variable("level", &value)
             .expect_err("non-finite REAL must be rejected");
         assert_non_finite(error);
     }
     for value in non_finite_lreals() {
         let error = runtime
-            .write_global("wide", value)
+            .write_variable("wide", &value)
             .expect_err("non-finite LREAL must be rejected");
         assert_non_finite(error);
     }
-    assert_eq!(
-        runtime.storage().get_global("level"),
-        Some(&Value::Real(1.0))
-    );
-    assert_eq!(
-        runtime.storage().get_global("wide"),
-        Some(&Value::LReal(2.0))
-    );
+    assert_eq!(runtime.read_variable("level"), Ok(Value::Real(1.0)));
+    assert_eq!(runtime.read_variable("wide"), Ok(Value::LReal(2.0)));
     assert!(!runtime.faulted());
 }
 
-/// Spec 34 §4.3.1: checked engineering `write_reference` rejects every non-finite REAL and
-/// LREAL with `runtime_non_finite_value` and leaves the destination unchanged.
-#[test]
-fn checked_admission_public_write_reference_rejects_non_finite_values_with_stable_code() {
-    let mut runtime = build();
-    let level = runtime
-        .storage()
-        .ref_for_global("level")
-        .expect("level reference");
-    let wide = runtime
-        .storage()
-        .ref_for_global("wide")
-        .expect("wide reference");
-    for value in non_finite_reals() {
-        let error = runtime
-            .write_reference(&level, value)
-            .expect_err("non-finite REAL must be rejected");
-        assert_non_finite(error);
-    }
-    for value in non_finite_lreals() {
-        let error = runtime
-            .write_reference(&wide, value)
-            .expect_err("non-finite LREAL must be rejected");
-        assert_non_finite(error);
-    }
-    assert_eq!(
-        runtime.storage().get_global("level"),
-        Some(&Value::Real(1.0))
-    );
-    assert_eq!(
-        runtime.storage().get_global("wide"),
-        Some(&Value::LReal(2.0))
-    );
-    assert!(!runtime.faulted());
-}
-
-/// Spec 34 §4.3.1: checked engineering `write_instance` rejects non-finite REAL members of an
-/// existing function block instance and leaves the member unchanged.
+/// Spec 34 §4.3.1: a checked engineering write of a member of an existing function block instance
+/// rejects non-finite REAL values and leaves the member unchanged.
 #[test]
 fn checked_admission_public_write_instance_rejects_non_finite_member_with_stable_code() {
-    let mut runtime = build();
-    let probe = probe_instance(&runtime);
+    let mut harness = build();
+    let runtime = harness.runtime_mut();
     for value in non_finite_reals() {
         let error = runtime
-            .write_instance(probe, "x", value)
+            .write_variable("P1.probe.x", &value)
             .expect_err("non-finite REAL member must be rejected");
         assert_non_finite(error);
     }
-    assert_eq!(
-        runtime.storage().get_instance_var(probe, "x"),
-        Some(&Value::Real(1.5))
-    );
+    assert_eq!(runtime.read_variable("P1.probe.x"), Ok(Value::Real(1.5)));
     assert!(!runtime.faulted());
 }
 
@@ -181,23 +127,24 @@ fn checked_admission_public_write_instance_rejects_non_finite_member_with_stable
 /// writable VAR_ACCESS alias and leaves the aliased variable unchanged.
 #[test]
 fn checked_admission_public_write_access_rejects_non_finite_values_with_stable_code() {
-    let mut runtime = build();
+    let mut harness = build();
     for value in non_finite_reals() {
-        let error = runtime
-            .write_access("LevelAccess", value)
+        let error = harness
+            .set_access("LevelAccess", value)
             .expect_err("non-finite REAL alias write must be rejected");
         assert_non_finite(error);
     }
-    assert_eq!(runtime.read_access("LevelAccess"), Some(Value::Real(3.0)));
-    assert!(!runtime.faulted());
+    assert_eq!(harness.get_access("LevelAccess"), Some(Value::Real(3.0)));
+    assert!(!harness.runtime().faulted());
 }
 
 /// Spec 34 §4.3.1: non-finite values are rejected recursively through a structure and its
-/// array member, on both `write_global` and `write_reference`.
+/// array member.
 #[test]
 fn checked_admission_public_writes_reject_nan_nested_in_a_struct_array_member() {
-    let mut runtime = build();
-    let original = runtime.storage().get_global("rec").cloned().expect("rec");
+    let mut harness = build();
+    let runtime = harness.runtime_mut();
+    let original = runtime.read_variable("rec").expect("rec");
     let mut invalid = original.clone();
     let Value::Struct(record) = &mut invalid else {
         panic!("rec is a structure")
@@ -208,32 +155,20 @@ fn checked_admission_public_writes_reject_nan_nested_in_a_struct_array_member() 
     samples.elements_mut()[1] = Value::Real(f32::NAN);
 
     let error = runtime
-        .write_global("rec", invalid.clone())
-        .expect_err("nested NaN must be rejected by write_global");
+        .write_variable("rec", &invalid)
+        .expect_err("nested NaN must be rejected");
     assert_non_finite(error);
 
-    let reference = runtime
-        .storage()
-        .ref_for_global("rec")
-        .expect("rec reference");
-    let error = runtime
-        .write_reference(&reference, invalid)
-        .expect_err("nested NaN must be rejected by write_reference");
-    assert_non_finite(error);
-
-    assert_eq!(runtime.storage().get_global("rec"), Some(&original));
+    assert_eq!(runtime.read_variable("rec"), Ok(original));
     assert!(!runtime.faulted());
 }
 
 /// Spec 34 §4.3.1: a non-finite LREAL is rejected recursively through an array of structures.
 #[test]
 fn checked_admission_public_write_global_rejects_infinity_nested_in_an_array_of_structs() {
-    let mut runtime = build();
-    let original = runtime
-        .storage()
-        .get_global("records")
-        .cloned()
-        .expect("records");
+    let mut harness = build();
+    let runtime = harness.runtime_mut();
+    let original = runtime.read_variable("records").expect("records");
     let mut invalid = original.clone();
     let Value::Array(elements) = &mut invalid else {
         panic!("records is an array")
@@ -247,10 +182,10 @@ fn checked_admission_public_write_global_rejects_infinity_nested_in_an_array_of_
     *precise = Value::LReal(f64::INFINITY);
 
     let error = runtime
-        .write_global("records", invalid)
+        .write_variable("records", &invalid)
         .expect_err("nested +Inf must be rejected");
     assert_non_finite(error);
-    assert_eq!(runtime.storage().get_global("records"), Some(&original));
+    assert_eq!(runtime.read_variable("records"), Ok(original));
     assert!(!runtime.faulted());
 }
 
@@ -258,53 +193,83 @@ fn checked_admission_public_write_global_rejects_infinity_nested_in_an_array_of_
 /// bit-for-bit through every checked engineering write surface.
 #[test]
 fn checked_admission_public_writes_accept_finite_boundary_values_bit_for_bit() {
-    let mut runtime = build();
+    let mut harness = build();
     let negative_zero = -0.0_f32;
     let subnormal = f32::from_bits(1);
 
+    let runtime = harness.runtime_mut();
     runtime
-        .write_global("level", Value::Real(negative_zero))
+        .write_variable("level", &Value::Real(negative_zero))
         .expect("-0.0 is finite");
     assert_eq!(
-        real_bits(runtime.storage().get_global("level")),
+        real_bits(runtime.read_variable("level")),
         Some(negative_zero.to_bits())
     );
 
-    let level = runtime
-        .storage()
-        .ref_for_global("level")
-        .expect("level reference");
     runtime
-        .write_reference(&level, Value::Real(subnormal))
+        .write_variable("level", &Value::Real(subnormal))
         .expect("smallest subnormal is finite");
     assert_eq!(
-        real_bits(runtime.storage().get_global("level")),
+        real_bits(runtime.read_variable("level")),
         Some(subnormal.to_bits())
     );
 
-    runtime
-        .write_access("LevelAccess", Value::Real(negative_zero))
+    harness
+        .set_access("LevelAccess", Value::Real(negative_zero))
         .expect("-0.0 alias write is finite");
-    let Some(Value::Real(alias)) = runtime.read_access("LevelAccess") else {
+    let Some(Value::Real(alias)) = harness.get_access("LevelAccess") else {
         panic!("alias is a REAL")
     };
     assert_eq!(alias.to_bits(), negative_zero.to_bits());
 
-    let probe = probe_instance(&runtime);
+    let runtime = harness.runtime_mut();
     runtime
-        .write_instance(probe, "x", Value::Real(subnormal))
+        .write_variable("P1.probe.x", &Value::Real(subnormal))
         .expect("smallest subnormal member is finite");
     assert_eq!(
-        real_bits(runtime.storage().get_instance_var(probe, "x")),
+        real_bits(runtime.read_variable("P1.probe.x")),
         Some(subnormal.to_bits())
     );
 
     runtime
-        .write_global("wide", Value::LReal(f64::MAX))
+        .write_variable("wide", &Value::LReal(f64::MAX))
         .expect("LREAL::MAX is finite");
     assert_eq!(
-        lreal_bits(runtime.storage().get_global("wide")),
+        lreal_bits(runtime.read_variable("wide")),
         Some(f64::MAX.to_bits())
     );
+    assert!(!runtime.faulted());
+}
+
+const OVERLAP_SOURCE: &str = r#"
+TYPE Ieee : STRUCT OVERLAP
+    number AT %B0 : REAL;
+    bits AT %B0 : DWORD;
+END_STRUCT; END_TYPE
+
+VAR_GLOBAL
+    probe : Ieee;
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+"#;
+
+/// Spec 34 §4.3.1 (an engineering write checks the IEEE aliases it reconstructs, not only the
+/// incoming bits) and specification 02 §3.6 (`STRUCT OVERLAP` members share their bits): writing
+/// `16#7FC00000`, the bits of a quiet NaN, into the `DWORD` view of an overlap whose `REAL` shares
+/// them is refused with `runtime_non_finite_value`, and both views keep their zero bits. Wrong
+/// behaviour caught: a write that checks only the `DWORD` it was given and leaves a NaN in the
+/// `REAL` view, which the finite policy forbids.
+#[test]
+fn checked_admission_overlap_bits_write_rejects_a_non_finite_real_alias() {
+    let mut harness = TestHarness::from_source(OVERLAP_SOURCE).expect("overlap fixture compiles");
+    let runtime = harness.runtime_mut();
+    let error = runtime
+        .write_variable("probe.BiTs", &Value::DWord(0x7FC0_0000))
+        .expect_err("a NaN in the REAL alias must be rejected");
+    assert_non_finite(error);
+    assert_eq!(runtime.read_variable("probe.bits"), Ok(Value::DWord(0)));
+    assert_eq!(runtime.read_variable("probe.NuMbEr"), Ok(Value::Real(0.0)));
     assert!(!runtime.faulted());
 }

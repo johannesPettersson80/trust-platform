@@ -33,8 +33,8 @@ use trust_control_studio::runtime_client::RuntimeClient;
 use trust_control_studio::{loops, storage};
 
 use crate::common::{
-    copy_dir, inspect_until_available, prepare_runtime_toml, run_trust_runtime, start_runtime,
-    wait_for_status, RemoveDir, Runtime, TOKEN,
+    control_socket, copy_dir, inspect_until_available, prepare_runtime_toml, run_trust_runtime,
+    start_runtime, wait_for_status, RemoveDir, Runtime, TOKEN,
 };
 
 /// The heater of lesson 30, `examples/control/06-pid-tuning-methods/30-model-based-pi-tuning`. Its program starts in Manual with
@@ -170,12 +170,7 @@ impl Lab {
     pub fn start_example(name: &str, example: &str, loop_id: &str) -> Self {
         let scratch = Scratch::copy_of(name, example);
         let project = &scratch.project;
-        let socket = project.join(".control.sock");
-        assert!(
-            socket.as_os_str().len() <= 100,
-            "the socket path {} is too long; use a shorter TMPDIR",
-            socket.display()
-        );
+        let socket = control_socket(project);
         prepare_runtime_toml(project, &socket);
         set_time_scale(project, TIME_SCALE);
         run_trust_runtime(&["build", "--project", &project.display().to_string()]);

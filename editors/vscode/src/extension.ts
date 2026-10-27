@@ -21,10 +21,11 @@ import { registerNewProjectCommand } from "./newProject";
 import { openPendingProjectLanding } from "./projectLandingActivation";
 import { registerExamples } from "./examples";
 import { registerCheckProgram } from "./checkProgram";
-import { registerLibraryCodeActions } from "./libraryCodeActions";
+import { registerToolchainCommands } from "./toolchain";
 import { registerLibraries } from "./libraries";
 import { initSelectedRuntimeStore } from "./selectedRuntime";
 import { registerRuntimeAuth } from "./runtimeAuth";
+import { registerRuntimeConnection } from "./runtimeConnection";
 import { registerLocalRuntime } from "./localRuntime";
 import { registerOpcuaTrust } from "./opcuaTrust";
 import { registerNewStatechartCommand } from "./statechart/newStatechart";
@@ -40,7 +41,6 @@ import { registerPlcopenExportCommand } from "./plcopenExport";
 import { registerStTestIntegration } from "./stTests";
 import {
   registerNamespaceMoveCommand,
-  registerNamespaceMoveCodeActions,
   registerNamespaceMoveContext,
 } from "./namespaceMove";
 import { StateChartEditorProvider } from "./statechart/stateChartEditor";
@@ -194,7 +194,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(registerHmiExplorer(context.extensionPath));
   context.subscriptions.push(registerHmiProgramEdits());
   context.subscriptions.push(registerSymbolImport());
-  context.subscriptions.push(registerWritePolicy());
+  context.subscriptions.push(registerWritePolicy(hmiProblems));
   context.subscriptions.push(registerHmiUsers(() => getBinaryPath(context, "trust-runtime", "runtime.cli.path")));
   context.subscriptions.push(registerProcessScreen());
 
@@ -202,6 +202,7 @@ export async function activate(context: vscode.ExtensionContext) {
   registerRuntimeLifecycle(context);
   initSelectedRuntimeStore(context);
   registerRuntimeAuth(context);
+  registerRuntimeConnection(context);
   registerLocalRuntime(context);
   registerOpcuaTrust(context);
   registerRuntimeControls(context);
@@ -218,7 +219,6 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(registerVisualCustomEditorAutoOpen());
   context.subscriptions.push(registerVisualCompanionSync());
   registerStTestIntegration(context);
-  registerLibraryCodeActions(context);
   const config = getTrustConfiguration();
   showIecDiagnosticRefs = readIecDiagnosticsSetting(config);
   const command = resolveServerCommand(context);
@@ -262,6 +262,7 @@ export async function activate(context: vscode.ExtensionContext) {
   registerNewProjectCommand(context);
   registerExamples(context);
   registerCheckProgram(context);
+  registerToolchainCommands(context);
   registerLibraries(context, { getClient: () => client });
   // One destination owner handles starter source or lesson instructions after folder reload.
   void openPendingProjectLanding(context).catch((error) => console.error("Project landing failed", error));
@@ -278,7 +279,6 @@ export async function activate(context: vscode.ExtensionContext) {
   registerPlcopenImportCommand(context);
   registerPlcopenExportCommand(context);
   registerNamespaceMoveCommand(context, client);
-  registerNamespaceMoveCodeActions(context);
   registerNamespaceMoveContext(context);
   startClientWithRetry(context, config);
 

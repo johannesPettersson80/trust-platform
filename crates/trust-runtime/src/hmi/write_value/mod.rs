@@ -20,14 +20,28 @@ pub fn value_for_target_in(
     current: &Value,
     requested: &Json,
 ) -> Result<Value, String> {
+    value_for_target_with(current, requested, |type_name| {
+        registry
+            .lookup(type_name)
+            .and_then(|id| enumeration_values(registry, id))
+            .map(<[_]>::to_vec)
+    })
+}
+
+/// The value to write to a point that holds `current`, an enumeration's values, by their names
+/// and numbers, given by `values_of` for the enumeration's name: one of its value names, ignoring
+/// case, or the number of one of its values (§5.8).
+pub fn value_for_target_with(
+    current: &Value,
+    requested: &Json,
+    values_of: impl FnOnce(&str) -> Option<Vec<(smol_str::SmolStr, i64)>>,
+) -> Result<Value, String> {
     let Value::Enum(current) = current else {
         return value_for_target(current, requested);
     };
     let type_name = current.type_name();
-    let values = registry
-        .lookup(type_name)
-        .and_then(|id| enumeration_values(registry, id))
-        .ok_or_else(|| format!("the values of {type_name} are not known"))?;
+    let values =
+        values_of(type_name).ok_or_else(|| format!("the values of {type_name} are not known"))?;
     let chosen = match requested {
         Json::String(name) => values
             .iter()
@@ -123,6 +137,13 @@ pub fn value_for_target(current: &Value, requested: &Json) -> Result<Value, Stri
             )),
             None => Err(format!("a STRING takes text, not {requested}")),
         },
+        Value::WString(_) => match requested.as_str() {
+            Some(text) if text.chars().count() <= MAX_TEXT => Ok(Value::WString(text.into())),
+            Some(_) => Err(format!(
+                "a WSTRING from the HMI holds at most {MAX_TEXT} characters"
+            )),
+            None => Err(format!("a WSTRING takes text, not {requested}")),
+        },
         other => Err(format!(
             "a {} cannot be written from the HMI",
             crate::debug::dap::value_type_name(other)
@@ -131,7 +152,8 @@ pub fn value_for_target(current: &Value, requested: &Json) -> Result<Value, Stri
     }
 }
 
-/// The longest text the HMI writes to a STRING.
+/// The longest text the HMI writes to a STRING or a WSTRING; the point's declared capacity then
+/// decides (specification 39, §12.8 item 5).
 const MAX_TEXT: usize = 255;
 
 /// A duration given as a finite number of seconds, from zero.

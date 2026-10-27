@@ -1,4 +1,10 @@
+//! The plant demo's configuration: its task and the VAR_CONFIG bindings of the program instance's
+//! variables to process-image addresses.
+//!
+//! The test needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use trust_runtime::harness::TestHarness;
+use trust_runtime::io::IoAddress;
 
 include!("../../../tests/support/repository_source_oracle.rs");
 
@@ -32,8 +38,18 @@ fn plant_demo_configuration_binds_io_and_tasks() {
         !runtime.tasks().is_empty(),
         "expected CONFIGURATION TASK entries to be registered"
     );
-    assert!(
-        !runtime.io().bindings().is_empty(),
-        "expected VAR_CONFIG to produce I/O bindings"
-    );
+    for (variable, address) in [
+        ("P1.StartCmd", "%IX0.0"),
+        ("P1.SpeedRaw", "%IW0"),
+        ("P1.HaltReq", "%QX0.0"),
+    ] {
+        let symbol = runtime
+            .find_variable(variable)
+            .unwrap_or_else(|error| panic!("{variable}: {error}"));
+        assert_eq!(
+            runtime.bound_addresses(symbol),
+            [IoAddress::parse(address).expect("a process-image address")],
+            "expected VAR_CONFIG to bind {variable} at {address}"
+        );
+    }
 }

@@ -3,7 +3,7 @@
 //! - parse_set_directive: parse user input into directive
 
 pub(in crate::adapter) enum SetDirective {
-    Write(String),
+    Write,
     Force(String),
     Release,
 }
@@ -38,5 +38,5 @@ pub(in crate::adapter) fn parse_set_directive(raw: &str) -> Result<SetDirective,
         }
         return Ok(SetDirective::Force(rest.to_string()));
     }
-    Ok(SetDirective::Write(trimmed.to_string()))
+    Ok(SetDirective::Write)
 }

@@ -1,7 +1,7 @@
 //! Specification 39, §7.6: binding checks against a compiled program.
 
 use super::*;
-use crate::harness::TestHarness;
+use crate::harness::CompileSession;
 use crate::hmi::page_files::parse_page;
 
 const PROGRAM: &str = r#"
@@ -49,16 +49,17 @@ END_PROGRAM
 "#;
 
 fn problems(objects: &str) -> Vec<BindingProblem> {
-    let mut harness = TestHarness::from_source(PROGRAM).expect("the program compiles");
-    harness.cycle();
+    let declarations = CompileSession::from_source(PROGRAM)
+        .declarations()
+        .expect("the program compiles");
     let text = format!("format = 1\ntitle = \"Checks\"\n{objects}");
     let page = parse_page("hmi/pages/checks.toml", &text).expect("the page loads");
-    let metadata = harness.runtime().metadata_snapshot();
+    let metadata = declarations.metadata().clone();
     check_page(
         &page,
         Catalogue::shipped(),
         &metadata,
-        harness.runtime().storage(),
+        declarations.storage(),
     )
 }
 
@@ -188,18 +189,19 @@ END_PROGRAM
 #[test]
 fn a_control_that_calls_a_method_may_only_read_its_value() {
     let check = |command: &str| {
-        let mut harness = TestHarness::from_source(METHOD_PROGRAM).expect("the program compiles");
-        harness.cycle();
+        let declarations = CompileSession::from_source(METHOD_PROGRAM)
+            .declarations()
+            .expect("the program compiles");
         let text = format!(
             "format = 1\ntitle = \"Checks\"\n\n[[object]]\nid = \"sp\"\ntype = \"setpoint\"\nat = [0, 0]\nsize = [240, 96]\n\n[object.bind]\nvalue = \"Main.L1.Setpoint\"\n{command}"
         );
         let page = parse_page("hmi/pages/checks.toml", &text).expect("the page loads");
-        let metadata = harness.runtime().metadata_snapshot();
+        let metadata = declarations.metadata().clone();
         check_page(
             &page,
             Catalogue::shipped(),
             &metadata,
-            harness.runtime().storage(),
+            declarations.storage(),
         )
     };
     let calls = "\n[object.command]\ninterface = \"ISetpoint\"\nmethod = \"SetSetpoint\"\ninstance = \"Main.L1\"\n\n[object.command.arguments]\nValue = { input = true }\n";
@@ -254,9 +256,10 @@ END_PROGRAM
 /// Specification 39, §7.6: a constant cannot be written, a global constant included.
 #[test]
 fn writes_to_global_constants_are_refused() {
-    let mut harness = TestHarness::from_source(GLOBALS).expect("the program compiles");
-    harness.cycle();
-    let metadata = harness.runtime().metadata_snapshot();
+    let declarations = CompileSession::from_source(GLOBALS)
+        .declarations()
+        .expect("the program compiles");
+    let metadata = declarations.metadata().clone();
     let check = |path: &str| {
         let bind = format!("value = {{ path = \"{path}\", direction = \"read-write\" }}");
         let text = format!(
@@ -268,7 +271,7 @@ fn writes_to_global_constants_are_refused() {
             &page,
             Catalogue::shipped(),
             &metadata,
-            harness.runtime().storage(),
+            declarations.storage(),
         )
     };
     let refused = check("Limit");
@@ -402,9 +405,10 @@ fn a_placed_faceplate_names_a_faceplate_of_the_bundle_that_its_instance_fits() {
             "format = 1\ntitle = \"Checks\"\n\n[[object]]\nid = \"card\"\ntype = \"faceplate\"\nfaceplate = \"{faceplate}\"\ninstance = \"{instance}\"\nat = [0, 0]\nsize = [320, 204]\n"
         )
     };
-    let mut harness = TestHarness::from_source(PROGRAM).expect("the program compiles");
-    harness.cycle();
-    let storage = harness.runtime().storage();
+    let declarations = CompileSession::from_source(PROGRAM)
+        .declarations()
+        .expect("the program compiles");
+    let storage = declarations.storage();
     let check = |text: String| {
         let page = parse_page("hmi/pages/checks.toml", &text).expect("the page loads");
         check_placements(&page, &bundle, storage)
@@ -430,8 +434,7 @@ fn a_placed_faceplate_names_a_faceplate_of_the_bundle_that_its_instance_fits() {
 
 #[test]
 fn remote_bindings_need_fresh_published_metadata_and_keep_owner_write_restrictions() {
-    let mut harness = TestHarness::from_source(PROGRAM).unwrap();
-    harness.cycle();
+    let declarations = CompileSession::from_source(PROGRAM).declarations().unwrap();
     let page = parse_page(
         "hmi/pages/remote.toml",
         &format!(
@@ -440,12 +443,12 @@ fn remote_bindings_need_fresh_published_metadata_and_keep_owner_write_restrictio
         ),
     )
     .unwrap();
-    let metadata = harness.runtime().metadata_snapshot();
+    let metadata = declarations.metadata().clone();
     assert!(!check_page(
         &page,
         Catalogue::shipped(),
         &metadata,
-        harness.runtime().storage()
+        declarations.storage()
     )
     .is_empty());
     let mut remote = std::collections::BTreeMap::from([(
@@ -456,7 +459,7 @@ fn remote_bindings_need_fresh_published_metadata_and_keep_owner_write_restrictio
         &page,
         Catalogue::shipped(),
         &metadata,
-        harness.runtime().storage(),
+        declarations.storage(),
         &remote
     )
     .is_empty());
@@ -465,7 +468,7 @@ fn remote_bindings_need_fresh_published_metadata_and_keep_owner_write_restrictio
         &page,
         Catalogue::shipped(),
         &metadata,
-        harness.runtime().storage(),
+        declarations.storage(),
         &remote
     )
     .is_empty());
@@ -487,7 +490,7 @@ fn remote_bindings_need_fresh_published_metadata_and_keep_owner_write_restrictio
             &control,
             Catalogue::shipped(),
             &metadata,
-            harness.runtime().storage(),
+            declarations.storage(),
             &remote
         )
         .is_empty(),
@@ -499,7 +502,7 @@ fn remote_bindings_need_fresh_published_metadata_and_keep_owner_write_restrictio
             &control,
             Catalogue::shipped(),
             &metadata,
-            harness.runtime().storage(),
+            declarations.storage(),
             &remote
         )
         .is_empty(),
@@ -509,8 +512,8 @@ fn remote_bindings_need_fresh_published_metadata_and_keep_owner_write_restrictio
 
 #[test]
 fn quality_bindings_require_local_types_or_a_fresh_remote_publish_contract() {
-    let harness = TestHarness::from_source(PROGRAM).unwrap();
-    let storage = harness.runtime().storage();
+    let declarations = CompileSession::from_source(PROGRAM).declarations().unwrap();
+    let storage = declarations.storage();
     let mut remote = std::collections::BTreeMap::new();
     assert!(check_quality("Main.Run", storage, &remote).is_ok());
     assert!(check_quality("Main.Level", storage, &remote).is_err());

@@ -1,11 +1,12 @@
 import * as http from "http";
 import { randomBytes, timingSafeEqual } from "crypto";
-import type { Socket } from "net";
+import type { AddressInfo, Socket } from "net";
 
 export interface BridgeTool {
   name: string;
   description: string;
   inputSchema: object;
+  annotations?: object;
 }
 export interface BridgeOptions {
   workspaceId: string;
@@ -17,12 +18,15 @@ export interface AgentBridge {
   capability: string;
   close(): Promise<void>;
 }
-const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
+/** The largest request body the loopback reads. */
+const MAX_BODY_BYTES = 8 * 1024 * 1024;
 const object = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
-/** Private loopback transport for the stdio MCP proxy. The capability scopes every call to
- * this authoring session. It is never a general VS Code or LSP command proxy. */
+/** Private loopback of `trust-lsp hmi-agent`, the stdio MCP server that owns every MCP rule (specification 43, §3.1).
+ * The capability scopes each request to this window's workspace. The loopback checks only the transport and runs what
+ * the server decided: it lists the tools, calls a named tool with given arguments, or cancels a call by the id the
+ * server gave it. It is never a general VS Code or LSP command proxy. */
 export async function startAgentBridge(options: BridgeOptions): Promise<AgentBridge> {
   const capability = randomBytes(32).toString("hex");
   const expectedAuth = Buffer.from(`Bearer ${capability}`);
@@ -31,82 +35,53 @@ export async function startAgentBridge(options: BridgeOptions): Promise<AgentBri
   const server = http.createServer(async (req, res) => {
     const send = (status: number, body?: unknown): void => {
       if (res.writableEnded) return;
-      res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-      res.end(body === undefined ? undefined : JSON.stringify(body));
+      const text = body === undefined ? "" : JSON.stringify(body);
+      res.writeHead(status, {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(text),
+        "Cache-Control": "no-store",
+      });
+      res.end(text);
     };
     if (req.headers.origin !== undefined) return send(403);
     const supplied = Buffer.from(req.headers.authorization ?? "");
     if (supplied.length !== expectedAuth.length || !timingSafeEqual(supplied, expectedAuth)) return send(401);
-    if (req.url !== "/mcp") return send(404);
+    if (req.url !== "/mcp/tools" && req.url !== "/mcp/call" && req.url !== "/mcp/cancel") return send(404);
     if (req.method !== "POST") return send(405);
     if (!req.headers["content-type"]?.startsWith("application/json")) return send(415);
-    const version = req.headers["mcp-protocol-version"];
-    if (version && (typeof version !== "string" || !VERSIONS.includes(version))) return send(400);
-    let bytes = 0;
-    const chunks: Buffer[] = [];
+    let body: unknown;
     try {
+      let bytes = 0;
+      const chunks: Buffer[] = [];
       for await (const chunk of req) {
         bytes += chunk.length;
-        if (bytes > 8 * 1024 * 1024) return send(413);
+        if (bytes > MAX_BODY_BYTES) return send(413);
         chunks.push(Buffer.from(chunk));
       }
-      const message: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-      if (!object(message) || message.jsonrpc !== "2.0" || typeof message.method !== "string") return send(400);
-      const id = message.id;
-      const client =
-        typeof req.headers["x-trust-client"] === "string" ? req.headers["x-trust-client"].slice(0, 64) : "default";
-      const params = object(message.params) ? message.params : {};
-      const rpcError = (code: number, text: string): void =>
-        send(200, { jsonrpc: "2.0", id: id ?? null, error: { code, message: text } });
-      if (id === undefined) {
-        if (message.method === "notifications/cancelled") active.get(`${client}:${String(params.requestId)}`)?.abort();
-        return send(202);
-      }
-      if (typeof id !== "number" && typeof id !== "string") return rpcError(-32600, "Invalid request id.");
-      let result: unknown;
-      if (message.method === "initialize") {
-        result = {
-          protocolVersion:
-            typeof params.protocolVersion === "string" && VERSIONS.includes(params.protocolVersion)
-              ? params.protocolVersion
-              : VERSIONS[0],
-          capabilities: { tools: {} },
-          serverInfo: { name: "trust-hmi-authoring", version: "1.0.0" },
-          instructions:
-            "Use the connected VS Code project's HMI tools. Inspect context and the visual library before editing. Render and inspect proposals, validate bindings, and review changes before applying. Authoring is separate from deployment and equipment operation.",
-        };
-      } else if (message.method === "ping") result = {};
-      else if (message.method === "tools/list") result = { tools: options.tools };
-      else if (message.method === "tools/call") {
-        if (typeof params.name !== "string" || !options.tools.some((tool) => tool.name === params.name))
-          return rpcError(-32602, "Unknown authoring tool.");
-        if (!object(params.arguments)) return rpcError(-32602, "Tool arguments must be an object.");
-        if (params.arguments.workspaceId !== undefined && params.arguments.workspaceId !== options.workspaceId)
-          return rpcError(-32602, "The tool belongs to another workspace.");
-        const key = `${client}:${String(id)}`;
-        if (active.has(key) || active.size >= 8)
-          return rpcError(-32600, "Duplicate request id or too many active requests.");
-        const controller = new AbortController();
-        active.set(key, controller);
-        const timer = setTimeout(() => controller.abort(), 120000);
-        try {
-          result = await options.invoke(
-            params.name,
-            { ...params.arguments, workspaceId: options.workspaceId },
-            controller.signal,
-          );
-        } finally {
-          clearTimeout(timer);
-          active.delete(key);
-        }
-      } else return rpcError(-32601, "Unknown method.");
-      send(200, { jsonrpc: "2.0", id, result });
+      body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
     } catch {
-      send(400, {
-        jsonrpc: "2.0",
-        id: null,
-        error: { code: -32600, message: "Invalid request or unavailable authoring operation." },
-      });
+      return send(400);
+    }
+    if (!object(body)) return send(400);
+    if (req.url === "/mcp/tools") return send(200, { tools: options.tools });
+    const id = body.id;
+    if (typeof id !== "string") return send(400);
+    if (req.url === "/mcp/cancel") {
+      active.get(id)?.abort();
+      return send(200, {});
+    }
+    if (typeof body.name !== "string" || !object(body.arguments)) return send(400);
+    if (active.has(id)) return send(409);
+    const controller = new AbortController();
+    active.set(id, controller);
+    try {
+      // The tool runs for this window's workspace, whatever the arguments name.
+      const input = { ...body.arguments, workspaceId: options.workspaceId };
+      send(200, await options.invoke(body.name, input, controller.signal));
+    } catch {
+      send(500);
+    } finally {
+      active.delete(id);
     }
   });
   server.on("connection", (socket) => {
@@ -118,7 +93,7 @@ export async function startAgentBridge(options: BridgeOptions): Promise<AgentBri
     server.listen(0, "127.0.0.1", resolve);
   });
   return {
-    url: `http://127.0.0.1:${(server.address() as import("net").AddressInfo).port}/mcp`,
+    url: `http://127.0.0.1:${(server.address() as AddressInfo).port}/mcp`,
     capability,
     close: () =>
       new Promise((resolve, reject) => {

@@ -2,8 +2,6 @@
 
 #![allow(missing_docs)]
 
-#[cfg(feature = "std")]
-use alloc::string::ToString;
 use smol_str::SmolStr;
 use thiserror::Error;
 
@@ -12,10 +10,12 @@ use crate::value::DateTimeError;
 
 pub use crate::error_code::StableErrorCode;
 
-mod preparation;
-pub use preparation::PreparationDiagnostic;
 mod execution;
 pub use execution::ExecutionLimitKind;
+mod import;
+pub use import::ImportRefusal;
+mod vm_fault;
+pub use vm_fault::{RuntimeText, VmFaultDetail};
 
 /// Runtime errors for evaluation and execution.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -36,57 +36,21 @@ pub enum RuntimeError {
     #[error("undefined function block '{0}'")]
     UndefinedFunctionBlock(SmolStr),
 
-    /// Undefined task by name.
-    #[error("undefined task '{0}'")]
-    UndefinedTask(SmolStr),
-
-    /// Undefined label target.
-    #[error("undefined label '{0}'")]
-    UndefinedLabel(SmolStr),
-
     /// Undefined field name.
     #[error("undefined field '{0}'")]
     UndefinedField(SmolStr),
-
-    /// Invalid SINGLE input for a task.
-    #[error("invalid task SINGLE input '{0}'")]
-    InvalidTaskSingle(SmolStr),
 
     /// Invalid I/O address syntax.
     #[error("invalid I/O address '{0}'")]
     InvalidIoAddress(SmolStr),
 
-    /// Write to a constant declaration.
-    #[error("write to a constant declaration")]
-    ConstantWrite,
-
-    /// Write outside initializer staging storage.
-    #[error("write outside initializer staging storage")]
-    StagingViolation,
-
-    /// Read outside the initializer visibility frontier.
-    #[error("read outside the initializer visibility frontier")]
-    VisibilityViolation,
-
     /// Reference outlived its activation or instance.
     #[error("reference outlived its activation or instance")]
     ReferenceLifetime,
 
-    /// Program-root replacement is forbidden.
-    #[error("program-root replacement is forbidden")]
-    ProgramRootReplacement,
-
-    /// Invalid storage alias use.
-    #[error("invalid storage alias use")]
-    InvalidAlias,
-
     /// Hosted context for a rejected read-only alias, sharing the alias fault code.
     #[error("VAR_ACCESS '{0}' is read-only")]
     ReadOnlyAlias(SmolStr),
-
-    /// Preparation resource limit exceeded.
-    #[error("preparation resource limit exceeded")]
-    PreparationLimit,
 
     /// Admitted execution metadata is inconsistent.
     #[error("admitted execution metadata is inconsistent")]
@@ -95,6 +59,24 @@ pub enum RuntimeError {
     /// A valid artifact requires a capability absent from the selected profile.
     #[error("unsupported execution profile: {0}")]
     ProfileUnsupported(SmolStr),
+
+    /// An import has no built-in contract or does not match it (spec 34 §5.2.1).
+    #[error("unsupported import '{import}': {reason}")]
+    ImportUnsupported {
+        /// Canonical uppercase name of the refused import.
+        import: SmolStr,
+        /// The part of the contract the import fails.
+        reason: ImportRefusal,
+    },
+
+    /// A deployment record is not readable (spec 34 §5.1.1).
+    #[error("invalid deployment record: {0}")]
+    DeploymentRecordInvalid(crate::deployment::DeploymentRecordError),
+
+    /// A device refused a deployment before constructing any state (spec 34 §5.1.1,
+    /// DEPLOY-04).
+    #[error("deployment refused: {0}")]
+    DeploymentRefused(crate::deployment::AdmissionRefusal),
 
     /// Type mismatch between values.
     #[error("type mismatch")]
@@ -128,6 +110,11 @@ pub enum RuntimeError {
     #[error("arithmetic overflow")]
     Overflow,
 
+    /// A string function result is longer than the implementer maximum of 65,535 UTF-8 bytes
+    /// (`STRING`) or UTF-16 code units (`WSTRING`), IEC 61131-3 Ed.3 §6.6.2.5.11.
+    #[error("string result longer than the maximum of 65535")]
+    StringCapacityExceeded,
+
     /// Index out of bounds.
     #[error("array index {index} out of bounds [{lower}..{upper}]")]
     IndexOutOfBounds { index: i64, lower: i64, upper: i64 },
@@ -147,21 +134,9 @@ pub enum RuntimeError {
     #[error("null reference dereference")]
     NullReference,
 
-    /// Invalid control flow (EXIT/CONTINUE outside loop).
-    #[error("invalid control flow")]
-    InvalidControlFlow,
-
     /// FOR loop step cannot be zero.
     #[error("FOR loop step cannot be zero")]
     ForStepZero,
-
-    /// Condition is not BOOL.
-    #[error("condition is not BOOL")]
-    ConditionNotBool,
-
-    /// CASE selector type not supported.
-    #[error("case selector type not supported")]
-    CaseSelectorType,
 
     /// Date/time value out of range.
     #[error("date/time out of range")]
@@ -206,34 +181,11 @@ pub enum RuntimeError {
         error: SmolStr,
     },
 
-    /// Unsupported bytecode version.
-    #[error("unsupported bytecode version {major}.{minor}")]
-    UnsupportedBytecodeVersion { major: u16, minor: u16 },
-
-    /// Invalid or incomplete bytecode metadata.
-    #[error("invalid bytecode metadata '{0}'")]
-    InvalidBytecodeMetadata(SmolStr),
-
-    /// Invalid bytecode container.
-    #[error("invalid bytecode '{0}'")]
-    InvalidBytecode(SmolStr),
-
-    /// Bytecode or VM structural failure with a preserved stable identifier.
-    #[error("invalid bytecode '{detail}'")]
-    Bytecode {
-        /// Stable machine-readable failure identifier.
-        code: StableErrorCode,
-        /// Human-readable diagnostic detail.
-        detail: SmolStr,
-    },
-
-    /// Structured portable decode/validation error, rendered only on request.
-    #[error("invalid bytecode '{0}'")]
-    BytecodeCause(crate::bytecode::BytecodeError),
-
-    /// Structured portable execution-metadata rejection.
-    #[error("invalid bytecode '{0}'")]
-    PreparationDiagnostic(PreparationDiagnostic),
+    /// A VM fault during a scan with bounded, allocation-free context (specification 34
+    /// MEM-05). Its stable code is unchanged from the bytecode fault it replaces; it reads as
+    /// [`VmFaultDetail::runtime_text`] says.
+    #[error("{}", .0.runtime_text())]
+    VmFault(VmFaultDetail),
 
     /// Thread spawn error.
     #[error("thread spawn error '{0}'")]
@@ -323,12 +275,15 @@ pub enum RuntimeError {
 }
 
 impl RuntimeError {
-    /// Construct a bytecode/VM structural error without losing its stable code.
-    pub fn bytecode(code: StableErrorCode, detail: impl Into<SmolStr>) -> Self {
-        Self::Bytecode {
-            code,
-            detail: detail.into(),
-        }
+    /// The error of a call beyond the call levels a task's stack holds: a recursion deeper than
+    /// the depth the kernel gives an activation (specification 44 §6.4, Appendix A). It reads
+    /// `call depth exceeded`.
+    #[must_use]
+    pub fn call_depth_exceeded() -> Self {
+        Self::VmFault(VmFaultDetail {
+            code: StableErrorCode::VmCallStackOverflow,
+            detail: crate::fault::FaultDetail::Text("vm call stack overflow"),
+        })
     }
 
     /// Return the stable machine identifier for this runtime failure.
@@ -339,20 +294,15 @@ impl RuntimeError {
             Self::UndefinedFunction(_) => StableErrorCode::RuntimeUndefinedFunction,
             Self::UndefinedProgram(_) => StableErrorCode::RuntimeUndefinedProgram,
             Self::UndefinedFunctionBlock(_) => StableErrorCode::RuntimeUndefinedFunctionBlock,
-            Self::UndefinedTask(_) => StableErrorCode::RuntimeUndefinedTask,
-            Self::UndefinedLabel(_) => StableErrorCode::RuntimeUndefinedLabel,
             Self::UndefinedField(_) => StableErrorCode::RuntimeUndefinedField,
-            Self::InvalidTaskSingle(_) => StableErrorCode::RuntimeInvalidTaskSingle,
             Self::InvalidIoAddress(_) => StableErrorCode::RuntimeInvalidIoAddress,
-            Self::ConstantWrite => StableErrorCode::RuntimeConstantWrite,
-            Self::StagingViolation => StableErrorCode::RuntimeStagingViolation,
-            Self::VisibilityViolation => StableErrorCode::RuntimeVisibilityViolation,
             Self::ReferenceLifetime => StableErrorCode::RuntimeReferenceLifetime,
-            Self::ProgramRootReplacement => StableErrorCode::RuntimeProgramRootReplacement,
-            Self::InvalidAlias | Self::ReadOnlyAlias(_) => StableErrorCode::RuntimeInvalidAlias,
-            Self::PreparationLimit => StableErrorCode::RuntimePreparationLimit,
+            Self::ReadOnlyAlias(_) => StableErrorCode::RuntimeInvalidAlias,
             Self::InvalidExecutionState => StableErrorCode::RuntimeInvalidExecutionState,
             Self::ProfileUnsupported(_) => StableErrorCode::RuntimeProfileUnsupported,
+            Self::ImportUnsupported { .. } => StableErrorCode::RuntimeImportUnsupported,
+            Self::DeploymentRecordInvalid(_) => StableErrorCode::RuntimeDeploymentRecordInvalid,
+            Self::DeploymentRefused(_) => StableErrorCode::RuntimeDeploymentRefused,
             Self::TypeMismatch => StableErrorCode::RuntimeTypeMismatch,
             Self::NonFiniteValue => StableErrorCode::RuntimeNonFiniteValue,
             Self::InvalidArgumentCount { .. } => StableErrorCode::RuntimeInvalidArgumentCount,
@@ -361,15 +311,13 @@ impl RuntimeError {
             Self::DivisionByZero => StableErrorCode::RuntimeDivisionByZero,
             Self::ModuloByZero => StableErrorCode::RuntimeModuloByZero,
             Self::Overflow => StableErrorCode::RuntimeOverflow,
+            Self::StringCapacityExceeded => StableErrorCode::RuntimeStringCapacityExceeded,
             Self::IndexOutOfBounds { .. } => StableErrorCode::RuntimeIndexOutOfBounds,
             Self::SubrangeViolation { .. } | Self::RetainSubrangeViolation { .. } => {
                 StableErrorCode::RuntimeSubrangeViolation
             }
             Self::NullReference => StableErrorCode::RuntimeNullReference,
-            Self::InvalidControlFlow => StableErrorCode::RuntimeInvalidControlFlow,
             Self::ForStepZero => StableErrorCode::RuntimeForStepZero,
-            Self::ConditionNotBool => StableErrorCode::RuntimeConditionNotBool,
-            Self::CaseSelectorType => StableErrorCode::RuntimeCaseSelectorType,
             Self::DateTimeRange(_) => StableErrorCode::RuntimeDateTimeRange,
             Self::InvalidFrame(_) => StableErrorCode::RuntimeInvalidFrame,
             Self::ResourceFaulted => StableErrorCode::RuntimeResourceFaulted,
@@ -379,14 +327,7 @@ impl RuntimeError {
             Self::IoAddress(_) => StableErrorCode::RuntimeIoAddress,
             Self::IoFreshness(_) => StableErrorCode::RuntimeIoFreshness,
             Self::InitFailed { .. } => StableErrorCode::RuntimeInitFailed,
-            Self::UnsupportedBytecodeVersion { .. } => {
-                StableErrorCode::RuntimeUnsupportedBytecodeVersion
-            }
-            Self::InvalidBytecodeMetadata(_) => StableErrorCode::RuntimeInvalidBytecodeMetadata,
-            Self::InvalidBytecode(_) => StableErrorCode::RuntimeInvalidBytecode,
-            Self::Bytecode { code, .. } => *code,
-            Self::BytecodeCause(cause) => cause.stable_code(),
-            Self::PreparationDiagnostic(_) => StableErrorCode::VmBytecodeDecode,
+            Self::VmFault(fault) => fault.code,
             Self::ThreadSpawn(_) => StableErrorCode::RuntimeThreadSpawn,
             Self::WatchdogTimeout => StableErrorCode::RuntimeWatchdogTimeout,
             Self::RestartLimitExceeded { .. } => StableErrorCode::RuntimeRestartLimitExceeded,
@@ -401,21 +342,6 @@ impl RuntimeError {
             Self::RetainCorruption(_) => StableErrorCode::RuntimeRetainCorruption,
             Self::RetainMigration(_) => StableErrorCode::RuntimeRetainMigration,
             Self::ControlError(_) => StableErrorCode::RuntimeControlError,
-        }
-    }
-}
-
-impl From<crate::bytecode::BytecodeError> for RuntimeError {
-    #[cold]
-    #[inline(never)]
-    fn from(error: crate::bytecode::BytecodeError) -> Self {
-        #[cfg(feature = "std")]
-        {
-            Self::bytecode(error.stable_code(), error.to_string())
-        }
-        #[cfg(not(feature = "std"))]
-        {
-            Self::BytecodeCause(error)
         }
     }
 }
@@ -454,7 +380,6 @@ mod tests {
     use alloc::{format, string::ToString};
 
     use super::{ExecutionLimitKind, RuntimeError, StableErrorCode};
-    use crate::bytecode::BytecodeError;
     use crate::datetime::DateTimeCalcError;
     use crate::value::DateTimeError;
 
@@ -523,7 +448,7 @@ mod tests {
         let contextual = RuntimeError::ReadOnlyAlias("Observed".into());
         assert_eq!(
             contextual.stable_code(),
-            RuntimeError::InvalidAlias.stable_code()
+            StableErrorCode::RuntimeInvalidAlias
         );
         assert_eq!(contextual.to_string(), "VAR_ACCESS 'Observed' is read-only");
     }
@@ -556,36 +481,16 @@ mod tests {
     fn protection_and_profile_faults_have_distinct_stable_codes() {
         let faults = [
             (
-                RuntimeError::ConstantWrite,
-                StableErrorCode::RuntimeConstantWrite,
-            ),
-            (
-                RuntimeError::StagingViolation,
-                StableErrorCode::RuntimeStagingViolation,
-            ),
-            (
-                RuntimeError::VisibilityViolation,
-                StableErrorCode::RuntimeVisibilityViolation,
-            ),
-            (
                 RuntimeError::ReferenceLifetime,
                 StableErrorCode::RuntimeReferenceLifetime,
             ),
             (
-                RuntimeError::ProgramRootReplacement,
-                StableErrorCode::RuntimeProgramRootReplacement,
-            ),
-            (
-                RuntimeError::InvalidAlias,
-                StableErrorCode::RuntimeInvalidAlias,
+                RuntimeError::call_depth_exceeded(),
+                StableErrorCode::VmCallStackOverflow,
             ),
             (
                 RuntimeError::ReadOnlyAlias("Observed".into()),
                 StableErrorCode::RuntimeInvalidAlias,
-            ),
-            (
-                RuntimeError::PreparationLimit,
-                StableErrorCode::RuntimePreparationLimit,
             ),
             (
                 RuntimeError::InvalidExecutionState,
@@ -594,6 +499,13 @@ mod tests {
             (
                 RuntimeError::ProfileUnsupported("resource count".into()),
                 StableErrorCode::RuntimeProfileUnsupported,
+            ),
+            (
+                RuntimeError::ImportUnsupported {
+                    import: "SQRTX".into(),
+                    reason: super::ImportRefusal::NoContract,
+                },
+                StableErrorCode::RuntimeImportUnsupported,
             ),
         ];
         for (fault, expected) in faults {
@@ -623,20 +535,8 @@ mod tests {
                 StableErrorCode::RuntimeUndefinedFunctionBlock,
             ),
             (
-                RuntimeError::UndefinedTask("task".into()),
-                StableErrorCode::RuntimeUndefinedTask,
-            ),
-            (
-                RuntimeError::UndefinedLabel("label".into()),
-                StableErrorCode::RuntimeUndefinedLabel,
-            ),
-            (
                 RuntimeError::UndefinedField("field".into()),
                 StableErrorCode::RuntimeUndefinedField,
-            ),
-            (
-                RuntimeError::InvalidTaskSingle("single".into()),
-                StableErrorCode::RuntimeInvalidTaskSingle,
             ),
             (
                 RuntimeError::InvalidIoAddress("%IX0.0".into()),
@@ -671,6 +571,10 @@ mod tests {
             ),
             (RuntimeError::Overflow, StableErrorCode::RuntimeOverflow),
             (
+                RuntimeError::StringCapacityExceeded,
+                StableErrorCode::RuntimeStringCapacityExceeded,
+            ),
+            (
                 RuntimeError::IndexOutOfBounds {
                     index: 2,
                     lower: 0,
@@ -691,20 +595,8 @@ mod tests {
                 StableErrorCode::RuntimeNullReference,
             ),
             (
-                RuntimeError::InvalidControlFlow,
-                StableErrorCode::RuntimeInvalidControlFlow,
-            ),
-            (
                 RuntimeError::ForStepZero,
                 StableErrorCode::RuntimeForStepZero,
-            ),
-            (
-                RuntimeError::ConditionNotBool,
-                StableErrorCode::RuntimeConditionNotBool,
-            ),
-            (
-                RuntimeError::CaseSelectorType,
-                StableErrorCode::RuntimeCaseSelectorType,
             ),
             (
                 RuntimeError::DateTimeRange(DateTimeError::OutOfRange),
@@ -745,25 +637,6 @@ mod tests {
                     error: "error".into(),
                 },
                 StableErrorCode::RuntimeInitFailed,
-            ),
-            (
-                RuntimeError::UnsupportedBytecodeVersion { major: 2, minor: 0 },
-                StableErrorCode::RuntimeUnsupportedBytecodeVersion,
-            ),
-            (
-                RuntimeError::InvalidBytecodeMetadata("metadata".into()),
-                StableErrorCode::RuntimeInvalidBytecodeMetadata,
-            ),
-            (
-                RuntimeError::InvalidBytecode("container".into()),
-                StableErrorCode::RuntimeInvalidBytecode,
-            ),
-            (
-                RuntimeError::bytecode(
-                    StableErrorCode::BytecodeInvalidMagic,
-                    "invalid bytecode magic",
-                ),
-                StableErrorCode::BytecodeInvalidMagic,
             ),
             (
                 RuntimeError::ThreadSpawn("spawn".into()),
@@ -819,6 +692,25 @@ mod tests {
                 RuntimeError::ControlError("control".into()),
                 StableErrorCode::RuntimeControlError,
             ),
+            (
+                RuntimeError::ImportUnsupported {
+                    import: "TON".into(),
+                    reason: super::ImportRefusal::ParameterType,
+                },
+                StableErrorCode::RuntimeImportUnsupported,
+            ),
+            (
+                RuntimeError::DeploymentRecordInvalid(
+                    crate::deployment::DeploymentRecordError::Checksum,
+                ),
+                StableErrorCode::RuntimeDeploymentRecordInvalid,
+            ),
+            (
+                RuntimeError::DeploymentRefused(
+                    crate::deployment::AdmissionRefusal::ProgramMismatch,
+                ),
+                StableErrorCode::RuntimeDeploymentRefused,
+            ),
         ];
 
         for (error, expected) in cases {
@@ -828,28 +720,6 @@ mod tests {
 
     #[test]
     fn runtime_error_conversions_preserve_committed_boundaries() {
-        let source = BytecodeError::InvalidHeader("section count".into());
-        let source_detail = source.to_string();
-        let converted = RuntimeError::from(source.clone());
-        #[cfg(feature = "std")]
-        assert_eq!(
-            converted,
-            RuntimeError::Bytecode {
-                code: StableErrorCode::BytecodeInvalidHeader,
-                detail: source_detail.clone().into(),
-            }
-        );
-        #[cfg(not(feature = "std"))]
-        assert_eq!(converted, RuntimeError::BytecodeCause(source));
-        assert_eq!(
-            converted.to_string(),
-            alloc::format!("invalid bytecode '{source_detail}'")
-        );
-        assert_eq!(
-            converted.stable_code(),
-            StableErrorCode::BytecodeInvalidHeader
-        );
-
         for source in [
             DateTimeError::OutOfRange,
             DateTimeError::TimezoneNotSupported,

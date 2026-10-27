@@ -3,7 +3,6 @@
 // and it closes with its button or Escape.
 
 import { patchSurface, updateNode, type Drawn } from "./surfacePatch";
-import { mayChangeSettings } from "./settings";
 import { ValuePaintQueue } from "./valuePaintQueue";
 import type { CustomSymbolModel } from "../drawing/symbols/custom";
 import { AlarmMessage, AlarmView, loadRecords } from "./alarms";
@@ -299,7 +298,7 @@ class PopupWindow {
   private showSettingsButton(): void {
     const button = this.settingsButton;
     if (!button) return;
-    const shown = mayChangeSettings(this.popups.context.operation.session.role);
+    const shown = this.popups.context.operation.session.mayChangeSettings;
     const placed = button.parentElement === this.header;
     if (shown && !placed) this.header.querySelector(".hmi-popup-heading")?.after(button);
     else if (!shown && placed) button.remove();

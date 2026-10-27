@@ -3,7 +3,10 @@ use trust_runtime::harness::{CompileSession, SourceFile};
 use trust_runtime::io::IoAddress;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
+
+mod control_heater_support;
+use control_heater_support::{compile, LessonRuntime};
 
 const PROJECT: &str = "../../examples/control/01-feedback-foundations-and-temperature-control/01-cold-storage-loop-anatomy";
 const MAIN: &str = include_str!("../../../examples/control/01-feedback-foundations-and-temperature-control/01-cold-storage-loop-anatomy/src/Main.st");
@@ -16,10 +19,7 @@ fn nonfinite_sensor_fault_restores_safe_commands() {
         for fault_scan in [100, 700] {
             let session =
                 CompileSession::from_sources(vec![SourceFile::with_path("src/Main.st", MAIN)]);
-            let mut runtime = session.build_runtime().unwrap();
-            runtime
-                .apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)
-                .unwrap();
+            let mut runtime = compile(session);
             runtime.set_fault_policy(
                 RuntimeConfig::load(project.join("runtime.toml"))
                     .unwrap()
@@ -62,23 +62,20 @@ fn nonfinite_sensor_fault_restores_safe_commands() {
     }
 }
 
-fn number(runtime: &Runtime, address: &str) -> f64 {
+fn number(runtime: &CompiledRuntime, address: &str) -> f64 {
     match runtime
-        .io()
-        .read(&IoAddress::parse(address).unwrap())
+        .read_io(&IoAddress::parse(address).unwrap())
         .unwrap()
     {
         Value::LWord(bits) => f64::from_bits(bits),
+        Value::LReal(value) => value,
         value => panic!("expected LREAL at {address}, got {value:?}"),
     }
 }
 
 fn run_case(wait_scans: i64, initialize_validity: bool) -> Vec<[f64; 5]> {
     let session = CompileSession::from_sources(vec![SourceFile::with_path("src/Main.st", MAIN)]);
-    let mut runtime = session.build_runtime().expect("compile actual Lesson 1 ST");
-    runtime
-        .apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)
-        .unwrap();
+    let mut runtime = compile(session);
     let debug = runtime.enable_debug();
     let config = SimulationConfig::load(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -187,10 +184,7 @@ fn abort_and_invalid_measurements_clear_both_commands() {
         for invalid_value in [None, Some(-10.1), Some(10.1)] {
             let session =
                 CompileSession::from_sources(vec![SourceFile::with_path("src/Main.st", MAIN)]);
-            let mut runtime = session.build_runtime().unwrap();
-            runtime
-                .apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)
-                .unwrap();
+            let mut runtime = compile(session);
             let debug = runtime.enable_debug();
             for scan in 0..=fault_scan + 2 {
                 debug.enqueue_io_write(IoAddress::parse("%MX24.0").unwrap(), Value::Bool(true));

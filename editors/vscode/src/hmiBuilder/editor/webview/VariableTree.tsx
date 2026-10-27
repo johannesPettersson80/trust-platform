@@ -10,16 +10,15 @@ import type { PickerRow } from "../variables";
 import { currentText, PickerValues } from "./pickerValues";
 
 interface VariableTreeProps {
+    /** The rows; one marked not offered only holds the rows that can be picked. */
     rows: PickerRow[];
     /** Everything unfolded, as while searching. */
     unfolded?: boolean;
-    /** Rows that can be picked; the others only hold them. */
-    pickable?: (node: VariableNode) => boolean;
     onPick?: (node: VariableNode) => void;
     onDragStart?: (node: VariableNode, event: ReactMouseEvent) => void;
 }
 
-export function VariableTree({ rows, unfolded, pickable, onPick, onDragStart }: VariableTreeProps) {
+export function VariableTree({ rows, unfolded, onPick, onDragStart }: VariableTreeProps) {
     /** Rows folded or unfolded by hand, against the default (roots unfolded). */
     const [toggled, setToggled] = useState<Set<string>>(() => new Set());
     const values = useContext(PickerValues);
@@ -36,7 +35,7 @@ export function VariableTree({ rows, unfolded, pickable, onPick, onDragStart }: 
     const render = (row: PickerRow, depth: number): ReactElement[] => {
         const { node, children } = row;
         const open = unfolded || (depth === 0) !== toggled.has(node.path);
-        const canPick = onPick !== undefined && (pickable?.(node) ?? true);
+        const canPick = onPick !== undefined && row.offered !== false;
         const value = node.kind === "value" ? currentText(values.update, node.path, node.type) : undefined;
         if (node.kind === "value") shown.push(node.path);
         return [

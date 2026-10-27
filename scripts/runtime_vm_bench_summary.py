@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Build stable Runtime VM benchmark gate summaries."""
+"""Build stable summaries of the runtime scan benchmark gate: the syntax corpus that
+`trust-runtime bench project` runs as compiled programs."""
 
 from __future__ import annotations
 
@@ -57,7 +58,7 @@ def aggregate_corpus_summaries(paths: list[Path]) -> list[dict[str, Any]]:
     for name in expected_names:
         rows = [run[name] for run in runs]
         fixture: dict[str, Any] = {"name": name}
-        for key in ("project", "completed", "last_error", "fallbacks", "vm_highlight"):
+        for key in ("project", "completed", "last_error"):
             if key in rows[-1]:
                 fixture[key] = rows[-1][key]
         if "overruns" in rows[-1]:
@@ -177,7 +178,7 @@ def render_markdown(summary: dict[str, Any]) -> str:
     confidence = summary["confidence"]
     aggregate = summary["aggregate"]
     lines = [
-        "# Runtime VM Benchmark Gate",
+        "# Runtime Scan Benchmark Gate",
         "",
         f"- profile: {summary['profile']}",
         f"- tier: {summary['tier']}",
@@ -190,8 +191,8 @@ def render_markdown(summary: dict[str, Any]) -> str:
         f"- worst p99 us: {aggregate['worst_p99_us']:.3f}",
         f"- total measured benchmark ms: {aggregate['total_measured_ms']:.3f}",
         "",
-        "| workload | p50 us | p95 us | p99 us | max us | measured ms | fallback | p95 spread % |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|",
+        "| workload | p50 us | p95 us | p99 us | max us | measured ms | p95 spread % |",
+        "|---|---:|---:|---:|---:|---:|---:|",
     ]
     for row in summary["fixtures"]:
         p95_spread = row["confidence"]["p95_us"]["spread_pct"]
@@ -199,8 +200,7 @@ def render_markdown(summary: dict[str, Any]) -> str:
         lines.append(
             f"| {row['name']} | {row['p50_us']:.3f} | {row['p95_us']:.3f} | "
             f"{row['p99_us']:.3f} | {row['max_us']:.3f} | "
-            f"{row['measured_duration_ms']:.3f} | {row.get('fallbacks', 0)} | "
-            f"{p95_spread_text} |"
+            f"{row['measured_duration_ms']:.3f} | {p95_spread_text} |"
         )
 
     compare = summary.get("compare")
@@ -305,8 +305,6 @@ def self_test() -> None:
                     "overruns": 0,
                     "completed": 1,
                     "last_error": 0,
-                    "fallbacks": 0,
-                    "vm_highlight": "vm-clean",
                     "measured_duration_ms": 100.0,
                 },
                 {
@@ -319,8 +317,6 @@ def self_test() -> None:
                     "overruns": 0,
                     "completed": 1,
                     "last_error": 0,
-                    "fallbacks": 0,
-                    "vm_highlight": "vm-clean",
                     "measured_duration_ms": 160.0,
                 }
             ],

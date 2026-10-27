@@ -370,6 +370,43 @@ END_PROGRAM
     );
 }
 
+/// A typed literal names its type as a declaration does: through a namespace that a USING directive
+/// names, and not without it (IEC §6.9.4). Catches the prefix looked up only by its global name,
+/// "undefined typed literal prefix 'PIDMode'", as before 24 October 2026, and a lookup that finds
+/// a namespace's type that no USING names.
+#[test]
+fn test_using_directive_resolves_typed_literal_prefix() {
+    let namespace = "
+NAMESPACE Ctl
+TYPE PIDMode : (Manual, Auto); END_TYPE
+END_NAMESPACE
+";
+    check_no_errors(&format!(
+        "{namespace}
+PROGRAM Test
+USING Ctl;
+VAR
+    mode : PIDMode;
+END_VAR
+mode := PIDMode#Auto;
+END_PROGRAM
+"
+    ));
+    check_has_error(
+        &format!(
+            "{namespace}
+PROGRAM Test
+VAR
+    mode : Ctl.PIDMode;
+END_VAR
+mode := PIDMode#Auto;
+END_PROGRAM
+"
+        ),
+        DiagnosticCode::UndefinedType,
+    );
+}
+
 #[test]
 fn test_using_directive_unknown_namespace_error() {
     check_has_error(

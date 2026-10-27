@@ -3,7 +3,7 @@
 //! is a function block or a program of the compiled program.
 
 use super::*;
-use crate::harness::TestHarness;
+use crate::harness::CompileSession;
 use crate::hmi::page_files::{parse_faceplate, parse_pair};
 
 const PROGRAM: &str = r#"
@@ -51,12 +51,13 @@ fn problems(pair: &str, faceplate: &str) -> Vec<(Option<String>, String)> {
 }
 
 fn problems_in(program: &str, pair: &str, faceplate: &str) -> Vec<(Option<String>, String)> {
-    let mut harness = TestHarness::from_source(program).expect("the program compiles");
-    harness.cycle();
+    let declarations = CompileSession::from_source(program)
+        .declarations()
+        .expect("the program compiles");
     let pair = parse_pair("hmi/pairs/pump.toml", pair).expect("the pair loads");
     let faceplate =
         parse_faceplate("hmi/panels/pump.toml", faceplate).expect("the faceplate loads");
-    check_pair(&pair, &faceplate, &harness.runtime().metadata_snapshot())
+    check_pair(&pair, &faceplate, &declarations.metadata().clone())
         .into_iter()
         .map(|problem| (problem.field, problem.message))
         .collect()
@@ -204,13 +205,14 @@ fn a_symbol_binding_needs_a_property_of_the_symbol_and_a_member_of_a_kind_it_tak
     // §8.5: each `[bind]` entry maps a property of the pair's symbol to a member of the block.
     let pair = "format = 1\nblock = \"Pump\"\nfaceplate = \"pump\"\nsymbol = \"pump\"\n\n[bind]\nfault = \"ActualSpeed\"\nrunning = \"Missing\"\nspeedy = \"Running\"\n";
     let faceplate = "format = 1\ntitle = \"Pump\"\nsize = [400, 300]\n";
-    let mut harness = TestHarness::from_source(PROGRAM).expect("the program compiles");
-    harness.cycle();
+    let declarations = CompileSession::from_source(PROGRAM)
+        .declarations()
+        .expect("the program compiles");
     let pair = parse_pair("hmi/pairs/pump.toml", pair).expect("the pair loads");
     let faceplate =
         parse_faceplate("hmi/panels/pump.toml", faceplate).expect("the faceplate loads");
     let found: Vec<(Option<String>, String)> =
-        check_pair(&pair, &faceplate, &harness.runtime().metadata_snapshot())
+        check_pair(&pair, &faceplate, &declarations.metadata().clone())
             .into_iter()
             .map(|problem| (problem.binding, problem.message))
             .collect();

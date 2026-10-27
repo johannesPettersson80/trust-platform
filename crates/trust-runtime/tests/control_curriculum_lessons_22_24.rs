@@ -11,9 +11,7 @@ fn lesson22_executes_the_setpoint_weight_control_studio_applies() {
             "01-feedback-foundations-and-temperature-control/10-proportional-setpoint-weighting",
         );
         let debug = runtime.enable_debug();
-        let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
-            panic!("Lesson22 must execute its P1 program");
-        };
+        let program = program(&runtime);
         for step in 0..10 {
             scan(&mut runtime, &mut simulation, &debug, step * 100, &[]);
             assert_eq!(
@@ -26,27 +24,16 @@ fn lesson22_executes_the_setpoint_weight_control_studio_applies() {
                 "the Lesson 21 heater holds 35 °C within its ±0.02 °C noise"
             );
         }
-        let Some(Value::Instance(controller)) = runtime
-            .storage()
-            .get_instance_var(program, "Controller")
-            .cloned()
-        else {
-            panic!("Lesson22 must instantiate the real Control.PID block");
-        };
+        let controller = format!("{program}.Controller");
+        assert!(
+            exists(&runtime, &controller),
+            "Lesson22 must instantiate the real Control.PID block"
+        );
         assert_eq!(
-            runtime
-                .storage()
-                .get_instance(controller)
-                .unwrap()
-                .type_name
-                .as_str(),
+            type_name(&runtime, &controller).unwrap().as_str(),
             "Control.PID"
         );
-        let Some(mut proposed) = runtime
-            .storage()
-            .get_instance_var(program, "Parameters")
-            .cloned()
-        else {
+        let Some(mut proposed) = value(&runtime, &format!("{program}.Parameters")) else {
             panic!("Lesson22 must keep the complete Control.PID parameter record that Control Studio applies");
         };
         let Value::Struct(ref mut record) = proposed else {
@@ -65,14 +52,13 @@ fn lesson22_executes_the_setpoint_weight_control_studio_applies() {
         for step in 10..13 {
             scan(&mut runtime, &mut simulation, &debug, step * 100, &[]);
             assert_eq!(
-                runtime.storage().get_instance_var(program, "Parameters"),
-                Some(&proposed),
+                value(&runtime, &format!("{program}.Parameters")),
+                Some(proposed.clone()),
                 "cyclic code must preserve the weight Control Studio applied"
             );
         }
         let (setpoint_before, pv_before) = {
-            let Some(Value::Struct(state)) =
-                runtime.storage().get_instance_var(controller, "StateValue")
+            let Some(Value::Struct(state)) = value(&runtime, &format!("{controller}.StateValue"))
             else {
                 panic!("Control.PID must retain its executed state");
             };
@@ -82,7 +68,7 @@ fn lesson22_executes_the_setpoint_weight_control_studio_applies() {
             };
             (field("Setpoint"), field("ProcessValue"))
         };
-        debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+        enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
         scan(
             &mut runtime,
             &mut simulation,
@@ -108,9 +94,7 @@ fn lesson23_filters_the_measurement_control_studio_applies() {
         let (mut runtime, mut simulation) =
             setup("01-feedback-foundations-and-temperature-control/11-measurement-filtering");
         let debug = runtime.enable_debug();
-        let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
-            panic!("Lesson23 must execute its P1 program");
-        };
+        let program = program(&runtime);
         assert!(
             runtime
                 .write_instance(program, "FilterTimeS", Value::LReal(filter_seconds))
@@ -130,14 +114,12 @@ fn lesson23_filters_the_measurement_control_studio_applies() {
                 "in Manual the filter starts from the fresh measurement, so Auto entry is bumpless"
             );
         }
-        let Some(Value::Instance(controller)) = runtime
-            .storage()
-            .get_instance_var(program, "Controller")
-            .cloned()
-        else {
-            panic!("Lesson23 must instantiate the real Control.PID block");
-        };
-        debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+        let controller = format!("{program}.Controller");
+        assert!(
+            exists(&runtime, &controller),
+            "Lesson23 must instantiate the real Control.PID block"
+        );
+        enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
         scan(&mut runtime, &mut simulation, &debug, 500, &[]);
         assert_eq!(program_number(&runtime, program, "FilteredC"), number(&runtime, "%IL8"),
             "the Auto-entry scan starts the filter from the fresh measurement, so the transfer is exactly bumpless");
@@ -149,8 +131,7 @@ fn lesson23_filters_the_measurement_control_studio_applies() {
             let filtered = program_number(&runtime, program, "FilteredC");
             assert!((filtered - (previous + alpha * (raw - previous))).abs() < 1e-12,
                 "Tf {filter_seconds} s: yf_new = yf_old + α(yr − yf_old) with α = {alpha}, got {filtered} from {previous} and {raw}");
-            let Some(Value::Struct(state)) =
-                runtime.storage().get_instance_var(controller, "StateValue")
+            let Some(Value::Struct(state)) = value(&runtime, &format!("{controller}.StateValue"))
             else {
                 panic!("Control.PID must retain its executed state");
             };
@@ -172,9 +153,7 @@ fn lesson24_updates_the_controller_on_the_measured_clock() {
         let (mut runtime, mut simulation) =
             setup("01-feedback-foundations-and-temperature-control/12-elapsed-time-and-sampling");
         let debug = runtime.enable_debug();
-        let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
-            panic!("Lesson24 must execute its P1 program");
-        };
+        let program = program(&runtime);
         for step in 0..5 {
             scan(&mut runtime, &mut simulation, &debug, step * 100, &[]);
             assert_eq!(
@@ -188,7 +167,7 @@ fn lesson24_updates_the_controller_on_the_measured_clock() {
             .is_ok());
         assert!(runtime.write_instance(program, "AssumedCycleS", Value::LReal(if measured { 0.0 } else { 0.1 })).is_ok(),
             "AssumedCycleS 0 uses the measured interval; a positive value assumes that fixed interval");
-        debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+        enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
         let mut updates = Vec::new();
         let mut last_update_ms = None;
         for step in 5..60 {
@@ -257,7 +236,7 @@ fn lesson24_holds_the_command_over_an_unusable_interval() {
     for step in 0..5 {
         scan(&mut runtime, &mut simulation, &debug, step * 100, &[]);
     }
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     let setpoint = [("%ML0", Value::LWord(36.0_f64.to_bits()))];
     for step in 5..20 {
         scan(&mut runtime, &mut simulation, &debug, step * 100, &setpoint);
@@ -312,7 +291,7 @@ fn lesson24_keeps_measuring_intervals_after_a_day() {
     // A day without a scan, then normal scans in Auto: the interval measurement must keep working.
     runtime.advance_time(Duration::from_secs(24 * 3600));
     runtime.execute_cycle().unwrap();
-    debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, program, "AutoMode", Value::Bool(true));
     debug.enqueue_io_write(
         IoAddress::parse("%ML0").unwrap(),
         Value::LWord(36.0_f64.to_bits()),
@@ -342,18 +321,12 @@ fn lesson24_verifies_from_the_state_control_studio_presets() {
     let program = program(&runtime);
     // control-loop.json pidInitialization: Control Studio presets the Control.PID states and
     // P1.Initialized instead of running the program's reset, and starts its own clock at 0.
-    let Some(Value::Instance(controller)) = runtime
-        .storage()
-        .get_instance_var(program, "Controller")
-        .cloned()
-    else {
-        panic!("Lesson24 must execute Control.PID");
-    };
-    let Some(Value::Struct(state)) = runtime
-        .storage()
-        .get_instance_var(controller, "StateValue")
-        .cloned()
-    else {
+    let controller = format!("{program}.Controller");
+    assert!(
+        exists(&runtime, &controller),
+        "Lesson24 must execute Control.PID"
+    );
+    let Some(Value::Struct(state)) = value(&runtime, &format!("{controller}.StateValue")) else {
         panic!("Control.PID must keep its state record");
     };
     let mut state = (*state).clone();
@@ -370,7 +343,7 @@ fn lesson24_verifies_from_the_state_control_studio_presets() {
     }
     assert!(runtime
         .write_instance(
-            controller,
+            &controller,
             "StateValue",
             Value::Struct(std::sync::Arc::new(state))
         )

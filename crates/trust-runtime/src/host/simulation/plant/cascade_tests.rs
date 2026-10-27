@@ -68,8 +68,7 @@ outflow_coefficient_m2_sqrt_m_per_s = 0.020
         .take(initial.len())
         .map(|address| {
             match runtime
-                .io()
-                .read(&IoAddress::parse(address).unwrap())
+                .read_io(&IoAddress::parse(address).unwrap())
                 .unwrap()
             {
                 Value::LWord(bits) => f64::from_bits(bits),

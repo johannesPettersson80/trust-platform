@@ -7,17 +7,18 @@ use std::ops::Range;
 
 use rustc_hash::FxHashMap;
 use smol_str::SmolStr;
+use trust_runtime_core::io_image::PreparedIoBinding;
 
 use crate::hmi::member_paths::{MemberPath, PathSegment};
 use crate::io::{IoAddress, IoSize};
 use crate::memory::IoArea;
 
-use super::installed::Runtime;
+use super::io_subsystem::LinkIo;
 use super::link_subsystem::io_reading;
 
 /// When each `io.toml` link last exchanged data, or else when the display first saw it.
 #[derive(Debug, Default)]
-pub(super) struct LinkWatch {
+pub(crate) struct LinkWatch {
     last_data_ms: FxHashMap<SmolStr, i64>,
 }
 
@@ -29,34 +30,36 @@ pub(crate) struct SilentInput {
     pub(crate) age_ms: u64,
 }
 
-impl Runtime {
-    /// The variables at the inputs of the links that exchange no data now.
-    pub(super) fn silent_inputs(&mut self) -> Vec<SilentInput> {
-        let now_ms = self.current_time().as_millis();
-        let mut silent: Vec<(Vec<Range<usize>>, u64)> = Vec::new();
-        for io in self.io.link_ios() {
-            let last = self
-                .hmi
-                .links
-                .last_data_ms
-                .entry(io.link.clone())
-                .or_insert(now_ms);
-            if io_reading(&io).state.exchanges() {
+impl LinkWatch {
+    /// The variables at the inputs of the links that exchange no data at `now_ms` (the program's
+    /// logical time): `links` as their drivers report them, and the process image's `bindings`
+    /// with the names of the variables they bind.
+    pub(crate) fn silent_inputs(
+        &mut self,
+        now_ms: i64,
+        links: &[LinkIo<'_>],
+        bindings: &[PreparedIoBinding],
+        names: &[Option<SmolStr>],
+    ) -> Vec<SilentInput> {
+        let mut silent: Vec<(&[Range<usize>], u64)> = Vec::new();
+        for io in links {
+            let last = self.last_data_ms.entry(io.link.clone()).or_insert(now_ms);
+            if io_reading(io).state.exchanges() {
                 *last = now_ms;
             } else if !io.input_bytes.is_empty() {
                 let age = u64::try_from(now_ms.saturating_sub(*last)).unwrap_or(0);
-                silent.push((io.input_bytes, age));
+                silent.push((io.input_bytes.as_slice(), age));
             }
         }
         if silent.is_empty() {
             return Vec::new();
         }
-        self.io()
-            .bindings()
+        bindings
             .iter()
-            .filter(|binding| binding.address.area == IoArea::Input)
-            .filter_map(|binding| {
-                let name = binding.display_name.as_ref()?;
+            .zip(names)
+            .filter(|(binding, _)| binding.address.area == IoArea::Input)
+            .filter_map(|(binding, name)| {
+                let name = name.as_ref()?;
                 let bytes = address_bytes(&binding.address);
                 let age = silent
                     .iter()

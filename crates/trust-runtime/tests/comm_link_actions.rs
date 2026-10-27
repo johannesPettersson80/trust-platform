@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
-use trust_runtime::hmi::member_paths::{resolve_member, MemberPath};
+use trust_runtime::hmi::member_paths::{member_value, MemberPath};
 use trust_runtime::io::{IoDriver, IoDriverHealth};
 use trust_runtime::value::{Duration, Value};
 
@@ -120,10 +120,12 @@ impl Plant {
         self.harness.set_input(name, Value::Bool(value));
     }
 
+    /// The value at `Main.<path>`, as the last scan left it.
     fn read(&self, path: &str) -> Value {
         let path = MemberPath::parse(&format!("Main.{path}")).expect("a path");
-        resolve_member(&path, self.harness.runtime().storage())
-            .cloned()
+        self.harness
+            .runtime()
+            .with_program_view(|program| member_value(&path, program))
             .unwrap_or_else(|| panic!("{path:?} exists"))
     }
 

@@ -1,23 +1,96 @@
 //! Control CLI helpers.
 
 use std::io::{BufRead, BufReader, Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::Context;
 use serde_json::{json, Value as JsonValue};
 use trust_runtime::config::RuntimeConfig;
+use trust_runtime::control::endpoint::{control_token_from_env, ControlTarget};
 use trust_runtime::control::ControlEndpoint;
+use trust_runtime_client::{
+    ControlClient, ControlEndpoint as ClientEndpoint, VersionAdvice, VERSION_CHECK_ID,
+};
 
 use crate::cli::ControlAction;
 
+#[path = "ctl/device.rs"]
+mod device;
+#[path = "ctl/endpoint_command.rs"]
+mod endpoint_command;
+#[path = "ctl/firmware.rs"]
+mod firmware;
+#[path = "ctl/install.rs"]
+mod install;
+
 const CONTROL_CONNECT_TIMEOUT: Duration = Duration::from_millis(500);
 const CONTROL_IO_TIMEOUT: Duration = Duration::from_millis(750);
+/// How long a chip's serial port may take to answer one request (specification 11, 6.8.1).
+const SERIAL_IO_TIMEOUT: Duration = Duration::from_secs(5);
+/// How long a chip on the network may take to accept the connection and to answer one request: as
+/// long as its serial port (specification 11, 6.8.1).
+const NETWORK_IO_TIMEOUT: Duration = SERIAL_IO_TIMEOUT;
 const MAX_CONTROL_RESPONSE_BYTES: usize = 1024 * 1024;
 
+/// Where `ctl` sends its requests (specification 11, 6.8.1).
+#[derive(Debug, Clone)]
+pub(crate) enum CtlEndpoint {
+    /// A runtime's socket on this computer: loopback TCP or a Unix socket.
+    Socket(ControlEndpoint),
+    /// A chip's USB serial port, reached through the shared control client (specification 34,
+    /// PORT-05).
+    Serial(ClientEndpoint),
+    /// A runtime on another host, a chip's control connection over its network, reached through
+    /// the shared control client as the serial port is (specification 34 ARCH-12).
+    Network(ClientEndpoint),
+}
+
+impl CtlEndpoint {
+    /// Reads `--endpoint`. A `serial://` endpoint and a `tcp://` endpoint on another host are read
+    /// by the shared client; the others are a runtime's own endpoints on this computer.
+    fn parse(text: &str) -> anyhow::Result<Self> {
+        if text.starts_with("serial://") {
+            let serial = ClientEndpoint::parse(text).with_context(|| {
+                format!(
+                    "'{text}' is not a serial endpoint (serial:///dev/ttyACM0, or serial://COM5 \
+                     on Windows)"
+                )
+            })?;
+            return Ok(Self::Serial(serial));
+        }
+        match ControlEndpoint::parse(text) {
+            Ok(socket) => Ok(Self::Socket(socket)),
+            Err(local) => match text.strip_prefix("tcp://").map(str::trim) {
+                Some(host) if !host.is_empty() => {
+                    Ok(Self::Network(ClientEndpoint::Tcp(host.to_string())))
+                }
+                _ => Err(local.into()),
+            },
+        }
+    }
+}
+
+/// Where a request goes and the token it carries (specification 11, sections 6.8.0a and 6.8.1).
 pub(crate) struct ResolvedControlTarget {
-    pub(crate) endpoint: ControlEndpoint,
+    pub(crate) endpoint: CtlEndpoint,
     pub(crate) auth_token: Option<String>,
+    /// How the runtime's socket on this computer was found, so that a connection that nothing
+    /// answers reads as a runtime that is not running (specification 11, section 6.8.0a); `None`
+    /// for a chip's serial port or a runtime on another host.
+    local: Option<ControlTarget>,
+}
+
+impl ResolvedControlTarget {
+    /// A failed connection to the runtime's socket on this computer, reported through the target
+    /// that found it, which tells a runtime that is not running from another failure
+    /// (specification 11, section 6.8.0a). Any other error is kept as it is.
+    fn reported(&self, error: anyhow::Error) -> anyhow::Error {
+        match (&self.local, error.downcast_ref::<ConnectFailed>()) {
+            (Some(local), Some(failed)) => anyhow::anyhow!(local.connect_error(&failed.error)),
+            _ => error,
+        }
+    }
 }
 
 pub fn run_control(
@@ -26,53 +99,206 @@ pub fn run_control(
     token: Option<String>,
     action: ControlAction,
 ) -> anyhow::Result<()> {
+    if let ControlAction::Endpoint { json } = &action {
+        return endpoint_command::print_control_endpoint(bundle, endpoint, token, *json);
+    }
     let target = resolve_control_target(bundle, endpoint, token)?;
-    send_control_request(&target, &action)
+    match action {
+        ControlAction::Install { container, restart } => {
+            install::run(&target, &container, restart.as_deref())
+        }
+        ControlAction::Firmware { image, wait } => {
+            firmware::run(&target, &image, std::time::Duration::from_secs(wait))
+        }
+        ControlAction::DeviceGet | ControlAction::DeviceSet { .. } | ControlAction::DeviceReset => {
+            device::run(&target, &action)
+        }
+        action => send_control_request(&target, &action),
+    }
 }
 
+/// Resolves the endpoint and token a request uses (specification 11, sections 6.8.0a and 6.8.1).
+/// The explicit or environment token is merged first, so that an explicit token needs no project.
+/// A `serial://` endpoint and a `tcp://` endpoint on another host reach a chip: the project then
+/// supplies only a token the caller did not give, its configured `auth_token`, because its
+/// endpoint file names the project's own runtime on this computer. Every other target is resolved
+/// by the runtime's resolver: the explicit endpoint, else the endpoint file, the configured
+/// endpoint and the platform default.
 pub(crate) fn resolve_control_target(
     bundle: Option<PathBuf>,
     endpoint: Option<String>,
     token: Option<String>,
 ) -> anyhow::Result<ResolvedControlTarget> {
-    let mut auth_token = token.or_else(|| std::env::var("TRUST_CTL_TOKEN").ok());
-    let project_runtime = if let Some(project) = bundle.as_ref() {
-        if endpoint.is_none() || auth_token.is_none() {
-            Some(RuntimeConfig::load(project.join("runtime.toml"))?)
-        } else {
-            None
+    let token = token.or_else(control_token_from_env);
+    let explicit_socket = match endpoint.as_deref().map(CtlEndpoint::parse).transpose()? {
+        Some(CtlEndpoint::Socket(socket)) => Some(socket),
+        Some(chip) => {
+            let auth_token = match token {
+                Some(token) => Some(token),
+                None => configured_token(bundle.as_deref())?,
+            };
+            return Ok(ResolvedControlTarget {
+                endpoint: chip,
+                auth_token,
+                local: None,
+            });
         }
-    } else {
-        None
+        None => None,
     };
-    if auth_token.is_none() {
-        auth_token = project_runtime
-            .as_ref()
-            .and_then(|runtime| runtime.control_auth_token.as_ref())
-            .map(ToString::to_string);
-    }
-    let endpoint_text = if let Some(endpoint) = endpoint {
-        endpoint
-    } else if let Some(runtime) = project_runtime {
-        runtime.control_endpoint.to_string()
-    } else {
-        anyhow::bail!("--endpoint or --project required");
-    };
-    let endpoint = ControlEndpoint::parse(&endpoint_text)?;
+    let local = trust_runtime::control::endpoint::resolve_control_target(
+        bundle.as_deref(),
+        explicit_socket,
+        token.as_deref(),
+    )?;
     Ok(ResolvedControlTarget {
-        endpoint,
-        auth_token,
+        endpoint: CtlEndpoint::Socket(local.endpoint.clone()),
+        auth_token: local.auth_token.clone(),
+        local: Some(local),
     })
 }
+
+/// The `[runtime.control] auth_token` of the project's runtime.toml, when a project is named.
+fn configured_token(project: Option<&Path>) -> anyhow::Result<Option<String>> {
+    let Some(project) = project else {
+        return Ok(None);
+    };
+    Ok(RuntimeConfig::load(project.join("runtime.toml"))?
+        .control_auth_token
+        .map(|token| token.to_string()))
+}
+
+/// The connection step failed before any request was written. It keeps the operating-system
+/// error, so that the target can tell a runtime that is not running from another failure (spec
+/// 11, section 6.8.0a).
+#[derive(Debug)]
+struct ConnectFailed {
+    endpoint: String,
+    error: std::io::Error,
+}
+
+impl std::fmt::Display for ConnectFailed {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            formatter,
+            "connect control endpoint {}: {}",
+            self.endpoint, self.error
+        )
+    }
+}
+
+impl std::error::Error for ConnectFailed {}
 
 fn send_control_request(
     target: &ResolvedControlTarget,
     action: &ControlAction,
 ) -> anyhow::Result<()> {
     let request = build_request(action, target.auth_token.as_deref());
-    let response = send_control_request_value(&target.endpoint, &request)?;
+    let response = match &target.endpoint {
+        CtlEndpoint::Socket(socket) => {
+            let status = json!({
+                "id": VERSION_CHECK_ID,
+                "type": "status",
+                "auth": target.auth_token,
+            });
+            advise_version(send_control_request_value(socket, &status));
+            send_control_request_value(socket, &request).map_err(|error| target.reported(error))?
+        }
+        CtlEndpoint::Serial(endpoint) => checked_exchange(
+            &mut connect_client(endpoint, &request, SERIAL_IO_TIMEOUT)?,
+            &request,
+        )?,
+        CtlEndpoint::Network(endpoint) => checked_exchange(
+            &mut connect_client(endpoint, &request, NETWORK_IO_TIMEOUT)?,
+            &request,
+        )?,
+    };
     ensure_control_response_ok(&response)?;
     print_control_response(action, &response)
+}
+
+/// The version check and then `request`, over one connection to a chip: a chip serves one control
+/// connection at a time, and a second connection opened while it still closes the first is told
+/// that the chip is busy (specification 34 PORT-06). The check is request 0, so that `request`
+/// keeps `id = 1` as over a socket (specification 11, 6.8.1).
+fn checked_exchange(client: &mut ControlClient, request: &JsonValue) -> anyhow::Result<JsonValue> {
+    advise_version(client.version_check().map_err(anyhow::Error::from));
+    exchange_with(client, request)
+}
+
+/// Says which update is needed when the runtime's truST version, in its answer to `status`, is not
+/// these tools' (specification 34 TARGET-05). A runtime that does not answer `status` is left to
+/// the request itself, which reports why.
+fn advise_version(status: anyhow::Result<JsonValue>) {
+    let Ok(response) = status else {
+        return;
+    };
+    if let Some(version) = response
+        .pointer("/result/version")
+        .and_then(JsonValue::as_str)
+        && let Some(advice) = VersionAdvice::for_versions(env!("CARGO_PKG_VERSION"), version)
+    {
+        eprintln!("warning: {advice}");
+    }
+}
+
+/// Sends one request to `endpoint` and returns the whole response object.
+pub(crate) fn send_request(
+    endpoint: &CtlEndpoint,
+    request: &JsonValue,
+) -> anyhow::Result<JsonValue> {
+    match endpoint {
+        CtlEndpoint::Socket(socket) => send_control_request_value(socket, request),
+        CtlEndpoint::Serial(serial) => send_client_request(serial, request, SERIAL_IO_TIMEOUT),
+        CtlEndpoint::Network(host) => send_client_request(host, request, NETWORK_IO_TIMEOUT),
+    }
+}
+
+/// Sends one request to a chip, over its serial port or its network, through the shared control
+/// client, which waits at most `wait` for the connection and for the reply: it opens a port without
+/// resetting the chip, keeps the request within the link's frame, and reads a reply that is longer
+/// than the frame whole (specification 34, PORT-05).
+fn send_client_request(
+    endpoint: &ClientEndpoint,
+    request: &JsonValue,
+    wait: Duration,
+) -> anyhow::Result<JsonValue> {
+    exchange_with(&mut connect_client(endpoint, request, wait)?, request)
+}
+
+/// The shared client connected to a chip at `endpoint` with the token of `request`, waiting at
+/// most `wait` for the connection and for each reply.
+fn connect_client(
+    endpoint: &ClientEndpoint,
+    request: &JsonValue,
+    wait: Duration,
+) -> anyhow::Result<ControlClient> {
+    let auth = request.get("auth").and_then(JsonValue::as_str);
+    Ok(ControlClient::connect(endpoint, auth, wait)?
+        .with_response_limit(MAX_CONTROL_RESPONSE_BYTES))
+}
+
+/// Sends `request`, a request of the command's shape (`type`, and `params` when the action has
+/// any), through `client` and returns the whole response object. The client numbers the requests
+/// of its connection, and the command checks that the response carries this request's id, as it
+/// does for a socket.
+fn exchange_with(client: &mut ControlClient, request: &JsonValue) -> anyhow::Result<JsonValue> {
+    let request_id = client.next_id();
+    let kind = request
+        .get("type")
+        .and_then(JsonValue::as_str)
+        .context("control request missing string 'type'")?;
+    let response = client.exchange(kind, request.get("params").cloned())?;
+    ensure_response_id(&response, request_id)?;
+    Ok(response)
+}
+
+/// A response must carry the id of its request: a missing, noninteger or other id is a protocol
+/// failure (specification 11, 6.8.1).
+fn ensure_response_id(response: &JsonValue, request_id: u64) -> anyhow::Result<()> {
+    if response.get("id").and_then(JsonValue::as_u64) != Some(request_id) {
+        anyhow::bail!("control response id is missing or does not match request id {request_id}");
+    }
+    Ok(())
 }
 
 pub(crate) fn ensure_control_response_ok(response: &JsonValue) -> anyhow::Result<()> {
@@ -99,7 +325,10 @@ pub(crate) fn send_control_request_value(
     match endpoint {
         ControlEndpoint::Tcp(addr) => {
             let mut stream = std::net::TcpStream::connect_timeout(addr, CONTROL_CONNECT_TIMEOUT)
-                .with_context(|| format!("connect control endpoint tcp://{addr}"))?;
+                .map_err(|error| ConnectFailed {
+                    endpoint: format!("tcp://{addr}"),
+                    error,
+                })?;
             stream
                 .set_read_timeout(Some(CONTROL_IO_TIMEOUT))
                 .context("set control endpoint read timeout")?;
@@ -111,8 +340,11 @@ pub(crate) fn send_control_request_value(
         }
         #[cfg(unix)]
         ControlEndpoint::Unix(path) => {
-            let mut stream = std::os::unix::net::UnixStream::connect(path)
-                .with_context(|| format!("connect control endpoint unix://{}", path.display()))?;
+            let mut stream =
+                std::os::unix::net::UnixStream::connect(path).map_err(|error| ConnectFailed {
+                    endpoint: format!("unix://{}", path.display()),
+                    error,
+                })?;
             stream
                 .set_read_timeout(Some(CONTROL_IO_TIMEOUT))
                 .context("set control endpoint read timeout")?;
@@ -154,9 +386,7 @@ fn exchange_control_request<S: Write, R: BufRead>(
         .get("id")
         .and_then(JsonValue::as_u64)
         .context("control request missing numeric 'id'")?;
-    if response.get("id").and_then(JsonValue::as_u64) != Some(request_id) {
-        anyhow::bail!("control response id is missing or does not match request id {request_id}");
-    }
+    ensure_response_id(&response, request_id)?;
     Ok(response)
 }
 
@@ -200,6 +430,12 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
                 None => ("disabled", false),
             };
             println!("state={state} fault={fault} rt_profile={rt_profile} rt_active={rt_active}");
+        }
+        ControlAction::Capabilities => {
+            let result = response
+                .get("result")
+                .context("capabilities reply missing 'result'")?;
+            println!("{}", serde_json::to_string_pretty(result)?);
         }
         ControlAction::Health => {
             let ok = response
@@ -257,6 +493,9 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
 fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json::Value {
     let auth = auth_token.map(|value| value.to_string());
     match action {
+        ControlAction::Endpoint { .. } => {
+            unreachable!("ctl endpoint is printed without sending a request")
+        }
         ControlAction::Status => json!({"id": 1, "type": "status", "auth": auth}),
         ControlAction::Health => json!({"id": 1, "type": "health", "auth": auth}),
         ControlAction::Stats => json!({"id": 1, "type": "tasks.stats", "auth": auth}),
@@ -317,8 +556,22 @@ fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json
             "auth": auth,
             "params": { "mode": mode }
         }),
-        ControlAction::Shutdown => json!({"id": 1, "type": "shutdown", "auth": auth}),
+        ControlAction::Install { .. }
+        | ControlAction::Firmware { .. }
+        | ControlAction::DeviceGet
+        | ControlAction::DeviceSet { .. }
+        | ControlAction::DeviceReset => {
+            unreachable!("run_control sends these through their own modules")
+        }
+        ControlAction::Shutdown { exit } => {
+            let mut request = json!({"id": 1, "type": "shutdown", "auth": auth});
+            if *exit {
+                request["params"] = json!({ "exit": true });
+            }
+            request
+        }
         ControlAction::ConfigGet => json!({"id": 1, "type": "config.get", "auth": auth}),
+        ControlAction::Capabilities => json!({"id": 1, "type": "capabilities", "auth": auth}),
         ControlAction::ConfigSet { key, value } => {
             let mut params = serde_json::Map::new();
             params.insert(key.clone(), parse_config_value(value));
@@ -368,6 +621,23 @@ fn parse_config_value(value: &str) -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use trust_runtime::control::endpoint::EndpointSource;
+
+    #[test]
+    fn shutdown_with_exit_sends_the_explicit_exit_and_nothing_else() {
+        // Specification 11 section 6.8.1 and 34 STATE-08: `--exit` adds the parameter
+        // `{"exit": true}` to `shutdown`, and the request without it carries no parameters.
+        // Wrong behaviour: the flag is ignored, so the process stays up as after a plain
+        // `shutdown`, or the plain request carries `exit`.
+        assert_eq!(
+            build_request(&ControlAction::Shutdown { exit: true }, Some("token")),
+            json!({"id": 1, "type": "shutdown", "auth": "token", "params": {"exit": true}}),
+        );
+        assert_eq!(
+            build_request(&ControlAction::Shutdown { exit: false }, Some("token")),
+            json!({"id": 1, "type": "shutdown", "auth": "token"}),
+        );
+    }
 
     #[test]
     fn control_actions_map_to_the_registered_wire_contract() {
@@ -505,12 +775,16 @@ mod tests {
                 }),
             ),
             (
-                ControlAction::Shutdown,
+                ControlAction::Shutdown { exit: false },
                 json!({"id": 1, "type": "shutdown", "auth": "token"}),
             ),
             (
                 ControlAction::ConfigGet,
                 json!({"id": 1, "type": "config.get", "auth": "token"}),
+            ),
+            (
+                ControlAction::Capabilities,
+                json!({"id": 1, "type": "capabilities", "auth": "token"}),
             ),
             (
                 ControlAction::ConfigSet {
@@ -730,4 +1004,63 @@ mod tests {
             "control read timeout elapsed {elapsed:?}: {error:#}"
         );
     }
+
+    /// The target of a runtime's socket on this computer, found as `target` says.
+    fn local_target(target: ControlTarget) -> ResolvedControlTarget {
+        ResolvedControlTarget {
+            endpoint: CtlEndpoint::Socket(target.endpoint.clone()),
+            auth_token: target.auth_token.clone(),
+            local: Some(target),
+        }
+    }
+
+    #[test]
+    fn a_refused_endpoint_file_endpoint_reports_the_runtime_as_not_running() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let addr = listener.local_addr().expect("listener address");
+        drop(listener);
+        let target = ControlTarget {
+            endpoint: ControlEndpoint::Tcp(addr),
+            endpoint_text: format!("tcp://{addr}"),
+            source: EndpointSource::EndpointFile,
+            auth_token: None,
+            endpoint_file_skipped: None,
+        };
+
+        let error = send_control_request(&local_target(target), &ControlAction::Status)
+            .expect_err("a refused connection must fail");
+
+        assert!(
+            error.to_string().starts_with("runtime is not running"),
+            "{error:#}"
+        );
+    }
+
+    #[test]
+    fn a_refused_configured_endpoint_reports_the_connection_error() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let addr = listener.local_addr().expect("listener address");
+        drop(listener);
+        let target = ControlTarget {
+            endpoint: ControlEndpoint::Tcp(addr),
+            endpoint_text: format!("tcp://{addr}"),
+            source: EndpointSource::Configured,
+            auth_token: None,
+            endpoint_file_skipped: None,
+        };
+
+        let error = send_control_request(&local_target(target), &ControlAction::Status)
+            .expect_err("a refused connection must fail");
+
+        assert!(
+            error
+                .to_string()
+                .starts_with(&format!("connect control endpoint tcp://{addr}")),
+            "{error:#}"
+        );
+    }
 }
+
+#[cfg(test)]
+#[path = "ctl/serial_tests.rs"]
+mod serial_tests;

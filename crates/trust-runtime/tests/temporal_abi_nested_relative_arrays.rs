@@ -1,15 +1,19 @@
 //! Nested relative array extents of the temporal wire image (spec 34 §4.3.1, uniform temporal ABI).
+//!
+//! The test needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 #![cfg(feature = "full")]
-use trust_runtime::{bytecode::BytecodeVersion, harness::CompileSession, Runtime};
+use trust_runtime::{harness::TestHarness, value::Value};
 
-fn install(source: &str, version: BytecodeVersion) -> Runtime {
-    let session = CompileSession::from_source(source);
-    let module = session.build_bytecode_module_for_version(version).unwrap();
-    if version == BytecodeVersion::LEGACY {
-        session.build_runtime_from_bytecode(&module, None).unwrap()
-    } else {
-        Runtime::from_bytes(&module.encode().unwrap(), Default::default()).unwrap()
-    }
+/// The `len` bytes of the output image from `%QB0`.
+fn output_bytes(harness: &TestHarness, len: usize) -> Vec<u8> {
+    (0..len)
+        .map(
+            |byte| match harness.get_direct_output(&format!("%QB{byte}")) {
+                Ok(Value::Byte(value)) => value,
+                other => panic!("%QB{byte}: {other:?}"),
+            },
+        )
+        .collect()
 }
 
 /// Spec 34 §4.3.1, uniform temporal storage ABI (lines 541-554): nested relative array
@@ -41,9 +45,8 @@ END_PROGRAM
     ] {
         expected[offset..offset + 4].copy_from_slice(&milliseconds.to_le_bytes());
     }
-    for version in [BytecodeVersion::LEGACY, BytecodeVersion::SOURCE_FREE] {
-        let mut runtime = install(source, version);
-        runtime.execute_cycle().unwrap();
-        assert_eq!(runtime.io().outputs(), &expected, "{version:?}");
-    }
+    let mut harness = TestHarness::from_source(source).unwrap();
+    let result = harness.cycle();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    assert_eq!(output_bytes(&harness, expected.len()), expected);
 }

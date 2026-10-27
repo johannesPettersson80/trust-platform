@@ -1,11 +1,14 @@
-use crate::harness::{CompileSession, TestHarness};
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
+use crate::harness::{lower_application, CompileSession, SourceFile, TestHarness};
 use crate::value::Value;
-use crate::Runtime;
+use crate::RuntimeBuilder;
 use trust_hir::symbols::ParamDirection;
 
-fn runtime(source: &str) -> Runtime {
-    CompileSession::from_source(source)
-        .build_runtime()
+fn runtime(source: &str) -> RuntimeBuilder {
+    lower_application(&[SourceFile::new(source)], false)
+        .and_then(|lowered| lowered.construct(&[]))
+        .map(|(builder, _)| builder)
         .unwrap_or_else(|error| panic!("POU fixture must compile: {error}"))
 }
 
@@ -18,7 +21,7 @@ fn run(source: &str) -> TestHarness {
 }
 
 fn compile_error(source: &str) -> String {
-    match CompileSession::from_source(source).build_runtime() {
+    match CompileSession::from_source(source).declarations() {
         Ok(_) => panic!("POU fixture must fail"),
         Err(error) => error.to_string(),
     }
@@ -122,7 +125,7 @@ END_PROGRAM
 
 #[test]
 fn pou_function_contract_var_stat_storage_is_function_qualified() {
-    let harness = run(r#"
+    let mut harness = run(r#"
 FUNCTION First : INT
 VAR_STAT
     count : INT;
@@ -148,20 +151,11 @@ END_PROGRAM
 "#);
     assert_eq!(harness.get_output("a"), Some(Value::Int(1)));
     assert_eq!(harness.get_output("b"), Some(Value::Int(11)));
-    assert_eq!(
-        harness
-            .runtime()
-            .storage()
-            .get_global("__STAT::First::count"),
-        Some(&Value::Int(1))
-    );
-    assert_eq!(
-        harness
-            .runtime()
-            .storage()
-            .get_global("__STAT::Second::count"),
-        Some(&Value::Int(11))
-    );
+    // Each function keeps its own `count` across cycles: 1 + 1 and 11 + 1.
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
+    assert_eq!(harness.get_output("a"), Some(Value::Int(2)));
+    assert_eq!(harness.get_output("b"), Some(Value::Int(12)));
 }
 
 #[test]
@@ -185,10 +179,7 @@ result := Bump();
 END_PROGRAM
 "#);
     assert_eq!(harness.get_output("result"), Some(Value::Int(1)));
-    assert_eq!(
-        harness.runtime().storage().get_global("shared"),
-        Some(&Value::Int(1))
-    );
+    assert_eq!(harness.get_output("shared"), Some(Value::Int(1)));
 }
 
 #[test]

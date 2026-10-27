@@ -1,25 +1,25 @@
 //! Lesson 42, Controller families: the heater (P1) and the drum axis (P2) under `Control.PID` in one project.
 use trust_runtime::debug::DebugControl;
 use trust_runtime::io::IoAddress;
-use trust_runtime::memory::InstanceId;
 use trust_runtime::simulation::SimulationController;
 use trust_runtime::value::Value;
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
 mod control_heater_support;
 use control_heater_support::*;
 
 const PROJECT: &str = "04-controller-selection-and-plant-models/27-controller-selection";
 
-fn instance(runtime: &Runtime, name: &str) -> InstanceId {
-    let Some(Value::Instance(program)) = runtime.storage().get_global(name).cloned() else {
-        panic!("the lesson must execute its {name} program");
-    };
-    program
+fn instance(runtime: &CompiledRuntime, name: &'static str) -> &'static str {
+    assert!(
+        exists(runtime, name),
+        "the lesson must execute its {name} program"
+    );
+    name
 }
 
 fn step(
-    runtime: &mut Runtime,
+    runtime: &mut CompiledRuntime,
     simulation: &mut SimulationController,
     debug: &DebugControl,
     update: u64,
@@ -99,8 +99,8 @@ fn controller_families_execute_the_gains_control_studio_applies_to_each_loop() {
         controller_state(&runtime, heater, "Setpoint"),
         controller_state(&runtime, heater, "ProcessValue"),
     );
-    debug.enqueue_instance_write(heater, "AutoMode", Value::Bool(true));
-    debug.enqueue_instance_write(axis, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, heater, "AutoMode", Value::Bool(true));
+    enqueue_instance_write(&debug, axis, "AutoMode", Value::Bool(true));
     scan_every(
         &mut runtime,
         &mut simulation,
@@ -135,7 +135,7 @@ fn controller_families_remove_torque_and_heat_on_their_aborts() {
     let mut aborted = false;
     for update in 1..200 {
         step(&mut runtime, &mut simulation, &debug, update);
-        if runtime.storage().get_instance_var(axis, "SafetyAbort") == Some(&Value::Bool(true)) {
+        if value(&runtime, &format!("{axis}.SafetyAbort")) == Some(Value::Bool(true)) {
             aborted = true;
             assert_eq!(
                 number(&runtime, "%QL16"),

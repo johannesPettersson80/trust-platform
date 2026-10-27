@@ -5,19 +5,17 @@
 mod ads_handlers;
 mod audit;
 mod auth;
-mod breakpoint_handlers;
 mod comm_handlers;
 mod config_handlers;
 mod connectors_handlers;
 mod controller_handlers;
-mod debug_handlers;
+pub mod endpoint;
 mod experiment_handlers;
-mod fleet_handlers;
+pub(crate) mod fleet_handlers;
 mod handlers;
 mod hmi_handlers;
 pub(crate) mod hmi_ports;
-mod io_handlers;
-mod operation_registry;
+mod host_ports;
 mod parameter_handlers;
 mod plant_handlers;
 mod plant_service;
@@ -37,36 +35,41 @@ mod variable_handlers;
 use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex, PoisonError, RwLock};
 
 use crate::config::ControlMode;
-use crate::debug::{DebugControl, DebugVariableHandles};
+use crate::debug::DebugControl;
 use crate::discovery::DiscoveryState;
 use crate::error::RuntimeError;
-use crate::io::{IoDriverStatus, IoSnapshot};
+use crate::io::{IdentifyHandle, IoDriverStatus, IoSnapshot};
 use crate::linux_rt::LinuxRtRuntimeStatus;
 use crate::mesh::MeshTopologyEvidence;
 use crate::metrics::RuntimeMetrics;
-use crate::runtime::RuntimeMetadata;
 use crate::scheduler::ResourceControl;
-use crate::security::{pairing::PairingStore, AccessRole};
+use crate::security::pairing::PairingStore;
 use crate::settings::RuntimeSettings;
 use crate::value::Value;
 use crate::RestartMode;
+use serde::Deserialize;
 use serde_json::json;
 use smol_str::SmolStr;
 
 pub use self::ads_handlers::AdsDoctorJobStore;
-use self::audit::{record_audit, ControlAuditRecord};
-use self::auth::resolve_request_role;
 pub use self::controller_handlers::ControllerParameterService;
 pub use self::experiment_handlers::ControlExperimentService;
 pub use self::plant_service::PlantControlService;
-use self::policy::{is_debug_request, required_role_for_control_request};
+use self::policy::required_role_for_control_request;
 pub(crate) use self::types::ControlResponse;
 use self::types::*;
+use trust_runtime_services::dispatch::{dispatch_value, invalid_line};
+use trust_runtime_services::live_values::value_grammar;
+use trust_runtime_services::transfer::TransferSession;
+
+// The in-crate control tests reach these through `use super::*`.
+#[cfg(test)]
+use std::sync::atomic::Ordering;
 
 fn control_event_time_now() -> crate::value::Duration {
     let timestamp_ms = std::time::SystemTime::now()
@@ -140,6 +143,26 @@ impl OfflinePlantSession {
     }
 }
 
+/// The largest reply a computer holds and the largest upload it takes: 64 MiB, the largest program
+/// container a computer admits (specification 34 §5.1, PORT-05).
+const MAX_TRANSFER_BYTES: usize = 64 * 1024 * 1024;
+
+/// The transfers of this process (specification 34, PORT-05). Its boot number is the process start
+/// in seconds since the epoch, so a transfer id does not repeat after a restart.
+#[must_use]
+pub fn new_transfer_session() -> Arc<Mutex<TransferSession>> {
+    let boot = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| {
+            u32::try_from(elapsed.as_secs()).unwrap_or(u32::MAX)
+        });
+    Arc::new(Mutex::new(TransferSession::new(
+        boot,
+        MAX_TRANSFER_BYTES,
+        MAX_TRANSFER_BYTES,
+    )))
+}
+
 /// Build the communication setup schema without connecting to a running runtime.
 pub fn offline_comm_schema_json(
     params: Option<&serde_json::Value>,
@@ -153,6 +176,49 @@ pub fn offline_comm_apply_json(
     params: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     comm_handlers::apply_project_value(project_root, params)
+}
+
+/// Enable the ADS client in a project's `runtime.toml` after an ADS tag import.
+///
+/// Returns whether `runtime.toml` changed. A missing `runtime.toml` is refused with
+/// the message the VS Code port used (spec 25 §5.8; design §4.3 B7).
+pub fn offline_ads_ensure_runtime_enabled(
+    project_root: &Path,
+    config_path: &str,
+) -> Result<bool, String> {
+    comm_handlers::ensure_ads_runtime_enabled(project_root, config_path)
+}
+
+/// Remove imported ADS tag points from a project's `ads.toml` and regenerate its ST.
+///
+/// The same function backs the `ads.import_symbols.remove` control request and
+/// `trust-runtime ads remove-symbols` (design §4.3 B7).
+pub fn offline_ads_remove_symbols_json(
+    project_root: &Path,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    ads_handlers::remove_symbols_from_project(project_root, params)
+}
+
+/// Import ADS tag points into a project's files offline, as the `ads.import_symbols.apply` control
+/// request and `trust-runtime ads import-symbols` do (design §4.3 B7; specification 25 §5.4).
+pub fn offline_ads_import_symbols_json(
+    project_root: &Path,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    ads_handlers::import_symbols_from_params(project_root, params)
+}
+
+/// Run a communication `comm.test` request from this host without a running runtime.
+///
+/// `project_root` is accepted so the command has the same shape as the runtime request;
+/// `comm.test` probes its explicit parameters and reads no project file.
+pub fn offline_comm_test_json(
+    _project_root: &Path,
+    protocol: &str,
+    params: serde_json::Value,
+) -> serde_json::Value {
+    comm_handlers::comm_test_probe_value(protocol, params)
 }
 
 /// Discover communication targets from the current host without a running runtime.
@@ -223,8 +289,11 @@ impl ControlEndpoint {
 #[derive(Debug, Clone)]
 pub struct ControlState {
     pub debug: DebugControl,
+    /// The identify state of the runtime (specification 11, "Identify"), shared with the runtime
+    /// whose scan and waits drive its output. Empty while the project has no
+    /// `[runtime.identify] output`.
+    pub identify: IdentifyHandle,
     pub resource: ResourceControl<crate::scheduler::StdClock>,
-    pub metadata: Arc<Mutex<RuntimeMetadata>>,
     pub sources: SourceRegistry,
     pub io_snapshot: Arc<Mutex<Option<IoSnapshot>>>,
     pub io_snapshot_seen_ms: Arc<AtomicU64>,
@@ -247,19 +316,23 @@ pub struct ControlState {
     pub controllers: ControllerParameterService,
     pub searches: search::SearchService,
     pub resource_name: SmolStr,
+    pub runtime_id: SmolStr,
     pub io_health: Arc<Mutex<Vec<IoDriverStatus>>>,
     pub debug_enabled: Arc<AtomicBool>,
-    pub debug_variables: Arc<Mutex<DebugVariableHandles>>,
     pub historian: Option<Arc<crate::historian::HistorianService>>,
     pub openot_persistence_status:
         Option<Arc<Mutex<crate::openot_persistence::OpenOtPersistenceStatus>>>,
     pub pairing: Option<Arc<PairingStore>>,
     pub ads_doctor_jobs: Arc<Mutex<AdsDoctorJobStore>>,
+    /// The searches that `comm.search.*` started in this runtime.
+    pub search: Arc<crate::search::SearchRegistry>,
     pub ads_client_config: Arc<Mutex<Option<crate::ads::AdsClientConfig>>>,
     pub opcua_client_config: Arc<Mutex<Option<crate::opcua::OpcUaClientConfig>>>,
     pub ads_server_config: Arc<Mutex<Option<crate::ads::server::AdsServerRuntimeConfig>>>,
     #[cfg(feature = "ads-server")]
     pub ads_server_runtime: Arc<Mutex<Option<crate::ads::server::AdsServerRuntime>>>,
+    /// The transfers of this process (specification 34, PORT-05); see [`new_transfer_session`].
+    pub transfers: Arc<Mutex<TransferSession>>,
 }
 
 impl ControlState {
@@ -268,6 +341,21 @@ impl ControlState {
     pub fn connect_experiments(&self) {
         self.debug
             .set_scan_observer(self.experiments.scan_observer());
+    }
+
+    /// The image of the program the resource runs, whatever the debugging switch: the type and
+    /// symbol tables a web route checks a request against (specification 44 §8.8). None before a
+    /// program is set.
+    pub(crate) fn program_image(
+        &self,
+    ) -> Option<Arc<trust_runtime_core::native::program::AdmittedImage>> {
+        self.debug.program_image()
+    }
+
+    /// The source files of the program the resource runs, as a reload last replaced them
+    /// (specification 39, §16.4).
+    pub(crate) fn source_files(&self) -> Arc<Vec<SourceFile>> {
+        self.sources.files()
     }
 }
 
@@ -401,14 +489,20 @@ pub struct ControlServer {
 }
 
 impl ControlServer {
+    /// Binds `endpoint` and starts serving it. The server then reports the endpoint that is
+    /// bound, so a TCP port of 0 is replaced by the port the operating system chose.
     pub fn start(
         endpoint: ControlEndpoint,
         state: Arc<ControlState>,
     ) -> Result<Self, RuntimeError> {
-        transport::spawn_control_server(&endpoint, state.clone())?;
-        Ok(Self { endpoint, state })
+        let bound = transport::spawn_control_server(&endpoint, state.clone())?;
+        Ok(Self {
+            endpoint: bound,
+            state,
+        })
     }
 
+    /// The endpoint that the server listens on, with the port that was bound.
     #[must_use]
     pub fn endpoint(&self) -> &ControlEndpoint {
         &self.endpoint
@@ -504,17 +598,29 @@ pub(crate) fn prepare_request_line(
     state: &ControlState,
     client: Option<&str>,
 ) -> Option<PreparedControlLine> {
-    let response = match serde_json::from_str::<serde_json::Value>(line) {
-        Ok(value) => prepare_request_value(value, state, client),
-        Err(err) => ControlResponse::error(0, format!("invalid request: {err}")),
+    // The request pipeline is shared runtime code (spec 34 ARCH-11); `ControlState` supplies its
+    // ports (`control/host_ports.rs`). The host reads the line as a JSON value, as the shared
+    // pipeline reads a line that it cannot read straight into a request, and answers it as it
+    // answers a request of the web, so that it completes the reply (`HostCompletion`). A line that
+    // is not JSON gets the shared reply: `invalid request` with id 0 and no audit record.
+    let value = match serde_json::from_str::<serde_json::Value>(line) {
+        Ok(value) => value,
+        Err(error) => {
+            let invalid = invalid_line(&error.to_string());
+            return Some(PreparedControlLine {
+                response: invalid.response,
+                after_response: invalid.after_response,
+            });
+        }
     };
-    let mut response = response;
+    let mut response = prepare_request_value(value, state, client);
     let after_response = response.after_response.take();
-    let response = serde_json::to_string(&response).unwrap_or_else(|err| {
+    // A response that cannot be serialized is answered as the shared pipeline answers it.
+    let response = serde_json::to_string(&response).unwrap_or_else(|error| {
         json!({
             "id": 0_u64,
             "ok": false,
-            "error": format!("response serialization failed: {err}"),
+            "error": format!("response serialization failed: {error}"),
         })
         .to_string()
     });
@@ -541,238 +647,84 @@ fn prepare_request_value(
     state: &ControlState,
     client: Option<&str>,
 ) -> ControlResponse {
-    let mut request: ControlRequest = match serde_json::from_value(value) {
-        Ok(req) => req,
-        Err(err) => {
-            let response = ControlResponse::error(0, format!("invalid request: {err}"));
-            let audit_id = record_audit(
-                state,
-                ControlAuditRecord {
-                    request_id: 0,
-                    request_type: SmolStr::new("invalid"),
-                    correlation_id: None,
-                    ok: false,
-                    error: Some(SmolStr::new(format!("invalid request: {err}"))),
-                    auth_present: false,
-                    client,
-                    details: None,
-                },
-            );
-            return response.with_audit_id(audit_id);
-        }
-    };
-    stamp_comm_credential_channel(&mut request, client);
-    let audit_details = || {
-        comm_handlers::audit_details_for_comm_request(
-            request.r#type.as_str(),
-            request.params.as_ref(),
-        )
-    };
-    let request_role = match resolve_request_role(&request, state, client) {
-        Ok(role) => role,
-        Err(error) => {
-            let mut response = ControlResponse::error_with_code(
-                request.id,
-                error.message().to_string(),
-                error.code(),
-            );
-            attach_plant_error_contract(&mut response, &request, state);
-            let audit_id = record_audit(
-                state,
-                ControlAuditRecord {
-                    request_id: request.id,
-                    request_type: SmolStr::new(request.r#type.as_str()),
-                    correlation_id: request.request_id.as_deref(),
-                    ok: false,
-                    error: Some(SmolStr::new(error.message())),
-                    auth_present: request.auth.is_some(),
-                    client,
-                    details: audit_details(),
-                },
-            );
-            return response.with_audit_id(audit_id);
-        }
-    };
-    let required_role =
-        required_role_for_control_request(request.r#type.as_str(), request.params.as_ref());
-    if !request_role.allows(required_role) {
-        let error = format!("forbidden: requires role {}", required_role.as_str());
-        let mut response =
-            ControlResponse::error_with_code(request.id, error.clone(), "insufficient_role");
-        attach_plant_error_contract(&mut response, &request, state);
-        let audit_id = record_audit(
-            state,
-            ControlAuditRecord {
-                request_id: request.id,
-                request_type: SmolStr::new(request.r#type.as_str()),
-                correlation_id: request.request_id.as_deref(),
-                ok: false,
-                error: Some(SmolStr::new(error)),
-                auth_present: request.auth.is_some(),
-                client,
-                details: audit_details(),
-            },
-        );
-        return response.with_audit_id(audit_id);
+    // The operation is read before the shared pipeline takes the request, so that the host can
+    // complete the reply (`HostCompletion`).
+    let completion = HostCompletion::of(&value);
+    let mut response = dispatch_value(value, state, client);
+    if let Some(completion) = completion {
+        completion.apply(&mut response, state);
     }
-    if !state.debug_enabled.load(Ordering::Relaxed) && is_debug_request(request.r#type.as_str()) {
-        if let Ok(mut events) = state.events.lock() {
-            events.push_back(crate::debug::RuntimeEvent::FeatureDisabled {
-                feature: SmolStr::new("debug"),
-                request_type: Some(SmolStr::new(request.r#type.as_str())),
-                time: control_event_time_now(),
-            });
-        }
-        let response = ControlResponse::error_with_code(
-            request.id,
-            "debug disabled".into(),
-            "feature_disabled",
-        );
-        let audit_id = record_audit(
-            state,
-            ControlAuditRecord {
-                request_id: request.id,
-                request_type: SmolStr::new(request.r#type.as_str()),
-                correlation_id: request.request_id.as_deref(),
-                ok: false,
-                error: Some(SmolStr::new("debug disabled")),
-                auth_present: request.auth.is_some(),
-                client,
-                details: audit_details(),
-            },
-        );
-        return response.with_audit_id(audit_id);
-    }
-    let mut response = handlers::dispatch(&request, state).unwrap_or_else(|| {
-        if request.r#type.starts_with("plant.") {
-            ControlResponse::error_with_code(
-                request.id,
-                "unsupported plant operation".into(),
-                "unsupported_operation",
-            )
-        } else {
-            ControlResponse::error(request.id, "unsupported request".into())
-        }
-    });
-    attach_plant_error_contract(&mut response, &request, state);
-    if request.r#type == "status" && response.ok {
-        attach_access_capabilities(&mut response, request_role);
-    }
-    let audit_id = record_audit(
-        state,
-        ControlAuditRecord {
-            request_id: request.id,
-            request_type: SmolStr::new(request.r#type.as_str()),
-            correlation_id: request.request_id.as_deref(),
-            ok: response.ok,
-            error: response.error.as_ref().map(SmolStr::new),
-            auth_present: request.auth.is_some(),
-            client,
-            details: audit_details(),
-        },
-    );
-    response = response.with_audit_id(audit_id);
     response
 }
 
+// The shared pipeline answers `status` and refuses a request before the host's handlers see it, so
+// the host completes those replies after the pipeline, for the control connection and the web alike
+// (`prepare_request_line`, `prepare_request_value`): the runtime facts that Control Studio reads, and
+// the plant contract's error envelope. A `status` whose facts cannot be read (a poisoned lock) is
+// answered `<value> unavailable` under the audit record of the successful shared `status`. Moving
+// the facts into the shared reply through a `StatusPort` method, so that a chip reports them too, is
+// on the chips' parity list (specification 34; the runtime portability checklist).
+/// What the host adds to the reply of an operation that only it completes, read from the request
+/// before the shared pipeline answers it.
+enum HostCompletion {
+    /// `status` carries the runtime facts that Control Studio reads
+    /// (control-studio-runtime-protocol E1.3).
+    Status,
+    /// A failed `plant.*` reply carries the plant contract's error envelope, a refusal of the
+    /// shared pipeline included (specification 47 §20.1).
+    Plant(String),
+}
+
+impl HostCompletion {
+    /// The completion of the request `value`: none for any other operation, nor for a plant request
+    /// that is not a request at all, which is answered `invalid request` as any other.
+    fn of(value: &serde_json::Value) -> Option<Self> {
+        let kind = value.get("type")?.as_str()?;
+        if kind == "status" {
+            return Some(Self::Status);
+        }
+        (kind.starts_with("plant.") && ControlRequest::deserialize(value).is_ok())
+            .then(|| Self::Plant(kind.to_string()))
+    }
+
+    fn apply(self, response: &mut ControlResponse, state: &ControlState) {
+        match self {
+            Self::Status => status_handlers::attach_runtime_facts(response, state),
+            Self::Plant(operation) => attach_plant_error_contract(response, &operation, state),
+        }
+    }
+}
+
+/// A failed `plant.*` reply without a result carries the plant contract's error envelope: the
+/// contract, its schema version, the operation and the project's identity (specification 47
+/// §20.1).
 fn attach_plant_error_contract(
     response: &mut ControlResponse,
-    request: &ControlRequest,
+    operation: &str,
     state: &ControlState,
 ) {
-    if response.ok || response.result.is_some() || !request.r#type.starts_with("plant.") {
+    if response.ok || response.result.is_some() {
         return;
     }
-    response.result =
-        plant_handlers::error_envelope(request.r#type.as_str(), state.project_root.as_deref());
+    response.result = plant_handlers::error_envelope(operation, state.project_root.as_deref());
 }
 
+/// Runs the work a reply left for after it was written. `shutdown` stops the program and leaves the
+/// runtime running in the Stopped state, and the explicit exit also ends the process (specification
+/// 34, STATE-08).
 fn apply_after_response(action: Option<ControlAfterResponse>, state: &ControlState) {
-    if matches!(action, Some(ControlAfterResponse::StopResource)) {
-        state.resource.stop();
+    match action {
+        Some(ControlAfterResponse::StopResource) => state.resource.stop_program(),
+        Some(ControlAfterResponse::ExitRuntime) => state.resource.stop(),
+        None => {}
     }
 }
 
-fn attach_access_capabilities(response: &mut ControlResponse, role: AccessRole) {
-    let Some(result) = response.result.as_mut() else {
-        return;
-    };
-    let Some(object) = result.as_object_mut() else {
-        return;
-    };
-    object.insert("access".to_string(), access_capabilities_json(role));
-}
-
-fn access_capabilities_json(role: AccessRole) -> serde_json::Value {
-    let engineer = role.allows(AccessRole::Engineer);
-    let denied_reason = (!engineer).then(|| {
-        format!(
-            "{} role — connect with an engineer token to write or force.",
-            capitalize_role(role.as_str())
-        )
-    });
-    json!({
-        "role": role.as_str(),
-        "io": {
-            "write": engineer,
-            "force": engineer,
-            "release": engineer,
-        },
-        "reason": denied_reason,
-    })
-}
-
-fn capitalize_role(role: &str) -> String {
-    let mut chars = role.chars();
-    match chars.next() {
-        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-        None => String::new(),
-    }
-}
-
-fn stamp_comm_credential_channel(request: &mut ControlRequest, client: Option<&str>) {
-    if !matches!(
-        request.r#type.as_str(),
-        "comm.apply" | "comm.test" | "comm.browse_symbols" | "ads.import_symbols.apply"
-    ) {
-        return;
-    }
-    let channel = classify_comm_credential_channel(client);
-    let params = request.params.get_or_insert_with(|| json!({}));
-    if let Some(object) = params.as_object_mut() {
-        object.insert("credential_channel".to_string(), json!(channel));
-    }
-}
-
-fn classify_comm_credential_channel(client: Option<&str>) -> &'static str {
-    let Some(client) = client else {
-        return "trusted_same_host";
-    };
-    if client == "unix" || client == "loopback" {
-        return "trusted_same_host";
-    }
-    if let Ok(addr) = client.parse::<SocketAddr>()
-        && addr.ip().is_loopback()
-    {
-        return "trusted_same_host";
-    }
-    "untrusted_remote_plain_tcp"
-}
-
+/// An experiment value given as text: a boolean or a signed 64-bit integer, read by the Live
+/// Values grammar that every control value shares (specification 11, "Live Values"; specification
+/// 34 §4.3.1).
 fn parse_value(text: &str) -> Result<Value, RuntimeError> {
-    let upper = text.trim().to_ascii_uppercase();
-    if upper == "TRUE" {
-        return Ok(Value::Bool(true));
-    }
-    if upper == "FALSE" {
-        return Ok(Value::Bool(false));
-    }
-    if let Ok(int_val) = upper.parse::<i64>() {
-        return Ok(Value::LInt(int_val));
-    }
-    Err(RuntimeError::ControlError(
-        format!("unsupported value '{text}'").into(),
-    ))
+    value_grammar::parse_value(text).map_err(|error| RuntimeError::ControlError(error.into()))
 }
 
 #[cfg(test)]

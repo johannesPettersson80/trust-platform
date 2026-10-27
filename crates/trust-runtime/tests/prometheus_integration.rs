@@ -1,3 +1,8 @@
+//! The Prometheus endpoint of the web server: runtime and historian metrics, behind the token when
+//! the token mode is on.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::collections::VecDeque;
 use std::net::TcpListener;
 use std::path::PathBuf;
@@ -10,7 +15,6 @@ use indexmap::IndexMap;
 use smol_str::SmolStr;
 use trust_runtime::config::{ControlMode, WebAuthMode, WebConfig};
 use trust_runtime::control::{ControlState, SourceFile, SourceRegistry};
-use trust_runtime::debug::DebugVariableHandles;
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::historian::{HistorianConfig, HistorianService, RecordingMode};
@@ -95,13 +99,18 @@ fn control_state(
     auth_token: Option<&str>,
     historian: Option<Arc<HistorianService>>,
 ) -> Arc<ControlState> {
+    // The program and its control are wired as trust-runtime wires a compiled program
+    // (specification 44 §8.8): the snapshot carries the program's state, and the metadata is empty.
     let mut harness = TestHarness::from_source(source).expect("build test harness");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = trust_runtime::debug::DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
     harness.cycle();
     let snapshot = trust_runtime::debug::DebugSnapshot {
-        storage_abi: Default::default(),
-        storage: harness.runtime().storage().clone(),
+        storage: trust_runtime::memory::VariableStorage::new(),
         now: harness.runtime().current_time(),
+        compiled: Some(Arc::new(
+            harness.runtime().snapshot().expect("the program's state"),
+        )),
     };
     if let Some(service) = historian.as_ref() {
         service
@@ -153,9 +162,10 @@ fn control_state(
     }]);
 
     Arc::new(ControlState {
+        transfers: trust_runtime::control::new_transfer_session(),
         debug,
+        identify: trust_runtime::io::IdentifyHandle::default(),
         resource,
-        metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),
         sources,
         io_snapshot: Arc::new(Mutex::new(None)),
         io_snapshot_seen_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
@@ -180,12 +190,13 @@ fn control_state(
         controllers: trust_runtime::control::ControllerParameterService::default(),
         searches: trust_runtime::control::search::SearchService::default(),
         resource_name: SmolStr::new("RESOURCE"),
+        runtime_id: SmolStr::new("test-runtime-id"),
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
-        debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
         historian,
         openot_persistence_status: None,
         pairing: None,
+        search: Default::default(),
         ads_doctor_jobs: Arc::new(Mutex::new(
             trust_runtime::control::AdsDoctorJobStore::default(),
         )),

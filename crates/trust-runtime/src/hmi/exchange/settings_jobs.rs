@@ -5,8 +5,8 @@
 use std::sync::mpsc::Sender;
 
 use crate::hmi::commands::write::{write_points, WriteAction};
-use crate::hmi::member_paths::{resolve_member, MemberPath};
-use crate::runtime::Runtime;
+use crate::hmi::member_paths::{member_value, MemberPath};
+use crate::runtime::program_access::ProgramWrite;
 use crate::value::Value;
 
 /// One change: the member, the value it must still hold, and what is written.
@@ -42,10 +42,10 @@ pub(super) struct PendingSettings {
     pub(super) respond_to: Sender<SettingsOutcome>,
 }
 
-/// Runs a settings job on the runtime thread, between scans.
-pub(super) fn run(runtime: &mut Runtime, job: &SettingsJob) -> SettingsOutcome {
+/// Runs a settings job on the runtime thread, at a call of `Hmi.Display`.
+pub(super) fn run(program: &mut dyn ProgramWrite, job: &SettingsJob) -> SettingsOutcome {
     for change in &job.changes {
-        if resolve_member(&change.path, runtime.storage()) != Some(&change.unchanged) {
+        if member_value(&change.path, &*program).as_ref() != Some(&change.unchanged) {
             return SettingsOutcome::Changed(change.path.clone());
         }
     }
@@ -55,14 +55,14 @@ pub(super) fn run(runtime: &mut Runtime, job: &SettingsJob) -> SettingsOutcome {
             .iter()
             .map(|change| (change.path.clone(), change.write.clone()))
             .collect();
-        if let Err(reason) = write_points(runtime, &writes) {
-            return SettingsOutcome::Refused(reason);
+        if let Err(refused) = write_points(program, &writes) {
+            return SettingsOutcome::Refused(refused.reason);
         }
     }
     SettingsOutcome::Values(
         job.read
             .iter()
-            .map(|path| resolve_member(path, runtime.storage()).cloned())
+            .map(|path| member_value(path, &*program))
             .collect(),
     )
 }
@@ -121,7 +121,10 @@ END_PROGRAM
                 ),
             ],
         };
-        match run(harness.runtime_mut(), &job) {
+        match harness
+            .runtime_mut()
+            .with_program(|program| run(program, &job))
+        {
             SettingsOutcome::Values(values) => assert_eq!(
                 values,
                 vec![
@@ -153,7 +156,7 @@ END_PROGRAM
             ],
         };
         assert!(matches!(
-            run(harness.runtime_mut(), &stale),
+            harness.runtime_mut().with_program(|program| run(program, &stale)),
             SettingsOutcome::Changed(member) if member == path("Main.P101.StartTimeout")
         ));
         let unfit = SettingsJob {
@@ -172,15 +175,17 @@ END_PROGRAM
             ],
         };
         assert!(matches!(
-            run(harness.runtime_mut(), &unfit),
+            harness
+                .runtime_mut()
+                .with_program(|program| run(program, &unfit)),
             SettingsOutcome::Refused(_)
         ));
         assert_eq!(
-            resolve_member(
+            harness.runtime().with_program_view(|program| member_value(
                 &path("Main.P101.ServiceInterval"),
-                harness.runtime().storage()
-            ),
-            Some(&Value::LReal(4000.0)),
+                program
+            )),
+            Some(Value::LReal(4000.0)),
             "nothing was written"
         );
     }

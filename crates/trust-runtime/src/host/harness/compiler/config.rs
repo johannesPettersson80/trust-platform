@@ -17,8 +17,8 @@ use super::super::util::{
 };
 use super::lower_type_ref;
 use super::model::{
-    AccessDecl, AccessPart, AccessPath, ConfigInit, ConfigModel, FbTaskBinding, GlobalInit,
-    LoweringContext, LoweringInputs, ProgramInstanceConfig,
+    AccessDecl, AccessPart, AccessPath, ConfigInit, ConfigModel, ConnectionEnd, FbTaskBinding,
+    GlobalInit, LoweringContext, LoweringInputs, ProgramConnection, ProgramInstanceConfig,
 };
 use super::vars::{parse_var_decl, var_block_kind, var_block_qualifiers, VarBlockKind};
 

@@ -7,6 +7,7 @@ export { OPEN_LESSON_README_KEY } from "../projectLanding";
 import type { ExampleEntry } from "./model";
 import { adaptCopiedLessonReadme } from "./copiedLessonReadme";
 import { persistControlLessonProject } from "./projectLocations";
+import { projectRequest } from "../projectRequest";
 
 // Copy the selected example, then hand its intended destination to the shared
 // activation dispatcher before opening the new folder.
@@ -14,7 +15,7 @@ export async function copyExample(
   context: vscode.ExtensionContext,
   entry: ExampleEntry
 ): Promise<boolean> {
-  const automation = readAcceptanceCopyOverride(entry);
+  const automation = await readAcceptanceCopyOverride(entry);
   const base = automation?.base ?? (await promptExampleDestination());
   if (!base) {
     return false;
@@ -31,7 +32,7 @@ export async function copyExample(
     if (!name) {
       return false;
     }
-    const nameValidation = validateExampleFolderName(name);
+    const nameValidation = await validateExampleFolderName(name);
     if (nameValidation) {
       void vscode.window.showErrorMessage(nameValidation);
       return false;
@@ -116,38 +117,30 @@ async function promptExampleName(entry: ExampleEntry): Promise<string | undefine
   });
 }
 
-export function validateExampleFolderName(value: string): string | undefined {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return "A folder name is required.";
+/**
+ * Why `value` is not a folder name the copy can take, or undefined: the language server's rule of a project name
+ * (`trust-lsp.copyExample`, specification 25 §3.1).
+ */
+export async function validateExampleFolderName(value: string): Promise<string | undefined> {
+  const answer = await projectRequest<{ problem: string | null }>("trust-lsp.copyExample", {
+    action: "name",
+    name: value,
+  });
+  if (!answer.ok) {
+    return answer.error;
   }
-  if (trimmed === "." || trimmed === "..") {
-    return "Choose a project folder name, not a path marker.";
-  }
-  if (trimmed.includes("/") || trimmed.includes("\\")) {
-    return "The name must not contain path separators.";
-  }
-  if (/[<>:\"|?*\u0000-\u001f]/.test(trimmed)) {
-    return "The name contains characters that are not valid in a folder name.";
-  }
-  if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(trimmed)) {
-    return "Choose a name that is valid on Windows too.";
-  }
-  if (/[. ]$/.test(trimmed)) {
-    return "A folder name cannot end with a space or period.";
-  }
-  return undefined;
+  return answer.problem ?? undefined;
 }
 
-function readAcceptanceCopyOverride(
+async function readAcceptanceCopyOverride(
   entry: ExampleEntry
-): { base: vscode.Uri; name: string; openFolder: boolean } | undefined {
+): Promise<{ base: vscode.Uri; name: string; openFolder: boolean } | undefined> {
   const base = process.env.TRUST_UX_EXAMPLE_DESTINATION;
   if (!base) {
     return undefined;
   }
   const name = (process.env.TRUST_UX_EXAMPLE_NAME || entry.id).trim();
-  const validation = validateExampleFolderName(name);
+  const validation = await validateExampleFolderName(name);
   if (validation) {
     throw new Error(`Invalid TRUST_UX_EXAMPLE_NAME: ${validation}`);
   }

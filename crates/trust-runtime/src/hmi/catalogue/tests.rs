@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::harness::TestHarness;
-use crate::hmi::member_paths::{resolve_member, MemberPath};
+use crate::hmi::member_paths::{member_value, MemberPath};
 
 /// Phase 1 of §5.2: displays, controls and layout components.
 const PHASE_ONE: &[(&str, ComponentCategory)] = &[
@@ -167,9 +167,10 @@ END_PROGRAM
     .expect("the program compiles");
     let value = |name: &str| {
         let path = MemberPath::parse(&format!("Main.{name}")).expect("path");
-        resolve_member(&path, harness.runtime().storage())
+        harness
+            .runtime()
+            .with_program_view(|program| member_value(&path, program))
             .unwrap_or_else(|| panic!("Main.{name}"))
-            .clone()
     };
     let kinds = |name: &str| {
         let value = value(name);

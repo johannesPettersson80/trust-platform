@@ -4,6 +4,9 @@ use trust_runtime::harness::{CompileSession, SourceFile};
 use trust_runtime::io::IoAddress;
 use trust_runtime::value::{Duration, Value};
 
+mod control_heater_support;
+use control_heater_support::{compile, LessonRuntime};
+
 const MAIN: &str = include_str!(
     "../../../examples/control/01-feedback-foundations-and-temperature-control/04-water-heater-p/src/Main.st"
 );
@@ -16,10 +19,7 @@ fn applied(temperature: f64, enabled: bool, abort: bool) -> f64 {
             include_str!("../../../libraries/control/src/control.st"),
         ),
     ]);
-    let mut runtime = session.build_runtime().unwrap();
-    runtime
-        .apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)
-        .unwrap();
+    let mut runtime = compile(session);
     let debug = runtime.enable_debug();
     for (address, value) in [
         ("%IL0", Value::LWord(temperature.to_bits())),
@@ -31,12 +31,9 @@ fn applied(temperature: f64, enabled: bool, abort: bool) -> f64 {
     }
     runtime.advance_time(Duration::from_millis(100));
     runtime.execute_cycle().unwrap();
-    match runtime
-        .io()
-        .read(&IoAddress::parse("%QL0").unwrap())
-        .unwrap()
-    {
+    match runtime.read_io(&IoAddress::parse("%QL0").unwrap()).unwrap() {
         Value::LWord(bits) => f64::from_bits(bits),
+        Value::LReal(value) => value,
         other => panic!("expected LREAL output, got {other:?}"),
     }
 }

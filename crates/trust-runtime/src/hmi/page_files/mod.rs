@@ -77,4 +77,5 @@ pub use types::{
     HmiPipeStyle, HmiPopup, HmiRole, HmiScalar, HmiScreen, HmiSymbolStyle, HmiTexts, HmiTheme,
     HmiTopBar, MODE_NAMES,
 };
+pub(crate) use write::string as toml_string;
 pub use write::{write_page, write_popup, write_screen};

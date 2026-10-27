@@ -6,6 +6,7 @@ mod execution_settings;
 mod feedback_relay;
 mod limits;
 mod process_inputs;
+mod program;
 mod record_period;
 mod run_contracts;
 mod run_handlers;

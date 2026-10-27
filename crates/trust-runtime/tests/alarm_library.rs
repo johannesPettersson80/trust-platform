@@ -5,7 +5,7 @@
 use serde_json::json;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::hmi::commands::write::{write_point, WriteAction};
-use trust_runtime::hmi::member_paths::{resolve_member, MemberPath};
+use trust_runtime::hmi::member_paths::{member_value, MemberPath};
 use trust_runtime::value::{Duration, Value};
 
 const ALARM: &str = include_str!("../../../libraries/alarm/src/alarm.st");
@@ -120,8 +120,9 @@ impl Plant {
 
     fn read(&self, path: &str) -> Value {
         let path = MemberPath::parse(&format!("Main.{path}")).expect("a path");
-        resolve_member(&path, self.harness.runtime().storage())
-            .cloned()
+        self.harness
+            .runtime()
+            .with_program_view(|program| member_value(&path, program))
             .unwrap_or_else(|| panic!("Main.{path:?} exists"))
     }
 
@@ -146,7 +147,9 @@ impl Plant {
     /// An operator action as the runtime applies it: the request field is written.
     fn request(&mut self, alarm: &str, field: &str, value: serde_json::Value) {
         let path = MemberPath::parse(&format!("Main.{alarm}.Request.{field}")).expect("a path");
-        write_point(self.harness.runtime_mut(), &path, &WriteAction::Set(value))
+        self.harness
+            .runtime_mut()
+            .with_program(|program| write_point(program, &path, &WriteAction::Set(value)))
             .expect("the request is written");
     }
 }
@@ -386,9 +389,10 @@ fn a_comment_request_is_cleared_after_the_scan() {
     let mut plant = Plant::new();
     plant.request("Digital", "Comment", json!("Checked on site"));
     plant.scan();
+    // The comment is a WSTRING[120], so that a text in any language fits (specification 40 §4).
     assert_eq!(
         plant.read("Digital.Request.Comment"),
-        Value::String("".into())
+        Value::WString("".into())
     );
 }
 

@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
-use trust_runtime::harness::{CompileSession, SourceFile};
+use trust_runtime::harness::{CompileSession, SourceFile, TestHarness};
 use trust_runtime::io::IoAddress;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
 fn temp_simulation_path() -> PathBuf {
     let stamp = std::time::SystemTime::now()
@@ -17,9 +17,10 @@ fn temp_simulation_path() -> PathBuf {
     ))
 }
 
-fn read_lreal(runtime: &Runtime, address: &IoAddress) -> f64 {
-    match runtime.io().read(address).expect("read LREAL") {
+fn read_lreal(runtime: &CompiledRuntime, address: &IoAddress) -> f64 {
+    match runtime.read_io(address).expect("read LREAL") {
         Value::LWord(bits) => f64::from_bits(bits),
+        Value::LReal(value) => value,
         other => panic!("expected LWORD storage for LREAL, got {other:?}"),
     }
 }
@@ -76,16 +77,18 @@ CommandA := ControllerA.Update(Input := InputA);
 CommandB := ControllerB.Update(Input := InputB);
 END_PROGRAM
 "#;
-    let mut runtime = CompileSession::from_sources(vec![
-        SourceFile::with_path(
-            "Control/control.st",
-            include_str!("../../../libraries/control/src/control.st"),
-        ),
-        SourceFile::with_path("main.st", source),
-    ])
-    .label_errors(true)
-    .build_runtime()
-    .expect("compile coupled Control.PID fixture");
+    let mut runtime = TestHarness::from_session(
+        CompileSession::from_sources(vec![
+            SourceFile::with_path(
+                "Control/control.st",
+                include_str!("../../../libraries/control/src/control.st"),
+            ),
+            SourceFile::with_path("main.st", source),
+        ])
+        .label_errors(true),
+    )
+    .expect("compile coupled Control.PID fixture")
+    .into_runtime();
     let path = temp_simulation_path();
     std::fs::write(
         &path,

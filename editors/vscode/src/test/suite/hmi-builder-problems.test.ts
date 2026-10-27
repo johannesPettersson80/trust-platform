@@ -6,6 +6,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 
 import { languageServerReady, openBuilder, postedOfType, until } from "./hmiBuilderHost";
+import { runtimeDeployDeps } from "../../hmiBuilder/editor/deployRuntime";
 
 // Specification 39, §7.6: the binding problems of page and popup files are errors in the Problems
 // view, checked when a file opens or changes and when a source file of its project is saved.
@@ -560,6 +561,8 @@ suite("HMI Builder editor: Deploy on the host", function () {
         ],
       }),
       post: async () => ({ status: 200, body: { ok: true, active: "abc123", previous: "old999" } }),
+      // The address the language server gives for the topology above.
+      address: runtimeDeployDeps.address,
     });
     const edit = new vscode.WorkspaceEdit();
     edit.insert(document.uri, new vscode.Position(0, 0), "# unsaved\n");

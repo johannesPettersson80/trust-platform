@@ -1,4 +1,6 @@
-use crate::harness::{CompileSession, TestHarness};
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
+use crate::harness::TestHarness;
 use crate::value::Value;
 
 fn run(source: &str) -> TestHarness {
@@ -153,28 +155,4 @@ same := value.%X0 AND value.%X15 AND (value = WORD#16#8001);
 END_PROGRAM
 "#);
     assert_eq!(harness.get_output("same"), Some(Value::Bool(true)));
-}
-
-#[test]
-fn partial_access_runtime_source_emits_bytecode_module_and_bytes() {
-    let session = CompileSession::from_source(
-        r#"
-PROGRAM Main
-VAR value : DWORD := DWORD#16#12345678; result : WORD; END_VAR
-value.%B0 := BYTE#16#AA;
-result := value.%W1;
-END_PROGRAM
-"#,
-    );
-    let module = session
-        .build_bytecode_module()
-        .expect("partial access must emit a bytecode module");
-    assert!(
-        !module.sections.is_empty(),
-        "partial-access source must retain executable bytecode"
-    );
-    let bytes = session
-        .build_bytecode_bytes()
-        .expect("partial access must emit encoded bytecode");
-    assert!(!bytes.is_empty(), "encoded bytecode must not be empty");
 }

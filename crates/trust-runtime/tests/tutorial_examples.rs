@@ -1,8 +1,11 @@
+//! The tutorials and the vendor and visual examples compile into programs, and the tutorials run
+//! as their lessons describe.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::path::{Path, PathBuf};
 
-use trust_runtime::harness::{
-    bytecode_module_from_source_with_path, bytecode_module_from_sources_with_paths, TestHarness,
-};
+use trust_runtime::harness::TestHarness;
 use trust_runtime::value::{Duration, Value};
 
 include!("../../../tests/support/repository_source_oracle.rs");
@@ -29,7 +32,7 @@ const TUTORIALS: [(&str, &str); 9] = [
     ("09_simulation_coupling/src/main.st", SIMULATION_COUPLING),
 ];
 
-fn load_example_sources(example: &str) -> (Vec<String>, Vec<String>) {
+fn load_example_sources(example: &str) -> Vec<String> {
     let repository_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let src_root = repository_root.join("examples").join(example).join("src");
 
@@ -46,7 +49,6 @@ fn load_example_sources(example: &str) -> (Vec<String>, Vec<String>) {
     files.sort();
 
     let mut sources = Vec::with_capacity(files.len());
-    let mut paths = Vec::with_capacity(files.len());
     for file in files {
         let source = repository_source_tree_read_to_string!(
             (&file, &repository_root),
@@ -54,31 +56,20 @@ fn load_example_sources(example: &str) -> (Vec<String>, Vec<String>) {
             extension = "st",
         )
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", file.display()));
-        let file_name = file
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or_else(|| panic!("invalid example file name: {}", file.display()));
         sources.push(source);
-        paths.push(format!("{example}/{file_name}"));
     }
-    (sources, paths)
+    sources
 }
 
 fn assert_example_compiles(example: &str, label: &str) {
-    let (sources, paths) = load_example_sources(example);
+    let sources = load_example_sources(example);
     let source_refs = sources
-        .iter()
-        .map(std::string::String::as_str)
-        .collect::<Vec<_>>();
-    let path_refs = paths
         .iter()
         .map(std::string::String::as_str)
         .collect::<Vec<_>>();
 
     TestHarness::from_sources(&source_refs)
         .unwrap_or_else(|err| panic!("runtime compile failed for {label}: {err}"));
-    bytecode_module_from_sources_with_paths(&source_refs, &path_refs)
-        .unwrap_or_else(|err| panic!("bytecode compile failed for {label}: {err}"));
 }
 
 fn visual_example_roots() -> [(&'static str, &'static str); 3] {
@@ -148,27 +139,25 @@ fn read_visual_companion_pair(
 }
 
 #[test]
-fn tutorial_examples_parse_typecheck_and_compile_to_bytecode() {
+fn tutorial_examples_parse_typecheck_and_compile() {
     for (name, source) in TUTORIALS {
         TestHarness::from_source(source)
             .unwrap_or_else(|err| panic!("runtime compile failed for {name}: {err}"));
-        bytecode_module_from_source_with_path(source, name)
-            .unwrap_or_else(|err| panic!("bytecode compile failed for {name}: {err}"));
     }
 }
 
 #[test]
-fn siemens_scl_v1_example_parse_typecheck_and_compile_to_bytecode() {
+fn siemens_scl_v1_example_parse_typecheck_and_compile() {
     assert_example_compiles("siemens_scl_v1", "Siemens SCL v1 example");
 }
 
 #[test]
-fn mitsubishi_gxworks3_v1_example_parse_typecheck_and_compile_to_bytecode() {
+fn mitsubishi_gxworks3_v1_example_parse_typecheck_and_compile() {
     assert_example_compiles("mitsubishi_gxworks3_v1", "Mitsubishi GX Works3 v1 example");
 }
 
 #[test]
-fn ethercat_ek1100_elx008_v1_example_parse_typecheck_and_compile_to_bytecode() {
+fn ethercat_ek1100_elx008_v1_example_parse_typecheck_and_compile() {
     assert_example_compiles(
         "ethercat_ek1100_elx008_v1",
         "EtherCAT EK1100/ELx008 v1 example",
@@ -176,7 +165,7 @@ fn ethercat_ek1100_elx008_v1_example_parse_typecheck_and_compile_to_bytecode() {
 }
 
 #[test]
-fn plcopen_xml_st_complete_example_parse_typecheck_and_compile_to_bytecode() {
+fn plcopen_xml_st_complete_example_parse_typecheck_and_compile() {
     assert_example_compiles("plcopen_xml_st_complete", "PLCopen XML ST-complete example");
 }
 
@@ -216,16 +205,6 @@ fn visual_examples_compile_generated_companion_and_runtime_entry() {
             TestHarness::from_sources(&sources).unwrap_or_else(|err| {
                 panic!(
                     "runtime compile failed for visual artifacts {} + {}: {err}",
-                    companion_path.display(),
-                    runtime_path.display()
-                )
-            });
-            let companion_path_text = companion_path.to_string_lossy().to_string();
-            let runtime_path_text = runtime_path.to_string_lossy().to_string();
-            let path_refs = [companion_path_text.as_str(), runtime_path_text.as_str()];
-            bytecode_module_from_sources_with_paths(&sources, &path_refs).unwrap_or_else(|err| {
-                panic!(
-                    "bytecode compile failed for visual artifacts {} + {}: {err}",
                     companion_path.display(),
                     runtime_path.display()
                 )

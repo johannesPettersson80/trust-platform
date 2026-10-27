@@ -2,7 +2,6 @@
   Auto-generated from blockly source: snake-simple-v2.blockly.json
   Source of truth is the visual file unless migrated fully to ST.
 *)
-
 FUNCTION_BLOCK FB_snake_simple_v2_BLOCKLY
 VAR_EXTERNAL
   ld_io_QX0_0 : BOOL;
@@ -14,6 +13,7 @@ VAR_EXTERNAL
   ld_io_QX0_6 : BOOL;
   ld_io_QX0_7 : BOOL;
 END_VAR
+
 
 VAR
   position : INT;

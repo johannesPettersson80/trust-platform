@@ -27,9 +27,10 @@ package "trust-runtime: web thread" as web #MistyRose {
 }
 
 package "trust-runtime: resource thread" as resource #PaleTurquoise {
-    component "Program task calls Hmi.Display\nruntime::hmi_subsystem\nserved at the end of that scan (§18)" as command
+    component "Program task calls Hmi.Display\nruntime::hmi_subsystem::serve_after_scan\nat the end of that scan, after the outputs (§18)" as command
     component "hmi::display_values::read\nmember paths + wire values\n(no storage copy)" as read
-    component "VariableStorage\nglobals and instances" as storage
+    component "Compiled program (ProgramWrite)\nread and written through the image's\nsymbol and type tables (spec 44 §13.3)" as storage
+    component "Method commands\nCompiledRuntime::call_method\nbetween scans (§21.2)" as methods
 }
 
 package "trust-runtime: control" as control #Honeydew {
@@ -58,6 +59,7 @@ stream --> files : the page's bound paths
 stream --> port : wait_for_call + read
 port --> exchange
 command --> exchange : serve after Display call
+command --> methods : queued method commands
 exchange --> read : copy values at service boundary
 read --> storage
 read --> presentation : equipment facts in the same snapshot

@@ -1,15 +1,29 @@
+//! A Modbus TCP and an MQTT driver composed on one runtime, against a live test server and broker:
+//! both feed the input image and both receive the output image of the same scan.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::io::{self, ErrorKind, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration as StdDuration, Instant};
 
-use trust_runtime::eval::expr::{Expr, LValue};
-use trust_runtime::eval::stmt::Stmt;
-use trust_runtime::io::{IoAddress, IoDriver, ModbusTcpDriver, MqttIoDriver};
-use trust_runtime::task::ProgramDef;
-use trust_runtime::value::Value;
-use trust_runtime::RuntimeBuilder;
+use trust_runtime::harness::TestHarness;
+use trust_runtime::io::{IoDriver, ModbusTcpDriver, MqttIoDriver};
+use trust_runtime::RestartMode;
+
+/// `out` copies `in` on every scan.
+const COPY: &str = r#"
+VAR_GLOBAL
+    in AT %IX0.0 : BOOL;
+    out AT %QX0.0 : BOOL;
+END_VAR
+
+PROGRAM P
+out := in;
+END_PROGRAM
+"#;
 
 const MQTT_BROKER_IDLE_TIMEOUTS: usize = 600;
 const MQTT_LIVE_TEST_TIMEOUT: StdDuration = StdDuration::from_secs(10);
@@ -443,60 +457,13 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
     let topic_out = "trust/test/out";
     let (mqtt_addr, mqtt_state) = start_mqtt_test_broker(topic_in, Some(vec![1]), 0);
 
-    let mut runtime = RuntimeBuilder::new();
-    runtime.io_mut().resize(1, 1, 0);
-    runtime
-        .register_global(trust_runtime::program_model::VarDef {
-            name: "in".into(),
-            type_id: trust_hir::TypeId::BOOL,
-            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
-            retain: trust_runtime::RetainPolicy::Unspecified,
-            static_storage: false,
-            external: false,
-            in_out: false,
-            constant: false,
-            address: None,
-        })
-        .expect("declare test global");
-    runtime
-        .register_global(trust_runtime::program_model::VarDef {
-            name: "out".into(),
-            type_id: trust_hir::TypeId::BOOL,
-            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
-            retain: trust_runtime::RetainPolicy::Unspecified,
-            static_storage: false,
-            external: false,
-            in_out: false,
-            constant: false,
-            address: None,
-        })
-        .expect("declare test global");
-    let program = ProgramDef {
-        name: "P".into(),
-        vars: Vec::new(),
-        temps: Vec::new(),
-        using: Vec::new(),
-        body: vec![Stmt::Assign {
-            target: LValue::Name("out".into()),
-            value: Expr::Name("in".into()),
-            location: None,
-        }],
-    };
-    runtime.register_program(program);
-    runtime.io_mut().bind(
-        "in",
-        IoAddress::parse("%IX0.0").expect("parse input address"),
-    );
-    runtime.io_mut().bind(
-        "out",
-        IoAddress::parse("%QX0.0").expect("parse output address"),
-    );
-
     let modbus_params: toml::Value = toml::from_str(&format!(
         "address = \"{modbus_addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 1\non_error = \"warn\"\n"
     ))
     .expect("parse modbus params");
-    let mut runtime = runtime.build().expect("install declared test runtime");
+    let mut runtime = TestHarness::from_source(COPY)
+        .expect("the copy program compiles")
+        .into_runtime();
     runtime.add_io_driver(
         "modbus-tcp",
         Box::new(ModbusTcpDriver::from_params(&modbus_params).expect("create modbus driver")),
@@ -565,14 +532,18 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
                 let text = err.to_string();
                 let last_fault = runtime
                     .last_fault()
-                    .map_or_else(|| "<none>".to_string(), ToString::to_string);
+                    .map_or_else(|| "<none>".to_string(), |fault| fault.to_string());
                 let retry_text = format!("{text}; last_fault={last_fault}");
                 let is_transient_class = retry_text.contains("i/o freshness")
                     || retry_text.contains("i/o transport error");
                 if !is_transient_class || !is_retryable_composed_live_error(&retry_text) {
                     panic!("execute cycle: {err}; last_fault={last_fault}");
                 }
-                runtime.clear_fault();
+                // A warm restart clears the latched transient fault; `out` follows `in` again in
+                // the next scan.
+                runtime
+                    .restart(RestartMode::Warm)
+                    .expect("a warm restart clears the transient I/O fault");
                 last_cycle_error = Some(retry_text);
             }
         }

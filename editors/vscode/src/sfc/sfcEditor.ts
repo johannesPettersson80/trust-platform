@@ -1,44 +1,51 @@
+// The SFC editor's host (specification 25 §11.4, specification 17 §5). Every rule about an SFC
+// file is the language server's (`trust-lsp.visual*`): the canvas graph of the file, the file of a
+// graph, the structure checks, the canvas edits and the Structured Text companion. This host
+// forwards the webview's requests there, writes the answers into the document and the companion
+// files, and shows the outcome. Running an SFC is the shared Run in the truST sidebar, through its
+// generated companion and runtime entry; the editor has no runtime of its own.
+
 import * as vscode from "vscode";
 import * as path from "path";
-import { SfcEngine, SfcWorkspace } from "./sfcEngine";
-import { RuntimeClient, getRuntimeConfig } from "../statechart/runtimeClient";
-import { RuntimeController } from "../visual/runtime/runtimeController";
 import {
-  isRuntimeWebviewMessage,
-  runtimeMessage,
-  type RuntimeWebviewToExtensionMessage,
-} from "../visual/runtime/runtimeMessages";
+  openCompanion,
+  requestCompanion,
+  syncVisualCompanionFromUri,
+} from "../visual/companionSt";
 import {
-  persistRuntimeUiMode,
-  runtimeUiModeFromConfig,
-} from "../visual/runtime/runtimeModeConfig";
-import {
-  applyRuntimePanelSettings,
-  boolToDisplay,
-  collectRuntimePanelSettings,
-  isRuntimePanelWebviewMessage,
-  runtimePanelModeToUi,
-  runtimePanelStatusFromState,
-  type RuntimePanelIoEntry,
-  type RuntimePanelIoState,
-  type RuntimePanelWebviewMessage,
-} from "../visual/runtime/runtimePanelBridge";
-import {
-  forceVisualRuntimeIo,
-  releaseVisualRuntimeIo,
-  startVisualRuntime,
-  stopVisualRuntime,
-  writeVisualRuntimeIo,
-} from "../visual/runtime/stRuntimeCommands";
+  problemText,
+  visualRequest,
+  type VisualAnswer,
+  type VisualProblem,
+} from "../visual/visualCommands";
+/** The canvas graph the webview holds (`sfc/webview/types.ts` `SfcGraph`); the host only passes it on. */
+type SfcGraph = unknown;
 
-type ExecutionMode = "simulation" | "hardware";
+/** A canvas edit request of the webview (`sfc/webview/types.ts` `SfcEditRequest`). */
+interface SfcEditRequest {
+  type: "edit";
+  requestId: number;
+  graph: SfcGraph;
+  edit: Record<string, unknown>;
+}
 
-interface ExecutionState {
-  workspace: SfcWorkspace;
-  mode: ExecutionMode;
-  isRunning: boolean;
-  engine: SfcEngine;
-  webviewPanel: vscode.WebviewPanel;
+/** The messages of the SFC webview (`sfc/webview/types.ts` `SfcWebviewToExtensionMessage`). */
+type SfcWebviewToExtensionMessage =
+  | { type: "ready" }
+  | { type: "openAsText" }
+  | { type: "save" | "validate" | "previewST" | "generateST"; graph: SfcGraph }
+  | SfcEditRequest;
+
+interface GraphAnswer extends VisualAnswer {
+  graphText?: string;
+}
+
+interface TextAnswer extends VisualAnswer {
+  text?: string;
+}
+
+interface ValidateAnswer extends VisualAnswer {
+  issues?: unknown[];
 }
 
 const WEBVIEW_HTML_TEMPLATE = `<!DOCTYPE html>
@@ -98,18 +105,24 @@ const WEBVIEW_HTML_TEMPLATE = `<!DOCTYPE html>
 </html>`;
 
 /**
+ * The file text of a canvas graph, or why there is none. Saved over `previousText`, the file keeps
+ * that file's name and metadata.
+ */
+async function formatGraph(graph: SfcGraph, previousText?: string): Promise<TextAnswer> {
+  return visualRequest<TextAnswer>("trust-lsp.visualFormat", {
+    kind: "sfc",
+    graphText: JSON.stringify(graph),
+    previousText,
+    now: new Date().toISOString(),
+  });
+}
+
+/**
  * Custom Editor Provider for SFC JSON files
  * Provides a visual editor for .sfc.json files
  */
 export class SfcEditorProvider implements vscode.CustomTextEditorProvider {
   private static readonly viewType = "trust-lsp.sfc.editor";
-  private activeExecutions = new Map<string, ExecutionState>();
-  private runtimeIoState = new Map<string, RuntimePanelIoState>();
-  private readonly runtimeController = new RuntimeController({
-    openPanel: () => vscode.commands.executeCommand("trust-lsp.debug.openIoPanel"),
-    openSettings: () =>
-      vscode.commands.executeCommand("trust-lsp.debug.openIoPanelSettings"),
-  });
 
   public static register(context: vscode.ExtensionContext): vscode.Disposable {
     const provider = new SfcEditorProvider(context);
@@ -136,9 +149,6 @@ export class SfcEditorProvider implements vscode.CustomTextEditorProvider {
     webviewPanel: vscode.WebviewPanel,
     _token: vscode.CancellationToken
   ): Promise<void> {
-    const docId = document.uri.toString();
-
-    // Setup webview
     webviewPanel.webview.options = {
       enableScripts: true,
       localResourceRoots: [
@@ -148,60 +158,45 @@ export class SfcEditorProvider implements vscode.CustomTextEditorProvider {
 
     webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview);
 
-    // Helper function to update webview
-    function updateWebview() {
-      void webviewPanel.webview.postMessage({
-        type: "update",
-        content: document.getText(),
+    // The canvas graph of the document; only the answer to the latest request is shown.
+    let latestUpdate = 0;
+    const updateWebview = async (): Promise<void> => {
+      const update = ++latestUpdate;
+      const answer = await visualRequest<GraphAnswer>("trust-lsp.visualParse", {
+        kind: "sfc",
+        text: document.getText(),
       });
-    }
+      if (update !== latestUpdate) {
+        return;
+      }
+      if (answer.ok && typeof answer.graphText === "string") {
+        void webviewPanel.webview.postMessage({
+          type: "update",
+          graph: JSON.parse(answer.graphText) as SfcGraph,
+        });
+        return;
+      }
+      const detail = problemText(answer);
+      void webviewPanel.webview.postMessage({ type: "update", error: detail });
+      void vscode.window.showErrorMessage(`Could not open this SFC: ${detail}`);
+    };
 
-    // Hook up event handlers
     const changeDocumentSubscription =
       vscode.workspace.onDidChangeTextDocument((e) => {
         if (e.document.uri.toString() === document.uri.toString()) {
-          updateWebview();
-          this.runtimeIoState.set(docId, this.buildIoStateFromDocument(document));
-          this.postRuntimePanelIoState(docId, document, webviewPanel);
+          void updateWebview();
         }
       });
 
-    // Handle messages from webview
     const messageSubscription = webviewPanel.webview.onDidReceiveMessage(
-      async (message) => {
-        console.log("[SFC] Received message from webview:", message.type);
-        
-        if (isRuntimePanelWebviewMessage(message)) {
-          await this.handleRuntimePanelMessage(docId, document, message, webviewPanel);
-          return;
-        }
-
-        if (isRuntimeWebviewMessage(message)) {
-          await this.handleRuntimeMessage(docId, document, message, webviewPanel);
-          return;
-        }
-
+      async (message: SfcWebviewToExtensionMessage) => {
         switch (message.type) {
           case "ready":
-            updateWebview();
-            this.runtimeController.ensureState(docId);
-            this.runtimeController.setMode(
-              docId,
-              runtimeUiModeFromConfig(document.uri)
-            );
-            this.postRuntimeState(docId, document.uri, webviewPanel);
-            this.postRuntimePanelSettings(document.uri, webviewPanel);
-            this.postRuntimePanelIoState(docId, document, webviewPanel);
+            await updateWebview();
             return;
 
           case "save":
-            await this.saveDocument(document, message.content);
-            return;
-
-          case "error":
-            vscode.window.showErrorMessage(
-              message.error || "Could not open this SFC. Fix the file and try again."
-            );
+            await this.saveDocument(document, message.graph);
             return;
 
           case "openAsText":
@@ -214,51 +209,30 @@ export class SfcEditorProvider implements vscode.CustomTextEditorProvider {
             return;
 
           case "validate":
-            await this.validateSfc(document, webviewPanel);
+            await this.validateSfc(message.graph, webviewPanel);
+            return;
+
+          case "previewST":
+            await this.showCompanion(document, message.graph, webviewPanel, false);
             return;
 
           case "generateST":
-            await this.generateST(
-              document,
-              webviewPanel,
-              "content" in message && typeof message.content === "string"
-                ? message.content
-                : undefined
-            );
+            await this.showCompanion(document, message.graph, webviewPanel, true);
             return;
 
-          case "debugPause":
-            await this.handleDebugPause(docId);
-            return;
-
-          case "debugResume":
-            await this.handleDebugResume(docId);
-            return;
-
-          case "debugStepOver":
-            await this.handleDebugStepOver(docId);
-            return;
-
-          case "toggleBreakpoint":
-            if ("stepId" in message) {
-              await this.handleToggleBreakpoint(docId, message.stepId);
-            }
+          case "edit":
+            await this.edit(message, webviewPanel);
             return;
         }
       }
     );
 
-    // Clean up when webview is disposed
     webviewPanel.onDidDispose(() => {
       changeDocumentSubscription.dispose();
       messageSubscription.dispose();
-      void this.stopExecution(docId, false);
-      this.runtimeController.clear(docId);
-      this.runtimeIoState.delete(docId);
     });
 
-    // Initial update
-    updateWebview();
+    void updateWebview();
   }
 
   /**
@@ -280,617 +254,98 @@ export class SfcEditorProvider implements vscode.CustomTextEditorProvider {
       .replace("{{webviewStyle}}", styleUri.toString());
   }
 
-  /**
-   * Save document changes
-   */
-  private async saveDocument(
-    document: vscode.TextDocument,
-    content: string
-  ): Promise<void> {
-    try {
-      // Validate JSON
-      JSON.parse(content);
+  /** Writes the file of the canvas graph into the document and saves it. */
+  private async saveDocument(document: vscode.TextDocument, graph: SfcGraph): Promise<void> {
+    const answer = await formatGraph(graph, document.getText());
+    if (!answer.ok || typeof answer.text !== "string") {
+      void vscode.window.showErrorMessage(`Failed to save SFC: ${problemText(answer)}`);
+      return;
+    }
+    const edit = new vscode.WorkspaceEdit();
+    edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), answer.text);
+    if (await vscode.workspace.applyEdit(edit)) {
+      await document.save();
+    }
+  }
 
-      const edit = new vscode.WorkspaceEdit();
-      edit.replace(
-        document.uri,
-        new vscode.Range(0, 0, document.lineCount, 0),
-        content
+  /** Checks the chart on the canvas and shows the findings. */
+  private async validateSfc(graph: SfcGraph, webviewPanel: vscode.WebviewPanel): Promise<void> {
+    const file = await formatGraph(graph);
+    if (!file.ok || typeof file.text !== "string") {
+      void vscode.window.showErrorMessage(`Validation failed: ${problemText(file)}`);
+      return;
+    }
+    const answer = await visualRequest<ValidateAnswer>("trust-lsp.visualValidate", {
+      kind: "sfc",
+      text: file.text,
+    });
+    const issues = answer.issues ?? [];
+    await webviewPanel.webview.postMessage({ type: "validationResult", errors: issues });
+    if (answer.ok) {
+      void vscode.window.showInformationMessage("SFC validation successful!");
+    } else if (issues.length > 0) {
+      void vscode.window.showWarningMessage(
+        `SFC validation found ${issues.length} problem${issues.length === 1 ? "" : "s"}: ${problemText(answer)}`
       );
-
-      const success = await vscode.workspace.applyEdit(edit);
-      if (success) {
-        await document.save();
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      vscode.window.showErrorMessage(`Failed to save SFC: ${message}`);
+    } else {
+      void vscode.window.showErrorMessage(`Validation failed: ${problemText(answer)}`);
     }
   }
 
   /**
-   * Validate the SFC
+   * Shows the Structured Text companion of the chart on the canvas in the code panel. With
+   * `write`, it also writes the companion and runtime entry beside the file and opens the
+   * companion beside the editor (Generate ST); without, it only previews (Preview ST).
    */
-  private async validateSfc(
+  private async showCompanion(
     document: vscode.TextDocument,
-    webviewPanel: vscode.WebviewPanel
-  ): Promise<void> {
-    try {
-      const workspace: SfcWorkspace = JSON.parse(document.getText());
-      const engine = new SfcEngine(workspace);
-      const errors = engine.validate();
-
-      await webviewPanel.webview.postMessage({
-        type: "validationResult",
-        errors: errors,
-      });
-
-      if (errors.length === 0) {
-        vscode.window.showInformationMessage("SFC validation successful!");
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      vscode.window.showErrorMessage(`Validation failed: ${message}`);
-    }
-  }
-
-  /**
-   * Generate Structured Text from SFC
-   */
-  private async generateST(
-    document: vscode.TextDocument,
-    webviewPanel?: vscode.WebviewPanel,
-    contentOverride?: string
-  ): Promise<void> {
-    try {
-      const sourceText = contentOverride ?? document.getText();
-      const workspace: SfcWorkspace = JSON.parse(sourceText);
-      const engine = new SfcEngine(workspace);
-      const stCode = engine.generateStructuredText();
-
-      // Determine the companion .st file path
-      const sfcUri = document.uri;
-      const sfcPath = sfcUri.fsPath;
-      const stPath = sfcPath.replace(/\.sfc\.json$/, ".st");
-      const stUri = vscode.Uri.file(stPath);
-
-      // Write the ST file
-      await vscode.workspace.fs.writeFile(stUri, Buffer.from(stCode, "utf-8"));
-
-      // Open the generated file
-      const stDoc = await vscode.workspace.openTextDocument(stUri);
-      await vscode.window.showTextDocument(stDoc, vscode.ViewColumn.Beside);
-
-      if (webviewPanel) {
-        await webviewPanel.webview.postMessage({
-          type: "codeGenerated",
-          code: stCode,
-          errors: [],
-        });
-      }
-
-      vscode.window.showInformationMessage(
-        "Structured Text code generated successfully!"
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (webviewPanel) {
-        await webviewPanel.webview.postMessage({
-          type: "codeGenerated",
-          errors: [message],
-        });
-      }
-      vscode.window.showErrorMessage(`Code generation failed: ${message}`);
-    }
-  }
-
-  /**
-   * Handle runtime messages
-   */
-  private async handleRuntimeMessage(
-    docId: string,
-    document: vscode.TextDocument,
-    message: RuntimeWebviewToExtensionMessage,
-    webviewPanel: vscode.WebviewPanel
-  ): Promise<void> {
-    if (message.type === "runtime.setMode") {
-      this.runtimeController.setMode(docId, message.mode);
-      await persistRuntimeUiMode(document.uri, message.mode);
-      this.postRuntimeState(docId, document.uri, webviewPanel);
-      return;
-    }
-
-    if (message.type === "runtime.openPanel") {
-      await this.runtimeController.openRuntimePanel();
-      this.postRuntimeState(docId, document.uri, webviewPanel);
-      return;
-    }
-
-    if (message.type === "runtime.openSettings") {
-      await this.runtimeController.openRuntimeSettings();
-      this.postRuntimeState(docId, document.uri, webviewPanel);
-      return;
-    }
-
-    const adapter = {
-      startLocal: async () =>
-        this.startExecution(docId, document, webviewPanel, "simulation"),
-      startExternal: async () =>
-        this.startExecution(docId, document, webviewPanel, "hardware"),
-      stop: async () => this.stopExecution(docId, false),
-    };
-
-    try {
-      if (message.type === "runtime.start") {
-        await this.runtimeController.start(docId, adapter);
-      }
-      if (message.type === "runtime.stop") {
-        await this.runtimeController.stop(docId, adapter);
-      }
-    } catch (error) {
-      const details = error instanceof Error ? error.message : String(error);
-      void vscode.window.showErrorMessage(details);
-      webviewPanel.webview.postMessage(runtimeMessage.error(details));
-    } finally {
-      this.postRuntimeState(docId, document.uri, webviewPanel);
-      this.postRuntimePanelIoState(docId, document, webviewPanel);
-    }
-  }
-
-  /**
-   * Handle runtime panel messages
-   */
-  private async handleRuntimePanelMessage(
-    docId: string,
-    document: vscode.TextDocument,
-    message: RuntimePanelWebviewMessage,
-    webviewPanel: vscode.WebviewPanel
-  ): Promise<void> {
-    switch (message.type) {
-      case "webviewReady":
-        this.runtimeController.ensureState(docId);
-        this.postRuntimeState(docId, document.uri, webviewPanel);
-        this.postRuntimePanelSettings(document.uri, webviewPanel);
-        this.postRuntimePanelIoState(docId, document, webviewPanel);
-        return;
-      case "requestSettings":
-        this.postRuntimePanelSettings(document.uri, webviewPanel);
-        return;
-      case "runtimeStart":
-        {
-          const current = this.runtimeController.ensureState(docId);
-          await this.handleRuntimeMessage(
-            docId,
-            document,
-            current.isExecuting ? runtimeMessage.stop() : runtimeMessage.start(),
-            webviewPanel
-          );
-        }
-        this.postRuntimePanelIoState(docId, document, webviewPanel);
-        break;
-
-      case "runtimeSetMode":
-        await this.handleRuntimeMessage(
-          docId,
-          document,
-          runtimeMessage.setMode(runtimePanelModeToUi(message.mode)),
-          webviewPanel
-        );
-        break;
-
-      case "saveSettings":
-        if (message.payload) {
-          await applyRuntimePanelSettings(document.uri, message.payload);
-        }
-        this.postRuntimePanelSettings(document.uri, webviewPanel);
-        this.postRuntimeState(docId, document.uri, webviewPanel);
-        webviewPanel.webview.postMessage({
-          type: "status",
-          payload: "Runtime settings saved.",
-        });
-        break;
-
-      case "writeInput":
-        if (!this.activeExecutions.get(docId)) {
-          return;
-        }
-        // TODO: Implement write input
-        this.postRuntimePanelIoState(docId, document, webviewPanel);
-        break;
-
-      case "forceInput":
-        if (!this.activeExecutions.get(docId)) {
-          return;
-        }
-        // TODO: Implement force input
-        this.postRuntimePanelIoState(docId, document, webviewPanel);
-        break;
-
-      case "releaseInput":
-        if (!this.activeExecutions.get(docId)) {
-          return;
-        }
-        // TODO: Implement release input
-        this.postRuntimePanelIoState(docId, document, webviewPanel);
-        break;
-    }
-  }
-
-  /**
-   * Start execution
-   */
-  private async startExecution(
-    docId: string,
-    document: vscode.TextDocument,
+    graph: SfcGraph,
     webviewPanel: vscode.WebviewPanel,
-    modeOverride?: ExecutionMode
+    write: boolean
   ): Promise<void> {
-    console.log("[SFC] Starting execution for document:", docId);
-    
-    // Stop existing execution
-    await this.stopExecution(docId, false);
-
-    const workspace: SfcWorkspace = JSON.parse(document.getText());
-    const runtimeState = this.runtimeController.ensureState(docId);
-    const mode = runtimeState.mode;
-    // Mode is "local" or "external" (RuntimeUiMode)
-    const executionMode: ExecutionMode =
-      modeOverride ?? (mode === "external" ? "hardware" : "simulation");
-
-    console.log(`[SFC] Execution mode: ${mode} → ${executionMode}`);
-
-    if (executionMode === "simulation") {
-      await this.startSimulation(docId, workspace, webviewPanel);
-    } else {
-      await this.startHardware(docId, workspace, document, webviewPanel);
-    }
-
-  }
-
-  /**
-   * Start simulation mode execution
-   */
-  private async startSimulation(
-    docId: string,
-    workspace: SfcWorkspace,
-    webviewPanel: vscode.WebviewPanel
-  ): Promise<void> {
-    console.log("[SFC] Starting simulation mode");
-
-    const engine = new SfcEngine(workspace, "simulation");
-
-    this.activeExecutions.set(docId, {
-      workspace,
-      mode: "simulation",
-      isRunning: true,
-      engine,
-      webviewPanel,
-    });
-
-    await engine.start(100); // 100ms scan cycle
-
-    // Send execution state updates periodically
-    const updateInterval = setInterval(() => {
-      const state = this.activeExecutions.get(docId);
-      if (!state || !state.isRunning) {
-        clearInterval(updateInterval);
-        return;
-      }
-
-      const execState = engine.getExecutionState();
-      webviewPanel.webview.postMessage({
-        type: "executionState",
-        state: {
-          activeSteps: Array.from(execState.activeSteps),
-          mode: "simulation",
-          status: engine.getExecutionStatus(),
-          breakpoints: engine.getBreakpoints(),
-          currentStep: engine.getCurrentDebugStep(),
-        },
-      });
-
-      this.postRuntimePanelIoState(docId, undefined, webviewPanel);
-    }, 100);
-
-    vscode.window.showInformationMessage("SFC simulation started");
-  }
-
-  /**
-   * Start hardware mode execution
-   */
-  private async startHardware(
-    docId: string,
-    workspace: SfcWorkspace,
-    document: vscode.TextDocument,
-    webviewPanel: vscode.WebviewPanel
-  ): Promise<void> {
-    console.log("[SFC] Starting hardware mode");
-
-    const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
-    const config = await getRuntimeConfig(workspaceFolder);
-    if (!config) {
-      throw new Error("Could not get runtime configuration");
-    }
-    
-    const runtimeClient = new RuntimeClient(config);
-    await runtimeClient.connect();
-
-    const engine = new SfcEngine(workspace, "hardware", runtimeClient);
-
-    this.activeExecutions.set(docId, {
-      workspace,
-      mode: "hardware",
-      isRunning: true,
-      engine,
-      webviewPanel,
-    });
-
-    await engine.start(100);
-
-    // Send execution state updates
-    const updateInterval = setInterval(() => {
-      const state = this.activeExecutions.get(docId);
-      if (!state || !state.isRunning) {
-        clearInterval(updateInterval);
-        return;
-      }
-
-      const execState = engine.getExecutionState();
-      webviewPanel.webview.postMessage({
-        type: "executionState",
-        state: {
-          activeSteps: Array.from(execState.activeSteps),
-          mode: "hardware",
-          status: engine.getExecutionStatus(),
-          breakpoints: engine.getBreakpoints(),
-          currentStep: engine.getCurrentDebugStep(),
-        },
-      });
-
-      this.postRuntimePanelIoState(docId, document, webviewPanel);
-    }, 100);
-
-    vscode.window.showInformationMessage("SFC hardware execution started");
-  }
-
-  /**
-   * Stop execution
-   */
-  private async stopExecution(docId: string, notify = true): Promise<void> {
-    const state = this.activeExecutions.get(docId);
-    if (!state) return;
-
-    console.log("[SFC] Stopping execution");
-    state.isRunning = false;
-
-    await state.engine.stop();
-
-    state.webviewPanel.webview.postMessage({ type: "executionStopped" });
-
-    this.activeExecutions.delete(docId);
-
-    if (notify) {
-      vscode.window.showInformationMessage("SFC execution stopped");
-    }
-  }
-
-  /**
-   * Handle debug pause
-   */
-  private async handleDebugPause(docId: string): Promise<void> {
-    const state = this.activeExecutions.get(docId);
-    if (!state) return;
-
-    state.engine.pause();
-    console.log("[SFC Debug] Paused");
-    
-    // Send updated execution state
-    this.sendExecutionStateUpdate(docId);
-  }
-
-  /**
-   * Handle debug resume
-   */
-  private async handleDebugResume(docId: string): Promise<void> {
-    const state = this.activeExecutions.get(docId);
-    if (!state) return;
-
-    state.engine.resume();
-    console.log("[SFC Debug] Resumed");
-    
-    // Send updated execution state
-    this.sendExecutionStateUpdate(docId);
-  }
-
-  /**
-   * Handle debug step over
-   */
-  private async handleDebugStepOver(docId: string): Promise<void> {
-    const state = this.activeExecutions.get(docId);
-    if (!state) return;
-
-    state.engine.stepOver();
-    console.log("[SFC Debug] Step over");
-    
-    // Wait a bit for the step to execute, then send state
-    setTimeout(() => {
-      this.sendExecutionStateUpdate(docId);
-    }, 150);
-  }
-
-  /**
-   * Handle toggle breakpoint
-   */
-  private async handleToggleBreakpoint(docId: string, stepId: string): Promise<void> {
-    const state = this.activeExecutions.get(docId);
-    if (!state) return;
-
-    state.engine.toggleBreakpoint(stepId);
-    console.log(`[SFC Debug] Toggled breakpoint on step: ${stepId}`);
-    
-    // Send updated execution state
-    this.sendExecutionStateUpdate(docId);
-  }
-
-  /**
-   * Send execution state update to webview
-   */
-  private sendExecutionStateUpdate(docId: string): void {
-    const state = this.activeExecutions.get(docId);
-    if (!state) return;
-
-    const execState = state.engine.getExecutionState();
-    const executionStatus = state.engine.getExecutionStatus();
-    const breakpoints = state.engine.getBreakpoints();
-    const currentStep = state.engine.getCurrentDebugStep();
-
-    state.webviewPanel.webview.postMessage({
-      type: "executionState",
-      state: {
-        activeSteps: Array.from(execState.activeSteps),
-        mode: state.mode,
-        status: executionStatus,
-        breakpoints,
-        currentStep,
-      },
-    });
-  }
-
-  /**
-   * Post runtime state to webview
-   */
-  private postRuntimeState(
-    docId: string,
-    uri: vscode.Uri,
-    webviewPanel: vscode.WebviewPanel
-  ): void {
-    const runtimeState = this.runtimeController.ensureState(docId);
-
-    webviewPanel.webview.postMessage(runtimeMessage.state(runtimeState));
-    webviewPanel.webview.postMessage({
-      type: "runtimeStatus",
-      payload: runtimePanelStatusFromState(uri, runtimeState),
-    });
-  }
-
-  /**
-   * Post runtime panel settings
-   */
-  private postRuntimePanelSettings(
-    uri: vscode.Uri,
-    webviewPanel: vscode.WebviewPanel
-  ): void {
-    const settings = collectRuntimePanelSettings(uri);
-    webviewPanel.webview.postMessage({
-      type: "runtimePanel.settings",
-      settings,
-    });
-  }
-
-  /**
-   * Build IO state from document/simulation
-   */
-  private buildIoStateFromDocument(document: vscode.TextDocument): RuntimePanelIoState {
-    const state: RuntimePanelIoState = {
-      inputs: [],
-      outputs: [],
-      memory: [],
+    const fail = async (answer: VisualAnswer): Promise<void> => {
+      const errors = (answer.errors ?? []).map((problem: VisualProblem) => problem.message);
+      await webviewPanel.webview.postMessage({ type: "codeGenerated", errors });
+      void vscode.window.showErrorMessage(`Code generation failed: ${problemText(answer)}`);
     };
-
-    try {
-      const workspace: SfcWorkspace = JSON.parse(document.getText());
-      
-      // Extract I/O from variables
-      if (workspace.variables) {
-        for (const variable of workspace.variables) {
-          if (variable.address) {
-            const entry: RuntimePanelIoEntry = {
-              name: variable.name,
-              address: variable.address,
-              value: "FALSE",
-            };
-
-            if (variable.address.startsWith("%I")) {
-              state.inputs?.push(entry);
-            } else if (variable.address.startsWith("%Q")) {
-              state.outputs?.push(entry);
-            } else if (variable.address.startsWith("%M")) {
-              state.memory?.push(entry);
-            }
-          }
-        }
+    const file = await formatGraph(graph);
+    if (!file.ok || typeof file.text !== "string") {
+      await fail(file);
+      return;
+    }
+    const answer = await requestCompanion(document.uri, file.text);
+    if (!answer.ok || !answer.companion) {
+      await fail(answer);
+      return;
+    }
+    if (write) {
+      const companionUri = await syncVisualCompanionFromUri(document.uri, {
+        force: true,
+        showErrors: true,
+        sourceText: file.text,
+      });
+      if (companionUri) {
+        await openCompanion(companionUri, { beside: true });
+        void vscode.window.showInformationMessage(
+          `Generated ST companion: ${path.basename(companionUri.fsPath)}`
+        );
       }
-    } catch (error) {
-      console.error("Failed to build IO state:", error);
     }
-
-    return state;
-  }
-
-  /**
-   * Post runtime panel IO state
-   */
-  private postRuntimePanelIoState(
-    docId: string,
-    document: vscode.TextDocument | undefined,
-    webviewPanel: vscode.WebviewPanel
-  ): void {
-    const state = this.activeExecutions.get(docId);
-    let ioState: RuntimePanelIoState;
-
-    if (state && state.mode === "simulation") {
-      // Get values from simulation engine
-      ioState = this.buildSimulationIoState(state.engine);
-    } else if (document) {
-      // Get static values from document
-      ioState = this.buildIoStateFromDocument(document);
-    } else {
-      ioState = { inputs: [], outputs: [], memory: [] };
-    }
-
-    this.runtimeIoState.set(docId, ioState);
-
-    webviewPanel.webview.postMessage({
-      type: "runtimePanel.ioState",
-      ioState,
+    await webviewPanel.webview.postMessage({
+      type: "codeGenerated",
+      code: answer.companion.text,
+      errors: answer.warnings ?? [],
     });
   }
 
-  /**
-   * Build IO state from simulation engine
-   */
-  private buildSimulationIoState(engine: SfcEngine): RuntimePanelIoState {
-    const state: RuntimePanelIoState = {
-      inputs: [],
-      outputs: [],
-      memory: [],
-    };
-
-    const workspace = engine.getWorkspace();
-
-    if (workspace.variables) {
-      for (const variable of workspace.variables) {
-        if (variable.address) {
-          const value = engine.getVariable(variable.address);
-          const displayValue = value !== undefined ? boolToDisplay(Boolean(value)) : "FALSE";
-
-          const entry: RuntimePanelIoEntry = {
-            name: variable.name,
-            address: variable.address,
-            value: displayValue,
-          };
-
-          if (variable.address.startsWith("%I")) {
-            state.inputs?.push(entry);
-          } else if (variable.address.startsWith("%Q")) {
-            state.outputs?.push(entry);
-          } else if (variable.address.startsWith("%M")) {
-            state.memory?.push(entry);
-          }
-        }
-      }
-    }
-
-    return state;
+  /** Forwards a canvas edit to the language server and answers the webview. */
+  private async edit(message: SfcEditRequest, webviewPanel: vscode.WebviewPanel): Promise<void> {
+    const { requestId, graph, edit } = message;
+    const answer = await visualRequest("trust-lsp.visualEdit", {
+      ...edit,
+      kind: "sfc",
+      graphText: JSON.stringify(graph),
+    });
+    await webviewPanel.webview.postMessage({ type: "editResult", requestId, answer });
   }
 }

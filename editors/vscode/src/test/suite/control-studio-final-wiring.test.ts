@@ -4,8 +4,8 @@ import * as path from "path";
 
 import { renderControlStudioHtml, type ControlStudioView } from "../../controlStudio/panelTemplate";
 import { applyStudioTargetLabel } from "../../controlStudio/webview/studioTargetLabel";
-import { buildCanvasGraph } from "../../networkCanvas/graphData";
-import { buildNetworkCanvasModel } from "../../networkCanvas/model";
+import type { CanvasFleet } from "../../networkCanvas/fleetModel";
+import { canvasGraph } from "../../networkCanvas/graphData";
 import {
   announceSimulationSpeedRead,
   latestSimulatorSpeedRead,
@@ -80,20 +80,14 @@ suite("Control Studio final wiring", () => {
   test("the simulator node carries the speed while it runs and none once it stops", () => {
     announceSimulationSpeedRead({ runtimeId: SIMULATOR_RUNTIME_ID, simulated: true, configured: 10, achieved: 7,
       speedText: "×7 of ×10", speedBehind: true });
-    const running = buildCanvasGraph(buildNetworkCanvasModel({
-      stage: "runtime_live",
-      runtime: { running: true, runtimeState: "running", runtimeMode: "simulate" },
-    }), undefined);
+    const running = canvasGraph(simulatorFleet("connected"));
     const runningNode = running.hosts[0].runtimes[0] as unknown as { simulationTimeScale?: number; simulationAchievedTimeScale?: number;
       simulationSpeedText?: string };
     assert.strictEqual(runningNode.simulationTimeScale, 10, "the configured speed reaches the Mode row");
     assert.strictEqual(runningNode.simulationAchievedTimeScale, 7, "the achieved speed reaches the Mode row");
     assert.strictEqual(runningNode.simulationSpeedText, "×7 of ×10", "the speed words the runtime gives reach the Mode row");
 
-    const stopped = buildCanvasGraph(buildNetworkCanvasModel({
-      stage: "runtime_live",
-      runtime: { running: false, runtimeState: "stopped", runtimeMode: "simulate" },
-    }), undefined);
+    const stopped = canvasGraph(simulatorFleet("stopped"));
     const stoppedNode = stopped.hosts[0].runtimes[0] as unknown as { simulationTimeScale?: number; simulationAchievedTimeScale?: number;
       simulationSpeedText?: string };
     assert.strictEqual(stoppedNode.simulationTimeScale, undefined, "a stopped simulator shows no speed");
@@ -101,3 +95,43 @@ suite("Control Studio final wiring", () => {
     assert.strictEqual(stoppedNode.simulationSpeedText, undefined, "a stopped simulator shows no speed words");
   });
 });
+
+/** The canvas's answer with the drawn simulator alone, `health` as the server words its lifecycle. */
+function simulatorFleet(health: string): CanvasFleet {
+  return {
+    hosts: [
+      {
+        id: "host:this-computer",
+        hostname: "This computer",
+        label: "local computer",
+        health: "connected",
+        runtimeCount: 1,
+        endpointCount: 0,
+        containers: [],
+        runtimes: [
+          {
+            id: "runtime:local",
+            name: "Simulator",
+            mode: "simulate",
+            health,
+            detail: "",
+            endpointCount: 0,
+            endpoints: [],
+            managed: false,
+            attached: health === "connected",
+            runTarget: true,
+            identify: { enabled: false },
+            controls: [],
+            discovery: { ready: health === "connected" },
+          },
+        ],
+      },
+    ],
+    links: [],
+    external: [],
+    externalCount: 0,
+    sharedCount: 0,
+    summary: "1 host · 1 runtime · 0 endpoints",
+    faults: [],
+  };
+}

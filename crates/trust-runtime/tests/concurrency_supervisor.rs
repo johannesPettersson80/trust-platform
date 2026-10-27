@@ -6,6 +6,8 @@
 //! declares a hang only once a cycle still runs one check interval after its deadline, which is
 //! 5 ms after the cycle starts. The short cycles here sleep 2 ms, so they end well inside that
 //! budget.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
 mod concurrency_support;
 
@@ -15,16 +17,34 @@ use std::thread;
 use std::time::{Duration as StdDuration, Instant};
 
 use trust_runtime::error::RuntimeError;
+use trust_runtime::harness::TestHarness;
 use trust_runtime::io::IoDriver;
 use trust_runtime::scheduler::{ResourceHandle, ResourceRunner, ResourceState, StdClock};
 use trust_runtime::value::Duration;
 use trust_runtime::watchdog::{WatchdogAction, WatchdogPolicy};
-use trust_runtime::{RestartMode, RuntimeBuilder};
+use trust_runtime::{CompiledRuntime, RestartMode};
 
 use concurrency_support::{stop_and_join, wait_until, WAIT};
 
 /// Cycles that must complete before a short-cycle run counts as meaningful.
 const CYCLES: usize = 40;
+
+/// A program whose process image holds one input byte, which no statement reads.
+const ONE_INPUT_SOURCE: &str = r#"
+VAR_GLOBAL
+    start AT %IX0.0 : BOOL;
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+"#;
+
+/// The program of `ONE_INPUT_SOURCE`, loaded.
+fn one_input_runtime() -> CompiledRuntime {
+    TestHarness::from_source(ONE_INPUT_SOURCE)
+        .expect("the one-input program compiles")
+        .into_runtime()
+}
 
 /// Every read sleeps for `pace`, so a cycle lasts about `pace` inside its watchdog budget.
 struct PacedInput {
@@ -90,9 +110,7 @@ fn spawn_blocked(watchdog_ms: Option<i64>, with_restart: bool) -> Blocked {
     let (entered_tx, entered_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
     let reads = Arc::new(AtomicUsize::new(0));
-    let mut builder = RuntimeBuilder::new();
-    builder.io_mut().resize(1, 0, 0);
-    let mut runtime = builder.build().expect("install declared test runtime");
+    let mut runtime = one_input_runtime();
     runtime.add_io_driver(
         "blocking-input",
         Box::new(BlockingFirstRead {
@@ -104,7 +122,7 @@ fn spawn_blocked(watchdog_ms: Option<i64>, with_restart: bool) -> Blocked {
     );
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1));
     if let Some(timeout_ms) = watchdog_ms {
-        runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
+        runner.program_mut().set_watchdog_policy(WatchdogPolicy {
             enabled: true,
             timeout: Duration::from_millis(timeout_ms),
             action: WatchdogAction::Halt,
@@ -127,9 +145,7 @@ fn spawn_blocked(watchdog_ms: Option<i64>, with_restart: bool) -> Blocked {
 #[test]
 fn many_short_cycles_inside_their_timeout_are_never_declared_hung() {
     let reads = Arc::new(AtomicUsize::new(0));
-    let mut builder = RuntimeBuilder::new();
-    builder.io_mut().resize(1, 0, 0);
-    let mut runtime = builder.build().expect("install declared test runtime");
+    let mut runtime = one_input_runtime();
     runtime.add_io_driver(
         "paced-input",
         Box::new(PacedInput {
@@ -142,7 +158,7 @@ fn many_short_cycles_inside_their_timeout_are_never_declared_hung() {
     // preempts the scan thread; a cycle that really overruns is a true hang, so the margin must
     // cover OS jitter. The 40 cycles together take at least 200 ms, so a supervisor that carried
     // elapsed time across cycles instead of restarting it would still declare a hang here.
-    runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
+    runner.program_mut().set_watchdog_policy(WatchdogPolicy {
         enabled: true,
         timeout: Duration::from_millis(100),
         action: WatchdogAction::Halt,

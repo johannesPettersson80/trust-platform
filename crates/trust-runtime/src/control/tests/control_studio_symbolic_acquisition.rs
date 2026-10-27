@@ -3,13 +3,8 @@ fn symbolic_inspection_is_pending_until_a_coherent_actual_scan() {
     let source="PROGRAM Main VAR PV : LREAL; MV : LREAL; Gate : BOOL := TRUE; END_VAR PV := PV + 1.0; MV := 2.0 * PV; END_PROGRAM";
     let mut state = control_test_state(source);
     let mut harness = TestHarness::from_source(source).unwrap();
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
     harness.cycle();
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     let bindings = json!([{"id":"pv","symbol":"Main.PV","iec_type":"LREAL"},{"id":"mv","symbol":"Main.MV","iec_type":"LREAL"},{"id":"gate","symbol":"Main.Gate","iec_type":"BOOL"}]);
     let first = handle_request_value(
         json!({"id":8700,"type":"control.signals.inspect","params":{"loop_revision":"loop-a","bindings":bindings}}),
@@ -63,13 +58,8 @@ const SYMBOLIC_SOURCE:&str="PROGRAM Main VAR PV : LREAL; MV : LREAL; Gate : BOOL
 fn symbolic_fixture() -> (TestHarness, ControlState, serde_json::Value, String) {
     let mut state = control_test_state(SYMBOLIC_SOURCE);
     let mut harness = TestHarness::from_source(SYMBOLIC_SOURCE).unwrap();
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
     harness.cycle();
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     let bindings = json!([{"id":"pv","symbol":"Main.PV","iec_type":"LREAL"},{"id":"mv","symbol":"Main.MV","iec_type":"LREAL"},{"id":"gate","symbol":"Main.Gate","iec_type":"BOOL"}]);
     let first = handle_request_value(
         json!({"id":8710,"type":"control.signals.inspect","params":{"loop_revision":"symbol-loop","bindings":bindings}}),
@@ -111,10 +101,10 @@ fn symbolic_recording_retains_scan_values_and_channel_quality_separately() {
     assert!(start.ok, "symbolic recording must start: {:?}", start.error);
     harness.advance_time(crate::value::Duration::from_millis(20));
     assert!(harness.cycle().errors.is_empty());
-    let Value::Instance(id) = harness.runtime().storage().get_global("Main").unwrap() else {
-        panic!("program")
-    };
-    state.debug.force_instance(*id, "MV", Value::LReal(123.0));
+    state
+        .debug
+        .try_force_global("Main.MV", Value::LReal(123.0))
+        .expect("force the output variable");
     harness.advance_time(crate::value::Duration::from_millis(20));
     assert!(harness.cycle().errors.is_empty());
     let stop = handle_request_value(
@@ -138,39 +128,35 @@ fn symbolic_recording_retains_scan_values_and_channel_quality_separately() {
 }
 #[test]
 fn symbolic_recording_bad_type_is_not_reused_or_marked_good() {
-    let (harness, state, bindings, revision) = symbolic_fixture();
+    let (mut harness, state, bindings, revision) = symbolic_fixture();
     assert!(start_symbolic_recording(&state, bindings, revision).ok);
-    let Value::Instance(id) = harness.runtime().storage().get_global("Main").unwrap() else {
-        panic!("program")
-    };
-    // The engine refuses a force or write of the wrong type, so a wrongly typed value can reach
-    // the recorder only in a corrupt scan: the recorder marks it bad, never good or reused.
-    let mut storage = harness.runtime().storage().clone();
-    assert!(storage.set_instance_var(*id, "Gate", Value::LReal(1.0)));
+    // A compiled program's memory holds every variable in its declared type (specification 44 §5.8), so a value that is
+    // no number of its channel reaches the recorder only as a value its type holds but no measurement is, such as a
+    // non-finite LREAL in a corrupt scan: the recorder marks it bad, never good or reused.
+    studio_set(&mut harness, "Main.PV", Value::LReal(f64::NAN));
     // The cycle stamps each published scan with its number; this one follows the last real scan.
     let last_scan = state
         .debug
         .latest_io_snapshot()
         .and_then(|snapshot| snapshot.scan)
         .expect("the fixture published scans");
-    let mut io = harness.runtime().io().snapshot();
-    io.scan = Some(last_scan + 1);
-    state.debug.push_control_snapshot_at(
-        io,
-        20_000_000,
-        &storage,
-        &[],
-        true,
-        true,
-    );
+    let io = crate::io::IoSnapshot {
+        scan: Some(last_scan + 1),
+        ..crate::io::IoSnapshot::default()
+    };
+    harness.runtime().with_program_view(|program| {
+        state
+            .debug
+            .push_control_snapshot_at(io, 20_000_000, program, &[], true, true);
+    });
     let stop = handle_request_value(
         json!({"id":8714,"type":"control.recording.stop","params":{"recording_id":"symbol-record","loop_revision":"symbol-loop"}}),
         &state,
         None,
     );
     let result = stop.result.unwrap();
-    assert_eq!(result["samples"][0]["quality"][2], "bad");
-    assert!(result["samples"][0]["values"][2].is_null());
+    assert_eq!(result["samples"][0]["quality"][0], "bad");
+    assert!(result["samples"][0]["values"][0].is_null());
 }
 #[test]
 fn symbolic_recording_and_inspection_invalidate_on_identical_reload() {
@@ -226,10 +212,11 @@ fn symbolic_inspection_replaces_binding_identity_without_reusing_old_values() {
 fn symbolic_recording_bytecode_reload_invalidates_program_guard() {
     let (mut harness, state, bindings, revision) = symbolic_fixture();
     assert!(start_symbolic_recording(&state, bindings.clone(), revision.clone()).ok);
-    let bytes = crate::harness::bytecode_bytes_from_source(SYMBOLIC_SOURCE).unwrap();
+    // The image a client sends with `bytecode.reload` changes the running program online (specification 44 §12).
+    let bytes = program_image(SYMBOLIC_SOURCE);
     harness
         .runtime_mut()
-        .apply_bytecode_bytes(&bytes, None)
+        .apply_online_change_bytes(&bytes)
         .unwrap();
     let stale = handle_request_value(
         json!({"id":8723,"type":"control.signals.inspect","params":{"loop_revision":"symbol-loop","bindings":bindings,"expected_program_revision":revision}}),
@@ -246,13 +233,8 @@ fn symbolic_integer_process_signals_are_inspected_and_recorded_without_wrappers(
     let source="PROGRAM Main VAR Count : DINT := 41; UnsignedCount : UDINT := 10; END_VAR Count := Count + 1; UnsignedCount := UnsignedCount + 1; END_PROGRAM";
     let mut state = control_test_state(source);
     let mut harness = TestHarness::from_source(source).unwrap();
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
     harness.cycle();
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
-    state.debug.refresh_snapshot_from_storage(
-        harness.runtime().storage(),
-        harness.runtime().current_time(),
-    );
     let bindings = json!([{"id":"count","symbol":"Main.Count","iec_type":"DINT"},{"id":"unsigned","symbol":"Main.UnsignedCount","iec_type":"UDINT"}]);
     let first = handle_request_value(
         json!({"id":8730,"type":"control.signals.inspect","params":{"loop_revision":"integer-loop","bindings":bindings}}),

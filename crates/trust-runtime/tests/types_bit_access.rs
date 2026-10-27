@@ -1,3 +1,8 @@
+//! Partial access to the bits, bytes, words and double words of bit-string variables (IEC 61131-3
+//! Table 17), in a program, through an in-out and inside a function block.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use trust_runtime::harness::TestHarness;
 use trust_runtime::value::Value;
 
@@ -115,38 +120,18 @@ END_PROGRAM
     let err = harness.cycle().errors.into_iter().next();
     assert!(err.is_none(), "expected success, got {err:?}");
 
-    let main_id = match harness.runtime().storage().get_global("Main") {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected Main instance, got {other:?}"),
-    };
-    let fb_id = match harness.runtime().storage().get_instance_var(main_id, "fb") {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected FB instance, got {other:?}"),
-    };
-    let storage = harness.runtime().storage();
-
-    assert_eq!(
-        storage.get_instance_var(fb_id, "bit_val"),
-        Some(&Value::Bool(false))
-    );
-    assert_eq!(
-        storage.get_instance_var(fb_id, "byte_val"),
-        Some(&Value::Byte(0x12))
-    );
-    assert_eq!(
-        storage.get_instance_var(fb_id, "word_val"),
-        Some(&Value::Word(0x89AB))
-    );
-    assert_eq!(
-        storage.get_instance_var(fb_id, "dword_val"),
-        Some(&Value::DWord(0x0123_4567))
-    );
-    assert_eq!(
-        storage.get_instance_var(fb_id, "b"),
-        Some(&Value::Byte(0x08))
-    );
-    assert_eq!(
-        storage.get_instance_var(fb_id, "w"),
-        Some(&Value::Word(0x12FF))
-    );
+    for (name, expected) in [
+        ("bit_val", Value::Bool(false)),
+        ("byte_val", Value::Byte(0x12)),
+        ("word_val", Value::Word(0x89AB)),
+        ("dword_val", Value::DWord(0x0123_4567)),
+        ("b", Value::Byte(0x08)),
+        ("w", Value::Word(0x12FF)),
+    ] {
+        assert_eq!(
+            harness.get_output(&format!("Main.fb.{name}")),
+            Some(expected),
+            "{name}"
+        );
+    }
 }

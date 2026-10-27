@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::sync::atomic::Ordering;
 
 use serde_json::{json, Map, Value};
@@ -581,8 +583,61 @@ fn config_handler_contract_config_get_uses_canonical_enum_spellings() {
     assert_eq!(result["control.mode"], "production");
     assert_eq!(result["mesh.role"], "peer");
     assert_eq!(result["runtime_cloud.profile"], "dev");
-    assert_eq!(result["runtime.execution_backend"], "vm");
+    assert_eq!(result["runtime.execution_backend"], "native");
     assert_eq!(result["runtime.execution_backend_source"], "default");
+}
+
+// Specification 11, `config.get` / `config.set`: `discovery.host_group` is readable and writable,
+// with `runtime.toml`'s trimming and non-empty rule, and it needs a restart. It would catch a
+// missing key, an untrimmed value, an accepted empty value, a missing `restart_required` entry,
+// or a null that does not clear the setting.
+#[test]
+fn discovery_host_group_readable_and_writable() {
+    let state = state();
+    assert_eq!(
+        success_result(handle_config_get(2, &state))["discovery.host_group"],
+        Value::Null
+    );
+    let result = success_result(set(&state, json!({"discovery.host_group": "  line-a  "})));
+    assert_eq!(
+        result,
+        json!({
+            "updated": ["discovery.host_group"],
+            "restart_required": ["discovery.host_group"],
+        })
+    );
+    assert_eq!(
+        settings_snapshot(&state).discovery.host_group.as_deref(),
+        Some("line-a")
+    );
+    assert_eq!(
+        success_result(handle_config_get(2, &state))["discovery.host_group"],
+        json!("line-a")
+    );
+
+    let error = rejected_error(set(&state, json!({"discovery.host_group": "   "})));
+    assert_eq!(
+        error,
+        "invalid config value for 'discovery.host_group': must not be empty"
+    );
+    assert_eq!(
+        settings_snapshot(&state).discovery.host_group.as_deref(),
+        Some("line-a")
+    );
+
+    let cleared = success_result(set(&state, json!({"discovery.host_group": null})));
+    assert_eq!(
+        cleared,
+        json!({
+            "updated": ["discovery.host_group"],
+            "restart_required": ["discovery.host_group"],
+        })
+    );
+    assert_eq!(settings_snapshot(&state).discovery.host_group, None);
+    assert_eq!(
+        success_result(handle_config_get(2, &state))["discovery.host_group"],
+        Value::Null
+    );
 }
 
 #[test]
@@ -632,6 +687,7 @@ fn config_handler_contract_config_get_contains_complete_stable_key_set() {
             "control.mode",
             "discovery.advertise",
             "discovery.enabled",
+            "discovery.host_group",
             "discovery.interfaces",
             "discovery.service_name",
             "fault.policy",
@@ -716,4 +772,154 @@ fn config_handler_contract_rejected_request_has_no_success_lists_or_secret() {
         .as_deref()
         .unwrap_or_default()
         .contains(secret));
+}
+
+/// A scratch project folder for the endpoint-file tests, removed when the test ends.
+struct ScratchProject(std::path::PathBuf);
+
+impl ScratchProject {
+    fn new(label: &str) -> Self {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|elapsed| elapsed.as_nanos())
+            .unwrap_or_default();
+        let path = std::env::temp_dir().join(format!(
+            "trust-config-set-{label}-{}-{nanos}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&path).expect("create scratch project");
+        Self(path)
+    }
+
+    fn endpoint_file(&self) -> std::path::PathBuf {
+        self.0
+            .join(crate::control::endpoint::ENDPOINT_DIR)
+            .join(crate::control::endpoint::ENDPOINT_FILE)
+    }
+
+    /// Publishes this process's endpoint file with a generated token, kept where this platform
+    /// keeps it (spec 11, section 6.8.0a).
+    fn publish_generated_token(&self) -> crate::control::endpoint::PublishedEndpoint {
+        let endpoint =
+            crate::control::ControlEndpoint::parse("tcp://127.0.0.1:5555").expect("endpoint");
+        crate::control::endpoint::PublishedEndpoint::publish(
+            &self.0,
+            &endpoint,
+            Some("generated-token"),
+        )
+        .expect("publish endpoint file")
+    }
+
+    /// The token that the project's endpoint file offers a client. The project has no
+    /// runtime.toml, so no configured token can stand in for it.
+    fn offered_token(&self) -> Option<String> {
+        crate::control::endpoint::resolve_control_target(Some(&self.0), None, None)
+            .expect("resolve the published endpoint")
+            .auth_token
+    }
+}
+
+impl Drop for ScratchProject {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+#[test]
+fn config_set_of_the_auth_token_withdraws_it_from_the_endpoint_file() {
+    let project = ScratchProject::new("withdraw");
+    let published = project.publish_generated_token();
+    assert_eq!(project.offered_token().as_deref(), Some("generated-token"));
+    let before: Value = serde_json::from_str(
+        &std::fs::read_to_string(project.endpoint_file()).expect("read endpoint file"),
+    )
+    .expect("parse endpoint file");
+    let mut state = state();
+    state.project_root = Some(project.0.clone());
+
+    success_result(set(
+        &state,
+        json!({"control.auth_token": "replacement-token"}),
+    ));
+
+    assert_eq!(project.offered_token(), None);
+    let after: Value = serde_json::from_str(
+        &std::fs::read_to_string(project.endpoint_file()).expect("read endpoint file"),
+    )
+    .expect("parse endpoint file");
+    assert_eq!(after["endpoint"], before["endpoint"]);
+    assert_eq!(after["pid"], before["pid"]);
+    assert!(after.get("auth_token").is_none());
+    drop(published);
+}
+
+#[test]
+fn config_set_of_the_auth_token_without_an_endpoint_file_creates_none() {
+    let project = ScratchProject::new("no-file");
+    let mut state = state();
+    state.project_root = Some(project.0.clone());
+
+    success_result(set(
+        &state,
+        json!({"control.auth_token": "replacement-token"}),
+    ));
+
+    assert!(!project
+        .0
+        .join(crate::control::endpoint::ENDPOINT_DIR)
+        .exists());
+}
+
+#[test]
+fn a_refused_config_set_leaves_the_endpoint_file_token_in_place() {
+    use crate::scheduler::{ResourceCommand, ResourceControl, StdClock};
+
+    let project = ScratchProject::new("refused");
+    let published = project.publish_generated_token();
+    let mut state = state();
+    state.project_root = Some(project.0.clone());
+    // Nothing drains this stub queue, so filling it makes the scheduler refuse the request.
+    let (control, _queued) = ResourceControl::stub(StdClock::new());
+    state.resource = control;
+    for _ in 0..crate::scheduler::RESOURCE_COMMAND_CAPACITY {
+        let (tx, _rx) = std::sync::mpsc::channel();
+        state
+            .resource
+            .send_command(ResourceCommand::Snapshot { respond_to: tx })
+            .expect("the queue takes commands up to its bound");
+    }
+    let watchdog = settings_snapshot(&state).watchdog.enabled;
+
+    let response = set(
+        &state,
+        json!({
+            "control.auth_token": "replacement-token",
+            "watchdog.enabled": !watchdog,
+        }),
+    );
+
+    assert!(!response.ok, "a full scheduler queue refuses the request");
+    assert_eq!(response.error_code.as_deref(), Some("resource_busy"));
+    assert_eq!(project.offered_token().as_deref(), Some("generated-token"));
+    drop(published);
+}
+
+#[test]
+fn config_set_of_the_auth_token_ignores_an_endpoint_file_it_does_not_own() {
+    let project = ScratchProject::new("not-owned");
+    std::fs::create_dir_all(project.0.join(crate::control::endpoint::ENDPOINT_DIR))
+        .expect("endpoint folder");
+    std::fs::write(project.endpoint_file(), "not json").expect("write foreign endpoint file");
+    let mut state = state();
+    state.project_root = Some(project.0.clone());
+
+    success_result(set(
+        &state,
+        json!({"control.auth_token": "replacement-token"}),
+    ));
+
+    assert_eq!(
+        std::fs::read_to_string(project.endpoint_file()).expect("read endpoint file"),
+        "not json"
+    );
 }

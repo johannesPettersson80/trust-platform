@@ -19,7 +19,6 @@ def validator_code_input_paths(root: Path) -> set[str]:
         "fuzz/.gitignore",
         "scripts/gen_cases.py",
         "scripts/runtime_comms_fuzz_gate.sh",
-        "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh",
         "scripts/salsa_fuzz_gate.sh",
         "scripts/validate_verification_metadata.py",
         "verification/malformed-input-taxonomy.md",

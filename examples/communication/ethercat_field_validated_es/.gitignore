@@ -1,4 +1,5 @@
-program.stbc
-*.stbc
+program.tpi
+deployment-record.bin
+*.tpi
 .trust-lsp/
 *.log

@@ -8,8 +8,6 @@ import * as vscode from "vscode";
 import type { ProjectTexts } from "./messages";
 import type { FileError } from "./pageDocument";
 
-/** The shape of a language tag that names a text file (§14.5 item 2). */
-const LANGUAGE_TAG = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
 const NO_ANSWER: FileError = { message: "The truST language server gave no answer." };
 
 /** Unsaved project text shared by native source, library and presentation readers. */
@@ -54,7 +52,8 @@ export async function languageServerTexts(project: vscode.Uri): Promise<ProjectT
 
 /**
  * Writes a text's translation to `hmi/texts/<language>.toml`, creating the file when it is
- * missing; an empty translation removes the text. The file is saved unless it had unsaved
+ * missing; an empty translation removes the text. The language server (`trust-lsp.hmiTranslation`)
+ * checks the language and gives the file's new text; the file is saved unless it had unsaved
  * changes of its own. Gives the reasons when the file cannot be written, such as a file that does
  * not load.
  */
@@ -64,8 +63,14 @@ export async function writeTranslation(
   text: string,
   translation: string,
 ): Promise<FileError[]> {
-  if (!LANGUAGE_TAG.test(language)) return [{ message: `"${language}" is not a language tag.` }];
-  const relative = `hmi/texts/${language}.toml`;
+  const translate = (current?: string) =>
+    vscode.commands.executeCommand<{ ok?: boolean; text?: string; errors?: FileError[] } | undefined>(
+      "trust-lsp.hmiTranslation",
+      { language, text, translation, ...(current !== undefined ? { current } : {}) },
+    );
+  // Asked first without the file, so a language that is no tag never names a file to read.
+  let answer = await translate();
+  if (answer?.ok !== true || typeof answer.text !== "string") return answer?.errors ?? [NO_ANSWER];
   const file = vscode.Uri.joinPath(project, "hmi", "texts", `${language}.toml`);
   let document: vscode.TextDocument | undefined;
   try {
@@ -73,35 +78,23 @@ export async function writeTranslation(
   } catch {
     document = undefined;
   }
-  let texts: Record<string, string> = {};
   if (document) {
-    const parsed = await vscode.commands.executeCommand<
-      { ok?: boolean; model?: { texts: Record<string, string> }; errors?: FileError[] } | undefined
-    >("trust-lsp.hmiFileParse", { kind: "texts", text: document.getText(), file: relative });
-    if (parsed?.ok !== true || !parsed.model) return parsed?.errors ?? [NO_ANSWER];
-    texts = { ...parsed.model.texts };
+    answer = await translate(document.getText());
+    if (answer?.ok !== true || typeof answer.text !== "string") return answer?.errors ?? [NO_ANSWER];
   }
-  if (translation.trim() === "") delete texts[text];
-  else texts[text] = translation;
-  const formatted = await vscode.commands.executeCommand<
-    { ok?: boolean; text?: string; errors?: FileError[] } | undefined
-  >("trust-lsp.hmiFileFormat", {
-    kind: "texts",
-    model: { language, texts },
-  });
-  if (formatted?.ok !== true || typeof formatted.text !== "string") return formatted?.errors ?? [NO_ANSWER];
   if (!document) {
     await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(project, "hmi", "texts"));
-    await vscode.workspace.fs.writeFile(file, new TextEncoder().encode(formatted.text));
+    await vscode.workspace.fs.writeFile(file, new TextEncoder().encode(answer.text));
     // Opened, so the checks of the Problems view see the new file.
     await vscode.workspace.openTextDocument(file);
     return [];
   }
-  if (document.getText() === formatted.text) return [];
+  if (document.getText() === answer.text) return [];
   const wasDirty = document.isDirty;
   const edit = new vscode.WorkspaceEdit();
-  edit.replace(file, new vscode.Range(0, 0, document.lineCount, 0), formatted.text);
-  if (!(await vscode.workspace.applyEdit(edit))) return [{ message: `${relative} could not be changed.` }];
+  edit.replace(file, new vscode.Range(0, 0, document.lineCount, 0), answer.text);
+  if (!(await vscode.workspace.applyEdit(edit)))
+    return [{ message: `hmi/texts/${language}.toml could not be changed.` }];
   if (!wasDirty) await document.save();
   return [];
 }

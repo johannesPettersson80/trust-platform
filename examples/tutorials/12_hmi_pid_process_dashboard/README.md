@@ -75,7 +75,7 @@ cargo run -p trust-runtime --bin trust-runtime -- \
 
 Expected outcome:
 
-- `program.stbc` generated in tutorial folder
+- `program.tpi` generated in tutorial folder
 - no compile errors
 
 ## Step 3: Run the runtime

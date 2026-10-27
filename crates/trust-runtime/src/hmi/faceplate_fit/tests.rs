@@ -2,7 +2,7 @@
 //! field it needs, by its pair or by the field's own name, of a kind the field takes.
 
 use super::*;
-use crate::harness::TestHarness;
+use crate::harness::{CompileSession, Declarations};
 use crate::hmi::member_paths::find_ignoring_case;
 use crate::hmi::page_files::{parse_faceplate, parse_pair};
 
@@ -47,10 +47,11 @@ const CARD: &str = "format = 1\ntitle = \"Pump card\"\nsize = [320, 160]\n\n[fie
 
 const PAIR: &str = "format = 1\nblock = \"Pump\"\nfaceplate = \"pump-card\"\nsymbol = \"pump\"\n\n[fields]\nSpeed = \"ActualSpeed\"\n";
 
-fn harness() -> TestHarness {
-    let mut harness = TestHarness::from_source(PROGRAM).expect("the program compiles");
-    harness.cycle();
-    harness
+/// The program's declarations, which the editor checks a faceplate against.
+fn declarations(source: &str) -> Declarations {
+    CompileSession::from_source(source)
+        .declarations()
+        .expect("the program compiles")
 }
 
 fn card() -> (HmiFaceplate, Vec<HmiPair>) {
@@ -61,19 +62,19 @@ fn card() -> (HmiFaceplate, Vec<HmiPair>) {
 
 #[test]
 fn a_faceplate_fits_an_instance_whose_block_has_every_field_by_its_pair_or_its_name() {
-    let harness = harness();
+    let declarations = declarations(PROGRAM);
     let (faceplate, pairs) = card();
     assert_eq!(
-        misfits(&faceplate, &pairs, "Main.P101", harness.runtime().storage()),
+        misfits(&faceplate, &pairs, "Main.P101", declarations.storage()),
         Vec::<String>::new()
     );
 }
 
 #[test]
 fn a_block_without_a_field_or_with_another_kind_does_not_fit_and_says_which() {
-    let harness = harness();
+    let declarations = declarations(PROGRAM);
     let (faceplate, pairs) = card();
-    let storage = harness.runtime().storage();
+    let storage = declarations.storage();
     let valve = misfits(&faceplate, &pairs, "Main.V101", storage);
     assert_eq!(valve.len(), 2, "{valve:?}");
     assert!(valve[0].contains("Running"), "{valve:?}");
@@ -101,12 +102,12 @@ fn a_block_without_a_field_or_with_another_kind_does_not_fit_and_says_which() {
 
 #[test]
 fn the_fitting_instances_are_the_blocks_it_fits_in_declaration_order() {
-    let harness = harness();
+    let declarations = declarations(PROGRAM);
     let (faceplate, pairs) = card();
-    let programs = harness.runtime().programs();
+    let programs = declarations.metadata().programs();
     let is_program = |name: &str| find_ignoring_case(programs, name).is_some();
     assert_eq!(
-        fitting_instances(&faceplate, &pairs, harness.runtime(), &is_program, 100),
+        fitting_instances(&faceplate, &pairs, &declarations, &is_program, 100),
         ["Main.P101", "Main.North.Feed", "Main.P102"]
     );
 }
@@ -151,8 +152,7 @@ END_VAR
     TIC101();
 END_PROGRAM
 "#;
-    let mut harness = TestHarness::from_source(program).expect("the program compiles");
-    harness.cycle();
+    let declarations = declarations(program);
     let faceplate = parse_faceplate(
         "hmi/panels/loop.toml",
         "format = 1\ntitle = \"Loop\"\nsize = [320, 160]\n\n[fields.Setpoint]\naccepts = [\"number\"]\n\n[fields.Manual]\naccepts = [\"boolean\"]\n\n[[object]]\nid = \"setpoint\"\ntype = \"value\"\nat = [0, 0]\nsize = [100, 40]\n\n[object.bind]\nvalue = \"$Setpoint\"\n",
@@ -165,12 +165,7 @@ END_PROGRAM
     .expect("a pair naming variables beside the instance loads");
     let pairs = vec![pair];
     assert_eq!(
-        misfits(
-            &faceplate,
-            &pairs,
-            "Main.TIC101",
-            harness.runtime().storage()
-        ),
+        misfits(&faceplate, &pairs, "Main.TIC101", declarations.storage()),
         Vec::<String>::new(),
         "the variables beside the instance hold the fields"
     );

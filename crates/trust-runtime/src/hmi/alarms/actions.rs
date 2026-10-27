@@ -119,9 +119,14 @@ pub fn alarm_action(action: &str, value: Option<&Json>) -> Result<AlarmAction, S
             })
         }
         "comment" => {
+            // The characters are counted as the field holds them: UTF-16 code units of a
+            // `WSTRING[120]` (specification 40, §5 item 3).
             let text = value
                 .and_then(Json::as_str)
-                .filter(|text| !text.trim().is_empty() && text.chars().count() <= super::offers::COMMENT_MAX_CHARS)
+                .filter(|text| {
+                    !text.trim().is_empty()
+                        && text.encode_utf16().count() <= super::offers::COMMENT_MAX_CHARS
+                })
                 .ok_or_else(|| "a comment has 1 to 120 characters".to_string())?;
             Ok(AlarmAction {
                 kind: EventKind::Comment,

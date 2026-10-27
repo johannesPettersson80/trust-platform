@@ -742,25 +742,33 @@ fn simulation_contract_default_values_and_io_formatting_cover_every_width() {
         assert_eq!(default_value_for_size(size, false), inactive);
         assert_eq!(default_value_for_size(size, true), active);
     }
-    for (text, expected) in [
-        ("%IX1.2", "%IX1.2"),
-        ("%QB3", "%QB3"),
-        ("%IW4", "%IW4"),
-        ("%QD8", "%QD8"),
-        ("%IL16", "%IL16"),
-    ] {
-        assert_eq!(format_io(&IoAddress::parse(text).unwrap()), expected);
+}
+
+/// A compiled program whose input and output images hold `inputs` and `outputs` bytes, which the
+/// simulation reads and writes. The build needs the toolchain of specification 44 §4.6 at
+/// `TRUST_TOOLCHAIN`.
+fn program_with_images(inputs: u32, outputs: u32) -> crate::CompiledRuntime {
+    let mut globals = String::new();
+    for byte in 0..inputs {
+        globals.push_str(&format!("    i{byte} AT %IB{byte} : BYTE;\n"));
     }
+    for byte in 0..outputs {
+        globals.push_str(&format!("    q{byte} AT %QB{byte} : BYTE;\n"));
+    }
+    let source = if globals.is_empty() {
+        String::from("PROGRAM Main END_PROGRAM")
+    } else {
+        format!("VAR_GLOBAL\n{globals}END_VAR\nPROGRAM Main END_PROGRAM")
+    };
+    crate::harness::TestHarness::from_source(&source)
+        .expect("build the simulation's program")
+        .into_runtime()
 }
 
 #[test]
 fn simulation_contract_disabled_controller_performs_no_io_or_fault() {
     let target = IoAddress::parse("%IX0.0").unwrap();
-    let mut builder = crate::RuntimeBuilder::new();
-    builder.io_mut().resize(1, 1, 0);
-    let mut runtime = builder
-        .build()
-        .expect("install simulation image dimensions");
+    let mut runtime = program_with_images(1, 1);
     let mut controller = SimulationController::new(SimulationConfig {
         enabled: false,
         disturbances: vec![SimulationDisturbance {
@@ -787,7 +795,7 @@ fn simulation_contract_disabled_controller_performs_no_io_or_fault() {
         .apply_post_cycle(Duration::from_millis(100), &runtime)
         .unwrap();
     assert!(!runtime.faulted());
-    assert_eq!(runtime.io().read(&target).unwrap(), Value::Bool(false));
+    assert_eq!(runtime.read_io(&target).unwrap(), Value::Bool(false));
     assert!(controller.pending_effects.is_empty());
 }
 
@@ -808,17 +816,13 @@ value = "FALSE"
 "#,
     );
     let mut controller = SimulationController::new(config);
-    let mut builder = crate::RuntimeBuilder::new();
-    builder.io_mut().resize(1, 0, 0);
-    let mut runtime = builder
-        .build()
-        .expect("install simulation image dimensions");
+    let mut runtime = program_with_images(1, 0);
 
     controller
         .apply_pre_cycle(Duration::from_millis(10), &mut runtime)
         .unwrap();
 
-    assert_eq!(runtime.io().read(&target).unwrap(), Value::Bool(false));
+    assert_eq!(runtime.read_io(&target).unwrap(), Value::Bool(false));
 }
 
 #[test]
@@ -826,11 +830,7 @@ fn simulation_contract_equal_due_effects_preserve_coupling_order() {
     let source_a = IoAddress::parse("%QX0.0").unwrap();
     let source_b = IoAddress::parse("%QX0.1").unwrap();
     let target = IoAddress::parse("%IX0.0").unwrap();
-    let mut builder = crate::RuntimeBuilder::new();
-    builder.io_mut().resize(1, 1, 0);
-    let mut runtime = builder
-        .build()
-        .expect("install simulation image dimensions");
+    let mut runtime = program_with_images(1, 1);
     runtime.write_io(&source_a, Value::Bool(true)).unwrap();
     runtime.write_io(&source_b, Value::Bool(false)).unwrap();
     let mut controller = SimulationController::new(SimulationConfig {
@@ -863,18 +863,14 @@ fn simulation_contract_equal_due_effects_preserve_coupling_order() {
     controller
         .apply_pre_cycle(Duration::from_millis(5), &mut runtime)
         .unwrap();
-    assert_eq!(runtime.io().read(&target).unwrap(), Value::Bool(false));
+    assert_eq!(runtime.read_io(&target).unwrap(), Value::Bool(false));
 }
 
 #[test]
 fn simulation_contract_unchanged_coupling_does_not_enqueue_again() {
     let source = IoAddress::parse("%QW0").unwrap();
     let target = IoAddress::parse("%IW0").unwrap();
-    let mut builder = crate::RuntimeBuilder::new();
-    builder.io_mut().resize(2, 2, 0);
-    let mut runtime = builder
-        .build()
-        .expect("install simulation image dimensions");
+    let mut runtime = program_with_images(2, 2);
     runtime.write_io(&source, Value::Word(7)).unwrap();
     let mut controller = SimulationController::new(SimulationConfig {
         enabled: true,
@@ -903,11 +899,7 @@ fn simulation_contract_unchanged_coupling_does_not_enqueue_again() {
 fn simulation_contract_delayed_effect_is_not_visible_until_exact_due_boundary() {
     let source = IoAddress::parse("%QX0.0").unwrap();
     let target = IoAddress::parse("%IX0.0").unwrap();
-    let mut builder = crate::RuntimeBuilder::new();
-    builder.io_mut().resize(1, 1, 0);
-    let mut runtime = builder
-        .build()
-        .expect("install simulation image dimensions");
+    let mut runtime = program_with_images(1, 1);
     runtime.write_io(&source, Value::Bool(true)).unwrap();
     let mut controller = SimulationController::new(SimulationConfig {
         enabled: true,
@@ -928,11 +920,11 @@ fn simulation_contract_delayed_effect_is_not_visible_until_exact_due_boundary() 
     controller
         .apply_pre_cycle(Duration::from_millis(14), &mut runtime)
         .unwrap();
-    assert_eq!(runtime.io().read(&target).unwrap(), Value::Bool(false));
+    assert_eq!(runtime.read_io(&target).unwrap(), Value::Bool(false));
     controller
         .apply_pre_cycle(Duration::from_millis(15), &mut runtime)
         .unwrap();
-    assert_eq!(runtime.io().read(&target).unwrap(), Value::Bool(true));
+    assert_eq!(runtime.read_io(&target).unwrap(), Value::Bool(true));
 }
 
 #[test]
@@ -940,11 +932,7 @@ fn simulation_contract_coupling_source_read_error_remains_an_io_error() {
     let mut source = IoAddress::parse("%QW0").unwrap();
     source.wildcard = true;
     let target = IoAddress::parse("%IW0").unwrap();
-    let mut builder = crate::RuntimeBuilder::new();
-    builder.io_mut().resize(2, 2, 0);
-    let runtime = builder
-        .build()
-        .expect("install simulation image dimensions");
+    let runtime = program_with_images(2, 2);
     let mut controller = SimulationController::new(SimulationConfig {
         enabled: true,
         couplings: vec![SignalCouplingRule {
@@ -966,11 +954,7 @@ fn simulation_contract_coupling_source_read_error_remains_an_io_error() {
 
 #[test]
 fn simulation_contract_failed_disturbance_write_becomes_runtime_fault() {
-    let mut builder = crate::RuntimeBuilder::new();
-    builder.io_mut().resize(0, 0, 0);
-    let mut runtime = builder
-        .build()
-        .expect("install simulation image dimensions");
+    let mut runtime = program_with_images(0, 0);
     let mut controller = SimulationController::new(SimulationConfig {
         enabled: true,
         disturbances: vec![SimulationDisturbance {
@@ -993,11 +977,7 @@ fn simulation_contract_failed_disturbance_write_becomes_runtime_fault() {
 
 #[test]
 fn simulation_contract_failed_delayed_write_becomes_runtime_fault() {
-    let mut builder = crate::RuntimeBuilder::new();
-    builder.io_mut().resize(0, 0, 0);
-    let mut runtime = builder
-        .build()
-        .expect("install simulation image dimensions");
+    let mut runtime = program_with_images(0, 0);
     let mut controller = SimulationController::new(SimulationConfig {
         enabled: true,
         ..SimulationConfig::default()
@@ -1021,11 +1001,7 @@ fn simulation_contract_failed_delayed_write_becomes_runtime_fault() {
 
 #[test]
 fn simulation_contract_physics_enable_read_failure_is_a_simulation_fault() {
-    let mut builder = crate::RuntimeBuilder::new();
-    builder.io_mut().resize(2, 1, 0);
-    let runtime = builder
-        .build()
-        .expect("install simulation image dimensions");
+    let runtime = program_with_images(2, 1);
     let mut invalid_enable = IoAddress::parse("%QX0.0").unwrap();
     invalid_enable.wildcard = true;
     let physics = PhysicsController::new(&PhysicsConfig {

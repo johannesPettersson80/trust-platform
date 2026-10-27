@@ -835,3 +835,80 @@ END_PROGRAM
     assert_eq!(harness.get_output("tallied"), Some(Value::Int(4)));
     assert_eq!(harness.get_output("stepped"), Some(Value::Int(6)));
 }
+
+#[test]
+fn a_named_array_type_initializer_in_the_annex_a_spelling_initializes_every_variable_of_the_type() {
+    // Table 11 feature 5b with the repetition the Annex A grammar writes, `3((PT := T#100ms))`
+    // (docs/specs/02-data-types.md §3.4): every variable of the type takes the type's initial
+    // value, and a variable's own initial value replaces it, its elements past the list keeping
+    // the declared `PT` of 0. Catches a type's initial value that reaches no variable, and one that
+    // a variable's own initial value does not replace.
+    let source = r#"
+TYPE Delays : ARRAY[1..3] OF TON := [3((PT := T#100ms))];
+END_TYPE
+
+PROGRAM Main
+VAR
+    First : Delays;
+    Second : Delays;
+    Own : Delays := [(PT := T#5ms)];
+    Preset1 : TIME;
+    Preset2 : TIME;
+    Own1 : TIME;
+    Own2 : TIME;
+END_VAR
+Preset1 := First[1].PT;
+Preset2 := Second[3].PT;
+Own1 := Own[1].PT;
+Own2 := Own[2].PT;
+END_PROGRAM
+"#;
+    let harness = run(source, 1);
+    let time = |ms| Some(Value::Time(Duration::from_millis(ms)));
+    assert_eq!(harness.get_output("Preset1"), time(100));
+    assert_eq!(harness.get_output("Preset2"), time(100));
+    assert_eq!(harness.get_output("Own1"), time(5));
+    assert_eq!(harness.get_output("Own2"), time(0));
+}
+
+#[test]
+fn a_structure_element_of_a_function_block_type_holds_its_own_instance() {
+    // IEC 61131-3 Ed.3 Table 11 feature 7a: a function block type as a structure element. Each
+    // variable of the structure holds its own instance, which a call through the member path runs
+    // and whose output the program reads; the structure's other elements start at their declared
+    // values, or at the variable's initial value. Two scans: `Line.Feed` totals 2 x 5 = 10,
+    // `Spare.Feed`, never called, 0; `Line.Levels[3]` is 3 from the type, `Spare.Levels[1]` 7 from
+    // the variable's initial value. Catches a structure that holds an instance refused at build, an
+    // instance two variables share, and a member's starting value lost beside the instance.
+    let source = format!(
+        "{ACCUMULATOR}
+TYPE Station :
+STRUCT
+    Feed : Accumulator;
+    Levels : ARRAY[1..3] OF INT := [1, 2, 3];
+END_STRUCT
+END_TYPE
+
+PROGRAM Main
+VAR
+    Line : Station;
+    Spare : Station := (Levels := [7, 8, 9]);
+    Total : DINT;
+    SpareTotal : DINT;
+    Level : INT;
+    SpareLevel : INT;
+END_VAR
+Line.Feed(Increment := 5);
+Total := Line.Feed.Total;
+SpareTotal := Spare.Feed.Total;
+Level := Line.Levels[3];
+SpareLevel := Spare.Levels[1];
+END_PROGRAM
+"
+    );
+    let harness = run(&source, 2);
+    assert_eq!(harness.get_output("Total"), Some(Value::DInt(10)));
+    assert_eq!(harness.get_output("SpareTotal"), Some(Value::DInt(0)));
+    assert_eq!(harness.get_output("Level"), Some(Value::Int(3)));
+    assert_eq!(harness.get_output("SpareLevel"), Some(Value::Int(7)));
+}

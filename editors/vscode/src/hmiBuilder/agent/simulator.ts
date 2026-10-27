@@ -18,13 +18,15 @@ interface NamedSimulator extends SimulatorJourney {
   session: LiveSession;
 }
 const sessions = new Map<string, NamedSimulator>();
-export function isLocalSimulator(target: LiveEndpoint | undefined): boolean {
-  if (!target?.simulator) return false;
+/** Whether trust-lsp accepts the target for a simulator journey: a simulator whose web address and control endpoint are
+ * on this computer (`trust-lsp.hmiAgent.checkTarget`, specification 43 AT-08). Without an answer it is refused. */
+export async function isLocalSimulator(target: LiveEndpoint | undefined): Promise<boolean> {
   try {
-    return (
-      ["localhost", "127.0.0.1", "[::1]"].includes(new URL(target.url).hostname) &&
-      /^(?:tcp:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):|unix:\/\/|npipe:)/.test(target.endpoint)
+    const answer = await vscode.commands.executeCommand<{ local?: unknown } | undefined>(
+      "trust-lsp.hmiAgent.checkTarget",
+      target ? { simulator: target.simulator, url: target.url, endpoint: target.endpoint } : null,
     );
+    return answer?.local === true;
   } catch {
     return false;
   }
@@ -60,7 +62,7 @@ export function registerSimulatorSessions(context: vscode.ExtensionContext): voi
       if (!folder) return;
       const deps = runtimeLiveOperatorDeps(folder.uri.fsPath, true).session;
       const target = await deps.target();
-      if (!isLocalSimulator(target))
+      if (!(await isLocalSimulator(target)))
         throw new Error(
           "Start a local simulator with an HMI web endpoint before connecting a simulation journey. Physical or remote targets are refused.",
         );
@@ -81,7 +83,9 @@ export function registerSimulatorSessions(context: vscode.ExtensionContext): voi
         ...deps,
         target: async () => {
           const current = await deps.target();
-          return isLocalSimulator(current) && current?.endpoint === target!.endpoint && current?.url === target!.url
+          return (await isLocalSimulator(current)) &&
+            current?.endpoint === target!.endpoint &&
+            current?.url === target!.url
             ? current
             : undefined;
         },

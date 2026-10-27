@@ -130,15 +130,14 @@ if (RENDERED_TEST_ENABLED) {
         for (const route of MODEL_ROUTES) {
           await selectModel(session, route.kind);
           await pollValue(`${route.name} schematic`, () => session.inner("return d.querySelector('[data-plant-model-diagram]')?.getAttribute('data-plant-model-diagram')||'';"), (value) => value === route.kind, 8_000);
-          await sleep(50);
-          const surface = await readModelSurface(session);
+          const surface = await settledModelSurface(session, route);
           assert.strictEqual(surface.diagram.kind, route.kind, `${route.name} should render its own Typical behavior schematic`);
           assert.strictEqual(surface.diagram.role, "img", `${route.name} schematic should expose an image role`);
           assert.ok(surface.diagram.label.includes(route.name), `${route.name} schematic should have a model-specific accessible name`);
           assert.strictEqual(surface.diagram.caption, "Typical behavior", `${route.name} schematic should be qualitative rather than a numerical prediction`);
           assert.deepStrictEqual(surface.diagram.textCollisions, [], `${route.name} schematic labels should not overlap: ${JSON.stringify(surface.diagram.textCollisions)}`);
           if (route.kind === "first_order" || route.kind === "first_order_dead_time" || route.kind === "second_order") {
-            const shape = JSON.parse(await session.inner("var curve=d.querySelector('[data-plant-model-diagram] svg').querySelectorAll('path')[2];var sample=(distance)=>{var p=curve.getPointAtLength(distance);return {x:p.x,y:p.y};};return JSON.stringify({start:sample(28),early:sample(29),later:sample(80),next:sample(81),delayed:sample(43)});"));
+            const shape = JSON.parse(await retried(() => session.inner("var curve=d.querySelector('[data-plant-model-diagram] svg').querySelectorAll('path')[2];var sample=(distance)=>{var p=curve.getPointAtLength(distance);return {x:p.x,y:p.y};};return JSON.stringify({start:sample(28),early:sample(29),later:sample(80),next:sample(81),delayed:sample(43)});")));
             assert.ok(Math.abs(shape.start.x - 58) < 0.1 && Math.abs(shape.start.y - 58) < 0.1,
               `${route.name} must share the input step's time origin, not imply an extra hidden delay`);
             if (route.kind === "first_order") {
@@ -165,7 +164,7 @@ if (RENDERED_TEST_ENABLED) {
         await bindFirstAddressedSignals(session);
         await pollSave(session.inner, false, "valid piecewise-linear route");
         await saveAndReopenPlant(session);
-        const reopened = await readModelSurface(session);
+        const reopened = await settledModelSurface(session, MODEL_ROUTES[5]);
         assert.strictEqual(await selectedModel(session), "piecewise_linear", "saved Piecewise linear identity should reopen exactly");
         assert.strictEqual(reopened.explanation, MODEL_ROUTES[5].explanation);
         assert.strictEqual(reopened.diagram.kind, "piecewise_linear");
@@ -192,6 +191,43 @@ async function selectedModel(session: RenderedPlantSession): Promise<string> {
 
 async function readModelOptions(session: RenderedPlantSession): Promise<Array<{ value: string; text: string }>> {
   return JSON.parse(await session.inner("var select=d.querySelector('select[name=plant-model]');return JSON.stringify([...select.options].map((option)=>({value:option.value,text:(option.textContent||'').trim()})));"));
+}
+
+/** `read`, read again while the diagram it reads is being drawn again. */
+async function retried<T>(read: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await read();
+    } catch (error) {
+      if (attempt >= 20) throw error;
+      await sleep(100);
+    }
+  }
+}
+
+/**
+ * The model's surface once the editor shows Rust's answer for the selected model: its sections can
+ * be missing and its fields can still be the previous model's while that answer is on its way. Past
+ * the deadline the last surface read is returned, so that the route's assertions name what differs.
+ */
+async function settledModelSurface(session: RenderedPlantSession, route: ModelRoute): Promise<any> {
+  const deadline = Date.now() + 8_000;
+  let last: any;
+  while (Date.now() < deadline) {
+    try {
+      last = await readModelSurface(session);
+      if (last.diagram.kind === route.kind &&
+        JSON.stringify(last.dynamics) === JSON.stringify(route.dynamics) &&
+        JSON.stringify(last.starting) === JSON.stringify(route.starting) &&
+        JSON.stringify(last.ports) === JSON.stringify(route.ports)) {
+        return last;
+      }
+    } catch {
+      // A section is not shown yet.
+    }
+    await sleep(100);
+  }
+  return last ?? readModelSurface(session);
 }
 
 async function readModelSurface(session: RenderedPlantSession): Promise<any> {

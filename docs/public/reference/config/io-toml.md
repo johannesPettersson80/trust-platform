@@ -61,11 +61,15 @@ rewritten driver/safe-state items.
 
 | Driver | Purpose |
 | --- | --- |
+| `analog` | analog inputs and outputs in millivolts (a chip's ADC, Linux IIO) |
+| `can` | CAN frames to and from the process image (a chip's CAN controller, Linux SocketCAN) |
+| `counter` | pulse and encoder counters (a chip's counters, the Linux counter subsystem) |
 | `ethercat` | EtherCAT master / mock adapter workflows |
 | `gpio` | direct GPIO-backed I/O |
 | `loopback` | feed outputs back into inputs locally |
 | `modbus-tcp` | Modbus TCP client I/O |
 | `mqtt` | MQTT topic-backed I/O |
+| `pwm` | PWM outputs with a duty in hundredths of a percent (a chip's PWM, Linux sysfs PWM) |
 | `simulated` | runtime without physical hardware |
 
 Accepted aliases also include:

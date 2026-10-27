@@ -63,6 +63,20 @@ mod hmi_snapshot;
 mod hmi_symbols;
 #[path = "commands/hmi_texts.rs"]
 mod hmi_texts;
+// The visual-program commands (specification 25 §11.4); their rules are in `trust-visual`.
+mod visual;
+pub use visual::VISUAL_COMMANDS;
+// The project commands (specification 25): project files, the simulator entry, libraries, tests,
+// the sidebar's gates and the examples gallery.
+pub(crate) mod project;
+pub use project::PROJECT_COMMANDS;
+// The run targets and the runtime requests of the extension (specification 25 §4, §5.1, §6.4).
+mod run_targets;
+pub use run_targets::RUN_TARGET_COMMANDS;
+// The HMI Builder's project rules (specification 39): what the editor writes into a project and
+// checks before it writes.
+mod hmi_builder;
+pub use hmi_builder::HMI_BUILDER_COMMANDS;
 
 pub const MOVE_NAMESPACE_COMMAND: &str = "trust-lsp.moveNamespace";
 pub const PROJECT_INFO_COMMAND: &str = "trust-lsp.projectInfo";
@@ -120,6 +134,7 @@ pub const EXECUTE_COMMANDS: &[&str] = &[
     "trust-lsp.hmiAgent.apply",
     "trust-lsp.hmiAgent.discard",
     "trust-lsp.hmiAgent.checkInput",
+    "trust-lsp.hmiAgent.checkTarget",
 ];
 
 #[derive(Debug, Deserialize)]
@@ -156,6 +171,9 @@ pub async fn execute_command(
     state: &ServerState,
     params: ExecuteCommandParams,
 ) -> Option<Value> {
+    if let Some(reply) = super::devices::execute(state, &params).await {
+        return Some(reply);
+    }
     match params.command.as_str() {
         MOVE_NAMESPACE_COMMAND => {
             let args = parse_move_namespace_args(params.arguments)?;
@@ -227,6 +245,16 @@ pub fn execute_read_command(state: &ServerState, params: ExecuteCommandParams) -
         )),
         command if hmi_agent::is_command(command) => {
             hmi_agent::execute(state, command, params.arguments)
+        }
+        command if visual::is_command(command) => Some(visual::execute(command, params.arguments)),
+        command if run_targets::is_command(command) => {
+            Some(run_targets::execute(command, params.arguments))
+        }
+        command if project::is_command(command) => {
+            Some(project::execute(state, command, params.arguments))
+        }
+        command if hmi_builder::is_command(command) => {
+            Some(hmi_builder::execute(command, params.arguments))
         }
         _ => None,
     }
@@ -437,11 +465,12 @@ fn hmi_bindings_value_with_context<C: ServerContext>(
         Err(error) => return Some(json!({ "ok": false, "error": error })),
     };
 
-    let metadata = runtime.metadata_snapshot();
+    // The project's declarations in their starting state (specification 44 §6.7).
+    let metadata = runtime.metadata().clone();
     let snapshot = DebugSnapshot {
         storage: runtime.storage().clone(),
-        now: runtime.current_time(),
-        storage_abi: metadata.storage_abi(),
+        now: trust_runtime::value::Duration::ZERO,
+        compiled: None,
     };
     let texts = sources
         .iter()
@@ -598,7 +627,7 @@ fn process_image_entries(
             }
             Some(json!({
                 "symbol": entry.name.as_ref()?.as_str(),
-                "address": canonical_io_address(&entry.address),
+                "address": entry.address.to_string(),
                 "type": value_type,
             }))
         })
@@ -613,42 +642,6 @@ fn plant_signal_order(left: &Value, right: &Value) -> std::cmp::Ordering {
 
 fn plant_signal_field<'a>(value: &'a Value, key: &str) -> &'a str {
     value.get(key).and_then(Value::as_str).unwrap_or_default()
-}
-
-fn canonical_io_address(address: &trust_runtime::io::IoAddress) -> String {
-    use trust_runtime::io::IoSize;
-    let area = match address.area {
-        trust_runtime::memory::IoArea::Input => "I",
-        trust_runtime::memory::IoArea::Output => "Q",
-        trust_runtime::memory::IoArea::Memory => "M",
-    };
-    let size = match address.size {
-        IoSize::Bit => "X",
-        IoSize::Byte | IoSize::Bytes(_) => "B",
-        IoSize::Word => "W",
-        IoSize::DWord => "D",
-        IoSize::LWord => "L",
-    };
-    if address.wildcard {
-        return format!("%{area}{size}*");
-    }
-    let mut path = address
-        .path
-        .iter()
-        .map(u32::to_string)
-        .collect::<Vec<_>>()
-        .join(".");
-    if address.size == IoSize::Bit {
-        if !path.is_empty() {
-            path.push('.');
-        }
-        path.push_str(&address.bit.to_string());
-    }
-    if path.is_empty() {
-        format!("%{area}{size}{}", address.byte)
-    } else {
-        format!("%{area}{size}{path}")
-    }
 }
 
 fn parse_hmi_bindings_args(args: Vec<Value>) -> Result<HmiBindingsCommandArgs, String> {
@@ -724,9 +717,11 @@ fn compile_inputs(inputs: ProjectInputs) -> Result<CompiledProject, String> {
             )
         })
         .collect::<Vec<_>>();
+    // The project's declarations in their starting state, which the HMI commands read without
+    // running the program (specification 44 §6.7).
     let runtime = hmi_compilation_cache::compile(&root, &sources, || {
         CompileSession::from_sources(compile_sources)
-            .build_runtime()
+            .declarations()
             .map_err(|error| error.to_string())
     })?;
     Ok(CompiledProject {

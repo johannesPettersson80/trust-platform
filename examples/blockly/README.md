@@ -44,40 +44,19 @@ Creates a moving LED pattern that:
 
 ### 3. Execute
 
-#### Simulation Mode (No Hardware)
+A Blockly program runs as Structured Text. Saving the workspace (or **Generate Code**) writes the
+companion `<name>.st` and the runtime entry `<name>.visual.runtime.st` beside the file; the editor
+has no simulator or hardware mode of its own.
 
-```bash
-# From VS Code editor
-Click: ▶ Simulate
-```
-
-Program runs in memory without physical I/O.
-
-#### Hardware Mode (Real PLC)
-
-**Option A: Using hardware_8do backend**
+- **Without hardware:** start the runtime entry from the truST sidebar (Run) and watch the
+  program's values, and the `%QX` outputs it drives, in Live Values.
+- **With hardware:** copy the two generated files into the `src/` folder of a project whose
+  `io.toml` drives the outputs, for example `examples/hardware_8do`, and build and run it there:
 
 ```bash
 cd examples/hardware_8do
-./start.sh
-```
-
-Then in VS Code editor:
-```
-Click: 🔧 Hardware
-```
-
-**Option B: Manual Runtime**
-
-```bash
-# Terminal 1: Start runtime with I/O
-cd examples/hardware_8do
-trust-runtime -c runtime.toml
-
-# Terminal 2: Generate and deploy ST code
-# (From Blockly editor: Generate Code → Save as .st)
-# Copy generated .st to src/ folder
-trust-runtime -c runtime.toml  # Hot reload
+trust-runtime build --project .
+trust-runtime run --project .
 ```
 
 ## Hardware Setup

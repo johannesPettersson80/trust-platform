@@ -1,5 +1,4 @@
 import { PanelSettings } from "./PanelSettings";
-import { equipmentFor } from "../equipment";
 import { EquipmentSection } from "./EquipmentSection";
 // The inspector (§3.2): the selected object's design and bindings; the page itself when nothing
 // is selected. Every change is committed as one edit. A binding takes a variable typed, picked
@@ -13,12 +12,12 @@ import type { QualityWarning } from "../quality";
 import { useEffect, useState } from "react";
 import type { MutableRefObject } from "react";
 
-import type { HmiBindingDirection, HmiObjectModel, HmiPageModel } from "../../drawing/model";
-import type { Catalogue, PropertyDefinition } from "../catalogue";
+import type { HmiObjectModel, HmiPageModel } from "../../drawing/model";
+import type { Catalogue, EquipmentDefinition } from "../catalogue";
 import { deleteObjects, updateObject } from "../editing";
 import type { VariableNode, ScreenModel } from "../messages";
 import { deletePipes, pipeIndex } from "../pipes";
-import { bindingDirection, refusal } from "../variables";
+import { bound } from "../variables";
 import { BindingPicker } from "./BindingPicker";
 import { ClickSection, ClickTargets } from "./ClickSection";
 import { ControlSection } from "./ControlSection";
@@ -32,8 +31,8 @@ import { PipeSection } from "./PipeSection";
 import { PreviewSection } from "./PreviewSection";
 import { LimitsSection } from "./LimitsSection";
 import { TrendScalesSection } from "./TrendScalesSection";
-import { notWritable } from "../policyProblems";
 import { penName } from "../objectName";
+import { useRust, withObject } from "./rust";
 
 /** A variable being dragged from the Tags panel; a binding that takes the drop marks it handled. */
 export interface VariableDrag {
@@ -47,6 +46,9 @@ interface InspectorProps {
     page: HmiPageModel;
     selection: string[];
     catalogue: Catalogue | undefined;
+    /** The definition each equipment object shows, by the block it records (§8.5), as the language
+     * server gives them. */
+    definitions?: Record<string, EquipmentDefinition>;
     paused: boolean;
     variables: VariableNode[] | undefined;
     variablesProblem: string | undefined;
@@ -58,6 +60,8 @@ interface InspectorProps {
     /** The selected object's binding problems (§7.6), and letting the runtime display write a
      * point the write policy does not cover yet (§12.2.3). */
     problems?: string[];
+    /** The point each problem names that no write rule covers, as the language server names it. */
+    points?: Record<string, string>;
     onAllowWriting?: (point: string) => void;
     /** The screen layout with the project's colours, and their warnings (§14.1 items 2 and 4). */
     screen: ScreenModel;
@@ -80,24 +84,6 @@ interface InspectorProps {
         ask: (faceplate: string) => void;
         open: (faceplate: string) => void;
     };
-}
-
-/** A faceplate's fields as the picker shows variables: `$Name`, with the kinds it takes, any
- * single value when it names none; a single value is also a "value", as a variable's is. */
-function fieldNodes(fields: NonNullable<HmiPageModel["fields"]>): VariableNode[] {
-    const single = ["number", "boolean", "text", "time", "enumeration"];
-    return Object.entries(fields).map(([name, field]) => {
-        const taken = field.accepts.length === 0 || field.accepts.includes("value") ? single : field.accepts;
-        const kinds = taken.every((kind) => single.includes(kind)) ? [...taken, "value"] : taken;
-        return {
-            name: `$${name}`,
-            path: `$${name}`,
-            kind: "value",
-            type: field.accepts.length > 0 ? field.accepts.join(" or ") : "any value",
-            kinds,
-            writable: true,
-        };
-    });
 }
 
 /** A binding's name as the inspector writes it; the visibility binding says what it does. */
@@ -133,6 +119,7 @@ export function Inspector({
     page,
     selection,
     catalogue,
+    definitions,
     paused,
     variables,
     variablesProblem,
@@ -140,6 +127,7 @@ export function Inspector({
     targets,
     warnings,
     problems,
+    points,
     onAllowWriting,
     screen,
     colourWarnings,
@@ -158,6 +146,7 @@ export function Inspector({
     const [picking, setPicking] = useState<string>();
     const selected = selection.length === 1 ? selection[0] : undefined;
     useEffect(() => setPicking(undefined), [selected]);
+    const { call, change } = useRust();
 
     if (selection.length === 0) {
         return (
@@ -181,6 +170,7 @@ export function Inspector({
                 <VisibilitySection
                     page={page}
                     selection={selection}
+                    catalogue={catalogue}
                     variables={variables}
                     problem={variablesProblem}
                     readOnly={paused}
@@ -230,12 +220,10 @@ export function Inspector({
     }
     const object = page.object.find((candidate) => candidate.id === selection[0]);
     if (!object) return <aside className="hb-panel hb-inspector" />;
-    // A faceplate's fields come first in the picker, bound as `$Name` (§8.7).
-    const offered = page.fields ? [...fieldNodes(page.fields), ...(variables ?? [])] : variables;
     const component = catalogue?.components.find((candidate) => candidate.type === object.type);
     // A placed faceplate shows its faceplate's objects: it has a tag, a place and a size (§8.9).
     const placed = object.type === "faceplate";
-    const equipment = equipmentFor(catalogue, object);
+    const equipment = object.block ? definitions?.[object.block] : undefined;
     const number = (text: string): number | undefined =>
         text === "" || Number.isNaN(Number(text)) ? undefined : Number(text);
     const position =
@@ -251,24 +239,23 @@ export function Inspector({
         ...Object.keys(component?.properties ?? {}),
         ...Object.keys(object.bind).filter((name) => !component?.properties?.[name]),
     ];
-    const definitionOf = (name: string): PropertyDefinition | undefined =>
-        component?.properties?.[name] ?? component?.additional;
-    const directionOf = (name: string): HmiBindingDirection => {
-        const definition = definitionOf(name);
-        return (
-            definition
-                ? bindingDirection(definition, object.bind[name]?.direction)
-                : (object.bind[name]?.direction ?? "read")
-        ) as HmiBindingDirection;
-    };
+    /** Binds a property to a typed or picked path, or to a variable dropped on it; the language
+     * server gives the binding its direction and says why a variable cannot be bound (§7.1, §7.4). */
+    const rebind = (name: string, given: { path: string } | { variable: VariableNode }): void =>
+        change(async (current) => {
+            const target = current.object.find((candidate) => candidate.id === object.id);
+            if (!target) return undefined;
+            const answer = await bound(call, component, target, name, given);
+            if ("refused" in answer) {
+                if (answer.refused) onNotice(answer.refused);
+                return undefined;
+            }
+            return { page: withObject(current, answer.object) };
+        });
     const bind =
         (name: string) =>
-        (path: string): void => {
-            const nextBind = { ...object.bind };
-            if (path === "") delete nextBind[name];
-            else nextBind[name] = { ...object.bind[name], path, direction: directionOf(name) };
-            replace({ ...object, bind: nextBind });
-        };
+        (path: string): void =>
+            rebind(name, { path });
     /** Adds a variable as a pen named after its last part, numbered when the name is taken (§5.7). */
     const addPen = (path: string): void => {
         const trimmed = path.trim();
@@ -281,23 +268,14 @@ export function Inspector({
             );
         let name = base;
         for (let number = 2; taken(name); number += 1) name = `${base} ${number}`;
-        replace({ ...object, bind: { ...object.bind, [name]: { path: trimmed, direction: directionOf(name) } } });
-    };
-    /** Why a variable cannot be bound to the property, or undefined when it can. */
-    const whyNot = (name: string, node: VariableNode): string | undefined => {
-        const definition = definitionOf(name);
-        return definition
-            ? refusal(object.type, name, definition, node, directionOf(name))
-            : `a ${object.type.replace(/-/g, " ")} has no property "${name}"`;
+        rebind(name, { path: trimmed });
     };
     /** A variable dragged from the Tags panel and released on a binding. */
     const drop = (name: string) => (): void => {
         const drag = variableDrag.current;
         if (!drag?.moved || paused) return;
         drag.handled = true;
-        const why = whyNot(name, drag.node);
-        if (why) onNotice(why);
-        else bind(name)(drag.node.path);
+        rebind(name, { variable: drag.node });
     };
 
     return (
@@ -310,11 +288,9 @@ export function Inspector({
             {equipment ? (
                 <EquipmentSection
                     object={object}
-                    page={page}
                     definition={equipment}
                     variables={variables ?? []}
                     readOnly={paused}
-                    onChange={replace}
                     editing={equipmentEditor}
                     pictures={pictures(catalogue)}
                 />
@@ -323,7 +299,7 @@ export function Inspector({
                 <section className="hb-section hb-quality hb-problems" data-part="problems">
                     <h2>Problems</h2>
                     {problems.map((problem, index) => {
-                        const point = notWritable(problem);
+                        const point = points?.[problem];
                         return (
                             <div key={index} className="hb-quality-line">
                                 <span className="hb-quality-mark" aria-hidden="true">
@@ -535,9 +511,15 @@ export function Inspector({
                             </button>
                             {picking === name ? (
                                 <BindingPicker
-                                    variables={offered}
+                                    variables={variables}
                                     problem={variablesProblem}
-                                    offered={(node) => whyNot(name, node) === undefined}
+                                    binding={{
+                                        type: object.type,
+                                        property: name,
+                                        component,
+                                        direction: object.bind[name]?.direction,
+                                        fields: page.fields,
+                                    }}
                                     onPick={(node) => {
                                         setPicking(undefined);
                                         bind(name)(node.path);
@@ -571,12 +553,9 @@ export function Inspector({
                             </button>
                             {picking === "add-pen" ? (
                                 <BindingPicker
-                                    variables={offered}
+                                    variables={variables}
                                     problem={variablesProblem}
-                                    offered={(node) =>
-                                        component.additional !== undefined &&
-                                        refusal(object.type, "pen", component.additional, node, "read") === undefined
-                                    }
+                                    binding={{ type: object.type, property: "pen", component, fields: page.fields }}
                                     onPick={(node) => {
                                         setPicking(undefined);
                                         addPen(node.path);

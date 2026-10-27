@@ -7,10 +7,9 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 
-use crate::hmi::instance_walk::base_part;
-use crate::hmi::member_paths::{resolve_member, MemberPath, PathSegment};
+use crate::hmi::member_paths::{locate_member, MemberPath, PathSegment};
 use crate::hmi::page_files::HmiLimits;
-use crate::memory::{InstanceId, VariableStorage};
+use crate::runtime::program_access::{Located, ProgramRead};
 use crate::value::Value;
 
 /// Presentation facts, not alarm states or command constraints.
@@ -66,31 +65,25 @@ const LIMITS: [(&str, &str); 4] = [
     ("high-high", "HighHigh"),
 ];
 
-/// The presentation of a value that is a known equipment's physical value.
+/// The presentation of a value that is a known equipment's physical value, read in the running
+/// program.
 pub(crate) fn equipment_presentation(
-    storage: &VariableStorage,
+    program: &dyn ProgramRead,
     path: &MemberPath,
 ) -> Option<EquipmentPresentation> {
     let mut parent = path.clone();
     let PathSegment::Field(field) = parent.segments.pop()? else {
         return None;
     };
-    let Value::Instance(id) = resolve_member(&parent, storage)? else {
-        return None;
-    };
-    let contract = contract_of(storage, *id)?;
+    let instance = locate_member(&parent, program)?;
+    let contract = contract_of(program, &instance)?;
     if !field.eq_ignore_ascii_case(contract.value) {
         return None;
     }
-    let member = |name: &str| {
-        let mut path = parent.clone();
-        path.segments
-            .extend(name.split('.').map(|name| PathSegment::Field(name.into())));
-        resolve_member(&path, storage)
-    };
+    let member = |name: &str| member_of(program, &instance, name);
     let number = |name: &str| match member(name) {
-        Some(Value::LReal(value)) if value.is_finite() => Some(*value),
-        Some(Value::Real(value)) if value.is_finite() => Some(f64::from(*value)),
+        Some(Value::LReal(value)) if value.is_finite() => Some(value),
+        Some(Value::Real(value)) if value.is_finite() => Some(f64::from(value)),
         _ => None,
     };
     let unit = match member("Unit") {
@@ -151,15 +144,25 @@ pub(crate) fn equipment_presentation(
 }
 
 /// The contract an instance's block or one of its bases has.
-fn contract_of(storage: &VariableStorage, id: InstanceId) -> Option<&'static Contract> {
+fn contract_of(program: &dyn ProgramRead, instance: &Located) -> Option<&'static Contract> {
     CONTRACTS
         .iter()
-        .find(|contract| base_part(storage, id, contract.block).is_some())
+        .find(|contract| program.is_a(instance, contract.block))
+}
+
+/// The value of the member `name` of the instance at `instance`, a member of a member when `name`
+/// is dotted (`HighAlarm.Priority`).
+fn member_of(program: &dyn ProgramRead, instance: &Located, name: &str) -> Option<Value> {
+    let mut at = *instance;
+    for part in name.split('.') {
+        at = program.member(&at, part)?;
+    }
+    program.read_at(&at).ok()
 }
 
 /// The source and unit of one of the equipment contract's own limit alarms, at this scan.
 pub(crate) fn alarm_value_format(
-    storage: &VariableStorage,
+    program: &dyn ProgramRead,
     equipment: &str,
     alarm: &str,
 ) -> Option<(String, Option<String>)> {
@@ -171,13 +174,9 @@ pub(crate) fn alarm_value_format(
     {
         return None;
     }
-    let mut parent = MemberPath::parse(equipment).ok()?;
-    let Value::Instance(id) = resolve_member(&parent, storage)? else {
-        return None;
-    };
-    let contract = contract_of(storage, *id).filter(|contract| contract.limits)?;
-    parent.segments.push(PathSegment::Field("Unit".into()));
-    let unit = match resolve_member(&parent, storage) {
+    let instance = locate_member(&MemberPath::parse(equipment).ok()?, program)?;
+    let contract = contract_of(program, &instance).filter(|contract| contract.limits)?;
+    let unit = match member_of(program, &instance, "Unit") {
         Some(Value::String(unit)) if !unit.trim().is_empty() => Some(unit.to_string()),
         _ => None,
     };

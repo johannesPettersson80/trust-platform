@@ -5,9 +5,6 @@ version = 1
 name = "MotionOopWarehouse"
 cycle_interval_ms = 10
 
-[runtime]
-execution_backend = "vm"
-
 [runtime.control]
 endpoint = "unix:///tmp/trust-motion-oop-warehouse.sock"
 mode = "production"

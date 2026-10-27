@@ -5,7 +5,10 @@ use trust_runtime::harness::{CompileSession, SourceFile};
 use trust_runtime::io::IoAddress;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
+
+mod control_heater_support;
+use control_heater_support::{compile, exists, type_name, value, LessonRuntime};
 
 const LESSONS: [(&str, &str, f64); 2] = [
     ("06-water-heater-saturation-windup", "%MX96.0", 200.0),
@@ -18,7 +21,7 @@ fn lesson(folder: &str) -> PathBuf {
         .join(folder)
 }
 
-fn setup(folder: &str) -> (Runtime, SimulationController) {
+fn setup(folder: &str) -> (CompiledRuntime, SimulationController) {
     let project = lesson(folder);
     let session = CompileSession::from_sources(vec![
         SourceFile::with_path(
@@ -30,36 +33,27 @@ fn setup(folder: &str) -> (Runtime, SimulationController) {
             std::fs::read_to_string(project.join("libraries/control/src/control.st")).unwrap(),
         ),
     ]);
-    let mut runtime = session.build_runtime().unwrap();
-    runtime
-        .apply_bytecode_bytes(&session.build_bytecode_bytes().unwrap(), None)
-        .unwrap();
+    let runtime = compile(session);
     (
         runtime,
         SimulationController::new(SimulationConfig::load(project.join("simulation.toml")).unwrap()),
     )
 }
 
-fn number(runtime: &Runtime, address: &str) -> f64 {
-    let Value::LWord(bits) = runtime
-        .io()
-        .read(&IoAddress::parse(address).unwrap())
+fn number(runtime: &CompiledRuntime, address: &str) -> f64 {
+    match runtime
+        .read_io(&IoAddress::parse(address).unwrap())
         .unwrap()
-    else {
-        panic!("expected LREAL at {address}");
-    };
-    f64::from_bits(bits)
+    {
+        Value::LWord(bits) => f64::from_bits(bits),
+        Value::LReal(value) => value,
+        _ => panic!("expected LREAL at {address}"),
+    }
 }
 
-fn variable(runtime: &Runtime, name: &str) -> Value {
-    let Value::Instance(program) = runtime.storage().get_global("P1").unwrap() else {
-        panic!("P1 program");
-    };
-    runtime
-        .storage()
-        .get_instance_var(*program, name)
-        .unwrap_or_else(|| panic!("missing {name}"))
-        .clone()
+fn variable(runtime: &CompiledRuntime, name: &str) -> Value {
+    assert!(exists(runtime, "P1"), "P1 program");
+    value(runtime, &format!("P1.{name}")).unwrap_or_else(|| panic!("missing {name}"))
 }
 
 fn near(actual: f64, expected: f64, context: &str) {
@@ -217,26 +211,17 @@ fn assert_actual_pid_ownership(folder: &str, activation: &str, maximum: f64) {
         );
         runtime.advance_time(Duration::from_millis(100));
         runtime.execute_cycle().unwrap();
-        let Value::Instance(program) = runtime.storage().get_global("P1").unwrap() else {
-            panic!("P1 program");
-        };
-        let Some(Value::Instance(controller)) =
-            runtime.storage().get_instance_var(*program, "Controller")
-        else {
-            panic!("{folder}: the delivered Main must execute a real Control.PID instance");
-        };
+        assert!(exists(&runtime, "P1"), "P1 program");
+        let controller = "P1.Controller";
+        assert!(
+            exists(&runtime, controller),
+            "{folder}: the delivered Main must execute a real Control.PID instance"
+        );
         assert_eq!(
-            runtime
-                .storage()
-                .get_instance(*controller)
-                .unwrap()
-                .type_name
-                .as_str(),
+            type_name(&runtime, controller).unwrap().as_str(),
             "Control.PID"
         );
-        let Some(Value::Struct(state)) = runtime
-            .storage()
-            .get_instance_var(*controller, "StateValue")
+        let Some(Value::Struct(state)) = value(&runtime, &format!("{controller}.StateValue"))
         else {
             panic!("PID retained state");
         };

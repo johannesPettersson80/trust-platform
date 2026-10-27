@@ -12,6 +12,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -22,6 +23,28 @@ use trust_control_studio::runtime_client::RuntimeClient;
 
 /// The helpers of the engine's real-runtime tests of stages V4.6 to V4.8 (a lab on a copy of a project, the command line, findings).
 pub mod engine;
+
+/// The control socket of a test project: `.control.sock` in the project while that path fits a socket address (100 bytes,
+/// under Linux's 108 and macOS's 104); under a long `TMPDIR`, such as the release guard's in its build folder, a short name
+/// in `TMPDIR` itself, one for each process and call.
+pub fn control_socket(project: &Path) -> PathBuf {
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
+    let socket = project.join(".control.sock");
+    if socket.as_os_str().len() <= 100 {
+        return socket;
+    }
+    let short = std::env::temp_dir().join(format!(
+        "tcs-{}-{}.sock",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    assert!(
+        short.as_os_str().len() <= 100,
+        "the socket path {} is too long; use a shorter TMPDIR",
+        short.display()
+    );
+    short
+}
 
 /// A known control token for the test runtime. It is not a credential.
 pub const TOKEN: &str = "control-studio-runtime-test-token";
@@ -169,18 +192,38 @@ pub fn start_runtime(project: &Path, log: &Path) -> Runtime {
 }
 
 /// Points the control endpoint at a socket in the copy, sets the test token and turns the web
-/// server off, so parallel runs never share an endpoint or a port.
+/// server off, so parallel runs never share an endpoint or a port. The examples name no endpoint
+/// and no token (specification 11 §6.8.0a), so both keys are set at the top of the copy's
+/// `[runtime.control]` table, replacing any that the table has; no other table is touched.
 pub fn prepare_runtime_toml(project: &Path, socket: &Path) {
     let path = project.join("runtime.toml");
     let text = fs::read_to_string(&path).expect("runtime.toml");
-    let lines: Vec<String> = text
-        .lines()
-        .map(|line| match line.split('=').next().map(str::trim) {
-            Some("endpoint") => format!("endpoint = \"unix://{}\"", socket.display()),
-            Some("auth_token") => format!("auth_token = \"{TOKEN}\""),
-            _ => line.to_string(),
-        })
-        .collect();
+    let mut lines = Vec::new();
+    let mut in_control = false;
+    let mut has_control = false;
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('[') {
+            in_control = trimmed == "[runtime.control]";
+            lines.push(line.to_string());
+            if in_control {
+                has_control = true;
+                lines.push(format!("endpoint = \"unix://{}\"", socket.display()));
+                lines.push(format!("auth_token = \"{TOKEN}\""));
+            }
+            continue;
+        }
+        let key = trimmed.split('=').next().map(str::trim);
+        if in_control && matches!(key, Some("endpoint" | "auth_token")) {
+            continue;
+        }
+        lines.push(line.to_string());
+    }
+    assert!(
+        has_control,
+        "{} has no [runtime.control] table",
+        path.display()
+    );
     fs::write(
         &path,
         format!("{}\n\n[runtime.web]\nenabled = false\n", lines.join("\n")),

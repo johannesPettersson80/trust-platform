@@ -53,6 +53,7 @@ fn problem(pipe: &str, property: &str, message: String) -> BindingProblem {
         object: pipe.to_string(),
         property: Some(property.to_string()),
         message,
+        point: None,
     }
 }
 

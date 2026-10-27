@@ -313,6 +313,31 @@ fn field_ids_are_unique_within_each_protocol() {
 }
 
 #[test]
+fn modbus_tcp_offers_the_identity_it_expects_as_optional_advanced_text() {
+    // Specification 11 ("Compare with the project", the project's devices): a `modbus-tcp` driver may state the
+    // `vendor_name`, `product_code` and `revision` it expects, and the connection form must offer them, or a
+    // Save from the form drops them from `io.toml`. They are text, optional, empty by default, and advanced, so
+    // the form of a driver that states none is unchanged. A wrong implementation leaves one out of the schema,
+    // makes one required, or shows them before the settings every connection needs.
+    let modbus = protocols()
+        .into_iter()
+        .find(|protocol| protocol.id == "modbus_tcp")
+        .expect("the registry lists modbus_tcp");
+
+    for id in ["vendor_name", "product_code", "revision"] {
+        let field = modbus
+            .fields
+            .iter()
+            .find(|field| field.id == id)
+            .unwrap_or_else(|| panic!("modbus_tcp offers {id}"));
+        assert_eq!(field.field_type, "string", "{id} is text");
+        assert!(!field.required, "{id} is optional");
+        assert!(field.advanced, "{id} is an advanced setting");
+        assert_eq!(field.default, json!(""), "{id} states nothing by default");
+    }
+}
+
+#[test]
 fn field_labels_and_help_are_complete() {
     for protocol in protocols() {
         for field in protocol.fields {

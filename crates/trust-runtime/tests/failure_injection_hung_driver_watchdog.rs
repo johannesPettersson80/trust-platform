@@ -6,6 +6,8 @@
 //! The driver blocks on a channel that the test releases. The release happens
 //! after the observation and before every join, and the driver also gives up
 //! after a bounded wait, so a broken test cannot hang the process.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
@@ -13,11 +15,29 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration as StdDuration, Instant};
 
 use trust_runtime::error::RuntimeError;
+use trust_runtime::harness::TestHarness;
 use trust_runtime::io::IoDriver;
 use trust_runtime::scheduler::{Clock, ResourceHandle, ResourceRunner, ResourceState};
 use trust_runtime::value::Duration;
 use trust_runtime::watchdog::{WatchdogAction, WatchdogPolicy};
-use trust_runtime::RuntimeBuilder;
+use trust_runtime::CompiledRuntime;
+
+/// A program whose process image holds one input byte, which no statement reads.
+const ONE_INPUT_SOURCE: &str = r#"
+VAR_GLOBAL
+    start AT %IX0.0 : BOOL;
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+"#;
+
+/// The program of `ONE_INPUT_SOURCE`, loaded.
+fn one_input_runtime() -> CompiledRuntime {
+    TestHarness::from_source(ONE_INPUT_SOURCE)
+        .expect("the one-input program compiles")
+        .into_runtime()
+}
 
 #[derive(Clone, Debug)]
 struct StepClock {
@@ -73,9 +93,7 @@ fn enabled_watchdog_faults_the_resource_while_an_input_read_is_hung() {
     let (entered_tx, entered_rx) = mpsc::channel::<()>();
     let (release_tx, release_rx) = mpsc::channel::<()>();
 
-    let mut builder = RuntimeBuilder::new();
-    builder.io_mut().resize(1, 0, 0);
-    let mut runtime = builder.build().expect("install declared test runtime");
+    let mut runtime = one_input_runtime();
     runtime.add_io_driver(
         "hung-input",
         Box::new(HungInputDriver {
@@ -85,7 +103,7 @@ fn enabled_watchdog_faults_the_resource_while_an_input_read_is_hung() {
     );
 
     let mut runner = ResourceRunner::new(runtime, StepClock::new(), Duration::from_millis(1));
-    runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
+    runner.program_mut().set_watchdog_policy(WatchdogPolicy {
         enabled: true,
         timeout: Duration::from_millis(100),
         action: WatchdogAction::Halt,
@@ -165,9 +183,7 @@ fn spawn_hung_resource(timeout: Duration) -> HungResource {
     let (release_tx, release_rx) = mpsc::channel::<()>();
     let output_writes = Arc::new(AtomicUsize::new(0));
 
-    let mut builder = RuntimeBuilder::new();
-    builder.io_mut().resize(1, 0, 0);
-    let mut runtime = builder.build().expect("install declared test runtime");
+    let mut runtime = one_input_runtime();
     runtime.add_io_driver(
         "hung-input",
         Box::new(CountingHungDriver {
@@ -178,7 +194,7 @@ fn spawn_hung_resource(timeout: Duration) -> HungResource {
     );
 
     let mut runner = ResourceRunner::new(runtime, StepClock::new(), Duration::from_millis(1));
-    runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
+    runner.program_mut().set_watchdog_policy(WatchdogPolicy {
         enabled: true,
         timeout,
         action: WatchdogAction::Halt,

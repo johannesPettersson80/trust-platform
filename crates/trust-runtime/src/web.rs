@@ -28,8 +28,7 @@ use crate::control::ControlState;
 use crate::debug::dap::format_value;
 use crate::discovery::DiscoveryState;
 use crate::error::RuntimeError;
-use crate::io::{IoAddress, IoDriverRegistry, IoSize};
-use crate::memory::IoArea;
+use crate::io::IoDriverRegistry;
 use crate::runtime_cloud::config_policy::{
     RuntimeCloudConfigAgentState, RuntimeCloudConfigSnapshot, RuntimeCloudConfigWriteError,
 };
@@ -48,9 +47,10 @@ use crate::runtime_cloud::profile_policy::{
     runtime_cloud_apply_profile_policy, runtime_cloud_profile_precondition,
 };
 use crate::runtime_cloud::projection::{
-    presence_record_from_observation, project_runtime_cloud_state, ChannelState, ChannelType,
-    FleetEdge, PresenceThresholds, RuntimeCloudUiState, RuntimePeerObservation,
-    RuntimePresenceRecord, UiContext, UiMode,
+    presence_record_from_observation, project_runtime_cloud_state, runtime_cloud_peer_appears_live,
+    select_preferred_peer_address, ChannelState, ChannelType, FleetEdge, RuntimeCloudUiState,
+    RuntimePresenceRecord, UiContext, UiMode, RUNTIME_CLOUD_DEFAULT_SITE,
+    RUNTIME_CLOUD_STALE_TIMEOUT_NS,
 };
 use crate::runtime_cloud::rollout_policy::{
     RuntimeCloudRolloutActionResponse, RuntimeCloudRolloutConfigView,
@@ -99,7 +99,7 @@ use ads_routes::{handle_ads_route, AdsRouteContext, AdsRouteOutcome};
 use auth_helpers::*;
 use aux_routes::{handle_aux_route, AuxRouteContext, AuxRouteOutcome};
 use config_ui_routes::{handle_config_ui_route, ConfigUiRouteContext, ConfigUiRouteOutcome};
-use deploy::{apply_deploy, apply_rollback, DeployRequest};
+use deploy::{apply_deploy, apply_rollback, refusal_unless_stopped, DeployRequest};
 use hmi_deploy::{handle_hmi_deploy_route, HmiDeployContext, HmiDeployOutcome};
 pub use hmi_display::{drawing_assets, placed_faceplates};
 use hmi_display::{handle_hmi_route, HmiRouteContext, HmiRouteOutcome};
@@ -111,9 +111,9 @@ use ide_tasks::*;
 use models::*;
 use ops_routes::{handle_ops_route, OpsRouteContext, OpsRouteOutcome};
 use runtime_cloud_dispatch::{
-    runtime_cloud_denied_results, runtime_cloud_peer_appears_live,
-    runtime_cloud_preflight_for_action, runtime_cloud_target_control_url,
-    runtime_cloud_target_web_base_url, RuntimeCloudPreflightPolicy,
+    runtime_cloud_denied_results, runtime_cloud_preflight_for_action,
+    runtime_cloud_target_control_url, runtime_cloud_target_web_base_url,
+    RuntimeCloudPreflightPolicy,
 };
 use runtime_cloud_helpers::*;
 use runtime_cloud_routes::{
@@ -181,8 +181,3 @@ impl WebServerMode {
         }
     }
 }
-
-// Runtime-cloud peer liveliness should not flap under normal mDNS refresh cadence.
-const RUNTIME_CLOUD_STALE_TIMEOUT_NS: u64 = 30_000_000_000;
-const RUNTIME_CLOUD_PARTITION_TIMEOUT_NS: u64 = 120_000_000_000;
-const RUNTIME_CLOUD_DEFAULT_SITE: &str = "default-site";

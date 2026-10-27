@@ -34,7 +34,9 @@ use crate::validation::model_route::bound_channels;
 use super::actuator_feedback::{transfer_output_basis, transfer_target_allowance};
 use super::channel_mapping::connected_model_channels;
 use super::commissioning_result::{CommissioningChannel, TransferStatus};
-use super::entry_allowance::{auto_entry_allowance, auto_entry_error, transfer_tolerance};
+use super::entry_allowance::{
+    auto_entry_allowance, auto_entry_error, auto_entry_error_gain, transfer_tolerance,
+};
 use super::found_mode::{found_mode_of, FoundMode};
 use super::observation::{
     commissioning_observation, commissioning_reference_targets, commissioning_target,
@@ -363,6 +365,29 @@ impl<'a> PidStart<'a> {
             auto_entry_error(self.loop_definition, values),
         )
     }
+
+    /// The Auto-entry allowance of the candidate that the transfer sends (A6.4, annex E6.9): the integral step on the error the
+    /// loop enters with is the runtime's to add, with [`Self::entry_error_gain`].
+    fn entry_allowance(&self) -> Result<f64, Failure> {
+        auto_entry_allowance(
+            self.loop_definition,
+            &self.model,
+            self.task,
+            &self.review.values,
+            self.process_noise,
+            None,
+        )
+    }
+
+    /// The factor of the error at entry that the runtime adds to [`Self::entry_allowance`] (annex E6.9).
+    fn entry_error_gain(&self) -> Option<f64> {
+        auto_entry_error_gain(
+            self.loop_definition,
+            self.task,
+            &self.review.values,
+            self.process_noise,
+        )
+    }
 }
 
 /// A reviewed Control.PID run whose starting point is reached (`PidCommissioning`, after its review; B6, C1). Its methods are the rules
@@ -519,6 +544,7 @@ impl PidCampaign<'_> {
                 self.start.loop_definition,
                 self.start.task.transfer_tolerance,
             )?,
+            entry_error_gain: None,
             tracking: self.start.profile.tracking(
                 self.start.loop_definition,
                 &self.start.binding,
@@ -547,7 +573,8 @@ impl PidCampaign<'_> {
                 .start
                 .profile
                 .states(&self.start.binding, &observed.values)?,
-            tolerance: self.start.allowance(&observed.values)?,
+            tolerance: self.start.entry_allowance()?,
+            entry_error_gain: self.start.entry_error_gain(),
             tracking: self.start.profile.tracking(
                 self.start.loop_definition,
                 &self.start.binding,
@@ -612,6 +639,7 @@ impl PidCampaign<'_> {
             values: self.target_values(entered)?,
             tolerance: transfer_target_allowance(&self.start.binding)
                 .ok_or_else(binding_failure)?,
+            entry_error_gain: None,
             tracking: self.start.profile.tracking(
                 self.start.loop_definition,
                 &self.start.binding,

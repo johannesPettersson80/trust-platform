@@ -113,6 +113,7 @@ pub fn field_problems(faceplate: &HmiFaceplate, catalogue: &Catalogue) -> Vec<Bi
                     "the field `{name}` takes {takes}; a {}'s {property} needs {needs}",
                     object.kind.replace('-', " ")
                 ),
+                point: None,
             });
         }
     }

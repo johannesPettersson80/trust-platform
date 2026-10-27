@@ -3,7 +3,7 @@
 #![allow(missing_docs)]
 
 use super::*;
-use crate::harness::{CompileSession, SourceFile as HarnessSourceFile};
+use crate::harness::SourceFile as HarnessSourceFile;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;

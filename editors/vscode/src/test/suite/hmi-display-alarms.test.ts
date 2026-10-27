@@ -75,7 +75,7 @@ function data(alarms = true): PageData {
 async function opened(): Promise<{ host: Host; root: HTMLElement }> {
   const host = new Host(data());
   const { root } = await openedWith(host);
-  host.sockets[0].send({ period_ms: 250 });
+  host.sockets[0].send({ period_ms: 250, stale_ms: 750 });
   host.sockets[0].send({ cycle: 1, values: {} });
   return { host, root };
 }
@@ -89,7 +89,7 @@ async function alarms(host: Host, list: ReturnType<typeof summary>): Promise<voi
 async function openedWithWindow(): Promise<{ host: Host; root: HTMLElement; window: any }> {
   const host = new Host(data());
   const { root, window } = await openedWith(host);
-  host.sockets[0].send({ period_ms: 250 });
+  host.sockets[0].send({ period_ms: 250, stale_ms: 750 });
   host.sockets[0].send({ cycle: 1, values: {} });
   return { host, root, window };
 }
@@ -206,7 +206,7 @@ async function listOpened(session: unknown = undefined): Promise<{ host: Host; r
   const host = new Host(listPage());
   if (session !== undefined) host.session = { status: 200, body: session };
   const opened = await openedWith(host);
-  host.sockets[0].send({ period_ms: 250 });
+  host.sockets[0].send({ period_ms: 250, stale_ms: 750 });
   host.sockets[0].send({ cycle: 1, values: {} });
   return opened;
 }
@@ -559,7 +559,7 @@ suite("HMI display: equipment alarms", () => {
     });
     const host = new Host(page);
     const { root, window } = await openedWith(host);
-    host.sockets[0].send({ period_ms: 250 });
+    host.sockets[0].send({ period_ms: 250, stale_ms: 750 });
     host.sockets[0].send({ cycle: 1, values: {} });
     const failed = {
       ...row("Tank.P1.FailedToStart", "Feed pump failed to start", "high", true, Date.UTC(2026, 9, 2, 12, 0, 0)),
@@ -626,7 +626,7 @@ suite("HMI display: trend history", () => {
     const { root } = await openedWith(host);
     const asked = host.fetched.find((url) => url.startsWith("/api/hmi/history"));
     assert.strictEqual(asked, "/api/hmi/history?path=Main.T&path=Main.Lamp&span=60");
-    host.sockets[0].send({ period_ms: 250 });
+    host.sockets[0].send({ period_ms: 250, stale_ms: 750 });
     host.sockets[0].send({ cycle: 1, values: { "Main.T": { value: 4 }, "Main.Lamp": { value: true } } });
     await settle(host);
     assert.strictEqual(penPoints(root, "pv"), 4, "three from the history, one from the stream");
@@ -647,7 +647,7 @@ suite("HMI display: trend history", () => {
       },
     };
     const { root, window } = await openedWith(host);
-    host.sockets[0].send({ period_ms: 250 });
+    host.sockets[0].send({ period_ms: 250, stale_ms: 750 });
     host.sockets[0].send({ cycle: 1, values: { "Main.T": { value: 4 }, "Main.Lamp": { value: true } } });
     await settle(host);
     host.fetched.length = 0;
@@ -674,7 +674,7 @@ suite("HMI display: trend history", () => {
       x: 0,
       y: 0,
     });
-    host.sockets[0].send({ period_ms: 250 });
+    host.sockets[0].send({ period_ms: 250, stale_ms: 750 });
     host.sockets[0].send({ cycle: 1, values: { "Main.T": { value: 4 }, "Main.Lamp": { value: true } } });
     await settle(host);
     return { host, root: view.root, window: view.window };
@@ -786,7 +786,7 @@ suite("HMI display: trend history", () => {
       },
     };
     const { root, window } = await openedWith(host);
-    host.sockets[0].send({ period_ms: 250 });
+    host.sockets[0].send({ period_ms: 250, stale_ms: 750 });
     await settle(host);
     click(window, root.querySelector('[data-object="loop"] [data-trend-action="export"]') as Element);
     await settle(host);

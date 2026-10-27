@@ -1,0 +1,335 @@
+{
+  "id": "ads_server@runtime:local",
+  "protocol": "ads_server",
+  "title": "Add ADS server",
+  "breadcrumb": "Devices & Connections / Add device or connection",
+  "owner_line": "on Simulator",
+  "purpose": "Expose selected truST globals to TwinCAT or ADS clients.",
+  "runtime": {
+    "id": "runtime:local",
+    "name": "Simulator"
+  },
+  "runtime_choices": [
+    {
+      "id": "runtime:local",
+      "name": "Simulator",
+      "action": {
+        "id": "runtime:local",
+        "label": "Simulator",
+        "enabled": true,
+        "emphasis": "secondary",
+        "op": {
+          "kind": "rust",
+          "action": "form.open",
+          "payload": {
+            "form": "ads_server@runtime:local",
+            "protocol": "ads_server",
+            "runtime": "runtime:local"
+          }
+        }
+      }
+    }
+  ],
+  "sections": [
+    {
+      "fields": [
+        {
+          "id": "enabled",
+          "label": "Enable ADS server",
+          "required": false,
+          "kind": "boolean",
+          "value": true,
+          "options": [],
+          "help": "Expose selected truST globals over ADS.",
+          "forget_after_post": false
+        },
+        {
+          "id": "listen",
+          "label": "Listen IP",
+          "required": true,
+          "required_mark": " *",
+          "kind": "text",
+          "value": "127.0.0.1",
+          "options": [],
+          "help": "Local IP address where TwinCAT/ADS clients connect. Wildcard binds are rejected.",
+          "forget_after_post": false
+        },
+        {
+          "id": "ams_net_id",
+          "label": "AMS Net ID",
+          "required": false,
+          "kind": "text",
+          "value": "",
+          "options": [],
+          "help": "Runtime AMS Net ID. Empty derives it from an IPv4 listen address.",
+          "forget_after_post": false
+        },
+        {
+          "id": "ads_port",
+          "label": "ADS port",
+          "required": true,
+          "required_mark": " *",
+          "kind": "number",
+          "value": 851,
+          "options": [],
+          "help": "Logical ADS port.",
+          "forget_after_post": false
+        },
+        {
+          "id": "insecure_transport",
+          "label": "Plain ADS transport",
+          "required": false,
+          "kind": "boolean",
+          "value": true,
+          "options": [],
+          "help": "Required acknowledgement for plain ADS server transport.",
+          "forget_after_post": false
+        },
+        {
+          "id": "writes_enabled",
+          "label": "Enable writes",
+          "required": false,
+          "kind": "boolean",
+          "value": false,
+          "options": [],
+          "help": "Allow writes only for symbols also listed in writable.",
+          "forget_after_post": false
+        },
+        {
+          "id": "expose",
+          "label": "Exposed globals",
+          "required": false,
+          "kind": "list",
+          "value": [
+            "global.*"
+          ],
+          "options": [],
+          "help": "Choose project globals to expose, or add a pattern such as global.*.",
+          "list": {
+            "item_noun": "global",
+            "item_title": "Global",
+            "add_label": "Add global",
+            "empty_text": "No globals selected yet. Use Choose globals to pick project variables, or add a pattern manually.",
+            "can_add": true,
+            "item_kind": "text",
+            "item_template": "global.*",
+            "properties": []
+          },
+          "forget_after_post": false
+        },
+        {
+          "id": "writable",
+          "label": "Writable globals",
+          "required": false,
+          "kind": "list",
+          "value": [],
+          "options": [],
+          "help": "Subset of exposed globals that ADS clients may write.",
+          "list": {
+            "item_noun": "writable global",
+            "item_title": "Writable global",
+            "add_label": "Add writable global",
+            "empty_text": "No writable globals yet. Add an item below.",
+            "can_add": true,
+            "item_kind": "text",
+            "item_template": "",
+            "properties": []
+          },
+          "forget_after_post": false
+        },
+        {
+          "id": "allow_unpinned_clients",
+          "label": "Allow unpinned clients",
+          "required": false,
+          "kind": "boolean",
+          "value": false,
+          "options": [],
+          "help": "Lab override for clients without source IP/CIDR pins. Keep disabled in production.",
+          "forget_after_post": false
+        },
+        {
+          "id": "clients",
+          "label": "Allowed clients",
+          "required": false,
+          "kind": "list",
+          "value": [],
+          "options": [],
+          "help": "Allowed ADS clients as objects with ams_net_id plus source_ip or source_cidr.",
+          "list": {
+            "item_noun": "allowed client",
+            "item_title": "Allowed client",
+            "add_label": "Add allowed client",
+            "empty_text": "No allowed clients yet. Add an item below.",
+            "can_add": true,
+            "item_kind": "object",
+            "item_template": {
+              "ams_net_id": "",
+              "source_ip": ""
+            },
+            "properties": [
+              {
+                "key": "ams_net_id",
+                "label": "AMS Net ID",
+                "kind": "text",
+                "required": true,
+                "options": [],
+                "alternatives": []
+              },
+              {
+                "key": "source_ip",
+                "label": "Source IP",
+                "kind": "text",
+                "required": false,
+                "options": [],
+                "alternatives": [
+                  "source_cidr"
+                ]
+              },
+              {
+                "key": "source_cidr",
+                "label": "Source CIDR",
+                "kind": "text",
+                "required": false,
+                "options": [],
+                "alternatives": [
+                  "source_ip"
+                ]
+              }
+            ]
+          },
+          "forget_after_post": false
+        }
+      ]
+    },
+    {
+      "heading": "Advanced",
+      "fields": [
+        {
+          "id": "max_symbols",
+          "label": "Max symbols",
+          "required": true,
+          "required_mark": " *",
+          "kind": "number",
+          "value": 4096,
+          "options": [],
+          "help": "Maximum exposed symbol count.",
+          "forget_after_post": false
+        },
+        {
+          "id": "max_clients",
+          "label": "Max clients",
+          "required": true,
+          "required_mark": " *",
+          "kind": "number",
+          "value": 32,
+          "options": [],
+          "help": "Maximum simultaneous ADS clients.",
+          "forget_after_post": false
+        },
+        {
+          "id": "max_subscriptions_per_client",
+          "label": "Max subscriptions per client",
+          "required": true,
+          "required_mark": " *",
+          "kind": "number",
+          "value": 1024,
+          "options": [],
+          "help": "Per-client notification subscription cap.",
+          "forget_after_post": false
+        },
+        {
+          "id": "max_total_subscriptions",
+          "label": "Max total subscriptions",
+          "required": true,
+          "required_mark": " *",
+          "kind": "number",
+          "value": 8192,
+          "options": [],
+          "help": "Global notification subscription cap.",
+          "forget_after_post": false
+        },
+        {
+          "id": "max_frame_bytes",
+          "label": "Max frame bytes",
+          "required": true,
+          "required_mark": " *",
+          "kind": "number",
+          "value": 1048576,
+          "options": [],
+          "help": "Maximum ADS frame payload bytes.",
+          "forget_after_post": false
+        },
+        {
+          "id": "max_sumup_items",
+          "label": "Max sum-up items",
+          "required": true,
+          "required_mark": " *",
+          "kind": "number",
+          "value": 256,
+          "options": [],
+          "help": "Maximum items in ADS sum-up requests.",
+          "forget_after_post": false
+        },
+        {
+          "id": "max_write_bytes",
+          "label": "Max write bytes",
+          "required": true,
+          "required_mark": " *",
+          "kind": "number",
+          "value": 262144,
+          "options": [],
+          "help": "Maximum write payload bytes.",
+          "forget_after_post": false
+        }
+      ]
+    }
+  ],
+  "buttons": [
+    {
+      "id": "save",
+      "label": "Save",
+      "enabled": true,
+      "emphasis": "primary",
+      "op": {
+        "kind": "rust",
+        "action": "connection.save",
+        "payload": {
+          "form": "ads_server@runtime:local",
+          "protocol": "ads_server",
+          "runtime": "runtime:local"
+        }
+      }
+    },
+    {
+      "id": "cancel",
+      "label": "Cancel",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "close_inspector"
+        }
+      }
+    },
+    {
+      "id": "apply_live",
+      "label": "Apply to running runtime",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "rust",
+        "action": "connection.apply_live",
+        "payload": {
+          "form": "ads_server@runtime:local",
+          "protocol": "ads_server",
+          "runtime": "runtime:local"
+        }
+      }
+    }
+  ],
+  "ghost": {
+    "name": "New device",
+    "detail": "Draft: configure and Apply"
+  }
+}

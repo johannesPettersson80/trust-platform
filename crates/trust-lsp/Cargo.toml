@@ -27,6 +27,8 @@ serde_json.workspace = true
 sha2.workspace = true
 hex.workspace = true
 toml.workspace = true
+# Edits of trust-lsp.toml and simulation.toml that keep the rest of the file (specification 25 §11.6).
+toml_edit.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 anyhow.workspace = true
@@ -36,6 +38,8 @@ rustc-hash = { workspace = true, features = ["std"] }
 text-size.workspace = true
 smol_str = { workspace = true, features = ["std"] }
 percent-encoding.workspace = true
+trust-devices.workspace = true
+trust-visual.workspace = true
 trust-runtime.workspace = true
 trust-runtime-client.workspace = true
 thiserror.workspace = true

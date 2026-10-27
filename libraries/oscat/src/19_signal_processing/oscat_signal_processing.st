@@ -157,7 +157,7 @@ ELSE
 END_IF;
 Temp1 := SHR(ff, INT#32 - BYTE_TO_INT(Bits));
 Temp2 := in AND Temp1;
-AIN := (high - low) * DWORD_TO_REAL(Temp2) / DWORD_TO_REAL(Temp1) + low;
+AIN := (high - low) * UDINT_TO_REAL(DWORD_TO_UDINT(Temp2)) / UDINT_TO_REAL(DWORD_TO_UDINT(Temp1)) + low;
 IF SignedValue THEN
     AIN := -AIN;
 END_IF;
@@ -349,13 +349,13 @@ END_VAR
 Tx := T_PLC_MS();
 IF NOT Init OR T = T#0s THEN
     Init := TRUE;
-    Yi := DWORD_TO_REAL(X);
+    Yi := UDINT_TO_REAL(DWORD_TO_UDINT(X));
 ELSE
-    PeriodMs := DWORD_TO_REAL(TIME_TO_DWORD(T));
-    Yi := Yi + (DWORD_TO_REAL(X) - DWORD_TO_REAL(Y)) * UDINT_TO_REAL(DWORD_TO_UDINT(Tx) - DWORD_TO_UDINT(Last)) / PeriodMs;
+    PeriodMs := UDINT_TO_REAL(DWORD_TO_UDINT(TIME_TO_DWORD(T)));
+    Yi := Yi + (UDINT_TO_REAL(DWORD_TO_UDINT(X)) - UDINT_TO_REAL(DWORD_TO_UDINT(Y))) * UDINT_TO_REAL(T_PLC_ELAPSED(NOW := Tx, LAST := Last)) / PeriodMs;
 END_IF;
 Last := Tx;
-Y := REAL_TO_DWORD(Yi);
+Y := UDINT_TO_DWORD(REAL_TO_UDINT(Yi));
 END_FUNCTION_BLOCK
 
 FUNCTION_BLOCK FILTER_I
@@ -378,7 +378,7 @@ IF NOT Init OR T = T#0s THEN
     Init := TRUE;
     Yi := INT_TO_DINT(X) * DINT#1000;
 ELSE
-    Yi := Yi + INT_TO_DINT(X - Y) * (DWORD_TO_DINT(Tx) - DWORD_TO_DINT(Last)) * DINT#1000 / DWORD_TO_DINT(TIME_TO_DWORD(T));
+    Yi := Yi + INT_TO_DINT(X - Y) * UDINT_TO_DINT(T_PLC_ELAPSED(NOW := Tx, LAST := Last)) * DINT#1000 / DWORD_TO_DINT(TIME_TO_DWORD(T));
 END_IF;
 Last := Tx;
 Y := DINT_TO_INT(Yi / DINT#1000);
@@ -415,8 +415,8 @@ IF NOT Init OR RST OR Window = UINT#0 THEN
     Y := X;
 ELSIF WindowInt > INT#0 THEN
     I := INC1(X := I, N := WindowInt);
-    YReal := DWORD_TO_REAL(Y) + (DWORD_TO_REAL(X) - DWORD_TO_REAL(Buffer[I])) / UINT_TO_REAL(Window);
-    Y := REAL_TO_DWORD(YReal);
+    YReal := UDINT_TO_REAL(DWORD_TO_UDINT(Y)) + (UDINT_TO_REAL(DWORD_TO_UDINT(X)) - UDINT_TO_REAL(DWORD_TO_UDINT(Buffer[I]))) / UINT_TO_REAL(Window);
+    Y := UDINT_TO_DWORD(REAL_TO_UDINT(YReal));
     Buffer[I] := X;
 END_IF;
 END_FUNCTION_BLOCK
@@ -486,7 +486,7 @@ ELSIF Y = X THEN
     Last := Tx;
 ELSE
     Delta := WORD_TO_DINT(X) - WORD_TO_DINT(Y);
-    StepValue := Delta * (DWORD_TO_DINT(Tx) - DWORD_TO_DINT(Last)) / DWORD_TO_DINT(TIME_TO_DWORD(T));
+    StepValue := Delta * UDINT_TO_DINT(T_PLC_ELAPSED(NOW := Tx, LAST := Last)) / DWORD_TO_DINT(TIME_TO_DWORD(T));
     IF StepValue <> DINT#0 THEN
         Y := DINT_TO_WORD(LIMIT(MN := DINT#0, IN := WORD_TO_DINT(Y) + StepValue, MX := DINT#65535));
         Last := Tx;
@@ -970,12 +970,12 @@ VAR_OUTPUT
     trig : BOOL;
 END_VAR
 VAR
-    LastMs : UDINT;
-    TxMs : UDINT;
+    LastMs : DWORD;
+    TxMs : DWORD;
 END_VAR
 
-TxMs := DWORD_TO_UDINT(T_PLC_MS());
-IF TxMs - LastMs >= DWORD_TO_UDINT(TIME_TO_DWORD(PT)) THEN
+TxMs := T_PLC_MS();
+IF T_PLC_ELAPSED(NOW := TxMs, LAST := LastMs) >= DWORD_TO_UDINT(TIME_TO_DWORD(PT)) THEN
     LastMs := TxMs;
     out := in;
     trig := TRUE;
@@ -1002,19 +1002,19 @@ VAR
     M : INT;
     buf : ARRAY[0..15] OF REAL;
     buf2 : ARRAY[0..15] OF REAL;
-    LastMs : UDINT;
+    LastMs : DWORD;
     I : INT;
     StartIdx : INT;
     Temp : REAL;
     StopIdx : INT;
-    TxMs : UDINT;
+    TxMs : DWORD;
     D2 : INT;
 END_VAR
 
-TxMs := DWORD_TO_UDINT(T_PLC_MS());
+TxMs := T_PLC_MS();
 D2 := disc / 2;
 
-IF TxMs - LastMs >= DWORD_TO_UDINT(TIME_TO_DWORD(PT)) THEN
+IF T_PLC_ELAPSED(NOW := TxMs, LAST := LastMs) >= DWORD_TO_UDINT(TIME_TO_DWORD(PT)) THEN
     LastMs := TxMs;
     trig := TRUE;
     M := LIMIT(MN := INT#1, IN := N, MX := INT#16);

@@ -1,35 +1,12 @@
-use trust_runtime::execution_backend::ExecutionBackend;
+//! Named and cross-file global constants drive the declared lengths of strings.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
+
 use trust_runtime::harness::TestHarness;
 use trust_runtime::value::Value;
 
-fn vm_harness(source: &str) -> TestHarness {
-    let mut harness = TestHarness::from_source(source).expect("compile harness");
-    harness
-        .runtime_mut()
-        .set_execution_backend(ExecutionBackend::BytecodeVm)
-        .expect("select vm backend");
-    harness
-        .runtime_mut()
-        .restart(trust_runtime::RestartMode::Cold)
-        .expect("restart runtime");
-    harness
-}
-
-fn vm_harness_sources(sources: &[&str]) -> TestHarness {
-    let mut harness = TestHarness::from_sources(sources).expect("compile harness");
-    harness
-        .runtime_mut()
-        .set_execution_backend(ExecutionBackend::BytecodeVm)
-        .expect("select vm backend");
-    harness
-        .runtime_mut()
-        .restart(trust_runtime::RestartMode::Cold)
-        .expect("restart runtime");
-    harness
-}
-
 #[test]
-fn named_constants_drive_parenthesized_string_lengths_in_runtime_and_vm() {
+fn named_constants_drive_parenthesized_string_lengths() {
     let source = r#"
         VAR_GLOBAL CONSTANT
             STRING_LENGTH : INT := INT#12;
@@ -59,20 +36,10 @@ fn named_constants_drive_parenthesized_string_lengths_in_runtime_and_vm() {
     );
     harness.assert_eq("out_s", Value::String("HELLO".into()));
     harness.assert_eq("out_ws", Value::WString("WIDE".to_string()));
-
-    let mut vm = vm_harness(source);
-    let cycle = vm.cycle();
-    assert!(
-        cycle.errors.is_empty(),
-        "vm execution failed: {:?}",
-        cycle.errors
-    );
-    vm.assert_eq("out_s", Value::String("HELLO".into()));
-    vm.assert_eq("out_ws", Value::WString("WIDE".to_string()));
 }
 
 #[test]
-fn cross_file_global_constants_drive_string_lengths_in_runtime_and_vm() {
+fn cross_file_global_constants_drive_string_lengths() {
     let globals = r#"
         VAR_GLOBAL CONSTANT
             STRING_LENGTH : INT := INT#12;
@@ -104,14 +71,4 @@ fn cross_file_global_constants_drive_string_lengths_in_runtime_and_vm() {
     );
     harness.assert_eq("out_s", Value::String("HELLO".into()));
     harness.assert_eq("out_ws", Value::WString("WIDE".to_string()));
-
-    let mut vm = vm_harness_sources(&[globals, program]);
-    let cycle = vm.cycle();
-    assert!(
-        cycle.errors.is_empty(),
-        "vm execution failed: {:?}",
-        cycle.errors
-    );
-    vm.assert_eq("out_s", Value::String("HELLO".into()));
-    vm.assert_eq("out_ws", Value::WString("WIDE".to_string()));
 }

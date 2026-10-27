@@ -1,3 +1,7 @@
+//! Structure and function block initializers, from their declarations to the running program.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use trust_runtime::harness::TestHarness;
 use trust_runtime::value::Value;
 use trust_runtime::RestartMode;
@@ -12,14 +16,10 @@ fn struct_field<'a>(value: &'a Value, name: &str) -> &'a Value {
         .unwrap_or_else(|| panic!("missing struct field {name} in {struct_value:?}"))
 }
 
-fn instance_field<'a>(harness: &'a TestHarness, value: &Value, name: &str) -> &'a Value {
-    let Value::Instance(instance_id) = value else {
-        panic!("expected instance value, got {value:?}");
-    };
+/// The variable `name` of the function block instance `instance`, read by its path.
+fn instance_field(harness: &TestHarness, instance: &str, name: &str) -> Value {
     harness
-        .runtime()
-        .storage()
-        .get_instance_var(*instance_id, name)
+        .get_output(&format!("{instance}.{name}"))
         .unwrap_or_else(|| panic!("missing instance field {name}"))
 }
 
@@ -469,13 +469,12 @@ END_PROGRAM
     let mut harness = TestHarness::from_source(source).expect("program should compile");
     harness.cycle();
 
-    let step_fb = harness.get_output("step_fb").expect("step_fb should exist");
     assert_eq!(
-        instance_field(&harness, &step_fb, "enable"),
-        &Value::Bool(true)
+        instance_field(&harness, "step_fb", "enable"),
+        Value::Bool(true)
     );
-    assert_eq!(instance_field(&harness, &step_fb, "count"), &Value::Int(3));
-    assert_eq!(instance_field(&harness, &step_fb, "local"), &Value::Int(4));
+    assert_eq!(instance_field(&harness, "step_fb", "count"), Value::Int(3));
+    assert_eq!(instance_field(&harness, "step_fb", "local"), Value::Int(4));
 }
 
 #[test]
@@ -600,8 +599,6 @@ END_PROGRAM
     let mut harness = TestHarness::from_source(source).expect("program should compile");
     harness.cycle();
 
-    let a = harness.get_output("a").expect("a should exist");
-    let b = harness.get_output("b").expect("b should exist");
-    assert_eq!(instance_field(&harness, &a, "local"), &Value::Int(5));
-    assert_eq!(instance_field(&harness, &b, "local"), &Value::Int(1));
+    assert_eq!(instance_field(&harness, "a", "local"), Value::Int(5));
+    assert_eq!(instance_field(&harness, "b", "local"), Value::Int(1));
 }

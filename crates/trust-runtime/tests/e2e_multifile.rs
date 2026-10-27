@@ -1,4 +1,9 @@
-use trust_runtime::harness::TestHarness;
+//! Multi-file and namespaced programs: names resolve across files and namespaces, namespaced POUs
+//! are registered under their qualified names, and a duplicate program name is refused.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
+
+use trust_runtime::harness::{CompileSession, TestHarness};
 
 #[test]
 fn namespace_resolution() {
@@ -41,15 +46,16 @@ fn namespaced_programs_are_runtime_entry_points() {
         END_NAMESPACE
     "#;
 
-    let mut harness = TestHarness::from_source(source).unwrap();
+    let declarations = CompileSession::from_source(source).declarations().unwrap();
     assert!(
-        harness
-            .runtime()
+        declarations
+            .metadata()
             .programs()
             .values()
             .any(|program| program.name == "CellA.Main"),
         "expected namespaced PROGRAM to be registered"
     );
+    let mut harness = TestHarness::from_source(source).unwrap();
     harness.cycle();
     harness.assert_eq("count", 1i32);
 }
@@ -98,8 +104,8 @@ fn namespaced_pous_resolve_sibling_interfaces() {
         END_NAMESPACE
     "#;
 
-    let mut harness = TestHarness::from_source(source).unwrap();
-    let runtime = harness.runtime();
+    let declarations = CompileSession::from_source(source).declarations().unwrap();
+    let runtime = declarations.metadata();
     assert!(
         runtime
             .functions()
@@ -128,6 +134,7 @@ fn namespaced_pous_resolve_sibling_interfaces() {
             .any(|interface| interface.name == "CellA.IProbe"),
         "expected namespaced INTERFACE to be registered"
     );
+    let mut harness = TestHarness::from_source(source).unwrap();
     let cycle = harness.cycle();
     assert!(
         cycle.errors.is_empty(),

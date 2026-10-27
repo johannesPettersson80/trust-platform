@@ -19,13 +19,9 @@ pub(super) fn dispatch(
         return Some(apply(id, params, state));
     }
     let result = (|| {
-        let metadata = state
-            .metadata
-            .lock()
-            .map_err(|_| "runtime metadata unavailable")?;
         let params = params.ok_or("missing parameters")?;
         if operation == "control.transfer.status" {
-            state.debug.transfer_status(params, &metadata)
+            state.debug.transfer_status(params)
         } else {
             state.debug.transfer_cancel(params)
         }
@@ -39,16 +35,6 @@ pub(super) fn dispatch(
 /// A transfer writes live values, so it is refused while an experiment is running or restoring. Its physical or
 /// simulated target is the runtime's fact from its latest scan (A2.4), never the request's label.
 fn apply(id: u64, params: Option<Value>, state: &ControlState) -> ControlResponse {
-    let metadata = match state.metadata.lock() {
-        Ok(metadata) => metadata,
-        Err(_) => {
-            return ControlResponse::error_with_code(
-                id,
-                "runtime metadata unavailable".into(),
-                "invalid_transfer_request",
-            )
-        }
-    };
     let Some(params) = params else {
         return ControlResponse::error_with_code(
             id,
@@ -62,7 +48,7 @@ fn apply(id: u64, params: Option<Value>, state: &ControlState) -> ControlRespons
     experiment_handlers::answer_live_write(
         id,
         state,
-        || state.debug.transfer_apply(params, &metadata, !simulated),
+        || state.debug.transfer_apply(params, !simulated),
         "invalid_transfer_request",
     )
 }

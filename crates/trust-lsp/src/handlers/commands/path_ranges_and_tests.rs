@@ -419,6 +419,7 @@ END_PROGRAM
                 "trust-lsp.hmiAgent.apply",
                 "trust-lsp.hmiAgent.discard",
                 "trust-lsp.hmiAgent.checkInput",
+                "trust-lsp.hmiAgent.checkTarget",
             ]
         );
     }

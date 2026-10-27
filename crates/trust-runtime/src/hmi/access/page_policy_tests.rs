@@ -111,3 +111,36 @@ fn a_method_command_needs_no_write_rule() {
     assert_eq!(found.len(), 1, "{found:?}");
     assert!(found[0].contains("Engineer"), "{found:?}");
 }
+
+/// Specification 39, §12.2.3: the problem of a point no rule covers names that point, so that the
+/// editor's quick fix allows exactly it without reading the message; a problem with a rule that
+/// covers the point (a lower role asked) names none, since allowing the point would not fix it.
+/// Catches a quick fix offered for a role or limit problem, and a point recovered from the text.
+#[test]
+fn only_the_problem_of_an_uncovered_point_names_the_point() {
+    let policy = hmi_access_from_runtime_toml(RUNTIME_TOML)
+        .expect("the policy loads")
+        .write;
+    let objects = format!(
+        "{}{}",
+        setpoint("valve", "", "Plant.Valve"),
+        setpoint("gain", "role = \"operator\"", "Loop.Tuning.Gain")
+    );
+    let page = parse_page(
+        "hmi/pages/p.toml",
+        &format!("format = 1\ntitle = \"P\"\n{objects}"),
+    )
+    .expect("the page loads");
+    let points: Vec<(String, Option<String>)> =
+        check_page_policy(&page, Catalogue::shipped(), &policy)
+            .into_iter()
+            .map(|problem| (problem.object, problem.point))
+            .collect();
+    assert_eq!(
+        points,
+        [
+            ("valve".to_string(), Some("Plant.Valve".to_string())),
+            ("gain".to_string(), None)
+        ]
+    );
+}

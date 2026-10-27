@@ -247,6 +247,27 @@ topology, and schema refreshes. Selecting another node, choosing another add
 item, or closing the editor shall require confirmation before discarding a
 changed draft.
 
+The editor's rules are the runtime's (`plant.edit`, Section 20.1); the
+extension keeps no copy of them. The editor holds the draft and shows each
+typed value as typed. It sends the draft for checking after a short pause,
+never blocking input, and shows only the issues of the answer for the draft as
+it now is. An edit that follows a rule is asked of `plant.edit` and applied from
+its answer:
+
+- opening a draft;
+- choosing or applying a starting point;
+- binding a port;
+- resizing or pasting into state-space matrices;
+- adding or moving curve points;
+- adding, duplicating, moving or removing effects and events;
+- changing an effect's preset, target or generator;
+- changing an event's action;
+- entering a temperature-example value; and
+- confirming the example's units.
+
+Labels, help, defaults and choices come from the editor tables of
+`plant.capabilities`.
+
 ### 6.2 Sections
 
 The initial setup shall expose these named tasks in reading order:
@@ -440,7 +461,9 @@ Identity, runtime, bindings, validity, scenario events and uncertainties are
 preserved; retained effects may change the nominal behavior. Selecting a physical
 example does not infer units from symbol names. Show `PLC 0–100 = heater 0–100%`
 and `PLC feedback = temperature in °C` as explicit assumptions, with confirmation
-required before saving. Raw-count signals need setup in Signal conversions.
+required before saving. The confirmation covers the PLC signals and conversions
+it was given for: changing a binding or a conversion, or applying the example
+again, asks for it again. Raw-count signals need setup in Signal conversions.
 
 This view edits the canonical draft directly, not a second parameter store.
 Changing a display field uses the exact inverse mapping above. A Model details
@@ -473,9 +496,11 @@ The selectable catalog shall come from a successful compilation of the
 current project sources. It shall contain only direct process-image bindings
 whose declared type is `SINT`, `INT`, `DINT`, `LINT`, `USINT`, `UINT`,
 `UDINT`, `ULINT`, `REAL`, or `LREAL`. Bit-string, Boolean, time, date, string,
-enumeration, aggregate, untyped, wildcard, `%M`, and unresolved bindings shall
-not be offered. Within each direction, candidates shall be ordered by direct
-address and then symbol so the stopped and running views remain stable.
+enumeration, aggregate, untyped, wildcard, and unresolved bindings shall not
+be offered. A `%M` memory binding is offered as a command source only, as
+specification 46 §13.1 allows a memory command; it is never a feedback target.
+Within each direction, candidates shall be ordered by direct address and then
+symbol so the stopped and running views remain stable.
 
 When compilation fails, the picker shall offer no candidates and shall show
 the compile failure without exposing partial or source-scanned guesses. A
@@ -493,7 +518,9 @@ the opposite process-image direction, duplicates another feedback target, or
 cannot be used because an enabled physical I/O driver is configured. Because
 Specification 46 defines no mixed-mode policy in version 1, any enabled
 physical I/O driver blocks plant signal ownership; the message shall name the
-driver and direct the user to Devices & Connections. Disabled physical drivers
+driver and direct the user to Devices & Connections. A driver is physical unless
+Specification 46 §6.1 item 5 names it as touching no real I/O (`simulated`,
+`sim`, `noop`, `loopback` or `none`). Disabled physical drivers
 do not block editing or validation. Multiple plants may share a command source,
 as Specification 46 permits.
 
@@ -563,7 +590,9 @@ remain required under Specification 46 §7.
 The state-space editor shall present matrices as editable grids with visible
 row and column indexes. Changing state, input, or output dimensions shall
 resize dependent matrices only after confirmation when existing values would
-be removed. Newly created cells shall receive explicit defaults. The editor
+be removed. A change names only the dimension it changes; the other dimensions
+are the draft's when the change is applied, so that dimensions changed one
+after the other all apply. Newly created cells shall receive explicit defaults. The editor
 shall identify the exact invalid cell when a matrix value or dimension is
 invalid.
 
@@ -662,9 +691,12 @@ results; no pending-event counter is added to them.
 
 ### 13.1 Validation
 
-The UI may perform immediate required-field, numeric, dimension, and address
-checks to help the user. The runtime's complete plant-configuration validation
-remains authoritative.
+The editor shows the checks `plant.edit` answers (Section 20.1): required
+fields, numbers, dimensions, addresses, and every section's rules. When those
+find nothing, `plant.edit` also judges the complete resulting configuration
+with the runtime's plant-configuration validation, which remains
+authoritative; its refusal is shown as an issue of the whole plant. Every
+issue shown blocks Save.
 
 Validation errors shall:
 
@@ -926,6 +958,8 @@ The contract shall expose these operations:
 | `plant.status` | Viewer | Return current active-runtime evidence or an explicit unavailable result. |
 | `plant.trace.read` | Viewer | Return one bounded runtime-provided trace snapshot without changing simulation state. |
 | `plant.trace.clear` | Operator | Clear retained trace rows for one active plant without resetting or advancing simulation state. |
+| `plant.edit` | Engineer | Apply one plant-editor edit to a draft and check the draft, without writing files or changing runtime state. |
+| `plant.signals` | Viewer | Build the PLC signals a plant can bind to from compiled bindings, live values and the communication setup, without writing anything. |
 
 Authentication failure and insufficient role shall be rejected before request
 payload processing. A stopped-project command shall apply the same validation,
@@ -979,10 +1013,52 @@ The version-1 request variants are:
 | `plant.status` | `project_id` | `plant_id` |
 | `plant.trace.read` | `project_id`, `plant_id` | none |
 | `plant.trace.clear` | `project_id`, `operation_id`, `plant_id`, `active_configuration_revision` | none |
+| `plant.edit` | `project_id`, `draft` | `action`, `signals` |
+| `plant.signals` | `project_id`, `compiled` | `live`, `communication_schema`, `communication_topology` |
 
 Every variant also requires the common `contract` and `schema_version` fields.
 An omitted `plant_id` on `plant.status` requests all active plants. An empty
 identifier is invalid; omission and an empty string are not equivalent.
+
+The plant editor's requests carry the editor's own draft, not a saved
+candidate:
+
+- `plant.edit` takes `draft`, the editor's draft object. The optional
+  `action` (`{"kind": ...}`) names one rule-bearing edit of Section 6.1:
+  `open`, `choose_starting_point`, `apply_starting_point`,
+  `set_temperature_value`, `confirm_temperature_units`, `bind_port`,
+  `resize_state_space`, `paste_matrix`, `append_point`, `move_point`,
+  `add_effect`, `apply_effect_preset`, `duplicate_effect`, `move_effect`,
+  `remove_effect`, `set_effect_target`, `set_effect_generator`, `add_event`,
+  `duplicate_event`, `move_event`, `remove_event` or `set_event_kind`. The
+  optional `signals` is the catalog `plant.signals` answered. The answer
+  carries:
+  - `draft`, the draft after the edit;
+  - `outcome`, present with an action: `applied` with the row it created or
+    moved to, `confirm` with the question, or `rejected` with the reason;
+  - `issues`: each with `code`, `severity`, `path`, `message`, `summary`, the
+    `target` the editor focuses, and `plant_id`;
+  - `can_save`, true when there is no issue;
+  - `view`, what the editor shows besides the values; and
+  - `candidate`, the plant candidate Save sends.
+
+  An unknown action or a malformed draft is `malformed_request`.
+- `plant.signals` takes the `compiled` answer of `trust-lsp.hmiBindings`, the
+  `live` process image, and the communication schema and topology the canvas
+  holds. It answers `signals` with:
+  - `status`: `ready` or `compile_error`;
+  - the `commands` and `feedbacks`, each with `symbol`, `address`, `dataType`
+    and an optional `currentValue`;
+  - optional `physicalDrivers`; and
+  - an optional `error`.
+- `plant.capabilities` also answers `editor`, the editor tables:
+  - models;
+  - actuator fields;
+  - starting points;
+  - imperfection presets;
+  - uncertainty targets, modes, generators, field labels and dropout policies;
+    and
+  - scenario actions.
 
 An error shall contain one of these stable codes:
 
@@ -1166,7 +1242,10 @@ apply the same closed request validation, project identity, saved-file,
 revision, atomic-write, error-envelope, and decoder-facing result semantics as
 the runtime control surface. `plant.status`, `plant.trace.read`, and
 `plant.trace.clear` shall return structured `status_unavailable` without live
-values or side effects. EOF shall terminate the session normally.
+values or side effects. EOF shall terminate the session normally. The extension
+sends the plant editor's requests (`plant.capabilities`, `plant.edit` and
+`plant.signals`) through this session, so the editor works while the runtime is
+stopped.
 
 ## 21. Saved-brick removal interaction
 

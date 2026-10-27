@@ -1,11 +1,11 @@
-//! Reuse pristine, driverless HMI compilations between reads of unchanged source text.
-//! A mutable borrow irrevocably excludes that runtime from reuse.
+//! Reuse the declarations of a project's sources (specification 44 §6.7) between reads of
+//! unchanged source text. A mutable borrow irrevocably excludes those declarations from reuse.
 use super::LoadedSource;
 use std::collections::VecDeque;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
-use trust_runtime::Runtime;
+use trust_runtime::harness::Declarations;
 
 const CAPACITY: usize = 2;
 const MAX_SOURCE_BYTES: usize = 16 * 1024 * 1024;
@@ -17,7 +17,7 @@ struct Key {
 }
 struct Entry {
     key: Key,
-    runtime: Runtime,
+    runtime: Declarations,
 }
 #[derive(Default)]
 struct CacheState {
@@ -45,12 +45,13 @@ impl Drop for Lease {
     }
 }
 
+/// A project's declarations, from the cache or built afresh.
 pub(super) struct CachedRuntime {
-    runtime: Option<Runtime>,
+    runtime: Option<Declarations>,
     owner: Option<Lease>,
 }
-impl From<Runtime> for CachedRuntime {
-    fn from(runtime: Runtime) -> Self {
+impl From<Declarations> for CachedRuntime {
+    fn from(runtime: Declarations) -> Self {
         Self {
             runtime: Some(runtime),
             owner: None,
@@ -58,13 +59,13 @@ impl From<Runtime> for CachedRuntime {
     }
 }
 impl Deref for CachedRuntime {
-    type Target = Runtime;
-    fn deref(&self) -> &Runtime {
+    type Target = Declarations;
+    fn deref(&self) -> &Declarations {
         self.runtime.as_ref().expect("owned compilation")
     }
 }
 impl DerefMut for CachedRuntime {
-    fn deref_mut(&mut self) -> &mut Runtime {
+    fn deref_mut(&mut self) -> &mut Declarations {
         if self.owner.is_some() {
             trust_hir::timing::event("cache.discard_on_mutable_access", 1);
         }
@@ -90,7 +91,7 @@ impl Drop for CachedRuntime {
             });
             state.entries.truncate(CAPACITY);
         }
-        // Releasing the lease wakes exact-source waiters only after restoring the pristine runtime.
+        // Releasing the lease wakes exact-source waiters only after restoring the pristine entry.
     }
 }
 impl Cache {
@@ -98,7 +99,7 @@ impl Cache {
         self: &Arc<Self>,
         root: &Path,
         sources: &[LoadedSource],
-        build: impl FnOnce() -> Result<Runtime, String>,
+        build: impl FnOnce() -> Result<Declarations, String>,
     ) -> Result<CachedRuntime, String> {
         if sources
             .iter()
@@ -158,7 +159,7 @@ impl Cache {
 pub(super) fn compile(
     root: &Path,
     sources: &[LoadedSource],
-    build: impl FnOnce() -> Result<Runtime, String>,
+    build: impl FnOnce() -> Result<Declarations, String>,
 ) -> Result<CachedRuntime, String> {
     static CACHE: OnceLock<Arc<Cache>> = OnceLock::new();
     CACHE
@@ -166,8 +167,8 @@ pub(super) fn compile(
         .compile(root, sources, build)
 }
 
-/// Bindings include a bounded, driverless alarm-message inspection. Retain its immutable
-/// response separately so it never consumes or contaminates a pristine runtime entry.
+/// Bindings include a bounded alarm-message inspection. Retain its immutable response
+/// separately so it never consumes or contaminates a pristine entry.
 #[derive(Clone, PartialEq, Eq)]
 pub(super) struct BindingsKey {
     source: Key,
@@ -231,6 +232,13 @@ mod tests {
     use trust_runtime::hmi::member_paths::{resolve_member, MemberPath};
     use trust_runtime::value::Value;
 
+    /// The declarations of one source text.
+    fn declarations(text: &str) -> Result<Declarations, String> {
+        CompileSession::from_source(text)
+            .declarations()
+            .map_err(|error| error.to_string())
+    }
+
     #[test]
     fn unchanged_reads_reuse_compilation_but_edits_and_other_projects_do_not() {
         let cache = Arc::new(Cache::default());
@@ -246,9 +254,7 @@ mod tests {
         let compile = |root: &str, sources: &[LoadedSource]| {
             cache.compile(Path::new(root), sources, || {
                 builds.set(builds.get() + 1);
-                CompileSession::from_source(&sources[0].text)
-                    .build_runtime()
-                    .map_err(|error| error.to_string())
+                declarations(&sources[0].text)
             })
         };
         drop(compile("first", &one).unwrap());
@@ -296,9 +302,7 @@ mod tests {
                     let runtime = cache
                         .compile(Path::new("concurrent"), &sources, || {
                             builds.fetch_add(1, Ordering::SeqCst);
-                            CompileSession::from_source(&sources[0].text)
-                                .build_runtime()
-                                .map_err(|e| e.to_string())
+                            declarations(&sources[0].text)
                         })
                         .unwrap();
                     assert_eq!(
@@ -314,8 +318,10 @@ mod tests {
         assert_eq!(builds.load(Ordering::SeqCst), 1);
     }
 
+    /// Declarations borrowed mutably are not handed out again: the next read builds afresh and
+    /// reads the declared starting value. Catches an entry a caller could change for the others.
     #[test]
-    fn executed_runtime_cannot_contaminate_later_metadata_reads() {
+    fn mutably_borrowed_declarations_cannot_contaminate_later_metadata_reads() {
         let cache = Arc::new(Cache::default());
         let sources = vec![LoadedSource {
             path: "src/main.st".into(),
@@ -325,20 +331,12 @@ mod tests {
         let compile = || {
             cache.compile(Path::new("execution"), &sources, || {
                 builds.set(builds.get() + 1);
-                CompileSession::from_source(&sources[0].text)
-                    .build_runtime()
-                    .map_err(|error| error.to_string())
+                declarations(&sources[0].text)
             })
         };
         let mut first = compile().unwrap();
-        let program = first
-            .metadata_snapshot()
-            .programs()
-            .values()
-            .next()
-            .unwrap()
-            .clone();
-        first.execute_program(&program).unwrap();
+        let borrowed: &mut Declarations = &mut first;
+        assert!(borrowed.metadata().programs().values().next().is_some());
         drop(first);
         let second = compile().unwrap();
         assert_eq!(builds.get(), 2);

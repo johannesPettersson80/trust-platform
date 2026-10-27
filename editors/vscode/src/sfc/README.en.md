@@ -16,7 +16,7 @@ Visual editor for Sequential Function Chart (SFC) based on **IEC 61131-3** stand
   - Connect a source step to a target step
 
 - **Actions**: Activities associated with each step
-  - Supports all IEC 61131-3 qualifiers:
+  - Supports all IEC 61131-3 qualifiers (Table 59):
     - **N**: Non-stored (normal) - Action while step is active
     - **S**: Set (stored) - Stored action
     - **R**: Reset - Reset stored action
@@ -26,6 +26,10 @@ Visual editor for Sequential Function Chart (SFC) based on **IEC 61131-3** stand
     - **SD**: Stored and Delayed
     - **DS**: Delayed and Stored
     - **SL**: Stored and Limited
+    - **P1**: Pulse when the step starts
+    - **P0**: Pulse when the step ends
+  - L, D, SD, DS and SL take a duration such as `T#2s`
+  - An action runs one more scan after it ends, with `<action>.Q` FALSE
 
 ### Editor Capabilities
 
@@ -109,50 +113,69 @@ Init (Initial Step)
   v
 Step1
   Actions:
-    - StartMotor (N): motor := TRUE
+    - StartMotor (N): motor := StartMotor.Q
   |
   | T2: sensor1 = TRUE
   |
   v
 Step2
   Actions:
-    - StopMotor (N): motor := FALSE
+    - (motor is FALSE again: StartMotor's last scan wrote StartMotor.Q)
 ```
 
 ## ST Code Generation
 
-The editor can automatically generate Structured Text code:
+Each SFC runs as Structured Text: saving it (or Generate ST) writes the companion `<name>.st`,
+a `FUNCTION_BLOCK`, and the runtime entry `<name>.visual.runtime.st` beside the file. Preview ST
+shows the companion without writing it. The companion executes the chart by IEC 61131-3 §6.7
+(`docs/specs/sfc-profile.md`): each scan runs the actions of the active steps, then tests every
+transition against the steps active before the evolution and moves all clearing transitions
+together. For `motor.sfc.json`, with the action StartMotor (N) in Step1:
 
 ```st
-PROGRAM SFC_Program
-
+FUNCTION_BLOCK FB_motor_SFC
 VAR
+  // Steps: TRUE while the step is active (IEC 61131-3 6.7.2)
   Init_active : BOOL := TRUE;
   Step1_active : BOOL := FALSE;
-  Step2_active : BOOL := FALSE;
+  // Actions: the flags Q and A and the action control (6.7.4.6)
+  StartMotor : FB_motor_SFC_ACTION;
+  // Transitions: TRUE after a scan in which the transition cleared (6.7.5)
+  SFC_T1 : BOOL;
 END_VAR
 
-// SFC Logic
-// Transition: Init -> Step1
-IF Init_active AND (start_button = TRUE) THEN
-  Init_active := FALSE;
-  Step1_active := TRUE;
+// Action StartMotor: N Step1
+StartMotor.A := StartMotor.Q; // Q of the previous scan
+StartMotor.Q := Step1_active;
+StartMotor.A := StartMotor.A OR StartMotor.Q;
+IF StartMotor.A THEN
+  motor := StartMotor.Q;
 END_IF;
 
-// Step actions
-IF Step1_active THEN
-  // Action: StartMotor (N)
-  motor := TRUE;
-END_IF;
+// SFC_T1: Init -> Step1 (T1)
+SFC_T1 := Init_active AND (start_button = TRUE);
+
+Init_active := Init_active AND NOT SFC_T1;
+Step1_active := Step1_active OR SFC_T1;
+END_FUNCTION_BLOCK
+
+TYPE FB_motor_SFC_ACTION :
+STRUCT
+  Q : BOOL; // the action flag
+  A : BOOL; // the activation: the action's statements run while A is TRUE
+END_STRUCT;
+END_TYPE
 ```
 
 ## Validation
 
-The editor validates:
-- Presence of at least one initial step
-- No duplicates in step names
-- Transitions with valid conditions
-- Valid references between steps and transitions
+The editor validates what the companion needs (`docs/specs/sfc-profile.md`, "What Validate
+refuses"), among others:
+- Presence of an initial step, and one per sequence
+- No duplicates in step names, and step names that make identifiers
+- Transitions with conditions between existing steps, splits and joins
+- Well-formed parallel splits and joins
+- Action names that are identifiers, known qualifiers, and a duration for L, D, SD, DS and SL
 
 ## Compatibility
 

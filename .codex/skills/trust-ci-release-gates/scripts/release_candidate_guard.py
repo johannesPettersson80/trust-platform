@@ -64,12 +64,15 @@ def run(
     check: bool = False,
     input_text: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    # A command's output is read as UTF-8 with any broken sequence replaced: two processes that
+    # write to the same pipe can split a character, and a log must never stop the guard.
     return subprocess.run(
         list(command),
         cwd=cwd,
         check=check,
         input=input_text,
-        text=True,
+        encoding="utf-8",
+        errors="replace",
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )

@@ -7,8 +7,6 @@ import * as vscode from "vscode";
 
 import { EquipmentEditorBridge } from "../../hmiBuilder/editor/equipmentDetails";
 import { renameEquipment } from "../../hmiBuilder/editor/renameEquipment";
-import { notWritable } from "../../hmiBuilder/editor/policyProblems";
-import { ruledPoints, ruleFor, rulesText } from "../../hmiBuilder/editor/writePolicy";
 import { languageServerReady, until } from "./hmiBuilderHost";
 
 // Specification 39, §10: Add Missing Variables to Program declares a page's values in its program as
@@ -282,27 +280,6 @@ suite("HMI Builder editor: allow writing", function () {
       "a point runtime.toml names already is left",
     );
     assert.strictEqual(fs.readFileSync(path.join(root, "runtime.toml"), "utf8"), rules);
-  });
-
-  test("the policy text: the points named, inline rules refused, the rule written", () => {
-    assert.strictEqual(notWritable('"Main.FanSpeed" is not writable by the runtime\'s write policy'), "Main.FanSpeed");
-    assert.strictEqual(notWritable('"Main.FanSpeed" does not resolve in the program'), undefined);
-    assert.deepStrictEqual(
-      [
-        ...(ruledPoints(
-          '[runtime.web.hmi]\nidle_minutes = 5\n\n[[runtime.web.hmi.write]]\npath = "Main.Level"\nrole = "engineer"\n',
-        ) ?? []),
-      ],
-      ["main.level"],
-    );
-    assert.strictEqual(
-      ruledPoints('[runtime.web.hmi]\nwrite = [{ path = "Main.Level", role = "engineer" }]\n'),
-      undefined,
-    );
-    assert.strictEqual(
-      rulesText([ruleFor({ min: 0.5, max: 100 }, "Main.FanSpeed")]),
-      '\n[[runtime.web.hmi.write]]\npath = "Main.FanSpeed"\nrole = "engineer"\nmin = 0.5\nmax = 100.0\n',
-    );
   });
 });
 

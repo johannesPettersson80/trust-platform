@@ -1,11 +1,8 @@
-// Pure model for the bundled starter examples (§0.5.12) — NO vscode import, so it's unit-testable and the
-// manifest shape is guarded standalone. The vscode-facing copy/open flow lives in ../examples.ts.
+// Pure presentation model for the bundled starter examples (§0.5.12) — NO vscode import, so it's unit-testable. The
+// manifest, each lesson's availability and which entries can be copied come from the language server
+// (`trust-lsp.examplesCatalog`, ./load.ts); the vscode-facing copy/open flow lives in ../examples.ts.
 
-import {
-  parseControlLessonContract,
-  type ControlLessonAvailability,
-  type ControlLessonMetadata,
-} from "./controlLesson";
+import type { ControlLessonAvailability, ControlLessonMetadata } from "./controlLesson";
 
 export {
   CONTROL_LESSON_PROJECTS_KEY,
@@ -42,10 +39,6 @@ export type GalleryView =
   | { readonly kind: "course"; readonly id: string }
   | { readonly kind: "lesson"; readonly id: string };
 
-export function parseControlLesson(raw: unknown, id: string): ControlLessonMetadata {
-  return parseControlLessonContract(raw, id);
-}
-
 export interface ExampleEntry {
   readonly id: string;
   readonly title: string;
@@ -55,14 +48,8 @@ export interface ExampleEntry {
   readonly tags?: ReadonlyArray<string>;
   readonly lesson?: ControlLessonMetadata;
   readonly lessonAvailability?: ControlLessonAvailability;
-}
-
-/** Fail closed for curriculum projects; ordinary starter examples remain copyable. */
-export function isExampleCopyable(entry: ExampleEntry): boolean {
-  if (!entry.tags?.includes("control")) {
-    return true;
-  }
-  return entry.lessonAvailability?.kind === "available";
+  /** The language server's answer: a starter can be copied, a lesson only when its contract holds. */
+  readonly copyable?: boolean;
 }
 
 export function controlLessonPositionLabel(sequence: number, total: number): string {
@@ -210,30 +197,4 @@ export function exampleQuickPickItems(
     id: entry.id,
     path: entry.path,
   }));
-}
-
-// Validate a parsed manifest: an array of entries with the required string fields and a folder path.
-export function parseManifest(raw: unknown): ExampleEntry[] {
-  if (!Array.isArray(raw)) {
-    throw new Error("examples manifest must be an array");
-  }
-  return raw.map((value, index) => {
-    if (!value || typeof value !== "object") {
-      throw new Error(`examples manifest entry ${index} is not an object`);
-    }
-    const entry = value as Record<string, unknown>;
-    for (const field of ["id", "title", "description", "path", "hardware"]) {
-      if (typeof entry[field] !== "string" || !(entry[field] as string).length) {
-        throw new Error(`examples manifest entry ${index} missing string '${field}'`);
-      }
-    }
-    return {
-      id: entry.id as string,
-      title: entry.title as string,
-      description: entry.description as string,
-      path: entry.path as string,
-      hardware: entry.hardware as string,
-      tags: Array.isArray(entry.tags) ? (entry.tags as string[]) : undefined,
-    };
-  });
 }

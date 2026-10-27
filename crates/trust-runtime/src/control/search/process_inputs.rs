@@ -6,7 +6,7 @@
 use crate::io::{IoAddress, IoSnapshot, IoSnapshotValue};
 use crate::memory::IoArea;
 use crate::value::Value;
-use crate::Runtime;
+use crate::CompiledRuntime;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 
@@ -37,7 +37,7 @@ pub(super) fn capture(snapshot: Option<&IoSnapshot>) -> Vec<ProcessInput> {
             };
             let (value_type, value) = encode(value)?;
             Some(ProcessInput {
-                address: super::super::types::format_address(&entry.address),
+                address: entry.address.to_string(),
                 value_type: value_type.to_string(),
                 value,
             })
@@ -47,7 +47,7 @@ pub(super) fn capture(snapshot: Option<&IoSnapshot>) -> Vec<ProcessInput> {
 }
 
 /// Writes the carried inputs into the isolated runtime's process image before its first scan.
-pub(super) fn apply(runtime: &mut Runtime, inputs: &[ProcessInput]) -> Result<(), String> {
+pub(super) fn apply(runtime: &mut CompiledRuntime, inputs: &[ProcessInput]) -> Result<(), String> {
     if inputs.len() > MAX_PROCESS_INPUTS {
         return Err("live process inputs exceed their bound".into());
     }

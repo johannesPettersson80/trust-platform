@@ -124,7 +124,7 @@ impl<'a> TypeChecker<'a> {
         let Some(literal) = string_literal_info(expr) else {
             return false;
         };
-        if literal.len != 1 {
+        if literal.chars != 1 {
             return false;
         }
         let expected = self.resolve_alias_type(expected);
@@ -212,7 +212,7 @@ impl<'a> TypeChecker<'a> {
         if literal.is_wide != target_is_wide {
             return;
         }
-        if literal.len > max_len {
+        if literal.units > max_len {
             let target_name = self.type_name(target_type);
             let value_name = self.type_name(value_type);
             self.diagnostics.error(
@@ -220,7 +220,7 @@ impl<'a> TypeChecker<'a> {
                 value.text_range(),
                 format!(
                     "{} literal length {} exceeds {} capacity",
-                    value_name, literal.len, target_name
+                    value_name, literal.units, target_name
                 ),
             );
         }

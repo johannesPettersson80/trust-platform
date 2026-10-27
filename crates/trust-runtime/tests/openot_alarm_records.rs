@@ -24,7 +24,7 @@ use trust_runtime::hmi::alarms::{read_alarms, EventKind, OperatorAction, Runtime
 use trust_runtime::hmi::commands::write::{write_point, WriteAction};
 use trust_runtime::hmi::member_paths::MemberPath;
 use trust_runtime::scheduler::{ResourceRunner, StdClock};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
 const ALARM: &str = include_str!("../../../libraries/alarm/src/alarm.st");
 const HMI: &str = include_str!("../../../libraries/hmi/src/hmi.st");
@@ -69,7 +69,7 @@ fn telemetry(path: PathBuf) -> OpenOtTelemetryConfig {
 
 /// A runtime with the program, publishing to a fresh ring, and its alarm service.
 struct Plant {
-    runtime: Runtime,
+    runtime: CompiledRuntime,
     alarms: RuntimeAlarms,
     path: PathBuf,
 }
@@ -96,13 +96,17 @@ impl Plant {
     /// records are published.
     fn scan(&mut self) {
         self.runtime.execute_cycle().expect("a scan");
-        let records = self.alarms.apply(read_alarms(&self.runtime));
+        let records = self
+            .alarms
+            .apply(self.runtime.with_program_view(read_alarms));
         self.runtime.publish_alarm_records(&records);
     }
 
     fn write(&mut self, path: &str, value: serde_json::Value) {
         let path = MemberPath::parse(path).expect("a path");
-        write_point(&mut self.runtime, &path, &WriteAction::Set(value)).expect("written");
+        self.runtime
+            .with_program(|program| write_point(program, &path, &WriteAction::Set(value)))
+            .expect("written");
     }
 
     fn operator(&mut self, kind: EventKind, detail: Option<&str>, seconds: Option<u32>) {
@@ -282,7 +286,7 @@ fn without_openot_nothing_is_published_and_nothing_fails() {
         .into_runtime();
     let mut alarms = RuntimeAlarms::default();
     runtime.execute_cycle().expect("a scan");
-    let records = alarms.apply(read_alarms(&runtime));
+    let records = alarms.apply(runtime.with_program_view(read_alarms));
     runtime.publish_alarm_records(&records);
 }
 

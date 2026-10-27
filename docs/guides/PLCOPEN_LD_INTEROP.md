@@ -1,55 +1,16 @@
 # PLCopen LD Interop Guide (Schema v2)
 
-This guide documents the Ladder Diagram (LD) PLCopen interop profile implemented for
-schema v2 ladder programs.
+truST does not import or export Ladder Diagram bodies as PLCopen XML. The
+TypeScript LD interchange (`editors/vscode/src/ladder/plcopenLdInterop.ts`),
+which no command of the extension called and only its own tests reached, was
+removed on 26 October 2026 with those tests
+(`docs/specs/25-vscode-product-contract.md` §11.4.1).
 
-## Scope
+A Ladder program is its `.ladder.json` file (schema v2), drawn by the Ladder
+editor. It runs as Structured Text: saving it writes the companion
+`<name>.st` and the runtime entry `<name>.visual.runtime.st` beside it
+(`docs/specs/17-visual-editors-runtime-unification.md` §3).
 
-Implemented profile:
-
-- Import PLCopen LD network bodies into `.ladder.json` schema v2 (`networks[]`, `nodes[]`, `edges[]`).
-- Export schema v2 ladder networks back into PLCopen LD network bodies.
-- Deterministic diagnostics for unsupported or malformed constructs.
-
-Implementation entry points:
-
-- `editors/vscode/src/ladder/plcopenLdInterop.ts`
-  - `importPlcopenLdToSchemaV2(xml)`
-  - `exportSchemaV2ToPlcopenLd(program, pouName?)`
-
-## Supported Node Constructs
-
-- `contact` (`NO`, `NC`)
-- `coil` (`NORMAL`, `SET`, `RESET`, `NEGATED`)
-- `timer` (`TON`, `TOF`, `TP`)
-- `counter` (`CTU`, `CTD`, `CTUD` profile)
-- `compare` (`GT`, `LT`, `EQ`)
-- `math` (`ADD`, `SUB`, `MUL`, `DIV`)
-- Topology nodes: `branchSplit`, `branchMerge`, `junction`
-- `edge` links with optional routed `points`
-
-## Diagnostics Contract
-
-Import diagnostics are deterministic and include:
-
-- Unsupported constructs (for example unknown graphical tags)
-- Malformed nodes (missing required attributes)
-- Malformed edges (`from`/`to` missing)
-- Empty LD payload (`No <network> LD bodies found...`)
-
-Unsupported constructs are skipped, not silently accepted.
-
-## Validation Coverage
-
-Automated tests:
-
-- `editors/vscode/src/test/suite/plcopen-ld-interop.test.ts`
-  - Export/import roundtrip coverage
-  - Unsupported construct diagnostics
-  - Malformed payload diagnostics
-
-## Notes
-
-- This is a supported LD interop subset for schema v2 workflows.
-- Vendor-specific graphical metadata outside this subset is currently reported as unsupported.
-- Known profile constraints are tracked in `docs/IEC_DEVIATIONS.md`.
+PLCopen XML import and export cover Structured Text; see
+`docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md`. The withdrawn LD deviation is
+recorded in `docs/PLCOPEN_DEVIATIONS.md` (entry of 2026-02-25).

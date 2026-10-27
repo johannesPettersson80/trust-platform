@@ -235,7 +235,8 @@ suite("Created project folder recovery", () => {
       vscode.window.showOpenDialog = async () => [destination];
       vscode.window.showInputBox = async () => "chosen-project";
       vscode.commands.executeCommand = (async (command: string, ...args: unknown[]) => {
-        assert.strictEqual(command, "vscode.openFolder");
+        // The copy asks the language server (`trust-lsp.copyExample`); only the folder switch is stubbed.
+        if (command !== "vscode.openFolder") return originalExecute(command, ...args);
         assert.strictEqual((args[0] as vscode.Uri).fsPath, vscode.Uri.joinPath(destination, "chosen-project").fsPath);
         assert.strictEqual(args[1], false);
         if (++opens === 1) {

@@ -14,10 +14,32 @@ interface ImportArgs {
   project?: string;
 }
 
-const NAME = /^[A-Za-z0-9_-]+$/;
-
 export function registerSymbolImport(): vscode.Disposable {
   return vscode.commands.registerCommand(IMPORT_SYMBOL_COMMAND, async (args?: ImportArgs) => importSymbol(args ?? {}));
+}
+
+/** What `trust-lsp.hmiImportSymbol` answers. */
+interface ImportAnswer {
+  ok?: boolean;
+  error?: string;
+  name?: string;
+  problem?: string | null;
+  text?: string;
+}
+
+async function ask(argument: Record<string, unknown>): Promise<ImportAnswer> {
+  const answer = await vscode.commands.executeCommand<ImportAnswer | undefined>("trust-lsp.hmiImportSymbol", argument);
+  if (answer?.ok !== true) throw new Error(answer?.error ?? "The truST language server is not running.");
+  return answer;
+}
+
+/** Why `name` cannot name a symbol, or undefined. */
+async function nameProblem(name: string): Promise<string | undefined> {
+  try {
+    return (await ask({ action: "checkName", name })).problem ?? undefined;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
 }
 
 async function importSymbol(args: ImportArgs): Promise<void> {
@@ -37,72 +59,34 @@ async function importSymbol(args: ImportArgs): Promise<void> {
       )?.[0];
   if (!source) return;
   const title = path.basename(source.fsPath, path.extname(source.fsPath));
-  const suggested =
-    title
-      .toLowerCase()
-      .replace(/[^a-z0-9_-]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "symbol";
-  const name =
-    args.name ??
-    (await vscode.window.showInputBox({
-      title: "Import Symbol",
-      prompt: "The symbol's name, which pages give its objects as my:<name>",
-      value: suggested,
-      validateInput: (text) => (NAME.test(text) ? undefined : "Use letters, digits, - and _"),
-    }));
-  if (!name || !NAME.test(name)) return;
-  const folder = vscode.Uri.joinPath(project, "hmi", "symbols");
-  const definition = vscode.Uri.joinPath(folder, `${name}.toml`);
-  if (await exists(definition)) {
-    void vscode.window.showErrorMessage(`The project has a symbol "${name}" already: ${definition.fsPath}`);
-    return;
+  try {
+    const suggested = (await ask({ action: "suggest", title })).name ?? "symbol";
+    const name =
+      args.name ??
+      (await vscode.window.showInputBox({
+        title: "Import Symbol",
+        prompt: "The symbol's name, which pages give its objects as my:<name>",
+        value: suggested,
+        validateInput: nameProblem,
+      }));
+    if (!name || (await nameProblem(name)) !== undefined) return;
+    const folder = vscode.Uri.joinPath(project, "hmi", "symbols");
+    const definition = vscode.Uri.joinPath(folder, `${name}.toml`);
+    if (await exists(definition)) {
+      void vscode.window.showErrorMessage(`The project has a symbol "${name}" already: ${definition.fsPath}`);
+      return;
+    }
+    const drawing = await vscode.workspace.fs.readFile(source);
+    const starter = await ask({ action: "definition", title, svg: Buffer.from(drawing).toString("utf8") });
+    await vscode.workspace.fs.createDirectory(folder);
+    await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(folder, `${name}.svg`), drawing);
+    await vscode.workspace.fs.writeFile(definition, Buffer.from(starter.text ?? "", "utf8"));
+    await vscode.window.showTextDocument(definition);
+  } catch (error) {
+    void vscode.window.showErrorMessage(
+      `The symbol was not imported: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
-  const drawing = await vscode.workspace.fs.readFile(source);
-  await vscode.workspace.fs.createDirectory(folder);
-  await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(folder, `${name}.svg`), drawing);
-  await vscode.workspace.fs.writeFile(
-    definition,
-    Buffer.from(starterDefinition(title, Buffer.from(drawing).toString("utf8")), "utf8"),
-  );
-  await vscode.window.showTextDocument(definition);
-}
-
-/** A definition to complete: the title, a new object's size in the drawing's proportions (its
- * symbol 64 px wide above the 44 px of tag and state word), and each element id of the drawing as
- * a part to name. */
-export function starterDefinition(title: string, svg: string): string {
-  const [width, height] = proportions(svg);
-  const symbolHeight = Math.max(16, Math.round((64 * height) / width));
-  const ids = [...new Set([...svg.matchAll(/\sid\s*=\s*["']([^"']+)["']/g)].map((match) => match[1]))];
-  const lines = [
-    "format = 1",
-    `title = ${JSON.stringify(title)}`,
-    `size = [128, ${symbolHeight + 44}]`,
-    "",
-    "# The bindings the symbol takes, each boolean, number or text, for example:",
-    "[properties]",
-    '# running = "boolean"',
-    '# level = "number"',
-    "",
-    "# Ports where pipes connect, in the drawing's coordinates, for example:",
-    "# [[port]]",
-    '# name = "inlet"',
-    "# at = [0, 32]",
-    '# direction = "left"',
-    "",
-    "# The drawing's elements. Name the ones the bindings drive, each one way:",
-    "# spin, angle, level, show, blink, alarm or active.",
-  ];
-  for (const id of ids) lines.push("", "# [[part]]", `# id = ${JSON.stringify(id)}`, '# spin = "running"');
-  return `${lines.join("\n")}\n`;
-}
-
-/** The drawing's width and height: its viewBox, else its width and height, else a square. */
-function proportions(svg: string): [number, number] {
-  const box = /viewBox\s*=\s*["']\s*[-\d.eE]+[\s,]+[-\d.eE]+[\s,]+([\d.eE]+)[\s,]+([\d.eE]+)/.exec(svg);
-  const sized = box ?? /<svg[^>]*\swidth\s*=\s*["']([\d.]+)[^"']*["'][^>]*\sheight\s*=\s*["']([\d.]+)/.exec(svg);
-  const [width, height] = sized ? [Number(sized[1]), Number(sized[2])] : [64, 64];
-  return width > 0 && height > 0 ? [width, height] : [64, 64];
 }
 
 /** The open project with an HMI; the user picks one when there are several. */

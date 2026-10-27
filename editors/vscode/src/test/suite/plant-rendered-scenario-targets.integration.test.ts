@@ -29,16 +29,18 @@ if (RENDERED_TEST_ENABLED) {
         await inner("d.querySelector('[data-plant-scenario-event-add]')?.click();return 'ADDED';");
 
         const stateChannel = '[data-plant-scenario-event-row="0"] select[data-plant-scenario-event-field="channel"]';
-        assert.deepStrictEqual(
-          JSON.parse(await inner("var select=d.querySelector('[data-plant-scenario-event-row=\\\"0\\\"] select[data-plant-scenario-event-field=\\\"channel\\\"]');return JSON.stringify({tag:select?.tagName,options:[...(select?.options||[])].map((option)=>({value:option.value,text:option.textContent?.trim()}))});")),
-          {
+        // The event row appears once the language server has added it to the draft.
+        await pollValue(
+          "state events must expose named robot-joint state quantities",
+          async () => inner("var select=d.querySelector('[data-plant-scenario-event-row=\\\"0\\\"] select[data-plant-scenario-event-field=\\\"channel\\\"]');return JSON.stringify({tag:select?.tagName,options:[...(select?.options||[])].map((option)=>({value:option.value,text:option.textContent?.trim()}))});"),
+          (value) => value === JSON.stringify({
             tag: "SELECT",
             options: [
               { value: "0", text: "Angle (rad)" },
               { value: "1", text: "Angular speed (rad/s)" },
             ],
-          },
-          "state events must expose named robot-joint state quantities"
+          }),
+          8_000
         );
         await session.setValue(stateChannel, "1");
 

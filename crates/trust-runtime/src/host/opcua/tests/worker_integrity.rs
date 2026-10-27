@@ -191,7 +191,7 @@ fn write_completion_preserves_newer_pending_generation() {
 
         write_global(&mut storage, "line1_setpoint", Value::Real(31.0));
         bridge
-            .capture_outputs(&mut storage, 10)
+            .capture_outputs_compiled(&mut storage, 10)
             .expect("queue transmitted generation");
         worker
             .tick(11)
@@ -243,13 +243,13 @@ fn non_finite_outputs_cancel_pending_and_allow_later_finite_value() {
         let mut bridge = OpcUaClientBridge::new(bindings).expect("bridge");
 
         bridge
-            .capture_outputs(&mut storage, 1)
+            .capture_outputs_compiled(&mut storage, 1)
             .expect("queue finite baseline");
         assert_eq!(bridge.pending_write("line1_setpoint"), Some(first.clone()));
 
         write_global(&mut storage, "line1_setpoint", invalid);
         bridge
-            .capture_outputs(&mut storage, 2)
+            .capture_outputs_compiled(&mut storage, 2)
             .expect("reject non-finite output");
         assert_eq!(
             bridge.pending_write("line1_setpoint"),
@@ -275,7 +275,7 @@ fn non_finite_outputs_cancel_pending_and_allow_later_finite_value() {
 
         write_global(&mut storage, "line1_setpoint", recovery.clone());
         bridge
-            .capture_outputs(&mut storage, 3)
+            .capture_outputs_compiled(&mut storage, 3)
             .expect("queue finite recovery");
         assert_eq!(
             bridge.pending_write("line1_setpoint"),

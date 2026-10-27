@@ -1,20 +1,15 @@
 import * as assert from "assert";
-import {
-  EquipmentSettings,
-  SETTINGS_CSS,
-  enteredValue,
-  mayChangeSettings,
-  settingLabel,
-} from "../../hmiBuilder/display/settings";
+import { EquipmentSettings, SETTINGS_CSS, settingLabel } from "../../hmiBuilder/display/settings";
 import type { Setting } from "../../hmiBuilder/display/settings";
 import { Overlay } from "../../hmiBuilder/display/overlay";
 import { SessionControl } from "../../hmiBuilder/display/session";
-import { ANNA, Host, openedWith, settle, fill, submit } from "./hmiDisplayHost";
+import { ANNA, ERIK, Host, openedWith, settle, fill, submit } from "./hmiDisplayHost";
 
-// Specification 39, §21.4 and Plant §10: the Settings dialog of an equipment panel. Engineers only;
-// the definition's settings in order with plain titles and units, a help line only where the
-// definition gives one, Apply and Cancel always at the bottom with the result beside Apply, and a
-// draft that survives a refusal.
+// Specification 39, §21.4 and Plant §10: the Settings dialog of an equipment panel. For a session
+// the runtime lets change settings; the definition's settings in order with plain titles and units,
+// a help line only where the definition gives one, Apply and Cancel always at the bottom with the
+// result beside Apply, each edited field sent as it holds its entry, and a draft that survives a
+// refusal. How an entry is read and checked is the runtime's (setting_values tests in Rust).
 
 const PANEL = "faceplate:overview/pump";
 
@@ -60,13 +55,13 @@ const PAGE = {
   errors: [],
 };
 
-/** The dialog for a session of `role`, opened on the pump's panel. */
+/** The dialog for the session the runtime answers with `who`, opened on the pump's panel. */
 async function dialog(
-  role: string,
+  who: typeof ANNA,
   ...replies: Array<{ status: number; body: unknown }>
 ): Promise<{ host: Host; root: HTMLElement; window: any; form: HTMLFormElement | null }> {
   const host = new Host(PAGE);
-  host.session = { status: 200, body: { ...ANNA, user: role === "engineer" ? "erik" : "anna", role } };
+  host.session = { status: 200, body: who };
   const { root, window } = await openedWith(host);
   const overlay = new Overlay(root, host);
   const session = new SessionControl(host, overlay, () => undefined);
@@ -90,11 +85,8 @@ function applied(host: Host): any[] {
 }
 
 suite("HMI equipment settings", () => {
-  test("only an Engineer may open the dialog", async () => {
-    assert.strictEqual(mayChangeSettings("engineer"), true);
-    assert.strictEqual(mayChangeSettings("operator"), false);
-    assert.strictEqual(mayChangeSettings(undefined), false);
-    const { host, root, form } = await dialog("operator", READ);
+  test("only a session the runtime lets change settings opens the dialog", async () => {
+    const { host, root, form } = await dialog(ANNA, READ);
     assert.strictEqual(form, null, "no dialog for an Operator");
     assert.ok(root.querySelector('[data-part="notice"]')?.textContent?.includes("Engineer"));
     assert.strictEqual(
@@ -102,10 +94,13 @@ suite("HMI equipment settings", () => {
       0,
       "nothing is asked of the runtime",
     );
+    // The runtime's answer decides, not the role's name: the page ranks no roles itself.
+    assert.strictEqual((await dialog({ ...ERIK, may_change_settings: false }, READ)).form, null);
+    assert.ok((await dialog({ ...ANNA, may_change_settings: true }, READ)).form, "the dialog opens");
   });
 
   test("the settings are listed in order with plain titles, units and a help line only where given", async () => {
-    const { form } = await dialog("engineer", READ);
+    const { form } = await dialog(ERIK, READ);
     assert.ok(form, "the dialog opens");
     assert.ok(form.querySelector("h2")?.textContent?.includes("P101 — Pump"));
     const labels = Array.from(form.querySelectorAll(".hmi-settings-field > span")).map((span) => span.textContent);
@@ -122,7 +117,7 @@ suite("HMI equipment settings", () => {
       ...READ,
       body: { ...READ.body, settings: [{ ...START_TIMEOUT, value: 10 }, STOP_TIMEOUT, { ...SERVICE, value: 2000 }] },
     };
-    const { host, window, form } = await dialog("engineer", READ, after);
+    const { host, window, form } = await dialog(ERIK, READ, after);
     assert.ok(form, "the dialog opens");
     const footer = form.querySelector('[data-part="settings-footer"]');
     assert.ok(footer, "a footer");
@@ -144,11 +139,11 @@ suite("HMI equipment settings", () => {
         {
           faceplate: PANEL,
           action: "apply",
-          changes: { StartTimeout: 10, ServiceInterval: 2000 },
+          changes: { StartTimeout: "10", ServiceInterval: "2000" },
           expected: { StartTimeout: 5, ServiceInterval: 4000 },
         },
       ],
-      "only the changed settings, with the values they replace",
+      "only the edited fields, as they hold their entries, with the values they replace",
     );
     assert.strictEqual(form.querySelector('[data-part="settings-result"]')?.textContent, "Applied");
     assert.strictEqual(input(form, "StartTimeout").value, "10", "the values read back");
@@ -159,10 +154,10 @@ suite("HMI equipment settings", () => {
   });
 
   test("in the HMI Builder's Live mode, Keep in project keeps the values the PLC has; a browser has no such button", async () => {
-    const browser = await dialog("engineer", READ);
+    const browser = await dialog(ERIK, READ);
     assert.strictEqual(browser.form?.querySelector('[data-action="keep"]'), null, "nothing to keep in a browser");
     const host = new Host(PAGE);
-    host.session = { status: 200, body: { ...ANNA, user: "erik", role: "engineer" } };
+    host.session = { status: 200, body: ERIK };
     const kept: Array<{ instance: string; settings: Record<string, unknown> }> = [];
     const answers = [
       { ok: true, kept: ["StartTimeout"] },
@@ -207,30 +202,60 @@ suite("HMI equipment settings", () => {
     assert.strictEqual(result()?.hasAttribute("data-refused"), true);
   });
 
-  test("a refusal names the field beside Apply and keeps the draft", async () => {
+  test("an entry goes to the runtime as typed, and its refusal names the field beside Apply and keeps the draft", async () => {
     const refused = {
       status: 200,
       body: { ok: false, error: "Start timeout: 700 is above the maximum 600 s", field: "StartTimeout" },
     };
-    const { host, window, form } = await dialog("engineer", READ, refused);
+    const { host, window, form } = await dialog(ERIK, READ, refused);
     assert.ok(form, "the dialog opens");
-    // A value outside the definition's limits is named before it is sent.
     fill(window, input(form, "StartTimeout"), "700");
     submit(window, form);
     await settle(host);
-    assert.strictEqual(applied(host).length, 0, "not sent");
+    assert.deepStrictEqual(
+      applied(host).map((body) => [body.changes, body.expected]),
+      [[{ StartTimeout: "700" }, { StartTimeout: 5 }]],
+      "the page checks no limit: the runtime does",
+    );
     const result = form.querySelector('[data-part="settings-result"]');
-    assert.ok(result?.textContent?.includes("Start timeout"), result?.textContent ?? "");
+    assert.strictEqual(result?.textContent, "Start timeout: 700 is above the maximum 600 s");
     assert.strictEqual(result?.getAttribute("data-refused"), "true");
     assert.strictEqual(input(form, "StartTimeout").getAttribute("aria-invalid"), "true");
-    // The runtime's own refusal.
-    fill(window, input(form, "StartTimeout"), "60");
+    assert.strictEqual(input(form, "StartTimeout").value, "700", "the draft stays");
+  });
+
+  test("a ticked box is sent as TRUE or FALSE and a chosen value as its text", async () => {
+    const heating: Setting = { member: "Heating", title: "Heating", kind: "bool", value: false };
+    const speed: Setting = {
+      member: "Speed",
+      title: "Speed",
+      kind: "integer",
+      value: 1,
+      choices: [
+        { value: 1, title: "slow" },
+        { value: 2, title: "fast" },
+      ],
+    };
+    const answer = { status: 200, body: { ok: true, instance: "Main.P101", settings: [heating, speed] } };
+    const { host, window, form } = await dialog(ERIK, answer, answer);
+    assert.ok(form, "the dialog opens");
+    const box = input(form, "Heating");
+    box.checked = true;
+    box.dispatchEvent(new window.Event("change", { bubbles: true }));
+    const list = form.querySelector('[name="Speed"]') as HTMLSelectElement;
+    list.value = "2";
+    list.dispatchEvent(new window.Event("change", { bubbles: true }));
     submit(window, form);
     await settle(host);
-    assert.strictEqual(applied(host).length, 1);
-    assert.strictEqual(result?.textContent, "Start timeout: 700 is above the maximum 600 s");
-    assert.strictEqual(input(form, "StartTimeout").value, "60", "the draft stays");
-    assert.strictEqual(input(form, "StartTimeout").getAttribute("aria-invalid"), "true");
+    assert.deepStrictEqual(
+      applied(host).map((body) => [body.changes, body.expected]),
+      [
+        [
+          { Heating: true, Speed: "2" },
+          { Heating: false, Speed: 1 },
+        ],
+      ],
+    );
   });
 
   test("a value changed meanwhile refreshes the fields not edited and keeps the edits", async () => {
@@ -242,7 +267,7 @@ suite("HMI equipment settings", () => {
       ...READ,
       body: { ...READ.body, settings: [{ ...START_TIMEOUT, value: 7 }, STOP_TIMEOUT, { ...SERVICE, value: 3000 }] },
     };
-    const { host, window, form } = await dialog("engineer", READ, changed, now);
+    const { host, window, form } = await dialog(ERIK, READ, changed, now);
     assert.ok(form, "the dialog opens");
     fill(window, input(form, "StartTimeout"), "10");
     submit(window, form);
@@ -250,25 +275,5 @@ suite("HMI equipment settings", () => {
     assert.strictEqual(form.querySelector('[data-part="settings-result"]')?.textContent, "Changed meanwhile: refresh");
     assert.strictEqual(input(form, "StartTimeout").value, "10", "the edit stays");
     assert.strictEqual(input(form, "ServiceInterval").value, "3000", "a field not edited shows the value now");
-  });
-
-  test("an entered value is a number in the setting's unit within its limits, or a choice's value", () => {
-    assert.strictEqual(enteredValue(START_TIMEOUT, "2,5"), 2.5);
-    assert.throws(() => enteredValue(START_TIMEOUT, "0.5"), /Start timeout: 0.5 is below the minimum 1 s/);
-    assert.throws(() => enteredValue(START_TIMEOUT, "soon"), /enter a number/);
-    assert.throws(() => enteredValue({ ...SERVICE, kind: "integer" }, "1.5"), /whole number/);
-    const per: Setting = {
-      member: "TotalPer",
-      title: "Total per",
-      kind: "time",
-      value: "T#1h",
-      choices: [
-        { value: "T#1m", title: "minute" },
-        { value: "T#1h", title: "hour" },
-      ],
-    };
-    assert.strictEqual(enteredValue(per, "T#1m"), "T#1m");
-    assert.throws(() => enteredValue(per, "T#1d"), /choose one of its values/);
-    assert.strictEqual(enteredValue({ member: "Heating", title: "Heating", kind: "bool", value: true }, false), false);
   });
 });

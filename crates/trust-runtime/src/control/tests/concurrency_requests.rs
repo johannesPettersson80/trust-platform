@@ -82,8 +82,7 @@ fn concurrent_control_requests_each_get_one_stable_reply_while_the_scan_runs() {
     use base64::Engine as _;
     let harness = crate::harness::TestHarness::from_source(CONCURRENT_CONTROL_SOURCE)
         .expect("compile control fixture");
-    let bytes = crate::harness::bytecode_bytes_from_source(CONCURRENT_CONTROL_SOURCE)
-        .expect("compile replacement bytecode");
+    let bytes = program_image(CONCURRENT_CONTROL_SOURCE);
     let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
     let (state, handle) = concurrent_control_state(CONCURRENT_CONTROL_SOURCE, harness, None);
     concurrent_wait_until("the scan runs", || {
@@ -229,8 +228,11 @@ fn pending_restarts_coalesce_and_a_cold_request_keeps_precedence() {
     // The two accepted restarts coalesce into one cold restart: the later warm request does not
     // downgrade the pending cold one, so the retained value is reset (spec 11 section 6.9).
     assert_eq!(
-        snapshot.storage.get_global("retained"),
-        Some(&crate::value::Value::DInt(0)),
+        snapshot
+            .compiled
+            .as_deref()
+            .and_then(|state| state.value("retained")),
+        Some(crate::value::Value::DInt(0)),
         "an accepted cold restart is not lost behind a later warm restart"
     );
     concurrent_stop_and_join(handle);

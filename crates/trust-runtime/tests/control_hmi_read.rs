@@ -55,6 +55,13 @@ fn hmi_read_answers_the_values_the_cycle_and_the_missing_paths() {
         result["cycle"].as_u64().is_some_and(|cycle| cycle >= 1),
         "{answer}"
     );
+    // Live mode reads every 250 ms and its values are stale after three reads without news (§5.3
+    // item 2, §11.1): without the limit the builder would show stopped values as live.
+    assert_eq!(
+        (&result["period_ms"], &result["stale_ms"]),
+        (&json!(250), &json!(750)),
+        "{answer}"
+    );
 }
 
 #[test]

@@ -1,0 +1,261 @@
+{
+  "id": "stateMachine",
+  "initial": "Idle",
+  "states": {
+    "Idle": {
+      "entry": [
+        "logIdleEntry",
+        "turnOffAllLights"
+      ],
+      "exit": [
+        "logIdleExit"
+      ],
+      "on": {
+        "START": {
+          "target": "WaitingForSensor",
+          "actions": [
+            "logStartTransition"
+          ]
+        }
+      }
+    },
+    "WaitingForSensor": {
+      "entry": [
+        "logWaitingEntry",
+        "turnOnYellowLight"
+      ],
+      "exit": [
+        "turnOffYellowLight"
+      ],
+      "on": {
+        "SENSOR_OK": {
+          "target": "Running",
+          "guard": "%IX0.0 == TRUE",
+          "actions": [
+            "logSensorOk"
+          ]
+        },
+        "TIMEOUT": {
+          "target": "Error",
+          "actions": [
+            "logTimeout"
+          ],
+          "after": 5000
+        },
+        "CANCEL": {
+          "target": "Idle"
+        }
+      }
+    },
+    "Running": {
+      "entry": [
+        "logRunningEntry",
+        "turnOnGreenLight",
+        "startMotor"
+      ],
+      "exit": [
+        "turnOffGreenLight",
+        "stopMotor"
+      ],
+      "on": {
+        "STOP": {
+          "target": "Stopping",
+          "actions": [
+            "logStopRequested"
+          ]
+        },
+        "OVERHEAT": {
+          "target": "Error",
+          "guard": "%IW0 > 80",
+          "actions": [
+            "logOverheat"
+          ]
+        },
+        "AUTO_CYCLE": {
+          "target": "Idle",
+          "actions": [
+            "logAutoCycle"
+          ],
+          "after": 10000
+        }
+      }
+    },
+    "Stopping": {
+      "entry": [
+        "logStoppingEntry",
+        "turnOnOrangeLight"
+      ],
+      "exit": [
+        "turnOffOrangeLight"
+      ],
+      "on": {
+        "COMPLETE": {
+          "target": "Idle",
+          "actions": [
+            "logStopComplete"
+          ],
+          "after": 2000
+        }
+      }
+    },
+    "Error": {
+      "entry": [
+        "logErrorEntry",
+        "turnOnRedLight",
+        "triggerAlarm"
+      ],
+      "exit": [
+        "turnOffRedLight",
+        "clearAlarm"
+      ],
+      "on": {
+        "RESET": {
+          "target": "Idle",
+          "guard": "%IX0.1 == TRUE",
+          "actions": [
+            "logReset"
+          ]
+        }
+      }
+    }
+  },
+  "actionMappings": {
+    "turnOffAllLights": {
+      "action": "SET_MULTIPLE",
+      "targets": [
+        {
+          "address": "%QX0.0",
+          "value": false
+        },
+        {
+          "address": "%QX0.1",
+          "value": false
+        },
+        {
+          "address": "%QX0.2",
+          "value": false
+        },
+        {
+          "address": "%QX0.3",
+          "value": false
+        }
+      ]
+    },
+    "turnOnYellowLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.1",
+      "value": true
+    },
+    "turnOffYellowLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.1",
+      "value": false
+    },
+    "turnOnGreenLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.2",
+      "value": true
+    },
+    "turnOffGreenLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.2",
+      "value": false
+    },
+    "turnOnOrangeLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.3",
+      "value": true
+    },
+    "turnOffOrangeLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.3",
+      "value": false
+    },
+    "turnOnRedLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.0",
+      "value": true
+    },
+    "turnOffRedLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.0",
+      "value": false
+    },
+    "startMotor": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.4",
+      "value": true
+    },
+    "stopMotor": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.4",
+      "value": false
+    },
+    "triggerAlarm": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.5",
+      "value": true
+    },
+    "clearAlarm": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.5",
+      "value": false
+    },
+    "logIdleEntry": {
+      "action": "LOG",
+      "message": "Entered Idle state"
+    },
+    "logIdleExit": {
+      "action": "LOG",
+      "message": "Exiting Idle state"
+    },
+    "logStartTransition": {
+      "action": "LOG",
+      "message": "Starting process..."
+    },
+    "logWaitingEntry": {
+      "action": "LOG",
+      "message": "Waiting for sensor confirmation"
+    },
+    "logSensorOk": {
+      "action": "LOG",
+      "message": "Sensor OK - proceeding"
+    },
+    "logTimeout": {
+      "action": "LOG",
+      "message": "Timeout waiting for sensor!"
+    },
+    "logRunningEntry": {
+      "action": "LOG",
+      "message": "Running state activated"
+    },
+    "logStopRequested": {
+      "action": "LOG",
+      "message": "Stop requested"
+    },
+    "logOverheat": {
+      "action": "LOG",
+      "message": "OVERHEAT DETECTED!"
+    },
+    "logAutoCycle": {
+      "action": "LOG",
+      "message": "Auto-cycling back to Idle"
+    },
+    "logStoppingEntry": {
+      "action": "LOG",
+      "message": "Stopping process..."
+    },
+    "logStopComplete": {
+      "action": "LOG",
+      "message": "Stop complete"
+    },
+    "logErrorEntry": {
+      "action": "LOG",
+      "message": "ERROR STATE!"
+    },
+    "logReset": {
+      "action": "LOG",
+      "message": "System reset"
+    }
+  }
+}

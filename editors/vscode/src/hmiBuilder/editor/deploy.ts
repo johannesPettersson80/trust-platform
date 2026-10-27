@@ -24,54 +24,13 @@ export interface DeployDeps {
   control(endpoint: string, token: string | undefined, operation: string, params: unknown): Promise<unknown>;
   /** A JSON POST with the administrator access. */
   post(url: string, token: string | undefined, body: unknown): Promise<{ status: number; body: unknown }>;
+  /** The web server's address for the runtime at `controlEndpoint` and its `fleet.topology`
+   * answer, as `trust-lsp.hmiDeployTarget` gives it; undefined when it reports none. */
+  address(controlEndpoint: string, topology: unknown): Promise<string | undefined>;
 }
 
 export type DeployOutcome =
   { ok: true; version: string; target: string } | { ok: false; reason: string; problems?: BundleProblem[] };
-
-/**
- * The web server's address: the listen port on the control endpoint's host, or the listen address
- * itself when it names a host of its own (not 0.0.0.0 or ::).
- */
-export function webAddress(controlEndpoint: string, listen: string, tls: boolean): string | undefined {
-  const match = /^(?:\[([^\]]+)\]|([^:]+)):(\d+)$/.exec(listen.trim());
-  if (!match) return undefined;
-  const listenHost = match[1] ?? match[2];
-  const port = match[3];
-  const anyHost = ["0.0.0.0", "::", ""].includes(listenHost);
-  let host = anyHost ? controlHost(controlEndpoint) : listenHost;
-  if (host.includes(":")) host = `[${host}]`;
-  return `${tls ? "https" : "http"}://${host}:${port}`;
-}
-
-/** The control endpoint's host; a local socket is this machine. */
-function controlHost(endpoint: string): string {
-  const tcp = /^tcp:\/\/(?:\[([^\]]+)\]|([^:/]+))/.exec(endpoint.trim());
-  return tcp ? (tcp[1] ?? tcp[2]) : "127.0.0.1";
-}
-
-/** The web server the runtime reports for itself in `fleet.topology`. */
-export function ownWebServer(topology: unknown): { listen: string; tls: boolean } | undefined {
-  const hosts = (topology as { hosts?: unknown[] } | undefined)?.hosts ?? [];
-  for (const host of hosts as Array<{ runtimes?: unknown[]; containers?: Array<{ runtimes?: unknown[] }> }>) {
-    const runtimes = [
-      ...(host.runtimes ?? []),
-      ...(host.containers ?? []).flatMap((container) => container.runtimes ?? []),
-    ];
-    for (const runtime of runtimes as Array<{ endpoints?: unknown[] }>) {
-      for (const endpoint of (runtime.endpoints ?? []) as Array<{
-        protocol?: string;
-        source?: string;
-        params?: { listen?: unknown; tls?: unknown };
-      }>) {
-        if (endpoint.protocol === "web" && endpoint.source === "self" && typeof endpoint.params?.listen === "string") {
-          return { listen: endpoint.params.listen, tls: endpoint.params.tls === true };
-        }
-      }
-    }
-  }
-  return undefined;
-}
 
 /** The selected runtime's web server, or why there is none to deploy to. */
 async function webServer(
@@ -90,8 +49,7 @@ async function webServer(
   } catch (error) {
     return { reason: `${target.label} does not answer: ${error instanceof Error ? error.message : String(error)}` };
   }
-  const web = ownWebServer(topology);
-  const url = web ? webAddress(target.endpoint, web.listen, web.tls) : undefined;
+  const url = await deps.address(target.endpoint, topology);
   if (!url) return { reason: `${target.label} has no web server: enable [runtime.web] in its runtime.toml.` };
   return { url, token: target.token, label: target.label };
 }

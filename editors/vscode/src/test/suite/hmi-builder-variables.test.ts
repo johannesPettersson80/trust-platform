@@ -5,18 +5,8 @@ import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 
-import type { Catalogue } from "../../hmiBuilder/editor/catalogue";
 import type { VariableNode } from "../../hmiBuilder/editor/messages";
-import {
-  bindingDirection,
-  componentForVariable,
-  matchesSearch,
-  PickerRow,
-  pickerTree,
-  refusal,
-  variableLabel,
-  whyNoComponent,
-} from "../../hmiBuilder/editor/variables";
+import { PickerRow, searched, treeRows } from "../../hmiBuilder/editor/variables";
 import { languageServerReady, openBuilder, postedOfType, until } from "./hmiBuilderHost";
 
 // Specification 39, §7.1: the editor gives the webview the program's variables for the picker,
@@ -119,7 +109,6 @@ const RUNNING = value("Main.P101.Running", "BOOL", ["boolean", "value"], {
   writable: false,
   writeBlock: "is an output of Pump",
 });
-const LIMIT = value("Main.Limit", "REAL", ["number", "value"], { writable: false, writeBlock: "is a constant" });
 const P101: VariableNode = {
   name: "P101",
   path: "Main.P101",
@@ -137,95 +126,41 @@ const TREE: VariableNode[] = [
     type: "Main",
     kinds: [],
     writable: true,
-    children: [P101, SPEED, LIMIT],
+    children: [P101, SPEED],
   },
 ];
 
-const CATALOGUE: Catalogue = {
-  format: 1,
-  components: [
-    {
-      type: "text",
-      category: "display",
-      phase: 1,
-      size: [160, 32],
-      properties: { text: { accepts: ["value"], directions: ["read"] } },
-    },
-    {
-      type: "value",
-      category: "display",
-      phase: 1,
-      size: [240, 96],
-      properties: { value: { accepts: ["value"], directions: ["read"] } },
-    },
-    {
-      type: "status",
-      category: "display",
-      phase: 1,
-      size: [160, 48],
-      properties: { state: { accepts: ["boolean", "enumeration", "number"], directions: ["read"] } },
-    },
-    {
-      type: "table",
-      category: "display",
-      phase: 1,
-      size: [480, 240],
-      properties: { value: { accepts: ["array", "structure"], directions: ["read"] } },
-    },
-  ],
-};
-
 const paths = (rows: PickerRow[]): string[] => rows.flatMap((row) => [row.node.path, ...paths(row.children)]);
 
+// What a binding is offered, the binding a variable gives and what a variable dropped on the canvas
+// creates are the language server's rules (`trust-lsp.hmiVariablePicker`), proven in
+// crates/trust-lsp/src/handlers/commands/hmi_builder/variables_tests.rs. Listing the tree and
+// searching it are the picker's own.
 suite("HMI Builder picker", () => {
-  test("a binding is offered only variables of a kind it accepts", () => {
-    const state = { accepts: ["boolean"], directions: ["read"] };
-    assert.strictEqual(refusal("status", "state", state, RUNNING, "read"), undefined);
-    assert.ok(refusal("status", "state", state, SPEED, "read"));
-  });
-
-  test("a binding that writes is offered only variables that can be written", () => {
-    const entry = { accepts: ["number"], directions: ["read-write", "write"] };
-    assert.strictEqual(bindingDirection(entry), "read-write");
-    assert.strictEqual(bindingDirection(entry, "write"), "write");
-    assert.strictEqual(refusal("numeric-input", "value", entry, SPEED, "read-write"), undefined);
-    assert.ok(refusal("numeric-input", "value", entry, LIMIT, "read-write"));
-    assert.strictEqual(
-      refusal("setpoint", "low-limit", { accepts: ["number"], directions: ["read"] }, LIMIT, "read"),
-      undefined,
-    );
-  });
-
-  test("a refusal says why, in the binding checks' words", () => {
-    const toggle = { accepts: ["boolean"], directions: ["read-write", "write"] };
-    assert.strictEqual(
-      refusal("switch", "value", toggle, SPEED, "read-write"),
-      `"Main.Speed" is REAL; a switch's value needs a boolean`,
-    );
-    const entry = { accepts: ["number"], directions: ["read-write", "write"] };
-    assert.strictEqual(
-      refusal("numeric-input", "value", entry, LIMIT, "read-write"),
-      `"Main.Limit" is a constant and cannot be written`,
-    );
-  });
-
-  test("the picker keeps the variables it offers and the programs and blocks that hold them", () => {
-    const rows = pickerTree(TREE, (node) => node.kinds.includes("boolean"));
-    assert.deepStrictEqual(paths(rows), ["Main", "Main.P101", "Main.P101.Running"]);
-    assert.deepStrictEqual(paths(pickerTree(TREE, () => true)), [
+  test("search matches the path without regard to case, keeping the variables that hold the match", () => {
+    assert.deepStrictEqual(paths(searched(treeRows(TREE), "speed")), ["Main", "Main.Speed"]);
+    assert.deepStrictEqual(paths(searched(treeRows(TREE), "P101.run")), ["Main", "Main.P101", "Main.P101.Running"]);
+    assert.deepStrictEqual(paths(searched(treeRows(TREE), "level")), []);
+    assert.deepStrictEqual(paths(searched(treeRows(TREE), "  ")), [
       "Main",
       "Main.P101",
       "Main.P101.Running",
       "Main.Speed",
-      "Main.Limit",
     ]);
   });
 
-  test("search matches the path without regard to case", () => {
-    assert.ok(matchesSearch(SPEED, "speed"));
-    assert.ok(matchesSearch(RUNNING, "P101.run"));
-    assert.ok(!matchesSearch(SPEED, "level"));
-    assert.deepStrictEqual(paths(pickerTree(TREE, (node) => matchesSearch(node, "SPEED"))), ["Main", "Main.Speed"]);
+  test("search keeps a row that only holds the offered variables from matching itself", () => {
+    // The language server's rows for a boolean binding: `Main` and `Main.P101` only hold `Running`.
+    const offered: PickerRow[] = [
+      {
+        node: TREE[0],
+        offered: false,
+        children: [{ node: P101, offered: false, children: [{ node: RUNNING, offered: true, children: [] }] }],
+      },
+    ];
+    assert.deepStrictEqual(paths(searched(offered, "P101")), ["Main", "Main.P101", "Main.P101.Running"]);
+    assert.deepStrictEqual(paths(searched(offered, "Main")), ["Main", "Main.P101", "Main.P101.Running"]);
+    assert.deepStrictEqual(paths(searched(offered, "Pump")), []);
   });
 
   test("an array lists its element under it", () => {
@@ -239,42 +174,6 @@ suite("HMI Builder picker", () => {
       writable: true,
       array: { dimensions: [[1, 4]], element },
     };
-    assert.deepStrictEqual(paths(pickerTree([levels], () => true)), ["Main.Levels", "Main.Levels[1]"]);
-  });
-
-  test("a variable dropped on the canvas creates the matching component", () => {
-    const made = (node: VariableNode): string | undefined => {
-      const found = componentForVariable(CATALOGUE, node);
-      return found && `${found.component.type}.${found.property}`;
-    };
-    assert.strictEqual(made(RUNNING), "status.state");
-    assert.strictEqual(made(SPEED), "value.value");
-    assert.strictEqual(made(value("Main.Name", "STRING", ["text", "value"])), "value.value");
-    assert.strictEqual(made(value("Main.Mode", "Modes", ["enumeration", "value"])), "value.value");
-    assert.strictEqual(
-      made({ ...SPEED, path: "Main.Level", kind: "structure", type: "Reading", kinds: ["structure"] }),
-      "table.value",
-    );
-    assert.strictEqual(
-      made({ ...SPEED, path: "Main.Grid", kind: "array", type: "ARRAY[1..2] OF INT", kinds: ["array"] }),
-      "table.value",
-    );
-    assert.strictEqual(made(P101), undefined);
-    assert.strictEqual(made(TREE[0]), undefined);
-  });
-
-  test("a program or function block instance dropped on the canvas says to drag one of its members", () => {
-    assert.strictEqual(
-      whyNoComponent(P101),
-      `"Main.P101" is a function block instance (Pump): drag one of its members onto the page`,
-    );
-    assert.strictEqual(whyNoComponent(TREE[0]), `"Main" is a program: drag one of its variables onto the page`);
-  });
-
-  test("an object made from a variable is labelled with the last part of its path", () => {
-    assert.strictEqual(variableLabel("Main.P101.Running"), "Running");
-    assert.strictEqual(variableLabel("Main.Pumps[2]"), "Pumps[2]");
-    assert.strictEqual(variableLabel("Main.Pumps[1].Running"), "Running");
-    assert.strictEqual(variableLabel("Main.Grid[1,0]"), "Grid[1,0]");
+    assert.deepStrictEqual(paths(treeRows([levels])), ["Main.Levels", "Main.Levels[1]"]);
   });
 });

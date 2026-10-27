@@ -1,7 +1,6 @@
 import * as assert from "assert";
 import { Webview, PAGE, object } from "./hmiBuilderWebview";
 import { withSharedPanels } from "../../hmiBuilder/editor/panelPresentation";
-import { renamedReferences } from "../../hmiBuilder/editor/explorerFiles";
 import { screenCoordinates } from "../../hmiBuilder/drawing/regionCoordinates";
 import { drawPage } from "../../hmiBuilder/drawing";
 import { renderToString } from "../../hmiBuilder/drawing/svg";
@@ -77,19 +76,6 @@ suite("HMI shared panels", function () {
     const changed = await view.nextEdit(0);
     assert.deepStrictEqual(changed.panel, { scope: "selected", pages: [], dock: "left", order: 0 });
     assert.deepStrictEqual(changed.object, PAGE.object);
-  });
-  test("Explorer rename updates shared assignments and links without altering unrelated text", () => {
-    const source = {
-      title: "overview",
-      start_page: "overview",
-      panel: { scope: "selected", pages: ["overview", "alarms"] },
-      object: [{ id: "nav", text: "overview", click: { page: "overview" } }],
-    };
-    const renamed = renamedReferences(source, "pages", "overview", "process");
-    assert.strictEqual(renamed.start_page, "process");
-    assert.deepStrictEqual(renamed.panel, { scope: "selected", pages: ["process", "alarms"] });
-    assert.deepStrictEqual(renamed.object, [{ id: "nav", text: "overview", click: { page: "process" } }]);
-    assert.strictEqual(source.start_page, "overview");
   });
   test("screen settings edits stay separate from page layout", async () => {
     const view = new Webview("screen");

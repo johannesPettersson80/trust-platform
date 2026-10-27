@@ -14,7 +14,24 @@ fn validate_base_sections(cfg: &RuntimeToml) -> Result<(), RuntimeError> {
             "resource.cycle_interval_ms must be >= 1".into(),
         ));
     }
-    if cfg.runtime.control.endpoint.trim().is_empty() {
+    if let Some(budget) = cfg.resource.max_statements_per_scan
+        && (budget == 0 || u32::try_from(budget).is_err())
+    {
+        return Err(RuntimeError::InvalidConfig(
+            format!(
+                "resource.max_statements_per_scan must be between 1 and {}",
+                u32::MAX
+            )
+            .into(),
+        ));
+    }
+    if cfg
+        .runtime
+        .control
+        .endpoint
+        .as_deref()
+        .is_some_and(|endpoint| endpoint.trim().is_empty())
+    {
         return Err(RuntimeError::InvalidConfig(
             "runtime.control.endpoint must not be empty".into(),
         ));
@@ -25,10 +42,7 @@ fn validate_base_sections(cfg: &RuntimeToml) -> Result<(), RuntimeError> {
             "runtime.log.level must not be empty".into(),
         ));
     }
-    if !matches!(
-        log_level.as_str(),
-        "error" | "warn" | "warning" | "info" | "debug" | "trace"
-    ) {
+    if trust_runtime_core::deployment::LogLevel::parse(&log_level).is_none() {
         return Err(RuntimeError::InvalidConfig(
             "runtime.log.level must be error, warn, warning, info, debug, or trace".into(),
         ));
@@ -36,6 +50,21 @@ fn validate_base_sections(cfg: &RuntimeToml) -> Result<(), RuntimeError> {
     if cfg.runtime.retain.save_interval_ms == 0 {
         return Err(RuntimeError::InvalidConfig(
             "runtime.retain.save_interval_ms must be >= 1".into(),
+        ));
+    }
+    if let Some(capacity) = cfg
+        .runtime
+        .events
+        .as_ref()
+        .and_then(|events| events.capacity)
+        && !(EVENT_STORE_CAPACITY_MIN..=EVENT_STORE_CAPACITY_MAX).contains(&capacity)
+    {
+        return Err(RuntimeError::InvalidConfig(
+            format!(
+                "runtime.events.capacity must be {EVENT_STORE_CAPACITY_MIN} to \
+                 {EVENT_STORE_CAPACITY_MAX}"
+            )
+            .into(),
         ));
     }
     if cfg.runtime.watchdog.timeout_ms == 0 {
@@ -113,7 +142,12 @@ fn parse_control(control: &ControlSection) -> Result<ParsedControl, RuntimeError
         Some(value) => value,
         None => matches!(mode, ControlMode::Debug),
     };
-    if control.endpoint.starts_with("tcp://") && auth_token.is_none() {
+    // An omitted endpoint is the platform default, which generates its own token when it is TCP.
+    let explicit_tcp = control
+        .endpoint
+        .as_deref()
+        .is_some_and(|endpoint| endpoint.starts_with("tcp://"));
+    if explicit_tcp && auth_token.is_none() {
         return Err(RuntimeError::InvalidConfig(
             "runtime.control.auth_token required for tcp endpoint".into(),
         ));

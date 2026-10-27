@@ -3,6 +3,7 @@ import * as assert from "assert";
 import type { PageData } from "../../hmiBuilder/display/runtimeDisplay";
 import {
   ANNA,
+  ERIK,
   click,
   commands,
   fill,
@@ -98,7 +99,10 @@ suite("HMI display: operating", () => {
       "local session identity stays unchanged",
     );
   });
-  test("numeric entry shows inherited units without rounding the value or widening its write limits", async () => {
+  // The runtime reads the entry and checks the authored limits (specification 39 §12.8;
+  // web_hmi_commands.rs, a_denied_write_is_refused_with_its_reason); the display shows them and
+  // sends the entry as typed. Catches a hint that takes the equipment's wider range.
+  test("numeric entry shows inherited units and the authored limits without rounding the value", async () => {
     for (const equipment of [false, true]) {
       const host = new DisplayTestHost({ ...OPERATE, formats: { "loop.setpoint": { unit: "m", decimals: 2 } } });
       const { root, window } = await openedWith(host);
@@ -118,13 +122,17 @@ suite("HMI display: operating", () => {
         "1.2345",
         "editing keeps full precision",
       );
+      assert.ok(
+        form.textContent?.includes("Between 0 and 100"),
+        "engineering display metadata cannot widen the authored 0..100 write range",
+      );
       fill(window, form.querySelector('input[name="value"]') as HTMLInputElement, "150");
       submit(window, form);
       await settle(host);
-      assert.strictEqual(
-        commands(host).length,
-        0,
-        "engineering display metadata cannot widen the authored 0..100 write range",
+      assert.deepStrictEqual(
+        commands(host).map((command) => command.value),
+        ["150"],
+        "the entry as typed",
       );
     }
   });
@@ -165,9 +173,14 @@ suite("HMI display: operating", () => {
     assert.strictEqual(commands(host).length, 0, "nothing is sent");
     assert.ok(root.querySelector('[data-part="notice"]')?.textContent?.includes("Engineer"), "it says who may");
     const engineer = new DisplayTestHost({ ...OPERATE, roles });
-    engineer.session = { status: 200, body: { ...ANNA, user: "erik", role: "engineer" } };
+    engineer.session = { status: 200, body: ERIK };
     const asEngineer = await opened(engineer as Host);
     assert.strictEqual(object(asEngineer.root, "sp").getAttribute("data-locked"), null, "an Engineer may use it");
+    // The roles the runtime says the session acts as decide, not the role's name (§12.4 item 4).
+    const listed = new DisplayTestHost({ ...OPERATE, roles });
+    listed.session = { status: 200, body: { ...ERIK, acts_as: ["viewer", "operator"] } };
+    const asListed = await opened(listed as Host);
+    assert.strictEqual(object(asListed.root, "sp").getAttribute("data-locked"), "engineer", "the page ranks no roles");
   });
 
   test("on a touch screen a number entry opens a large keypad with the allowed range; with a mouse it does not", async () => {
@@ -197,7 +210,8 @@ suite("HMI display: operating", () => {
     await settle(host);
     assert.deepStrictEqual(
       commands(host).map((command) => [command.object, command.value]),
-      [["sp", 42.5]],
+      [["sp", "42.5"]],
+      "the entry as typed; the runtime reads the number (§12.8)",
     );
     press("mouse");
     click(window, object(root, "sp"));
@@ -304,25 +318,36 @@ suite("HMI display: operating", () => {
     assert.strictEqual(commands(host)[0]?.action, "reset");
   });
 
-  test("a setpoint asks for a number within its limits and sends it", async () => {
+  // Specification 39 §12.8: the runtime checks the limits and its refusal names the reason.
+  // Catches a display that drops an entry outside the limits without the runtime's word, or shows
+  // a refusal without its reason.
+  test("a setpoint shows its limits, sends the entry as typed and shows the runtime's refusal", async () => {
     const { host, root, window } = await opened();
-    host.reply("/api/hmi/command", { status: 200, body: { id: "x", outcome: "applied", readback: 61.5 } });
-    click(window, object(root, "sp"));
-    await settle(host);
-    const entry = root.querySelector('[data-part="entry"]');
-    assert.ok(entry, "an entry");
-    const input = entry.querySelector('input[name="value"]') as HTMLInputElement;
-    fill(window, input, "150");
-    submit(window, entry);
-    await settle(host);
-    assert.strictEqual(commands(host).length, 0, "outside the limits");
-    assert.ok(entry.textContent?.includes("0") && entry.textContent.includes("100"), entry.textContent ?? "");
-    fill(window, input, "61.5");
-    submit(window, entry);
-    await settle(host);
+    host.reply(
+      "/api/hmi/command",
+      { status: 200, body: { id: "x", outcome: "refused", reason: "150 is above the highest allowed value 100" } },
+      { status: 200, body: { id: "x", outcome: "applied", readback: 61.5 } },
+    );
+    const enter = async (typed: string): Promise<void> => {
+      click(window, object(root, "sp"));
+      await settle(host);
+      const entry = root.querySelector('[data-part="entry"]');
+      assert.ok(entry, "an entry");
+      assert.ok(entry.textContent?.includes("Between 0 and 100"), entry.textContent ?? "");
+      fill(window, entry.querySelector('input[name="value"]') as HTMLInputElement, typed);
+      submit(window, entry);
+      await settle(host);
+    };
+    await enter("150");
+    assert.strictEqual(object(root, "sp").getAttribute("data-outcome"), "refused");
+    assert.ok(root.querySelector('[data-part="notice"]')?.textContent?.includes("above the highest allowed value 100"));
+    await enter("61.5");
     assert.deepStrictEqual(
-      { ...commands(host)[0], id: "?" },
-      { id: "?", bundle: "v1", page: "operate", object: "sp", action: "write", value: 61.5 },
+      commands(host).map((command) => ({ ...command, id: "?" })),
+      [
+        { id: "?", bundle: "v1", page: "operate", object: "sp", action: "write", value: "150" },
+        { id: "?", bundle: "v1", page: "operate", object: "sp", action: "write", value: "61.5" },
+      ],
     );
   });
 

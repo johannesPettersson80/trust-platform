@@ -32,8 +32,8 @@ fn make_runtime_toml_portable(runtime_toml: String) -> String {
     #[cfg(windows)]
     {
         return runtime_toml.replacen(
-            "endpoint = \"unix:///tmp/trust-runtime.sock\"",
-            "endpoint = \"tcp://127.0.0.1:0\"\nauth_token = \"trust-ci-token\"",
+            "[runtime.control]\n",
+            "[runtime.control]\nendpoint = \"tcp://127.0.0.1:0\"\nauth_token = \"trust-ci-token\"\n",
             1,
         );
     }
@@ -83,7 +83,7 @@ fn reported_path_ends_with(path: &str, suffix: &str) -> bool {
 }
 
 #[test]
-fn check_accepts_project_without_writing_program_stbc() {
+fn check_accepts_project_without_writing_program_image() {
     let project = unique_temp_dir("check-ok");
     write_project_fixture(
         &project,
@@ -97,8 +97,8 @@ END_PROGRAM
 "#,
     );
 
-    let bytecode_path = project.join("program.stbc");
-    std::fs::write(&bytecode_path, b"existing-bytecode").expect("write existing bytecode");
+    let program_path = project.join("program.tpi");
+    std::fs::write(&program_path, b"existing-image").expect("write existing program image");
 
     let output = run_check(&project);
     assert!(
@@ -119,11 +119,14 @@ END_PROGRAM
             .as_array()
             .map(|sources| sources.len() as u64)
     );
-    assert!(payload["bytecode_size"].as_u64().unwrap_or_default() > 0);
+    assert!(
+        payload.get("bytecode_size").is_none(),
+        "the check reports no bytecode size"
+    );
     assert_eq!(
-        std::fs::read(&bytecode_path).expect("read existing bytecode"),
-        b"existing-bytecode",
-        "check must not replace program.stbc"
+        std::fs::read(&program_path).expect("read existing program image"),
+        b"existing-image",
+        "check must not replace program.tpi"
     );
     let _ = std::fs::remove_dir_all(project);
 }
@@ -154,10 +157,13 @@ END_PROGRAM
         .unwrap_or_default()
         .contains("program compile failed"));
     assert!(payload["source_count"].as_u64().unwrap_or_default() >= 1);
-    assert_eq!(payload["bytecode_size"], JsonValue::Null);
     assert!(
-        !project.join("program.stbc").exists(),
-        "failed check must not write program.stbc"
+        payload.get("bytecode_size").is_none(),
+        "the check reports no bytecode size"
+    );
+    assert!(
+        !project.join("program.tpi").exists(),
+        "failed check must not write program.tpi"
     );
     let _ = std::fs::remove_dir_all(project);
 }
@@ -272,8 +278,11 @@ END_PROGRAM
         );
     }
     assert_eq!(payload["errors"].as_u64(), Some(3));
-    assert!(payload["bytecode_size"].as_u64().unwrap_or_default() > 0);
-    assert!(!project.join("program.stbc").exists());
+    assert!(
+        payload.get("bytecode_size").is_none(),
+        "the check reports no bytecode size"
+    );
+    assert!(!project.join("program.tpi").exists());
 
     let _ = std::fs::remove_dir_all(project);
 }
@@ -297,13 +306,16 @@ END_PROGRAM
     assert_eq!(payload["status"], "failed");
     assert_eq!(payload["source_count"], 0);
     assert_eq!(payload["sources"], serde_json::json!([]));
-    assert_eq!(payload["bytecode_size"], JsonValue::Null);
+    assert!(
+        payload.get("bytecode_size").is_none(),
+        "the check reports no bytecode size"
+    );
     assert!(payload["issues"]
         .as_array()
         .expect("issues")
         .iter()
         .any(|issue| issue["code"] == "sources"));
-    assert!(!project.join("program.stbc").exists());
+    assert!(!project.join("program.tpi").exists());
 
     let _ = std::fs::remove_dir_all(project);
 }
@@ -367,7 +379,7 @@ END_FUNCTION
     assert!(sources.iter().any(|path| path
         .as_str()
         .is_some_and(|path| reported_path_ends_with(path, "deps/lib-a/src/lib.st"))));
-    assert!(!project.join("program.stbc").exists());
+    assert!(!project.join("program.tpi").exists());
 
     let _ = std::fs::remove_dir_all(project);
 }
@@ -393,8 +405,11 @@ END_PROGRAM
     assert!(issues.iter().any(|issue| issue["code"] == "compile"));
     assert_eq!(payload["errors"], 2);
     assert!(payload["source_count"].as_u64().unwrap_or_default() >= 1);
-    assert_eq!(payload["bytecode_size"], JsonValue::Null);
-    assert!(!project.join("program.stbc").exists());
+    assert!(
+        payload.get("bytecode_size").is_none(),
+        "the check reports no bytecode size"
+    );
+    assert!(!project.join("program.tpi").exists());
 
     let _ = std::fs::remove_dir_all(project);
 }

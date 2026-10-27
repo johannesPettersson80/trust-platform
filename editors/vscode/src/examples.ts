@@ -7,7 +7,6 @@ import {
   controlModuleId,
   controlModulesFromEntries,
   hardwareBadge,
-  isExampleCopyable,
   type ExampleEntry,
   type GalleryView,
 } from "./examples/model";
@@ -15,9 +14,8 @@ import { copyExample } from "./examples/copy";
 import {
   controlLessonPresentation,
   controlLessonDetail,
-  retainControlLessonProgress,
 } from "./examples/controlLesson";
-import { loadExamples } from "./examples/load";
+import { loadExampleCatalog, type ExampleCatalog } from "./examples/load";
 import { readControlLessonProjects } from "./examples/projectLocations";
 import { openRetainedControlLessonProject } from "./examples/projectReopening";
 import { renderExamplesGalleryHtml } from "./examples/galleryWebview";
@@ -45,9 +43,12 @@ export function registerExamples(context: vscode.ExtensionContext): void {
 }
 
 async function openExamplesGallery(context: vscode.ExtensionContext, previews: BundledExamplePreviews): Promise<void> {
-  let entries: ExampleEntry[];
+  let catalog: ExampleCatalog;
   try {
-    entries = await loadExamples(context);
+    catalog = await loadExampleCatalog(
+      context,
+      context.globalState.get<string[]>(COMPLETED_CONTROL_LESSONS_KEY, [])
+    );
   } catch (error) {
     void vscode.window.showErrorMessage(
       `Could not load the examples list: ${String(error)}`
@@ -58,12 +59,14 @@ async function openExamplesGallery(context: vscode.ExtensionContext, previews: B
   if (!examplesPanel) {
     examplesPanel = new ExamplesGalleryPanel(context, previews);
   }
-  examplesPanel.reveal(entries);
+  examplesPanel.reveal(catalog);
 }
 
 class ExamplesGalleryPanel {
   private readonly panel: vscode.WebviewPanel;
   private entries: ExampleEntry[] = [];
+  /** The lesson ids with a created project that the learner's progress keeps, as the language server answered. */
+  private createdLessonIds: string[] = [];
   private view: GalleryView = { kind: "landing" };
   private visibleFileTargets = new Set<string>();
   private previewGeneration = 0;
@@ -89,8 +92,9 @@ class ExamplesGalleryPanel {
     });
   }
 
-  reveal(entries: ExampleEntry[]): void {
-    this.entries = entries;
+  reveal(catalog: ExampleCatalog): void {
+    this.entries = catalog.entries;
+    this.createdLessonIds = catalog.createdLessonIds;
     this.view = { kind: "landing" };
     this.panel.reveal(vscode.ViewColumn.Beside);
     void this.postState();
@@ -190,7 +194,7 @@ class ExamplesGalleryPanel {
         }
       case "useExample": {
         const entry = this.entries.find((candidate) => candidate.id === msg.id);
-        if (entry && isExampleCopyable(entry)) {
+        if (entry?.copyable) {
           const copied = await copyExample(this.context, entry);
           if (copied && entry.lesson) {
             // Retained signal: a project folder now exists for this lesson. This is real, but
@@ -198,9 +202,10 @@ class ExamplesGalleryPanel {
             // (W-05), which is what turns this id list into the honest per-lesson label.
             const created = new Set(this.completedLessonIds());
             created.add(entry.id);
+            this.createdLessonIds = Array.from(created).sort();
             await this.context.globalState.update(
               COMPLETED_CONTROL_LESSONS_KEY,
-              Array.from(created).sort()
+              this.createdLessonIds
             );
             await this.postState();
           }
@@ -219,10 +224,7 @@ class ExamplesGalleryPanel {
   }
 
   private completedLessonIds(): string[] {
-    return retainControlLessonProgress(
-      this.context.globalState.get<string[]>(COMPLETED_CONTROL_LESSONS_KEY, []),
-      this.controlLessons().map((entry) => entry.id)
-    );
+    return this.createdLessonIds;
   }
 
   private parentView(): GalleryView {

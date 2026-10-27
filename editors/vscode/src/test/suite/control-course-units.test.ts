@@ -1,13 +1,15 @@
 import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
-import { parseControlLessonContract } from "../../examples/controlLesson";
 
+// The lessons' contracts (and the unit-label rule) are checked by the language server; its Rust tests
+// (`project/examples/lesson_tests.rs`) hold those assertions. This suite keeps the checks that the lessons' files agree
+// with each other.
 suite("Control course engineering units", () => {
   test("keeps Lesson 14 identification metadata and procedure aligned with the qualified source", () => {
     const root = process.env.TRUST_REPOSITORY_ROOT ?? path.resolve(__dirname, "../../../../..");
     const lessonDir = path.join(root, "examples/control/05-experiments-identification-and-validation/21-safe-informative-experiment");
-    const lesson = parseControlLessonContract(JSON.parse(fs.readFileSync(path.join(lessonDir, "lesson.json"), "utf8")), "control-lesson-21") as any;
+    const lesson = JSON.parse(fs.readFileSync(path.join(lessonDir, "lesson.json"), "utf8"));
     const loop = JSON.parse(fs.readFileSync(path.join(lessonDir, "control-loop.json"), "utf8"));
     const main = fs.readFileSync(path.join(lessonDir, "src/Main.st"), "utf8");
     const readme = fs.readFileSync(path.join(lessonDir, "README.md"), "utf8");
@@ -47,8 +49,7 @@ suite("Control course engineering units", () => {
   test("keeps Lesson 13 metadata and teaching procedure aligned with its open-loop source", () => {
     const root = process.env.TRUST_REPOSITORY_ROOT ?? path.resolve(__dirname, "../../../../..");
     const lessonDir = path.join(root, "examples/control/01-feedback-foundations-and-temperature-control/15-water-heater-energy-balance");
-    const lesson = parseControlLessonContract(JSON.parse(fs.readFileSync(path.join(lessonDir, "lesson.json"), "utf8")),
-      "control-water-heater-energy-balance") as any;
+    const lesson = JSON.parse(fs.readFileSync(path.join(lessonDir, "lesson.json"), "utf8"));
     const loop = JSON.parse(fs.readFileSync(path.join(lessonDir, "control-loop.json"), "utf8"));
     const simulation = fs.readFileSync(path.join(lessonDir, "simulation.toml"), "utf8");
     const source = fs.readFileSync(path.join(lessonDir, "src/Main.st"), "utf8");
@@ -83,19 +84,5 @@ suite("Control course engineering units", () => {
       "the learner snippet must use shipped Main.st names and no unbound disturbance input");
     assert.doesNotMatch(lesson.learning.change as string, /\bSP\b|\bD\s*=\s*0\b|disturbance/i,
       "the public workflow procedure must not invent a setpoint or writable disturbance input");
-  });
-  test("accepts the shaft's actual engineering units without a lesson-specific allowlist", () => {
-    const root = process.env.TRUST_REPOSITORY_ROOT ?? path.resolve(__dirname, "../../../../..");
-    const lesson = JSON.parse(fs.readFileSync(path.join(root,
-      "examples/control/07-classical-stability-and-frequency-design/45-root-locus/lesson.json"), "utf8"));
-    assert.doesNotThrow(() => parseControlLessonContract(lesson, "control-root-locus"));
-    const mv = lesson.signals.find((signal: {role: string}) => signal.role === "MV");
-    assert.ok(mv);
-    mv.unit = "kg·m²/s²";
-    assert.doesNotThrow(() => parseControlLessonContract(lesson, "control-root-locus"));
-    for (const unit of ["N\u0000m", "N\nm", "x".repeat(81)]) {
-      mv.unit = unit;
-      assert.throws(() => parseControlLessonContract(lesson, "control-root-locus"), /unit/i);
-    }
   });
 });

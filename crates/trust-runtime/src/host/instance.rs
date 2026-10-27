@@ -447,10 +447,9 @@ fn init_param_defaults(
     params: &[Param],
 ) -> Result<(), RuntimeError> {
     for param in params {
-        let value = crate::harness::initializer::default_value_for_type_id_with_abi(
+        let value = crate::harness::initializer::default_value_for_type_id(
             storage,
             registry,
-            crate::value::StorageAbi::LegacyTemporal32,
             initializer_catalog,
             profile,
             Some(instance_id),
@@ -465,10 +464,9 @@ fn init_param_defaults(
         let Some(expr) = &param.default else {
             continue;
         };
-        let value = crate::harness::initializer::evaluate_initializer_with_abi(
+        let value = crate::harness::initializer::evaluate_initializer(
             storage,
             registry,
-            crate::value::StorageAbi::LegacyTemporal32,
             initializer_catalog,
             profile,
             Some(instance_id),
@@ -552,10 +550,9 @@ fn init_var_defaults(
             storage.set_instance_var(instance_id, var.name.clone(), value);
             continue;
         }
-        let value = crate::harness::initializer::default_value_for_type_id_with_abi(
+        let value = crate::harness::initializer::default_value_for_type_id(
             storage,
             registry,
-            crate::value::StorageAbi::LegacyTemporal32,
             initializer_catalog,
             profile,
             Some(instance_id),
@@ -626,10 +623,9 @@ fn init_var_defaults(
             .map_err(|err| init_failed(owner, &var.name, err))?;
             continue;
         }
-        let value = crate::harness::initializer::evaluate_initializer_with_abi(
+        let value = crate::harness::initializer::evaluate_initializer(
             storage,
             registry,
-            crate::value::StorageAbi::LegacyTemporal32,
             initializer_catalog,
             profile,
             Some(instance_id),
@@ -715,10 +711,9 @@ fn init_method_static_defaults(
                 storage.set_instance_var(instance_id, key, value);
                 continue;
             }
-            let value = crate::harness::initializer::default_value_for_type_id_with_abi(
+            let value = crate::harness::initializer::default_value_for_type_id(
                 storage,
                 registry,
-                crate::value::StorageAbi::LegacyTemporal32,
                 initializer_catalog,
                 profile,
                 Some(instance_id),
@@ -788,10 +783,9 @@ fn init_method_static_defaults(
                 .map_err(|err| init_failed(owner, &local.name, err))?;
                 continue;
             }
-            let value = crate::harness::initializer::evaluate_initializer_with_abi(
+            let value = crate::harness::initializer::evaluate_initializer(
                 storage,
                 registry,
-                crate::value::StorageAbi::LegacyTemporal32,
                 initializer_catalog,
                 profile,
                 Some(instance_id),
@@ -843,10 +837,9 @@ pub(crate) fn apply_fb_instance_initializer(
         seen.push(name.clone());
 
         let (canonical_name, type_id) = fb_initializer_target(function_blocks, fb, name)?;
-        let value = crate::harness::initializer::evaluate_initializer_with_abi(
+        let value = crate::harness::initializer::evaluate_initializer(
             storage,
             registry,
-            crate::value::StorageAbi::LegacyTemporal32,
             initializer_catalog,
             profile,
             parent_instance_id,

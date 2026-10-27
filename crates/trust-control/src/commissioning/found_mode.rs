@@ -50,6 +50,8 @@ pub struct AutoReentry {
     pub values: BTreeMap<String, f64>,
     /// The allowance of the first output after the entry (A6.4).
     pub tolerance: f64,
+    /// The factor of the error at entry that the runtime adds to `tolerance` (`entry_error_gain`, annex E6.9).
+    pub entry_error_gain: Option<f64>,
     /// The tracking the entry carries.
     pub tracking: TransferTracking,
 }

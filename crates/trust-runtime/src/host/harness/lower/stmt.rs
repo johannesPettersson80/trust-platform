@@ -17,6 +17,9 @@ pub(in crate::harness) fn lower_stmt_list(
     program: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
 ) -> Result<Vec<Stmt>, CompileError> {
+    if !ctx.lower_bodies {
+        return Ok(Vec::new());
+    }
     let mut stmts = Vec::new();
     let stmt_nodes: Vec<SyntaxNode> = if let Some(stmt_list) = program
         .children()

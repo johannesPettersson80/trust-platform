@@ -35,7 +35,7 @@ use crate::hmi::access::sessions::SessionInfo;
 use crate::hmi::catalogue::Catalogue;
 use crate::hmi::commands::plan::{matches, plan, Expected, Plan};
 use crate::hmi::commands::registry::{Begin, CommandAnswer, CommandRegistry, Outcome};
-use crate::hmi::commands::write::{path_text, WriteAction, Written};
+use crate::hmi::commands::write::{path_text, WriteAction, WriteRefused, Written};
 use crate::hmi::member_paths::MemberPath;
 use crate::hmi::write_value::json_of;
 
@@ -226,6 +226,7 @@ impl Commands {
                 .hmi_exchange()
                 .remote_operations
                 .write(session, &plan.path, &plan.action, id, plan.pulse)
+                .map(|outcome| outcome.map_err(WriteRefused::from))
         } else if let Some(pulse) = plan.pulse {
             // The end is scheduled with the pulse's start, in the runtime (§21.5 item 1).
             let (report, wait) = pulse::end_report(self, session, request, id, &plan);
@@ -245,7 +246,10 @@ impl Commands {
                 written,
                 ended,
             }),
-            Some(Err(reason)) => Err(refuse(Some(plan), reason)),
+            Some(Err(refused)) => Err(Box::new(Refused {
+                plan: Some(plan),
+                answer: CommandAnswer::write_refused(id, refused),
+            })),
             None => Err(Box::new(Refused {
                 plan: Some(plan),
                 answer: CommandAnswer {
@@ -421,7 +425,11 @@ impl Commands {
         Some(why.to_string())
     }
 
-    fn write(&self, path: &MemberPath, action: WriteAction) -> Option<Result<Written, String>> {
+    fn write(
+        &self,
+        path: &MemberPath,
+        action: WriteAction,
+    ) -> Option<Result<Written, WriteRefused>> {
         write_point(&self.control_state, path, action)
     }
 
@@ -495,7 +503,7 @@ pub(super) fn write_point(
     control_state: &ControlState,
     path: &MemberPath,
     action: WriteAction,
-) -> Option<Result<Written, String>> {
+) -> Option<Result<Written, WriteRefused>> {
     control_state
         .resource
         .hmi_exchange()

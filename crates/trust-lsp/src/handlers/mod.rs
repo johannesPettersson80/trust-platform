@@ -5,6 +5,7 @@
 mod commands;
 mod config;
 mod context;
+mod devices;
 mod diagnostics;
 mod features;
 mod formatting;
@@ -17,9 +18,14 @@ mod workspace;
 
 #[cfg(test)]
 pub(crate) use commands::namespace_move_workspace_edit;
+pub use commands::HMI_BUILDER_COMMANDS;
+pub use commands::PROJECT_COMMANDS;
 #[cfg(test)]
 pub(crate) use commands::PROJECT_INFO_COMMAND;
+pub use commands::RUN_TARGET_COMMANDS;
+pub use commands::VISUAL_COMMANDS;
 pub use commands::{execute_command, execute_read_command, EXECUTE_COMMANDS};
+pub use devices::DEVICES_COMMANDS;
 #[cfg(test)]
 pub(crate) use diagnostics::document_diagnostic;
 pub(crate) use diagnostics::{

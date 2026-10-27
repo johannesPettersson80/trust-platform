@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -16,8 +16,10 @@ import { useStateChart } from "./hooks/useStateChart";
 import {
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
+  ReadValue,
   StateChartNode,
   StateChartEdge,
+  ValueAnswer,
 } from "./types";
 import { getVsCodeApi } from "../../visual/runtime/webview/vscodeApi";
 import { useRightPaneResize } from "../../visual/runtime/webview/useRightPaneResize";
@@ -55,9 +57,8 @@ export const StateChartEditor: React.FC = () => {
     updateActionMappings,
     deleteSelected,
     autoLayout,
-    exportToXState,
+    exportGraph,
     importFromXState,
-    setNodes,
   } = useStateChart();
 
   const [selectedNode, setSelectedNode] = useState<StateChartNode | null>(null);
@@ -67,6 +68,16 @@ export const StateChartEditor: React.FC = () => {
     ReactFlowInstance<StateChartNode, StateChartEdge> | null
   >(null);
   const [fitViewRequest, setFitViewRequest] = useState(0);
+  // Which actions are named without a mapping and which mappings are unused: the language
+  // server's answer for the latest graph (`trust-lsp.visualEdit` `actionReport`).
+  const [actionReport, setActionReport] = useState<{ unmapped: string[]; unused: string[] }>({
+    unmapped: [],
+    unused: [],
+  });
+  const actionReportRequest = useRef(0);
+  // The value requests waiting for the language server's answer, by request id.
+  const pendingValues = useRef(new Map<number, (answer: ValueAnswer) => void>());
+  const nextValueRequest = useRef(1);
   const {
     rightPaneStyle,
     resizeHandleClassName,
@@ -76,6 +87,24 @@ export const StateChartEditor: React.FC = () => {
   const requestFitView = useCallback(() => {
     setFitViewRequest((value) => value + 1);
   }, []);
+
+  // Asks the language server for the value of text typed into a panel field (forwarded by the
+  // editor's host to `trust-lsp.visualEdit`).
+  const readValue = useCallback<ReadValue>(
+    (field, text) =>
+      new Promise((resolve) => {
+        const requestId = nextValueRequest.current;
+        nextValueRequest.current += 1;
+        pendingValues.current.set(requestId, resolve);
+        vscode.postMessage({
+          type: "readValue",
+          requestId,
+          field,
+          text,
+        } as WebviewToExtensionMessage);
+      }),
+    []
+  );
 
   useEffect(() => {
     if (!reactFlowInstance || fitViewRequest === 0) {
@@ -92,105 +121,79 @@ export const StateChartEditor: React.FC = () => {
     return () => window.clearTimeout(timeout);
   }, [edges.length, fitViewRequest, nodes.length, reactFlowInstance]);
 
-  // Handle messages from extension
+  // Handle messages from extension: the graph of the document, or why it cannot be read.
   useEffect(() => {
     const handleMessage = (event: MessageEvent<ExtensionToWebviewMessage>) => {
       const message = event.data;
-
-      switch (message.type) {
-        case "init":
-        case "update":
-          try {
-            if (message.content) {
-              const config = JSON.parse(message.content);
-              importFromXState(config);
-              requestFitView();
-              setParseError(null);
-            }
-          } catch (error) {
-            const detail = error instanceof Error ? error.message : String(error);
-            console.error("Failed to parse StateChart config:", detail);
-            setParseError(detail);
-            vscode.postMessage({
-              type: "error",
-              error: "Could not open this statechart because the file is not valid JSON.",
-            } as WebviewToExtensionMessage);
-          }
-          break;
-
-        case "executionState":
-          // Update active state indicator
-          updateActiveState(message.state.currentState);
-          break;
-
-        case "executionStopped":
-          // Clear active state indicators
-          updateActiveState(null);
-          break;
-
-        case "runtime.state":
-          if (!message.state.isExecuting) {
-            updateActiveState(null);
-          }
-          break;
-
-        case "runtime.error":
-          console.error("StateChart runtime error:", message.message);
-          break;
+      if (message.type === "actionReport") {
+        if (message.requestId === actionReportRequest.current) {
+          setActionReport({ unmapped: message.unmapped, unused: message.unused });
+        }
+        return;
+      }
+      if (message.type === "valueResult") {
+        const resolve = pendingValues.current.get(message.requestId);
+        if (resolve) {
+          pendingValues.current.delete(message.requestId);
+          resolve(message);
+        }
+        return;
+      }
+      if (message.type !== "update") {
+        return;
+      }
+      if (message.graph) {
+        const config = message.graph;
+        importFromXState(config);
+        requestFitView();
+        setParseError(null);
+      } else if (message.error) {
+        setParseError(message.error);
       }
     };
 
     window.addEventListener("message", handleMessage);
-    
+
     // Notify extension that webview is ready
     vscode.postMessage({ type: "ready" } as WebviewToExtensionMessage);
 
     return () => window.removeEventListener("message", handleMessage);
   }, [importFromXState, requestFitView]);
 
-  // Update active state indicator on nodes
-  const updateActiveState = useCallback(
-    (activeStateName: string | null) => {
-      setNodes((nds) =>
-        nds.map((node) => ({
-          ...node,
-          data: {
-            ...node.data,
-            isActive: node.data.label === activeStateName,
-          },
-        }))
-      );
-    },
-    [setNodes]
-  );
+  // Ask for the action report whenever the graph changes, a moment after the last change.
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      actionReportRequest.current += 1;
+      vscode.postMessage({
+        type: "actionReport",
+        requestId: actionReportRequest.current,
+        graph: exportGraph(),
+      } as WebviewToExtensionMessage);
+    }, 150);
+    return () => window.clearTimeout(timeout);
+  }, [exportGraph]);
 
   // Save changes to document
   const handleSave = useCallback(() => {
-    const config = exportToXState();
-    const content = JSON.stringify(config, null, 2);
     vscode.postMessage({
       type: "save",
-      content,
+      graph: exportGraph(),
     } as WebviewToExtensionMessage);
-  }, [exportToXState]);
+  }, [exportGraph]);
 
   const handleValidate = useCallback(() => {
-    const config = exportToXState();
-    const content = JSON.stringify(config, null, 2);
     vscode.postMessage({
       type: "validate",
-      content,
+      graph: exportGraph(),
     } as WebviewToExtensionMessage);
-  }, [exportToXState]);
+  }, [exportGraph]);
 
   const handleGenerateST = useCallback(() => {
-    const config = exportToXState();
-    const content = JSON.stringify(config, null, 2);
     vscode.postMessage({
       type: "generateST",
-      content,
+      graph: exportGraph(),
     } as WebviewToExtensionMessage);
-  }, [exportToXState]);
+  }, [exportGraph]);
 
   // Handle selection changes
   const handleSelectionChange = useCallback(
@@ -286,7 +289,7 @@ export const StateChartEditor: React.FC = () => {
                   margin: "0 0 10px",
                 }}
               >
-                The file is not valid JSON. Fix the JSON in the file, save it, and the visual editor will reload.
+                The file cannot be read as a statechart. Fix the file, save it, and the visual editor will reload.
               </p>
               <button
                 type="button"
@@ -378,11 +381,14 @@ export const StateChartEditor: React.FC = () => {
               selectedEdge={selectedEdge}
               onUpdateNode={updateNodeData}
               onUpdateEdge={updateEdgeData}
+              readValue={readValue}
             />
             <ActionMappingsPanel
               actionMappings={actionMappings}
-              nodes={nodes}
+              unmappedActions={actionReport.unmapped}
+              unusedMappings={actionReport.unused}
               onUpdateActionMappings={updateActionMappings}
+              readValue={readValue}
             />
           </div>
         </>

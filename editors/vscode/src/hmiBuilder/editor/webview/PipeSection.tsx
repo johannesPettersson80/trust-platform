@@ -17,9 +17,6 @@ interface PipeSectionProps {
     onCommit: (page: HmiPageModel) => void;
 }
 
-/** A pipe's flow is a number or a boolean (§6, item 6). */
-const flows = (node: VariableNode): boolean => node.kinds.includes("number") || node.kinds.includes("boolean");
-
 export function PipeSection({ page, index, paused, variables, variablesProblem, onCommit }: PipeSectionProps) {
     const [picking, setPicking] = useState(false);
     const pipe = page.pipe[index];
@@ -80,7 +77,7 @@ export function PipeSection({ page, index, paused, variables, variablesProblem, 
                     <BindingPicker
                         variables={variables}
                         problem={variablesProblem}
-                        offered={flows}
+                        binding={{ type: "pipe", property: "flow" }}
                         onPick={(node) => {
                             setPicking(false);
                             bindFlow(node.path);

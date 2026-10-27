@@ -13,7 +13,12 @@
 //!
 //! The extension keeps what presents and wires: the rendering and preview (AT-07, AT-08) and the editor
 //! transaction (AT-09). The editor's quality warnings are decided by `trust-lsp.hmiQuality`
-//! (`hmi_quality`); the extension adds only the texts its drawing cuts.
+//! (`hmi_quality`); the extension adds only the texts its drawing cuts. Whether a simulator journey's
+//! target is a local simulator is decided by `trust-lsp.hmiAgent.checkTarget` (`target`).
+
+use serde_json::Value;
+
+use crate::state::ServerState;
 
 mod argument;
 mod native;
@@ -22,8 +27,22 @@ mod query_metadata;
 mod review_apply;
 mod schema;
 mod service;
+mod target;
 
-pub(super) use service::{execute, is_command};
+/// Whether `name` is an HMI agent command: an authoring command or the simulator target check.
+#[must_use]
+pub(super) fn is_command(name: &str) -> bool {
+    service::is_command(name) || name == target::CHECK_TARGET
+}
+
+/// Runs the HMI agent command `name` on its argument, or `None` when it is not one.
+#[must_use]
+pub(super) fn execute(state: &ServerState, name: &str, arguments: Vec<Value>) -> Option<Value> {
+    if name == target::CHECK_TARGET {
+        return Some(target::check_target(&arguments));
+    }
+    service::execute(state, name, arguments)
+}
 
 mod error;
 mod geometry;

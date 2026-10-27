@@ -9,6 +9,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use super::{ControlResponse, ControlState};
+use crate::hmi::display_values::{stale_limit, MIN_PERIOD};
 use crate::hmi::member_paths::MemberPath;
 
 /// The most paths one request reads.
@@ -61,8 +62,16 @@ pub(super) fn handle_hmi_read(
         }
         values.insert(path.clone(), value);
     }
+    // Live mode reads at the display's shortest period; its values are stale after the runtime's
+    // limit without news, as the runtime display's are (§5.3 item 2, §11.1).
     ControlResponse::ok(
         id,
-        json!({ "cycle": read.cycle, "values": values, "missing": missing }),
+        json!({
+            "cycle": read.cycle,
+            "values": values,
+            "missing": missing,
+            "period_ms": MIN_PERIOD.as_millis(),
+            "stale_ms": stale_limit(MIN_PERIOD).as_millis(),
+        }),
     )
 }

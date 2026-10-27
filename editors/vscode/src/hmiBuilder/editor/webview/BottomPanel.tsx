@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 
 import type { ProjectTexts, VariableNode } from "../messages";
-import { matchesSearch, pickerTree } from "../variables";
+import { searched, treeRows } from "../variables";
 import { TextsTable } from "./TextsTable";
 import { VariableTree } from "./VariableTree";
 
@@ -42,10 +42,7 @@ export function BottomPanel({
 }: BottomPanelProps) {
     const [search, setSearch] = useState("");
     const searching = search.trim() !== "";
-    const rows = useMemo(
-        () => pickerTree(variables ?? [], (node) => !searching || matchesSearch(node, search)),
-        [variables, search, searching],
-    );
+    const rows = useMemo(() => searched(treeRows(variables ?? []), search), [variables, search]);
     let content;
     if (problem)
         content = (

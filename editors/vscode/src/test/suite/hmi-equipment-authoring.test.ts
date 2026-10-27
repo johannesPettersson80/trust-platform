@@ -176,7 +176,8 @@ suite("HMI equipment authoring", function () {
 
   test("a new instance's tag is edited in the inspector", async () => {
     const view = await equipmentView({ ...details, declared: false }, false);
-    const tag = view.query('input[name="equipment-tag"]');
+    // The language server says what the inspector offers (§21.3 item 2).
+    const tag = await view.until("the tag", () => view.query('input[name="equipment-tag"]'));
     assert.strictEqual(tag?.value, "P101");
     view.leave(tag, "P102");
     const changed = await view.nextEdit(0);
@@ -187,7 +188,7 @@ suite("HMI equipment authoring", function () {
 
   test("a declared instance's tag renames it with its program, pages and design", async () => {
     const view = await equipmentView();
-    const tag = view.query('input[name="equipment-tag"]');
+    const tag = await view.until("the tag", () => view.query('input[name="equipment-tag"]'));
     assert.strictEqual(tag?.value, "P101", "a declared instance's tag is a field");
     view.leave(tag, "FeedPump");
     await view.until("the rename", () => view.posted.some((message) => message.type === "equipmentRename"));

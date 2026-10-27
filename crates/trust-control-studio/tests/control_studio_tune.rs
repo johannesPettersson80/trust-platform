@@ -43,8 +43,8 @@ use trust_control_studio::runtime_client::RuntimeClient;
 use trust_control_studio::{loops, storage};
 
 use common::{
-    copy_dir, inspect_until_available, prepare_runtime_toml, run_trust_runtime, start_runtime,
-    wait_for_status, RemoveDir, Runtime, DEADLINE, TOKEN,
+    control_socket, copy_dir, inspect_until_available, prepare_runtime_toml, run_trust_runtime,
+    start_runtime, wait_for_status, RemoveDir, Runtime, DEADLINE, TOKEN,
 };
 
 /// The heater project the tests copy (see the module documentation).
@@ -205,12 +205,7 @@ impl Lab {
     fn start(name: &str) -> Self {
         let scratch = Scratch::new(name);
         let project = &scratch.project;
-        let socket = project.join(".control.sock");
-        assert!(
-            socket.as_os_str().len() <= 100,
-            "the socket path {} is too long; use a shorter TMPDIR",
-            socket.display()
-        );
+        let socket = control_socket(project);
         prepare_runtime_toml(project, &socket);
         set_time_scale(project, TIME_SCALE);
         run_trust_runtime(&["build", "--project", &project.display().to_string()]);

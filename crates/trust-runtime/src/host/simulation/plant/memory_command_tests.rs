@@ -47,11 +47,7 @@ fn a_memory_command_source_feeds_the_plant_from_the_program_variable() {
         .unwrap();
     system.publish(&mut runtime).unwrap();
 
-    match runtime
-        .io()
-        .read(&IoAddress::parse("%IL8").unwrap())
-        .unwrap()
-    {
+    match runtime.read_io(&IoAddress::parse("%IL8").unwrap()).unwrap() {
         Value::LWord(bits) => assert!((f64::from_bits(bits) - 19.0).abs() < 1e-12),
         other => panic!("expected LREAL feedback, got {other:?}"),
     }

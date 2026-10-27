@@ -19,9 +19,10 @@ fn compile_with_openot_producer(mut sources: Vec<SourceFile>) {
             .iter()
             .map(|(path, text)| SourceFile::with_path(*path, *text)),
     );
-    crate::harness::CompileSession::from_sources(sources)
-        .build_runtime()
-        .expect("instrumented source compiles with the real OpenOT producer library");
+    crate::harness::TestHarness::from_session(crate::harness::CompileSession::from_sources(
+        sources,
+    ))
+    .expect("instrumented source compiles with the real OpenOT producer library");
 }
 
 fn explicit_sourceid_collision_source() -> SourceFile {
@@ -223,21 +224,20 @@ fn hir_and_runtime_authoring_accept_omitted_sourceids_units_and_payload_widths()
 }
 
 #[test]
-fn compile_session_surfaces_openot_validation_failure_instead_of_building_uninstrumented_bytecode()
+fn compile_session_surfaces_openot_validation_failure_instead_of_declaring_uninstrumented_sources()
 {
     let source = explicit_sourceid_collision_source();
     let instrumented = instrument_source_files(std::slice::from_ref(&source));
-    let bytecode =
-        crate::harness::CompileSession::from_sources(vec![source.clone()]).build_bytecode_bytes();
-    let bytecode_len = bytecode.as_ref().map(Vec::len);
+    let declarations =
+        crate::harness::CompileSession::from_sources(vec![source.clone()]).declarations();
 
     assert!(
-            bytecode.is_err(),
-            "OpenOT validation failure must surface through CompileSession instead of building uninstrumented bytecode; \
-             bytecode_len={bytecode_len:?}; unchanged_source={}; contains_producer={}",
-            instrumented[0].text == source.text,
-            instrumented[0].text.contains(PRODUCER_NAME)
-        );
+        declarations.is_err(),
+        "OpenOT validation failure must surface through CompileSession instead of declaring uninstrumented sources; \
+         unchanged_source={}; contains_producer={}",
+        instrumented[0].text == source.text,
+        instrumented[0].text.contains(PRODUCER_NAME)
+    );
 }
 
 #[test]
@@ -595,9 +595,10 @@ fn ordinary_sources_are_unchanged_and_st_errors_remain_compiler_errors() {
         try_instrument_source_files(std::slice::from_ref(&invalid)).unwrap()[0].text,
         invalid.text
     );
-    assert!(crate::harness::CompileSession::from_sources(vec![invalid])
-        .build_runtime()
-        .is_err());
+    assert!(crate::harness::TestHarness::from_session(
+        crate::harness::CompileSession::from_sources(vec![invalid])
+    )
+    .is_err());
 }
 
 #[test]

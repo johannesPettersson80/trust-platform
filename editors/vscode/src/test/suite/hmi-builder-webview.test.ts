@@ -214,6 +214,8 @@ suite("HMI Builder editor: webview", function () {
     view.send({ type: "screen", screen: SCREEN });
     view.send({ type: "page", model: PAGE });
     await view.until("the page on the canvas", () => view.query('svg [data-object="speed"]'));
+    // The entries are the language server's answer (§21.3 item 1).
+    await view.until("the equipment's entries", () => view.query('[data-component-group="equipment"]'), 15000);
     const groups = [...view.document.querySelectorAll("[data-component-group]")].map((group: any) =>
       group.getAttribute("data-component-group"),
     );
@@ -253,6 +255,7 @@ suite("HMI Builder editor: webview", function () {
       model: { ...PAGE, object: [...PAGE.object, object("t3", "my:tank3", [500, 40], [128, 108], { tag: "T-3" })] },
     });
     await view.until("the page on the canvas", () => view.query('svg [data-object="t3"]'));
+    await view.until("the entries", () => view.query('[data-component-group="my-symbols"]'), 15000);
     assert.strictEqual(view.query('[data-component-group="my-symbols"] h2')?.textContent, "My Symbols");
     assert.strictEqual(view.query('[data-component="my:tank3"] .hb-card-name')?.textContent, "Tank 3");
     assert.ok(view.query('svg [data-object="t3"] [data-part="rotor"]'), "drawn from its drawing");
@@ -288,8 +291,12 @@ suite("HMI Builder editor: webview", function () {
     assert.strictEqual(view.query('svg [data-object="p1"] [data-part="tag"]')?.textContent, "P101", "its tag");
     assert.strictEqual(view.query('[data-action="live"]'), null, "no Live mode");
     assert.strictEqual(view.query('[data-action="preview-size"]'), null, "no screen sizes");
-    assert.strictEqual(view.query('[data-component="value"]'), null, "no displays");
-    assert.ok(view.query('[data-component="pump"]'), "equipment");
+    // What a P&ID may hold is the language server's answer (§18 phase 4 item 1).
+    await view.until(
+      "the P&ID's entries",
+      () => view.query('[data-component="pump"]') && !view.query('[data-component="value"]'),
+      15000,
+    );
   });
 
   test("a variable-speed drive has its readable name in Components", async () => {
@@ -302,7 +309,7 @@ suite("HMI Builder editor: webview", function () {
     });
     view.send({ type: "screen", screen: SCREEN });
     view.send({ type: "page", model: PAGE });
-    const card = await view.until("the VFD's card", () => view.query('[data-component="vfd"]'));
+    const card = await view.until("the VFD's card", () => view.query('[data-component="vfd"]'), 15000);
     assert.strictEqual(card.querySelector(".hb-card-name")?.textContent, "Variable-speed drive");
   });
 
@@ -686,6 +693,11 @@ function dragRow(view: Webview, path: string, target: any, to: [number, number])
   view.mouse("mouseup", target, to[0], to[1]);
 }
 
+/** Waits for a binding's picker to list a variable, as the language server offers it (§7.1). */
+async function offering(view: Webview, path: string): Promise<void> {
+  await view.until(`the picker offering ${path}`, () => view.query(`[data-part="picker"] [data-variable="${path}"]`));
+}
+
 async function selectSwitch(view: Webview): Promise<void> {
   view.drag(view.layer(), [60, 420], [60, 420]);
   await view.until("the switch selected", () => view.query('[data-selection="pump-switch"]'));
@@ -735,9 +747,8 @@ suite("HMI Builder editor: variable picker", function () {
     openTags(view);
     await settle();
     dragRow(view, "Main.Run", view.window, [400, 300]);
-    await settle();
-    const edit = view.edits()[0];
-    assert.ok(edit, "an edit");
+    // The language server says what the variable makes (§7.1).
+    const edit = await view.nextEdit(0);
     assert.deepStrictEqual(
       find(edit, "status-1"),
       object("status-1", "status", [320, 280], [160, 48], {
@@ -752,10 +763,8 @@ suite("HMI Builder editor: variable picker", function () {
     openTags(view);
     await settle();
     dragRow(view, "Main.P101", view.window, [400, 300]);
-    await settle();
+    const notice = await view.until("a notice", () => view.query('[data-part="notice"]'));
     assert.strictEqual(view.edits().length, 0);
-    const notice = view.query('[data-part="notice"]');
-    assert.ok(notice, "a notice");
     assert.ok(notice.textContent.includes('"Main.P101" is a function block instance'), notice.textContent);
   });
 
@@ -844,6 +853,7 @@ suite("HMI Builder editor: variable picker", function () {
     const view = await withVariables();
     await selectSwitch(view);
     view.mouse("click", view.query('[data-action="pick"][data-binding="value"]'), 0, 0);
+    await offering(view, "Main.Run");
     await settle();
     assert.deepStrictEqual(watched(view), ["Main.Run"]);
     view.send({ type: "pickerValues", update: { cycle: 7, values: { "Main.Run": { value: false } }, missing: [] } });
@@ -860,7 +870,7 @@ suite("HMI Builder editor: variable picker", function () {
     assert.ok(pick, "a Visible while binding for the selection");
     assert.ok(view.query('[data-part="visibility"]')?.textContent?.includes("Visible while"));
     view.mouse("click", pick, 0, 0);
-    await settle();
+    await offering(view, "Main.Run");
     const picker = view.query('[data-part="visibility"] [data-part="picker"]');
     assert.ok(picker?.querySelector('[data-variable="Main.Run"]'), "a boolean is offered");
     assert.ok(!picker?.querySelector('[data-variable="Main.Level"]'), "a number is not");
@@ -887,7 +897,7 @@ suite("HMI Builder editor: variable picker", function () {
     const pick = view.query('[data-action="pick"][data-binding="value"]');
     assert.ok(pick, "a pick button beside the binding");
     view.mouse("click", pick, 0, 0);
-    await settle();
+    await offering(view, "Main.Run");
     const picker = view.query('[data-part="picker"]');
     assert.ok(picker, "the picker opens");
     assert.ok(picker.querySelector('[data-variable="Main.Run"]'), "a writable boolean is offered");
@@ -898,8 +908,8 @@ suite("HMI Builder editor: variable picker", function () {
       "an output cannot be written",
     );
     view.mouse("click", picker.querySelector('[data-variable="Main.Run"]'), 0, 0);
-    await settle();
-    assert.deepStrictEqual(find(view.edits()[0], "pump-switch")?.bind.value, {
+    // The language server gives the binding its direction (§7.4).
+    assert.deepStrictEqual(find(await view.nextEdit(0), "pump-switch")?.bind.value, {
       path: "Main.Run",
       direction: "read-write",
     });
@@ -913,10 +923,8 @@ suite("HMI Builder editor: variable picker", function () {
     const field = view.query('.hb-binding[data-binding="value"] input');
     assert.ok(field, "the binding field");
     dragRow(view, "Main.Level", field, [1100, 200]);
-    await settle();
+    const notice = await view.until("a notice", () => view.query('[data-part="notice"]'));
     assert.strictEqual(view.edits().length, 0);
-    const notice = view.query('[data-part="notice"]');
-    assert.ok(notice, "a notice");
     assert.strictEqual(notice.textContent, `"Main.Level" is REAL; a switch's value needs a boolean`);
   });
 
@@ -926,8 +934,7 @@ suite("HMI Builder editor: variable picker", function () {
     openTags(view);
     await settle();
     dragRow(view, "Main.Run", view.query('.hb-binding[data-binding="value"] input'), [1100, 200]);
-    await settle();
-    assert.deepStrictEqual(find(view.edits()[0], "pump-switch")?.bind.value, {
+    assert.deepStrictEqual(find(await view.nextEdit(0), "pump-switch")?.bind.value, {
       path: "Main.Run",
       direction: "read-write",
     });

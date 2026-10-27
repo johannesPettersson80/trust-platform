@@ -357,6 +357,7 @@ pub fn found_mode_return(
             Ok(step) => Some(AutoReentry {
                 values: step.values,
                 tolerance: step.tolerance,
+                entry_error_gain: step.entry_error_gain,
                 tracking: step.tracking,
             }),
             Err(error) => {

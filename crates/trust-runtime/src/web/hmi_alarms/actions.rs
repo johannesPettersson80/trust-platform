@@ -211,7 +211,10 @@ impl Actions {
                 target,
                 written,
             }),
-            Some(Err(reason)) => Err(refuse(Some(target), reason)),
+            Some(Err(refused)) => Err(Box::new(Refused {
+                target: Some(target),
+                answer: CommandAnswer::write_refused(id, refused),
+            })),
             None => Err(Box::new(Refused {
                 target: Some(target),
                 answer: CommandAnswer {

@@ -38,6 +38,7 @@ pub fn check_page_policy(
                     object: object.id.clone(),
                     property: Some("command".into()),
                     message,
+                    point: None,
                 });
             }
         }
@@ -49,18 +50,23 @@ pub fn check_page_policy(
             let Ok(path) = MemberPath::parse(&binding.path) else {
                 continue;
             };
-            let message = match rule_for(policy, &path) {
-                None => Some(format!(
-                    "\"{}\" is not writable by the runtime's write policy",
-                    binding.path
-                )),
-                Some(rule) => needs_more(rule, object, &binding.path),
+            // A point no rule covers is named, so that the editor's quick fix can allow it.
+            let (message, point) = match rule_for(policy, &path) {
+                None => (
+                    Some(format!(
+                        "\"{}\" is not writable by the runtime's write policy",
+                        binding.path
+                    )),
+                    Some(binding.path.clone()),
+                ),
+                Some(rule) => (needs_more(rule, object, &binding.path), None),
             };
             if let Some(message) = message {
                 problems.push(BindingProblem {
                     object: object.id.clone(),
                     property: Some(property.clone()),
                     message,
+                    point,
                 });
             }
         }

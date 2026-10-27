@@ -23,6 +23,7 @@ const MAX_DURATION_MILLIS: i64 = i64::MAX / 1_000_000;
 #[derive(Default)]
 pub struct HarnessAutomation {
     harness: Option<TestHarness>,
+    /// The conversion rules the following loads build with (specification 07 §2.10).
     conversion_profile: crate::stdlib::conversions::ConversionProfile,
 }
 
@@ -120,7 +121,8 @@ impl HarnessAutomation {
         Self::default()
     }
 
-    /// Use the given conversion rules for the following loads and reloads.
+    /// Use the given conversion rules for the following loads; a reload keeps the rules of its
+    /// load (specification 07 §2.10).
     pub fn set_conversion_profile(
         &mut self,
         profile: crate::stdlib::conversions::ConversionProfile,

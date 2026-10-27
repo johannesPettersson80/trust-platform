@@ -6,10 +6,9 @@ use control_heater_support::*;
 
 const LESSON76: &str = "12-nonlinear-adaptive-and-robust-control/74-lyapunov-stability";
 
-fn flag(runtime: &trust_runtime::Runtime, address: &str) -> bool {
+fn flag(runtime: &trust_runtime::CompiledRuntime, address: &str) -> bool {
     match runtime
-        .io()
-        .read(&IoAddress::parse(address).unwrap())
+        .read_io(&IoAddress::parse(address).unwrap())
         .unwrap()
     {
         Value::Bool(value) => value,
@@ -315,15 +314,13 @@ struct Adaptive {
 }
 
 /// The retained nominal output of one of the program's Control.PID instances.
-fn pid_nominal(runtime: &trust_runtime::Runtime, name: &str) -> f64 {
-    let Some(Value::Instance(pid)) = runtime
-        .storage()
-        .get_instance_var(program(runtime), name)
-        .cloned()
-    else {
-        panic!("the lesson must execute Control.PID as {name}");
-    };
-    let Some(Value::Struct(state)) = runtime.storage().get_instance_var(pid, "StateValue") else {
+fn pid_nominal(runtime: &trust_runtime::CompiledRuntime, name: &str) -> f64 {
+    let pid = format!("{}.{name}", program(runtime));
+    assert!(
+        exists(runtime, &pid),
+        "the lesson must execute Control.PID as {name}"
+    );
+    let Some(Value::Struct(state)) = value(runtime, &format!("{pid}.StateValue")) else {
         panic!("Control.PID must keep its state record");
     };
     match state.field("NominalOutput") {

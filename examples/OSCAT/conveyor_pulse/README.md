@@ -152,8 +152,8 @@ local-variable PLC flag exposed to the test harness only.
 | `Conveyor.Enabled` | local | IN |
 | `Conveyor.PulseCommand` | local | OUT |
 
-Comms (from `oop/runtime.toml`): runtime control endpoint
-`tcp://127.0.0.1:0`, log level `info`. No Modbus, MQTT, or OPC UA
+Comms (from `oop/runtime.toml`): the platform default control endpoint
+(no `endpoint` is configured), log level `info`. No Modbus, MQTT, or OPC UA
 driver is configured for this showcase.
 
 OPC UA exposed records: none. Process values stay in `Main` locals so

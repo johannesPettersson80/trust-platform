@@ -1,12 +1,15 @@
-use crate::harness::{CompileSession, TestHarness};
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
+use crate::harness::{lower_application, CompileSession, SourceFile, TestHarness};
 use crate::program_model::{property_setter_method_name, FunctionBlockBase};
 use crate::value::Value;
-use crate::Runtime;
+use crate::RuntimeBuilder;
 use trust_hir::symbols::ParamDirection;
 
-fn runtime(source: &str) -> Runtime {
-    CompileSession::from_source(source)
-        .build_runtime()
+fn runtime(source: &str) -> RuntimeBuilder {
+    lower_application(&[SourceFile::new(source)], false)
+        .and_then(|lowered| lowered.construct(&[]))
+        .map(|(builder, _)| builder)
         .unwrap_or_else(|error| panic!("POU fixture must compile: {error}"))
 }
 
@@ -19,7 +22,7 @@ fn run(source: &str) -> TestHarness {
 }
 
 fn compile_error(source: &str) -> String {
-    match CompileSession::from_source(source).build_runtime() {
+    match CompileSession::from_source(source).declarations() {
         Ok(_) => panic!("POU fixture must fail"),
         Err(error) => error.to_string(),
     }
@@ -218,10 +221,7 @@ END_VAR
 bump();
 END_PROGRAM
 "#);
-    assert_eq!(
-        harness.runtime().storage().get_global("shared"),
-        Some(&Value::Int(1))
-    );
+    assert_eq!(harness.get_output("shared"), Some(Value::Int(1)));
 }
 
 #[test]
@@ -538,14 +538,8 @@ END_VAR
 shared := shared + programGlobal;
 END_PROGRAM
 "#);
-    assert_eq!(
-        harness.runtime().storage().get_global("shared"),
-        Some(&Value::Int(7))
-    );
-    assert_eq!(
-        harness.runtime().storage().get_global("programGlobal"),
-        Some(&Value::Int(4))
-    );
+    assert_eq!(harness.get_output("shared"), Some(Value::Int(7)));
+    assert_eq!(harness.get_output("programGlobal"), Some(Value::Int(4)));
 }
 
 #[test]

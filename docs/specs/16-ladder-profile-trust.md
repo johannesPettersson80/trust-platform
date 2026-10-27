@@ -11,8 +11,12 @@ This profile covers:
 
 - LD source schema used by VS Code visual editor (`.ladder.json`, schema v2).
 - Deterministic Ladder authoring and lowering into generated Structured Text.
-- PLCopen LD interop subset.
 - Known profile constraints and deviations.
+
+The rules of this profile are implemented once, in the crate `trust-visual`
+(`crates/trust-visual/src/ladder/`), and reached by the editor through the
+language server's `trust-lsp.visual*` commands (`25-vscode-product-contract.md`
+§11.4).
 
 ## 2. Canonical Data Contract (Schema v2)
 
@@ -80,17 +84,22 @@ model preserves:
 - Visual editor runtime controls execute through generated `.st` companion + runtime-entry
   wrapper (`*.visual.runtime.st`) and the shared Structured Text debug command path.
 
-`ladderEngine.ts` is a retained editor/component model and is not an
-independent product-runtime oracle. Its tests MUST NOT override Structured Text
-runtime semantics. In particular, generated division follows the Structured
-Text runtime's divide-by-zero fault behavior; a component fallback value of
-zero is not shipped runtime authority.
+The companion is one `FUNCTION_BLOCK`: networks in ascending `order`, each
+network's power flow as Boolean expressions (a contact ANDs its operand, NC
+its negation; parallel legs OR; a node reached from the left rail gets
+`TRUE`), coils assigning (`NORMAL`, `NEGATED`) or latching (`SET`, `RESET`)
+the power reaching them, timers and counters called with that power or their
+own `input`, compare blocks storing their result in `ld_compare_q_<id>`, math
+blocks writing their `output` while power reaches them. Generated division is
+Structured Text division and follows the runtime's divide-by-zero fault
+behavior; no fallback value of zero is generated. No editor-specific execution
+engine exists (`25-vscode-product-contract.md` §11.4.1).
 
 Primary implementation anchors:
 
-- `editors/vscode/src/visual/companionSt.ts`
-- `editors/vscode/src/visual/runtime/stRuntimeCommands.ts`
-- `editors/vscode/src/debug.ts`
+- `crates/trust-visual/src/ladder/lower.rs` (companion)
+- `crates/trust-visual/src/companion.rs` (companion and runtime entry files)
+- `editors/vscode/src/visual/companionSt.ts` (writes the files)
 
 ## 5. Variable and Address Resolution
 
@@ -104,7 +113,20 @@ addresses:
   output mirrors are not used.
 - symbol resolution uses local-first precedence with optional explicit qualification:
   - unqualified: `local` then `global`
-  - qualified: `LOCAL::Name` / `GLOBAL::Name` (also `LOCAL.Name` / `GLOBAL.Name`)
+  - qualified: `LOCAL::Name` / `GLOBAL::Name` (also `LOCAL.Name` / `GLOBAL.Name`
+    and the short `L::Name` / `G::Name`, in any case); the companion names the
+    plain variable. `LOCAL::Name` without such a local, `GLOBAL::Name` without
+    such a global, and `GLOBAL::Name` hidden by a local of the same name make
+    the program untranslatable.
+- every symbol an operand names must be declared; `TRUE` and `FALSE` are
+  literals, not symbols.
+- a direct address becomes the global `ld_io_<address>` declared `AT` it in the
+  runtime entry, typed by its size (`03-variables.md` §5), unless a global
+  variable is declared at that address; a text written like an address that
+  the runtime refuses (`%IX0.9`) makes the program untranslatable.
+- a contact or coil operand that names an undeclared identifier declares it as
+  a `BOOL` local starting `FALSE` (a global for `GLOBAL::`); such implicit
+  locals that no element names any more are removed.
 
 ## 6. Runtime Surface Ownership
 
@@ -118,23 +140,12 @@ editor type, and its tools/edit/view state MAY use the shared visual-editor
 persistence contract, but that persistence does not authorize retired runtime
 actions or schemas.
 
-## 7. PLCopen LD Interoperability Profile
+## 7. PLCopen LD Interchange
 
-Supported:
-
-- Import PLCopen LD network bodies to schema v2 subset.
-- Export schema v2 subset back to PLCopen LD network bodies.
-- Deterministic diagnostics for unsupported/malformed constructs.
-- Invalid node enum attributes are diagnosed and skipped (not auto-normalized).
-
-Unsupported vendor-specific constructs are skipped with diagnostics and are not silently
-accepted.
-
-Implementation anchors:
-
-- `editors/vscode/src/ladder/plcopenLdInterop.ts`
-- `editors/vscode/src/test/suite/plcopen-ld-interop.test.ts`
-- `docs/guides/PLCOPEN_LD_INTEROP.md`
+truST has no PLCopen LD interchange: PLCopen import skips a POU with an LD
+body with diagnostic `PLCO216` (`25-vscode-product-contract.md` §11.3). The
+earlier editor-side LD interop module was reached only by its own tests and
+was removed on 26 October 2026.
 
 ## 8. Known Deviations and Decisions
 
@@ -152,13 +163,15 @@ product profile, not an IEC deviation.
 
 Primary test evidence for this profile:
 
-- `editors/vscode/src/test/suite/ladder-schema.test.ts`
-- `editors/vscode/src/test/suite/ladder-editor-ops.test.ts`
-- `editors/vscode/src/test/suite/plcopen-ld-interop.test.ts`
-- `editors/vscode/src/test/suite/visual-companion.test.ts`
+- `crates/trust-visual/src/ladder/tests.rs` and `tests/` (schema check,
+  opening and saving, companion lowering, editor edits)
+- `crates/trust-visual/src/ladder/power.rs` (power flow)
+- `crates/trust-visual/src/companion.rs` (checked-in examples reproduced
+  exactly; every example translates)
+- `crates/trust-lsp/src/handlers/commands/visual_tests.rs` (command answers)
+- `editors/vscode/src/test/suite/ladder-schema.test.ts`,
+  `visual-companion.test.ts`, `visual-new-program-editor.test.ts` (wiring)
 - `editors/vscode/src/test/suite/visual-right-pane-resize.test.ts`
 
-The retained Ladder engine, embedded runtime-panel bridge, and embedded I/O
-panel tests are component or historical behavior locks only. They are not
-evidence for the shipped runtime route. Positive runtime and presentation
-claims require generated-ST execution and rendered extension evidence.
+Positive runtime and presentation claims require generated-ST execution and
+rendered extension evidence.

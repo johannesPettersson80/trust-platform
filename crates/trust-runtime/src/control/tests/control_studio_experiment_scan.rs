@@ -11,13 +11,19 @@ END_VAR
 END_PROGRAM
 "#;
 
-fn executor_state() -> ControlState {
-    let state = control_test_state(EXECUTOR_SOURCE);
+/// The executor's fixture: a simulated runtime of `EXECUTOR_SOURCE` whose scans publish its state to the control, after
+/// its first scan, with the I/O the tests publish.
+fn executor_state() -> (ControlState, TestHarness) {
+    let mut state = control_test_state(EXECUTOR_SOURCE);
+    let mut harness = simulated_harness(EXECUTOR_SOURCE);
+    state.debug = studio_debug(&mut harness);
     state.connect_experiments();
     // The target is simulated until a test publishes a physical scan (Specification 35, A2.4).
     state.experiments.record_simulated_target(true);
+    // The first scan publishes the program's state, which a start request reads.
+    assert!(harness.cycle().errors.is_empty());
     *state.io_snapshot.lock().expect("I/O snapshot") = Some(executor_memory(0, 10, 50));
-    state
+    (state, harness)
 }
 
 fn executor_entry(address: &str, value: i64) -> crate::io::IoSnapshotEntry {
@@ -43,45 +49,32 @@ fn executor_memory(scan: u64, output: i64, feedback: i64) -> crate::io::IoSnapsh
     }
 }
 
-/// The program's variables in one scan.
-fn executor_storage(
-    state: &ControlState,
-    setpoint: f64,
-    manual: bool,
-) -> crate::memory::VariableStorage {
-    let mut storage = state
-        .debug
-        .with_snapshot(|snapshot| snapshot.storage.clone())
-        .expect("debug snapshot");
-    for (path, value) in [
-        ("Main.Setpoint", Value::LReal(setpoint)),
-        ("Main.Manual", Value::Bool(manual)),
-    ] {
-        let reference = crate::debug::resolve_control_parameter_path(&storage, path)
-            .expect("program variable")
-            .reference;
-        assert!(storage.write_by_ref(reference, value));
-    }
-    storage
+/// The program's variables in the scans that follow, as the program would leave them.
+fn executor_values(harness: &mut TestHarness, setpoint: f64, manual: bool) {
+    studio_set(harness, "Main.Setpoint", Value::LReal(setpoint));
+    studio_set(harness, "Main.Manual", Value::Bool(manual));
 }
 
-/// Publishes one scan at `time_ms` of process time, as the runtime's cycle publishes it.
+/// Publishes one scan at `time_ms` of process time, with the program of `harness` as the scan left it, as the runtime's
+/// cycle publishes it.
 fn executor_publish(
     state: &ControlState,
+    harness: &TestHarness,
     time_ms: i64,
     io: crate::io::IoSnapshot,
-    storage: &crate::memory::VariableStorage,
     simulation_only_io: bool,
 ) {
     // A test scan's target is simulated exactly when its I/O is simulation-only: the simulation is enabled in these tests.
-    state.debug.push_control_snapshot_at(
-        io,
-        time_ms * 1_000_000,
-        storage,
-        &[],
-        simulation_only_io,
-        simulation_only_io,
-    );
+    harness.runtime().with_program_view(|program| {
+        state.debug.push_control_snapshot_at(
+            io,
+            time_ms * 1_000_000,
+            program,
+            &[],
+            simulation_only_io,
+            simulation_only_io,
+        );
+    });
 }
 
 /// A setpoint step on `Main.Setpoint` in Auto unless the overrides say otherwise.
@@ -132,7 +125,7 @@ fn executor_abort(state: &ControlState) -> ControlResponse {
 fn executor_drained_values(state: &ControlState) -> Vec<Value> {
     state
         .debug
-        .drain_var_writes()
+        .drain_control_writes()
         .into_iter()
         .map(|write| write.value)
         .collect()
@@ -150,8 +143,8 @@ fn executor_drained_outputs(state: &ControlState) -> Vec<Value> {
 
 #[test]
 fn executor_queues_each_point_for_the_execution_at_its_time() {
-    let state = executor_state();
-    let storage = executor_storage(&state, 10.0, false);
+    let (state, mut harness) = executor_state();
+    executor_values(&mut harness, 10.0, false);
     let started = executor_start(
         &state,
         json!({
@@ -165,11 +158,11 @@ fn executor_queues_each_point_for_the_execution_at_its_time() {
         "the start request writes nothing"
     );
     // The first scan queues the point due at the next execution (10 ms) and nothing later.
-    executor_publish(&state, 0, executor_memory(1, 10, 50), &storage, true);
+    executor_publish(&state, &harness, 0, executor_memory(1, 10, 50), true);
     assert_eq!(executor_drained_values(&state), vec![Value::LReal(20.0)]);
     // The point at 20 ms takes effect at the execution at 20 ms, so the write is queued at the scan at 10 ms.
-    let applied = executor_storage(&state, 20.0, false);
-    executor_publish(&state, 10, executor_memory(2, 10, 50), &applied, true);
+    executor_values(&mut harness, 20.0, false);
+    executor_publish(&state, &harness, 10, executor_memory(2, 10, 50), true);
     assert_eq!(executor_drained_values(&state), vec![Value::LReal(30.0)]);
     let status = executor_status(&state);
     assert_eq!(status["last_applied"]["index"], json!(0));
@@ -180,7 +173,7 @@ fn executor_queues_each_point_for_the_execution_at_its_time() {
 #[test]
 fn executor_applies_points_that_an_old_poll_would_have_merged_at_their_own_execution() {
     // Scans every 10 ms of process time: a runtime at ten times real time produces several of them in one old 20 ms poll.
-    let state = executor_state();
+    let (state, mut harness) = executor_state();
     let started = executor_start(
         &state,
         json!({
@@ -193,24 +186,18 @@ fn executor_applies_points_that_an_old_poll_would_have_merged_at_their_own_execu
         }),
     );
     assert!(started.ok, "start failed: {:?}", started.error);
-    let mut storage = executor_storage(&state, 10.0, false);
+    executor_values(&mut harness, 10.0, false);
     for (index, expected) in [2.0, 3.0, 4.0, 5.0].into_iter().enumerate() {
         let time = 10 * index as i64;
-        executor_publish(
-            &state,
-            time,
-            executor_memory(index as u64 + 1, 10, 50),
-            &storage,
-            true,
-        );
+        executor_publish(&state, &harness, time, executor_memory(index as u64 + 1, 10, 50), true);
         assert_eq!(
             executor_drained_values(&state),
             vec![Value::LReal(expected)],
             "the scan at {time} ms"
         );
-        storage = executor_storage(&state, expected, false);
+        executor_values(&mut harness, expected, false);
     }
-    executor_publish(&state, 40, executor_memory(5, 10, 50), &storage, true);
+    executor_publish(&state, &harness, 40, executor_memory(5, 10, 50), true);
     assert!(
         executor_drained_values(&state).is_empty(),
         "no point is due after the last one"
@@ -219,11 +206,10 @@ fn executor_applies_points_that_an_old_poll_would_have_merged_at_their_own_execu
 
 #[test]
 fn executor_switches_a_relay_at_the_execution_after_the_crossing() {
-    let state = executor_state();
-    let manual = executor_storage(&state, 10.0, true);
-    state
-        .debug
-        .refresh_snapshot_from_storage(&manual, crate::value::Duration::from_millis(0));
+    let (state, mut harness) = executor_state();
+    executor_values(&mut harness, 10.0, true);
+    // A scan publishes the program's values, which the start reads.
+    assert!(harness.cycle().errors.is_empty());
     let started = executor_start(
         &state,
         json!({
@@ -237,11 +223,11 @@ fn executor_switches_a_relay_at_the_execution_after_the_crossing() {
         }),
     );
     assert!(started.ok, "start failed: {:?}", started.error);
-    executor_publish(&state, 0, executor_memory(1, 10, 50), &manual, true);
+    executor_publish(&state, &harness, 0, executor_memory(1, 10, 50), true);
     assert_eq!(executor_drained_outputs(&state), vec![Value::LInt(100)]);
-    executor_publish(&state, 10, executor_memory(2, 100, 60), &manual, true);
+    executor_publish(&state, &harness, 10, executor_memory(2, 100, 60), true);
     assert_eq!(executor_drained_outputs(&state), vec![Value::LInt(0)]);
-    executor_publish(&state, 20, executor_memory(3, 0, 60), &manual, true);
+    executor_publish(&state, &harness, 20, executor_memory(3, 0, 60), true);
     assert!(
         executor_drained_outputs(&state).is_empty(),
         "the level holds until the measurement crosses back"
@@ -250,11 +236,10 @@ fn executor_switches_a_relay_at_the_execution_after_the_crossing() {
 
 #[test]
 fn executor_stops_on_a_mode_change_and_confirms_the_restoration() {
-    let state = executor_state();
-    let manual = executor_storage(&state, 10.0, true);
-    state
-        .debug
-        .refresh_snapshot_from_storage(&manual, crate::value::Duration::from_millis(0));
+    let (state, mut harness) = executor_state();
+    executor_values(&mut harness, 10.0, true);
+    // A scan publishes the program's values, which the start reads.
+    assert!(harness.cycle().errors.is_empty());
     let started = executor_start(
         &state,
         json!({
@@ -263,10 +248,10 @@ fn executor_stops_on_a_mode_change_and_confirms_the_restoration() {
         }),
     );
     assert!(started.ok, "start failed: {:?}", started.error);
-    executor_publish(&state, 0, executor_memory(1, 10, 50), &manual, true);
+    executor_publish(&state, &harness, 0, executor_memory(1, 10, 50), true);
     assert_eq!(executor_drained_outputs(&state), vec![Value::LInt(60)]);
-    let auto = executor_storage(&state, 10.0, false);
-    executor_publish(&state, 10, executor_memory(2, 60, 50), &auto, true);
+    executor_values(&mut harness, 10.0, false);
+    executor_publish(&state, &harness, 10, executor_memory(2, 60, 50), true);
     assert_eq!(
         executor_drained_outputs(&state),
         vec![Value::LInt(10)],
@@ -275,7 +260,7 @@ fn executor_stops_on_a_mode_change_and_confirms_the_restoration() {
     let status = executor_status(&state);
     assert_eq!(status["status"], json!("failed"));
     assert_eq!(status["stop_reason"], json!("mode_changed"));
-    executor_publish(&state, 20, executor_memory(3, 10, 50), &auto, true);
+    executor_publish(&state, &harness, 20, executor_memory(3, 10, 50), true);
     assert_eq!(executor_status(&state)["restoration"], json!("restored"));
 }
 
@@ -299,11 +284,10 @@ fn real_memory(scan: u64, output: f64) -> crate::io::IoSnapshot {
 /// confirmed after the execution that follows the write, and the status reports the value read back.
 #[test]
 fn an_addressed_point_is_confirmed_in_its_binding_type_and_reported_as_read_back() {
-    let state = executor_state();
-    let manual = executor_storage(&state, 10.0, true);
-    state
-        .debug
-        .refresh_snapshot_from_storage(&manual, crate::value::Duration::from_millis(0));
+    let (state, mut harness) = executor_state();
+    executor_values(&mut harness, 10.0, true);
+    // A scan publishes the program's values, which the start reads.
+    assert!(harness.cycle().errors.is_empty());
     *state.io_snapshot.lock().expect("I/O snapshot") = Some(real_memory(0, 10.0));
     let started = executor_start(
         &state,
@@ -313,10 +297,10 @@ fn an_addressed_point_is_confirmed_in_its_binding_type_and_reported_as_read_back
         }),
     );
     assert!(started.ok, "start failed: {:?}", started.error);
-    executor_publish(&state, 0, real_memory(1, 10.0), &manual, true);
+    executor_publish(&state, &harness, 0, real_memory(1, 10.0), true);
     assert_eq!(executor_drained_outputs(&state).len(), 1, "the step is written once");
     assert!(executor_status(&state)["last_applied"].is_null(), "nothing is applied before it is read back");
-    executor_publish(&state, 10, real_memory(2, 60.0), &manual, true);
+    executor_publish(&state, &harness, 10, real_memory(2, 60.0), true);
     let status = executor_status(&state);
     let applied = &status["last_applied"];
     assert_eq!(applied["index"], json!(0));
@@ -326,37 +310,31 @@ fn an_addressed_point_is_confirmed_in_its_binding_type_and_reported_as_read_back
 
 #[test]
 fn executor_completes_at_its_duration_and_restores_the_setpoint() {
-    let state = executor_state();
+    let (state, mut harness) = executor_state();
     assert!(executor_start(&state, json!({ "value": 15.0 })).ok);
-    let applied = executor_storage(&state, 15.0, false);
+    executor_values(&mut harness, 15.0, false);
     for step in 0i64..99 {
-        executor_publish(
-            &state,
-            step * 10,
-            executor_memory(step as u64 + 1, 10, 50),
-            &applied,
-            true,
-        );
+        executor_publish(&state, &harness, step * 10, executor_memory(step as u64 + 1, 10, 50), true);
     }
     assert_eq!(executor_status(&state)["status"], json!("running"));
-    executor_publish(&state, 990, executor_memory(100, 10, 50), &applied, true);
+    executor_publish(&state, &harness, 990, executor_memory(100, 10, 50), true);
     let status = executor_status(&state);
     assert_eq!(status["status"], json!("completed"));
     assert_eq!(status["stop_reason"], json!("duration_complete"));
     // A later write to a variable before the boundary replaces the earlier one (A3.5): the restoration replaces the
     // excitation that no boundary applied, so the next boundary applies the restoration alone.
     assert_eq!(executor_drained_values(&state), vec![Value::LReal(10.0)]);
-    let restored = executor_storage(&state, 10.0, false);
-    executor_publish(&state, 1000, executor_memory(101, 10, 50), &restored, true);
+    executor_values(&mut harness, 10.0, false);
+    executor_publish(&state, &harness, 1000, executor_memory(101, 10, 50), true);
     assert_eq!(executor_status(&state)["restoration"], json!("restored"));
 }
 
 #[test]
 fn executor_abort_queues_the_restoration_after_the_excitation_already_queued() {
-    let state = executor_state();
+    let (state, mut harness) = executor_state();
     assert!(executor_start(&state, json!({ "value": 15.0 })).ok);
-    let applied = executor_storage(&state, 10.0, false);
-    executor_publish(&state, 0, executor_memory(1, 10, 50), &applied, true);
+    executor_values(&mut harness, 10.0, false);
+    executor_publish(&state, &harness, 0, executor_memory(1, 10, 50), true);
     assert!(executor_abort(&state).ok);
     // The restoration replaces the excitation that no boundary applied (A3.5), so it is the value applied at the next scan.
     assert_eq!(
@@ -369,22 +347,16 @@ fn executor_abort_queues_the_restoration_after_the_excitation_already_queued() {
 
 #[test]
 fn executor_fails_a_restoration_not_read_back_within_three_executions() {
-    let state = executor_state();
+    let (state, mut harness) = executor_state();
     assert!(executor_start(&state, json!({ "value": 15.0 })).ok);
-    let held = executor_storage(&state, 15.0, false);
-    executor_publish(&state, 0, executor_memory(1, 10, 50), &held, true);
+    executor_values(&mut harness, 15.0, false);
+    executor_publish(&state, &harness, 0, executor_memory(1, 10, 50), true);
     assert!(executor_abort(&state).ok);
     for (index, time) in [10_i64, 20].into_iter().enumerate() {
-        executor_publish(
-            &state,
-            time,
-            executor_memory(index as u64 + 2, 10, 50),
-            &held,
-            true,
-        );
+        executor_publish(&state, &harness, time, executor_memory(index as u64 + 2, 10, 50), true);
         assert_eq!(executor_status(&state)["restoration"], json!("pending"));
     }
-    executor_publish(&state, 30, executor_memory(4, 10, 50), &held, true);
+    executor_publish(&state, &harness, 30, executor_memory(4, 10, 50), true);
     let status = executor_status(&state);
     assert_eq!(status["status"], json!("failed_to_restore"));
     assert_eq!(status["restoration"], json!("failed"));
@@ -393,13 +365,13 @@ fn executor_fails_a_restoration_not_read_back_within_three_executions() {
 
 #[test]
 fn executor_confirms_a_restoration_read_back_at_the_next_execution() {
-    let state = executor_state();
+    let (state, mut harness) = executor_state();
     assert!(executor_start(&state, json!({ "value": 15.0 })).ok);
-    let held = executor_storage(&state, 15.0, false);
-    executor_publish(&state, 0, executor_memory(1, 10, 50), &held, true);
+    executor_values(&mut harness, 15.0, false);
+    executor_publish(&state, &harness, 0, executor_memory(1, 10, 50), true);
     assert!(executor_abort(&state).ok);
-    let restored = executor_storage(&state, 10.0, false);
-    executor_publish(&state, 10, executor_memory(2, 10, 50), &restored, true);
+    executor_values(&mut harness, 10.0, false);
+    executor_publish(&state, &harness, 10, executor_memory(2, 10, 50), true);
     let status = executor_status(&state);
     assert_eq!(status["status"], json!("aborted"));
     assert_eq!(status["restoration"], json!("restored"));
@@ -407,10 +379,10 @@ fn executor_confirms_a_restoration_read_back_at_the_next_execution() {
 
 #[test]
 fn executor_writes_nothing_to_a_physical_target_without_approval() {
-    let state = executor_state();
+    let (state, mut harness) = executor_state();
     assert!(executor_start(&state, json!({ "value": 15.0 })).ok);
-    let storage = executor_storage(&state, 10.0, false);
-    executor_publish(&state, 0, executor_memory(1, 10, 50), &storage, false);
+    executor_values(&mut harness, 10.0, false);
+    executor_publish(&state, &harness, 0, executor_memory(1, 10, 50), false);
     let status = executor_status(&state);
     assert_eq!(status["status"], json!("failed"));
     assert_eq!(status["stop_reason"], json!("physical_approval_required"));
@@ -421,7 +393,7 @@ fn executor_writes_nothing_to_a_physical_target_without_approval() {
 
 #[test]
 fn executor_refuses_an_unknown_task_and_points_closer_than_the_task_interval() {
-    let state = executor_state();
+    let (state, _harness) = executor_state();
     let unknown = executor_start(&state, json!({ "task": "NoSuchTask" }));
     assert!(!unknown.ok);
     assert_eq!(unknown.error_code.as_deref(), Some("invalid_experiment"));
@@ -436,9 +408,9 @@ fn executor_refuses_an_unknown_task_and_points_closer_than_the_task_interval() {
 
 #[test]
 fn executor_accepts_a_day_of_process_time_and_refuses_a_millisecond_more() {
-    let accepted = executor_state();
+    let (accepted, _accepted_harness) = executor_state();
     assert!(executor_start(&accepted, json!({ "duration_ms": 86_400_000 })).ok);
-    let refused = executor_state();
+    let (refused, _refused_harness) = executor_state();
     let longer = executor_start(&refused, json!({ "duration_ms": 86_400_001 }));
     assert!(!longer.ok);
     assert_eq!(longer.error_code.as_deref(), Some("invalid_experiment"));
@@ -446,10 +418,10 @@ fn executor_accepts_a_day_of_process_time_and_refuses_a_millisecond_more() {
 
 #[test]
 fn executor_finish_ends_an_experiment_as_a_completion_without_asserting_an_abort() {
-    let state = executor_state();
+    let (state, mut harness) = executor_state();
     assert!(executor_start(&state, json!({ "value": 15.0 })).ok);
-    let held = executor_storage(&state, 15.0, false);
-    executor_publish(&state, 0, executor_memory(1, 10, 50), &held, true);
+    executor_values(&mut harness, 15.0, false);
+    executor_publish(&state, &harness, 0, executor_memory(1, 10, 50), true);
     let finished = super::experiment_handlers::handle_finish(
         9403,
         Some(json!({ "experiment_id": "executor-1" })),
@@ -462,8 +434,8 @@ fn executor_finish_ends_an_experiment_as_a_completion_without_asserting_an_abort
     assert_eq!(status["restoration"], json!("pending"));
     // The restoration replaces the excitation that no boundary applied (A3.5).
     assert_eq!(executor_drained_values(&state), vec![Value::LReal(10.0)]);
-    let restored = executor_storage(&state, 10.0, false);
-    executor_publish(&state, 10, executor_memory(2, 10, 50), &restored, true);
+    executor_values(&mut harness, 10.0, false);
+    executor_publish(&state, &harness, 10, executor_memory(2, 10, 50), true);
     assert_eq!(executor_status(&state)["restoration"], json!("restored"));
     let again = super::experiment_handlers::handle_finish(
         9404,
@@ -479,7 +451,7 @@ fn executor_finish_ends_an_experiment_as_a_completion_without_asserting_an_abort
 fn control_status_reports_simulation_only_io_once_a_cycle_has_run() {
     let mut state = control_test_state(EXECUTOR_SOURCE);
     let mut harness = TestHarness::from_source(EXECUTOR_SOURCE).expect("build harness");
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
     let simulation_only_io = |state: &ControlState| {
         let response = handle_request_value(json!({ "id": 9405, "type": "status" }), state, None);
         assert!(response.ok, "status failed: {:?}", response.error);
@@ -509,12 +481,11 @@ END_PROGRAM
 "#;
     let mut state = control_test_state(source);
     let mut harness = TestHarness::from_source(source).expect("build harness");
-    state.debug = harness.runtime_mut().enable_debug();
+    state.debug = studio_debug(&mut harness);
     // A simulated resource: its target is simulated, so a "simulation" request is not contradicted (A2.4).
     harness.runtime_mut().set_simulation_enabled(true);
     state.connect_experiments();
     assert!(harness.cycle().errors.is_empty());
-    *state.metadata.lock().expect("metadata") = harness.runtime().metadata_snapshot();
     *state.io_snapshot.lock().expect("I/O snapshot") = state.debug.latest_io_snapshot();
     let started = handle_request_value(
         json!({
@@ -576,7 +547,7 @@ fn the_runtime_target_is_simulated_only_with_simulation_enabled_and_simulated_io
 
 #[test]
 fn a_label_that_contradicts_the_targets_class_is_refused() {
-    let state = executor_state();
+    let (state, _harness) = executor_state();
     let physical_label = executor_start(
         &state,
         json!({ "source": "physical", "physical_approval": { "user_approved": true, "topology_reviewed": true } }),
@@ -595,7 +566,7 @@ fn a_label_that_contradicts_the_targets_class_is_refused() {
 
 #[test]
 fn a_physical_target_needs_the_engineers_approval_at_the_start() {
-    let state = executor_state();
+    let (state, _harness) = executor_state();
     state.experiments.record_simulated_target(false);
     let unapproved = executor_start(&state, json!({ "source": "physical" }));
     assert!(!unapproved.ok);
@@ -622,15 +593,15 @@ fn an_experiment_cannot_start_before_the_runtime_has_scanned_its_target() {
 
 #[test]
 fn a_second_experiment_is_refused_while_the_first_runs_or_restores_and_names_it() {
-    let state = executor_state();
+    let (state, mut harness) = executor_state();
     assert!(executor_start(&state, json!({})).ok);
     let second = executor_start(&state, json!({ "experiment_id": "executor-2" }));
     assert!(!second.ok);
     assert_eq!(second.error_code.as_deref(), Some("experiment_active"));
     assert!(format!("{:?}", second.error).contains("experiment executor-1 is running"));
     // The first experiment wrote, then was aborted: its restoration waits for a scan (A6.6).
-    let excited = executor_storage(&state, 10.0, false);
-    executor_publish(&state, 0, executor_memory(1, 10, 50), &excited, true);
+    executor_values(&mut harness, 10.0, false);
+    executor_publish(&state, &harness, 0, executor_memory(1, 10, 50), true);
     assert!(executor_abort(&state).ok);
     let restoring = executor_start(&state, json!({ "experiment_id": "executor-2" }));
     assert!(!restoring.ok);
@@ -638,8 +609,8 @@ fn a_second_experiment_is_refused_while_the_first_runs_or_restores_and_names_it(
     assert!(format!("{:?}", restoring.error)
         .contains("experiment executor-1 is restoring its output"));
     // Once the restoration is confirmed, a new experiment may start.
-    let restored = executor_storage(&state, 10.0, false);
-    executor_publish(&state, 10, executor_memory(2, 10, 50), &restored, true);
+    executor_values(&mut harness, 10.0, false);
+    executor_publish(&state, &harness, 10, executor_memory(2, 10, 50), true);
     assert_eq!(executor_status(&state)["restoration"], json!("restored"));
     assert!(executor_start(&state, json!({ "experiment_id": "executor-2" })).ok);
 }
@@ -648,7 +619,7 @@ fn a_second_experiment_is_refused_while_the_first_runs_or_restores_and_names_it(
 fn a_point_between_two_executions_takes_effect_at_the_next_one_and_a_point_on_one_at_its_own() {
     // Executions every 10 ms. The 15 ms point lies between the executions at 10 and 20 ms, so it takes effect at 20 ms.
     // The 30 ms point lies on the execution at 30 ms, so it takes effect there (A3.5).
-    let state = executor_state();
+    let (state, mut harness) = executor_state();
     let started = executor_start(
         &state,
         json!({
@@ -659,21 +630,25 @@ fn a_point_between_two_executions_takes_effect_at_the_next_one_and_a_point_on_on
         }),
     );
     assert!(started.ok, "start failed: {:?}", started.error);
-    executor_publish(&state, 0, executor_memory(1, 10, 50), &executor_storage(&state, 10.0, false), true);
+    executor_values(&mut harness, 10.0, false);
+    executor_publish(&state, &harness, 0, executor_memory(1, 10, 50), true);
     assert_eq!(executor_drained_values(&state), vec![Value::LReal(20.0)]);
-    executor_publish(&state, 10, executor_memory(2, 20, 50), &executor_storage(&state, 20.0, false), true);
+    executor_values(&mut harness, 20.0, false);
+    executor_publish(&state, &harness, 10, executor_memory(2, 20, 50), true);
     assert_eq!(
         executor_drained_values(&state),
         vec![Value::LReal(30.0)],
         "the 15 ms point is due at the 20 ms execution, so the 10 ms scan queues it"
     );
-    executor_publish(&state, 20, executor_memory(3, 30, 50), &executor_storage(&state, 30.0, false), true);
+    executor_values(&mut harness, 30.0, false);
+    executor_publish(&state, &harness, 20, executor_memory(3, 30, 50), true);
     let between = executor_status(&state);
     assert_eq!(between["last_applied"]["index"], json!(1));
     assert_eq!(between["last_applied"]["time_ms"], json!(15));
     assert_eq!(between["last_applied"]["process_time_ms"], json!(20));
     assert_eq!(executor_drained_values(&state), vec![Value::LReal(40.0)]);
-    executor_publish(&state, 30, executor_memory(4, 40, 50), &executor_storage(&state, 40.0, false), true);
+    executor_values(&mut harness, 40.0, false);
+    executor_publish(&state, &harness, 30, executor_memory(4, 40, 50), true);
     let on = executor_status(&state);
     assert_eq!(on["last_applied"]["index"], json!(2));
     assert_eq!(on["last_applied"]["time_ms"], json!(30));

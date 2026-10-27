@@ -2,6 +2,7 @@
 
 use crate::{error::RuntimeError, memory::IoArea};
 use alloc::{string::String, vec::Vec};
+use core::fmt;
 
 /// Width selected by an IEC direct address.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -140,6 +141,45 @@ impl IoAddress {
             path,
             wildcard: false,
         })
+    }
+}
+
+/// The text of an address in the form [`IoAddress::parse`] reads (specification 10 §9.2; IEC 61131-3
+/// §6.5.5, Table 16): `%`, the area, the size prefix, the location path's components separated by
+/// dots and, for a bit, the bit index: `%IX0.1`, `%QW4`, `%MD2.3.1`. A wildcard is `%I*`, `%Q*` or
+/// `%M*`. A byte window, the image of a `STRING` binding, is written as the byte address it is
+/// declared at (`%QB24`).
+impl fmt::Display for IoAddress {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let area = match self.area {
+            IoArea::Input => 'I',
+            IoArea::Output => 'Q',
+            IoArea::Memory => 'M',
+        };
+        if self.wildcard {
+            return write!(formatter, "%{area}*");
+        }
+        let size = match self.size {
+            IoSize::Bit => 'X',
+            IoSize::Byte | IoSize::Bytes(_) => 'B',
+            IoSize::Word => 'W',
+            IoSize::DWord => 'D',
+            IoSize::LWord => 'L',
+        };
+        write!(formatter, "%{area}{size}")?;
+        if self.path.is_empty() {
+            write!(formatter, "{}", self.byte)?;
+        }
+        for (index, part) in self.path.iter().enumerate() {
+            if index > 0 {
+                formatter.write_str(".")?;
+            }
+            write!(formatter, "{part}")?;
+        }
+        if self.size == IoSize::Bit {
+            write!(formatter, ".{}", self.bit)?;
+        }
+        Ok(())
     }
 }
 

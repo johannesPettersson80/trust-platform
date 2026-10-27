@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use crate::error::RuntimeError;
 use crate::harness::TestHarness;
 use crate::value::Value;

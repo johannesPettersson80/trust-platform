@@ -2,14 +2,14 @@ const CANVAS_MESSAGE_TYPES = [
   "ready", "search", "focus", "selectNode", "action", "startLocalSimulator",
   "addSimulatedDevice", "nextStep", "setupProtocol", "adoptDiscovered", "commApply",
   "commSave", "commRemove", "commDisable", "commApplyLive", "commTest",
-  "commApplyClientError", "clearApplyResult", "addHost", "addRuntime", "discover",
+  "clearApplyResult", "addHost", "addRuntime", "discover",
   "cancelDiscover", "browseSymbols", "addAdsDevice", "createRoute", "addTags", "addAdsTagsBatch",
-  "removeAdsTag", "openAdsDiscoverySettings", "addEthercatChannels", "addExpose",
+  "removeAdsTag", "checkAdsPort", "openAdsDiscoverySettings", "addEthercatChannels", "addExpose",
   "addOpcuaConnection", "copyText", "setSearch", "setPinnedNode", "focusFault",
   "openQuickAdd", "setStage", "openRuntimePane", "openRuntimeSettings", "openRuntimeLogs",
-  "runtimeConnect", "runtimeDisconnect", "setRuntimeAuthToken", "setAsRunTarget",
+  "runtimeConnect", "runtimeDisconnect", "setRuntimeAuthToken", "setAsRunTarget", "identifyRuntime",
   "runtimeManagedStart", "runtimeManagedStop", "runtimeManagedLogs",
-  "plantSave", "plantRemove", "openControlStudio",
+  "plantEdit", "plantSave", "plantRemove", "openControlStudio",
 ] as const;
 
 export type CanvasMessageType = (typeof CANVAS_MESSAGE_TYPES)[number];

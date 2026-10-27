@@ -1,45 +1,8 @@
-import type { DiscoverCandidate } from "../offlineComm";
+// Display helpers of an ADS browse target. Which port a typed text names is the server's answer
+// (adsPortCheck.ts); a target's own port is set by the server (`comm.discover` and the browse
+// targets of `trust-lsp.devicesTopology`).
 
-export const DEFAULT_ADS_PORT = 851;
-export const MIN_ADS_PORT = 1;
-export const MAX_ADS_PORT = 65_535;
-
-export type AdsPortParseResult = { port: number; error?: undefined } | { error: string; port?: undefined };
-
-export function parseAdsPortInput(raw: string): AdsPortParseResult {
-  const value = raw.trim();
-  if (!value) {
-    return { port: DEFAULT_ADS_PORT };
-  }
-  if (!/^\d+$/.test(value)) {
-    return { error: "Enter a whole-number ADS port from 1 to 65535." };
-  }
-  const port = Number(value);
-  if (!Number.isSafeInteger(port) || port < MIN_ADS_PORT || port > MAX_ADS_PORT) {
-    return { error: "ADS port must be between 1 and 65535." };
-  }
-  return { port };
-}
-
-export function candidateAdsPort(candidate: DiscoverCandidate): number {
-  return adsTargetPort(candidate.params);
-}
-
-export function adsTargetPort(target: Record<string, unknown>): number {
-  const port = target.ams_port;
-  return typeof port === "number" && Number.isInteger(port) && port >= MIN_ADS_PORT && port <= MAX_ADS_PORT
-    ? port
-    : DEFAULT_ADS_PORT;
-}
-
-export function adsPortDraftIsStale(
-  raw: string,
-  target: Record<string, unknown>
-): boolean {
-  const parsed = parseAdsPortInput(raw);
-  return parsed.port === undefined || parsed.port !== adsTargetPort(target);
-}
-
+/** The AMS Net ID the browse pane shows for a target. */
 export function adsTargetNetId(target: Record<string, unknown>): string {
   const netId = target.ams_net_id ?? target.target_net_id;
   return typeof netId === "string" && netId.trim().length > 0
@@ -47,6 +10,12 @@ export function adsTargetNetId(target: Record<string, unknown>): string {
     : "Unknown AMS Net ID";
 }
 
+/** The ADS port the server set on a target, when it set one. */
+export function adsTargetPort(target: Record<string, unknown>): number | undefined {
+  return typeof target.ams_port === "number" ? target.ams_port : undefined;
+}
+
+/** `target` browsed at `port`. */
 export function withAdsTargetPort(
   target: Record<string, unknown>,
   port: number
@@ -54,12 +23,9 @@ export function withAdsTargetPort(
   return { ...target, ams_port: port };
 }
 
-export function withCandidateAdsPort(
-  candidate: DiscoverCandidate,
-  port: number
-): DiscoverCandidate {
-  return {
-    ...candidate,
-    params: withAdsTargetPort(candidate.params, port),
-  };
+/** The ADS ports that answered, as the server answered them (sorted, each once). */
+export function respondingAdsPorts(target: Record<string, unknown>): readonly number[] {
+  return Array.isArray(target.responding_ads_ports)
+    ? target.responding_ads_ports.filter((port): port is number => typeof port === "number")
+    : [];
 }

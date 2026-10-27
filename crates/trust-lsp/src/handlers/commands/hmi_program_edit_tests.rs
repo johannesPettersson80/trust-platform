@@ -74,7 +74,7 @@ fn hmi_add_missing_variables_declares_a_pages_values_and_leaves_equipment_to_cre
     assert!(harness.cycle().errors.is_empty(), "it runs");
     for path in ["Main.Level", "Main.Started"] {
         let parsed = trust_runtime::hmi::member_paths::MemberPath::parse(path).expect("a path");
-        assert!(trust_runtime::hmi::member_paths::resolve_member(&parsed, harness.runtime().storage()).is_some(), "{path}");
+        assert!(harness.runtime().with_program_view(|program| trust_runtime::hmi::member_paths::member_value(&parsed, program)).is_some(), "{path}");
     }
     std::fs::write(root.join("src/main.st"), &edited).expect("write the edited program");
     let again = hmi_program_edits::add_missing_variables_value(&context, args());
@@ -148,9 +148,10 @@ fn hmi_create_plc_code_asks_for_a_control_cycle_and_the_result_compiles() {
     for file in creates.iter().filter(|file| file["uri"].as_str().unwrap().ends_with(".st")) {
         sources.push(trust_runtime::harness::SourceFile::new(file["text"].as_str().unwrap()));
     }
-    let runtime = trust_runtime::harness::CompileSession::from_sources(sources).build_runtime().expect("the created PLC code compiles");
+    let session = trust_runtime::harness::CompileSession::from_sources(sources);
+    let runtime = trust_runtime::harness::TestHarness::from_session(session).expect("the created PLC code compiles").into_runtime();
     let running = trust_runtime::hmi::member_paths::MemberPath::parse("Line.P101.Running").unwrap();
-    assert!(trust_runtime::hmi::member_paths::resolve_member(&running, runtime.storage()).is_some());
+    assert!(runtime.with_program_view(|program| trust_runtime::hmi::member_paths::locate_member(&running, program)).is_some());
     std::fs::remove_dir_all(root).unwrap();
 }
 
@@ -190,7 +191,7 @@ fn equipment_hardware_edits_validate_direction_and_wire_a_real_io_signal() {
         harness.advance_time(trust_runtime::value::Duration::from_millis(100));
         assert!(harness.cycle().errors.is_empty());
     }
-    assert_eq!(harness.runtime().io().read(&trust_runtime::io::IoAddress::parse("%QX0.0").unwrap()).unwrap(), trust_runtime::value::Value::Bool(true));
+    assert_eq!(harness.runtime().read_io(&trust_runtime::io::IoAddress::parse("%QX0.0").unwrap()).unwrap(), trust_runtime::value::Value::Bool(true));
     assert!(wired.contains("Started := TRUE;"), "the program's own logic is kept");
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -203,6 +204,9 @@ fn hmi_declaration_checks_keep_write_policy_without_compiling_unfinished_logic()
     let denied=hmi_checks::check_value_with_context(&context,vec![json!({"authoring":true,"file":"hmi/pages/settings.toml","text":page})]);
     assert_eq!(denied["ok"],true,"declaration checks do not compile the invalid body: {denied}");
     assert!(!denied["problems"].as_array().unwrap().is_empty(),"absence of a write policy is still denied");
+    // The editor's quick fix allows the point the problem names (specification 39, §12.2.3);
+    // catches an authoring answer that drops it, which leaves the problem without its fix.
+    assert_eq!(denied["problems"][0]["point"],json!("Main.Started"),"{denied}");
     std::fs::write(root.join("runtime.toml"),"[[runtime.web.hmi.write]]\npath='Main.Started'\nrole='operator'\n").unwrap();
     let allowed=hmi_checks::check_value_with_context(&context,vec![json!({"authoring":true,"file":"hmi/pages/settings.toml","text":page})]);
     assert_eq!(allowed["problems"],json!([]),"{allowed}");

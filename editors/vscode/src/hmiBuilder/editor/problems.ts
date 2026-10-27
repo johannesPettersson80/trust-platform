@@ -27,7 +27,7 @@ const CHANGE_DELAY_MS = 400;
 
 interface CheckAnswer {
   ok?: boolean;
-  problems?: Array<{ line: number; object: string; property?: string | null; message: string }>;
+  problems?: Array<{ line: number; object: string; property?: string | null; message: string; point?: string | null }>;
   errors?: Array<{ line?: number; message: string }>;
 }
 
@@ -145,6 +145,11 @@ export class HmiProblems implements vscode.Disposable {
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
   /** Each checked file's problems by object id, for the canvas. */
   private readonly byObject = new Map<string, Record<string, string[]>>();
+  /** Each checked file's write-policy points by object id and problem, as the language server names
+   * them (§12.2.3), for the inspector's fix. */
+  private readonly pointsByObject = new Map<string, Record<string, Record<string, string>>>();
+  /** Each checked file's write-policy points by diagnostic (`<line>:<message>`), for the quick fix. */
+  private readonly pointsByDiagnostic = new Map<string, Map<string, string>>();
   /** Each checked file's quality warnings by object id, for the canvas and the inspector. */
   private readonly warningsByObject = new Map<string, Record<string, QualityWarning[]>>();
   /** Each project's colour warnings, for the Colours section. */
@@ -174,6 +179,15 @@ export class HmiProblems implements vscode.Disposable {
   }
 
   /** The problems of a page or popup file by object id, for the canvas. */
+  objectPoints(uri: vscode.Uri): Record<string, Record<string, string>> {
+    return this.pointsByObject.get(uri.toString()) ?? {};
+  }
+
+  /** The point a write-policy problem names, for its quick fix (§12.2.3). */
+  pointOf(uri: vscode.Uri, diagnostic: vscode.Diagnostic): string | undefined {
+    return this.pointsByDiagnostic.get(uri.toString())?.get(`${diagnostic.range.start.line}:${diagnostic.message}`);
+  }
+
   objectProblems(uri: vscode.Uri): Record<string, string[]> {
     return this.byObject.get(uri.toString()) ?? {};
   }
@@ -248,6 +262,8 @@ export class HmiProblems implements vscode.Disposable {
     this.versions.set(key, (this.versions.get(key) ?? 0) + 1);
     this.collection.delete(uri);
     this.byObject.delete(key);
+    this.pointsByObject.delete(key);
+    this.pointsByDiagnostic.delete(key);
     this.warningsByObject.delete(key);
     const root = screenFileRoot(uri.fsPath);
     if (root) this.colourWarningsByRoot.delete(path.normalize(root));
@@ -424,10 +440,17 @@ export class HmiProblems implements vscode.Disposable {
     };
     let diagnostics: vscode.Diagnostic[];
     const objects: Record<string, string[]> = {};
+    const points: Record<string, Record<string, string>> = {};
+    const byDiagnostic = new Map<string, string>();
     if (answer?.ok) {
       diagnostics = (answer.problems ?? []).map((problem) => {
         objects[problem.object] = [...(objects[problem.object] ?? []), problem.message];
-        return at(problem.line, problem.message);
+        const diagnostic = at(problem.line, problem.message);
+        if (problem.point) {
+          points[problem.object] = { ...(points[problem.object] ?? {}), [problem.message]: problem.point };
+          byDiagnostic.set(`${diagnostic.range.start.line}:${problem.message}`, problem.point);
+        }
+        return diagnostic;
       });
     } else {
       const located = (answer?.errors ?? []).filter((error) => typeof error.line === "number");
@@ -437,6 +460,8 @@ export class HmiProblems implements vscode.Disposable {
     }
     this.collection.set(uri, diagnostics);
     this.byObject.set(key, objects);
+    this.pointsByObject.set(key, points);
+    this.pointsByDiagnostic.set(key, byDiagnostic);
     this.changed.fire(uri);
     // A pair has no objects to warn about.
     if (!answer?.ok || path.basename(path.dirname(uri.fsPath)) === "pairs") return;

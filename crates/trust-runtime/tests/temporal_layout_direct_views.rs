@@ -2,6 +2,8 @@
 //! A TIME in a DWORD image is little-endian unsigned milliseconds (spec 12 §4.1). Adjacent TIME
 //! images must not alias (spec 10 §1.2 direct-address layout). TIME is not an ANY_BIT type, so it
 //! has no partial access (spec 02 §1, Partial Access to ANY_BIT Variables).
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 #![cfg(feature = "full")]
 use trust_runtime::{
     harness::{CompileSession, TestHarness},
@@ -67,9 +69,7 @@ fn time_and_ltime_variables_reject_partial_bit_and_byte_access() {
                  picked := elapsed.{selector}; END_PROGRAM"
             );
             assert!(
-                CompileSession::from_source(&source)
-                    .build_runtime()
-                    .is_err(),
+                CompileSession::from_source(&source).declarations().is_err(),
                 "{declaration} {selector}"
             );
         }

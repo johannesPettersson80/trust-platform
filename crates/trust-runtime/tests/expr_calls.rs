@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
+
 use trust_runtime::harness::TestHarness;
 
 #[test]
@@ -163,10 +165,16 @@ fn function_in_out_with_conversion_expression_regression_issue_13() {
         END_PROGRAM
     "#;
 
-    let err = TestHarness::from_source(source)
-        .err()
-        .expect("generic in-out lowering should fail under current VM constraints");
-    assert!(err.to_string().contains("unsupported generic type"));
+    // A USINT in-out takes the caller's variable (IEC §6.6.1.2.2): i = 100, countDown FALSE, so
+    // the call adds 4 and subtracts 0, leaving 104 after one cycle. A copy that is not written back
+    // would leave 100; an increment in the wrong type would fault.
+    let mut harness = TestHarness::from_source(source).expect("the in-out program compiles");
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
+    assert_eq!(
+        harness.get_output("i"),
+        Some(trust_runtime::value::Value::USInt(104))
+    );
 }
 
 #[test]
@@ -197,8 +205,14 @@ fn function_in_out_without_conversion_expression_baseline() {
         END_PROGRAM
     "#;
 
-    let err = TestHarness::from_source(source)
-        .err()
-        .expect("generic in-out lowering should fail under current VM constraints");
-    assert!(err.to_string().contains("unsupported generic type"));
+    // A USINT in-out takes the caller's variable (IEC §6.6.1.2.2): i = 100, countDown FALSE, so
+    // the call adds 4 and subtracts 0, leaving 104 after one cycle. A copy that is not written back
+    // would leave 100; an increment in the wrong type would fault.
+    let mut harness = TestHarness::from_source(source).expect("the in-out program compiles");
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
+    assert_eq!(
+        harness.get_output("i"),
+        Some(trust_runtime::value::Value::USInt(104))
+    );
 }

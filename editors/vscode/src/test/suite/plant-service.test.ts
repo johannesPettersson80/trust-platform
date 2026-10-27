@@ -137,8 +137,8 @@ suite("Plant service projection", () => {
       description: "Editable",
       parameters: { gain: 2, time_constant_s: 5 },
       initialState: [1],
+      preservedConfiguration: (read.saved_configuration as { plants: unknown[] }).plants[0],
       stepMs: 5,
-      projectStepMs: 10,
       initialInput: [2],
       inputScale: [0.1],
       inputOffset: [-1],
@@ -562,6 +562,43 @@ suite("Plant service projection", () => {
         },
       },
     ]);
+  });
+
+  // Specification 47 §20.1: the editor asks the project's session; the project identity and the
+  // editor tables come from one capabilities request.
+  test("sends plant editor requests through the session with the project identity", async () => {
+    const requests: Array<{ operation: string; params: Record<string, unknown> }> = [];
+    const client = {
+      async request(operation: string, params: Record<string, unknown>) {
+        requests.push({ operation, params });
+        const common = { contract: "trust.plant", schema_version: 1, project_id: "project:sha256:editor", operation };
+        if (operation === "plant.capabilities") return { ...common, editor: { models: [] } } as PlantContractMessage;
+        if (operation === "plant.signals") return { ...common, signals: { status: "ready" } } as PlantContractMessage;
+        return { ...common, draft: params.draft } as PlantContractMessage;
+      },
+    };
+    const editor = plantServiceApi.plantEditorClient(client);
+    assert.strictEqual(plantServiceApi.plantEditorClient(client), editor, "one editor client per session");
+    assert.deepStrictEqual(await editor.tables(), { models: [] });
+    const answer = await editor.edit({ draft: { plantId: "tank" }, action: { kind: "open" } });
+    assert.deepStrictEqual(answer.draft, { plantId: "tank" });
+    await editor.edit({ draft: { plantId: "tank" } });
+    assert.deepStrictEqual(
+      await editor.signals({ compiled: undefined, live: { inputs: [] } }),
+      { status: "ready" }
+    );
+    assert.deepStrictEqual(requests.map((request) => request.operation), [
+      "plant.capabilities", "plant.edit", "plant.edit", "plant.signals",
+    ]);
+    assert.deepStrictEqual(requests[1].params, {
+      contract: "trust.plant", schema_version: 1, project_id: "project:sha256:editor",
+      draft: { plantId: "tank" }, action: { kind: "open" },
+    });
+    assert.strictEqual("action" in requests[2].params, false, "a plain check sends no action");
+    assert.deepStrictEqual(requests[3].params, {
+      contract: "trust.plant", schema_version: 1, project_id: "project:sha256:editor",
+      compiled: null, live: { inputs: [] },
+    });
   });
 
   test("reuses one stopped command session for one resolved project", () => {

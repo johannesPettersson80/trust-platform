@@ -1,569 +1,309 @@
-use trust_runtime::eval::expr::{Expr, LValue};
-use trust_runtime::eval::ops::BinaryOp;
-use trust_runtime::eval::stmt::Stmt;
-use trust_runtime::task::{ProgramDef, TaskConfig};
-use trust_runtime::value::{Duration, Value};
-use trust_runtime::RuntimeBuilder;
+//! Task scheduling of a program's configuration (IEC 61131-3 §6.8.2; specification 10 sections 4.3
+//! to 4.6): periodic intervals, SINGLE events, priorities, background programs, missed intervals
+//! and the logical clock.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
-fn inc_program(name: &str, var: &str) -> ProgramDef {
-    ProgramDef {
-        name: name.into(),
-        vars: Vec::new(),
-        temps: Vec::new(),
-        using: Vec::new(),
-        body: vec![Stmt::Assign {
-            target: LValue::Name(var.into()),
-            value: Expr::Binary {
-                op: BinaryOp::Add,
-                left: Box::new(Expr::Name(var.into())),
-                right: Box::new(Expr::Literal(Value::Int(1))),
-            },
-            location: None,
-        }],
-    }
+use trust_runtime::debug::{DebugControl, RuntimeEvent};
+use trust_runtime::harness::TestHarness;
+use trust_runtime::value::{Duration, Value};
+
+/// `count` counted up by the program `P` that the configuration `tasks` runs; `tasks` declares the
+/// task `T` and the instance `P1` of `P`.
+fn counting(globals: &str, tasks: &str) -> TestHarness {
+    TestHarness::from_source(&format!(
+        "CONFIGURATION C\nVAR_GLOBAL\n    count : INT := 0;\n{globals}END_VAR\n{tasks}\n\
+         END_CONFIGURATION\n\nPROGRAM P\ncount := count + 1;\nEND_PROGRAM\n"
+    ))
+    .expect("the program compiles")
+}
+
+fn scan(harness: &mut TestHarness) {
+    harness.runtime_mut().execute_cycle().unwrap();
+}
+
+fn global(harness: &TestHarness, name: &str) -> Value {
+    harness
+        .runtime()
+        .read_variable(name)
+        .unwrap_or_else(|error| panic!("{name}: {error}"))
+}
+
+fn set_trigger(harness: &mut TestHarness, value: bool) {
+    harness
+        .runtime_mut()
+        .write_variable("trigger", &Value::Bool(value))
+        .unwrap();
+}
+
+/// A debug control attached to the harness's runtime, which receives its events.
+fn debugged(harness: &mut TestHarness) -> DebugControl {
+    let debug = DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
+    debug
+}
+
+/// The missed activations of `task` reported since the previous call.
+fn missed(debug: &DebugControl, task: &str) -> u64 {
+    debug
+        .drain_runtime_events()
+        .iter()
+        .filter_map(|event| match event {
+            RuntimeEvent::TaskOverrun { name, missed, .. } if name.as_str() == task => {
+                Some(*missed)
+            }
+            _ => None,
+        })
+        .sum()
 }
 
 #[test]
 fn periodic_interval() {
-    let mut runtime = RuntimeBuilder::new();
-    {
-        let (name, type_id, value) = ("count", trust_hir::TypeId::INT, Value::Int(0));
-        runtime
-            .register_global(trust_runtime::program_model::VarDef {
-                name: name.into(),
-                type_id,
-                initializer: Some(Expr::Literal(value)),
-                retain: trust_runtime::RetainPolicy::Unspecified,
-                static_storage: false,
-                external: false,
-                in_out: false,
-                constant: false,
-                address: None,
-            })
-            .unwrap();
-    }
-    runtime.register_program(inc_program("P", "count"));
+    let mut harness = counting(
+        "",
+        "TASK T (INTERVAL := T#10ms, PRIORITY := 1);\nPROGRAM P1 WITH T : P;",
+    );
 
-    runtime.register_task(TaskConfig {
-        name: "T".into(),
-        interval: Duration::from_millis(10),
-        single: None,
-        priority: 1,
-        programs: vec!["P".into()],
-        fb_instances: Vec::new(),
-    });
-    let mut runtime = runtime.build().unwrap();
+    scan(&mut harness);
+    assert_eq!(global(&harness, "count"), Value::Int(0));
 
-    runtime.execute_cycle().unwrap();
-    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(0)));
+    harness.advance_time(Duration::from_millis(5));
+    scan(&mut harness);
+    assert_eq!(global(&harness, "count"), Value::Int(0));
 
-    runtime.advance_time(Duration::from_millis(5));
-    runtime.execute_cycle().unwrap();
-    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(0)));
-
-    runtime.advance_time(Duration::from_millis(5));
-    runtime.execute_cycle().unwrap();
-    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(1)));
+    harness.advance_time(Duration::from_millis(5));
+    scan(&mut harness);
+    assert_eq!(global(&harness, "count"), Value::Int(1));
 }
 
 #[test]
 fn interval_zero_disables_periodic() {
-    let mut runtime = RuntimeBuilder::new();
-    {
-        let (name, type_id, value) = ("count", trust_hir::TypeId::INT, Value::Int(0));
-        runtime
-            .register_global(trust_runtime::program_model::VarDef {
-                name: name.into(),
-                type_id,
-                initializer: Some(Expr::Literal(value)),
-                retain: trust_runtime::RetainPolicy::Unspecified,
-                static_storage: false,
-                external: false,
-                in_out: false,
-                constant: false,
-                address: None,
-            })
-            .unwrap();
-    }
-    runtime.register_program(inc_program("P", "count"));
+    let mut harness = counting(
+        "",
+        "TASK T (INTERVAL := T#0ms, PRIORITY := 1);\nPROGRAM P1 WITH T : P;",
+    );
 
-    runtime.register_task(TaskConfig {
-        name: "T".into(),
-        interval: Duration::ZERO,
-        single: None,
-        priority: 1,
-        programs: vec!["P".into()],
-        fb_instances: Vec::new(),
-    });
-    let mut runtime = runtime.build().unwrap();
-
-    runtime.advance_time(Duration::from_millis(20));
-    runtime.execute_cycle().unwrap();
-    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(0)));
+    harness.advance_time(Duration::from_millis(20));
+    scan(&mut harness);
+    assert_eq!(global(&harness, "count"), Value::Int(0));
 }
 
 #[test]
 fn event_single_rise() {
-    let mut runtime = RuntimeBuilder::new();
-    for (name, type_id, value) in [
-        ("trigger", trust_hir::TypeId::BOOL, Value::Bool(false)),
-        ("count", trust_hir::TypeId::INT, Value::Int(0)),
-    ] {
-        runtime
-            .register_global(trust_runtime::program_model::VarDef {
-                name: name.into(),
-                type_id,
-                initializer: Some(Expr::Literal(value)),
-                retain: trust_runtime::RetainPolicy::Unspecified,
-                static_storage: false,
-                external: false,
-                in_out: false,
-                constant: false,
-                address: None,
-            })
-            .unwrap();
-    }
-    runtime.register_program(inc_program("P", "count"));
+    let mut harness = counting(
+        "    trigger : BOOL := FALSE;\n",
+        "TASK T (SINGLE := trigger, PRIORITY := 1);\nPROGRAM P1 WITH T : P;",
+    );
 
-    runtime.register_task(TaskConfig {
-        name: "T".into(),
-        interval: Duration::ZERO,
-        single: Some("trigger".into()),
-        priority: 1,
-        programs: vec!["P".into()],
-        fb_instances: Vec::new(),
-    });
-    let mut runtime = runtime.build().unwrap();
+    scan(&mut harness);
+    assert_eq!(global(&harness, "count"), Value::Int(0));
 
-    runtime.execute_cycle().unwrap();
-    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(0)));
+    set_trigger(&mut harness, true);
+    scan(&mut harness);
+    assert_eq!(global(&harness, "count"), Value::Int(1));
 
-    runtime.write_global("trigger", Value::Bool(true)).unwrap();
-    runtime.execute_cycle().unwrap();
-    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(1)));
+    scan(&mut harness);
+    assert_eq!(global(&harness, "count"), Value::Int(1));
 
-    runtime.execute_cycle().unwrap();
-    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(1)));
-
-    runtime.write_global("trigger", Value::Bool(false)).unwrap();
-    runtime.execute_cycle().unwrap();
-    runtime.write_global("trigger", Value::Bool(true)).unwrap();
-    runtime.execute_cycle().unwrap();
-    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(2)));
+    set_trigger(&mut harness, false);
+    scan(&mut harness);
+    set_trigger(&mut harness, true);
+    scan(&mut harness);
+    assert_eq!(global(&harness, "count"), Value::Int(2));
 }
 
 #[test]
 fn single_blocks_periodic() {
-    let mut runtime = RuntimeBuilder::new();
-    for (name, type_id, value) in [
-        ("trigger", trust_hir::TypeId::BOOL, Value::Bool(true)),
-        ("count", trust_hir::TypeId::INT, Value::Int(0)),
-    ] {
-        runtime
-            .register_global(trust_runtime::program_model::VarDef {
-                name: name.into(),
-                type_id,
-                initializer: Some(Expr::Literal(value)),
-                retain: trust_runtime::RetainPolicy::Unspecified,
-                static_storage: false,
-                external: false,
-                in_out: false,
-                constant: false,
-                address: None,
-            })
-            .unwrap();
-    }
-    runtime.register_program(inc_program("P", "count"));
+    let mut harness = counting(
+        "    trigger : BOOL := TRUE;\n",
+        "TASK T (SINGLE := trigger, INTERVAL := T#10ms, PRIORITY := 1);\nPROGRAM P1 WITH T : P;",
+    );
 
-    runtime.register_task(TaskConfig {
-        name: "T".into(),
-        interval: Duration::from_millis(10),
-        single: Some("trigger".into()),
-        priority: 1,
-        programs: vec!["P".into()],
-        fb_instances: Vec::new(),
-    });
-    let mut runtime = runtime.build().unwrap();
+    harness.advance_time(Duration::from_millis(10));
+    scan(&mut harness);
+    assert_eq!(global(&harness, "count"), Value::Int(0));
 
-    runtime.advance_time(Duration::from_millis(10));
-    runtime.execute_cycle().unwrap();
-    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(0)));
-
-    runtime.write_global("trigger", Value::Bool(false)).unwrap();
-    runtime.advance_time(Duration::from_millis(10));
-    runtime.execute_cycle().unwrap();
-    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(1)));
+    set_trigger(&mut harness, false);
+    harness.advance_time(Duration::from_millis(10));
+    scan(&mut harness);
+    assert_eq!(global(&harness, "count"), Value::Int(1));
 }
 
 #[test]
 fn event_edge_coalescing_between_samples() {
-    let mut runtime = RuntimeBuilder::new();
-    for (name, type_id, value) in [
-        ("trigger", trust_hir::TypeId::BOOL, Value::Bool(false)),
-        ("count", trust_hir::TypeId::INT, Value::Int(0)),
-    ] {
-        runtime
-            .register_global(trust_runtime::program_model::VarDef {
-                name: name.into(),
-                type_id,
-                initializer: Some(Expr::Literal(value)),
-                retain: trust_runtime::RetainPolicy::Unspecified,
-                static_storage: false,
-                external: false,
-                in_out: false,
-                constant: false,
-                address: None,
-            })
-            .unwrap();
-    }
-    runtime.register_program(inc_program("P", "count"));
+    let mut harness = counting(
+        "    trigger : BOOL := FALSE;\n",
+        "TASK T (SINGLE := trigger, PRIORITY := 1);\nPROGRAM P1 WITH T : P;",
+    );
 
-    runtime.register_task(TaskConfig {
-        name: "T".into(),
-        interval: Duration::ZERO,
-        single: Some("trigger".into()),
-        priority: 1,
-        programs: vec!["P".into()],
-        fb_instances: Vec::new(),
-    });
-    let mut runtime = runtime.build().unwrap();
+    set_trigger(&mut harness, true);
+    set_trigger(&mut harness, false);
+    set_trigger(&mut harness, true);
+    scan(&mut harness);
 
-    runtime.write_global("trigger", Value::Bool(true)).unwrap();
-    runtime.write_global("trigger", Value::Bool(false)).unwrap();
-    runtime.write_global("trigger", Value::Bool(true)).unwrap();
-    runtime.execute_cycle().unwrap();
-
-    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(1)));
+    assert_eq!(global(&harness, "count"), Value::Int(1));
 }
+
+/// `A` sets `x` to 1 and `B` sets `y` to `x + 1`, so `y` is 2 exactly when `A` ran first.
+const ORDERED: &str = "
+PROGRAM A
+x := 1;
+END_PROGRAM
+
+PROGRAM B
+y := x + 1;
+END_PROGRAM
+";
 
 #[test]
 fn priority_order() {
-    let mut runtime = RuntimeBuilder::new();
-    for (name, type_id, value) in [
-        ("trigger", trust_hir::TypeId::BOOL, Value::Bool(false)),
-        ("x", trust_hir::TypeId::INT, Value::Int(0)),
-        ("y", trust_hir::TypeId::INT, Value::Int(0)),
-    ] {
-        runtime
-            .register_global(trust_runtime::program_model::VarDef {
-                name: name.into(),
-                type_id,
-                initializer: Some(Expr::Literal(value)),
-                retain: trust_runtime::RetainPolicy::Unspecified,
-                static_storage: false,
-                external: false,
-                in_out: false,
-                constant: false,
-                address: None,
-            })
-            .unwrap();
-    }
+    let mut harness = TestHarness::from_source(&format!(
+        "CONFIGURATION C
+VAR_GLOBAL
+    trigger : BOOL := FALSE;
+    x : INT := 0;
+    y : INT := 0;
+END_VAR
+TASK TaskA (SINGLE := trigger, PRIORITY := 0);
+TASK TaskB (SINGLE := trigger, PRIORITY := 10);
+PROGRAM IA WITH TaskA : A;
+PROGRAM IB WITH TaskB : B;
+END_CONFIGURATION
+{ORDERED}"
+    ))
+    .unwrap();
 
-    let prog_a = ProgramDef {
-        name: "A".into(),
-        vars: Vec::new(),
-        temps: Vec::new(),
-        using: Vec::new(),
-        body: vec![Stmt::Assign {
-            target: LValue::Name("x".into()),
-            value: Expr::Literal(Value::Int(1)),
-            location: None,
-        }],
-    };
-    let prog_b = ProgramDef {
-        name: "B".into(),
-        vars: Vec::new(),
-        temps: Vec::new(),
-        using: Vec::new(),
-        body: vec![Stmt::Assign {
-            target: LValue::Name("y".into()),
-            value: Expr::Binary {
-                op: BinaryOp::Add,
-                left: Box::new(Expr::Name("x".into())),
-                right: Box::new(Expr::Literal(Value::Int(1))),
-            },
-            location: None,
-        }],
-    };
-
-    runtime.register_program(prog_a);
-    runtime.register_program(prog_b);
-
-    runtime.register_task(TaskConfig {
-        name: "TaskA".into(),
-        interval: Duration::ZERO,
-        single: Some("trigger".into()),
-        priority: 0,
-        programs: vec!["A".into()],
-        fb_instances: Vec::new(),
-    });
-    runtime.register_task(TaskConfig {
-        name: "TaskB".into(),
-        interval: Duration::ZERO,
-        single: Some("trigger".into()),
-        priority: 10,
-        programs: vec!["B".into()],
-        fb_instances: Vec::new(),
-    });
-    let mut runtime = runtime.build().unwrap();
-
-    runtime.write_global("trigger", Value::Bool(true)).unwrap();
-    runtime.execute_cycle().unwrap();
-    assert_eq!(runtime.storage().get_global("y"), Some(&Value::Int(2)));
+    set_trigger(&mut harness, true);
+    scan(&mut harness);
+    assert_eq!(global(&harness, "y"), Value::Int(2));
 }
 
 #[test]
 fn background_programs() {
-    let mut runtime = RuntimeBuilder::new();
-    for (name, type_id, value) in [
-        ("trigger", trust_hir::TypeId::BOOL, Value::Bool(false)),
-        ("count", trust_hir::TypeId::INT, Value::Int(0)),
-        ("bg", trust_hir::TypeId::INT, Value::Int(0)),
-    ] {
-        runtime
-            .register_global(trust_runtime::program_model::VarDef {
-                name: name.into(),
-                type_id,
-                initializer: Some(Expr::Literal(value)),
-                retain: trust_runtime::RetainPolicy::Unspecified,
-                static_storage: false,
-                external: false,
-                in_out: false,
-                constant: false,
-                address: None,
-            })
-            .unwrap();
-    }
+    let mut harness = TestHarness::from_source(
+        "CONFIGURATION C
+VAR_GLOBAL
+    trigger : BOOL := FALSE;
+    count : INT := 0;
+    bg : INT := 0;
+END_VAR
+TASK T (SINGLE := trigger, PRIORITY := 1);
+PROGRAM TaskInst WITH T : TaskProg;
+PROGRAM BgInst : BgProg;
+END_CONFIGURATION
 
-    runtime.register_program(inc_program("TaskProg", "count"));
-    runtime.register_program(inc_program("BgProg", "bg"));
+PROGRAM TaskProg
+count := count + 1;
+END_PROGRAM
 
-    runtime.register_task(TaskConfig {
-        name: "T".into(),
-        interval: Duration::ZERO,
-        single: Some("trigger".into()),
-        priority: 1,
-        programs: vec!["TaskProg".into()],
-        fb_instances: Vec::new(),
-    });
-    let mut runtime = runtime.build().unwrap();
+PROGRAM BgProg
+bg := bg + 1;
+END_PROGRAM
+",
+    )
+    .unwrap();
 
-    runtime.execute_cycle().unwrap();
-    assert_eq!(runtime.storage().get_global("bg"), Some(&Value::Int(1)));
-    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(0)));
+    scan(&mut harness);
+    assert_eq!(global(&harness, "bg"), Value::Int(1));
+    assert_eq!(global(&harness, "count"), Value::Int(0));
 
-    runtime.write_global("trigger", Value::Bool(true)).unwrap();
-    runtime.execute_cycle().unwrap();
-    assert_eq!(runtime.storage().get_global("bg"), Some(&Value::Int(2)));
-    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(1)));
+    set_trigger(&mut harness, true);
+    scan(&mut harness);
+    assert_eq!(global(&harness, "bg"), Value::Int(2));
+    assert_eq!(global(&harness, "count"), Value::Int(1));
 }
 
 #[test]
 fn fifo_order_by_due_time_within_priority() {
-    let mut runtime = RuntimeBuilder::new();
-    for (name, type_id, value) in [
-        ("trigger", trust_hir::TypeId::BOOL, Value::Bool(false)),
-        ("x", trust_hir::TypeId::INT, Value::Int(0)),
-        ("y", trust_hir::TypeId::INT, Value::Int(0)),
-    ] {
-        runtime
-            .register_global(trust_runtime::program_model::VarDef {
-                name: name.into(),
-                type_id,
-                initializer: Some(Expr::Literal(value)),
-                retain: trust_runtime::RetainPolicy::Unspecified,
-                static_storage: false,
-                external: false,
-                in_out: false,
-                constant: false,
-                address: None,
-            })
-            .unwrap();
-    }
+    let mut harness = TestHarness::from_source(&format!(
+        "CONFIGURATION C
+VAR_GLOBAL
+    trigger : BOOL := FALSE;
+    x : INT := 0;
+    y : INT := 0;
+END_VAR
+TASK Periodic (INTERVAL := T#10ms, PRIORITY := 0);
+TASK Event (SINGLE := trigger, PRIORITY := 0);
+PROGRAM IA WITH Periodic : A;
+PROGRAM IB WITH Event : B;
+END_CONFIGURATION
+{ORDERED}"
+    ))
+    .unwrap();
 
-    let prog_a = ProgramDef {
-        name: "A".into(),
-        vars: Vec::new(),
-        temps: Vec::new(),
-        using: Vec::new(),
-        body: vec![Stmt::Assign {
-            target: LValue::Name("x".into()),
-            value: Expr::Literal(Value::Int(1)),
-            location: None,
-        }],
-    };
-    let prog_b = ProgramDef {
-        name: "B".into(),
-        vars: Vec::new(),
-        temps: Vec::new(),
-        using: Vec::new(),
-        body: vec![Stmt::Assign {
-            target: LValue::Name("y".into()),
-            value: Expr::Binary {
-                op: BinaryOp::Add,
-                left: Box::new(Expr::Name("x".into())),
-                right: Box::new(Expr::Literal(Value::Int(1))),
-            },
-            location: None,
-        }],
-    };
-    runtime.register_program(prog_a);
-    runtime.register_program(prog_b);
+    harness.advance_time(Duration::from_millis(20));
+    set_trigger(&mut harness, true);
+    scan(&mut harness);
 
-    runtime.register_task(TaskConfig {
-        name: "Periodic".into(),
-        interval: Duration::from_millis(10),
-        single: None,
-        priority: 0,
-        programs: vec!["A".into()],
-        fb_instances: Vec::new(),
-    });
-    runtime.register_task(TaskConfig {
-        name: "Event".into(),
-        interval: Duration::ZERO,
-        single: Some("trigger".into()),
-        priority: 0,
-        programs: vec!["B".into()],
-        fb_instances: Vec::new(),
-    });
-    let mut runtime = runtime.build().unwrap();
-
-    runtime.advance_time(Duration::from_millis(20));
-    runtime.write_global("trigger", Value::Bool(true)).unwrap();
-    runtime.execute_cycle().unwrap();
-
-    assert_eq!(runtime.storage().get_global("y"), Some(&Value::Int(2)));
+    assert_eq!(global(&harness, "y"), Value::Int(2));
 }
 
 #[test]
 fn task_overrun_drops_missed_intervals() {
-    let mut runtime = RuntimeBuilder::new();
-    {
-        let (name, type_id, value) = ("count", trust_hir::TypeId::INT, Value::Int(0));
-        runtime
-            .register_global(trust_runtime::program_model::VarDef {
-                name: name.into(),
-                type_id,
-                initializer: Some(Expr::Literal(value)),
-                retain: trust_runtime::RetainPolicy::Unspecified,
-                static_storage: false,
-                external: false,
-                in_out: false,
-                constant: false,
-                address: None,
-            })
-            .unwrap();
-    }
-    runtime.register_program(inc_program("P", "count"));
+    let mut harness = counting(
+        "",
+        "TASK T (INTERVAL := T#10ms, PRIORITY := 0);\nPROGRAM P1 WITH T : P;",
+    );
+    let debug = debugged(&mut harness);
 
-    runtime.register_task(TaskConfig {
-        name: "T".into(),
-        interval: Duration::from_millis(10),
-        single: None,
-        priority: 0,
-        programs: vec!["P".into()],
-        fb_instances: Vec::new(),
-    });
-    let mut runtime = runtime.build().unwrap();
+    harness.advance_time(Duration::from_millis(35));
+    scan(&mut harness);
 
-    runtime.advance_time(Duration::from_millis(35));
-    runtime.execute_cycle().unwrap();
-
-    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(1)));
-    assert_eq!(runtime.task_overrun_count("T"), Some(2));
+    assert_eq!(global(&harness, "count"), Value::Int(1));
+    assert_eq!(missed(&debug, "T"), 2);
 }
 
 /// Injected logical samples exercise IEC 61131-3 Ed.3 section 6.8.2 b.
 /// These varying offsets are a manual-clock trace, not measured hosted wakeups.
 #[test]
 fn periodic_task_keeps_its_interval_when_cycles_start_late() {
-    let mut runtime = RuntimeBuilder::new();
-    {
-        let (name, type_id, value) = ("count", trust_hir::TypeId::INT, Value::Int(0));
-        runtime
-            .register_global(trust_runtime::program_model::VarDef {
-                name: name.into(),
-                type_id,
-                initializer: Some(Expr::Literal(value)),
-                retain: trust_runtime::RetainPolicy::Unspecified,
-                static_storage: false,
-                external: false,
-                in_out: false,
-                constant: false,
-                address: None,
-            })
-            .unwrap();
-    }
-    runtime.register_program(inc_program("P", "count"));
-    runtime.register_task(TaskConfig {
-        name: "T".into(),
-        interval: Duration::from_millis(100),
-        single: None,
-        priority: 1,
-        programs: vec!["P".into()],
-        fb_instances: Vec::new(),
-    });
-    let mut runtime = runtime.build().unwrap();
+    let mut harness = counting(
+        "",
+        "TASK T (INTERVAL := T#100ms, PRIORITY := 1);\nPROGRAM P1 WITH T : P;",
+    );
+    let debug = debugged(&mut harness);
 
     // Ten seconds of 50 ms slots, each cycle starting 70 µs or 20 µs after its slot.
     for slot in 1..=200_i64 {
         let late_us = if slot % 4 < 2 { 70 } else { 20 };
-        runtime.set_current_time(Duration::from_nanos(slot * 50_000_000 + late_us * 1_000));
-        runtime.execute_cycle().unwrap();
+        harness
+            .runtime_mut()
+            .set_current_time(Duration::from_nanos(slot * 50_000_000 + late_us * 1_000));
+        scan(&mut harness);
     }
 
     assert_eq!(
-        runtime.storage().get_global("count"),
-        Some(&Value::Int(100)),
+        global(&harness, "count"),
+        Value::Int(100),
         "one run per 100 ms"
     );
-    assert_eq!(runtime.task_overrun_count("T"), Some(0));
+    assert_eq!(missed(&debug, "T"), 0);
 }
 
 #[test]
 fn periodic_task_non_multiple_interval_preserves_nominal_deadlines() {
-    let mut runtime = RuntimeBuilder::new();
-    {
-        let (name, type_id, value) = ("count", trust_hir::TypeId::INT, Value::Int(0));
-        runtime
-            .register_global(trust_runtime::program_model::VarDef {
-                name: name.into(),
-                type_id,
-                initializer: Some(Expr::Literal(value)),
-                retain: trust_runtime::RetainPolicy::Unspecified,
-                static_storage: false,
-                external: false,
-                in_out: false,
-                constant: false,
-                address: None,
-            })
-            .unwrap();
-    }
-    runtime.register_program(inc_program("P", "count"));
-    runtime.register_task(TaskConfig {
-        name: "T".into(),
-        interval: Duration::from_millis(25),
-        single: None,
-        priority: 1,
-        programs: vec!["P".into()],
-        fb_instances: Vec::new(),
-    });
-    let mut runtime = runtime.build().unwrap();
+    let mut harness = counting(
+        "",
+        "TASK T (INTERVAL := T#25ms, PRIORITY := 1);\nPROGRAM P1 WITH T : P;",
+    );
+    let debug = debugged(&mut harness);
 
     let mut activations = Vec::new();
     let mut previous = 0;
     for sample in (10..=1000).step_by(10) {
-        runtime.set_current_time(Duration::from_millis(sample));
-        runtime.execute_cycle().unwrap();
-        let Some(Value::Int(count)) = runtime.storage().get_global("count") else {
+        harness
+            .runtime_mut()
+            .set_current_time(Duration::from_millis(sample));
+        scan(&mut harness);
+        let Value::Int(count) = global(&harness, "count") else {
             panic!("expected an INT counter");
         };
-        if *count != previous {
-            assert_eq!(*count, previous + 1, "never replay missed activations");
+        if count != previous {
+            assert_eq!(count, previous + 1, "never replay missed activations");
             activations.push(sample);
-            previous = *count;
+            previous = count;
         }
-        assert_eq!(runtime.task_overrun_count("T"), Some(0));
+        assert_eq!(missed(&debug, "T"), 0);
     }
     assert_eq!(&activations[..4], &[30, 50, 80, 100]);
     assert_eq!(activations.len(), 40);
@@ -573,13 +313,15 @@ fn periodic_task_non_multiple_interval_preserves_nominal_deadlines() {
 
 #[test]
 fn simulation_time_advance_saturates_at_duration_limit() {
-    let mut runtime = RuntimeBuilder::new().build().unwrap();
-    runtime.set_current_time(Duration::from_nanos(i64::MAX - 5));
+    let mut harness = TestHarness::from_source("PROGRAM Main\nEND_PROGRAM\n").unwrap();
+    harness
+        .runtime_mut()
+        .set_current_time(Duration::from_nanos(i64::MAX - 5));
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        runtime.advance_time(Duration::from_nanos(10));
+        harness.advance_time(Duration::from_nanos(10));
     }));
 
     assert!(result.is_ok(), "simulation-time overflow must not panic");
-    assert_eq!(runtime.current_time(), Duration::from_nanos(i64::MAX));
+    assert_eq!(harness.current_time(), Duration::from_nanos(i64::MAX));
 }

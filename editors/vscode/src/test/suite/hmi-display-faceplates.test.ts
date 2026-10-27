@@ -1,7 +1,7 @@
 import * as assert from "assert";
 
 import type { PageData } from "../../hmiBuilder/display/runtimeDisplay";
-import { ANNA, click, commands, Host, object, openedWith, settle } from "./hmiDisplayHost";
+import { ERIK, click, commands, Host, object, openedWith, settle } from "./hmiDisplayHost";
 
 // Specification 39, §8.7 item 5: a click on an object with a faceplate opens it over the page,
 // named by the page and the object, with its description under its title; its stream and its
@@ -109,7 +109,7 @@ suite("HMI display: faceplates", () => {
       "no Settings for an Operator",
     );
     const engineer = new Host(PAGE);
-    engineer.session = { status: 200, body: { ...ANNA, user: "erik", role: "engineer" } };
+    engineer.session = { status: 200, body: ERIK };
     engineer.popups["faceplate:overview/p-101"] = equipment();
     engineer.reply("/api/hmi/settings", { status: 200, body: { ok: true, instance: "Main.P101", settings: [] } });
     const asEngineer = await openedWith(engineer);

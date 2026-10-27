@@ -31,6 +31,57 @@ suite("Plant service contract decoder", () => {
     }
   });
 
+  // Specification 47 §20.1: the editor's answers are rendered as Rust gives them; the decoder only
+  // admits their envelope.
+  test("accepts the plant editor's answers and fails closed on a malformed one", () => {
+    const common = {
+      contract: "trust.plant",
+      schema_version: 1,
+      project_id: "project:sha256:abc",
+    };
+    const capabilities = {
+      ...common,
+      operation: "plant.capabilities",
+      model_kinds: ["first_order"],
+      limits: { max_trace_rows_per_plant: 100_000 },
+      operations: ["plant.capabilities", "plant.edit", "plant.signals"],
+      editor: { models: [] },
+    };
+    assert.strictEqual(decodePlantContractResponse(capabilities).kind, "accepted");
+    assert.deepStrictEqual(
+      decodePlantContractResponse({ ...capabilities, editor: [] }),
+      { kind: "status_unavailable", reason: "malformed_payload" }
+    );
+    const edit = {
+      ...common,
+      operation: "plant.edit",
+      draft: { plantId: "tank" },
+      outcome: { kind: "applied" },
+      issues: [],
+      can_save: true,
+      view: { model: { kind: "first_order" } },
+      candidate: { id: "tank" },
+    };
+    assert.strictEqual(decodePlantContractResponse(edit).kind, "accepted");
+    const { outcome: _outcome, ...withoutOutcome } = edit;
+    assert.strictEqual(decodePlantContractResponse(withoutOutcome).kind, "accepted", "a plain check has no outcome");
+    const { view: _view, ...withoutView } = edit;
+    assert.deepStrictEqual(
+      decodePlantContractResponse(withoutView),
+      { kind: "status_unavailable", reason: "malformed_payload" }
+    );
+    assert.deepStrictEqual(
+      decodePlantContractResponse({ ...edit, label: "extra" }),
+      { kind: "status_unavailable", reason: "malformed_payload" }
+    );
+    const signals = { ...common, operation: "plant.signals", signals: { status: "ready", commands: [], feedbacks: [] } };
+    assert.strictEqual(decodePlantContractResponse(signals).kind, "accepted");
+    assert.deepStrictEqual(
+      decodePlantContractResponse({ ...signals, signals: null }),
+      { kind: "status_unavailable", reason: "malformed_payload" }
+    );
+  });
+
   test("fails closed for unsupported schemas and wrong project identities", () => {
     assert.deepStrictEqual(
       decodePlantContractResponse({

@@ -191,7 +191,8 @@ fn state_of(binding: &TransferBinding, symbol: &str) -> Result<TransferMember, F
 /// The output change a mode transfer allows at its first execution (`maximum_output_change`, annex E6.9; `transfer` of
 /// `ConnectedIdentificationMode`): the larger of `1e-6`, the loop's faster rate limit over one execution of its task, and, for an
 /// Auto entry reviewed on `observed`, the controller's own response in that execution ([`auto_entry_response`]). A transfer to
-/// Manual, or an Auto entry without a reviewed status, allows no response.
+/// Manual, or an Auto entry without a reviewed status, allows no response. The integral step on the error the controller enters
+/// with is the runtime's to add ([`mode_entry_error_gain`]).
 #[must_use]
 pub fn mode_output_change(
     loop_definition: &LoopDefinition,
@@ -211,31 +212,50 @@ pub fn mode_output_change(
     MINIMUM_OUTPUT_CHANGE.max(rated).max(response)
 }
 
-/// The response of a PID in its first execution after an Auto entry (`autoEntryResponse`, A6.4): the allowance of
-/// `noise_aware_transfer_tolerance` with the gains `observed` reports and the measured output noise `process_noise`, that is the
-/// larger of the exact check and `2·|Kp|·n + |Ki|·Δt·n + 4·|Kd|·n/Δt`, plus the integral step on the error the controller enters
-/// with, `|Ki|·Δt·|r − y|`, which identification moved the measurement away from the setpoint to make. Δt is the loop's task
-/// period, r its setpoint and y its process value as `observed` reports them. The gains are the law's, or a program's seed
-/// variables (C2). A loop without an integral or derivative term (no law, or a proportional law), or a response that is not a
-/// finite number (a gain or a value that `observed` does not report), allows no response: zero.
+/// The response of a PID in its first execution after an Auto entry to the measured noise (`autoEntryResponse`, A6.4): the
+/// allowance of `noise_aware_transfer_tolerance` with the gains `observed` reports and the measured output noise `process_noise`,
+/// that is the larger of the exact check and `2·|Kp|·n + |Ki|·Δt·n + 4·|Kd|·n/Δt`, Δt being the loop's task period. The gains are
+/// the law's, or a program's seed variables (C2). A loop without an integral or derivative term (no law, or a proportional law),
+/// without a setpoint, or with a response that is not a finite number (a gain that `observed` does not report), allows no
+/// response: zero.
 #[must_use]
 pub fn auto_entry_response(
     loop_definition: &LoopDefinition,
     observed: &TransferStatus,
     process_noise: Option<f64>,
 ) -> f64 {
-    let Some(symbols) = gain_symbols(loop_definition)
-        .filter(|symbols| symbols.integral.is_some() || symbols.derivative.is_some())
-    else {
-        return 0.0;
-    };
-    let Some(setpoint) = loop_definition.signals.setpoint.as_ref() else {
-        return 0.0;
-    };
+    entry_response_terms(loop_definition, observed, process_noise)
+        .map_or(0.0, |(allowance, _)| allowance)
+}
+
+/// The factor of the error at entry in a PID's first execution after an Auto entry, `|Ki|·Δt` (A6.4), which the runtime
+/// multiplies by the error it reads in the scan of the entry (`entry_error_gain`, annex E6.9): identification moved the
+/// measurement away from the setpoint, and the plant still moves while the transfer waits for its boundary. None for a transfer
+/// to Manual, an Auto entry without a reviewed status, and a loop whose response has no integral step.
+#[must_use]
+pub fn mode_entry_error_gain(
+    loop_definition: &LoopDefinition,
+    manual: bool,
+    observed: Option<&TransferStatus>,
+    process_noise: Option<f64>,
+) -> Option<f64> {
+    let observed = observed.filter(|_| !manual)?;
+    let (_, integral_gain) = entry_response_terms(loop_definition, observed, process_noise)?;
+    let gain = integral_gain.abs() * loop_definition.controller.task_period_ms / 1000.0;
+    (gain > 0.0 && gain.is_finite()).then_some(gain)
+}
+
+/// The noise response of [`auto_entry_response`] and the integral gain `Ki` that `observed` reports (zero for a law without an
+/// integral term), when the loop has an integral or derivative term and a setpoint and both are finite numbers.
+fn entry_response_terms(
+    loop_definition: &LoopDefinition,
+    observed: &TransferStatus,
+    process_noise: Option<f64>,
+) -> Option<(f64, f64)> {
+    let symbols = gain_symbols(loop_definition)
+        .filter(|symbols| symbols.integral.is_some() || symbols.derivative.is_some())?;
+    loop_definition.signals.setpoint.as_ref()?;
     let value = |symbol: &str| observed_number(observed, symbol);
-    let cycle_seconds = loop_definition.controller.task_period_ms / 1000.0;
-    let measured = value(&loop_definition.signals.process_variable.symbol);
-    let error = (value(&setpoint.symbol) - measured).abs();
     // An absent integral term contributes nothing; a reported-missing gain stays NaN and so allows no response.
     let integral_gain = symbols.integral.map_or(0.0, value);
     let allowance = noise_aware_transfer_tolerance(
@@ -246,17 +266,12 @@ pub fn auto_entry_response(
         AllowanceTerms {
             integral_gain: symbols.integral.map(value),
             derivative_gain: symbols.derivative.map(value),
-            cycle_seconds: Some(cycle_seconds),
+            cycle_seconds: Some(loop_definition.controller.task_period_ms / 1000.0),
             entry_error: None,
         },
     )
-    .unwrap_or(f64::NAN);
-    let response = allowance + integral_gain.abs() * cycle_seconds * error;
-    if response.is_finite() {
-        response
-    } else {
-        0.0
-    }
+    .ok()?;
+    (allowance.is_finite() && integral_gain.is_finite()).then_some((allowance, integral_gain))
 }
 
 /// The number `observed` reports for `symbol` (`Number(observed.values[symbol])`): a BOOL is 0 or 1, and a value it does not

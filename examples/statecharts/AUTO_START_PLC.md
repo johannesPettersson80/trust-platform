@@ -30,8 +30,10 @@ sudo trust-runtime setup --force
 /opt/trust/production/
 ├── src/                          # ST source files
 │   ├── main.st
-│   └── statechart_handler.st
-├── program.stbc                  # compiled bytecode
+│   ├── machine.statechart.json   # a statechart; saving it writes the next two files
+│   ├── machine.st                # its companion: FUNCTION_BLOCK FB_machine_STATECHART
+│   └── machine.visual.runtime.st # its runtime entry: runs the companion every 20 ms
+├── program.tpi                   # compiled program image
 ├── runtime.toml                  # runtime configuration
 ├── io.toml                       # EtherCAT / I/O configuration
 └── trust-lsp.toml                # project configuration
@@ -48,7 +50,6 @@ name = "MainResource"
 cycle_interval_ms = 10
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime.sock"
 mode = "production"
 debug_enabled = false
 
@@ -103,7 +104,7 @@ value = "FALSE"
 ```bash
 cd /opt/trust/production
 sudo trust-runtime build --project .
-ls -lh program.stbc
+ls -lh program.tpi
 ```
 
 ## Configure a systemd Service
@@ -164,35 +165,43 @@ sudo journalctl -u trust-plc.service --since "10 minutes ago"
 
 ### Runtime control commands
 
+The service runs as root, so its endpoint file and its default control socket belong to root:
+run `ctl` with `sudo`.
+
 ```bash
-trust-runtime ctl --project /opt/trust/production status
-trust-runtime ctl --project /opt/trust/production shutdown
+sudo trust-runtime ctl --project /opt/trust/production status
+sudo trust-runtime ctl --project /opt/trust/production shutdown
 sudo systemctl restart trust-plc.service
 sudo systemctl stop trust-plc.service
-trust-runtime ctl --project /opt/trust/production config-get
+sudo trust-runtime ctl --project /opt/trust/production config-get
 ```
 
 ## ST Integration Notes
 
-Example skeleton:
+A statechart runs as Structured Text inside the program image: its companion
+`FUNCTION_BLOCK FB_<name>_STATECHART` has a `BOOL` input `EV_<EVENT>` for each
+event of an untimed transition and the outputs `STATE_INDEX` and `STATE_NAME`
+(`docs/specs/17-visual-editors-runtime-unification.md` §3). Its runtime entry
+calls it every 20 ms; your own program can call it instead and drive its
+events, for example for a chart with the events `START` and `TICK`:
 
 ```st
 PROGRAM Main
 VAR
-    statechart_running: BOOL;
-    statechart_state: STRING;
-    statechart_event: STRING;
+    machine : FB_machine_STATECHART;  (* the companion of machine.statechart.json *)
+    start_button AT %IX0.0 : BOOL;
+    tick : TON;
 END_VAR
 
-(* StateCharts integrate through RuntimeClient over control socket *)
-statechart_running := %MX1000.0;
-statechart_state := 'Running';
-
-IF start_button THEN
-    %MW2000 := 1;  (* event trigger: START *)
-END_IF;
+tick(IN := NOT tick.Q, PT := T#200ms);
+machine(EV_START := start_button, EV_TICK := tick.Q);
+(* machine.STATE_NAME holds the active state *)
 END_PROGRAM
 ```
+
+The companion writes the direct addresses of its action mappings through
+`VAR_EXTERNAL` globals `ld_io_<address>`; a configuration that runs it declares
+them `AT` the addresses, as the runtime entry does.
 
 ## Production Recommendations
 
@@ -213,7 +222,7 @@ END_PROGRAM
 ```bash
 sudo systemctl status trust-plc.service
 sudo journalctl -u trust-plc.service -n 100 --no-pager
-trust-runtime ctl --project /opt/trust/production status
+sudo trust-runtime ctl --project /opt/trust/production status
 ```
 
 ## Optional: Remote access over SSH tunnel
@@ -239,4 +248,4 @@ sudo systemctl start trust-plc.service
 
 ## Summary
 
-With this setup, Linux boots directly into your PLC runtime, the service self-recovers on faults, and StateChart-driven control stays available through the runtime control interface.
+With this setup, Linux boots directly into your PLC runtime, the service self-recovers on faults, and each statechart runs in the PLC cycle as its companion function block.

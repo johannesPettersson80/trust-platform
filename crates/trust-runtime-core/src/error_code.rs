@@ -7,48 +7,16 @@ use core::fmt;
 /// Closed stable identifier vocabulary exposed at runtime boundaries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum StableErrorCode {
-    RuntimeConstantWrite,
-    RuntimeStagingViolation,
-    RuntimeVisibilityViolation,
     RuntimeReferenceLifetime,
-    RuntimeProgramRootReplacement,
     RuntimeInvalidAlias,
-    RuntimePreparationLimit,
     RuntimeInvalidExecutionState,
     RuntimeProfileUnsupported,
-    BytecodeDecodeMemoryLimit,
-    BytecodeDecodeWorkLimit,
-    BytecodeInvalidMagic,
-    BytecodeUnsupportedVersion,
-    BytecodeInvalidHeader,
-    BytecodeInvalidChecksum,
-    BytecodeInvalidSectionTable,
-    BytecodeSectionOutOfBounds,
-    BytecodeSectionOverlap,
-    BytecodeSectionAlignment,
-    BytecodeUnexpectedEof,
-    BytecodeInvalidSection,
-    BytecodeMissingSection,
-    BytecodeInvalidOpcode,
-    BytecodeInvalidJumpTarget,
-    BytecodeInvalidPouId,
-    BytecodeInvalidIndex,
-    VmStackUnderflow,
-    VmStackOverflow,
-    VmCallStackUnderflow,
     VmCallStackOverflow,
-    VmUnsupportedOpcode,
-    VmUnsupportedReferenceLocation,
-    VmInvalidNativeCall,
-    VmBytecodeDecode,
     RuntimeUndefinedVariable,
     RuntimeUndefinedFunction,
     RuntimeUndefinedProgram,
     RuntimeUndefinedFunctionBlock,
-    RuntimeUndefinedTask,
-    RuntimeUndefinedLabel,
     RuntimeUndefinedField,
-    RuntimeInvalidTaskSingle,
     RuntimeInvalidIoAddress,
     RuntimeTypeMismatch,
     RuntimeInvalidArgumentCount,
@@ -60,10 +28,7 @@ pub enum StableErrorCode {
     RuntimeIndexOutOfBounds,
     RuntimeSubrangeViolation,
     RuntimeNullReference,
-    RuntimeInvalidControlFlow,
     RuntimeForStepZero,
-    RuntimeConditionNotBool,
-    RuntimeCaseSelectorType,
     RuntimeDateTimeRange,
     RuntimeInvalidFrame,
     RuntimeResourceFaulted,
@@ -73,9 +38,6 @@ pub enum StableErrorCode {
     RuntimeIoAddress,
     RuntimeIoFreshness,
     RuntimeInitFailed,
-    RuntimeUnsupportedBytecodeVersion,
-    RuntimeInvalidBytecodeMetadata,
-    RuntimeInvalidBytecode,
     RuntimeThreadSpawn,
     RuntimeWatchdogTimeout,
     RuntimeRestartLimitExceeded,
@@ -90,6 +52,9 @@ pub enum StableErrorCode {
     RuntimeControlError,
     RuntimeStringCapacityExceeded,
     RuntimeNonFiniteValue,
+    RuntimeImportUnsupported,
+    RuntimeDeploymentRecordInvalid,
+    RuntimeDeploymentRefused,
 }
 
 impl StableErrorCode {
@@ -97,48 +62,16 @@ impl StableErrorCode {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::RuntimeConstantWrite => "runtime_constant_write",
-            Self::RuntimeStagingViolation => "runtime_staging_violation",
-            Self::RuntimeVisibilityViolation => "runtime_visibility_violation",
             Self::RuntimeReferenceLifetime => "runtime_reference_lifetime",
-            Self::RuntimeProgramRootReplacement => "runtime_program_root_replacement",
             Self::RuntimeInvalidAlias => "runtime_invalid_alias",
-            Self::RuntimePreparationLimit => "runtime_preparation_limit",
             Self::RuntimeInvalidExecutionState => "runtime_invalid_execution_state",
             Self::RuntimeProfileUnsupported => "runtime_profile_unsupported",
-            Self::BytecodeDecodeMemoryLimit => "bytecode_decode_memory_limit",
-            Self::BytecodeDecodeWorkLimit => "bytecode_decode_work_limit",
-            Self::BytecodeInvalidMagic => "bytecode_invalid_magic",
-            Self::BytecodeUnsupportedVersion => "bytecode_unsupported_version",
-            Self::BytecodeInvalidHeader => "bytecode_invalid_header",
-            Self::BytecodeInvalidChecksum => "bytecode_invalid_checksum",
-            Self::BytecodeInvalidSectionTable => "bytecode_invalid_section_table",
-            Self::BytecodeSectionOutOfBounds => "bytecode_section_out_of_bounds",
-            Self::BytecodeSectionOverlap => "bytecode_section_overlap",
-            Self::BytecodeSectionAlignment => "bytecode_section_alignment",
-            Self::BytecodeUnexpectedEof => "bytecode_unexpected_eof",
-            Self::BytecodeInvalidSection => "bytecode_invalid_section",
-            Self::BytecodeMissingSection => "bytecode_missing_section",
-            Self::BytecodeInvalidOpcode => "bytecode_invalid_opcode",
-            Self::BytecodeInvalidJumpTarget => "bytecode_invalid_jump_target",
-            Self::BytecodeInvalidPouId => "bytecode_invalid_pou_id",
-            Self::BytecodeInvalidIndex => "bytecode_invalid_index",
-            Self::VmStackUnderflow => "vm_stack_underflow",
-            Self::VmStackOverflow => "vm_stack_overflow",
-            Self::VmCallStackUnderflow => "vm_call_stack_underflow",
             Self::VmCallStackOverflow => "vm_call_stack_overflow",
-            Self::VmUnsupportedOpcode => "vm_unsupported_opcode",
-            Self::VmUnsupportedReferenceLocation => "vm_unsupported_reference_location",
-            Self::VmInvalidNativeCall => "vm_invalid_native_call",
-            Self::VmBytecodeDecode => "vm_bytecode_decode",
             Self::RuntimeUndefinedVariable => "runtime_undefined_variable",
             Self::RuntimeUndefinedFunction => "runtime_undefined_function",
             Self::RuntimeUndefinedProgram => "runtime_undefined_program",
             Self::RuntimeUndefinedFunctionBlock => "runtime_undefined_function_block",
-            Self::RuntimeUndefinedTask => "runtime_undefined_task",
-            Self::RuntimeUndefinedLabel => "runtime_undefined_label",
             Self::RuntimeUndefinedField => "runtime_undefined_field",
-            Self::RuntimeInvalidTaskSingle => "runtime_invalid_task_single",
             Self::RuntimeInvalidIoAddress => "runtime_invalid_io_address",
             Self::RuntimeTypeMismatch => "runtime_type_mismatch",
             Self::RuntimeInvalidArgumentCount => "runtime_invalid_argument_count",
@@ -150,10 +83,7 @@ impl StableErrorCode {
             Self::RuntimeIndexOutOfBounds => "runtime_index_out_of_bounds",
             Self::RuntimeSubrangeViolation => "runtime_subrange_violation",
             Self::RuntimeNullReference => "runtime_null_reference",
-            Self::RuntimeInvalidControlFlow => "runtime_invalid_control_flow",
             Self::RuntimeForStepZero => "runtime_for_step_zero",
-            Self::RuntimeConditionNotBool => "runtime_condition_not_bool",
-            Self::RuntimeCaseSelectorType => "runtime_case_selector_type",
             Self::RuntimeDateTimeRange => "runtime_date_time_range",
             Self::RuntimeInvalidFrame => "runtime_invalid_frame",
             Self::RuntimeResourceFaulted => "runtime_resource_faulted",
@@ -163,9 +93,6 @@ impl StableErrorCode {
             Self::RuntimeIoAddress => "runtime_io_address",
             Self::RuntimeIoFreshness => "runtime_io_freshness",
             Self::RuntimeInitFailed => "runtime_init_failed",
-            Self::RuntimeUnsupportedBytecodeVersion => "runtime_unsupported_bytecode_version",
-            Self::RuntimeInvalidBytecodeMetadata => "runtime_invalid_bytecode_metadata",
-            Self::RuntimeInvalidBytecode => "runtime_invalid_bytecode",
             Self::RuntimeThreadSpawn => "runtime_thread_spawn",
             Self::RuntimeWatchdogTimeout => "runtime_watchdog_timeout",
             Self::RuntimeRestartLimitExceeded => "runtime_restart_limit_exceeded",
@@ -180,6 +107,9 @@ impl StableErrorCode {
             Self::RuntimeControlError => "runtime_control_error",
             Self::RuntimeStringCapacityExceeded => "runtime_string_capacity_exceeded",
             Self::RuntimeNonFiniteValue => "runtime_non_finite_value",
+            Self::RuntimeImportUnsupported => "runtime_import_unsupported",
+            Self::RuntimeDeploymentRecordInvalid => "runtime_deployment_record_invalid",
+            Self::RuntimeDeploymentRefused => "runtime_deployment_refused",
         }
     }
 }
@@ -202,11 +132,6 @@ mod tests {
     fn representative_stable_error_codes_use_exact_lower_snake_case() {
         for (code, expected) in [
             (
-                StableErrorCode::BytecodeInvalidMagic,
-                "bytecode_invalid_magic",
-            ),
-            (StableErrorCode::VmStackUnderflow, "vm_stack_underflow"),
-            (
                 StableErrorCode::RuntimeTypeMismatch,
                 "runtime_type_mismatch",
             ),
@@ -228,48 +153,16 @@ mod tests {
         use StableErrorCode::*;
 
         let codes = [
-            RuntimeConstantWrite,
-            RuntimeStagingViolation,
-            RuntimeVisibilityViolation,
             RuntimeReferenceLifetime,
-            RuntimeProgramRootReplacement,
             RuntimeInvalidAlias,
-            RuntimePreparationLimit,
             RuntimeInvalidExecutionState,
             RuntimeProfileUnsupported,
-            BytecodeDecodeMemoryLimit,
-            BytecodeDecodeWorkLimit,
-            BytecodeInvalidMagic,
-            BytecodeUnsupportedVersion,
-            BytecodeInvalidHeader,
-            BytecodeInvalidChecksum,
-            BytecodeInvalidSectionTable,
-            BytecodeSectionOutOfBounds,
-            BytecodeSectionOverlap,
-            BytecodeSectionAlignment,
-            BytecodeUnexpectedEof,
-            BytecodeInvalidSection,
-            BytecodeMissingSection,
-            BytecodeInvalidOpcode,
-            BytecodeInvalidJumpTarget,
-            BytecodeInvalidPouId,
-            BytecodeInvalidIndex,
-            VmStackUnderflow,
-            VmStackOverflow,
-            VmCallStackUnderflow,
             VmCallStackOverflow,
-            VmUnsupportedOpcode,
-            VmUnsupportedReferenceLocation,
-            VmInvalidNativeCall,
-            VmBytecodeDecode,
             RuntimeUndefinedVariable,
             RuntimeUndefinedFunction,
             RuntimeUndefinedProgram,
             RuntimeUndefinedFunctionBlock,
-            RuntimeUndefinedTask,
-            RuntimeUndefinedLabel,
             RuntimeUndefinedField,
-            RuntimeInvalidTaskSingle,
             RuntimeInvalidIoAddress,
             RuntimeTypeMismatch,
             RuntimeInvalidArgumentCount,
@@ -281,10 +174,7 @@ mod tests {
             RuntimeIndexOutOfBounds,
             RuntimeSubrangeViolation,
             RuntimeNullReference,
-            RuntimeInvalidControlFlow,
             RuntimeForStepZero,
-            RuntimeConditionNotBool,
-            RuntimeCaseSelectorType,
             RuntimeDateTimeRange,
             RuntimeInvalidFrame,
             RuntimeResourceFaulted,
@@ -294,9 +184,6 @@ mod tests {
             RuntimeIoAddress,
             RuntimeIoFreshness,
             RuntimeInitFailed,
-            RuntimeUnsupportedBytecodeVersion,
-            RuntimeInvalidBytecodeMetadata,
-            RuntimeInvalidBytecode,
             RuntimeThreadSpawn,
             RuntimeWatchdogTimeout,
             RuntimeRestartLimitExceeded,
@@ -311,9 +198,12 @@ mod tests {
             RuntimeControlError,
             RuntimeStringCapacityExceeded,
             RuntimeNonFiniteValue,
+            RuntimeImportUnsupported,
+            RuntimeDeploymentRecordInvalid,
+            RuntimeDeploymentRefused,
         ];
 
-        assert_eq!(codes.len(), 83);
+        assert_eq!(codes.len(), 48);
         for (index, code) in codes.iter().copied().enumerate() {
             assert!(
                 !codes[..index].contains(&code),
@@ -330,48 +220,16 @@ mod tests {
         use StableErrorCode::*;
 
         match code {
-            RuntimeConstantWrite
-            | RuntimeStagingViolation
-            | RuntimeVisibilityViolation
-            | RuntimeReferenceLifetime
-            | RuntimeProgramRootReplacement
+            RuntimeReferenceLifetime
             | RuntimeInvalidAlias
-            | RuntimePreparationLimit
             | RuntimeInvalidExecutionState
             | RuntimeProfileUnsupported
-            | BytecodeDecodeMemoryLimit
-            | BytecodeDecodeWorkLimit
-            | BytecodeInvalidMagic
-            | BytecodeUnsupportedVersion
-            | BytecodeInvalidHeader
-            | BytecodeInvalidChecksum
-            | BytecodeInvalidSectionTable
-            | BytecodeSectionOutOfBounds
-            | BytecodeSectionOverlap
-            | BytecodeSectionAlignment
-            | BytecodeUnexpectedEof
-            | BytecodeInvalidSection
-            | BytecodeMissingSection
-            | BytecodeInvalidOpcode
-            | BytecodeInvalidJumpTarget
-            | BytecodeInvalidPouId
-            | BytecodeInvalidIndex
-            | VmStackUnderflow
-            | VmStackOverflow
-            | VmCallStackUnderflow
             | VmCallStackOverflow
-            | VmUnsupportedOpcode
-            | VmUnsupportedReferenceLocation
-            | VmInvalidNativeCall
-            | VmBytecodeDecode
             | RuntimeUndefinedVariable
             | RuntimeUndefinedFunction
             | RuntimeUndefinedProgram
             | RuntimeUndefinedFunctionBlock
-            | RuntimeUndefinedTask
-            | RuntimeUndefinedLabel
             | RuntimeUndefinedField
-            | RuntimeInvalidTaskSingle
             | RuntimeInvalidIoAddress
             | RuntimeTypeMismatch
             | RuntimeInvalidArgumentCount
@@ -383,10 +241,7 @@ mod tests {
             | RuntimeIndexOutOfBounds
             | RuntimeSubrangeViolation
             | RuntimeNullReference
-            | RuntimeInvalidControlFlow
             | RuntimeForStepZero
-            | RuntimeConditionNotBool
-            | RuntimeCaseSelectorType
             | RuntimeDateTimeRange
             | RuntimeInvalidFrame
             | RuntimeResourceFaulted
@@ -396,9 +251,6 @@ mod tests {
             | RuntimeIoAddress
             | RuntimeIoFreshness
             | RuntimeInitFailed
-            | RuntimeUnsupportedBytecodeVersion
-            | RuntimeInvalidBytecodeMetadata
-            | RuntimeInvalidBytecode
             | RuntimeThreadSpawn
             | RuntimeWatchdogTimeout
             | RuntimeRestartLimitExceeded
@@ -412,7 +264,10 @@ mod tests {
             | RuntimeRetainMigration
             | RuntimeControlError
             | RuntimeStringCapacityExceeded
-            | RuntimeNonFiniteValue => {}
+            | RuntimeNonFiniteValue
+            | RuntimeImportUnsupported
+            | RuntimeDeploymentRecordInvalid
+            | RuntimeDeploymentRefused => {}
         }
     }
 
