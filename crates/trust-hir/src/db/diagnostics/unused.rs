@@ -280,10 +280,39 @@ fn is_interface_method_parameter(symbols: &SymbolTable, symbol: &Symbol) -> bool
         return false;
     }
     let grandparent = parent.parent.and_then(|id| symbols.get(id));
-    matches!(
-        grandparent.map(|sym| &sym.kind),
-        Some(SymbolKind::Interface)
-    )
+    let Some(grandparent) = grandparent else {
+        return false;
+    };
+    match &grandparent.kind {
+        // Method declared inside the INTERFACE POU itself.
+        SymbolKind::Interface => true,
+        // Method on an FB/CLASS that IMPLEMENTS the interface: the
+        // implementing POU must carry the full interface signature even
+        // where the body ignores a pin, so such parameters are
+        // contract-mandated (measured 2026-10-27: 19 of s4's 20 W002 sites
+        // - the fbMqttSub*/fbMqttPayload* families implementing
+        // itfMqttSubscribe/itfMqttPayloadBuilder). Methods outside every
+        // implemented interface keep the warning.
+        SymbolKind::FunctionBlock | SymbolKind::Class => {
+            let owner_id = grandparent.id;
+            let Some(names) = symbols.implements_names(owner_id) else {
+                return false;
+            };
+            names.iter().any(|name| {
+                symbols
+                    .resolve_oop_reference_for_owner(owner_id, name.as_str())
+                    .filter(|iface_id| {
+                        symbols
+                            .get(*iface_id)
+                            .is_some_and(|iface| matches!(iface.kind, SymbolKind::Interface))
+                    })
+                    .and_then(|iface_id| symbols.resolve_child_symbol(iface_id, &parent.name))
+                    .and_then(|method_id| symbols.get(method_id))
+                    .is_some_and(|method| matches!(method.kind, SymbolKind::Method { .. }))
+            })
+        }
+        _ => false,
+    }
 }
 
 #[cfg(test)]

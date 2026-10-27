@@ -26,7 +26,12 @@ following references count:
 Imported declarations, declarations without a source range, members of a
 FUNCTION_BLOCK, CLASS, or INTERFACE, interface-method parameters, non-input
 parameters, and global constants do not receive this warning from the owning
-file. A used declaration must not retain an unused warning.
+file. Interface-method parameters cover both the methods declared inside an
+INTERFACE POU and the methods of a FUNCTION_BLOCK or CLASS that IMPLEMENTS an
+interface declaring a method of the same name — the implementing POU must
+carry the full interface signature even where its body ignores a pin. A
+method outside every implemented interface keeps the warning for its
+unused input parameters. A used declaration must not retain an unused warning.
 
 Use is project-wide and identity based. A program selected by a configuration,
 a function or function block referenced from another file, and a member

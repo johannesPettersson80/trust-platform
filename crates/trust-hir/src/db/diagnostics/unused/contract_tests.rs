@@ -393,10 +393,6 @@ END_PROGRAM
     assert_eq!(warning.message, "unused variable 'Forgotten'");
 }
 
-         "genuinely unreferenced constant must still warn: {unused:?}"
-     );
- }
-
 #[test]
 fn extends_base_is_used_by_the_inheriting_declaration() {
     // RED pin 2026-10-27: an EXTENDS/IMPLEMENTS target is an inheritance
@@ -506,9 +502,6 @@ END_CLASS
         "IMPLEMENTS target must count as used: {unused:?}"
     );
 }
-     assert_eq!(u32::from(warning.range.start()), expected);
-     assert_eq!(warning.message, "unused variable 'Forgotten'");
- }
 
 #[test]
 fn qualified_cross_file_gvl_member_use_clears_the_unused_constant_warning() {
@@ -602,5 +595,62 @@ END_FUNCTION
             .iter()
             .any(|message| message.contains("NeverReferenced")),
         "genuinely unreferenced constant must still warn: {unused:?}"
+    );
+}
+
+#[test]
+fn implementing_method_interface_pins_do_not_warn_but_extra_methods_do() {
+    // RED pin 2026-10-27: parameters of a method that IMPLEMENTS an
+    // interface method are contract-mandated (the implementing FB must
+    // declare the full interface signature even where the body ignores a
+    // pin) - they must not fire W002. The old exclusion covered only
+    // methods declared INSIDE an INTERFACE POU. A method that is NOT part
+    // of any implemented interface keeps the warning.
+    let diagnostics = diagnostics_for(
+        &[
+            r#"
+INTERFACE itfSub
+METHOD mHandle : BOOL
+VAR_INPUT
+    sTopic : STRING[10];
+    sCmd : STRING[10];
+END_VAR
+END_METHOD
+END_INTERFACE
+"#,
+            r#"
+FUNCTION_BLOCK fbSub IMPLEMENTS itfSub
+METHOD mHandle : BOOL
+VAR_INPUT
+    sTopic : STRING[10];
+    sCmd : STRING[10];
+END_VAR
+    sCmd := sCmd;
+    mHandle := TRUE;
+END_METHOD
+METHOD mExtra : BOOL
+VAR_INPUT
+    iDead : INT;
+END_VAR
+    mExtra := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+"#,
+        ],
+        1,
+    );
+    let unused: Vec<String> = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == DiagnosticCode::UnusedParameter)
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect();
+
+    assert!(
+        !unused.iter().any(|message| message.contains("sTopic")),
+        "interface-mandated implementing-method pin must not warn: {unused:?}"
+    );
+    assert!(
+        unused.iter().any(|message| message.contains("iDead")),
+        "a pin of a method outside every implemented interface still warns: {unused:?}"
     );
 }

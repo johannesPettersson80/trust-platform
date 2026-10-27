@@ -36,6 +36,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   the captures wrote is taken, never the hand-made pictures. The capture refresh pull request, which had to be merged
   into each release by hand, is gone (specification 22).
 
+- Unused-symbol analysis: input parameters of a method that IMPLEMENTS an
+  interface method no longer receive a false `W002` unused-parameter
+  warning — the implementing POU must carry the full interface signature
+  even where its body ignores a pin. Methods outside every implemented
+  interface keep the warning.
 - Unused-symbol analysis: `EXTENDS` and `IMPLEMENTS` targets count as used —
   a function block referenced only as a base class (or a DUT/interface only
   inherited) no longer receives a false `W009` unused warning, while the
