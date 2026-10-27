@@ -50,6 +50,25 @@ fn experiment_running(lab: &Lab, id: &str) -> bool {
     )
 }
 
+/// Waits until the runtime's record of experiment `id` names the value it applied (E5.6).
+fn wait_until_applied(lab: &Lab, id: &str) {
+    let begun = Instant::now();
+    loop {
+        if let StatusRead::Answer(answer) =
+            RuntimeClient::read_experiment_status(&lab.connection, id)
+            && !answer["last_applied"].is_null()
+        {
+            return;
+        }
+        assert!(
+            begun.elapsed() < EXPERIMENT_LIMIT,
+            "experiment {id} applied nothing within {} s",
+            EXPERIMENT_LIMIT.as_secs()
+        );
+        sleep(POLL);
+    }
+}
+
 /// Waits until the experiment of the running `identify` is running in the runtime: the journal holds its plan before the start is
 /// dispatched (E11.2), and the runtime's record says `running` (E5.6). Returns the plan. The program must still be alive.
 fn wait_until_running(lab: &Lab, identify: &mut Program) -> ControlExperimentPlan {
@@ -233,9 +252,12 @@ fn killed_identification_is_cancelled_through_its_journal_and_keeps_no_model() {
     let mut findings = Findings::default();
     let original = lab.controller_command();
 
-    // 1. The identification runs its experiment, and the program is killed while the runtime runs it.
+    // 1. The identification runs its experiment, and the program is killed while the runtime runs it,
+    // once the experiment has applied its step: a step that was never applied has nothing to restore,
+    // and the record then says `not_required` (E5.5).
     let mut identify = lab.start_verb("identify", &["--json"], "identify");
     let plan = wait_until_running(&lab, &mut identify);
+    wait_until_applied(&lab, &plan.id);
     let killed = kill_outright(&mut identify);
     findings.check(
         killed.code().is_none(),

@@ -21,11 +21,10 @@
 //! with the findings so far. Run time at ten times real time: about a minute, nearly all of it the verbs' own work (each one starts the
 //! engine and reads the runtime and the study); the Apply observations last the test duration of the lesson in process time.
 //!
-//! Run it without concurrent heavy load: the validation batches run the integration tests of this crate in their own Rust phase,
-//! before the VS Code shards start. At ten times real time, a machine loaded beside it (about 12 on 16 cores, 15 October 2026) delays
-//! the engine's reads and writes by whole task periods of process time, and the runtime then refuses Validate's return to Auto as a
-//! first output beyond the reviewed transfer tolerance (annex E6.9). That refusal is the runtime's safety check doing its work, so the
-//! tolerance is never widened for the test; alone, the test passes (focused checks `cs-w2af-2` reruns and `cs-w5b-h`).
+//! At ten times real time, a loaded machine delays the engine's reads and writes by whole task periods of process time, so Identify's
+//! return to Auto after Apply can come while the plant still moves toward the Manual command written back before it. The runtime
+//! allows the controller's response to that change of the measurement, which it reads itself (specification 35, A6.4; annex E6.9),
+//! so the return is applied there too.
 //!
 //! The file is Unix only, as the validate test is: the runtime's endpoint is a Unix socket. Keep needs the `trust-lsp` executable beside
 //! `trust-control-studio` (`cargo build -p trust-lsp`), as `control_studio_keep.rs` does.
@@ -156,6 +155,7 @@ fn transfer(lab: &Lab, manual: bool) {
                 manual,
                 tolerance: OUTPUT_SPAN,
                 entry_error_gain: None,
+                entry_measurement_gain: None,
                 tracking: Some(tracking),
                 reviewed: None,
                 source: ApplySource::Simulation,

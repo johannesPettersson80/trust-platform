@@ -114,7 +114,7 @@ pub(super) fn target(project: &Project<'_>, root: &str) -> Result<Target, String
             return Err(format!("{root} is not a valid program name"));
         }
         let file = format!("src/{program}.st");
-        if project.inputs.root.join(&file).exists() {
+        if super::client_paths::project_file(&project.inputs.root, &file).exists() {
             return Err(format!(
                 "{file} exists but does not declare PROGRAM {program}"
             ));
@@ -472,7 +472,7 @@ fn statements(text: &str) -> Vec<String> {
 
 /// The text of a project file as the editor or the disk has it.
 fn source_text(inputs: &ProjectInputs, file: &str) -> Option<String> {
-    let path = inputs.root.join(file);
+    let path = super::client_paths::project_file(&inputs.root, file);
     inputs
         .sources
         .iter()
@@ -499,7 +499,7 @@ fn replace_all(before: &str, after: String) -> TextEdit {
 }
 
 fn uri_of(root: &Path, file: &str) -> Result<String, String> {
-    Url::from_file_path(root.join(file))
+    Url::from_file_path(super::client_paths::project_file(root, file))
         .map(|uri| uri.to_string())
         .map_err(|_| format!("{file} is not a valid file path"))
 }
@@ -594,7 +594,7 @@ fn configuration(
     cycle_ms: u32,
 ) -> Result<(String, String), String> {
     let file = "src/plant-configuration.st";
-    if project.inputs.root.join(file).exists() {
+    if super::client_paths::project_file(&project.inputs.root, file).exists() {
         return Err(format!(
             "{file} already exists; assign the programs to a task there"
         ));
@@ -820,7 +820,8 @@ fn screen_service(
             .ok_or("the screen file has no text")?;
         // An empty file of that name, left by an earlier run whose text was never saved, is
         // written again; one with text is the user's own.
-        let taken = std::fs::metadata(inputs.root.join(file)).is_ok_and(|meta| meta.len() > 0);
+        let taken = std::fs::metadata(super::client_paths::project_file(&inputs.root, file))
+            .is_ok_and(|meta| meta.len() > 0);
         if taken || creates.contains_key(file) {
             return Err(format!("{file} already exists"));
         }

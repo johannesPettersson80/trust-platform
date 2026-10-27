@@ -849,19 +849,30 @@ legitimately change are compared exactly:
 - a measurement is never required to stay unchanged; it is checked for
   freshness, quality and range;
 - the first controller output after an Auto entry stays within the law's
-  response in one execution to measurement noise and to the error it enters
-  with. For a PID with gains Kp, Ki and Kd and task period Δt this is
-  `Ki·Δt·(|e| + n) + 2·|Kp|·n + 4·|Kd|·n/Δt`, where e is the error at entry and
+  response in one execution to measurement noise, to the measurement's change
+  before the entry, and to the error it enters with. For a PID with gains Kp,
+  Ki and Kd and task period Δt this is
+  `Ki·Δt·(|e| + n) + |Kp|·(|Δy| + 2·n) + 4·|Kd|·n/Δt`, where e is the error at
+  entry, Δy is the measurement's change before the entry, and
   n is the measured output's noise as single executions see it: three standard
   deviations of the measured output about its mean over the steady baseline
   (B3.4 step 2) of the recording the model was fitted from, closed-loop or
   open-loop, times √k when that recording averaged k executions per sample
-  (A4.2). n is zero without a baseline. Other laws use the allowance of their
+  (A4.2). n is zero without a baseline. Δy counts only for an entry that
+  carries the controller's own states, as Identify's mode transfers do (B3.4
+  step 1): such a controller compares the measurement of the entry's scan with
+  the one of its last execution, so a plant that still moves gives a
+  proportional step. Δy is the change of the measurement from the scan before
+  the transfer to the scan of the entry, as the runtime reads both, never as
+  the controller's own state holds it: a controller that did not keep its
+  measurement in Manual makes a bump, which stays refused. An entry that aligns
+  the controller's states to the measurement has no such step, and Δy is zero.
+  Other laws use the allowance of their
   Part C template. A reviewed tolerance replaces the allowance. Validate's
   initialization case, Apply's Auto entry and the return to Auto after a failed
-  Apply use the same allowance. The runtime reads e in the scan of the Auto
-  entry (annex E6.9), because an error read before the transfer is out of date
-  once the plant moves;
+  Apply use the same allowance. The runtime reads e and Δy in the scan of the
+  Auto entry (annex E6.9), because values read before the transfer are out of
+  date once the plant moves;
 - a state declared as bounded, for example a manual output that the program
   copies from the output, stays within its declared bounds.
 

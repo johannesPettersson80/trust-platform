@@ -105,6 +105,11 @@ struct ApplyRequest {
     /// error the controller enters Auto with is known only in the transfer's own scan.
     #[serde(default)]
     entry_error_gain: Option<f64>,
+    /// The factor of the measurement's change in the first output's allowance, `|Kp|` (E6.9): an
+    /// entry that carries the controller's states responds to the measurement's change since the
+    /// scan before the transfer, which is known only in the transfer's own scan.
+    #[serde(default)]
+    entry_measurement_gain: Option<f64>,
     source: String,
     physical_approved: bool,
     tracking: Option<tracking::Tracking>,
@@ -145,8 +150,12 @@ struct Pending {
     /// The place and the pre-commit value of every member the commit wrote: restored if the transfer is rejected.
     restore_points: Vec<(Located, Value)>,
     applied_values: BTreeMap<String, f64>,
-    /// `entry_error_gain` times the error the controller entered Auto with, taken at the commit:
-    /// the first output may move this much more than `maximum_output_change` (E6.9).
+    /// The tracking's process variable as the scan before the transfer left it, read with the
+    /// apply, when the apply has an `entry_measurement_gain`.
+    measurement_before: Option<f64>,
+    /// `entry_error_gain` times the error the controller entered Auto with, plus
+    /// `entry_measurement_gain` times the measurement's change since `measurement_before`, both taken
+    /// at the commit: the first output may move this much more than `maximum_output_change` (E6.9).
     entry_allowance: f64,
 }
 
@@ -689,6 +698,11 @@ impl DebugControl {
         }) {
             return Err("invalid entry error gain".into());
         }
+        if request.entry_measurement_gain.is_some_and(|gain| {
+            !gain.is_finite() || gain < 0.0 || request.manual || request.tracking.is_none()
+        }) {
+            return Err("invalid entry measurement gain".into());
+        }
         let program = self
             .published_program()
             .ok_or("runtime snapshot unavailable")?;
@@ -724,6 +738,16 @@ impl DebugControl {
             return Err(parameters::STALE_SNAPSHOT.into());
         }
         let values = observed(&request.binding, &*program)?;
+        // The measurement of the scan before the transfer, from which the entry's first execution
+        // responds to its change (E6.9).
+        let measurement_before = match (&request.tracking, request.entry_measurement_gain) {
+            (Some(policy), Some(_)) => Some(
+                values[policy.process_variable.as_str()]
+                    .as_f64()
+                    .ok_or("tracking guard unavailable")?,
+            ),
+            _ => None,
+        };
         let initial_outputs = std::iter::once(&request.binding.output)
             .chain(request.binding.additional_outputs.iter())
             .map(|output| Ok((output.symbol.clone(), number(&*program, output)?)))
@@ -784,6 +808,7 @@ impl DebugControl {
             boundary_outputs: BTreeMap::new(),
             restore_points: Vec::new(),
             applied_values,
+            measurement_before,
             entry_allowance: 0.0,
         });
         Ok(json!({"status":"pending","confirmed":false}))
@@ -895,6 +920,7 @@ impl DebugControl {
             return;
         }
         let request = &pending.request;
+        let measurement_before = pending.measurement_before;
         let mut entry_allowance = 0.0;
         let result = (|| -> Result<StagedTransfer, String> {
             let image = program.program_image();
@@ -984,10 +1010,17 @@ impl DebugControl {
             } else {
                 request.values.clone()
             };
-            // The error the controller enters Auto with is the one of this scan (A6.4, E6.9).
-            if let (Some(gain), Some(policy)) = (request.entry_error_gain, &request.tracking) {
-                entry_allowance =
-                    gain * tracking::entry_error(&request.binding, policy, &applied, program)?;
+            // The error the controller enters Auto with, and the measurement's change before the
+            // entry, are those of this scan (A6.4, E6.9).
+            if let Some(policy) = &request.tracking {
+                entry_allowance = tracking::entry_allowance(
+                    &request.binding,
+                    policy,
+                    &applied,
+                    program,
+                    request.entry_error_gain,
+                    request.entry_measurement_gain.zip(measurement_before),
+                )?;
             }
             // Each written member's value is taken before its write, so a rejected transfer can put it back.
             let mut planned = Vec::new();

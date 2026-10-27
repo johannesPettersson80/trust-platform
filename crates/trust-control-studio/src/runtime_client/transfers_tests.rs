@@ -58,6 +58,7 @@ fn write(source: ApplySource) -> TransferWrite {
         manual: true,
         tolerance: 100.0,
         entry_error_gain: None,
+        entry_measurement_gain: None,
         tracking: None,
         reviewed: None,
         source,

@@ -1907,10 +1907,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ### Fixed
 
-- A cycle that starts more than one cycle interval late, because the operating system delayed its
-  wake, begins the cycle grid again (specification 10 §4.3) on computers and chips alike. Before,
-  the next cycle started at once, found no task due and still counted as a scan, so a loaded
-  computer counted scans that ran no task.
+- A cycle that starts a whole cycle interval or more late, because the operating system delayed its
+  wake or the cycle before it ran too long, skips the boundaries it missed and stays on the cycle
+  grid, and a pause keeps the grid too, on computers and chips alike (specification 10 §4.3).
+  Before, the next cycle could start at once, or the grid could move off the tasks' deadlines, so
+  that a cycle found no task due and still counted as a scan: a loaded computer counted scans
+  that ran no task.
 - The language server's HMI and Control Studio commands work in a project opened through a
   symbolic link, as a project under macOS's `/var` or `/tmp` is, or through a short name, as
   Windows' temporary folder is: unsaved editor text is used, the project's programs are no longer
@@ -1919,6 +1921,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - An alarm acknowledgement, shelving, reset or service change from an HMI page is recorded with the
   operator's name also when the scan applies it at once, and an action the runtime refuses no
   longer names the operator for a later change the program makes (specification 40, §5.1).
+- Control Studio's Identify returns a loop it found in Auto to Auto also while the plant still
+  moves. The runtime's check of the first output after the transfer allows the controller's
+  response to the measurement's change before the entry, which the runtime reads itself, never
+  from the controller's own state (specification 35, A6.4; protocol annex E6.9). Before, a busy
+  computer that delayed the return by a few task periods made the runtime refuse it and leave the
+  loop in Manual.
 - On Windows, starting a project's runtime from Devices & Connections finishes again: the started
   runtime no longer holds the output pipes of the command that started it, which kept the command
   waiting for as long as the runtime ran. Control Studio's message when trust-runtime cannot be

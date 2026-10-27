@@ -1307,15 +1307,20 @@ interval after the nominal start of the cycle before it, never one interval
 after the moment the cycle before it actually started, so the time a wake takes
 is not added to the next interval: with a 10 ms cycle and every wake 1 ms late,
 the cycles start at 0, 11, 21 and 31 ms, not at 0, 11, 22 and 33 ms, and a 10 ms
-task misses no activation. A cycle that ends after the next nominal start makes
-the next cycle start at once, without a burst of cycles to catch up; the grid
-continues from that start, and the tasks count the deadlines that passed as
-missed under the rule above. A cycle that starts more than one interval after its
-nominal start, because the operating system delayed its wake that long, begins the
-grid again at its start: the next cycle comes one interval later, when the tasks
-are due, never at once, so that no cycle finds them not yet due. A restart, a
-pause and a start begin the grid again
-from their first cycle. A restart, a recovery from a fault by a restart
+task misses no activation. A cycle that starts a whole interval or more after
+its nominal start, because the operating system delayed its wake that long or
+because the cycle before it ended after the next nominal start, takes the last
+nominal start of the grid at or before its own start: it skips the boundaries it
+missed, without a burst of cycles to catch up, and the tasks count the deadlines
+that passed as missed under the rule above. A cycle that ends after the next
+nominal start makes the next cycle start at once, under the same rule. The grid
+thus never moves off the tasks' deadlines, and no cycle finds a task of the
+cycle interval not yet due: a grid that began again at a late cycle's start,
+between two deadlines, would let a later wake that comes less than an interval
+late pass the task's next deadline, so that the cycle after it found the task
+not yet due and still counted as a scan. A pause keeps the grid, as the tasks
+keep their deadlines through it: the first cycle after the resume is on the last
+nominal start at or before it. A restart, a recovery from a fault by a restart
 included, and a start begin the tasks' timing again at the moment their first
 cycle starts, so the grid begins at that moment: the next cycle's nominal start
 is one interval after it, when the tasks are due, and no cycle between finds

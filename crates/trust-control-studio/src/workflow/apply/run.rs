@@ -490,6 +490,7 @@ fn write_transfer(
         manual,
         tolerance: step.tolerance,
         entry_error_gain: step.entry_error_gain,
+        entry_measurement_gain: None,
         tracking: Some(step.tracking),
         reviewed,
         source: target.source,

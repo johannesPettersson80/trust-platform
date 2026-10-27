@@ -26,6 +26,14 @@ pub(super) fn client_path(root: &Path, resolved_root: &Path, path: PathBuf) -> P
     }
 }
 
+/// The project file `file`, a path relative to the project with `/` separators, under `root`, joined
+/// part by part: a root in Windows' verbatim form (`\\?\C:\…`) takes no `/` as a separator.
+pub(super) fn project_file(root: &Path, file: &str) -> PathBuf {
+    let mut path = root.to_path_buf();
+    path.extend(file.split('/'));
+    path
+}
+
 /// `path` resolved as the build resolves it, through its deepest folder that exists, with the
 /// names that do not exist yet, as of a new file, kept after it.
 pub(super) fn resolved(path: &Path) -> PathBuf {

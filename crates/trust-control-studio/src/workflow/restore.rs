@@ -418,6 +418,7 @@ impl Writes {
             manual,
             tolerance,
             entry_error_gain: None,
+            entry_measurement_gain: None,
             tracking: Some(tracking),
             reviewed: Some(reviewed),
             source: self.source,
@@ -430,6 +431,7 @@ impl Writes {
     fn entry(self, entry: AutoReentry, reviewed: TransferStatus) -> TransferWrite {
         TransferWrite {
             entry_error_gain: entry.entry_error_gain,
+            entry_measurement_gain: None,
             ..self.transfer(
                 entry.values,
                 false,

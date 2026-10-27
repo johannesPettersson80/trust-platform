@@ -458,16 +458,17 @@ fn mqtt_no_fresh_payload_follows_on_error_policy() {
     }
 }
 
-/// The backoff of `reconnect_ms`, here 100 ms, bounds the connection attempts to a broker that
+/// The backoff of `reconnect_ms`, here a second, bounds the connection attempts to a broker that
 /// closes each connection: at most one more than the whole backoffs in the time elapsed, however
-/// often the scan reads (specification 32 §8: a nonzero, bounded backoff that cannot busy-loop).
-/// Catches reconnection driven by the scan's calls.
+/// often the scan reads (specification 32 §8: a nonzero, bounded backoff that cannot busy-loop),
+/// and a read never waits for the reconnection, which would take the whole second. Catches
+/// reconnection driven by the scan's calls.
 #[test]
 fn mqtt_reconnect_backoff_is_bounded_and_non_spinning() {
     let broker = Broker::start();
     broker.answer_always(Some(Answer::Close));
     let started = Instant::now();
-    let mut driver = start(&at(&broker, "reconnect_ms = 100\non_error = \"warn\""));
+    let mut driver = start(&at(&broker, "reconnect_ms = 1000\non_error = \"warn\""));
     let mut inputs = [0_u8; 1];
     for _ in 0..50 {
         let read = Instant::now();
@@ -477,7 +478,7 @@ fn mqtt_reconnect_backoff_is_bounded_and_non_spinning() {
     }
     let attempts = broker.record(|record| record.accepted);
     let elapsed = started.elapsed();
-    let most = usize::try_from(elapsed.as_millis() / 100).expect("a short test") + 1;
+    let most = usize::try_from(elapsed.as_millis() / 1000).expect("a short test") + 1;
     assert!(
         (1..=most).contains(&attempts),
         "{attempts} attempts in {elapsed:?}"
@@ -493,9 +494,8 @@ fn mqtt_reconnect_backoff_is_bounded_and_non_spinning() {
 #[test]
 fn mqtt_output_handoff_is_bounded_when_scan_outpaces_worker() {
     // The broker never answers, so a write queued behind the session would wait for its 5 s
-    // connect timeout; the bound allows a loaded computer's wake delay beside the wait and stays
-    // far below that timeout.
-    let bound = SCAN_WAIT + Duration::from_millis(500);
+    // connect timeout, far beyond the bound.
+    let bound = SCAN_WAIT + TIMING_SLACK;
     let broker = Broker::start();
     broker.answer_always(Some(Answer::Silence));
     let mut driver = start(&at(&broker, "on_error = \"warn\""));

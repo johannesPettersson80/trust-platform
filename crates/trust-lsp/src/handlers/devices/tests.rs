@@ -6,14 +6,16 @@
 
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
+#[cfg(unix)]
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
+use tower_lsp::lsp_types::{ExecuteCommandParams, InitializeParams};
+#[cfg(unix)]
 use tower_lsp::lsp_types::{
-    ExecuteCommandParams, HoverParams, InitializeParams, Position, TextDocumentIdentifier,
-    TextDocumentPositionParams, Url,
+    HoverParams, Position, TextDocumentIdentifier, TextDocumentPositionParams, Url,
 };
 use tower_lsp::LanguageServer;
 
@@ -351,6 +353,7 @@ async fn slow_work_never_holds_a_server_slot() {
 
 /// Polls the panel of `session` until a view delivers the result of `operation`, and answers that
 /// result. These views ask no runtime (`gather: none`).
+#[cfg(unix)]
 async fn next_result(state: &ServerState, session: &str, operation: &str) -> Value {
     let until = Instant::now() + Duration::from_secs(30);
     let mut seq = 1_u64;

@@ -22,7 +22,8 @@ use trust_control::commissioning::transfer_tracking::TransferTracking;
 use trust_control::failure::Failure;
 use trust_control::identification::mode_transfer::{
     check_mode_loop, check_mode_program, command_return, found_in_auto, in_mode, mode_binding,
-    mode_entry_error_gain, mode_output_change, mode_states, mode_tracking, reference_return,
+    mode_entry_error_gain, mode_entry_measurement_gain, mode_output_change, mode_states,
+    mode_tracking, reference_return,
 };
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::runtime::RuntimeConnection;
@@ -166,7 +167,7 @@ impl<'a> IdentificationMode<'a> {
         let in_manual = read_status(&mut client, &self.binding)?;
         let base = mode_output_change(self.loop_definition, true, None, self.process_noise);
         let tolerance = commands.allowance(base, &in_manual);
-        let write = transfer_write(commands.values, true, tolerance, None, None);
+        let write = transfer_write(commands.values, true, tolerance, (None, None), None);
         transfer(&mut client, self.journal, held, &commands.binding, &write)?;
         if found_in_auto(&self.binding, &held.checkpoint.original) {
             let current = read_status(&mut client, &self.binding)?;
@@ -192,7 +193,7 @@ impl<'a> IdentificationMode<'a> {
                     step.values,
                     false,
                     step.tolerance,
-                    None,
+                    (None, None),
                     Some(step.tracking),
                 );
                 transfer(&mut client, self.journal, held, &self.binding, &write)?;
@@ -279,7 +280,7 @@ fn transfer(
 /// The write of a transfer of the mode binding at the states `current` reports (`transfer` with `stateValues` and `tracking`):
 /// Manual when `manual`, with the tracking of `mode_tracking` and the allowance of `mode_output_change`, which an Auto entry
 /// reviewed on `observed` widens by the controller's own response; the runtime adds its step on the error at entry
-/// (`mode_entry_error_gain`).
+/// (`mode_entry_error_gain`) and its response to the measurement's change before the entry (`mode_entry_measurement_gain`).
 fn mode_write(
     loop_definition: &LoopDefinition,
     binding: &TransferBinding,
@@ -292,29 +293,34 @@ fn mode_write(
     let tracking = mode_tracking(loop_definition, binding, current)?;
     let tolerance = mode_output_change(loop_definition, manual, observed, process_noise);
     let entry_error_gain = mode_entry_error_gain(loop_definition, manual, observed, process_noise);
+    let entry_measurement_gain =
+        mode_entry_measurement_gain(loop_definition, manual, observed, process_noise);
     Ok(transfer_write(
         values,
         manual,
         tolerance,
-        entry_error_gain,
+        (entry_error_gain, entry_measurement_gain),
         Some(tracking),
     ))
 }
 
-/// A transfer write of a mode change. Its target is a simulation, as Identify's live campaign is (a physical target is refused
-/// before the run, A2.5), and the session reads the status it applies on, since no reviewed status is given.
+/// A transfer write of a mode change, with the factors of the error at entry and of the measurement's change before it that
+/// the runtime adds to `tolerance` (`entry_gains`). Its target is a simulation, as Identify's live campaign is (a physical
+/// target is refused before the run, A2.5), and the session reads the status it applies on, since no reviewed status is given.
 fn transfer_write(
     values: BTreeMap<String, f64>,
     manual: bool,
     tolerance: f64,
-    entry_error_gain: Option<f64>,
+    entry_gains: (Option<f64>, Option<f64>),
     tracking: Option<TransferTracking>,
 ) -> TransferWrite {
+    let (entry_error_gain, entry_measurement_gain) = entry_gains;
     TransferWrite {
         values,
         manual,
         tolerance,
         entry_error_gain,
+        entry_measurement_gain,
         tracking,
         reviewed: None,
         source: ApplySource::Simulation,

@@ -575,6 +575,7 @@ Access: Engineer. Request fields. Every field is required except `tracking`.
 | `manual` | boolean | `true` leaves the loop in Manual. `false` leaves it in Auto. |
 | `maximum_output_change` | number | Finite, zero or more. Required for every apply. |
 | `entry_error_gain` | number | Optional. Finite, zero or more. Only on an apply with `manual` false and a `tracking` object (E6.9). |
+| `entry_measurement_gain` | number | Optional. Finite, zero or more. Only on an apply with `manual` false and a `tracking` object (E6.9). |
 | `source` | string | `simulation` or `physical`. |
 | `physical_approved` | boolean | Required. It MUST be true for a `physical` source (E10.2). |
 | `tracking` | object or null | Optional (E6.4). |
@@ -586,7 +587,7 @@ The checks run in this order. The first failed check is the refusal.
 3. The request decodes, with no unknown field.
 4. `transaction_id` is valid and `source` is `simulation` or `physical`.
 5. A `physical` source without `physical_approved` is refused with the text `physical review required`.
-6. `maximum_output_change` is finite and zero or more. An `entry_error_gain` is finite and zero or more, and comes with `manual` false and a `tracking` object; otherwise the refusal is `invalid entry error gain`.
+6. `maximum_output_change` is finite and zero or more. An `entry_error_gain` is finite and zero or more, and comes with `manual` false and a `tracking` object; otherwise the refusal is `invalid entry error gain`. An `entry_measurement_gain` follows the same rule; otherwise the refusal is `invalid entry measurement gain`.
 7. The binding is valid (E6.2).
 8. The tracking object is valid (E6.4).
 9. The values are exactly the states that the transfer does not compute.
@@ -645,6 +646,8 @@ The `transaction` object has these fields: `id`, `program_revision`, `binding_re
 `maximum_output_change` is the reviewed tolerance for the output change at the first execution after the transfer. A reviewed value replaces the allowance of A6.4. Studio computes or reviews the value. The runtime checks against the value it receives. For additional outputs, the tolerance is scaled by the ratio of the output spans.
 
 The A6.4 allowance of an Auto entry has a term on the error the controller enters with, `Ki·Δt·|e|`. Only the runtime reads that error: a status that Studio reads before the apply is out of date once the plant moves before the task boundary. Studio therefore sends the allowance without that term as `maximum_output_change`, and `|Ki|·Δt` as `entry_error_gain`. The runtime then checks the first output against `maximum_output_change + entry_error_gain × |r − y|`, where r is the tracking's reference as the transfer writes it and y is the tracking's process variable, both read at the commit, in the scan the controller executes with them. Studio sends no `entry_error_gain` with a reviewed tolerance, which replaces the allowance, or when the allowance has no integral term.
+
+An Auto entry that carries the controller's own states, as Identify's mode transfers do (specification 35, B3.4 step 1), has a further term of A6.4, `|Kp|·|Δy|`: the controller's first execution compares the measurement of the entry's scan with the one of its last execution, and the plant may still move while the transfer waits for its boundary. Studio sends `|Kp|` as `entry_measurement_gain`, and only with an `entry_error_gain`. The runtime reads the tracking's process variable twice: y_before from the program as the scan before the transfer left it, when it accepts the apply, and y at the commit. It then adds `entry_measurement_gain × |y − y_before|` to the tolerance. The runtime never takes the change from the controller's own state: a controller that did not keep its measurement in Manual holds a stale one, and the bump that stale state makes is refused. An entry that aligns the controller's states to the measurement gets no `entry_measurement_gain`.
 
 ### E6.10 Cancel
 

@@ -540,20 +540,35 @@ pub(super) fn expected_state_after_scan(
     Ok(initial)
 }
 
-/// The error the controller enters Auto with, `|r − y|` (A6.4, E6.9): the reference as the transfer
-/// writes it, `applied` holding every state it writes, less the process variable of this scan.
-pub(super) fn entry_error(
+/// What an Auto entry's first output may move beyond its reviewed change (A6.4, E6.9), read in the
+/// scan of the entry: `error_gain` times the error the controller enters with, `|r − y|`, the
+/// reference as the transfer writes it, `applied` holding every state it writes; and, with
+/// `measurement` holding a gain and the process variable of the scan before the transfer, that
+/// gain times the measurement's change since then, `|y − y_before|`.
+pub(super) fn entry_allowance(
     binding: &Binding,
     policy: &Tracking,
     applied: &BTreeMap<String, f64>,
     program: &dyn ProgramRead,
+    error_gain: Option<f64>,
+    measurement: Option<(f64, f64)>,
 ) -> Result<f64, String> {
-    let reference = match applied.get(&policy.reference_symbol) {
-        Some(reference) => *reference,
-        None => number(program, state(binding, &policy.reference_symbol)?)?,
-    };
+    if error_gain.is_none() && measurement.is_none() {
+        return Ok(0.0);
+    }
     let process_variable = guard_number(binding, program, &policy.process_variable)?;
-    Ok((reference - process_variable).abs())
+    let mut allowance = 0.0;
+    if let Some(gain) = error_gain {
+        let reference = match applied.get(&policy.reference_symbol) {
+            Some(reference) => *reference,
+            None => number(program, state(binding, &policy.reference_symbol)?)?,
+        };
+        allowance += gain * (reference - process_variable).abs();
+    }
+    if let Some((gain, before)) = measurement {
+        allowance += gain * (process_variable - before).abs();
+    }
+    Ok(allowance)
 }
 
 fn state<'a>(binding: &'a Binding, symbol: &str) -> Result<&'a NumberMember, String> {

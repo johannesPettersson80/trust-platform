@@ -905,6 +905,161 @@ fn controller_transfer_refuses_an_entry_error_gain_it_cannot_apply() {
     );
 }
 
+/// A velocity-form PI controller with Kp 2 and Ki·Δt 0.05, as `Control.PID` executes one: in Manual it holds its output
+/// at the Manual command, and in every execution it keeps the measurement it received.
+const CARRIED_PI: &str = "PROGRAM Main VAR Manual : BOOL := TRUE; SP : LREAL := 10.0; PV : LREAL := 10.0; ManualCommand : LREAL := 2.0; MV AT %QL0 : LREAL; Nominal : LREAL := 2.0; LastPV : LREAL := 10.0; END_VAR IF Manual THEN Nominal := ManualCommand; ELSE Nominal := Nominal - LREAL#2.0 * (PV - LastPV) + LREAL#0.05 * (SP - PV); END_IF; MV := Nominal; LastPV := PV; END_PROGRAM";
+
+/// The controller of [`CARRIED_PI`] with a stale memory: it keeps the measurement only in Auto, so in Manual it still holds
+/// the 9.0 of an earlier Auto period.
+const STALE_PI: &str = "PROGRAM Main VAR Manual : BOOL := TRUE; SP : LREAL := 10.0; PV : LREAL := 10.0; ManualCommand : LREAL := 2.0; MV AT %QL0 : LREAL; Nominal : LREAL := 2.0; LastPV : LREAL := 9.0; END_VAR IF Manual THEN Nominal := ManualCommand; ELSE Nominal := Nominal - LREAL#2.0 * (PV - LastPV) + LREAL#0.05 * (SP - PV); LastPV := PV; END_IF; MV := Nominal; END_PROGRAM";
+
+fn carried_pi_fixture(source: &str) -> (ControlState, TestHarness) {
+    let mut state = simulated_control_state(source);
+    let mut harness = simulated_harness(source);
+    state.debug = studio_debug(&mut harness);
+    assert!(harness.cycle().errors.is_empty());
+    (state, harness)
+}
+
+fn carried_pi_binding() -> serde_json::Value {
+    let number = |symbol: &str, unit: &str| json!({"symbol":symbol,"iec_type":"LREAL","unit":unit,"minimum":-20,"maximum":20});
+    json!({"loop_id":"carried-pi-loop","task_name":"$background",
+        "mode":{"symbol":"Main.Manual","manual_value":true},
+        "states":[number("Main.SP","m"),number("Main.ManualCommand","V"),number("Main.Nominal","V"),number("Main.LastPV","m")],
+        "guards":[number("Main.PV","m")],
+        "output":number("Main.MV","V")})
+}
+
+/// A transfer of the carried PI controller, to Manual when `manual` and to Auto otherwise, that carries every state as it
+/// stands, as Identify's mode transfers do (specification 35, B3.4 step 1), with `entry_error_gain` 0.05 on an Auto entry
+/// and `measurement_gain` as its `entry_measurement_gain`; without the tracking when not `tracked`.
+fn carried_pi_transfer(
+    state: &ControlState,
+    before: &serde_json::Value,
+    id: &str,
+    manual: bool,
+    tracked: bool,
+    measurement_gain: Option<f64>,
+) -> ControlResponse {
+    let mut params = json!({
+        "transaction_id":id,"binding":carried_pi_binding(),
+        "expected_program_revision":before["program_revision"],"expected_binding_revision":before["binding_revision"],
+        "expected_values":before["values"],
+        "values":{"Main.SP":10.0,"Main.ManualCommand":2.0,"Main.Nominal":2.0,"Main.LastPV":before["values"]["Main.LastPV"]},
+        "manual":manual,"maximum_output_change":0.000001,"source":"simulation","physical_approved":false});
+    if tracked {
+        params["tracking"] = json!({"kind":"declared-state-v1","reference_symbol":"Main.SP",
+            "manual_command_symbol":"Main.ManualCommand","process_variable":"Main.PV","align_output":false,
+            "initialization_values":{"Main.Nominal":2.0,"Main.LastPV":before["values"]["Main.LastPV"]},
+            "bounded_state_symbols":["Main.Nominal","Main.LastPV"]});
+    }
+    if !manual && tracked {
+        params["entry_error_gain"] = json!(0.05);
+    }
+    if let Some(gain) = measurement_gain {
+        params["entry_measurement_gain"] = json!(gain);
+    }
+    handle_request_value(
+        json!({"id":8660,"type":"control.transfer.apply","params":params}),
+        state,
+        None,
+    )
+}
+
+/// Specification 35 A6.4 and annex E6.9: an Auto entry that carries the controller's states responds to the measurement's
+/// change since the scan before the transfer, so its first output may also move by `entry_measurement_gain` times that
+/// change, which the runtime reads itself: the process variable of the scan the apply read, and of the transfer's own scan.
+/// The controller last executed in Manual at 10.0, and the measurement rises to 10.2 before the boundary, so its first Auto
+/// output is 2.0 − 2·0.2 − 0.05·0.2 = 1.59 V, 0.41 V below the held 2.0 V. A gain of 2 allows 1e-6 + 0.05·0.2 + 2·0.2 =
+/// 0.410001 V and the entry is applied; a gain of 1.99 allows 0.408001 V and the entry is refused. Catches a runtime that
+/// leaves the measurement's change out (0.010001 V refuses both), and one that reads both measurements in the same scan (no
+/// change).
+#[test]
+fn controller_transfer_allows_the_response_to_the_measurement_change_before_the_entry() {
+    for (gain, applied) in [(2.0, true), (1.99, false)] {
+        let (state, mut harness) = carried_pi_fixture(CARRIED_PI);
+        let before = transfer_status_for(&state, carried_pi_binding());
+        let response = carried_pi_transfer(
+            &state,
+            &before,
+            &format!("carried-{gain}"),
+            false,
+            true,
+            Some(gain),
+        );
+        assert!(response.ok, "gain {gain}: {:?}", response.error);
+        state
+            .debug
+            .try_enqueue_global_write("Main.PV", Value::LReal(10.2))
+            .expect("queue the measurement write");
+        assert!(harness.cycle().errors.is_empty());
+        let after = transfer_status_for(&state, carried_pi_binding());
+        assert_eq!(after["transaction"]["initial_values"]["Main.PV"], 10.2);
+        if applied {
+            assert_eq!(after["status"], "applied", "gain {gain}: {after}");
+            assert_eq!(after["values"]["Main.Manual"], false);
+            let output = after["values"]["Main.MV"].as_f64().unwrap();
+            assert!((output - 1.59).abs() < 1e-9, "first output {output}");
+        } else {
+            assert_eq!(after["status"], "failed", "gain {gain}: {after}");
+            assert!(after["transaction"]["reason"]
+                .as_str()
+                .unwrap()
+                .contains("violates reviewed transfer tolerance"));
+            assert_eq!(after["values"]["Main.Manual"], true);
+        }
+    }
+}
+
+/// Specification 35 A6.4: the measurement's change is the one the runtime sees, not the one the controller's memory claims.
+/// The controller kept 9.0 from an earlier Auto period while the measurement stood at 10.0, so its first Auto output is
+/// 2.0 − 2·(10.0 − 9.0) = 0.0 V, a bump of 2.0 V that its stale memory causes. The measurement did not change before the
+/// entry, so the allowance stays 1e-6 V and the entry is refused even with a gain of 2. Catches a runtime that takes the
+/// change from the controller's own state, which would allow exactly the bump that state causes.
+#[test]
+fn controller_transfer_refuses_the_bump_of_a_controller_memory_that_did_not_track() {
+    let (state, mut harness) = carried_pi_fixture(STALE_PI);
+    let before = transfer_status_for(&state, carried_pi_binding());
+    assert_eq!(before["values"]["Main.LastPV"], 9.0);
+    let response = carried_pi_transfer(&state, &before, "stale", false, true, Some(2.0));
+    assert!(response.ok, "{:?}", response.error);
+    assert!(harness.cycle().errors.is_empty());
+    let after = transfer_status_for(&state, carried_pi_binding());
+    assert_eq!(after["status"], "failed", "{after}");
+    assert!(after["transaction"]["reason"]
+        .as_str()
+        .unwrap()
+        .contains("violates reviewed transfer tolerance"));
+    assert_eq!(after["values"]["Main.Manual"], true);
+}
+
+/// Annex E6.5 check 6: `entry_measurement_gain` is a finite number of zero or more, sent with an Auto entry that carries
+/// the tracking naming the process variable. Catches a runtime that accepts a negative gain, a gain on a Manual transfer,
+/// or a gain without the tracking it reads the measurement through.
+#[test]
+fn controller_transfer_refuses_an_entry_measurement_gain_it_cannot_apply() {
+    let (state, _harness) = carried_pi_fixture(CARRIED_PI);
+    let before = transfer_status_for(&state, carried_pi_binding());
+    for (case, gain, manual, tracked) in [
+        ("negative", -0.1, false, true),
+        ("manual", 2.0, true, true),
+        ("untracked", 2.0, false, false),
+    ] {
+        let response = carried_pi_transfer(&state, &before, case, manual, tracked, Some(gain));
+        assert!(!response.ok, "{case}");
+        assert_eq!(
+            refusal_text(&response),
+            "invalid entry measurement gain",
+            "{case}"
+        );
+    }
+    assert_eq!(
+        transfer_status_for(&state, carried_pi_binding())["status"],
+        before["status"],
+        "a refused apply writes no record"
+    );
+}
+
 #[test]
 fn controller_transfer_uses_declared_applied_feedback_as_output_basis() {
     let source = "PROGRAM Main VAR Kp : LREAL := 2.0; Manual : BOOL := TRUE; ManualCommand : LREAL := 2.0; SP AT %ML0 : LREAL := 10.0; PV : LREAL := 10.0; MV AT %QL0 : LREAL; Applied AT %IL0 : LREAL; END_VAR IF Manual THEN MV := ManualCommand; ELSE MV := Kp * (SP-PV); END_IF; END_PROGRAM";

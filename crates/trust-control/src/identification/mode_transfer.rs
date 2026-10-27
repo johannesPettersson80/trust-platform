@@ -245,6 +245,26 @@ pub fn mode_entry_error_gain(
     (gain > 0.0 && gain.is_finite()).then_some(gain)
 }
 
+/// The factor of the measurement's change in a PID's first execution after an Auto entry, `|Kp|` (A6.4), which the runtime
+/// multiplies by the change of the measurement it reads between the scan before the transfer and the scan of the entry
+/// (`entry_measurement_gain`, annex E6.9): the mode transfer carries the controller's states as they are, so the controller's
+/// first execution in Auto responds to the measurement's change since its last execution, and the plant still moves while the
+/// transfer waits for its boundary. None where the entry has no integral step on the error ([`mode_entry_error_gain`]), since
+/// only a controller that integrates carries its output from one execution to the next, and for a proportional gain that
+/// `observed` does not report as a finite number.
+#[must_use]
+pub fn mode_entry_measurement_gain(
+    loop_definition: &LoopDefinition,
+    manual: bool,
+    observed: Option<&TransferStatus>,
+    process_noise: Option<f64>,
+) -> Option<f64> {
+    mode_entry_error_gain(loop_definition, manual, observed, process_noise)?;
+    let symbols = gain_symbols(loop_definition)?;
+    let gain = observed_number(observed?, symbols.proportional).abs();
+    (gain > 0.0 && gain.is_finite()).then_some(gain)
+}
+
 /// The noise response of [`auto_entry_response`] and the integral gain `Ki` that `observed` reports (zero for a law without an
 /// integral term), when the loop has an integral or derivative term and a setpoint and both are finite numbers.
 fn entry_response_terms(

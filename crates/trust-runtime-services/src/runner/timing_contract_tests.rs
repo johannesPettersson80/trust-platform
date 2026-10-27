@@ -344,25 +344,88 @@ fn a_scan_that_overruns_its_interval_still_lets_the_link_answer_one_request_per_
 }
 
 #[test]
-fn a_wake_late_by_more_than_an_interval_begins_the_grid_again() {
-    // Specification 10 §4.3 and specification 34 CYCLE-03: a scan that starts more than one
-    // interval after its nominal start begins the grid again at its start. On the 10 ms grid the
-    // scans run at 0 and 10 ms; the pass for the boundary at 20 ms comes at 35 ms, so the scan at
-    // 35 ms is the grid's new start and the next boundary is 45 ms. Catches a next boundary at
-    // once, 35 ms, whose scan finds the 10 ms task not yet due yet counts as a scan.
+fn a_wake_late_by_more_than_an_interval_skips_the_boundaries_it_missed() {
+    // Specification 10 §4.3 and specification 34 CYCLE-03: a scan that starts a whole interval or
+    // more after its nominal start takes the last boundary of the grid at or before its start. On
+    // the 10 ms grid the scans run at 0 and 10 ms; the pass for the boundary at 20 ms comes at
+    // 35 ms, so the scan at 35 ms is on the boundary of 30 ms and the next boundary is 40 ms, on the
+    // tasks' deadlines. Catches a next boundary at once, 35 ms, whose scan finds the 10 ms task not
+    // yet due yet counts as a scan, and a grid that begins again at 35 ms, whose next boundary of
+    // 45 ms lies off the task's deadlines.
     let fixture = Fixture::board_probe();
     let mut runner = fixture.runner();
     fixture.pass_at(&mut runner, 0);
     fixture.pass_at(&mut runner, 10);
     fixture.pass_at(&mut runner, 35);
     assert_eq!(fixture.take_scan_times(), [0, 10, 35]);
-    let next = fixture
+    assert_eq!(
+        last_deadline(&fixture),
+        40,
+        "the grid goes on from its own boundary"
+    );
+}
+
+#[test]
+fn a_scan_that_overruns_its_interval_keeps_the_grid() {
+    // Specification 10 §4.3: a scan that ends after the next boundary makes the next scan due at
+    // once, on the last boundary of the grid at or before its start. The scan at 10 ms runs 25 ms,
+    // past the boundaries of 20 and 30 ms; the next scan, at 35 ms, is on the boundary of 30 ms,
+    // and the one after it is due at 40 ms. Catches a grid that goes on from the moment the overrun
+    // ended (a next boundary of 45 ms), off the tasks' deadlines, which also makes the device and
+    // trust-runtime disagree on which scans are due (`runner_transcript_parity.rs`).
+    let fixture = Fixture::board_probe();
+    let mut runner = fixture.runner();
+    fixture.pass_at(&mut runner, 0);
+    fixture.script.borrow_mut().scan_time = ms(25);
+    fixture.pass_at(&mut runner, 10);
+    fixture.script.borrow_mut().scan_time = ms(0);
+    fixture.pass_at(&mut runner, 35);
+    assert_eq!(fixture.take_scan_times(), [0, 10, 35]);
+    assert_eq!(last_deadline(&fixture), 40, "the next scan keeps the grid");
+}
+
+#[test]
+fn a_pause_keeps_the_grid() {
+    // Specification 10 §4.3: the tasks keep their deadlines through a pause, and so does the grid.
+    // The pause asked for at 12 ms is taken at the boundary of 20 ms; the paused pass for 30 ms
+    // comes at 33 ms, and the paused boundaries stay at 40 and 50 ms, where the resume's scan
+    // runs. Catches paused boundaries that move with a late pass (43 and 53 ms), whose resumed
+    // grid lies off the tasks' deadlines.
+    let fixture = Fixture::board_probe();
+    let mut runner = fixture.runner();
+    fixture.pass_at(&mut runner, 0);
+    fixture.pass_at(&mut runner, 10);
+    let paused = fixture.call_at(&mut runner, 12, &request(1, "pause"));
+    assert_eq!(paused["result"], json!({"status": "paused"}));
+    let _ = fixture.wait.take_deadlines();
+    for at in [20, 33, 40] {
+        fixture.pass_at(&mut runner, at);
+    }
+    assert_eq!(runner.resource_state(), ResourceState::Paused);
+    assert_eq!(
+        fixture.wait.take_deadlines(),
+        [ms(30), ms(40), ms(50)],
+        "while paused the boundaries stay on the grid"
+    );
+    let resumed = fixture.call_at(&mut runner, 45, &request(2, "resume"));
+    assert_eq!(resumed["result"], json!({"status": "running"}));
+    fixture.pass_at(&mut runner, 50);
+    assert_eq!(fixture.take_scan_times(), [0, 10, 50]);
+    assert_eq!(
+        last_deadline(&fixture),
+        60,
+        "the resumed grid is the paused one"
+    );
+}
+
+/// The deadline of the runner's last wait, in ms.
+fn last_deadline(fixture: &Fixture) -> u64 {
+    fixture
         .wait
         .take_deadlines()
         .last()
         .map(|deadline| u64::try_from(deadline.as_millis()).expect("test deadlines are small"))
-        .expect("the pass waits");
-    assert_eq!(next, 45, "the grid goes on from the late scan");
+        .expect("the pass waits")
 }
 
 #[test]

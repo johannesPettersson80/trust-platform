@@ -1151,10 +1151,14 @@ fn runtime_settings_project_effective_bundle_and_cli_selection() {
     );
 }
 
+/// A folder of its own for each call: the clock alone is not enough, as macOS counts it in whole
+/// microseconds, and two tests that built at once in one folder removed it under each other.
 fn unique_temp_dir(name: &str) -> std::path::PathBuf {
+    static CALLS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let call = CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let mut path = std::env::temp_dir();
     path.push(format!(
-        "trust_runtime_{name}_{}_{}",
+        "trust_runtime_{name}_{}_{call}_{}",
         std::process::id(),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

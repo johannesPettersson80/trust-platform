@@ -28,6 +28,18 @@ fn grid_cycle_start(scheduled: Option<i64>, now: i64, interval: i64) -> i64 {
     }
 }
 
+/// The nominal start of a cycle on the wall clock's fixed grid (specification 10 §4.3): the
+/// boundary `boundary` it was due at, or, for a cycle that starts a whole `interval` or more after
+/// it, the last boundary of the grid at or before `now`. A delayed wake or a cycle that overran
+/// thus skips the boundaries it missed, and the grid stays on the tasks' deadlines.
+fn wall_grid_start(boundary: i64, now: i64, interval: i64) -> i64 {
+    let late = now.saturating_sub(boundary);
+    if interval <= 0 || late < interval {
+        return boundary;
+    }
+    boundary.saturating_add((late / interval).saturating_mul(interval))
+}
+
 fn cycle_deadline_from(start: std::time::Instant, timeout: Duration) -> Option<std::time::Instant> {
     if timeout.as_nanos() <= 0 {
         return Some(start);
@@ -102,8 +114,9 @@ fn run_resource_loop_core<C, F>(
     let mut restarts = AutomaticRestartLimiter::default();
     let mut hang_supervisor: Option<supervisor::HangSupervisor> = None;
     // The nominal start of the next cycle on the cycle grid, once a cycle has completed. A restart,
-    // a start after a stop, a recovery from a fault and a resume begin the grid again at the start
-    // of their first cycle (specification 10 §4.3), so each of them drops it.
+    // a start after a stop and a recovery from a fault begin the grid again at the start of their
+    // first cycle (specification 10 §4.3), so each of them drops it; a pause keeps it, as the
+    // tasks keep their deadlines through it.
     let mut boundary: Option<Duration> = None;
     if let Some(gate) = runner.start_gate.as_ref() {
         set_resource_state(&state, ResourceState::Ready);
@@ -160,7 +173,6 @@ fn run_resource_loop_core<C, F>(
         }
 
         if paused {
-            boundary = None;
             // A paused resource scans nothing, so identify blinks from here (specification 11,
             // "Identify"). The program's outputs keep their committed values.
             runner.runtime.drive_identify_while_idle();
@@ -170,13 +182,13 @@ fn run_resource_loop_core<C, F>(
 
         let now_raw = runner.clock.now();
         // The cycle's nominal start on the grid (specification 10 §4.3): the boundary it was due
-        // at while it starts within one interval of it; a later start, a wake the operating system
-        // delayed that long, begins the grid again, so the next cycle comes one interval after it,
-        // when the tasks are due, not at once.
+        // at, or the last boundary at or before its start when it starts a whole interval or more
+        // after it, as after a wake the operating system delayed that long or a cycle that
+        // overran, so that the grid keeps the tasks' deadlines and no cycle finds them not yet due.
         let pace = scaled_sleep_interval(runner.cycle_interval, runner.timing.scale()).as_nanos();
         let due = boundary.take().map_or(now_raw, |boundary| {
-            Duration::from_nanos(grid_cycle_start(
-                Some(boundary.as_nanos()),
+            Duration::from_nanos(wall_grid_start(
+                boundary.as_nanos(),
                 now_raw.as_nanos(),
                 pace,
             ))
@@ -391,9 +403,10 @@ fn drain_commands<C: Clock + Clone>(
 /// cycle: the boundary one cycle interval after `due`, the nominal start of the cycle that ended,
 /// so that the cycles keep a fixed grid and the time a wake takes is never added to the next
 /// interval (specification 10 §4.3; specification 34 CYCLE-03). When that boundary has passed,
-/// after a cycle longer than its interval, the next cycle starts at once and the grid goes on from
-/// it, without a burst of cycles to catch up; the tasks count the activations that passed as
-/// missed. In simulation the next cycle is due one paced interval, the cycle interval divided by
+/// after a cycle longer than its interval, it is returned all the same: the next cycle starts at
+/// once, on the last boundary of the grid at or before its start (`wall_grid_start`), without a
+/// burst of cycles to catch up, and the tasks count the activations that passed as missed. In
+/// simulation the next cycle is due one paced interval, the cycle interval divided by
 /// the speed, after the cycle `slot`; a cycle that starts within one paced interval of its due time
 /// keeps that schedule, and a later one restarts it from its own start (specification 46, §6.1
 /// item 2). Returns `None` in simulation, and yields and returns `None` when the interval is not
@@ -414,9 +427,8 @@ fn sleep_until_next_boundary<C: Clock + Clone>(
     }
     let sleep_interval = scaled_sleep_interval(runner.cycle_interval, runner.timing.scale());
     let next = Duration::from_nanos(due.as_nanos().saturating_add(sleep_interval.as_nanos()));
-    let now = runner.clock.now();
-    if next <= now {
-        return Some(now);
+    if next <= runner.clock.now() {
+        return Some(next);
     }
     runner.clock.sleep_until(next);
     Some(next)

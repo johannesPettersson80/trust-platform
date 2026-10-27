@@ -44,6 +44,9 @@ pub struct TransferApplyRequest {
     /// The factor of the error at entry that the runtime adds to `maximum_output_change` (E6.9).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub entry_error_gain: Option<f64>,
+    /// The factor of the measurement's change before the entry that the runtime adds to `maximum_output_change` (E6.9).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entry_measurement_gain: Option<f64>,
     /// The target the transfer goes to: `simulation` or `physical`.
     #[serde(serialize_with = "serialize_source")]
     pub source: ApplySource,
@@ -73,6 +76,8 @@ pub struct TransferApplyInput<'a> {
     pub maximum_output_change: f64,
     /// The factor of the error at entry that the runtime adds to `maximum_output_change` (E6.9).
     pub entry_error_gain: Option<f64>,
+    /// The factor of the measurement's change before the entry that the runtime adds to `maximum_output_change` (E6.9).
+    pub entry_measurement_gain: Option<f64>,
     /// The tracking of the apply, when it has one (E6.4).
     pub tracking: Option<&'a TransferTracking>,
     /// The target the transfer goes to.
@@ -261,6 +266,7 @@ pub fn transfer_apply_request(
         manual: input.manual,
         maximum_output_change: input.maximum_output_change,
         entry_error_gain: input.entry_error_gain,
+        entry_measurement_gain: input.entry_measurement_gain,
         source: input.source,
         physical_approved: input.physical_approved,
         tracking: input.tracking.cloned(),

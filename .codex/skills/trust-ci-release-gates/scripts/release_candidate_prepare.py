@@ -132,6 +132,11 @@ def remote_validation_commands(
             f"{shlex.quote(target)} bash {shell_mode} {shlex.quote(command)}"
         )
 
+    toolchain_build = leased(
+        f"{target_env} bash scripts/native/build_toolchain_libraries.sh "
+        f"{shlex.quote(toolchain)}"
+    )
+
     disk_probe = (
         "set -euo pipefail; "
         f"probe=$(bash scripts/cargo_target_path.sh {shlex.quote(target)}) || exit $?; "
@@ -155,6 +160,9 @@ def remote_validation_commands(
         + "else "
         + f"bash scripts/remove_cargo_target_if_idle.sh {shlex.quote(target)} || exit $?; "
         + f"({prepare_target}) || exit $?; "
+        # The toolchain for compiled programs lives in the target, so a reclaim builds it again
+        # (guard prepare 12 on 27 October 2026 ran test-all without it).
+        + f"({toolchain_build}) || exit $?; "
         + disk_probe
         + disk_floor_check
         + "; fi"
@@ -163,13 +171,7 @@ def remote_validation_commands(
         ("remote_exact_head", ""),
         ("remote_disk_preflight", disk_preflight),
         ("remote_prepare_target", prepare_target),
-        (
-            "remote_toolchain",
-            leased(
-                f"{target_env} bash scripts/native/build_toolchain_libraries.sh "
-                f"{shlex.quote(toolchain)}"
-            ),
-        ),
+        ("remote_toolchain", toolchain_build),
     ]
     if vscode_changed:
         commands.append(

@@ -67,7 +67,7 @@ fn rename_declaration(
     new_name: &str,
 ) -> Result<WorkspaceEdit, String> {
     let (file, offset) = super::hmi_generate::declaration_of(inputs, instance)?;
-    let uri = Url::from_file_path(inputs.root.join(&file))
+    let uri = Url::from_file_path(super::client_paths::project_file(&inputs.root, &file))
         .map_err(|()| format!("{file} is not a file"))?;
     let document = state
         .ensure_document(&uri)

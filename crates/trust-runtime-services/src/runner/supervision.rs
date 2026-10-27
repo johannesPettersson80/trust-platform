@@ -103,19 +103,19 @@ where
             boundary = None;
         }
         let now = self.clock.now();
+        let interval = self.interval();
+        // The last boundary of the grid at or before now: a pause keeps the grid, as the tasks keep
+        // their deadlines through it; a restart begins it again at its first boundary.
+        let on_grid = boundary.map_or(now, |boundary| last_boundary(boundary, interval, now));
         if self.shell.resource.state() == ResourceState::Paused {
-            self.next_boundary = Some(now.saturating_add(self.interval()));
+            self.next_boundary = Some(on_grid.saturating_add(interval));
             return;
         }
-        // The scan's nominal start on the grid (specification 10 §4.3): the boundary it was due at
-        // while it starts within one interval of it; a later start, a wake delayed that long,
-        // begins the grid again, so the next scan comes one interval later, when the tasks are
-        // due, not at once.
-        let interval = self.interval();
-        let nominal = boundary
-            .filter(|boundary| now <= boundary.saturating_add(interval))
-            .unwrap_or(now);
-        self.scan(now, nominal);
+        // The scan's nominal start on the grid (specification 10 §4.3): the boundary it was due at,
+        // or the last boundary at or before its start when it starts a whole interval or more after
+        // it, as after a delayed wake or a scan that overran, so that the grid keeps the tasks'
+        // deadlines and no scan finds them not yet due.
+        self.scan(now, on_grid);
     }
 
     /// One poll of the faulted wait, as trust-runtime's faulted wait ends each poll period: the
@@ -326,8 +326,9 @@ where
         match watchdog_overrun_action(watchdog, active) {
             None => {
                 self.restarts.reset();
-                self.next_boundary =
-                    Some(next_on_grid(boundary, self.interval(), self.clock.now()));
+                // The next boundary of the grid, which has passed after a scan that overran its
+                // interval: the next scan is then due at once, on the grid (see `last_boundary`).
+                self.next_boundary = Some(boundary.saturating_add(self.interval()));
             }
             Some(OverrunAction::Restart) => {
                 self.automatic_restart(&RuntimeError::WatchdogTimeout);
@@ -531,22 +532,23 @@ where
     }
 }
 
-/// The boundary after `boundary` on the program's cycle grid (specification 10 §4.3, a fixed sampling
-/// grid; specification 34 CYCLE-03): one interval later, so that the time a wake takes is never added
-/// to the next interval. When that boundary has passed at `now`, after a scan longer than its
-/// interval, the next scan is due at once and the grid goes on from it, without a burst of scans to
-/// catch up; the tasks count the activations that passed as missed.
-fn next_on_grid(
+/// The last boundary of the program's cycle grid through `boundary` at or before `now`
+/// (specification 10 §4.3, a fixed sampling grid; specification 34 CYCLE-03): `boundary` itself for
+/// a scan that starts within one `interval` of it, which needs no division, a software one on a
+/// 32-bit chip (checklist P1-6), and otherwise the boundaries the scan missed skipped, without a
+/// burst of scans to catch up, so that a delayed wake or an overrun keeps the grid on the tasks'
+/// deadlines; the tasks count the activations that passed as missed.
+fn last_boundary(
     boundary: MonotonicInstant,
     interval: TimeSpan,
     now: MonotonicInstant,
 ) -> MonotonicInstant {
-    let next = boundary.saturating_add(interval);
-    if next <= now {
-        now
-    } else {
-        next
+    let late = now.saturating_since(boundary);
+    if interval == TimeSpan::ZERO || late < interval {
+        return boundary;
     }
+    let skipped = late.as_nanos() / interval.as_nanos() * interval.as_nanos();
+    boundary.saturating_add(TimeSpan::new(core::time::Duration::from_nanos(skipped)))
 }
 
 /// Why a boot leaves the installed program unloaded after `last_reset` ended the last boot while it

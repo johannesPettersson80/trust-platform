@@ -38,8 +38,10 @@ use super::MqttIoDriver;
 use crate::error::RuntimeError;
 use crate::io::{IoDriver, IoDriverHealth};
 
-/// What a scan call may take beyond its bound on a loaded test machine.
-const TIMING_SLACK: Duration = Duration::from_millis(100);
+/// What a scan call may take beyond its bound on a loaded test machine: the wake delay of a CI
+/// runner, which reaches more than 100 ms on macOS. Each test's wrong behaviour, a scan that waits
+/// for the broker, its connect timeout or a reconnection, takes a second or more.
+const TIMING_SLACK: Duration = Duration::from_millis(400);
 
 /// The longest that a write waits for the worker, [`SCAN_WAIT_MS`] (specification 11, deadline
 /// integrity).

@@ -63,14 +63,15 @@ fn a_late_wake_does_not_move_the_cycle_grid() {
 }
 
 /// A clock whose sleeps wake at their deadlines, except the second, which wakes 15 ms late, as an
-/// operating system that delays one wake by more than a cycle interval.
+/// operating system that delays one wake by more than a cycle interval, and the third, which wakes
+/// 6 ms late.
 #[derive(Clone, Debug, Default)]
-struct OnceLateClock {
+struct LateWakesClock {
     now: Arc<Mutex<i64>>,
     sleeps: Arc<Mutex<u32>>,
 }
 
-impl Clock for OnceLateClock {
+impl Clock for LateWakesClock {
     fn now(&self) -> Duration {
         Duration::from_nanos(*recover_mutex_lock(self.now.lock()))
     }
@@ -78,25 +79,40 @@ impl Clock for OnceLateClock {
     fn sleep_until(&self, deadline: Duration) {
         let mut sleeps = recover_mutex_lock(self.sleeps.lock());
         *sleeps += 1;
-        let late = if *sleeps == 2 { 15_000_000 } else { 0 };
+        let late = match *sleeps {
+            2 => 15_000_000,
+            3 => 6_000_000,
+            _ => 0,
+        };
         *recover_mutex_lock(self.now.lock()) = deadline.as_nanos() + late;
     }
 
     fn wake(&self) {}
 }
 
-#[test]
-fn a_wake_late_by_more_than_an_interval_begins_the_grid_again() {
-    // Specification 10 §4.3: a cycle that starts more than one interval after its nominal start
-    // begins the grid again at its start, so the next cycle comes one interval later, when the
-    // tasks are due. On a 10 ms grid the cycles start at 0 and 10 ms; the wake for 20 ms comes at
-    // 35 ms, so the cycles go on at 35, 45, 55 and 65 ms. Catches a second cycle at once at 35 ms,
-    // which finds a 10 ms task not yet due yet counts as a scan: with every wake that late, half
-    // of the scans run no task.
+/// A clock whose sleeps wake at their deadlines; a test moves it on to make a cycle run long.
+#[derive(Clone, Debug, Default)]
+struct ExactClock(Arc<Mutex<i64>>);
+
+impl Clock for ExactClock {
+    fn now(&self) -> Duration {
+        Duration::from_nanos(*recover_mutex_lock(self.0.lock()))
+    }
+
+    fn sleep_until(&self, deadline: Duration) {
+        *recover_mutex_lock(self.0.lock()) = deadline.as_nanos();
+    }
+
+    fn wake(&self) {}
+}
+
+/// Runs six cycles of a 10 ms resource on `clock`, calling `during` with the number of each cycle
+/// as it runs, and returns the cycles' start times in ms.
+fn six_cycle_starts<C: Clock + Clone>(clock: C, during: impl Fn(usize)) -> Vec<i64> {
     let runtime = crate::harness::TestHarness::from_source("PROGRAM Main\nEND_PROGRAM\n")
         .expect("build the runner fixture")
         .into_runtime();
-    let runner = ResourceRunner::new(runtime, OnceLateClock::default(), Duration::from_millis(10));
+    let runner = ResourceRunner::new(runtime, clock, Duration::from_millis(10));
     let stop = Arc::new(AtomicBool::new(false));
     let state = Arc::new(Mutex::new(ResourceState::Boot));
     let last_error = Arc::new(Mutex::new(None));
@@ -116,13 +132,70 @@ fn a_wake_late_by_more_than_an_interval_begins_the_grid_again() {
         move |runtime| {
             let mut starts = recover_mutex_lock(starts_of_cycles.lock());
             starts.push(runtime.current_time().as_millis());
+            during(starts.len());
             if starts.len() == 6 {
                 stop_after.store(true, Ordering::SeqCst);
             }
             Ok(())
         },
     );
-    assert_eq!(*recover_mutex_lock(starts.lock()), [0, 10, 35, 45, 55, 65]);
+    recover_mutex_lock(starts.lock()).clone()
+}
+
+/// Whether a 10 ms task, whose timing begins at the first cycle, is due in each later cycle that
+/// starts at `starts` ms (specification 10 §4.3), and the activations it counts as missed.
+fn task_due_in_each_later_cycle(starts: &[i64]) -> (Vec<bool>, u64) {
+    use trust_runtime_core::task::{evaluate_task_readiness, TaskState};
+    let interval = Duration::from_millis(10);
+    let mut state = TaskState::new(Duration::from_millis(starts[0]));
+    let mut missed = 0;
+    let due = starts[1..]
+        .iter()
+        .map(|start| {
+            let readiness =
+                evaluate_task_readiness(&mut state, interval, false, Duration::from_millis(*start));
+            missed += readiness.missed_intervals;
+            readiness.due_at.is_some()
+        })
+        .collect();
+    (due, missed)
+}
+
+#[test]
+fn a_wake_late_by_more_than_an_interval_skips_the_boundaries_it_missed() {
+    // Specification 10 §4.3: a cycle that starts a whole interval or more after its nominal start
+    // takes the last boundary of the grid at or before its start, so the grid stays on the tasks'
+    // deadlines. On a 10 ms grid the cycles start at 0 and 10 ms; the wake for 20 ms comes at
+    // 35 ms, a cycle on the boundary of 30 ms, and the wake for 40 ms comes 6 ms late. A 10 ms task
+    // is then due in every cycle after the first, and counts the activation of 20 ms as missed.
+    // Catches a grid that begins again at 35 ms: the 6 ms late wake then comes at 51 ms, past the
+    // task's deadline of 50 ms, and the cycle of 55 ms finds the task not yet due yet counts as a
+    // scan.
+    let starts = six_cycle_starts(LateWakesClock::default(), |_| {});
+    assert_eq!(starts, [0, 10, 35, 46, 50, 60]);
+    assert_eq!(task_due_in_each_later_cycle(&starts), (vec![true; 5], 1));
+}
+
+#[test]
+fn a_cycle_that_overruns_its_interval_keeps_the_grid() {
+    // Specification 10 §4.3: a cycle that ends after the next nominal start makes the next cycle
+    // start at once, on the last boundary of the grid at or before its start. On a 10 ms grid the
+    // cycle of 10 ms runs until 35 ms, past the boundaries of 20 and 30 ms: the next cycle starts
+    // at once at 35 ms on the boundary of 30 ms, and the grid goes on at 40, 50 and 60 ms, where a
+    // 10 ms task is due in every cycle and counts the activation of 20 ms as missed. Catches a grid
+    // that goes on from the moment the overrun ended (45, 55 and 65 ms), which the following cycles
+    // reach a little after their nominal starts, off the task's deadlines, so that one that wakes
+    // just before a deadline finds the task not yet due yet counts as a scan (the macOS runs of
+    // `computer_stopped_keeps_runtime_up.rs` and `runner_transcript_parity.rs`, 27 October 2026).
+    let clock = ExactClock::default();
+    let moved = clock.clone();
+    let starts = six_cycle_starts(clock, move |cycle| {
+        if cycle == 2 {
+            *recover_mutex_lock(moved.0.lock()) = 35_000_000;
+        }
+    });
+    assert_eq!(starts, [0, 10, 35, 40, 50, 60]);
+    assert_eq!(task_due_in_each_later_cycle(&starts), (vec![true; 5], 1));
 }
 
 #[test]

@@ -27,13 +27,13 @@ const HAND_WRITTEN: &str = concat!(
 );
 const ROOM_HEATING: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../examples/room_heating");
 
-/// A copy of an example in a fresh temporary folder, removed when the returned guard drops. The path is canonical, as the tool
-/// spells the files it names.
+/// A copy of an example in a fresh temporary folder, removed when the returned guard drops. The path is the folder as an editor
+/// names it, unresolved: the tool names the files under the root its client gave (specification 13, "Source Mapping"), also
+/// where the temporary folder lies behind a link (macOS) or a short name (Windows).
 fn copy_of(example: &str, name: &str) -> (PathBuf, RemoveDir) {
     let root = std::env::temp_dir().join(format!("trust-keep-{name}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&root);
     copy_dir(Path::new(example), &root);
-    let root = fs::canonicalize(&root).expect("the copy");
     (root.clone(), RemoveDir(root))
 }
 

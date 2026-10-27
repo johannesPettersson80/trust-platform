@@ -53,6 +53,9 @@ fn gpio_detail_names_the_chip_and_the_lines_it_serves() {
         fs::write(dir.join("direction"), "in").expect("direction");
         fs::write(dir.join("value"), "0").expect("value");
     }
+    // The folder as io.toml names it, with `/`, which a TOML string takes as it is; the detail names
+    // the folder as configured.
+    let configured = base.display().to_string().replace('\\', "/");
     let params: toml::Value = toml::from_str(&format!(
         r#"
 backend = "sysfs"
@@ -67,16 +70,13 @@ line = 5
 address = "%QX0.0"
 line = 17
 "#,
-        base.display().to_string().replace('\\', "/")
+        configured
     ))
     .expect("parse params");
     let driver = GpioDriver::from_params(&params).expect("gpio driver");
     assert_eq!(
         driver.detail().map(|text| text.to_string()),
-        Some(format!(
-            "sysfs {}: 2 input lines, 1 output line",
-            base.display()
-        ))
+        Some(format!("sysfs {configured}: 2 input lines, 1 output line"))
     );
     let _ = fs::remove_dir_all(&base);
 }

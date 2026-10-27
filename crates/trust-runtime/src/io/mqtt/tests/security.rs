@@ -268,7 +268,10 @@ fn the_driver_talks_mqtt_to_its_broker_over_tls() {
 
 /// The TLS client refuses a broker whose certificate its authority did not sign: the handshake
 /// fails, the driver's health says so after `mqtt connect failed:`, and no CONNECT reaches the
-/// broker (specification 32 §3). Catches a client that skips the verification of the broker.
+/// broker (specification 32 §3). The client's side is what the test reads: Windows' TLS checks a
+/// certificate authority of the client's own after the handshake, so its broker sees a handshake
+/// that completed and a connection that ended, not a failed one. Catches a client that skips the
+/// verification of the broker.
 #[test]
 fn the_tls_client_refuses_a_broker_it_cannot_verify() {
     let broker = Broker::start_tls(tls_acceptor());
@@ -277,7 +280,7 @@ fn the_tls_client_refuses_a_broker_it_cannot_verify() {
         broker.port(),
         another_authority()
     ));
-    broker.wait_for("failed handshake", |record| record.handshake_failures >= 1);
+    broker.wait_for("the client's connection", |record| record.accepted >= 1);
     eventually("failed handshake in the health", || {
         faulted_with(&driver.health(), "mqtt connect failed: TLS handshake")
     });

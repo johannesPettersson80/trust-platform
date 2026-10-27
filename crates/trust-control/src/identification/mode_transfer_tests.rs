@@ -280,6 +280,51 @@ fn a_return_to_auto_allows_the_pids_own_first_step() {
     );
 }
 
+/// A6.4 and annex E6.9: the mode transfer carries the controller's states, so its first execution in Auto also responds to the
+/// measurement's change since its last one, by Kp: the return sends |Kp| = 33.3 as `entry_measurement_gain`, which the runtime
+/// multiplies by the change it reads between the scan before the transfer and the scan of the entry. A transfer to Manual, an
+/// entry without a reviewed status, a status that does not report Kp, and a law without an integral step (a program's P law)
+/// send none. Catches a return that sends no measurement gain, which the runtime then refuses whenever the plant still moves
+/// at the entry (lesson 30's return after Apply, 27 October 2026).
+#[test]
+fn a_return_to_auto_allows_the_response_to_the_measurement_change_before_the_entry() {
+    let mut loop_definition = parallel_pid_loop_without_actuator();
+    loop_definition.controller.task_period_ms = 100.0;
+    let binding = mode_binding(&loop_definition).expect("a binding");
+    let observed = status_of(&binding, false, &|symbol| match symbol {
+        "Main.Parameters.Kp" => 33.3,
+        "Main.Parameters.Ki" => 0.0667,
+        _ => 0.0,
+    });
+    let gain = mode_entry_measurement_gain(&loop_definition, false, Some(&observed), None);
+    assert_eq!(gain, Some(33.3), "an Auto entry sends |Kp|");
+    assert_eq!(
+        mode_entry_measurement_gain(&loop_definition, true, Some(&observed), None),
+        None,
+        "a transfer to Manual"
+    );
+    assert_eq!(
+        mode_entry_measurement_gain(&loop_definition, false, None, None),
+        None,
+        "an entry without a reviewed status"
+    );
+    let mut unreported = observed.clone();
+    unreported.values.remove("Main.Parameters.Kp");
+    assert_eq!(
+        mode_entry_measurement_gain(&loop_definition, false, Some(&unreported), None),
+        None,
+        "a status that does not report Kp"
+    );
+    let p_law = project_p_loop();
+    let p_binding = mode_binding(&p_law).expect("the connected P transfers");
+    let p_observed = status_of(&p_binding, true, &|_| 1.0);
+    assert_eq!(
+        mode_entry_measurement_gain(&p_law, false, Some(&p_observed), None),
+        None,
+        "a law without an integral step"
+    );
+}
+
 /// Annex E6.9 and A6.4: a transfer to Manual allows 1e-6, or the loop's faster rate limit over one execution of its task when that
 /// is larger. An Auto entry adds the controller's own response: without a measured noise the exact check of 1e-6 over the 100 %
 /// span, 1e-4, and the gain Ki·Δt = 0.5·0.01 = 0.005 for the runtime's integral step on the error at entry; a transfer to Manual,

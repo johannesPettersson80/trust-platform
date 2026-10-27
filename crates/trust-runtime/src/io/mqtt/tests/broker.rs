@@ -332,10 +332,7 @@ fn serve_connection(stream: TcpStream, inner: &Inner, acceptor: Option<&TlsAccep
         }
         return;
     };
-    // A client that refuses the broker's certificate ends the handshake; Windows' TLS server may
-    // still wait for its next byte, so the accept gives up within half the patience and the
-    // refusal is recorded before a test's wait for it ends.
-    if stream.set_read_timeout(Some(PATIENCE / 2)).is_err() {
+    if stream.set_read_timeout(Some(PATIENCE)).is_err() {
         return;
     }
     match acceptor.accept(stream) {
