@@ -1125,7 +1125,12 @@ fn a_removal_report_is_shown_with_the_generated_st_it_rewrote() {
             removed: 2,
             restart: true,
             message: "Removed 2 ADS tags.".to_owned(),
-            documents: vec!["/home/u/plant/line1/src/generated/ads_generated.st".to_owned()],
+            documents: vec![project
+                .join("src")
+                .join("generated")
+                .join("ads_generated.st")
+                .to_string_lossy()
+                .into_owned()],
         }
     );
     let mut toml_only = report;

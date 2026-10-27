@@ -1,3 +1,7 @@
+# Text files are LF in every checkout, Windows included, so that the tests that compare generated
+# text with golden files, and the files the builds embed, are byte-identical on every platform.
+* text=auto eol=lf
+
 # Retained validation logs are byte copies with recorded digests; never reformat them.
 docs/notes/runtime-portability/a1-evidence/** -whitespace
 docs/notes/runtime-portability/a2-evidence/** -whitespace
@@ -28,8 +32,8 @@ docs/notes/runtime-portability/publication-evidence/** -whitespace
 
 # Lesson figure data is RFC 4180 CSV (CRLF record ends), written and byte-compared by the lessons'
 # runtime tests; a carriage return before the line end is part of the record terminator.
-examples/control/**/figures/*.csv whitespace=cr-at-eol
-editors/vscode/media/examples/control/**/figures/*.csv whitespace=cr-at-eol
+examples/control/**/figures/*.csv -text whitespace=cr-at-eol
+editors/vscode/media/examples/control/**/figures/*.csv -text whitespace=cr-at-eol
 
 # esbuild keeps tslib's license comment, with its blank-line spaces, in the Control Studio webview
 # bundles. Keep the generated bundles byte-exact; retain all other whitespace checks.
@@ -38,3 +42,8 @@ editors/vscode/media/controlStudioWorkflow.js whitespace=-blank-at-eol
 
 # The Noto CJK font license ships verbatim.
 crates/trust-runtime/src/web/ui/assets/fonts/LICENSE-NOTO-CJK.txt whitespace=-blank-at-eol
+
+# Byte-exact copies keep their own line ends in every checkout: the retained serial logs and the
+# OSCAT upstream texts.
+docs/notes/runtime-portability/**/uart.txt -text
+docs/internal/references/OSCAT/**/upstream/*.txt -text

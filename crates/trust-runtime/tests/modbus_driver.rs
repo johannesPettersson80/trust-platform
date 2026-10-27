@@ -29,7 +29,13 @@ use trust_runtime::io::{IoAddress, IoDriver, IoSafeState, ModbusTcpDriver};
 use trust_runtime::value::Value;
 use trust_runtime::CompiledRuntime;
 
-const MODBUS_CI_SCAN_BOUND: StdDuration = StdDuration::from_millis(150);
+/// The most a read, a write, a safe-state handoff or a drop may take on the scan side while the
+/// worker waits on [`SLOW_SERVER`]: the scan's own 40 ms deadline (specification 11, "Modbus
+/// default-fault and deadline integrity") and the wake delay of a loaded computer, far below the
+/// server's answer, so that a scan side that waits for the server fails.
+const MODBUS_CI_SCAN_BOUND: StdDuration = StdDuration::from_millis(500);
+/// How long the slow server of the bound tests takes to answer; the drivers wait 2 s for it.
+const SLOW_SERVER: StdDuration = StdDuration::from_secs(1);
 
 /// A program with an output word at `%QW0`, so the output image has the two bytes the safe state
 /// writes.
@@ -46,7 +52,7 @@ END_PROGRAM
 /// driver to the test server at `addr`.
 fn safe_state_runtime(addr: SocketAddr) -> CompiledRuntime {
     let params: toml::Value = toml::from_str(&format!(
-        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"warn\"\n"
+        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 2000\non_error = \"warn\"\n"
     ))
     .expect("params");
     let mut runtime = TestHarness::from_source(OUTPUT_WORD)
@@ -68,7 +74,8 @@ fn safe_state_runtime(addr: SocketAddr) -> CompiledRuntime {
 /// Waits up to 500 ms for the server's first holding register to hold `0x3412`, the safe state's
 /// word on the wire; `what` says what a timeout means.
 fn await_safe_state_word(state: &Mutex<ModbusTestState>, what: &str) {
-    let deadline = Instant::now() + StdDuration::from_millis(500);
+    // The slow server answers after a second; the write reaches it within its timeout.
+    let deadline = Instant::now() + StdDuration::from_secs(5);
     loop {
         let value = state
             .lock()
@@ -720,7 +727,7 @@ fn modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery() {
 
 #[test]
 fn modbus_safe_state_handoff_reports_unconfirmed_worker_delivery() {
-    let delay = StdDuration::from_millis(120);
+    let delay = SLOW_SERVER;
     let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
         vec![0u16; 1],
         vec![0u16; 1],

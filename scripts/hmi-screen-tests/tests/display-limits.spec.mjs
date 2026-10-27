@@ -19,10 +19,13 @@ for (const theme of ["dark", "light"]) {
       const object = page.locator(`[data-object="${id}"]`);
       await expect(object.locator('[data-part="normal-range"]')).toHaveCount(id === "split" ? 2 : 1);
       await expect(object.locator('[data-limit]')).toHaveCount(id === "split" ? 8 : 4);
-      const marks = await object.locator('[data-limit]').evaluateAll((elements) => elements.map((element) => {
+      // One evaluation finds the marks and measures them, so a redraw between the two cannot leave
+      // detached marks, which measure as empty.
+      const marks = await page.evaluate((selector) => [...document.querySelectorAll(selector)].map((element) => {
         const box = element.getBBox();
         return { width: box.width, height: box.height, title: element.textContent };
-      }));
+      }), `[data-object="${id}"] [data-limit]`);
+      expect(marks).toHaveLength(id === "split" ? 8 : 4);
       expect(marks.every((mark) => mark.width > 0 || mark.height > 0)).toBe(true);
       expect(marks.every((mark) => /[LH]/.test(mark.title))).toBe(true);
     }

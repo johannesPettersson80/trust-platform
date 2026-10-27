@@ -392,6 +392,17 @@ impl AlarmBoard {
         });
     }
 
+    /// Withdraws the pending action of `user` of `kind` on `path`, whose write the runtime refused
+    /// or did not apply in time, so that no later transition the program makes is recorded as the
+    /// user's.
+    pub fn withdraw_operator_action(&mut self, path: &str, kind: EventKind, user: &str) {
+        if let Some(index) = self.pending.iter().rposition(|pending| {
+            pending.path == path && pending.kind == kind && pending.user == user
+        }) {
+            self.pending.remove(index);
+        }
+    }
+
     /// The number of the latest record, 0 before the first.
     pub fn last_seq(&self) -> u64 {
         self.seq

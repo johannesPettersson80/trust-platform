@@ -107,7 +107,15 @@ where
             self.next_boundary = Some(now.saturating_add(self.interval()));
             return;
         }
-        self.scan(now, boundary.unwrap_or(now));
+        // The scan's nominal start on the grid (specification 10 §4.3): the boundary it was due at
+        // while it starts within one interval of it; a later start, a wake delayed that long,
+        // begins the grid again, so the next scan comes one interval later, when the tasks are
+        // due, not at once.
+        let interval = self.interval();
+        let nominal = boundary
+            .filter(|boundary| now <= boundary.saturating_add(interval))
+            .unwrap_or(now);
+        self.scan(now, nominal);
     }
 
     /// One poll of the faulted wait, as trust-runtime's faulted wait ends each poll period: the

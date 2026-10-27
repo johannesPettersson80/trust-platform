@@ -492,6 +492,10 @@ fn mqtt_reconnect_backoff_is_bounded_and_non_spinning() {
 /// scan behind the broker.
 #[test]
 fn mqtt_output_handoff_is_bounded_when_scan_outpaces_worker() {
+    // The broker never answers, so a write queued behind the session would wait for its 5 s
+    // connect timeout; the bound allows a loaded computer's wake delay beside the wait and stays
+    // far below that timeout.
+    let bound = SCAN_WAIT + Duration::from_millis(500);
     let broker = Broker::start();
     broker.answer_always(Some(Answer::Silence));
     let mut driver = start(&at(&broker, "on_error = \"warn\""));
@@ -503,10 +507,7 @@ fn mqtt_output_handoff_is_bounded_when_scan_outpaces_worker() {
             Ok(())
         );
         let elapsed = started.elapsed();
-        assert!(
-            elapsed < SCAN_WAIT + TIMING_SLACK,
-            "write {value} took {elapsed:?}"
-        );
+        assert!(elapsed < bound, "write {value} took {elapsed:?}");
     }
 }
 

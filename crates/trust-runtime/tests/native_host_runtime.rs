@@ -223,11 +223,13 @@ fn a_computer_steps_a_compiled_program() {
 }
 
 /// Specification 44 §8.8 (NX-14): the resource's scan thread runs a compiled program as it runs an
-/// interpreted one, and a resource command reads its variables between scans. Over at least 100 ms
-/// at a 10 ms cycle the program runs at least 5 scans, and the resource's snapshot, which the HMI,
-/// OPC UA and ADS servers read, carries the compiled state (§13.3) with `count` at least 5. Catches a
-/// scan thread that does not run a compiled program, a command the compiled program does not
-/// answer, or a snapshot without its state.
+/// interpreted one, and a resource command reads its variables between scans. At a 10 ms cycle the
+/// program runs scan after scan until its `count` reaches 5, which the test waits up to 5 s for: a
+/// loaded computer may wake the cycle late, and the cycle grid bounds no delay of the operating
+/// system (specification 10 §4.3). The resource's snapshot, which the HMI, OPC UA and ADS servers
+/// read, then carries the compiled state (§13.3) with `count` at least 5. Catches a scan thread that
+/// does not run a compiled program, a command the compiled program does not answer, or a snapshot
+/// without its state.
 #[test]
 fn the_scan_thread_runs_a_compiled_program() {
     let mut runtime =
@@ -236,18 +238,27 @@ fn the_scan_thread_runs_a_compiled_program() {
     let runner = ResourceRunner::new(runtime, StdClock::new(), millis(10));
     let mut handle = runner.spawn("compiled").expect("the scan thread starts");
     let started = Instant::now();
-    std::thread::sleep(WallDuration::from_millis(100));
-    let (reply, replies) = std::sync::mpsc::channel();
-    handle
-        .control()
-        .send_command(ResourceCommand::MeshSnapshot {
-            names: vec![SmolStr::new("P.count")],
-            respond_to: reply,
-        })
-        .expect("the command is queued");
-    let values = replies
-        .recv_timeout(WallDuration::from_secs(5))
-        .expect("the scan thread answers");
+    let count = loop {
+        let (reply, replies) = std::sync::mpsc::channel();
+        handle
+            .control()
+            .send_command(ResourceCommand::MeshSnapshot {
+                names: vec![SmolStr::new("P.count")],
+                respond_to: reply,
+            })
+            .expect("the command is queued");
+        let values = replies
+            .recv_timeout(WallDuration::from_secs(5))
+            .expect("the scan thread answers");
+        let count = match values.get("P.count") {
+            Some(Value::DInt(count)) => *count,
+            other => panic!("count: {other:?}"),
+        };
+        if count >= 5 || started.elapsed() >= WallDuration::from_secs(5) {
+            break count;
+        }
+        std::thread::sleep(WallDuration::from_millis(10));
+    };
     let (reply, replies) = std::sync::mpsc::channel();
     handle
         .control()
@@ -266,10 +277,6 @@ fn the_scan_thread_runs_a_compiled_program() {
         matches!(read, Some(Value::DInt(read)) if read >= 5),
         "the resource snapshot carries the compiled state: {read:?}"
     );
-    let count = match values.get("P.count") {
-        Some(Value::DInt(count)) => *count,
-        other => panic!("count: {other:?}"),
-    };
     let elapsed = started.elapsed().as_millis();
     assert!(
         count >= 5,

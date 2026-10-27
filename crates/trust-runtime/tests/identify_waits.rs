@@ -209,15 +209,21 @@ fn assert_one_second_of_blink(fixture: &Fixture, from: usize) {
         vec![vec![0x81], vec![0x01], vec![0x81], vec![0x01]],
         "250 ms on and 250 ms off, twice, at the committed image"
     );
-    for pair in writes[from..].windows(2) {
-        let gap = pair[1].0.duration_since(pair[0].0);
+    // Specification 11, "Identify": the first edge starts the count of 250 ms, and each later edge
+    // falls at the first point after its 250 ms mark, never before it. How long after is the
+    // wake the operating system gives, so an edge after a late one may come less than 250 ms
+    // after it. Catches a blink faster than 2 Hz and an edge that is missing.
+    let first = writes[from].0;
+    for (edge, write) in writes[from..].iter().enumerate() {
+        let since = write.0.duration_since(first);
+        let mark = WallDuration::from_millis(250 * edge as u64);
         assert!(
-            gap >= WallDuration::from_millis(240),
-            "an edge came {gap:?} after the one before it"
+            since + WallDuration::from_millis(10) >= mark,
+            "edge {edge} came {since:?} after the first, before its {mark:?} mark"
         );
         assert!(
-            gap < WallDuration::from_millis(600),
-            "an edge came {gap:?} after the one before it"
+            since < mark + WallDuration::from_millis(350),
+            "edge {edge} came {since:?} after the first, a mark after its {mark:?} mark"
         );
     }
     assert!(!fixture.identifying(), "the second is over");

@@ -1907,6 +1907,23 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ### Fixed
 
+- A cycle that starts more than one cycle interval late, because the operating system delayed its
+  wake, begins the cycle grid again (specification 10 §4.3) on computers and chips alike. Before,
+  the next cycle started at once, found no task due and still counted as a scan, so a loaded
+  computer counted scans that ran no task.
+- The language server's HMI and Control Studio commands work in a project opened through a
+  symbolic link, as a project under macOS's `/var` or `/tmp` is, or through a short name, as
+  Windows' temporary folder is: unsaved editor text is used, the project's programs are no longer
+  taken for a library's, and edits name the file the editor has open. The debugger, too, names a stopped program's file as the editor opened it (specification
+  13, "Stack Trace and Navigation").
+- An alarm acknowledgement, shelving, reset or service change from an HMI page is recorded with the
+  operator's name also when the scan applies it at once, and an action the runtime refuses no
+  longer names the operator for a later change the program makes (specification 40, §5.1).
+- On Windows, starting a project's runtime from Devices & Connections finishes again: the started
+  runtime no longer holds the output pipes of the command that started it, which kept the command
+  waiting for as long as the runtime ran. Control Studio's message when trust-runtime cannot be
+  started keeps its advice to pass `--endpoint`, and Keep in project names an unsaved file as the
+  editor does.
 - An HMI page left open no longer keeps a record of every command it sends. It remembers the newest
   1,024 commands and alarm actions for their later outcomes (specification 39, §12.5).
 - Control Studio's isolated runs and searches (validate, test runs, finite search) work on macOS and

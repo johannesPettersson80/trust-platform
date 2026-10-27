@@ -3159,6 +3159,14 @@
         "review_date": "2026-10-27"
       },
       {
+        "path": "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs",
+        "line": 194,
+        "owner": "trust-runtime fleet lifecycle, Windows (a started runtime holds no handle of its caller)",
+        "invariant": "On Windows only, before a managed runtime is started, the process clears the inherit flag of its own standard handles with windows-sys SetHandleInformation; the handles stay open and usable, the call changes no data, and a null or closed handle is refused without effect.",
+        "test_evidence": "cargo test -p trust-runtime --test devices_engine (view_shows_a_started_project_runtime_with_its_connections reads the fleet start answer to its end on Windows); RUSTFLAGS=-Dwarnings cargo check -p trust-runtime --all-targets --target x86_64-pc-windows-gnu.",
+        "review_date": "2026-10-27"
+      },
+      {
         "path": "crates/trust-runtime/tests/allocation_count.rs",
         "line": 14,
         "owner": "trust-runtime allocation count test, C1-19f",

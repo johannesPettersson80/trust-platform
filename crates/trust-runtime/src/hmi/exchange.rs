@@ -459,6 +459,11 @@ impl HmiExchange {
         state.alarm_records.extend(records);
     }
 
+    /// Withdraws an operator's action whose write the runtime refused or did not apply in time.
+    pub fn alarm_operator_withdrawn(&self, action: &OperatorAction) {
+        self.state().alarms.withdraw_operator_action(action);
+    }
+
     /// A command's final outcome among the records.
     pub fn alarm_command(
         &self,

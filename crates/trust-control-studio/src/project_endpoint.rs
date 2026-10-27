@@ -61,11 +61,18 @@ impl RuntimeTool {
                 .output()
         })
         .map_err(|error| {
-                not_found(&format!(
-                    "trust-runtime cannot be started to find the project's runtime ({}: {error}); {ENDPOINT_OPTION}.",
+            // The system's text of the error is the detail: it may end a sentence, as Windows'
+            // "The system cannot find the path specified." does, and the message keeps the way out.
+            Failure::from_parts(
+                format!(
+                    "trust-runtime cannot be started from {} to find the project's runtime; {ENDPOINT_OPTION}.",
                     self.executable.display()
-                ))
-            })?;
+                ),
+                Some(error.to_string()),
+                Cause::Settings,
+                NextAction::ConnectRuntime,
+            )
+        })?;
         let answer = json::parse_text(String::from_utf8_lossy(&output.stdout).trim()).ok();
         if let Some(message) = answer.as_ref().and_then(reported_failure) {
             return Err(not_found(&format!(

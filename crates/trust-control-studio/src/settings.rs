@@ -61,8 +61,9 @@ pub fn default_journal_folder(
             .map(PathBuf::from)
     };
     let folder = match platform {
+        // XDG takes an absolute path in the POSIX sense, one that starts at the root.
         Platform::Unix => variable("XDG_STATE_HOME")
-            .filter(|path| path.is_absolute())
+            .filter(|path| path.has_root())
             .or_else(|| variable("HOME").map(|home| home.join(".local").join("state"))),
         Platform::MacOs => {
             variable("HOME").map(|home| home.join("Library").join("Application Support"))

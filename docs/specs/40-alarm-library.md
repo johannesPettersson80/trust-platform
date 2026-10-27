@@ -282,7 +282,11 @@ Beside the runtime display's requests (specification 39, §12.8):
    - the records kept in memory, oldest first. Each has `seq`, `time_ms`, `path`, `kind`
      (`raised`, `cleared`, `acknowledged`, `shelved`, `unshelved`, `suppressed`, `unsuppressed`,
      `out-of-service`, `in-service`, `reset` or `comment`), `message` and `priority`; for an
-     operator's action `user`, and for a shelving or a comment `detail` (the seconds or the text);
+     operator's action `user`, and for a shelving or a comment `detail` (the seconds or the text).
+     The transition an operator's action causes is recorded by the read that shows it, which can
+     come at the end of the very scan that applies the action's write; so the action waits for its
+     transition before its write, and a write that the runtime refuses or does not apply in time
+     withdraws it, so that no later transition of the program is recorded as the operator's;
    - among them, each command's final outcome (specification 39, §12.5, §12.7), page commands and
      alarm actions alike, as a record of kind `command`: `path` is the alarm for an alarm action
      and the target point otherwise, `message` what it asked (for example `Acknowledge` or

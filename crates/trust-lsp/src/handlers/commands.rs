@@ -25,6 +25,8 @@ use crate::handlers::lsp_utils::{offset_to_position, position_to_offset};
 use crate::library_graph::build_library_graph;
 use crate::state::{path_to_uri, uri_to_path, ServerState};
 
+// A project's paths as the client names them and as the build resolves them.
+mod client_paths;
 #[path = "commands/control_keep.rs"]
 mod control_keep;
 #[path = "commands/control_links.rs"]
@@ -769,7 +771,12 @@ fn load_hmi_sources_edited<C: ServerContext>(
     open: &std::collections::BTreeMap<PathBuf, String>,
 ) -> Result<(PathBuf, Vec<LoadedSource>), String> {
     let sources_root = if root.join("src").is_dir() {
-        resolve_sources_root(root, None).map_err(|error| error.to_string())?
+        let resolved_root = client_paths::resolved_root(root);
+        client_paths::client_path(
+            root,
+            &resolved_root,
+            resolve_sources_root(root, None).map_err(|error| error.to_string())?,
+        )
     } else {
         root.join("src")
     };

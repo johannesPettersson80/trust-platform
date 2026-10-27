@@ -4,15 +4,18 @@
 import { expect, test } from "@playwright/test";
 
 const EQUIPMENT = `http://127.0.0.1:${Number(process.env.HMI_SCREEN_EQUIPMENT_PORT || 18481)}`;
-async function textOpacities(object) {
-  return object.locator("text").evaluateAll((texts) => texts.map((text) => {
+// One evaluation finds the control's texts and reads their opacity. A locator's evaluateAll finds
+// them first and reads them in a second step, and a redraw between the two leaves detached texts,
+// whose computed opacity is empty and reads as 0.
+async function textOpacities(page, control) {
+  return page.evaluate((control) => [...document.querySelectorAll(`${control} text`)].map((text) => {
     let opacity = 1;
     for (let element = text; element; element = element.parentElement) opacity *= Number(getComputedStyle(element).opacity);
     return opacity;
-  }));
+  }), control);
 }
-async function expectReadable(object) {
-  const opacities = await textOpacities(object);
+async function expectReadable(page, control) {
+  const opacities = await textOpacities(page, control);
   expect(opacities.length).toBeGreaterThan(0);
   expect(Math.min(...opacities), "labels and role badges retain full opacity").toBe(1);
 }
@@ -23,18 +26,20 @@ for (const theme of ["dark", "light"]) {
     await page.addInitScript((theme) => localStorage.setItem("trust-hmi-theme", theme), theme);
     await page.goto(`${EQUIPMENT}/hmi/overview`);
     await page.click('[data-object="p-101"]');
-    const start = page.locator('[data-part="popup"] [data-object="start"]');
+    const START = '[data-part="popup"] [data-object="start"]';
+    const start = page.locator(START);
     await expect(start).toHaveAttribute("data-readonly", "true");
-    await expectReadable(start);
+    await expectReadable(page, START);
     await page.screenshot({ path: info.outputPath(`readonly-${theme}.png`) });
     await start.click();
     await page.fill('[data-part="login"] input[name="user"]', "operator");
     await page.fill('[data-part="login"] input[name="password"]', "operator");
     await page.click('[data-part="login"] button[type="submit"]');
     await expect(page.locator('[data-part="session"]')).toContainText("operator", { timeout: 15000 });
-    const outOfService = page.locator('[data-part="popup"] [data-object="out-of-service"]');
+    const OUT_OF_SERVICE = '[data-part="popup"] [data-object="out-of-service"]';
+    const outOfService = page.locator(OUT_OF_SERVICE);
     await expect(outOfService).toHaveAttribute("data-locked", "engineer");
-    await expectReadable(outOfService);
+    await expectReadable(page, OUT_OF_SERVICE);
     await expect(outOfService.locator('[data-part="face"]')).toHaveAttribute("opacity", "0.45");
     await expect(start).not.toHaveAttribute("data-locked", /./);
     await page.screenshot({ path: info.outputPath(`role-locked-${theme}.png`) });

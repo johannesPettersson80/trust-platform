@@ -8,10 +8,12 @@ for (const theme of ["dark", "light"]) {
     await page.addInitScript((theme) => localStorage.setItem("trust-hmi-theme", theme), theme);
     await page.goto("/hmi/overview");
     await expect(page.locator('[data-object="setpoint-1"]')).toHaveAttribute("data-state", "confirmed");
-    const sizes = async (selector) => page.locator(selector).evaluateAll((elements) => elements.filter((element) => element.getBoundingClientRect().width > 0).map((element) => {
+    // One evaluation finds the controls and measures them, so a redraw between the two cannot leave
+    // detached controls, which measure as empty and would drop out unchecked.
+    const sizes = async (selector) => page.evaluate((selector) => [...document.querySelectorAll(selector)].filter((element) => element.getBoundingClientRect().width > 0).map((element) => {
       const box = element.getBoundingClientRect();
       return { width: box.width, height: box.height, font: parseFloat(getComputedStyle(element).fontSize) };
-    }));
+    }), selector);
     const check = (controls) => {
       expect(controls.length).toBeGreaterThan(0);
       for (const control of controls) {

@@ -9,6 +9,7 @@ use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -102,29 +103,44 @@ fn run_fleet(root: &Path, args: &[&str]) -> Output {
         .stderr(Stdio::piped())
         .spawn()
         .expect("spawn the fleet command");
+    // The pipes are read beside the wait: a runtime that the command started must not hold them,
+    // as it would on Windows if it inherited them, and the test then fails instead of waiting.
+    let stdout = read_to_end_on_a_thread(child.stdout.take());
+    let stderr = read_to_end_on_a_thread(child.stderr.take());
     let deadline = Instant::now() + FLEET_DEADLINE;
-    loop {
+    let status = loop {
         if let Some(status) = child.try_wait().expect("inspect the fleet command") {
-            let mut stdout = Vec::new();
-            let mut stderr = Vec::new();
-            if let Some(mut out) = child.stdout.take() {
-                out.read_to_end(&mut stdout).expect("the fleet stdout");
-            }
-            if let Some(mut err) = child.stderr.take() {
-                err.read_to_end(&mut stderr).expect("the fleet stderr");
-            }
-            return Output {
-                status,
-                stdout,
-                stderr,
-            };
+            break status;
         }
         assert!(
             Instant::now() < deadline,
             "the fleet command {args:?} did not finish"
         );
         thread::sleep(Duration::from_millis(20));
+    };
+    let output_ends = |pipe: mpsc::Receiver<Vec<u8>>| {
+        pipe.recv_timeout(Duration::from_secs(10)).unwrap_or_else(|_| {
+            panic!("the output of the fleet command {args:?} stayed open after it ended: a process it started holds its pipes")
+        })
+    };
+    Output {
+        status,
+        stdout: output_ends(stdout),
+        stderr: output_ends(stderr),
     }
+}
+
+/// Reads `pipe` to its end on a thread of its own and sends what it read.
+fn read_to_end_on_a_thread(pipe: Option<impl Read + Send + 'static>) -> mpsc::Receiver<Vec<u8>> {
+    let (sender, receiver) = mpsc::channel();
+    thread::spawn(move || {
+        let mut bytes = Vec::new();
+        if let Some(mut pipe) = pipe {
+            let _ = pipe.read_to_end(&mut bytes);
+        }
+        let _ = sender.send(bytes);
+    });
+    receiver
 }
 
 /// Fails with the command's output when it did not succeed.

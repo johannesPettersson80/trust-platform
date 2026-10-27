@@ -88,8 +88,17 @@ pub(super) fn resolve(root: &Path, file: &str) -> AgentResult<PathBuf> {
     }
     // Resolve every existing ancestor, including symbolic links below a page that does not exist.
     let mut current = target.clone();
+    let mut below = false;
     loop {
         match fs::canonicalize(&current) {
+            // An existing file above the page cannot hold it: a page used as a folder is an
+            // invalid path, on Windows too, which reports it as a missing one.
+            Ok(canonical) if below && !canonical.is_dir() => {
+                return Err(AgentError::new(
+                    PROJECT_UNAVAILABLE,
+                    format!("cannot inspect {file}: a file stands where it needs a folder"),
+                ));
+            }
             Ok(canonical) if canonical.starts_with(&canonical_root) => return Ok(target),
             Ok(_) => return Err(escape()),
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
@@ -100,6 +109,7 @@ pub(super) fn resolve(root: &Path, file: &str) -> AgentResult<PathBuf> {
                 if !current.pop() {
                     return Err(escape());
                 }
+                below = true;
             }
             Err(error) => {
                 return Err(AgentError::new(

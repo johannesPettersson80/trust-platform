@@ -22,6 +22,19 @@ fn temp_storage() -> String {
         .to_string()
 }
 
+/// The project folder the tests name: a local folder of this computer, in its own form, that reading
+/// the argument does not create.
+fn tank_folder() -> PathBuf {
+    std::env::temp_dir().join("trust-agent-argument-tank")
+}
+
+/// The file address of [`tank_folder`], as an editor names a local project on this computer.
+fn tank_uri() -> String {
+    tower_lsp::lsp_types::Url::from_file_path(tank_folder())
+        .expect("an absolute folder")
+        .to_string()
+}
+
 /// One command argument with the given project address, storage and extra fields.
 fn argument(root_uri: &str, storage: &str, extra: Value) -> Value {
     let mut argument = json!({
@@ -40,15 +53,11 @@ fn argument(root_uri: &str, storage: &str, extra: Value) -> Value {
 /// (specification 43, §3 and §4).
 #[test]
 fn a_file_address_is_the_project_folder_and_the_storage_is_kept_as_given() {
-    let read = Argument::read(vec![argument(
-        "file:///srv/projects/tank",
-        &temp_storage(),
-        json!({}),
-    )])
-    .expect("a local project");
+    let read = Argument::read(vec![argument(&tank_uri(), &temp_storage(), json!({}))])
+        .expect("a local project");
     assert_eq!(read.workspace_id, "workspace-a");
-    assert_eq!(read.root_uri, "file:///srv/projects/tank");
-    assert_eq!(read.root, PathBuf::from("/srv/projects/tank"));
+    assert_eq!(read.root_uri, tank_uri());
+    assert_eq!(read.root, tank_folder());
     assert_eq!(read.storage, PathBuf::from(temp_storage()));
     assert_eq!(read.remote, json!({}));
     assert!(read.selections.is_empty());
@@ -89,12 +98,8 @@ fn an_address_that_is_not_a_uri_is_an_invalid_argument() {
 /// 43, §4).
 #[test]
 fn the_storage_must_be_an_absolute_folder() {
-    let error = Argument::read(vec![argument(
-        "file:///srv/projects/tank",
-        "private/drafts",
-        json!({}),
-    )])
-    .expect_err("a relative storage folder");
+    let error = Argument::read(vec![argument(&tank_uri(), "private/drafts", json!({}))])
+        .expect_err("a relative storage folder");
     assert_eq!(error.code, INVALID_ARGUMENT);
     assert!(error.message.contains("absolute"), "{}", error.message);
 }
@@ -103,7 +108,7 @@ fn the_storage_must_be_an_absolute_folder() {
 #[test]
 fn a_blank_workspace_identifier_is_refused() {
     let error = Argument::read(vec![argument(
-        "file:///srv/projects/tank",
+        &tank_uri(),
         &temp_storage(),
         json!({ "workspaceId": "   " }),
     )])
@@ -114,7 +119,7 @@ fn a_blank_workspace_identifier_is_refused() {
 /// The command takes exactly one argument object (specification 43, §3).
 #[test]
 fn the_command_takes_exactly_one_argument_object() {
-    let one = argument("file:///srv/projects/tank", &temp_storage(), json!({}));
+    let one = argument(&tank_uri(), &temp_storage(), json!({}));
     assert_eq!(
         Argument::read(Vec::new()).expect_err("no argument").code,
         INVALID_ARGUMENT
@@ -131,7 +136,7 @@ fn the_command_takes_exactly_one_argument_object() {
 /// kind is refused (specification 43, §3).
 #[test]
 fn the_remote_variables_are_an_object_and_default_to_empty() {
-    let base = "file:///srv/projects/tank";
+    let base = &tank_uri();
     let absent =
         Argument::read(vec![argument(base, &temp_storage(), json!({}))]).expect("a project");
     assert_eq!(absent.remote, json!({}));
@@ -154,7 +159,7 @@ fn the_remote_variables_are_an_object_and_default_to_empty() {
 /// A panel selection is decoded with its own fields and no others (specification 43, AT-01).
 #[test]
 fn panel_selections_decode_their_fields_and_refuse_others() {
-    let base = "file:///srv/projects/tank";
+    let base = &tank_uri();
     let read = Argument::read(vec![argument(
         base,
         &temp_storage(),
@@ -194,7 +199,7 @@ fn panel_selections_decode_their_fields_and_refuse_others() {
 /// state is refused (specification 43, §4: a dirty buffer is authoritative until it is saved or discarded).
 #[test]
 fn open_documents_carry_their_text_version_and_dirty_state() {
-    let base = "file:///srv/projects/tank";
+    let base = &tank_uri();
     let read = Argument::read(vec![argument(
         base,
         &temp_storage(),
@@ -230,7 +235,7 @@ fn open_documents_carry_their_text_version_and_dirty_state() {
 fn simulator_sessions_are_kept_as_given() {
     let session = json!({ "sessionId": "session-1", "expiresAt": "2026-10-10T12:00:00Z" });
     let read = Argument::read(vec![argument(
-        "file:///srv/projects/tank",
+        &tank_uri(),
         &temp_storage(),
         json!({ "simulatorSessions": [session.clone()] }),
     )])

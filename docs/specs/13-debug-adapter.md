@@ -484,7 +484,10 @@ including at `0` and `u64::MAX`.
 5) The adapter answers the client with the file itself: a label resolves under the project root,
    the folder a launch built the program from or the runtime root an attach names, as a breakpoint's
    relative path resolves the other way ("Source Mapping", rule 4), so that the editor opens the project's
-   file. A path that is absolute already stays. The same holds for a logpoint's source.
+   file. A path under that root as the build resolved it through symbolic links is named under the root
+   as the client named it, so that a project opened through a link, as macOS's temporary folder `/var`
+   links to `/private/var`, opens the file the editor has open. Any other absolute path stays. The same
+   holds for a logpoint's source.
 
 ### Variables / Evaluate
 

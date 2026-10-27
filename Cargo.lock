@@ -8027,6 +8027,7 @@ dependencies = [
  "ureq",
  "urlencoding",
  "verification-cases",
+ "windows-sys 0.61.2",
  "zenoh",
 ]
 

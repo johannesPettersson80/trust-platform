@@ -344,6 +344,28 @@ fn a_scan_that_overruns_its_interval_still_lets_the_link_answer_one_request_per_
 }
 
 #[test]
+fn a_wake_late_by_more_than_an_interval_begins_the_grid_again() {
+    // Specification 10 §4.3 and specification 34 CYCLE-03: a scan that starts more than one
+    // interval after its nominal start begins the grid again at its start. On the 10 ms grid the
+    // scans run at 0 and 10 ms; the pass for the boundary at 20 ms comes at 35 ms, so the scan at
+    // 35 ms is the grid's new start and the next boundary is 45 ms. Catches a next boundary at
+    // once, 35 ms, whose scan finds the 10 ms task not yet due yet counts as a scan.
+    let fixture = Fixture::board_probe();
+    let mut runner = fixture.runner();
+    fixture.pass_at(&mut runner, 0);
+    fixture.pass_at(&mut runner, 10);
+    fixture.pass_at(&mut runner, 35);
+    assert_eq!(fixture.take_scan_times(), [0, 10, 35]);
+    let next = fixture
+        .wait
+        .take_deadlines()
+        .last()
+        .map(|deadline| u64::try_from(deadline.as_millis()).expect("test deadlines are small"))
+        .expect("the pass waits");
+    assert_eq!(next, 45, "the grid goes on from the late scan");
+}
+
+#[test]
 fn a_late_wake_does_not_move_the_cycle_grid() {
     // Specification 10 §4.3 and specification 34 CYCLE-03: the resource samples its tasks on a fixed
     // grid of the cycle interval. Each pass here comes 1 ms after the deadline of the wait before

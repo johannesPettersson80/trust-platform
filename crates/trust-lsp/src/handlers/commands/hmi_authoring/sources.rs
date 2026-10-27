@@ -40,25 +40,28 @@ fn manifest(root: &Path, open: &BTreeMap<PathBuf, String>) -> Result<toml::Table
     };
     toml::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))
 }
-/// `path` with its folder resolved through symbolic links; a file an editor has not saved yet may
-/// not exist, so only its folder is resolved.
-fn resolved(path: &Path) -> PathBuf {
-    match (
-        path.parent().and_then(|folder| folder.canonicalize().ok()),
-        path.file_name(),
-    ) {
-        (Some(folder), Some(name)) => folder.join(name),
-        _ => path.to_path_buf(),
-    }
-}
-
 fn dependency_path(value: &toml::Value) -> Result<&str, String> {
     value
         .as_str()
         .or_else(|| value.get("path").and_then(toml::Value::as_str))
         .ok_or("A dependency needs its local package path".into())
 }
+/// The local library roots of the project at `root`, those that an unsaved manifest of `open` names
+/// included, under the paths the client names them by when they lie in the project, as the open
+/// documents are named.
 pub(crate) fn dependency_roots(
+    root: &Path,
+    open: &BTreeMap<PathBuf, String>,
+) -> Result<Vec<PathBuf>, String> {
+    let resolved_root = super::super::client_paths::resolved_root(root);
+    Ok(resolved_dependency_roots(root, open)?
+        .into_iter()
+        .map(|library| super::super::client_paths::client_path(root, &resolved_root, library))
+        .collect())
+}
+
+/// The library roots as the build resolves them.
+fn resolved_dependency_roots(
     root: &Path,
     open: &BTreeMap<PathBuf, String>,
 ) -> Result<Vec<PathBuf>, String> {
@@ -72,13 +75,14 @@ pub(crate) fn dependency_roots(
     // The unsaved files under the names the resolved roots give them (through symbolic links).
     let open: BTreeMap<PathBuf, String> = open
         .iter()
-        .map(|(path, text)| (resolved(path), text.clone()))
+        .map(|(path, text)| (super::super::client_paths::resolved(path), text.clone()))
         .collect();
     let view = temporary()?;
     // The snapshot's folder as the dependency roots name it: resolved through symbolic links, as a
     // temporary folder behind one is (`/var` on macOS), so that each root maps back to its folder.
     let snapshot = view.0.canonicalize().map_err(|e| e.to_string())?;
-    let root = root.canonicalize().map_err(|e| e.to_string())?;
+    // The project's and the libraries' folders in the form the unsaved files above are named by.
+    let root = trust_runtime::runtime_sources::canonicalize_lossy(root);
     let mut ids = BTreeMap::from([(root.clone(), 0usize)]);
     let mut pending = VecDeque::from([root]);
     while let Some(real) = pending.pop_front() {
@@ -94,10 +98,9 @@ pub(crate) fn dependency_roots(
             .and_then(toml::Value::as_table_mut)
         {
             for (_, value) in dependencies.iter_mut() {
-                let target = real
-                    .join(dependency_path(value)?)
-                    .canonicalize()
-                    .map_err(|e| e.to_string())?;
+                let target = trust_runtime::runtime_sources::canonicalize_lossy(
+                    &real.join(dependency_path(value)?),
+                );
                 if !target.join("src").is_dir() {
                     return Err(format!(
                         "Dependency {} has no src directory",
@@ -164,7 +167,12 @@ pub(crate) fn collect(
     } else {
         return Err("The project needs a valid src directory".into());
     };
-    let mut roots = vec![sources];
+    // The build resolves the folders through symbolic links; the files keep the client's paths,
+    // which the open documents and the edits of the commands use.
+    let resolved_root = super::super::client_paths::resolved_root(root);
+    let client =
+        |path: PathBuf| super::super::client_paths::client_path(root, &resolved_root, path);
+    let mut roots = vec![client(sources)];
     roots.extend(
         dependency_roots(root, open)?
             .into_iter()
@@ -182,11 +190,12 @@ pub(crate) fn collect(
             trust_runtime::bundle_builder::collect_project_source_files(&view.0, Some(source_root))
                 .map_err(|e| e.to_string())?
         {
-            let path = PathBuf::from(
+            let path = client(PathBuf::from(
                 file.path
                     .as_deref()
                     .ok_or("Collected ST source has no path")?,
-            );
+            ));
+            file.path = Some(path.to_string_lossy().into_owned());
             if let Some(text) = open.get(&path) {
                 file.text = text.clone();
             }

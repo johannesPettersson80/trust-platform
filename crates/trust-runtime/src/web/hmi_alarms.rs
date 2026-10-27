@@ -68,7 +68,7 @@ impl AlarmService {
             .alarm_command(path, message, user, &outcome, reason);
     }
 
-    /// Records an operator's applied action for the transition it causes.
+    /// Records an operator's action for the transition it causes.
     pub(super) fn operator_action(
         &self,
         path: &str,
@@ -84,6 +84,19 @@ impl AlarmService {
             detail,
             seconds,
         });
+    }
+
+    /// Withdraws an operator's action whose write the runtime refused or did not apply in time.
+    pub(super) fn withdraw_operator_action(&self, path: &str, kind: EventKind, user: &str) {
+        self.resource
+            .hmi_exchange()
+            .alarm_operator_withdrawn(&OperatorAction {
+                path: path.to_string(),
+                kind,
+                user: user.to_string(),
+                detail: None,
+                seconds: None,
+            });
     }
 }
 

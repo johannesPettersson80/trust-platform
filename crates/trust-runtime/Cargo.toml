@@ -118,6 +118,12 @@ trust-runtime-core = { workspace = true, default-features = false, features = ["
 # runtime, against a real `trust-runtime`: a dev edge only, so no firmware build resolves it.
 trust-devices.workspace = true
 
+# A managed runtime that `fleet runtime start` begins holds no handle of the command's caller: the
+# command clears the inherit flag of its standard handles first (Windows hands a started process
+# every inheritable handle).
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation"] }
+
 [target.'cfg(unix)'.dev-dependencies]
 open-ot-conformance = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
 

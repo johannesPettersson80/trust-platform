@@ -247,10 +247,11 @@ fn supervisor_records_the_hang_within_timeout_plus_two_check_intervals() {
 
     // The deadline is armed before the read starts, so the fault is due within the timeout plus two
     // check intervals of clamp(100 ms / 4, 1 ms, 100 ms) = 25 ms. The slack covers polling and
-    // scheduling on a loaded host.
+    // the wake delay of a loaded host, which on a CI runner reaches a hundred milliseconds and more;
+    // a hang that is never recorded, or only once the read returns, fails at the 2 s wait.
     let budget = StdDuration::from_millis(100)
         + StdDuration::from_millis(2 * 25)
-        + StdDuration::from_millis(100);
+        + StdDuration::from_millis(250);
     let elapsed = observed.duration_since(read_started);
     assert!(
         elapsed <= budget,

@@ -55,6 +55,8 @@ pub(super) fn start_runtime(
     let stdout = log
         .try_clone()
         .with_context(|| format!("failed to clone {}", paths.log.display()))?;
+    #[cfg(windows)]
+    keep_standard_handles_from_children();
     let mut child =
         Command::new(std::env::current_exe().context("failed to locate trust-runtime")?)
             .arg("run")
@@ -170,6 +172,27 @@ fn start_stopped_program(
         message: "Restart was accepted, but the program is not running yet.".to_string(),
         ..last
     })
+}
+
+/// Keeps this process's standard handles out of the processes it starts, on Windows, which hands a
+/// started process every handle that may be inherited, not only the ones named for it: the runtime
+/// started in the background would hold the pipes of the caller that reads this command's answer,
+/// and the caller would wait for them to close for as long as the runtime runs.
+#[cfg(windows)]
+fn keep_standard_handles_from_children() {
+    use std::os::windows::io::AsRawHandle;
+
+    use windows_sys::Win32::Foundation::{SetHandleInformation, HANDLE_FLAG_INHERIT};
+
+    for handle in [
+        std::io::stdin().as_raw_handle(),
+        std::io::stdout().as_raw_handle(),
+        std::io::stderr().as_raw_handle(),
+    ] {
+        // SAFETY: the process's own standard handles, open while it runs; the call only clears
+        // their inherit flag, and Windows refuses a null or closed handle without effect.
+        let _ = unsafe { SetHandleInformation(handle, HANDLE_FLAG_INHERIT, 0) };
+    }
 }
 
 fn terminate_started_child(child: &mut Child, pid_path: &Path) {

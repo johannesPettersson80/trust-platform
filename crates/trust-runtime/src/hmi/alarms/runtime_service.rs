@@ -88,6 +88,12 @@ impl RuntimeAlarms {
         self.board.events_after(before)
     }
 
+    /// Withdraws an operator's action whose write the runtime refused or did not apply in time.
+    pub fn withdraw_operator_action(&mut self, action: &OperatorAction) {
+        self.board
+            .withdraw_operator_action(&action.path, action.kind, &action.user);
+    }
+
     /// A command's final outcome among the records.
     pub fn command(
         &mut self,

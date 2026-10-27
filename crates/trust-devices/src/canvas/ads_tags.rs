@@ -607,7 +607,10 @@ pub(super) fn removal(project: &Path, report: &Value) -> Removal {
         restart: report.get("restart_required").and_then(Value::as_bool) == Some(true),
         message: report_message(report).unwrap_or_else(|| texts::REMOVAL_FAILED.to_owned()),
         documents: if wrote_generated {
-            vec![display(&project.join(GENERATED_ADS_ST))]
+            // The report names the file with `/`; the document is this computer's path.
+            let mut generated = project.to_path_buf();
+            generated.extend(GENERATED_ADS_ST.split('/'));
+            vec![display(&generated)]
         } else {
             Vec::new()
         },

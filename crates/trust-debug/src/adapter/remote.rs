@@ -697,23 +697,32 @@ fn parse_stop(value: &Value) -> Option<RemoteStop> {
     })
 }
 
+/// The client's path of a file the runtime names by `path` (specification 13, "Stack Trace and
+/// Navigation"): a label, the path relative to the project root that a compiled program's file table
+/// holds, under `root`, the folder the program was built from; a path under the root as the build
+/// resolved it through symbolic links, under `root` as the client named it; any other path, or one
+/// with no root to resolve it against, stays as it is.
+pub(super) fn client_source_path(root: Option<&std::path::Path>, path: String) -> String {
+    let Some(root) = root else {
+        return path;
+    };
+    let file = std::path::Path::new(&path);
+    if file.is_relative() {
+        let mut file = root.to_path_buf();
+        file.extend(path.split('/'));
+        return file.to_string_lossy().into_owned();
+    }
+    let resolved_root = trust_runtime::runtime_sources::canonicalize_lossy(root);
+    match file.strip_prefix(&resolved_root) {
+        Ok(rest) if resolved_root != root => root.join(rest).to_string_lossy().into_owned(),
+        _ => path,
+    }
+}
+
 /// `source` as the runtime's build named it: through the symbolic links of this computer, as the
 /// build reads the project's files (`trust_runtime::runtime_sources`), so that a project opened
 /// through a link finds its sources (specification 13, "Breakpoint evaluation, source resolution,
 /// and hook contract"). A path that does not resolve is sent as given.
-/// The client's path of a file the runtime names by `path` (specification 13, "Stack Trace and
-/// Navigation"): a label, the path relative to the project root that a compiled program's file table
-/// holds, under `root`, the folder the program was built from; a path that is absolute already, or one
-/// with no root to resolve it against, stays as it is.
-pub(super) fn client_source_path(root: Option<&std::path::Path>, path: String) -> String {
-    let Some(root) = root.filter(|_| std::path::Path::new(&path).is_relative()) else {
-        return path;
-    };
-    let mut file = root.to_path_buf();
-    file.extend(path.split('/'));
-    file.to_string_lossy().into_owned()
-}
-
 fn resolved_source(source: &str) -> String {
     trust_runtime::runtime_sources::canonicalize_lossy(std::path::Path::new(source))
         .to_string_lossy()
@@ -750,5 +759,39 @@ mod client_source_path_tests {
             client_source_path(None::<&Path>, String::from("src/Main.st")),
             "src/Main.st"
         );
+    }
+
+    /// Specification 13, "Stack Trace and Navigation" rule 5: a project the client opened through a
+    /// symbolic link, as macOS's temporary folder `/var` links to `/private/var`, keeps the client's
+    /// path for a file the build named through the link's target, so the editor opens the file it
+    /// has open. A path outside the project stays. Catches frames that name the resolved path, which
+    /// the editor opens as a second file.
+    #[cfg(unix)]
+    #[test]
+    fn a_file_the_build_resolved_through_a_link_keeps_the_clients_path() {
+        let folder = std::env::temp_dir().join(format!("trust-dap-link-{}", std::process::id()));
+        let target = folder.join("target");
+        std::fs::create_dir_all(target.join("src")).expect("project folder");
+        let link = folder.join("link");
+        let _ = std::fs::remove_file(&link);
+        std::os::unix::fs::symlink(&target, &link).expect("symbolic link");
+        let resolved = std::fs::canonicalize(&target)
+            .expect("resolved project")
+            .join("src")
+            .join("Main.st");
+        assert_eq!(
+            client_source_path(Some(&link), resolved.to_string_lossy().into_owned()),
+            link.join("src").join("Main.st").to_string_lossy()
+        );
+        let elsewhere = std::fs::canonicalize(&folder)
+            .expect("resolved folder")
+            .join("Other.st")
+            .to_string_lossy()
+            .into_owned();
+        assert_eq!(
+            client_source_path(Some(&link), elsewhere.clone()),
+            elsewhere
+        );
+        std::fs::remove_dir_all(&folder).expect("remove the project folder");
     }
 }

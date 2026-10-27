@@ -169,7 +169,18 @@ fn run_resource_loop_core<C, F>(
         }
 
         let now_raw = runner.clock.now();
-        let due = boundary.take().unwrap_or(now_raw);
+        // The cycle's nominal start on the grid (specification 10 §4.3): the boundary it was due
+        // at while it starts within one interval of it; a later start, a wake the operating system
+        // delayed that long, begins the grid again, so the next cycle comes one interval after it,
+        // when the tasks are due, not at once.
+        let pace = scaled_sleep_interval(runner.cycle_interval, runner.timing.scale()).as_nanos();
+        let due = boundary.take().map_or(now_raw, |boundary| {
+            Duration::from_nanos(grid_cycle_start(
+                Some(boundary.as_nanos()),
+                now_raw.as_nanos(),
+                pace,
+            ))
+        });
         // The cycle's process time counts from the program's start (specification 34, STATE-08):
         // the wall clock, or simulation time, one cycle interval for each executed cycle
         // (specification 46, §6.1 item 1).

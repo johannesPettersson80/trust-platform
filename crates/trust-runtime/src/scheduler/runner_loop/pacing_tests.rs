@@ -62,6 +62,69 @@ fn a_late_wake_does_not_move_the_cycle_grid() {
     assert_eq!(*recover_mutex_lock(starts.lock()), [0, 11, 21, 31, 41, 51]);
 }
 
+/// A clock whose sleeps wake at their deadlines, except the second, which wakes 15 ms late, as an
+/// operating system that delays one wake by more than a cycle interval.
+#[derive(Clone, Debug, Default)]
+struct OnceLateClock {
+    now: Arc<Mutex<i64>>,
+    sleeps: Arc<Mutex<u32>>,
+}
+
+impl Clock for OnceLateClock {
+    fn now(&self) -> Duration {
+        Duration::from_nanos(*recover_mutex_lock(self.now.lock()))
+    }
+
+    fn sleep_until(&self, deadline: Duration) {
+        let mut sleeps = recover_mutex_lock(self.sleeps.lock());
+        *sleeps += 1;
+        let late = if *sleeps == 2 { 15_000_000 } else { 0 };
+        *recover_mutex_lock(self.now.lock()) = deadline.as_nanos() + late;
+    }
+
+    fn wake(&self) {}
+}
+
+#[test]
+fn a_wake_late_by_more_than_an_interval_begins_the_grid_again() {
+    // Specification 10 §4.3: a cycle that starts more than one interval after its nominal start
+    // begins the grid again at its start, so the next cycle comes one interval later, when the
+    // tasks are due. On a 10 ms grid the cycles start at 0 and 10 ms; the wake for 20 ms comes at
+    // 35 ms, so the cycles go on at 35, 45, 55 and 65 ms. Catches a second cycle at once at 35 ms,
+    // which finds a 10 ms task not yet due yet counts as a scan: with every wake that late, half
+    // of the scans run no task.
+    let runtime = crate::harness::TestHarness::from_source("PROGRAM Main\nEND_PROGRAM\n")
+        .expect("build the runner fixture")
+        .into_runtime();
+    let runner = ResourceRunner::new(runtime, OnceLateClock::default(), Duration::from_millis(10));
+    let stop = Arc::new(AtomicBool::new(false));
+    let state = Arc::new(Mutex::new(ResourceState::Boot));
+    let last_error = Arc::new(Mutex::new(None));
+    let supervision = Arc::new(supervisor::ScanSupervision::new(
+        Arc::clone(&state),
+        Arc::clone(&last_error),
+    ));
+    let starts = Arc::new(Mutex::new(Vec::new()));
+    let starts_of_cycles = Arc::clone(&starts);
+    let stop_after = Arc::clone(&stop);
+    run_resource_loop_core(
+        runner,
+        stop,
+        state,
+        last_error,
+        supervision,
+        move |runtime| {
+            let mut starts = recover_mutex_lock(starts_of_cycles.lock());
+            starts.push(runtime.current_time().as_millis());
+            if starts.len() == 6 {
+                stop_after.store(true, Ordering::SeqCst);
+            }
+            Ok(())
+        },
+    );
+    assert_eq!(*recover_mutex_lock(starts.lock()), [0, 10, 35, 45, 55, 65]);
+}
+
 #[test]
 fn a_restart_begins_the_cycle_grid_again_at_its_first_cycle() {
     // Specification 10 §4.3: a restart begins the grid again at the start of its first cycle,

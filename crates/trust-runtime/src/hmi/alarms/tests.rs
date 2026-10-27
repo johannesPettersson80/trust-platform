@@ -244,6 +244,41 @@ fn an_operators_action_is_recorded_once_with_the_user() {
     assert_eq!(acknowledged[0].user.as_deref(), Some("anna"));
 }
 
+#[test]
+fn a_withdrawn_operator_action_names_no_user_for_a_later_transition() {
+    // Specification 40, §5.1: an operator's action waits as pending before its write, and a write
+    // the runtime refuses withdraws it, so that a transition the program makes later is recorded as
+    // the program's, without a user. Catches a stale pending action that names the operator for an
+    // acknowledgement they never made.
+    let mut harness = plant();
+    let mut board = AlarmBoard::default();
+    harness.set_input("Trip", Value::Bool(true));
+    scan(&mut harness);
+    board.update(harness.runtime().with_program_view(read_alarms), 1_000);
+    board.operator_action(
+        "Tank.Overflow",
+        EventKind::Acknowledged,
+        "anna",
+        None,
+        None,
+        1_500,
+    );
+    board.withdraw_operator_action("Tank.Overflow", EventKind::Acknowledged, "anna");
+    request(
+        &mut harness,
+        "Tank.Overflow.Request.Acknowledge",
+        serde_json::json!(true),
+    );
+    scan(&mut harness);
+    board.update(harness.runtime().with_program_view(read_alarms), 2_000);
+    let last = board.events().back().expect("an event");
+    assert_eq!(
+        (last.kind, last.user.as_deref()),
+        (EventKind::Acknowledged, None),
+        "the program's acknowledgement, without the withdrawn user"
+    );
+}
+
 /// Specification 39, §5.9 item 2: a limit alarm's row gives its value against its limit as they
 /// were when it was raised, and they stay while the value moves on; an alarm without a limit has
 /// none.

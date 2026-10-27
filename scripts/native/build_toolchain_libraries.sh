@@ -25,6 +25,16 @@ mkdir -p "$out/lib"
 # this folder and `trust-runtime toolchain install --from` installs (§4.6).
 case $host in
   *-windows-*) ;;
+  *-apple-darwin)
+    # macOS's rust-lld loads LLVM from ../lib beside its own file, so it is copied, not linked,
+    # next to the compiler's libraries, as the bundle places them; a cleared environment, as an
+    # isolated run has (protocol annex E8.1), then still finds them.
+    mkdir -p "$out/bin"
+    ln -sfn "$sysroot/bin/rustc" "$out/bin/rustc"
+    rm -f "$out/bin/rust-lld"
+    cp "$sysroot/lib/rustlib/$host/bin/rust-lld" "$out/bin/rust-lld"
+    for library in "$sysroot"/lib/*.dylib; do ln -sfn "$library" "$out/lib/$(basename "$library")"; done
+    ;;
   *)
     mkdir -p "$out/bin"
     ln -sfn "$sysroot/bin/rustc" "$out/bin/rustc"

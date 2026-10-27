@@ -26,7 +26,7 @@ use super::{respond, viewer, AlarmService, HmiAlarmContext};
 use crate::control::ControlState;
 use crate::hmi::access::policy::require_role;
 use crate::hmi::access::sessions::SessionInfo;
-use crate::hmi::alarms::{alarm_action, allows, AlarmAction};
+use crate::hmi::alarms::{alarm_action, allows, AlarmAction, EventKind};
 use crate::hmi::commands::plan::matches;
 use crate::hmi::commands::registry::{Begin, CommandAnswer, CommandRegistry, Outcome};
 use crate::hmi::commands::write::{path_text, Written};
@@ -137,13 +137,17 @@ impl Actions {
                     readback: json_of(&applied.written.readback),
                     ..CommandAnswer::new(&id, Outcome::Applied)
                 };
-                self.alarms.operator_action(
-                    &applied.alarm,
-                    applied.action.kind,
-                    &session.user,
-                    applied.action.detail.clone(),
-                    applied.action.seconds,
-                );
+                // A comment shows in no read, so it is recorded once it is written; the other
+                // actions waited as pending before their write (see `decide`).
+                if applied.action.kind == EventKind::Comment {
+                    self.alarms.operator_action(
+                        &applied.alarm,
+                        applied.action.kind,
+                        &session.user,
+                        applied.action.detail.clone(),
+                        applied.action.seconds,
+                    );
+                }
                 self.audit(
                     Some(&session),
                     &request,
@@ -204,6 +208,30 @@ impl Actions {
         }
         let target = MemberPath::parse(&format!("{alarm}.Request.{}", action.field))
             .map_err(|reason| refuse(None, reason))?;
+        // The read that shows the transition records it, and that read can come at the end of
+        // the scan that applies the write: the action waits as pending before the write, so that
+        // the record names the user (specification 40, §5.1). A write the runtime refuses or does
+        // not apply in time withdraws it, so that no later transition is recorded as the user's.
+        let transition = action.kind != EventKind::Comment;
+        if transition {
+            self.alarms.operator_action(
+                &alarm,
+                action.kind,
+                &session.user,
+                action.detail.clone(),
+                action.seconds,
+            );
+        }
+        let refused = |answer: CommandAnswer| {
+            if transition {
+                self.alarms
+                    .withdraw_operator_action(&alarm, action.kind, &session.user);
+            }
+            Box::new(Refused {
+                target: Some(target.clone()),
+                answer,
+            })
+        };
         match write_point(&self.control_state, &target, action.write.clone()) {
             Some(Ok(written)) => Ok(Applied {
                 alarm,
@@ -211,16 +239,12 @@ impl Actions {
                 target,
                 written,
             }),
-            Some(Err(refused)) => Err(Box::new(Refused {
-                target: Some(target),
-                answer: CommandAnswer::write_refused(id, refused),
-            })),
-            None => Err(Box::new(Refused {
-                target: Some(target),
-                answer: CommandAnswer {
-                    reason: Some("the runtime did not apply it in time".to_string()),
-                    ..CommandAnswer::new(id, Outcome::TimedOut)
-                },
+            Some(Err(refused_write)) => {
+                Err(refused(CommandAnswer::write_refused(id, refused_write)))
+            }
+            None => Err(refused(CommandAnswer {
+                reason: Some("the runtime did not apply it in time".to_string()),
+                ..CommandAnswer::new(id, Outcome::TimedOut)
             })),
         }
     }

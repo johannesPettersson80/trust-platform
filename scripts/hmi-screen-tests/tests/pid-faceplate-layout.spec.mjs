@@ -11,7 +11,10 @@ for (const theme of ["dark", "light"]) {
     await expect(popup).toBeVisible();
     await expect(popup.locator('[data-object="setpoint"]')).toContainText(/\d\.\d/, { timeout: 15000 });
     await page.screenshot({ path: info.outputPath(`pid-${theme}.png`) });
-    const overlaps = await popup.locator("svg text").evaluateAll((nodes) => {
+    // One evaluation finds the texts and measures them: a redraw between finding and measuring
+    // would leave detached texts, whose empty boxes overlap nothing.
+    const overlaps = await page.evaluate(() => {
+      const nodes = [...document.querySelectorAll('[data-part="popup"] svg text')];
       const texts = nodes.filter(n => n.textContent.trim()).map(n => ({
         text: n.textContent, object: n.closest("[data-object]")?.getAttribute("data-object"), rect: n.getBoundingClientRect(),
       }));

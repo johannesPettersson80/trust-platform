@@ -161,7 +161,8 @@ fn an_open_editor_text_counts_instead_of_its_file() {
     let project = Project::new();
     let main = project.write("src/Main.st", "PROGRAM Main\nEND_PROGRAM\n");
     let config = project.write("src/config.st", CONFIG);
-    let main = std::fs::canonicalize(main).expect("canonical");
+    // The file as the runtime's source collection names it, the name the reader is asked by.
+    let main = trust_runtime::runtime_sources::canonicalize_lossy(&main);
     let options = SourceOptionsArgs {
         runtime_root: Some(project.0.clone()),
         runtime_include_globs: vec!["**/*.st".to_owned()],

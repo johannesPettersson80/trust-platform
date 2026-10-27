@@ -283,7 +283,9 @@ fn refuse_unsaved(
     for unsaved in unsaved_files {
         // `join` keeps an absolute path as it is.
         if comparable(&project.join(unsaved)) == changed {
-            let shown = file.path.strip_prefix(project).unwrap_or(&file.path);
+            // The file as the client named it: a path in the project as it is, an absolute one
+            // relative to the project when it lies there.
+            let shown = unsaved.strip_prefix(project).unwrap_or(unsaved);
             return Err(refusal(&keep_texts::unsaved_changes(
                 &shown.display().to_string(),
             )));

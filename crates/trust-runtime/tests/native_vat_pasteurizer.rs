@@ -14,9 +14,15 @@ use trust_runtime_services::installation::{admit_sequenced, encode_image, Progra
 
 const MS: i64 = 1_000_000;
 
+/// The CPU of this computer, which runs the module: a module for another CPU stops at its first
+/// instruction, as on an arm64 computer.
+fn this_cpu() -> Target {
+    Target::this_cpu().expect("this computer's CPU runs programs (specification 44 §4.4)")
+}
+
 fn device() -> Device {
     Device {
-        target: Target::X86_64,
+        target: this_cpu(),
         program_memory: 1 << 20,
         task_stack: 1 << 20,
         max_statements: 1_000_000,
@@ -34,7 +40,7 @@ fn the_pasteurizer_runs_natively_and_completes_its_batches() {
     let built = build(
         &sources,
         &Options {
-            target: Target::X86_64,
+            target: this_cpu(),
             hooks: true,
         },
         &toolchain,

@@ -381,7 +381,10 @@ fn a_directory_that_cannot_be_listed_names_the_control_loops_folder() {
     assert_eq!(unreadable.targets, [] as [BindingTarget; 0]);
     assert_eq!(
         unreadable.rejected[0].configuration_path,
-        "/project/control-loops"
+        std::path::Path::new("/project")
+            .join("control-loops")
+            .to_string_lossy(),
+        "the folder in this computer's form"
     );
     assert_eq!(
         unreadable.rejected[0].reason,

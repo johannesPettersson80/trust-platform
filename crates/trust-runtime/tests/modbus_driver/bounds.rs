@@ -15,18 +15,18 @@ use trust_runtime::io::{IoDriver, ModbusTcpDriver};
 use super::modbus_support::{
     start_closing_modbus_server, start_delayed_modbus_server, start_modbus_server, ModbusTestState,
 };
-use super::MODBUS_CI_SCAN_BOUND;
+use super::{MODBUS_CI_SCAN_BOUND, SLOW_SERVER};
 
 #[test]
 fn modbus_read_inputs_returns_within_scan_bound_while_response_delayed() {
-    let delay = StdDuration::from_millis(120);
+    let delay = SLOW_SERVER;
     let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
         vec![0x1122],
         vec![0u16; 1],
     )));
     let addr = start_delayed_modbus_server(state, delay);
     let params: toml::Value = toml::from_str(&format!(
-        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"warn\"\n"
+        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 2000\non_error = \"warn\"\n"
     ))
     .expect("params");
     let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
@@ -46,14 +46,14 @@ fn modbus_read_inputs_returns_within_scan_bound_while_response_delayed() {
 
 #[test]
 fn modbus_write_outputs_returns_within_scan_bound_while_response_delayed() {
-    let delay = StdDuration::from_millis(120);
+    let delay = SLOW_SERVER;
     let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
         vec![0u16; 1],
         vec![0u16; 1],
     )));
     let addr = start_delayed_modbus_server(state, delay);
     let params: toml::Value = toml::from_str(&format!(
-        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"warn\"\n"
+        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 2000\non_error = \"warn\"\n"
     ))
     .expect("params");
     let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
@@ -104,14 +104,14 @@ fn modbus_stale_snapshot_is_returned_when_worker_reconnects() {
 
 #[test]
 fn modbus_cold_start_before_first_response_returns_bounded_no_data() {
-    let delay = StdDuration::from_millis(120);
+    let delay = SLOW_SERVER;
     let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
         vec![0x1122],
         vec![0u16; 1],
     )));
     let addr = start_delayed_modbus_server(state, delay);
     let params: toml::Value = toml::from_str(&format!(
-        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"warn\"\n"
+        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 2000\non_error = \"warn\"\n"
     ))
     .expect("params");
     let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
@@ -141,14 +141,14 @@ fn modbus_cold_start_before_first_response_returns_bounded_no_data() {
 #[test]
 fn modbus_cold_start_no_data_follows_on_error_policy() {
     for (policy, should_error) in [("fault", true), ("warn", false), ("ignore", false)] {
-        let delay = StdDuration::from_millis(120);
+        let delay = SLOW_SERVER;
         let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
             vec![0x1122],
             vec![0u16; 1],
         )));
         let addr = start_delayed_modbus_server(state, delay);
         let params: toml::Value = toml::from_str(&format!(
-            "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"{policy}\"\n"
+            "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 2000\non_error = \"{policy}\"\n"
         ))
         .expect("params");
         let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
@@ -212,14 +212,14 @@ fn modbus_reconnect_backoff_is_bounded_and_non_spinning() {
 
 #[test]
 fn modbus_output_handoff_is_bounded_when_scan_outpaces_worker() {
-    let delay = StdDuration::from_millis(120);
+    let delay = SLOW_SERVER;
     let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
         vec![0u16; 1],
         vec![0u16; 1],
     )));
     let addr = start_delayed_modbus_server(state, delay);
     let params: toml::Value = toml::from_str(&format!(
-        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"warn\"\n"
+        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 2000\non_error = \"warn\"\n"
     ))
     .expect("params");
     let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
@@ -240,19 +240,19 @@ fn modbus_output_handoff_is_bounded_when_scan_outpaces_worker() {
 
 /// "Dropping the driver requests worker shutdown and returns within the bounded driver-drop
 /// deadline even when the worker is awaiting its first response": a read puts the first request on
-/// the wire of a server that answers after 120 ms, and the drop is timed alone. (The test dropped a
+/// the wire of a server that answers after a second, and the drop is timed alone. (The test dropped a
 /// driver that had sent nothing; it now drops one whose worker awaits the response, the case the
 /// specification names.)
 #[test]
 fn modbus_driver_drop_is_bounded_while_worker_waits_for_first_response() {
-    let delay = StdDuration::from_millis(120);
+    let delay = SLOW_SERVER;
     let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
         vec![0x1122],
         vec![0u16; 1],
     )));
     let addr = start_delayed_modbus_server(state, delay);
     let params: toml::Value = toml::from_str(&format!(
-        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"warn\"\n"
+        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 2000\non_error = \"warn\"\n"
     ))
     .expect("params");
     let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
