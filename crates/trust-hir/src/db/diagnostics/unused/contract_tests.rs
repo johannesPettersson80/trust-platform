@@ -506,3 +506,101 @@ END_CLASS
         "IMPLEMENTS target must count as used: {unused:?}"
     );
 }
+     assert_eq!(u32::from(warning.range.start()), expected);
+     assert_eq!(warning.message, "unused variable 'Forgotten'");
+ }
+
+#[test]
+fn qualified_cross_file_gvl_member_use_clears_the_unused_constant_warning() {
+    // RED pin 2026-10-27: name_from_node sees only the FIRST segment of a
+    // qualified value reference (GVals.UsedCrossFile -> "GVals"), so the
+    // collector marked the namespace used and left the member terminal
+    // unused - s4's GVLMqtt/GVLEntities constants fired W001 despite
+    // cross-file expression and declaration-size uses.
+    let diagnostics = diagnostics_for(
+        &[
+            r#"
+NAMESPACE GVals
+VAR_GLOBAL CONSTANT
+    UsedCrossFile : INT := 5;
+    NeverReferenced : INT := 6;
+END_VAR
+END_NAMESPACE
+"#,
+            r#"
+PROGRAM Main
+VAR
+    Value : INT;
+END_VAR
+Value := GVals.UsedCrossFile;
+END_PROGRAM
+"#,
+        ],
+        0,
+    );
+    let unused: Vec<String> = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == DiagnosticCode::UnusedVariable)
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect();
+
+    assert!(
+        !unused
+            .iter()
+            .any(|message| message.contains("UsedCrossFile")),
+        "qualified cross-file use must mark the constant used: {unused:?}"
+    );
+    assert!(
+        unused
+            .iter()
+            .any(|message| message.contains("NeverReferenced")),
+        "genuinely unreferenced constant must still warn: {unused:?}"
+    );
+}
+
+#[test]
+fn qualified_declaration_size_use_clears_the_unused_constant_warning() {
+    // The s4 uiLenMsgTopic shape: the only reference is a STRING size in
+    // another file's declaration. (A first cut of this pin used an enum
+    // member comparison as the "use" - but the pinned constant itself was
+    // never referenced there, so the warning was CORRECT; kept the fixture
+    // honest instead.)
+    let diagnostics = diagnostics_for(
+        &[
+            r#"
+NAMESPACE GVals
+VAR_GLOBAL CONSTANT
+    TopicLen : INT := 12;
+    NeverReferenced : INT := 6;
+END_VAR
+END_NAMESPACE
+"#,
+            r#"
+FUNCTION Build : INT
+VAR
+    Topic : STRING[GVals.TopicLen];
+END_VAR
+    Topic := Topic;
+    Build := 1;
+END_FUNCTION
+"#,
+        ],
+        0,
+    );
+    let unused: Vec<String> = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == DiagnosticCode::UnusedVariable)
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect();
+
+    assert!(
+        !unused.iter().any(|message| message.contains("TopicLen")),
+        "qualified declaration-size use must mark the constant used: {unused:?}"
+    );
+    assert!(
+        unused
+            .iter()
+            .any(|message| message.contains("NeverReferenced")),
+        "genuinely unreferenced constant must still warn: {unused:?}"
+    );
+}

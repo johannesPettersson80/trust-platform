@@ -35,10 +35,18 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   site is built, the screenshots of the newest passing Docs Captures run of `main` are laid over the images; only what
   the captures wrote is taken, never the hand-made pictures. The capture refresh pull request, which had to be merged
   into each release by hand, is gone (specification 22).
+
 - Unused-symbol analysis: `EXTENDS` and `IMPLEMENTS` targets count as used —
   a function block referenced only as a base class (or a DUT/interface only
   inherited) no longer receives a false `W009` unused warning, while the
   never-instantiated derived declaration still does.
+- Unused-symbol analysis: qualified value access chains (`GVals.Member`,
+  dotted declaration-size references) now mark the TERMINAL symbol used.
+  The parser models these as nested field-access nodes with a plain `Name`
+  terminal, which the unused-symbol collector never resolved — constants
+  referenced only through qualified cross-file uses (expressions,
+  `STRING[GVals.Len]` sizes) were falsely reported as `W001` unused
+  constants. Genuinely unreferenced constants still warn.
 
 
 ## [0.26.0] - 2026-10-30
