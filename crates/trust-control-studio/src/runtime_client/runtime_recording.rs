@@ -28,7 +28,7 @@ use trust_control::limits::{
     record_period_executions, sample_period_ms, RECORDING_DURATION_LIMIT_MS, RECORDING_SAMPLE_LIMIT,
 };
 use trust_control::loop_definition::LoopDefinition;
-use trust_control::recording::channels::follow_samples;
+use trust_control::recording::channels::{follow_samples, follow_seconds};
 use trust_control::recording::evidence::{
     recording_evidence, RecordingEvidence, UNCONFIRMED_START_RECOVERED,
 };
@@ -488,6 +488,10 @@ impl RecordingFollower for RuntimeRecordingSession {
             &page.samples,
             &mut self.first_time_ns,
         )
+    }
+
+    fn process_seconds(&self, process_time_ms: u64) -> Option<f64> {
+        follow_seconds(self.first_time_ns, process_time_ms)
     }
 }
 

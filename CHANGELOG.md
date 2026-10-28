@@ -1907,6 +1907,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ### Fixed
 
+- Control Studio's Identify and Validate judge a step's response from the scan at which the runtime
+  reports the step applied (specification 35, B3.4 step 4). Before, the response counted from the
+  newest sample when the step was sent: when the start reached the runtime late, as on a busy
+  computer at a high simulation speed, the samples recorded in between could end the step before it
+  took effect, and the restoration then replaced the step: Validate refused the recording for want
+  of excitation, and Identify's recording held no step or one cut short.
 - The cycle grid keeps the tasks' deadlines on computers and chips alike (specification 10 §4.3):
   it begins where the tasks' timing begins, also when the first cycle starts late; a cycle that
   starts a whole cycle interval or more late, because the operating system delayed its wake or the

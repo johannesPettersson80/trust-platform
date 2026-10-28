@@ -224,6 +224,11 @@ impl RecordingFollower for FakeRecording {
         }
         Ok(page)
     }
+
+    #[allow(clippy::cast_precision_loss)] // A test clock of minutes.
+    fn process_seconds(&self, process_time_ms: u64) -> Option<f64> {
+        Some(process_time_ms as f64 / 1_000.0)
+    }
 }
 
 impl RecordingSession for FakeRecording {

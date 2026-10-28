@@ -183,6 +183,16 @@ pub fn follow_samples(
         .collect()
 }
 
+/// The runtime's process time `process_time_ms` (annex E5.6) in seconds from the recording's first sample, `first_time_ns`, as
+/// [`follow_samples`] counts the samples' process times (A3.2); `None` until a sample has been followed.
+#[must_use]
+pub fn follow_seconds(first_time_ns: Option<i64>, process_time_ms: u64) -> Option<f64> {
+    let time = i64::try_from(process_time_ms)
+        .ok()?
+        .checked_mul(1_000_000)?;
+    Some(seconds_between(first_time_ns?, time))
+}
+
 /// The controller mode a recorded sample shows (`runtimeRecording.ts`, `toWorkflowSamples`): the loop's mode channel decides
 /// it. TRUE is the mode the loop declares for TRUE, and FALSE is the other mode. A mode channel that is forced, not good, or
 /// neither 0 nor 1 gives no mode, which the caller shows as unavailable (`None`).
