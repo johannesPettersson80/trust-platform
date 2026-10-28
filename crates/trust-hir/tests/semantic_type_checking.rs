@@ -38,6 +38,8 @@ mod member_access_acceptance;
 mod member_access_declaration_rejection;
 #[path = "semantic_type_checking/member_access_use_rejection.rs"]
 mod member_access_use_rejection;
+#[path = "semantic_type_checking/method_in_out_parameter_writes.rs"]
+mod method_in_out_parameter_writes;
 #[path = "semantic_type_checking/parameter_constant_qualifier.rs"]
 mod parameter_constant_qualifier;
 #[path = "semantic_type_checking/partial_access_acceptance.rs"]

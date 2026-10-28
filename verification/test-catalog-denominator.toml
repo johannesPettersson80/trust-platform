@@ -47361,4 +47361,35 @@ name = "reliability_test_project_configs_are_loadable"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
+[[reviews]]
+discovery_id = "DISC_7ED08FC2C6176CF9E691"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-plcopen/src/plcopen/tests/semantic_import_contract.rs"
+name = "semantic_codesys_method_in_out_vars_import_as_by_reference_parameters"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-28"
+
+[[reviews]]
+[[reviews]]
+discovery_id = "DISC_03EB4242243E5ECC1513"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-hir/tests/semantic_type_checking/method_in_out_parameter_writes.rs"
+name = "method_in_out_parameter_write_is_accepted"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-28"
+
+[[reviews]]
+[[reviews]]
+discovery_id = "DISC_BC68D035F131290A5EFE"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-hir/tests/semantic_type_checking/method_in_out_parameter_writes.rs"
+name = "method_input_parameter_write_stays_rejected"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-28"
 last_reviewed = "2026-10-29"
