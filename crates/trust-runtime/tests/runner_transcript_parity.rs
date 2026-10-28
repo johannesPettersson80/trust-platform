@@ -160,9 +160,11 @@ struct Device {
     scans: Rc<Cell<usize>>,
     /// The clock's reading at the device's last pass.
     now: StdDuration,
-    /// When the device's last replayed scan started; its next boundary is one cycle interval
-    /// later.
+    /// When the device's last replayed scan started.
     last_scan: StdDuration,
+    /// Where the device's cycle grid begins: its start, and again each restart (specification 10
+    /// §4.3).
+    grid_origin: StdDuration,
 }
 
 impl Device {
@@ -189,9 +191,14 @@ impl Device {
         }
     }
 
-    /// The device's next boundary after its last replayed scan.
+    /// The device's next boundary after its last replayed scan: one cycle interval after the last
+    /// boundary of its grid at or before that scan, where a scan that started late still has its
+    /// nominal start (specification 10 §4.3).
     fn next_boundary(&self) -> StdDuration {
-        self.last_scan + CYCLE_INTERVAL
+        let since = self.last_scan.saturating_sub(self.grid_origin);
+        let passed = since.as_nanos() / CYCLE_INTERVAL.as_nanos();
+        let passed = u32::try_from(passed).expect("a transcript of a few seconds");
+        self.grid_origin + CYCLE_INTERVAL * (passed + 1)
     }
 
     /// Sends `line` a microsecond after the last pass, between two scans, and returns the reply;
@@ -308,7 +315,7 @@ fn live_values(host: &mut HostComposition, device: &mut Device) {
 }
 
 /// `pause`: the host's scan thread takes it at its next pass, which runs no scan; the device takes
-/// it at its boundary one cycle interval after its last scan. Returns that boundary.
+/// it at its next boundary on its grid. Returns that boundary.
 fn pause(host: &mut HostComposition, device: &mut Device) -> StdDuration {
     let line = request(6, "pause");
     let host_reply = host.request(&line);
@@ -372,6 +379,8 @@ fn restart_in_place(host: &mut HostComposition, device: &mut Device, id: u64, mo
         .expect("the restart pass scanned");
     device.replay(&scans[..restarted]);
     assert_same_reply(&line, &host_reply, &device.request(&line));
+    // The restart begins the device's grid again at the scan that takes it.
+    device.grid_origin = scans[restarted].at;
     device.replay(&scans[restarted..]);
     compare_reads(
         host,
@@ -384,9 +393,8 @@ fn restart_in_place(host: &mut HostComposition, device: &mut Device, id: u64, mo
     );
 }
 
-/// `shutdown`: the host's scan thread takes the stop at its next pass, and the device at its
-/// boundary one cycle interval after its last scan; both then report Stopped and keep serving
-/// (spec 34 STATE-08).
+/// `shutdown`: the host's scan thread takes the stop at its next pass, and the device at its next
+/// boundary on its grid; both then report Stopped and keep serving (spec 34 STATE-08).
 fn shutdown(host: &mut HostComposition, device: &mut Device) {
     let line = request(22, "shutdown");
     let host_reply = host.request(&line);
@@ -474,6 +482,7 @@ fn the_single_thread_loop_answers_the_transcript_exactly_as_the_threaded_host() 
         scans,
         now: StdDuration::ZERO,
         last_scan: StdDuration::ZERO,
+        grid_origin: StdDuration::ZERO,
     };
     device.replay(&warmup);
 
@@ -536,6 +545,7 @@ fn the_runner_and_the_host_report_their_own_platform_and_the_same_program_contro
         scans,
         now: StdDuration::ZERO,
         last_scan: StdDuration::ZERO,
+        grid_origin: StdDuration::ZERO,
     };
     device.replay(&warmup);
 

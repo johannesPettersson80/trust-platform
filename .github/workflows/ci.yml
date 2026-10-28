@@ -284,10 +284,12 @@ jobs:
             PYTHON_BIN=python
           fi
           LOG_PATH="gate-artifacts/test-${{ matrix.os }}.log"
+          # The changed RUSTFLAGS check trust-runtime and its dependencies afresh: on the macOS
+          # runner without a warm cache that took longer than 20 minutes (main, 28 October 2026).
           RUSTFLAGS=-Dwarnings "${PYTHON_BIN}" scripts/run_with_progress.py \
             --phase ci-runtime-warnings \
             --target "${{ matrix.os }} trust-runtime" \
-            --timeout-seconds "${CI_RUNTIME_WARNINGS_TIMEOUT_SECONDS:-1200}" \
+            --timeout-seconds "${CI_RUNTIME_WARNINGS_TIMEOUT_SECONDS:-3600}" \
             --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
             --log "${LOG_PATH}" \
             -- cargo check -p trust-runtime --all-targets
