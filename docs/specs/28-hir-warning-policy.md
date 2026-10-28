@@ -46,6 +46,12 @@ An accepted implicit conversion may emit `ImplicitConversion` when the source
 and destination declared types differ. The warning does not replace assignment
 compatibility: an incompatible conversion remains an error.
 
+A derived DUT converted to its own ancestor (directly or transitively) does
+not emit this warning: the conversion is a well-defined base-part-copy upcast
+that assignment compatibility already accepts, and vendor toolchains treat it
+as an ordinary inheritance assignment. Conversions between DUTs without an
+ancestor relation keep the warning.
+
 ## 3. Cyclomatic complexity
 
 Cyclomatic complexity is one plus the number of IF, ELSIF, FOR, WHILE, REPEAT,
