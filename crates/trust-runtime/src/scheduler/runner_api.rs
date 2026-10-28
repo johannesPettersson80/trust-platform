@@ -20,6 +20,11 @@ pub struct ResourceRunner<C: Clock + Clone> {
     /// The scheduler clock's reading when the program started. The program's logical time counts
     /// from it (specification 34, STATE-08), so a program started again begins at zero.
     program_origin: Duration,
+    /// The program time at which the tasks' timing last began: the program's start or its last
+    /// restart (specification 10 §4.3).
+    task_origin: Duration,
+    /// Whether the tasks' timing began again since the scan loop last took the grid's origin.
+    grid_restarted: bool,
     /// Whether a `MeshCatalogue` request is refused, as a debug session's program publishes no
     /// runtime mesh catalogue (specification 43, "Debug-session boundary").
     refuse_mesh_catalogue: bool,
@@ -43,6 +48,8 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             program_loader: None,
             reload_required: false,
             program_origin: Duration::ZERO,
+            task_origin: Duration::ZERO,
+            grid_restarted: true,
             refuse_mesh_catalogue: false,
         }
     }
@@ -186,7 +193,18 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             .timing
             .restart_time(self.program_time(self.clock.now()));
         self.runtime.reset_task_timing(now);
+        self.task_origin = now;
+        self.grid_restarted = true;
         self.timing.restart_schedule();
+    }
+
+    /// The first boundary of the cycle grid on the scheduler clock when the tasks' timing began
+    /// again since the last call: the moment it began, so that the grid's boundaries are the tasks'
+    /// deadlines and no cycle finds a task of the cycle interval not yet due (specification 10
+    /// §4.3). A first scan that starts later, after the start gate or a slow start, takes the last
+    /// of those boundaries at or before it.
+    fn take_grid_origin(&mut self) -> Option<Duration> {
+        std::mem::take(&mut self.grid_restarted).then(|| self.clock_time(self.task_origin))
     }
 
     /// The simulation snapshot for plant status. Its configured speed is the live speed.
@@ -235,6 +253,8 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         self.hang_action = started.hang_action;
         self.program_origin = self.clock.now();
         self.runtime.reset_task_timing(Duration::ZERO);
+        self.task_origin = Duration::ZERO;
+        self.grid_restarted = true;
         Ok(true)
     }
 

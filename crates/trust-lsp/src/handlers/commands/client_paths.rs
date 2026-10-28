@@ -15,9 +15,11 @@ pub(super) fn resolved_root(root: &Path) -> PathBuf {
 }
 
 /// `path` named under `root` as the client names it when it lies under the root's resolved folder
-/// `resolved_root`; any other path stays as it is.
+/// `resolved_root`; any other path stays as it is. A path already under `root` is kept; another
+/// spelling of a file in the project, as the build's resolved paths are on Windows (`\\?\C:\…`)
+/// while the client's root has no such prefix, is named under `root` too.
 pub(super) fn client_path(root: &Path, resolved_root: &Path, path: PathBuf) -> PathBuf {
-    if resolved_root == root {
+    if path.starts_with(root) {
         return path;
     }
     match canonicalize_lossy(&path).strip_prefix(resolved_root) {
@@ -55,6 +57,41 @@ pub(super) fn resolved(path: &Path) -> PathBuf {
             }
             _ => return path.to_path_buf(),
         }
+    }
+}
+
+#[cfg(test)]
+mod path_form_tests {
+    use super::{client_path, resolved_root};
+
+    /// Specification 13, "Source Mapping": a file of the project that the build names in another
+    /// form than the client's root, here through a sibling folder and `..` (on Windows, the
+    /// resolved `\\?\C:\…` form of the same folder), is named under the client's root. A path the
+    /// client already names under its root is kept. Catches a client path that keeps the build's
+    /// form whenever the root needs no resolving, so that no project file lies under the root and
+    /// Keep takes Create PLC code's program for a library's (Windows CI, 28 October 2026).
+    #[test]
+    fn another_spelling_of_a_project_file_is_named_under_the_clients_root() {
+        let folder =
+            std::env::temp_dir().join(format!("trustlsp-path-forms-{}", std::process::id()));
+        let root = folder.join("project");
+        std::fs::create_dir_all(root.join("src")).expect("project folder");
+        std::fs::create_dir_all(folder.join("sibling")).expect("sibling folder");
+        std::fs::write(root.join("src").join("Main.st"), "").expect("program file");
+        let resolved = resolved_root(&root);
+        let spelled = folder
+            .join("sibling")
+            .join("..")
+            .join("project")
+            .join("src")
+            .join("Main.st");
+        assert_eq!(
+            client_path(&root, &resolved, spelled),
+            root.join("src").join("Main.st")
+        );
+        let named = root.join("src").join("Main.st");
+        assert_eq!(client_path(&root, &resolved, named.clone()), named);
+        std::fs::remove_dir_all(&folder).expect("remove the test folder");
     }
 }
 

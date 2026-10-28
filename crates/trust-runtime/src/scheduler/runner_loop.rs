@@ -113,10 +113,10 @@ fn run_resource_loop_core<C, F>(
     let mut paused = false;
     let mut restarts = AutomaticRestartLimiter::default();
     let mut hang_supervisor: Option<supervisor::HangSupervisor> = None;
-    // The nominal start of the next cycle on the cycle grid, once a cycle has completed. A restart,
-    // a start after a stop and a recovery from a fault begin the grid again at the start of their
-    // first cycle (specification 10 §4.3), so each of them drops it; a pause keeps it, as the
-    // tasks keep their deadlines through it.
+    // The nominal start of the next cycle on the cycle grid. The grid begins where the tasks'
+    // timing begins, at the program's start and at each restart, a recovery from a fault and a
+    // start after a stop included (specification 10 §4.3), so that its boundaries are the tasks'
+    // deadlines; a pause keeps it, as the tasks keep their deadlines through it.
     let mut boundary: Option<Duration> = None;
     if let Some(gate) = runner.start_gate.as_ref() {
         set_resource_state(&state, ResourceState::Ready);
@@ -134,7 +134,6 @@ fn run_resource_loop_core<C, F>(
                 return;
             }
             paused = false;
-            boundary = None;
             continue;
         }
 
@@ -148,15 +147,13 @@ fn run_resource_loop_core<C, F>(
                 return;
             }
             paused = false;
-            boundary = None;
             continue;
         }
 
         drain_commands(&mut runner, &state, &mut paused);
 
         if let Some(mode) = faulted::take_pending_restart(&runner) {
-            // The restart restarts the task timing now, and the grid with it.
-            boundary = None;
+            // The restart restarts the task timing now, and the grid with it (`take_grid_origin`).
             match runner.restart_or_reload(mode) {
                 Ok(()) => {
                     restarts.reset();
@@ -181,6 +178,9 @@ fn run_resource_loop_core<C, F>(
         }
 
         let now_raw = runner.clock.now();
+        if let Some(origin) = runner.take_grid_origin() {
+            boundary = Some(origin);
+        }
         // The cycle's nominal start on the grid (specification 10 §4.3): the boundary it was due
         // at, or the last boundary at or before its start when it starts a whole interval or more
         // after it, as after a wake the operating system delayed that long or a cycle that

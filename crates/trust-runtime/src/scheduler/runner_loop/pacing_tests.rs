@@ -145,11 +145,17 @@ fn six_cycle_starts<C: Clock + Clone>(clock: C, during: impl Fn(usize)) -> Vec<i
 /// Whether a 10 ms task, whose timing begins at the first cycle, is due in each later cycle that
 /// starts at `starts` ms (specification 10 §4.3), and the activations it counts as missed.
 fn task_due_in_each_later_cycle(starts: &[i64]) -> (Vec<bool>, u64) {
+    task_due_in_each_cycle(starts[0], &starts[1..])
+}
+
+/// Whether a 10 ms task, whose timing begins at `origin` ms, is due in each cycle that starts at
+/// `starts` ms (specification 10 §4.3), and the activations it counts as missed.
+fn task_due_in_each_cycle(origin: i64, starts: &[i64]) -> (Vec<bool>, u64) {
     use trust_runtime_core::task::{evaluate_task_readiness, TaskState};
     let interval = Duration::from_millis(10);
-    let mut state = TaskState::new(Duration::from_millis(starts[0]));
+    let mut state = TaskState::new(Duration::from_millis(origin));
     let mut missed = 0;
-    let due = starts[1..]
+    let due = starts
         .iter()
         .map(|start| {
             let readiness =
@@ -159,6 +165,54 @@ fn task_due_in_each_later_cycle(starts: &[i64]) -> (Vec<bool>, u64) {
         })
         .collect();
     (due, missed)
+}
+
+/// A clock that first reads 37 ms, as a program's first cycle that starts that long after the
+/// program's time began, after the start gate or a slow start, and whose second sleep wakes 4 ms
+/// late.
+#[derive(Clone, Debug)]
+struct SlowStartClock {
+    now: Arc<Mutex<i64>>,
+    sleeps: Arc<Mutex<u32>>,
+}
+
+impl Default for SlowStartClock {
+    fn default() -> Self {
+        Self {
+            now: Arc::new(Mutex::new(37_000_000)),
+            sleeps: Arc::default(),
+        }
+    }
+}
+
+impl Clock for SlowStartClock {
+    fn now(&self) -> Duration {
+        Duration::from_nanos(*recover_mutex_lock(self.now.lock()))
+    }
+
+    fn sleep_until(&self, deadline: Duration) {
+        let mut sleeps = recover_mutex_lock(self.sleeps.lock());
+        *sleeps += 1;
+        let late = if *sleeps == 2 { 4_000_000 } else { 0 };
+        *recover_mutex_lock(self.now.lock()) = deadline.as_nanos() + late;
+    }
+
+    fn wake(&self) {}
+}
+
+#[test]
+fn the_grid_begins_where_the_tasks_timing_begins() {
+    // Specification 10 §4.3: the grid begins where the tasks' timing begins, so its boundaries are
+    // the tasks' deadlines. The program's time and its 10 ms task begin at 0 ms, and its first
+    // cycle starts at 37 ms, on the boundary of 30 ms; the cycles go on at 40, 54 (a wake 4 ms
+    // late), 60, 70 and 80 ms, and the task is due in every one. Catches a grid that begins at the
+    // first cycle's start, 37 ms, off the task's deadlines: its wake 4 ms late then comes at
+    // 61 ms, past the deadline of 60 ms, and the cycle of 67 ms finds the task not yet due yet
+    // counts as a scan (the macOS runs of `tutorial_ctl_commands.rs` and `runtime_ctl_journeys.rs`,
+    // 28 October 2026).
+    let starts = six_cycle_starts(SlowStartClock::default(), |_| {});
+    assert_eq!(starts, [37, 40, 54, 60, 70, 80]);
+    assert_eq!(task_due_in_each_cycle(0, &starts), (vec![true; 6], 2));
 }
 
 #[test]

@@ -20,9 +20,10 @@
 //! - The host's paused passes leave no trace, so the device's paused boundaries are run at their
 //!   nominal times, and the resume reaches the device just before the boundary at which the host
 //!   resumed.
-//! - On a restart the host starts its task timing at a clock reading taken inside the restart, a
-//!   few microseconds before its scan; the device starts it at that scan's time. They report the
-//!   same activations unless a later host scan is late by almost exactly a whole cycle interval.
+//! - On a restart the host starts its task timing, and its cycle grid with it, at a clock reading
+//!   taken inside the restart, a few microseconds before its scan; the device starts both at that
+//!   scan's time. They report the same activations unless a later host scan comes within those
+//!   microseconds of its boundary.
 //! - Faults, the cycle watchdog, stop outputs and retain saves: the host composition has none.
 //!   The runner's own contract tests cover them.
 //!

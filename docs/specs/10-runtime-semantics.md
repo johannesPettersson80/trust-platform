@@ -1320,12 +1320,16 @@ between two deadlines, would let a later wake that comes less than an interval
 late pass the task's next deadline, so that the cycle after it found the task
 not yet due and still counted as a scan. A pause keeps the grid, as the tasks
 keep their deadlines through it: the first cycle after the resume is on the last
-nominal start at or before it. A restart, a recovery from a fault by a restart
-included, and a start begin the tasks' timing again at the moment their first
-cycle starts, so the grid begins at that moment: the next cycle's nominal start
-is one interval after it, when the tasks are due, and no cycle between finds
-them not yet due. This holds on every runtime, a computer's scheduler thread and
-a chip's resource loop alike (specification 34 CYCLE-03).
+nominal start at or before it. The grid begins where the tasks' timing begins: at
+the program's start, and again at a restart, a recovery from a fault by a restart
+included, and a start after a stop, which begin the tasks' timing at the moment
+their first cycle starts. The next cycle's nominal start is then one interval
+later, when the tasks are due, and no cycle between finds them not yet due. A
+first cycle that starts later than the program's time began, after the start
+gate or a slow start, takes the last nominal start at or before it, so the
+grid's boundaries are still the tasks' deadlines. This holds on every runtime, a
+computer's scheduler thread and a chip's resource loop alike (specification 34
+CYCLE-03).
 
 The SINGLE input must resolve to a BOOL variable; if it is missing or non-BOOL, task execution
 fails with a runtime error.
