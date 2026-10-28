@@ -295,6 +295,14 @@ and fail-closed aggregation boundaries. They do not prove that an unexecuted
 GitHub workflow ran successfully, that uploaded artifacts are publicly
 available, or that the final release candidate is green.
 
+Each native test job also checks `trust-runtime` with all its targets and
+warnings denied (`RUSTFLAGS=-Dwarnings`). The changed compiler flags rebuild
+the crate and its dependencies outside the job's warm cache, so this step has
+its own time limit of one hour, which `CI_RUNTIME_WARNINGS_TIMEOUT_SECONDS` may
+change. On a macOS runner without a warm cache it took longer than the earlier
+20 minutes (`main`, 28 October 2026). The limit stops a hung check; it is not a
+build-time budget, and a check that exceeds it fails the job.
+
 Shared-builder Cargo targets used by an active gate MUST hold a stable external
 lease for the complete command lifetime. Generated-target cleanup MUST acquire
 that same lease without waiting and MUST skip a target whose lease is held; a
