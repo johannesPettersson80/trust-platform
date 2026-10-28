@@ -7,6 +7,7 @@ export type IoEntry = {
   valueType?: string;
   value: string;
   forced?: boolean;
+  quality?: "good" | "uncertain" | "stale" | "bad";
   writable?: boolean;
 };
 
@@ -18,30 +19,15 @@ export type IoState = {
   ads: IoEntry[];
 };
 
-export type CompileIssue = {
-  file: string;
-  line: number;
-  column: number;
-  severity: "error" | "warning";
-  message: string;
-  code?: string;
-  source?: string;
-};
-
-export type CompileResult = {
-  target: string;
-  dirty: boolean;
-  errors: number;
-  warnings: number;
-  issues: CompileIssue[];
-  runtimeStatus: "ok" | "error" | "skipped";
-  runtimeMessage?: string;
-};
-
 export type RuntimeStatusPayload = {
   running: boolean;
   inlineValuesEnabled: boolean;
   runtimeMode: "simulate" | "online";
+  /** The running target is simulated (Specification 35, A2.4): the runtime reports simulation enabled and every attached
+   * I/O driver simulated. Editor settings and the debug configuration never set it. */
+  simulated?: boolean;
+  /** The resource cycle the runtime reports, when it reports one (A7 connection-loss timeout). */
+  cycleIntervalMs?: number;
   runtimeState: "running" | "connected" | "stopped";
   targetLabel?: string;
   endpoint: string;
@@ -49,7 +35,25 @@ export type RuntimeStatusPayload = {
   endpointEnabled: boolean;
   endpointReachable: boolean;
   access?: RuntimeAccessPayload;
+  /** A Force on this target must be armed first (specification 25 §4.2), as the language server decides it. */
+  forceRequiresArm?: boolean;
+  /** What each section's rows may do in each row state (specification 25 §4.1, §4.2), as the language server decides
+   * it. */
+  rows?: Record<"inputs" | "outputs" | "memory" | "ads", Record<"live" | "forced" | "readOnly", RowOperations>>;
   ads?: AdsStatusSummary;
+  /** The online runtime answered Connect but keeps debugging disabled, as the lifecycle reported it (specification 25,
+   * section 4.4): the panel names that state instead of "Not connected". */
+  debugDisabled?: boolean;
+};
+
+export type RowOperations = {
+  write: boolean;
+  force: boolean;
+  release: boolean;
+  /** Why an operation is not allowed, `null` while it is. */
+  writeReason: string | null;
+  forceReason: string | null;
+  releaseReason: string | null;
 };
 
 export type RuntimeAccessPayload = {
@@ -72,8 +76,4 @@ export type SettingsPayload = {
   runtimeExcludeGlobs?: string[];
   runtimeIgnorePragmas?: string[];
   runtimeInlineValuesEnabled?: boolean;
-};
-
-export type CompileOptions = {
-  startDebugAfter?: boolean;
 };

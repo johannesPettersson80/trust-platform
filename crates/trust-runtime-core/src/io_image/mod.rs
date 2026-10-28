@@ -15,6 +15,57 @@ pub use coercion::{
 };
 pub use prepared::{IoValueCodec, PreparedIoBinding};
 
+/// A copy of the flat process images, `%I`, `%Q` and `%M`, which a runtime keeps to read its
+/// bindings after a scan without the engine (checklist P1-6). A copy keeps its storage, so copying
+/// images of the sizes copied before allocates nothing.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FlatImages {
+    /// The input image.
+    pub inputs: Vec<u8>,
+    /// The output image.
+    pub outputs: Vec<u8>,
+    /// The marker image.
+    pub memory: Vec<u8>,
+}
+
+impl FlatImages {
+    /// The image of `area`.
+    #[must_use]
+    pub fn area(&self, area: IoArea) -> &[u8] {
+        match area {
+            IoArea::Input => &self.inputs,
+            IoArea::Output => &self.outputs,
+            IoArea::Memory => &self.memory,
+        }
+    }
+
+    /// The raw value at the flat `address`, read as the engine reads it from its process image: an
+    /// address that is not concrete, is hierarchical or reaches beyond its area's image is refused.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::InvalidIoAddress`] for such an address.
+    pub fn read(&self, address: &IoAddress) -> Result<Value, RuntimeError> {
+        validate_process_image_address(address)?;
+        let image = self.area(address.area);
+        check_image_window(address, image.len())?;
+        read_flat_image(image, address)
+    }
+}
+
+/// Refuse a flat `address` that reaches beyond `len` bytes, the length of its area's image.
+pub(crate) fn check_image_window(address: &IoAddress, len: usize) -> Result<(), RuntimeError> {
+    if address
+        .flat_byte_end()?
+        .is_some_and(|end| end as usize > len)
+    {
+        return Err(RuntimeError::InvalidIoAddress(
+            "address exceeds admitted process image".into(),
+        ));
+    }
+    Ok(())
+}
+
 /// Read a little-endian flat process-image value; absent buffer bytes read as zero.
 /// Hierarchical addresses require their separate value store.
 pub fn read_flat_image(buffer: &[u8], address: &IoAddress) -> Result<Value, RuntimeError> {

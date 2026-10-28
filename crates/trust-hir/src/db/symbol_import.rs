@@ -34,6 +34,11 @@ pub(super) struct SymbolImporter<'a> {
     sources: &'a FxHashMap<FileId, Arc<SymbolTable>>,
     type_map: FxHashMap<(FileId, TypeId), TypeId>,
     importing: FxHashSet<(FileId, TypeId)>,
+    /// Namespace path -> namespace symbol in `target`. Built once from the target and
+    /// kept up to date as namespaces are imported, instead of rescanning the (growing)
+    /// target for every imported table, which made one merge quadratic in the number of
+    /// project files.
+    namespace_targets: Option<FxHashMap<Vec<SmolStr>, SymbolId>>,
 }
 
 impl<'a> SymbolImporter<'a> {
@@ -46,26 +51,34 @@ impl<'a> SymbolImporter<'a> {
             sources,
             type_map: FxHashMap::default(),
             importing: FxHashSet::default(),
+            namespace_targets: None,
         }
     }
 
-    pub(super) fn import_table(&mut self, source_file: FileId, source: &SymbolTable) {
-        let mut namespace_targets: FxHashMap<Vec<SmolStr>, SymbolId> = FxHashMap::default();
+    fn take_namespace_targets(&mut self) -> FxHashMap<Vec<SmolStr>, SymbolId> {
+        if let Some(targets) = self.namespace_targets.take() {
+            return targets;
+        }
+        let mut targets: FxHashMap<Vec<SmolStr>, SymbolId> = FxHashMap::default();
         for symbol in self.target.iter() {
             if !matches!(symbol.kind, SymbolKind::Namespace) {
                 continue;
             }
             if let Some(path) = Self::namespace_path(self.target, symbol.id) {
-                namespace_targets.insert(path, symbol.id);
+                targets.insert(path, symbol.id);
             }
         }
+        targets
+    }
 
-        let mut parent_map: FxHashMap<SymbolId, Option<SymbolId>> = FxHashMap::default();
-        let mut source_symbols: Vec<Symbol> = source.iter().cloned().collect();
-        source_symbols.sort_by_key(|sym| sym.id.0);
-        for symbol in &source_symbols {
-            parent_map.insert(symbol.id, symbol.parent);
-        }
+    pub(super) fn import_table(&mut self, source_file: FileId, source: &SymbolTable) {
+        let mut namespace_targets = self.take_namespace_targets();
+
+        // References in ID order (no clone, no sort); only imported symbols are cloned.
+        // Parents are looked up in `source` directly instead of a copied parent map.
+        let source_symbols: Vec<&Symbol> = source.iter_in_id_order().collect();
+        let parent_of =
+            |id: SymbolId| -> Option<SymbolId> { source.get(id).and_then(|s| s.parent) };
 
         let mut root_cache: FxHashMap<SymbolId, SymbolId> = FxHashMap::default();
         let mut root_for = |id: SymbolId| -> SymbolId {
@@ -73,7 +86,7 @@ impl<'a> SymbolImporter<'a> {
                 return *root;
             }
             let mut current = id;
-            while let Some(parent) = parent_map.get(&current).copied().flatten() {
+            while let Some(parent) = parent_of(current) {
                 current = parent;
             }
             root_cache.insert(id, current);
@@ -91,15 +104,11 @@ impl<'a> SymbolImporter<'a> {
             }
             if let Some(existing_id) = self.target.lookup(symbol.name.as_str()) {
                 if should_report_import_name_collision(&symbol.kind) {
-                    let existing_range = self
-                        .target
-                        .get(existing_id)
-                        .map(|existing| existing.range)
-                        .unwrap_or_else(|| TextRange::empty(0.into()));
+                    let existing = self.collision_side(existing_id);
                     self.target.record_import_collision(
                         symbol.name.clone(),
-                        existing_range,
-                        symbol.range,
+                        existing,
+                        (symbol.range, Some(source_file)),
                     );
                 }
                 continue;
@@ -108,7 +117,7 @@ impl<'a> SymbolImporter<'a> {
         }
 
         let mut id_map: FxHashMap<SymbolId, SymbolId> = FxHashMap::default();
-        for symbol in source_symbols {
+        for symbol in source_symbols.iter().copied() {
             let root_id = root_for(symbol.id);
             if !importable_roots.contains(&root_id) {
                 continue;
@@ -146,7 +155,7 @@ impl<'a> SymbolImporter<'a> {
         }
 
         for (old_id, new_id) in id_map.iter() {
-            let old_parent = parent_map.get(old_id).copied().flatten();
+            let old_parent = parent_of(*old_id);
             if let Some(new_parent) = old_parent.and_then(|pid| id_map.get(&pid).copied())
                 && let Some(symbol) = self.target.get_mut(*new_id)
             {
@@ -184,7 +193,7 @@ impl<'a> SymbolImporter<'a> {
         }
 
         for (old_id, new_id) in id_map.iter() {
-            if parent_map.get(old_id).copied().flatten().is_none() {
+            if parent_of(*old_id).is_none() {
                 if let Some(symbol) = self.target.get(*new_id) {
                     self.define_imported_symbol_in_scope(
                         ScopeId::GLOBAL,
@@ -284,6 +293,7 @@ impl<'a> SymbolImporter<'a> {
                 self.ensure_namespace_scope(*new_id);
             }
         }
+        self.namespace_targets = Some(namespace_targets);
     }
 
     fn define_imported_symbol_in_scope(
@@ -349,13 +359,21 @@ impl<'a> SymbolImporter<'a> {
         if !should_report_import_name_collision(&duplicate.kind) {
             return;
         }
-        let existing_range = self
-            .target
-            .get(existing_id)
-            .map(|existing| existing.range)
-            .unwrap_or_else(|| TextRange::empty(0.into()));
+        let duplicate = (
+            duplicate.range,
+            duplicate.origin.map(|origin| origin.file_id),
+        );
+        let existing = self.collision_side(existing_id);
         self.target
-            .record_import_collision(name.clone(), existing_range, duplicate.range);
+            .record_import_collision(name.clone(), existing, duplicate);
+    }
+
+    /// Range and file (`None` = the target's own file) of a symbol in the target table.
+    fn collision_side(&self, id: SymbolId) -> (TextRange, Option<FileId>) {
+        self.target.get(id).map_or_else(
+            || (TextRange::empty(0.into()), None),
+            |symbol| (symbol.range, symbol.origin.map(|origin| origin.file_id)),
+        )
     }
 
     fn namespace_path(table: &SymbolTable, symbol_id: SymbolId) -> Option<Vec<SmolStr>> {
@@ -559,17 +577,11 @@ impl<'a> SymbolImporter<'a> {
                     .register_type(name.clone(), Type::Alias { name, target })
             }
             Type::String { max_len } => match max_len {
-                Some(len) => self.target.register_type(
-                    SmolStr::new(format!("STRING[{}]", len)),
-                    Type::String { max_len: Some(len) },
-                ),
+                Some(len) => self.target.register_string_type(false, len),
                 None => TypeId::STRING,
             },
             Type::WString { max_len } => match max_len {
-                Some(len) => self.target.register_type(
-                    SmolStr::new(format!("WSTRING[{}]", len)),
-                    Type::WString { max_len: Some(len) },
-                ),
+                Some(len) => self.target.register_string_type(true, len),
                 None => TypeId::WSTRING,
             },
             _ => type_id,

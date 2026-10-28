@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use super::*;
 
 const ENUM_INPUT_SOURCE: &str = r#"
@@ -24,6 +26,7 @@ PROGRAM EnumProgram
 VAR
     State AT %QW0 : Signal := Signal#Active;
 END_VAR
+State := Signal#Idle;
 END_PROGRAM
 
 CONFIGURATION EnumConfig
@@ -46,12 +49,19 @@ mappings = [
     .expect("parse enum mapping")
 }
 
+/// The process-image addresses at which `runtime` binds the variable `name`.
+fn bound_addresses(
+    runtime: &trust_runtime::CompiledRuntime,
+    name: &str,
+) -> Vec<trust_runtime::io::IoAddress> {
+    runtime.bound_addresses(runtime.find_variable(name).expect("the variable"))
+}
+
 /// Spec 32 §5: a reused compatible direct binding keeps its index and its image offset; the mapping
 /// adds no binding and does not grow the output image.
 #[test]
 fn mqtt_install_reused_output_binding_keeps_its_index_and_image_offset() {
-    let session = CompileSession::from_sources(vec![SourceFile::with_path(
-        "src/main.st",
+    let mut runtime = compiled_program(
         r#"
 PROGRAM Outputs
 VAR
@@ -67,17 +77,14 @@ RESOURCE CommMqttRes ON PLC
 END_RESOURCE
 END_CONFIGURATION
 "#,
-    )]);
-    let mut runtime = session
-        .build_runtime()
-        .expect("build direct output runtime");
-    assert_eq!(runtime.io().bindings().len(), 2);
-    assert_eq!(runtime.io().outputs().len(), 4);
-    assert_eq!(runtime.io().bindings()[1].address.byte, 2);
-    let before = match &runtime.io().bindings()[1].target {
-        trust_runtime::io::IoTarget::Reference(reference) => reference.clone(),
-        other => panic!("expected reference binding, got {other:?}"),
-    };
+    );
+    let output = trust_runtime::memory::IoArea::Output;
+    assert_eq!(runtime.process_image_bytes(output), 4);
+    let second = trust_runtime::io::IoAddress::parse("%QW2").unwrap();
+    assert_eq!(
+        bound_addresses(&runtime, "MainInstance.Second"),
+        vec![second.clone()]
+    );
 
     let params: toml::Value = toml::from_str(
         r#"
@@ -88,31 +95,29 @@ mappings = [
 "#,
     )
     .expect("parse write mapping");
-    let lowered = trust_runtime::io::resolve_mqtt_tag_mappings(&mut runtime, &params)
+    let (lowered, links) = trust_runtime::io::resolve_compiled_mqtt_tag_mappings(&runtime, &params)
         .expect("reuse the existing %QW binding");
 
     assert_eq!(
         lowered["output_points"][0]["image_offset"].as_integer(),
         Some(2)
     );
+    assert!(links.is_empty(), "a reused binding must not add a binding");
+    runtime
+        .link_mqtt_tags(&links)
+        .expect("install the mapping set");
+    let probe = ImageProbe::default();
+    runtime.add_io_driver("probe", Box::new(probe.clone()));
+    runtime.execute_cycle().expect("drive the outputs");
     assert_eq!(
-        runtime.io().bindings().len(),
-        2,
-        "a reused binding must not add a binding"
-    );
-    assert_eq!(
-        runtime.io().outputs().len(),
+        probe.outputs().len(),
         4,
         "a reused binding must not grow the output image"
     );
-    assert_eq!(runtime.io().bindings()[1].address.byte, 2);
-    let after = match &runtime.io().bindings()[1].target {
-        trust_runtime::io::IoTarget::Reference(reference) => reference.clone(),
-        other => panic!("expected reference binding, got {other:?}"),
-    };
     assert_eq!(
-        after, before,
-        "binding index 1 must still name the same variable"
+        bound_addresses(&runtime, "MainInstance.Second"),
+        vec![second],
+        "the binding must still name the same variable at the same address"
     );
 }
 
@@ -120,8 +125,7 @@ mappings = [
 /// an existing runtime keeps the PLC storage and does not rerun the initializers.
 #[test]
 fn mqtt_install_mapping_set_on_an_existing_runtime_keeps_storage_and_skips_initializers() {
-    let session = CompileSession::from_sources(vec![SourceFile::with_path(
-        "src/main.st",
+    let mut runtime = compiled_program(
         r#"
 PROGRAM TrafficLight
 VAR
@@ -139,23 +143,16 @@ RESOURCE CommMqttRes ON PLC
 END_RESOURCE
 END_CONFIGURATION
 "#,
-    )]);
-    let mut runtime = session
-        .build_runtime()
-        .expect("build traffic-light runtime");
+    );
     runtime.set_current_time(Duration::from_millis(100));
     runtime.execute_cycle().expect("run the program once");
-    let instance = match runtime.storage().get_global("MainInstance") {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected program instance, got {other:?}"),
-    };
     assert_eq!(
-        runtime.storage().get_instance_var(instance, "Green"),
-        Some(&Value::Bool(true))
+        runtime.read_variable("MainInstance.Green"),
+        Ok(Value::Bool(true))
     );
     assert_eq!(
-        runtime.storage().get_instance_var(instance, "Red"),
-        Some(&Value::Bool(false))
+        runtime.read_variable("MainInstance.Red"),
+        Ok(Value::Bool(false))
     );
 
     let params: toml::Value = toml::from_str(
@@ -168,142 +165,103 @@ mappings = [
 "#,
     )
     .expect("parse mappings");
-    trust_runtime::io::resolve_mqtt_tag_mappings(&mut runtime, &params)
+    install_tag_mappings(&mut runtime, &params)
         .expect("install the mapping set on the existing runtime");
 
     assert_eq!(
-        runtime.storage().get_global("MainInstance"),
-        Some(&Value::Instance(instance)),
-        "the program instance identity must survive the reconfiguration"
-    );
-    assert_eq!(
-        runtime.storage().get_instance_var(instance, "Green"),
-        Some(&Value::Bool(true)),
+        runtime.read_variable("MainInstance.Green"),
+        Ok(Value::Bool(true)),
         "Green must keep its scanned value"
     );
     assert_eq!(
-        runtime.storage().get_instance_var(instance, "Red"),
-        Some(&Value::Bool(false)),
+        runtime.read_variable("MainInstance.Red"),
+        Ok(Value::Bool(false)),
         "Red must keep its scanned value rather than its initializer"
     );
-    assert_eq!(runtime.io().bindings().len(), 2);
+    let probe = ImageProbe::default();
+    runtime.add_io_driver("probe", Box::new(probe.clone()));
     runtime
         .execute_cycle()
         .expect("copy the kept values into the output image");
-    assert_eq!(runtime.io().outputs(), &[1, 0]);
+    assert_eq!(probe.outputs(), vec![1, 0]);
 }
 
 /// Spec 32 §5-6: a reused direct input binding receives the enumeration codec, so an inbound numeric
 /// value reconstructs the declared member label.
 #[test]
 fn mqtt_install_reused_enum_input_binding_reconstructs_member_labels() {
-    let mut runtime = CompileSession::from_sources(vec![SourceFile::with_path(
-        "src/main.st",
-        ENUM_INPUT_SOURCE,
-    )])
-    .build_runtime()
-    .expect("build declared enum input runtime");
-    assert_eq!(runtime.io().bindings().len(), 1);
-    let lowered =
-        trust_runtime::io::resolve_mqtt_tag_mappings(&mut runtime, &install_enum_params("read"))
-            .expect("reuse the declared enum input");
-    assert_eq!(
-        runtime.io().bindings().len(),
-        1,
+    let mut runtime = compiled_program(ENUM_INPUT_SOURCE);
+    let (lowered, links) = trust_runtime::io::resolve_compiled_mqtt_tag_mappings(
+        &runtime,
+        &install_enum_params("read"),
+    )
+    .expect("reuse the declared enum input");
+    assert!(
+        links.is_empty(),
         "the declared input binding must be reused"
     );
     assert_eq!(
         lowered["input_points"][0]["image_offset"].as_integer(),
         Some(0)
     );
-    runtime
-        .write_io(
-            &trust_runtime::io::IoAddress::parse("%IW0").unwrap(),
-            Value::Word(u16::from_le_bytes((-1i16).to_le_bytes())),
-        )
-        .unwrap();
-    let reference = match &runtime.io().bindings()[0].target {
-        trust_runtime::io::IoTarget::Reference(reference) => reference.clone(),
-        other => panic!("expected reference binding, got {other:?}"),
-    };
+    let probe = ImageProbe::driving(&(-1i16).to_le_bytes());
+    runtime.add_io_driver("probe", Box::new(probe));
     runtime
         .execute_cycle()
         .expect("decode the reused enum input");
-    let Some(Value::Enum(value)) = runtime.storage().read_by_ref(reference) else {
-        panic!("enum input must keep its runtime type");
-    };
-    assert_eq!(value.type_name().as_str(), "Signal");
-    assert_eq!(value.variant_name().as_str(), "Idle");
-    assert_eq!(value.numeric_value(), -1);
+    assert_eq!(
+        enum_parts(&runtime.read_variable("MainInstance.State").unwrap()),
+        ("Signal".to_string(), "Idle".to_string(), -1),
+        "enum input must keep its runtime type"
+    );
 }
 
 /// Spec 32 §6: an undeclared numeric value on a reused enumeration input is rejected, and the destination
 /// keeps its previous value.
 #[test]
 fn mqtt_install_reused_enum_input_binding_refuses_undeclared_numeric_value() {
-    let mut runtime = CompileSession::from_sources(vec![SourceFile::with_path(
-        "src/main.st",
-        ENUM_INPUT_SOURCE,
-    )])
-    .build_runtime()
-    .expect("build declared enum input runtime");
-    trust_runtime::io::resolve_mqtt_tag_mappings(&mut runtime, &install_enum_params("read"))
+    let mut runtime = compiled_program(ENUM_INPUT_SOURCE);
+    install_tag_mappings(&mut runtime, &install_enum_params("read"))
         .expect("reuse the declared enum input");
-    runtime
-        .write_io(
-            &trust_runtime::io::IoAddress::parse("%IW0").unwrap(),
-            Value::Word(3),
-        )
-        .unwrap();
-    let reference = match &runtime.io().bindings()[0].target {
-        trust_runtime::io::IoTarget::Reference(reference) => reference.clone(),
-        other => panic!("expected reference binding, got {other:?}"),
-    };
-    let before = runtime.storage().read_by_ref(reference.clone()).cloned();
+    let probe = ImageProbe::driving(&3i16.to_le_bytes());
+    runtime.add_io_driver("probe", Box::new(probe));
+    let before = runtime.read_variable("MainInstance.State");
 
     let error = runtime
         .execute_cycle()
         .expect_err("undeclared enum numeric value must be rejected");
 
     assert!(error.to_string().contains("enum"), "{error}");
-    assert_eq!(runtime.storage().read_by_ref(reference), before.as_ref());
+    assert_eq!(runtime.read_variable("MainInstance.State"), before);
 }
 
 /// Spec 32 §5-6: a reused direct output binding encodes an enumeration member label to its declared
 /// numeric wire value.
 #[test]
 fn mqtt_install_reused_enum_output_binding_encodes_member_labels() {
-    let mut runtime = CompileSession::from_sources(vec![SourceFile::with_path(
-        "src/main.st",
-        ENUM_OUTPUT_SOURCE,
-    )])
-    .build_runtime()
-    .expect("build declared enum output runtime");
-    trust_runtime::io::resolve_mqtt_tag_mappings(&mut runtime, &install_enum_params("write"))
+    let mut runtime = compiled_program(ENUM_OUTPUT_SOURCE);
+    install_tag_mappings(&mut runtime, &install_enum_params("write"))
         .expect("reuse the declared enum output");
-    assert_eq!(runtime.io().bindings().len(), 1);
-    let reference = match &runtime.io().bindings()[0].target {
-        trust_runtime::io::IoTarget::Reference(reference) => reference.clone(),
-        other => panic!("expected reference binding, got {other:?}"),
-    };
-    let enum_type = runtime.registry().lookup("Signal").expect("Signal type id");
-    let idle = trust_runtime::value::EnumValue::new(runtime.registry(), enum_type, "Idle")
-        .expect("declared enum label");
-    runtime
-        .write_reference(&reference, Value::Enum(Box::new(idle)))
-        .expect("write declared enum label");
+    assert_eq!(
+        bound_addresses(&runtime, "MainInstance.State"),
+        vec![trust_runtime::io::IoAddress::parse("%QW0").unwrap()]
+    );
+    let probe = ImageProbe::default();
+    runtime.add_io_driver("probe", Box::new(probe.clone()));
+    // The program assigns the member Idle, whose declared value is -1, in its task's first
+    // activation, one interval after its start (specification 10 §4).
+    runtime.set_current_time(Duration::from_millis(100));
     runtime
         .execute_cycle()
         .expect("encode the reused enum output");
 
-    assert_eq!(runtime.io().outputs(), &(-1i16).to_le_bytes());
+    assert_eq!(probe.outputs(), (-1i16).to_le_bytes());
 }
 
 /// Spec 32 §5: new symbolic points are allocated deterministically after the declared process image.
 #[test]
 fn mqtt_install_new_points_follow_a_declared_output_word() {
-    let mut runtime = CompileSession::from_sources(vec![SourceFile::with_path(
-        "src/main.st",
+    let mut runtime = compiled_program(
         r#"
 PROGRAM Outputs
 VAR
@@ -320,11 +278,9 @@ RESOURCE CommMqttRes ON PLC
 END_RESOURCE
 END_CONFIGURATION
 "#,
-    )])
-    .build_runtime()
-    .expect("build declared-image runtime");
+    );
     assert_eq!(
-        runtime.io().outputs().len(),
+        runtime.process_image_bytes(trust_runtime::memory::IoArea::Output),
         2,
         "the declared word is the output image before the mapping"
     );
@@ -339,7 +295,7 @@ mappings = [
     )
     .expect("parse mappings");
 
-    let lowered = trust_runtime::io::resolve_mqtt_tag_mappings(&mut runtime, &params)
+    let lowered = install_tag_mappings(&mut runtime, &params)
         .expect("allocate points after the declared word");
 
     assert_eq!(
@@ -350,20 +306,18 @@ mappings = [
         lowered["output_points"][1]["image_offset"].as_integer(),
         Some(3)
     );
-    assert_eq!(
-        runtime.io().bindings().len(),
-        3,
-        "the declared binding plus one per new point"
-    );
-    assert_eq!(runtime.io().outputs().len(), 4);
+    let probe = ImageProbe::default();
+    runtime.add_io_driver("probe", Box::new(probe.clone()));
+    runtime.execute_cycle().expect("drive the outputs");
+    // The declared word 0, then Green FALSE and Red TRUE, one byte each.
+    assert_eq!(probe.outputs(), vec![0, 0, 0, 1]);
 }
 
 /// Spec 32 §5 and 34 HOST-09: a refused mapping batch on an installed runtime leaves its bindings, its
 /// process image and its PLC storage unchanged.
 #[test]
 fn mqtt_install_refused_batch_on_an_installed_runtime_leaves_bindings_and_images_unchanged() {
-    let session = CompileSession::from_sources(vec![SourceFile::with_path(
-        "src/main.st",
+    let mut runtime = compiled_program(
         r#"
 PROGRAM TrafficLight
 VAR
@@ -381,10 +335,7 @@ RESOURCE CommMqttRes ON PLC
 END_RESOURCE
 END_CONFIGURATION
 "#,
-    )]);
-    let mut runtime = session
-        .build_runtime()
-        .expect("build traffic-light runtime");
+    );
     let installed: toml::Value = toml::from_str(
         r#"
 broker = "tcp://127.0.0.1:1883"
@@ -394,15 +345,12 @@ mappings = [
 "#,
     )
     .expect("parse installed mapping");
-    trust_runtime::io::resolve_mqtt_tag_mappings(&mut runtime, &installed)
-        .expect("install the first mapping");
+    install_tag_mappings(&mut runtime, &installed).expect("install the first mapping");
+    let probe = ImageProbe::default();
+    runtime.add_io_driver("probe", Box::new(probe.clone()));
     runtime.set_current_time(Duration::from_millis(100));
     runtime.execute_cycle().expect("scan the installed mapping");
-    assert_eq!(runtime.io().outputs(), &[1]);
-    let instance = match runtime.storage().get_global("MainInstance") {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected program instance, got {other:?}"),
-    };
+    assert_eq!(probe.outputs(), vec![1]);
 
     let refused: toml::Value = toml::from_str(
         r#"
@@ -414,7 +362,7 @@ mappings = [
 "#,
     )
     .expect("parse refused batch");
-    let error = trust_runtime::io::resolve_mqtt_tag_mappings(&mut runtime, &refused)
+    let error = install_tag_mappings(&mut runtime, &refused)
         .expect_err("an unsupported tag must refuse the whole batch");
 
     assert!(
@@ -422,24 +370,21 @@ mappings = [
         "{error}"
     );
     assert!(error.to_string().contains("MainInstance.Label"), "{error}");
+    runtime
+        .execute_cycle()
+        .expect("scan after the refused batch");
     assert_eq!(
-        runtime.io().bindings().len(),
-        1,
-        "the refused batch must not add a binding"
-    );
-    assert_eq!(runtime.io().bindings()[0].address.byte, 0);
-    assert_eq!(
-        runtime.io().outputs(),
-        &[1],
+        probe.outputs(),
+        vec![1],
         "the refused batch must not grow or change the output image"
     );
     assert_eq!(
-        runtime.storage().get_instance_var(instance, "Green"),
-        Some(&Value::Bool(true))
+        runtime.read_variable("MainInstance.Green"),
+        Ok(Value::Bool(true))
     );
     assert_eq!(
-        runtime.storage().get_instance_var(instance, "Red"),
-        Some(&Value::Bool(true))
+        runtime.read_variable("MainInstance.Red"),
+        Ok(Value::Bool(true))
     );
 }
 
@@ -447,8 +392,7 @@ mappings = [
 /// two instances is a configuration error that installs nothing.
 #[test]
 fn mqtt_install_unqualified_tag_shared_by_two_instances_is_rejected_atomically() {
-    let mut runtime = CompileSession::from_sources(vec![SourceFile::with_path(
-        "src/main.st",
+    let mut runtime = compiled_program(
         r#"
 PROGRAM NorthProgram
 VAR
@@ -470,9 +414,7 @@ RESOURCE CommMqttRes ON PLC
 END_RESOURCE
 END_CONFIGURATION
 "#,
-    )])
-    .build_runtime()
-    .expect("build two-instance runtime");
+    );
     let params: toml::Value = toml::from_str(
         r#"
 broker = "tcp://127.0.0.1:1883"
@@ -483,7 +425,7 @@ mappings = [
     )
     .expect("parse ambiguous mapping");
 
-    let error = trust_runtime::io::resolve_mqtt_tag_mappings(&mut runtime, &params)
+    let error = install_tag_mappings(&mut runtime, &params)
         .expect_err("an unqualified tag shared by two instances must be refused");
 
     assert!(
@@ -495,15 +437,26 @@ mappings = [
         "{error}"
     );
     assert!(error.to_string().contains("Green"), "{error}");
-    assert!(runtime.io().bindings().is_empty());
-    assert!(runtime.io().outputs().is_empty());
+    assert_installed_nothing(&mut runtime);
+}
+
+/// The scan drives an empty output image: no tag was bound.
+fn assert_installed_nothing(runtime: &mut trust_runtime::CompiledRuntime) {
+    let probe = ImageProbe::default();
+    runtime.add_io_driver("probe", Box::new(probe.clone()));
+    runtime
+        .execute_cycle()
+        .expect("scan without the refused mapping");
+    assert!(
+        probe.outputs().is_empty(),
+        "the refused mapping bound an output"
+    );
 }
 
 /// Spec 32 §5: a non-scalar tag is a configuration error, and no part of the mapping set is installed.
 #[test]
 fn mqtt_install_non_scalar_tag_is_rejected_atomically() {
-    let mut runtime = CompileSession::from_sources(vec![SourceFile::with_path(
-        "src/main.st",
+    let mut runtime = compiled_program(
         r#"
 PROGRAM Lights
 VAR
@@ -518,9 +471,7 @@ RESOURCE CommMqttRes ON PLC
 END_RESOURCE
 END_CONFIGURATION
 "#,
-    )])
-    .build_runtime()
-    .expect("build array runtime");
+    );
     let params: toml::Value = toml::from_str(
         r#"
 broker = "tcp://127.0.0.1:1883"
@@ -531,8 +482,8 @@ mappings = [
     )
     .expect("parse non-scalar mapping");
 
-    let error = trust_runtime::io::resolve_mqtt_tag_mappings(&mut runtime, &params)
-        .expect_err("a non-scalar tag must be refused");
+    let error =
+        install_tag_mappings(&mut runtime, &params).expect_err("a non-scalar tag must be refused");
 
     assert!(
         matches!(error, trust_runtime::error::RuntimeError::InvalidConfig(_)),
@@ -544,16 +495,14 @@ mappings = [
             .contains("'MainInstance.Lamps' is not a supported MQTT scalar"),
         "{error}"
     );
-    assert!(runtime.io().bindings().is_empty());
-    assert!(runtime.io().outputs().is_empty());
+    assert_installed_nothing(&mut runtime);
 }
 
 /// Spec 32 §5-6: a tag outside the MQTT scalar set is a configuration error, and no part of the mapping
 /// set is installed.
 #[test]
 fn mqtt_install_unsupported_tag_type_is_rejected_atomically() {
-    let mut runtime = CompileSession::from_sources(vec![SourceFile::with_path(
-        "src/main.st",
+    let mut runtime = compiled_program(
         r#"
 PROGRAM Drive
 VAR
@@ -568,9 +517,7 @@ RESOURCE CommMqttRes ON PLC
 END_RESOURCE
 END_CONFIGURATION
 "#,
-    )])
-    .build_runtime()
-    .expect("build LREAL runtime");
+    );
     let params: toml::Value = toml::from_str(
         r#"
 broker = "tcp://127.0.0.1:1883"
@@ -581,8 +528,8 @@ mappings = [
     )
     .expect("parse unsupported mapping");
 
-    let error = trust_runtime::io::resolve_mqtt_tag_mappings(&mut runtime, &params)
-        .expect_err("an LREAL tag must be refused");
+    let error =
+        install_tag_mappings(&mut runtime, &params).expect_err("an LREAL tag must be refused");
 
     assert!(
         matches!(error, trust_runtime::error::RuntimeError::InvalidConfig(_)),
@@ -594,6 +541,5 @@ mappings = [
             .contains("'MainInstance.Speed' is not a supported MQTT scalar"),
         "{error}"
     );
-    assert!(runtime.io().bindings().is_empty());
-    assert!(runtime.io().outputs().is_empty());
+    assert_installed_nothing(&mut runtime);
 }

@@ -44,10 +44,10 @@ area = "plcopen_devtools"
 rationale = "Malformed and vendor-shaped XML needs a dedicated import/export target; deterministic negative tests alone are not a fuzz target."
 
 [[surfaces]]
-id = "bytecode_container_instructions"
-title = "Bytecode container and instruction streams"
-area = "bytecode_vm"
-rationale = "Container structure and instruction streams need generated malformed-input pressure at the validator boundary."
+id = "program_images"
+title = "Program images"
+area = "runtime_safety"
+rationale = "Image headers, section tables, signatures, tables, I/O bindings, and memory figures need generated malformed-input pressure at the admission boundary."
 
 [[surfaces]]
 id = "protocol_payloads"
@@ -66,12 +66,6 @@ id = "lsp_incremental_edits"
 title = "LSP incremental edits"
 area = "editor_safety"
 rationale = "Protocol-level edit sequences need generated range, encoding, and lifecycle variation beyond lower-level HIR edit cycles."
-
-[[surfaces]]
-id = "hmi_schema_payloads"
-title = "HMI schema payloads"
-area = "hmi_ui"
-rationale = "HMI schema and value payloads need generated malformed shapes without implying browser or authorization behavior."
 
 [[targets]]
 id = "FUZZ_TARGET_SYNTAX_PARSE"
@@ -171,73 +165,27 @@ strength = "direct"
 rationale = "The target sends bounded arbitrary XML bytes through the production PLCopen import path in an isolated temporary project."
 
 [[targets]]
-id = "FUZZ_TARGET_BYTECODE_CONTAINER"
+id = "FUZZ_TARGET_IMAGE_ADMISSION"
 target_kind = "cargo_fuzz"
-name = "bytecode_container"
-path = "fuzz/fuzz_targets/bytecode_container.rs"
+name = "image_admission"
+path = "fuzz/fuzz_targets/image_admission.rs"
 manifest_path = "fuzz/Cargo.toml"
-command = "cd fuzz && cargo fuzz run bytecode_container"
-owner = "trust-runtime"
+command = "cd fuzz && cargo fuzz run image_admission"
+owner = "trust-runtime-core"
 primary_tier = "manual_extended"
 additional_tiers = []
 enforcement_status = "manual_only"
 execution_basis_ids = []
-corpus_path = "fuzz/corpus/bytecode_container"
-artifact_path = "fuzz/artifacts/bytecode_container"
+corpus_path = "fuzz/corpus/image_admission"
+artifact_path = "fuzz/artifacts/image_admission"
 corpus_storage = "machine_local_ignored"
 artifact_storage = "machine_local_ignored"
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-10-25"
 
 [[targets.surface_associations]]
-surface_id = "bytecode_container_instructions"
+surface_id = "program_images"
 strength = "direct"
-rationale = "The target sends bounded arbitrary bytes through the production bytecode container decoder and validator."
-
-[[targets]]
-id = "FUZZ_TARGET_BYTECODE_ADMISSION"
-target_kind = "cargo_fuzz"
-name = "bytecode_admission"
-path = "fuzz/fuzz_targets/bytecode_admission.rs"
-manifest_path = "fuzz/Cargo.toml"
-command = "cd fuzz && cargo fuzz run bytecode_admission"
-owner = "trust-runtime"
-primary_tier = "manual_extended"
-additional_tiers = []
-enforcement_status = "manual_only"
-execution_basis_ids = []
-corpus_path = "fuzz/corpus/bytecode_admission"
-artifact_path = "fuzz/artifacts/bytecode_admission"
-corpus_storage = "machine_local_ignored"
-artifact_storage = "machine_local_ignored"
-last_reviewed = "2026-10-15"
-
-[[targets.surface_associations]]
-surface_id = "bytecode_container_instructions"
-strength = "direct"
-rationale = "The target repairs the CRC32 so mutated containers reach the full validator, preparation under explicit limits and instantiation, and requires the register and stack executors to agree for three cycles."
-
-[[targets]]
-id = "FUZZ_TARGET_BYTECODE_REPREPARE"
-target_kind = "cargo_fuzz"
-name = "bytecode_reprepare"
-path = "fuzz/fuzz_targets/bytecode_reprepare.rs"
-manifest_path = "fuzz/Cargo.toml"
-command = "cd fuzz && cargo fuzz run bytecode_reprepare"
-owner = "trust-runtime"
-primary_tier = "manual_extended"
-additional_tiers = []
-enforcement_status = "manual_only"
-execution_basis_ids = []
-corpus_path = "fuzz/corpus/bytecode_reprepare"
-artifact_path = "fuzz/artifacts/bytecode_reprepare"
-corpus_storage = "machine_local_ignored"
-artifact_storage = "machine_local_ignored"
-last_reviewed = "2026-10-15"
-
-[[targets.surface_associations]]
-surface_id = "bytecode_container_instructions"
-strength = "direct"
-rationale = "The target requires repeated preparation of the same bytes to agree, and an admitted module to round-trip through decode and encode to identical bytes."
+rationale = "The target repairs the declared length, kernel interface version, program library hash, and header CRC of a mutated image, so the mutation reaches the section table, signature, table, I/O binding, memory, and stack checks of admission (specification 44 section 10.2, steps 2 to 6) on a device of the image's CPU; the image's machine code is never run."
 
 [[targets]]
 id = "FUZZ_TARGET_RUNTIME_CONFIG"
@@ -284,29 +232,6 @@ last_reviewed = "2026-07-17"
 surface_id = "lsp_incremental_edits"
 strength = "direct"
 rationale = "The target sends generated UTF-16 positions and replacement text through the production LSP document-edit implementation."
-
-[[targets]]
-id = "FUZZ_TARGET_HMI_PAYLOADS"
-target_kind = "cargo_fuzz"
-name = "hmi_payloads"
-path = "fuzz/fuzz_targets/hmi_payloads.rs"
-manifest_path = "fuzz/Cargo.toml"
-command = "cd fuzz && cargo fuzz run hmi_payloads"
-owner = "trust-runtime"
-primary_tier = "manual_extended"
-additional_tiers = []
-enforcement_status = "manual_only"
-execution_basis_ids = []
-corpus_path = "fuzz/corpus/hmi_payloads"
-artifact_path = "fuzz/artifacts/hmi_payloads"
-corpus_storage = "machine_local_ignored"
-artifact_storage = "machine_local_ignored"
-last_reviewed = "2026-07-17"
-
-[[targets.surface_associations]]
-surface_id = "hmi_schema_payloads"
-strength = "direct"
-rationale = "The target sends generated JSON values through the production HMI schema, values, and alarms event-state parsers."
 
 [[targets]]
 id = "FUZZ_TARGET_ADS_AMS_FRAME"
@@ -376,26 +301,6 @@ last_reviewed = "2026-07-11"
 surface_id = "protocol_payloads"
 strength = "direct"
 rationale = "The target sends generated ADS command frames through command dispatch."
-
-[[targets]]
-id = "FUZZ_SMOKE_VM_MALFORMED_BYTECODE"
-target_kind = "bounded_rust_smoke"
-name = "vm_malformed_bytecode_fuzz_smoke_budget"
-path = "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs"
-discovery_id = "DISC_FB4371C17A9F9FB83CA9"
-discovery_source_kind = "rust_integration_test"
-command = "cargo test -p trust-runtime --test bytecode_vm_core vm_malformed_bytecode_fuzz_smoke_budget"
-owner = "trust-runtime"
-primary_tier = "nightly"
-additional_tiers = []
-enforcement_status = "planned"
-execution_basis_ids = ["GATE_SCRIPT_RUNTIME_VM_MALFORMED_BYTECODE_FUZZ"]
-last_reviewed = "2026-07-11"
-
-[[targets.surface_associations]]
-surface_id = "bytecode_container_instructions"
-strength = "direct"
-rationale = "The bounded mutation table exercises container metadata, opcode, operand, jump, reference, and encoding rejection paths."
 
 [[targets]]
 id = "FUZZ_SMOKE_MESH_PAYLOAD"

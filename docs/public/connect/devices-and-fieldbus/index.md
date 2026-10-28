@@ -11,6 +11,7 @@
 | --- | --- |
 | use EtherCAT hardware | [EtherCAT](ethercat.md) |
 | use GPIO on the host | [GPIO](gpio.md) |
+| read analog values, drive PWM, count pulses or exchange CAN frames | [Analog, PWM, Counters And CAN](analog-pwm-counter-can.md) |
 | validate without hardware | [Simulated And Loopback](simulated-and-loopback.md) |
 | combine multiple driver definitions in one project | [Multi Driver](multi-driver.md) |
 

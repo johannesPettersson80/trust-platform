@@ -1,0 +1,85 @@
+format = 1
+title = "PID loop"
+
+[[object]]
+id = "heading"
+type = "text"
+variant = "heading"
+at = [40, 24]
+size = [600, 36]
+text = "Temperature loop"
+
+[[object]]
+id = "subtitle"
+type = "text"
+variant = "caption"
+at = [40, 60]
+size = [600, 24]
+text = "Control.PID in Auto"
+
+[[object]]
+id = "pv"
+type = "value"
+at = [40, 104]
+size = [240, 96]
+label = "Process value"
+unit = "°C"
+decimals = 1
+
+[object.bind]
+value = "Loop.Controller.StateValue.ProcessValue"
+
+[[object]]
+id = "sp"
+type = "value"
+at = [304, 104]
+size = [240, 96]
+label = "Setpoint"
+unit = "°C"
+decimals = 1
+
+[object.bind]
+value = "Loop.Controller.StateValue.Setpoint"
+
+[[object]]
+id = "output"
+type = "value"
+at = [568, 104]
+size = [240, 96]
+label = "Output"
+unit = "%"
+decimals = 1
+
+[object.bind]
+value = "Loop.Controller.StateValue.SaturatedOutput"
+
+[[object]]
+id = "pv-gauge"
+type = "gauge"
+at = [40, 232]
+size = [240, 240]
+label = "Process value"
+unit = "°C"
+
+[object.bind]
+value = "Loop.Controller.StateValue.ProcessValue"
+
+[[object]]
+id = "output-bar"
+type = "bar"
+at = [336, 232]
+size = [64, 240]
+label = "Output"
+
+[object.bind]
+value = "Loop.Controller.StateValue.SaturatedOutput"
+
+[[object]]
+id = "initialized"
+type = "status"
+at = [448, 232]
+size = [200, 48]
+label = "Initialized"
+
+[object.bind]
+state = "Loop.Initialized"

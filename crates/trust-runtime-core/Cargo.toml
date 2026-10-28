@@ -1,6 +1,6 @@
 [package]
 name = "trust-runtime-core"
-description = "Portable bytecode execution core for the truST runtime"
+description = "The portable kernel of the truST runtime: program images, values, retain and scheduling"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,10 +10,10 @@ rust-version.workspace = true
 [features]
 default = ["std"]
 std = ["dep:crc32fast", "crc32fast/std", "indexmap/std", "rustc-hash/std", "smol_str/std", "thiserror/std"]
-register-ir = []
-# Raw optimization fixtures are not part of the production execution API.
-test-support = ["register-ir"]
 hir = ["std", "dep:trust-hir"]
+# Helpers that only tests of other crates use: an instance created without its fallible path, and
+# the next instance identity moved so that the exhaustion path is reachable.
+test-support = []
 
 [dependencies]
 crc32fast = { workspace = true, optional = true }
@@ -22,9 +22,18 @@ libm.workspace = true
 lexical-parse-float.workspace = true
 ryu.workspace = true
 rustc-hash.workspace = true
+# The workspace's sha2 0.11.0 without its `alloc` and `oid` defaults: the deployment record's
+# identities on every target, chips included (spec 34 §5.1.1).
+sha2 = { version = "0.11.0", default-features = false }
+# The verification of a program image's Ed25519ph signature (specification 44 §5.11), without the
+# standard library, so that every device checks signatures with the same code: `digest` for the
+# prehashed form, `fast` for the base point's precomputed tables.
+ed25519-dalek = { version = "3.0.0", default-features = false, features = ["digest", "fast"] }
 smol_str.workspace = true
 thiserror.workspace = true
 trust-hir = { workspace = true, optional = true }
+# The interface of compiled programs, which the kernel fills and calls (specification 44 §8.2).
+trust-plc-abi = { workspace = true }
 
 [dev-dependencies]
 crc32fast.workspace = true

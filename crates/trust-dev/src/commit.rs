@@ -319,7 +319,7 @@ fn is_st_file(path: &str) -> bool {
 fn is_config_file(path: &str) -> bool {
     matches!(
         path,
-        "runtime.toml" | "io.toml" | "program.stbc" | ".gitignore"
+        "runtime.toml" | "io.toml" | "program.tpi" | ".gitignore"
     )
 }
 

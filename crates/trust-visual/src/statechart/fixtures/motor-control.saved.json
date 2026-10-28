@@ -1,0 +1,90 @@
+{
+  "id": "stateMachine",
+  "initial": "Stopped",
+  "states": {
+    "Stopped": {
+      "entry": [
+        "disableMotor",
+        "setStatusLED"
+      ],
+      "on": {
+        "START": {
+          "target": "CheckingSafety",
+          "guard": "emergencyStopNotPressed"
+        }
+      }
+    },
+    "CheckingSafety": {
+      "entry": [
+        "checkSafetyConditions"
+      ],
+      "on": {
+        "SAFETY_OK": {
+          "target": "Starting",
+          "guard": "allSafetyChecksPass"
+        },
+        "SAFETY_FAIL": {
+          "target": "Error"
+        }
+      }
+    },
+    "Starting": {
+      "entry": [
+        "enableMotor",
+        "rampUpSpeed"
+      ],
+      "on": {
+        "SPEED_REACHED": {
+          "target": "Running",
+          "guard": "targetSpeedReached"
+        },
+        "EMERGENCY_STOP": {
+          "target": "Error"
+        }
+      }
+    },
+    "Running": {
+      "entry": [
+        "setRunningStatus"
+      ],
+      "on": {
+        "STOP": {
+          "target": "Stopping"
+        },
+        "EMERGENCY_STOP": {
+          "target": "Error"
+        }
+      }
+    },
+    "Stopping": {
+      "entry": [
+        "rampDownSpeed"
+      ],
+      "exit": [
+        "disableMotor"
+      ],
+      "on": {
+        "STOPPED": {
+          "target": "Stopped",
+          "guard": "speedIsZero"
+        }
+      }
+    },
+    "Error": {
+      "entry": [
+        "disableMotor",
+        "activateAlarm"
+      ],
+      "exit": [
+        "clearAlarm"
+      ],
+      "on": {
+        "RESET": {
+          "target": "Stopped",
+          "guard": "errorCleared"
+        }
+      }
+    }
+  },
+  "actionMappings": {}
+}

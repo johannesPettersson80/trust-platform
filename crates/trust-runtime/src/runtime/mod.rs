@@ -1,71 +1,43 @@
-//! Runtime core modules.
+//! Runtime core modules: the compiled program a computer runs (specification 44 §8.8) and the
+//! subsystems around its scan.
 
 #![allow(missing_docs)]
 
 mod ads_subsystem;
-mod authoring;
+mod bound_global;
 mod builder;
-mod bytecode;
-#[cfg(feature = "full")]
-mod checked_admission_compile_fail;
+mod compiled;
+mod hmi_methods;
+pub(crate) mod hmi_stale;
+mod hmi_subsystem;
 #[cfg(test)]
-mod core;
-#[cfg(test)]
-mod cycle;
-#[cfg(test)]
-mod faults;
-#[cfg(test)]
-mod hosted_observation_cycle_tests;
-/// Compiles the embedding migration guide's examples as doc tests.
-#[cfg(feature = "full")]
-mod hosted_platform_guide_examples;
-mod hosted_services;
-mod installed;
-mod installed_bindings;
-mod installed_cycle;
-#[cfg(test)]
-mod installed_cycle_contract_tests;
-mod installed_debug;
-mod installed_entry;
-mod installed_lifecycle;
-mod installed_register;
-mod installed_services;
+mod identify_cycle_tests;
 mod io_subsystem;
-mod mesh;
-mod metadata;
+mod link_subsystem;
+pub(crate) mod metadata;
 mod metrics_subsystem;
 mod opcua_client_subsystem;
+#[cfg(unix)]
+mod openot_alarm_records;
 mod openot_telemetry;
-mod restart;
-mod retain_snapshot;
-pub(crate) mod types;
+pub mod program_access;
 #[cfg(test)]
-mod vm;
+mod test_fixtures;
+pub(crate) mod types;
 mod watchdog_subsystem;
 
-pub(crate) use authoring::BytecodeAuthoringView;
-pub use builder::RuntimeBuilder;
 #[cfg(test)]
-pub(crate) use core::Runtime as LegacyRuntimeFixture;
-pub use installed::Runtime;
+pub(crate) use bound_global::test_support::NamedGlobals;
+pub use bound_global::BoundGlobal;
+pub(crate) use bound_global::GlobalPort;
+pub use builder::RuntimeBuilder;
+pub use compiled::{
+    CompiledDebugger, CompiledRuntime, CompiledState, CompiledVariable, NamedVariable,
+};
+pub(crate) use hmi_methods::InvocationError;
 pub use metadata::RuntimeMetadata;
+pub use program_access::{Access, Located, PathError, ProgramRead, ProgramWrite, View, Walk};
+#[cfg(test)]
+pub(crate) use test_fixtures::{bound_runtime, empty_runtime};
 pub use trust_runtime_core::retain::{RestartMode, RetainPolicy};
 pub use types::RetainSnapshot;
-
-#[cfg(test)]
-mod legacy_restart;
-
-#[cfg(test)]
-mod legacy_retain_snapshot;
-
-#[cfg(test)]
-mod legacy_bytecode;
-
-#[cfg(test)]
-mod legacy_retain_store;
-
-#[cfg(test)]
-mod legacy_harness;
-
-#[cfg(test)]
-pub(crate) use legacy_harness::LegacyTestHarness;

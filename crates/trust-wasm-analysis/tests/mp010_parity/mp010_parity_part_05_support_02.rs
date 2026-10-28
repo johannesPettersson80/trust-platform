@@ -106,6 +106,7 @@ pub(crate) fn completion_kind_label(kind: trust_ide::CompletionKind) -> &'static
         trust_ide::CompletionKind::Constant => "constant",
         trust_ide::CompletionKind::Type => "type",
         trust_ide::CompletionKind::EnumValue => "enum_value",
+        trust_ide::CompletionKind::Namespace => "namespace",
         trust_ide::CompletionKind::Snippet => "snippet",
     }
 }
@@ -203,6 +204,10 @@ pub(crate) fn load_plant_demo_documents() -> Vec<DocumentInput> {
         (
             "config.st",
             include_str!("../../../../examples/plant_demo/src/config.st"),
+        ),
+        (
+            "hmi.st",
+            include_str!("../../../../examples/plant_demo/libraries/hmi/src/hmi.st"),
         ),
     ];
     files

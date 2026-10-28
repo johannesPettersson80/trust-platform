@@ -1,0 +1,45 @@
+{
+  "kind": "transfer-function",
+  "numerator": [
+    0.2
+  ],
+  "denominator": [
+    5,
+    1
+  ],
+  "delaySeconds": 1,
+  "inputs": [
+    {
+      "id": "P1.AppliedPowerPct",
+      "unit": "%",
+      "operatingRange": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "id": "P1.TemperatureC",
+      "unit": "degC",
+      "operatingRange": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    }
+  ],
+  "operatingPoint": {
+    "inputs": [
+      75
+    ],
+    "outputs": [
+      35
+    ]
+  },
+  "source": "provided",
+  "validation": "validated",
+  "evidence": [
+    "The nominal heater of the range: 10 kW/°C heat loss and 1.0 s delivery delay, gain 0.2 °C per point and time constant 5 s, from its heat balance."
+  ],
+  "revision": "nominal-heater-10-kw-per-c-1-s"
+}

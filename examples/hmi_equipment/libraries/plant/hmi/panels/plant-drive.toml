@@ -1,0 +1,279 @@
+format = 1
+title = "Variable-speed equipment"
+size = [608, 540]
+pinnable = true
+settings = true
+
+[fields.Fault]
+accepts = ["boolean"]
+
+[fields.ReasonText]
+accepts = ["text"]
+
+[fields.Mode]
+accepts = ["enumeration"]
+
+[fields.Manual]
+accepts = ["boolean"]
+
+[fields.InService]
+accepts = ["boolean"]
+
+[fields.OutOfService]
+accepts = ["boolean"]
+
+[fields.StartPermit]
+accepts = ["boolean"]
+
+[fields.CommandText]
+accepts = ["text"]
+
+[fields.Running]
+accepts = ["boolean"]
+
+[fields.Speed]
+accepts = ["number"]
+
+[fields.ManualSpeed]
+accepts = ["number"]
+
+[fields.SpeedSetpoint]
+accepts = ["number"]
+
+[fields.MinSpeed]
+accepts = ["number"]
+
+[fields.MaxSpeed]
+accepts = ["number"]
+
+[fields.RunHours]
+accepts = ["number"]
+
+[fields.Starts]
+accepts = ["number"]
+
+[fields.ServiceDue]
+accepts = ["boolean"]
+
+[[object]]
+id = "state"
+type = "status"
+label = "Running"
+at = [24, 24]
+size = [272, 40]
+
+[object.bind]
+state = "$Running"
+
+[[object]]
+id = "fault"
+type = "status"
+label = "Fault"
+variant = "alarm"
+at = [312, 24]
+size = [272, 40]
+
+[object.bind]
+state = "$Fault"
+
+[[object]]
+id = "mode"
+type = "mode-selector"
+options = ["Auto", "Manual"]
+at = [24, 80]
+size = [560, 48]
+
+[object.bind]
+mode = "$Mode"
+interlock = "$InService"
+"interlock-reason" = "$CommandText"
+
+[object.command]
+interface = "Plant.IDevice"
+method = "SetMode"
+instance = "$instance"
+
+[object.command.arguments]
+Value = { input = true }
+
+[[object]]
+id = "start"
+type = "button"
+text = "Start"
+expect = true
+at = [24, 144]
+size = [176, 48]
+
+[object.bind]
+feedback = "$Running"
+interlock = "$StartPermit"
+"interlock-reason" = "$CommandText"
+
+[object.command]
+interface = "Plant.IRunDevice"
+method = "Start"
+instance = "$instance"
+
+[[object]]
+id = "stop"
+type = "button"
+text = "Stop"
+variant = "stop"
+expect = false
+at = [216, 144]
+size = [176, 48]
+
+[object.bind]
+feedback = "$Running"
+interlock = "$Manual"
+"interlock-reason" = "$CommandText"
+
+[object.command]
+interface = "Plant.IRunDevice"
+method = "Stop"
+instance = "$instance"
+
+[[object]]
+id = "reset"
+type = "button"
+text = "Reset"
+at = [408, 144]
+size = [176, 48]
+
+[object.bind]
+interlock = "$Fault"
+
+[object.command]
+interface = "Plant.IDevice"
+method = "Reset"
+instance = "$instance"
+
+[[object]]
+id = "reason"
+type = "text"
+variant = "caption"
+at = [24, 200]
+size = [560, 20]
+
+[object.bind]
+text = "$ReasonText"
+
+[[object]]
+id = "speed"
+type = "value"
+label = "Speed"
+unit = "%"
+decimals = 1
+at = [24, 228]
+size = [272, 80]
+
+[object.bind]
+value = "$Speed"
+
+[[object]]
+id = "manual-speed"
+type = "setpoint"
+label = "Manual speed"
+unit = "%"
+at = [312, 228]
+size = [272, 80]
+
+[object.bind]
+value = "$ManualSpeed"
+"low-limit" = "$MinSpeed"
+"high-limit" = "$MaxSpeed"
+interlock = "$Manual"
+"interlock-reason" = "$CommandText"
+
+[object.command]
+interface = "Plant.ISpeedDevice"
+method = "SetSpeed"
+instance = "$instance"
+
+[object.command.arguments]
+Value = { input = true }
+
+[[object]]
+id = "hours"
+type = "value"
+label = "Operating hours"
+unit = "h"
+decimals = 1
+at = [24, 324]
+size = [272, 80]
+
+[object.bind]
+value = "$RunHours"
+
+[[object]]
+id = "starts"
+type = "value"
+label = "Starts"
+decimals = 0
+at = [312, 324]
+size = [272, 80]
+
+[object.bind]
+value = "$Starts"
+
+[[object]]
+id = "service-due"
+type = "status"
+label = "Service due"
+variant = "alarm"
+at = [24, 420]
+size = [560, 40]
+
+[object.bind]
+state = "$ServiceDue"
+
+[[object]]
+id = "out-of-service"
+type = "button"
+text = "Out of service"
+role = "engineer"
+at = [24, 476]
+size = [176, 40]
+
+[object.bind]
+interlock = "$InService"
+
+[object.command]
+interface = "Plant.IDevice"
+method = "SetMode"
+instance = "$instance"
+
+[object.command.arguments]
+Value = "OutOfService"
+
+[[object]]
+id = "return-to-service"
+type = "button"
+text = "Return to service"
+role = "engineer"
+at = [216, 476]
+size = [176, 40]
+
+[object.bind]
+interlock = "$OutOfService"
+
+[object.command]
+interface = "Plant.IDevice"
+method = "SetMode"
+instance = "$instance"
+
+[object.command.arguments]
+Value = "Manual"
+
+[[object]]
+id = "service-done"
+type = "button"
+text = "Service done"
+role = "engineer"
+at = [408, 476]
+size = [176, 40]
+
+[object.command]
+interface = "Plant.IServiceable"
+method = "ServiceDone"
+instance = "$instance"

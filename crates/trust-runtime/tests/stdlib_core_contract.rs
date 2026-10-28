@@ -610,7 +610,10 @@ fn find_reports_first_unicode_element_position_or_zero() {
 }
 
 #[test]
-fn internal_string_limit_counts_elements_and_rejects_negative_capacity() {
+fn internal_string_limit_counts_capacity_units_and_rejects_negative_capacity() {
+    // The capacity counts UTF-8 bytes for STRING and UTF-16 code units for WSTRING, and a cut
+    // never splits a character (docs/IEC_DECISIONS.md 2026-10-17). "Ä" is two bytes and one
+    // code unit; "🙂" is two code units.
     let lib = library();
 
     assert_eq!(
@@ -618,7 +621,21 @@ fn internal_string_limit_counts_elements_and_rejects_negative_capacity() {
             "__TRUST_LIMIT_STRING",
             &[Value::String("ÄBC".into()), Value::Int(2)]
         ),
-        Ok(Value::String("ÄB".into()))
+        Ok(Value::String("Ä".into()))
+    );
+    assert_eq!(
+        lib.call(
+            "__TRUST_LIMIT_STRING",
+            &[Value::String("ÄBC".into()), Value::Int(1)]
+        ),
+        Ok(Value::String("".into()))
+    );
+    assert_eq!(
+        lib.call(
+            "__TRUST_LIMIT_STRING",
+            &[Value::String("ÄBC".into()), Value::Int(4)]
+        ),
+        Ok(Value::String("ÄBC".into()))
     );
     assert_eq!(
         lib.call(
@@ -630,9 +647,93 @@ fn internal_string_limit_counts_elements_and_rejects_negative_capacity() {
     assert_eq!(
         lib.call(
             "__TRUST_LIMIT_STRING",
+            &[Value::WString("A🙂B".into()), Value::Int(2)]
+        ),
+        Ok(Value::WString("A".into()))
+    );
+    assert_eq!(
+        lib.call(
+            "__TRUST_LIMIT_STRING",
             &[Value::String("ABC".into()), Value::Int(-1)]
         ),
         Err(RuntimeError::Overflow)
+    );
+}
+
+#[test]
+fn string_results_above_the_implementer_maximum_are_errors() {
+    // IEC 61131-3 Ed.3 §6.6.2.5.11 and Table 34: a result longer than 65,535 bytes (STRING) or
+    // UTF-16 code units (WSTRING) is an error, and a result of exactly 65,535 is not.
+    let lib = library();
+    let half = "x".repeat(32_768);
+    let rest = "x".repeat(32_767);
+    let exceeded = Err(RuntimeError::StringCapacityExceeded);
+
+    let longest = lib.call(
+        "CONCAT",
+        &[
+            Value::String(half.as_str().into()),
+            Value::String(rest.as_str().into()),
+        ],
+    );
+    assert!(matches!(longest, Ok(Value::String(ref text)) if text.len() == 65_535));
+    assert_eq!(
+        lib.call(
+            "CONCAT",
+            &[
+                Value::String(half.as_str().into()),
+                Value::String(half.as_str().into())
+            ]
+        ),
+        exceeded
+    );
+    assert_eq!(
+        lib.call(
+            "CONCAT",
+            &[Value::WString(half.clone()), Value::WString(half.clone())]
+        ),
+        exceeded
+    );
+    assert_eq!(
+        lib.call(
+            "INSERT",
+            &[
+                Value::String(half.as_str().into()),
+                Value::String(half.as_str().into()),
+                Value::Int(1)
+            ]
+        ),
+        exceeded
+    );
+    assert_eq!(
+        lib.call(
+            "REPLACE",
+            &[
+                Value::WString(half.clone()),
+                Value::WString(half.clone()),
+                Value::Int(0),
+                Value::Int(1)
+            ]
+        ),
+        exceeded
+    );
+    // 30,000 "€" are 30,000 UTF-16 code units but 90,000 bytes of UTF-8.
+    let euros = "€".repeat(30_000);
+    assert_eq!(
+        lib.call("WSTRING_TO_STRING", &[Value::WString(euros.clone())]),
+        exceeded
+    );
+    assert_eq!(
+        lib.call(
+            "CONCAT",
+            &[Value::WString(euros), Value::WString("x".into())]
+        )
+        .map(|value| matches!(value, Value::WString(_))),
+        Ok(true)
+    );
+    assert_eq!(
+        RuntimeError::StringCapacityExceeded.stable_code().as_str(),
+        "runtime_string_capacity_exceeded"
     );
 }
 

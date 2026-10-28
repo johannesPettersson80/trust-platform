@@ -1,6 +1,6 @@
 # Bytecode Format
 
-**Status:** The shared reader and executor support the legacy 1.1 contextual contract and source-free 2.0. H adopts source-free 3.0 for new applications, with the uniform temporal storage ABI below. The H corrections and 3.0 contract are implementation work until their consolidated validation passes; scope evidence is recorded in the runtime-portability checklist.
+**Status: superseded** by [specification 44](44-native-execution.md) (native execution), 24 October 2026 (§15 of specification 44). truST no longer writes, reads or runs STBC: every runtime runs a program compiled into a program image, and a project or a device container that holds STBC is refused with "rebuild the project". This document records the format the bytecode engine ran, for the history and for the references that other specifications keep to it; none of it is product behaviour any more.
 
 ### 1. Purpose
 
@@ -231,11 +231,19 @@ rejected as a complete candidate before it can replace the active module.
 
 The structural nesting bound is independent of active VM call frames. The root
 is depth zero: at most 64 structural edges (65 nodes) are accepted; edge 65
-is rejected before construction. A shallow
-call-depth profile must still admit a valid deeper aggregate within the structural
-bound. Validation includes the complete suffix height when reusing a cached type
-or instance-template demand. Real initializer/POU callbacks still consume the
-profile's invocation depth; this distinction does not increase that limit.
+is rejected before construction. An alias to a target type counts as one
+structural edge to that target, so an alias chain longer than 64 edges is
+refused before construction, like any other type deeper than the bound, with the
+refusal `RuntimeError::TypeNestingExceeds` and its stable code
+`runtime_type_nesting_exceeds`, distinct from the `runtime_type_mismatch` of a
+recursive type
+(`an_alias_chain_deeper_than_64_edges_is_refused_before_construction`,
+`crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs`). A
+shallow call-depth profile must still admit a valid deeper aggregate within the
+structural bound. Validation includes the complete suffix height when reusing a
+cached type or instance-template demand. Real initializer/POU callbacks still
+consume the profile's invocation depth; this distinction does not increase that
+limit.
 
 The execution budget counts each executed bytecode instruction, not only loop
 back-edges, plus the value-size work defined by specification 34 TIME-08;
@@ -399,9 +407,18 @@ Primitive payload:
 ```
 struct PrimitiveType {
   u16 prim_id;     // see PrimitiveId
-  u16 max_length;  // for STRING/WSTRING; 0 means default/unspecified
+  u16 max_length;  // STRING/WSTRING capacity; 0 for every other primitive
 }
 ```
+
+For STRING, `max_length` is the capacity in bytes of UTF-8; for WSTRING, in
+UTF-16 code units (`docs/IEC_DECISIONS.md` 2026-10-17). A producer writes the
+capacity of every STRING and WSTRING type, 1 to 65,535, including 80 for a
+declaration without a length; `STRING` and `STRING[80]` are one type and may
+share an entry. Earlier producers wrote 0 for a declaration without a length:
+a runtime reads a STRING or WSTRING `max_length` of 0 as the default capacity
+80 everywhere it uses a capacity (store normalization, canonical checks,
+`SIZEOF`, reference identity, overlapping layouts and process-image codecs).
 
 Array payload:
 ```
@@ -860,6 +877,55 @@ struct RetainInitEntry {
 
 RetainInit provides cold-start initialization values for retained variables; warm restarts restore retained state instead.
 
+#### 6.13 LINE_TABLE (0x0011, optional)
+
+```
+struct LineTable {
+  u32 file_count;
+  LineFile files[file_count];
+  u32 statement_count;
+  LineStatement statements[statement_count];
+}
+
+struct LineFile {
+  u32 path_idx;       // DEBUG_STRING_TABLE index: the file's label
+}
+
+struct LineStatement {
+  u32 pou_id;            // POU_INDEX entry
+  u32 start_code_offset; // offset within POU_BODIES of the statement's first instruction
+  u32 end_code_offset;   // offset within POU_BODIES, one past the statement's last instruction
+  u32 file_index;        // index into files (DEBUG_MAP's file_idx is a DEBUG_STRING_TABLE index)
+  u32 start_line;        // 1-based line of the statement's first byte
+  u32 start_column;      // 1-based byte column within that line
+  u32 end_line;          // 1-based line of the statement syntax node's range end (trailing trivia included)
+  u32 end_column;        // 1-based byte column within that line
+}
+```
+
+This section carries what source-level debugging needs when the ST text is absent: the code span of every executable statement and its source span. It is the single input of breakpoint and step resolution on every runtime that implements it, trust-runtime and a chip alike (owner, 18 October 2026; specification 13, "Source Mapping"). IEC 61131-3 defines neither a bytecode container nor debug information; the statement boundaries recorded here are those of IEC 61131-3 Ed.3 §7.3.3 and Table 72.
+
+Files:
+
+- Every file appears once, ordered by ascending byte order of its label. The label is the file's source path relative to the project root with `/` separators, or the deterministic fallback label `file_<file_id>` of §7.5.1.4 when no path was supplied. A label is non-empty and appears in one entry only.
+- `path_idx` resolves in DEBUG_STRING_TABLE, so a container with at least one file requires that section.
+- A file entry carries its label only. The statement entries carry every position a runtime resolves, so no line extents are stored and a chip does not hold a per-line copy of the source.
+
+Statements:
+
+- `pou_id` resolves in POU_INDEX and the code span lies inside that POU's body. `start_code_offset` is the offset of a decoded instruction; `end_code_offset` is the offset of a decoded instruction or the exact end of the body, and is strictly greater than `start_code_offset`.
+- `file_index` indexes `files`. `start_line`, `end_line`, `start_column` and `end_column` are 1-based, and `(end_line, end_column)` is strictly after `(start_line, start_column)`; a statement does not span two files.
+- The source span starts at the statement's first non-trivia token and ends at the position of the statement syntax node's range end with its trailing trivia included: the next non-trivia token's start, or the end of the file. That end is the one specification 13's source mapping gives the statement and breakpoint resolution compares against, so the two positions reconstruct exactly the byte range the runtime resolves.
+- Entries are ordered by ascending `pou_id`, then ascending `start_code_offset`, then descending `end_code_offset`. Statements that share a `start_code_offset` must nest: the later entry's code span lies inside the earlier entry's, as a REPEAT and its first body statement do, or a label and the statement it owns. Entries with the same span keep the order the compiler emits them, outermost first. A code offset belongs to the innermost (last) entry whose span contains it, so a breakpoint or a step at that offset names that statement. Because the source end reaches over the trailing trivia, two statements that are not nested may touch at a boundary — the earlier entry's end equals the later entry's start — but never otherwise overlap; a nested pair still holds as one span inside the other.
+- The decoder rejects an entry that breaks the order and a shared start whose spans do not nest, instead of selecting one; a statement at a code offset is always the innermost entry that contains it.
+
+Validation and use:
+
+- The decoder checks the counts and every field above before a candidate is validated (§4.5, §7.4). A malformed entry rejects the complete candidate with `InvalidSection`; it is never partly used.
+- The section is optional: a module without it decodes, validates and executes exactly as one with it, and only source-location resolution is unavailable. It is defined for the source-free container versions (2.0 and 3.0) and a 1.x producer does not emit it, so adding it changes no container version. The compiler writes it for every module it produces from ST source (owner, 18 October 2026). A module built by the source-free constructor has no source positions and therefore no LINE_TABLE (§7.5.1.4).
+- When both sections are present, the two must describe the same statements: every LINE_TABLE entry has exactly one DEBUG_MAP entry of kind 0 (statement) and every such DEBUG_MAP entry has exactly one LINE_TABLE entry, with the same POU, code offset, file label, line and column. A missing counterpart or a disagreement rejects the candidate. A runtime that implements this section resolves through it and never through DEBUG_MAP, so every runtime gives the same answer for the same artifact (§10).
+- A reader that predates this section ignores it as the optional extension of §4.2 and keeps resolving from DEBUG_MAP statement starts.
+
 ### 7. Instruction Encoding (Version 1.x)
 
 #### 7.1 Encoding Rules
@@ -901,8 +967,16 @@ Static references:
 - `0x20 LOAD_REF u32` (ref table index)
 - `0x21 STORE_REF u32` (ref table index)
 - `0x22 PUSH_REF u32` (push `Value::Reference`)
-- `0x23 LOAD_SELF` (push the current instance)
-- `0x24 LOAD_SUPER` (push the current instance's parent)
+- `0x23 LOAD_SELF` (push the current instance, the one `THIS` names)
+- `0x24 LOAD_SUPER` (push the base part of the part of the current instance that the running POU's
+  class makes up: the class itself for a function block's or class's body, the method's owner for
+  a method; IEC 61131-3 §6.6.5.7.3)
+
+A method called through `CALL_NATIVE` on a receiver that is a base part of the caller's current
+instance, which only `LOAD_SUPER` pushes, is the method of the receiver's class (static binding) and
+runs with the caller's current instance as its own, so `LOAD_SELF` in it pushes that instance and a
+call through it binds to that instance's class (IEC 61131-3 §6.6.5.6, §6.6.5.7.2). Its members are
+found in its class's part of that instance, as an inherited method's are.
 - `0x25 LOAD_NULL` (push the null value)
 
 Dynamic references:
@@ -1011,8 +1085,8 @@ The validator enforces these module-wide contracts:
 - operand-stack dataflow has no underflow, has compatible depth at each
   control-flow merge, uses reference/numeric/boolean shapes where required,
   and leaves no values at a normal POU-body exit; and
-- resource, task, program, I/O, retain, variable, and debug metadata resolves
-  to compatible table entries and code locations.
+- resource, task, program, I/O, retain, variable, debug, and line-table
+  metadata resolves to compatible table entries and code locations.
 
 `BytecodeModule::decode` may reject malformed container bytes before semantic
 validation. `BytecodeModule::validate` performs the decoded semantic checks.
@@ -1080,6 +1154,10 @@ VM-only structural identifiers are:
 | Invalid native-call metadata or payload | `vm_invalid_native_call` |
 | Bytecode decode failure without a narrower decoder variant | `vm_bytecode_decode` |
 
+A fault of the executable reads `invalid bytecode '<detail>'`. A call beyond the call levels is the
+exception: a valid program that recurses too deep reaches it, so it reads `call depth exceeded`,
+with the identifier `vm_call_stack_overflow` unchanged.
+
 Condition, null-reference, loop-step, deadline, instruction-budget, and other
 runtime-value traps use the stable `runtime_*` identifiers in
 `docs/specs/10-runtime-semantics.md`. `VmTrap::Runtime` preserves the embedded
@@ -1135,7 +1213,8 @@ The encoder projects source declarations as follows:
 - declared resource and task identities are preserved so applying the encoded
   module materializes the same named runtime resource and tasks;
 - source locations emit `DEBUG_MAP` entries with the owning POU, bytecode
-  offset, file, line, column, and statement kind;
+  offset, file, line, column, and statement kind, and the same statements and
+  source files also emit `LINE_TABLE` entries with their code span end (§6.13);
 - a label with an empty statement emits an explicit `NOP`, preserving a
   valid instruction location;
 - IF/ELSIF, CASE, WHILE, REPEAT, and FOR control flow emits validated relative
@@ -1283,6 +1362,15 @@ three writable outputs, and named split outputs match formal names
 case-insensitively. Runtime clock functions accept exactly zero arguments.
 Integer output helpers preserve the target's declared integer width and reject
 a negative value for unsigned storage before writing.
+
+Source-free preparation applies these rules once, before any state exists: every
+standard-library descriptor and every function-block template that carries a
+standard function block's name is checked against its built-in import contract
+(specification 34 §5.2.1). A descriptor without a contract, an argument count or
+argument name these rules would not bind, a split output that is not a writable
+target, and a template whose parameters or hidden native state (§11.5.5) differ from
+the contract are refused with `runtime_import_unsupported`, naming the import. The
+execution-time binding checks remain.
 
 A native-call symbol descriptor contains the target followed by ordered `E`
 expression and `T` writable-target descriptors, each optionally carrying a
@@ -1514,7 +1602,8 @@ The stack and register executors acquire reusable buffers only as an
 allocation optimization. Acquisition returns empty logical stacks, frames,
 registers, and temporary values. Release clears all contents and retains no
 more than the documented pool limit; reuse must not expose a prior execution's
-values or frame identities.
+values or frames. Specification 34 §4.3.1 states when a later top-level entry
+issues the activation identities of an earlier one again.
 
 The top-level instruction budget is shared by nested VM calls. Charging exactly
 the remaining budget succeeds and leaves zero; the next charge rejects with
@@ -1534,9 +1623,11 @@ execution; an expired deadline rejects before the guarded mutation with
 Debug lookup is optional and fail-soft. Valid variable metadata creates
 case-preserving symbol-to-reference and first-symbol reference-to-symbol
 lookups. Valid debug entries create exact `(pou_id, code_offset)` source
-locations. A missing optional section or an entry whose string index is
-invalid is omitted without inventing a symbol, file, line, or column. Debug
-lookup never changes execution results.
+locations. Valid `LINE_TABLE` entries (§6.13) create the statement spans that
+breakpoint and step resolution use, with the same fail-soft rule. A missing
+optional section or an entry whose string index is invalid is omitted without
+inventing a symbol, file, line, or column. Debug lookup never changes execution
+results.
 
 ### 8. Versioning
 
@@ -1573,6 +1664,16 @@ image, retain state, task configuration, or executable module is replaced.
 
 The DEBUG_MAP section provides a deterministic mapping between bytecode offsets and source locations. Debug entries must refer to valid POU IDs and code offsets.
 For version >= 1.1, file paths are stored in DEBUG_STRING_TABLE and referenced by `file_idx`.
+
+The DEBUG_MAP section records only where a statement starts, so it cannot resolve a breakpoint that
+belongs to a statement's body. The LINE_TABLE section
+(§6.13) records each statement's code span and source span. It is
+therefore the single input of breakpoint and step resolution on every runtime that implements it,
+trust-runtime and a chip alike, and neither needs the ST sources to reach the same answer (owner,
+18 October 2026; specification 13, "Source Mapping"). The section is optional in the format, so an
+artifact without it is still valid, and the compiler writes it for every module it produces from ST
+source. When both sections are present the decoder checks that they agree, as §6.13 states, and a
+runtime that implements the line table never resolves through DEBUG_MAP.
 
 ### 11. Source-Free Initialization Format (STBC 2.0 and 3.0)
 
@@ -1731,6 +1832,8 @@ post-construction legacy re-encoding/reinstallation step.
 Four new sections are mandatory, including when empty: STORAGE_LAYOUT (0x000D),
 CONSTRUCTION_ROOTS (0x000E), INITIALIZERS (0x000F), ACCESS_BINDINGS (0x0010).
 Each begins with a u32 count.
+LINE_TABLE (0x0011, optional) is the fifth source-free section and its own section
+of §6.13; a module without it is still valid.
 Indices are zero-based positions; optional indices use 0xFFFFFFFF. Fields are
 little-endian and records contain no native alignment padding. Decoder count
 bounds are checked before reservation; trailing bytes in these payloads reject.
@@ -1968,6 +2071,11 @@ The source producer uses it only for existing generic native-counter declaration
 ordinary unsupported generic source declarations remain rejected. Execution still
 requires A4's matching native import admission contract.
 
+The overloaded timers have no such slot on the wire: STBC declares the `PT` and
+`ET` of `TP`, `TON` and `TOF` as `TIME`, and preparation gives them the native
+duration slot, the internal primitive `0x0101`, which holds either duration
+family (specification 34 §6.2). `0x0101` is never valid in a TYPE_TABLE.
+
 #### 11.5.5 Native function-block state reservation
 
 Storage role 8 reserves an internal native FB state slot with a concrete declared
@@ -2142,6 +2250,8 @@ For source-free execution, runtime protection failures have distinct stable iden
 `runtime_program_root_replacement` and `runtime_invalid_alias`. Actual value-type
 mismatches and null dereferences retain their existing type/null codes. A valid
 artifact unsupported by the selected profile reports `runtime_profile_unsupported`;
+an import without a built-in contract, or one that does not match its contract
+(specification 34 §5.2.1), reports `runtime_import_unsupported` and names the import;
 preparation-limit exhaustion reports `runtime_preparation_limit`. Decoder allocation
 and work exhaustion report `bytecode_decode_memory_limit` and
 `bytecode_decode_work_limit`, rather than malformed-header errors. Defensive
@@ -2281,11 +2391,14 @@ name. Initializer-result references are distinct from locals and do not use that
 reserved prefix.
 
 For STRING direct I/O, the hosted binding's normalized STRING tag and its
-`Bytes(n)` extent are separate facts. A 2.0 IO_MAP entry must select a bounded
+`Bytes(n)` extent are separate facts. A 2.0 IO_MAP entry must select a
 STRING TYPE_TABLE entry with capacity `n`, including aliases and nested aggregate
-leaves. Serializing `%QB<offset>` must not discard the capacity. The existing
-hosted normalized tag is preserved, and admission still rejects an unbounded
-string or an image smaller than the complete declared binding.
+leaves; a STRING declared without a length has capacity 80. Serializing
+`%QB<offset>` must not discard the capacity. The existing hosted normalized tag
+is preserved: an explicit 1.1 IO_MAP types a STRING binding with it (capacity 0
+from earlier producers, 80 from current ones), and the hosted importer replaces
+it with the declared capacity. Admission rejects an image smaller than the
+complete declared binding.
 
 #### 11.5.11 Compact construction metadata and stable tooling
 
@@ -2332,10 +2445,11 @@ initializers or fills missing members with defaults. A failed assignment leaves
 the destination unchanged. Recursive traversal and copied values consume the
 admitted work/allocation limits, and reference lifetime checks remain mandatory.
 
-Partial field/element writes charge any copy-on-write structure backing and owned
-array fields copied by that operation before mutation, including newly shared
-children after an ancestor copy. String-element replacement charges its character
-buffer and replacement text. These failures retain their budget/deadline error;
+Partial field/element writes charge nothing for the copy-on-write detach of shared structure
+backing or for owned array fields that the operation detaches, including newly shared children
+after an ancestor copy: a field write copies no structure in the program, so the detach is engine
+bookkeeping (spec 34 TIME-08). String-element replacement charges its character buffer and
+replacement text. These failures retain their budget/deadline error;
 a multi-output copyback failure restores every destination in that output group.
 
 The source-free runtime enforces STORAGE_LAYOUT constant declarations at every

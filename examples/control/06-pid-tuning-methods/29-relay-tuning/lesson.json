@@ -1,0 +1,343 @@
+{
+  "schemaVersion": 4,
+  "id": "control-relay-tuning",
+  "title": "Relay tuning",
+  "level": "Intermediate",
+  "sequence": 20,
+  "equipment": "Electric water heater with bounded feedback-relay acquisition",
+  "physicalPurpose": "Obtain and qualify a repeating heater response as an alternative source of PI candidate gains.",
+  "principalTechnique": "Qualified feedback-relay autotuning experiment",
+  "objective": "Execute and qualify a bounded feedback-relay experiment, reject an uninformative record, derive the relay-rule PI candidate and validate it against the setpoint and load trials.",
+  "prerequisites": [
+    "control-lesson-28",
+    "control-model-based-tuning"
+  ],
+  "nextLesson": "control-tuning-method-comparison",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Measured temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "MV",
+      "name": "Applied heating command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "disturbance",
+      "name": "DisturbanceKw",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 30,
+      "resolution": 0.001,
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "WaterTemperatureC",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML48"
+    },
+    {
+      "role": "state",
+      "name": "IntegralPct",
+      "unit": "%",
+      "minimum": -200,
+      "maximum": 200,
+      "resolution": 0.001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "CommandActivityPoints",
+      "unit": "percentage-point",
+      "minimum": 0,
+      "maximum": 100000,
+      "resolution": 0.001,
+      "binding": "%ML64"
+    },
+    {
+      "role": "SP",
+      "name": "Heater setpoint",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "state",
+      "name": "Automatic mode",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "P1.AutoMode"
+    }
+  ],
+  "plant": {
+    "modelId": "heater-feedback-relay",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "process_gain",
+        "value": 0.2,
+        "unit": "degC/percentage-point"
+      },
+      {
+        "name": "time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      },
+      {
+        "name": "measurement_noise_bound",
+        "value": 0.02,
+        "unit": "degC"
+      },
+      {
+        "name": "relay_amplitude",
+        "value": 10,
+        "unit": "percentage-point"
+      },
+      {
+        "name": "hysteresis_half_width",
+        "value": 0.04,
+        "unit": "degC"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "waterTemperatureC": 35,
+      "delayedCommandPct": 75
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Measured temperature": 35,
+      "Applied heating command": 75
+    },
+    "validityRange": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "Local single-state water energy balance with one-second delivered-power delay.",
+      "Known 75% holding command at 35 °C; uniform bounded ±.02 °C measurement noise.",
+      "Simulation qualification only; the relay-rule gains are validated in Control Studio before any Apply."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "temperatureC": 35,
+      "setpointC": 35,
+      "integralPct": 75,
+      "appliedPowerPct": 75,
+      "disturbanceKw": 0
+    },
+    "limitation": "A model-derived candidate is available; an independent cycle-derived alternative has not yet been obtained."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "biasPercent": 75,
+      "relayAmplitudePercentagePoints": 10,
+      "centerDegC": 35,
+      "hysteresisHalfWidthDegC": 0.04,
+      "maximumDurationSeconds": 60,
+      "minimumCompleteCycles": 3,
+      "designRule": "Kp = 0.45 Ku, Ti = Pu/1.2"
+    },
+    "decision": "Use the relay rule only with three or more repeatable complete cycles, and keep its PI candidate only when Control Studio validates both the setpoint and the load trial against the fixed limits."
+  },
+  "experiment": {
+    "kind": "relay",
+    "signal": "Applied heating command",
+    "baseline": 75,
+    "amplitude": 10,
+    "durationSeconds": 60,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Uniform repeatable measurement noise bounded by ±.02 °C",
+      "Separate load trial: 30 kW extraction at the 35 °C setpoint"
+    ],
+    "seed": 20260829,
+    "restorationValue": 75
+  },
+  "acceptance": [
+    {
+      "metric": "complete_relay_cycles",
+      "signal": "Measured temperature",
+      "window": "complete cycles of the 60 s relay test",
+      "comparator": ">=",
+      "limit": 3,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_amplitude_relative_deviation",
+      "signal": "Measured temperature",
+      "window": "complete cycles of the 60 s relay test",
+      "comparator": "<=",
+      "limit": 0.1,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_period_relative_deviation",
+      "signal": "Measured temperature",
+      "window": "complete cycles of the 60 s relay test",
+      "comparator": "<=",
+      "limit": 0.1,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "peak_temperature",
+      "signal": "Measured temperature",
+      "window": "setpoint trial 0–60 s",
+      "comparator": "<=",
+      "limit": 39,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "minimum_temperature",
+      "signal": "Measured temperature",
+      "window": "load trial 0–60 s",
+      "comparator": ">=",
+      "limit": 33,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_absolute_error",
+      "signal": "Measured temperature",
+      "window": "each trial 30–60 s",
+      "comparator": "<=",
+      "limit": 0.2,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Required measurements or timestamps are invalid, stale or nonfinite",
+      "Temperature leaves 0–80 °C or applied command leaves 0–100%",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 0,
+    "restorationMode": "The Feedback relay test restores the 75% command when it ends. Abort sets SafetyAbort and commands zero heating and zero load. Keep stopped until valid measurements and the full 35 °C/75% hot reset are restored.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible heater operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical relay excitation or gain application",
+      "Physical relay testing requires independent topology and hazard review, declared limits and interlocks, restoration proof, authorised roles, and explicit immediate approval"
+    ]
+  },
+  "workflowStages": [
+    "Identify",
+    "Tune",
+    "Validate"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/12-21-models-and-tuning.md",
+    "nativeTest": "lesson20",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_heater_design lesson20",
+    "projectPath": "examples/control/06-pid-tuning-methods/29-relay-tuning",
+    "runArtifactFields": [
+      "appliedCommand",
+      "temperature",
+      "sampleTime",
+      "initialState",
+      "relayAmplitude",
+      "switchingThresholds",
+      "cycleCount",
+      "cycleAmplitude",
+      "cyclePeriod",
+      "ultimateGainEstimate",
+      "candidate",
+      "stopReason",
+      "restoration",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-relay-tuning"
+  },
+  "video": {
+    "viewerOutcome": "Measure a bounded relay cycle, derive the relay-rule PI candidate and test it against the same requirements.",
+    "requiredVisibleEvidence": [
+      "one native heater at 35 °C/75%",
+      "noise-based switching between 65% and 85% at about 34.96/35.04 °C",
+      "relay cycle amplitude, period and Ku in Control Studio",
+      "relay-rule PI candidate validated against the setpoint and load trials and applied",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 19 calculated $K_p$ 4.17 and $K_i$ 0.833 from the validated model and a 5 s response time, and the heater program reached 63.2% of a 3 °C step at 6.1 s. Those gains are only as good as the model: an error in its gain or time constant goes straight into them, and there is only this one model-based candidate.\n\nWe will find a second candidate without a model, from a short test on the heater itself.",
+    "reason": "We need to:\n\n1. make the heater show its own speed in a short, safe test;\n2. turn the test's result into PI gains; and\n3. check those gains on the actual heater program.",
+    "theory": [
+      "**Relay tuning** switches the heater between two levels whenever the temperature crosses the target. The loop then oscillates steadily, and the size and period of that oscillation tell us how to set the PI. For this heater, the relay switches the same number of points above and below the 75% holding command, and the 1 s delay makes the temperature overshoot every switch.\n\n**In words.** The test is ON/OFF control with a small hysteresis, used on purpose to measure the heater. It has four parts:\n\n1. **Switch at the target.** Below the target the heater gets the high level, above it the low level. Two switching points just outside the measurement noise keep the relay from chattering, as hysteresis did in the cold room.\n2. **Let the delay make a steady cycle.** After each switch, the old power is still arriving for 1 s, so the temperature runs past the switching point before it turns. The loop settles into a cycle of fixed size and period.\n3. **Read the cycle.** Its size says how far the temperature swings for the relay's push; its period says how fast the loop can go round once. Together they give the **ultimate gain**: the proportional gain at which the loop would keep oscillating, neither growing nor dying away. The cycle's period is the **ultimate period**.\n4. **Turn them into PI gains.** An empirical rule takes a safe fraction of the ultimate gain and an integral time from the period.\n\nIn PLC terms, the relay is a two-position output with a deadband, switched by a comparison in every scan. It needs no model: the heater shows its own speed in a test of about a minute, with the temperature held close to the target.\n\n**The formula.** A square wave switching by ±$d$ contains a sine wave at the cycle frequency with amplitude $4d/\\pi$: averaging it against a sine over one cycle gives $\\frac{2}{\\pi}\\int_0^\\pi d\\sin\\phi\\,d\\phi = 4d/\\pi$. The heater smooths the faster parts, so the temperature swings almost like that sine. For this sine, the relay acts like a proportional controller with gain $(4d/\\pi)/a$, the gain at which the loop neither grows nor decays:\n\n$$\nK_u \\approx \\frac{4d}{\\pi a}, \\qquad K_p = 0.45K_u, \\qquad T_i = \\frac{P_u}{1.2}, \\qquad K_i = \\frac{K_p}{T_i}.\n$$\n\n- $d$ is the relay amplitude, in percentage points above and below the holding command;\n- $a$ is half the peak-to-peak temperature swing, in °C, and $P_u$ the period of one full cycle, in s;\n- $K_u$ is the ultimate gain, in % per °C;\n- $K_p$, $T_i$ and $K_i$ are the PI settings, as in Lesson 19; the factors 0.45 and 1.2 are the empirical rule of Ziegler and Nichols.\n\n**Example: a 5-point relay.** Calculated with the model of Lesson 19, $K$ 0.2 °C per %, $\\tau$ 5 s and $L$ 1 s, and Control Studio's switching points 35.04 and 34.96 °C, just outside the ±0.02 °C measurement noise. Follow one half cycle:\n\n1. The temperature rises through 35.04 °C, and the relay switches from 80% to 70%.\n2. For the 1 s delay, the heater still delivers 80%, whose final temperature is 36 °C. The temperature keeps rising, by $(1 - 0.04)(1 - e^{-1/5}) = 0.17$ °C, to a peak of 35.21 °C.\n3. Then it falls toward 34 °C, the final temperature at 70%, and reaches 34.96 °C after $5\\ln\\frac{1 + 0.214}{1 - 0.04} = 1.17$ s: the peak was 0.214 °C above 35 °C, the final value 1 °C below it.\n4. The relay switches back, and the lower half mirrors the upper: $a \\approx 0.214$ °C and $P_u \\approx 2 \\times (1 + 1.17) = 4.35$ s.\n5. $K_u = 4 \\times 5/(\\pi \\times 0.214) = 29.7$ % per °C: for this sine, the relay pushes 29.7 points per degree of swing.\n6. $K_p = 0.45 \\times 29.7 = 13.4$ % per °C, $T_i = 4.35/1.2 = 3.62$ s and $K_i = 13.4/3.62 = 3.7$ % per (°C·s).\n\n**Teaching choice.** This lesson's relay uses $d$ = 10 points. With 5 points the swing is only about 0.2 °C, and the ±0.02 °C noise would shift single cycles by about 10%.\n\n**The limitation.** The rule knows nothing about the requirements or the command limits. Such high gains also pass the ±0.02 °C noise on to the command multiplied by $K_p$: with $K_p$ = 13.4, about $0.02 \\times 13.4 = 0.27$, roughly ±0.3 points."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. Which two commands will the relay apply?\n2. What half amplitude $a$ and period $P_u$ do you expect?\n3. Which $K_u$, $K_p$ and $K_i$ follow?\n4. Will the first command after a 3 °C setpoint step fit within 100%?\n5. Will the relay gains meet the same requirements as the model-based gains?\n\n| Quantity | Predicted |\n| --- | ---: |\n| Relay commands | 85% and 65% |\n| $a$ and $P_u$ | 0.40 °C and 4.0 s |\n| $K_u$ | 31.8 % per °C |\n| $K_p$, $T_i$, $K_i$ | 14.3, 3.33 s, 4.3 |\n| First command, $75 + 14.3 \\times 3$ | 118%: limited to 100% |",
+    "practicalPreparation": [
+      "1. Start **Simulator**: the heater holds 35 °C with 75% output in Manual. Open **Control Studio**.\n2. On **Identify**, choose **Feedback relay** from **Method** and select **Identify plant**. Control Studio holds 75% for 6 s to measure the noise, switches between 85% and 65% for at most 60 s, and restores 75%. It then shows the **Relay cycle** line with $d$, $a$, $P_u$ and $K_u$.\n3. On **Tune**, choose **P1.Controller · PI** and set **Tuning method** to **Relay rule (Ziegler–Nichols PI)**, available after a relay test.\n4. Select **Requirements…**, enter Setpoint change 3 °C, Maximum steady-state error 0.2 °C, Maximum settling time 30 s, Settling band 0.1 °C and Validation duration 60 s, and select **Done**.\n5. Select **Tune controller** and read $K_p$ and $K_i$.\n6. On **Validate**, select **Validate controller** and read every row: the setpoint trial, 35 → 38 °C, and the load trial with 30 kW of extra heat loss.\n7. If every row passes, select **Apply**; Control Studio reports **Applied**."
+    ],
+    "baseline": "Same 35 °C/75% heater; the controller stays in Manual while Control Studio runs the bounded relay test.",
+    "change": "Switch bounded heater power at measured threshold crossings, measure complete cycles, and test the relay-rule PI candidate.",
+    "comparison": "![The relay cycle gives Ku 29.2 and the gains 13.16 and 3.57, which settle within 7.1 s but saturate the command](figures/relay-tuning.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio:\n\n| Quantity | Result |\n| --- | ---: |\n| Relay cycle | **Relay cycle (11 cycles): d = 10 %, a = 0.4354 °C, Pu = 4.42 s, Ku = 4d/(πa) = 29.24 %/°C** |\n| $K_p$, $T_i$, $K_i$ | 13.16 % per °C, 3.68 s, 3.57 % per (°C·s) |\n| Maximum settling time | 7.1 s |\n| Overshoot, setpoint trial | 0.023 °C |\n| Steady-state error, setpoint and load trials | 0.024 °C |\n| Operating range, load trial | 34.12–35.02 °C |\n\n1. 85% and 65%.\n2. $a$ = 0.4354 °C and $P_u$ = 4.42 s, about 10% more than calculated. The relay switches one 0.1 s sample after each crossing, which acts like extra delay; with 1.1 s, the same four steps give 0.43 °C and 4.3 s.\n3. $K_u$ = 29.24, $K_p$ = 13.16 and $K_i$ = 3.57: lower than predicted, because $a$ was larger.\n4. No: the command stayed at its 100% limit for the first 2.5 s.\n5. Yes: every row passed, including the model agreement, 1.52%. The temperature stayed within 0.2 °C of 38 °C from 7.1 s, and the load pulled it only to 34.12 °C.\n\nThe relay candidate was applied, and a model-free candidate now exists. Its cost is a hard-working heater: the command saturates at a setpoint change, and it jitters by about ±0.3 points with the noise. A repeated relay test gave $K_p$ 12.98 and $K_i$ 3.44, within 4%. These are simulation results.",
+    "validation": "![The relay cycle gives Ku 29.2 and the gains 13.16 and 3.57, which settle within 7.1 s but saturate the command](figures/relay-tuning.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio:\n\n| Quantity | Result |\n| --- | ---: |\n| Relay cycle | **Relay cycle (11 cycles): d = 10 %, a = 0.4354 °C, Pu = 4.42 s, Ku = 4d/(πa) = 29.24 %/°C** |\n| $K_p$, $T_i$, $K_i$ | 13.16 % per °C, 3.68 s, 3.57 % per (°C·s) |\n| Maximum settling time | 7.1 s |\n| Overshoot, setpoint trial | 0.023 °C |\n| Steady-state error, setpoint and load trials | 0.024 °C |\n| Operating range, load trial | 34.12–35.02 °C |\n\n1. 85% and 65%.\n2. $a$ = 0.4354 °C and $P_u$ = 4.42 s, about 10% more than calculated. The relay switches one 0.1 s sample after each crossing, which acts like extra delay; with 1.1 s, the same four steps give 0.43 °C and 4.3 s.\n3. $K_u$ = 29.24, $K_p$ = 13.16 and $K_i$ = 3.57: lower than predicted, because $a$ was larger.\n4. No: the command stayed at its 100% limit for the first 2.5 s.\n5. Yes: every row passed, including the model agreement, 1.52%. The temperature stayed within 0.2 °C of 38 °C from 7.1 s, and the load pulled it only to 34.12 °C.\n\nThe relay candidate was applied, and a model-free candidate now exists. Its cost is a hard-working heater: the command saturates at a setpoint change, and it jitters by about ±0.3 points with the noise. A repeated relay test gave $K_p$ 12.98 and $K_i$ 3.44, within 4%. These are simulation results.",
+    "explanation": "Relay tuning makes the loop oscillate steadily by switching the command at the target. The cycle's half amplitude gives the ultimate gain, $K_u \\approx 4d/(\\pi a)$, its period the ultimate period, and an empirical rule turns both into PI gains without a model.\n\nFor this heater, a 10-point relay produced cycles of 0.4354 °C and 4.42 s, so $K_u$ = 29.24 % per °C and the PI gains 13.16 and 3.57. They settled a 3 °C step within 7.1 s, at the price of a saturated, noisier command.",
+    "transfer": "There are now three candidates: the manual gains, the model-based gains and the relay gains. Neither calculated candidate is proven suitable just because its calculation is complete, and the relay gains work the heater much harder.\n\n[Tuning comparison](../31-tuning-method-comparison/README.md) tests every candidate in the same experiment against requirements written down in advance."
+  }
+}

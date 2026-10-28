@@ -1,0 +1,81 @@
+format = 1
+title = "Two-speed motor"
+block = "Plant.FB_TwoSpeedMotor"
+faceplate = "plant-two-speed-motor"
+symbol = "motor"
+
+[bind]
+running = "Running"
+fault = "Fault"
+manual = "Manual"
+"out-of-service" = "OutOfService"
+
+[[settings]]
+member = "HasFeedback"
+title = "Has running feedback"
+key = true
+
+[[settings]]
+member = "StartTimeout"
+title = "Start timeout"
+unit = "s"
+min = 1
+max = 600
+key = true
+help = "Running feedback must arrive within this time."
+
+[[settings]]
+member = "StopTimeout"
+title = "Stop timeout"
+unit = "s"
+min = 1
+max = 600
+key = true
+help = "Running feedback must drop within this time."
+
+[[settings]]
+member = "ServiceInterval"
+title = "Service interval"
+unit = "h"
+min = 0
+max = 100000
+help = "Running hours between services; 0 for none."
+
+[[settings]]
+member = "ChangeoverDelay"
+title = "Speed changeover delay"
+unit = "s"
+min = 0
+max = 60
+key = true
+
+[[io]]
+member = "SlowCommand"
+title = "Slow command"
+direction = "output"
+
+[[io]]
+member = "FastCommand"
+title = "Fast command"
+direction = "output"
+
+[[io]]
+member = "SlowFeedback"
+title = "Slow feedback"
+direction = "input"
+required_when = "HasFeedback"
+
+[[io]]
+member = "FastFeedback"
+title = "Fast feedback"
+direction = "input"
+required_when = "HasFeedback"
+
+[[io]]
+member = "Trip"
+title = "Protection trip"
+direction = "input"
+required = false
+
+[program]
+position = "actuators"

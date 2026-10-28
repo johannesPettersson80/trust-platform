@@ -42,6 +42,7 @@ const PROTOCOL_LABELS: Record<string, string> = {
   discovery: "DS",
   simulated: "SM",
   loopback: "LB",
+  simulated_plant: "PL",
 };
 
 export function protocolBadgeLabel(protocol: string): string {
@@ -67,6 +68,8 @@ const PROTOCOL_NAMES: Record<string, string> = {
   federation: "Federation",
   gpio: "GPIO",
   simulated: "Simulated I/O",
+  simulated_plants: "Simulated plants",
+  simulated_plant: "Simulated plant",
   loopback: "Loopback I/O",
   web: "Web",
 };

@@ -7,6 +7,986 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
+**18 October, night (lead).** All work is local; nothing is pushed. Agents: Claude Haiku, and
+Sonnet where a slice needs design judgment (owner, 18 October: "continue with haiku"). Owner
+decisions of 18 October: Q11, installs only while stopped on every runtime, with `bytecode.reload`
+still allowed while running; O2, after a faulted scan the debugger shows the values the fault
+left, with its position and call stack, as CODESYS and TwinCAT do; and on a computer `shutdown`
+keeps trust-runtime up in Stopped. The Beckhoff and CODESYS research is in
+`~/projects/.artifacts/s4/vendor-research-2026-10-18.md`. The C6 is connected; the Riverdi U5A9
+board comes later. Lanes:
+
+- c6 `feat/board-runtime` (integration):
+  - `78fb5316f` merges live-values (S3d-1 to S3d-5); `7dbd40711` merges S4-4, the computer's
+    program store; `f8e8bcf04` is S3d-3b, the faulted-scan view (O2).
+  - `d297b39ab` merges devices (C4b to C7c). Its fix lists the STM32U5A9 among the Add dialog's
+    chips, one entry per chip file (spec 25); D4b disables the Discover cards while a posted
+    action awaits its reply.
+  - Merged the same night: u5a9 `919e04141` (9u-c), live-values `98d6b34b1` (S3d-6, S3d-7a,
+    S3d-7b), s1b `5375cadbf` (S4-5, S4-3b, S4-8; S4-8's explicit exit moved into S3d-7b's runner
+    shell) and engine-init `c76679610` (C1-P0 to C1-9d2a). The combined merge check passed:
+    Clippy over eight crates with the chip lanes, the core, services (596), runtime library
+    (4,018), the runtime vertical with the S4-8 and hold tests, devices (244), register-IR,
+    trust-debug (120), and both firmware builds. The merged C6 image leaves 29,472 B of stack
+    against the 24 KiB window (D.2).
+- s1b `feat/chip-control-link`:
+  - S4-5 `47d220404`: the C6's two program slots and one owner for its flash, bench-booted.
+  - S4-3b `cac0db67b`: `program.install` only while stopped, with the retained-values check
+    (G13) before any write, on computers.
+  - S4-8 `eba57328a`: a computer's `shutdown` keeps trust-runtime up in Stopped; the explicit
+    exit `shutdown {"exit": true}`; the web deploy and rollback only while Stopped.
+  - Running: S4-6, the C6's stepped commit, its retained-value check and boot selection. Then the
+    bench (lead) and S4-7.
+- live-values `feat/live-values`:
+  - S3d-6 `74c0319ae`: the chip's cycle deadline and active time leave out debugger holds.
+  - S3d-7a `ca66b077c`: the statement index on the prepared module.
+  - S3d-7b `206e62604`: the chip's statement hook and hold pass, with one shared runner shell.
+  - Running: S3d-8, the debug operations on the shared dispatcher. Next: S3d-9 (the C6 bench),
+    S3d-3c (the unwound frames' locals at a fault).
+- engine-init `feat/engine-init`:
+  - C1-9a to C1-9d1, then C1-9d2a `d1b05007e`: the last stored-value uses read through views,
+    and `CycleAccess::storage()` is removed.
+  - C1-9d2b-1 `1550fde74`: the engine constructs the cell store, with the Values arm's initial
+    values on every fixture (a differential test after construction and restarts).
+  - Running: C1-9d2b-2, the retain encoder over cells, the entry floor and the instance table.
+    Next: d3 (the switch), C1-9e (the differential test, PERF-01).
+- u5a9 `feat/u5a9-runtime`: 9u-c `619364e74` shares the chip platform, the process image, the
+  watchdog rule and the ELF reader; the C6 bench passed with it. Next: the bench, when the board
+  is here.
+- devices `feat/devices-connections`:
+  - C4c `a971b416f`: the TwinCAT route list (unproven until a real TwinCAT run).
+  - C7b-2a `702a811d2`, C7b-2b `31f4474a0`: the old pane's texts, TwinCAT cards, fieldbus
+    confirmation, Ignore and remembered choices.
+  - C7c `7e5672053`: advertised protocols scanned through `comm.discover`, the tag browser after
+    `Add to canvas`, and `trust-runtime discover --project` reading `devices.toml`.
+  - Running: C6a, `identify` in the shared services. Next: C6b (compare), the panel's program
+    Start and Stop for computers (S4-8), C5b (Bluetooth and the Modbus RTU scan), D6, D7.
+- Builder disk, 18 October night: the VS Code tests had built into a `target/` inside two check
+  copies on the root disk (26 GB), which was down to 5.6 GB free. Both were removed with two idle
+  validation targets; the check script now builds the extension tests' binaries into the leased
+  check target.
+
+Open top-level items: 57.
+
+**16 October, evening: the owner's corrections (spec 34 v0.21, approved by the owner).** The boards
+are complete truST runtimes that work exactly like trust-runtime on Linux, macOS and Windows: spec 34
+"Owner requirements", ARCH-11 to ARCH-13, STATE-07 and §11.4 (TARGET-01 to TARGET-09). The separate
+board design built on 16 October (a board-only serial protocol and `trust-runtime board` commands,
+installation confirmed by the board's button, read-only Live Values, a commissioning mode) was
+deleted with its commits `5b91655fb`, `9668fca80` and `2f1034d17`; a copy is in
+`~/projects/.artifacts/deleted-board-design-2026-10-16` and is not restored without the owner. The
+STM32 target is now the STM32F407, first on the owner's STM32F407G-DISC1 (spec 34 Appendix D.4).
+Release is the last step: Claude tests everything end to end from VS Code on both chips, then the
+owner tests and approves, and only then is anything released. Nothing is done while any item here or
+below is open.
+
+C — Bounded operation (M3), shared by both chips:
+- [x] (Closed 25 Oct as superseded: the bytecode engine and its cell storage were deleted, native list N11; a compiled program keeps its variables in the fixed areas its build lays out, spec 44 §7, and its memory figure is what a load keeps, spec 44 §10.4, with no allocation in a scan.) C1 Bounded compound storage (18 Oct, day: C1-3c2a, the per-depth call scratch, is committed in `dd2684a87` on `feat/engine-calls` (focused check engine/c13c2a green; calls 45, blocks 13, methods 12 allocations per scan); C1-3c2b, standard-library arguments and SPLIT outputs without vectors, runs there. C1-5, the prepared cell layouts with their tables charged at preparation, is committed in `1953d13e6` on `feat/engine-init` (engine-init/c15 green, with the 74 test binaries that check preparation charges); C1-6a, the 16-byte cell and the cell store, runs there. The agent check's chip lanes now deny warnings as CI's portable lane does: three items that only the hosted runtime, the register tier and the tests use were dead in a chip build and are gated in `addeee6c4` here and `78c2edc8d` on `feat/engine-calls`. 18 Oct: C1-3a and C1-3b are merged into this branch in
+  `d07154f10`, checked by c6/merge1 with its rerun. 17 Oct, night: C1-3a, reservations sized to the static call depth with the depth check kept at `max_call_depth`, and C1-3b, call plans resolved at preparation, are committed in `7271a23b3` on `feat/engine-calls`, focused check engine/c13 green; calls 81, blocks 28, methods 23 allocations per scan remain for C1-3c. C1-3c1, per-depth frame payloads, runs in `trust-platform-engine`; C1-4, the bookkeeping scratch, runs in `trust-platform-engine-init` (`feat/engine-init`). Both merge into this branch after C5-2b. 17 Oct evening: C1-2, the scan scratch reservation, and STRING 80 with byte capacity and the character-write cut are committed in `0cb9710b9`, validated by focused check c6/wave1. C1-3a, reservations sized to the static call depth, runs in `~/projects/trust-platform-engine` (`feat/engine-calls`). 17 Oct: C1-1 done. `scan_allocation_zero` measures the corpus of 15 fixtures and three saved board artifacts per phase. It asserts per-run ceilings, which only go down: scalar 1 alloc per scan today, gpio 8, io 64, blocks 87, instances 148, the board main program 925 over 101 scans. Next, C1-2 scratch; 22 slices to go, see `~/projects/.artifacts/bounded-c/design.md`): retire `Arc`, `SmolStr` and `IndexMap` from bounded value and
+  compound paths (MEM-06, MEM-10, MEM-11); no allocation during a scan on the chips.
+- [x] (Closed 17 Oct by C2-0 and C2-1. Builder batches c1-1 to c1-3: `checked_admission_stale_binding` and `restart_generation_stale_handles` run un-ignored and pass with `restart_generation_queued_write` and `restart_generation_online_change`; `generation_handles` passes on the std, no-std and i686 lanes; workspace Clippy with all features is clean.) C2 Real generation lifetimes (MEM-07, UPDATE-04): stale handles across a warm restart or an
+  online change; the two ignored tests (`checked_admission_stale_binding.rs`,
+  `restart_generation_stale_handles.rs`) run and pass. Closes the scope C deferral item below.
+  - [x] (Closed 17 Oct. Validated 17 Oct by builder batches `s1a3-2` and `s1a3-3` on the c6 tree (logs in `~/projects/services-runs/` on the builder). `activation_identity_reuse` passed after its fixture stopped naming a variable `step`, an IEC keyword.) C2-0, a defect found by the C1–C5 design (`~/projects/.artifacts/bounded-c/design.md`
+    §1.11), fixed 17 Oct, awaiting the combined batch.
+    - The defect: every activation took a new `FrameId` from a `u32` counter that only a restart
+      resets, and per-call FB instances consumed `InstanceId`s the same way. At the limit the
+      runtime faulted with `Overflow`; a host with a 1 ms task and 50 calls got there in about a
+      day.
+    - The fix: identities are reused per top-level entry and stay monotonic within it, so identity
+      order is still ancestry order. An instance identity is reissued only when everything issued
+      since the entry's start is gone. Construction keeps one increasing sequence.
+    - Spec 34 HOST-02, §4.3.1, §6.2.1 and §17 A4 and spec 12 §7.12 state the rule.
+    - `ValueRef`, `Value` and the frame record keep their sizes on both chips.
+    - Tests: the rewritten exhaustion test, the bounded entry-counter model (117,649 sequences),
+      scans past the identity limit on both executors, and stale local references that stay
+      refused after their identities are reissued.
+    - Follow-up: clear the debugger's frame and variable handles on resume, so a client that
+      reuses handles from an earlier pause gets an error rather than the current pause's activation
+      with that number.
+- [x] C3 Fixed diagnostics and fault records: bounded, allocation-free, readable after a fault.
+  (Done 18 Oct: C3-1a, the fixed-size fault record, `d3d0e58e2`; C3-1b, the engine's latch with the
+  first failing instruction's site, the task and the logical time in seconds and milliseconds, in a
+  56-byte record, `3ab3c040b`; C3-2, the event store and the fault holder keep the record with the
+  error's own message payload, shared without allocating, and `faults` and `events.tail` render
+  today's text byte for byte, `71273f41a`; each with its focused check green. A stored event is 96
+  bytes, 96,000 for the 1,000-event store (D-C3-2); the chips' measured RAM goes to the owner with
+  the S1b-5 bench. A chip keeps the cause of a panic or watchdog reset in its reset record,
+  `f904c8949` on `feat/chip-control-link`.)
+- [x] (Closed 25 Oct as superseded by the native list's N6, the install checks of spec 44 §10.2, done 24 Oct; C4-3 belonged to the deleted engine.) C4 Import and admission bounds (17 Oct evening: C4-1, the deployment record, is committed in `0cb9710b9`. 17 Oct: C4-2 done. Every built-in function and FB has a contract, and admission refuses a missing or mismatched import by name with `runtime_import_unsupported`. Open: C4-3 demand, after the C1-9 switch. 18 Oct: C4-4, the device descriptor and a chip's last
+  reset in `capabilities`, `4ebe03858`, merged in `2d667368c`), and capability and deployment records (including the
+  HOST-02 deployment-level limit record).
+- [ ] C5 Persistence (18 Oct, afternoon: C5-4 for the C6 runs in s1b; the F407 part is superseded
+  by QS2, retain on the U5A9. 18 Oct, day: C5-3b, the persister in the device runner (capture at the pre-output sample, one step between scans, the stop save before Stopped, a latched failure that fails the next scan before outputs), is written in s1b-retain; its second round gives the codec a bare-payload decoder and keeps a warm start from rewriting an unchanged checkpoint. 18 Oct: C5-2b, the shared due rule and the allocation-free capture of STRN v3
+  payload bytes, is committed in `fb37c3324` (focused check c6/c52b green); C5-3a, the checkpoint
+  persister in the core, runs in this worktree; C5-3b, its wiring into the device runner, follows
+  in s1b. 17 Oct, night: the retain checksum gate points at the codec's new place, `276b16a9f`; C5-2b's follow-up runs. 17 Oct evening: C5-2a, the STRN v3 codec shared in the core, is committed in `c56bc3a86`; C5-2b, the shared due rule and allocation-free capture, is running. 17 Oct: C5-1 done. The checkpoint log is specified in spec 34 §10.1, with a cut at every byte of every program and erase recovering the previous checkpoint. Open: C5-2 capture, C5-3 persist, C5-4 chip drivers and bench power cuts. Policy decided: D-C5-1 in `~/projects/.artifacts/bounded-c/decisions.md`): retain variables survive a power cut through checkpoints in each chip's
+  reserved flash, with interrupted-write recovery.
+
+S — Shared runtime services (ARCH-11, ARCH-14): the same code on every target, built with and
+without an operating system, in the new crate `trust-runtime-services`; Linux, macOS and Windows
+switch to each component with their behavior unchanged (their existing tests stay green), and the
+F407 flash and RAM are measured after each component. Decided for S1–S4: VS Code maps source lines
+to program positions, so no device needs the sources; values read while running are those at the
+end of a cycle; a USB client counts as local; on a chip Stop and Start are `shutdown` and `restart`.
+Whether the chips run their services as embassy tasks is measured in S1: Includes the RETAIN-01 checkpoint sequence and completion fields.
+- [ ] S1 The control connection: the runtime control protocol of specification 11 (status, start,
+  stop, restart, states and faults, events and log) served by shared code; the operating system or
+  the chip supplies only the link. Design: `~/projects/.artifacts/s1-control-services-map.md`
+  (section 8). Slices: S1a-1 the request/answer envelope and the access rights move into
+  `trust-runtime-services`, trust-runtime re-exports them; S1a-2 dispatch, status, events, metrics
+  and the resource supervisor rules with host ports; S1a-3 the single-thread runner and a
+  transcript test comparing it with the threaded host; S1b the F407 and C6 over USB. Validation of
+  each slice, one batch on the builder copy (`~/projects/.artifacts/services/builder/batch.sh`):
+  `cargo fmt --all -- --check`; `cargo test -p trust-runtime-services` with and without
+  `serde_json/arbitrary_precision`; the crate built for `thumbv7em-none-eabihf` and
+  `riscv32imac-unknown-none-elf`; clippy `-D warnings` on the crate and on trust-runtime with all
+  features; `cargo test -p trust-runtime --lib`; the runtime vertical (`api_smoke`, `debug_control`,
+  `complete_program`, `runtime_reliability`); `cargo test -p trust-debug`; `cargo check -p
+  trust-dev --all-targets`; `cargo run -p xtask -- architecture-doctor --full-map`.
+  - [x] S1a-1 (16 Oct, uncommitted in this worktree): `crates/trust-runtime-services` holds the
+    request/answer envelope (`protocol`) and the access rights (`access`: roles, registry, policy,
+    role resolution); trust-runtime re-exports them at the old paths, the role decision is
+    unchanged branch for branch. Builder run `s1a1-1`: fmt; crate tests 35/35 with and without
+    `arbitrary_precision`; thumbv7em and riscv32imac builds; clippy `-D warnings` on the crate and
+    on trust-runtime with all features; trust-runtime lib tests 4,048 passed; the runtime vertical,
+    `trust-debug` tests and the `trust-dev` check pass; architecture-doctor fails only
+    FULLMAP-RUNTIMEBOUND and FULLMAP-RUNTIMESAFE (they need the git history, absent in the builder
+    copy; rerun with git before commit) with RUNTIMEVM-MUT partial as before; diagram render and
+    drift pass; Cargo.lock unchanged by cargo. Before commit: the moved tests' rows in
+    `verification/test-catalog-denominator.toml` and `verification/runtime-anomaly-denominator.toml`
+    name the old paths.
+  - [x] S1a-2 (16 Oct, uncommitted in this worktree): dispatch, status, events, metrics with a
+    clock port, and the resource command and supervisor rules moved into
+    `trust-runtime-services`; `control/host_ports.rs` implements the ports on `ControlState`.
+    Independent review `~/projects/.artifacts/services/review-s1a2.md`: no blocker; every one of
+    the 79 moved tests has a counterpart with the same assertions; behaviour equal apart from the
+    declared differences. Fixed before the batch: H1 (the runtime safety gate now checks the
+    shared dispatcher and event taxonomy and fails closed when it cannot find them), L1 (the
+    boundary gate scans `dispatch.rs`), M2, M3 (12 `json!` functions marked non-panicking with a
+    reason), L2 (a test of the host's uptime clock), L6, L8, L9 and M1 (the batch refreshes the
+    diagram manifest). Batch `s1a2-1` on the builder also runs the runtime-only composition, the
+    documentation examples, and `xtask`'s tests (FULLMAP-UNBUILT). Left for commit time: M4 (82
+    catalog rows and `TEST_CONTROL_AUTHORIZATION_FAILSAFE_001`, new ids in the review's §6), M5
+    (`verification/matrix.toml` areas), L3 (invariant `source_refs`), L7 (public-API baseline
+    needs nightly), L10 (the review's §2 list of undeclared differences goes into this record).
+    For S1a-3, before S1b: L4 (the clock ports belong in `trust-runtime-core::ports` as spec 34
+    §3.2 says, with a "time not set" state, TARGET-06) and L5 (one reload-claim transition).
+    Batch `s1a2-1` (builder, 16 Oct): passed fmt; services tests 131/131 with and without
+    `arbitrary_precision`; thumbv7em and riscv32imac builds; trust-runtime clippy with all
+    features; trust-runtime lib tests 3,999; the runtime vertical; trust-debug tests; the
+    runtime-only composition tests; the documentation examples; the trust-dev check; diagram
+    render, manifest and drift (SVGs and manifest copied back); architecture-doctor with every
+    check passing except the two that need git history (FULLMAP-RUNTIMEBOUND, FULLMAP-RUNTIMESAFE:
+    exit 128, "not a git repository"), the known CHECK-09 finding and RUNTIMEVM-MUT partial;
+    FULLMAP-UNBUILT passed (2,481 Rust files in 23 packages, only the two listed identity files
+    outside the build). Failed: `services-clippy` (2 × `clippy::assert_is_empty`, new in 1.99, in
+    `events/contract_tests.rs:288` and `resource/operations/contract_tests.rs:134`); `xtask-tests`
+    and `xtask-clippy` (E0063: the test policy literal `base_policy` in `xtask/src/full_map.rs`
+    lacked `unbuilt_source_allowlist`, so the five FULLMAP-UNBUILT tests did not compile or run).
+    Fixes prepared after the batch, unvalidated: `assert_eq!` with an empty `Vec`, and the field in
+    `base_policy`. Unrun: both gate scripts (they need git). A second run needs the owner's
+    authorization.
+    Second run `s1a2-2` (owner: "yes", 16 Oct): on the Pi with git, both gate scripts passed with
+    no findings (`runtime_safety_fail_closed_ast_grep_gate.sh`, whose FeatureDisabled checks now
+    read the shared dispatcher and events, and `runtime_boundary_fail_closed_ast_grep_gate.sh`,
+    which now scans `dispatch.rs`). On the builder: fmt passed; `xtask` tests 147 passed, among
+    them the five FULLMAP-UNBUILT tests; `xtask` clippy passed. Failed: services tests and services
+    clippy, E0433 at `resource/operations/contract_tests.rs:134`, because the lint fix used `Vec`,
+    which that no_std test module does not import (Claude's mistake). Fix prepared, unvalidated:
+    `assert_eq!(host.actions(), [] as [Action; 0])`, clippy's own suggestion. A third run needs the
+    owner's authorization.
+    Third run `s1a2-3` (owner: "yes, dont ask again, finish the checklist"): fmt, services tests
+    131/131 and services clippy `-D warnings`, `xtask` tests and clippy all passed. S1a-2 is
+    validated by s1a2-1 (every other step) together with s1a2-2 and s1a2-3. Still before commit:
+    the architecture doctor's git-dependent checks from a checkout with git, and M4, M5, L3, L7,
+    L10 above.
+  - [x] (Closed 17 Oct. Validated 17 Oct by builder batches `s1a3-2` and `s1a3-3` on the c6 tree (logs in `~/projects/services-runs/` on the builder). The batches covered:
+    - the services tests with `arbitrary_precision`, the thumbv7em and riscv32imac builds and Clippy;
+    - workspace Clippy with all features, and the core tests on the register and no-std paths;
+    - `just test-all`: 471 test binaries, including `runner_transcript_parity`;
+    - the docs with warnings denied, the doc tests, all three reviewed firmware builds with their inspections, the architecture doctor with both git gates, and the diagrams.
+    Fixed on the way: two lint findings in the runner tests.) S1a-3 (17 Oct, uncommitted, written, reviewed, fixes written, not yet validated):
+    `trust-runtime-core::ports` (monotonic clock with `MonotonicInstant` and `TimeSpan`, wall clock
+    with `utc_ms() -> Option<u64>`, runner wait and wake, hardware watchdog, control link with
+    frames bounded both ways, peer class; review L4) and the single-thread runner
+    `trust-runtime-services::runner` for devices without an operating system (STATE-08), reusing
+    the shared supervisor, operation and command rules; L5 (one reload-claim transition). Tests:
+    runner unit tests on the real engine with `gpio.stbc` (`runner/contract_tests.rs`,
+    `link_contract_tests.rs`, `scan_contract_tests.rs`, `timing_contract_tests.rs`), and
+    `runner_transcript_parity`, which sends the same request sequence through trust-runtime's
+    threaded host and the runner and requires equal JSON (only times, ids and durations
+    normalised), also for `status`, `events.tail` and `tasks.stats` after pause, resume, each
+    restart and the stop. Review `~/projects/.artifacts/services/review-s1a3.md` (BLOCKER 0,
+    HIGH 1, MEDIUM 8, LOW 7), all fixed in the worktree with the lead's decisions (17 Oct): H1
+    the safety gate reads the shared `retain_apply_event` and its two publishers and fails
+    closed; restart from Stopped starts with empty records and logical time from zero, as a new
+    process; requests take effect at the program's next boundary in the host's order (STATE-08
+    now states the rules and the remaining differences); logical time from the program start;
+    the loop feeds the hardware watchdog in every state; no per-scan key formatting, the event
+    store allocated at start, `has_output_hooks` kept true for the host's fault points (recorded
+    in `runner/observer.rs`); a reply longer than the frame becomes `reply longer than N bytes`;
+    the events test split; why a device reports no `audit_dropped` (TARGET-06). For the owner
+    after the S1b measurements: a chip's fixed RAM cannot hold an unbounded request or reply (for
+    example the full event history), so it answers with a clear error above its frame size until
+    S4's transfers in parts. No debugger on the device until S3: until then the loop runs
+    production control mode only (`control_mode: production`, pause between cycles).
+    Operations a device does not answer yet (`unsupported request` until their slice): S2
+    `io.list`, `io.read`, `io.write`, `io.force`, `io.unforce`, `set`, `var.force`, `var.forced`,
+    `var.unforce`, `hmi.values.get`, `hmi.write`; S3 `breakpoints.*`, `debug.*`, `step_in`,
+    `step_out`, `step_over`, `eval`; S4 `bytecode.reload`; S5 `pair.start`, `pair.claim`,
+    `pair.list`, `pair.revoke`; S6 `fleet.topology`; S7 `comm.*`, `ads.*`, `connectors.status`;
+    S8 `hmi.alarm.ack`, `hmi.alarms.get`, `hmi.descriptor.get`, `hmi.descriptor.update`,
+    `hmi.schema.get`, `hmi.scaffold.reset`, `hmi.trends.get`; to place: `config.get`,
+    `config.set`, `historian.query`, `historian.alerts`. For S1b: merge the board fixture's
+    `board::Clock` into `trust_runtime_core::ports`, and measure RAM and stack with the runner (the
+    event store, the 4 KiB scan window, the staged-output journal). The batch adds, besides
+    `batch.sh`: `cargo test -p trust-runtime --test runner_transcript_parity` on its own (also
+    checks the dev-dependency link), the core's `ports` tests and clippy, the CI board-adapter
+    checks for both targets, the firmware link builds once the F407 port is frozen, `--locked`,
+    both gate scripts and the doctor's git-dependent checks from a checkout with git, and the
+    denominator checks. Left for commit time with S1a-1 and S1a-2's: the denominator rows of the
+    S1a-1 and S1a-2 tests and the 82 stale rows (S1a-2 M4), and the catalog mapping of the runner's
+    deadline and pause tests to `RT_SAFE_DEADLINE_001` and `DEBUG_PAUSE_001` (their source
+    references name the runner now); the 47 S1a-3 rows are written. Found while writing them: both
+    denominator files already break the canonical `discovery_id` order at HEAD (rows appended by
+    d3a3508ba, scope H: from `DISC_636CB8D8E6B5C60C383F` in the catalog denominator and from
+    `DISC_251A2BD74865B4BDB6A6` in the anomaly denominator), so both checkers refuse them until
+    those rows are moved into place.
+  - [ ] S1b, the chips as runtimes over USB. Design `~/projects/.artifacts/s1b/design.md`; decisions
+    `~/projects/.artifacts/s1b/decisions.md` (O1–O14, R1–R9). Work happens in
+    `~/projects/trust-platform-s1b`, branch `feat/chip-control-link`. 18 Oct: rebased onto this branch's
+    `237a2025a` (C1-3c1, C1-4, C5-3a); the commits are now S1b-1/2 `041a6a083`, S1b-4a/4b1 `141f18480`,
+    S1b-3a1 `465170db2`, S1b-3a2 `03d78a774` (`trust-runtime build` fills section 7) and S1b-4b2a
+    `3a2217974` (the C6's USB-Serial/JTAG link); rebase check `rebase2` green. S1b-3b1 (the `TRSTA001`
+    container and the bench packer) runs there; C5-3b (the persister in the device runner) runs in
+    `~/projects/trust-platform-s1b-retain` (`feat/chip-retain`). Earlier: rebased on 17 Oct (night) onto
+    this branch at `c56bc3a86`: S1b-1/2 are now `316b10b96`, S1b-4a/4b1 `165750a43`. The rebase
+    check `s1b-rebase` passed every step but the runtime-safety gate and the doctor, whose only
+    finding was the retain gate fixed here in `276b16a9f`.
+    - [x] S1b-1, the device cycle `runner::engine`, and S1b-2, the line link and bounded event
+      replies (spec 34 §7.4 PORT-05). Committed `87841222c` on 17 Oct, not pushed.
+      - Validated by batch `s1b-runs/b1`: 42 steps green, among them `just test-all` (478 test
+        binaries), workspace Clippy, both chip targets, docs, firmware builds, the architecture
+        doctor, the public-API baselines and the diagrams.
+      - The external unsafe gate failed only on the six inherited `scan_allocation_zero.rs`
+        lines. They were fixed and the gate rerun green.
+      - Work limits on chips are now trust-runtime's (R8). A chip's call depth follows its heap,
+        4 at 72 KiB. The engine fix that lets chips admit trust-runtime's 1,024 is R9 / D-C1-4,
+        in C1-3 and C1-4.
+    - [x] S1b-3, the installed application (closed 18 Oct: S1b-3b `2eca48b8d`, the `TRSTA001`
+      container, the chip's admission of section 7 and `xtask portability pack-project`, used by
+      every S1b-5 bench build). It extends C4-1's record (R6). Split in three:
+      S1b-3a1, the record's section 7 (the configuration a chip needs from `runtime.toml` and
+      `io.toml`), is committed in s1b `930adc9b9` (focused check s1b3a1 and its rerun green); S1b-3a2, `trust-runtime build` fills it from the
+      project with the existing parsers; S1b-3b, the `TRSTA001` container, the chip's admission
+      of section 7 and `xtask portability pack-project`.
+    - [x] S1b-4, the C6 adapter (closed 18 Oct: S1b-4b2 `3a2217974` the USB-Serial/JTAG link and
+      `f904c8949` the two heap regions and the reset record; the S1b-5 bench passes steps 1 to 7).
+      S1b-4a (`trust-platform-memory`, moved byte for byte) and S1b-4b1
+      (wait and wake, process I/O by pin name, the watchdog rule) are committed, focused check
+      `s1b4b` green. Open, S1b-4b2: `hardware/usb_link.rs` (the USB-Serial/JTAG interrupt and
+      `ControlLink`, design §2.2), the identity and status values, the reset record in RTC
+      memory, the two heap regions, and the GPIO and watchdog read from the record after S1b-3.
+    - [x] S1b-5, the C6 firmware and bench (closed 18 Oct on c6 `2d667368c`: bench steps 1 to 7,
+      `s1b-5b2-bench/result.md`; S1b-5f `d732fa7c0` the 24 KiB stack window and the due boundary
+      before each request; S1b-5g `47dcbd07c` the crate `trust-esp32c6` and its chip file's
+      components `engine`, `control` and `live-values`).
+    - [ ] S1b-6, `usb://` and the relay (after the devices branch merges); S1b-7, every client
+      through the shared transport.
+    - [ ] S1b-8u and S1b-9u, the STM32U5A9 track (owner's Riverdi, 17 Oct).
+      - Design done 17 Oct: `~/projects/.artifacts/u5a9/design.md`, 1,225 lines, every fact
+        sourced (DS13543, RM0456, Riverdi `.ioc`).
+      - Lead decision on O-U2 (O7): the installed application gets all of flash bank 2, 2 MB
+        minus the checkpoint log.
+      - Owner questions for later: O-U3 TrustZone, O-U5 the F407 files, O-U6 the QSPI flash.
+    - 17 Oct evening, s1b: S1b-4a (`trust-platform-memory`, moved byte-identical) and S1b-4b1 (C6
+      wait and wake, watchdog rule, process I/O) are written. The focused check found moved
+      unsafe lines, unregistered concurrency boundaries, one failing pin test and the C6 firmware
+      lock; fixes are in progress.
+    - Left for the final full run: the test-catalog denominator rows of the S1b tests.
+- [x] S2 Live Values: read, write, force and release, as in trust-runtime. Includes a test seam
+  for snapshot projection failures (from the A01 leftovers).
+  (Closed 18 Oct: S2a-S2d in the shared services and the device runner, merged in `06835712a`;
+  S2e `bc8437934` deleted the host's unreachable copies and names the projection-failure seam
+  `a_snapshot_projection_failure_answers_its_error`; S1b-5c gives chips their binding names. C6
+  bench on c6 `ff2bfbd13` (firmware sha256 ab5db767...): io.list names P1.Button, P1.Lamp and
+  P1.Spare; at the pins, io.write on an unbound output holds TRUE then FALSE, a write to a bound
+  output is owned by the program as on trust-runtime (runner_transcript_parity.rs), io.force
+  holds over 20 scans against the program, io.unforce returns control, BOOT drives the output
+  (bench/s2-dil.sh 9 of 9); 100 of 100 long replies whole within 1 s. Evidence
+  `~/projects/.artifacts/runtime-portability-c6/s2-close-bench/`.)
+  - 18 Oct: the gap analysis `~/projects/.artifacts/s-services/gap-2026-10-18.md` maps every control
+    operation: chips answer 10 of 78 today. S2 moves `live_values/*` (about 1,470 lines) into
+    trust-runtime-services in three parts, then the device runner answers `io.*`, `var.*` and
+    `set`. S2a, the queues, runs in `~/projects/trust-platform-live-values` (`feat/live-values`,
+    from `106420bb1`). Owner question O6 (the C6's RAM) stays open; the move is needed either way.
+- [x] (Closed 25 Oct as superseded by the native list's N3: breakpoints, stepping, call stack, variables and evaluation of compiled programs from VS Code on a computer and the C6, 24 Oct. The FOR-body scratch-slot defect was the deleted engine's.) S3 Debugging (includes from the A01 leftovers: the defect that debugger scratch slots read
+  Null at a stop inside a `FOR` body, to be reproduced with a probe and fixed, and a test seam for
+  capture failures): breakpoints, pause, continue, stepping, call stack, variables and evaluation
+  (specification 13), as in trust-runtime (STATE-07).
+  - 18 Oct, in `~/projects/trust-platform-live-values` (feat/live-values): S3a the specification
+    (Q4-Q7), S3b1 LINE_TABLE `fe13fcf2b`, S3b3 a stop ends a hold `19fdd04a0`, S3b2a the portable
+    resolver `273b94e4b`, S3b2b trust-runtime through LINE_TABLE `c0ea86692` (parity: 45,242
+    answers, no difference). Chip design `~/projects/.artifacts/s3/chip-debugger.md`, decided in
+    `s3/decisions.md` (O2 is the owner's: what a debugger shows after a faulted scan). Slices S3d-1
+    (the A01 probe, running) to S3d-9 (the C6 bench), then S3c (compiled expressions). The C6 chip
+    file lists `debug` only once all of it holds, S3c included.
+- [x] (Closed 25 Oct: installs over the control connection into the two-slot program store, safe against interruption, spec 34 §5.1 and DEPLOY-03, benched on the C6 with T4 and L3; online change of compiled programs is the native list's N4, benched on the C6 24 Oct; from VS Code it is V4.) S4 Program loading: deployment and online change over the control connection (DEPLOY-02,
+  §11.3), safe against interruption (DEPLOY-03).
+- [ ] S5 Access rights: tokens and roles, TLS and signed deployment, as in trust-runtime.
+  Signed deployment (24 Oct, spec 44 §5.11, native list N6): the kernel's admission checks
+  signatures on every device that keeps a list of trusted keys; the chip still needs its list in
+  `device.toml`, set by Admin over the control link, read into `Device::trusted_keys` (empty until
+  then: the chip checks no signature and reports `signature: none`), and `status` reporting
+  `trusted` with a list. Cost to solve first: the C6 checks an Ed25519 signature over a 90 KB image
+  in about 0.85 s (fw24, opt-level z; fixed part about 50 ms, the SHA-512 about 9 µs a byte), which
+  an online change would take from the running scan: hash the image as its parts arrive, or check
+  in the M5 request context, or both.
+  - 25 Oct evening, signed deployment DONE in code (bcd041583; spec 44 0.30): the chip reads
+    `[signing] trusted_keys` at boot into its descriptor and every admission (boot, restart,
+    install, online change) checks them; Ed25519ph with the context `truST program image`, the
+    online change's upload hashed as its parts arrive (`admit_prehashed`); crypto at opt-level 3.
+    Bench s5/run1 (C6): the unsigned twin refused at install with `the program is not signed by a
+    key this device trusts`, the signed vat installed in 1.40 s (0.16 s without keys). Found:
+    `status` said `signature: none` (the runner host did not forward it; fixed with a test); the
+    90 KB vat's online change no longer fits the heap since L3's radio code (`no room for a transfer
+    of 90676 bytes`), so the signed online change runs on the small s5/sig project.
+    Bench s5/run2 (snapshot fw with the status fix): `signature: trusted` with keys; the signed
+    change reloaded in 52 ms (50 ms without keys); one signed by another key refused, the program
+    running on. Found: hashing a part in its request stalled the scans (overrun events); measured
+    with `s5/hash-speed.py`: a 4,096-byte part 112 ms hashed against 62 ms not, so SHA-512 costs the
+    C6 about 12 µs a byte, 50 ms a part. Fixed: the session hashes only on a device that trusts keys,
+    the loop hashes 128-byte blocks between scans while the next boundary leaves time, and holds the
+    requests back until a complete upload is hashed (spec 44 §5.11 rewritten). Run 3 (the vat
+    release image, 17 parts) proves it. The 90 KB debug image's online change is a RAM limit with
+    Wi-Fi (112 KiB region beside a 43.8 KB module, 23 KB heap), not a flash question: a flash write
+    stalls the C6's code fetches, so an online change stays in RAM; release images fit.
+  - Pairing on chips, 25 Oct night, in code (spec 11 §6.9.6 rewritten; spec 34 0.68): the rules
+    moved to `trust-runtime-services::access::pairing` (one implementation; the computer's
+    `PairingStore` and the shared `pair.*` handlers call it; the web `/api/pair/*` routes answer
+    with the same texts); the chip keeps the pairing file as JSON without spaces in `pairing_a`
+    (0x7F6000) and `pairing_b` (0x7F7000) through `flash_record::RecordStore` (magic `TRSTPR01`),
+    room for 24 tokens, disabled tokens removed oldest first when a claim needs room, `the device
+    has no room for another pairing` otherwise; tokens only while the clock is set; codes and
+    tokens from the radio-backed RNG only while a network is served. The program slots shrank to
+    2,060 KiB (0x3F0000, 0x5F3000) for the two sectors; `firmware install --reset-settings` also
+    erases them. Bench pair-run3 (25 Oct, snapshot snap4 firmware installed through the boot loader
+    with the new partition table, `~/projects/.artifacts/native/s5/pair-run3/steps.log`): the 90 KB
+    debug vat installed into the moved slots (sequence 11); over Wi-Fi `pair.start` 11.7 ms,
+    `pair.claim` 42.2 ms with the record write, no overrun and no event; the token's `status` says
+    `role: operator`, its `pair.list` is refused `requires role admin`; after `device-reset` (boot
+    8123, clock from SNTP) the token still acts as Operator; `pair.revoke` disables it, it is then
+    refused `invalid auth token`, and the list shows it disabled. Found on the way: a bench helper
+    echoed a request with the control token into a log; the token was rotated on the chip at once
+    (`l3/run17`). Remaining for S5: TLS on the chip's control link, a hardware limit to report. TLS on a chip's control link: a hardware limit to report to the owner (TLS
+    buffers of about 15 KB against the C6's 23 KB for programs with Wi-Fi, and the handshake's
+    arithmetic in the control loop without the M5 request context).
+- [ ] S6 Discovery and mesh: a runtime on the network, a board included, is found and can be used at
+  once (ARCH-12).
+  - 25 Oct, discovery written (spec 34 PORT-06 Discovery; spec 11 network `time`): mDNS responder
+    in `trust-platform-net` (`mdns.rs`: answers PTR/SRV/TXT/A/ANY, legacy and unicast replies,
+    compression read with a hop limit, 26 unit tests with the time module; `discovery.rs`: two
+    announcements a second apart at a new address, link-local queries only, one multicast a
+    second, goodbye before the chip's own reset via `ChipNetwork::leave`). TXT `id`, `name`,
+    `version`, `platform`, `auth=token`, `control=tcp://<address>:<port>`. Host test over the cable:
+    the announcement and a browse's answer name the control endpoint. Bench 25 Oct (runs 12, 14):
+    the chip answers an mDNS browse from the Pi, and `trust-runtime discover` on the Pi finds it
+    ("Found 10.42.0.209: truST runtimes"). Open: the mesh part.
+- [ ] S7 Communication services: the `io.toml` drivers (Modbus TCP, MQTT and the others) and
+  Bluetooth devices where the chip has Bluetooth.
+  - 25 Oct night, Modbus TCP on the C6: `trust-modbus` (no_std protocol crate); the shared
+    exchange `io_drivers::modbus` (38 tests: parameters, typed points, request splitting, response
+    checks, deadlines, safe-state confirmation, backoff); chip TCP links in `trust-platform-net`
+    (4 tests); the C6 driver `drivers/modbus.rs`; `ChipDriver` errors keep their kind and a
+    chip's safe state is confirmed only by a healthy output path. Bench `s7/run1`: two input
+    registers read and two holding registers written every 100 ms over Wi-Fi from the Pi's server,
+    health degraded under `warn` while the server was away and recovered after. Open: the computer's
+    driver onto the shared exchange (the agent listed 14 deviations of today's computer driver from
+    spec 11, among them its own frame code without the response checks, no request splitting and an
+    FC16 byte count that wraps above 254 bytes), MQTT (agent), Bluetooth devices (L4).
+  - 25 Oct late: the computer's `modbus-tcp` driver runs the shared exchange (agent; the
+    deviations went, spec 11 updated, changelog entry); its tests split (`modbus_driver/bounds.rs`)
+    and the mapped-points test waits for an accepted refresh, as a cold refresh may miss the 40 ms
+    deadline on a loaded computer. MQTT: the shared `io_drivers::mqtt` (parameters, MQTT 3.1.1
+    codec, typed points, payloads, Sparkplug B, the session as a state machine, with chip bounds
+    `MqttLimits`: queue by messages and bytes, packets, outgoing bytes; `due_ms` for the next timer;
+    `reserve_buffers`); `trust-platform-net` client links with bounded queues taken with the link,
+    `send_some`, `take_received`, an orderly close that sends what was queued before the FIN, and
+    servers named by host name looked up with the chip's name servers; the C6 driver
+    `drivers/mqtt.rs`, stepped by the network's idle work between the scans
+    (`IdleSession`), its buffers counted at the load (`ChipDriver::reserved_bytes`, MEM-12). Spec
+    34 0.70. The computer's driver onto the shared exchange: agent running. Bench: `s7m/` (a stdlib
+    MQTT broker on the Pi, the project, `s7m-bench.sh`), to run after the check.
+  - Open on the C6, recorded in spec 34 D.2: TLS (a session needs about 33 KiB, a program with
+    Wi-Fi has about 22 KiB: a bigger board, or the owner's decision) and symbolic `mappings` (the
+    build must lower the tags to typed points, and an unbound variable needs the MQTT tag links of
+    spec 44 §13.3 in the chip's cycle).
+  - 26 Oct: committed `234ceefe4` (C6 MQTT, computer Modbus on the shared exchange) and `25c02b466`
+    (public-API baselines regenerated with nightly-2026-10-14). Bench `s7m/run1` on the C6 over
+    Wi-Fi against `s7m/mqtt-broker.py` on the Pi: CONNECT `trust-runtime-c6` clean, SUBSCRIBE
+    `bench/in/level`, echo = level + 1 every 100 ms (113 publishes in 11 s, task 0.036 ms avg, no
+    overrun), two PINGREQs during a 12 s stop, degraded and recovered with the broker, DISCONNECT
+    when replaced; but the second install failed the memory check (old socket still closing), and
+    `run2` then found no 16,300 B block for the checkpoint buffer. Fixed (spec 34 0.71): dropped
+    network drivers wait up to 200 ms for their connection to close and give the socket back
+    (`ClientLink::holds_connection`, `Network::release_client`); the chip takes the checkpoint
+    buffer once at boot and lends it to each program (`CheckpointBuffer`). The computer's `mqtt`
+    driver runs the shared exchange (agent; 36 old tests kept, 11 added); the Sparkplug B profile
+    follows Sparkplug 3.0's edge-node rules (spec 32 §9 rewritten with the tck-ids). Open: rerun the
+    bench (run3) with the combined check's firmware; the verification catalogs still name the old
+    MQTT and Modbus test paths (release prep); `rumqttc` is only used by
+    `tests/device_in_the_loop.rs` (dev-dependency); `control/comm_handlers/apply/validation.rs`
+    keeps its own copy of the MQTT TLS rules, a duplicate of the shared rules to remove.
+- [ ] S8 Web pages and HMI.
+- [ ] S9 Modbus RTU (owner, 16 October 2026): the `modbus-rtu` driver of specification 11, built-in
+  driver 6, on Linux, macOS and Windows serial ports and on the chips' UARTs, sharing the Modbus
+  application layer with `modbus-tcp`.
+- [ ] S10 EtherCAT on chips with an Ethernet controller (owner, 16 October 2026): the `ethercat`
+  driver of specification 11 with EtherCrab's `no_std` build on the STM32F407, after L2. Needs an
+  F407 board with an Ethernet PHY. Test device: the owner's STEPPERONLINE A6-EC400H2B1-M17 servo
+  (CiA 402, a rebranded Inovance SV660N; ESI `~/Downloads/A6_doc/STEPPERONLINE_A6_Servo_V0.04.xml`),
+  in cyclic synchronous torque with distributed clocks as the earlier Linux probe ran it
+  (`~/projects/trust-platform-cia402-sv660n`, `xtask/src/cia402_probe.rs`; saved 16 Oct as local
+  branch `archive/cia402-sv660n`, commit `9f618ea71`, ignored evidence in
+  `~/projects/.artifacts/cia402-sv660n-internal-evidence.tgz`). Tested device to device
+  (owner, 16 October 2026): the chip as EtherCAT master wired straight to the A6, with no terminals.
+- [ ] S11 OPC UA (owner, 16 October 2026, spec 34 SERVICE-03): one shared OPC UA server and client
+  in Rust for every target, replacing the `opcua` library on Linux, macOS and Windows with today's
+  behavior kept; on the chips over their network links. After S1–S6 and the network links.
+- [ ] S12 ADS: the Beckhoff ADS client and server (`[runtime.ads]`, `[runtime.ads_server]`,
+  `ads.toml`), as in trust-runtime.
+- [ ] S13 Runtime cloud, fleet and pairing (`[runtime.cloud]`, `pair.*`, fleet topology).
+- [ ] S14 Observability: the historian with its alerts and the Prometheus metrics
+  (`[runtime.observability]`); on a chip the history is kept in flash.
+- [ ] S15 OpenOT telemetry (spec 34 SERVICE-04): the same records; on a chip over the network.
+- [ ] S16 Simulation on the chips too (spec 34 SERVICE-05): `simulation.toml` as in trust-runtime.
+- [ ] S17 Several RESOURCEs in one configuration run on a chip exactly as they run in
+  trust-runtime (first: record how trust-runtime runs them).
+- [ ] S18 Several runtimes on one chip (owner, 17 October 2026: "every host shall be able to have
+  several runtimes"; spec 34 ARCH-15): each with its own project, state, control connection,
+  retain and diagnostics; one runtime's stop or fault leaves the others running; each I/O point
+  belongs to one runtime; how many fit is measured per chip and reported.
+
+D — Documentation and build:
+- [ ] D1 Public documentation: getting started on a chip, installing and updating truST, the
+  `device.toml` reference, and the list of supported chips; written to the rendered pages.
+- [ ] D2 CI builds the firmware of every chip on every change, and the Pi bench runs the tests on
+  the real chips.
+  - 25 Oct night: the first half is in CI already (`ci.yml` job `firmware`, the C6 and the U5A9 on
+    every change, a required gate). The second half is written: `.github/workflows/chip-bench.yml`
+    runs after each green CI run on main, downloads the C6 firmware CI built and runs
+    `scripts/chip_bench.py`, which installs it as `firmware install` does (the selection erased,
+    boot loader, partition table and firmware at the chip file's addresses, settings and programs
+    kept) and checks that the chip answers `capabilities` with the workspace version, confirmed, and
+    `status` (tests `scripts/chip_bench_tests.py`, 2 passed locally). It passes with a notice until
+    the owner registers a self-hosted runner on the bench Pi and sets `TRUST_CHIP_BENCH_RUNNER`,
+    `TRUST_CHIP_BENCH_PORT` and the secret `TRUST_CHIP_BENCH_TOKEN` (an outside setting: the owner's
+    to make). Open: those settings, then the first green run.
+
+H — Hardware the owner provides:
+- [ ] H1 A NUCLEO-F429ZI (owner, 16 October 2026: the plan with it agreed): the same STM32F4 family
+  as the F407, with Ethernet on the board, 2 MiB flash and 256 KiB RAM, for L2 and the EtherCAT test
+  with the A6 servo (S10). An STM32H7 board for every component on one STM32 is decided after the
+  measurements.
+- [ ] H2 For Modbus RTU (S9): an RS-485 transceiver module for the chip and a USB-to-RS-485 adapter
+  for the Pi.
+
+L — Links (ARCH-12): the same control protocol on every link:
+- [ ] L1 USB: the STM32F407's USB OTG FS and the ESP32-C6's USB serial on the chips, and USB as a way
+  to reach a runtime in `trust-runtime`, `trust-debug` and VS Code.
+- [ ] L2 Ethernet on the STM32F407. The DISC1 has no Ethernet PHY, so Ethernet needs a board or
+  add-on with one (owner's decision).
+- [x] L3 Wi-Fi on the ESP32-C6 (bench passed 25 Oct, run 14; commits 6057b9ee1, bc468e732,
+  8feef90f3).
+  - 25 Oct, written and checked (spec 34 0.64 PORT-06, TARGET-02 `[control]`, D.2; spec 11 network
+    in `capabilities`, ctl `tcp://host:port`; spec 44 0.28 program region 112 KiB): the shared crate
+    `trust-platform-net` (smoltcp interface, DHCP/fixed address, control connection over TCP with the
+    shared line link, one client and a busy reply with the request's id, 7 host tests over a
+    two-interface cable), `LinkPair` (USB + network in turn), `ChipNetwork` in the chip platform
+    (idle poll, `idle_due` ends the loop's wait), the C6 station (`hardware/wifi.rs`: esp-rtos on
+    SYSTIMER alarm 2, esp-radio station, retry 1/2/4/8/16/30 s, join failures reported), the radio's
+    C allocator over a 64 KiB arena from the heap (`trust-platform-memory::c_heap`, firmware
+    `radio_memory.rs`), the device's control token from `device.toml` (required on every link, not
+    clearable by `config.set` while the network serves), the chip's own resets reported `requested`.
+  - Bench 25 Oct (`~/projects/.artifacts/native/l3/run1..run5`): the Wi-Fi firmware (1,534,528 B
+    image) installs and confirms over USB; the radio starts, its arena peaks at 41,912 of 65,536 B
+    with no failure; with Wi-Fi settings the memory for programs is 23,248 B. The station finds the
+    Pi's hotspot iPadLink (-18 dBm), associates and sends 4-way message 2, which the hotspot accepts
+    (password right), then leaves at message 3 (`Unspecified`, the hotspot's debug log: AKM
+    PSK-SHA256 with PMF optional, IGTK in message 3). Not yet joined: needs a standard WPA2 AP, or the
+    hotspot's PMF off (touches the iPad's link: owner's call). Open: the network control session,
+    the install over the network and the scan timing with Wi-Fi traffic; then the arena trimmed.
+  - Bench 25 Oct, second part (`l3/run6..run11`, commit 6057b9ee1, spec 34 0.65): the drop at
+    message 3 was the firmware's `trust_memcpy`, whose word table copied from the last word to the
+    first and broke the radio driver's overlapping copies (a build on the ROM's routines joined);
+    fixed with a forward table and `firmware/trust-esp32c6/tests/memory_routines/run.sh` (qemu,
+    fails the old routine on case 6). The router MartinRouterKing's failures were stale
+    associations, not range: an access point that still holds the chip's association after a reset
+    without leaving ignores its attempts to join, and attempts every 30 s with an awake radio kept it
+    for good. Fixed: the chip leaves its network before its own resets, sleeps its radio while it
+    has no network and waits 90 s after an unanswered attempt (the Pi's access point then drops the
+    old association; rejoin 95 s after a hard reset, 3.5 s after a device reset). Also fixed: ping
+    answered; no network timer while the link is down; `ctl` sends the version check and its request
+    over one connection (its second connection met "server busy"). The bench uses the Pi's own
+    access point `trust-bench` (NetworkManager profile, WPA2, channel 6, key `l3/bench-ap.psk`);
+    the Pi goes back to MartinRouterKing afterwards. Run 11 on `trust-bench`: joined at once, SNTP
+    offset 9 ms, ping 5/5 at 4.3 ms, token rules (missing and invalid refused), a second client told
+    busy while the first is served, `ctl` over `tcp://` status and events. A minute of 95 requests a
+    second over one connection: median reply 9.4 ms, max 30.8 ms, ping 300/300; a 90 KB install
+    over the network in 1.1 s; the radio arena's peak 47,864 bytes.
+  - Found 25 Oct by run 11's install: the reference debug image (figure 10,300 bytes) was admitted
+    with Wi-Fi (15,064 bytes for programs) but its load kept 19,772 bytes beside the checkpoint
+    buffer, ran out of heap and panicked at every boot (about 470 resets) until the settings were
+    erased. Fixed (spec 34 0.66, spec 44 0.29): the radio arena 56 KiB (peak with a fifth more);
+    the figure counts the cycle's process-image copies and a debug image's line table, built with
+    exactly its entries; a boot that a reset ended while it loaded the program does not load it
+    again (TARGET-08, the reset cookie's program-load phase); on the chip the oversized load
+    panicked twice and the chip then stayed up, faulted with `resource panic`, and `shutdown`
+    stopped it.
+  - Found 25 Oct by runs 12-13 and fixed (8feef90f3): every boot stalled the scans about 0.85 s
+    (ControlTask missed 86 of 10 ms) while the radio derived the WPA2 passphrase's key at the
+    first join; the chip now derives it at boot before the program (`trust-platform-net::wpa`,
+    IEEE vectors, checked on the chip). `install` right after `shutdown` got `server busy` (the
+    chip still closing while it saved retained values): the busy reply carries `server_busy` and
+    the shared client connects again after 50/100/200/400/800 ms.
+  - Run 14 (`trust-bench`, final firmware, reference program rebuilt with figure 18,978 bytes):
+    every step passes: join with the passphrase and no boot overrun, SNTP offset 8 ms, ping 5/5,
+    token rules, busy second client (`server_busy`), `ctl` over `tcp://`, `install --restart warm`
+    over the network, 30 s of control traffic (2,245 requests, median 12.6 ms) with ping 150/150
+    and no overrun (ControlTask worst 0.934 ms against 10 ms, 0.237 ms without traffic), arena
+    peak 46,260 of 57,344 bytes, and the computer's discovery finding the chip.
+  - Router 25 Oct (MartinRouterKing, the owner's network; runs 15-16; 10b3e9752): the chip joins
+    at once and every control step passes, `install --restart warm` over the network included
+    (run 16). Run 15's install panicked in the running loop where the same program loaded at the
+    next boot; the reset record said only `panic`: now a load in the running loop measures the
+    memory again (MEM-12) and the record keeps a location's end. Open on the router path, from the
+    Pi's side: the Pi joins the router's 5 GHz band at -81 to -83 dBm (9-19 % ping loss under load,
+    so step 8 timed out there), and `discover` found no chip through the router (multicast between
+    its bands), while both work on `trust-bench`. Arena peak there 51,644 of 57,344 bytes, no
+    failure.
+- [ ] L4 Bluetooth on the ESP32-C6.
+
+T — Targets (spec 34 §11.4):
+- [ ] T1 The same project on a chip: `runtime.toml` and `io.toml` with the same keys and meaning;
+  the `gpio` driver's `line` names a pin of the chip; analog, PWM, counters and CAN as `io.toml`
+  drivers (TARGET-01).
+  - 25 Oct evening: spec 11 §6.5 defines `analog`, `pwm`, `counter` and `can` for every runtime
+    (Linux over IIO, sysfs PWM, the counter subsystem and SocketCAN); spec 34 D.2 the C6's ADC1,
+    LEDC, PCNT and TWAI0/1; the deployment record version 2 carries each driver's parameters
+    (section 8); `ChipDriver` and `record_drivers` compose a chip's drivers after its GPIO lines.
+    The shared parameter rules and logic (`trust-runtime-services::io_drivers`) are with an agent;
+    next the C6 drivers and the Linux drivers (agents), then the bench (PWM into a counter on one
+    pin, an ADC pin at 0 V and 3.3 V, TWAI in self-test). The online change's binding check must
+    take the drivers' addresses too (`unwired_binding`).
+  - 25 Oct night, in code: the shared rules and logic (`io_drivers::{analog,pwm,counter,can}`,
+    35 tests; entries of a list may not overlap in bytes, `on_error` read as Modbus reads it); the
+    C6 drivers (`drivers/*`, until 25 October in `hardware/drivers/`: ADC1 one-shot with the eFuse curve calibration, LEDC with one
+    timer per frequency and the divider from the 80 MHz clock, PCNT pulse and quadrature with the
+    32-bit count, TWAI0/1 at the nine CiA 301 rates with a code/mask filter; peripherals leased so
+    a restart frees them; a PWM pin handed to its latch on the emergency path); the online change
+    counts a driver entry's bytes as wired (`record_entry_bytes`). Snapshot check snap4: fmt,
+    Clippy, rustdoc, unsafe register (three new sites), architecture and the C6 firmware green;
+    services 853 tests. With agents: the Linux drivers; host tests of the C6 drivers' planning and
+    `bench-loopback` hooks (PWM into a counter on one pad, TWAI self-test, ADC pull-up). Open: the
+    bench, and the measured numbers in D.2.
+  - 25 Oct night, Linux drivers in (IIO, sysfs PWM, the counter subsystem with quadrature x4,
+    SocketCAN; 42 tests over a fake sysfs; `socketcan` 4.0.0 with `neli` 0.7.4); `line_b` optional
+    in the shared rules (a chip requires it, Linux refuses it); 31 host tests of the C6 drivers'
+    planning (`driver_plans.rs`). Bench t1/run1-run2 (`~/projects/.artifacts/native/t1/`, the
+    `bench-loopback` firmware, project t1): without Wi-Fi all four drivers `ok`; PWM 50 % at 1 kHz
+    counted on its own pad, 10,300 edges in about 10.3 s, 25 % about 1,000 a second, 0 % and 100 %
+    none; the CAN word sent each cycle came back through TWAI0's self-test one cycle later; ADC1 read
+    3,258 to 3,261 mV on a pad pulled up to 3.3 V. Found: with Wi-Fi (22,704 bytes for programs) the
+    same program's start ran out of heap (`resource panic ... alloc.rs:665`, reset, faulted), and
+    after it the chip had no room for a `status` reply; under investigation (debug image or drivers).
+  - 25 Oct night, found and fixed (bench t1/mem1-mem3 with `capabilities.heap`): a program whose
+    record enables debugging reserves 200 debugger stops and 200 logpoint messages, 17,860 bytes,
+    which the memory check did not count (production 62,116 bytes in use, debug 79,976, without
+    Wi-Fi). The install and the load now count it (the debug T1 with Wi-Fi is refused: `the program
+    needs 5783 bytes, the device has 5096`), the load checks the room after the drivers are
+    claimed, and the checkpoint buffer's block is taken without a panic. Found next: after several
+    loads the heap had 41,112 bytes free but no block of 16,300 for the checkpoint buffer
+    (fragmentation); it is now a refusal, and a reset recovers. Open: keep the checkpoint buffer
+    and the capture's buffers for the life of the loop, taken once at boot, so loads cannot
+    fragment the heap; ADC1 with Wi-Fi (4,057 mV against 3,259 mV on the same pulled-up pad).
+    esp-hal 1.2.2 writes ADC1's calibration (`SAR1_DREF`, the initial code) before every one-shot
+    read, so a lost calibration is not the cause; next: whether the radio's PHY task and the ADC
+    driver contend for the analog I2C bus (`regi2c`) without one lock, and the readings with the
+    radio idle against busy.
+  - Found by the D1 review (25 Oct): the C6's flash pins GPIO24-GPIO30 were claimable (fixed,
+    reason `flash`); the C6's chip file listed only engine, control and live-values (debug and
+    deploy added); a trial firmware that hangs before it confirms has no watchdog yet, so it would
+    not roll back (TARGET-04; the watchdog moves before the boot's steps, with a bench feature that
+    hangs).
+- [x] T2 `device.toml` on the device: name, network interfaces, Wi-Fi, Bluetooth and time server;
+  the crystal frequency and the Ethernet PHY detected (TARGET-02).
+  Done 25 Oct, commit d6ec86deb (spec 34 0.63 TARGET-02, spec 11 device settings contract):
+  `trust-runtime-services::device_settings` (sections, checks against the chip's interfaces, the
+  password never reported, records `TRSTDS01` with a sequence and a CRC-32 in two sectors),
+  `device.get`/`device.set`/`device.reset` and `ctl device-get|device-set|device-reset`; a
+  computer refuses them. The crystal is the chip file's (C6: 40 MHz, `INTERFACES`). Bench run 25 Oct
+  on the C6 (`~/projects/.artifacts/native/t4t2-run1/steps.log`): none stored, `device-set` gave
+  sequence 1, kept across `device-reset` and a firmware update, `password_set = true` shown and the
+  password itself never printed. The Ethernet PHY detection belongs to L2: no chip with Ethernet is
+  on the bench until H1.
+- [x] (Closed 17 Oct. Validated 17 Oct by builder batches `s1a3-2` and `s1a3-3` on the c6 tree (logs in `~/projects/services-runs/` on the builder).
+  - `chips/stm32f407.toml` and `chips/esp32c6.toml` follow spec 34 Appendix H, read by the `trust-chips` crate.
+  - The adapters' tables are checked against the chip files, and `xtask portability build-firmware stm32f407|esp32c6` builds each firmware from its chip file; both built and passed inspection.
+  - The values not confirmed from the repository are listed in each file's `sources.unchecked`, for the qualification items QS and QE. Components: `engine` only, until the S items land.) T3 Chip files and one firmware per chip: `chips/` entries for the STM32F407 and the ESP32-C6
+  (TARGET-03).
+  - 17 Oct, F407 port written (uncommitted, not yet built; spec 34 D.4):
+    - What it adds:
+      - Cargo features `stm32f401` (the default, unchanged) and `stm32f407` in
+        `trust-platform-stm32f4`.
+      - The chip table in `chip.rs`: clock, sectors, RAM, device ID, ports and kept pins.
+      - Pins by name in `pins.rs`, with the wiring checked when the firmware is built (T1).
+      - The crystal measured through TIM11 in `crystal.rs`, with the record `B1,CLOCK` (T2).
+      - `firmware/trust-stm32f407` on the shared fixture.
+    - 43 host tests.
+    - CI checks the F407 build; the supply-chain gate and the safety register include it.
+    - The `xtask portability` F407 profile is being written.
+    - Still open for T3:
+      - the `chips/` files;
+      - the bench run on the DISC1. The DISC1's ST-LINK virtual COM port may not reach USART2;
+        the first bench step checks this.
+      - CI building every firmware (D2).
+- [ ] T4 Installing truST on a chip and updating it, from `trust-runtime` and from the hardware
+  canvas (TARGET-04).
+  - 25 Oct, from `trust-runtime`: done, commit d6ec86deb (spec 34 0.62 TARGET-04, D.2, H.2; spec 11
+    firmware update contract). Two firmware slots with ESP-IDF v5.5.1's boot loader built with
+    rollback (`firmware/trust-esp32c6/bootloader/`), `trust-runtime firmware install` through the
+    ROM boot loader, `transfer.begin {"for":"firmware"}` + `firmware.install` + `ctl firmware`.
+    Bench run 25 Oct on the C6 (`~/projects/.artifacts/native/t4t2-run1/steps.log`, Pi binary
+    linked against the Pi's libm, see the remote-builder notes): install → slot a confirmed;
+    `ctl firmware` → slot b confirmed, device settings kept; a firmware built with
+    `bench-trial-reset` (resets before it confirms) → the boot loader rolled it back, `capabilities`
+    `rolled_back: "0.24.75"`, `ctl firmware` exit 1 with "did not finish its boot".
+  - 25 Oct night, the hang case benched (`~/projects/.artifacts/native/t4-hang-run1/`): a firmware
+    built with `bench-trial-hang` (TRUST_FIRMWARE_FEATURES, recorded in build.json) installed with
+    `ctl firmware` into slot b hung before it confirmed; the hardware watchdog, now started before
+    the boot's steps, reset the chip (`last_reset` `watchdog`, boot 8159), the boot loader rolled
+    back to slot a (`rolled_back: "0.24.75"`), and `ctl firmware` exited 1 with "did not finish its
+    boot, and the runtime runs truST 0.24.75 from slot a again".
+  - Open: the update from the hardware canvas (with the V items).
+- [x] T5 Versions: the tools read the runtime's version and name the update needed (TARGET-05).
+  Done 25 Oct (spec 34 0.60 TARGET-05, spec 25 runtime inspector and USB tray): the rule in
+  `trust-runtime-client::version::VersionAdvice` (release-version order, pre-releases before their
+  release, build metadata ignored; the older side is updated, an unreadable version updates the
+  runtime); `trust-runtime ctl` and the device link (`trust-dev test --device`, `trust-runtime
+  conformance --device`) print `warning: ...` and carry on; the Devices inspector's `Update` row in
+  the warning tone; the USB tray offers `Update truST` only to an older or unreadable runtime (the
+  tray is not drawn yet, V7 C7). Tests: client `version::tests` (4), devices
+  `the_inspector_names_the_update_a_different_version_needs`,
+  `a_newer_runtime_is_not_offered_an_older_trust`. Found with it: the devices tests and golden
+  views still expected the STM32F407 that N11 deleted (6 tests failing since then); moved to the
+  STM32U5A9, fixtures rewritten by their own command (246 passed).
+- [x] T6 Time: the clock from the time server of `device.toml` (TARGET-06).
+  - 25 Oct, written (spec 34 TARGET-06): SNTP v4 client in `trust-platform-net` (`sntp.rs` RFC 4330
+    codec with era handling, `time.rs` schedule: at an address, hourly, a minute after a failure;
+    host names looked up at the address's name servers), sets the C6's calendar. Host tests: a
+    server's reply sets the clock to its time; a named server without a name server is reported.
+    Bench 25 Oct: the C6 set its clock from pool.ntp.org through the router (offsets 80 and -65
+    ms) and through the Pi's access point (runs 11-14: 9, -5, 8 ms), the name looked up at the
+    DHCP name server.
+- [x] T7 Diagnostics: the fault log, events and log levels of trust-runtime (TARGET-07).
+  Gap analysis 25 Oct (read-only, against spec 34 and the code): `faults` and `events.tail` done on
+  the C6 (the U5A9 refused replies over the frame until its transfer session, 25 Oct); missing:
+  `config.get`/`config.set` on chips (the platform answers `unsupported request`;
+  `deployment/configuration.rs` decodes `log_level` and nothing reads it): move the computer's
+  `control/config_handlers_{get,set}.rs` behind a settings port into the services, the record's
+  settings into `ProgramValues`. The computer/chip reply comparison (`runner_transcript_parity.rs`)
+  went with N11 and needs replacing for compiled programs.
+  - [x] `config.get`/`config.set` on chips (25 Oct, spec 34 0.59 TARGET-07, spec 11 configuration
+    contract): shared rules in `trust-runtime-services::settings` (projection, staging in the
+    computer's order and texts, value checks moved from trust-runtime), used by the computer's
+    handlers and by the runner (`runner/config.rs`) on chips; the chip platform keeps the record's
+    `RuntimeSettings` and a control token; policies at the next boundary (also paused/faulted),
+    refused when the program has ended; MWDT0/IWDG follow a new timeout (`chip::watchdog::
+    CycleWatchdog`, the C6's own trait removed); online change keeps the settings. Computer fixes:
+    `log.level` validated, the logger follows a live level. Tests `settings/tests.rs` (5),
+    `runner/config/contract_tests.rs` (7), `run::tests::runtime_logger_follows_a_live_log_level_change`.
+  - [x] C6 bench of `config.get`/`config.set` (25 Oct, firmware 0121aa89,
+    `~/projects/.artifacts/native/c6-config.sh`, evidence `t7-config/`): the fault project's record
+    in the 15 shared keys; `config.set` of `log.level` debug and a 30,000 ms enabled watchdog
+    committed at once, MWDT0's stage-0 hold 160,000,000 -> 1,280,000,000 ticks (4 s -> 32 s, read
+    over JTAG); 70,000 ms refused (72 s > 60 s), `web.enabled` unknown; a token set, `status`
+    without it refused `missing_auth_token`, `config.get` with it length 13; a USB reset forgets
+    the token and the changes, MWDT0 back to 4 s.
+  - [x] The computer/chip reply comparison for compiled programs (25 Oct): `crates/trust-runtime/
+    tests/runner_transcript_parity.rs` and `runner_transcript_support/mod.rs`, restored from
+    before N11 and run on the board probe compiled for this computer (`native::build`) on both
+    sides: trust-runtime's threaded composition (`CompiledRuntime` on a `ResourceRunner` scan
+    thread, `ControlState`) and the chip's runner (`CompiledCycle` over the same image's module).
+    Every reply of the transcript equal after the normalised timing values: status, health,
+    tasks.stats, events.tail, faults, the Live Values requests, pause, resume, warm and cold
+    restarts, shutdown; the stopped device starts again (builder, 2 passed, `--features full`).
+- [x] T8 Outputs on a fault: `[[io.safe_state]]`, `[runtime.fault]` and `[runtime.watchdog]`
+  (TARGET-08).
+  Gap analysis 25 Oct: safe state on stop and fault done on the C6 (bench); `halt`/`safe_halt`/
+  `restart` code done, `restart` and `safe_halt` not benched.
+  - [x] Hang and panic (25 Oct, spec 34 0.58 TARGET-08, spec 11 hosted hang supervision): the boot
+    faults the program it starts after the hardware watchdog's reset with `WatchdogTimeout` when
+    `hang_action` is `fault` (safe outputs by the watchdog action), runs it with `abort`, and after
+    a panic faults it with `ResourcePanic(<location>)` (safe outputs by the fault policy, never
+    restarted): `Runner::fault_after_reset`, called by `Runner::boot` (C6) and the U5A9's main.
+    Tests `runner/reset_contract_tests.rs` (5). Bench C6, firmware e9ace98a (fw-n18): JTAG halt
+    with MWDT0 re-armed, the watchdog reset -> `faulted`, `watchdog timeout`, `last_reset`
+    `watchdog` (boot 7430), fault logged at 0; warm `restart` -> running; USB reset -> running,
+    `power_on` (`~/projects/.artifacts/native/t8-hang/result.txt`). A panic record written over JTAG
+    as the panic path writes it, then a USB reset -> `faulted`, `resource panic 't8-bench.rs:1'`,
+    `last_reset` `panic` with the text (boot 7432); `restart` -> running; next USB reset -> running
+    (`t8-panic-record/result.txt`). A real panic is not forced: no ST program reaches one.
+    Also fixed: two stale C6 chip-file assertions (`wall_clock` since N15, the computer's maxima
+    since N11).
+  - [x] The fault policies on the C6 (25 Oct, firmware e9ace98a,
+    `~/projects/.artifacts/native/c6-fault-policy.sh`, evidence `t8-fault-policy/result.txt`): the
+    bench's fault project built three times, installed after a `shutdown` and started cold; a forced
+    `%IX0.0` indexes `Cells[20]` and faults the scan (`array index 20 out of bounds [1..10]`, logged,
+    `faults` metric 1). GPIO18 (`%QX0.0`, TRUE every scan, safe value FALSE) read over JTAG:
+    `halt` -> Faulted, latch stays 1; `safe_halt` -> Faulted, latch 0, warm `restart` -> 1;
+    `restart` -> Running again by itself, the fault logged, latch 1. GPIO18 is a driven GPIO output
+    (GPIO_ENABLE bit 18, IO_MUX function 1, FUNC_OUT_SEL 0x80, `t8-fault-policy/gpio18-config.txt`);
+    its pad reads 0 because its input buffer is off (FUN_IE 0).
+
+QS — STM32 product and qualification (M4; replaces QF1–QF7 for the NUCLEO-F401RE).
+- History: the owner paused the STM32 work on 17 October 2026 ("then we wait with stm32"). The
+  estimates in `~/projects/.artifacts/s1b/design.md` §4 show that the F407 (192 KiB RAM) holds the
+  engine and the control connection, but not every component.
+- The owner then chose the STM32 board on 17 October 2026, after turning down a NUCLEO-H753ZI as
+  too expensive and an Arduino Uno as far too small: "riverdi".
+- The STM32 chip is now the STM32U5A9NJH6Q on the owner's Riverdi RVT50HQSNWC00-B, a 5-inch
+  STM32 Embedded Display:
+  - Cortex-M33 at 160 MHz, 4 MB flash, 2.5 MB SRAM, 512 Mbit OCTOSPI flash;
+  - USB OTG HS on a 1.25 mm 5-pin connector (P6);
+  - RS-485 (P7) and CAN FD (P5);
+  - SWD on a 1.25 mm 6-pin connector (P3), with no debugger on the board;
+  - a 6–48 V supply (P10), and a CR1220 cell for the RTC and backup SRAM;
+  - the user button on PH3-BOOT0 and the user LED on PE5.
+  - Source: Riverdi datasheet DS_RVT50HQSNWC00-B Rev.1.1.
+- It has no Ethernet. L2 (Ethernet on an STM32), S10 (EtherCAT) and H1 (NUCLEO-F429ZI) stay paused.
+  The network services are tested on the C6 (Wi-Fi) until the owner chooses an STM32 with Ethernet.
+- The F407 port stays as written and CI checks its build. Its USB slices S1b-8 and S1b-9 become the
+  U5A9's.
+- [x] (Moved 25 Oct to the native list's N7, the U5A9 at the numbers of spec 44 §14.1, which needs the board; it stays open there.) QS1 The STM32U5A9 boots into its controlled state and runs the installed project with every
+  item of S, L1 and T.
+- [x] (Moved 25 Oct to the native list's N7, the U5A9 at the numbers of spec 44 §14.1, which needs the board; it stays open there.) QS2 Retain on the U5A9, using C5.
+- [x] (Moved 25 Oct to the native list's N7, the U5A9 at the numbers of spec 44 §14.1, which needs the board; it stays open there.) QS3 Disturbed and mixed-rate workloads and extended tests; section 14 acceptance within the
+  U5A9's flash, RAM and stack, with completion-level timing evidence.
+- [x] (Moved 25 Oct to the native list's N13, the release, which stays open there.) QS4 Release: the U5A9 firmware in the GitHub release (TARGET-09), last.
+
+QE — ESP32-C6 product and qualification (M5):
+- [ ] QE1 The C6 boots into its controlled state and runs the installed project with every item of
+  S, L1, L3, L4 and T.
+- [ ] QE2 Retain on the C6, using C5.
+- [ ] QE3 Disturbances and the common corpus; section 14 acceptance; the released bootloader and
+  the QIO retest.
+- [x] (Moved 25 Oct to the native list's N13, the release, which stays open there.) QE4 Release: the C6 firmware in the GitHub release (TARGET-09), last.
+
+V — From VS Code, exactly as for trust-runtime (owner: "you shall be able to debug from vs code
+etc."):
+- [ ] V1 Both chips appear in Devices & Connections as runtimes, found over USB and on the network,
+  and connect like any trust-runtime; nothing in the extension is specific to boards.
+- [x] (Closed 25 Oct as superseded: Live Values with write, force and release for compiled programs are the native list's N2, benched on the C6; VS Code reaching a chip is V1, and the U5A9 is N7.) V2 Live Values with write, force and release on both chips.
+- [x] (Closed 25 Oct as superseded: debugging compiled programs with VS Code's debugger is the native list's N3, on the C6 through the debug adapter; the U5A9 is N7.) V3 Debugging on both chips with VS Code's debugger.
+- [ ] V4 Deployment and online change on both chips; installing and updating truST from the
+  hardware canvas.
+- [ ] V6 The simulator in VS Code applies a chip's memory and timing limits, so that a program is
+  known to fit before it is deployed (spec 34 DEPLOY-05).
+- [ ] V7 The new Devices & Connections (owner, 16 October 2026, approved the mockup
+  https://claude.ai/artifact/C29t3fGBmguexB9pgQzxUR: "im happy with it, but you need tomake sure we
+  dont loose any information"): specification 25 first, with a table that gives every piece of
+  information and every action of today's panel its place in the new one; then build it. The
+  extension only presents; the catalog, the USB scan, installing truST and every rule stay in Rust.
+  The panel's existing TypeScript logic moves into Rust as part of this item (owner, 16 October
+  2026: "yes, make the typescript logic in rust instead"): the inventories in
+  `~/projects/.artifacts/canvas-review/inventory-*.md` list about 200 places (topology merge and
+  identity, health and status rules, lifecycle button rules, form validation, discovery and browse
+  rules, and the extension's own edits of `runtime.toml` and `ads.toml`). Discovery (owner, 16
+  October 2026: "we need to support everything and make it better", then "agree" to all eight
+  proposals): one parallel search for everything from this computer or any runtime, one card per
+  device with all its protocols; full identity of each find (truST version, platform, chip and
+  login; Modbus maker, product and version; TwinCAT version; OPC UA product, security modes and
+  certificate; EtherCAT identity matched to ESI); new searches (USB chips and probes, serial ports
+  with a Modbus RTU scan, Bluetooth, OPC UA discovery servers, mDNS services, mesh peers, TwinCAT
+  routes); compare with the project; Identify (blink); presence and last seen; the verified faults
+  in `inventory-4-discovery.md` section E fixed (among them the same-computer TwinCAT check
+  dropped from the build in `dd476a78f`, the unused `discovery.interfaces` setting, and an
+  EtherCAT search that switches the bus to OP); the same functions from the command line. Claude
+  reviews every screenshot before the owner sees it. Steps, in order:
+  - Owner decisions of 16 October 2026 ("yes to all"): (1) `Create route` really creates the
+    TwinCAT route with the TwinCAT computer's administrator login, entered once and not stored;
+    (2) Identify blinks the output named in `[runtime.identify] output`, which the program may not
+    use; (3) a search ends after 10 s by default (60 s at most) and fieldbus scans run only after
+    a confirmation per bus; (4) the mDNS announcement carries version, platform and whether login
+    is needed; (5) the archived Windows default-endpoint work is shown to the owner and restored;
+    (6) stale MQTT input keeps counting as a connection problem, as today; (7) the pinned nightly
+    on the builder may produce the public-API snapshots; (8) the A6 servo work in
+    `~/projects/trust-platform-cia402-sv660n` is saved on its own branch.
+  - [x] V7a Specifications, shown to the owner before code: specification 25 (layout, chips as
+    runtimes, the install flow, the Issues and List views, and the table that gives every item of
+    `inventory-1..4` its place, built in `~/projects/.artifacts/canvas-review/preservation-table.md`);
+    specification 11 (one search, identity per protocol, new searches, compare with the project,
+    Identify, the announcement fields, the confidence vocabulary, authentication of the two web
+    routes); specification 34 for chips found over USB and the network.
+    Done 16 Oct (uncommitted): spec 25 §2 (one search), §5.1, §5.2, §5.4, §5.9, §5.11–§5.16 (the
+    family table; the item-by-item table of 1,403 items with its 39 decision points resolved);
+    spec 11 "One search, device identity, and presence" and §6.12; spec 34 STATE-08 and
+    TARGET-04. The owner approved the open decisions ("yes to all").
+  - Design, 17 Oct: `~/projects/.artifacts/devices-v7/design.md`.
+    - 26 slices: B1–B9 (view model and edits), C1a–C7 (search engine and CLI), D1–D7 (new panel and
+      the switch), plus D8 (the sidebar's lifecycle rules into Rust, lead decision O23).
+    - Every TypeScript logic place of the inventories maps to a Rust function. All 42 faults of
+      section E have a slice and a test, except E4 (S6/L2/L3), E39 (A19) and E42 (no such drivers).
+    - The 33 open points are decided in `~/projects/.artifacts/devices-v7/decisions.md`.
+    - Work happens in `~/projects/trust-platform-devices` (branch `feat/devices-connections`,
+      pushed, no pull request; rebased onto `d309cfbd5` of `feat/board-runtime` on 17 Oct).
+    - 17 Oct, done:
+      - B1 (`d93d4465c`) and B2+B3 (`7a2a3997a`).
+      - C1a, the search engine `trust_runtime::host::search`, `comm.search.*` and
+        `trust-runtime discover`; and B4, the view contract `trust_devices::view` with ten golden
+        views (`b1894559c`).
+      - Batch d7 is green, at the pre-rebase head `732d56a49`: format, Clippy, `just test-all`,
+        docs, the architecture doctor, both runtime gates, VS Code (519 passing) and the
+        diagrams. The doctor passed once the batch script gave it its git helper.
+      - The rebase onto `d309cfbd5` was clean. The next batch validates the five files that
+        changed on both branches.
+    - 17 Oct, night: C2b (the mDNS faults E6-E10 and the stable runtime ID), C2c (the ID held by
+      `ControlState`, no process-wide cache or silent fallback; a runtime's own announcement left
+      out of its finds; `ide serve` and setup mode announce) and D1 (D1a, D1b, the App wiring)
+      are committed in `06d8f47be` (focused check devices/wave5 and two reruns: the web IDE's
+      max-latency budget and the network canvas geometry check each missed once at load 9 and
+      passed on rerun; VS Code suite 531 passing). C2d (route authentication,
+      `discovery.host_group`, discovery and mesh health, host IPs per O32) and D2a (inspector,
+      context menu) run in this worktree. Two more worktrees from `9e04a75f0` keep crates
+      that depend on each other apart: `trust-platform-devices-search` (`feat/devices-search`)
+      runs C3b-1, the ADS port probing in Rust (one port at a time per device, as today's tested
+      rule says, not in parallel as the design said); `trust-platform-devices-actions`
+      (`feat/devices-actions`) has B7a, the `act` path and the runtime actions, done, with its
+      Add host follow-up running.
+    - 18 Oct: B7a with its Add host follow-up is committed in `b132c20e1` (devices-actions/b7a
+      green, trust-devices 109 passed); B7c1 (`comm.apply` returns the written ID, the ADS import
+      turns `[runtime.ads]` on) runs there. C3b-1 is committed in `3fa080ca6` (devices-search/c3b1
+      green); C3b-2 (EtherCAT) runs there. D2a (inspector, context menu) is written; its
+      correction (the runtime's own context menu, edit slots hidden while a pane is open) runs.
+      Review gaps are listed in `~/projects/.artifacts/devices-v7/followups.md`.
+    - 18 Oct, day: devices wave 7 is committed in `46065fd81` (D2c, status words and looks from
+      Rust; D2b2, Tab and Enter, dragged positions posted to the host, readable long names; npm test
+      554 passing): D2 is complete, and D3a (golden forms and the list editor) runs. C3b-3 (GPIO
+      through the character devices, E35, E38 with O26) is committed in `26e41d434`: C3b is
+      complete, and C4a (MQTT and OPC UA through mDNS and FindServers) runs. B7c2 (ADS tag removal
+      in Rust, `trust-runtime comm test`) is committed in `63b02af4e`; B7b1 (form and connection
+      actions) is in its second round, so the actions resolve their runtime from the session and
+      never write to a target the extension names.
+    - 18 Oct: devices wave 6 is committed in `f387ed109`: C2d (route authentication, the host
+      group setting, discovery and mesh health, host IPs per O32), D2a and D2b1 (inspector, context
+      menu, issues list, List view); VS Code suite 547 passing. C2 is complete. D2c (Rust gives the
+      inspector health, issue severity and view-switch words) runs; D2b2 (keyboard, dragging, saved
+      positions) follows. Known load-sensitive test for the final full run:
+      `web_ide_latency_and_resource_budget_contract` (250 ms max) missed at load 7 twice and passed
+      at load 2-6; run the final batch on a quiet builder.
+    - 17 Oct evening: B5, B6, C1b, C5a, the panes move, C3a and C2a are committed in `9e04a75f0`
+      (local, validated by focused check devices/wave4 and its rerun). Running: C2b
+      (announcement, stable runtime ID) and D1b (canvas). D1a (bundle, toolbar, frames) is
+      written.
+    - 17 Oct, earlier: B5, B6, C1b and C5a ran (wave 4, plus C1b of wave 2 and C5a of wave 3).
+      C5a adds `nusb` 0.2.8 and `serialport` 4.10 without default features. Both build without a
+      system library, and `deny.toml` already allows their licenses.
+  - [ ] V7b The panel's view model and rules in Rust (a trust-lsp or trust-runtime command answers
+    the whole graph, its labels, states, allowed actions and faults); the extension's edits of
+    `runtime.toml` and `ads.toml` move into Rust commands; Save writes to the runtime chosen in the
+    form.
+  - [ ] V7c The discovery engine in Rust: one parallel, time-bounded search with progress, from
+    this computer or a runtime; the identity fields; USB, serial with Modbus RTU, Bluetooth, OPC UA
+    discovery servers, mDNS services, mesh peers, TwinCAT routes; ADS port probing moved from
+    TypeScript; the verified faults of `inventory-4-discovery.md` section E; the CLI commands.
+  - [ ] V7d The new panel drawn from the Rust view model, with every item of the preservation
+    table, the faults found in today's panel fixed, and the VS Code tests.
+  - [ ] V7e Rendered review: Claude's screenshots of every screen and state in dark, light and
+    high-contrast themes, reviewed before the owner sees them.
+- [ ] V5 End to end: Claude runs every journey on both chips with the screenshots reviewed, then the
+  owner tests and approves; release last.
+
+QH — Hosted qualification (M4H):
+- [ ] QH1 Qualify the runtime-only, full and development builds on each claimed operating system
+  and architecture against section 14: timing classification, generation changes, wake and
+  overload behaviour, and baseline-relative performance.
+
+**16 October: findings after the combined push, and the open items to fix (owner: "add all this
+to the checklist to be fixed").** PR #137 is green on Linux, Windows and macOS at `d45acf1d1`.
+
+Fixed after CI caught them:
+- [x] The Documentation job (`cargo doc --no-deps --all-features`, warnings denied) failed on one
+  public doc comment in the C6 adapter that linked a private constant (`81af8b2e4`).
+- [x] On macOS the OPC UA server could be reported as started while another process held its
+  port, which spec 11 forbids: readiness was a bare TCP connect. Startup now waits for opcua's own
+  Running state, set only after its own bind succeeds, and a failed bind reports the stable
+  "listen address … is unavailable" error (`d45acf1d1`).
+- [x] On macOS two OPC UA integration tests running in parallel could share one fixture directory
+  (the clock resolves to microseconds there); each test now gets its own (`d45acf1d1`).
+
+Open, to be fixed:
+- [x] Release guard: run the workspace documentation build (`cargo doc --no-deps --all-features`
+  with `-D warnings`, as CI does), so a doc error cannot pass the guard and fail CI. This changes
+  the shared release-gate scripts and their canonical copies in the primary checkout. (Done 16 Oct,
+  uncommitted: `release_candidate_prepare.py` runs `remote_docs` after Clippy and before the
+  space recheck, `release_candidate_guard.py` requires it, a new test compares it with CI's
+  Documentation job, and the skill names it; 45/45 guard tests pass in this worktree; the
+  canonical copies in the primary checkout are updated and copied here.)
+- [x] (Closed 25 Oct as superseded: the campaign mutated the deleted bytecode engine, N11.) Mutation testing (A05): stage 2 on the engine left 589 of 864 mutants uncaught (268 caught,
+  6 unviable, 1 timeout). It ran only `trust-runtime-core`'s own unit tests; rerun the uncaught
+  mutants against the `trust-runtime` integration and journey suites, then add tests for the real
+  gaps.
+- [x] (Closed 16 Oct: lib-engine (158 tests) and int-budget (18 tests) passed; every Miri group finished with 0 undefined behaviour.) Miri: the x86_64 `lib-engine` and `int-budget` groups are still running. Every finished group
+  is clean, including the s390x reruns of `int-state`, `lib-rest` and `int-bytecode`.
+- [x] (Closed 17 Oct: the ESP-IDF v5.5.1 release-tag bootloader, DIO build sha256 `d04ac6be...`
+  and QIO build sha256 `f5c08198...`, runs the passing M2E firmware `c6-board-4` with the same
+  records apart from timing values; evidence `~/projects/.artifacts/runtime-portability-c6/
+  c6-bootloader-v5.5.1-dio/` and `-qio/`; spec 34 C6 bootloader paragraph updated.) C6: replace
+  the second-stage bootloader that espflash 4.6.0 bundles (ESP-IDF
+  v6.1-beta1-497-g14f663f003e) with a released one; M5 requires it.
+  16 Oct finding: no espflash release bundles a C6 bootloader built from an ESP-IDF release tag
+  (4.3.0-4.5.0: `v5.5.1-838-gd66ebb86d2e`, sha256 402c2c64...; 4.0.1-4.2.0: `v5.4.1-426-g3ad36321ea`,
+  sha256 1c3afc49...; 4.6.0: the v6.1 beta). Plan: build the bootloader from the ESP-IDF v5.5.1 tag
+  on the builder with the board's flash settings (8 MB; QIO and DIO variants), record its hash,
+  and use it for the QIO retest below (QE3).
+  17 Oct: built from the ESP-IDF v5.5.1 release tag (`git describe --exact-match` = v5.5.1) on the
+  builder (`/mnt/HC_Volume_107089260/builder-storage/cold-tools/esp`): bootloader.bin sha256
+  `d04ac6be5eb4c6acc78323a07c63d774d3d9e629574021700ec36ff850845e2a`, version string `v5.5.1`,
+  default settings (DIO, 80 MHz, 2 MB header, log level 3; espflash rewrites mode and size at
+  flash time). Copy with its sdkconfig in `~/projects/.artifacts/c6-bootloader/`. Open: flash it
+  on the C6 (the board must be on the Pi's USB) with DIO and with QIO, and record the boots.
+- [x] (Closed 17 Oct: QIO boots and runs with the QIO-configured release bootloader, whose header
+  stays DIO as ESP-IDF builds it, flashed with `--flash-mode dio`; "SPI Mode : QIO", 101 cycles,
+  the watchdog test and `B1,DONE`. Root cause of the old failure: `--flash-mode qio` writes a QIO
+  header that the ROM cannot read before the quad-enable bit is set (`ets_loader.c 67`).) C6:
+  quad-mode (QIO) flash did not boot with that bootloader, so the board runs DIO; retest
+  with the released bootloader.
+- [x] (Closed 18 Oct: merged into this branch in `76c8c4338`; the merged state's focused check
+  c6/merge1 and its rerun after the volume filled are green, `st_test_cli_command` 9 passed with
+  the whole OSCAT core suite.) OSCAT on the shared engine: four OSCAT core cases (the 06_arrays mutation, ordering and
+  statistics helpers and CRC_GEN) failed with a type mismatch since `d3a3508ba` (scope H, 14
+  Oct), found by bisect on 17 Oct: the shared engine's pointer check required identical array
+  bounds, where a `POINTER TO ARRAY[*]` accepts any bounds. Fixed on `fix/oscat-pointer-arrays`
+  (`64adfb9e2`, from this branch's `276b16a9f`): `oscat_core_suite_passes_every_case` runs the
+  whole OSCAT core project (126 passed) and `pointer_to_open_array` pins the rule; focused check
+  green. Open: merge into this branch after C5-2b.
+- [x] (Closed 25 Oct night: bench t1/run4, below.) C6: supervision during a debug halt is not evaluated (spec 11 §6.6 and §6.9, spec 34
+  STATE-07; the earlier STATE-06 citation was wrong). S3d-6 makes the chip's deadline and overrun
+  check leave out held time, S3d-7 feeds the watchdog on every hold pass, S3d-9 measures it on the
+  C6 (`~/projects/.artifacts/s3/chip-debugger.md` §3.5).
+  - 25 Oct night, bench t1/run2: a breakpoint held the scan 10 s, more than twice the 4 s hardware
+    watchdog; the chip did not reset (boot 8132 before and after), the resource was not faulted,
+    and `resume` went on running; the task then reported its 133 missed activations, as the host
+    does (`a_pause_holds_the_scans_..._reports_the_missed_activations`).
+  - Bench t1/run4 (project t1 with `[runtime.watchdog] enabled = true, timeout_ms = 1000, action =
+    "halt"`, debug image, no Wi-Fi): a breakpoint held the scan 10 s, ten times the program's
+    watchdog; after `resume` the resource ran on, unfaulted, so the scan's deadline left the hold
+    out; boot 8160 before and after, no reset. Closed.
+- [x] Hardware canvas: both boards selectable in Devices & Connections, found by a passive USB scan
+  in Rust (never resetting a board); specifications 25 and 34 first, then its own PR. (Merged 16 Oct into V1 and V7: specified in spec 25 §5.12 and spec 34 TARGET-04 (V7a, done);
+  the passive USB scan is V7c and the panel V7d.)
+
 **15 October, evening: ESP32-C6 M2E bring-up passes on the owned board (owner: "do it").**
 Branch `feat/runtime-portability-c6`: the C6 commits on H's head plus the supervisor test fix
 (`62bda0a2c`), for one push to PR #137 together with H (owner decision).
@@ -55,7 +1035,7 @@ Branch `feat/runtime-portability-c6`: the C6 commits on H's head plus the superv
     final head's): verify passed,
     101 rows, stack peak 10,856 B, slowest main scan 1,972 µs, numeric 2,277 µs (364,114 cycles),
     33 banner lines, checkpoint partitions byte-identical.
-- [ ] Open: QIO flash mode did not boot with espflash's bundled bootloader (the board stays on
+- [x] (Superseded 16 Oct: duplicate of the 16 Oct open items for the C6 bootloader, QIO, debug halt and canvas.) Open: QIO flash mode did not boot with espflash's bundled bootloader (the board stays on
   DIO); that bootloader is ESP-IDF v6.1-beta1 and M5 needs a released one; supervision during a
   debug halt is not evaluated; optical LED and manual button transitions stay unverified; board
   selection and USB discovery in the hardware canvas (owner request) is a separate slice.
@@ -90,7 +1070,7 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
     2025-11 to 2026-03, rustc 1.95), while the workspace requires rustc 1.99, whose rustdoc
     emits format 61. A nightly install cannot close that gap; the reason-checked compile-fail
     tests guard the critical boundaries meanwhile.
-- [ ] Found by native Windows CI on `a446a0c91` (Test windows-latest failed both attempts on
+- [x] (Closed 17 Oct: PR #138 green on Linux, macOS and Windows at `99745a223`; merge waits for the release step.) Found by native Windows CI on `a446a0c91` (Test windows-latest failed both attempts on
   `every_runnable_example_builds_and_validates`): the project template
   (`bundle_template::render_runtime_toml`) and all 35 runnable examples name `unix://` control
   endpoints, which Windows rejects ("unsupported endpoint"), so a generated project or a shipped
@@ -111,6 +1091,29 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   per-start token written only to the owner-only discovery file; (3) the template and the examples
   omit `endpoint` and `auth_token`, so every platform uses its default and no token is committed.
   Spec 11 is updated first.
+  17 Oct: implemented in `~/projects/trust-platform-endpoint` (branch
+  `feat/control-endpoint-default` from `origin/main` `161992b59`, uncommitted). It restores the
+  archived work without board content and adds the fixes from its review. Spec 11 §6.8.0a,
+  §6.8, §6.8.1 and §6.12, spec 13 and spec 25 §3.2 are updated.
+  - Builder batch `e1` (Linux) passed:
+    - fmt, 4 s; clippy with all features, 175 s; docs with warnings denied, 39 s;
+    - `just test-all`, 1,032 s;
+    - VS Code test registration and `npm test` under Xvfb, 165 s;
+    - diagram render, manifest and drift.
+  - The architecture doctor's only failures were the two checks that need git, because the
+    builder copy has none: `runtime_boundary_fail_closed_ast_grep_gate.sh` and
+    `runtime_safety_fail_closed_ast_grep_gate.sh`. Both pass in the worktree on the Pi.
+  - Committed with the owner's permission ("commit and push if it make sence now", 17 Oct) as
+    `e1e31d060` (the rules and the guard's documentation step) and `6dc90dbc2` (the endpoint
+    feature).
+  - Pushed as draft PR #138 for the Windows and macOS CI runs.
+  - The first run caught the public-docs search check: a search for "control endpoint" no longer
+    found the operation guide in the top three. Fixed in the guide at `99745a223`; the docs
+    checks were run on the builder before the push.
+  - At `99745a223`, 23 checks pass, among them Test on ubuntu-latest, macos-latest and
+    windows-latest, and 3 schedule-only jobs skip.
+  - Eleven examples keep the Unix socket their own instructions name and run on Linux and macOS
+    only, as the changelog says.
 - [x] Guard 17 on `59b2f90ea` failed `remote_test_all` in
   `opcua_interop_reads_exposed_scalars_with_reference_client`: two OPC UA fixture servers in
   parallel were handed the same released port, one server thread panicked on bind, and
@@ -122,7 +1125,7 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   green: Test passes on Linux, macOS and Windows (the Windows examples run included), and the
   Release Gate Report passes; 23 checks succeeded and the 3 schedule-only jobs (capture refresh,
   Miri nightly, fuzz extended nightly) were skipped (`ci-fcf2499f2.log`).
-- [ ] A13/A27 audit (`A13/AUDIT-REPORT.md`, read-only, expected values computed independently
+- [x] (Closed 16 Oct: fixes in 59daab5a5; MOD by zero recorded as DEV-023.) A13/A27 audit (`A13/AUDIT-REPORT.md`, read-only, expected values computed independently
   from IEC 61131-3 and IEC 60559): 251 boundary rows across 13 standard-function families; 152
   covered, 7 covered weakly, 70 missing, 22 needing a decision. Decided on the merits (specs 07,
   08, 10, 34 and DEV-023):
@@ -141,28 +1144,28 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
     calls; `TP` with `PT <= 0` keeps `Q` false; `ASSERT_NEAR` documents its real tolerance;
     `INSERT`'s example in spec 07 was wrong; `FIND` of an empty pattern is 1.
   - Implementation and tests in progress (agents N1 for the changes, N2 for the oracle tests).
-- [ ] A03 finding: the FOR loop's zero-step guard (`HALT`, opcode `0x01`) had no register
+- [x] (Closed 16 Oct: lowered in b22d3aa65.) A03 finding: the FOR loop's zero-step guard (`HALT`, opcode `0x01`) had no register
   lowering, so every POU with a FOR loop fell back whole to the shared stack path (fallback
   reason `unsupported_opcode_0x01`). Register IR also leaves 23 more opcodes to the stack path
   (shifts and rotates, `EXPT`, partial access, method and virtual calls, debug marks). HOST-04
   now requires the HALT lowering (in progress); the other opcodes are optimization coverage,
   measured by A03 once it runs.
-- [ ] A03 (`property_executor_differential.rs`, proptest 1.12 with a fixed seed): generated
+- [x] (Closed 16 Oct: 48 cases pass in CI and the 3,000-case campaign passed.) A03 (`property_executor_differential.rs`, proptest 1.12 with a fixed seed): generated
   well-typed programs (BOOL/INT/DINT/LINT/REAL/LREAL, functions, IF/CASE/FOR/WHILE, arrays,
   division and overflow on purpose) run on the stack, register and Tier-1 arms with per-cycle
   comparison of results, faults, outputs and variables. 48 cases pass in CI; a 3,000-case campaign
   passed (`A03-campaign-1`). The first run found only a test defect (NaN/infinity written to a
   REAL input, which the runtime correctly refuses with `NonFiniteValue`).
-- [ ] A04 (`property_metamorphic.rs`): positional arguments, POU order, artifact round trip and
+- [x] (Closed 16 Oct: 48 cases each pass (81dd2c482).) A04 (`property_metamorphic.rs`): positional arguments, POU order, artifact round trip and
   repeated preparation preserve per-cycle behaviour; 48 cases each pass.
-- [ ] A10/A15/A11 audit (`A10/AUDIT-REPORT.md`): 72 requirements, 48 asserted exactly, 10
+- [x] (Closed 16 Oct: audit recorded; its tests and deferral are tracked by the items that follow.) A10/A15/A11 audit (`A10/AUDIT-REPORT.md`): 72 requirements, 48 asserted exactly, 10
   weakly, 14 missing. Decisions: generation tokens (MEM-07, UPDATE-04), RETAIN-01 identity and
   sequence, the installation journal and the bounded persistence worker stay in C, MCU or M3 as
   spec 34 §4.3.1 and §10 assign them. Non-returning callbacks (TIME-03): first taken to be covered
   by the runtime watchdog, which the A10 tests disproved (see below); independent hosted hang
   supervision is a separate H slice. The missing H tests and the RT_* trace-runner fix (the
   runners ignored the cases' declared `expect.*` and `no_partial_apply`) are below.
-- [ ] A06/A07: a pinned nightly (`nightly-2026-10-14`, rustc 1.101) is installed on the builder
+- [x] (Closed 25 Oct as superseded: the bytecode fuzz targets went with the engine, and `image_admission` fuzzes the kernel's admission, N11; the fuzz registry's stale entries are cleaned up with it.) A06/A07: a pinned nightly (`nightly-2026-10-14`, rustc 1.101) is installed on the builder
   for cargo-fuzz and Miri. Two cargo-fuzz targets are added: `bytecode_admission` (CRC repaired,
   full preparation under small explicit limits, register and stack executors agree for three
   cycles) and `bytecode_reprepare` (repeated preparation agrees; decode→encode fixed point). They
@@ -170,7 +1173,7 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   (`verification/fuzz-program.toml` and its closed contract); its campaign record still needs a
   run at the committed source. The `ci.yml` execution-source digests had drifted on this branch
   (19f3b6787, 0f066c9fb, 887b84fd2 only added commands) and are re-pinned.
-- [ ] A08 (`stateful_lifecycle_sequences.rs`, model in `support/lifecycle_model.rs`): 1–24-step
+- [x] (Closed 17 Oct. Validated 17 Oct by builder batches `s1a3-2` and `s1a3-3` on the c6 tree (logs in `~/projects/services-runs/` on the builder). All A08 tests passed in `just test-all`; a trust-debug test that seeded `%M` bytes now writes its value after the build, as the new `%M` rule requires.) A08 (`stateful_lifecycle_sequences.rs`, model in `support/lifecycle_model.rs`): 1–24-step
   sequences of scan, checked and queued writes, forces, pause/resume, warm/cold restart, retain
   save and online change (accepted, malformed, incompatible) against an explicit spec model,
   comparing every observable after each step. Findings:
@@ -182,10 +1185,134 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   - Defect (found reviewing A08): control `pause`/`resume` replied `paused`/`running` on a faulted
     or stopped resource whose scheduler thread had exited; spec 11 §6.9 now requires a stable
     error naming the state, and recovery only through `restart`.
-  - Spec gaps recorded for a spec pass: values after a scan that faults after the scan-boundary
-    writes; two queued writes to one target; writes and forces while faulted; operations while
-    the debugger holds the resource; direct-address initializers at restart.
-- [ ] A10/A15/A11 tests: retain checkpoint truncation at every length and corrupt headers, the
+  - The five spec gaps of the first version are specified in spec 11 and pinned by native tests
+    (written 17 October). The two defects that closing gaps 4 and 5 found (a stop during a debugger
+    hold, and `%M` variables never initialized) are fixed in the product and pinned by the tests
+    named in the two items after this one. The item closes after the next validation batch; none
+    of the tests below or of those two items has run yet. The model now defines every operation
+    in every state except a scan under a debugger hold, a pause of a faulted resource and a
+    retain save of a faulted resource (`Model::allows`), and the fixtures declare
+    `lamp AT %QX0.1 : BOOL := TRUE`, a located output that no program assigns. Names are tests in
+    `stateful_lifecycle_sequences.rs` unless a file is given:
+    1. Values after a scan that faults after the scan-boundary writes: spec 11 §6.6 "State after a
+       faulting scan" (pointer in §6.2). `scan_that_faults_after_a_queued_write_keeps_the_write`,
+       `scan_that_faults_after_a_force_keeps_the_forced_value_and_removes_the_force`,
+       `queued_write_that_causes_the_fault_stays_applied`,
+       `refused_queued_write_leaves_the_fault_condition_in_place`,
+       `faulting_scan_does_not_publish_a_located_variable`; in `faulting_scan_state.rs`
+       `faulting_scan_keeps_what_it_completed_and_commits_no_output` and
+       `recovery_after_a_faulting_scan_does_not_replay_the_boundary_writes` (the statement before
+       the failing one, which the model program cannot show). Existing:
+       `installed_cycle_contract_tests.rs` `failed_driver_submission_restores_flat_q_without_reverting_plc_task_effects`.
+    2. Two queued writes to one target: spec 11 §6.9.2, second paragraph (with §6.8.1).
+       `second_queued_write_to_one_target_replaces_the_first`,
+       `replaced_queued_write_does_not_return_when_the_later_one_is_refused`,
+       `force_wins_over_a_queued_write_to_the_same_target`. Existing queue tests:
+       `mutation_contract.rs` `pending_global_write_replaces_same_target_in_place`,
+       `request_queue_bounds.rs` `set_queue_refuses_a_new_target_past_1024_and_replaces_a_queued_one`.
+    3. Writes and forces while faulted: spec 11 §6.9.2, last paragraph.
+       `writes_and_forces_accepted_while_faulted_are_cleared_by_the_recovery_commit`,
+       `online_change_recovery_clears_what_was_accepted_while_faulted`,
+       `failed_recovery_leaves_what_was_accepted_while_faulted_pending`,
+       `checked_write_while_faulted_changes_only_its_destination`. Existing:
+       `failure_injection_warm_restart_state.rs` `failed_warm_restart_keeps_a_latched_fault_and_its_cause`
+       (accepted while faulted, a refused scan leaves them pending, `clear_fault` does not clear
+       them), `faulted_resource_lifecycle.rs` `mesh_writes_are_dropped_while_faulted`.
+    4. Operations while the debugger holds the resource: spec 11 §6.9, "Operations while the
+       debugger holds the scan". `restart_and_replacement_between_scans_leave_the_debugger_hold_in_place`,
+       `refused_candidates_under_a_hold_leave_the_hold_and_the_mutations_in_place`,
+       `writes_and_forces_under_a_hold_behave_as_without_a_hold`; in `debugger_hold_operations.rs`
+       (scan on a second thread) `scan_started_under_a_hold_applies_its_boundary_writes_then_waits_before_its_first_statement`
+       and `restart_request_waits_for_the_hold_and_is_taken_after_the_held_scan_completes`.
+       A stop request during a hold was not a gap but a defect, fixed and tracked in the second
+       item below.
+    5. Direct-address initializers at restart: spec 11 §6.7 "Directly represented variables at
+       restart". `restart_reinitializes_a_located_variable_and_carries_its_output_image_over`,
+       `faulting_scan_does_not_publish_a_located_variable`; in `located_variables_restart.rs`
+       `restart_gives_a_retained_located_output_its_value_by_mode_and_carries_its_image_over` and
+       `restart_gives_a_located_input_its_initial_value_until_the_next_scan_samples_the_image`.
+       Configuration actions with a direct target are pinned by spec 34 §10 and the core test
+       `restart_tests.rs` `warm_and_cold_restart_reapply_ordered_direct_actions_before_publishing_images`.
+       The `%M` part was not a gap but a defect, fixed and tracked in the first item below.
+- [x] (Closed 17 Oct with A08; Validated 17 Oct by builder batches `s1a3-2` and `s1a3-3` on the c6 tree (logs in `~/projects/services-runs/` on the builder).) Defect found closing A08 gap 5, fixed 17 October (nothing has run; closes with the A08 item
+  after the next validation batch): a variable located at `%M` was not initialized at first
+  start, by a cold restart, or by a warm restart when it is `NON_RETAIN` or unqualified
+  (`IEC_DECISIONS.md`, 2026-07-05); the first scan copied the zeroed or carried marker image over
+  it. Spec 11 §6.7 and IEC 61131-3 Ed.3 §6.5.6.1–§6.5.6.2 (Figure 9) require the declared initial
+  value; only system inputs (`%I`) are exempt (note to §6.5.5.3). Root cause: every scan starts
+  with `sample_input_image` (`engine/cycle.rs:39`, `io/staging.rs`), which loads each `Input` and
+  `Memory` binding from its image into the variable (spec 11 §6.4: "`%M` process image -> bound
+  variables"; `vars_access.rs` `var_config_memory_binding_syncs_with_program_storage`), and no code
+  published an initialized `%M` variable into its image: the images start zeroed or are carried
+  over (`restart.rs` `copy_process_images`, spec 34 §10) and `bind_source_declaration` only binds.
+  So `VAR_GLOBAL m AT %MW0 : INT := INT#5; seen : INT; END_VAR PROGRAM Main seen := m; END_PROGRAM`
+  read `m` = 0 in its first scan, and after `m := INT#100;`, one scan and a cold restart it read
+  100 again. Fix, in `trust-runtime-core` `vm/engine`: `io/staging.rs` `publish_marker_image` is
+  the `%M` half of the end-of-cycle publication (`publish_images(.., markers_only)`; all or
+  nothing, and a no-op without `%M` bindings). It runs at the end of `build` (`mod.rs`: first
+  start, cold and warm restart and online change, the retained globals already imported), at the
+  end of `restore_retained_program_values` (`restart.rs`: a retained program variable restored
+  after the build) and inside the journaled `apply_retained_inner` (`retain_apply.rs`, when it
+  applied a value: a checkpoint from the store, an online change with a durable snapshot, and a
+  standalone `apply_retain_snapshot` such as the startup `load_retain_store`). Deviation from
+  the proposal that stood here, found while writing the fix: the publication runs after the
+  configuration actions, not before them. A seeded image (`RuntimeBuilder::build`,
+  `runtime/builder/seeds/images.rs`) records an action for the last byte of every non-empty
+  area, with value zero when nothing was seeded there, so a publication before the actions would
+  let that zero clear the high byte of an initialized marker word. The actions still set exactly
+  their bytes where no variable is bound; a located variable's value wins on the bytes it
+  covers (stated in spec 11 §6.7). `%I` and `%Q` are unchanged. Tests, in
+  `located_variables_restart.rs`:
+  `marker_variable_has_its_initial_value_in_the_image_and_the_first_scan_after_first_start`,
+  `marker_variable_is_reinitialized_by_a_cold_restart_and_a_warm_restart_without_retain`,
+  `marker_variable_keeps_its_retained_value_in_the_image_through_a_warm_restart`,
+  `marker_variable_restarted_from_the_store_has_the_checkpoint_value_in_the_image`,
+  `retained_program_marker_variable_has_its_retained_value_in_the_image_after_a_warm_restart`
+  and `online_change_publishes_the_initial_or_retained_value_of_a_marker_variable`.
+  Same root cause, a fourth caller, fixed the same day: a `%M` binding added or changed after
+  admission (`bind_checked_io`, `configure_io_bindings`, through `reconfigure_resource_module`)
+  ran no initializer and published nothing, so the next scan loaded the grown or existing marker
+  bytes over the variable's current value. `ResourceReconfiguration::commit`
+  (`vm/engine/reconfiguration.rs`) now stages, before anything is installed, the patches of the
+  marker bindings that the candidate adds or changes relative to the installed module
+  (`io/staging.rs` `stage_marker_patches`, built from the same `stage_patches` and
+  `binding_patch` as the end-of-cycle publication, against the grown image length), then installs
+  the images and applies them. Unchanged bindings, other marker bytes and `%I`/`%Q` are not
+  touched; a refusal leaves the old bindings and images. Tests, in `located_variables_restart.rs`:
+  `binding_a_variable_to_a_marker_word_publishes_its_value_into_the_grown_image`,
+  `binding_a_variable_to_markers_leaves_every_other_marker_byte_as_a_driver_wrote_it`,
+  `binding_a_variable_again_to_the_same_marker_address_publishes_nothing`,
+  `binding_a_variable_to_an_input_or_an_output_publishes_nothing` and
+  `binding_a_variable_to_a_hierarchical_marker_publishes_its_value`.
+- [x] (Closed 17 Oct with A08; Validated 17 Oct by builder batches `s1a3-2` and `s1a3-3` on the c6 tree (logs in `~/projects/services-runs/` on the builder).) Defect found closing A08 gap 4, fixed 17 October (nothing has run; closes with the A08 item
+  after the next validation batch): a stop request did not end the resource while the debugger
+  held the scan. Root cause: `ResourceControl::stop` and `ResourceHandle::stop` only set the stop
+  flag and woke the clock, the scan thread waited on the debugger's condition variable without a
+  timeout and without looking at that flag (`host/debug/control/hook.rs`), and the loop reads the
+  flag only at its top (`scheduler/runner_loop.rs:129`). The control `shutdown` and the
+  SIGINT/SIGTERM handler end in the same `stop` (`bin/trust-runtime/run/runtime/signals.rs:23-27`),
+  and the only path that released a hold was the control `resume`
+  (`trust-runtime-services/src/resource/operations.rs:90`), so a runtime held at a breakpoint or by
+  a debug-mode pause applied no stop outputs, saved no retained values and did not exit (the
+  process joins the scan thread, `bin/trust-runtime/run/runtime/entry.rs:562`) until someone
+  resumed; a service manager's SIGTERM timed out. Spec 13 ("Pause") says an independent stop
+  retains its normal runtime semantics. Fix: the spawned `ResourceHandle` and its
+  `ResourceControl` hold the runtime's `DebugControl` (`scheduler/runner_api.rs`,
+  `scheduler/handle_shared.rs`), and both `stop` calls go through `request_stop`: set the flag,
+  `DebugControl::release_for_stop` (`host/debug/control/api/lifecycle_actions.rs`: mode back to
+  running, steps, pending stop and snapshot cleared, `stop_requested` set, condition variable
+  notified), wake the clock. While `stop_requested` is set the hook returns at once, at its entry
+  and at the top of its wait loop (`hook.rs`), so the suspended scan completes without a further
+  pause, step or breakpoint (also when a client pauses again before the thread wakes) and the
+  loop then runs the normal stop path: stop outputs, retain save, exit. `spawn` clears the state
+  for a new resource thread (`rearm_after_stop`). The held scan is completed, not abandoned: a
+  scan abort that is not a fault does not exist (the hook returns no result, and any error from it
+  latches the engine fault). Tests, in `debugger_hold_operations.rs`:
+  `stop_request_during_a_hold_ends_the_resource_through_the_normal_stop_path`,
+  `stop_through_the_control_handle_is_not_held_again_by_a_pause_that_follows` and
+  `resource_thread_started_after_a_stop_is_held_by_the_debugger_again`. Spec 11 §6.9 states the
+  rule.
+- [x] (Closed 16 Oct: tests in 81dd2c482, validated by focused check 4.) A10/A15/A11 tests: retain checkpoint truncation at every length and corrupt headers, the
   deadline swept over every poll point, failed periodic save, candidate refusal on a live
   runtime, allocation refusal in retained apply and graph transfer, store faults in warm restart,
   read-side input failure, failed warm restart keeping live state; the RT_* trace runners now
@@ -193,7 +1320,7 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   - TIME-03 is not met on hosted builds: the watchdog checks elapsed time only after the cycle
     returns, so a driver read that never returns stalls the resource with no fault (spec 34 R33
     already names the same-thread watchdog). Fixed in round 6 (below).
-- [ ] Round 6 — faulted resource lifecycle and hosted hang supervision (spec 11 §6.6, both blocks
+- [x] (Closed 16 Oct: validated at cf5ce62e5 (focused check 4, 19 of 19).) Round 6 — faulted resource lifecycle and hosted hang supervision (spec 11 §6.6, both blocks
   written 15 October). Found while reviewing A08/R4: after an ordinary halting fault the runner
   loop ended its thread, the binary then shut the servers down and exited with status 0, and a
   control `restart` was acknowledged ("restart queued") but never applied, so a faulted PLC could
@@ -213,7 +1340,7 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   1.040–1.049, pooled p99 1.119; refs_sizeof 0.847–0.866; string_stdlib 0.967–0.984). F401 replay
   (`H-cost-model-board-9`): verifier passed, 101 trace samples, MSP peak 11,616 B (unchanged),
   maximum main scan 3,761 µs, 4,480 B firmware code free (256 B less than batch 8: stdlib growth).
-- [ ] Round 7 (A16 concurrency, A18 allocation and stack, A17 audit) and round 8 (A27 function-block
+- [x] (Closed 16 Oct: pushed; PR #137 green on Linux, Windows and macOS at d45acf1d1.) Round 7 (A16 concurrency, A18 allocation and stack, A17 audit) and round 8 (A27 function-block
   oracles, A28 bounded exhaustive checks, security fixes), to be validated together with one final
   batch, guard and push (owner, 15 October: "fix everything and then push"). Findings fixed:
   - A16: queued restarts coalesced and a later warm request replaced a pending cold one (cold now
@@ -250,7 +1377,7 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
     `scripts/run_fuzz_campaign.py` at the committed source) remains to be recorded.
   - A17 Miri campaign 1 over trust-runtime-core: no undefined behaviour; groups reaching libm's x86_64
     inline assembly are rerun on s390x.
-- [ ] Round 4 focused checks: check 1 stopped on its free-space guard (the assurance cargo target
+- [x] (Superseded 16 Oct: check 4 passed 19 of 19.) Round 4 focused checks: check 1 stopped on its free-space guard (the assurance cargo target
   had grown to 230 GB; removed). Check 2: 10 workspace tests failed from two causes (the new
   initializer range check passed a subrange type to a base-type test; an A08 atomicity check
   treated a faulting scan as a refusal) and Clippy found two `explicit_auto_deref` items. Check 3:
@@ -264,7 +1391,7 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
     failed preparation; the clearing boundary is the commit (wording fixed).
   - `RT_RELOAD_001` releases its force before any scan, so it never showed a force surviving a
     failed reload; `failure_injection_warm_restart_state.rs` now does.
-- [ ] A12 (`temporal_layout_*.rs`, 15 tests) and A14 (`scheduling_*.rs`, 19 tests). Defects:
+- [x] (Closed 16 Oct: fixes in faeeaa2ee, tests in 81dd2c482.) A12 (`temporal_layout_*.rs`, 15 tests) and A14 (`scheduling_*.rs`, 19 tests). Defects:
   - Timer elapsed spans wider than the TIME range panicked in debug builds and wrapped in release
     (spec 08 §5: saturates at PT).
   - LTIME, LDATE, LTOD and LDT were refused at `%IL`/`%QL` addresses although spec 10 maps 64-bit
@@ -276,7 +1403,7 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   - Not defects: reference SIZEOF follows the executing target (spec 29 §1); TIME images count
     whole milliseconds (spec 07 §2.8); OPC UA exposes no temporal types. SCHED-04 timing admission
     has no H seam (spec 34 defers it to M3/M4).
-- [ ] Assurance campaign order, by expected defect yield; each slice is audit, tests, one
+- [x] (Closed 25 Oct as superseded by spec 44 §14, the acceptance of compiled programs.) Assurance campaign order, by expected defect yield; each slice is audit, tests, one
   batch, fixes, then commit, guard, push and CI:
   1. A05 mutation testing on the core VM, register IR, Tier-1, decoder/validator and the
      engine's admission and write paths (the shard map first moves to the H file layout).
@@ -379,17 +1506,18 @@ branch, specifications first. Evidence: external `runtime-portability-h/fix-all/
     the shift is code placement, not added work.
 - [x] Guard 16 passed on `a446a0c91` (planner and catalog staleness advisory; test-all 14 min);
   pushed `3d9638ca5..a446a0c91` to PR #137.
-- [ ] Native CI on `a446a0c91`: 24 of 26 checks pass, including Test on Ubuntu and macOS. Test
+- [x] (Closed 16 Oct: fixed in fcf2499f2; CI green on three OS.) Native CI on `a446a0c91`: 24 of 26 checks pass, including Test on Ubuntu and macOS. Test
   (windows-latest) failed both attempts in `every_runnable_example_builds_and_validates`
   (Unix-socket control endpoints, recorded at the top of this checkpoint), and the Release Gate
   Report reports that failure. The next push carries the test's Windows endpoint handling.
-- [ ] Not done: the public-API baselines (`docs/internal/architecture/public-api/*.txt`) are not
+- [x] (Closed 17 Oct: regenerated by batch `s1a3-2` with the pinned `nightly-2026-10-14` (owner decision 7) and cargo-public-api 0.51.0, in a target of their own; `trust-runtime-core.txt` and `trust-runtime.txt` changed, `trust-plcopen.txt` is unchanged. Still no gate compares them.) Not done: the public-API baselines (`docs/internal/architecture/public-api/*.txt`) are not
   regenerated. `cargo public-api` 0.52 needs a nightly toolchain, which the builder lacks;
   installing one is the owner's decision. No gate compares them.
-- [ ] New open questions:
+- [x] (Superseded 16 Oct: each question was decided (MQTT stale input, bounded event store, test-only create_instance).) New open questions:
   - MQTT input-freshness states still count as degraded connection health, so they start
     reconnect backoff and unconfirm a safe-state handoff (spec 34 §11.1 keeps that behaviour);
-    whether stale input should affect the output path is undecided.
+    decided by the owner on 16 October 2026: stale input keeps counting as a connection problem,
+    as today.
   - The runtime event buffer is unbounded while no event sender is attached, and a refused
     request from a caller without an error channel adds a `write_rejected` event to it.
   - `VariableStorage::create_instance` (panicking) remains public for tests; production
@@ -520,7 +1648,7 @@ Evidence: external `runtime-portability-h/` (`H-perf-diag/`, `A20/`, `guard-10.l
     and `ReferenceContext` is an unsealed public trait under `full` (`vm/context.rs:9`);
   - CI's `cargo test --all-targets` runs no doc tests, no gate builds the runtime-only
     composition, and the public-API baselines are stale and not compared by any gate.
-- [ ] Release guard on the A09 commit, the push to PR #137 and native CI. Guard 13
+- [x] (Closed 16 Oct: guard 16 passed on a446a0c91 and pushed.) Release guard on the A09 commit, the push to PR #137 and native CI. Guard 13
   (`aedf192b8`) failed FULLMAP-CHECK-10: A09 had grown `runtime_core_compiler_free_load.rs`
   past the 1,000-line module threshold. That file is restored, and its zero-allowance
   assertions live in core `preparation_profile.rs` (exact `ProfileUnsupported` for zero work
@@ -593,14 +1721,20 @@ first native runs. Evidence: external `runtime-portability-h/A01-audit/`.
   - #134 (HMI modules served from the build machine's path) is fixed on the HMI branch.
   - Focused check 7 with both fixes (not acceptance): workspace 9,555 passed, 0 failed, 30
     ignored; core lanes, doc tests, compositions, Clippy and format pass.
-- [ ] Deferred to scope C (ignored with reason): a handle taken before a warm restart or body
+- [x] (Merged 17 Oct into C2, which owns this work and names this item.) Deferred to scope C
+  (ignored with reason): a handle taken before a warm restart or body
   replacement can resolve into the new generation (MEM-07, UPDATE-04). `ValueRef` carries no
   generation in U or H; spec 34 assigns generation tokens to UPDATE-03 to UPDATE-08.
-- [ ] Open, not blocking A01: debugger scratch slots read Null at a `FOR` body stop (needs a
-  probe); HOST-02 deployment-level limit record (spec: proposed); the M0 feature matrix (A19);
-  RETAIN-01 checkpoint sequence and completion fields (C); test seams for projection and capture
-  failures (the debugger write queues are bounded since 15 October);
-  the F401 profile limits are not host-testable.
+- [x] (Split 17 Oct into the items that own each part, so each is tracked once: the `FOR` scratch
+  slot defect and the capture-failure test seams into S3, the projection-failure test seam into
+  S2, the HOST-02 deployment limit record into C4, RETAIN-01 checkpoint fields into C5, the M0
+  feature matrix into A19 (the Windows default-endpoint work, see the Windows item above); the
+  F401 profile limits are obsolete because the STM32F407 replaced the F401.) Open, not blocking
+  A01: debugger scratch slots read Null at a `FOR` body stop (needs a probe); HOST-02
+  deployment-level limit record (spec: proposed); the M0 feature matrix (A19); RETAIN-01
+  checkpoint sequence and completion fields (C); test seams for projection and capture failures
+  (the debugger write queues are bounded since 15 October); the F401 profile limits are not
+  host-testable.
 - [x] A01 batch 6 on `482503bfe` (builder, `H-cost-model-6`, the trimmed run-5 harness
   `batch-a01.sh`): 50 of 54 steps pass, including core lanes, i686, firmware link and
   inspection, compositions, applications, real databases, VS Code 1.109.0 and stable, rustdoc
@@ -624,7 +1758,7 @@ first native runs. Evidence: external `runtime-portability-h/A01-audit/`.
   unchanged, so the code moved; the failing round is that shift plus disturbance (H 5,904 ns).
   The repeats of rounds 3 and 5 were disturbed for U (about 7,700 ns) and still count as final
   under the disturbed-round rule, which skews those rounds in H's favour.
-- [ ] Follow-up (owner decision 14 October: rerun now and track the regression): find the 1.9%
+- [x] (Closed 16 Oct: root cause removed in ea0193246 (+0.016%).) Follow-up (owner decision 14 October: rerun now and track the regression): find the 1.9%
   `call_binding` slowdown between run 5 and batch 6 (A01 or #135/#136; the builder has no
   profiler, so bisect with rebuilt benchmark binaries) and remove it if it is avoidable.
 - [x] Owner-authorized rerun of the two failed checks on `561afed39` (`H-cost-model-6-rerun`,
@@ -632,7 +1766,7 @@ first native runs. Evidence: external `runtime-portability-h/A01-audit/`.
   `call_binding` medians 1.042 to 1.060 in all five rounds and pooled p99 ratios 1.115
   (`call_binding`), 0.556 (`refs_sizeof`) and 0.894 (`string_stdlib`). Round 3's per-round
   `call_binding` p99 of 1.336 is recorded only, under the pooled rule.
-- [ ] Release guard, the push to PR #137 and native CI. Attempt 8 (`36a46fa33`) stopped at
+- [x] (Closed 16 Oct: guard 10 passed on 77fba46dc after the MP-001 fix.) Release guard, the push to PR #137 and native CI. Attempt 8 (`36a46fa33`) stopped at
   `remote_exact_head` because the lead had not staged the candidate on the builder. Attempt 9
   passed every step through `remote_test_all` (format, Clippy, cross-target warnings, supply
   chain, architecture safety, VS Code, test-all in 13.5 minutes) and failed
@@ -706,7 +1840,7 @@ professional runtime"). The validated run-4 source is backed up externally
   ignored); core all-features 775, portable 633, register 687, i686 686; applications 91;
   runtime vertical 38; lint, architecture, diagrams, docs, supply chain, compositions, MCU
   lanes; real-database gate; browser captures 10; VS Code 1.109.0 and stable 519 each.
-- [ ] PERF-01 in run 5 (consumer `0f1b6996…`; quiet wait 0 s, load 1.41): medians pass every
+- [x] (Superseded 16 Oct: owner rule of a pooled p99; PERF-01 passes.) PERF-01 in run 5 (consumer `0f1b6996…`; quiet wait 0 s, load 1.41): medians pass every
   round (`call_binding` 1.028–1.051, `refs_sizeof` 0.597–0.835, `string_stdlib`
   0.950–0.990). The owner-approved disturbed-round rule (spec 34 PERF-01, harness installed
   11:22:36 UTC before any timing) re-measured `refs_sizeof` round 1 (U +48%, repeat disturbed
@@ -975,7 +2109,7 @@ No current ELF inspection, board test or physical timing proof exists.
   zero diagnostic loss. The unchanged 1M limit still fails; this is not H acceptance.
 - [x] H-CURRENT-RECORDER-RECOVERY — Native compile, drain/retry, scope restoration
   and lint verified. The old failed ledgers are retained.
-- [ ] H-CURRENT-TYPED-ARRAY-DECISION — Owner question pending: bring forward the
+- [x] (Superseded 16 Oct: replaced by TIME-08/09.) H-CURRENT-TYPED-ARRAY-DECISION — Owner question pending: bring forward the
   planned MEM-06/MEM-11 primitive-array storage slice into H, using one shared typed
   storage/call interface and private snapshots while preserving full functions,
   whole-value copyback, rollback, aliases and both execution paths. Public Value
@@ -984,7 +2118,7 @@ No current ELF inspection, board test or physical timing proof exists.
   SHA `1a7cb7d55c2495fcbf3cb38f995ded003ddff91aeeb136e3182053e8df6860da`.
   No storage implementation is authorized by this checklist entry; no gain or fit
   is promised. This is the architectural decision reserved by the user's H goal.
-- [ ] H-CURRENT-CONSTRUCTOR-PROOF — Design review requires actual canonical shell
+- [x] (Superseded 16 Oct: replaced by TIME-08/09.) H-CURRENT-CONSTRUCTOR-PROOF — Design review requires actual canonical shell
   naming and composed nesting-depth proof before removing parent walks. Successful
   clone-normalize-and-discard does not prove the original value canonical. No proof
   bypass is implemented; database/PLCopen deficits remain **713,843 / 138,605** units.
@@ -1062,12 +2196,12 @@ only attribution vectors while retaining coarse counts; the prepared drain fix a
 native regression cover all event families and failure counters together. Successful
 first-finish application captures remain recorded without claiming unit-test proof.
 
-- [ ] H-CURRENT-SPARSE-OWNER-CACHE — Implement and independently review the bounded
+- [x] (Closed 16 Oct: duplicate of the ticked H-CURRENT-SPARSE-OWNER-CACHE item.) H-CURRENT-SPARSE-OWNER-CACHE — Implement and independently review the bounded
   folded cache, preserving first-owner precedence, full identities, empty/collision/
   corruption fallback, actual work charges and admitted storage bounds. Test sparse
   identities and u32::MAX; replay the original changed-scan artifact before claiming
   savings. Combine this with the diagnostic unit/lint recovery in one focused batch.
-- [ ] H-CURRENT-INOUT-DESIGN — Compare the measured mutable-array copying with the
+- [x] (Superseded 16 Oct: TIME-08 makes IN_OUT snapshots bookkeeping.) H-CURRENT-INOUT-DESIGN — Compare the measured mutable-array copying with the
   written call transaction contract and prior code before selecting a representation
   change. No aliasing shortcut, check removal, work-limit increase or function loss.
 
@@ -1107,7 +2241,7 @@ inspection remain unrun because their respective prerequisites failed.
 - [x] H-CURRENT-MARKER-READ — Each necessary marker directory is searched once,
   after its own admitted bound; row access is charged separately. Missing-directory
   and each refusal-stage cases pass; insertion/publication safety stays unchanged.
-- [ ] H-CURRENT-CONSUMER-ATTRIBUTION — The remaining 541 target-array copies and
+- [x] (Closed 16 Oct: attribution recorded: 529 of 541 copies are IN_OUT.) H-CURRENT-CONSUMER-ATTRIBUTION — The remaining 541 target-array copies and
   13,287 owner fallbacks lack exact consumer/POU attribution. Add bounded numeric
   identities to existing test-support logging, retain the same artifact bytes for
   offline identity resolution, and verify zero drops and reconciliation to unchanged
@@ -1151,12 +2285,12 @@ The default F401 link occupies 468,096 bytes against 458,752 bytes in upper flas
   ordinals, active type-operation masks, and private owned-local transfer. The
   feature-lane native coverage and focused recovery above support these mechanisms;
   this item does not assert application acceptance or performance improvement.
-- [ ] H-CURRENT-METADATA-BORROW — Remove the measured repeated TYPE_TABLE metadata
+- [x] (Closed 16 Oct: duplicate of the ticked H-CURRENT-METADATA-BORROW item.) H-CURRENT-METADATA-BORROW — Remove the measured repeated TYPE_TABLE metadata
   clones by borrowing the admitted immutable tables across mutable construction
   callbacks. Preserve recursive recipes, type/lifetime checks, refusal order for
   remaining operations, and actual allocation/copy/hash charges. Update all
   construction and retain-migration callers and native assertions before review.
-- [ ] H-CURRENT-RESIDUAL-RCA — Inspect remaining owner fallback searches and array
+- [x] (Superseded 16 Oct: RCA recorded; it led to TIME-08 and the marker removal.) H-CURRENT-RESIDUAL-RCA — Inspect remaining owner fallback searches and array
   target reads against their consumers; select only source-grounded changes that
   preserve value, lifetime, alias and rollback semantics. Review current firmware
   symbol growth before selecting a size correction. No claimed savings before maps.
@@ -1186,7 +2320,7 @@ Vec parameter, a complex test-only capacity tuple, and an ignored test Result.
 The four small corrections are prepared, not yet tested. Architecture, diagram
 drift and frozen source/harness checks pass. No timing, firmware or hardware run.
 
-- [ ] H-CURRENT-REDUNDANT-WORK — Implementing four corrections from the complete
+- [x] (Closed 16 Oct: the four corrections are implemented (H-CURRENT-REUSE-REGRESSIONS).) H-CURRENT-REDUNDANT-WORK — Implementing four corrections from the complete
   records: retain marker insertion positions through admitted publication; direct
   owner/root indirection bounded by admitted record counts with sparse fallback;
   constant-time active `(type, operation)` membership; transfer private owned call
@@ -1240,14 +2374,14 @@ R4's original Work results and all 215 work/152 copy rows. PLCopen marker cost i
 The database constructor separately shifts 99,507 entries for first declarations;
 a sparse outer declaration map would retain that cause.
 
-- [ ] H-CURRENT-MARKER-PAGES — Sparse 64-declaration by 64-owner pages; preserve
+- [x] (Superseded 16 Oct: markers restored to the sorted-vector form.) H-CURRENT-MARKER-PAGES — Sparse 64-declaration by 64-owner pages; preserve
   keys/order, combined admission before publication, actual page/iteration demand,
   full-width identities, retain/rollback and allocation-failure guarantees. Measure
   sparse-case and F401 RAM; do not assume a memory saving.
-- [ ] H-CURRENT-INDEX-CHARGES — One entry unit plus the actual branch's index bounds
+- [x] (Superseded 16 Oct: bookkeeping is no longer charged (TIME-08).) H-CURRENT-INDEX-CHARGES — One entry unit plus the actual branch's index bounds
   before each search, preserving dense paths and sparse/missing fallback. Recorded
   change-scan prefix projects 61,826 fewer units; completion is not yet demonstrated.
-- [ ] H-CURRENT-STACK-ONLY — Keep native stack calls in the SAME opcode loop only
+- [x] (Closed 25 Oct as superseded: the deleted engine's opcode loop on the F401.) H-CURRENT-STACK-ONLY — Keep native stack calls in the SAME opcode loop only
   without register-ir. Keep hosted register pump and call/cleanup semantics unchanged.
   Review external H-stack-segment-continuation-plan.md. No predicted size credit.
 
@@ -1348,19 +2482,19 @@ this is evidence recovery, not a new performance pass.
   work/copy records retained. All snapshots have zero dropped/busy records. Caller
   attribution isolates 390,413 of 1,000,000 constructor work units in lifecycle-mark
   sorted insertion; its 32 work rows reconcile exactly to the original total.
-- [ ] H-CURRENT-WORK — Implement admitted sparse lifecycle marks with unchanged
+- [x] (Superseded 16 Oct: markers restored to the sorted-vector form.) H-CURRENT-WORK — Implement admitted sparse lifecycle marks with unchanged
   identity/order, truthful binary-search/name comparison bounds, and transfer of
   completed function output payloads instead of cloning discarded originals.
   Preserve allocation/work admission, write/lifetime checks and transactional
   alias/copyback behavior. No allowance increase or function removal.
-- [ ] H-CURRENT-STACK — Replace synchronous register-call recursion with shared
+- [x] (Superseded 16 Oct: the admitted depth-33 tests pass.) H-CURRENT-STACK — Replace synchronous register-call recursion with shared
   suspended continuations, preserving nested distinct register execution, occupied
   recursion fallback, tier-1 and fault cleanup. The failing binary reserves 50,584
   bytes per register activation versus 39,240 in Run15; the admitted depth-33 test
   aborts. No stack-size workaround, depth reduction or disabling register execution.
 - [x] H-CURRENT-HARNESS — Formatting, consumer locks and retained evidence transfer
   corrected. Preserve prior failures and the zero-selection log.
-- [ ] H-CURRENT-PERFORMANCE — Current elapsed-time acceptance remains open.
+- [x] (Closed 16 Oct: PERF-01 passes in batches 8 to 10.) H-CURRENT-PERFORMANCE — Current elapsed-time acceptance remains open.
   Instruction counts or fewer charged work units do not waive timing limits.
 
 Next: complete these measured corrections, independent review, then one focused
@@ -1465,6 +2599,11 @@ dependency.
   typed/include/endpoint configuration behavior with native compatibility tests.
   Prove both locked graphs no longer reach unsafe-libyaml and remove the exception;
   no automatic renewal. Decision/RCA: external `H-unsafe-libyaml/`.
+  - Sooner, 18 November 2026 (found 25 Oct): eight more `deny.toml` exceptions expire then, and the
+    release preflight (`scripts/check_dependency_exceptions.py`) fails after it: opcua 0.12's idna
+    0.1 and derivative (move `opcua-wire` to a maintained OPC UA stack, with S11), tiny_http 0.12's
+    `ssl-rustls` with rustls 0.20, ring 0.16 and rustls-pemfile 0.2 (move HTTPS hosting off it,
+    with S8), and zenoh 1.7.2's paste (with S6's mesh). They gate N13.
 
 **13 October: remaining hosted performance decision (pending).**
 Source comparison confirms 1,340 runtime/core/config records still match the
@@ -2254,7 +3393,7 @@ external `H-root-correction-16/RESULTS.md`, `validation/`, `profile/`.
 - [x] H21-RCA-12: construct Overflow only on refused checked insertion-demand sum;
   preserve exact growth/search/move charges. Measured success-path temporary drop
   cost: 5,760 calls, 57,600 instructions, in frame initialization.
-- [ ] Independent review, then focused core/portable/32-bit/MCU, hosted service,
+- [x] (Superseded 16 Oct: the call-path plan replaced the C series; PERF-01 passes.) Independent review, then focused core/portable/32-bit/MCU, hosted service,
   VM/vertical, lint/architecture and ordinary release comparison against U/C15.
   No full suite or commit while PERF-01 remains open.
 
@@ -2270,13 +3409,13 @@ C15 exact-binary Callgrind: 89,036,325 instructions. H21-RCA-8/9 are verified;
 overall H21 is not. External evidence: `H-root-correction-15/`.
 
 **C16 measured correction scope:**
-- [ ] H21-RCA-10: keep top-level shallow value-copy admission local to its caller,
+- [x] (Superseded 16 Oct: H21-RCA-10 was rejected.) H21-RCA-10: keep top-level shallow value-copy admission local to its caller,
   retaining one work/deadline charge followed by the exact allocation charge.
   C15 still executes 33,033 tier-1 estimator calls (1,420,419 self instructions)
   through an outlined `Result<usize, RuntimeError>` boundary for scalar success.
   Recursive owned-value accounting and depth limits remain unchanged. Diagnostic
   and ordinary builds must execute the same admission logic.
-- [ ] Independently review, freeze, then run focused native/portable/32-bit/MCU,
+- [x] (Superseded 16 Oct: the call-path plan replaced the C series; PERF-01 passes.) Independently review, freeze, then run focused native/portable/32-bit/MCU,
   hosted VM/vertical, Clippy and architecture checks and conditional ordinary
   release comparison. No full suite, commit or push while PERF-01 is open.
 
@@ -2298,7 +3437,7 @@ No full suite, commit or push. Evidence: external `H-root-correction-14/`.
 - [x] H21-RCA-9: reset returned frame locals to NULL in place, retaining length,
   capacity, backing address and destruction order. C14 measures 9,216 generic
   NULL-clone calls from clear-plus-resize; change only this measured reset method.
-- [ ] Independent review, then focused native/portable/32-bit/MCU and hosted
+- [x] (Superseded 16 Oct: the call-path plan replaced the C series; PERF-01 passes.) Independent review, then focused native/portable/32-bit/MCU and hosted
   checks, lint/architecture, followed by conditional ordinary release comparison.
   Preserve the failures, original baseline and thresholds; no full suite or commit.
 
@@ -2311,7 +3450,7 @@ No full suite, commit or push. Evidence: external `H-root-correction-14/`.
 - [x] H21-RCA-7: reuse the immutable return-slot fact read during argument binding
   in private owned call continuation. Keep the public `BoundVmCall` struct and
   borrowed API unchanged, and retain missing-POU/parameter fault order.
-- [ ] Independently review complete code/tests, freeze, then run focused native,
+- [x] (Superseded 16 Oct: the call-path plan replaced the C series; PERF-01 passes.) Independently review complete code/tests, freeze, then run focused native,
   portable/32-bit/MCU, hosted VM/vertical, lint and architecture checks. Conditional
   ordinary-release U/C13/C14 comparison uses the same artifacts and thresholds.
   No full workspace suite, commit or push.
@@ -2370,7 +3509,7 @@ and `profile/`. Standing focused-retest authorization applies.
   instructions to the recursive lifetime helper across callers. Savings are not
   inferred from these totals; retained recursive behavior is tested against the
   original helper, including budget/deadline refusal and stale references.
-- [ ] Review completed implementation and tests, freeze, then run core native,
+- [x] (Superseded 16 Oct: the call-path plan replaced the C series; PERF-01 passes.) Review completed implementation and tests, freeze, then run core native,
   no-default/i686, MCU graph checks, hosted VM/vertical, lint and architecture.
   Only after correctness passes, compare ordinary release U/C11/C12 on the same
   saved traces. No full suite until PERF-01 passes. No commit or push.
@@ -2762,7 +3901,7 @@ before the required full acceptance suite. Preserve the full function set, all
 checks, phase/fault ordering, PERF-01 limits and the firmware margin. No H commit
 or push is authorized.
 
-- [ ] **H-P1 — Frame initialization:** review and implement the smallest safe
+- [x] (Superseded 16 Oct: the 14 Oct call-path plan replaced the H-P sequence; PERF-01 passes.) **H-P1 — Frame initialization:** review and implement the smallest safe
   reuse of the existing prepared action index. Preserve all four phase charge
   points, phase/trigger selection, supplied parameters/returns and action order.
   Run focused index/initialization/lifecycle regressions, then compare the
@@ -2777,7 +3916,7 @@ or push is authorized.
   unused test-oracle warning. Frame-initialization cost remains open; no larger
   initialization redesign is authorized by this result. Evidence:
   `/home/johannes/projects/.artifacts/runtime-portability-h/H-P1/RESULTS.md`.
-- [ ] **H-P2 — Copy accounting:** identify added/repeated calculations in
+- [x] (Superseded 16 Oct: the 14 Oct call-path plan replaced the H-P sequence; PERF-01 passes.) **H-P2 — Copy accounting:** identify added/repeated calculations in
   register read/materialization paths. Correct the owning duplication, preserving
   allocation/work limits and fault boundaries; run focused regressions and measure.
   **Draft archived and reverted; diagnosis pending:** Tier-1 clones register operands on every read
@@ -2788,12 +3927,12 @@ or push is authorized.
   accounting. This proposed change was not run and is not approved for continued
   implementation without the required diagnosis. Benefit is unmeasured. The separate owned-string-element copy
   candidate does not explain these workloads and is not part of this change.
-- [ ] **H-P3 — Function completion:** reassess the matched completion cost after
+- [x] (Superseded 16 Oct: the 14 Oct call-path plan replaced the H-P sequence; PERF-01 passes.) **H-P3 — Function completion:** reassess the matched completion cost after
   P1/P2, then correct demonstrated avoidable work with focused proof.
-- [ ] **H-P4 — Budget/deadline reassessment:** distinguish consequences of P1/P2
+- [x] (Superseded 16 Oct: the 14 Oct call-path plan replaced the H-P sequence; PERF-01 passes.) **H-P4 — Budget/deadline reassessment:** distinguish consequences of P1/P2
   from independent repeated work. Preserve required checks; do not reduce checks
   or change thresholds to pass performance.
-- [ ] **H-P5 — Final acceptance:** once focused correctness and uninstrumented
+- [x] (Superseded 16 Oct: the 14 Oct call-path plan replaced the H-P sequence; PERF-01 passes.) **H-P5 — Final acceptance:** once focused correctness and uninstrumented
   PERF-01 comparisons pass, obtain review of the complete final diff and run the
   required full H validation. Report any architectural decision blocker rather
   than silently changing the contract. Failed/unrun gates remain open.
@@ -2972,14 +4111,28 @@ review also separates structural type/value traversal from invocation depth,
 preserving the existing 64-edge admission bound and actual call-depth limit.
 No validation pass or H commit/push is claimed. No functions are removed from any composition.
 
-- [ ] H-TIME-01: Versioned 3.0 writer/reader/admission and preserved 1.1/2.0 ABI.
-- [ ] H-TIME-02: Uniform temporal SIZEOF, relative extents and array strides.
-- [ ] H-TIME-03: Exact negative/large temporal round trips, legacy atomic refusals,
+- [x] (Closed 16 Oct: STBC 3.0 checksum decisions and temporal ABI tests landed.) H-TIME-01: Versioned 3.0 writer/reader/admission and preserved 1.1/2.0 ABI.
+- [x] (Closed 17 Oct with evidence in v0.24.75, PR #137 CI green on Linux, Windows and macOS:
+  `crates/trust-runtime-core/tests/temporal_storage_abi.rs`
+  `all_temporal_types_and_array_strides_use_the_artifact_abi` and
+  `relative_layout_size_includes_gaps_and_aliases_only_in_the_current_abi`;
+  `trust-hir/src/db/temporal_storage/tests.rs` SIZEOF tests; register IR
+  `stack_and_register_sizeof_use_the_installed_temporal_abi`.) H-TIME-02: Uniform temporal
+  SIZEOF, relative extents and array strides.
+- [x] (Closed 17 Oct with evidence in v0.24.75, PR #137 CI green on three OS:
+  `uniform_temporal_storage_roundtrips_negative_and_large_time_and_dt`,
+  `legacy_temporal_narrowing_refuses_before_aliases_or_backing_change`,
+  `legacy_physical_write_and_cross_abi_retained_replacement_reject_atomically`,
+  `relative_wire_records_cannot_be_encoded_or_decoded_as_an_older_format`,
+  `toggling_the_legacy_temporal_flag_fails_the_checksum`, the three retained-overlay ABI tests,
+  `uniform_temporal_storage_keeps_the_explicit_time_dword_millisecond_codec` and
+  `saved_two_point_zero_bytes_keep_their_abi_and_round_trip_unchanged`.) H-TIME-03: Exact
+  negative/large temporal round trips, legacy atomic refusals,
   old-reader rejection, retain/update ABI compatibility and unchanged I/O codec.
   Preserve saved 2.0 corpora; the conditional H board replay uses a separate 3.0
   GPIO artifact whose existing GPIO/depth oracle depends on full-width physical
   temporal round trips. No binary generation or board execution is claimed yet.
-- [ ] H-TIME-04: Independent review and the consolidated H validation evidence.
+- [x] (Superseded 16 Oct: consolidated validation: PR #137 green on three OS.) H-TIME-04: Independent review and the consolidated H validation evidence.
 
 Independent correction review is closed by source inspection, with exact-path
 receipts outside git under `runtime-portability-h/full-audit-20261011/`,
@@ -3452,7 +4605,7 @@ capability cuts, unchecked arithmetic configuration or toolchain changes.
 - [x] RTP-BR3-06: One deduplicated final batch: B-R2 suites plus new lifecycle/numeric
   assertions, 32-bit allocation, MCU graphs, hosted vertical, tooling/Clippy/architecture,
   both locks, diagrams/drift, format/provenance. Collect all independent failures.
-- [ ] RTP-BR3-07: Exact measured ELF leaves >=16 KiB upper headroom and respects
+- [x] (Superseded 16 Oct: replaced by the passing RTP-BR4-06.) RTP-BR3-07: Exact measured ELF leaves >=16 KiB upper headroom and respects
   sector0/app/checkpoints/RAM; then original hardware procedure including backup,
   explicit sector erases, UART/stack/heap/timing/safe outputs/IWDG. No shortened fixture.
 - [x] RTP-BR3-08: Reconcile evidence; no board claim without execution. A failed final
@@ -3678,19 +4831,19 @@ The unchecked B-R2 candidate-specific gates below remain historical failures.
 Their software/ELF/physical requirements are satisfied by successor B-R3/B-R4
 evidence; no claim is made that the failed B-R2 M2 image became qualified.
 
-- [ ] RTP-BR2-08: Before execution, record one deduplicated command ledger using
+- [x] (Superseded 16 Oct: Scope B is complete (RTP-BR4-06).) RTP-BR2-08: Before execution, record one deduplicated command ledger using
   the B-R1 run-2 suite allocation plus new native assertions. Include core all-feature
   and portable suites, i686 allocation/behavior evidence, F401/C6 checks, hosted unit
   and affected integration/stdlib/restart suites, the required four runtime-vertical
   binaries, xtask/platform/firmware tooling, Clippy including portable/firmware lanes,
   cross-target warnings, both lock audits, architecture then diagrams/drift, and
   format/diff/provenance checks. No duplicate test-all or release guard in this scope.
-- [ ] RTP-BR2-09: Inspect the exact M2 ELF (or unchanged M1 if Phase 2 was skipped).
+- [x] (Superseded 16 Oct: Scope B is complete (RTP-B-02).) RTP-BR2-09: Inspect the exact M2 ELF (or unchanged M1 if Phase 2 was skipped).
   Require at least 16,384 B free in the upper region, sector-0 end <=0x08004000,
   safe vector/reset addresses, valid load segments and unchanged 72 KiB heap/16 KiB
   MSP reservations. Reuse its hashes and bytes; do not relink to obtain a passing map.
   A linked image below the headroom floor remains an unqualified candidate.
-- [ ] RTP-BR2-10: If link/partition/headroom and required software prerequisites
+- [x] (Superseded 16 Oct: Scope B is complete (RTP-BR4-06).) RTP-BR2-10: If link/partition/headroom and required software prerequisites
   pass, use Scope B's existing device procedure in this same authorized batch:
   back up flash, program/verify the firmware sectors and separate application,
   preserve checkpoint sectors, replay the unchanged three artifacts, compare traces,

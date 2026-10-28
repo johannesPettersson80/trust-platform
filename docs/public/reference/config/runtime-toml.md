@@ -20,7 +20,6 @@ name = "main"
 cycle_interval_ms = 100
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime.sock"
 mode = "production"
 
 [runtime.log]
@@ -89,22 +88,91 @@ Each task needs:
 
 | Key | Type | Required | Default | Notes |
 | --- | --- | --- | --- | --- |
-| `execution_backend` | string | no | `vm` | Only `vm` is accepted. `interpreter` is explicitly rejected. |
+| `execution_backend` | string | no | none | Selects nothing: every runtime runs the compiled program image. `vm` and `native` load, so a project written before still starts; `interpreter` and any other value are refused. |
 
 ### `[runtime.control]`
 
 | Key | Type | Required | Default | Notes |
 | --- | --- | --- | --- | --- |
-| `endpoint` | string | yes | none | `unix://...` or `tcp://...`. Must not be empty. |
-| `auth_token` | string | no | none | Required for `tcp://` endpoints. |
+| `endpoint` | string | no | platform default | `unix://...` or `tcp://...`. Omit it to use the default described below. Must not be empty when set. |
+| `auth_token` | string | no | none | Required for an explicit `tcp://` endpoint. Omit it with the default: on Windows the runtime then generates a token for each start. |
 | `mode` | string | no | `production` | `production` or `debug`. |
 | `debug_enabled` | bool | no | derived | Defaults to `true` in `debug` mode and `false` in `production`. |
+
+#### Default control endpoint and the endpoint file
+
+When `endpoint` is omitted, the runtime uses a default for its platform. The default never collides
+with another project:
+
+- On Unix-like systems it is `<project>/.trust-runtime/control.sock`. When that path is longer than
+  the platform allows (108 bytes on Linux, 104 on macOS), or when the runtime cannot create the
+  `.trust-runtime` folder (a read-only or foreign project folder), the socket is
+  `trust-<hash>.sock` in a per-user runtime directory: `$XDG_RUNTIME_DIR`, or
+  `trust-runtime-<uid>` in the system temporary directory when that is unset. That directory must
+  belong to you and be closed to other users (mode 0700). `<hash>` is the first 16 hexadecimal
+  digits of the SHA-256 of the canonical project path.
+- On Windows it is `tcp://127.0.0.1:0`: a free loopback port chosen at each start, with a token
+  generated for that start.
+
+After it binds the endpoint, the runtime writes `<project>/.trust-runtime/control.json` with the bound
+endpoint and its process ID. On Unix-like systems the file has mode 0600 and also holds a token that
+the runtime generated. On Windows a generated token never goes into the project folder: it is kept
+in `%LOCALAPPDATA%\trust\runtimes\<hash>.json`, which only your Windows user can read. The runtime
+removes its files when its process ends cleanly: after Ctrl+C, SIGINT or SIGTERM, and after
+`ctl shutdown --exit`. A plain `ctl shutdown` stops the program and keeps the runtime, its control
+endpoint and its files.
+
+A runtime that cannot write the endpoint file still starts: the PLC program never depends on a
+tooling file. It logs the warning `control_endpoint_file_unavailable`, records an event of the same
+name, and `status` reports `endpoint_file` as `unavailable` with the reason.
+
+A client resolves the endpoint in this order: an explicit `--endpoint`, the endpoint file, the
+configured `endpoint`, then the platform default. An endpoint file that you cannot read, for
+example one that a runtime running as root wrote, is skipped with its reason, so a configured
+endpoint and token still work. If nothing listens at the endpoint from the file or at the platform
+default, the client reports that the runtime is not running; it does not fall back to another
+endpoint.
+
+`trust-runtime ctl --project <dir> endpoint --json` prints the resolved endpoint, its token and its
+source, so editors and scripts do not need to read the files. Every failure is printed as
+`{"error":{"code":"<code>","message":"<text>"}}` with a non-zero exit:
+
+| Code | Meaning |
+| --- | --- |
+| `no_project` | `--project` is missing, or the folder does not exist |
+| `invalid_argument` | `--endpoint` was given |
+| `invalid_config` | `runtime.toml` cannot be loaded |
+| `endpoint_file_invalid` | the endpoint file is damaged or from a newer version |
+| `endpoint_file_unreadable` | the endpoint file cannot be read and nothing else names an endpoint |
+| `not_running` | the Windows default has no endpoint file: the runtime is not running |
+| `default_unavailable` | the per-user runtime directory is not private, or the socket path is too long |
 
 ### `[runtime.log]`
 
 | Key | Type | Required | Notes |
 | --- | --- | --- | --- |
 | `level` | string | yes | `error`, `warn` (`warning`), `info`, `debug`, or `trace`, case-insensitively. Empty and unknown values are rejected. |
+
+### `[runtime.events]`
+
+| Key | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `capacity` | integer | no | 1,000 on a computer; on a chip, its chip file's default (200 on the ESP32-C6, 1,000 on the STM32U5A9) | The newest events the event store keeps, from 1 through 1,000,000. A newer event displaces the oldest. A chip refuses a value above its chip file's maximum (200 on the ESP32-C6, 1,000 on the STM32U5A9). `status` reports it as `event_capacity`. |
+
+### `[runtime.identify]`
+
+| Key | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `output` | string | no | none | The output that `identify` blinks, in one of two forms. An I/O address written exactly `%QX<byte>.<bit>` in decimal without leading zeros, such as `"%QX0.7"`: one bit of the output process image, which the runtime sets in a copy of the image it hands to the I/O drivers, so an I/O driver of `io.toml` must carry that bit to the real output. A GPIO line written `gpio:<line>` in decimal, such as `"gpio:17"`: a line of the chip that the first enabled `gpio` driver names, or of `/dev/gpiochip0` without one, which the runtime requests as an output and drives directly. Spaces around the value do not matter. Another form, an empty string and an unknown key are rejected. |
+
+A section without `output` means the runtime has no identify output, and `identify` answers
+`identify_not_configured`. The program must not use the output: a project whose program binds the
+bit, whose `io.toml` maps the GPIO line, or whose address lies beyond the output image is refused by
+`run`, `play`, `validate`, `check` and `ide serve`, and by a restart that reloads a stopped program,
+which reads this section again. Use [`trust-runtime identify`](../cli/trust-runtime.md#identify) to
+blink the output; it works while the resource runs, is paused, is stopped or is faulted. An output
+that `[[io.safe_state]]` gives a safe value keeps it while a stop or a fault is in force. A chip
+does not read this section yet.
 
 ### `[runtime.retain]` (retain policy)
 
@@ -113,6 +181,11 @@ Each task needs:
 | `mode` | string | yes | none | `none` or `file`. |
 | `path` | string | only for `file` | none | Required when `mode = "file"`. |
 | `save_interval_ms` | integer | yes | none | Must be `>= 1`. |
+
+On an ESP32-C6 chip, `mode = "file"` saves the retained values into the chip's checkpoint flash, so
+`path` is not used there. The chip saves at `save_interval_ms` and at stop or shutdown, and a reset or
+a warm restart restores the newest complete save. An interrupted save loses at most the save in
+progress. A retained image larger than 16,300 bytes cannot be saved on the C6.
 
 ### `[runtime.watchdog]` (watchdog and fault policy)
 
@@ -189,7 +262,7 @@ Validation constraints:
 
 | Key | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `require_signed` | bool | `false` | Enforces signed deployment artifacts. |
+| `require_signed` | bool | `false` | Enforces signed deployment artifacts. A deployment is checked against the installed file's policy, so it cannot lift the requirement or name its own keyring with the `runtime.toml` it carries. |
 | `keyring_path` | string | none | Required when `require_signed = true`. |
 
 ### `[runtime.discovery]`

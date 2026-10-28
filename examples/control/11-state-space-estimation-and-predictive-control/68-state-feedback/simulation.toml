@@ -1,0 +1,35 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2000
+plant_step_ms = 100
+
+# Two copies of Lesson 74's cascade of two open tanks (area 0.5 m², outlet coefficient 0.020 m^(5/2)/s): the pump
+# fills tank 1, tank 1 drains freely into tank 2, tank 2 drains to the sump:
+#   0.5·dh1/dt = q − 0.020·√h1,   0.5·dh2/dt = 0.020·√h1 − 0.020·√h2,
+# at rest at 0.25 m in both tanks with q = 0.010 m³/s. Input: pump flow in m³/s; outputs: both levels, read exactly.
+# The first cascade runs under state feedback, the second without.
+
+[[plants]]
+id = "controlled"
+model = "gravity_tank_cascade"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0", "%IL8"]
+initial_state = [0.25, 0.25]
+initial_input = [0.010]
+[plants.parameters]
+area_m2 = 0.5
+outflow_coefficient_m2_sqrt_m_per_s = 0.020
+
+[[plants]]
+id = "uncorrected"
+model = "gravity_tank_cascade"
+command_sources = ["%QL8"]
+feedback_targets = ["%IL16", "%IL24"]
+initial_state = [0.25, 0.25]
+initial_input = [0.010]
+[plants.parameters]
+area_m2 = 0.5
+outflow_coefficient_m2_sqrt_m_per_s = 0.020

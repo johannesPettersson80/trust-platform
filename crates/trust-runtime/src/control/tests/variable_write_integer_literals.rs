@@ -10,11 +10,11 @@ PROGRAM MainProgram
 END_PROGRAM
 "#;
 
-fn var_literal_fixture() -> (ControlState, crate::Runtime) {
-    let state = hmi_test_state(VAR_LITERAL_SOURCE);
-    let mut runtime = crate::harness::CompileSession::from_source(VAR_LITERAL_SOURCE)
-        .build_runtime()
-        .expect("variable literal fixture compiles");
+fn var_literal_fixture() -> (ControlState, crate::CompiledRuntime) {
+    let state = control_test_state(VAR_LITERAL_SOURCE);
+    let mut runtime = TestHarness::from_source(VAR_LITERAL_SOURCE)
+        .expect("variable literal fixture compiles")
+        .into_runtime();
     runtime.set_debug_control(state.debug.clone());
     (state, runtime)
 }
@@ -32,12 +32,8 @@ fn var_literal_request(state: &ControlState, id: u64, kind: &str, target: &str, 
     );
 }
 
-fn var_literal_counter(runtime: &crate::Runtime) -> crate::value::Value {
-    runtime
-        .storage()
-        .get_global("Counter")
-        .cloned()
-        .expect("Counter")
+fn var_literal_counter(runtime: &crate::CompiledRuntime) -> crate::value::Value {
+    runtime.read_variable("Counter").expect("Counter")
 }
 
 /// Drain the write_rejected events raised since the previous call.

@@ -3,6 +3,8 @@
 //! milliseconds as an invalid argument that names the field, before any time passes or any cycle
 //! runs. The three fields are signed at every site of the Rust protocol API, so u64::MAX cannot
 //! reach these entry points; i64::MAX is the largest input they can receive.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
 use trust_runtime::harness::{HarnessAutomation, HarnessAutomationError};
 use trust_runtime::value::Value;

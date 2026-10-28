@@ -36,7 +36,7 @@ Expected result:
 
 ## Step 2: Add the PLC logic (`src/Main.st`)
 
-Why: runtime executes bytecode generated from ST logic. We start with a minimal,
+Why: runtime executes the program compiled from ST logic. We start with a minimal,
 observable rule: copy one input to one output.
 
 ```bash
@@ -81,7 +81,9 @@ Expected result:
 
 ## Step 4: Add runtime config (`runtime.toml`)
 
-Why: runtime needs resource timing and control/web endpoints.
+Why: runtime needs resource timing and a web endpoint. The control endpoint is
+left out, so the runtime uses its platform default and `trust-runtime ctl
+--project .` finds it through the project's endpoint file.
 
 ```bash
 cat > runtime.toml <<'TOML'
@@ -93,7 +95,6 @@ name = "Tutorial13Resource"
 cycle_interval_ms = 100
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime-tutorial-13.sock"
 mode = "production"
 debug_enabled = false
 
@@ -133,7 +134,8 @@ TOML
 ```
 
 Expected result:
-- runtime can start deterministically on known local ports/socket
+- runtime can start deterministically on known local ports, with its control
+  socket inside the project's `.trust-runtime` folder (a loopback port on Windows)
 
 ## Step 5: Add I/O driver config (`io.toml`)
 
@@ -155,16 +157,16 @@ TOML
 Expected result:
 - runtime has an explicit driver and safe-state fallback
 
-## Step 6: Build bytecode
+## Step 6: Build the program
 
-Why: `build` compiles ST into executable bytecode (`program.stbc`).
+Why: `build` compiles ST into the program image this computer runs (`program.tpi`).
 
 ```bash
 trust-runtime build --project . --sources src
 ```
 
 Expected result:
-- `program.stbc` is generated
+- `program.tpi` is generated
 - no compile errors
 
 ## Step 7: Validate project
@@ -234,14 +236,14 @@ Expected result:
 - missing `CONFIGURATION` file:
   runtime starts but cannot schedule your logic correctly
 - editing ST but forgetting `build`:
-  runtime still runs old `program.stbc`
+  runtime still runs old `program.tpi`
 - missing `io.toml`:
   you may get confusing I/O behavior or empty mappings
 
 ## Completion checklist
 
 - [ ] project created from empty folder
-- [ ] ST + configuration compile into bytecode
+- [ ] ST + configuration compile into the program image
 - [ ] runtime starts and serves Web UI
 - [ ] `%IX0.0` and `%QX0.0` behavior verified
 - [ ] one change applied and re-validated

@@ -1,0 +1,716 @@
+{
+  "actions": [
+    {
+      "emphasis": "primary",
+      "enabled": true,
+      "id": "search",
+      "label": "Search",
+      "op": {
+        "kind": "search",
+        "request": {
+          "origin": "this_host",
+          "params": {
+            "only": [
+              "ads",
+              "modbus_tcp",
+              "mqtt"
+            ]
+          },
+          "verb": "start"
+        }
+      }
+    },
+    {
+      "emphasis": "secondary",
+      "enabled": true,
+      "id": "compare",
+      "label": "Hide comparison",
+      "op": {
+        "kind": "search",
+        "request": {
+          "change": {
+            "kind": "compare",
+            "shown": false
+          },
+          "origin": "this_host",
+          "search_id": "s-6",
+          "verb": "status"
+        }
+      }
+    },
+    {
+      "emphasis": "secondary",
+      "enabled": true,
+      "id": "configure_ads_ports",
+      "label": "Configure ADS ports to scan",
+      "op": {
+        "effect": {
+          "kind": "open_settings",
+          "query": "trust.ads.discoveryPorts"
+        },
+        "kind": "host"
+      }
+    }
+  ],
+  "breadcrumb": "Devices & Connections",
+  "cards": [
+    {
+      "actions": [
+        {
+          "emphasis": "primary",
+          "enabled": true,
+          "id": "manage_tags",
+          "label": "Manage tags",
+          "op": {
+            "kind": "ui",
+            "ui": {
+              "kind": "open",
+              "pane": {
+                "kind": "browse",
+                "request": {
+                  "kind": "symbols",
+                  "source": {
+                    "found": "dev:netid:192.168.1.20.1.1",
+                    "protocol": "ads",
+                    "target": {
+                      "ams_net_id": "192.168.1.20.1.1",
+                      "host": "192.168.1.20",
+                      "name": "PLC-7",
+                      "responding_ads_ports": [
+                        851
+                      ]
+                    }
+                  },
+                  "trust_server_certificate": false
+                }
+              }
+            }
+          }
+        },
+        {
+          "emphasis": "secondary",
+          "enabled": true,
+          "id": "ignore",
+          "label": "Ignore",
+          "op": {
+            "kind": "search",
+            "request": {
+              "change": {
+                "device": "dev:netid:192.168.1.20.1.1",
+                "ignored": true,
+                "kind": "ignore"
+              },
+              "origin": "this_host",
+              "search_id": "s-6",
+              "verb": "status"
+            }
+          }
+        }
+      ],
+      "addresses": [
+        "192.168.1.20"
+      ],
+      "differs": [],
+      "id": "dev:netid:192.168.1.20.1.1",
+      "identity": [
+        {
+          "label": "AMS Net ID",
+          "value": "192.168.1.20.1.1",
+          "wide": false
+        },
+        {
+          "label": "Host",
+          "value": "192.168.1.20",
+          "wide": false
+        }
+      ],
+      "last_seen": "3 s ago",
+      "ports": [
+        {
+          "emphasis": "secondary",
+          "enabled": true,
+          "id": "ads_port_851",
+          "label": "851",
+          "op": {
+            "kind": "ui",
+            "ui": {
+              "kind": "open",
+              "pane": {
+                "kind": "browse",
+                "request": {
+                  "kind": "symbols",
+                  "port": 851,
+                  "source": {
+                    "found": "dev:netid:192.168.1.20.1.1",
+                    "protocol": "ads",
+                    "target": {
+                      "ams_net_id": "192.168.1.20.1.1",
+                      "host": "192.168.1.20",
+                      "name": "PLC-7",
+                      "responding_ads_ports": [
+                        851
+                      ]
+                    }
+                  },
+                  "trust_server_certificate": false
+                }
+              }
+            }
+          }
+        }
+      ],
+      "project": {
+        "live": false,
+        "tone": "ok",
+        "word": "On canvas"
+      },
+      "protocols": [
+        {
+          "confidence": "Confirmed",
+          "name": "ADS and TwinCAT",
+          "simulated": false,
+          "source": "ADS identify"
+        }
+      ],
+      "responding_ports": "1 responding ADS port",
+      "title": "PLC-7",
+      "warnings": []
+    },
+    {
+      "actions": [
+        {
+          "emphasis": "secondary",
+          "enabled": true,
+          "id": "add",
+          "label": "+ Add",
+          "op": {
+            "action": "form.open",
+            "kind": "rust",
+            "payload": {
+              "prefill": {
+                "address": "192.168.1.30:502",
+                "unit_id": 1
+              },
+              "protocol": "modbus_tcp",
+              "runtime": "runtime:cell"
+            }
+          }
+        },
+        {
+          "emphasis": "secondary",
+          "enabled": true,
+          "id": "ignore",
+          "label": "Ignore",
+          "op": {
+            "kind": "search",
+            "request": {
+              "change": {
+                "device": "dev:ip:192.168.1.30",
+                "ignored": true,
+                "kind": "ignore"
+              },
+              "origin": "this_host",
+              "search_id": "s-6",
+              "verb": "status"
+            }
+          }
+        }
+      ],
+      "addresses": [
+        "192.168.1.30"
+      ],
+      "differs": [
+        {
+          "label": "Product code",
+          "value": "The project has DRV-1; the device reports DRV-2.",
+          "wide": false
+        }
+      ],
+      "id": "dev:ip:192.168.1.30",
+      "identity": [],
+      "last_seen": "3 s ago",
+      "ports": [],
+      "project": {
+        "live": false,
+        "tone": "warning",
+        "word": "Differs from the project"
+      },
+      "protocols": [
+        {
+          "confidence": "Confirmed",
+          "name": "Modbus TCP",
+          "simulated": false,
+          "source": "Modbus device ID"
+        }
+      ],
+      "title": "192.168.1.30",
+      "warnings": []
+    },
+    {
+      "actions": [
+        {
+          "emphasis": "secondary",
+          "enabled": true,
+          "id": "add",
+          "label": "+ Add",
+          "op": {
+            "action": "form.open",
+            "kind": "rust",
+            "payload": {
+              "prefill": {
+                "address": "192.168.1.31:502",
+                "unit_id": 1
+              },
+              "protocol": "modbus_tcp",
+              "runtime": "runtime:cell"
+            }
+          }
+        },
+        {
+          "emphasis": "secondary",
+          "enabled": true,
+          "id": "ignore",
+          "label": "Ignore",
+          "op": {
+            "kind": "search",
+            "request": {
+              "change": {
+                "device": "dev:ip:192.168.1.31",
+                "ignored": true,
+                "kind": "ignore"
+              },
+              "origin": "this_host",
+              "search_id": "s-6",
+              "verb": "status"
+            }
+          }
+        }
+      ],
+      "addresses": [
+        "192.168.1.31"
+      ],
+      "differs": [],
+      "id": "dev:ip:192.168.1.31",
+      "identity": [],
+      "last_seen": "3 s ago",
+      "ports": [],
+      "project": {
+        "live": false,
+        "tone": "ok",
+        "word": "In the project"
+      },
+      "protocols": [
+        {
+          "confidence": "Confirmed",
+          "name": "Modbus TCP",
+          "simulated": false,
+          "source": "Modbus device ID"
+        }
+      ],
+      "title": "192.168.1.31",
+      "warnings": []
+    },
+    {
+      "actions": [
+        {
+          "emphasis": "secondary",
+          "enabled": true,
+          "id": "add",
+          "label": "+ Add",
+          "op": {
+            "action": "form.open",
+            "kind": "rust",
+            "payload": {
+              "prefill": {
+                "address": "192.168.1.32:502",
+                "unit_id": 1
+              },
+              "protocol": "modbus_tcp",
+              "runtime": "runtime:cell"
+            }
+          }
+        },
+        {
+          "emphasis": "secondary",
+          "enabled": true,
+          "id": "ignore",
+          "label": "Ignore",
+          "op": {
+            "kind": "search",
+            "request": {
+              "change": {
+                "device": "dev:ip:192.168.1.32",
+                "ignored": true,
+                "kind": "ignore"
+              },
+              "origin": "this_host",
+              "search_id": "s-6",
+              "verb": "status"
+            }
+          }
+        }
+      ],
+      "addresses": [
+        "192.168.1.32"
+      ],
+      "differs": [],
+      "id": "dev:ip:192.168.1.32",
+      "identity": [],
+      "last_seen": "3 s ago",
+      "ports": [],
+      "project": {
+        "live": false,
+        "tone": "neutral",
+        "word": "Not in the project"
+      },
+      "protocols": [
+        {
+          "confidence": "Confirmed",
+          "name": "Modbus TCP",
+          "simulated": false,
+          "source": "Modbus device ID"
+        }
+      ],
+      "title": "192.168.1.32",
+      "warnings": []
+    }
+  ],
+  "choose_text": "Choose what to find, then scan. Only the selected device types are searched.",
+  "close_label": "Close",
+  "compare": {
+    "differs": {
+      "empty_text": "No device differs from the project.",
+      "heading": "Devices that differ from the project",
+      "rows": [
+        {
+          "label": "192.168.1.30",
+          "value": "Product code: The project has DRV-1; the device reports DRV-2.",
+          "wide": false
+        }
+      ]
+    },
+    "heading": "Compared with the project",
+    "missing": {
+      "empty_text": "Every configured device was found.",
+      "heading": "Configured devices not found",
+      "rows": [
+        {
+          "label": "Modbus TCP",
+          "value": "192.168.1.33:502, unit 1",
+          "wide": false
+        }
+      ]
+    },
+    "not_compared": {
+      "empty_text": "Every configured device was compared.",
+      "heading": "Configured devices not compared",
+      "rows": [
+        {
+          "label": "MQTT",
+          "value": "broker.local:1883 (its host name is not looked up)",
+          "wide": false
+        }
+      ]
+    },
+    "unused": {
+      "empty_text": "Every found device is in the project.",
+      "heading": "Found devices the project does not use",
+      "rows": [
+        {
+          "label": "192.168.1.32",
+          "value": "Modbus TCP",
+          "wide": false
+        }
+      ]
+    }
+  },
+  "fieldbus": [],
+  "heading_advanced": "Advanced scan settings",
+  "heading_find": "What do you want to find?",
+  "heading_runtime": "Runtime hardware scans ⚠",
+  "heading_scan_from": "Scan from",
+  "heading_targets": "Known address or subnet",
+  "only": [
+    {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "truST runtimes",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": true,
+              "kind": "select",
+              "source": "trust_runtime"
+            },
+            "origin": "this_host",
+            "search_id": "s-6",
+            "verb": "status"
+          }
+        }
+      },
+      "checked": false,
+      "enabled": true,
+      "group": "find",
+      "label": "truST runtimes",
+      "note": "mDNS",
+      "source": "trust_runtime"
+    },
+    {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "ADS and TwinCAT",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": false,
+              "kind": "select",
+              "source": "ads"
+            },
+            "origin": "this_host",
+            "search_id": "s-6",
+            "verb": "status"
+          }
+        }
+      },
+      "checked": true,
+      "enabled": true,
+      "group": "find",
+      "label": "ADS and TwinCAT",
+      "note": "network broadcast",
+      "source": "ads"
+    },
+    {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "Modbus TCP",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": false,
+              "kind": "select",
+              "source": "modbus_tcp"
+            },
+            "origin": "this_host",
+            "search_id": "s-6",
+            "verb": "status"
+          }
+        }
+      },
+      "checked": true,
+      "enabled": true,
+      "group": "find",
+      "label": "Modbus TCP",
+      "note": "local network scan",
+      "source": "modbus_tcp"
+    },
+    {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "MQTT",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": false,
+              "kind": "select",
+              "source": "mqtt"
+            },
+            "origin": "this_host",
+            "search_id": "s-6",
+            "verb": "status"
+          }
+        }
+      },
+      "checked": true,
+      "enabled": true,
+      "group": "known_address",
+      "label": "MQTT",
+      "note": "at host",
+      "source": "mqtt"
+    },
+    {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "OPC UA",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": true,
+              "kind": "select",
+              "source": "opcua"
+            },
+            "origin": "this_host",
+            "search_id": "s-6",
+            "verb": "status"
+          }
+        }
+      },
+      "checked": false,
+      "enabled": true,
+      "group": "known_address",
+      "label": "OPC UA",
+      "note": "at host",
+      "source": "opcua"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "group": "runtime_hardware",
+      "label": "EtherCAT",
+      "note": "bus enumeration",
+      "reason": "Choose a running runtime for EtherCAT or GPIO scans.",
+      "source": "ethercat",
+      "warning": "Can disturb a live bus, so confirm before scanning"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "group": "runtime_hardware",
+      "label": "GPIO",
+      "note": "local pins on the runtime",
+      "reason": "Choose a running runtime for EtherCAT or GPIO scans.",
+      "source": "gpio"
+    },
+    {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "Serial ports",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": true,
+              "kind": "select",
+              "source": "serial"
+            },
+            "origin": "this_host",
+            "search_id": "s-6",
+            "verb": "status"
+          }
+        }
+      },
+      "checked": false,
+      "enabled": true,
+      "group": "find",
+      "label": "Serial ports",
+      "source": "serial"
+    },
+    {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "USB",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": true,
+              "kind": "select",
+              "source": "usb"
+            },
+            "origin": "this_host",
+            "search_id": "s-6",
+            "verb": "status"
+          }
+        }
+      },
+      "checked": false,
+      "enabled": true,
+      "group": "find",
+      "label": "USB",
+      "source": "usb"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "group": "find",
+      "label": "Bluetooth LE",
+      "reason": "Bluetooth search is not available in this truST version yet.",
+      "source": "bluetooth"
+    }
+  ],
+  "origins": [
+    {
+      "enabled": true,
+      "id": "this_host",
+      "label": "This computer",
+      "selected": true
+    },
+    {
+      "enabled": true,
+      "id": "runtime:cell",
+      "label": "Cell",
+      "selected": false
+    }
+  ],
+  "running": false,
+  "search_id": "s-6",
+  "show_ignored": {
+    "action": {
+      "emphasis": "quiet",
+      "enabled": true,
+      "id": "show_ignored",
+      "label": "Show ignored",
+      "op": {
+        "kind": "search",
+        "request": {
+          "change": {
+            "kind": "show_ignored",
+            "shown": true
+          },
+          "origin": "this_host",
+          "search_id": "s-6",
+          "verb": "status"
+        }
+      }
+    },
+    "checked": false,
+    "label": "Show ignored"
+  },
+  "sources": [
+    {
+      "count": 1,
+      "id": "ads",
+      "label": "ADS and TwinCAT",
+      "tone": "ok",
+      "word": "1 found"
+    },
+    {
+      "count": 3,
+      "id": "modbus_tcp",
+      "label": "Modbus TCP",
+      "tone": "ok",
+      "word": "3 found"
+    },
+    {
+      "count": 0,
+      "id": "mqtt",
+      "label": "MQTT",
+      "tone": "neutral",
+      "word": "0 found"
+    }
+  ],
+  "targets": {
+    "cidr_label": "Subnet",
+    "cidr_placeholder": "192.168.1.0/24",
+    "hosts_label": "Known address",
+    "hosts_placeholder": "host:port"
+  }
+}

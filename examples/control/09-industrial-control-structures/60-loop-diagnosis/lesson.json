@@ -1,0 +1,293 @@
+{
+  "schemaVersion": 4,
+  "id": "control-loop-diagnosis",
+  "title": "Loop diagnosis",
+  "level": "Modern",
+  "sequence": 10,
+  "equipment": "Water heater",
+  "principalTechnique": "Loop diagnosis",
+  "prerequisites": [
+    "control-lesson-09"
+  ],
+  "objective": "Check measurement credibility, command delivery, actuator behavior, operating conditions and feasibility before changing gains.",
+  "nextLesson": "control-lesson-28",
+  "physicalPurpose": "Check measurement credibility, command delivery, actuator behavior, operating conditions and feasibility before changing gains.",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Measured temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Applied heating command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX112.0"
+    },
+    {
+      "role": "disturbance",
+      "name": "DisturbanceKw",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 30,
+      "resolution": 0.001,
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "IntegralPct",
+      "unit": "%",
+      "minimum": -200,
+      "maximum": 200,
+      "resolution": 0.001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "ProportionalPct",
+      "unit": "%",
+      "minimum": -200,
+      "maximum": 200,
+      "resolution": 0.001,
+      "binding": "%ML56"
+    },
+    {
+      "role": "MV",
+      "name": "RequestedPowerPct",
+      "unit": "%",
+      "minimum": -200,
+      "maximum": 300,
+      "resolution": 0.001,
+      "binding": "%ML32"
+    },
+    {
+      "role": "state",
+      "name": "Simulated reference",
+      "binding": "%IL16",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001
+    },
+    {
+      "role": "state",
+      "name": "Reference difference",
+      "binding": "%ML72",
+      "unit": "degC",
+      "minimum": -2,
+      "maximum": 2,
+      "resolution": 0.001
+    },
+    {
+      "role": "state",
+      "name": "Paired request",
+      "binding": "%ML96",
+      "unit": "%",
+      "minimum": -200,
+      "maximum": 300,
+      "resolution": 0.001
+    },
+    {
+      "role": "state",
+      "name": "Unavailable command",
+      "binding": "%ML88",
+      "unit": "%",
+      "minimum": -300,
+      "maximum": 300,
+      "resolution": 0.001
+    }
+  ],
+  "plant": {
+    "modelId": "heater-loop-diagnosis",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "process_gain",
+        "value": 0.2,
+        "unit": "degC/percentage-point"
+      },
+      {
+        "name": "time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "temperatureC": 35
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Measured temperature": 35,
+      "Applied heating command": 75,
+      "Experiment authority": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "Local heater model with initial temperature 35 °C and command 75%.",
+      "Nominal coefficients are supplied simulation values, not accepted learner estimates.",
+      "Simulation-only process I/O;100 ms samples.",
+      "No probe filter or heater rate limit is added to the Lesson 9 heater.",
+      "The optional sensor bias is simulation-only; the reference is model truth. Independent sensor acquisition time and measured delivered power are unavailable."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1.Controller",
+    "settings": {
+      "appliedPowerPct": 75,
+      "temperatureC": 35
+    },
+    "limitation": "An unexcited record does not reveal the complete heater dynamics."
+  },
+  "change": {
+    "executableId": "P1.Controller",
+    "settings": {
+      "TrialKind": "0:target 35→38 °C;1:30 kW extraction at SP 35",
+      "KpPctPerC": 2,
+      "KiPctPerCs": 0.5,
+      "durationSeconds": 60,
+      "controllerType": "Control.PID"
+    },
+    "decision": "Use the qualified Control Studio record to answer the lesson question; do not accept supplied nominal parameters as measured results."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 60.1,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    {
+      "metric": "temperature_operating_range",
+      "signal": "Measured temperature",
+      "window": "complete recorded experiment",
+      "comparator": "<=",
+      "limit": 80,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Required measurements or timestamps are invalid, stale or nonfinite",
+      "Temperature leaves 0–80 °C or applied command leaves 0–100%"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Stop to zero heating and extraction. Restore the full 35 °C/75% state before the next independent trial.",
+    "physicalApprovalRole": "authorised thermal-system control engineer with operations, instrument, process and safety owners",
+    "simulationOnlyRestrictions": [
+      "Do not operate a physical heater or sensor from this simulation lesson.",
+      "Scenario labels and injected events are Simulation truth, not physical-plant diagnoses.",
+      "Physical diagnosis requires reviewed signal topology, synchronized records, risk assessment, permits, and explicit approval for any active test."
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test",
+    "Validate"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/01-11-foundations-and-pi.md",
+    "nativeTest": "diagnosis",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_heater_intro_engineering diagnosis",
+    "projectPath": "examples/control/09-industrial-control-structures/60-loop-diagnosis",
+    "runArtifactFields": [
+      "appliedCommand",
+      "temperature",
+      "sampleTime",
+      "initialState",
+      "experimentConditions",
+      "modelProvenance",
+      "stopReason",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-loop-diagnosis"
+  },
+  "video": {
+    "viewerOutcome": "Check measurement credibility, command delivery, actuator behavior, operating conditions and feasibility before changing gains.",
+    "requiredVisibleEvidence": [
+      "Heater model and initial state",
+      "Applied command and temperature record",
+      "Required Control Studio analysis",
+      "Declared uncertainty and decision",
+      "Simulation label"
+    ],
+    "durationClass": "extended",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 9's load trial failed: after colder water removed 30 kW more, the temperature fell to 33.32 °C and was still more than 0.2 °C from 35 °C at 30.4 s, 0.4 s too late. The result does not say why. The controller could be too slow. The measurement could be wrong, so the controller corrects the wrong temperature. The heater could fail to deliver what is commanded, or the load could need more power than the heater has. Changing the gains helps only in the first case.\n\nWe will check the measurement, the heater and the capacity in turn, and change a gain only if all three are in order.",
+    "reason": "We need to:\n\n1. check that the measured temperature is right;\n2. check that the heater applies what the controller commands and that the water responds;\n3. check that the heater has enough power for the load; and\n4. only then decide whether the controller itself is the problem.",
+    "theory": [
+      "**Loop diagnosis** finds out why a loop performs badly before anyone touches the controller. Is the measurement right? Does the command reach the heater? Does the heater respond? Is the target reachable at all?\n\n**In words.** A loop can perform badly for reasons no controller setting can fix: a wrong measurement, a command that does not reach the heater, a heater that does not respond, or a target beyond the heater's capacity. Diagnosis answers the four questions in order from cause to effect, and for this heater each has a check in the recorded data:\n\n| Question | Check | Rules out |\n| --- | --- | --- |\n| Is the measurement right? | Compare the sensor with an independent reference of the same water temperature. | A wrong reading |\n| Does the command reach the heater? | Compare the requested power with the applied power. | A limit or a blocked output |\n| Does the heater respond? | Check that the temperature starts to change about 1 s after the power changes, the known delay. | A delivery fault |\n| Is the target reachable? | Calculate the holding power and compare it with 100%. | Missing capacity |\n\nIn PLC terms, it is the loop check from commissioning: from the sensor through the input, the program and the output to the actuator, one stage at a time. A check is useful only if its result differs between the possible causes.\n\nA sensor with a **bias** reads a fixed amount too high or too low. A bias is dangerous because the controller cannot see it: it drives the reading to the setpoint, so the water itself ends up off target by the bias. Two healthy sensors also disagree a little. If each is accurate to ±0.1 °C, one can read 0.1 °C high while the other reads 0.1 °C low, so they may differ by up to $0.1 - (-0.1) = 0.2$ °C. A larger disagreement shows that at least one is wrong, but not which one.\n\n**The formula.** Two relations do the calculations. A sensor that reads $b$ too high makes the water settle at\n\n$$\nT_{water} = SP - b ,\n$$\n\nand holding the water at temperature $T$ needs the command\n\n$$\nu_{hold} = \\frac{H\\,(T - T_a) + D}{a}.\n$$\n\n- $b$ is the sensor bias, in °C, positive when the sensor reads too high;\n- $H$ is the heat loss, 10 kW per degree Celsius above the surroundings;\n- $T_a$ is the surroundings' temperature, 20 °C;\n- $D$ is the extra heat loss, in kW;\n- $a$ is the heater's power per command point, 2 kW per percentage point;\n- $u_{hold}$ is the holding command, in percent; above 100 % the target is out of reach.\n\n**Example.** For Lesson 9's load trial, $u_{hold} = (10 \\times 15 + 30)/2 = 90\\%$: below 100 %, so the heater has enough power. If the setpoint were also raised to 38 °C, $u_{hold} = (10 \\times 18 + 30)/2 = 105\\%$: impossible. No gain can create power the heater does not have.\n\nThe same relations predict what a 0.3 °C bias does in a 35 → 38 °C setpoint trial. The controller holds the reading at 38.00 °C, so the water settles at $38.00 - 0.3 = 37.70$ °C, and the holding power is $10 \\times 17.7 / 2 = 88.5\\%$ instead of 90 %."
+    ],
+    "workedPrediction": "You will run two tests. First, Lesson 9's load trial again, this time with the reference sensor recorded. Then a setpoint trial with a sensor that reads 0.3 °C too high, to see what a measurement fault looks like.\n\nBefore running, answer these questions for the setpoint trial with the faulty sensor:\n\n1. Where will the reading settle?\n2. Where will the water itself settle?\n3. At what power will the heater settle?\n4. Will the reading and the reference disagree by more than two healthy sensors may?\n\nThen answer for Lesson 9's failed load trial:\n\n5. Will the reading agree with the reference? Will the heater reach its 100% limit, and is the 30 kW load within its capacity?\n6. If the measurement, the heater and the capacity are all in order, is a gain change justified?",
+    "practicalPreparation": [
+      "1. Open this lesson's project, set `TrialKind := 1;` in `src/Main.st` (Lesson 9's load trial) and start **Simulator**. In the **truST** side bar, select **Control Studio**. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.SetpointC · Setpoint (°C)`, `P1.TemperatureC · Process value (°C)` and `P1.AppliedPowerPct · Applied output (%)`; add `P1.WaterTemperatureC · state (°C)` (the reference), `P1.PairedRequestPct · state (%)`, `P1.UnavailableCommandPct · state (%)` and `P1.DisturbanceKw · disturbance (kW)`.\n2. Answer the predictions. Select **Review project test**, check the declared **60.1 s** duration and select **Confirm and start**; the 30 kW loss starts at once.\n3. After the run, hover the lowest temperature and the end: compare the reading with the reference, and note the highest applied power and the unavailable command.\n4. Now add the sensor fault. Stop the simulator, set `TrialKind := 0;` and start **Simulator** again. In the **truST** side bar, select **Devices & Connections** and select **heater-loop-diagnosis**; **Configure plant** opens. Its **Output 1** is the measured temperature and **Output 2** the reference. Under **OPTIONAL SETTINGS**, select **Edit** next to **Scenarios**. **SCENARIO EVENTS** shows **Event 1**: **Time (s)** 0, **Action** **Set sensor bias**, **Measured quantity** **Output 1**, **Value** 0. Set **Value** to 0.3 and select **Save**. The plant shows **Pending** until the simulator restarts, so stop and start **Simulator**.\n\n   ![The sensor bias set in the plant's scenario events](figures/sensor-bias-in-hardware-canvas.png)\n\n5. In **Control Studio**, select **Review project test**, check the declared **60.1 s** duration and select **Confirm and start**; the setpoint steps to 38 °C.\n6. After the run, hover the end: compare the reading with the reference, and the applied power with the 90% a healthy sensor gives.\n7. At the end of each run, Control Studio shows **Project test completed. Outputs restored.** Finally, set **Value** back to 0 in **Scenarios**, select **Save** and restart **Simulator**, so later runs use a healthy sensor.\n\nSelect **Abort test** to stop early. A temperature outside 0–80 °C latches `SafetyAbort`, which removes heat until you restart the simulator."
+    ],
+    "baseline": "Lesson 9's load trial, which missed its 0.2 °C settling requirement.",
+    "change": "Check measurement, actuator, capacity and disturbance with recorded evidence, including a repeat with a 0.3 °C sensor bias, before deciding to retune.",
+    "comparison": "![With a 0.3 °C sensor fault, the controller holds the reading at 38 °C and the water 0.3 °C too cold](figures/sensor-bias-repeat.svg)\n\nThe numbered marks answer predictions 1–4. The dashed line is the same trial without the fault.\n\n| Run | Reading at 60 s | Water at 60 s | Heater power at 60 s |\n| --- | ---: | ---: | ---: |\n| Healthy sensor | 38.00 °C | 38.00 °C | 90.0% |\n| Sensor 0.3 °C too high | 38.00 °C | 37.70 °C | 88.5% |\n\n1. The controller held the faulty reading at 38.00 °C, exactly on target.\n2. The water settled at 37.70 °C, 0.3 °C too cold, as the bias predicts.\n3. The heater settled at 88.5% instead of 90%: exactly the power that holds 37.7 °C water.\n4. The reading and the reference were 0.3 °C apart, more than the 0.2 °C two healthy sensors may differ. Only that comparison revealed the fault; the controller's own signals all looked perfect. With the healthy sensor, the reading and the reference agree.\n\nThe healthy load trial repeated Lesson 9's run exactly: the same lowest temperature, 33.32 °C at 6.9 s. It answers the checks for Lesson 9's failure:\n\n5. **Measurement.** The reading and the reference agreed at every sample, to 0.00 °C, so the controller saw the true water temperature. **Actuator and capacity.** The applied power rose to 90.0%, the calculated holding power, and never reached 100%; the unavailable command stayed at 0, so no limit blocked the controller, and the heater had enough power for the 30 kW load.\n6. With a credible measurement, no active limit and enough capacity, the slow recovery is a problem of the controller's speed, so a careful gain change is justified. Two checks remain open because this simulation does not measure them: the power the heater actually delivers, and the age of each reading. These are simulation results.",
+    "validation": "![With a 0.3 °C sensor fault, the controller holds the reading at 38 °C and the water 0.3 °C too cold](figures/sensor-bias-repeat.svg)\n\nThe numbered marks answer predictions 1–4. The dashed line is the same trial without the fault.\n\n| Run | Reading at 60 s | Water at 60 s | Heater power at 60 s |\n| --- | ---: | ---: | ---: |\n| Healthy sensor | 38.00 °C | 38.00 °C | 90.0% |\n| Sensor 0.3 °C too high | 38.00 °C | 37.70 °C | 88.5% |\n\n1. The controller held the faulty reading at 38.00 °C, exactly on target.\n2. The water settled at 37.70 °C, 0.3 °C too cold, as the bias predicts.\n3. The heater settled at 88.5% instead of 90%: exactly the power that holds 37.7 °C water.\n4. The reading and the reference were 0.3 °C apart, more than the 0.2 °C two healthy sensors may differ. Only that comparison revealed the fault; the controller's own signals all looked perfect. With the healthy sensor, the reading and the reference agree.\n\nThe healthy load trial repeated Lesson 9's run exactly: the same lowest temperature, 33.32 °C at 6.9 s. It answers the checks for Lesson 9's failure:\n\n5. **Measurement.** The reading and the reference agreed at every sample, to 0.00 °C, so the controller saw the true water temperature. **Actuator and capacity.** The applied power rose to 90.0%, the calculated holding power, and never reached 100%; the unavailable command stayed at 0, so no limit blocked the controller, and the heater had enough power for the 30 kW load.\n6. With a credible measurement, no active limit and enough capacity, the slow recovery is a problem of the controller's speed, so a careful gain change is justified. Two checks remain open because this simulation does not measure them: the power the heater actually delivers, and the age of each reading. These are simulation results.",
+    "explanation": "A failed requirement is a symptom, not a diagnosis. Checking the measurement, the command delivery and the capacity first shows whether changing a gain can help at all; a biased sensor shows why, because the controller holds its reading perfectly while the process is off target.\n\nFor this heater, the measurement, the heater and its capacity are in order, so Lesson 9's slow load recovery comes from the controller itself.",
+    "transfer": "The measurement is credible, the heater delivers what is commanded and the load is within its capacity, so the slow recovery in Lesson 9 comes from the PI settings. We still have no method for improving them.\n\n[Manual PI tuning](../../06-pid-tuning-methods/28-manual-pi-tuning/README.md) changes one gain at a time, predicts the effect and keeps the change only if the unchanged requirements are met."
+  }
+}

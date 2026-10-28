@@ -1,418 +1,168 @@
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::{Duration as StdDuration, Instant};
+//! The worker thread of a computer's `modbus-tcp` driver: the transport that carries the shared
+//! exchange's bytes over a `std::net::TcpStream`, so that connections and round trips happen on the
+//! worker and never on the scan (specification 11 §6.5). The worker asks the exchange for its next
+//! step with `poll`, connects, sends, reads and closes as the exchange says, and tells it what
+//! happened with `connected`, `received` and `failed`; it decides nothing itself. It holds the
+//! shared lock only while it calls the exchange, never while it waits for the network.
 
-use smol_str::SmolStr;
+use std::io::{ErrorKind, Read, Write};
+use std::net::TcpStream;
+use std::sync::{MutexGuard, PoisonError};
+use std::time::Duration;
 
-use crate::error::RuntimeError;
-use crate::io::{IoDriver, IoDriverErrorPolicy, IoDriverHealth};
+use trust_runtime_services::io_drivers::modbus::ModbusPoll;
 
-use super::{ModbusTcpConfig, ModbusTcpDriver};
+use super::{Shared, State};
 
-const SCAN_WAIT_BOUND: StdDuration = StdDuration::from_millis(40);
-const WORKER_IDLE_POLL: StdDuration = StdDuration::from_millis(1);
-const RECONNECT_BACKOFF: StdDuration = StdDuration::from_millis(100);
+/// The bytes of the largest Modbus TCP frame, `trust_modbus::tcp::MAX_ADU_LEN`: the 7 bytes of the
+/// MBAP header and a PDU of at most 253 (Modbus Messaging on TCP/IP V1.0b §3.1.3). The exchange
+/// writes each request into a buffer of this size, and a read takes at most one frame.
+const FRAME_BYTES: usize = 260;
 
-#[derive(Debug)]
-pub(super) struct ModbusWorker {
-    shared: Arc<Mutex<ModbusWorkerState>>,
-    shutdown: Arc<AtomicBool>,
-    policy: IoDriverErrorPolicy,
-    _handle: thread::JoinHandle<()>,
-}
+/// The longest that one read waits for a response before the worker looks at the exchange again,
+/// so that it sees a stop soon.
+const READ_SLICE: Duration = Duration::from_millis(10);
 
-#[derive(Debug)]
-struct ModbusWorkerState {
-    desired_input_len: usize,
-    input_request_seq: u64,
-    completed_input_seq: u64,
-    latest_inputs: Option<Vec<u8>>,
-    last_snapshot_at: Option<Instant>,
-    input_error: Option<RuntimeError>,
-    last_error: Option<SmolStr>,
-    pending_output: Option<(u64, Vec<u8>)>,
-    output_inflight: bool,
-    next_output_seq: u64,
-    completed_output_seq: u64,
-    next_reconnect: Instant,
-    health: IoDriverHealth,
-}
+/// The shortest read timeout: a read timeout of zero is refused by the operating system.
+const SHORTEST_READ: Duration = Duration::from_millis(1);
 
-impl ModbusWorkerState {
-    fn new() -> Self {
-        Self {
-            desired_input_len: 0,
-            input_request_seq: 0,
-            completed_input_seq: 0,
-            latest_inputs: None,
-            last_snapshot_at: None,
-            input_error: None,
-            last_error: None,
-            pending_output: None,
-            output_inflight: false,
-            next_output_seq: 0,
-            completed_output_seq: 0,
-            next_reconnect: Instant::now(),
-            health: IoDriverHealth::Degraded {
-                error: SmolStr::new("modbus worker initializing"),
-            },
-        }
-    }
-}
+/// What the exchange is told when a read gives no bytes: the server closed the connection, in the
+/// words of the chips' network.
+const CLOSED: &str = "the server closed the connection";
 
-impl ModbusWorker {
-    pub(super) fn start(config: ModbusTcpConfig) -> Self {
-        let policy = config.on_error;
-        let shared = Arc::new(Mutex::new(ModbusWorkerState::new()));
-        let shutdown = Arc::new(AtomicBool::new(false));
-        let worker_shared = Arc::clone(&shared);
-        let worker_shutdown = Arc::clone(&shutdown);
-        let handle = thread::spawn(move || run_worker(config, worker_shared, worker_shutdown));
-        Self {
-            shared,
-            shutdown,
-            policy,
-            _handle: handle,
-        }
-    }
-
-    pub(super) fn read_inputs(&self, inputs: &mut [u8]) -> Result<(), RuntimeError> {
-        let seq = {
-            let mut state = self.shared.lock().unwrap_or_else(|err| err.into_inner());
-            state.desired_input_len = inputs.len();
-            state.input_request_seq = state.input_request_seq.wrapping_add(1);
-            state.input_request_seq
-        };
-
-        let deadline = Instant::now() + SCAN_WAIT_BOUND;
-        loop {
-            {
-                let state = self.shared.lock().unwrap_or_else(|err| err.into_inner());
-                if state.completed_input_seq >= seq {
-                    break;
+/// Carries the exchange of `shared` until the driver asks the worker to stop: one step of the
+/// exchange at a time, with the connection that the exchange asked for, if it is open.
+pub(super) fn run(shared: &Shared) {
+    let timeout = Duration::from_millis(u64::from(shared.lock().exchange.params().timeout_ms));
+    let mut frame = [0_u8; FRAME_BYTES];
+    let mut incoming = [0_u8; FRAME_BYTES];
+    let mut stream: Option<TcpStream> = None;
+    while let Some(step) = next_step(shared, &mut frame, stream.is_some()) {
+        match step {
+            ModbusPoll::Connect(address) => {
+                let opened = TcpStream::connect_timeout(&address.socket, timeout)
+                    .and_then(|opened| configure(opened, timeout));
+                let mut state = shared.lock();
+                match opened {
+                    Ok(opened) => {
+                        stream = Some(opened);
+                        state.exchange.connected();
+                    }
+                    Err(error) => state.exchange.failed(shared.now_ms(), &error.to_string()),
                 }
+                shared.to_scan.notify_all();
             }
-            if Instant::now() >= deadline {
-                break;
-            }
-            thread::sleep(WORKER_IDLE_POLL);
-        }
-
-        let refresh_completed = {
-            let mut state = self.shared.lock().unwrap_or_else(|err| err.into_inner());
-            if state.completed_input_seq >= seq {
-                if let Some(error) = state.input_error.clone() {
-                    return Err(error);
-                }
-                true
-            } else {
-                state.health = policy_health("modbus input refresh pending", self.policy);
-                state.last_error = Some(SmolStr::new("modbus input refresh pending"));
-                result_from_health(&state.health)?;
-                false
-            }
-        };
-
-        if let Some(result) = self.copy_latest_inputs(inputs) {
-            return result;
-        }
-
-        let mut state = self.shared.lock().unwrap_or_else(|err| err.into_inner());
-        if refresh_completed && state.latest_inputs.is_none() {
-            state.health = policy_health("modbus input snapshot unavailable", self.policy);
-            state.last_error = Some(SmolStr::new("modbus input snapshot unavailable"));
-        }
-        result_from_health(&state.health)
-    }
-
-    pub(super) fn write_outputs(&self, outputs: &[u8]) -> Result<(), RuntimeError> {
-        let (seq, should_wait) = {
-            let mut state = self.shared.lock().unwrap_or_else(|err| err.into_inner());
-            let should_wait = !state.output_inflight && state.pending_output.is_none();
-            state.next_output_seq = state.next_output_seq.wrapping_add(1);
-            let seq = state.next_output_seq;
-            state.pending_output = Some((seq, outputs.to_vec()));
-            if !should_wait {
-                state.health = policy_health("modbus output handoff pending", self.policy);
-                state.last_error = Some(SmolStr::new("modbus output handoff pending"));
-            }
-            (seq, should_wait)
-        };
-
-        if !should_wait {
-            return result_from_health(&self.health());
-        }
-
-        let deadline = Instant::now() + SCAN_WAIT_BOUND;
-        loop {
-            {
-                let state = self.shared.lock().unwrap_or_else(|err| err.into_inner());
-                if state.completed_output_seq >= seq {
-                    return result_from_health(&state.health);
-                }
-            }
-            if Instant::now() >= deadline {
-                let mut state = self.shared.lock().unwrap_or_else(|err| err.into_inner());
-                state.health = policy_health("modbus output handoff pending", self.policy);
-                state.last_error = Some(SmolStr::new("modbus output handoff pending"));
-                return result_from_health(&state.health);
-            }
-            thread::sleep(WORKER_IDLE_POLL);
-        }
-    }
-
-    pub(super) fn health(&self) -> IoDriverHealth {
-        self.shared
-            .lock()
-            .unwrap_or_else(|err| err.into_inner())
-            .health
-            .clone()
-    }
-
-    fn copy_latest_inputs(&self, inputs: &mut [u8]) -> Option<Result<(), RuntimeError>> {
-        let state = self.shared.lock().unwrap_or_else(|err| err.into_inner());
-        let latest = state.latest_inputs.as_ref()?;
-        let len = inputs.len().min(latest.len());
-        inputs[..len].copy_from_slice(&latest[..len]);
-        if len < inputs.len() {
-            inputs[len..].fill(0);
-        }
-        Some(result_from_health(&state.health))
-    }
-}
-
-impl Drop for ModbusWorker {
-    fn drop(&mut self) {
-        self.shutdown.store(true, Ordering::SeqCst);
-    }
-}
-
-fn run_worker(
-    config: ModbusTcpConfig,
-    shared: Arc<Mutex<ModbusWorkerState>>,
-    shutdown: Arc<AtomicBool>,
-) {
-    let mut driver = ModbusTcpDriver::new_sync_for_worker(config);
-    while !shutdown.load(Ordering::SeqCst) {
-        if let Some((seq, outputs)) = take_pending_output(&shared) {
-            let result = driver.write_outputs(&outputs);
-            let health = driver.health();
-            let mut state = shared.lock().unwrap_or_else(|err| err.into_inner());
-            state.output_inflight = false;
-            state.completed_output_seq = seq;
-            state.health = health;
-            if !matches!(state.health, IoDriverHealth::Ok) {
-                state.next_reconnect = Instant::now() + RECONNECT_BACKOFF;
-                state.last_error = health_error(&state.health);
-            }
-            if result.is_err() && matches!(state.health, IoDriverHealth::Ok) {
-                state.health = IoDriverHealth::Degraded {
-                    error: SmolStr::new("modbus output write failed"),
+            ModbusPoll::Send(len) => {
+                let sent = match (stream.as_mut(), frame.get(..len)) {
+                    (Some(open), Some(request)) => open.write_all(request),
+                    _ => Err(ErrorKind::NotConnected.into()),
                 };
-                state.next_reconnect = Instant::now() + RECONNECT_BACKOFF;
-                state.last_error = Some(SmolStr::new("modbus output write failed"));
-            }
-        }
-
-        let input_request = {
-            let state = shared.lock().unwrap_or_else(|err| err.into_inner());
-            if state.input_request_seq > state.completed_input_seq {
-                Some((state.input_request_seq, state.desired_input_len))
-            } else {
-                None
-            }
-        };
-        if let Some((seq, input_len)) = input_request {
-            let now = Instant::now();
-            {
-                let mut state = shared.lock().unwrap_or_else(|err| err.into_inner());
-                if now < state.next_reconnect {
-                    state.completed_input_seq = seq;
-                    thread::sleep(WORKER_IDLE_POLL);
-                    continue;
+                if let Err(error) = sent {
+                    shared
+                        .lock()
+                        .exchange
+                        .failed(shared.now_ms(), &error.to_string());
+                    shared.to_scan.notify_all();
                 }
             }
-            let mut inputs = vec![0u8; input_len];
-            let result = driver.read_inputs(&mut inputs);
-            let input_error = result.as_ref().err().cloned();
-            let health = driver.health();
-            let mut state = shared.lock().unwrap_or_else(|err| err.into_inner());
-            if result.is_ok() && matches!(health, IoDriverHealth::Ok) {
-                state.latest_inputs = Some(inputs);
-                state.last_snapshot_at = Some(Instant::now());
-                state.last_error = None;
+            ModbusPoll::Close => {
+                // The exchange gave the connection up, which failed the request on its way, such
+                // as a response past `timeout_ms`: a scan that waits for it can take the failure.
+                stream = None;
+                shared.to_scan.notify_all();
             }
-            if !matches!(health, IoDriverHealth::Ok) {
-                state.next_reconnect = Instant::now() + RECONNECT_BACKOFF;
-                state.last_error = health_error(&health);
+            ModbusPoll::Wait(until) => {
+                if let Some(open) = stream.as_mut() {
+                    receive(shared, open, until, &mut incoming);
+                }
             }
-            state.input_error = input_error;
-            state.completed_input_seq = seq;
-            state.health = health;
-        }
-
-        thread::sleep(WORKER_IDLE_POLL);
-    }
-}
-
-fn take_pending_output(shared: &Arc<Mutex<ModbusWorkerState>>) -> Option<(u64, Vec<u8>)> {
-    let mut state = shared.lock().unwrap_or_else(|err| err.into_inner());
-    let pending = state.pending_output.take();
-    if pending.is_some() {
-        state.output_inflight = true;
-    }
-    pending
-}
-
-fn result_from_health(health: &IoDriverHealth) -> Result<(), RuntimeError> {
-    match health {
-        IoDriverHealth::Faulted { error } => Err(RuntimeError::IoTransport(error.clone())),
-        IoDriverHealth::Ok | IoDriverHealth::Degraded { .. } => Ok(()),
-    }
-}
-
-fn health_error(health: &IoDriverHealth) -> Option<SmolStr> {
-    match health {
-        IoDriverHealth::Ok => None,
-        IoDriverHealth::Degraded { error } | IoDriverHealth::Faulted { error } => {
-            Some(error.clone())
         }
     }
 }
 
-fn policy_health(message: &'static str, policy: IoDriverErrorPolicy) -> IoDriverHealth {
-    match policy {
-        IoDriverErrorPolicy::Fault => IoDriverHealth::Faulted {
-            error: SmolStr::new(message),
-        },
-        IoDriverErrorPolicy::Warn | IoDriverErrorPolicy::Ignore => IoDriverHealth::Degraded {
-            error: SmolStr::new(message),
-        },
+/// The exchange's next step for the worker, or `None` when the driver asks the worker to stop.
+/// While the exchange has nothing to carry, the worker waits here for the scan or for the time the
+/// exchange gives, such as the end of a backoff; with the connection open, a wait with a time is a
+/// request on the wire, whose response the worker reads (`open` says whether it is).
+fn next_step(shared: &Shared, frame: &mut [u8; FRAME_BYTES], open: bool) -> Option<ModbusPoll> {
+    let mut state = shared.lock();
+    loop {
+        if state.stop {
+            return None;
+        }
+        let now = shared.now_ms();
+        match state.exchange.poll(now, frame) {
+            ModbusPoll::Wait(None) => state = wait(shared, state, None),
+            ModbusPoll::Wait(Some(until)) if !open => {
+                let left = Duration::from_millis(until.saturating_sub(now));
+                state = wait(shared, state, Some(left));
+            }
+            step => return Some(step),
+        }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn input_deadline_follows_error_policy_without_fault_copy() {
-        for policy in [
-            IoDriverErrorPolicy::Fault,
-            IoDriverErrorPolicy::Warn,
-            IoDriverErrorPolicy::Ignore,
-        ] {
-            let worker = stalled_worker(policy, Some(vec![0x11, 0x22]));
-            let mut inputs = [0xAA, 0xBB];
-
-            let result = worker.read_inputs(&mut inputs);
-
-            match policy {
-                IoDriverErrorPolicy::Fault => {
-                    assert!(result.is_err(), "fault must reject a stale input deadline");
-                    assert_eq!(
-                        inputs,
-                        [0xAA, 0xBB],
-                        "fault must not copy the cached snapshot"
-                    );
-                    assert_health(worker.health(), true, "modbus input refresh pending");
-                }
-                IoDriverErrorPolicy::Warn | IoDriverErrorPolicy::Ignore => {
-                    result.expect("warn and ignore must return degraded success");
-                    assert_eq!(
-                        inputs,
-                        [0x11, 0x22],
-                        "warn and ignore may copy the last accepted snapshot"
-                    );
-                    assert_health(worker.health(), false, "modbus input refresh pending");
-                }
-            }
-            assert_last_error(&worker, "modbus input refresh pending");
+/// Waits for the scan or for the driver's drop, at most `timeout` when it is given.
+fn wait<'a>(
+    shared: &'a Shared,
+    state: MutexGuard<'a, State>,
+    timeout: Option<Duration>,
+) -> MutexGuard<'a, State> {
+    match timeout {
+        Some(timeout) => {
+            shared
+                .to_worker
+                .wait_timeout(state, timeout)
+                .unwrap_or_else(PoisonError::into_inner)
+                .0
         }
+        None => shared
+            .to_worker
+            .wait(state)
+            .unwrap_or_else(PoisonError::into_inner),
     }
+}
 
-    #[test]
-    fn output_deadline_follows_error_policy_without_cancelling_handoff() {
-        for policy in [
-            IoDriverErrorPolicy::Fault,
-            IoDriverErrorPolicy::Warn,
-            IoDriverErrorPolicy::Ignore,
-        ] {
-            let worker = stalled_worker(policy, None);
-
-            let result = worker.write_outputs(&[0x33, 0x44]);
-
-            match policy {
-                IoDriverErrorPolicy::Fault => {
-                    assert!(
-                        result.is_err(),
-                        "fault must reject a pending output deadline"
-                    );
-                    assert_health(worker.health(), true, "modbus output handoff pending");
-                }
-                IoDriverErrorPolicy::Warn | IoDriverErrorPolicy::Ignore => {
-                    result.expect("warn and ignore must return degraded success");
-                    assert_health(worker.health(), false, "modbus output handoff pending");
-                }
-            }
-
-            let state = worker
-                .shared
-                .lock()
-                .unwrap_or_else(|error| error.into_inner());
-            assert_eq!(
-                state.pending_output,
-                Some((1, vec![0x33, 0x44])),
-                "deadline reporting must not cancel the accepted output handoff"
-            );
-            assert!(!state.output_inflight);
-            assert_eq!(
-                state.last_error.as_deref(),
-                Some("modbus output handoff pending")
-            );
+/// Reads what comes on `open` for the request on the wire, at most one read slice and not past
+/// `until`, the time at which the exchange gives the response up, and hands it to the exchange: the
+/// bytes that came, or the connection's failure. A read that times out tells the exchange nothing;
+/// the next step lets it see its own deadline.
+fn receive(
+    shared: &Shared,
+    open: &mut TcpStream,
+    until: Option<u64>,
+    incoming: &mut [u8; FRAME_BYTES],
+) {
+    let left = until.map_or(READ_SLICE, |deadline| {
+        Duration::from_millis(deadline.saturating_sub(shared.now_ms()))
+    });
+    let read = open
+        .set_read_timeout(Some(left.clamp(SHORTEST_READ, READ_SLICE)))
+        .and_then(|()| open.read(incoming));
+    let mut state = shared.lock();
+    match read {
+        Ok(0) => state.exchange.failed(shared.now_ms(), CLOSED),
+        Ok(count) => {
+            let bytes = incoming.get(..count).unwrap_or_default();
+            state.exchange.received(shared.now_ms(), bytes);
         }
-    }
-
-    fn stalled_worker(policy: IoDriverErrorPolicy, latest_inputs: Option<Vec<u8>>) -> ModbusWorker {
-        let shared = Arc::new(Mutex::new(ModbusWorkerState::new()));
+        Err(error)
+            if matches!(
+                error.kind(),
+                ErrorKind::WouldBlock | ErrorKind::TimedOut | ErrorKind::Interrupted
+            ) =>
         {
-            let mut state = shared.lock().expect("worker state lock");
-            state.latest_inputs = latest_inputs;
-            state.health = IoDriverHealth::Ok;
+            return;
         }
-        let shutdown = Arc::new(AtomicBool::new(false));
-        let thread_shutdown = Arc::clone(&shutdown);
-        let handle = thread::spawn(move || {
-            while !thread_shutdown.load(Ordering::SeqCst) {
-                thread::sleep(WORKER_IDLE_POLL);
-            }
-        });
-        ModbusWorker {
-            shared,
-            shutdown,
-            policy,
-            _handle: handle,
-        }
+        Err(error) => state.exchange.failed(shared.now_ms(), &error.to_string()),
     }
+    shared.to_scan.notify_all();
+}
 
-    fn assert_health(health: IoDriverHealth, faulted: bool, expected_error: &str) {
-        match (faulted, health) {
-            (true, IoDriverHealth::Faulted { error })
-            | (false, IoDriverHealth::Degraded { error }) => {
-                assert_eq!(error.as_str(), expected_error)
-            }
-            (expected_faulted, other) => {
-                panic!("expected faulted={expected_faulted}, got {other:?}")
-            }
-        }
-    }
-
-    fn assert_last_error(worker: &ModbusWorker, expected_error: &str) {
-        let state = worker
-            .shared
-            .lock()
-            .unwrap_or_else(|error| error.into_inner());
-        assert_eq!(state.last_error.as_deref(), Some(expected_error));
-    }
+/// `opened` ready for the exchange: requests sent without delay, as each is a whole frame, and a
+/// send that cannot finish within `timeout` failed rather than blocking the worker.
+fn configure(opened: TcpStream, timeout: Duration) -> std::io::Result<TcpStream> {
+    opened.set_nodelay(true)?;
+    opened.set_write_timeout(Some(timeout))?;
+    Ok(opened)
 }

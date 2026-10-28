@@ -23,12 +23,6 @@ export default defineConfig({
       url: "http://127.0.0.1:18080/ide",
       reuseExistingServer,
       timeout: 180_000
-    },
-    {
-      command: path.join(scriptRoot, "start-hmi-server.sh"),
-      url: "http://127.0.0.1:18082/hmi",
-      reuseExistingServer,
-      timeout: 180_000
     }
   ]
 });

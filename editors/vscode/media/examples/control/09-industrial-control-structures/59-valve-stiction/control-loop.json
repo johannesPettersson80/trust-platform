@@ -1,0 +1,177 @@
+{
+    "schemaVersion": 2,
+    "topology": "open-loop",
+    "id": "control-valve-stiction",
+    "name": "Valve stiction",
+    "projectId": "project:control-valve-stiction",
+    "runtimeId": "simulator",
+    "controller": {
+        "instance": "P1",
+        "type": "Main",
+        "design": "project",
+        "revision": "sha256:752b09c2656fb65df33a6aedca36cb1f9d369b7066ae7347519c1ff937f6d168",
+        "action": "direct",
+        "taskPeriodMs": 100
+    },
+    "signals": {
+        "processVariable": {
+            "symbol": "P1.StickyStemPct",
+            "address": "%IL24",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "%",
+            "range": {
+                "minimum": 0,
+                "maximum": 100
+            }
+        },
+        "manipulatedVariable": {
+            "symbol": "P1.ValveRequestPct",
+            "address": "%QL0",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "%",
+            "range": {
+                "minimum": 0,
+                "maximum": 100
+            }
+        },
+        "additional": [
+            {
+                "id": "deadband-target",
+                "channel": "deadband-target",
+                "role": "state",
+                "symbol": "P1.DeadbandTargetPct",
+                "address": "%QL8",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "%",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 100
+                }
+            },
+            {
+                "id": "deadband-flow",
+                "channel": "deadband-flow",
+                "role": "state",
+                "symbol": "P1.DeadbandFlowKgS",
+                "address": "%IL0",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "kg/s",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 2.1
+                }
+            },
+            {
+                "id": "sticky-flow",
+                "channel": "sticky-flow",
+                "role": "state",
+                "symbol": "P1.StickyFlowKgS",
+                "address": "%IL8",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "kg/s",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 2.1
+                }
+            },
+            {
+                "id": "deadband-stem",
+                "channel": "deadband-stem",
+                "role": "state",
+                "symbol": "P1.DeadbandStemPct",
+                "address": "%IL16",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "%",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 100
+                }
+            },
+            {
+                "id": "sticky-force",
+                "channel": "sticky-force",
+                "role": "state",
+                "symbol": "P1.StickyForceN",
+                "address": "%ML8",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "N",
+                "range": {
+                    "minimum": -100,
+                    "maximum": 100
+                }
+            },
+            {
+                "id": "deadband-force",
+                "channel": "deadband-force",
+                "role": "state",
+                "symbol": "P1.DeadbandForceN",
+                "address": "%ML0",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "N",
+                "range": {
+                    "minimum": -100,
+                    "maximum": 100
+                }
+            },
+            {
+                "id": "experiment-authority",
+                "channel": "experiment-authority",
+                "role": "state",
+                "symbol": "P1.ExperimentEnabled",
+                "address": "%MX64.0",
+                "iecType": "BOOL",
+                "direction": "read",
+                "unit": "",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            },
+            {
+                "id": "active",
+                "channel": "active",
+                "role": "state",
+                "symbol": "P1.Active",
+                "address": "%MX64.1",
+                "iecType": "BOOL",
+                "direction": "read",
+                "unit": "",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            }
+        ]
+    },
+    "limits": {
+        "outputMinimum": 0,
+        "outputMaximum": 100
+    },
+    "observedSampleTiming": {
+        "nominalPeriodMs": 100
+    },
+    "plantId": "valve-stiction-lesson-32",
+    "experiment": {
+        "execution": "project-scripted",
+        "kind": "observation",
+        "amplitude": 0,
+        "durationSeconds": 133.1,
+        "seed": 20260829,
+        "activation": {
+            "symbol": "P1.ExperimentEnabled",
+            "address": "%MX64.0",
+            "iecType": "BOOL",
+            "direction": "write"
+        },
+        "baselineSeconds": 5
+    },
+    "revision": "sha256:0dd2679e3a53f4d18d4d3db9755d02f10fd0cd11d66ea9c81ef428b0f785447b"
+}

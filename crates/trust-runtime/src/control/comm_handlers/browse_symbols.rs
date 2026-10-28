@@ -1,33 +1,35 @@
 use std::collections::BTreeSet;
-#[cfg(feature = "ads-wire")]
-use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::Path;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::Value;
-use trust_ads_core::{SymbolFlag, SymbolSnapshot, SYMBOL_SNAPSHOT_SCHEMA_VERSION};
+#[cfg(test)]
+use trust_ads_core::SymbolFlag;
+use trust_ads_core::{SymbolSnapshot, SYMBOL_SNAPSHOT_SCHEMA_VERSION};
 
+#[cfg(test)]
+use crate::ads::diagnostics::LocalIdentity;
 use crate::ads::diagnostics::{CredentialChannelClassification, TargetIdentity};
 #[cfg(feature = "ads-wire")]
-use crate::ads::diagnostics::{LocalIdentity, RoutePlan};
-#[cfg(feature = "ads-wire")]
+use crate::ads::onboarding::browse::classify_ads_browse_error;
+use crate::ads::onboarding::browse::{
+    browse_ads_live, response_tree_error_value, response_tree_value, response_value, sanitize_id,
+    SymbolTreeNode,
+};
+#[cfg(test)]
+use crate::ads::onboarding::browse::{
+    missing_ads_route_browse_response, route_check_failure_implies_missing_route, symbol_tree,
+    BROWSE_SYMBOLS_SCHEMA_VERSION,
+};
+#[cfg(test)]
 use crate::ads::onboarding::{build_route_plan, RoutePlanRequest};
 use crate::ads::onboarding::{build_symbol_import_response, SymbolImportRequest};
-#[cfg(feature = "ads-wire")]
-use crate::ads::onboarding::{
-    derive_runtime_identity_from_source, resolve_os_source_ip,
-    runtime_address_candidates_from_interfaces, IdentityRequest,
-};
-#[cfg(feature = "ads-wire")]
-use crate::ads::onboarding::{
-    upload_failure_implies_missing_return_route, OnboardingWireError, OnboardingWireErrorKind,
-};
+#[cfg(any(test, feature = "ads-wire"))]
+use crate::ads::onboarding::{OnboardingWireError, OnboardingWireErrorKind};
 use crate::bundle_builder::collect_project_source_files;
 use crate::harness::CompileSession;
 
 use super::super::{ControlResponse, ControlState};
-
-const BROWSE_SYMBOLS_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -80,47 +82,6 @@ struct BrowseTarget {
     name: Option<String>,
     #[serde(default)]
     tc_version: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-struct BrowseSymbolsResponse {
-    schema_version: u32,
-    protocol: String,
-    kind: String,
-    tree: Vec<SymbolTreeNode>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<CommProtocolError>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    route: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    ads_import: Option<crate::ads::onboarding::SymbolImportResponse>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    warnings: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct SymbolTreeNode {
-    id: String,
-    name: String,
-    path: String,
-    #[serde(rename = "type")]
-    type_label: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    node_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    data_type: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    size: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    writable: Option<bool>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    children: Vec<SymbolTreeNode>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct CommProtocolError {
-    code: String,
-    message: String,
 }
 
 pub(super) fn handle_comm_browse_symbols(
@@ -188,7 +149,7 @@ fn browse_opcua_client_nodes(mut request: BrowseSymbolsRequest) -> Result<Value,
     let security = target.opcua_security_profile()?;
     let auth = target.opcua_auth()?;
     let trust_server_certificate = target.trust_server_certificate.unwrap_or(false);
-    let nodes = match crate::opcua::browse_opcua_client_nodes(
+    let result = match crate::opcua::browse_opcua_client_nodes(
         endpoint_url.as_str(),
         security,
         auth,
@@ -196,7 +157,7 @@ fn browse_opcua_client_nodes(mut request: BrowseSymbolsRequest) -> Result<Value,
         4,
         512,
     ) {
-        Ok(nodes) => nodes,
+        Ok(result) => result,
         Err(error) => {
             return response_tree_error_value(
                 request.protocol,
@@ -206,8 +167,8 @@ fn browse_opcua_client_nodes(mut request: BrowseSymbolsRequest) -> Result<Value,
             )
         }
     };
-    let tree = nodes.into_iter().map(opcua_node_to_symbol).collect();
-    response_tree_value(request.protocol, request.kind, tree, Vec::new())
+    let tree = result.nodes.into_iter().map(opcua_node_to_symbol).collect();
+    response_tree_value(request.protocol, request.kind, tree, result.warnings)
 }
 
 fn browse_ads_symbols(
@@ -243,245 +204,41 @@ fn browse_ads_symbols(
         return Err("ADS comm.browse_symbols requires target or cached snapshot".to_string());
     };
     let target = target.into_identity()?;
-    let connection_name = request
-        .connection_name
-        .clone()
-        .or_else(|| target.name.clone())
-        .unwrap_or_else(|| format!("ads_{}", sanitize_id(target.ams_net_id.as_str())));
     let channel = request
         .credential_channel
         .unwrap_or(CredentialChannelClassification::TrustedSameHost);
-    browse_live_ads_symbols(target, connection_name, request, channel)
-}
-
-#[cfg(feature = "ads-wire")]
-fn browse_live_ads_symbols(
-    target: TargetIdentity,
-    connection_name: String,
-    request: BrowseSymbolsRequest,
-    channel: CredentialChannelClassification,
-) -> Result<Value, String> {
-    use crate::ads::onboarding::{AdsOnboardingWire, AdsRsOnboardingWire};
-
-    let local = derive_local_identity(&target)?;
-    let route_plan = build_route_plan(RoutePlanRequest {
-        role: crate::ads::onboarding::RoutePlanRole::Client,
-        route_name: connection_name.clone(),
-        target: target.clone(),
-        local: local.clone(),
+    browse_ads_live(
+        target,
+        request.connection_name,
+        request.include_patterns,
+        request.name_prefix,
         channel,
-    });
-    let mut wire = AdsRsOnboardingWire::default();
-    if let Err(error) = wire.check_route(&target, &local) {
-        if route_check_failure_implies_missing_route(&error) {
-            return missing_ads_route_browse_response(error.to_string(), route_plan);
-        }
-        let code = classify_ads_browse_error(&error);
-        return response_tree_error_value(
-            request.protocol,
-            request.kind,
-            code,
-            format!("ADS port {} route check failed: {error}", target.ams_port),
-        );
-    }
-    let selected_port = target.ams_port;
-    let symbols = match wire.upload_symbols(&target) {
-        Ok(symbols) => symbols,
-        Err(error) if upload_failure_implies_missing_return_route(&error) => {
-            return missing_ads_route_browse_response(error.to_string(), route_plan);
-        }
-        Err(error) => {
-            let code = classify_ads_browse_error(&error);
-            return response_tree_error_value(
-                request.protocol,
-                request.kind,
-                code,
-                format!("ADS port {selected_port} symbol browse failed: {error}"),
-            );
-        }
-    };
-    if symbols.is_empty() {
-        return response_tree_error_value(
-            request.protocol,
-            request.kind,
-            "empty_symbol_table",
-            format!(
-                "ADS port {selected_port} returned an empty symbol table or no compatible symbols"
-            ),
-        );
-    }
-    let import = build_symbol_import_response(
-        &SymbolImportRequest {
-            connection_name,
-            symbols: Vec::new(),
-            include_patterns: request.include_patterns,
-            name_prefix: request.name_prefix,
-        },
-        symbols,
-    );
-    let route = serde_json::json!({
-        "status": "ok",
-        "detail": "ADS route accepted symbol upload.",
-        "action": "ads.route_plan",
-        "route_plan": route_plan,
-    });
-    response_value(
-        "ads".to_string(),
-        "symbols".to_string(),
-        &import,
-        Some(route),
-        Vec::new(),
     )
+    .or_else(live_ads_failure)
 }
 
+/// A live ADS browse of a valid target that fails before the device's port answers — this
+/// computer's ADS identity toward the target cannot be derived, or the build has no ADS wire —
+/// answers the classified protocol error with an empty tree, as a failure on the wire does, never
+/// a request error (specification 11, "Communication discovery scope and symbol browsing").
+fn live_ads_failure(message: String) -> Result<Value, String> {
+    let code = live_ads_failure_code(&message);
+    response_tree_error_value("ads".to_string(), "symbols".to_string(), code, message)
+}
+
+/// The protocol error code of such a failure, classified by its text as a wire failure is.
 #[cfg(feature = "ads-wire")]
-fn classify_ads_browse_error(error: &OnboardingWireError) -> &'static str {
-    let detail = error.detail.to_ascii_lowercase();
-    if matches!(error.kind, OnboardingWireErrorKind::WrongPlcPort)
-        || [
-            "connection refused",
-            "host unreachable",
-            "network unreachable",
-            "target port",
-            "wrong plc port",
-            "invalid ams port",
-            "port disabled",
-            "port not connected",
-            "ads port not opened",
-            "port not registered",
-            "port is invalid",
-            "port removed",
-        ]
-        .iter()
-        .any(|needle| detail.contains(needle))
-    {
-        "ads_port_unavailable"
-    } else if matches!(error.kind, OnboardingWireErrorKind::UnsupportedOperation)
-        || [
-            "not supported",
-            "unsupported",
-            "invalid index group",
-            "service is not available",
-            "unknown command id",
-            "unknown ams command",
-        ]
-        .iter()
-        .any(|needle| detail.contains(needle))
-    {
-        "symbol_upload_unsupported"
-    } else if detail.contains("no more symbols in cache") {
-        "empty_symbol_table"
-    } else {
-        "symbol_upload_failed"
-    }
+fn live_ads_failure_code(message: &str) -> &'static str {
+    classify_ads_browse_error(&OnboardingWireError::new(
+        OnboardingWireErrorKind::NoSymbols,
+        message,
+    ))
 }
 
-#[cfg(feature = "ads-wire")]
-fn route_check_failure_implies_missing_route(error: &OnboardingWireError) -> bool {
-    matches!(error.kind, OnboardingWireErrorKind::RouteMissing)
-        && classify_ads_browse_error(error) == "symbol_upload_failed"
-}
-
-#[cfg(feature = "ads-wire")]
-fn missing_ads_route_browse_response(
-    detail: String,
-    route_plan: RoutePlan,
-) -> Result<Value, String> {
-    let response = BrowseSymbolsResponse {
-        schema_version: BROWSE_SYMBOLS_SCHEMA_VERSION,
-        protocol: "ads".to_string(),
-        kind: "symbols".to_string(),
-        tree: Vec::new(),
-        error: None,
-        route: Some(ads_route_missing_payload(detail, route_plan)),
-        ads_import: None,
-        warnings: vec![
-            "ADS route is not ready; create or fix the route before browsing symbols.".to_string(),
-        ],
-    };
-    serde_json::to_value(response)
-        .map_err(|error| format!("comm.browse_symbols serialization failed: {error}"))
-}
-
-#[cfg(feature = "ads-wire")]
-fn ads_route_missing_payload(detail: String, route_plan: RoutePlan) -> Value {
-    serde_json::json!({
-        "status": "missing",
-        "detail": detail,
-        "action": "ads.route_plan",
-        "route_plan": route_plan,
-    })
-}
-
+/// Without the ADS wire nothing classifies the failure: the upload failed.
 #[cfg(not(feature = "ads-wire"))]
-fn browse_live_ads_symbols(
-    _target: TargetIdentity,
-    _connection_name: String,
-    _request: BrowseSymbolsRequest,
-    _channel: CredentialChannelClassification,
-) -> Result<Value, String> {
-    Err("ADS live symbol browsing needs a runtime built with the ads-wire feature; pass a cached snapshot for offline browsing".to_string())
-}
-
-fn response_value(
-    protocol: String,
-    kind: String,
-    import: &crate::ads::onboarding::SymbolImportResponse,
-    route: Option<Value>,
-    warnings: Vec<String>,
-) -> Result<Value, String> {
-    serde_json::to_value(BrowseSymbolsResponse {
-        schema_version: BROWSE_SYMBOLS_SCHEMA_VERSION,
-        protocol,
-        kind,
-        tree: symbol_tree(import.snapshot.symbols.as_slice()),
-        error: None,
-        route,
-        ads_import: Some(import.clone()),
-        warnings,
-    })
-    .map_err(|error| format!("comm.browse_symbols serialization failed: {error}"))
-}
-
-fn response_tree_value(
-    protocol: String,
-    kind: String,
-    tree: Vec<SymbolTreeNode>,
-    warnings: Vec<String>,
-) -> Result<Value, String> {
-    serde_json::to_value(BrowseSymbolsResponse {
-        schema_version: BROWSE_SYMBOLS_SCHEMA_VERSION,
-        protocol,
-        kind,
-        tree,
-        error: None,
-        route: None,
-        ads_import: None,
-        warnings,
-    })
-    .map_err(|error| format!("comm.browse_symbols serialization failed: {error}"))
-}
-
-fn response_tree_error_value(
-    protocol: String,
-    kind: String,
-    code: &str,
-    message: String,
-) -> Result<Value, String> {
-    serde_json::to_value(BrowseSymbolsResponse {
-        schema_version: BROWSE_SYMBOLS_SCHEMA_VERSION,
-        protocol,
-        kind,
-        tree: Vec::new(),
-        error: Some(CommProtocolError {
-            code: code.to_string(),
-            message,
-        }),
-        route: None,
-        ads_import: None,
-        warnings: Vec::new(),
-    })
-    .map_err(|error| format!("comm.browse_symbols serialization failed: {error}"))
+fn live_ads_failure_code(_message: &str) -> &'static str {
+    "symbol_upload_failed"
 }
 
 fn is_local_symbol_picker(request: &BrowseSymbolsRequest) -> bool {
@@ -508,19 +265,18 @@ fn browse_local_project_symbols(
     };
     let sources = collect_project_source_files(project_root, None)
         .map_err(|error| format!("failed to collect project sources: {error}"))?;
-    let runtime = CompileSession::from_sources(sources)
-        .build_runtime()
+    let declarations = CompileSession::from_sources(sources)
+        .declarations()
         .map_err(|error| format!("failed to compile project globals: {error}"))?;
-    let mut children = runtime
+    let registry = declarations.metadata().registry();
+    let mut children = declarations
         .globals()
-        .iter()
-        .map(|(name, meta)| SymbolTreeNode {
+        .map(|(name, type_id)| SymbolTreeNode {
             id: format!("local:symbol:{}", sanitize_id(name.as_str())),
             name: name.to_string(),
             path: format!("global.{name}"),
-            type_label: runtime
-                .registry()
-                .type_name(meta.type_id)
+            type_label: registry
+                .type_name(type_id)
                 .map(|name| name.to_string())
                 .unwrap_or_else(|| "UNKNOWN".to_string()),
             node_id: None,
@@ -640,112 +396,6 @@ fn ethercat_module_channel_node(module: &crate::io::EthercatModuleInfo) -> Symbo
     }
 }
 
-fn symbol_tree(symbols: &[trust_ads_core::SymbolDescriptor]) -> Vec<SymbolTreeNode> {
-    let mut roots: Vec<SymbolTreeNode> = Vec::new();
-    for symbol in symbols {
-        insert_symbol(
-            &mut roots,
-            &symbol.name.split('.').collect::<Vec<_>>(),
-            symbol,
-            "",
-        );
-    }
-    roots
-}
-
-fn insert_symbol(
-    siblings: &mut Vec<SymbolTreeNode>,
-    parts: &[&str],
-    symbol: &trust_ads_core::SymbolDescriptor,
-    prefix: &str,
-) {
-    let Some((head, rest)) = parts.split_first() else {
-        return;
-    };
-    let path = if prefix.is_empty() {
-        (*head).to_string()
-    } else {
-        format!("{prefix}.{head}")
-    };
-    if rest.is_empty() {
-        siblings.push(SymbolTreeNode {
-            id: format!("ads:symbol:{}", sanitize_id(symbol.name.as_str())),
-            name: (*head).to_string(),
-            path: symbol.name.clone(),
-            type_label: symbol.data_type.source_name.clone(),
-            node_id: None,
-            data_type: None,
-            size: Some(symbol.byte_size),
-            writable: Some(symbol.flags.contains(&SymbolFlag::Write)),
-            children: Vec::new(),
-        });
-        siblings.sort_by(|left, right| left.name.cmp(&right.name));
-        return;
-    }
-    let index = match siblings
-        .iter()
-        .position(|node| node.name == *head && node.size.is_none())
-    {
-        Some(index) => index,
-        None => {
-            siblings.push(SymbolTreeNode {
-                id: format!("ads:group:{}", sanitize_id(path.as_str())),
-                name: (*head).to_string(),
-                path: path.clone(),
-                type_label: "group".to_string(),
-                node_id: None,
-                data_type: None,
-                size: None,
-                writable: None,
-                children: Vec::new(),
-            });
-            siblings.sort_by(|left, right| left.name.cmp(&right.name));
-            siblings
-                .iter()
-                .position(|node| node.name == *head && node.size.is_none())
-                .expect("inserted group is present")
-        }
-    };
-    insert_symbol(&mut siblings[index].children, rest, symbol, path.as_str());
-}
-
-#[cfg(feature = "ads-wire")]
-fn derive_local_identity(target: &TargetIdentity) -> Result<LocalIdentity, String> {
-    let resolved_ip = resolve_target_ip(target.ip.as_str())?;
-    let candidates = runtime_address_candidates_from_interfaces()
-        .map_err(|error| format!("enumerate local interfaces for ADS route check: {error}"))?;
-    let source_ip = resolve_os_source_ip(resolved_ip.as_str())
-        .map_err(|error| format!("resolve local ADS source IP: {error}"))?;
-    let nic = candidates
-        .iter()
-        .find(|candidate| candidate.ip == source_ip)
-        .and_then(|candidate| candidate.nic.clone());
-    derive_runtime_identity_from_source(
-        &IdentityRequest {
-            target_ip: resolved_ip,
-            local_net_id_override: None,
-        },
-        source_ip,
-        None,
-        nic,
-        candidates,
-    )
-    .map_err(|error| error.to_string())
-}
-
-#[cfg(feature = "ads-wire")]
-fn resolve_target_ip(host: &str) -> Result<String, String> {
-    if host.parse::<std::net::IpAddr>().is_ok() {
-        return Ok(host.to_string());
-    }
-    (host, 48898)
-        .to_socket_addrs()
-        .map_err(|error| format!("resolve ADS target '{host}': {error}"))?
-        .map(|addr: SocketAddr| addr.ip().to_string())
-        .next()
-        .ok_or_else(|| format!("resolve ADS target '{host}': no address found"))
-}
-
 fn canonical_protocol(protocol: &str) -> String {
     match protocol
         .trim()
@@ -856,6 +506,8 @@ impl BrowseTarget {
             return Err("ADS browse target ams_port must be between 1 and 65535".to_string());
         }
         Ok(TargetIdentity {
+            os_version: None,
+            fingerprint: None,
             name: self.name,
             ip: host.to_string(),
             ams_net_id: ams_net_id.to_string(),
@@ -974,19 +626,6 @@ fn opcua_node_to_symbol(node: crate::opcua::OpcUaBrowseNode) -> SymbolTreeNode {
             .map(opcua_node_to_symbol)
             .collect(),
     }
-}
-
-fn sanitize_id(value: &str) -> String {
-    value
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.') {
-                ch
-            } else {
-                '_'
-            }
-        })
-        .collect()
 }
 
 #[cfg(test)]

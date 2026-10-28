@@ -1,0 +1,429 @@
+{
+  "schemaVersion": 4,
+  "id": "control-robust-mimo-selection",
+  "title": "Multivariable design selection",
+  "level": "Modern",
+  "sequence": 73,
+  "equipment": "Three sets of the coupled vessels of Lesson 71 with walls of 6, 8 and 10 kW/°C, eight vessel pairs per set: Control Studio's paired PI (Lesson 71) and decoupled group (Lesson 72) on both targets and both loads",
+  "physicalPurpose": "Choose the controller arrangement that meets the vessels' requirements when the wall coupling differs from its nominal 8 kW/°C, without retuning per case.",
+  "principalTechnique": "Multivariable design selection: Control Studio's paired PI and decoupled group, frozen, tested over declared coupling cases in both directions",
+  "objective": "Calculate feasibility and the cross gain left by the frozen decoupler at each coupling, test both frozen Control Studio designs on all 24 cases, and choose the simplest arrangement that passes every case, or find that none does.",
+  "prerequisites": [
+    "control-decoupling"
+  ],
+  "nextLesson": "control-lesson-20",
+  "signals": [
+    {
+      "role": "SP",
+      "name": "Target",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "PV",
+      "name": "Vessel 1 temperature, decoupled, vessel-1 target",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%ML96"
+    },
+    {
+      "role": "MV",
+      "name": "Heater 1 command, decoupled, vessel-1 target",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%ML176"
+    },
+    {
+      "role": "state",
+      "name": "Vessel 1 temperature, paired, vessel-1 target",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%ML32"
+    },
+    {
+      "role": "state",
+      "name": "Vessel 2 temperature, paired, vessel-1 target",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%ML40"
+    },
+    {
+      "role": "state",
+      "name": "Vessel 1 temperature, paired, vessel-2 target",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%ML48"
+    },
+    {
+      "role": "state",
+      "name": "Vessel 2 temperature, paired, vessel-2 target",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%ML56"
+    },
+    {
+      "role": "state",
+      "name": "Vessel 1 temperature, paired, vessel-1 load",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%ML64"
+    },
+    {
+      "role": "state",
+      "name": "Vessel 2 temperature, paired, vessel-1 load",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%ML72"
+    },
+    {
+      "role": "state",
+      "name": "Vessel 1 temperature, paired, vessel-2 load",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%ML80"
+    },
+    {
+      "role": "state",
+      "name": "Vessel 2 temperature, paired, vessel-2 load",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%ML88"
+    },
+    {
+      "role": "state",
+      "name": "Vessel 2 temperature, decoupled, vessel-1 target",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%ML104"
+    },
+    {
+      "role": "state",
+      "name": "Vessel 1 temperature, decoupled, vessel-2 target",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%ML112"
+    },
+    {
+      "role": "state",
+      "name": "Vessel 2 temperature, decoupled, vessel-2 target",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%ML120"
+    },
+    {
+      "role": "state",
+      "name": "Vessel 1 temperature, decoupled, vessel-1 load",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%ML128"
+    },
+    {
+      "role": "state",
+      "name": "Vessel 2 temperature, decoupled, vessel-1 load",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%ML136"
+    },
+    {
+      "role": "state",
+      "name": "Vessel 1 temperature, decoupled, vessel-2 load",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%ML144"
+    },
+    {
+      "role": "state",
+      "name": "Vessel 2 temperature, decoupled, vessel-2 load",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%ML152"
+    },
+    {
+      "role": "state",
+      "name": "Heater 1 command, paired, vessel-1 target",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%ML160"
+    },
+    {
+      "role": "state",
+      "name": "Heater 2 command, paired, vessel-1 target",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%ML168"
+    },
+    {
+      "role": "state",
+      "name": "Heater 2 command, decoupled, vessel-1 target",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%ML184"
+    },
+    {
+      "role": "disturbance",
+      "name": "Load",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 50,
+      "resolution": 0.01,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Active coupling",
+      "unit": "kW/degC",
+      "minimum": 0,
+      "maximum": 20,
+      "resolution": 0.1,
+      "binding": "%ML24"
+    },
+    {
+      "role": "state",
+      "name": "ExperimentEnabled",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX16.0"
+    }
+  ],
+  "plant": {
+    "modelId": "coupled-vessels-three-wall-sets",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "vessel_heat_capacity",
+        "value": 50,
+        "unit": "kJ/°C"
+      },
+      {
+        "name": "vessel_losses",
+        "value": 10,
+        "unit": "kW/°C"
+      },
+      {
+        "name": "wall_coupling_cases",
+        "value": 8,
+        "unit": "kW/°C"
+      },
+      {
+        "name": "heater_per_point",
+        "value": 2,
+        "unit": "kW/%"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "vessel1C": 35,
+      "vessel2C": 35
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Vessel 1 temperature, decoupled, vessel-1 target": 35,
+      "Heater 1 command, decoupled, vessel-1 target": 75
+    },
+    "validityRange": [
+      {
+        "signal": "Vessel 1 temperature, decoupled, vessel-1 target",
+        "minimum": 30,
+        "maximum": 40,
+        "unit": "degC"
+      }
+    ],
+    "simplifications": [
+      "50·dT1/dt = 2·u1 − 10·(T1 − 20) − Hc·(T1 − T2) − D1 and 50·dT2/dt = 2·u2 − 10·(T2 − 20) + Hc·(T1 − T2) − D2, with Hc = 6, 8 or 10 kW/°C; no transport delay.",
+      "Both temperatures are measured exactly; one wall set is exercised per run, the others rest."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "arrangement": "Lesson 71's Control Studio paired PI, Kp 6.75 %/°C, Ki 1.73 %/(°C·s) per vessel, frozen"
+    },
+    "limitation": "Tested only at the nominal 8 kW/°C, where the unchanged vessel strays +0.28 °C."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "arrangement": "Lesson 72's Control Studio decoupled group, Kp 5.42 %/°C, Ki 1.74 %/(°C·s), D = (81/65)·[[1, −4/9], [−4/9, 1]] for 8 kW/°C, frozen, on deviations from 75 %",
+      "couplings": "6, 8 and 10 kW/°C, one run each",
+      "durationSeconds": 60
+    },
+    "decision": "No frozen design passes all 12 of its cases from 6 to 10 kW/°C. The decoupled group passes 10: the unchanged vessel moves −0.223 °C at 6 kW/°C (fails by 0.023 °C), −0.194 and −0.170 °C at 8 and 10; loads' other vessel −0.124/−0.128/−0.131 °C. Paired PI fails all six target cases (+0.218/+0.269/+0.313 °C) and passes the loads (−0.040/−0.049/−0.057 °C). Choose the decoupled group for 8–10 kW/°C; covering 6 kW/°C needs a changed design or limit, tested again on all 24 cases. Tested couplings only."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "ExperimentEnabled",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 62.1,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Targets 35 → 37 °C on vessel 1 and on vessel 2, both architectures",
+      "10 kW loads on vessel 1 and on vessel 2, both architectures",
+      "One run per wall coupling: 6, 8 and 10 kW/°C"
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "unchanged_deviation",
+      "signal": "Vessel 2 temperature, decoupled, vessel-1 target",
+      "window": "complete trial, each coupling",
+      "comparator": "<=",
+      "limit": 0.2,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "changed_late_error",
+      "signal": "Vessel 1 temperature, decoupled, vessel-1 target",
+      "window": "30–60 s, each coupling",
+      "comparator": "<=",
+      "limit": 0.2,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "loaded_minimum",
+      "signal": "Vessel 1 temperature, decoupled, vessel-1 load",
+      "window": "complete trial, each coupling",
+      "comparator": ">=",
+      "limit": 34,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "other_deviation_under_load",
+      "signal": "Vessel 2 temperature, decoupled, vessel-1 load",
+      "window": "complete trial, each coupling",
+      "comparator": "<=",
+      "limit": 0.2,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Vessel 1 temperature, decoupled, vessel-1 target",
+        "minimum": 30,
+        "maximum": 40,
+        "unit": "degC"
+      },
+      {
+        "signal": "Heater 1 command, decoupled, vessel-1 target",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 0,
+    "restorationMode": "When the experiment ends, the targets return to 35 °C and the loads to zero.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical heating changes",
+      "Physical use requires independent temperature-limit, interlock and approval review"
+    ]
+  },
+  "workflowStages": [
+    "Identify"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/55-66-industrial-and-multivariable.md#66-multivariable-design-selection",
+    "nativeTest": "lesson66",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_64_66 lesson66",
+    "projectPath": "examples/control/10-multivariable-control/65-robust-mimo-selection",
+    "runArtifactFields": [
+      "vesselTemperatures",
+      "heaterCommands",
+      "activeCoupling",
+      "caseLedger",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-robust-mimo-selection"
+  },
+  "video": {
+    "viewerOutcome": "See paired PI fail the unchanged vessel at every coupling, and Control Studio's frozen decoupled group pass at 8 and 10 kW/°C but fail at 6.",
+    "requiredVisibleEvidence": [
+      "one run per coupling",
+      "both architectures on both targets and both loads",
+      "the active coupling",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 72's decoupled group, designed by Control Studio, met every requirement: with one setpoint stepping alone, the unchanged vessel moved 0.194 °C, inside its 0.2 °C limit, where paired PI let it rise 0.269 °C. Its matrix $D$, though, was calculated for a wall of 8 kW per °C, and a real wall's coupling is known only roughly. If the wall passes more or less heat, the decoupler turns the other heater down too much or too little, and its margin was only 0.006 °C.\n\nWe will test both arrangements, unchanged, across the range of wall couplings, and choose the simplest that passes every case.",
+    "reason": "We need to:\n\n1. state the range of wall coupling the design must cover;\n2. calculate what each coupling does to the steady commands and to the frozen decoupler; and\n3. test both frozen arrangements at every coupling, in both directions, against Lesson 71's requirements.",
+    "theory": [
+      "**Design selection** compares the complete arrangements on the same requirements, including the cases where the coupling is weaker or stronger than modelled, and picks the simplest that passes them all. For the vessels the uncertain quantity is the wall's coupling $H_c$, taken here as 6 to 10 kW per °C around the modelled 8, a teaching choice.\n\n**In words.** Every design so far was calculated for one model: a wall of 8 kW per °C. A real wall's coupling is known only roughly. A design that passes for the model can fail on the real plant, and the decoupler is the most exposed, because it cancels a cross effect of one particular size. Design selection therefore asks a different question from tuning: not \"what is best for the model?\" but \"what passes for every plant we might really have?\" It has four parts:\n\n1. **State the uncertainty:** the range in which the real coupling may lie.\n2. **Freeze the designs:** no retuning per case, because the real plant does not tell us which case it is.\n3. **Test every arrangement in every case,** against the same requirements and in both directions.\n4. **Choose the simplest arrangement that passes all cases,** or report that none does.\n\nIt is like qualifying one parameter set for a whole machine series: it must work on every machine built, not only on the prototype it was tuned on.\n\n**The formula.** Lesson 69's steady balance with any wall is\n\n$$\n\\begin{bmatrix}10 + H_c & -H_c\\\\ -H_c & 10 + H_c\\end{bmatrix} x = 2v ,\n$$\n\nand what Lesson 72's frozen decoupler leaves of the cross effect is\n\n$$\n(KD)_{12} = \\frac{81}{65}\\cdot\\frac{2H_c - 2c\\,(10 + H_c)}{100 + 20H_c} .\n$$\n\nLet:\n\n- $x$ be the temperature deviations from 35 °C, in °C, and $v$ the heater deviations from 75 %, in points;\n- $H_c$ be the wall's coupling, in kW per °C, and 10 each vessel's loss to the surroundings, in kW per °C;\n- $K$ be the gain matrix for that wall: the balance solved for $x$, $x = Kv$, in °C per point;\n- $D = \\frac{81}{65}\\begin{bmatrix}1 & -c\\\\ -c & 1\\end{bmatrix}$ be Lesson 72's decoupler, with $c = 4/9$, calculated for 8 kW per °C; and\n- $(KD)_{12}$ be the cross gain left over: how far vessel 1 moves per point of request 2, in °C per point.\n\n**Example: the coupled vessels from 6 to 10 kW per °C.** Follow the numbers:\n\n1. Vessel 1 at 37 °C with vessel 2 at 35 °C, $x = [2, 0]^T$, needs $v_1 = 10 + H_c$ and $v_2 = -H_c$: heaters at 91 % and 69 % for 6 kW per °C, 93 % and 67 % for 8, and 95 % and 65 % for 10. A 10 kW load needs 80 % and 75 % at every coupling. All lie inside the heaters' 0–100 %.\n2. At 8 kW per °C the decoupler leaves $2 \\times 8 - 2 \\cdot \\frac{4}{9} \\cdot 18 = 0$: no cross gain, as designed.\n3. At 6 kW per °C it leaves $\\frac{81}{65}\\cdot\\frac{12 - 14.22}{220} = -0.0126$ °C per point: heater 2 is cut more than the wall delivers.\n4. At 10 kW per °C it leaves $\\frac{81}{65}\\cdot\\frac{20 - 17.78}{300} = +0.0092$ °C per point: heater 2 is cut too little.\n5. Without a map, $c = 0$ and a scale of 1, the cross gain is $2H_c/(100 + 20H_c)$: 0.0545, 0.0615 and 0.0667 °C per point. The frozen decoupler leaves far less at every tested wall, but not zero.\n\nBoth PIs still remove every steady error through their integrals; the leftover cross gain shows during the change. The test:\n\n1. Freeze Control Studio's designs for 8 kW per °C: paired PI, $K_p = 6.75$ %/°C and $K_i = 1.73$ %/(°C·s); the decoupled group, $K_p = 5.42$, $K_i = 1.74$ and $D$.\n2. Test each on both setpoint steps and both loads at 6, 8 and 10 kW per °C: 24 cases.\n3. Apply Lesson 71's requirements to every case.\n4. Choose the simplest design that passes every case.\n\n**The limitation.** A pass holds at the tested couplings only; values between and beyond them are not proven. Outside the range the leftover grows quickly: at 4 kW per °C the frozen decoupler would leave $\\frac{81}{65}\\cdot\\frac{8 - 12.44}{180} = -0.0308$ °C per point, 2.4 times its value at 6."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. How does paired PI's unchanged-vessel excursion change between 6 and 10 kW per °C, and why?\n2. How does the frozen decoupler's dip change between 6 and 10 kW per °C, and why?\n3. What does the decoupler cost under the load, and does either arrangement pass every case?\n\n| Quantity, at 6 / 8 / 10 kW per °C | Predicted |\n| --- | ---: |\n| Heaters holding 37 °C and 35 °C | 91/69 %, 93/67 %, 95/65 % |\n| Cross gain left by the frozen $D$ | −0.0126, 0, +0.0092 °C per point |\n| Cross gain without a map | 0.0545, 0.0615, 0.0667 °C per point |",
+    "practicalPreparation": [
+      "1. Open this lesson's project and start **Simulator**. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Project experiment** from **Method** and open **Declared experiment settings**. Select **Inspect experiment parameters**, set **Coupling Case** to 6, then select **Review parameter values** and **Apply reviewed values**.\n3. **Signals** already shows `P1.TargetC · Setpoint (°C)`, `P1.DcT1Vessel1C · Process value (°C)` and `P1.DcT1Heater1Pct · Applied output (%)`, the decoupler's vessel-1 setpoint test; add `P1.DcT1Vessel2C · state (°C)`, `P1.PiT1Vessel1C · state (°C)` and `P1.PiT1Vessel2C · state (°C)`.\n4. Answer the predictions before starting.\n5. Select **Review project test** and check the declared **62.1 s** duration.\n6. Select **Confirm and start**.\n7. After the run, hover each vessel 2's largest deviation. Then show the decoupler's load test, `P1.LoadKw · disturbance (kW)`, `P1.DcL1Vessel1C · state (°C)` and `P1.DcL1Vessel2C · state (°C)`, and hover their lowest points. Control Studio shows **Project test completed. Outputs restored.**\n8. Repeat with **Coupling Case** 8 and 10: restart **Simulator**, apply the new value and start the test again.\n\nSelect **Abort test** to stop early."
+    ],
+    "baseline": "Control Studio's decoupled group was designed for 8 kW/°C and tested only there, with a margin of 0.006 °C; the real wall coupling may lie between 6 and 10 kW/°C.",
+    "change": "Freeze Control Studio's paired PI and decoupled group, calculate feasibility and the decoupler's leftover cross gain per coupling, and test both on both targets and both loads at 6, 8 and 10 kW/°C.",
+    "comparison": "![Paired PI fails the unchanged vessel at every wall; the frozen decoupled group fails it at 6 kW per °C](figures/robust-selection.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio's recordings, one run per coupling; every vessel-2 case repeated its vessel-1 mirror:\n\n| Arrangement, coupling | Setpoint: changed peak / largest error 30–60 s / unchanged vessel | Load: loaded lowest / largest error 30–60 s / other vessel | Cases passed |\n| --- | ---: | ---: | ---: |\n| Paired, 6 kW per °C | 36.999 °C / 0.020 °C / **+0.218 °C** | 34.736 °C / 0.006 °C / −0.040 °C | 2 of 4 |\n| Paired, 8 kW per °C | 36.998 °C / 0.034 °C / **+0.269 °C** | 34.745 °C / 0.008 °C / −0.049 °C | 2 of 4 |\n| Paired, 10 kW per °C | 36.996 °C / 0.051 °C / **+0.313 °C** | 34.753 °C / 0.010 °C / −0.057 °C | 2 of 4 |\n| Decoupled, 6 kW per °C | 37.013 °C / 0.003 °C / **−0.223 °C** | 34.724 °C / 0.002 °C / −0.124 °C | 2 of 4 |\n| Decoupled, 8 kW per °C | 37.004 °C / 0.001 °C / −0.194 °C | 34.730 °C / 0.002 °C / −0.128 °C | 4 of 4 |\n| Decoupled, 10 kW per °C | 37.000 °C / 0.003 °C / −0.170 °C | 34.736 °C / 0.001 °C / −0.131 °C | 4 of 4 |\n\nThe heaters ended at the balance's 91/69, 93/67 and 95/65 %.\n\n1. Paired PI's excursion grew with the wall, +0.218, +0.269 and +0.313 °C: more of heater 1's heat crossed before PI 2 acted. It failed the unchanged-vessel limit at every coupling.\n2. The decoupled group's dip shrank from 0.223 to 0.170 °C as the wall grew: at 6 kW per °C it cut heater 2 more than the wall delivered and failed the limit by 0.023 °C; at 8 it passed by 0.006 °C, at 10 by 0.030 °C.\n3. Under the load it cost 0.124–0.131 °C on the other vessel, against 0.040–0.057 °C with paired PI; every load case passed.\n\nNeither arrangement passes all 12 of its cases: paired PI fails its 6 setpoint cases, the decoupled group its 2 setpoint cases at 6 kW per °C. So no frozen design is chosen for walls of 6 to 10 kW per °C; the decoupled group is chosen for 8 to 10 kW per °C. To cover 6 kW per °C, the design or the limit must change and all 24 cases be tested again. These are simulation results.",
+    "validation": "![Paired PI fails the unchanged vessel at every wall; the frozen decoupled group fails it at 6 kW per °C](figures/robust-selection.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio's recordings, one run per coupling; every vessel-2 case repeated its vessel-1 mirror:\n\n| Arrangement, coupling | Setpoint: changed peak / largest error 30–60 s / unchanged vessel | Load: loaded lowest / largest error 30–60 s / other vessel | Cases passed |\n| --- | ---: | ---: | ---: |\n| Paired, 6 kW per °C | 36.999 °C / 0.020 °C / **+0.218 °C** | 34.736 °C / 0.006 °C / −0.040 °C | 2 of 4 |\n| Paired, 8 kW per °C | 36.998 °C / 0.034 °C / **+0.269 °C** | 34.745 °C / 0.008 °C / −0.049 °C | 2 of 4 |\n| Paired, 10 kW per °C | 36.996 °C / 0.051 °C / **+0.313 °C** | 34.753 °C / 0.010 °C / −0.057 °C | 2 of 4 |\n| Decoupled, 6 kW per °C | 37.013 °C / 0.003 °C / **−0.223 °C** | 34.724 °C / 0.002 °C / −0.124 °C | 2 of 4 |\n| Decoupled, 8 kW per °C | 37.004 °C / 0.001 °C / −0.194 °C | 34.730 °C / 0.002 °C / −0.128 °C | 4 of 4 |\n| Decoupled, 10 kW per °C | 37.000 °C / 0.003 °C / −0.170 °C | 34.736 °C / 0.001 °C / −0.131 °C | 4 of 4 |\n\nThe heaters ended at the balance's 91/69, 93/67 and 95/65 %.\n\n1. Paired PI's excursion grew with the wall, +0.218, +0.269 and +0.313 °C: more of heater 1's heat crossed before PI 2 acted. It failed the unchanged-vessel limit at every coupling.\n2. The decoupled group's dip shrank from 0.223 to 0.170 °C as the wall grew: at 6 kW per °C it cut heater 2 more than the wall delivered and failed the limit by 0.023 °C; at 8 it passed by 0.006 °C, at 10 by 0.030 °C.\n3. Under the load it cost 0.124–0.131 °C on the other vessel, against 0.040–0.057 °C with paired PI; every load case passed.\n\nNeither arrangement passes all 12 of its cases: paired PI fails its 6 setpoint cases, the decoupled group its 2 setpoint cases at 6 kW per °C. So no frozen design is chosen for walls of 6 to 10 kW per °C; the decoupled group is chosen for 8 to 10 kW per °C. To cover 6 kW per °C, the design or the limit must change and all 24 cases be tested again. These are simulation results.",
+    "explanation": "Design selection compares complete, frozen arrangements across the stated uncertainty and both directions of every event, and picks the simplest that passes all cases. A design that cancels only the modelled coupling has to be shown to survive the others.\n\nFor the coupled vessels, paired PI failed the unchanged-vessel limit at every wall; Control Studio's decoupled group, frozen, passed from 8 to 10 kW per °C but failed it by 0.023 °C at 6, so neither design covers the whole range.",
+    "transfer": "The gain matrices of these lessons describe settled interaction only. They say nothing about the water or heat stored inside a process, or about what a process with fewer sensors than stores can reveal.\n\n[State-space models](../../02-derivative-action-and-dynamic-response/20-state-equations-from-stores/README.md) describes two tanks in cascade by their stored water, and asks what one pump can control and what one downstream sensor can reveal."
+  }
+}

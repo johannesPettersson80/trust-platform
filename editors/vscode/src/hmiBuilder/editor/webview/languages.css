@@ -1,0 +1,52 @@
+/* The project's languages as tick boxes (specification 39, §14.5 item 2). */
+.hb-language-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: auto;
+}
+.hb-language-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 32px;
+    padding: 0 8px;
+    border-radius: 6px;
+}
+.hb-language-row:hover {
+    background: var(--trust-hover);
+}
+.hb-language-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+.hb-language-tag {
+    color: var(--trust-text-muted);
+    font-size: 12px;
+}
+.hb-language-default {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--trust-text-muted);
+    font-size: 12px;
+    cursor: pointer;
+}
+.hb-language-default:has(input:disabled) {
+    visibility: hidden;
+}
+.hb-language-other {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+.hb-language-other input {
+    flex: 1;
+    min-width: 0;
+}
+.hb-languages-dialog {
+    width: min(420px, 90vw);
+}

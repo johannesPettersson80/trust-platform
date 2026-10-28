@@ -31,7 +31,7 @@ pub use backend_ads_rs::{AdsRsTimeouts, AdsRsTransport};
 #[cfg(feature = "ads-wire")]
 pub use backend_host::{HostAdsBackendKind, HostAdsClient};
 pub use client::{
-    resolve_declared_bindings, AdsBinding, AdsBridgeError, AdsConnectionBridge, AdsConnectionState,
+    resolve_compiled_bindings, AdsBinding, AdsBridgeError, AdsConnectionBridge, AdsConnectionState,
     AdsConnectionWorker, AdsLiveValue, AdsWorkerThread,
 };
 pub use contracts::{
@@ -41,9 +41,9 @@ pub use contracts::{
 pub use generate::{generate_ads_interface, AdsGeneratedInterface, AdsInterfaceError};
 pub use mock::MockAdsTransport;
 pub use transport::{
-    AdsDeviceState, AdsHandleRequest, AdsNotificationMode, AdsNotificationSample, AdsPointAddress,
-    AdsReadResult, AdsResolvedHandle, AdsSubscribeRequest, AdsSubscription, AdsTransport,
-    AdsTransportError, AdsWriteRequest,
+    AdsDeviceState, AdsHandleRequest, AdsIndexRead, AdsIndexReadError, AdsNotificationMode,
+    AdsNotificationSample, AdsPointAddress, AdsReadResult, AdsResolvedHandle, AdsSubscribeRequest,
+    AdsSubscription, AdsTransport, AdsTransportError, AdsWriteRequest,
 };
 pub use validate::{
     validate_ads_interface_offline, AdsOfflineValidationReport, AdsValidationError,

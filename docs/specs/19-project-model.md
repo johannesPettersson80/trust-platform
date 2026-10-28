@@ -13,7 +13,8 @@ project/
   io.toml
   simulation.toml
   hmi/
-  program.stbc
+  program.tpi
+  deployment-record.bin
 ```
 
 ## 2. File Ownership
@@ -25,12 +26,17 @@ project/
 | `runtime.toml` | execution, control, discovery, mesh, runtime-cloud policy |
 | `io.toml` | driver selection and safe-state I/O behavior |
 | `simulation.toml` | deterministic virtual coupling and fault injection |
-| `hmi/` | declarative HMI/operator pages |
-| `program.stbc` | compiled bytecode artifact |
+| `hmi/` | HMI pages and screen layout, specified in `docs/specs/39-hmi-builder.md` |
+| `program.tpi` | the program image this computer runs, written by `trust-runtime build` (specification 44 §4.1, NX-15) |
+| `deployment-record.bin` | the program image's deployment record (specification 34 §5.1.1) |
 
 ## 3. Separation of Concerns
 
-- `trust-lsp.toml` defines authoring and semantic context
+- `trust-lsp.toml` defines authoring and semantic context; its `[project]
+  vendor_profile` also selects the conversion rules with which every tool that
+  runs the project executes it (`trust-runtime build`/`check`/`run`,
+  `trust-dev test`, debug sessions, `trust-harness --project`; see
+  `docs/specs/07-standard-functions.md` section 2.10)
 - `runtime.toml` defines execution and exposed control surfaces
 - `io.toml` defines physical or simulated I/O backends
 - `simulation.toml` defines deterministic plant simulation behavior
@@ -48,23 +54,13 @@ admission.
 ## 4. Lifecycle
 
 1. Author/edit source files in `src/`
-2. Build to `program.stbc`
+2. Build to `program.tpi` with `trust-runtime build`
 3. Validate configuration and bundle contents
 4. Run or reload the runtime
 5. Drive HMI, tests, harness scenarios, or agent workflows against the same project
 
-### 4.1 HMI scaffold source set
-
-`trust-runtime hmi init|update|reset` compiles the same recursive project source
-set as the bundle builder, including resolved local package dependencies. Source
-directory and file names are literal filesystem names; spaces, Unicode, and glob
-metacharacters do not alter discovery. Supported `.st` and `.pou` extensions are
-matched with ASCII case-insensitivity and returned in deterministic path order.
-Unreadable or invalid source paths fail the scaffold operation instead of being
-treated as an empty project.
-
 ## 5. Related Specs
 
-- `12-bytecode.md` for `program.stbc`
+- `44-native-execution.md` for `program.tpi`
 - `20-agent-api-v1.md` for runtime agent orchestration
 - `21-harness-protocol.md` for deterministic harness execution

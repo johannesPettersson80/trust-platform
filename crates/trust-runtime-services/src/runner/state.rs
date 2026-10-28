@@ -1,0 +1,330 @@
+//! What the resource loop keeps between passes and the dispatcher reaches through shared
+//! references: the resource state with its fault, its pending restart and its queued commands,
+//! and the metrics and events it records.
+//!
+//! Everything is single-owner. The cells take the place of trust-runtime's locks and its command
+//! queue; a record that is in use when it is read is reported unavailable, as a poisoned lock is
+//! on the host.
+
+use alloc::collections::VecDeque;
+use core::cell::{Cell, RefCell};
+
+use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
+use trust_runtime_core::retain::RestartMode;
+use trust_runtime_core::scheduler::ResourceState;
+
+use crate::events::{store_event, RuntimeEvent};
+use crate::metrics::{RuntimeMetrics, RuntimeMetricsSnapshot};
+use crate::resource::commands::{
+    running_command_effect, CommandClass, CommandSendError, RunningCommandEffect,
+    RESOURCE_COMMAND_CAPACITY,
+};
+
+/// The resource state machine: Running, Paused, Stopped or Faulted, the fault that stopped the
+/// resource, and the restart and the commands that wait for the loop.
+pub(super) struct ResourceCell {
+    state: Cell<ResourceState>,
+    last_error: Cell<Option<RuntimeError>>,
+    pending_restart: Cell<Option<RestartMode>>,
+    /// Pause and resume commands that wait for the program's next boundary, as trust-runtime's
+    /// bounded command queue holds them for its scan thread: how many there are, and the effect
+    /// of the last pause or resume among them, which decides the state.
+    queued: Cell<usize>,
+    last_command: Cell<Option<RunningCommandEffect>>,
+    /// The program has ended, as a `shutdown` ends it on every runtime: the runtime stays reachable
+    /// in the Stopped state (specification 34, STATE-08), the queue is closed, and a restart starts
+    /// the program as a new trust-runtime process would.
+    ended: Cell<bool>,
+}
+
+impl ResourceCell {
+    /// A running resource without a fault.
+    pub(super) fn running() -> Self {
+        Self::with(ResourceState::Running, false)
+    }
+
+    /// A resource without a program: Stopped without a fault, and ended, so it takes no command.
+    pub(super) fn stopped() -> Self {
+        Self::with(ResourceState::Stopped, true)
+    }
+
+    fn with(state: ResourceState, ended: bool) -> Self {
+        Self {
+            state: Cell::new(state),
+            last_error: Cell::new(None),
+            pending_restart: Cell::new(None),
+            queued: Cell::new(0),
+            last_command: Cell::new(None),
+            ended: Cell::new(ended),
+        }
+    }
+
+    pub(super) fn state(&self) -> ResourceState {
+        self.state.get()
+    }
+
+    pub(super) fn set_state(&self, state: ResourceState) {
+        self.state.set(state);
+    }
+
+    pub(super) fn last_error(&self) -> Option<RuntimeError> {
+        let error = self.last_error.take();
+        let copy = error.clone();
+        self.last_error.set(error);
+        copy
+    }
+
+    pub(super) fn set_last_error(&self, error: Option<RuntimeError>) {
+        self.last_error.set(error);
+    }
+
+    pub(super) fn update_pending_restart(&self, update: impl FnOnce(&mut Option<RestartMode>)) {
+        let mut pending = self.pending_restart.get();
+        update(&mut pending);
+        self.pending_restart.set(pending);
+    }
+
+    pub(super) fn take_pending_restart(&self) -> Option<RestartMode> {
+        self.pending_restart.take()
+    }
+
+    /// Queues a pause or resume for the program's next boundary, where trust-runtime's scan
+    /// thread would take it at its next pass. The shared running-command rule decides its
+    /// effect. A program that has ended takes no command, as a scan thread that has ended, and a
+    /// full queue refuses one.
+    pub(super) fn command(&self, class: CommandClass) -> Result<(), CommandSendError> {
+        if self.ended.get() {
+            return Err(CommandSendError::Closed);
+        }
+        let queued = self.queued.get();
+        if queued >= RESOURCE_COMMAND_CAPACITY {
+            return Err(CommandSendError::Full);
+        }
+        self.queued.set(queued + 1);
+        let effect = running_command_effect(class);
+        if effect != RunningCommandEffect::Apply {
+            self.last_command.set(Some(effect));
+        }
+        Ok(())
+    }
+
+    /// Takes every queued command and returns the effect of the last pause or resume among them,
+    /// the state that trust-runtime's scan thread leaves when it applies them in order.
+    pub(super) fn take_commands(&self) -> Option<RunningCommandEffect> {
+        self.queued.set(0);
+        self.last_command.take()
+    }
+
+    pub(super) fn ended(&self) -> bool {
+        self.ended.get()
+    }
+
+    /// The program has ended: the queued commands and a pending restart are dropped, as they are
+    /// when trust-runtime's scan thread ends.
+    pub(super) fn end(&self) {
+        self.ended.set(true);
+        self.queued.set(0);
+        self.last_command.set(None);
+        self.pending_restart.set(None);
+    }
+
+    /// The program runs again after it started as a new process would.
+    pub(super) fn begin(&self) {
+        self.ended.set(false);
+        self.last_error.set(None);
+        self.state.set(ResourceState::Running);
+    }
+}
+
+/// The clock of the program's uptime: the platform's monotonic clock read from the program's
+/// start, as a new trust-runtime process measures its uptime from its own start.
+#[derive(Clone)]
+pub(super) struct ProgramClock<C> {
+    clock: C,
+    start: MonotonicInstant,
+}
+
+impl<C: MonotonicClock> MonotonicClock for ProgramClock<C> {
+    fn now(&self) -> MonotonicInstant {
+        MonotonicInstant::from_origin(core::time::Duration::ZERO)
+            .saturating_add(self.clock.now().saturating_since(self.start))
+    }
+}
+
+/// The bytes of heap an event store of `capacity` events takes: one slot for each event and the
+/// spare slot that lets the newest displace the oldest without a reallocation, as the runner
+/// reserves it. A chip keeps them beside the memory it has for programs (specification 34 MEM-12,
+/// Appendix D).
+#[must_use]
+pub fn event_store_bytes(capacity: usize) -> usize {
+    capacity
+        .saturating_add(1)
+        .saturating_mul(core::mem::size_of::<RuntimeEvent>())
+}
+
+/// The metrics and the event store of the program.
+pub(super) struct Records<C> {
+    metrics: RefCell<RuntimeMetrics<ProgramClock<C>>>,
+    events: RefCell<VecDeque<RuntimeEvent>>,
+    /// The newest events the event store keeps (`runtime.events.capacity`, specification 11). A
+    /// program loaded in place brings the capacity of its own record ([`Records::resize`]).
+    capacity: Cell<usize>,
+}
+
+impl<C: MonotonicClock> Records<C> {
+    /// Empty records of a program that started at `start` on `clock`, whose event store keeps the
+    /// newest `capacity` events.
+    ///
+    /// The event store takes its whole bound at once, so a heap that is too small for it fails
+    /// here, at start, never in the middle of a scan (specification 34, ARCH-05).
+    pub(super) fn new(clock: C, start: MonotonicInstant, capacity: usize) -> Self {
+        Self {
+            metrics: RefCell::new(RuntimeMetrics::with_clock(ProgramClock { clock, start })),
+            // One spare slot, so appending the event that displaces the oldest does not
+            // reallocate mid-scan.
+            events: RefCell::new(VecDeque::with_capacity(capacity + 1)),
+            capacity: Cell::new(capacity),
+        }
+    }
+
+    /// The newest events the event store keeps.
+    pub(super) fn event_capacity(&self) -> usize {
+        self.capacity.get()
+    }
+
+    /// Gives the event store the capacity of a program loaded in place, the newest `capacity` events,
+    /// and empties it (specification 34 STATE-08). The store keeps the room it holds when that room
+    /// takes `capacity` events, so a program loaded after the loop was built never leaves the store
+    /// looking for a block among the program's; only a larger capacity frees the old room and then
+    /// reserves anew, so the heap never holds both. The store takes its whole bound at once, so a
+    /// heap too small for it refuses here, never in the middle of a scan (specification 34, ARCH-05).
+    ///
+    /// Returns whether the store has room for `capacity` events now. When it has not, the store is
+    /// empty and holds no room, and the program that asked for it does not start.
+    pub(super) fn resize(&self, capacity: usize) -> bool {
+        let Ok(mut events) = self.events.try_borrow_mut() else {
+            return false;
+        };
+        events.clear();
+        self.capacity.set(capacity);
+        // One spare slot, so appending the event that displaces the oldest does not reallocate.
+        if events.capacity() > capacity {
+            return true;
+        }
+        *events = VecDeque::new();
+        events.try_reserve_exact(capacity + 1).is_ok()
+    }
+
+    /// Empties the records of a program that starts again at `start` as a new trust-runtime
+    /// process: no events and new metrics, whose uptime counts from `start`. The event store
+    /// keeps its memory.
+    pub(super) fn restart(&self, clock: C, start: MonotonicInstant) {
+        if let Ok(mut metrics) = self.metrics.try_borrow_mut() {
+            metrics.restart(ProgramClock { clock, start });
+        }
+        if let Ok(mut events) = self.events.try_borrow_mut() {
+            events.clear();
+        }
+    }
+
+    /// Stores `event` as the newest event, within the store's bound.
+    pub(super) fn push_event(&self, event: RuntimeEvent) {
+        if let Ok(mut events) = self.events.try_borrow_mut() {
+            store_event(&mut events, event, self.capacity.get());
+        }
+    }
+
+    /// Records a measurement in the metrics.
+    pub(super) fn record(&self, record: impl FnOnce(&mut RuntimeMetrics<ProgramClock<C>>)) {
+        if let Ok(mut metrics) = self.metrics.try_borrow_mut() {
+            record(&mut metrics);
+        }
+    }
+
+    pub(super) fn metrics_snapshot(&self) -> Option<RuntimeMetricsSnapshot> {
+        let metrics = self.metrics.try_borrow().ok()?;
+        Some(metrics.snapshot())
+    }
+
+    pub(super) fn read_events<R>(
+        &self,
+        read: impl FnOnce(&VecDeque<RuntimeEvent>) -> R,
+    ) -> Option<R> {
+        let events = self.events.try_borrow().ok()?;
+        Some(read(&events))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A clock that never moves.
+    #[derive(Clone)]
+    struct Still;
+
+    impl MonotonicClock for Still {
+        fn now(&self) -> MonotonicInstant {
+            MonotonicInstant::from_origin(core::time::Duration::ZERO)
+        }
+    }
+
+    #[test]
+    fn the_event_store_takes_the_bytes_a_chip_keeps_for_it() {
+        // Specification 34 MEM-12 and Appendix D: a chip keeps `event_store_bytes(capacity)` beside
+        // the memory it has for programs, so the store takes no more. Worked by hand: a store of 200
+        // events holds 201 slots, the spare one letting the newest event displace the oldest without
+        // a reallocation. The wrong behaviour: a store that reserves more than the chip keeps for it,
+        // which a program at the edge of the chip's memory would find missing when it starts.
+        let records = Records::new(Still, Still.now(), 200);
+        let slots = records.events.borrow().capacity();
+        assert_eq!(slots, 201);
+        assert_eq!(
+            event_store_bytes(200),
+            slots * core::mem::size_of::<RuntimeEvent>()
+        );
+    }
+
+    #[test]
+    fn the_event_store_keeps_its_room_for_a_program_that_keeps_fewer_events() {
+        // Specification 34 STATE-08 and Appendix D.2: a program loaded in place takes the capacity
+        // of its record in the room the store holds, and only a capacity that does not fit that room
+        // reserves anew. Worked by hand: a store built for 200 events holds 201 slots; a program
+        // that keeps 10 events leaves the 201 slots and keeps the newest 10 of 11 overruns (missed
+        // 1 to 10); a program that keeps 200 again needs no new block; one that keeps 300 needs 301
+        // slots, more than 201, so the store reserves exactly 301. The wrong behaviour caught: a
+        // store that frees its room for the smaller capacity, so that the next program with the
+        // default capacity must find a block of 201 slots among the blocks of a program that is
+        // already loaded, which the C6 bench of 22 October 2026 found with no such block left.
+        let records = Records::new(Still, Still.now(), 200);
+        assert!(records.resize(10));
+        assert_eq!(records.event_capacity(), 10);
+        assert_eq!(records.events.borrow().capacity(), 201);
+        for missed in 0..11 {
+            records.push_event(RuntimeEvent::TaskOverrun {
+                name: smol_str::SmolStr::new_static("Scan"),
+                missed,
+                time: trust_runtime_core::value::Duration::ZERO,
+            });
+        }
+        let kept: alloc::vec::Vec<u64> = records
+            .events
+            .borrow()
+            .iter()
+            .map(|event| match event {
+                RuntimeEvent::TaskOverrun { missed, .. } => *missed,
+                other => panic!("only overruns were stored: {other:?}"),
+            })
+            .collect();
+        assert_eq!(kept, (1..11).collect::<alloc::vec::Vec<u64>>());
+
+        assert!(records.resize(200));
+        assert_eq!(records.events.borrow().capacity(), 201);
+        assert!(records.events.borrow().is_empty());
+
+        assert!(records.resize(300));
+        assert_eq!(records.event_capacity(), 300);
+        assert_eq!(records.events.borrow().capacity(), 301);
+    }
+}

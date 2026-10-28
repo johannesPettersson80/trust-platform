@@ -22,14 +22,17 @@ this page or directly from VS Code.
 
 ## Step 3: Verify The Extension In VS Code
 
-Open VS Code, press `Ctrl/Cmd+Shift+P` (`Cmd+Shift+P` on macOS), and type
-`Structured Text:`. If the extension is healthy, the truST commands appear
-immediately in the Command Palette.
+Open VS Code, press `Ctrl+Shift+P` (`Cmd+Shift+P` on macOS), and type
+`truST:`. If the extension is healthy, the truST commands appear immediately in
+the Command Palette.
 
-![VS Code Command Palette with Structured Text commands](../assets/images/install/command-palette-structured-text.png)
+The extension carries the compiler toolchain that builds your programs. The
+first build installs it, offline too; you do not install Rust.
 
-*Figure:* `Structured Text:` commands visible in the Command Palette. This is
-the fastest proof that the editor-side install worked.
+![VS Code Command Palette with the truST commands](../assets/images/install/command-palette-trust.png)
+
+*Figure:* `truST:` commands visible in the Command Palette. This is the fastest
+proof that the editor-side install worked.
 
 ## Step 4: Download Runtime Binaries
 

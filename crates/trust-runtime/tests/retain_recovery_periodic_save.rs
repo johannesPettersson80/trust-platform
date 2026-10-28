@@ -1,16 +1,18 @@
 //! Spec 11 retain fail-closed policy at the installed-runtime level: a due periodic save
 //! failure fails that scan before physical outputs are committed, does not advance the save
 //! cadence, and the next scan retries the save. The dirty flag itself is not observable here.
+//!
+//! The test needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use trust_runtime::error::RuntimeError;
-use trust_runtime::harness::CompileSession;
+use trust_runtime::harness::TestHarness;
 use trust_runtime::io::IoDriver;
 use trust_runtime::retain::RetainStore;
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::RetainSnapshot;
+use trust_runtime::{RestartMode, RetainSnapshot};
 
 const SOURCE: &str = r#"
 VAR_GLOBAL RETAIN kept : INT := INT#1; END_VAR
@@ -71,11 +73,9 @@ impl IoDriver for RecordingDriver {
 /// successful save (spec 11 retain cadence: "rate-limited").
 #[test]
 fn failed_due_periodic_save_blocks_the_scan_outputs_and_the_next_scan_retries() {
-    let mut runtime = CompileSession::from_source(SOURCE)
-        .build_runtime()
-        .expect("compile retain periodic fixture");
+    let mut harness = TestHarness::from_source(SOURCE).expect("compile retain periodic fixture");
     let writes = Arc::new(Mutex::new(Vec::new()));
-    runtime.add_io_driver(
+    harness.runtime_mut().add_io_driver(
         "recorder",
         Box::new(RecordingDriver {
             writes: writes.clone(),
@@ -83,18 +83,21 @@ fn failed_due_periodic_save_blocks_the_scan_outputs_and_the_next_scan_retries() 
     );
     let calls = Arc::new(AtomicUsize::new(0));
     let stored_kept = Arc::new(Mutex::new(None));
-    runtime.set_retain_store(
-        Some(Box::new(FlakyStore {
-            calls: calls.clone(),
-            failures: 1,
-            stored_kept: stored_kept.clone(),
-        })),
-        Some(Duration::from_millis(10)),
-    );
+    harness
+        .runtime_mut()
+        .set_retain_store(
+            Some(Box::new(FlakyStore {
+                calls: calls.clone(),
+                failures: 1,
+                stored_kept: stored_kept.clone(),
+            })),
+            Some(Duration::from_millis(10)),
+        )
+        .expect("the retain file is set");
 
     // The store was configured at t = 0 with a 10 ms interval, so the scan at t = 10 ms is due.
-    runtime.advance_time(Duration::from_millis(10));
-    let failed = runtime.execute_cycle();
+    harness.advance_time(Duration::from_millis(10));
+    let failed = harness.runtime_mut().execute_cycle();
     assert!(
         matches!(failed, Err(RuntimeError::RetainStore(_))),
         "due save failure must fail the scan with RetainStore, got {failed:?}"
@@ -109,13 +112,16 @@ fn failed_due_periodic_save_blocks_the_scan_outputs_and_the_next_scan_retries() 
         "the failed scan must not commit physical outputs"
     );
     assert!(
-        runtime.faulted(),
+        harness.runtime().faulted(),
         "the failed save is latched as the resource fault"
     );
     assert!(
-        matches!(runtime.last_fault(), Some(RuntimeError::RetainStore(_))),
+        matches!(
+            harness.runtime().last_fault(),
+            Some(RuntimeError::RetainStore(_))
+        ),
         "latched fault must be the RetainStore error, got {:?}",
-        runtime.last_fault()
+        harness.runtime().last_fault()
     );
     assert_eq!(
         *stored_kept.lock().expect("stored value lock"),
@@ -123,10 +129,14 @@ fn failed_due_periodic_save_blocks_the_scan_outputs_and_the_next_scan_retries() 
         "a failed save must not publish a snapshot"
     );
 
-    // The operator clears the fault. The failed save did not move the last save time, so a
-    // scan at the same t = 10 ms is still due and retries the save.
-    runtime.clear_fault();
-    runtime
+    // The operator restarts the faulted resource warm, which keeps the retained `kept` of the
+    // failed scan, 2. The failed save did not move the last save time, so a scan at the same
+    // t = 10 ms is still due and retries the save.
+    harness
+        .restart(RestartMode::Warm)
+        .expect("the warm restart clears the latched fault");
+    harness
+        .runtime_mut()
         .execute_cycle()
         .expect("retried periodic save must succeed");
     assert_eq!(
@@ -139,7 +149,7 @@ fn failed_due_periodic_save_blocks_the_scan_outputs_and_the_next_scan_retries() 
         Some(Value::Int(3)),
         "the retried save publishes the in-memory value of the scan that saved"
     );
-    assert_eq!(runtime.storage().get_global("kept"), Some(&Value::Int(3)));
+    assert_eq!(harness.runtime().read_variable("kept"), Ok(Value::Int(3)));
     let committed = writes.lock().expect("driver writes lock");
     assert_eq!(committed.len(), 1, "only the retried scan commits outputs");
     assert_eq!(
@@ -150,8 +160,9 @@ fn failed_due_periodic_save_blocks_the_scan_outputs_and_the_next_scan_retries() 
     drop(committed);
 
     // The successful save restarts the cadence: 5 ms later the scan is not due.
-    runtime.advance_time(Duration::from_millis(5));
-    runtime
+    harness.advance_time(Duration::from_millis(5));
+    harness
+        .runtime_mut()
         .execute_cycle()
         .expect("scan inside the save cadence");
     assert_eq!(

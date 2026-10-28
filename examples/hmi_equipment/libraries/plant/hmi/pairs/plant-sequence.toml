@@ -1,0 +1,11 @@
+format = 1
+title = "Sequence"
+block = "Plant.FB_Sequence"
+faceplate = "plant-sequence"
+symbol = "value"
+
+[bind]
+value = "StateText"
+
+[program]
+position = "controllers"

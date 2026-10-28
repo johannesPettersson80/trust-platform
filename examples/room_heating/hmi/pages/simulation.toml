@@ -1,0 +1,85 @@
+format = 1
+title = "Simulation"
+order = 5
+icon = "info"
+
+[[object]]
+id = "text-1"
+type = "text"
+at = [40, 40]
+size = [1200, 40]
+text = "Simulation: the room's window and the field faults, for testing without a plant"
+
+[[object]]
+id = "slider-1"
+type = "slider"
+at = [40, 120]
+size = [520, 56]
+label = "Window opening"
+unit = "%"
+decimals = 0
+min = 0
+max = 100
+
+[object.bind]
+value = { path = "Simulation.WindowOpening", direction = "read-write" }
+
+[[object]]
+id = "switch-1"
+type = "switch"
+at = [40, 240]
+size = [320, 56]
+label = "Low water"
+
+[object.bind]
+value = { path = "Simulation.LowWater", direction = "read-write" }
+
+[[object]]
+id = "switch-2"
+type = "switch"
+at = [420, 240]
+size = [320, 56]
+label = "Pump overload"
+
+[object.bind]
+value = { path = "Simulation.PumpOverload", direction = "read-write" }
+
+[[object]]
+id = "switch-3"
+type = "switch"
+at = [40, 320]
+size = [320, 56]
+label = "Fan fault"
+
+[object.bind]
+value = { path = "Simulation.FanFault", direction = "read-write" }
+
+[[object]]
+id = "switch-4"
+type = "switch"
+at = [420, 320]
+size = [320, 56]
+label = "Valve positioner fault"
+
+[object.bind]
+value = { path = "Simulation.PositionerFault", direction = "read-write" }
+
+[[object]]
+id = "switch-5"
+type = "switch"
+at = [40, 400]
+size = [320, 56]
+label = "Tank sensor fault"
+
+[object.bind]
+value = { path = "Simulation.TankSensorFault", direction = "read-write" }
+
+[[object]]
+id = "switch-6"
+type = "switch"
+at = [420, 400]
+size = [320, 56]
+label = "Room sensor fault"
+
+[object.bind]
+value = { path = "Simulation.RoomSensorFault", direction = "read-write" }

@@ -1,17 +1,46 @@
-use super::*;
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
-use crate::harness::{CompileSession, SourceFile, TestHarness};
+use crate::harness::{lower_application, CompileSession, SourceFile, TestHarness};
 use crate::value::{Duration, Value};
-use crate::{RestartMode, RetainPolicy};
+use crate::{RestartMode, RetainPolicy, RuntimeBuilder};
 
-fn compile_runtime(source: &str) -> Runtime {
-    CompileSession::from_source(source)
-        .build_runtime()
+/// The declarations of `source` as the front end constructs them.
+fn compile_runtime(source: &str) -> RuntimeBuilder {
+    lower_application(&[SourceFile::new(source)], false)
+        .and_then(|lowered| lowered.construct(&[]))
+        .map(|(builder, _)| builder)
         .unwrap_or_else(|error| panic!("source must compile: {error}"))
 }
 
+/// Whether the declarations of `source` leave a program to the background, which no task runs.
+fn has_background_programs(source: &str) -> bool {
+    CompileSession::from_source(source)
+        .declarations()
+        .unwrap_or_else(|error| panic!("source must compile: {error}"))
+        .metadata()
+        .has_background_programs()
+}
+
+/// The retention policy the front end records for the configuration or resource global `name`.
+fn global_retain(source: &str, name: &str) -> RetainPolicy {
+    let lowered = lower_application(&[SourceFile::new(source)], false)
+        .unwrap_or_else(|error| panic!("source must compile: {error}"));
+    lowered
+        .globals
+        .iter()
+        .chain(
+            lowered
+                .configuration
+                .iter()
+                .flat_map(|configuration| configuration.globals.iter()),
+        )
+        .find(|global| global.name == name)
+        .unwrap_or_else(|| panic!("missing global {name}"))
+        .retain
+}
+
 fn compile_error(source: &str) -> String {
-    match CompileSession::from_source(source).build_runtime() {
+    match CompileSession::from_source(source).declarations() {
         Ok(_) => panic!("source must fail compilation"),
         Err(error) => error.to_string(),
     }
@@ -45,8 +74,7 @@ fn configuration_contract_requires_a_program_without_configuration() {
 
 #[test]
 fn configuration_contract_default_assembly_instantiates_every_program_once() {
-    let runtime = compile_runtime(
-        r#"
+    let source = r#"
 PROGRAM Alpha
 VAR
     a : INT;
@@ -58,8 +86,8 @@ VAR
     b : INT;
 END_VAR
 END_PROGRAM
-"#,
-    );
+"#;
+    let runtime = compile_runtime(source);
 
     assert_eq!(runtime.programs().len(), 2);
     assert!(matches!(
@@ -70,7 +98,7 @@ END_PROGRAM
         runtime.storage().get_global("Beta"),
         Some(Value::Instance(_))
     ));
-    assert!(runtime.has_background_programs());
+    assert!(has_background_programs(source));
 }
 
 #[test]
@@ -142,13 +170,14 @@ CONFIGURATION C
 END_CONFIGURATION
 "#,
     );
-    let runtime = CompileSession::from_sources(vec![source])
+    let declarations = CompileSession::from_sources(vec![source])
         .with_extra_program_instances(["main", "MAIN", "Main"])
-        .build_runtime()
+        .declarations()
         .expect("case variants must deduplicate");
 
-    assert_eq!(runtime.programs().len(), 1);
-    assert!(runtime
+    assert_eq!(declarations.metadata().programs().len(), 1);
+    assert!(declarations
+        .metadata()
         .programs()
         .values()
         .any(|program| program.name.eq_ignore_ascii_case("main")));
@@ -166,7 +195,7 @@ END_CONFIGURATION
     );
     let error = match CompileSession::from_sources(vec![source])
         .with_extra_program_instances(["Missing"])
-        .build_runtime()
+        .declarations()
     {
         Ok(_) => panic!("unknown extra instance must fail"),
         Err(error) => error.to_string(),
@@ -185,11 +214,11 @@ PROGRAM main : Main;
 END_CONFIGURATION
 "#,
     );
-    let runtime = CompileSession::from_sources(vec![source])
+    let declarations = CompileSession::from_sources(vec![source])
         .with_extra_program_instances(["MAIN"])
-        .build_runtime()
+        .declarations()
         .expect("configured name must suppress matching extra");
-    assert_eq!(runtime.programs().len(), 1);
+    assert_eq!(declarations.metadata().programs().len(), 1);
 }
 
 #[test]
@@ -209,19 +238,34 @@ END_CONFIGURATION
     );
 }
 
+/// IEC 61131-3 §6.8.2, Table 62 6a: a program type may have several instances, each with its own
+/// variables. Catches a front end that refuses the second instance or gives both one storage.
 #[test]
-fn configuration_contract_rejects_two_instances_of_one_program_type() {
-    assert_error_contains(
+fn configuration_contract_two_instances_of_one_program_type_each_have_their_own_variables() {
+    let runtime = compile_runtime(
         r#"
 PROGRAM Main
+VAR
+    value : INT;
+END_VAR
 END_PROGRAM
 CONFIGURATION C
 PROGRAM First : Main;
 PROGRAM Second : Main;
 END_CONFIGURATION
 "#,
-        "multiple instances of the same PROGRAM type",
     );
+    let names: Vec<&str> = runtime
+        .programs()
+        .keys()
+        .map(|name| name.as_str())
+        .collect();
+    assert_eq!(names, ["First", "Second"]);
+    let instance = |name: &str| match runtime.storage().get_global(name) {
+        Some(Value::Instance(id)) => *id,
+        other => panic!("{name} is no program instance: {other:?}"),
+    };
+    assert_ne!(instance("First"), instance("Second"));
 }
 
 #[test]
@@ -347,8 +391,7 @@ END_CONFIGURATION
 
 #[test]
 fn configuration_contract_program_without_with_remains_background() {
-    let runtime = compile_runtime(
-        r#"
+    let source = r#"
 PROGRAM Main
 END_PROGRAM
 PROGRAM Background
@@ -358,10 +401,10 @@ TASK Fast (INTERVAL := T#1ms, PRIORITY := 0);
 PROGRAM Scheduled WITH Fast : Main;
 PROGRAM Loose : Background;
 END_CONFIGURATION
-"#,
-    );
+"#;
+    let runtime = compile_runtime(source);
     assert_eq!(runtime.tasks()[0].programs.as_slice(), ["Scheduled"]);
-    assert!(runtime.has_background_programs());
+    assert!(has_background_programs(source));
 }
 
 #[test]
@@ -455,9 +498,12 @@ END_CONFIGURATION
     assert_eq!(policy("explicit_nonretain"), RetainPolicy::NonRetain);
 }
 
+/// IEC 61131-3 §6.5.6.2: `RETAIN` or `NON_RETAIN` on a program instance gives the variables declared
+/// without a qualifier that policy, instance by instance. Catches a qualifier merged per program
+/// type, which refused two instances that differ or gave one instance's qualifier to another.
 #[test]
-fn configuration_contract_conflicting_program_retain_policies_are_rejected_first() {
-    assert_error_contains(
+fn configuration_contract_program_retain_applies_per_instance() {
+    let runtime = compile_runtime(
         r#"
 PROGRAM Main
 VAR
@@ -467,10 +513,21 @@ END_PROGRAM
 CONFIGURATION C
 PROGRAM RETAIN First : Main;
 PROGRAM NON_RETAIN Second : Main;
+PROGRAM Third : Main;
 END_CONFIGURATION
 "#,
-        "conflicting RETAIN/NON_RETAIN qualifiers",
     );
+    let policy = |instance: &str| {
+        runtime
+            .programs()
+            .get(instance)
+            .and_then(|program| program.vars.iter().find(|var| var.name == "value"))
+            .map(|var| var.retain)
+            .unwrap_or_else(|| panic!("{instance}.value"))
+    };
+    assert_eq!(policy("First"), RetainPolicy::Retain);
+    assert_eq!(policy("Second"), RetainPolicy::NonRetain);
+    assert_eq!(policy("Third"), RetainPolicy::Unspecified);
 }
 
 #[test]
@@ -1308,18 +1365,16 @@ END_RESOURCE
 END_CONFIGURATION
 "#,
     );
-    assert!(runtime.globals().contains_key("ConfigurationValue"));
-    assert!(runtime.globals().contains_key("ResourceValue"));
-    assert!(!runtime
-        .globals()
-        .contains_key("CellConfiguration.ConfigurationValue"));
-    assert!(!runtime.globals().contains_key("CellResource.ResourceValue"));
+    let globals = runtime.global_types();
+    assert!(globals.contains_key("ConfigurationValue"));
+    assert!(globals.contains_key("ResourceValue"));
+    assert!(!globals.contains_key("CellConfiguration.ConfigurationValue"));
+    assert!(!globals.contains_key("CellResource.ResourceValue"));
 }
 
 #[test]
 fn configuration_contract_resource_global_retain_policies_are_preserved() {
-    let runtime = compile_runtime(
-        r#"
+    let source = r#"
 PROGRAM Main
 END_PROGRAM
 CONFIGURATION C
@@ -1336,15 +1391,14 @@ END_VAR
 PROGRAM P : Main;
 END_RESOURCE
 END_CONFIGURATION
-"#,
-    );
-    assert_eq!(runtime.globals()["Retained"].retain, RetainPolicy::Retain);
+"#;
+    assert_eq!(global_retain(source, "Retained"), RetainPolicy::Retain);
     assert_eq!(
-        runtime.globals()["Reinitialized"].retain,
+        global_retain(source, "Reinitialized"),
         RetainPolicy::NonRetain
     );
     assert_eq!(
-        runtime.globals()["PersistentValue"].retain,
+        global_retain(source, "PersistentValue"),
         RetainPolicy::Persistent
     );
 }
@@ -1478,4 +1532,51 @@ END_CONFIGURATION
             "{section}: {error}"
         );
     }
+}
+
+/// Specification 22: a production build leaves a configured project's `TEST_PROGRAM`s unbound
+/// and does not instantiate them, while an unbound ordinary PROGRAM is still refused. Catches a
+/// build that refuses a runnable project for its tests, or one that runs its tests in production.
+#[test]
+fn configuration_contract_leaves_test_programs_unbound_in_a_production_build() {
+    let runtime = compile_runtime(
+        r#"
+PROGRAM Main
+VAR Count : INT; END_VAR
+Count := Count + 1;
+END_PROGRAM
+TEST_PROGRAM CountStartsAtZero
+ASSERT_TRUE(FALSE);
+END_TEST_PROGRAM
+CONFIGURATION Plant
+RESOURCE Line ON PLC
+TASK Scan (INTERVAL := T#10ms, PRIORITY := 1);
+PROGRAM Main WITH Scan : Main;
+END_RESOURCE
+END_CONFIGURATION
+"#,
+    );
+    assert!(runtime.storage().get_global("Main").is_some());
+    assert!(
+        runtime.storage().get_global("CountStartsAtZero").is_none(),
+        "the test program is not instantiated"
+    );
+    assert_error_contains(
+        r#"
+PROGRAM Main
+END_PROGRAM
+PROGRAM Forgotten
+END_PROGRAM
+TEST_PROGRAM Probe
+ASSERT_TRUE(TRUE);
+END_TEST_PROGRAM
+CONFIGURATION Plant
+RESOURCE Line ON PLC
+TASK Scan (INTERVAL := T#10ms, PRIORITY := 1);
+PROGRAM Main WITH Scan : Main;
+END_RESOURCE
+END_CONFIGURATION
+"#,
+        "unbound PROGRAM declaration(s) under CONFIGURATION: Forgotten.",
+    );
 }

@@ -30,7 +30,10 @@ jobs:
       - name: Build truST CLIs
         run: cargo build -p trust-runtime --bin trust-runtime -p trust-dev --bin trust-dev
 
-      - name: Build project bytecode (CI mode)
+      - name: Install the truST toolchain (compiles the project, specification 44 §4.6)
+        run: target/debug/trust-runtime toolchain install
+
+      - name: Build the project's program image (CI mode)
         run: target/debug/trust-runtime build --project . --ci
 
       - name: Validate project bundle (CI mode)

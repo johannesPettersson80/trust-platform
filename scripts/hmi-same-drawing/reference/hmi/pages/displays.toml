@@ -1,0 +1,120 @@
+format = 1
+title = "Displays"
+
+[[object]]
+id = "heading"
+type = "text"
+variant = "heading"
+at = [40, 24]
+size = [600, 36]
+text = "Reference displays"
+
+[[object]]
+id = "temperature"
+type = "value"
+at = [40, 80]
+size = [240, 96]
+label = "Temperature"
+unit = "°C"
+decimals = 1
+
+[object.bind]
+value = "Plant.Temperature"
+
+[[object]]
+id = "small"
+type = "value"
+at = [304, 80]
+size = [200, 48]
+label = "Small"
+
+[object.bind]
+value = "Plant.Small"
+
+[[object]]
+id = "pressure"
+type = "gauge"
+at = [40, 200]
+size = [200, 200]
+label = "Pressure"
+unit = "bar"
+min = 0.0
+max = 200.0
+
+[object.bind]
+value = "Plant.Pressure"
+
+[[object]]
+id = "level-gauge"
+type = "gauge"
+at = [264, 200]
+size = [160, 160]
+
+[object.bind]
+value = "Plant.Level"
+
+[[object]]
+id = "level-bar"
+type = "bar"
+at = [456, 200]
+size = [64, 200]
+label = "Level"
+
+[object.bind]
+value = "Plant.Level"
+
+[[object]]
+id = "flow-bar"
+type = "bar"
+variant = "horizontal"
+at = [552, 200]
+size = [256, 64]
+label = "Flow"
+
+[object.bind]
+value = "Plant.Flow"
+
+[[object]]
+id = "shares"
+type = "split-bar"
+at = [840, 200]
+size = [120, 200]
+label = "Shares"
+
+[object.bind]
+request = "Plant.Demand"
+first = "Plant.FirstShare"
+second = "Plant.SecondShare"
+
+[[object]]
+id = "running"
+type = "status"
+at = [40, 440]
+size = [160, 48]
+label = "Running"
+
+[object.bind]
+state = "Plant.Running"
+
+[[object]]
+id = "ready"
+type = "status"
+at = [224, 440]
+size = [48, 48]
+
+[object.bind]
+state = "Plant.Ready"
+
+[[object]]
+id = "trend"
+type = "trend"
+at = [320, 440]
+size = [480, 240]
+label = "Trend"
+
+[[object]]
+id = "table"
+type = "table"
+at = [832, 440]
+size = [400, 240]
+label = "Table"

@@ -308,7 +308,9 @@ impl Parser<'_, '_> {
             _ => {
                 let marker = self.start();
                 self.error("expected expression");
-                if !self.at_end() {
+                // A `;`, `)` or `THEN` here closes the enclosing construct; consuming it
+                // would turn one missing expression into a second error.
+                if !self.at_end() && !self.at_expression_boundary() {
                     self.bump();
                 }
                 marker.complete(self, SyntaxKind::Error)
@@ -369,6 +371,14 @@ impl Parser<'_, '_> {
 
         if self.at(TokenKind::RParen) {
             self.error("expected array repetition value");
+        }
+
+        if self.at_bare_aggregate_initializer_start() {
+            // IEC 61131-3 Ed.3 Table 11 feature 5b writes a repeated aggregate as n(PT := T#100ms); it is the element
+            // initializer that the Annex A grammar writes n((PT := T#100ms)).
+            self.start_node(SyntaxKind::Arg);
+            self.parse_bare_initializer_list();
+            self.finish_node();
         }
 
         while !self.at(TokenKind::RParen) && !self.at_end() {

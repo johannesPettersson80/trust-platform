@@ -1,25 +1,33 @@
-//! OPC UA cache boundaries using one checked PLC execution owner.
+//! OPC UA cache boundaries at a compiled program's variables at the boundaries of its scan
+//! (specification 44 §13.3).
 use super::*;
-use trust_runtime_core::vm::CycleAccess;
+use crate::runtime::GlobalPort;
+use trust_runtime_core::native::variables::CompiledVariables;
 
 impl OpcUaClientBridge {
-    /// Apply cached samples after process-image sampling. A rejected destination
-    /// becomes a point status error rather than a PLC execution fault.
-    pub fn apply_inputs_with_cycle(
+    /// Applies the cached samples at the protocol-input boundary, after the drivers read the inputs.
+    /// A rejected destination updates the point's quality and leaves the program executable.
+    pub fn apply_inputs_compiled(
         &mut self,
-        access: &mut CycleAccess<'_, '_>,
+        variables: &mut dyn CompiledVariables,
         now_ms: u64,
     ) -> Result<(), OpcUaClientBridgeError> {
-        self.apply_inputs_with(now_ms, |reference, value| {
-            access.write_reference(reference.as_view(), value)
-        })
+        self.apply_inputs_with(now_ms, variables)
     }
 
-    /// Capture current PLC values after forces. Queue acknowledgement/generation
-    /// handling stays with the existing worker and shared cache.
-    pub fn capture_outputs_with_cycle(
+    /// Captures the program's values after its scan, keeping the unchanged-value suppression and
+    /// the worker's generation-bound write acknowledgements.
+    pub fn capture_outputs_compiled(
         &mut self,
-        access: &mut CycleAccess<'_, '_>,
+        variables: &mut dyn CompiledVariables,
+        now_ms: u64,
+    ) -> Result<(), OpcUaClientBridgeError> {
+        self.capture_outputs_through(variables, now_ms)
+    }
+
+    fn capture_outputs_through(
+        &mut self,
+        port: &mut (impl GlobalPort + ?Sized),
         now_ms: u64,
     ) -> Result<(), OpcUaClientBridgeError> {
         for binding in self
@@ -27,7 +35,7 @@ impl OpcUaClientBridge {
             .iter()
             .filter(|binding| binding.point.access.can_write())
         {
-            let value = match access.read_reference(&binding.reference) {
+            let value = match port.read(&binding.target) {
                 Ok(value) => value,
                 Err(error) => {
                     self.shared.set_point_status(
@@ -101,13 +109,10 @@ pub(super) fn queue_output(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::value::{Duration, ValueRef};
-    use trust_runtime_core::vm::{CycleHooks, CyclePhase, PreparationLimits, PreparedModule};
-
-    const GPIO: &[u8] = include_bytes!("../../../tests/fixtures/portability/f401/gpio.stbc");
+    use crate::runtime::NamedGlobals;
 
     fn bridge(
-        reference: ValueRef,
+        target: crate::runtime::BoundGlobal,
         boolean: bool,
         access: OpcUaClientPointAccess,
         value: Value,
@@ -124,7 +129,7 @@ mod tests {
         };
         let bridge = OpcUaClientBridge::new(vec![OpcUaClientBinding {
             point: point.clone(),
-            reference,
+            target,
         }])
         .unwrap();
         bridge
@@ -143,12 +148,27 @@ mod tests {
         bridge
     }
 
+    /// A boundary whose every access fails with its error.
+    struct Refusing(RuntimeError);
+
+    impl crate::runtime::GlobalPort for Refusing {
+        fn read(&mut self, _target: &crate::runtime::BoundGlobal) -> Result<Value, RuntimeError> {
+            Err(self.0.clone())
+        }
+
+        fn write(
+            &mut self,
+            _target: &crate::runtime::BoundGlobal,
+            _value: Value,
+        ) -> Result<(), RuntimeError> {
+            Err(self.0.clone())
+        }
+    }
+
     #[test]
     fn input_cycle_limit_keeps_its_structured_cause_and_point_diagnostic() {
-        let prepared = PreparedModule::from_bytes(GPIO, PreparationLimits::default()).unwrap();
-        let state = prepared.instantiate(0).unwrap();
         let mut bridge = bridge(
-            state.storage().ref_for_global("probe_depth").unwrap(),
+            crate::runtime::BoundGlobal("probe_depth".into()),
             false,
             OpcUaClientPointAccess::Read,
             Value::Int(2),
@@ -160,7 +180,7 @@ mod tests {
             limit: 8,
         };
         let error = bridge
-            .apply_inputs_with(10, |_, _| Err(cause.clone()))
+            .apply_inputs_with(10, &mut Refusing(cause.clone()))
             .unwrap_err();
         assert_eq!(error.execution_cause(), Some(&cause));
         assert_eq!(
@@ -175,170 +195,55 @@ mod tests {
     }
 
     #[test]
-    fn physical_expiry_in_each_protocol_boundary_reaches_the_cycle_fault_owner() {
-        struct Deadline(std::cell::Cell<bool>);
-        impl trust_runtime_core::vm::ExecutionServices for Deadline {
-            fn deadline_exceeded(&self) -> bool {
-                self.0.get()
-            }
-            fn has_wall_clock(&self) -> bool {
-                false
-            }
-            fn current_dt(&self) -> Result<crate::value::DateTimeValue, RuntimeError> {
-                Err(RuntimeError::UndefinedFunction("CURRENT_DT".into()))
-            }
-        }
-        struct Hooks<'a> {
-            bridge: OpcUaClientBridge,
-            deadline: &'a Deadline,
-            phase: CyclePhase,
-        }
-        impl CycleHooks for Hooks<'_> {
-            fn on_phase(
-                &mut self,
-                phase: CyclePhase,
-                access: &mut CycleAccess<'_, '_>,
-            ) -> Result<(), RuntimeError> {
-                if phase != self.phase {
-                    return Ok(());
-                }
-                self.deadline.0.set(true);
-                let result = if phase == CyclePhase::AfterInputSample {
-                    self.bridge.apply_inputs_with_cycle(access, 10)
-                } else {
-                    self.bridge.capture_outputs_with_cycle(access, 10)
-                };
-                result.map_err(|error| {
-                    error
-                        .execution_cause()
-                        .cloned()
-                        .expect("typed execution cause")
-                })
-            }
-        }
-        let prepared = PreparedModule::from_bytes(GPIO, PreparationLimits::default()).unwrap();
-        for phase in [CyclePhase::AfterInputSample, CyclePhase::AfterOutputSample] {
-            let deadline = Deadline(std::cell::Cell::new(false));
-            let mut state = prepared.instantiate_with_services(0, &deadline).unwrap();
-            let bridge = bridge(
-                state.storage().ref_for_global("probe_depth").unwrap(),
-                false,
-                OpcUaClientPointAccess::ReadWrite,
-                Value::Int(2),
-            );
-            let mut hooks = Hooks {
-                bridge,
-                deadline: &deadline,
-                phase,
-            };
-            assert_eq!(
-                state.execute_cycle_with_hooks(Duration::from_millis(10), &mut hooks),
-                Err(RuntimeError::ExecutionTimeout)
-            );
-            assert_eq!(state.fault(), Some(&RuntimeError::ExecutionTimeout));
-            assert!(hooks.bridge.pending_write("point").is_none());
-        }
-    }
-
-    #[test]
-    fn checked_opcua_inputs_override_image_samples_and_reject_changed_destination_types_without_faulting_plc(
-    ) {
-        struct Hooks(OpcUaClientBridge);
-        impl CycleHooks for Hooks {
-            fn on_phase(
-                &mut self,
-                phase: CyclePhase,
-                access: &mut CycleAccess<'_, '_>,
-            ) -> Result<(), RuntimeError> {
-                if phase == CyclePhase::BeforeInputSample {
-                    access.inputs_mut()?[0] = 1;
-                }
-                if phase == CyclePhase::AfterInputSample {
-                    self.0.apply_inputs_with_cycle(access, 10).unwrap();
-                }
-                Ok(())
-            }
-        }
-        let prepared = PreparedModule::from_bytes(GPIO, PreparationLimits::default()).unwrap();
-        for rejected in [false, true] {
-            let mut state = prepared.instantiate(0).unwrap();
-            let reference = if rejected {
-                state.storage().ref_for_global("probe_depth").unwrap()
-            } else {
-                let Some(Value::Instance(plant)) = state.storage().get_global("Plant") else {
-                    panic!("root")
-                };
-                state.storage().ref_for_instance(*plant, "button").unwrap()
-            };
-            let mut hooks = Hooks(bridge(
-                reference,
-                true,
-                OpcUaClientPointAccess::Read,
-                Value::Bool(false),
-            ));
-            state
-                .execute_cycle_with_hooks(Duration::from_millis(10), &mut hooks)
-                .unwrap();
-            assert!(state.fault().is_none());
-            if rejected {
-                assert_eq!(
-                    state.storage().get_global("probe_depth"),
-                    Some(&Value::Int(1))
-                );
-                assert_eq!(
-                    hooks.0.snapshot().point_statuses[0].state,
-                    OpcUaClientConnectionState::Faulted
-                );
-            } else {
-                assert_eq!(
-                    state.outputs()[0] & 1,
-                    0,
-                    "protocol sampling follows physical mapped input sampling"
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn checked_opcua_outputs_use_post_force_values_and_duplicate_capture_keeps_pending_generation()
-    {
-        struct Hooks(OpcUaClientBridge);
-        impl CycleHooks for Hooks {
-            fn on_phase(
-                &mut self,
-                phase: CyclePhase,
-                access: &mut CycleAccess<'_, '_>,
-            ) -> Result<(), RuntimeError> {
-                if phase == CyclePhase::AfterInputSample {
-                    self.0.apply_inputs_with_cycle(access, 10).unwrap();
-                }
-                if phase == CyclePhase::AfterOutputSample {
-                    self.0.capture_outputs_with_cycle(access, 10).unwrap();
-                    assert!(self.0.pending_write("point").is_none());
-                    access.write_named_path("probe_depth", &[], Value::Int(4))?;
-                    self.0.capture_outputs_with_cycle(access, 10).unwrap();
-                    let generation = self.0.shared.pending_write_batch()["point"].generation;
-                    self.0.capture_outputs_with_cycle(access, 10).unwrap();
-                    assert_eq!(
-                        self.0.shared.pending_write_batch()["point"].generation,
-                        generation
-                    );
-                }
-                Ok(())
-            }
-        }
-        let prepared = PreparedModule::from_bytes(GPIO, PreparationLimits::default()).unwrap();
-        let mut state = prepared.instantiate(0).unwrap();
-        let mut hooks = Hooks(bridge(
-            state.storage().ref_for_global("probe_depth").unwrap(),
+    fn duplicate_capture_keeps_the_read_baseline_and_the_pending_generation() {
+        let mut bridge = bridge(
+            crate::runtime::BoundGlobal("probe_depth".into()),
             false,
             OpcUaClientPointAccess::ReadWrite,
             Value::Int(2),
-        ));
-        state
-            .execute_cycle_with_hooks(Duration::from_millis(10), &mut hooks)
-            .unwrap();
-        assert_eq!(hooks.0.pending_write("point"), Some(Value::Int(4)));
-        assert!(state.fault().is_none());
+        );
+        let mut globals = NamedGlobals(std::collections::BTreeMap::from([(
+            "probe_depth",
+            Value::Int(1),
+        )]));
+        bridge.apply_inputs_compiled(&mut globals, 10).unwrap();
+        bridge.capture_outputs_compiled(&mut globals, 10).unwrap();
+        assert!(bridge.pending_write("point").is_none());
+        globals.0.insert("probe_depth", Value::Int(4));
+        bridge.capture_outputs_compiled(&mut globals, 10).unwrap();
+        let generation = bridge.shared.pending_write_batch()["point"].generation;
+        bridge.capture_outputs_compiled(&mut globals, 10).unwrap();
+        assert_eq!(
+            bridge.shared.pending_write_batch()["point"].generation,
+            generation
+        );
+        assert_eq!(bridge.pending_write("point"), Some(Value::Int(4)));
+    }
+
+    /// Specification 44 §13.3 with specification 11's OPC UA client: a compiled program's point
+    /// reaches its global by name. The connected sample 2 of the read-write point is written to the
+    /// global `Speed` after the inputs, while `Other` keeps 0; after the scan, when `Speed` holds 7,
+    /// 7 is queued for the server. Catches a compiled program whose inputs never reach its globals,
+    /// whose outputs are never queued, or a point that reaches another global.
+    #[test]
+    fn a_compiled_programs_point_reaches_its_global_by_name() {
+        let mut bridge = bridge(
+            crate::runtime::BoundGlobal("Speed".into()),
+            false,
+            OpcUaClientPointAccess::ReadWrite,
+            Value::Int(2),
+        );
+        let mut globals = NamedGlobals(std::collections::BTreeMap::from([
+            ("Speed", Value::Int(0)),
+            ("Other", Value::Int(0)),
+        ]));
+
+        bridge.apply_inputs_compiled(&mut globals, 10).unwrap();
+        assert_eq!(globals.0["Speed"], Value::Int(2));
+        assert_eq!(globals.0["Other"], Value::Int(0));
+
+        globals.0.insert("Speed", Value::Int(7));
+        bridge.capture_outputs_compiled(&mut globals, 20).unwrap();
+        assert_eq!(bridge.pending_write("point"), Some(Value::Int(7)));
     }
 }

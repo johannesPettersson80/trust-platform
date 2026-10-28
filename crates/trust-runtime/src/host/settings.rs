@@ -4,12 +4,13 @@
 
 use indexmap::IndexMap;
 use smol_str::SmolStr;
+use trust_runtime_services::events::EVENT_STORE_CAPACITY;
 
 use crate::config::{
     MeshRole, RuntimeCloudLinkPreferenceRule, RuntimeCloudProfile, RuntimeCloudWanAllowRule,
     RuntimeConfig, WebAuthMode,
 };
-use crate::execution_backend::{ExecutionBackend, ExecutionBackendSource};
+use crate::execution_backend::ExecutionBackendSource;
 use crate::linux_rt::LinuxRtConfig;
 use crate::value::Duration;
 use crate::watchdog::{FaultPolicy, HangAction, RetainMode, WatchdogPolicy};
@@ -17,9 +18,10 @@ use crate::watchdog::{FaultPolicy, HangAction, RetainMode, WatchdogPolicy};
 #[derive(Debug, Clone)]
 pub struct RuntimeSettings {
     pub cycle_interval: Duration,
-    pub execution_backend: ExecutionBackend,
     pub execution_backend_source: ExecutionBackendSource,
     pub log_level: SmolStr,
+    /// The newest events the event store keeps (`runtime.events.capacity`, specification 11).
+    pub event_capacity: usize,
     pub watchdog: WatchdogPolicy,
     /// `runtime.watchdog.hang_action`. Applied when the resource starts, so a change needs a restart.
     pub watchdog_hang_action: HangAction,
@@ -33,6 +35,8 @@ pub struct RuntimeSettings {
     pub realtime: LinuxRtConfig,
     pub opcua: OpcUaSettings,
     pub simulation: SimulationSettings,
+    /// Whether the runtime published its endpoint file (spec 11, section 6.8.0a).
+    pub control_endpoint_file: EndpointFileState,
 }
 
 impl RuntimeSettings {
@@ -46,9 +50,9 @@ impl RuntimeSettings {
     ) -> Self {
         Self {
             cycle_interval,
-            execution_backend: ExecutionBackend::BytecodeVm,
             execution_backend_source: ExecutionBackendSource::Default,
             log_level: base.log_level,
+            event_capacity: EVENT_STORE_CAPACITY,
             watchdog: base.watchdog,
             watchdog_hang_action: HangAction::default(),
             fault_policy: base.fault_policy,
@@ -61,6 +65,7 @@ impl RuntimeSettings {
             realtime: LinuxRtConfig::default(),
             opcua: OpcUaSettings::default(),
             simulation,
+            control_endpoint_file: EndpointFileState::default(),
         }
     }
 
@@ -119,9 +124,9 @@ impl RuntimeSettings {
                 warning: SmolStr::new(""),
             },
         );
-        settings.execution_backend = config.execution_backend;
         settings.execution_backend_source = config.execution_backend_source;
         settings.watchdog_hang_action = config.watchdog_hang_action;
+        settings.event_capacity = config.event_store_capacity();
         settings.opcua = OpcUaSettings {
             enabled: config.opcua.enabled,
             listen: config.opcua.listen.clone(),
@@ -239,4 +244,38 @@ pub struct SimulationSettings {
     pub time_scale: u32,
     pub mode_label: SmolStr,
     pub warning: SmolStr,
+}
+
+/// What became of the runtime's endpoint file (spec 11, section 6.8.0a). A runtime that cannot
+/// write the file keeps running, and its status says why the file is unavailable.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum EndpointFileState {
+    /// The runtime runs without a project folder, so it publishes no endpoint file.
+    #[default]
+    NotUsed,
+    /// The runtime wrote the endpoint file after it bound its control endpoint.
+    Published,
+    /// The endpoint file could not be written; the text says why.
+    Unavailable(SmolStr),
+}
+
+impl EndpointFileState {
+    /// The state as status reports it: `not_used`, `published` or `unavailable`.
+    #[must_use]
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::NotUsed => "not_used",
+            Self::Published => "published",
+            Self::Unavailable(_) => "unavailable",
+        }
+    }
+
+    /// Why the endpoint file is unavailable, when it is.
+    #[must_use]
+    pub fn error(&self) -> Option<&str> {
+        match self {
+            Self::Unavailable(reason) => Some(reason.as_str()),
+            Self::NotUsed | Self::Published => None,
+        }
+    }
 }

@@ -1,0 +1,20 @@
+[package]
+name = "trust-platform-memory"
+description = "Bounded heap and stack measurement shared by the truST board compositions"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+embedded-alloc = { version = "=0.7.0", default-features = false, features = ["llff"] }
+critical-section = "1.2.0"
+# The reset record's CRC-32/ISO-HDLC, the workspace's no_std build (default features off), as
+# trust-runtime-core uses for the same wire algorithm.
+crc32fast.workspace = true
+
+# The host tests allocate from the measured heap, so they need a critical-section
+# implementation; the std feature provides one, as trust-board-fixture's tests also use.
+[dev-dependencies]
+critical-section = { version = "1.2.0", features = ["std"] }

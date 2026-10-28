@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 2,
+  "topology": "open-loop",
+  "id": "control-controllability",
+  "name": "Two-tank controllability",
+  "projectId": "project:control-controllability",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Main",
+    "design": "project",
+    "revision": "sha256:a8aa3dcaac0f1f78a742aeebcafb71d6ece0eb5e0557176e07b870a0fcedd9d9",
+    "action": "direct",
+    "taskPeriodMs": 1000
+  },
+  "signals": {
+    "processVariable": {
+      "symbol": "P1.Tank2M",
+      "address": "%IL8",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "m",
+      "range": {
+        "minimum": 0,
+        "maximum": 0.5
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.PumpM3PerS",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "m3/s",
+      "range": {
+        "minimum": 0,
+        "maximum": 0.02
+      }
+    },
+    "additional": [
+      {
+        "id": "tank-1",
+        "channel": "tank-1",
+        "role": "state",
+        "symbol": "P1.Tank1M",
+        "address": "%IL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX16.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "fault-latched",
+        "channel": "fault-latched",
+        "role": "state",
+        "symbol": "P1.FaultLatched",
+        "address": "%MX16.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "clock-valid",
+        "channel": "clock-valid",
+        "role": "state",
+        "symbol": "P1.ClockValid",
+        "address": "%MX16.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "model-1",
+        "channel": "model-1",
+        "role": "state",
+        "symbol": "P1.Model1M",
+        "address": "%ML0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "model-2",
+        "channel": "model-2",
+        "role": "state",
+        "symbol": "P1.Model2M",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 0.02
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 1000
+  },
+  "plantId": "controllability-cascade",
+  "operatingPoint": "Both tanks at 0.25 m with the pump at 0.010 m3/s",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 123,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX16.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
+    "baselineSeconds": 2
+  },
+  "revision": "sha256:0091ee05447a0e72fc265e73f22233057a1bd9ea40f007025dc51b44eadda1cd"
+}

@@ -24,7 +24,7 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
 mod diagnostics;
 mod queries;
 mod symbol_import;
-mod temporal_storage;
-pub use temporal_storage::TemporalStorage;
 
-pub use queries::{Database, FileId, SalsaEventSnapshot, SemanticDatabase, SourceDatabase};
+pub use queries::{
+    Database, FileAnalysis, FileId, SalsaEventSnapshot, SemanticDatabase, SourceDatabase,
+};

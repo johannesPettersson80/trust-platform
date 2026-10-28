@@ -1,0 +1,37 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2400
+plant_step_ms = 100
+
+[[plants]]
+id = "heater-lesson-21"
+model = "state_space"
+command_sources = ["%QL0", "%QL8"]
+feedback_targets = ["%IL0", "%IL8"]
+# Same water balance as the validated heater; both feedback bindings observe the water.
+initial_state = [0.0]
+initial_input = [0.0, 0.0]
+input_offset = [-75.0, 0.0]
+output_offset = [35.0, 35.0]
+
+[plants.parameters]
+a = [[-0.2]]
+b = [[0.04, -0.02]]
+c = [[1.0], [1.0]]
+d = [[0.0, 0.0], [0.0, 0.0]]
+# Heater transport is delayed; extraction acts on the water immediately.
+# Main supplies bounded 0..100% heating and 0..30 kW extraction commands.
+input_delays_s = [1.0, 0.0]
+
+# The Lesson 20 heater: its temperature measurement carries repeatable ±0.02 °C noise.
+[[plants.uncertainties]]
+id = "temperature-noise"
+target = "measurement"
+channel = 1
+mode = "add"
+generator = "uniform_white"
+minimum = -0.02
+maximum = 0.02

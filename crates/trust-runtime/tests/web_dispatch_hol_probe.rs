@@ -10,8 +10,7 @@ use std::time::{Duration, Instant};
 use indexmap::IndexMap;
 use smol_str::SmolStr;
 use trust_runtime::config::{ControlMode, WebAuthMode, WebConfig};
-use trust_runtime::control::{ControlState, HmiRuntimeDescriptor, SourceFile, SourceRegistry};
-use trust_runtime::debug::DebugVariableHandles;
+use trust_runtime::control::{ControlState, SourceFile, SourceRegistry};
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::linux_rt::LinuxRtRuntimeStatus;
@@ -69,13 +68,16 @@ fn runtime_settings() -> RuntimeSettings {
 
 fn control_state(source: &str) -> Arc<ControlState> {
     let mut harness = TestHarness::from_source(source).expect("build test harness");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = trust_runtime::debug::DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
     harness.cycle();
 
     let snapshot = trust_runtime::debug::DebugSnapshot {
-        storage_abi: Default::default(),
-        storage: harness.runtime().storage().clone(),
+        storage: trust_runtime::memory::VariableStorage::new(),
         now: harness.runtime().current_time(),
+        compiled: Some(Arc::new(
+            harness.runtime().snapshot().expect("the program's state"),
+        )),
     };
 
     let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
@@ -117,14 +119,12 @@ fn control_state(source: &str) -> Arc<ControlState> {
         path: PathBuf::from("main.st"),
         text: source.to_string(),
     }]);
-    let hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
-        None, &sources,
-    )));
 
     Arc::new(ControlState {
+        transfers: trust_runtime::control::new_transfer_session(),
         debug,
+        identify: trust_runtime::io::IdentifyHandle::default(),
         resource,
-        metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),
         sources,
         io_snapshot: Arc::new(Mutex::new(None)),
         io_snapshot_seen_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
@@ -144,16 +144,18 @@ fn control_state(source: &str) -> Arc<ControlState> {
         web_listener_bound: Arc::new(AtomicBool::new(false)),
         opcua_server_bound: Arc::new(AtomicBool::new(false)),
         project_root: None,
+        plant_service: Arc::new(trust_runtime::control::PlantControlService::default()),
+        experiments: trust_runtime::control::ControlExperimentService::default(),
+        controllers: trust_runtime::control::ControllerParameterService::default(),
+        searches: trust_runtime::control::search::SearchService::default(),
         resource_name: SmolStr::new("RESOURCE"),
+        runtime_id: SmolStr::new("test-runtime-id"),
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
-        debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
-        hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
-        hmi_persistence: None,
-        hmi_descriptor,
         historian: None,
         openot_persistence_status: None,
         pairing: None,
+        search: Default::default(),
         ads_doctor_jobs: Arc::new(Mutex::new(
             trust_runtime::control::AdsDoctorJobStore::default(),
         )),
@@ -181,11 +183,12 @@ fn start_test_server(state: Arc<ControlState>) -> String {
             listen: SmolStr::new(listen.clone()),
             auth: WebAuthMode::Local,
             tls: false,
+            hmi: Default::default(),
         };
         match start_web_server(&config, Arc::clone(&state), None, None, None, None) {
             Ok(_server) => {
                 let base = format!("http://{listen}");
-                wait_for_hmi_ready(&listen);
+                wait_for_web_ready(&listen);
                 return base;
             }
             Err(RuntimeError::ControlError(message))
@@ -199,10 +202,10 @@ fn start_test_server(state: Arc<ControlState>) -> String {
     panic!("start web server: no free loopback port after retries");
 }
 
-fn wait_for_hmi_ready(addr: &str) {
+fn wait_for_web_ready(addr: &str) {
     let deadline = Instant::now() + Duration::from_secs(2);
     while Instant::now() < deadline {
-        if raw_get(addr, "/hmi", Duration::from_millis(250))
+        if raw_get(addr, "/ide", Duration::from_millis(250))
             .is_ok_and(|response| response.starts_with("HTTP/1.1 200"))
         {
             return;
@@ -267,6 +270,48 @@ fn open_incomplete_pair_claim(addr: &str) -> TcpStream {
     stream
 }
 
+/// Specification 39, decision 12 and section 11: legacy assets/export stay removed,
+/// while the new display shell and page-addressed socket use the replacement contract.
+#[test]
+fn legacy_hmi_assets_stay_removed_while_new_display_routes_are_served() {
+    let state = control_state("PROGRAM Main\nEND_PROGRAM\n");
+    let base = start_test_server(state);
+    let addr = base
+        .strip_prefix("http://")
+        .expect("test server base should be http");
+
+    for path in [
+        "/hmi/app.js",
+        "/hmi/styles.css",
+        "/hmi/modules/hmi-model.js",
+        "/hmi/assets/pump.svg",
+        "/hmi/export.json",
+    ] {
+        let response = raw_get(addr, path, Duration::from_secs(1)).expect("server responds");
+        assert!(
+            response.starts_with("HTTP/1.1 404"),
+            "{path} must not be served, got {}",
+            response.lines().next().unwrap_or_default()
+        );
+    }
+    for path in ["/hmi", "/hmi/"] {
+        let response = raw_get(addr, path, Duration::from_secs(1)).expect("display shell responds");
+        assert!(
+            response.starts_with("HTTP/1.1 200"),
+            "the new display shell is served: {path}"
+        );
+    }
+    let response = raw_get(addr, "/ws/hmi", Duration::from_secs(1)).expect("socket route responds");
+    assert!(
+        response.starts_with("HTTP/1.1 400"),
+        "a stream requires a page address"
+    );
+    assert!(
+        response.contains("/ws/hmi?page="),
+        "the rejection explains the new stream contract"
+    );
+}
+
 #[test]
 fn incomplete_body_does_not_block_unrelated_hmi_request() {
     let state = control_state("PROGRAM Main\nEND_PROGRAM\n");
@@ -278,16 +323,16 @@ fn incomplete_body_does_not_block_unrelated_hmi_request() {
     let slow_stream = open_incomplete_pair_claim(addr);
     thread::sleep(Duration::from_millis(100));
 
-    let response = raw_get(addr, "/hmi", Duration::from_secs(1));
+    let response = raw_get(addr, "/ide", Duration::from_secs(1));
     assert!(
         response
             .as_ref()
             .is_ok_and(|response| response.starts_with("HTTP/1.1 200")),
-        "incomplete POST body must not block unrelated /hmi traffic, got {response:?}"
+        "incomplete POST body must not block unrelated /ide traffic, got {response:?}"
     );
 
     drop(slow_stream);
-    wait_for_hmi_ready(addr);
+    wait_for_web_ready(addr);
 }
 
 #[test]
@@ -319,11 +364,11 @@ fn saturated_body_lane_rejects_promptly_without_blocking_hmi_and_recovers() {
         "saturated response must carry server_busy, got {overloaded:?}"
     );
 
-    let hmi = raw_get(addr, "/hmi", Duration::from_secs(1))
+    let page = raw_get(addr, "/ide", Duration::from_secs(1))
         .expect("read lane must remain responsive while body lane is saturated");
     assert!(
-        hmi.starts_with("HTTP/1.1 200"),
-        "body saturation must not block /hmi, got {hmi:?}"
+        page.starts_with("HTTP/1.1 200"),
+        "body saturation must not block /ide, got {page:?}"
     );
 
     drop(slow_streams);

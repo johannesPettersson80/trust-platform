@@ -1,3 +1,8 @@
+//! Access to variables: access paths, VAR_CONFIG bindings, memory wildcards and globals from every
+//! scope.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use trust_runtime::harness::TestHarness;
 use trust_runtime::value::Value;
 
@@ -115,6 +120,67 @@ END_CONFIGURATION
     assert_eq!(harness.get_output("observed"), Some(Value::Int(41)));
     assert_eq!(harness.get_output("counter"), Some(Value::Int(42)));
     assert_eq!(harness.get_direct_output("%MW0").unwrap(), Value::Word(42));
+}
+
+#[test]
+fn var_config_memory_binding_starts_from_the_initialized_value_at_every_cold_start() {
+    // IEC 61131-3 Ed.3 §6.5.1 and §6.5.6.1: a cold restart starts every variable from its initialized
+    // value; a marker binding must not replace it with a zero or pre-restart memory image.
+    let source = r#"
+PROGRAM Main
+VAR
+    setting : LREAL := 20.0;
+    configured : LREAL;
+    observed : LREAL;
+    observed_configured : LREAL;
+END_VAR
+observed := setting;
+observed_configured := configured;
+setting := setting + 1.0;
+END_PROGRAM
+
+CONFIGURATION Conf
+PROGRAM P1 : Main;
+VAR_CONFIG
+    P1.setting AT %ML0 : LREAL;
+    P1.configured AT %ML8 : LREAL := 30.0;
+END_VAR
+END_CONFIGURATION
+"#;
+
+    let mut harness = TestHarness::from_source(source).unwrap();
+    harness.cycle();
+    assert_eq!(
+        harness.get_output("observed"),
+        Some(Value::LReal(20.0)),
+        "declared initial value"
+    );
+    assert_eq!(
+        harness.get_output("observed_configured"),
+        Some(Value::LReal(30.0)),
+        "VAR_CONFIG initial value"
+    );
+    assert_eq!(
+        harness.get_direct_output("%ML0").unwrap(),
+        Value::LWord(21.0f64.to_bits())
+    );
+
+    harness.cycle();
+    assert_eq!(
+        harness.get_output("observed"),
+        Some(Value::LReal(21.0)),
+        "the marker keeps the program's writes between cycles"
+    );
+
+    harness
+        .restart(trust_runtime::RestartMode::Cold)
+        .expect("cold restart");
+    harness.cycle();
+    assert_eq!(
+        harness.get_output("observed"),
+        Some(Value::LReal(20.0)),
+        "a cold restart starts from the initialized value again"
+    );
 }
 
 #[test]
@@ -268,10 +334,10 @@ END_PROGRAM
     harness.cycle();
 
     assert_eq!(harness.get_output("observed"), Some(Value::Int(3)));
-    match harness.runtime().storage().get_global("GVL.shared") {
-        Some(Value::Int(value)) => assert_eq!(i64::from(*value), 4),
-        Some(Value::DInt(value)) => assert_eq!(i64::from(*value), 4),
-        Some(Value::LInt(value)) => assert_eq!(*value, 4),
+    match harness.runtime().read_variable("GVL.shared").ok() {
+        Some(Value::Int(value)) => assert_eq!(i64::from(value), 4),
+        Some(Value::DInt(value)) => assert_eq!(i64::from(value), 4),
+        Some(Value::LInt(value)) => assert_eq!(value, 4),
         other => panic!("unexpected namespaced global value {other:?}"),
     }
 }
@@ -329,22 +395,22 @@ END_CONFIGURATION
     assert_eq!(harness.get_output("observedNamespace"), Some(Value::Int(2)));
     assert_eq!(harness.get_output("observedConfig"), Some(Value::Int(4)));
 
-    match harness.runtime().storage().get_global("gFile") {
-        Some(Value::Int(value)) => assert_eq!(i64::from(*value), 2),
-        Some(Value::DInt(value)) => assert_eq!(i64::from(*value), 2),
-        Some(Value::LInt(value)) => assert_eq!(*value, 2),
+    match harness.runtime().read_variable("gFile").ok() {
+        Some(Value::Int(value)) => assert_eq!(i64::from(value), 2),
+        Some(Value::DInt(value)) => assert_eq!(i64::from(value), 2),
+        Some(Value::LInt(value)) => assert_eq!(value, 2),
         other => panic!("unexpected file-scope global value {other:?}"),
     }
-    match harness.runtime().storage().get_global("gConfig") {
-        Some(Value::Int(value)) => assert_eq!(i64::from(*value), 5),
-        Some(Value::DInt(value)) => assert_eq!(i64::from(*value), 5),
-        Some(Value::LInt(value)) => assert_eq!(*value, 5),
+    match harness.runtime().read_variable("gConfig").ok() {
+        Some(Value::Int(value)) => assert_eq!(i64::from(value), 5),
+        Some(Value::DInt(value)) => assert_eq!(i64::from(value), 5),
+        Some(Value::LInt(value)) => assert_eq!(value, 5),
         other => panic!("unexpected configuration global value {other:?}"),
     }
-    match harness.runtime().storage().get_global("GVL.shared") {
-        Some(Value::Int(value)) => assert_eq!(i64::from(*value), 3),
-        Some(Value::DInt(value)) => assert_eq!(i64::from(*value), 3),
-        Some(Value::LInt(value)) => assert_eq!(*value, 3),
+    match harness.runtime().read_variable("GVL.shared").ok() {
+        Some(Value::Int(value)) => assert_eq!(i64::from(value), 3),
+        Some(Value::DInt(value)) => assert_eq!(i64::from(value), 3),
+        Some(Value::LInt(value)) => assert_eq!(value, 3),
         other => panic!("unexpected namespaced global value {other:?}"),
     }
 }

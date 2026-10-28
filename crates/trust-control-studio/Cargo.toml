@@ -1,0 +1,31 @@
+[package]
+name = "trust-control-studio"
+description = "Control Studio's engine: its operations against the runtime, its project storage and journal, and the trust-control-studio program"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "trust-control-studio"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+parking_lot.workspace = true
+rustc-hash = { workspace = true, features = ["std"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+signal-hook = "0.3.18"
+trust-control.workspace = true
+trust-runtime-client.workspace = true
+
+[dev-dependencies]
+# A workspace build turns on serde_json's `arbitrary_precision` (through the runtime's OPC UA library). The tests run
+# with it too, so a document decoded around `trust_control::json` fails here as it would in that build.
+serde_json = { workspace = true, features = ["arbitrary_precision", "float_roundtrip"] }
+
+[lints]
+workspace = true

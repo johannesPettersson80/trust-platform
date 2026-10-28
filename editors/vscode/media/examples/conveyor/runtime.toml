@@ -4,7 +4,6 @@ version = 1
 name = "Simulator"
 cycle_interval_ms = 50
 [runtime.control]
-endpoint = "unix:///tmp/trust-conveyor.sock"
 mode = "production"
 debug_enabled = true
 [runtime.web]
@@ -24,7 +23,7 @@ interfaces = []
 enabled = false
 listen = "0.0.0.0:5200"
 tls = false
-auth_token = ""
+auth_token = "trust-example-token"
 publish = []
 [runtime.observability]
 enabled = false

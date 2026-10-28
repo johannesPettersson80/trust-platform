@@ -1,0 +1,8 @@
+format = 1
+size = [1280, 720]
+theme = "dark"
+symbols = "flat"
+
+# Pixel comparison isolates the page; frame/navigation has separate browser coverage.
+[navigation]
+style = "none"

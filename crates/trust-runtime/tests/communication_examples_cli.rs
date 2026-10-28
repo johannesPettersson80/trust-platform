@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
+
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -110,39 +112,38 @@ fn normalize_runtime_endpoint_for_platform(project: &Path) {
         return;
     };
 
-    let mut changed = false;
-    if let Some(endpoint) = control.get("endpoint").and_then(toml::Value::as_str)
-        && endpoint.starts_with("unix://")
-    {
-        control.insert(
-            "endpoint".to_string(),
-            toml::Value::String("tcp://127.0.0.1:18082".to_string()),
-        );
-        changed = true;
+    // Most examples omit the endpoint, so Windows validates them with its own default: loopback TCP
+    // with a generated token (spec 11, section 6.8.0a). Only an example that keeps an explicit Unix
+    // socket, because its instructions name it, gets a loopback TCP endpoint here, since Windows has
+    // no Unix sockets.
+    let unix_endpoint = control
+        .get("endpoint")
+        .and_then(toml::Value::as_str)
+        .is_some_and(|endpoint| endpoint.starts_with("unix://"));
+    if !unix_endpoint {
+        return;
     }
-
+    control.insert(
+        "endpoint".to_string(),
+        toml::Value::String("tcp://127.0.0.1:18082".to_string()),
+    );
     let has_auth_token = control
         .get("auth_token")
         .and_then(toml::Value::as_str)
-        .map(|token| !token.is_empty())
-        .unwrap_or(false);
+        .is_some_and(|token| !token.is_empty());
     if !has_auth_token {
         control.insert(
             "auth_token".to_string(),
             toml::Value::String("trust-ci-token".to_string()),
         );
-        changed = true;
     }
-
-    if changed {
-        let normalized = toml::to_string(&doc).expect("serialize normalized runtime.toml");
-        std::fs::write(&runtime_path, normalized).unwrap_or_else(|err| {
-            panic!(
-                "rewrite runtime endpoint for {}: {err}",
-                runtime_path.display()
-            )
-        });
-    }
+    let normalized = toml::to_string(&doc).expect("serialize normalized runtime.toml");
+    std::fs::write(&runtime_path, normalized).unwrap_or_else(|err| {
+        panic!(
+            "rewrite runtime endpoint for {}: {err}",
+            runtime_path.display()
+        )
+    });
 }
 
 #[test]

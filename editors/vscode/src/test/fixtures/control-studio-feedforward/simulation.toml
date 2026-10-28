@@ -1,0 +1,25 @@
+[simulation]
+enabled = true
+seed = 20260930
+time_scale = 1
+plant_step_ms = 100
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2000
+
+# The heater raises the water 0.2 °C per % through an 8 s lag; the extraction lowers it 0.1 °C per kW through a 3 s lag.
+# At rest: 35 °C with 80 % and 10 kW. Inputs: heater command and extraction; output: the water temperature.
+[[plants]]
+id = "water-heater"
+model = "state_space"
+command_sources = ["%QL0", "%QL8"]
+feedback_targets = ["%IL0"]
+initial_state = [16.0, -1.0]
+initial_input = [80.0, 10.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 80.0 }, {}]
+
+[plants.parameters]
+a = [[-0.125, 0.0], [0.0, -0.3333333333333333]]
+b = [[0.025, 0.0], [0.0, -0.03333333333333333]]
+c = [[1.0, 1.0]]
+d = [[0.0, 0.0]]

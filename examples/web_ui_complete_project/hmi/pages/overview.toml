@@ -1,0 +1,96 @@
+format = 1
+title = "Overview"
+
+[[object]]
+id = "heading"
+type = "text"
+variant = "heading"
+at = [40, 32]
+size = [800, 40]
+text = "Motor M1"
+
+[[object]]
+id = "run"
+type = "status"
+at = [40, 104]
+size = [280, 48]
+label = "Motor running"
+
+[object.bind]
+state = "Main.MotorRun"
+
+[[object]]
+id = "overload"
+type = "status"
+variant = "alarm"
+at = [40, 168]
+size = [280, 48]
+label = "Overload"
+
+[object.bind]
+state = "Main.Overload"
+
+[[object]]
+id = "fault"
+type = "status"
+variant = "alarm"
+at = [40, 232]
+size = [280, 48]
+label = "Fault latched"
+
+[object.bind]
+state = "Main.FaultLatched"
+
+[[object]]
+id = "start"
+type = "status"
+at = [360, 104]
+size = [280, 48]
+label = "Start button"
+
+[object.bind]
+state = "Main.StartBtn"
+
+[[object]]
+id = "stop"
+type = "status"
+at = [360, 168]
+size = [280, 48]
+label = "Stop button"
+
+[object.bind]
+state = "Main.StopBtn"
+
+[[object]]
+id = "reset"
+type = "status"
+at = [360, 232]
+size = [280, 48]
+label = "Fault reset"
+
+[object.bind]
+state = "Main.FaultReset"
+
+[[object]]
+id = "hours"
+type = "value"
+at = [680, 104]
+size = [280, 104]
+label = "Run hours"
+unit = "h"
+decimals = 2
+
+[object.bind]
+value = "Main.RunHours"
+
+[[object]]
+id = "cycle"
+type = "value"
+at = [680, 224]
+size = [280, 104]
+label = "Cycle time"
+unit = "s"
+decimals = 3
+
+[object.bind]
+value = "Main.CycleSeconds"

@@ -12,14 +12,16 @@ package "Runtime (site-a/runtime-a)" as runtimeA #LightBlue {
   component "T0 HardRT Plane\nOS-backed SHM ring\n(same host only)" as t0A
   component "Runtime Cloud Service\npreflight/dispatch/config/rollout" as cloudA
   database "Persisted Cloud State\nconfig/link/rollout JSON" as stateA
-  component "Zenoh Mesh Session\n(T1/T2/T3)" as meshA
+  component "Zenoh Mesh Session\nTCP or TLS + configured peer authentication\n(T1/T2/T3)" as meshA
+  component "Resource MeshSnapshot / MeshCatalogue\nexplicit publish paths + typed metadata" as snapshotA
+  component "Shared member-path resolver\nglobals, program/FB members, arrays" as membersA
 }
 
 package "Runtime (site-a/runtime-b)" as runtimeB #LightBlue {
   component "T0 HardRT Plane\nOS-backed SHM ring\n(same host only)" as t0B
   component "Runtime Cloud Service\npreflight/dispatch/config/rollout" as cloudB
   database "Persisted Cloud State\nconfig/link/rollout JSON" as stateB
-  component "Zenoh Mesh Session\n(T1/T2/T3)" as meshB
+  component "Zenoh Mesh Session\nTCP or TLS + configured peer authentication\n(T1/T2/T3)" as meshB
 }
 
 package "Gateway Plugin Host (optional profile)" as gateway #Wheat {
@@ -45,6 +47,8 @@ cloudB --> stateB : load/store\ncorrupt config => Error\ncorrupt link/rollout =>
 cloudA --> meshA : publish/query\nsnapshot timeout => error
 cloudB --> meshB : publish/query\nsnapshot timeout => error
 meshA <--> meshB : Zenoh keyspace + liveliness
+meshA --> snapshotA : configured publish list
+snapshotA --> membersA : resolve nested requested values only
 
 meshA --> bridgePlugin : gateway-assisted federation
 meshB --> bridgePlugin : gateway-assisted federation

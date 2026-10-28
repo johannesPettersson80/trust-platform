@@ -53,7 +53,7 @@ Bidirectional pattern:
 | `WRITE_OUTPUT` | Write a digital output | `%QX0.0 := TRUE` |
 | `WRITE_VARIABLE` | Write an ST variable | `motorSpeed := 1500` |
 | `SET_MULTIPLE` | Write multiple outputs | Turn all LEDs off |
-| `LOG` | Runtime debug logging | State diagnostics |
+| `LOG` | A comment in the companion; no effect when the program runs | State diagnostics |
 
 ## IEC Address Mapping
 
@@ -72,69 +72,40 @@ Format: `%QX[byte].[bit]`
 - `0` = byte index
 - `.0-.7` = bit index
 
-## Test in VS Code (Simulation)
+## Run in VS Code
 
-### 1. Open the extension project
+A statechart runs as Structured Text, like every visual program
+(`docs/specs/17-visual-editors-runtime-unification.md`); the editor has no
+simulation or hardware mode of its own.
 
-```bash
-cd editors/vscode
-code .
-# Press F5 to launch Extension Development Host
-```
-
-In the dev window open:
-
-```text
-examples/statecharts/ethercat-snake-bidirectional.statechart.json
-```
-
-### 2. Inspect the diagram
-
-You should see:
-
-- Forward and backward states
-- `TICK` transitions
-- Entry/exit actions for each state
-
-### 3. Run simulation
-
-1. Click `▶ Run`
-2. Send `START`
-3. Trigger `TICK` repeatedly (or use timer-based transitions)
-4. Confirm active state moves across the graph
-
-### 4. Check logs
-
-```text
-Help > Toggle Developer Tools > Console
-```
-
-Example logs:
-
-```text
-Executing action: turnOn_DO0
-Executing action: turnOff_DO0
-Executing action: turnOn_DO1
-```
+1. Open `examples/statecharts/ethercat-snake-bidirectional.statechart.json`.
+   The diagram shows the forward and backward states, the `TICK` transitions
+   and the entry/exit actions of each state.
+2. Save it: truST writes the companion `ethercat-snake-bidirectional.st` and
+   the runtime entry `ethercat-snake-bidirectional.visual.runtime.st` beside
+   it.
+3. Start it from the truST sidebar.
+4. In the debugger's Variables view (Set Value), set
+   `fb_ethercat_snake_bidirectional.EV_START` to `TRUE` and back to `FALSE`,
+   then do the same with `EV_TICK`: every scan in which `EV_TICK` is `TRUE`
+   moves the chart one state.
+5. Watch `%QX0.0`–`%QX0.7` in Live Values.
 
 ## Run with Real Hardware
 
-### Current runtime integration
+### Runtime integration
 
-Use the backend runtime in `examples/hardware_8do` and run statecharts in hardware mode from the VS Code editor.
-
-1. Start backend runtime.
-2. Open statechart in extension host.
-3. Select `Hardware` mode and start execution.
-4. Verify I/O force/unforce logs and physical output behavior.
+The runtime entry declares `%QX0.0`–`%QX0.7` as globals `AT` those addresses,
+so a project whose `io.toml` maps them to the EL2008 drives the LEDs with the
+values the companion writes (see [HARDWARE_EXECUTION.md](HARDWARE_EXECUTION.md)).
 
 ### Example project/runtime setup
 
 Create a project with:
 
+- the chart in the project's `src/` folder, so its companion and runtime
+  entry (written when you save the chart) are among the project's sources
 - `io.toml` configured for EtherCAT (`EK1100`, `EL2008`)
-- Minimal ST program (`Main.st`)
-- `CONFIGURATION` task file (`config.st`)
 
 Example `io.toml` snippet:
 
@@ -165,13 +136,12 @@ sudo setcap cap_net_raw,cap_net_admin=eip "$(readlink -f "$(which trust-runtime)
 sudo nmcli dev set enp111s0 managed no
 sudo ip link set enp111s0 up
 
-trust-runtime run --project examples/statecharts/ethercat-snake-project \
-  --statechart examples/statecharts/ethercat-snake-bidirectional.statechart.json
+trust-runtime run --project <your-project>
 ```
 
 ## Pattern Timing
 
-If `TICK` is emitted every 200ms:
+Each scan in which `EV_TICK` is `TRUE` moves the chart one state. If a one-scan `TICK` pulse is raised every 200ms:
 
 | Phase | States | Total Time |
 |---|---|---|
@@ -179,11 +149,11 @@ If `TICK` is emitted every 200ms:
 | Backward | 7 states | 1.4s |
 | Full cycle | 15 transitions | 3.0s |
 
-Change speed by adjusting `tick_interval` in `Main.st`.
+The speed is the rate at which `EV_TICK` is raised.
 
 ## Tips
 
-- Start in simulation first, then move to hardware.
+- Run the chart and check the outputs in Live Values before connecting loads.
 - Keep safe-state outputs configured in `io.toml`.
 - Ensure action names in states match keys in `actionMappings`.
-- Validate socket permissions and runtime connectivity before testing hardware events.
+- Give `trust-runtime` the EtherCAT interface permissions (`setcap`) before starting it.

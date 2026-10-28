@@ -1,0 +1,59 @@
+format = 1
+title = "Sequence overview"
+block = "Plant.FB_SequenceManager"
+faceplate = "plant-sequences"
+symbol = "value"
+
+[bind]
+value = "RunningCount"
+
+[[dependencies]]
+member = "Sequence1"
+title = "Sequence 1"
+interface = "Plant.ISequence"
+required = false
+
+[[dependencies]]
+member = "Sequence2"
+title = "Sequence 2"
+interface = "Plant.ISequence"
+required = false
+
+[[dependencies]]
+member = "Sequence3"
+title = "Sequence 3"
+interface = "Plant.ISequence"
+required = false
+
+[[dependencies]]
+member = "Sequence4"
+title = "Sequence 4"
+interface = "Plant.ISequence"
+required = false
+
+[[dependencies]]
+member = "Sequence5"
+title = "Sequence 5"
+interface = "Plant.ISequence"
+required = false
+
+[[dependencies]]
+member = "Sequence6"
+title = "Sequence 6"
+interface = "Plant.ISequence"
+required = false
+
+[[dependencies]]
+member = "Sequence7"
+title = "Sequence 7"
+interface = "Plant.ISequence"
+required = false
+
+[[dependencies]]
+member = "Sequence8"
+title = "Sequence 8"
+interface = "Plant.ISequence"
+required = false
+
+[program]
+position = "controllers"

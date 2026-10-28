@@ -1,0 +1,27 @@
+[simulation]
+enabled = true
+seed = 20260929
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 1000
+plant_step_ms = 100
+
+# Two heated zones that share a wall, states relative to the 20 °C surroundings:
+#   10·dT1/dt = 0.3·u1 − (T1 − 20) − 0.5·(T1 − T2),   10·dT2/dt = 0.3·u2 − (T2 − 20) − 0.5·(T2 − T1),
+# at rest at 26 °C in both zones with both heaters at 20 %. Inputs: heater commands u1, u2 in % (0–100);
+# outputs: the zone temperatures. Each heater warms its own zone three times as much as the other one.
+[[plants]]
+id = "two-zones"
+model = "state_space"
+command_sources = ["%QL0", "%QL8"]
+feedback_targets = ["%IL0", "%IL8"]
+initial_state = [6.0, 6.0]
+initial_input = [20.0, 20.0]
+output_offset = [20.0, 20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 20.0 }, { minimum = 0.0, maximum = 100.0, initial_applied = 20.0 }]
+
+[plants.parameters]
+a = [[-0.15, 0.05], [0.05, -0.15]]
+b = [[0.03, 0.0], [0.0, 0.03]]
+c = [[1.0, 0.0], [0.0, 1.0]]
+d = [[0.0, 0.0], [0.0, 0.0]]

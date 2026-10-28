@@ -1,15 +1,11 @@
-use crate::harness::{CompileSession, SourceFile};
+//! The tests that build a program image need the toolchain of specification 44 §4.6 at
+//! `TRUST_TOOLCHAIN`.
+
+use crate::harness::{CompileSession, SourceFile, TestHarness};
 
 fn runtime_error(source: &str) -> String {
-    match CompileSession::from_source(source).build_runtime() {
+    match CompileSession::from_source(source).declarations() {
         Ok(_) => panic!("textual ACTION source must not produce a runnable runtime"),
-        Err(error) => error.to_string(),
-    }
-}
-
-fn bytecode_error(source: &str) -> String {
-    match CompileSession::from_source(source).build_bytecode_module() {
-        Ok(_) => panic!("textual ACTION source must not produce bytecode"),
         Err(error) => error.to_string(),
     }
 }
@@ -109,7 +105,7 @@ END_FUNCTION_BLOCK
         ),
         SourceFile::with_path("main.st", "PROGRAM Main\nEND_PROGRAM"),
     ];
-    let error = match CompileSession::from_sources(sources).build_runtime() {
+    let error = match CompileSession::from_sources(sources).declarations() {
         Ok(_) => panic!("project containing textual ACTION must fail"),
         Err(error) => error.to_string(),
     };
@@ -121,31 +117,16 @@ END_FUNCTION_BLOCK
 }
 
 #[test]
-fn action_profile_rejects_bytecode_module_emission() {
-    let error = bytecode_error(
+fn action_profile_rejects_program_image_build() {
+    let error = match TestHarness::from_source(
         r#"
 PROGRAM Main
 ACTION Reset:
 END_ACTION
 END_PROGRAM
 "#,
-    );
-    assert_action_profile_error(&error);
-}
-
-#[test]
-fn action_profile_rejects_encoded_bytecode_emission() {
-    let error = match CompileSession::from_source(
-        r#"
-PROGRAM Main
-ACTION Reset:
-END_ACTION
-END_PROGRAM
-"#,
-    )
-    .build_bytecode_bytes()
-    {
-        Ok(_) => panic!("textual ACTION source must not produce encoded bytecode"),
+    ) {
+        Ok(_) => panic!("textual ACTION source must not produce a program image"),
         Err(error) => error.to_string(),
     };
     assert_action_profile_error(&error);
@@ -173,7 +154,7 @@ sequence();
 END_PROGRAM
 "#,
     )
-    .build_runtime();
+    .declarations();
     assert!(
         result.is_ok(),
         "ordinary companion ST must remain executable: {result:?}"

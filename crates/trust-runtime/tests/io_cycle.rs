@@ -1,134 +1,67 @@
+//! The process image around a scan: the inputs are sampled before the program runs, the outputs
+//! are committed after it, and the scan's I/O snapshot is published after the output commit.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::sync::mpsc;
 use std::time::Duration as StdDuration;
-use trust_runtime::eval::expr::{Expr, LValue};
-use trust_runtime::eval::stmt::Stmt;
+
+use trust_runtime::debug::DebugControl;
+use trust_runtime::harness::TestHarness;
 use trust_runtime::io::{IoAddress, IoSnapshotValue};
-use trust_runtime::task::{ProgramDef, TaskConfig};
-use trust_runtime::value::{Duration, Value};
-use trust_runtime::RuntimeBuilder;
+use trust_runtime::value::Value;
+
+/// `out` copies `in` in an event task that a rising edge of `trigger` starts.
+const COPY: &str = r#"
+CONFIGURATION C
+VAR_GLOBAL
+    in AT %IX0.0 : BOOL;
+    out AT %QX0.1 : BOOL;
+    trigger : BOOL;
+END_VAR
+RESOURCE R ON PLC
+    TASK T (SINGLE := trigger, PRIORITY := 0);
+    PROGRAM P1 WITH T : P;
+END_RESOURCE
+END_CONFIGURATION
+
+PROGRAM P
+out := in;
+END_PROGRAM
+"#;
 
 #[test]
 fn io_read_write_order() {
-    let mut runtime = RuntimeBuilder::new();
-    for (name, type_id, value) in [
-        ("in", trust_hir::TypeId::BOOL, Value::Bool(false)),
-        ("out", trust_hir::TypeId::BOOL, Value::Bool(false)),
-        ("trigger", trust_hir::TypeId::BOOL, Value::Bool(false)),
-    ] {
-        runtime
-            .register_global(trust_runtime::program_model::VarDef {
-                name: name.into(),
-                type_id,
-                initializer: Some(Expr::Literal(value)),
-                retain: trust_runtime::RetainPolicy::Unspecified,
-                static_storage: false,
-                external: false,
-                in_out: false,
-                constant: false,
-                address: None,
-            })
-            .unwrap();
-    }
-
-    let program = ProgramDef {
-        name: "P".into(),
-        vars: Vec::new(),
-        temps: Vec::new(),
-        using: Vec::new(),
-        body: vec![Stmt::Assign {
-            target: LValue::Name("out".into()),
-            value: Expr::Name("in".into()),
-            location: None,
-        }],
-    };
-    runtime.register_program(program);
-
+    let mut harness = TestHarness::from_source(COPY).expect("the copy program compiles");
     let input_addr = IoAddress::parse("%IX0.0").unwrap();
     let output_addr = IoAddress::parse("%QX0.1").unwrap();
-    runtime.io_mut().bind("in", input_addr.clone());
-    runtime.io_mut().bind("out", output_addr.clone());
-
-    runtime.register_task(TaskConfig {
-        name: "T".into(),
-        interval: Duration::ZERO,
-        single: Some("trigger".into()),
-        priority: 0,
-        programs: vec!["P".into()],
-        fb_instances: Vec::new(),
-    });
-    let mut runtime = runtime.build().unwrap();
+    let runtime = harness.runtime_mut();
 
     runtime.write_io(&input_addr, Value::Bool(true)).unwrap();
-    runtime.write_global("trigger", Value::Bool(true)).unwrap();
+    runtime
+        .write_variable("trigger", &Value::Bool(true))
+        .unwrap();
 
     runtime.execute_cycle().unwrap();
 
-    let out = runtime.io().read(&output_addr).unwrap();
-    assert_eq!(out, Value::Bool(true));
+    assert_eq!(runtime.read_io(&output_addr), Ok(Value::Bool(true)));
 }
 
 #[test]
 fn io_snapshot_emitted_after_cycle_output_commit() {
-    let mut runtime = RuntimeBuilder::new();
-    for (name, type_id, value) in [
-        ("in", trust_hir::TypeId::BOOL, Value::Bool(false)),
-        ("out", trust_hir::TypeId::BOOL, Value::Bool(false)),
-        ("trigger", trust_hir::TypeId::BOOL, Value::Bool(false)),
-    ] {
-        runtime
-            .register_global(trust_runtime::program_model::VarDef {
-                name: name.into(),
-                type_id,
-                initializer: Some(Expr::Literal(value)),
-                retain: trust_runtime::RetainPolicy::Unspecified,
-                static_storage: false,
-                external: false,
-                in_out: false,
-                constant: false,
-                address: None,
-            })
-            .unwrap();
-    }
-
-    let program = ProgramDef {
-        name: "P".into(),
-        vars: Vec::new(),
-        temps: Vec::new(),
-        using: Vec::new(),
-        body: vec![Stmt::Assign {
-            target: LValue::Name("out".into()),
-            value: Expr::Name("in".into()),
-            location: None,
-        }],
-    };
-    runtime.register_program(program);
-
+    let mut harness = TestHarness::from_source(COPY).expect("the copy program compiles");
     let input_addr = IoAddress::parse("%IX0.0").unwrap();
     let output_addr = IoAddress::parse("%QX0.1").unwrap();
-    runtime.io_mut().bind("in", input_addr.clone());
-    runtime.io_mut().bind("out", output_addr.clone());
+    let runtime = harness.runtime_mut();
 
+    runtime.write_io(&input_addr, Value::Bool(true)).unwrap();
+    runtime.write_io(&output_addr, Value::Bool(false)).unwrap();
     runtime
-        .io_mut()
-        .write(&input_addr, Value::Bool(true))
+        .write_variable("trigger", &Value::Bool(true))
         .unwrap();
-    runtime
-        .io_mut()
-        .write(&output_addr, Value::Bool(false))
-        .unwrap();
-    runtime.register_task(TaskConfig {
-        name: "T".into(),
-        interval: Duration::ZERO,
-        single: Some("trigger".into()),
-        priority: 0,
-        programs: vec!["P".into()],
-        fb_instances: Vec::new(),
-    });
-    let mut runtime = runtime.build().unwrap();
 
-    runtime.write_global("trigger", Value::Bool(true)).unwrap();
-
-    let control = runtime.enable_debug();
+    let control = DebugControl::new();
+    runtime.set_debug_control(control.clone());
     let (tx, rx) = mpsc::channel();
     control.set_io_sender(tx);
 

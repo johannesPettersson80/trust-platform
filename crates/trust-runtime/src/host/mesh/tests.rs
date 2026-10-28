@@ -50,9 +50,8 @@ fn mesh_payload_rejects_integer_narrowing_overflow() {
     ];
 
     for (raw, template) in cases {
-        let payload = format!(
-            r#"{{"source":"runtime-a","sequence":1,"published_at_ns":0,"value":{raw}}}"#
-        );
+        let payload =
+            format!(r#"{{"source":"runtime-a","sequence":1,"published_at_ns":0,"value":{raw}}}"#);
         assert!(
             decode_mesh_payload(payload.as_bytes(), &template).is_none(),
             "mesh input {raw} must not wrap when decoded against {template:?}"
@@ -73,9 +72,8 @@ fn mesh_payload_accepts_numeric_target_boundaries() {
     ];
 
     for (raw, template, expected) in cases {
-        let payload = format!(
-            r#"{{"source":"runtime-a","sequence":1,"published_at_ns":0,"value":{raw}}}"#
-        );
+        let payload =
+            format!(r#"{{"source":"runtime-a","sequence":1,"published_at_ns":0,"value":{raw}}}"#);
         let decoded = decode_mesh_payload(payload.as_bytes(), &template)
             .unwrap_or_else(|| panic!("mesh input {raw} must fit {template:?}"));
         assert_eq!(decoded.0, expected);
@@ -142,7 +140,10 @@ fn liveliness_registry_tracks_join_and_leave_transitions() {
     assert!(registry.peers.contains("runtime-b"));
     assert!(!registry.peers.contains("runtime-a"));
     assert_eq!(registry.history.len(), 3);
-    assert_eq!(registry.history.back().map(|event| event.joined), Some(false));
+    assert_eq!(
+        registry.history.back().map(|event| event.joined),
+        Some(false)
+    );
 }
 
 #[test]
@@ -190,9 +191,7 @@ fn mesh_cloud_ready_wait_times_out_for_degraded_state() {
     let error = service
         .wait_cloud_ready(StdDuration::from_millis(20))
         .expect_err("degraded mesh should timeout");
-    assert!(error
-        .as_str()
-        .contains("mesh cloud readiness timed out"));
+    assert!(error.as_str().contains("mesh cloud readiness timed out"));
 }
 
 #[test]
@@ -225,41 +224,83 @@ fn queryables_are_available_when_mesh_session_starts() {
             }
         }
     });
-    let service = super::start_mesh(&mesh_config(), SmolStr::new("runtime-a"), resource)
-        .expect("start mesh")
-        .expect("mesh service");
+    let service = super::start_mesh(
+        &mesh_config(),
+        SmolStr::new("runtime-a"),
+        SmolStr::new(STABLE_ID),
+        resource,
+    )
+    .expect("start mesh")
+    .expect("mesh service");
     assert!(service.readiness().session_established);
     assert!(service.readiness().identity_queryable_ready);
     assert!(service.readiness().catalog_queryable_ready);
 }
 
 #[test]
-fn mesh_tls_publish_applies_updates() {
+fn mesh_tls_requires_certificate_materials_instead_of_starting_plaintext() {
+    let (resource, _commands) = ResourceControl::stub(StdClock::new());
+    let mut config = mesh_config();
+    config.tls = true;
+    // Specification 39 §7 item 9: requesting mesh TLS requires the runtime's certificate material
+    // and an actual TLS transport, never a plaintext fallback.
+    let result = super::start_mesh(
+        &config,
+        "tls-required".into(),
+        SmolStr::new(STABLE_ID),
+        resource,
+    );
+    assert!(
+        result.is_err(),
+        "TLS requested without certificate material must not start a plaintext session"
+    );
+}
+
+/// The stable runtime ID of the started mesh in these tests: sixteen random bytes in lowercase hex,
+/// as `runtime_id` generates them.
+const STABLE_ID: &str = "0f1e2d3c4b5a69788796a5b4c3d2e1f0";
+
+#[test]
+fn identity_answer_of_a_started_mesh_gives_its_stable_runtime_id() {
+    // Spec 11, "Sources" (the mesh peers paragraph): a started runtime answers its identity with the
+    // stable runtime ID beside the mesh name that keys its identity queryable. Wrong behaviour: the
+    // producer drops the stable ID, so a search cannot merge the answer with the mDNS find.
     let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
     std::thread::spawn(move || {
         while let Ok(command) = cmd_rx.recv() {
-            if let ResourceCommand::MeshSnapshot {
-                names, respond_to, ..
-            } = command
-            {
-                let mut values = IndexMap::new();
-                for name in names {
-                    values.insert(name, Value::DInt(7));
-                }
-                let _ = respond_to.send(values);
+            if let ResourceCommand::MeshSnapshot { respond_to, .. } = command {
+                let _ = respond_to.send(IndexMap::new());
             }
         }
     });
-
-    let mut config = mesh_config();
-    config.tls = true;
-    config.publish = vec![SmolStr::new("Main.speed")];
-    let service = super::start_mesh(&config, SmolStr::new("runtime-a"), resource)
-        .expect("start mesh with tls flag")
-        .expect("mesh service");
-    assert!(service.readiness().session_established);
-    assert!(service.readiness().identity_queryable_ready);
-    assert!(service.readiness().catalog_queryable_ready);
+    let service = super::start_mesh(
+        &mesh_config(),
+        SmolStr::new("line-a"),
+        SmolStr::new(STABLE_ID),
+        resource,
+    )
+    .expect("start mesh")
+    .expect("mesh service");
+    let session = service
+        .topology_evidence()
+        .session()
+        .cloned()
+        .expect("the mesh has a session");
+    let answers =
+        super::query_identities(&session, &["line-a".to_string()], StdDuration::from_secs(5));
+    let (_, answer) = answers
+        .into_iter()
+        .next()
+        .expect("the runtime answers its own identity query");
+    let answer = answer.expect("the answer is an identity");
+    assert_eq!(answer.identity.runtime_id, "line-a");
+    assert_eq!(answer.name.as_deref(), Some("line-a"));
+    assert_eq!(answer.stable_runtime_id.as_deref(), Some(STABLE_ID));
+    assert_eq!(answer.version.as_deref(), Some(env!("CARGO_PKG_VERSION")));
+    assert_eq!(
+        answer.platform.as_deref(),
+        Some(format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH).as_str())
+    );
 }
 
 fn mesh_config() -> MeshConfig {
@@ -275,4 +316,113 @@ fn mesh_config() -> MeshConfig {
         zenohd_version: SmolStr::new(ZENOHD_BASELINE_VERSION),
         plugin_versions: IndexMap::new(),
     }
+}
+
+#[test]
+fn mesh_catalogue_exposes_the_published_variables_typed_metadata() {
+    use zenoh::Wait;
+    let mut harness = crate::harness::TestHarness::from_source(
+        "PROGRAM Main VAR Level : LREAL := 1.5; END_VAR END_PROGRAM",
+    )
+    .unwrap();
+    harness.cycle();
+    // The typed publish catalogue as the scan thread answers the `MeshCatalogue` command: from the
+    // program as its last scan left it.
+    let nodes = harness
+        .runtime()
+        .with_program_view(|program| {
+            crate::hmi::variable_tree::published_variables(program, &["Main.Level".to_string()])
+        })
+        .unwrap();
+    let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
+    std::thread::spawn(move || {
+        while let Ok(command) = cmd_rx.recv() {
+            match command {
+                ResourceCommand::MeshCatalogue { names, respond_to } => {
+                    assert_eq!(names, ["Main.Level"]);
+                    let _ = respond_to.send(Ok(nodes.clone()));
+                }
+                ResourceCommand::MeshSnapshot { respond_to, .. } => {
+                    let _ =
+                        respond_to.send(IndexMap::from([("Main.Level".into(), Value::LReal(1.5))]));
+                }
+                _ => {}
+            }
+        }
+    });
+    let mut config = mesh_config();
+    config.publish = vec!["Main.Level".into()];
+    let runtime_name = format!("hmi-catalog-{}", std::process::id());
+    let service = super::start_mesh(
+        &config,
+        runtime_name.clone().into(),
+        SmolStr::new(STABLE_ID),
+        resource,
+    )
+    .unwrap()
+    .unwrap();
+    let replies = service
+        .session
+        .as_ref()
+        .unwrap()
+        .get(crate::runtime_cloud::keyspace::meta_catalog_key(
+            "default-site",
+            &runtime_name,
+        ))
+        .timeout(StdDuration::from_secs(2))
+        .wait()
+        .unwrap();
+    let reply = replies
+        .recv_timeout(StdDuration::from_secs(3))
+        .unwrap()
+        .expect("existing catalogue replies");
+    let payload = reply.result().unwrap().payload().to_bytes();
+    let catalogue: serde_json::Value = serde_json::from_slice(&payload).unwrap();
+    assert_eq!(catalogue[0]["schema_id"], "Main.Level");
+    assert_eq!(
+        catalogue[0]["variable"]["type"], "LREAL",
+        "the mesh catalogue must carry binding metadata"
+    );
+    assert_eq!(catalogue[0]["variable"]["path"], "Main.Level");
+    assert_eq!(catalogue[0]["variable"]["writable"], true);
+}
+
+#[test]
+fn mesh_publish_snapshot_reads_only_requested_nested_equipment_members() {
+    let mut harness = crate::harness::TestHarness::from_source(
+        r#"
+FUNCTION_BLOCK Pump
+VAR_OUTPUT
+    Running : BOOL;
+    Speed : REAL;
+END_VAR
+    Running := TRUE;
+    Speed := 1460.0;
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR
+    P101 : Pump;
+    Levels : ARRAY[1..2] OF INT := [12, 24];
+END_VAR
+    P101();
+END_PROGRAM
+"#,
+    )
+    .expect("the publish fixture compiles");
+    harness.cycle();
+    let snapshot = harness.runtime().snapshot_globals(&[
+        "Main.P101.Running".into(),
+        "main.p101.speed".into(),
+        "Main.Levels[2]".into(),
+        "Main.Missing".into(),
+        "Main.Levels[9]".into(),
+    ]);
+    assert_eq!(snapshot.get("Main.P101.Running"), Some(&Value::Bool(true)));
+    assert_eq!(snapshot.get("main.p101.speed"), Some(&Value::Real(1460.0)));
+    assert_eq!(snapshot.get("Main.Levels[2]"), Some(&Value::Int(24)));
+    assert_eq!(
+        snapshot.len(),
+        3,
+        "no missing paths or unrequested instance members are published"
+    );
 }

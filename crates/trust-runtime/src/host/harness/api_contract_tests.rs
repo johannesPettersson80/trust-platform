@@ -1,7 +1,5 @@
 use super::*;
 
-use crate::bytecode::{BytecodeModule, SectionId};
-
 fn counter_source() -> &'static str {
     r#"
 PROGRAM Main
@@ -36,25 +34,6 @@ END_VAR
 value := INT#7;
 END_PROGRAM
 "#
-}
-
-fn assert_same_executable_sections(left: &BytecodeModule, right: &BytecodeModule) {
-    assert_eq!(left.version, right.version);
-    assert_eq!(left.flags, right.flags);
-    for section in [
-        SectionId::StringTable,
-        SectionId::TypeTable,
-        SectionId::ConstPool,
-        SectionId::RefTable,
-        SectionId::PouIndex,
-        SectionId::PouBodies,
-        SectionId::ResourceMeta,
-        SectionId::IoMap,
-        SectionId::VarMeta,
-        SectionId::RetainInit,
-    ] {
-        assert_eq!(left.section(section), right.section(section), "{section:?}");
-    }
 }
 
 #[test]
@@ -134,99 +113,22 @@ fn harness_api_contract_extra_program_names_preserve_caller_order() {
 }
 
 #[test]
-fn harness_api_contract_runtime_build_uses_complete_source_set() {
-    let runtime = CompileSession::from_sources(vec![
+fn harness_api_contract_declarations_use_complete_source_set() {
+    let declarations = CompileSession::from_sources(vec![
         SourceFile::new(helper_source()),
         SourceFile::new(counter_source()),
     ])
-    .build_runtime()
+    .declarations()
     .unwrap();
-    assert!(runtime
+    let metadata = declarations.metadata();
+    assert!(metadata
         .programs()
         .values()
         .any(|program| program.name.eq_ignore_ascii_case("Main")));
-    assert!(runtime
+    assert!(metadata
         .functions()
         .values()
         .any(|function| function.name.eq_ignore_ascii_case("AddOne")));
-}
-
-#[test]
-fn harness_api_contract_module_and_bytes_builds_are_equivalent() {
-    let session = CompileSession::from_source(counter_source());
-    let module = session.build_bytecode_module().unwrap();
-    let bytes = session.build_bytecode_bytes().unwrap();
-    assert!(!bytes.is_empty());
-    assert_eq!(BytecodeModule::decode(&bytes).unwrap(), module);
-}
-
-#[test]
-fn harness_api_contract_single_source_module_helpers_are_equivalent() {
-    let direct = bytecode_module_from_source(counter_source()).unwrap();
-    let with_path = bytecode_module_from_source_with_path(counter_source(), "src/main.st").unwrap();
-    assert_same_executable_sections(&direct, &with_path);
-    assert_ne!(
-        direct.section(SectionId::DebugStringTable),
-        with_path.section(SectionId::DebugStringTable)
-    );
-}
-
-#[test]
-fn harness_api_contract_multi_source_module_helpers_are_equivalent() {
-    let sources = [helper_source(), counter_source()];
-    let paths = ["src/helper.st", "src/main.st"];
-    let direct = bytecode_module_from_sources(&sources).unwrap();
-    let with_paths = bytecode_module_from_sources_with_paths(&sources, &paths).unwrap();
-    assert_same_executable_sections(&direct, &with_paths);
-    assert_ne!(
-        direct.section(SectionId::DebugStringTable),
-        with_paths.section(SectionId::DebugStringTable)
-    );
-}
-
-#[test]
-fn harness_api_contract_single_source_byte_helpers_decode() {
-    for bytes in [
-        bytecode_bytes_from_source(counter_source()).unwrap(),
-        bytecode_bytes_from_source_with_path(counter_source(), "src/main.st").unwrap(),
-    ] {
-        assert!(BytecodeModule::decode(&bytes).is_ok());
-    }
-}
-
-#[test]
-fn harness_api_contract_multi_source_byte_helpers_decode() {
-    let sources = [helper_source(), counter_source()];
-    let paths = ["src/helper.st", "src/main.st"];
-    for bytes in [
-        bytecode_bytes_from_sources(&sources).unwrap(),
-        bytecode_bytes_from_sources_with_paths(&sources, &paths).unwrap(),
-    ] {
-        assert!(BytecodeModule::decode(&bytes).is_ok());
-    }
-}
-
-#[test]
-fn harness_api_contract_source_path_length_mismatch_is_rejected_before_build() {
-    let sources = [counter_source()];
-    let empty_paths: [&str; 0] = [];
-    let extra_paths = ["one.st", "two.st"];
-    for error in [
-        bytecode_module_from_sources_with_paths(&sources, &empty_paths)
-            .unwrap_err()
-            .to_string(),
-        bytecode_module_from_sources_with_paths(&sources, &extra_paths)
-            .unwrap_err()
-            .to_string(),
-        bytecode_bytes_from_sources_with_paths(&sources, &empty_paths)
-            .unwrap_err()
-            .to_string(),
-        bytecode_bytes_from_sources_with_paths(&sources, &extra_paths)
-            .unwrap_err()
-            .to_string(),
-    ] {
-        assert_eq!(error, "sources/paths length mismatch");
-    }
 }
 
 #[test]
@@ -236,7 +138,7 @@ fn harness_api_contract_labeled_parse_error_uses_explicit_path() {
         "PROGRAM Broken",
     )])
     .label_errors(true)
-    .build_runtime()
+    .declarations()
     .unwrap_err()
     .to_string();
     assert!(error.contains("broken/main.st:"), "{error}");
@@ -248,7 +150,7 @@ fn harness_api_contract_labeled_parse_error_uses_stable_virtual_index() {
         SourceFile::new(helper_source()),
         SourceFile::new("PROGRAM Broken"),
     ])
-    .build_runtime()
+    .declarations()
     .unwrap_err()
     .to_string();
     assert!(error.contains("file 1:"), "{error}");
@@ -257,7 +159,7 @@ fn harness_api_contract_labeled_parse_error_uses_stable_virtual_index() {
 #[test]
 fn harness_api_contract_unlabeled_error_omits_source_prefix() {
     let error = CompileSession::from_source("PROGRAM Broken")
-        .build_runtime()
+        .declarations()
         .unwrap_err()
         .to_string();
     assert!(!error.contains("file 0:"), "{error}");
@@ -266,16 +168,16 @@ fn harness_api_contract_unlabeled_error_omits_source_prefix() {
 #[test]
 fn harness_api_contract_extra_program_instance_is_explicit_and_case_insensitive() {
     let default_error = CompileSession::from_source(unbound_program_source())
-        .build_runtime()
+        .declarations()
         .unwrap_err()
         .to_string();
     assert!(default_error.contains("unbound PROGRAM declaration"));
 
-    let runtime = CompileSession::from_source(unbound_program_source())
+    let declarations = CompileSession::from_source(unbound_program_source())
         .with_extra_program_instances(["main", "MAIN"])
-        .build_runtime()
+        .declarations()
         .unwrap();
-    assert!(runtime
+    assert!(declarations
         .storage()
         .globals()
         .keys()
@@ -286,7 +188,7 @@ fn harness_api_contract_extra_program_instance_is_explicit_and_case_insensitive(
 fn harness_api_contract_unknown_extra_program_is_rejected_by_name() {
     let error = CompileSession::from_source(unbound_program_source())
         .with_extra_program_instances(["Missing"])
-        .build_runtime()
+        .declarations()
         .unwrap_err()
         .to_string();
     assert!(

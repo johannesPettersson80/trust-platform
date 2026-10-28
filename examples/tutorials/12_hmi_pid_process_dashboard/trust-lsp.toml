@@ -5,3 +5,7 @@ stdlib = "iec"
 
 [runtime]
 control_endpoint = "unix:///tmp/trust-runtime-tutorial-pid.sock"
+
+# The HMI library, copied unchanged into this example so it stands on its own.
+[dependencies]
+Hmi = { path = "libraries/hmi", version = "0.1.0" }

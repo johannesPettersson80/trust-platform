@@ -61,8 +61,13 @@ OSCAT = { path = "../../libraries/oscat", version = "0.1.0" }
 2. It is safe to call `OSCAT_BASIC_Constants()` every scan if you want a simple
    guard; it only populates the carriers on the first successful call.
 3. The shipped PLC clock helpers are compatibility shims:
-   - `T_PLC_MS()` returns `TIME_TO_DWORD(TIME())`
-   - `T_PLC_US()` returns `TIME_TO_DWORD(TIME()) * 1000`
+   - `T_PLC_MS()` returns the milliseconds of `TIME()` modulo 2^32, so it wraps
+     to zero after about 49.7 days, as the upstream PLC timer does
+   - `T_PLC_US()` returns `T_PLC_MS() * 1000` modulo 2^32, so it wraps after
+     about 71.6 minutes
+   - `T_PLC_ELAPSED(NOW, LAST)` returns the counts between two readings of
+     either timer across a wrap; truST checks integer arithmetic, so
+     `DWORD_TO_UDINT(NOW) - DWORD_TO_UDINT(LAST)` would fault at the wrap
 4. `T_PLC_US()` in this phase is millisecond-derived compatibility behavior,
    not a true sub-millisecond hardware timer.
 5. The current library preserves upstream OSCAT naming where practical, even
@@ -615,8 +620,9 @@ The shipped Chapter 6 `Arrays` surface is now complete.
 
 | Function | Summary |
 | --- | --- |
-| `T_PLC_MS()` | Returns the current runtime timebase as a `DWORD` number of milliseconds. |
-| `T_PLC_US()` | Returns the current runtime timebase as a `DWORD` number of microseconds using the shipped millisecond-derived compatibility rule. |
+| `T_PLC_MS()` | Returns the current runtime timebase as a `DWORD` number of milliseconds, modulo 2^32. |
+| `T_PLC_US()` | Returns the current runtime timebase as a `DWORD` number of microseconds using the shipped millisecond-derived compatibility rule, modulo 2^32. |
+| `T_PLC_ELAPSED(NOW, LAST)` | Returns the `UDINT` counts from `LAST` to `NOW` of `T_PLC_MS()` or `T_PLC_US()`, across the timer's wrap (truST adaptation). |
 
 ### String Message FBs
 

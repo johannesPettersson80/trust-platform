@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "source": "simulation",
+  "subject": "fixture-user",
+  "mayRunExperiment": true,
+  "mayApplyController": true,
+  "requiresImmediateApproval": false,
+  "permitsPhysicalAction": false
+}

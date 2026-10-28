@@ -18,7 +18,13 @@
     "src/sfc/webview/**/*.ts",
     "src/sfc/webview/**/*.tsx",
     "src/networkCanvas/webview/**/*.ts",
-    "src/networkCanvas/webview/**/*.tsx"
+    "src/networkCanvas/webview/**/*.tsx",
+    "src/controlStudio/webview/**/*.ts",
+    "src/hmiBuilder/display/webview/**/*.ts",
+    "src/hmiBuilder/editor/webview/**/*.ts",
+    "src/hmiBuilder/editor/webview/**/*.tsx",
+    "src/devicesPanel/webview/**/*.ts",
+    "src/devicesPanel/webview/**/*.tsx"
   ],
   "exclude": [
     "node_modules",

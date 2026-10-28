@@ -2,6 +2,8 @@
 //! 34 TIME-03). A stop is requested while commands are queued, while the resource is paused, while
 //! it is faulted, and while a driver call is blocked under the hang supervisor. Each join is
 //! bounded, and the final state follows specification 11.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
 mod concurrency_support;
 
@@ -20,11 +22,23 @@ use trust_runtime::scheduler::{
 };
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::watchdog::{WatchdogAction, WatchdogPolicy};
-use trust_runtime::RuntimeBuilder;
+use trust_runtime::CompiledRuntime;
 
 use concurrency_support::{stop_and_join, wait_until, WAIT};
 
 const QUEUED: usize = 20;
+/// The bound of each request queue (specification 11).
+const CAPACITY: usize = 1_024;
+
+/// A program whose process image holds one input byte, which no statement reads.
+const ONE_INPUT_SOURCE: &str = r#"
+VAR_GLOBAL
+    start AT %IX0.0 : BOOL;
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+"#;
 
 const DIVIDE_SOURCE: &str = r#"
 VAR_GLOBAL
@@ -36,6 +50,13 @@ PROGRAM Main
     quotient := DINT#100 / divisor;
 END_PROGRAM
 "#;
+
+/// The program of `ONE_INPUT_SOURCE`, loaded.
+fn one_input_runtime() -> CompiledRuntime {
+    TestHarness::from_source(ONE_INPUT_SOURCE)
+        .expect("the one-input program compiles")
+        .into_runtime()
+}
 
 /// The first read announces itself and blocks until the test releases it, like a driver call that
 /// does not return. Later reads return at once. Output writes are counted.
@@ -83,9 +104,7 @@ fn spawn_blocking_input(name: &str, watchdog_ms: Option<i64>) -> HungInput {
     let (entered_tx, entered_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
     let outputs = Arc::new(AtomicUsize::new(0));
-    let mut builder = RuntimeBuilder::new();
-    builder.io_mut().resize(1, 0, 0);
-    let mut runtime = builder.build().expect("install declared test runtime");
+    let mut runtime = one_input_runtime();
     runtime.add_io_driver(
         "blocking-input",
         Box::new(BlockingFirstRead {
@@ -97,7 +116,7 @@ fn spawn_blocking_input(name: &str, watchdog_ms: Option<i64>) -> HungInput {
     );
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1));
     if let Some(timeout_ms) = watchdog_ms {
-        runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
+        runner.program_mut().set_watchdog_policy(WatchdogPolicy {
             enabled: true,
             timeout: Duration::from_millis(timeout_ms),
             action: WatchdogAction::Halt,
@@ -112,12 +131,14 @@ fn spawn_blocking_input(name: &str, watchdog_ms: Option<i64>) -> HungInput {
     }
 }
 
-/// Spawns an empty resource with debugging enabled, so that its queues can be filled directly.
+/// Spawns a resource whose program does nothing, with debugging enabled, so that its queues can be
+/// filled directly.
 fn spawn_idle(name: &str) -> (ResourceHandle<StdClock>, DebugControl) {
-    let mut runtime = RuntimeBuilder::new()
-        .build()
-        .expect("install declared test runtime");
-    let debug = runtime.enable_debug();
+    let mut runtime = TestHarness::from_source("PROGRAM Main\nEND_PROGRAM\n")
+        .expect("the idle program compiles")
+        .into_runtime();
+    let debug = DebugControl::new();
+    runtime.set_debug_control(debug.clone());
     let handle = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1))
         .spawn(name)
         .expect("spawn resource");
@@ -169,7 +190,7 @@ fn stop_while_paused_ends_the_thread_in_stopped() {
 }
 
 #[test]
-fn stop_during_a_hung_driver_call_drops_queued_commands_and_ends_faulted() {
+fn stop_during_a_hung_driver_call_drops_queued_commands_and_keeps_the_hang_fault() {
     let hung = spawn_blocking_input("shutdown-hung", Some(100));
     let control = hung.handle.control();
     hung.entered
@@ -206,10 +227,15 @@ fn stop_during_a_hung_driver_call_drops_queued_commands_and_ends_faulted() {
     }
     assert_eq!(
         control.state(),
-        ResourceState::Faulted,
-        "the hang is the final state (specification 11, section 6.6)"
+        ResourceState::Stopped,
+        "the exit stops the resource the hang faulted, once the call returns (specification 34 \
+         STATE-08)"
     );
-    assert_eq!(control.last_error(), Some(RuntimeError::WatchdogTimeout));
+    assert_eq!(
+        control.last_error(),
+        Some(RuntimeError::WatchdogTimeout),
+        "and keeps the hang's fault, so the process exits with status 1"
+    );
     assert!(!control.is_hung(), "the blocked call has returned");
     assert_eq!(
         outputs.load(Ordering::SeqCst),
@@ -261,10 +287,14 @@ fn stop_while_faulted_answers_or_drops_every_command_within_the_bound() {
     client.join().expect("client thread");
     assert_eq!(
         control.state(),
-        ResourceState::Faulted,
-        "a stop keeps a faulted resource faulted"
+        ResourceState::Stopped,
+        "a stop stops a faulted resource (specification 34 STATE-08)"
     );
-    assert_eq!(control.last_error(), Some(RuntimeError::DivisionByZero));
+    assert_eq!(
+        control.last_error(),
+        Some(RuntimeError::DivisionByZero),
+        "and keeps its fault"
+    );
 }
 
 #[test]
@@ -287,10 +317,12 @@ fn stop_clears_debug_writes_and_forces_queued_while_paused() {
         .expect("force queued while paused");
 
     stop_and_join(handle);
-    assert!(
-        debug.drain_io_writes().is_empty(),
-        "a deliberate stop clears queued I/O writes (specification 11, section 6.9.2)"
-    );
+    // A cleared queue takes its whole bound again; a write left behind would refuse the last one.
+    for number in 0..CAPACITY {
+        debug
+            .try_enqueue_io_write(address.clone(), Value::LInt(number as i64))
+            .expect("a deliberate stop clears queued I/O writes (specification 11, section 6.9.2)");
+    }
     assert_eq!(
         debug.forced_var_value(&ForcedVarTarget::Global(SmolStr::new("f0"))),
         None,
@@ -334,9 +366,7 @@ fn thread_init_hook_runs_on_the_scan_thread_before_the_first_cycle() {
             Ok(())
         });
 
-    let mut builder = RuntimeBuilder::new();
-    builder.io_mut().resize(1, 0, 0);
-    let mut runtime = builder.build().expect("install declared test runtime");
+    let mut runtime = one_input_runtime();
     runtime.add_io_driver(
         "ordered-read",
         Box::new(OrderedRead {
@@ -373,9 +403,7 @@ fn a_failing_thread_init_hook_refuses_the_start_before_any_cycle() {
             Err(RuntimeError::ControlError("thread start refused".into()))
         });
 
-    let mut builder = RuntimeBuilder::new();
-    builder.io_mut().resize(1, 0, 0);
-    let mut runtime = builder.build().expect("install declared test runtime");
+    let mut runtime = one_input_runtime();
     runtime.add_io_driver(
         "ordered-read",
         Box::new(OrderedRead {
@@ -420,9 +448,7 @@ impl IoDriver for LoggingDriver {
 #[test]
 fn every_cycle_reads_inputs_before_it_publishes_outputs() {
     let log: Arc<Mutex<Vec<&'static str>>> = Arc::new(Mutex::new(Vec::new()));
-    let mut builder = RuntimeBuilder::new();
-    builder.io_mut().resize(1, 0, 0);
-    let mut runtime = builder.build().expect("install declared test runtime");
+    let mut runtime = one_input_runtime();
     runtime.add_io_driver(
         "logging",
         Box::new(LoggingDriver {

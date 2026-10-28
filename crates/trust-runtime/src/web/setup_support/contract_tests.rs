@@ -231,21 +231,6 @@ fn io_toml_renderer_preserves_driver_and_safe_state_order() {
 }
 
 #[test]
-fn io_address_projection_covers_areas_sizes_bits_and_wildcards() {
-    for (raw, expected) in [
-        ("%IX0.7", "%IX0.7"),
-        ("%QB1", "%QB1"),
-        ("%MW2", "%MW2"),
-        ("%ID3", "%ID3"),
-        ("%QL4", "%QL4"),
-        ("%Q*", "%Q*"),
-    ] {
-        let address = IoAddress::parse(raw).expect(raw);
-        assert_eq!(format_io_address(&address), expected, "{raw}");
-    }
-}
-
-#[test]
 fn safe_state_value_projection_covers_boolean_integer_and_bit_string_widths() {
     let cases = [
         (crate::value::Value::Bool(false), "FALSE"),
@@ -390,42 +375,6 @@ fn source_read_rejects_symbolic_escape() {
 }
 
 #[test]
-fn hmi_asset_read_accepts_only_contained_lowercase_svg_file() {
-    let fixture = TempProject::new("hmi-asset");
-    fixture.write("hmi/pump.svg", "<svg></svg>");
-    fixture.write("hmi/pump.SVG", "<svg></svg>");
-    fixture.write("hmi/script.js", "alert(1)");
-    assert_eq!(
-        read_hmi_asset_file(&fixture.root, "pump.svg").expect("SVG"),
-        "<svg></svg>"
-    );
-    assert!(read_hmi_asset_file(&fixture.root, "pump.SVG").is_err());
-    assert!(read_hmi_asset_file(&fixture.root, "script.js").is_err());
-}
-
-#[test]
-fn hmi_asset_read_rejects_parent_traversal() {
-    let fixture = TempProject::new("hmi-traversal");
-    fixture.write("hmi/pump.svg", "");
-    fixture.write("outside.svg", "<svg>secret</svg>");
-    assert!(read_hmi_asset_file(&fixture.root, "../outside.svg").is_err());
-}
-
-#[cfg(unix)]
-#[test]
-fn hmi_asset_read_rejects_symbolic_escape() {
-    let fixture = TempProject::new("hmi-symlink");
-    fixture.write("hmi/pump.svg", "");
-    fixture.write("outside.svg", "<svg>secret</svg>");
-    std::os::unix::fs::symlink(
-        fixture.root.join("outside.svg"),
-        fixture.root.join("hmi/linked.svg"),
-    )
-    .expect("symlink");
-    assert!(read_hmi_asset_file(&fixture.root, "linked.svg").is_err());
-}
-
-#[test]
 fn setup_apply_writes_valid_runtime_and_project_io_without_system_mutation() {
     let fixture = TempProject::new("apply");
     let payload = SetupApplyRequest {
@@ -441,6 +390,36 @@ fn setup_apply_writes_valid_runtime_and_project_io_without_system_mutation() {
     assert!(message.contains("Setup applied"));
     crate::config::RuntimeConfig::load(fixture.root.join("runtime.toml")).expect("runtime");
     crate::config::IoConfig::load(fixture.root.join("io.toml")).expect("I/O");
+    assert_eq!(
+        std::fs::read_to_string(fixture.root.join(".gitignore")).expect("gitignore"),
+        crate::control::endpoint::ENDPOINT_DIR_GITIGNORE,
+        "the project ignores its endpoint folder (spec 11, section 6.8.0a)"
+    );
+}
+
+#[test]
+fn setup_apply_keeps_an_existing_gitignore_and_adds_the_endpoint_folder() {
+    let fixture = TempProject::new("apply-gitignore");
+    fixture.write(".gitignore", "target/\n");
+    let payload = SetupApplyRequest {
+        project_path: Some(fixture.root.display().to_string()),
+        resource_name: Some("Line_A".to_string()),
+        cycle_ms: Some(20),
+        driver: Some("loopback".to_string()),
+        write_system_io: Some(false),
+        overwrite_system_io: Some(false),
+        use_system_io: Some(false),
+    };
+
+    apply_setup(&Some(fixture.root.clone()), payload).expect("apply setup");
+
+    assert_eq!(
+        std::fs::read_to_string(fixture.root.join(".gitignore")).expect("gitignore"),
+        format!(
+            "target/\n{}",
+            crate::control::endpoint::ENDPOINT_DIR_GITIGNORE
+        )
+    );
 }
 
 #[test]
@@ -471,18 +450,16 @@ fn legacy_source_route_cannot_read_an_io_configuration() {
     assert!(read_source_file(&fixture.root, "io.toml").is_err());
 }
 
+// The legacy HMI's SVG asset route is removed (specification 39, decision 12); the source route keeps
+// refusing an alias of the I/O configuration.
 #[cfg(unix)]
 #[test]
-fn source_and_hmi_aliases_cannot_read_io_configuration() {
+fn a_source_alias_cannot_read_io_configuration() {
     let fixture = TempProject::new("io-source-alias");
-    for directory in ["src", "hmi"] {
-        fixture.write(
-            &format!("{directory}/io.toml"),
-            "[io]\ndriver = 'mqtt'\n[io.params]\npassword = 'stored-secret'\n",
-        );
-    }
+    fixture.write(
+        "src/io.toml",
+        "[io]\ndriver = 'mqtt'\n[io.params]\npassword = 'stored-secret'\n",
+    );
     std::os::unix::fs::symlink("io.toml", fixture.root.join("src/alias.st")).unwrap();
-    std::os::unix::fs::symlink("io.toml", fixture.root.join("hmi/alias.svg")).unwrap();
     assert!(read_source_file(&fixture.root, "alias.st").is_err());
-    assert!(read_hmi_asset_file(&fixture.root, "alias.svg").is_err());
 }

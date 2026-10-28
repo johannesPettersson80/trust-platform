@@ -1,5 +1,10 @@
+//! Interfaces of classes and function blocks: conformance, assignment across files and methods
+//! that return an instance as an interface.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
+use trust_runtime::harness::SourceFile;
 use trust_runtime::harness::TestHarness;
-use trust_runtime::harness::{CompileSession, SourceFile};
 
 #[test]
 fn interface_conformance() {
@@ -47,7 +52,7 @@ END_PROGRAM
 
 #[test]
 fn interface_assignment_works_across_files_with_properties() {
-    let sources = vec![
+    let sources = [
         SourceFile::with_path(
             "interfaces.st",
             r#"
@@ -89,8 +94,11 @@ END_PROGRAM
         ),
     ];
 
-    let session = CompileSession::from_sources(sources).label_errors(true);
-    if let Err(err) = session.build_runtime() {
+    let texts = sources
+        .iter()
+        .map(|source| source.text.as_str())
+        .collect::<Vec<_>>();
+    if let Err(err) = TestHarness::from_sources(&texts) {
         panic!("cross-file interface assignment compile failed:\n{err}");
     }
 }

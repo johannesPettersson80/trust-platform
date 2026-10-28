@@ -1,0 +1,10 @@
+format = 1
+title = "Alarms"
+order = 2
+icon = "alarm"
+
+[[object]]
+id = "alarm-list-1"
+type = "alarm-list"
+at = [40, 40]
+size = [1600, 920]

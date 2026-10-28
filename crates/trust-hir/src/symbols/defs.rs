@@ -37,6 +37,12 @@ pub struct ImportCollision {
     pub existing_range: TextRange,
     /// Range of the declaration skipped during import.
     pub duplicate_range: TextRange,
+    /// File of the declaration already visible, or `None` when it is declared in the
+    /// table's own file.
+    pub existing_file: Option<FileId>,
+    /// File of the skipped declaration, or `None` when it is declared in the table's
+    /// own file.
+    pub duplicate_file: Option<FileId>,
 }
 
 /// A USING directive attached to a scope.

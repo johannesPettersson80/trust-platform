@@ -22,6 +22,10 @@ type syntax.
 On a 32-bit target the pointer/reference handle size is 4 bytes; on a 64-bit
 target it is 8 bytes.
 
+`SIZEOF(STRING[n])` is `n` and `SIZEOF(WSTRING[n])` is `2n`. A `STRING` or
+`WSTRING` declared without a length is `STRING[80]` or `WSTRING[80]`, so its
+size is 80 or 160 (`docs/IEC_DECISIONS.md` 2026-10-17).
+
 ## 2. SIZEOF rejected operands
 
 `SIZEOF` rejects:

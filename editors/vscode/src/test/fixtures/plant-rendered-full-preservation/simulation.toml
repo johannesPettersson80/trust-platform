@@ -1,0 +1,68 @@
+[simulation]
+enabled = true
+seed = 42
+plant_step_ms = 10
+time_scale = 2
+
+[[couplings]]
+source = "%QX16.0"
+target = "%IX16.0"
+
+[[plants]]
+id = "oven"
+name = "Unrelated oven"
+model = "static_gain"
+command_sources = ["%QL8"]
+feedback_targets = ["%IL8"]
+[plants.parameters]
+gain = 2.0
+
+[[plants]]
+id = "tank"
+name = "Full candidate tank"
+description = "Existing full runtime candidate"
+model = "first_order_dead_time"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+step_ms = 20
+initial_state = [1.5]
+initial_input = [2.5]
+input_scale = [0.5]
+input_offset = [1.0]
+output_scale = [2.0]
+output_offset = [-3.0]
+[plants.parameters]
+gain = 1.2
+time_constant_s = 5.0
+dead_time_s = 0.5
+initial_delayed_input = 2.0
+[plants.actuator]
+minimum = 0.0
+maximum = 10.0
+rate_up_per_s = 3.0
+rate_down_per_s = 4.0
+deadband = 0.1
+lag_s = 0.2
+initial_applied = 2.5
+[plants.validity]
+input_minimum = [0.0]
+input_maximum = [10.0]
+state_minimum = [0.0]
+state_maximum = [20.0]
+output_minimum = [0.0]
+output_maximum = [20.0]
+
+[[plants.uncertainties]]
+id = "gain-mismatch"
+target = "parameter"
+parameter = "gain"
+mode = "multiply"
+generator = "constant"
+value = 1.1
+
+[[plant_events]]
+at_ms = 100
+plant = "tank"
+kind = "add_state"
+channel = 0
+value = 0.25

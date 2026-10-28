@@ -1,9 +1,17 @@
 //! Fixed ESP32-C6-DevKitC-1 profile: the D.2 constants and the pure decisions built on them.
 use crate::cookie::{ResetCookie, WATCHDOG_PHASE};
+use crate::program_flash::SLOT_BYTES;
+use trust_runtime_core::deployment::{
+    Capabilities, DeviceDescriptor, NativeTarget, NumericContract, ProgramVersion, RequestedLimits,
+    SchedulingProfile, TimingEvidence,
+};
+use trust_runtime_core::native::image::Target;
+use trust_runtime_services::runner::DeviceStack;
+use trust_runtime_services::transfer::TransferSession;
 
 /// CPU clock from `CpuClock::max()` on ESP32-C6 (160 MHz); the PCCR rate matches it.
 pub const CPU_HZ: u32 = 160_000_000;
-/// Fixture sampling period in microseconds; shared runtime scheduling remains engine-owned.
+/// Fixture sampling period in microseconds; the resource loop schedules the program's tasks.
 pub const SCAN_PERIOD_US: u64 = 10_000;
 /// CPU cycles in one scan period at [`CPU_HZ`] (10 ms).
 pub const CYCLES_PER_SCAN: u32 = 1_600_000;
@@ -15,7 +23,7 @@ pub const CHIP_REVISION: u16 = 2;
 pub const BASE_MAC: [u8; 6] = [0x20, 0x6e, 0xf1, 0x17, 0x04, 0xc0];
 /// Flash size in KiB of the owned 8 MB DevKitC-1.
 pub const FLASH_KIB: u16 = 8192;
-/// Stage-0 MWDT0 interval, the same 4,000 ms as the F401 profile.
+/// Stage-0 MWDT0 interval, the same 4,000 ms as the STM32F407 firmware's watchdog.
 pub const WATCHDOG_MS: u32 = 4_000;
 
 /// Reset reason of an MWDT0 system reset (`CoreMwdt0`).
@@ -25,12 +33,142 @@ pub const RESET_USB: u8 = 0x15;
 /// Power-on reset (`ChipPowerOn`).
 pub const RESET_POWER_ON: u8 = 0x01;
 
-/// Factory application partition; its first 24 bytes are the running image header.
-pub const FACTORY_OFFSET: u32 = 0x1_0000;
 /// Separately installable application bundle partition (`stbc`).
-pub const STBC_OFFSET: u32 = 0x20_0000;
-/// Size of the `stbc` partition in bytes.
-pub const STBC_BYTES: usize = 16 * 1024;
+pub const STBC_OFFSET: u32 = 0x3F_0000;
+/// Size of the `stbc` partition in bytes: the installed application's flash, from [`STBC_OFFSET`],
+/// after the second firmware slot, to the two pairing sectors before the checkpoint slots at the end
+/// of the 8 MB module.
+pub const STBC_BYTES: usize = 4120 * 1024;
+
+/// Checkpoint slot `checkpoint_a`: its flash address, the chip file's `[layout] checkpoint_a`
+/// (specification 34 D.2 and §10.1). The slot follows the installed application.
+pub const CHECKPOINT_A_OFFSET: u32 = 0x7F_8000;
+/// Checkpoint slot `checkpoint_b`: its flash address, the chip file's `[layout] checkpoint_b`. It
+/// follows slot A and ends the 8 MB module.
+pub const CHECKPOINT_B_OFFSET: u32 = 0x7F_C000;
+/// The bytes of each checkpoint slot: 16 KiB, four erase units (the chip file's `kib = 16`).
+pub const CHECKPOINT_SLOT_BYTES: u32 = 16 * 1024;
+/// The bytes one flash program writes at a time, and the alignment of every flash access the
+/// checkpoint makes: the word `esp-storage` writes (specification 34 §10.1).
+pub const FLASH_PROGRAM_BYTES: u32 = 4;
+/// The bytes one flash erase clears: a 4 KiB sector (the chip file's `memory.spi_flash.erase_kib`).
+pub const FLASH_ERASE_BYTES: u32 = 4 * 1024;
+/// The most bytes one checkpoint step programs between two scans: one 256-byte flash page, so a
+/// step takes a few milliseconds (specification 34 §10).
+pub const CHECKPOINT_STEP_BYTES: usize = 256;
+/// The most bytes one step of an install programs or reads back between two passes of the loop: one
+/// 256-byte flash page, as a checkpoint step. An erase of one 4 KiB unit, up to about 0.4 s, is the
+/// longest step (specification 34 §11.2 and D.2).
+pub const PROGRAM_STEP_BYTES: usize = 256;
+
+/// The device descriptor admission reads for the C6 (specification 34 §5.1.1, COMPAT-02 and
+/// TARGET-03; specification 44 §10.2): the compiled program image as the only program format, its
+/// scheduling profile and numeric contract, its timing evidence, the wall clock, no maximum
+/// for the record's limits but the process image, which the image's checks bound, its event store's
+/// default and maximum, its application slot, and what it offers compiled programs
+/// ([`NATIVE_TARGET`]).
+///
+/// The event store's default and maximum are the `[events]` table of `chips/esp32c6.toml` (200 and
+/// 200). The application slot is one program slot of the program store, not the whole
+/// `application` region: an install writes one slot (specification 34 §5.1). The C6's wall clock is
+/// set by the computer at the other end of its control connection (specification 34 TARGET-06,
+/// D.2), so a program that calls `CURRENT_DT` installs.
+pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
+    program_versions: &[ProgramVersion::NATIVE_IMAGE],
+    scheduling_profiles: &[SchedulingProfile::COOPERATIVE_RESOURCE_V1],
+    numeric_contracts: &[NumericContract::V1],
+    timing_evidence: TimingEvidence::UNQUALIFIED,
+    capabilities: Capabilities::WALL_CLOCK,
+    // The maxima of the chip file (`chips/esp32c6.toml`). An image requests the bytes of its process
+    // images and 0 for every other limit (specification 44 §10.1), and its own checks bound it
+    // (§10.2).
+    maxima: RequestedLimits {
+        max_artifact_bytes: 64 * 1024 * 1024,
+        max_preparation_bytes: u64::MAX,
+        max_preparation_work: u64::MAX,
+        max_validation_scratch_bytes: u64::MAX,
+        max_validation_work: u64::MAX,
+        max_construction_values: u64::MAX,
+        max_construction_bytes: u64::MAX,
+        max_process_image_bytes: u64::MAX,
+        max_work: u64::MAX,
+        max_construction_work: u64::MAX,
+        max_call_depth: 1_024,
+    },
+    // The `[events]` table of `chips/esp32c6.toml`: the C6's event store keeps 200 events by
+    // default and admits at most 200 until a measurement of the heap a program leaves on the
+    // bench allows more.
+    event_store_default: 200,
+    event_store_max: 200,
+    // One of the two program slots of `chips/esp32c6.toml` (`application_a` and `application_b`, the
+    // halves of the `application` region that the owner gave the program, decision O7): an install
+    // writes one slot, so a program and its record can be no longer than that (specification 34 §5.1.1
+    // step 8).
+    application_slot_bytes: Some(SLOT_BYTES as u64),
+    // Measured at boot, before the first program loads (`Platform::set_program_memory`).
+    program_memory_bytes: None,
+    // Read at boot from the device settings (`ChipPlatform::with_device_settings`).
+    trusted_keys: &[],
+    native: Some(NATIVE_TARGET),
+};
+
+/// The C6's main stack (specification 34 MEM-03 and Appendix D.2; specification 44 §8.5).
+///
+/// - The window is 78 KiB of the 85,980-byte esp-hal stack region below 0x4086_E610, so that the
+///   region keeps the 4 KiB margin above the window that the linker guard and the build require.
+/// - The C1-25 bench measured the deepest path of the firmware before a program runs at 34,008 bytes
+///   (the install of a program).
+pub const MAIN_STACK: DeviceStack = DeviceStack {
+    window_bytes: 78 * 1024,
+    base_bytes: 34_008,
+};
+
+/// The bytes of the C6's program region (specification 44 §10.3, §12.3): RAM the C6 executes, which
+/// the heap holds the programs' code in, an installed program's module copied in and the image of an
+/// online change, whose module runs where it lies. 112 KiB holds the pasteurizer's installed module
+/// (43,810 bytes) and its changed release image (67,848 bytes) at once; a changed image the region
+/// has no room for is held in the heap and its module copied in beside the running one, and a module
+/// the region has no room for runs where it lies in its slot. The region was 192 KiB until the Wi-Fi
+/// radio's code and data, about 81 KB that its driver keeps in RAM, took 80 KiB of it (specification
+/// 34 D.2, checklist L3). The region is the linker's `.trust_code` section, and the main stack's
+/// region keeps more than the 82 KiB that its window and margin need (`stack_guard.x`, the build
+/// report's `stack.region_bytes`).
+pub const PROGRAM_CODE_BYTES: usize = 112 * 1024;
+
+/// What the C6 offers compiled programs (specification 44 §10.2 and NX-10): the RV32IMAC module
+/// target; as the task stack, the main stack's window less its headroom and the deepest path's
+/// base, 79,872 − 2,048 − 34,008 = 43,816 bytes, which a scan's path, shallower than the install's
+/// that the base measured, leaves to the module; and the default statement budget of 1,000,000.
+pub const NATIVE_TARGET: NativeTarget = NativeTarget {
+    target: Target::Rv32imac,
+    task_stack_bytes: MAIN_STACK.task_stack_bytes() as u64,
+    max_statements: 1_000_000,
+};
+
+/// The capacity of the C6's heap, in bytes: its three regions, the 98,368-byte main heap (32,832
+/// bytes and the 64 KiB that the deleted engine's RAM code took), the 64 KiB of the boot loader's
+/// reclaimed RAM and the 16,256 bytes of LP SRAM (`HEAP_BYTES` with `PROGRAM_EXTRA_HEAP_BYTES`,
+/// `RECLAIMED_BYTES` and `LOW_POWER_BYTES` of the firmware's `memory.rs`; specification 34, Appendix
+/// D.2). It is the reply capacity of the transfer session: a chip holds a reply as far as its heap
+/// reaches (PORT-05). The host test `the_c6_session_holds_replies_up_to_its_heap` keeps it equal to
+/// the three figures of `memory.rs`.
+pub const HEAP_CAPACITY_BYTES: usize = 98_368 + 65_536 + 16_256;
+
+/// The transfer session of boot number `boot` (specification 34, PORT-05). A transfer id carries the
+/// boot number in its high 32 bits, so an id of an earlier boot never names a transfer of this one. The
+/// boot number is the chip's boot counter, which it keeps in its flash (`boot_counter.rs`): it rises
+/// by one at every boot, whatever its cause, power-on included, so an id never repeats across boots.
+///
+/// An upload takes at most one program slot, since a larger container can never be installed. A reply
+/// is held up to the capacity of the heap, [`HEAP_CAPACITY_BYTES`], as a computer holds one: a chip
+/// answers a reply longer than its 8,192-byte frame with a head and the client reads it with
+/// `transfer.get` (PORT-05). The reply is written in parts of 4,096 bytes that the heap gives as the
+/// writing reaches them, and they are freed when the reply is read, aborted or replaced
+/// (Appendix D.2, long replies).
+#[must_use]
+pub fn transfer_session(boot: u32) -> TransferSession {
+    TransferSession::new(boot, SLOT_BYTES as usize, HEAP_CAPACITY_BYTES)
+}
 
 /// BOOT button GPIO: a strapping pin that is read only after boot, active low.
 pub const BUTTON_GPIO: u8 = 9;
@@ -99,6 +237,19 @@ const MISA_M: u32 = 1 << 12;
 pub const fn numeric_profile_ok(misa: u32) -> bool {
     let required = MISA_I | MISA_M | MISA_A | MISA_C;
     (misa >> 30) == 1 && (misa & required) == required && (misa & (MISA_F | MISA_D)) == 0
+}
+
+/// The platform the C6 reports in `status` (specification 11, `status`): its chip name.
+pub const PLATFORM: &str = "esp32c6";
+
+/// The C6's stable runtime ID (specification 11, `status`): its chip name and its USB serial
+/// number, the base MAC address in the order and case the USB-Serial/JTAG controller reports it,
+/// for example `esp32c6-20:6E:F1:17:04:C0`. It needs no stored file, stays the same across resets
+/// and differs between two chips.
+#[must_use]
+pub fn runtime_id(mac: [u8; 6]) -> smol_str::SmolStr {
+    let [a, b, c, d, e, f] = mac;
+    smol_str::format_smolstr!("{PLATFORM}-{a:02X}:{b:02X}:{c:02X}:{d:02X}:{e:02X}:{f:02X}")
 }
 
 #[cfg(test)]
@@ -190,8 +341,8 @@ mod tests {
             (RESET_WATCHDOG, RESET_USB, RESET_POWER_ON),
             (0x07, 0x15, 0x01)
         );
-        assert_eq!((FACTORY_OFFSET, STBC_OFFSET), (0x1_0000, 0x20_0000));
-        assert_eq!(STBC_BYTES, 16 * 1024);
+        assert_eq!(STBC_OFFSET, 0x3F_0000);
+        assert_eq!(STBC_BYTES, 4120 * 1024);
         assert_eq!((BUTTON_GPIO, OUTPUT_GPIO), (9, 18));
     }
 }

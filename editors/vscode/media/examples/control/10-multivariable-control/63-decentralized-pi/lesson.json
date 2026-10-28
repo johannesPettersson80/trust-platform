@@ -1,0 +1,288 @@
+{
+  "schemaVersion": 4,
+  "id": "control-decentralized-pi",
+  "title": "Decentralized PI",
+  "level": "Modern",
+  "sequence": 71,
+  "equipment": "The coupled vessels of Lesson 69 with a heat load on each vessel; one Control.PID per vessel and one Auto/Manual switch, commissioned by Control Studio as a PID group",
+  "physicalPurpose": "Run one PI per vessel together and judge each event by both vessels: the one that changes and the one that should not.",
+  "principalTechnique": "Decentralized PI: separate Control.PID loops per pairing, tested on both targets and both loads",
+  "objective": "Predict the steady commands from the balance, let Control Studio identify the coupled vessels and design one PI per vessel on the gain it has with the other loop closed, and test setpoint changes and loads on both vessels.",
+  "prerequisites": [
+    "control-relative-gain-array"
+  ],
+  "nextLesson": "control-decoupling",
+  "signals": [
+    {
+      "role": "SP",
+      "name": "Vessel 1 setpoint",
+      "unit": "degC",
+      "minimum": 20,
+      "maximum": 60,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "PV",
+      "name": "Vessel 1 temperature",
+      "unit": "degC",
+      "minimum": 20,
+      "maximum": 60,
+      "resolution": 0.0001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Heater 1 command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Vessel 2 setpoint",
+      "unit": "degC",
+      "minimum": 20,
+      "maximum": 60,
+      "resolution": 0.001,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Vessel 2 temperature",
+      "unit": "degC",
+      "minimum": 20,
+      "maximum": 60,
+      "resolution": 0.0001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Heater 2 command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL8"
+    },
+    {
+      "role": "disturbance",
+      "name": "Load on vessel 1",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 50,
+      "resolution": 0.01,
+      "binding": "%QL16"
+    },
+    {
+      "role": "disturbance",
+      "name": "Load on vessel 2",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 50,
+      "resolution": 0.01,
+      "binding": "%QL24"
+    }
+  ],
+  "plant": {
+    "modelId": "coupled-vessels-with-loads",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "vessel_heat_capacity",
+        "value": 50,
+        "unit": "kJ/°C"
+      },
+      {
+        "name": "vessel_losses",
+        "value": 10,
+        "unit": "kW/°C"
+      },
+      {
+        "name": "wall_coupling",
+        "value": 8,
+        "unit": "kW/°C"
+      },
+      {
+        "name": "heater_per_point",
+        "value": 2,
+        "unit": "kW/%"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "vessel1C": 35,
+      "vessel2C": 35
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Vessel 1 temperature": 35,
+      "Heater 1 command": 75
+    },
+    "validityRange": [
+      {
+        "signal": "Vessel 1 temperature",
+        "minimum": 30,
+        "maximum": 40,
+        "unit": "degC"
+      }
+    ],
+    "simplifications": [
+      "50·dT1/dt = 2·u1 − 10·(T1 − 20) − 8·(T1 − T2) − D1 and 50·dT2/dt = 2·u2 − 10·(T2 − 20) + 8·(T1 − T2) − D2; no transport delay.",
+      "Both temperatures are measured exactly."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "controllers": "both PIs in Manual at 75 %; previous settings Kp 5 %/°C, Ki 1 %/(°C·s)"
+    },
+    "limitation": "Each PI corrects the other vessel's influence only after its own temperature has moved."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "identification": "Control Studio's multisine excitation, 25 points per heater, 160 s",
+      "design": "Control Studio's paired PI: Kp 6.75 %/°C, Ki 1.73 %/(°C·s) per vessel, own path K 0.1385 °C/%, τ 3.9 s, relative gain 1.25, gain with the other loops closed 0.1111 °C/%",
+      "requirements": "2 °C setpoint step per vessel; within ±0.2 °C in 30 s; steady error ≤ 0.3 °C; 60 s; 10 kW load scenarios on both vessels"
+    },
+    "decision": "Control Studio's group design, Kp 6.75 %/°C and Ki 1.73 %/(°C·s) per vessel on the gain 0.1111 °C/% with the other loop closed, meets every requirement on the vessel asked to move (settling 5.8 s and 9.4 s, steady errors ≤ 0.0358 °C, loaded vessel ≥ 34.745 °C) and is applied, but the unchanged vessel rises 0.269 °C, beyond ±0.2 °C: decentralized PI does not qualify."
+  },
+  "experiment": {
+    "kind": "multisine",
+    "signal": "Heater 1 command",
+    "baseline": 75,
+    "amplitude": 25,
+    "durationSeconds": 160,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Control Studio's multisine on each heater in turn",
+      "Validation: setpoint steps of both and of each vessel alone, 10 kW loads on each vessel"
+    ],
+    "seed": 20260829,
+    "restorationValue": 75
+  },
+  "acceptance": [
+    {
+      "metric": "changed_settling_time",
+      "signal": "Vessel 1 temperature",
+      "window": "Studio's validation, ±0.2 °C",
+      "comparator": "<=",
+      "limit": 30,
+      "unit": "s",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "unchanged_deviation",
+      "signal": "Vessel 2 temperature",
+      "window": "vessel-1 setpoint alone, 60 s",
+      "comparator": "<=",
+      "limit": 0.2,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "loaded_minimum",
+      "signal": "Vessel 1 temperature",
+      "window": "10 kW load on vessel 1, 60 s",
+      "comparator": ">=",
+      "limit": 34,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "other_deviation_under_load",
+      "signal": "Vessel 1 temperature",
+      "window": "10 kW load on vessel 2, 60 s",
+      "comparator": "<=",
+      "limit": 35.2,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Vessel 1 temperature",
+        "minimum": 30,
+        "maximum": 40,
+        "unit": "degC"
+      },
+      {
+        "signal": "Heater 1 command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 75,
+    "restorationMode": "Restore previous settings returns both PIs to Manual with their previous parameters.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical heating changes",
+      "Physical use requires independent temperature-limit, interlock and approval review"
+    ]
+  },
+  "workflowStages": [
+    "Identify",
+    "Tune",
+    "Validate"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/55-66-industrial-and-multivariable.md#64-decentralized-pi",
+    "nativeTest": "lesson64",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_64_66 lesson64",
+    "projectPath": "examples/control/10-multivariable-control/63-decentralized-pi",
+    "runArtifactFields": [
+      "identifiedGroupModel",
+      "groupDesign",
+      "validationResults",
+      "vesselTemperatures",
+      "heaterCommands",
+      "loads",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-decentralized-pi"
+  },
+  "video": {
+    "viewerOutcome": "See Control Studio design one PI per vessel from the group model, and the vessel that was not asked to change still move until its own loop catches up.",
+    "requiredVisibleEvidence": [
+      "the group setup",
+      "the group model and Studio's design table",
+      "the validation runs for both setpoints and both loads",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 70's relative gain array, 1.246 by hand and 1.2426 from Control Studio, paired heater 1 with vessel 1 and heater 2 with vessel 2. The array is a steady result: in Lesson 70, a correction that held vessel 4 at steady state still let it dip to 34.906 °C during the change. The paired loops have not yet been run together. When vessel 1's setpoint rises, heater 1's extra heat crosses the wall, and vessel 2's controller notices it only once vessel 2 has warmed.\n\nWe will run one PI per pair, both at once, and test setpoint steps and loads on both vessels.",
+    "reason": "We need to:\n\n1. tune each PI on the gain it sees while the other loop is working;\n2. fix requirements for the changed and the unchanged vessel before testing; and\n3. test setpoint steps and loads with both loops running.",
+    "theory": [
+      "**Decentralized PI** uses one PI controller per chosen pair, each with its own memory, all running at the same time. Here PI 1 reads vessel 1 and drives heater 1, PI 2 reads vessel 2 and drives heater 2, and each keeps its own integral and limits.\n\n**In words.** This is how most PLC programs handle interacting zones: one PID block per zone, each with its own integral, limits and Auto/Manual, and nothing in the program connecting them. The process connects them, through the wall. That has two consequences:\n\n1. **Each PI must be tuned for the gain it has while the other loop is working.** In operation the other loop moves its heater to hold its vessel, so each heater moves its own vessel by Lesson 70's held-vessel gain, not by the gain measured with the other heater fixed.\n2. **Each PI corrects the other's effect only after its own vessel has moved.** When vessel 1's setpoint rises, heater 1's extra heat crosses the wall, and PI 2 notices nothing until vessel 2 has warmed.\n\n**The formula.** Each PI is tuned on its own path with the gain it has when the other loop is closed, the own gain divided by its relative gain:\n\n$$\nK_c = \\frac{K_{11}}{\\lambda_{11}} = \\frac{9/65}{81/65} = \\frac{1}{9}\\ \\text{°C per point}.\n$$\n\nThe heater commands that hold any pair of temperatures follow from Lesson 69's balances:\n\n$$\nu_1 = 75 + \\frac{18x_1 - 8x_2 + D_1}{2}, \\qquad u_2 = 75 + \\frac{-8x_1 + 18x_2 + D_2}{2}.\n$$\n\nLet:\n\n- $K_c$ be the gain with the other loop closed, in °C per point;\n- $K_{11}$ be the own gain and $\\lambda_{11}$ the relative gain, from Lessons 69 and 70;\n- $x_1$ and $x_2$ be the vessel temperatures' deviations from 35 °C, in °C;\n- $u_1$ and $u_2$ be the heater commands, in %; and\n- $D_1$ and $D_2$ be heat loads taken from each vessel, in kW.\n\n$K_c$ is Lesson 70's held-vessel gain, $K_{11} - K_{12}K_{21}/K_{22}$, and it follows from the balance as well: with vessel 2 held, vessel 1 alone obeys $50\\dot x_1 = 2v_1 - 18x_1$, a gain of $2/18 = 1/9$ °C per point.\n\n**Example: a vessel-1 setpoint step from 35 to 37 °C.** Follow the numbers:\n\n1. Where it ends: $x = [2, 0]^T$ gives $u_1 = 75 + 36/2 = 93$ % and $u_2 = 75 - 16/2 = 67$ %. Heater 2 must fall 8 points to hold vessel 2 against heater 1's extra heat.\n2. The first update, with gains $K_p$ and $K_i$ and 0.1 s updates: PI 1 sees a 2 °C error and raises heater 1 by $2K_p + 0.2K_i$. PI 2 sees no error and keeps 75 %.\n3. Heater 1's heat warms vessel 1 and, through the wall, vessel 2.\n4. Only once vessel 2 has warmed does PI 2 cut heater 2.\n5. A 10 kW load taken from vessel 1 instead needs $u_1 = 75 + 10/2 = 80$ % and $u_2 = 75$ %.\n\nControl Studio designs both PIs as a PID group: it excites both heaters in turn, fits one model of both vessels, and lists for each member its own path, its relative gain and the gain with the other loops closed; it designs each PI for that last gain.\n\n**The limitation.** Separate controllers do not separate the process, and the vessel that is not asked to change is hard to hold. Within ±0.2 °C of its setpoint, PI 2's proportional part can give at most $0.2K_p$ points and its integral can add at most $0.2K_i$ points per second, while the full rise of vessel 1 needs heater 2 eight points lower. Unless those numbers are large, vessel 2 has to move further before PI 2 has cut enough.\n\nThe requirements, fixed before the tests: a 2 °C setpoint step settles within ±0.2 °C in 30 s with a steady error of at most 0.3 °C, for each vessel; the unchanged vessel stays within ±0.2 °C throughout; a 10 kW load keeps the loaded vessel at or above 34 °C."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. Which heater commands hold vessel 1 at 37 °C with vessel 2 at 35 °C?\n2. What do the heaters command on the first update after vessel 1's setpoint step?\n3. Which requirement does the interaction break?\n4. How far does a 10 kW load on vessel 1 move each vessel?\n\n| Quantity | Predicted |\n| --- | ---: |\n| Heaters holding 37 °C and 35 °C | 93 % and 67 % |\n| Heaters holding 35 °C with 10 kW on vessel 1 | 80 % and 75 % |\n| Gain with the other loop closed | 1/9 = 0.111 °C per point |\n| First update, heater 2 | 75 %, no error yet |",
+    "practicalPreparation": [
+      "1. Open this lesson's project and start **Simulator**. In the **truST** side bar, select **Control Studio**; the project has no loop yet, so select **Configure control loop**.\n2. In **Set up control loop**, enter **Loop name** `Vessel temperatures` and choose **Structure** **PID group: interacting PIDs tuned together**. Tick `P1.Vessel1` and `P1.Vessel2`; for each, choose its **Parameter record**, **Measurement** (degC, 20–60), **Output**, **Setpoint** and **Manual output**, and enter **Identification step** 25. Choose **Shared Auto/Manual signal** `P1.VesselsAuto`, enter **Identification duration (s)** 160, leave the decoupler unticked, choose **Startup-done flag** `P1.Initialized` and select **Save loop**.\n3. Answer the predictions before going on.\n4. On **Identify**, choose **Multisine** from **Method** and select **Identify plant**.\n5. On **Tune**, check **Controller** **P1.Vessel1 + P1.Vessel2 · Paired PI**. Select **Requirements…** and enter, for each vessel, **Setpoint change (°C)** 2, **Maximum steady-state error (°C)** 0.3, **Maximum settling time (s)** 30 and **Settling band (±°C)** 0.2, and **Validation duration (s)** 60; select **Done**, then **Tune controller**.\n6. On **Validate**, select **Validate controller**. Besides both setpoints together, the table judges the trials **P1.Vessel1C setpoint alone** and **P1.Vessel2C setpoint alone**. Then select **Apply**; Studio shows **Applied**.\n7. Test a load: on **Tune**, choose **Manual** from **Tuning method** (Studio's gains stay filled in), open **Requirements…**, enter −5 in **Input disturbance (%)**, 10 kW taken from vessel 1, and select **Done**, **Tune controller** and **Validate controller**; the table adds the **load rejection** trial.\n\n**Restore previous settings** on **Validate** returns both PIs to Manual."
+    ],
+    "baseline": "Pairing heater 1 with vessel 1 and heater 2 with vessel 2 gives two PI loops, but heat still crosses the wall between the vessels.",
+    "change": "Run one PI per vessel together on both targets and both loads with fixed requirements, and compare three bounded gain sets.",
+    "comparison": "![Each PI meets its own vessel's requirements; the unchanged vessel leaves its ±0.2 °C band](figures/decentralized-pi.svg)\n\nThe numbered marks answer the predictions with the same numbers. Control Studio's design table: each vessel's own path $K = 0.1385$ °C/%, $\\tau = 3.9$ s, relative gain 1.25, gain with the other loops closed 0.1111 °C/%; each PI $K_p = 6.75$ %/°C, $K_i = 1.73$ %/(°C·s). The figure plots Studio's validation trials, which run the actual program; from them:\n\n| Requirement | Result | Decision |\n| --- | ---: | --- |\n| Both setpoints 35 → 37 °C: settling time, ≤ 30 s | 5.8 s | Pass |\n| One setpoint alone: own vessel's settling time | 9.4 s, both directions | Pass |\n| Steady errors, ≤ 0.3 °C | at most 0.0358 °C | Pass |\n| One setpoint alone: unchanged vessel within ±0.2 °C | **+0.269 °C at 7.6 s**, both directions | **Fails** |\n| 10 kW on vessel 1: loaded vessel ≥ 34 °C | 34.745 °C at 3.8 s | Pass |\n| Ranges, states and transfer | 103 checks | Pass |\n\n1. The heaters headed for the balance: 92.98 % and 67.02 % at 60 s after vessel 1's step.\n2. The first update raised heater 1 to 75 + 6.75 × 2 + 1.73 × 0.2 = 88.85 % and left heater 2 at 75 %.\n3. Vessel 2 rose 0.269 °C at 7.6 s: inside its band, PI 2 can cut heater 2 by at most 1.35 points plus 0.35 points per second, not the 8 points that vessel 1's heat requires. Studio's table judges the unchanged vessel only by its settling and steady error, 0 s and 0.0358 °C, and passes; the trial's run breaks our ±0.2 °C limit, in both directions.\n4. Under the load, vessel 1 fell to 34.745 °C and vessel 2 by 0.049 °C; heater 1 settled at 80.00 %. Studio's input disturbance acts on heater 1; the design is symmetric, as both setpoint trials show, so the mirror holds for vessel 2.\n\nDecentralized PI is the simplest arrangement, two independent controllers each designed on its own path, and Studio's design meets every requirement on the vessel asked to move. That simplicity costs the unchanged-vessel requirement: decentralized PI does not qualify. These are simulation results.",
+    "validation": "![Each PI meets its own vessel's requirements; the unchanged vessel leaves its ±0.2 °C band](figures/decentralized-pi.svg)\n\nThe numbered marks answer the predictions with the same numbers. Control Studio's design table: each vessel's own path $K = 0.1385$ °C/%, $\\tau = 3.9$ s, relative gain 1.25, gain with the other loops closed 0.1111 °C/%; each PI $K_p = 6.75$ %/°C, $K_i = 1.73$ %/(°C·s). The figure plots Studio's validation trials, which run the actual program; from them:\n\n| Requirement | Result | Decision |\n| --- | ---: | --- |\n| Both setpoints 35 → 37 °C: settling time, ≤ 30 s | 5.8 s | Pass |\n| One setpoint alone: own vessel's settling time | 9.4 s, both directions | Pass |\n| Steady errors, ≤ 0.3 °C | at most 0.0358 °C | Pass |\n| One setpoint alone: unchanged vessel within ±0.2 °C | **+0.269 °C at 7.6 s**, both directions | **Fails** |\n| 10 kW on vessel 1: loaded vessel ≥ 34 °C | 34.745 °C at 3.8 s | Pass |\n| Ranges, states and transfer | 103 checks | Pass |\n\n1. The heaters headed for the balance: 92.98 % and 67.02 % at 60 s after vessel 1's step.\n2. The first update raised heater 1 to 75 + 6.75 × 2 + 1.73 × 0.2 = 88.85 % and left heater 2 at 75 %.\n3. Vessel 2 rose 0.269 °C at 7.6 s: inside its band, PI 2 can cut heater 2 by at most 1.35 points plus 0.35 points per second, not the 8 points that vessel 1's heat requires. Studio's table judges the unchanged vessel only by its settling and steady error, 0 s and 0.0358 °C, and passes; the trial's run breaks our ±0.2 °C limit, in both directions.\n4. Under the load, vessel 1 fell to 34.745 °C and vessel 2 by 0.049 °C; heater 1 settled at 80.00 %. Studio's input disturbance acts on heater 1; the design is symmetric, as both setpoint trials show, so the mirror holds for vessel 2.\n\nDecentralized PI is the simplest arrangement, two independent controllers each designed on its own path, and Studio's design meets every requirement on the vessel asked to move. That simplicity costs the unchanged-vessel requirement: decentralized PI does not qualify. These are simulation results.",
+    "explanation": "Decentralized PI runs one PI per pair, each with its own memory, tuned on the gain it has with the other loop closed, $K_{11}/\\lambda_{11}$. Separate controllers do not separate the process: heat still crosses the wall, and each loop corrects the other's effect only after its own vessel has moved.\n\nFor the coupled vessels, Control Studio designed both PIs on 0.1111 °C per point; they met every requirement on the vessel asked to move, while the unchanged vessel rose 0.269 °C, outside its 0.2 °C limit.",
+    "transfer": "The vessel that was not asked to change still deviated until its own loop caught up, although the gain matrix already says how much heat heater 1 sends through the wall.\n\n[Static decoupling](../64-decoupling/README.md) coordinates the two heaters so that a request for one temperature does not move the other."
+  }
+}

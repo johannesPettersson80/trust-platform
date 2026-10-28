@@ -1,6 +1,6 @@
 use super::super::queries::*;
 use super::super::*;
-use super::context::{expression_context, PouContext};
+use super::context::{expression_context, pou_context, PouContext};
 
 pub(in crate::db) fn add_unused_symbol_warnings(
     symbols: &SymbolTable,
@@ -30,6 +30,20 @@ pub(in crate::db) fn collect_used_symbols(
     root: &SyntaxNode,
 ) -> FxHashSet<SymbolId> {
     let mut used = FxHashSet::default();
+    for pou in root
+        .descendants()
+        .filter(|node| matches!(node.kind(), SyntaxKind::Program | SyntaxKind::FunctionBlock))
+    {
+        let is_test = pou.children_with_tokens().any(|child| {
+            matches!(
+                child.kind(),
+                SyntaxKind::KwTestProgram | SyntaxKind::KwTestFunctionBlock
+            )
+        });
+        if is_test && let Some(symbol_id) = pou_context(symbols, &pou).symbol_id {
+            used.insert(symbol_id);
+        }
+    }
     let program_instances = collect_program_instances(symbols, root);
     for target in program_instances.values() {
         if let Some(symbol_id) = target.symbol_id() {

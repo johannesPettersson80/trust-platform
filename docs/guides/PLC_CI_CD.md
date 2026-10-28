@@ -4,11 +4,15 @@ Use CI mode to run deterministic build/validate/test checks for a PLC project fo
 
 ## CI commands
 
-Build bytecode with machine-readable output:
+Build the program image (`program.tpi`) with machine-readable output:
 
 ```bash
 trust-runtime build --project <project-folder> --ci
 ```
+
+The build needs the compiler toolchain. `trust-runtime build` installs it on the first build that
+needs it; install it beforehand on a runner with `trust-runtime toolchain install`, or from a
+bundle file with `trust-runtime toolchain install --from <bundle>`.
 
 Validate project config + bundle with machine-readable output:
 
@@ -27,6 +31,23 @@ Run ST tests with stable machine-readable JSON summary output:
 ```bash
 trust-dev test --project <project-folder> --ci --output json
 ```
+
+Report the language server's diagnostics for every source file, as the editor shows
+them (same `trust-lsp.toml`: include paths, libraries, vendor profile,
+`[diagnostics]` toggles and severity overrides):
+
+```bash
+trust-lsp check --project <project-folder>                  # path:line:col: severity[code]: message
+trust-lsp check --project <project-folder> --format json    # machine-readable
+trust-lsp check --project <project-folder> --deny-warnings  # warnings fail the job too
+```
+
+`--file PATH` (repeatable) limits the report to some files while the whole project is
+still analyzed; a file that is not one of the project's source files is reported as a
+usage error instead of passing unchecked. Paths are printed relative to the project, in
+the platform's form (`src\Main.st` on Windows). Exit status: `0` no errors, `1` errors
+(or warnings with `--deny-warnings`), `2` usage or I/O problem (including a project
+without source files).
 
 Generate markdown docs for API review artifacts:
 

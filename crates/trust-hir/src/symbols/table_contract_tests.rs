@@ -321,8 +321,16 @@ fn local_name_range_index_is_exact_and_excludes_imported_symbols() {
 #[test]
 fn import_collisions_retain_order_names_and_ranges() {
     let mut table = SymbolTable::new();
-    table.record_import_collision(SmolStr::new("A"), range(1, 2), range(3, 4));
-    table.record_import_collision(SmolStr::new("B"), range(5, 6), range(7, 8));
+    table.record_import_collision(
+        SmolStr::new("A"),
+        (range(1, 2), None),
+        (range(3, 4), Some(FileId(1))),
+    );
+    table.record_import_collision(
+        SmolStr::new("B"),
+        (range(5, 6), None),
+        (range(7, 8), Some(FileId(2))),
+    );
 
     assert_eq!(table.import_collisions().len(), 2);
     assert_eq!(table.import_collisions()[0].name, "A");
@@ -876,4 +884,29 @@ fn iteration_and_length_include_every_retained_symbol_identity() {
     assert!(ids.contains(&first));
     assert!(ids.contains(&second));
     assert_eq!(table.lookup("DUPLICATE"), Some(first));
+}
+
+#[test]
+fn declaration_type_snapshot_preserves_alias_and_structure_member_identity() {
+    let mut table = SymbolTable::new();
+    let alias = table.register_type(
+        "Pressure",
+        Type::Alias {
+            name: "Pressure".into(),
+            target: TypeId::LREAL,
+        },
+    );
+    let structure = table.register_struct_type(
+        "Settings",
+        vec![StructField {
+            name: "Limit".into(),
+            type_id: alias,
+            address: None,
+            default_initializer: None,
+        }],
+    );
+    let snapshot = table.declaration_types();
+    assert_eq!(snapshot.lookup("Pressure"), Some(alias));
+    assert_eq!(snapshot.get(structure), table.type_by_id(structure));
+    assert_eq!(snapshot.get(TypeId::BOOL), table.type_by_id(TypeId::BOOL));
 }

@@ -1,19 +1,39 @@
 (* OSCAT BASIC 3.33 measuring-module helpers. *)
 
+(* The PLC timer in milliseconds, a DWORD that wraps after 2^32 ms (about 49.7 days) as the
+   upstream PLC timer does. TIME() does not wrap, so its whole periods of 2^32 ms are taken off
+   first: TIME() / 2^32 holds one millisecond for each period. *)
 FUNCTION T_PLC_MS : DWORD
 VAR
     tx : TIME;
+    periods : DWORD;
 END_VAR
 tx := TIME();
+periods := TIME_TO_DWORD(tx / ULINT#4294967296);
+tx := tx - T#4294967296ms * DWORD_TO_UDINT(periods);
 T_PLC_MS := TIME_TO_DWORD(tx);
 END_FUNCTION
 
+(* The PLC timer in microseconds, derived from the milliseconds (specification 31 §2.1): a DWORD
+   that wraps after 2^32 us (about 71.6 minutes) as the upstream timer does, the product taken
+   modulo 2^32 in ULINT, where it cannot overflow. *)
 FUNCTION T_PLC_US : DWORD
-VAR
-    tx : TIME;
+T_PLC_US := ULINT_TO_DWORD((DWORD_TO_ULINT(T_PLC_MS()) * ULINT#1000) MOD ULINT#4294967296);
+END_FUNCTION
+
+(* truST adaptation (specification 31 §2.1): the counts from LAST to NOW of a PLC timer that wraps
+   after 2^32 counts (T_PLC_MS, T_PLC_US). Upstream OSCAT takes the DWORD difference NOW - LAST
+   and relies on the arithmetic wrapping; truST checks it (specification 10). *)
+FUNCTION T_PLC_ELAPSED : UDINT
+VAR_INPUT
+    NOW : DWORD;
+    LAST : DWORD;
 END_VAR
-tx := TIME();
-T_PLC_US := UDINT_TO_DWORD(DWORD_TO_UDINT(TIME_TO_DWORD(tx)) * UDINT#1000);
+IF NOW >= LAST THEN
+    T_PLC_ELAPSED := DWORD_TO_UDINT(NOW) - DWORD_TO_UDINT(LAST);
+ELSE
+    T_PLC_ELAPSED := DWORD_TO_UDINT(NOW) + (UDINT#4294967295 - DWORD_TO_UDINT(LAST)) + UDINT#1;
+END_IF;
 END_FUNCTION
 
 FUNCTION_BLOCK TC_MS
@@ -22,16 +42,16 @@ VAR_OUTPUT
 END_VAR
 VAR
     Init : BOOL;
-    Tx : DINT;
-    Last : DINT;
+    Tx : DWORD;
+    Last : DWORD;
 END_VAR
 
-Tx := DWORD_TO_DINT(T_PLC_MS());
+Tx := T_PLC_MS();
 IF NOT Init THEN
     Init := TRUE;
     TC := DWORD#0;
 ELSE
-    TC := DINT_TO_DWORD(Tx - Last);
+    TC := UDINT_TO_DWORD(T_PLC_ELAPSED(NOW := Tx, LAST := Last));
 END_IF;
 Last := Tx;
 END_FUNCTION_BLOCK
@@ -42,16 +62,16 @@ VAR_OUTPUT
 END_VAR
 VAR
     Init : BOOL;
-    Tx : DINT;
-    Last : DINT;
+    Tx : DWORD;
+    Last : DWORD;
 END_VAR
 
-Tx := DWORD_TO_DINT(T_PLC_US());
+Tx := T_PLC_US();
 IF NOT Init THEN
     Init := TRUE;
     TC := REAL#0.0;
 ELSE
-    TC := DINT_TO_REAL(Tx - Last) * 1.0E-6;
+    TC := UDINT_TO_REAL(T_PLC_ELAPSED(NOW := Tx, LAST := Last)) * 1.0E-6;
 END_IF;
 Last := Tx;
 END_FUNCTION_BLOCK
@@ -62,16 +82,16 @@ VAR_OUTPUT
 END_VAR
 VAR
     Init : BOOL;
-    Tx : DINT;
-    Last : DINT;
+    Tx : DWORD;
+    Last : DWORD;
 END_VAR
 
-Tx := DWORD_TO_DINT(T_PLC_US());
+Tx := T_PLC_US();
 IF NOT Init THEN
     Init := TRUE;
     TC := DWORD#0;
 ELSE
-    TC := DINT_TO_DWORD(Tx - Last);
+    TC := UDINT_TO_DWORD(T_PLC_ELAPSED(NOW := Tx, LAST := Last));
 END_IF;
 Last := Tx;
 END_FUNCTION_BLOCK
@@ -86,13 +106,13 @@ VAR_IN_OUT
 	CYCLES : UDINT;
 END_VAR
 VAR
-	tx: DINT;
-	last : DINT;
+	tx: DWORD;
+	last : DWORD;
 	edge : BOOL;
 	init: BOOL;
-	ms: DINT;
+	ms: UDINT;
 END_VAR
-tx := DWORD_TO_DINT(T_PLC_MS());
+tx := T_PLC_MS();
 IF NOT init THEN
 	init := TRUE;
 	last := tx;
@@ -104,10 +124,10 @@ IF RST THEN
 	last := tx;
 	ms := 0;
 ELSIF IN THEN
-	ms := (tx - last) + ms;
-	IF ms >= 1000 THEN
+	ms := T_PLC_ELAPSED(NOW := tx, LAST := last) + ms;
+	IF ms >= UDINT#1000 THEN
 		seconds := seconds + 1;
-		ms := ms - DINT#1000;
+		ms := ms - UDINT#1000;
 	END_IF;
 	cycles := cycles + BOOL_TO_UINT(NOT edge);
 END_IF;
@@ -283,17 +303,19 @@ VAR_OUTPUT
     cycles : DWORD;
 END_VAR
 VAR
-    last_cycle : TIME;
+    last_cycle : DWORD;
+    now : DWORD;
     tx : TIME;
     init : BOOL;
 END_VAR
 
-tx := SUB_TIME(DWORD_TO_TIME(T_PLC_MS()), last_cycle);
+now := T_PLC_MS();
+tx := DWORD_TO_TIME(UDINT_TO_DWORD(T_PLC_ELAPSED(NOW := now, LAST := last_cycle)));
 IF RST THEN
     ct_min := T#10h;
     ct_max := T#0ms;
     cycles := DWORD#0;
-ELSIF last_cycle > T#0s THEN
+ELSIF init THEN
     IF tx < ct_min THEN
         ct_min := tx;
     ELSIF tx > ct_max THEN
@@ -301,7 +323,9 @@ ELSIF last_cycle > T#0s THEN
     END_IF;
     ct_last := tx;
 ELSIF ct_min = T#0s THEN
-    ct_min := SUB_TIME(T#0s, T#1ms);
+    (* Upstream's T#0s - T#1ms, the largest time of the 32-bit timer, so that the first cycle
+       sets the minimum. *)
+    ct_min := DWORD_TO_TIME(DWORD#16#FFFFFFFF);
 END_IF;
 IF init THEN
     systime := ADD_TIME(systime, tx);
@@ -311,8 +335,13 @@ IF init THEN
     END_IF;
 END_IF;
 init := TRUE;
-last_cycle := ADD_TIME(last_cycle, tx);
-cycles := UDINT_TO_DWORD(DWORD_TO_UDINT(cycles) + UDINT#1);
+last_cycle := now;
+(* The cycle count wraps after 2^32 cycles as upstream's DWORD does. *)
+IF cycles = DWORD#16#FFFFFFFF THEN
+    cycles := DWORD#0;
+ELSE
+    cycles := UDINT_TO_DWORD(DWORD_TO_UDINT(cycles) + UDINT#1);
+END_IF;
 END_FUNCTION_BLOCK
 
 FUNCTION_BLOCK DT_SIMU
@@ -332,7 +361,11 @@ VAR
 END_VAR
 
 tx := T_PLC_MS();
-tc := REAL_TO_DWORD(UDINT_TO_REAL(DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(last)) * SPEED);
+(* The simulated milliseconds since `last`. The first call has no `last` yet and starts `tc` at 0,
+   as upstream does; its product is not taken, so a timer far from 0 cannot overflow it. *)
+IF init THEN
+    tc := UDINT_TO_DWORD(REAL_TO_UDINT(UDINT_TO_REAL(T_PLC_ELAPSED(NOW := tx, LAST := last)) * SPEED));
+END_IF;
 
 IF NOT init THEN
     init := TRUE;
@@ -344,7 +377,8 @@ ELSIF SPEED = REAL#0.0 THEN
 ELSIF tc >= DWORD#1000 THEN
     td := UDINT_TO_DWORD((DWORD_TO_UDINT(tc) / UDINT#1000) * UDINT#1000);
     DTS := ADD_DT_TIME(DTS, DWORD_TO_TIME(td));
-    last := UDINT_TO_DWORD(DWORD_TO_UDINT(last) + DWORD_TO_UDINT(REAL_TO_DWORD(DWORD_TO_REAL(td) / SPEED)));
+    (* The timer reading the simulated time has reached, modulo 2^32 as the timer wraps. *)
+    last := ULINT_TO_DWORD((DWORD_TO_ULINT(last) + UDINT_TO_ULINT(REAL_TO_UDINT(UDINT_TO_REAL(DWORD_TO_UDINT(td)) / SPEED))) MOD ULINT#4294967296);
 END_IF;
 END_FUNCTION_BLOCK
 
@@ -366,8 +400,9 @@ VAR_IN_OUT
     Y : UDINT;
 END_VAR
 VAR
-    tx : TIME;
-    tl : TIME;
+    tx : DWORD;
+    tl : DWORD;
+    elapsed : UDINT;
     int1 : INTEGRATE;
     init : BOOL;
     e_last : BOOL;
@@ -404,9 +439,10 @@ IF X > REAL#1.0 THEN
     X := X - INT_TO_REAL(tmp);
 END_IF;
 
-tx := DWORD_TO_TIME(T_PLC_MS());
-IF SUB_TIME(tx, tl) >= UPDATE_TIME AND UPDATE_TIME > T#0s THEN
-    F := (UDINT_TO_REAL(Y - y_last) + X - x_last) / DWORD_TO_REAL(TIME_TO_DWORD(SUB_TIME(tx, tl))) * 3.6E6;
+tx := T_PLC_MS();
+elapsed := T_PLC_ELAPSED(NOW := tx, LAST := tl);
+IF elapsed >= DWORD_TO_UDINT(TIME_TO_DWORD(UPDATE_TIME)) AND UPDATE_TIME > T#0s THEN
+    F := (UDINT_TO_REAL(Y - y_last) + X - x_last) / UDINT_TO_REAL(elapsed) * 3.6E6;
     y_last := Y;
     x_last := X;
     tl := tx;
@@ -427,8 +463,8 @@ VAR_OUTPUT
 END_VAR
 VAR
     edge : BOOL;
-    T0 : TIME;
-    tx : TIME;
+    T0 : DWORD;
+    tx : DWORD;
     startup : BOOL;
 END_VAR
 
@@ -444,7 +480,7 @@ IF NOT startup THEN
     startup := TRUE;
 END_IF;
 
-tx := DWORD_TO_TIME(T_PLC_MS());
+tx := T_PLC_MS();
 
 IF start AND NOT edge AND NOT stop THEN
     T0 := tx;
@@ -456,7 +492,7 @@ ELSIF stop AND run THEN
 END_IF;
 edge := start;
 IF run THEN
-    ET := SUB_TIME(tx, T0);
+    ET := DWORD_TO_TIME(UDINT_TO_DWORD(T_PLC_ELAPSED(NOW := tx, LAST := T0)));
 END_IF;
 END_FUNCTION_BLOCK
 
@@ -472,11 +508,11 @@ VAR_OUTPUT
 END_VAR
 VAR
     edge : BOOL;
-    start : TIME;
-    tx : TIME;
+    start : DWORD;
+    tx : DWORD;
 END_VAR
 
-tx := DWORD_TO_TIME(T_PLC_MS());
+tx := T_PLC_MS();
 
 IF RST OR ET >= TMAX THEN
     PT := T#0s;
@@ -485,7 +521,7 @@ ELSIF IN THEN
     IF NOT edge THEN
         start := tx;
     END_IF;
-    ET := SUB_TIME(tx, start);
+    ET := DWORD_TO_TIME(UDINT_TO_DWORD(T_PLC_ELAPSED(NOW := tx, LAST := start)));
 ELSE
     PT := ET;
 END_IF;
@@ -507,9 +543,9 @@ VAR_OUTPUT
 END_VAR
 VAR
     edge : BOOL;
-    start : TIME;
-    stop : TIME;
-    tx : TIME;
+    start : DWORD;
+    stop : DWORD;
+    tx : DWORD;
     rise : BOOL;
     fall : BOOL;
     startup : BOOL;
@@ -531,7 +567,7 @@ IF NOT startup THEN
     startup := TRUE;
 END_IF;
 
-tx := DWORD_TO_TIME(T_PLC_MS());
+tx := T_PLC_MS();
 
 IF IN XOR edge THEN
     edge := IN;
@@ -539,26 +575,26 @@ IF IN XOR edge THEN
         start := tx;
         rise := TRUE;
         IF fall THEN
-            TL := SUB_TIME(start, stop);
+            TL := DWORD_TO_TIME(UDINT_TO_DWORD(T_PLC_ELAPSED(NOW := start, LAST := stop)));
         END_IF;
         IF TH > T#0ms AND TL > T#0ms THEN
-            DC := DWORD_TO_REAL(TIME_TO_DWORD(TH)) / DWORD_TO_REAL(TIME_TO_DWORD(ADD_TIME(TH, TL)));
-            F := REAL#1000.0 / DWORD_TO_REAL(TIME_TO_DWORD(ADD_TIME(TH, TL)));
+            DC := UDINT_TO_REAL(DWORD_TO_UDINT(TIME_TO_DWORD(TH))) / UDINT_TO_REAL(DWORD_TO_UDINT(TIME_TO_DWORD(ADD_TIME(TH, TL))));
+            F := REAL#1000.0 / UDINT_TO_REAL(DWORD_TO_UDINT(TIME_TO_DWORD(ADD_TIME(TH, TL))));
         END_IF;
     ELSE
         stop := tx;
         fall := TRUE;
         IF rise THEN
-            TH := SUB_TIME(stop, start);
+            TH := DWORD_TO_TIME(UDINT_TO_DWORD(T_PLC_ELAPSED(NOW := stop, LAST := start)));
         END_IF;
         IF TH > T#0ms AND TL > T#0ms THEN
-            DC := DWORD_TO_REAL(TIME_TO_DWORD(TH)) / DWORD_TO_REAL(TIME_TO_DWORD(ADD_TIME(TH, TL)));
-            F := REAL#1000.0 / DWORD_TO_REAL(TIME_TO_DWORD(ADD_TIME(TH, TL)));
+            DC := UDINT_TO_REAL(DWORD_TO_UDINT(TIME_TO_DWORD(TH))) / UDINT_TO_REAL(DWORD_TO_UDINT(TIME_TO_DWORD(ADD_TIME(TH, TL))));
+            F := REAL#1000.0 / UDINT_TO_REAL(DWORD_TO_UDINT(TIME_TO_DWORD(ADD_TIME(TH, TL))));
         END_IF;
     END_IF;
 END_IF;
 IF rise THEN
-    ET := SUB_TIME(tx, start);
+    ET := DWORD_TO_TIME(UDINT_TO_DWORD(T_PLC_ELAPSED(NOW := tx, LAST := start)));
 END_IF;
 END_FUNCTION_BLOCK
 
@@ -591,7 +627,7 @@ IF NOT init THEN
     MR.RX := MX;
     MR.R1 := REAL#0.0;
 ELSIF tx <> last THEN
-    tc := UDINT_TO_REAL(DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(last)) * 0.001;
+    tc := UDINT_TO_REAL(T_PLC_ELAPSED(NOW := tx, LAST := last)) * 0.001;
     last := tx;
 
     IF RST THEN

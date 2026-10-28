@@ -17,16 +17,13 @@ fn simulation_warning_message(enabled: bool, time_scale: u32) -> Option<String> 
     if !enabled {
         return None;
     }
-    Some(format!(
-        "Simulation mode active (time scale x{}). Not for live hardware.",
-        time_scale.max(1)
-    ))
+    Some(trust_runtime::scheduler::simulation_warning(time_scale))
 }
 
 fn validate_runtime_launch_options(restart: &str, time_scale: u32) -> anyhow::Result<RestartMode> {
     let restart_mode = parse_restart_mode(restart)?;
-    if time_scale == 0 {
-        anyhow::bail!("--time-scale must be >= 1");
+    if let Err(message) = trust_runtime::scheduler::validate_time_scale(i64::from(time_scale)) {
+        anyhow::bail!("--time-scale {}", message);
     }
     Ok(restart_mode)
 }
@@ -49,8 +46,12 @@ fn should_auto_create(path: &Path) -> anyhow::Result<bool> {
         anyhow::bail!("project folder is not a directory: {}", path.display());
     }
     let runtime_toml = path.join("runtime.toml");
-    let program_stbc = path.join("program.stbc");
-    Ok(!runtime_toml.is_file() || !program_stbc.is_file())
+    // A project's program is its image for this computer (specification 44 §8.8); a project that
+    // holds only the bytecode engine's program.stbc is built again, its own files kept.
+    let has_program = path
+        .join(trust_runtime::native::PROGRAM_IMAGE_FILE)
+        .is_file();
+    Ok(!runtime_toml.is_file() || !has_program)
 }
 
 #[derive(Debug, PartialEq, Eq)]

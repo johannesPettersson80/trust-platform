@@ -1,0 +1,108 @@
+format = 1
+title = "PID controller"
+block = "Control.PID"
+faceplate = "plant-pid"
+symbol = "controller"
+
+# A PID loop is ordinary code around Control.PID that Create PLC code writes (specification 39,
+# §10.5); its values are the variables beside the PID, named after it (`TIC101_Setpoint`).
+[fields]
+Manual = "{instance}_Manual"
+Setpoint = "{instance}_Setpoint"
+ManualOutput = "{instance}_ManualOutput"
+Output = "{instance}_Output"
+MeasuredValue = "{instance}_Input.ProcessValue"
+OutputMin = "{instance}_Parameters.OutputMinimum"
+OutputMax = "{instance}_Parameters.OutputMaximum"
+
+[bind]
+pv = "{instance}_Input.ProcessValue"
+sp = "{instance}_Setpoint"
+manual = "{instance}_Manual"
+
+# The setpoint the loop starts with; once running, the operator's (it is retained).
+[[settings]]
+member = "{instance}_Setpoint"
+title = "Setpoint"
+key = true
+
+[[settings]]
+member = "{instance}_Parameters.ProportionalGain"
+title = "Proportional gain"
+key = true
+help = "The three gains share one sign: negative when the output must rise while the measurement is above the setpoint."
+
+[[settings]]
+member = "{instance}_Parameters.IntegralGain"
+title = "Integral gain"
+unit = "1/s"
+key = true
+help = "The three gains share one sign: negative when the output must rise while the measurement is above the setpoint."
+
+[[settings]]
+member = "{instance}_Parameters.DerivativeGain"
+title = "Derivative gain"
+unit = "s"
+help = "The three gains share one sign: negative when the output must rise while the measurement is above the setpoint."
+
+[[settings]]
+member = "{instance}_Parameters.OutputMinimum"
+title = "Output minimum"
+unit = "%"
+
+[[settings]]
+member = "{instance}_Parameters.OutputMaximum"
+title = "Output maximum"
+unit = "%"
+
+[[dependencies]]
+member = "{instance}_Input.ProcessValue"
+title = "Measurement"
+interface = "Plant.IMeasurement"
+
+[[dependencies]]
+member = "{instance}_Output"
+title = "Controlled equipment"
+interface = "Plant.IPositionDevice"
+required = false
+drives = "AutoPosition"
+
+[[dependencies]]
+member = "{instance}_Output"
+title = "Controlled equipment"
+interface = "Plant.IPowerDevice"
+required = false
+drives = "AutoPower"
+
+[[dependencies]]
+member = "{instance}_Output"
+title = "Controlled equipment"
+interface = "Plant.ISpeedDevice"
+required = false
+drives = "AutoSpeed"
+
+# Two loops in cascade: this loop's output is the setpoint of the other loop.
+[[dependencies]]
+member = "{instance}_Output"
+title = "Controlled equipment"
+interface = "Control.PID"
+required = false
+drives = "{instance}_Setpoint"
+
+[program]
+position = "controllers"
+
+[program.initial]
+"{instance}_Parameters.ProportionalGain" = 1.0
+"{instance}_Parameters.IntegralGain" = 0.1
+"{instance}_Parameters.DerivativeGain" = 0.0
+"{instance}_Parameters.ProportionalSetpointWeight" = 1.0
+"{instance}_Parameters.DerivativeSetpointWeight" = 0.0
+"{instance}_Parameters.Bias" = 0.0
+"{instance}_Parameters.OutputMinimum" = 0.0
+"{instance}_Parameters.OutputMaximum" = 100.0
+"{instance}_Parameters.RateMinimum" = -1.0e9
+"{instance}_Parameters.RateMaximum" = 1.0e9
+"{instance}_Parameters.TrackingTime" = 1.0
+"{instance}_Parameters.AntiWindup" = "PIDAntiWindup#BackCalculation"
+"{instance}_Manual" = true

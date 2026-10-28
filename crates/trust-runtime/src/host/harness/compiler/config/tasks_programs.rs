@@ -137,11 +137,12 @@ fn lower_program_config(
     let type_node = type_node.ok_or_else(|| CompileError::new("missing program type"))?;
     let type_name = SmolStr::new(node_text(&type_node));
 
+    let mut connections = Vec::new();
     if let Some(list) = node
         .children()
         .find(|child| child.kind() == SyntaxKind::ProgramConfigList)
     {
-        fb_tasks = lower_program_config_list(&list, ctx)?;
+        (fb_tasks, connections) = lower_program_config_list(&list, ctx)?;
     }
 
     Ok(ProgramInstanceConfig {
@@ -150,44 +151,175 @@ fn lower_program_config(
         task,
         retain,
         fb_tasks,
+        connections,
     })
 }
 
+/// The function block task bindings (IEC 61131-3 Table 62 6b) and the connections of the
+/// program's inputs and outputs (8a, 8b, 9a, 9b) of a program configuration's list.
 fn lower_program_config_list(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
-) -> Result<Vec<FbTaskBinding>, CompileError> {
+) -> Result<(Vec<FbTaskBinding>, Vec<ProgramConnection>), CompileError> {
     let mut bindings = Vec::new();
+    let mut connections = Vec::new();
     for elem in node
         .children()
         .filter(|child| child.kind() == SyntaxKind::ProgramConfigElem)
     {
         let mut seen_with = false;
         let mut task_name: Option<SmolStr> = None;
+        let mut output = None;
         for element in elem.children_with_tokens() {
             if let Some(token) = element.as_token() {
-                if token.kind() == SyntaxKind::KwWith {
-                    seen_with = true;
+                match token.kind() {
+                    SyntaxKind::KwWith => seen_with = true,
+                    SyntaxKind::Assign => output = Some(false),
+                    SyntaxKind::Arrow => output = Some(true),
+                    _ => {}
                 }
                 continue;
             }
             let Some(child) = element.as_node() else {
                 continue;
             };
-            if child.kind() == SyntaxKind::Name && seen_with {
+            if child.kind() == SyntaxKind::Name && seen_with && task_name.is_none() {
                 task_name = Some(SmolStr::new(node_text(child)));
-                break;
             }
         }
-
+        let Some(path_node) = elem
+            .children()
+            .find(|child| child.kind() == SyntaxKind::AccessPath)
+        else {
+            continue;
+        };
         if let Some(task) = task_name {
-            let path_node = elem
-                .children()
-                .find(|child| child.kind() == SyntaxKind::AccessPath)
-                .ok_or_else(|| CompileError::new("missing access path for FB task"))?;
             let path = parse_access_path(&path_node, ctx)?;
             bindings.push(FbTaskBinding { path, task });
+        } else if let Some(output) = output {
+            connections.push(lower_program_connection(&elem, &path_node, output, ctx)?);
         }
     }
-    Ok(bindings)
+    Ok((bindings, connections))
+}
+
+/// The connection of a program's input (`:=`) or output (`=>`) (IEC 61131-3 §6.8.2, Table 62 8a,
+/// 8b, 9a, 9b): an input reads a constant, a global variable or a directly represented variable,
+/// an output writes a global variable or a directly represented variable.
+fn lower_program_connection(
+    elem: &SyntaxNode,
+    path_node: &SyntaxNode,
+    output: bool,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<ProgramConnection, CompileError> {
+    let named = match parse_access_path(path_node, ctx)? {
+        AccessPath::Parts(parts) => match parts.as_slice() {
+            [AccessPart::Name(name)] => Some(name.clone()),
+            _ => None,
+        },
+        AccessPath::Direct { .. } => None,
+    };
+    let parameter = named.ok_or_else(|| {
+        CompileError::new(format!(
+            "the program connection {} names no input or output of the program",
+            path_node.text().to_string().trim()
+        ))
+    })?;
+    let value = elem
+        .children()
+        .find(|child| child.kind() != SyntaxKind::AccessPath && is_expression_kind(child.kind()))
+        .ok_or_else(|| {
+            CompileError::new(format!("the connection of {parameter} connects nothing"))
+        })?;
+    let end = if let Some((address, text)) = connected_address(&value)? {
+        ConnectionEnd::Address { address, text }
+    } else if let Some(parts) = connected_variable(&value, ctx)? {
+        ConnectionEnd::Global(parts)
+    } else if output {
+        return Err(CompileError::new(format!(
+            "the output {parameter} is connected to {}: an output writes a global variable or a \
+             directly represented variable (IEC 61131-3 Table 62 9a, 9b)",
+            value.text().to_string().trim()
+        )));
+    } else {
+        ConnectionEnd::Constant(lower_expr_with_context(&value, ctx, None)?)
+    };
+    Ok(ProgramConnection {
+        parameter,
+        output,
+        end,
+    })
+}
+
+/// The directly represented variable `node` names, `%IX1.1`, with its text; `None` for another
+/// expression.
+fn connected_address(node: &SyntaxNode) -> Result<Option<(IoAddress, SmolStr)>, CompileError> {
+    if node.kind() != SyntaxKind::NameRef {
+        return Ok(None);
+    }
+    let Some(token) = node
+        .children_with_tokens()
+        .filter_map(|element| element.into_token())
+        .find(|token| !token.kind().is_trivia())
+    else {
+        return Ok(None);
+    };
+    if token.kind() != SyntaxKind::DirectAddress {
+        return Ok(None);
+    }
+    let text = SmolStr::new(token.text());
+    IoAddress::parse(&text)
+        .map(|address| Some((address, text)))
+        .map_err(|error| CompileError::new(error.to_string()))
+}
+
+/// The variable `node` names: a name, then members and constant indices; `None` for another
+/// expression.
+fn connected_variable(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<Option<Vec<AccessPart>>, CompileError> {
+    match node.kind() {
+        SyntaxKind::NameRef => {
+            let plain = node
+                .children_with_tokens()
+                .filter_map(|element| element.into_token())
+                .filter(|token| !token.kind().is_trivia())
+                .all(|token| token.kind() == SyntaxKind::Ident);
+            Ok(plain
+                .then(|| extract_name_from_expr(node))
+                .flatten()
+                .map(|name| vec![AccessPart::Name(name)]))
+        }
+        SyntaxKind::FieldExpr => {
+            let mut children = node.children();
+            let (Some(base), Some(member)) = (children.next(), children.next()) else {
+                return Ok(None);
+            };
+            if member.kind() != SyntaxKind::Name {
+                return Ok(None);
+            }
+            let Some(mut parts) = connected_variable(&base, ctx)? else {
+                return Ok(None);
+            };
+            parts.push(AccessPart::Name(SmolStr::new(node_text(&member))));
+            Ok(Some(parts))
+        }
+        SyntaxKind::IndexExpr => {
+            let mut children = node.children();
+            let Some(base) = children.next() else {
+                return Ok(None);
+            };
+            let Some(mut parts) = connected_variable(&base, ctx)? else {
+                return Ok(None);
+            };
+            let mut indices = Vec::new();
+            for index in children {
+                indices.push(const_int_from_node(&index, ctx)?);
+            }
+            parts.push(AccessPart::Index(indices));
+            Ok(Some(parts))
+        }
+        _ => Ok(None),
+    }
 }

@@ -15,6 +15,34 @@ this log. IEC-permitted interpretation choices belong in
 `docs/IEC_DECISIONS.md`. Existing entries are not classification precedent;
 re-check them against this rule when touched.
 
+## 2026-10-23 - Warm restart of a RETAIN global's instances: instance initializers of reset variables
+
+- ID: DEV-027
+- Area: Warm restart of the running runtime (`RETAIN` globals that hold
+  function-block or class instances)
+- Normative IEC requirement: IEC 61131-3 Ed.3 §6.5.6.1 requires a variable in a
+  `NON_RETAIN` section to be initialized on a warm restart, and §6.5.6.2
+  initializes a variable with its variable-specific user-defined value first
+  (for an instance member, the value an instance initializer gives it), then the
+  type-specific value, then the type's default.
+- truST behavior and conflict:
+  - A warm restart of the running runtime carries the instances of a `RETAIN`
+    global over whole, so references and aliases to them stay valid
+    (specification 10 §4.8).
+  - Each variable in them that is not kept (its type declares it
+    `NON_RETAIN`, or it belongs to a nested instance declared `NON_RETAIN`) runs
+    its declaration's initializer in its type again. An instance initializer
+    that set such a variable (`G : FB := (Speed := 50.0)`) is not applied
+    again, so the variable takes its type's initial value.
+  - A restart from the retain store (power loss, reload) constructs every
+    instance anew and applies all initializers, so it follows §6.5.6.2 exactly.
+- Impact:
+  - Only a variable that is not kept and that an instance initializer sets
+    differs, and only on a warm restart of the running runtime.
+- Mitigation:
+  - Give such a setting its value in the function block type, or declare it
+    `RETAIN` so it keeps its value.
+
 ## 2026-10-15 - MOD by zero faults
 
 - ID: DEV-023
@@ -37,6 +65,95 @@ re-check them against this rule when touched.
     as it reports integer division by zero. Portable source that needs the
     Table 29 result guards the divisor: `IF d = 0 THEN r := 0; ELSE r := x MOD
     d; END_IF`.
+
+## 2026-10-07 - CODESYS conversion profile: rounding of ties
+
+- ID: DEV-024
+- Area: Type conversion functions under the CODESYS conversion profile
+  (`vendor_profile` `codesys`, `beckhoff` or `twincat`)
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.2.5.2, Table 22
+  footnote: "Conversion from type REAL or LREAL to SINT, INT, DINT or LINT
+  shall round according to the convention of IEC 60559, according to which,
+  if the two nearest integers are equally near, the result shall be the
+  nearest even integer" (`REAL_TO_INT(2.5)` is 2, `REAL_TO_INT(-1.5)` is -2).
+  Section 6.6.2.5.3 and Table 23 apply the same rounding to every conversion
+  from a floating point number to an integer type.
+- truST behavior and conflict:
+  - The default conversion rules round ties to even, as required.
+  - Under the CODESYS conversion profile, selected by `vendor_profile`
+    `codesys`, `beckhoff` or `twincat` in the project manifest or by a
+    `trust-harness` request, the rounding conversions from `REAL`/`LREAL` to
+    integer and bit-string types round ties away from zero:
+    `REAL_TO_INT(2.5)` is 3 and `REAL_TO_INT(-2.5)` is -3.
+  - Rounding ties away from zero contradicts the required IEC 60559
+    ties-to-even rounding.
+- Impact:
+  - A project using the CODESYS profile (a CODESYS, Beckhoff or TwinCAT
+    project) computes CODESYS results for ties; the same source gives
+    different results under the default rules and on a strictly conforming
+    IEC 61131-3 implementation.
+- Mitigation:
+  - The profile applies only to projects whose `vendor_profile` is
+    `codesys`, `beckhoff` or `twincat`, and to conversion functions only; the
+    default rules are unchanged.
+  - `TRUNC_*` truncation is the same under both rules; portable source can
+    state the rounding it needs explicitly.
+  - Specified in `docs/specs/07-standard-functions.md` section 2.10.
+
+## 2026-10-07 - CODESYS conversion profile: numeric REAL and DWORD/LWORD conversions
+
+- ID: DEV-025
+- Area: Type conversion functions under the CODESYS conversion profile
+  (`vendor_profile` `codesys`, `beckhoff` or `twincat`)
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.2.5.5, rule 1 ("Data
+  type conversion is done as binary transfer") and Table 25 rows 1, 2, 43 and
+  44: `LWORD_TO_LREAL`, `DWORD_TO_REAL`, `LREAL_TO_LWORD` and `REAL_TO_DWORD`
+  are binary transfers of the bit pattern.
+- truST behavior and conflict:
+  - The default conversion rules transfer the bit pattern, as required.
+  - Under the CODESYS conversion profile these four functions convert the
+    numeric value instead: `REAL_TO_DWORD(3.7)` is `DWORD#4` and
+    `DWORD_TO_REAL(DWORD#5)` is `5.0`, where the binary transfers give
+    `DWORD#16#406CCCCD` and about `7.0E-45`.
+  - Converting the value instead of transferring the bit pattern contradicts
+    the binary transfer that rule 1 and Table 25 require.
+- Impact:
+  - Code that moves floating point bit patterns through these functions, for
+    example to pack a `REAL` into a fieldbus word, gets other values under the
+    CODESYS profile.
+- Mitigation:
+  - The profile applies only to projects whose `vendor_profile` is
+    `codesys`, `beckhoff` or `twincat`; the default rules keep the binary
+    transfers.
+  - Specified in `docs/specs/07-standard-functions.md` section 2.10.
+
+## 2026-10-07 - CODESYS conversion profile: bit string to BOOL
+
+- ID: DEV-026
+- Area: Type conversion functions under the CODESYS conversion profile
+  (`vendor_profile` `codesys`, `beckhoff` or `twincat`)
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.2.5.4 and Table 24
+  rows 4, 8, 12 and 16: `LWORD_TO_BOOL`, `DWORD_TO_BOOL`, `WORD_TO_BOOL` and
+  `BYTE_TO_BOOL` are a "binary transfer of the rightmost bit into the target".
+- truST behavior and conflict:
+  - The default conversion rules transfer the rightmost bit, as required:
+    `BYTE_TO_BOOL(16#80)` is `FALSE`.
+  - Under the CODESYS conversion profile these functions, and the overloaded
+    `TO_BOOL` of a bit string, return `TRUE` when the value is not zero:
+    `BYTE_TO_BOOL(16#80)` is `TRUE`.
+  - Testing the whole value instead of transferring the rightmost bit
+    contradicts Table 24.
+- Impact:
+  - A bit string whose rightmost bit is 0 but which is not zero converts to
+    `TRUE` under the CODESYS profile and to `FALSE` under the default rules and
+    on a strictly conforming IEC 61131-3 implementation.
+- Mitigation:
+  - The profile applies only to projects whose `vendor_profile` is
+    `codesys`, `beckhoff` or `twincat`; the default rules keep the IEC
+    conversion.
+  - Portable source can compare with zero (`b <> 0`) or select a bit
+    explicitly (`b.0`).
+  - Specified in `docs/specs/07-standard-functions.md` section 2.10.
 
 ## 2026-07-30 - Value-bearing RETURN statement
 
@@ -164,22 +281,26 @@ re-check them against this rule when touched.
   character string using the ISO/IEC 10646 character model.
 - truST behavior and conflict:
   - truST stores both `STRING` and `WSTRING` as Rust `String` values.
-  - Indexed access and `LEN`, `LEFT`, `RIGHT`, `MID`, `INSERT`, `DELETE`,
-    `REPLACE`, and `FIND` operate on Unicode scalar elements rather than raw
-    single-byte or UTF-16 code units.
+  - Capacity counts storage units: `STRING[n]` holds at most n bytes of UTF-8
+    and `WSTRING[n]` at most n UTF-16 code units, and `SIZEOF(STRING[n])` and
+    `SIZEOF(WSTRING[n])` are `n` and `2n` (`docs/IEC_DECISIONS.md` 2026-10-17).
+  - Element operations count characters: indexed access and `LEN`, `LEFT`,
+    `RIGHT`, `MID`, `INSERT`, `DELETE`, `REPLACE`, and `FIND` operate on
+    Unicode scalar elements rather than raw single bytes or UTF-16 code units.
   - Materializing a `STRING` element as `CHAR` still requires the selected
     scalar value to fit in `u8`; materializing a `WSTRING` element as `WCHAR`
     requires it to fit in `u16`.
-  - `SIZEOF(STRING[n])` and `SIZEOF(WSTRING[n])` remain storage-oriented (`n`
-    and `2n` respectively), while runtime value operations use scalar-element
-    counts.
-  - This scalar-element model conflicts with the standard's byte/code-unit
-    representation for non-ASCII text.
+  - This conflicts with the standard's single-byte and double-byte element
+    model for non-ASCII text: a `STRING` character outside ASCII is one element
+    but two to four bytes of capacity, and a `WSTRING` character outside the
+    Basic Multilingual Plane is one element but two code units of capacity.
 - Impact:
   - Non-ASCII text behaves consistently across VM reference indexing and the
     shipped string library, but it is not raw IEC byte/code-unit indexing.
+  - Such a text holds fewer characters than its declared length.
 - Mitigation:
-  - The runtime and specifications use one explicit element model end to end.
+  - The runtime and specifications use one explicit element model and one
+    explicit capacity unit end to end.
   - A raw-byte/raw-code-unit rewrite is a separate compatibility change because
     it requires changing the underlying runtime value representation.
 

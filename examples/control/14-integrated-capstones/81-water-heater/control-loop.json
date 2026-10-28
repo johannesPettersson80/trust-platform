@@ -1,0 +1,713 @@
+{
+    "schemaVersion": 2,
+    "id": "control-capstone-water-heater",
+    "name": "Heater commissioning",
+    "projectId": "project:control-capstone-water-heater",
+    "runtimeId": "simulator",
+    "controller": {
+        "instance": "P1.Controller",
+        "type": "Control.PID",
+        "design": "pid",
+        "revision": "sha256:89ac4ec7b7c90b10640ca05478ce0babfa4d847fe40ae45b21df75287c657107",
+        "action": "direct",
+        "taskPeriodMs": 100,
+        "modeSignal": "P1.AutoMode",
+        "modeWhenTrue": "Auto",
+        "manualOutputSignal": "P1.ManualOutput",
+        "manualOutputAddress": "%ML72",
+        "manualOutputType": "LREAL",
+        "law": {
+            "kind": "pid",
+            "parameterRecordSymbol": "P1.Parameters",
+            "parameterRevisionSymbol": "P1.ParameterRevision",
+            "proportionalGainSymbol": "P1.Parameters.ProportionalGain",
+            "integralGainSymbol": "P1.Parameters.IntegralGain",
+            "derivativeGainSymbol": "P1.Parameters.DerivativeGain",
+            "proportionalSetpointWeightSymbol": "P1.Parameters.ProportionalSetpointWeight",
+            "measurementFilterTimeSymbol": "P1.FilterTimeS"
+        },
+        "pidInitialization": {
+            "kind": "control-pid-v1",
+            "maximumSnapshotAgeMs": 500,
+            "states": [
+                {
+                    "symbol": "P1.Controller.StateValue.Setpoint",
+                    "iec_type": "LREAL",
+                    "unit": "degC",
+                    "minimum": 0,
+                    "maximum": 80,
+                    "initial": {
+                        "source": "model-output",
+                        "index": 0
+                    },
+                    "postScan": "bounded"
+                },
+                {
+                    "symbol": "P1.Controller.StateValue.SetpointRate",
+                    "iec_type": "LREAL",
+                    "unit": "degC/s",
+                    "minimum": -1000,
+                    "maximum": 1000,
+                    "initial": 0,
+                    "postScan": "bounded"
+                },
+                {
+                    "symbol": "P1.Controller.StateValue.ProcessValue",
+                    "iec_type": "LREAL",
+                    "unit": "degC",
+                    "minimum": 0,
+                    "maximum": 80,
+                    "initial": {
+                        "source": "model-output",
+                        "index": 0
+                    },
+                    "postScan": "bounded"
+                },
+                {
+                    "symbol": "P1.Controller.StateValue.ProcessValueRate",
+                    "iec_type": "LREAL",
+                    "unit": "degC/s",
+                    "minimum": -1000,
+                    "maximum": 1000,
+                    "initial": 0,
+                    "postScan": "bounded"
+                },
+                {
+                    "symbol": "P1.Controller.StateValue.FeedForward",
+                    "iec_type": "LREAL",
+                    "unit": "%",
+                    "minimum": -100,
+                    "maximum": 100,
+                    "initial": 0,
+                    "postScan": "bounded"
+                },
+                {
+                    "symbol": "P1.Controller.StateValue.NominalOutput",
+                    "iec_type": "LREAL",
+                    "unit": "%",
+                    "minimum": -1000,
+                    "maximum": 1000,
+                    "initial": {
+                        "source": "model-input",
+                        "index": 0
+                    },
+                    "postScan": "bounded"
+                },
+                {
+                    "symbol": "P1.Controller.StateValue.SaturatedOutput",
+                    "iec_type": "LREAL",
+                    "unit": "%",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "initial": {
+                        "source": "model-input",
+                        "index": 0
+                    },
+                    "postScan": "bounded"
+                }
+            ],
+            "applicationStates": [
+                {
+                    "symbol": "P1.Initialized",
+                    "iec_type": "BOOL",
+                    "unit": "1",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "initial": 1,
+                    "postScan": "unchanged"
+                }
+            ]
+        }
+    },
+    "signals": {
+        "setpoint": {
+            "symbol": "P1.SetpointC",
+            "address": "%ML0",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "degC",
+            "range": {
+                "minimum": 0,
+                "maximum": 80
+            }
+        },
+        "processVariable": {
+            "symbol": "P1.TemperatureC",
+            "address": "%IL8",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "degC",
+            "range": {
+                "minimum": 0,
+                "maximum": 80
+            }
+        },
+        "manipulatedVariable": {
+            "symbol": "P1.AppliedPowerPct",
+            "address": "%QL0",
+            "iecType": "LREAL",
+            "direction": "write",
+            "unit": "%",
+            "range": {
+                "minimum": 0,
+                "maximum": 100
+            }
+        },
+        "additional": [
+            {
+                "id": "thermal-load",
+                "channel": "thermal-load",
+                "role": "disturbance",
+                "symbol": "P1.DisturbanceKw",
+                "address": "%QL8",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "kW",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 30
+                }
+            },
+            {
+                "id": "actual-water",
+                "channel": "actual-water",
+                "role": "state",
+                "symbol": "P1.WaterTemperatureC",
+                "address": "%ML48",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "degC",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 80
+                }
+            },
+            {
+                "id": "integral",
+                "channel": "integral",
+                "role": "state",
+                "symbol": "P1.IntegralPct",
+                "address": "%ML16",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "%",
+                "range": {
+                    "minimum": -200,
+                    "maximum": 200
+                }
+            },
+            {
+                "id": "requested-power",
+                "channel": "requested-power",
+                "role": "state",
+                "symbol": "P1.RequestedPowerPct",
+                "address": "%ML32",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "%",
+                "range": {
+                    "minimum": -200,
+                    "maximum": 300
+                }
+            },
+            {
+                "id": "measurement-fault",
+                "channel": "measurement-fault",
+                "role": "state",
+                "symbol": "P1.MeasurementFault",
+                "address": "%MX96.3",
+                "iecType": "BOOL",
+                "direction": "read",
+                "unit": "1",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            }
+        ]
+    },
+    "limits": {
+        "outputMinimum": 0,
+        "outputMaximum": 100
+    },
+    "observedSampleTiming": {
+        "nominalPeriodMs": 100
+    },
+    "plantId": "heater-lesson-29",
+    "experiment": {
+        "execution": "control-studio",
+        "kind": "mv_step",
+        "amplitude": 20,
+        "durationSeconds": 60,
+        "seed": 20260829
+    },
+    "identificationPolicy": {
+        "openLoopPermitted": true,
+        "sustainedHoldPermitted": true,
+        "information": "basic",
+        "maximumNormalizedError": 0.05
+    },
+    "parameterBinding": {
+        "loop_id": "control-capstone-water-heater",
+        "task_name": "MainTask",
+        "parameters": [
+            {
+                "symbol": "P1.Parameters.ProportionalGain",
+                "iec_type": "LREAL",
+                "unit": "%/degC",
+                "convention": "Control.PID ProportionalGain",
+                "minimum": 0,
+                "maximum": 100
+            },
+            {
+                "symbol": "P1.Parameters.IntegralGain",
+                "iec_type": "LREAL",
+                "unit": "%/(degC*s)",
+                "convention": "Control.PID IntegralGain",
+                "minimum": 0,
+                "maximum": 100
+            },
+            {
+                "symbol": "P1.Parameters.DerivativeGain",
+                "iec_type": "LREAL",
+                "unit": "%*s/degC",
+                "convention": "Control.PID DerivativeGain",
+                "minimum": 0,
+                "maximum": 100
+            },
+            {
+                "symbol": "P1.Parameters.ProportionalSetpointWeight",
+                "iec_type": "LREAL",
+                "unit": "1",
+                "convention": "Control.PID ProportionalSetpointWeight",
+                "minimum": 0,
+                "maximum": 1
+            },
+            {
+                "symbol": "P1.Parameters.DerivativeSetpointWeight",
+                "iec_type": "LREAL",
+                "unit": "1",
+                "convention": "Control.PID DerivativeSetpointWeight",
+                "minimum": 0,
+                "maximum": 1
+            },
+            {
+                "symbol": "P1.Parameters.Bias",
+                "iec_type": "LREAL",
+                "unit": "%",
+                "convention": "Control.PID Bias",
+                "minimum": 0,
+                "maximum": 100
+            },
+            {
+                "symbol": "P1.Parameters.OutputMinimum",
+                "iec_type": "LREAL",
+                "unit": "%",
+                "convention": "Control.PID OutputMinimum",
+                "minimum": 0,
+                "maximum": 100
+            },
+            {
+                "symbol": "P1.Parameters.OutputMaximum",
+                "iec_type": "LREAL",
+                "unit": "%",
+                "convention": "Control.PID OutputMaximum",
+                "minimum": 0,
+                "maximum": 100
+            },
+            {
+                "symbol": "P1.Parameters.RateMinimum",
+                "iec_type": "LREAL",
+                "unit": "%/s",
+                "convention": "Control.PID RateMinimum",
+                "minimum": -10000,
+                "maximum": 0
+            },
+            {
+                "symbol": "P1.Parameters.RateMaximum",
+                "iec_type": "LREAL",
+                "unit": "%/s",
+                "convention": "Control.PID RateMaximum",
+                "minimum": 0,
+                "maximum": 10000
+            },
+            {
+                "symbol": "P1.Parameters.TrackingTime",
+                "iec_type": "LREAL",
+                "unit": "s",
+                "convention": "Control.PID TrackingTime",
+                "minimum": 0.001,
+                "maximum": 1000
+            },
+            {
+                "symbol": "P1.FilterTimeS",
+                "iec_type": "LREAL",
+                "unit": "s",
+                "convention": "measurement filter time Tf; 0 bypasses the filter",
+                "minimum": 0,
+                "maximum": 5
+            }
+        ],
+        "mode": {
+            "symbol": "P1.AutoMode",
+            "manual_value": false
+        }
+    },
+    "verificationScenarios": [
+        {
+            "id": "setpoint-trial",
+            "initialValues": {
+                "P1.SetpointC": 38
+            },
+            "events": [],
+            "requirements": [
+                {
+                    "id": "setpoint-peak",
+                    "kind": "overshoot",
+                    "channel": "P1.TemperatureC",
+                    "window": {
+                        "start": 0,
+                        "end": 60
+                    },
+                    "initial": 35,
+                    "target": 38,
+                    "maximum": 1
+                },
+                {
+                    "id": "setpoint-command",
+                    "kind": "bounds",
+                    "channel": "P1.AppliedPowerPct",
+                    "window": {
+                        "start": 0,
+                        "end": 60
+                    },
+                    "minimum": 0,
+                    "maximum": 100
+                },
+                {
+                    "id": "setpoint-activity",
+                    "kind": "activity",
+                    "channel": "P1.AppliedPowerPct",
+                    "window": {
+                        "start": 0,
+                        "end": 60
+                    }
+                }
+            ]
+        },
+        {
+            "id": "load-trial",
+            "initialValues": {
+                "P1.SetpointC": 35
+            },
+            "events": [
+                {
+                    "atMs": 0,
+                    "symbol": "P1.DisturbanceKw",
+                    "value": 30
+                }
+            ],
+            "requirements": [
+                {
+                    "id": "load-minimum",
+                    "kind": "bounds",
+                    "channel": "P1.TemperatureC",
+                    "window": {
+                        "start": 0,
+                        "end": 60
+                    },
+                    "minimum": 33,
+                    "maximum": 80
+                },
+                {
+                    "id": "load-late-error",
+                    "kind": "error",
+                    "channel": "P1.TemperatureC",
+                    "reference": {
+                        "channel": "P1.SetpointC"
+                    },
+                    "statistic": "maximum",
+                    "maximum": 0.2,
+                    "window": {
+                        "start": 30,
+                        "end": 60
+                    }
+                },
+                {
+                    "id": "load-settling",
+                    "kind": "settling",
+                    "channel": "P1.TemperatureC",
+                    "window": {
+                        "start": 0,
+                        "end": 60
+                    },
+                    "target": 35,
+                    "band": 0.1,
+                    "deadlineSeconds": 30,
+                    "holdSeconds": 30
+                }
+            ]
+        },
+        {
+            "id": "startup",
+            "initialValues": {
+                "P1.SetpointC": 35
+            },
+            "events": [],
+            "requirements": [
+                {
+                    "id": "startup-command",
+                    "kind": "bounds",
+                    "channel": "P1.AppliedPowerPct",
+                    "window": {
+                        "start": 0,
+                        "end": 60
+                    },
+                    "minimum": 74,
+                    "maximum": 76
+                },
+                {
+                    "id": "startup-temperature",
+                    "kind": "bounds",
+                    "channel": "P1.TemperatureC",
+                    "window": {
+                        "start": 0,
+                        "end": 60
+                    },
+                    "minimum": 34.9,
+                    "maximum": 35.1
+                }
+            ]
+        },
+        {
+            "id": "manual-transfer",
+            "initialValues": {
+                "P1.SetpointC": 35,
+                "P1.AutoMode": 0,
+                "P1.ManualOutput": 60
+            },
+            "events": [
+                {
+                    "atMs": 3000,
+                    "symbol": "P1.AutoMode",
+                    "value": 1
+                }
+            ],
+            "requirements": [
+                {
+                    "id": "manual-transfer-command",
+                    "kind": "bounds",
+                    "channel": "P1.AppliedPowerPct",
+                    "window": {
+                        "start": 2.9,
+                        "end": 3.0
+                    },
+                    "minimum": 59.9,
+                    "maximum": 60.1
+                },
+                {
+                    "id": "manual-transfer-minimum",
+                    "kind": "bounds",
+                    "channel": "P1.TemperatureC",
+                    "window": {
+                        "start": 0,
+                        "end": 60
+                    },
+                    "minimum": 33,
+                    "maximum": 80
+                },
+                {
+                    "id": "manual-transfer-late-error",
+                    "kind": "error",
+                    "channel": "P1.TemperatureC",
+                    "reference": {
+                        "channel": "P1.SetpointC"
+                    },
+                    "statistic": "maximum",
+                    "maximum": 0.2,
+                    "window": {
+                        "start": 30,
+                        "end": 60
+                    }
+                },
+                {
+                    "id": "manual-transfer-settling",
+                    "kind": "settling",
+                    "channel": "P1.TemperatureC",
+                    "window": {
+                        "start": 0,
+                        "end": 60
+                    },
+                    "target": 35,
+                    "band": 0.1,
+                    "deadlineSeconds": 30,
+                    "holdSeconds": 30
+                }
+            ]
+        },
+        {
+            "id": "saturation",
+            "initialValues": {
+                "P1.SetpointC": 39
+            },
+            "events": [],
+            "requirements": [
+                {
+                    "id": "saturation-peak",
+                    "kind": "overshoot",
+                    "channel": "P1.TemperatureC",
+                    "window": {
+                        "start": 0,
+                        "end": 60
+                    },
+                    "initial": 35,
+                    "target": 39,
+                    "maximum": 1
+                },
+                {
+                    "id": "saturation-command",
+                    "kind": "bounds",
+                    "channel": "P1.AppliedPowerPct",
+                    "window": {
+                        "start": 0,
+                        "end": 60
+                    },
+                    "minimum": 0,
+                    "maximum": 100
+                },
+                {
+                    "id": "saturation-late-error",
+                    "kind": "error",
+                    "channel": "P1.TemperatureC",
+                    "reference": {
+                        "channel": "P1.SetpointC"
+                    },
+                    "statistic": "maximum",
+                    "maximum": 0.2,
+                    "window": {
+                        "start": 30,
+                        "end": 60
+                    }
+                },
+                {
+                    "id": "saturation-settling",
+                    "kind": "settling",
+                    "channel": "P1.TemperatureC",
+                    "window": {
+                        "start": 0,
+                        "end": 60
+                    },
+                    "target": 39,
+                    "band": 0.1,
+                    "deadlineSeconds": 30,
+                    "holdSeconds": 30
+                }
+            ]
+        },
+        {
+            "id": "capacity",
+            "initialValues": {
+                "P1.SetpointC": 38
+            },
+            "events": [
+                {
+                    "atMs": 0,
+                    "symbol": "P1.DisturbanceKw",
+                    "value": 30
+                }
+            ],
+            "requirements": [
+                {
+                    "id": "capacity-command",
+                    "kind": "bounds",
+                    "channel": "P1.AppliedPowerPct",
+                    "window": {
+                        "start": 0,
+                        "end": 60
+                    },
+                    "minimum": 0,
+                    "maximum": 100
+                },
+                {
+                    "id": "capacity-temperature",
+                    "kind": "bounds",
+                    "channel": "P1.TemperatureC",
+                    "window": {
+                        "start": 0,
+                        "end": 60
+                    },
+                    "minimum": 0,
+                    "maximum": 80
+                }
+            ]
+        },
+        {
+            "id": "stale-sensor",
+            "initialValues": {
+                "P1.SetpointC": 35
+            },
+            "events": [
+                {
+                    "atMs": 5000,
+                    "symbol": "P1.SensorFrozen",
+                    "value": 1
+                },
+                {
+                    "atMs": 6000,
+                    "symbol": "P1.SensorFrozen",
+                    "value": 0
+                },
+                {
+                    "atMs": 6000,
+                    "symbol": "P1.FaultAcknowledge",
+                    "value": 1
+                },
+                {
+                    "atMs": 7000,
+                    "symbol": "P1.AutoMode",
+                    "value": 1
+                }
+            ],
+            "requirements": [
+                {
+                    "id": "stale-sensor-no-heat",
+                    "kind": "bounds",
+                    "channel": "P1.AppliedPowerPct",
+                    "window": {
+                        "start": 5.5,
+                        "end": 6.9
+                    },
+                    "minimum": 0,
+                    "maximum": 0
+                },
+                {
+                    "id": "stale-sensor-recovered",
+                    "kind": "error",
+                    "channel": "P1.TemperatureC",
+                    "reference": {
+                        "channel": "P1.SetpointC"
+                    },
+                    "statistic": "maximum",
+                    "maximum": 0.2,
+                    "window": {
+                        "start": 40,
+                        "end": 60
+                    }
+                },
+                {
+                    "id": "stale-sensor-temperature",
+                    "kind": "bounds",
+                    "channel": "P1.TemperatureC",
+                    "window": {
+                        "start": 0,
+                        "end": 60
+                    },
+                    "minimum": 0,
+                    "maximum": 80
+                }
+            ]
+        }
+    ],
+    "operatingPoint": "35°C water temperature at 75% heater command, with no extraction",
+    "revision": "sha256:dde336d1bd174b798770eb848dcc9bbaa767adce5e0181d885023259267c3f6e"
+}

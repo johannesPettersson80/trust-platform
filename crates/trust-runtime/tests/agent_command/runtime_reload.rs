@@ -24,11 +24,14 @@ END_PROGRAM
     patch_control_endpoint(&project, port);
     fs::write(project.join("src").join("main.st"), source_false).expect("write initial source");
 
-    let build_output = Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect("Cargo must provide trust-runtime binary while executing integration tests"))
-        .args(["build", "--project"])
-        .arg(&project)
-        .output()
-        .expect("run trust-runtime build");
+    let build_output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["build", "--project"])
+    .arg(&project)
+    .output()
+    .expect("run trust-runtime build");
     assert!(
         build_output.status.success(),
         "initial build failed.\nstdout:\n{}\nstderr:\n{}",
@@ -92,7 +95,7 @@ END_PROGRAM
         request["params"]["bytes"]
             .as_str()
             .is_some_and(|bytes| !bytes.is_empty()),
-        "expected bytecode payload in control request"
+        "expected the program image in the control request"
     );
     drop(stdin);
     let agent_output = child.wait_with_output().expect("wait for agent process");
@@ -250,11 +253,14 @@ END_PROGRAM
 
     fs::write(project.join("src").join("main.st"), source_false).expect("write initial source");
 
-    let build_output = Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect("Cargo must provide trust-runtime binary while executing integration tests"))
-        .args(["build", "--project"])
-        .arg(&project)
-        .output()
-        .expect("run trust-runtime build");
+    let build_output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["build", "--project"])
+    .arg(&project)
+    .output()
+    .expect("run trust-runtime build");
     assert!(
         build_output.status.success(),
         "initial build failed.\nstdout:\n{}\nstderr:\n{}",

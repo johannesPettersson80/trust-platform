@@ -6,6 +6,7 @@ Legend: `[ ]` pending, `[x]` complete.
 - [x] Rust format gate is enforced.
 - [x] Rust clippy gate is enforced.
 - [x] Rust test gate is enforced.
+- [x] The firmware of every chip in `chips/` is built and its image checked on every change (`gate-firmware-<chip>`).
 - [x] VS Code extension lint and compile gates are enforced.
 - [x] VS Code extension integration tests run with `ST_LSP_TEST_SERVER`.
 - [x] Neovim and Zed editor integration smoke gate is enforced (`scripts/check_editor_integration_smoke.sh`).
@@ -19,7 +20,6 @@ Legend: `[ ]` pending, `[x]` complete.
 - [x] Reliability summary includes CPU/RSS trend data plus fault/restart signals.
 - [x] Nightly workflow captures ST test flake sample artifacts.
 - [x] Nightly workflow generates a rolling 14-day ST test flake aggregate report.
-- [x] Self-hosted long-read-only HMI soak workflow exists for 24h evidence capture.
 
 ## Aggregation Gates
 - [x] CI uploads per-job gate marker artifacts.

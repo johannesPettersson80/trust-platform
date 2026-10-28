@@ -6,6 +6,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -250,7 +251,7 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             pinned_environment=True,
         ))
         for command_id in (
-            "remote_vscode", "remote_fmt", "remote_clippy", "remote_test_all",
+            "remote_vscode", "remote_fmt", "remote_clippy", "remote_docs", "remote_test_all",
             "remote_cross_target_warnings", "remote_supply_chain",
             "remote_architecture_safety",
         ):
@@ -337,6 +338,28 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         self.assertIn('export PATH="$PATH:${CARGO_HOME:-$HOME/.cargo}/bin"', gate)
         self.assertLess(gate.index("export PATH="), gate.index("command -v ast-grep"))
 
+    def test_remote_validation_builds_documentation_as_ci_does(self) -> None:
+        commands = candidate_prepare.remote_validation_commands(
+            vscode_changed=False, remote_target="/tmp/trust-target"
+        )
+        command_ids = [command_id for command_id, _command in commands]
+        by_id = dict(commands)
+
+        self.assertIn("remote_docs", guard.BASE_REQUIRED_COMMANDS)
+        self.assertLess(command_ids.index("remote_clippy"), command_ids.index("remote_docs"))
+        self.assertLess(
+            command_ids.index("remote_docs"),
+            command_ids.index("remote_reclaim_before_test_all"),
+        )
+        self.assertIn("cargo doc --no-deps --all-features", by_id["remote_docs"])
+        self.assertIn("RUSTDOCFLAGS=", by_id["remote_docs"])
+        self.assertIn("-D warnings", by_id["remote_docs"])
+        workflow = (Path(__file__).parents[4] / ".github/workflows/ci.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("cargo doc --no-deps --all-features", workflow)
+        self.assertIn("RUSTDOCFLAGS: -D warnings", workflow)
+
     def test_remote_validation_checks_target_space_before_test_all(self) -> None:
         commands = candidate_prepare.remote_validation_commands(
             vscode_changed=True, remote_target="/tmp/trust target"
@@ -352,6 +375,31 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             command_ids.index("remote_reclaim_before_test_all"),
         )
 
+    def test_a_command_whose_output_splits_a_character_is_recorded(self) -> None:
+        # Two processes writing to one pipe can split a UTF-8 character; the guard crashed reading
+        # such output (27 October 2026). The broken sequence is replaced, the rest kept.
+        result = guard.run(
+            [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'ok \\xe2 rest')"]
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "ok \ufffd rest")
+
+    def test_remote_validation_builds_the_candidates_toolchain_before_the_tests(self) -> None:
+        # Specification 44 §4.6: the tests that build and run programs need the toolchain of the
+        # candidate's version; the guard builds it into the target, as CI does, before the VS Code
+        # tests and test-all, and gives it to them as TRUST_TOOLCHAIN.
+        commands = candidate_prepare.remote_validation_commands(
+            vscode_changed=True, remote_target="/tmp/trust-target"
+        )
+        command_ids = [command_id for command_id, _command in commands]
+        by_id = dict(commands)
+        self.assertLess(command_ids.index("remote_toolchain"), command_ids.index("remote_vscode"))
+        self.assertLess(command_ids.index("remote_toolchain"), command_ids.index("remote_test_all"))
+        self.assertIn("scripts/native/build_toolchain_libraries.sh", by_id["remote_toolchain"])
+        self.assertIn("scripts/with_cargo_target_lease.sh", by_id["remote_toolchain"])
+        for command_id in ("remote_vscode", "remote_test_all"):
+            self.assertIn("TRUST_TOOLCHAIN=/tmp/trust-target/trust-toolchain", by_id[command_id])
+
     def test_remote_validation_leases_every_cargo_target_user_and_safe_reclaims(self) -> None:
         commands = dict(
             candidate_prepare.remote_validation_commands(
@@ -365,6 +413,7 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             "remote_supply_chain",
             "remote_architecture_safety",
             "remote_clippy",
+            "remote_docs",
             "remote_test_all",
             "remote_mp001_parity",
         )
@@ -420,8 +469,20 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             cached.write_text("compiled output", encoding="utf-8")
             scripts = root / "scripts"
             scripts.mkdir()
-            for name in ("cargo_target_path.sh", "remove_cargo_target_if_idle.sh"):
+            for name in (
+                "cargo_target_path.sh",
+                "remove_cargo_target_if_idle.sh",
+                "with_cargo_target_lease.sh",
+            ):
                 shutil.copyfile(source / "scripts" / name, scripts / name)
+            # The toolchain build stands in for scripts/native/build_toolchain_libraries.sh: it
+            # leaves the compiler where test-all looks for it.
+            native = scripts / "native"
+            native.mkdir()
+            (native / "build_toolchain_libraries.sh").write_text(
+                '#!/usr/bin/env bash\nset -euo pipefail\nmkdir -p "$1/bin"\n: > "$1/bin/rustc"\n',
+                encoding="utf-8",
+            )
             shim_relative = Path(
                 ".codex/skills/trust-ci-release-gates/scripts/compiler_passthrough.sh"
             )
@@ -465,26 +526,36 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
                         capture_output=True, text=True, timeout=30, check=False,
                     )
                 prepared = (target / "tmp").is_dir() and (target / "bin/sccache").is_file()
-                return result, cached.exists(), prepared, int(count.read_text())
+                built = (target / "trust-toolchain/bin/rustc").is_file()
+                return result, cached.exists(), prepared, built, int(count.read_text())
             finally:
                 lease.unlink(missing_ok=True)
 
     def test_target_at_space_floor_keeps_compiled_artifacts(self) -> None:
-        result, cached, prepared, probes = self.run_conditional_reclaim([83886080])
+        result, cached, prepared, built, probes = self.run_conditional_reclaim([83886080])
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(cached)
         self.assertTrue(prepared)
+        self.assertFalse(built, "a warm target keeps the toolchain it holds")
         self.assertEqual(probes, 1)
 
     def test_low_space_reclaims_idle_target_and_rechecks_floor(self) -> None:
-        result, cached, prepared, probes = self.run_conditional_reclaim([83886079, 83886080])
+        # The reclaim removes the toolchain with the target, so it builds the toolchain again before
+        # test-all. Catches a reclaim that leaves test-all without the compiler for programs (guard
+        # prepare 12, 27 October 2026: every program-building test failed).
+        result, cached, prepared, built, probes = self.run_conditional_reclaim(
+            [83886079, 83886080]
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(cached)
         self.assertTrue(prepared)
+        self.assertTrue(built, "the reclaimed target holds the toolchain again")
         self.assertEqual(probes, 2)
 
     def test_reclaim_cannot_accept_space_below_floor(self) -> None:
-        result, cached, prepared, probes = self.run_conditional_reclaim([83886079, 83886079])
+        result, cached, prepared, _, probes = self.run_conditional_reclaim(
+            [83886079, 83886079]
+        )
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertFalse(cached)
         self.assertTrue(prepared)
@@ -492,20 +563,23 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         self.assertIn("at least 80 GiB", result.stderr)
 
     def test_low_space_cannot_remove_a_leased_target(self) -> None:
-        result, cached, prepared, probes = self.run_conditional_reclaim([83886079], busy=True)
+        result, cached, prepared, built, probes = self.run_conditional_reclaim(
+            [83886079], busy=True
+        )
         self.assertEqual(result.returncode, 75, result.stderr)
         self.assertTrue(cached)
         self.assertTrue(prepared)
+        self.assertFalse(built)
         self.assertEqual(probes, 1)
 
     def test_unknown_free_space_does_not_remove_target(self) -> None:
-        result, cached, _, probes = self.run_conditional_reclaim(["unknown"])
+        result, cached, _, _, probes = self.run_conditional_reclaim(["unknown"])
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertTrue(cached)
         self.assertEqual(probes, 1)
 
     def test_failed_disk_probe_does_not_remove_target(self) -> None:
-        result, cached, _, probes = self.run_conditional_reclaim([None])
+        result, cached, _, _, probes = self.run_conditional_reclaim([None])
         self.assertEqual(result.returncode, 42, result.stderr)
         self.assertTrue(cached)
         self.assertEqual(probes, 1)

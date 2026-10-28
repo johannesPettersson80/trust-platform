@@ -1,0 +1,304 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lyapunov-stability",
+  "title": "Lyapunov stability",
+  "level": "Modern",
+  "sequence": 83,
+  "equipment": "An upright arm on a torque-driven joint with gravity, friction and a ±20 N·m limit",
+  "physicalPurpose": "Establish which starting states of the upright arm return to upright under PD feedback without reaching the torque limit.",
+  "principalTechnique": "Lyapunov function V = ½Jω² + ½Kpφ² + G(cos φ − 1) with V̇ = −(B + Kd)ω², level-set region and invariance argument",
+  "objective": "Build the energy function of the upright arm under PD feedback, derive its level-set region with angle, speed and torque bounds, and compare a start inside the region with one outside it.",
+  "prerequisites": [
+    "control-mpc"
+  ],
+  "nextLesson": "control-feedback-linearization",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Angle from upright",
+      "unit": "rad",
+      "minimum": -0.5,
+      "maximum": 0.5,
+      "resolution": 1e-06,
+      "binding": "%ML0"
+    },
+    {
+      "role": "MV",
+      "name": "Torque",
+      "unit": "N*m",
+      "minimum": -20,
+      "maximum": 20,
+      "resolution": 1e-06,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Speed",
+      "unit": "rad/s",
+      "minimum": -3,
+      "maximum": 3,
+      "resolution": 1e-06,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Energy function",
+      "unit": "J",
+      "minimum": -1,
+      "maximum": 1,
+      "resolution": 1e-06,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Inside certificate",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX24.2"
+    },
+    {
+      "role": "state",
+      "name": "Released",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX24.1"
+    },
+    {
+      "role": "state",
+      "name": "Saturated",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX24.3"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX24.0"
+    },
+    {
+      "role": "state",
+      "name": "Fault latched",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX24.4"
+    },
+    {
+      "role": "state",
+      "name": "Clock valid",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX24.5"
+    }
+  ],
+  "plant": {
+    "modelId": "upright-arm",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "inertia_kg_m2",
+        "value": 1.0,
+        "unit": "kg*m2"
+      },
+      {
+        "name": "gravity_torque_nm",
+        "value": 4.0,
+        "unit": "N*m"
+      },
+      {
+        "name": "viscous_friction_nm_s_per_rad",
+        "value": 1.0,
+        "unit": "N*m*s/rad"
+      },
+      {
+        "name": "torque_limit",
+        "value": 20.0,
+        "unit": "N*m"
+      }
+    ],
+    "sampleTimeSeconds": 0.01,
+    "initialState": {
+      "angleFromUpright": 0.0,
+      "speed": 0.0
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Angle from upright": 0.0,
+      "Torque": 0.0
+    },
+    "validityRange": [
+      {
+        "signal": "Angle from upright",
+        "minimum": -0.3,
+        "maximum": 0.3,
+        "unit": "rad"
+      },
+      {
+        "signal": "Speed",
+        "minimum": -2,
+        "maximum": 2,
+        "unit": "rad/s"
+      }
+    ],
+    "simplifications": [
+      "J·dω/dt = τ − B·ω + G·sin φ; the joint model measures θ = π + φ from hanging down, so its gravity term −G·sin θ equals +G·sin φ.",
+      "The proof is for the continuous law; the program updates the torque every 20 ms."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "evidence": "successful runs from chosen starts"
+    },
+    "limitation": "A run shows only the trajectory it tried; it establishes nothing for other starting states."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "law": "τ = −16φ − 7ω with ±20 N·m limit",
+      "certificate": "V ≤ 0.1 J: |φ| ≤ 0.129 rad, |ω| ≤ 0.447 rad/s, |τ| ≤ 5.2 N·m",
+      "experiment": "hold at InitialAngleRad for 3 s, release for 8 s; runs at 0.1 and 0.2 rad",
+      "durationSeconds": 13
+    },
+    "decision": "Accepted for starts inside V ≤ 0.1 J (about 0.13 rad and 0.45 rad/s from upright): the PD law τ = −16φ − 7ω is proven to return every such start to upright without reaching the ±20 N·m limit; the 0.1 rad run stayed inside, V fell from 0.060 J and never increased, with at most 1.60 N·m. The 0.2 rad start (V = 0.240 J) returned in simulation and entered the region after 0.46 s, but it is not covered by the proof. Continuous-model proof; simulation evidence."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 13,
+    "settlingSeconds": 8,
+    "disturbances": [
+      "Hold at the start angle for 3 s with gravity compensation, then release to the tested law"
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "maximum",
+      "signal": "Energy function",
+      "window": "from the release, start inside the certificate (0.1 rad): V does not exceed its release value",
+      "comparator": "<=",
+      "limit": 0.1,
+      "unit": "J",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_absolute",
+      "signal": "Torque",
+      "window": "from the release, start inside the certificate",
+      "comparator": "<=",
+      "limit": 5.2,
+      "unit": "N*m",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_absolute",
+      "signal": "Angle from upright",
+      "window": "2–8 s after the release, both starts",
+      "comparator": "<=",
+      "limit": 0.01,
+      "unit": "rad",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Torque",
+        "minimum": -20,
+        "maximum": 20,
+        "unit": "N*m"
+      },
+      {
+        "signal": "Angle from upright",
+        "minimum": -0.3,
+        "maximum": 0.3,
+        "unit": "rad"
+      }
+    ],
+    "abortPredicates": [
+      "An angle beyond 0.3 rad or a speed beyond 2 rad/s from upright, or an update interval outside 20 ms ± 5 ms, latches zero torque; stop the simulator, since gravity keeps moving the arm",
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 0,
+    "restorationMode": "After the experiment the tested law holds the arm upright; a latched fault holds zero torque until a restart from upright rest.",
+    "physicalApprovalRole": "authorised controls engineer and responsible machine operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise motion of a physical arm",
+      "The certificate covers only V ≤ 0.1 J under the continuous model; starts outside it are unproved",
+      "The hold before release is a test fixture, not part of the tested law"
+    ]
+  },
+  "workflowStages": [
+    "Identify"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/76-82-nonlinear-and-recovery.md#76-lyapunov-stability",
+    "nativeTest": "lesson76",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_76_78 lesson76",
+    "projectPath": "examples/control/12-nonlinear-adaptive-and-robust-control/74-lyapunov-stability",
+    "runArtifactFields": [
+      "startAngle",
+      "angle",
+      "speed",
+      "torque",
+      "energyFunction",
+      "insideCertificate",
+      "saturation",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-lyapunov-stability"
+  },
+  "video": {
+    "viewerOutcome": "See the arm released from inside and from outside the proven region, with V falling in both, and learn why only the first start is covered by the proof.",
+    "requiredVisibleEvidence": [
+      "the start angle setting",
+      "angle, speed and torque after the release",
+      "V and the inside-certificate flag",
+      "both runs",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 82's MPC held both heaters within 0.2 °C from 8 s without exceeding the 100-point supply. That was one run, on heaters that settle by themselves, and a run proves no stability for the starts it did not try.\n\nSome plants do not settle by themselves. We now take an arm balanced upright on a motor joint: gravity pulls it away with a torque that grows with the sine of the angle, a nonlinear plant, and only the motor brings it back. We will find an energy-like quantity for the arm under PD control, calculate the region of starts it proves will return within the torque limit, and check it with one start inside and one outside.",
+    "reason": "We need to:\n\n1. show that the arm returns to upright from every start in a region, not only from the starts we try;\n2. check that the torque stays within its limit throughout that region; and\n3. compare the result with runs from inside and outside the region.",
+    "theory": [
+      "**Lyapunov's method** finds an energy-like quantity that can only decrease while the arm moves. If the arm's energy keeps falling, it must come to rest at the target. For the arm, it adds the motion energy, the energy stored in the PD law as in a spring, and gravity's energy; friction and the D term only take energy away.\n\n**In words.** Think of a ball rolling inside a bowl. Friction takes energy away at every moment, so however the ball starts, it must end at rest at the bottom. You do not need to follow its path to know where it ends: it is enough to know that its energy can only fall, and that the energy is lowest at the bottom. Lyapunov's method makes the same argument for a controlled plant, with an energy-like quantity that we build. For the arm it has four parts:\n\n1. **Motion energy.** The faster the arm turns, the more energy it carries.\n2. **Spring energy.** The P term pulls the arm back like a spring; the further from upright, the more energy that spring stores.\n3. **Gravity's energy.** Gravity pulls the arm away from upright, so it lowers the energy away from upright: it makes the bowl's walls shallower.\n4. **The losses.** Friction and the D term brake the motion and take energy out whenever the arm moves.\n\nIf the spring is stronger than gravity, the bowl has its bottom at upright, and every motion that starts low enough in the bowl ends there. One calculation then covers every start in a region, where runs cover only the starts we try.\n\n**The formula.** Let:\n\n- $\\phi$ be the angle from upright, in radians, and $\\omega$ the speed, in radians per second;\n- $J = 1$ kg·m² be the inertia and $B = 1$ N·m·s/rad the friction;\n- $G = 4$ N·m be the gravity torque coefficient: the arm's weight times the distance from the joint to its centre of mass; and\n- $K_p = 16$ N·m/rad and $K_d = 7$ N·m·s/rad be the PD gains, a teaching choice; the torque is limited to ±20 N·m.\n\nThe arm and its law are\n\n$$\nJ\\dot\\omega = \\tau - B\\omega + G\\sin\\phi, \\qquad \\tau = -K_p\\phi - K_d\\omega .\n$$\n\nThe energy-like quantity, in joules, adds the three energies:\n\n$$\nV = \\tfrac12 J\\omega^2 + \\tfrac12 K_p\\phi^2 + G(\\cos\\phi - 1).\n$$\n\nBy the chain rule, with $\\dot\\phi = \\omega$ and the arm's equation, the torques of the spring and of gravity cancel, and only the losses remain:\n\n$$\n\\dot V = J\\omega\\dot\\omega + K_p\\phi\\,\\omega - G\\sin\\phi\\,\\omega = -(B + K_d)\\,\\omega^2 = -8\\omega^2 \\le 0 .\n$$\n\nA quantity that is zero at the target, positive everywhere else and never increasing along the motion is a **Lyapunov function**.\n\n**Example: the arm at 0.05 rad, moving outward at 0.2 rad/s.**\n\n1. Torques: the law gives $\\tau = -16 \\cdot 0.05 - 7 \\cdot 0.2 = -2.2$ N·m, gravity $4\\sin 0.05 = +0.20$ N·m and friction $-0.2$ N·m, so $\\dot\\omega = -2.2$ rad/s²: the outward motion is braked.\n2. Energy: $V = \\tfrac12 \\cdot 0.2^2 + 8 \\cdot 0.05^2 + 4(\\cos 0.05 - 1) = 0.0200 + 0.0200 - 0.0050 = 0.0350$ J. The gravity term is negative, because the arm would fall from there.\n3. Its rate: $\\dot V = -8 \\cdot 0.2^2 = -0.32$ J/s: the energy falls while the arm moves.\n\nFollow the argument that turns this into a proof:\n\n1. **$V$ never increases**, since $-8\\omega^2$ is never positive.\n2. **$V$ is zero only at upright rest.** Because $1 - \\cos\\phi \\le \\phi^2/2$, the gravity term is at least $-2\\phi^2$, so $V \\ge \\tfrac12\\omega^2 + 6\\phi^2$, positive everywhere else.\n3. **A region.** Choose the level $V \\le 0.1$ J. There $\\tfrac12\\omega^2 \\le 0.1$ gives $|\\omega| \\le 0.447$ rad/s and $6\\phi^2 \\le 0.1$ gives $|\\phi| \\le 0.129$ rad. The torque is at most $16 \\cdot 0.129 + 7 \\cdot 0.447 = 5.2$ N·m, inside ±20 N·m, so the law is never clipped there, and a motion that starts inside stays inside, because $V$ cannot rise.\n4. **Rest at the target.** $\\dot V = 0$ only when $\\omega = 0$, and staying at rest needs $16\\phi = 4\\sin\\phi$, true only at $\\phi = 0$. So every motion that starts in the region comes to rest upright: the example's arm, with 0.0350 J, is one of them.\n\n**The limitation.** The level 0.1 J is a cautious teaching choice; a higher level is allowed as long as the same checks hold. Since $V \\ge 6\\phi^2$, a higher level first meets the program's 0.3 rad safety abort at $V = 6 \\cdot 0.3^2 = 0.54$ J, with a torque bound of $16 \\cdot 0.3 + 7\\sqrt{2 \\cdot 0.54} = 12.1$ N·m; beyond that this function proves nothing, though the arm may still return. The argument is for the continuous law; the program updates every 20 ms."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. What is $V$ at 0.1 rad and at 0.2 rad, both at rest, and which start lies inside $V \\le 0.1$ J?\n2. Does the 0.2 rad start return, and when does it enter the 0.1 J region?\n3. What is the largest torque in each run, and is it within the region's 5.2 N·m bound?\n\n| Start at rest | $V$ | In $V \\le 0.1$ J | In $V \\le 0.54$ J | Torque at release |\n| --- | ---: | --- | --- | ---: |\n| 0.1 rad | 0.0600 J | yes | yes | −1.6 N·m |\n| 0.2 rad | 0.2403 J | no | yes | −3.2 N·m |",
+    "practicalPreparation": [
+      "1. Open this lesson's project and start **Simulator**. First look at the new plant: in the **truST** side bar, select **Devices & Connections**, then the **SIMULATED PLANT** box **upright-arm**; **Configure plant** opens. Its **Plant model** is **Gravity-loaded robot joint**, with **Joint inertia (kg·m²)** 1, **Gravity torque coefficient (N·m)** 4 and **Viscous friction** 1. Under **CONNECTIONS**, **Torque command (N·m)** is `P1.TorqueNm`, the command your program writes; **Joint angle (rad)** is `P1.JointAngleRad` and **Angular speed (rad/s)** is `P1.SpeedRadPerS`, the values it reads. **Starting angle (rad)** 3.141592653589793 is π: upright. Close the panel with **Cancel**.\n\n   ![The upright arm and its connections in the hardware canvas](figures/arm-in-hardware-canvas.png)\n\n2. In the **truST** side bar, select **Control Studio**. On **Identify**, choose **Project experiment** from **Method**. Under **Declared experiment settings**, **Initial Angle Rad** shows 0.1 (rad, 0.05–0.25). Press **Inspect experiment parameters**, keep 0.1, press **Review parameter values** and then **Apply reviewed values**.\n3. **Signals** shows `P1.AngleRad · Process value (rad)`, `P1.TorqueNm · Applied output (N·m)` and `P1.SpeedRadPerS · state (rad/s)`; add `P1.EnergyJ · state (J)` and `P1.InsideCertificate · state (1)`.\n4. Answer the predictions, select **Review project test** and check the declared **13 s**: the start, the 3 s hold and 8 s after the release. Select **Confirm and start**; the release comes about 5 s later, and times below count from it.\n5. After the run, hover the angle, $V$ and the torque at the release and 0.5 s, 1 s and 2 s after it, and find where `P1.InsideCertificate` turns on.\n6. Restart **Simulator** and repeat with **Initial Angle Rad** 0.2: edit it, review and apply it. Each run ends with **Project test completed. Outputs restored.**\n\nSelect **Abort test** to stop early."
+    ],
+    "baseline": "Lesson 82's runs showed only the trajectories they tried.",
+    "change": "Build a Lyapunov function for the upright arm under PD feedback, derive a proven region with angle, speed and torque bounds, and compare a start inside it with one outside it.",
+    "comparison": "![From 0.1 rad the arm stays inside the chosen region; from 0.2 rad it enters it after 0.46 s; the torque stays far below its limit](figures/lyapunov-region.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio's two recordings, times after the release:\n\n| Start | $V$ at release | Angle at 0.5 s | at 1 s | at 2 s | Largest torque | Inside $V \\le 0.1$ J |\n| --- | ---: | ---: | ---: | ---: | ---: | --- |\n| 0.1 rad | 0.0600 J | 0.051 rad | 0.019 rad | 0.003 rad | 1.60 N·m | throughout |\n| 0.2 rad | 0.2402 J | 0.103 rad | 0.039 rad | 0.005 rad | 3.20 N·m | from 0.46 s |\n\n1. $V$ was 0.0600 J for the 0.1 rad start, inside the chosen region, and 0.2402 J for 0.2 rad, held at 0.19998 rad, outside it.\n2. The 0.2 rad start returned: $V$ fell below 0.1 J 0.46 s after the release and stayed below, as the 0.54 J level proves.\n3. The largest torques, 1.60 and 3.20 N·m at the release, stayed below the region's 5.2 N·m bound; neither run saturated.\n\n$V$ never increased at a recorded update after either release, although the torque changed only every 20 ms: from 0.1 rad it fell to 0.0204 J in 0.5 s and 0.0030 J in 1 s. Both arms were upright within 0.001 rad in 3 s. The proof's benefit is its reach: one calculation covers every start in the region. Its cost is caution: the 0.1 J level left out a start that returns. The PD law is accepted for starts with $V \\le 0.54$ J, at rest up to 0.3 rad from upright; beyond that this function gives no guarantee. These are simulation results.",
+    "validation": "![From 0.1 rad the arm stays inside the chosen region; from 0.2 rad it enters it after 0.46 s; the torque stays far below its limit](figures/lyapunov-region.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio's two recordings, times after the release:\n\n| Start | $V$ at release | Angle at 0.5 s | at 1 s | at 2 s | Largest torque | Inside $V \\le 0.1$ J |\n| --- | ---: | ---: | ---: | ---: | ---: | --- |\n| 0.1 rad | 0.0600 J | 0.051 rad | 0.019 rad | 0.003 rad | 1.60 N·m | throughout |\n| 0.2 rad | 0.2402 J | 0.103 rad | 0.039 rad | 0.005 rad | 3.20 N·m | from 0.46 s |\n\n1. $V$ was 0.0600 J for the 0.1 rad start, inside the chosen region, and 0.2402 J for 0.2 rad, held at 0.19998 rad, outside it.\n2. The 0.2 rad start returned: $V$ fell below 0.1 J 0.46 s after the release and stayed below, as the 0.54 J level proves.\n3. The largest torques, 1.60 and 3.20 N·m at the release, stayed below the region's 5.2 N·m bound; neither run saturated.\n\n$V$ never increased at a recorded update after either release, although the torque changed only every 20 ms: from 0.1 rad it fell to 0.0204 J in 0.5 s and 0.0030 J in 1 s. Both arms were upright within 0.001 rad in 3 s. The proof's benefit is its reach: one calculation covers every start in the region. Its cost is caution: the 0.1 J level left out a start that returns. The PD law is accepted for starts with $V \\le 0.54$ J, at rest up to 0.3 rad from upright; beyond that this function gives no guarantee. These are simulation results.",
+    "explanation": "Lyapunov's method replaces many runs with one argument: a quantity that is zero at the target, positive elsewhere and never increasing along motion proves that every start in a region where those checks hold comes to rest at the target.\n\nFor the arm, $V$ falls at $8\\omega^2$, and the proof holds up to $V = 0.54$ J, where the region meets the 0.3 rad abort.",
+    "transfer": "Near upright the arm returns to rest, where gravity's torque is zero. To hold it at another angle, the PD law must fight a gravity torque that changes with the angle, and it can supply that torque only from a position error.\n\n[Feedback linearization](../75-feedback-linearization/README.md) adds the torque that cancels the known gravity torque, leaving a linear loop we already know how to tune."
+  }
+}

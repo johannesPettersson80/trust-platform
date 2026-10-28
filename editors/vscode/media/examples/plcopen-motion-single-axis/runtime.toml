@@ -9,7 +9,6 @@ cycle_interval_ms = 10
 execution_backend = "vm"
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-motion-starter.sock"
 mode = "production"
 debug_enabled = false
 
@@ -33,7 +32,7 @@ interfaces = []
 enabled = false
 listen = "0.0.0.0:5200"
 tls = false
-auth_token = ""
+auth_token = "trust-example-token"
 publish = []
 
 [runtime.opcua]

@@ -1,0 +1,789 @@
+{
+ "size": [
+  1280,
+  720
+ ],
+ "nowMs": 300000,
+ "page": {
+  "title": "Reference",
+  "object": [
+   {
+    "id": "title",
+    "type": "text",
+    "at": [
+     24,
+     16
+    ],
+    "size": [
+     600,
+     40
+    ],
+    "rotation": 0,
+    "bind": {},
+    "variant": "heading",
+    "text": "Reference page"
+   },
+   {
+    "id": "panel",
+    "type": "panel",
+    "at": [
+     24,
+     72
+    ],
+    "size": [
+     600,
+     300
+    ],
+    "rotation": 0,
+    "bind": {},
+    "label": "Displays"
+   },
+   {
+    "id": "level",
+    "type": "value",
+    "at": [
+     40,
+     120
+    ],
+    "size": [
+     200,
+     56
+    ],
+    "rotation": 0,
+    "bind": {
+     "value": {
+      "path": "Ref.Level",
+      "direction": "read"
+     }
+    },
+    "label": "Level",
+    "unit": "m",
+    "decimals": 2
+   },
+   {
+    "id": "old",
+    "type": "value",
+    "at": [
+     40,
+     192
+    ],
+    "size": [
+     200,
+     56
+    ],
+    "rotation": 0,
+    "bind": {
+     "value": {
+      "path": "Ref.Old",
+      "direction": "read"
+     }
+    },
+    "label": "Stale value",
+    "unit": "m",
+    "decimals": 2
+   },
+   {
+    "id": "unknown",
+    "type": "value",
+    "at": [
+     40,
+     264
+    ],
+    "size": [
+     200,
+     56
+    ],
+    "rotation": 0,
+    "bind": {
+     "value": {
+      "path": "Ref.Unknown",
+      "direction": "read"
+     }
+    },
+    "label": "Unknown"
+   },
+   {
+    "id": "gauge",
+    "type": "gauge",
+    "at": [
+     264,
+     112
+    ],
+    "size": [
+     160,
+     160
+    ],
+    "rotation": 0,
+    "bind": {
+     "value": {
+      "path": "Ref.Speed",
+      "direction": "read"
+     }
+    },
+    "label": "Speed",
+    "unit": "%",
+    "min": 0,
+    "max": 100
+   },
+   {
+    "id": "bar",
+    "type": "bar",
+    "at": [
+     448,
+     112
+    ],
+    "size": [
+     48,
+     200
+    ],
+    "rotation": 0,
+    "bind": {
+     "value": {
+      "path": "Ref.Fill",
+      "direction": "read"
+     }
+    },
+    "label": "Fill",
+    "min": 0,
+    "max": 100
+   },
+   {
+    "id": "lamp",
+    "type": "status",
+    "at": [
+     520,
+     120
+    ],
+    "size": [
+     40,
+     40
+    ],
+    "rotation": 0,
+    "bind": {
+     "state": {
+      "path": "Ref.Running",
+      "direction": "read"
+     }
+    }
+   },
+   {
+    "id": "trend",
+    "type": "trend",
+    "at": [
+     648,
+     72
+    ],
+    "size": [
+     600,
+     300
+    ],
+    "rotation": 0,
+    "bind": {
+     "pv": {
+      "path": "Ref.Pv",
+      "direction": "read"
+     },
+     "sp": {
+      "path": "Ref.Sp",
+      "direction": "read"
+     }
+    },
+    "label": "Level",
+    "min": 0,
+    "max": 2,
+    "span": 300
+   },
+   {
+    "id": "controls",
+    "type": "group",
+    "at": [
+     24,
+     392
+    ],
+    "size": [
+     600,
+     300
+    ],
+    "rotation": 0,
+    "bind": {},
+    "label": "Controls"
+   },
+   {
+    "id": "start",
+    "type": "button",
+    "at": [
+     40,
+     440
+    ],
+    "size": [
+     120,
+     48
+    ],
+    "rotation": 0,
+    "bind": {
+     "target": {
+      "path": "Ref.Start",
+      "direction": "read"
+     }
+    },
+    "text": "Start"
+   },
+   {
+    "id": "auto",
+    "type": "switch",
+    "at": [
+     176,
+     440
+    ],
+    "size": [
+     88,
+     48
+    ],
+    "rotation": 0,
+    "bind": {
+     "value": {
+      "path": "Ref.Auto",
+      "direction": "read"
+     }
+    }
+   },
+   {
+    "id": "mode",
+    "type": "mode-selector",
+    "at": [
+     280,
+     440
+    ],
+    "size": [
+     264,
+     48
+    ],
+    "rotation": 0,
+    "bind": {
+     "mode": {
+      "path": "Ref.Mode",
+      "direction": "read"
+     }
+    }
+   },
+   {
+    "id": "sp",
+    "type": "setpoint",
+    "at": [
+     40,
+     512
+    ],
+    "size": [
+     240,
+     96
+    ],
+    "rotation": 0,
+    "bind": {
+     "value": {
+      "path": "Ref.Setpoint",
+      "direction": "read"
+     }
+    },
+    "label": "Setpoint",
+    "unit": "m",
+    "decimals": 2,
+    "min": 0.2,
+    "max": 2.6
+   },
+   {
+    "id": "input",
+    "type": "numeric-input",
+    "at": [
+     296,
+     512
+    ],
+    "size": [
+     208,
+     48
+    ],
+    "rotation": 0,
+    "bind": {
+     "value": {
+      "path": "Ref.Input",
+      "direction": "read"
+     }
+    },
+    "unit": "%"
+   },
+   {
+    "id": "pump",
+    "type": "pump",
+    "at": [
+     648,
+     420
+    ],
+    "size": [
+     128,
+     108
+    ],
+    "rotation": 0,
+    "bind": {
+     "running": {
+      "path": "Ref.PumpRunning",
+      "direction": "read"
+     }
+    },
+    "tag": "P-101"
+   },
+   {
+    "id": "valve",
+    "type": "valve",
+    "at": [
+     836,
+     420
+    ],
+    "size": [
+     128,
+     108
+    ],
+    "rotation": 0,
+    "bind": {
+     "open": {
+      "path": "Ref.ValveOpen",
+      "direction": "read"
+     }
+    },
+    "tag": "XV-101"
+   },
+   {
+    "id": "tank",
+    "type": "tank",
+    "at": [
+     1040,
+     392
+    ],
+    "size": [
+     128,
+     172
+    ],
+    "rotation": 0,
+    "bind": {
+     "level": {
+      "path": "Ref.TankLevel",
+      "direction": "read"
+     }
+    },
+    "tag": "T-101",
+    "unit": "%"
+   },
+   {
+    "id": "cv",
+    "type": "control-valve",
+    "at": [
+     648,
+     560
+    ],
+    "size": [
+     128,
+     108
+    ],
+    "rotation": 0,
+    "bind": {
+     "position": {
+      "path": "Ref.Position",
+      "direction": "read"
+     }
+    },
+    "tag": "FV-101"
+   },
+   {
+    "id": "motor",
+    "type": "motor",
+    "at": [
+     836,
+     560
+    ],
+    "size": [
+     128,
+     108
+    ],
+    "rotation": 0,
+    "bind": {
+     "running": {
+      "path": "Ref.MotorRunning",
+      "direction": "read"
+     },
+     "fault": {
+      "path": "Ref.MotorFault",
+      "direction": "read"
+     }
+    },
+    "tag": "M-101"
+   },
+   {
+    "id": "tt",
+    "type": "temperature-sensor",
+    "at": [
+     1040,
+     600
+    ],
+    "size": [
+     176,
+     56
+    ],
+    "rotation": 0,
+    "bind": {
+     "value": {
+      "path": "Ref.Temperature",
+      "direction": "read"
+     }
+    },
+    "tag": "TT-101",
+    "unit": "\u00b0C",
+    "decimals": 1
+   }
+  ],
+  "pipe": [
+   {
+    "from": "pump.outlet",
+    "to": "valve.inlet"
+   },
+   {
+    "from": "valve.outlet",
+    "to": "tank.inlet"
+   }
+  ]
+ },
+ "values": {
+  "Ref.Level": {
+   "value": 1.42,
+   "state": "confirmed"
+  },
+  "Ref.Old": {
+   "value": 0.87,
+   "state": "confirmed",
+   "staleMs": 12000
+  },
+  "Ref.Unknown": {
+   "value": null,
+   "state": "unknown"
+  },
+  "Ref.Speed": {
+   "value": 62,
+   "state": "confirmed"
+  },
+  "Ref.Fill": {
+   "value": 35,
+   "state": "confirmed"
+  },
+  "Ref.Running": {
+   "value": true,
+   "state": "confirmed"
+  },
+  "Ref.Pv": {
+   "value": 1.4,
+   "state": "confirmed"
+  },
+  "Ref.Sp": {
+   "value": 1.5,
+   "state": "confirmed"
+  },
+  "Ref.Start": {
+   "value": false,
+   "state": "confirmed"
+  },
+  "Ref.Auto": {
+   "value": true,
+   "state": "confirmed"
+  },
+  "Ref.Mode": {
+   "value": "Auto",
+   "state": "confirmed"
+  },
+  "Ref.Setpoint": {
+   "value": 1.5,
+   "state": "confirmed"
+  },
+  "Ref.Input": {
+   "value": 40,
+   "state": "confirmed"
+  },
+  "Ref.PumpRunning": {
+   "value": true,
+   "state": "confirmed"
+  },
+  "Ref.ValveOpen": {
+   "value": true,
+   "state": "confirmed"
+  },
+  "Ref.TankLevel": {
+   "value": 55,
+   "state": "confirmed"
+  },
+  "Ref.Position": {
+   "value": 40,
+   "state": "confirmed"
+  },
+  "Ref.MotorRunning": {
+   "value": false,
+   "state": "confirmed"
+  },
+  "Ref.MotorFault": {
+   "value": true,
+   "state": "confirmed"
+  },
+  "Ref.Temperature": {
+   "value": 21.5,
+   "state": "confirmed"
+  }
+ },
+ "history": {
+  "Ref.Pv": [
+   [
+    0,
+    1.0
+   ],
+   [
+    10000,
+    1.0133333333333334
+   ],
+   [
+    20000,
+    1.0266666666666666
+   ],
+   [
+    30000,
+    1.04
+   ],
+   [
+    40000,
+    1.0533333333333332
+   ],
+   [
+    50000,
+    1.0666666666666667
+   ],
+   [
+    60000,
+    1.08
+   ],
+   [
+    70000,
+    1.0933333333333333
+   ],
+   [
+    80000,
+    1.1066666666666667
+   ],
+   [
+    90000,
+    1.12
+   ],
+   [
+    100000,
+    1.1333333333333333
+   ],
+   [
+    110000,
+    1.1466666666666667
+   ],
+   [
+    120000,
+    1.1600000000000001
+   ],
+   [
+    130000,
+    1.1733333333333333
+   ],
+   [
+    140000,
+    1.1866666666666668
+   ],
+   [
+    150000,
+    1.2
+   ],
+   [
+    160000,
+    1.2133333333333334
+   ],
+   [
+    170000,
+    1.2266666666666666
+   ],
+   [
+    180000,
+    1.24
+   ],
+   [
+    190000,
+    1.2533333333333334
+   ],
+   [
+    200000,
+    1.2666666666666666
+   ],
+   [
+    210000,
+    1.28
+   ],
+   [
+    220000,
+    1.2933333333333334
+   ],
+   [
+    230000,
+    1.3066666666666666
+   ],
+   [
+    240000,
+    1.32
+   ],
+   [
+    250000,
+    1.3333333333333335
+   ],
+   [
+    260000,
+    1.3466666666666667
+   ],
+   [
+    270000,
+    1.36
+   ],
+   [
+    280000,
+    1.3733333333333333
+   ],
+   [
+    290000,
+    1.3866666666666667
+   ],
+   [
+    300000,
+    1.4
+   ]
+  ],
+  "Ref.Sp": [
+   [
+    0,
+    1.5
+   ],
+   [
+    10000,
+    1.5
+   ],
+   [
+    20000,
+    1.5
+   ],
+   [
+    30000,
+    1.5
+   ],
+   [
+    40000,
+    1.5
+   ],
+   [
+    50000,
+    1.5
+   ],
+   [
+    60000,
+    1.5
+   ],
+   [
+    70000,
+    1.5
+   ],
+   [
+    80000,
+    1.5
+   ],
+   [
+    90000,
+    1.5
+   ],
+   [
+    100000,
+    1.5
+   ],
+   [
+    110000,
+    1.5
+   ],
+   [
+    120000,
+    1.5
+   ],
+   [
+    130000,
+    1.5
+   ],
+   [
+    140000,
+    1.5
+   ],
+   [
+    150000,
+    1.5
+   ],
+   [
+    160000,
+    1.5
+   ],
+   [
+    170000,
+    1.5
+   ],
+   [
+    180000,
+    1.5
+   ],
+   [
+    190000,
+    1.5
+   ],
+   [
+    200000,
+    1.5
+   ],
+   [
+    210000,
+    1.5
+   ],
+   [
+    220000,
+    1.5
+   ],
+   [
+    230000,
+    1.5
+   ],
+   [
+    240000,
+    1.5
+   ],
+   [
+    250000,
+    1.5
+   ],
+   [
+    260000,
+    1.5
+   ],
+   [
+    270000,
+    1.5
+   ],
+   [
+    280000,
+    1.5
+   ],
+   [
+    290000,
+    1.5
+   ],
+   [
+    300000,
+    1.5
+   ]
+  ]
+ }
+}

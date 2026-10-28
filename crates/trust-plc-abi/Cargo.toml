@@ -1,0 +1,27 @@
+[package]
+name = "trust-plc-abi"
+description = "The kernel interface of truST's compiled PLC programs (specification 44 §8.2)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+# No dependencies in a module: the crate is compiled into every program module, for every target of
+# specification 44 §4.4, and into every kernel. The `host` feature, which only a computer's kernel
+# enables, maps a module's code executable (specification 44 §10.3).
+[dependencies]
+memmap2 = { version = "0.9.11", optional = true }
+
+[features]
+host = ["dep:memmap2"]
+
+# Deliberately not `[lints] workspace = true`: this is the one crate whose modules hold the unsafe
+# casts between the kernel's raw areas and a program's typed views (specification 44 §6.1), which
+# the workspace's `unsafe_code = "forbid"` cannot allow. Each site is a registered unsafe site.
+[lints.rust]
+unsafe_code = "warn"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"

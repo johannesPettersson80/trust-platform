@@ -1,6 +1,21 @@
 # 🗺️ UML StateChart Editor - Implementation Roadmap
 
-## ✅ Current Status (February 15, 2026)
+> **Status (26 October 2026).** This page is the February 2026 history of the
+> feature branch. Its execution parts no longer exist: the TypeScript state
+> machine engine (`stateMachineEngine.ts`), the runtime client
+> (`runtimeClient.ts`), the execution panel with its Simulation and Hardware
+> modes, and the forced-I/O handling were removed on 26 October 2026
+> (`docs/specs/25-vscode-product-contract.md` §11.4.1). A statechart runs only
+> as Structured Text: saving it writes the companion `<name>.st`
+> (`FUNCTION_BLOCK FB_<name>_STATECHART`, with a `BOOL` input `EV_<EVENT>` for
+> each event of an untimed transition) and the runtime entry
+> `<name>.visual.runtime.st`, which runs it every
+> 20 ms (`docs/specs/17-visual-editors-runtime-unification.md` §3). It is
+> started from the truST sidebar like any Structured Text program, and its
+> values show in Live Values. The companion's rules are in
+> `crates/trust-visual/src/statechart/` (specification 25 §11.4).
+
+## ✅ Status (February 15, 2026)
 
 ### Major Achievements
 - ✅ **Visual Editor**: Complete React-based StateChart editor with ReactFlow
@@ -503,7 +518,6 @@ Build time:                       ~63ms
 - [XState Documentation](https://xstate.js.org/docs/) - JSON format inspiration
 
 ### Example VSCode Webviews
-- `editors/vscode/src/hmiPanel.ts`, `editors/vscode/src/hmi-panel/view.ts` - Reference implementation
 - `editors/vscode/media/` - Asset management
 
 ---

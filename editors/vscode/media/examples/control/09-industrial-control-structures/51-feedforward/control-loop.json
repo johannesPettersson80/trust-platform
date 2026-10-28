@@ -1,0 +1,216 @@
+{
+  "schemaVersion": 2,
+  "id": "control-feedforward",
+  "name": "Feedforward control",
+  "projectId": "project:control-feedforward",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.PiOnlyLoop",
+    "type": "Control.PID",
+    "design": "project",
+    "revision": "sha256:ad5270a1db8bdffb54f9398511a4dba9a27f82c53fd9696abe8a04c8955cdcfe",
+    "action": "direct",
+    "taskPeriodMs": 100
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.SetpointC",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.PiOnlyC",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.PiOnlyPct",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "feedforward-temperature",
+        "channel": "feedforward-temperature",
+        "role": "state",
+        "symbol": "P1.FeedforwardC",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "biased-temperature",
+        "channel": "biased-temperature",
+        "role": "state",
+        "symbol": "P1.BiasedC",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "load",
+        "channel": "load",
+        "role": "disturbance",
+        "symbol": "P1.LoadKw",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": 0,
+          "maximum": 50
+        }
+      },
+      {
+        "id": "feedforward-command",
+        "channel": "feedforward-command",
+        "role": "state",
+        "symbol": "P1.FeedforwardHeaterPct",
+        "address": "%QL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "biased-command",
+        "channel": "biased-command",
+        "role": "state",
+        "symbol": "P1.BiasedHeaterPct",
+        "address": "%QL32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX48.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "feedback-part",
+        "channel": "feedback-part",
+        "role": "state",
+        "symbol": "P1.FeedbackPct",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -100,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "biased-feedback-part",
+        "channel": "biased-feedback-part",
+        "role": "state",
+        "symbol": "P1.BiasedFeedbackPct",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -100,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "feedforward-part",
+        "channel": "feedforward-part",
+        "role": "state",
+        "symbol": "P1.FeedforwardPct",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "biased-feedforward-part",
+        "channel": "biased-feedforward-part",
+        "role": "state",
+        "symbol": "P1.BiasedFeedforwardPct",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "three-heaters-feedforward",
+  "operatingPoint": "Three heaters at 35 degC with 75% under PI control",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 62.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX48.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
+    "baselineSeconds": 2
+  },
+  "revision": "sha256:0cc1c4d30d690b5a7890a8e820ee6bfbe7ec7fc6cae28647df3ec198a98594b3"
+}

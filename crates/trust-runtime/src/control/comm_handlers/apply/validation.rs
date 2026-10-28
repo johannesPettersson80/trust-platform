@@ -13,6 +13,9 @@ pub(super) fn validate_schema_fields(protocol: &str, params: &toml::Value) -> Ve
             validate_integer_range(table, "output_start", 0, 65535, &mut errors);
             validate_integer_range(table, "timeout_ms", 1, 60000, &mut errors);
             validate_error_policy(table, &mut errors);
+            for expected in ["vendor_name", "product_code", "revision"] {
+                validate_string_field(table, expected, false, &mut errors);
+            }
         }
         "mqtt" => {
             validate_required_endpoint_with_example(table, "broker", "127.0.0.1:1883", &mut errors);

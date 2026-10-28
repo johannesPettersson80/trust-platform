@@ -17,6 +17,22 @@ impl super::ProjectConfig {
         super::ProjectConfig::from_contents(root, config_path, &contents)
     }
 
+    /// Why `contents` cannot be read as a project's `trust-lsp.toml`: the one-based line the
+    /// parser stopped at and its message. `None` when [`Self::from_contents`] reads it
+    /// (specification 25 §6.2).
+    pub(crate) fn read_problem(contents: &str) -> Option<(usize, String)> {
+        let error = toml::from_str::<super::ConfigFile>(contents).err()?;
+        let line = error.span().map_or(1, |span| {
+            let end = span.start.min(contents.len());
+            contents.as_bytes()[..end]
+                .iter()
+                .filter(|byte| **byte == b'\n')
+                .count()
+                + 1
+        });
+        Some((line, error.message().trim().to_owned()))
+    }
+
     pub fn from_contents(root: &Path, config_path: Option<PathBuf>, contents: &str) -> Self {
         let mut config = super::ProjectConfig::base(root, config_path);
         let parsed: super::ConfigFile = match toml::from_str(contents) {

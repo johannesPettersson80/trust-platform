@@ -148,6 +148,34 @@ END_FUNCTION_BLOCK
 }
 
 #[test]
+fn test_pous_are_runner_entry_points_without_hiding_unused_production_pous() {
+    let source = r#"
+TEST_PROGRAM MeasuredGain
+VAR unused_value : INT; END_VAR
+END_TEST_PROGRAM
+TEST_FUNCTION_BLOCK ZeroStepGuard
+END_TEST_FUNCTION_BLOCK
+PROGRAM Idle
+END_PROGRAM
+FUNCTION_BLOCK UnusedController
+END_FUNCTION_BLOCK
+"#;
+    let mut messages = messages_for(source, DiagnosticCode::UnusedPou);
+    messages.sort();
+    assert_eq!(
+        messages,
+        vec![
+            "unused function block 'UnusedController'",
+            "unused program 'Idle'"
+        ]
+    );
+    assert_eq!(
+        messages_for(source, DiagnosticCode::UnusedVariable),
+        vec!["unused variable 'unused_value'"]
+    );
+}
+
+#[test]
 fn function_result_assignment_does_not_make_function_externally_used() {
     let messages = messages_for(
         r#"

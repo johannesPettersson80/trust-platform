@@ -43,3 +43,9 @@ fn coerce_binding_to_io(
         binding.address.size,
     )
 }
+/// Coerces a value to the process-image representation of `target` at `size`, as a binding of that
+/// type writes it: a Control Studio experiment or search writes an addressed input this way.
+pub(crate) fn coerce_to_io(value: Value, target: TypeId, size: IoSize) -> Result<Value, RuntimeError> {
+    let wire_type = portable_io_type(target).ok_or(RuntimeError::TypeMismatch)?;
+    trust_runtime_core::io_image::coerce_binding_to_io(value, Some(wire_type), None, size)
+}

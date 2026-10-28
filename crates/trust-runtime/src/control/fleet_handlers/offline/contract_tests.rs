@@ -149,7 +149,7 @@ access = "read"
     )
 }
 
-fn build(project: &TestProject) -> FleetTopologyResponse {
+fn build(project: &TestProject) -> FleetTopology {
     build_project_fleet_topology(project.path()).expect("offline topology")
 }
 
@@ -595,7 +595,7 @@ drivers = [
     let ids = topology
         .links
         .iter()
-        .map(|link| link.id.as_str())
+        .map(|link| link.id.as_deref())
         .collect::<Vec<_>>();
     assert!(ids.windows(2).all(|pair| pair[0] < pair[1]), "{ids:?}");
 }

@@ -7,8 +7,7 @@ use verification_cases::{
 };
 
 const AUTHORIZATION_TEST_ID: &str = "TEST_CONTROL_AUTHORIZATION_TRACE_001";
-const AUTHORIZATION_CASE_FILE: &str =
-    "verification/cases/control_security/SEC_AUTHZ_001.toml";
+const AUTHORIZATION_CASE_FILE: &str = "verification/cases/control_security/SEC_AUTHZ_001.toml";
 const AUTHORIZATION_CASE_FILE_DIGEST: &str =
     "sha256:12ea61d6c323b1b4bb623aa428ea3f2d1de50c891d598008a8c5cdd39488e2f2";
 
@@ -39,7 +38,8 @@ fn control_authorization_trace_cases() {
     );
     let result = run_case_file(&config, &mut probe, run_authorization_case);
 
-    env::set_current_dir(original_dir).expect("authorization runner must restore current directory");
+    env::set_current_dir(original_dir)
+        .expect("authorization runner must restore current directory");
     let artifact = result.expect("authorization case artifact must be written");
     let failed = artifact
         .cases
@@ -97,7 +97,7 @@ fn run_authorization_case(
 fn execute_authorization_scenario(
     scenario: &str,
 ) -> Result<BTreeMap<String, serde_json::Value>, String> {
-    let mut state = hmi_test_state(AUTHORIZATION_SOURCE);
+    let mut state = control_test_state(AUTHORIZATION_SOURCE);
     state.auth_token = Arc::new(Mutex::new(Some(SmolStr::new("admin-token"))));
     state.control_requires_auth = true;
     state.debug_enabled.store(true, Ordering::Relaxed);

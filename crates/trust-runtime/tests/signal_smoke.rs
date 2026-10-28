@@ -1,4 +1,7 @@
 #![cfg(unix)]
+//! A running `trust-runtime` stops cleanly on SIGINT and SIGTERM.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use std::fs;
 use std::net::{TcpListener, TcpStream};
@@ -8,8 +11,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use smol_str::SmolStr;
-use trust_runtime::bundle_builder::build_program_stbc;
+use trust_runtime::bundle_builder::build_program_image;
 use trust_runtime::bundle_template::{build_io_config_auto, render_io_toml, render_runtime_toml};
+use trust_runtime::native::{Target, Toolchain};
 
 static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -45,9 +49,9 @@ fn write_signal_project(root: &Path, control_port: u16) {
 
     let mut runtime_toml = render_runtime_toml(&SmolStr::new("main"), 20);
     runtime_toml = runtime_toml.replace(
-        "endpoint = \"unix:///tmp/trust-runtime.sock\"",
+        "[runtime.control]\n",
         &format!(
-            "endpoint = \"tcp://127.0.0.1:{control_port}\"\nauth_token = \"signal-smoke-token\""
+            "[runtime.control]\nendpoint = \"tcp://127.0.0.1:{control_port}\"\nauth_token = \"signal-smoke-token\"\n"
         ),
     );
     runtime_toml = runtime_toml.replace("mode = \"production\"", "mode = \"debug\"");
@@ -80,8 +84,12 @@ END_PROGRAM
 "#,
     )
     .expect("write source");
-    let report = build_program_stbc(root, None).expect("build program.stbc");
-    assert!(report.program_path.is_file(), "program.stbc should exist");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let target = Target::this_cpu().expect("a computer target");
+    let report = build_program_image(root, None, target, &toolchain, false, true)
+        .expect("build program.tpi");
+    assert!(report.image.is_file(), "program.tpi should exist");
 }
 
 fn spawn_runtime(project: &Path) -> Child {
@@ -223,4 +231,84 @@ fn sigint_requests_bounded_graceful_stop_in_child_runtime() {
 #[test]
 fn sigterm_requests_bounded_graceful_stop_in_child_runtime() {
     assert_graceful_signal_stop("TERM");
+}
+
+/// Starts the project, waits until it runs, stops it and returns the runtime's output.
+fn run_until_started_then_stop(project: &Path, control_port: u16) -> Output {
+    let child = wait_for_control_port(spawn_runtime(project), control_port);
+    send_signal(child.id(), "TERM");
+    let output = wait_for_exit(child, "TERM");
+    assert!(
+        output.status.success(),
+        "runtime should stop cleanly; status={}; stdout:\n{}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    output
+}
+
+fn tree_snapshot(root: &Path) -> Vec<(PathBuf, Vec<u8>)> {
+    let mut files = Vec::new();
+    let mut pending = vec![root.to_path_buf()];
+    while let Some(dir) = pending.pop() {
+        for entry in fs::read_dir(&dir).expect("read dir") {
+            let path = entry.expect("dir entry").path();
+            if path.is_dir() {
+                pending.push(path);
+            } else {
+                let bytes = fs::read(&path).expect("read file");
+                files.push((
+                    path.strip_prefix(root).expect("inside root").to_path_buf(),
+                    bytes,
+                ));
+            }
+        }
+    }
+    files.sort();
+    files
+}
+
+/// Specification 39, decision 12: `trust-runtime run` no longer writes legacy HMI pages into
+/// the project.
+#[test]
+fn run_does_not_create_an_hmi_folder_in_the_project() {
+    let project = unique_temp_dir("no-hmi-scaffold");
+    let control_port = reserve_local_port();
+    write_signal_project(&project, control_port);
+
+    let output = run_until_started_then_stop(&project, control_port);
+
+    assert!(
+        !project.join("hmi").exists(),
+        "run must not write HMI files into the project; stdout:\n{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let _ = fs::remove_dir_all(&project);
+}
+
+/// Specification 39, §15: the project's HMI folder belongs to the HMI Builder; running the
+/// project leaves its page files exactly as they are.
+#[test]
+fn run_leaves_hmi_builder_page_files_untouched() {
+    let project = unique_temp_dir("hmi-pages-untouched");
+    let control_port = reserve_local_port();
+    write_signal_project(&project, control_port);
+    fs::create_dir_all(project.join("hmi/pages")).expect("create hmi pages");
+    fs::write(
+        project.join("hmi/pages/overview.toml"),
+        "format = 1\ntitle = \"Overview\"\n\n[[object]]\nid = \"out-lamp\"\ntype = \"lamp\"\nat = [40, 40]\nsize = [48, 48]\n\n[object.bind]\non = \"Main.Out\"\n",
+    )
+    .expect("write page file");
+    let before = tree_snapshot(&project.join("hmi"));
+
+    let output = run_until_started_then_stop(&project, control_port);
+
+    assert_eq!(
+        tree_snapshot(&project.join("hmi")),
+        before,
+        "run must leave the HMI folder unchanged; stdout:\n{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let _ = fs::remove_dir_all(&project);
 }

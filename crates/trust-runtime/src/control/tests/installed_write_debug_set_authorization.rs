@@ -9,7 +9,7 @@ END_VAR
 counter := counter + DINT#1;
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     state.auth_token = Arc::new(Mutex::new(Some(SmolStr::new("admin-token"))));
     state.control_requires_auth = true;
     state.debug_enabled.store(true, Ordering::Relaxed);

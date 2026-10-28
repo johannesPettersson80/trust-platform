@@ -1,17 +1,13 @@
 import { getTrustConfiguration } from "./configuration";
 import * as vscode from "vscode";
 
-import {
-  isLocalControlEndpoint,
-  parseControlEndpoint,
-} from "./runtimeControl";
-import {
-  isRuntimeControlAuthError,
-  probeRuntimeControlEndpoint,
-  requestRuntimeStatus,
-  runtimeControlAuthErrorKind,
-} from "./runtimeControlClient";
 import { getControlAuthToken } from "./runtimeAuth";
+import { resolveRuntimeConnection } from "./runtimeConnection";
+import { projectRequest } from "./projectRequest";
+
+// The configured run target's status is the language server's answer (`trust-lsp.runTargets`, action `target`,
+// specification 25 §5.1): it probes the endpoint, asks `status` with the token and names the result and the credential
+// channel. This module gathers the settings and forwards them.
 
 export const RUNTIME_PANEL_COMMAND = "trust-lsp.debug.openIoPanel";
 
@@ -49,182 +45,69 @@ export interface RuntimeTargetSettings {
   endpointEnabled?: boolean;
   label?: string;
   setupUrl?: string;
+  /** trust-runtime's reason why the workspace runtime has no endpoint now (spec 11 §6.8.0a). */
+  unavailableReason?: string;
 }
 
-export interface RuntimeTargetDeps {
-  probeEndpoint?: (endpoint: string) => Promise<boolean>;
-  requestStatus?: (
-    endpoint: string,
-    authToken: string | undefined
-  ) => Promise<unknown>;
-}
-
-export async function resolveRuntimeTarget(
-  resource?: vscode.Uri,
-  deps: RuntimeTargetDeps = {}
-): Promise<RuntimeTarget> {
+export async function resolveRuntimeTarget(resource?: vscode.Uri): Promise<RuntimeTarget> {
   const config = getTrustConfiguration(resource);
-  const endpoint = config.get<string>("runtime.controlEndpoint", "");
-  return await resolveRuntimeTargetFromSettings(
-    {
-      mode: config.get<RuntimeTargetMode>("runtime.mode", "simulate"),
-      endpoint,
-      // §0.6.8 — token from SecretStorage first, legacy plaintext setting only as fallback.
-      authToken: await getControlAuthToken(endpoint),
-      endpointEnabled: config.get<boolean>(
-        "runtime.controlEndpointEnabled",
-        true
-      ),
-      setupUrl: config.get<string>("runtime.setupUrl", ""),
-    },
-    deps
-  );
-}
-
-export async function resolveRuntimeTargetFromSettings(
-  settings: RuntimeTargetSettings,
-  deps: RuntimeTargetDeps = {}
-): Promise<RuntimeTarget> {
-  const mode = settings.mode === "online" ? "online" : "simulate";
-  const endpoint = (settings.endpoint ?? "").trim();
-  const endpointEnabled = settings.endpointEnabled ?? true;
-  const authToken = normalizedOptional(settings.authToken);
-  const activeEndpoint = endpointEnabled ? endpoint : "";
-  const credentialChannel = classifyRuntimeCredentialChannel(activeEndpoint);
-
-  if (mode === "simulate") {
-    return {
-      mode,
-      endpoint: normalizedOptional(endpoint),
-      authToken,
-      endpointEnabled,
-      reachable: false,
-      status: "simulate",
-      label: settings.label ?? "Simulator",
-      setupUrl: normalizedOptional(settings.setupUrl),
-      credentialChannel,
-    };
+  const mode = config.get<RuntimeTargetMode>("runtime.mode", "simulate");
+  let endpoint: string;
+  let authToken: string | undefined;
+  let unavailableReason: string | undefined;
+  if (mode === "online") {
+    // Spec 11 §6.8.0a — the workspace runtime's endpoint and token are asked of trust-runtime at
+    // each resolution, so a runtime that restarted on another port is followed.
+    const connection = await resolveRuntimeConnection(resource);
+    endpoint = connection.endpoint ?? "";
+    authToken = connection.authToken;
+    unavailableReason = connection.problem?.message;
+  } else {
+    endpoint = config.get<string>("runtime.controlEndpoint", "");
+    // §0.6.8 — token from SecretStorage first, legacy plaintext setting only as fallback.
+    authToken = await getControlAuthToken(endpoint);
   }
-
-  if (activeEndpoint.length === 0) {
-    return {
-      mode,
-      endpoint: normalizedOptional(endpoint),
-      authToken,
-      endpointEnabled,
-      reachable: false,
-      status: "missing_endpoint",
-      label: settings.label ?? "Online runtime",
-      setupUrl: normalizedOptional(settings.setupUrl),
-      credentialChannel,
-    };
-  }
-
-  if (!parseControlEndpoint(activeEndpoint)) {
-    return onlineTarget(
-      settings,
-      authToken,
-      credentialChannel,
-      false,
-      "online_unreachable"
-    );
-  }
-
-  const probeEndpoint = deps.probeEndpoint ?? probeRuntimeControlEndpoint;
-  const reachable = await probeEndpoint(activeEndpoint);
-  if (!reachable) {
-    return onlineTarget(
-      settings,
-      authToken,
-      credentialChannel,
-      false,
-      "online_unreachable"
-    );
-  }
-
-  const requestStatus =
-    deps.requestStatus ??
-    ((targetEndpoint, targetAuthToken) =>
-      requestRuntimeStatus(targetEndpoint, targetAuthToken, { timeoutMs: 750 }));
-  try {
-    await requestStatus(activeEndpoint, authToken);
-  } catch (error) {
-    if (isRuntimeControlAuthError(error)) {
-      return onlineTarget(
-        settings,
-        authToken,
-        credentialChannel,
-        true,
-        "auth_failed",
-        runtimeControlAuthErrorKind(error)
-      );
-    }
-    return onlineTarget(
-      settings,
-      authToken,
-      credentialChannel,
-      false,
-      "online_unreachable"
-    );
-  }
-
-  return onlineTarget(
-    settings,
+  return await resolveRuntimeTargetFromSettings({
+    mode,
+    endpoint,
     authToken,
-    credentialChannel,
-    true,
-    "online_reachable"
-  );
+    endpointEnabled: config.get<boolean>("runtime.controlEndpointEnabled", true),
+    setupUrl: config.get<string>("runtime.setupUrl", ""),
+    unavailableReason,
+  });
 }
 
-export function classifyRuntimeCredentialChannel(
-  endpoint: string | undefined
-): RuntimeCredentialChannel {
-  const normalized = (endpoint ?? "").trim();
-  if (normalized.length === 0) {
-    return "unavailable";
+/** The target of `settings`, as the language server finds it. Without the server's answer the target is not reachable. */
+export async function resolveRuntimeTargetFromSettings(
+  settings: RuntimeTargetSettings
+): Promise<RuntimeTarget> {
+  const answer = await projectRequest<{ target: Omit<RuntimeTarget, "authToken"> }>("trust-lsp.runTargets", {
+    action: "target",
+    ...settings,
+  });
+  const authToken = settings.authToken?.trim() || undefined;
+  if (answer.ok) {
+    return withoutNulls({ ...answer.target, authToken });
   }
-  const parsed = parseControlEndpoint(normalized);
-  if (!parsed) {
-    return "unavailable";
-  }
-  if (isLocalControlEndpoint(normalized)) {
-    return "trusted_same_host";
-  }
-  if (parsed.kind === "tcp") {
-    return "untrusted_remote_plain_tcp";
-  }
-  return "unavailable";
+  const online = settings.mode === "online";
+  return {
+    mode: online ? "online" : "simulate",
+    endpoint: settings.endpoint?.trim() || undefined,
+    authToken,
+    endpointEnabled: settings.endpointEnabled ?? true,
+    reachable: false,
+    status: online ? "online_unreachable" : "simulate",
+    label: settings.label ?? (online ? "Online runtime" : "Simulator"),
+    setupUrl: settings.setupUrl?.trim() || undefined,
+    credentialChannel: "unavailable",
+  };
 }
 
 export async function openRuntimePane(): Promise<unknown> {
   return await vscode.commands.executeCommand(RUNTIME_PANEL_COMMAND);
 }
 
-function onlineTarget(
-  settings: RuntimeTargetSettings,
-  authToken: string | undefined,
-  credentialChannel: RuntimeCredentialChannel,
-  reachable: boolean,
-  status: RuntimeTargetStatus,
-  authFailureKind?: "missing" | "rejected"
-): RuntimeTarget {
-  const endpoint = (settings.endpoint ?? "").trim();
-  return {
-    mode: "online",
-    endpoint: endpoint.length > 0 ? endpoint : undefined,
-    authToken,
-    endpointEnabled: settings.endpointEnabled ?? true,
-    reachable,
-    status,
-    authFailureKind,
-    label: settings.label ?? (endpoint || "Online runtime"),
-    setupUrl: normalizedOptional(settings.setupUrl),
-    credentialChannel,
-  };
-}
-
-function normalizedOptional(value: string | undefined): string | undefined {
-  const normalized = (value ?? "").trim();
-  return normalized.length > 0 ? normalized : undefined;
+/** `value` without the members the language server sent as `null`, which the target leaves out. */
+function withoutNulls<T extends object>(value: T): T {
+  return Object.fromEntries(Object.entries(value).filter(([, member]) => member !== null)) as T;
 }

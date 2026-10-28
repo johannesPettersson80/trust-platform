@@ -1,0 +1,17 @@
+# The plant is simulated (src/simulation.st). The three lamps are the panel's: on a computer they are
+# simulated outputs; a board wires them to its own lines in its own io.toml.
+[io]
+driver = "simulated"
+params = {}
+
+[[io.safe_state]]
+address = "%QX0.0"
+value = "FALSE"
+
+[[io.safe_state]]
+address = "%QX0.1"
+value = "FALSE"
+
+[[io.safe_state]]
+address = "%QX0.2"
+value = "FALSE"

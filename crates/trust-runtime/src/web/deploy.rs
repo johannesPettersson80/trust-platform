@@ -9,19 +9,35 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use serde::Deserialize;
+use serde_json::json;
 use sha2::{Digest, Sha256};
+use trust_runtime_services::ports::ResourcePort;
+use trust_runtime_services::resource::replies::{hung_refusal, resource_not_running};
 
 use crate::config::{validate_io_toml_text, validate_runtime_toml_text};
+use crate::deployment::program_store::{self, Payload, PayloadFile};
 use crate::error::RuntimeError;
+use crate::native::PROGRAM_IMAGE_FILE as IMAGE_FILE;
+use crate::scheduler::ResourceState;
 
 #[derive(Debug, Deserialize)]
 pub struct DeployRequest {
     pub runtime_toml: Option<String>,
     pub io_toml: Option<String>,
+    /// The program image `program.tpi`, base64 (specification 44 §8.8).
+    pub program_tpi_b64: Option<String>,
+    /// The bytecode engine's `program.stbc`, which this runtime refuses (specification 44 §15).
     pub program_stbc_b64: Option<String>,
     pub sources: Option<Vec<DeploySource>>,
     pub signature: Option<DeploySignature>,
     pub restart: Option<String>,
+    /// An updated HMI bundle, activated with the program (specification 39, §16.4 item 6).
+    #[serde(default)]
+    pub hmi: Option<serde_json::Value>,
+    /// Deploy even though bindings of the active HMI break; they show as "not in running
+    /// program".
+    #[serde(default)]
+    pub accept_broken_bindings: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -80,6 +96,34 @@ struct DeployKeyEntry {
     not_after: Option<u64>,
 }
 
+/// The reply to a deployment that arrives while the resource is not Stopped, or `None` when it is
+/// Stopped and the deployment may go on (specification 34 §11.2, decision Q11; specification 11
+/// §6.8.2).
+///
+/// A deployment installs a program, so it follows the rule of `program.install`: the reply is that
+/// request's refusal for the same state, a hung scan thread first, with its `error` message and
+/// its stable `error_code` (`resource_not_running`) as the members of the web reply.
+pub fn refusal_unless_stopped<H: ResourcePort>(host: &H) -> Option<serde_json::Value> {
+    let refusal = if host.is_hung() {
+        hung_refusal(0)
+    } else {
+        let resource = host.resource_state();
+        if matches!(resource, ResourceState::Stopped) {
+            return None;
+        }
+        resource_not_running(0, resource)
+    };
+    Some(json!({
+        "ok": false,
+        "error": refusal.error,
+        "error_code": refusal.error_code,
+    }))
+}
+
+/// Deploys a request into the project folder `bundle_root`. The request's signature policy is the
+/// installed one (spec 11). The program is admitted before anything is written, and the program
+/// store commits the deployment: a project that is a store's `current` link gets a new bundle, and
+/// any other project folder is updated in place (see `program_store`).
 pub fn apply_deploy(
     bundle_root: &Path,
     request: DeployRequest,
@@ -90,78 +134,84 @@ pub fn apply_deploy(
         ));
     }
     preflight_deploy(bundle_root, &request)?;
-    let mut written = Vec::new();
-    if let Some(runtime_toml) = request.runtime_toml {
-        let path = bundle_root.join("runtime.toml");
-        fs::write(&path, runtime_toml).map_err(|err| {
-            RuntimeError::ControlError(format!("write runtime.toml: {err}").into())
-        })?;
-        written.push("runtime.toml".to_string());
-    }
-    if let Some(io_toml) = request.io_toml {
-        let path = bundle_root.join("io.toml");
-        fs::write(&path, io_toml)
-            .map_err(|err| RuntimeError::ControlError(format!("write io.toml: {err}").into()))?;
-        written.push("io.toml".to_string());
-    }
-    if let Some(program_b64) = request.program_stbc_b64 {
-        let bytes = STANDARD.decode(program_b64.trim()).map_err(|err| {
-            RuntimeError::ControlError(format!("decode program.stbc: {err}").into())
-        })?;
-        let path = bundle_root.join("program.stbc");
-        fs::write(&path, bytes).map_err(|err| {
-            RuntimeError::ControlError(format!("write program.stbc: {err}").into())
-        })?;
-        written.push("program.stbc".to_string());
-    }
-    if let Some(sources) = request.sources {
-        let sources_root = bundle_root.join("src");
-        for source in sources {
-            let rel = normalize_source_path_for_bundle(&source.path).ok_or_else(|| {
-                RuntimeError::ControlError(format!("invalid source path: {}", source.path).into())
-            })?;
-            let dest = sources_root.join(&rel);
-            if let Some(parent) = dest.parent() {
-                fs::create_dir_all(parent).map_err(|err| {
-                    RuntimeError::ControlError(format!("create src dir: {err}").into())
-                })?;
-            }
-            fs::write(&dest, source.content).map_err(|err| {
-                RuntimeError::ControlError(format!("write source {}: {err}", dest.display()).into())
-            })?;
-            let rel_text = rel.to_string_lossy().replace('\\', "/");
-            written.push(format!("src/{rel_text}"));
-        }
-    }
-    if written.is_empty() {
-        return Err(RuntimeError::ControlError(
-            "no deploy payload provided".into(),
-        ));
-    }
+    let payload = deploy_payload(&request)?;
+    let deployed = program_store::deploy(bundle_root, &payload, None)?;
     Ok(DeployResult {
-        written,
+        written: deployed.written,
         restart: request.restart,
     })
 }
 
+/// The files a deploy request brings, in the order the store writes them: `runtime.toml`,
+/// `io.toml`, `program.tpi` (decoded from base64), then the sources under `src/`. A request that
+/// brings the bytecode engine's `program.stbc` is refused, as a project that holds it is
+/// (specification 44 §15).
+fn deploy_payload(request: &DeployRequest) -> Result<Payload, RuntimeError> {
+    if request.program_stbc_b64.is_some() {
+        return Err(RuntimeError::ControlError(
+            "program_stbc_b64 holds the bytecode engine's program.stbc, which this runtime does not run: rebuild the project and deploy its program.tpi as program_tpi_b64"
+                .into(),
+        ));
+    }
+    let mut files = Vec::new();
+    if let Some(runtime_toml) = &request.runtime_toml {
+        files.push(payload_file(
+            "runtime.toml",
+            runtime_toml.as_bytes().to_vec(),
+        ));
+    }
+    if let Some(io_toml) = &request.io_toml {
+        files.push(payload_file("io.toml", io_toml.as_bytes().to_vec()));
+    }
+    if let Some(program_b64) = &request.program_tpi_b64 {
+        let bytes = STANDARD.decode(program_b64.trim()).map_err(|err| {
+            RuntimeError::ControlError(format!("decode {IMAGE_FILE}: {err}").into())
+        })?;
+        files.push(payload_file(IMAGE_FILE, bytes));
+    }
+    for source in request.sources.iter().flatten() {
+        let rel = normalize_source_path_for_bundle(&source.path).ok_or_else(|| {
+            RuntimeError::ControlError(format!("invalid source path: {}", source.path).into())
+        })?;
+        let rel_text = rel.to_string_lossy().replace('\\', "/");
+        files.push(payload_file(
+            &format!("src/{rel_text}"),
+            source.content.as_bytes().to_vec(),
+        ));
+    }
+    Ok(Payload { files })
+}
+
+fn payload_file(path: &str, bytes: Vec<u8>) -> PayloadFile {
+    PayloadFile {
+        path: path.to_string(),
+        bytes,
+    }
+}
+
 fn preflight_deploy(bundle_root: &Path, request: &DeployRequest) -> Result<(), RuntimeError> {
-    let runtime_text = if let Some(text) = request.runtime_toml.as_deref() {
-        Some(text.to_string())
-    } else {
-        let existing = bundle_root.join("runtime.toml");
+    let existing = bundle_root.join("runtime.toml");
+    let installed_text =
         if existing.is_file() {
-            Some(std::fs::read_to_string(&existing).map_err(|err| {
+            Some(fs::read_to_string(&existing).map_err(|err| {
                 RuntimeError::InvalidConfig(format!("runtime.toml: {err}").into())
             })?)
         } else {
             None
-        }
-    };
-    let runtime_text = runtime_text.ok_or_else(|| {
-        RuntimeError::InvalidConfig("deploy preflight requires runtime.toml".into())
-    })?;
+        };
+    let runtime_text = request
+        .runtime_toml
+        .clone()
+        .or_else(|| installed_text.clone())
+        .ok_or_else(|| {
+            RuntimeError::InvalidConfig("deploy preflight requires runtime.toml".into())
+        })?;
     validate_runtime_toml_text(&runtime_text)?;
-    verify_signature_policy(bundle_root, &runtime_text, request)?;
+    // The signature policy in force is the installed configuration's, so a deployment cannot
+    // lift it, or name its own keyring, with the runtime.toml it carries (spec 11, deployment
+    // signature policy). Only a project with nothing installed takes the deployment's policy.
+    let policy_text = installed_text.as_deref().unwrap_or(&runtime_text);
+    verify_signature_policy(bundle_root, policy_text, request)?;
 
     let io_text = if let Some(text) = request.io_toml.as_deref() {
         Some(text.to_string())
@@ -169,7 +219,7 @@ fn preflight_deploy(bundle_root: &Path, request: &DeployRequest) -> Result<(), R
         let existing = bundle_root.join("io.toml");
         if existing.is_file() {
             Some(
-                std::fs::read_to_string(&existing)
+                fs::read_to_string(&existing)
                     .map_err(|err| RuntimeError::InvalidConfig(format!("io.toml: {err}").into()))?,
             )
         } else {
@@ -243,7 +293,7 @@ fn load_deploy_key(path: &Path, key_id: &str) -> Result<DeployKeyEntry, RuntimeE
     if key_id.trim().is_empty() {
         return Err(RuntimeError::ControlError("deploy key_id required".into()));
     }
-    let text = std::fs::read_to_string(path).map_err(|_| {
+    let text = fs::read_to_string(path).map_err(|_| {
         RuntimeError::ControlError(format!("deploy keyring not found: {}", path.display()).into())
     })?;
     let file: DeployKeyringFile = toml::from_str(&text)
@@ -260,8 +310,8 @@ fn deploy_payload_sha256(request: &DeployRequest) -> String {
     hash_field(&mut hasher, "io_toml", request.io_toml.as_deref());
     hash_field(
         &mut hasher,
-        "program_stbc_b64",
-        request.program_stbc_b64.as_deref(),
+        "program_tpi_b64",
+        request.program_tpi_b64.as_deref(),
     );
 
     let mut sources = request.sources.clone().unwrap_or_default();
@@ -309,50 +359,14 @@ fn now_secs() -> u64 {
         .as_secs()
 }
 
+/// Rolls the program store at `root` back: `current` and `previous` change bundles, one rename
+/// per link (see `program_store::rollback`).
 pub fn apply_rollback(root: &Path) -> Result<RollbackResult, RuntimeError> {
-    let current_link = root.join("current");
-    let previous_link = root.join("previous");
-    let current_target = read_link_target(&current_link).ok_or_else(|| {
-        RuntimeError::ControlError(
-            format!("no current project link at {}", current_link.display()).into(),
-        )
-    })?;
-    let previous_target = read_link_target(&previous_link).ok_or_else(|| {
-        RuntimeError::ControlError(
-            format!("no previous project link at {}", previous_link.display()).into(),
-        )
-    })?;
-    update_symlink(&current_link, &previous_target)?;
-    update_symlink(&previous_link, &current_target)?;
+    let rolled = program_store::rollback(root)?;
     Ok(RollbackResult {
-        current: previous_target,
-        previous: current_target,
+        current: rolled.current,
+        previous: rolled.previous,
     })
-}
-
-fn read_link_target(path: &Path) -> Option<PathBuf> {
-    std::fs::read_link(path).ok()
-}
-
-fn update_symlink(link: &Path, target: &Path) -> Result<(), RuntimeError> {
-    if link.exists() {
-        std::fs::remove_file(link).map_err(|err| {
-            RuntimeError::ControlError(format!("remove link {}: {err}", link.display()).into())
-        })?;
-    }
-    #[cfg(unix)]
-    {
-        std::os::unix::fs::symlink(target, link).map_err(|err| {
-            RuntimeError::ControlError(format!("symlink {}: {err}", link.display()).into())
-        })?;
-    }
-    #[cfg(windows)]
-    {
-        std::os::windows::fs::symlink_dir(target, link).map_err(|err| {
-            RuntimeError::ControlError(format!("symlink {}: {err}", link.display()).into())
-        })?;
-    }
-    Ok(())
 }
 
 fn sanitize_relative_path(path: &str) -> Option<PathBuf> {

@@ -1,0 +1,328 @@
+{
+  "schemaVersion": 2,
+  "id": "control-split-range",
+  "name": "Split-range control",
+  "projectId": "project:control-split-range",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.SplitInflow",
+    "type": "SplitCascade",
+    "design": "project",
+    "revision": "sha256:6e1b466079ab35a17762f1df57f9fce3c6fa5dbe4eed4d6a8e7b6072337785b0",
+    "action": "direct",
+    "taskPeriodMs": 100
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.VesselSetpointC",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.InflowVesselC",
+      "address": "%IL24",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.InflowHeaterPct",
+      "address": "%QL24",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "heater-only-vessel",
+        "channel": "heater-only-vessel",
+        "role": "state",
+        "symbol": "P1.HeaterOnlyVesselC",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "inflow-cooler",
+        "channel": "inflow-cooler",
+        "role": "state",
+        "symbol": "P1.InflowCoolerPct",
+        "address": "%QL32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "inflow-net",
+        "channel": "inflow-net",
+        "role": "state",
+        "symbol": "P1.InflowNetKw",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": -100,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "heater-only-heater",
+        "channel": "heater-only-heater",
+        "role": "state",
+        "symbol": "P1.HeaterOnlyHeaterPct",
+        "address": "%QL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX72.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "inflow",
+        "channel": "inflow",
+        "role": "disturbance",
+        "symbol": "P1.InflowKw",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": -100,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "heater-only-jacket-setpoint",
+        "channel": "heater-only-jacket-setpoint",
+        "role": "state",
+        "symbol": "P1.HeaterOnlyJacketSetpointC",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "inflow-jacket-setpoint",
+        "channel": "inflow-jacket-setpoint",
+        "role": "state",
+        "symbol": "P1.InflowJacketSetpointC",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "inflow-request",
+        "channel": "inflow-request",
+        "role": "state",
+        "symbol": "P1.InflowRequestKw",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": -100,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "loss-vessel",
+        "channel": "loss-vessel",
+        "role": "state",
+        "symbol": "P1.LossVesselC",
+        "address": "%IL40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "loss-cooler",
+        "channel": "loss-cooler",
+        "role": "state",
+        "symbol": "P1.LossCoolerPct",
+        "address": "%QL56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "loss-net",
+        "channel": "loss-net",
+        "role": "state",
+        "symbol": "P1.LossNetKw",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": -100,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "loss-heater",
+        "channel": "loss-heater",
+        "role": "state",
+        "symbol": "P1.LossHeaterPct",
+        "address": "%QL48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "loss-request",
+        "channel": "loss-request",
+        "role": "state",
+        "symbol": "P1.LossRequestKw",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": -100,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "loss",
+        "channel": "loss",
+        "role": "disturbance",
+        "symbol": "P1.LossKw",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": -100,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "inflow-jacket",
+        "channel": "inflow-jacket",
+        "role": "state",
+        "symbol": "P1.InflowJacketC",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "heater-only-jacket",
+        "channel": "heater-only-jacket",
+        "role": "state",
+        "symbol": "P1.HeaterOnlyJacketC",
+        "address": "%IL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "loss-jacket",
+        "channel": "loss-jacket",
+        "role": "state",
+        "symbol": "P1.LossJacketC",
+        "address": "%IL32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "three-jacketed-vessels-with-cooler",
+  "operatingPoint": "Three jacketed vessels at 35 degC with the jacket at 38 degC, heater 15% and cooler 0%",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 62.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX72.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
+    "baselineSeconds": 2
+  },
+  "revision": "sha256:8987464e05e506c422107ff2410445a5f52f8ab13edad7f92ab27189787a8501"
+}

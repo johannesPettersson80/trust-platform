@@ -14,15 +14,14 @@ project/
   src/
     main.st
     config.st
-  hmi/
 ```
 
 ## First steps
 
 1. Open the project without editing anything yet.
-2. Inspect the tree and identify `src/`, `runtime.toml`, `io.toml`, and `hmi/`.
+2. Inspect the tree and identify `src/`, `runtime.toml`, and `io.toml`.
 3. Run build and validate before touching code.
-4. Inspect the runtime UI or HMI.
+4. Inspect the runtime UI.
 5. Change one safe line only.
 6. Rerun or redeploy.
 7. Verify the effect.
@@ -32,7 +31,6 @@ project/
 - what does `src/main.st` control?
 - where are `%I/%Q` bindings defined?
 - which runtime URLs/endpoints are enabled?
-- is there an HMI folder?
 - which driver/backend is configured?
 
 ## Start with these

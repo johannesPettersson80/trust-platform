@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use trust_runtime::bundle::detect_bundle_path;
-use trust_runtime::bundle_builder::{check_program_stbc, inspect_project_layout};
+use trust_runtime::bundle_builder::{check_program, inspect_project_layout};
 
 use crate::{ci, style};
 
@@ -35,7 +35,6 @@ struct CheckProgramResponse {
     sources: Vec<String>,
     dependency_roots: Vec<String>,
     resolved_dependencies: Vec<String>,
-    bytecode_size: Option<usize>,
 }
 
 pub fn run_check(
@@ -85,16 +84,22 @@ fn build_check_response(project_root: &Path, sources_root: Option<&Path>) -> Che
     let mut sources = Vec::new();
     let mut dependency_roots = Vec::new();
     let mut resolved_dependencies = Vec::new();
-    let mut bytecode_size = None;
 
     match inspect_project_layout(project_root, sources_root) {
         Ok(layout) => {
             sources = paths_to_strings(layout.sources);
             dependency_roots = paths_to_strings(layout.dependency_roots);
             resolved_dependencies = layout.resolved_dependencies;
-            match check_program_stbc(project_root, sources_root) {
+            match check_program(project_root, sources_root) {
                 Ok(report) => {
-                    bytecode_size = Some(report.bytecode_size);
+                    if let Some(problem) = resource_problem(project_root, &report.resources) {
+                        issues.push(issue(
+                            "error",
+                            problem,
+                            "config.resource",
+                            Some(project_root.join("runtime.toml")),
+                        ));
+                    }
                     sources = paths_to_strings(report.sources);
                     dependency_roots = paths_to_strings(report.dependency_roots);
                     resolved_dependencies = report.resolved_dependencies;
@@ -113,6 +118,20 @@ fn build_check_response(project_root: &Path, sources_root: Option<&Path>) -> Che
             "sources",
             None,
         )),
+    }
+
+    // The program must not use the project's identify output (specification 11, "Identify", load):
+    // `run` refuses such a project, so `check` reports it. A project with other errors is not asked.
+    if issues.iter().all(|issue| issue.severity != "error")
+        && let Err(error) =
+            trust_runtime::bundle_builder::refuse_identify_output_use(project_root, sources_root)
+    {
+        issues.push(issue(
+            "error",
+            identify_message(error),
+            "config.identify",
+            Some(project_root.join("runtime.toml")),
+        ));
     }
 
     let errors = issues
@@ -137,7 +156,35 @@ fn build_check_response(project_root: &Path, sources_root: Option<&Path>) -> Che
         sources,
         dependency_roots,
         resolved_dependencies,
-        bytecode_size,
+    }
+}
+
+/// The runtime runs the configuration's resource that runtime.toml names, else a legacy
+/// placeholder; a name the program lacks stops it at start, so the check reports it now.
+/// A program without a CONFIGURATION runs under the name its project gives it (specification 11
+/// §6.8.1d, specification 44 §5.2), as `trust_runtime::native::check_resource` admits it.
+fn resource_problem(project_root: &Path, resources: &[String]) -> Option<String> {
+    let config =
+        trust_runtime::config::RuntimeConfig::load(project_root.join("runtime.toml")).ok()?;
+    let name = config.resource_name.as_str();
+    let legacy = resources.is_empty()
+        || (resources.len() == 1 && resources[0].eq_ignore_ascii_case("RESOURCE"));
+    if legacy
+        || resources
+            .iter()
+            .any(|resource| resource.eq_ignore_ascii_case(name))
+    {
+        return None;
+    }
+    let declared: Vec<&str> = resources.iter().map(String::as_str).collect();
+    Some(crate::run::resource_mismatch(name, &declared))
+}
+
+/// The text of a refused identify output: the refusal of the load check, without the error kind.
+fn identify_message(error: trust_runtime::error::RuntimeError) -> String {
+    match error {
+        trust_runtime::error::RuntimeError::InvalidConfig(text) => text.to_string(),
+        other => other.to_string(),
     }
 }
 

@@ -10,6 +10,7 @@ fn parameter(name: &str, direction: ParamDirection) -> Param {
         direction,
         address: Some(IoAddress::parse("%MW4").expect("test address")),
         default: Some(Expr::Literal(Value::DInt(7))),
+        retain: crate::RetainPolicy::Unspecified,
     }
 }
 

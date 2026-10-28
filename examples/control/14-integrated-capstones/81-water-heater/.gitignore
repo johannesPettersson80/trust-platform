@@ -1,0 +1,14 @@
+# Build artifacts
+/target/
+/program.stbc
+*.stbc
+
+# Runtime data
+/retain.bin
+/retain.store
+*.log
+
+# Editor/OS noise
+.DS_Store
+*.swp
+*.swo

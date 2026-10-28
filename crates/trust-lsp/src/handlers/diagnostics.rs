@@ -2,8 +2,6 @@
 
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
-#[cfg(test)]
-use std::collections::BTreeSet;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use tower_lsp::jsonrpc::{Error as JsonRpcError, ErrorCode, Result as JsonRpcResult};
@@ -21,14 +19,6 @@ use tower_lsp::Client;
 use trust_hir::db::FileId;
 use trust_hir::symbols::SymbolKind;
 use trust_hir::DiagnosticSeverity as HirSeverity;
-#[cfg(test)]
-use trust_runtime::bundle_builder::resolve_sources_root;
-#[cfg(test)]
-use trust_runtime::debug::DebugSnapshot;
-#[cfg(test)]
-use trust_runtime::harness::{CompileSession, SourceFile as HarnessSourceFile};
-#[cfg(test)]
-use trust_runtime::hmi::{self as runtime_hmi, HmiSourceRef};
 use trust_syntax::lexer::{lex_with_text, TokenKind};
 use trust_syntax::parser::parse;
 
@@ -368,12 +358,9 @@ pub(crate) fn collect_diagnostics_with_ticket(
         return diagnostics;
     }
 
+    // HMI Builder page files are TOML, not Structured Text (specification 39, §15).
     if is_hmi_toml_uri(uri) {
-        let mut diagnostics = collect_hmi_toml_diagnostics(state, uri, content);
-        apply_diagnostic_filters(state, uri, &mut diagnostics);
-        apply_diagnostic_overrides(state, uri, &mut diagnostics);
-        attach_explainers(state, uri, content, None, &mut diagnostics);
-        return diagnostics;
+        return Vec::new();
     }
 
     let parsed = parse(content);
@@ -473,6 +460,8 @@ pub(crate) fn collect_diagnostics_with_ticket(
     if let Some(config) = state.workspace_config_for_uri(uri) {
         diagnostics.extend(collect_external_diagnostics(&config, uri));
     }
+    // A block that lacks a member its pair's faceplate needs (specification 39, §8.6).
+    diagnostics.extend(hmi_pair_diagnostics(state, uri, content, file_id));
 
     let learner_context = build_learner_context(state, file_id);
     apply_diagnostic_filters(state, uri, &mut diagnostics);
@@ -509,4 +498,5 @@ pub(crate) fn collect_diagnostics_with_ticket_for_tests(
 
 include!("diagnostics/collection_and_filters.rs");
 include!("diagnostics/mapping_and_explainers.rs");
-include!("diagnostics/publish_hmi_and_tests.rs");
+include!("diagnostics/config_and_tests.rs");
+include!("diagnostics/hmi_pairs.rs");

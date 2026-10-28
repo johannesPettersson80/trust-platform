@@ -96,7 +96,20 @@ fn lower_literal_with_context(
             Value::LReal(signed)
         }
     } else if let Some(magnitude) = int_literal {
-        integer_literal_value(magnitude, negative, integer_target, has_typed_prefix)?
+        let boolean_context = match typed_prefix.as_deref() {
+            Some(prefix) => prefix == "BOOL",
+            None => expected_type.is_some_and(|type_id| resolves_to_bool(type_id, ctx.registry)),
+        };
+        if boolean_context && (magnitude == 0 || (magnitude == 1 && !negative)) {
+            // IEC 61131-3 Ed.3 6.3.2 and Table 5 features 7 and 9: the integer literals 0
+            // and 1 (also as `BOOL#0`/`BOOL#1`) represent Boolean data.
+            Value::Bool(magnitude == 1)
+        } else {
+            // A contextual literal beyond DINT (`16#FFFF_FFFF` for a DWORD) keeps the i64 range;
+            // the coercion below checks it against its expected type.
+            let wide = has_typed_prefix || expected_type.is_some();
+            integer_literal_value(magnitude, negative, integer_target, wide)?
+        }
     } else if ident_literal.is_some() {
         Value::Null
     } else {
@@ -121,10 +134,49 @@ fn lower_literal_with_context(
     } else if let Some(type_id) = expected_type
         && value != Value::Null
     {
-        value = coerce_evaluated_initializer_value(value, type_id, ctx.registry, &ctx.profile)?;
+        // A text literal keeps its whole text and takes only the destination's string family.
+        // The analysis refuses a literal longer than a declared destination and every store
+        // cuts at its capacity, so an operand or argument literal is never cut here.
+        let family = match value {
+            Value::String(_) | Value::WString(_) => string_family(ctx.registry, type_id),
+            _ => None,
+        };
+        value = match family {
+            Some(family) => coerce_value_to_type(value, family)?,
+            None => coerce_evaluated_initializer_value(value, type_id, ctx.registry, &ctx.profile)?,
+        };
     }
 
     Ok(Expr::Literal(value))
+}
+
+/// Whether `type_id` is BOOL or an alias of it.
+fn resolves_to_bool(type_id: TypeId, registry: &TypeRegistry) -> bool {
+    let mut current = type_id;
+    for _ in 0..32 {
+        if current == TypeId::BOOL {
+            return true;
+        }
+        match registry.get(current) {
+            Some(Type::Alias { target, .. }) => current = *target,
+            _ => return false,
+        }
+    }
+    false
+}
+
+/// The string family a destination names, directly or through an alias chain.
+fn string_family(registry: &TypeRegistry, type_id: TypeId) -> Option<TypeId> {
+    let mut current = type_id;
+    for _ in 0..16 {
+        match registry.get(current)? {
+            Type::Alias { target, .. } => current = *target,
+            Type::String { .. } => return Some(TypeId::STRING),
+            Type::WString { .. } => return Some(TypeId::WSTRING),
+            _ => return None,
+        }
+    }
+    None
 }
 
 fn parse_real_literal(text: &str) -> Result<f64, CompileError> {

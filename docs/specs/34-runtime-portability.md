@@ -1,16 +1,39 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.20 — A01 assurance corrections
-- **Date:** 14 October 2026
+- **Version:** 0.72 — identify as a shared component, in every state of the resource (SERVICE-07); after 0.71 — a chip takes its checkpoint buffer at boot and lends it to each program, and a dropped network driver gives its socket back once its connection has ended (MEM-12, D.2) (0.70: the `mqtt` driver on the C6 with a chip's bounds on its queue and outgoing bytes).
+- **Date:** 25 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
 - **Baseline commit date:** 3 September 2026
 - **Source recheck:** `main` at `9a15065725c17da2c912055f1509368d3fd01d6c`, 9 October 2026; the reviewed runtime/core sources, workspace manifests/lockfile, specifications, and native CI workflow are unchanged from the original baseline.
-- **Scope:** A shared Rust execution engine for Linux, Windows, macOS, the NUCLEO-F401RE reference board, and one required ESP32 target, with separately scoped dependency/toolchain modernization and target qualification.
+- **Scope:** One truST runtime for Linux, Windows, macOS, the STM32U5A9 and the ESP32-C6, with separately scoped dependency/toolchain modernization and target qualification.
 
 **Revision basis:** Retains the A3/A4 construction and shared-engine contracts, B-R1's uniform PLC function set and B-R2's sector-0 placement with a reported 16 KiB upper-region growth target. Selects H's construction-only raw mutation, checked installed-state writes and isolated candidate schema changes in §4.3.1. Adds the uniform eight-byte temporal storage contract and STBC 3.0 compatibility boundary in §4.3.1. Adds the TIME-08 work-unit cost model and the TIME-09 construction allowance, replacing H's per-structure charge rules, and HOST-04's in-place call guarantee. Hosted review corrections and temporal implementation are authored but remain unverified until their consolidated acceptance batch; this specification is not validation evidence. Current source, evidence and authorization remain in the portability checklist; the main-branch baselines above are historical. [D01–D07]
 
 **Requirement status:** This is the canonical implementation plan. “Shall” defines required behavior for the stated future profile, not behavior already implemented. Existing identifiers are retained. Specifications 11/12 distinguish the legacy STBC 1.1/2.0 contracts from the STBC 3.0 migration. Scope authorization and validation follow AGENTS.md; a milestone description is not authorization or evidence that it passed.
+
+## Owner requirements
+
+These are the owner's own words. Every section of this specification carries them out. A section
+that conflicts with them is wrong: raise it with the owner, never build it.
+
+- One runtime everywhere: "i would want a universal small runtime that can run on stm32 also, is
+  this possible? i dont want many different ports of truST" (5 October 2026).
+- No reduced functions: "i never want reduced functions, it will make it impossible with different
+  features for different platforms" and "we shall not make anything that reduce functionality of
+  the runtime." (10 October 2026).
+- The boards in the hardware canvas: "both the esp and stm shall be able to be selectable in the
+  hardware canvas" (15 October 2026).
+- Debugging from VS Code: "you shall be able to debug from vs code etc." (16 October 2026).
+- The same as trust-runtime: "it shall work exactly the same as for the trust runtime on linux, mac
+  and windows. thats the whole idea" (16 October 2026).
+- Any link: "we shall not only have usb to these boards, we shall be able to connect via wifi, eth
+  or whaever" (16 October 2026).
+- No limits: "i dont want limit" (16 October 2026).
+- Hardware is the owner's decision: "if the runtime does not fit the stm32 i will give you another
+  one" (16 October 2026).
+- The chip, not the board: "we shall develop for the chip, not for the pheripels. if we detect a
+  stm32 on ethernet we shall be able to use it." (16 October 2026).
 
 ## 1. Decision and scope
 
@@ -33,7 +56,7 @@ A HAL is necessary, but is not the whole migration. The reviewed code still conn
 | ID | Requirement |
 |---|---|
 | ARCH-01 | The same admitted STBC application shall satisfy its declared PLC semantic, scheduling, numeric, import, and logical I/O contract on every claimed target. Exact-trace claims apply only to operations and observations qualified for equality under Section 12; platform math is not assumed bit-identical, and tolerance-qualified numerics do not imply identical threshold decisions. |
-| ARCH-02 | MCU firmware shall not depend on `trust-runtime`, compiler/HIR/IDE crates, or hosted service implementations. |
+| ARCH-02 | MCU firmware shall not depend on compiler/HIR/IDE crates or on operating-system services. It uses the same runtime service code as the hosted product (ARCH-11): the parts of today's `trust-runtime` crate that those services need become shared code that builds without an operating system. |
 | ARCH-03 | `trust-runtime-core` shall retain its `forbid(unsafe_code)` boundary. Hardware-specific unsafe operations, where required, shall remain outside it and follow the repository's review policy. |
 | ARCH-04 | Platform adapters shall provide mechanisms; the common engine shall own IEC behavior, scheduling decisions, memory rules, and fault decisions. |
 | ARCH-05 | Supported bounded controller profiles, hosted and MCU, shall execute without general-purpose allocation, reallocation, or deallocation in their control-cycle paths, including fault paths. |
@@ -41,7 +64,12 @@ A HAL is necessary, but is not the whole migration. The reviewed code still conn
 | ARCH-07 | The controller shall operate independently of the development computer after a valid application has been installed and started. |
 | ARCH-08 | Hosted products shall retain their existing supported features and interfaces while adopting the shared core; MCU limits shall not become universal desktop limits. |
 | ARCH-09 | Hosted adoption shall be verified through native execution tests on Linux, Windows, and macOS, compiler-free loading tests, and baseline-relative resource and performance evidence. |
-| ARCH-10 | The planned platform-support outcome requires one named STM32 board and one named ESP32 board to qualify with the same engine. An STM32 release may be delivered first, but shall not close the ESP32 deliverable. A different MCU family shall not silently substitute for ESP32. |
+| ARCH-10 | The planned platform-support outcome requires one STM32 chip and one ESP32 chip to qualify with the same runtime: the STM32U5A9 (first on the owner's Riverdi RVT50HQSNWC00-B, a 5-inch STM32 Embedded Display) and the ESP32-C6 (on the ESP32-C6-DevKitC-1). Firmware is developed for the chip and every interface of the chip that the runtime services use, for example the U5's USB OTG and the C6's Wi-Fi and USB; a board's configuration only names which of them are wired, its pins and its Ethernet PHY, so any board with the chip runs the same firmware with its own configuration. An STM32 release may be delivered first, but shall not close the ESP32 deliverable. A different MCU family shall not silently substitute for ESP32. |
+| ARCH-11 | Every target runs the same runtime, not only the same engine. The runtime services of trust-runtime behave on a board as on Linux, macOS and Windows: the control connection and its protocol, status, start, stop and restart, the resource states and fault handling, Live Values with read, write, force and release, debugging with breakpoints, pause, continue, stepping, call stack and variables (specification 13), loading a program including online change, access rights, discovery, the communication services, including Bluetooth devices where the chip has Bluetooth, and the web pages and HMI. They are shared code, not a separate implementation per target. VS Code and the other tools reach a board exactly as they reach any trust-runtime; nothing in them is specific to boards. |
+| ARCH-12 | A runtime is reached over whatever link its hardware has: a local socket or TCP on a computer, TCP over Ethernet or Wi-Fi and Bluetooth on a board that has them, and USB on a board on a cable. The control protocol is the same on every link; the platform adapter supplies the link. A runtime on the network, a board included, is found by the same discovery as any trust-runtime and can be used at once. |
+| ARCH-13 | No target has limits of its own: functionality is never reduced to fit a board. When a board lacks the memory or the hardware for a service, for example a network port, this is reported, and the owner decides on the board. |
+| ARCH-15 | Several runtimes on every host (owner, 17 October 2026: "every host shall be able to have several runtimes"). A computer runs several trust-runtime instances, each with its own project, as today. A chip's firmware runs several runtimes in the same way: each has its own installed project, resource state, control connection, retain and diagnostics, and Stop, Start and faults of one do not change another; they share the chip's processor, memory and I/O, and each I/O point belongs to one runtime only. How many fit is measured per chip and reported (ARCH-13); the tools show each runtime of a host as its own runtime. |
+| ARCH-14 | Chips and components (owner, 16 October 2026). The truST runtime is a set of components: the engine (`trust-runtime-core`) and the runtime service components above it (ARCH-11), the same code on every target. Linux, macOS and Windows run every component. Each supported chip gets one firmware, released ready-made, that holds every component the chip can hold, as measured; its chip file lists those components (TARGET-03). The tools read the list, offer what the device has, and refuse a project that needs a component the device lacks, naming the chips that have it (ARCH-13). Development boards are examples, for the bench and the documentation; they are neither components nor files of truST. |
 
 The research supports this separation of responsibilities, not a universal claim that interpretation is smaller or faster than native compilation. The first implementation shall retain STBC and the existing Rust executor. Native compilation, replacing STBC with WebAssembly, or a generalized multi-backend framework shall require a separate, measurement-led decision; none is a prerequisite for this migration. Existing validated internal execution optimizations may remain within the shared semantic implementation. [D02, E05–E09]
 
@@ -49,11 +77,11 @@ The research supports this separation of responsibilities, not a universal claim
 
 This proposal starts a runtime-wide execution improvement workstream and a new embedded implementation phase. The existing closed core/host extraction checklist explicitly excluded STM32 bring-up, ESP32 support, and an embedded product promise. Its closure therefore does not mean that MCU support is already implemented. Those old exclusions remain accurate descriptions of that earlier work. [R13]
 
-The project's first MCU reference board is **NUCLEO-F401RE**. Its STM32F401RE provides a Cortex-M4 with single-precision FPU, a maximum CPU frequency of 84 MHz, 512 KiB flash, and 96 KiB SRAM. These are device capacities, not bytes available exclusively to truST. The board makes compactness an early constraint; complete-runtime fit and timing remain unmeasured. Record the physical board/MCU revision, memory reservations, pins, clock source, toolchain, and HAL before board implementation. [E24–E27]
+The STM32 target is the **STM32U5A9** (owner, 17 October 2026): a Cortex-M33 with TrustZone and a single-precision FPU at up to 160 MHz, 4 MB flash in two banks, 2.5 MB SRAM, an Ethernet-less 216-ball package with USB OTG high speed and an on-chip PHY. It is first used on the owner's **Riverdi RVT50HQSNWC00-B**; the display of that module is not part of this track. The STM32F407 track of 16 October 2026 was paused on 17 October 2026 and deleted with the bytecode engine on 24 October 2026 (owner; specification 44 §15): its chip file, adapter and firmware remain in git history, and Appendix D.4 keeps its record. The STM32F407 record that follows stands as the paused track's: a Cortex-M4 with single-precision FPU at up to 168 MHz, 1 MiB flash, 192 KiB SRAM including 64 KiB of core-coupled memory, an Ethernet controller and USB OTG. Its RAM limits and the RAM questions raised against them (O5) are the paused track's; the STM32U5A9 carries the same firmware with megabytes of flash and SRAM to spare (Appendix D.5). It was first used on the owner's **STM32F407G-DISC1**, whose board has USB to the chip but no Ethernet PHY; Ethernet needs a board, or an add-on, with a PHY (ARCH-10). The NUCLEO-F401RE was the first reference board, and its scope B evidence remains; it is no longer the release target. Its firmware was retired 17 October 2026 (owner). Its STM32F401RE provides a Cortex-M4 with single-precision FPU, a maximum CPU frequency of 84 MHz, 512 KiB flash, and 96 KiB SRAM. These are device capacities, not bytes available exclusively to truST. The board makes compactness an early constraint; complete-runtime fit and timing remain unmeasured. Record the physical board/MCU revision, memory reservations, pins, clock source, toolchain, and HAL before board implementation. [E24–E27]
 
-One **ESP32 target is required**. The revised provisional reference is **ESP32-C6-DevKitC-1**, using `riscv32imac-unknown-none-elf`, `esp-hal`, and initially disabled radios. No ESP32 board possession or purchase is asserted. C6 supplies the A extension needed by the existing atomic-reference-counted values during bring-up; it does not make those values bounded. M0 confirms board availability and freezes the build. M1 checks its isolated core graph, M2E executes the common fixture on actual hardware, and M5 qualifies the profile. C3/IMC becomes a later optional no-CAS profile after storage/atomic retirement, rather than contradicting the early-storage sequencing. RISC-V/Xtensa and bare-metal/ESP-IDF choices remain distinct. [E56, E57]
+One **ESP32 target is required**. The revised provisional reference is **ESP32-C6-DevKitC-1**, using `riscv32imac-unknown-none-elf` and `esp-hal`, with its Wi-Fi as a network link of the runtime (ARCH-12). No ESP32 board possession or purchase is asserted. C6 supplies the A extension needed by the existing atomic-reference-counted values during bring-up; it does not make those values bounded. M0 confirms board availability and freezes the build. M1 checks its isolated core graph, M2E executes the common fixture on actual hardware, and M5 qualifies the profile. C3/IMC becomes a later optional no-CAS profile after storage/atomic retirement, rather than contradicting the early-storage sequencing. RISC-V/Xtensa and bare-metal/ESP-IDF choices remain distinct. [E56, E57]
 
-An STM32H7 board remains an optional later target if measured resource needs justify it. It is not a prerequisite to start on the available F401. Failure to fit the F401 shall retain that failure and lead to an explicit storage/profile or target decision; a larger board shall not be reported as a passed F401 gate. Native ST compilation, an assembly rewrite, FPGA execution, embedded EtherCAT, new MCU support for online application changes while controlling live outputs, and complete MCU parity with every hosted protocol are outside this implementation. Existing supported hosted online-change workflows remain subject to the compatibility requirements.
+An STM32H7 board remains an optional later target. It is not a prerequisite to start on the available F401. When the runtime does not fit the F401, or the F401 lacks hardware that a service needs, for example a network port, that is reported and the owner selects the STM32 board (ARCH-13); a larger board shall not be reported as a passed F401 gate. Native ST compilation, an assembly rewrite and FPGA execution are outside this implementation. Every runtime service of trust-runtime, including online change and the communication protocols, is in scope on the boards (ARCH-11). Existing supported hosted online-change workflows remain subject to the compatibility requirements.
 
 This specification defines an operational control runtime. It does not establish a certified functional-safety runtime or replace independent machine safety measures.
 
@@ -94,7 +122,8 @@ Development computer
                     |
        program.stbc + deployment metadata
                     |
-          target admission / installation
+   control connection: the same protocol on every link
+   (local socket, TCP over Ethernet or Wi-Fi, USB)
                     |
       +-------------+--------------------+
       |                                  |
@@ -103,8 +132,17 @@ trust-runtime                       board entry point
 Linux / Windows / macOS                   |
       |                                  |
 OS-specific adapters                STM32 / ESP32 adapter
-      |                                  |
+(OS, files, network)                (pins, timer, flash,
+      |                              Wi-Fi/Ethernet, USB)
       +-----------+----------------------+
+                  |
+        shared runtime services (ARCH-11)
+        - control connection and protocol
+        - states, start/stop/restart, faults
+        - Live Values: read, write, force, release
+        - debugging: breakpoints, pause, step, variables
+        - program loading and online change
+        - access rights, discovery, communication, web/HMI
                   |
         trust-runtime-core
         - validated executable model
@@ -138,27 +176,33 @@ crates/
     src/host/platform/            proposed Linux/Windows/macOS adapters
     ...                           existing services, configuration and tooling
 
-  trust-platform-stm32f4/          NEW; F401 platform adapter implementation
-    src/
-      clock.rs
-      io.rs
-      watchdog.rs
-      storage.rs
+  trust-platform-stm32u5/          NEW; STM32U5 platform adapter (the U5A9); chip
+                                  differences are data (D.5)
 
   trust-platform-esp32/            NEW; selected ESP32 adapter, initially C6
 
-  trust-board-fixture/             NEW; the M2E fixture shared by the F401 and C6
-                                  compositions: runner, records, bundle decode,
-                                  heap and stack measurement
+  trust-runtime-services/          NEW; the shared runtime components (ARCH-11,
+                                  ARCH-14), no_std + alloc: control connection
+                                  and access rights, start/stop, Live Values,
+                                  debugging, deployment, drivers, network
+                                  services; used by trust-runtime and firmware
+
+  trust-chips/                     NEW; reads and checks the chip files and embeds
+                                  them as the catalog of supported chips
+                                  (Appendix H); host only, no firmware dependency
+
+chips/                             NEW; one file per supported chip (TARGET-03)
+                                  with its memory layout, interfaces and the
+                                  components its firmware holds
 
 firmware/
-  trust-nucleo-f401re/             NEW; confirmed board composition
-    src/main.rs
-    src/board.rs
-    memory.x                      or the selected BSP's equivalent
+  trust-stm32u5a9/                 NEW; the STM32U5A9 chip firmware (ARCH-10)
 
-  trust-esp32c6-reference/         NEW; proposed C6-DevKitC-1 composition
+  trust-esp32c6/                   NEW; the ESP32-C6 chip firmware (ARCH-10)
 ```
+
+The STM32F4 adapter, the shared M2E fixture `trust-board-fixture` and the STM32F407 firmware of
+this tree were deleted with the bytecode engine on 24 October 2026 (D.4; specification 44 §15).
 
 Names inside the core are proposed ownership areas, not instructions to rename every existing module at once. Existing public host APIs shall remain available through wrappers or re-exports during migration.
 
@@ -174,7 +218,7 @@ Do not introduce a crate for every trait. Define the portable interfaces in `tru
 | Source parsing, HIR, compile-time optimization, rich diagnostics and symbol lookup | Development/host tooling |
 | Prepared execution plans and validated VM execution optimizations | Shared preparation/execution code; immutable per installed generation, with the same semantic contract |
 | Candidate preparation, installed-generation publication, and handle retirement | Core lifetime/state-transition contracts; host orchestration and reclamation outside bounded execution |
-| Transport workers, web/HMI servers, databases, discovery | Optional services outside the core |
+| Control connection, start and stop, Live Values, debugging, deployment, drivers, transport workers, web/HMI servers, databases, discovery | Shared runtime components above the engine (ARCH-11, ARCH-14), the same code on every target |
 | Monotonic hardware time, wait/wake, interrupt configuration | Platform adapter/runner |
 | Pin choices, external ADC/DAC wiring, polarity, memory reservations | Board support/configuration |
 | RETAIN interpretation and restart semantics | Common core |
@@ -269,7 +313,7 @@ For the F401 Cortex-M4F bring-up, `thumbv7em-none-eabihf` is the selected target
 
 **HOST-01.** Linux, Windows, and macOS shall use the shared loader, execution state, opcode semantics, cycle policy, and fault identities. Host `Runtime` compatibility APIs shall compose or wrap that engine, rather than retain an independent legacy dispatcher as the permanent desktop implementation.
 
-**HOST-02.** Hosted limits shall be selected for the application and deployment, not copied from STM32 defaults. Hosts may allocate backing storage during preparation and offer larger programs, strings, arrays, instance counts, and task configurations while retaining checked execution and admission. Instance identities are 32-bit: the allocator hands out 0 through `u32::MAX - 1` and never `u32::MAX`, and creating an instance beyond that fails with `Overflow` and never wraps an identity or panics, in hosted and portable construction alike.
+**HOST-02.** Hosted limits shall be selected for the application and deployment, not copied from STM32 defaults. Hosts may allocate backing storage during preparation and offer larger programs, strings, arrays, instance counts, and task configurations while retaining checked execution and admission. The hosted product selects them for each deployment from the deployment record next to `program.stbc` (§5.1.1): it admits the record against the computer's descriptor and prepares the program with the record's limits, and a project without a record keeps the hosted defaults. (Superseded by specification 44: a computer admits a program image itself, §10.2 and §8.8 of specification 44, and an image needs no preparation limits; the record's limits were the bytecode engine's.) Instance identities are 32-bit: the allocator hands out 0 through `u32::MAX - 1` and never `u32::MAX`, and creating an instance beyond that fails with `Overflow` and never wraps an identity or panics, in hosted and portable construction alike. A live instance's identity is never issued again. When a top-level execution entry (§4.3.1) begins, the identities issued since the previous entry began are issued again if none of their instances is still live, as is the case for function-block and class instances declared in a function or method. If any of them is still live, persistent instances included, none of those identities is issued again until a restart or replacement constructs new storage.
 
 **HOST-03.** Existing supported debugger, HMI, protocol, persistence, configuration, CLI, and embedding workflows shall remain available on their supported platforms. Preserve existing APIs except for the explicitly selected H raw-mutation migration in §4.3.1: unrestricted mutable storage and executable type-registry access shall be available only during non-executable construction; installed-state integrations shall use checked writes or candidate replacement. Document replacement APIs and migrate all repository callers; do not silently claim source compatibility for the old live mutable-reference signatures. Hosted online change shall follow the generation, restart, and retirement contract in Section 11.3. The M0 feature matrix shall distinguish implemented support, unavailable platform-specific features, and experimental support; it shall not infer identical service/driver support on every OS.
 
@@ -319,10 +363,21 @@ specification. The following guarantees bind them:
   copying it per visit.
 - Activations. The execution-frame registry is the single authority for
   reserved identity, activation membership, optional POU/instance owner and
-  suspended local payload. Identities are monotonic and never reused. Retirement
+  suspended local payload. Identities increase within one top-level execution
+  entry: one task program or function-block invocation, or one engineering
+  operation. A retired identity is not issued again within its entry, so identity
+  order is ancestry order among live activations, and exhausting one entry's
+  identities fails with `Overflow` instead of wrapping. After construction, which
+  keeps one increasing sequence, each entry begins with nothing reserved and
+  starts again at identity 0. The lifetime checks confine every reference to an
+  activation, and every instance it owns, to its entry, so a reissued identity
+  cannot name an earlier entry's state, and every checked operation refuses a
+  reference into a retired activation. Retirement
   removes liveness, owner and payload together and never abandons owned-instance
   cleanup on a work or deadline failure. Debugger stack views list owned, active,
-  suspended ancestors in activation order, followed by the current frame.
+  suspended ancestors in activation order, followed by the current frame. Their
+  frame identities hold for the pause that reported them, as DAP frame
+  references do; a later entry may report the same numbers for other activations.
 - Edge-qualified inputs bind by admitted POU identity; compatibility callers
   that do not supply it keep name-based resolution.
 
@@ -375,8 +430,8 @@ deviation. It preserves the full PLC function set on every platform.
 | Installed controller, including RUN, debugger pause and STOP | Declared storage layout/schema, executable types and code remain admitted and immutable for that installation. Existing supported value and instance operations remain permitted under admitted capacities and lifetime rules. No public API or adapter-trait call may return unrestricted mutable storage or installed TYPE_TABLE access. STOP or a debugger pause alone does not turn installed state into an authoring object. Ordinary PLC value updates remain permitted through checked operations. |
 | Live value writes and forces | Use the single engine owner and existing cycle/debugger write boundaries. Preserve authorization, one-time write versus persistent-force behavior, and existing input/output image timing under CYCLE-05/06. Ordinary supported writes shall not require STOP, restart or re-admission. Synchronous owner-local calls may commit at an existing permitted boundary; remote requests use bounded staging/queues where the profile requires them. |
 | Code, declarations, types or storage layout changes | Build and validate an isolated candidate outside bounded RUN. Replace only through §11.3's hosted boundary and warm-restart/retain policy, or §11.2's stopped MCU installation. A failed candidate leaves the installed state executable and unchanged. No implicit first-use preparation or recompilation may repair a live mutation. |
-| Resource-only task, image extent or direct-I/O binding reconfiguration | Admit a candidate with unchanged executable code, constants, reference identities, types, declarations, construction/default recipes and access policy. Stage scheduler metadata, reset task readiness to the current logical time and sample each SINGLE input as its initial event baseline when replacing task/resource metadata (binding-only edits preserve readiness), and resize flat images with intersection preservation and zero-filled growth. Commit only after binding and safe-output validation. Keep the same PLC storage, instance IDs, non-retained and retained values, hierarchical images, fault, logical time, cycle counters, register observations, stable debugger thread identities and pending debugger requests. Do not rerun initializers, replace the PLC graph, or clone the full store. Failure preserves the installed resource and images. This is the existing hosted resource-update behavior, distinct from code/schema replacement. |
-| Debug expression parsing | Use separate authoring/scratch types and immutable installed metadata for lookup. Parsing an expression shall not extend or alter the installed executable type table. Any resulting write goes through the same checked live-write path. Compiler-dependent expression authoring remains in the selected development service, not the runtime-only graph. |
+| Resource-only task, image extent or direct-I/O binding reconfiguration | Admit a candidate with unchanged executable code, constants, reference identities, types, declarations, construction/default recipes and access policy. Stage scheduler metadata, reset task readiness to the current logical time and sample each SINGLE input as its initial event baseline when replacing task/resource metadata (binding-only edits preserve readiness), and resize flat images with intersection preservation and zero-filled growth. Commit only after binding and safe-output validation. Keep the same PLC storage and installation generation (§11.3), so every reference stays valid, the same instance IDs, non-retained and retained values, hierarchical images, fault, logical time, cycle counters, register observations, stable debugger thread identities and pending debugger requests. Do not rerun initializers, replace the PLC graph, or clone the full store. Failure preserves the installed resource and images. This is the existing hosted resource-update behavior, distinct from code/schema replacement. |
+| Debug expression parsing | Use separate authoring/scratch types and immutable installed metadata for lookup. Parsing an expression shall not extend or alter the installed executable type table. Any resulting write goes through the same checked live-write path. Compiler-dependent expression authoring remains in the selected development service, not the runtime-only graph. A runtime evaluates the compiled form of specification 11 §6.13.2 and parses no expression text, so this row's parsing happens only in the tool. |
 
 Retained checkpoint capture is also a checked owner operation. The hosted
 `Runtime::retain_snapshot` and `RetainSnapshot::from_runtime` APIs therefore take
@@ -440,7 +495,13 @@ is distinguishable from deterministic resource exhaustion.
 Queue acceptance is distinct from application of a write. A staged request shall
 be checked against the active destination and binding again at its commit
 boundary; a request targeting a replaced or retired destination shall be rejected
-unless an existing supported checked rebinding operation applies. Queue exhaustion
+unless an existing supported checked rebinding operation applies. A request that
+names a destination by name is bound to that name at its boundary. A request that
+names an instance by its identity keeps the installation generation (§11.3) in
+which that identity was resolved, and its boundary rejects it with
+`ReferenceLifetime` when another generation is installed, so a restart or
+replacement in between cannot redirect it to the instance that now has that
+identity. Queue exhaustion
 shall return an explicit failure without applying the request; the hosted control
 surface bounds its pending writes and forces at 1,024 entries each and refuses
 further requests with `request queue full` (specification 11, runtime control I/O
@@ -544,9 +605,10 @@ existing stale-reference checks without inventing a speculative reader service.
 Hosted bytecode export shall copy the installation's immutable deployment
 artifact, not rebuild startup declarations from mutable PLC values or execute
 initializers again. Retained/current values remain separate checkpoint data.
-The existing plain export omits optional source-debug sections; source-aware
-export preserves the admitted instruction-to-source map and may relabel source
-paths. Supplied source text shall agree with an available, original installation
+The existing plain export omits optional source-debug sections, the sections
+that map instructions to source positions (DEBUG_MAP, DEBUG_STRING_TABLE and
+LINE_TABLE, specification 12 §6.13); source-aware export preserves the admitted
+instruction-to-source map and may relabel source paths. Supplied source text shall agree with an available, original installation
 source snapshot before attaching its debug map. A source-free installation shall
 not certify unrelated supplied text from a `file_N` label alone; unverifiable
 source association is rejected. A source-aware export also rejects an installation
@@ -610,7 +672,230 @@ The record shall identify the bytecode and configuration hashes; required instru
 
 Hardware pin mappings belong to board configuration, not the STBC instruction set. The same STBC bytes can be used on different devices only when both devices support the required features and the application's logical I/O contract. A board-specific firmware image or different peripheral mapping does not invalidate that bytecode portability.
 
+**The installed application container.** A device with an `application` region keeps the installed program and its record in that region as one container, so a chip reads one bounded artifact at boot. Version 2 has the magic `TRSTA002` and carries an install sequence, which orders the two slots of the program store (below). Version 1, with the magic `TRSTA001`, is the same container without the sequence. The program store does not read it and no tool writes it: a `TRSTA001` container is not committed (below), and `cargo xtask portability pack-project` writes version 2.
+
+| Offset | Bytes | Field |
+|---|---|---|
+| 0 | 8 | Magic `TRSTA002`: its first four bytes are written before the read-back, its last four bytes last, at the commit point |
+| 8 | 4 | CRC-32 of bytes 12 to the end of the entry table |
+| 12 | 4 | The total length L of the container in bytes |
+| 16 | 8 | The install sequence: 1 for the first commit, then one more than the newest committed sequence at each commit; the device writes it, and the transfer's value is replaced |
+| 24 | 4 | The entry count, 2 |
+| 28 | 16 each | The entries: for each, its kind (4: 1 `program.stbc`, 2 the deployment record), the payload's offset (4) from the start of the container, its length (4) and its payload's CRC-32 (4) |
+| 60 | L − 60 | The payloads: `program.stbc`, then the record |
+
+Version 1 has the same fields without the sequence: its entry count is at offset 16, its entries start at 20 and its payloads at 52. Integers are little-endian and CRC-32 is CRC-32/ISO-HDLC as in STBC. A reader (`trust-runtime-services::installation`, shared and without an operating system) exposes no payload before it has checked, in this order, the magic; the header CRC; the total length against the region; the entry count; that each kind appears once; that each entry's range lies inside the total length, outside the header and overlaps no other entry; and each payload's CRC. A region whose first eight bytes are neither magic, an erased region of `0xFF` in particular, holds no installed program.
+
+A writer writes the container in one order: the payloads, then the header fields and the entry table, and the magic last. A write that stops at any byte then reads as no installed program (DEPLOY-03), because the magic is absent until the container is whole. On the bench, `cargo xtask portability pack-project <program.stbc> <deployment-record.bin> <app.bin>` writes a version-2 container with install sequence 1 (the program store, below), through the writer of every other container, after checking that the record reads and describes exactly the program it packs.
+
+**The program store.** A chip's program store holds two containers, one in each of two application slots of equal size, which the chip file names. An install writes the complete container to the slot that does not hold the program the runtime holds, running or stopped, whose image the runtime reads in place (MEM-14); when the runtime holds no program, to the slot that does not hold the newest committed container, or to slot A when neither slot holds one. A container installed after the program that runs, and not run yet, is therefore replaced by the next install, or by the next upload written into the store from its `transfer.begin` on (below), and the running program's slot is never written. The writes run in steps of at most one erase unit, or at most one step budget of programmed or read-back bytes, so that a loop pass serves the link between them (STATE-08). The order is: erase the units the container needs, starting with the unit that holds the magic; program the payloads, then the header fields after the magic, then the first four bytes of the magic; read back every byte that was programmed; and program the last four bytes of the magic. That last program is the commit point: a container is committed only when its magic reads `TRSTA002` in full, and it then holds the sequence the device gave it. An install that stops at any step, or whose read-back fails, leaves the newest committed container as it was, so the previous program stays selected (DEPLOY-03). At boot the store reads the header of each slot, and only the header. A slot is committed when its magic reads `TRSTA002`, its header CRC-32 is good and its total length lies between the header and the end of the slot; any other slot holds no committed container. A slot whose first eight bytes read `TRSTA001` holds a version-1 container, which is not committed: it takes no part in the order, and the next install overwrites it as it overwrites an erased slot. When neither slot holds a committed container the boot is refused with `no installed program: <reason>`, whose reason is `slot A holds a TRSTA001 container, which is not committed (only TRSTA002 is read)` for the first slot that holds a version-1 container (`slot B` when only slot B does), and `no TRSTA002 container in either slot` when neither slot holds a container at all. An erase stopped part-way through a slot's first unit can leave the magic over a damaged header, whose sequence cannot then be read, so such a slot is not committed; a damaged payload or a refused admission under a good header is a damaged committed container. The committed container with the highest sequence is selected, and its payloads are checked and its admission is granted (§5.1.1). If either check fails, the boot is refused with `no installed program: <reason>`, and the other slot is not selected in its place. Two committed containers with the same sequence also refuse the boot, and the reason names the sequence. A device that is refused serves its control link in the Stopped state with that reason (STATE-08) and takes an install (§11.2). The boot checks the selected container where it lies in its slot and prepares the program from it there: the program's image is the slot's bytes (MEM-14), and the device copies no part of the container to the heap but the decoded record. A device that cannot read its flash in place reads the container into memory instead, and refuses one longer than that memory, before anything is read, with `the installed container needs <n> bytes, more than the heap's <m> bytes`. A `restart` that loads a newer container (STATE-08) drops the program it held before it reads the newer one in the same way. A rollback needs an explicit activation with its own check (DEPLOY-06); none is defined here.
+
+**An upload written into the store** (the owner, 23 October 2026: stream uploads into the inactive slot, the header last, the SHA-256 worked out as the parts arrive). A chip whose resource is Stopped writes an upload into its program store as its parts arrive, rather than holding it in its heap, so that it installs a program as large as a slot: the ESP32-C6's slot holds 2,060 KiB, its heap 112 KiB. The upload goes into the slot that an install would write when the upload begins (above), and the install of the upload commits it there. `transfer.begin` erases the slot's first erase unit, which holds the magic, so the container that the slot held is no longer committed before any of its bytes is replaced: no boot, `restart` or stepped scan selects it from then on. Each part is then written at its offset in the steps of an install: the erase of each erase unit that the part reaches into and no earlier part reached into, the program of its bytes in steps of at most the step budget, and their read-back. The first 60 bytes of the upload, the container's header, are not written: the session keeps them with its part buffer, and nothing else of the upload is held in memory. The slot therefore holds no committed container until the install's commit point. `program.install` checks the container where it lies in the slot (MEM-14), with the header that the session kept (§11.2), and its commit programs the header after the magic with the sequence the device gives it, then the first four bytes of the magic, reads both back, and programs the last four bytes of the magic, the commit point. A reset, a loss of power, an abort, a refused install and an upload whose SHA-256 does not match leave the slot without a committed container and the other slot as it was (DEPLOY-03). An upload begun while the resource runs is held in the heap, because no flash is written or erased while a program runs (Appendix D.2): it serves an online change (§11.3), and an install after a stop when the heap holds it. A `restart` that starts the resource ends an upload written into the store (PORT-05).
+
+**A first flash.** The container that the bench packer writes holds install sequence 1, the sequence that the first commit into an empty store gives, and is otherwise the container `program.install` commits for the same program and record: for them the two are the same bytes. Written into slot A by a flasher (`application_a` of the chip file), it is therefore a committed container, and the first `program.install` after it writes slot B with sequence 2. A flasher does not write in the order of a commit, with the magic last, so a flash that stops part-way can leave a good header over missing payload bytes; the boot then refuses the container as damaged (above), and it is flashed again. A first flash is a bring-up path (DEPLOY-02), not the interruption-safe install of §11.2.
+
+### 5.1.1 The deployment record
+
+The record of §5.1 is one binary file, `deployment-record.bin`, next to `program.stbc`: a sidecar,
+so STBC is unchanged. It is the same record on every target. It describes one STBC 2.0 or 3.0
+program. Integers are little-endian, CRC-32 is CRC-32/ISO-HDLC as in STBC, and SHA-256 is that of
+FIPS 180-4. `trust-runtime build` writes it (specification 11 §6.8.1d), and so does every tool that
+writes a program into a project: the setup wizard and the web deployment write the record of the
+new program, and `trust-runtime deploy` copies it with the program.
+
+| Offset | Bytes | Field |
+|---|---|---|
+| 0 | 4 | Magic `TRDR` |
+| 4 | 2 | Record version, 1 or 2 |
+| 6 | 2 | Section count |
+| 8 | 4 | Record length L in bytes, header and CRC included, at most 65,536 |
+| 12 | L − 16 | The sections, in ascending order of their identifiers |
+| L − 4 | 4 | CRC-32 of bytes 0 to L − 5 |
+
+A section is a 2-byte identifier, 2 reserved bytes (0), a 4-byte payload length and the payload.
+Version 1 has these seven sections, each once; version 2 has them and section 8:
+
+| Section | Payload |
+|---|---|
+| 1 Application | The program's SHA-256 (32 bytes) and length (4); its STBC major and minor version (2 + 2) and header flags (4); the configuration identity (32); the retain-schema identity (32) |
+| 2 Contracts | The scheduling/I/O profile (2): 1 is `cooperative-resource-v1` (§4.4). The numeric contract (2): 1 is the contract of §12.1. The required timing evidence (1): 0 unqualified, 1 measured-qualified, 2 analytically supported (§4.4). Reserved (1), 0. The required capabilities (2): bit 0 is the platform wall clock that CURRENT_DT reads (§5.2) |
+| 3 Limits | The requested preparation limits, 8 bytes each, in this order: artifact bytes, preparation bytes, preparation work, validation scratch bytes, validation work, construction values, construction bytes, process-image bytes, work, construction work, call depth |
+| 4 Process image | The input, output and marker image sizes in bytes and the number of I/O bindings (4 each) |
+| 5 Tasks | The task count (2) and 2 reserved bytes, then for each task in declaration order: its interval in nanoseconds (8, signed), its priority (4) and its flags (4), of which bit 0 marks an event task (`SINGLE`) and the others are 0 |
+| 6 Imports | The import count (2) and 2 reserved bytes, then each built-in import of the program once, ordered by kind and then by name: the kind (1), 1 for a function and 2 for a function block; the name's length (1); the contract version (2, §5.2.1); the canonical uppercase name |
+| 7 Configuration | The settings a device without an operating system needs from `runtime.toml` and `io.toml` (below): the resource name, the cycle interval, control, the log level, retain, the watchdog, the fault policy, the event-store capacity, the task overrides, the I/O drivers and the safe state |
+| 8 Driver parameters (version 2) | The driver count (2), which is section 7's, then for each I/O driver in section 7's order: the length (4) and the UTF-8 text of the driver's `params` table as JSON (below) |
+
+Section 7 carries what a device without an operating system needs from the project's `runtime.toml`
+and `io.toml`: a computer reads those two files themselves at each start, and a chip never parses
+them. Its payload is, in this order, every integer little-endian and every text a 1-byte length and
+its UTF-8 bytes, at most 255 bytes:
+
+| Field | Bytes |
+|---|---|
+| Resource name | a text; empty in a record whose build did not fill this section |
+| Cycle interval | 8, unsigned, nanoseconds |
+| Control: debug enabled, then mode | 1 (0 or 1), then 1 (1 `production`, 2 `debug`) |
+| Log level | 1 (1 `error`, 2 `warn`, 3 `info`, 4 `debug`, 5 `trace`: the names the runtime's configuration parser accepts, where `warning` is `warn`) |
+| Event-store capacity | 4, unsigned; 0 is the device's default, otherwise the newest events the store keeps (specification 11, `runtime.events.capacity`). The decoder accepts every four-byte value; admission refuses one above the device's maximum (step 7 below) |
+| Retain: mode, then save interval | 1 (0 `none`, 1 `file`), then 8, nanoseconds |
+| Watchdog: enabled, timeout, action, hang action | 1 (0 or 1), then 8, nanoseconds, then 1 (1 `halt`, 2 `safe_halt`, 3 `restart`), then 1 (1 `fault`, 2 `abort`) |
+| Fault policy | 1 (1 `halt`, 2 `safe_halt`, 3 `restart`) |
+| Task overrides: presence | 1 (0 none, 1 present) |
+| The task overrides, when present: count | 2 |
+| Each task override: name, interval, priority, single input, program count, then its programs | a text, never empty; 8, nanoseconds; 1; a text, empty for none; 2; then each program name, a text never empty |
+| I/O drivers: count | 2 |
+| Each driver: name, enabled | a text, never empty; 1 (0 or 1) |
+| The `gpio` driver's inputs: count | 2 |
+| Each GPIO input: address, line, invert, debounce | 7; a text, never empty; 1 (0 or 1); 4, milliseconds |
+| The `gpio` driver's outputs: count | 2 |
+| Each GPIO output: address, line, invert, initial | 7; a text, never empty; 1 (0 or 1); 1 (0 or 1) |
+| Safe state: count | 2 |
+| Each entry: address, value type, then value | 7; 1 (1 `BOOL`, 2 `SINT`, 3 `INT`, 4 `DINT`, 5 `LINT`, 6 `USINT`, 7 `UINT`, 8 `UDINT`, 9 `ULINT`, 10 `BYTE`, 11 `WORD`, 12 `DWORD`, 13 `LWORD`, 14 `REAL`, 15 `LREAL`); 8, little-endian, zero-extended above the type's width |
+
+An address is 7 bytes: the area (1: 1 `%I`, 2 `%Q`, 3 `%M`), the size (1: 1 X, 2 B, 3 W, 4 D, 5 L),
+the byte offset (4) and the bit (1, 0 unless the size is X). A line is a text exactly as `io.toml`
+writes it: a number's decimal digits, such as `17`, or a pin name, such as `PD12`. A driver whose
+name is not `gpio` carries no lines. `trust-runtime build` fills this section from the project's
+`runtime.toml` and `io.toml` with the runtime's own parsers and checks, so every value has the
+meaning and the defaults it has on a computer, and refuses a value the section cannot hold with the
+reason and without writing a record.
+
+Section 8 carries each driver's parameters, so that a chip runs every `io.toml` driver it carries
+out with the keys, the defaults and the checks of a computer (TARGET-01), which the GPIO lines of
+section 7 cannot express for the other drivers. A driver's text is its `params` table as the
+runtime's parser read it, written as JSON: a TOML table is a JSON object whose keys are in the byte
+order of their UTF-8, so the same file gives the same bytes; a string, an integer, a boolean and an
+array are the same JSON value; a float is a JSON number in its shortest form that reads back as the
+same value; and a TOML date or time is the JSON string of its RFC 3339 text. A float that is not a
+number or is infinite has no JSON form, and the build refuses it with the driver's name and key. A
+driver without parameters has `{}`. `trust-runtime build` writes version 2 (decision of 25 October
+2026: a section added after those of version 1, as the rule below has a later version do). A chip
+runs a driver it carries out from its text, and refuses one it does not carry out by name with the
+reason, and a driver other than `gpio` of a version-1 record with `rebuild the project: its record
+holds no driver parameters`.
+
+The identities:
+
+- **Program identity.** The SHA-256 and the length of the exact bytes of `program.stbc`.
+- **Configuration identity.** The SHA-256 over the project's `runtime.toml` and then its
+  `io.toml`, each as its file name, a zero byte, and then either a byte 1, its length (8) and its
+  bytes, or a byte 0 when the project has no such file.
+- **Retain-schema identity.** The SHA-256 over the declarations a checkpoint keeps, in the order
+  it keeps them: every retained global, then the retained variables of each program instance.
+  Each counts with its checkpoint name (the global's name, or `@program/<instance>/<name>`), its
+  retention policy and its type. TYPE_TABLE follows, with every name spelled out. The shared core
+  computes it (`deployment::retain_schema_identity`), and the checkpoint log keeps its first 16
+  bytes (§10.1).
+
+The build requests the hosted default of every limit. A program that the runtime cannot prepare
+under them gets no record; the build removes an older record and says why. A runtime prepares an
+admitted program with exactly the requested limits, so the program meets the same limits on every
+target (ARCH-01).
+
+**Reading a record.** A runtime reads every record version it knows. A version-1 record has
+exactly sections 1 to 7, and a version-2 record exactly sections 1 to 8, in that order, each
+payload exactly as long as its content. Section 8 refuses a driver count other than section 7's and
+a text that is not UTF-8; the driver that reads a text refuses one that is not a JSON object of its
+keys, as a computer refuses its `params`. A runtime
+refuses with `RuntimeError::DeploymentRecordInvalid` and the stable code
+`runtime_deployment_record_invalid`, stating the reason, a record that is shorter than its
+lengths; that has another magic, an unknown version, a length other than the file's or above
+65,536 bytes, or a wrong CRC; that has an unknown, repeated, out-of-order or missing section, a
+section count other than its sections, or a payload of another length; that has a reserved field
+other than 0, an unknown import kind or task flag, an empty or non-UTF-8 name, or imports out of
+order or repeated; or that the device's memory cannot hold. Section 7 refuses in the same way: a
+code outside its list, a flag other than 0 or 1, a bit above 7 or a bit with a size other than X, an
+empty name where one is required, a text over 255 bytes or not UTF-8, a line under a driver that is
+not `gpio`, a count its payload does not hold, a payload of another length, and a safe-state value
+with a byte above its type's width that is not 0. A later version adds sections with new
+identifiers after those of version 1 and leaves the sections of version 1 as they are.
+
+**Admission (DEPLOY-04, LOAD-07, LOAD-09).** Before any state exists, a runtime checks the record
+against its device descriptor in this order. The first check that fails refuses the deployment,
+with `RuntimeError::DeploymentRefused`, the stable code `runtime_deployment_refused` and the
+numbers involved; nothing is constructed:
+
+1. The program has the length and the SHA-256 of the record.
+2. The device runs its STBC version.
+3. The device implements the scheduling/I/O profile and the numeric contract.
+4. The required timing evidence is not stronger than the device's (LOAD-08).
+5. The device supplies every required capability.
+6. Every import has a contract of the same version on the device (§5.2.1). Otherwise the
+   refusal is `runtime_import_unsupported`, naming the import.
+7. No requested limit is above the device's maximum for it, for example "the record requests
+   max_call_depth 2048, the device allows at most 1024"; nor is the record's section-7 event-store
+   capacity, when it is not 0, above the device's maximum, refused as "the record requests an
+   event store of 500 events, the device keeps at most 200" (0 is the device's default).
+8. On a device with an application slot, the program and its record fit in it, for example "the
+   program and its record need 20480 bytes of the application slot, the device has 16384".
+
+A chip admits its installed container with `installation::admit_sequenced`, in the boot selection of §5.1, before any state exists.
+
+**Memory admission (MEM-12).** Preparation computes the program's memory figure. Before anything of
+the program is constructed, a device with a maximum refuses a program whose figure, with the capture
+of its retained values when the record keeps them, is more than the memory the device has for
+programs, with `RuntimeError::DeploymentRefused`, the stable code `runtime_deployment_refused` and
+both numbers, for example "the program needs 30192 bytes of memory, the device has 28672 for
+programs"; a figure equal to that memory is admitted. A chip checks it in the dry run of an install
+(§11.2), before any byte is written, and again when it loads a program; an online change compares the
+candidate's figure with the heap that remains for it beside the running program (§11.3). A computer
+has no maximum and admits every figure.
+
+Preparation then validates the program under the requested limits (LOAD-03). Version 1 does not
+compare the configuration identity: a computer reads `runtime.toml` and `io.toml` at each start,
+so an edited configuration takes effect at the next start, as it does today, and a chip receives
+its configuration inside the record, in section 7. Whether retained values fit a changed schema is
+decided at the warm start, by name (specification 11 §6.7).
+
+**Device descriptor (COMPAT-02).** Admission reads from the device's descriptor the program formats
+it runs, its scheduling/I/O profiles, numeric contracts, timing-evidence class and capabilities,
+its maximum for each preparation limit, the event store's default capacity and maximum, the
+size of its application slot, and the memory it has for programs. A computer runs, on an x86-64 or
+AArch64 CPU, compiled program images, version 44.1 (specification 44 §4.4, §8.8; the STBC versions
+went with the bytecode engine, specification 44 §15), `cooperative-resource-v1` and numeric
+contract 1, has unqualified timing evidence and the wall clock, keeps the newest 1,000 events by
+default and admits at most 1,000,000, and has no maximum for the preparation limits, no application
+slot and no maximum of memory for programs (HOST-02). A chip's
+descriptor comes from its chip file (TARGET-03); Appendix H gains the keys for its maxima with the
+chip's firmware, and its `[events]` table gives the chip's event-store default and maximum. A chip
+with a program store (§5.1) offers one slot: the size of one of its two program slots,
+`application_a` or `application_b`, and not of the `application` region, because an install writes
+one slot and a program that fits the region but not a slot could never be installed. A chip
+measures the memory it has for programs at boot, before it loads a program, with its own sizes: the
+heap's free bytes then, with the bytes of the installed program when the load frees them, less what
+the chip keeps for the machine beside any program (Appendix D gives each chip's parts). A program
+whose record enables debugging keeps a buffer of debugger stops beside its figure, as many stops and
+logpoint messages as its event store keeps events (specification 11 §6.13.3): its install and its
+load compare the figure with the memory for programs less that buffer's bytes, which the chip works
+out with its own sizes. The I/O drivers' blocks come out of the heap when the load claims them: a
+chip then checks that what remains still holds the working memory, the checkpoint buffer of a
+program that keeps retained values unless the chip took it at boot (below), the debugger's buffer
+and what the drivers may still take while they run (an `mqtt` driver's received payloads and its
+copies of the images, Appendix D), and
+refuses the program with `insufficient memory: the I/O drivers took <n> bytes, and <m> remain where
+the program's working memory, checkpoint buffer, debugger and the drivers' buffers need <k>`
+otherwise, its drivers released. A driver takes its fixed buffers when it is claimed, so that they
+are counted then. A chip takes the
+checkpoint buffer, one block of its checkpoint store's largest payload, at boot, before its loop
+and any program, as it takes the loop's own buffers first, and lends it to each program that keeps
+retained values; the program's end gives it back, and its memory for programs no longer keeps the
+buffer aside, as its bytes are no longer free. A program's start then never asks a heap that the
+programs before it fragmented for a block that large: the bench found no block of 16,300 bytes
+after a debug and a production program had run in turn on the C6 with Wi-Fi, and again when a
+program with an `mqtt` driver was installed a second time (`s7m/run2`, 25 October 2026). A chip
+whose boot heap had no block that large takes one for each program as it starts, and a heap that
+has the bytes but no block that large refuses that start with `insufficient memory: no block of
+<n> bytes for the checkpoint buffer` (a reset of the chip gives the heap back whole). The control
+connection serves the descriptor with the `capabilities` operation (specification 11), the same
+operation on every runtime; the memory for programs is its `program_memory_bytes`, `null` on a
+computer, and a chip reports its heap as it stands as `heap`.
+
 ### 5.2 Compiler-free preparation
+
+> **Superseded** by specification 44 (native execution), 24 October 2026: a device admits a program
+> image and runs its compiled code (specification 44 §10.2); nothing prepares STBC any more. This
+> section records the bytecode engine's preparation, which was deleted (specification 44 §15).
 
 **LOAD-01.** Every target, including Linux, Windows, macOS, and the MCU, shall be able to initialize a fresh engine from bytecode and its deployment metadata without parsing ST, constructing a compiler session, or running HIR analysis. Hosted authoring tools may compile before deployment, but the standalone loading/execution path shall not require them.
 
@@ -624,9 +909,9 @@ Hardware pin mappings belong to board configuration, not the STBC instruction se
 
 **LOAD-06.** Required imports shall resolve to approved, typed implementations with a versioned execution contract covering maximum work, variable-size arguments, blocking, allocation, failure, and allowed profile/state. A callback without a supportable bound shall be staged outside bounded execution or rejected for that profile; a deadline parameter is not proof of cancellation. No arbitrary pointer or symbol name shall become a device address or callable function. Host-only imports shall fail MCU admission; hosted builds may admit them only under the selected platform/profile contract.
 
-Debug/source sections may be omitted when genuinely optional. Required symbol, type, interface, or import information shall not be stripped merely because it resembles debug metadata.
+Debug/source sections may be omitted when genuinely optional. Required symbol, type, interface, or import information shall not be stripped merely because it resembles debug metadata. The line table of specification 12 §6.13 is optional: a target without it still debugs from statement starts, and a target never needs the ST text to resolve breakpoints or steps (owner, 18 October 2026).
 
-STBC integrity checks and CRCs shall not be described as authentication. Production deployment requires an explicit trust model, such as physical commissioning authorization or authenticated update access; signatures are required where the product's threat model requires them.
+STBC integrity checks and CRCs shall not be described as authentication. Deployment uses the access rights of the control connection on every target, as trust-runtime does (specification 11, runtime control authorization); signatures are required where the product's threat model requires them.
 
 The initial source-free execution profile rejects raw `REF_TABLE` storage domains
 `Retain` and `Io` during preparation, before any initializer or POU executes.
@@ -669,15 +954,98 @@ their key/value payload plus four pointer-sized link/control words; actual bucke
 capacity and allocator node occupancy are excluded. Temporary instance-owner
 sets are bounded by the number of reference instructions in each actual POU
 body. Expanded constants are additionally charged before vector/map reservations
-and scalar/string copies. Work charges serialized bytes, actual metadata/body
+and scalar/string copies. The statement index that a LINE_TABLE builds for debugging (specification 12
+§6.13; SERVICE-06) is charged before it is reserved, at 104 bytes per statement and 76 bytes per POU that owns
+one, as upper bounds for the 64-bit layout. Work charges serialized bytes, actual metadata/body
 visits, lookup comparisons and expanded constant visits. These cumulative logical charges are deliberately
 conservative admission metrics, not allocator peak, RSS, elapsed time or WCET;
 allocator overhead, error diagnostics and native stack still require measured
 profile headroom in Scope B. Validation retains its independent scratch/work
 limits. Executable native imports must resolve to the shared standard-library or
-POU implementation; built-in FB signatures and hidden state must match the native
-contract. CURRENT_DT additionally requires an explicitly supplied wall-clock
+POU implementation, and every built-in import must match its contract (§5.2.1),
+a built-in FB's signature and hidden state included. CURRENT_DT additionally requires an explicitly supplied wall-clock
 service before instance construction; a logical-only composition rejects it.
+
+### 5.2.1 Built-in import contracts
+
+LOAD-06 and PORT-02 are met for the built-in imports by one contract table in
+`trust-runtime-core` (`stdlib::contracts`), the same on every target; no built-in
+import is host-only. The standard-library registration stays the one list of
+registered functions: each registered family names its contract there. Conversions,
+date/time splits, the runtime clocks and the standard function blocks keep their
+recognizers, and each kind they recognize has one contract. A native test compares
+the table with the registration entry by entry.
+
+Every contract in the table is version 1; a change to any rule of a contract issues
+a new version. A contract states:
+
+- **Signature.** A registered function takes the parameters of its registration: a
+  fixed list, or fixed parameters followed by a numbered variadic suffix with a
+  minimum count (specification 07). A conversion takes one input `IN`. A split takes
+  `IN` and then its outputs, each a writable target. A clock takes no parameter. A
+  standard function block declares its IEC parameters, each with its direction and
+  type, and the hidden native state of specification 12 §11.5.5.
+- **Work.** What TIME-08 charges beyond the call's instructions. A registered function
+  or a conversion charges its argument binding and 1 unit per byte of its STRING and
+  WSTRING arguments before the body runs; a clock, a split or a function block charges
+  its argument binding only. A call has at most 1,024 native arguments (specification
+  12 §4.6), and a text argument is bounded by its declared capacity or by the
+  allocation allowance.
+- **Allocation.** Whether the call can return a STRING or WSTRING result, which
+  TIME-08 charges as a new value: 1 unit and its bytes of allocation.
+- **Blocking.** None. Every built-in import returns without waiting for a device, a
+  lock or a service other than the clock it is given.
+- **Failure.** The stable codes its implementation can return for a call that matches
+  its signature. The engine's binding and reference checks (specification 12 §7.7 and
+  §7.8) apply to every call besides.
+- **Profile.** CURRENT_DT requires the platform wall clock (§5.2). No other built-in
+  import requires a capability.
+
+| Family | Imports | IEC 61131-3 Ed.3 | Text | Failures |
+|---|---|---|---|---|
+| Numeric | ABS, SQRT, LN, LOG, EXP, SIN, COS, TAN, ASIN, ACOS, ATAN, ATAN2, ADD, SUB, MUL, DIV, MOD, EXPT, MOVE | Tables 28 and 29; ADD, SUB, MUL and DIV of durations and dates: Table 35 | arguments charged; MOVE returns text | type mismatch, overflow, division by zero, modulo by zero, date/time range, argument count (ADD and MUL with a time operand take exactly two inputs) |
+| Bit | SHL, SHR, ROL, ROR, AND, OR, XOR, NOT | Tables 30 and 31 | arguments charged | type mismatch |
+| Selection | SEL, MAX, MIN, LIMIT, MUX | Table 32; enumerations: Table 38 | arguments charged; text results | type mismatch, overflow, index out of bounds |
+| Comparison | GT, GE, EQ, LE, LT, NE | Table 33; enumerations: Table 38 | arguments charged | type mismatch |
+| String | LEN, LEFT, RIGHT, MID, CONCAT, INSERT, DELETE, REPLACE, FIND; the assignment helper `__TRUST_LIMIT_STRING` (specification 07 §8.1) | Table 34 | arguments charged; text results | type mismatch, overflow, string capacity exceeded (a result above 65,535 bytes or code units) |
+| Time | ADD_TIME, ADD_LTIME, ADD_TOD_TIME, ADD_LTOD_LTIME, ADD_DT_TIME, ADD_LDT_LTIME, the twelve SUB_ functions, MUL_TIME, MUL_LTIME, DIV_TIME, DIV_LTIME; CONCAT_DATE, CONCAT_DATE_TOD, CONCAT_DATE_LTOD, CONCAT_TOD, CONCAT_LTOD, CONCAT_DT, CONCAT_LDT, DAY_OF_WEEK | Tables 35 and 36 | arguments charged | type mismatch, overflow, division by zero, date/time range |
+| Validate | IS_VALID, IS_VALID_BCD | Table 39 | arguments charged | type mismatch |
+| Assertions | ASSERT_TRUE, ASSERT_FALSE, ASSERT_EQUAL, ASSERT_NOT_EQUAL, ASSERT_GREATER, ASSERT_LESS, ASSERT_GREATER_OR_EQUAL, ASSERT_LESS_OR_EQUAL, ASSERT_NEAR (specification 07, a truST test extension) | none | arguments charged | assertion failed, type mismatch, overflow |
+| Conversion | every name of a Table 22 conversion form | Tables 22 to 27 | arguments charged; text results | type mismatch, overflow, string capacity exceeded (a STRING or WSTRING result above 65,535 bytes or code units) |
+| Split | SPLIT_DATE, SPLIT_TOD, SPLIT_LTOD, SPLIT_DT, SPLIT_LDT | Table 36 | binding only | type mismatch, overflow |
+| Clock | TIME, CURRENT_DT (specification 07, truST clock sources) | none | binding only | none for TIME; overflow for CURRENT_DT |
+| Bistable | RS, SR | Table 43 | binding only | type mismatch |
+| Edge detection | R_TRIG, F_TRIG, and their other names DIFU and DIFD | Table 44 | binding only | type mismatch |
+| Counters | CTU, CTD, CTUD and their _INT, _DINT, _LINT, _UDINT and _ULINT variants | Table 45 | binding only | type mismatch |
+| Timers | TP, TON, TOF and their _TIME and _LTIME variants | Table 46 | binding only | type mismatch |
+
+The failures are the stable codes `runtime_type_mismatch`, `runtime_overflow`,
+`runtime_division_by_zero`, `runtime_modulo_by_zero`, `runtime_date_time_range`,
+`runtime_invalid_argument_count`, `runtime_index_out_of_bounds`,
+`runtime_string_capacity_exceeded` and `runtime_assertion_failed`.
+
+**Admission.** A standard-library descriptor resolves in the order the call
+dispatcher runs it: a clock, a split, a conversion, then a registered function.
+Before any state exists, preparation refuses the artifact (LOAD-03, ARCH-06,
+DEPLOY-04) when:
+
+- a standard-library descriptor names no contract;
+- its argument count does not fit the signature (a fixed list takes exactly its
+  parameters, a variadic one at least its minimum), or its argument names do not fit
+  the parameters: an unknown or repeated name, a gap in a variadic suffix, or named
+  and positional arguments in one call (specification 12 §7.7);
+- a split output is not a writable target;
+- a function-block template that carries a standard function block's name declares
+  other parameters than its contract, in number, name, direction or type, or other
+  hidden native state.
+
+The refusal is `RuntimeError::ImportUnsupported` with the stable code
+`runtime_import_unsupported`. It names the import by its canonical uppercase name and
+states which part of the contract it fails, for example `unsupported import 'TON': a
+parameter's type or direction differs from the contract`. A call of the artifact's
+own function, function block or method resolves to that POU and has no built-in
+contract. When a deployment record (§5.1) names the contract version of a required
+import, admission refuses a version other than the runtime's.
 
 ### 5.3 Validated construction and admission evidence
 
@@ -698,6 +1066,10 @@ mutation of a public installed controller.
 A validated constructor is an implementation invariant, not a substitute for fuzzing or an assertion that the validator is correct. Artifact and deployment-metadata mutation tests are mandatory under Section 14.
 
 ### 5.4 Compiler-free construction and executable initialization
+
+> **Superseded** by specification 44: the build works a program's starting memory out and the image
+> carries it (specification 44 §7.4); this section records the bytecode engine's construction, which
+> was deleted (specification 44 §15).
 
 **LOAD-10.** Scope A shall implement the fixture's artifact-to-runtime construction map below. Use complete existing type/vtable/task/I/O/reference/constant data and encode missing construction/initialization under specification 12 §11. STBC 2.0 is the selected compatibility decision, not the only theoretically possible format design. It gives a hard rejection boundary for old readers; this plan does not use an optional 1.x section for mandatory initialization. During the defined window, hosted authoring compositions retain 1.1 import with explicit construction context; source-free consumers accept 2.0 and reject 1.1. Do not infer missing state or invoke HIR inside the source-free engine. [R20, R21, R29, R36]
 
@@ -744,15 +1116,44 @@ instructions; previous run-4 evidence does not validate these later changes.
 
 ### 6.1 Preparation versus execution
 
+> **Superseded** by specification 44: a program's memory is its image's areas, admitted with its
+> memory figure (specification 44 §7, §10.4); this section records the bytecode engine's
+> preparation phase, which was deleted (specification 44 §15).
+
 The engine shall have a preparation phase that determines its full resource demand and reserves or accepts the required storage. RUN shall only become available after preparation succeeds.
 
 **MEM-01.** The resource model shall separately account for portable program storage, each prepared instruction/metadata representation, constants, mutable PLC globals and FB/class instances, compound backing regions, process images, operand/frame/local/temporary storage, task-ready storage, I/O staging, diagnostics, service queues, and retain staging. CPU stacks and interrupt allowances shall be recorded separately from VM stacks.
 
 Record target `size_of`/alignment for `Value`, references, frames, and relevant compound headers, then enforce their admitted size ceilings with target-compiled assertions. A host size result does not establish a 32-bit layout. These are resource bounds, not a permanent Rust ABI or a request to pack structs unsafely. [R30]
 
-**MEM-02.** Define per-profile maxima for encoded artifact bytes, decoded instructions/references/types/locals, operand values, frames, native-call arguments, initialization nesting, and `max_call_depth`. Apply decode/allocation limits before consuming attacker-controlled counts. Do not reserve the current host-scale 16,384 operands, 1,024 call levels, or 64 MiB container allowance on F401. Report preparation, RUN, checkpoint, and generation/reader peaks per usable region. Tie admitted depth to native call-stack use when execution remains recursive, including interrupt and fault headroom. [R30]
+**MEM-02.** Define per-profile maxima for encoded artifact bytes, decoded instructions/references/types/locals, operand values, frames, native-call arguments, initialization nesting, and `max_call_depth`. Apply decode/allocation limits before consuming attacker-controlled counts. Do not reserve the current host-scale 16,384 operands, 1,024 call levels, or 64 MiB container allowance on F401. Size each per-call reservation to the program's static call depth, capped at `max_call_depth`; `max_call_depth` remains the admission ceiling and the runtime depth check is unchanged (MEM-09). Report preparation, RUN, checkpoint, and generation/reader peaks per usable region. Tie admitted depth to native call-stack use when execution remains recursive, including interrupt and fault headroom. [R30]
 
 **MEM-03.** Operand/frame/local storage shall have capacity established before bounded RUN. A push/call uses existing storage or faults before crossing its admitted limit. Existing FB/method calls can recursively re-enter the Rust executor, so a frame-count check alone does not bound the CPU stack. Scope B records F401 MSP high-water through stack painting or equivalent instrumentation under nested calls, interrupts, and fault unwinding/abort paths; record PSP separately if used. Measure representative per-level growth and corroborate worst-path headroom with code/stack analysis. Keep a conservative finite call limit; an explicit iterative frame loop is an option if measured recursion prevents admission, not an automatic rewrite prerequisite. [R30]
+
+**Call levels on a chip (MEM-03; owner, 21 October 2026, "Stack decides").** Nested initialization of
+function-block instances recurses on the native stack, one recursion per call level, while the
+calls of a scan do not, so a chip's main stack, not its heap, decides how many call levels it
+admits. Each chip has a main-stack window that its firmware paints and measures, and two figures
+its bench measures with the window over the whole stack: the bytes its deepest path takes before
+its first call level (the base) and the bytes each call level adds. Its call depth is (window −
+2,048 bytes of headroom − base) / level, and never more than trust-runtime's 1,024; Appendix D.2
+gives the ESP32-C6's 7 levels, and D.5 the STM32U5A9's, which uses the C6's figures until its own
+bench. A program's static call depth is the deepest number of frames that are active at once on
+any of its call or construction paths, the program's own included: a program whose chain of
+nested function blocks is n deep needs n + 1 levels. A chip refuses a program whose static depth
+is more than its call depth, at its install, its load and its online change, before anything of
+it is constructed, with `insufficient stack: <subject> of <n> bytes needs <d> call levels, more
+than the <c> that the device's main stack holds` (the subject is `a program` or `a change`). A
+program whose call graph is recursive has no static depth: it is admitted, and the depth check
+refuses its deep call when the call is made, as on a computer, a construction that goes deeper
+being refused with `insufficient stack: <subject> of <n> bytes calls deeper than the <c> call
+levels that the device's main stack holds`. The preparation limits of a chip are its own for the
+rest (owner, 20 October 2026, "Let memory decide"): the preparation bytes and the validation
+scratch are the bring-up limits for a 72 KiB heap (512 KiB and 48 KiB) scaled to its heap, because
+preparing a program takes them from the heap before its memory figure is known; the constructed
+values, the construction bytes and the process image are trust-runtime's, and the memory figure
+decides what fits (MEM-12). The descriptor's maxima stay trust-runtime's (§5.1.1), so that a record
+built on a computer is admitted; the chip prepares with its own limits.
 
 **MEM-04.** The allocation audit shall include cloning/dropping strings and arrays, nested values, local initializers, Arc/Box ownership, destruction of the last owner, formatting errors, task sorting, imports/library calls, tracing, and checkpoints. Tests shall exercise first invocation, rare branches, maximum admitted sizes, fault/limit paths, and relevant generation retirement. A warmed-up success loop or reserved operand stack alone is insufficient.
 
@@ -764,9 +1165,9 @@ existing diagnostic spelling. No lossy mode, profile rejection or overflow-check
 change is permitted. The complete linked image, not table-size estimates,
 determines acceptance; conversion execution cost remains part of timing evidence.
 
-**MEM-05.** Core fault records shall be fixed-size codes with bounded context on hosted and MCU targets. Rich names and messages shall be rendered outside the core control path. Existing stable fault identities shall be preserved; compatibility wrappers may retain hosted messages without making fault capture allocate or block.
+**MEM-05.** Core fault records shall be fixed-size codes with bounded context on hosted and MCU targets. Rich names and messages shall be rendered outside the core control path. Existing stable fault identities shall be preserved; compatibility wrappers may retain hosted messages without making fault capture allocate or block. A VM fault raised during a scan shall be a structured, fixed-size value built without allocation, whose rendering is today's text and whose stable code is unchanged; a `FaultRecord` shall hold that fault with the first failing instruction's site, the task and the logical time. The record stays at most 56 bytes on every target, so its logical time is the scan's whole seconds since the resource's logical start in a 32-bit field, unambiguous for 136 years of uptime, beside the millisecond within that second in a 16-bit field (0 through 999), the millisecond precision the host's fault log reports today. The engine latches the record by value, without cloning the error and without allocating, records the innermost failing instruction's site while the scan unwinds, and names the task that ran, which is `u16::MAX` when no task ran. A host reads the latched record as often as it asks, `fault()` still returns the error, and a restart or a fault-clearing recovery clears the record with the fault. The event store and the hosted fault holder keep that record as the fault, and `faults` and `events.tail` render its text when they reply, so a device records a fault without allocating.
 
-**MEM-06.** Compound data shall have known capacity and execution-cost bounds. The first implementation may use preallocated typed storage before a full packed representation, but bounded execution shall not rely on recursive heap-allocating Value clones. Array/string operations, nested initialization, and reference traversal shall be bounded even when implemented by one opcode. Replacing value copies with aliases is prohibited unless the existing language contract permits that aliasing; reference lifetimes and copy semantics shall be preserved.
+**MEM-06.** Compound data shall have known capacity and execution-cost bounds. Compound data is stored packed, every variable at its declared size in the program's flat blocks (MEM-12), and bounded execution shall not rely on recursive heap-allocating Value clones. Array/string operations, nested initialization, and reference traversal shall be bounded even when implemented by one opcode. Replacing value copies with aliases is prohibited unless the existing language contract permits that aliasing; reference lifetimes and copy semantics shall be preserved.
 
 H applies the artifact type-nesting bound to recursive value-copy accounting,
 independently of the profile's POU call-depth bound. A value at the admitted
@@ -787,7 +1188,147 @@ A complete packed representation is not the first extraction step. First separat
 
 **MEM-10.** Use exclusive ownership of mutable execution state and an explicit borrow of immutable prepared metadata as the initial portable boundary. Prepare dense program/type/member/slot identities so bounded execution does not depend on lazy name-map insertion or OS `RwLock` caches. Host code may own or pin generations with `Arc` outside this boundary where its threading model requires it. Do not replace every host `Arc` with `Rc`, weaken host thread-safety, or duplicate instruction semantics to make one target compile. Audit transitive string/container ownership as well as direct core imports. [R22, R24]
 
-**MEM-11.** Document scalar slots, compound regions, frame/local/temporary reuse, initialization scratch, and copy/drop ownership. Select one bounded representation for hosts and MCUs with application-sized capacities. Scope A/B may retain `SmolStr`/`IndexMap`/`Arc` values under a bounded bring-up heap on F401/C6, recording every remaining scan allocation and refcount/destruction cost; this cannot qualify ARCH-05. Implement measured narrow storage improvements before first hardware evidence where needed. Complete atomic-reference-count retirement and bounded compound copying in M3; only then require optional C3/IMC support. Avoid a throwaway value model solely to pass M1. Retain failed fit evidence and the mandatory fixture. [R24, R30, R31]
+**Prepared cell layouts.** At preparation the shared engine computes, for every TYPE_TABLE entry, one
+layout of the cells that will hold its values: the cell count (a scalar is one cell), a structure's
+member ordinal to cell offset mapping with its nested compounds inline, an array's element stride and
+dimensions, its text leaves with their byte capacity, its reference and instance leaves, the length
+of a `STRUCT OVERLAP`'s byte backing, and whether the type can hold a reference or an instance so a
+later lifetime check skips scalar-only layouts. A `STRING[n]` leaf reserves `n` bytes and a
+`WSTRING[n]` leaf `2n` bytes of UTF-16 code units; a `STRING` or `WSTRING` declared without a length
+reserves 80 and 160 bytes (D-C1-1, D-C1-2), which supersedes the earlier `4 × n` unit. Globals, each
+persistent root (one range per root, so two instances of one type get two ranges; a derived
+function block's template holds its own cells and a link to its parent's template, and a derived
+root's range covers its whole inheritance chain: its own cells, then its parent's cells and so on up,
+the parent instance that construction creates for it lying inside that range and reserving no cells of
+its own; C1-9c), each POU's locals and each initializer result map to a cell range of the persistent or the activation region,
+and a `REF_FIELD` member name resolves to a member ordinal at preparation. The prepared layout tables
+and the work of computing them are charged once at preparation, under the admitted profile's limits.
+A region's cells are only recorded at preparation, not charged: construction charges them when it
+reserves the region, so no storage is counted twice and the refusal points of large programs do not
+move. A program whose layout tables and other preparation demand exceed those limits is refused at
+preparation, never at run time. Every state is built on the flat store, which reads the layouts at
+run time (checklist C1-19d) and is the only store since the value store was deleted (C1-19e); stored
+values, outputs and faults are those the value store gave.
+
+**The flat store.** The bounded value store is MEM-12's flat blocks: a variable's bytes at its
+declared size and alignment, read and written as the type of its layout says, little-endian on every
+target, with no tag in the block. A region owns one block, which it reserves once from the prepared
+layouts, zeroed, through the same checked reservation that refuses an allocation failure as the
+other construction reservations do, and which never grows: every accessor answers `None` outside the
+block and allocates nothing. A text leaf holds its length and its characters inline; a reference
+leaf is MEM-12's 16 bytes, whose first byte says whether it holds a reference, and until C1-11 the
+region's reference table holds the `ValueRef` of each non-null reference leaf under the leaf's byte
+offset (O9); an instance leaf is 8 bytes, the instance's identity and a byte that says whether it
+names one. A function static and a native-state slot keep one presence byte after their value, zero
+until their static action or their native import first gives them a value, so until then they read
+as the null value, as they do in the value store, and a path into them names nothing. A leaf decodes to a 16-byte `Cell`, `Copy` and without `Drop`, the unit TIME-08's copy
+charges count a value's elements in; the block never holds one. The persistent block holds the
+globals, each at the offset preparation gives it, and then one range per persistent root, each that
+holds bytes at a multiple of 8; a root's range holds its instance's own variables, each at the offset
+preparation gives it in the instance's template, and its parent's template after them (O6, O8). The
+bytes a store takes are its block and its reference table, which holds one entry per reference leaf,
+so construction charges them before reserving. Construction charges, in the same charge and before
+it reserves, the memory it holds while it builds the store: the `globals` range table, one 12-byte
+entry for each STORAGE_LAYOUT declaration; the `roots` range table, one 12-byte entry for each
+CONSTRUCTION_ROOTS record; the instance table, one 28-byte entry (the identity, the template POU, the
+byte range and the parent) for each CONSTRUCTION_ROOTS record that has a template POU, which is every
+persistent instance of the application; and the lists it fills while it walks the layouts, one
+4-byte entry for each reference leaf and one 24-byte entry for each declared variable that
+construction fills with its default, which is every global and every member of a persistent
+instance except a function static and a native-state slot (their static action and their native
+import give them their values, and until then their bytes are zero). They are reserved memory, so
+they count with the block, and an entry has the same size on every target. The instance table is
+reserved once from that count and never grows, so an instance beyond it is refused; it holds no text,
+because the type name of a persistent instance is the name of its template POU. One counter issues
+the identity of every instance, persistent or per-call, and it holds the entry floor of HOST-02: when
+a top-level execution entry begins on the store, the identities issued since the previous entry began
+are issued again if none of their instances is still live, exactly as on the value store, and an
+instance that construction created is never issued again. The engine reads and writes the globals,
+the persistent instances and the retained variables only through the store-access seam: a scan with
+its program-root read, its input apply, its output journals and its built-in blocks, an engineering
+read or write, a cycle-port lookup, a named program entry, a retained apply or capture, a restart and
+the scalar readers of a state all go through it. Until the value store was deleted (checklist
+C1-19e), every program of the bounded-C corpus ran on both stores and read, wrote, faulted and was
+charged alike, scan after scan; what the value store left (every declared variable, the process
+images, the latched fault, the debugger's copy of the storage, each scan's result and the work and
+bytes charged at each of its phases, each engineering operation's result and charge, the call stack a
+debugger reads and the retained payload) is kept as the recorded facts the flat store is tested
+against, and where this section says that a result, a charge or a refusal is the value store's, it is
+the one the value store gave. A program root is construction-only (specification 12 §6.4) and holds
+no bytes: a read of it names its program's instance, and a write to it is refused. The value half
+the store keeps holds the activation registry, the slots a frame keeps as values (compiler scratch,
+`ARRAY[*]` parameters and initializer results that are not staged in place) and the instances an
+entry or construction creates outside any call, such as the temporary instance of a function-block
+entry; every instance a call creates lies on the activation stack. A text written into a leaf is cut
+exactly where assignment normalization cuts it. A subscript of a text in the block counts
+characters, as for a `Value` (DEV-017): the first is index 1 and the last is the count of the text's
+characters, whether the leaf holds UTF-8 bytes or UTF-16 code units. A `WSTRING` has no borrowed
+UTF-8 text, so its characters are counted and read from its code units in place without building a
+`String`, and a character outside the Basic Multilingual Plane, which a `WCHAR` cannot hold, reads
+as none, as it does for a `Value`.
+
+**The default store.** Every runtime keeps a program's variables in the flat store (checklist
+C1-19d). The storage a computer's tools read whole, the debugger's copy of the storage, its tests and
+the services that read variables by name, is the value store's form of the flat store: every global
+and every instance read from the blocks into one storage when it is first read after a change, and
+kept until the next change. On a computer, construction reads every value of the blocks back once
+and refuses a store it cannot read, so that the storage can always be shown (decision O3 (a)); a
+chip shows no such storage and does not read its values back.
+
+**Value conversion.** An engineering write converts a `Value` of a prepared type into its layout's
+bytes — checking the whole value before it writes a byte and allocating nothing, keeping every
+scalar's exact bits, every enumeration's value as its base type, and every structure member, array
+element and nested compound at its layout offset — and refuses, leaving the bytes as they were, a
+value whose kind, members, bounds, element count or slice length does not match the type, a non-null
+reference where no reference table is given, and a structure with a physical layout whose members
+disagree about their shared bits (C1-15), while a read
+materializes the same `Value` again and a member-and-index path resolves to its byte offset through
+the same layout (C1-10). `Value::Null` writes zero bytes, and zero bytes read as the type's zero
+value, except an instance leaf that names no instance and an unbound native counter slot, which read
+as `Value::Null`.
+
+**Overloaded timers.** STBC declares the `PT` and `ET` of an overloaded `TP`, `TON` or `TOF` as
+`TIME`, yet a call may give them `LTIME`, and `PT` determines the family of `ET` (specification 08
+§5). Preparation therefore gives these two variables of each such template the native duration slot
+(checklist C1-19d), as the generic counters have their slot on the wire (specification 12 §11.5.4):
+16 bytes at alignment 8, the duration's nanoseconds and a byte for the family it was written with,
+which holds a `TIME` or an `LTIME` value and reads as `TIME` 0, the default its template declares,
+until a call writes it. The explicit `*_TIME` and `*_LTIME` blocks keep their declared types, and a
+program's STBC is unchanged.
+
+**MEM-11.** Document scalar slots, compound regions, frame/local/temporary reuse, initialization scratch, and copy/drop ownership. Select one bounded representation for hosts and MCUs with application-sized capacities. Scope A/B may retain `SmolStr`/`IndexMap`/`Arc` values under a bounded bring-up heap on F401/C6, recording every remaining scan allocation and refcount/destruction cost; this cannot qualify ARCH-05. Implement measured narrow storage improvements before first hardware evidence where needed. Complete atomic-reference-count retirement and bounded compound copying in M3; only then require optional C3/IMC support. Avoid a throwaway value model solely to pass M1. Retain failed fit evidence and the mandatory fixture. [R24, R30, R31] The selected representation is MEM-12's flat blocks at declared sizes (owner, 19 October 2026).
+
+**MEM-12. Flat blocks at declared sizes** (owner, 19 October 2026: variables at their declared size in one flat block, as CODESYS and TwinCAT keep them; checklist C1). On every runtime the engine keeps a program's variables in flat blocks of bytes that preparation lays out from the TYPE_TABLE, and nowhere else.
+
+- Each variable takes its declared size at its natural alignment (its size, at most 8 bytes):
+  - `BOOL`, `SINT`, `USINT`, `BYTE` and `CHAR` 1 byte; `INT`, `UINT`, `WORD` and `WCHAR` 2; `DINT`, `UDINT`, `DWORD` and `REAL` 4; `LINT`, `ULINT`, `LWORD` and `LREAL` 8; each temporal type 8, STBC 3.0's eight-byte temporal storage;
+  - an enumeration its base type, `INT` (2 bytes) when it declares none;
+  - `STRING[n]` a length of 2 bytes (4 when `n` exceeds 65,535) and `n` bytes of UTF-8, and `WSTRING[n]` the same length and `n` UTF-16 code units, so `2n` bytes (specification 02 §6; `STRING` without a length is `STRING[80]`);
+  - a structure its members in declaration order, each at its alignment, aligned to its largest member and padded to a multiple of it; an array its elements one after the other; a `STRUCT OVERLAP` its members over the same bytes, as specification 02 defines them;
+  - a `STRUCT OVERLAP`, and every structure type nested in one, lies as its backing in every place it is held: the bits of its members as specification 02 §3.6 places them, the gaps between them included, so a copy of the structure carries its gap bits as specification 12 requires of independently copied aggregates. A member that has no overlapping bit representation (a text, a reference, a union, or an array of them; specification 12 §4) follows the backing at its own layout and alignment, in declaration order through every nesting level, since no other member shares its bits. Such a structure is aligned to its most aligned member beside the backing, or to 1;
+  - a union each of its variants, as a structure its members, since every variant is kept as a member of its own (specification 02 §3.7); `SIZEOF` keeps the largest variant;
+  - a function block or class instance its variables in declaration order, each at its alignment, in a range of the same block: the persistent block holds one range for each persistent instance, its own variables first and its base's after them, and whatever holds the instance (a global, a program's variable or a member of another instance) holds an 8-byte leaf naming it;
+  - a reference (`REF_TO`, an interface reference) 16 bytes on every target: the block and byte offset of its target, the target's installation generation (MEM-07) and the character index of a character reference. Its target type is the declaration's.
+  - a function static and a native-state slot their value and one presence byte after it: they hold no value until their static action or their native import gives them one.
+- `SIZEOF` keeps specification 29's sizes; the length of a `STRING[n]` or `WSTRING[n]` and the padding of a structure are in the block but not in `SIZEOF`.
+- The blocks are the persistent block (globals, programs and their instances, reserved at construction for the generation), the activation stack (function and method variables, `VAR_TEMP` and per-call instances, last in first out, sized from the deepest static call chain, since IEC 61131-3 has no recursion) and the operand stack (temporaries). The engine reads and writes each value in place at its offset as its layout's type says: no heap allocation holds a variable's value, and a scan allocates nothing (ARCH-05).
+- Construction builds each default in place as well: the default of a frame variable's array, structure or text in a result staged on the activation stack (checklist C1-13), and the default of a global's or a persistent instance variable's array, structure or text, which holds no reference and no instance, in the variable's own bytes (C1-22). No value of a variable is built on the heap to initialize it, however large the variable: on a 32-bit chip such a value of an array of 5,000 DINTs (20,000 bytes) would take 160,000 bytes at once.
+- Engineering access converts at the boundary: Live Values, the debugger, the HMI, retain capture and restore, the control protocol and online change write a value by converting a `Value` into the destination's bytes, checked whole before any byte changes, and read one by materializing a `Value` outside the scan.
+- Each program has a memory figure (checklist C1-21): the bytes of heap the program holds while it runs, which preparation computes from the program and the sizes of the device that prepares it, part by part: the prepared program with its layout tables (MEM-14); the persistent block with its tables; the activation stack for the deepest call chain, with what each call level takes; the operand stack with its temporaries, its buffers and the register files; the engine's own state (its records, the process images, the tasks, the bookkeeping of the instances, the input snapshot and the output journal); and the capture of the retained values, which counts when the runtime keeps them. Construction reserves exactly what the figure counts, and no scan grows it (MEM-09), so the figure is what the constructed program holds; a native test compares it with the allocator, part by part, for every program of the corpus. The device computes the figure when it prepares the program, and the deployment record does not carry it (owner, 20 October 2026). Admission refuses a program whose figure is more than the memory the device has for programs, naming both numbers (§5.1.1, DEPLOY-05). `status` reports the figure of the program that runs as `metrics.program_memory`, and `trust-runtime build` the figure on the computer that builds (specification 11).
+
+> **Superseded** by specification 44: a chip runs a compiled image where it lies or from its program
+> region (specification 44 §10.3), and MEM-14's prepared module and its tables are gone with the
+> bytecode engine (specification 44 §15). MEM-14 stands as the record of that engine.
+
+**MEM-14. The program held compactly** (owner, 19 October 2026; checklist C1). A prepared program keeps no heavyweight copy of its container in RAM. Measured on the A4 program (6,412 bytes of bytecode, 64-bit host, `where_a_loaded_programs_heap_goes`), the prepared module took 24,671 bytes, of which its instructions were 424: native call symbols 7,208, type and region layouts 2,680, prepared indexes 2,329, references 1,920, names 1,848, initializers 1,764, the storage layout 1,216, the debugger's statement index 1,204, name maps 964, POU entries and parameters 936 and types 624. On every runtime:
+
+- Names are offsets into one buffer that holds the container's string table, not owned copies, and a lookup by name searches a sorted table of offsets; no table keeps a hash map of owned keys. A name longer than the 23 bytes a short string holds inline also keeps one shared string, so that a member a scan names by it shares that string instead of copying the name to the heap (MEM-09; checklist C1-19c4).
+- A native call symbol is a compact plan: its target's and its arguments' names as string offsets, its resolved function and conversion as small indexes.
+- Each prepared table is one array of fixed-size entries, whose lists are ranges into shared arrays, not one vector per entry. A table holds exactly its entries: it keeps no room for entries it does not hold, which the memory figure would count (checklist P1, batch m1: on 22 October 2026 v1p's tables kept 2,224 bytes of such room on a 64-bit host).
+- The program image is read in place, and what a scan reads stays in RAM (the owner, 22 October 2026: "do what's most professional for a plc runtime", and on putting in flash only what no scan reads: "Do as you suggest. Our goal is a professional runtime that can run on any hardware"; as NodeMCU's Lua Flash Store and MicroPython's frozen bytecode keep a program in flash). A chip reads the image of the program it boots or restarts where it lies in its slot's flash: the ESP32-C6 maps the slot's pages into its address space through its MMU, each slot into a window of its own, so that an install reads a container written into one slot (§5.1) while the program the runtime holds is read from the other, and the STM32U5 reads its flash directly; that image takes no heap, and the memory figure counts none for it. No scan reads the storage layout or the initializer index whole, so the chip reads their records where they lie in the image. It keeps on the heap one compact record for each declaration, with what a scan reads of it: its type, its owning POU, its name, its slot, its default constant, its owner, its role and its qualifiers. It keeps one for each initializer, with what a call reads of it to give a frame variable its default directly or to find a static already initialized. It also keeps each record that preparation changed, such as the duration members of an overloaded timer (§6.2). Only building an array, a structure, a text or an instance reads whole records in the image. The tables a scan reads stay decoded on the heap: the reference table, the constant pool, the type table, the string table, the POU index and the native call symbols. A program prepared from bytes that it does not keep holds its tables decoded, each record as the part a scan reads and its other fields, in no more bytes than before: a computer's program, and the candidate of a chip's online change, which arrives in a request and is never written to flash while the program runs, since a flash erase would stall the scans. Either way a scan reaches the part it reads by reference.
+- MEM-12's memory figure includes the prepared program. The target is that a prepared program takes at most as much heap as its container has bytes; the test prints each fixture program's figures, part by part, so every change is measured against this target.
+
+**MEM-13. Lean control replies** (owner, 19 October 2026; checklist C7). The shared services write a reply's text straight into the link's frame buffer, or into the parts of a held reply (PORT-05), as they produce it. No reply on a chip builds a JSON value tree or a contiguous text on the heap, and the bytes are those trust-runtime writes. A computer's own handlers may keep building their replies, since a computer's heap is not bounded.
 
 ### 6.2.1 B-R3 live storage and footprint refinement
 
@@ -796,11 +1337,13 @@ reference, rollback and ordering contracts. It changes storage and code generati
 not bytecode semantics. This is a measured bring-up slice of MEM-03/06/10/11, not
 completion of M3's allocation-free compound-value contract.
 
-- Frame/instance identities retain every bit of their existing monotonic u32 domain.
-  Removed identities stay invalid; capacity follows live entries, not the largest
-  identity ever issued. ID exhaustion remains a checked fault. Sorted live entries
-  use binary search; reserve appends in identity order. Arbitrary public removals
-  remain supported even where ordinary frame retirement is LIFO.
+- Frame/instance identities retain every bit of their existing u32 domain. Within
+  a top-level entry they increase and removed identities stay invalid; §4.3.1 and
+  HOST-02 state when a later entry issues them again. Capacity follows live
+  entries, not the largest identity ever issued. ID exhaustion remains a checked
+  fault. Sorted live entries use binary search; reserve appends in identity order.
+  Arbitrary public removals remain supported even where ordinary frame retirement
+  is LIFO.
 - Ordinary activation depth and initializer staging storage are distinct. A POU
   activation remains live while its declaration initializer reserves a result slot
   at the same logical depth. Do not equate storage entries with max_call_depth.
@@ -912,6 +1455,325 @@ conditional on passing software and ELF gates; no automatic retry follows a fail
 Recursive calls and indirect call targets require a conservative bound or an explicit profile restriction. Call and instruction budgets must cover the whole nested execution, not restart on every nested call. Unsupported dynamic allocation or unbounded constructs shall produce a clear admission diagnostic.
 
 **MEM-09.** Hosted backing storage may be allocated during preparation. Capacity growth, first-use allocation/lowering, and allocation-producing destruction or cache replacement shall not occur in bounded control paths. Instrument the control thread and its synchronous callbacks, including rare/failure paths; attribute unrelated service allocations separately. Shared allocator contention and other process-wide interference shall still be exercised in stress tests. Retired-generation reclamation shall satisfy Section 11.3.
+
+**The allocation count** (owner, 20 October 2026: metrics on every runtime; checklist C1-19f).
+Every runtime counts the allocator operations of the thread that runs its scans, each allocation,
+reallocation and free once: a chip with the measured heap it allocates from, a computer with the
+counting allocator that the trust-runtime program installs. The engine reads the count when a scan
+begins and when it ends, a scan that is refused included, and around every call it makes into a
+service during the scan: the cycle hooks at each phase they observe, the publication of the
+outputs, the program observers and, while a debugger is attached, the statement hook. The
+operations made inside those calls are the services'; the rest of the scan's are the engine's. The runtime adds the operations
+of its own cycle work around the scan to the services' and reports both totals since the program
+started in `status` (specification 11 §6.8.1): `engine` proves ARCH-05 on the device, and `services`
+is this requirement's separate attribution. A runtime that does not count reports `null`, never
+zero. Reading the count allocates nothing. Every runtime keeps the count in 32 bits that wrap:
+the operations between two readings are their wrapping difference, exact while fewer than 2^32
+operations lie between them, which no scan and no cycle makes, and the totals in `status` add those
+differences in 64 bits. A chip keeps the count in one 32-bit word that each allocator operation
+adds to atomically, so a reading is one load and takes no critical section (checklist P1-6; the
+owner, 22 October 2026, "do what's most professional for a plc runtime": the 64-bit count of
+two words and a mark that a reading checked took 7.4% of a short cycle's busy time on the C6).
+
+**Execution scratch reserved at construction.** Construction reserves the storage that a scan's
+stack execution and process-image staging use, and charges all of it against the construction
+allocation allowance before reserving any of it (TIME-09), as HOST-04 does for register scratch:
+
+- the operand stack, as deep as the deepest POU body plus, for every further reserved call
+  level, the most operands that a body keeps below a call of a user function, function block or
+  method while the callee runs. The validator records both numbers. With no such call there is
+  one call level;
+- the frame and pending-call stacks of those call levels;
+- a local-slot vector and a parameter-presence vector as large as the largest POU's locals for
+  every call level (checklist C1-19c);
+- the execution buffers of initializer bodies, one for each nested initializer evaluation, each
+  as deep as the deepest initializer body, which the validator records, with one frame;
+- the initializer, construction-frame and type-operation stacks;
+- the output copy-back journal, with room for the most parameters of any POU or the most
+  arguments of any call site, whose outputs a native call's group writes, and for the bytes of
+  the roots it saves as their bytes (checklist C1-19c4): the most bytes of the roots that the
+  outputs and in-outs of one call lie in, as the call's prepared plan names them (a call passes
+  its inputs as references too), the walk bounding each root by the variable its static reference
+  starts at, by the member of an instance it names, and, for a reference the program holds or a
+  call returns, by the largest type that holds no reference and no instance;
+- the staged input values, their destination snapshot and the output windows of every
+  process-image binding, and the key of each published hierarchical image entry, which the entry
+  takes when its binding first publishes;
+- a copy of the output image, which a publication to output hooks takes before it applies its
+  patches and copies back when the hooks refuse the publication, so that every window the patches
+  and the hooks' writes touched has its bytes again (checklist C1-19f). The publication is charged
+  as the journal of saved windows that the copy replaces was: an entry for each output patch and
+  for each window a hook writes after the output sample, and the bytes of each window (TIME-08);
+- the text a character write edits, as large as the largest text the module declares;
+- the operand stack's temporary area, for the most bytes of texts and copies ("Places",
+  "Texts") the deepest body holds at once plus, for every further call level, those a body keeps
+  below a call, and the text-call buffers, for the longest text a text function writes and the
+  most bytes of the texts one call reads (checklist C1-19c2). Preparation finds them by walking
+  every POU and initializer body as the validator walks it, each operand bounded by its type: a
+  text at its capacity in UTF-8 (a `WSTRING`'s code units at up to three bytes), a place and a
+  function's result that the caller takes as a copy by its bytes (checklist C1-19c4), a text
+  function's result by its arguments (`CONCAT` their sum, `LEFT`, `RIGHT`, `MID`,
+  `DELETE` and a cut the first, `INSERT` and `REPLACE` the first two, a conversion to a text the
+  longest text its source type gives, an `LREAL` 343 bytes);
+- the retain capture of services that persist through one, its staged payload and the buffer the
+  first accepted payload leaves, for the largest payload of the resource: each retained variable
+  whose value holds no reference and no instance, under its key, at the largest encoding of its
+  type (each text at its capacity, each enumeration with its longest variant name).
+
+A scan takes this storage and gives it back empty, so no scan grows it, the first one and a rarely
+taken branch included (MEM-04, MEM-09). RUN charges and refusals do not change: an activation is
+charged the frame and pending-call growth that storage growing on demand would need, and staging,
+snapshots and journals are charged as before (TIME-08).
+
+Initializer evaluation, construction and the lifetime check reuse the same reserved bookkeeping:
+an evaluated initializer's result slot, its seed's pending, visited and backup lists and its
+owned-instance snapshot are taken per call depth and returned on every path, each list with room
+for the most instances one call creates, an owner of instances (a frame, an evaluated
+initializer) takes a reserved list for them, a construction frame is moved rather than cloned, the
+lifetime check's visited set is reserved for the persistent instances and the most per-call
+instances the activation stack holds and cleared per check, and each type's `SIZEOF` walks a
+fixed-depth stack; every result, charge and refusal is unchanged (TIME-08).
+
+Construction sizes these call levels to the program's static call depth, not to `max_call_depth`.
+The validator walks every call target from every entry and, conservatively, of every POU in the
+module, so a target reached only by method or interface dispatch still counts: a `CALL` to a
+function or function block, a method call and an interface call over every POU that can implement
+the method, and a nested instance declaration as the initialization it runs. The engine reserves
+the lesser of that depth and `max_call_depth`. A call graph with a cycle, a recursion, which IEC 61131-3 leaves
+to the implementer (§6.6.1.1) and the engine executes, has no static depth and reserves for `max_call_depth`, exactly as
+before. `max_call_depth` remains the admission ceiling and the runtime depth check is unchanged
+(MEM-02).
+
+**Call plans.** Preparation resolves every `CALL_NATIVE` site once, before RUN: the formal index of
+each actual (named and positional resolution), the explicit-presence pattern, the output
+descriptors and the callee — a function's prepared POU, a function block's POU, a method through
+the prepared owner and method table, and a built-in function block's kind and parameters. A scan
+reads the plan and resolves no argument names and builds no uppercase type-name key, and an
+interface attempt compares prepared POUs while still charging the type-name bytes TIME-08
+prescribes; every result, charge and refusal of a call is unchanged (TIME-08).
+
+**Frame payloads.** Construction reserves one frame payload per call depth — that depth's local
+slots and parameter-presence bits, sized for the largest POU — and an activation takes the payload
+of its depth, binds its arguments into it and reads its edge inputs and their restores from
+reserved lists, returning the payload when its frame is popped on every path (return, trap, fault
+and abort); a scan allocates no locals, presence, edge-input or restore vector, and every result,
+charge and refusal is unchanged (MEM-02, MEM-03, MEM-09; TIME-08). A program that can call deeper
+than `max_call_depth`, through a call graph with a cycle or a static depth above the ceiling, has
+one payload more: the call that the depth check refuses binds its arguments into it, charged as
+before, and gives it back when it is refused (checklist C1-19f).
+
+**Call scratch.** Construction also reserves, per call depth, the call scratch that binds a call —
+its evaluated argument list, parameter flags, output bindings, preflighted targets and preflighted
+outputs, sized for the largest call site — and a call takes its depth's scratch and returns it on
+every path (completion, trap, refusal and abort), so a scan allocates no argument, flag,
+output-binding, target or prepared-output vector, and every charge is unchanged (MEM-09;
+TIME-08). A standard function's arguments and a split function's outputs are bound into the call
+depth's reserved values, and a named argument is matched without building an uppercase name, with
+every result, count, charge and refusal unchanged (MEM-09; TIME-08).
+
+**Reference buffers.** The engine keeps the path and index buffers of the references a scan builds:
+a reference whose path grows (a member, an element, a further subscript), a copy of a static path
+and a loaded reference variable take kept buffers, and a load, a store or a discard through a
+reference gives them back, as do a write that replaces a stored reference, a comparison of
+references and a refused assignment attempt. A call's outputs and in-outs copy their
+references' paths into kept buffers and give them back once the outputs are copied back, and the
+check of an output's write reads the output's own path (checklist C1-19c4). Construction reserves a
+path buffer for every reference a scan can hold at once (checklist C1-19c3): those the walk
+("Execution scratch") finds among a body's operands at once, on every call level, the references
+the reference leaves of the frame and of the instances it holds and the copies the outputs and
+in-outs of a call keep, the reference leaves of the persistent block, and one for a path that moves
+into another buffer. Each path buffer has room for the longest path of the module (a segment for each member
+and array level, a static reference's own path followed by any path into its target), and each
+has an index buffer for every index segment such a path takes, with room for the most subscripts.
+So a dynamic index or member and a reference variable that takes a new reference allocate
+nothing, the first scan included (ARCH-05, MEM-09). A buffer's room changes no charge: each
+segment and each subscript costs what it cost (TIME-08).
+
+**Places.** On the flat store, a load of a text, or of an array or a structure whose leaves are
+numbers, bits, characters, texts, times, dates and enumerations, leaves the value where it lies: the
+operand stands for its bytes, and a store into a destination of the same type in the block copies
+them, checked and charged as a write of the value is (TIME-08), its texts' capacity checks included
+(checklist C1-12). A structure with a physical layout, an overlapping or a located one, that holds
+no reference is such a value, copied as its cells, and so is a structure nested in one whose members
+all lie in its backing (C1-15b). A frame's variable on the activation stack is such a place as a
+global is, and a store copies the bytes between the persistent block and a frame's bytes either way
+(checklist C1-19c4). So is an array or a structure that holds `REF_TO` references beside such
+leaves while each of its reference leaves holds a flat reference ("Flat references") or none,
+whose bytes name the same targets wherever they lie: a store copies them, checked and charged as a
+write of its value, and the destination's reference table keeps no reference for those leaves
+(C1-19c4). A value that holds an instance, or a reference its leaf's table keeps, is stored as a
+value (C1-11). A
+function's result that is such a value stays in the finished frame's bytes, and the caller takes a
+copy of them onto its operand stack's temporary area, charged and checked as reading and returning
+the value is; a store writes the copy as it writes a copy of a place (C1-19c4). A function's input
+that names such a value of the parameter's type is copied into the callee's frame once the frame is
+placed and initialized, checked and charged when the call binds it as reading the value and
+normalizing it are (C1-19c4). Both tiers do so for a call: the register tier's callee takes such
+inputs into its frame's bytes and leaves such a result there, and its caller, the register tier or
+the stack tier, takes the copy (checklist C1-20); only a callee whose frame keeps its variables as
+values takes the value.
+Before a call that leaves such an operand on the operand stack, below the arguments the call takes,
+the engine copies the operand's bytes into the stack's temporary area ("Texts"), and a store writes
+the copy where it would have copied the bytes, checked and charged alike, its texts' capacity checks
+read from the copy (checklist C1-19b): `a[F(x)] := b`, where `F` writes `b`, stores the `b` its load
+read. Before any other instruction that may write a block or call, other than a call of a built-in
+text function ("Texts"), or that pops such an operand or a copy as a value, the engine reads it into
+a value, so a store always stores the value its load read, whatever the program wrote in between. An
+assignment of such a value allocates nothing (ARCH-05).
+
+**Enumerations.** On the flat store a load of an enumeration, a variable or a member of an
+overlapping structure, and a load of an enumeration constant push it as its type and the number of
+its variant, the enumeration cell of MEM-12 (checklist C1-19a). A store writes the number into the
+destination's leaf, after the checks a store of the value makes (its type name and its variant) and
+with the same charges, a member of an overlapping structure as the value store's physical writer
+writes it; `=` and `<>` compare two enumerations by type and number, as their values compare. Any
+other instruction that pops one is given its value first. A load, store or comparison of an
+enumeration allocates nothing (ARCH-05).
+
+**Texts.** On the flat store a call of a built-in text function (`CONCAT`, `DELETE`, `FIND`,
+`INSERT`, `LEFT`, `LEN`, `MID`, `REPLACE`, `RIGHT`, the cut that assigns a text to a shorter one,
+and a conversion from or to a text) whose arguments are inputs reads each argument where it lies: a
+text in a block, a text an earlier call made, or a value, a `WSTRING` in a block from its code units
+(checklist C1-12). Its text result goes into the temporary area of the operand stack, which keeps
+its room and, whenever a temporary is used, ends where the room of the topmost temporary still alive
+ends, so a call that takes texts as values gives their room back even while an older one lives below
+them (C1-19c2), and a `WSTRING` constant is loaded there. A conversion reads a number from a text
+where it lies, and `=` and `<>` compare two texts where they lie, as their values compare: equal
+when both are `STRING`s or both `WSTRING`s with the same characters (checklist C1-19b). A store
+writes the text into its destination's leaf, cut to the leaf's capacity and charged as the store of
+its value is, and an instruction that needs the value reads it into one. A character written into a
+text (`s[i] := c`) replaces the character in the leaf, the text then cut to the leaf's capacity. A
+function a program registers under such a name, a call with an output and a call by name that does
+not bind one argument to each formal bind values as any call does. Every result, charge and refusal
+is the value store's (TIME-08), so such a call allocates nothing, the first one included (ARCH-05,
+MEM-09).
+
+**Activation stack.** On the flat store every call's frame lies on the activation stack, on top of
+its caller's (MEM-12; checklist C1-11). Preparation gives each POU a frame layout, every typed
+variable of the frame at its declared size and alignment and the frame rounded up to 8 bytes, and
+construction reserves the stack once, charged with the persistent block: for each call level it
+reserves (§6.2), the largest frame together with the instances its variables hold and, when a frame
+variable's initializer is evaluated in place (below), the largest staged result of one, rounded up to
+8 bytes, with a record for it; no chain of calls exceeds that. A frame takes the bytes above its
+caller's when its activation begins, zeroed; the
+inputs its call bound and a return value its caller supplied move into them, the defaults and
+initializers of its other variables are written there, every read and write of its variables reaches
+them through the store, its return value is read from them, and after it returns its outputs are
+copied back from them, before any other frame takes the bytes. A compiler scratch slot, which has no
+declared type, stays a value of the frame. So does an `ARRAY[*]` parameter, which has no bytes of its
+own: each call gives it the shape of its actual argument (specification 12 §6.3; IEC 61131-3
+§6.5.3), so the frame holds that argument as its value (checklist C1-19d). A function block or class instance that a call creates
+for a variable of its frame lies on the stack too, above the frame (checklist C1-11c): each level of
+its inheritance chain in a range of that level's own variables, zeroed and then given their declared
+constants, and the instances those variables hold above it. It leaves the stack when the frame that
+owns it ends, and construction reserves a record for each instance the stack can hold. An instance
+created while no call runs, such as the one an engineering entry runs, stays a value. A reference
+that a frame's variable or an instance on the stack holds lies in its leaf (checklist C1-19c4): a
+flat one in the leaf's 16 bytes, any other in the activation stack's reference table, which takes
+an entry for each reference leaf of a frame or an instance, each element of an array included
+(checklist C1-19d), when it takes its bytes and drops them
+when it leaves the stack, the paths of the references they held going back to the engine's buffers;
+construction reserves the table for the reference leaves of the largest frame and the instances its
+variables hold, on every call level. The
+hosted register tier runs on the flat store too (checklist C1-18): its frames lie on the activation
+stack as the stack tier's do, its interpreted and compiled blocks read and write their typed locals
+there, and a call it runs hands its result and its outputs to the caller from the finished frame's
+bytes. Every result, charge and refusal is the value store's (TIME-08). Its scans allocate nothing,
+as the stack tier's do (ARCH-05; checklist C1-20): a register holds what an operand of the stack
+holds, a value, a place, a text or a copy in a temporary area, or an enumeration, and the
+instructions that the stack tier runs on those forms take them alike: a load, a store, a move, `=`
+and `<>`, a call, its arguments and a built-in text function's text result, a load and a store
+through a reference, and the fused comparisons of a static reference with another or with a
+constant. Each POU's registers reserve at construction the temporary area its body needs, as the
+walk of the operand stack bounds it ("Texts"), a text that a text function reads through a
+reference argument counted at the referenced variable's length. A reference a register holds gives
+its path back to the engine's buffers when it is used up or dropped, and is copied into them when a
+later read needs it too.
+
+**Initializers.** On the flat store the initializer of a frame variable whose value is an array, a
+structure or a text that a store copies as bytes, and whose value the value store builds in a staged
+result (a body, or a default without a literal), is evaluated in place (checklist C1-13), and so is
+the default of an array or a structure that holds references, whose default holds none, its staged
+result's reference leaves taking entries in the activation stack's reference table (checklist
+C1-19c4). Its staged
+result lies on the activation stack above the frame it initializes, zeroed. A default is constructed
+into those bytes, a leaf at a time; the seed of an explicit initializer is copied there from the
+variable; a body's `DEFAULT_TYPED`, `COERCE_INIT_VALUE` or `APPLY_INIT_VALUE` whose value the next
+instruction stores whole as the result is constructed there, and that store copies it as a place;
+the commit copies the result's bytes into the variable. The arrays and structures a body collects
+with `ARRAY_NEW` and `STRUCT_NEW` are built in containers the engine keeps, up to 16 of each, which a
+construction gives back when it consumes them. Every step is checked and charged as the value store
+checks and charges it, in the same order: a construction in place charges what building its value
+charges, its check of the value one unit for each byte of each text and its lifetime check one unit
+for each node it visits (TIME-08). An initializer whose staged result finds no room on the stack,
+every other initializer and the members of an instance a call creates are evaluated as values. So a
+call that initializes such variables allocates nothing once the engine is warm (ARCH-05).
+
+**Retained transfer.** On the flat store a warm restart, and a replacement that declares the same
+retained storage (§11.3), copies each retained variable from the running store's cells into the next
+generation's, leaf by leaf, without building its value (checklist C1-14): an instance leaf takes the
+identity its instance has in the next generation, whose members are copied the same way, a flat
+reference takes the next generation, and every other leaf keeps its bytes, since the two stores lay
+the program out alike. Each copy is checked and charged as the value store checks and charges the
+copy of the value, in the same order (TIME-08). A value that holds a reference with a path, and the
+migration of a replacement that changes the retained storage, are carried as values.
+
+**Overlapping structures.** On the flat store a `STRUCT OVERLAP`, and every structure nested in
+one, lies as its backing with its members that have no shared bits beside it (MEM-12; checklist
+C1-15). A member, an element or a nested structure of the backing is no byte range of its own: a
+read decodes it from the backing, as the value store decodes the same bits, and a write is staged
+on the structure's value as the value store stages it (each overlapping member checked against the
+written bits before any byte changes, specification 02 §3.6), then the structure is stored again.
+Such a write and such a read are charged as the value store charges them: the write by the physical
+layout's write cost (TIME-08), a copy by the members and elements of the value it decodes to. A
+member beside the backing is read and written where it lies, as a variable of its type. A warm
+restart carries the backing as its bytes and the members beside it as retained values, and binds
+each structure to the next generation's layout as the value transfer does.
+
+**Flat references.** On the flat store a reference to a whole variable, member or element that can
+be written and lies in the persistent block is flat as soon as the program takes it: the block and
+byte offset of its target, its type and its installation generation, the 16 bytes its leaf holds
+(MEM-12; checklist C1-11d). A `REF`, and a member or an element of a reference, makes it flat once
+its path names such a target; a load, a store, a copy and a comparison of it then hold no path, so
+none allocates (ARCH-05), and two references to one target compare equal whichever form they were
+taken in. A reference to a variable of a frame, to a character of a text or to a declaration that
+cannot be written, and one taken while an initializer runs, keeps its root and path, which the
+lifetime, mutability and staging checks read, and the region's reference table keeps it. A flat
+reference keeps the element count of the path it was taken through, and a copy of it is charged by
+that count as a copy of the path is (TIME-08), so its charges stayed the value store's when that
+store was deleted (C1-19e). Where a reference leaves the engine, a retained reference carried into a
+new generation or a value shown to a tool, it is named by the variable that holds its target and the
+path to it, as the value store names it.
+
+**Process images.** On the flat store a scan's input synchronization and output publication build
+no value of a variable and no image key (checklist C1-16). A `STRING` bound to a byte window of
+`%I` or `%M` is written from the image into its text where it lies, after the checks and charges of
+the value it would otherwise read, in the same order (specification 11 §6.4: reading stops at the
+first NUL byte, and invalid UTF-8 before it is a type error). A hierarchical image value is found by
+its address and stored in its entry without building the key, which is built once, when the
+address is first stored. The transaction's snapshot of the input destinations keeps each
+destination that lies in the block and holds no reference or instance as its bytes, and writes them
+back when the synchronization is refused; construction reserves those bytes for the distinct
+variables the inputs write and charges them as the store's own bytes (MEM-09). Every result,
+charge and refusal of a scan is the value store's (TIME-08).
+
+**Output copy-back.** On the flat store the journal of a call's output copy-back saves the root of
+each output that lies in the block and holds no reference or instance as its bytes, as the input
+snapshot does, and writes them back when the copy-back is refused (checklist C1-19c4); construction
+reserves those bytes ("Execution scratch"). Every result, charge and refusal is the value store's
+(TIME-08).
+
+**The debugger.** On the flat store the debugger reads a statement's call stack and variables where
+they lie (checklist C1-17). At a statement start, where the debugger stops, evaluates a condition or
+writes a logpoint (specification 12 §6.13), it reads each local of the active frame and of every
+suspended frame from the frame's bytes on the activation stack when the frame keeps it there, and
+from the frame's value otherwise, each flat reference it holds, a nested one too, named by the
+variable and the path that hold its target (C1-19c4). The copy of the storage that a stop, a
+condition or a logpoint needs (specification 11 §6.13.1) is the value store's copy for the same
+program: every global in declaration order and every instance, persistent or created by a call,
+materialized from its bytes, each flat reference named by the variable and the path that hold its
+target, with the store's identities and generation. It is made only when the debugger needs it,
+never at every statement.
 
 ### 6.4 Physical memory
 
@@ -1072,6 +1934,51 @@ The concrete implementation may adapt the existing `IoDriver` API rather than re
 
 Use static composition where convenient. Borrowed trait objects are also acceptable where they keep the design simple; using a trait object does not by itself require heap allocation. Avoid propagating platform generics through every value and instruction handler.
 
+### 7.4 The control link on a byte stream
+
+**PORT-05.** A runtime whose control link is a byte stream, such as a chip's USB serial port, carries the control protocol of specification 11 §6.8.1 as trust-runtime's control socket carries it, so every client works over it unchanged (ARCH-12). The framing, the frame bound, the reply handling and the counters below are shared code (ARCH-11); a chip's adapter only moves bytes between its hardware and that code.
+
+- **Line framing.** A request is the bytes before a line feed (`\n`), with one carriage return (`\r`) directly before the line feed removed, as trust-runtime reads its socket. A reply is one JSON object followed by `\n`. An empty line is a request of zero bytes and gets trust-runtime's answer to an empty line, `invalid request: EOF while parsing a value at line 1 column 0` with id 0.
+- **Frame size.** A link declares the longest frame it moves, in bytes and without the line end, the same in both directions. Every chip's USB link moves frames of up to 8,192 bytes. trust-runtime's own sockets have no such bound.
+- **Oversized request.** A request longer than the frame is dropped together with every byte up to its line feed. It is answered once, in its place among the replies, with `invalid request: request longer than <frame> bytes`, id 0 and no audit record; the requests after it are served as usual. A request too large for one frame travels in parts, as set out in the bullets below.
+- **Oversized reply.** No runtime cuts a reply. A request or reply longer than a link's frame shall travel in parts on every runtime, each part within the frame, with the transfer of program loading (§11.2 step 5, DEPLOY-02). A reply that fits the frame is byte for byte the reply trust-runtime writes; a longer reply is held whole, as set out below.
+- **Transfer ids.** A transfer id is 16 hexadecimal digits: the boot number in the high 32 bits and a sequence within the boot in the low 32 bits. An id never repeats within a boot or across boots. A computer's boot number is the start of its process in seconds. A chip's is a boot counter that it keeps in its flash (the C6: two 4 KiB sectors in the gap before the firmware's `ota_0` partition, Appendix D.2), which rises by one at every boot, whatever its cause, power-on included, and is written once per boot, before the boot's first transfer, so that an id of a transfer that a reset or a loss of power ended never names a transfer of a later boot. A write that power ends at any byte leaves the previous count readable, and the next boot counts above every whole record, so a count is never handed out twice, though one may be skipped. The chip's reset record carries the same count (specification 11, `last_reset`). A chip whose flash was erased has no boot before the erase. A runtime holds one open upload at a time: a `transfer.begin` while another is open is refused with `transfer busy: <id>`. A chip's session takes an upload of one program slot at most, and holds a reply longer than the frame as a computer's session does (Reply head and get).
+- **Transfer begin.** `transfer.begin {bytes, sha256}` opens an upload of `bytes` bytes whose SHA-256 is the 64-digit `sha256`. An optional `for` names what the upload is: `program`, the default, or `firmware`, a chip's firmware image, which a chip writes into its firmware slot that does not run (TARGET-04; specification 11, the firmware update contract). A size above the largest artifact the device's descriptor allows is refused before anything is allocated, with `transfer too large: <bytes>, the device takes at most <max>`. Begin reserves the upload's buffer and a part buffer of 4,096 bytes; if the device cannot reserve them, begin is refused with `no room for a transfer of <bytes> bytes`, never aborted. A chip whose resource is Stopped and that reads its program store in place (MEM-14) writes the upload into that store instead (§5.1, "An upload written into the store"): begin then reserves only the part buffer and the 60 bytes of a container's header, and erases the first erase unit of the slot that the upload goes into before it replies. An erase that fails refuses begin with `the program store's flash erase failed`, and no upload stays open. The reply is `{transfer, part_bytes: 4096, next_offset: 0}`.
+- **Transfer part.** `transfer.part {transfer, offset, data, crc32}` carries the raw bytes of one part as standard base64 (RFC 4648, padded, with canonical trailing bits) in `data`, and the CRC-32 of those bytes as 8 hexadecimal digits in `crc32`. `offset` shall equal the next offset. Every part is 4,096 bytes except the last, and a full part's 5,464 base64 characters fit the frame. A part at another offset is refused and nothing is stored. A repeat of a received part with the same bytes is acknowledged again; a repeat with other bytes is refused, and the received bytes stay. A part whose CRC-32 does not match its bytes is refused. Data that is not canonical base64, or that decodes to more than a part, is refused. These refusals leave the next offset unchanged. The reply is `{next_offset}`. A part of an upload written into a chip's store is checked as above in the pass that reads it, and its bytes are then written into the store in steps (§5.1), so its reply is the one reply in flight until the last step is done (One reply in flight, below). A step that fails refuses the part with the store's failure, `the program store's flash <erase or program> failed` or `the programmed bytes do not read back as written`, and leaves the next offset where it was, so that the client sends the part again. A repeat of a received part is compared with the bytes that the store and the session hold for it.
+- **Transfer completion.** When the last byte arrives, the SHA-256 of the whole upload is compared with the one `transfer.begin` gave. If they differ, the upload is dropped with `transfer sha256 does not match begin's`, and the client begins again. The SHA-256 of an upload written into a chip's store is worked out part by part over the bytes the parts carried, each part once its bytes are written, and compared when the last part is written. A complete upload stays open until an operation that uses it, or `transfer.abort`, ends it.
+- **Transfer status and abort.** `transfer.status {transfer}` replies `{state, next_offset, bytes}`, where `state` is `receiving` or `complete`. `transfer.abort {transfer}` frees the buffer and the id of an open upload or of a held reply. The abort of an upload written into a chip's store frees its part buffer and its header, and the bytes already written stay in a slot that holds no committed container. A `restart` that starts the resource ends an upload written into the store, so that no part of it is written while the program runs (Appendix D.2). A new host session keeps an open upload at its next offset. A reset ends every transfer, and a later use of its id is refused with `unknown transfer`.
+- **Reply head and get.** A reply longer than the frame is held whole by the runtime's transfer session, in a reply buffer of the capacity the runtime gives it. The request is answered with `{reply_transfer, bytes, sha256, part_bytes: 4096}` as its result, with the request's id and audit record id. The client reads the reply with `transfer.get {transfer, offset, len}` (`len` at most 4,096, and `offset` anywhere up to the reply's length, so that a range across two parts of the reply is answered like any other), which replies `{offset, data, crc32}`, and checks the SHA-256 of the whole reply. A chip holds a reply longer than the frame as a computer does: the next three bullets hold on every runtime that keeps a session, a chip's included.
+- **Reply capacity and parts.** A session's reply capacity is the most bytes it holds in one reply. A computer's is 64 MiB, the engine's container limit. A chip's is the capacity of its heap, which is the only memory a chip has for a reply: 180,160 bytes on the ESP32-C6, its three heap regions of 98,368 bytes, 64 KiB and 16,256 bytes (Appendix D.2). A reply is written in parts of 4,096 bytes. Each part is taken from the heap when the writing reaches it and is never reserved ahead, so no part of a reply's text is one heap block longer than 4,096 bytes, and a reply longer than the frame is held in its parts and never joined into one block, because a chip's heap is first-fit and its free space lies in many small blocks (Appendix D.2). A reply that fits the frame is still one line, byte for byte the reply trust-runtime writes; its line, joined from its parts when it has more than one, is the only block of its text longer than a part, and is no longer than the frame.
+- **Reply refusals.** A reply above the capacity is refused with `reply longer than <capacity> bytes`. A reply for which the heap has no room is refused with `no room for a reply longer than <n> bytes`, where `<n>` is the number of bytes written when the heap had no room. A reply is never cut, and a lack of room is never an abort. Both refusals carry the request's id and audit record id. In both, the request was served and is audited as served, and the work after the reply, such as the stop after `shutdown`, still takes place. A runtime that keeps no session cannot hold a reply, and it refuses a reply longer than the frame with `reply longer than <frame> bytes` in the same way.
+- **Held reply freed.** A newer held reply replaces the older one. The parts of a held reply are freed when a `transfer.get` has read the reply's last byte, when `transfer.abort` names the reply, when a newer held reply replaces it, and at a reset. Its id is then `unknown transfer`, and a client that wants the reply again sends the request again. The heap is not held for a client that has its reply. A `transfer.get` that reads a range before the end of the reply, once or again, leaves the reply held. The older reply keeps its parts until the newer one is held, so a chip whose heap lacks room for both refuses the newer reply with `no room for a reply longer than <n> bytes` while the older one is held, and `transfer.abort` of the older reply makes the room.
+- **Transfer audit.** Each transfer operation is audited like any request, and its reply carries the audit id.
+- **One reply in flight.** The link sends one reply at a time. While a reply is being sent the link gives the control loop no further request, so the loop ends its pass and waits until the link wakes it, and while the link still holds reply bytes it has not handed to its hardware the loop waits no longer than a millisecond, so a reply in flight is driven to its end within a millisecond per packet without depending on the link's interrupts; a busy link never delays a due cycle (STATE-08). Bytes that arrive while the receive buffer is full stay with the hardware, which stops accepting more (USB flow control); no byte is lost. The reply to a chip's `program.install` is the one reply in flight from the moment its checks have passed until the last step of its commit is done (§11.2), and so are the replies to `transfer.begin` and `transfer.part` of an upload written into the store until the last step of their erase or their part is done (§5.1): the loop reads no further request from the link in that time, and a request that arrives meanwhile waits in the link as above.
+- **A host that stops reading.** A reply that has made no progress for at least 1 second, as the loop sees when it polls the link, is dropped and counted, and the link takes requests again. Bytes of it that the hardware already holds cannot be withdrawn, so the next reply starts with an extra line feed: the stale fragment then ends as a line that is not a JSON reply, and the next reply is whole.
+- **A new host session**, such as a USB bus reset, drops the reply being sent and any partly received request, so a new session never receives an old reply. A reply dropped part-way is repaired as above.
+- **Counters.** The link counts the requests it handed to the loop, the oversized requests, the replies sent, the replies dropped by the stall rule and by a new session, the replies it refused, the times its receive buffer was full and the host sessions. The operation that reports them is decided with the runtime descriptor (COMPAT-02).
+
+The bullets below are the rules of the client, the host side of this link. The shared control client (`trust-runtime-client`) follows them for a `serial://` endpoint, so `trust-runtime ctl`, `ads` and `discover` and the tools built on it reach a chip as they reach a trust-runtime (specification 11 §6.8.1).
+
+- **The client: opening the port.** A client opens a chip's serial port at 115,200 baud with 8 data bits, no parity, one stop bit and no flow control; a USB serial port ignores these values. Opening a port can reset a chip: the ESP32-C6's USB-Serial/JTAG controller resets the chip on the sequence of DTR and RTS levels that its boot loader's flash tool uses (Appendix D.2). Right after the open the client sets DTR on and then RTS off, as the bench does, and it changes no modem line after that and sends no break. Then it discards the bytes that the operating system holds for the port from before the open, which belong to an earlier session. A setting that fails is reported, never ignored.
+- **The client: the frame.** A request is one line: the JSON object, then a line feed. The client never writes a request longer than the link's frame, which is 8,192 bytes on a chip's USB link: it refuses the request before it writes any byte, with the text that the chip itself gives for it, `invalid request: request longer than 8192 bytes`. A request that carries more data goes in parts (`transfer.part`). A reply line longer than the frame is malformed; the client reads no more than the frame and its line end for a reply line.
+- **The client: one request in flight.** The client sends the next request only after it has read the reply to the previous one. Of the lines it reads, it takes the first that is a JSON object as the reply and skips every other, so that text on the port does not end a request: an empty line (the line-feed repair after a dropped reply), the boot loader's lines after a reset and the stale fragment of a reply that was dropped part-way. A line that holds `{"id":` after other text is read from that point, because the boot loader's last line can lack its line end. A client that has skipped 65,536 bytes this way without finding a reply reports that the port does not speak the control protocol. The reply's `id` must be the request's, or absent, as on a socket.
+- **The client: the wait.** The command line (specification 11 §6.8.1) waits at most 5 seconds in each read for a reply, and at most 120 seconds for the reply to `program.install`, which the chip sends after it has committed the container (§5.1). A wait that runs out is reported as a failure of the link that names the wait, never as a reply. After it the client may send `transfer.part` again, because the repeat of a received part is acknowledged; it sends no other request again, because a wait that ran out does not say whether the chip served the request.
+- **The client: a reply longer than the frame.** A reply whose result is an object with a `reply_transfer` member is a reply head. The client reads the held reply with `transfer.get {transfer, offset, len}` from offset 0 on, `len` 4,096 (the last part is the rest), and checks each part: its `offset` is the one asked for, its `data` is canonical base64 of exactly the `len` bytes asked for (the reply ends at the head's `bytes`), and its `crc32` is the CRC-32 of its bytes. It then checks that the parts add up to the head's `bytes` and that their SHA-256 is the head's `sha256`. When all of it holds, the whole reply is the answer, handed on as if it had come in one line, and its `id` must be the request's. A head is followed once: a reply that a head names is never itself a head. When anything fails (a refused `transfer.get`, a part that is short, long or at another offset, a CRC-32 or SHA-256 that differs, a head whose `bytes` are above the caller's limit for a reply line), the client sends `transfer.abort {transfer}` to free the reply buffer, ignores that abort's own failure, and reports the first failure. It never hands on a part of a reply, or a reply whose SHA-256 differs.
+- **The client: a link that goes away.** A read or write on the port that fails for any reason but the wait running out, and a read that returns no bytes, mean that the port went away: the chip reset (a watchdog, a panic or the reset button), lost power or was unplugged, and its USB device is enumerated again, often under another port name. The client ends the request with `serial port <name> went away (<the operating system's reason>): the chip reset, lost power or was unplugged; its port returns when the chip has started again, so run the command again`. It neither opens the port again nor sends the request again.
+
+### 7.5 The control link on a network
+
+**PORT-06.** A chip with a network serves its control connection over TCP (ARCH-12) with the protocol, the frame, the reply handling and the counters of PORT-05, from the code every chip with a network shares (ARCH-11): the IPv4 interface, DHCP and the control connection over TCP are the same on the ESP32-C6's Wi-Fi and on an STM32's Ethernet, and a chip's adapter only supplies the frames, the link's state, its MAC address and its clock (checklist L3; the owner, 25 October 2026, "do whats professional").
+
+- **Joining the network.** A chip whose device settings name a network interface (TARGET-02; `[network.wifi]` on the ESP32-C6) starts it at boot, before its program starts, and makes the first attempt to join then; the program never waits for the network. A chip that loses its network, or fails to join it, tries again after 1, 2, 4, 8 and 16 seconds and then every 30 seconds, and 90 seconds after an attempt that its access point did not answer (on Wi-Fi, an authentication that expired): some access points keep the association of a station that reset without leaving them, a power cut or a watchdog reset, ignore its attempts to join while they keep it, and drop it only when their check of the station goes unanswered. An awake radio answers such a check, and an attempt can start the access point's wait for the next check again, so the radio sleeps between attempts and waits longer than such a wait after an unanswered attempt. Measured on the Raspberry Pi's access point (25 October 2026): it dropped a silent chip about 45 seconds after its last frame; it kept a chip whose awake radio answered its checks, attempting every 30 seconds, for good; with the radio asleep, the chip joined at its second attempt, 95 seconds after a reset without leaving. An attempt that takes longer than 20 seconds is given up. On Wi-Fi the chip is a station: WPA2-Personal, with a passphrase or a 64-digit pre-shared key, or an open network (the ESP32-C6's radio driver has no WPA3 station); the chip derives a passphrase's pre-shared key itself (IEEE 802.11-2020 J.4.1) once at boot, before its program starts, and gives its radio the key, since the ESP32-C6's radio driver derived it at the first join, above the program's priority, and stalled the scans for about 0.85 seconds at every boot (measured 25 October 2026); the radio rules of `network.wifi.country`, or, without one, the rules allowed in every country; no power saving while joined, which would delay every frame, and the radio asleep between attempts while the chip has no network. Before a reset it makes itself (TARGET-02's `device.reset`, TARGET-04's update) the chip leaves its Wi-Fi network (a deauthentication), so that the access point drops its association at once: some access points ignore a station's next attempt to join while they still hold its association, until their own timeout. A chip without network settings starts no radio and takes none of the memory below.
+- **The address.** From DHCP, giving the device name (or `trust-` and the last six hexadecimal digits of the MAC address) as its host name, or the fixed address, gateway and name servers of the settings. DHCP asks again whenever the link comes up; a fixed address holds from the link's first coming up, also while the link is down. The chip answers ping (ICMP echo, RFC 792) on its address, as networked PLCs do, so that `ping` finds it at commissioning.
+- **The control connection.** It is served on the TCP port `[control] port` of the device settings (9901 by default) while the settings set a control token, which every request must then carry, on every link, as on a computer (specification 11 §6.9.6); without a token the chip serves no control connection on its network, and its USB link stays as it is. Because the connection requires the token, `config.set` cannot clear it (specification 11, the runtime configuration contract). One client holds the connection at a time: while one does, a second gets `server busy: the device serves one control connection at a time, and another client holds it` as the reply to its first request, with that request's `id` and the `error_code` `server_busy`, and its connection is closed. A connection is probed every 10 seconds while idle and dropped after 30 seconds without a packet from its client, so that a client that vanished frees it; a client that closes its side gets the replies to the requests it sent, and the chip then closes the connection. The chip reads its USB link and its network connection in turn, so that neither holds the other back, and each reply goes to the link its request came from.
+- **The loop.** The platform's idle work runs the network once in each pass of the resource loop (STATE-07): at most 4 received frames through the stack, so that a flood of frames cannot hold back a due scan, the address lease, the control connection's bytes and what the sockets queued. The loop's control link runs it again before it reads a request and after it sends a reply, so that a request is served in the pass that received it. The loop's wait ends when a frame arrives or the link changes, and when the network's next timer is due (a retransmission, the lease, an attempt to join), at the earliest a millisecond after the wait starts. While the link is down only the next attempt to join is due: nothing can leave, so the stack's timers wait for the link.
+- **Discovery.** A chip that serves its control connection on a network announces itself as every truST runtime does (specification 11, runtime discovery; checklist S6): the mDNS service `_trust._plc._tcp.local.` (RFC 6762, RFC 6763) with the instance `truST-<device name>`, the host `<device name>.local.` and its address, an SRV record that names the control port, and the TXT properties `id` (the runtime ID), `name` (the device name), `version`, `platform` (`esp32c6`), `auth` (`token`) and `control` (`tcp://<address>:<port>`). It announces itself twice, a second apart, whenever it takes an address, answers the queries of its local link for the service, the instance and the host (a unicast reply where every question asks for one, otherwise to the group, at most once a second), and withdraws its records before a reset it makes itself. A runtime that finds it reaches it at once at `control` with its token.
+- **What is reported.** `capabilities` reports the network: its interface, its link, its address, the control connection's port, the reason an interface did not start or a join failed, the memory of the network's driver, and the time server (specification 11, the runtime device capabilities contract).
+- **The client.** `trust-runtime ctl --endpoint tcp://<address>:<port>` reaches a chip on the network through the shared control client, with the frame, the long replies and the waits of PORT-05 (specification 11 §6.8.1). It asks for the chip's version (TARGET-05) and sends its request over one connection. A client whose first request on a connection is answered `server_busy` connects again after 50, 100, 200, 400 and 800 ms and sends the request again, and reports the busy chip when it stays busy: a chip frees its connection a moment after its client closes it, and later while it stops a program and saves its retained values, so a tool run right after another would otherwise find it busy.
+- **Memory.** A chip's network takes memory a program could otherwise use; the ESP32-C6's figures are in Appendix D.2, and the memory a program may use is measured at boot with the network's taken (MEM-12).
+
 ## 8. Scan-cycle and scheduling contract
 
 ### 8.1 Common cycle phases
@@ -1143,34 +2050,58 @@ The reviewed stack dispatcher checks its elapsed deadline at entry and each 32 o
 **TIME-08. Work-unit cost model.** The work allowance measures what the PLC
 program does, not how the engine does it. It implements TIME-02 as follows:
 
-Text sizes are counted in UTF-8 bytes (B, the stored length of the whole text);
-a byte count is an upper bound of the character count.
+Text sizes for work are counted in UTF-8 bytes (B, the stored length of the whole text);
+a byte count is an upper bound of the character count. The allocation of a copy is counted
+by the copy allocation rule below the table.
 
 | Work | Charge |
 |---|---|
-| Executed original bytecode instruction | 1 unit, identical in the stack, register and tier-1 executors |
-| Copying an array | 1 unit for the array plus 1 per element, at every nesting level |
-| Copying a reference value | 1 unit plus 1 per path segment and 1 per subscript; creating a reference from a static address charges only its segments and subscripts (its instruction is the base unit) |
-| Extending a reference by a dynamic index or field | 1 unit and the allocation of one element per added segment and per added subscript (a new index segment with its subscript adds 2 units), whatever the capacity of the path's storage |
-| Copying a WSTRING or an enumeration value | 1 unit |
-| Copying a STRING value, a null reference or an instance identity | nothing: STRING text is shared and the others are fixed-size; the copy's allocation is still charged |
+| Executed original bytecode instruction | 1 unit, identical in the stack, register and tier-1 executors and the compact loop (PERF-05) |
+| Copying an array | one rule for arrays and structures: 1 unit for each array and each structure in the copied value, plus 1 for each of its elements or fields, at every nesting level; each leaf then pays its own row's charge below; allocation as in the copy allocation rule |
+| Copying a reference value | 1 unit plus 1 per path segment and 1 per subscript; creating a reference from a static address charges only its segments and subscripts (its instruction is the base unit); allocation as in the copy allocation rule |
+| Extending a reference by a dynamic index or field | 1 unit and one cell (16 bytes) of allocation per added segment and per added subscript (a new index segment with its subscript adds 2 units and 32 bytes), whatever the capacity of the path's storage |
+| Copying a WSTRING or an enumeration value | 1 unit; allocation as in the copy allocation rule |
+| Copying a STRING value | nothing: its bytes are charged where it is stored (normalization), and its allocation by the copy allocation rule |
+| Copying a null reference or an instance identity | nothing, and no allocation: both are fixed-size |
 | Binding a VAR_IN_OUT argument | nothing beyond the call's instructions: IEC passes it by reference, and the engine's private snapshot and copy-back are call-transaction bookkeeping |
-| Copying a structure | nothing for the shared structure; copy-on-write detach charges its fields as copies |
-| Normalizing a bounded STRING/WSTRING as it is stored | 2 units per byte of the value, truncated or not; a type without a declared length is not normalized |
+| Copying a structure | the same rule as copying an array: 1 unit for each array and each structure in the copied value, plus 1 for each of its fields or elements, at every nesting level; each leaf then pays its own row's charge below; allocation as in the copy allocation rule, which counts each copied leaf field. A copy-on-write detach of shared storage charges nothing, because a field write copies no structure in the program |
+| Each entry of a retained-value map (a snapshot entry keyed by its name, or a copied instance variable) | the copy of its value, the bytes of its name where it has one, and four cells (64 bytes) of entry allocation |
+| Normalizing a STRING/WSTRING as it is stored | 2 units per byte of the value, truncated or not; every STRING/WSTRING is bounded, 80 without a declared length; a cut allocates its kept prefix by the copy allocation rule (its UTF-8 bytes for a STRING, two bytes per UTF-16 code unit for a WSTRING), and a rebuilt structure charges nothing beyond the text rows, its copy having been charged at the load |
 | Checking that a bounded text value is canonical (construction and retain checks, a structure's canonical pass) | 1 unit per byte |
 | Reading one character, `s[i]` | in a program, 2 units per byte of the whole text after the parent value's copy; through a host cycle access, 1 unit per byte |
 | Creating a reference to a dynamic character index | 1 unit per byte of the text |
 | Writing one character | 3 units per byte of the whole text plus 12, and 16 allocation bytes per byte plus 64, before the commit |
 | Coercing a supplied initializer value | 1 unit per constructed node, plus 1 per byte of a STRING/WSTRING and 4 for a CHAR/WCHAR; a bounded text value then pays its canonical check |
 | Copying a type name for an interface attempt | 1 unit per byte of the name |
-| Standard-library or conversion call with STRING/WSTRING arguments | 1 unit per byte of those arguments before the body runs; a text result is then charged as a new value, 1 unit and its bytes of allocation |
+| Standard-library or conversion call with STRING/WSTRING arguments | each argument is copied by its own row first; then 1 unit per UTF-8 byte of those arguments before the body runs; a text result is then charged as a new value, 1 unit and its allocation by the copy allocation rule (its UTF-8 bytes for a STRING, two bytes per UTF-16 code unit for a WSTRING) |
 | Write through a `STRUCT OVERLAP` physical layout | the layout write cost below, before any backing byte changes |
 | Lifetime check of a value that can hold references or instances | 1 unit per node visited |
 | Constructing a value during construction or initialization | 1 unit per constructed node |
 | `SIZEOF` of a value | 1 unit per value node visited, plus 1 per byte of text and 1 per array dimension; an array visits its first element only |
 | `SIZEOF` of a type | 1 unit plus its nesting depth per type node visited, an alias and its target each being a node, plus 1 per array dimension |
 | Other native and standard-library calls | their argument binding as above; a body without text charges nothing beyond the call |
-| Any other value operation on a scalar | nothing beyond its instruction |
+| Any other value operation on a scalar, including copying one | nothing beyond its instruction, and no allocation |
+
+**Copy allocation.** A copy's allocation depends only on the value copied, never on how the
+engine shares or stores it, so a copy is charged the same whether its storage is shared or not.
+A cell is 16 bytes (MEM-10). The rule is:
+
+- a scalar value, an enumeration value, a null reference or an instance identity allocates
+  nothing;
+- a STRING allocates 1 byte per UTF-8 byte of its text; a WSTRING allocates 2 bytes per UTF-16
+  code unit of its text, which is its stored form;
+- a reference allocates one cell per path segment and one cell per subscript;
+- a structure or an array allocates one cell for each copied leaf field or element, counted
+  through nested structures and arrays, where a leaf is a field or element that is neither a
+  structure nor an array. A leaf also allocates its own copy as above, so a STRING leaf allocates
+  one cell and its bytes.
+
+**Worked example.** The structure STRUCT{a: INT; b: STRUCT{c: DINT; d: BOOL}; e: ARRAY[1..3] OF
+INT} copies three structures and arrays (the outer structure, b and e) and eight fields and
+elements (a, b, e, c, d and the three elements of e): 3 + 8 = 11 units of work. Its leaves are a,
+c, d and the three elements of e, six leaves, so it allocates 6 x 16 = 96 bytes. The array
+ARRAY[1..2] OF ARRAY[1..3] OF INT costs 3 + 8 = 11 units by the same rule. A copy of an INT costs
+nothing and allocates nothing.
 
 **`STRUCT OVERLAP` write cost.** Let w be a path's work (segments, plus the bytes of
 its field names, plus its subscripts), P the bytes spanned by the selected bit
@@ -1182,19 +2113,20 @@ leaf whose bits intersect the write including aliases, 192 + its w (and 2 per
 enumeration member); for each selected child, its bit count plus 2·its w; for each
 affected child, its overlapping bit count plus its w. A write of the whole structure, or of children,
 also charges the selected bit span, and the whole structure once more with its
-field count. Its allocation is P bytes plus one leaf entry per affected leaf
-(and, per affected enumeration leaf, the enumeration value with its longest
-member and type names). A write that selects no leaf or child, or a whole-structure
+field count. Its allocation is P bytes plus one cell (16 bytes) per affected leaf entry
+(and, per affected enumeration leaf, one more cell for the enumeration value, plus the bytes of
+its longest member and type names). A write that selects no leaf or child, or a whole-structure
 assignment from a value sharing the same layout, charges no layout cost. These
 are upper bounds of the writer's work, so a write never runs uncharged.
 
 Engine bookkeeping is part of the instruction's unit and is never charged
 separately: index, name and member lookups; owner, root and reference-candidate
 resolution; path-segment resolution; writability, staging and visibility checks;
-lifecycle markers; call-transaction snapshots (VAR_IN_OUT copy-in and rollback
+lifecycle markers; copy-on-write detach of shared structure storage; call-transaction snapshots (VAR_IN_OUT copy-in and rollback
 journal values); assignment normalization passes other than the text rows above;
 canonical field matching; activation-registry records; type-structure comparisons;
-process-image sampling and publication (a sampled bounded STRING/WSTRING value still
+retained-value migration indexes, journals and event vectors, and retained identity and root
+maps; process-image sampling and publication (a sampled bounded STRING/WSTRING value still
 pays its normalization); and scheduler ordering. Each is bounded by admitted metadata, by
 the admitted type of the value it handles, or by a value already charged when it
 was produced, so its cost per instruction stays bounded. A call-transaction
@@ -1283,7 +2215,17 @@ BOOT -> INITIALIZING -> STOPPED/NO_PROGRAM
 
 **STATE-06.** Recovery shall not automatically resume an interrupted instruction stream. The configured cold/warm initialization and retain policy shall run before control resumes. Automatic restart, where offered, shall be a deliberate product setting.
 
-Hardware forcing and PLC breakpoints shall be disabled in the initial production MCU profile. Commissioning support may allow them only after an explicit controlled-output transition and authorization. A CPU-debugger halt must not be assumed to preserve watchdog or output supervision.
+**STATE-07.** Writing, forcing, breakpoints, pause and stepping behave on every target as in trust-runtime (specification 11, debug and resource pause interaction; specification 13, run control), with the same access rights. A pause suspends the current cycle: the outputs keep their last committed values, and the pause does not count against the cycle watchdog. A hardware debug probe (JTAG/SWD) halts the whole processor; it is not a PLC breakpoint, and it must not be assumed to preserve watchdog or output supervision.
+
+These behaviours need no ST source text and no compiler on the target. Breakpoints and stepping resolve from the module's `LINE_TABLE` (specification 12 §6.13; specification 13, "Source Mapping"), so trust-runtime and a chip return the same answers for the same artifact. A debugger hold lasts until a continue or a stop on every target (specification 11 §6.9). `eval`, `debug.stack`, `debug.variables`, watches, breakpoint conditions, logpoints and `debug.evaluate` answer as trust-runtime answers them, from the published debug state and through the compiled expression form (specification 11 §6.13.1 and §6.13.2), which keeps the ST parser, the HIR and expression authoring off the target (owner, 18 October 2026).
+
+**STATE-08.** Stop and Start on every runtime (owner, 16 October 2026: "on a chip, Stop and Start are the existing `shutdown` and `restart`"; owner, 18 October 2026, decision Q11: a computer behaves like a chip when it is stopped, as CODESYS and TwinCAT keep their runtime up while the application is stopped). `shutdown` stops the program as trust-runtime stops it (outputs to their stop policy, STATE-02, and the durable retain save), and the runtime stays reachable in the Stopped state: a chip serves the control connection, and trust-runtime on a computer keeps its control server, its web UI and its other services. `restart` with `cold` or `warm` then starts the installed program as a new trust-runtime process would: its logical time and uptime start at zero, and its events, metrics and task statistics start empty. The process of trust-runtime on a computer ends only when its service is stopped (SIGINT or SIGTERM, specification 11 §6.8), by the explicit exit, `shutdown` with `{"exit": true}`, or by the hang action `abort` (specification 11 §6.6). The explicit exit is the Admin operation `shutdown`: it stops the program as `shutdown` does, writes the reply `{"status":"stopping"}` first, and then ends the process, with status 0 when the resource ends Stopped and status 1 when it ends Faulted or Stopped with the fault of the program it stopped (specification 11 §6.6). `exit` must be a Boolean, and `false` is plain `shutdown`; any other value is refused with `invalid params: exit must be a boolean` and stops nothing. A chip's firmware never ends, so the program takes the place of the process, and a chip answers the explicit exit as `shutdown`: it stops the program, replies `stopping` and stays reachable in the Stopped state. A `warm` start gives the RETAIN variables the values they had when the program stopped (IEC 61131-3 Ed.3 §6.5.6.1: "the values the variables had when the resource or configuration was stopped"): a chip restores them from the newest checkpoint that its stop saved when its project keeps retained values (`[runtime.retain] mode = "file"`), and a chip whose project keeps none holds them in its memory across a restart in place and gives a program that it loads anew their declared initial values; trust-runtime on a computer restores them from its retain store (specification 11 §6.7), because it builds the program anew. Power-on and reset start the installed program as a warm restart when its project keeps retained values (`[runtime.retain] mode = "file"`), so the retained values are restored (IEC 61131-3 Ed.3 §6.5.6.1, "the values the variables had when the resource or configuration was stopped"), as a PLC starts after a power loss and as a computer's service starts trust-runtime with `--restart warm`; with `mode = "none"` the start is cold. Its logical time starts when the program starts, not at the chip's reset. Every other request answers as trust-runtime answers it in the same state; a `restart` of a program that runs, is paused or is faulted restarts it in place as trust-runtime does, and its records stay. Every restart that commits installs the next generation of the program's state (UPDATE-04, installation generations), the `restart` request of a running, paused, faulted or stopped program and the automatic restart of the fault policy alike, and the loop gives its Live Values the generation of the program's state when the restart commits and when it takes a program that was started cold or warm, before the next cycle, so that a request that names an instance by a bare identity (§4.3.1) and arrives after the restart is resolved in the generation installed and is applied at the next boundary, while the writes and forces queued before the restart are cleared (specification 11 §6.9.2). A stop drops the restart and the pause that were queued before it, and a `restart` after it starts the program. A `shutdown` of a resource that is already Stopped stops nothing more and replies `stopping`. A `shutdown` of a Faulted resource stops it as it stops a running one, on a chip as on a computer (the owner, 23 October 2026, as CODESYS's Reset and an S7 STOP take a faulted application to Stop): the outputs take the safe state again, the newest retained values are saved, and the resource is Stopped, or stays Faulted with that error when the safe state is unconfirmed or the save fails. The root fault stays in `last_error`, and `status` reports it, until the next start. A program that faults at every start can therefore be stopped, replaced by `program.install` and started again; before, nothing but a reflash replaced it (bench, 23 October 2026: a chip that booted a program faulting at once took no install). On a computer, a `restart` that finds the resource Stopped loads the installed program again, as a new process loads it: the bundle that the project folder names, which is the bundle `current` names when the folder is a store's `current` link and otherwise the folder's own files (§11.2). The resource's own configuration is read with it: the I/O configuration and the safe state, the identify output (`[runtime.identify]`, which is checked against the program as at a launch, specification 11, "Identify", "Load"), the retain, watchdog and fault settings, the cycle interval, the connection configuration of the ADS and OPC UA clients and `simulation.toml`. The program that stopped, with its I/O drivers, is dropped before the new one is built, so that a driver that holds a device alone, such as a serial port or a GPIO line, is released first. The services that belong to the process keep the configuration they started with until the process starts again: the control endpoint and its credential, the web, discovery and mesh listeners, the OPC UA and ADS servers (an ADS server keeps publishing the symbols of the program loaded at launch), the historian, the debugger's source registry and the HMI descriptor. A program that cannot start, because its bundle cannot be read or one of its drivers cannot be built, leaves the resource Faulted with the reason, as a chip's program that cannot start does; the next `restart` loads it again. A program that an online change (§11.3) gave the resource and that `program.install` did not install is not the installed program, so a stop and a `restart` replace it with the installed one, on a chip as on a computer. One control loop serves the link between cycles and while Stopped; it is shared code (ARCH-11), and only its wait and wake come from the platform adapter. A request that arrives while the program's next boundary is due waits for that boundary, so a due cycle waits at most for the request already being answered, and a boundary that is due again as soon as it is taken (a scan longer than its interval) lets one request through per boundary, so the link is never starved.
+
+Requests take effect where trust-runtime's scan thread takes them. The loop answers each request at once; a `pause`, `resume`, `restart` or `shutdown` then waits for the program's next boundary, as trust-runtime's scan thread takes it at its next pass: while the program runs, when its next cycle is due, one cycle interval after the last cycle started; while it is paused, one cycle interval after the last boundary; while it is faulted, at the end of each 10 ms poll of the faulted wait. At a boundary the stop is taken first, then the queued pauses and resumes in order, then a queued online change (§11.3), then a pending restart, and then the cycle; at a poll of the faulted wait a queued online change is taken first, then a pending restart, and then the stop. Pauses and resumes wait in a queue of trust-runtime's size, and one beyond it is refused with `resource_busy`. Only these differences remain: the device serves requests between cycles, never during one, so a due cycle can wait for the one request being answered (on the ESP32-C6 a request takes at least about 0.9 ms, its service code running from the flash through the cache, a `status` about 4.7 ms, of which its cycle percentiles take 0.5 to 0.8 ms, and an `events.tail` of 50 events about 7.4 ms, 23 October 2026, so a client that polls delays the activations of a 1 ms task, until milestone M5 serves requests in a context that the tasks preempt, specification 44 §16); trust-runtime starts each cycle later than it is due by its operating system's wake-up latency; and a `restart` of a stopped program takes effect at once on the device, where trust-runtime's scan thread takes it at the end of its next poll of the stopped wait, within 10 ms, the poll of the faulted wait. The loop feeds the platform's hardware watchdog once in every pass and waits no longer than the watchdog's feed interval, in every state, so a stopped, paused or faulted chip is never reset by it (TIME-04).
+
+**A chip loads a newer container in place** (owner, 16 October 2026: a chip works exactly like trust-runtime; a reset would drop the USB link, which a computer's reload never does). A `restart` that finds a chip's resource Stopped compares the install sequence of the newest committed container of its program store (§5.1) with the sequence of the container that its program came from, or that its boot refused. When the store holds a newer one, the chip loads it in place, in this order. (1) It drops the program that stopped: the cycle and its engine state, the prepared module and the execution services, the Live Values with their queued writes and forces, the I/O lines, which go back to the chip's pins, and the handle on the checkpoint flash, which is free for the new program. Nothing of the new container has been read yet, so the chip's memory holds one program at a time. (2) It reads the newest committed container within the room that the memory has for it, checks its payloads and admits it (§5.1, §5.1.1), as its boot does. (3) It prepares the program with the limits that the device allows, claims the lines of the new record by pin name and drives each output to its initial value before it becomes an output (STATE-01), sets the hardware watchdog from the new record's cycle watchdog (TIME-04), opens the checkpoint log when the record keeps retained values, and constructs the program. (4) It starts the program in the mode that the request gave: `cold` gives every variable its declared initial value, and `warm` gives the RETAIN variables the values of the newest checkpoint by the rules of specification 11 §6.7, the restore that a boot's warm start makes. The program's logical time and uptime start at zero, and its events, metrics and task statistics start empty, as for a computer's reload; the event store takes the capacity of the new record (§5.1.1) in the room it already holds, and reserves anew, the old room freed first, only for a capacity that does not fit that room, so a program that is loaded never leaves the loop looking for a block for its store. Nothing else is reset or dropped: the control link, the transfer session and its ids, the program store, the audit sequence, the reset record and the debugger's breakpoints stay, and the load writes no flash. The chip feeds its hardware watchdog between these steps (TIME-04), and it serves no request while it loads, as a computer's scan thread serves none while it reloads; a request that arrives meanwhile waits in the link and is answered after the load. A `restart` with no newer container restarts the program that the chip holds in place, as before. An online change (§11.3) gives the resource a program that no container holds: the loop then counts the program as coming from no container, so after a stop a `restart` loads the newest committed container, and a `restart` that finds the resource running, paused or faulted restarts the changed program in place. A program that cannot start, because its container cannot be read or fails its checks, its record is refused, its lines cannot be claimed, or it cannot be prepared or constructed, leaves the resource Faulted with `no installed program: <reason>`, the old program being gone, as on a computer; the next `restart` loads the newest container again. A faulted resource takes no install (§11.2); a chip whose newest container cannot start takes an install again after a reset, when its boot refuses that container and serves the link Stopped. A chip's boot takes steps (2) to (4) through the same loop (checklist P1-11, found by the C6 bench of 22 October 2026): the firmware builds the loop first, Stopped, with its receive buffer, its event store at the chip's default capacity, its program store and its loader, so that the loop's blocks are taken from the heap before any program's, and then the loop loads the newest committed container in the warm start of a power-on (above). A program that cannot start at the boot leaves the resource Stopped with the reason, as a boot that refuses its container does, and the loop counts that container as the one its boot refused, so `restart` stays refused with `no installed program: <reason>` until a newer container is installed.
+
+A chip whose application region holds no program, or holds one that the chip refuses (DEPLOY-04; for example a program that calls `CURRENT_DT` on a chip without a wall clock, §5.2), runs the same loop without a program: it serves the control connection, `status` reports `stopped` without a fault, and every request answers as in the Stopped state, except that `restart` is refused with the stable code `resource_not_running` and the message `no installed program: <reason>`, which names why the chip has none. A program installed to it (§11.2) starts by `restart`, which loads it in place as above: the `restart` is refused with the reason only while the store holds no container newer than the one that the boot refused, or none at all.
 
 ## 10. Retain and persistence
 
@@ -1303,7 +2245,11 @@ process images before executing replacement initialization. Ordered configuratio
 actions then overwrite only their selected targets, including direct `%I`, `%Q`
 and `%M` addresses. Unconfigured bytes, bits and hierarchical keys retain their
 previous values; repeated or overlapping actions follow the initializer table's
-order. Image carry-over must not overwrite an initializer's result after construction.
+order. A variable located at `%M` then publishes its initial or retained value
+into exactly the bits and bytes it covers, so where an action and such a variable
+cover the same byte, the variable's value is the one the first scan reads
+(specification 11 §6.7). Image carry-over must not overwrite an initializer's
+result after construction.
 An initialization or budget failure leaves the complete installed state, images
 and logical time unchanged. This specifies the portable image lifecycle alongside
 the variable-retention rules of IEC 61131-3 §6.5.6; it does not change hosted 1.1
@@ -1328,9 +2274,128 @@ replacement; this is not a durable serialization promise for live handles.
 
 **Selected persistence profiles.** The initial F401 profile checkpoints only after outputs enter the controlled STOP/maintenance state; no internal-flash erase/program runs during RUN. Its power-loss guarantee is recovery of the last successfully completed compatible stop checkpoint, not the most recent scan. A stronger RUN-time retention guarantee requires a separately designed medium/power-fail mechanism and qualified timing. Ordinary stop checkpoints do not inherently require external storage. [E61]
 
-For hosted bounded operation, capture a coherent checkpoint in admitted preallocated storage, publish it without waiting for disk, and persist on the storage worker. Use a bounded latest-pending-snapshot mailbox: a pending snapshot may be superseded before worker ownership, while an in-progress/durable snapshot is never mutated. Define capacity/ownership transfer before implementation. Staging exhaustion faults before that cycle's normal output commit; a worker persistence failure is latched and faults at the next control boundary under the normal fault/output policy. Neither condition blocks the scan on storage. Expose the last durably completed sequence and failure state. A later persistence failure cannot retroactively cancel already published outputs. The durability guarantee is the last completed flush; queued/coalesced scans are not durable. This is the selected M3 bounded-profile behavior change, with restart, failure, output-order, and overload tests. Keep legacy synchronous behavior in the compatibility profile until that migration is explicitly released. [R12, R33]
+For hosted bounded operation, capture a coherent checkpoint in admitted preallocated storage, publish it without waiting for disk, and persist on the storage worker. One shared capture serves a chip and a computer (`trust-runtime-core::retain::capture::RetainCapture`): it holds the save interval, the dirty mark and the unchanged-image skip that decide when a checkpoint is taken, and the staging image a platform refills in place at the established pre-output-sample checkpoint is reserved once, so a steady-state capture allocates nothing. The capture reads each retained variable where the store holds it: a value held in the bounded store's flat block (§6.2, MEM-12) is written from its leaves and its compound members straight into the staging image, without building a `Value`, and the payload is the same bytes as for the same value held as a `Value` (specification 11 §6.7), so a steady-state capture from the block allocates nothing either. Use a bounded latest-pending-snapshot mailbox: a pending snapshot may be superseded before worker ownership, while an in-progress/durable snapshot is never mutated. Define capacity/ownership transfer before implementation. Staging exhaustion faults before that cycle's normal output commit; a worker persistence failure is latched and faults at the next control boundary under the normal fault/output policy. Neither condition blocks the scan on storage. Expose the last durably completed sequence and failure state. A later persistence failure cannot retroactively cancel already published outputs. The durability guarantee is the last completed flush; queued/coalesced scans are not durable. This is the selected M3 bounded-profile behavior change, with restart, failure, output-order, and overload tests. Keep legacy synchronous behavior in the compatibility profile until that migration is explicitly released. [R12, R33]
 
 The reviewed hosted cycle can call `maybe_save_retain_store()` before normal output writes. The initial extraction preserves this behavior in hosted compatibility compositions. The bounded profile above deliberately changes failure/acknowledgment timing and needs its own release notes and tests; it is not a behavior-preserving file move. A compatibility build retaining unbounded persistence shall not claim bounded-profile compliance. [R12]
+
+**Between scans.** A chip drives the shared capture and the checkpoint log through a persister,
+`retain::checkpoint::CheckpointPersister` in `trust-runtime-core`. At the pre-output-sample capture
+checkpoint it starts a checkpoint when the shared save rule says a save is due (specification 11
+§6.7) and the staged image differs from the image it last wrote; the capture's reserved staging
+buffer is refilled in place and the persister copies the staged image into a payload buffer reserved
+once for the admitted retain image, so starting a save allocates nothing. A checkpoint that is still
+being written is never started twice: a newer due image waits until the pending checkpoint commits
+and is then offered again, so no save is lost. The persister advances a checkpoint by one log step
+at a time — one erase unit, or at most the number of program bytes the caller's idle time allows —
+between scans, at most one step per call. A program step is sized to the idle time; an erase unit
+cannot be split, so on a flash whose erase takes longer than the time left before the next release
+(a C6's external flash erases a 4 KiB sector in up to about 0.4 s with interrupts off) the next scan
+starts late, and that lateness is reported like that of any late scan. A step that fails ends
+that checkpoint without committing it and latches the failure; the caller takes it once as
+`RuntimeError::RetainStore` and fails its next scan with it before physical outputs, while the newest
+committed checkpoint stays readable. A stop or shutdown completes the pending checkpoint and then
+writes the newest staged image if it was not written, all steps at once, so the save completes before
+the runtime is Stopped.
+
+**The device runner.** The installed program's cycle holds this persister over the checkpoint store
+its platform supplies: at each scan's pre-output-sample checkpoint at which the save rule says a save
+is due and no checkpoint is being written, it captures the retained values and offers them (at any
+other scan the persister would not use a capture, so none is made), the resource loop advances one
+step between scans with the store's per-step program budget, and a stop or shutdown completes the pending checkpoint and the newest image before the
+resource reports Stopped. No step runs inside a scan, and a failure a step or a start latched fails
+the next scan with `RuntimeError::RetainStore` before physical outputs, as a computer's failed retain
+save does. The capture of the retained values is reserved for the program's largest payload when the
+program loads, and grown, keeping its room, before an online change commits, so no capture and no save
+grows it (MEM-09). A warm start reads the newest committed checkpoint into the persister's own payload
+buffer, which the store reserved for the largest payload, so it takes no second buffer; it decodes the
+checkpoint with the shared codec and applies it by name (specification 11 §6.7); an empty log or a
+`mode = "none"` project starts the retained values with their declared initial values.
+
+### 10.1 Checkpoint log in flash
+
+A chip keeps its retain checkpoints in the two checkpoint slots of its chip file, `checkpoint_a`
+and `checkpoint_b` (Appendix H). This section defines how they are written and read: the chips'
+form of RETAIN-01 and RETAIN-02. Both are the same whichever persistence policy decides when a
+chip writes a checkpoint. The shared core implements them (`retain::checkpoint` in
+`trust-runtime-core`); the platform adapter only reads, programs and erases its flash.
+
+**Flash.** A slot is one or more whole erase units: two 8 KiB pages on the STM32U5A9
+(`checkpoint_a` and `checkpoint_b` at the end of bank 2, D.5) and four 4 KiB sectors on the
+ESP32-C6 (`memory.spi_flash.erase_kib`). Erasing sets every byte to 0xFF. A program writes whole
+program units at multiples of the unit: 16 bytes on the STM32U5A9, which programs a quad-word
+(RM0456), and 4 bytes on the ESP32-C6, where `esp-storage` 0.10.0 writes 4-byte words. A program only clears bits; it never sets a bit back
+to 1. The log programs only units that read as erased, so it programs each unit at most once
+between two erases.
+
+**Slot header.** A slot holds records only after its erase has completed and its header has been
+programmed. The header is the slot's first 16 bytes:
+
+| Offset | Bytes | Field |
+|---|---|---|
+| 0 | 4 | Magic `TRCS` |
+| 4 | 2 | Format version, 1 |
+| 6 | 2 | Reserved, 0 |
+| 8 | 4 | Slot epoch: one more than the highest epoch of either slot when this one was formatted |
+| 12 | 4 | CRC-32 of bytes 0 to 11 |
+
+**Record.** The records follow the header, each starting at the next multiple of the program unit:
+
+| Offset | Bytes | Field |
+|---|---|---|
+| 0 | 4 | Magic `TRCK` |
+| 4 | 2 | Format version, 1 |
+| 6 | 2 | Flags, 0 |
+| 8 | 8 | Checkpoint sequence: one more than the highest sequence in either slot |
+| 16 | 16 | Application identity: the first 16 bytes of the bytecode hash in the deployment record (§5.1) |
+| 32 | 16 | Retain-schema identity: the first 16 bytes of the retain-schema identity in the deployment record (§5.1) |
+| 48 | 4 | Payload length R, in bytes |
+| 52 | 4 | CRC-32 of the payload |
+| 56 | 4 | Reserved, 0 |
+| 60 | 4 | CRC-32 of bytes 0 to 59 |
+| 64 | C | Commit marker: `DONE`, repeated to fill C, the larger of 4 bytes and the program unit |
+| 64 + C | R | Payload: the retained values as the retain codec encodes them (specification 11 §6.7) |
+| 64 + C + R | | 0xFF up to the next multiple of the program unit |
+
+Integers are little-endian. CRC-32 is CRC-32/ISO-HDLC, as in STBC and the retain file on a
+computer. The commit marker has a fixed place after the header, so whether a record was committed
+can be read even when its header is damaged. With 4-byte units a record takes 68 + R bytes, R
+rounded up to a multiple of 4: a 16 KiB slot takes records of up to 16,300 payload bytes, and
+⌊16,368 / (68 + R)⌋ records before it is erased again. With the STM32U5A9's 16-byte units the
+commit marker is 16 bytes, so a record takes 80 + R bytes, R rounded up to a multiple of 16: a
+16 KiB slot takes records of up to 16,288 payload bytes, and ⌊16,368 / (80 + R)⌋ records. The
+sequence counts checkpoints; it is not an execution generation (RETAIN-01).
+
+**Writing.** A checkpoint is written in this order: the record header, the payload, a read-back of
+everything the write programmed, and the commit marker last. It goes after the last record of the
+slot with the highest epoch, when that slot's log is not ended by a failing header and the record
+fits in the erased space after it. Otherwise the log erases a slot unit by unit, programs its
+header with the next epoch and writes the record there. It erases the slot that does not hold the
+newest committed record; when neither slot holds one, the slot without the highest epoch, or
+`checkpoint_a` when neither slot has a header. The slot that holds the newest committed record is
+thus never erased, and no write programs over another record, so a write or an erase interrupted
+at any byte leaves the previous checkpoint readable. Each erase of a unit and each program is a
+step of its own, so a write can be spread over the time between cycles.
+
+**Recovery.** At start the log reads each slot's records in order, from the first:
+
+- A record is committed when its commit marker reads exactly as written, and valid when its header
+  and its payload also pass their checks.
+- A record whose header is valid but whose commit marker is not is absent: its write was
+  interrupted, and the slot's log continues after it.
+- A record whose header fails its check ends the slot's log.
+- The newest committed record is the last committed record of the slot with the highest epoch that
+  has one.
+
+A warm start loads the newest committed record when it is valid. When its header or its payload
+fails its check, the warm start fails, as it does for a damaged retain file on a computer
+(specification 11 §6.7); an older record is not loaded in its place. A slot whose header fails its
+check holds no log, but its records are read as well: when one of them is a valid committed record
+with a higher sequence than the newest committed record, or there is no newest committed record,
+the warm start fails too, because that slot's header is damaged. Otherwise, without a newest
+committed record, the store is empty, as a missing retain file is. A commit marker damaged after
+its write cannot be told from one whose write was interrupted, so its record is absent and the
+record before it is loaded. The sequence and the identities come back with the payload; the
+retained values are matched by name, as for the retain file (specification 11 §6.7).
 
 ## 11. Services and deployment
 
@@ -1338,45 +2403,97 @@ The reviewed hosted cycle can call `maybe_save_retain_store()` before normal out
 
 Hosted and MCU networking and management are adapters/services, not runtime-core dependencies. They may run on the same device without belonging in the VM. The full hosted product shall retain its supported services; a future MCU Modbus, CAN, or MQTT implementation shall use the same ownership boundary.
 
-Workers shall exchange bounded messages or process-image snapshots with the control path. Polling budgets, queue overflow, stale-data limits, and critical versus noncritical failures shall be explicit. A network outage shall not make PLC execution wait indefinitely. The MQTT driver keeps at most 256 received messages for the control path; when a new message arrives at that bound it drops the oldest, counts every dropped message, and reports the driver as `degraded` with the stable detail `incoming queue overflow: <n> messages dropped` (the count since the driver started) from the first drop until the driver restarts. A degraded driver does not by itself fault the PLC or make aggregate health false, and because the overflow concerns received messages only, it does not unconfirm a safe-state handoff, which depends on the driver's output path (specification 11, safe-state handoff confirmation).
+Workers shall exchange bounded messages or process-image snapshots with the control path. Polling budgets, queue overflow, stale-data limits, and critical versus noncritical failures shall be explicit. A network outage shall not make PLC execution wait indefinitely. The MQTT driver keeps at most 256 received messages for the control path; when a new message arrives at that bound it drops the oldest, counts every dropped message, and reports the driver as `degraded` with the stable detail `incoming queue overflow: <n> messages dropped` (the count since the driver started) from the first drop until the driver restarts. A chip keeps the smaller bounds its appendix names: fewer messages, at most so many payload bytes (a message larger than the whole queue is dropped and counted as well), smaller packets, and at most so many bytes waiting to be sent, where a handoff that does not fit waits as `mqtt output handoff pending` until the connection has taken enough, a handoff larger than the bound is not published (`the handoff of <n> bytes exceeds the <m>-byte outgoing buffer`), a session whose first packets do not fit fails to connect, and a keep alive's PINGREQ that does not fit is not sent. A degraded driver does not by itself fault the PLC or make aggregate health false, and because the overflow concerns received messages only, it does not unconfirm a safe-state handoff, which depends on the driver's output path (specification 11, safe-state handoff confirmation).
 
-Rich symbol lookup, source rendering, HMI, DAP presentation, compilation, and deployment orchestration remain on the development computer or hosted product. The MCU needs only the bounded device-side hooks required by the selected features.
+Compilation stays on the development computer. The runtime services of ARCH-11 run on every target as shared code, and the development tools present them the same way for every runtime.
 
 **SERVICE-01.** Crate boundaries shall be treated as dependency boundaries, not process-fault isolation. Services may remain in the same process where their scheduling and communication contracts satisfy the selected profile. Stronger isolation requires an explicit thread/process design and its own failure tests; this migration shall not require a process-per-service architecture.
 
-**SERVICE-02.** Rich hosted debugging, tracing, and diagnostic rendering shall remain outside bounded callbacks. Supported pauses, forcing, and online change shall have explicit state/boundary behavior and regression tests. Debugger/export reads shall pin or snapshot the appropriate generation under Section 11.3 and shall not keep unaccounted retired storage alive indefinitely. Initial MCU restrictions shall not remove existing hosted workflows.
+**SERVICE-02.** Rich hosted debugging, tracing, and diagnostic rendering shall remain outside bounded callbacks. Supported pauses, forcing, and online change shall have explicit state/boundary behavior and regression tests. Debugger/export reads shall pin or snapshot the appropriate generation under Section 11.3 and shall not keep unaccounted retired storage alive indefinitely. The same behavior and tests apply on every target (ARCH-11).
 
-### 11.2 Stopped installation workflow
+**SERVICE-03.** OPC UA (owner, 16 October 2026): the OPC UA server and client of trust-runtime
+(specification 11) are one shared implementation in Rust that runs with and without an operating
+system, on every target. It replaces the `opcua` library on Linux, macOS and Windows and keeps
+their present behavior, which their existing tests pin; the chips get the same server and client
+over their network links (ARCH-11, ARCH-12).
 
-This is the initial MCU installation path and any applicable stopped hosted installation path. Existing hosted online changes use Section 11.3; this procedure shall not silently require STOP for all previously supported hosted updates.
+**SERVICE-04.** OpenOT telemetry (owner, 16 October 2026): the runtime produces the same OpenOT
+records on every target (`[runtime.openot]`). On Linux, macOS and Windows it publishes them to the
+shared-memory ring as today; a chip, which runs no other program, publishes them over its network
+link.
+
+**SERVICE-05.** Simulation (owner, 16 October 2026): `simulation.toml` (disturbances, couplings
+and injected faults) works on every target, chips included, as it does in trust-runtime.
+
+**SERVICE-06.** Debugging on a chip (owner, 18 October 2026) is the shared `debug` component of
+ARCH-11 and specification 13: breakpoints, pause, continue, stepping, call stack, variables, watches,
+conditional breakpoints, logpoints and `debug.evaluate`, with the access rights of specification 11
+§6.9.5. The target needs no ST source text, no compiler, no HIR, no expression parser and no build
+tooling for it. Statement spans and line tables come from the module's `LINE_TABLE` (specification 12
+§6.13), and every expression it evaluates arrives compiled by the tool (specification 11 §6.13.2).
+Its answers are trust-runtime's answers for the same artifact and state: the same resolution of
+breakpoints and steps, the same freshness of read values (specification 11 §6.13.1), and a hold that
+lasts until a continue or a stop (specification 11 §6.9). While a scan waits in a hold, the service keeps
+serving the link and the platform feeds the hardware watchdog, so a long hold neither resets the chip
+nor loses a queued request (TIME-04); only the wait and wake come from the platform adapter
+(STATE-08).
+
+**SERVICE-07.** Identify (specification 11, "Identify") is the shared `identify` component of
+ARCH-11: the request, its timer, the blink and the `identifying` member of `status` are one
+implementation in `trust-runtime-services`, and a platform supplies only the way to drive one
+output. It has no restriction on the state of the resource (owner's rule: no restriction without his
+approval): the platform ticks it where it hands out the outputs and in every pass of its loop in which
+no scan runs, so a resource blinks while it is running, paused, stopped or faulted. trust-runtime on
+Linux, macOS and Windows drives the output that `[runtime.identify] output` names, from the scan and
+from the scheduler's paused, stopped and faulted waits. A chip's firmware drives no output for
+`identify` yet, so a chip answers `identify_not_configured` and reports `identifying: false`; this is
+a reported gap, not a rule (ARCH-13), and when a chip's firmware drives an output the same shared
+component serves it unchanged, ticked in the runner's pass that runs `RunnerPlatform::idle`, which the
+loop runs once per pass whether or not a scan is due.
+
+### 11.2 Installation workflow
+
+This is the installation of a program into a stopped runtime on every target. A running runtime also takes a new program by online change (Section 11.3) on every target, as trust-runtime does; this procedure shall not silently require STOP for any update that online change supports.
 
 ```text
 1. Discover/read the device's capability and resource descriptor.
 2. Compile the application and build its deployment metadata on the computer.
 3. Check compatibility before transfer.
-4. Put the controller into the required stopped/commissioning state.
-5. Transfer/stage the artifacts using the selected management transport.
+4. Put the controller into the stopped state, or use online change (Section 11.3).
+5. Transfer/stage the artifacts over the control connection.
 6. Independently validate and prepare them on the device.
 7. Mark the new installation complete using an interruption-safe procedure.
 8. Report the installed application identity and readiness.
-9. Start only through the configured authorized start policy.
+9. Start through the configured start policy and the access rights of the control connection.
 ```
 
 **DEPLOY-01.** MCU firmware and PLC application shall be separate concepts. Firmware is compiled for the CPU/board; STBC is the loadable PLC artifact. Changing only the PLC application should not require a new platform implementation.
 
-**DEPLOY-02.** The first MCU release shall install applications while stopped. It shall not promise live online changes. A probe-flashed, embedded STBC fixture is acceptable for bring-up, but does not satisfy the release deployment gate.
+**DEPLOY-02.** A board loads programs as trust-runtime does: over the control connection, stopped or by online change, with the same checks and access rights. A probe-flashed, embedded STBC fixture is acceptable for bring-up, but does not satisfy the release deployment gate.
 
 **DEPLOY-03.** A failed transfer or power loss shall never select a partially installed application as valid. Dual slots are one option, not a universal requirement; devices without spare storage shall have a documented stopped/recovery installation procedure.
 
 **DEPLOY-04.** The device shall reject a mismatched configuration/application pair, incompatible retain schema, unsupported required import, or insufficient memory without starting the candidate application.
 
-**DEPLOY-05.** The development environment shall offer the MCU's feature and limit profile in simulation. The simulated process model may differ, but the compiled PLC logic and runtime semantics shall not depend on changing the application for the simulator.
+**DEPLOY-05.** The development environment shall offer the board's resource sizes (memory and timing) in simulation; the board has the same features as every other target (ARCH-11). The simulated process model may differ, but the compiled PLC logic and runtime semantics shall not depend on changing the application for the simulator.
 
-**DEPLOY-06.** Firmware verification shall not automatically establish authorization or authenticity of a separately downloaded PLC application. Define the application's identity, authorized deployment principals/physical commissioning policy, integrity/authentication mechanism, key/trust handling where applicable, and any rollback policy independently. Bind bytecode, configuration, and declared contracts; enforce the selected policy at installation and activation. A bootloader may support firmware recovery without implementing these application-management obligations. [E23]
+**DEPLOY-06.** Firmware verification shall not automatically establish authorization or authenticity of a separately downloaded PLC application. Define the application's identity, authorized deployment principals (the access rights of the control connection), integrity/authentication mechanism, key/trust handling where applicable, and any rollback policy independently. Bind bytecode, configuration, and declared contracts; enforce the selected policy at installation and activation. A bootloader may support firmware recovery without implementing these application-management obligations. [E23]
+
+**Program identities and parameters.** `program.active` (Viewer) replies `{active, previous}`. Each member is `null` when the store holds no such program, and otherwise `{sequence, program_sha256, bytes}`: the install sequence, the SHA-256 of the program as its record names it, and the program's length in bytes. A runtime without a program store refuses `program.active` with `unsupported request`. A chip answers it from its program store without holding a container in memory: `active` is the committed container with the highest install sequence, which the next start runs, and `previous` is the other committed container; a chip reads the header of each, then the entry table and the deployment record, in reads of at most the program store's step budget (256 bytes on the ESP32-C6), and takes the program's SHA-256 from the record and its length from the entry table, so it reads no byte of the program. A member is `null` when the store holds no such container or when its entry table or its record fails its check (the record's CRC-32 and its decoding); the program itself is checked when it starts, not when `program.active` is asked. A chip keeps the identities it has read in its memory and answers from them until its store is written: a step of an install's commit or of an upload written into the store drops them, and the next `program.active` reads the store again (on the ESP32-C6 a `program.active` that reads the store takes 4.6 ms and one answered from memory 1.7 ms, 23 October 2026). A store whose containers cannot be ordered (two have one sequence) or whose flash cannot be read answers with that error, which is not kept. The transfer operations of PORT-05 and `bytecode.reload` read their parameters with one rule on every runtime, whatever the platform's JSON library: a number that is not a non-negative whole number is refused when it is the whole of `params` (`invalid params: parameters must be an object`), a JSON number in a member read as text is refused with `invalid params: <member> must be a string`, and a number that is not a non-negative whole number in a member read as a whole number is refused with `invalid params: <member> must be a whole number`. `bytecode.reload` takes either `bytes` or `transfer`, and a request that gives both is refused with `invalid params: give either bytes or transfer, not both`.
+
+**Program install (`program.install`).** `program.install {transfer}` (Admin) installs a complete `TRSTA002` container, taken from a finished transfer (PORT-05), as the program the runtime starts next. It is the only persistent install. `bytecode.reload` changes the running program only (§11.3), and it stays allowed while the resource runs. The install is refused unless the resource is Stopped, on every runtime (decision Q11), and a computer that was stopped by `shutdown` is Stopped (STATE-08). The refusal is `resource_not_running` with the resource state in its message, as `pause`, `restart` and `bytecode.reload` refuse a resource that cannot take them; a hung scan thread is refused as `bytecode.reload` refuses it. The deployment of the web interface (`POST /api/deploy`, Admin) installs into the same project folder and follows the same rule, with the same refusal in its `error` and `error_code` members and nothing written (specification 11 §6.8.2); so does its rollback (`POST /api/rollback`, Admin), which changes which program starts next, and a refused rollback changes no link. A platform without a program store answers `unsupported request` at this point and takes nothing. The request then takes its complete transfer. An upload that is not yet complete is refused with the session's own text and stays open. The checks below read a container written into a chip's store where it lies in its slot, with the header that the session kept (§5.1). A refusal after the transfer is taken uses it up, as `bytecode.reload {transfer}` does, so the client uploads again. The checks then run in this order, and the first failure is the reply, with nothing written: the container checks; the record and admission (DEPLOY-04); the retained-value check of specification 11 §6.7.1 (decision G13), which runs the new program's warm start with the retained values of the newest checkpoint on a chip, or of the retain file on a computer, and whose refusal is the warm start's own error, which names the retained value and its reason (for example `retain migration error 'invalid retained value for 'r': value 100 outside declared subrange 0..10'`); the dry-run preparation with the admitted limits, refused as `insufficient memory` with its numbers when the program needs more than those limits, and with its own error otherwise; and the memory admission of §5.1.1 (MEM-12), which refuses a program whose memory figure is more than the memory the device has for programs, with both numbers (a computer has no maximum). The commit then writes the program. On a computer it is a deployment of the program alone through the store of the next paragraph, and the reply carries the sequence that store gives it. On a chip it runs in Stopped, one step in each pass of the control loop, with the commit point last, and the reply waits for the last step (the next paragraph; §5.1; STATE-08). The reply is `{"status":"installed","sequence":n,"program_sha256":"<64 hex digits>","bytes":n}`, the identity `program.active` reports for the program. The program runs from the next start (step 9 above). On a computer that is a `restart` of the stopped runtime (STATE-08), or the start of its process. A chip starts the installed program by a `restart` of the Stopped resource, which loads it in place (STATE-08), and at its next reset, whatever its cause (power-on, the USB link or the watchdog), because its boot selects the newest committed container (§5.1). A committed program that fails its checks, at a boot or at a `restart`, refuses the start with its reason and is not replaced by the other slot (Q12).
+
+**A chip's commit.** A chip gives its control loop its program store, its transfer session and its retained-value check when it builds the loop, also when no program runs, so that a chip that booted without a program takes its first install over the link. The checks of `program.install` run in the pass of the loop that reads the request, in the order above. The chip's retained-value check (decision G13) reads the newest committed checkpoint through a second handle on the checkpoint slots, which it only reads (§10.1), as the warm start of the boot reads it. When the new program's record keeps retained values (`[runtime.retain] mode = "file"`), the check builds the new program, runs its warm start with the checkpoint's values and drops it. A checkpoint that fails its check, or a value that the warm start refuses, refuses the install with the retained-value error above. A chip with no checkpoint slots, a log with no committed checkpoint, or a new program that keeps no retained values has nothing to restore, and the check passes. A new program that cannot be built to try its warm start, because it exceeds its admitted limits for example, is refused with the check's own error, `the retained-value check could not run: <error>`, and not as retained values that cannot be restored. The check first prepares the new program with the limits that the heap allows now, those of an online change's candidate (§11.3) for the heap's free bytes less the reserve (the working memory, and the payload of the newest checkpoint when the new program's record keeps retained values), and drops the module, so that a program the heap cannot hold is refused before the shared dry run, which prepares it with the limits its record requested, can reset the chip. That refusal is the check's own error, `the retained-value check could not run: control error 'insufficient memory: a program of <n> bytes needs more than the <m> bytes of heap that remain for it (<r> bytes are free, <k> are kept in reserve)'`. No byte of the program store is written until all the checks have passed, and none is read but those of a container written into the store. The commit of an upload held in the heap then copies the container once, because the transfer is used up, and a copy that the heap cannot hold is refused with `no room to install a container of <bytes> bytes`; it orders the committed containers by reading the header of each slot, and it chooses its slot and its sequence (§5.1). The commit of an upload written into the store copies nothing: it writes the slot that the upload was written into, with the next sequence, and programs only the header and the magic (§5.1). The pass that reads the request writes no byte of the container.
+
+**The reply waits.** From the moment the checks have passed, the reply to a chip's `program.install` is the one reply in flight (PORT-05). The loop writes it when the last step is done, and until then it reads no further request from the link: a request that arrives meanwhile waits in the link, so no `restart`, `shutdown` or second install runs in the middle of a commit. Each pass of the loop from then on takes one step in the order of §5.1: one erase unit, or the program or the read-back of at most the step budget (256 bytes on the C6), or the commit point. The pass returns without waiting, and it still does the platform's idle work and feeds the hardware watchdog (STATE-08, TIME-04). The last step programs the second half of the magic, and the `installed` reply is written in the same pass. A step that fails ends the install: the reply is that failure, `the program store's flash <erase, program or read> failed` or `the programmed bytes do not read back as written`, with the number of the request, the previous program stays selected (DEPLOY-03), and the loop reads requests again. A new host session does not stop the commit. The new program is the one the next boot selects (§5.1) and the one a `restart` loads (STATE-08), so a chip that is restarted or reset after the reply starts it.
+
+**The longest step on the ESP32-C6** is the erase of one 4 KiB unit, up to about 0.4 s with the machine interrupts masked (Appendix D.2). A program or a read-back step of one 256-byte page takes a few milliseconds, which the bound of specification 11 §6.8.1 counts as 5 ms until the bench measures it, and the pass that reads the request takes the time of the checks. The C6's hardware watchdog (MWDT0, stage 0 with an interval of 4,000 ms, Appendix D.2) is fed in every pass (STATE-08, TIME-04), so a step of at most 0.4 s never starves it; the pass that reads the request must also finish within that interval. A container takes one erase for each 4 KiB, so its commit takes about 0.4 s for each of them in the worst case, and the reply comes after it. The scriptable client of specification 11 §6.8.1 reads a reply for 750 ms at most, so a client that installs reads this reply with the bound of its own that §6.8.1 gives, which is worked out from the container's size with these times. An upload written into the store takes the erases and the program steps as it arrives instead (§5.1): `transfer.begin` one erase, and each part of 4,096 bytes one erase and sixteen program and sixteen read-back steps of 256 bytes, about 0.4 s + 32 × 5 ms = 0.56 s at worst, and the install of such an upload then takes the steps of the header and the magic alone.
+
+**The computer's program store.** A computer keeps each deployed project as a bundle, `bundles/<label>`. The link `current` names the bundle that runs and `previous` the one before it; both are symbolic links into `bundles`. A deployment copies the running bundle into a new `bundles/<label>`, writes its payload over the copy, and writes the record of the new program there. The program is admitted before anything the runtime starts from changes: its record, its admission against the hosted device, and a dry-run preparation with the limits the record grants. A refused program leaves every bundle and link as it was. Each file is written through a temporary file that is synced, then renamed, and the folder is then synced, as the retain file is (specification 11 §6.7; G17). The commit is one rename of `current`; `previous` then takes the bundle that `current` named before, by a second rename. The renames of the links, and the creation of the new bundle's folder, are not yet followed by a sync of the folder that holds them, so after a power cut just after a deployment the previous program can come back, which is safe; the sync is a follow-up of slice S4-4. A stop before the commit leaves `current` on the bundle it named, and a stop after it runs the new bundle. A rollback changes the same two links in the same order, one rename each. A stop between its two renames leaves `current` on the bundle the rollback selected, which the next start runs; `previous` names that bundle too until the second rename, and no start reads it. A folder `bundles/<label>` that neither link names is an interrupted or refused stage: it blocks no label, and a deployment under that label removes it first. After a deployment every bundle except `current` and `previous` is removed. A bundle's install sequence is the decimal number in its `install-sequence` file, and a bundle without the file has sequence 0; a new bundle takes one more than the newer of the `current` and `previous` bundles. A project folder that is not a `current` link has no store. Its files are replaced in place, after its program is admitted, and `program.active` reports its own `program.stbc` as the active program, with sequence 0, its SHA-256 and length, and no previous program. If its deployment record, when it has one, does not admit that program, `program.active` reports no active program.
 
 ### 11.3 Hosted online change and execution generations
 
-This subsection preserves the existing supported hosted online-change contract. The reviewed implementation documents a scheduler-cycle-boundary replacement with a warm restart at the entry point and retain handling; it does not establish a no-restart state migration. The first MCU release remains stopped-installation only. [R19]
+This subsection preserves the existing supported hosted online-change contract. The reviewed implementation documents a scheduler-cycle-boundary replacement with a warm restart at the entry point and retain handling; it does not establish a no-restart state migration. [R19]
 
 ```text
 Prepare and validate candidate outside bounded execution
@@ -1411,6 +2528,20 @@ ordinary instruction bytes.
 
 The boundary is the existing semantic transition point, not a claim that warm initialization or snapshot migration takes zero time.
 
+**Online change as a request (`bytecode.reload`).** `bytecode.reload` (Admin) gives the program to the transaction of specification 11 §6.7.1 either as `bytes`, standard base64, or as `transfer`, a complete upload (PORT-05); its parameters are read as §11.2 states. The first failing check is the reply, in this order: the parameters (`missing params`, `invalid params: <reason>` or `invalid bytecode: <reason>`); a hung scan thread; a resource that is Stopped, refused as `resource_not_running` with its state, because a stopped resource has no scan to apply the change; and, for `transfer`, the upload, which an unfinished or unknown id refuses with the session's own text. A request refused by the first three checks leaves its upload open. Once the upload is taken it is used up, also when the scan then refuses the change, and the client uploads again. The change is queued to the scan and applied at its next boundary. The reply is `{"status":"reloaded"}`; `reload timeout` when the scan did not take the change in time, which is then never applied; `resource stopped before the reload was applied` (`resource_not_running`) when a stop came first; `reload commit outcome is unknown` when the scan took it and its result did not arrive in time; or the error of the transaction when its preparation or commit refuses the change, with the previous program running as before. On a computer the request waits up to five seconds for the scan to take the change and, once it is taken, up to sixty seconds for its result. An online change is memory only (decision Q10): it changes the running program, writes no program store and no bundle, and a stop followed by a `restart` starts the installed program in its place (STATE-08); `program.install` is the only persistent install (§11.2). The decision rules above are shared code (`trust-runtime-services::loading::reload`), and only the queue and the wait belong to the platform. A chip does the same in its control loop, as set out in the paragraphs below; a chip whose firmware gives its loop no program loader, such as the STM32 firmware until its program store is built (checklist S4), answers `unsupported request`.
+
+**Online change on a chip: the queue and the reply.** A chip's control loop takes `bytecode.reload` in the pass that reads the request (specification 11 §6.7.1). The shared rule admits it with the checks above, in the same order, and a loop whose program was lost to a failed load refuses it with `no installed program: <reason>` (`resource_not_running`). The admitted change is queued for the program's next boundary, where the loop does what a computer's scan thread does. The boundary is the one of STATE-08: while the program runs, when its next cycle is due; while it is paused in production mode, one cycle interval after the last boundary; and while it is faulted, at the end of each 10 ms poll of the faulted wait, where a change that succeeds recovers the resource, clears its fault and returns it to Running, as on a computer (specification 11 §6.6). At a boundary the stop is taken first, then the queued pauses and resumes, then the online change, then a pending restart, and then the scan, as a computer's scan thread drains its commands (the queued reload with its other commands, after the stop and before the pending restart). The reply is the one reply in flight (PORT-05) from the moment the request has passed its checks until the change is applied or refused: the loop reads no further request in that time, and a request that arrives meanwhile waits in the link, so no `shutdown`, `restart` or second reload runs between the queue and the commit. The reply is `{"status":"reloaded"}` when the change is applied; the error of its preparation or of one of its checks when it is refused, the previous program running as before; and `resource stopped before the reload was applied` (`resource_not_running`) when a stop takes the program first, which drops the change. A change that no boundary takes within five seconds of its request is withdrawn and never applied, and the reply is `reload timeout`, as on a computer. A scan that the debugger holds (a breakpoint, a debug-mode pause or a step) reaches no boundary, and neither does a scan longer than five seconds. The loop's hold of a scan checks the five seconds in every pass, so a held scan does not keep the reply from being written, and the loop reads requests again once it is, so that a `resume` can be served. A paused program in production mode reaches a boundary every cycle interval, where the change is applied, and stays paused. A chip prepares and commits in one step and has no commit wait of a computer's sixty seconds, so `reload commit outcome is unknown` is not a chip's reply. While the change waits the loop serves no request, and it does everything else: it takes the program's boundaries and runs its scans, steps a pending checkpoint, does the platform's idle work and feeds the hardware watchdog, so a waiting change delays nothing but the requests behind its reply. The preparation runs at the boundary, in the control loop, and takes the time of preparing and constructing the module (the longest uninterrupted step of a load, which the bench measures against the C6's 4,000 ms hardware watchdog, Appendix D.2); the loop feeds the watchdog between the steps, and the scan after the change starts late by that time, as a computer's does (UPDATE-03).
+
+**Online change on a chip: the memory check (UPDATE-06).** The candidate is prepared while the running program stays installed, so the heap holds the running program, the upload and the candidate at once. The candidate's preparation limits are those of §5.1.1 for a heap of the bytes that are free when the change is taken, less a reserve that the chip keeps for the machine (the limits of `device_limits`: the preparation bytes and the validation scratch scale with the heap, the counts are trust-runtime's and the call levels the main stack's, MEM-03; and an artifact no longer than those bytes, because an artifact longer than the heap that remains cannot be prepared in it). The reserve is the working memory that preparing and constructing a candidate takes beyond the two programs. The change reads no checkpoint (decision OC-1, below), so it keeps nothing for one. On the ESP32-C6 the working memory is 8,192 bytes (`ONLINE_CHANGE_WORKING_MEMORY_BYTES`); Appendix D.2 gives its measurement. A candidate that needs more than those limits, whichever limit refuses it (the artifact's length, the memory or the work of the decoder, the preparation budget, or the storage or the work of the validator, each of which the core reports as a limit and not as a damaged program), is refused with `insufficient memory: a change of <n> bytes needs more than the <m> bytes of heap that remain for it (<r> bytes are free, <k> are kept in reserve)`, and a candidate whose construction exceeds its construction allowance, the constructed values or the allocation bytes, with `insufficient memory: building a change of <n> bytes needs <x> more <allowance> after <u>, above the limit of <l> that the <m> bytes of heap that remain for it allow (<r> bytes are free, <k> are kept in reserve)`. A heap with no byte remaining is refused with the first text, since no program can be prepared in it, and a candidate whose static call depth is more than the call levels the chip's main stack holds is refused with `insufficient stack` and its numbers (MEM-03). The running program runs on unchanged. The upload is freed as soon as the candidate's module is prepared, whether or not the candidate is then refused. A candidate that passes these limits is then compared by its memory figure (MEM-12), with the capture of its retained values when the record keeps them, with the heap that remains for it once its upload is freed: the free bytes less the reserve, with the upload's bytes. A figure that is more is refused with `insufficient memory: a change of <n> bytes needs <f> bytes of memory, more than the <m> bytes of heap that remain for it once it is prepared (<r> bytes are free, <k> are kept in reserve)`. The same limits apply to the dry run of a chip's `program.install` (§11.2), whose texts name `a program` instead of `a change`. Its reserve is the working memory and, only when the new program's record keeps retained values (`[runtime.retain] mode = "file"`), the length of the payload of the newest committed checkpoint as well, because its warm start reads that checkpoint whole into the heap. The length is read from the checkpoint's record header, so the reserve holds the bytes that the dry run will really read and not the largest payload that a slot takes; it holds that largest payload when the header cannot be read, and nothing when the log holds no committed checkpoint. On the ESP32-C6, whose largest payload is 16,300 bytes, the install's reserve is 8,192 bytes for a record that keeps no retained values, and 8,192 bytes plus the newest payload (at most 24,492 bytes) for a record that keeps them.
+
+**Online change on a chip: the lines.** The change keeps the running program's lines claimed, with the levels their outputs hold. The candidate is constructed with an empty process I/O, which drives nothing and claims no pin, and with the running program's settings, since the change brings no record: the cycle interval, the watchdog and fault policies, the safe state, the retain settings, the lines, the event capacity and the hardware watchdog interval stay as the installed container's record set them. Before the commit the candidate is checked against the running program's record, and a candidate that fails a check is dropped and the running program is as it was. (1) A binding of the candidate to an input or output address at which neither the record's `gpio` driver gives a line nor its other drivers an entry is refused with `the candidate binds <address>, which the running program's record gives no line or driver entry`; an address is covered by a line when the line is that bit, for a bit binding, or lies in one of the bytes, for a binding of a byte or more, by a driver's entry when they share a byte (an analog or PWM entry takes a word, a counter a double word, a CAN frame its `length` bytes; specification 11 §6.5), and a marker (`%M`) binding needs neither. The running program's drivers stay claimed with its lines. (2) As a computer's `validate_replacement_policy` refuses a replacement whose process image cannot take a `[[io.safe_state]]` entry of the running configuration, because a stop or a fault would write that value into the image, the change is refused with the error of that write when an entry of the running record is not a valid write of the candidate's process image. Before the commit the checkpoint store gets room for the capture of the candidate's retained values, keeping the room it has, so that the candidate's first capture grows nothing (MEM-09); a heap without that room refuses the change with `insufficient memory`. The commit then hands the lines to the candidate in one step that cannot fail: the running program's process I/O, which owns the claimed pins with the levels their outputs hold, and its checkpoint store, which owns the checkpoint flash and the log, change places with the candidate's empty ones, and the running program is dropped with the empty ones. No pin is released or claimed, no output is written and no safe state is applied between the commit and the candidate's first output commit; the lines hold their levels until the candidate's first scan publishes its outputs. That scan runs the tasks that are due, because the candidate's tasks continue the running program's schedule (decision OC-2, below), so the outputs that the program assigns are computed by the candidate's tasks and never take initial values for a cycle.
+
+**Online change keeps the program's values** (owner, 19 October 2026, decisions OC-1 and OC-2: "do whats most professional and what beckhoff and codesys does"; "flickering outputs is shit"). On every runtime an online change carries the running program's state into the candidate, as CODESYS and TwinCAT do (checklist C1-23, C1-24): every variable of the candidate that the running program declares at the same place and by the same name takes that variable's current value, retained or not, function-block instances and their members included; a variable whose declaration changed keeps what fits (owner, 20 October 2026, "keep what fits": a simple value converted when the new type holds it, structure and function-block members by name, array elements by index), and anything else, like a new variable, takes its declared initial value, the change recording it as an event; a change never fails because of a value; and the retain file or checkpoint is not applied at an online change, because it holds older values (it stays the source of a restart after a stop or a power loss). The candidate's tasks continue the running program's schedule, so the first cycle after the change runs the tasks that are due, and outputs are written only from the candidate's values, never from initial values that no task has computed. Specification 11 §6.7.1 gives the rules and the events.
+
+**Online change on a chip: the values.** The candidate takes its values as a computer's does (specification 11 §6.7.1). A chip builds it with the engine's replacement, the one body that a computer's online change runs: `prepare_replacement` of the borrowed engine state that a chip has and of the owned engine state that a computer has call one function, so that the two cannot drift apart (the paragraphs of H above hold for both). The candidate is constructed with its own declarations' initial values, and then every variable takes the value the running program holds, as it is in memory at the boundary, by the rules of specification 11 §6.7.1, as `apply_online_change_bytes` and `prepare_replacement` take them on a computer: a value whose type has the same shape in both programs is copied as bytes, an instance's members are carried into the candidate's instance at the same place, a reference names the same variable in the candidate or is NULL, and a changed declaration keeps what fits. The copy builds no value and allocates nothing; the events of the variables that did not keep their values as they were are bounded (32, then their count). Nothing is applied over these values (decision OC-1): a computer loads no retain store at the change and a chip reads no checkpoint, because the retain file and the checkpoints hold older values, saved at the project's interval and when the program stops; they stay the source of a warm restart after a stop or a power loss (§10.1; specification 11 §6.7). The process images are carried into the candidate's construction before its configuration initialization, as on a computer, and new image capacity starts at zero. Logical time is preserved: the program's time goes on from the clock, and the candidate's tasks continue the running program's schedule (decision OC-2): a task of the candidate takes the last activation, the level of its event input and the overruns of the running program's task of the same name, the IEC name compared without regard to case, so the first scan after the commit runs the tasks that are due; a task that the running program does not have counts its first activation from the program's logical time at the commit, which is the time of the last cycle that started before it, because the program's time advances when a cycle starts (specification 11 §6.7.1), so it first runs in the first cycle that starts one interval or more after that time. The scan counter restarts at 0, the writes and forces that were queued go with the running program's Live Values and are cleared (specification 11 §6.9.2), the program's event store and metrics are kept, and the variables that did not keep their running values as they were are recorded as `online_change_value` events at the moment of the commit.
+
+**Online change on a chip: the debugger and the installed program.** The variable handles of the running program end with it: the debugger retires them, as below, and the candidate's Live Values are new, so nothing that was queued for the running program reaches the candidate. The change installs the next generation of the running program's lineage, as a computer's does (UPDATE-04, installation generations): a reference or an instance identity taken before the change is refused as stale after it, with `ReferenceLifetime`, and a reference taken after it reads. The candidate's Live Values carry the generation that the change installed, so a force that names an instance by its identity after the change is resolved in it. The commit is at a boundary, where no scan is held, so no hold ends at it; the debugger keeps its breakpoints and its pause, as a computer's `invalidate_schema_observations` does (specification 13, "Hold duration": a configuration change does not release a hold), and it forgets what belonged to the old statements, the call depths, the steps, the thread identities and the last stop, which the next statement supplies again. An online change is memory only (decision Q10): it writes no program store and no flash, `program.active` still reports the installed program, and a stop and a `restart`, or a reset, start the installed program in its place (STATE-08). The commit marks the loop's program as coming from no container, so the next `restart` of the Stopped resource loads the newest committed container, while a `restart` that finds the resource running or faulted restarts the changed program in place, as on a computer.
+
 **UPDATE-01.** Installed module metadata/code shall be immutable per generation under MEM-07. Candidate construction shall happen outside bounded execution and shall not mutate the running generation. Failed validation, preparation, or update-memory admission shall leave the prior installed generation intact; a failed candidate shall never become executable.
 
 **UPDATE-02.** Publication shall occur only at the defined quiescent scheduler boundary, with no in-flight instruction stream continuing in replaced code. Preserve the supported warm-restart/retain behavior and existing output policy. Do not introduce CODESYS-style no-restart migration, mid-scan replacement, or automatic full-state rollback as an incidental refactor. [R19, E18]
@@ -1418,6 +2549,8 @@ The boundary is the existing semantic transition point, not a claim that warm in
 **UPDATE-03.** Account for preparation, coherent state/retain snapshot or copying, restart, publication, and output transition separately. Timing and state-transfer costs at the switch shall fit the admitted maintenance/update window or use an explicitly approved pause/STOP workflow. Preserve existing hosted functionality in the compatibility profile while resolving any bounded-profile conflict; do not describe an unbounded switch as a bounded scan.
 
 **UPDATE-04.** PLC handles, debugger/export references, cached lookups, and service bindings shall carry or be validated against the applicable generation/lifetime. A stale reference shall fail explicitly unless a supported, checked rebinding operation intentionally replaces it. Define token wrap/reuse and restart/identity behavior; a repeated counter value shall not let an old handle alias an unrelated generation.
+
+**Installation generations (MEM-07, UPDATE-04).** Every value reference carries the installation generation of the storage it was taken in. Instantiating an application starts its first generation. Each committed warm or cold restart and each committed replacement of the installed application constructs the next generation, on every target. A resource-only reconfiguration (§4.3.1) keeps the storage, the generation and every reference. A refused restart or candidate changes no generation. The generation is a 32-bit counter of one installation that never wraps and is never reused: once it is exhausted, a further restart or replacement is refused with `Overflow` before anything changes, which takes 2^32 − 1 restarts and replacements of one installation. A reference of another generation names no state. A storage read through it returns nothing; a checked read, write or function-block execution refuses it with `ReferenceLifetime` before any change; and no checked write or PLC assignment stores it, so every reference the PLC holds belongs to the installed generation. The warm-restart transfer of a retained reference (§11.3 above) binds it to the new generation, which is the checked rebinding this requirement allows; a copy of the same reference held outside the PLC stays stale. A host binds the references it holds, such as engineering aliases, task function blocks, I/O binding records and protocol client points, to the same declarations again when a restart or replacement commits and before the next cycle. If a declaration of the restarted application no longer resolves, the controller faults (UPDATE-07). A staged request that names an instance by identity carries its generation (§4.3.1). The check is one 32-bit comparison, independent of pointer width.
 
 **UPDATE-05.** Retired module and state storage shall remain valid until all permitted execution, debugging, and export readers release it. Reclamation, last-owner destruction, and deallocation shall not run on a bounded control path. Use an appropriate ownership/pinning or snapshot mechanism; the design does not mandate a lock-free algorithm or a separate process.
 
@@ -1429,11 +2562,234 @@ The boundary is the existing semantic transition point, not a claim that warm in
 
 Preserve UPDATE-01/02's existing boundary/warm-restart behavior as the hosted code is migrated. The extra bounded generation, reader-capacity, reclamation, and wrap/reuse machinery in UPDATE-03 through UPDATE-08 belongs to M3/M4H, where actual readers and lifetimes are inventoried. Scope A/B needs valid module ownership and no address-as-identity cache; it does not need a speculative multi-generation reclamation service. Use existing ownership where it satisfies the contract and record a reader class as absent when no actual surface can hold it.
 
+### 11.4 Projects, device settings and hardware descriptions
+
+A board is a runtime like trust-runtime on Linux, macOS and Windows (ARCH-11). Three kinds of
+settings keep it that way:
+
+| What | Files | Where they live | On Linux, macOS and Windows |
+|---|---|---|---|
+| What the PLC does | `runtime.toml`, `io.toml`, the program | the project | the same files with the same meaning |
+| The device itself | `device.toml` | written onto the device | not used; the operating system holds these settings |
+| The chip | `chips/<chip>.toml` | inside truST | not used |
+
+**TARGET-01 — Same project.** A project for a board is the same as for any trust-runtime:
+`runtime.toml`, `io.toml` and the program, with the same keys and meaning (specification 11 and the
+configuration reference). I/O uses the same `io.toml` drivers; on a chip, the `gpio` driver's `line`
+names a pin of the chip, for example `PD12` on the STM32U5A9 or a GPIO number on the ESP32-C6, and
+the chip's other I/O (analog, PWM, counters, CAN) are drivers of the same file. A setting that needs
+hardware the device lacks is refused when the project is deployed, with the reason (ARCH-13).
+
+**TARGET-02 — Device settings.** A device without an operating system keeps the settings that the
+operating system holds on Linux in `device.toml`, stored on the device and not in the project, so
+that no password reaches the project: the device name; each network interface (Ethernet, Wi-Fi)
+with DHCP or a fixed address; the Wi-Fi network name and password; Bluetooth; and the time server.
+It also holds the few wiring values of the device that are not pins and that the firmware cannot
+detect itself: the firmware measures the crystal frequency against the chip's internal clock and
+identifies the Ethernet PHY over its management interface, and `device.toml` names them only when
+detection is not possible. Pins are named in `io.toml`, as on Linux. It is written over the control
+connection, the first time over USB, from `trust-runtime` and from the hardware canvas, with the
+access rights of the control connection. Runtimes on Linux, macOS
+and Windows use it only for the keys whose signatures they trust (specification 44 §5.11), in
+truST's configuration folder of the user that runs them; the operating system holds their other
+settings.
+
+The file. `device.toml` has the sections `[device]` (`name`, a DNS label of 1 to 32 letters,
+digits and hyphens, neither first nor last a hyphen), `[network.wifi]` (`ssid` of 1 to 32 bytes;
+`password`, empty for an open network, a WPA2 passphrase of 8 to 63 printable ASCII characters or
+a 64-digit pre-shared key; `address`, `dhcp`, the default, or a fixed IPv4 address with its prefix
+length, `192.168.1.50/24`, with `gateway` and at most two `dns` servers, which are refused with
+DHCP; `country`, the ISO 3166-1 alpha-2 code whose radio rules apply, without which the chip keeps
+to the channels and power allowed everywhere), `[network.ethernet]` (`address`, `gateway`, `dns` as for Wi-Fi),
+`[control]` (`token`, the control token, 16 to 128 printable ASCII characters without spaces, which
+every control request must then carry and which grants Admin, as a computer's
+`runtime.control.auth_token` does, specification 11 §6.9.6; `port`, the TCP port of the control
+connection over the network, 9901 by default, ARCH-12), `[bluetooth]`
+(`enabled`), `[time]` (`server`, a host name or an IPv4 address, TARGET-06), `[signing]`
+(`trusted_keys`, at most 8 Ed25519 public keys of 64 hexadecimal digits, specification 44 §5.11) and
+`[hardware]` (`crystal_hz`, `ethernet_phy`). Every section and key may be left out, except `ssid`
+in a `[network.wifi]` that is given, which names the network; an unknown one
+is refused. A key the chip has no hardware for is refused with the reason, for example
+`network.ethernet: the ESP32-C6 has no Ethernet` (ARCH-13), and so is a crystal outside the chip
+file's range.
+
+On a chip. A chip keeps the file in the two sectors of its chip file's `device_a` and `device_b`
+(the ESP32-C6: 0xD000 and 0xE000, D.2), each one erase unit, as a record of the magic `TRSTDS01`,
+a sequence, the length and CRC-32 of the text, and the settings as JSON. The newer of two whole
+records holds the settings; a write goes into the sector that does not hold the newest record,
+with the next sequence, and is read back, so a write that power ends leaves the settings before it.
+`device.get` (Engineer) reports the stored settings with their sequence, the Wi-Fi password
+replaced by `password_set` and the control token by `token_set`; neither leaves the chip. `device.set {settings}` (Admin)
+checks the settings and stores them while the resource is Stopped, because the erase of a sector
+masks the interrupts (D.2); they apply at the chip's next boot. `device.reset` (Admin) resets the
+chip once its reply is sent, while the resource is Stopped, and the chip boots with its stored
+settings, its program started as at any reset (STATE-08). The boot reads the settings before the
+network and the program start. A computer answers the three requests with `unsupported request`
+(specification 11, the device settings contract). The tools: `trust-runtime ctl device-get`,
+`ctl device-set <device.toml>` and `ctl device-reset`, over any endpoint, the first time over USB.
+
+**TARGET-03 — Chip descriptions.** truST describes each supported chip in `chips/<chip>.toml`:
+processor and instruction set, flash and RAM sizes and layout, clock limits, its interfaces, and the
+runtime components its firmware holds (ARCH-14).
+truST builds one firmware per chip from it; there is no firmware, and no file, per board. Any board
+with a supported chip and at least the flash the chip file's layout places (8 MB for the ESP32-C6)
+runs that firmware: its pins are named in `io.toml` and its other wiring is detected or named in
+`device.toml` (TARGET-02). A chip of a supported family needs only its chip
+file. A new chip family
+needs a platform adapter, written once: the drivers for its timer, watchdog, flash, pins, USB and
+network links. Everything above the adapter is shared (ARCH-11). Appendix H defines the file.
+
+**TARGET-04 — Installing truST on a device.** `trust-runtime` and the hardware canvas install the
+truST firmware on a supported chip, over the chip's own USB boot loader or a debug probe, and
+update it later over the control connection. After that, a project is deployed to the board as to
+any trust-runtime. A chip on USB is found by the USB source of the one search of specification 11:
+a passive listing that reads USB descriptors and never resets or writes a board (owner, 15 October
+2026). A chip that already runs truST is listed as a truST runtime, reachable over USB and, when it
+has a network, found on the network like any runtime (ARCH-12).
+
+The first install. `trust-runtime firmware install --chip <chip> [--port <port>] <folder>` writes
+the release's firmware folder of the chip (`bootloader.bin`, `partitions.bin`, `firmware.bin`)
+through the chip's own boot loader, each file where the chip file's layout places it: on the
+ESP32-C6 through its ROM's download mode over USB-Serial/JTAG (the library of espflash), the boot
+loader at 0x0, the partition table at 0x8000 and the firmware into the first firmware slot at
+0x10000, and it erases the boot loader's selection (`firmware_select`) so that the chip boots that
+slot. The port is the one USB serial port with the chip file's `usb_bootloader` identity unless
+`--port` names it; none or two such ports are refused with the ports named. A file that does not
+begin with its magic (0xE9 for an ESP image, 0xAA 0x50 for a partition table) is refused before
+anything is written. The program store, the checkpoints and the device settings are not written,
+so a chip keeps its program, its retained values and its settings across an install. With
+`--reset-settings` the install also erases the two sectors of the device settings (`device_a` and
+`device_b`) and those of the pairings (`pairing_a` and `pairing_b`, where the chip file names them;
+specification 11 §6.9.6), so the chip boots without a control token, without pairing tokens and
+without a network, and its USB link is Admin again: the way back to a chip whose control token is
+lost. It needs the chip on USB, as the
+first install does; whoever holds the chip can read its flash as well, since the chips have no
+read-out protection (TARGET-10), so it opens nothing a thief could not.
+
+Updates over the control connection (the owner, 25 October 2026, "do whats professional, compare to
+twin at and codesys": two firmware slots with a rollback, as ESP-IDF and the update of an embedded
+CODESYS or TwinCAT device keep the running firmware until the new one has started). A chip keeps two
+firmware slots and a boot loader that rolls back (on the ESP32-C6 ESP-IDF v5.5.1's boot loader built
+with application rollback, `ota_0` and `ota_1` and the selection `otadata`). While its resource is
+Stopped, `transfer.begin {"for": "firmware"}` opens an upload that the chip writes into the slot it
+does not run from as the parts arrive, in the steps of an upload written into the program store
+(§5.1), keeping the image's first 60 bytes in the session, so that the slot holds no bootable image
+until the commit; a running resource refuses it as `resource_not_running`, because no flash is
+erased while a program runs (Appendix D.2). `firmware.install {transfer}` (Admin, specification 11)
+then has the chip check the image where it lies: on the ESP32-C6 the ESP image magic, chip id 13,
+every segment inside the upload, the checksum, the appended SHA-256, no byte after the image, and
+the application descriptor of truST's firmware (`trust-esp32c6`), whose version the reply reports.
+The commit programs the kept bytes and reads them back, one step per pass, and selects the slot for
+the next boot in the state `New`, in the selection entry that the running firmware does not use, so
+the running firmware stays selectable. The reply is `{"status":"installed","version":"<version>",
+"slot":"a"|"b","restarting":true}`; the loop answers no further request, and once the link has sent
+the reply and 100 ms have passed the chip resets into the new firmware. The boot loader boots it
+once on trial (`PendingVerify`). The new firmware confirms itself (`Valid`) when its boot is done:
+the loop built, the program loaded and started or refused with its reason. A firmware that panics
+or hangs before that is reset by the watchdog, and the boot loader then marks it `Aborted` and boots
+the firmware before it, which reports the version it rolled back. `capabilities` reports a chip's
+`firmware`: `{"slot", "version", "confirmed", "rolled_back"}` (specification 11); a computer reports
+`null`, because its truST is updated by installing truST on it, and refuses `transfer.begin {"for":
+"firmware"}` and `firmware.install` with `unsupported request`. `trust-runtime ctl firmware <image>`
+(specification 11 §6.8.1) runs the update: it reads `capabilities` and `status` first and refuses a
+runtime without firmware slots and one whose program is not stopped before anything is uploaded,
+uploads the image, installs it, connects again until the restarted chip answers `capabilities`, and
+succeeds when the chip runs the installed version from the installed slot, confirmed; a chip that
+rolled the update back fails the command with both versions. The program, its retained values and
+the settings stay as they are, and the boot starts the installed program as at any reset
+(STATE-08). The STM32U5A9's update uses its two flash banks with the bank swap, its first install
+the ROM's DFU over USB; both are open until the board is on the bench (checklist N7).
+
+**TARGET-05 — Versions.** The same version rules apply to every runtime: the tools read the
+runtime's version over the control connection and, when the versions do not match, say which
+update is needed. A runtime reports its truST version in `status.version`. The tools and the
+runtimes of one truST release belong together, so when they differ the older of the two is to be
+updated to the newer. Versions compare as release versions, `major.minor.patch`, a pre-release
+(`-rc.1`) before the release it names, build metadata (`+...`) ignored (Semantic Versioning 2.0.0
+§11); a version that does not read as one is updated to the tools' release. `trust-runtime ctl`
+and the tools that open a device's link (`trust-dev test --device`, `trust-runtime conformance
+--device`) write the update to their error output and then carry out the request, for example
+`warning: the runtime runs truST 0.30.9 and these tools are truST 0.31.0: update the runtime to
+truST 0.31.0`, or `...: update these tools to truST 0.31.1` for a newer runtime. The Devices panel
+names the update in the runtime's inspector and offers `Update truST` only to a runtime that is to
+be updated, never an older truST to a newer runtime (specification 25).
+
+**TARGET-06 — Time.** Date and time functions use the device clock. A device without a battery-held
+clock takes its time from a time source: the time server of `device.toml` when it has a network,
+and the computer at the other end of its control connection, whose tools give it their own clock
+with `clock.set` each time they open the connection (specification 11, the runtime clock
+contract; the owner, 25 October 2026, "add a time source"). The time server is asked with SNTP
+version 4 (RFC 4330) once the chip has an address, then every hour, and after a failure again
+after a minute; a server named by a host name is looked up first at the name servers of the address
+in use, DHCP's or the settings'. A reply is taken only from the server asked, when it answers the
+request (its originate time is the request's transmit time) and its clock is synchronized (stratum 1
+to 15, leap indicator not 3); a kiss-o'-death is not taken. The clock is set to the server's time
+when the reply arrived, the round trip halved (RFC 4330 §5), as `clock.set` sets it, and `clock.set`
+still sets it between two requests. `capabilities` reports the server, the clock's offset that the
+last request corrected and why a request took no time (specification 11). It reports the time as
+not set until a source sets it. Until then its clock counts from `DT#1970-01-01-00:00:00` at power-up, as a
+computer's clock that nobody set does, and `CURRENT_DT` reads that: a program keeps running and
+sees a date in 1970, as a PLC whose clock lost its backup does. A reply or event value that
+carries the wall-clock time, such as the `time_ns` of a `feature_disabled` event, is `null` while
+the time is not set, never an invented 0; trust-runtime on Linux, macOS and Windows always has the
+time, so its replies stay as they are, and its operating system holds its clock, so it refuses
+`clock.set`. A
+device reports no `audit_dropped`: trust-runtime reports it when its audit logger thread has ended
+and the channel to it refuses a record, and a device has no such thread or channel, since its
+control loop hands each audit record to the platform's audit store in the pass that serves the
+request.
+
+**TARGET-07 — Diagnostics.** The same fault log, events and log levels as trust-runtime
+(`[runtime.log]`), read over the control connection. `config.get` and `config.set` answer the log
+level and the other settings every runtime has, from the installed program's deployment record as
+`config.set` changed them; a chip runs none of a computer's own services and has none of their keys
+(specification 11, the runtime configuration contract). A chip has no log output beside its event
+store, which keeps every event whatever the level, as trust-runtime's store does.
+
+**TARGET-08 — Outputs on a fault.** As on Linux: `io.toml` `[[io.safe_state]]` gives each
+output's safe value, and `runtime.toml` `[runtime.fault]` and `[runtime.watchdog]` choose `halt`,
+`safe_halt` or `restart`. A disconnected computer changes nothing; the runtime keeps running
+(ARCH-07). An output's safe value is its `[[io.safe_state]]` entry when that is a Boolean, and
+false, a de-energized output, otherwise. A chip's terminal fault path, a panic that ends the boot
+(STATE-05), drives each configured output to that safe value, with the line's `invert`, before it
+resets, as the stop and the fault paths do; it touches no pin that is not a configured output.
+A program that a reset ended stays faulted after the boot, as trust-runtime's resource stays
+faulted after a scan that did not return or that panicked (specification 11, hosted hang
+supervision). The boot starts the program and, before its first scan, reads the reset (specification
+11, `last_reset`). The hardware watchdog (TIME-04) resets the chip when a pass of the loop does not
+return, whether or not `[runtime.watchdog]` is enabled; after its reset the resource faults with
+`WatchdogTimeout` when `runtime.watchdog.hang_action` is `fault`, the default, and the safe outputs
+follow the watchdog's action as after an overrun (`halt` and `safe_halt` drive them, `restart` does
+not, and does not restart the program); with `abort` the program runs, as trust-runtime's service
+manager starts its process again. After a panic the resource faults with `ResourcePanic` and the
+record's location; a panic of an allocation that found no room records `no heap for <bytes> B,
+<free> free` instead, the request and the heap's free bytes, since the allocator's location says
+nothing of the program. The safe outputs follow `[runtime.fault]` as after a scan's panic on
+trust-runtime (`safe_halt` drives them); a panic is never restarted automatically, under `restart`
+either. The fault is logged at the program's time zero, `status` reports it, and a `restart` starts
+the program. A power-on, a host reset and a requested restart end no program, so the program runs.
+A boot that a reset ended while it loaded the installed program does not load it again: the boot
+marks its load where a panic or watchdog reset keeps the mark and a power-on clears it, and the
+next boot that finds the mark leaves the program unloaded, the resource faulted as the reset leaves
+a program (`ResourcePanic` with the panic's location, or `WatchdogTimeout`), logged and reported by
+`status`, with no output driven, since no program drove one; a `restart` loads the program again. A program whose load panics, for
+example one whose memory the chip lacks, would otherwise reset the chip at every boot. A load that a
+`restart` or an install starts is caught at the boot after its reset, whose own load is marked.
+
+**TARGET-09 — Releases.** Each truST release includes the firmware for every supported chip, built
+from the same version as trust-runtime, with SHA-256 sums (owner, 16 October 2026:
+"the whole point was to release builds for stm32 and esp32").
+
+**TARGET-10 — No read-out protection.** The owner wants to see the code on a device: "we dont
+want read out protection, i want to be able to see the code" (16 October 2026). truST does not
+enable read-out protection, flash encryption or secure boot on any chip; a debug probe can read the
+firmware and the installed program.
+
 ## 12. Compatibility and numeric behavior
 
 **COMPAT-01.** Extracted instruction semantics shall be behavior-preserving. A smaller MCU shall not silently narrow DINT/LINT, reinterpret signedness, change array bounds, remove reference checks, or change string truncation behavior.
 
-**COMPAT-02.** Each hosted runtime or firmware shall expose a descriptor covering bytecode versions; semantic/library, scheduling/I/O, and numeric contracts; admitted imports; type features; resource maxima; physical clock resolution; required output evidence; timing-evidence classification; and deployment/update capabilities. The installed application identity and applicable qualification record shall be queryable.
+**COMPAT-02.** Each hosted runtime or firmware shall expose a descriptor covering the program formats it runs; semantic/library, scheduling/I/O, and numeric contracts; admitted imports; type features; resource maxima; physical clock resolution; required output evidence; timing-evidence classification; and deployment/update capabilities. The installed application identity and applicable qualification record shall be queryable.
 
 **COMPAT-03.** OOP method/interface calls, function-block state, and applicable standard-library functions shall be included in parity testing, not only arithmetic and a blinking LED.
 
@@ -1614,7 +2970,7 @@ This table replaces the earlier unassigned P0/P1 labels. It assigns work to mile
 | Full timing-admission record (§8.4/SCHED-02 through SCHED-04), release descriptor (COMPAT-02), production deployment authorization (DEPLOY-06), extended disturbances | Design the needed interfaces early; implement/qualify at M3/M4H/M4/M5 before a corresponding release claim. Scope A/B still validates all bytes, capacities, and outputs for its controlled fixture. |
 | Full modernization ledger, platform acceptance, update/deployment/retain recovery, and exact or tolerance-qualified published claims | Required before closing the combined plan; independent UI/protocol upgrades need not block first-board feasibility. |
 
-Implementation of ownership/data-flow changes updates `docs/diagrams/architecture/runtime-execution.puml` and `runtime-bytecode-vm-execution.puml` where affected; render/drift checks belong to that scope's batch. New crates/large-file policies follow architecture-doctor and recorded waivers where required. CHANGELOG and release-version rules apply when corresponding behavior is implemented/released, including STOP latency, numeric baseline, and persistence changes. A planning document is not a shipped feature or version bump.
+Implementation of ownership/data-flow changes updates `docs/diagrams/architecture/runtime-native-execution.puml` where affected; render/drift checks belong to that scope's batch. New crates/large-file policies follow architecture-doctor and recorded waivers where required. CHANGELOG and release-version rules apply when corresponding behavior is implemented/released, including STOP latency, numeric baseline, and persistence changes. A planning document is not a shipped feature or version bump.
 
 ## 14. Verification and acceptance
 
@@ -1622,7 +2978,7 @@ Implementation of ownership/data-flow changes updates `docs/diagrams/architectur
 
 | Gate | Required result |
 |---|---|
-| Portable build | Separate actual F401 and selected ESP32 target checks plus linked firmware; no hosted/HIR leak or unresolved dependency/atomic assumption hidden by a combined host build. |
+| Portable build | Separate actual STM32U5A9 and ESP32-C6 target checks plus linked firmware; no hosted/HIR leak or unresolved dependency/atomic assumption hidden by a combined host build. |
 | Standalone loading | Fresh engines on every claimed hosted target and both selected MCU targets initialize from saved STBC and deployment metadata, including LOAD-10/11 initialization, without `CompileSession`, source parsing, harness initialization, or host-built runtime state. |
 | Regression | Existing runtime behavior locks, scheduler/restart tests, reference checks, and relevant runtime vertical tests pass. |
 | Frozen-artifact parity | Saved bytecode and baseline traces preserve the selected scheduling/numeric/import contracts, with exact or explicitly qualified expected observations. Two newly compiled identical implementations are not a sufficient oracle. |
@@ -1695,7 +3051,7 @@ cargo +1.95.0 test --locked -p trust-runtime --test runtime_core_behavior_lock
 cargo +1.95.0 run --locked -p xtask -- architecture-doctor --full-map
 ```
 
-Add exact linked-firmware commands for `trust-nucleo-f401re` and the selected ESP32 composition, map extraction, and physical runners when those projects exist. Extend the existing Linux/macOS/Windows CI matrix with isolated runtime-only and saved-artifact tests rather than treating existing full-workspace tests as that proof. These checks are not assumed to pass on the reviewed baseline. Core checking alone does not measure size, prove linking, demonstrate bounded execution, or establish hardware readiness.
+Add exact linked-firmware commands for `trust-stm32f407` and the selected ESP32 composition, map extraction, and physical runners when those projects exist. Extend the existing Linux/macOS/Windows CI matrix with isolated runtime-only and saved-artifact tests rather than treating existing full-workspace tests as that proof. These checks are not assumed to pass on the reviewed baseline. Core checking alone does not measure size, prove linking, demonstrate bounded execution, or establish hardware readiness.
 
 ### 14.4 Hosted resource and performance assessment
 
@@ -1776,11 +3132,161 @@ Instrumented timings locate costs; PERF-01 acceptance uses uninstrumented builds
 
 **PERF-04.** Smaller artifacts, faster scans, lower jitter, and shorter builds are hypotheses, not consequences guaranteed by extraction. A gate passes only when declared requirements are met and regressions are explained/approved. Record missing evidence as missing. Longer tests, margins on observed maxima, and correct overrun faulting do not establish a mathematical WCET bound, a failure rate, or successful execution within a violated deadline.
 
+> **Superseded in part** by specification 44: the owner's requirement holds, and compiled programs
+> carry it out (specification 44 §14.3); the execution paths below were the bytecode engine's and
+> were deleted with it (specification 44 §15).
+
+**PERF-05. A small, fast runtime** (owner, 21 October 2026: "We shall have a small fast runtime ...
+We need to fix the runtime. Thats prio 1"; checklist P1). A scan reaches a variable at the place
+preparation gave it, and does no name lookup, type walk or general conversion for a scalar that the
+program reads or writes:
+
+- While no statement hook observes the instructions, a POU's own scalar variable and a scalar global
+  that a static reference names are read and written in their leaf (MEM-12). The dispatcher runs
+  REF_FIELD and the LOAD after it, or the SWAP and STORE after it, as one. A program's body, or the
+  body of a function block no other one extends, that keeps no variable in its frame and holds only
+  instructions compact code has an operation for runs from compact code that preparation builds,
+  on a loop of its own. Either way each instruction an access covers is recorded as the fault site
+  and charged its unit before its work (TIME-08, MEM-05); the instructions of one operation are
+  charged at once when none of their charges would be refused or sample the deadline, which leaves
+  the allowance, the next sample and the site where the charges one by one leave them (checklist
+  P1-9); every other instruction's work is done by
+  the dispatcher's own functions; and a store of a value the general path would convert or refuse
+  is left to the general store. A scan therefore ends as on the general path: with the same result,
+  the same charges, the same fault record and the same values.
+- The statement hook is called only while the services observe statements, as a debugger's do. A
+  hook that observes keeps every instruction on the general path. When the services' hook acts only
+  at the statement starts the module's `LINE_TABLE` names, as both runtimes' hooks do, it is called
+  only at those instructions, and the allocator's operations are counted only around those calls
+  (checklist P1-10); a module without a `LINE_TABLE` offers it every instruction.
+- An output or marker binding whose static reference names a scalar variable without a path is
+  published from the variable's leaf.
+- A standard function block of a persistent instance reads and writes its inputs, outputs and state
+  at their places among its POU's declarations, which preparation finds by their names, and a call
+  binds the block's formals at the same places. Preparation also finds where each of them lies in an
+  instance's bytes, its declared type and its presence byte, so a call finds the instance once and
+  reads and writes each variable where it lies. The call takes a persistent instance's POU from the
+  instance table, not from its type's name. A BOOL, `TIME` or `LTIME` variable, among them the time
+  of a timer's last call, an `LTIME`, and the native duration slots of an overloaded timer's `PT` and
+  `ET`, are read and written as their leaves' bytes, as the flat store's codec reads and writes them
+  (`memory::flat`): a byte other than zero is TRUE, a duration is eight little-endian bytes of
+  nanoseconds and a slot's family byte follows them, 1 for an `LTIME`, a variable whose presence
+  byte is clear holds no value, and a write marks it. A block reaches the
+  same variables either way, so its results are unchanged.
+- In a body that compact code covers, the operands are held as the values of their leaves, a stack
+  of at most 16 that the loop keeps itself, while each is a scalar or an instance (checklist P1-9):
+  a load decodes the variable's leaf, a store whose value is of the variable's primitive encodes it
+  into the leaf, and the arithmetic and comparisons of two integers and the logic and equality of
+  two BOOLs are computed by specification 10 §6.4 on the operands themselves. Any other operation
+  is done by the general path's function on the operands as values. Before an operation that takes
+  a reference, finds an operand that is no scalar, or would hold a seventeenth operand, the operands
+  go onto the operand stack as values, in their order, and the body's remaining operations run as
+  above on them.
+- When every operation of such a body takes and leaves operands whose kinds follow from the body's
+  variables, constants and operations alone, every path to an operation that a jump goes to brings
+  operands of the same kinds there (a BOOL's short-circuit AND or OR keeps its left operand across
+  its jump), and no operand is left when the body ends, preparation fixes each operand's kind
+  (checklist P1-9): an
+  integer, a BOOL, any other scalar, a function block instance, or the value a standard block call
+  leaves. The body then runs on its operands' bits, an integer as its 64-bit value and a BOOL as 0
+  or 1: a load reads the leaf's bytes, a store of the variable's primitive writes them, the
+  arithmetic, comparison and logic chosen at preparation run by specification 10 §6.4, and an
+  integer converted to an integer type, by a conversion that names the integer's own type or none,
+  keeps its bits when the target type holds its value and is refused as an overflow when it does
+  not (specification 07 §2.1), and a `TIME` converted to a `DWORD` by `TIME_TO_DWORD`, a conversion
+  that names `TIME` or no source type, gives the bits of its whole milliseconds, truncated, and is
+  refused as an overflow when it is negative or a `DWORD` does not hold them (specification 07
+  §2.8). Each
+  operation keeps the order, charges, deadline checks, refusals and hand-overs of the operation
+  above, so the body ends with the same result, charges, fault record and values.
+- A program's body that compact code covers, and that keeps no variable in a frame and initializes
+  nothing in one, starts without the frame the dispatcher pushes: its entry makes the entry's
+  checks and charges, checks the deadline when the body ends, as the dispatcher does at a frame's
+  end, and pushes and initializes the frame only when an operation needs it (a hand-over, a call
+  the dispatcher runs or a store the general path makes), which the dispatcher then ends.
+- In a body that compact code covers, a standard conversion of one scalar argument, such as
+  TIME_TO_DWORD, converts the argument where the call is: it checks the deadline before and after,
+  binds and charges the argument and converts it as the call does, without the call's lookups of
+  its symbol and names. An argument that the call reads through a reference, as the compiler
+  passes a variable that the POU declares, or a variable of a function block instance it declares,
+  is read from the variable's leaf. A text argument goes through the call. An integer converted to
+  an integer type, by a conversion that names the integer's own type or none, is converted by the
+  conversion's integer branch once the copy that the argument's binding makes is admitted, which is
+  all that binding charges for an integer (specification 07 §2.1 gives the result: the value kept
+  exactly, or `RuntimeError::Overflow` outside the target's range). A `TIME` converted to a `DWORD` is
+  converted on its bits likewise, once the same copy is admitted, which is all a `TIME` argument's
+  binding charges too.
+- In a body that compact code covers, a call of a standard function block that the POU declares
+  itself, which binds values to inputs only, writes each bound input's value into its member where
+  it lies and runs the block, with the call's checks of the deadline before and after it, its
+  charges and its refusals. An unbound input keeps its value, as the call reads it and writes it
+  back. The `PT` of an overloaded `TP`, `TON` or `TOF`, a native duration slot (§6.2), is such an
+  input: its duration is written with its family, `TIME` or `LTIME`, as the call binds it. A call
+  that binds an output, or whose argument is not a value of its input's type, goes through the
+  call.
+- In a body that compact code covers, a scalar variable that a function block declares itself, read
+  through an instance of the block that the POU declares itself (a timer's Q or ET), is read in its
+  leaf with the charges of its four instructions, when no other block extends the block. An
+  overloaded timer's `ET`, a native duration slot, is read as the duration of the family it holds.
+  A variable of an interface's type is read through the general path, since it may name another
+  block.
+- A cycle reaches each program it calls, a task's or a background one, and the program's instance
+  at the places preparation found for the program's name, without comparing names.
+- The engine calls the cycle hooks at a phase only when they observe it, each hook saying which
+  phases it acts at (every phase but `AfterOutputSample`, which the output hooks decide), so a
+  phase that no service acts at costs no call and no reading of the allocation count. A device's
+  hooks act at the reading of the inputs, the capture of the retained values of a program that
+  keeps them, the Live Values' writes and forces while any are queued, and the phases whose
+  events and metrics the loop records.
+- The retained values are captured only at a scan whose save is due (§10).
+- When every input and marker binding names, without a path, a writable scalar variable of the
+  primitive the binding declares, through a flat address of a scalar, and no two name one
+  variable, the input synchronization decodes each binding from its image and writes the value
+  into the variable's leaf. It charges what the general synchronization charges, in the same order,
+  checks the deadline before each write, and writes back the leaves it wrote when it is refused, so
+  the variables are as they were. A binding whose type is a BOOL, an integer, a bit string or a
+  character, bound at the width of its type, holds in the image the bits its variable holds: it is
+  sampled and published by copying its bytes, a BOOL's one bit as its 1 or 0, after the same
+  checks and with the same charges. Preparation checks such a binding's address against every
+  limit that does not depend on an image's length, so a scan checks only that the image holds the
+  binding's bytes and makes the other checks, with their refusals, when it does not; and a scan
+  finds the instance of a program whose variables the bindings name once for each run of that
+  program's bindings.
+- A device whose bindings are all flat scalars publishes its I/O snapshot at the end of a scan as
+  a copy of the flat process images, with the scan's number and the addresses a force holds, and a
+  request decodes the bindings from that copy when it reads the snapshot. Reading a flat scalar
+  binding charges a scan nothing, and the deadline is checked before the outputs are written, so
+  the scan ends as when it decoded them. A device that binds a text window or a hierarchical value,
+  whose reads are charged, decodes the snapshot every scan.
+- The metrics find the program or task a scan ran by its name without building a key, and keep
+  the order and the sharing of entries that `status` reports.
+- A scan applies the Live Values queues only when a write is queued or a force is active; idle
+  queues would change nothing.
+
+Speed is measured on the host by counting instructions (callgrind of the ignored probe
+`runner::scan_cost_probe_tests` of `trust-runtime-services`), and on the ESP32-C6 by the scan and
+cycle times that `status` reports and by sampling the program counter through the debug assistant.
+The targets (the owner, 21 October 2026: "The target numbers are good as a start"), on the ESP32-C6
+in production mode with no debugger attached:
+
+- The OC-1 bench program `v1p` scans in under 0.1 ms. It is one program of 15 statements, run every
+  100 ms: increments of four unsigned counters (one external, one retained and one inside an IF on
+  the R_TRIG's output), assignments of constants to three variables (one bound to an output), a TON
+  and an R_TRIG called with constant inputs, and five assignments to variables bound to marker
+  double words: a copy, products and sums, and the conversions TIME_TO_DWORD, UDINT_TO_DINT and
+  INT_TO_DINT.
+- The cycle's own work, the cycle time less the scan times of the programs that ran, is under
+  0.1 ms.
+- A prepared program holds at most its container's bytes (MEM-14).
+
+The scan and cycle times are the averages that `status` reports (`metrics.profiling` and
+`metrics.cycle_ms`).
+
 ### 14.5 Definition of done
 
 **Hosted migration is complete** when Linux, Windows, and macOS products use the shared engine, pass native compiler-free loading and contract-qualified trace tests, retain existing supported workflows including applicable generation changes, qualify their bounded control paths, and provide per-platform baseline-relative memory/timing evidence. Timing classification and unresolved compatibility/runner exceptions shall be stated explicitly; an unresolved exception is not a passed gate.
 
-**The first MCU release is complete** when the NUCLEO-F401RE boots into its controlled state, accepts an authorized and independently validated application/configuration, prepares it without the compiler, executes the shared VM under admitted resource/scheduling/numeric contracts, meets its required completion level within the recorded timing envelope, and handles fault, restart, retain, and interrupted stopped installation as specified. Integration, disturbed/extended tests, and per-region resource evidence are all required; the release shall state its timing-evidence classification. A changed first-board selection requires an explicit scope decision and preserves the F401 evidence status.
+**The first MCU release is complete** when the ESP32-C6 and the STM32U5A9 boot into their controlled state, accept an authorized and independently validated application/configuration, admit its program image and run its compiled code (specification 44) under admitted resource/scheduling/numeric contracts, meet their required completion level within the recorded timing envelope, handle fault, restart, retain, and interrupted installation as specified, and offer every runtime service of ARCH-11 over their links (ARCH-12), tested from VS Code exactly as a trust-runtime is. Integration, disturbed/extended tests, and per-region resource evidence are all required; the release shall state its timing-evidence classification. A changed first-board selection requires an explicit scope decision and preserves the F401 evidence status.
 
 **The required ESP32 release is complete** when the named ESP32 board/build separately satisfies the same applicable MCU release gates for its declared profile. M1 core checking, firmware linking, or M2E trace parity alone is insufficient.
 
@@ -1804,7 +3310,7 @@ The evidence package shall identify whether timing support is measured-qualified
 
 ## 15. Decisions still requiring target evidence
 
-The first board model is confirmed as NUCLEO-F401RE. Its physical revision/marking and Appendix D settings still need recording before hardware work. The proposed ESP32-C6 board's availability, exact module/revision, and usable memory remain to be confirmed. Pin HAL/BSP/toolchain versions, actual memory reservations, I/O mapping, management transport, checkpoint medium, interrupt/watchdog policy, and time/space headroom for each build. No measured truST footprint or universal family support is supplied here.
+The STM32 target is the STM32U5A9 on the Riverdi RVT50HQSNWC00-B (Appendix D.5); its revision and settings still need recording before hardware work. The NUCLEO-F401RE was the first board, and the STM32F407 the target from 16 to 17 October 2026 (D.4). The proposed ESP32-C6 board's availability, exact module/revision, and usable memory remain to be confirmed. Pin HAL/BSP/toolchain versions, actual memory reservations, I/O mapping, management transport, checkpoint medium, interrupt/watchdog policy, and time/space headroom for each build. No measured truST footprint or universal family support is supplied here.
 
 M0 shall also freeze the hosted OS/architecture and service matrix, scheduling/numeric/import contracts, permitted timing-evidence classifications, application authentication/rollback model, and regression/measurement thresholds. Pin the production runtime/adapter build in qualification records; support shall not be inferred from portable Rust source alone.
 
@@ -2007,8 +3513,9 @@ belongs to scopes B/E and does not form part of RTP-A4-02 software closure.
 
 ## 17. Rust design patterns for this runtime
 
-A4 execution ownership: each source-free invocation has a checked, non-reused live
-activation identity. A nested call temporarily transfers its caller's local vector
+A4 execution ownership: each source-free invocation has a checked live activation
+identity that no other activation of its top-level entry uses (§4.3.1). A nested
+call temporarily transfers its caller's local vector
 into the engine's reference-addressable storage, then restores that same vector on
 both successful and failed return. No local snapshot is substituted for live aliasing.
 References to the current activation resolve against its active frame; references to
@@ -2226,6 +3733,57 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 
 | Version | Date | Change |
 |---|---|---|
+| 0.69 | 25 October 2026 | A chip's panic for want of heap says so, and a chip counts what a program keeps beside its figure (the portability checklist's T1 bench). §5.1.1: the debugger's buffer of stops of a program whose record enables debugging is counted with its figure at the install and the load (200 stops took 17,860 bytes of the C6's heap; the bench's debug program passed the check with Wi-Fi and ran out of heap at its start), and after its I/O drivers are claimed the heap must still hold the working memory, the checkpoint buffer and the debugger's buffer; the checkpoint buffer is taken without a panic when the heap has no block for it; `capabilities.heap` reports the chip's heap as it stands. TARGET-08: the reset record of a panic of an allocation that found no room holds `no heap for <bytes> B, <free> free`, the request and the free bytes, instead of the allocator's location, which named only `alloc.rs`: the bench's debug program with four drivers ran out of heap on a chip with Wi-Fi, and the record did not say how much it asked for. D.2: the drivers' bench numbers (ADC1, LEDC into PCNT, TWAI self-test), ADC1's readings disturbed while Wi-Fi runs (open), and the `modbus-tcp` driver on the C6 over a client link of the chip's network with the computer's scan-side deadline, benched against a server on the Pi. |
+| 0.70 | 25 October 2026 | The `mqtt` driver on the chips (the portability checklist's S7). §11.1: a chip keeps smaller bounds on the MQTT driver's queue, by messages and payload bytes, on its packets and on its outgoing bytes, with what a handoff, a session's start and a keep alive do when the bytes do not fit. MEM-12: after the drivers are claimed the heap must also hold what they may still take while they run, and a driver takes its fixed buffers at its claim. D.2: the C6's `mqtt` driver, stepped by the idle work between the scans, its bounds, a broker named by a host name looked up with the chip's name servers, its orderly stop, and TLS and symbolic `mappings` refused as not yet on the C6; the `modbus-tcp` link's queues of two frames. |
+| 0.71 | 26 October 2026 | The S7 MQTT bench (`s7m/run1`, `run2`) found two ways a chip's second install of a program failed for memory. MEM-12: a chip takes the checkpoint buffer, its checkpoint store's largest payload, at boot and lends it to each program that keeps retained values, so a start never asks a fragmented heap for that block; the memory for programs no longer keeps it aside. D.2: a dropped `modbus-tcp` or `mqtt` driver waits up to 200 ms for its connection to close in order and gives its socket back, so the program loaded next finds the memory free. |
+| 0.68 | 25 October 2026 | Drivers, pairings and installs on the chips (the portability checklist's T1, S5, D1 and the documentation review; the owner, 25 October 2026: "do whats professional, compare to twin at and codesys and it must follow iec standard. so you deside. please finish the complete checklist"). §5.1.1: record version 2 adds section 8, each I/O driver's `params` as JSON, so that a chip runs every driver it carries out with a computer's keys, defaults and checks; a reader takes versions 1 and 2. D.2: the `analog`, `pwm`, `counter` and `can` drivers on the C6's ADC1, LEDC, PCNT and TWAI; the heap figures corrected to 180,160 bytes; GPIO24 to GPIO30 reserved for the SPI flash (H.2 reason `flash`); the pairings in `pair_a` at 0x7F6000 and `pair_b` at 0x7F7000, 4 KiB each, taken from the program store, whose slots are now 2,060 KiB at 0x3F0000 and 0x5F3000; a pairing write is the second flash write a running resource allows, measured on the bench. H.2: the layout keys `pairing_a` and `pairing_b`; H.5 rule 7 names the device settings and the pairings with the boot counter. TARGET-02: `ssid` is required in a given `[network.wifi]`. TARGET-03: the C6 needs 8 MB of flash. TARGET-04: `firmware install --reset-settings` erases the device settings and the pairings, the way back to a chip whose control token is lost. H.3: pairing is part of `access`, not `cloud`; the C6 holds `debug` and `deploy`, as benched on 24 October 2026. §11.3: an online change on a chip keeps the running program's drivers with its lines, and counts a binding that shares a byte with a driver's entry as wired. |
+| 0.67 | 25 October 2026 | A load in the running loop (the portability checklist's L3). D.2, MEM-12: a `restart` that loads a newer program, or an install with a restart, measures the memory for programs again before it reads the program and refuses one that no longer fits; on the router, the bench's install with a restart panicked in the running loop, where the same program loaded at the next boot. The reset record keeps the end of a panic location longer than it, after `...`; it kept `panic`, which hid where that panic was. |
+| 0.66 | 25 October 2026 | The memory a program has on a chip with Wi-Fi, and a boot that a program's load ended (the portability checklist's L3). D.2: the radio's arena is 56 KiB, the bench's peak of 47,864 bytes under load with a fifth more; it was 64 KiB. The network takes 38,588 bytes of the heap besides the arena, measured at boot; the text said about 26 KiB. PORT-06: the busy reply carries the `error_code` `server_busy`, and a client whose first request on a connection gets it connects again after 50, 100, 200, 400 and 800 ms; the bench's `install` right after a `shutdown` found the chip still closing the connection while it saved its retained values. PORT-06: the chip derives a WPA2 passphrase's key at boot, before its program starts; the radio's driver derived it at the first join and stalled the reference program's scans for about 0.85 seconds at every boot (ControlTask missed 86 activations of 10 ms; none with the 64-digit key). TARGET-08: a boot that a reset ended while it loaded the installed program does not load it again; the next boot leaves the program unloaded and the resource faulted as the reset leaves a program, and a `restart` loads it again. The bench installed a debug image whose figure (specification 44 §10.4, which 0.29 there makes count what a load keeps) let a chip with Wi-Fi admit it: its load ran out of heap, panicked, and the chip reset at every boot, about 470 times, until its device settings were erased. |
+| 0.65 | 25 October 2026 | The chip on a Wi-Fi network at the bench (the portability checklist's L3). D.2: the firmware's `memcpy` copies from the first byte to the last, as the ROM's does, so a copy to a lower address that overlaps its source gives what `memmove` gives; its word table ran from the last word to the first, and the C6 then failed every WPA2 handshake at its third message, on the Pi's hotspot and on a router alike, while a build on the ROM's routines joined. The firmware's `tests/memory_routines/run.sh` checks the three routines under qemu-riscv32. PORT-06: the chip answers ping on its address, as networked PLCs do; its Wi-Fi stack did not. PORT-06, joining the network: 90 seconds after an attempt that its access point did not answer, with the radio asleep between attempts, so that an access point that kept the chip's association after a reset without leaving drops it (the Pi's access point did after about 45 seconds without an answer to its checks; attempts every 30 seconds, and the awake radio's answers to its checks, kept it for good); before a reset it makes itself the chip leaves its Wi-Fi network; the Pi's access point, which still held the chip's association after a reset without one, ignored the chip's next attempts to join ("AuthenticationExpired" at -19 dBm) until its own timeout. PORT-06, the client: `ctl` asks for the version and sends its request over one connection; it opened a second for the request, which the chip, still closing the first, answered `server busy`. PORT-06, the loop: while the link is down only the next attempt to join is due; before, the stack's timers, which cannot run without a link, woke the loop every millisecond. |
+| 0.64 | 25 October 2026 | A chip on a network (the portability checklist's L3; ARCH-12; the owner, 25 October 2026, on the five open questions: "do whats professional, compare to twin at and codesys and it must follow iec standard. so you deside"). PORT-06: a chip whose device settings name a network interface starts it at boot and makes the first attempt to join then, without the program waiting; it joins again after a loss after 1, 2, 4, 8 and 16 seconds and then every 30; Wi-Fi as a WPA2-Personal or open station in the radio rules of the settings' country or of every country; the address from DHCP with the device name or from the settings; the control connection over TCP on `[control] port` (9901) only with a control token, which is then required on every link as on a computer and which `config.set` cannot clear; one client at a time, a second told `server busy` with its request's id; idle probes every 10 seconds and a silent client dropped after 30; the USB link and the network read in turn; at most 4 frames a pass, and the loop's wait ending at the network's next timer; the network in `capabilities`; `ctl --endpoint tcp://host:port` through the shared client. TARGET-02: `[control]` with `token` and `port`, `device.get` reporting `token_set`. D.2: the radio's code and data in RAM take 80 KiB of the program region, now 112 KiB (specification 44 0.28); with Wi-Fi settings the radio's arena of 64 KiB and the network's 26 KiB come from the heap at boot, the arena never shared with the PLC heap's free lists or counted among the scan's allocator operations, and the scheduler esp-rtos starts only then. Like a CODESYS or TwinCAT device, the chip keeps its credential in its own settings, not in the project. |
+| 0.63 | 25 October 2026 | The device settings on a chip (the portability checklist's T2; the owner's TARGET-02, 16 October 2026, and "do whats professional", 25 October 2026). TARGET-02: `device.toml`'s sections and keys with their checks, a key for hardware the chip lacks refused with the reason (ARCH-13); a chip keeps the file in two sectors with a sequence and a CRC-32, the newer whole record winning; `device.get` (Engineer) without the Wi-Fi password, `device.set` (Admin) while Stopped, applying at the next boot, and `device.reset` (Admin) after its reply; a computer refuses the three. |
+| 0.62 | 25 October 2026 | Installing and updating truST on a chip (the portability checklist's T4; the owner, 25 October 2026, on the five open questions: "do whats professional, compare to twin at and codesys and it must follow iec standard. so you deside"). TARGET-04: the first install, `trust-runtime firmware install`, writes the release's firmware folder through the chip's boot loader where the chip file places each part and erases the boot loader's selection; updates go over the control connection into the firmware slot that does not run, with `transfer.begin {"for": "firmware"}` and `firmware.install`, the image checked where it lies, its first bytes and the selection committed last, the chip reset after the reply, the new firmware on trial until its boot is done and rolled back by the boot loader otherwise, as ESP-IDF and embedded CODESYS and TwinCAT devices update; `capabilities` reports `firmware`, and `ctl firmware` runs the update and waits for the chip to run it. D.2: the ESP32-C6's boot loader is ESP-IDF v5.5.1's with rollback; `otadata`, `device_a`/`device_b`, `ota_0`/`ota_1` of 1,984 KiB, and the program store at 0x3F0000 of 4,128 KiB in two slots of 2,064 KiB, which supersedes decision O7 (a compiled program runs from at most 192 KiB of RAM, so no program loses room). H.2: the layout keys `firmware_b`, `firmware_select`, `device_a` and `device_b`. |
+| 0.61 | 25 October 2026 | Merged from the USB lane of 19 October 2026 (its 0.36). §7.4 (PORT-05): the rules of the client, the host side of the byte-stream link (checklist L1a, USB as a way to reach a runtime). Opening a serial port sets DTR on, then RTS off, and nothing else, so the open does not reset the chip; a request longer than the 8,192-byte frame is refused before it is sent, with the chip's own text; text on the port is skipped, 65,536 bytes of it at most; a wait is 5 seconds, and 120 seconds for the reply to `program.install`; a reply head is read whole with `transfer.get`, checked against its CRC-32 and SHA-256, and aborted with `transfer.abort` on any failure; a port that went away (a reset or a power cycle enumerates it again) is reported plainly. Specification 11 §6.8.1 names the `serial://` endpoint and `ctl install`. |
+| 0.60 | 25 October 2026 | The version rule (the portability checklist's T5; the owner's TARGET-05, 16 October 2026). TARGET-05: the tools and runtimes of one release belong together; the older of the two is to be updated to the newer, by release-version order; `trust-runtime ctl` and the tools that open a device's link say so on their error output and carry on; the Devices panel names the update in the inspector and offers `Update truST` only to an older runtime, never a downgrade. Before, nothing compared the versions, and the panel's tray would have offered `Update truST`, this tool's older firmware, to any runtime whose version differed. |
+| 0.59 | 25 October 2026 | `config.get` and `config.set` on a chip (the portability checklist's T7; a chip works exactly like trust-runtime, the owner, 16 October 2026). TARGET-07: a chip answers both from its installed program's deployment record with the keys every runtime has, in trust-runtime's spellings, by the same shared rules; it commits before the reply, its program takes the watchdog, the fault policy and the retain save interval at its next boundary, a program that has ended takes none, its hardware watchdog's interval follows a new cycle watchdog timeout, and a control token it is given is required from then on (specification 11, the runtime configuration contract). Before, a chip answered both with `unsupported request`, and the record's log level was read by nothing. Found with it on the computer: `config.set` took any text as `log.level`, and the computer's log kept the level it started with; both now follow the contract. |
+| 0.58 | 25 October 2026 | A program that a reset ended stays faulted after the boot (the portability checklist's T8; a chip works exactly like trust-runtime, the owner, 16 October 2026). TARGET-08: the boot starts the program and, before its first scan, faults it with `WatchdogTimeout` after a reset of the hardware watchdog when `runtime.watchdog.hang_action` is `fault`, as trust-runtime's supervisor faults a scan that did not return, and runs it with `abort`, as trust-runtime's service manager starts its process again; after a panic it faults with `ResourcePanic` and the panic's location, as trust-runtime faults a scan's panic, which no policy restarts. The safe outputs follow the watchdog's action after a hang and `[runtime.fault]` after a panic. Before, the chip ran its program again after either reset, so a hung or panicking program ran into the same fault in a loop of resets without saying so. |
+| 0.57 | 25 October 2026 | A time source for a device without a battery-held clock (the owner, 25 October 2026, "add a time source"; specification 44 checklist N15): TARGET-06 adds the computer at the other end of the control connection as a time source beside the time server of `device.toml`, its tools giving the device their clock with `clock.set` each time they open the connection; a device's clock that nobody set counts from `DT#1970-01-01-00:00:00` at power-up and `CURRENT_DT` reads it, as a computer's clock that nobody set does. Appendix D.2: the ESP32-C6's wall clock, SYSTIMER from the crystal while it runs and, over a reset, the time with the LP timer's ticks in RTC fast memory, whose 128 bytes now take 64 bytes from the heap's LP SRAM region (16,256 bytes); the C6's heap, and its reply capacity, is 180,160 bytes, its main heap's 64 KiB that the deleted engine's RAM code took now counted (the capacity left them out), and its descriptor offers the wall clock. |
+| 0.56 | 24 October 2026 | The bytecode engine and the STM32F407 track deleted (the owner, 24 October 2026, "n11, delete it"; specification 44 §15): every runtime runs programs compiled into a program image. §5.2, §5.4, §6.1, MEM-14 and the execution paths of PERF-05 carry a note pointing to specification 44, which superseded them; their text stays as the record of the engine. The STM32F407 chip file, its adapter, its firmware and the shared M2E fixture are deleted, which had no native target and ran the engine only; §1.2, the scope, D.4 and Appendix H say so, the supported chips being the ESP32-C6 and the STM32U5A9, and `inspect` takes the boards of those two. |
+| 0.55 | 23 October 2026 | A faulted resource stops at `shutdown`, and requests cost less (the owner, 23 October 2026, on three questions: "i agree with your advice on all points, just make sure its professional and that we dont take short cuts"). STATE-08: `shutdown` of a Faulted resource stops it as it stops a running one, on a chip and on a computer: the outputs take the safe state again, the retained values are saved, and the resource is Stopped, or Faulted with the stop's own error when the stop fails; the fault of the program it stopped stays in `last_error` and `status` until the next start, and a process that ends Stopped with that fault exits with status 1. Before, a faulted resource stayed Faulted at `shutdown`, and a chip whose program faulted at every start took no install, as `program.install` needs Stopped (Q11). The remaining difference that a request delays a due cycle is stated with the ESP32-C6's costs (about 0.9 ms a request, 4.7 ms a `status`) until milestone M5 serves requests in a context the tasks preempt (specification 44 §16). §11.2: a chip keeps the identities `program.active` reports until a step of an install or a stored upload writes its store. |
+| 0.54 | 23 October 2026 | An upload written into the store (the owner, 23 October 2026: "stream uploads into the inactive flash slot", the header last, the SHA-256 worked out as the parts arrive). §5.1: a chip whose resource is Stopped writes an upload into the slot that an install would write, `transfer.begin` erasing the slot's first unit, each part erased, programmed and read back in the install's steps, the container's 60-byte header kept by the session until the install programs it with the magic last; an upload begun while the resource runs stays in the heap. PORT-05: begin, part, completion, abort and the reply in flight for such an upload; a `restart` that starts the resource ends it. §11.2: the install's checks read such a container in its slot and its commit writes only the header and the magic. MEM-14: the ESP32-C6 maps each slot into a window of its own. Appendix D.2: the upload is flash work of the Stopped state. |
+| 0.53 | 22 October 2026 | MEM-14, the program image in place, corrected to the owner's principle that what a scan reads stays in RAM ("Do as you suggest. Our goal is a professional runtime that can run on any hardware"): a chip reads only the storage layout and the initializer index where they lie in its slot's flash and keeps a compact record of each declaration and initializer on the heap; the reference table, the constant pool, the type table, the string table, the POU index and the native call symbols stay decoded; a program prepared from bytes it does not keep, a computer's or an online change's candidate, holds its tables decoded, each record as the part a scan reads and the rest in no more bytes than before, and keeps no image. |
+| 0.52 | 22 October 2026 | MEM-14, the program image in place: a runtime reads its container's fixed-width tables where they lie, a chip in its slot's flash (the ESP32-C6 maps the slot's pages through its MMU, the STM32U5 reads its flash directly), a computer and an online change's candidate on the heap; §5.1: an install writes the slot that does not hold the program the runtime holds, and the boot prepares the program from the slot without copying the container to the heap; only a device that cannot read its flash in place still refuses a container longer than its heap. |
+| 0.51 | 22 October 2026 | "The allocation count": every runtime keeps the count in 32 bits that wrap; the operations between two readings are their wrapping difference and the `status` totals add them in 64 bits; a chip's count is one word that each operation adds to atomically, read by one load, instead of 64 bits in two words and a mark (the owner, 22 October 2026: "I trust you, do what's most professional for a plc runtime"; the readings of the 64-bit count took 7.4% of t2q's busy samples on the C6, batch p2u). |
+| 0.50 | 21 October 2026 | PERF-05, a small, fast runtime (owner, 21 October 2026; checklist P1): own and global scalars read and written in their leaves, compact code for the bodies it covers on a loop of its own, whose scalar operands it holds as their leaves' values and whose program bodies start without a frame (checklist P1-9), the statement hook called only while services observe statements, scalar output bindings published from their leaves, a standard function block's variables and formals reached at the places preparation found for them; TIME-08 names the compact loop among the executors that charge 1 unit per instruction; §10, the device runner captures the retained values only at a scan whose save is due. PERF-05's targets (the owner, 21 October 2026, "The target numbers are good as a start"): on the ESP32-C6 in production mode, the OC-1 bench program `v1p` scans in under 0.1 ms, the cycle's own work takes under 0.1 ms, and a prepared program holds at most its container's bytes. Appendix D.2: the C6's main heap is 32,832 bytes: 24 KiB of its 72 KiB arena hold RAM-resident code (owner, 21 October 2026, "Give code about 24 KiB of the 136 KiB program heap, leaving programs 112 KiB"), and so do 16,320 bytes more, which the heap takes from the LP SRAM as its third region, tried last (owner, 21 October 2026, "Use LP SRAM"), so its heap, and its reply capacity (PORT-05), stays 114,688 bytes. |
+| 0.49 | 21 October 2026 | §11.3 and specification 11 §6.7.1: a task that the running program does not have counts its first activation from the program's logical time at the commit, the time of the last cycle that started before it (the program's time advances when a cycle starts), as both runtimes build the candidate; "from the commit" did not say which time. The C6 bench of OC-1 and OC-2 measured it: a 1 s task added by a change committed 135 ms after the last cycle's start first ran 0.903 s after the commit. |
+| 0.48 | 21 October 2026 | MEM-03, "Call levels on a chip": the main stack decides a chip's call levels (owner, "Stack decides"): (window − 2,048 − base) / level, at most 1,024; a program whose static depth is more is refused at its install, its load and its online change with `insufficient stack`, and a recursive program's deep call by the depth check; a chip's constructed values, construction bytes and process image are trust-runtime's, and only its preparation bytes and validation scratch scale with its heap (owner, "Let memory decide"); the descriptor's maxima stay trust-runtime's. §11.3: the memory check's limits and refusals restated. Appendix D.2: the C6's window is 78 KiB, measured base 34,008 B and level 6,144 B, 7 levels; the linker guard and the build check require 82 KiB. Appendix D.5: the U5A9's main stack is 78 KiB, with the C6's figures until its bench. |
+| 0.47 | 20 October 2026 | An online change carries every variable's value (checklist C1-24; decision OC-1, owner 20 October 2026 "keep what fits"). §11.3 and specification 11 §6.7.1: every variable of the candidate that the running program declares at the same place and by the same name takes its value, retained or not, the members of function-block instances included; a changed declaration keeps what fits (an elementary value converted when the new type holds it, structure and instance members by name, array elements by index) and the rest takes its initial value; a reference names the same variable in the candidate or is NULL; the retained live-object and subrange refusals of a change are gone, so no value fails a change; each variable that did not keep its value as it was is recorded as an `online_change_value` event, at most 32 per change and then their count. |
+| 0.46 | 20 October 2026 | An online change applies no retain file and continues the task schedule (checklist C1-23; decisions OC-1 and OC-2). §11.3: the candidate keeps the retained values the running program holds and nothing is applied over them, a computer loads no retain store and a chip reads no checkpoint at the change; a chip's change keeps only its working memory (8,192 bytes on the ESP32-C6) in reserve, and the dry run of `program.install` keeps the payload of the newest checkpoint as well; the candidate's tasks keep the last activation, the event-input level and the overruns of the running program's task of the same name, so the first scan after the commit runs the tasks that are due and no output shows an initial value for a cycle. Appendix D.2: the C6's change and install reserves. |
+| 0.45 | 20 October 2026 | The memory figure (checklist C1-21; owner, 20 October 2026: the device computes it, the deployment record stays unchanged). MEM-12: the figure's parts (the prepared program, the persistent block, the activation stack, the operand stack, the engine's own state, and the capture of the retained values when the runtime keeps them); construction reserves exactly what it counts, and a native test compares it with the allocator for every corpus program. §5.1.1: memory admission after preparation and before construction, refused with `runtime_deployment_refused` and both numbers; the device descriptor's memory for programs, measured by a chip at boot and reported as `capabilities.program_memory_bytes`, none on a computer. §11.3: an online change compares the candidate's figure with the heap that remains for it, and the checkpoint store gets room for the candidate's capture before the commit. Appendix D.2 and D.5: what the ESP32-C6 and the STM32U5A9 keep for the machine beside a program. `status` reports `metrics.program_memory` and `trust-runtime build` the figure on the computer (specification 11). |
+| 0.44 | 19 October 2026 | Operands on the flat store (checklist C1-10). §6.3 "Reference buffers": the engine keeps at most 64 path and 64 index buffers; a reference whose path grows, a copied static path and a loaded reference variable take them, and a load, a store or a discard through a reference, a write that replaces a stored reference, a comparison of references and a refused assignment attempt give them back, with every charge unchanged. §6.3 "Places": on the flat store a load of an array or a structure whose leaves are numbers, bits, characters, times, dates and enumerations leaves it in the block, a store into a destination of the same type copies its bytes, checked and charged as a write of the value, and the engine reads it into a value before any instruction that may write or call, so a store stores the value its load read. Measured on the flat store (`scan_allocation_zero`): `arrays` 62 -> 0 and `references` 18 -> 0 allocator calls per scan after the first; the `copies` fixture proves the copies against the value store. |
+| 0.43 | 19 October 2026 | The flat store built (checklist C1, MEM-12 stage B). §6.2 "The flat store": a region's block of bytes, reserved once and zeroed, holds every global and every persistent instance at its declared size and alignment, little-endian; a text leaf holds its length and characters inline, so the text store and its buffers are gone; a reference leaf is 16 bytes whose first byte says whether it holds a reference, and the region's reference table keeps the `ValueRef` under the leaf's byte offset until C1-11, so the reference records are gone; an instance leaf is 8 bytes, the identity and a byte that says whether it names one; each persistent instance lies in a range of the block, its own variables first and its base's after them, each root that holds bytes at a multiple of 8, which corrects 0.42's "function-block instances inline" in MEM-12. A function static and a native-state slot keep a presence byte after their value, so they read as the null value until their static action or native import gives them one, as in the value store. The construction charge counts the block, the reference table and the bookkeeping (12-byte range entries, 28-byte instance entries, 4-byte reference-leaf and 24-byte initial-value list entries). Value conversion: `Value::Null` writes zero bytes, and zero bytes read as the type's zero value, except an instance leaf that names no instance and an unbound native counter slot. MEM-14: the module's names are one buffer with end offsets, and the program, function, function-block, class and method maps are sorted arrays of name index and id, searched without regard to case (A4: names 1,017 bytes, name maps 232, the prepared module 16,460, from 24,671). |
+| 0.42 | 19 October 2026 | Variables at their declared size and lean replies (owner, 19 October 2026; checklist C1, C7). MEM-12: flat blocks laid out at preparation from the TYPE_TABLE, every variable at its declared size and natural alignment (`BOOL` 1 byte, `INT` 2, `DINT` and `REAL` 4, `LREAL` and the temporal types 8, an enumeration its base type, `STRING[n]` a 2-byte length and `n` bytes of UTF-8, `WSTRING[n]` the length and `2n` bytes, structures and arrays packed, function-block instances inline, references 16 bytes), in the persistent block, the activation stack and the operand stack; values read and written in place, no heap allocation for a value, conversion to `Value` only at the engineering boundary; a memory figure per program, reported and checked at admission. MEM-13: a reply's text written into the link's frame or the held reply's parts, no JSON tree on a chip. MEM-14: the prepared program held compactly, measured part by part (A4: 24,671 bytes prepared for 6,412 of bytecode, 424 of them instructions), with names as offsets into one buffer, native call symbols as compact plans, tables of fixed-size entries, and the target of at most the container's bytes. MEM-06 requires the packed representation, MEM-11 names it, the store's unit becomes the declared size (C1-9e). §11.3: an online change keeps the running program's values, retained or not, maps them by name, place and type, applies no retain file, and continues the task schedule, so the outputs never show initial values (OC-1, OC-2). |
+| 0.41 | 19 October 2026 | Online change on a chip (checklist S4-6c). §11.3: the interim sentence that a chip has no online change and answers `unsupported request` is replaced by the chip's online change, in six paragraphs: the queue and the reply (the change is applied at the program's next boundary, after the stop, the queued pauses and resumes and before a pending restart; the reply is the one reply in flight, so the loop reads no request until the change ends; a change no boundary takes within five seconds is withdrawn with `reload timeout`, also while the debugger holds a scan; a successful change recovers a faulted resource; a stop drops a waiting change); the memory check of UPDATE-06 (the limits of the heap's free bytes less a reserve, the `insufficient memory` refusals with their numbers, the upload freed as soon as the module is prepared); the lines (kept claimed with their output levels, a binding at an address the record gives no line refused, the running program's safe state checked against the candidate as a computer's `validate_replacement_policy` checks it, the lines and the checkpoint store handed over in one step that cannot fail); the values (the running program's retained values, then the newest checkpoint over them, by name; logical time preserved, the scan counter restarted, writes and forces cleared); the debugger (breakpoints and pause kept, observations retired) and the installed program (the change is memory only; a stop and a `restart` load the installed container). STATE-08 names the online change at the boundary and after a stop. §11.2: the check of a chip's install prepares the new program first with the heap-bound limits. Appendix D.2: the C6's online change, its reserve and the measurement it comes from. The chip builds its candidate through the engine's replacement, which the borrowed engine state of a chip and the owned engine state of a computer share as one function: the candidate installs the next generation of the running program's lineage, so that an identity taken before the change is stale after it (UPDATE-04), a congruent candidate keeps the retained function-block instances and references live, a candidate that is not congruent is refused when a retained live object cannot be serialized, and the process images are carried; the Live Values of the candidate carry the installed generation. §11.3 states no remaining difference between a chip's online change and a computer's in these points. The reserve of a change is the working memory (8,192 bytes on the ESP32-C6, twice the largest measured working memory rounded up to 8 KiB) and, only when the running record keeps retained values, the payload of the newest committed checkpoint, read from its record header (the largest payload when the header cannot say), where the first build reserved 24,576 bytes for every change; the validator's storage and work limits and the decoder's limits are worded as `insufficient memory` with their numbers, like the preparation limit (the bench's `invalid bytecode 'invalid section data: validation analysis storage limit exceeded'`), and the core reports them as limits by their type. STATE-08: a restart in place installs the next generation of the program's state, and the loop gives its Live Values that generation when the restart commits and when it takes a program, so that a force that names an instance by its identity after a restart is applied and not refused as stale. |
+| 0.40 | 19 October 2026 | A chip holds a reply longer than the frame as a computer does (checklist S1d), where the bench found `trust-runtime ctl events --limit 200` over USB refused with `reply longer than 8192 bytes`. PORT-05, Transfer ids: the interim sentence that a chip's session holds a reply of one frame at most is withdrawn. PORT-05, Reply head and get: the bullet is split in four. Reply capacity and parts: a computer's reply capacity is 64 MiB and a chip's is its heap's capacity (139,264 bytes on the ESP32-C6), and a reply is written in parts of 4,096 bytes that are each taken from the heap when the writing reaches them and never reserved ahead, so that no part of a reply's text is one heap block longer than 4,096 bytes and a reply that fits the frame is still one line. Reply refusals: a reply above the capacity is refused with `reply longer than <capacity> bytes` and a reply the heap has no room for with `no room for a reply longer than <n> bytes`, where n is the bytes written when the heap had no room, in both the request is served and audited as served, and the work after the reply takes place; a runtime without a session refuses a reply longer than the frame. Held reply freed: the parts of a held reply are freed when a `transfer.get` has read its last byte, when `transfer.abort` names it, when a newer held reply replaces it, and at a reset, and its id is then `unknown transfer`. D.2: the C6's reply capacity, why its replies are written in parts, and the two tests that check them. |
+| 0.39 | 19 October 2026 | The boot counter's two sectors are declared (checklist S4-6b, round 2). Appendix H.2: the optional layout keys `boot_counter_a` and `boot_counter_b`, named both or neither, each `{ start, kib }` of exactly one erase unit. H.5 rule 7: they lie inside the flash on erase-unit boundaries and overlap no other region, as every region does, and each is exactly one erase unit. D.2: the C6's file names them at 0x9000 and 0xA000, 4 KiB each, and `partitions.csv` declares them as the data partitions `bootcnt_a` and `bootcnt_b` of type 0x42, so that no tool and no later layout uses them; the host test `the_chip_file_names_the_boot_counter_sectors` and the xtask test of the partition table check them. |
+| 0.38 | 19 October 2026 | A chip loads an installed program in place (checklist S4-6b). STATE-08: a `restart` of the Stopped resource that finds a committed container newer than the one the program came from (or that the boot refused) drops the program, its I/O lines, its checkpoint handle and its memory before it reads anything of the new one, then reads and admits the container as the boot does, prepares it, claims its lines, sets the hardware watchdog from its record and starts it in the requested mode (`warm` restores the newest checkpoint), with the program's records empty and the device's link, transfer session, audit sequence and program store staying; a program that cannot start leaves the resource Faulted with `no installed program: <reason>` and the next `restart` tries again; a `restart` with no newer container restarts the program in place; a chip without a program starts an installed one by `restart`. §5.1: a load reads the container as the boot does. §11.2: `program.active` on a chip, from the headers and records in reads of at most the step budget; a chip starts an installed program by `restart` and at its next reset. PORT-05: a chip's boot number is a counter in its flash, written once per boot; an id never repeats across boots. Appendix D.2: the program's module and services are freed with its cycle, and the C6's boot counter sectors. |
+| 0.37 | 19 October 2026 | Program loading as built (checklist S4-7). §5.1: `cargo xtask portability pack-project` writes a `TRSTA002` container with install sequence 1, the sequence of a first commit, through the writer that every container is written by, so that a packed container written into slot A is a committed container and the first install after it writes slot B with sequence 2; the program store reads `TRSTA002` only, a `TRSTA001` container is not committed (0.36 counted it as sequence 0), and the refusal of a boot names the slot that holds one. §5.1.1: the boot's admission is `installation::admit_sequenced`. §11.2: a chip starts an installed program at its next reset, because it does not yet reload in place (slice S4-6b), and the reply to `program.install` is read with the bound of specification 11 §6.8.1: 4 s, plus 0.4 s for each 4 KiB erase unit, plus 10 ms for each 256 bytes of the container; the renames of a computer's links are not yet followed by a sync of their folder (a follow-up of slice S4-4). §11.3: `bytecode.reload` as a request, its refusals in order, its replies and that it is memory only; a chip has no online change yet. STATE-08: a chip without a program starts an installed one at its next reset. |
+| 0.36 | 18 October 2026 | The chip's install and boot (checklist S4-6). §5.1: a `TRSTA001` container that the bench packer wrote is a committed container of install sequence 0, so it boots and an install after it takes sequence 1; the boot reads only the headers of the two slots, refuses a container longer than the heap's room before reading it, reads the chosen container once and releases it after the program is prepared. §5.1.1: a chip with a program store offers one slot, not the whole `application` region. §11.2: a chip's `program.install` commits one step in each pass of the control loop, its `installed` reply is the one reply in flight until the last step is done (the loop reads no further request meanwhile, PORT-05), a failed step is answered with its error and the request's number, and the longest step on the ESP32-C6 is the erase of one 4 KiB unit, up to about 0.4 s; the chip's retained-value check reads the newest checkpoint through a read-only handle, and a program that cannot be built for it has its own refusal, `the retained-value check could not run`. PORT-05: a chip's boot number is the boot counter it keeps across resets, and a chip's session takes an upload of one program slot at most. Appendix D.2: the `stbc` region holds the two program slots. |
+| 0.35 | 18 October 2026 | STATE-08 and §11.2: a computer behaves like a chip when it is stopped (owner, 18 October 2026, decision Q11). `shutdown` stops the program and keeps trust-runtime running in the Stopped state, with its control server, web UI and other services; `restart` starts the installed program again, loading the bundle that the project folder names; the process ends on SIGINT or SIGTERM or by the explicit exit `shutdown` with `{"exit": true}`, which a chip answers as `shutdown`. A computer reports `program_control` `keeps_control`. An install, `program.install` and the web deployment alike, is accepted only while the resource is Stopped. |
+| 0.34 | 18 October 2026 | Writes the owner's four debugging decisions (checklist S3, debugging on chips): the debug service (SERVICE-06) resolves breakpoints and stepping from the module's optional line table (specification 12 §6.13) on every target, needs no ST text, no compiler, no HIR and no expression parser, evaluates the compiled expression form (specification 11 §6.13.2), reads values from the published debug state (specification 11 §6.13.1), and keeps a hold until a continue or a stop (specification 11 §6.9, STATE-07). HOST-09's debug-expression row and LOAD-06's optional debug sections record it; no function is reduced on any target. |
+| 0.33 | 18 October 2026 | The STM32U5A9 is the STM32 chip (owner, 17 October 2026): ARCH-10 and §1.2 name it. The STM32F407 track of 16 October 2026 is paused, and its chip file, adapter, firmware and evidence are kept (D.4). Appendix D.5 records the chip, the board, the adapter, the clock, the identity and the pins; its link, flash, RAM, console, firmware and evidence rows are left to S1b-8u-2, S1b-8u-3 and S1b-9u. Appendix H names `chips/stm32u5a9.toml` and the family `stm32u5`; H.2, H.5 rules 2, 4, 5, 7 and 8, and H.6 cover it. The chip joins the catalog, `build-firmware` and `inspect` with its firmware crate in S1b-9u. |
+| 0.32 | 18 October 2026 | Appendix D.2, the C6 memory bullet: the main-stack window is 24 KiB, not 16 KiB, because the S1b-5b2 bench measured a 15,740 B high-water in the 16 KiB window, leaving 644 B untouched, below the 2 KiB headroom; the linker guard and the build check require the window plus a 4 KiB margin (28 KiB). Appendix D.4 keeps the STM32F407's 16 KiB window. STATE-08: a request that arrives while the next boundary is due waits for that boundary, and a boundary that is due again as soon as it is taken lets one request through per boundary, so a scan longer than its interval cannot starve the link; the list of remaining differences says a due cycle can wait for the one request being answered, where it said eight requests in one pass. |
+| 0.31 | 18 October 2026 | §6.3, after MEM-09: construction reserves, per call depth, the call scratch that binds a call — its evaluated argument list, parameter flags, output bindings, preflighted targets and preflighted outputs, sized for the largest call site and the largest POU — and a call takes its depth's scratch and returns it on every path (completion, trap, refusal and abort), so a scan allocates no argument, flag, output-binding, target or prepared-output vector. Every result, charge and refusal is unchanged (TIME-08). |
+| 0.30 | 18 October 2026 | §10, "The device runner": the chip's installed program holds the checkpoint persister over the checkpoint store its platform supplies; it captures the retained values and offers them at each scan's pre-output-sample checkpoint, the resource loop advances one step between scans with the store's per-step program budget so no step runs inside a scan, a stop or shutdown completes the save before the resource reports Stopped, and a latched failure fails the next scan with `RuntimeError::RetainStore` before physical outputs. A warm start decodes the newest committed checkpoint with the shared codec and applies it by name (specification 11 §6.7); an empty log or a `mode = "none"` project starts with the declared initial values. |
+| 0.29 | 17 October 2026 | §7.4 (PORT-05): the control link on a byte stream, such as a chip's USB serial port: line framing as trust-runtime's socket, frames of up to 8,192 bytes on every chip's USB link, an oversized request dropped to its line feed and answered once with `request longer than <frame> bytes`, a reply longer than the frame replaced by `reply longer than <frame> bytes` until requests and replies travel in parts with program loading's transfer, `events.tail` and `faults` written event by event within the frame, one reply in flight, a reply without progress for 1 second dropped with the line-feed repair, a new host session, and the link's counters. STATE-08: a chip without an installed program, or with one it refused, serves the control connection in the Stopped state and refuses `restart` with `no installed program: <reason>` until a program is installed; a warm start after `shutdown` gives the RETAIN variables the values they had when the program stopped (IEC 61131-3 §6.5.6.1). |
+| 0.28 | 18 October 2026 | §6.3, after MEM-09: construction reserves one frame payload per call depth (that depth's local slots and parameter-presence bits, sized for the largest POU) and one edge-input list and restore list, and a user or method call takes the locals of its frame from the reserved payloads; an activation binds its arguments into the payload, reads edge inputs and their restores from the reserved lists and returns the payload when its frame is popped on every path, and a scan allocates no locals, presence, edge-input or restore vector. Construction also reserves the bookkeeping scratch: initializer result slots, seed lists and owned-instance snapshots, the lifetime check's visited set, and `SIZEOF(type)` walks a fixed stack. Every result, charge and refusal is unchanged (TIME-08). §10, "Between scans": a chip's checkpoint persister starts a checkpoint when the save is due and the image changed, advances it one log step at a time between scans, completes it at a stop, and latches a failure as `RuntimeError::RetainStore`. |
+| 0.27 | 17 October 2026 | §6.3, after MEM-09: preparation resolves every `CALL_NATIVE` site once into a call plan (each actual's formal index, the presence pattern, the output descriptors, and the callee: a function's prepared POU, a function block's POU, a method through the prepared owner and method table, a built-in function block's kind and parameters); a scan resolves no argument names and builds no uppercase type-name key, and an interface attempt compares prepared POUs while still charging the type-name bytes TIME-08 prescribes. Every result, charge and refusal is unchanged (TIME-08). |
+| 0.26 | 17 October 2026 | §6.3 (MEM-02, MEM-09): construction sizes the per-call reservations to the program's static call depth instead of `max_call_depth`, counting every call target from every entry, a method and interface call over every implementing POU, and a nested instance declaration as the initialization it runs; a recursive call graph has no static depth and reserves for `max_call_depth`. `max_call_depth` remains the admission ceiling and the runtime depth check is unchanged. |
+| 0.25 | 17 October 2026 | §6.3, after MEM-09: construction reserves the stack executor's operand, frame and pending-call storage from the operand demand that the validator records, the program activation's local slots, the initializer stacks, the output copy-back journal and the process-image staging, and charges them against the construction allocation allowance; RUN charges and refusals are unchanged (TIME-08). |
+| 0.24 | 17 October 2026 | §5.1.1: the deployment record, `deployment-record.bin` next to `program.stbc`: its version-1 layout of six sections, the program, configuration and retain-schema identities, how a reader refuses a malformed record (`runtime_deployment_record_invalid`) and how a later version adds sections; the admission order that refuses a deployment before any state exists (`runtime_deployment_refused`); the device descriptor read by admission. HOST-02: the hosted product takes its limits from the record. |
+| 0.23 | 17 October 2026 | §10.1: the checkpoint log in the chips' two checkpoint slots: the slot header, the record with its commit marker, the order of a write, and recovery, in which a damaged newest committed record fails the warm start, as a damaged retain file does on a computer. Appendix H: the checkpoint slots refer to §10.1. §5.2.1: the version-1 contract of every built-in function and function block (LOAD-06, PORT-02), with its IEC table, TIME-08 charges, failures and capability; preparation refuses an import without a contract or one that does not match it with `runtime_import_unsupported`, naming the import. §4.3.1 and §11.3 (MEM-07, UPDATE-04): every reference carries the installation generation it was taken in; each committed restart and replacement installs the next one, a resource-only reconfiguration keeps it, and exhaustion refuses the restart with `Overflow`; a reference of another generation names no state, a staged request that names an instance by identity carries its generation, and the host binds its own references again at each restart. |
+| 0.22 | 17 October 2026 | ARCH-15: several runtimes on every host (owner, 17 October 2026). STATE-08 states the device runner's boundary rules: `restart` after `shutdown` starts the program as a new trust-runtime process would, a `restart` while running, paused or faulted restarts in place as trust-runtime does, and pause, resume, restart and shutdown take effect at the program's next boundary. TARGET-04: the USB source is a passive listing. TARGET-06: a wall-clock value is `null` while the device time is not set. §10: a variable located at `%M` publishes its initial or retained value over the bytes it covers after the configuration actions (specification 11 §6.7). HOST-02, §4.3.1, §6.2.1 and §17 A4: activation and per-call instance identities are reused per top-level execution entry, which removes the `Overflow` fault after 2^32 − 1 activations; they stay monotonic within an entry. Appendix D.2: the ESP-IDF v5.5.1 QIO bootloader. Appendix D.4: the STM32F407 adapter, the crystal measurement, the console and the evidence profile. Appendix H: the chip file format of TARGET-03. |
+| 0.21 | 16 October 2026 | Owner corrections: adds the owner's requirements; the boards run the same runtime services as trust-runtime (ARCH-11) over any link (ARCH-12) without limits of their own (ARCH-13); ARCH-14 makes the runtime a set of components and gives each chip one firmware with every component it can hold, development boards being examples only; STATE-07 replaces the board restriction on forcing and breakpoints; removes the stopped-only installation, the physical commissioning authorization, the disabled radios and the exclusion of online change and protocol parity, which the v0.3 draft carried without the owner's approval; ARCH-02 now requires shared service code instead of excluding it; the STM32 target becomes the STM32F407 chip, firmware is developed for chips rather than boards, and network runtimes are found by the common discovery (ARCH-10, ARCH-12, Appendix D.4); adds Bluetooth as a link and a service, and §11.4: the same project files as Linux, `device.toml` for the settings an operating system holds, chip description files (one firmware per chip, no board files), installation and update of truST, versions, time, diagnostics and safe outputs (TARGET-01 to TARGET-09); SERVICE-03 selects one shared OPC UA implementation for every target; SERVICE-04 and SERVICE-05 put OpenOT telemetry (over the network) and simulation on the chips; TARGET-10 records that chips get no read-out protection. |
 | 0.16 | 13 October 2026 | Owner-approved decision makes the 16 KiB F401 upper-flash growth target informational for hardware bring-up; the executable-region bound, sector reservations, and all other memory gates remain enforced. |
 | 0.15 | 12 October 2026 | Selects uniform eight-byte temporal storage and SIZEOF in STBC 3.0, explicit legacy-layout imports, checked retained-layout compatibility, and management-write alias validation. Preserves every platform function and the external four-byte TIME codec. H corrections are authored, with review and validation tracked separately. |
 | 0.14 | 11 October 2026 | Selects HOST-09's construction-only raw mutation, checked live writes, isolated debug parsing and transactional schema replacement. Explicitly narrows live Rust mutable-reference API compatibility without reducing PLC functions or hosted workflows. H implementation and native acceptance remain pending. |
@@ -2234,6 +3792,7 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 | 0.11 | 9 October 2026 | Clarifies the shared changing-input fixture as a reference initializer selecting persistent array storage under IEC §6.4.4.10.2–3; preserves existing scalar constant-expression source checks. A4 must prove per-call initialization; A3 authoring is not execution evidence. |
 | 0.10 | 9 October 2026 | Moves the dependency-free SCHED-05 implementation and native regressions to the start of A1, separately reviewed within its existing batch. Removes deferred-defect baseline acceptance; A4 keeps fixture/oracle integration. Four scopes remain; no implementation or validation is asserted. |
 | 0.9 | 9 October 2026 | Folds the periodic scheduling defect into Scope A/A4 as SCHED-05; aligns specifications 10/11, selects nominal deadlines for SCHED-01/CYCLE-03, and adds the 25 ms / 10 ms native and shared-artifact oracle. Implementation, validation, version bump and release remain deferred to the authorized implementation scope. |
+| 0.72 | 26 October 2026 | Identify (specification 11, "Identify") joins the combined line as the shared component SERVICE-07, from the devices-and-connections line of 18 October 2026: the request, its timer, the blink and the `identifying` status member are one implementation in `trust-runtime-services`, a platform supplies only the way to drive one output, it is accepted and blinks in every state of the resource (running, paused, stopped or faulted, the scheduler's waits ticking it while no scan runs), and a chip answers `identify_not_configured` until its firmware drives an output. STATE-08 lists the identify output among the configuration that a restart from Stopped reads again. The gap is reported as ARCH-13 requires; no function is reduced on any target. |
 
 Version 0.8 divides aggregate Scope A into A1–A4, with one final batch per explicitly
 bounded scope, and adds the implementation checklist/current-checkpoint pointer.
@@ -2276,7 +3835,9 @@ such as REV-MODEL-05 are not product requirement identifiers.
 
 ## Appendix D — Target decisions and first-board feasibility
 
-### D.1 NUCLEO-F401RE: confirmed first target
+### D.1 NUCLEO-F401RE: first target until 16 October 2026
+
+The owner selected the STM32F407 as the STM32 target on 16 October 2026 (Appendix D.4). This section remains as the record of scope B and its evidence. The firmware described here (`firmware/trust-nucleo-f401re`), the adapter's `stm32f401` feature and the `nucleo-f401re` board of `xtask portability` were retired 17 October 2026 (owner) and remain in git history.
 
 NUCLEO-F401RE is the selected first reference board. Its role is to establish compiler-free execution and useful resource evidence on hardware already available. It is not yet a supported truST controller. [E24]
 
@@ -2289,7 +3850,7 @@ NUCLEO-F401RE is the selected first reference board. Its role is to establish co
 | Flash | 512 KiB total device flash. | Partition firmware, saved/deployable application, installation metadata, and durable retain/recovery storage at actual erase-sector boundaries. Count numeric helpers and all loadable sections. [E25, E27] |
 | Clock/wake | A hardware timer supplies extended monotonic time; the runner implements PORT-03 wait/wake. | Select timer, prescaler, resolution, rollover extension, interrupt priorities, and reset epoch. Validate clock startup and wake races. |
 | Initial physical I/O | Board user button and LED through process images; proposed logical bindings `%IX0.0` and `%QX0.0`. | UM1724 maps the relevant button to PC13 and LED/D13 to PA5 for this board. Confirm bridges/polarity on the actual revision; normalize them in the BSP. A physical smoke check supplements the richer M2A trace fixture. [E26] |
-| Programming/management | Onboard ST-LINK/SWD for firmware bring-up; bounded serial management is the initial application-installation direction. | Verify ST-LINK virtual COM routing and UART setup; distinguish probe-flashed firmware from the stopped STBC installation required for release. [E24, E26] |
+| Programming/management | Onboard ST-LINK/SWD for firmware bring-up; the control connection over USB, through the ST-LINK virtual COM port. The F401 has no network port; a network link needs an STM32 board with Ethernet, which the owner selects (ARCH-13). | Verify ST-LINK virtual COM routing and UART setup; distinguish probe-flashed firmware from the stopped STBC installation required for release. [E24, E26] |
 | Fault supervision | Independent watchdog and explicit BOOT/STOP/FAULT output behavior. | Record watchdog clock/tolerance, timeout, debug-freeze behavior, and reset output state; service only under supervisor policy. [E27] |
 | Persistence | Internal flash stop checkpoints; last completed compatible checkpoint survives power loss. | No last-scan retention promise. Specify separate valid/new checkpoint storage, interrupted-write recovery, endurance, and watchdog servicing during maintenance. External storage or power-fail hardware is needed only if the stronger selected policy requires it. [E61] |
 | Numeric behavior | Preserve `REAL`/`LREAL` widths and NUM-05 evaluation rules. | Budget software double precision on M4F; no silent narrowing to make the fixture fit or run faster. |
@@ -2451,12 +4012,12 @@ graphs. No desktop dependency may be hidden by moving the adapter out of the wor
 | Area | Proposed first profile | Decision to freeze or evidence required |
 |---|---|---|
 | Board/chip | ESP32-C6-DevKitC-1 with 8 MB flash, HP RV32IMAC core; owned since 15 October 2026. | M0 record: chip revision v0.2, eFuse block revision v0.3, 40 MHz crystal, chip ID 13, base MAC 20:6e:f1:17:04:c0, secure boot and flash encryption disabled; the factory flash image is retained with its SHA-256. Keep one PLC engine owner on the HP core. Another MCU family cannot satisfy ARCH-10. [E56, E57] |
-| Rust/HAL | `riscv32imac-unknown-none-elf` with `esp-hal`; radios disabled. | Pin compiler/HAL/startup/flash tools and linker layout. This is a stable bare-metal target, not the similarly named ESP-IDF target. [E56] |
+| Rust/HAL | `riscv32imac-unknown-none-elf` with `esp-hal`; Wi-Fi as a network link (ARCH-12). | Pin compiler/HAL/startup/flash tools and linker layout. This is a stable bare-metal target, not the similarly named ESP-IDF target. [E56] |
 | Atomic/ownership boundary | IMAC permits existing atomic-backed values during measured bring-up; no new atomic RMW dependency in core. | Retire them in the shared bounded-storage slice before M3. C3/IMC becomes an additional gate after that work if selected; portable-atomic alone does not rewrite `alloc::sync::Arc` consumers. [R24, E46, E56] |
 | Numeric cost | No F/D floating-point extension on the selected target; REAL and LREAL use software arithmetic. | Measure numeric helpers/latency on C6 independently of F401; an ARM single-precision result is not a C6 estimate. Optional C3 also needs software floats. [E56, E57] |
 | Memory/flash | Explicit usable internal-memory and linker/partition budget. | Record code/data/stack/driver reservations, preparation peaks, and actual module flash. Do not assume external RAM or treat LP memory as freely interchangeable HP engine SRAM. [E57] |
-| Runner and I/O | One engine owner, timer wakeups, staged I/O, bounded serial management. | Interrupts/callbacks notify the runner or fill staging buffers; they do not independently run PLC tasks or mutate its active state. Freeze pin/strapping and reset behavior. |
-| Radio/services | Initial parity profile has Wi-Fi/BLE disabled. | If later enabled, include its actual radio scheduler, interrupts, buffers, contention, and load in memory/timing qualification. Espressif documents background runtime requirements for its radio stack. [E33] |
+| Runner and I/O | One engine owner, timer wakeups, staged I/O, the control connection over Wi-Fi and USB. | Interrupts/callbacks notify the runner or fill staging buffers; they do not independently run PLC tasks or mutate its active state. Freeze pin/strapping and reset behavior. |
+| Radio/services | Wi-Fi carries the control connection and the other network services (ARCH-11, ARCH-12). | Include the radio scheduler, interrupts, buffers, contention, and load in memory/timing qualification. Espressif documents background runtime requirements for its radio stack. [E33] |
 | Alternative ESP-IDF composition | Available as an explicit platform integration choice if required drivers/services justify it. | Bind IDF, Rust wrapper, FreeRTOS/task, and synchronization versions; use the same core and PLC scheduler. Do not pull the desktop `trust-runtime` product into MCU firmware. [E34] |
 | Flash interference and supervision | Forbid installation/erase during RUN in the initial profile. | Qualify later persistence against the C6 stack/memory placement. E35's earlier ESP32 IDF guidance is background, not C6 bare-metal proof; review the selected implementation before permitting flash work in RUN. |
 | Milestones | M1 isolated core check, M2E linked firmware and saved-artifact execution, M5 qualification. | Missing hardware leaves physical gates open while independent host/F401 work proceeds. |
@@ -2467,19 +4028,40 @@ application bundle bytes, oracle, record grammar and phase order, through the sh
 board by two M0 probes on 15 October 2026 before any firmware was written.
 
 - **Toolchain.** Rust 1.99.0, edition 2024, resolver 3 and `riscv32imac-unknown-none-elf`, the
-  tuple of the current F401 firmware. `esp-hal` is pinned to 1.2.2 with the `esp32c6` and
-  `unstable` features; the timer-group watchdog, SYSTIMER alarm, reset reason, persistent RTC
-  memory and USB-Serial/JTAG drivers are unstable API in that release. `esp-bootloader-esp-idf`
-  0.6.0 supplies the application descriptor and `esp-storage` 0.10.0 the flash reads. The bench
-  host flashes and reads back with `espflash` 4.6.0.
-- **Bootloader.** The second-stage bootloader is the one bundled with `espflash` 4.6.0, which
-  reports `ESP-IDF v6.1-beta1-497-g14f663f003e`. M2E records its hash. M5 qualification requires a
-  released bootloader instead.
+  tuple of the F401 firmware, retired 17 October 2026 (owner). `esp-hal` is pinned to 1.2.2 with
+  the `esp32c6` and `unstable` features; the timer-group watchdog, SYSTIMER alarm, reset reason,
+  persistent RTC memory and USB-Serial/JTAG drivers are unstable API in that release.
+  `esp-bootloader-esp-idf` 0.6.0 supplies the application descriptor and `esp-storage` 0.10.0
+  the flash reads. The bench host flashes and reads back with `espflash` 4.6.0.
+- **Bootloader.** M2E used the second-stage bootloader bundled with `espflash` 4.6.0, which
+  reports `ESP-IDF v6.1-beta1-497-g14f663f003e`. Since 17 October 2026 the C6 uses a bootloader
+  built from the ESP-IDF v5.5.1 release tag, configured for QIO and 8 MB (sha256
+  `f5c0819843648a6692a563a4b2c933c9473fda7e42e7c13627f2acffb34208ce`). As ESP-IDF does for QIO,
+  its image header says DIO: the chip's ROM loads the bootloader in DIO, and the bootloader sets
+  the flash's quad-enable bit and switches to QIO itself. It is flashed with `espflash flash
+  --bootloader <file> --flash-mode dio`; forcing a QIO header (`--flash-mode qio`) makes the ROM
+  stop with `ets_loader.c 67`, which was the QIO failure seen with the beta bootloader. The
+  M2E firmware ran with it in DIO and in QIO with the same records as with the beta bootloader
+  apart from timing values.
 - **Clock.** `CpuClock::max()` sets 160 MHz. SYSTIMER (16 MHz, 52 bits) supplies monotonic
   microseconds without a rollover extension. The machine performance counter CSR 0x7E2 counts CPU
   cycles from boot: 16,003,071 cycles in 100,018 µs. A 1 kHz SYSTIMER alarm interrupt only
   increments a counter, as SysTick does on F401 (100 interrupts in 100,011 µs). A 10 ms period is
-  1,600,000 cycles.
+  1,600,000 cycles. A reading of the monotonic clock while the CPU runs is the last SYSTIMER
+  reading and the whole microseconds of the cycles counted since (checklist P1-6, PERF-05): a
+  SYSTIMER reading requests an update, waits for it and divides 64-bit ticks, which a scan that
+  checks its deadline at every standard call would pay each time, while the counter is one
+  instruction and counts the same crystal. The reading after a wait, which stops the CPU, and one a
+  second or more after the last SYSTIMER reading read SYSTIMER again, and a reading is never less
+  than the one before it. At boot the firmware checks that the counter counts, at least half the
+  cycles of 20 µs of SYSTIMER, and otherwise every reading reads SYSTIMER. The base a reading
+  extends, the last SYSTIMER reading with its cycle count and the last reading given, lies in plain
+  words that the main context alone reads and writes, since no interrupt handler reads the clock,
+  so a reading takes no critical section (checklist P1-6). A reading and a span of
+  the monotonic clock are whole nanoseconds, up to about 584 years (`ports::MonotonicInstant` and
+  `ports::TimeSpan`), so a reading of microseconds becomes an instant by one multiplication; as a
+  `Duration` of seconds and nanoseconds it took two 64-bit divisions, which the C6 makes in
+  software, and a scan reads the clock at each deadline check (PERF-05).
 - **Numeric environment.** `misa` reads 0x40903105: RV32 with I, M, A, C, N, U and X, and without
   F or D. REAL and LREAL therefore both use software floating point. IDENTITY reports `misa`, and
   the verifier requires the F and D bits clear.
@@ -2489,7 +4071,30 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   record lost, so one USB connection serves flashing, reset and capture. The ROM and the
   second-stage bootloader print about 30 non-record lines at every boot. The C6 verifier profile
   admits printable non-record lines only before each boot's first IDENTITY record, at most 64 per
-  boot, and reports their count. A non-record line anywhere else fails the run.
+  boot, and reports their count. A non-record line anywhere else fails the run. The same port
+  carries the control link (specification 34, PORT-05), and a watchdog core reset does not reset
+  the USB-Serial/JTAG peripheral, so the firmware clears its CDC-ACM FIFOs and interrupt state as
+  it binds the link at boot, and the link answers after any reset the firmware survives. A reply is
+  written into the 64-byte IN FIFO one packet at a time, and its last packet is never a full 64
+  bytes: a bulk transfer ends at a packet shorter than the endpoint's 64 bytes, and the host's
+  CDC-ACM driver passes on what it has read only when a transfer ends or its read buffer (two
+  packets) fills, so a reply whose last packet is a full one waits in the host until the next
+  packet arrives. The bench met this on 23 October 2026: `status` replies of 1,984 bytes, 31 full
+  packets, kept their last packet in the host until the next request, and the client gave up after
+  5 seconds. The last 64 bytes of a reply therefore go out as a packet of 63 bytes and one of 1.
+- **Wall clock.** The C6 has no battery-held clock (TARGET-06). It counts the time with SYSTIMER,
+  which the 40 MHz crystal drives, as the offset of the Unix time from SYSTIMER's reading. Every
+  10 seconds, and at each `clock.set`, the loop writes the time with the LP timer's ticks into RTC
+  fast memory (24 bytes of `.rtc_fast.persistent`, with a mark and a check word), which every
+  reset but a loss of power keeps. A boot after a reset adds the ticks the LP timer counted since
+  that copy, converted with that boot's calibration of the RC oscillator that drives the timer
+  (its period in `LP_AON_STORE1`), so a restart, a watchdog reset or a firmware update keeps the
+  time to within the oscillator's error over those seconds. The LP timer is not used for the time
+  since power-up: the bench (25 October 2026) found esp-hal's boot time, which adds the timer's
+  whole time since power-up, 623 s off after a reset days after power-up, since each boot
+  calibrates the oscillator anew. After a loss of power the time is not set until a tool sets it.
+  The C6's descriptor offers the wall clock, and a program that calls `CURRENT_DT` installs
+  (§5.2).
 - **Supervision.** `esp_hal::init` disables the RTC and timer-group watchdogs. The firmware arms
   MWDT0 (TIMG0), stage 0 resetting the system, with F401's 4,000 ms interval. After the deliberately
   withheld feed the chip reports reset reason 0x07 (`CoreMwdt0`; the ROM prints
@@ -2501,18 +4106,274 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   clear it. The firmware therefore reads and clears it at every boot. With reason 0x07, a watchdog
   cookie completes the run. With reason 0x15 or 0x01, a leftover cookie is discarded and a new run
   starts; that reset is the explicit new boot. Any other reason with a cookie present halts with a
-  FAIL record.
+  FAIL record. Beside it, both chips keep the same fixed-size reset record (a magic, a version, a
+  CRC-32 and a boot counter, with the cause and a short panic location, which keeps the end of a
+  location longer than the record, its file and line, after `...`): the panic path writes it
+  before a reset, and the next boot reads and clears it once, so a damaged record reads as no
+  record. A watchdog reset runs no code, so when no record exists the next boot takes the cause
+  from the chip's reset reason, MWDT0 (0x07), as specification 11 defines it.
 - **GPIO.** The physical input is the BOOT button, GPIO9: active low with the internal pull-up. It
   is a strapping pin sampled only at reset, so the firmware reads it only after boot. The output is
   GPIO18, a plain pin with no board load, read back through its own pad input; the probe read back
   1, 0, 1, 0 as commanded. The RGB LED on GPIO8 is a WS2812, not a plain LED, so optical output
   stays unverified, as on F401.
-- **Memory.** The fixture keeps F401's 72 KiB allocator arena. The esp-hal stack region spans the
-  HP SRAM left after static data and RAM-resident code (about 51 KiB); the fixture measures and
-  budgets a 16 KiB window at its top, below esp-hal 1.2.2's `_stack_start` (0x4086E610, a constant
-  that inspection pins), with F401's 2 KiB minimum headroom, so the boards' heap and
-  stack evidence is directly comparable. Exceeding the window fails the run although the region
-  has room. Interrupts use the same stack on RISC-V, so the window includes them.
+- **Analog, PWM, counters and CAN (TARGET-01, the portability checklist's T1).** The drivers of
+  specification 11 §6.5 run on the C6's peripherals that `chips/esp32c6.toml` lists: `analog`
+  inputs on ADC1, whose channels 0 to 6 are GPIO0 to GPIO6, converted once per input at each cycle
+  start with the chip's eFuse calibration at the attenuation of its whole range; the C6 has no
+  digital-to-analog converter, so an `analog` output is refused. `pwm` outputs on the LEDC's six
+  channels, outputs of one frequency sharing one of its four timers, with the finest duty
+  resolution its 80 MHz clock allows at the frequency, at most 14 bits. `counter` inputs on the
+  PCNT's four units, a `quadrature` counter using both channels of its unit. `can` on the two TWAI
+  controllers, `TWAI0` and `TWAI1`, whose `tx` and `rx` the GPIO matrix routes to any pins but those
+  the firmware keeps. A pin serves one line of one driver. The numbers the drivers depend on, the
+  ADC's range among them, are measured on the bench and written here with their source: on
+  25 October 2026 (`t1/run2`) ADC1 read 3,258 to 3,261 mV on a pad pulled up to the 3.3 V rail,
+  the LEDC's 1 kHz output gave the PCNT 1,000 edges a second, and TWAI0 at 500 kbit/s carried a
+  frame each cycle in self-test. With Wi-Fi running, the same pad read 4,057 mV: the radio disturbs
+  ADC1's conversions, which is open (the readings are not to be trusted with Wi-Fi until it is
+  fixed and measured again).
+- **Modbus TCP (S7).** The `modbus-tcp` driver runs the shared exchange of specification 11 §6.5 over
+  a TCP connection of the chip's network (`trust-platform-net` client links, one socket of 2 KiB
+  buffers each way per driver, given back when its program is unloaded). As on a computer, the scan
+  side waits for a fresh input snapshot, and for an output handoff, up to the fixed deadline of
+  40 ms; a computer's worker thread makes the round trips meanwhile, and the chip polls its network
+  in that time. A chip without a network refuses the driver with `modbus-tcp: the device serves no
+  network: name one in device.toml`. Bench `s7/run1`, 25 October 2026: the C6 read two input
+  registers and wrote two holding registers of a server on the bench Pi every 100 ms cycle over
+  Wi-Fi, with no overrun; with the server stopped the driver's health degraded under `warn` and the
+  program ran on, and it recovered when the server came back. A link's two queues hold two Modbus
+  frames each (520 bytes), taken with the link.
+- **MQTT (S7).** The `mqtt` driver runs the shared exchange of specification 32 over a TCP connection
+  of the chip's network. A computer's worker thread carries the session between the scans; the C6's
+  idle work steps it, so the keep alive goes out and what the broker sends reaches the exchange's
+  queue, where the newest messages are kept, while no scan runs; the network wakes for the
+  exchange's next timer. The scan reads the queue at the cycle start without waiting, and after the
+  tasks waits up to 40 ms, polling its network, while an earlier handoff is on its way or a session
+  is about to start, as a computer's scan waits for its worker. The C6's bounds (§11.1): packets of
+  at most 1,024 bytes either way, 16 received messages and 1,024 payload bytes kept for the scan,
+  2,048 bytes waiting to be sent, and the link's queues of 1,024 bytes each; the exchange's buffers
+  and the link's queues are taken when the driver is claimed, and the received payloads (1,024
+  bytes), the newest raw input payload (a packet) and the waiting copy of the output image are
+  counted then as what the driver may still take (MEM-12). A session without a `client_id` is
+  `trust-runtime-c6`. A broker named by a host name is looked up with the name servers of the chip's
+  address (DHCP's or `device.toml`'s) at each connection, as the time server is; an IPv6 broker is
+  refused, as the chip's network is IPv4. When the driver is dropped it ends the session in order
+  (with Sparkplug B its NDEATH, then DISCONNECT) for at most 200 ms, the link sends what it queued
+  before its FIN, and once the connection has closed both ways, within the same 200 ms, the socket
+  and its buffers go back at once, so the program loaded next finds the memory free; a dropped
+  `modbus-tcp` driver closes its connection the same way. The bench's second install of a program
+  with an `mqtt` driver had failed the memory check while the old socket was still closing
+  (`s7m/run1`). Two parts of the computer's driver are not on the C6 yet: TLS (`mqtts://`,
+  `tls_*`), refused with `mqtt: tls: the C6 has no room for a TLS session beside a program ...`, as
+  a TLS session needs a record buffer of up to 16 KiB each way (RFC 8446 §5.1), about 33 KiB,
+  where a program with Wi-Fi has about 22 KiB; and
+  symbolic `mappings`, refused with `mqtt: mappings: the C6 does not yet bind tags to the program's
+  variables ...`, as their tags are bound to the program's variables by the runtime that holds its
+  symbols, which a chip's record does not carry yet (the portability checklist's S7 records both).
+- **Memory.** The main heap is 32,832 bytes: F401's 72 KiB allocator arena less the 24 KiB that
+  RAM-resident code takes, so that the scan's code runs from RAM (the owner, 21 October 2026, "Give
+  code about 24 KiB of the 136 KiB program heap, leaving programs 112 KiB"; checklist P1), and less
+  16,320 bytes more for RAM-resident code, which the heap takes from the LP SRAM instead (the owner,
+  21 October 2026, "Use LP SRAM"); the compiled-program firmware adds the 64 KiB that the deleted
+  engine's RAM code took (specification 44 §10.3), so its main heap is 98,368 bytes and the heap
+  180,160 bytes in all, beside the 112 KiB program region that holds the programs' code. The LP SRAM
+  is the C6's 16 KiB at 0x50000000, less the 128
+  bytes that hold the reset record, the boot counter and the wall clock's carried time
+  (`.rtc_fast.persistent`) with their alignment, so the heap's third region is 16,256 bytes. It
+  is the heap's third region, after the main heap and the 64 KiB reclaimed region, and an
+  allocation is taken from it only when neither of the others has a block for it, because the HP
+  CPU's loads and stores take 2.0 cycles there against 1.25 in HP SRAM (measured on the bench, 21
+  October 2026). The C6's manual gives atomic access only to HP SRAM (ESP32-C6 TRM v1.2, §3.7.1);
+  on the bench, the HP CPU's `amoadd.w`, `amoswap.w` and `lr.w`/`sc.w` on an LP SRAM word gave the
+  results they give on HP SRAM, without a trap, and truST runs no other CPU, so any heap block,
+  atomics included, may lie there. The heap of the interpreter firmware was 112 KiB in all, and the memory the chip measures for
+  programs at boot (`program_memory_bytes`, §5.1.1), with the control loop built (checklist P1-11), is
+  56,076 bytes (firmware p2o, 22 October 2026), against 80,652 with the 72 KiB main heap (firmware
+  p1j, 21 October 2026), so an online change of a program the size of
+  A4's (a host peak of 64,812 bytes) no longer fits. The
+  esp-hal stack region spans the HP SRAM left after static data and RAM-resident code. The C6's main-stack window is 78 KiB at its
+  top, below esp-hal 1.2.2's `_stack_start` (0x4086E610, a constant that inspection pins). The
+  window was 16 KiB, as on F401, then 24 KiB after the S1b-5b2 bench measured a 15,740 B high-water
+  in 16 KiB, 644 B untouched, below the 2 KiB minimum headroom. The C1-25 bench (21 October 2026)
+  painted the whole 85,980 B region and read its high-water over JTAG: 18,612 B at boot with no
+  program and 23,900 B after a `status`, and for programs whose chains of nested function blocks
+  need 2, 3, 4 and 6 call levels 46,296, 52,440, 58,584 and 70,872 B after their install, 6,752 B
+  less at their boot and 3,376 B less at an online change, so installing any program filled the
+  24 KiB window. Each call level adds 6,144 B, and the install, the deepest path, takes 34,008 B
+  before its first, so the 78 KiB window holds (79,872 − 2,048 − 34,008) / 6,144 = 7 call levels
+  with the 2 KiB headroom (MEM-03). The install of a program that needs 9 levels, 89,304 B by these
+  figures and more than the region, did not return, and the chip restarted. The window is 78 KiB and not the region because the region must keep a 4 KiB margin
+  above it: the window ends where static data and RAM-resident code end, so a layout whose region
+  cannot hold it lets the boot-time stack paint overwrite the allocator's own state, and the linker
+  script asserts `_stack_start - _stack_end` is at least the 78 KiB window plus a 4 KiB margin
+  (82 KiB), and `build-firmware esp32c6` reads the linked `.stack` region, reports it with its margin
+  above the window, and fails below that margin. The linked `.stack` region of the C1-24 build is
+  85,980 bytes, which leaves 6,108 bytes above the 78 KiB window. The STM32F407 keeps 16 KiB (D.4). Only the interpreter loop, the
+  per-scan path and the per-call path of a standard call run from RAM (`rwtext_hook.x`); the
+  standard functions and function blocks, REAL to text, string semantics, value display, date and
+  time and sorting run from flash (57,500 bytes moved on 19 October 2026), so that the radio's RAM
+  fits (checklist L3). Measured on the C6 with the perf bench program, the move costs 1.5 ms of its
+  83.4 ms cycle (P1 23.0 to 24.5 ms, P2 21.9 to 23.4, P3 17.7 to 18.3, P4 unchanged); moving the
+  call machinery as well would free 47,724 bytes more but makes call-heavy programs a third slower
+  (P1 30.7 ms). So the code that every standard call runs stays in RAM: the native call's
+  preparation, its bindings' target reads, the text-call check, the frame slots and the flattening
+  of a reference of a variable access, and the deadline check; the builders of the bindings and the
+  rest of the call machinery run from flash, where the code of the flat store, which every scan
+  runs, took their room (checklist P1-7, 21 October 2026). The runner's boundary, into which the
+  scan's timed window inlines, its wait and frame polling, esp-hal's alarm arming and interrupt
+  dispatch, and the slice indexing and buffer drops the cycle calls run from RAM as well (7.1 KB):
+  from flash they took 18% of the busy samples of a 2 ms cycle, and a change elsewhere in the code
+  that moved them in the flash cache added 23 µs to each cycle (measured 21 October 2026). The
+  firmware is built for size (`opt-level = "z"`) with LLVM's machine outliner limited to sequences
+  that save at least 16 bytes (`-outliner-benefit-threshold=16`; checklist P1-7): the outliner moves
+  repeated instruction sequences into fragments in flash, which RAM code then calls, and the
+  fragments took about 10% of the busy samples of a scan. The threshold keeps the smallest
+  fragments in their callers for 4.4 KB more RAM code; with the outliner off the RAM code grew by
+  22.8 KB, more than the RAM left above the stack window (measured 21 October 2026). Built for size,
+  the firmware copies every value of more than a few bytes by calling `memcpy`, and the ROM's,
+  whose checks and loop take 60 to 100 cycles for a few words, took 17.6% of the busy samples of
+  `v1p`'s cycle (firmware p2c, 21 October 2026). So the firmware links `memcpy` to its own, in RAM
+  (`src/memcpy.rs`, `--defsym=memcpy=trust_memcpy`; checklist P1-7): a copy of at most 128 bytes
+  whose two addresses lie at the same offset within a word copies its whole words through a table
+  of word loads and stores and its other bytes one by one, a copy of at most 16 bytes at different
+  offsets copies bytes, a copy of 17 to 128 bytes at different offsets makes each whole word of its
+  destination from the two source words it straddles, read whole and shifted together, and a copy
+  of more than 128 bytes goes on to the ROM's. Every copy runs from its first byte to its last, as
+  the ROM's does, so a copy to a lower address that overlaps its source gives what `memmove` gives:
+  C leaves such a copy undefined, but the Wi-Fi driver's closed libraries make it, and while the word
+  table ran from the last word to the first, the C6 failed every WPA2 handshake at its third message
+  (checklist L3, 25 October 2026). `tests/memory_routines/run.sh` of the firmware checks the three
+  routines case by case under qemu-riscv32. Copies of 17 to 128 bytes at different offsets,
+  mostly a program call's result of 59 to 79 bytes, took about 9.5% of the busy samples of `t2q`'s
+  cycle on the ROM's (firmware p2l, 22 October 2026). For the same reason the firmware links
+  `memset` and `memcmp` to its own, in RAM (`src/memset.rs`, `src/memcmp.rs`): a fill of at most
+  128 bytes stores its whole words through a table of word stores and its other bytes one by one,
+  a comparison of at most 32 bytes compares byte by byte, and any longer one goes on to the ROM's
+  (`t2q` called the ROM's `memset` about three times a cycle and its `memcmp` about four times,
+  firmware p2r). Interrupts
+  use the same stack on RISC-V, so the window includes them. The allocator serves three heap regions on the C6, tried in
+  this order: the main heap, the boot loader's reclaimed RAM and the LP SRAM. The firmware that runs compiled programs adds a
+  fourth, the program region of specification 44 §10.3 (112 KiB the CPU executes, for programs' code and the images an online
+  change uploads), which holds programs' blocks only and is not among the bytes for a program's data.
+- **Wi-Fi (PORT-06; checklist L3).** The radio's closed driver keeps about 81 KB of code and data in
+  HP SRAM whether or not the chip uses Wi-Fi, because its interrupt paths must run while the flash
+  cache is off: its RAM code (`.rwtext.wifi`, 54,996 bytes), its data (`.data.wifi` and the growth of
+  `.data` and `.bss`, about 25 KB) and the scheduler's statics, measured in the link of 25 October
+  2026. The program region gave them 80 KiB: it was 192 KiB, and its 112 KiB still hold the
+  reference workload's installed module (43,810 bytes) and its changed release image (67,848 bytes)
+  at once (specification 44 §12.3). A chip whose device settings name a Wi-Fi network also takes,
+  at boot and before the memory for programs is measured (MEM-12), the radio's arena, 56 KiB of the
+  heap aligned past the program region's blocks so that it lies in the main heap's HP SRAM, which
+  the radio's DMA reaches, and the network's sockets, line link and the scheduler's tasks, 38,588
+  bytes of the heap (measured 25 October 2026). The arena is the bench's peak with a fifth more: it
+  peaked at 47,864 bytes on the Pi's access point while a client polled the control connection 95
+  times a second for a minute beside ping, and while a 90 KB program was installed over the network.
+  On a router's busier network, with the computer on a weak link, an install over the network took
+  it to 51,644 bytes, nine tenths of it, with no failure; `capabilities` reports its peak and its
+  failures (`driver_memory`), and a failure only drops a frame, which TCP sends again. The driver's C allocations (`malloc`, `calloc`, `realloc`, `free` and their `_internal` forms, which
+  the firmware exports over the arena, `src/radio_memory.rs`) never share the PLC heap's free lists
+  and never count among the scan thread's allocator operations ("The allocation count"). A chip
+  without Wi-Fi settings starts no radio and keeps the heap whole. The radio's scheduler, `esp-rtos`,
+  makes the boot's context its main task, which runs the resource loop, and runs the driver's tasks
+  above it; it takes SYSTIMER alarm 2 and the software interrupt `FROM_CPU_INTR0`, and starts only
+  when the chip has Wi-Fi settings. A program's prepared module and its execution services
+  are allocated on the heap when the program starts, and the program's cycle owns them: they are
+  freed when the cycle is dropped, after the engine state, the I/O lines and the handle on the
+  checkpoint flash (two registered unsafe sites, in `ProgramMemory` in `crates/trust-platform-esp32`).
+  A `restart` that loads a newer container (STATE-08) therefore frees the old program before it reads
+  the container, and the heap holds the container being prepared and one program, never two.
+- **Program memory (MEM-12; checklist C1-21 and P1-11).** The C6 builds its resource loop at boot
+  before it reads any container (STATE-08): its shell with the link's receive buffer, the event store
+  at the C6's default of 200 events, which is also its maximum, the debugger's thread table and the
+  loop's own box, with the program loader and the retained-value check the firmware gives it. It then
+  measures the memory it has for programs (`loader::program_memory_bytes`): the heap's free bytes
+  then, less the working memory of an online change, 8,192 bytes, which also holds the program's Live
+  Values and services, and the largest payload that a checkpoint slot takes, 16,300 bytes, for the
+  checkpoint store's buffer, which the warm start also reads the newest checkpoint into. The loop is
+  built first because the heap's three regions are first-fit and a program takes them in many small
+  blocks: a loop built after the program needs blocks that the program may have split, even when the
+  free bytes are enough. The bench of 22 October 2026 found it with a main heap 24 KiB smaller: the
+  C6 admitted `v1p` (27,502 bytes for 31,464), and the loop, built after it, found no free block for
+  the 19,296 bytes of its event store and reset the chip at every boot. The `capabilities` reply
+  reports the number as `program_memory_bytes`; an install, a load and an online change refuse a
+  program whose figure is more (§5.1.1, §11.3). A load in the running loop, a `restart` that finds a
+  newer program or an install with a restart, measures the memory again after the program before
+  it is dropped and before the new one is read, with the same reserves, and refuses a program whose
+  figure is more than that or than the boot's figure: what the services hold can leave less than at
+  boot, and a load that runs out of heap panics (on the router, the L3 bench's install with a
+  restart panicked in the running loop, 25 October 2026, where the same program loaded at the next
+  boot). The bench of checklist C1-21d compared, for the bench
+  programs, the figure each reports in `status` with the heap the C6 holds (see that checklist
+  entry).
+- **Long replies.** The C6's transfer session holds a reply of up to the capacity of its heap,
+  180,160 bytes: the 98,368-byte main heap, the 64 KiB of the boot loader's reclaimed RAM and the
+  16,320 bytes of LP SRAM that the firmware's `memory.rs` gives the allocator (Memory, above). `profile::transfer_session` names the figure
+  `HEAP_CAPACITY_BYTES`, so a chip answers a read of its event store as a computer does (PORT-05):
+  an `events.tail` of its full store of 200 events, at least 43 bytes each, is a reply of more than
+  8,800 bytes, longer than the 8,192-byte frame, which the session holds and the client reads with
+  `transfer.get`, and which is not refused.
+  Each heap region is a first-fit allocator (`embedded-alloc` LLFF) whose reallocation allocates a
+  new block and copies, and a running program takes much of the heap in many small blocks (a bench
+  run with the 72 KiB main heap measured a capacity of 139,264 bytes, a peak of 62,616 bytes in use
+  and 39,023 allocations),
+  so no region can be relied on to have a free block of 30 KiB. A reply is therefore written in
+  parts of 4,096 bytes, each taken from the heap when the writing reaches it, and an event read
+  reserves no more than the part it is writing. A reply for which the heap has no room is refused
+  with `no room for a reply longer than <n> bytes`, never cut and never an abort. The parts of a
+  held reply are freed when its last byte is read, when it is aborted or replaced, and at a reset.
+  The host test `the_c6_session_holds_replies_up_to_its_heap` checks the capacity, and
+  `trust-runtime`'s test `a_long_reply_takes_no_heap_block_longer_than_a_part` checks with a
+  counting allocator that a read of 200 events allocates no block longer than 4,096 bytes.
+- **Online change.** The C6 applies `bytecode.reload` at the program's next boundary and writes no
+  flash (§11.3). While it prepares the candidate, its 180,160-byte heap holds the running program,
+  the upload and the candidate at once. The upload is freed as soon as the candidate's module is
+  prepared, and the running program is dropped last, after the commit has moved its lines and its
+  checkpoint store to the candidate, so the heap holds one program again. The candidate is built
+  from the running program's state by the engine's replacement, which a computer's online change
+  runs too, and lives in memory of its own (`ProgramMemory::replace`), so the memory of the running
+  program is freed with that program. It is prepared with the limits of the heap's free bytes at
+  that moment less the working memory of the change, `ONLINE_CHANGE_WORKING_MEMORY_BYTES`, 8,192
+  bytes, and a program that needs more, by any limit of its preparation, is refused with
+  `insufficient memory`. The change reads no checkpoint (§11.3, decision OC-1), so it keeps no room
+  for one. The dry run of `program.install` takes the same limits less its own reserve
+  (`install_reserve`, §11.2): the working memory and, only when the new program's record keeps
+  retained values, the length of the payload of the newest committed checkpoint, which its warm
+  start reads whole into the heap. That length is read from the checkpoint's record header
+  (`newest_checkpoint_payload_len`), so the install's reserve holds the bytes that the dry run will
+  really read: it is 8,192 bytes for a record that keeps no retained values, for a log that holds no
+  committed checkpoint, and 8,192 bytes and the payload otherwise; it holds the largest payload that
+  a slot takes, 16,300 bytes, only when the header cannot be read. The working memory comes from the
+  host test
+  `an_online_changes_heap_peak_is_the_two_programs_and_the_upload_within_the_room`, which counts the
+  bytes live and changes the A4 program (6,412 bytes) to itself, a congruent change, to `numeric-v2`
+  (6,024 bytes), to the bounded-C `retain` program (2,744 bytes) and to the bounded-C `calls`
+  program (9,180 bytes), and the bounded-C `retained_blocks` program (3,164 bytes) to itself, a
+  congruent change that copies a live function-block instance and reference. Each is measured once
+  with a record that keeps no retained values and once with a record that keeps them, whose
+  checkpoint slots hold a checkpoint of the running program's retained value, which the change
+  leaves unread. The working memory, the most that the heap
+  held at once beyond the running program and the candidate, was 1,200 to 3,994 bytes (20 October
+  2026, with the flat store of MEM-12), the largest for `numeric-v2` with retained values. After the
+  commit the heap held what the candidate holds when it is loaded alone, to within 78 bytes: 30,674
+  bytes for the A4 program, and 47,092 bytes with retained values, whose 16,418-byte checkpoint store
+  is moved to the candidate and not built again. The working memory is twice the largest
+  measured, for the fragmentation of a first-fit heap that the host does not measure: 2 × 3,994 =
+  7,988 bytes, rounded up to 8 KiB. The install's payload part is not measured: it is the length of the bytes that
+  the dry run reads. The first bench build reserved 24,576 bytes for every change (twice the working
+  memory and the largest payload, 2 × 3,383 + 16,300 = 23,066 bytes, rounded up to 24 KiB), and
+  the bench found a 6,612-byte program refused for it with 55,276 bytes of heap free: 30,700 bytes
+  remained, and the validator's storage limit for them is two thirds of that. The same test prints
+  the peak of the validator's analysis storage of each program: 20,996 bytes for the A4 program,
+  16,929 for `numeric-v2`, 11,354 for `retain`, 27,336 for `calls` and 13,009 for `retained_blocks`.
+  A program is prepared only when at least three halves of its peak remain, which is 31,494 bytes for
+  the A4 program: more than the 30,700 bytes that remained at the bench, and less than the 47,084
+  bytes that remain there with the 8,192-byte reserve of a change. The
+  peak of the bench's own program is not measured on the host. The figures of the
+  working memory are the host's: its pointers are 64 bits wide and the C6's 32, and it counts no
+  allocator overhead. The bench replaces them (checklist S4, Q14) and measures what the host
+  cannot: the longest uninterrupted step of a change against the 4,000 ms hardware watchdog, and
+  the decoded size of a large retained image.
 - **Code placement.** Executed from flash through the 32 KB cache, one task activation retired
   188,838 instructions in about 1.77 M cycles (11.07 ms, over the 10 ms period): the core stalled
   on code fetches. Scan-time code therefore executes from HP SRAM. The firmware enables esp-hal's
@@ -2524,12 +4385,63 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   8.50 ms. Inspection fails if the VM dispatch loop is not in HP SRAM. Soft-float and memory
   routines run from the chip's ROM.
 - **Flash layout.** The bootloader sits at 0x0 and the partition table at 0x8000, per the ESP-IDF
-  image format. Partitions: `factory` application at 0x10000 (1,984 KiB); `stbc` at 0x200000
-  (16 KiB), the separately installable application bundle, sized like F401 sector 1; and `ckpt_a`
-  at 0x204000 and `ckpt_b` at 0x208000 (16 KiB each), reserved like F401 sectors 2 and 3 with no
-  persistence implemented. `stbc` uses the custom partition type 0x40 and the checkpoint slots
-  type 0x41 (subtypes 0 and 1), so the bootloader ignores them. The firmware reads `stbc` once at
-  boot into RAM through `esp-storage`. No flash write or erase happens during RUN.
+  image format; the bootloader is truST's own build of ESP-IDF v5.5.1's with application rollback
+  (`firmware/trust-esp32c6/bootloader`, TARGET-04). Partitions: `bootcnt_a` at 0x9000 and
+  `bootcnt_b` at 0xA000 (4 KiB each), the boot counter's sectors (below); `otadata` at 0xB000
+  (8 KiB), the bootloader's choice between the two firmware slots; `device_a` at 0xD000 and
+  `device_b` at 0xE000 (4 KiB each), the device settings of TARGET-02; the two firmware slots
+  `ota_0` at 0x10000 and `ota_1` at 0x200000 (1,984 KiB each, TARGET-04); `stbc` at 0x3F0000
+  (4,120 KiB), the separately installable application bundle, up to the pairings; `pair_a` at
+  0x7F6000 and `pair_b` at 0x7F7000 (4 KiB each), the pairings of specification 11 §6.9.6; and
+  `ckpt_a` at 0x7F8000 and `ckpt_b` at 0x7FC000 (16 KiB each) at the end of the 8 MB flash, the
+  checkpoint slots (below). `stbc` uses the custom partition type 0x40, the checkpoint slots type
+  0x41, the boot counter's sectors type 0x42, the device settings type 0x43 and the pairings type
+  0x44 (subtypes 0 and 1 in each pair), so the bootloader ignores them. `stbc` holds the two
+  program slots of the program store (§5.1), `application_a` at 0x3F0000 and `application_b` at
+  0x5F3000, 2,060 KiB each. The second firmware slot took 1,984 KiB of the 6,112 KiB that `stbc`
+  had (the owner, 25 October 2026: "do whats professional"; it supersedes decision O7, the
+  application taking all the flash the chip allows), and the pairings took 8 KiB more: the
+  reference workload's image is 67,848 bytes, and a program larger than the 112 KiB program region
+  of RAM runs from its slot (specification 44 §10.3), so a slot of 2,060 KiB still holds every
+  program the chip can run. The firmware reads
+  the header of each slot at boot, and the newest committed container once, into RAM through
+  `esp-storage`, within the room the heap has; the RAM buffer is the container's length, never the
+  slot's size. Apart from the checkpoint slots below, an install and an upload written into the
+  store, both in the Stopped state (§5.1, §11.2), and the pairings, no flash write or erase happens
+  during RUN. A `pair.claim` or `pair.revoke` that changes the pairings writes their record between
+  scans, in whatever state the resource is, as a computer writes its pairing file: the erase of one
+  sector, then the program and the read-back of the record. The next scan can then start late by
+  the erase, up to about 0.4 s, as after a checkpoint's erase step (below); the bench measures it. A `restart` that loads a newer container (STATE-08)
+  reads that flash and writes none.
+- **Boot counter.** The boot number of the transfer ids (PORT-05) is a counter in two 4 KiB sectors
+  of the flash, at 0x9000 and 0xA000, in the gap between the partition table and the first
+  firmware slot (the bootloader and the firmware keep no NVS there). A sector is a log of 512
+  records of 8 bytes: a count `n` and its complement `!n`, as the
+  reset cookie writes its words. Each boot reads both sectors, takes the highest count of a record
+  whose two words agree, programs `n + 1` after the last record of that sector into erased flash and
+  reads it back before the boot counts it. A record whose write power ended reads as no record, or as
+  a whole record that no boot handed out, and the next boot counts above the highest whole record and
+  writes after the torn one. When the sector is full the boot erases the other sector, which
+  holds only older counts, and writes the record at its start, so the newest count is in flash at
+  every instant. One sector erase is spent for 512 boots, and at one boot a second the count lasts
+  136 years. The chip file names the sectors `boot_counter_a` (0x9000) and `boot_counter_b`
+  (0xA000), 4 KiB each, and the reader refuses a file in which either is not exactly one erase unit
+  or overlaps another region (Appendix H.2 and H.5), so that no later layout reuses them.
+  `partitions.csv` declares them as the data partitions `bootcnt_a` and `bootcnt_b` (type 0x42,
+  subtypes 0 and 1), so that no tool writes there. The host test
+  `the_chip_file_names_the_boot_counter_sectors` checks that the chip file's regions are the
+  sectors the counter writes, and the xtask test of the partition table checks `partitions.csv`
+  against the chip file. The same count stamps the reset record, which keeps it in RTC fast memory
+  (`BOOT_COUNT`); the firmware sets that copy from the flash count at every boot.
+- **Checkpoint slots.** `checkpoint_a` and `checkpoint_b` are the chip file's two regions (§10.1),
+  16 KiB each, with a 4-byte program unit and a 4 KiB erase unit. They are the only flash the RUN
+  loop writes, and this is the one exception to the RUN row of the table above: the persister
+  programs them between scans, at most one 256-byte page (`CHECKPOINT_STEP_BYTES`) per step, and
+  erases a slot one 4 KiB sector per step. An erase holds the machine interrupts masked for up to
+  about 0.4 s, and the bench must measure that time with the scan delay it causes. A record takes at
+  most 16,300 payload bytes of a slot. `[runtime.retain] mode = "file"` saves into these slots and
+  `path` is not used on a chip. The boot reads the newest committed checkpoint through the same
+  flash driver, after the installed application is read.
 - **Identity.** IDENTITY carries eight values: the chip ID from the running image header (13); the
   chip revision as major·100 + minor (2); the base MAC as its high 16 and low 32 bits; the flash
   size in KiB from the running image header (8192); the CPU clock in Hz; `misa`; and the reset
@@ -2543,6 +4455,49 @@ The RISC-V choice exposes a different ISA, soft-float cost, interrupts, and plat
 ### D.3 Optional STM32H7 profile
 
 An H7 is a later capacity/performance option, not the starting-board requirement. If selected, add a named board/HAL profile with memory-bank availability, DMA reachability, cache/MPU maintenance, clock/FPU setup, and watchdog/output behavior. ST's Cortex-M7 cache/DMA guidance applies to this profile; do not carry its memory assumptions into F401 or ESP32 code. Larger capacity does not waive the shared fixture or turn F401 failure into success. [E37]
+
+### D.4 STM32F407: the STM32 target from 16 October 2026
+
+Firmware is developed for the chip (ARCH-10). The first board is the owner's STM32F407G-DISC1. This track was paused on 17 October 2026 (D.5) and deleted with the bytecode engine on 24 October 2026 (the owner, "n11, delete it"; specification 44 §15): its chip file, adapter, firmware and the shared fixture remain in git history, and this section is their record.
+
+| Area | Decision | Evidence or remaining work |
+|---|---|---|
+| Chip | STM32F407 (STM32F407VG on the DISC1): Cortex-M4 with single-precision FPU, up to 168 MHz, 1 MiB flash, 192 KiB SRAM including 64 KiB CCM, Ethernet MAC, USB OTG FS and HS. | Record the device ID, revision and flash size at M0. The CCM is reachable by the CPU only, not by DMA. |
+| Board | STM32F407G-DISC1: on-board ST-LINK (USB 0483:3752, serial 0671FF575377524867063440), USB OTG FS on its micro-USB connector, no Ethernet PHY. | 16 Oct M0 record over SWD: DBGMCU_IDCODE 0x100F6413 (device 0x413, STM32F405/407, revision code 0x100F), flash size register 1024 KiB, CPUID 0x410FC241 (Cortex-M4 r0p1), UID 0x0034002D 0x34314715 0x35363630, target supply 2.87 V. |
+| Links (ARCH-12) | The control connection over USB (OTG FS to the chip) and over Ethernet when the board has a PHY. | The DISC1 has no PHY; Ethernet is proved on a board or add-on with one. |
+| Adapter | `crates/trust-platform-stm32f4`, one Cargo feature per chip: `stm32f407`, the default; the `stm32f401` feature and the F401 composition were retired 17 October 2026 (owner). What differs between the chips is data in `chip.rs`: system clock, flash sectors, RAM, device ID, ports and the pins the firmware keeps. Pins are named at run time; no pin of any board is in the adapter. Ethernet and USB are the next steps. | Authored 17 October 2026, not yet built or run. HAL 0.23.0, PAC 0.16.0, cortex-m 0.7.9 and cortex-m-rt 0.7.7 are the F401's versions; one engine owner as on the F401. |
+| Clock | 168 MHz for SYSCLK and HCLK, APB1 42 MHz, APB2 84 MHz, from the PLL. The crystal is measured, not assumed (TARGET-02): after reset the chip runs from the 16 MHz HSI, the firmware starts the crystal, and TIM11 counts HSI cycles over 64 captures, each of eight edges of the crystal clock divided by 31 (RCC_CFGR.RTCPRE; TIM11 option register TI1_RMP = HSE_RTC). The figure is rounded to a whole MHz, between 4 and 26 MHz, when it is at most 1.2 % above or 5 % below one, and configures the PLL; above is tight because a crystal above the figure the PLL is told would run the chip above 168 MHz (for a crystal that is not a whole MHz, with the HSI inside its trim, at most about 0.5 % above). No crystal, no clean capture or an unlikely figure sends the PLL to the HSI. The startup record `B1,CLOCK,<HSE or HSI>,<measured Hz>,<crystal Hz>,<SYSCLK Hz>,<note>` follows each `B1,IDENTITY`, the first boot's and the watchdog boot's, and says which, and why. | The HSI is factory-trimmed to 1 % at 25 degrees (DS8626), so the measurement is no more exact than that. A crystal that is not a whole number of MHz is named in `device.toml` (TARGET-02). The route through TIM11 is unproven until the bench run. |
+| Flash | 1 MiB in 12 sectors: 4 x 16 KiB, 1 x 64 KiB and 7 x 128 KiB (RM0090). Vectors in sector 0, firmware in sectors 4 to 9 (704 KiB from 0x08010000), the installed application bundle in sectors 10 and 11 (256 KiB from 0x080C0000), the checkpoint slots in sectors 2 and 3, and sector 1 unused. | The linker script asserts the vector size, the firmware start, and that the firmware's load image ends at or below 0x080C0000. |
+| RAM | SRAM1 112 KiB and SRAM2 16 KiB form one block of 128 KiB at 0x20000000; the 64 KiB CCM at 0x10000000 is for the CPU only. The bench firmware keeps the fixture's 72 KiB allocator arena and 16 KiB main stack in the 128 KiB; the CCM is unassigned pending the services runner, whose stack and link buffers leave the rest of the CCM as the allocator's second heap region. | The footprint of the services runner decides what moves into the CCM. |
+| Identity | The firmware checks DBGMCU_IDCODE device 0x413 and the flash size register, 1024 KiB, and stops on another chip. The device ID is shared by the F405, F407, F415 and F417; the build selects the chip. | The check is tested on the host against the M0 record above. |
+| Pins (TARGET-01) | A line names a pin as `P`, a port letter A to K and a number 0 to 15: `PD12` (small letters are accepted). The chip table says which pins exist (ports A to I; port I has PI0 to PI11) and which the firmware keeps: PA2 and PA3 for the console, PA13 and PA14 for SWD, PH0 and PH1 for the crystal. A refused line says why. An output latches its safe level before it becomes an output, and `emergency_halt` drives every configured output to its safe level. The table check is a `const fn`, so the bench firmware asserts its wiring when it is built. | The DISC1 is configuration of the bench firmware, not of the adapter: LD4 (green) on PD12 (LD3 to LD6 are PD13, PD12, PD14 and PD15) and the user button B1 on PA0, which reads high while pressed. |
+| Console | USART2 on PA2 (TX) and PA3 (RX), 230400 baud, 8N1, written at register level because the driver that owns every GPIO port also owns these pins. | ST's UM1472, as an ST community post quotes it, says the ST-LINK/V2-A's virtual COM port lines (ST-LINK_TX and ST-LINK_RX on U2 pins 12 and 13) are not connected to the F407's USART, so the DISC1 may give no console over its USB cable. The manual itself has not been checked for this entry; confirm on the owner's board. Until a link over USB exists the bench console is a 3.3 V USB-UART adapter on PA2 and GND. |
+| Firmware | `firmware/trust-stm32f407`, for the chip. It runs the shared `trust-board-fixture` runner until the services runner replaces it. | Build and bench run pending. |
+| Evidence | `cargo xtask portability build-firmware stm32f407` builds the chip's firmware from `chips/stm32f407.toml` (Appendix H); `inspect` and `verify` take the bench board's name `stm32f407g-disc1`. Inspection reads the sector map above: the vector table alone in sector 0, nothing loaded in sectors 1 to 3 or in the application's sectors 10 and 11, the firmware and the initial values of `.data` in sectors 4 to 9, the statics and the 72 KiB arena in the 112 KiB of SRAM below the 16 KiB main stack (0x2001C000 to 0x20020000, initial stack pointer 0x20020000), and nothing in the CCM. The verifier pins the chip words of the M0 record (DBGMCU_IDCODE and the three UID words), the 1024 KiB flash size and the 168 MHz clock, and requires exactly one `B1,CLOCK` record right after each of the two `B1,IDENTITY` records. It checks the record's fields: the source is HSE or HSI and goes with the note; SYSCLK equals the profile's 168 MHz; an HSE record has a crystal of 4 to 26 MHz that is the measurement rounded to a whole MHz; an HSI record has no crystal figure. It reads B1 as active high (the pin level equals the pressed flag; the C6's GPIO9 reads low while pressed) and bounds a scan at 10 ms of cycles, 1,680,000. | Authored 17 October 2026 and tested on the host with synthetic records only. The reader of the linked ELF and the form of a real capture are proved by the first build and bench run. |
+
+### D.5 STM32U5A9: the STM32 target from 17 October 2026
+
+Firmware is developed for the chip (ARCH-10). The first board is the owner's Riverdi
+RVT50HQSNWC00-B, a 5-inch STM32 Embedded Display (owner, 17 October 2026); its display is not part
+of this track. The STM32F407 track of D.4 is paused as of 17 October 2026 (D.5): its file, adapter,
+firmware and evidence remain. The first slice of this track, S1b-8u-1, builds the chip, its pins and
+its clock with no hardware run; the rows marked S1b-8u-2, S1b-8u-3 and S1b-9u are not built by it.
+
+| Area | Decision | Evidence or remaining work |
+|---|---|---|
+| Chip | STM32U5A9NJH6Q: Cortex-M33 with TrustZone and a single-precision FPU, up to 160 MHz; 4 MB flash in two banks of 256 pages of 8 KiB, with read-while-write between the banks; 2512 KiB of SRAM: SRAM1 768 KiB, SRAM2 64 KiB, SRAM3 and SRAM5 832 KiB each (one block from 0x2000_0000), SRAM4 16 KiB at 0x2800_0000, and 2 KiB of backup SRAM at 0x4201_6400; one USB OTG_HS with an on-chip high-speed PHY; no Ethernet; TFBGA216. TrustZone is off by default, set by TZEN (bit 31 of FLASH_OPTR). Sources: DS13543 Rev 3 §3.4, §3.5, §3.55, Tables 2 and 171; AN5347 §2.1. | DEV_ID 0x481 (ST's `stm32u5a9xx.h` and the `stm32-data` record) and the factory TZEN value are unverified until the M0 record reads them on the part. |
+| Board | Riverdi RVT50HQSNWC00-B (datasheet Rev 1.1): SWD on P3; USB on P6 (D−, D+ and ID, which floats for device mode); power on P10 (6.0 to 48.0 V); the user button S1 on PH3-BOOT0 and the user LED on PE5 (pp. 14 and 15); a CR1220 cell on BT1 for the VBAT domain. The 512 Mbit QSPI flash and the micro-SD slot are not used by this track. The board's CubeMX project sets HSE to 16 MHz in bypass mode on PH0 (`riverdi-50-stm32u5-lvgl`: `RCC.HSE_VALUE`, `PH0-OSC_IN`). | Whether the board's 16 MHz source is an oscillator or a crystal driven in bypass mode is unverified; the firmware checks that HSE is present and reports it (S1b-9u). |
+| Links (ARCH-12) | USB on OTG_HS as a CDC-ACM device at full speed (DCFG.DSPD 01) on the chip's on-chip high-speed PHY, with VBUS sensing off through the session-valid override (GCCFG VBVALEXTOEN and VBVALOVAL; O2); no Ethernet. | S1b-8u-2b. The PHY sequence follows ST's sources (`stm32u5xx_ll_usb.c`, `stm32u5xx_hal.c`, and the CLKSEL codes in `stm32u5xx_hal.h`). The codes and register values are host-tested; the speed and the enumeration are unverified until the S1b-9u bench. |
+| Adapter | `crates/trust-platform-stm32u5`: the chip table in `chip.rs`, the pin names of the shared STM32 crate `crates/trust-platform-stm32` (which the F407 adapter also uses), and the clock in `clock.rs`. Register-level against the `stm32u5` PAC 0.16.0 with feature `stm32u5a9`; no HAL crate. No board value is compiled in. | Host tests compare `chip.rs` with `chips/stm32u5a9.toml`; the register code is checked for `thumbv8m.main-none-eabihf`; no hardware run. |
+| Clock | HSE of 16 MHz in bypass mode through PLL1 (M 4, N 80, R 2, Q 2) to SYSCLK and HCLK of 160 MHz; APB1, APB2 and APB3 undivided; voltage range 1 with the EPOD booster, the SMPS regulator and VDDIO2 valid; 4 flash wait states; the 48 MHz USB kernel clock from HSI48 (ICLKSEL) and the OTG_HS PHY reference from HSE (OTGHSSEL); clock security on while HSE runs. If HSE is not ready within a bounded wait, PLL1 runs from HSI16 and the clock record says so. The sequence follows the board's project (`SystemClock_Config` and `SystemPower_Config`) and OpenOCD's `stm32u5x.cfg`, which reaches the same 160 MHz from MSI. The runner's monotonic clock and wait are TIM2 at 1 MHz (PSC 159 on PCLK1 of 160 MHz), extended to 64 bits, with a CC1 compare armed at the wait's deadline and a WFI sleep (PORT-03; S1b-8u-2b). | The arithmetic is tested on the host (M 4, N 80 and R 2 give 160 MHz; 4 wait states; the 48 MHz choice). The register sequence is unverified until the bench run (S1b-9u). The TIM2 wait is unverified until that bench run; its compare arithmetic is host-tested. |
+| Identity | The firmware checks DBGMCU DEV_ID 0x481 and the flash size register, 4096 KiB. The 96-bit UID at 0x0BFA_0700 is the USB serial number (S1b-8u-2). | Read at M0 (S1b-9u). DEV_ID is shared across the U5 family, so the flash size check is made as well. |
+| Pins (TARGET-01) | A line names a pin as `P`, a port letter A to J and a pin number, as for the F407. Ports A to I have 16 pins; port J has PJ0 to PJ11; port K does not exist. The firmware keeps PA11 and PA12 (USB), PA13 and PA14 (SWD) and PH0 (the HSE in bypass mode). PC14 and PC15 are not kept in this slice; the slice that gives truST a wall clock adds them with reason `oscillator`. A refused line says why. | Host test: every port A to J round-trips, PJ12 and PK0 are refused, and each kept pin is refused with its reason. |
+| Flash (S1b-8u-3) | The chip file's layout: the vectors in the first 8 KiB page of bank 1, the firmware of 2040 KiB from 0x0800_2000, the installed application of 2016 KiB as the rest of bank 2, and two checkpoint slots of 16 KiB (two 8 KiB pages each) at the end of bank 2. | Page erase and quad-word programming are S1b-8u-3. |
+| RAM (S1b-8u-3) | Heap region A of 1 MiB: SRAM1, SRAM2 and the first 192 KiB of SRAM3. Statics in the rest of SRAM3. The main stack of 78 KiB at the top of SRAM5 (0x2025_C800 to 0x2027_0000), the C6's window: until this chip's bench measures its own base and level, its call depth uses the C6's (D.2), 7 levels (MEM-03). It was 32 KiB until 21 October 2026. Heap region B of 754 KiB below the stack, in SRAM5. | The map is written in S1b-8u-3, with the shared measurement crate; the bench (S1b-9u) measures the high-water against the 2 KiB headroom rule. |
+| Console | None in the product firmware. The F407's USART2 console was a fixture of the paused track. | Decided with S1b-9u. |
+| Program memory (MEM-12; checklist C1-21) | Measured at boot, before the program is prepared, with the chip's own sizes: the heap's free bytes then (the installed program stays in the flash), less its resource loop with the event store at the chip's maximum of 1,000 events (`Runner::heap_bytes`), and a reserve of 8,192 bytes for the replies and the program's Live Values and services (`PROGRAM_MEMORY_RESERVE_BYTES`). The chip keeps no retained values yet (retain mode `none`), so its figure has no capture. A program whose figure is more is refused before anything of it is constructed, and the chip serves the link stopped with the reason; `capabilities` reports the number as `program_memory_bytes`. | The reserve is unverified until the bench (S1b-9u). |
+| Firmware (S1b-9u) | `firmware/trust-stm32u5a9`, built from `chips/stm32u5a9.toml`. Not part of S1b-8u-1. | Pending. |
+| Evidence (S1b-9u) | `build-firmware stm32u5a9` and `inspect riverdi-rvt50hqsnwc00-b`, the M0 record and the bench steps of the slice. `inspect` refuses a linked image whose vector table is not alone at 0x0800_0000 in the 8 KiB vectors page; whose firmware or `.data` load image leaves 0x0800_2000 to 0x0820_0000; that puts a section or a load in the application (0x0820_0000 to 0x083F_8000) or a checkpoint slot (0x083F_8000 to 0x0840_0000); whose statics leave 0x2010_0000 to 0x201A_0000; or whose initial stack pointer is not 0x2027_0000 with the 32 KiB window below it. It names the section and the address. The CI portable lane checks the adapter for `thumbv8m.main-none-eabihf`. | The inspect checks and the lane are tested on the host with synthetic layouts only; the reader of a real linked ELF is proved by the first build and the bench run. Pending: the bench has not run. |
 
 ## Appendix E — Implementation deliverables and acceptance ownership
 
@@ -2603,3 +4558,164 @@ qualification. A1 fixes scheduling and freezes the corrected native and numeric
 fixtures; A3 settles exact 2.0 layouts before
 format implementation. A4 proves integrated source-free execution, and Scope B/M2E
 supplies physical resource evidence.
+
+## Appendix H — Chip description files
+
+TARGET-03 describes each supported chip once, in `chips/<chip>.toml`. This appendix defines that
+file. The supported chips are the ESP32-C6 (`chips/esp32c6.toml`) and the STM32U5A9
+(`chips/stm32u5a9.toml`, D.5), whose file its adapter's tests read and check; both are in the
+catalog, and `build-firmware` builds their firmware crates. The STM32F407 (D.4) was deleted with
+the bytecode engine on 24 October 2026 and the STM32F401 of the NUCLEO-F401RE retired on
+17 October 2026 (owner); neither has a file. A development board has no
+file (ARCH-14): its pins are named in `io.toml` and its other wiring is detected or named in
+`device.toml` (TARGET-01, TARGET-02).
+
+### H.1 Reading a file
+
+A chip file is TOML. Every key below is required unless the table names it for one family only;
+`sources.measured_on` follows rule 10 of H.5. A key the format does not define, a missing key, a
+value of the wrong type and a word outside a closed list are refused, and so is a file that breaks
+a rule of H.5. Numbers are integers; addresses and IDs may be written in hexadecimal. Sizes are in
+KiB.
+
+### H.2 Keys
+
+| Table | Key | Meaning |
+|---|---|---|
+| `[identity]` | `name` | The chip's name: the file's name without `.toml`, in small letters and digits. `build-firmware` takes it. |
+| | `model` | The manufacturer's name for the chip, for example `STM32F407`. |
+| | `family` | The platform adapter that drives the chip, which also decides how its pins are named: `stm32f4` (`crates/trust-platform-stm32f4`), `stm32u5` (`crates/trust-platform-stm32u5`) or `esp32` (`crates/trust-platform-esp32`). |
+| | `device_id` | The number the chip reports for itself, by which the firmware and a probe recognize it. For the STM32 families (`stm32f4`, `stm32u5`): DEV_ID, bits 11:0 of DBGMCU_IDCODE, which the firmware checks at start and a debug probe reads; the firmware also checks that the flash size register equals `memory.flash.kib` (D.4, D.5). `esp32`: the chip ID that the ROM and espflash report and the firmware image header carries (D.2). |
+| | `usb_bootloader` | `{ vid, pid }`: the USB IDs the chip shows while its own boot loader runs, through which truST is installed over USB (TARGET-04). The USB search recognizes a chip by them. |
+| `[processor]` | `core` | The processor core. |
+| | `isa` | Its instruction set. |
+| | `rust_target` | The Rust target the firmware is built for. |
+| | `fpu` | `none`, `single` or `double` precision. |
+| `[clock]` | `max_hz` | The highest processor clock of the data sheet. |
+| | `firmware_hz` | The clock the truST firmware runs the processor at. |
+| | `crystal_min_hz`, `crystal_max_hz` | The crystals the chip's oscillator accepts. |
+| `[memory.flash]` | `start`, `kib`, `sectors` | `stm32f4` and `stm32u5` only: flash in the chip's address space, from address `start`, of `kib`, with its erase sectors in address order as runs `{ count, kib }`. |
+| `[memory.spi_flash]` | `erase_kib` | `esp32` only: flash on the chip's SPI flash interface, in the package or the module. Its size is the device's own and is read when truST is installed; `erase_kib` is its erase unit. |
+| `[[memory.ram]]` | `name`, `start`, `kib`, `dma` | One entry per RAM region: its name in the reference manual, its first address, its size, and whether DMA reaches it (the F407's CCM is for the CPU only). |
+| `[events]` | `default_capacity`, `max_capacity` | The newest events the chip's event store keeps when the project sets none, and the most a project may set (truST's own choice, H.4). The firmware sizes its event store with them, and admission refuses a project above the maximum (specification 11, the event store; §5.1.1 step 7). |
+| `[layout]` | `vectors` | `stm32f4` and `stm32u5` only: the vector table. |
+| | `bootloader`, `partition_table` | `esp32` only: the second-stage boot loader and the partition table. |
+| | `firmware` | The truST firmware: its first slot when the file names `firmware_b`. |
+| | `firmware_b`, `firmware_select` | The second firmware slot, of the size of `firmware`, and where the boot loader keeps which slot it boots (TARGET-04): optional, and a file names both or neither. |
+| | `device_a`, `device_b` | The two sectors of the device settings, `device.toml` (TARGET-02): optional, and a file names both or neither. Each is `{ start, kib }` of exactly one erase unit, apart from every other region. |
+| | `pairing_a`, `pairing_b` | The two sectors of the pairings (specification 11 §6.9.6): optional, and a file names both or neither. Each is `{ start, kib }` of exactly one erase unit, apart from every other region. |
+| | `application` | The separately installed application (DEPLOY-01). |
+| | `application_a`, `application_b` | The two program slots of the program store (§5.1): optional, and a file names both or neither. Each is `{ start, kib }` of the same size, inside `application`, on erase-unit boundaries and apart from the other slot and the checkpoint slots. |
+| | `checkpoint_a`, `checkpoint_b` | The two checkpoint slots of the retain store, so that an interrupted write keeps the last good checkpoint (RETAIN-02); §10.1 defines their contents. |
+| | `boot_counter_a`, `boot_counter_b` | The two sectors in which a chip keeps its boot counter (PORT-05; D.2): optional, and a file names both or neither. Each is `{ start, kib }` of exactly one erase unit, inside the flash, on erase-unit boundaries and apart from every other region, so that no tool and no later layout uses them. |
+| `[interfaces]` | `usb`, `ethernet`, `wifi`, `bluetooth`, `uart`, `can`, `spi`, `i2c`, `adc`, `dac`, `timers`, `pwm` | The chip's peripherals of each kind, by the manufacturer's names. An empty list means the chip has none. An Ethernet PHY and other wiring belong to the board. |
+| `[gpio]` | `ports` | `stm32f4` and `stm32u5` only: `{ port, pins }` for each GPIO port, its pins counted from 0; a pin is named like `PD12`. |
+| | `pins` | `esp32` only: the number of GPIOs, `GPIO0` upwards; a pin is named like `GPIO18`. |
+| | `reserved` | `{ pin, reason }` for each pin the firmware keeps for itself, which `io.toml` cannot use; `reason` is `console`, `debug`, `flash`, `oscillator` or `usb`. |
+| `[firmware]` | `crate` | The firmware crate's directory, under `firmware/`. |
+| | `bin` | Its binary. |
+| | `components` | The runtime components the firmware holds (H.3). |
+| `[sources]` | `documents`, `measured`, `measured_on`, `unchecked` | Where the values come from (H.4). |
+
+Layout regions are `{ start, kib }`. Their addresses are bus addresses in `memory.flash` and flash
+offsets in `memory.spi_flash`. The pins are those of the chip's largest package; a board's package
+may have fewer, and its `io.toml` names only pins it has.
+
+### H.3 Components
+
+The component names are a closed list. Each is one runtime service of ARCH-11, the same code on
+every target (ARCH-14):
+
+| Component | What it is |
+|---|---|
+| `engine` | The engine, `trust-runtime-core`: bytecode execution, tasks and cycles, the process image. |
+| `control` | The control connection and its protocol: status, start, stop and restart, resource states and faults, events and log. |
+| `live-values` | Live Values: read, write, force and release. |
+| `debug` | Debugging (specification 13). |
+| `deploy` | Program loading, including online change. |
+| `access` | Access rights: tokens, roles and pairing, TLS and signed deployment. |
+| `discovery` | Discovery and the mesh (ARCH-12). |
+| `communication` | The communication services: the `io.toml` drivers, and Bluetooth devices where the chip has Bluetooth. |
+| `web-hmi` | The web pages and the HMI. |
+| `modbus-rtu` | The `modbus-rtu` driver on the chip's UARTs. |
+| `ethercat` | The `ethercat` driver on a chip with an Ethernet controller. |
+| `opcua` | The OPC UA server and client (SERVICE-03). |
+| `ads` | The Beckhoff ADS client and server. |
+| `cloud` | The runtime cloud and the fleet. |
+| `observability` | The historian with its alerts, and the Prometheus metrics. |
+| `openot` | OpenOT telemetry (SERVICE-04). |
+| `simulation` | Simulation (SERVICE-05). |
+
+A firmware holds `engine` and lists each further component once it holds it, as measured. The
+ESP32-C6 firmware holds `engine`, `control` and `live-values`, as its bench measured them on
+18 October 2026 (the control requests of S1b-5 and Live Values at the pins), and `debug` and
+`deploy`, as its bench measured breakpoints, stepping and Live Values writes of a compiled program,
+and its online change, on 24 October 2026; the STM32F407 firmware holds `engine` alone. Several resources in one configuration,
+and several runtimes on one chip (ARCH-15), are not components: every firmware runs them, and how
+many runtimes fit a chip is measured and reported (ARCH-13). Linux, macOS and Windows run every
+component and have no chip file. The tools offer what the device's chip file lists and refuse a
+project that needs a component it lacks, naming the chips whose files list it (ARCH-14).
+
+### H.4 Measured and data-sheet values
+
+A value is the manufacturer's, from the documents in `sources.documents`, or truST's own choice
+(the layout, the firmware clock, the firmware and its components, and the `[events]` default and
+maximum), unless `[sources]` says otherwise. `measured` lists the values that were read on a chip,
+and `measured_on` says on which device and when. `unchecked` lists manufacturer values that the
+repository's records do not yet confirm; a reviewer checks them against the documents before a tool
+relies on them. An entry is a key path such as `identity.device_id`. A path through an array of
+tables names that key in every entry (`memory.ram.dma`); a path to a table or an array names all of
+it.
+
+### H.5 Rules
+
+The reader refuses a file that breaks one of these rules:
+
+1. `identity.name` is the file's name, of small letters and digits. `model`, `core`, `isa`,
+   `bin` and every name in a list are not empty.
+2. For `stm32f4` and `stm32u5`, `device_id` is 1 to 0xFFF, the twelve bits of DEV_ID.
+3. `firmware_hz` is more than 0 and at most `max_hz`; `crystal_min_hz` is more than 0 and at most
+   `crystal_max_hz`.
+4. The Rust target is of the family's architecture, `thumb` for `stm32f4` and `stm32u5` and `riscv32` for
+   `esp32`, and it agrees with the FPU: an `eabihf` target has an FPU and an `eabi` target none; a
+   RISC-V target's letters are the instruction set (`riscv32imac` is `RV32IMAC`), and its F or D
+   letter is the FPU.
+5. `stm32f4` and `stm32u5` describe their flash in `memory.flash` and `esp32` in `memory.spi_flash`, and neither
+   in the other. The sectors add up to `kib`. The flash, every sector run, RAM region and layout
+   region, and the erase unit hold at least 1 KiB; there is at least one RAM region; an `esp32`
+   chip has at least one GPIO.
+6. The RAM regions have different names, lie below 4 GiB and overlap neither one another nor
+   `memory.flash`.
+7. The layout has the family's regions and no others: `vectors` for `stm32f4` and `stm32u5`;
+   `bootloader` and `partition_table` for `esp32`. Each region lies inside `memory.flash` and
+   starts and ends on a sector boundary, or, in SPI flash, on a multiple of `erase_kib`. No two
+   regions overlap. `vectors` starts at the first byte of the flash, where the processor starts,
+   and `bootloader` at offset 0, where the ROM loads it. A file names `boot_counter_a` and
+   `boot_counter_b`, `device_a` and `device_b`, and `pairing_a` and `pairing_b` each both or
+   neither, and each is exactly one erase unit: one sector, or in SPI flash `erase_kib`.
+8. Each name is listed once in each list of `interfaces`, in the ports, the reserved pins, the
+   components and the documents. `stm32f4` and `stm32u5` have `ports`, with letters A to K and
+   1 to 16 pins each, and no `pins`; `esp32` has `pins` and no `ports`. A reserved pin is named in
+   its family's form and is a pin of the chip.
+9. `firmware.crate` is a directory under `firmware/`, and the components include `engine`.
+10. `sources.documents` is not empty. Every path in `measured` and `unchecked` names a key outside
+    `[sources]`, and no path is listed twice or inside another listed path. `measured_on` is given,
+    and not empty, exactly when `measured` is not empty.
+11. The event store's capacities form a range: 1 <= `default_capacity` <= `max_capacity` <=
+    1,000,000.
+
+### H.6 Where the files are read
+
+The crate `crates/trust-chips` reads and checks chip files and embeds, as the catalog of supported
+chips, the files of the chips whose firmware crate is in the repository, in which no two files have
+one name. It depends on no firmware or
+platform adapter, so `trust-runtime` (its command line, and the USB search and installation of
+TARGET-04) and `xtask` can use it; the adapters use it only in their host tests.
+`cargo xtask portability build-firmware <chip>` builds the firmware of a chip in the catalog from its
+file: its crate, binary and Rust target. `inspect` takes a bench board: `esp32c6-devkitc-1` or
+`riverdi-rvt50hqsnwc00-b`, whose first bench run is still to come (S1b-9u). A bench profile holds the bench's own values, such as the
+button's polarity, the fixture's memory budget and the module's flash, and takes its chip values
+from the chip's file. Host tests compare the adapters' chip data with the files: the STM32U5A9 table in its
+`chip.rs` and the C6 profile with its boot counter sectors. The xtask tests compare the firmware's
+linker scripts and partition table, the inspector's regions and the verifier's pinned chip IDs
+with them. A chip value is thus written once, in its file, and checked wherever code repeats it.

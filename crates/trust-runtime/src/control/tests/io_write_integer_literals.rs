@@ -20,11 +20,11 @@ END_VAR
 END_CONFIGURATION
 "#;
 
-fn io_literal_fixture() -> (ControlState, crate::Runtime) {
-    let state = hmi_test_state(IO_LITERAL_SOURCE);
-    let mut runtime = crate::harness::CompileSession::from_source(IO_LITERAL_SOURCE)
-        .build_runtime()
-        .expect("io literal fixture compiles");
+fn io_literal_fixture() -> (ControlState, crate::CompiledRuntime) {
+    let state = control_test_state(IO_LITERAL_SOURCE);
+    let mut runtime = TestHarness::from_source(IO_LITERAL_SOURCE)
+        .expect("io literal fixture compiles")
+        .into_runtime();
     runtime.set_debug_control(state.debug.clone());
     (state, runtime)
 }
@@ -49,20 +49,13 @@ fn io_literal_request(
     response
 }
 
-fn io_literal_image(runtime: &crate::Runtime, address: &str) -> crate::value::Value {
+fn io_literal_image(runtime: &crate::CompiledRuntime, address: &str) -> crate::value::Value {
     let address = crate::io::IoAddress::parse(address).expect("address parses");
-    runtime.io().read(&address).expect("process image reads")
+    runtime.read_io(&address).expect("process image reads")
 }
 
-fn io_literal_counter(runtime: &crate::Runtime) -> crate::value::Value {
-    let Some(crate::value::Value::Instance(program)) = runtime.storage().get_global("P1") else {
-        panic!("program instance P1");
-    };
-    runtime
-        .storage()
-        .get_instance_var(*program, "Counter")
-        .cloned()
-        .expect("Counter")
+fn io_literal_counter(runtime: &crate::CompiledRuntime) -> crate::value::Value {
+    runtime.read_variable("P1.Counter").expect("Counter")
 }
 
 /// Drain the write_rejected events raised since the previous call.

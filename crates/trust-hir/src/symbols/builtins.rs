@@ -1,7 +1,7 @@
 use smol_str::SmolStr;
 use text_size::{TextRange, TextSize};
 
-use crate::types::{Type, TypeId};
+use crate::types::{Type, TypeId, DEFAULT_STRING_LENGTH};
 
 use super::defs::{ParamDirection, Symbol, SymbolId, SymbolKind};
 use super::table::SymbolTable;
@@ -34,8 +34,21 @@ impl SymbolTable {
         self.register_builtin(TypeId::LTOD, "LTIME_OF_DAY", Type::LTod);
         self.register_builtin(TypeId::DT, "DATE_AND_TIME", Type::Dt);
         self.register_builtin(TypeId::LDT, "LDATE_AND_TIME", Type::Ldt);
-        self.register_builtin(TypeId::STRING, "STRING", Type::String { max_len: None });
-        self.register_builtin(TypeId::WSTRING, "WSTRING", Type::WString { max_len: None });
+        // A STRING or WSTRING without a declared length is STRING[80] or WSTRING[80].
+        self.register_builtin(
+            TypeId::STRING,
+            "STRING",
+            Type::String {
+                max_len: Some(DEFAULT_STRING_LENGTH),
+            },
+        );
+        self.register_builtin(
+            TypeId::WSTRING,
+            "WSTRING",
+            Type::WString {
+                max_len: Some(DEFAULT_STRING_LENGTH),
+            },
+        );
         self.register_builtin(TypeId::CHAR, "CHAR", Type::Char);
         self.register_builtin(TypeId::WCHAR, "WCHAR", Type::WChar);
         self.register_builtin(TypeId::ANY, "ANY", Type::Any);

@@ -1,0 +1,88 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 3500
+plant_step_ms = 100
+
+# Three copies of the heater of Lessons 12–30, 50·dT/dt = 2·u(t − 1) − 10·(T − 20), each at rest at 35 °C with 75 %.
+# They receive the same excitation at 0.2, 0.1 and 0.4 rad/s. Each measurement carries ±0.02 °C noise.
+
+[[plants]]
+id = "middle-heater"
+model = "state_space"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [15.0]
+initial_input = [75.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }]
+
+[plants.parameters]
+a = [[-0.2]]
+b = [[0.04]]
+c = [[1.0]]
+d = [[0.0]]
+input_delays_s = [1.0]
+
+[[plants.uncertainties]]
+id = "middle-heater-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "uniform_white"
+minimum = -0.02
+maximum = 0.02
+
+[[plants]]
+id = "slow-heater"
+model = "state_space"
+command_sources = ["%QL8"]
+feedback_targets = ["%IL8"]
+initial_state = [15.0]
+initial_input = [75.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }]
+
+[plants.parameters]
+a = [[-0.2]]
+b = [[0.04]]
+c = [[1.0]]
+d = [[0.0]]
+input_delays_s = [1.0]
+
+[[plants.uncertainties]]
+id = "slow-heater-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "uniform_white"
+minimum = -0.02
+maximum = 0.02
+
+[[plants]]
+id = "fast-heater"
+model = "state_space"
+command_sources = ["%QL16"]
+feedback_targets = ["%IL16"]
+initial_state = [15.0]
+initial_input = [75.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }]
+
+[plants.parameters]
+a = [[-0.2]]
+b = [[0.04]]
+c = [[1.0]]
+d = [[0.0]]
+input_delays_s = [1.0]
+
+[[plants.uncertainties]]
+id = "fast-heater-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "uniform_white"
+minimum = -0.02
+maximum = 0.02

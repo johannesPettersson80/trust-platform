@@ -1,7 +1,7 @@
-use trust_runtime::execution_backend::ExecutionBackend;
-use trust_runtime::harness::{bytecode_bytes_from_source, CompileSession, TestHarness};
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
+
+use trust_runtime::harness::{CompileSession, TestHarness};
 use trust_runtime::value::Value;
-use trust_runtime::RestartMode;
 
 #[test]
 fn function_return_arithmetic_materializes_the_declared_integer_type() {
@@ -56,28 +56,6 @@ END_PROGRAM
         cycle.errors
     );
     assert_eq!(harness.get_output("iterations"), Some(Value::Int(3)));
-
-    let mut vm_harness = TestHarness::from_source(source).expect("compile VM runtime");
-    let bytecode = bytecode_bytes_from_source(source).expect("build VM bytecode");
-    vm_harness
-        .runtime_mut()
-        .apply_bytecode_bytes(&bytecode, None)
-        .expect("apply VM bytecode");
-    vm_harness
-        .runtime_mut()
-        .set_execution_backend(ExecutionBackend::BytecodeVm)
-        .expect("select VM backend");
-    vm_harness
-        .runtime_mut()
-        .restart(RestartMode::Cold)
-        .expect("restart VM runtime");
-    let cycle = vm_harness.cycle();
-    assert!(
-        cycle.errors.is_empty(),
-        "unexpected VM cycle errors: {:?}",
-        cycle.errors
-    );
-    assert_eq!(vm_harness.get_output("iterations"), Some(Value::Int(3)));
 }
 
 #[test]
@@ -153,7 +131,7 @@ END_PROGRAM
 "#;
 
     let error = CompileSession::from_source(source)
-        .build_runtime()
+        .declarations()
         .expect_err("typed precision-losing integer-to-float assignments must not compile");
     assert_eq!(
         error.to_string().matches("error[E203]:").count(),

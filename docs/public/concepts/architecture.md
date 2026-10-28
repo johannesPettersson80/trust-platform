@@ -8,14 +8,13 @@ disconnected tools.
     `LSP` = Language Server Protocol.
     `DAP` = Debug Adapter Protocol.
     `HIR` = High-level Intermediate Representation.
-    `.stbc` = Structured Text Bytecode bundle.
+    `.tpi` = program image: the project compiled into native code for one CPU.
 
 ![How truST fits together](../assets/images/architecture/workflow-overview.svg)
 
 *Figure:* Source files move through Build+Validate into artifacts
-(`program.stbc`, `runtime.toml`, `io.toml`, `hmi/`), and the same runtime then
-serves I/O drivers, the browser IDE at `/ide`, and HMI/control pages at
-`/hmi`.
+(`program.tpi`, `runtime.toml`, `io.toml`), and the same runtime then
+serves I/O drivers, the browser IDE at `/ide`, and runtime control.
 
 ## The Main Architectural Rule
 
@@ -32,8 +31,9 @@ same project semantics and execution model instead of inventing separate paths.
 
 ### 2. Runtime and control
 
-- `trust-runtime` builds `program.stbc` and executes the bytecode VM
-- runtime configuration comes from `runtime.toml`, `io.toml`, `simulation.toml`, and `hmi/`
+- `trust-runtime build` compiles the project into a program image (`program.tpi`) of native
+  code, and `trust-runtime` runs it with the same kernel every truST device runs
+- runtime configuration comes from `runtime.toml`, `io.toml`, and `simulation.toml`
 - control, reload, status, and testing interfaces are exposed through CLI, web
   UI, and agent methods
 
@@ -47,7 +47,6 @@ same project semantics and execution model instead of inventing separate paths.
 ### 4. Browser-hosted interfaces
 
 - `/ide` exposes the browser IDE for project editing
-- `/hmi` exposes operator-facing HMI pages
 - runtime-cloud APIs expose topology, preflight, and dispatch operations
 
 ## One Project, Many Interfaces
@@ -60,7 +59,7 @@ for each tool:
 3. runtime execution
 4. deterministic harness or test execution
 5. diagnostics and repair through agents
-6. operator-facing HMI or runtime control APIs
+6. runtime control APIs
 
 If a feature only works in one interface because it depends on product-specific
 glue, that is usually an architectural smell in truST.
@@ -69,9 +68,9 @@ glue, that is usually an architectural smell in truST.
 
 The main shared contracts are:
 
-- the project layout (`src/`, config files, `hmi/`)
+- the project layout (`src/`, config files)
 - semantic analysis from the compiler/language stack
-- bytecode generation and runtime execution
+- compilation into a program image and runtime execution
 - deterministic cycle stepping for tests and automation
 - machine-readable control and agent APIs
 

@@ -2,6 +2,8 @@ use serde_json::json;
 
 use super::CommFieldSchema;
 
+mod modbus_identity;
+
 fn field(
     id: &'static str,
     label: &'static str,
@@ -21,7 +23,9 @@ fn field(
         default,
         validation: None,
         options: None,
+        option_labels: None,
         visible_when: None,
+        list: None,
     }
 }
 
@@ -125,7 +129,7 @@ fn json_object_field(
 }
 
 pub(super) fn modbus_fields() -> Vec<CommFieldSchema> {
-    vec![
+    let mut fields = vec![
         socket_addr_field(
             "address",
             "Device address",
@@ -164,7 +168,9 @@ pub(super) fn modbus_fields() -> Vec<CommFieldSchema> {
             vec!["fault", "warn", "ignore"],
             "Runtime behavior when the driver cannot read or write.",
         ),
-    ]
+    ];
+    fields.extend(modbus_identity::expected_identity_fields());
+    fields
 }
 
 pub(super) fn mqtt_fields() -> Vec<CommFieldSchema> {

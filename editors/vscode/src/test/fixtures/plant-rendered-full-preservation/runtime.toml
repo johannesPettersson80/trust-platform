@@ -1,0 +1,26 @@
+[bundle]
+version = 1
+
+[resource]
+name = "Simulator"
+cycle_interval_ms = 10
+
+[runtime.control]
+endpoint = "tcp://127.0.0.1:0"
+mode = "debug"
+debug_enabled = true
+
+[runtime.web]
+enabled = false
+
+[runtime.discovery]
+enabled = false
+
+[runtime.retain]
+mode = "none"
+
+[runtime.watchdog]
+enabled = false
+
+[runtime.fault]
+policy = "halt"

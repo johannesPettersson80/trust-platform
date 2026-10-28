@@ -1,6 +1,12 @@
+//! The simulation workflow: the simulation model's TOML, couplings, disturbances and physics joints
+//! acting on a program's process images at the cycle boundaries.
+//!
+//! The tests that load a program need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use trust_runtime::error::RuntimeError;
+use trust_runtime::harness::TestHarness;
 use trust_runtime::io::IoAddress;
 use trust_runtime::scheduler::{ResourceRunner, ResourceState, ScaledClock};
 use trust_runtime::simulation::{
@@ -9,7 +15,18 @@ use trust_runtime::simulation::{
 };
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::watchdog::{WatchdogAction, WatchdogPolicy};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
+
+/// A program with two input and two output bytes, the images the simulation reads and writes; the
+/// program itself does nothing.
+fn simulation_runtime() -> CompiledRuntime {
+    TestHarness::from_source(
+        "VAR_GLOBAL word_in AT %IW0 : WORD; word_out AT %QW0 : WORD; END_VAR \
+         PROGRAM Main END_PROGRAM",
+    )
+    .expect("admit simulation images")
+    .into_runtime()
+}
 
 #[test]
 fn simulation_toml_model_parses_rules_and_disturbances() {
@@ -205,9 +222,7 @@ target = "%IW0"
 fn physics_revolute_joint_queues_encoder_feedback_through_io_boundary() {
     let enable = IoAddress::parse("%QX0.0").expect("enable address");
     let feedback = IoAddress::parse("%IW0").expect("feedback address");
-    let mut declarations = trust_runtime::RuntimeBuilder::new();
-    declarations.io_mut().resize(2, 2, 0);
-    let mut runtime = declarations.build().expect("admit simulation images");
+    let mut runtime = simulation_runtime();
     let mut simulation = SimulationController::new(SimulationConfig {
         enabled: true,
         seed: 1,
@@ -230,6 +245,7 @@ fn physics_revolute_joint_queues_encoder_feedback_through_io_boundary() {
                 encoder_counts_per_radian: 1000.0,
             }],
         }),
+        plant_system: Default::default(),
     });
 
     runtime
@@ -240,8 +256,7 @@ fn physics_revolute_joint_queues_encoder_feedback_through_io_boundary() {
         .expect("physics post cycle");
     assert_eq!(
         runtime
-            .io()
-            .read(&feedback)
+            .read_io(&feedback)
             .expect("feedback before pre-cycle"),
         Value::Word(0),
         "physics output must be queued, not written during post-cycle"
@@ -252,8 +267,7 @@ fn physics_revolute_joint_queues_encoder_feedback_through_io_boundary() {
         .expect("physics pre cycle applies pending encoder");
     assert_eq!(
         runtime
-            .io()
-            .read(&feedback)
+            .read_io(&feedback)
             .expect("feedback after pre-cycle"),
         Value::Word(10)
     );
@@ -287,9 +301,7 @@ fn deterministic_trace_with_same_simulation_config() {
 fn coupling_applies_threshold_with_delay() {
     let source = IoAddress::parse("%QW0").expect("source address");
     let target = IoAddress::parse("%IX0.1").expect("target address");
-    let mut declarations = trust_runtime::RuntimeBuilder::new();
-    declarations.io_mut().resize(2, 2, 0);
-    let mut runtime = declarations.build().expect("admit simulation images");
+    let mut runtime = simulation_runtime();
     let mut simulation = SimulationController::new(SimulationConfig {
         enabled: true,
         seed: 123,
@@ -304,6 +316,7 @@ fn coupling_applies_threshold_with_delay() {
         }],
         disturbances: Vec::new(),
         physics: None,
+        plant_system: Default::default(),
     });
 
     runtime
@@ -341,9 +354,7 @@ fn coupling_applies_threshold_with_delay() {
 
 #[test]
 fn scripted_fault_disturbance_faults_runtime() {
-    let mut declarations = trust_runtime::RuntimeBuilder::new();
-    declarations.io_mut().resize(2, 2, 0);
-    let mut runtime = declarations.build().expect("admit simulation images");
+    let mut runtime = simulation_runtime();
     let mut simulation = SimulationController::new(SimulationConfig {
         enabled: true,
         seed: 7,
@@ -356,6 +367,7 @@ fn scripted_fault_disturbance_faults_runtime() {
             },
         }],
         physics: None,
+        plant_system: Default::default(),
     });
 
     simulation
@@ -372,9 +384,7 @@ fn scripted_fault_disturbance_faults_runtime() {
 
 #[test]
 fn accelerated_clock_keeps_watchdog_semantics() {
-    let mut declarations = trust_runtime::RuntimeBuilder::new();
-    declarations.io_mut().resize(2, 2, 0);
-    let mut runtime = declarations.build().expect("admit simulation images");
+    let mut runtime = simulation_runtime();
     runtime.set_watchdog_policy(WatchdogPolicy {
         enabled: true,
         timeout: Duration::from_millis(200),
@@ -393,9 +403,7 @@ fn accelerated_clock_keeps_watchdog_semantics() {
 fn run_simulation_trace() -> Vec<bool> {
     let source = IoAddress::parse("%QW0").expect("source address");
     let target = IoAddress::parse("%IX0.0").expect("target address");
-    let mut declarations = trust_runtime::RuntimeBuilder::new();
-    declarations.io_mut().resize(2, 2, 0);
-    let mut runtime = declarations.build().expect("admit simulation images");
+    let mut runtime = simulation_runtime();
     let mut simulation = SimulationController::new(SimulationConfig {
         enabled: true,
         seed: 42,
@@ -416,6 +424,7 @@ fn run_simulation_trace() -> Vec<bool> {
             },
         }],
         physics: None,
+        plant_system: Default::default(),
     });
 
     let output_pattern = [1u16, 12u16, 4u16, 18u16, 0u16, 25u16];
@@ -439,9 +448,7 @@ fn run_simulation_trace() -> Vec<bool> {
 fn run_physics_trace() -> Vec<u16> {
     let enable = IoAddress::parse("%QX0.0").expect("enable address");
     let feedback = IoAddress::parse("%IW0").expect("feedback address");
-    let mut declarations = trust_runtime::RuntimeBuilder::new();
-    declarations.io_mut().resize(2, 2, 0);
-    let mut runtime = declarations.build().expect("admit simulation images");
+    let mut runtime = simulation_runtime();
     let mut simulation = SimulationController::new(SimulationConfig {
         enabled: true,
         seed: 42,
@@ -464,6 +471,7 @@ fn run_physics_trace() -> Vec<u16> {
                 encoder_counts_per_radian: 1000.0,
             }],
         }),
+        plant_system: Default::default(),
     });
     runtime
         .write_io(&enable, Value::Bool(true))
@@ -478,7 +486,7 @@ fn run_physics_trace() -> Vec<u16> {
         simulation
             .apply_pre_cycle(now, &mut runtime)
             .expect("physics pre cycle");
-        match runtime.io().read(&feedback).expect("read feedback") {
+        match runtime.read_io(&feedback).expect("read feedback") {
             Value::Word(value) => trace.push(value),
             other => panic!("expected word feedback, got {other:?}"),
         }
@@ -559,8 +567,8 @@ fn workspace_root() -> std::path::PathBuf {
         .to_path_buf()
 }
 
-fn read_input_bit(runtime: &Runtime, address: &IoAddress) -> bool {
-    match runtime.io().read(address).expect("read input bit") {
+fn read_input_bit(runtime: &CompiledRuntime, address: &IoAddress) -> bool {
+    match runtime.read_io(address).expect("read input bit") {
         Value::Bool(value) => value,
         other => panic!("expected bool input, got {other:?}"),
     }

@@ -533,71 +533,30 @@ END_PROGRAM
     std::fs::remove_dir_all(root).ok();
 }
 
+/// Specification 39, decision 12: TOML files under `hmi/` belong to the HMI Builder. The legacy
+/// HMI diagnostics are removed, and these files are not checked as Structured Text either, for
+/// new page files and for files in the old format alike.
 #[test]
-pub(super) fn lsp_hmi_toml_diagnostics_use_open_source_buffers() {
-    let root = temp_dir("trustlsp-hmi-open-buffer-diagnostics");
-    let source_path = root.join("src/main.st");
-    let hmi_path = root.join("hmi/overview.toml");
-    std::fs::create_dir_all(source_path.parent().expect("source parent")).expect("create src");
-    std::fs::create_dir_all(hmi_path.parent().expect("hmi parent")).expect("create hmi");
+pub(super) fn lsp_hmi_folder_toml_files_get_no_legacy_hmi_diagnostics() {
+    let root = temp_dir("trustlsp-no-legacy-hmi-diagnostics");
+    let new_page = root.join("hmi/pages/overview.toml");
+    let old_page = root.join("hmi/overview.toml");
+    std::fs::create_dir_all(new_page.parent().expect("pages dir")).expect("create hmi/pages");
 
-    let disk_source = r#"
-PROGRAM Main
-VAR_OUTPUT
-    speed : REAL;
-END_VAR
-END_PROGRAM
-"#;
-    let open_source = r#"
-PROGRAM Main
-VAR_OUTPUT
-    speed : REAL;
-    velocity : REAL;
-END_VAR
-END_PROGRAM
-"#;
-    let page = r#"
+    let new_text = r#"format = 1
 title = "Overview"
-kind = "dashboard"
 
-[[section]]
-title = "Main"
+[[object]]
+id = "speed"
+type = "number"
+at = [40, 40]
+size = [120, 48]
 
-[[section.widget]]
-type = "gauge"
-bind = "Main.velocity"
+[object.bind]
+value = "Main.speed"
 "#;
-    std::fs::write(&source_path, disk_source).expect("write disk source");
-    std::fs::write(&hmi_path, page).expect("write hmi page");
-
-    let state = ServerState::new();
-    let root_uri = tower_lsp::lsp_types::Url::from_file_path(&root).expect("root uri");
-    state.set_workspace_config(root_uri, ProjectConfig::load(&root));
-    let source_uri = tower_lsp::lsp_types::Url::from_file_path(&source_path).expect("source uri");
-    let hmi_uri = tower_lsp::lsp_types::Url::from_file_path(&hmi_path).expect("hmi uri");
-    state.open_document(source_uri, 1, open_source.to_string());
-    state.open_document(hmi_uri.clone(), 1, page.to_string());
-
-    let diagnostics = full_document_diagnostics(&state, hmi_uri);
-    assert!(
-        diagnostics.iter().all(|diag| {
-            !(diag.message.contains("unknown binding path")
-                && diag.message.contains("Main.velocity"))
-        }),
-        "HMI diagnostics must validate against open ST buffers before disk snapshots, got {:?}",
-        diagnostic_messages(&diagnostics)
-    );
-
-    std::fs::remove_dir_all(root).ok();
-}
-
-#[test]
-pub(super) fn lsp_hmi_toml_local_property_diagnostics_do_not_require_runtime_compile() {
-    let root = temp_dir("trustlsp-hmi-local-property-diagnostics");
-    let hmi_path = root.join("hmi/overview.toml");
-    std::fs::create_dir_all(hmi_path.parent().expect("hmi parent")).expect("create hmi");
-
-    let page = r#"
+    // Old format with a widget error the legacy checks reported.
+    let old_text = r#"
 title = "Overview"
 kind = "dashboard"
 
@@ -610,26 +569,23 @@ bind = "Main.speed"
 min = 10
 max = 1
 "#;
-    std::fs::write(&hmi_path, page).expect("write hmi page");
+    std::fs::write(&new_page, new_text).expect("write new page");
+    std::fs::write(&old_page, old_text).expect("write old page");
 
     let state = ServerState::new();
     let root_uri = tower_lsp::lsp_types::Url::from_file_path(&root).expect("root uri");
     state.set_workspace_config(root_uri, ProjectConfig::load(&root));
-    let hmi_uri = tower_lsp::lsp_types::Url::from_file_path(&hmi_path).expect("hmi uri");
-    state.open_document(hmi_uri.clone(), 1, page.to_string());
-
-    let diagnostics = full_document_diagnostics(&state, hmi_uri);
-    assert!(
-        diagnostics.iter().any(|diag| {
-            matches!(
-                diag.code.as_ref(),
-                Some(tower_lsp::lsp_types::NumberOrString::String(code))
-                    if code == "HMI_INVALID_WIDGET_PROPERTIES"
-            )
-        }),
-        "local HMI widget-property diagnostics must not depend on runtime compilation, got {:?}",
-        diagnostic_messages(&diagnostics)
-    );
+    for (path, text) in [(&new_page, new_text), (&old_page, old_text)] {
+        let uri = tower_lsp::lsp_types::Url::from_file_path(path).expect("page uri");
+        state.open_document(uri.clone(), 1, text.to_string());
+        let diagnostics = full_document_diagnostics(&state, uri);
+        assert!(
+            diagnostics.is_empty(),
+            "{}: no diagnostics expected, got {:?}",
+            path.display(),
+            diagnostic_messages(&diagnostics)
+        );
+    }
 
     std::fs::remove_dir_all(root).ok();
 }

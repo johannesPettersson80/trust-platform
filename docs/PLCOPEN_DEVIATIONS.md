@@ -4,6 +4,12 @@ This file tracks known, intentional deviations/extensions from strict PLCopen pr
 
 ## 2026-02-25 - PLCopen LD interop subset
 
+- Status: withdrawn on 2026-10-26. The TypeScript LD interchange named below,
+  which no command of the extension called and only its own tests reached,
+  was removed with those tests (`docs/specs/25-vscode-product-contract.md`
+  §11.4.1). truST no longer imports or exports Ladder Diagram bodies as
+  PLCopen XML (`docs/guides/PLCOPEN_LD_INTEROP.md`), so this deviation no
+  longer applies; the entry below is kept as the record.
 - Area: PLCopen XML Ladder Diagram import/export
 - PLCopen reference: PLCopen XML graphical-body interchange profiles
 - Deviation:

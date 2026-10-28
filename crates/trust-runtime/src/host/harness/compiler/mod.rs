@@ -28,13 +28,15 @@ pub(super) use dependency_prelude::{
     validate_project_aliases,
 };
 pub(super) use edge::collect_edge_declarations;
+pub(crate) use model::ConfigModel;
 pub(crate) use model::{
-    AccessDecl, AccessPart, AccessPath, ConfigInit, GlobalInit, ProgramInstanceConfig,
-    ResolvedAccess, WildcardRequirement,
+    AccessDecl, AccessPart, AccessPath, ConfigInit, ConnectionEnd, GlobalInit, NamedAccess,
+    ProgramConnection, ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,
 };
-pub(super) use model::{CompileTimeConsts, ConfigModel, LoweringContext, LoweringInputs};
+pub(super) use model::{CompileTimeConsts, LoweringContext, LoweringInputs};
 pub(super) use pou::{
     lower_classes, lower_function_blocks, lower_functions, lower_interfaces, lower_programs,
+    qualified_pou_name,
 };
 pub(crate) use types::{class_type_name, function_block_type_name};
 pub(super) use types::{

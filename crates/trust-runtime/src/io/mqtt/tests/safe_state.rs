@@ -1,68 +1,72 @@
-mod safe_state_cases {
-    use super::*;
-    use crate::io::{IoAddress, IoSafeState};
-    use crate::value::Value;
-    use crate::Runtime;
+//! The safe-state handoff through the computer's driver (specification 11, safe-state handoff
+//! confirmation): confirmed when the write succeeds and the output path is `Ok` right after it,
+//! unconfirmed while the session is not running. The tests build a program, so they need the
+//! toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
-    fn runtime_with_mqtt_safe_state(state: Arc<Mutex<MockState>>, connected: bool) -> Runtime {
-        state.lock().unwrap_or_else(|e| e.into_inner()).connected = connected;
-        let factory = Arc::new(MockFactory {
-            state,
-            attempts: Arc::new(AtomicUsize::new(0)),
-            fail_first: false,
-            always_fail: false,
-        });
-        let driver = MqttIoDriver::from_params_with_factory(
-            &params(
-                r#"
-broker = "127.0.0.1:1883"
-topic_out = "line/out"
-on_error = "warn"
-"#,
-            ),
-            factory,
-        )
-        .expect("construct MQTT driver");
+use super::broker::{Answer, Broker};
+use super::{at, start, MqttIoDriver};
+use crate::io::{IoAddress, IoSafeState};
+use crate::value::Value;
+use crate::CompiledRuntime;
 
-        let mut builder = crate::RuntimeBuilder::new();
-        builder.io_mut().resize(0, 1, 0);
-        let mut runtime = builder.build().expect("install MQTT output image");
-        let mut safe_state = IoSafeState::default();
-        safe_state.outputs.push((
-            IoAddress::parse("%QB0").expect("safe-state output byte"),
-            Value::Byte(0x5a),
-        ));
-        runtime.set_io_safe_state(safe_state);
-        runtime.add_io_driver("mqtt-safe-state", Box::new(driver));
-        runtime
-    }
+/// A program with a one-byte output image whose safe state is `0x5A` at `%QB0`, handed off through
+/// `driver`, named `name`.
+pub(super) fn runtime_with_safe_state(driver: MqttIoDriver, name: &str) -> CompiledRuntime {
+    let mut runtime = crate::harness::TestHarness::from_source(
+        "VAR_GLOBAL out AT %QB0 : BYTE; END_VAR PROGRAM Main END_PROGRAM",
+    )
+    .expect("build the MQTT output program")
+    .into_runtime();
+    let mut safe_state = IoSafeState::default();
+    safe_state.outputs.push((
+        IoAddress::parse("%QB0").expect("safe-state output byte"),
+        Value::Byte(0x5A),
+    ));
+    runtime.set_io_safe_state(safe_state);
+    runtime.add_io_driver(name, Box::new(driver));
+    runtime
+}
 
-    #[test]
-    fn mqtt_safe_state_handoff_succeeds_when_worker_confirms_publish() {
-        let state = Arc::new(Mutex::new(MockState::default()));
-        let mut runtime = runtime_with_mqtt_safe_state(Arc::clone(&state), true);
+/// With the session running, the safe state's image is handed off and confirmed, and the broker
+/// receives it on `topic_out`. Catches a running session whose handoff is not confirmed, which
+/// would fault every deliberate stop.
+#[test]
+fn mqtt_safe_state_handoff_succeeds_when_worker_confirms_publish() {
+    let broker = Broker::start();
+    let driver = start(&at(
+        &broker,
+        "topic_out = \"line/out\"\non_error = \"warn\"",
+    ));
+    broker.wait_for("subscription", |record| record.subscriptions.len() == 1);
+    let mut runtime = runtime_with_safe_state(driver, "mqtt-safe-state");
+    runtime
+        .apply_io_safe_state()
+        .expect("a running session confirms the safe state");
+    broker.wait_for("safe state on line/out", |record| {
+        record.published("line/out") == [vec![0x5A]]
+    });
+}
 
-        runtime
-            .apply_io_safe_state()
-            .expect("completed MQTT publish should confirm safe state");
-
-        let published = &state.lock().unwrap_or_else(|e| e.into_inner()).published;
-        assert_eq!(published, &[(SmolStr::new("line/out"), vec![0x5a])]);
-    }
-
-    #[test]
-    fn mqtt_safe_state_handoff_reports_unconfirmed_connecting_worker() {
-        let state = Arc::new(Mutex::new(MockState::default()));
-        let mut runtime = runtime_with_mqtt_safe_state(state, false);
-
-        let error = runtime
-            .apply_io_safe_state()
-            .expect_err("connecting worker must not confirm physical safe state");
-
-        assert!(
-            error.to_string().contains("mqtt-safe-state")
-                && error.to_string().contains("unconfirmed"),
-            "expected named unconfirmed MQTT safe-state error, got {error}"
-        );
-    }
+/// While the session waits for its CONNACK, a safe-state handoff is unconfirmed even under `warn`,
+/// whose write succeeds: the output path is degraded with `mqtt connecting`, and the error names
+/// the driver (specification 11: a handoff that is queued, reconnecting or pending is unconfirmed).
+/// Catches a safe state claimed delivered before any session.
+#[test]
+fn mqtt_safe_state_handoff_reports_unconfirmed_connecting_worker() {
+    let broker = Broker::start();
+    broker.answer_always(Some(Answer::Silence));
+    let driver = start(&at(
+        &broker,
+        "topic_out = \"line/out\"\non_error = \"warn\"",
+    ));
+    broker.wait_for("CONNECT", |record| record.connects.len() == 1);
+    let mut runtime = runtime_with_safe_state(driver, "mqtt-safe-state");
+    let error = runtime
+        .apply_io_safe_state()
+        .expect_err("a session that waits for its CONNACK does not confirm the safe state");
+    assert_eq!(
+        error.to_string(),
+        "i/o driver error 'safe-state output unconfirmed for driver 'mqtt-safe-state': mqtt \
+         connecting'"
+    );
 }

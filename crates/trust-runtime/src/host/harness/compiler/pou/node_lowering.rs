@@ -31,7 +31,6 @@ fn lower_program_node(
             using: ctx.using.clone(),
             body,
         },
-        external_names: vars.external_names,
         globals,
         access,
     })
@@ -49,8 +48,9 @@ fn lower_function_block_node(
         .find(|child| child.kind() == SyntaxKind::ExtendsClause)
         && let Some(base_name) = extends_clause
             .children()
-            .find(|child| child.kind() == SyntaxKind::Name)
+            .find(|child| matches!(child.kind(), SyntaxKind::Name | SyntaxKind::QualifiedName))
     {
+        // A base in a namespace is written qualified, for example `Lib.Base`.
         let raw = node_text(&base_name);
         let resolved = resolve_named_type(ctx.registry, &raw, &ctx.using)?;
         let type_id = ctx
@@ -111,8 +111,9 @@ fn lower_class_node(
         .find(|child| child.kind() == SyntaxKind::ExtendsClause)
         && let Some(base_name) = extends_clause
             .children()
-            .find(|child| child.kind() == SyntaxKind::Name)
+            .find(|child| matches!(child.kind(), SyntaxKind::Name | SyntaxKind::QualifiedName))
     {
+        // A base in a namespace is written qualified, for example `Lib.Base`.
         let raw = node_text(&base_name);
         base = Some(resolve_named_type(ctx.registry, &raw, &ctx.using)?);
     }
@@ -180,8 +181,9 @@ fn lower_interface_node(
         .find(|child| child.kind() == SyntaxKind::ExtendsClause)
         && let Some(base_name) = extends_clause
             .children()
-            .find(|child| child.kind() == SyntaxKind::Name)
+            .find(|child| matches!(child.kind(), SyntaxKind::Name | SyntaxKind::QualifiedName))
     {
+        // A base in a namespace is written qualified, for example `Lib.Base`.
         let raw = node_text(&base_name);
         base = Some(resolve_named_type(ctx.registry, &raw, &ctx.using)?);
     }
@@ -253,6 +255,7 @@ fn lower_method_node(
         semantic_file_id: ctx.semantic_file_id,
         statement_locations: ctx.statement_locations,
         compile_time_consts: ctx.compile_time_consts.clone(),
+        lower_bodies: ctx.lower_bodies,
     };
 
     let return_type = node
@@ -299,6 +302,7 @@ fn lower_property_methods(
         semantic_file_id: ctx.semantic_file_id,
         statement_locations: ctx.statement_locations,
         compile_time_consts: ctx.compile_time_consts.clone(),
+        lower_bodies: ctx.lower_bodies,
     };
 
     let mut methods = Vec::new();
@@ -330,6 +334,7 @@ fn lower_property_methods(
                 direction: ParamDirection::In,
                 address: None,
                 default: None,
+                retain: crate::RetainPolicy::Unspecified,
             }],
             locals: Vec::new(),
             static_locals: Vec::new(),

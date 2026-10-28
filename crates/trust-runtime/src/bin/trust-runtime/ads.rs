@@ -123,6 +123,11 @@ struct AdsImportSymbolsReport {
     snapshot_bytes: usize,
     generated_bytes: usize,
     dry_run: bool,
+    /// Whether the import enabled `[runtime.ads]` in `runtime.toml` (spec 25 §5.8).
+    runtime_toml_changed: bool,
+    /// Why ADS could not be enabled automatically, when `runtime.toml` is missing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    runtime_toml_error: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     previews: Vec<AdsGeneratedFilePreview>,
 }
@@ -239,6 +244,14 @@ pub fn run_ads(action: AdsAction) -> anyhow::Result<()> {
             dry_run,
             json,
         ),
+        AdsAction::RemoveSymbols {
+            project,
+            host,
+            target_net_id,
+            ams_port,
+            paths,
+            json,
+        } => run_remove_symbols(project, host, target_net_id, ams_port, paths, json),
         AdsAction::Import {
             config,
             snapshots,
@@ -316,7 +329,7 @@ fn run_server_control(
         "auth": target.auth_token,
         "params": params.unwrap_or_else(|| json!({})),
     });
-    let response = crate::ctl::send_control_request_value(&target.endpoint, &request)?;
+    let response = crate::ctl::send_request(&target.endpoint, &request)?;
     crate::ctl::ensure_control_response_ok(&response)?;
     if json_output {
         println!("{}", serde_json::to_string_pretty(&response)?);
@@ -869,6 +882,24 @@ fn run_import_symbols(
             write_generated_output(&generated, artifacts.generated_st.as_str(), force)?;
         }
 
+        // Enabling `[runtime.ads]` is part of the import (spec 25 §5.8); the
+        // project root is the folder holding `ads.toml`.
+        let (runtime_toml_changed, runtime_toml_error) = if dry_run {
+            (false, None)
+        } else {
+            let project_root = out
+                .parent()
+                .filter(|parent| !parent.as_os_str().is_empty())
+                .unwrap_or_else(|| Path::new("."));
+            match trust_runtime::control::offline_ads_ensure_runtime_enabled(
+                project_root,
+                "ads.toml",
+            ) {
+                Ok(changed) => (changed, None),
+                Err(message) => (false, Some(message)),
+            }
+        };
+
         let report = AdsImportSymbolsReport {
             ads_toml_path: out,
             snapshot_path,
@@ -880,10 +911,46 @@ fn run_import_symbols(
             snapshot_bytes: snapshot_json.len(),
             generated_bytes: artifacts.generated_st.len(),
             dry_run,
+            runtime_toml_changed,
+            runtime_toml_error,
             previews: if dry_run { previews } else { Vec::new() },
         };
         emit_report(&report, json, render_import_symbols_report)
     }
+}
+
+fn run_remove_symbols(
+    project: PathBuf,
+    host: Option<String>,
+    target_net_id: Option<String>,
+    ams_port: u16,
+    paths: Vec<String>,
+    json: bool,
+) -> anyhow::Result<()> {
+    let mut params = serde_json::Map::new();
+    params.insert("ams_port".to_string(), json!(ams_port));
+    params.insert("paths".to_string(), json!(paths));
+    if let Some(host) = host {
+        params.insert("host".to_string(), json!(host));
+    }
+    if let Some(target_net_id) = target_net_id {
+        params.insert("target_net_id".to_string(), json!(target_net_id));
+    }
+    let value = trust_runtime::control::offline_ads_remove_symbols_json(
+        project.as_path(),
+        serde_json::Value::Object(params),
+    )
+    .map_err(anyhow::Error::msg)?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&value)?);
+    } else {
+        let message = value
+            .get("message")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("ADS tag removal finished.");
+        println!("{}", style::success(message));
+    }
+    Ok(())
 }
 
 fn run_import(
@@ -1419,6 +1486,8 @@ fn artifact_kind_for_format(format: AdsRouteArtifactFormat) -> RouteArtifactKind
 
 fn target_identity(ip: String, ams_net_id: String, ams_port: u16) -> TargetIdentity {
     TargetIdentity {
+        os_version: None,
+        fingerprint: None,
         name: None,
         ip,
         ams_net_id,

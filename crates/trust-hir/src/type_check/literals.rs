@@ -307,7 +307,11 @@ pub(super) fn int_binary_op_from_node(node: &SyntaxNode) -> Option<IntBinaryOp> 
 #[derive(Clone, Copy)]
 pub(crate) struct StringLiteralInfo {
     pub(crate) is_wide: bool,
-    pub(crate) len: u32,
+    /// Characters (Unicode scalar values): the element count of `LEN` and indexing.
+    pub(crate) chars: u32,
+    /// Capacity units: UTF-8 bytes of a `STRING` literal, UTF-16 code units of a `WSTRING`
+    /// literal (`docs/IEC_DECISIONS.md` 2026-10-17).
+    pub(crate) units: u32,
 }
 
 pub(crate) fn string_literal_info(node: &SyntaxNode) -> Option<StringLiteralInfo> {
@@ -324,13 +328,19 @@ pub(crate) fn string_literal_info(node: &SyntaxNode) -> Option<StringLiteralInfo
             SyntaxKind::WideStringLiteral => (true, token.text()),
             _ => continue,
         };
-        let len = string_literal_len(text, is_wide)?;
-        return Some(StringLiteralInfo { is_wide, len });
+        let (chars, units) = string_literal_len(text, is_wide)?;
+        return Some(StringLiteralInfo {
+            is_wide,
+            chars,
+            units,
+        });
     }
     None
 }
 
-fn string_literal_len(text: &str, is_wide: bool) -> Option<u32> {
+/// The characters and capacity units of a literal's decoded text. A named escape (`$N`, `$T`,
+/// ...) is one ASCII character; `$hh` and `$hhhh` are the character with that code.
+fn string_literal_len(text: &str, is_wide: bool) -> Option<(u32, u32)> {
     let bytes = text.as_bytes();
     if bytes.len() < 2 {
         return None;
@@ -339,8 +349,16 @@ fn string_literal_len(text: &str, is_wide: bool) -> Option<u32> {
     if bytes[bytes.len() - 1] != quote {
         return None;
     }
+    let units_of = |scalar: char| {
+        if is_wide {
+            scalar.len_utf16()
+        } else {
+            scalar.len_utf8()
+        }
+    };
     let mut i = 1usize;
-    let mut count: u32 = 0;
+    let mut chars: u32 = 0;
+    let mut units: usize = 0;
     let end = bytes.len() - 1;
     while i < end {
         if bytes[i] == b'$' {
@@ -363,7 +381,8 @@ fn string_literal_len(text: &str, is_wide: bool) -> Option<u32> {
                     | b'T'
                     | b't'
             ) {
-                count += 1;
+                chars += 1;
+                units += 1;
                 i += 2;
                 continue;
             }
@@ -373,16 +392,21 @@ fn string_literal_len(text: &str, is_wide: bool) -> Option<u32> {
                     .iter()
                     .all(|b| b.is_ascii_hexdigit())
             {
-                count += 1;
+                let code = u32::from_str_radix(&text[i + 1..i + 1 + digits], 16).ok()?;
+                // A surrogate code is no character; it counts one unit and the literal is
+                // refused when it is decoded.
+                units += char::from_u32(code).map_or(1, units_of);
+                chars += 1;
                 i += 1 + digits;
                 continue;
             }
         }
         let scalar = text[i..end].chars().next()?;
-        count += 1;
+        chars += 1;
+        units += units_of(scalar);
         i += scalar.len_utf8();
     }
-    Some(count)
+    Some((chars, u32::try_from(units).ok()?))
 }
 
 fn has_literal_prefix(text: &str, prefixes: &[&str]) -> bool {
@@ -467,6 +491,11 @@ pub(crate) fn integer_type_range_fits(ty: &Type, value: i128) -> bool {
         Type::UInt => u16::try_from(value).is_ok(),
         Type::UDInt => u32::try_from(value).is_ok(),
         Type::ULInt => u64::try_from(value).is_ok(),
+        // A bit string takes the unsigned range of its width (IEC 61131-3 §6.3.2, Table 5).
+        Type::Byte => u8::try_from(value).is_ok(),
+        Type::Word => u16::try_from(value).is_ok(),
+        Type::DWord => u32::try_from(value).is_ok(),
+        Type::LWord => u64::try_from(value).is_ok(),
         _ => false,
     }
 }

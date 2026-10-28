@@ -1,0 +1,50 @@
+name: HMI Reliability
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '41 3 * * *'
+permissions:
+  contents: read
+concurrency:
+  group: hmi-reliability-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  browser-and-package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      RUSTC_WRAPPER: ''
+      TZ: UTC
+      LANG: en_US.UTF-8
+    steps:
+      - uses: actions/checkout@v6
+      - run: bash scripts/checkout_openot_ref.sh
+      - uses: dtolnay/rust-toolchain@1.99.0
+      - uses: Swatinem/rust-cache@v2
+      - name: Toolchain for compiled programs (specification 44 §4.6)
+        run: |
+          set -euo pipefail
+          rustup target add riscv32imac-unknown-none-elf thumbv8m.main-none-eabihf \
+            x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+          bash scripts/native/build_toolchain_libraries.sh "${RUNNER_TEMP}/trust-toolchain"
+          echo "TRUST_TOOLCHAIN=${RUNNER_TEMP}/trust-toolchain" >> "${GITHUB_ENV}"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+      - name: HMI parity and browser journeys
+        run: bash scripts/hmi_ci_gate.sh
+      - name: Compile extension and native package binaries
+        run: |
+          cargo build -p trust-lsp -p trust-runtime --bin trust-runtime --bin trust-lsp
+          mkdir -p editors/vscode/bin
+          cp target/debug/trust-lsp target/debug/trust-runtime editors/vscode/bin/
+          cd editors/vscode
+          npx --yes @vscode/vsce@3.6.0 package --target linux-x64 --out /tmp/trust-hmi.vsix
+      - name: Installed artifact authoring smoke
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' node scripts/hmi-authoring/installed-vsix-smoke.cjs /tmp/trust-hmi.vsix
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() }}
+        with:
+          name: hmi-reliability-${{ github.sha }}
+          path: scripts/hmi-screen-tests/test-results
+          retention-days: 30

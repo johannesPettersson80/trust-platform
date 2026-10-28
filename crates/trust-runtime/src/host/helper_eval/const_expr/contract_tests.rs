@@ -141,9 +141,12 @@ fn sizeof_known_elementary_type_returns_dint_bytes() {
 
 #[test]
 fn sizeof_unknown_and_unsized_types_map_to_runtime_type_mismatch() {
-    let registry = TypeRegistry::new();
+    // STRING is STRING[80] (docs/IEC_DECISIONS.md 2026-10-17); only a hand-built string type
+    // has no length.
+    let mut registry = TypeRegistry::new();
+    let no_length = registry.register("NoLength", trust_hir::Type::String { max_len: None });
 
-    for type_id in [TypeId(900_101), TypeId::STRING] {
+    for type_id in [TypeId(900_101), no_length] {
         assert_runtime_error(
             eval_const_expr_with_resolver_and_registry(
                 &Expr::SizeOf(SizeOfTarget::Type(type_id)),
@@ -152,6 +155,18 @@ fn sizeof_unknown_and_unsized_types_map_to_runtime_type_mismatch() {
                 &|_| None,
             ),
             RuntimeError::TypeMismatch,
+        );
+    }
+    for (type_id, size) in [(TypeId::STRING, 80), (TypeId::WSTRING, 160)] {
+        assert_eq!(
+            eval_const_expr_with_resolver_and_registry(
+                &Expr::SizeOf(SizeOfTarget::Type(type_id)),
+                &DateTimeProfile::default(),
+                &registry,
+                &|_| None,
+            )
+            .expect("a STRING without a length has a size"),
+            Value::DInt(size)
         );
     }
 }

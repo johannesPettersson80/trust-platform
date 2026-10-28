@@ -3,7 +3,6 @@ import * as assert from "assert";
 import {
   EMPTY_BROWSE_SESSION,
   isCurrentBrowseMessage,
-  normalizeEndpointBrowseTarget,
   planBrowseOpen,
   reduceBrowseSessionState,
 } from "../../networkCanvas/webview/browseSessionModel";
@@ -15,10 +14,12 @@ import {
 } from "../../networkCanvas/webview/discoverPaneModel";
 
 suite("Network Canvas session models", function () {
-  test("ADS browse opens the default port without an extra confirmation", () => {
+  test("ADS browse opens the target's port without an extra confirmation", () => {
+    // The server sets the port a target is browsed at: `comm.discover` on a find and
+    // `trust-lsp.devicesTopology` on a configured connection (851 when it names none).
     const plan = planBrowseOpen(
       "ads",
-      { host: "192.168.10.5", ams_net_id: "5.23.91.12.1.1" },
+      { host: "192.168.10.5", ams_net_id: "5.23.91.12.1.1", ams_port: 851 },
       "ADS device"
     );
 
@@ -133,73 +134,33 @@ suite("Network Canvas session models", function () {
     );
   });
 
-  test("endpoint browse keeps OPC UA and groups configured ADS ports", () => {
-    const first = { endpoint_url: "opc.tcp://primary:4840" };
-    const params = { connections: [first, { endpoint_url: "opc.tcp://backup:4840" }] };
+  // The target a configured connection's browse opens with (OPC UA's first connection, an ADS
+  // device's ports and imported tags) is the language server's: the Rust tests
+  // `an_ads_client_browses_its_first_connection_with_the_devices_ports_and_tags` and
+  // `a_client_connection_browses_its_first_connection_and_others_their_parameters`.
 
-    assert.strictEqual(normalizeEndpointBrowseTarget("opcua_client", params), first);
-    assert.strictEqual(normalizeEndpointBrowseTarget("mqtt", params), params);
-
-    assert.deepStrictEqual(
-      normalizeEndpointBrowseTarget("ads", {
-        connections: [
-          {
-            name: "plc_port_301",
-            host: "192.168.10.5",
-            ams_net_id: "5.23.91.12.1.1",
-            ams_port: 301,
-            points: [{ symbol: "Task.Input" }],
-          },
-          {
-            name: "plc_port_851",
-            host: "192.168.10.5",
-            ams_net_id: "5.23.91.12.1.1",
-            ams_port: 851,
-            points: [{ symbol: "MAIN.Start" }],
-          },
-        ],
-      }),
-      {
-        name: "plc_port_301",
-        host: "192.168.10.5",
-        ams_net_id: "5.23.91.12.1.1",
-        ams_port: 301,
-        points: [{ symbol: "Task.Input" }],
-        connections: [
-          {
-            name: "plc_port_301",
-            host: "192.168.10.5",
-            ams_net_id: "5.23.91.12.1.1",
-            ams_port: 301,
-            points: [{ symbol: "Task.Input" }],
-          },
-          {
-            name: "plc_port_851",
-            host: "192.168.10.5",
-            ams_net_id: "5.23.91.12.1.1",
-            ams_port: 851,
-            points: [{ symbol: "MAIN.Start" }],
-          },
-        ],
-        responding_ads_ports: [301, 851],
-        imported_ads_symbols: [
-          { port: 301, paths: ["Task.Input"] },
-          { port: 851, paths: ["MAIN.Start"] },
-        ],
-      },
-    );
-  });
-
-  test("discover model derives honest origins, protocols, and device drafts", () => {
+  // The rules (which runtime a search can start from, which runtime a found device goes to) are
+  // the language server's, proven by trust-devices' Rust tests
+  // `a_search_starts_only_from_a_runtime_that_runs_or_is_attached` and
+  // `a_found_device_goes_to_the_runtime_that_found_it_and_a_found_runtime_becomes_a_host`; this
+  // proves that the pane shows its answers.
+  test("discover model shows the server's origins and device drafts", () => {
     const nodes = [
-      { id: "runtime:stopped", type: "runtime", data: { label: "Stopped", health: "stopped" } },
+      {
+        id: "runtime:stopped",
+        type: "runtime",
+        data: {
+          label: "Stopped",
+          discovery: { ready: false, reason: "Start or connect Stopped before scanning from it." },
+        },
+      },
       {
         id: "runtime:live",
         type: "runtime",
         data: {
           label: "Live",
-          attached: true,
           controlEndpoint: "tcp://192.168.10.20:5680",
+          discovery: { ready: true },
         },
       },
       { id: "endpoint:ads", type: "endpoint", data: { label: "ADS" } },
@@ -211,12 +172,12 @@ suite("Network Canvas session models", function () {
       "runtime:live",
     ]);
     assert.strictEqual(origins[1].runtimeDiscoveryReady, false);
-    assert.match(origins[1].runtimeDiscoveryDisabledReason ?? "", /Start or connect Stopped/);
-    assert.strictEqual(origins[2].runtimeDiscoveryReady, true);
     assert.strictEqual(
-      origins[2].controlEndpoint,
-      "tcp://192.168.10.20:5680"
+      origins[1].runtimeDiscoveryDisabledReason,
+      "Start or connect Stopped before scanning from it."
     );
+    assert.strictEqual(origins[2].runtimeDiscoveryReady, true);
+    assert.strictEqual(origins[2].controlEndpoint, "tcp://192.168.10.20:5680");
 
     assert.deepStrictEqual(
       [...discoverableProtocols({
@@ -229,17 +190,19 @@ suite("Network Canvas session models", function () {
       ["ads", "ethercat"]
     );
 
+    const candidate = {
+      id: "mqtt:broker",
+      label: "Broker",
+      protocol: "mqtt",
+      source: "targeted",
+      confidence: "observed",
+      originRuntimeId: "runtime:live",
+      params: { host: "broker.local" },
+    };
     assert.deepStrictEqual(
       draftForDiscoveredCandidate(
-        {
-          id: "mqtt:broker",
-          label: "Broker",
-          protocol: "mqtt",
-          source: "targeted",
-          confidence: "observed",
-          originRuntimeId: "runtime:live",
-          params: { host: "broker.local" },
-        },
+        candidate,
+        { id: "mqtt:broker", on_canvas: false, imported_ads_symbols: [], draft_runtime_id: "runtime:live" },
         nodes
       ),
       {
@@ -249,27 +212,19 @@ suite("Network Canvas session models", function () {
         prefillParams: { host: "broker.local" },
       }
     );
-
     assert.deepStrictEqual(
       draftForDiscoveredCandidate(
-        {
-          id: "ads:stale",
-          label: "Stale ADS target",
-          protocol: "ads",
-          source: "ads_broadcast",
-          confidence: "observed",
-          originRuntimeId: "runtime:gone",
-          params: { host: "192.168.10.5", ams_port: 301 },
-        },
+        candidate,
+        { id: "mqtt:broker", on_canvas: false, imported_ads_symbols: [] },
         nodes
       ),
       {
         runtimeId: "",
         runtimeName: "runtime",
-        protocol: "ads",
-        prefillParams: { host: "192.168.10.5", ams_port: 301 },
+        protocol: "mqtt",
+        prefillParams: { host: "broker.local" },
       },
-      "an explicit missing origin must not silently fall back to another runtime"
+      "a result the server gives no runtime is drafted for none"
     );
   });
 

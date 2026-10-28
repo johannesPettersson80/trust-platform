@@ -1,15 +1,11 @@
-use crate::harness::{CompileSession, SourceFile};
+//! The tests that build a program image need the toolchain of specification 44 §4.6 at
+//! `TRUST_TOOLCHAIN`.
+
+use crate::harness::{CompileSession, SourceFile, TestHarness};
 
 fn runtime_error(source: &str) -> String {
-    match CompileSession::from_source(source).build_runtime() {
+    match CompileSession::from_source(source).declarations() {
         Ok(_) => panic!("source-level generic type must not produce a runnable runtime"),
-        Err(error) => error.to_string(),
-    }
-}
-
-fn bytecode_error(source: &str) -> String {
-    match CompileSession::from_source(source).build_bytecode_module() {
-        Ok(_) => panic!("source-level generic type must not produce bytecode"),
         Err(error) => error.to_string(),
     }
 }
@@ -176,7 +172,7 @@ END_TYPE
         ),
         SourceFile::with_path("main.st", "PROGRAM Main\nEND_PROGRAM"),
     ];
-    let error = match CompileSession::from_sources(sources).build_runtime() {
+    let error = match CompileSession::from_sources(sources).declarations() {
         Ok(_) => panic!("project containing a source-level generic type must fail"),
         Err(error) => error.to_string(),
     };
@@ -188,36 +184,16 @@ END_TYPE
 }
 
 #[test]
-fn generic_type_profile_rejects_bytecode_module_emission() {
-    let error = bytecode_error(
-        r#"
-PROGRAM Main
-VAR
-    value : ANY_DATE;
-END_VAR
-END_PROGRAM
-"#,
-    );
-    assert_generic_type_error(&error, "ANY_DATE");
-}
-
-#[test]
-fn generic_type_profile_rejects_encoded_bytecode_emission() {
-    let error = match CompileSession::from_source(
-        r#"
-PROGRAM Main
-VAR
-    value : ANY_ELEMENTARY;
-END_VAR
-END_PROGRAM
-"#,
-    )
-    .build_bytecode_bytes()
-    {
-        Ok(_) => panic!("source-level generic type must not produce encoded bytecode"),
-        Err(error) => error.to_string(),
-    };
-    assert_generic_type_error(&error, "ANY_ELEMENTARY");
+fn generic_type_profile_rejects_program_image_build() {
+    for generic in ["ANY_DATE", "ANY_ELEMENTARY"] {
+        let error = match TestHarness::from_source(&format!(
+            "PROGRAM Main\nVAR\n    value : {generic};\nEND_VAR\nEND_PROGRAM\n"
+        )) {
+            Ok(_) => panic!("source-level generic type must not produce a program image"),
+            Err(error) => error.to_string(),
+        };
+        assert_generic_type_error(&error, generic);
+    }
 }
 
 #[test]
@@ -242,7 +218,7 @@ label := 'ready';
 END_PROGRAM
 "#,
     )
-    .build_runtime();
+    .declarations();
     assert!(
         result.is_ok(),
         "concrete aliases and subranges must remain executable: {result:?}"

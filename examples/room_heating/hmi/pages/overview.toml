@@ -1,0 +1,352 @@
+format = 1
+title = "Overview"
+order = 0
+icon = "overview"
+
+[[object]]
+id = "room"
+type = "panel"
+at = [960, 110]
+size = [560, 540]
+label = "Room"
+
+[[object]]
+id = "controller-1"
+tag = "TIC101"
+type = "controller"
+block = "Control.PID"
+faceplate = "plant-pid"
+instance = "Main.TIC101"
+at = [262, 40]
+size = [256, 56]
+measures = "temperature-sensor-1"
+acts_on = "heater-1"
+
+[object.bind]
+manual = "Main.TIC101_Manual"
+pv = "Main.TIC101_Input.ProcessValue"
+sp = "Main.TIC101_Setpoint"
+
+[[object]]
+id = "heater-1"
+tag = "T-101"
+type = "my:hot-water-tank"
+faceplate = "plant-heater"
+instance = "Main.EH101"
+at = [200, 284]
+size = [120, 244]
+
+[object.bind]
+fault = "Main.EH101.Fault"
+power = "Main.EH101.PowerOutput"
+running = "Main.EH101.Running"
+
+[[object]]
+id = "temperature-sensor-1"
+tag = "TT101"
+type = "temperature-sensor"
+block = "Plant.FB_TemperatureInput"
+faceplate = "plant-measurement"
+instance = "Main.TT101"
+at = [16, 332]
+size = [176, 56]
+attach = "heater-1"
+
+[object.bind]
+fault = "Main.TT101.Fault"
+value = { path = "Main.TT101.Value", quality = "Main.TT101.Quality" }
+
+[[object]]
+id = "level-switch-1"
+tag = "LSL101"
+type = "level-switch"
+block = "Plant.FB_LevelSwitch"
+faceplate = "plant-digital"
+instance = "Main.LSL101"
+at = [16, 420]
+size = [176, 56]
+attach = "heater-1"
+
+[object.bind]
+state = { path = "Main.LSL101.Value", quality = "Main.LSL101.Quality" }
+
+[[object]]
+id = "pump-1"
+tag = "P101"
+type = "pump"
+block = "Plant.FB_Pump"
+faceplate = "plant-run"
+instance = "Main.P101"
+at = [400, 296]
+size = [128, 108]
+
+[object.bind]
+fault = "Main.P101.Fault"
+manual = "Main.P101.Manual"
+out-of-service = "Main.P101.OutOfService"
+running = "Main.P101.Running"
+
+[[object]]
+id = "control-valve-1"
+tag = "TV101"
+type = "control-valve"
+block = "Plant.FB_ControlValve"
+faceplate = "plant-position"
+instance = "Main.TV101"
+at = [760, 272]
+size = [128, 108]
+
+[object.bind]
+fault = "Main.TV101.Deviating"
+manual = "Main.TV101.Manual"
+out-of-service = "Main.TV101.OutOfService"
+position = "Main.TV101.Position"
+
+[[object]]
+id = "fan-1"
+tag = "F101"
+type = "fan"
+block = "Plant.FB_VariableSpeedFan"
+faceplate = "plant-drive"
+instance = "Main.F101"
+at = [1180, 284]
+size = [128, 108]
+
+[object.bind]
+fault = "Main.F101.Fault"
+manual = "Main.F101.Manual"
+out-of-service = "Main.F101.OutOfService"
+running = "Main.F101.Running"
+speed = "Main.F101.Speed"
+
+[[object]]
+id = "temperature-sensor-2"
+tag = "TT102"
+type = "temperature-sensor"
+block = "Plant.FB_TemperatureInput"
+faceplate = "plant-measurement"
+instance = "Main.TT102"
+at = [1320, 300]
+size = [176, 56]
+
+[object.bind]
+fault = "Main.TT102.Fault"
+value = { path = "Main.TT102.Value", quality = "Main.TT102.Quality" }
+
+[[object]]
+id = "controller-2"
+tag = "TIC102"
+type = "controller"
+block = "Control.PID"
+faceplate = "plant-pid"
+instance = "Main.TIC102"
+at = [796, 40]
+size = [256, 56]
+measures = "temperature-sensor-2"
+acts_on = "control-valve-1"
+
+[object.bind]
+manual = "Main.TIC102_Manual"
+pv = "Main.TIC102_Input.ProcessValue"
+sp = "Main.TIC102_Setpoint"
+
+[[object]]
+id = "heat-exchanger-1"
+tag = "E-101"
+type = "heat-exchanger"
+at = [1000, 284]
+size = [128, 108]
+label = "Fan-coil"
+
+[[object]]
+id = "value-1"
+tag = "Heating"
+type = "value"
+block = "HeatingSequence"
+faceplate = "plant-sequence"
+instance = "Main.Heating"
+at = [520, 40]
+size = [220, 48]
+label = "Heating"
+
+[object.bind]
+value = "Main.Heating.StateText"
+
+[[object]]
+id = "flow-switch"
+tag = "FS101"
+type = "digital-switch"
+block = "Plant.FB_DigitalInput"
+faceplate = "plant-digital"
+instance = "Main.FS101"
+at = [560, 370]
+size = [176, 56]
+attach = "pipe:1"
+
+[object.bind]
+state = { path = "Main.FS101.Value", quality = "Main.FS101.Quality" }
+
+[[object]]
+id = "supply-tee"
+type = "junction"
+at = [692, 308]
+size = [16, 16]
+
+[[object]]
+id = "bypass-valve"
+type = "my:hand-valve"
+at = [650, 197]
+size = [128, 92]
+rotation = 270
+
+[[object]]
+id = "return-tee"
+type = "junction"
+at = [692, 162]
+size = [16, 16]
+
+[[object]]
+id = "window"
+type = "value"
+at = [1300, 560]
+size = [200, 56]
+label = "Window open"
+unit = "%"
+decimals = 0
+
+[object.bind]
+value = "Simulation.WindowOpening"
+
+[[object]]
+id = "heating-panel"
+type = "faceplate"
+faceplate = "plant-sequence"
+instance = "Main.Heating"
+at = [40, 680]
+size = [520, 300]
+
+[[object]]
+id = "tank-temperature"
+type = "value"
+at = [590, 690]
+size = [250, 56]
+label = "Tank temperature"
+unit = "°C"
+decimals = 1
+
+[object.bind]
+value = "Main.TT101.Value"
+
+[[object]]
+id = "tank-setpoint"
+type = "value"
+at = [850, 690]
+size = [250, 56]
+label = "Tank setpoint"
+unit = "°C"
+decimals = 1
+
+[object.bind]
+value = "Main.TIC101_Setpoint"
+
+[[object]]
+id = "room-temperature"
+type = "value"
+at = [590, 760]
+size = [250, 56]
+label = "Room temperature"
+unit = "°C"
+decimals = 1
+
+[object.bind]
+value = "Main.TT102.Value"
+
+[[object]]
+id = "room-setpoint"
+type = "value"
+at = [850, 760]
+size = [250, 56]
+label = "Room setpoint"
+unit = "°C"
+decimals = 1
+
+[object.bind]
+value = "Main.TIC102_Setpoint"
+
+[[object]]
+id = "heater-power"
+type = "value"
+at = [590, 830]
+size = [250, 56]
+label = "Heater power"
+unit = "%"
+decimals = 0
+
+[object.bind]
+value = "Main.EH101.PowerOutput"
+
+[[object]]
+id = "valve-position"
+type = "value"
+at = [850, 830]
+size = [250, 56]
+label = "Water to fan-coil"
+unit = "%"
+decimals = 0
+
+[object.bind]
+value = "Main.TV101.Position"
+
+[[object]]
+id = "alarms"
+type = "alarm-list"
+at = [1120, 680]
+size = [530, 300]
+
+[[object]]
+id = "tank-name"
+type = "text"
+variant = "caption"
+at = [300, 252]
+size = [180, 24]
+text = "Hot water tank"
+
+[[object]]
+id = "bypass-name"
+type = "text"
+variant = "caption"
+at = [620, 230]
+size = [52, 28]
+text = "HV101"
+
+[[pipe]]
+from = "heater-1.outlet"
+to = "pump-1.inlet"
+
+[[pipe]]
+from = "pump-1.outlet"
+to = "supply-tee.left"
+
+[[pipe]]
+from = "supply-tee.right"
+to = "control-valve-1.inlet"
+
+[[pipe]]
+from = "control-valve-1.outlet"
+to = "heat-exchanger-1.inlet"
+
+[[pipe]]
+from = "supply-tee.top"
+to = "bypass-valve.inlet"
+
+[[pipe]]
+from = "heat-exchanger-1.outlet"
+to = "return-tee.right"
+
+[[pipe]]
+from = "bypass-valve.outlet"
+to = "return-tee.bottom"
+
+[[pipe]]
+from = "return-tee.left"
+to = "heater-1.inlet"

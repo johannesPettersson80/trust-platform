@@ -10,7 +10,7 @@ use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, SystemTime};
 
 use qrcode::{render::svg, QrCode};
 use serde::de::DeserializeOwned;
@@ -28,8 +28,7 @@ use crate::control::ControlState;
 use crate::debug::dap::format_value;
 use crate::discovery::DiscoveryState;
 use crate::error::RuntimeError;
-use crate::io::{IoAddress, IoDriverRegistry, IoSize};
-use crate::memory::IoArea;
+use crate::io::IoDriverRegistry;
 use crate::runtime_cloud::config_policy::{
     RuntimeCloudConfigAgentState, RuntimeCloudConfigSnapshot, RuntimeCloudConfigWriteError,
 };
@@ -48,9 +47,10 @@ use crate::runtime_cloud::profile_policy::{
     runtime_cloud_apply_profile_policy, runtime_cloud_profile_precondition,
 };
 use crate::runtime_cloud::projection::{
-    presence_record_from_observation, project_runtime_cloud_state, ChannelState, ChannelType,
-    FleetEdge, PresenceThresholds, RuntimeCloudUiState, RuntimePeerObservation,
-    RuntimePresenceRecord, UiContext, UiMode,
+    presence_record_from_observation, project_runtime_cloud_state, runtime_cloud_peer_appears_live,
+    select_preferred_peer_address, ChannelState, ChannelType, FleetEdge, RuntimeCloudUiState,
+    RuntimePresenceRecord, UiContext, UiMode, RUNTIME_CLOUD_DEFAULT_SITE,
+    RUNTIME_CLOUD_STALE_TIMEOUT_NS,
 };
 use crate::runtime_cloud::rollout_policy::{
     RuntimeCloudRolloutActionResponse, RuntimeCloudRolloutConfigView,
@@ -68,7 +68,12 @@ mod auth_helpers;
 mod aux_routes;
 mod config_ui_routes;
 mod deploy;
-mod hmi_ws;
+mod hmi_alarms;
+mod hmi_command;
+mod hmi_deploy;
+mod hmi_display;
+mod hmi_operate;
+mod hmi_program_check;
 mod http_post_policy;
 pub mod ide;
 mod ide_routes;
@@ -94,8 +99,11 @@ use ads_routes::{handle_ads_route, AdsRouteContext, AdsRouteOutcome};
 use auth_helpers::*;
 use aux_routes::{handle_aux_route, AuxRouteContext, AuxRouteOutcome};
 use config_ui_routes::{handle_config_ui_route, ConfigUiRouteContext, ConfigUiRouteOutcome};
-use deploy::{apply_deploy, apply_rollback, DeployRequest};
-use hmi_ws::*;
+use deploy::{apply_deploy, apply_rollback, refusal_unless_stopped, DeployRequest};
+use hmi_deploy::{handle_hmi_deploy_route, HmiDeployContext, HmiDeployOutcome};
+pub use hmi_display::{drawing_assets, placed_faceplates};
+use hmi_display::{handle_hmi_route, HmiRouteContext, HmiRouteOutcome};
+use hmi_operate::{handle_hmi_operate_route, HmiOperateContext, HmiOperateOutcome};
 use http_post_policy::{api_post_policy_check, json_body_error_response, read_json_body};
 use ide::{IdeError, IdeRole, WebIdeFrontendTelemetry, WebIdeState};
 use ide_routes::{handle_ide_route, IdeRouteContext, IdeRouteOutcome};
@@ -103,9 +111,9 @@ use ide_tasks::*;
 use models::*;
 use ops_routes::{handle_ops_route, OpsRouteContext, OpsRouteOutcome};
 use runtime_cloud_dispatch::{
-    runtime_cloud_denied_results, runtime_cloud_peer_appears_live,
-    runtime_cloud_preflight_for_action, runtime_cloud_target_control_url,
-    runtime_cloud_target_web_base_url, RuntimeCloudPreflightPolicy,
+    runtime_cloud_denied_results, runtime_cloud_preflight_for_action,
+    runtime_cloud_target_control_url, runtime_cloud_target_web_base_url,
+    RuntimeCloudPreflightPolicy,
 };
 use runtime_cloud_helpers::*;
 use runtime_cloud_routes::{
@@ -114,29 +122,10 @@ use runtime_cloud_routes::{
 use runtime_cloud_state::*;
 pub use server::{start_web_server, start_web_server_with_mode, WebServer};
 use setup_support::*;
-use ui_routes::{handle_ui_route, UiRouteContext, UiRouteOutcome};
+use ui_routes::{handle_ui_route, UiRouteOutcome};
 use web_helpers::*;
 
 const CYTOSCAPE_JS: &str = include_str!("web/ui/modules/cytoscape.min.js");
-const HMI_HTML: &str = include_str!("web/ui/hmi.html");
-const HMI_JS: &str = include_str!("web/ui/hmi.js");
-const HMI_CSS: &str = concat!(
-    include_str!("web/ui/chunks/hmi-css/hmi-01.css"),
-    include_str!("web/ui/chunks/hmi-css/hmi-02.css"),
-    include_str!("web/ui/chunks/hmi-css/hmi-03.css"),
-    include_str!("web/ui/chunks/hmi-css/hmi-04.css"),
-    include_str!("web/ui/chunks/hmi-css/hmi-05.css"),
-);
-const HMI_MODEL_JS: &str = include_str!("web/ui/modules/hmi-model.js");
-const HMI_MODEL_DESCRIPTOR_JS: &str = include_str!("web/ui/modules/hmi-model-descriptor.js");
-const HMI_MODEL_LAYOUT_JS: &str = include_str!("web/ui/modules/hmi-model-layout.js");
-const HMI_MODEL_NAVIGATION_JS: &str = include_str!("web/ui/modules/hmi-model-navigation.js");
-const HMI_RENDERERS_JS: &str = include_str!("web/ui/modules/hmi-renderers.js");
-const HMI_WIDGETS_JS: &str = include_str!("web/ui/modules/hmi-widgets.js");
-const HMI_TRENDS_ALARMS_JS: &str = include_str!("web/ui/modules/hmi-trends-alarms.js");
-const HMI_PROCESS_VIEW_JS: &str = include_str!("web/ui/modules/hmi-process-view.js");
-const HMI_TRANSPORT_JS: &str = include_str!("web/ui/modules/hmi-transport.js");
-const HMI_PAGES_JS: &str = include_str!("web/ui/modules/hmi-pages.js");
 const IDE_HTML: &str = include_str!("web/ui/ide.html");
 const ADS_SETUP_HTML: &str = include_str!("web/ui/ads_setup.html");
 const ADS_SETUP_CSS: &str = include_str!("web/ui/ads_setup.css");
@@ -176,10 +165,6 @@ const IDE_MONACO_BUNDLE_CSS: &str = include_str!("web/ui/assets/ide-monaco.20260
 const IDE_LOGO_SVG: &str = include_str!("web/ui/assets/logo.svg");
 const IDE_WASM_WORKER_JS: &str = include_str!("web/ui/wasm/worker.js");
 const IDE_WASM_CLIENT_JS: &str = include_str!("web/ui/wasm/analysis-client.js");
-const HMI_WS_ROUTE: &str = "/ws/hmi";
-const HMI_WS_VALUES_POLL_INTERVAL: Duration = Duration::from_millis(100);
-const HMI_WS_SCHEMA_POLL_INTERVAL: Duration = Duration::from_millis(500);
-const HMI_WS_ALARMS_POLL_INTERVAL: Duration = Duration::from_millis(500);
 const MAX_JSON_REQUEST_BYTES: usize = 1_048_576;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -196,8 +181,3 @@ impl WebServerMode {
         }
     }
 }
-
-// Runtime-cloud peer liveliness should not flap under normal mDNS refresh cadence.
-const RUNTIME_CLOUD_STALE_TIMEOUT_NS: u64 = 30_000_000_000;
-const RUNTIME_CLOUD_PARTITION_TIMEOUT_NS: u64 = 120_000_000_000;
-const RUNTIME_CLOUD_DEFAULT_SITE: &str = "default-site";

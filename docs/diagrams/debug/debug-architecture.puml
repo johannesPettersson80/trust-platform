@@ -22,6 +22,15 @@ package "VS Code Extension" as vscode #LightBlue {
     adapterFactory --> tracker : creates tracker
 }
 
+component "trust-lsp project commands" as projectCommands <<language server>>
+note right of projectCommands
+    runEntry: the CONFIGURATION a session starts from,
+    the default CONFIGURATION, the entry check
+    simulatorControl: the launch's control endpoint
+    and token, the TCP port check
+end note
+configProvider --> projectCommands : entry / endpoint requests
+
 note right of runtimePanel
 	    Runtime panel issues custom
 	    DAP requests (stIoState, stIoWrite, stReload)
@@ -80,6 +89,7 @@ package "trust-debug crate" as stdebug #LightGreen {
         component "BreakpointManager" as bpManager
         component "PausedStateView" as pausedView
         component "ControlServerBridge" as controlBridge <<control_bridge.rs>>
+        component "Simulator\n(compiled launch, spec 44 NX-16)" as simulator <<simulator.rs>>
     }
 
     ' Background Threads
@@ -123,6 +133,9 @@ package "trust-debug crate" as stdebug #LightGreen {
     dispatch --> pausedView
     dispatch --> sessionMode
     dispatch --> controlBridge : launch creates IPC
+    dispatch --> simulator : launch where the toolchain\nbuilds the program
+    simulator --> controlBridge : start_compiled: trust-runtime's\nscheduler and control server
+    simulator --> remoteSession : debugs the program\nas an attach does
     sessionMode --> remoteSession : attach
     remoteSession --> remoteStop : stop polling
 
@@ -140,15 +153,16 @@ package "trust-runtime crate" as struntime #LightCoral {
         component "DebugState" as debugState {
             portin mode
             portin breakpoints
-            portin step
+            portin steps
+            portin target_thread
             portin snapshot
             portin pending_stop
             portin stop_queue
             portin breakpoint_generation
             portin breakpoint_stops_this_cycle
         }
-        component "Mutex + Condvar" as sync
-        component "apply_action()" as applyAction <<api/lifecycle_actions.rs>>
+        component "Mutex + Condvar\n(the hold waits here; no decision)" as sync
+        component "apply_action()\n(applies RunControl::apply)" as applyAction <<api/lifecycle_actions.rs>>
         component "FrameLocationMap" as frameLocs
     }
 
@@ -158,6 +172,9 @@ package "trust-runtime crate" as struntime #LightCoral {
 
     ' Breakpoint Logic
     component "matches_breakpoint()" as matchBp <<breakpoints.rs>>
+
+    ' Statement positions: the module's LINE_TABLE, bound at install (runtime/metadata.rs)
+    component "LineIndex" as lineIndex <<LINE_TABLE bound at install>>
 
     ' Snapshot
     component "DebugSnapshot" as snapshot <<debug/control/types.rs>> {
@@ -184,7 +201,12 @@ package "trust-runtime crate" as struntime #LightCoral {
     debugControl --> sync
     debugControl --> debugState
     debugHook <|.. debugControl : implements
-    onStatement --> matchBp
+    onStatement --> matchBp : breakpoint match, asked by\nboundary() when no step stops
+    onStatement --> boundaryDecision : boundary(), take_pending_stop()\nand holds_here() decide
+    onStatement --> sync : waits while the\nrun control holds the scan
+    applyAction --> applyDecision : apply(action)
+    debugControl --> releaseDecision : release_for_stop(), rearm(),\nretire_observations()
+    debugControl --> holdDecision : hold_reason(), accepts_step()\n(status and step requests)
     onStatement --> snapshot : captures
     onStatement --> frameLocs : per-frame location
 
@@ -193,6 +215,39 @@ package "trust-runtime crate" as struntime #LightCoral {
     debugCtx --> debugHook : storage-native statement context
 
     onStatement --> stopChannel : emit DebugStop
+    onStatement --> lineIndex : statement start\n(DEBUG_MAP is read only without a LINE_TABLE)
+    lineIndex --> matchBp : byte spans of\ntable statements
+
+note right of lineIndex
+    The LINE_TABLE decides every statement
+    start, breakpoint and stop position.
+    The source text only projects those
+    positions to byte offsets.
+end note
+}
+
+' ============================================================
+' SHARED RUN CONTROL (trust-runtime-services debug/run.rs)
+' No lock, no thread and no clock: the decisions only.
+' ============================================================
+package "trust-runtime-services\ndebug/run.rs (RunControl)" as sharedRun #PaleGreen {
+    component "RunControl\n(run fields borrowed for one decision)" as runControl {
+        portin mode
+        portin pending_stop
+        portin steps
+        portin target_thread
+        portin stop_requested
+    }
+    component "boundary()\nstep first, then breakpoint;\nstop emitted and mode Paused" as boundaryDecision
+    component "take_pending_stop(), holds_here()\nwhether the held scan waits;\nhold_reason(), accepts_step() for status and steps" as holdDecision
+    component "apply(): pause, continue,\nstep in, over, out" as applyDecision
+    component "release_for_stop(), rearm()\nresource stop ends the holds;\nretire_observations() on a schema change" as releaseDecision
+
+    runControl --> boundaryDecision
+    runControl --> holdDecision
+    runControl --> applyDecision
+    runControl --> releaseDecision
+    boundaryDecision ..> onStatement : asks for the breakpoint match\nonly when no step stops
 }
 
 ' ============================================================
@@ -200,15 +255,81 @@ package "trust-runtime crate" as struntime #LightCoral {
 ' ============================================================
 package "ControlServer (IPC)" as controlServer #LightCoral {
     component "control/transport.rs" as controlCore
+    component "trust-runtime-services\ndispatch.rs\nprepare_line / dispatch_value" as sharedDispatch
     component "control auth gate" as controlAuth
-    component "operation_registry.rs" as operationRegistry
-    component "policy.rs\nparameter-sensitive roles" as rolePolicy
-    component "debug.* endpoints" as debugEndpoints
-    controlCore --> controlAuth
+    component "trust-runtime-services\naccess/registry.rs" as operationRegistry
+    component "trust-runtime-services\naccess/policy.rs\nparameter-sensitive roles" as rolePolicy
+    component "trust-runtime-services\nstatus.rs, events.rs, resource/\nstatus, health, events, faults,\npause, resume, restart, shutdown" as sharedHandlers
+    component "control/host_ports.rs\nports on ControlState" as hostPorts
+    component "debug.* and other host endpoints" as debugEndpoints
+    controlCore --> sharedDispatch
+    sharedDispatch --> controlAuth
     controlAuth --> operationRegistry : classify operation + debug surface
     controlAuth --> rolePolicy : resolve parameter-sensitive minimum role
-    controlAuth --> debugEndpoints : authorized dispatch only
+    sharedDispatch --> sharedHandlers : shared operations
+    sharedHandlers --> hostPorts : state, scheduler, events, clock
+    sharedDispatch --> debugEndpoints : other operations through the host port
 }
+
+' ============================================================
+' A DEVICE'S HOLD (trust-runtime-services runner/)
+' The same decisions, taken inside the engine's statement hook of a chip. The scan's
+' native frames stay on the stack while it is held, so the hold runs a pass of its own
+' (serve the link, idle work, watchdog feed, wait) instead of the loop's run_pass().
+' ============================================================
+package "trust-runtime-services\nrunner/ (a device's hold)" as chipHold #PaleGreen {
+    component "DeviceServices\non_statement_with_frame_checked()\none check while debugging is off;\nthe LINE_TABLE names the statement starts" as chipHook
+    component "ChipDebug (debugger.rs)\nthe fields RunControl borrows,\nbreakpoints, cycle suppression,\nthe last stop" as chipDebug
+    component "hold pass (hold.rs)\nserve up to 8 requests, idle(),\nfeed the watchdog, wait: one feed\ninterval, 1 ms while a reply is in flight;\nhold_started() / hold_ended()" as holdPass
+    component "Shell (shell.rs)\nlink, wait, platform, receive buffer,\nresource state, records, debugger;\neach RefCell is borrowed by one leaf\noperation at a time" as chipShell
+    component "Runner::run_pass()\nbetween scans; Runner::scan() holds\nno RefCell guard across run_scan()" as chipRunner
+    component "debug/requests.rs\nthe debug operations (debug.*,\nbreakpoints.*, step_*), answered\nfrom the Debugger port" as debugRequests
+    component "runner/debug_port.rs\nDebugger over the loop: published\nreads, LINE_TABLE sources,\nframe names from the prepared program" as debugPort
+    component "debug/replies.rs, projection.rs\nthe one reply builder of every runtime;\nthe handle table, bound 256 on a chip;\nrefusals with stable codes" as debugReplies
+
+    chipHook --> chipDebug : at_statement()
+    debugRequests --> debugPort : Debugger port:\nstate, stops, breakpoints, handles
+    debugRequests --> debugReplies : reply shapes,\nrefusals
+    debugPort --> chipDebug : the fields the port reads\nand changes
+    chipDebug --> runControl : boundary(), take_pending_stop(),\nholds_here()
+    chipHook --> holdPass : hold() until the debugger\nreleases the scan
+    holdPass --> chipDebug : holds_here() after each pass
+    holdPass --> chipShell : serve, idle, feed, wait
+    chipRunner --> chipShell : serve, idle, feed, wait
+    chipShell --> sharedDispatch : prepare_line_within():\nstatus, health, pause, resume,\nshutdown while held
+    sharedDispatch --> debugRequests : debug operations on a chip\n(specification 11 §6.13.3)
+
+    ' A compiled program (specification 44 §13.2): the module calls the kernel's stop at an armed
+    ' statement; the cycle asks the same debugger and holds with the held scan's memory.
+    component "trust-plc-abi kernel/stops.rs\nstop_to_sink(): the stop goes to the\nsink behind Cx.kernel; the Frame chain,\nthe areas and frames as cells" as kernelStops
+    component "trust-runtime-core native/stop.rs\nStop: statement, depth, frames;\nHeldScan hands it to ScanHooks::on_stop" as kernelStop
+    component "runner/compiled.rs + compiled/debug.rs\narm the statements before each scan\n(breakpoint starts or every one),\non_stop: at_statement, hold_compiled,\nLive Values at HoldEnd, re-arm" as compiledDebug
+    component "debug/compiled.rs\ndebug.stack, debug.scopes, debug.variables\nthrough the symbol table (ProgramMemory)" as compiledReads
+
+    kernelStops --> kernelStop : stop(cx, stmt)
+    kernelStop --> compiledDebug : on_stop(Stop)
+    compiledDebug --> chipDebug : at_statement(), stop_points()
+    compiledDebug --> holdPass : hold_compiled() until the\ndebugger releases the scan
+    debugRequests --> compiledReads : a compiled program's\nstack, scopes, variables
+}
+
+note right of holdPass
+    A hold ends at resume, at a step's
+    own boundary or at a stop request
+    (shutdown). Time, the cycle watchdog,
+    a new host session and a missing
+    debugger do not end it. It runs no
+    boundary: no scan starts, no output
+    is committed, no retain step runs.
+end note
+
+note right of debugReplies
+    breakpoints.list entry, one shape on every runtime:
+    file_id, line, column, end_line, end_column
+    (zero-based). A computer adds start and end,
+    its byte offsets; a chip has no text to count them.
+    Instances list in ascending instance identifier.
+end note
 
 remoteSession -down-> controlServer : JSON IPC (debug.*)
 controlBridge -down-> controlServer : JSON IPC (debug.*)
@@ -348,12 +469,11 @@ end note
 
 note bottom of onStatement
     **Called at every statement boundary:**
-    1. Update last location
-    2. Check breakpoint match
-    3. Check step condition
-    4. Capture snapshot if pausing
-    5. Emit stop event
-    6. Wait on condvar if paused
+    1. Update last location and call depth (RunControl)
+    2. Emit the pending pause of a held target (RunControl)
+    3. RunControl.boundary: step, then breakpoint match
+    4. Capture the halted state and emit the stop
+    5. Wait on the condvar while RunControl holds the scan
 end note
 
 note left of matchBp

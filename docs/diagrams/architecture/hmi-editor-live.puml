@@ -1,0 +1,31 @@
+@startuml hmi-editor-live
+!theme plain
+title HMI Builder named Live operation (specification 39 section 11)
+component "Builder Design / Live" as editor
+component "LiveOperating\nShared runtime display" as display
+component "LiveDisplayHost\nRequests and stream messages" as adapter
+component "LiveOperator\nSaved/deployed bundle gate" as host
+component "LiveSession\nTarget pin + host-only cookie" as session
+component "Live network\nHTTP + WebSocket, no redirects" as network
+component "Selected runtime\nHMI session + roles + command service" as runtime
+component "Hmi.Display\nProgram task + command outcomes" as plc
+artifact "Named-user audit log" as audit
+component "Static Build presentation\nLabels, units and placeholders" as samples
+editor --> samples : Design mode only
+samples --> editor : shared drawing; no live process values
+editor --> display : Run target source
+display --> adapter : shared login, confirmations, reads, commands
+adapter <--> host : scoped webview messages
+host --> session : allowed HMI routes
+session --> network : transport access + named cookie
+network <--> runtime : authenticated HTTP and value stream
+runtime <--> plc : existing HMI exchange
+runtime --> audit : actor + command + outcome
+editor --> host : end on exit or source change
+host --> session : end on edit, target change or disconnect
+note bottom of session
+No token or cookie in project files.
+No arbitrary URLs, deploy or control proxy.
+No command replay after disconnect.
+end note
+@enduml

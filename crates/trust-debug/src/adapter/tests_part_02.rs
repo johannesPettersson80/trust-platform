@@ -7,216 +7,94 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-fn initialize_adapter_for_launch(adapter: &mut DebugAdapter, seq: u32) {
-    let outcome = adapter.dispatch_request(Request {
-        seq,
-        message_type: MessageType::Request,
-        command: "initialize".to_string(),
-        arguments: Some(serde_json::to_value(InitializeArguments::default()).unwrap()),
-    });
-    assert_eq!(outcome.responses.len(), 1);
-    let response: Response<InitializeResponseBody> =
-        serde_json::from_value(outcome.responses[0].clone()).unwrap();
-    assert!(response.success, "initialize must succeed before launch");
-}
-
 #[test]
-fn ads_globals_are_appended_as_ordinary_live_value_rows() {
-    let mut state = IoStateEventBody {
-        scan: Some(7),
-        inputs: Vec::new(),
-        outputs: Vec::new(),
-        memory: Vec::new(),
-    };
-
-    super::super::io::append_ads_live_values(
-        &mut state,
-        vec![
-            trust_runtime::ads::AdsLiveValue {
-                connection_name: "plc_port_301".to_string(),
-                ams_port: 301,
-                point_name: "plc_input".to_string(),
-                input: true,
-                writable: false,
-                value: RuntimeValue::Bool(true),
-                forced: true,
-            },
-            trust_runtime::ads::AdsLiveValue {
-                connection_name: "plc_port_851".to_string(),
-                ams_port: 851,
-                point_name: "plc_output".to_string(),
-                input: false,
-                writable: true,
-                value: RuntimeValue::DInt(12),
-                forced: false,
-            },
-        ],
-    );
-
-    assert_eq!(state.inputs[0].name.as_deref(), Some("plc_input"));
-    assert_eq!(state.inputs[0].address, "global:plc_input");
-    assert_eq!(
-        state.inputs[0].source.as_deref(),
-        Some("ADS plc_port_301 · port 301")
-    );
-    assert_eq!(state.inputs[0].value, "TRUE");
-    assert!(state.inputs[0].forced);
-    assert_eq!(state.inputs[0].writable, Some(false));
-    assert_eq!(state.outputs[0].address, "global:plc_output");
-    assert_eq!(state.outputs[0].value, "12");
-    assert_eq!(state.outputs[0].writable, Some(true));
-}
-
-#[test]
-fn dispatch_set_expression_force_supports_output_and_memory_io() {
-    let mut runtime = trust_runtime::RuntimeBuilder::new();
-    let output_addr = IoAddress::parse("%QX0.0").unwrap();
-    let memory_addr = IoAddress::parse("%MX0.0").unwrap();
-    runtime.io_mut().bind("OUT0", output_addr.clone());
-    runtime.io_mut().bind("MEM0", memory_addr.clone());
-
-    let session = DebugSession::new(install_io_fixture(runtime));
-    let mut adapter = DebugAdapter::new(session);
-
-    let force_output = Request {
-        seq: 1,
-        message_type: MessageType::Request,
-        command: "setExpression".to_string(),
-        arguments: Some(
-            serde_json::to_value(SetExpressionArguments {
-                expression: "%QX0.0".to_string(),
-                value: "force: TRUE".to_string(),
-                frame_id: None,
-            })
-            .unwrap(),
-        ),
-    };
-    let outcome = adapter.dispatch_request(force_output);
-    assert_eq!(outcome.responses.len(), 1);
-    assert_eq!(outcome.events.len(), 1);
-    let response: Response<SetExpressionResponseBody> =
-        serde_json::from_value(outcome.responses[0].clone()).unwrap();
-    assert!(
-        response.success,
-        "force output failed: {:?}",
-        response.message
-    );
-    let output_event: Event<IoStateEventBody> =
-        serde_json::from_value(outcome.events[0].clone()).unwrap();
-    assert!(output_event
-        .body
-        .unwrap()
-        .outputs
-        .iter()
-        .any(|entry| entry.address == "%QX0.0" && entry.forced));
-
-    let force_memory = Request {
-        seq: 2,
-        message_type: MessageType::Request,
-        command: "setExpression".to_string(),
-        arguments: Some(
-            serde_json::to_value(SetExpressionArguments {
-                expression: "%MX0.0".to_string(),
-                value: "force: TRUE".to_string(),
-                frame_id: None,
-            })
-            .unwrap(),
-        ),
-    };
-    let outcome = adapter.dispatch_request(force_memory);
-    assert_eq!(outcome.responses.len(), 1);
-    assert_eq!(outcome.events.len(), 1);
-    let response: Response<SetExpressionResponseBody> =
-        serde_json::from_value(outcome.responses[0].clone()).unwrap();
-    assert!(
-        response.success,
-        "force memory failed: {:?}",
-        response.message
-    );
-    let memory_event: Event<IoStateEventBody> =
-        serde_json::from_value(outcome.events[0].clone()).unwrap();
-    assert!(memory_event
-        .body
-        .unwrap()
-        .memory
-        .iter()
-        .any(|entry| entry.address == "%MX0.0" && entry.forced));
-
-    let release_output = Request {
-        seq: 3,
-        message_type: MessageType::Request,
-        command: "setExpression".to_string(),
-        arguments: Some(
-            serde_json::to_value(SetExpressionArguments {
-                expression: "%QX0.0".to_string(),
-                value: "release".to_string(),
-                frame_id: None,
-            })
-            .unwrap(),
-        ),
-    };
-    let outcome = adapter.dispatch_request(release_output);
-    assert_eq!(outcome.responses.len(), 1);
-    assert_eq!(outcome.events.len(), 1);
-    let release_event: Event<IoStateEventBody> =
-        serde_json::from_value(outcome.events[0].clone()).unwrap();
-    assert!(release_event
-        .body
-        .unwrap()
-        .outputs
-        .iter()
-        .any(|entry| entry.address == "%QX0.0" && !entry.forced));
-
-    let runtime = adapter.session().runtime_handle();
-    let runtime = runtime.lock().unwrap();
-    assert_eq!(
-        runtime.io().read(&output_addr).unwrap(),
-        RuntimeValue::Bool(true)
-    );
-    assert_eq!(
-        runtime.io().read(&memory_addr).unwrap(),
-        RuntimeValue::Bool(true)
-    );
-}
-
-#[test]
-fn dispatch_set_expression_write_once_rejects_output_io() {
-    let mut runtime = trust_runtime::RuntimeBuilder::new();
-    let output_addr = IoAddress::parse("%QX0.1").unwrap();
-    runtime.io_mut().bind("OUT1", output_addr);
-
-    let session = DebugSession::new(install_io_fixture(runtime));
-    let mut adapter = DebugAdapter::new(session);
-
+fn dispatch_initialize_emits_initialized_event() {
+    let mut adapter = DebugAdapter::new(DebugSession::new());
     let request = Request {
         seq: 1,
         message_type: MessageType::Request,
-        command: "setExpression".to_string(),
-        arguments: Some(
-            serde_json::to_value(SetExpressionArguments {
-                expression: "%QX0.1".to_string(),
-                value: "TRUE".to_string(),
-                frame_id: None,
-            })
-            .unwrap(),
-        ),
+        command: "initialize".to_string(),
+        arguments: Some(serde_json::to_value(InitializeArguments::default()).unwrap()),
     };
+
     let outcome = adapter.dispatch_request(request);
     assert_eq!(outcome.responses.len(), 1);
-    let response: Response<serde_json::Value> =
+    let response: Response<InitializeResponseBody> =
         serde_json::from_value(outcome.responses[0].clone()).unwrap();
-    assert!(!response.success);
+    let capabilities = response.body.unwrap().capabilities;
+    assert_eq!(capabilities.supports_conditional_breakpoints, Some(true));
     assert_eq!(
-        response.message.as_deref(),
-        Some("only input addresses can be written once")
+        capabilities.supports_hit_conditional_breakpoints,
+        Some(true)
     );
+    assert_eq!(capabilities.supports_log_points, Some(true));
+    let saw_initialized = outcome.events.iter().any(|value| {
+        let event: Event<serde_json::Value> = serde_json::from_value(value.clone()).unwrap();
+        event.event == "initialized"
+    });
+    assert!(saw_initialized);
+    let internal_messages = outcome
+        .events
+        .iter()
+        .filter_map(|value| {
+            let event: Event<serde_json::Value> = serde_json::from_value(value.clone()).unwrap();
+            if event.event != "trustDebugInternal" {
+                return None;
+            }
+            event.body.and_then(|body| {
+                body.get("message")
+                    .and_then(|value| value.as_str())
+                    .map(str::to_string)
+            })
+        })
+        .collect::<Vec<_>>();
+    assert!(!internal_messages.is_empty());
+    assert!(internal_messages
+        .iter()
+        .all(|message| message.contains("[trust-debug]")));
+    let visible_internal_output = outcome.events.iter().any(|value| {
+        let event: Event<serde_json::Value> = serde_json::from_value(value.clone()).unwrap();
+        event.event == "output"
+            && event.body.as_ref().is_some_and(|body| {
+                body.get("output")
+                    .and_then(|value| value.as_str())
+                    .is_some_and(|output| output.contains("[trust-debug]"))
+            })
+    });
+    assert!(
+        !visible_internal_output,
+        "internal debug traces must not be visible Debug Console output: {internal_messages:?}"
+    );
+}
+
+#[test]
+fn dispatch_launch_does_not_emit_initialized_event_without_initialize() {
+    let mut adapter = DebugAdapter::new(DebugSession::new());
+
+    let mut additional = BTreeMap::new();
+    additional.insert(
+        "program".to_string(),
+        serde_json::Value::String("main.st".to_string()),
+    );
+    let launch_request = Request {
+        seq: 2,
+        message_type: MessageType::Request,
+        command: "launch".to_string(),
+        arguments: Some(serde_json::to_value(LaunchArguments { additional }).unwrap()),
+    };
+
+    let outcome = adapter.dispatch_request(launch_request);
+    let saw_initialized = outcome.events.iter().any(|value| {
+        let event: Event<serde_json::Value> = serde_json::from_value(value.clone()).unwrap();
+        event.event == "initialized"
+    });
+    assert!(!saw_initialized);
 }
 
 #[test]
 fn attach_set_expression_forwards_remote_io_force_and_release() {
     let (addr, requests, server) = spawn_remote_io_force_server();
-    let runtime = trust_runtime::RuntimeBuilder::new();
-    let mut adapter = DebugAdapter::new(DebugSession::new(runtime.build().unwrap()));
+    let mut adapter = DebugAdapter::new(DebugSession::new());
     adapter.remote_session = Some(
         super::super::remote::RemoteSession::connect(
             super::super::remote::RemoteEndpoint::Tcp(addr),
@@ -307,8 +185,7 @@ fn attach_set_expression_forwards_remote_io_force_and_release() {
 #[test]
 fn attach_st_io_force_and_release_forward_remote_io_force_and_release() {
     let (addr, requests, server) = spawn_remote_io_force_server();
-    let runtime = trust_runtime::RuntimeBuilder::new();
-    let mut adapter = DebugAdapter::new(DebugSession::new(runtime.build().unwrap()));
+    let mut adapter = DebugAdapter::new(DebugSession::new());
     adapter.remote_session = Some(
         super::super::remote::RemoteSession::connect(
             super::super::remote::RemoteEndpoint::Tcp(addr),
@@ -417,614 +294,6 @@ fn attach_st_io_force_and_release_forward_remote_io_force_and_release() {
     );
 }
 
-#[test]
-fn dispatch_set_expression_force_supports_direct_instance_field_live() {
-    let runtime =
-        TestHarness::from_source("PROGRAM Main VAR count : INT := 1; END_VAR END_PROGRAM")
-            .unwrap()
-            .into_runtime();
-    let Some(RuntimeValue::Instance(instance_id)) = runtime.storage().get_global("Main") else {
-        panic!("admitted program instance");
-    };
-    let instance_id = *instance_id;
-
-    let session = DebugSession::new(runtime);
-    let mut adapter = DebugAdapter::new(session);
-
-    let request = Request {
-        seq: 1,
-        message_type: MessageType::Request,
-        command: "setExpression".to_string(),
-        arguments: Some(
-            serde_json::to_value(SetExpressionArguments {
-                expression: "Main.count".to_string(),
-                value: "force: 5".to_string(),
-                frame_id: None,
-            })
-            .unwrap(),
-        ),
-    };
-    let outcome = adapter.dispatch_request(request);
-    let response: Response<SetExpressionResponseBody> =
-        serde_json::from_value(outcome.responses[0].clone()).unwrap();
-    assert!(
-        response.success,
-        "live direct instance-field force failed: {:?}",
-        response.message
-    );
-
-    let runtime = adapter.session().runtime_handle();
-    let runtime = runtime.lock().unwrap();
-    assert_eq!(
-        runtime.storage().get_instance_var(instance_id, "count"),
-        Some(&RuntimeValue::Int(5))
-    );
-}
-
-#[test]
-fn dispatch_set_expression_force_supports_direct_instance_field_paused() {
-    let runtime =
-        TestHarness::from_source("PROGRAM Main VAR count : INT := 1; END_VAR END_PROGRAM")
-            .unwrap()
-            .into_runtime();
-    let Some(RuntimeValue::Instance(instance_id)) = runtime.storage().get_global("Main") else {
-        panic!("admitted program instance");
-    };
-    let instance_id = *instance_id;
-
-    let control = DebugControl::new();
-    control.refresh_snapshot_from_storage_with_abi(
-        runtime.storage(),
-        runtime.current_time(),
-        runtime.prepared().storage_abi(),
-    );
-
-    let session = DebugSession::with_control(runtime, control);
-    let mut adapter = DebugAdapter::new(session);
-
-    let request = Request {
-        seq: 1,
-        message_type: MessageType::Request,
-        command: "setExpression".to_string(),
-        arguments: Some(
-            serde_json::to_value(SetExpressionArguments {
-                expression: "Main.count".to_string(),
-                value: "force: 5".to_string(),
-                frame_id: None,
-            })
-            .unwrap(),
-        ),
-    };
-    let outcome = adapter.dispatch_request(request);
-    let response: Response<SetExpressionResponseBody> =
-        serde_json::from_value(outcome.responses[0].clone()).unwrap();
-    assert!(
-        response.success,
-        "paused direct instance-field force failed: {:?}",
-        response.message
-    );
-
-    let snapshot_value = adapter.session().debug_control().with_snapshot(|snapshot| {
-        snapshot
-            .storage
-            .get_instance_var(instance_id, "count")
-            .cloned()
-    });
-    assert_eq!(snapshot_value, Some(Some(RuntimeValue::Int(5))));
-}
-
-#[test]
-fn dispatch_initialize_emits_initialized_event() {
-    let runtime = trust_runtime::RuntimeBuilder::new();
-    let mut adapter = DebugAdapter::new(DebugSession::new(runtime.build().unwrap()));
-    let request = Request {
-        seq: 1,
-        message_type: MessageType::Request,
-        command: "initialize".to_string(),
-        arguments: Some(serde_json::to_value(InitializeArguments::default()).unwrap()),
-    };
-
-    let outcome = adapter.dispatch_request(request);
-    assert_eq!(outcome.responses.len(), 1);
-    let response: Response<InitializeResponseBody> =
-        serde_json::from_value(outcome.responses[0].clone()).unwrap();
-    let capabilities = response.body.unwrap().capabilities;
-    assert_eq!(capabilities.supports_conditional_breakpoints, Some(true));
-    assert_eq!(
-        capabilities.supports_hit_conditional_breakpoints,
-        Some(true)
-    );
-    assert_eq!(capabilities.supports_log_points, Some(true));
-    let saw_initialized = outcome.events.iter().any(|value| {
-        let event: Event<serde_json::Value> = serde_json::from_value(value.clone()).unwrap();
-        event.event == "initialized"
-    });
-    assert!(saw_initialized);
-    let internal_messages = outcome
-        .events
-        .iter()
-        .filter_map(|value| {
-            let event: Event<serde_json::Value> = serde_json::from_value(value.clone()).unwrap();
-            if event.event != "trustDebugInternal" {
-                return None;
-            }
-            event.body.and_then(|body| {
-                body.get("message")
-                    .and_then(|value| value.as_str())
-                    .map(str::to_string)
-            })
-        })
-        .collect::<Vec<_>>();
-    assert!(!internal_messages.is_empty());
-    assert!(internal_messages
-        .iter()
-        .all(|message| message.contains("[trust-debug]")));
-    let visible_internal_output = outcome.events.iter().any(|value| {
-        let event: Event<serde_json::Value> = serde_json::from_value(value.clone()).unwrap();
-        event.event == "output"
-            && event.body.as_ref().is_some_and(|body| {
-                body.get("output")
-                    .and_then(|value| value.as_str())
-                    .is_some_and(|output| output.contains("[trust-debug]"))
-            })
-    });
-    assert!(
-        !visible_internal_output,
-        "internal debug traces must not be visible Debug Console output: {internal_messages:?}"
-    );
-}
-
-#[test]
-fn dispatch_launch_does_not_emit_initialized_event_without_initialize() {
-    let runtime = trust_runtime::RuntimeBuilder::new();
-    let mut adapter = DebugAdapter::new(DebugSession::new(runtime.build().unwrap()));
-
-    let mut additional = BTreeMap::new();
-    additional.insert(
-        "program".to_string(),
-        serde_json::Value::String("main.st".to_string()),
-    );
-    let launch_request = Request {
-        seq: 2,
-        message_type: MessageType::Request,
-        command: "launch".to_string(),
-        arguments: Some(serde_json::to_value(LaunchArguments { additional }).unwrap()),
-    };
-
-    let outcome = adapter.dispatch_request(launch_request);
-    let saw_initialized = outcome.events.iter().any(|value| {
-        let event: Event<serde_json::Value> = serde_json::from_value(value.clone()).unwrap();
-        event.event == "initialized"
-    });
-    assert!(!saw_initialized);
-}
-
-#[test]
-fn launch_io_state_includes_configured_source_provenance() {
-    let project_root = unique_project_root("launch-io-source");
-    let src = project_root.join("src");
-    fs::create_dir_all(&src).unwrap();
-    let main_path = src.join("Main.st");
-    let config_path = src.join("Config.st");
-    fs::write(
-        &main_path,
-        r#"PROGRAM MainProgram
-VAR
-    e_stop : BOOL;
-    running : BOOL;
-END_VAR
-
-running := e_stop;
-END_PROGRAM
-"#,
-    )
-    .unwrap();
-    fs::write(
-        &config_path,
-        r#"CONFIGURATION Config
-TASK Cycle (INTERVAL := T#10ms, PRIORITY := 1);
-PROGRAM P1 WITH Cycle : MainProgram;
-VAR_CONFIG
-    P1.e_stop AT %IX0.0 : BOOL;
-    P1.running AT %QX0.0 : BOOL;
-END_VAR
-END_CONFIGURATION
-"#,
-    )
-    .unwrap();
-    fs::write(
-        project_root.join("io.toml"),
-        r#"[io]
-
-[[io.drivers]]
-name = "modbus-tcp"
-params = { address = "127.0.0.1:1502", unit_id = 1, input_start = 0, output_start = 1, timeout_ms = 500, on_error = "fault" }
-"#,
-    )
-    .unwrap();
-
-    let mut adapter = DebugAdapter::new(DebugSession::new(
-        trust_runtime::RuntimeBuilder::new().build().unwrap(),
-    ));
-    initialize_adapter_for_launch(&mut adapter, 9);
-    let mut additional = BTreeMap::new();
-    additional.insert(
-        "program".to_string(),
-        serde_json::Value::String(config_path.display().to_string()),
-    );
-    additional.insert(
-        "runtimeRoot".to_string(),
-        serde_json::Value::String(project_root.display().to_string()),
-    );
-
-    let launch = Request {
-        seq: 10,
-        message_type: MessageType::Request,
-        command: "launch".to_string(),
-        arguments: Some(serde_json::to_value(LaunchArguments { additional }).unwrap()),
-    };
-    let launch_outcome = adapter.dispatch_request(launch);
-    assert!(
-        launch_outcome.responses.is_empty(),
-        "launch should defer until configurationDone"
-    );
-
-    let configuration_done = Request::<serde_json::Value> {
-        seq: 11,
-        message_type: MessageType::Request,
-        command: "configurationDone".to_string(),
-        arguments: None,
-    };
-    let configured = adapter.dispatch_request(configuration_done);
-    assert!(
-        configured.responses.iter().all(|value| {
-            let response: Response<serde_json::Value> =
-                serde_json::from_value(value.clone()).unwrap();
-            response.success
-        }),
-        "configurationDone/launch responses should succeed: {:?}",
-        configured.responses
-    );
-
-    let io_state = configured
-        .events
-        .iter()
-        .filter_map(|value| serde_json::from_value::<Event<IoStateEventBody>>(value.clone()).ok())
-        .find(|event| event.event == "stIoState")
-        .and_then(|event| event.body)
-        .expect("launch should emit an initial stIoState event");
-    assert_eq!(
-        io_state.inputs[0].source.as_deref(),
-        Some("Modbus 127.0.0.1:1502 · input reg 0"),
-        "launch stIoState should carry configured input source provenance"
-    );
-    assert_eq!(
-        io_state.outputs[0].source.as_deref(),
-        Some("Modbus 127.0.0.1:1502 · output reg 1"),
-        "launch stIoState should carry configured output source provenance"
-    );
-
-    fs::remove_dir_all(&project_root).ok();
-}
-
-#[test]
-fn debug_control_server_uses_launch_project_root_for_comm_apply() {
-    let generated_root = std::env::temp_dir();
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    let project_root = generated_root.join(format!(
-        "trust-debug-debug-control-project-root-{}-{nanos}",
-        std::process::id()
-    ));
-    fs::create_dir_all(&project_root).unwrap();
-    fs::write(project_root.join("main.st"), "PROGRAM Main\nEND_PROGRAM\n").unwrap();
-    let addr = reserve_loopback_addr();
-    let endpoint = format!("tcp://{addr}");
-    let auth = "debug-control-token";
-
-    let runtime = trust_runtime::RuntimeBuilder::new();
-    let mut adapter = DebugAdapter::new(DebugSession::new(runtime.build().unwrap()));
-    launch_debug_control_session(&mut adapter, &project_root, &endpoint, auth);
-
-    let schema = send_control_request(
-        addr,
-        auth,
-        serde_json::json!({
-            "id": 1,
-            "type": "comm.schema",
-            "params": { "protocol": "modbus_tcp" }
-        }),
-    );
-    assert_control_ok(&schema, "comm.schema");
-
-    let topology = send_control_request(
-        addr,
-        auth,
-        serde_json::json!({
-            "id": 2,
-            "type": "fleet.topology"
-        }),
-    );
-    assert_control_ok(&topology, "fleet.topology");
-
-    let create = send_control_request(
-        addr,
-        auth,
-        serde_json::json!({
-            "id": 3,
-            "type": "comm.apply",
-            "params": {
-                "protocol": "modbus_tcp",
-                "action": "add",
-                "params": {
-                    "address": "127.0.0.1:1502",
-                    "unit_id": 2,
-                    "input_start": 5,
-                    "output_start": 7,
-                    "timeout_ms": 750,
-                    "on_error": "warn"
-                }
-            }
-        }),
-    );
-    assert_control_ok(&create, "comm.apply create");
-    assert_eq!(
-        control_result(&create)
-            .get("lifecycle_effect")
-            .and_then(serde_json::Value::as_str),
-        Some("restart_required")
-    );
-    assert_eq!(
-        control_result(&create)
-            .get("applied")
-            .and_then(serde_json::Value::as_bool),
-        Some(true)
-    );
-
-    let created_text = fs::read_to_string(project_root.join("io.toml"))
-        .expect("debug control should create io.toml");
-    assert!(
-        created_text.contains("127.0.0.1:1502"),
-        "created io.toml should contain first Modbus driver: {created_text}"
-    );
-
-    let update = send_control_request(
-        addr,
-        auth,
-        serde_json::json!({
-            "id": 4,
-            "type": "comm.apply",
-            "params": {
-                "protocol": "modbus_tcp",
-                "action": "add",
-                "params": {
-                    "address": "127.0.0.1:1503",
-                    "unit_id": 3,
-                    "input_start": 9,
-                    "output_start": 11,
-                    "timeout_ms": 900,
-                    "on_error": "warn"
-                }
-            }
-        }),
-    );
-    assert_control_ok(&update, "comm.apply update");
-    assert_eq!(
-        control_result(&update)
-            .get("lifecycle_effect")
-            .and_then(serde_json::Value::as_str),
-        Some("restart_required")
-    );
-
-    let updated_text = fs::read_to_string(project_root.join("io.toml"))
-        .expect("debug control should update io.toml");
-    assert!(
-        updated_text.contains("127.0.0.1:1502"),
-        "update should preserve existing driver: {updated_text}"
-    );
-    assert!(
-        updated_text.contains("127.0.0.1:1503"),
-        "update should append second driver: {updated_text}"
-    );
-    assert!(
-        updated_text.matches("modbus-tcp").count() >= 2,
-        "update should persist multiple Modbus instances: {updated_text}"
-    );
-
-    fs::remove_dir_all(&project_root).ok();
-}
-
-#[test]
-fn launch_fails_when_control_server_endpoint_is_already_in_use() {
-    let project_root = unique_project_root("debug-control-endpoint-busy");
-    fs::write(project_root.join("main.st"), "PROGRAM Main\nEND_PROGRAM\n").unwrap();
-    let occupied = TcpListener::bind("127.0.0.1:0").unwrap();
-    let endpoint = format!("tcp://{}", occupied.local_addr().unwrap());
-
-    let runtime = trust_runtime::RuntimeBuilder::new();
-    let mut adapter = DebugAdapter::new(DebugSession::new(runtime.build().unwrap()));
-    initialize_adapter_for_launch(&mut adapter, 19);
-    let mut additional = BTreeMap::new();
-    additional.insert(
-        "program".to_string(),
-        serde_json::Value::String(project_root.join("main.st").display().to_string()),
-    );
-    additional.insert(
-        "runtimeRoot".to_string(),
-        serde_json::Value::String(project_root.display().to_string()),
-    );
-    additional.insert(
-        "controlEndpoint".to_string(),
-        serde_json::Value::String(endpoint),
-    );
-    additional.insert(
-        "controlAuthToken".to_string(),
-        serde_json::Value::String("debug-control-token".to_string()),
-    );
-
-    let launch = Request {
-        seq: 20,
-        message_type: MessageType::Request,
-        command: "launch".to_string(),
-        arguments: Some(serde_json::to_value(LaunchArguments { additional }).unwrap()),
-    };
-    let launch_outcome = adapter.dispatch_request(launch);
-    assert!(
-        launch_outcome.responses.is_empty(),
-        "launch should defer until configurationDone"
-    );
-
-    let configuration_done = Request {
-        seq: 21,
-        message_type: MessageType::Request,
-        command: "configurationDone".to_string(),
-        arguments: None,
-    };
-    let configured = adapter.dispatch_request(configuration_done);
-    let failed = configured.responses.iter().any(|value| {
-        let response: Response<serde_json::Value> = serde_json::from_value(value.clone()).unwrap();
-        !response.success
-            && response
-                .message
-                .as_deref()
-                .is_some_and(|message| message.contains("control server start failed"))
-    });
-    assert!(
-        failed,
-        "control endpoint collision must fail launch, not fake a running runtime: {:?}",
-        configured.responses
-    );
-    let scheduled_runner = configured.events.iter().any(|value| {
-        let event: Event<serde_json::Value> = serde_json::from_value(value.clone()).unwrap();
-        event.body.as_ref().is_some_and(|body| {
-            body.get("message")
-                .and_then(serde_json::Value::as_str)
-                .is_some_and(|message| message.contains("runner start scheduled"))
-        })
-    });
-    assert!(
-        !scheduled_runner,
-        "failed control endpoint must not schedule the debug runner"
-    );
-
-    drop(occupied);
-    fs::remove_dir_all(&project_root).ok();
-}
-
-#[test]
-fn debug_control_server_serves_hmi_schema_and_values() {
-    let project_root = unique_project_root("debug-control-hmi");
-    fs::write(
-        project_root.join("main.st"),
-        r"
-PROGRAM Main
-VAR
-    speed : REAL := 1.5;
-    running : BOOL := TRUE;
-END_VAR
-END_PROGRAM
-",
-    )
-    .unwrap();
-    let addr = reserve_loopback_addr();
-    let endpoint = format!("tcp://{addr}");
-    let auth = "debug-control-hmi-token";
-
-    let runtime = trust_runtime::RuntimeBuilder::new();
-    let mut adapter = DebugAdapter::new(DebugSession::new(runtime.build().unwrap()));
-    launch_debug_control_session(&mut adapter, &project_root, &endpoint, auth);
-
-    {
-        let runtime = adapter.session().runtime_handle();
-        let runtime = runtime.lock().unwrap();
-        adapter
-            .session()
-            .debug_control()
-            .refresh_snapshot_from_storage_with_abi(
-                runtime.storage(),
-                runtime.current_time(),
-                runtime.prepared().storage_abi(),
-            );
-    }
-
-    let schema = send_control_request(
-        addr,
-        auth,
-        serde_json::json!({
-            "id": 5,
-            "type": "hmi.schema.get"
-        }),
-    );
-    assert_control_ok(&schema, "hmi.schema.get");
-    let widgets = control_result(&schema)
-        .get("widgets")
-        .and_then(serde_json::Value::as_array)
-        .expect("hmi schema widgets");
-    let speed_id = widgets
-        .iter()
-        .find(|widget| widget.get("path").and_then(serde_json::Value::as_str) == Some("Main.speed"))
-        .and_then(|widget| widget.get("id"))
-        .and_then(serde_json::Value::as_str)
-        .expect("Main.speed widget should be in HMI schema")
-        .to_string();
-
-    let values = send_control_request(
-        addr,
-        auth,
-        serde_json::json!({
-            "id": 6,
-            "type": "hmi.values.get",
-            "params": { "ids": [speed_id] }
-        }),
-    );
-    assert_control_ok(&values, "hmi.values.get");
-    assert_eq!(
-        control_result(&values)
-            .get("connected")
-            .and_then(serde_json::Value::as_bool),
-        Some(true),
-        "hmi.values.get should be connected to the debug snapshot: {values}"
-    );
-    let value_record = control_result(&values)
-        .get("values")
-        .and_then(|entries| entries.get(&speed_id))
-        .expect("Main.speed value record");
-    assert_eq!(
-        value_record.get("q").and_then(serde_json::Value::as_str),
-        Some("good"),
-        "HMI value should come from the debug snapshot: {values}"
-    );
-    assert_eq!(
-        value_record.get("v").and_then(serde_json::Value::as_f64),
-        Some(1.5),
-        "HMI value should preserve the runtime value: {values}"
-    );
-
-    fs::remove_dir_all(&project_root).ok();
-}
-
-fn unique_project_root(label: &str) -> PathBuf {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    let root = std::env::temp_dir().join(format!(
-        "trust-debug-{label}-{}-{nanos}",
-        std::process::id()
-    ));
-    fs::create_dir_all(&root).unwrap();
-    root
-}
-
-fn reserve_loopback_addr() -> SocketAddr {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let addr = listener.local_addr().unwrap();
-    drop(listener);
-    addr
-}
-
 fn spawn_remote_io_force_server() -> (
     SocketAddr,
     Arc<Mutex<Vec<serde_json::Value>>>,
@@ -1098,7 +367,270 @@ fn spawn_remote_io_force_server() -> (
     (addr, requests, handle)
 }
 
-fn launch_debug_control_session(
+/// Specification 35, A3.5 and A6.5: a live experiment that the simulator's control server starts runs
+/// on the scans of the simulator's program (specification 44 NX-16), which keeps its PID loop
+/// running against its simulated plant, and the Debug Adapter keeps its I/O view while the control
+/// server serves Control Studio. Catches an experiment that stops the loop, a plant that does not
+/// advance, and a control server that takes the I/O stream from the adapter.
+#[test]
+fn debug_control_server_experiment_keeps_the_typed_pid_loop_running() {
+    let project_root = unique_project_root("debug-control-pid-experiment");
+    let main_path = project_root.join("main.st");
+    fs::write(
+        &main_path,
+        include_str!(
+            "../../../../editors/vscode/src/test/fixtures/control-engineering/live-simulation-project/src/main.st"
+        ),
+    )
+    .unwrap();
+    fs::write(
+        project_root.join("control.st"),
+        include_str!("../../../../libraries/control/src/control.st"),
+    )
+    .unwrap();
+    fs::write(
+        project_root.join("io.toml"),
+        include_str!(
+            "../../../../editors/vscode/src/test/fixtures/control-engineering/live-simulation-project/io.toml"
+        ),
+    )
+    .unwrap();
+    fs::write(
+        project_root.join("simulation.toml"),
+        include_str!(
+            "../../../../editors/vscode/src/test/fixtures/control-engineering/live-simulation-project/simulation.toml"
+        ),
+    )
+    .unwrap();
+
+    trust_runtime::native::Toolchain::find()
+        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let mut adapter = DebugAdapter::new(DebugSession::new());
+    let addr = reserve_loopback_addr();
+    let auth = "debug-control-pid-token";
+    launch_debug_control_session(&mut adapter, &project_root, &format!("tcp://{addr}"), auth);
+    thread::sleep(Duration::from_millis(250));
+    let scan_before = io_state_scan(&mut adapter)
+        .expect("control server must not replace the Debug Adapter I/O stream");
+
+    // The experiment advances on the scans that the compiled runtime publishes to the debug control,
+    // with the scan's task runs and its simulation facts.
+    let started = send_control_request(
+        addr,
+        auth,
+        serde_json::json!({
+            "id": 31,
+            "type": "control.experiment.start",
+            "params": {
+                "experiment_id": "typed-lreal-step",
+                "source": "simulation",
+                "kind": "setpoint_step",
+                "address": "%ML0",
+                // The setpoint marker holds its initialized 20.0 (Specification 11 §6.5), which the
+                // experiment restores.
+                "value": 25,
+                "restoration_value": 20,
+                "value_type": "LREAL",
+                "minimum": 0,
+                "maximum": 100,
+                "duration_ms": 10_000,
+                "expected_scan": 1,
+                // The experiment runs at the boundaries of the loop's task and checks its mode itself.
+                "task": "MainTask",
+                "mode_binding": { "symbol": "P1.AutoMode", "manual_value": false }
+            }
+        }),
+    );
+    assert_control_ok(&started, "control.experiment.start");
+
+    thread::sleep(Duration::from_millis(350));
+    let scan_after = io_state_scan(&mut adapter).expect("the Debug Adapter keeps its I/O view");
+    let feedback = lreal_input(&adapter, "%IL0");
+    adapter.stop_simulator();
+    assert!(
+        scan_after > scan_before,
+        "debug control experiment stopped the PID loop at scan {scan_before}"
+    );
+    assert!(
+        feedback.is_some_and(|value| value > 0.0),
+        "debug runner must advance the configured simulated plant, got {feedback:?}"
+    );
+
+    fs::remove_dir_all(project_root).ok();
+}
+
+/// Specification 35, A3.5: a valid typed LREAL write to the marker the PID's setpoint is bound to
+/// (`%ML0`) is applied at the next scan of the simulator's program, which goes on running. Catches a
+/// debug runtime that faults the scan on a typed LREAL marker write.
+#[test]
+fn debug_runtime_accepts_a_typed_lreal_control_experiment_write() {
+    let project_root = unique_project_root("control-experiment-lreal");
+    let src = project_root.join("src");
+    fs::create_dir_all(&src).unwrap();
+    let main_path = src.join("main.st");
+    fs::write(
+        &main_path,
+        include_str!(
+            "../../../../editors/vscode/src/test/fixtures/control-engineering/live-simulation-project/src/main.st"
+        ),
+    )
+    .unwrap();
+    fs::write(
+        src.join("control.st"),
+        include_str!("../../../../libraries/control/src/control.st"),
+    )
+    .unwrap();
+    fs::write(
+        project_root.join("io.toml"),
+        include_str!(
+            "../../../../editors/vscode/src/test/fixtures/control-engineering/live-simulation-project/io.toml"
+        ),
+    )
+    .unwrap();
+
+    let (_session, simulator) = super::super::control_bridge::start_simulator(
+        &project_root,
+        &main_path,
+        trust_runtime::control::ControlEndpoint::Tcp("127.0.0.1:0".parse().unwrap()),
+        None,
+    );
+    let state = simulator.control_server().state();
+    let scan = first_snapshot_scan(&state);
+    let queued = state.debug.try_enqueue_io_write(
+        trust_runtime::io::IoAddress::parse("%ML0").unwrap(),
+        trust_runtime::value::Value::LWord(5.0_f64.to_bits()),
+    );
+    // The write is applied in the scan after the one running now at the latest; the scan after
+    // that one shows whether the program went on.
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let fault = loop {
+        if let Some(fault) = state.resource.last_error() {
+            break Some(fault);
+        }
+        let latest = state
+            .io_snapshot
+            .lock()
+            .unwrap()
+            .as_ref()
+            .and_then(|snapshot| snapshot.scan);
+        if latest.is_some_and(|latest| latest > scan + 1) {
+            break None;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "the simulator scanned no more after the write"
+        );
+        thread::sleep(Duration::from_millis(5));
+    };
+    simulator.stop();
+    assert!(queued.is_ok(), "the write is refused: {queued:?}");
+    assert!(
+        fault.is_none(),
+        "the debug runtime faulted after a valid typed LREAL write: {fault:?}"
+    );
+
+    fs::remove_dir_all(project_root).ok();
+}
+
+/// The scan of the I/O state that `stIoState` reports for the adapter's program.
+fn io_state_scan(adapter: &mut DebugAdapter) -> Option<u64> {
+    let outcome = adapter.dispatch_request(Request {
+        seq: 40,
+        message_type: MessageType::Request,
+        command: "stIoState".to_string(),
+        arguments: None,
+    });
+    outcome.events.iter().find_map(|value| {
+        let event: Event<IoStateEventBody> = serde_json::from_value(value.clone()).ok()?;
+        event.body?.scan
+    })
+}
+
+/// The value of the LREAL input `address` in the I/O snapshot that the control server of the
+/// adapter's simulator holds.
+fn lreal_input(adapter: &DebugAdapter, address: &str) -> Option<f64> {
+    let address = trust_runtime::io::IoAddress::parse(address).ok()?;
+    let snapshot = adapter
+        .simulator
+        .as_ref()?
+        .control_server()
+        .state()
+        .io_snapshot
+        .lock()
+        .ok()?
+        .clone()?;
+    let entry = snapshot
+        .inputs
+        .into_iter()
+        .find(|entry| entry.address == address)?;
+    match entry.value {
+        trust_runtime::io::IoSnapshotValue::Value(trust_runtime::value::Value::LReal(value)) => {
+            Some(value)
+        }
+        trust_runtime::io::IoSnapshotValue::Value(trust_runtime::value::Value::LWord(bits)) => {
+            Some(f64::from_bits(bits))
+        }
+        _ => None,
+    }
+}
+
+/// The scan of the first I/O snapshot that the control server `state` holds.
+fn first_snapshot_scan(state: &trust_runtime::control::ControlState) -> u64 {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let scan = state
+            .io_snapshot
+            .lock()
+            .unwrap()
+            .as_ref()
+            .and_then(|snapshot| snapshot.scan);
+        if let Some(scan) = scan {
+            return scan;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "the simulator published no I/O snapshot"
+        );
+        thread::sleep(Duration::from_millis(5));
+    }
+}
+
+pub(super) fn unique_project_root(label: &str) -> PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "trust-debug-{label}-{}-{nanos}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&root).unwrap();
+    root
+}
+
+pub(super) fn reserve_loopback_addr() -> SocketAddr {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    drop(listener);
+    addr
+}
+
+fn initialize_adapter_for_launch(adapter: &mut DebugAdapter, seq: u32) {
+    let outcome = adapter.dispatch_request(Request {
+        seq,
+        message_type: MessageType::Request,
+        command: "initialize".to_string(),
+        arguments: Some(serde_json::to_value(InitializeArguments::default()).unwrap()),
+    });
+    assert_eq!(outcome.responses.len(), 1);
+    let response: Response<InitializeResponseBody> =
+        serde_json::from_value(outcome.responses[0].clone()).unwrap();
+    assert!(response.success, "initialize must succeed before launch");
+}
+
+/// Launches the program `main.st` of the project at `project_root` in `adapter` with its control
+/// server at `endpoint`, authenticated with `auth`, and ends the configuration, as a client does.
+pub(super) fn launch_debug_control_session(
     adapter: &mut DebugAdapter,
     project_root: &Path,
     endpoint: &str,
@@ -1153,7 +685,7 @@ fn launch_debug_control_session(
     );
 }
 
-fn send_control_request(
+pub(super) fn send_control_request(
     addr: SocketAddr,
     auth: &str,
     mut request: serde_json::Value,
@@ -1190,7 +722,7 @@ fn send_control_request(
     }
 }
 
-fn assert_control_ok(response: &serde_json::Value, label: &str) {
+pub(super) fn assert_control_ok(response: &serde_json::Value, label: &str) {
     assert_eq!(
         response.get("ok").and_then(serde_json::Value::as_bool),
         Some(true),
@@ -1198,61 +730,6 @@ fn assert_control_ok(response: &serde_json::Value, label: &str) {
     );
 }
 
-fn control_result(response: &serde_json::Value) -> &serde_json::Value {
+pub(super) fn control_result(response: &serde_json::Value) -> &serde_json::Value {
     response.get("result").expect("control response result")
-}
-
-#[test]
-fn dispatch_run_controls_update_debug_mode() {
-    let runtime = trust_runtime::RuntimeBuilder::new();
-    let mut adapter = DebugAdapter::new(DebugSession::new(runtime.build().unwrap()));
-    let control = adapter.session().debug_control();
-
-    let pause_req = Request {
-        seq: 1,
-        message_type: MessageType::Request,
-        command: "pause".to_string(),
-        arguments: Some(serde_json::to_value(PauseArguments { thread_id: 1 }).unwrap()),
-    };
-    adapter.dispatch_request(pause_req);
-    assert_eq!(control.mode(), trust_runtime::debug::DebugMode::Paused);
-
-    let step_in_req = Request {
-        seq: 2,
-        message_type: MessageType::Request,
-        command: "stepIn".to_string(),
-        arguments: Some(serde_json::to_value(StepInArguments { thread_id: 1 }).unwrap()),
-    };
-    adapter.dispatch_request(step_in_req);
-    assert_eq!(control.mode(), trust_runtime::debug::DebugMode::Running);
-
-    control.pause();
-    let next_req = Request {
-        seq: 3,
-        message_type: MessageType::Request,
-        command: "next".to_string(),
-        arguments: Some(serde_json::to_value(NextArguments { thread_id: 1 }).unwrap()),
-    };
-    adapter.dispatch_request(next_req);
-    assert_eq!(control.mode(), trust_runtime::debug::DebugMode::Running);
-
-    control.pause();
-    let step_out_req = Request {
-        seq: 4,
-        message_type: MessageType::Request,
-        command: "stepOut".to_string(),
-        arguments: Some(serde_json::to_value(StepOutArguments { thread_id: 1 }).unwrap()),
-    };
-    adapter.dispatch_request(step_out_req);
-    assert_eq!(control.mode(), trust_runtime::debug::DebugMode::Running);
-
-    control.pause();
-    let continue_req = Request {
-        seq: 5,
-        message_type: MessageType::Request,
-        command: "continue".to_string(),
-        arguments: Some(serde_json::to_value(ContinueArguments { thread_id: 1 }).unwrap()),
-    };
-    adapter.dispatch_request(continue_req);
-    assert_eq!(control.mode(), trust_runtime::debug::DebugMode::Running);
 }

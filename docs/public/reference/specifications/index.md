@@ -9,10 +9,10 @@ instead of sending readers to GitHub.
 | Question | Open |
 | --- | --- |
 | “What does IEC Structured Text itself allow?” | the language chapters `01` through `09` |
-| “How does truST execute ST programs?” | [10 Runtime Semantics](10-runtime-semantics.md) |
+| “How does truST execute ST programs?” | [10 Runtime Semantics](10-runtime-semantics.md) and [44 Native Execution](44-native-execution.md) |
 | “How does the runtime support STM32 and ESP32?” | [34 Runtime Portability](34-runtime-portability.md) |
 | “How is the runtime platform structured?” | [11 Runtime Engine](11-runtime-engine.md) |
-| “What does the bytecode container look like?” | [12 Bytecode](12-bytecode.md) |
+| “How is a program compiled into an image, and how does the image run?” | [44 Native Execution](44-native-execution.md) |
 | “How does debugging behave?” | [13 Debug Adapter](13-debug-adapter.md) |
 | “How does the editor/LSP layer behave?” | [14 LSP](14-lsp.md) |
 | “How does ladder fit into truST?” | [15 Ladder Diagram](15-ladder-diagram.md) and [16 Ladder Profile truST](16-ladder-profile-trust.md) |
@@ -48,8 +48,9 @@ for task-oriented programming docs.
 
 - [10 Runtime Semantics](10-runtime-semantics.md)
 - [11 Runtime Engine](11-runtime-engine.md)
-- [12 Bytecode](12-bytecode.md)
+- [12 Bytecode](12-bytecode.md) (superseded by 44)
 - [34 Runtime Portability](34-runtime-portability.md)
+- [44 Native Execution](44-native-execution.md)
 
 ### Tooling
 

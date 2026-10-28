@@ -56,7 +56,7 @@ fn config_lock_state() -> (
     ControlState,
     std::sync::mpsc::Receiver<crate::scheduler::ResourceCommand>,
 ) {
-    let mut state = hmi_test_state(CONCURRENT_CONTROL_SOURCE);
+    let mut state = control_test_state(CONCURRENT_CONTROL_SOURCE);
     let (control, queued) =
         crate::scheduler::ResourceControl::stub(crate::scheduler::StdClock::new());
     state.resource = control;

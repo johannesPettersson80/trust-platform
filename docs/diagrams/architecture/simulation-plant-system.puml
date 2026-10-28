@@ -1,0 +1,168 @@
+@startuml simulation-plant-system
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle uml2
+skinparam linetype ortho
+
+title truST Simulation Plant System: Scan And Ownership Boundaries
+
+package "VS Code extension" {
+  component "Plant contract decoder +\ncanvas model names" as plant_contract
+  component "Devices & Connections\ngraph shell" as device_graph
+  component "Add/configure workflow\nmain-area plant setup" as plant_drawer
+  component "Model response / Connections /\nStarting conditions / Optional effects" as plant_sections
+  component "PlantModelSchematic\nqualitative themed SVG" as plant_schematic
+  component "Optional teaching example\nvalues and units confirmation through plant.edit" as plant_example
+  component "Indexed port bindings\nbound through plant.edit" as plant_ports
+  component "Labelled starting-state fields\ntyped values into the draft" as plant_starting
+  component "PlantOptionalSettings\none selected task / Rust summaries" as plant_optional
+  component "Project plant repository\natomic save/remove + revision" as plant_repo
+  component "Runtime plant client\nstatus + trace" as plant_client
+  component "Stopped-project session\nJSON-lines correlation" as offline_client
+  component "Typed Control Studio\nhandoff" as plant_handoff
+}
+
+component "Live control transport" as live_transport
+plant_sections --> plant_ports : named command / feedback rows
+plant_sections --> plant_schematic : selected model identity + purpose
+plant_ports --> plant_drawer : bind_port; Rust checks the address\nand keeps channel order and conversions
+plant_sections --> plant_starting : model-specific starting conditions
+plant_starting --> plant_drawer : same initial-state vector\nno unit or dynamics conversion
+plant_sections --> plant_optional : actuator / conversions / realism / scenarios
+plant_optional --> plant_drawer : summaries from the plant.edit view\nno secondary settings state
+component "trust-runtime plant serve\nstopped-project producer" as offline_transport
+component "Shared plant handler\nPlantHandlerContext" as plant_operations
+component "Plant editor rules\nplant.edit / plant.signals:\nchecks, defaults, edits, view, candidate" as plant_editor_rules
+component "PlantControlService\nrevision + idempotency" as plant_service
+component "Scheduler command boundary\nstatus / trace / scoped clear" as scheduler_boundary
+component "config.set\nsimulation.time_scale\nrefused without simulation" as config_speed
+component "Control status\nsimulation_time_scale +\nsimulation_achieved_time_scale" as status_speed
+component "RuntimeMetrics\nper-resource achieved speed" as metrics_speed
+
+component "PLC program\nControl.PID" as plc
+component "Process image\n%Q command / %I feedback" as io
+component "Program storage\nunaddressed command / read-only feedback variables" as program_storage
+component "Control.PID simulation members\nHeldMeasurement + MeasurementHeld, written\nbefore the scan; Update uses the held value" as controller_measurement
+component "SimulationController\npre/post-cycle orchestration" as simulation
+note right of simulation
+Model-structure teaching project: the existing continuous state-space
+model owns water and probe deviations, input delay and initial history.
+Binding offsets preserve the 35 C / 75% operating point; model-coordinate
+actuator limits map to physical 0..100% heating. ST reads both native
+temperatures through ordinary PLC inputs and does not emulate the probe.
+end note
+component "Launch safety gate\nreject physical I/O drivers" as safety
+component "Status + bounded trace" as observability
+
+package "PlantSystem" {
+  component "Validated plant instance\nstate + fixed-step accumulator" as plant
+  component "Typed numeric I/O\nchecked conversion + atomic batch" as numeric
+  component "Scheduled events" as events
+  component "Command and actuator effects" as actuator
+  component "Shared bounded input history\nscalar / continuous state-space channel delays\nchecked aggregate capacity before allocation" as input_history
+  component "Nominal model" as model
+  component "Parameter, state, output,\nand measurement uncertainty" as uncertainty
+  component "Model-validity bounds\ninput + state + output" as validity
+  component "Preallocated checkpoint\nfailed-substep rollback" as checkpoint
+}
+
+package "Simulation time (spec 46 §6.1)" as simTime {
+  component "Resource loop\nrunner_loop.rs: each cycle paced at\ncycle interval / time_scale; pause, resume\nand a speed change restart the schedule" as sim_loop
+  component "CycleTiming\ncycle_timing.rs: one exact step per\nexecuted cycle; wall clock without simulation" as sim_timing
+  component "SimulationSpeed\nshared time_scale 1..100\nnew speed applies from the next cycle" as sim_speed
+  component "AchievedSpeedWindow\nsimulation span / wall span over the\nlast 5 s, reported after 1 s of wall time" as sim_achieved
+  component "VS Code simulator\ntrust-debug SimulatorClock\nsame pacing and achieved-speed rules" as vscode_sim
+}
+
+note right of sim_timing
+Simulation time is the runtime's process time while simulation
+is enabled. Wall-clock time and CPU duration do not enter plant
+equations. A zero cycle interval reads the scaled wall clock.
+end note
+
+safety --> simulation : permits nonphysical drivers only
+plant_contract --> device_graph : typed topology state
+plant_contract --> plant_drawer : decoded plant.edit answer\n(draft, issues, view, candidate)
+plant_drawer --> plant_sections : one draft and validation state
+plant_sections --> plant_example : explicit example choice and replacement review
+plant_example --> plant_drawer : same canonical draft; no browser physics
+plant_drawer --> plant_repo : plant.edit per draft change or rule-bearing edit\nvalidate / atomic save or remove
+device_graph --> plant_client : current status request
+plant_client --> live_transport : bounded typed request
+plant_repo --> offline_client : stopped-project read / edit / signals /\nvalidate / save / remove
+offline_client --> offline_transport : correlated JSON lines
+live_transport --> plant_operations : runtime context
+offline_transport --> plant_operations : project context
+plant_operations --> plant_editor_rules : plant.edit / plant.signals\n(no file write, no runtime state)
+plant_editor_rules --> plant_operations : candidate judged by the runtime's\nplant-configuration validation
+plant_operations --> plant_service : serialize project mutation
+plant_operations --> scheduler_boundary : immutable query / explicit clear
+plant_service --> plant_operations : replay or apply once
+scheduler_boundary --> simulation : scheduler-owned access
+device_graph --> plant_handoff : project/runtime/plant/loop identity
+plc --> io : commits command during scan
+io --> simulation : post-cycle held command
+program_storage --> simulation : post-cycle held command (symbolic path)
+simulation --> plant : elapsed simulation time
+events --> plant : due actions before substep
+plant --> actuator : command uncertainty first
+actuator --> model : undelayed process input
+actuator --> input_history : configured transport delay
+input_history --> model : held channel inputs\nsplit existing RK4 steps at delayed boundaries
+actuator --> validity : check applied input
+actuator --> numeric : optional applied-input feedback\ninverse binding scale; previous completed substep
+note right of numeric
+Applied feedback shares byte-range ownership checks with
+plant, coupling and physics inputs. Reset and fault paths
+retain one atomic next-scan publication boundary.
+end note
+uncertainty --> model : effective parameters
+model --> uncertainty : state and ideal output
+uncertainty --> validity : check completed state + ideal output
+validity --> checkpoint : fail outside local model region
+uncertainty --> plant : completed measurement
+plant --> checkpoint : save before substep
+checkpoint --> plant : restore on fault
+checkpoint --> input_history : same substep rollback boundary
+plant --> numeric : queue complete feedback
+numeric --> simulation : checked encoded batch
+simulation --> io : next pre-cycle atomic publication
+simulation --> program_storage : then symbolic feedback, all values checked first
+simulation --> controller_measurement : pid:<instance> feedback, written with the program\n(cleared at a new program generation)
+controller_measurement --> plc : the PID's Update takes it as ProcessValue; Input unchanged
+io --> plc : next scan reads feedback
+plant --> observability : completed state and fault context
+observability --> plant_operations : honest status + bounded trace
+live_transport --> config_speed : config.set request
+config_speed --> sim_speed : set on the running resource\nfrom the next cycle; never moves time
+sim_speed --> sim_loop : speed in force before each cycle
+sim_loop --> sim_timing : begin_cycle(wall time, cycle interval)
+sim_loop --> simulation : pre-cycle and post-cycle hooks
+sim_timing --> simulation : process time of the executed cycle
+sim_timing --> sim_achieved : simulation time per wall time
+sim_achieved --> metrics_speed : achieved speed published
+metrics_speed --> status_speed : read by control status
+live_transport --> status_speed : status request
+vscode_sim ..> sim_timing : same rules
+
+note right of plant_contract
+Transport-independent contract.
+No React, filesystem, endpoint,
+or executor types.
+end note
+
+note right of plant_handoff
+Identities and revisions only.
+Simulation source is explicit.
+No copied live samples.
+end note
+
+note right of plant
+Each substep commits atomically.
+Random streams derive from master seed,
+plant ID, and uncertainty ID.
+Execution buffers are allocated at activation.
+Validity faults roll back; bounds are not safety interlocks.
+end note
+
+@enduml

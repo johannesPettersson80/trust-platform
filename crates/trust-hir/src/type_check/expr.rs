@@ -26,6 +26,7 @@ impl<'a> TypeChecker<'a> {
             loop_stack: Vec::new(),
             label_scopes: Vec::new(),
             expression_types: FxHashMap::default(),
+            resolved_symbols: FxHashMap::default(),
         }
     }
 
@@ -75,6 +76,33 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         self.checker.record_expression_type(node, type_id)
     }
 
+    /// An enumeration's typed literal names one of its values (IEC 61131-3 §6.4.4.2, Table 11):
+    /// `Color#Blue` of a `Color` that declares `Blue`; a number after the prefix is a typed number
+    /// of a type with named values, which this does not check.
+    fn check_enumeration_literal(&mut self, node: &SyntaxNode, type_name: &str, type_id: TypeId) {
+        let resolved = self.checker.resolve_alias_type(type_id);
+        let Some(Type::Enum { values, .. }) = self.checker.symbols.type_by_id(resolved) else {
+            return;
+        };
+        let text = node.text().to_string();
+        let Some((_, value_text)) = text.split_once('#') else {
+            return;
+        };
+        let value = value_text.rsplit('.').next().unwrap_or("").trim();
+        if !value.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+            || values
+                .iter()
+                .any(|(name, _)| name.eq_ignore_ascii_case(value))
+        {
+            return;
+        }
+        self.checker.diagnostics.error(
+            DiagnosticCode::CannotResolve,
+            node.text_range(),
+            format!("invalid typed literal: {value} is no value of {type_name}"),
+        );
+    }
+
     fn infer_literal(&mut self, node: &SyntaxNode) -> TypeId {
         // Check for typed literal prefix (e.g., DINT#123)
         for token in node
@@ -86,10 +114,30 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             }
 
             let type_name = token.text().strip_suffix('#').unwrap_or(token.text());
-            if let Some(type_id) = TypeId::from_builtin_name(type_name) {
-                return type_id;
-            }
-            if let Some(type_id) = self.checker.symbols.lookup_registered_type_name(type_name) {
+            // A type of the scope, a namespace a USING directive names included (IEC §6.9.4).
+            let named = match self
+                .checker
+                .resolve_ref()
+                .resolve_type_by_name_outcome(type_name, Some(node.text_range()))
+            {
+                SemanticOutcome::Resolved(type_id) => Some(type_id),
+                // IEC type names remain usable when a value with the same name is in scope.
+                SemanticOutcome::WrongKind { .. } => {
+                    self.checker.symbols.lookup_registered_type_name(type_name)
+                }
+                SemanticOutcome::Ambiguous { .. } => {
+                    return self.checker.legacy_diagnostic_type(
+                        DiagnosticCode::CannotResolve,
+                        node.text_range(),
+                        format!("ambiguous typed literal prefix '{}'", type_name),
+                    );
+                }
+                SemanticOutcome::Unknown { .. }
+                | SemanticOutcome::SuppressedCascade { .. }
+                | SemanticOutcome::InvariantViolation { .. } => None,
+            };
+            if let Some(type_id) = named {
+                self.check_enumeration_literal(node, type_name, type_id);
                 return type_id;
             }
             return self.checker.legacy_diagnostic_type(
@@ -175,18 +223,17 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             .resolve_name_in_context_outcome(&name, node.text_range())
         {
             NameResolveOutcome::Resolved(resolved) => {
+                self.checker.record_resolved_symbol(node, resolved.id);
                 let Some(symbol) = self.checker.symbols.get(resolved.id) else {
                     return self.checker.legacy_type_from_outcome(
                         self.checker.unknown_type_outcome(node.text_range()),
                     );
                 };
                 if matches!(symbol.kind, SymbolKind::EnumValue { .. })
-                    && matches!(
-                        self.checker
-                            .symbols
-                            .resolve_enum_value_by_name(name.as_str()),
-                        EnumValueResolution::Ambiguous
-                    )
+                    && self
+                        .checker
+                        .symbols
+                        .enum_value_ambiguous_from(self.checker.current_scope, name.as_str())
                 {
                     return self.checker.legacy_diagnostic_type(
                         DiagnosticCode::CannotResolve,
@@ -262,7 +309,7 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         let rhs_type = self.check_expression(rhs_node);
 
         let op = BinaryOp::from_node(node);
-        let (lhs_type, rhs_type) = if op.is_comparison() || op.is_arithmetic() {
+        let (lhs_type, rhs_type) = if op.is_comparison() || op.is_arithmetic() || op.is_logical() {
             self.contextual_numeric_operand_types(lhs_type, lhs_node, rhs_type, rhs_node)
         } else {
             (lhs_type, rhs_type)
@@ -485,7 +532,8 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         {
             return;
         }
-        // Most types are comparable to themselves
+        // Most types are comparable to themselves; two values of one interface type for equality
+        // only, which the ordering check above already refused (IEC 61131-3 §6.6.6.5.1).
         if lhs == rhs {
             if matches!(
                 self.checker.symbols.type_by_id(lhs),
@@ -495,7 +543,6 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
                         | Type::Union { .. }
                         | Type::FunctionBlock { .. }
                         | Type::Class { .. }
-                        | Type::Interface { .. }
                 )
             ) {
                 self.checker.diagnostics.error(

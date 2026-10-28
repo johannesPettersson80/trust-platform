@@ -188,10 +188,14 @@ def audit_vsix() -> dict[str, Any]:
             "trust-lsp.exe editors/vscode/bin/",
             "trust-debug.exe editors/vscode/bin/",
             "trust-runtime.exe editors/vscode/bin/",
+            # Specification 44 §4.6: each platform's extension carries its toolchain bundle.
+            "needs: [release-preflight, toolchain-bundle]",
+            "name: toolchain-${{ matrix.platform }}\n          path: editors/vscode/bin",
+            'wanted = f"extension/bin/trust-toolchain-{platform}.tar.gz"',
         ],
         "VSIX target contract",
     )
-    return {"targets": list(PLATFORMS), "embedded_binaries": 3}
+    return {"targets": list(PLATFORMS), "embedded_binaries": 3, "carried_toolchain": True}
 
 
 def audit_artifact_provenance() -> dict[str, Any]:

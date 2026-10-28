@@ -39,37 +39,45 @@ fn instrument_program_block(block: &str, annotations: &[Annotation]) -> String {
         return block.to_string();
     }
 
-    let lines = block.lines().collect::<Vec<_>>();
-    let Some(var_end) = lines
+    // Use parsed token boundaries: END_VAR and END_PROGRAM need not occupy
+    // their own lines, and keyword text in comments/strings is not a boundary.
+    use trust_syntax::{parser::parse, SyntaxKind};
+    let syntax = parse(block).syntax();
+    let tokens: Vec<_> = syntax
+        .descendants_with_tokens()
+        .filter_map(|element| element.into_token())
+        .collect();
+    let Some(var_end) = tokens
         .iter()
-        .position(|line| line.trim().eq_ignore_ascii_case("END_VAR"))
+        .find(|token| token.kind() == SyntaxKind::KwEndVar)
     else {
         return block.to_string();
     };
-    let Some(end_program) = lines
+    let Some(end_program) = tokens
         .iter()
-        .rposition(|line| line.trim().eq_ignore_ascii_case("END_PROGRAM"))
+        .rfind(|token| token.kind() == SyntaxKind::KwEndProgram)
     else {
         return block.to_string();
     };
+    let var_end = usize::from(var_end.text_range().start());
+    let end_program = usize::from(end_program.text_range().start());
 
-    let mut out = String::new();
-    for (idx, line) in lines.iter().enumerate() {
-        if idx == var_end {
-            for declaration in hidden_declarations(annotations) {
-                out.push_str(&declaration);
-                out.push('\n');
-            }
-        }
-        if idx == end_program {
-            for statement in hidden_statements(annotations) {
-                out.push_str(&statement);
-                out.push('\n');
-            }
-        }
-        out.push_str(line);
-        out.push('\n');
+    // The generated declarations stand on the line of the first `END_VAR`, just before the token,
+    // and the generated calls on the line of `END_PROGRAM`, so that every line of the source keeps
+    // its number for diagnostics, breakpoints and stepping (specification 27 §10.3).
+    let mut out = String::with_capacity(block.len() + 2048);
+    out.push_str(&block[..var_end]);
+    for declaration in hidden_declarations(annotations) {
+        out.push_str(declaration.trim());
+        out.push(' ');
     }
+    out.push_str(&block[var_end..end_program]);
+    for statement in hidden_statements(annotations) {
+        out.push_str(&statement.trim().replace('\n', " "));
+        out.push(' ');
+    }
+    out.push_str(&block[end_program..]);
+
     out
 }
 

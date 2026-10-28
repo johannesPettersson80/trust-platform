@@ -18,8 +18,8 @@ successful `git init` exit status.
 The guided CLI, browser setup, and automatic first-run wizard must leave a
 coherent runnable project rather than a collection of independently valid
 files. A selected resource name and cycle interval are applied to
-`runtime.toml`, the setup-owned `src/config.st`, and the rebuilt `program.stbc`
-as one prepared change. The complete source set must compile before these
+`runtime.toml`, the setup-owned `src/config.st`, and the rebuilt program image
+`program.tpi` as one prepared change. The complete source set must compile before these
 artifacts are replaced. A cycle interval of zero, an invalid or reserved IEC
 identifier, or a source/build failure rejects the setup instead of writing a
 known-invalid runtime configuration.
@@ -30,7 +30,7 @@ punctuation-only names use `Res`; a leading digit or reserved keyword is
 prefixed with `Res`. This generation rule is product scaffolding that consumes
 the IEC identifier contract; it is not an IEC decision or deviation.
 
-Wizard bytecode generation recursively discovers `.st` and `.pou` files using
+The wizard's build recursively discovers `.st` and `.pou` files using
 ASCII case-insensitive extensions, deterministic path order, and literal
 filesystem names. It includes resolved local project dependencies and
 propagates directory/file-read failures. Selecting system I/O removes an
@@ -38,7 +38,8 @@ existing project `io.toml` regular file or symbolic link, including a dangling
 link, but rejects a directory or unsupported filesystem object at that path.
 Automatic setup migrates a legacy `sources/` tree to `src/` before discovery,
 removes only the exact obsolete generated `io.st` template, and compiles the
-migrated project plus resolved local dependencies into validated bytecode.
+migrated project plus resolved local dependencies into a program image that
+this computer admits (specification 44 §10.2).
 
 Remote browser setup tokens contain 128 bits from the operating-system secure
 random source. If that source fails, setup aborts before binding the server; it
@@ -71,8 +72,9 @@ contracts, not IEC decisions or deviations.
 
 The first eight single-file programs under `examples/tutorials/` and the
 standalone `examples/tutorials/09_simulation_coupling/` project are shipped
-product artifacts. Every Structured Text source must compile through both the
-in-process runtime harness and the current source-to-bytecode path. Tutorial 09
+product artifacts. Every Structured Text source must build into a program image
+for this computer through the in-process test harness (specification 10
+§11.1). Tutorial 09
 must also pass `trust-runtime check --project` from its checked-in project root,
 including its runtime and I/O configuration, so the documented Runtime Panel
 flow works without repository-root fallback. Success requires these paths to
@@ -107,15 +109,15 @@ arbitrary-language conformance claim:
 - the plant demo configuration retains its reviewed resource, task, program,
   and directly represented I/O bindings;
 - the reviewed EtherCAT, Mitsubishi GX Works3, PLCopen ST-complete, and Siemens
-  SCL project examples parse, type-check, and lower to bytecode;
-- every visual example companion/runtime pair compiles through both the
-  runtime and source-to-bytecode paths, and at least one such pair exists; and
+  SCL project examples parse, type-check, and lower;
+- every visual example companion/runtime pair builds into a program image for
+  this computer, and at least one such pair exists; and
 - every tracked Structured Text example in the repository example corpus
   parses without diagnostics.
 
 Fixture discovery, copying, and filesystem setup are test preconditions. The
 product oracle is the bounded tracked corpus and the named build, validation,
-parse, type-check, and bytecode outcomes; it does not certify arbitrary vendor
+parse, type-check, and program-image outcomes; it does not certify arbitrary vendor
 projects or every IEC language partition.
 
 ## Source Discovery
@@ -140,9 +142,15 @@ test kind, namespace-qualified name, source path, one-based declaration line,
 and declaration source line. Comments and other parser trivia following a test
 name do not change its identity. Results are ordered by source path, declaration
 offset, and name so repeated discovery of the same source set is deterministic.
+One implementation (`trust_runtime::test_discovery`) serves `trust-dev test` and
+the VS Code Testing view (specification 25 §11.1), so a test has one name in both.
 
 `TEST_PROGRAM` and `TEST_FUNCTION_BLOCK` are truST test-workflow extensions,
 not additional IEC 61131-3 POU kinds and not IEC deviations.
+They are executable entry points for the test runner. Unused-POU analysis must
+not report W009 for either declaration merely because no production program
+instance or function-block variable references it. Unreferenced production
+POUs and unused local variables inside tests retain their ordinary warnings.
 
 ## Test case execution
 
@@ -153,6 +161,13 @@ Shared discovery, compilation, and runtime preparation occur outside the
 per-case execution deadline; that deadline begins immediately before the
 selected case is invoked.
 
+A matching name filter restricts execution and reported cases, not the source
+set needed to compile them. Register every discovered test program during
+runtime preparation, including filtered-out declarations in a configured
+project. Only matching cases are invoked. Human/CLI and structured JSON paths
+must obey the same rule; unrelated test programs must not become unbound or
+execute merely because a sibling test was selected.
+
 Execution mode also compiles the complete project when discovery finds no test
 POU. An invalid project therefore fails visibly instead of being reported as a
 successful empty test run. Listing remains discovery-only, and an explicit
@@ -162,13 +177,34 @@ The selected declaration is then invoked at its own boundary:
 `TEST_PROGRAM` as a program and `TEST_FUNCTION_BLOCK` as a function-block
 instance.
 
+The tests run compiled for this computer (specification 44 §14.2), in one
+program image that holds every discovered test program as an instance no task
+runs, as a debug or a release image as the project's `[build] debug` chooses
+(specification 44 §13.2). They need the toolchain of specification 44 §4.6,
+named by `TRUST_TOOLCHAIN` or installed; without it the command fails with the
+advice to install it. A project with a construct the native build does not
+compile yet fails with the build's diagnostic. With `--device <port> --target <target>` they run
+on that device instead: the same image, compiled for the target, is installed
+once over the device's control link, and each selected test runs by one
+`cycle.step` that restarts the program cold and runs its test program's body
+(specification 11 §6.8.1). The image runs no test program by itself: its test
+programs are instances that no task runs, the background programs' included
+(specification 44 §5.6), so a start of the device, at a reset for example, runs
+only the project's own programs, and a test runs only when it is invoked. The
+device's limits are its own, its statement budget among them. A failed assertion's error, `assertion failed: <message>`,
+is the test's failure with that message, and any other error is the test's
+error, as on this computer.
+
 When a production `CONFIGURATION` exists, discovered test programs are registered
 as additional program instances for the test session. A case filter selects
 invocation and reporting, not which declarations participate in whole-project
-compilation; unselected tests are not executed. Ordinary runtime
-construction without that explicit registration continues to reject an
-unconfigured test program; the test runner does not silently alter the
-production configuration.
+compilation; unselected tests are not executed. A production build of the same
+project (`trust-runtime build`, `run`, a debug or Control Studio session) leaves
+its `TEST_PROGRAM` declarations unbound and does not instantiate them: they are
+test entry points, not part of the production program, so a runnable project
+may keep its tests beside its configuration. An unbound ordinary `PROGRAM`
+under a `CONFIGURATION` is still refused. The test runner does not silently
+alter the production configuration.
 
 The hosted explicit entry APIs select admitted POU identities: a supplied
 program declaration contributes its name, never a replacement executable AST.
@@ -664,7 +700,7 @@ inside CDATA. Names, kinds, source paths, and one-based physical declaration
 lines are reproduced in the embedded and sidecar source maps. Source-map
 entries follow the deterministic exported POU order.
 
-TYPE blocks export elementary, bounded and unbounded string, derived,
+TYPE blocks export elementary, string with and without a declared length, derived,
 multi-dimensional array, nonempty structure, nonempty enumeration, and
 subrange expressions through their matching PLCopen base-type representation.
 Field/element/dimension order and simple initial or explicit values are
@@ -878,56 +914,10 @@ other optional-project workflows, except when the owning specification
 explicitly defines a first-run creation flow. The runtime launcher contract
 defines that narrow exception for `trust-runtime play`.
 
-## HMI scaffold command
+## HMI pages
 
-`trust-runtime hmi init|update|reset` follows the optional-project resolution
-contract above. An explicit `--project` path is authoritative; without it, the
-command uses standard bundle detection and preserves a detection failure
-instead of silently substituting the current directory.
-
-Before changing `hmi/`, the command discovers the complete recursive `.st` and
-`.pou` project source set, including resolved local dependencies, and compiles
-that source set into runtime metadata and an initial value snapshot. The
-absence of any supported source, unreadable or invalid source metadata,
-dependency-resolution failure, or compile failure aborts the command before
-scaffold files are created, replaced, or backed up.
-
-`init` creates the generated descriptor and fails on a non-empty existing
-`hmi/` directory unless `--force` is supplied. `update` preserves existing
-descriptor files and user layout while merging missing generated pages and
-signals. `reset` creates a backup snapshot of a non-empty existing descriptor
-and then regenerates scaffold-owned files. Each successful command prints the
-selected project `hmi/` path, the applied mode, and the deterministic scaffold
-summary; a failed command must not print a false success summary.
-
-For the same compiled metadata and value snapshot, generation is deterministic.
-Externally visible globals and program members are included; internal compiler
-or runtime symbols are excluded. If a program has only local symbols, the
-generator emits the reviewed inferred-interface fallback instead of an empty
-operator surface. Widget selection follows the declared type bucket and
-writability, and annotations may refine labels, units, limits, page placement,
-and presentation without changing the underlying binding identity. Invalid or
-incomplete annotations fall back to the ordinary inferred metadata.
-
-The generated scaffold contains the required overview, control, and process
-pages. Repeated instance prefixes form separate deterministic sections. The
-automatic process SVG uses grid-aligned instrument templates, and process
-bindings preserve their reviewed fill geometry. Generated overview size,
-configuration version, and widget count remain within the published scaffold
-budget.
-
-`update` adds missing generated signals and files without overwriting custom
-widgets or replacing an existing custom process page. It omits the default
-control page when there are no writable points. The loader discovers and sorts
-descriptor pages deterministically, promotes `process.auto.svg` to the active
-custom asset, and merges defaults, annotations, and file overrides in that
-order. Invalid descriptor TOML is not published. A legacy single-file HMI
-descriptor is used only when the `hmi/` directory is absent; the directory
-form takes precedence whenever it exists.
-
-These command, filesystem, and scaffold-lifecycle rules are truST product
-contracts. IEC 61131-3 does not define an HMI descriptor generator, so they are
-neither IEC decisions nor IEC deviations.
+HMI page generation and editing are specified in
+`docs/specs/39-hmi-builder.md`.
 
 ## Deprecated runtime workbench aliases
 

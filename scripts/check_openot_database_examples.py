@@ -76,13 +76,12 @@ def main() -> int:
         readme_path = directory / "README.md"
         config_text = config_path.read_text()
         config = tomllib.loads(config_text)
-        control_endpoint = config["runtime"]["control"]["endpoint"]
-        if not control_endpoint.startswith("tcp://"):
+        control = config["runtime"]["control"]
+        if "endpoint" in control or "auth_token" in control:
             fail(
-                f"{product}: control endpoint must be portable TCP, got {control_endpoint!r}"
+                f"{product}: runtime.toml must omit [runtime.control] endpoint and auth_token, "
+                "so the platform default applies (spec 11 section 6.8.0a)"
             )
-        if config["runtime"]["control"].get("auth_token") != "openot-example-local-token":
-            fail(f"{product}: portable TCP control endpoint requires the documented local-only token")
         persistence = config["runtime"]["openot"]["persistence"]
         if persistence["backend"] != expected_backend:
             fail(f"{product}: unexpected TOML backend {persistence['backend']!r}")

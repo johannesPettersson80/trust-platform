@@ -1,0 +1,33 @@
+@startuml
+skinparam componentStyle rectangle
+title Plant devices at the runtime HMI (specification 39, §21.2, §21.4, §21.5)
+actor "Named operator / engineer" as Operator
+component "HMI HTTP service\nSession, role, origin check" as Web
+component "Method command\nInterface, method, instance, permit, inputs" as Command
+component "Settings route\nRead / apply with expected values (Engineer)" as Settings
+queue "Bounded queue\nPer-user replay records" as Queue
+component "Hmi.Display boundary\nBetween scans" as Boundary
+component "VM method call / RETAIN member write" as VM
+component "Plant device instance\nMode decides who commands" as FB
+component "Audit and outcome streams" as Audit
+component "IEC retain service\nInstance member paths" as Store
+component "Runtime alarm board\nEvery Alarm instance once, where it is declared\n(interface and reference members not followed)" as Alarms
+Operator --> Web
+Web --> Command : command in Manual
+Web --> Settings : Engineer only
+Command --> Queue : interlock permit checked first
+Settings --> Queue : all changes at one boundary
+Boundary --> Queue : bounded drain; never waits for HTTP
+Boundary --> VM
+VM --> FB
+FB --> Web : BOOL outcome; CommandText as the reason;\nReasonText as the panel's message line
+Web --> Audit
+FB ..> Store : public RETAIN settings, counters, mode
+FB --> Alarms : alarm members (P101.TripAlarm)
+Alarms --> Web
+note bottom of Boundary
+A pulse always ends, even after a disconnect. No request number,
+owner or context reaches PLC code. Ordinary I/O and the task schedule
+stay in place.
+end note
+@enduml

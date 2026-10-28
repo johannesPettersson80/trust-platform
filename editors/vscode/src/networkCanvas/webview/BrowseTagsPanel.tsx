@@ -28,6 +28,7 @@ export function BrowseTagsPanel({
   onBrowseTarget,
   onAddTags,
   onClose,
+  post,
 }: {
   title?: string;
   actionLabel?: string;
@@ -46,6 +47,8 @@ export function BrowseTagsPanel({
   onBrowseTarget: (target: Record<string, unknown>) => void;
   onAddTags: (paths: string[], writable: boolean) => void;
   onClose: () => void;
+  /** Posts to the extension, which has the server check a typed ADS port. */
+  post?: (message: unknown) => void;
 }) {
   // §0.5.2 route setup: the route_plan carries ready-to-run scripts (PowerShell / StaticRoutes.xml /
   // manual) the user runs on the TwinCAT — no credentials handled here, no mutation from the canvas.
@@ -208,6 +211,7 @@ export function BrowseTagsPanel({
             onBrowseTarget(nextTarget);
           }}
           onDraftStaleChange={setAdsPortDraftStale}
+          post={post}
         />
       )}
 

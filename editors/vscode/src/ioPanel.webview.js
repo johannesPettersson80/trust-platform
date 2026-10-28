@@ -6,10 +6,6 @@ const sections = document.getElementById("sections");
 const status = document.getElementById("status");
 const filterInput = document.getElementById("filter");
 const forcedFilterBtn = document.getElementById("forcedFilter");
-const diagnosticsSummary = document.getElementById("diagnosticsSummary");
-const diagnosticsRuntime = document.getElementById("diagnosticsRuntime");
-const diagnosticsList = document.getElementById("diagnosticsList");
-const diagnosticsPanel = document.getElementById("diagnostics");
 const runtimeView = document.getElementById("runtimeView");
 const settingsPanel = document.getElementById("settingsPanel");
 const settingsSave = document.getElementById("settingsSave");
@@ -40,7 +36,6 @@ const settingsFields = {
   runtimeIgnorePragmas: document.getElementById("runtimeIgnorePragmas"),
 };
 let currentState = { inputs: [], outputs: [], memory: [], ads: [] };
-let compileState = null;
 let currentFilter = "";
 let forcedOnly = false;
 const editCache = new Map();
@@ -65,6 +60,10 @@ let currentAccess = {
   allowRelease: true,
   reason: "",
 };
+// Whether a Force on the current target must be armed first, and what each section's rows may do: the language
+// server's answer in the runtime status (specification 25 §4.1, §4.2). Until the first status the Simulator's.
+let currentForceRequiresArm = false;
+let currentRows = undefined;
 
 function forcedAddresses(state) {
   const all = [
@@ -387,7 +386,7 @@ function isAutoExpiringStatusText(message) {
 }
 
 function forceRequiresArming() {
-  return currentMode !== "simulate" || currentRuntimeState === "connected";
+  return currentForceRequiresArm;
 }
 
 function updateForcePolicy() {
@@ -405,7 +404,8 @@ function resetForceArming() {
   forceArmed = false;
 }
 
-function normalizeAccess(access, mode, runtimeState) {
+// The access the language server answered; a status without one allows nothing.
+function normalizeAccess(access) {
   if (access && typeof access === "object") {
     return {
       allowWrite: access.allowWrite === true,
@@ -417,22 +417,29 @@ function normalizeAccess(access, mode, runtimeState) {
           : "",
     };
   }
-  if (mode === "simulate") {
-    return {
-      allowWrite: true,
-      allowForce: true,
-      allowRelease: true,
-      reason: "",
-    };
+  return { allowWrite: false, allowForce: false, allowRelease: false, reason: "" };
+}
+
+// What the rows of one section may do in each row state, as the language server answered it.
+function sectionRowOptions(section) {
+  return { operations: currentRows && typeof currentRows === "object" ? currentRows[section] : undefined };
+}
+
+// What a row in `state` ("live", "forced" or "readOnly") may do and why not, from its section's answer; without an
+// answer, nothing.
+function rowOperations(operations, state) {
+  const entry = operations && typeof operations === "object" ? operations[state] : undefined;
+  const text = (value) => (typeof value === "string" ? value : "");
+  if (!entry || typeof entry !== "object") {
+    return { write: false, force: false, release: false, writeReason: "", forceReason: "", releaseReason: "" };
   }
-  const active = runtimeState === "connected" || runtimeState === "running";
   return {
-    allowWrite: false,
-    allowForce: false,
-    allowRelease: false,
-    reason: active
-      ? "Write/force permissions are unknown — reconnect with an engineer token."
-      : "Connect with an engineer token to write or force.",
+    write: entry.write === true,
+    force: entry.force === true,
+    release: entry.release === true,
+    writeReason: text(entry.writeReason),
+    forceReason: text(entry.forceReason),
+    releaseReason: text(entry.releaseReason),
   };
 }
 
@@ -705,8 +712,12 @@ function applyRuntimeStatus(payload) {
   const modeChanged = mode !== currentMode;
   const nextTargetKey = [mode, runtimeState, payload.endpoint || ""].join("|");
   const targetChanged = nextTargetKey !== currentTargetKey;
-  const nextAccess = normalizeAccess(payload.access, mode, runtimeState);
-  const accessChanged = accessKey(nextAccess) !== accessKey(currentAccess);
+  const nextAccess = normalizeAccess(payload.access);
+  const nextRows = JSON.stringify(payload.rows || null);
+  const accessChanged =
+    accessKey(nextAccess) !== accessKey(currentAccess) || nextRows !== JSON.stringify(currentRows || null);
+  currentForceRequiresArm = payload.forceRequiresArm !== false;
+  currentRows = payload.rows;
   currentMode = mode;
   currentRuntimeState = runtimeState;
   currentTargetKey = nextTargetKey;
@@ -751,7 +762,9 @@ function applyRuntimeStatus(payload) {
         : runtimeState === "running"
           ? "Running"
           : payload.runtimeMode === "online"
-            ? "Not connected"
+            ? payload.debugDisabled
+              ? "Debugging disabled"
+              : "Not connected"
             : "Stopped";
     runtimeStatusText.textContent = label;
     runtimeStatusText.classList.toggle("running", isRunning);
@@ -834,101 +847,6 @@ function applySettingsPayload(payload) {
   );
 }
 
-function fileLabel(path) {
-  if (!path) {
-    return "";
-  }
-  const segments = String(path).split(/[/\\\\]/);
-  return segments[segments.length - 1] || path;
-}
-
-function renderDiagnostics() {
-  if (!diagnosticsSummary || !diagnosticsList || !diagnosticsRuntime) {
-    return;
-  }
-  diagnosticsList.innerHTML = "";
-  if (!compileState) {
-    if (diagnosticsPanel) {
-      diagnosticsPanel.style.display = "none";
-    }
-    diagnosticsSummary.textContent = "";
-    diagnosticsRuntime.textContent = "";
-    return;
-  }
-  if (diagnosticsPanel) {
-    diagnosticsPanel.style.display = "";
-  }
-
-  const targetLabel = compileState.target ? fileLabel(compileState.target) : "";
-  const dirtyLabel = compileState.dirty ? " (unsaved)" : "";
-  diagnosticsSummary.textContent =
-    (targetLabel || "Unknown target") +
-    dirtyLabel +
-    " • " +
-    compileState.errors +
-    " error(s), " +
-    compileState.warnings +
-    " warning(s)";
-
-  diagnosticsRuntime.textContent =
-    compileState.runtimeStatus !== "skipped" && compileState.runtimeMessage
-      ? compileState.runtimeMessage
-      : "";
-
-  const issues = Array.isArray(compileState.issues)
-    ? compileState.issues
-    : [];
-  if (issues.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "empty";
-    empty.textContent = "No warnings or errors.";
-    diagnosticsList.appendChild(empty);
-    return;
-  }
-
-  issues.forEach((issue) => {
-    const item = document.createElement("div");
-    item.className =
-      "diagnostic-item " + (issue.severity === "error" ? "error" : "warning");
-
-    const message = document.createElement("div");
-    message.className = "diagnostic-message";
-    message.textContent = issue.message || "";
-    item.appendChild(message);
-
-    const meta = document.createElement("div");
-    meta.className = "diagnostic-meta";
-    const location = document.createElement("span");
-    const locationParts = [];
-    if (issue.file) {
-      locationParts.push(fileLabel(issue.file));
-    }
-    if (issue.line) {
-      locationParts.push("L" + issue.line);
-    }
-    if (issue.column) {
-      locationParts.push("C" + issue.column);
-    }
-    location.textContent = locationParts.join(": ");
-    meta.appendChild(location);
-
-    if (issue.code) {
-      const code = document.createElement("span");
-      code.textContent = String(issue.code);
-      meta.appendChild(code);
-    }
-
-    if (issue.source) {
-      const source = document.createElement("span");
-      source.textContent = String(issue.source);
-      meta.appendChild(source);
-    }
-
-    item.appendChild(meta);
-    diagnosticsList.appendChild(item);
-  });
-}
-
 function applyFilter(entries) {
   const filter = currentFilter.trim().toLowerCase();
   return (entries || []).filter((entry) => {
@@ -964,22 +882,6 @@ function parseBooleanValue(value) {
   return undefined;
 }
 
-function defaultNumericValue(value) {
-  const trimmed = String(value || "").trim();
-  if (!trimmed) {
-    return "";
-  }
-  const numericLiteral = /^(?:0x[0-9a-fA-F_]+|[0-9][0-9_]*|[28]#[0-9A-Fa-f_]+|16#[0-9A-Fa-f_]+)$/;
-  if (numericLiteral.test(trimmed)) {
-    return trimmed;
-  }
-  const match = trimmed.match(/\((-?\d+)\)/);
-  if (match) {
-    return match[1];
-  }
-  return "";
-}
-
 function defaultWriteValue(entry, display) {
   const addressType = typeFromAddress(entry.address);
   const resolvedType = String(display.type || addressType || "").toUpperCase();
@@ -991,10 +893,9 @@ function defaultWriteValue(entry, display) {
     const booleanValue = parseBooleanValue(entry.value || display.value);
     return booleanValue ? "TRUE" : "FALSE";
   }
-  // Numeric (BYTE/WORD/DWORD/INT/REAL): never offer a boolean literal as the default; pre-fill with
-  // the current numeric value so the write box is type-consistent with the row.
-  const numericValue = defaultNumericValue(display.value || entry.value);
-  return numericValue || String(display.value || "").trim();
+  // Numeric (BYTE/WORD/DWORD/INT/REAL): the box starts empty and the operator types the value, a prepared value as
+  // in CODESYS and TwinCAT watch lists; the current value stays in the Value column (specification 25, section 4.3).
+  return "";
 }
 
 function splitDisplayValue(value) {
@@ -1132,11 +1033,7 @@ function renderRows(entries, options = {}) {
   const {
     allowActions = false,
     showAddress = false,
-    allowWrite = true,
-    allowForce = true,
-    allowRelease = true,
-    remoteReason = "",
-    writeDisabledReason = "",
+    operations = undefined,
   } = options;
   const wrapper = document.createElement("div");
   wrapper.className = "rows";
@@ -1262,12 +1159,10 @@ function renderRows(entries, options = {}) {
     if (allowActions) {
       const actions = document.createElement("div");
       actions.className = "actions";
-      const entryReason = readOnly
-        ? "Read-only ADS tag. Enable writes when adding the tag, then restart the runtime."
-        : "";
-      const canWrite = allowWrite && !readOnly && !forced;
-      const canForce = allowForce && !readOnly && !forced;
-      const canRelease = allowRelease && forced;
+      const allowed = rowOperations(operations, forced ? "forced" : readOnly ? "readOnly" : "live");
+      const canWrite = allowed.write;
+      const canForce = allowed.force;
+      const canRelease = allowed.release;
 
       const key = [entry.name || "", entry.address || ""].join("|");
       const defaultValue = editCache.has(key)
@@ -1279,7 +1174,6 @@ function renderRows(entries, options = {}) {
         input.type = "text";
         input.dataset.key = key;
         input.value = defaultValue;
-        input.placeholder = display.value || entry.value || "";
         input.disabled = !(canWrite || canForce);
         input.addEventListener("input", () => {
           editCache.set(key, input.value);
@@ -1372,10 +1266,8 @@ function renderRows(entries, options = {}) {
           : "Write once (next cycle, inputs only)";
       writeButton.setAttribute("aria-label", "Write value once");
       writeButton.disabled = !canWrite;
-      if (!canWrite) {
-        writeButton.title = forced
-          ? "Release force before writing this value."
-          : writeDisabledReason || entryReason || remoteReason || "Write is not available for this value.";
+      if (!canWrite && allowed.writeReason) {
+        writeButton.title = allowed.writeReason;
       }
       writeButton.addEventListener("click", () => sendValue("write"));
 
@@ -1399,8 +1291,8 @@ function renderRows(entries, options = {}) {
         needsForceArm ? "Arm force for this target" : "Force value continuously"
       );
       forceButton.disabled = !canForce;
-      if (!canForce) {
-        forceButton.title = entryReason || remoteReason || "Force is not available for this value.";
+      if (!canForce && allowed.forceReason) {
+        forceButton.title = allowed.forceReason;
       }
       forceButton.addEventListener("click", () => sendValue("force"));
 
@@ -1410,8 +1302,8 @@ function renderRows(entries, options = {}) {
       releaseButton.title = "Release force";
       releaseButton.setAttribute("aria-label", "Release forced value");
       releaseButton.disabled = !canRelease;
-      if (!canRelease && remoteReason) {
-        releaseButton.title = remoteReason;
+      if (!canRelease && allowed.releaseReason) {
+        releaseButton.title = allowed.releaseReason;
       }
       releaseButton.addEventListener("click", () => sendValue("release"));
 
@@ -1492,28 +1384,17 @@ function render(state) {
   appendIoSection(ioContent, "Inputs", state.inputs, {
     allowActions: true,
     showAddress: true,
-    allowWrite: currentAccess.allowWrite,
-    allowForce: currentAccess.allowForce,
-    allowRelease: currentAccess.allowRelease,
-    remoteReason: currentAccess.reason,
+    ...sectionRowOptions("inputs"),
   });
   appendIoSection(ioContent, "Outputs", state.outputs, {
     allowActions: true,
     showAddress: true,
-    allowWrite: false,
-    allowForce: currentAccess.allowForce,
-    allowRelease: currentAccess.allowRelease,
-    remoteReason: currentAccess.reason,
-    writeDisabledReason: "Program-driven — use Force to override",
+    ...sectionRowOptions("outputs"),
   });
   appendIoSection(ioContent, "Memory", state.memory, {
     allowActions: true,
     showAddress: true,
-    allowWrite: false,
-    allowForce: currentAccess.allowForce,
-    allowRelease: currentAccess.allowRelease,
-    remoteReason: currentAccess.reason,
-    writeDisabledReason: "Program-driven — use Force to override",
+    ...sectionRowOptions("memory"),
   });
 
   sections.appendChild(createNode("I/O", 0, ioContent, true));
@@ -1525,10 +1406,7 @@ function render(state) {
     const adsRows = renderRows(adsEntries, {
       allowActions: true,
       showAddress: true,
-      allowWrite: currentAccess.allowWrite,
-      allowForce: currentAccess.allowForce,
-      allowRelease: currentAccess.allowRelease,
-      remoteReason: currentAccess.reason,
+      ...sectionRowOptions("ads"),
     });
     adsRows.classList.add("aligned-root-rows");
     sections.appendChild(
@@ -1579,10 +1457,6 @@ window.addEventListener("message", (event) => {
     } else {
       setStatusText(payload);
     }
-  }
-  if (message.type === "compileResult") {
-    compileState = message.payload || null;
-    renderDiagnostics();
   }
   if (message.type === "settings") {
     applySettingsPayload(message.payload || {});

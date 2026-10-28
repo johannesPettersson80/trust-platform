@@ -1,0 +1,273 @@
+//! The sentences of the compiled catalog and the loop generators (A11.1): each names the values involved and keeps the
+//! TypeScript sentence it replaces (`hostBindingDiscovery.ts`, `compiledCatalog.ts`, `loopBindings.ts`, `pidLoopGenerator.ts`,
+//! `ownLawLoopGenerator.ts`, `identifyLoopGenerator.ts`), and the startup-done sentence of `loopSetupForm.ts`.
+
+use crate::limits::{MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS};
+
+/// The compiled catalog is unavailable (`normalizeCatalog`).
+#[must_use]
+pub fn catalog_unavailable() -> &'static str {
+    "Compiled control catalog is unavailable."
+}
+
+/// The project did not compile, so its control symbols are missing (`openCommand.ts`).
+#[must_use]
+pub fn catalog_not_compiled() -> &'static str {
+    "Compile the project successfully before configuring its loop."
+}
+
+/// The process-image lists exceed the bounded entry limit (`normalizeCatalog`).
+#[must_use]
+pub fn process_image_limit() -> &'static str {
+    "Compiled process-image catalog exceeds its bounded entry limit."
+}
+
+/// The control-symbol lists exceed the bounded entry limit (`normalizeCatalog`).
+#[must_use]
+pub fn control_symbol_limit() -> &'static str {
+    "Compiled control-symbol catalog exceeds its bounded entry limit."
+}
+
+/// One process-image signal has two identities (`normalizeCatalog`).
+#[must_use]
+pub fn signal_identity_conflict(symbol: &str) -> String {
+    format!("Compiled signal {symbol} has conflicting identities.")
+}
+
+/// One control symbol has two types (`normalizeCatalog`).
+#[must_use]
+pub fn symbol_type_conflict(symbol: &str) -> String {
+    format!("Compiled symbol {symbol} has conflicting types.")
+}
+
+/// One controller instance has two types (`normalizeCatalog`).
+#[must_use]
+pub fn controller_type_conflict(instance: &str) -> String {
+    format!("Compiled controller {instance} has conflicting types.")
+}
+
+/// The symbol is not compiled in this project (`compiled`, `loopBindings.ts`).
+#[must_use]
+pub fn not_compiled_symbol(symbol: &str) -> String {
+    format!("{symbol} is not a compiled symbol of this project.")
+}
+
+/// The variable is not REAL or LREAL (`realType`, `loopBindings.ts`).
+#[must_use]
+pub fn must_be_real(symbol: &str) -> String {
+    format!("{symbol} must be REAL or LREAL.")
+}
+
+/// The program computes the measurement, so a simulated plant would overwrite it (`measurementBinding`, B5 and §13.2).
+#[must_use]
+pub fn computed_measurement(symbol: &str) -> String {
+    format!(
+        "{symbol} is computed by the program, so a simulated measurement would be overwritten every scan. Choose the measurement it is computed from."
+    )
+}
+
+/// The identification duration is missing or outside 1 s to 24 h (`identificationDuration`, A7).
+#[must_use]
+pub fn identification_duration(name: &str) -> String {
+    let minimum = MINIMUM_EXPERIMENT_DURATION_MS / 1_000;
+    let maximum = MAXIMUM_EXPERIMENT_DURATION_MS / 3_600_000;
+    format!("{name} needs an identification duration between {minimum} s and {maximum} h.")
+}
+
+/// Only one of the output step and the identification duration is set (`explicitExperiment`, B1.3).
+#[must_use]
+pub fn output_step_and_duration(name: &str) -> String {
+    format!(
+        "{name} needs both the output step and the identification duration, or neither: Identify chooses the one that is left."
+    )
+}
+
+/// The controller does not run in exactly one cyclic task (`pidLoop`, `ownLawLoop`, `identifyLoop`).
+#[must_use]
+pub fn not_one_cyclic_task(instance: &str) -> String {
+    format!("{instance} must run in exactly one cyclic task.")
+}
+
+/// The instance is not a compiled `Control.PID` (`pidLoopGenerator.ts`).
+#[must_use]
+pub fn not_compiled_pid(instance: &str) -> String {
+    format!("{instance} is not a compiled Control.PID instance.")
+}
+
+/// The instance is not a compiled program or function block (`ownLawLoopGenerator.ts`).
+#[must_use]
+pub fn not_compiled_program(instance: &str) -> String {
+    format!("{instance} is not a compiled program or function block instance.")
+}
+
+/// The manipulated variable does not belong to a compiled program (`identifyLoopGenerator.ts`).
+#[must_use]
+pub fn not_compiled_owner(symbol: &str) -> String {
+    format!("{symbol} does not belong to a compiled program instance.")
+}
+
+/// A law that integrates needs its integral gain variable (`ownLawLoopGenerator.ts`).
+#[must_use]
+pub fn integral_gain_needed(law: &str) -> String {
+    format!("A {law} law needs the variable holding its integral gain.")
+}
+
+/// A law that integrates needs its integral term variable (`ownLawLoopGenerator.ts`).
+#[must_use]
+pub fn integral_term_needed(law: &str) -> String {
+    format!("A {law} law needs the variable holding its integral term.")
+}
+
+/// A PID law needs its derivative gain variable (`ownLawLoopGenerator.ts`).
+#[must_use]
+pub fn derivative_gain_needed() -> &'static str {
+    "A PID law needs the variable holding its derivative gain."
+}
+
+/// A PID law needs the variable its derivative is taken from (`ownLawLoopGenerator.ts`).
+#[must_use]
+pub fn derivative_state_needed() -> &'static str {
+    "A PID law needs the variable holding the previous error or measurement its derivative is taken from."
+}
+
+/// The gains and the integral term are not distinct variables (`ownLawLoopGenerator.ts`).
+#[must_use]
+pub fn distinct_variables() -> &'static str {
+    "Choose a different variable for each gain and for the integral term."
+}
+
+/// A gain's range is not a finite interval (`ownLawLoopGenerator.ts`).
+#[must_use]
+pub fn gain_range(symbol: &str) -> String {
+    format!("The range of {symbol} needs a minimum below its maximum.")
+}
+
+/// A PID law needs to know whether its derivative is taken from the error or the measurement (`loopSetupForm.ts`, `derivativeOn`).
+#[must_use]
+pub fn derivative_on_needed() -> &'static str {
+    "Choose whether that previous value is the error or the measurement."
+}
+
+/// The program writes the symbol in its own code (C1 Setup; `loopSetupForm.ts`, `seededWrite`).
+#[must_use]
+pub fn program_writes(symbol: &str) -> String {
+    format!("The program writes {symbol} in its own code.")
+}
+
+/// The program initializes the PID in its own code (C1 Setup; `loopSetupForm.ts`, `seededWrite`).
+#[must_use]
+pub fn program_initializes(instance: &str) -> String {
+    format!("The program initializes {instance} in its own code.")
+}
+
+/// An operating point of a gain schedule has no value of the scheduling variable (C10 Setup). It follows the operating point sentences
+/// of `loopSetupForm.ts`, which name a point by its number; the point's name stands here, since the form sends no row number.
+#[must_use]
+pub fn schedule_value_needed(point: &str) -> String {
+    format!("Enter operating point {point}'s value of the scheduling variable.")
+}
+
+/// An operating point of a gain schedule has no tolerance on its value (C10 Setup); see `schedule_value_needed`.
+#[must_use]
+pub fn schedule_tolerance_needed(point: &str) -> String {
+    format!("Enter operating point {point}'s tolerance on that value.")
+}
+
+/// Setup needs the startup-done flag for the reason given (C1 Setup; `loopSetupForm.ts`, `startupFlag`).
+#[must_use]
+pub fn startup_flag_needed(reason: &str) -> String {
+    format!(
+        "{reason} Choose the flag that marks its startup as done, so validation keeps the values it starts from."
+    )
+}
+
+/// A feedforward's lead time, lag time and filtered disturbance are chosen together, or none of them (C8, `feedforwardGenerator.ts`).
+#[must_use]
+pub fn feedforward_gain_group() -> &'static str {
+    "Choose the lead time, the lag time and the filtered disturbance together, or none of them."
+}
+
+/// A feedforward's variables differ from each other and from the loop's signals (C8, `feedforwardGenerator.ts`).
+#[must_use]
+pub fn feedforward_variables_distinct() -> &'static str {
+    "The feedforward's variables must differ from each other and from the loop's signals."
+}
+
+/// The disturbance step is positive and at most the disturbance's span (C8, `feedforwardGenerator.ts`).
+#[must_use]
+pub fn feedforward_step_span(span: f64, unit: &str) -> String {
+    format!("The disturbance step must be positive and at most {span} {unit}.")
+}
+
+/// The variable Identify steps to move the measured disturbance is not an explicitly actuated simulation or test input: Setup refuses it
+/// before any write (C8, D-5). Such an input is a REAL or LREAL variable that the program only reads, at a memory address `%M`.
+#[must_use]
+pub fn feedforward_command_not_actuated(symbol: &str) -> String {
+    format!(
+        "{symbol} cannot move the measured disturbance: a disturbance command must be a simulation or test input, a REAL or LREAL variable the program only reads, at a memory address (%M)."
+    )
+}
+
+/// The setup form asks for the controller and the engine has none chosen (`pidLoopGenerator.ts`, `loopSetupForm.ts`, `instance`).
+#[must_use]
+pub fn controller_needed() -> &'static str {
+    "Choose the controller."
+}
+
+/// The setup form asks for the parameter record and none is chosen (`loopSetupForm.ts`, `parameterRecord`).
+#[must_use]
+pub fn parameter_record_needed() -> &'static str {
+    "Choose the parameter record."
+}
+
+/// The Auto/Manual signal is blank and no BOOL of the program lacks an I/O address, so Apply cannot switch any mode: the sentence says
+/// why and what to do (`loopSetupForm.ts`, `explained`). It follows `save::mode_needed`.
+#[must_use]
+pub fn mode_needs_bool() -> &'static str {
+    "It must be a BOOL without an I/O address, because Apply switches it directly; declare one without AT."
+}
+
+/// A gain's variable is blank (`loopSetupForm.ts`, `gainValue`): the label names the gain, such as "proportional gain".
+#[must_use]
+pub fn gain_symbol_needed(label: &str) -> String {
+    format!("Choose the variable holding the {label}.")
+}
+
+/// The disturbance's identification step is blank or not a number (`loopSetupForm.ts`, `ff.disturbanceStep`).
+#[must_use]
+pub fn disturbance_step_needed() -> &'static str {
+    "Enter the disturbance's identification step, in its unit."
+}
+
+/// The variable Identify steps to move the measured disturbance is blank (`loopSetupForm.ts`, `ff.disturbanceCommand`).
+#[must_use]
+pub fn disturbance_command_needed() -> &'static str {
+    "Choose the variable Identify steps to move the disturbance."
+}
+
+/// The feedforward's gain variable is blank (`loopSetupForm.ts`, `ff.gain`).
+#[must_use]
+pub fn feedforward_gain_needed() -> &'static str {
+    "Choose the variable holding the feedforward gain."
+}
+
+/// The trajectory feedforward's term variable is blank (`loopSetupForm.ts`, `traj.feedforwardTerm`).
+#[must_use]
+pub fn feedforward_term_needed() -> &'static str {
+    "Choose the variable holding the feedforward term."
+}
+
+/// The program's own law is blank about its instance (`loopSetupForm.ts`, `own.instance`).
+#[must_use]
+pub fn law_instance_needed() -> &'static str {
+    "Choose the instance that computes the law."
+}
+
+/// The measurement is blank and the controller reads a value the program computes: a simulated measurement would overwrite it, so the
+/// sentence names that value (`loopSetupForm.ts`, `hinted`). It follows `save::signal_symbol_needed("measurement")`.
+#[must_use]
+pub fn computed_measurement_hint(symbol: &str) -> String {
+    format!(
+        " The controller reads {symbol}, which the program computes, so a simulated measurement would be overwritten every scan; choose the measurement it is computed from."
+    )
+}

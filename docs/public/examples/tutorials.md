@@ -1,6 +1,6 @@
 # Tutorials
 
-Follow the tutorial sequence from basic editing through runtime, HMI, and
+Follow the tutorial sequence from basic editing through runtime and
 deployment workflows.
 
 For goal-based ordering, open [Learning Paths](learning-paths.md).

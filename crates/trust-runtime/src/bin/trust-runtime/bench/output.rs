@@ -31,120 +31,21 @@ fn render_table(report: &BenchReport) -> String {
                 data.throughput_cycles_per_sec, data.measured_duration_ms
             );
             let _ = writeln!(out, "budget_overruns={}", data.budget_overruns);
+            for task in data.tasks.iter().flatten() {
+                let _ = writeln!(out, "task {} activations={}", task.name, task.activations);
+                render_latency_block(&mut out, "  task latency", &task.latency);
+            }
+            if let Some(image) = &data.native_image {
+                let _ = writeln!(
+                    out,
+                    "image bytes={} code={} rodata={} init={} memory_figure={}",
+                    image.bytes, image.code, image.rodata, image.init, image.memory_figure
+                );
+            }
             if !data.watched_globals.is_empty() {
                 let _ = writeln!(out, "watched globals:");
                 for (name, value) in &data.watched_globals {
                     let _ = writeln!(out, "  {} = {}", name, value);
-                }
-            }
-            if let Some(vm_profile) = &data.vm_profile {
-                let _ = writeln!(
-                    out,
-                    "vm profile: executed={} fallbacks={}",
-                    vm_profile.register_programs_executed, vm_profile.register_program_fallbacks
-                );
-                if !vm_profile.fallback_reasons.is_empty() {
-                    let _ = writeln!(out, "  fallback reasons:");
-                    for reason in vm_profile.fallback_reasons.iter().take(5) {
-                        let _ = writeln!(out, "    {} = {}", reason.reason, reason.count);
-                    }
-                }
-                if !vm_profile.hot_blocks.is_empty() {
-                    let _ = writeln!(out, "  hot blocks:");
-                    for block in vm_profile.hot_blocks.iter().take(5) {
-                        let pou = block.pou_name.as_deref().unwrap_or("<unknown>");
-                        let _ = writeln!(
-                            out,
-                            "    pou={} ({}) block={} pc={} hits={}",
-                            block.pou_id, pou, block.block_id, block.start_pc, block.hits
-                        );
-                    }
-                }
-                let ref_ops = &vm_profile.ref_ops;
-                let _ = writeln!(
-                    out,
-                    "  ref-ops: load_ref={} store_ref={} load_ref_addr={} ref_field={} ref_index={} load_dynamic={} store_dynamic={} instance_field_lookups={}",
-                    ref_ops.load_ref,
-                    ref_ops.store_ref,
-                    ref_ops.load_ref_addr,
-                    ref_ops.ref_field,
-                    ref_ops.ref_index,
-                    ref_ops.load_dynamic,
-                    ref_ops.store_dynamic,
-                    ref_ops.instance_field_lookups
-                );
-                let call_ops = &vm_profile.call_ops;
-                let _ = writeln!(
-                    out,
-                    "  call-ops: frame_pushes={} frame_pops={} function_block_call_entries={} parameter_bindings={} output_copy_backs={}",
-                    call_ops.frame_pushes,
-                    call_ops.frame_pops,
-                    call_ops.function_block_call_entries,
-                    call_ops.parameter_bindings,
-                    call_ops.output_copy_backs
-                );
-                let value_ops = &vm_profile.value_ops;
-                let _ = writeln!(
-                    out,
-                    "  value-ops: const_load_clones={} register_read_clones={} register_read_moves={} read_value_clones={} binding_expr_clones={} output_value_clones={}",
-                    value_ops.const_load_clones,
-                    value_ops.register_read_clones,
-                    value_ops.register_read_moves,
-                    value_ops.read_value_clones,
-                    value_ops.binding_expr_clones,
-                    value_ops.output_value_clones
-                );
-                let lowering_cache = &vm_profile.register_lowering_cache;
-                let _ = writeln!(
-                    out,
-                    "  register-lowering-cache: enabled={} cache={}/{} hits={} misses={} hit_ratio={:.4} build_errors={} evictions={} invalidations={}",
-                    lowering_cache.enabled,
-                    lowering_cache.cached_entries,
-                    lowering_cache.cache_capacity,
-                    lowering_cache.hits,
-                    lowering_cache.misses,
-                    lowering_cache.hit_ratio,
-                    lowering_cache.build_errors,
-                    lowering_cache.cache_evictions,
-                    lowering_cache.invalidations
-                );
-                let prepared = &vm_profile.register_preparation;
-                let _ = writeln!(out,
-                    "  register-preparation: pous={} lowered={} lowering_failures={} specialized_blocks={} specialization_failures={}",
-                    prepared.pou_count, prepared.lowered_pous, prepared.lowering_failures,
-                    prepared.specialized_blocks, prepared.specialization_failures);
-                if !prepared.specialization_failure_reasons.is_empty() {
-                    let reasons = prepared
-                        .specialization_failure_reasons
-                        .iter()
-                        .map(|entry| format!("{}={}", entry.reason, entry.count))
-                        .collect::<Vec<_>>()
-                        .join(" ");
-                    let _ = writeln!(out, "    preparation-failure-reasons: {reasons}");
-                }
-                if let Some(tier1) = &vm_profile.tier1_specialized_executor {
-                    let _ = writeln!(
-                        out,
-                        "  tier1-specialized-executor: enabled={} threshold={} cache={}/{} compile={}/{}/{} evictions={} executions={}",
-                        tier1.enabled,
-                        tier1.hot_block_threshold,
-                        tier1.cached_blocks,
-                        tier1.cache_capacity,
-                        tier1.compile_attempts,
-                        tier1.compile_successes,
-                        tier1.compile_failures,
-                        tier1.cache_evictions,
-                        tier1.block_executions
-                    );
-                    if !tier1.compile_failure_reasons.is_empty() {
-                        let reasons = tier1
-                            .compile_failure_reasons
-                            .iter()
-                            .map(|entry| format!("{}={}", entry.reason, entry.count))
-                            .collect::<Vec<_>>()
-                            .join(" ");
-                        let _ = writeln!(out, "    compile-failure-reasons: {reasons}");
-                    }
                 }
             }
             render_histogram(&mut out, data.histogram.as_slice());

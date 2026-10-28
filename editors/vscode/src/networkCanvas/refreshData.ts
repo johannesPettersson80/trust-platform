@@ -7,76 +7,51 @@ import { listManagedRuntimes } from "../localRuntime";
 import type { ManagedRuntime } from "../localRuntimeModel";
 import type { RuntimeTarget } from "../runtimeTarget";
 import { sendRuntimeControlRequest } from "../runtimeControlClient";
-import {
-  fetchConnectorStatus,
-  mergeConnectorStatusIntoTopology,
-  type FleetTopologyConnectorMergeResult,
-} from "./connectorsStatus";
-import {
-  fetchFleetTopology,
-  mergeFleetTopologies,
-  type FleetTopologyResponse,
-} from "./fleetTopology";
+import type { CanvasAnswer, CanvasGatheredReports, CanvasRuntimeReport } from "./canvasCommands";
+import { fetchConnectorStatus } from "./connectorsStatus";
+import { fetchFleetTopology, type FleetTopologyResponse } from "./fleetTopology";
 import { offlineCommSchema, offlineCommTopology } from "./offlineComm";
 
 export interface NetworkCanvasRefreshData {
   readonly schema?: CommSchemaResponse;
   readonly capabilities?: CommCapabilitiesResponse;
-  readonly localTopology?: FleetTopologyResponse;
-  readonly displayTopology?: FleetTopologyResponse;
-  readonly topologyError?: string;
+  /** What the runtimes and the project's configuration answered this round. */
+  readonly gathered: CanvasGatheredReports;
   readonly runtimeSetupMessage?: string;
   readonly managed: ManagedRuntime[];
 }
 
-interface LiveRefreshData {
-  readonly schema?: CommSchemaResponse;
-  readonly capabilities?: CommCapabilitiesResponse;
-  readonly topology?: FleetTopologyResponse;
-  readonly schemaError?: string;
-  readonly topologyError?: string;
-}
-
+/**
+ * Gathers one round of answers: the project's configuration, the runtime that serves the live data
+ * and every other configured runtime. `trust-lsp.devicesTopology` merges them with the extension's
+ * own facts each time the canvas draws (specification 25 §5.6). Nothing here merges, matches or
+ * judges a report.
+ */
 export async function loadNetworkCanvasRefreshData(options: {
   readonly context?: vscode.ExtensionContext;
   readonly projectDir?: string;
   readonly runtime: RuntimeTarget;
-  readonly loadPeerTopology: () => Promise<FleetTopologyConnectorMergeResult>;
+  /** The endpoint of the extension's own simulator while it serves the live data. */
+  readonly simulatorEndpoint?: string;
+  /** Every other configured runtime target, probed. */
+  readonly loadPeers: () => Promise<readonly RuntimeTarget[]>;
 }): Promise<NetworkCanvasRefreshData> {
-  const offlinePromise = loadOfflineData(options.context, options.projectDir);
-  const livePromise = loadLiveData(options.runtime);
-  const managedPromise = options.context
-    ? listManagedRuntimes(options.context)
-    : Promise.resolve([]);
-  const peerPromise = options.loadPeerTopology().catch((error) => ({
-    topology: undefined,
-    errors: [`Peer topology unavailable: ${errorMessage(error)}`],
-  }));
-
-  const [offline, live, managed, peer] = await Promise.all([
-    offlinePromise,
-    livePromise,
-    managedPromise,
-    peerPromise,
+  const [offline, live, managed, peers] = await Promise.all([
+    loadOfflineData(options.context, options.projectDir),
+    loadLiveData(options.runtime),
+    options.context ? listManagedRuntimes(options.context) : Promise.resolve([]),
+    options.loadPeers().then((targets) => Promise.all(targets.map((target) => runtimeReport(target)))),
   ]);
-
   const schema = live.schema ?? offline.schema;
-  const localTopology = live.topology || offline.topology
-    ? mergeFleetTopologies([live.topology, offline.topology])
-    : undefined;
-  const displayTopology = localTopology || peer.topology
-    ? mergeFleetTopologies([localTopology, peer.topology])
-    : undefined;
-  const peerError = peer.errors.length > 0
-    ? `Peer topology degraded: ${peer.errors.join("; ")}`
-    : undefined;
-
   return {
     schema,
     capabilities: live.capabilities,
-    localTopology,
-    displayTopology,
-    topologyError: [live.topologyError, peerError].filter(Boolean).join("; ") || undefined,
+    gathered: {
+      project: offline.topology,
+      primary: live.report,
+      peers,
+      simulator_endpoint: options.simulatorEndpoint,
+    },
     runtimeSetupMessage: schema ? undefined : live.schemaError,
     managed,
   };
@@ -101,11 +76,16 @@ async function loadOfflineData(
   return { schema, topology };
 }
 
-async function loadLiveData(runtime: RuntimeTarget): Promise<LiveRefreshData> {
+async function loadLiveData(runtime: RuntimeTarget): Promise<{
+  readonly schema?: CommSchemaResponse;
+  readonly capabilities?: CommCapabilitiesResponse;
+  readonly report?: CanvasRuntimeReport;
+  readonly schemaError?: string;
+}> {
   if (runtime.status !== "online_reachable" || !runtime.endpoint) {
     return {};
   }
-  const [capabilities, schema, topology] = await Promise.allSettled([
+  const [capabilities, schema, report] = await Promise.allSettled([
     sendRuntimeControlRequest<CommCapabilitiesResponse>(
       runtime.endpoint,
       runtime.authToken,
@@ -114,26 +94,55 @@ async function loadLiveData(runtime: RuntimeTarget): Promise<LiveRefreshData> {
       { timeoutMs: 2000 },
     ),
     fetchCommSchema(runtime),
-    Promise.all([
-      fetchFleetTopology(runtime),
-      fetchConnectorStatus(runtime).catch(() => undefined),
-    ]).then(([fleet, connectors]) =>
-      mergeConnectorStatusIntoTopology(fleet, connectors)
-    ),
+    runtimeReport(runtime),
   ]);
-
   return {
     capabilities:
       capabilities.status === "fulfilled" ? capabilities.value : undefined,
     schema: schema.status === "fulfilled" ? schema.value : undefined,
-    topology: topology.status === "fulfilled" ? topology.value : undefined,
+    report: report.status === "fulfilled" ? report.value : undefined,
     schemaError:
       schema.status === "rejected" ? errorMessage(schema.reason) : undefined,
-    topologyError:
-      topology.status === "rejected"
-        ? `Fleet topology unavailable: ${errorMessage(topology.reason)}`
-        : undefined,
   };
+}
+
+/** What one target answered: its probe, and while it answers its topology and connector reports. */
+async function runtimeReport(target: RuntimeTarget): Promise<CanvasRuntimeReport> {
+  const report = {
+    endpoint: target.endpoint ?? "",
+    label: target.label,
+    reach: reachOf(target),
+  };
+  if (report.reach !== "reachable") {
+    return report;
+  }
+  const [topology, connectors] = await Promise.all([
+    answerOf(fetchFleetTopology(target)),
+    answerOf(fetchConnectorStatus(target)),
+  ]);
+  return { ...report, topology, connectors };
+}
+
+/** The probe result of a target, in the words of `trust-lsp.devicesTopology`. */
+function reachOf(target: RuntimeTarget): CanvasRuntimeReport["reach"] {
+  switch (target.status) {
+    case "online_reachable":
+      return "reachable";
+    case "auth_failed":
+      return target.authFailureKind === "missing" ? "auth_missing" : "auth_rejected";
+    case "missing_endpoint":
+      return "missing_endpoint";
+    default:
+      return "unreachable";
+  }
+}
+
+async function answerOf(request: Promise<unknown>): Promise<CanvasAnswer> {
+  try {
+    return { ok: (await request) ?? null };
+  } catch (error) {
+    return { error: errorMessage(error) };
+  }
 }
 
 function errorMessage(error: unknown): string {

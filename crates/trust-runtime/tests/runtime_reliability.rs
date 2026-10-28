@@ -1,3 +1,9 @@
+//! The runtime's reliability paths on a program compiled for this computer: I/O through bound
+//! addresses across a warm restart, retained values across restarts and a power loss, and the
+//! watchdog's fault on an overrun (specification 11 §6.6, §6.7; specification 44 §8.8, §11).
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::env;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -102,9 +108,9 @@ END_PROGRAM
     let store = FileRetainStore::new(&path);
     harness
         .runtime_mut()
-        .set_retain_store(Some(Box::new(store)), Some(Duration::from_millis(0)));
+        .set_retain_store(Some(Box::new(store)), Some(Duration::from_millis(0)))
+        .unwrap();
     harness.set_input("r", Value::Int(42));
-    harness.runtime_mut().mark_retain_dirty();
     harness.runtime_mut().save_retain_store().unwrap();
     harness.set_input("r", Value::Int(99));
 
@@ -133,9 +139,9 @@ END_PROGRAM
     let store = FileRetainStore::new(&path);
     harness
         .runtime_mut()
-        .set_retain_store(Some(Box::new(store)), None);
+        .set_retain_store(Some(Box::new(store)), None)
+        .unwrap();
     harness.set_input("r", Value::Int(77));
-    harness.runtime_mut().mark_retain_dirty();
     drop(harness);
 
     let store = FileRetainStore::new(&path);
@@ -159,7 +165,7 @@ END_PROGRAM
     clock.set(Duration::from_millis(0));
 
     let mut runner = ResourceRunner::new(runtime, clock.clone(), Duration::from_millis(1));
-    runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
+    runner.program_mut().set_watchdog_policy(WatchdogPolicy {
         enabled: true,
         // Watchdog enforcement is wall-clock based, so use an effectively-zero timeout.
         timeout: Duration::from_nanos(1),

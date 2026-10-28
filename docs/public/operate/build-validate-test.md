@@ -14,13 +14,16 @@ trust-dev test --project ./my-plc --output json
 
 - parses and type-checks ST sources
 - resolves project dependencies
-- emits `program.stbc`
+- compiles them into the program image `program.tpi`, with its deployment
+  record `deployment-record.bin` (the first build installs the compiler
+  toolchain when none is installed)
 
 ### `validate`
 
 - validates `runtime.toml`
 - validates `io.toml`
-- validates the compiled bundle contract
+- admits the program image as the computer admits it when it starts (its CPU
+  and the image checks)
 
 ### `test`
 

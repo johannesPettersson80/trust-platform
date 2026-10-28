@@ -2,13 +2,9 @@ use rustc_hash::FxHashMap;
 use serde::Deserialize;
 use serde_json::Value;
 use smol_str::SmolStr;
-use std::io::{BufRead, BufReader, Read, Write};
-use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::time::Duration;
 use tracing::{debug, warn};
-
-#[cfg(unix)]
-use std::os::unix::net::UnixStream;
+use trust_runtime_client::{ControlClient, ControlEndpoint};
 
 const CONTROL_IO_TIMEOUT: Duration = Duration::from_millis(250);
 
@@ -19,197 +15,13 @@ pub(crate) struct RuntimeInlineValues {
     pub(crate) retain: FxHashMap<SmolStr, String>,
 }
 
-#[derive(Debug)]
-pub(crate) enum ControlEndpoint {
-    Tcp(String),
-    #[cfg(unix)]
-    Unix(std::path::PathBuf),
-}
-
-impl ControlEndpoint {
-    pub(crate) fn parse(text: &str) -> Option<Self> {
-        if let Some(rest) = text.strip_prefix("tcp://") {
-            let rest = rest.trim();
-            return (!rest.is_empty()).then(|| Self::Tcp(rest.to_string()));
-        }
-        #[cfg(unix)]
-        if let Some(rest) = text.strip_prefix("unix://") {
-            let path = std::path::Path::new(rest.trim());
-            return (!path.as_os_str().is_empty() && path.is_absolute())
-                .then(|| Self::Unix(path.to_path_buf()));
-        }
-        None
-    }
-}
-
-#[derive(Debug)]
-struct ControlClient {
-    seq: u64,
-    reader: BufReader<ControlStream>,
-    auth: Option<String>,
-}
-
-impl ControlClient {
-    fn connect(endpoint: ControlEndpoint, auth: Option<&str>) -> Option<Self> {
-        let stream = match endpoint {
-            ControlEndpoint::Tcp(addr) => ControlStream::Tcp(connect_tcp(&addr)?),
-            #[cfg(unix)]
-            ControlEndpoint::Unix(path) => {
-                let stream = UnixStream::connect(path).ok()?;
-                configure_unix_stream_timeout(&stream);
-                ControlStream::Unix(stream)
-            }
-        };
-        Some(Self {
-            seq: 1,
-            reader: BufReader::new(stream),
-            auth: auth.and_then(|value| {
-                let value = value.trim();
-                (!value.is_empty()).then(|| value.to_string())
-            }),
-        })
-    }
-
-    fn next_id(&mut self) -> u64 {
-        let id = self.seq;
-        self.seq = self.seq.saturating_add(1);
-        id
-    }
-
-    fn request(&mut self, kind: &str, params: Option<Value>) -> Option<Value> {
-        debug!("inlineValue control request kind={}", kind);
-        let mut payload = serde_json::Map::new();
-        payload.insert("id".to_string(), Value::from(self.next_id()));
-        payload.insert("type".to_string(), Value::from(kind));
-        if let Some(params) = params {
-            payload.insert("params".to_string(), params);
-        }
-        if let Some(auth) = &self.auth {
-            payload.insert("auth".to_string(), Value::from(auth.clone()));
-        }
-        let line = serde_json::to_string(&Value::Object(payload)).ok()?;
-        {
-            let stream = self.reader.get_mut();
-            if stream.write_all(line.as_bytes()).is_err() {
-                warn!("inlineValue control request kind={} write failed", kind);
-                return None;
-            }
-            if stream.write_all(b"\n").is_err() {
-                warn!(
-                    "inlineValue control request kind={} write newline failed",
-                    kind
-                );
-                return None;
-            }
-            if stream.flush().is_err() {
-                warn!("inlineValue control request kind={} flush failed", kind);
-                return None;
-            }
-        }
-        let mut response = String::new();
-        match self.reader.read_line(&mut response) {
-            Ok(0) => {
-                warn!("inlineValue control request kind={} empty response", kind);
-                return None;
-            }
-            Ok(_) => {}
-            Err(err) => {
-                warn!(
-                    "inlineValue control request kind={} read failed: {err}",
-                    kind
-                );
-                return None;
-            }
-        }
-        let response: ControlResponse = match serde_json::from_str(&response) {
-            Ok(parsed) => parsed,
-            Err(err) => {
-                warn!(
-                    "inlineValue control request kind={} invalid response: {err}",
-                    kind
-                );
-                return None;
-            }
-        };
-        if !response.ok {
-            warn!("inlineValue control request kind={} failed", kind);
-            return None;
-        }
-        response.result
-    }
-}
-
-fn connect_tcp(addr: &str) -> Option<TcpStream> {
-    let socket_addr = resolve_socket_addr(addr)?;
-    let stream = TcpStream::connect_timeout(&socket_addr, CONTROL_IO_TIMEOUT).ok()?;
-    configure_tcp_stream_timeout(&stream);
-    Some(stream)
-}
-
-fn resolve_socket_addr(addr: &str) -> Option<SocketAddr> {
-    addr.parse::<SocketAddr>()
+/// One inline-values request; a failure is logged and ends the snapshot.
+fn request(client: &mut ControlClient, kind: &str, params: Option<Value>) -> Option<Value> {
+    debug!("inlineValue control request kind={}", kind);
+    client
+        .request(kind, params)
+        .map_err(|error| warn!("inlineValue control request kind={kind} failed: {error}"))
         .ok()
-        .or_else(|| addr.to_socket_addrs().ok()?.next())
-}
-
-fn configure_tcp_stream_timeout(stream: &TcpStream) {
-    if let Err(err) = stream.set_read_timeout(Some(CONTROL_IO_TIMEOUT)) {
-        warn!("inlineValue control set TCP read timeout failed: {err}");
-    }
-    if let Err(err) = stream.set_write_timeout(Some(CONTROL_IO_TIMEOUT)) {
-        warn!("inlineValue control set TCP write timeout failed: {err}");
-    }
-}
-
-#[cfg(unix)]
-fn configure_unix_stream_timeout(stream: &UnixStream) {
-    if let Err(err) = stream.set_read_timeout(Some(CONTROL_IO_TIMEOUT)) {
-        warn!("inlineValue control set Unix read timeout failed: {err}");
-    }
-    if let Err(err) = stream.set_write_timeout(Some(CONTROL_IO_TIMEOUT)) {
-        warn!("inlineValue control set Unix write timeout failed: {err}");
-    }
-}
-
-#[derive(Debug)]
-enum ControlStream {
-    Tcp(TcpStream),
-    #[cfg(unix)]
-    Unix(UnixStream),
-}
-
-impl Read for ControlStream {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        match self {
-            ControlStream::Tcp(stream) => stream.read(buf),
-            #[cfg(unix)]
-            ControlStream::Unix(stream) => stream.read(buf),
-        }
-    }
-}
-
-impl Write for ControlStream {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        match self {
-            ControlStream::Tcp(stream) => stream.write(buf),
-            #[cfg(unix)]
-            ControlStream::Unix(stream) => stream.write(buf),
-        }
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        match self {
-            ControlStream::Tcp(stream) => stream.flush(),
-            #[cfg(unix)]
-            ControlStream::Unix(stream) => stream.flush(),
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct ControlResponse {
-    ok: bool,
-    result: Option<Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -239,10 +51,10 @@ pub(crate) fn fetch_runtime_inline_values(
             return None;
         }
     };
-    let mut client = match ControlClient::connect(endpoint, auth) {
-        Some(client) => client,
-        None => {
-            warn!("inlineValue control connect failed");
+    let mut client = match ControlClient::connect(&endpoint, auth, CONTROL_IO_TIMEOUT) {
+        Ok(client) => client,
+        Err(error) => {
+            warn!("inlineValue control connect failed: {error}");
             return None;
         }
     };
@@ -251,7 +63,8 @@ pub(crate) fn fetch_runtime_inline_values(
         frame_id,
         owner_hints.len()
     );
-    let scopes_value = client.request(
+    let scopes_value = request(
+        &mut client,
         "debug.scopes",
         Some(serde_json::json!({ "frame_id": frame_id })),
     )?;
@@ -330,7 +143,8 @@ fn fetch_instance_variables(
     reference: u32,
     owner_hints: &[SmolStr],
 ) -> Option<FxHashMap<SmolStr, String>> {
-    let instances_value = client.request(
+    let instances_value = request(
+        client,
         "debug.variables",
         Some(serde_json::json!({ "variables_reference": reference })),
     )?;
@@ -423,7 +237,8 @@ fn fetch_variables(
     client: &mut ControlClient,
     reference: u32,
 ) -> Option<FxHashMap<SmolStr, String>> {
-    let vars_value = client.request(
+    let vars_value = request(
+        client,
         "debug.variables",
         Some(serde_json::json!({ "variables_reference": reference })),
     )?;

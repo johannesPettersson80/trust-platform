@@ -1,7 +1,8 @@
 # Connector Status Contract
 
 This document defines the canonical connector-status vocabulary shared by the
-runtime API, CLI and reports, browser HMI, and VS Code surfaces.
+runtime API, CLI and reports, and VS Code surfaces. HMI pages and the program read a link's
+state through the `Comm.Link` block instead (specification 42).
 
 ## Canonical Vocabulary
 

@@ -1,0 +1,449 @@
+{
+  "schemaVersion": 2,
+  "topology": "open-loop",
+  "id": "control-networked-control",
+  "name": "Networked heater PI",
+  "projectId": "project:control-networked-control",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Main",
+    "design": "project",
+    "revision": "sha256:d7879acc9b10394265476bc71e03956e03c121eee4d3319ee4596b5c50164954",
+    "action": "direct",
+    "taskPeriodMs": 100
+  },
+  "signals": {
+    "processVariable": {
+      "symbol": "P1.RecoveryC",
+      "address": "%IL40",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.RecoveryPct",
+      "address": "%QL40",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "target",
+        "channel": "target",
+        "role": "state",
+        "symbol": "P1.SetpointC",
+        "address": "%ML0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "dropped",
+        "channel": "dropped",
+        "role": "state",
+        "symbol": "P1.DroppedC",
+        "address": "%IL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "reordered",
+        "channel": "reordered",
+        "role": "state",
+        "symbol": "P1.ReorderedC",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "late",
+        "channel": "late",
+        "role": "state",
+        "symbol": "P1.LateC",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "old-session",
+        "channel": "old-session",
+        "role": "state",
+        "symbol": "P1.OldSessionC",
+        "address": "%IL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "outage",
+        "channel": "outage",
+        "role": "state",
+        "symbol": "P1.OutageC",
+        "address": "%IL32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "command-old-session",
+        "channel": "command-old-session",
+        "role": "state",
+        "symbol": "P1.OldSessionPct",
+        "address": "%QL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "command-outage",
+        "channel": "command-outage",
+        "role": "state",
+        "symbol": "P1.OutagePct",
+        "address": "%QL32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "dropped-hold",
+        "channel": "dropped-hold",
+        "role": "state",
+        "symbol": "P1.DroppedHoldS",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "s",
+        "range": {
+          "minimum": 0,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "late-hold",
+        "channel": "late-hold",
+        "role": "state",
+        "symbol": "P1.LateHoldS",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "s",
+        "range": {
+          "minimum": 0,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "outage-hold",
+        "channel": "outage-hold",
+        "role": "state",
+        "symbol": "P1.OutageHoldS",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "s",
+        "range": {
+          "minimum": 0,
+          "maximum": 60
+        }
+      },
+      {
+        "id": "late-age",
+        "channel": "late-age",
+        "role": "state",
+        "symbol": "P1.LateAgeS",
+        "address": "%ML96",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "s",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "reordered-rejected",
+        "channel": "reordered-rejected",
+        "role": "state",
+        "symbol": "P1.ReorderedRejected",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "late-rejected",
+        "channel": "late-rejected",
+        "role": "state",
+        "symbol": "P1.LateRejected",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "old-session-rejected",
+        "channel": "old-session-rejected",
+        "role": "state",
+        "symbol": "P1.OldSessionRejected",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "outage-remote",
+        "channel": "outage-remote",
+        "role": "state",
+        "symbol": "P1.OutageRemote",
+        "address": "%MX112.4",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "recovery-remote",
+        "channel": "recovery-remote",
+        "role": "state",
+        "symbol": "P1.RecoveryRemote",
+        "address": "%MX112.5",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "recovery-fresh",
+        "channel": "recovery-fresh",
+        "role": "state",
+        "symbol": "P1.RecoveryFresh",
+        "address": "%ML88",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "largest-jump",
+        "channel": "largest-jump",
+        "role": "state",
+        "symbol": "P1.LargestJumpPct",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "step-passed",
+        "channel": "step-passed",
+        "role": "state",
+        "symbol": "P1.StepPassed",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 6
+        }
+      },
+      {
+        "id": "highest-peak",
+        "channel": "highest-peak",
+        "role": "state",
+        "symbol": "P1.HighestPeakC",
+        "address": "%ML72",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "largest-step-error",
+        "channel": "largest-step-error",
+        "role": "state",
+        "symbol": "P1.LargestStepErrorC",
+        "address": "%ML80",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 5
+        }
+      },
+      {
+        "id": "started-at-rest",
+        "channel": "started-at-rest",
+        "role": "state",
+        "symbol": "P1.StartedAtRest",
+        "address": "%MX112.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX112.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "fault-latched",
+        "channel": "fault-latched",
+        "role": "state",
+        "symbol": "P1.FaultLatched",
+        "address": "%MX112.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "clock-valid",
+        "channel": "clock-valid",
+        "role": "state",
+        "symbol": "P1.ClockValid",
+        "address": "%MX112.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "recovery",
+  "operatingPoint": "Six heaters at 35 °C with 75 %, each under remote PI control over its own network",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 64,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX112.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
+    "baselineSeconds": 2
+  },
+  "parameterPurpose": "experiment",
+  "parameterBinding": {
+    "loop_id": "control-networked-control",
+    "task_name": "MainTask",
+    "parameters": [
+      {
+        "symbol": "P1.AcknowledgementTime",
+        "iec_type": "LREAL",
+        "unit": "s",
+        "convention": "When the operator of the outage-with-recovery case acknowledges, in seconds after the start; read at the start",
+        "minimum": 0,
+        "maximum": 60
+      }
+    ],
+    "mode": {
+      "symbol": "P1.ExperimentEnabled",
+      "manual_value": false
+    }
+  },
+  "revision": "sha256:f28ef8ef5fd6fa26ddd5bdf3d652670d8e81fa1ef9834d5a6941a312d3415739"
+}

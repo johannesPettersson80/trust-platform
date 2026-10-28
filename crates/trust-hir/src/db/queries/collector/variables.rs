@@ -1,6 +1,8 @@
 use super::*;
 use crate::db::diagnostics::is_expression_kind;
-use crate::db::queries::collector::const_utils::{scope_chain_for_node, ConstEvalError};
+use crate::db::queries::collector::const_utils::{
+    parse_int_literal, scope_chain_for_node, ConstEvalError,
+};
 use crate::semantic::LEGACY_UNKNOWN_TYPE_ID;
 use crate::type_check::exact_int_literal_value;
 
@@ -160,7 +162,7 @@ impl SymbolCollector<'_> {
         match self.table.type_by_id(resolved) {
             Some(Type::String {
                 max_len: Some(max_len),
-            }) if !literal.is_wide && literal.len > *max_len => {
+            }) if !literal.is_wide && literal.units > *max_len => {
                 let type_name = self
                     .table
                     .type_name(resolved)
@@ -170,13 +172,13 @@ impl SymbolCollector<'_> {
                     expr.text_range(),
                     format!(
                         "STRING literal length {} exceeds {} capacity",
-                        literal.len, type_name
+                        literal.units, type_name
                     ),
                 );
             }
             Some(Type::WString {
                 max_len: Some(max_len),
-            }) if literal.is_wide && literal.len > *max_len => {
+            }) if literal.is_wide && literal.units > *max_len => {
                 let type_name = self
                     .table
                     .type_name(resolved)
@@ -186,7 +188,7 @@ impl SymbolCollector<'_> {
                     expr.text_range(),
                     format!(
                         "WSTRING literal length {} exceeds {} capacity",
-                        literal.len, type_name
+                        literal.units, type_name
                     ),
                 );
             }
@@ -258,7 +260,18 @@ impl SymbolCollector<'_> {
                     .map(|variant| (variant.name.clone(), variant.type_id))
                     .collect::<Vec<_>>(),
             ),
-            Some(Type::FunctionBlock { .. }) => AggregateTarget::FunctionBlock(resolved),
+            Some(Type::FunctionBlock { .. }) => {
+                if self.deferred_initializers.is_some() && !self.declares_hierarchy(resolved) {
+                    if let Some(deferred) = self.deferred_initializers.as_mut() {
+                        deferred.push(DeferredInitializer {
+                            type_id: resolved,
+                            list: expr.clone(),
+                        });
+                    }
+                    return;
+                }
+                AggregateTarget::FunctionBlock(resolved)
+            }
             Some(Type::Unknown) | None => return,
             _ => {
                 self.diagnostics.error(
@@ -546,7 +559,9 @@ impl SymbolCollector<'_> {
             return;
         };
         match target {
-            Type::Bool if self.literal_is_integer(expr) => {
+            Type::Bool
+                if self.literal_is_integer(expr) && !self.literal_is_boolean_integer(expr) =>
+            {
                 self.diagnostics.error(
                     DiagnosticCode::TypeMismatch,
                     expr.text_range(),
@@ -584,6 +599,40 @@ impl SymbolCollector<'_> {
                 .descendants_with_tokens()
                 .filter_map(|element| element.into_token())
                 .any(|token| token.kind() == SyntaxKind::IntLiteral)
+    }
+
+    /// IEC 61131-3 Ed.3 6.3.2 and Table 5 features 7 and 9: the integer literals 0 and 1,
+    /// untyped or with the `BOOL#` prefix, represent Boolean data.
+    fn literal_is_boolean_integer(&self, expr: &SyntaxNode) -> bool {
+        if expr.kind() != SyntaxKind::Literal {
+            return false;
+        }
+        let mut value = None;
+        let mut negative = false;
+        for token in expr
+            .descendants_with_tokens()
+            .filter_map(|element| element.into_token())
+        {
+            match token.kind() {
+                SyntaxKind::TypedLiteralPrefix
+                    if !token
+                        .text()
+                        .trim_end_matches('#')
+                        .eq_ignore_ascii_case("BOOL") =>
+                {
+                    return false;
+                }
+                SyntaxKind::Minus => negative = true,
+                SyntaxKind::IntLiteral => value = parse_int_literal(token.text()),
+                _ => {}
+            }
+        }
+        let value = if negative {
+            value.map(|value| -value)
+        } else {
+            value
+        };
+        matches!(value, Some(0 | 1))
     }
 
     fn literal_is_null(&self, expr: &SyntaxNode) -> bool {
@@ -665,6 +714,32 @@ impl SymbolCollector<'_> {
                 "type/member default initializer must be a constant expression",
             ),
         }
+    }
+
+    /// Whether this file's table declares a function block and every base it extends; a block of
+    /// another file is only a carrier type here, without members.
+    fn declares_hierarchy(&self, type_id: TypeId) -> bool {
+        let Some(Type::FunctionBlock { name }) = self.table.type_by_id(type_id) else {
+            return false;
+        };
+        let Some(mut owner) = self.table.resolve_global_or_qualified_name(name.as_str()) else {
+            return false;
+        };
+        let mut seen = FxHashSet::default();
+        while seen.insert(owner) {
+            let Some(base) = self.table.extends_name(owner) else {
+                return true;
+            };
+            let Some(next) = self
+                .table
+                .resolve_oop_reference_for_owner(owner, base.as_str())
+            else {
+                return false;
+            };
+            owner = next;
+        }
+        // A cycle of EXTENDS is reported by the inheritance checks.
+        true
     }
 
     fn function_block_initializer_member_type(

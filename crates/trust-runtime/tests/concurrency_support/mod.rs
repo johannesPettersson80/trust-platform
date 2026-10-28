@@ -42,7 +42,7 @@ pub fn stop_and_join(mut handle: ResourceHandle<StdClock>) {
         .expect("the resource thread ends without panicking");
 }
 
-/// Reads the storage through the scan thread's own snapshot. The reply proves that the thread
+/// Reads the program's state through the scan thread's own snapshot. The reply proves that the thread
 /// still answers the command channel.
 pub fn snapshot(control: &ResourceControl<StdClock>) -> DebugSnapshot {
     let (tx, rx) = mpsc::channel();
@@ -53,18 +53,26 @@ pub fn snapshot(control: &ResourceControl<StdClock>) -> DebugSnapshot {
         .expect("snapshot reply within the bound")
 }
 
+/// The value of the global `name` in the compiled program's state of `snapshot`.
+pub fn global(snapshot: &DebugSnapshot, name: &str) -> Option<Value> {
+    snapshot
+        .compiled
+        .as_ref()
+        .and_then(|state| state.value(name))
+}
+
 /// A `DINT` global of a snapshot.
 pub fn dint(snapshot: &DebugSnapshot, name: &str) -> i32 {
-    match snapshot.storage.get_global(name) {
-        Some(Value::DInt(value)) => *value,
+    match global(snapshot, name) {
+        Some(Value::DInt(value)) => value,
         other => panic!("global {name} must be DINT, found {other:?}"),
     }
 }
 
 /// An `INT` global of a snapshot.
 pub fn int(snapshot: &DebugSnapshot, name: &str) -> i16 {
-    match snapshot.storage.get_global(name) {
-        Some(Value::Int(value)) => *value,
+    match global(snapshot, name) {
+        Some(Value::Int(value)) => value,
         other => panic!("global {name} must be INT, found {other:?}"),
     }
 }

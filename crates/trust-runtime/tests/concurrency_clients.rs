@@ -5,6 +5,8 @@
 //! Every writer runs closed-loop: it queues one write, then waits until the program's recording
 //! counter shows exactly that write. A counter that moves by one per write proves that each
 //! accepted write was applied once, at a scan boundary, and that none was lost or repeated.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
 mod concurrency_support;
 
@@ -28,6 +30,8 @@ const VARIABLE_WRITERS: usize = 2;
 const FORCERS: usize = 2;
 const ROUNDS: usize = 40;
 const PAUSE_ROUNDS: usize = 10;
+/// The bound of the I/O write queue (specification 11).
+const CAPACITY: usize = 1_024;
 
 /// Byte offset of writer `index`'s memory word. `%MWn` names the word at byte offset n (spec 10,
 /// direct addresses), so consecutive writers use even offsets and their words never overlap.
@@ -75,7 +79,8 @@ fn client_source() -> String {
 fn spawn_clients() -> (ResourceHandle<StdClock>, DebugControl) {
     let source = client_source();
     let mut harness = TestHarness::from_source(&source).expect("client fixture compiles");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
     let runner = ResourceRunner::new(
         harness.into_runtime(),
         StdClock::new(),
@@ -271,11 +276,18 @@ fn clients_writes_forces_and_status_calls_interleave_with_the_scan() {
         );
     }
 
-    // Every accepted I/O write was applied and consumed; none is left queued or repeated.
-    assert!(
-        debug.drain_io_writes().is_empty(),
-        "no accepted I/O write is left behind"
-    );
+    // Every accepted I/O write was applied and consumed; none is left queued or repeated. A paused
+    // scan drains nothing, so the queue takes its whole bound again only when it is empty.
+    control.pause().expect("pause is queued");
+    wait_until("the scan pauses", || {
+        control.state() == ResourceState::Paused
+    });
+    let address = IoAddress::parse("%MW0").expect("memory word address");
+    for _ in 0..CAPACITY {
+        debug
+            .try_enqueue_io_write(address.clone(), Value::LInt(0))
+            .expect("no accepted I/O write is left behind");
+    }
     let snap = snapshot(&control);
     for index in 0..WRITERS {
         assert_eq!(

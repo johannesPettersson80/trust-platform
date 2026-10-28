@@ -1,0 +1,28 @@
+[package]
+name = "trust-control"
+description = "Control Studio's calculations and rules, in pure Rust without I/O"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# The chart export carries the file's bytes in standard base64 and reads the page's data URL (B10.5).
+base64 = "0.22"
+schemars.workspace = true
+serde.workspace = true
+# Stored studies keep exact numbers: a value read back must equal the value written (A8.3).
+serde_json = { workspace = true, features = ["float_roundtrip"] }
+sha2.workspace = true
+hex.workspace = true
+thiserror.workspace = true
+trust-control-math.workspace = true
+
+[dev-dependencies]
+# A workspace build turns on serde_json's `arbitrary_precision` (through the runtime's OPC UA library). The tests run
+# with it too, so a document decoded around `trust_control::json` fails here as it would in that build.
+serde_json = { workspace = true, features = ["arbitrary_precision", "float_roundtrip"] }
+
+[lints]
+workspace = true

@@ -11,9 +11,31 @@ mod validation;
 mod variable_initializers;
 mod variables;
 
+pub(super) type ConstantExpressions = FxHashMap<(Option<SmolStr>, SmolStr), SyntaxNode>;
+
+/// An instance initialiser of a function block that another file of the project declares, or
+/// that extends one: a file's own table holds only a carrier type for such a block, so its members
+/// are checked once the project's symbols are merged. A derived block's initialiser may set the
+/// variables it inherits (IEC 61131-3 Ed.3 §6.5.1 for initial values; §6.6.5.5.2 rule 2 with
+/// §6.6.7.2.7 for inherited variables).
+pub(super) struct DeferredInitializer {
+    type_id: TypeId,
+    list: SyntaxNode,
+}
+
+/// The `ConfigInit` nodes (VAR_CONFIG entries) of `roots`, in root and document order.
+pub(crate) fn config_inits_of(roots: &[SyntaxNode]) -> Vec<SyntaxNode> {
+    roots
+        .iter()
+        .flat_map(|root| {
+            root.descendants()
+                .filter(|n| n.kind() == SyntaxKind::ConfigInit)
+        })
+        .collect()
+}
+
 pub(super) struct SymbolCollector<'a> {
     table: SymbolTable,
-    temporal_storage: TemporalStorage,
     diagnostics: DiagnosticBuilder,
     pending_types: Vec<PendingType>,
     /// Parent symbol stack for nested declarations.
@@ -25,6 +47,9 @@ pub(super) struct SymbolCollector<'a> {
     importing_project_types: FxHashSet<SmolStr>,
     diagnosed_project_type_import_failures: FxHashSet<SmolStr>,
     namespace_override: Option<Vec<SmolStr>>,
+    /// Initialisers left to the check after the merge; `None` checks them at once, as a collector
+    /// over the merged project symbols does.
+    deferred_initializers: Option<Vec<DeferredInitializer>>,
 }
 
 impl<'a> SymbolCollector<'a> {
@@ -32,15 +57,9 @@ impl<'a> SymbolCollector<'a> {
         Self::build(Some(project_types))
     }
 
-    pub(super) fn with_temporal_storage(mut self, storage: TemporalStorage) -> Self {
-        self.temporal_storage = storage;
-        self
-    }
-
     fn build(project_types: Option<&'a dyn ProjectTypeProvider>) -> Self {
         Self {
             table: SymbolTable::new(),
-            temporal_storage: TemporalStorage::default(),
             diagnostics: DiagnosticBuilder::new(),
             pending_types: Vec::new(),
             parent_stack: Vec::new(),
@@ -51,6 +70,7 @@ impl<'a> SymbolCollector<'a> {
             importing_project_types: FxHashSet::default(),
             diagnosed_project_type_import_failures: FxHashSet::default(),
             namespace_override: None,
+            deferred_initializers: project_types.map(|_| Vec::new()),
         }
     }
 
@@ -66,43 +86,62 @@ impl<'a> SymbolCollector<'a> {
         (self.table, self.diagnostics.finish())
     }
 
-    pub(crate) fn collect_for_project_with_const_roots(
+    pub(super) fn constant_expressions(root: &SyntaxNode) -> ConstantExpressions {
+        let mut collector = Self::build(None);
+        collector.precollect_constants(root, &[], &[]);
+        collector.const_exprs
+    }
+
+    pub(crate) fn collect_for_project_with_constants(
         mut self,
         root: &SyntaxNode,
-        const_roots: &[SyntaxNode],
-    ) -> (SymbolTable, Vec<Diagnostic>, Vec<PendingType>) {
-        for project_root in const_roots {
-            self.precollect_constants(project_root, &[], &[]);
-        }
+        constants: &ConstantExpressions,
+    ) -> (
+        SymbolTable,
+        Vec<Diagnostic>,
+        Vec<PendingType>,
+        Vec<DeferredInitializer>,
+    ) {
+        self.const_exprs = constants.clone();
         self.phase_precollect(root);
         self.phase_collect_symbols(root);
         self.phase_constants();
         let pending_types = std::mem::take(&mut self.pending_types);
-        (self.table, self.diagnostics.finish(), pending_types)
+        let deferred = self.deferred_initializers.take().unwrap_or_default();
+        (
+            self.table,
+            self.diagnostics.finish(),
+            pending_types,
+            deferred,
+        )
     }
 
-    pub(crate) fn collect_with_project_const_roots(
+    pub(crate) fn collect_with_project_constants(
         mut self,
         root: &SyntaxNode,
-        const_roots: &[SyntaxNode],
+        constants: &ConstantExpressions,
     ) -> (SymbolTable, Vec<Diagnostic>) {
-        for project_root in const_roots {
-            self.precollect_constants(project_root, &[], &[]);
-        }
+        self.const_exprs = constants.clone();
         self.collect(root)
     }
 
+    /// `config_inits`: the project's `ConfigInit` nodes in project order (`config_inits_of`
+    /// over the project's configuration roots); `deferred`: the initialisers that
+    /// `collect_for_project_with_constants` left to the check after the merge.
     pub(crate) fn validate_project_after_merge(
         table: SymbolTable,
         root: &SyntaxNode,
-        project_roots: &[SyntaxNode],
-        temporal_storage: TemporalStorage,
+        config_inits: &[SyntaxNode],
+        deferred: Vec<DeferredInitializer>,
     ) -> (SymbolTable, Vec<Diagnostic>) {
-        let mut collector = Self::build(None).with_temporal_storage(temporal_storage);
+        let mut collector = Self::build(None);
         collector.table = table;
+        for initializer in deferred {
+            collector.check_aggregate_initializer_fields(initializer.type_id, &initializer.list);
+        }
         collector.check_variable_initializer_constant_expressions(root);
         collector.phase_access_and_config(root);
-        collector.phase_var_validation_with_config_roots(root, project_roots);
+        collector.phase_var_validation_with_config_inits(root, config_inits);
         (collector.table, collector.diagnostics.finish())
     }
 
@@ -129,13 +168,16 @@ impl<'a> SymbolCollector<'a> {
     }
 
     fn phase_var_validation(&mut self, root: &SyntaxNode) {
-        self.phase_var_validation_with_config_roots(root, std::slice::from_ref(root));
+        self.phase_var_validation_with_config_inits(
+            root,
+            &config_inits_of(std::slice::from_ref(root)),
+        );
     }
 
-    fn phase_var_validation_with_config_roots(
+    fn phase_var_validation_with_config_inits(
         &mut self,
         root: &SyntaxNode,
-        config_roots: &[SyntaxNode],
+        config_inits: &[SyntaxNode],
     ) {
         self.check_var_block_modifiers(root);
         self.check_edge_declarations(root);
@@ -143,7 +185,7 @@ impl<'a> SymbolCollector<'a> {
         self.check_member_access_declarations(root);
         self.check_overlap_variable_initializers(root);
         self.check_by_value_type_cycles();
-        self.check_at_bindings(config_roots);
+        self.check_at_bindings(config_inits);
     }
 
     fn phase_constants(&mut self) {

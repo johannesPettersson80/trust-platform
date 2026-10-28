@@ -1,0 +1,368 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-03",
+  "title": "Hysteresis and dwell",
+  "level": "Foundation",
+  "sequence": 3,
+  "equipment": "Cold-storage room refrigeration",
+  "physicalPurpose": "Keep stored food below its temperature limit without damaging the compressor through excessive starts.",
+  "principalTechnique": "Hysteresis and minimum on/off dwell protection",
+  "objective": "Compare single threshold, hysteresis, and dwell protection on the same cold-storage room, then select the simplest configuration that meets the common temperature and transition criteria, while separately proving whether the dwell candidate enforces its declared minimum durations.",
+  "prerequisites": [
+    "control-lesson-02"
+  ],
+  "nextLesson": "control-capstone-cold-storage",
+  "signals": [
+    {
+      "role": "SP",
+      "name": "Cold-room temperature setpoint",
+      "unit": "degC",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.1,
+      "binding": "%ML0"
+    },
+    {
+      "role": "PV",
+      "name": "Cold-room air temperature",
+      "unit": "degC",
+      "minimum": -30,
+      "maximum": 20,
+      "resolution": 0.01,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Compressor demand",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 100,
+      "binding": "%QL0"
+    },
+    {
+      "role": "disturbance",
+      "name": "Door-load no-cooling equilibrium",
+      "unit": "degC",
+      "minimum": -10,
+      "maximum": 20,
+      "resolution": 0.1,
+      "binding": "simulation.toml#plant_events[0]"
+    },
+    {
+      "role": "state",
+      "name": "Requested cooling state",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX44.1"
+    },
+    {
+      "role": "state",
+      "name": "Applied cooling state",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX44.2"
+    },
+    {
+      "role": "state",
+      "name": "Dwell elapsed",
+      "unit": "s",
+      "minimum": 0,
+      "maximum": 3600,
+      "resolution": 0.1,
+      "binding": "%ML32"
+    },
+    {
+      "role": "state",
+      "name": "Dwell inhibit",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX44.3"
+    },
+    {
+      "role": "state",
+      "name": "Switch count",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 10000,
+      "resolution": 1,
+      "binding": "%MD40"
+    },
+    {
+      "role": "state",
+      "name": "Door-open indication",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%IL8"
+    },
+    {
+      "role": "disturbance",
+      "name": "Effective surrounding temperature",
+      "unit": "degC",
+      "minimum": -10,
+      "maximum": 20,
+      "resolution": 0.1,
+      "binding": "%IL16"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX44.4"
+    }
+  ],
+  "plant": {
+    "modelId": "first_order",
+    "executable": "simulation.toml#plants[0]",
+    "parameters": [
+      {
+        "name": "gain",
+        "value": -0.05,
+        "unit": "degC/%"
+      },
+      {
+        "name": "time_constant",
+        "value": 20,
+        "unit": "s"
+      },
+      {
+        "name": "output_bias",
+        "value": 4,
+        "unit": "degC"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "coldRoomTemperature": 4
+    },
+    "seed": 20260828,
+    "operatingPoint": {
+      "PV": 4,
+      "MV": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Cold-room air temperature",
+        "minimum": -30,
+        "maximum": 20,
+        "unit": "degC"
+      },
+      {
+        "signal": "Compressor demand",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "The room and stored product are represented by one well-mixed thermal state.",
+      "Door load changes the no-cooling equilibrium from 4 to 6 degC.",
+      "The three-run comparison injects no stochastic sensor noise so its single-threshold case exactly reproduces the Lesson 2 baseline; the focused state-memory sequence uses declared deterministic temperatures.",
+      "Door timing is owned by the ST experiment clock, not absolute simulator startup time."
+    ]
+  },
+  "baseline": {
+    "executableId": "ColdStorageThermostat",
+    "settings": {
+      "hysteresisWidth": 0,
+      "minimumOnTime": 0,
+      "minimumOffTime": 0
+    },
+    "limitation": "The Lesson 2 single threshold switches on every noisy crossing and can short-cycle the compressor."
+  },
+  "change": {
+    "executableId": "ColdStorageThermostat",
+    "settings": {
+      "hysteresisWidth": 1,
+      "minimumOnTime": 8,
+      "minimumOffTime": 8
+    },
+    "decision": "Use separate 2.50 degC on and 1.50 degC off thresholds, then require eight complete seconds before an opposite transition."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 4,
+    "amplitude": 0,
+    "durationSeconds": 120.1,
+    "settlingSeconds": 60,
+    "disturbances": [
+      "The door opens at 60 s and closes at 90 s"
+    ],
+    "seed": 20260828,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "temperature_range",
+      "signal": "Cold-room air temperature",
+      "window": "60 to 89.9 s door event",
+      "comparator": "<=",
+      "limit": 1.3,
+      "unit": "degC",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "temperature_maximum",
+      "signal": "Cold-room air temperature",
+      "window": "60 to 90 s door event",
+      "comparator": "<=",
+      "limit": 3,
+      "unit": "degC",
+      "tolerance": 0.05,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "transition_count",
+      "signal": "Applied cooling state",
+      "window": "complete 120 s run including initial safe-off transition",
+      "comparator": "<=",
+      "limit": 12,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "minimum_on_duration",
+      "signal": "Applied cooling state",
+      "window": "every completed on interval",
+      "comparator": ">=",
+      "limit": 8,
+      "unit": "s",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "minimum_off_duration",
+      "signal": "Applied cooling state",
+      "window": "every completed off interval",
+      "comparator": ">=",
+      "limit": 8,
+      "unit": "s",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "dwell_inhibited_sample_count",
+      "signal": "Dwell inhibit",
+      "window": "complete 120 s run",
+      "comparator": ">=",
+      "limit": 1,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "invalid_compressor_command_count",
+      "signal": "Compressor demand",
+      "window": "complete run",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Cold-room air temperature",
+        "minimum": -10,
+        "maximum": 10,
+        "unit": "degC"
+      },
+      {
+        "signal": "Compressor demand",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "PV or MV is nonfinite",
+      "PV leaves the -10 to 10 degC experiment range",
+      "MV is neither 0 nor 100 percent"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Auto disabled with compressor demand at 0%",
+    "physicalApprovalRole": "authorised refrigeration controls engineer",
+    "simulationOnlyRestrictions": [
+      "Simulated cycling shall not be presented as physical compressor endurance evidence."
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#lesson-3--hysteresis-and-dwell-protection-same-cold-storage-room",
+    "nativeTest": "TEST_PROGRAM::Lesson3HysteresisRetainsStateInsideBand",
+    "nativeCommand": "trust-dev test --project examples/control/01-feedback-foundations-and-temperature-control/03-cold-storage-hysteresis-dwell --filter TEST_PROGRAM::Lesson3HysteresisRetainsStateInsideBand --timeout 15 && trust-dev test --project examples/control/01-feedback-foundations-and-temperature-control/03-cold-storage-hysteresis-dwell --filter TEST_PROGRAM::Lesson3DwellRequiresCompletedMinimumTime --timeout 15",
+    "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/03-cold-storage-hysteresis-dwell",
+    "runArtifactFields": [
+      "SP",
+      "PV",
+      "requestedCooling",
+      "appliedCooling",
+      "MV",
+      "upperThreshold",
+      "lowerThreshold",
+      "dwellElapsed",
+      "dwellInhibit",
+      "switchCount",
+      "doorEvent",
+      "effectiveSurroundings",
+      "sampleTime",
+      "seed",
+      "limits",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-lesson-03"
+  },
+  "video": {
+    "viewerOutcome": "Explain why hysteresis needs retained state and why dwell protection is a separate equipment constraint.",
+    "requiredVisibleEvidence": [
+      "single-threshold baseline",
+      "hysteresis comparison",
+      "dwell comparison",
+      "same seeded door event",
+      "switch count",
+      "shortest on/off durations",
+      "temperature limit"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 2 used one temperature for both switching decisions. The room temperature changed gradually, but every small crossing of 2 °C could immediately reverse the refrigeration command. The command changed state 760 times in 120 s.\n\nA physical compressor may also need to remain ON or OFF for a minimum time before it can safely change state. Preventing command reversals at small temperature crossings and preventing switches before that minimum time has passed are two different problems.\n\nWe will add a separate rule for each problem.",
+    "reason": "We need to prevent small temperature fluctuations from repeatedly reversing\nthe refrigeration command, and ensure normal switching respects the\ncompressor's minimum ON and OFF times. These are two separate requirements.",
+    "theory": [
+      "**Hysteresis** switches on at one temperature and off at a lower one, and in between keeps doing what it did. **Dwell time** makes the compressor stay on or off for at least a set time before it may switch again.\n\n**In words.** Lesson 2 reversed the command at every crossing of one boundary. Hysteresis uses two boundaries with a gap between them, so a small movement inside the gap changes nothing. Here hysteresis requests refrigeration ON at 2.5 °C and OFF at 1.5 °C:\n\n| Measured room temperature | Requested refrigeration state |\n| --- | --- |\n| At or above 2.5 °C | ON |\n| Between 1.5 and 2.5 °C | Keep the previous state |\n| At or below 1.5 °C | OFF |\n\nDwell time is a second rule on top. Hysteresis decides which state is **requested**; dwell decides when that request may be **applied** to the refrigeration system: only after the present state has lasted the minimum time.\n\nIn PLC terms, hysteresis is a set–reset latch: set when the temperature reaches 2.5 °C, reset when it reaches 1.5 °C. Dwell is an on-delay timer that must have run out before the output may follow the latch.\n\n**The formula.** The distance between the two switching temperatures is the **hysteresis width**:\n\n$$H = T_{on} - T_{off}$$\n\n- $H$ is the hysteresis width, in °C;\n- $T_{on}$ is the temperature at which ON is requested and $T_{off}$ the one at which OFF is requested, both in °C.\n\nA requested change may be applied only when the present state has lasted at least the dwell time:\n\n$$t_{state} \\ge T_{dwell}$$\n\n- $t_{state}$ is how long the applied state has lasted, in seconds;\n- $T_{dwell}$ is the dwell time, 8 s here.\n\n**Example.** $H = 2.5 - 1.5 = 1.0$ °C: a temperature width, not a command percentage. The controller updates every 0.1 s, so the 8 s dwell is $8.0 / 0.1 = 80$ completed updates. Suppose refrigeration has been ON for 6 s when the temperature reaches 1.5 °C:\n\n1. Hysteresis requests OFF.\n2. The applied state remains ON, because $6 < 8$: the minimum ON time is not complete. At 7.9 s only 79 updates have passed, still too few.\n3. At 8.0 s the OFF request may be applied, if it is still requested.\n\n**Teaching choices and limits.** The 1 °C width and the 8 s dwell are chosen so the effects are easy to see. In a physical system, the width must come from the allowed temperature variation and the uncertainty of the measurement, and the dwell from the compressor's requirements. The simulator treats the initial OFF period as already complete, so cooling can start immediately. Stopping or aborting the experiment forces OFF at once, even if the minimum ON time is unfinished: dwell governs normal automatic switching, not shutdown."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. The room starts at 4 °C. Which state will hysteresis request?\n2. What happens to the request as temperature falls through 2 °C but remains above 1.5 °C?\n3. If refrigeration has been ON for only 6 s when the request changes to OFF, when may the applied state change?\n4. Compared with Lesson 2, will refrigeration change state more or less often?\n5. Why will using two switching temperatures produce a wider temperature cycle?",
+    "practicalPreparation": [
+      "1. Open this lesson's project and start **Simulator**. In the **truST** side bar, select **Control Studio**. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.Setpoint · Setpoint (°C)`, `P1.ProcessValue · Process value (°C)` and `P1.ManipulatedValue · Applied output (%)`; add `P1.DoorOpenIndication · state (1)`.\n2. Confirm temperature setpoint 2 °C, measured temperature 4 °C, requested and applied refrigeration OFF, dwell restriction inactive, automatic control disabled, door closed, and `P1.ExperimentEnabled` false.\n3. Also add `P1.RequestedCooling · state (1)` (requested state), `P1.CoolingEnabled · state (1)` (applied state), `P1.DwellInhibit · state (1)` (dwell restriction), `P1.DwellElapsed · state (s)` (time in the current state) and `P1.SwitchCount · state (1)` (number of state changes). The dwell restriction indicates that a requested switch is waiting for the minimum time to pass.\n4. Answer the prediction questions before starting; **Confirm and start** begins the experiment recording.\n5. Stay on **Identify**. Select **Review project test** and check the declared **120.1 s** duration, covering the initial cooling and repeated switching with the door closed and open. All event times start at **Confirm and start**.\n6. Read the reviewed plan. Starting sets `P1.ExperimentEnabled` to true, enabling both switching rules; ending the experiment disables them and switches refrigeration OFF. Keep the setpoint, switching temperatures and minimum times unchanged during the run.\n7. Select **Confirm and start**. Watch the request remain unchanged between 1.5 and 2.5 °C. When requested and applied states differ, confirm that the dwell restriction is active.\n8. The experiment opens the door from 60 to 90 s. Continue observing both refrigeration states as the additional heat changes the process variable.\n9. At completion, Control Studio shows **Project test completed. Outputs restored.** Confirm `P1.ExperimentEnabled` false, automatic control disabled, and both refrigeration states OFF.\n\nSelect **Abort test** to stop early or if temperature leaves −10 to 10 °C; the temperature check is yours to make. Confirm both refrigeration states OFF. If the runtime is unresponsive, stop the simulator with the debug toolbar. To repeat fairly, restart the simulator at 4 °C with the same initial states, completed OFF-time and door interval.\n\nThis project runs hysteresis with dwell. Compare your observations with the three saved cases below; they use the same room, starting temperature, door event and run duration, changing only the switching rule. The comparison does not require editing the program or assuming the project has a case selector."
+    ],
+    "baseline": "Use the retained Lesson 2 single-threshold result as the baseline with matching room, initial state and simulator-relative door event.",
+    "change": "Run the delivered hysteresis-with-dwell project, then compare its observations with the three retained cases; the project has no case selector.",
+    "comparison": "![Hysteresis keeps the request between 1.5 and 2.5 °C; dwell postpones a change until 8 s have passed](figures/hysteresis-dwell-comparison.svg)\n\nThe numbered marks answer the predictions with the same numbers. The [retained simulation data](figures/hysteresis-dwell-comparison.csv) compares three rules. Temperature movement is the highest measured temperature minus the lowest **during the door-open interval, 60 to 89.9 s**. It excludes the initial cooldown from 4 °C. State changes are counted over the 120 s run:\n\n| Rule | Temperature movement | State changes | Shortest completed ON/OFF times |\n| --- | ---: | ---: | ---: |\n| One switching temperature | 0.025 °C | 760 | 0.1 s / 0.1 s |\n| Two switching temperatures | 1.013 °C | 12 | 6.8 s / 5.1 s |\n| Two temperatures and 8 s dwell | 1.232 °C | 12 | 8.0 s / 8.0 s |\n\nTwo switching temperatures reduce the state changes from 760 to 12 because the measured temperature must travel from one boundary to the other before the request reverses. The wider temperature movement is the cost of waiting for that travel.\n\nThe first three predictions follow the request and its timing: at 4 °C the request is ON; crossing 2 °C at 10.3 s while cooling leaves that request ON until 1.5 °C at 13.9 s; an OFF request after only 6 s of ON-time must wait another 2 s, provided it remains OFF. The run shows the same case at 31.0 s: OFF is requested after 6.8 s ON and applied at 32.2 s, after 8 s. The table answers the last two predictions: switching is less frequent, but temperature moves through a wider range.\n\nWith hysteresis alone, some states last less than 8 s. In this saved run, adding dwell makes every completed ON and OFF period last at least 8 s. In 65 recorded samples, the requested and applied states differ while the dwell restriction is active. This shows that dwell postponed a change even though it did not further reduce the total count of 12. It can also carry temperature beyond a switching boundary while the actuator waits.\n\nWe therefore use both rules: hysteresis prevents small temperature movements from changing the request, and dwell time prevents the applied state from changing too soon.",
+    "validation": "![Hysteresis keeps the request between 1.5 and 2.5 °C; dwell postpones a change until 8 s have passed](figures/hysteresis-dwell-comparison.svg)\n\nThe numbered marks answer the predictions with the same numbers. The [retained simulation data](figures/hysteresis-dwell-comparison.csv) compares three rules. Temperature movement is the highest measured temperature minus the lowest **during the door-open interval, 60 to 89.9 s**. It excludes the initial cooldown from 4 °C. State changes are counted over the 120 s run:\n\n| Rule | Temperature movement | State changes | Shortest completed ON/OFF times |\n| --- | ---: | ---: | ---: |\n| One switching temperature | 0.025 °C | 760 | 0.1 s / 0.1 s |\n| Two switching temperatures | 1.013 °C | 12 | 6.8 s / 5.1 s |\n| Two temperatures and 8 s dwell | 1.232 °C | 12 | 8.0 s / 8.0 s |\n\nTwo switching temperatures reduce the state changes from 760 to 12 because the measured temperature must travel from one boundary to the other before the request reverses. The wider temperature movement is the cost of waiting for that travel.\n\nThe first three predictions follow the request and its timing: at 4 °C the request is ON; crossing 2 °C at 10.3 s while cooling leaves that request ON until 1.5 °C at 13.9 s; an OFF request after only 6 s of ON-time must wait another 2 s, provided it remains OFF. The run shows the same case at 31.0 s: OFF is requested after 6.8 s ON and applied at 32.2 s, after 8 s. The table answers the last two predictions: switching is less frequent, but temperature moves through a wider range.\n\nWith hysteresis alone, some states last less than 8 s. In this saved run, adding dwell makes every completed ON and OFF period last at least 8 s. In 65 recorded samples, the requested and applied states differ while the dwell restriction is active. This shows that dwell postponed a change even though it did not further reduce the total count of 12. It can also carry temperature beyond a switching boundary while the actuator waits.\n\nWe therefore use both rules: hysteresis prevents small temperature movements from changing the request, and dwell time prevents the applied state from changing too soon.",
+    "explanation": "Hysteresis and dwell time solve different problems. Hysteresis decides when the requested state changes. Dwell time decides when that request may be applied.\n\nTogether they replace rapid chatter with slower, deliberate refrigeration cycles.",
+    "transfer": "Hysteresis now prevents small temperature changes from reversing the request, and dwell postpones transitions that would occur too soon. Those separate rules must next be combined in a controller that meets the room’s temperature and switching requirements when the heat load changes.\n\n[Cold-room commissioning](../../14-integrated-capstones/80-cold-storage/README.md) asks you to write that complete controller, choose a changed-load experiment and assess it against the stated requirements."
+  }
+}

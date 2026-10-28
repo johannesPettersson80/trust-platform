@@ -69,6 +69,7 @@ fn parse_web_section(
         listen: Some("0.0.0.0:8080".into()),
         auth: Some("local".into()),
         tls: Some(false),
+        hmi: None,
     });
 
     if web_section
@@ -88,6 +89,10 @@ fn parse_web_section(
         ));
     }
 
+    let hmi = crate::hmi::access::config::HmiAccessConfig::from_section(
+        web_section.hmi.unwrap_or_default(),
+    )
+    .map_err(|error| RuntimeError::InvalidConfig(error.into()))?;
     let web_enabled = web_section.enabled.unwrap_or(true);
     let web_listen = web_section.listen.unwrap_or_else(|| "0.0.0.0:8080".into());
     let web_tls = web_section.tls.unwrap_or(false);
@@ -109,6 +114,7 @@ fn parse_web_section(
             listen: SmolStr::new(web_listen),
             auth: web_auth,
             tls: web_tls,
+            hmi,
         },
     })
 }
@@ -187,8 +193,7 @@ fn parse_discovery_section(
                 .unwrap_or_default()
                 .into_iter()
                 .map(|value| {
-                    parse_nonempty_entry(value, "runtime.discovery.interfaces")
-                        .map(SmolStr::new)
+                    parse_nonempty_entry(value, "runtime.discovery.interfaces").map(SmolStr::new)
                 })
                 .collect::<Result<Vec<_>, RuntimeError>>()?,
             host_group: discovery_section
@@ -234,9 +239,7 @@ fn parse_mesh_section(
         .connect
         .unwrap_or_default()
         .into_iter()
-        .map(|endpoint| {
-            parse_nonempty_entry(endpoint, "runtime.mesh.connect").map(SmolStr::new)
-        })
+        .map(|endpoint| parse_nonempty_entry(endpoint, "runtime.mesh.connect").map(SmolStr::new))
         .collect::<Result<Vec<_>, RuntimeError>>()?;
     let tls = mesh_section.tls.unwrap_or(false);
     if tls && !tls_mode.enabled() {
@@ -278,9 +281,7 @@ fn parse_mesh_section(
                 .publish
                 .unwrap_or_default()
                 .into_iter()
-                .map(|value| {
-                    parse_nonempty_entry(value, "runtime.mesh.publish").map(SmolStr::new)
-                })
+                .map(|value| parse_nonempty_entry(value, "runtime.mesh.publish").map(SmolStr::new))
                 .collect::<Result<Vec<_>, RuntimeError>>()?,
             subscribe: mesh_section
                 .subscribe
@@ -288,14 +289,8 @@ fn parse_mesh_section(
                 .into_iter()
                 .map(|(source, target)| {
                     Ok((
-                        SmolStr::new(parse_nonempty_entry(
-                            source,
-                            "runtime.mesh.subscribe",
-                        )?),
-                        SmolStr::new(parse_nonempty_entry(
-                            target,
-                            "runtime.mesh.subscribe",
-                        )?),
+                        SmolStr::new(parse_nonempty_entry(source, "runtime.mesh.subscribe")?),
+                        SmolStr::new(parse_nonempty_entry(target, "runtime.mesh.subscribe")?),
                     ))
                 })
                 .collect::<Result<IndexMap<_, _>, RuntimeError>>()?,
@@ -306,10 +301,7 @@ fn parse_mesh_section(
                 .into_iter()
                 .map(|(name, version)| {
                     Ok((
-                        SmolStr::new(parse_nonempty_entry(
-                            name,
-                            "runtime.mesh.plugin_versions",
-                        )?),
+                        SmolStr::new(parse_nonempty_entry(name, "runtime.mesh.plugin_versions")?),
                         SmolStr::new(parse_nonempty_entry(
                             version,
                             "runtime.mesh.plugin_versions",

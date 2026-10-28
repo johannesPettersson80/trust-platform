@@ -58,3 +58,34 @@ fn flat_extents_preserve_width_and_separate_hierarchical_storage() {
         .is_err());
     assert!(IoAddress::parse("%M*").unwrap().flat_byte_end().is_err());
 }
+
+/// Specification 10 §9.2: an address is written in the form the parser reads, so every reply and
+/// refusal that names an address can be read back. Each expected text is worked out from the rule:
+/// the size prefix written out (`X` for a bit), every location component, the bit index after a
+/// dot, a wildcard as the area and the asterisk only, a `STRING` byte window as its byte address.
+/// Catches a sized wildcard (`%QX*`, which the parser refuses), a hierarchical address cut to its
+/// first component (`%QW3` for `%QW3.4.5`), and a byte window written with another width (`%QL24`).
+#[test]
+fn an_address_is_written_as_the_parser_reads_it() {
+    for (text, written) in [
+        ("%IX0.1", "%IX0.1"),
+        ("%I0.1", "%IX0.1"),
+        ("%IX5", "%IX5.0"),
+        ("%IX1.2.3", "%IX1.2.3"),
+        ("%QW4", "%QW4"),
+        ("%QW3.4.5", "%QW3.4.5"),
+        ("%IB7", "%IB7"),
+        ("%MD2", "%MD2"),
+        ("%QL8", "%QL8"),
+        (" %Q* ", "%Q*"),
+        ("%I*", "%I*"),
+        ("%M*", "%M*"),
+    ] {
+        let address = IoAddress::parse(text).unwrap();
+        assert_eq!(address.to_string(), written, "{text:?}");
+        assert_eq!(IoAddress::parse(written).unwrap(), address, "{text:?}");
+    }
+    let mut window = IoAddress::parse("%QB24").unwrap();
+    window.size = IoSize::Bytes(16);
+    assert_eq!(window.to_string(), "%QB24");
+}

@@ -1,8 +1,8 @@
 # Migration While Programming
 
 Migration means moving source, open interchange files, or vendor-shaped ST into
-a normal truST project and proving it with diagnostics, build, tests, runtime,
-and HMI checks.
+a normal truST project and proving it with diagnostics, build, tests, and
+runtime checks.
 
 ## Start With Your Source
 
@@ -34,8 +34,7 @@ and HMI checks.
 4. Add library stubs for symbols that must be visible but are not shipped as
    runtime semantics.
 5. Run diagnostics, build, validate, and tests.
-6. Add HMI descriptors or Browser HMI pages only after the code shape is stable.
-7. Use [One Project, Every Surface](../concepts/one-project.md) to choose the
+6. Use [One Project, Every Surface](../concepts/one-project.md) to choose the
    right surface for the next validation step.
 
 ## Honest Limits

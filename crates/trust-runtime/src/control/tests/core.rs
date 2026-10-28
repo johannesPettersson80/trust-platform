@@ -1,5 +1,16 @@
 #[test]
 fn breakpoints_set_accepts_project_relative_source_path() {
+    // Specification 13, "Source Mapping" rule 4 and "SetBreakpoints"; specification 11 §6.13.3,
+    // "File identity"; specification 44 §13.2: a compiled program's breakpoints resolve through the
+    // file labels of its image, and `trust-runtime build` labels a project's file by its path
+    // relative to the project root (specification 44 §5.3). A request names the file by a path that
+    // is its label or ends with it after a `/`, and the reply names the file by the index of its
+    // entry in the image's file table. Worked: the one file, labelled `src/main.st`, is file 0; the
+    // project-relative `src/main.st` and the absolute `<root>/src/main.st` both bind it, and the
+    // zero-based line 5 resolves to its statement `run := NOT run;` at line 5, column 0;
+    // `lib/main.st` ends with no label and is refused with `unknown source path`.
+    // Wrong behaviour caught: a project-relative path that does not bind, a file numbered by
+    // anything but its table index, and a path bound to a file whose label it does not end with.
     let source = r#"
 PROGRAM Main
 VAR
@@ -8,35 +19,54 @@ END_VAR
 run := NOT run;
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let state = control_test_state(source);
+    // The program as the project's build labels it, on the debugger that the control state asks.
+    let mut runtime =
+        crate::CompiledRuntime::load(labelled_program_image("src/main.st", source), "RESOURCE")
+            .expect("the labelled image loads");
+    runtime.set_debug_control(state.debug.clone());
     let project_root = std::env::temp_dir().join("trust-breakpoints-project-relative");
-    state.project_root = Some(project_root.clone());
-    state.sources = SourceRegistry::new(vec![SourceFile {
-        id: 1,
-        path: project_root.join("src").join("main.st"),
-        text: source.to_string(),
-    }]);
+    let absolute = project_root.join("src").join("main.st");
 
-    let response = handle_request_value(
+    for path in ["src/main.st", absolute.to_str().expect("a UTF-8 path")] {
+        let response = handle_request_value(
+            json!({
+                "id": 101,
+                "type": "breakpoints.set",
+                "params": { "source": path, "lines": [5] }
+            }),
+            &state,
+            None,
+        );
+        assert!(
+            response.ok,
+            "the breakpoint source {path} should bind: {:?}",
+            response.error
+        );
+        let result = response.result.expect("breakpoint result");
+        assert_eq!(
+            result.get("file_id").and_then(serde_json::Value::as_u64),
+            Some(0),
+            "{path}"
+        );
+        assert_eq!(
+            result["resolved"],
+            json!([{ "line": 5, "column": 0 }]),
+            "{path}"
+        );
+    }
+
+    let unknown = handle_request_value(
         json!({
-            "id": 101,
+            "id": 102,
             "type": "breakpoints.set",
-            "params": { "source": "src/main.st", "lines": [6] }
+            "params": { "source": "lib/main.st", "lines": [5] }
         }),
         &state,
         None,
     );
-
-    assert!(
-        response.ok,
-        "project-relative breakpoint source should bind: {:?}",
-        response.error
-    );
-    let result = response.result.expect("breakpoint result");
-    assert_eq!(
-        result.get("file_id").and_then(serde_json::Value::as_u64),
-        Some(1)
-    );
+    assert!(!unknown.ok, "a path that ends with no label binds no file");
+    assert_eq!(unknown.error.as_deref(), Some("unknown source path"));
 }
 
 #[test]
@@ -48,7 +78,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
     let requests = vec![
         json!({"id": 1, "type": "status"}),
         json!({"id": 2, "type": "io.list"}),
@@ -99,7 +129,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
 
     let simulated = handle_request_value(
         json!({"id": 51, "type": "comm.test", "params": { "protocol": "simulated", "params": {} }}),
@@ -209,9 +239,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-schema");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
 
     let response = handle_request_value(
         json!({"id": 44, "type": "comm.schema", "params": { "protocol": "mqtt" }}),
@@ -330,7 +360,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({"id": 144, "type": "comm.schema", "params": { "protocol": "opcua" }}),
@@ -390,9 +420,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-runtime-file");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("runtime.toml"),
         &crate::bundle_template::render_runtime_toml(&SmolStr::new("comm-runtime"), 10),
@@ -462,7 +492,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -515,9 +545,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-dry-run");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("runtime.toml"),
         &crate::bundle_template::render_runtime_toml(&SmolStr::new("comm-dry-run"), 10),
@@ -785,9 +815,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-write");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("io.toml"),
         r#"
@@ -864,9 +894,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-safe-state-only");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("io.toml"),
         r#"
@@ -927,9 +957,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-ethercat-bootstrap");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("runtime.toml"),
         &crate::bundle_template::render_runtime_toml(&SmolStr::new("line-a"), 10),
@@ -1033,9 +1063,9 @@ END_PROGRAM
         ("empty-drivers", "[io]\ndrivers = []\n"),
         ("comment-only", "# created by first-run setup\n"),
     ] {
-        let mut state = hmi_test_state(source);
+        let mut state = control_test_state(source);
         let root = temp_dir(&format!("comm-apply-{case}"));
-        set_hmi_project_root(&mut state, &root);
+        set_project_root(&mut state, &root);
         write_file(&root.join("io.toml"), initial);
 
         let response = handle_request_value(
@@ -1090,9 +1120,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-remove-last");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("io.toml"),
         r#"
@@ -1225,9 +1255,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-disable-preserves-driver");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("io.toml"),
         r#"
@@ -1329,9 +1359,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-remove-one");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("io.toml"),
         r#"
@@ -1398,9 +1428,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-edit-idempotent");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("io.toml"),
         r#"
@@ -1496,9 +1526,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-edit-requires-instance");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("io.toml"),
         r#"
@@ -1578,9 +1608,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-cross-protocol-instance");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     write_file(
         &root.join("io.toml"),
         r#"
@@ -1692,9 +1722,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-secret");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
 
     let blocked = handle_request_value(
         json!({
@@ -1773,9 +1803,9 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let root = temp_dir("comm-apply-audit");
-    set_hmi_project_root(&mut state, &root);
+    set_project_root(&mut state, &root);
     let (audit_tx, audit_rx) = std::sync::mpsc::channel();
     state.audit_tx = Some(audit_tx);
 
@@ -2590,7 +2620,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response =
         handle_request_value(json!({"id": 43, "type": "comm.capabilities"}), &state, None);
@@ -2693,7 +2723,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let schema = handle_request_value(json!({"id": 45, "type": "comm.schema"}), &state, None);
     assert!(schema.ok, "comm.schema failed: {:?}", schema.error);
@@ -2800,6 +2830,8 @@ fn connected_ads_status() -> crate::ads::diagnostics::AdsStatusReport {
         connections: vec![crate::ads::diagnostics::AdsConnectionStatus {
             name: "line1".to_string(),
             target: Some(crate::ads::diagnostics::TargetIdentity {
+                os_version: None,
+                fingerprint: None,
                 name: Some("TwinCAT".to_string()),
                 ip: "192.168.77.20".to_string(),
                 ams_net_id: "5.23.91.12.1.1".to_string(),
@@ -2866,7 +2898,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state_with_ads_status(source, connected_ads_status());
+    let mut state = control_test_state_with_ads_status(source, connected_ads_status());
     let project_root = temp_dir("fleet-topology");
     write_file(
         &project_root.join("io.toml"),
@@ -2887,7 +2919,7 @@ END_PROGRAM
 	params = { broker = "mqtt://broker.local:1883", topic_in = "trust/io/in", topic_out = "trust/io/out", password = "mqtt-secret", tls = true }
 	"#,
     );
-    set_hmi_project_root(&mut state, &project_root);
+    set_project_root(&mut state, &project_root);
     *state.ads_client_config.lock().expect("ads client config") = Some(test_ads_client_config());
     let now_ns = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -3228,7 +3260,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let demo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/network_canvas_demo")
         .canonicalize()
@@ -3272,7 +3304,7 @@ params = { adapter = "eth1", timeout_ms = 250, cycle_warn_ms = 5, on_error = "fa
         settings.opcua.enabled = true;
         settings.opcua.listen = SmolStr::new("127.0.0.1:4840");
     }
-    set_hmi_project_root(&mut state, &project_root);
+    set_project_root(&mut state, &project_root);
 
     let response = handle_request_value(json!({"id": 48, "type": "fleet.topology"}), &state, None);
     assert!(response.ok, "fleet.topology failed: {:?}", response.error);
@@ -3400,7 +3432,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
     {
         let mut settings = state.settings.lock().expect("settings lock");
         settings.web.enabled = true;
@@ -3465,7 +3497,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3555,7 +3587,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
     let mut params = ads_import_symbols_params();
     params
         .get_mut("snapshot")
@@ -3591,7 +3623,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3629,7 +3661,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     for kind in [
         "ads.discover",
@@ -3663,7 +3695,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3693,7 +3725,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3722,7 +3754,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3751,7 +3783,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let start = handle_request_value(
         json!({
@@ -3808,7 +3840,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3850,7 +3882,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3889,7 +3921,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3918,7 +3950,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3949,7 +3981,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -3980,7 +4012,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -4019,7 +4051,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(json!({"id": 42, "type": "ads.status"}), &state, None);
 
@@ -4057,7 +4089,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -4098,7 +4130,7 @@ END_PROGRAM
 #[cfg(feature = "ads-server")]
 #[test]
 fn ads_server_status_control_request_returns_server_surface() {
-    let state = hmi_test_state(ads_server_runtime_source());
+    let state = control_test_state(ads_server_runtime_source());
     *state.ads_server_config.lock().expect("ads server config") = Some(ads_server_runtime_config());
 
     let response =
@@ -4135,7 +4167,7 @@ fn ads_server_status_control_request_returns_server_surface() {
 #[cfg(feature = "ads-server")]
 #[test]
 fn ads_server_symbols_control_request_returns_exposed_snapshot() {
-    let state = hmi_test_state(ads_server_runtime_source());
+    let state = control_test_state(ads_server_runtime_source());
     *state.ads_server_config.lock().expect("ads server config") = Some(ads_server_runtime_config());
 
     let response = handle_request_value(
@@ -4168,7 +4200,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -4204,7 +4236,7 @@ END_PROGRAM
 #[cfg(feature = "ads-server")]
 #[test]
 fn ads_server_doctor_control_request_returns_server_report_without_external_proof() {
-    let state = hmi_test_state(ads_server_runtime_source());
+    let state = control_test_state(ads_server_runtime_source());
     *state.ads_server_config.lock().expect("ads server config") = Some(ads_server_runtime_config());
 
     let response = handle_request_value(
@@ -4243,7 +4275,7 @@ fn ads_server_doctor_control_request_returns_server_report_without_external_proo
 #[cfg(feature = "ads-server")]
 #[test]
 fn ads_server_status_rejects_external_claim_without_live_server_evidence() {
-    let state = hmi_test_state(ads_server_runtime_source());
+    let state = control_test_state(ads_server_runtime_source());
     *state.ads_server_config.lock().expect("ads server config") = Some(ads_server_runtime_config());
 
     let doctor = handle_request_value(
@@ -4284,7 +4316,7 @@ fn ads_server_status_rejects_external_claim_without_live_server_evidence() {
         None,
     );
     assert!(status.ok, "ads.server.status failed: {:?}", status.error);
-    let result = status.result.expect("status result");
+    let result = status.result_value().expect("status result");
     assert_eq!(
         result
             .get("external_client_verified")
@@ -4336,7 +4368,7 @@ fn ads_server_status_rejects_external_claim_without_live_server_evidence() {
 #[cfg(feature = "ads-server")]
 #[test]
 fn ads_server_doctor_start_and_status_use_job_poll_surface() {
-    let state = hmi_test_state(ads_server_runtime_source());
+    let state = control_test_state(ads_server_runtime_source());
     *state.ads_server_config.lock().expect("ads server config") = Some(ads_server_runtime_config());
 
     let start = handle_request_value(
@@ -4411,7 +4443,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let pause = handle_request_value(json!({"id": 1, "type": "pause"}), &state, None);
     assert!(pause.ok, "pause should succeed: {:?}", pause.error);
@@ -4463,7 +4495,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
     let output = crate::io::IoAddress::parse("%QX0.0").expect("output address");
     *state.io_snapshot.lock().expect("snapshot lock") = Some(crate::io::IoSnapshot {
         scan: Some(7),
@@ -4493,8 +4525,8 @@ END_PROGRAM
 
     let read = handle_request_value(json!({"id": 41, "type": "io.read"}), &state, None);
     assert!(read.ok, "io.read should succeed: {:?}", read.error);
-    let snapshot = read
-        .result
+    let read_result = read.result_value();
+    let snapshot = read_result
         .as_ref()
         .and_then(|result| result.get("snapshot"))
         .expect("snapshot result");
@@ -4536,8 +4568,8 @@ END_PROGRAM
         "io.read should succeed: {:?}",
         next_read.error
     );
-    let forced = next_read
-        .result
+    let next_read_result = next_read.result_value();
+    let forced = next_read_result
         .as_ref()
         .and_then(|result| result.get("snapshot"))
         .and_then(|snapshot| snapshot.get("outputs"))
@@ -4572,7 +4604,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     for (id, address) in [
         (50, "%IB16777216"),
@@ -4611,7 +4643,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     for (id, address) in [
         (60, "%IB16777216"),
@@ -4650,29 +4682,23 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let status = handle_request_value(json!({"id": 30, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
-    let result = status.result.expect("status result");
+    let result = status.result_value().expect("status result");
+    // Every runtime runs compiled programs (specification 44 §15).
     assert_eq!(
         result
             .get("execution_backend")
             .and_then(serde_json::Value::as_str),
-        Some("vm")
+        Some("native")
     );
     assert_eq!(
         result
             .get("execution_backend_source")
             .and_then(serde_json::Value::as_str),
         Some("default")
-    );
-    assert_eq!(
-        result
-            .get("metrics")
-            .and_then(|metrics| metrics.get("execution_backend"))
-            .and_then(serde_json::Value::as_str),
-        Some("vm")
     );
 }
 
@@ -4685,11 +4711,11 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let status = handle_request_value(json!({"id": 31, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
-    let status_result = status.result.expect("status result");
+    let status_result = status.result_value().expect("status result");
     let status_backend = status_result
         .get("execution_backend")
         .and_then(serde_json::Value::as_str)
@@ -4728,7 +4754,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     {
         let mut settings = state.settings.lock().expect("settings lock");
@@ -4781,10 +4807,24 @@ END_PROGRAM
             },
         },
     ]);
+    // The scan cycle reports the runtime's I/O as not simulation-only: its fieldbus driver is physical. A mix of simulated and physical
+    // I/O is physical, so the target stays physical with the simulation enabled (specification 35, A2.4).
+    let program = state
+        .debug
+        .published_program()
+        .expect("the fixture's first scan published the program");
+    state.debug.push_control_snapshot_at(
+        crate::io::IoSnapshot::default(),
+        0,
+        &*program,
+        &[],
+        false,
+        false,
+    );
 
     let status = handle_request_value(json!({"id": 33, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
-    let result = status.result.expect("status result");
+    let result = status.result_value().expect("status result");
 
     assert_eq!(
         result.get("state").and_then(serde_json::Value::as_str),
@@ -4827,6 +4867,23 @@ END_PROGRAM
             .get("simulation_warning")
             .and_then(serde_json::Value::as_str),
         Some("simulation clock scaled")
+    );
+    // A simulation at speed 4 with no measured speed yet names its speed; its I/O is not simulation-only, so the target is physical (A2.4).
+    assert_eq!(
+        result.get("simulated").and_then(serde_json::Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        result
+            .get("simulation_speed_text")
+            .and_then(serde_json::Value::as_str),
+        Some("\u{00D7}4")
+    );
+    assert_eq!(
+        result
+            .get("simulation_speed_behind")
+            .and_then(serde_json::Value::as_bool),
+        Some(false)
     );
 
     let metrics = result.get("metrics").expect("metrics object");
@@ -4951,7 +5008,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
     state
         .io_health
         .lock()
@@ -4965,7 +5022,7 @@ END_PROGRAM
 
     let health = handle_request_value(json!({"id": 34, "type": "health"}), &state, None);
     assert!(health.ok, "health should succeed: {:?}", health.error);
-    let result = health.result.expect("health result");
+    let result = health.result_value().expect("health result");
 
     assert_eq!(
         result.get("ok").and_then(serde_json::Value::as_bool),
@@ -5005,7 +5062,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let unknown = handle_request_value(
         json!({
@@ -5110,7 +5167,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
     let response = handle_request_value(
         json!({
             "id": 22,
@@ -5137,7 +5194,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let response = handle_request_value(
         json!({
@@ -5158,12 +5215,12 @@ END_PROGRAM
 
     let status = handle_request_value(json!({"id": 25, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
-    let result = status.result.expect("status result");
+    let result = status.result_value().expect("status result");
     assert_eq!(
         result
             .get("execution_backend")
             .and_then(serde_json::Value::as_str),
-        Some("vm")
+        Some("native")
     );
     assert_eq!(
         result
@@ -5180,11 +5237,11 @@ fn status_and_config_get_surface_realtime_defaults() {
 PROGRAM Main
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let status = handle_request_value(json!({"id": 26, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
-    let status_result = status.result.expect("status result");
+    let status_result = status.result_value().expect("status result");
     assert_eq!(
         status_result
             .get("realtime")
@@ -5231,7 +5288,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let invalid_line = handle_request_line("{invalid-json", &state, None)
         .expect("invalid request should still return response line");
@@ -5281,7 +5338,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     state.auth_token = Arc::new(Mutex::new(Some(SmolStr::new("admin-token"))));
     state.control_requires_auth = true;
     let pairing_path = pairing_file("matrix");
@@ -5307,8 +5364,8 @@ END_PROGRAM
         None,
     );
     assert!(viewer_status.ok, "viewer should read status");
-    let viewer_access = viewer_status
-        .result
+    let viewer_status_result = viewer_status.result_value();
+    let viewer_access = viewer_status_result
         .as_ref()
         .and_then(|value| value.get("access"))
         .expect("viewer access capabilities");
@@ -5372,25 +5429,6 @@ END_PROGRAM
         .as_deref()
         .is_some_and(|msg| msg.contains("requires role engineer")));
 
-    let operator_hmi_write = handle_request_value(
-        json!({
-            "id": 531,
-            "type": "hmi.write",
-            "auth": operator_token,
-            "params": { "id": "resource/RESOURCE/program/Main/field/run", "value": false }
-        }),
-        &state,
-        None,
-    );
-    assert!(
-        !operator_hmi_write.ok,
-        "operator must not write HMI targets"
-    );
-    assert!(operator_hmi_write
-        .error
-        .as_deref()
-        .is_some_and(|msg| msg.contains("requires role engineer")));
-
     let engineer_write = handle_request_value(
         json!({
             "id": 54,
@@ -5402,25 +5440,6 @@ END_PROGRAM
         None,
     );
     assert!(engineer_write.ok, "engineer should write I/O");
-
-    let engineer_hmi_write = handle_request_value(
-        json!({
-            "id": 541,
-            "type": "hmi.write",
-            "auth": engineer_token,
-            "params": { "id": "resource/RESOURCE/program/Main/field/run", "value": false }
-        }),
-        &state,
-        None,
-    );
-    assert!(
-        !engineer_hmi_write.ok,
-        "engineer write should still be gated by read-only defaults"
-    );
-    assert_eq!(
-        engineer_hmi_write.error.as_deref(),
-        Some("hmi.write disabled in read-only mode")
-    );
 
     let engineer_pair_start = handle_request_value(
         json!({"id": 55, "type": "pair.start", "auth": engineer_token}),
@@ -5477,7 +5496,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let remote_client = Some("127.0.0.1:55001");
     let status = handle_request_value(json!({"id": 901, "type": "status"}), &state, remote_client);
@@ -5508,12 +5527,12 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
 
     let status = handle_request_value(json!({"id": 903, "type": "status"}), &state, Some("unix"));
     assert!(status.ok, "local Unix control should read status");
-    let access = status
-        .result
+    let status_result = status.result_value();
+    let access = status_result
         .as_ref()
         .and_then(|value| value.get("access"))
         .expect("access capabilities");
@@ -5552,7 +5571,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let pairing_path = pairing_file("unix-viewer-token");
     let store = Arc::new(PairingStore::load(pairing_path.clone()));
     state.pairing = Some(store.clone());
@@ -5567,8 +5586,8 @@ END_PROGRAM
         Some("unix"),
     );
     assert!(status.ok, "viewer token should read status over Unix");
-    let access = status
-        .result
+    let status_result = status.result_value();
+    let access = status_result
         .as_ref()
         .and_then(|value| value.get("access"))
         .expect("access capabilities");
@@ -5611,7 +5630,7 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     let history_path = temp_history_path("historian");
     let hook_path = temp_history_path("hook");
     let historian = HistorianService::new(
@@ -5855,4 +5874,49 @@ END_VAR
 setpoint := setpoint;
 END_PROGRAM
 "#
+}
+
+/// R1: the runtime ID belongs to the state, not to the process. Two states in one process report
+/// their own IDs, and reading `status` creates no file (specification 11, `status`: the runtime's
+/// stable runtime ID, and the read-only-status precedent of `bin/trust-runtime/lifecycle.rs`).
+/// The fault kept one process-wide `OnceLock`, so the second state reported the first state's ID
+/// and the first read created `<project>/.trust-runtime/runtime_id`.
+#[test]
+fn status_runtime_id_is_the_states_and_reading_it_writes_no_file() {
+    let first_root = temp_dir("status-runtime-id-a");
+    let second_root = temp_dir("status-runtime-id-b");
+
+    let mut first = control_test_state("PROGRAM Main\nEND_PROGRAM\n");
+    first.runtime_id = SmolStr::new("rt-a");
+    set_project_root(&mut first, &first_root);
+    let mut second = control_test_state("PROGRAM Main\nEND_PROGRAM\n");
+    second.runtime_id = SmolStr::new("rt-b");
+    set_project_root(&mut second, &second_root);
+
+    let first_status = handle_request_value(json!({"id": 601, "type": "status"}), &first, None);
+    let second_status = handle_request_value(json!({"id": 602, "type": "status"}), &second, None);
+    assert_eq!(
+        first_status
+            .result_value()
+            .as_ref()
+            .and_then(|result| result.get("runtime_id")),
+        Some(&json!("rt-a")),
+        "the first state reports its own runtime ID"
+    );
+    assert_eq!(
+        second_status
+            .result_value()
+            .as_ref()
+            .and_then(|result| result.get("runtime_id")),
+        Some(&json!("rt-b")),
+        "the second state in the same process reports its own runtime ID"
+    );
+    assert!(
+        !first_root.join(".trust-runtime").exists(),
+        "reading status must not create runtime state"
+    );
+    assert!(
+        !second_root.join(".trust-runtime").exists(),
+        "reading status must not create runtime state"
+    );
 }

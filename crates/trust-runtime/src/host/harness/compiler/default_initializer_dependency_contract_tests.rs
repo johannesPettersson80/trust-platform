@@ -1,6 +1,6 @@
-use crate::harness::{CompileSession, SourceFile};
+use crate::harness::{lower_application, CompileSession, SourceFile};
 use crate::value::Value;
-use crate::Runtime;
+use crate::RuntimeBuilder;
 
 fn source_files(files: &[(&str, &str)]) -> Vec<SourceFile> {
     files
@@ -9,34 +9,35 @@ fn source_files(files: &[(&str, &str)]) -> Vec<SourceFile> {
         .collect()
 }
 
-fn runtime(files: &[(&str, &str)]) -> Runtime {
-    CompileSession::from_sources(source_files(files))
-        .build_runtime()
+fn runtime(files: &[(&str, &str)]) -> RuntimeBuilder {
+    lower_application(&source_files(files), files.len() > 1)
+        .and_then(|lowered| lowered.construct(&[]))
+        .map(|(builder, _)| builder)
         .unwrap_or_else(|error| panic!("default-initializer fixture must compile: {error}"))
 }
 
 fn compile_error(files: &[(&str, &str)]) -> String {
-    match CompileSession::from_sources(source_files(files)).build_runtime() {
+    match CompileSession::from_sources(source_files(files)).declarations() {
         Ok(_) => panic!("default-initializer fixture must fail"),
         Err(error) => error.to_string(),
     }
 }
 
-fn global<'a>(runtime: &'a Runtime, name: &str) -> &'a Value {
+fn global<'a>(runtime: &'a RuntimeBuilder, name: &str) -> &'a Value {
     runtime
         .storage()
         .get_global(name)
         .unwrap_or_else(|| panic!("missing global {name}"))
 }
 
-fn int_global(runtime: &Runtime, name: &str) -> i16 {
+fn int_global(runtime: &RuntimeBuilder, name: &str) -> i16 {
     match global(runtime, name) {
         Value::Int(value) => *value,
         other => panic!("expected INT global {name}, got {other:?}"),
     }
 }
 
-fn struct_field<'a>(runtime: &'a Runtime, global_name: &str, field: &str) -> &'a Value {
+fn struct_field<'a>(runtime: &'a RuntimeBuilder, global_name: &str, field: &str) -> &'a Value {
     let Value::Struct(value) = global(runtime, global_name) else {
         panic!("expected STRUCT global {global_name}");
     };
@@ -553,4 +554,27 @@ END_PROGRAM
         struct_field(&runtime, "FromVariableDefault", "FromMember"),
         &Value::Int(5)
     );
+}
+
+/// IEC 61131-3 §6.4.4.4.2: a subrange without an initializer starts at its first (lower) limit,
+/// held in its base type. A store that wrote the bound as a `LINT` refused the build; one that
+/// wrote zero would give `Signed` a value outside its range.
+#[test]
+fn default_initializer_subrange_starts_at_its_lower_limit_in_its_base_type() {
+    let runtime = runtime(&[(
+        "main.st",
+        r#"
+TYPE SignedWindow : INT(-5..12);
+END_TYPE
+VAR_GLOBAL
+    Signed : SignedWindow;
+    Level : UINT(3..9);
+END_VAR
+PROGRAM Main
+END_PROGRAM
+"#,
+    )]);
+
+    assert_eq!(int_global(&runtime, "Signed"), -5);
+    assert_eq!(global(&runtime, "Level"), &Value::UInt(3));
 }

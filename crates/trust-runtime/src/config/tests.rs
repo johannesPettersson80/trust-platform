@@ -73,6 +73,50 @@ params = {}
     .to_string()
 }
 
+/// [`runtime_toml`] with an additional `[runtime.events]` body.
+fn runtime_toml_with_events(body: &str) -> String {
+    format!("{}\n[runtime.events]\n{body}\n", runtime_toml())
+}
+
+#[test]
+fn event_capacity_is_read_from_runtime_toml_and_defaults_to_1000() {
+    // Specification 11, the event store: `runtime.events.capacity` sets the newest events the
+    // store keeps, and a computer keeps 1,000 when the project sets none. Wrong behaviour caught:
+    // the setting is ignored (always 1,000), or its value is not used at all.
+    let configured =
+        parse_runtime_toml_from_text(&runtime_toml_with_events("capacity = 200"), "runtime.toml")
+            .expect("a capacity in range is accepted");
+    assert_eq!(configured.event_capacity, Some(200));
+    assert_eq!(configured.event_store_capacity(), 200);
+
+    let absent = parse_runtime_toml_from_text(&runtime_toml(), "runtime.toml")
+        .expect("a project without an events section is accepted");
+    assert_eq!(absent.event_capacity, None);
+    assert_eq!(absent.event_store_capacity(), 1_000);
+}
+
+#[test]
+fn an_event_capacity_outside_its_range_is_a_configuration_error() {
+    // Specification 11, the event store: the setting is an integer from 1 through 1,000,000, and
+    // another value or type is a configuration error. Wrong behaviour caught: 0 or 1,000,001
+    // silently taking the default, or a string being parsed as a number.
+    for capacity in ["0", "1000001"] {
+        let err = validate_runtime_toml_text(&runtime_toml_with_events(&format!(
+            "capacity = {capacity}"
+        )))
+        .expect_err("an out-of-range capacity is refused");
+        assert!(
+            err.to_string()
+                .contains("runtime.events.capacity must be 1 to 1000000"),
+            "capacity {capacity}: {err}"
+        );
+    }
+
+    let err = validate_runtime_toml_text(&runtime_toml_with_events(r#"capacity = "many""#))
+        .expect_err("a string capacity is refused");
+    assert!(err.to_string().contains("runtime.toml"), "{err}");
+}
+
 #[test]
 fn runtime_schema_rejects_unknown_keys() {
     let text = format!("{}\n[runtime.extra]\nflag = true\n", runtime_toml());
@@ -174,13 +218,6 @@ fn runtime_schema_rejects_blank_explicit_paths() {
             "runtime.opcua_client.config_path",
             format!(
                 "{}\n[runtime.opcua_client]\nconfig_path = \"   \"\n",
-                runtime_toml()
-            ),
-        ),
-        (
-            "runtime.hmi_persistence.history_path",
-            format!(
-                "{}\n[runtime.hmi_persistence]\nhistory_path = \"   \"\n",
                 runtime_toml()
             ),
         ),
@@ -1052,31 +1089,18 @@ fn runtime_schema_rejects_prometheus_path_without_leading_slash() {
 }
 
 #[test]
-fn runtime_schema_accepts_hmi_persistence_section() {
+fn runtime_schema_rejects_the_removed_hmi_persistence_section() {
+    // Specification 39, decision 12: the legacy HMI and its history settings are removed.
     let text = format!(
         "{}\n[runtime.hmi_persistence]\nenabled = true\nhistory_path = \"history/hmi.jsonl\"\nmax_entries = 128\n",
         runtime_toml()
     );
-    let config = parse_runtime_toml_from_text(&text, "runtime.toml")
-        .expect("hmi persistence config should parse");
-    assert!(config.hmi_persistence.enabled);
-    assert_eq!(
-        config.hmi_persistence.history_path,
-        std::path::PathBuf::from("history/hmi.jsonl")
+    let err = parse_runtime_toml_from_text(&text, "runtime.toml")
+        .expect_err("the removed hmi_persistence section must not parse");
+    assert!(
+        err.to_string().contains("hmi_persistence"),
+        "the error must name the removed section, got: {err}"
     );
-    assert_eq!(config.hmi_persistence.max_entries, 128);
-}
-
-#[test]
-fn runtime_schema_rejects_empty_hmi_persistence_window() {
-    let text = format!(
-        "{}\n[runtime.hmi_persistence]\nenabled = true\nmax_entries = 0\n",
-        runtime_toml()
-    );
-    let err = validate_runtime_toml_text(&text).expect_err("max_entries should fail");
-    assert!(err
-        .to_string()
-        .contains("runtime.hmi_persistence.max_entries must be >= 1"));
 }
 
 #[test]
@@ -1385,7 +1409,7 @@ fn runtime_bundle_loads_ads_toml_when_enabled() {
     )
     .expect("write runtime.toml");
     std::fs::write(root.join("io.toml"), io_toml()).expect("write io.toml");
-    std::fs::write(root.join("program.stbc"), []).expect("write bytecode");
+    std::fs::write(root.join(crate::native::PROGRAM_IMAGE_FILE), []).expect("write program image");
     std::fs::write(root.join("ads.toml"), ads_toml()).expect("write ads.toml");
 
     let bundle = RuntimeBundle::load(&root).expect("load runtime bundle");
@@ -1413,7 +1437,7 @@ fn runtime_bundle_loads_opcua_client_toml_when_enabled() {
     )
     .expect("write runtime.toml");
     std::fs::write(root.join("io.toml"), io_toml()).expect("write io.toml");
-    std::fs::write(root.join("program.stbc"), []).expect("write bytecode");
+    std::fs::write(root.join(crate::native::PROGRAM_IMAGE_FILE), []).expect("write program image");
     std::fs::write(root.join("opcua_client.toml"), opcua_client_toml())
         .expect("write opcua_client.toml");
 
@@ -1445,7 +1469,7 @@ fn runtime_bundle_rejects_missing_enabled_opcua_client_toml() {
     )
     .expect("write runtime.toml");
     std::fs::write(root.join("io.toml"), io_toml()).expect("write io.toml");
-    std::fs::write(root.join("program.stbc"), []).expect("write bytecode");
+    std::fs::write(root.join(crate::native::PROGRAM_IMAGE_FILE), []).expect("write program image");
 
     let err = RuntimeBundle::load(&root).expect_err("missing OPC UA client config should fail");
 
@@ -1463,7 +1487,7 @@ fn runtime_bundle_rejects_missing_enabled_ads_toml() {
     )
     .expect("write runtime.toml");
     std::fs::write(root.join("io.toml"), io_toml()).expect("write io.toml");
-    std::fs::write(root.join("program.stbc"), []).expect("write bytecode");
+    std::fs::write(root.join(crate::native::PROGRAM_IMAGE_FILE), []).expect("write program image");
 
     let err = RuntimeBundle::load(&root).expect_err("missing ADS config should fail");
 
@@ -1693,10 +1717,6 @@ fn runtime_config_load_records_execution_backend_source_from_config() {
 
     let runtime = RuntimeConfig::load(&runtime_path).expect("load runtime config");
     assert_eq!(
-        runtime.execution_backend,
-        crate::execution_backend::ExecutionBackend::BytecodeVm
-    );
-    assert_eq!(
         runtime.execution_backend_source,
         crate::execution_backend::ExecutionBackendSource::Config
     );
@@ -1721,13 +1741,40 @@ fn runtime_config_load_defaults_execution_backend_source_when_omitted() {
 
     let runtime = RuntimeConfig::load(&runtime_path).expect("load runtime config");
     assert_eq!(
-        runtime.execution_backend,
-        crate::execution_backend::ExecutionBackend::BytecodeVm
-    );
-    assert_eq!(
         runtime.execution_backend_source,
         crate::execution_backend::ExecutionBackendSource::Default
     );
 }
 
+/// Specification 39, §12.8: users, session times and the write policy come from
+/// `[runtime.web.hmi]`; a bad entry is refused with its key.
+#[test]
+fn runtime_schema_reads_the_hmi_access_section() {
+    let hash = crate::hmi::access::password::hash_password("secret", 10_000, b"0123456789abcdef");
+    let section = format!(
+        "\n[runtime.web.hmi]\nidle_minutes = 5\n\n[[runtime.web.hmi.user]]\nname = \"anna\"\nrole = \"operator\"\npassword = \"{hash}\"\n\n[[runtime.web.hmi.write]]\npath = \"Loop.Setpoint\"\nrole = \"operator\"\nmax = 120.0\n"
+    );
+    let text = runtime_toml().replace(
+        "tls = false\n\n[runtime.discovery]",
+        &format!("tls = false\n{section}\n[runtime.discovery]"),
+    );
+    assert!(
+        text.contains("[runtime.web.hmi]"),
+        "the section is in the file"
+    );
+    let config = parse_runtime_toml_from_text(&text, "runtime.toml").expect("valid");
+    assert_eq!(config.web.hmi.idle, std::time::Duration::from_secs(300));
+    assert_eq!(config.web.hmi.users.len(), 1);
+    assert_eq!(config.web.hmi.write.len(), 1);
+    assert_eq!(config.web.hmi.write[0].max, Some(120.0));
+
+    let bad = text.replace("role = \"operator\"\nmax", "role = \"viewer\"\nmax");
+    let error = parse_runtime_toml_from_text(&bad, "runtime.toml").expect_err("refused");
+    assert!(
+        error.to_string().contains("runtime.web.hmi.write"),
+        "{error}"
+    );
+}
+
 mod hang_action_tests;
+mod statement_budget_tests;

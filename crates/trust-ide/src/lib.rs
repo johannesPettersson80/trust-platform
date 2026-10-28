@@ -32,6 +32,7 @@ pub mod linked_editing;
 pub mod refactor;
 pub mod references;
 pub mod rename;
+pub mod rename_identity;
 pub mod selection_range;
 pub mod semantic_tokens;
 pub mod signature_help;

@@ -1,0 +1,332 @@
+//! What a kernel uses to call a module: the context it fills and the entry points it calls
+//! (specification 44 §8.2, §8.3, §10.3).
+
+use core::ptr::NonNull;
+
+use crate::{
+    Area, Cx, EntryFn, FaultCode, FaultRecord, KernelApi, ReadRealFn, WallClockFn, AREA_COUNT,
+    INTERFACE_VERSION,
+};
+
+/// An entry point of an admitted module.
+#[derive(Clone, Copy)]
+pub struct Entry(EntryFn);
+
+impl Entry {
+    /// The entry point whose first instruction is at `address`.
+    ///
+    /// # Safety
+    ///
+    /// `address` is the address of an entry point of an image the kernel admitted (specification
+    /// 44 §10.2), with the Thumb bit set on a Thumb target as the image's entry table gives it, in
+    /// memory the CPU executes, and the module's code and read-only data stay mapped and unchanged
+    /// for as long as the entry is called.
+    #[must_use]
+    #[allow(unsafe_code)]
+    pub unsafe fn from_address(address: *const u8) -> Self {
+        // SAFETY: as the caller promises, `address` is a function of the module with the signature
+        // of `EntryFn`, which every entry point of an image has (specification 44 §5.4).
+        Self(unsafe { core::mem::transmute::<*const u8, EntryFn>(address) })
+    }
+
+    /// The entry point `function`, a function of this process with the entry signature: a kernel's
+    /// own stand-in for a module in its tests.
+    #[must_use]
+    pub fn from_fn(function: EntryFn) -> Self {
+        Self(function)
+    }
+
+    /// Calls the entry point with `cx` and returns 0 or the code of the fault it ended with.
+    pub fn call(self, cx: &mut Cx) -> u32 {
+        (self.0)(cx)
+    }
+}
+
+/// The base a kernel gives an area of no bytes: never null, aligned to 8.
+fn empty_base() -> *mut u8 {
+    NonNull::<u64>::dangling().as_ptr().cast::<u8>()
+}
+
+impl Cx {
+    /// A context of this interface version with the kernel functions `api`, empty areas, no time,
+    /// no budget and no breakpoints, which the kernel fills before each call.
+    #[must_use]
+    pub fn new(api: &'static KernelApi) -> Self {
+        Self {
+            version: INTERFACE_VERSION,
+            task: u32::MAX,
+            areas: [Area {
+                base: empty_base(),
+                len: 0,
+            }; AREA_COUNT],
+            now_ns: 0,
+            budget: 0,
+            depth: 0,
+            stmt: 0,
+            armed: 0,
+            breakpoint_bytes: 0,
+            breakpoints: core::ptr::null(),
+            api,
+            kernel: core::ptr::null_mut(),
+            frame: core::ptr::null(),
+            fault: FaultRecord::default(),
+        }
+    }
+
+    /// Gives area `id` the `len` bytes from `base`; an empty area gets an aligned base that is
+    /// never read. Ids outside 1 to 7 change nothing.
+    pub fn set_area(&mut self, id: u8, base: *mut u8, len: u32) {
+        let Some(area) = usize::from(id)
+            .checked_sub(1)
+            .and_then(|index| self.areas.get_mut(index))
+        else {
+            return;
+        };
+        *area = if len == 0 || base.is_null() {
+            Area {
+                base: empty_base(),
+                len: 0,
+            }
+        } else {
+            Area { base, len }
+        };
+    }
+}
+
+// SAFETY: a context's pointers name memory the kernel's cycle owns with the context (the areas, the
+// breakpoint bits, the function table) or a call's own frames, null between calls. The cycle moves
+// them as one, and a module reads them only during a call the cycle makes on its own thread.
+#[allow(unsafe_code)]
+unsafe impl Send for Cx {}
+
+#[cfg(target_arch = "x86_64")]
+extern "sysv64" fn continue_stop(_cx: *mut Cx, _stmt: u32) -> u32 {
+    0
+}
+#[cfg(not(target_arch = "x86_64"))]
+extern "C" fn continue_stop(_cx: *mut Cx, _stmt: u32) -> u32 {
+    0
+}
+
+#[cfg(target_arch = "x86_64")]
+extern "sysv64" fn no_queued_write(_cx: *mut Cx, _symbol: u32) -> u32 {
+    0
+}
+#[cfg(not(target_arch = "x86_64"))]
+extern "C" fn no_queued_write(_cx: *mut Cx, _symbol: u32) -> u32 {
+    0
+}
+
+/// How a kernel reads the real a text spells: with the runtime's own reader, so that a compiled
+/// program reads every text as the runtime does (specification 44 §8.2; specification 07 §2.8).
+pub trait RealReader {
+    /// The real `text` spells.
+    ///
+    /// # Errors
+    ///
+    /// The code of the fault for a text that spells no real.
+    fn read(text: &[u8]) -> Result<f64, FaultCode>;
+}
+
+/// A reader that reads no real, for a kernel whose programs read no text as a real.
+pub struct NoReals;
+
+impl RealReader for NoReals {
+    fn read(_text: &[u8]) -> Result<f64, FaultCode> {
+        Err(FaultCode::TypeMismatch)
+    }
+}
+
+/// The kernel function [`KernelApi::read_real`] of reader `R`.
+#[cfg(target_arch = "x86_64")]
+pub extern "sysv64" fn read_real<R: RealReader>(
+    _cx: *mut Cx,
+    text: *const u8,
+    len: u32,
+    out: *mut f64,
+) -> u32 {
+    read_real_with::<R>(text, len, out)
+}
+
+/// The kernel function [`KernelApi::read_real`] of reader `R`.
+#[cfg(not(target_arch = "x86_64"))]
+pub extern "C" fn read_real<R: RealReader>(
+    _cx: *mut Cx,
+    text: *const u8,
+    len: u32,
+    out: *mut f64,
+) -> u32 {
+    read_real_with::<R>(text, len, out)
+}
+
+#[allow(unsafe_code)]
+fn read_real_with<R: RealReader>(text: *const u8, len: u32, out: *mut f64) -> u32 {
+    let Ok(len) = usize::try_from(len) else {
+        return FaultCode::ModuleInternal as u32;
+    };
+    if text.is_null() || out.is_null() {
+        return FaultCode::ModuleInternal as u32;
+    }
+    // SAFETY: a module calls with its own copy of the text, `len` bytes at `text` that it holds for
+    // the call, and its own aligned `f64` at `out` (`module::read_real`); null is refused before.
+    let bytes = unsafe { core::slice::from_raw_parts(text, len) };
+    match R::read(bytes) {
+        Ok(value) => {
+            // SAFETY: as above, `out` is the module's own `f64`.
+            unsafe { out.write(value) };
+            0
+        }
+        Err(code) => code as u32,
+    }
+}
+
+/// The functions of a kernel without a debugger that reads reals with `read_real`: a stop
+/// continues at once, no write is queued and no wall clock is read.
+#[must_use]
+pub const fn without_debugger(read_real: ReadRealFn) -> KernelApi {
+    KernelApi {
+        stop: continue_stop,
+        debug_write: no_queued_write,
+        read_real,
+        wall_clock: wall_clock::<NoWallClock>,
+    }
+}
+
+/// The functions `api` with the wall clock `wall_clock`, a platform's that has one (specification
+/// 34 §5.2).
+#[must_use]
+pub const fn with_wall_clock(api: &KernelApi, wall_clock: WallClockFn) -> KernelApi {
+    KernelApi { wall_clock, ..*api }
+}
+
+/// How a kernel reads the platform's wall clock (specification 44 §8.2; specification 34 §5.2).
+pub trait WallClock {
+    /// The UTC Unix time in whole milliseconds, a positive fraction cut off.
+    ///
+    /// # Errors
+    ///
+    /// The code of the fault for a time the clock cannot give: `Overflow` before the epoch or past
+    /// `i64::MAX` milliseconds.
+    fn unix_millis() -> Result<i64, FaultCode>;
+}
+
+/// The wall clock of a platform that has none, whose admission refuses a program that reads one.
+pub struct NoWallClock;
+
+impl WallClock for NoWallClock {
+    fn unix_millis() -> Result<i64, FaultCode> {
+        Err(FaultCode::ModuleInternal)
+    }
+}
+
+/// The kernel function [`KernelApi::wall_clock`] of clock `C`.
+#[cfg(target_arch = "x86_64")]
+pub extern "sysv64" fn wall_clock<C: WallClock>(_cx: *mut Cx, out: *mut i64) -> u32 {
+    wall_clock_with::<C>(out)
+}
+
+/// The kernel function [`KernelApi::wall_clock`] of clock `C`.
+#[cfg(not(target_arch = "x86_64"))]
+pub extern "C" fn wall_clock<C: WallClock>(_cx: *mut Cx, out: *mut i64) -> u32 {
+    wall_clock_with::<C>(out)
+}
+
+#[allow(unsafe_code)]
+fn wall_clock_with<C: WallClock>(out: *mut i64) -> u32 {
+    if out.is_null() {
+        return FaultCode::ModuleInternal as u32;
+    }
+    match C::unix_millis() {
+        Ok(millis) => {
+            // SAFETY: a module calls with its own aligned `i64` at `out` (`module::wall_clock`);
+            // null is refused before.
+            unsafe { out.write(millis) };
+            0
+        }
+        Err(code) => code as u32,
+    }
+}
+
+/// The functions of a kernel without a debugger whose programs read no text as a real: a stop
+/// continues at once, no write is queued and no text reads.
+pub static WITHOUT_DEBUGGER: KernelApi = without_debugger(read_real::<NoReals>);
+
+/// A module's code and read-only data where the image lies, on a device whose CPU executes them in
+/// place: the C6's flash through its MMU window, the U5A9's flash (specification 44 §10.3).
+#[derive(Clone, Copy)]
+pub struct InPlace {
+    module: &'static [u8],
+}
+
+impl InPlace {
+    /// The module `module`: `CODE` with `RODATA` at its distance, as the image holds them.
+    ///
+    /// # Safety
+    ///
+    /// `module` is the module of an image the kernel admitted (specification 44 §10.2), in memory
+    /// the CPU executes, and it stays mapped and unchanged for as long as an entry of it is called.
+    #[must_use]
+    #[allow(unsafe_code)]
+    pub unsafe fn new(module: &'static [u8]) -> Self {
+        Self { module }
+    }
+
+    /// The entry point `offset` bytes into the code, with the Thumb bit on a Thumb target as the
+    /// image's entry table gives it, or `None` past the module.
+    #[must_use]
+    #[allow(unsafe_code)]
+    pub fn entry(&self, offset: u32) -> Option<Entry> {
+        let offset = usize::try_from(offset)
+            .ok()
+            .filter(|offset| *offset < self.module.len())?;
+        // SAFETY: as the caller of `new` promised, the module is the executable code of an admitted
+        // image, unchanged, and `offset` is the offset of one of its entry points from its first
+        // byte, inside the module.
+        Some(unsafe { Entry::from_address(self.module.as_ptr().wrapping_add(offset)) })
+    }
+}
+
+/// A module's code and read-only data in memory the CPU executes, on a computer (specification 44
+/// §10.3): copied into an anonymous mapping that is then made executable and no longer writable.
+#[cfg(feature = "host")]
+pub struct Executable {
+    map: memmap2::Mmap,
+}
+
+#[cfg(feature = "host")]
+impl Executable {
+    /// The module bytes `module` (`CODE` with `RODATA` at its distance, as the image holds them)
+    /// copied into executable memory.
+    ///
+    /// # Errors
+    ///
+    /// The error of the operating system's mapping or protection change.
+    pub fn load(module: &[u8]) -> std::io::Result<Self> {
+        let mut map = memmap2::MmapMut::map_anon(module.len().max(1))?;
+        map[..module.len()].copy_from_slice(module);
+        Ok(Self {
+            map: map.make_exec()?,
+        })
+    }
+
+    /// The entry point `offset` bytes into the code, or `None` past it. The entry may be called
+    /// only while this mapping lives: a kernel keeps both in the same program.
+    #[must_use]
+    #[allow(unsafe_code)]
+    pub fn entry(&self, offset: u32) -> Option<Entry> {
+        let offset = usize::try_from(offset)
+            .ok()
+            .filter(|offset| *offset < self.map.len())?;
+        // SAFETY: the mapping holds the code of a module the kernel admitted, executable and
+        // unchanged since it was made executable, and `offset` is the offset of one of its entry
+        // points from its first byte, inside the mapping.
+        Some(unsafe { Entry::from_address(self.map.as_ptr().add(offset)) })
+    }
+}
+
+mod stops;
+
+pub use stops::{
+    area_address, call_with_sink, frames, read_area, stop_to_sink, with_debugger, write_area,
+    FrameView, Frames, StopSink, MAX_FRAMES,
+};

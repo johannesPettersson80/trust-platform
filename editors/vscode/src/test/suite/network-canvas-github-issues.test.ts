@@ -3,32 +3,16 @@ import * as fs from "fs";
 import * as path from "path";
 
 import {
-  DEFAULT_ADS_PORT,
-  adsPortDraftIsStale,
   adsTargetNetId,
-  parseAdsPortInput,
   withAdsTargetPort,
-  withCandidateAdsPort,
 } from "../../networkCanvas/webview/adsTargetPort";
 import {
   DiscoveryRequestTracker,
-  candidateDisabledReason,
   isActiveWebviewSession,
 } from "../../networkCanvas/discoverySession";
-import { discoveryRuntimeFailureMessage } from "../../networkCanvas/discoveryErrors";
 import { LatestRefreshCoordinator } from "../../networkCanvas/refreshCoordinator";
 import { becameVisible } from "../../networkCanvas/panelVisibility";
-import {
-  START_RUNTIME_ACTION,
-  adsImportFailurePrompt,
-} from "../../networkCanvas/adsImportUx";
-import { classifyBrowseError } from "../../networkCanvas/webview/browseErrorModel";
 import { adsConnectionIdentityParts } from "../../networkCanvas/webview/adsConnectionSummary";
-import {
-  buildOfflineAdsImportArgs,
-  buildOfflineBrowseSymbolsArgs,
-  classifyAdsBrowseCommandFailure,
-} from "../../networkCanvas/adsBrowseContract";
 
 function readSrc(relativePath: string): string {
   return fs.readFileSync(
@@ -155,30 +139,16 @@ suite("Network Canvas GitHub issues #94-#97", function () {
     assert.strictEqual(tracker.isCurrent(scanB, owner), false);
   });
 
-  test("#95 stale or unsupported discovery cards are disabled with a reason", () => {
-    assert.strictEqual(
-      candidateDisabledReason("ads", new Set(["ads"]), true),
-      undefined,
-    );
-    assert.match(
-      candidateDisabledReason("ads", new Set(["ads"]), false) ?? "",
-      /scan again/i,
-    );
-    assert.match(
-      candidateDisabledReason("ads", new Set(["mqtt"]), true) ?? "",
-      /no longer available/i,
-    );
-    assert.match(
-      candidateDisabledReason("ads", new Set(["ads"]), true, false) ?? "",
-      /runtime.*no longer available.*scan again/i,
-    );
-    assert.match(
-      discoveryRuntimeFailureMessage("ads", new Error("request timed out")),
-      /ADS discovery timed out.*reconnect.*scan again/i,
-    );
-    assert.match(
-      discoveryRuntimeFailureMessage("ads", new Error("authentication failed")),
-      /rejected authentication.*auth token/i,
+  test("#95 stale or unsupported discovery cards are disabled with the server's reason", () => {
+    // Why a card cannot be added and the failure texts of a discovery are the server's: the Rust tests
+    // `a_result_whose_runtime_is_gone_or_whose_protocol_stopped_discovering_cannot_be_added` and
+    // `a_discovery_names_its_protocol_and_words_its_failures` (crates/trust-devices/src/canvas/local_tests.rs).
+    const pane = readSrc("networkCanvas/webview/DiscoverPane.tsx");
+    assert.ok(pane.includes("disabledReason(c)"), "a card shows the reason the server answers");
+    const controller = readSrc("networkCanvas/discoveryController.ts");
+    assert.ok(
+      controller.includes('"discover_failure"') && controller.includes('"discover_label"'),
+      "the controller takes the failure texts and labels from the server"
     );
   });
 
@@ -254,28 +224,28 @@ suite("Network Canvas GitHub issues #94-#97", function () {
     );
     assert.ok(
       enrichment.includes("Promise.allSettled(") &&
-        enrichment.includes("fetchFleetTopology(runtime)") &&
-        enrichment.includes("fetchConnectorStatus(runtime)"),
+        enrichment.includes("answerOf(fetchFleetTopology(target))") &&
+        enrichment.includes("answerOf(fetchConnectorStatus(target))"),
       "independent live-runtime enrichment must execute concurrently",
     );
   });
 
   test("#95 peer connector failures survive the refresh coordinator", () => {
+    // The banner text of the reports that cannot be read is the language server's
+    // (`reports_that_cannot_be_read_are_the_banner_the_projects_own_first`); the refresh forwards
+    // every failed request to it and shows its answer.
     const enrichment = readSrc("networkCanvas/refreshData.ts");
     const panelSource = readSrc("networkCanvas/networkCanvasPanel.ts");
 
     assert.ok(
-      enrichment.includes("Peer topology unavailable:") &&
-        enrichment.includes("Peer topology degraded:"),
-      "peer transport and connector-vocabulary failures must remain visible",
+      enrichment.includes("return { error: errorMessage(error) };") &&
+        panelSource.includes("topologyError: answer.topology_error"),
+      "peer transport and connector failures must reach the server and stay visible",
     );
     assert.ok(
-      !enrichment.includes("options.loadPeerTopology().catch(() => undefined)"),
-      "the refresh coordinator must not silently discard peer failures",
-    );
-    assert.ok(
-      panelSource.includes("fetchAndMergeFleetTopologiesWithConnectorStatus(peers)"),
-      "the panel must pass peer topology and validation errors into refresh data",
+      enrichment.includes("options.loadPeers().then(") &&
+        panelSource.includes("loadPeers: async () =>"),
+      "the panel must pass the other configured runtimes into refresh data",
     );
   });
 
@@ -300,21 +270,12 @@ suite("Network Canvas GitHub issues #94-#97", function () {
   });
 
   test("#96 write-enabled offline refusal is complete and actionable", () => {
-    const prompt = adsImportFailurePrompt(
-      "Write-enabled ADS imports need a running runtime so truST can apply the explicit write acknowledgement.",
-    );
-
-    assert.strictEqual(
-      prompt.modal,
-      true,
-      "the full guardrail reason must not be toast-truncated",
-    );
-    assert.match(prompt.message, /running runtime/i);
-    assert.match(prompt.detail ?? "", /Start the runtime, then import again/i);
-    assert.deepStrictEqual(prompt.actions, [START_RUNTIME_ACTION]);
-
+    // The refusal itself (modal, its detail, the Start runtime action) is the language server's
+    // (`an_offline_import_of_writable_tags_offers_to_start_the_runtime`); the canvas shows it and
+    // starts the runtime when the user chooses the action (network-canvas-commands.test.ts).
     const source = readSrc("networkCanvas/protocolActions.ts");
-    assert.ok(source.includes("adsImportFailurePrompt(report.message)"));
+    assert.ok(source.includes('const START_RUNTIME = "start_runtime";'));
+    assert.ok(source.includes("chosen === START_RUNTIME"));
     assert.ok(source.includes("this.dependencies.startRuntime()"));
     const panelSource = readSrc("networkCanvas/networkCanvasPanel.ts");
     assert.ok(panelSource.includes("startRuntime: startConfiguredRuntime"));
@@ -322,19 +283,8 @@ suite("Network Canvas GitHub issues #94-#97", function () {
   });
 
   test("#97 ADS ports validate and round-trip on discovered candidates", () => {
-    assert.deepStrictEqual(parseAdsPortInput(""), { port: DEFAULT_ADS_PORT });
-    assert.deepStrictEqual(parseAdsPortInput("301"), { port: 301 });
-    assert.deepStrictEqual(parseAdsPortInput("501"), { port: 501 });
-    assert.strictEqual(
-      adsPortDraftIsStale("501", { ams_port: 301 }),
-      true,
-      "editing a successful 301 browse to 501 must invalidate the old tree",
-    );
-    assert.strictEqual(adsPortDraftIsStale("301", { ams_port: 301 }), false);
-    assert.ok(parseAdsPortInput("0").error);
-    assert.ok(parseAdsPortInput("65536").error);
-    assert.ok(parseAdsPortInput("301.5").error);
-    assert.ok(parseAdsPortInput("motion").error);
+    // Which port a typed text names is the language server's (`a_typed_ads_port_is_a_whole_number_from_1_to_65535`;
+    // the pane's request is network-canvas-commands.test.ts).
 
     const original = {
       id: "ads:5.23.91.12.1.1",
@@ -348,10 +298,8 @@ suite("Network Canvas GitHub issues #94-#97", function () {
         ams_port: 851,
       },
     };
-    const updated = withCandidateAdsPort(original, 301);
     const motionTarget = withAdsTargetPort(original.params, 501);
 
-    assert.strictEqual(updated.params.ams_port, 301);
     assert.strictEqual(motionTarget.ams_port, 501);
     assert.strictEqual(adsTargetNetId(motionTarget), "5.23.91.12.1.1");
     assert.strictEqual(
@@ -387,72 +335,10 @@ suite("Network Canvas GitHub issues #94-#97", function () {
     assert.ok(browser.includes("min={1}") && browser.includes("max={65535}"));
     assert.ok(browser.includes("Done"));
 
-    assert.strictEqual(
-      classifyBrowseError("ads", { code: "ads_port_unavailable" }).title,
-      "ADS port unavailable",
-    );
-    assert.strictEqual(
-      classifyBrowseError("ads", { code: "symbol_upload_unsupported" }).title,
-      "Symbol Upload unsupported",
-    );
-    assert.strictEqual(
-      classifyBrowseError("ads", { code: "empty_symbol_table" }).title,
-      "No compatible symbols",
-    );
-    assert.strictEqual(
-      classifyAdsBrowseCommandFailure("connect ADS target: Connection refused"),
-      "ads_port_unavailable",
-    );
-    assert.strictEqual(
-      classifyAdsBrowseCommandFailure("Service is not supported by server"),
-      "symbol_upload_unsupported",
-    );
-    for (const message of [
-      "Invalid AMS port",
-      "Port disabled",
-      "Port not connected",
-      "ADS port not opened",
-      "Router: port not registered",
-      "Router: port is invalid",
-      "Router: port removed",
-    ]) {
-      assert.strictEqual(
-        classifyAdsBrowseCommandFailure(message),
-        "ads_port_unavailable",
-      );
-    }
-    for (const message of ["Unknown command ID", "Unknown AMS command"]) {
-      assert.strictEqual(
-        classifyAdsBrowseCommandFailure(message),
-        "symbol_upload_unsupported",
-      );
-    }
-    assert.strictEqual(
-      classifyAdsBrowseCommandFailure("No more symbols in cache"),
-      "empty_symbol_table",
-    );
-
-    const target = {
-      host: "192.168.10.5",
-      ams_net_id: "5.23.91.12.1.1",
-      ams_port: 301,
-    };
-    const browseArgs = buildOfflineBrowseSymbolsArgs("ads", target, "symbols");
-    assert.deepStrictEqual(
-      JSON.parse(browseArgs[browseArgs.indexOf("--target") + 1]),
-      target,
-      "browse CLI target must preserve a non-851 ADS port",
-    );
-    const importArgs = buildOfflineAdsImportArgs(
-      "/tmp/project",
-      target,
-      "io_server",
-      ["GVL.Input"],
-    );
-    assert.strictEqual(
-      importArgs[importArgs.indexOf("--ams-port") + 1],
-      "301",
-      "generated ads.toml import must receive the selected ADS port",
-    );
+    // A failed browse's code is the runtime's (`ads_browse_errors_distinguish_port_and_symbol_upload_failures`
+    // and `ads_live_failure_before_the_port_answers_is_a_classified_empty_tree`); its recovery is the
+    // server's (`a_failed_browse_names_its_one_recovery`, crates/trust-devices/src/canvas/local_tests.rs),
+    // which each port's browse carries as `error_view`.
+    assert.ok(browser.includes("evidence.error_view"), "the tag browser shows the server's recovery");
   });
 });

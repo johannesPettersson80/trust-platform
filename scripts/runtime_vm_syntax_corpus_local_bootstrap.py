@@ -24,9 +24,6 @@ version = 1
 name = "{resource_name}"
 cycle_interval_ms = 10
 
-[runtime]
-execution_backend = "vm"
-
 [runtime.control]
 endpoint = "unix:///tmp/{endpoint}.sock"
 mode = "production"

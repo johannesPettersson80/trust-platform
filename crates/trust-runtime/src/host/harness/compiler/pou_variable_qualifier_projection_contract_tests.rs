@@ -1,15 +1,35 @@
-use crate::harness::CompileSession;
+use crate::harness::{lower_application, CompileSession, SourceFile};
 use crate::program_model::VarDef;
-use crate::{RetainPolicy, Runtime};
+use crate::{RetainPolicy, RuntimeBuilder};
 
-fn runtime(source: &str) -> Runtime {
-    CompileSession::from_source(source)
-        .build_runtime()
+fn runtime(source: &str) -> RuntimeBuilder {
+    lower_application(&[SourceFile::new(source)], false)
+        .and_then(|lowered| lowered.construct(&[]))
+        .map(|(builder, _)| builder)
         .unwrap_or_else(|error| panic!("variable-qualifier fixture must compile: {error}"))
 }
 
+/// The retention policy the front end records for the global `name`: a root global's, or a
+/// configuration's or resource's.
+fn global_retain(source: &str, name: &str) -> RetainPolicy {
+    let lowered = lower_application(&[SourceFile::new(source)], false)
+        .unwrap_or_else(|error| panic!("variable-qualifier fixture must compile: {error}"));
+    lowered
+        .globals
+        .iter()
+        .chain(
+            lowered
+                .configuration
+                .iter()
+                .flat_map(|configuration| configuration.globals.iter()),
+        )
+        .find(|global| global.name == name)
+        .unwrap_or_else(|| panic!("missing global {name}"))
+        .retain
+}
+
 fn compile_error(source: &str) -> String {
-    match CompileSession::from_source(source).build_runtime() {
+    match CompileSession::from_source(source).declarations() {
         Ok(_) => panic!("invalid variable-qualifier fixture must fail"),
         Err(error) => error.to_string(),
     }
@@ -425,8 +445,7 @@ END_PROGRAM
 
 #[test]
 fn qualifier_projection_configuration_and_resource_globals_preserve_retention_policies() {
-    let runtime = runtime(
-        r#"
+    let source = r#"
 PROGRAM Main
 END_PROGRAM
 CONFIGURATION Plant
@@ -440,15 +459,14 @@ END_VAR
 PROGRAM P : Main;
 END_RESOURCE
 END_CONFIGURATION
-"#,
-    );
+"#;
 
     assert_eq!(
-        runtime.globals()["ConfigurationValue"].retain,
+        global_retain(source, "ConfigurationValue"),
         RetainPolicy::Retain
     );
     assert_eq!(
-        runtime.globals()["ResourceValue"].retain,
+        global_retain(source, "ResourceValue"),
         RetainPolicy::Persistent
     );
 }

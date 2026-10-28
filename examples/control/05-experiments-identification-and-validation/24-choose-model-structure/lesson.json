@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-24",
+  "title": "Model structure",
+  "level": "Identification",
+  "sequence": 16,
+  "equipment": "Water heater",
+  "physicalPurpose": "Compare simple and extended models. Derive an additional sensor or process state from its physical operation rather than adding an unexplained fitting parameter.",
+  "principalTechnique": "Model structure",
+  "objective": "Compare simple and extended models. Derive an additional sensor or process state from its physical operation rather than adding an unexplained fitting parameter.",
+  "prerequisites": [
+    "control-lesson-23"
+  ],
+  "nextLesson": "control-lesson-25",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Measured temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "MV",
+      "name": "Applied heating command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX80.0"
+    },
+    {
+      "role": "state",
+      "name": "Actual water temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    }
+  ],
+  "plant": {
+    "modelId": "heater-lesson-16",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "process_gain",
+        "value": 0.2,
+        "unit": "degC/percentage-point"
+      },
+      {
+        "name": "time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      },
+      {
+        "name": "probe_time_constant",
+        "value": 2,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "waterTemperatureC": 35,
+      "probeTemperatureC": 35
+    },
+    "seed": 20260829,
+    "simplifications": [
+      "Local heater model with initial temperature 35 °C and command 75%.",
+      "Nominal coefficients are supplied simulation values, not accepted learner estimates.",
+      "Simulation-only process I/O;100 ms samples.",
+      "Native simulation represents water and probe as two thermal states with a one-second command delay; both temperatures enter normal PLC inputs."
+    ],
+    "operatingPoint": {
+      "Measured temperature": 35,
+      "Applied heating command": 75,
+      "Experiment authority": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "appliedPowerPct": 75,
+      "temperatureC": 35
+    },
+    "limitation": "An unexcited record does not reveal the complete heater dynamics."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "appliedPowerPct": 85,
+      "durationSeconds": 40
+    },
+    "decision": "Use the qualified Control Studio record to answer the lesson question; do not accept supplied nominal parameters as measured results."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 45.1,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    {
+      "metric": "temperature_operating_range",
+      "signal": "Measured temperature",
+      "window": "complete recorded experiment",
+      "comparator": "<=",
+      "limit": 80,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "workflowStages": [
+    "Monitor",
+    "Test",
+    "Identify"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/12-21-models-and-tuning.md",
+    "nativeTest": "lesson16",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_heater_design lesson16",
+    "projectPath": "examples/control/05-experiments-identification-and-validation/24-choose-model-structure",
+    "runArtifactFields": [
+      "appliedCommand",
+      "temperature",
+      "sampleTime",
+      "initialState",
+      "experimentConditions",
+      "modelProvenance",
+      "stopReason",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-lesson-24"
+  },
+  "learning": {
+    "context": "Lesson 15's model, gain 0.1999 °C per %, delay 1 s and time constant 5 s, predicted a new step to 0.0013 °C. Its record came from a measurement that follows the water at once. This project measures the water with a probe that warms up more slowly than the water around it. The probe has its own lag, and Lesson 15's model misses it.\n\nA model can still be made to fit such a record by stretching its numbers, but then the numbers no longer describe the heater. We will fit a one-store and a two-store model to the same recording and keep the structure that the physics and the data support.",
+    "reason": "We need to:\n\n1. describe the probe's lag with its own physical equation;\n2. compare models with and without that part on the same recording; and\n3. add the part only if the simpler model fails a limit declared before fitting.",
+    "change": "Fit a model with an additional lag to the same record, and keep it only if the first-order model misses the declared limits.",
+    "transfer": "Different numbers can fit the same recording equally well: 1,174 parameter sets stayed within the bound, and the record cannot say which lag is the probe's.\n\n[Identifiability](../25-parameter-identifiability/README.md) asks what an experiment can tell apart, and which second measurement separates the two lags.",
+    "theory": [
+      "**Model structure** is which physical parts the model contains. If the sensor itself warms up slowly, the model needs a second store for the sensor, not an extra number to make the curve fit. For this heater, the parts are the delayed heater power, the heat stored in the water and the small amount of heat stored in the probe.\n\n**In words.** Each part of a model belongs to something physical, and each does one job:\n\n1. **The delay** belongs to the heater's power delivery: power commanded now reaches the water 1 s later. It shifts the response in time without changing its shape.\n2. **The water's store** sets how quickly the water itself approaches its new temperature.\n3. **The probe's store.** A probe is a small body that the water around it must heat. Heat flows into it in proportion to the temperature difference, so it approaches the water temperature gradually. It stores so little heat that the water's own balance is unchanged.\n\nIn PLC terms, the probe acts like the filter on an analog input card: the reading lags the real signal, and a model of the loop must include that filter instead of pretending that the process itself is slower.\n\nIf a part is missing, a fit can still imitate its effect by changing the numbers of the parts that are there. Those numbers then describe neither the heater nor the probe: they are **fitting factors**. So the choice between structures is made by a rule declared before fitting. A structure must predict every sample within the measurement bound, because a larger, repeatable error cannot come from the measurement: it shows a missing part. Keep the simpler structure if it meets this limit; add a store only if it has a physical owner and lowers the typical error, its root-mean-square (RMS) value, by more than the bound.\n\n**The formula.** Measure from the steady point, 35 °C with 75%. The water keeps the previous lesson's model, and the probe follows the water:\n\n$$\n5\\dot x + x = 0.2\\,v(t-1), \\qquad \\tau_s\\,\\dot m + m = x.\n$$\n\n- $x$ is the water temperature minus 35 °C, and $m$ the probe temperature minus 35 °C, in °C;\n- $v$ is the heater command minus 75%, in percentage points;\n- $\\tau_s$ is the probe's time constant, in seconds;\n- a dot marks a rate of change per second: $\\dot m = (x - m)/\\tau_s$ says the probe warms in proportion to how far it is below the water.\n\nWith $\\tau_s$ = 2 s, a probe 1 °C below the water warms at $1/2 = 0.5$ °C/s. **Candidate A** has one store: the measured temperature is the water temperature, $m = x$. **Candidate B** adds the probe's equation: two stores. For a 10-point step, counting $t'$ in seconds from the moment the delayed heat arrives, the water rises as $x = 2(1 - e^{-t'/5})$, and solving the probe's equation for this water curve gives\n\n$$\nm(t') = 2\\left[1 - \\frac{5e^{-t'/5} - 2e^{-t'/2}}{3}\\right].\n$$\n\n**Example: the first seconds of a 10-point step.** Calculated from the two equations:\n\n1. At $t'$ = 0 the probe is at the water temperature, so no heat flows into it yet: $\\dot m = (0 - 0)/2 = 0$. It starts to rise only once the water pulls ahead.\n2. At $t'$ = 2 s, 3 s after the step, the water has risen $2(1 - e^{-0.4}) = 0.659$ °C and the probe $2[1 - (5e^{-0.4} - 2e^{-1})/3] = 0.256$ °C: it trails by 0.40 °C, and Candidate A would report 0.659 °C.\n3. At $t'$ = 10 s, 11 s after the step, the water has risen $2(1 - e^{-2}) = 1.729$ °C and the probe $2[1 - (5e^{-2} - 2e^{-5})/3] = 1.558$ °C: it trails by 0.17 °C.\n\n**Teaching choice.** This record's own windows show how repeatable the probe is: its baseline varied by 0 °C and its final window by 0.002 °C, so we declare a bound of ±0.02 °C.\n\n**The limitation.** The fit can show that a second lag is needed, but not which part owns it. Exchanging the two lags, 2 s for the water and 5 s for the probe, leaves the formula for $m$ unchanged: $2[1 - (2e^{-1} - 5e^{-0.4})/(-3)] = 0.256$ °C at $t'$ = 2 s, exactly as before. The record alone cannot say which lag is the probe's."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. What do Candidate A, with Lesson 15's numbers, and Candidate B predict 6 s after the 75 → 85% step?\n2. Does the probe mainly change the start of the response, the delay or the final value?\n3. Which candidate will predict every sample within ±0.02 °C?\n4. Fitted to the probe record, will Candidate A's delay and time constant be shorter than, equal to or longer than the water's 1 s and 5 s?\n\n| Rise after the 10-point step | Candidate A | Candidate B |\n| --- | ---: | ---: |\n| 6 s after the step | 1.264 °C | 0.883 °C |\n| Final | 2.000 °C | 2.000 °C |",
+    "practicalPreparation": [
+      "1. Start **Simulator**: the heater holds 35 °C at 75%. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Project experiment** from **Method**. **Signals** shows `P1.TemperatureC · Process value (°C)`, the probe, and `P1.AppliedPowerPct · Applied output (%)`; add `P1.WaterTemperatureC · state (°C)`, the water itself.\n3. Answer the predictions. Select **Review project test** and check the **45.1 s** plan: a 5 s steady start, then 85% from 5.1 s to 45.1 s after **Confirm and start**. Select **Confirm and start**. At the end, Control Studio shows **Project test completed. Outputs restored.**\n4. Hover the plot 6 s after the step and compare the probe with the water. Then right-click the plot and choose **Save recording…**.\n5. Choose **Recorded-data fit** from **Method**, check **Use held-step measurement and search**, and set **Model family** to **Compare additional lag**. Select **Open recording…**, open the saved file, and select **Check recording**.\n6. Expand **Measurement and search settings**. Set **Measurement bound ± (°C)** and **Maximum model residual (°C)** to 0.02. Set **Delay maximum (s)** to 4 and **Delay grid step (s)** to 0.2: the first-order fit needs more than the default 2 s, and the coarser step keeps the search within its time budget. Select **Fit plant model**.\n7. Read **Model comparison** and **Parameters and uncertainty**: A is the first-order model, B the model with the additional lag. Select **Keep additional-lag model**. Validation on a new record follows later in the course.\n\nSelect **Abort test** to stop the project test early."
+    ],
+    "baseline": "Lesson 15's first-order model and its estimation record.",
+    "comparison": "![On the same record, two stores follow the probe within 0.0024 °C; one store misses by 0.143 °C](figures/model-structure.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio:\n\n| Quantity | A: one store | B: two stores |\n| --- | ---: | ---: |\n| Gain | 0.1998 °C per % | 0.1998 °C per % |\n| Delay | 2.4 s | 1 s |\n| Time constants | 5.7 s | 5 s and 2 s |\n| Largest residual | 0.143 °C | 0.0024 °C |\n| RMS residual | 0.024 °C | 0.0019 °C |\n| Parameter sets within ±0.02 °C | 0 | 1,174 |\n\n1. 6 s after the step the probe had risen 0.883 °C and the water 1.264 °C, as calculated for B and for A with Lesson 15's numbers.\n2. The start: the probe first rose 2.5 s after the step, the water 1.4 s, and both ended at 37.0 °C.\n3. Only B. A's largest residual was 0.143 °C, seven times the bound, and Control Studio found no first-order parameter set within ±0.02 °C.\n4. Longer: A needed a 2.4 s delay and a 5.7 s time constant to imitate the probe.\n\nB lowered the RMS error by 0.023 °C, more than the bound, and Control Studio reported **The additional lag meets the limits. Its physical origin remains unresolved.** B is kept with **Keep additional-lag model**: its extra store has a physical owner, and its delay and water time constant are the heater's own. The cost is a fourth parameter and an unresolved owner: among the 1,174 parameter sets within the bound, each of B's two time constants ranged from 1.2 to 5.7 s and the delay from 0.6 to 1.4 s. With the default 0.2 °C limit, Control Studio suggests A: enough for a design that needs only 0.2 °C. These are simulation results.",
+    "validation": "![On the same record, two stores follow the probe within 0.0024 °C; one store misses by 0.143 °C](figures/model-structure.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio:\n\n| Quantity | A: one store | B: two stores |\n| --- | ---: | ---: |\n| Gain | 0.1998 °C per % | 0.1998 °C per % |\n| Delay | 2.4 s | 1 s |\n| Time constants | 5.7 s | 5 s and 2 s |\n| Largest residual | 0.143 °C | 0.0024 °C |\n| RMS residual | 0.024 °C | 0.0019 °C |\n| Parameter sets within ±0.02 °C | 0 | 1,174 |\n\n1. 6 s after the step the probe had risen 0.883 °C and the water 1.264 °C, as calculated for B and for A with Lesson 15's numbers.\n2. The start: the probe first rose 2.5 s after the step, the water 1.4 s, and both ended at 37.0 °C.\n3. Only B. A's largest residual was 0.143 °C, seven times the bound, and Control Studio found no first-order parameter set within ±0.02 °C.\n4. Longer: A needed a 2.4 s delay and a 5.7 s time constant to imitate the probe.\n\nB lowered the RMS error by 0.023 °C, more than the bound, and Control Studio reported **The additional lag meets the limits. Its physical origin remains unresolved.** B is kept with **Keep additional-lag model**: its extra store has a physical owner, and its delay and water time constant are the heater's own. The cost is a fourth parameter and an unresolved owner: among the 1,174 parameter sets within the bound, each of B's two time constants ranged from 1.2 to 5.7 s and the delay from 0.6 to 1.4 s. With the default 0.2 °C limit, Control Studio suggests A: enough for a design that needs only 0.2 °C. These are simulation results.",
+    "explanation": "Model structure decides which physical parts a model contains. A missing part shows as a repeatable error larger than the measurement uncertainty, and a simpler structure can hide it only by stretching its numbers until they lose their physical meaning. A part is added when its owner is physical and the simpler model fails a limit declared in advance.\n\nFor this heater, the probe's 2 s lag is such a part: two stores explained the record within 0.0024 °C with the heater's 1 s delay and 5 s time constant, while one store missed by 0.143 °C."
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Required measurements or timestamps are invalid, stale or nonfinite",
+      "Temperature leaves 0–80 °C or applied command leaves 0–100%"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Normal completion disables the experiment and restores 75% heating. Abort sets SafetyAbort and commands zero heating. Keep stopped until valid measurements and the full 35 °C / 75% hot reset are restored.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The result is simulation evidence for this lesson model."
+    ]
+  },
+  "video": {
+    "viewerOutcome": "Compare simple and extended models. Derive an additional sensor or process state from its physical operation rather than adding an unexplained fitting parameter.",
+    "requiredVisibleEvidence": [
+      "Heater model and initial state",
+      "Applied command and temperature record",
+      "Required Control Studio analysis",
+      "Declared uncertainty and decision",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

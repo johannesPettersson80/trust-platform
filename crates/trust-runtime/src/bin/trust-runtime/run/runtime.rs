@@ -3,5 +3,7 @@ include!("runtime/load.rs");
 include!("runtime/simulation.rs");
 include!("runtime/bundle_apply.rs");
 include!("runtime/settings.rs");
+include!("runtime/program.rs");
 include!("runtime/signals.rs");
+include!("runtime/endpoint_file.rs");
 include!("runtime/entry.rs");

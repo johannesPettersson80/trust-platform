@@ -1,0 +1,41 @@
+@startuml
+actor Engineer
+participant "Control Studio page" as Studio
+participant "Engine operation (trust-control-studio workflow/tune_search.rs)" as Operation
+participant "Search rules (trust-control tuning/search.rs)" as Rules
+participant "Study (selected model, requirements, scenarios)" as Study
+participant "Operation journal (A8.3)" as Journal
+participant "Runtime client (trust-runtime-client)" as Client
+participant "Runtime isolated run (control.simulation.run.*)" as Runtime
+Engineer -> Studio: Tune with Automatic: value lists, objective, requirements
+Studio -> Operation: controlStudio/tune (automatic, axes); operationId at once
+Operation -> Client: control.parameters.status (observed values); control.simulation.run.status {} (readiness)
+Operation -> Study: selected model, objective, requirements, scenarios
+Operation -> Rules: plan the grid: Cartesian product of the value lists (at most 64), pinned values kept, REAL values rounded
+Rules -> Rules: check the trial count and the scan and wall budgets; each trial's settings and model route
+loop Every planned trial, until the grid ends or a stop (cancel, budget, program revision change, run failure)
+  Operation -> Journal: journal the trial's isolated run before its start
+  Operation -> Client: start the trial: its values as parameter overrides; the selected model as simulation_override
+  Client -> Runtime: control.simulation.run.start
+  Runtime -> Runtime: isolated simulation with complete resets: the project's actual ST on the selected model, with the same initial values, plant state, events, time points and seed
+  loop Until the run ends
+    Client -> Runtime: control.simulation.run.status
+  end
+  Runtime --> Client: recorded run: samples and constraint status
+  Client --> Operation: the trial's recorded run
+  Operation -> Rules: bounds are checked before ranking; a violation or missing evidence never qualifies; J = trapezoidal ISE after the settling deadline
+  Operation --> Studio: controlStudio/update after each trial
+end
+Rules -> Rules: select the smallest J among the qualifying trials; equal J: the first listed
+Operation -> Operation: keep the candidate (searchCandidate, study Tune section) when the search completed, or ran out of budget with a qualifying trial; a cancelled, changed or failed search keeps nothing
+Operation --> Studio: final update: status, selected trial, every trial (attempted, bounds, J), stages
+Engineer -> Studio: Cancel
+Studio -> Operation: controlStudio/cancel
+Operation -> Client: cancel the running trial
+Client -> Runtime: control.simulation.run.cancel
+note over Runtime
+  The runtime's search job (control.search.*, E8.5) runs against the project's own
+  simulation, not the selected model; Control Studio does not call it.
+  A search never runs against the selected physical runtime (C5).
+end note
+@enduml

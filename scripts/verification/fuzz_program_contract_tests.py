@@ -5,7 +5,6 @@ from __future__ import annotations
 import copy
 from dataclasses import replace
 import json
-import re
 import subprocess
 import tempfile
 import unittest
@@ -22,10 +21,8 @@ from .fuzz_program_contract import (
 )
 from .fuzz_program_source_contract import (
     REVIEWED_RUNTIME_COMMS_COMMANDS,
-    REVIEWED_VM_FUZZ_COMMANDS,
     _parse_runtime_comms_commands,
     _parse_salsa_run_targets,
-    _parse_vm_fuzz_commands,
     validate_execution_source_bindings,
     validate_reviewed_execution_source_digests,
 )
@@ -47,12 +44,9 @@ EXPECTED_CARGO_TARGETS = {
     ("fuzz/Cargo.toml", "hir_semantic", "fuzz/fuzz_targets/hir_semantic.rs"),
     ("fuzz/Cargo.toml", "hir_lowering", "fuzz/fuzz_targets/hir_lowering.rs"),
     ("fuzz/Cargo.toml", "plcopen_xml", "fuzz/fuzz_targets/plcopen_xml.rs"),
-    ("fuzz/Cargo.toml", "bytecode_container", "fuzz/fuzz_targets/bytecode_container.rs"),
-    ("fuzz/Cargo.toml", "bytecode_admission", "fuzz/fuzz_targets/bytecode_admission.rs"),
-    ("fuzz/Cargo.toml", "bytecode_reprepare", "fuzz/fuzz_targets/bytecode_reprepare.rs"),
+    ("fuzz/Cargo.toml", "image_admission", "fuzz/fuzz_targets/image_admission.rs"),
     ("fuzz/Cargo.toml", "runtime_config", "fuzz/fuzz_targets/runtime_config.rs"),
     ("fuzz/Cargo.toml", "lsp_incremental", "fuzz/fuzz_targets/lsp_incremental.rs"),
-    ("fuzz/Cargo.toml", "hmi_payloads", "fuzz/fuzz_targets/hmi_payloads.rs"),
     (
         "crates/trust-ads-server/fuzz/Cargo.toml",
         "ams_frame",
@@ -76,7 +70,6 @@ EXPECTED_SMOKE_IDS = {
     "DISC_794F59E9A339F867023D",
     "DISC_A6037EE5CFAA0C4994D2",
     "DISC_E97822CE4B2200DD8928",
-    "DISC_FB4371C17A9F9FB83CA9",
 }
 
 
@@ -412,13 +405,13 @@ class FuzzProgramContractTests(unittest.TestCase):
         self.assertTrue(any("semantic digest drifted" in item for item in failures), failures)
 
     def test_every_live_target_has_one_registered_record(self) -> None:
-        self.assertEqual(19, len(self.program["targets"]))
+        self.assertEqual(15, len(self.program["targets"]))
         self.assertEqual(
-            13,
+            10,
             sum(row["target_kind"] == "cargo_fuzz" for row in self.program["targets"]),
         )
         self.assertEqual(
-            6,
+            5,
             sum(row["target_kind"] == "bounded_rust_smoke" for row in self.program["targets"]),
         )
 
@@ -477,7 +470,7 @@ class FuzzProgramContractTests(unittest.TestCase):
     def test_tier_and_surface_claim_drift_fail(self) -> None:
         corrupted = copy.deepcopy(self.program)
         corrupted["targets"][0]["primary_tier"] = "release"
-        corrupted["targets"][0]["surface_associations"][0]["surface_id"] = "hmi_schema_payloads"
+        corrupted["targets"][0]["surface_associations"][0]["surface_id"] = "lsp_incremental_edits"
         failures = validate_fuzz_program_contract(ROOT, corrupted)
         self.assertTrue(any("tier" in item for item in failures), failures)
         self.assertTrue(any("live target contract" in item for item in failures), failures)
@@ -560,13 +553,8 @@ class FuzzProgramContractTests(unittest.TestCase):
             "cargo test -p trust-syntax --lib randomized_payload_smoke_budget -- --nocapture\n"
         )
         self.assertEqual(1, len(_parse_runtime_comms_commands(wrong)))
-        vm_summary_only = (
-            'cat <<MD\n'
-            'cargo test -p trust-runtime --test bytecode_vm_core '
-            'vm_malformed_bytecode_fuzz_smoke_budget -- --nocapture\n'
-            'MD\n'
-        )
-        self.assertEqual(set(), _parse_vm_fuzz_commands(vm_summary_only))
+        summary_only = "cat <<MD\n" + wrong + "MD\n"
+        self.assertEqual(set(), _parse_runtime_comms_commands(summary_only))
         failures: list[str] = []
         validate_execution_source_bindings(
             ROOT, self.program["targets"], tuple(row["id"] for row in self.program["targets"]), failures
@@ -577,7 +565,6 @@ class FuzzProgramContractTests(unittest.TestCase):
         source_paths = (
             "scripts/salsa_fuzz_gate.sh",
             "scripts/runtime_comms_fuzz_gate.sh",
-            "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh",
             ".github/workflows/salsa-hardening.yml",
             ".github/workflows/ci.yml",
             "Cargo.toml",
@@ -614,37 +601,6 @@ class FuzzProgramContractTests(unittest.TestCase):
         failures = []
         validate_reviewed_execution_source_digests(package_restricted, failures)
         self.assertTrue(any("ci.yml#test" in item and "digest drifted" in item for item in failures), failures)
-
-    def test_vm_execution_parser_ignores_summaries_echoes_and_wrong_commands(self) -> None:
-        source = (ROOT / "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh").read_text()
-        without_execution = re.sub(
-            r"^python3 ./scripts/run_with_progress\.py \\\n(?:.*\\\n)*?.*vm_malformed_bytecode_fuzz_smoke_budget.*\n",
-            "",
-            source,
-            count=1,
-            flags=re.MULTILINE,
-        )
-        self.assertEqual(set(), _parse_vm_fuzz_commands(without_execution))
-        self.assertEqual(
-            set(),
-            _parse_vm_fuzz_commands(
-                "echo python3 ./scripts/run_with_progress.py -- env cargo test "
-                "-p trust-runtime vm_malformed_bytecode_fuzz_smoke_budget\n"
-                "true # python3 ./scripts/run_with_progress.py -- env cargo test "
-                "-p trust-runtime vm_malformed_bytecode_fuzz_smoke_budget\n"
-            ),
-        )
-        wrong_package = source.replace(
-            "cargo test -p trust-runtime --test bytecode_vm_core",
-            "cargo test -p trust-syntax --test wrong_binary",
-            1,
-        )
-        self.assertNotEqual(REVIEWED_VM_FUZZ_COMMANDS, _parse_vm_fuzz_commands(wrong_package))
-        extra = source + (
-            "\npython3 ./scripts/run_with_progress.py -- env -u OUT_DIR cargo test "
-            "-p trust-runtime --test bytecode_vm_core extra_smoke -- --nocapture\n"
-        )
-        self.assertEqual(2, len(_parse_vm_fuzz_commands(extra)))
 
     def test_runtime_comms_execution_parser_pins_package_and_exact_command_set(self) -> None:
         source = (ROOT / "scripts/runtime_comms_fuzz_gate.sh").read_text()

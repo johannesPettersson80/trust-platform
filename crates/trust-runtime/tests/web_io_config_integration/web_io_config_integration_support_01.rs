@@ -62,13 +62,16 @@ pub(super) fn control_state_named_with_audit(
     audit_tx: Option<Sender<ControlAuditEvent>>,
 ) -> Arc<ControlState> {
     let mut harness = TestHarness::from_source(source).expect("build test harness");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = trust_runtime::debug::DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
     harness.cycle();
 
     let snapshot = trust_runtime::debug::DebugSnapshot {
-        storage_abi: Default::default(),
-        storage: harness.runtime().storage().clone(),
+        storage: trust_runtime::memory::VariableStorage::new(),
         now: harness.runtime().current_time(),
+        compiled: Some(Arc::new(
+            harness.runtime().snapshot().expect("the program's state"),
+        )),
     };
 
     let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
@@ -110,14 +113,12 @@ pub(super) fn control_state_named_with_audit(
         path: PathBuf::from("main.st"),
         text: source.to_string(),
     }]);
-    let hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
-        None, &sources,
-    )));
 
     Arc::new(ControlState {
+        transfers: trust_runtime::control::new_transfer_session(),
         debug,
+        identify: trust_runtime::io::IdentifyHandle::default(),
         resource,
-        metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),
         sources,
         io_snapshot: Arc::new(Mutex::new(None)),
         io_snapshot_seen_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
@@ -139,16 +140,18 @@ pub(super) fn control_state_named_with_audit(
         web_listener_bound: Arc::new(AtomicBool::new(false)),
         opcua_server_bound: Arc::new(AtomicBool::new(false)),
         project_root: None,
+        plant_service: Arc::new(trust_runtime::control::PlantControlService::default()),
+        experiments: trust_runtime::control::ControlExperimentService::default(),
+        controllers: trust_runtime::control::ControllerParameterService::default(),
+        searches: trust_runtime::control::search::SearchService::default(),
         resource_name: SmolStr::new(resource_name),
+        runtime_id: SmolStr::new(resource_name),
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
-        debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
-        hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
-        hmi_persistence: None,
-        hmi_descriptor,
         historian: None,
         openot_persistence_status: None,
         pairing: None,
+        search: Default::default(),
         ads_doctor_jobs: Arc::new(Mutex::new(
             trust_runtime::control::AdsDoctorJobStore::default(),
         )),
@@ -158,13 +161,6 @@ pub(super) fn control_state_named_with_audit(
         #[cfg(feature = "ads-server")]
         ads_server_runtime: Arc::new(Mutex::new(None)),
     })
-}
-
-pub(super) fn reserve_loopback_port() -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind local port");
-    let port = listener.local_addr().expect("read local addr").port();
-    drop(listener);
-    port
 }
 
 pub(super) fn start_test_server(state: Arc<ControlState>, project_root: PathBuf) -> String {

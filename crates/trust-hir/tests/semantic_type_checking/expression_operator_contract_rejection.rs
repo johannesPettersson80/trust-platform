@@ -220,3 +220,47 @@ fn expression_operator_rejects_unlisted_or_swapped_temporal_arithmetic() {
         "unlisted temporal arithmetic lacked operator rejection: {missing_operator_rejections:?}"
     );
 }
+
+#[test]
+fn expression_operator_rejects_out_of_range_contextual_bit_string_literal() {
+    check_has_error(
+        "PROGRAM P\nVAR b : BYTE; END_VAR\nb := 256;\nEND_PROGRAM",
+        DiagnosticCode::IncompatibleAssignment,
+    );
+    check_has_error(
+        "PROGRAM P\nVAR b : BYTE; END_VAR\nb := -1;\nEND_PROGRAM",
+        DiagnosticCode::IncompatibleAssignment,
+    );
+}
+
+#[test]
+fn expression_operator_rejects_bool_integer_literals_other_than_zero_and_one() {
+    // IEC 61131-3 Ed.3 6.3.2: only the integer literals 0 and 1 represent Boolean data;
+    // another value, a typed integer and an expression of literals stay errors.
+    for value in ["2", "-1", "INT#1", "1 + 0", "16#2"] {
+        check_has_error(
+            &format!("PROGRAM P\nVAR x : BOOL; END_VAR\nx := {value};\nEND_PROGRAM"),
+            DiagnosticCode::IncompatibleAssignment,
+        );
+    }
+    check_has_error(
+        "TYPE S : STRUCT f : BOOL := 2; END_STRUCT END_TYPE",
+        DiagnosticCode::TypeMismatch,
+    );
+    check_has_error(
+        "TYPE S : STRUCT f : BOOL := INT#1; END_STRUCT END_TYPE",
+        DiagnosticCode::TypeMismatch,
+    );
+    check_has_error(
+        "PROGRAM P\nVAR flags : ARRAY[1..2] OF BOOL := [1, 2]; END_VAR\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
+}
+
+#[test]
+fn expression_operator_rejects_typed_integer_in_bit_string_operation() {
+    check_has_error(
+        "PROGRAM P\nVAR d : DWORD; END_VAR\nd := d AND UDINT#1;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
+}

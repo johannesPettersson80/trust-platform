@@ -28,7 +28,6 @@ pub struct ArrayValue {
 pub struct StructValue {
     pub(crate) type_name: SmolStr,
     pub(crate) fields: IndexMap<SmolStr, Value>,
-    pub(crate) physical: Option<super::overlap::PhysicalValue>,
 }
 
 impl PartialEq for StructValue {
@@ -365,11 +364,7 @@ impl StructValue {
     }
 
     pub fn from_canonical_parts(type_name: SmolStr, fields: IndexMap<SmolStr, Value>) -> Self {
-        Self {
-            type_name,
-            fields,
-            physical: None,
-        }
+        Self { type_name, fields }
     }
 
     /// Consume an owned aggregate without cloning its member values.
@@ -393,8 +388,6 @@ impl StructValue {
     }
 
     pub fn field_mut(&mut self, name: &str) -> Option<&mut Value> {
-        // Raw edits are construction-only inputs; never certify stale backing.
-        self.physical = None;
         self.fields.get_mut(name)
     }
 
@@ -407,26 +400,8 @@ impl StructValue {
         let Some(slot) = self.fields.get_mut(name.as_str()) else {
             return false;
         };
-        self.physical = None;
         *slot = value;
         true
-    }
-
-    /// Remap retained object identities without changing any scalar storage bits.
-    ///
-    /// This is deliberately narrower than a field write: the retained-graph
-    /// transfer replaces references and instance ids in an isolated candidate.
-    /// Its mapper must preserve all scalar leaves, so physical gap bits remain
-    /// valid. Ordinary writes must continue through the checked path writer.
-    pub(crate) fn remap_retained_identities<E>(
-        &mut self,
-        mut remap: impl FnMut(&SmolStr, Value) -> Result<Value, E>,
-    ) -> Result<(), E> {
-        for (name, value) in &mut self.fields {
-            let original = core::mem::replace(value, Value::Null);
-            *value = remap(name, original)?;
-        }
-        Ok(())
     }
 }
 

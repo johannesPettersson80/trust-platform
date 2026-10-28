@@ -1,0 +1,27 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 1000
+plant_step_ms = 100
+
+# Two vessels exchanging heat through a wall, states relative to the 20 °C surroundings:
+#   50·dT1/dt = 2·u1 − 10·(T1 − 20) − 8·(T1 − T2),   50·dT2/dt = 2·u2 − 10·(T2 − 20) + 8·(T1 − T2),
+# at rest at 35 °C with both heaters at 75 %. Inputs: heater commands in % (0–100); outputs: both temperatures, read exactly.
+
+[[plants]]
+id = "coupled-vessels"
+model = "state_space"
+command_sources = ["%QL0", "%QL8"]
+feedback_targets = ["%IL0", "%IL8"]
+initial_state = [15.0, 15.0]
+initial_input = [75.0, 75.0]
+output_offset = [20.0, 20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }, { minimum = 0.0, maximum = 100.0, initial_applied = 75.0 }]
+
+[plants.parameters]
+a = [[-0.36, 0.16], [0.16, -0.36]]
+b = [[0.04, 0.0], [0.0, 0.04]]
+c = [[1.0, 0.0], [0.0, 1.0]]
+d = [[0.0, 0.0], [0.0, 0.0]]

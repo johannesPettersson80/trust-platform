@@ -6,7 +6,6 @@ name = "MarkerRes"
 cycle_interval_ms = 50
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime.sock"
 mode = "production"
 debug_enabled = false
 

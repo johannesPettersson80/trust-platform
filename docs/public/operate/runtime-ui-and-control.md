@@ -2,6 +2,23 @@
 
 Use the terminal UI, CLI, and web UI to inspect or control a running runtime.
 
+## Control endpoint
+
+The control endpoint is where a runtime accepts `trust-runtime ctl`, the `ui` console, debug
+attach and VS Code. Each project has its own, so two projects on one computer never meet:
+
+- When `[runtime.control]` in `runtime.toml` names no `endpoint`, the runtime picks the default of
+  its platform: a socket in the project, `.trust-runtime/control.sock`, on Linux and macOS, and a
+  free loopback port with a generated token on Windows.
+- The runtime writes where it listens to `.trust-runtime/control.json` in the project.
+- The tools read that file at each connection, so they find a runtime that restarted on another
+  port.
+- `trust-runtime ctl --project <dir> endpoint --json` prints the endpoint the tools will use.
+
+An `endpoint` in `runtime.toml` replaces the default. The exact paths, the token files and the
+lookup order are in
+[runtime.toml](../reference/config/runtime-toml.md#default-control-endpoint-and-the-endpoint-file).
+
 ## Control options
 
 | Interface | Best for |
@@ -57,10 +74,20 @@ Important command families:
 - `restart`, `shutdown`
 - `config-get`, `config-set`
 
-`--endpoint` overrides only the project's endpoint. Authentication uses
-`--token`, then `TRUST_CTL_TOKEN`, then the token in the selected project's
-`runtime.toml`. A rejected control response makes `ctl` exit non-zero, so shell
-scripts can treat a successful process exit as an accepted runtime command.
+`--endpoint` overrides only the project's endpoint. Without it, `ctl --project`
+finds the running runtime through the project's endpoint file, then its
+`runtime.toml`, then the platform default (see
+[runtime.toml](../reference/config/runtime-toml.md#default-control-endpoint-and-the-endpoint-file)).
+An endpoint file that you cannot read is skipped, and a runtime that does not
+answer at the endpoint from the file or at the default is reported as not
+running. Authentication uses `--token`, then `TRUST_CTL_TOKEN`, then the token
+that the runtime generated (in the endpoint file, or in your per-user token file
+on Windows), then the `runtime.toml` token. A rejected control response makes
+`ctl` exit non-zero, so shell scripts can treat a successful process exit as an
+accepted runtime command.
+
+The `ui` console looks the endpoint up again whenever it reconnects, so it
+follows a runtime that restarted on another port.
 
 ## Capabilities
 
@@ -71,6 +98,8 @@ scripts can treat a successful process exit as an accepted runtime command.
 
 ## Related
 
+- [Control Studio](control-studio.md)
+- [Simulation](simulation.md)
 - [Operator Guide](operator-guide.md)
 - [Compile, Validate, Reload](compile-validate-reload.md)
 - [trust-runtime CLI](../reference/cli/trust-runtime.md)

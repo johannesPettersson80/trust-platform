@@ -1,3 +1,4 @@
+import { pbkdf2Sync, timingSafeEqual } from "crypto";
 import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
@@ -5,7 +6,7 @@ import * as path from "path";
 import {
   exampleQuickPickItems,
   hardwareBadge,
-  parseManifest,
+  type ExampleEntry,
 } from "../../examples/model";
 import {
   setUpRuntimeOptions,
@@ -15,6 +16,18 @@ import { pickAuthToken } from "../../runtimeAuthModel";
 import { CHECK_PROGRAM_COMMAND } from "../../checkProgram";
 import { summarizeCheck } from "../../checkProgramModel";
 import { healthStatusLabel } from "../../networkCanvas/webview/statusPresentation";
+
+// HMI examples deliberately publish operator/operator and engineer/engineer logins. Accept
+// only hashes that actually verify those documented demo passwords, never arbitrary hashes.
+function isPublicHmiDemoHash(value: string): boolean {
+  const [algorithm, iterations, salt, digest, extra] = value.split(":");
+  if (algorithm !== "pbkdf2-sha256" || iterations !== "600000" || extra !== undefined || !salt || !digest) return false;
+  const expected = Buffer.from(digest, "base64url");
+  if (expected.length !== 32) return false;
+  return ["operator", "engineer"].some((password) =>
+    timingSafeEqual(pbkdf2Sync(password, Buffer.from(salt, "base64url"), 600000, 32, "sha256"), expected),
+  );
+}
 
 // v5 "complete PLC IDE shell" contract guards (vscode-ux-overhaul-plan.md §0.5/§0.6/§9). This file holds
 // the package.json + source invariants for the shell: palette cleanup, no user-facing Communication
@@ -105,8 +118,6 @@ const HIDDEN_FROM_PALETTE = [
   "trust-lsp.debug.reload", // Update running simulation drives this internal command
   "trust-lsp.test.runAll", // tests live in VS Code's native Testing view
   "trust-lsp.test.runOne", // tests live in VS Code's native Testing view
-  "trust-lsp.hmi.init", // raw HMI init — reached via the adaptive HMI launcher
-  "trust-lsp.hmi.refreshFromDescriptor", // raw HMI refresh
 ];
 
 const RETIRED_COMMUNICATION_COMMANDS = [
@@ -225,8 +236,13 @@ suite("Phase 1 — palette cleanup (v5 shell)", () => {
       "namespace refactor command must not appear as the ambiguous bare title 'Move Namespace'"
     );
     const source = readSrc("namespaceMove.ts");
+    // The quick fix is the language server's (trust-lsp.namespaceTarget; its Rust test pins the title).
+    const quickFix = fs.readFileSync(
+      path.join(extensionRoot(), "..", "..", "crates", "trust-lsp", "src", "handlers", "commands", "project", "namespace_target.rs"),
+      "utf8"
+    );
     assert.ok(
-      source.includes("Move Structured Text Namespace") && !source.includes('"Move Namespace"'),
+      quickFix.includes("Move Structured Text Namespace") && !quickFix.includes('"Move Namespace"'),
       "the editor code action must use the same self-explanatory namespace wording"
     );
     assert.ok(
@@ -442,14 +458,16 @@ suite("Phases 2–3 — naming + nav (v5 shell)", () => {
       "networkCanvas/webview/NetworkCanvasApp.tsx",
       "networkCanvas/webview/discoverPaneModel.ts"
     );
+    // Whether a runtime can scan is the language server's answer (`discovery` of each node;
+    // trust-devices canvas/fleet.rs and its tests): the webview shows it and keeps no health rule.
     assert.ok(
       app.includes("runtimeDiscoveryReady") &&
-        app.includes('health === "connected"') &&
-        app.includes('health === "running"') &&
-        app.includes('health === "online"') &&
-        app.includes("before scanning from it") &&
+        app.includes("node.data.discovery") &&
+        app.includes("discovery?.ready === true") &&
+        app.includes("discovery?.reason") &&
+        !app.includes('health === "connected"') &&
         app.includes("Choose a running runtime for EtherCAT or GPIO scans."),
-      "Discover origins must derive hardware-scan readiness from the rendered runtime node state, not from hardcoded availability"
+      "Discover origins must take hardware-scan readiness from the language server's answer for each runtime node, not from hardcoded availability"
     );
   });
 
@@ -480,8 +498,10 @@ suite("Phases 2–3 — naming + nav (v5 shell)", () => {
       panel.includes("fleetEndpointLabels") && panel.includes("label: fleetEndpointLabels.get(endpoint)"),
       "fleet targets must keep the discovered runtime label when rendering the configured peer"
     );
+    // The adopted runtime's node identity is the language server's (`add_host` answers `focus`;
+    // the Rust test `a_typed_runtime_address_joins_the_fleet_once`).
     assert.ok(
-      panel.includes("focusEndpoint(`fleet:${endpoint}:runtime`)") &&
+      panel.includes("this.dependencies.focusEndpoint(added.focus)") &&
         panel.includes("pendingFocusNodeId = nodeId") &&
         panel.includes('type: "focusNode"'),
       "adopting a runtime must return to the graph with the new runtime node selected"
@@ -496,7 +516,8 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
     const raw = JSON.parse(
       fs.readFileSync(path.join(EXAMPLES_DIR, "manifest.json"), "utf8")
     );
-    return parseManifest(raw);
+    // The manifest's checks are the language server's (trust-lsp.examplesCatalog; examples_tests.rs reads this file).
+    return raw as ExampleEntry[];
   }
 
   function readLaunchConfig(dir: string): {
@@ -527,14 +548,7 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
 
   test("the manifest parses and ships the curated starters", () => {
     const ids = manifestEntries().map((entry) => entry.id);
-    for (const id of [
-      "empty-simulator",
-      "conveyor",
-      "twincat-ads",
-      "raspberry-pi",
-      "hmi-starter",
-      "plcopen-motion-single-axis",
-    ]) {
+    for (const id of ["empty-simulator", "conveyor", "twincat-ads", "raspberry-pi", "plcopen-motion-single-axis"]) {
       assert.ok(ids.includes(id), `manifest must include the '${id}' starter`);
     }
   });
@@ -597,18 +611,15 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
     }
   });
 
-  test("new project scaffolding writes the same native debug configuration", () => {
+  test("new project scaffolding is written by trust-runtime new, not by the extension", () => {
     const source = readSrc("newProject.ts");
     assert.ok(
-      source.includes('const LAUNCH_JSON_SOURCE = `') &&
-        source.includes('"name": "truST Simulator"') &&
-        source.includes('"program": "\\${workspaceFolder}/src/config.st"') &&
-        source.includes('vscode.Uri.joinPath(targetUri, ".vscode")') &&
-        source.includes('vscode.Uri.joinPath(vscodeUri, "launch.json")') &&
-        source.includes('const VSCODE_SETTINGS_SOURCE = `') &&
-        source.includes('"debug.showInStatusBar": "never"') &&
-        source.includes('vscode.Uri.joinPath(vscodeUri, "settings.json")'),
-      "Create project must write launch.json plus settings.json so VS Code has a debugger but does not show a second debug status selector"
+      source.includes('"new",') && source.includes("`--parent=") && source.includes("`--name="),
+      "Create Project must run `trust-runtime new`, which writes launch.json and settings.json (spec 25)"
+    );
+    assert.ok(
+      !source.includes("LAUNCH_JSON_SOURCE") && !source.includes("writeFile("),
+      "the extension must not keep its own copy of the project files (AGENTS.md: logic is in Rust)"
     );
   });
 
@@ -706,7 +717,7 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
   });
 
   test("example gallery has scalable search plus hardware and tag filters", () => {
-    const source = readSrc("examples.ts");
+    const source = readSrc("examples/galleryWebview.ts");
     assert.ok(
       source.includes('placeholder="Search examples"') &&
         source.includes("searchWrap.hidden = false"),
@@ -716,11 +727,12 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
       source.includes('"no-hardware"') &&
         source.includes('"hardware"') &&
         source.includes("for (const tag of example.tags"),
-      "the example gallery must generate hardware and category/tag chips instead of a flat unfiltered list"
+      "the example gallery must retain hardware and category values instead of a flat unfiltered list"
     );
     assert.ok(
-      source.includes('dataset.filterKind = "hardware"') &&
-        source.includes('dataset.filterKind = "category"') &&
+      source.includes('for (const kind of ["hardware", "category"])') &&
+        source.includes('document.createElement("select")') &&
+        source.includes("select.dataset.filterKind = kind") &&
         source.includes("hardwareFilter") &&
         source.includes("tagFilter"),
       "hardware and category filters must be separate state so users can combine No hardware with a category"
@@ -734,8 +746,93 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
     );
   });
 
+  test("example gallery presents the control curriculum as an ordered learning path", () => {
+    const source = ["examples.ts", "examples/galleryWebview.ts", "examples/topics.ts"].map(readSrc).join("\n");
+    assert.doesNotMatch(source, /"\d+ practical lessons"/, "the lesson count comes from the course catalog, not a fixed number");
+    for (const visibleContract of [
+      "Learning paths",
+      "Control engineering",
+      " practical lessons",
+      "Starter projects",
+      "Explore by topic",
+      "PLC tutorials",
+      "Connectivity",
+      "Libraries and motion",
+      "All examples and tutorials",
+      "Continue course",
+      "Browse all bundled projects",
+      "controlLessonPositionLabel(",
+      "No prerequisite",
+      "Previous lesson",
+      "Next lesson",
+      "Not yet available",
+      "Create project",
+    ]) {
+      assert.ok(
+        source.includes(visibleContract),
+        `the gallery must render '${visibleContract}' instead of burying the curriculum in a flat grid`
+      );
+    }
+    assert.ok(
+      source.includes('setAttribute("aria-label", "Course progress")') &&
+        source.includes('setAttribute("aria-current", "step")') &&
+        source.includes("completedLessonIds"),
+      "course position and persisted progress must be available to keyboard and assistive-technology users"
+    );
+    assert.ok(
+      source.includes("[hidden] { display: none !important; }"),
+      "browse-only controls must remain absent from course and lesson views"
+    );
+    assert.ok(
+      source.includes('case "openControlCurriculum"') &&
+        source.includes('case "openControlCourse"') &&
+        source.includes('case "openControlLesson"') &&
+        source.includes('case "openExamplesDocumentation"'),
+      "the existing gallery message boundary must own curriculum and documentation navigation"
+    );
+    assert.ok(
+      source.includes("lessonIsAvailable(example)") &&
+        source.includes("appendLessonAvailability(card, example)"),
+      "an incomplete lesson must remain navigable while project creation remains unavailable"
+    );
+  });
+
+  test("example bundle is generated from the canonical examples tree", () => {
+    const root = workspaceRoot();
+    const canonicalManifest = path.join(root, "examples", "catalog.json");
+    const packagedManifest = path.join(
+      extensionRoot(),
+      "media",
+      "examples",
+      "manifest.json"
+    );
+    assert.ok(
+      fs.existsSync(canonicalManifest),
+      "examples/catalog.json must be the maintained gallery catalog"
+    );
+    const canonical = fs.readFileSync(canonicalManifest, "utf8");
+    assert.strictEqual(
+      fs.readFileSync(packagedManifest, "utf8"),
+      canonical,
+      "the extension manifest must be generated verbatim from the canonical catalog"
+    );
+    const entries = JSON.parse(canonical) as Array<{ path: string }>;
+    for (const entry of entries) {
+      assert.ok(
+        fs.existsSync(path.join(root, "examples", entry.path)),
+        `canonical example is missing: ${entry.path}`
+      );
+    }
+    const scripts = loadPackageJson().scripts ?? {};
+    assert.ok(
+      scripts["build:examples"]?.includes("build-examples.js") &&
+        scripts.compile?.includes("npm run build:examples &&"),
+      "every extension build must regenerate examples before compiling",
+    );
+  });
+
   test("example gallery separates hardware requirements from category labels", () => {
-    const source = readSrc("examples.ts");
+    const source = readSrc("examples/galleryWebview.ts");
     assert.ok(
       source.includes(".badge.requires") &&
         source.includes("var(--trust-warn)") &&
@@ -753,7 +850,7 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
   });
 
   test("example copy keeps native prompts and exposes only an acceptance-runner prompt override", () => {
-    const source = readSrc("examples.ts");
+    const source = readSrc("examples/copy.ts");
     assert.ok(source.includes("showOpenDialog"), "normal users must still choose the destination through native VS Code UI");
     assert.ok(source.includes("showInputBox"), "normal users must still name the editable example copy through native VS Code UI");
     assert.ok(
@@ -771,6 +868,19 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
         `example '${item.id}' detail is too long for the first-run gallery card: ${item.detail.length} chars`
       );
     }
+  });
+
+  test("long gallery descriptions are shortened at a word boundary", () => {
+    const item = exampleQuickPickItems([{
+      id: "long-description",
+      title: "Long description",
+      description: "A deliberately long catalog description that should remain readable when it is displayed in the compact first-run gallery card.",
+      path: "long-description",
+      hardware: "none",
+    }])[0];
+    assert.ok(item.detail.length <= 80);
+    assert.ok(item.detail.endsWith("…"));
+    assert.ok(!item.detail.endsWith(" …"));
   });
 
   test("the PLCopen Motion starter is portable outside the repository", () => {
@@ -795,7 +905,19 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
     );
   });
 
-  test("no secrets in example fixtures (no tokens/passwords/keys)", () => {
+  test("public demo credential exception rejects arbitrary secrets and hashes", () => {
+    assert.strictEqual(isPublicHmiDemoHash("a-real-private-password"), false);
+    assert.strictEqual(
+      isPublicHmiDemoHash("pbkdf2-sha256:1:c2FsdA:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
+      false,
+    );
+    assert.strictEqual(
+      isPublicHmiDemoHash("pbkdf2-sha256:600000:c2FsdA:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
+      false,
+    );
+  });
+
+  test("example fixtures contain only documented public demo credentials", () => {
     const offenders: string[] = [];
     const walk = (dir: string) => {
       for (const name of fs.readdirSync(dir)) {
@@ -805,14 +927,20 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
           continue;
         }
         const text = fs.readFileSync(full, "utf8");
-        // A real secret has a non-empty value; `auth_token = ""` (empty default in runtime.toml) is fine.
-        if (/(auth_token|password|secret|api[_-]?key)\s*[:=]\s*["']?[^"'\s]/i.test(text)) {
+        const withoutReservedExampleToken = text
+          .replace(/auth_token\s*=\s*"trust-example-token"/g, "")
+          .replace(/password\s*=\s*"([^"]+)"/g, (line, hash: string) => (isPublicHmiDemoHash(hash) ? "" : line));
+        if (/(auth_token|password|secret|api[_-]?key)\s*[:=]\s*["']?[^"'\s]/i.test(withoutReservedExampleToken)) {
           offenders.push(full);
         }
       }
     };
     walk(EXAMPLES_DIR);
-    assert.deepStrictEqual(offenders, [], "example fixtures must not contain secrets");
+    assert.deepStrictEqual(
+      offenders,
+      [],
+      "example fixtures may contain only the reserved token and verified public HMI demo passwords",
+    );
   });
 });
 
@@ -940,32 +1068,34 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
   test("viewer Live Values permissions disable Write/Force before a backend rejection", () => {
     const web = readSrc("ioPanel.webview.js");
     const status = readSrc("io-panel/status.ts");
+    // The status reply's access capabilities are built by the shared runtime services
+    // (specification 34 ARCH-11), the same code on every runtime, as typed members of the reply.
     const runtime = fs.readFileSync(
-      path.join(workspaceRoot(), "crates", "trust-runtime", "src", "control.rs"),
+      path.join(workspaceRoot(), "crates", "trust-runtime-services", "src", "status", "reply.rs"),
       "utf8"
     );
 
     assert.ok(
-      runtime.includes('"access"') &&
-        runtime.includes('"io"') &&
-        runtime.includes('"write"') &&
-        runtime.includes('"force"') &&
-        runtime.includes('"release"') &&
+      runtime.includes("access: Option<AccessCapabilities>") &&
+        runtime.includes("io: IoAccess") &&
+        runtime.includes("write: bool") &&
+        runtime.includes("force: bool") &&
+        runtime.includes("release: bool") &&
         runtime.includes("connect with an engineer token"),
       "runtime status must expose role-derived I/O capabilities"
     );
+    // The access and what each row may do are the language server's answer (`trust-lsp.runTargets`, action
+    // `liveValues`; live_values_tests.rs in crates/trust-lsp/src/handlers/commands/run_targets).
     assert.ok(
-      status.includes("normalizeRuntimeAccess") &&
+      status.includes('action: "liveValues"') &&
         status.includes("controlAuthToken") &&
-        status.includes("controlEndpoint") &&
-        status.includes("access,"),
+        status.includes("controlEndpoint"),
       "Live Values status payload must carry the active session's access capabilities"
     );
     assert.ok(
       web.includes("let currentAccess") &&
-        web.includes("allowWrite: currentAccess.allowWrite") &&
-        web.includes("allowForce: currentAccess.allowForce") &&
-        web.includes("allowRelease: currentAccess.allowRelease"),
+        web.includes("currentRows = payload.rows") &&
+        web.includes('rowOperations(operations, forced ? "forced" : readOnly ? "readOnly" : "live")'),
       "the webview must render row controls from runtime-reported capabilities"
     );
     assert.ok(
@@ -976,10 +1106,9 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       "denied write/force/release controls must be disabled before the user clicks"
     );
     assert.ok(
-      web.includes("writeDisabledReason || entryReason || remoteReason || \"Write is not available for this value.\"") &&
-        web.includes("\"Release force before writing this value.\"") &&
-        web.includes("if (!canForce)") &&
-        web.includes("forceButton.title = entryReason || remoteReason || \"Force is not available for this value.\"") &&
+      web.includes("writeButton.title = allowed.writeReason") &&
+        web.includes("forceButton.title = allowed.forceReason") &&
+        web.includes("releaseButton.title = allowed.releaseReason") &&
         web.includes("setStatusText(currentAccess.reason)"),
       "denied controls must carry a visible reason, and forced rows must explain why Write is disabled"
     );
@@ -989,10 +1118,10 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     const web = readSrc("ioPanel.webview.js");
     const host = readSrc("ioPanel.ts");
     const legacy = readSrc("io-panel/view.ts");
+    // Which targets must arm a Force is the language server's (live_values_tests.rs, forceRequiresArm).
     assert.ok(
       web.includes("function forceRequiresArming") &&
-        web.includes('currentMode !== "simulate"') &&
-        web.includes("currentRuntimeState === \"connected\""),
+        web.includes("currentForceRequiresArm = payload.forceRequiresArm"),
       "Live Values must distinguish simulator one-click force from managed/remote force arming"
     );
     assert.ok(
@@ -1084,11 +1213,7 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
 
   test("Live Values uses explicit safety verbs for row actions", () => {
     const web = readSrc("ioPanel.webview.js");
-    const visualRuntime = readSrc("visual/runtime/webview/stRuntimePanelController.ts");
-    for (const [name, source] of [
-      ["ioPanel.webview.js", web],
-      ["visual/runtime/webview/stRuntimePanelController.ts", visualRuntime],
-    ] as const) {
+    for (const [name, source] of [["ioPanel.webview.js", web]] as const) {
       assert.match(
         source,
         /writeButton\.textContent\s*=\s*[^;]*["`]Write\b/s,
@@ -1113,21 +1238,16 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
         web.includes("use Force to override"),
       "Live Values must show a visible hint explaining why outputs/memory Write is disabled"
     );
+    // The reason text is the language server's (live_values_tests.rs, the_operations_of_a_row_by_its_state).
     assert.ok(
-      web.includes("writeDisabledReason") &&
-        web.includes("Program-driven") &&
-        web.includes("Write is not available for this value."),
+      web.includes("writeButton.title = allowed.writeReason"),
       "disabled Write buttons must carry a concrete tooltip reason"
     );
   });
 
   test("Live Values renders visible data-type labels instead of hidden value inference", () => {
     const web = readSrc("ioPanel.webview.js");
-    const visualRuntime = readSrc("visual/runtime/webview/stRuntimePanelController.ts");
-    for (const [name, source] of [
-      ["ioPanel.webview.js", web],
-      ["visual/runtime/webview/stRuntimePanelController.ts", visualRuntime],
-    ] as const) {
+    for (const [name, source] of [["ioPanel.webview.js", web]] as const) {
       assert.ok(source.includes("typeFromAddress"), `${name} must derive BOOL/WORD-style types from I/O addresses`);
       assert.ok(
         source.includes("valueType") && source.includes("typeFromAddress(entry"),
@@ -1147,11 +1267,7 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
 
   test("Live Values keeps BOOL rows compact and contextual", () => {
     const web = readSrc("ioPanel.webview.js");
-    const visualRuntime = readSrc("visual/runtime/webview/stRuntimePanelController.ts");
-    for (const [name, source] of [
-      ["ioPanel.webview.js", web],
-      ["visual/runtime/webview/stRuntimePanelController.ts", visualRuntime],
-    ] as const) {
+    for (const [name, source] of [["ioPanel.webview.js", web]] as const) {
       assert.ok(source.includes('displayType === "BOOL"'), `${name} must branch from the visible data type`);
       // BOOL rows expose an explicit TRUE/FALSE chooser in the write slot (parity with the numeric
       // write-box), so the operator picks what to write/force instead of an implicit hidden value.
@@ -1191,7 +1307,6 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     for (const [name, source] of [
       ["ioPanel.ts", readSrc("ioPanel.ts")],
       ["io-panel/view.ts", readSrc("io-panel/view.ts")],
-      ["visual/runtime/webview/stRuntimePanel.css", readSrc("visual/runtime/webview/stRuntimePanel.css")],
     ] as const) {
       assert.ok(source.includes(".value-input"), `${name} must style the value editor`);
       assert.ok(source.includes("height: 24px"), `${name} must keep row controls aligned`);
@@ -1200,7 +1315,6 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
 
   test("Live Values keeps operation feedback visible in the sticky header", () => {
     const web = readSrc("ioPanel.webview.js");
-    const visualRuntime = readSrc("visual/runtime/webview/stRuntimePanelController.ts");
     for (const [name, source] of [
       ["ioPanel.ts", readSrc("ioPanel.ts")],
       ["io-panel/view.ts", readSrc("io-panel/view.ts")],
@@ -1239,10 +1353,7 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
         web.includes("updateForceStatusFromState(currentState)"),
       "active forces from runtime snapshots must render a standing amber warning, even without a fresh button click"
     );
-    for (const [name, source] of [
-      ["ioPanel.webview.js", web],
-      ["visual/runtime/webview/stRuntimePanelController.ts", visualRuntime],
-    ] as const) {
+    for (const [name, source] of [["ioPanel.webview.js", web]] as const) {
       assert.ok(
         source.includes("isTransientStatusText"),
         `${name} must clear only startup/unavailable guidance when live values arrive`
@@ -1356,7 +1467,6 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     for (const [name, source] of [
       ["ioPanel.ts", readSrc("ioPanel.ts")],
       ["io-panel/view.ts", readSrc("io-panel/view.ts")],
-      ["visual/runtime/webview/stRuntimePanel.css", readSrc("visual/runtime/webview/stRuntimePanel.css")],
     ] as const) {
       assert.ok(source.includes("white-space: nowrap"), `${name} must keep Write/Force/Release on one line`);
       assert.ok(source.includes(".mini-btn"), `${name} must style action buttons explicitly`);
@@ -1382,11 +1492,9 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
   test("Live Values long signal names cannot collapse the table columns", () => {
     const host = readSrc("ioPanel.ts");
     const legacy = readSrc("io-panel/view.ts");
-    const visual = readSrc("visual/runtime/webview/stRuntimePanel.css");
     for (const [name, source] of [
       ["ioPanel.ts", host],
       ["io-panel/view.ts", legacy],
-      ["visual/runtime/webview/stRuntimePanel.css", visual],
     ] as const) {
       assert.ok(
         source.includes("minmax(116px, 1fr)") &&
@@ -1411,7 +1519,6 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     for (const [name, source] of [
       ["ioPanel.ts", host],
       ["io-panel/view.ts", legacy],
-      ["visual/runtime/webview/stRuntimePanel.css", visual],
     ] as const) {
       assert.ok(
         source.includes("overflow-wrap: anywhere") && source.includes("white-space: normal"),
@@ -1512,11 +1619,7 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
   test("attached runtimes are labelled Connected, not Stopped or Running", () => {
     const web = readSrc("ioPanel.webview.js");
     const status = readSrc("io-panel/status.ts");
-    const visualController = readSrc("visual/runtime/webview/stRuntimePanelController.ts");
-    for (const [name, source] of [
-      ["ioPanel.webview.js", web],
-      ["visual runtime controller", visualController],
-    ] as const) {
+    for (const [name, source] of [["ioPanel.webview.js", web]] as const) {
       assert.ok(
         /runtimeState\s*===\s*"connected"[\s\S]{0,120}\?\s*"Connected"/.test(source),
         `${name} must show Connected for attach-mode Live Values sessions`
@@ -1527,9 +1630,10 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
         `${name} must not use the old connected-as-running label pattern`
       );
     }
+    // The language server asks the attached session's own endpoint (live_values_tests.rs, an_attached_session).
     assert.ok(
-      status.includes('request === "attach"') &&
-        status.includes("session.configuration.endpoint.trim()"),
+      status.includes("request: configuration.request") &&
+        status.includes("endpoint: configuration.endpoint"),
       "Live Values status must source the active attach endpoint from the debug session"
     );
   });
@@ -1549,17 +1653,10 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       !web.includes("`${label} · ${adsText}`") && !web.includes("payload.ads && payload.ads.text"),
       "Live Values pill must not append ADS/protocol commentary to lifecycle state"
     );
-    const onlineReachableBranch = status.slice(
-      status.indexOf('if (!running && runtimeMode === "online"'),
-      status.indexOf("if (!access)")
-    );
+    // An unattached online target is probed for access and reachability and stays Not connected, not Running: the
+    // language server's answer (live_values_tests.rs, an_online_target_without_a_session).
     assert.ok(
-      onlineReachableBranch.includes("endpointReachable = await probeEndpointReachable(endpoint)") &&
-        onlineReachableBranch.includes("fetchRuntimeStatusReport(endpoint, authToken)"),
-      "unattached online targets may be probed for access/reachability"
-    );
-    assert.ok(
-      !onlineReachableBranch.includes('runtimeState = "running"'),
+      status.includes('action: "liveValues"') && !status.includes('runtimeState = "running"'),
       "a reachable remote without an attached Live Values session must stay Not connected, not Running"
     );
   });
@@ -1675,8 +1772,7 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       "Live Values must prefer the friendly selected target label before falling back to endpoint text"
     );
     assert.ok(
-      status.includes("session?.configuration?.targetLabel") &&
-        status.includes("targetLabel,"),
+      status.includes("targetLabel: configuration.targetLabel"),
       "runtime status must carry the active attach target label"
     );
     assert.ok(
@@ -1687,7 +1783,7 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       "the shared lifecycle attach path must accept and pass a friendly target label"
     );
     assert.ok(
-      managedAttach.includes("managedRuntimeLabel(name)") &&
+      managedAttach.includes("result.label ?? name") &&
         managedAttach.includes("runtimeLifecycleService.connectRemote("),
       "managed Start must label Live Values with the same name shown in the sidebar Target"
     );
@@ -1726,7 +1822,16 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
 });
 
 suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
-  const panel = () => readSrc("networkCanvas/networkCanvasPanel.ts");
+  const panel = () =>
+    readSrcSet(
+      "networkCanvas/networkCanvasPanel.ts",
+      "networkCanvas/canvasDataService.ts",
+      "networkCanvas/fleetActions.ts",
+      "networkCanvas/configurationActions.ts",
+      "networkCanvas/protocolActions.ts",
+      "networkCanvas/refreshData.ts",
+      "networkCanvas/webviewHtml.ts"
+    );
 
   test("the canvas panel is user-facing 'Devices & Connections', never 'Network Canvas'", () => {
     const src = panel();
@@ -1802,6 +1907,15 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
     }
   });
 
+  test("Devices & Connections is bundled with the automatic JSX runtime its type check uses", () => {
+    // A component without its own React import (the equipment connections drawer) blanked the whole
+    // canvas when the bundle used the classic runtime, which the react-jsx type check cannot see.
+    const build = fs.readFileSync(path.join(extensionRoot(), "scripts", "build-network-canvas-webview.js"), "utf8");
+    assert.match(build, /jsx: "automatic"/);
+    const config = fs.readFileSync(path.join(extensionRoot(), "tsconfig.webview.json"), "utf8");
+    assert.match(config, /"jsx":\s*"react-jsx"/);
+  });
+
   test("ONE selected-run-target store, written by the dropdown AND the graph", () => {
     const store = readSrc("selectedRuntime.ts");
     assert.ok(
@@ -1863,10 +1977,12 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
   test("Set as run target selects WITHOUT connecting", () => {
     const src = panel();
     assert.ok(src.includes('case "setAsRunTarget"'), "the panel handles setAsRunTarget");
-    const ctrl = readSrc("networkCanvas/webview/runtimeNodeControls.ts");
+    // Every runtime node offers Set as run target (trust-devices canvas::fleet, its Rust tests); the
+    // inspector sends it.
+    const inspector = readSrc("networkCanvas/webview/NodeInspector.tsx");
     assert.ok(
-      ctrl.includes('action: "setAsRunTarget"'),
-      "a runtime node offers Set as run target"
+      inspector.includes('case "setAsRunTarget"'),
+      "the inspector sends a runtime node's Set as run target"
     );
   });
 
@@ -2008,12 +2124,15 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
       "fleet peer resolution must read the saved SecretStorage token before probing"
     );
     assert.ok(
-      host.includes("workspaceConfigResource()") && host.includes("trustConfig()"),
+      host.includes("getTrustConfiguration(vscode.workspace.workspaceFolders?.[0]?.uri)") && host.includes("trustConfig()"),
       "fleet endpoint settings must be read with the active workspace resource"
     );
     assert.ok(host.includes("message.authToken"), "the host add path must receive the token field");
+    // host:port entries normalize to a real control endpoint in the language server
+    // (`a_typed_runtime_address_joins_the_fleet_once`); the host stores the endpoint it answers.
     assert.ok(
-      host.includes("normalizeFleetControlEndpoint"),
+      host.includes('requestCanvasAct("add_host"') &&
+        host.includes("setControlAuthToken(endpoint, authToken)"),
       "host:port entries must normalize to a real control endpoint"
     );
     assert.ok(
@@ -2145,7 +2264,7 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
       "opening a new Add flow must clear stale validation/fault banners"
     );
     assert.ok(
-      /onChoose=\{\(protocol\) => \{[\s\S]*clearApplyResult\(\);[\s\S]*setDraft/.test(app),
+      /onChoose: \(protocol\) => \{[\s\S]*clearApplyResult\(\);[\s\S]*setDraft/.test(app),
       "choosing a new protocol form must clear stale validation/fault banners"
     );
   });
@@ -2172,11 +2291,13 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
         app.includes('type: "addEthercatChannels"'),
       "the webview must route selected EtherCAT channels to the dedicated save message"
     );
+    // The server saves the channels on the bus as its `selected_channels` (Rust test
+    // `ethercat_channels_are_saved_on_the_browsed_bus_sorted_and_once`, crates/trust-devices).
     assert.ok(
       host.includes("async addEthercatChannels") &&
         host.includes('case "addEthercatChannels"') &&
-        host.includes("selected_channels"),
-      "the host must persist selected EtherCAT channels through comm.apply"
+        host.includes('"ethercat_channels"'),
+      "the host must forward selected EtherCAT channels to the server's EtherCAT save"
     );
     const ethercatBranch =
       /else if \(panel\.protocol === "ethercat"\) \{([\s\S]*?)\n\s*\} else \{/.exec(
@@ -2288,8 +2409,8 @@ suite("Phases 8–10 — honest backend gating (no fakes, no dead buttons)", () 
       "Live Values must not contradict Compile with a stale no-compile state"
     );
     assert.ok(
-      /id="diagnostics"[^>]*display:none/.test(html),
-      "diagnostics details stay hidden until a real compile/reload result exists"
+      !html.includes('id="diagnostics"') && !script.includes("compileResult"),
+      "Live Values keeps no compile card: Compile is the sidebar's action (specification 25 §6.1)"
     );
   });
 
@@ -2313,7 +2434,7 @@ suite("Phases 8–10 — honest backend gating (no fakes, no dead buttons)", () 
     assert.ok(
       helper.includes("runtimeLifecycleService.connectRemote(") &&
         helper.includes("result.controlEndpoint") &&
-        helper.includes("managedRuntimeLabel(name)") &&
+        helper.includes("result.label ?? name") &&
         helper.includes("setSelectedRuntimeId(name)"),
       "the shared managed-runtime attach helper must attach to the reached endpoint and set the Target"
     );
@@ -2326,8 +2447,9 @@ suite("Phases 8–10 — honest backend gating (no fakes, no dead buttons)", () 
   test("managed runtime tokens are imported into SecretStorage before attach", () => {
     const src = readSrc("localRuntime.ts");
     assert.ok(
-      src.includes("parseRuntimeControlAuthToken"),
-      "managed runtime token must be read from that runtime project's runtime.toml"
+      src.includes("resolveProjectControlEndpoint") &&
+        !/parseRuntimeControlAuthToken|readManagedRuntimeAuthToken/.test(src),
+      "managed runtime token must come from trust-runtime's endpoint answer (spec 11 §6.8.0a), not from a TOML parse in the extension"
     );
     assert.ok(
       src.includes("setControlAuthToken"),
@@ -2404,11 +2526,22 @@ suite("R4 — runtime auth tokens in SecretStorage (security)", () => {
   });
 
   test("token read paths use the SecretStorage-backed store, not the raw plaintext setting", () => {
-    for (const file of ["runtimeTarget.ts", "runtimeLifecycle.ts", "io-panel/status.ts"]) {
+    // Spec 11 §6.8.0a: the workspace runtime's token comes from trust-runtime through
+    // runtimeConnection.ts, which falls back to the SecretStorage-backed store.
+    assert.ok(
+      readSrc("runtimeConnection.ts").includes("getControlAuthToken"),
+      "the runtime connection must read stored tokens via getControlAuthToken"
+    );
+    for (const file of [
+      "runtimeTarget.ts",
+      "runtimeLifecycle.ts",
+      "io-panel/status.ts",
+      "runtimeConnection.ts",
+    ]) {
       const src = readSrc(file);
       assert.ok(
-        src.includes("getControlAuthToken"),
-        `${file} must read tokens via getControlAuthToken`
+        src.includes("getControlAuthToken") || src.includes("resolveRuntimeConnection"),
+        `${file} must read tokens via getControlAuthToken or the runtime connection`
       );
       assert.ok(
         !/config\.get<[^>]*>\("runtime\.controlAuthToken"/.test(src),
@@ -2614,8 +2747,8 @@ suite("S-24 — Libraries surface contract", () => {
       "catalog source must stay hidden until the ST-package-install backend contract exists"
     );
     assert.ok(
-      source.includes("No libraries added. Add OSCAT, PLCopen Motion, or your own."),
-      "empty state must be plain-language and must not mention trust-lsp.toml"
+      source.includes("No libraries added. Add Plant, OSCAT, PLCopen Motion, or your own."),
+      "empty state must be plain-language and must not mention trust-lsp.toml",
     );
   });
 
@@ -2638,21 +2771,18 @@ suite("S-24 — Libraries surface contract", () => {
   test("curated library updates compare the vendored project copy", () => {
     const source = readSrc("libraries.ts");
     assert.ok(
-      source.includes("const resolvedPath = curated ? manifestPath : projectInfo?.path ?? manifestPath"),
-      "curated rows must use the project-vendored path, not a stale LSP project-info path"
-    );
-    assert.ok(
-      source.includes("curated") && source.includes("packageVersion ?? dependency.version ?? projectInfo?.version"),
-      "curated update state must prefer the vendored package version before project-info"
+      source.includes('action: "view"') &&
+        source.includes("bundled: bundledLibraries(context)") &&
+        source.includes("resolved,"),
+      "entries, versions and updates come from trust-lsp.projectLibraries (Rust view_tests.rs pins the vendored-copy rule)"
     );
   });
 
   test("library symbol counts use real singular/plural copy", () => {
     const source = readSrc("libraries.ts");
     assert.ok(
-      source.includes('function countLabel(count: number, singular: string') &&
-        source.includes('countLabel(symbols.length, "symbol")'),
-      "Libraries must use a shared countLabel helper for symbol availability"
+      source.includes("esc(lib.detail)"),
+      "Libraries show the language server's symbol-availability text, singular or plural (Rust view_tests.rs)"
     );
     assert.ok(
       !source.includes('${symbols.length} symbols available'),
@@ -2681,7 +2811,7 @@ suite("S-24 — Libraries surface contract", () => {
     assert.ok(
       source.includes("data-symbol-select") &&
         source.includes("symbol-detail") &&
-        source.includes("declarationText(symbol)"),
+        source.includes("symbol.snippet"),
       "Libraries must show a per-symbol detail panel with declaration context"
     );
     assert.ok(
@@ -2890,101 +3020,6 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     );
   });
 
-  test("HMI preview uses shared truST product theme roles", () => {
-    const src = readSrc("hmi-panel/view.ts");
-    for (const token of [
-      "--trust-canvas",
-      "--trust-surface",
-      "--trust-text",
-      "--trust-text-muted",
-      "--trust-border",
-      "--trust-accent",
-      "--trust-input-bg",
-      "--trust-selected-bg",
-    ]) {
-      assert.ok(src.includes(token), `HMI preview must define and consume ${token}`);
-    }
-
-    for (const selector of [
-      "button {",
-      ".tab.active",
-      ".widget {",
-      ".section-card {",
-      ".process-panel {",
-      ".hmi-empty--state",
-      "#status {",
-    ]) {
-      assert.ok(src.includes(selector), `HMI preview must style ${selector} as product chrome`);
-    }
-    assert.ok(
-      src.includes("Start the runtime to see live HMI data") &&
-        src.includes("Use Start in the truST sidebar"),
-      "HMI stopped state must render a beginner-facing empty-state body, not only a toolbar status"
-    );
-    assert.ok(
-      src.includes("renderProcessPage(page, allWidgets)") &&
-        !src.includes("renderProcessPage(page, visible)"),
-      "HMI process bindings must resolve against all schema widgets, not only widgets visible on the process page"
-    );
-    assert.ok(
-      src.includes("function applyProcessSvgTheme") &&
-        src.includes("trust-process-svg") &&
-        src.includes("svg.trust-process-svg > rect:first-of-type") &&
-        src.includes("svg.trust-process-svg .pid-title") &&
-        src.includes("svg.trust-process-svg .pid-value") &&
-        src.includes("var(--trust-surface-raised)") &&
-        src.includes("var(--trust-text)") &&
-        src.includes("var(--trust-accent)"),
-      "HMI process SVG embedding must normalize generated process SVGs to shared theme roles"
-    );
-
-    for (const legacyPattern of [
-      "border: 1px solid var(--vscode-panel-border",
-      "background: var(--vscode-editor-background",
-      "color: var(--vscode-editor-foreground",
-      "border-color: var(--vscode-focusBorder",
-      "background: color-mix(in srgb, var(--vscode-focusBorder",
-    ]) {
-      assert.ok(
-        !src.includes(legacyPattern),
-        `HMI preview must not keep private raw VS Code chrome: ${legacyPattern}`
-      );
-    }
-  });
-
-  test("HMI preview formats live values like the rest of truST", () => {
-    const src = readSrc("hmi-panel/view.ts");
-    assert.ok(
-      src.includes("function formatHmiLiteral") &&
-        src.includes('return "TRUE";') &&
-        src.includes('return "FALSE";'),
-      "HMI preview must format BOOL values as IEC TRUE/FALSE, matching Live Values"
-    );
-    assert.ok(
-      src.includes("function formatRealValue") && src.includes("numeric.toFixed(1)"),
-      "HMI preview must keep at least one decimal for REAL/LREAL values"
-    );
-    assert.ok(
-      src.includes("function processMapKeys") &&
-        src.includes('keys.push(value ? "true" : "false")'),
-      "HMI process maps must remain compatible with existing lowercase true/false map keys"
-    );
-  });
-
-  test("HMI preview schedules descriptor refreshes from edit save and watcher events", () => {
-    const src = readSrc("hmiPanel.ts");
-    for (const token of [
-      "vscode.workspace.onDidChangeTextDocument",
-      "vscode.workspace.onDidSaveTextDocument",
-      'vscode.workspace.createFileSystemWatcher("**/hmi/*.{toml,svg}")',
-      'vscode.workspace.createFileSystemWatcher("**/hmi/views/*.view.toml")',
-      "scheduleSchemaRefresh();",
-      "DESCRIPTOR_REFRESH_DEBOUNCE_MS",
-    ]) {
-      assert.ok(src.includes(token), `HMI preview must keep descriptor refresh wiring: ${token}`);
-    }
-  });
-
   test("React Flow canvas controls use the shared Devices & Connections treatment", () => {
     const themeCss = readSrc("webview/theme.css");
     for (const selector of [
@@ -3005,7 +3040,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
 
     const app = readSrcSet(
       "networkCanvas/webview/NetworkCanvasApp.tsx",
-      "networkCanvas/webview/NetworkCanvasOverlays.tsx"
+      "networkCanvas/webview/CanvasGraphShell.tsx"
     );
     assert.ok(
       app.includes('className="trust-canvas-summary"'),
@@ -3125,11 +3160,12 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
   test("Devices & Connections refits when endpoint children appear after managed Start", () => {
     const src = readSrcSet(
       "networkCanvas/webview/NetworkCanvasApp.tsx",
-      "networkCanvas/webview/NetworkCanvasHeader.tsx",
+      "networkCanvas/webview/useCanvasViewport.ts",
+      "networkCanvas/webview/CanvasToolbar.tsx",
       "networkCanvas/webview/useDiscoverPane.ts"
     );
     assert.ok(
-      src.includes("child endpoints") && src.includes(".map((n) => n.id)"),
+      src.includes("Node identity") && src.includes("nodes.map((node) => node.id)"),
       "canvas fit signature must include child endpoint node IDs, not only host IDs"
     );
     assert.ok(
@@ -3160,7 +3196,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     );
     assert.ok(
       src.includes("const editSlotsVisible =") &&
-        src.includes("editMode && !draft && !selectedId && !browseTags && !discoverOpen && !addSlot && !filterOpen") &&
+        src.includes("editMode && !draft && !plantDraft && !selectedId && !browseTags && !discoverOpen && !addSlot && !filterOpen") &&
         src.includes("editSlotsVisible"),
       "edit-mode add/setup/host slots must hide while a right drawer is open so background affordances cannot overlap the active workflow"
     );
@@ -3169,7 +3205,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
         src.includes("LOCAL_RUNTIME_NODE_ID") &&
         src.includes("const openAddPicker = useCallback") &&
         src.includes('setAddSlot({ kind: "device", targetId: toolbarAddTarget.id })') &&
-        src.includes("onAdd={openAddPicker}") &&
+        /onAdd=\{\(\)\s*=>\s*\{\s*equipment\.setVisible\(false\);\s*openAddPicker\(\);\s*\}\}/.test(src) &&
         /<button[\s\S]*onClick=\{onAdd\}[\s\S]*\+ Add[\s\S]*<\/button>/.test(src),
       "Devices & Connections must expose a first-class + Add toolbar action that opens the picker for the selected/default runtime"
     );
@@ -3179,7 +3215,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     );
     assert.ok(
       /const adopt = useCallback[\s\S]*close\(\);[\s\S]*setEditMode\(false\)/.test(src) &&
-        /<AddHostPanel[\s\S]*onSaved=\{\(\) => setEditMode\(false\)\}/.test(src),
+        /drawerRoutes\.addHost[\s\S]*onSaved: \(\) => setEditMode\(false\)/.test(src),
       "successful Connect existing / Adopt runtime flows must return to a clean result graph instead of leaving edit-mode placeholders visible"
     );
     assert.ok(
@@ -3189,22 +3225,27 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
   });
 
   test("endpoint removal is a deliberate two-step action", () => {
-    const src = readSrc("networkCanvas/webview/NodeInspector.tsx");
+    const inspector = readSrc("networkCanvas/webview/NodeInspector.tsx");
+    const actions = readSrc("networkCanvas/webview/RemoveBrickActions.tsx");
     assert.ok(
-      src.includes("confirmRemove") && src.includes("Confirm remove"),
+      inspector.includes("<RemoveBrickActions") &&
+        actions.includes("setConfirming(true)") &&
+        actions.includes("Confirm remove"),
       "endpoint Remove must arm a confirmation state before writing config"
     );
     assert.ok(
-      src.includes("Remove this endpoint from the project?"),
+      inspector.includes("Remove this endpoint from the project?"),
       "the confirmation state must explain what is about to happen"
     );
     assert.ok(
-      src.includes("endpoint-remove-confirmation") && src.includes("Cancel"),
+      actions.includes("endpoint-remove-confirmation") && actions.includes("Cancel"),
       "the remove confirmation warning must be visible in the action footer with a cancellation path"
     );
     assert.ok(
-      src.includes('if (!confirmRemove)') && src.includes('send("commRemove")'),
-      "commRemove must only be sent from the confirmed branch"
+      inspector.includes('onRemove={() => send("commRemove")}') &&
+        actions.includes("onClick={onRemove}") &&
+        actions.includes("if (confirming)"),
+      "commRemove must only be sent by the confirmed action"
     );
   });
 
@@ -3276,13 +3317,13 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     assert.ok(
       panel.includes('case "commDisable"') &&
         panel.includes('configurationActions.save(message, "disable")') &&
-        panel.includes("offlineCommApply("),
+        panel.includes('requestCanvasAct("comm_save", { ...this.form(message), action }, { project })'),
       "Disable must write the project config through the same offline comm apply path as Save/Remove"
     );
-    const offline = readSrc("networkCanvas/offlineComm.ts");
+    const actions = readSrc("networkCanvas/configurationActions.ts");
     assert.ok(
-      offline.includes('"add" | "upsert" | "remove" | "disable"'),
-      "offlineCommApply must allow the disable action"
+      actions.includes('action: "upsert" | "remove" | "disable"'),
+      "the offline save must allow the disable action"
     );
   });
 
@@ -3461,7 +3502,6 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     const editorFiles = [
       "statechart/webview/StateNode.tsx",
       "ladder/webview/LadderEditor.tsx",
-      "ladder/webview/elements/Rung.tsx",
       "sfc/webview/SfcEditor.tsx",
       "blockly/webview/BlocklyEditor.tsx",
     ];
@@ -3652,7 +3692,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     const groupingSrc = readSrc("networkCanvas/webview/grouping.ts");
 
     for (const required of [
-      "Add device or connection",
+      "Add device, connection, or simulated plant",
       "Discover devices and runtimes",
       "Devices and I/O",
       "Read tags from another PLC or server",
@@ -3722,7 +3762,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     assert.ok(
       fieldSrc.includes('const parsed = JSON.parse(raw || "[]")') ||
         fieldSrc.includes('JSON.parse(raw || "[]")'),
-      "json_array values must still serialize back to real arrays for comm apply"
+      "the list editor reads the typed array to draw its rows; the server converts it for comm apply"
     );
     assert.ok(
       fieldSrc.includes("function BooleanControl") &&
@@ -3747,8 +3787,8 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
       "secret-field help must use product copy instead of schema-defaults wording"
     );
     assert.ok(
-      addSrc.includes('import { coerce, Field } from "./SchemaFields"'),
-      "AddDevicePanel must share the same schema field renderer as the edit inspector"
+      addSrc.includes('import { Field } from "./SchemaFields"') && !addSrc.includes("coerce("),
+      "AddDevicePanel must share the same schema field renderer as the edit inspector and leave converting values to the server"
     );
     assert.ok(
       themeSrc.includes(".trust-array") &&
@@ -3830,10 +3870,12 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
   test("OPC UA browse auth warnings have an inline credential recovery action", () => {
     const browse = readSrc("networkCanvas/webview/BrowseTagsPanel.tsx");
     const app = readSrc("networkCanvas/webview/NetworkCanvasApp.tsx");
-    const opcua = readSrc("networkCanvas/webview/opcuaClientModel.ts");
+    // The credential recovery of an OPC UA auth failure is the server's (`browse_error`; the Rust test
+    // `a_failed_browse_names_its_one_recovery`); the host asks for it and the pane shows it.
+    const host = readSrc("networkCanvas/protocolActions.ts");
+    const session = readSrc("networkCanvas/webview/useBrowseSession.ts");
     assert.ok(
-      opcua.includes('action: "credentials"') &&
-        opcua.includes("Choose username authentication or update the saved OPC UA credentials"),
+      host.includes('"browse_error"') && session.includes("message.errorView"),
       "OPC UA auth browse failures must classify to a credential recovery action"
     );
     assert.ok(
@@ -3847,54 +3889,45 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
         app.includes("closeBrowse()") &&
         app.includes("protocol: browseTags.protocol") &&
         app.includes("prefillParams: browseTags.target") &&
-        app.includes("onEditCredentials={onEditBrowseCredentials}"),
+        app.includes("onEditCredentials: onEditBrowseCredentials"),
       "Edit credentials must reopen the protocol form prefilled with the failed OPC UA target"
     );
   });
 
   test("remote browse uses one configured client connection for ADS and OPC UA", () => {
-    const app = readSrcSet(
-      "networkCanvas/webview/NetworkCanvasApp.tsx",
-      "networkCanvas/webview/browseSessionModel.ts"
-    );
+    // Which connection a browse opens with is the language server's `browse_target`
+    // (`an_ads_client_browses_its_first_connection_with_the_devices_ports_and_tags` and
+    // `a_client_connection_browses_its_first_connection_and_others_their_parameters`); the canvas
+    // carries it to the endpoint's node and opens the browse with it.
+    const graph = readSrc("networkCanvas/graphData.ts");
+    const layout = readSrc("networkCanvas/webview/layout.ts");
+    const session = readSrc("networkCanvas/webview/useBrowseSession.ts");
     assert.ok(
-      app.includes('(protocol === "opcua_client" || protocol === "ads")') &&
-        app.includes("Array.isArray(connections)") &&
-        app.includes("connections[0]"),
+      graph.includes("browseTarget: ep.browseTarget") &&
+        layout.includes("browseTarget: ep.browseTarget") &&
+        session.includes("node.data.browseTarget as Record<string, unknown> | undefined"),
       "ADS and OPC UA client browse must pass one connection target, not the whole endpoint section"
     );
   });
 
   test("ADS Add tags can import into a stopped project", () => {
-    const panel = readSrcSet(
-      "networkCanvas/networkCanvasPanel.ts",
-      "networkCanvas/protocolActions.ts"
-    );
-    const offline = readSrcSet(
-      "networkCanvas/offlineComm.ts",
-      "networkCanvas/adsBrowseContract.ts"
+    // The import itself (at the runtime that answers, else into the project's files, which enables
+    // `[runtime.ads]`) is the language server's `ads_tags_import`
+    // (`an_offline_import_names_the_device_port_and_symbols`,
+    // `an_offline_import_of_writable_tags_offers_to_start_the_runtime`).
+    const actions = readSrc("networkCanvas/protocolActions.ts");
+    const commands = readSrc("networkCanvas/canvasCommands.ts");
+    assert.ok(
+      actions.includes('"ads_tags_import"') &&
+        actions.includes('live && runtime?.status === "online_reachable" && runtime.endpoint') &&
+        actions.includes("project: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath") &&
+        actions.includes("this.dependencies.refresh()"),
+      "ADS Add tags must hand the server the open project and, only while it answers, the runtime"
     );
     assert.ok(
-      panel.includes("offlineAdsImportSymbols") &&
-        panel.includes('protocol !== "ads"') &&
-        panel.includes('runtime.status !== "online_reachable"') &&
-        panel.includes("this.dependencies.refresh()"),
-      "ADS Add tags must fall back to a local import path when no runtime control endpoint is reachable"
-    );
-    assert.ok(
-      offline.includes("offlineAdsImportSymbols") &&
-        offline.includes('"ads"') &&
-        offline.includes('"import-symbols"') &&
-        offline.includes('"--include"') &&
-        offline.includes('"--force"') &&
-        offline.includes("Restart the runtime to use the generated ST symbols."),
-      "the stopped-project fallback must use the existing deterministic ADS import-symbols pipeline"
-    );
-    assert.ok(
-      offline.includes("export async function openGeneratedAdsDocuments") &&
-        panel.includes("openGeneratedAdsDocuments(report)") &&
-        panel.includes('ads.import_symbols.apply'),
-      "live ADS Add tags must open the generated ST artifact so editor diagnostics can refresh against imported symbols"
+      commands.includes("for (const file of reply.open_documents ?? [])") &&
+        commands.includes("vscode.workspace.openTextDocument(vscode.Uri.file(file))"),
+      "ADS Add tags must open the generated ST artifact so editor diagnostics can refresh against imported symbols"
     );
   });
 
@@ -3935,15 +3968,22 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
   });
 
   test("network-canvas notifications do not expose backend protocol ids or awkward plurals", () => {
-    const panel = readSrcSet(
-      "networkCanvas/networkCanvasPanel.ts",
-      "networkCanvas/protocolActions.ts"
+    const actions = readSrc("networkCanvas/protocolActions.ts");
+    const panel = readSrc("networkCanvas/networkCanvasPanel.ts");
+    // The notices' texts (product protocol names, real pluralization) are the language server's:
+    // `exposed`, `ethercat_selected` and the ADS tag texts in crates/trust-devices, proven by the
+    // Rust tests `expose_merges_into_the_owning_server_and_keeps_clients` and
+    // `an_ads_tag_batch_summary_names_its_count_and_the_ports_that_applied`. The canvas shows them;
+    // the panel's own few messages are fixed sentences, never built from values.
+    assert.ok(
+      actions.includes("presentCanvasReply(reply)") &&
+        !actions.includes("showInformationMessage(") &&
+        !actions.includes("showWarningMessage("),
+      "network-canvas notices must be the server's, not texts the extension builds"
     );
     assert.ok(
-      panel.includes("protocolDisplayName(protocol)") &&
-        panel.includes('countLabel(names.length, "global")') &&
-        /countLabel\([\s\S]{0,120}"ADS tag"/.test(panel),
-      "network-canvas success toasts must use user-facing protocol names and real pluralization"
+      !/show(Information|Warning)Message\(\s*`/.test(panel) && !panel.includes("countLabel("),
+      "the panel builds no notice text from values"
     );
     assert.ok(!panel.includes("global(s)") && !panel.includes("tag(s)"));
   });
@@ -3997,35 +4037,38 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
       "networkCanvas/configurationActions.ts"
     );
 
+    // The node that draws the saved connection is the server's answer (`node_id`; the Rust test
+    // `a_saved_connection_is_selected_on_the_node_the_canvas_draws`).
     assert.ok(
       addSrc.includes("onSaved?: (nodeId?: string) => void") &&
-        addSrc.includes("onSaved(applyResult.instance_id)"),
-      "AddDevicePanel must report the saved instance id after a successful Save"
+        addSrc.includes("onSaved(applyResult.node_id)"),
+      "AddDevicePanel must report the saved node after a successful Save"
     );
     assert.ok(
-      appSrc.includes("onSaved={(nodeId)") &&
+      appSrc.includes("onSaved: (nodeId)") &&
         appSrc.includes("setSelectedId(nodeId)") &&
         appSrc.includes("setFocusTargetId(nodeId)") &&
         appSrc.includes('post({ type: "selectNode", nodeId })'),
       "NetworkCanvasApp must select/focus the saved node after add-save"
     );
     assert.ok(
-      /<AddDevicePanel[\s\S]*onSaved=\{\(nodeId\) => \{[\s\S]*setDraft\(undefined\);[\s\S]*setSelectedId\(nodeId\)[\s\S]*onClose=\{\(\) => \{\s*clearApplyResult\(\);[\s\S]*setDraft\(undefined\);[\s\S]*\/>/.test(appSrc),
+      /drawerRoutes\.addDevice[\s\S]*onSaved: \(nodeId\) => \{[\s\S]*setDraft\(undefined\);[\s\S]*setSelectedId\(nodeId\)[\s\S]*onClose: \(\) => \{\s*clearApplyResult\(\);[\s\S]*setDraft\(undefined\);/.test(appSrc),
       "manual close clears the result, but add-save landing must preserve it for the selected-node message"
     );
+    // When comm.apply omits the saved connection's ID, the language server names it from the
+    // project's topology only when that is unambiguous (`comm_save`; the Rust test
+    // `a_saved_connection_is_named_only_when_that_is_unambiguous`); the host commits its result.
     assert.ok(
-      panelSrc.includes("findSavedEndpointId(topology, protocol, params)") &&
-        panelSrc.includes("result.instance_id ??") &&
-        panelSrc.includes("if (!(key in endpointParams))") &&
-        panelSrc.includes("return true;"),
-      "the host must resolve a saved endpoint id from topology when comm.apply omits instance_id"
+      panelSrc.includes('requestCanvasAct("comm_save"') &&
+        panelSrc.includes("this.dependencies.commit(result.protocol, result)"),
+      "the host must show the saved connection the server resolved when comm.apply omits instance_id"
     );
   });
 
   test("Devices & Connections header reports active form field errors", () => {
     const appSrc = readSrcSet(
       "networkCanvas/webview/NetworkCanvasApp.tsx",
-      "networkCanvas/webview/NetworkCanvasHeader.tsx"
+      "networkCanvas/webview/CanvasToolbar.tsx"
     );
 
     assert.ok(
@@ -4332,7 +4375,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
 
   test("canvas grid backgrounds use the shared truST product grid role", () => {
     const files = [
-      "networkCanvas/webview/NetworkCanvasApp.tsx",
+      "networkCanvas/webview/CanvasGraphShell.tsx",
       "sfc/webview/SfcEditor.tsx",
       "statechart/webview/StateChartEditor.tsx",
     ];

@@ -1,0 +1,252 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-25",
+  "title": "Identifiability",
+  "level": "Identification",
+  "sequence": 17,
+  "equipment": "Water heater",
+  "physicalPurpose": "Explain practical and structural parameter ambiguity. Choose additional excitation, longer observation or an independent measurement for a specific reason.",
+  "principalTechnique": "Identifiability",
+  "objective": "Explain practical and structural parameter ambiguity. Choose additional excitation, longer observation or an independent measurement for a specific reason.",
+  "prerequisites": [
+    "control-lesson-24"
+  ],
+  "nextLesson": "control-lesson-26",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Measured probe temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL16"
+    },
+    {
+      "role": "state",
+      "name": "Water temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Ideal probe temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Measurement error",
+      "unit": "degC",
+      "minimum": -0.05,
+      "maximum": 0.05,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "MV",
+      "name": "Applied heating command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX80.0"
+    }
+  ],
+  "plant": {
+    "modelId": "heater-lesson-17",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "process_gain",
+        "value": 0.2,
+        "unit": "degC/percentage-point"
+      },
+      {
+        "name": "time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      },
+      {
+        "name": "probe_time_constant",
+        "value": 2,
+        "unit": "s"
+      },
+      {
+        "name": "absolute_measurement_error_bound",
+        "value": 0.05,
+        "unit": "degC"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "temperatureC": 35
+    },
+    "seed": 20260829,
+    "simplifications": [
+      "Local heater model with initial temperature 35 °C and command 75%.",
+      "Nominal coefficients are supplied simulation values, not accepted learner estimates.",
+      "Simulation-only process I/O;100 ms samples.",
+      "Native state-space plant owns the probe state and bounded measurement error; water, ideal-probe and measurement-error signals are diagnostics, not learner fitted values."
+    ],
+    "operatingPoint": {
+      "Measured probe temperature": 35,
+      "Applied heating command": 75,
+      "Experiment authority": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Measured probe temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "appliedPowerPct": 75,
+      "temperatureC": 35
+    },
+    "limitation": "An unexcited record does not reveal the complete heater dynamics."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "appliedPowerPct": 85,
+      "durationSeconds": 40
+    },
+    "decision": "Use the qualified Control Studio record to answer the lesson question; do not accept supplied nominal parameters as measured results."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 45.1,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    {
+      "metric": "temperature_operating_range",
+      "signal": "Measured probe temperature",
+      "window": "complete recorded experiment",
+      "comparator": "<=",
+      "limit": 80,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "workflowStages": [
+    "Monitor",
+    "Test",
+    "Identify"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/12-21-models-and-tuning.md",
+    "nativeTest": "lesson17",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_heater_design lesson17",
+    "projectPath": "examples/control/05-experiments-identification-and-validation/25-parameter-identifiability",
+    "runArtifactFields": [
+      "appliedCommand",
+      "temperature",
+      "sampleTime",
+      "initialState",
+      "experimentConditions",
+      "modelProvenance",
+      "stopReason",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-lesson-25"
+  },
+  "learning": {
+    "context": "Lesson 16's two-store model followed the probe within 0.0024 °C, but its parameters are ambiguous: 1,174 different parameter sets stayed within the ±0.02 °C bound. Each of the two time constants could lie anywhere from 1.2 to 5.7 s, and the record could not say which lag belonged to the probe. If many sets of numbers fit equally well, the numbers we report have not really been measured.\n\nThis project's probe also adds a measurement error of up to ±0.05 °C, as a real probe does. We will find out why the record cannot tell the numbers apart, and choose the experiment that can.",
+    "reason": "We need to:\n\n1. tell whether an ambiguity comes from the quality of the record or from what is measured;\n2. calculate when two candidate heaters differ by more than the measurement can resolve; and\n3. choose the measurement that removes the ambiguity.",
+    "change": "Calculate when two parameter hypotheses separate, and read which parameter ranges the record cannot distinguish.",
+    "transfer": "The parameters can now be told apart, but every check used the record they were fitted to. Being able to tell the parameters apart does not prove that the model predicts a different command or a disturbance.\n\n[Model validation](../26-independent-model-validation/README.md) tests the unchanged model on new records.",
+    "theory": [
+      "**Identifiability** means that the experiment can tell a parameter's value apart from other values; such a parameter is identifiable. If two different heaters would give the same recording, the experiment cannot tell which one we have. For this heater, the question is whether one step record from the probe fixes the gain, the delay and both lags.\n\n**In words.** It is the problem of two faults that raise the same alarm: from the alarm alone you cannot tell which fault you have, however often you look at it. Ambiguity comes in two kinds:\n\n1. A **practical ambiguity** disappears with a better record: a longer one, a less noisy one or a larger step. The difference between the candidates is in the record, but too small to see yet.\n2. A **structural ambiguity** remains even with perfect data from the same input and measurement. The difference never appears in what is measured, so only a different measurement or a different input can remove it.\n\nFor this heater both kinds occur. Early in a step, a strong but slow heater looks like a weak but fast one: both start rising at the same rate, and only later does one end higher. In the probe record, the water's lag and the probe's lag appear only together, so the record cannot say which is which.\n\n**The formula.** Just after the delayed heat arrives, the water is hardly warmer than before, so it has not yet started to lose extra heat: it warms at the full rate the heater supplies. The early response and the full response are\n\n$$\nx(t') \\approx \\frac{K}{\\tau}\\,\\Delta u\\,t', \\qquad x(t') = K\\,\\Delta u\\left(1 - e^{-t'/\\tau}\\right).\n$$\n\n- $x$ is the water temperature minus its starting value, in °C;\n- $K$ is the gain, in °C per %, and $\\tau$ the water's time constant, in seconds;\n- $\\Delta u$ is the step size, in percentage points, and $t'$ the time after the delay, in seconds.\n\nEarly on, only the ratio $K/\\tau$ shows. Two predictions are clearly separated only if they differ by more than the measurement can resolve: with each reading uncertain by ±0.05 °C, by more than $2 \\times 0.05 = 0.1$ °C.\n\nIn the previous lesson's two-store model, the water lags with $\\tau_p$ and the probe with $\\tau_s$, in seconds, after the delay $L$:\n\n$$\n\\tau_p\\dot x+x=Kv(t-L),\\qquad \\tau_s\\dot m+m=x .\n$$\n\nHere $v$ is the command change, in percentage points, and $m$ the probe reading's change, in °C. The second equation gives $x = \\tau_s\\dot m + m$, so $\\dot x = \\tau_s\\ddot m + \\dot m$, where $\\ddot m$ is the rate of change of $\\dot m$. Substituting both into the first equation removes the water:\n\n$$\n\\tau_p\\tau_s\\ddot m+(\\tau_p+\\tau_s)\\dot m+m=Kv(t-L).\n$$\n\nThe probe reading depends on the two lags only through their product $\\tau_p\\tau_s$, in s², and their sum $\\tau_p + \\tau_s$, in s.\n\n**Example: what a step record can and cannot separate.** Calculated for a 10-point step:\n\n1. A heater with $K$ = 0.2 °C per % and $\\tau$ = 5 s and one with $K$ = 0.4 and $\\tau$ = 10 s have the same ratio, 0.04 °C per % per second, so both start rising at $0.04 \\times 10 = 0.4$ °C/s.\n2. 2 s after the delay they read $2(1 - e^{-0.4}) = 0.659$ °C and $4(1 - e^{-0.2}) = 0.725$ °C: 0.066 °C apart, less than 0.1 °C. The record cannot tell them apart yet.\n3. 3 s after the delay they read 0.902 and 1.037 °C: 0.134 °C apart. Now they are clearly separated: a record long enough removes this practical ambiguity.\n4. Lags of 5 s and 2 s have the product 10 s² and the sum 7 s. Swapped, 2 s and 5 s, they have the same product and sum, so they give the same probe record. A longer, cleaner record from the same probe cannot change this: the ambiguity is structural.\n5. The remedy is a second measurement. A fast reference thermometer in the water sees only the water's lag, so it reaches 63.2% of its change at $L + \\tau_p$. If it reached 63.2% 3 s after the step, the water's lag would be $3 - 1 = 2$ s and the probe's $7 - 2 = 5$ s: the swapped pair. The time the reference shows decides between the two pairs.\n\n**Teaching choice.** The probe's ±0.05 °C error makes the noise visible.\n\n**The limitation.** The reference must be fast. A reference with its own 0.5 s lag would reach 63.2% about 0.5 s later, so a 5 s water lag would be read as 5.5 s, and the probe's lag as $7 - 5.5 = 1.5$ s."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. Which differences between the two heaters in the table exceed 0.1 °C?\n2. With the probe's ±0.05 °C error, will Control Studio's two-store fit return exactly 5 s and 2 s?\n3. Will the fit say which lag belongs to the probe?\n4. When will the water reference reach 63.2% of its change, and which lag is then the probe's?\n\n| Quantity | Predicted |\n| --- | ---: |\n| Heaters 1 s after the delay | 0.018 °C apart: too close |\n| Heaters 10 s after the delay | 0.799 °C apart: clear |\n| Water reference at 63.2% | $L + \\tau_p$ = 6 s after the step |\n| Probe lag | $7 - 5 = 2$ s |",
+    "practicalPreparation": [
+      "1. Start **Simulator**: the heater holds 35 °C at 75%. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Project experiment** from **Method**. **Signals** shows `P1.TemperatureC · Process value (°C)`, the probe with its error, and `P1.AppliedPowerPct · Applied output (%)`; add `P1.WaterTemperatureC · state (°C)`, `P1.IdealProbeC · state (°C)` and `P1.MeasurementErrorC · state (°C)`.\n3. Answer the predictions. Select **Review project test**, check the **45.1 s** plan (a 5 s steady start, then 85% until 45.1 s) and select **Confirm and start**. At the end, Control Studio shows **Project test completed. Outputs restored.**\n4. Hover `P1.MeasurementErrorC`: it stays within ±0.05 °C. Right-click the plot and choose **Save recording…**.\n5. Choose **Recorded-data fit** from **Method**, check **Use held-step measurement and search** and set **Model family** to **Compare additional lag**. Select **Open recording…**, open the saved file and select **Check recording**.\n6. Keep the default **Measurement and search settings** and select **Fit plant model**. In **Model comparison** and **Parameters and uncertainty**, read the B column's two lags and the note below the table.\n7. Hover `P1.WaterTemperatureC`: find its first rise and the time it reaches 63.2% of its change, $35 + 0.632 \\times 2 = 36.26$ °C.\n\nSelect **Abort test** to stop the project test early."
+    ],
+    "baseline": "Lesson 16's two model candidates and the saved study.",
+    "comparison": "![Early samples cannot separate two heaters, the probe fit cannot assign its lags, and the water reference can](figures/identifiability-record.svg)\n\nThe numbered marks answer the predictions with the same numbers. From the recording and Control Studio:\n\n| Quantity | Result |\n| --- | ---: |\n| Probe measurement error | within ±0.05 °C |\n| Two-store fit of the probe | lags 5.1 s and 1.8 s, delay 1.1 s, gain 0.1993 °C per % |\n| Largest and RMS residual, two stores | 0.055 °C and 0.030 °C |\n| Largest residual, one store | 0.138 °C |\n| Water reference | first rise 1.1 s and 63.2% at 6.0 s after the step |\n\n1. Only the 10 s difference. The measured water matched the $K$ 0.2, $\\tau$ 5 s heater at both times; the other would have been 0.8 °C higher at 10 s.\n2. No: 5.1 s and 1.8 s with a 1.1 s delay. The true heater misses the noisy record by the same RMS, 0.030 °C: the error hides the difference.\n3. No. Control Studio noted: **Additional lag is a hypothesis; the recording alone cannot assign the two time constants to the process and the sensor.** Exchanging the two lags gives the same curve.\n4. The water reference first rose 1.1 s after the step and reached 36.26 °C at 6.0 s, so $L$ = 1 s and $\\tau_p$ = 5 s. The 5.1 s lag belongs to the water and the 1.8 s lag to the probe, whose true lag is 2 s. A 1.8 s water lag would have put the water 0.64 °C higher 3 s after the step.\n\nThe 40 s hold identifies the gain, and the water reference assigns 5 s to the water; the probe's error leaves its own lag uncertain by about 0.2 s. The cost is a second thermometer. These are simulation results.",
+    "validation": "![Early samples cannot separate two heaters, the probe fit cannot assign its lags, and the water reference can](figures/identifiability-record.svg)\n\nThe numbered marks answer the predictions with the same numbers. From the recording and Control Studio:\n\n| Quantity | Result |\n| --- | ---: |\n| Probe measurement error | within ±0.05 °C |\n| Two-store fit of the probe | lags 5.1 s and 1.8 s, delay 1.1 s, gain 0.1993 °C per % |\n| Largest and RMS residual, two stores | 0.055 °C and 0.030 °C |\n| Largest residual, one store | 0.138 °C |\n| Water reference | first rise 1.1 s and 63.2% at 6.0 s after the step |\n\n1. Only the 10 s difference. The measured water matched the $K$ 0.2, $\\tau$ 5 s heater at both times; the other would have been 0.8 °C higher at 10 s.\n2. No: 5.1 s and 1.8 s with a 1.1 s delay. The true heater misses the noisy record by the same RMS, 0.030 °C: the error hides the difference.\n3. No. Control Studio noted: **Additional lag is a hypothesis; the recording alone cannot assign the two time constants to the process and the sensor.** Exchanging the two lags gives the same curve.\n4. The water reference first rose 1.1 s after the step and reached 36.26 °C at 6.0 s, so $L$ = 1 s and $\\tau_p$ = 5 s. The 5.1 s lag belongs to the water and the 1.8 s lag to the probe, whose true lag is 2 s. A 1.8 s water lag would have put the water 0.64 °C higher 3 s after the step.\n\nThe 40 s hold identifies the gain, and the water reference assigns 5 s to the water; the probe's error leaves its own lag uncertain by about 0.2 s. The cost is a second thermometer. These are simulation results.",
+    "explanation": "A parameter is identifiable only when the experiment can tell its value apart from others. A practical ambiguity, from a record that is too short, too noisy or too weak, is removed by a better record. A structural ambiguity, such as two lags seen only through their sum and product, needs a different measurement.\n\nFor this heater, early samples fixed only $K/\\tau$, the probe record fixed only the sum and product of the two lags, and the water reference assigned 5 s to the water and about 2 s to the probe."
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured probe temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Required measurements or timestamps are invalid, stale or nonfinite",
+      "Temperature leaves 0–80 °C or applied command leaves 0–100%"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Normal completion disables the experiment and restores 75% heating. Abort sets SafetyAbort and commands zero heating. Keep stopped until valid measurements and the full 35 °C/75% hot reset are restored.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The result is simulation evidence for this lesson model."
+    ]
+  },
+  "video": {
+    "viewerOutcome": "Explain practical and structural parameter ambiguity. Choose additional excitation, longer observation or an independent measurement for a specific reason.",
+    "requiredVisibleEvidence": [
+      "Heater model and initial state",
+      "Applied command and temperature record",
+      "Required Control Studio analysis",
+      "Declared uncertainty and decision",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

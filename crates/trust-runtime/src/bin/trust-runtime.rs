@@ -30,14 +30,28 @@ mod ctl;
 mod deploy;
 #[path = "trust-runtime/dev_forward.rs"]
 mod dev_forward;
+#[path = "trust-runtime/discover.rs"]
+mod discover;
 #[path = "trust-runtime/docs.rs"]
 mod docs;
+#[path = "trust-runtime/firmware.rs"]
+mod firmware;
 #[path = "trust-runtime/fleet.rs"]
 mod fleet;
 #[path = "trust-runtime/git.rs"]
 mod git;
-#[path = "trust-runtime/hmi.rs"]
-mod hmi;
+#[path = "trust-runtime/hmi_check.rs"]
+mod hmi_check;
+#[path = "trust-runtime/hmi_password.rs"]
+mod hmi_password;
+#[path = "trust-runtime/hmi_test.rs"]
+mod hmi_test;
+#[path = "trust-runtime/identify.rs"]
+mod identify;
+#[path = "trust-runtime/new.rs"]
+mod new;
+#[path = "trust-runtime/plant.rs"]
+mod plant;
 #[path = "trust-runtime/plcopen.rs"]
 mod plcopen;
 #[path = "trust-runtime/prompt.rs"]
@@ -52,17 +66,64 @@ mod setup;
 mod style;
 #[path = "trust-runtime/test.rs"]
 mod test;
+#[path = "trust-runtime/toolchain.rs"]
+mod toolchain;
 #[path = "trust-runtime/wizard.rs"]
 mod wizard;
 
 use clap::error::ErrorKind;
 use clap::Parser;
+use std::alloc::{GlobalAlloc, Layout, System};
+use trust_runtime::memory_budget;
 
 use cli::{Cli, Command};
+
+/// The program's allocator: the system's, counting each thread's allocator operations for the
+/// allocation count the runtime reports with its scans (specification 34, "The allocation count"),
+/// and keeping an isolated worker's memory budget (protocol annex E8.1).
+struct CountingAllocator;
+
+// SAFETY: every operation forwards the caller's unchanged layout, pointer and new size to
+// `System` and returns its result, or refuses an allocation beyond the memory budget with null,
+// as an allocator may; the counting and the budget touch only atomics and a const-initialized
+// thread-local `Cell`, so they allocate nothing and cannot unwind.
+unsafe impl GlobalAlloc for CountingAllocator {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        trust_runtime::allocation_count::count_operation();
+        // SAFETY: the caller's valid layout of non-zero size, unchanged.
+        memory_budget::allocate(layout.size(), || unsafe { System.alloc(layout) })
+    }
+
+    unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
+        trust_runtime::allocation_count::count_operation();
+        // SAFETY: the caller's valid layout of non-zero size, unchanged.
+        memory_budget::allocate(layout.size(), || unsafe { System.alloc_zeroed(layout) })
+    }
+
+    unsafe fn dealloc(&self, pointer: *mut u8, layout: Layout) {
+        trust_runtime::allocation_count::count_operation();
+        // SAFETY: the caller returns a pointer/layout pair that `System` produced.
+        unsafe { System.dealloc(pointer, layout) };
+        memory_budget::release(layout.size());
+    }
+
+    unsafe fn realloc(&self, pointer: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+        trust_runtime::allocation_count::count_operation();
+        // SAFETY: the caller's pair from `System` and its valid new size, unchanged.
+        memory_budget::resize(layout.size(), new_size, || unsafe {
+            System.realloc(pointer, layout, new_size)
+        })
+    }
+}
+
+#[global_allocator]
+static ALLOCATOR: CountingAllocator = CountingAllocator;
 
 fn main() -> anyhow::Result<()> {
     let raw_args: Vec<String> = std::env::args().collect();
     let ci_mode = raw_args.iter().any(|arg| arg == "--ci");
+    // A program that asked for JSON words its own guidance; the command-line tip is for a person (specification 11, 6.8.1d).
+    let json_mode = raw_args.iter().any(|arg| arg == "--json");
     let ci_command = raw_args
         .iter()
         .skip(1)
@@ -70,7 +131,9 @@ fn main() -> anyhow::Result<()> {
         .map(|arg| arg.as_str());
     if let Err(err) = run() {
         let message = format_error_with_tip(&err);
-        eprintln!("{}", style::error(format!("Error: {message}")));
+        let plain = err.to_string();
+        let shown = if json_mode { &plain } else { &message };
+        eprintln!("{}", style::error(format!("Error: {shown}")));
         let exit_code = if ci_mode {
             ci::classify_error_with_command(&message, ci_command)
         } else {
@@ -113,7 +176,6 @@ fn run() -> anyhow::Result<()> {
             restart,
             simulation,
             time_scale,
-            execution_backend,
         }) => run::run_runtime(
             project,
             config,
@@ -125,7 +187,6 @@ fn run() -> anyhow::Result<()> {
             false,
             simulation,
             time_scale,
-            execution_backend,
         ),
         Some(Command::Play {
             project,
@@ -135,7 +196,6 @@ fn run() -> anyhow::Result<()> {
             beginner,
             simulation,
             time_scale,
-            execution_backend,
         }) => {
             let console_mode = if no_console {
                 run::ConsoleMode::Disabled
@@ -153,7 +213,6 @@ fn run() -> anyhow::Result<()> {
                     beginner,
                     simulation,
                     time_scale,
-                    execution_backend,
                 },
             )
         }
@@ -182,7 +241,24 @@ fn run() -> anyhow::Result<()> {
             project,
             sources,
             ci,
-        }) => build::run_build(project, sources, ci),
+            target,
+            emit_source,
+        }) => build::run_build_command(project, sources, ci, target, emit_source),
+        Some(Command::HmiPassword { iterations }) => hmi_password::run_hmi_password(iterations),
+        Some(Command::Hmi {
+            action: cli::HmiAction::Check { project, json },
+        }) => hmi_check::run_hmi_check(project, json),
+        Some(Command::Hmi {
+            action:
+                cli::HmiAction::Test {
+                    project,
+                    update,
+                    chromium,
+                },
+        }) => hmi_test::run_hmi_test(project, update, chromium),
+        Some(Command::ControlSearchWorker) => {
+            trust_runtime::control::search::worker_stdio().map_err(anyhow::Error::msg)
+        }
         Some(Command::Test {
             project,
             filter,
@@ -196,10 +272,12 @@ fn run() -> anyhow::Result<()> {
             out_dir,
             format,
         }) => docs::run_docs(project, out_dir, format),
-        Some(Command::Hmi { project, action }) => hmi::run_hmi(project, action),
         Some(Command::Plcopen { action }) => plcopen::run_plcopen(action),
         Some(Command::Ads { action }) => ads::run_ads(action),
         Some(Command::Comm { action }) => comm::run_comm(action),
+        Some(Command::Plant { action }) => plant::run_plant(action),
+        Some(Command::Discover(args)) => discover::run_discover(args),
+        Some(Command::Identify(args)) => identify::run_identify(args),
         Some(Command::Fleet { action }) => fleet::run_fleet(action),
         Some(Command::Registry { action }) => registry::run_registry(action),
         Some(Command::Setup {
@@ -241,6 +319,7 @@ fn run() -> anyhow::Result<()> {
             }
         },
         Some(Command::Wizard { path, start }) => wizard::run_wizard(path, start),
+        Some(Command::New(args)) => new::run_new(args.parent, args.name, args.force, args.json),
         Some(Command::Commit {
             project,
             message,
@@ -266,12 +345,9 @@ fn run() -> anyhow::Result<()> {
         Some(Command::Rollback { root }) => deploy::run_rollback(root),
         Some(Command::Completions { shell }) => completions::run_completions(shell),
         Some(Command::Bench { action }) => bench::run_bench(action),
-        Some(Command::Conformance {
-            suite_root,
-            output,
-            update_expected,
-            filter,
-        }) => conformance::run_conformance(suite_root, output, update_expected, filter),
+        Some(Command::Conformance(args)) => conformance::run_conformance(args),
+        Some(Command::Toolchain { action }) => toolchain::run_toolchain(action),
+        Some(Command::Firmware { action }) => firmware::run_firmware(action),
     }
 }
 
@@ -295,10 +371,11 @@ fn suggest_subcommand(input: &str) -> Option<&'static str> {
         "build",
         "test",
         "docs",
-        "hmi",
         "plcopen",
         "ads",
         "comm",
+        "discover",
+        "identify",
         "fleet",
         "registry",
         "deploy",
@@ -307,6 +384,8 @@ fn suggest_subcommand(input: &str) -> Option<&'static str> {
         "completions",
         "bench",
         "conformance",
+        "toolchain",
+        "new",
     ];
     let mut best = None;
     let mut best_score = usize::MAX;

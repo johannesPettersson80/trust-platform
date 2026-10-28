@@ -11,6 +11,16 @@ fn temp_dir(prefix: &str) -> PathBuf {
     dir
 }
 
+/// Builds the project at `root` for this computer, as `trust-runtime build` does: the program image
+/// `program.tpi` with its deployment record (specification 44 §8.8, NX-15). The build needs the
+/// toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+fn build(root: &Path) -> anyhow::Result<BundleBuildReport> {
+    let toolchain = crate::native::Toolchain::find()?;
+    let target = crate::native::Target::this_cpu()
+        .ok_or_else(|| anyhow::anyhow!("this computer's CPU runs no program image"))?;
+    build_program_image(root, None, target, &toolchain, false, true)
+}
+
 fn write_file(path: &Path, content: &str) {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).expect("create parent dir");
@@ -80,6 +90,43 @@ END_PROGRAM
     );
 }
 
+/// The build writes `build/install.<triple>.bin`, the container `trust-runtime ctl install` takes
+/// (specification 34 §5.1, §11.2; specification 44 §4.1): a `TRSTA002` container of the first
+/// install sequence that holds exactly the image and the record the build wrote, the image at the
+/// first 64-byte boundary after the header. Catches a container a user would have to pack with a
+/// developer tool, and one that pairs the image with another record.
+#[test]
+fn build_writes_the_container_ctl_install_takes() {
+    let root = temp_dir("trust-runtime-build-install");
+    write_file(
+        &root.join("src/main.st"),
+        "PROGRAM Main\nVAR\n    y : INT;\nEND_VAR\ny := y + 1;\nEND_PROGRAM\n",
+    );
+    let report = build(&root).expect("the project builds");
+    let triple = report.json["target"]
+        .as_str()
+        .expect("the target")
+        .to_string();
+    assert_eq!(
+        report.install,
+        root.join("build").join(format!("install.{triple}.bin"))
+    );
+    assert_eq!(report.json["install"], report.install.display().to_string());
+    let container = fs::read(&report.install).expect("the container is written");
+    let image = fs::read(&report.image).expect("the image");
+    let record = fs::read(&report.record).expect("the record");
+    assert_eq!(&container[..8], b"TRSTA002");
+    let decoded = trust_runtime_services::installation::decode_sequenced(&container)
+        .expect("the container reads");
+    assert_eq!(
+        decoded.sequence,
+        trust_runtime_services::installation::FIRST_SEQUENCE
+    );
+    assert_eq!(decoded.installed.program, image.as_slice());
+    assert_eq!(decoded.installed.record, record.as_slice());
+    let _ = fs::remove_dir_all(root);
+}
+
 #[test]
 fn build_includes_transitive_dependency_sources() {
     let root = temp_dir("trust-runtime-build-deps");
@@ -113,13 +160,19 @@ version = "2.0.0"
 "#,
     );
 
-    let report = build_program_stbc(&root, None).expect("build should pass");
-    assert!(report.program_path.exists());
+    let report = build(&root).expect("build should pass");
+    assert!(report.image.exists());
     assert!(report.sources.iter().any(|path| path.ends_with("main.st")));
     assert!(report.sources.iter().any(|path| path.ends_with("lib.st")));
     assert_eq!(
         report.resolved_dependencies,
         vec!["LibA".to_string(), "LibB".to_string()]
+    );
+    // `build --ci` reports the same: the project's main.st and each dependency's lib.st.
+    assert_eq!(report.json["source_count"], serde_json::json!(3));
+    assert_eq!(
+        report.json["resolved_dependencies"],
+        serde_json::json!(["LibA", "LibB"])
     );
 
     let inspection = inspect_project_layout(&root, None).expect("inspection should pass");
@@ -150,8 +203,8 @@ fn build_accepts_cross_file_root_global_struct_field_access() {
     let root = temp_dir("trust-runtime-build-cross-file-global-struct");
     write_cross_file_global_struct_project(&root);
 
-    let report = build_program_stbc(&root, None).expect("build should pass");
-    assert!(report.program_path.exists());
+    let report = build(&root).expect("build should pass");
+    assert!(report.image.exists());
     assert!(report
         .sources
         .iter()
@@ -169,17 +222,56 @@ fn build_accepts_cross_file_root_global_struct_field_access() {
 fn build_emits_hash_bound_openot_definition_for_the_compiled_sources() {
     let root = temp_dir("trust-runtime-build-openot-definition");
     let library_sources = [
-        ("openot_control_block.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_control_block.st.txt")),
-        ("openot_crc32c.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_crc32c.st.txt")),
-        ("openot_lifecycle.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_lifecycle.st.txt")),
-        ("openot_message.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_message.st.txt")),
-        ("openot_producer.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_producer.st.txt")),
-        ("openot_records_dropped.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_records_dropped.st.txt")),
-        ("openot_ring256_producer.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_ring256_producer.st.txt")),
-        ("openot_ring.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_ring.st.txt")),
-        ("openot_source_high_water.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_source_high_water.st.txt")),
-        ("openot_value_state.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_value_state.st.txt")),
-        ("openot_wire_encode.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_wire_encode.st.txt")),
+        (
+            "openot_control_block.st",
+            include_str!("../../../tests/fixtures/openot/iec61131/src/openot_control_block.st.txt"),
+        ),
+        (
+            "openot_crc32c.st",
+            include_str!("../../../tests/fixtures/openot/iec61131/src/openot_crc32c.st.txt"),
+        ),
+        (
+            "openot_lifecycle.st",
+            include_str!("../../../tests/fixtures/openot/iec61131/src/openot_lifecycle.st.txt"),
+        ),
+        (
+            "openot_message.st",
+            include_str!("../../../tests/fixtures/openot/iec61131/src/openot_message.st.txt"),
+        ),
+        (
+            "openot_producer.st",
+            include_str!("../../../tests/fixtures/openot/iec61131/src/openot_producer.st.txt"),
+        ),
+        (
+            "openot_records_dropped.st",
+            include_str!(
+                "../../../tests/fixtures/openot/iec61131/src/openot_records_dropped.st.txt"
+            ),
+        ),
+        (
+            "openot_ring256_producer.st",
+            include_str!(
+                "../../../tests/fixtures/openot/iec61131/src/openot_ring256_producer.st.txt"
+            ),
+        ),
+        (
+            "openot_ring.st",
+            include_str!("../../../tests/fixtures/openot/iec61131/src/openot_ring.st.txt"),
+        ),
+        (
+            "openot_source_high_water.st",
+            include_str!(
+                "../../../tests/fixtures/openot/iec61131/src/openot_source_high_water.st.txt"
+            ),
+        ),
+        (
+            "openot_value_state.st",
+            include_str!("../../../tests/fixtures/openot/iec61131/src/openot_value_state.st.txt"),
+        ),
+        (
+            "openot_wire_encode.st",
+            include_str!("../../../tests/fixtures/openot/iec61131/src/openot_wire_encode.st.txt"),
+        ),
     ];
     for (name, source) in library_sources {
         write_file(&root.join("src").join(name), source);
@@ -196,7 +288,7 @@ END_PROGRAM
 "#,
     );
 
-    build_program_stbc(&root, None).expect("build should pass");
+    build(&root).expect("build should pass");
 
     let definition_path = root.join("openot-definition.json");
     let bytes = fs::read(&definition_path).expect("build must emit OpenOT definition");
@@ -214,7 +306,7 @@ END_PROGRAM
 }
 
 #[test]
-fn check_compiles_without_writing_program_stbc() {
+fn check_compiles_without_writing_the_program_image() {
     let root = temp_dir("trust-runtime-check-no-write");
     write_root_source(&root);
     write_dependency_source(&root.join("deps/lib-a"), "DepDouble");
@@ -226,13 +318,12 @@ LibA = "deps/lib-a"
 "#,
     );
 
-    let report = check_program_stbc(&root, None).expect("check should pass");
-    assert!(report.bytecode_size > 0);
+    let report = check_program(&root, None).expect("check should pass");
     assert!(report.sources.iter().any(|path| path.ends_with("main.st")));
     assert_eq!(report.resolved_dependencies, vec!["LibA".to_string()]);
     assert!(
-        !root.join("program.stbc").exists(),
-        "check must not write program.stbc"
+        !root.join(crate::native::PROGRAM_IMAGE_FILE).exists(),
+        "check must not write the program image"
     );
 
     fs::remove_dir_all(root).ok();
@@ -250,7 +341,7 @@ Missing = "deps/missing"
 "#,
     );
 
-    let err = build_program_stbc(&root, None).expect_err("build should fail");
+    let err = build(&root).expect_err("build should fail");
     let message = err.to_string();
     assert!(message.contains("dependency 'Missing' path does not exist"));
 
@@ -287,7 +378,7 @@ LibA = { path = "../lib-a" }
 "#,
     );
 
-    let err = build_program_stbc(&root, None).expect_err("build should fail");
+    let err = build(&root).expect_err("build should fail");
     let message = err.to_string();
     assert!(message.contains("cyclic dependency detected"));
 
@@ -315,7 +406,7 @@ version = "2.0.0"
 "#,
     );
 
-    let err = build_program_stbc(&root, None).expect_err("build should fail");
+    let err = build(&root).expect_err("build should fail");
     let message = err.to_string();
     assert!(message.contains("requested version 1.0.0"));
 
@@ -365,16 +456,16 @@ version = "1.0.0"
 "#,
     );
 
-    let first = build_program_stbc(&root, None).expect("first build");
+    let first = build(&root).expect("first build");
     let first_bytes =
-        fs::read(generated_output_path!(&first.program_path, &root)).expect("read first program");
-    let second = build_program_stbc(&root, None).expect("second build");
+        fs::read(generated_output_path!(&first.image, &root)).expect("read first program");
+    let second = build(&root).expect("second build");
     let second_bytes =
-        fs::read(generated_output_path!(&second.program_path, &root)).expect("read second program");
+        fs::read(generated_output_path!(&second.image, &root)).expect("read second program");
 
     assert_eq!(first.resolved_dependencies, second.resolved_dependencies);
     assert_eq!(first.sources, second.sources);
-    assert_eq!(first_bytes, second_bytes);
+    assert_eq!(reproducible(&first_bytes), reproducible(&second_bytes));
 
     fs::remove_dir_all(root).ok();
 }
@@ -399,4 +490,204 @@ fn resolve_sources_root_rejects_legacy_sources_directory() {
     assert!(message.contains("missing src/ directory"));
 
     fs::remove_dir_all(root).ok();
+}
+
+// The project manifest is found under the language server's file names, so that the debugger finds
+// the project whose `vendor_profile` it reads (docs/specs/07-standard-functions.md 2.10).
+#[test]
+fn find_project_manifest_finds_the_manifest_under_each_name() {
+    let root = temp_dir("trust-runtime-project-manifest");
+    assert_eq!(find_project_manifest(&root), None);
+    for name in PROJECT_SETTINGS_FILES {
+        write_file(&root.join(name), "[project]\n");
+        assert_eq!(find_project_manifest(&root), Some(root.join(name)), "{name}");
+        let _ = fs::remove_file(root.join(name));
+    }
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn bundle_build_and_check_refuse_an_unknown_vendor_profile() {
+    let root = temp_dir("trust-runtime-vendor-profile-build");
+    write_file(&root.join("src/main.st"), "PROGRAM Main\nEND_PROGRAM\n");
+    write_file(
+        &root.join("trust-lsp.toml"),
+        "[project]\nvendor_profile = \"codesys\"\n",
+    );
+    check_program(&root, None).expect("codesys project checks");
+    write_file(
+        &root.join("trust-lsp.toml"),
+        "[project]\nvendor_profile = \"codesis\"\n",
+    );
+    let error = check_program(&root, None)
+        .expect_err("unknown vendor profile")
+        .to_string();
+    assert!(
+        error.contains("unknown vendor_profile 'codesis'"),
+        "{error}"
+    );
+    assert!(build(&root).is_err());
+    assert!(!root.join(crate::native::PROGRAM_IMAGE_FILE).exists());
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn native_build_labels_each_source_relative_to_the_project_root() {
+    // Specification 12 §7.5.1.4 (kept by specification 44 §5.3) and specification 13: a file's
+    // label is its path relative to the project root with `/` separators, and a client names the
+    // file by a path that ends with it. On the C6 bench of 24 October 2026 the native image carried
+    // the build computer's absolute path, so `breakpoints.set` with `src/main.st` was refused as an
+    // unknown source path. Worked by hand: `<root>/src/main.st` -> `src/main.st` and
+    // `<root>/src/motors/pump.st` -> `src/motors/pump.st`. Catches an absolute label and a label
+    // with the platform's separator.
+    let root = temp_dir("trust-native-labels");
+    write_root_source(&root);
+    write_file(
+        &root.join("src/motors/pump.st"),
+        "FUNCTION DepDouble : INT\nVAR_INPUT x : INT; END_VAR\nDepDouble := x * 2;\nEND_FUNCTION\n",
+    );
+    let sources = collect_project_sources_labelled(&root, None).expect("sources");
+    let labels: Vec<&str> = sources
+        .iter()
+        .map(|source| source.path.as_deref().unwrap_or(""))
+        .collect();
+    assert_eq!(labels, ["src/main.st", "src/motors/pump.st"]);
+    let _ = fs::remove_dir_all(&root);
+}
+
+/// Specification 11 §6.7.1: an image runs the one resource it was built from, so a project whose
+/// `runtime.toml` names another resource than its program's `RESOURCE` is not built, and the names
+/// compare without regard to case. Catches a build that writes an image the project then runs under
+/// a resource its program does not declare.
+#[test]
+fn build_refuses_a_runtime_resource_that_is_not_the_program_resource() {
+    let root = temp_dir("trust-runtime-build-resource");
+    write_file(
+        &root.join("src/main.st"),
+        r#"
+PROGRAM Main
+END_PROGRAM
+CONFIGURATION Plant
+RESOURCE Line ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM P WITH Fast : Main;
+END_RESOURCE
+END_CONFIGURATION
+"#,
+    );
+    write_file(
+        &root.join("runtime.toml"),
+        &crate::bundle_template::render_runtime_toml(&"Other".into(), 10),
+    );
+    let error = build(&root).expect_err("another resource is refused");
+    assert!(
+        error
+            .to_string()
+            .contains("resource 'Other' of runtime.toml is not the RESOURCE the program declares"),
+        "{error}"
+    );
+    assert!(
+        !root.join(crate::native::PROGRAM_IMAGE_FILE).exists(),
+        "a refused build writes no program"
+    );
+
+    write_file(
+        &root.join("runtime.toml"),
+        &crate::bundle_template::render_runtime_toml(&"LINE".into(), 10),
+    );
+    build(&root).expect("the program's RESOURCE builds in any case");
+    fs::remove_dir_all(root).ok();
+}
+
+/// The bytes of program image `image` that two builds of one project share (specification 44
+/// NX-07): all but the build time in the header, the header's checksum over it and the signature.
+fn reproducible(image: &[u8]) -> Vec<u8> {
+    use trust_runtime_core::native::image::{Image, SectionId};
+    let mut bytes = image.to_vec();
+    bytes[8..12].fill(0);
+    bytes[24..32].fill(0);
+    if let Some(sign) = Image::parse(image)
+        .expect("the program image parses")
+        .section(SectionId::Sign)
+    {
+        let start = sign.offset as usize;
+        bytes[start..start + sign.length as usize].fill(0);
+    }
+    bytes
+}
+
+/// A program with one `%Q` binding, `%QX0.0`, so its output image is one byte.
+const IDENTIFY_PROGRAM: &str = r#"
+PROGRAM Main
+VAR
+    lamp AT %QX0.0 : BOOL;
+END_VAR
+lamp := TRUE;
+END_PROGRAM
+"#;
+
+/// A project folder with `source` as its program, a loopback `io.toml` and a `runtime.toml` that
+/// sets `[runtime.identify] output` to `output` when there is one. It holds no `program.stbc`.
+fn identify_project(prefix: &str, output: Option<&str>, source: &str) -> PathBuf {
+    let root = temp_dir(prefix);
+    let runtime = crate::bundle_template::render_runtime_toml(&smol_str::SmolStr::new("line"), 10);
+    #[cfg(windows)]
+    let runtime = runtime.replacen(
+        "endpoint = \"unix:///tmp/trust-runtime.sock\"",
+        "endpoint = \"tcp://127.0.0.1:0\"\nauth_token = \"trust-ci-token\"",
+        1,
+    );
+    let runtime = match output {
+        Some(output) => format!("{runtime}\n[runtime.identify]\noutput = \"{output}\"\n"),
+        None => runtime,
+    };
+    write_file(&root.join("runtime.toml"), &runtime);
+    write_file(
+        &root.join("io.toml"),
+        &crate::bundle_template::render_io_toml(
+            &crate::bundle_template::build_io_config_auto("loopback").expect("loopback template"),
+        ),
+    );
+    write_file(&root.join("src/main.st"), source);
+    root
+}
+
+#[test]
+fn a_program_that_uses_the_identify_output_is_refused_from_its_sources() {
+    // Specification 11, "Identify", load: the check of `run` made on the program the sources compile
+    // to, as `check` and `ide serve` make it. The program binds `%QX0.0`, so
+    // `output = "%QX0.0"` is refused with the output and the binding named, and `%QX0.7`, a free bit
+    // of the one-byte image, is accepted. Catches a source-based check that accepts what `run`
+    // refuses, and one that refuses a good output.
+    let used = identify_project("identify-used", Some("%QX0.0"), IDENTIFY_PROGRAM);
+    assert_eq!(
+        refuse_identify_output_use(&used, None),
+        Err(crate::error::RuntimeError::InvalidConfig(
+            "identify output %QX0.0 is used by the program: it binds %QX0.0".into()
+        ))
+    );
+
+    let free = identify_project("identify-free", Some("%QX0.7"), IDENTIFY_PROGRAM);
+    assert_eq!(refuse_identify_output_use(&free, None), Ok(()));
+    let _ = fs::remove_dir_all(&used);
+    let _ = fs::remove_dir_all(&free);
+}
+
+#[test]
+fn nothing_to_check_is_not_refused_by_the_identify_check() {
+    // Specification 11, "Identify", load: a project without `[runtime.identify] output` has nothing
+    // to check, and sources that do not compile have no output image to check: `check` reports the
+    // compile error itself and `ide serve` still serves the project so that it can be fixed.
+    // Catches a check that refuses a project for a problem that is not its identify output.
+    let without = identify_project("identify-none", None, IDENTIFY_PROGRAM);
+    assert_eq!(refuse_identify_output_use(&without, None), Ok(()));
+
+    let broken = identify_project("identify-broken", Some("%QX0.0"), "PROGRAM Main\nx := ;\n");
+    assert_eq!(refuse_identify_output_use(&broken, None), Ok(()));
+
+    let empty = temp_dir("identify-no-runtime-toml");
+    assert_eq!(refuse_identify_output_use(&empty, None), Ok(()));
+    let _ = fs::remove_dir_all(&without);
+    let _ = fs::remove_dir_all(&broken);
+    let _ = fs::remove_dir_all(&empty);
 }

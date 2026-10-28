@@ -1,5 +1,7 @@
 import * as vscode from "vscode";
 
+import { projectRequest } from "./projectRequest";
+
 export interface WorkspaceProjectState {
   readonly kind: "none" | "nonTrust" | "trust" | "malformed";
   readonly folder?: vscode.WorkspaceFolder;
@@ -8,7 +10,10 @@ export interface WorkspaceProjectState {
 
 // "Project open" = a workspace folder is open AND it has a readable truST project manifest. Keep
 // "no folder", "non-truST folder", and "malformed manifest" distinct so UI surfaces can explain
-// exactly what happened instead of showing Run/Start for a project that cannot load.
+// exactly what happened instead of showing Run/Start for a project that cannot load. Whether the
+// manifest can be read is the language server's answer (`trust-lsp.manifestCheck`, specification 25
+// §6.2); the first check waits a bounded time for the server to start, and a server that never starts
+// leaves the manifest counted as readable.
 export async function getWorkspaceProjectState(): Promise<WorkspaceProjectState> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) {
@@ -23,36 +28,24 @@ export async function getWorkspaceProjectState(): Promise<WorkspaceProjectState>
     return { kind: "nonTrust", folder };
   }
   const manifest = found[0];
+  let text: string;
   try {
     const bytes = await vscode.workspace.fs.readFile(manifest);
-    const text = Buffer.from(bytes).toString("utf8");
-    const manifestIssue = manifestReadabilityIssue(text);
-    if (manifestIssue) {
-      return { kind: "malformed", folder, issue: manifestIssue };
-    }
+    text = Buffer.from(bytes).toString("utf8");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return { kind: "malformed", folder, issue: message };
+  }
+  const answer = await projectRequest<{ issue: string | null }>(
+    "trust-lsp.manifestCheck",
+    { text }
+  );
+  if (answer.ok && answer.issue) {
+    return { kind: "malformed", folder, issue: answer.issue };
   }
   return { kind: "trust", folder };
 }
 
 export async function workspaceHasReadableTrustProject(): Promise<boolean> {
   return (await getWorkspaceProjectState()).kind === "trust";
-}
-
-export function manifestReadabilityIssue(text: string): string | undefined {
-  for (const [index, raw] of text.split(/\r?\n/).entries()) {
-    const line = raw.trim();
-    if (!line || line.startsWith("#")) {
-      continue;
-    }
-    if (
-      line.startsWith("[") &&
-      !/^\[\[?[A-Za-z0-9_.-]+(?:\.[A-Za-z0-9_.-]+)*\]?\]$/.test(line)
-    ) {
-      return `Project settings header on line ${index + 1} is incomplete.`;
-    }
-  }
-  return undefined;
 }

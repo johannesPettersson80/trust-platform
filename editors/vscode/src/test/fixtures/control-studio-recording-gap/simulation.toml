@@ -1,0 +1,18 @@
+[simulation]
+enabled = true
+seed = 20260905
+time_scale = 1
+plant_step_ms = 20
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 200
+
+[[plants]]
+id = "recording-gap-fopdt"
+model = "first_order"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [20.0]
+
+[plants.parameters]
+gain = 1.0
+time_constant_s = 1.0

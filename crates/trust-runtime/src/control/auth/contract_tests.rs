@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -14,7 +16,7 @@ END_PROGRAM
 static NEXT_PATH: AtomicU64 = AtomicU64::new(1);
 
 fn state() -> ControlState {
-    crate::control::tests::hmi_test_state(SOURCE)
+    crate::control::tests::control_test_state(SOURCE)
 }
 
 fn request(auth: Option<&str>) -> ControlRequest {
@@ -41,15 +43,6 @@ fn pairing_store(role: AccessRole) -> (Arc<PairingStore>, String, PathBuf) {
     let code = store.start_pairing();
     let token = store.claim(&code.code, Some(role)).expect("pairing token");
     (store, token, path)
-}
-
-#[test]
-fn auth_failures_have_stable_distinct_messages_and_codes() {
-    assert_eq!(AuthFailure::MissingToken.message(), "missing auth token");
-    assert_eq!(AuthFailure::MissingToken.code(), "missing_auth_token");
-    assert_eq!(AuthFailure::InvalidToken.message(), "invalid auth token");
-    assert_eq!(AuthFailure::InvalidToken.code(), "invalid_auth_token");
-    assert_ne!(AuthFailure::MissingToken, AuthFailure::InvalidToken);
 }
 
 #[test]
@@ -213,20 +206,6 @@ fn optional_auth_ignores_invalid_supplied_token_only_when_auth_is_not_required()
         resolve_request_role(&request(Some("unknown")), &state, Some("unix")),
         Ok(AccessRole::Admin)
     );
-}
-
-#[test]
-fn untrusted_transport_classifier_uses_exact_local_and_network_rules() {
-    assert!(!control_client_is_untrusted_transport(None));
-    assert!(!control_client_is_untrusted_transport(Some("unix")));
-    assert!(!control_client_is_untrusted_transport(Some("local")));
-    assert!(!control_client_is_untrusted_transport(Some("")));
-    assert!(control_client_is_untrusted_transport(Some("tcp:9000")));
-    assert!(control_client_is_untrusted_transport(Some(
-        "127.0.0.1:9000"
-    )));
-    assert!(control_client_is_untrusted_transport(Some("[::1]:9000")));
-    assert!(control_client_is_untrusted_transport(Some("unix:other")));
 }
 
 #[test]

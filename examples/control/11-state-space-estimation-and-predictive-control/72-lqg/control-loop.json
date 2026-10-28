@@ -1,0 +1,413 @@
+{
+  "schemaVersion": 2,
+  "id": "control-lqg",
+  "name": "Two-tank LQG",
+  "projectId": "project:control-lqg",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "LQG state feedback",
+    "design": "project",
+    "revision": "sha256:5be925a6abd87a5680c5221fd940f5e622ca86d92fb1fb39d955eeda8ec9e1a4",
+    "action": "direct",
+    "taskPeriodMs": 1000,
+    "modeSignal": "P1.FeedbackEnabled",
+    "modeWhenTrue": "Auto",
+    "manualOutputSignal": "P1.ManualFlowM3PerS",
+    "manualOutputType": "LREAL",
+    "stateFeedback": {
+      "family": "LQG",
+      "convention": "sampled-deviation-negative-feedback",
+      "gainSymbols": [
+        [
+          "P1.K1",
+          "P1.K2"
+        ]
+      ],
+      "referenceGainSymbols": [
+        [
+          "P1.N"
+        ]
+      ],
+      "observerGainSymbols": [
+        [
+          "P1.L1"
+        ],
+        [
+          "P1.L2"
+        ]
+      ],
+      "estimatorModel": {
+        "a": [
+          [
+            0.96,
+            0
+          ],
+          [
+            0.04,
+            0.96
+          ]
+        ],
+        "b": [
+          [
+            2
+          ],
+          [
+            0
+          ]
+        ],
+        "c": [
+          [
+            0,
+            1
+          ]
+        ],
+        "sampleTimeSeconds": 1
+      },
+      "initialization": {
+        "kind": "declared-state-v1",
+        "states": [
+          {
+            "symbol": "P1.X1Hat",
+            "iec_type": "LREAL",
+            "unit": "m",
+            "minimum": -0.2,
+            "maximum": 0.2,
+            "initial": 0,
+            "postScan": "bounded"
+          },
+          {
+            "symbol": "P1.X2Hat",
+            "iec_type": "LREAL",
+            "unit": "m",
+            "minimum": -0.2,
+            "maximum": 0.2,
+            "initial": 0,
+            "postScan": "bounded"
+          }
+        ]
+      },
+      "estimatorStateSymbols": [
+        "P1.X1Hat",
+        "P1.X2Hat"
+      ]
+    }
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Tank2SetpointM",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "m",
+      "range": {
+        "minimum": 0.05,
+        "maximum": 0.45
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.EstimatedTank2M",
+      "address": "%IL24",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "m",
+      "range": {
+        "minimum": 0,
+        "maximum": 0.5
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.EstimatedPumpM3PerS",
+      "address": "%QL8",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "m3/s",
+      "range": {
+        "minimum": 0,
+        "maximum": 0.02
+      }
+    },
+    "additional": [
+      {
+        "id": "tank-1",
+        "channel": "tank-1",
+        "role": "state",
+        "symbol": "P1.EstimatedTank1M",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "estimate-tank-1",
+        "channel": "estimate-tank-1",
+        "role": "state",
+        "symbol": "P1.EstimateTank1M",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "reading",
+        "channel": "reading",
+        "role": "state",
+        "symbol": "P1.ReadingM",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "full-state-tank-2",
+        "channel": "full-state-tank-2",
+        "role": "state",
+        "symbol": "P1.FullStateTank2M",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "full-state-pump",
+        "channel": "full-state-pump",
+        "role": "state",
+        "symbol": "P1.FullStatePumpM3PerS",
+        "address": "%QL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m3/s",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.02
+        }
+      },
+      {
+        "id": "estimation-rms",
+        "channel": "estimation-rms",
+        "role": "state",
+        "symbol": "P1.EstimationRmsM",
+        "address": "%ML88",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.2
+        }
+      },
+      {
+        "id": "full-state-late-peak",
+        "channel": "full-state-late-peak",
+        "role": "state",
+        "symbol": "P1.FullStateLatePeakM",
+        "address": "%ML72",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.2
+        }
+      },
+      {
+        "id": "estimated-late-peak",
+        "channel": "estimated-late-peak",
+        "role": "state",
+        "symbol": "P1.EstimatedLatePeakM",
+        "address": "%ML80",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.2
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX96.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "full-state-level-cost",
+        "channel": "full-state-level-cost",
+        "role": "state",
+        "symbol": "P1.FullStateLevelCost",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "estimated-level-cost",
+        "channel": "estimated-level-cost",
+        "role": "state",
+        "symbol": "P1.EstimatedLevelCost",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "full-state-effort-cost",
+        "channel": "full-state-effort-cost",
+        "role": "state",
+        "symbol": "P1.FullStateEffortCost",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "estimated-effort-cost",
+        "channel": "estimated-effort-cost",
+        "role": "state",
+        "symbol": "P1.EstimatedEffortCost",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    ]
+  },
+  "channels": {
+    "inputs": [
+      {
+        "modelChannelId": "pump-flow",
+        "signalId": "manipulatedVariable",
+        "actuator": {
+          "kind": "continuous",
+          "minimum": 0,
+          "maximum": 0.02
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "modelChannelId": "tank-2-level",
+        "signalId": "processVariable",
+        "setpointSignalId": "setpoint"
+      }
+    ],
+    "initialState": [
+      0,
+      0
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 0.02
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 1000
+  },
+  "plantId": "estimated-state",
+  "operatingPoint": "Both cascades at 0.25 m with the pumps at 0.010 m3/s",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 124,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX96.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
+    "baselineSeconds": 2
+  },
+  "parameterBinding": {
+    "loop_id": "control-lqg",
+    "task_name": "MainTask",
+    "parameters": [
+      {
+        "symbol": "P1.K1",
+        "iec_type": "LREAL",
+        "unit": "m3/s/m",
+        "convention": "Gain K1 on tank 1's level deviation",
+        "minimum": -1,
+        "maximum": 1
+      },
+      {
+        "symbol": "P1.K2",
+        "iec_type": "LREAL",
+        "unit": "m3/s/m",
+        "convention": "Gain K2 on tank 2's level deviation",
+        "minimum": -1,
+        "maximum": 1
+      },
+      {
+        "symbol": "P1.N",
+        "iec_type": "LREAL",
+        "unit": "m3/s/m",
+        "convention": "Reference gain N on tank 2's setpoint",
+        "minimum": -1,
+        "maximum": 1
+      },
+      {
+        "symbol": "P1.L1",
+        "iec_type": "LREAL",
+        "unit": "1",
+        "convention": "Estimator gain L1 of tank 1 on tank 2's innovation",
+        "minimum": -5,
+        "maximum": 5
+      },
+      {
+        "symbol": "P1.L2",
+        "iec_type": "LREAL",
+        "unit": "1",
+        "convention": "Estimator gain L2 of tank 2 on tank 2's innovation",
+        "minimum": -5,
+        "maximum": 5
+      }
+    ],
+    "mode": {
+      "symbol": "P1.FeedbackEnabled",
+      "manual_value": false
+    }
+  },
+  "revision": "sha256:f768e081ac686a5aa680a192e4281999fb275dbf89529b9b5c876647efc8aaa0"
+}

@@ -1,0 +1,268 @@
+{
+  "schemaVersion": 2,
+  "id": "control-root-locus",
+  "name": "Root locus",
+  "revision": "sha256:40889325f0dff9b181c9d02a1a1c397dbd83ff32ce6970ba85d672889f5c087c",
+  "projectId": "project:control-root-locus",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Main",
+    "design": "project",
+    "revision": "sha256:2843b84ee356d98ac62cea9e73d75ffe1ea07bda4b27dda76a308ec452f27e42",
+    "action": "direct",
+    "taskPeriodMs": 20,
+    "modeSignal": "P1.ManualMode",
+    "modeWhenTrue": "Manual"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML16",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "rad",
+      "range": {
+        "minimum": -2,
+        "maximum": 2
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.Angle",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "rad",
+      "range": {
+        "minimum": -2,
+        "maximum": 2
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.RequestedTorque",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "N·m",
+      "range": {
+        "minimum": -100,
+        "maximum": 100
+      }
+    },
+    "actuator": {
+      "symbol": "P1.AppliedTorque",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "N·m",
+      "range": {
+        "minimum": -20,
+        "maximum": 20
+      }
+    },
+    "additional": [
+      {
+        "id": "alternative-angle",
+        "channel": "alternative-angle",
+        "role": "state",
+        "symbol": "P1.AlternativeAngle",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad",
+        "range": {
+          "minimum": -2,
+          "maximum": 2
+        }
+      },
+      {
+        "id": "velocity",
+        "channel": "velocity",
+        "role": "state",
+        "symbol": "P1.Velocity",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad/s",
+        "range": {
+          "minimum": -10,
+          "maximum": 10
+        }
+      },
+      {
+        "id": "manual",
+        "channel": "manual",
+        "role": "state",
+        "symbol": "P1.ManualMode",
+        "address": "%MX96.3",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "alternative-torque",
+        "channel": "alternative-torque",
+        "role": "state",
+        "symbol": "P1.AlternativeTorque",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "N·m",
+        "range": {
+          "minimum": -20,
+          "maximum": 20
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX96.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "safety-abort",
+        "channel": "safety-abort",
+        "role": "state",
+        "symbol": "P1.SafetyAbort",
+        "address": "%MX96.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "alternative-velocity",
+        "channel": "alternative-velocity",
+        "role": "state",
+        "symbol": "P1.AlternativeVelocity",
+        "address": "%IL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "rad/s",
+        "range": {
+          "minimum": -10,
+          "maximum": 10
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": -20,
+    "outputMaximum": 20
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 20
+  },
+  "plantId": "shaft-j1-b1",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 8.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX96.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
+    "baselineSeconds": 2
+  },
+  "analysis": {
+    "plant": {
+      "kind": "transfer-function",
+      "numerator": [
+        1
+      ],
+      "denominator": [
+        1,
+        8,
+        0
+      ],
+      "delaySeconds": 0,
+      "inputUnit": "N·m",
+      "outputUnit": "rad",
+      "revision": "shaft-j1-b1-kd7-v1",
+      "source": "provided",
+      "validation": "unvalidated"
+    },
+    "controller": {
+      "numerator": [
+        {
+          "parameter": "Kp"
+        }
+      ],
+      "denominator": [
+        1
+      ],
+      "parameters": {
+        "Kp": {
+          "value": 16,
+          "minimum": 0,
+          "maximum": 20,
+          "unit": "N·m/rad"
+        },
+        "Kd": {
+          "value": 7,
+          "minimum": 7,
+          "maximum": 7,
+          "unit": "N·m·s/rad"
+        }
+      }
+    },
+    "rootLocus": {
+      "parameter": "Kp",
+      "values": [
+        12,
+        16,
+        20
+      ],
+      "selectedValue": 16
+    }
+  },
+  "parameterBinding": {
+    "loop_id": "control-root-locus",
+    "task_name": "MainTask",
+    "parameters": [
+      {
+        "symbol": "P1.Kp",
+        "iec_type": "LREAL",
+        "unit": "N·m/rad",
+        "convention": "proportional position gain",
+        "minimum": 0,
+        "maximum": 20
+      },
+      {
+        "symbol": "P1.Kd",
+        "iec_type": "LREAL",
+        "unit": "N·m·s/rad",
+        "convention": "fixed measured-velocity braking gain",
+        "minimum": 7,
+        "maximum": 7
+      }
+    ],
+    "mode": {
+      "symbol": "P1.ExperimentEnabled",
+      "manual_value": false
+    }
+  },
+  "analysisParameterSymbols": {
+    "Kp": "P1.Kp",
+    "Kd": "P1.Kd"
+  }
+}

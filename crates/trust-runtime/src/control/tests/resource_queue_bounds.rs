@@ -90,7 +90,7 @@ fn a_full_queue_refuses_scheduler_policy_changes_and_leaves_every_domain_unchang
     use crate::config::ControlMode;
     use crate::scheduler::{ResourceCommand, ResourceControl, StdClock};
 
-    let mut state = hmi_test_state(CONCURRENT_CONTROL_SOURCE);
+    let mut state = control_test_state(CONCURRENT_CONTROL_SOURCE);
     // Nothing drains this stub queue, so the test decides exactly what is queued.
     let (control, queued) = ResourceControl::stub(StdClock::new());
     state.resource = control;
@@ -226,7 +226,7 @@ fn a_full_queue_refuses_scheduler_policy_changes_and_leaves_every_domain_unchang
 fn the_last_free_slot_takes_the_whole_policy_set_in_one_command() {
     use crate::scheduler::{ResourceCommand, ResourceControl, StdClock};
 
-    let mut state = hmi_test_state(CONCURRENT_CONTROL_SOURCE);
+    let mut state = control_test_state(CONCURRENT_CONTROL_SOURCE);
     let (control, queued) = ResourceControl::stub(StdClock::new());
     state.resource = control;
     // One slot short of the bound: the policy set takes the last free slot.

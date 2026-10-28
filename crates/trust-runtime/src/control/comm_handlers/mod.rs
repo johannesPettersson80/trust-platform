@@ -10,11 +10,14 @@ use super::{ControlResponse, ControlState};
 
 mod apply;
 mod browse_symbols;
+mod capabilities_discovery;
 mod contract;
 mod discover;
-mod discovery_probe;
 mod probe;
 mod schema;
+mod search;
+
+pub(crate) use apply::ads_runtime::ensure_ads_runtime_enabled;
 
 #[cfg(test)]
 #[path = "capability_contract_tests.rs"]
@@ -28,7 +31,8 @@ use contract::{
 };
 
 pub(super) fn handle_comm_capabilities(id: u64, state: &ControlState) -> ControlResponse {
-    let response = build_capabilities_response(state);
+    let mut response = build_capabilities_response(state);
+    capabilities_discovery::apply_live_health(&mut response, state);
     match serde_json::to_value(response) {
         Ok(value) => ControlResponse::ok(id, value),
         Err(error) => ControlResponse::error(
@@ -68,6 +72,38 @@ pub(super) fn handle_comm_browse_symbols(
     state: &ControlState,
 ) -> ControlResponse {
     browse_symbols::handle_comm_browse_symbols(id, params, state)
+}
+
+pub(super) fn handle_comm_search_start(
+    id: u64,
+    params: Option<serde_json::Value>,
+    state: &ControlState,
+) -> ControlResponse {
+    search::handle_comm_search_start(id, params, state)
+}
+
+pub(super) fn handle_comm_search_status(
+    id: u64,
+    params: Option<serde_json::Value>,
+    state: &ControlState,
+) -> ControlResponse {
+    search::handle_comm_search_status(id, params, state)
+}
+
+pub(super) fn handle_comm_search_cancel(
+    id: u64,
+    params: Option<serde_json::Value>,
+    state: &ControlState,
+) -> ControlResponse {
+    search::handle_comm_search_cancel(id, params, state)
+}
+
+pub(super) fn handle_comm_compare(
+    id: u64,
+    params: Option<serde_json::Value>,
+    state: &ControlState,
+) -> ControlResponse {
+    search::handle_comm_compare(id, params, state)
 }
 
 pub(super) fn handle_comm_test(id: u64, params: Option<serde_json::Value>) -> ControlResponse {
@@ -115,7 +151,10 @@ pub(super) fn audit_details_for_comm_request(
 ) -> Option<serde_json::Value> {
     if matches!(kind, "comm.apply" | "comm.test") {
         params.map(apply::sanitized_apply_audit_details)
-    } else if matches!(kind, "comm.discover" | "comm.browse_symbols") {
+    } else if matches!(
+        kind,
+        "comm.discover" | "comm.browse_symbols" | "comm.search.start"
+    ) {
         params.map(sanitize_readonly_comm_audit_details)
     } else {
         None
@@ -576,7 +615,7 @@ fn discovery_capability(
             false,
             None,
             CommHealth::Degraded,
-            "Discovery is configured; dedicated live health is not reported yet.",
+            "Runtime discovery is configured; its live health is reported in this entry.",
             action(CommNextActionKind::Setup, "Review discovery setup"),
         )
     } else {
@@ -607,7 +646,7 @@ fn mesh_capability(settings: Option<&crate::settings::RuntimeSettings>) -> Runti
             false,
             None,
             CommHealth::Degraded,
-            "Mesh/Zenoh is configured; dedicated live health is not reported yet.",
+            "Mesh/Zenoh is configured; its live peer health is reported in this entry.",
             action(CommNextActionKind::Setup, "Review mesh setup"),
         )
     } else {
@@ -748,6 +787,8 @@ fn capability(
         health,
         detail: detail.into(),
         next_action,
+        discovery: None,
+        mesh: None,
     }
 }
 

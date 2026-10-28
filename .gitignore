@@ -3,12 +3,12 @@
 **/*.rs.bk
 **/Cargo.lock
 !/Cargo.lock
-!/firmware/trust-nucleo-f401re/Cargo.lock
-!/firmware/trust-esp32c6-reference/Cargo.lock
+!/firmware/trust-esp32c6/Cargo.lock
+!/firmware/trust-stm32f407/Cargo.lock
 !/fuzz/Cargo.lock
 !/crates/trust-ads-server/fuzz/Cargo.lock
-/firmware/trust-nucleo-f401re/target/
-/firmware/trust-nucleo-f401re/*.map
+/firmware/trust-stm32f407/target/
+/firmware/trust-stm32f407/*.map
 /.mapping-transaction.lock
 /site/
 /.venv-docs/
@@ -16,8 +16,8 @@
 # IDE
 .idea/
 .vscode/
-!editors/vscode/media/examples/*/.vscode/
-!editors/vscode/media/examples/*/.vscode/*.json
+!examples/**/.vscode/
+!examples/**/.vscode/*.json
 *.swp
 *.swo
 *~
@@ -27,7 +27,7 @@
 
 # VS Code Extension
 /.vscode-test/
-editors/vscode/node_modules/
+editors/vscode/node_modules
 editors/vscode/out/
 editors/vscode/*.vsix
 editors/vscode/.vscode-test/
@@ -36,6 +36,8 @@ crates/trust-runtime/web/ide-frontend/node_modules/
 scripts/captures/node_modules/
 scripts/captures/.cache/
 scripts/captures/test-results/
+scripts/hmi-screen-tests/node_modules/
+scripts/hmi-screen-tests/test-results/
 scripts/captures/playwright-report/
 
 # Local tooling caches
@@ -45,6 +47,8 @@ __pycache__/
 .claude-plugin/
 .trust-lsp/
 **/.trust-lsp/
+# A runtime's endpoint file (spec 11 §6.8.0a), left behind in an example after an unclean stop.
+**/.trust-runtime/
 
 # Local debug/lsp binaries (too large for GitHub; built locally)
 editors/vscode/bin/trust-debug
@@ -64,9 +68,10 @@ runtime-*.log.runtime.log
 /io.toml
 /program.stbc
 /examples/**/program.stbc
+/deployment-record.bin
+/examples/**/deployment-record.bin
 /examples/**/hmi/process.auto.svg
 /sources/
-/hmi/_evidence/
 /.merge-pr*/
 
 # Internal docs (not for public repo)
@@ -167,8 +172,19 @@ docs/internal/testing/evidence/*
 !docs/internal/testing/checklists/architecture-improvements.md
 !docs/internal/testing/checklists/runtime-remove-legacy-interpreter.md
 !docs/internal/testing/checklists/runtime-remove-legacy-interpreter-claude-review-brief.md
+!docs/internal/testing/checklists/vscode-plant-simulation-ui-implementation-checklist.md
+!docs/internal/testing/checklists/vscode-control-studio-implementation-checklist.md
+!docs/internal/testing/checklists/control-engineering-user-journey-documentation-checklist.md
+!docs/internal/testing/checklists/control-pid-plant-benchmark-checklist.md
+!docs/internal/testing/checklists/control-pid-advanced-benchmark-checklist.md
+!docs/internal/testing/checklists/control-engineering-next-implementation-checklist.md
+!docs/internal/testing/checklists/control-engineering-learning-program-implementation-checklist.md
+!docs/internal/testing/checklists/control-engineering-curriculum-implementation-checklist.md
 !docs/internal/testing/evidence/plcopen-motion-library-implementation-*.md
 !docs/internal/testing/evidence/plcopen-motion-library-post-parity-reconciliation-*.md
+!docs/internal/testing/evidence/vscode-ui-ux-acceptance/
+docs/internal/testing/evidence/vscode-ui-ux-acceptance/*
+!docs/internal/testing/evidence/vscode-ui-ux-acceptance/control-engineering-acceptance-board.md
 !docs/internal/references/
 !docs/internal/references/PLCopenMotion/
 conformance/reports/*
@@ -176,3 +192,11 @@ conformance/reports/*
 
 # Task-owned raw validation artifacts live outside the source tree.
 /.artifacts/
+
+# The CJK fonts, copied into the extension by editors/vscode/scripts/build-hmi-builder-webview.js
+# from crates/trust-runtime/src/web/ui/assets/fonts (specification 39, §14.5 item 2).
+editors/vscode/media/fonts/NotoSans*-Subset.woff2
+editors/vscode/media/fonts/LICENSE-NOTO-CJK.txt
+
+# Retained values written by a runtime started in an example folder.
+retain.bin

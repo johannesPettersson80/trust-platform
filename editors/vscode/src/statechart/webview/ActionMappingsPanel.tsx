@@ -1,39 +1,30 @@
-import React, { useState, useMemo } from "react";
-import { ActionMapping, StateChartNode } from "./types";
+import React, { useRef, useState } from "react";
+import { ActionMapping, ReadValue } from "./types";
+
+type ActionMappings = Record<string, ActionMapping>;
 
 interface ActionMappingsPanelProps {
-  actionMappings: Record<string, ActionMapping>;
-  nodes: StateChartNode[];
-  onUpdateActionMappings: (mappings: Record<string, ActionMapping>) => void;
+  actionMappings: ActionMappings;
+  /** Actions the chart names that no mapping defines (the language server's action report). */
+  unmappedActions: string[];
+  /** Mappings no state or transition names (the language server's action report). */
+  unusedMappings: string[];
+  onUpdateActionMappings: (
+    mappings: ActionMappings | ((current: ActionMappings) => ActionMappings)
+  ) => void;
+  /** Asks the language server for the value of typed text (a mapping's value). */
+  readValue: ReadValue;
 }
 
 export const ActionMappingsPanel: React.FC<ActionMappingsPanelProps> = ({
   actionMappings,
-  nodes,
+  unmappedActions,
+  unusedMappings,
   onUpdateActionMappings,
+  readValue,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
-
-  // Collect all action names referenced in states
-  const referencedActions = useMemo(() => {
-    const actions = new Set<string>();
-    nodes.forEach((node) => {
-      node.data.entry?.forEach((action) => actions.add(action));
-      node.data.exit?.forEach((action) => actions.add(action));
-      Object.values(node.data.on || {}).forEach((transition) => {
-        transition.actions?.forEach((action) => actions.add(action));
-      });
-    });
-    return actions;
-  }, [nodes]);
-
-  // Find unmapped actions (referenced but not mapped)
-  const unmappedActions = useMemo(() => {
-    return Array.from(referencedActions).filter(
-      (action) => !actionMappings[action]
-    );
-  }, [referencedActions, actionMappings]);
 
   const handleAddMapping = () => {
     const name = prompt("Enter action name:");
@@ -68,14 +59,16 @@ export const ActionMappingsPanel: React.FC<ActionMappingsPanelProps> = ({
     }
   };
 
+  // Merged into the mappings as they are when the update lands: a value the language server
+  // answers later does not undo another field's change.
   const handleUpdateMapping = (
     name: string,
     updates: Partial<ActionMapping>
   ) => {
-    onUpdateActionMappings({
-      ...actionMappings,
-      [name]: { ...actionMappings[name], ...updates },
-    });
+    onUpdateActionMappings((current) => ({
+      ...current,
+      [name]: { ...current[name], ...updates },
+    }));
   };
 
   return (
@@ -201,7 +194,7 @@ export const ActionMappingsPanel: React.FC<ActionMappingsPanelProps> = ({
               </div>
             ) : (
               Object.entries(actionMappings).map(([name, mapping]) => {
-                const isUnused = !referencedActions.has(name);
+                const isUnused = unusedMappings.includes(name);
                 return (
                   <div
                     key={name}
@@ -239,12 +232,14 @@ export const ActionMappingsPanel: React.FC<ActionMappingsPanelProps> = ({
           <div style={{ flex: 1, overflowY: "auto", padding: "12px" }}>
             {selectedAction && actionMappings[selectedAction] ? (
               <MappingEditor
+                key={selectedAction}
                 name={selectedAction}
                 mapping={actionMappings[selectedAction]}
                 onUpdate={(updates) =>
                   handleUpdateMapping(selectedAction, updates)
                 }
                 onDelete={() => handleDeleteMapping(selectedAction)}
+                readValue={readValue}
               />
             ) : (
               <div
@@ -267,12 +262,55 @@ export const ActionMappingsPanel: React.FC<ActionMappingsPanelProps> = ({
   );
 };
 
+/**
+ * The value field of a mapping: the text as typed while it is typed, the stored value otherwise.
+ * The language server reads each text (`mappingValue`: `true`/`false`, a number, or text) and the
+ * mapping stores that value; only the answer to the latest text is stored.
+ */
+const MappingValueInput: React.FC<{
+  stored: unknown;
+  readValue: ReadValue;
+  onValue: (value: unknown) => void;
+}> = ({ stored, readValue, onValue }) => {
+  const [draft, setDraft] = useState<string | null>(null);
+  const request = useRef(0);
+  return (
+    <input
+      type="text"
+      value={draft ?? (stored === undefined || stored === null ? "" : String(stored))}
+      onChange={(e) => {
+        const text = e.target.value;
+        setDraft(text);
+        request.current += 1;
+        const latest = request.current;
+        void readValue("mappingValue", text).then((answer) => {
+          if (latest === request.current && answer.ok) {
+            onValue(answer.value);
+          }
+        });
+      }}
+      onBlur={() => setDraft(null)}
+      placeholder="e.g., 42, true, 'hello'"
+      style={{
+        width: "100%",
+        padding: "6px 8px",
+        fontSize: "13px",
+        backgroundColor: "var(--trust-input-bg)",
+        color: "var(--vscode-input-foreground, var(--trust-text))",
+        border: "1px solid var(--trust-input-border)",
+        borderRadius: "var(--trust-radius)",
+      }}
+    />
+  );
+};
+
 const MappingEditor: React.FC<{
   name: string;
   mapping: ActionMapping;
   onUpdate: (updates: Partial<ActionMapping>) => void;
   onDelete: () => void;
-}> = ({ name, mapping, onUpdate, onDelete }) => {
+  readValue: ReadValue;
+}> = ({ name, mapping, onUpdate, onDelete, readValue }) => {
   const actionTypes = [
     "WRITE_OUTPUT",
     "SET_MULTIPLE",
@@ -541,27 +579,10 @@ const MappingEditor: React.FC<{
             >
               Value
             </label>
-            <input
-              type="text"
-              value={mapping.value ?? ""}
-              onChange={(e) => {
-                // Try to parse as number or boolean
-                let val: any = e.target.value;
-                if (val === "true") val = true;
-                else if (val === "false") val = false;
-                else if (!isNaN(Number(val)) && val !== "") val = Number(val);
-                onUpdate({ value: val });
-              }}
-              placeholder="e.g., 42, true, 'hello'"
-              style={{
-                width: "100%",
-                padding: "6px 8px",
-                fontSize: "13px",
-                backgroundColor: "var(--trust-input-bg)",
-                color: "var(--vscode-input-foreground, var(--trust-text))",
-                border: "1px solid var(--trust-input-border)",
-                borderRadius: "var(--trust-radius)",
-              }}
+            <MappingValueInput
+              stored={mapping.value}
+              readValue={readValue}
+              onValue={(value) => onUpdate({ value })}
             />
           </div>
         </>

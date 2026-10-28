@@ -3,12 +3,6 @@
 Shift handover records active alarms, unusual values, temporary modes, manual
 interventions, and open actions.
 
-![Browser HMI trends during shift review](../assets/images/browser/hmi-operator-shift-handover.png)
-
-*Figure:* The Browser HMI Trends page at shift change. Review how values
-moved during the shift before recording active alarms, unusual values, and
-open actions in the handover log.
-
 ## Handover Checklist
 
 | Item | What to record |

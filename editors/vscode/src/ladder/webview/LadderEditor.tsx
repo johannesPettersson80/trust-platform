@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Konva from "konva";
-import { ElementPropertiesPanel } from "./ElementPropertiesPanel";
+import {
+  ElementPropertiesPanel,
+  type LadderNumberField,
+  type NumberFieldError,
+} from "./ElementPropertiesPanel";
 import {
   LADDER_TOOL_DRAG_MIME,
   LadderToolsPanel,
@@ -22,15 +26,6 @@ import {
   type DrawNodeContext,
   type VariableDisplay,
 } from "./nodeDrawing";
-import {
-  addParallelContactBranchLeg,
-  autoRouteNetwork,
-  autoRouteProgram,
-  pasteElementIntoNetwork,
-  pasteRungIntoProgram,
-  reconcileContactCoilVariableDeclarations,
-  replaceSymbolInProgram,
-} from "./editorOps";
 import type {
   Coil as CoilType,
   CompareNode,
@@ -40,7 +35,7 @@ import type {
   LadderProgram,
   Rung as RungType,
   Timer as TimerType,
-} from "../ladderEngine.types";
+} from "../ladderProgram.types";
 import "../../visual/runtime/webview/rightPaneResize.css";
 import { canvasColor, t, tint } from "../../webview/theme";
 
@@ -96,23 +91,20 @@ const kt = (color: string, alpha: number): string => canvasColor(tint(color, alp
 
 type LadderInsertTool = LadderToolId;
 
-interface RuntimeIoEntryPayload {
-  name?: string;
-  address?: string;
-  value?: unknown;
-}
-
-interface RuntimeIoStatePayload {
-  inputs?: RuntimeIoEntryPayload[];
-  outputs?: RuntimeIoEntryPayload[];
-  memory?: RuntimeIoEntryPayload[];
-}
-
-interface LadderRuntimeExecutionState {
-  inputs: Record<string, boolean>;
-  outputs: Record<string, boolean>;
-  markers: Record<string, boolean>;
-  variableBooleans: Record<string, boolean>;
+/**
+ * The answer of a Ladder edit (`trust-lsp.visualEdit`, forwarded by the editor's host): the
+ * program after the edit, as file text, and what the edit reports.
+ */
+interface LadderEditAnswer {
+  ok: boolean;
+  programText?: string;
+  errors?: Array<{ message: string }>;
+  insertedIndex?: number;
+  selectedNodeId?: string;
+  rungShiftPx?: number;
+  totalParallelLegs?: number;
+  replacements?: number;
+  wire?: "added" | "already-connected" | "invalid";
 }
 
 function createEmptyProgram(): LadderProgram {
@@ -188,150 +180,13 @@ function isLadderInsertTool(value: string): value is LadderInsertTool {
   );
 }
 
-function buildOrthogonalEdgePoints(
-  from: LadderElement,
-  to: LadderElement
-): Array<{ x: number; y: number }> {
-  const fromX = from.position.x + connectorOffset(from.type, "right");
-  const fromY = from.position.y;
-  const toX = to.position.x + connectorOffset(to.type, "left");
-  const toY = to.position.y;
-  const midX = Math.round(((fromX + toX) / 2) / GRID_SIZE) * GRID_SIZE;
-
-  return [
-    { x: fromX, y: fromY },
-    { x: midX, y: fromY },
-    { x: midX, y: toY },
-    { x: toX, y: toY },
-  ];
-}
-
-function normalizeRuntimeKey(value: unknown): string | null {
+/** The text of a reference as a display lookup key: trimmed and upper case, or `null` when blank. */
+function variableDisplayKey(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
   }
   const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function variableDisplayKey(value: unknown): string | null {
-  const normalized = normalizeRuntimeKey(value);
-  return normalized ? normalized.toUpperCase() : null;
-}
-
-function parseRuntimeBoolean(value: unknown): boolean | undefined {
-  if (typeof value === "boolean") {
-    return value;
-  }
-  if (typeof value === "number") {
-    return value !== 0;
-  }
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-
-  const normalized = trimmed.toUpperCase();
-  const maybeWrapped =
-    normalized.startsWith("BOOL(") && normalized.endsWith(")")
-      ? normalized.slice(5, -1).trim()
-      : normalized;
-
-  if (maybeWrapped === "TRUE" || maybeWrapped === "1") {
-    return true;
-  }
-  if (maybeWrapped === "FALSE" || maybeWrapped === "0") {
-    return false;
-  }
-  return undefined;
-}
-
-function isRuntimeIoEntryPayload(value: unknown): value is RuntimeIoEntryPayload {
-  return typeof value === "object" && value !== null;
-}
-
-function toRuntimeIoEntries(value: unknown): RuntimeIoEntryPayload[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.filter(isRuntimeIoEntryPayload);
-}
-
-function assignBooleanValue(
-  record: Record<string, boolean>,
-  key: unknown,
-  value: boolean
-): void {
-  const normalized = normalizeRuntimeKey(key);
-  if (!normalized) {
-    return;
-  }
-  record[normalized] = value;
-  const uppercase = normalized.toUpperCase();
-  if (uppercase !== normalized) {
-    record[uppercase] = value;
-  }
-}
-
-function assignEntryBooleanValue(
-  record: Record<string, boolean>,
-  entry: RuntimeIoEntryPayload,
-  value: boolean
-): void {
-  assignBooleanValue(record, entry.address, value);
-  assignBooleanValue(record, entry.name, value);
-}
-
-function executionStateFromIoState(payload: unknown): LadderRuntimeExecutionState {
-  const executionState: LadderRuntimeExecutionState = {
-    inputs: {},
-    outputs: {},
-    markers: {},
-    variableBooleans: {},
-  };
-
-  if (!payload || typeof payload !== "object") {
-    return executionState;
-  }
-
-  const ioState = payload as RuntimeIoStatePayload;
-
-  for (const entry of toRuntimeIoEntries(ioState.inputs)) {
-    const value = parseRuntimeBoolean(entry.value);
-    if (value === undefined) {
-      continue;
-    }
-    assignEntryBooleanValue(executionState.inputs, entry, value);
-    assignEntryBooleanValue(executionState.variableBooleans, entry, value);
-  }
-
-  for (const entry of toRuntimeIoEntries(ioState.outputs)) {
-    const value = parseRuntimeBoolean(entry.value);
-    if (value === undefined) {
-      continue;
-    }
-    assignEntryBooleanValue(executionState.outputs, entry, value);
-    assignEntryBooleanValue(executionState.variableBooleans, entry, value);
-  }
-
-  for (const entry of toRuntimeIoEntries(ioState.memory)) {
-    const value = parseRuntimeBoolean(entry.value);
-    if (value === undefined) {
-      continue;
-    }
-    assignEntryBooleanValue(executionState.variableBooleans, entry, value);
-
-    const address = normalizeRuntimeKey(entry.address)?.toUpperCase();
-    if (address?.startsWith("%MX")) {
-      assignEntryBooleanValue(executionState.markers, entry, value);
-    }
-  }
-
-  return executionState;
+  return trimmed.length > 0 ? trimmed.toUpperCase() : null;
 }
 
 export function LadderEditor() {
@@ -340,7 +195,6 @@ export function LadderEditor() {
   const [selectedTool, setSelectedTool] = useState<LadderInsertTool | null>(
     null
   );
-  const [executionState, setExecutionState] = useState<any>(null);
   const [scale, setScale] = useState(1);
   const [selectedElement, setSelectedElement] = useState<SelectedElement | null>(
     null
@@ -355,6 +209,8 @@ export function LadderEditor() {
     y: number;
   } | null>(null);
   const [linkFeedback, setLinkFeedback] = useState<string | null>(null);
+  // Why the language server did not store the text last typed into a number field.
+  const [numberFieldError, setNumberFieldError] = useState<NumberFieldError | null>(null);
   const [isPanModifierActive, setIsPanModifierActive] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   const [isToolDragActive, setIsToolDragActive] = useState(false);
@@ -378,7 +234,14 @@ export function LadderEditor() {
   const undoStackRef = useRef<LadderProgram[]>([]);
   const redoStackRef = useRef<LadderProgram[]>([]);
   const clipboardRef = useRef<LadderClipboard>(null);
-  const runtimeIsExecutingRef = useRef(false);
+  // The program the next edit request starts from, and a count of its changes: an edit answer
+  // for an older program is requested again on the current one.
+  const programRef = useRef<LadderProgram>(program);
+  const revisionRef = useRef(0);
+  const pendingEditsRef = useRef(new Map<number, (answer: LadderEditAnswer) => void>());
+  const nextRequestIdRef = useRef(1);
+  // The latest text typed into a number field: only its answer is stored or shown.
+  const numberEditRef = useRef(0);
   const edgeLinkSourceRef = useRef<EdgeLinkSource | null>(null);
 
   const variableDisplayByReference = useMemo(() => {
@@ -454,6 +317,8 @@ export function LadderEditor() {
       if (next === previous) {
         return previous;
       }
+      programRef.current = next;
+      revisionRef.current += 1;
 
       if (trackHistory) {
         undoStackRef.current.push(cloneProgram(previous));
@@ -476,6 +341,8 @@ export function LadderEditor() {
 
     setProgram((current) => {
       redoStackRef.current.push(cloneProgram(current));
+      programRef.current = previous;
+      revisionRef.current += 1;
       return previous;
     });
     setSelectedElement(null);
@@ -490,10 +357,59 @@ export function LadderEditor() {
 
     setProgram((current) => {
       undoStackRef.current.push(cloneProgram(current));
+      programRef.current = next;
+      revisionRef.current += 1;
       return next;
     });
     setSelectedElement(null);
     syncHistoryState();
+  };
+
+  /** Sends a Ladder edit to the host, which forwards it to the language server. */
+  const requestEdit = (
+    op: string,
+    args: Record<string, unknown>,
+    base: LadderProgram
+  ): Promise<LadderEditAnswer> =>
+    new Promise((resolve) => {
+      const requestId = nextRequestIdRef.current;
+      nextRequestIdRef.current += 1;
+      pendingEditsRef.current.set(requestId, resolve);
+      vscodeApi?.postMessage({
+        type: "edit",
+        requestId,
+        op,
+        programText: JSON.stringify(base),
+        ...args,
+      });
+    });
+
+  /**
+   * Runs a Ladder edit (`trust-lsp.visualEdit`) on the current program and shows its result, when
+   * `apply` accepts the answer. An answer for a program that changed meanwhile is requested again
+   * on the current program, so no change is lost.
+   */
+  const runEdit = async (
+    op: string,
+    args: Record<string, unknown>,
+    options: { trackHistory?: boolean; apply?: (answer: LadderEditAnswer) => boolean } = {}
+  ): Promise<{ answer: LadderEditAnswer; program?: LadderProgram }> => {
+    for (let attempt = 0; ; attempt += 1) {
+      const revision = revisionRef.current;
+      const answer = await requestEdit(op, args, programRef.current);
+      if (!answer.ok || typeof answer.programText !== "string") {
+        return { answer };
+      }
+      if (revisionRef.current !== revision && attempt < 3) {
+        continue;
+      }
+      if (options.apply && !options.apply(answer)) {
+        return { answer };
+      }
+      const next = JSON.parse(answer.programText) as LadderProgram;
+      applyProgramChange(() => next, options.trackHistory ?? true);
+      return { answer, program: next };
+    }
   };
 
   useEffect(() => {
@@ -633,220 +549,23 @@ export function LadderEditor() {
     };
   }, [isPanning]);
 
-  const addElementWithTool = (
+  const addElementWithTool = async (
     tool: LadderInsertTool,
     rungIndex: number,
     x: number,
     y: number
-  ): number => {
-    let insertedIndex = -1;
-
-    applyProgramChange((previous) => {
-      const networks = [...previous.networks];
-      const network = networks[rungIndex];
-      if (!network) {
-        return previous;
-      }
-
-      const elementId = `${tool}_${Date.now()}`;
-      let element: LadderElement | null = null;
-      let nextVariables = [...previous.variables];
-
-      const ensureVariable = (
-        name: string,
-        type: LadderProgram["variables"][number]["type"],
-        scope: LadderProgram["variables"][number]["scope"] = "local",
-        initialValue?: unknown
-      ) => {
-        const key = name.trim().toUpperCase();
-        const exists = nextVariables.some(
-          (candidate) =>
-            candidate.name.trim().toUpperCase() === key &&
-            (candidate.scope ?? "global") === (scope ?? "global")
-        );
-        if (exists) {
-          return;
-        }
-        nextVariables = [
-          ...nextVariables,
-          {
-            name,
-            type,
-            scope,
-            initialValue,
-          },
-        ];
-      };
-
-      if (tool === "contact") {
-        element = {
-          id: elementId,
-          type: "contact",
-          contactType: "NO",
-          variable: "%IX0.0",
-          position: { x, y },
-        } as ContactType;
-      }
-
-      if (tool === "coil") {
-        element = {
-          id: elementId,
-          type: "coil",
-          coilType: "NORMAL",
-          variable: "%QX0.0",
-          position: { x, y },
-        } as CoilType;
-      }
-
-      if (tool === "timer") {
-        const instance = `T_${Date.now()}`;
-        const qOutput = `${instance}_Q`;
-        const etOutput = `${instance}_ET`;
-        element = {
-          id: elementId,
-          type: "timer",
-          timerType: "TON",
-          instance,
-          input: "",
-          presetMs: 1000,
-          qOutput,
-          etOutput,
-          position: { x, y },
-        } as TimerType;
-        ensureVariable(qOutput, "BOOL", "local", false);
-        ensureVariable(etOutput, "TIME", "local", 0);
-      }
-
-      if (tool === "counter") {
-        const instance = `C_${Date.now()}`;
-        const qOutput = `${instance}_Q`;
-        const cvOutput = `${instance}_CV`;
-        element = {
-          id: elementId,
-          type: "counter",
-          counterType: "CTU",
-          instance,
-          input: "",
-          preset: 10,
-          qOutput,
-          cvOutput,
-          position: { x, y },
-        } as CounterType;
-        ensureVariable(qOutput, "BOOL", "local", false);
-        ensureVariable(cvOutput, "INT", "local", 0);
-      }
-
-      if (tool === "compare") {
-        const instance = `CMP_${Date.now()}`;
-        const in1 = `${instance}_IN1`;
-        const in2 = `${instance}_IN2`;
-        element = {
-          id: elementId,
-          type: "compare",
-          op: "GT",
-          left: in1,
-          right: in2,
-          position: { x, y },
-        } as CompareNode;
-        ensureVariable(in1, "INT", "local", 0);
-        ensureVariable(in2, "INT", "local", 0);
-      }
-
-      if (tool === "math") {
-        const instance = `MATH_${Date.now()}`;
-        const in1 = `${instance}_IN1`;
-        const in2 = `${instance}_IN2`;
-        const out = `${instance}_OUT`;
-        element = {
-          id: elementId,
-          type: "math",
-          op: "ADD",
-          left: in1,
-          right: in2,
-          output: out,
-          position: { x, y },
-        } as MathNode;
-        ensureVariable(in1, "INT", "local", 0);
-        ensureVariable(in2, "INT", "local", 0);
-        ensureVariable(out, "INT", "local", 0);
-      }
-
-      if (tool === "branchSplit") {
-        element = {
-          id: elementId,
-          type: "branchSplit",
-          position: { x, y },
-        } as LadderElement;
-      }
-
-      if (tool === "branchMerge") {
-        element = {
-          id: elementId,
-          type: "branchMerge",
-          position: { x, y },
-        } as LadderElement;
-      }
-
-      if (tool === "junction") {
-        element = {
-          id: elementId,
-          type: "junction",
-          position: { x, y },
-        } as LadderElement;
-      }
-
-      if (!element) {
-        return previous;
-      }
-
-      const nextNodes = [...network.nodes, element];
-      insertedIndex = nextNodes.length - 1;
-      const nextNetwork = {
-        ...network,
-        nodes: nextNodes,
-      };
-
-      networks[rungIndex] = nextNetwork;
-
-      return {
-        ...previous,
-        networks,
-        variables: nextVariables,
-      };
-    });
-
-    return insertedIndex;
+  ): Promise<number> => {
+    const { answer } = await runEdit("insertElement", { rungIndex, tool, x, y });
+    return answer.ok && typeof answer.insertedIndex === "number" ? answer.insertedIndex : -1;
   };
 
   const addRungAt = (insertIndex: number) => {
-    const nextIndex = Math.max(0, Math.min(insertIndex, program.networks.length));
-    const rung: RungType = {
-      id: `rung_${Date.now()}`,
-      order: nextIndex,
-      nodes: [],
-      edges: [],
-      layout: {
-        y: nextIndex * RUNG_HEIGHT + 100,
-      },
-    };
-
-    applyProgramChange((previous) => {
-      const networks = [...previous.networks];
-      networks.splice(nextIndex, 0, rung);
-      return {
-        ...previous,
-        networks: networks.map((candidate, index) => ({
-          ...candidate,
-          order: index,
-          layout: {
-            ...candidate.layout,
-            y: index * RUNG_HEIGHT + 100,
-          },
-        })),
-      };
+    void runEdit("addRung", { index: Math.max(0, insertIndex) }).then(({ answer }) => {
+      if (answer.ok && typeof answer.insertedIndex === "number") {
+        setActiveRungIndex(answer.insertedIndex);
+        setSelectedElement(null);
+      }
     });
-    setActiveRungIndex(nextIndex);
-    setSelectedElement(null);
   };
 
   const addRung = () => {
@@ -854,45 +573,29 @@ export function LadderEditor() {
   };
 
   const removeRungAt = (targetIndex: number) => {
-    if (program.networks.length === 0) {
-      return;
-    }
     if (targetIndex < 0 || targetIndex >= program.networks.length) {
       return;
     }
-
-    const nextRungs = program.networks
-      .filter((_, index) => index !== targetIndex)
-      .map((rung, index) => ({
-        ...rung,
-        order: index,
-        layout: {
-          ...rung.layout,
-          y: index * RUNG_HEIGHT + 100,
-        },
-      }));
-
-    applyProgramChange((previous) => ({
-      ...previous,
-      networks: nextRungs,
-    }));
-
-    if (selectedElement?.rungIndex === targetIndex) {
-      setSelectedElement(null);
-    } else if (selectedElement && selectedElement.rungIndex > targetIndex) {
-      setSelectedElement({
-        rungIndex: selectedElement.rungIndex - 1,
-        elementIndex: selectedElement.elementIndex,
-      });
-    }
-
-    if (nextRungs.length === 0) {
-      setActiveRungIndex(null);
-    } else if (targetIndex >= nextRungs.length) {
-      setActiveRungIndex(nextRungs.length - 1);
-    } else {
-      setActiveRungIndex(targetIndex);
-    }
+    const selection = selectedElement;
+    void runEdit("removeRung", { index: targetIndex }).then(({ answer, program: next }) => {
+      if (!answer.ok || !next) {
+        return;
+      }
+      if (selection?.rungIndex === targetIndex) {
+        setSelectedElement(null);
+      } else if (selection && selection.rungIndex > targetIndex) {
+        setSelectedElement({
+          rungIndex: selection.rungIndex - 1,
+          elementIndex: selection.elementIndex,
+        });
+      }
+      const remaining = next.networks.length;
+      if (remaining === 0) {
+        setActiveRungIndex(null);
+      } else {
+        setActiveRungIndex(Math.min(targetIndex, remaining - 1));
+      }
+    });
   };
 
   const removeRung = () => {
@@ -944,68 +647,28 @@ export function LadderEditor() {
       return;
     }
 
-    let failureMessage: string | null = null;
-    let created = false;
-    let nextSelection: SelectedElement | null = null;
-    let totalParallelLegs = 0;
-    let rungShiftAppliedPx = 0;
-    applyProgramChange((previous) => {
-      const rung = previous.networks[rungIndex];
-      if (!rung) {
-        failureMessage = "Selected rung no longer exists.";
-        return previous;
-      }
-
-      const result = addParallelContactBranchLeg(previous, rungIndex, selectedNode.id);
-      if (!result.ok) {
-        if (result.error === "unsupported-topology") {
-          failureMessage = "This contact is not part of a branchable path.";
-        } else if (result.error === "insufficient-horizontal-space") {
-          failureMessage =
-            "Not enough horizontal space in this rung; move the contact right and retry.";
-        } else if (result.error === "invalid-topology") {
-          failureMessage =
-            "Cannot add another parallel contact on this topology. Use Clear Wiring and retry.";
-        } else {
-          failureMessage =
-            result.error === "rung-not-found"
-              ? "Selected rung no longer exists."
-              : "Selected contact is no longer valid.";
+    void runEdit("addParallelContact", { rungIndex, contactId: selectedNode.id }).then(
+      ({ answer, program: next }) => {
+        if (!answer.ok || !next) {
+          setLinkFeedback(answer.errors?.[0]?.message ?? "Unable to create parallel branch.");
+          return;
         }
-        return previous;
+        const selectedIndex =
+          next.networks[rungIndex]?.nodes.findIndex((node) => node.id === answer.selectedNodeId) ?? -1;
+        setSelectedTool(null);
+        setLinkModeEnabled(false);
+        setEdgeLinkSourceState(null);
+        setSelectedElement(selectedIndex >= 0 ? { rungIndex, elementIndex: selectedIndex } : null);
+        setActiveRungIndex(rungIndex);
+        const legs = answer.totalParallelLegs ?? 0;
+        const shift = answer.rungShiftPx ?? 0;
+        setLinkFeedback(
+          shift > 0
+            ? `Parallel branch now has ${legs} legs. Lower rungs shifted by ${shift}px.`
+            : `Parallel branch now has ${legs} legs.`
+        );
       }
-
-      created = true;
-      totalParallelLegs = result.totalParallelLegs;
-      rungShiftAppliedPx = result.rungShiftAppliedPx;
-      const selectedIndex = result.program.networks[rungIndex]?.nodes.findIndex(
-        (node) => node.id === result.selectedNodeId
-      );
-      if (selectedIndex !== undefined && selectedIndex >= 0) {
-        nextSelection = { rungIndex, elementIndex: selectedIndex };
-      }
-      return {
-        ...result.program,
-      };
-    });
-
-    if (!created) {
-      setLinkFeedback(failureMessage ?? "Unable to create parallel branch.");
-      return;
-    }
-
-    setSelectedTool(null);
-    setLinkModeEnabled(false);
-    setEdgeLinkSourceState(null);
-    setSelectedElement(nextSelection);
-    setActiveRungIndex(rungIndex);
-    if (rungShiftAppliedPx > 0) {
-      setLinkFeedback(
-        `Parallel branch now has ${totalParallelLegs} legs. Lower rungs shifted by ${rungShiftAppliedPx}px.`
-      );
-    } else {
-      setLinkFeedback(`Parallel branch now has ${totalParallelLegs} legs.`);
-    }
+    );
   };
 
   const removeElementAt = (rungIndex: number, elementIndex: number) => {
@@ -1061,21 +724,18 @@ export function LadderEditor() {
 
       networks[rungIndex] = nextNetwork;
 
-      const nextProgram: LadderProgram = {
+      return {
         ...previous,
         networks,
         variables: previous.variables,
       };
-
-      if (
-        updatedElement &&
-        (updatedElement.type === "contact" || updatedElement.type === "coil")
-      ) {
-        return reconcileContactCoilVariableDeclarations(nextProgram);
-      }
-
-      return nextProgram;
     });
+    // A contact or coil operand declares its symbol; the language server reconciles the
+    // declarations as part of the same change.
+    const element = program.networks[rungIndex]?.nodes[elementIndex];
+    if (element && (element.type === "contact" || element.type === "coil")) {
+      void runEdit("reconcileDeclarations", {}, { trackHistory: false });
+    }
   };
 
   const updateSelectedElement = (
@@ -1088,6 +748,38 @@ export function LadderEditor() {
     const { rungIndex, elementIndex } = selectedElement;
     updateElementAt(rungIndex, elementIndex, updater);
   };
+
+  /**
+   * Sends the text typed into a number field of the selected element to the language server
+   * (`trust-lsp.visualEdit` `setNumber`), which stores the number it reads or answers why not.
+   * Only the answer to the latest text is stored or shown.
+   */
+  const setSelectedNumber = (field: LadderNumberField, text: string) => {
+    if (!selectedElement) {
+      return;
+    }
+    const { rungIndex, elementIndex } = selectedElement;
+    numberEditRef.current += 1;
+    const request = numberEditRef.current;
+    void runEdit(
+      "setNumber",
+      { rungIndex, elementIndex, field, text },
+      { apply: () => request === numberEditRef.current }
+    ).then(({ answer }) => {
+      if (request !== numberEditRef.current) {
+        return;
+      }
+      setNumberFieldError(
+        answer.ok
+          ? null
+          : { field, message: answer.errors?.[0]?.message ?? "The value was not stored." }
+      );
+    });
+  };
+
+  useEffect(() => {
+    setNumberFieldError(null);
+  }, [selectedElement?.rungIndex, selectedElement?.elementIndex]);
 
   const updateElementPosition = (
     rungIndex: number,
@@ -1129,85 +821,21 @@ export function LadderEditor() {
     setSelectedTool(null);
   };
 
-  const addEdgeBetweenNodes = (
-    rungIndex: number,
-    fromNodeId: string,
-    toNodeId: string
-  ): void => {
-    applyProgramChange((previous) => {
-      const networks = [...previous.networks];
-      const network = networks[rungIndex];
-      if (!network || fromNodeId === toNodeId) {
-        return previous;
+  /** Wires two nodes of a rung (`trust-lsp.visualEdit` `connect`) and says what happened. */
+  const connectNodes = (rungIndex: number, fromNodeId: string, toNodeId: string): void => {
+    void runEdit(
+      "connect",
+      { rungIndex, fromNodeId, toNodeId },
+      { apply: (answer) => answer.wire === "added" }
+    ).then(({ answer }) => {
+      if (answer.wire === "added") {
+        setLinkFeedback("Wire connected.");
+      } else if (answer.wire === "already-connected") {
+        setLinkFeedback("Nodes are already connected.");
+      } else {
+        setLinkFeedback("Invalid wire target.");
       }
-
-      const baseNetwork =
-        network.edges.length > 0 ? network : autoRouteNetwork(network);
-      const fromNode = baseNetwork.nodes.find((node) => node.id === fromNodeId);
-      const toNode = baseNetwork.nodes.find((node) => node.id === toNodeId);
-      if (!fromNode || !toNode) {
-        return previous;
-      }
-
-      const exists = baseNetwork.edges.some(
-        (edge) => edge.fromNodeId === fromNodeId && edge.toNodeId === toNodeId
-      );
-      if (exists) {
-        return previous;
-      }
-
-      const edgeId = `edge_${baseNetwork.id}_${Date.now()}_${Math.floor(
-        Math.random() * 1000
-      )}`;
-
-      const nextNetwork: RungType = {
-        ...baseNetwork,
-        edges: [
-          ...baseNetwork.edges,
-          {
-            id: edgeId,
-            fromNodeId,
-            toNodeId,
-            points: buildOrthogonalEdgePoints(fromNode, toNode),
-          },
-        ],
-      };
-
-      networks[rungIndex] = nextNetwork;
-      return {
-        ...previous,
-        networks,
-      };
     });
-  };
-
-  const connectNodesIfNeeded = (
-    rungIndex: number,
-    fromNodeId: string,
-    toNodeId: string
-  ): "added" | "already-connected" | "invalid" => {
-    const network = program.networks[rungIndex];
-    if (!network || fromNodeId === toNodeId) {
-      return "invalid";
-    }
-
-    const baseNetwork =
-      network.edges.length > 0 ? network : autoRouteNetwork(network);
-    const fromNode = baseNetwork.nodes.find((node) => node.id === fromNodeId);
-    const toNode = baseNetwork.nodes.find((node) => node.id === toNodeId);
-    if (!fromNode || !toNode) {
-      return "invalid";
-    }
-
-    const exists = baseNetwork.edges.some(
-      (edge) => edge.fromNodeId === fromNodeId && edge.toNodeId === toNodeId
-    );
-    if (exists) {
-      return "already-connected";
-    }
-
-    addEdgeBetweenNodes(rungIndex, fromNodeId, toNodeId);
-    return "added";
   };
 
   const handleStartLink = (rungIndex: number, elementIndex: number) => {
@@ -1222,14 +850,7 @@ export function LadderEditor() {
         setEdgeLinkSourceState(null);
         return;
       }
-      const result = connectNodesIfNeeded(rungIndex, source.nodeId, node.id);
-      if (result === "added") {
-        setLinkFeedback("Wire connected.");
-      } else if (result === "already-connected") {
-        setLinkFeedback("Nodes are already connected.");
-      } else {
-        setLinkFeedback("Invalid wire target.");
-      }
+      connectNodes(rungIndex, source.nodeId, node.id);
       setEdgeLinkSourceState(null);
       return;
     }
@@ -1301,47 +922,27 @@ export function LadderEditor() {
       if (targetRungIndex < 0) {
         return;
       }
-
-      let insertedIndex = -1;
-      applyProgramChange((previous) => {
-        const networks = [...previous.networks];
-        const rung = networks[targetRungIndex];
-        if (!rung) {
-          return previous;
+      void runEdit("pasteElement", {
+        rungIndex: targetRungIndex,
+        element: clipboard.element,
+      }).then(({ answer }) => {
+        if (answer.ok && typeof answer.insertedIndex === "number") {
+          setSelectedElement({ rungIndex: targetRungIndex, elementIndex: answer.insertedIndex });
         }
-
-        const pasted = pasteElementIntoNetwork(rung, clipboard.element, rung.layout.y);
-        insertedIndex = pasted.insertedIndex;
-        networks[targetRungIndex] = pasted.network;
-
-        return {
-          ...previous,
-          networks,
-        };
       });
-
-      if (insertedIndex >= 0) {
-        setSelectedElement({
-          rungIndex: targetRungIndex,
-          elementIndex: insertedIndex,
-        });
-      }
       return;
     }
 
     const insertAfter =
       targetRungIndex >= 0 ? targetRungIndex : program.networks.length - 1;
-    let insertedRung = -1;
-    applyProgramChange((previous) => {
-      const result = pasteRungIntoProgram(previous, clipboard.rung, insertAfter);
-      insertedRung = result.insertedIndex;
-      return result.program;
-    });
-
-    if (insertedRung >= 0) {
-      setActiveRungIndex(insertedRung);
-      setSelectedElement(null);
-    }
+    void runEdit("pasteRung", { rung: clipboard.rung, afterIndex: insertAfter }).then(
+      ({ answer }) => {
+        if (answer.ok && typeof answer.insertedIndex === "number") {
+          setActiveRungIndex(answer.insertedIndex);
+          setSelectedElement(null);
+        }
+      }
+    );
   };
 
   const pasteSelection = () => {
@@ -1357,15 +958,19 @@ export function LadderEditor() {
     }
 
     const replaceValue = window.prompt("Replace with", "") ?? "";
-    const result = replaceSymbolInProgram(program, findValue, replaceValue);
-
-    if (result.replacements === 0) {
-      window.alert(`No matches for '${findValue}'.`);
-      return;
-    }
-
-    applyProgramChange(() => result.program);
-    window.alert(`Updated ${result.replacements} occurrence(s).`);
+    void runEdit(
+      "replaceSymbol",
+      { find: findValue, replace: replaceValue },
+      { apply: (answer) => (answer.replacements ?? 0) > 0 }
+    ).then(({ answer }) => {
+      if (!answer.ok) {
+        window.alert(answer.errors?.[0]?.message ?? "Find and replace failed.");
+      } else if ((answer.replacements ?? 0) === 0) {
+        window.alert(`No matches for '${findValue}'.`);
+      } else {
+        window.alert(`Updated ${answer.replacements} occurrence(s).`);
+      }
+    });
   };
 
   const openElementContextMenu = (
@@ -1376,7 +981,6 @@ export function LadderEditor() {
   ) => {
     setSelectedElement({ rungIndex, elementIndex });
     setActiveRungIndex(rungIndex);
-    setRightPaneView("tools");
     setContextMenu({
       x: clientX,
       y: clientY,
@@ -1395,7 +999,6 @@ export function LadderEditor() {
   ) => {
     setActiveRungIndex(rungIndex);
     setSelectedElement(null);
-    setRightPaneView("tools");
     setContextMenu({
       x: clientX,
       y: clientY,
@@ -1515,11 +1118,15 @@ export function LadderEditor() {
     return closestDistance <= RUNG_HEIGHT / 2 ? closestIndex : -1;
   };
 
-  const placeToolOnRung = (
+  /**
+   * Drops a tool on a rung at the grid point nearest `x`, kept between the rails, and selects the
+   * new element. Resolves to the element's index, or -1 when it was not placed.
+   */
+  const placeToolOnRung = async (
     tool: LadderInsertTool,
     rungIndex: number,
     x: number
-  ): number => {
+  ): Promise<number> => {
     const rung = program.networks[rungIndex];
     if (!rung) {
       return -1;
@@ -1537,7 +1144,7 @@ export function LadderEditor() {
         Math.round(x / GRID_SIZE) * GRID_SIZE
       )
     );
-    const insertedIndex = addElementWithTool(tool, rungIndex, snappedX, rung.layout.y);
+    const insertedIndex = await addElementWithTool(tool, rungIndex, snappedX, rung.layout.y);
     if (insertedIndex >= 0) {
       setSelectedElement({ rungIndex, elementIndex: insertedIndex });
       setActiveRungIndex(rungIndex);
@@ -1590,10 +1197,11 @@ export function LadderEditor() {
       return;
     }
 
-    const insertedIndex = placeToolOnRung(toolId, rungIndex, point.x);
-    if (insertedIndex >= 0) {
-      setSelectedTool(null);
-    }
+    void placeToolOnRung(toolId, rungIndex, point.x).then((insertedIndex) => {
+      if (insertedIndex >= 0) {
+        setSelectedTool(null);
+      }
+    });
     resetToolDragState();
   };
 
@@ -1650,9 +1258,11 @@ export function LadderEditor() {
         return;
       }
 
-      if (placeToolOnRung(selectedTool, rungIndex, stagePoint.x) >= 0) {
-        setSelectedTool(null);
-      }
+      void placeToolOnRung(selectedTool, rungIndex, stagePoint.x).then((insertedIndex) => {
+        if (insertedIndex >= 0) {
+          setSelectedTool(null);
+        }
+      });
     };
 
     stage.on("click", handleClick);
@@ -1742,7 +1352,9 @@ export function LadderEditor() {
         });
       });
 
-      return best ? { rungIndex: best.rungIndex, nodeId: best.nodeId } : null;
+      // `best` is assigned inside the callbacks, which TypeScript's narrowing does not follow.
+      const found = best as { rungIndex: number; nodeId: string; distance: number } | null;
+      return found ? { rungIndex: found.rungIndex, nodeId: found.nodeId } : null;
     };
 
     const finalizeLink = () => {
@@ -1778,18 +1390,7 @@ export function LadderEditor() {
         return;
       }
 
-      const result = connectNodesIfNeeded(
-        source.rungIndex,
-        source.nodeId,
-        target.nodeId
-      );
-      if (result === "added") {
-        setLinkFeedback("Wire connected.");
-      } else if (result === "already-connected") {
-        setLinkFeedback("Nodes are already connected.");
-      } else {
-        setLinkFeedback("Invalid wire target.");
-      }
+      connectNodes(source.rungIndex, source.nodeId, target.nodeId);
       setEdgeLinkSourceState(null);
     };
 
@@ -1804,7 +1405,7 @@ export function LadderEditor() {
       stage.off("mouseup", finalizeLink);
       stage.off("touchend", finalizeLink);
     };
-  }, [connectNodesIfNeeded, linkModeEnabled, program.networks]);
+  }, [connectNodes, linkModeEnabled, program.networks]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1816,7 +1417,6 @@ export function LadderEditor() {
         event.preventDefault();
         if (selectedElement) {
           setActiveRungIndex(selectedElement.rungIndex);
-          setRightPaneView("tools");
           setContextMenu({
             x: window.innerWidth / 2,
             y: window.innerHeight / 2,
@@ -1829,7 +1429,6 @@ export function LadderEditor() {
           return;
         }
         if (activeRungIndex !== null) {
-          setRightPaneView("tools");
           setContextMenu({
             x: window.innerWidth / 2,
             y: window.innerHeight / 2,
@@ -1994,9 +1593,12 @@ export function LadderEditor() {
           const transform = stage.getAbsoluteTransform().copy();
           transform.invert();
           const stagePoint = transform.point(position);
-          if (placeToolOnRung(selectedTool, rungIndex, stagePoint.x) >= 0) {
-            setSelectedTool(null);
-          }
+          const tool = selectedTool;
+          void placeToolOnRung(tool, rungIndex, stagePoint.x).then((insertedIndex) => {
+            if (insertedIndex >= 0) {
+              setSelectedTool(null);
+            }
+          });
         } else {
           setSelectedElement(null);
         }
@@ -2232,10 +1834,10 @@ export function LadderEditor() {
         };
 
         if (element.type === "contact") {
-          drawContactNode(element, drawContext, executionState);
+          drawContactNode(element, drawContext, null);
         }
         if (element.type === "coil") {
-          drawCoilNode(element, drawContext, executionState);
+          drawCoilNode(element, drawContext, null);
         }
         if (element.type === "timer") {
           drawTimerNode(element, drawContext);
@@ -2265,7 +1867,6 @@ export function LadderEditor() {
   }, [
     activeRungIndex,
     edgeLinkSource,
-    executionState,
     hoverRungIndex,
     isPanning,
     isToolDragActive,
@@ -2283,51 +1884,34 @@ export function LadderEditor() {
   }, []);
 
   useEffect(() => {
-    vscodeApi?.postMessage({ type: "programState", program });
-  }, [program]);
-
-  useEffect(() => {
     const messageHandler = (event: MessageEvent) => {
       const message = event.data;
       switch (message.type) {
         case "loadProgram": {
-          const reconciledProgram = reconcileContactCoilVariableDeclarations(
-            message.program
-          );
-          setProgram(reconciledProgram);
+          // The host sends the program as the language server opened it, declarations
+          // reconciled.
+          const loaded = message.program as LadderProgram;
+          programRef.current = loaded;
+          revisionRef.current += 1;
+          setProgram(loaded);
           resetHistory();
           setClipboard(null);
           setLinkFeedback(null);
           setEdgeLinkSourceState(null);
           setLinkModeEnabled(false);
           setSelectedTool(null);
-          if (reconciledProgram.networks.length > 0) {
-            setActiveRungIndex(0);
-          } else {
-            setActiveRungIndex(null);
-          }
+          setActiveRungIndex(loaded.networks.length > 0 ? 0 : null);
           setSelectedElement(null);
           break;
         }
-        case "runtime.state":
-          runtimeIsExecutingRef.current = Boolean(message.state?.isExecuting);
-          if (!message.state.isExecuting) {
-            setExecutionState(null);
+        case "editResult": {
+          const resolve = pendingEditsRef.current.get(message.requestId);
+          if (resolve) {
+            pendingEditsRef.current.delete(message.requestId);
+            resolve(message as LadderEditAnswer);
           }
           break;
-        case "runtime.error":
-          console.error("[Ladder webview runtime error]", message.message);
-          break;
-        case "ioState":
-          if (!runtimeIsExecutingRef.current) {
-            setExecutionState(null);
-            break;
-          }
-          setExecutionState(executionStateFromIoState(message.payload));
-          break;
-        case "stateUpdate":
-          setExecutionState(message.state);
-          break;
+        }
         default:
           break;
       }
@@ -2379,7 +1963,7 @@ export function LadderEditor() {
   };
 
   const handleAutoRoute = () => {
-    applyProgramChange((previous) => autoRouteProgram(previous));
+    void runEdit("autoRoute", {});
   };
 
   const handleFitView = () => {
@@ -2476,7 +2060,8 @@ export function LadderEditor() {
           <ElementPropertiesPanel
             selectedElement={selectedElement}
             selectedElementData={selectedElementData}
-            gridSize={GRID_SIZE}
+            onSetNumber={setSelectedNumber}
+            numberFieldError={numberFieldError}
             onUpdateSelectedElement={updateSelectedElement}
             onRemoveSelectedElement={removeSelectedElement}
           />

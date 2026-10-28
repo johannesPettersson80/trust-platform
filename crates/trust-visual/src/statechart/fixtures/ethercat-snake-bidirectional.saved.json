@@ -1,0 +1,345 @@
+{
+  "id": "stateMachine",
+  "initial": "Init",
+  "states": {
+    "Init": {
+      "entry": [
+        "initSystem",
+        "turnOffAll"
+      ],
+      "on": {
+        "START": {
+          "target": "Forward_0"
+        }
+      }
+    },
+    "Forward_0": {
+      "entry": [
+        "turnOn_DO0"
+      ],
+      "exit": [
+        "turnOff_DO0"
+      ],
+      "on": {
+        "TICK": {
+          "target": "Forward_1"
+        }
+      }
+    },
+    "Forward_1": {
+      "entry": [
+        "turnOn_DO1"
+      ],
+      "exit": [
+        "turnOff_DO1"
+      ],
+      "on": {
+        "TICK": {
+          "target": "Forward_2"
+        }
+      }
+    },
+    "Forward_2": {
+      "entry": [
+        "turnOn_DO2"
+      ],
+      "exit": [
+        "turnOff_DO2"
+      ],
+      "on": {
+        "TICK": {
+          "target": "Forward_3"
+        }
+      }
+    },
+    "Forward_3": {
+      "entry": [
+        "turnOn_DO3"
+      ],
+      "exit": [
+        "turnOff_DO3"
+      ],
+      "on": {
+        "TICK": {
+          "target": "Forward_4"
+        }
+      }
+    },
+    "Forward_4": {
+      "entry": [
+        "turnOn_DO4"
+      ],
+      "exit": [
+        "turnOff_DO4"
+      ],
+      "on": {
+        "TICK": {
+          "target": "Forward_5"
+        }
+      }
+    },
+    "Forward_5": {
+      "entry": [
+        "turnOn_DO5"
+      ],
+      "exit": [
+        "turnOff_DO5"
+      ],
+      "on": {
+        "TICK": {
+          "target": "Forward_6"
+        }
+      }
+    },
+    "Forward_6": {
+      "entry": [
+        "turnOn_DO6"
+      ],
+      "exit": [
+        "turnOff_DO6"
+      ],
+      "on": {
+        "TICK": {
+          "target": "Forward_7"
+        }
+      }
+    },
+    "Forward_7": {
+      "entry": [
+        "turnOn_DO7",
+        "reachedEnd"
+      ],
+      "exit": [
+        "turnOff_DO7"
+      ],
+      "on": {
+        "TICK": {
+          "target": "Backward_6"
+        }
+      }
+    },
+    "Backward_6": {
+      "entry": [
+        "turnOn_DO6"
+      ],
+      "exit": [
+        "turnOff_DO6"
+      ],
+      "on": {
+        "TICK": {
+          "target": "Backward_5"
+        }
+      }
+    },
+    "Backward_5": {
+      "entry": [
+        "turnOn_DO5"
+      ],
+      "exit": [
+        "turnOff_DO5"
+      ],
+      "on": {
+        "TICK": {
+          "target": "Backward_4"
+        }
+      }
+    },
+    "Backward_4": {
+      "entry": [
+        "turnOn_DO4"
+      ],
+      "exit": [
+        "turnOff_DO4"
+      ],
+      "on": {
+        "TICK": {
+          "target": "Backward_3"
+        }
+      }
+    },
+    "Backward_3": {
+      "entry": [
+        "turnOn_DO3"
+      ],
+      "exit": [
+        "turnOff_DO3"
+      ],
+      "on": {
+        "TICK": {
+          "target": "Backward_2"
+        }
+      }
+    },
+    "Backward_2": {
+      "entry": [
+        "turnOn_DO2"
+      ],
+      "exit": [
+        "turnOff_DO2"
+      ],
+      "on": {
+        "TICK": {
+          "target": "Backward_1"
+        }
+      }
+    },
+    "Backward_1": {
+      "entry": [
+        "turnOn_DO1"
+      ],
+      "exit": [
+        "turnOff_DO1"
+      ],
+      "on": {
+        "TICK": {
+          "target": "Backward_0"
+        }
+      }
+    },
+    "Backward_0": {
+      "entry": [
+        "turnOn_DO0",
+        "reachedStart"
+      ],
+      "exit": [
+        "turnOff_DO0"
+      ],
+      "on": {
+        "TICK": {
+          "target": "Forward_1"
+        }
+      }
+    }
+  },
+  "actionMappings": {
+    "initSystem": {
+      "action": "LOG",
+      "message": "EtherCAT Snake StateChart initialized"
+    },
+    "turnOffAll": {
+      "action": "SET_MULTIPLE",
+      "targets": [
+        {
+          "address": "%QX0.0",
+          "value": false
+        },
+        {
+          "address": "%QX0.1",
+          "value": false
+        },
+        {
+          "address": "%QX0.2",
+          "value": false
+        },
+        {
+          "address": "%QX0.3",
+          "value": false
+        },
+        {
+          "address": "%QX0.4",
+          "value": false
+        },
+        {
+          "address": "%QX0.5",
+          "value": false
+        },
+        {
+          "address": "%QX0.6",
+          "value": false
+        },
+        {
+          "address": "%QX0.7",
+          "value": false
+        }
+      ]
+    },
+    "turnOn_DO0": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.0",
+      "value": true
+    },
+    "turnOn_DO1": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.1",
+      "value": true
+    },
+    "turnOn_DO2": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.2",
+      "value": true
+    },
+    "turnOn_DO3": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.3",
+      "value": true
+    },
+    "turnOn_DO4": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.4",
+      "value": true
+    },
+    "turnOn_DO5": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.5",
+      "value": true
+    },
+    "turnOn_DO6": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.6",
+      "value": true
+    },
+    "turnOn_DO7": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.7",
+      "value": true
+    },
+    "turnOff_DO0": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.0",
+      "value": false
+    },
+    "turnOff_DO1": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.1",
+      "value": false
+    },
+    "turnOff_DO2": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.2",
+      "value": false
+    },
+    "turnOff_DO3": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.3",
+      "value": false
+    },
+    "turnOff_DO4": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.4",
+      "value": false
+    },
+    "turnOff_DO5": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.5",
+      "value": false
+    },
+    "turnOff_DO6": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.6",
+      "value": false
+    },
+    "turnOff_DO7": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.7",
+      "value": false
+    },
+    "reachedEnd": {
+      "action": "LOG",
+      "message": "Snake reached end, reversing direction"
+    },
+    "reachedStart": {
+      "action": "LOG",
+      "message": "Snake reached start, reversing direction"
+    }
+  }
+}

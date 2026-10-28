@@ -1,0 +1,340 @@
+//! Type conversions (IEC §6.6.2.5.2 to §6.6.2.5.7; specification 07 §2), with the runtime's
+//! results and faults: a real is rounded to the nearest integer with ties to even (`TRUNC`
+//! truncates), an integer outside its destination is an overflow, a bit string converts by its
+//! bits, and a `TIME` converts to a `DWORD` of whole milliseconds. Under the CODESYS conversion
+//! rules (specification 07 §2.10) a real rounds half away from zero and keeps the low-order bits
+//! of its destination's width ([`real_to_int_wrapping`]).
+
+use trust_plc_abi::module::fault;
+use trust_plc_abi::{Cx, Fault, FaultCode};
+
+use crate::arith::{finite, Real};
+
+/// How a real becomes an integer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Rounding {
+    /// To the nearest integer, a tie to the even one: `REAL_TO_INT` (IEC §6.6.2.5.2, Table 22).
+    Nearest,
+    /// Toward zero: `TRUNC`.
+    Truncate,
+    /// To the nearest integer, a tie away from zero: `REAL_TO_INT` under the CODESYS conversion
+    /// rules (specification 07 §2.10), `REAL_TO_INT(2.5) = 3`, `REAL_TO_INT(-1.5) = -2`.
+    HalfAway,
+}
+
+/// An integer type a conversion can produce.
+pub trait IntTarget: Copy {
+    /// Whether the type is signed.
+    const SIGNED: bool;
+    /// `value` in the type, or `None` outside it.
+    fn from_i64(value: i64) -> Option<Self>;
+    /// `value` in the type, or `None` outside it.
+    fn from_u64(value: u64) -> Option<Self>;
+    /// The low-order bits of `value` of the type's width, two's complement.
+    fn wrapping_from_i128(value: i128) -> Self;
+}
+
+macro_rules! int_target {
+    ($($t:ty: $signed:expr),*) => {$(
+        impl IntTarget for $t {
+            const SIGNED: bool = $signed;
+            fn from_i64(value: i64) -> Option<Self> {
+                Self::try_from(value).ok()
+            }
+            fn from_u64(value: u64) -> Option<Self> {
+                Self::try_from(value).ok()
+            }
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            fn wrapping_from_i128(value: i128) -> Self {
+                value as Self
+            }
+        }
+    )*};
+}
+
+int_target!(i8: true, i16: true, i32: true, i64: true, u8: false, u16: false, u32: false,
+    u64: false);
+
+fn overflow(cx: &mut Cx, detail: i64) -> Fault {
+    fault(cx, FaultCode::Overflow, detail, 0, 0)
+}
+
+/// `value` rounded to the nearest integer, a tie to the even one, as the runtime rounds a real to
+/// an integer: `libm`'s `trunc` and `round` on every target.
+#[must_use]
+pub fn round_ties_to_even(value: f64) -> f64 {
+    let truncated = libm::trunc(value);
+    let fraction = value - truncated;
+    // Exactly one half: the fraction of a binary64 is exact, so the comparison is exact.
+    #[allow(clippy::float_cmp)]
+    let tie = libm::fabs(fraction) == 0.5;
+    if tie {
+        // A binary64 half-integer has a magnitude below 2^52, so its truncated part is exact in an
+        // i64.
+        #[allow(clippy::cast_possible_truncation)]
+        let even = (truncated as i64) & 1 == 0;
+        if even {
+            truncated
+        } else {
+            truncated + if fraction < 0.0 { -1.0 } else { 1.0 }
+        }
+    } else {
+        libm::round(value)
+    }
+}
+
+/// The real `value`, in binary64, as the integer type `T`: `REAL_TO_DINT`, `LREAL_TO_INT`, `TRUNC`.
+///
+/// # Errors
+///
+/// `Overflow` for a value that is not finite or whose integer is outside `T`.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+pub fn real_to_int<T: IntTarget>(cx: &mut Cx, value: f64, rounding: Rounding) -> Result<T, Fault> {
+    if !value.is_finite() {
+        return Err(overflow(cx, 0));
+    }
+    let rounded = rounded(value, rounding);
+    let converted = if T::SIGNED {
+        if (-9_223_372_036_854_775_808.0..9_223_372_036_854_775_808.0).contains(&rounded) {
+            T::from_i64(rounded as i64)
+        } else {
+            None
+        }
+    } else if (0.0..18_446_744_073_709_551_616.0).contains(&rounded) {
+        T::from_u64(rounded as u64)
+    } else {
+        None
+    };
+    converted.ok_or_else(|| overflow(cx, rounded as i64))
+}
+
+/// The real `value` as `BOOL` (specification 07 §2.9): `TRUE` when it is not zero.
+///
+/// # Errors
+///
+/// `Overflow` for a value that is not finite.
+pub fn real_to_bool(cx: &mut Cx, value: f64) -> Result<bool, Fault> {
+    if !value.is_finite() {
+        return Err(overflow(cx, 0));
+    }
+    Ok(value != 0.0)
+}
+
+/// `value` rounded to an integer by `rounding`.
+fn rounded(value: f64, rounding: Rounding) -> f64 {
+    match rounding {
+        Rounding::Nearest => round_ties_to_even(value),
+        Rounding::Truncate => libm::trunc(value),
+        Rounding::HalfAway => libm::round(value),
+    }
+}
+
+/// The real `value`, in binary64, rounded by `rounding` and kept to the low-order bits of the
+/// integer type `T`'s width, two's complement, as the CODESYS conversion rules convert a real to an
+/// integer or a bit string (specification 07 §2.10): `REAL_TO_INT(2.5)` is 3, `REAL_TO_BYTE(300.0)`
+/// is 44 and `REAL_TO_DWORD(3.7)` is 4. A value beyond 128 bits is first taken as the nearest
+/// 128-bit integer, as the runtime takes it.
+///
+/// # Errors
+///
+/// `Overflow` for a value that is not finite.
+#[allow(clippy::cast_possible_truncation)]
+pub fn real_to_int_wrapping<T: IntTarget>(
+    cx: &mut Cx,
+    value: f64,
+    rounding: Rounding,
+) -> Result<T, Fault> {
+    if !value.is_finite() {
+        return Err(overflow(cx, 0));
+    }
+    Ok(T::wrapping_from_i128(rounded(value, rounding) as i128))
+}
+
+/// The signed integer `value` as the integer type `T`: `DINT_TO_INT`, `INT_TO_UDINT`.
+///
+/// # Errors
+///
+/// `Overflow` outside `T`.
+#[inline]
+pub fn sint_to<T: IntTarget>(cx: &mut Cx, value: i64) -> Result<T, Fault> {
+    T::from_i64(value).ok_or_else(|| overflow(cx, value))
+}
+
+/// The unsigned integer `value` as the integer type `T`: `UDINT_TO_INT`.
+///
+/// # Errors
+///
+/// `Overflow` outside `T`.
+#[inline]
+#[allow(clippy::cast_possible_wrap)]
+pub fn uint_to<T: IntTarget>(cx: &mut Cx, value: u64) -> Result<T, Fault> {
+    T::from_u64(value).ok_or_else(|| overflow(cx, value as i64))
+}
+
+/// A signed integer as a `REAL`: rounded to binary64 and then to binary32, as the runtime converts.
+#[must_use]
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+pub fn sint_to_real32(value: i64) -> f32 {
+    (value as f64) as f32
+}
+
+/// A signed integer as an `LREAL`.
+#[must_use]
+#[allow(clippy::cast_precision_loss)]
+pub fn sint_to_real64(value: i64) -> f64 {
+    value as f64
+}
+
+/// An unsigned integer as a `REAL`: rounded to binary64 and then to binary32.
+#[must_use]
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+pub fn uint_to_real32(value: u64) -> f32 {
+    (value as f64) as f32
+}
+
+/// An unsigned integer as an `LREAL`.
+#[must_use]
+#[allow(clippy::cast_precision_loss)]
+pub fn uint_to_real64(value: u64) -> f64 {
+    value as f64
+}
+
+/// A real as an `LREAL`: `REAL_TO_LREAL`, `LREAL_TO_LREAL`.
+///
+/// # Errors
+///
+/// `Overflow` for a value that is not finite.
+#[inline]
+pub fn real32_to_real<T: Real>(cx: &mut Cx, value: f32) -> Result<T, Fault> {
+    finite(cx, T::narrow(f64::from(value)))
+}
+
+/// An `LREAL` as a real: `LREAL_TO_REAL` rounds to binary32.
+///
+/// # Errors
+///
+/// `Overflow` for a value that is not finite in the destination, such as an `LREAL` above the
+/// largest `REAL`.
+#[inline]
+pub fn real64_to_real32<T: Real>(cx: &mut Cx, value: f64) -> Result<T, Fault> {
+    finite(cx, T::narrow(value))
+}
+
+/// `DWORD_TO_REAL`: the bits of a binary32.
+///
+/// # Errors
+///
+/// `Overflow` for bits that are an infinity or NaN.
+#[inline]
+pub fn bits_to_real32(cx: &mut Cx, bits: u32) -> Result<f32, Fault> {
+    finite(cx, f32::from_bits(bits))
+}
+
+/// `LWORD_TO_LREAL`: the bits of a binary64.
+///
+/// # Errors
+///
+/// `Overflow` for bits that are an infinity or NaN.
+#[inline]
+pub fn bits_to_real64(cx: &mut Cx, bits: u64) -> Result<f64, Fault> {
+    finite(cx, f64::from_bits(bits))
+}
+
+/// `TIME_TO_DWORD`: the whole milliseconds of a duration (specification 07 §2.8).
+///
+/// # Errors
+///
+/// `Overflow` for a negative duration and for one of more than `u32::MAX` milliseconds.
+#[inline]
+pub fn time_to_dword(cx: &mut Cx, nanos: i64) -> Result<u32, Fault> {
+    if nanos < 0 {
+        return Err(overflow(cx, nanos));
+    }
+    u32::try_from(nanos / 1_000_000).map_err(|_| overflow(cx, nanos))
+}
+
+/// `DWORD_TO_TIME`: a duration of `millis` milliseconds, in nanoseconds.
+#[must_use]
+pub fn dword_to_time(millis: u32) -> i64 {
+    i64::from(millis) * 1_000_000
+}
+
+/// An integer a text spells, in 128 bits, as the integer type `T`: `STRING_TO_INT`.
+///
+/// # Errors
+///
+/// `Overflow` outside `T`.
+#[allow(clippy::cast_possible_truncation)]
+pub fn wide_to<T: IntTarget>(cx: &mut Cx, value: i128) -> Result<T, Fault> {
+    let converted = if let Ok(signed) = i64::try_from(value) {
+        T::from_i64(signed)
+    } else if let Ok(unsigned) = u64::try_from(value) {
+        T::from_u64(unsigned)
+    } else {
+        None
+    };
+    converted.ok_or_else(|| overflow(cx, value as i64))
+}
+
+/// The number `code`, a signed one by its bits, as a `CHAR`: `INT_TO_CHAR`, `BYTE_TO_CHAR`.
+///
+/// # Errors
+///
+/// `Overflow` above 255, a negative number among them.
+#[allow(clippy::cast_possible_wrap)]
+pub fn code_to_char(cx: &mut Cx, code: u64) -> Result<u8, Fault> {
+    u8::try_from(code).map_err(|_| overflow(cx, code as i64))
+}
+
+/// The number `code`, a signed one by its bits, as a `WCHAR`: `INT_TO_WCHAR`.
+///
+/// # Errors
+///
+/// `Overflow` above 65,535, a negative number among them.
+#[allow(clippy::cast_possible_wrap)]
+pub fn code_to_wchar(cx: &mut Cx, code: u64) -> Result<u16, Fault> {
+    u16::try_from(code).map_err(|_| overflow(cx, code as i64))
+}
+
+/// `USINT_TO_BCD_BYTE` and the others: the `digits` decimal digits of `value`, four bits each,
+/// the lowest digit lowest (IEC Table 25).
+///
+/// # Errors
+///
+/// `Overflow` for a value with more digits.
+#[allow(clippy::cast_possible_wrap)]
+pub fn to_bcd(cx: &mut Cx, value: u64, digits: u32) -> Result<u64, Fault> {
+    let mut rest = value;
+    let mut result = 0u64;
+    for digit in 0..digits {
+        result |= (rest % 10) << (digit * 4);
+        rest /= 10;
+    }
+    if rest == 0 {
+        Ok(result)
+    } else {
+        Err(overflow(cx, value as i64))
+    }
+}
+
+/// `BYTE_BCD_TO_USINT` and the others: the number the `digits` decimal digits of `bits` spell,
+/// four bits each, the lowest digit lowest (IEC Table 25).
+///
+/// # Errors
+///
+/// `TypeMismatch` for four bits above 9.
+#[allow(clippy::cast_possible_wrap)]
+pub fn from_bcd(cx: &mut Cx, bits: u64, digits: u32) -> Result<u64, Fault> {
+    let mut result = 0u64;
+    let mut multiplier = 1u64;
+    for digit in 0..digits {
+        let value = (bits >> (digit * 4)) & 0xF;
+        if value > 9 {
+            return Err(fault(cx, FaultCode::TypeMismatch, bits as i64, 0, 0));
+        }
+        // Sixteen digits are below 10^16, so neither step overflows.
+        result += value * multiplier;
+        multiplier = multiplier.saturating_mul(10);
+    }
+    Ok(result)
+}

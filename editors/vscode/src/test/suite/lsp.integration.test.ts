@@ -144,7 +144,7 @@ async function waitForDiagnostics(
   const diagnostics = vscode.languages.getDiagnostics(uri);
   throw new Error(
     `Timed out waiting for diagnostics. Last diagnostics: ${diagnostics
-      .map((diag) => `${diag.code ?? ""} ${diag.message}`.trim())
+      .map((diag) => `${diag.code ?? ""} ${diag.message} ${(diag.relatedInformation ?? []).map(info => info.location.uri.toString()).join(", ")}`.trim())
       .join("; ")}`
   );
 }
@@ -191,7 +191,6 @@ suite("LSP integration (VS Code)", function () {
       "vscode-it"
     );
     await vscode.workspace.fs.createDirectory(fixturesRoot);
-
     const serverPath = process.env.ST_LSP_TEST_SERVER ?? "";
     assert.ok(serverPath.length > 0, "ST_LSP_TEST_SERVER is not set.");
     await vscode.workspace

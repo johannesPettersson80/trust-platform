@@ -53,23 +53,6 @@ impl<K: Ord, V> LiveEntries<K, V> {
     pub fn values(&self) -> impl Iterator<Item = &V> {
         self.entries.iter().map(|(_, value)| value)
     }
-    pub(super) fn as_slice(&self) -> &[(K, V)] {
-        &self.entries
-    }
-    pub(super) fn last(&self) -> Option<(&K, &V)> {
-        self.entries.last().map(|(key, value)| (key, value))
-    }
-    pub(super) fn get_mut_last(&mut self, key: &K) -> Option<&mut V> {
-        let (last_key, value) = self.entries.last_mut()?;
-        (&*last_key == key).then_some(value)
-    }
-    pub(super) fn remove_last(&mut self, key: &K) -> Option<V> {
-        if self.entries.last().is_some_and(|(last, _)| last == key) {
-            self.entries.pop().map(|(_, value)| value)
-        } else {
-            None
-        }
-    }
     #[cfg(any(test, not(feature = "std")))]
     pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
         self.entries.iter().map(pair)
@@ -115,6 +98,7 @@ impl<K: Ord, V> LiveEntries<K, V> {
     pub(super) fn retain(&mut self, mut keep: impl FnMut(&K, &V) -> bool) {
         self.entries.retain(|(key, value)| keep(key, value));
     }
+    #[cfg(not(feature = "std"))]
     pub(super) fn clear(&mut self) {
         self.entries.clear();
     }

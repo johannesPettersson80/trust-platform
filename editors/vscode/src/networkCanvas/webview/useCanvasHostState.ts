@@ -4,6 +4,7 @@ import type {
   CommApplyResponse,
   CommSchemaResponse,
 } from "../../communication/schemaForm";
+import type { DiscoveredAdsFacts } from "../canvasCommands";
 import type { NCGraph } from "./types";
 
 const EMPTY_GRAPH: NCGraph = {
@@ -19,12 +20,15 @@ const EMPTY_GRAPH: NCGraph = {
 export function useCanvasHostState({
   handleDiscoveryMessage,
   handleBrowseMessage,
+  handleMessage,
   prepareDiscoveryReady,
   onFocusNode,
   onApplyResult,
 }: {
   handleDiscoveryMessage: (message: unknown) => boolean;
   handleBrowseMessage: (message: unknown) => boolean;
+  /** Messages of the canvas's other features, such as the simulated plants; true when handled. */
+  handleMessage?: (message: unknown) => boolean;
   prepareDiscoveryReady: () => void;
   onFocusNode: (nodeId: string) => void;
   onApplyResult: (result: CommApplyResponse | undefined) => void;
@@ -38,13 +42,15 @@ export function useCanvasHostState({
   const [schema, setSchema] = useState<CommSchemaResponse | undefined>();
   const [reachable, setReachable] = useState(false);
   const [setupMessage, setSetupMessage] = useState<string | undefined>();
+  const [discoveredAds, setDiscoveredAds] = useState<readonly DiscoveredAdsFacts[]>([]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       const message = event.data;
       if (
         handleDiscoveryMessage(message) ||
-        handleBrowseMessage(message)
+        handleBrowseMessage(message) ||
+        handleMessage?.(message)
       ) {
         return;
       }
@@ -59,6 +65,11 @@ export function useCanvasHostState({
           typeof message.setupMessage === "string"
             ? message.setupMessage
             : undefined
+        );
+        setDiscoveredAds(
+          Array.isArray(message.discoveredAds)
+            ? (message.discoveredAds as DiscoveredAdsFacts[])
+            : []
         );
       }
       if (
@@ -75,6 +86,7 @@ export function useCanvasHostState({
   }, [
     handleBrowseMessage,
     handleDiscoveryMessage,
+    handleMessage,
     onApplyResult,
     onFocusNode,
     prepareDiscoveryReady,
@@ -85,5 +97,6 @@ export function useCanvasHostState({
     schema,
     reachable,
     setupMessage,
+    discoveredAds,
   };
 }

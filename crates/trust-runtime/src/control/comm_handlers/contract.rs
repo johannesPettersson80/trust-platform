@@ -75,6 +75,42 @@ pub(super) struct RuntimeCapabilityStatus {
     pub(super) health: CommHealth,
     pub(super) detail: String,
     pub(super) next_action: CommNextAction,
+    /// Live discovery health, carried only by the `discovery` entry and flattened into it, so the
+    /// other entries keep their version-4 shape (specification 11, "Communication schema,
+    /// capabilities, and Test").
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub(super) discovery: Option<DiscoveryHealth>,
+    /// Live mesh health, carried only by the `mesh` entry and flattened into it, so the other
+    /// entries keep their version-4 shape (specification 11, "Communication schema, capabilities,
+    /// and Test").
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub(super) mesh: Option<MeshHealth>,
+}
+
+/// Live discovery health of the `discovery` capability entry (specification 11, "Communication
+/// schema, capabilities, and Test"): whether runtime discovery is enabled, whether it announces
+/// itself, and how many other runtimes it currently sees.
+#[derive(Debug, Clone, Serialize)]
+pub(super) struct DiscoveryHealth {
+    pub(super) enabled: bool,
+    pub(super) announcing: bool,
+    pub(super) visible_runtimes: usize,
+}
+
+/// Live mesh health of the `mesh` capability entry (specification 11, "Communication schema,
+/// capabilities, and Test"): one object for each configured peer, in configuration order.
+#[derive(Debug, Clone, Serialize)]
+pub(super) struct MeshHealth {
+    pub(super) peers: Vec<MeshPeerHealth>,
+}
+
+/// One configured mesh peer and what the mesh's liveliness reports about it (specification 11,
+/// "Communication schema, capabilities, and Test").
+#[derive(Debug, Clone, Serialize)]
+pub(super) struct MeshPeerHealth {
+    pub(super) peer: String,
+    pub(super) connected: bool,
+    pub(super) last_seen_ms: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]

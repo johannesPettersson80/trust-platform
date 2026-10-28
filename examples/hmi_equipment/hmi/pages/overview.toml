@@ -1,0 +1,191 @@
+format = 1
+title = "Overview"
+order = 0
+icon = "overview"
+
+[[object]]
+id = "heading"
+type = "text"
+variant = "heading"
+at = [40, 32]
+size = [800, 40]
+text = "Tank T-101 transfer"
+
+[[object]]
+id = "hint"
+type = "text"
+variant = "caption"
+at = [40, 80]
+size = [800, 28]
+text = "Select a symbol to open its panel."
+
+[[object]]
+id = "process-panel"
+type = "group"
+at = [40, 112]
+size = [1196, 452]
+label = "Transfer line"
+
+[[object]]
+id = "p-101"
+tag = "P-101"
+type = "pump"
+block = "Plant.FB_Pump"
+instance = "Main.P101"
+faceplate = "plant-run"
+at = [160, 404]
+size = [128, 108]
+
+[object.bind]
+fault = "Main.P101.Fault"
+manual = "Main.P101.Manual"
+out-of-service = "Main.P101.OutOfService"
+running = "Main.P101.Running"
+
+
+[[object]]
+id = "fv-101"
+tag = "FV-101"
+type = "control-valve"
+variant = "positioner"
+block = "Plant.FB_ControlValve"
+instance = "Main.FV101"
+faceplate = "plant-position"
+at = [440, 380]
+size = [128, 108]
+unit = "%"
+decimals = 0
+
+[object.bind]
+demand = "Main.FV101.PositionSetpoint"
+fault = "Main.FV101.Deviating"
+manual = "Main.FV101.Manual"
+out-of-service = "Main.FV101.OutOfService"
+position = "Main.FV101.Position"
+
+
+[[object]]
+id = "t-101"
+tag = "T-101"
+type = "tank"
+block = "Plant.FB_Tank"
+instance = "Main.T101"
+faceplate = "plant-tank"
+at = [760, 272]
+size = [160, 236]
+unit = "%"
+decimals = 0
+min = 0
+max = 100
+
+[object.bind]
+level = "Main.T101.Percent"
+
+
+[[object]]
+id = "lt-101"
+tag = "LT-101"
+type = "level-sensor"
+block = "Plant.FB_LevelInput"
+instance = "Main.LT101"
+faceplate = "plant-measurement"
+at = [980, 344]
+size = [176, 56]
+unit = "m"
+decimals = 2
+attach = "t-101"
+
+[object.bind]
+value = "Main.LT101.Value"
+
+[[object]]
+id = "lic-101"
+tag = "LIC-101"
+type = "controller"
+block = "Control.PID"
+instance = "Main.LIC101"
+faceplate = "plant-pid"
+at = [980, 176]
+size = [256, 56]
+unit = "m"
+decimals = 2
+
+[object.bind]
+manual = "Main.LIC101_Manual"
+pv = "Main.LIC101_Input.ProcessValue"
+sp = "Main.LIC101_Setpoint"
+
+[[object]]
+id = "trend"
+type = "trend"
+at = [40, 600]
+size = [784, 352]
+label = "Level"
+unit = "m"
+min = 0
+max = 3
+span = 300
+
+[object.bind]
+Level = "Main.Level"
+Setpoint = "Main.LIC101_Setpoint"
+high-limit = "Main.LT101.HighLimit"
+low-limit = "Main.LT101.LowLimit"
+
+[[object]]
+id = "level-gauge"
+type = "gauge"
+at = [1280, 112]
+size = [368, 256]
+label = "Tank level"
+unit = "m"
+decimals = 2
+min = 0
+max = 3
+[object.bind]
+value = "Main.T101.Level"
+
+[[object]]
+id = "output-reading"
+type = "value"
+at = [1280, 388]
+size = [176, 96]
+label = "Loop output"
+unit = "%"
+decimals = 1
+[object.bind]
+value = "Main.LIC101_Output"
+
+[[object]]
+id = "valve-reading"
+type = "value"
+at = [1472, 388]
+size = [176, 96]
+label = "Valve opening"
+unit = "%"
+decimals = 1
+[object.bind]
+value = "Main.FV101.Position"
+
+[[object]]
+id = "pump-state"
+type = "status"
+at = [1280, 508]
+size = [368, 44]
+label = "Pump running"
+[object.bind]
+state = "Main.P101.Running"
+
+[[object]]
+id = "operating-alarms"
+type = "alarm-list"
+at = [848, 600]
+size = [800, 352]
+
+[[pipe]]
+from = "p-101.outlet"
+to = "fv-101.inlet"
+
+[[pipe]]
+from = "fv-101.outlet"
+to = "t-101.inlet"

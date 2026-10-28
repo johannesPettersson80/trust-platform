@@ -1,5 +1,7 @@
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use crate::error::RuntimeError;
-use crate::harness::{CompileSession, TestHarness};
+use crate::harness::TestHarness;
 use crate::value::Value;
 
 fn run(source: &str) -> TestHarness {
@@ -211,28 +213,4 @@ END_PROGRAM
         }]
     );
     assert_eq!(harness.get_output("result"), Some(Value::WChar(0)));
-}
-
-#[test]
-fn string_index_runtime_source_emits_bytecode_module_and_bytes() {
-    let session = CompileSession::from_source(
-        r#"
-PROGRAM Main
-VAR text : STRING[4] := 'AB'; result : CHAR; END_VAR
-text[2] := 'Z';
-result := text[2];
-END_PROGRAM
-"#,
-    );
-    let module = session
-        .build_bytecode_module()
-        .expect("string indexing must emit a bytecode module");
-    assert!(
-        !module.sections.is_empty(),
-        "string-index source must retain executable bytecode"
-    );
-    let bytes = session
-        .build_bytecode_bytes()
-        .expect("string indexing must emit encoded bytecode");
-    assert!(!bytes.is_empty(), "encoded bytecode must not be empty");
 }

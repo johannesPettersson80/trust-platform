@@ -1,0 +1,79 @@
+@startuml hmi-agent-authoring
+!theme plain
+title HMI agent authoring - shared editor services
+actor "Customer's existing agent" as customer
+component "VS Code language-model tool API\nagent/tools.ts" as vscode
+component "Stdio MCP server\ntrust-lsp hmi-agent (Rust)\nversions, ids, limits, timeouts, cancellation" as proxy
+component "Explicit workspace connection\nagent/connect.ts + bridge.ts\nprivate loopback capability, invokes tools only" as mcp
+component "Common request boundary\nagent/boundary.ts" as boundary
+component "Read-only context and inspection\nagent/queries.ts" as queries
+component "Authoring operations\nagent/service.ts + geometryQuality.ts" as service
+component "Editor-authoritative snapshots\nagent/documents.ts" as documents
+component "Persistent revisioned drafts\nagent/drafts.ts\nmutation lock and replay receipts" as drafts
+component "Composition and semantic edits\nagent/compose.ts + layout.ts + edits.ts" as edits
+component "Versioned composition references\nagent/patterns.ts + patternReferences.ts\nexplicit synthetic example topology" as patterns
+component "Project image snapshots\nagent/assets.ts + assetRasterizer.ts\ncontent hashes and static decoded pixels" as assets
+component "Existing native parser, compiler\nHMI binding and catalogue services" as native
+component "Shared drawing and isolated rasterizer\nagent/render.ts + library.ts\nproject symbols and bundled fonts" as drawing
+component "HMI Builder proposal mode\neditor/proposals.ts + ProposalReview.tsx\nread-only virtual document and synthetic comparison" as proposal
+component "Single editor WorkspaceEdit\nagent/apply.ts\nexplicit save outcome" as apply
+component "Operation lifetime\nagent/lifetime.ts\nbounded native reads and cancellation" as lifetime
+component "Revision and image manifests\nagent/artifacts.ts + visualReview.ts" as evidence
+component "Synthetic exploration\nagent/exploration.ts + Exploration.tsx\nshared runtime display, no network or commands" as explore
+component "Configured Control Studio handoff\neditor/controlStudioHandoff.ts" as studio
+component "Named local simulator sessions\nagent/simulator.ts\nexplicit login, matching deployed page" as simulator
+component "Remote samples and named owner sessions\nhmi/remote_values + remote_operations" as remote
+component "Authenticated TLS mesh\nmesh/hmi_reads + hmi_operations" as mesh
+component "Owning Hmi.Display task\nnative policy, typed write, pulse end and audit" as owner
+component "Bounded ordinary value-card painting\ndisplay/valuePaintQueue.ts\nwhole-card coalescing, urgent states immediate" as paint
+explore --> paint : shared display lifecycle
+customer --> vscode : native tools
+customer --> proxy : stdio tools and PNGs
+proxy --> mcp : checked tool calls over the private loopback
+mcp --> vscode : same tool implementation
+vscode --> lifetime : request budget / cancellation
+lifetime --> native : cancel read-only requests
+vscode --> boundary : window-owned workspace identity
+boundary --> queries : read operations
+boundary --> service : draft operations
+queries --> remote : selected serving runtime publish catalogue
+service --> simulator : explicit bounded simulator journey
+simulator --> owner : existing named HMI session and command API
+remote --> mesh : bounded non-realtime reads / authenticated operations
+mesh --> owner : own named login and policy
+note right of mesh
+Discovery requests already-live peers
+and excludes the local runtime.
+end note
+queries --> documents : dirty text before disk
+queries --> native : existing owners
+queries --> patterns : discover definitions / example model
+patterns --> drawing : shared drawing via library.ts
+service --> queries : current context and revisions
+service --> drafts : revision check / isolated proposal
+service --> edits : deterministic model changes
+service --> native : canonical format and validation
+service --> drawing : synthetic design frame / PNG
+service --> assets : referenced images / reviewed hash comparison
+assets --> documents : dirty SVG text
+assets --> native : existing bounded HMI bundle reader
+assets --> drawing : embedded static image resources
+service --> evidence : revision-bound findings and image identities
+service --> explore : explicit snapshot exploration
+proposal --> explore : navigate / popup / read-only controls
+proposal --> studio : source editor only, configured equipment loop
+service --> proposal : exact-revision before/after and object diff
+proposal --> service : explicit Apply / Discard with fresh request context
+service --> apply : reviewed revision, explicit incomplete marker when requested
+apply --> documents : compare all base revisions
+apply --> service : committed result for durable receipt
+note bottom of service
+No model provider or implicit deployment / physical-operation authority.
+Simulator operation requires an explicitly connected local named session.
+Program fingerprint changes block application.
+Post-commit cancellation retains the committed outcome.
+Proposal mode exposes no deployment or runtime operations.
+Incomplete pages are refused by native bundle deployment checks.
+Source outcome uncertainty retains the prepared application receipt.
+end note
+@enduml

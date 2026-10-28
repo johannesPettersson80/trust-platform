@@ -210,6 +210,22 @@ fn scan(root: &Path, files: &[PathBuf], tool: &str) -> Result<(Vec<Value>, Vec<M
     Ok((raw_facts, matches.into_iter().collect(), unsupported))
 }
 
+/// The unsupported forms outside the delegated paths: a delegated path is owned whole, with its
+/// invariant, including forms the AST patterns cannot register (an `unsafe trait`, or an
+/// `unsafe impl` inside a `macro_rules!` definition).
+fn undelegated_forms(unsupported: &str, policy: &UnsafeConcurrencyPolicy) -> String {
+    unsupported
+        .lines()
+        .filter(|line| {
+            !policy
+                .delegated_unsafe_path_register
+                .iter()
+                .any(|entry| line.starts_with(&entry.path_prefix))
+        })
+        .map(|line| format!("{line}\n"))
+        .collect()
+}
+
 fn is_registered(site: &Match, policy: &UnsafeConcurrencyPolicy) -> bool {
     policy
         .unsafe_site_register
@@ -268,6 +284,7 @@ pub fn external_safety_gate(root: &Path) -> Result<()> {
     );
     let version = String::from_utf8(version.stdout)?.trim().to_owned();
     let (raw, matches, unsupported) = scan(root, &files, &tool)?;
+    let unsupported = undelegated_forms(&unsupported, policy);
     let (unknown, missing) = rejected(&matches, policy);
     write_json(&output.join("ast-grep-unsafe-raw.json"), &raw)?;
     write_json(&output.join("ast-grep-unsafe-normalized.json"), &matches)?;
@@ -424,6 +441,27 @@ mod tests {
         );
         assert!(missing.is_empty());
         assert_eq!(unknown, [site("third_party/reviewed_other/lib.rs", 1)]);
+    }
+    #[test]
+    fn unsupported_forms_of_a_delegated_path_are_owned_by_its_delegation() {
+        let mut policy = policy(&[]);
+        policy
+            .delegated_unsafe_path_register
+            .push(DelegatedUnsafePathPolicy {
+                path_prefix: "crates/abi/src/plain.rs".into(),
+                owner: "test".into(),
+                invariant: "fixture".into(),
+                test_evidence: "native".into(),
+                review_date: "2026-10-22".into(),
+            });
+        let forms = "crates/abi/src/plain.rs:17:pub unsafe trait Plain: Sized {\n\
+                     crates/abi/src/plainer.rs:3:pub unsafe trait Other {\n\
+                     crates/other/src/lib.rs:9:unsafe extern \"C\" {\n";
+        assert_eq!(
+            undelegated_forms(forms, &policy),
+            "crates/abi/src/plainer.rs:3:pub unsafe trait Other {\n\
+             crates/other/src/lib.rs:9:unsafe extern \"C\" {\n"
+        );
     }
     #[test]
     fn empty_match_exit_is_accepted_only_with_complete_empty_json_and_no_error() {

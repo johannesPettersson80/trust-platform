@@ -38,6 +38,19 @@ pub fn run_comm(action: CommAction) -> anyhow::Result<()> {
                     .map_err(anyhow::Error::msg)?,
             )
         }
+        CommAction::Test {
+            project,
+            protocol,
+            params,
+            json: _,
+        } => {
+            let parsed_params = parse_params(params.as_str())?;
+            print_json(trust_runtime::control::offline_comm_test_json(
+                project.as_path(),
+                protocol.as_str(),
+                parsed_params,
+            ))
+        }
         CommAction::Discover {
             protocol,
             origin,
@@ -48,6 +61,7 @@ pub fn run_comm(action: CommAction) -> anyhow::Result<()> {
             unit_id,
             probe_read_address,
             probe_read_quantity,
+            ads_ports,
             passive,
             json: _,
         } => {
@@ -75,6 +89,9 @@ pub fn run_comm(action: CommAction) -> anyhow::Result<()> {
                     "probe_read_quantity".to_string(),
                     json!(probe_read_quantity),
                 );
+            }
+            if !ads_ports.is_empty() {
+                scope.insert("ads_ports".to_string(), json!(ads_ports));
             }
             print_json(
                 trust_runtime::control::offline_comm_discover_json(json!({

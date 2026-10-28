@@ -1,12 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Background,
-  BackgroundVariant,
-  Controls,
   type Edge,
   type Node,
-  type OnNodeDrag,
-  ReactFlow,
   ReactFlowProvider,
   useEdgesState,
   useNodesState,
@@ -16,37 +11,46 @@ import "@xyflow/react/dist/style.css";
 import "../../webview/theme.css";
 import { buildGraph } from "./layout";
 import { visibleFaultsForValidationState } from "./faults";
-import { nodeTypes } from "./nodes";
-import { edgeTypes } from "./CasedEdge";
-import { AddDevicePanel } from "./AddDevicePanel";
-import { NodeInspector, type InspectorNode } from "./NodeInspector";
-import { AddPane } from "./AddPane";
-import { AddHostPanel } from "./AddHostPanel";
-import { AddRuntimePanel } from "./AddRuntimePanel";
-import { SetUpRuntimePanel } from "./SetUpRuntimePanel";
-import { DiscoverPane } from "./DiscoverPane";
-import { BrowseTagsPanel } from "./BrowseTagsPanel";
-import { AdsMultiPortTagBrowser } from "./AdsMultiPortTagBrowser";
+import type { InspectorNode } from "./NodeInspector";
+import { useEquipmentConnections } from "./EquipmentConnections";
 import { useBrowseSession } from "./useBrowseSession";
 import { useCanvasHostState } from "./useCanvasHostState";
-import { NetworkCanvasHeader } from "./NetworkCanvasHeader";
-import { NetworkCanvasOverlays } from "./NetworkCanvasOverlays";
-import { activeDrawerWidth } from "./networkCanvasStyles";
-import {
-  useDiscoverActions,
-  useDiscoverPaneLifecycle,
-} from "./useDiscoverPane";
+import { useDiscoverActions, useDiscoverPaneLifecycle } from "./useDiscoverPane";
 import type { DeviceDraft } from "./discoverPaneModel";
-import { EditModeContext, type AddSlotRequest } from "./editMode";
-import { FilterPanel } from "./FilterPanel";
+import type { AddSlotRequest } from "./editMode";
 import { applyFilter, filterReport, protocolsInGraph } from "./filter";
 import type { CommApplyResponse } from "../../communication/schemaForm";
 import { LOCAL_RUNTIME_NODE_ID } from "./types";
+import { CanvasToolbar } from "./CanvasToolbar";
+import { CanvasGraphShell } from "./CanvasGraphShell";
+import {
+  activeDrawerWidth,
+  CanvasDrawerRouter,
+  type CanvasDrawerRoutes,
+} from "./CanvasDrawerRouter";
+import { useCanvasViewport } from "./useCanvasViewport";
+import {
+  createPlantDraft,
+  createPlantEditDraft,
+  plantDraftCancelTarget,
+  PLANT_DRAG_MIME,
+  plantDropPresentation,
+  projectPlantDraft,
+  resolvePlantDrop,
+  type PlantDraft,
+} from "../plant/addFlow";
+import type { PlantSignalCatalog } from "../plant/signalCatalog";
+import { receivePlantEditResult, type PlantEditorTables } from "../plant/editorSession";
 
 interface VsCodeApi {
   postMessage(msg: unknown): void;
   getState(): unknown;
   setState(state: unknown): void;
+}
+
+interface PlantSaveConflict {
+  currentRevision: string;
+  currentPlant: Record<string, unknown> | null;
 }
 declare function acquireVsCodeApi(): VsCodeApi;
 
@@ -57,6 +61,7 @@ const vscode: VsCodeApi =
 
 function Canvas() {
   const post = useCallback((message: unknown) => vscode.postMessage(message), []);
+  const equipment = useEquipmentConnections(post);
   const {
     open: discoverOpen,
     show: openDiscoverPane,
@@ -66,7 +71,6 @@ function Canvas() {
     progress: discoverProgress,
     results: discoverResults,
     error: discoverError,
-    sessionCurrent: discoverSessionCurrent,
     prepareReady: prepareDiscoveryReady,
     handleMessage: handleDiscoveryMessage,
     startScan: onDiscoverScan,
@@ -85,8 +89,20 @@ function Canvas() {
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const [searchDraft, setSearchDraft] = useState("");
   const [draft, setDraft] = useState<DeviceDraft | undefined>(undefined);
+  const [plantDraft, setPlantDraft] = useState<PlantDraft | undefined>(undefined);
+  const [plantSaving, setPlantSaving] = useState(false);
+  const [plantSaveError, setPlantSaveError] = useState<string | undefined>(undefined);
+  const [plantSaveConflict, setPlantSaveConflict] = useState<PlantSaveConflict | undefined>(undefined);
+  const plantDraftOriginRef = useRef<{ selectedId?: string }>({});
+  const plantDragSequence = useRef(0);
+  const activePlantDragIdRef = useRef<string | undefined>(undefined);
+  const [activePlantDragId, setActivePlantDragId] = useState<string | undefined>(undefined);
+  const [plantDropTargetId, setPlantDropTargetId] = useState<string | undefined>(undefined);
+  const [plantDropMessage, setPlantDropMessage] = useState<string | undefined>(undefined);
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
   const [focusTargetId, setFocusTargetId] = useState<string | undefined>(undefined);
+  const [keyboardFocusTargetId, setKeyboardFocusTargetId] = useState<string | undefined>(undefined);
+  const clearFocusTarget = useCallback(() => setFocusTargetId(undefined), []);
   const [applyResult, setApplyResult] = useState<CommApplyResponse | undefined>(undefined);
   const applyResultSignature = useMemo(
     () =>
@@ -101,6 +117,13 @@ function Canvas() {
     [applyResult]
   );
   const [applyResultLocallyStale, setApplyResultLocallyStale] = useState(false);
+  const [plantSignals, setPlantSignals] = useState<PlantSignalCatalog>({
+    status: "compile_error",
+    commands: [],
+    feedbacks: [],
+    error: "Compiled PLC signals are not available yet.",
+  });
+  const [plantEditorTables, setPlantEditorTables] = useState<PlantEditorTables>();
   const { fitView, screenToFlowPosition, getIntersectingNodes } = useReactFlow();
   const clearApplyResult = useCallback(() => {
     setApplyResult(undefined);
@@ -132,9 +155,69 @@ function Canvas() {
     setSelectedId(nodeId);
     setFocusTargetId(nodeId);
   }, []);
-  const { graph, schema, reachable, setupMessage } = useCanvasHostState({
+  // The simulated plants' messages (specification 47): the compiled signal catalog rides on
+  // `meta`, and a save or removal answers the panel that asked for it.
+  const handlePlantMessage = useCallback((message: unknown) => {
+    const msg = message as Record<string, unknown> | null | undefined;
+    if (!msg) {
+      return false;
+    }
+    if (receivePlantEditResult(msg)) {
+      return true;
+    }
+    if (msg.type === "meta") {
+      if (msg.plantSignals) setPlantSignals(msg.plantSignals as PlantSignalCatalog);
+      if (msg.plantEditor) setPlantEditorTables(msg.plantEditor as PlantEditorTables);
+      return false;
+    }
+    if (msg.type === "plantSaveResult") {
+      setPlantSaving(false);
+      if (msg.ok === true && typeof msg.nodeId === "string") {
+        setPlantDraft(undefined);
+        setPlantSaveError(undefined);
+        setPlantSaveConflict(undefined);
+        setSelectedId(msg.nodeId);
+        setFocusTargetId(msg.nodeId);
+        plantDraftOriginRef.current = {};
+      } else {
+        setPlantSaveError(typeof msg.message === "string" ? msg.message : "The simulated plant was not saved.");
+        setPlantSaveConflict(
+          msg.code === "revision_conflict" && typeof msg.currentRevision === "string"
+            ? {
+                currentRevision: msg.currentRevision,
+                currentPlant:
+                  msg.currentPlant && typeof msg.currentPlant === "object" && !Array.isArray(msg.currentPlant)
+                    ? msg.currentPlant as Record<string, unknown>
+                    : null,
+              }
+            : undefined
+        );
+      }
+      return true;
+    }
+    if (msg.type === "plantRemoveResult") {
+      setPlantSaving(false);
+      if (msg.ok === true && typeof msg.runtimeId === "string") {
+        setPlantDraft(undefined);
+        setPlantSaveError(undefined);
+        setPlantSaveConflict(undefined);
+        setSelectedId(msg.runtimeId);
+        setFocusTargetId(msg.runtimeId);
+        setKeyboardFocusTargetId(msg.runtimeId);
+        plantDraftOriginRef.current = {};
+      } else {
+        setPlantSaveError(
+          typeof msg.message === "string" ? msg.message : "The simulated plant was not removed."
+        );
+      }
+      return true;
+    }
+    return false;
+  }, []);
+  const { graph, schema, reachable, setupMessage, discoveredAds } = useCanvasHostState({
     handleDiscoveryMessage,
     handleBrowseMessage,
+    handleMessage: handlePlantMessage,
     prepareDiscoveryReady,
     onFocusNode: onHostFocusNode,
     onApplyResult: setApplyResult,
@@ -149,22 +232,76 @@ function Canvas() {
   );
 
   // §6.1: drop a palette item onto a runtime → that runtime owns the new endpoint.
-  const onDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "copy";
-  }, []);
+  const runtimeAt = useCallback(
+    (clientX: number, clientY: number) => {
+      const pos = screenToFlowPosition({ x: clientX, y: clientY });
+      return getIntersectingNodes({ x: pos.x, y: pos.y, width: 1, height: 1 }).find(
+        (node) => node.type === "runtime"
+      );
+    },
+    [screenToFlowPosition, getIntersectingNodes]
+  );
+
+  const onDragOver = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer.types.includes(PLANT_DRAG_MIME)) {
+        const runtime = runtimeAt(e.clientX, e.clientY);
+        setPlantDropTargetId(runtime?.id);
+        setPlantDropMessage(undefined);
+        e.dataTransfer.dropEffect =
+          runtime &&
+          (runtime.data as { plantSimulationSupported?: boolean }).plantSimulationSupported === true
+            ? "copy"
+            : "none";
+        return;
+      }
+      e.dataTransfer.dropEffect = "copy";
+    },
+    [runtimeAt]
+  );
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
+      if (e.dataTransfer.types.includes(PLANT_DRAG_MIME)) {
+        const runtime = runtimeAt(e.clientX, e.clientY);
+        const result = resolvePlantDrop({
+          raw: e.dataTransfer.getData(PLANT_DRAG_MIME),
+          activeDragSessionId: activePlantDragIdRef.current ?? "",
+          targetRuntimeId: runtime?.id,
+          eligibleRuntimeIds:
+            runtime &&
+            (runtime.data as { plantSimulationSupported?: boolean }).plantSimulationSupported === true
+              ? [runtime.id]
+              : [],
+        });
+        activePlantDragIdRef.current = undefined;
+        setActivePlantDragId(undefined);
+        setPlantDropTargetId(undefined);
+        if (!result.ok) {
+          setPlantDropMessage(result.message);
+          return;
+        }
+        const target = runtime;
+        const next = createPlantDraft({
+          id: result.runtimeId,
+          name: String((target?.data as { label?: string } | undefined)?.label ?? "runtime"),
+        });
+        clearApplyResult();
+        setDraft(undefined);
+        setPlantDraft(next);
+        setSelectedId(next.id);
+        setFocusTargetId(next.id);
+        setAddSlot(undefined);
+        setPlantDropMessage(undefined);
+        return;
+      }
       const protocol = e.dataTransfer.getData("application/trust-protocol");
       if (!protocol) {
         return;
       }
-      const pos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
-      const runtime = getIntersectingNodes({ x: pos.x, y: pos.y, width: 1, height: 1 }).find(
-        (n) => n.type === "runtime"
-      );
+      const runtime = runtimeAt(e.clientX, e.clientY);
       if (!runtime) {
         return; // only runtimes own endpoints (§6.1 drop target decides ownership)
       }
@@ -176,7 +313,7 @@ function Canvas() {
         protocol,
       });
     },
-    [screenToFlowPosition, getIntersectingNodes, clearApplyResult]
+    [runtimeAt, clearApplyResult]
   );
 
   // §4.2E: right-click a runtime → Add endpoint (opens the inspector setup form).
@@ -201,30 +338,93 @@ function Canvas() {
     setApplyResultLocallyStale(false);
   }, [applyResultSignature]);
 
-  // Signature of the current top-level node IDs — drives a re-fit when the graph's STRUCTURE changes
-  // (first paint, or a swap like offline→live topology where host/runtime ids change), but not on a plain
-  // live-value poll (same ids). A ref the resize observer reads, so it never re-fits to an empty graph.
-  const fitSigRef = useRef("");
-  const flowWrapRef = useRef<HTMLDivElement>(null);
-  const nodeCountRef = useRef(0);
-  const positionsRef = useRef<Record<string, { x: number; y: number }>>(
-    ((vscode.getState() as { positions?: Record<string, { x: number; y: number }> } | undefined)
-      ?.positions) ?? {}
-  );
-
   const protocols = useMemo(() => protocolsInGraph(graph), [graph]);
   const report = useMemo(() => filterReport(graph, hidden), [graph, hidden]);
   const editSlotsVisible =
-    editMode && !draft && !selectedId && !browseTags && !discoverOpen && !addSlot && !filterOpen;
+    editMode && !draft && !plantDraft && !selectedId && !browseTags && !discoverOpen && !addSlot && !filterOpen;
   const built = useMemo(
-    () =>
-      buildGraph(
-        applyFilter(graph, hidden),
+    () => {
+      const filtered = applyFilter(graph, hidden);
+      const next = buildGraph(
+        plantDraft && !plantDraft.persisted ? projectPlantDraft(filtered, plantDraft) : filtered,
         draft ? { runtimeId: draft.runtimeId, protocol: draft.protocol } : undefined,
         editSlotsVisible
-      ),
-    [graph, hidden, draft, editSlotsVisible]
+      );
+      const withDrop = !activePlantDragId
+        ? next
+        : {
+        ...next,
+        nodes: next.nodes.map((node) => {
+          if (node.type !== "runtime") {
+            return node;
+          }
+          const presentation = plantDropPresentation({
+            runtimeId: node.id,
+            eligible:
+              (node.data as { plantSimulationSupported?: boolean }).plantSimulationSupported === true,
+            activeTargetRuntimeId: plantDropTargetId,
+          });
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              plantDropState: presentation.state,
+              plantDropLabel: presentation.label,
+            },
+          };
+        }),
+      };
+      return {
+        ...withDrop,
+        nodes: withDrop.nodes.map((node) => ({
+          ...node,
+          selected: node.id === selectedId,
+        })),
+      };
+    },
+    [graph, hidden, draft, plantDraft, editSlotsVisible, activePlantDragId, plantDropTargetId, selectedId]
   );
+
+  useEffect(() => {
+    if (!activePlantDragId) {
+      return;
+    }
+    const cancelPlantDrag = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+      activePlantDragIdRef.current = undefined;
+      setActivePlantDragId(undefined);
+      setPlantDropTargetId(undefined);
+      setPlantDropMessage(undefined);
+    };
+    window.addEventListener("keydown", cancelPlantDrag);
+    return () => window.removeEventListener("keydown", cancelPlantDrag);
+  }, [activePlantDragId]);
+
+  useEffect(() => {
+    if (!keyboardFocusTargetId || plantDraft) {
+      return;
+    }
+    const focusTarget = () => {
+      const node = Array.from(
+        document.querySelectorAll<HTMLElement>(".react-flow__node")
+      ).find((candidate) => candidate.getAttribute("data-id") === keyboardFocusTargetId);
+      const target = node ?? document.querySelector<HTMLElement>("[data-canvas-add]");
+      if (target) {
+        target.focus();
+        setKeyboardFocusTargetId(undefined);
+      }
+    };
+    // The draft removal changes the React Flow node set. Focus only after that
+    // projection has committed so it is not lost with the discarded draft DOM.
+    const retry = window.setTimeout(focusTarget, 180);
+    return () => {
+      window.clearTimeout(retry);
+    };
+  }, [keyboardFocusTargetId, plantDraft, nodes]);
+
+
   // Resolve the selected node from the freshly-built graph so the inspector reflects
   // live polls and auto-closes if the node is filtered out / disappears (vs a stale snapshot).
   const selectedNode = useMemo<InspectorNode | undefined>(() => {
@@ -244,9 +444,6 @@ function Canvas() {
       built.nodes.find((node) => node.type === "runtime")
     );
   }, [built.nodes, selectedId]);
-  const toolbarAddTargetLabel = toolbarAddTarget
-    ? String((toolbarAddTarget.data as { label?: string } | undefined)?.label ?? "runtime")
-    : undefined;
   const selectedOwningRuntime = useMemo(() => {
     const selected = selectedId ? built.nodes.find((node) => node.id === selectedId) : undefined;
     if (!selected) {
@@ -261,35 +458,19 @@ function Canvas() {
         : undefined) ?? toolbarAddTarget
     );
   }, [built.nodes, selectedId, toolbarAddTarget]);
-  const {
-    origins: discoverOrigins,
-    protocols: discoverProtocols,
-    add: onDiscoverAdd,
-    isOnCanvas: isDiscoveredDeviceOnCanvas,
-    adopt: onDiscoverAdopt,
-  } = useDiscoverActions({
-    nodes: built.nodes,
-    schema,
-    post,
-    openBrowse,
-    clearApplyResult,
-    close: closeDiscoverPane,
-    setSelectedId,
-    setDraft,
-    setEditMode,
-  });
   const openAddPicker = useCallback(() => {
     if (!toolbarAddTarget) {
       return;
     }
     setFilterOpen(false);
     closeDiscoverPane();
+    plantDraftOriginRef.current = { selectedId };
     setSelectedId(undefined);
     setDraft(undefined);
     setEditMode(false);
     clearApplyResult();
     setAddSlot({ kind: "device", targetId: toolbarAddTarget.id });
-  }, [toolbarAddTarget, clearApplyResult, closeDiscoverPane]);
+  }, [toolbarAddTarget, clearApplyResult, selectedId, closeDiscoverPane]);
 
   const toggleHidden = useCallback((protocol: string) => {
     setHidden((prev) => {
@@ -304,184 +485,14 @@ function Canvas() {
   }, []);
   const showAllProtocols = useCallback(() => setHidden(new Set()), []);
 
-  // Merge new graph data over current nodes: keep user-dragged / persisted positions for top-level
-  // nodes so live polling never resets the canvas. BUT an Edit-mode toggle reflows the layout (the
-  // host grows to hold the slots), so on that transition drop stale auto-positions and keep only
-  // explicit user drags — otherwise externals stay at their pre-grow Y and overlap the host.
-  const layoutModeRef = useRef(editSlotsVisible);
-  useEffect(() => {
-    const modeChanged = layoutModeRef.current !== editSlotsVisible;
-    layoutModeRef.current = editSlotsVisible;
-    setNodes((prev) => {
-      const prevPos = new Map(prev.map((n) => [n.id, n.position]));
-      return built.nodes.map((n) => {
-        if (n.parentId) {
-          return n;
-        }
-        const pos = modeChanged
-          ? positionsRef.current[n.id] ?? n.position
-          : prevPos.get(n.id) ?? positionsRef.current[n.id] ?? n.position;
-        return { ...n, position: pos };
-      });
-    });
-    setEdges(built.edges);
-  }, [built, editSlotsVisible, setNodes, setEdges]);
-
-  useEffect(() => {
-    if (!focusTargetId || !nodes.some((node) => node.id === focusTargetId)) {
-      return;
-    }
-    const timers = [0, 120, 360].map((delay) =>
-      setTimeout(() => void fitView({ duration: 220, padding: 0.2, maxZoom: 1.2 }), delay)
-    );
-    const clearTimer = setTimeout(() => setFocusTargetId(undefined), 420);
-    return () => {
-      timers.forEach(clearTimeout);
-      clearTimeout(clearTimer);
-    };
-  }, [focusTargetId, nodes, fitView]);
-
-  // Fit when the graph node IDENTITY changes — first paint, a structural host swap, or child endpoints
-  // appearing/disappearing after Start/Stop. NOT on a plain live-value poll (same ids, positions
-  // preserved) — re-fitting on every refresh would yank the viewport. Without this, a managed Start can
-  // add endpoint children under an existing host while the viewport stays on the old layout, leaving the
-  // graph empty-looking even though the DOM contains the new nodes.
-  useEffect(() => {
-    nodeCountRef.current = nodes.length;
-    const sig = nodes
-      .map((n) => n.id)
-      .sort()
-      .join("|");
-    if (sig && sig !== fitSigRef.current) {
-      fitSigRef.current = sig;
-      if (focusTargetId) {
-        return;
-      }
-      const timers = [0, 140, 420].map((delay) =>
-        setTimeout(() => void fitView({ padding: 0.2, duration: 220 }), delay)
-      );
-      return () => timers.forEach(clearTimeout);
-    }
-  }, [nodes, fitView, focusTargetId]);
-
-  // Re-fit when the canvas CONTAINER resizes — chiefly the Debug Console docking after a managed Start
-  // (it shrinks the editor area, pushing the graph below the now-shorter viewport), but also window
-  // resizes. Debounced so a burst collapses into one fit; only fits once nodes exist so a transient
-  // 0-size never fits an empty graph.
-  useEffect(() => {
-    const el = flowWrapRef.current;
-    if (!el || typeof ResizeObserver === "undefined") {
-      return;
-    }
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const ro = new ResizeObserver(() => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-      timer = setTimeout(() => {
-        if (nodeCountRef.current > 0) {
-          void fitView({ padding: 0.2, duration: 200 });
-        }
-      }, 140);
-    });
-    ro.observe(el);
-    return () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-      ro.disconnect();
-    };
-  }, [fitView]);
-
-  // VS Code can place Live Values or another editor beside this webview. That changes the webview
-  // viewport even when the graph data is unchanged, so re-fit on window-level visibility/resize too.
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const refit = () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-      timer = setTimeout(() => {
-        if (nodeCountRef.current > 0) {
-          void fitView({ padding: 0.2, duration: 220 });
-        }
-      }, 120);
-    };
-    const onVisibility = () => {
-      if (!document.hidden) {
-        refit();
-      }
-    };
-    window.addEventListener("resize", refit);
-    window.addEventListener("focus", refit);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-      window.removeEventListener("resize", refit);
-      window.removeEventListener("focus", refit);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [fitView]);
-
-  useEffect(() => {
-    const nodesAreVisible = () => {
-      const root = flowWrapRef.current;
-      if (!root) {
-        return true;
-      }
-      const rootRect = root.getBoundingClientRect();
-      const nodeEls = Array.from(root.querySelectorAll<HTMLElement>(".react-flow__node"));
-      if (!nodeEls.length) {
-        return nodeCountRef.current === 0;
-      }
-      return nodeEls.some((nodeEl) => {
-        const rect = nodeEl.getBoundingClientRect();
-        return (
-          rect.right > rootRect.left &&
-          rect.left < rootRect.right &&
-          rect.bottom > rootRect.top &&
-          rect.top < rootRect.bottom
-        );
-      });
-    };
-    const id = window.setInterval(() => {
-      if (nodeCountRef.current > 0 && !nodesAreVisible()) {
-        void fitView({ padding: 0.2, duration: 220 });
-      }
-    }, 900);
-    return () => window.clearInterval(id);
-  }, [fitView]);
-
-  // Re-fit when Edit toggles — the empty slots widen the canvas, so reveal them.
-  const prevEditRef = useRef(editMode);
-  useEffect(() => {
-    if (prevEditRef.current === editMode) {
-      return;
-    }
-    prevEditRef.current = editMode;
-    const t = setTimeout(() => void fitView({ padding: 0.2, duration: 300 }), 70);
-    return () => clearTimeout(t);
-  }, [editMode, fitView]);
-
   useEffect(() => {
     setSearchDraft(graph.searchQuery ?? "");
   }, [graph.searchQuery]);
 
-  const onNodeDragStop = useCallback<OnNodeDrag<Node>>((_evt, node) => {
-    if (node.parentId) {
-      return;
-    }
-    positionsRef.current = { ...positionsRef.current, [node.id]: node.position };
-    const state = (vscode.getState() as Record<string, unknown>) ?? {};
-    vscode.setState({ ...state, positions: positionsRef.current });
-  }, []);
-
   const onSearch = useCallback(
-    (query: string) => {
-      setSearchDraft(query);
-      post({ type: "search", query });
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setSearchDraft(e.target.value);
+      post({ type: "search", query: e.target.value });
     },
     [post]
   );
@@ -489,33 +500,26 @@ function Canvas() {
     setSearchDraft("");
     post({ type: "search", query: "" });
   }, [post]);
-  const onCanvasAction = useCallback(
-    (action: string) => post({ type: "action", action }),
-    [post]
-  );
-  const onToggleFilter = useCallback(() => {
-    setFilterOpen((value) => !value);
-    setAddSlot(undefined);
-    closeDiscoverPane();
-    clearApplyResult();
-  }, [clearApplyResult, closeDiscoverPane]);
-  const onToggleDiscover = useCallback(() => {
-    toggleDiscoverPane();
-    setFilterOpen(false);
-    setAddSlot(undefined);
-    clearApplyResult();
-  }, [clearApplyResult, toggleDiscoverPane]);
-  const onToggleEdit = useCallback(() => {
-    setEditMode((value) => {
-      if (value) {
-        setAddSlot(undefined);
-      }
-      return !value;
-    });
-    setFilterOpen(false);
-    clearApplyResult();
-  }, [clearApplyResult]);
 
+  const {
+    origins: discoverOrigins,
+    protocols: discoverProtocols,
+    add: onDiscoverAdd,
+    isOnCanvas: isDiscoveredDeviceOnCanvas,
+    disabledReason: discoveredDisabledReason,
+    adopt: onDiscoverAdopt,
+  } = useDiscoverActions({
+    nodes: built.nodes,
+    discoveredAds,
+    schema,
+    post,
+    openBrowse,
+    clearApplyResult,
+    close: closeDiscoverPane,
+    setSelectedId,
+    setDraft,
+    setEditMode,
+  });
   const onEditBrowseCredentials = useCallback(() => {
     if (!browseTags) {
       return;
@@ -543,6 +547,9 @@ function Canvas() {
       onPickSlot: (slot: AddSlotRequest) => {
         setFilterOpen(false);
         closeDiscoverPane();
+        if (slot.add === "device") {
+          plantDraftOriginRef.current = { selectedId };
+        }
         setSelectedId(undefined);
         setDraft(undefined);
         clearApplyResult();
@@ -556,88 +563,393 @@ function Canvas() {
         }
       },
     }),
-    [editMode, clearApplyResult, closeDiscoverPane]
+    [editMode, clearApplyResult, selectedId, closeDiscoverPane]
   );
 
-  // Every drawer (inspector, add/setup/discover/filter, browse) opens on the RIGHT — opposite the
-  // Explorer, beside the top-right toolbar that triggers most of them. A spacer of the drawer's OWN
-  // width reserves space in the flex row, so React Flow's viewport genuinely narrows (not a racy calc)
-  // and we re-fit into it: the panel sits beside the graph, never over a node, at any webview width
-  // (Explorer open or not). Keep these widths in sync with each panel's PANEL width.
-  const activeDrawerW = activeDrawerWidth(
-    Boolean(draft),
-    Boolean(selectedId),
-    Boolean(browseTags),
-    discoverOpen,
-    addSlot?.kind,
-    filterOpen
-  );
+  const drawerRoutes: CanvasDrawerRoutes = {};
+  if (equipment.visible && equipment.state) {
+    drawerRoutes.equipment = {
+      state: equipment.state,
+      post,
+      onClose: equipment.close,
+      onBrowse: () => equipment.setVisible(false),
+    };
+  }
+  if (addSlot?.kind === "device") {
+    drawerRoutes.addConnection = {
+      schema,
+      target: {
+        id: addSlot.targetId ?? "",
+        name: String((built.nodes.find((node) => node.id === addSlot.targetId)?.data as { label?: string } | undefined)?.label ?? "runtime"),
+      },
+      plantOption: {
+        eligible:
+          (built.nodes.find((node) => node.id === addSlot.targetId)?.data as
+            | { plantSimulationSupported?: boolean }
+            | undefined)?.plantSimulationSupported === true,
+        disabledReason:
+          (built.nodes.find((node) => node.id === addSlot.targetId)?.data as
+            | { plantSimulationSupported?: boolean }
+            | undefined)?.plantSimulationSupported === true
+            ? undefined
+            : "This runtime does not advertise simulated-plant support.",
+      },
+      onBeginPlantDrag: () => {
+        const id = `plant-drag-${++plantDragSequence.current}`;
+        activePlantDragIdRef.current = id;
+        setActivePlantDragId(id);
+        setPlantDropTargetId(undefined);
+        setPlantDropMessage(undefined);
+        return id;
+      },
+      onEndPlantDrag: () => {
+        activePlantDragIdRef.current = undefined;
+        setActivePlantDragId(undefined);
+        setPlantDropTargetId(undefined);
+      },
+      onChoosePlant: () => {
+        const runtime = built.nodes.find((node) => node.id === addSlot.targetId);
+        const next = createPlantDraft({
+          id: addSlot.targetId ?? "",
+          name: String((runtime?.data as { label?: string } | undefined)?.label ?? "runtime"),
+        });
+        clearApplyResult();
+        setDraft(undefined);
+        setPlantDraft(next);
+        setSelectedId(next.id);
+        setFocusTargetId(next.id);
+        setAddSlot(undefined);
+      },
+      onChoose: (protocol) => {
+        const runtime = built.nodes.find((node) => node.id === addSlot.targetId);
+        clearApplyResult();
+        setSelectedId(undefined);
+        setDraft({
+          runtimeId: addSlot.targetId ?? "",
+          runtimeName: String((runtime?.data as { label?: string } | undefined)?.label ?? "runtime"),
+          protocol,
+        });
+        setAddSlot(undefined);
+      },
+      onDiscover: () => {
+        clearApplyResult();
+        setAddSlot(undefined);
+        openDiscoverPane();
+      },
+      onClose: () => {
+        clearApplyResult();
+        setAddSlot(undefined);
+      },
+    };
+  }
+  if (addSlot?.kind === "setup") {
+    drawerRoutes.setupRuntime = {
+      onConnect: () => setAddSlot({ kind: "host" }),
+      onRunLocal: () => setAddSlot({ kind: "runtime-scaffold", targetId: addSlot.targetId }),
+      onClose: () => setAddSlot(undefined),
+    };
+  }
+  if (addSlot?.kind === "runtime-scaffold") {
+    drawerRoutes.addRuntime = {
+      post,
+      onClose: () => {
+        clearApplyResult();
+        setAddSlot(undefined);
+      },
+    };
+  }
+  if (addSlot?.kind === "host") {
+    drawerRoutes.addHost = {
+      post,
+      onSaved: () => setEditMode(false),
+      onClose: () => {
+        clearApplyResult();
+        setAddSlot(undefined);
+      },
+    };
+  }
+  if (filterOpen) {
+    drawerRoutes.filter = { protocols, hidden, report, onToggle: toggleHidden, onShowAll: showAllProtocols };
+  }
+  if (discoverOpen) {
+    drawerRoutes.discover = {
+      origins: discoverOrigins,
+      discoverProtocols,
+      scanning: discoverScanning,
+      progress: discoverProgress,
+      results: discoverResults,
+      error: discoverError,
+      onScan: onDiscoverScan,
+      onAdd: onDiscoverAdd,
+      isOnCanvas: isDiscoveredDeviceOnCanvas,
+      disabledReason: discoveredDisabledReason,
+      onAdopt: onDiscoverAdopt,
+      onOpenAdsPortSettings: () => post({ type: "openAdsDiscoverySettings" }),
+      onClose: closeDiscoverPane,
+    };
+  }
+  if (draft) {
+    drawerRoutes.addDevice = {
+      schema,
+      applyResult,
+      reachable,
+      setupMessage,
+      target: { id: draft.runtimeId, name: draft.runtimeName },
+      preselectProtocol: draft.protocol,
+      preselectParams: draft.prefillParams,
+      post,
+      onValidationStale: () => setApplyResultLocallyStale(true),
+      onSaved: (nodeId) => {
+        setDraft(undefined);
+        if (nodeId) {
+          setSelectedId(nodeId);
+          setFocusTargetId(nodeId);
+          post({ type: "selectNode", nodeId });
+        }
+      },
+      onClose: () => {
+        clearApplyResult();
+        setDraft(undefined);
+      },
+    };
+  }
+  if (plantDraft) {
+    drawerRoutes.plantDraft = {
+      draft: plantDraft,
+      signalCatalog: plantSignals,
+      tables: plantEditorTables,
+      post,
+      onChange: (next) => {
+        setPlantSaveError(undefined);
+        setPlantDraft({ ...next, dirty: true });
+      },
+      // Rust's opened draft: defaults made explicit, not a user change.
+      onOpened: (next) => setPlantDraft(next),
+      saving: plantSaving,
+      saveError: plantSaveError,
+      saveConflict: plantSaveConflict,
+      onReloadConflict: () => {
+        const nodeId = plantDraft.id;
+        setPlantDraft(undefined);
+        setPlantSaveError(undefined);
+        setPlantSaveConflict(undefined);
+        setSelectedId(nodeId);
+        setFocusTargetId(nodeId);
+        setKeyboardFocusTargetId(nodeId);
+        post({ type: "selectNode", nodeId });
+      },
+      onSave: (candidate) => {
+        setPlantSaving(true);
+        setPlantSaveError(undefined);
+        setPlantSaveConflict(undefined);
+        post({
+          type: "plantSave",
+          runtimeId: plantDraft.runtimeId,
+          candidate,
+          ...(plantDraft.savedConfigurationRevision
+            ? { expectedRevision: plantDraft.savedConfigurationRevision }
+            : {}),
+        });
+      },
+      onRemove: plantDraft.persisted
+        ? () => {
+            setPlantSaving(true);
+            setPlantSaveError(undefined);
+            post({
+              type: "plantRemove",
+              runtimeId: plantDraft.runtimeId,
+              plantId: plantDraft.plantId,
+              expectedRevision: plantDraft.savedConfigurationRevision,
+            });
+          }
+        : undefined,
+      onOpenControlStudio:
+        plantDraft.persisted &&
+        plantDraft.projectId &&
+        plantDraft.savedConfigurationRevision
+          ? () => post({
+              type: "openControlStudio",
+              projectId: plantDraft.projectId,
+              runtimeId: plantDraft.runtimeId,
+              plantId: plantDraft.plantId,
+              savedConfigurationRevision: plantDraft.savedConfigurationRevision,
+              ...(plantDraft.activeConfigurationDigest
+                ? { activeConfigurationDigest: plantDraft.activeConfigurationDigest }
+                : {}),
+            })
+          : undefined,
+      onCancel: () => {
+        const restoreId = plantDraftCancelTarget({
+          previousSelectedId: plantDraftOriginRef.current.selectedId,
+          runtimeId: plantDraft.runtimeId,
+          availableNodeIds: built.nodes
+            .filter((node) => node.id !== plantDraft.id)
+            .map((node) => node.id),
+        });
+        setPlantDraft(undefined);
+        setSelectedId(restoreId);
+        setFocusTargetId(restoreId);
+        setKeyboardFocusTargetId(restoreId ?? "__canvas_add__");
+        plantDraftOriginRef.current = {};
+      },
+    };
+  }
+  if (selectedNode && !draft && !plantDraft) {
+    drawerRoutes.inspectNode = {
+      node: selectedNode,
+      schema,
+      params: selectedNode.data.params as Record<string, unknown> | undefined,
+      reachable,
+      applyResult,
+      post,
+      onFocus: focusNode,
+      onBrowse,
+      onClose: () => {
+        clearApplyResult();
+        setSelectedId(undefined);
+      },
+    };
+  }
+  if (browseTags?.protocol === "ads") {
+    // An ADS PLC's tags are picked per AMS port (main 3abbbb6c3).
+    drawerRoutes.adsBrowse = {
+      targetLabel: browseTags.label,
+      target: browseTags.target,
+      tree: browseTree,
+      routeMissing: browseRouteMissing,
+      routePlan: browseRoutePlan,
+      error: browseError,
+      loading: browseLoading,
+      importLoading: adsImportLoading,
+      importResult: adsImportResult,
+      onCreateRoute,
+      onCopy,
+      onBrowseTarget,
+      onAddTags: onAddAdsTags,
+      onRemoveTag: onRemoveAdsTag,
+      onClose: closeBrowse,
+      post,
+    };
+  } else if (browseTags) {
+    drawerRoutes.browseTags = {
+      title: browseTags.title,
+      actionLabel: browseTags.actionLabel,
+      targetLabel: browseTags.label,
+      protocol: browseTags.protocol,
+      target: browseTags.target,
+      tree: browseTree,
+      routeMissing: browseRouteMissing,
+      routePlan: browseRoutePlan,
+      error: browseError,
+      loading: browseLoading,
+      onCreateRoute,
+      onTrustCertificate,
+      onEditCredentials: onEditBrowseCredentials,
+      onCopy,
+      onBrowseTarget,
+      onAddTags,
+      onClose: closeBrowse,
+      post,
+    };
+  }
+
+  // Reserving the active drawer's own width keeps the graph beside the task
+  // surface instead of underneath it, including when routes swap widths.
+  const activeDrawerW = activeDrawerWidth(drawerRoutes);
   const drawerOpen = activeDrawerW > 0;
-  // Re-fit whenever the reserved width CHANGES — opening (0→W), closing (W→0), or swapping between two
-  // drawers of different widths (e.g. the 360px add picker → the 360px config form). Tracking the
-  // width (not just open/closed) is what keeps a node from slipping under a drawer that grew.
-  const prevWidthRef = useRef(0);
-  useEffect(() => {
-    if (prevWidthRef.current === activeDrawerW) {
-      return;
-    }
-    prevWidthRef.current = activeDrawerW;
-    // The spacer reflows the canvas column to its new width first; once it has, fit the WHOLE graph into
-    // the now-visible width so no node — or its parent host — can sit under the drawer. (Zoom = Focus button.)
-    const id = setTimeout(() => void fitView({ padding: 0.2, duration: 320 }), 80);
-    return () => clearTimeout(id);
-  }, [activeDrawerW, fitView]);
+  const { flowWrapRef, onNodeDragStop } = useCanvasViewport({
+    nodes,
+    nextNodes: built.nodes,
+    nextEdges: built.edges,
+    setNodes,
+    setEdges,
+    fitView,
+    focusTargetId,
+    clearFocusTarget,
+    editSlotsVisible,
+    editMode,
+    activeDrawerWidth: activeDrawerW,
+    discoveryOpen: discoverOpen,
+    discoveryResultCount: discoverResults.length,
+    discoveryProgressCount: discoverProgress.length,
+    discoveryScanning: discoverScanning,
+    browseOpen: Boolean(browseTags),
+    browseTreeSize: browseTree?.length ?? 0,
+    browseLoading,
+    applyResultSignature,
+    builtNodeCount: built.nodes.length,
+    stateStore: vscode,
+  });
 
-  // Discovery results can materially change the right drawer content while the reserved drawer
-  // width is unchanged. Re-fit after those result/progress updates so the canvas cannot be left
-  // showing only a populated summary over an empty viewport.
-  useEffect(() => {
-    if (!discoverOpen || nodeCountRef.current === 0) {
-      return;
-    }
-    const id = setTimeout(() => void fitView({ padding: 0.2, duration: 220 }), 120);
-    return () => clearTimeout(id);
-  }, [discoverOpen, discoverResults.length, discoverProgress.length, discoverScanning, fitView]);
-
-  // Browse/add-tag flows close the right drawer and then refresh the graph from persisted config.
-  // Fit after both transitions so an imported endpoint cannot leave the summary populated while
-  // the actual nodes are off-screen or hidden behind the previous drawer geometry.
-  useEffect(() => {
-    if (nodeCountRef.current === 0) {
-      return;
-    }
-    const timers = [140, 460].map((delay) =>
-      setTimeout(() => void fitView({ padding: 0.2, duration: 240 }), delay)
-    );
-    return () => timers.forEach(clearTimeout);
-  }, [browseTags, browseTree?.length, browseLoading, applyResultSignature, built.nodes.length, fitView]);
-
+  const fieldIssueCount = applyResultLocallyStale ? 0 : applyResult?.field_errors?.length ?? 0;
+  const fieldIssueLabel =
+    fieldIssueCount > 0
+      ? `${fieldIssueCount} field issue${fieldIssueCount === 1 ? "" : "s"} · fix highlighted fields`
+      : undefined;
+  const fieldIssueTitle =
+    fieldIssueCount > 0
+      ? applyResult?.message || "Fix the highlighted fields and try again."
+      : undefined;
   return (
     <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}>
-      <NetworkCanvasHeader
-        searchValue={searchDraft}
-        onSearchChange={onSearch}
+      {equipment.state && !equipment.visible ? (
+        <button
+          className="trust-button"
+          style={{ alignSelf: "flex-start", margin: 6 }}
+          onClick={() => equipment.setVisible(true)}
+        >
+          Connections for {equipment.state.instance}
+        </button>
+      ) : null}
+      <CanvasToolbar
+        searchDraft={searchDraft}
+        onSearch={onSearch}
         onClearSearch={clearSearch}
-        fieldIssueCount={applyResultLocallyStale ? 0 : applyResult?.field_errors?.length ?? 0}
-        fieldIssueMessage={applyResult?.message}
+        fieldIssueLabel={fieldIssueLabel}
+        fieldIssueTitle={fieldIssueTitle}
         fault={fault}
-        faultCount={visibleFaults.length}
+        visibleFaultCount={visibleFaults.length}
         onFocusFault={focusNode}
-        filterActive={filterOpen}
-        onToggleFilter={onToggleFilter}
-        addActive={addSlot?.kind === "device"}
-        addTargetLabel={toolbarAddTargetLabel}
-        onAdd={openAddPicker}
-        discoverActive={discoverOpen}
-        onToggleDiscover={onToggleDiscover}
-        editActive={editMode}
-        onToggleEdit={onToggleEdit}
+        filterOpen={filterOpen}
+        onToggleFilter={() => {
+          setFilterOpen((value) => !value);
+          setAddSlot(undefined);
+          closeDiscoverPane();
+          clearApplyResult();
+        }}
+        addTargetLabel={
+          toolbarAddTarget
+            ? String((toolbarAddTarget.data as { label?: string } | undefined)?.label ?? "runtime")
+            : undefined
+        }
+        addOpen={addSlot?.kind === "device"}
+        onAdd={() => {
+          equipment.setVisible(false);
+          openAddPicker();
+        }}
+        discoverOpen={discoverOpen}
+        onToggleDiscover={() => {
+          toggleDiscoverPane();
+          setFilterOpen(false);
+          setAddSlot(undefined);
+          clearApplyResult();
+        }}
+        editMode={editMode}
+        onToggleEdit={() => {
+          setEditMode((value) => {
+            if (value) {
+              setAddSlot(undefined);
+            }
+            return !value;
+          });
+          setFilterOpen(false);
+          clearApplyResult();
+        }}
       />
 
       <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "row" }}>
-        <div ref={flowWrapRef} style={{ position: "relative", flex: 1, minWidth: 0 }}>
-        <EditModeContext.Provider value={editModeValue}>
-        <ReactFlow
+        <CanvasGraphShell
+          flowWrapRef={flowWrapRef}
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
@@ -645,208 +957,77 @@ function Canvas() {
           onNodeDragStop={onNodeDragStop}
           onDrop={onDrop}
           onDragOver={onDragOver}
+          plantDropMessage={plantDropMessage}
           onNodeContextMenu={onNodeContextMenu}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          minZoom={0.2}
-          maxZoom={1.75}
-          style={{ width: "100%", height: "100%" }}
-          proOptions={{ hideAttribution: true }}
-          onNodeClick={(_, node) => {
+          editMode={editModeValue}
+          graph={graph}
+          post={post}
+          onSelectNode={(node) => {
+            equipment.setVisible(false);
             clearApplyResult();
             setDraft(undefined); // selection and the add-flow share the right drawer
+            const data = node.data as Record<string, unknown>;
+            const configuration = data.configuration as {
+              preservedConfiguration?: Record<string, unknown>;
+              description?: string;
+              parameters?: Record<string, number | number[] | number[][]>;
+              initialState?: number[];
+              enabledDefaulted?: boolean;
+              initialStateDefaulted?: boolean;
+              stepMs?: number;
+              initialInput?: number[];
+              inputScale?: number[];
+              inputOffset?: number[];
+              outputScale?: number[];
+              outputOffset?: number[];
+              actuator?: Record<string, number>;
+              uncertainties?: Array<Record<string, unknown>>;
+              scenarioEvents?: Array<Record<string, unknown>>;
+            } | undefined;
+            if (
+              data.kind === "plant" &&
+              data.draft !== true &&
+              node.parentId &&
+              typeof data.plantId === "string" &&
+              typeof data.displayName === "string" &&
+              typeof data.modelKind === "string" &&
+              configuration?.parameters &&
+              Array.isArray(configuration.initialState)
+            ) {
+              const runtime = built.nodes.find((candidate) => candidate.id === node.parentId);
+              plantDraftOriginRef.current = { selectedId: node.id };
+              setPlantDraft(createPlantEditDraft({
+                ...configuration,
+                parameters: configuration.parameters,
+                initialState: configuration.initialState,
+                id: node.id,
+                projectId: String(data.projectId ?? ""),
+                runtimeId: node.parentId,
+                runtimeName: String(runtime?.data.label ?? "runtime"),
+                plantId: data.plantId,
+                displayName: data.displayName,
+                description: configuration.description ?? "",
+                enabled: data.enabled !== false,
+                model: data.modelKind as import("../plant/editorModel").PlantModelKind,
+                commandSources: Array.isArray(data.commandSources) ? data.commandSources as string[] : [],
+                feedbackTargets: Array.isArray(data.feedbackTargets) ? data.feedbackTargets as string[] : [],
+                savedConfigurationRevision: String(data.savedConfigurationRevision ?? ""),
+                actuator: configuration.actuator,
+                uncertainties: configuration.uncertainties as import("../plant/uncertaintyEditor").PlantUncertaintyDraft[] | undefined,
+                scenarioEvents: configuration.scenarioEvents as import("../plant/scenarioEventEditor").PlantScenarioEventDraft[] | undefined,
+              }));
+            }
             setSelectedId(node.id);
             setFocusTargetId(node.id);
             post({ type: "selectNode", nodeId: node.id });
           }}
-        >
-          <Background variant={BackgroundVariant.Dots} gap={26} size={1} color="var(--trust-grid-line)" />
-          <Controls showInteractive={false} />
-        </ReactFlow>
-        </EditModeContext.Provider>
-
-        <NetworkCanvasOverlays
-          empty={nodes.length === 0}
-          banner={graph.banner}
-          summary={graph.summary}
-          onAction={onCanvasAction}
         />
-        </div>
 
         {/* Reserves the active drawer's width in the flex row so the canvas column narrows by exactly
             that much — the right-anchored panel lands in this gap and never covers a node. */}
         {drawerOpen && <div aria-hidden="true" style={{ width: activeDrawerW, flexShrink: 0 }} />}
 
-        {addSlot?.kind === "device" && (
-          <AddPane
-            schema={schema}
-            target={{
-              id: addSlot.targetId ?? "",
-              name: String((built.nodes.find((n) => n.id === addSlot.targetId)?.data as { label?: string } | undefined)?.label ?? "runtime"),
-            }}
-            onChoose={(protocol) => {
-              const rt = built.nodes.find((n) => n.id === addSlot.targetId);
-              clearApplyResult();
-              setSelectedId(undefined);
-              setDraft({
-                runtimeId: addSlot.targetId ?? "",
-                runtimeName: String((rt?.data as { label?: string } | undefined)?.label ?? "runtime"),
-                protocol,
-              });
-              setAddSlot(undefined);
-            }}
-            onDiscover={() => {
-              clearApplyResult();
-              setAddSlot(undefined);
-              openDiscoverPane();
-            }}
-            onClose={() => {
-              clearApplyResult();
-              setAddSlot(undefined);
-            }}
-          />
-        )}
-
-        {addSlot?.kind === "setup" && (
-          <SetUpRuntimePanel
-            onConnect={() => setAddSlot({ kind: "host" })}
-            onRunLocal={() =>
-              setAddSlot({ kind: "runtime-scaffold", targetId: addSlot.targetId })
-            }
-            onClose={() => setAddSlot(undefined)}
-          />
-        )}
-
-        {addSlot?.kind === "runtime-scaffold" && (
-          <AddRuntimePanel post={post} onClose={() => {
-            clearApplyResult();
-            setAddSlot(undefined);
-          }} />
-        )}
-
-        {addSlot?.kind === "host" && (
-          <AddHostPanel
-            post={post}
-            onSaved={() => setEditMode(false)}
-            onClose={() => {
-              clearApplyResult();
-              setAddSlot(undefined);
-            }}
-          />
-        )}
-
-        {filterOpen && (
-          <FilterPanel
-            protocols={protocols}
-            hidden={hidden}
-            report={report}
-            onToggle={toggleHidden}
-            onShowAll={showAllProtocols}
-          />
-        )}
-
-        {discoverOpen && (
-          <DiscoverPane
-            origins={discoverOrigins}
-            discoverProtocols={discoverProtocols}
-            scanning={discoverScanning}
-            progress={discoverProgress}
-            results={discoverResults}
-            error={discoverError}
-            sessionCurrent={discoverSessionCurrent}
-            onScan={onDiscoverScan}
-            onAdd={onDiscoverAdd}
-            isOnCanvas={isDiscoveredDeviceOnCanvas}
-            onAdopt={onDiscoverAdopt}
-            onOpenAdsPortSettings={() => post({ type: "openAdsDiscoverySettings" })}
-            onClose={closeDiscoverPane}
-          />
-        )}
-
-        {draft && (
-          <AddDevicePanel
-            schema={schema}
-            applyResult={applyResult}
-            reachable={reachable}
-            setupMessage={setupMessage}
-            target={{ id: draft.runtimeId, name: draft.runtimeName }}
-            preselectProtocol={draft.protocol}
-            preselectParams={draft.prefillParams}
-            post={post}
-            onValidationStale={() => setApplyResultLocallyStale(true)}
-            onSaved={(nodeId) => {
-              setDraft(undefined);
-              if (nodeId) {
-                setSelectedId(nodeId);
-                setFocusTargetId(nodeId);
-                post({ type: "selectNode", nodeId });
-              }
-            }}
-            onClose={() => {
-              clearApplyResult();
-              setDraft(undefined);
-            }}
-          />
-        )}
-
-        {selectedNode && !draft && (
-          <NodeInspector
-            node={selectedNode}
-            schema={schema}
-            params={selectedNode.data.params as Record<string, unknown> | undefined}
-            reachable={reachable}
-            applyResult={applyResult}
-            post={post}
-            onFocus={focusNode}
-            onBrowse={onBrowse}
-            onClose={() => {
-              clearApplyResult();
-              setSelectedId(undefined);
-            }}
-          />
-        )}
-
-        {browseTags?.protocol === "ads" && (
-          <AdsMultiPortTagBrowser
-            targetLabel={browseTags.label}
-            target={browseTags.target}
-            tree={browseTree}
-            routeMissing={browseRouteMissing}
-            routePlan={browseRoutePlan}
-            error={browseError}
-            loading={browseLoading}
-            importLoading={adsImportLoading}
-            importResult={adsImportResult}
-            onCreateRoute={onCreateRoute}
-            onCopy={onCopy}
-            onBrowseTarget={onBrowseTarget}
-            onAddTags={onAddAdsTags}
-            onRemoveTag={onRemoveAdsTag}
-            onClose={closeBrowse}
-          />
-        )}
-
-        {browseTags && browseTags.protocol !== "ads" && (
-          <BrowseTagsPanel
-            title={browseTags.title}
-            actionLabel={browseTags.actionLabel}
-            targetLabel={browseTags.label}
-            protocol={browseTags.protocol}
-            target={browseTags.target}
-            tree={browseTree}
-            routeMissing={browseRouteMissing}
-            routePlan={browseRoutePlan}
-            error={browseError}
-            loading={browseLoading}
-            onCreateRoute={onCreateRoute}
-            onTrustCertificate={onTrustCertificate}
-            onEditCredentials={onEditBrowseCredentials}
-            onCopy={onCopy}
-            onBrowseTarget={onBrowseTarget}
-            onAddTags={onAddTags}
-            onClose={closeBrowse}
-          />
-        )}
+        <CanvasDrawerRouter routes={drawerRoutes} />
       </div>
     </div>
   );

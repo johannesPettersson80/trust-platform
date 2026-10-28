@@ -160,6 +160,7 @@ fn reference_instance_and_null_states_have_nonaddress_diagnostic_text() {
     let reference = ValueRef {
         location: MemoryLocation::Global,
         offset: 99,
+        generation: crate::memory::Generation::FIRST,
         path: RefPath::new(),
     };
 

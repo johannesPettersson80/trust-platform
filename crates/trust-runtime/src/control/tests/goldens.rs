@@ -37,7 +37,7 @@ fn assert_connector_fixture(actual: &serde_json::Value, fixture: &str) {
 
 #[test]
 fn phase0_ads_status_matches_disabled_goldens() {
-    let state = hmi_test_state(
+    let state = control_test_state(
         r#"
 PROGRAM Main
 END_PROGRAM
@@ -73,7 +73,7 @@ END_PROGRAM
 
 #[test]
 fn phase0_opcua_status_matches_capability_goldens() {
-    let state = hmi_test_state(
+    let state = control_test_state(
         r#"
 PROGRAM Main
 END_PROGRAM
@@ -130,7 +130,7 @@ END_PROGRAM
 
 #[test]
 fn phase0_io_driver_status_matches_legacy_golden() {
-    let state = hmi_test_state(
+    let state = control_test_state(
         r#"
 PROGRAM Main
 END_PROGRAM
@@ -157,7 +157,7 @@ END_PROGRAM
 
     let response = handle_request_value(json!({"id": 9203, "type": "status"}), &state, None);
     assert!(response.ok, "status failed: {:?}", response.error);
-    let result = response.result.expect("status result");
+    let result = response.result_value().expect("status result");
     let io_drivers = result.get("io_drivers").expect("io_drivers");
 
     assert_connector_fixture(io_drivers, "phase0/io_driver/status_io_drivers.json");
@@ -165,7 +165,7 @@ END_PROGRAM
 
 #[test]
 fn phase0_missing_or_failed_connectors_do_not_report_healthy() {
-    let state = hmi_test_state(
+    let state = control_test_state(
         r#"
 PROGRAM Main
 END_PROGRAM
@@ -263,7 +263,7 @@ END_PROGRAM
     assert!(legacy.ok, "status failed: {:?}", legacy.error);
     assert_eq!(
         legacy
-            .result
+            .result_value()
             .as_ref()
             .and_then(|value| value.pointer("/io_drivers/0/status"))
             .and_then(serde_json::Value::as_str),

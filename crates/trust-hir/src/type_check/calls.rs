@@ -115,6 +115,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                             callee.text_range(),
                         );
                     }
+                    self.checker.record_resolved_symbol(callee, resolved.id);
                     let Some(call_target) =
                         self.checker.resolve_ref().resolve_call_target(resolved.id)
                     else {
@@ -158,6 +159,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                 .resolve_ref()
                 .resolve_namespace_qualified_symbol(callee)
             {
+                self.checker.record_resolved_symbol(callee, symbol_id);
                 if let Some(call_target) = self.checker.resolve_ref().resolve_call_target(symbol_id)
                 {
                     self.check_call_arguments(call_target.param_owner, &call_target.kind, node);
@@ -187,6 +189,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                             member.text_range(),
                         );
                     }
+                    self.checker.record_resolved_symbol(callee, resolved.id);
                     let Some(call_target) =
                         self.checker.resolve_ref().resolve_call_target(resolved.id)
                     else {
@@ -252,6 +255,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
         kind: &SymbolKind,
         node: &SyntaxNode,
     ) {
+        self.checker.record_resolved_symbol(node, symbol_id);
         if matches!(kind, SymbolKind::FunctionBlock) {
             let standard_fb = self
                 .checker

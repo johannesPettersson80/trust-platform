@@ -167,6 +167,7 @@ impl Parser<'_, '_> {
             && !self.at_end()
             && !self.at_stmt_list_end()
         {
+            let branch_start = self.source.current_token().map(|token| token.range);
             self.start_node(SyntaxKind::CaseBranch);
 
             // Parse labels
@@ -195,6 +196,12 @@ impl Parser<'_, '_> {
                     break;
                 }
                 self.parse_statement();
+            }
+
+            // A missing label leaves a delimiter such as `)` or `THEN` in place, and no
+            // statement starts with one; skip it so the branch loop keeps advancing.
+            if self.source.current_token().map(|token| token.range) == branch_start {
+                self.bump();
             }
 
             self.finish_node();

@@ -1,18 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AdsClientSummary } from "./AdsClientSummary";
-import { buildAdsClientSummaryModel } from "./adsClientSummaryModel";
+import type { AdsClientSummaryModel } from "./adsClientSummaryModel";
 import { adsConnectionIdentityParts } from "./adsConnectionSummary";
 import { healthColor, roleWord } from "./nodes";
 import { protocolColor, protocolName } from "./protocolMeta";
 import { t, tint } from "./theme";
 import { healthStatusLabel } from "./statusPresentation";
-import { buildParams, Field, valuesFor } from "./SchemaFields";
+import { Field, valuesFor } from "./SchemaFields";
 import { browseAction } from "./browseActions";
-import {
-  runtimeNodeControlLayout,
-  runtimeNodeControls,
-  type RuntimeNodeControl,
-} from "./runtimeNodeControls";
+import { runtimeNodeControlLayout, type RuntimeNodeControl } from "./runtimeNodeControls";
 import {
   formatExposedGlobals,
   serverEndpointSummaryRows,
@@ -25,6 +21,7 @@ import type {
   CommSchemaResponse,
 } from "../../communication/schemaForm";
 import { visibleSchemaFields } from "../../communication/schemaForm";
+import { RemoveBrickActions } from "./RemoveBrickActions";
 
 // §4 D + settings UX (2026-06-17/18): single-click a node → ONE side panel. It opens on a
 // read-only SUMMARY (what it is + its current settings); an Edit button switches to the
@@ -78,11 +75,18 @@ function normalizedConfiguredDetail(detail: string): string {
     .trim();
 }
 
-function runtimeModeLabel(mode: string): string {
+/** The simulator's speed words as its runtime node carries them (specification 35, B9.2); "" until the canvas data supplies them. */
+function simulationSpeedTextFromNode(d: Record<string, unknown>): string {
+  return typeof d.simulationSpeedText === "string" ? d.simulationSpeedText : "";
+}
+
+function runtimeModeLabel(mode: string, speedText = ""): string {
   switch (mode.trim().toLowerCase()) {
     case "simulate":
-    case "simulator":
-      return "Simulator";
+    case "simulator": {
+      // A simulation that runs off real time says so (specification 35, B9.2): "Simulation ×10". The words are the runtime's.
+      return speedText ? `Simulation ${speedText}` : "Simulator";
+    }
     case "managed":
       return "Managed";
     case "remote":
@@ -108,40 +112,8 @@ function runtimeModeLabel(mode: string): string {
   }
 }
 
-function testParamsFor(protocol: string, params?: Record<string, unknown>): Record<string, unknown> {
-  if (!params) {
-    return {};
-  }
-  const connections = params.connections;
-  if (protocol === "opcua_client" && Array.isArray(connections) && connections.length > 0) {
-    const first = connections[0];
-    if (first && typeof first === "object" && !Array.isArray(first)) {
-      return first as Record<string, unknown>;
-    }
-  }
-  return params;
-}
-
 function isRecordValue(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isRuntimeAuthTokenFailure(node: InspectorNode): boolean {
-  if (node.type !== "runtime") {
-    return false;
-  }
-  const endpoint = str(node.data.controlEndpoint);
-  if (!endpoint || node.id === LOCAL_RUNTIME_NODE_ID || node.data.managed === true) {
-    return false;
-  }
-  const health = str(node.data.health).toLowerCase();
-  const detail = str(node.data.detail).toLowerCase();
-  return (
-    health === "auth_failed" ||
-    (detail.includes("authentication failed") && detail.includes("auth token")) ||
-    detail.includes("no auth token provided") ||
-    detail.includes("auth token rejected")
-  );
 }
 
 function plural(count: number, noun: string): string {
@@ -478,20 +450,10 @@ export function NodeInspector({ node, schema, params, reachable, applyResult, on
   // local simulator we own, Connect/Disconnect for a remote we don't (never a fake remote "Stop").
   const isManaged = node.data.managed === true;
   const managedName = isManaged ? str(node.data.managedName) : "";
+  // The language server decides the controls of a runtime node (specification 25 §5.5).
   const runtimeControls =
     node.type === "runtime"
-      ? runtimeNodeControls({
-          isLocal: node.id === LOCAL_RUNTIME_NODE_ID,
-          health: str(node.data.health),
-          attached: node.data.attached === true,
-          controlEndpoint: node.data.controlEndpoint
-            ? str(node.data.controlEndpoint)
-            : undefined,
-          managed: isManaged,
-          authTokenRequired: isRuntimeAuthTokenFailure(node),
-          // Local sim + managed runtimes have logs; remote logs are phase 14 (gated).
-          logsAvailable: node.id === LOCAL_RUNTIME_NODE_ID || isManaged,
-        })
+      ? ((node.data.controls as RuntimeNodeControl[] | undefined) ?? [])
       : undefined;
   const onControl = (control: RuntimeNodeControl) => {
     switch (control.action) {
@@ -562,13 +524,23 @@ export function NodeInspector({ node, schema, params, reachable, applyResult, on
         onEdit={protoSchema ? () => setEditing(true) : undefined}
         onTest={
           node.type === "endpoint" && protoSchema?.supports_test && reachable
-            ? () => post({ type: "commTest", protocol, params: testParamsFor(protocol, params), target: node.id })
+            ? () => post({ type: "commTest", protocol, params: params ?? {}, target: node.id })
             : undefined
         }
         onBrowse={onBrowse && browse ? () => onBrowse(node) : undefined}
         browseLabel={browse?.label}
         runtimeControls={runtimeControls}
       onControl={onControl}
+      onIdentify={
+        node.type === "runtime"
+          ? () =>
+              post({
+                type: "identifyRuntime",
+                name: str(node.data.label),
+                endpoint: node.data.controlEndpoint ? str(node.data.controlEndpoint) : undefined,
+              })
+          : undefined
+      }
       onClose={onClose}
       onFocus={onFocus}
     />
@@ -587,6 +559,7 @@ function SummaryView({
   browseLabel,
   runtimeControls,
   onControl,
+  onIdentify,
   onClose,
   onFocus,
 }: {
@@ -600,6 +573,7 @@ function SummaryView({
   browseLabel?: string;
   runtimeControls?: RuntimeNodeControl[];
   onControl?: (control: RuntimeNodeControl) => void;
+  onIdentify?: () => void;
   onClose: () => void;
   onFocus: (id: string) => void;
 }) {
@@ -608,22 +582,26 @@ function SummaryView({
   const resultApplies = applyResult?.protocol === protocol;
   const ok = resultApplies && (applyResult?.applied || applyResult?.lifecycle_effect === "test_ok");
   const blocked = resultApplies && applyResult?.lifecycle_effect === "blocked";
-  const adsSummary = protocol === "ads" && protoSchema
-    ? buildAdsClientSummaryModel(
-        params,
-        str(d.health),
-        str(d.detail),
-        str(d.runtimeHealth),
-      )
-    : undefined;
+  // The ADS client's summary is the server's (`trust-lsp.devicesTopology`).
+  const adsSummary =
+    protocol === "ads" && protoSchema
+      ? (d.adsSummary as AdsClientSummaryModel | undefined)
+      : undefined;
 
   const [showAllActions, setShowAllActions] = useState(false);
   // S-14: a node inspector shows at most TWO visible secondary actions; any extras collapse behind an
   // overflow disclosure so a node never becomes a toolbar full of buttons.
+  // `Identify` asks the runtime to blink its identify output; the server says when it can run.
+  const identify = d.identify as { enabled?: boolean; reason?: string } | undefined;
   const runtimeControlLayout = runtimeNodeControlLayout(
     runtimeControls,
     onControl,
-    [{ key: "focus", label: "Focus", enabled: true, onClick: () => onFocus(node.id) }],
+    [
+      ...(identify && onIdentify
+        ? [{ key: "identify", label: "Identify", enabled: identify.enabled === true, title: identify.reason, onClick: onIdentify }]
+        : []),
+      { key: "focus", label: "Focus", enabled: true, onClick: () => onFocus(node.id) },
+    ],
     showAllActions
   );
 
@@ -671,7 +649,7 @@ function SummaryView({
         rows.push(["State", stateSummary(str(d.lifecycleState) || health, str(d.detail))]);
         rows.push(["Run target", d.runTarget === true ? "Selected" : "Not selected"]);
         {
-          const mode = runtimeModeLabel(str(d.mode));
+          const mode = runtimeModeLabel(str(d.mode), simulationSpeedTextFromNode(d));
           if (mode) {
             rows.push(["Mode", mode]);
           }
@@ -782,6 +760,7 @@ function SummaryView({
                 key={item.key}
                 onClick={item.onClick}
                 disabled={!item.enabled}
+                title={item.title}
                 className="trust-button"
                 style={{ flex: 1 }}
               >
@@ -842,32 +821,18 @@ function EditableEndpoint({
   const protocol = str(node.data.protocol);
   const health = str(node.data.health);
   const [values, setValues] = useState<Record<string, string>>(() => valuesFor(protoSchema, params));
-  const [confirmRemove, setConfirmRemove] = useState(false);
   const paramsKey = JSON.stringify(params ?? {});
   const schemaKey = `${protoSchema.id}:${protoSchema.fields.map((field) => field.id).join("|")}`;
   useEffect(() => {
     setValues(valuesFor(protoSchema, params));
   }, [node.id, schemaKey, paramsKey]);
-  useEffect(() => {
-    setConfirmRemove(false);
-  }, [node.id]);
 
   const fieldErrors = new Map((applyResult?.field_errors ?? []).map((e) => [e.field, e.message]));
   const visibleFields = visibleSchemaFields(protoSchema, values);
   const isDisabled = health === "disabled";
   const canDisable = protoSchema.actions.includes("disable") && !isDisabled;
   const send = (type: string, extra?: Record<string, unknown>) => {
-    if (type !== "commRemove") {
-      setConfirmRemove(false);
-    }
-    post({ type, protocol, params: buildParams(protoSchema, values), target: node.id, ...extra });
-  };
-  const requestRemove = () => {
-    if (!confirmRemove) {
-      setConfirmRemove(true);
-      return;
-    }
-    send("commRemove");
+    post({ type, protocol, values, target: node.id, ...extra });
   };
 
   const ok = applyResult && (applyResult.applied || applyResult.lifecycle_effect === "test_ok");
@@ -920,22 +885,11 @@ function EditableEndpoint({
       )}
 
       <footer className="trust-section" style={{ display: "flex", flexWrap: "wrap", gap: 8, borderBottom: "none" }}>
-        {confirmRemove ? (
-          <>
-            <div
-              className="trust-message trust-message--error endpoint-remove-confirmation"
-              style={{ flexBasis: "100%", margin: 0 }}
-            >
-              Remove this endpoint from the project? This writes the config file and takes effect after restart.
-            </div>
-            <button onClick={() => setConfirmRemove(false)} className="trust-button" style={{ flex: 1 }}>
-              Cancel
-            </button>
-            <button onClick={requestRemove} className="trust-button trust-button--danger" style={{ flex: 1 }}>
-              Confirm remove
-            </button>
-          </>
-        ) : (
+        <RemoveBrickActions
+          identity={node.id}
+          description="Remove this endpoint from the project? This writes the config file and takes effect after restart."
+          onRemove={() => send("commRemove")}
+        >
           <>
             <button onClick={() => send("commSave", { action: "upsert" })} className="trust-button trust-button--primary" style={{ flex: 1 }}>{isDisabled ? "Enable" : "Save"}</button>
             <button onClick={onClose} className="trust-button">Cancel</button>
@@ -947,16 +901,13 @@ function EditableEndpoint({
                 Disable
               </button>
             )}
-            <button onClick={requestRemove} className="trust-button trust-button--danger">
-              Remove
-            </button>
             {reachable && (
               <button onClick={() => send("commApplyLive", { action: "upsert" })} title="Push this config to the running runtime now" className="trust-button" style={{ flexBasis: "100%" }}>
                 Apply to running runtime
               </button>
             )}
           </>
-        )}
+        </RemoveBrickActions>
       </footer>
     </aside>
   );

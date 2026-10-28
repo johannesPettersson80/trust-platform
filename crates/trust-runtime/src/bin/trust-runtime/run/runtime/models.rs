@@ -1,6 +1,7 @@
 struct LoadedRuntime {
     bundle: Option<RuntimeBundle>,
-    runtime: Runtime,
+    /// The program, compiled for this computer (specification 44 §8.8, NX-15).
+    runtime: trust_runtime::CompiledRuntime,
     sources: SourceRegistry,
     ide_shell_mode: bool,
 }

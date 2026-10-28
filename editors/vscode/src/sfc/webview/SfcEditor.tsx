@@ -23,6 +23,7 @@ import {
   SfcTransitionEdge,
   SfcWebviewToExtensionMessage,
 } from "./types";
+import { settleEdit } from "./hostRequests";
 import { getVsCodeApi } from "../../visual/runtime/webview/vscodeApi";
 import { useRightPaneResize } from "../../visual/runtime/webview/useRightPaneResize";
 import "../../visual/runtime/webview/rightPaneResize.css";
@@ -67,11 +68,9 @@ export const SfcEditor: React.FC = () => {
     deleteAction,
     deleteSelected,
     autoLayout,
-    importFromJson,
-    exportToJson,
+    setGraph,
+    currentGraph,
     updateVariables,
-    highlightActiveSteps,
-    updateDebugState,
   } = useSfc();
 
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
@@ -91,13 +90,6 @@ export const SfcEditor: React.FC = () => {
     resizeHandleClassName,
     resizeHandleProps,
   } = useRightPaneResize("sfc", { minWidth: 320, defaultWidth: 380 });
-
-  const handleToggleBreakpoint = useCallback((stepId: string) => {
-    vscode.postMessage({
-      type: "toggleBreakpoint",
-      stepId,
-    } as SfcWebviewToExtensionMessage);
-  }, []);
 
   const requestFitView = useCallback(() => {
     setFitViewRequest((value) => value + 1);
@@ -124,49 +116,18 @@ export const SfcEditor: React.FC = () => {
       const message = event.data;
 
       switch (message.type) {
-        case "init":
         case "update":
-          try {
-            if (message.content) {
-              const workspace = JSON.parse(message.content);
-              importFromJson(workspace);
-              requestFitView();
-              setParseError(null);
-            }
-          } catch (error) {
-            const detail = error instanceof Error ? error.message : String(error);
-            console.error("Failed to parse SFC workspace:", detail);
-            setParseError(detail);
-            vscode.postMessage({
-              type: "error",
-              error: "Could not open this SFC because the file is not valid JSON.",
-            } as SfcWebviewToExtensionMessage);
+          if (message.graph) {
+            setGraph(message.graph);
+            requestFitView();
+            setParseError(null);
+          } else {
+            setParseError(message.error ?? "The file could not be read.");
           }
           break;
 
-        case "executionState":
-          highlightActiveSteps(message.state.activeSteps || []);
-          if (message.state.breakpoints !== undefined) {
-            updateDebugState(
-              message.state.breakpoints,
-              message.state.currentStep || null,
-              handleToggleBreakpoint
-            );
-          }
-          break;
-
-        case "executionStopped":
-          highlightActiveSteps([]);
-          break;
-
-        case "runtime.state":
-          if (!message.state.isExecuting) {
-            highlightActiveSteps([]);
-          }
-          break;
-
-        case "runtime.error":
-          console.error("SFC runtime error:", message.message);
+        case "editResult":
+          settleEdit(message.requestId, message.answer);
           break;
 
         case "validationResult":
@@ -189,22 +150,14 @@ export const SfcEditor: React.FC = () => {
     vscode.postMessage({ type: "ready" } as SfcWebviewToExtensionMessage);
 
     return () => window.removeEventListener("message", handleMessage);
-  }, [
-    handleToggleBreakpoint,
-    highlightActiveSteps,
-    importFromJson,
-    requestFitView,
-    updateDebugState,
-  ]);
+  }, [requestFitView, setGraph]);
 
   const handleSave = useCallback(() => {
-    const workspace = exportToJson();
-    const content = JSON.stringify(workspace, null, 2);
     vscode.postMessage({
       type: "save",
-      content,
+      graph: currentGraph(),
     } as SfcWebviewToExtensionMessage);
-  }, [exportToJson]);
+  }, [currentGraph]);
 
   const clearSelection = useCallback(() => {
     setSelectedNodeIds([]);
@@ -236,7 +189,7 @@ export const SfcEditor: React.FC = () => {
           break;
         case "step":
         default:
-          addNewStep("normal", position);
+          addNewStep(position);
           break;
       }
     },
@@ -306,19 +259,21 @@ export const SfcEditor: React.FC = () => {
   const handleValidate = useCallback(() => {
     vscode.postMessage({
       type: "validate",
+      graph: currentGraph(),
     } as SfcWebviewToExtensionMessage);
-  }, []);
+  }, [currentGraph]);
 
-  const handleGenerateST = useCallback(() => {
-    const workspace = exportToJson();
-    const content = JSON.stringify(workspace, null, 2);
-    setIsGeneratingCode(true);
-    setCodeErrors([]);
-    vscode.postMessage({
-      type: "generateST",
-      content,
-    } as SfcWebviewToExtensionMessage);
-  }, [exportToJson]);
+  // Generate ST writes the companion file; Preview ST only shows its text.
+  const requestCode = useCallback(
+    (type: "generateST" | "previewST") => {
+      setIsGeneratingCode(true);
+      setCodeErrors([]);
+      vscode.postMessage({ type, graph: currentGraph() } as SfcWebviewToExtensionMessage);
+    },
+    [currentGraph]
+  );
+
+  const handleGenerateST = useCallback(() => requestCode("generateST"), [requestCode]);
 
   const handleAutoLayout = useCallback(() => {
     autoLayout();
@@ -333,11 +288,11 @@ export const SfcEditor: React.FC = () => {
     setShowCodePanel((prev) => {
       const next = !prev;
       if (next && !generatedCode && !isGeneratingCode) {
-        handleGenerateST();
+        requestCode("previewST");
       }
       return next;
     });
-  }, [generatedCode, handleGenerateST, isGeneratingCode]);
+  }, [generatedCode, isGeneratingCode, requestCode]);
 
   const handleCopyCode = useCallback(() => {
     if (generatedCode) {

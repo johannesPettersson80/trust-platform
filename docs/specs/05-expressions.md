@@ -249,7 +249,15 @@ MyEnum#Value        // Enumerated value
   - Based literals (`2#`, `8#`, `16#`) prefer unsigned types (USINT → UINT → UDINT → ULINT).
 - Untyped real literals default to `LREAL`.
 - Typed literal prefixes (e.g., `INT#`, `REAL#`, `WORD#`) always override.
-- In assignments, returns, and call arguments, untyped numeric literals are coerced to the expected integer/real type when compatible.
+- In assignments, returns, call arguments, initializers, CASE labels, and the operands of
+  comparison, arithmetic and `AND`/`OR`/`XOR` operators, an untyped integer literal takes
+  the expected or other operand's integer, bit-string (`BYTE`/`WORD`/`DWORD`/`LWORD`) or
+  real type when its value is representable by that type (`d := 16#FFFF_FFFF` for a
+  `DWORD`, `b := 256` stays an error for a `BYTE`). IEC 61131-3 Ed.3 §6.3.2 lets numeric
+  literals that represent a positive integer be used as bit string literals.
+- The untyped integer literals `0` and `1` (and `BOOL#0`, `BOOL#1`) are Boolean data
+  where a `BOOL` is expected: IEC 61131-3 Ed.3 §6.3.2 and Table 5 features 7 and 9.
+  Another value, a typed integer such as `INT#1`, or an expression such as `1 + 0` is not.
 
 IEC 61131-3 Ed.3 §6.3.3 and Tables 5–9 define literal forms but do not mandate a single default integer type; this project follows the smallest‑fit policy (see IEC‑DEC‑014).
 

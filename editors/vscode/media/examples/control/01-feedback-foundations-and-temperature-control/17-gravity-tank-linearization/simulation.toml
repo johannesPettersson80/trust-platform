@@ -1,0 +1,49 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 4000
+plant_step_ms = 1000
+
+# Two identical tanks of Lesson 45 (A = 0.5 m², c = 0.020 m^(5/2)/s), both at 0.25 m, so a small and a large inflow
+# step run from the same starting state. Inputs: inflows (%QL0, %QL8) in m³/s; outputs: levels (%IL0, %IL8) in m.
+[[plants]]
+id = "small-step-tank"
+model = "gravity_tank"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [0.25]
+
+[plants.parameters]
+area_m2 = 0.5
+outflow_coefficient_m2_sqrt_m_per_s = 0.02
+
+[[plants.uncertainties]]
+id = "small-level-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "uniform_white"
+minimum = -0.0005
+maximum = 0.0005
+
+[[plants]]
+id = "large-step-tank"
+model = "gravity_tank"
+command_sources = ["%QL8"]
+feedback_targets = ["%IL8"]
+initial_state = [0.25]
+
+[plants.parameters]
+area_m2 = 0.5
+outflow_coefficient_m2_sqrt_m_per_s = 0.02
+
+[[plants.uncertainties]]
+id = "large-level-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "uniform_white"
+minimum = -0.0005
+maximum = 0.0005

@@ -1,16 +1,39 @@
 import * as assert from "assert";
 import * as vscode from "vscode";
 
+import { compileGate } from "../../compileGate";
 import {
   __testCreateDefaultConfigurationAuto,
   __testSendIoDebugRequest,
-  selectWorkspaceFolderPathForMode,
 } from "../../debug";
 import {
   __testApplySettingsUpdate,
   __testCollectSettingsSnapshot,
   __testUserFacingIoStatus,
 } from "../../ioPanel";
+
+/**
+ * Null once the language server lets Debug start (specification 25 §6.6: no project error in
+ * Problems), else its reason with each file that holds an error, after `timeoutMs`.
+ */
+async function debugGateOpen(timeoutMs: number): Promise<string | null> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const reason = (await compileGate()).reasons.debug;
+    if (!reason) {
+      return null;
+    }
+    if (Date.now() > deadline) {
+      const files = vscode.languages
+        .getDiagnostics()
+        .map(([uri, diagnostics]) => [uri, diagnostics.find((diagnostic) => diagnostic.severity === vscode.DiagnosticSeverity.Error)] as const)
+        .filter(([, error]) => error !== undefined)
+        .map(([uri, error]) => `${uri.fsPath}: ${error?.message}`);
+      return `${reason} ${files.join("; ")}`;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+}
 
 async function pathExists(uri: vscode.Uri): Promise<boolean> {
   try {
@@ -89,21 +112,8 @@ suite("Debug/IO DRY flows", function () {
     }
   });
 
-  test("unit: interactive vs auto folder selection", () => {
-    assert.strictEqual(
-      selectWorkspaceFolderPathForMode("interactive", ["/a", "/b"], undefined, "/b"),
-      undefined
-    );
-    assert.strictEqual(
-      selectWorkspaceFolderPathForMode("auto", ["/a", "/b"], undefined, "/b"),
-      "/b"
-    );
-    assert.strictEqual(
-      selectWorkspaceFolderPathForMode("auto", ["/a", "/b"], undefined, "/missing"),
-      "/a"
-    );
-  });
-
+  // The folder rule of a default CONFIGURATION is the language server's (trust-lsp.runEntry; run_entry_tests.rs holds the
+  // former interactive/auto cases).
   test("integration: auto default configuration creation", async () => {
     const projectRoot = vscode.Uri.joinPath(fixturesRoot, "auto-config-project");
     const srcRoot = vscode.Uri.joinPath(projectRoot, "src");
@@ -130,6 +140,8 @@ suite("Debug/IO DRY flows", function () {
     const text = await readText(created!);
     assert.ok(text.includes("CONFIGURATION Conf"));
     assert.ok(text.includes("PROGRAM P1 WITH MainTask : AutoConfigMain;"));
+    // The task runs every resource cycle: runtime.toml's, else 10 ms (specification 25 §11.6; run_entry_tests.rs).
+    assert.match(text, /TASK MainTask \(INTERVAL := T#\d+ms, PRIORITY := 1\);/);
   });
 
   test("integration: settings update persists values", async () => {
@@ -286,22 +298,24 @@ suite("Debug/IO DRY flows", function () {
     );
   });
 
-  test("unit: Live Values I/O retries transient runtime busy responses", async () => {
+  test("unit: Live Values I/O shows the adapter's answer and sends nothing again", async () => {
+    // Specification 13, "setVariable and setExpression": the adapter sends a write again while
+    // the runtime is busy, so the extension sends each request once and shows the answer.
+    const busy = "resource command queue is full; the request was not queued";
     const calls: Array<{ command: string; args?: unknown }> = [];
     const session = {
       customRequest: async (command: string, args?: unknown) => {
         calls.push({ command, args });
-        if (calls.length === 1) {
-          throw new Error("runtime busy");
-        }
-        return undefined;
+        throw new Error(busy);
       },
     };
 
-    await __testSendIoDebugRequest(session, "release", "%QX0.0");
+    await assert.rejects(
+      () => __testSendIoDebugRequest(session, "release", "%QX0.0"),
+      new RegExp(busy)
+    );
 
     assert.deepStrictEqual(calls, [
-      { command: "stIoRelease", args: { address: "%QX0.0" } },
       { command: "stIoRelease", args: { address: "%QX0.0" } },
     ]);
   });
@@ -368,6 +382,9 @@ suite("Debug/IO DRY flows", function () {
     vscode.debug.addBreakpoints([breakpoint]);
 
     try {
+      // The suite's workspace holds the fixtures of earlier tests: Debug starts once Problems
+      // holds no project error, and the test names any error that keeps the gate shut.
+      assert.strictEqual(await debugGateOpen(20000), null, "Problems must hold no project error before Debug");
       const started = await vscode.commands.executeCommand<boolean>(
         "trust-lsp.debug.start",
         sourceUri.fsPath

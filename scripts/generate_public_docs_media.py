@@ -37,14 +37,6 @@ COPY_MAP: list[tuple[Path, Path]] = [
         REPO_ROOT / "editors/vscode/assets/screenshot-statechart-editor.png",
         ASSET_ROOT / "visual-editors/statechart.png",
     ),
-    (
-        REPO_ROOT / "examples/tutorials/12_hmi_pid_process_dashboard/hmi/plant.svg",
-        ASSET_ROOT / "hmi/plant.svg",
-    ),
-    (
-        REPO_ROOT / "examples/tutorials/12_hmi_pid_process_dashboard/hmi/plant-minimal.svg",
-        ASSET_ROOT / "hmi/plant-minimal.svg",
-    ),
 ]
 
 VIDEO_STILL_FALLBACKS: list[tuple[Path, Path, str]] = []

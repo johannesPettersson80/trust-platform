@@ -42,6 +42,7 @@ BASE_REQUIRED_COMMANDS = (
     "remote_supply_chain",
     "remote_architecture_safety",
     "remote_clippy",
+    "remote_docs",
     "remote_reclaim_before_test_all",
     "remote_test_all",
     "remote_mp001_parity",
@@ -63,12 +64,15 @@ def run(
     check: bool = False,
     input_text: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    # A command's output is read as UTF-8 with any broken sequence replaced: two processes that
+    # write to the same pipe can split a character, and a log must never stop the guard.
     return subprocess.run(
         list(command),
         cwd=cwd,
         check=check,
         input=input_text,
-        text=True,
+        encoding="utf-8",
+        errors="replace",
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )

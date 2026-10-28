@@ -6,7 +6,6 @@ name = "runtime-b-control"
 cycle_interval_ms = 20
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-topology-runtime-b-control.sock"
 mode = "production"
 debug_enabled = false
 

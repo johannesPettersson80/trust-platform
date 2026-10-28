@@ -43,7 +43,7 @@ first second.
 - **✓ No known errors** — your project is valid.
 - **Run target: Simulator (this computer)** — where the program will run.
 - **Status: ● Stopped**, with a single **Start** button.
-- Quick links: **Project**, **Devices & Connections**, **Live Values**, **HMI**.
+- Quick links: **Project**, **Devices & Connections**, **Live Values**.
 
 ![A new project open: the Run card shows No known errors, Simulator selected, and a Start button](../assets/images/vscode/vscode-create-project-shell.png)
 

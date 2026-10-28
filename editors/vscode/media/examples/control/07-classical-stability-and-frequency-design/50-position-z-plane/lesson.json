@@ -1,0 +1,307 @@
+{
+  "schemaVersion": 4,
+  "id": "control-position-z-plane-sampling",
+  "title": "Sampled-data stability",
+  "level": "Advanced",
+  "sequence": 60,
+  "equipment": "Two copies of the shaft of Lessons 34–35 (J = B = 1), each under PD Kp 16 / Kd 7 with one update of computation delay, updated every 0.02 s and every 0.6 s",
+  "physicalPurpose": "Decide from the exact held-torque update and the calculation delay whether the PD stays stable at each update period.",
+  "principalTechnique": "Sampled-data stability: exact held update, one-update delay and the unit circle in the z-plane",
+  "objective": "Derive the exact update of the shaft with the torque held, add one update of computation delay, find the characteristic polynomial in z for 0.02 s and 0.6 s, check its roots against the unit circle in Control Studio, and compare with the recorded shafts.",
+  "prerequisites": [
+    "control-loop-shaping",
+    "control-nyquist-stability",
+    "control-mechanical-resonance"
+  ],
+  "nextLesson": "control-trajectory-feedforward",
+  "signals": [
+    {
+      "role": "SP",
+      "name": "Target angle",
+      "unit": "rad",
+      "minimum": -2,
+      "maximum": 2,
+      "resolution": 1e-05,
+      "binding": "%ML0"
+    },
+    {
+      "role": "PV",
+      "name": "Shaft angle, 0.02 s updates",
+      "unit": "rad",
+      "minimum": -2,
+      "maximum": 2,
+      "resolution": 1e-05,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Applied torque, 0.02 s updates",
+      "unit": "N·m",
+      "minimum": -20,
+      "maximum": 20,
+      "resolution": 0.0001,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Velocity, 0.02 s updates",
+      "unit": "rad/s",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.0001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Pending torque, 0.02 s updates",
+      "unit": "N·m",
+      "minimum": -20,
+      "maximum": 20,
+      "resolution": 0.0001,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Shaft angle, 0.6 s updates",
+      "unit": "rad",
+      "minimum": -2,
+      "maximum": 2,
+      "resolution": 1e-05,
+      "binding": "%IL16"
+    },
+    {
+      "role": "state",
+      "name": "Velocity, 0.6 s updates",
+      "unit": "rad/s",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.0001,
+      "binding": "%IL24"
+    },
+    {
+      "role": "state",
+      "name": "Applied torque, 0.6 s updates",
+      "unit": "N·m",
+      "minimum": -20,
+      "maximum": 20,
+      "resolution": 0.0001,
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "Pending torque, 0.6 s updates",
+      "unit": "N·m",
+      "minimum": -20,
+      "maximum": 20,
+      "resolution": 0.0001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "ExperimentEnabled",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX24.0"
+    },
+    {
+      "role": "state",
+      "name": "Abort, 0.02 s updates",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX24.1"
+    },
+    {
+      "role": "state",
+      "name": "Abort, 0.6 s updates",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX24.2"
+    }
+  ],
+  "plant": {
+    "modelId": "two-shafts-sampling",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "inertia",
+        "value": 1,
+        "unit": "kg·m²"
+      },
+      {
+        "name": "friction",
+        "value": 1,
+        "unit": "N·m·s/rad"
+      },
+      {
+        "name": "plant_step",
+        "value": 0.01,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.02,
+    "initialState": {
+      "angleRad": 0,
+      "velocityRadS": 0
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Shaft angle, 0.02 s updates": 0,
+      "Applied torque, 0.02 s updates": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Shaft angle, 0.6 s updates",
+        "minimum": -0.2,
+        "maximum": 0.2,
+        "unit": "rad"
+      }
+    ],
+    "simplifications": [
+      "Unloaded shaft: J·dω/dt = u − B·ω, dθ/dt = ω, integrated in 10 ms steps for both update periods.",
+      "Angle and velocity are measured exactly at each scan."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "controller": "PD, Kp = 16 N·m/rad, Kd = 7 N·m·s/rad, one update of delay",
+      "period": "0.02 s"
+    },
+    "limitation": "The continuous design (s + 4)² ignores the held torque and the calculation delay."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "period": "0.6 s",
+      "target": "0 → 0.01 rad",
+      "durationSeconds": 10
+    },
+    "decision": "0.02 s: poles 0.1645, 0.8777, 0.938 inside the unit circle, the angle settles at 0.01 rad without overshoot. 0.6 s: poles 0.6704 ± j2.32 with |z| = 2.41 outside, the angle overshoots to 0.088 rad and passes −0.2 rad at 2.82 s."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "ExperimentEnabled",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 12.1,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Target step 0 → 0.01 rad on both shafts"
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "short_period_settled",
+      "signal": "Shaft angle, 0.02 s updates",
+      "window": "from 1.68 s",
+      "comparator": "==",
+      "limit": 0.01,
+      "unit": "rad",
+      "tolerance": 0.0001,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "short_period_overshoot",
+      "signal": "Shaft angle, 0.02 s updates",
+      "window": "complete trial",
+      "comparator": "<=",
+      "limit": 0.01,
+      "unit": "rad",
+      "tolerance": 1e-06,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "long_period_abort_angle",
+      "signal": "Shaft angle, 0.6 s updates",
+      "window": "until the abort",
+      "comparator": ">=",
+      "limit": 0.2,
+      "unit": "rad",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Shaft angle, 0.6 s updates",
+        "minimum": -0.2,
+        "maximum": 0.2,
+        "unit": "rad"
+      },
+      {
+        "signal": "Applied torque, 0.6 s updates",
+        "minimum": -20,
+        "maximum": 20,
+        "unit": "N·m"
+      }
+    ],
+    "abortPredicates": [
+      "Angle outside ±0.2 rad or velocity outside ±2 rad/s: the pending torque is cleared and the shaft is braked with −7·ω",
+      "Signals must remain finite and inside the declared ranges"
+    ],
+    "safeMv": 0,
+    "restorationMode": "When the experiment ends, the target returns to 0 rad, the aborts clear and the torques return to 0 N·m.",
+    "physicalApprovalRole": "authorised motion-control engineer and responsible machine operator",
+    "simulationOnlyRestrictions": [
+      "This lesson does not apply either controller to a physical motor",
+      "An unstable sampling period must never be run on a physical axis"
+    ]
+  },
+  "workflowStages": [
+    "Identify",
+    "Tune"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/44-54-classical-analysis.md#54-sampled-data-stability",
+    "nativeTest": "lesson54",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_52_54 lesson54",
+    "projectPath": "examples/control/07-classical-stability-and-frequency-design/50-position-z-plane",
+    "runArtifactFields": [
+      "angles",
+      "appliedTorques",
+      "pendingTorques",
+      "sampledPoles",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-position-z-plane-sampling"
+  },
+  "video": {
+    "viewerOutcome": "See the same PD settle at 0.02 s and grow at 0.6 s, as the poles inside and outside the unit circle predict.",
+    "requiredVisibleEvidence": [
+      "both shafts' angles and held torques",
+      "both z-plane pole maps with the unit circle",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 59 measured the flexible axis's phase at 3 Hz 11° later than its continuous model, because the PID holds each torque for its 20 ms update. Every analysis so far treated the controller as continuous. A PLC task measures and calculates only at its updates, holds the torque in between, and applies a newly calculated torque one update later. How long may the update period become before this timing destabilizes a loop?\n\nWe return to the rigid drum axis, $J = 1$ kg·m² and $B = 1$ N·m·s/rad, under PD control with $K_p = 16$ N·m/rad and $K_d = 7$ N·m·s/rad, designed as continuous: $s^2 + 8s + 16 = (s + 4)^2$, both poles at −4. We will model the loop update by update and compare a 0.02 s and a 0.6 s period.",
+    "reason": "We need to:\n\n1. describe the axis from one update to the next while the torque is held;\n2. include the update the calculation takes; and\n3. decide from that description whether the loop is stable.",
+    "theory": [
+      "**Sampled-data analysis** models a digital controller exactly as it runs: it looks and acts only at its update instants and holds its command in between. The loop is stable when every pole lies inside the **unit circle**.\n\n**In words.** Every analysis so far treated the controller as acting continuously. A PLC task does not: once per cycle it reads its inputs, calculates, and writes its outputs, and between cycles the outputs keep their last value. Three things follow:\n\n1. **The held command.** Between updates the torque stays fixed, while the shaft keeps moving.\n2. **The computation delay.** A torque calculated from one update's measurement reaches the drive only at the next update, one period later.\n3. **An exact model from update to update.** Because the torque is constant over each period, the shaft's motion over one period can be calculated exactly. The loop then becomes a rule that gives the next update's values from this update's.\n\nIn PLC terms: $h$ is the task's cycle time, the output image is written once per cycle and held, and a value calculated in this cycle reaches the output in the next. A long cycle means the shaft travels far on an old torque, and the correction arrives late and is held too long, like steering a car while looking at the road only every few seconds.\n\nA free motion of such a rule is multiplied by the same factor $z$ at every update. If $|z| < 1$ it shrinks, and if $|z| > 1$ it grows: the circle $|z| = 1$ is the stability boundary, and these factors are the poles of the sampled loop.\n\nFor the drum axis, the PD reads the angle and velocity every $h$ seconds; between updates the torque stays fixed while the shaft keeps moving.\n\n**The formula.** The shaft obeys $\\dot\\omega = u - \\omega$ and $\\dot\\theta = \\omega$. With the torque $u_k$ held, the velocity relaxes towards $u_k$: $\\omega(t_k + t) = u_k + (\\omega_k - u_k)\\,e^{-t}$. Its value at $t = h$, and its integral over the period, give the next velocity and angle exactly:\n\n$$\nx_{k+1} = x_k + b\\,\\omega_k + c\\,u_k, \\qquad \\omega_{k+1} = a\\,\\omega_k + d\\,u_k, \\qquad a = e^{-h},\\ b = d = 1 - e^{-h},\\ c = h - 1 + e^{-h} .\n$$\n\nLet:\n\n- $h$ be the update period, in s;\n- $x_k$ be the angle's deviation from the target at update $k$, in rad;\n- $\\omega_k$ be the velocity at update $k$, in rad/s;\n- $u_k$ be the torque held during period $k$, in N·m; and\n- $a$, $b$, $c$ and $d$ be the coefficients of the exact update: $a$ is the share of the velocity left after one period, $d$ the velocity one N·m adds over it.\n\nThe **computation delay** is the update the calculation takes: the torque calculated from the measurement at update $k$ is applied from update $k + 1$,\n\n$$\nu_{k+1} = -K_p\\,x_k - K_d\\,\\omega_k .\n$$\n\nPutting the mode $x_k = Xz^k$, and likewise $\\omega_k$ and $u_k$, into the three update equations and eliminating $X$, $\\omega$ and $u$ gives the characteristic polynomial\n\n$$\nz(z - 1)(z - a) + K_d\\,d\\,(z - 1) + K_p\\,[c\\,(z - a) + bd] = 0 .\n$$\n\nMultiplied out, it is $z^3 - (1 + a)\\,z^2 + (a + K_d d + K_p c)\\,z + K_p\\,(bd - ac) - K_d d = 0$.\n\nTwo simple tests locate its three roots without solving it:\n\n- **Sign changes.** Where the polynomial changes sign between two values of $z$, a root lies between them.\n- **The product.** The three roots multiply to minus the constant term. If that product is larger than 1 in size, at least one root lies outside the unit circle.\n\n**Example: three update periods.** With $K_p = 16$ N·m/rad and $K_d = 7$ N·m·s/rad:\n\n1. **The coefficients.** For $h = 0.02$ s: $a = 0.9802$, $b = d = 0.0198$ and $c = 0.000199$. For $h = 0.6$ s: $a = 0.5488$, $b = d = 0.4512$ and $c = 0.1488$. For $h = 0.3$ s: $a = 0.7408$, $b = d = 0.2592$ and $c = 0.0408$.\n2. **The hold.** With $h = 0.3$ s, a torque calculated at an update is applied 0.3 s later and held for another 0.3 s: each correction is up to 0.6 s old before it is replaced.\n3. **$h = 0.02$ s.** The polynomial is $z^3 - 1.9802z^2 + 1.1220z - 0.1355$. Its signs at $z$ = 0, 0.2, 0.8, 0.9 and 1 are −, +, +, −, +, so it has a root at each sign change: three roots between 0 and 1, all inside the unit circle. Two lie near $e^{-4 \\times 0.02} = 0.923$, the continuous poles $-4$ seen once per update; the third comes from the delay.\n4. **$h = 0.3$ s.** The polynomial is $z^3 - 1.7408z^2 + 3.2082z - 1.2233$. The product of its roots is 1.2233, larger than 1, so at least one root lies outside the unit circle: the loop is unstable. Solving shows a pair at $0.636 \\pm 1.486j$, $|z| = 1.62$: each update, that motion grows 1.62 times.\n\nBoth shafts in the experiment are simulated in the same 10 ms steps, so only the controller's timing differs. The 0.6 s period is a teaching choice, far slower than a real motion task, to make the effect visible; the 0.3 s period is a calculated example.\n\n**The limitation.** Sampled or not, feedback produces torque only from an error that has already appeared: after a target step, the first torque exists only because the angle is short of the target."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. When does each loop apply its first torque after the target step?\n2. Does the 0.02 s loop overshoot, and how fast does it settle?\n3. What does the 0.6 s loop do?\n4. Where does Control Studio put each loop's poles?\n\n| $h$ | $a$ | $b = d$ | $c$ | Root test |\n| --- | ---: | ---: | ---: | --- |\n| 0.02 s | 0.9802 | 0.0198 | 0.000199 | three roots between 0 and 1: stable |\n| 0.6 s | 0.5488 | 0.4512 | 0.1488 | root product 1.208: unstable |",
+    "practicalPreparation": [
+      "1. Open this lesson's project and start **Simulator**. Both axes rest at 0 rad. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.TargetRad · Setpoint (rad)`, `P1.FastAngleRad · Process value (rad)` and `P1.FastTorqueNm · Applied output (N·m)`, the 0.02 s loop; add `P1.SlowAngleRad · state (rad)`, `P1.SlowTorqueNm · state (N·m)` and `P1.SlowPendingNm · state (N·m)`, the 0.6 s loop's angle, applied torque and calculated torque waiting to be applied.\n3. Answer the predictions. Select **Review project test**, check the declared **12.1 s** duration and select **Confirm and start**. After 2 s the target steps to 0.01 rad.\n4. After the run, hover the torque steps and the 0.6 s angle's peak. At completion, Control Studio shows **Project test completed. Outputs restored.**\n5. On **Identify**, choose **Supplied plant model** in **Method**, select **Open model…** and open `sampled-loop-20ms.json`. On **Tune**, choose **Poles and zeros** in **Tuning method**, keep **Pole view** at **Unreduced internal model** and select **Calculate poles and zeros**.\n6. Repeat step 5 with `sampled-loop-600ms.json`.\n\nSelect **Abort test** to stop early. To repeat, stop and restart **Simulator**."
+    ],
+    "baseline": "The continuous PD design (s + 4)² for the shaft ignores the held torque and the one-update calculation delay, so it cannot say at which update period the loop fails.",
+    "change": "Derive the sampled loop's characteristic polynomial with the hold and the delay, place its roots in the z-plane for 0.02 s and 0.6 s, and compare both shafts.",
+    "comparison": "![The 0.02 s loop settles; the 0.6 s loop overshoots and runs past the abort limit](figures/sampled-update-trials.svg)\n\nThe numbered marks answer predictions 1–3; Control Studio's poles answer 4, under the note **Discrete z-plane; the unit circle is the stability boundary.**\n\n| $h$ | Poles | Largest $\\lvert z \\rvert$ | Result |\n| --- | --- | ---: | --- |\n| 0.02 s | 0.1645, 0.8777, 0.938 | 0.938 | inside: stable |\n| 0.6 s | 0.2079, 0.6704 ± 2.32j | 2.41 | outside: unstable |\n\n1. The first torque, 0.16 N·m, came one update after the step: after 0.02 s, and after 0.6 s in the slow loop.\n2. The 0.02 s loop reached 0.01 rad without overshoot and stayed within 0.0001 rad from 1.68 s.\n3. The 0.6 s loop held 0.16 N·m for two periods, then −0.73 N·m from 1.8 s and −1.91 N·m from 2.4 s, each one period after its calculation. The angle overshot to 0.088 rad at 1.94 s and passed −0.2 rad at 2.82 s, where the abort braked it to rest at −0.31 rad.\n4. The 0.6 s loop's complex pair has $|z| = \\sqrt{0.6704^2 + 2.32^2} = 2.41$ at 73.9°: each update, that motion grows 2.41 times and turns by 73.9°. All the 0.02 s poles lie inside, the largest at 0.938.\n\nControl Studio also lists one zero per loop, −0.99 and −0.82; zeros do not decide stability. The sampled model predicted both outcomes before the run: that is its benefit. Its cost is that the update period becomes part of the design. These are simulation results.",
+    "validation": "![The 0.02 s loop settles; the 0.6 s loop overshoots and runs past the abort limit](figures/sampled-update-trials.svg)\n\nThe numbered marks answer predictions 1–3; Control Studio's poles answer 4, under the note **Discrete z-plane; the unit circle is the stability boundary.**\n\n| $h$ | Poles | Largest $\\lvert z \\rvert$ | Result |\n| --- | --- | ---: | --- |\n| 0.02 s | 0.1645, 0.8777, 0.938 | 0.938 | inside: stable |\n| 0.6 s | 0.2079, 0.6704 ± 2.32j | 2.41 | outside: unstable |\n\n1. The first torque, 0.16 N·m, came one update after the step: after 0.02 s, and after 0.6 s in the slow loop.\n2. The 0.02 s loop reached 0.01 rad without overshoot and stayed within 0.0001 rad from 1.68 s.\n3. The 0.6 s loop held 0.16 N·m for two periods, then −0.73 N·m from 1.8 s and −1.91 N·m from 2.4 s, each one period after its calculation. The angle overshot to 0.088 rad at 1.94 s and passed −0.2 rad at 2.82 s, where the abort braked it to rest at −0.31 rad.\n4. The 0.6 s loop's complex pair has $|z| = \\sqrt{0.6704^2 + 2.32^2} = 2.41$ at 73.9°: each update, that motion grows 2.41 times and turns by 73.9°. All the 0.02 s poles lie inside, the largest at 0.938.\n\nControl Studio also lists one zero per loop, −0.99 and −0.82; zeros do not decide stability. The sampled model predicted both outcomes before the run: that is its benefit. Its cost is that the update period becomes part of the design. These are simulation results.",
+    "explanation": "A sampled loop moves from update to update with its command held in between. Its exact update and the computation delay give a characteristic polynomial in $z$, and the loop is stable when every root lies inside the unit circle.\n\nFor the drum axis, the same PD was stable at 0.02 s, with every pole inside and the largest at 0.938, and unstable at 0.6 s, where a pole pair at $|z| = 2.41$ drove the angle past the abort limit.",
+    "transfer": "With a 0.02 s update the loop behaves as designed. Feedback still acts only on errors that have appeared, though: in a planned move it waits for a following error, a lag behind the plan, before it supplies the torque the move needs.\n\n[Trajectory feedforward](../../09-industrial-control-structures/90-trajectory-feedforward/README.md) calculates that torque from the planned motion and gives it right away."
+  }
+}

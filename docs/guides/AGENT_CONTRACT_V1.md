@@ -89,7 +89,7 @@ operation, MUST NOT be copied into an error message or error data.
 | `runtime.compile_reload` | Run the full diagnose -> build -> reload loop and return a single structured result |
 | `runtime.validate` | Reuse the `trust-runtime validate --ci` payload path |
 | `runtime.test` | Reuse the `trust-dev test --output json` payload path |
-| `runtime.reload` | Rebuild `program.stbc` and issue `bytecode.reload` to a running runtime control endpoint |
+| `runtime.reload` | Rebuild the program image `program.tpi` and send it with `bytecode.reload` to a running runtime control endpoint |
 | `harness.load` | Load inline/project sources into a deterministic in-process harness |
 | `harness.reload` | Reload harness sources while preserving retain semantics when supported |
 | `harness.execute` | Run one isolated deterministic fixture transaction and return structured step/assertion evidence |
@@ -171,7 +171,7 @@ Returns a stable orientation payload for agents:
 - `dependencyRoots`
 - `resolvedDependencies`
 - file presence for `runtime.toml`, `io.toml`, `simulation.toml`,
-  `trust-lsp.toml`, and `program.stbc`
+  `trust-lsp.toml`, and the program image `program.tpi`
 - `lsp.vendorProfile` when `trust-lsp.toml` declares one
 - runtime summary (`controlEndpoint`, web/discovery/mesh settings, etc.) when
   `runtime.toml` parses cleanly
@@ -360,9 +360,9 @@ Optional params:
 
 Behavior:
 
-- rebuilds `program.stbc` for the selected project
-- reads the rebuilt bytecode from disk
-- sends `bytecode.reload` to the runtime control endpoint from the project bundle or the explicit `endpoint` override
+- rebuilds the program image `program.tpi` for the selected project
+- reads the rebuilt image from disk
+- sends it with `bytecode.reload` to the runtime control endpoint from the project bundle or the explicit `endpoint` override
 
 Returns a combined payload with the build report plus the control reload result.
 

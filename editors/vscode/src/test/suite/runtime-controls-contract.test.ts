@@ -2,33 +2,14 @@ import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
 
-import {
-  remoteLabelFromEndpoint,
-  runtimeOptions,
-  selectedRuntime,
-  SIMULATOR_RUNTIME_ID,
-  withPrimaryActionGate,
-  type RuntimeModelSnapshot,
-} from "../../trustHomeModel";
+import { withPrimaryActionGate, type SelectedRuntime } from "../../trustHomeModel";
 import {
   runtimeNodeControlLayout,
-  runtimeNodeControls,
+  type RuntimeNodeControl,
 } from "../../networkCanvas/webview/runtimeNodeControls";
 import {
   normalizeIoState,
 } from "../../runtimeLifecycle";
-import {
-  compileGateReason,
-  diagnosticsGateReason,
-} from "../../compileGate";
-import {
-  formatManagedRuntimeLogs,
-  isManagedLifecycleSuccess,
-  managedRuntimeLabel,
-  normalizeManagedState,
-  parseRuntimeControlAuthToken,
-  toManagedRuntimes,
-} from "../../localRuntimeModel";
 
 // Regression guard for the v3 UX RESET (vscode-ux-overhaul-plan.md §0/§6/§8/§9): ONE run surface — a
 // truST sidebar WebviewView with a target selector and a SINGLE state-specific action. Literal verbs
@@ -60,516 +41,61 @@ function loadSource(file: string): string {
   return fs.readFileSync(path.join(extensionRoot(), "src", file), "utf8");
 }
 
-function snap(over: Partial<RuntimeModelSnapshot> = {}): RuntimeModelSnapshot {
-  return {
-    runtimeMode: "simulate",
-    runtimeState: "stopped",
-    endpoint: "",
-    endpointConfigured: false,
-    endpointReachable: false,
-    starting: false,
-    ...over,
+// The targets, the selected target with its one action, the managed runtimes with their states, the outcome of a managed
+// Start or Stop and the managed logs are the language server's answers (`trust-lsp.runTargets`), proven by the Rust tests in
+// crates/trust-lsp/src/handlers/commands/run_targets/ (selection_tests.rs, managed_tests.rs, connect_tests.rs). These tests
+// prove what the extension does with the answers.
+suite("truST sidebar — selected target", () => {
+  const stoppedSimulator: SelectedRuntime = {
+    id: "simulator",
+    label: "Simulator",
+    kind: "simulator",
+    status: "stopped",
+    statusLabel: "Stopped",
+    primary: { action: "start", label: "Start", enabled: true, gateable: true },
   };
-}
 
-suite("truST sidebar — selected target model", () => {
-  test("remote labels keep the port so same-host runtimes are distinguishable", () => {
-    assert.strictEqual(
-      remoteLabelFromEndpoint("tcp://127.0.0.1:9902"),
-      "127.0.0.1:9902"
-    );
-    assert.strictEqual(
-      remoteLabelFromEndpoint("tcp://raspberrypi:5680"),
-      "raspberrypi:5680"
-    );
-  });
-
-  test("simulator: stopped → Start, running → Stop, starting → disabled (no action)", () => {
-    const stopped = selectedRuntime({
-      snapshot: snap(),
-      remotes: [],
-      managed: [],
-      selectedId: SIMULATOR_RUNTIME_ID,
-    });
-    assert.strictEqual(stopped.kind, "simulator");
-    assert.strictEqual(stopped.primary.action, "start");
-    assert.strictEqual(stopped.primary.label, "Start");
-    assert.ok(stopped.primary.enabled);
-
-    const running = selectedRuntime({
-      snapshot: snap({ runtimeMode: "simulate", runtimeState: "running" }),
-      remotes: [],
-      managed: [],
-      selectedId: SIMULATOR_RUNTIME_ID,
-    });
-    assert.strictEqual(running.primary.action, "stop");
-    assert.strictEqual(running.primary.label, "Stop");
-
-    const starting = selectedRuntime({
-      snapshot: snap({ starting: true }),
-      remotes: [],
-      managed: [],
-      selectedId: SIMULATOR_RUNTIME_ID,
-    });
-    assert.strictEqual(starting.primary.action, "none");
-    assert.strictEqual(starting.primary.enabled, false);
-  });
-
-  test("primary Start can be disabled with a visible reason without hiding the affordance", () => {
-    const stopped = selectedRuntime({
-      snapshot: snap(),
-      remotes: [],
-      managed: [],
-      selectedId: SIMULATOR_RUNTIME_ID,
-    });
-    const gated = withPrimaryActionGate(stopped, {
-      reason: "Fix 2 errors to start.",
-    });
+  // Catches a compile gate that hides Start, and one that blocks an action the language server says it cannot block.
+  test("the compile gate disables a gateable Start with its reason and blocks nothing else", () => {
+    const gated = withPrimaryActionGate(stoppedSimulator, { reason: "Fix 2 errors to start." });
     assert.strictEqual(gated.primary.action, "start");
     assert.strictEqual(gated.primary.label, "Start");
     assert.strictEqual(gated.primary.enabled, false);
     assert.strictEqual(gated.primary.hint, "Fix 2 errors to start.");
-  });
-
-  test("compile/update gates use one shared user-facing reason model", () => {
-    assert.strictEqual(
-      diagnosticsGateReason(
-        { ok: false, label: "2 errors", errors: 2, sourceErrors: 2, configErrors: 0 },
-        "update"
-      ),
-      "Fix 2 errors to update."
-    );
-    assert.strictEqual(
-      diagnosticsGateReason(
-        { ok: false, label: "1 error", errors: 1, sourceErrors: 0, configErrors: 1 },
-        "start"
-      ),
-      "Fix runtime.toml to start."
-    );
-    assert.strictEqual(
-      compileGateReason(
-        { kind: "failed", errors: 3, configErrors: 0, summary: "Compile failed" },
-        { ok: true, label: "No known errors", errors: 0, sourceErrors: 0, configErrors: 0 },
-        "debug"
-      ),
-      "Fix 3 errors to debug."
-    );
-  });
-
-  test("remote: not connected → Connect, connected → Disconnect", () => {
-    const remotes = [{ id: "tcp://raspberrypi:5680", label: "raspberrypi" }];
-    const notConnected = selectedRuntime({
-      snapshot: snap(),
-      remotes,
-      managed: [],
-      selectedId: "tcp://raspberrypi:5680",
-    });
-    assert.strictEqual(notConnected.kind, "remote");
-    assert.strictEqual(notConnected.primary.action, "connect");
-    assert.strictEqual(notConnected.primary.label, "Connect");
-
-    const connected = selectedRuntime({
-      snapshot: snap({
-        runtimeMode: "online",
-        runtimeState: "connected",
-        endpoint: "tcp://raspberrypi:5680",
-        endpointConfigured: true,
-        endpointReachable: true,
-      }),
-      remotes,
-      managed: [],
-      selectedId: "tcp://raspberrypi:5680",
-    });
-    assert.strictEqual(connected.primary.action, "disconnect");
-    assert.strictEqual(connected.primary.label, "Disconnect");
-    assert.strictEqual(connected.statusLabel, "Connected");
-  });
-
-  test("unreachable selected remote: Connect is DISABLED with a reason (never a button that just fails)", () => {
-    const remotes = [{ id: "tcp://pi:5680", label: "pi" }];
-    const unreachable = selectedRuntime({
-      snapshot: snap({
-        runtimeMode: "online",
-        runtimeState: "stopped",
-        endpoint: "tcp://pi:5680",
-        endpointConfigured: true,
-        endpointReachable: false,
-      }),
-      remotes,
-      managed: [],
-      selectedId: "tcp://pi:5680",
-    });
-    assert.strictEqual(unreachable.primary.action, "connect");
-    assert.strictEqual(unreachable.primary.enabled, false, "unreachable → Connect disabled");
-    assert.ok(
-      unreachable.primary.hint && /reachable|Devices & Connections/i.test(unreachable.primary.hint),
-      "must explain why + point to Devices & Connections"
-    );
-  });
-
-  test("HONESTY: a connected remote NEVER renders Stop", () => {
-    const connected = selectedRuntime({
-      snapshot: snap({
-        runtimeMode: "online",
-        runtimeState: "connected",
-        endpoint: "tcp://raspberrypi:5680",
-        endpointConfigured: true,
-        endpointReachable: true,
-      }),
-      remotes: [{ id: "tcp://raspberrypi:5680", label: "raspberrypi" }],
-      managed: [],
-      selectedId: "tcp://raspberrypi:5680",
-    });
-    assert.notStrictEqual(connected.primary.action, "stop");
-    assert.notStrictEqual(connected.primary.label, "Stop");
-    assert.ok(!/stop/i.test(connected.primary.label));
-  });
-
-  test("remote Connect verifies control auth before opening an attach session", () => {
-    const source = loadSource("runtimeLifecycle.ts");
-    const authCheck = source.indexOf("requestRuntimeStatus(status.endpoint");
-    const attach = source.indexOf("vscode.debug.startDebugging(folder, debugConfig)");
-    assert.ok(authCheck >= 0, "remote Connect must request runtime status with the selected token");
-    assert.ok(attach >= 0, "remote Connect still attaches after the preflight succeeds");
-    assert.ok(
-      authCheck < attach,
-      "remote Connect must not create an attach session before auth is verified"
-    );
-    assert.ok(
-      source.includes("isRuntimeControlAuthError") &&
-        source.includes("runtimeControlAuthErrorKind") &&
-        source.includes("No auth token provided") &&
-        source.includes("Auth token rejected"),
-      "missing and wrong tokens must be classified as distinct recovery prompts"
-    );
-    assert.ok(
-      source.includes("remoteDebugSessionName(targetLabel, status.endpoint)") &&
-        source.includes("truST Remote"),
-      "remote Connect must name native debug sessions as remote targets, never as the Simulator"
-    );
-  });
-
-  test("dropdown is SELECT-ONLY: simulator first, then remotes — NO Add/Connect sentinel; invalid selection falls back to simulator", () => {
-    const remotes = [{ id: "tcp://pi:5680", label: "pi" }];
-    const options = runtimeOptions(remotes, []);
-    assert.strictEqual(options[0].id, SIMULATOR_RUNTIME_ID);
-    assert.strictEqual(
-      options[options.length - 1].id,
-      "tcp://pi:5680",
-      "the last option is a real runtime — no trailing Add/Connect sentinel"
-    );
-    // No option is a non-runtime sentinel (every option is a selectable target).
-    assert.ok(
-      options.every((option) => !option.id.startsWith("__")),
-      "the dropdown must contain only real, selectable runtimes"
-    );
-
-    const fallback = selectedRuntime({
-      snapshot: snap(),
-      remotes,
-      managed: [],
-      selectedId: "does-not-exist",
-    });
-    assert.strictEqual(fallback.id, SIMULATOR_RUNTIME_ID);
-  });
-
-  test("managed local runtime: projected into the dropdown; Start when stopped, Stop when running (we own it)", () => {
-    const managed = [
-      { name: "cell1", controlEndpoint: "tcp://127.0.0.1:9902", state: "stopped" as const },
-    ];
-    const options = runtimeOptions([], managed);
-    const local = options.find((option) => option.id === "cell1");
-    assert.ok(local, "the managed runtime is in the dropdown");
-    assert.strictEqual(local?.kind, "local");
-    assert.strictEqual(local?.label, "cell1 (this computer)");
-
-    const stopped = selectedRuntime({ snapshot: snap(), remotes: [], managed, selectedId: "cell1" });
-    assert.strictEqual(stopped.primary.action, "start");
-    assert.strictEqual(stopped.primary.label, "Start");
-
-    const running = selectedRuntime({
-      snapshot: snap(),
-      remotes: [],
-      managed: [{ ...managed[0], state: "running" }],
-      selectedId: "cell1",
-    });
-    assert.strictEqual(running.primary.action, "stop");
-    // We OWN a managed local runtime → never "Connect".
-    assert.notStrictEqual(running.primary.action, "connect");
-  });
-});
-
-suite("Managed local runtime model (Phase 9)", () => {
-  test("normalizeManagedState + label", () => {
-    assert.strictEqual(normalizeManagedState("running"), "running");
-    assert.strictEqual(normalizeManagedState("stopped"), "stopped");
-    assert.strictEqual(normalizeManagedState("starting"), "starting");
-    assert.strictEqual(normalizeManagedState("stopping"), "stopping");
-    assert.strictEqual(normalizeManagedState(undefined), "unavailable");
-    assert.strictEqual(normalizeManagedState("unexpected"), "unavailable");
-    assert.strictEqual(managedRuntimeLabel("cell1"), "cell1 (this computer)");
-  });
-
-  test("lifecycle success is HONEST: Start only at 'running', Stop only at 'stopped'", () => {
-    // Backend can report transient "starting"/"stopping" (didn't reach the target) — NOT success.
-    assert.strictEqual(isManagedLifecycleSuccess("start", "running"), true);
-    assert.strictEqual(isManagedLifecycleSuccess("start", "starting"), false);
-    assert.strictEqual(isManagedLifecycleSuccess("start", "stopped"), false);
-    assert.strictEqual(isManagedLifecycleSuccess("start", undefined), false);
-    assert.strictEqual(isManagedLifecycleSuccess("stop", "stopped"), true);
-    assert.strictEqual(isManagedLifecycleSuccess("stop", "stopping"), false);
-    assert.strictEqual(isManagedLifecycleSuccess("stop", "running"), false);
-  });
-
-  test("managed starting state is shown as Starting with lifecycle action disabled", () => {
-    const starting = selectedRuntime({
-      snapshot: snap(),
-      remotes: [],
-      managed: [
-        {
-          name: "cell1",
-          controlEndpoint: "tcp://127.0.0.1:9902",
-          state: "starting",
-        },
-      ],
-      selectedId: "cell1",
-    });
-
-    assert.strictEqual(starting.status, "starting");
-    assert.strictEqual(starting.statusLabel, "Starting…");
-    assert.strictEqual(starting.primary.action, "none");
-    assert.strictEqual(starting.primary.enabled, false);
-  });
-
-  test("managed stopping state is shown as Stopping with lifecycle action disabled", () => {
-    const stopping = selectedRuntime({
-      snapshot: snap(),
-      remotes: [],
-      managed: [
-        {
-          name: "cell1",
-          controlEndpoint: "tcp://127.0.0.1:9902",
-          state: "stopping",
-        },
-      ],
-      selectedId: "cell1",
-    });
-
-    assert.strictEqual(stopping.status, "stopping");
-    assert.strictEqual(stopping.statusLabel, "Stopping…");
-    assert.strictEqual(stopping.primary.action, "none");
-    assert.strictEqual(stopping.primary.enabled, false);
-  });
-
-  test("toManagedRuntimes merges fleet list + per-name status", () => {
-    const list = {
-      runtimes: [
-        { name: "cell1", control_endpoint: "tcp://127.0.0.1:9902", path: "cell1" },
-        { name: "cell2", control_endpoint: "tcp://127.0.0.1:9903", path: "cell2" },
-      ],
+    const running: SelectedRuntime = {
+      ...stoppedSimulator,
+      status: "running",
+      statusLabel: "Running",
+      primary: { action: "stop", label: "Stop", enabled: true, gateable: false },
     };
-    const statuses = new Map([
-      [
-        "cell1",
-        { status: "running", path: "/fleet/cell1", log_path: "/tmp/cell1.log" },
-      ],
-    ]);
-    const managed = toManagedRuntimes(list, statuses);
-    assert.strictEqual(managed.length, 2);
-    assert.strictEqual(managed[0].name, "cell1");
-    assert.strictEqual(managed[0].state, "running");
-    assert.strictEqual(managed[0].projectPath, "/fleet/cell1");
-    assert.strictEqual(managed[0].logPath, "/tmp/cell1.log");
-    // No status report is not evidence of a stopped process.
-    assert.strictEqual(managed[1].state, "unavailable");
-    assert.strictEqual(managed[1].projectPath, "cell2");
-    const unavailable = selectedRuntime({
-      snapshot: snap(),
-      remotes: [],
-      managed,
-      selectedId: "cell2",
-    });
-    assert.strictEqual(unavailable.status, "unavailable");
-    assert.strictEqual(unavailable.statusLabel, "Status unavailable");
-    assert.strictEqual(unavailable.primary.action, "start");
-    assert.strictEqual(unavailable.primary.enabled, false);
-    assert.match(unavailable.primary.hint ?? "", /status|refresh/i);
+    assert.deepStrictEqual(withPrimaryActionGate(running, { reason: "Fix 2 errors to start." }), running);
+    assert.deepStrictEqual(withPrimaryActionGate(stoppedSimulator, { reason: "" }), stoppedSimulator);
   });
 
-  test("managed local runtime auth token is parsed only from runtime.control", () => {
-    const token = parseRuntimeControlAuthToken(`
-[runtime.control]
-endpoint = "tcp://127.0.0.1:9910"
-auth_token = "managed-secret" # local runtime token
-
-[mesh]
-auth_token = "mesh-secret"
-`);
-    assert.strictEqual(token, "managed-secret");
-    assert.strictEqual(
-      parseRuntimeControlAuthToken(`[mesh]\nauth_token = "mesh-secret"\n`),
-      undefined,
-      "must not import unrelated protocol secrets as runtime control tokens"
-    );
-  });
-
-  test("managed local runtime auth token parser accepts top-level dotted runtime.control form", () => {
-    const token = parseRuntimeControlAuthToken(`
-runtime.control.endpoint = "tcp://127.0.0.1:9910"
-runtime.control.auth_token = "managed-dotted-secret" # local runtime token
-
-[mesh]
-auth_token = "mesh-secret"
-`);
-    assert.strictEqual(token, "managed-dotted-secret");
-    assert.strictEqual(
-      parseRuntimeControlAuthToken(`[mesh]\nruntime.control.auth_token = "wrong"\n`),
-      undefined,
-      "dotted runtime.control auth_token inside another table must not be imported"
-    );
-  });
-
-  test("managed runtime logs are formatted for humans instead of raw JSON", () => {
-    const formatted = formatManagedRuntimeLogs(
-      '{"data":{"backend":"vm","source":"config"},"event":"execution_backend_selected","level":"info","ts":1782568993146}\n' +
-        '{"data":{"affinity_applied":false,"errors":[],"warnings":[]},"event":"linux_rt_profile","level":"info","ts":1782568993147}\n',
-      "",
-      "cell1"
-    );
+  // Catches an attach session opened before the runtime and its token were checked.
+  test("remote Connect is checked by the language server before an attach session opens", () => {
+    const source = loadSource("runtimeLifecycle.ts");
+    const check = source.indexOf('action: "connect"');
+    const attach = source.indexOf("vscode.debug.startDebugging(folder, debugConfig)");
+    assert.ok(check >= 0, "remote Connect must ask the language server to check the runtime with the selected token");
+    assert.ok(attach >= 0, "remote Connect still attaches after the check succeeds");
+    assert.ok(check < attach, "remote Connect must not create an attach session before the check");
     assert.ok(
-      formatted.includes("[info] execution_backend_selected backend=vm source=config"),
-      "structured logs should be summarized as readable event lines"
-    );
-    assert.ok(
-      formatted.includes("[info] linux_rt_profile affinity_applied=false"),
-      "structured log details should stay visible without dumping raw JSON objects"
-    );
-    assert.ok(!formatted.includes('{"data"'), "raw JSON log records must not be shown directly");
-    assert.strictEqual(
-      formatManagedRuntimeLogs("", "", "cell1"),
-      "No logs available for cell1.\n"
+      source.includes('if (answer.outcome === "failed")') && source.includes("name: answer.sessionName"),
+      "a failed check returns its failure; the session takes the remote name the language server gives it"
     );
   });
 });
 
 suite("Canvas runtime-node controls — honest per-runtime lifecycle (§8 P3b)", () => {
-  test("local simulator: stopped → Start, running → Stop, starting → disabled", () => {
-    const stopped = runtimeNodeControls({ isLocal: true, health: "stopped", attached: false });
-    assert.strictEqual(stopped[0].label, "Start");
-    assert.strictEqual(stopped[0].action, "startLocalSimulator");
-    assert.ok(stopped[0].enabled);
-
-    const running = runtimeNodeControls({ isLocal: true, health: "connected", attached: true });
-    assert.strictEqual(running[0].label, "Stop");
-    assert.strictEqual(running[0].action, "stopLocalSimulator");
-
-    const starting = runtimeNodeControls({ isLocal: true, health: "pending", attached: false });
-    assert.strictEqual(starting[0].action, "none");
-    assert.strictEqual(starting[0].enabled, false);
-  });
-
-  test("remote: not attached → Connect, attached → Disconnect; Connect disabled without an endpoint", () => {
-    const connect = runtimeNodeControls({
-      isLocal: false,
-      health: "connected",
-      attached: false,
-      controlEndpoint: "tcp://pi:5680",
-    });
-    assert.strictEqual(connect[0].label, "Connect");
-    assert.strictEqual(connect[0].action, "runtimeConnect");
-    assert.ok(connect[0].enabled);
-
-    const noEndpoint = runtimeNodeControls({ isLocal: false, health: "connected", attached: false });
-    assert.strictEqual(noEndpoint[0].label, "Connect");
-    assert.strictEqual(noEndpoint[0].enabled, false, "cannot connect without a control endpoint");
-
-    const disconnect = runtimeNodeControls({
-      isLocal: false,
-      health: "connected",
-      attached: true,
-      controlEndpoint: "tcp://pi:5680",
-    });
-    assert.strictEqual(disconnect[0].label, "Disconnect");
-    assert.strictEqual(disconnect[0].action, "runtimeDisconnect");
-  });
-
-  test("HONESTY: a remote runtime NEVER renders Start or Stop (we don't own its process)", () => {
-    for (const attached of [false, true]) {
-      const controls = runtimeNodeControls({
-        isLocal: false,
-        health: "connected",
-        attached,
-        controlEndpoint: "tcp://pi:5680",
-      });
-      for (const control of controls) {
-        assert.notStrictEqual(control.action, "startLocalSimulator");
-        assert.notStrictEqual(control.action, "stopLocalSimulator");
-        assert.ok(!/^stop$/i.test(control.label) && !/^start$/i.test(control.label));
-      }
-    }
-  });
-
-  test("runtime node offers Set as run target + Settings; Logs only when a log backend exists", () => {
-    const local = runtimeNodeControls({
-      isLocal: true,
-      health: "stopped",
-      attached: false,
-      logsAvailable: true,
-    });
-    const localActions = local.map((control) => control.action);
-    assert.ok(localActions.includes("setAsRunTarget"), "must offer Set as run target");
-    assert.ok(localActions.includes("openRuntimeSettings"), "must offer Settings");
-    assert.ok(localActions.includes("openRuntimeLogs"), "local sim exposes logs");
-
-    // Remote logs are phase 14 — no Logs control until a log backend exists (honest, not a dead button).
-    const remote = runtimeNodeControls({
-      isLocal: false,
-      health: "connected",
-      attached: false,
-      controlEndpoint: "tcp://pi:5680",
-      logsAvailable: false,
-    });
-    const remoteActions = remote.map((control) => control.action);
-    assert.ok(
-      !remoteActions.includes("openRuntimeLogs"),
-      "remote Logs is gated until a log backend exists"
-    );
-    assert.ok(
-      remoteActions.includes("setAsRunTarget"),
-      "remote offers Set as run target (select without connecting)"
-    );
-  });
-
-  test("remote auth failures make Set auth token the primary recovery without changing lifecycle ownership", () => {
-    const controls = runtimeNodeControls({
-      isLocal: false,
-      health: "error",
-      attached: false,
-      controlEndpoint: "tcp://pi:5680",
-      authTokenRequired: true,
-    });
-    const actions = controls.map((control) => control.action);
-    assert.strictEqual(controls[0].action, "setAuthToken");
-    assert.strictEqual(controls[0].kind, "primary");
-    assert.ok(
-      controls.some((control) => control.action === "runtimeConnect" && control.kind === "secondary"),
-      "Connect remains available as a retry, but not as the first recovery action"
-    );
-    assert.ok(actions.includes("setAuthToken"), "auth failure needs direct credential recovery");
-    assert.ok(actions.includes("setAsRunTarget"), "remote still offers select-only run target");
-    assert.ok(!actions.includes("startLocalSimulator"), "remote auth recovery must not imply Start");
-    assert.ok(!actions.includes("stopLocalSimulator"), "remote auth recovery must not imply Stop");
-  });
-
   test("Devices & Connections wires remote auth recovery through the SecretStorage command", () => {
     const inspector = loadSource("networkCanvas/webview/NodeInspector.tsx");
     const panel = loadSource("networkCanvas/networkCanvasPanel.ts");
     assert.ok(
       inspector.includes('type: "setRuntimeAuthToken"') &&
-        inspector.includes("isRuntimeAuthTokenFailure(node)") &&
-        inspector.includes("no auth token provided") &&
-        inspector.includes("auth token rejected"),
-      "runtime auth failures must surface a Set auth token action in the inspector"
+        inspector.includes('case "setAuthToken"') &&
+        inspector.includes("node.data.controls"),
+      "the inspector shows the language server's controls and sends Set auth token as a runtime auth request"
     );
     assert.ok(
       panel.includes('case "setRuntimeAuthToken"') &&
@@ -579,13 +105,13 @@ suite("Canvas runtime-node controls — honest per-runtime lifecycle (§8 P3b)",
   });
 
   test("S-14: node inspector caps visible secondary actions at two with an overflow disclosure", () => {
-    const controls = runtimeNodeControls({
-      isLocal: false,
-      managed: true,
-      health: "stopped",
-      attached: false,
-      logsAvailable: true,
-    });
+    // The controls the language server gives a stopped managed runtime (trust-devices canvas::fleet).
+    const controls: RuntimeNodeControl[] = [
+      { action: "managedStart", label: "Start", kind: "primary", enabled: true },
+      { action: "setAsRunTarget", label: "Set as run target", kind: "secondary", enabled: true },
+      { action: "openRuntimeLogs", label: "Logs", kind: "secondary", enabled: true },
+      { action: "openRuntimeSettings", label: "Settings", kind: "secondary", enabled: true },
+    ];
     const layout = runtimeNodeControlLayout(
       controls,
       () => undefined,
@@ -618,45 +144,6 @@ suite("Canvas runtime-node controls — honest per-runtime lifecycle (§8 P3b)",
     );
   });
 
-  test("managed local runtime node: Start when stopped, Stop when running — never Connect (we own it)", () => {
-    const stopped = runtimeNodeControls({
-      isLocal: false,
-      managed: true,
-      health: "stopped",
-      attached: false,
-      logsAvailable: true,
-    });
-    assert.strictEqual(stopped[0].action, "managedStart");
-    assert.strictEqual(stopped[0].label, "Start");
-
-    const running = runtimeNodeControls({
-      isLocal: false,
-      managed: true,
-      health: "connected",
-      attached: false,
-      logsAvailable: true,
-    });
-    assert.strictEqual(running[0].action, "managedStop");
-    assert.strictEqual(running[0].label, "Stop");
-
-    const actions = [...stopped, ...running].map((control) => control.action);
-    assert.ok(
-      !actions.includes("runtimeConnect") && !actions.includes("runtimeDisconnect"),
-      "a managed local runtime is owned → never Connect/Disconnect"
-    );
-    assert.ok(stopped.some((c) => c.action === "openRuntimeLogs"), "managed has Logs");
-    assert.ok(stopped.some((c) => c.action === "setAsRunTarget"), "managed offers Set as run target");
-
-    const unavailable = runtimeNodeControls({
-      isLocal: false,
-      managed: true,
-      health: "error",
-      attached: false,
-      logsAvailable: true,
-    });
-    assert.strictEqual(unavailable[0].action, "managedStart");
-    assert.strictEqual(unavailable[0].enabled, false);
-  });
 });
 
 suite("truST sidebar — control surface contract", () => {
@@ -727,15 +214,13 @@ suite("truST sidebar — control surface contract", () => {
       "status bar must refresh when managed-runtime Start/Stop changes the selected target state"
     );
     assert.ok(
-      source.includes("selectedRuntime({") &&
-        source.includes("listManagedRuntimes(context)") &&
-        source.includes("readRemotes()"),
-      "status bar must render through the same selectedRuntime model as the sidebar"
+      source.includes("resolveRunTargets({") &&
+        source.includes("listManagedRuntimes(context)"),
+      "status bar must render through the same run-target answer as the sidebar"
     );
     assert.ok(
       source.includes("statusTargetLabel(selected)") &&
-        source.includes('return "Simulator"') &&
-        source.includes("return selected.id"),
+        source.includes('selected.kind === "local" ? selected.id : selected.label'),
       "status bar text must name the selected target instead of always saying Simulator"
     );
   });
@@ -753,7 +238,7 @@ suite("truST sidebar — control surface contract", () => {
       "Stop must wait for the session to disappear even if the debug stop command throws Canceled"
     );
     assert.ok(
-      /private markStopped\(message: string\): RuntimeLifecycleResult \{\s*this\.lastIoState = EMPTY_IO_STATE;\s*this\.starting = false;\s*this\.failure = undefined;\s*this\.emitChanged\(\);\s*return \{ ok: true, message \};\s*\}/.test(source),
+      /private markStopped\(message: string\): RuntimeLifecycleResult \{\s*if \(!this\.getStructuredTextSession\(\)\) this\.ioStates\.clear\(\);\s*this\.starting = false;\s*this\.failure = undefined;\s*this\.emitChanged\(\);\s*return \{ ok: true, message \};\s*\}/.test(source),
       "successful Stop must emit after the debug session is gone so the passive status bar cannot stay stuck on Running"
     );
   });
@@ -770,12 +255,12 @@ suite("truST sidebar — control surface contract", () => {
       "no-project and non-truST workspaces must have a neutral status-bar state"
     );
     assert.ok(
-      source.indexOf("workspaceHasReadableTrustProject") < source.indexOf("selectedRuntime({"),
+      source.indexOf("workspaceHasReadableTrustProject") < source.indexOf("resolveRunTargets({"),
       "project detection must happen before falling back to the simulator selected-runtime model"
     );
     assert.ok(
       projectSource.includes('readonly kind: "none" | "nonTrust" | "trust" | "malformed"') &&
-        projectSource.includes("manifestReadabilityIssue") &&
+        projectSource.includes('"trust-lsp.manifestCheck"') &&
         projectSource.includes("vscode.workspace.fs.readFile(manifest)") &&
         projectSource.includes("workspaceHasReadableTrustProject"),
       "status bar and sidebar must share malformed-manifest project detection"
@@ -786,73 +271,27 @@ suite("truST sidebar — control surface contract", () => {
         source.includes('"**/runtime.toml"'),
       "status bar must refresh when project marker files appear after first-run project creation"
     );
+    // The friendly name of a connected runtime, `runtime` for a local socket, is the language server's
+    // (selection_tests.rs, the_connected_label).
     assert.ok(
-      source.indexOf('snapshot.status.runtimeState === "connected"') <
-        source.indexOf("selectedRuntime({"),
+      source.indexOf("if (targets.connectedLabel)") >= 0 &&
+        source.indexOf("if (targets.connectedLabel)") < source.indexOf("return selectedStatusView(selected, speed)"),
       "an active attached runtime must render as connected before selected-target fallback can say Simulator stopped"
-    );
-    assert.ok(
-      source.includes("connectedEndpointLabel(snapshot.status.endpoint)") &&
-        source.includes('return "runtime"'),
-      "attached local runtime endpoints must render as a friendly runtime label, not a raw unix socket path"
     );
   });
 
-  test("Live Values normalizes runtime debug values before webview rendering", () => {
-    const state = normalizeIoState({
-      scan: 12841,
-      inputs: [
-        {
-          address: "global:ads_read",
-          name: "ads_read",
-          source: "ADS plc_port_301 · port 301",
-          value: "Real(1.5)",
-          valueType: "REAL",
-        },
-      ],
-      outputs: [
-        {
-          address: "%QX0.0",
-          name: "Out",
-          source: "MQTT topic trust/examples/mqtt/out",
-          value: "Bool(true)",
-        },
-        {
-          address: "global:ads_write",
-          name: "ads_write",
-          source: "ADS plc_port_851 · port 851",
-          value: "DInt(12)",
-          valueType: "DINT",
-        },
-      ],
-      memory: [
-        { address: "%MX0.0", name: "Flag", value: "Bool(false)" },
-        { address: "%MW0", name: "Count", value: "Int(42)" },
-        { address: "%MD4", name: "Delay", value: "T#250ms", valueType: "TIME" },
-      ],
-    });
-    assert.strictEqual(state.outputs[0].value, "TRUE");
-    assert.strictEqual(state.outputs[0].source, "MQTT topic trust/examples/mqtt/out");
-    assert.strictEqual(state.memory[0].value, "FALSE");
-    assert.strictEqual(state.memory[1].value, "42");
-    assert.strictEqual(state.memory[2].value, "T#250ms");
-    assert.strictEqual(state.memory[2].valueType, "TIME");
-    assert.deepStrictEqual(
-      state.ads.map((entry) => entry.address),
-      ["global:ads_read", "global:ads_write"],
-      "ADS-backed globals belong to their own Live Values group"
-    );
-    assert.strictEqual(
-      state.inputs.length,
-      0,
-      "ADS tags must not be presented as process-image inputs"
-    );
-    assert.deepStrictEqual(
-      state.outputs.map((entry) => entry.address),
-      ["%QX0.0"],
-      "ADS tags must not be presented as process-image outputs"
-    );
-    assert.strictEqual(state.scan, 12841);
+  // The debug adapter writes the values as Live Values shows them (trust-debug adapter/io_values.rs and its tests). Catches
+  // an extension that rewrites the adapter's values or drops the ADS group, and a raw event body sent to the webview.
+  test("Live Values forwards the adapter's I/O state as the adapter wrote it", () => {
+    const outputs = [
+      { address: "%QX0.0", name: "Out", source: "MQTT topic trust/examples/mqtt/out", value: "TRUE" },
+    ];
+    const memory = [{ address: "%MD4", name: "Delay", value: "T#250ms", valueType: "TIME" }];
+    const ads = [
+      { address: "global:ads_read", name: "ads_read", source: "ADS plc_port_301 · port 301", value: "1.5", valueType: "REAL" },
+    ];
+    const state = normalizeIoState({ scan: 12841, inputs: [{ address: 7 }], outputs, memory, ads });
+    assert.deepStrictEqual(state, { scan: 12841, inputs: [], outputs, memory, ads });
 
     const ioPanelSource = loadSource("ioPanel.ts");
     assert.ok(
@@ -886,10 +325,11 @@ suite("truST sidebar — control surface contract", () => {
         source.indexOf("localSimControl(folder?.uri.fsPath)"),
       "ERR-04 evidence must be able to force a real bind-conflict endpoint before the normal local-sim socket is chosen"
     );
+    // The language server checks the port (`trust-lsp.simulatorControl`, its Rust tests hold the
+    // refusal text); the launch asks it before VS Code starts the session.
     assert.ok(
-      source.includes("launchControlEndpointError") &&
-        source.includes("The runtime port is already in use.") &&
-        source.indexOf("await launchControlEndpointError") <
+      source.includes("await launchEndpointProblem(") &&
+        source.indexOf("await launchEndpointProblem(") <
           source.indexOf("vscode.debug.startDebugging(folder, config)"),
       "local launch control-endpoint conflicts must be caught before VS Code starts the debug session"
     );
@@ -911,36 +351,33 @@ suite("truST sidebar — control surface contract", () => {
       );
     }
     assert.ok(
-      debugSource.includes("remoteAttachDebugSessionName(controlConfig.endpoint)") &&
-        lifecycleSource.includes("remoteDebugSessionName(targetLabel, status.endpoint)"),
+      // The session name comes from the remote-specific label helper, whatever the endpoint
+      // variable is called (the endpoint is now resolved by `trust-runtime ctl endpoint`).
+      debugSource.includes("name: remoteAttachDebugSessionName(") &&
+        lifecycleSource.includes("name: answer.sessionName"),
       "native attach sessions must use remote-specific labels when VS Code surfaces the session"
     );
   });
 
+  // The message of a runtime that does not answer is the language server's (connect_tests.rs,
+  // a_runtime_that_accepts_no_connection: `Local runtime is stopped. Start it to connect.` for a local socket).
   test("unreachable runtime messages are human-facing and do not expose local socket paths", () => {
     const lifecycleSource = loadSource("runtimeLifecycle.ts");
     assert.ok(
-      lifecycleSource.includes("runtimeNotReachableMessage(status.endpoint)") &&
-        lifecycleSource.includes("Local runtime is stopped. Start it to connect.") &&
-        lifecycleSource.includes("shortRuntimeEndpointLabel(endpoint)"),
-      "runtime lifecycle must humanize unreachable endpoints before surfacing them"
-    );
-    assert.ok(
-      !lifecycleSource.includes("message: `Runtime not reachable: ${status.endpoint}`"),
+      !lifecycleSource.includes("message: `Runtime not reachable: ${status.endpoint}`") &&
+        !lifecycleSource.includes("message: `Runtime not reachable: ${endpoint}`"),
       "user-facing runtime-unreachable messages must not expose raw socket paths"
     );
   });
 
+  // Whether the runtime keeps debugging disabled, and the text that says so, are the language server's (connect_tests.rs,
+  // debugging_disabled_and_attach).
   test("remote attach refuses debug-disabled runtimes before reporting connected", () => {
     const lifecycleSource = loadSource("runtimeLifecycle.ts");
+    const disabled = lifecycleSource.indexOf('if (answer.outcome === "debugDisabled")');
+    assert.ok(disabled >= 0, "remote Connect must handle a runtime that keeps debugging disabled");
     assert.ok(
-      lifecycleSource.includes("runtimeDebugDisabled(runtimeInfo)") &&
-        lifecycleSource.includes("Remote debugging is disabled for this runtime"),
-      "remote Connect must fail visibly when runtime.control.debug_enabled is false"
-    );
-    assert.ok(
-      lifecycleSource.indexOf("runtimeDebugDisabled(runtimeInfo)") <
-        lifecycleSource.indexOf("vscode.debug.startDebugging(folder, debugConfig)"),
+      disabled < lifecycleSource.indexOf("vscode.debug.startDebugging(folder, debugConfig)"),
       "debug-disabled status must be checked before launching the debug adapter"
     );
   });
@@ -1005,15 +442,14 @@ suite("truST sidebar — control surface contract", () => {
     const source = loadSource("trustHomeView.ts");
     const gateSource = loadSource("compileGate.ts");
     assert.ok(
-      source.includes("primaryActionGateReason(") &&
-        source.includes("withPrimaryActionGate("),
+      source.includes("withPrimaryActionGate(selectedRaw, { reason: gate.reasons.start ??"),
       "sidebar Start must be gated before rendering and dispatch"
     );
     assert.ok(
-      source.includes("compileGateReason(") &&
-        gateSource.includes("Fix runtime.toml to ${verb}.") &&
-        gateSource.includes("Fix ${count} error"),
-      "disabled primary/update actions must explain config and compile-error recovery"
+      source.includes("compileGate(this.gateState()") &&
+        source.includes("gate.reasons.update") &&
+        gateSource.includes('"trust-lsp.compileGate"'),
+      "disabled primary/update actions take their reasons from the language server's gate (trust-lsp.compileGate)"
     );
     assert.ok(
       source.includes("applyEl.disabled = !msg.applyEnabled") &&
@@ -1021,10 +457,9 @@ suite("truST sidebar — control surface contract", () => {
       "Update running simulation must remain visible but disabled with a reason"
     );
     assert.ok(
-      source.includes("isConfigDiagnosticPath") &&
-        gateSource.includes("(runtime|trust-lsp)") &&
-        gateSource.includes("configErrors"),
-      "runtime.toml/trust-lsp.toml diagnostics must be classified as config blockers"
+      gateSource.includes("vscode.languages.getDiagnostics()") &&
+        gateSource.includes("diagnostics: problemCounts()"),
+      "every file's error count reaches the gate, which classifies runtime.toml/trust-lsp.toml errors as config blockers"
     );
   });
 
@@ -1197,7 +632,7 @@ suite("truST sidebar — control surface contract", () => {
     );
     assert.ok(
       projectSource.includes('"trust" | "malformed"') &&
-        projectSource.includes("manifestReadabilityIssue") &&
+        projectSource.includes('"trust-lsp.manifestCheck"') &&
         projectSource.includes("vscode.workspace.fs.readFile(manifest)") &&
         source.includes('msg.workspaceKind === "malformed"'),
       "a folder with an unreadable truST manifest must not be classified as an active project"
@@ -1233,18 +668,11 @@ suite("truST sidebar — control surface contract", () => {
     assert.ok(source.includes("Devices &amp; Connections"), "nav must offer Devices & Connections");
     assert.ok(source.includes(">Libraries<"), "nav must offer Libraries as a first-class destination");
     assert.ok(source.includes(">Live Values<"), "nav must offer Live Values");
-    assert.ok(source.includes('id="navHmi"'), "nav must offer HMI");
+    // Specification 39, decision 12: the legacy HMI launcher is removed.
+    assert.ok(!source.includes('id="navHmi"'), "the legacy HMI launcher must not remain");
     assert.ok(
       !source.includes('id="navProject"') && !source.includes("projectActionsMenu"),
       "the retired Project bucket must not remain in the sidebar"
-    );
-    assert.ok(
-      source.includes('hmiLabel') && source.includes('"Create HMI"'),
-      "the HMI launcher may say Create HMI when the project has no HMI descriptors"
-    );
-    assert.ok(
-      source.includes('createFileSystemWatcher("**/hmi/*.toml")'),
-      "the HMI launcher label must refresh when HMI descriptor files are created or removed"
     );
     // Honesty / no jargon.
     assert.ok(
@@ -1284,11 +712,10 @@ suite("truST sidebar — control surface contract", () => {
     const home = loadSource("trustHomeView.ts");
     const canvas = loadSource("networkCanvas/networkCanvasPanel.ts");
     assert.ok(
-      managedSession.includes("managedRuntimeLabel(name)") &&
-        managedSession.includes("sameManagedTarget") &&
-        managedSession.includes("sameEndpoint || sameManagedTarget") &&
+      managedSession.includes('action: "managedStopEndsSession"') &&
+        managedSession.includes("stoppedLabel: result.label") &&
         managedSession.includes("runtimeLifecycleService.stopRuntime()"),
-      "managed Stop must disconnect the attached session by endpoint OR selected managed label"
+      "managed Stop asks the language server whether it ends the attached session (by endpoint or label)"
     );
     assert.ok(
       home.includes("disconnectManagedRuntimeAfterStop(selected.id, result)"),
@@ -1322,9 +749,9 @@ suite("truST sidebar — control surface contract", () => {
       "trust-lsp.debug.reload must bound the stReload custom request"
     );
     assert.ok(
-      reloadCommand.includes("diagnosticsGateReason(validityLine(), \"update\")") &&
+      reloadCommand.includes("(await compileGate()).reasons.update") &&
         reloadCommand.includes("return { ok: false, message: gateReason, gated: true }") &&
-        reloadCommand.indexOf("diagnosticsGateReason") <
+        reloadCommand.indexOf("compileGate()") <
           reloadCommand.indexOf('session.customRequest("stReload"'),
       "trust-lsp.debug.reload must share the sidebar compile gate before attempting update"
     );

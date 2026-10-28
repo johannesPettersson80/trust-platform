@@ -18,6 +18,8 @@ mod io_file;
 mod runtime_file;
 mod validation;
 
+pub(super) mod ads_runtime;
+
 use validation::{field_from_error, validate_schema_fields};
 
 #[cfg(test)]
@@ -215,6 +217,7 @@ fn apply_request_with_project_root(
         ));
     }
 
+    let mut written_index = None;
     match request.action {
         CommApplyAction::Remove => {
             if let Err(error) = remove_instance(&mut loaded.drivers, &request) {
@@ -232,16 +235,16 @@ fn apply_request_with_project_root(
         | CommApplyAction::Upsert => match build_driver_config(driver, &request.params) {
             Ok(driver_config) => {
                 field_errors.extend(validate_driver_config(&protocol, &driver_config));
-                if field_errors.is_empty()
-                    && request.action != CommApplyAction::Validate
-                    && let Err(error) = upsert_instance(
+                if field_errors.is_empty() && request.action != CommApplyAction::Validate {
+                    match upsert_instance(
                         &mut loaded.drivers,
                         driver_config,
                         protocol.as_str(),
                         &request,
-                    )
-                {
-                    field_errors.push(error);
+                    ) {
+                        Ok(index) => written_index = Some(index),
+                        Err(error) => field_errors.push(error),
+                    }
                 }
             }
             Err(errors) => field_errors.extend(errors),
@@ -313,6 +316,17 @@ fn apply_request_with_project_root(
         );
     }
 
+    // An add, upsert, or edit answers with the project-local ID of the connection
+    // it wrote (spec 11 §6.8.1a; design §4.3 B7, I41). Remove and disable keep
+    // answering the caller's instance_id as before.
+    let instance_id = if matches!(
+        request.action,
+        CommApplyAction::Add | CommApplyAction::Edit | CommApplyAction::Upsert
+    ) {
+        written_index.map(|index| format!("{protocol}:{index}"))
+    } else {
+        request.instance_id
+    };
     CommApplyResponse {
         schema_version: COMM_SCHEMA_VERSION,
         protocol,
@@ -322,7 +336,7 @@ fn apply_request_with_project_root(
         lifecycle_effect: "restart_required",
         message: io_apply_message(request.action).to_string(),
         config_path: Some(loaded.path.display().to_string()),
-        instance_id: request.instance_id,
+        instance_id,
         field_errors: Vec::new(),
         snippet: None,
     }
@@ -578,10 +592,11 @@ fn upsert_instance(
     driver_config: IoDriverConfig,
     protocol: &str,
     request: &CommApplyRequest,
-) -> Result<(), CommFieldError> {
+) -> Result<usize, CommFieldError> {
     if matches!(request.action, CommApplyAction::Add) {
+        let index = drivers.len();
         drivers.push(driver_config);
-        return Ok(());
+        return Ok(index);
     }
     if matches!(request.action, CommApplyAction::Edit) && request.instance_id.is_none() {
         return Err(field_error(
@@ -604,23 +619,24 @@ fn upsert_instance(
                 ));
             }
             *slot = driver_config;
-            return Ok(());
+            return Ok(index);
         }
         return Err(field_error(
             "instance_id",
             "Configured instance was not found.",
         ));
     }
-    if let Some((_, slot)) = drivers
+    if let Some((index, slot)) = drivers
         .iter_mut()
         .enumerate()
         .find(|(_, driver)| same_driver(driver.name.as_str(), driver_config.name.as_str()))
     {
         *slot = driver_config;
-        return Ok(());
+        return Ok(index);
     }
+    let index = drivers.len();
     drivers.push(driver_config);
-    Ok(())
+    Ok(index)
 }
 
 fn remove_instance(
@@ -773,6 +789,9 @@ pub(super) fn strip_empty_optional_values(value: &mut toml::Value) {
         "auth_token",
         "host_group",
         "note",
+        "vendor_name",
+        "product_code",
+        "revision",
     ];
     for field in optional_empty {
         let remove = table
@@ -818,3 +837,6 @@ pub(super) fn sanitized_apply_audit_details(params: &serde_json::Value) -> serde
         "secret_fields_present": secret_values_present(params.get("params").unwrap_or(&serde_json::Value::Null)),
     })
 }
+
+#[cfg(test)]
+mod tests;

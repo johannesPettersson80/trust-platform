@@ -530,12 +530,24 @@ impl SymbolCollector<'_> {
                 && let Some(scope) = self.table.get_scope(current_scope)
                 && scope.lookup_local(&name).is_some()
             {
-                let mut diag = Diagnostic::error(
-                    DiagnosticCode::DuplicateDeclaration,
-                    range,
-                    format!("duplicate declaration of '{}'", name),
-                );
-                if let Some(existing_symbol) = self.table.get(existing) {
+                let existing_symbol = self.table.get(existing);
+                // A standard function block (`TON`, ...) has no source location.
+                let standard = existing_symbol.is_some_and(|existing| {
+                    existing.range.is_empty()
+                        && existing.origin.is_none()
+                        && matches!(existing.kind, SymbolKind::FunctionBlock)
+                });
+                let message = if standard {
+                    format!(
+                        "duplicate declaration of '{}', the name of a standard function block",
+                        name
+                    )
+                } else {
+                    format!("duplicate declaration of '{}'", name)
+                };
+                let mut diag =
+                    Diagnostic::error(DiagnosticCode::DuplicateDeclaration, range, message);
+                if let Some(existing_symbol) = existing_symbol.filter(|_| !standard) {
                     diag = diag.with_related(existing_symbol.range, "previously declared here");
                 }
                 self.diagnostics.add(diag);

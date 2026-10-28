@@ -1,15 +1,10 @@
-import * as net from "net";
 import * as vscode from "vscode";
 
 import { affectsTrustConfiguration, getTrustConfiguration } from "./configuration";
 import { liveValueActionTarget } from "./liveValueActionTarget";
+import { runtimeSourceOptionsForTarget } from "./runtimeSourceOptions";
 
-import {
-  summarizeAdsStatus,
-  type AdsStatusReport,
-  type AdsStatusSummary,
-} from "./adsStatusSummary";
-import { sendRuntimeControlRequest } from "./runtimeControlClient";
+import type { AdsStatusSummary } from "./adsStatusSummary";
 import {
   normalizeIoState,
   runtimeLifecycleService,
@@ -35,33 +30,6 @@ type IoState = {
   ads: IoEntry[];
 };
 
-type CompileIssue = {
-  file: string;
-  line: number;
-  column: number;
-  severity: "error" | "warning";
-  message: string;
-  code?: string;
-  source?: string;
-};
-
-type CompileResult = {
-  target: string;
-  dirty: boolean;
-  errors: number;
-  warnings: number;
-  issues: CompileIssue[];
-  runtimeStatus: "ok" | "error" | "skipped";
-  runtimeMessage?: string;
-};
-
-type RuntimeSourceOptions = {
-  runtimeIncludeGlobs?: string[];
-  runtimeExcludeGlobs?: string[];
-  runtimeIgnorePragmas?: string[];
-  runtimeRoot?: string;
-};
-
 type RuntimeStatusPayload = {
   running: boolean;
   inlineValuesEnabled: boolean;
@@ -74,6 +42,8 @@ type RuntimeStatusPayload = {
   endpointReachable: boolean;
   access?: RuntimeAccessPayload;
   ads?: AdsStatusSummary;
+  /** The online runtime answered Connect but keeps debugging disabled (specification 25, section 4.4). */
+  debugDisabled?: boolean;
 };
 
 type RuntimeAccessPayload = {
@@ -83,18 +53,6 @@ type RuntimeAccessPayload = {
   allowRelease: boolean;
   reason?: string;
 };
-
-const PRAGMA_SCAN_LINES = 20;
-const ENDPOINT_PROBE_TTL_MS = 2000;
-const ENDPOINT_PROBE_TIMEOUT_MS = 400;
-
-type ParsedEndpoint =
-  | { kind: "tcp"; host: string; port: number }
-  | { kind: "unix"; path: string };
-
-let endpointProbeCache:
-  | { endpoint: string; reachable: boolean; checkedAt: number }
-  | undefined;
 
 const structuredTextSessions = new Map<string, vscode.DebugSession>();
 
@@ -114,150 +72,6 @@ function getStructuredTextSession(): vscode.DebugSession | undefined {
   return runtimeLifecycleService.getStructuredTextSession();
 }
 
-
-function parseControlEndpoint(endpoint: string): ParsedEndpoint | undefined {
-  if (endpoint.startsWith("tcp://")) {
-    try {
-      const url = new URL(endpoint);
-      const port = Number(url.port);
-      if (!url.hostname || !Number.isFinite(port)) {
-        return undefined;
-      }
-      return { kind: "tcp", host: url.hostname, port };
-    } catch {
-      return undefined;
-    }
-  }
-  if (endpoint.startsWith("unix://")) {
-    if (process.platform === "win32") {
-      return undefined;
-    }
-    const path = endpoint.slice("unix://".length);
-    if (!path) {
-      return undefined;
-    }
-    return { kind: "unix", path };
-  }
-  return undefined;
-}
-
-function isLocalEndpoint(endpoint: string): boolean {
-  const parsed = parseControlEndpoint(endpoint);
-  if (!parsed) {
-    return false;
-  }
-  if (parsed.kind === "unix") {
-    return true;
-  }
-  const host = parsed.host.toLowerCase();
-  return host === "127.0.0.1" || host === "localhost" || host === "::1";
-}
-
-async function probeEndpointReachable(endpoint: string): Promise<boolean> {
-  const now = Date.now();
-  if (
-    endpointProbeCache &&
-    endpointProbeCache.endpoint === endpoint &&
-    now - endpointProbeCache.checkedAt < ENDPOINT_PROBE_TTL_MS
-  ) {
-    return endpointProbeCache.reachable;
-  }
-  const parsed = parseControlEndpoint(endpoint);
-  if (!parsed) {
-    endpointProbeCache = { endpoint, reachable: false, checkedAt: now };
-    return false;
-  }
-  const reachable = await new Promise<boolean>((resolve) => {
-    let settled = false;
-    const socket =
-      parsed.kind === "tcp"
-        ? net.createConnection({ host: parsed.host, port: parsed.port })
-        : net.createConnection({ path: parsed.path });
-    const finish = (value: boolean) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      socket.destroy();
-      resolve(value);
-    };
-    socket.setTimeout(ENDPOINT_PROBE_TIMEOUT_MS, () => finish(false));
-    socket.once("error", () => finish(false));
-    socket.once("connect", () => finish(true));
-  });
-  endpointProbeCache = { endpoint, reachable, checkedAt: Date.now() };
-  return reachable;
-}
-
-async function fetchRuntimeState(endpoint: string, authToken?: string): Promise<"running" | "stopped" | undefined> {
-  const parsed = parseControlEndpoint(endpoint);
-  if (!parsed) {
-    return undefined;
-  }
-  return new Promise((resolve) => {
-    let settled = false;
-    let buffer = "";
-    const socket =
-      parsed.kind === "tcp"
-        ? net.createConnection({ host: parsed.host, port: parsed.port })
-        : net.createConnection({ path: parsed.path });
-    const finish = (value: "running" | "stopped" | undefined) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      socket.destroy();
-      resolve(value);
-    };
-    socket.setTimeout(ENDPOINT_PROBE_TIMEOUT_MS, () => finish(undefined));
-    socket.once("error", () => finish(undefined));
-    socket.once("connect", () => {
-      const request = { id: 1, type: "status", auth: authToken || undefined };
-      socket.write(JSON.stringify(request) + "\n");
-    });
-    socket.on("data", (chunk: Buffer | string) => {
-      buffer += chunk.toString();
-      const idx = buffer.indexOf("\n");
-      if (idx == -1) {
-        return;
-      }
-      const line = buffer.slice(0, idx).trim();
-      if (!line) {
-        finish(undefined);
-        return;
-      }
-      try {
-        const response = JSON.parse(line) as { ok?: boolean; result?: { state?: string } };
-        if (response.ok && response.result && typeof response.result.state === "string") {
-          const state = response.result.state.toLowerCase();
-          finish(state === "running" ? "running" : "stopped");
-          return;
-        }
-      } catch {
-        // ignore parse errors
-      }
-      finish(undefined);
-    });
-  });
-}
-
-async function fetchAdsStatusSummary(
-  endpoint: string,
-  authToken?: string
-): Promise<AdsStatusSummary | undefined> {
-  try {
-    const report = await sendRuntimeControlRequest<AdsStatusReport>(
-      endpoint,
-      authToken,
-      "ads.status",
-      undefined,
-      { timeoutMs: 750 }
-    );
-    return summarizeAdsStatus(report);
-  } catch {
-    return undefined;
-  }
-}
 
 let panel: vscode.WebviewPanel | undefined;
 
@@ -435,7 +249,12 @@ function liveValuesUnavailableMessage(
   status: RuntimeStatusPayload | undefined
 ): string {
   if (status?.runtimeMode === "online" && status.runtimeState !== "connected") {
-    return "Connect to the selected runtime to see live values.";
+    // A runtime that answered Connect but keeps debugging disabled has no session to read: say why
+    // instead of asking for another Connect (spec 25 §5.1).
+    return (
+      runtimeLifecycleService.debugDisabledFailure(status.endpoint)?.message ??
+      "Connect to the selected runtime to see live values."
+    );
   }
   return "Start the runtime to see live values.";
 }
@@ -474,7 +293,7 @@ function postUnavailableLiveValues(
     if (status) {
       panel?.webview.postMessage({
         type: "runtimeStatus",
-        payload: status,
+        payload: withDebugState(status),
       });
     }
     postEmptyIoState();
@@ -544,12 +363,6 @@ function handleWebviewMessage(message: any): void {
       break;
     case "startDebug":
       void startDebugging();
-      break;
-    case "compile":
-      void compileActiveProgram();
-      break;
-    case "compileAndStart":
-      void compileActiveProgram({ startDebugAfter: true });
       break;
     case "stopDebug":
       void stopDebugging();
@@ -684,15 +497,33 @@ async function runtimeStatusPayload(): Promise<RuntimeStatusPayload> {
   return (await runtimeLifecycleService.snapshot()).status;
 }
 
+/** The failure Connect recorded when the online runtime it reached keeps debugging disabled, if any. */
+function debugDisabledFailureOf(status: RuntimeStatusPayload) {
+  return status.runtimeMode === "online" && status.runtimeState !== "connected"
+    ? runtimeLifecycleService.debugDisabledFailure(status.endpoint)
+    : undefined;
+}
+
+/** The status as every runtime status message carries it: with the state "debugging disabled" when Connect found it, so
+ * no later message names the runtime "Not connected" instead (specification 25, section 4.4). */
+function withDebugState(status: RuntimeStatusPayload): RuntimeStatusPayload {
+  return debugDisabledFailureOf(status) ? { ...status, debugDisabled: true } : status;
+}
+
 async function sendRuntimeStatus(): Promise<void> {
   if (!panel) {
     return;
   }
-  const payload = await runtimeStatusPayload();
+  const status = await runtimeStatusPayload();
+  // Connect can learn that the runtime keeps debugging disabled while this panel is open: say so now.
+  const debugDisabled = debugDisabledFailureOf(status);
   panel.webview.postMessage({
     type: "runtimeStatus",
-    payload,
+    payload: withDebugState(status),
   });
+  if (debugDisabled) {
+    panel?.webview.postMessage({ type: "status", payload: debugDisabled.message });
+  }
 }
 
 async function requestIoState(): Promise<void> {
@@ -915,7 +746,7 @@ async function startAttachDebugging(
   authToken?: string
 ): Promise<boolean> {
   const folder = vscode.workspace.workspaceFolders?.[0];
-  const runtimeOptions = runtimeSourceOptions();
+  const runtimeOptions = runtimeSourceOptionsForTarget();
   const config: vscode.DebugConfiguration = {
     type: DEBUG_TYPE,
     request: "attach",
@@ -981,359 +812,6 @@ function postRuntimeLifecycleResult(result: RuntimeLifecycleResult): void {
     type: "status",
     payload: result.ok ? result.message : result.failure.message,
   });
-}
-
-function diagnosticCodeLabel(
-  code: string | number | { value: string | number; target?: vscode.Uri } | undefined
-): string | undefined {
-  if (code === undefined) {
-    return undefined;
-  }
-  if (typeof code === "string" || typeof code === "number") {
-    return String(code);
-  }
-  if (typeof code === "object" && "value" in code) {
-    return String(code.value);
-  }
-  return undefined;
-}
-
-async function readStructuredText(
-  uri: vscode.Uri
-): Promise<string | undefined> {
-  const openDoc = vscode.workspace.textDocuments.find(
-    (doc) => doc.uri.toString() === uri.toString()
-  );
-  if (openDoc) {
-    return openDoc.getText();
-  }
-  try {
-    const data = await vscode.workspace.fs.readFile(uri);
-    return new TextDecoder("utf-8").decode(data);
-  } catch {
-    return undefined;
-  }
-}
-
-function containsConfiguration(source: string): boolean {
-  return /\bCONFIGURATION\b/i.test(source);
-}
-
-async function sourcesContainConfiguration(
-  uris: vscode.Uri[]
-): Promise<boolean> {
-  for (const uri of uris) {
-    const text = await readStructuredText(uri);
-    if (text && containsConfiguration(text)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-async function collectRuntimeSources(
-  targetDoc?: vscode.TextDocument
-): Promise<vscode.Uri[]> {
-  const runtimeOptions = runtimeSourceOptions(targetDoc?.uri);
-  const includeGlobs = runtimeOptions.runtimeIncludeGlobs ?? [];
-  const excludeGlobs = runtimeOptions.runtimeExcludeGlobs ?? [];
-  const ignorePragmas = runtimeOptions.runtimeIgnorePragmas ?? [];
-  const runtimeRoot =
-    runtimeOptions.runtimeRoot ??
-    (targetDoc
-      ? vscode.workspace.getWorkspaceFolder(targetDoc.uri)?.uri.fsPath
-      : vscode.workspace.workspaceFolders?.[0]?.uri.fsPath);
-  if (!runtimeRoot) {
-    return [];
-  }
-
-  const baseUri = vscode.Uri.file(runtimeRoot);
-  const excludePattern = buildGlobAlternation(excludeGlobs);
-  const exclude = excludePattern
-    ? new vscode.RelativePattern(baseUri, excludePattern)
-    : undefined;
-
-  const candidates: vscode.Uri[] = [];
-  for (const include of includeGlobs) {
-    const pattern = new vscode.RelativePattern(baseUri, include);
-    const matches = await vscode.workspace.findFiles(pattern, exclude);
-    candidates.push(...matches);
-  }
-
-  const unique = new Map<string, vscode.Uri>();
-  for (const candidate of candidates) {
-    unique.set(candidate.fsPath, candidate);
-  }
-  if (targetDoc?.uri.fsPath) {
-    unique.set(targetDoc.uri.fsPath, targetDoc.uri);
-  }
-
-  if (ignorePragmas.length === 0) {
-    return Array.from(unique.values());
-  }
-
-  const filtered: vscode.Uri[] = [];
-  for (const candidate of unique.values()) {
-    if (
-      targetDoc &&
-      candidate.fsPath === targetDoc.uri.fsPath
-    ) {
-      filtered.push(candidate);
-      continue;
-    }
-    if (await hasRuntimeIgnorePragma(candidate, ignorePragmas)) {
-      continue;
-    }
-    filtered.push(candidate);
-  }
-  return filtered;
-}
-
-function buildGlobAlternation(globs: string[]): string | undefined {
-  const normalized = globs.map((glob) => glob.trim()).filter(Boolean);
-  if (normalized.length === 0) {
-    return undefined;
-  }
-  if (normalized.length === 1) {
-    return normalized[0];
-  }
-  return `{${normalized.join(",")}}`;
-}
-
-async function hasRuntimeIgnorePragma(
-  uri: vscode.Uri,
-  pragmas: string[]
-): Promise<boolean> {
-  if (pragmas.length === 0) {
-    return false;
-  }
-  const text = await readStructuredText(uri);
-  if (!text) {
-    return false;
-  }
-  const lines = text.split(/\r?\n/).slice(0, PRAGMA_SCAN_LINES);
-  for (const line of lines) {
-    for (const pragma of pragmas) {
-      if (pragma && line.includes(pragma)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-function runtimeSourceOptions(target?: vscode.Uri): RuntimeSourceOptions {
-  const config = getTrustConfiguration();
-  const includeGlobs = normalizeStringArray(
-    config.get<unknown>("runtime.includeGlobs")
-  );
-  const effectiveIncludeGlobs =
-    includeGlobs.length > 0 ? includeGlobs : ["**/*.{st,ST,pou,POU}"];
-  const excludeGlobs = normalizeStringArray(
-    config.get<unknown>("runtime.excludeGlobs")
-  );
-  const ignorePragmas = normalizeStringArray(
-    config.get<unknown>("runtime.ignorePragmas")
-  );
-  const folder = target
-    ? vscode.workspace.getWorkspaceFolder(target)
-    : vscode.workspace.workspaceFolders?.[0];
-  const runtimeRoot = folder?.uri.fsPath;
-  return {
-    runtimeIncludeGlobs: effectiveIncludeGlobs,
-    runtimeExcludeGlobs: excludeGlobs,
-    runtimeIgnorePragmas: ignorePragmas,
-    runtimeRoot,
-  };
-}
-
-function normalizeStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value
-    .map((item) => (typeof item === "string" ? item.trim() : ""))
-    .filter((item) => item.length > 0);
-}
-
-type CompileOptions = {
-  startDebugAfter?: boolean;
-};
-
-async function compileActiveProgram(options: CompileOptions = {}): Promise<void> {
-  if (!panel) {
-    return;
-  }
-
-  panel.webview.postMessage({
-    type: "status",
-    payload: "Compiling...",
-  });
-
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-  if (!workspaceFolder) {
-    panel.webview.postMessage({
-      type: "status",
-      payload: "Open a workspace folder to compile.",
-    });
-    panel.webview.postMessage({
-      type: "compileResult",
-      payload: {
-        target: "",
-        dirty: false,
-        errors: 0,
-        warnings: 0,
-        issues: [],
-        runtimeStatus: "skipped",
-        runtimeMessage: "No workspace folder open.",
-      } satisfies CompileResult,
-    });
-    return;
-  }
-
-  const sourceUris = await collectRuntimeSources();
-  const hasConfiguration = await sourcesContainConfiguration(sourceUris);
-  if (sourceUris.length === 0) {
-    panel.webview.postMessage({
-      type: "status",
-      payload: "No Structured Text files found in the workspace.",
-    });
-    panel.webview.postMessage({
-      type: "compileResult",
-      payload: {
-        target: workspaceFolder.uri.fsPath,
-        dirty: false,
-        errors: 0,
-        warnings: 0,
-        issues: [],
-        runtimeStatus: "skipped",
-        runtimeMessage: "No Structured Text files found.",
-      } satisfies CompileResult,
-    });
-    return;
-  }
-
-  let runtimeStatus: CompileResult["runtimeStatus"] = "skipped";
-  let runtimeMessage: string | undefined;
-  const session = getStructuredTextSession();
-  if (session) {
-    const program =
-      typeof session.configuration?.program === "string"
-        ? session.configuration.program
-        : undefined;
-    if (!program) {
-      runtimeStatus = "error";
-      runtimeMessage = "Active debug session missing entry configuration.";
-    } else {
-      runtimeStatus = "ok";
-      try {
-        const runtimeOptions = runtimeSourceOptions(vscode.Uri.file(program));
-        await session.customRequest("stReload", {
-          program,
-          ...runtimeOptions,
-        });
-        runtimeMessage = "Runtime update succeeded.";
-      } catch (err) {
-        runtimeStatus = "error";
-        const message = err instanceof Error ? err.message : String(err);
-        runtimeMessage = `Runtime compile failed: ${message}`;
-      }
-    }
-  }
-
-  const issues: CompileIssue[] = [];
-  for (const uri of sourceUris) {
-    const fileDiagnostics = vscode.languages.getDiagnostics(uri);
-    for (const diagnostic of fileDiagnostics) {
-      if (
-        diagnostic.severity !== vscode.DiagnosticSeverity.Error &&
-        diagnostic.severity !== vscode.DiagnosticSeverity.Warning
-      ) {
-        continue;
-      }
-      issues.push({
-        file: uri.fsPath,
-        line: diagnostic.range.start.line + 1,
-        column: diagnostic.range.start.character + 1,
-        severity:
-          diagnostic.severity === vscode.DiagnosticSeverity.Error
-            ? "error"
-            : "warning",
-        message: diagnostic.message,
-        code: diagnosticCodeLabel(diagnostic.code),
-        source: diagnostic.source,
-      });
-    }
-  }
-
-  const errors = issues.filter((issue) => issue.severity === "error").length;
-  const warnings = issues.filter((issue) => issue.severity === "warning").length;
-  const dirty = workspaceHasDirtyStructuredText();
-  const runtimeTarget =
-    session && session.type === DEBUG_TYPE
-      ? typeof session.configuration?.program === "string"
-        ? session.configuration.program
-        : undefined
-      : undefined;
-
-  panel.webview.postMessage({
-    type: "compileResult",
-    payload: {
-      target: runtimeTarget ?? workspaceFolder.uri.fsPath,
-      dirty,
-      errors,
-      warnings,
-      issues,
-      runtimeStatus,
-      runtimeMessage:
-        runtimeMessage ??
-        (!hasConfiguration && runtimeStatus === "skipped"
-          ? "No CONFIGURATION found. Debugging will prompt to create one."
-          : undefined),
-    } satisfies CompileResult,
-  });
-
-  let statusMessage = `Compile finished: ${errors} error(s), ${warnings} warning(s).`;
-  if (runtimeStatus === "error" && runtimeMessage) {
-    statusMessage = runtimeMessage;
-  }
-  if (options.startDebugAfter) {
-    if (errors > 0) {
-      statusMessage = `Compile blocked: ${errors} error(s). Fix errors before starting.`;
-    } else if (dirty) {
-      statusMessage = "Save all Structured Text files before starting the runtime.";
-    } else {
-      // No authoritative whole-project compile yet (phase 8) — diagnostics + reload only.
-      statusMessage = "No known errors. Starting debug session...";
-    }
-  } else if (!hasConfiguration && runtimeStatus === "skipped" && errors === 0) {
-    statusMessage +=
-      " No CONFIGURATION found; debugging will prompt to create one.";
-    const create = await vscode.window.showInformationMessage(
-      "No CONFIGURATION found. Create one now?",
-      "Create",
-      "Not now"
-    );
-    if (create === "Create") {
-      await vscode.commands.executeCommand(
-        "trust-lsp.debug.ensureConfiguration"
-      );
-    }
-  }
-  panel.webview.postMessage({
-    type: "status",
-    payload: statusMessage,
-  });
-
-  if (options.startDebugAfter && errors === 0 && !dirty) {
-    await startDebugging();
-  }
-}
-
-function workspaceHasDirtyStructuredText(): boolean {
-  return vscode.workspace.textDocuments.some(
-    (doc) => doc.languageId === "structured-text" && doc.isDirty
-  );
 }
 
 function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
@@ -2095,72 +1573,6 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
         background: color-mix(in srgb, var(--trust-danger) 12%, var(--trust-surface));
       }
 
-      .diagnostics {
-        margin-top: 12px;
-        border: 1px solid var(--trust-border);
-        border-radius: 6px;
-        background: var(--trust-surface);
-        padding: 8px;
-      }
-
-      .diagnostics-header {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 8px;
-        margin-bottom: 6px;
-      }
-
-      .diagnostics-title {
-        font-size: 12px;
-        font-weight: 600;
-      }
-
-      .diagnostics-summary {
-        font-size: 11px;
-        color: var(--trust-text-muted);
-      }
-
-      .diagnostics-runtime {
-        font-size: 11px;
-        color: var(--trust-text-muted);
-        margin-bottom: 6px;
-      }
-
-      .diagnostics-list {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-
-      .diagnostic-item {
-        padding: 6px 8px;
-        border-radius: 4px;
-        background: var(--trust-surface);
-        border-left: 3px solid transparent;
-      }
-
-      .diagnostic-item.error {
-        border-left-color: var(--trust-danger);
-      }
-
-      .diagnostic-item.warning {
-        border-left-color: var(--trust-warn);
-      }
-
-      .diagnostic-message {
-        font-size: 12px;
-      }
-
-      .diagnostic-meta {
-        font-size: 11px;
-        color: var(--trust-text-muted);
-        margin-top: 2px;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
       .runtime-view.hidden {
         display: none;
       }
@@ -2319,14 +1731,6 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
     <div class="panel">
       <div id="runtimeView" class="runtime-view">
         <div id="sections" class="tree"></div>
-        <div class="diagnostics" id="diagnostics" style="display:none">
-          <div class="diagnostics-header">
-            <div class="diagnostics-title">Runtime diagnostics</div>
-            <div class="diagnostics-summary" id="diagnosticsSummary"></div>
-          </div>
-          <div class="diagnostics-runtime" id="diagnosticsRuntime"></div>
-          <div class="diagnostics-list" id="diagnosticsList"></div>
-        </div>
       </div>
       <div id="settingsPanel" class="settings-panel">
         <div class="settings-header">

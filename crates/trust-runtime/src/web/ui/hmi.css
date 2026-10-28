@@ -1,5 +1,0 @@
-/*
- * Source moved into chunk files for maintainability:
- * - /web/ui/chunks/hmi-css/hmi-01.css ... hmi-05.css
- * Runtime serves concatenated content from crates/trust-runtime/src/web.rs.
- */

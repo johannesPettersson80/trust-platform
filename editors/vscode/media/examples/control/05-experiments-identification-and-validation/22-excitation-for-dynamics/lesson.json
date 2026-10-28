@@ -1,0 +1,272 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-22",
+  "title": "Periodic excitation",
+  "level": "Identification",
+  "sequence": 53,
+  "equipment": "Three copies of the heater of Lessons 12–30 in open loop, each driven by a sine command",
+  "physicalPurpose": "Record how the heater responds to a command that keeps repeating, at three rates, with a valid periodic record for measurement.",
+  "principalTechnique": "Bounded sinusoidal excitation about an operating point, with start-up cycles discarded",
+  "objective": "Choose a bounded sine command about 75 % (amplitude, rate and duration), apply it at 0.1, 0.2 and 0.4 rad/s with the heater control off, discard the start-up cycles and record the settled cycles of command and temperature in Control Studio.",
+  "prerequisites": [
+    "control-lesson-21",
+    "control-routh-hurwitz"
+  ],
+  "nextLesson": "control-bode-frequency-response",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Water temperature, 0.2 rad/s",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Heater command, 0.2 rad/s",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Water temperature, 0.1 rad/s",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Water temperature, 0.4 rad/s",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL16"
+    },
+    {
+      "role": "state",
+      "name": "Heater command, 0.1 rad/s",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "Heater command, 0.4 rad/s",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL16"
+    },
+    {
+      "role": "state",
+      "name": "ExperimentEnabled",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX24.0"
+    }
+  ],
+  "plant": {
+    "modelId": "three-heaters",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "heat_capacity",
+        "value": 50,
+        "unit": "kJ/°C"
+      },
+      {
+        "name": "heater_per_point",
+        "value": 2,
+        "unit": "kW/%"
+      },
+      {
+        "name": "loss_coefficient",
+        "value": 10,
+        "unit": "kW/°C"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      },
+      {
+        "name": "temperature_noise_bound",
+        "value": 0.02,
+        "unit": "°C"
+      },
+      {
+        "name": "excitation_amplitude",
+        "value": 5,
+        "unit": "%"
+      },
+      {
+        "name": "angular_frequencies",
+        "value": 0.2,
+        "unit": "rad/s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "temperatureC": 35
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Water temperature, 0.2 rad/s": 35,
+      "Heater command, 0.2 rad/s": 75
+    },
+    "validityRange": [
+      {
+        "signal": "Water temperature, 0.2 rad/s",
+        "minimum": 33,
+        "maximum": 37,
+        "unit": "degC"
+      }
+    ],
+    "simplifications": [
+      "Well-mixed water: 50·dT/dt = 2·u(t − 1) − 10·(T − 20).",
+      "Uniform temperature noise of at most ±0.02 °C; simulation only.",
+      "The three heaters are identical and independent; the 0.1 and 0.4 rad/s copies receive the same excitation as the 0.2 rad/s one."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "command": "75 %",
+      "temperature": "35 °C"
+    },
+    "limitation": "A step shows the way to a new equilibrium, not the response to a repeating change."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "command": "75 + 5·sin(ω·t) %",
+      "omegas": "0.1, 0.2, 0.4 rad/s",
+      "periods": 5,
+      "durationSeconds": 317.3
+    },
+    "decision": "Every command stayed 70–80 %; cycles 3–5 repeat about 35.000 °C with half swings of 0.91, 0.72 and 0.46 °C at 0.1, 0.2 and 0.4 rad/s, while cycle 1 carries the start (mean up to 35.15 °C)."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "ExperimentEnabled",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 317.3,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Sine command 75 ± 5 % at 0.1, 0.2 and 0.4 rad/s for five periods",
+      "Uniform temperature noise bounded by ±0.02 °C"
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "unclipped_command",
+      "signal": "Heater command, 0.2 rad/s",
+      "window": "five periods",
+      "comparator": "<=",
+      "limit": 80,
+      "unit": "%",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "settled_cycle_mean",
+      "signal": "Water temperature, 0.2 rad/s",
+      "window": "cycles 3–5",
+      "comparator": "==",
+      "limit": 35,
+      "unit": "degC",
+      "tolerance": 0.01,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "workflowStages": [
+    "Identify"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-teaching-specification.md",
+    "nativeTest": "lesson49",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_49_51 lesson49",
+    "projectPath": "examples/control/05-experiments-identification-and-validation/22-excitation-for-dynamics",
+    "runArtifactFields": [
+      "temperature",
+      "heaterCommand",
+      "cycle",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-lesson-22"
+  },
+  "learning": {
+    "context": "Lesson 52 found that the shaft under P control is stable for every $K_p > 0$: at $K_p = 1$ a 0.01 rad step peaked at 0.01167 rad and settled. Stability tells us that a disturbance dies away. Many disturbances and commands do not stop, though: a load that follows a machine cycle, a supply that varies through the day. How strongly does a process answer a change that keeps repeating, and does that depend on how fast it repeats? A step shows the way to a new equilibrium, not that.\n\nWe return to the water heater, whose slow response makes repeating behaviour easy to see. We will drive it with a sine command at three speeds and record the settled response.",
+    "reason": "We need to:\n\n1. apply a repeating input of known size and speed while nothing else changes;\n2. record the settled repeating response, with the start-up left out; and\n3. keep the input within the heater's 0–100 % range.",
+    "change": "Choose a bounded sine about the operating point, run five periods, discard the start and keep the settled cycles.",
+    "transfer": "The traces show that the swing gets smaller and later as the speed rises, but not by how much, in a form we can calculate with or predict from the heater's model.\n\n[Frequency response](../../07-classical-stability-and-frequency-design/46-bode-frequency-response/README.md) puts numbers on how much smaller and how much later, and derives both from the heater's transfer function.",
+    "theory": [
+      "**Periodic excitation** moves the input up and down in a sine wave at a chosen speed and watches how the output follows. The faster the wave, the smaller and the later the answer.\n\n**In words.** A step test answers where a process ends up after one change. Periodic excitation asks a different question: how well does the process follow a change that keeps coming back? It has three parts:\n\n1. **The sine.** The input swings evenly around its operating value, up for half a cycle and down for the other half. It has a size, how far it swings each way, and a speed, how long one cycle takes.\n2. **The start-up.** When the sine begins, the output first carries an extra part that dies away with the process's own natural motion, as after any push.\n3. **The steady periodic response.** Once the start-up has died away, the output repeats the same cycle at the same speed as the input. This is what we record.\n\nWhy smaller and later? The water stores heat. During the half-cycle with extra power it warms, during the other half it cools. A slow cycle gives the water time to warm almost fully before the power falls again; a fast cycle turns back before the water has moved far. And the water keeps warming for as long as the power is above what holds its present temperature, which is still true for a while after the command's peak: the temperature peaks later than the command. How much later is set by how fast the water can follow, its 5 s time constant and the 1 s delivery delay, so the lag lasts a few seconds at any speed.\n\nA first-order filter in a PLC does the same to a noisy signal: slow changes pass almost unchanged, while fast flicker is smoothed out and comes through late.\n\nFor the heater, the command swings around its holding value of 75 %, and the stored heat smooths the temperature's answer.\n\n**The formula.** The command is\n\n$$\nu(t) = u_0 + d\\,\\sin(\\omega t), \\qquad \\omega = \\frac{2\\pi}{P} .\n$$\n\nLet:\n\n- $u_0$ be the steady command, 75 %;\n- $d$ be the command amplitude, how far it swings each way, in percentage points;\n- $P$ be the **period**, the time of one full cycle, in seconds; and\n- $\\omega$ be the **angular frequency**, in radians per second: one cycle is $2\\pi$ radians, so $\\omega$ is how many radians of the cycle pass each second.\n\nTwo more facts bound what can happen:\n\n- **The start-up part** dies away as the heater's natural motion, $e^{-t/5}$, with the heater's 5 s time constant.\n- **The largest possible swing.** A very slow sine is a slow series of steady states, so the temperature then swings by the heater's steady gain times the amplitude, 0.2 °C per percentage point times $d$. A faster sine can only move it less.\n\n**Example: making a record of the heater.** Follow the settings and the numbers:\n\n1. **One cycle.** With $d = 5$ points and $\\omega = 0.2$ rad/s, one cycle lasts $2\\pi/0.2 = 31.4$ s. The command starts at 75 %, reaches $75 + 5\\sin(0.2 \\times 7.85) = 80$ % after a quarter cycle, 7.85 s, is back at 75 % after 15.7 s and at 70 % after 23.6 s. At 0.1 rad/s a cycle lasts 62.8 s; at 0.4 rad/s, 15.7 s.\n2. **The start.** After one cycle at 0.2 rad/s, $e^{-31.4/5} = 0.0019$ of the start-up part is left, 0.2 %; after two cycles, practically nothing. We run five periods, leave out the first two and measure the last three, which is safe at every speed.\n3. **The size of the swing.** The amplitude must stand well out of the ±0.02 °C measurement noise and keep the command inside 0–100 %. With $d = 10$ points, the largest the program accepts, even a very slow sine could move the water by at most $0.2 \\times 10 = 2$ °C, a hundred times the noise. This lesson uses $d = 5$ points.\n4. **The speeds.** The heater's own rate is $1/5 = 0.2$ per second. The three speeds lie below, at and above it: 0.1, 0.2 and 0.4 rad/s.\n5. **What spoils a record.** A clipped sine is no longer a sine, so the command must stay inside 0–100 %. A load change during the record spoils it too, and so does feedback, which would change the command in answer to the temperature: the heater's control stays off.\n\nThe amplitude, the three speeds and the five periods are teaching choices.\n\n**The limitation.** A record describes the process at one speed only, and only near its operating point. It also costs time: five periods of the slowest sine take $5 \\times 62.8 = 314$ s, more than five minutes."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. Which speed gives the largest temperature swing, and can any of the three exceed 1 °C?\n2. The temperature peaks after the command. At which speed is that lag the largest share of the cycle?\n3. How much of the start-up part is left after the fastest sine's first cycle, and which cycles does the start disturb?\n\n| $\\omega$ | Period | Command | Largest possible swing |\n| ---: | ---: | --- | ---: |\n| 0.1 rad/s | 62.8 s | 70–80 % | 1 °C |\n| 0.2 rad/s | 31.4 s | 70–80 % | 1 °C |\n| 0.4 rad/s | 15.7 s | 70–80 % | 1 °C |",
+    "practicalPreparation": [
+      "1. Open this lesson's project and start **Simulator**. The three heaters rest at 35 °C. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.MiddleTemperatureC · Process value (°C)` and `P1.MiddleCommandPct · Applied output (%)`, the 0.2 rad/s heater; add `P1.SlowTemperatureC · state (°C)`, `P1.FastTemperatureC · state (°C)`, `P1.SlowCommandPct · state (%)` and `P1.FastCommandPct · state (%)`.\n3. Answer the predictions before starting.\n4. Select **Review project test** and check the declared **317.3 s** duration: 2 s at rest and five periods of the slowest sine.\n5. Select **Confirm and start**. After 2 s all three sines start.\n6. After the run, hover the peaks of the last cycles and compare each temperature peak with the command peak before it.\n7. At completion, Control Studio shows **Project test completed. Outputs restored.**\n\nSelect **Abort test** to stop early. To repeat, stop and restart **Simulator**."
+    ],
+    "baseline": "A step shows the way to a new equilibrium, not the response to a repeating change.",
+    "comparison": "![The slow sine moves the water most; the temperature lags the command; the first cycle carries the start](figures/periodic-excitation-recording.svg)\n\nThe numbered marks answer the predictions with the same numbers. From the recorded run, per cycle: half the swing from highest to lowest temperature, and the cycle's mean.\n\n| $\\omega$ | Cycle 1 | Cycles 3–5 | Temperature peak after the command's |\n| ---: | --- | --- | ---: |\n| 0.1 rad/s | 0.916 °C, mean 35.038 °C | 0.911–0.912 °C, mean 35.000 °C | 5.6 s |\n| 0.2 rad/s | 0.746 °C, mean 35.097 °C | 0.723–0.725 °C, mean 35.000 °C | 4.8 s |\n| 0.4 rad/s | 0.502 °C, mean 35.147 °C | 0.458–0.464 °C, mean 35.000 °C | 3.9 s |\n\n1. The slowest sine moved the water most: 0.91 °C at 0.1 rad/s, against 0.72 °C at 0.2 rad/s and only 0.46 °C at 0.4 rad/s; none reached the 1 °C limit. A slow swing gives the stored heat time to follow; a fast one is smoothed away.\n2. The temperature peaked later than the command: about 5.6, 4.8 and 3.9 s, which is a growing share of each cycle, 9, 15 and 25 %.\n3. After the fastest sine's first cycle, $e^{-15.7/5} = 0.043$ of the start-up part was left, 4 %. Only the first cycle carried the start: its mean was up to 0.15 °C high and its swing larger. From the second cycle on, every cycle repeated within the noise.\n\nThe commands stayed between 70 and 80 %, unclipped, and returned to 75 % after five periods. Each record is bounded, unclipped and free of load changes, with three settled cycles: usable for measurement. The cost is time: five periods of the slowest sine take more than five minutes. These are simulation results.",
+    "validation": "![The slow sine moves the water most; the temperature lags the command; the first cycle carries the start](figures/periodic-excitation-recording.svg)\n\nThe numbered marks answer the predictions with the same numbers. From the recorded run, per cycle: half the swing from highest to lowest temperature, and the cycle's mean.\n\n| $\\omega$ | Cycle 1 | Cycles 3–5 | Temperature peak after the command's |\n| ---: | --- | --- | ---: |\n| 0.1 rad/s | 0.916 °C, mean 35.038 °C | 0.911–0.912 °C, mean 35.000 °C | 5.6 s |\n| 0.2 rad/s | 0.746 °C, mean 35.097 °C | 0.723–0.725 °C, mean 35.000 °C | 4.8 s |\n| 0.4 rad/s | 0.502 °C, mean 35.147 °C | 0.458–0.464 °C, mean 35.000 °C | 3.9 s |\n\n1. The slowest sine moved the water most: 0.91 °C at 0.1 rad/s, against 0.72 °C at 0.2 rad/s and only 0.46 °C at 0.4 rad/s; none reached the 1 °C limit. A slow swing gives the stored heat time to follow; a fast one is smoothed away.\n2. The temperature peaked later than the command: about 5.6, 4.8 and 3.9 s, which is a growing share of each cycle, 9, 15 and 25 %.\n3. After the fastest sine's first cycle, $e^{-15.7/5} = 0.043$ of the start-up part was left, 4 %. Only the first cycle carried the start: its mean was up to 0.15 °C high and its swing larger. From the second cycle on, every cycle repeated within the noise.\n\nThe commands stayed between 70 and 80 %, unclipped, and returned to 75 % after five periods. Each record is bounded, unclipped and free of load changes, with three settled cycles: usable for measurement. The cost is time: five periods of the slowest sine take more than five minutes. These are simulation results.",
+    "explanation": "A bounded sine around the operating point, with the controller off, is a known repeating input. Once the start has died away, the process repeats the same cycle, smaller and later the faster the sine.\n\nFor the heater, the same 5-point command moved the water by 0.91 °C at 0.1 rad/s but by only 0.46 °C at 0.4 rad/s, and the temperature always peaked after the command."
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Water temperature, 0.2 rad/s",
+        "minimum": 33,
+        "maximum": 37,
+        "unit": "degC"
+      },
+      {
+        "signal": "Heater command, 0.2 rad/s",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 75,
+    "restorationMode": "After five periods, or when the experiment ends, each command returns to 75 %.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical heating changes",
+      "Physical use requires independent temperature-limit, interlock and approval review"
+    ]
+  },
+  "video": {
+    "viewerOutcome": "See one sine command give smaller, later temperature swings as its rate rises, once the start has died away.",
+    "requiredVisibleEvidence": [
+      "the three sine commands, unclipped",
+      "the first, disturbed cycle",
+      "the settled temperature swings",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

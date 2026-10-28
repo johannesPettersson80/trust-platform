@@ -1,7 +1,7 @@
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::Duration as StdDuration;
 
@@ -25,7 +25,18 @@ impl ModbusTestState {
 }
 
 pub fn start_modbus_server(state: Arc<Mutex<ModbusTestState>>, requests: usize) -> SocketAddr {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind modbus test server");
+    start_modbus_server_on("127.0.0.1:0", state, requests)
+}
+
+/// The server of `start_modbus_server` listening on `bind`, such as `[::1]:0` for the IPv6
+/// loopback.
+pub fn start_modbus_server_on(
+    bind: &str,
+    state: Arc<Mutex<ModbusTestState>>,
+    requests: usize,
+) -> SocketAddr {
+    let listener = TcpListener::bind(bind)
+        .unwrap_or_else(|error| panic!("bind modbus test server on {bind}: {error}"));
     let addr = listener.local_addr().expect("server addr");
     thread::spawn(move || {
         let (mut stream, _) = listener.accept().expect("accept modbus");
@@ -54,6 +65,63 @@ pub fn start_delayed_modbus_server(
         let _ = handle_modbus_request(&mut stream, &state);
     });
     addr
+}
+
+/// A server that answers the first `answered` requests of one connection, then reads the next one
+/// and holds its answer, not yet applied to `state`, until the test sends on the returned channel;
+/// it then answers it and the requests after it until the connection closes. Dropping the sender
+/// instead closes the connection with the request unanswered.
+pub fn start_withholding_modbus_server(
+    state: Arc<Mutex<ModbusTestState>>,
+    answered: usize,
+) -> (SocketAddr, mpsc::Sender<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind withholding modbus test server");
+    let addr = listener.local_addr().expect("server addr");
+    let (release, released) = mpsc::channel::<()>();
+    thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept withholding modbus");
+        let _ = stream.set_read_timeout(Some(StdDuration::from_secs(5)));
+        let _ = stream.set_write_timeout(Some(StdDuration::from_secs(2)));
+        for _ in 0..answered {
+            if handle_modbus_request(&mut stream, &state).is_err() {
+                return;
+            }
+        }
+        let held = handle_modbus_request_before_response(&mut stream, &state, || {
+            released.recv().map_err(|_| ())
+        });
+        if held.is_ok() {
+            while handle_modbus_request(&mut stream, &state).is_ok() {}
+        }
+    });
+    (addr, release)
+}
+
+/// A server that answers `answered` requests of its first connection and then closes it, as a
+/// server that goes away, and says so on the returned channel; it then takes the next connection
+/// and answers its requests until that one closes.
+pub fn start_closing_once_modbus_server(
+    state: Arc<Mutex<ModbusTestState>>,
+    answered: usize,
+) -> (SocketAddr, mpsc::Receiver<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind closing-once modbus test server");
+    let addr = listener.local_addr().expect("server addr");
+    let (closed, closes) = mpsc::channel::<()>();
+    thread::spawn(move || {
+        let (mut first, _) = listener.accept().expect("accept the first connection");
+        let _ = first.set_read_timeout(Some(StdDuration::from_secs(2)));
+        for _ in 0..answered {
+            if handle_modbus_request(&mut first, &state).is_err() {
+                return;
+            }
+        }
+        drop(first);
+        let _ = closed.send(());
+        let (mut second, _) = listener.accept().expect("accept the next connection");
+        let _ = second.set_read_timeout(Some(StdDuration::from_secs(2)));
+        while handle_modbus_request(&mut second, &state).is_ok() {}
+    });
+    (addr, closes)
 }
 
 pub fn start_closing_modbus_server(connection_count: Arc<AtomicUsize>) -> SocketAddr {
@@ -112,9 +180,13 @@ pub(super) fn handle_modbus_request_before_response(
     resp_header[0..2].copy_from_slice(&tx.to_be_bytes());
     resp_header[2..4].copy_from_slice(&0u16.to_be_bytes());
     resp_header[4..6].copy_from_slice(&((response.len() + 1) as u16).to_be_bytes());
-    stream.write_all(&resp_header).map_err(|_| ())?;
-    stream.write_all(&[unit_id]).map_err(|_| ())?;
-    stream.write_all(&response).map_err(|_| ())?;
+    // One write, as a server sends a response: three small writes left the last two to Nagle's
+    // algorithm, which held them until the client's delayed acknowledgement, about 40 ms on Linux,
+    // longer than the scan's deadline for a refresh of several requests.
+    let mut frame = resp_header.to_vec();
+    frame.push(unit_id);
+    frame.extend_from_slice(&response);
+    stream.write_all(&frame).map_err(|_| ())?;
     stream.flush().ok();
     Ok(())
 }

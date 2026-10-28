@@ -148,8 +148,8 @@ ST mechanics used:
 This compact showcase has no `io.toml` — process values are local
 variables in `src/Main.st`. There is no Modbus, MQTT, or OPC UA binding.
 
-`oop/runtime.toml` configures the runtime control endpoint and log
-level only: `cycle_interval_ms = 100`, `retain.mode = "none"`,
+`oop/runtime.toml` leaves the control endpoint to the platform default and
+configures the runtime only: `cycle_interval_ms = 100`, `retain.mode = "none"`,
 `watchdog.enabled = false`, `fault.policy = "halt"`.
 
 ## Run

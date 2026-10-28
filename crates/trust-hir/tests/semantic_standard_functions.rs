@@ -68,6 +68,46 @@ END_PROGRAM
 }
 
 #[test]
+// docs/specs/07-standard-functions.md 2.9: vendor-extension conversions that IEC Tables
+// 22-27 do not list (REAL/LREAL to a bit string of another width, numbers to BOOL, BOOL to
+// REAL/LREAL), used by CODESYS and TwinCAT projects; and 2.2: the IEC Table 24 bit string
+// to BOOL conversions
+fn test_vendor_extension_conversions_are_accepted() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+VAR
+    i: INT;
+    ud: UDINT;
+    r: REAL;
+    lr: LREAL;
+    b: BYTE;
+    w: WORD;
+    dw: DWORD;
+    lw: LWORD;
+    x: BOOL;
+END_VAR
+b := REAL_TO_BYTE(r);
+w := REAL_TO_WORD(r);
+lw := REAL_TO_LWORD(r);
+b := LREAL_TO_BYTE(lr);
+w := LREAL_TO_WORD(lr);
+dw := LREAL_TO_DWORD(lr);
+x := INT_TO_BOOL(i);
+x := UDINT_TO_BOOL(ud);
+x := BYTE_TO_BOOL(b);
+x := LWORD_TO_BOOL(lw);
+x := REAL_TO_BOOL(r);
+x := LREAL_TO_BOOL(lr);
+x := TO_BOOL(i);
+r := BOOL_TO_REAL(x);
+lr := BOOL_TO_LREAL(x);
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
 fn test_typed_conversion_accepts_positional_outer_named_inner_call() {
     check_no_errors(
         r#"
@@ -327,6 +367,43 @@ VAR
 END_VAR
 END_PROGRAM
 "#,
+    );
+}
+
+/// A typed literal names its type as a declaration does: through a namespace that a USING directive
+/// names, and not without it (IEC §6.9.4). Catches the prefix looked up only by its global name,
+/// "undefined typed literal prefix 'PIDMode'", as before 24 October 2026, and a lookup that finds
+/// a namespace's type that no USING names.
+#[test]
+fn test_using_directive_resolves_typed_literal_prefix() {
+    let namespace = "
+NAMESPACE Ctl
+TYPE PIDMode : (Manual, Auto); END_TYPE
+END_NAMESPACE
+";
+    check_no_errors(&format!(
+        "{namespace}
+PROGRAM Test
+USING Ctl;
+VAR
+    mode : PIDMode;
+END_VAR
+mode := PIDMode#Auto;
+END_PROGRAM
+"
+    ));
+    check_has_error(
+        &format!(
+            "{namespace}
+PROGRAM Test
+VAR
+    mode : Ctl.PIDMode;
+END_VAR
+mode := PIDMode#Auto;
+END_PROGRAM
+"
+        ),
+        DiagnosticCode::UndefinedType,
     );
 }
 

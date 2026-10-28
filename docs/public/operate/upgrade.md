@@ -6,7 +6,7 @@
 2. keep the current deployment available
 3. deploy into a versioned root
 4. restart in the intended mode
-5. verify with status, HMI, and one safe process proof
+5. verify with status and one safe process proof
 6. keep rollback ready until the upgrade is accepted
 
 ## Rollback Rule

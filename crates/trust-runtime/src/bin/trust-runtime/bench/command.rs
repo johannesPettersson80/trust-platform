@@ -12,11 +12,9 @@ fn execute_bench(action: BenchAction) -> anyhow::Result<(BenchReport, BenchOutpu
             samples,
             warmup_cycles,
             watch,
-            tier1,
             output,
         } => {
-            let workload =
-                ProjectBenchWorkload::normalize(project, samples, warmup_cycles, watch, tier1)?;
+            let workload = ProjectBenchWorkload::normalize(project, samples, warmup_cycles, watch)?;
             Ok((run_project_bench(workload)?, output))
         }
         BenchAction::Init {

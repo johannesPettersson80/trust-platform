@@ -1,0 +1,229 @@
+{
+  "schemaVersion": 2,
+  "id": "control-lesson-28",
+  "name": "Manual PI tuning",
+  "projectId": "project:control-lesson-28",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "project",
+    "revision": "sha256:e9993eee3b5121c045f224b85c433662608f0d60ccb8141b9127b72480f08ada",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "P1.AutoMode",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "processVariable": {
+      "symbol": "P1.TemperatureC",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.AppliedPowerPct",
+      "address": "%IL8",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX112.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "thermal-load",
+        "channel": "thermal-load",
+        "role": "disturbance",
+        "symbol": "P1.DisturbanceKw",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": 0,
+          "maximum": 30
+        }
+      },
+      {
+        "id": "integral",
+        "channel": "integral",
+        "role": "state",
+        "symbol": "P1.IntegralPct",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -200,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "proportional",
+        "channel": "proportional",
+        "role": "state",
+        "symbol": "P1.ProportionalPct",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -200,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "request",
+        "channel": "request",
+        "role": "MV",
+        "symbol": "P1.RequestedPowerPct",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -200,
+          "maximum": 300
+        }
+      },
+      {
+        "id": "kp",
+        "channel": "kp",
+        "role": "state",
+        "symbol": "P1.ObservedKp",
+        "address": "%ML96",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "percentage-point/degC",
+        "range": {
+          "minimum": 1,
+          "maximum": 4
+        }
+      },
+      {
+        "id": "ki",
+        "channel": "ki",
+        "role": "state",
+        "symbol": "P1.ObservedKi",
+        "address": "%ML104",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "percentage-point/(degC*s)",
+        "range": {
+          "minimum": 0.2,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "error",
+        "channel": "error",
+        "role": "state",
+        "symbol": "P1.ErrorC",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": -80,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "abort",
+        "channel": "abort",
+        "role": "state",
+        "symbol": "P1.SafetyAbort",
+        "address": "%MX112.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    ],
+    "setpoint": {
+      "symbol": "P1.SetpointC",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    }
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "heater-manual-tuning",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 60.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX112.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  },
+  "parameterBinding": {
+    "loop_id": "control-lesson-28",
+    "task_name": "MainTask",
+    "parameters": [
+      {
+        "symbol": "P1.Parameters.ProportionalGain",
+        "iec_type": "LREAL",
+        "unit": "percentage-point/degC",
+        "convention": "parallel proportional gain",
+        "minimum": 1,
+        "maximum": 4
+      },
+      {
+        "symbol": "P1.Parameters.IntegralGain",
+        "iec_type": "LREAL",
+        "unit": "percentage-point/(degC*s)",
+        "convention": "parallel integral gain",
+        "minimum": 0.2,
+        "maximum": 1
+      }
+    ],
+    "mode": {
+      "symbol": "P1.ExperimentEnabled",
+      "manual_value": false
+    }
+  },
+  "operatingPoint": "35 degC at 75% heater power",
+  "revision": "sha256:f645f65e03d4da5e1f203a1c7d4d3f0b719d4e020812ce17fc29a694d3e60283"
+}

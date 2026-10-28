@@ -10,12 +10,10 @@ trait RuntimeSignalSource {
     fn recv_shutdown_signal(&mut self) -> std::io::Result<RuntimeShutdownSignal>;
 }
 
-#[cfg(unix)]
 trait RuntimeShutdownTarget {
     fn request_shutdown(&self);
 }
 
-#[cfg(unix)]
 impl<C> RuntimeShutdownTarget for trust_runtime::scheduler::ResourceControl<C>
 where
     C: trust_runtime::scheduler::Clock + Clone,
@@ -52,11 +50,43 @@ fn install_runtime_signal_shutdown(
         .map_err(|err| anyhow::anyhow!("spawn signal shutdown thread: {err}"))
 }
 
+/// How often the console-stop thread looks at its flag.
+#[cfg(not(unix))]
+const CONSOLE_STOP_POLL: std::time::Duration = std::time::Duration::from_millis(100);
+
+/// Ctrl+C (and a termination signal) on Windows request the ordinary bounded stop, as SIGINT and
+/// SIGTERM do on Unix, so the runtime stops cleanly and removes its endpoint file (spec 11,
+/// sections 6.8 and 6.8.0a). A Windows signal handler may only set a flag, so a thread waits for
+/// the flag and then stops the runtime.
 #[cfg(not(unix))]
 fn install_runtime_signal_shutdown(
-    _target: trust_runtime::scheduler::ResourceControl<StdClock>,
-) -> anyhow::Result<()> {
-    Ok(())
+    target: trust_runtime::scheduler::ResourceControl<StdClock>,
+) -> anyhow::Result<std::thread::JoinHandle<()>> {
+    let requested = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    for signal in [
+        signal_hook::consts::signal::SIGINT,
+        signal_hook::consts::signal::SIGTERM,
+    ] {
+        signal_hook::flag::register(signal, std::sync::Arc::clone(&requested))
+            .map_err(|err| anyhow::anyhow!("register console stop signal {signal}: {err}"))?;
+    }
+    std::thread::Builder::new()
+        .name("trust-runtime-console-stop".to_string())
+        .spawn(move || request_shutdown_when_flagged(&requested, &target, CONSOLE_STOP_POLL))
+        .map_err(|err| anyhow::anyhow!("spawn console stop thread: {err}"))
+}
+
+/// Waits until `requested` is set, then requests the ordinary runtime stop.
+#[cfg(any(test, not(unix)))]
+fn request_shutdown_when_flagged<T: RuntimeShutdownTarget>(
+    requested: &std::sync::atomic::AtomicBool,
+    target: &T,
+    poll: std::time::Duration,
+) {
+    while !requested.load(std::sync::atomic::Ordering::SeqCst) {
+        std::thread::sleep(poll);
+    }
+    target.request_shutdown();
 }
 
 #[cfg(unix)]

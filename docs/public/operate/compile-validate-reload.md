@@ -16,8 +16,9 @@ The preferred machine-facing loop is:
 
 - collects diagnostics
 - blocks on errors
-- builds bytecode when diagnostics are clean
-- sends `bytecode.reload` to the runtime control endpoint
+- builds the program image `program.tpi` when diagnostics are clean
+- sends the image with `bytecode.reload` to the runtime control endpoint, which
+  changes the running program online
 
 ## Example JSON-RPC Session
 
@@ -48,9 +49,9 @@ Current `runtimeStatus` values are:
 ## When reload is skipped
 
 Reload is intentionally blocked when diagnostics contain errors. That keeps
-agents and editors from pushing obviously broken bytecode into a live runtime.
-In other words, hot reload is guarded by diagnostics instead of replacing
-bytecode in a broken runtime state.
+agents and editors from pushing an obviously broken program into a live
+runtime. In other words, hot reload is guarded by diagnostics instead of
+replacing the running program with a broken one.
 
 ## Editor Path
 

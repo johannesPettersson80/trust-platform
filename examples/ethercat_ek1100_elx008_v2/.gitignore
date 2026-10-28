@@ -1,9 +1,10 @@
 # Carpeta temporal generada por trust-runtime
 sources/
 
-# Bytecode compilado
-program.stbc
-*.stbc
+# Programa compilado
+program.tpi
+deployment-record.bin
+*.tpi
 
 # Cache del LSP
 .trust-lsp/

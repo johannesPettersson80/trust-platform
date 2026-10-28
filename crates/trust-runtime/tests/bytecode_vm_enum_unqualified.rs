@@ -2,10 +2,9 @@
 //! outside `CASE` labels.
 //!
 //! The v0.18.4 hotfix (commit `8d7f069`) accepts unqualified enum variants
-//! as `CASE` labels (see `bytecode_vm_differential::
-//! register_and_stack_paths_match_for_unqualified_enum_case_labels`). These
-//! tests pin the analogous runtime behavior for three other contexts where
-//! the same identifier should resolve to the declared variant value:
+//! as `CASE` labels. These tests pin the analogous runtime behavior for three
+//! other contexts where the same identifier should resolve to the declared
+//! variant value:
 //!
 //! 1. `VAR` initializer: `state : Phase := IDLE`
 //! 2. RHS of assignment: `state := RUNNING`
@@ -18,8 +17,10 @@
 //!
 //! Tests are `#[ignore]`d with a `FIXME` link to the accompanying fix
 //! commit so CI stays green until the lowering/runtime fix lands.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
-use trust_runtime::harness::TestHarness;
+use trust_runtime::harness::{CompileSession, TestHarness};
 use trust_runtime::value::{EnumValue, Value};
 
 fn enum_variant_name(value: &Option<Value>) -> Option<&str> {
@@ -236,11 +237,14 @@ END_PROGRAM
 
     let mut harness = TestHarness::from_source(source).expect("compile harness");
     let _ = harness.cycle();
+    let declarations = CompileSession::from_source(source)
+        .declarations()
+        .expect("the program's declarations");
 
     assert_eq!(
         harness.get_output("val"),
         Some(Value::Enum(Box::new(
-            EnumValue::from_serialized_parts(harness.runtime().registry(), "Solo", "S1", 1)
+            EnumValue::from_serialized_parts(declarations.metadata().registry(), "Solo", "S1", 1)
                 .expect("Solo#S1 enum value")
         )))
     );

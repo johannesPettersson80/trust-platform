@@ -719,7 +719,7 @@ fn project_info_reports_absent_optional_files_without_false_availability() {
         "ioToml",
         "simulationToml",
         "trustLspToml",
-        "programStbc",
+        "programImage",
     ] {
         assert_eq!(payload["files"][key]["exists"], false, "file key: {key}");
     }
@@ -840,18 +840,18 @@ value = "FALSE"
 fn project_info_program_presence_tracks_real_artifact() {
     let project = TestProject::new("project-info-program");
     project.write("src/main.st", &valid_program("Main"));
-    project.write("program.stbc", "not-real-bytecode");
+    project.write("program.tpi", "not-a-real-image");
 
     let payload = project_info_payload(&project.root, None).expect("inspect project");
 
-    assert_eq!(payload["files"]["programStbc"]["exists"], true);
+    assert_eq!(payload["files"]["programImage"]["exists"], true);
     assert_eq!(
         Path::new(
-            payload["files"]["programStbc"]["path"]
+            payload["files"]["programImage"]["path"]
                 .as_str()
                 .expect("program path")
         ),
-        project.root.join("program.stbc")
+        project.root.join("program.tpi")
     );
 }
 

@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
+
 use trust_runtime::harness::{CompileSession, SourceFile, TestHarness};
 
 fn unbound_program_source() -> &'static str {
@@ -36,10 +38,10 @@ fn configuration_without_program_instance_errors_by_default() {
 #[test]
 fn explicit_extra_program_instance_keeps_test_builder_opt_in() {
     let source = SourceFile::new(unbound_program_source());
-    let runtime = CompileSession::from_sources(vec![source])
+    let declarations = CompileSession::from_sources(vec![source])
         .with_extra_program_instances(["Main"])
-        .build_runtime()
+        .declarations()
         .expect("explicit extra program instance should opt in");
 
-    assert!(runtime.storage().get_global("Main").is_some());
+    assert!(declarations.storage().get_global("Main").is_some());
 }

@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 2,
+  "topology": "open-loop",
+  "id": "control-lesson-22",
+  "name": "Periodic excitation",
+  "projectId": "project:control-lesson-22",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Main",
+    "design": "project",
+    "revision": "sha256:59f5511e913de073d7634c86367b27d49ff662a880802d3cb4ea773520584a6a",
+    "action": "direct",
+    "taskPeriodMs": 100
+  },
+  "signals": {
+    "processVariable": {
+      "symbol": "P1.MiddleTemperatureC",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.MiddleCommandPct",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "slow-temperature",
+        "channel": "slow-temperature",
+        "role": "state",
+        "symbol": "P1.SlowTemperatureC",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "fast-temperature",
+        "channel": "fast-temperature",
+        "role": "state",
+        "symbol": "P1.FastTemperatureC",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX24.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "slow-command",
+        "channel": "slow-command",
+        "role": "state",
+        "symbol": "P1.SlowCommandPct",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "fast-command",
+        "channel": "fast-command",
+        "role": "state",
+        "symbol": "P1.FastCommandPct",
+        "address": "%QL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "three-heaters",
+  "operatingPoint": "Three heaters at 35 degC with 75%",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 317.3,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX24.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
+    "baselineSeconds": 2
+  },
+  "revision": "sha256:97d1338fa8208457b65db7391ffd87dbdb95028f1373c886cc98c8d07e9a63ab"
+}

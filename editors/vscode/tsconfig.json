@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "Node16",
+    "module": "Node20",
     "lib": [
       "ES2020"
     ],
@@ -28,6 +28,10 @@
     "src/ladder/webview/**",
     "src/sfc/webview/**",
     "src/networkCanvas/webview/**",
-    "src/visual/runtime/webview/**"
+    "src/controlStudio/webview/**",
+    "src/visual/runtime/webview/**",
+    "src/hmiBuilder/display/webview/**",
+    "src/hmiBuilder/editor/webview/**",
+    "src/devicesPanel/webview/**"
   ]
 }

@@ -1,0 +1,290 @@
+{
+  "schemaVersion": 4,
+  "id": "control-valve-stiction",
+  "title": "Valve stiction",
+  "level": "Advanced",
+  "sequence": 33,
+  "equipment": "Two hot-water heating valves: one with a command deadband, one with stiction",
+  "physicalPurpose": "Tell an ignored command from a stuck stem before blaming the controller tuning.",
+  "principalTechnique": "Probe-based diagnosis of command deadband versus static and moving friction",
+  "objective": "Apply increasing, decreasing and reversal probes to a valve with a command deadband and a valve with stiction, and classify each from request, accepted target, drive force, stem position and flow.",
+  "prerequisites": [
+    "control-valve-characterization"
+  ],
+  "nextLesson": "control-proportional-position-stiffness",
+  "signals": [
+    {
+      "role": "MV",
+      "name": "Valve request",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "DeadbandTargetPct",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "DeadbandStemPct",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%IL16"
+    },
+    {
+      "role": "PV",
+      "name": "StickyStemPct",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%IL24"
+    },
+    {
+      "role": "state",
+      "name": "StickyForceN",
+      "unit": "N",
+      "minimum": -100,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "DeadbandFlowKgS",
+      "unit": "kg/s",
+      "minimum": 0,
+      "maximum": 2.1,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "StickyFlowKgS",
+      "unit": "kg/s",
+      "minimum": 0,
+      "maximum": 2.1,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "ExperimentEnabled",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX64.0"
+    }
+  ],
+  "plant": {
+    "modelId": "valve-stiction-lesson-32",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "command_deadband",
+        "value": 1,
+        "unit": "percentage-point"
+      },
+      {
+        "name": "positioner_stiffness",
+        "value": 10,
+        "unit": "N/percentage-point"
+      },
+      {
+        "name": "breakaway_force",
+        "value": 50,
+        "unit": "N"
+      },
+      {
+        "name": "moving_friction",
+        "value": 20,
+        "unit": "N"
+      },
+      {
+        "name": "stem_rate",
+        "value": 0.5,
+        "unit": "percentage-point/s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "stemPositionPct": 75,
+      "flowKgS": 1.5
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Valve request": 75,
+      "StickyStemPct": 75
+    },
+    "validityRange": [
+      {
+        "signal": "Valve request",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "StickyStemPct",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "Regulated 100 kPa across both valves: q = 0.02 kg/s per point of stem position.",
+      "The friction of valve 2 is simulated in the program's valve-mechanics section so the force is observable.",
+      "Illustrative force thresholds; a real valve needs force and position measurements; simulation only."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "valveRequestPct": 75,
+      "stemsPct": 75
+    },
+    "limitation": "Flow alone cannot show whether a small request was ignored or accepted but blocked by friction."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "probes": "0.5-point steps 75.5–80.5 %, hold, steps down to 75 %, reversal to 72 % and back",
+      "breakawayExample": "F = 10 · (80.5 − 75) = 55 N > 50 N; stops at 78.5 % (20 N)",
+      "reversalExample": "F = −65 N; stops at 74 %",
+      "durationSeconds": 133.1
+    },
+    "decision": "Classify valve 1 as a command-path deadband and valve 2 as mechanical stiction; repair those, not the PI tuning."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Valve request",
+    "baseline": 75,
+    "amplitude": 0,
+    "durationSeconds": 133.1,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Uniform repeatable flow noise bounded by ±.005 kg/s",
+      "Stem rate limit 0.5 % per second"
+    ],
+    "seed": 20260829,
+    "restorationValue": 75
+  },
+  "acceptance": [
+    {
+      "metric": "deadband_ignored_request",
+      "signal": "DeadbandTargetPct",
+      "window": "75.5 % probe",
+      "comparator": "==",
+      "limit": 75,
+      "unit": "%",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "breakaway_force",
+      "signal": "StickyForceN",
+      "window": "80.5 % probe",
+      "comparator": "==",
+      "limit": 55,
+      "unit": "N",
+      "tolerance": 0.5,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "sliding_stop",
+      "signal": "StickyStemPct",
+      "window": "after breakaway",
+      "comparator": "==",
+      "limit": 78.5,
+      "unit": "%",
+      "tolerance": 0.05,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Valve request",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "StickyStemPct",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Valve request or a stem leaves 0–100%",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 0,
+    "restorationMode": "After the probes the request returns to 75 %; the sticky stem may stay where friction holds it.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical excitation or gain application",
+      "Physical use requires independent topology, model, hazard, operating-window, interlock, personnel, abort, rollback, and immediate approval review"
+    ]
+  },
+  "workflowStages": [
+    "Identify"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-teaching-specification.md",
+    "nativeTest": "lesson32",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_31_33 lesson32",
+    "projectPath": "examples/control/09-industrial-control-structures/59-valve-stiction",
+    "runArtifactFields": [
+      "valveRequest",
+      "acceptedTarget",
+      "stemPositions",
+      "driveForce",
+      "flows",
+      "classification",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-valve-stiction"
+  },
+  "learning": {
+    "context": "Lesson 32 measured where the valve settles: with the fixed supply the flow rose from 1.421 kg/s at 70 % to 1.650 kg/s at 85 %, and the second 75 % point reproduced the first, 1.501 kg/s, so the steady characteristic showed no hysteresis. A real valve can still misbehave on the way: it may ignore a small request, or the valve sticks and jumps when the request has grown. In a temperature loop that looks like a badly tuned controller, and the flow alone cannot tell why.\n\nWe will probe two valves with the same small steps and find the cause of their steps from the request, the stem position, the force and the flow.",
+    "reason": "We need to:\n\n1. see whether a request reached the valve's positioner at all;\n2. see whether the stem moved when the request changed, and if not, how hard it was being pushed; and\n3. decide from those signals what must be repaired, before anyone touches the controller.",
+    "theory": [
+      "**Stiction** is a valve that sticks. It ignores small commands, then jumps when the push becomes big enough. A **deadband** is different: the controller deliberately ignores small changes. Both look like poor tuning, but neither is. Here valve 1's positioner, the small controller on the valve that sets the stem position, has a command deadband, and valve 2 has a stem that is held by friction.\n\n**In words.** Both faults make a valve move in steps, for different reasons:\n\n1. **A deadband is a rule in the command path.** The positioner accepts a new target only when it differs enough from the last accepted one, so smaller changes never reach the stem. PLC engineers use the same idea on purpose, for example a threshold below which an analog change is not sent, to save an actuator from wearing itself out with tiny movements. The stem itself moves freely and follows every accepted target exactly.\n2. **Stiction is mechanical friction.** The positioner pushes the stem with a force that grows with the distance between where the stem should be and where it is. Friction holds the stem until the push exceeds the **breakaway force**, the static friction of the resting stem. Once the stem moves, the friction drops to a smaller sliding value, so the stem shoots off and stops only when the push has fallen to that sliding friction, short of its target. Pushing a heavy box across a floor feels the same: you push harder and harder, nothing happens, then it suddenly slides, more easily than it started.\n\nIn a temperature loop both look like poor tuning. The water is slightly too cold, so the PI raises its request a little, and the stem does not move. The error stays, so the integral keeps raising the request, until the valve moves at once, too far, and the water overshoots; then the same happens downwards. The loop keeps hunting, and retuning only changes the size and period of this cycle. The flow alone cannot tell the two causes apart. Two other signals can: whether the request reached the positioner, and how hard the stem was pushed.\n\n**The formula.** Valve 1's positioner compares each request with its last accepted target. When\n\n$$\n|r - u_t| \\ge d ,\n$$\n\nthe request becomes the new accepted target; otherwise the target keeps its value. Valve 2 accepts every request, and its positioner pushes the stem with the force\n\n$$\nF = k_s\\,(u_t - x) .\n$$\n\nThe stem starts to move when $|F| > F_b$, and once moving it stops when $|F| \\le F_m$; moving upwards, that is at $x = u_t - F_m/k_s$.\n\n- $r$ is the request from the controller and $u_t$ the accepted target, in percent;\n- $d$ is valve 1's deadband, 1 point;\n- $F$ is the positioner's drive force, in newtons, and $k_s$ its stiffness, 10 N per point of position;\n- $x$ is the measured stem position, in percent; and\n- $F_b = 50$ N is the breakaway force and $F_m = 20$ N the sliding friction.\n\n**Example: both valves at 75 %.** Follow the numbers:\n\n1. Valve 1 receives 75.8 %: $|75.8 - 75| = 0.8$, less than 1 point, so its target stays at 75 % and the stem does not move. At 76.2 %, $|76.2 - 75| = 1.2$: the target becomes 76.2 %, and the stem follows it.\n2. Valve 2 receives 76 %: $F = 10 \\times (76 - 75) = 10$ N, well below 50 N, so the stem stays at 75 % although its target moved.\n3. The request reaches 80.5 %: $F = 10 \\times 5.5 = 55$ N, above 50 N, so the stem breaks away. It slides until the force has fallen to the 20 N sliding friction, at $x = 80.5 - 20/10 = 78.5$ %, and sticks again, 2 points short of its target.\n\nThe two faults therefore leave different evidence:\n\n| Observation | Deadband (valve 1) | Stiction (valve 2) |\n| --- | --- | --- |\n| Accepted target | unchanged for small requests | follows every request |\n| Force | stays small | builds up while the stem is held |\n| Stem | follows the accepted target | holds, then jumps and stops short |\n| After a reversal | follows | holds until the force exceeds breakaway in the other direction |\n\n**The limitation.** In a real installation the force is not measured: the friction is inside the valve, and usually only the request and the stem position are recorded. This program simulates valve 2's friction so that the force can be seen. The 1-point deadband, the 50 N breakaway force and the 20 N sliding friction are teaching values chosen to make the effects visible."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. Which of the requests 75.5, 76 and 76.5 % does valve 1 accept?\n2. At which request does valve 2 break away from 75 %, and where does its stem stop?\n3. What does valve 2's stem do while the request steps back down from 80.5 % to 75 %?\n4. After a reversal to 72 %, where does valve 2 stop, and where is it when the request returns to 75 %?\n\n| Request | Valve 1 accepted target | Valve 2 force | Valve 2 stem |\n| ---: | ---: | ---: | ---: |\n| 75.5 % | 75 % | 5 N | 75 % |\n| 76 % | 76 % | 10 N | 75 % |\n| 80.5 % | 80 % | 55 N | 75 % → 78.5 % |",
+    "practicalPreparation": [
+      "The probes run when the project test starts: 0.5-point request steps every 4 s up to 80.5 %, a 12 s hold, 0.5-point steps back to 75 %, a reversal to 72 % for 16 s and the return to 75 %.\n\n1. Open this lesson's project and start **Simulator**. Both valves rest at 75 %. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.StickyStemPct · Process value (%)`, valve 2's stem, and `P1.ValveRequestPct · Applied output (%)`, the request; add `P1.DeadbandTargetPct · state (%)`, `P1.DeadbandStemPct · state (%)`, `P1.StickyForceN · state (N)`, `P1.DeadbandFlowKgS · state (kg/s)` and `P1.StickyFlowKgS · state (kg/s)`.\n3. Answer the predictions before starting.\n4. Select **Review project test** and check the declared **133.1 s** duration, which covers the steps up, the hold, the steps down, the reversal and the return.\n5. Select **Confirm and start**; this is time zero.\n6. Watch valve 2's force grow while its stem stays put, then the jump. After the run, hover the end of each probe and classify each valve.\n7. At completion, Control Studio shows **Project test completed. Outputs restored.**\n\nSelect **Abort test** to stop early. To repeat, restart **Simulator**."
+    ],
+    "baseline": "Characterize the healthy installed curve and show why flow gain changes with position before attributing nonlinear flow to a fault.",
+    "change": "Change only actuator condition to command deadband or stiction and apply one equivalent opening, closing and closed-loop experiment.",
+    "comparison": "![Valve 1 ignores half of the small steps; valve 2 holds until the force exceeds breakaway, then jumps and stops short](figures/valve-stiction-response.svg)\n\nThe numbered marks answer the predictions with the same numbers. Values from the recording at the end of each probe:\n\n| Request | Valve 1 accepted target | Valve 1 stem | Valve 2 force | Valve 2 stem |\n| --- | ---: | ---: | ---: | ---: |\n| 75.5 % | 75 % | 75 % | 5 N | 75 % |\n| 76 % | 76 % | 76 % | 10 N | 75 % |\n| 76.5 % | 76 % | 76 % | 15 N | 75 % |\n| 80 % | 80 % | 80 % | 50 N | 75 % |\n| 80.5 % | 80 % | 80 % | 55 N, then 20 N | 75 %, then 78.5 % |\n| 80 % down to 75 % | 80 % down to 75 % in 1-point steps | follows | 15 N down to −35 N | 78.5 % |\n| 72 % | 72 % | 72 % | −65 N, then −20 N | 78.5 %, then 74 % |\n| 75 % | 75 % | 75 % | 10 N | 74 % |\n\n1. Valve 1 accepted 76 % but not 75.5 % or 76.5 %: its target changes only when the request is 1 point from the last accepted target, and its stem follows that target exactly. The request arrived; the positioner ignored it.\n2. Valve 2 accepted every request, but its stem held at 75 % while the force grew by 5 N per step. At 80.5 % the force reached 55 N, the stem broke away and slid for 7 s to 78.5 %, where the force had fallen to 20 N.\n3. The decreasing requests reduced the force to −35 N without moving the stem: its flow stayed at 1.570 kg/s while valve 1's returned to 1.50 kg/s.\n4. The reversal to 72 % produced −65 N; the stem slid to 74 % and stayed there when the request returned to 75 %. The request ended where it started, but valve 2 ended 1 point low, passing 1.480 kg/s instead of 1.50 kg/s: with stiction, the position depends on the path.\n\nThe cost of the deadband is resolution: valve 1 cannot make changes smaller than 1 point. Its benefit is fewer small movements. Stiction has no benefit. Decision: valve 1 needs a smaller command deadband, below the resolution the loop needs; valve 2 needs valve service. Retuning would repair neither. These are simulation results, not a physical valve test.",
+    "validation": "![Valve 1 ignores half of the small steps; valve 2 holds until the force exceeds breakaway, then jumps and stops short](figures/valve-stiction-response.svg)\n\nThe numbered marks answer the predictions with the same numbers. Values from the recording at the end of each probe:\n\n| Request | Valve 1 accepted target | Valve 1 stem | Valve 2 force | Valve 2 stem |\n| --- | ---: | ---: | ---: | ---: |\n| 75.5 % | 75 % | 75 % | 5 N | 75 % |\n| 76 % | 76 % | 76 % | 10 N | 75 % |\n| 76.5 % | 76 % | 76 % | 15 N | 75 % |\n| 80 % | 80 % | 80 % | 50 N | 75 % |\n| 80.5 % | 80 % | 80 % | 55 N, then 20 N | 75 %, then 78.5 % |\n| 80 % down to 75 % | 80 % down to 75 % in 1-point steps | follows | 15 N down to −35 N | 78.5 % |\n| 72 % | 72 % | 72 % | −65 N, then −20 N | 78.5 %, then 74 % |\n| 75 % | 75 % | 75 % | 10 N | 74 % |\n\n1. Valve 1 accepted 76 % but not 75.5 % or 76.5 %: its target changes only when the request is 1 point from the last accepted target, and its stem follows that target exactly. The request arrived; the positioner ignored it.\n2. Valve 2 accepted every request, but its stem held at 75 % while the force grew by 5 N per step. At 80.5 % the force reached 55 N, the stem broke away and slid for 7 s to 78.5 %, where the force had fallen to 20 N.\n3. The decreasing requests reduced the force to −35 N without moving the stem: its flow stayed at 1.570 kg/s while valve 1's returned to 1.50 kg/s.\n4. The reversal to 72 % produced −65 N; the stem slid to 74 % and stayed there when the request returned to 75 %. The request ended where it started, but valve 2 ended 1 point low, passing 1.480 kg/s instead of 1.50 kg/s: with stiction, the position depends on the path.\n\nThe cost of the deadband is resolution: valve 1 cannot make changes smaller than 1 point. Its benefit is fewer small movements. Stiction has no benefit. Decision: valve 1 needs a smaller command deadband, below the resolution the loop needs; valve 2 needs valve service. Retuning would repair neither. These are simulation results, not a physical valve test.",
+    "explanation": "A deadband and stiction both make a valve move in steps, but they leave different evidence. An ignored request leaves the accepted target unchanged. Stiction holds the stem although the target changed, until the force exceeds breakaway, and then the stem stops short where sliding friction wins.\n\nFor these two valves, the accepted target, the stem position and the force identified the causes; the flow alone could not. The repair belongs to the command path or the valve, not to the PI tuning.",
+    "transfer": "The valve lessons treated the stem position as a result we measured. They have not shown how a motor produces and controls a position from torque, inertia and position feedback.\n\n[Position control](../../02-derivative-action-and-dynamic-response/32-proportional-position-stiffness/README.md) moves a shaft to a target angle and derives that motion."
+  },
+  "video": {
+    "viewerOutcome": "Probe two valves and tell an ignored request from a stuck stem using accepted target, force and stem.",
+    "requiredVisibleEvidence": [
+      "the project probes started from Identify",
+      "request, accepted target and stem of the deadband valve",
+      "stem and force of the sticky valve: hold, breakaway, stop short",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

@@ -10,6 +10,8 @@
 //! CONFIGURATION binds, and ordinary runtime construction rejects those (spec 22, "Test case
 //! execution"). `oscat_oop_examples.rs` runs them through the test runner. Here every example,
 //! OSCAT included, is checked for a configured resource its parsed sources declare.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 #![cfg(feature = "full")]
 
 use std::fs;
@@ -25,16 +27,23 @@ use trust_runtime::bundle_template::{build_io_config_auto, render_io_toml, rende
 use trust_syntax::SyntaxKind;
 
 /// Left out of every copy: earlier builds and tool caches. The copy is built from its sources.
-const SKIPPED_ENTRIES: [&str; 4] = ["program.stbc", "target", ".trust", "node_modules"];
+const SKIPPED_ENTRIES: [&str; 6] = [
+    "program.tpi",
+    "deployment-record.bin",
+    "build",
+    "target",
+    ".trust",
+    "node_modules",
+];
 /// Examples whose trust-lsp.toml depends on a checkout outside this repository, so no copy can be
 /// built here. `openot_telemetry.rs` builds this one's `Main.st` with the vendored OpenOT library
 /// (`tests/fixtures/openot`).
 const EXTERNAL_DEPENDENCY_EXAMPLES: [&str; 1] = ["openot_multi_program"];
 /// Each build uses one core; four workers keep a CI runner responsive.
 const MAX_BUILD_WORKERS: usize = 4;
-/// The launch error for a configured resource the bytecode does not declare (spec 11 §6.7.1).
-/// `artifact::select_resource` produces it, so `play` and `validate` print the same text.
-const UNDECLARED_RESOURCE_ERROR: &str = "resource 'Missing' not found in supplied bytecode";
+/// The launch error for a configured resource the program does not declare (spec 11 §6.7.1) names
+/// the resource, and `play` and `validate` print the same text.
+const UNDECLARED_RESOURCE_ERROR: &str = "resource 'Missing'";
 /// `play` fails in `load_runtime` before it starts anything. The bound only stops a regression that
 /// starts the runtime instead of failing; the test then kills the process and fails.
 const LAUNCH_TIMEOUT: Duration = Duration::from_secs(60);
@@ -128,37 +137,167 @@ fn every_example_configures_a_resource_its_sources_declare() {
     );
 }
 
-/// Keeps the runnable set honest: an example outside `examples/OSCAT` that gained a
-/// `TEST_PROGRAM` could no longer be built, and an OSCAT example without one would go unbuilt.
+/// Keeps the runnable set honest (specification 22): a runnable example outside `examples/OSCAT`
+/// keeps its `TEST_PROGRAM`s only beside a configuration, whose production build leaves them
+/// unbound; an OSCAT example is a test-only project, so one without tests would go untested.
 #[test]
-fn only_the_oscat_examples_declare_test_programs() {
+fn test_programs_live_beside_a_configuration_or_in_the_oscat_test_projects() {
     let repo = repository_root();
     let examples = repo.join("examples");
     let mismatched = example_projects_with_st_sources(&examples)
         .into_iter()
         .filter(|project| {
-            parsed_sources(project).test_programs != is_oscat_example(&examples, project)
+            let parsed = parsed_sources(project);
+            if is_oscat_example(&examples, project) {
+                !parsed.test_programs
+            } else {
+                parsed.test_programs && parsed.resources.is_empty()
+            }
         })
         .map(|project| relative_to(&repo, &project))
         .collect::<Vec<_>>();
     assert!(
         mismatched.is_empty(),
-        "these examples declare TEST_PROGRAMs outside examples/OSCAT, or none inside it: {mismatched:?}"
+        "these examples declare TEST_PROGRAMs without a configuration outside examples/OSCAT, \
+         or none inside it: {mismatched:?}"
     );
 }
 
+/// The shipped examples omit the control endpoint and token, so every platform uses its default
+/// and no example commits a token. An example keeps an explicit Unix socket only where its own
+/// instructions name that socket: its trust-lsp.toml, a Markdown file or a start script beside its
+/// runtime configuration (spec 11, section 6.8.0a).
 #[test]
-fn validate_rejects_a_configured_resource_the_bytecode_does_not_declare() {
+fn every_example_omits_the_control_endpoint_and_token_or_names_its_socket_in_its_instructions() {
+    let repo = repository_root();
+    let mut configs = Vec::new();
+    for root in [
+        repo.join("examples"),
+        repo.join("editors")
+            .join("vscode")
+            .join("media")
+            .join("examples"),
+    ] {
+        collect_runtime_configs(&root, &mut configs);
+    }
+    assert!(
+        !configs.is_empty(),
+        "no example runtime configuration found"
+    );
+
+    let mut failures = Vec::new();
+    for config in &configs {
+        let name = relative_to(&repo, config);
+        let text = fs::read_to_string(config)
+            .unwrap_or_else(|error| panic!("read {}: {error}", config.display()));
+        let value: toml::Value = match toml::from_str(&text) {
+            Ok(value) => value,
+            Err(error) => {
+                failures.push(format!("{name}: does not parse: {error}"));
+                continue;
+            }
+        };
+        let Some(control) = value
+            .get("runtime")
+            .and_then(|runtime| runtime.get("control"))
+            .and_then(toml::Value::as_table)
+        else {
+            continue;
+        };
+        if control.contains_key("auth_token") {
+            failures.push(format!("{name}: commits runtime.control.auth_token"));
+        }
+        let Some(endpoint) = control.get("endpoint") else {
+            continue;
+        };
+        let Some(socket) = endpoint
+            .as_str()
+            .and_then(|endpoint| endpoint.strip_prefix("unix://"))
+        else {
+            failures.push(format!(
+                "{name}: names the control endpoint {endpoint}, which is not an explicit Unix socket"
+            ));
+            continue;
+        };
+        let folder = config
+            .parent()
+            .expect("an example configuration has a folder");
+        if !instructions_name_socket(folder, socket) {
+            failures.push(format!(
+                "{name}: names the socket {socket}, which no trust-lsp.toml, Markdown file or start script beside it names"
+            ));
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{} of {} example runtime configurations break the control endpoint rule:\n{}",
+        failures.len(),
+        configs.len(),
+        failures.join("\n")
+    );
+}
+
+/// Collects every `runtime*.toml` below `folder`, leaving out [`SKIPPED_ENTRIES`].
+fn collect_runtime_configs(folder: &Path, configs: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(folder) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if SKIPPED_ENTRIES.contains(&name.as_str()) {
+            continue;
+        }
+        let path = entry.path();
+        if path.is_dir() {
+            collect_runtime_configs(&path, configs);
+        } else if name.starts_with("runtime") && name.ends_with(".toml") {
+            configs.push(path);
+        }
+    }
+}
+
+/// Whether the example's own instructions in `folder` name `socket`: its trust-lsp.toml, a
+/// Markdown file or a shell script.
+fn instructions_name_socket(folder: &Path, socket: &str) -> bool {
+    let Ok(entries) = fs::read_dir(folder) else {
+        return false;
+    };
+    entries.flatten().any(|entry| {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let instructions =
+            name == "trust-lsp.toml" || name.ends_with(".md") || name.ends_with(".sh");
+        instructions && fs::read_to_string(entry.path()).is_ok_and(|text| text.contains(socket))
+    })
+}
+
+#[test]
+fn validate_rejects_a_configured_resource_the_program_does_not_declare() {
     let root = TempRoot::new("undeclared-resource");
     let project = root.path().join("project");
     write_project(&project, DECLARED_RESOURCE_SOURCE, "Missing");
+    // The build refuses the resource the program does not declare (specification 11 §6.8.1d).
+    let build = cli(&["build"], &project);
+    assert!(
+        !build.status.success(),
+        "build must refuse a resource the program does not declare"
+    );
+    let build_error = stderr_text(&build);
+    assert!(
+        build_error.contains(UNDECLARED_RESOURCE_ERROR),
+        "build must name the configured resource; stderr:\n{build_error}"
+    );
+
+    // An image built for the declared resource is refused once runtime.toml names another, from the
+    // name the image carries (specification 44 §5.2).
+    write_project(&project, DECLARED_RESOURCE_SOURCE, "Line1");
     let build = cli(&["build"], &project);
     assert!(build.status.success(), "{}", failure("build", &build));
+    write_project(&project, DECLARED_RESOURCE_SOURCE, "Missing");
 
     let validate = cli(&["validate"], &project);
     assert!(
         !validate.status.success(),
-        "validate must reject a resource the bytecode does not declare"
+        "validate must reject a resource the program does not declare"
     );
     let validate_error = stderr_text(&validate);
     assert!(
@@ -453,10 +592,11 @@ fn build_and_validate_copy(repo: &Path, project: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// The shipped examples name Unix-socket control endpoints, which Windows lacks, so `validate`
-/// rejects them there. On Windows the copy gets a loopback TCP endpoint with a token, as
-/// `portable_runtime_toml` gives the generated projects; everything else is validated unchanged.
-/// It is compiled everywhere, so every platform type-checks it, and called only on Windows.
+/// Most examples name no control endpoint, so every platform validates them with its default.
+/// The few that keep an explicit Unix socket, because their own instructions name it (spec 11,
+/// section 6.8.0a), cannot be validated on Windows, which has no Unix sockets. On Windows such a
+/// copy gets a loopback TCP endpoint with a token; everything else is validated unchanged. It is
+/// compiled everywhere, so every platform type-checks it, and called only on Windows.
 #[cfg_attr(not(windows), allow(dead_code))]
 fn use_tcp_control_endpoint(runtime_toml: &Path) -> Result<(), String> {
     let text = fs::read_to_string(runtime_toml)
@@ -514,30 +654,13 @@ fn copy_tree(from: &Path, to: &Path) -> Result<(), String> {
 }
 
 /// Writes a project with `source`, a runtime.toml that names `resource`, and a loopback io.toml.
+/// The runtime.toml names no control endpoint, so every platform uses its own default.
 fn write_project(project: &Path, source: &str, resource: &str) {
     write_file(&project.join("src").join("main.st"), source);
     let runtime = render_runtime_toml(&resource.into(), 10);
-    write_file(
-        &project.join("runtime.toml"),
-        &portable_runtime_toml(runtime),
-    );
+    write_file(&project.join("runtime.toml"), &runtime);
     let io = build_io_config_auto("loopback").expect("build loopback io template");
     write_file(&project.join("io.toml"), &render_io_toml(&io));
-}
-
-/// The default control endpoint is a unix socket, which Windows lacks. Use TCP with a token there,
-/// as `config_schema_command.rs` does. `validate` only parses the endpoint.
-fn portable_runtime_toml(runtime: String) -> String {
-    #[cfg(windows)]
-    {
-        return runtime.replacen(
-            "endpoint = \"unix:///tmp/trust-runtime.sock\"",
-            "endpoint = \"tcp://127.0.0.1:0\"\nauth_token = \"trust-examples-token\"",
-            1,
-        );
-    }
-    #[cfg(not(windows))]
-    runtime
 }
 
 fn write_file(path: &Path, contents: &str) {

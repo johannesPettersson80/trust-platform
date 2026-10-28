@@ -1,0 +1,74 @@
+@startuml hmi-runtime-display
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle uml2
+skinparam nodesep 55
+skinparam ranksep 40
+
+title truST Runtime Display (HMI Builder, specification 39 §11.1)
+
+package "Browser" as browser #Lavender {
+    component "/hmi, /hmi/<page>\npage shell (web/ui/hmi.html)" as shell
+    component "hmi-display.js\nstartDisplay + LiveValueStore\n(editors/vscode/src/hmiBuilder/display)" as display
+    component "hmi-drawing.js\ndrawPage -> SVG, design tokens\n(editors/vscode/src/hmiBuilder/drawing)" as drawing
+    component "Shared surface patch + value queue\npage and faceplate controls retain DOM identity" as patch
+    component "Alarm details\nShow equipment + temporary focus\n(equipmentNavigation)" as navigation
+}
+
+package "Project folder" as project #LightYellow {
+    artifact "hmi/screen.toml\nsize, theme, colours" as screen
+    artifact "hmi/pages/<page>.toml\nobjects and bindings" as pages
+}
+
+package "trust-runtime: web thread" as web #MistyRose {
+    component "web/hmi_display.rs\nroutes, Viewer check for data and stream" as routes
+    component "web/hmi_display/files.rs\nfiles read on open (hmi::page_files)" as files
+    component "web/hmi_display/stream.rs\n/ws/hmi?page=, follows Hmi.Display\nminimum advertised period 250 ms" as stream
+}
+
+package "trust-runtime: resource thread" as resource #PaleTurquoise {
+    component "Program task calls Hmi.Display\nruntime::hmi_subsystem::serve_after_scan\nat the end of that scan, after the outputs (§18)" as command
+    component "hmi::display_values::read\nmember paths + wire values\n(no storage copy)" as read
+    component "Compiled program (ProgramWrite)\nread and written through the image's\nsymbol and type tables (spec 44 §13.3)" as storage
+    component "Method commands\nCompiledRuntime::call_method\nbetween scans (§21.2)" as methods
+}
+
+package "trust-runtime: control" as control #Honeydew {
+    component "control::hmi_ports\nthe web routes' port to the resource\n(exchange, resource, historian)" as port
+}
+
+component "HmiExchange (shared Arc)\nunion of open-screen paths\nvalues, commands, alarms, history" as exchange
+component "trust-debug control bridge\nshares HmiExchange with debug runtime" as debugBridge
+component "hmi::presentation\nproject defaults + live equipment facts\nunits, precision, limits, priorities" as presentation
+component "trust-lsp.hmiCatalogue\nproject files + unsaved text overrides" as catalogue
+component "VS Code HMI canvas\nsame drawPage + metadata" as editor
+
+shell --> drawing : loads
+shell --> display : loads
+display --> routes : GET /api/hmi/page?name=
+routes --> files
+files --> screen
+files --> pages
+files --> presentation : page / popup response
+presentation --> pages : stable file + object order
+catalogue --> presentation : shared native reader
+catalogue --> editor : formats (refresh on HMI edits)
+editor --> drawing : frame + formats
+display --> stream : websocket
+stream --> files : the page's bound paths
+stream --> port : wait_for_call + read
+port --> exchange
+command --> exchange : serve after Display call
+command --> methods : queued method commands
+exchange --> read : copy values at service boundary
+read --> storage
+read --> presentation : equipment facts in the same snapshot
+debugBridge ..> exchange : debug sessions
+stream ..> display : period, cycle + changed values\nmetadata changes count as value changes
+display --> drawing : frame (values, trend samples, now, formats)
+display --> patch : page and popup SVG updates
+patch --> shell : patch changed nodes in place
+display --> navigation : alarm details
+navigation --> routes : read pages to locate instance
+navigation --> display : page URL + object focus
+@enduml

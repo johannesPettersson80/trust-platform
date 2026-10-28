@@ -1,5 +1,6 @@
 use super::defs::{Type, TypeId};
 use super::registry::TypeRegistry;
+use super::strings::DEFAULT_STRING_LENGTH;
 
 impl TypeRegistry {
     pub(super) fn register_builtin_types(&mut self) {
@@ -29,8 +30,21 @@ impl TypeRegistry {
         self.register_builtin(TypeId::LTOD, "LTOD", Type::LTod);
         self.register_builtin(TypeId::DT, "DT", Type::Dt);
         self.register_builtin(TypeId::LDT, "LDT", Type::Ldt);
-        self.register_builtin(TypeId::STRING, "STRING", Type::String { max_len: None });
-        self.register_builtin(TypeId::WSTRING, "WSTRING", Type::WString { max_len: None });
+        // A STRING or WSTRING without a declared length is STRING[80] or WSTRING[80].
+        self.register_builtin(
+            TypeId::STRING,
+            "STRING",
+            Type::String {
+                max_len: Some(DEFAULT_STRING_LENGTH),
+            },
+        );
+        self.register_builtin(
+            TypeId::WSTRING,
+            "WSTRING",
+            Type::WString {
+                max_len: Some(DEFAULT_STRING_LENGTH),
+            },
+        );
         self.register_builtin(TypeId::CHAR, "CHAR", Type::Char);
         self.register_builtin(TypeId::WCHAR, "WCHAR", Type::WChar);
         self.register_builtin(TypeId::ANY, "ANY", Type::Any);

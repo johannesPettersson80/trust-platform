@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 2,
+  "id": "control-lesson-09",
+  "name": "Setpoint and disturbance response",
+  "projectId": "project:control-lesson-09",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "project",
+    "revision": "sha256:1e9c3f20ce4e518baeb74ab831ca41ec42dfc0c825833cd3a3b2338f89a37687",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "P1.AutoMode",
+    "modeWhenTrue": "Auto"
+  },
+  "signals": {
+    "processVariable": {
+      "symbol": "P1.TemperatureC",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.AppliedPowerPct",
+      "address": "%IL8",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX112.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "error",
+        "channel": "error",
+        "role": "state",
+        "symbol": "P1.ErrorC",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": -80,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "thermal-load",
+        "channel": "thermal-load",
+        "role": "disturbance",
+        "symbol": "P1.DisturbanceKw",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": 0,
+          "maximum": 30
+        }
+      },
+      {
+        "id": "integral",
+        "channel": "integral",
+        "role": "state",
+        "symbol": "P1.IntegralPct",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -200,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "proportional",
+        "channel": "proportional",
+        "role": "state",
+        "symbol": "P1.ProportionalPct",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -200,
+          "maximum": 200
+        }
+      },
+      {
+        "id": "request",
+        "channel": "request",
+        "role": "MV",
+        "symbol": "P1.RequestedPowerPct",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": -200,
+          "maximum": 300
+        }
+      },
+      {
+        "id": "abort",
+        "channel": "abort",
+        "role": "state",
+        "symbol": "P1.SafetyAbort",
+        "address": "%MX112.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    ],
+    "setpoint": {
+      "symbol": "P1.SetpointC",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    }
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "heater-response-trials",
+  "operatingPoint": "35 degC at 75% heater power",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 60.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX112.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    }
+  },
+  "revision": "sha256:26fd56ba9faddc3c9ccfd85e403cab193f2def9a4a76c845a9fa3a321b6f922a"
+}

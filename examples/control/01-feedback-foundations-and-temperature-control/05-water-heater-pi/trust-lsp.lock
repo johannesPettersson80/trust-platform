@@ -1,0 +1,5 @@
+version = 1
+
+[dependencies.Control]
+source = "path"
+path = "/home/johannes/projects/trust-platform-control-tutorial/examples/control/01-feedback-foundations-and-temperature-control/05-water-heater-pi/libraries/control"

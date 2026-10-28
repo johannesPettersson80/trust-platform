@@ -14,7 +14,7 @@ pub(super) fn handle_basic_route(
 
     if *method == Method::Get && url == "/api/program" {
         let project_root = default_bundle_root(bundle_root);
-        let program_path = project_root.join("program.stbc");
+        let program_path = project_root.join(crate::native::PROGRAM_IMAGE_FILE);
         let updated_ms = program_path
             .metadata()
             .and_then(|meta| meta.modified())
@@ -23,7 +23,7 @@ pub(super) fn handle_basic_route(
             .map(|duration| duration.as_millis());
         let sources = list_sources(&project_root);
         let body = json!({
-            "program": "program.stbc",
+            "program": crate::native::PROGRAM_IMAGE_FILE,
             "updated_ms": updated_ms,
             "sources": sources,
         })

@@ -1,23 +1,21 @@
+//! An online change of a running program (spec 11 §6.7.1, spec 34 §11.3): the commit clears the
+//! queued writes and forces of the replaced lifecycle, the host's drivers keep serving the new
+//! program, and engineering aliases keep working through restarts and online changes.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
+use trust_runtime::debug::DebugControl;
 use trust_runtime::error::RuntimeError;
-use trust_runtime::execution_backend::ExecutionBackend;
-use trust_runtime::harness::{bytecode_bytes_from_source, CompileSession, TestHarness};
-use trust_runtime::io::IoDriver;
+use trust_runtime::harness::TestHarness;
+use trust_runtime::io::{IoAddress, IoDriver};
 use trust_runtime::value::Value;
 
-fn vm_harness(source: &str) -> TestHarness {
+/// A harness running the compiled program of `source`, after a cold start.
+fn installed(source: &str) -> TestHarness {
     let mut harness = TestHarness::from_source(source).expect("compile harness");
-    let bytes = bytecode_bytes_from_source(source).expect("build bytecode");
-    harness
-        .runtime_mut()
-        .apply_bytecode_bytes(&bytes, None)
-        .expect("apply bytecode");
-    harness
-        .runtime_mut()
-        .set_execution_backend(ExecutionBackend::BytecodeVm)
-        .expect("select vm backend");
     harness
         .runtime_mut()
         .restart(trust_runtime::RestartMode::Cold)
@@ -58,15 +56,18 @@ PROGRAM Main
 count := count + INT#10;
 END_PROGRAM
 "#;
-    let mut harness = vm_harness(source_v1);
-    let debug = harness.runtime_mut().enable_debug();
-    debug.force_global("count", Value::Int(99));
-    debug.enqueue_global_write("hold", Value::Int(7));
+    let mut harness = installed(source_v1);
+    let debug = DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
+    debug
+        .try_force_global("count", Value::Int(99))
+        .expect("the force queue has room");
+    debug
+        .try_enqueue_global_write("hold", Value::Int(7))
+        .expect("the write queue has room");
 
-    let bytes_v2 = bytecode_bytes_from_source(source_v2).expect("build bytecode v2");
     harness
-        .runtime_mut()
-        .apply_online_change_bytes(&bytes_v2, None)
+        .reload_source(source_v2)
         .expect("apply online change");
     let cycle = harness.cycle();
     assert!(
@@ -76,13 +77,13 @@ END_PROGRAM
     );
 
     assert_eq!(
-        harness.runtime().storage().get_global("count"),
-        Some(&Value::Int(10)),
+        harness.runtime().read_variable("count"),
+        Ok(Value::Int(10)),
         "the replacement scan must run the new body from zero, not the cleared force"
     );
     assert_eq!(
-        harness.runtime().storage().get_global("hold"),
-        Some(&Value::Int(0)),
+        harness.runtime().read_variable("hold"),
+        Ok(Value::Int(0)),
         "the queued write must not be replayed after the commit"
     );
 }
@@ -106,48 +107,86 @@ END_VAR
 q := TRUE;
 END_PROGRAM
 "#;
-    let session_v1 = CompileSession::from_source(source_v1);
-    let session_v2 = CompileSession::from_source(source_v2);
-    let mut runtime = session_v1.build_runtime().expect("build runtime");
-    let bytes_v1 = session_v1
-        .build_bytecode_bytes()
-        .expect("build bytecode v1");
-    let bytes_v2 = session_v2
-        .build_bytecode_bytes()
-        .expect("build bytecode v2");
-    runtime
-        .apply_bytecode_bytes(&bytes_v1, None)
-        .expect("apply bytecode v1");
-    runtime
-        .set_execution_backend(ExecutionBackend::BytecodeVm)
-        .expect("select vm backend");
-    runtime
-        .restart(trust_runtime::RestartMode::Cold)
-        .expect("restart runtime");
-
+    let mut harness = installed(source_v1);
     let reads = Arc::new(AtomicUsize::new(0));
     let writes = Arc::new(AtomicUsize::new(0));
-    runtime.add_io_driver(
+    harness.runtime_mut().add_io_driver(
         "counting",
         Box::new(CountingIoDriver {
             reads: Arc::clone(&reads),
             writes: Arc::clone(&writes),
         }),
     );
-    runtime.execute_cycle().expect("cycle before replacement");
+    harness
+        .runtime_mut()
+        .execute_cycle()
+        .expect("cycle before replacement");
     let writes_before = writes.load(Ordering::SeqCst);
     assert!(
         writes_before >= 1,
         "the driver must receive outputs before the replacement"
     );
 
-    runtime
-        .apply_online_change_bytes(&bytes_v2, None)
+    harness
+        .reload_source(source_v2)
         .expect("apply online change");
-    runtime.execute_cycle().expect("cycle after replacement");
+    harness
+        .runtime_mut()
+        .execute_cycle()
+        .expect("cycle after replacement");
 
     assert!(
         writes.load(Ordering::SeqCst) > writes_before,
         "the surviving driver must receive outputs from the replacement generation"
     );
+}
+
+const ALIASED: &str = "PROGRAM Main VAR member : INT := INT#2; lamp AT %QX0.0 : BOOL; END_VAR \
+    lamp := member > INT#5; END_PROGRAM \
+    CONFIGURATION C PROGRAM P : Main; \
+    VAR_ACCESS Engineering : P.member : INT READ_WRITE; END_VAR \
+    END_CONFIGURATION";
+
+/// Spec 34 §11.3: a committed restart or online change keeps the engineering alias and the I/O
+/// binding of the same declarations working in the new generation. A restart gives `member` its
+/// initial 2 again; an online change keeps the 9 written before it (specification 11 §6.7.1).
+#[test]
+fn engineering_aliases_and_bindings_follow_restarts_and_online_changes() {
+    let mut harness = TestHarness::from_source(ALIASED).expect("build runtime");
+    let lamp = harness
+        .runtime()
+        .find_variable("P.lamp")
+        .expect("the program's lamp");
+    assert_eq!(
+        harness.runtime().bound_addresses(lamp),
+        [IoAddress::parse("%QX0.0").expect("an address")],
+        "the fixture binds %QX0.0"
+    );
+    harness
+        .set_access("Engineering", Value::Int(9))
+        .expect("alias write");
+    assert_eq!(harness.get_access("Engineering"), Some(Value::Int(9)));
+
+    for mode in [
+        trust_runtime::RestartMode::Warm,
+        trust_runtime::RestartMode::Cold,
+    ] {
+        harness.restart(mode).expect("restart");
+        assert_eq!(harness.get_access("Engineering"), Some(Value::Int(2)));
+        harness
+            .set_access("Engineering", Value::Int(9))
+            .expect("alias write after the restart");
+        assert_eq!(harness.get_access("Engineering"), Some(Value::Int(9)));
+    }
+
+    harness
+        .reload_source(&ALIASED.replace("INT#5", "INT#6"))
+        .expect("apply online change");
+    // An online change keeps the value a restart re-initializes (specification 11 §6.7.1).
+    assert_eq!(harness.get_access("Engineering"), Some(Value::Int(9)));
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
+    assert!(!harness.runtime().faulted());
+    // 9 > 6, so the changed program drives the lamp through the binding of the new generation.
+    assert_eq!(harness.get_direct_output("%QX0.0"), Ok(Value::Bool(true)));
 }

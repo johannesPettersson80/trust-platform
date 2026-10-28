@@ -86,7 +86,6 @@ class ReportInputContractTests(unittest.TestCase):
             "crates/trust-ads-server/fuzz/.gitignore",
             "fuzz/.gitignore",
             "scripts/runtime_comms_fuzz_gate.sh",
-            "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh",
             "scripts/salsa_fuzz_gate.sh",
             "scripts/validate_verification_metadata.py",
             "scripts/gen_cases.py",
@@ -107,6 +106,14 @@ class ReportInputContractTests(unittest.TestCase):
             self.assertIn(expected, paths)
         self.assertNotIn("verification/evidence-index.toml", paths)
         self.assertFalse(any("__pycache__" in path or path.endswith(".pyc") for path in paths))
+
+    def test_validator_code_closure_names_only_existing_regular_files(self) -> None:
+        """A deleted validator input left in the closure fails every report that binds it."""
+
+        self.assertEqual(
+            [],
+            validate_bound_input_paths(ROOT, validator_code_input_paths(ROOT)),
+        )
 
     def test_all_paired_report_generators_share_the_output_path_contract(self) -> None:
         verification = ROOT / "scripts/verification"

@@ -1,0 +1,9 @@
+[project]
+include_paths = ["src"]
+
+# Copies of the Plant library and its dependencies, so the example stands on its own.
+[dependencies]
+Alarm = { path = "libraries/alarm", version = "0.1.0" }
+Control = { path = "libraries/control", version = "0.1.0" }
+Plant = { path = "libraries/plant", version = "0.1.0" }
+Hmi = { path = "libraries/hmi", version = "0.1.0" }

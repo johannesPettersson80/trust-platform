@@ -6,6 +6,35 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-10-24 - Compiled programs replace the bytecode engine
+
+- Area: Runtime execution, project build, and tooling
+- Decision:
+  - Every truST runtime runs the program compiled into a program image for its
+    CPU (specification 44). The bytecode engine, the STBC formats, and
+    `program.stbc` are removed, and so is the STM32F407 firmware, which ran the
+    bytecode engine (specification 44 §15; the owner, 24 October 2026).
+  - `trust-runtime build` writes the program image `program.tpi` and its
+    deployment record `deployment-record.bin`. A project that holds only
+    `program.stbc` is refused with "rebuild the project".
+  - `runtime.execution_backend` selects nothing: `vm` and `native` load, and
+    `interpreter` and any other value are refused. The `--execution-backend`
+    option is removed from every command, and `status` reports `native`.
+- Supersedes:
+  - The execution-backend bullets of "Runtime backend, historian, and metrics
+    authority" (2026-07-28).
+  - "Executable STBC 1.1 opcode authority" (2026-07-27), "Explicit VOID
+    function bytecode rejection" (2026-07-28), and every statement of this log
+    about `program.stbc`, STBC, bytecode, the VM, register-IR, or tier-1
+    execution.
+- Authority:
+  - `docs/specs/44-native-execution.md` §8.8 (NX-15) and §15
+- Reason:
+  - The owner chose programs compiled to native code (specification 44, owner
+    requirements of 22 October 2026: "I want the state of the art"), and the
+    owner's decision of 24 October 2026 ("n11, delete it") removes the engine
+    they replace.
+
 ## 2026-07-28 - Runtime symbolic boundary and queued-write failure authority
 
 - Area: Runtime test harness, storage, and debug mutation

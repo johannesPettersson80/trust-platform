@@ -195,8 +195,12 @@ fn normalize_path_lossy_without_canonicalize(path: &Path) -> PathBuf {
     normalized
 }
 
+/// `path` without the Windows device prefix that `canonicalize` gives (`\\?\`, its UNC form
+/// `\\?\UNC\`, the device namespace `\\.\` and the object-manager form `\??\`), so that it compares
+/// with the path a client gives; on every other system `path` itself.
 #[cfg(windows)]
-fn strip_windows_device_prefix(path: PathBuf) -> PathBuf {
+#[must_use]
+pub fn strip_windows_device_prefix(path: PathBuf) -> PathBuf {
     let raw = match path.to_str() {
         Some(raw) => raw,
         None => return path,
@@ -225,8 +229,12 @@ fn strip_windows_device_prefix(path: PathBuf) -> PathBuf {
     path
 }
 
+/// `path` without the Windows device prefix that `canonicalize` gives (`\\?\`, its UNC form
+/// `\\?\UNC\`, the device namespace `\\.\` and the object-manager form `\??\`), so that it compares
+/// with the path a client gives; on every other system `path` itself.
 #[cfg(not(windows))]
-fn strip_windows_device_prefix(path: PathBuf) -> PathBuf {
+#[must_use]
+pub fn strip_windows_device_prefix(path: PathBuf) -> PathBuf {
     path
 }
 

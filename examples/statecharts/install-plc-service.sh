@@ -36,8 +36,8 @@ echo ""
 # Verify project structure
 echo -e "${YELLOW}➤ Verificando estructura del proyecto...${NC}"
 
-if [ ! -f "$PROJECT_PATH/program.stbc" ]; then
-  echo -e "${RED}❌ Error: No se encontró program.stbc${NC}"
+if [ ! -f "$PROJECT_PATH/program.tpi" ]; then
+  echo -e "${RED}❌ Error: No se encontró program.tpi${NC}"
   echo "   El proyecto debe estar compilado primero:"
   echo "   trust-runtime build --project $PROJECT_PATH"
   exit 1

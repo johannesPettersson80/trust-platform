@@ -539,6 +539,8 @@ fn production_evidence_for_status(
 
 fn target_identity() -> TargetIdentity {
     TargetIdentity {
+        os_version: None,
+        fingerprint: None,
         name: Some("CX-1234".to_string()),
         ip: "192.168.10.5".to_string(),
         ams_net_id: "5.23.91.12.1.1".to_string(),

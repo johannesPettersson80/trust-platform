@@ -1,20 +1,26 @@
 //! Readers during a replacement, and debugger mutations across an online change (specification 11
 //! sections 6.6, 6.7.1 and 6.9.2; specification 34 UPDATE-01 and UPDATE-04).
 //!
-//! Every generation sets `generation` and `echo` to its own number when it initializes, and each
-//! scan copies `generation` into `echo`. A snapshot that mixed two generations would show
-//! `echo <> generation`, and a generation that was never accepted would be out of range.
+//! Every generation declares the constant `generation` with its own number, which an online change
+//! takes from the new program, and a variable `echo<n>` of its own (`echo2` in generation 2), which
+//! starts at that number and which each scan sets from `generation`; an online change keeps every
+//! other variable's value (specification 11 §6.7.1). A snapshot that mixed two generations would
+//! show a `generation` whose `echo<n>` is missing or another number, and a generation that was never
+//! accepted would be out of range.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
 mod concurrency_support;
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc};
 use std::thread;
 
 use smol_str::SmolStr;
 use trust_runtime::debug::{DebugControl, ForcedVarTarget};
 use trust_runtime::error::RuntimeError;
-use trust_runtime::harness::{bytecode_bytes_from_source, TestHarness};
+use trust_runtime::harness::{SourceFile, TestHarness};
+use trust_runtime::native::{build, Options, Target, Toolchain};
 use trust_runtime::scheduler::{
     ReloadClaim, ResourceCommand, ResourceControl, ResourceHandle, ResourceRunner, ResourceState,
     StdClock,
@@ -24,19 +30,51 @@ use trust_runtime::value::{Duration, Value};
 use concurrency_support::{dint, snapshot, stop_and_join, wait_until, WAIT};
 
 const GENERATIONS: i32 = 6;
-/// Four bytes that no bytecode container starts with, so the decoder rejects them.
+/// Four bytes that no program image starts with, so the computer refuses them.
 const MALFORMED: [u8; 4] = [0x00, 0x01, 0x02, 0x03];
 
 fn generation_source(generation: i32) -> String {
     format!(
-        "VAR_GLOBAL\n    generation : DINT := DINT#{generation};\n    echo : DINT := DINT#{generation};\n    cycles : DINT := DINT#0;\n    marker : DINT := DINT#0;\nEND_VAR\n\nPROGRAM Main\n    echo := generation;\n    cycles := cycles + DINT#1;\nEND_PROGRAM\n"
+        "VAR_GLOBAL CONSTANT\n    generation : DINT := DINT#{generation};\nEND_VAR\nVAR_GLOBAL\n    echo{generation} : DINT := DINT#{generation};\n    cycles : DINT := DINT#0;\n    marker : DINT := DINT#0;\n    forced : DINT := DINT#0;\nEND_VAR\n\nPROGRAM Main\n    echo{generation} := generation;\n    cycles := cycles + DINT#1;\nEND_PROGRAM\n"
     )
+}
+
+/// The program image of `source` for this computer, with statement hooks, as the harness builds a
+/// program.
+fn image(source: &str) -> Vec<u8> {
+    static BUILDS: AtomicU64 = AtomicU64::new(0);
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let target = Target::this_cpu().expect("a computer target");
+    let work = std::env::temp_dir().join(format!(
+        "trust-online-change-{}-{}",
+        std::process::id(),
+        BUILDS.fetch_add(1, Ordering::Relaxed)
+    ));
+    let built = build(
+        &[SourceFile::new(source)],
+        &Options {
+            target,
+            hooks: true,
+        },
+        &toolchain,
+        &work,
+    )
+    .expect("replacement generation compiles");
+    let _ = std::fs::remove_dir_all(&work);
+    built.image
+}
+
+/// The `echo<n>` of the generation a snapshot holds.
+fn echo(snapshot: &trust_runtime::debug::DebugSnapshot, generation: i32) -> i32 {
+    dint(snapshot, &format!("echo{generation}"))
 }
 
 fn spawn_first_generation() -> (ResourceHandle<StdClock>, DebugControl) {
     let mut harness =
         TestHarness::from_source(&generation_source(1)).expect("generation fixture compiles");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
     let handle = ResourceRunner::new(
         harness.into_runtime(),
         StdClock::new(),
@@ -59,7 +97,6 @@ fn reload(control: &ResourceControl<StdClock>, bytes: Vec<u8>) -> Result<(), Run
         .expect("command channel open");
     rx.recv_timeout(WAIT)
         .expect("reload reply within the bound")
-        .map(|_metadata| ())
 }
 
 /// Reads snapshots until the test ends. Each snapshot must be wholly one generation, and a reader
@@ -70,8 +107,11 @@ fn snapshot_reader(control: ResourceControl<StdClock>, done: Arc<AtomicBool>) ->
     while !done.load(Ordering::SeqCst) {
         let snap = snapshot(&control);
         let generation = dint(&snap, "generation");
-        let echo = dint(&snap, "echo");
-        assert_eq!(echo, generation, "a snapshot is wholly one generation");
+        assert_eq!(
+            echo(&snap, generation),
+            generation,
+            "a snapshot is wholly one generation"
+        );
         assert!(
             (1..=GENERATIONS).contains(&generation),
             "generation {generation} was never accepted"
@@ -112,8 +152,8 @@ fn applier(control: ResourceControl<StdClock>) -> i32 {
     for generation in 2..=GENERATIONS {
         let rejected = reload(&control, MALFORMED.to_vec());
         assert!(
-            matches!(rejected, Err(RuntimeError::Bytecode { .. })),
-            "malformed bytecode is rejected as a typed bytecode error: {rejected:?}"
+            matches!(rejected, Err(RuntimeError::InvalidBundle(_))),
+            "malformed bytes are refused as a typed image error: {rejected:?}"
         );
         let before = dint(&snapshot(&control), "cycles");
         wait_until("the running generation keeps scanning", || {
@@ -125,13 +165,12 @@ fn applier(control: ResourceControl<StdClock>) -> i32 {
             "a rejected change leaves the running generation in place"
         );
 
-        let bytes = bytecode_bytes_from_source(&generation_source(generation))
-            .expect("replacement generation compiles");
+        let bytes = image(&generation_source(generation));
         reload(&control, bytes).expect("an accepted generation commits");
         current = generation;
         wait_until(&format!("generation {generation} is visible"), || {
             let snap = snapshot(&control);
-            dint(&snap, "generation") == generation && dint(&snap, "echo") == generation
+            dint(&snap, "generation") == generation && echo(&snap, generation) == generation
         });
     }
     current
@@ -199,12 +238,12 @@ fn debugger_writes_and_forces_queued_before_a_committed_change_do_not_replay() {
     });
 
     debug
-        .try_force_global("generation", Value::DInt(999))
+        .try_force_global("forced", Value::DInt(999))
         .expect("a new force is inside the bound");
     debug
         .try_enqueue_global_write("marker", Value::DInt(777))
         .expect("a new target is inside the bound");
-    let bytes = bytecode_bytes_from_source(&generation_source(2)).expect("generation two compiles");
+    let bytes = image(&generation_source(2));
     reload(&control, bytes).expect("an accepted change commits while the scan is paused");
     control.resume().expect("resume is queued");
 
@@ -213,9 +252,10 @@ fn debugger_writes_and_forces_queued_before_a_committed_change_do_not_replay() {
         dint(&snapshot(&control), "cycles") >= 3
     });
     let snap = snapshot(&control);
+    assert_eq!(dint(&snap, "generation"), 2, "the new generation runs");
     assert_eq!(
-        dint(&snap, "generation"),
-        2,
+        dint(&snap, "forced"),
+        0,
         "the force queued before the commit did not replay"
     );
     assert_eq!(
@@ -224,7 +264,7 @@ fn debugger_writes_and_forces_queued_before_a_committed_change_do_not_replay() {
         "the write queued before the commit did not replay"
     );
     assert_eq!(
-        debug.forced_var_value(&ForcedVarTarget::Global(SmolStr::new("generation"))),
+        debug.forced_var_value(&ForcedVarTarget::Global(SmolStr::new("forced"))),
         None,
         "the commit cleared the force"
     );
@@ -244,15 +284,15 @@ fn queued_debugger_writes_and_forces_survive_a_rejected_change() {
     });
 
     debug
-        .try_force_global("generation", Value::DInt(999))
+        .try_force_global("forced", Value::DInt(999))
         .expect("a new force is inside the bound");
     debug
         .try_enqueue_global_write("marker", Value::DInt(777))
         .expect("a new target is inside the bound");
     let rejected = reload(&control, MALFORMED.to_vec());
     assert!(
-        matches!(rejected, Err(RuntimeError::Bytecode { .. })),
-        "malformed bytecode is rejected: {rejected:?}"
+        matches!(rejected, Err(RuntimeError::InvalidBundle(_))),
+        "malformed bytes are refused: {rejected:?}"
     );
     control.resume().expect("resume is queued");
 
@@ -261,7 +301,7 @@ fn queued_debugger_writes_and_forces_survive_a_rejected_change() {
         dint(&snapshot(&control), "marker") == 777
     });
     assert_eq!(
-        dint(&snapshot(&control), "generation"),
+        dint(&snapshot(&control), "forced"),
         999,
         "the force queued before the rejection still holds"
     );

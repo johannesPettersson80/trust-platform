@@ -1,0 +1,202 @@
+{
+    "schemaVersion": 2,
+    "id": "control-characteristic-equation",
+    "name": "Characteristic equations",
+    "projectId": "project:control-characteristic-equation",
+    "runtimeId": "simulator",
+    "controller": {
+        "instance": "P1.Controller",
+        "type": "Control.PID",
+        "design": "project",
+        "revision": "sha256:00824510932c1c8f09ebb9f7a673575ed48fc487d49b2f2cebe0e4e18c522c31",
+        "action": "direct",
+        "taskPeriodMs": 20
+    },
+    "signals": {
+        "setpoint": {
+            "symbol": "P1.SetpointRad",
+            "address": "%ML0",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "rad",
+            "range": {
+                "minimum": -2,
+                "maximum": 2
+            }
+        },
+        "processVariable": {
+            "symbol": "P1.AngleRad",
+            "address": "%IL0",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "rad",
+            "range": {
+                "minimum": -2,
+                "maximum": 2
+            }
+        },
+        "manipulatedVariable": {
+            "symbol": "P1.TorqueNm",
+            "address": "%QL0",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "N·m",
+            "range": {
+                "minimum": -20,
+                "maximum": 20
+            }
+        },
+        "additional": [
+            {
+                "id": "velocity",
+                "channel": "velocity",
+                "role": "state",
+                "symbol": "P1.VelocityRadS",
+                "address": "%IL8",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "rad/s",
+                "range": {
+                    "minimum": -10,
+                    "maximum": 10
+                }
+            },
+            {
+                "id": "knock",
+                "channel": "knock",
+                "role": "disturbance",
+                "symbol": "P1.KnockTorqueNm",
+                "address": "%QL8",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "N·m",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 20
+                }
+            },
+            {
+                "id": "experiment-authority",
+                "channel": "experiment-authority",
+                "role": "state",
+                "symbol": "P1.ExperimentEnabled",
+                "address": "%MX24.0",
+                "iecType": "BOOL",
+                "direction": "read",
+                "unit": "1",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            },
+            {
+                "id": "active",
+                "channel": "active",
+                "role": "state",
+                "symbol": "P1.Active",
+                "address": "%MX24.1",
+                "iecType": "BOOL",
+                "direction": "read",
+                "unit": "1",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            },
+            {
+                "id": "mode-angle",
+                "channel": "mode-angle",
+                "role": "state",
+                "symbol": "P1.ModeAngleRad",
+                "address": "%ML8",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "rad",
+                "range": {
+                    "minimum": -2,
+                    "maximum": 2
+                }
+            },
+            {
+                "id": "sampled-mode-angle",
+                "channel": "sampled-mode-angle",
+                "role": "state",
+                "symbol": "P1.SampledModeAngleRad",
+                "address": "%ML56",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "rad",
+                "range": {
+                    "minimum": -2,
+                    "maximum": 2
+                }
+            },
+            {
+                "id": "slow-root",
+                "channel": "slow-root",
+                "role": "state",
+                "symbol": "P1.SlowRootPerS",
+                "address": "%ML72",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "1/s",
+                "range": {
+                    "minimum": -20,
+                    "maximum": 0
+                }
+            },
+            {
+                "id": "mode-velocity",
+                "channel": "mode-velocity",
+                "role": "state",
+                "symbol": "P1.ModeVelocityRadS",
+                "address": "%ML16",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "rad/s",
+                "range": {
+                    "minimum": -10,
+                    "maximum": 10
+                }
+            },
+            {
+                "id": "sampled-mode-velocity",
+                "channel": "sampled-mode-velocity",
+                "role": "state",
+                "symbol": "P1.SampledModeVelocityRadS",
+                "address": "%ML64",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "rad/s",
+                "range": {
+                    "minimum": -10,
+                    "maximum": 10
+                }
+            }
+        ]
+    },
+    "limits": {
+        "outputMinimum": -20,
+        "outputMaximum": 20
+    },
+    "observedSampleTiming": {
+        "nominalPeriodMs": 20
+    },
+    "plantId": "shaft",
+    "operatingPoint": "Shaft at rest on its 0 rad target without torque",
+    "experiment": {
+        "execution": "project-scripted",
+        "kind": "observation",
+        "amplitude": 0,
+        "durationSeconds": 5.1,
+        "seed": 20260829,
+        "activation": {
+            "symbol": "P1.ExperimentEnabled",
+            "address": "%MX24.0",
+            "iecType": "BOOL",
+            "direction": "write"
+        },
+        "baselineSeconds": 2
+    },
+    "revision": "sha256:60a5cabf6019fa3f6346b82af6bb51437ff096c05f9acb04913043f280635e45"
+}

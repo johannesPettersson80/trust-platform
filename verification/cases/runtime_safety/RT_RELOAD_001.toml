@@ -6,17 +6,17 @@ owner = "trust-runtime"
 status = "mapped"
 invariant = "RT_RELOAD_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
-trace_definition_digest = "sha256:2f992d3c083e6cd80ea8ba1226c593d0de4f41ded63ffbc399b9e0bd3ececc28"
-source_digest = "sha256:cca66c553565aee1aa48c18286581caedbfda04b99d87474ae0ddc770ee218f7"
-last_reviewed = "2026-07-14"
+trace_definition_digest = "sha256:10f3f8f459e1447677076fdba7f77f7702d725374de7b3c944fcb2da5560de5a"
+source_digest = "sha256:147c4ec43849d1b78d31b18608b9f488dcb7d371357d93552c47c45e6c295a72"
+last_reviewed = "2026-10-20"
 
 [[case]]
-id = "RT_RELOAD_001_RETAIN_LOAD_FAILURE_PRESERVES_LIVE_RUNTIME"
+id = "RT_RELOAD_001_RETAIN_STORE_NOT_READ_BY_ONLINE_CHANGE"
 family = "persistence_or_recovery"
-input = { scenario = "RETAIN_LOAD_FAILURE_PRESERVES_LIVE_RUNTIME" }
-expect = { outcome = "reject", no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" } }
+input = { scenario = "RETAIN_STORE_NOT_READ_BY_ONLINE_CHANGE" }
+expect = { outcome = "accept_value", no_partial_apply = true, oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction", delta = { target = "unchanged", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" } }
 trace = [
-  { sequence = 0, stimulus = { action = "establish_old_runtime_and_force" }, expected = { count = 1, cycle_counter = 1 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction" },
-  { sequence = 1, stimulus = { action = "attempt_reload_with_retain_load_failure" }, expected = { count = 1, cycle_counter = 1, error_contains = "injected retain load failure", reload_result = "rejected" }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction" },
-  { sequence = 2, stimulus = { action = "release_force_and_run_old_program" }, expected = { count = 2, cycle_counter = 2 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction" },
+  { sequence = 0, stimulus = { action = "establish_old_runtime" }, expected = { count = 1, cycle_counter = 1 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction" },
+  { sequence = 1, stimulus = { action = "reload_with_failing_retain_store" }, expected = { count = 1, cycle_counter = 0, reload_result = "accepted" }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction" },
+  { sequence = 2, stimulus = { action = "run_new_program" }, expected = { count = 11, cycle_counter = 1 }, oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction" },
 ]

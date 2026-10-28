@@ -43,7 +43,7 @@ function isSfcParallelNode(node: SfcNode): node is SfcParallelNode {
 }
 
 const ACTION_QUALIFIERS: ActionQualifier[] = [
-  "N", "S", "R", "L", "D", "P", "SD", "DS", "SL",
+  "N", "S", "R", "L", "D", "P", "SD", "DS", "SL", "P1", "P0",
 ];
 
 const QUALIFIER_DESCRIPTIONS: Record<ActionQualifier, string> = {
@@ -56,6 +56,8 @@ const QUALIFIER_DESCRIPTIONS: Record<ActionQualifier, string> = {
   SD: "Stored and Delayed",
   DS: "Delayed and Stored",
   SL: "Stored and Limited",
+  P1: "Pulse on activation",
+  P0: "Pulse on deactivation",
 };
 
 /**
@@ -266,6 +268,26 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                       </select>
                     </div>
 
+                    <div style={{ marginBottom: "8px" }}>
+                      <label
+                        style={{ display: "block", marginBottom: "4px", fontSize: "11px" }}
+                      >
+                        Duration (L, D, SD, DS, SL):
+                      </label>
+                      <input
+                        type="text"
+                        style={{ ...inputStyle, fontSize: "12px" }}
+                        value={action.time === undefined ? "" : String(action.time)}
+                        onChange={(e) =>
+                          // Stored as typed; Validate and the companion check it.
+                          onUpdateAction(selectedStepNode.id, action.id, {
+                            time: e.target.value,
+                          })
+                        }
+                        placeholder="T#2s"
+                      />
+                    </div>
+
                     <div>
                       <label
                         style={{ display: "block", marginBottom: "4px", fontSize: "11px" }}
@@ -362,17 +384,11 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               min={MIN_PARALLEL_BRANCHES}
               step={1}
               style={inputStyle}
-              value={Math.max(
-                MIN_PARALLEL_BRANCHES,
-                Math.floor(selectedParallelNode.data.branchCount ?? MIN_PARALLEL_BRANCHES)
-              )}
+              value={selectedParallelNode.data.branchCount ?? MIN_PARALLEL_BRANCHES}
               onChange={(e) =>
+                // The language server rounds the count and keeps it at two or more.
                 onUpdateParallelNode(selectedParallelNode.id, {
-                  branchCount: Math.max(
-                    MIN_PARALLEL_BRANCHES,
-                    Number.parseInt(e.target.value || "0", 10) ||
-                      MIN_PARALLEL_BRANCHES
-                  ),
+                  branchCount: Number.parseInt(e.target.value, 10),
                 })
               }
             />

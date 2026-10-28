@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 2,
+  "topology": "open-loop",
+  "id": "control-lesson-26",
+  "name": "Model validation",
+  "projectId": "project:control-lesson-26",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Main",
+    "design": "project",
+    "revision": "sha256:41756644d3afcf035cd690f7526537496596b0f1ccc2380a4078406f2f459f92",
+    "action": "direct",
+    "taskPeriodMs": 100
+  },
+  "signals": {
+    "processVariable": {
+      "symbol": "P1.TemperatureC",
+      "address": "%IL8",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 31,
+        "maximum": 39
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.AppliedPowerPct",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX64.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "thermal-load",
+        "channel": "thermal-load",
+        "role": "disturbance",
+        "symbol": "P1.DisturbanceKw",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": 0,
+          "maximum": 30
+        }
+      },
+      {
+        "id": "actual-water",
+        "channel": "actual-water",
+        "role": "state",
+        "symbol": "P1.WaterTemperatureC",
+        "address": "%IL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "safety-abort",
+        "channel": "safety-abort",
+        "role": "state",
+        "symbol": "P1.SafetyAbort",
+        "address": "%MX64.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "heater-holdout",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 45.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX64.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
+    "baselineSeconds": 5
+  },
+  "revision": "sha256:a982bdff012e88628bc3b21037e8921b05864bd2af48d081c74a94ae6e5cc510"
+}

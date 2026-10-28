@@ -1,0 +1,80 @@
+format = 1
+title = "Layout"
+
+[[object]]
+id = "panel"
+type = "panel"
+at = [24, 24]
+size = [608, 336]
+label = "Panel"
+
+[[object]]
+id = "group"
+type = "group"
+at = [48, 80]
+size = [272, 248]
+label = "Group"
+
+[[object]]
+id = "heading"
+type = "text"
+variant = "heading"
+at = [72, 120]
+size = [224, 36]
+text = "Heading"
+
+[[object]]
+id = "body"
+type = "text"
+variant = "body"
+at = [72, 168]
+size = [224, 28]
+text = "Body text on a group"
+
+[[object]]
+id = "caption"
+type = "text"
+variant = "caption"
+at = [72, 204]
+size = [224, 24]
+text = "Caption"
+
+[[object]]
+id = "message"
+type = "text"
+at = [72, 248]
+size = [224, 32]
+
+[object.bind]
+text = "Plant.Message"
+
+[[object]]
+id = "rule"
+type = "line"
+at = [352, 120]
+size = [256, 2]
+
+[[object]]
+id = "to-displays"
+type = "page-button"
+at = [352, 160]
+size = [192, 48]
+text = "Displays"
+
+[[object]]
+id = "picture"
+type = "image"
+at = [672, 24]
+size = [320, 240]
+label = "Picture"
+
+[[object]]
+id = "rotated"
+type = "value"
+at = [1040, 120]
+size = [200, 64]
+rotation = 90
+label = "Rotated"
+
+[object.bind]
+value = "Plant.Temperature"

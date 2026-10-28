@@ -1,17 +1,6 @@
-/// Newest runtime events the product event store keeps for `events.tail` and `faults`. It is the
-/// largest limit either operation accepts (specification 11, event store).
-const EVENT_STORE_CAPACITY: usize = 1_000;
-
-/// Append a runtime event, dropping the oldest events beyond `EVENT_STORE_CAPACITY`.
-fn store_event(
-    store: &mut VecDeque<trust_runtime::debug::RuntimeEvent>,
-    event: trust_runtime::debug::RuntimeEvent,
-) {
-    store.push_back(event);
-    while store.len() > EVENT_STORE_CAPACITY {
-        store.pop_front();
-    }
-}
+// The product event store keeps the newest runtime events for `events.tail` and `faults`; its
+// bound is shared runtime code (spec 34 ARCH-11, specification 11 event store).
+use trust_runtime_services::events::{store_event, EVENT_STORE_CAPACITY};
 
 #[allow(clippy::too_many_arguments)]
 pub fn run_runtime(
@@ -25,18 +14,20 @@ pub fn run_runtime(
     beginner: bool,
     simulation: bool,
     time_scale: u32,
-    execution_backend: Option<crate::cli::ExecutionBackendArg>,
 ) -> anyhow::Result<()> {
     let restart_mode = validate_runtime_launch_options(&restart, time_scale)?;
+    // Where the program comes from, kept for a `restart` that finds the resource Stopped: it loads
+    // the installed program again from the same place (specification 34, STATE-08).
+    let program_source = (project.clone(), config.clone(), runtime_root.clone());
     let LoadedRuntime {
         bundle,
         mut runtime,
         sources,
         ide_shell_mode,
     } = load_runtime(project, config, runtime_root)?;
-    let (selected_execution_backend, selected_execution_backend_source) =
-        resolve_execution_backend_selection(bundle.as_ref(), execution_backend)?;
+    let backend_source = execution_backend_source(bundle.as_ref());
 
+    let simulation_requested = simulation;
     let simulation = build_simulation_plan(bundle.as_ref(), simulation, time_scale)?;
     let SimulationPlan {
         enabled: simulation_enabled,
@@ -44,15 +35,36 @@ pub fn run_runtime(
         warning: simulation_warning,
         controller: simulation_controller,
     } = simulation;
-
-    let debug = runtime.enable_debug();
-    let metrics = Arc::new(Mutex::new(RuntimeMetrics::new()));
-    if let Ok(mut guard) = metrics.lock() {
-        guard.set_execution_backend(selected_execution_backend);
+    if simulation_enabled {
+        // The simulated-target fact of Control Studio's status (specification 35, A2.4).
+        runtime.set_simulation_enabled(true);
     }
-    runtime.set_metrics_sink(metrics.clone());
+
+    // The debugger is attached for every run so that `config.set` can enable it later. The
+    // configured `runtime.control.debug_enabled` is the initial value of the switch that both the
+    // debugger's hook and the control state read, so the setting decides whether the hook runs
+    // (specification 11 section 6.9).
+    let debug_enabled = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
+        bundle
+            .as_ref()
+            .map(|bundle| bundle.runtime.control_debug_enabled)
+            .unwrap_or(true),
+    ));
+    // Attached the way `enable_debug` attaches a control, but with the shared switch.
+    let debug = trust_runtime::debug::DebugControl::new()
+        .with_enabled_flag(std::sync::Arc::clone(&debug_enabled));
+    let metrics = Arc::new(Mutex::new(RuntimeMetrics::new()));
     let io_health = Arc::new(Mutex::new(Vec::new()));
-    runtime.set_io_health_sink(Some(io_health.clone()));
+    // The identify state of the process (specification 11, "Identify"): the control state answers
+    // `identify` from it, and the runtime's scan and waits blink it. Every program start sets its
+    // output from the project's `[runtime.identify]` (`start_program`).
+    let identify = trust_runtime::io::IdentifyHandle::new();
+    let wiring = ProgramWiring {
+        debug: debug.clone(),
+        metrics: metrics.clone(),
+        io_health: io_health.clone(),
+        identify: identify.clone(),
+    };
     let io_snapshot = Arc::new(Mutex::new(None));
     let io_snapshot_seen_ms = Arc::new(std::sync::atomic::AtomicU64::new(0));
     let (io_tx, io_rx) = std::sync::mpsc::channel();
@@ -76,40 +88,35 @@ pub fn run_runtime(
         });
     }
 
-    if let Some(bundle) = &bundle {
-        apply_bundle_runtime_services(&mut runtime, bundle)?;
-    }
-    runtime
-        .set_execution_backend(selected_execution_backend)
-        .map_err(|err| anyhow::anyhow!("{err}"))?;
-
-    runtime.restart(restart_mode)?;
-    load_startup_retain(&mut runtime, restart_mode)?;
+    start_program(&mut runtime, bundle.as_ref(), &wiring, restart_mode)?;
     let mut openot_persistence = bundle
         .as_ref()
         .map(start_openot_persistence_service)
         .transpose()?
         .flatten();
 
-    let startup_hmi_scaffold = bundle
-        .as_ref()
-        .and_then(|bundle| auto_scaffold_hmi_update(bundle, &runtime, &sources));
-
     let logger = RuntimeLogger::new(match &bundle {
-        Some(bundle) => LogLevel::parse(bundle.runtime.log_level.as_str()),
+        // The configuration parser has checked the level's name.
+        Some(bundle) => {
+            LogLevel::parse(bundle.runtime.log_level.as_str()).unwrap_or(LogLevel::Info)
+        }
         None => LogLevel::Info,
     });
     logger.log(
         LogLevel::Info,
         "execution_backend_selected",
         json!({
-            "backend": selected_execution_backend.as_str(),
-            "source": selected_execution_backend_source.as_str(),
+            "backend": trust_runtime::execution_backend::EXECUTION_BACKEND,
+            "source": backend_source.as_str(),
         }),
     );
 
-    let metadata = Arc::new(Mutex::new(runtime.metadata_snapshot()));
-    let events = Arc::new(Mutex::new(VecDeque::new()));
+    // The event store of the project's `runtime.events.capacity`, the computer's default when the
+    // project sets none (specification 11, the event store).
+    let event_capacity = bundle.as_ref().map_or(EVENT_STORE_CAPACITY, |bundle| {
+        bundle.runtime.event_store_capacity()
+    });
+    let events = Arc::new(Mutex::new(VecDeque::with_capacity(event_capacity + 1)));
     {
         let events = events.clone();
         let (event_tx, event_rx) = std::sync::mpsc::channel();
@@ -119,7 +126,7 @@ pub fn run_runtime(
             for event in event_rx {
                 log_runtime_event(&event_logger, &event);
                 if let Ok(mut guard) = events.lock() {
-                    store_event(&mut guard, event);
+                    store_event(&mut guard, event, event_capacity);
                 }
             }
         });
@@ -135,29 +142,54 @@ pub fn run_runtime(
         realtime_config.clone(),
     )));
 
-    let control_endpoint = parse_control_endpoint(bundle.as_ref())?;
+    let control_binding = parse_control_binding(bundle.as_ref())?;
+    let control_endpoint = control_binding.endpoint.clone();
     let tls_materials = if let Some(bundle) = bundle.as_ref() {
         load_tls_materials(&bundle.runtime.tls, Some(bundle.root.as_path()))?.map(Arc::new)
     } else {
         None
     };
-    ensure_control_auth_requirements(&control_endpoint, bundle.as_ref(), ide_shell_mode)?;
+    ensure_control_auth_requirements(&control_binding, ide_shell_mode)?;
 
     let default_watchdog = runtime.watchdog_policy();
     let default_fault = runtime.fault_policy();
-    let cycle_interval = bundle
-        .as_ref()
-        .map(|bundle| bundle.runtime.cycle_interval)
-        .unwrap_or_else(|| Duration::from_millis(10));
-    let hang_action = bundle
-        .as_ref()
-        .map(|bundle| bundle.runtime.watchdog_hang_action)
-        .unwrap_or_default();
+    let cycle_interval = bundle_cycle_interval(bundle.as_ref());
+    let hang_action = bundle_hang_action(bundle.as_ref());
+    let initial_settings = build_runtime_settings(
+        bundle.as_ref(),
+        ide_shell_mode,
+        default_watchdog,
+        default_fault,
+        &SimulationPlan {
+            enabled: simulation_enabled,
+            time_scale: simulation_time_scale,
+            warning: simulation_warning.clone(),
+            controller: None,
+        },
+        backend_source,
+    );
+    let web_config = resolve_web_config(bundle.as_ref(), &initial_settings);
+    let settings = Arc::new(Mutex::new(initial_settings));
+    logger.follow(settings.clone());
+    let program_reload = ProgramReload {
+        source: program_source,
+        simulation: simulation_requested,
+        time_scale,
+        wiring,
+        events: events.clone(),
+        settings: settings.clone(),
+    };
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), cycle_interval)
         .with_restart_signal(pending_restart.clone())
         .with_start_gate(start_gate.clone())
-        .with_time_scale(simulation_time_scale)
-        .with_hang_action(hang_action);
+        .with_hang_action(hang_action)
+        .with_program_loader(program_reload.into_loader());
+    if simulation_enabled {
+        runner = runner.with_simulation_speed(
+            SimulationSpeed::new(simulation_time_scale),
+            Some(metrics.clone()),
+        );
+    }
     if realtime_config.enabled {
         runner = runner.with_thread_init_hook(make_thread_init_hook(
             realtime_config.clone(),
@@ -205,27 +237,15 @@ pub fn run_runtime(
     let control = handle.control();
     let _signal_shutdown = install_runtime_signal_shutdown(control.clone())?;
 
-    let settings = build_runtime_settings(
-        bundle.as_ref(),
-        ide_shell_mode,
-        default_watchdog,
-        default_fault,
-        &SimulationPlan {
-            enabled: simulation_enabled,
-            time_scale: simulation_time_scale,
-            warning: simulation_warning.clone(),
-            controller: None,
-        },
-        selected_execution_backend,
-        selected_execution_backend_source,
-    );
-    let auth_token_value = control_auth_token_value(bundle.as_ref());
-    let web_config = resolve_web_config(bundle.as_ref(), &settings);
-    let auth_token = Arc::new(Mutex::new(
-        bundle
-            .as_ref()
-            .and_then(|bundle| bundle.runtime.control_auth_token.clone()),
-    ));
+    let auth_token_value = control_binding.auth_token.as_ref().map(ToString::to_string);
+    // Only a token the runtime generated belongs in the endpoint file; a configured one is read
+    // from runtime.toml by the clients.
+    let generated_token = if control_binding.generated_token {
+        auth_token_value.clone()
+    } else {
+        None
+    };
+    let auth_token = Arc::new(Mutex::new(control_binding.auth_token.clone()));
     let pairing = bundle
         .as_ref()
         .map(|bundle| Arc::new(PairingStore::load(bundle.root.join("pairings.json"))));
@@ -244,19 +264,6 @@ pub fn run_runtime(
         None
     };
 
-    let hmi_persistence = if let Some(bundle) = &bundle {
-        if bundle.runtime.hmi_persistence.enabled {
-            Some(HmiPersistenceService::new(
-                bundle.runtime.hmi_persistence.clone(),
-                Some(bundle.root.as_path()),
-            )?)
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-
     let (audit_tx, audit_rx) = std::sync::mpsc::channel();
     let audit_logger = logger.clone();
     std::thread::spawn(move || {
@@ -265,10 +272,6 @@ pub fn run_runtime(
         }
     });
 
-    let hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
-        bundle.as_ref().map(|bundle| bundle.root.as_path()),
-        &sources,
-    )));
     let ads_server_config = Arc::new(Mutex::new(
         bundle
             .as_ref()
@@ -289,10 +292,30 @@ pub fn run_runtime(
     #[cfg(feature = "ads-server")]
     let ads_server_runtime = Arc::new(Mutex::new(None));
 
+    let resource_name = bundle
+        .as_ref()
+        .map(|bundle| bundle.runtime.resource_name.clone())
+        .unwrap_or_else(|| smol_str::SmolStr::new("RESOURCE"));
+    // The stable runtime ID is read back, or generated once, on every start, even while
+    // announcing is disabled, so a file that cannot be read or holds an invalid ID is an error
+    // rather than a silently new ID (spec 11, runtime discovery; O36). A project folder that cannot
+    // hold the ID has it kept for the user; when no place can hold it, the runtime starts with an
+    // ID for this process and says so (spec 34, ARCH-07). One value serves both `status` and the
+    // announcement.
+    let runtime_id = match &bundle {
+        Some(bundle) => {
+            let identity = trust_runtime::runtime_id::runtime_identity(bundle.root.as_path())?;
+            log_runtime_id_place(&logger, &identity);
+            identity.id
+        }
+        None => resource_name.clone(),
+    };
+
     let state = Arc::new(ControlState {
+        transfers: trust_runtime::control::new_transfer_session(),
         debug: debug.clone(),
+        identify,
         resource: control.clone(),
-        metadata: metadata.clone(),
         sources,
         io_snapshot: io_snapshot.clone(),
         io_snapshot_seen_ms: io_snapshot_seen_ms.clone(),
@@ -308,39 +331,27 @@ pub fn run_runtime(
         audit_tx: Some(audit_tx.clone()),
         metrics: metrics.clone(),
         events: events.clone(),
-        settings: Arc::new(Mutex::new(settings)),
+        settings,
         discovery: discovery_state.clone(),
         mesh_topology: mesh_topology.clone(),
         realtime_status: realtime_status.clone(),
         web_listener_bound: web_listener_bound.clone(),
         opcua_server_bound: opcua_server_bound.clone(),
         project_root: bundle.as_ref().map(|bundle| bundle.root.clone()),
-        resource_name: bundle
-            .as_ref()
-            .map(|bundle| bundle.runtime.resource_name.clone())
-            .unwrap_or_else(|| smol_str::SmolStr::new("RESOURCE")),
+        plant_service: Arc::new(trust_runtime::control::PlantControlService::default()),
+        experiments: trust_runtime::control::ControlExperimentService::default(),
+        controllers: trust_runtime::control::ControllerParameterService::default(),
+        searches: trust_runtime::control::search::SearchService::default(),
+        resource_name: resource_name.clone(),
+        runtime_id: runtime_id.clone(),
         io_health: io_health.clone(),
-        debug_enabled: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
-            bundle
-                .as_ref()
-                .map(|bundle| bundle.runtime.control_debug_enabled)
-                .unwrap_or(true),
-        )),
-        debug_variables: Arc::new(Mutex::new(trust_runtime::debug::DebugVariableHandles::new())),
-        hmi_live: Arc::new(Mutex::new(
-            hmi_persistence
-                .as_ref()
-                .map(|service| service.load_state())
-                .transpose()?
-                .unwrap_or_default(),
-        )),
-        hmi_persistence: hmi_persistence.clone(),
-        hmi_descriptor,
+        debug_enabled,
         historian: historian.clone(),
         openot_persistence_status: openot_persistence
             .as_ref()
             .map(OpenOtPersistenceService::status_handle),
         pairing: pairing.clone(),
+        search: Default::default(),
         ads_doctor_jobs: Arc::new(Mutex::new(
             trust_runtime::control::AdsDoctorJobStore::default(),
         )),
@@ -350,7 +361,7 @@ pub fn run_runtime(
         #[cfg(feature = "ads-server")]
         ads_server_runtime: ads_server_runtime.clone(),
     });
-    spawn_hmi_descriptor_watcher(state.clone());
+    state.connect_experiments();
 
     let mut opcua_server: Option<OpcUaWireServer> = None;
     if let Some(bundle) = &bundle {
@@ -377,15 +388,44 @@ pub fn run_runtime(
     }
 
     let _server = ControlServer::start(control_endpoint.clone(), state.clone())?;
+    // From here on the endpoint is the bound one: a TCP port of 0 now has its real port.
+    let control_endpoint = _server.endpoint().clone();
+    // Clients find the bound endpoint in the endpoint file. It is removed again on a clean stop. A
+    // file that cannot be written is a warning, not a reason to stop.
+    let _endpoint_file = bundle.as_ref().and_then(|bundle| {
+        publish_endpoint_file(
+            &bundle.root,
+            &control_endpoint,
+            generated_token.as_deref(),
+            &debug,
+            &state.settings,
+        )
+    });
     let _mesh = if let Some(bundle) = &bundle {
-        start_mesh(
+        start_mesh_with_tls(
             &bundle.runtime.mesh,
             bundle.runtime.resource_name.clone(),
+            runtime_id.clone(),
             control.clone(),
+            tls_materials.as_deref(),
         )?
     } else {
         None
     };
+    if let Some(bundle) = &bundle
+        && bundle.runtime.mesh.enabled
+    {
+        let access = Arc::new(bundle.runtime.web.hmi.clone());
+        let sessions = Arc::new(trust_runtime::hmi::access::sessions::SessionStore::new(
+            (*access).clone(),
+        ));
+        trust_runtime::hmi::remote_operations::configure_owner(
+            &control.hmi_exchange(),
+            sessions,
+            access,
+            state.audit_tx.clone(),
+        );
+    }
     if let Some(mesh) = _mesh.as_ref()
         && let Ok(mut guard) = mesh_topology.lock()
     {
@@ -394,14 +434,16 @@ pub fn run_runtime(
     let _discovery_handle = if let Some(bundle) = &bundle {
         if bundle.runtime.discovery.enabled {
             let web_listen = bundle.runtime.web.listen.as_str();
+            let web_listen = web_config.enabled.then_some(web_listen);
             let mesh_listen = _mesh
                 .as_ref()
                 .and_then(|service| service.discovery_mesh_listen());
             let handle = start_discovery_with_state(
                 &bundle.runtime.discovery,
                 &bundle.runtime.resource_name,
-                &control_endpoint,
-                Some(web_listen),
+                runtime_id.as_str(),
+                Some(&control_endpoint),
+                web_listen,
                 bundle.runtime.web.tls,
                 mesh_listen,
                 discovery_state.clone(),
@@ -475,9 +517,7 @@ pub fn run_runtime(
             web_url.as_deref(),
             simulation_enabled,
             simulation_time_scale,
-            startup_hmi_scaffold.as_ref(),
-            selected_execution_backend,
-            selected_execution_backend_source,
+            backend_source,
         );
     }
 
@@ -516,10 +556,7 @@ pub fn run_runtime(
                 opcua_server.as_ref().map(|server| server.endpoint_url()),
                 simulation_enabled,
                 simulation_time_scale,
-                (
-                    selected_execution_backend,
-                    selected_execution_backend_source,
-                ),
+                backend_source,
             );
         }
         logger.log(
@@ -541,8 +578,8 @@ pub fn run_runtime(
                 "watchdog_action": format!("{:?}", bundle.runtime.watchdog.action),
                 "fault_policy": format!("{:?}", bundle.runtime.fault_policy),
                 "control_endpoint": format_endpoint(&control_endpoint),
-                "control_auth_token_set": bundle.runtime.control_auth_token.is_some(),
-                "control_auth_token_length": bundle.runtime.control_auth_token.as_ref().map(|t| t.len()),
+                "control_auth_token_set": auth_token_value.is_some(),
+                "control_auth_token_length": auth_token_value.as_ref().map(|t| t.len()),
                 "control_debug_enabled": bundle.runtime.control_debug_enabled,
                 "control_mode": format!("{:?}", bundle.runtime.control_mode),
                 "web_enabled": bundle.runtime.web.enabled,
@@ -564,12 +601,15 @@ pub fn run_runtime(
                 "opcua_exposed_patterns": bundle.runtime.opcua.expose.len(),
                 "simulation_mode": if simulation_enabled { "simulation" } else { "production" },
                 "simulation_time_scale": simulation_time_scale,
-                "execution_backend": selected_execution_backend.as_str(),
-                "execution_backend_source": selected_execution_backend_source.as_str(),
+                "execution_backend": trust_runtime::execution_backend::EXECUTION_BACKEND,
+                "execution_backend_source": backend_source.as_str(),
             }),
         );
     }
 
+    // The control server, the web server and the other services above stay up while the program is
+    // stopped: `shutdown` stops the program and not the scan thread, so the join returns only when
+    // a signal or the explicit exit ends the thread (specification 34, STATE-08).
     let join_result = handle
         .join()
         .map_err(|_| anyhow::anyhow!("runtime thread panicked"));
@@ -590,7 +630,15 @@ pub fn run_runtime(
         server.shutdown();
     }
     join_result?;
-    if final_state == trust_runtime::scheduler::ResourceState::Faulted {
+    // A resource that ends Faulted, or Stopped with the fault of the program it stopped, exits with
+    // status 1, so a service manager can tell a clean stop from a failure (specification 11 §6.6;
+    // specification 34 STATE-08).
+    let ended_by_fault = match final_state {
+        trust_runtime::scheduler::ResourceState::Faulted => true,
+        trust_runtime::scheduler::ResourceState::Stopped => final_error.is_some(),
+        _ => false,
+    };
+    if ended_by_fault {
         let detail = final_error.map_or_else(|| "unknown fault".to_string(), |err| err.to_string());
         logger.log(
             LogLevel::Error,
@@ -618,39 +666,12 @@ fn parse_restart_mode(restart: &str) -> anyhow::Result<RestartMode> {
     }
 }
 
-fn load_startup_retain(runtime: &mut Runtime, restart_mode: RestartMode) -> anyhow::Result<()> {
-    if matches!(restart_mode, RestartMode::Warm) {
-        runtime.load_retain_store()?;
-    }
-    Ok(())
-}
-
-fn resolve_execution_backend_selection(
+/// Where the execution backend that `status` reports came from: the project's
+/// `runtime.execution_backend`, when it names one.
+fn execution_backend_source(
     bundle: Option<&RuntimeBundle>,
-    cli_override: Option<crate::cli::ExecutionBackendArg>,
-) -> anyhow::Result<(
-    trust_runtime::execution_backend::ExecutionBackend,
-    trust_runtime::execution_backend::ExecutionBackendSource,
-)> {
-    if let Some(backend) = cli_override {
-        let backend = match backend {
-            crate::cli::ExecutionBackendArg::Vm => {
-                trust_runtime::execution_backend::ExecutionBackend::BytecodeVm
-            }
-        };
-        return Ok((
-            backend,
-            trust_runtime::execution_backend::ExecutionBackendSource::Flag,
-        ));
-    }
-    if let Some(bundle) = bundle {
-        return Ok((
-            bundle.runtime.execution_backend,
-            bundle.runtime.execution_backend_source,
-        ));
-    }
-    Ok((
-        trust_runtime::execution_backend::ExecutionBackend::BytecodeVm,
-        trust_runtime::execution_backend::ExecutionBackendSource::Default,
-    ))
+) -> trust_runtime::execution_backend::ExecutionBackendSource {
+    bundle.map_or_else(Default::default, |bundle| {
+        bundle.runtime.execution_backend_source
+    })
 }

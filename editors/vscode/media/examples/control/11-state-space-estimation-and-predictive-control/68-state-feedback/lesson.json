@@ -1,0 +1,340 @@
+{
+  "schemaVersion": 4,
+  "id": "control-state-feedback",
+  "title": "State feedback",
+  "level": "Modern",
+  "sequence": 77,
+  "equipment": "Two copies of a two-tank gravity cascade, each with an inlet pump; both levels measured",
+  "physicalPurpose": "Let the pump react to the water in both tanks after an upset.",
+  "principalTechnique": "State feedback v = −Kx with pole placement, sampled design in Control Studio",
+  "objective": "Place the closed-loop poles of the two-tank cascade, let Control Studio calculate, validate and apply the sampled gains, and compare the recovery from a slug of water with the uncorrected cascade.",
+  "prerequisites": [
+    "control-lesson-20",
+    "control-controllability",
+    "control-observability"
+  ],
+  "nextLesson": "control-state-observer",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Controlled tank 2 level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 0.5,
+      "resolution": 1e-06,
+      "binding": "%IL8"
+    },
+    {
+      "role": "MV",
+      "name": "Controlled pump flow",
+      "unit": "m3/s",
+      "minimum": 0,
+      "maximum": 0.02,
+      "resolution": 1e-06,
+      "binding": "%QL0"
+    },
+    {
+      "role": "SP",
+      "name": "Tank 2 setpoint",
+      "unit": "m",
+      "minimum": 0.05,
+      "maximum": 0.45,
+      "resolution": 1e-06,
+      "binding": "%ML0"
+    },
+    {
+      "role": "state",
+      "name": "Controlled tank 1 level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 0.5,
+      "resolution": 1e-06,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Uncorrected tank 1 level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 0.5,
+      "resolution": 1e-06,
+      "binding": "%IL16"
+    },
+    {
+      "role": "state",
+      "name": "Uncorrected tank 2 level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 0.5,
+      "resolution": 1e-06,
+      "binding": "%IL24"
+    },
+    {
+      "role": "state",
+      "name": "Requested flow",
+      "unit": "m3/s",
+      "minimum": -0.1,
+      "maximum": 0.1,
+      "resolution": 1e-06,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Uncorrected pump flow",
+      "unit": "m3/s",
+      "minimum": 0,
+      "maximum": 0.02,
+      "resolution": 1e-06,
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX16.0"
+    },
+    {
+      "role": "state",
+      "name": "Clipped",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX16.2"
+    },
+    {
+      "role": "state",
+      "name": "Controlled fault",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX16.3"
+    },
+    {
+      "role": "state",
+      "name": "Uncorrected fault",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX16.4"
+    },
+    {
+      "role": "state",
+      "name": "Clock valid",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX16.5"
+    }
+  ],
+  "plant": {
+    "modelId": "two-tank-cascades",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "area_m2",
+        "value": 0.5,
+        "unit": "m2"
+      },
+      {
+        "name": "outflow_coefficient_m2_sqrt_m_per_s",
+        "value": 0.02,
+        "unit": "m^(5/2)/s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "controlledTank1Level": 0.25,
+      "controlledTank2Level": 0.25,
+      "uncorrectedTank1Level": 0.25,
+      "uncorrectedTank2Level": 0.25
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Controlled pump flow": 0.01,
+      "Controlled tank 1 level": 0.25,
+      "Controlled tank 2 level": 0.25
+    },
+    "validityRange": [
+      {
+        "signal": "Controlled tank 1 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      },
+      {
+        "signal": "Controlled tank 2 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      },
+      {
+        "signal": "Uncorrected tank 2 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      }
+    ],
+    "simplifications": [
+      "Per cascade 0.5·dh1/dt = q − 0.020·√h1 and 0.5·dh2/dt = 0.020·√h1 − 0.020·√h2; tank 1 discharges freely into tank 2, without backpressure.",
+      "Both levels are measured exactly; the gains are designed for the local model sampled once per second with a held pump flow."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "feedback": "Manual, pump at 0.010 m3/s; the second cascade always at 0.010 m3/s"
+    },
+    "limitation": "Without feedback the pump ignores the water stored after an upset: a slug in tank 1 drains through tank 2 at the cascade's own 25 s time constant."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "gains": "Control Studio's sampled pole placement for z = e^(−0.08), e^(−0.12): K1, K2 and N applied in Auto",
+      "experiment": "setpoint back to 0.25 m for 60 s, then a 1 s slug at 0.020 m3/s on both pumps",
+      "durationSeconds": 182
+    },
+    "decision": "Accepted around 0.25 m: Control Studio's sampled pole placement for z = e^(−0.08), e^(−0.12) gave K = [0.0562, 0.0369] m²/s and N = 0.1131, validated against the nonlinear cascade (settling 33 s and 25 s) and applied in Auto. After a 0.01 m³ slug tank 2 rose 3.2 mm with feedback against 7.3 mm without, both controlled levels stayed within 0.35 mm of rest from 50 s after the slug while the uncorrected tank 2 was still 5.5 mm high, and the pump never clipped (lowest 0.00889 m3/s). The law needs both levels, measured or estimated."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 182,
+    "settlingSeconds": 120,
+    "disturbances": [
+      "Tank 2 setpoint back to 0.25 m for 60 s",
+      "Both pumps 0.020 m3/s for 1 s at 60 s: 0.01 m3 into each tank 1"
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "maximum_absolute_deviation",
+      "signal": "Controlled tank 1 level",
+      "window": "50–120 s after the slug, against 0.25 m",
+      "comparator": "<=",
+      "limit": 0.002,
+      "unit": "m",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_absolute_deviation",
+      "signal": "Controlled tank 2 level",
+      "window": "50–120 s after the slug, against 0.25 m",
+      "comparator": "<=",
+      "limit": 0.002,
+      "unit": "m",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "clipped_updates",
+      "signal": "Clipped",
+      "window": "whole experiment",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Controlled pump flow",
+        "minimum": 0,
+        "maximum": 0.02,
+        "unit": "m3/s"
+      },
+      {
+        "signal": "Controlled tank 1 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      },
+      {
+        "signal": "Controlled tank 2 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      }
+    ],
+    "abortPredicates": [
+      "A level outside 0.05–0.45 m latches zero flow on its cascade; an update interval outside 1 ± 0.05 s latches both",
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Manual holds ManualFlowM3PerS (0.010 m3/s); Control Studio's Restore previous settings returns the previous gains and mode.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical pump changes",
+      "The gains are local to 0.25 m and valid only while the flow stays within 0–0.020 m3/s"
+    ]
+  },
+  "workflowStages": [
+    "Identify",
+    "Tune",
+    "Validate"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/67-75-state-estimation-and-optimal-control.md#70-state-feedback",
+    "nativeTest": "lesson70",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_70_72 lesson70",
+    "projectPath": "examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback",
+    "runArtifactFields": [
+      "designedGains",
+      "validationResults",
+      "appliedGains",
+      "tankLevels",
+      "pumpFlows",
+      "clipped",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-state-feedback"
+  },
+  "video": {
+    "viewerOutcome": "See Control Studio place the poles and calculate the gains, validate them against the nonlinear tanks, apply them, and watch the controlled cascade shed a slug of water while the uncorrected one drains slowly.",
+    "requiredVisibleEvidence": [
+      "desired poles and the calculated gains",
+      "validation against the nonlinear cascade",
+      "the applied gains in Auto",
+      "the return to 0.25 m",
+      "both cascades after the slug",
+      "the pump flow within 0–0.020 m3/s",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 76 showed that tank 2's readings determine tank 1's level: exact readings reconstructed it within 1.3 mm. Knowing the levels is not yet using them. After an upset, such as a slug of water poured into tank 1, no pump plan made in advance fits; the pump must react to where the water is now, in both tanks. How strongly should it react to each level?\n\nWe will make the pump act on both levels and choose how fast their deviations die away.",
+    "reason": "We need to:\n\n1. set the pump from both levels, so it reacts to water in tank 1 before it reaches tank 2;\n2. choose the gains from a required speed of recovery; and\n3. keep the pump within its 0–0.020 m³/s range.",
+    "theory": [
+      "**State feedback** sets the pump from every state, not just from one error, and so can choose how quickly each natural motion dies away. For the tanks, the pump can turn down as soon as tank 1 holds extra water, before tank 2 has moved.\n\n**In words.** A PI controller on tank 2 sees only tank 2's error: after a slug into tank 1 it does nothing until the water has reached tank 2. State feedback looks at every store. Each state's deviation gets its own gain, and the pump correction adds the results; in ST it is one assignment per scan, a weighted sum of the measured deviations. The parts:\n\n1. **The gain on tank 1** reacts to water that is still on its way: it turns the pump down while tank 2 has not moved yet.\n2. **The gain on tank 2** reacts to the level we finally care about.\n3. **Together** the gains set how the controlled tanks return to rest. Left alone, the tanks have two natural motions (lesson 49), both dying away with a 25 s time constant. Each gain changes both motions, and with one gain per state we can choose both speeds, because the tanks are controllable (lesson 75). Choosing the gains from the speeds we want is **pole placement**.\n\nFor this plant it means: decide how fast deviations should die away, calculate the two gains that give exactly those speeds, and the pump reacts to a slug the moment it lands in tank 1.\n\n**The formula.** The law, and the controlled tanks it gives, are\n\n$$\nv = -Kx = -k_1x_1 - k_2x_2, \\qquad \\dot x = (A - BK)\\,x ,\n$$\n\nand the closed-loop poles are the roots of the characteristic equation (lesson 50)\n\n$$\n\\det(sI - A + BK) = 0 .\n$$\n\n- $v$ is the pump correction, in cubic metres per second; the pump delivers $q = 0.010 + v$;\n- $x_1$ and $x_2$ are the level deviations, in metres;\n- $K = [k_1, k_2]$ holds the gains, in m³/s per metre of level, that is m²/s;\n- $A - BK$ is the controlled tanks' matrix: the process's own $A$ plus what the feedback adds, $-BK$;\n- the roots $s$ of the characteristic equation are the poles: each natural motion of the controlled tanks varies as $e^{st}$ and, when $s$ is negative, dies away with the time constant $-1/s$;\n- $I$ is the identity matrix (lesson 72), and $\\det$ the determinant (lesson 70).\n\nFor the two tanks, with $A$ and $B$ from lesson 74,\n\n$$\nA - BK = \\begin{bmatrix}-0.04-2k_1&-2k_2\\\\0.04&-0.04\\end{bmatrix},\n$$\n\n$$\n\\det(sI - A + BK) = (s + 0.04 + 2k_1)(s + 0.04) + 0.08k_2 = s^2 + (0.08 + 2k_1)\\,s + (0.0016 + 0.08k_1 + 0.08k_2).\n$$\n\nTo place the poles at chosen values $p_1$ and $p_2$, make this polynomial equal to $(s - p_1)(s - p_2)$ and match its terms.\n\n**Example: poles at −0.06 and −0.10 per second.**\n\n1. Without feedback, $k_1 = k_2 = 0$: the polynomial is $s^2 + 0.08s + 0.0016 = (s + 0.04)^2$, both poles at −0.04 per second, the 25 s time constant of lesson 74.\n2. Choose poles at −0.06 and −0.10 per second, time constants of 16.7 s and 10 s: $(s + 0.06)(s + 0.10) = s^2 + 0.16s + 0.006$.\n3. Match the $s$ terms: $0.08 + 2k_1 = 0.16$, so $k_1 = 0.04$ m²/s.\n4. Match the constants: $0.0016 + 0.08 \\cdot 0.04 + 0.08k_2 = 0.006$, so $0.08k_2 = 0.0012$ and $k_2 = 0.015$ m²/s.\n5. A slug leaves tank 1 2 cm high, $x = [0.02, 0]^T$: $v = -0.04 \\cdot 0.02 - 0.015 \\cdot 0 = -0.0008$ m³/s. The pump drops at once to 0.0092 m³/s, although tank 2 has not moved.\n\n**In the program.** The program updates the pump once per second and holds it in between. Over one second a motion $e^{st}$ shrinks by the factor $z = e^{s \\cdot 1\\,\\text{s}}$ (lesson 60), so the example's poles become $z = e^{-0.06} = 0.9418$ and $z = e^{-0.10} = 0.9048$. Control Studio places such factors for the held pump, and its gains come out slightly smaller than the continuous ones. To hold tank 2 at a setpoint $r$ instead of 0.25 m, the law gets a **reference gain** $N$: $v = N(r - 0.25) - Kx$. With both levels at $r$, each outlet lets out $0.020\\,(r - 0.25)$ m³/s more (lesson 74's tangent slope), and the pump must supply that extra flow: $(N - k_1 - k_2)(r - 0.25) = 0.020\\,(r - 0.25)$, which gives $N = 0.020 + k_1 + k_2$, here $0.020 + 0.04 + 0.015 = 0.075$ m²/s.\n\n**The limitation.** The poles hold only while the pump follows $-Kx$. The pump can move only 0.010 m³/s either way from 0.010 m³/s; a clipped flow at 0 or 0.020 m³/s no longer follows the law, and the design is also local to 0.25 m. Faster poles need larger gains: both poles at −0.2 per second would need $k_1 = 0.16$ and $k_2 = 0.32$ m²/s, and then a 31 mm deviation in tank 2 alone, $0.010/0.32$ m, would use the pump's whole range (calculated). The pole speeds used below are a teaching choice, fast enough to see and slow enough to keep the pump within range."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. What are $k_1$ and $k_2$ for poles at −0.08 and −0.12 per second, and the pump flow at $x = [0.02, 0]^T$?\n2. After a slug raises tank 1 by 2 cm, how high does tank 2 rise with feedback?\n3. How high does it rise with the pump left at 0.010 m³/s?\n4. Does the pump flow clip?\n\n| From the design | Value |\n| --- | ---: |\n| $k_1$, $k_2$ (continuous) | 0.06 and 0.04 m²/s |\n| Pump at $x = [0.02, 0]^T$ | 0.0088 m³/s |\n| Time constants | 12.5 s and 8.3 s, against 25 s |\n| Sampled poles | $z$ = 0.9231 and 0.8869 |",
+    "practicalPreparation": [
+      "1. Open this lesson's project and start **Simulator**. Both cascades rest at 0.25 m with 0.010 m³/s. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Supplied plant model** from **Method** and open `provided-model.json`: the cascade's matrices with both levels measured.\n3. On **Tune**, open **Requirements…** and enter **Setpoint change (m)** 0.01, **Maximum steady-state error (m)** 0.002, **Maximum settling time (s)** 60, **Settling band (±m)** 0.001 and **Validation duration (s)** 120; select **Done**.\n4. Keep **Controller** **P1 · State feedback — recommended**, choose **State-space design** in **Tuning method**, enter **Desired poles** `[0.9231163463866358, 0.8869204367171575]` and press **Tune controller**.\n5. On **Validate**, press **Validate controller**: Studio runs your program on a 1 cm setpoint step and a recovery from disturbed levels.\n6. Press **Apply**. Studio writes the gains, switches to Auto, moves tank 2's setpoint to 0.26 m as a live check and shows **Applied**.\n7. On **Identify**, choose **Project experiment**. **Signals** shows `P1.Tank2SetpointM · Setpoint (m)`, `P1.ControlledTank2M · Process value (m)` and `P1.ControlledPumpM3PerS · Applied output (m3/s)`; add `P1.ControlledTank1M · state (m)`, `P1.UncorrectedTank1M · state (m)` and `P1.UncorrectedTank2M · state (m)`.\n8. Answer the predictions, select **Review project test** and check the declared **182 s**; select **Confirm and start**. The slug comes about 63 s later; times below count from it.\n9. After the run, hover 1 s, 10 s, 26 s and 50 s after the slug.\n10. At completion Control Studio shows **Project test completed. Outputs restored.**\n\nSelect **Abort test** to stop early; to repeat, restart **Simulator** and apply again."
+    ],
+    "baseline": "Without feedback the pump ignores where the water is after an upset; the cascade recovers at its own 25 s time constant.",
+    "change": "Place the closed-loop poles, let Control Studio calculate the sampled gains, validate and apply them, and compare the controlled and the uncorrected cascade after a slug of water.",
+    "comparison": "![With state feedback the pump turns down at once and tank 2 rises less than half as far](figures/slug-recovery.svg)\n\nThe numbered marks answer predictions 2–4. **Tune controller** answers prediction 1: **Gain K1 on tank 1's level deviation** 0.0562 m3/s/m, **Gain K2** 0.0369 and **Reference gain N** 0.1131, slightly below the continuous 0.06, 0.04 and 0.12, with phase margin 95°. **Validate controller** passed every row: settling time 33 s and state recovery 25 s, both within 60 s, steady-state error 0.25 mm within 2 mm, and 20 range checks.\n\nFrom Control Studio's recording, times after the slug:\n\n| After the slug | Controlled tank 1 / tank 2 | Uncontrolled tank 1 / tank 2 | Controlled pump |\n| --- | ---: | ---: | ---: |\n| 1 s | 0.2694 / 0.2506 m | 0.2696 / 0.2504 m | 0.008888 m³/s |\n| 10 s | 0.2536 / 0.2532 m | 0.2638 / 0.2551 m | 0.0097 m³/s |\n| 26 s | 0.2492 / 0.2518 m | 0.2573 / 0.2573 m | 0.0100 m³/s |\n| 50 s | 0.2497 / 0.2504 m | 0.2528 / 0.2555 m | 0.0100 m³/s |\n\n2. The slug raised both tank 1 levels by 19.6 mm. With feedback, tank 2 peaked at 0.2532 m after 10 s: a rise of 3.2 mm.\n3. Uncontrolled, tank 2 peaked at 0.2573 m after 26 s: 7.3 mm.\n4. The pump dropped to 0.00889 m³/s at once, reacting to tank 1's water before tank 2 had moved, and never clipped, so the placed poles held.\n\nThe benefit: from 50 s after the slug both controlled levels stayed within 0.35 mm of rest, while uncontrolled tank 2 was still 5.5 mm high. The cost: controlled tank 1 dipped 0.8 mm below rest at 28 s, because the feedback moves the water on faster than the tanks do alone. The design is accepted for this cascade around 0.25 m and small upsets. These are simulation results.",
+    "validation": "![With state feedback the pump turns down at once and tank 2 rises less than half as far](figures/slug-recovery.svg)\n\nThe numbered marks answer predictions 2–4. **Tune controller** answers prediction 1: **Gain K1 on tank 1's level deviation** 0.0562 m3/s/m, **Gain K2** 0.0369 and **Reference gain N** 0.1131, slightly below the continuous 0.06, 0.04 and 0.12, with phase margin 95°. **Validate controller** passed every row: settling time 33 s and state recovery 25 s, both within 60 s, steady-state error 0.25 mm within 2 mm, and 20 range checks.\n\nFrom Control Studio's recording, times after the slug:\n\n| After the slug | Controlled tank 1 / tank 2 | Uncontrolled tank 1 / tank 2 | Controlled pump |\n| --- | ---: | ---: | ---: |\n| 1 s | 0.2694 / 0.2506 m | 0.2696 / 0.2504 m | 0.008888 m³/s |\n| 10 s | 0.2536 / 0.2532 m | 0.2638 / 0.2551 m | 0.0097 m³/s |\n| 26 s | 0.2492 / 0.2518 m | 0.2573 / 0.2573 m | 0.0100 m³/s |\n| 50 s | 0.2497 / 0.2504 m | 0.2528 / 0.2555 m | 0.0100 m³/s |\n\n2. The slug raised both tank 1 levels by 19.6 mm. With feedback, tank 2 peaked at 0.2532 m after 10 s: a rise of 3.2 mm.\n3. Uncontrolled, tank 2 peaked at 0.2573 m after 26 s: 7.3 mm.\n4. The pump dropped to 0.00889 m³/s at once, reacting to tank 1's water before tank 2 had moved, and never clipped, so the placed poles held.\n\nThe benefit: from 50 s after the slug both controlled levels stayed within 0.35 mm of rest, while uncontrolled tank 2 was still 5.5 mm high. The cost: controlled tank 1 dipped 0.8 mm below rest at 28 s, because the feedback moves the water on faster than the tanks do alone. The design is accepted for this cascade around 0.25 m and small upsets. These are simulation results.",
+    "explanation": "State feedback uses every state, so it reacts to stored water before it shows up downstream, and pole placement turns a required speed of recovery into gains.\n\nFor the tanks, the pump turned down at once and tank 2 rose 3.2 mm instead of 7.3 mm; the law needed both levels.",
+    "transfer": "The law needs both levels, but the real installation measures only tank 2.\n\n[State observers](../70-state-observer/README.md) estimate tank 1 from tank 2's readings and the model, without differentiating noisy readings."
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "kind": "continuous-state-space",
+  "revision": "two-tank-cascade-linearized-v1",
+  "source": "provided",
+  "validation": "validated",
+  "evidence": [
+    "Volume balances of Lesson 74, 0.5·dh1/dt = q − 0.020·√h1 and 0.5·dh2/dt = 0.020·√h1 − 0.020·√h2, linearized at equal levels of 0.25 m with q = 0.010 m³/s: each outflow changes by 0.020/(2·√0.25) = 0.02 m³/s per m of level.",
+    "Both levels are measured, so the state is available to the controller."
+  ],
+  "inputs": [
+    {
+      "id": "pump-flow",
+      "unit": "m3/s",
+      "operatingRange": {
+        "minimum": 0,
+        "maximum": 0.02
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "id": "tank-1-level",
+      "unit": "m",
+      "operatingRange": {
+        "minimum": 0.05,
+        "maximum": 0.45
+      }
+    },
+    {
+      "id": "tank-2-level",
+      "unit": "m",
+      "operatingRange": {
+        "minimum": 0.05,
+        "maximum": 0.45
+      }
+    }
+  ],
+  "delaySeconds": 0,
+  "states": [
+    {
+      "id": "deviation:tank-1-level",
+      "unit": "m",
+      "operatingRange": {
+        "minimum": -0.2,
+        "maximum": 0.2
+      }
+    },
+    {
+      "id": "deviation:tank-2-level",
+      "unit": "m",
+      "operatingRange": {
+        "minimum": -0.2,
+        "maximum": 0.2
+      }
+    }
+  ],
+  "a": [
+    [
+      -0.04,
+      0
+    ],
+    [
+      0.04,
+      -0.04
+    ]
+  ],
+  "b": [
+    [
+      2.0
+    ],
+    [
+      0
+    ]
+  ],
+  "c": [
+    [
+      1,
+      0
+    ],
+    [
+      0,
+      1
+    ]
+  ],
+  "d": [
+    [
+      0
+    ],
+    [
+      0
+    ]
+  ],
+  "operatingPoint": {
+    "inputs": [
+      0.01
+    ],
+    "outputs": [
+      0.25,
+      0.25
+    ]
+  }
+}

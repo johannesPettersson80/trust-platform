@@ -5,4 +5,3 @@ stdlib = "iec"
 
 [dependencies]
 PLCopenMotionSingleAxis = { path = "libraries/plcopen_motion", version = "0.1.0" }
-

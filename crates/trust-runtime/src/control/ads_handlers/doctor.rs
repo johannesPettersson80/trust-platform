@@ -296,6 +296,8 @@ fn active_target_identity(params: &DoctorControlParams) -> TargetIdentity {
         .target_identity
         .clone()
         .unwrap_or_else(|| TargetIdentity {
+            os_version: None,
+            fingerprint: None,
             name: None,
             ip: params.target_ip.clone(),
             ams_net_id: params

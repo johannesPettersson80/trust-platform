@@ -51,8 +51,10 @@ impl OopReference {
 /// The symbol table containing all symbols and scopes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SymbolTable {
-    /// All symbols indexed by ID.
-    symbols: FxHashMap<SymbolId, Symbol>,
+    /// All symbols, indexed by ID: IDs are handed out densely from 0 and symbols are
+    /// never removed, so `symbols[id]` is the symbol with that ID (and iteration is in
+    /// ID order).
+    symbols: Vec<Symbol>,
     /// All scopes.
     scopes: Vec<Scope>,
     /// Current scope ID during collection.
@@ -100,7 +102,7 @@ impl SymbolTable {
     #[must_use]
     pub fn new() -> Self {
         let mut table = Self {
-            symbols: FxHashMap::default(),
+            symbols: Vec::new(),
             scopes: Vec::new(),
             current_scope: ScopeId::GLOBAL,
             global_names: FxHashMap::default(),
@@ -289,7 +291,8 @@ impl SymbolTable {
             scope.define(name, id);
         }
 
-        self.symbols.insert(id, symbol);
+        debug_assert_eq!(id.0 as usize, self.symbols.len());
+        self.symbols.push(symbol);
         id
     }
 
@@ -307,7 +310,8 @@ impl SymbolTable {
             self.global_names.entry(key).or_insert(id);
         }
 
-        self.symbols.insert(id, symbol);
+        debug_assert_eq!(id.0 as usize, self.symbols.len());
+        self.symbols.push(symbol);
         id
     }
 
@@ -334,13 +338,15 @@ impl SymbolTable {
     pub fn record_import_collision(
         &mut self,
         name: SmolStr,
-        existing_range: TextRange,
-        duplicate_range: TextRange,
+        existing: (TextRange, Option<FileId>),
+        duplicate: (TextRange, Option<FileId>),
     ) {
         self.import_collisions.push(ImportCollision {
             name,
-            existing_range,
-            duplicate_range,
+            existing_range: existing.0,
+            duplicate_range: duplicate.0,
+            existing_file: existing.1,
+            duplicate_file: duplicate.1,
         });
     }
 
@@ -353,12 +359,12 @@ impl SymbolTable {
     /// Gets a symbol by ID.
     #[must_use]
     pub fn get(&self, id: SymbolId) -> Option<&Symbol> {
-        self.symbols.get(&id)
+        self.symbols.get(id.0 as usize)
     }
 
     /// Gets a mutable reference to a symbol by ID.
     pub fn get_mut(&mut self, id: SymbolId) -> Option<&mut Symbol> {
-        self.symbols.get_mut(&id)
+        self.symbols.get_mut(id.0 as usize)
     }
 
     /// Looks up a symbol by name in the global scope.
@@ -380,7 +386,7 @@ impl SymbolTable {
                 return None;
             }
             let mut next = None;
-            for sym in self.symbols.values() {
+            for sym in self.symbols.iter() {
                 if sym.parent == Some(current) && sym.name.eq_ignore_ascii_case(part.as_str()) {
                     next = Some(sym.id);
                     break;
@@ -408,7 +414,7 @@ impl SymbolTable {
             return Some(*id);
         }
         self.symbols
-            .values()
+            .iter()
             .find(|sym| sym.name.as_str().eq_ignore_ascii_case(name))
             .map(|sym| sym.id)
     }
@@ -419,7 +425,7 @@ impl SymbolTable {
         let mut matched = None;
         for symbol in self
             .symbols
-            .values()
+            .iter()
             .filter(|symbol| symbol.name.as_str().eq_ignore_ascii_case(name))
         {
             if matched.is_some_and(|existing| existing != symbol.id) {
@@ -675,6 +681,59 @@ impl SymbolTable {
         matched.map_or(EnumValueResolution::NotFound, EnumValueResolution::Resolved)
     }
 
+    /// Whether an enumeration value name is ambiguous where it is used: two or more enumerated
+    /// types that the use can see define a value of that name. The use sees the types of the
+    /// global scope, of the namespaces enclosing it and of the namespaces a USING directive on
+    /// its way imports; a type of another namespace does not count (IEC 61131-3 Ed.3 §6.4.4.2
+    /// for the type prefix, §6.9 for namespaces).
+    #[must_use]
+    pub fn enum_value_ambiguous_from(&self, scope: ScopeId, name: &str) -> bool {
+        // The namespaces the use sees; `None` stands for the global scope.
+        let mut visible: FxHashSet<Option<SymbolId>> = FxHashSet::default();
+        visible.insert(None);
+        let mut current = Some(scope);
+        while let Some(scope_id) = current {
+            let Some(scope) = self.get_scope(scope_id) else {
+                break;
+            };
+            if let Some(owner) = scope.owner.filter(|owner| {
+                self.get(*owner)
+                    .is_some_and(|symbol| matches!(symbol.kind, SymbolKind::Namespace))
+            }) {
+                visible.insert(Some(owner));
+            }
+            for using in &scope.using_directives {
+                if let Some(namespace) = self.resolve_qualified(&using.path) {
+                    visible.insert(Some(namespace));
+                }
+            }
+            current = scope.parent;
+        }
+        let mut types = FxHashSet::default();
+        for symbol in self.symbols.iter() {
+            if matches!(symbol.kind, SymbolKind::EnumValue { .. })
+                && symbol.name.eq_ignore_ascii_case(name)
+                && visible.contains(&self.enclosing_namespace(symbol))
+            {
+                types.insert(symbol.type_id);
+            }
+        }
+        types.len() > 1
+    }
+
+    /// The namespace a symbol is declared in, or `None` for the global scope.
+    fn enclosing_namespace(&self, symbol: &Symbol) -> Option<SymbolId> {
+        let mut parent = symbol.parent;
+        while let Some(id) = parent {
+            let owner = self.get(id)?;
+            if matches!(owner.kind, SymbolKind::Namespace) {
+                return Some(id);
+            }
+            parent = owner.parent;
+        }
+        None
+    }
+
     /// Sets the table's constant values.
     pub fn set_const_values(&mut self, values: FxHashMap<(Option<SmolStr>, SmolStr), i64>) {
         self.const_values = values
@@ -690,9 +749,14 @@ impl SymbolTable {
         self.const_values.get(&key).copied()
     }
 
-    /// Returns an iterator over all symbols.
+    /// Returns an iterator over all symbols, in ID order.
     pub fn iter(&self) -> impl Iterator<Item = &Symbol> {
-        self.symbols.values()
+        self.symbols.iter()
+    }
+
+    /// Iterates over all symbols in ID order.
+    pub fn iter_in_id_order(&self) -> impl Iterator<Item = &Symbol> {
+        self.symbols.iter()
     }
 
     /// Returns the number of symbols.
@@ -773,7 +837,7 @@ impl SymbolTable {
         let mut entries = Vec::new();
         let mut source_symbols: Vec<&Symbol> = self
             .symbols
-            .values()
+            .iter()
             .filter(|symbol| !symbol.range.is_empty())
             .collect();
         source_symbols.sort_by_key(|symbol| symbol.id.0);
@@ -891,7 +955,7 @@ impl SymbolTable {
                 break;
             }
 
-            for sym in self.symbols.values() {
+            for sym in self.symbols.iter() {
                 if sym.parent == Some(symbol_id) && sym.name.eq_ignore_ascii_case(member_name) {
                     return Some(sym.id);
                 }
@@ -1184,3 +1248,5 @@ mod tests {
 #[cfg(test)]
 #[path = "table_contract_tests.rs"]
 mod contract_tests;
+
+include!("declaration_types.rs");

@@ -2,7 +2,12 @@
 //! SCHED-05, COMPAT-06, CYCLE-03). Each test sets explicit logical instants with
 //! `set_current_time` and runs `cycle`; no wall clock, sleep or OS thread is involved. Expected
 //! activations are derived from the nominal deadlines written in each test.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
+use std::collections::BTreeMap;
+
+use trust_runtime::debug::{DebugControl, RuntimeEvent};
 use trust_runtime::harness::TestHarness;
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::RestartMode;
@@ -25,14 +30,48 @@ fn cycle_at(harness: &mut TestHarness, millis: i64) {
 }
 
 fn dint(harness: &TestHarness, name: &str) -> i64 {
-    match harness.runtime().storage().get_global(name) {
-        Some(Value::DInt(value)) => i64::from(*value),
+    match harness.runtime().read_variable(name) {
+        Ok(Value::DInt(value)) => i64::from(value),
         other => panic!("expected DINT global {name}, got {other:?}"),
     }
 }
 
-fn overruns(harness: &TestHarness, task: &str) -> Option<u64> {
-    harness.runtime().task_overrun_count(task)
+/// The missed activations the runtime reported per task, from the `TaskOverrun` events of a debug
+/// control attached to the harness's runtime.
+struct Overruns {
+    debug: DebugControl,
+    missed: BTreeMap<String, u64>,
+}
+
+impl Overruns {
+    fn attach(harness: &mut TestHarness) -> Self {
+        let debug = DebugControl::new();
+        harness.runtime_mut().set_debug_control(debug.clone());
+        Self {
+            debug,
+            missed: BTreeMap::new(),
+        }
+    }
+
+    fn drain(&mut self) {
+        for event in self.debug.drain_runtime_events() {
+            if let RuntimeEvent::TaskOverrun { name, missed, .. } = event {
+                *self.missed.entry(name.to_string()).or_default() += missed;
+            }
+        }
+    }
+
+    /// The missed activations of `task` reported since the start or the last [`Self::restart`].
+    fn of(&mut self, task: &str) -> u64 {
+        self.drain();
+        self.missed.get(task).copied().unwrap_or(0)
+    }
+
+    /// Counting starts again for a restart, after every report up to it.
+    fn restart(&mut self) {
+        self.drain();
+        self.missed.clear();
+    }
 }
 
 const MIXED_RATE: &str = r#"
@@ -61,6 +100,7 @@ fn ten_and_twenty_five_ms_tasks_release_on_nominal_deadlines_over_300_ms() {
     // SCHED-05 / COMPAT-06 with a coincident batch: the 25 ms task releases at the first 10 ms
     // sample at or after each deadline 25k, and both tasks are due at 50, 100, ... 300 ms.
     let mut harness = TestHarness::from_source(MIXED_RATE).unwrap();
+    let mut overruns = Overruns::attach(&mut harness);
     let mut slow_releases = Vec::new();
     let mut slow_seen = 0;
 
@@ -88,8 +128,8 @@ fn ten_and_twenty_five_ms_tasks_release_on_nominal_deadlines_over_300_ms() {
         slow_releases,
         vec![30, 50, 80, 100, 130, 150, 180, 200, 230, 250, 280, 300]
     );
-    assert_eq!(overruns(&harness, "Fast"), Some(0));
-    assert_eq!(overruns(&harness, "Slow"), Some(0));
+    assert_eq!(overruns.of("Fast"), 0);
+    assert_eq!(overruns.of("Slow"), 0);
 }
 
 const TIE_SAME_PRIORITY: &str = r#"
@@ -173,7 +213,7 @@ fn earlier_nominal_due_time_beats_declaration_index_within_a_priority() {
     let mut harness = TestHarness::from_source(TIE_DUE_BEFORE_INDEX).unwrap();
     harness
         .runtime_mut()
-        .write_global("trigger", Value::Bool(true))
+        .write_variable("trigger", &Value::Bool(true))
         .unwrap();
     cycle_at(&mut harness, 20);
     assert_eq!(
@@ -200,14 +240,11 @@ fn clock_jumps_count_missed_periods_once_and_keep_the_next_nominal_deadline() {
     // Spec 11 section 6.2: the first activation after a jump is due at the first pending nominal
     // deadline; the missed intervals are counted and the next deadline is the unchanged grid.
     let mut harness = TestHarness::from_source(JUMP_COUNTER).unwrap();
+    let mut overruns = Overruns::attach(&mut harness);
 
     cycle_at(&mut harness, 55);
     assert_eq!(dint(&harness, "count"), 1);
-    assert_eq!(
-        overruns(&harness, "Fast"),
-        Some(4),
-        "deadlines 10, 20, 30, 40 missed"
-    );
+    assert_eq!(overruns.of("Fast"), 4, "deadlines 10, 20, 30, 40 missed");
 
     cycle_at(&mut harness, 59);
     assert_eq!(
@@ -221,7 +258,7 @@ fn clock_jumps_count_missed_periods_once_and_keep_the_next_nominal_deadline() {
     assert_eq!(dint(&harness, "count"), 2);
     cycle_at(&mut harness, 70);
     assert_eq!(dint(&harness, "count"), 3);
-    assert_eq!(overruns(&harness, "Fast"), Some(4));
+    assert_eq!(overruns.of("Fast"), 4);
 
     cycle_at(&mut harness, 200);
     assert_eq!(
@@ -229,28 +266,25 @@ fn clock_jumps_count_missed_periods_once_and_keep_the_next_nominal_deadline() {
         4,
         "one activation after a 130 ms gap"
     );
-    assert_eq!(
-        overruns(&harness, "Fast"),
-        Some(16),
-        "twelve further periods counted"
-    );
+    assert_eq!(overruns.of("Fast"), 16, "twelve further periods counted");
     cycle_at(&mut harness, 209);
     assert_eq!(dint(&harness, "count"), 4);
     cycle_at(&mut harness, 210);
     assert_eq!(dint(&harness, "count"), 5, "the next deadline is 210 ms");
-    assert_eq!(overruns(&harness, "Fast"), Some(16));
+    assert_eq!(overruns.of("Fast"), 16);
 }
 
 #[test]
 fn backward_clock_step_keeps_the_nominal_baseline_and_counts_nothing() {
     // Spec 10 section 4.3: a backward sample does not move the baseline or create an overrun.
     let mut harness = TestHarness::from_source(JUMP_COUNTER).unwrap();
+    let mut overruns = Overruns::attach(&mut harness);
     cycle_at(&mut harness, 10);
     assert_eq!(dint(&harness, "count"), 1);
 
     cycle_at(&mut harness, 2);
     assert_eq!(dint(&harness, "count"), 1);
-    assert_eq!(overruns(&harness, "Fast"), Some(0));
+    assert_eq!(overruns.of("Fast"), 0);
     cycle_at(&mut harness, 9);
     cycle_at(&mut harness, 19);
     assert_eq!(
@@ -260,7 +294,7 @@ fn backward_clock_step_keeps_the_nominal_baseline_and_counts_nothing() {
     );
     cycle_at(&mut harness, 20);
     assert_eq!(dint(&harness, "count"), 2);
-    assert_eq!(overruns(&harness, "Fast"), Some(0));
+    assert_eq!(overruns.of("Fast"), 0);
 }
 
 const HELD_SINGLE: &str = r#"
@@ -281,7 +315,7 @@ END_PROGRAM
 fn set_trigger(harness: &mut TestHarness, value: bool) {
     harness
         .runtime_mut()
-        .write_global("trigger", Value::Bool(value))
+        .write_variable("trigger", &Value::Bool(value))
         .unwrap();
 }
 
@@ -293,6 +327,7 @@ fn held_single_suppresses_periodic_releases_until_a_low_sample_then_rearms() {
     // rising edge at 36 ms runs it again without moving the baseline (30 ms), and the release at
     // 45 ms runs for the 40 ms deadline.
     let mut harness = TestHarness::from_source(HELD_SINGLE).unwrap();
+    let mut overruns = Overruns::attach(&mut harness);
 
     set_trigger(&mut harness, true);
     cycle_at(&mut harness, 10);
@@ -312,7 +347,7 @@ fn held_single_suppresses_periodic_releases_until_a_low_sample_then_rearms() {
         2,
         "one release for the three pending deadlines"
     );
-    assert_eq!(overruns(&harness, "Gated"), Some(2));
+    assert_eq!(overruns.of("Gated"), 2);
 
     set_trigger(&mut harness, true);
     cycle_at(&mut harness, 36);
@@ -325,7 +360,7 @@ fn held_single_suppresses_periodic_releases_until_a_low_sample_then_rearms() {
     assert_eq!(dint(&harness, "runs"), 4, "release for the 40 ms deadline");
     cycle_at(&mut harness, 50);
     assert_eq!(dint(&harness, "runs"), 5, "release for the 50 ms deadline");
-    assert_eq!(overruns(&harness, "Gated"), Some(2));
+    assert_eq!(overruns.of("Gated"), 2);
 }
 
 #[test]
@@ -334,10 +369,12 @@ fn cold_restart_clears_task_baselines_without_replaying_pre_restart_periods() {
     // task timing at that instant, so the first post-restart samples are not due and nothing from
     // before the restart is counted again.
     let mut harness = TestHarness::from_source(JUMP_COUNTER).unwrap();
+    let mut overruns = Overruns::attach(&mut harness);
     cycle_at(&mut harness, 95);
     assert_eq!(dint(&harness, "count"), 1);
-    assert_eq!(overruns(&harness, "Fast"), Some(8));
+    assert_eq!(overruns.of("Fast"), 8);
 
+    overruns.restart();
     harness.restart(RestartMode::Cold).unwrap();
     assert_eq!(harness.current_time(), Duration::from_millis(95));
     assert_eq!(
@@ -345,7 +382,7 @@ fn cold_restart_clears_task_baselines_without_replaying_pre_restart_periods() {
         0,
         "cold restart reinitializes globals"
     );
-    assert_eq!(overruns(&harness, "Fast"), Some(0));
+    assert_eq!(overruns.of("Fast"), 0);
 
     cycle_at(&mut harness, 96);
     assert_eq!(dint(&harness, "count"), 0);
@@ -357,5 +394,5 @@ fn cold_restart_clears_task_baselines_without_replaying_pre_restart_periods() {
     );
     cycle_at(&mut harness, 105);
     assert_eq!(dint(&harness, "count"), 1);
-    assert_eq!(overruns(&harness, "Fast"), Some(0));
+    assert_eq!(overruns.of("Fast"), 0);
 }

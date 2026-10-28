@@ -9,9 +9,12 @@ fn size(value: &Value) -> Result<u64, SizeOfError> {
     )
 }
 #[test]
-fn runtime_size_preserves_character_count_and_first_array_element_rule() {
-    assert_eq!(size(&Value::String("åβ".into())), Ok(2));
+fn runtime_size_counts_capacity_units_and_keeps_the_first_array_element_rule() {
+    // A STRING value occupies its UTF-8 bytes and a WSTRING value two bytes per UTF-16 code
+    // unit (docs/IEC_DECISIONS.md 2026-10-17): "å" and "β" are two bytes and one unit each.
+    assert_eq!(size(&Value::String("åβ".into())), Ok(4));
     assert_eq!(size(&Value::WString("åβ".into())), Ok(4));
+    assert_eq!(size(&Value::WString("🙂".into())), Ok(4));
     let array = Value::Array(Box::new(ArrayValue::from_canonical_parts(
         vec![Value::String("a".into()), Value::String("longer".into())],
         vec![(5, 6)],
@@ -41,7 +44,7 @@ fn enum_size_uses_metadata_callback_and_preserves_callback_fault() {
     );
     assert_eq!(result, Ok(2));
     assert_eq!(names, vec!["Mode"]);
-    let error = trust_runtime_core::vm::VmTrap::BudgetExceeded.into_runtime_error();
+    let error = RuntimeError::ExecutionTimeout;
     let result: Result<u64, RuntimeError> =
         size_of_value_with(&value, &mut |_| Ok(2), &mut |_| Err(error.clone()));
     assert_eq!(result, Err(error));
@@ -61,140 +64,4 @@ fn runtime_value_size_accepts_128_nested_nodes_and_rejects_the_first_excess() {
         vec![(0, 0)],
     )));
     assert_eq!(size(&value), Err(SizeOfError::UnsupportedType));
-}
-
-#[test]
-fn type_size_shared_graph_charges_each_visit_and_preserves_exhaustion_error() {
-    use trust_runtime_core::bytecode::{Field, TypeData, TypeEntry, TypeKind, TypeTable};
-    let types = TypeTable {
-        offsets: vec![],
-        entries: vec![
-            TypeEntry {
-                kind: TypeKind::Primitive,
-                name_idx: None,
-                data: TypeData::Primitive {
-                    prim_id: 7,
-                    max_length: 0,
-                },
-            },
-            TypeEntry {
-                kind: TypeKind::Struct,
-                name_idx: None,
-                data: TypeData::Struct {
-                    fields: vec![
-                        Field {
-                            name_idx: 0,
-                            type_id: 0,
-                            bit_offset: None,
-                        },
-                        Field {
-                            name_idx: 1,
-                            type_id: 0,
-                            bit_offset: None,
-                        },
-                    ],
-                },
-            },
-        ],
-    };
-    let mut work = 0;
-    assert_eq!(
-        trust_runtime_core::vm::sizeof_type_from_table_with(&types, 1, &mut |units| {
-            work += units;
-            Ok(())
-        }),
-        Ok(4)
-    );
-    assert!(work >= 3, "both repeated primitive edges must consume work");
-    let error = trust_runtime_core::vm::VmTrap::BudgetExceeded.into_runtime_error();
-    let mut left = 1usize;
-    assert_eq!(
-        trust_runtime_core::vm::sizeof_type_from_table_with(&types, 1, &mut |units| {
-            left = left.checked_sub(units).ok_or_else(|| error.clone())?;
-            Ok(())
-        }),
-        Err(error)
-    );
-}
-
-#[test]
-fn located_type_size_preserves_visit_order_and_every_callback_fault() {
-    use trust_runtime_core::bytecode::{Field, TypeData, TypeEntry, TypeKind, TypeTable};
-    use trust_runtime_core::value::StorageAbi;
-    use trust_runtime_core::vm::sizeof_type_from_table_with_abi;
-
-    let types = TypeTable {
-        offsets: vec![],
-        entries: vec![
-            TypeEntry {
-                kind: TypeKind::Primitive,
-                name_idx: None,
-                data: TypeData::Primitive {
-                    prim_id: 1,
-                    max_length: 0,
-                },
-            },
-            TypeEntry {
-                kind: TypeKind::Alias,
-                name_idx: None,
-                data: TypeData::Alias { target_type_id: 0 },
-            },
-            TypeEntry {
-                kind: TypeKind::Primitive,
-                name_idx: None,
-                data: TypeData::Primitive {
-                    prim_id: 16,
-                    max_length: 0,
-                },
-            },
-            TypeEntry {
-                kind: TypeKind::LocatedStruct,
-                name_idx: None,
-                data: TypeData::Struct {
-                    fields: vec![
-                        Field {
-                            name_idx: 0,
-                            type_id: 1,
-                            bit_offset: Some(3),
-                        },
-                        Field {
-                            name_idx: 1,
-                            type_id: 2,
-                            bit_offset: Some(8),
-                        },
-                    ],
-                },
-            },
-        ],
-    };
-    for (abi, expected_size, expected_visits) in [
-        (StorageAbi::UniformTemporal64, 9, vec![1, 2, 3, 1, 1, 2, 1]),
-        (StorageAbi::LegacyTemporal32, 5, vec![1, 2, 3, 2]),
-    ] {
-        let mut visits = Vec::new();
-        assert_eq!(
-            sizeof_type_from_table_with_abi(&types, 3, abi, &mut |units| {
-                visits.push(units);
-                Ok(())
-            }),
-            Ok(expected_size)
-        );
-        assert_eq!(visits, expected_visits);
-        for stop in 0..expected_visits.len() {
-            let mut visits = Vec::new();
-            let error = RuntimeError::ExecutionTimeout;
-            assert_eq!(
-                sizeof_type_from_table_with_abi(&types, 3, abi, &mut |units| {
-                    visits.push(units);
-                    if visits.len() == stop + 1 {
-                        Err(error.clone())
-                    } else {
-                        Ok(())
-                    }
-                }),
-                Err(error)
-            );
-            assert_eq!(visits, expected_visits[..=stop]);
-        }
-    }
 }

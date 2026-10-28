@@ -12,67 +12,56 @@ use super::model::{collect_program_annotations, text_size_to_usize};
 use super::types::*;
 use super::DEFAULT_SOURCE_ID;
 
-pub(super) fn validate_authoring_sources(sources: &[SourceFile]) -> Vec<String> {
+/// Prepare validation and instrumentation from one semantic project. Sources
+/// without OpenOT attributes need no OpenOT semantic analysis at all.
+pub(super) fn prepare_authoring_sources(sources: &[SourceFile]) -> (AuthoringModel, Vec<String>) {
+    let _trace = trust_hir::timing::CompilerStage::new("openot.prepare", sources.len());
+    let parses: Vec<_> = sources
+        .iter()
+        .map(|source| parser::parse(&source.text))
+        .collect();
+    let attributed: Vec<_> = parses
+        .iter()
+        .map(|parse| hir_openot::parse_attribute_map_from_node(&parse.syntax()).contains_oot())
+        .collect();
+    trust_hir::timing::event(
+        "openot.attributed_files",
+        attributed.iter().filter(|present| **present).count(),
+    );
+    if !attributed.iter().any(|present| *present) {
+        trust_hir::timing::event("openot.skipped", 1);
+        return (
+            AuthoringModel {
+                files: vec![FileAuthoringModel::default(); sources.len()],
+                annotations: Vec::new(),
+            },
+            Vec::new(),
+        );
+    }
     let mut errors = Vec::new();
-    for (idx, source) in sources.iter().enumerate() {
-        let parse = parser::parse(&source.text);
+    for (idx, parse) in parses.iter().enumerate() {
         for diagnostic in hir_openot::collect_openot_attribute_diagnostics(&parse.syntax()) {
-            let label = source
+            let label = sources[idx]
                 .path
                 .as_deref()
                 .map_or_else(|| format!("source {}", idx + 1), ToString::to_string);
             errors.push(format!("{label}: {}", diagnostic.message));
         }
     }
+    // Keep every source available for cross-file types and functions, but analyze
+    // only files which contain attributes. Ordinary ST checking stays in the compiler.
     let mut project = Project::new();
-    let file_ids = sources
+    let file_ids: Vec<_> = sources
         .iter()
         .enumerate()
         .map(|(idx, source)| {
             let key = match source.path.as_deref() {
                 Some(path) => SourceKey::from_path(Path::new(path)),
-                None => SourceKey::from_virtual(format!("openot_authoring_validation_{idx}")),
+                None => SourceKey::from_virtual(format!("openot_authoring_{idx}")),
             };
             project.set_source_text(key, source.text.clone())
         })
-        .collect::<Vec<_>>();
-    for (idx, file_id) in file_ids.iter().copied().enumerate() {
-        let source = &sources[idx];
-        let parse = parser::parse(&source.text);
-        let analysis = project.database().analyze(file_id);
-        for diagnostic in hir_openot::collect_openot_semantic_diagnostics(
-            &parse.syntax(),
-            analysis.symbols.as_ref(),
-            analysis.declaration_catalog.as_ref(),
-            file_id,
-        ) {
-            let label = source
-                .path
-                .as_deref()
-                .map_or_else(|| format!("source {}", idx + 1), ToString::to_string);
-            errors.push(format!("{label}: {}", diagnostic.message));
-        }
-    }
-    let model = collect_authoring_model(sources);
-    errors.extend(validate_source_ownership(&model.annotations));
-    errors
-}
-
-pub(super) fn collect_authoring_model(sources: &[SourceFile]) -> AuthoringModel {
-    let mut project = Project::new();
-    let mut file_ids = Vec::with_capacity(sources.len());
-    for (idx, source) in sources.iter().enumerate() {
-        let key = match source.path.as_deref() {
-            Some(path) => SourceKey::from_path(Path::new(path)),
-            None => SourceKey::from_virtual(format!("openot_authoring_{idx}")),
-        };
-        file_ids.push(project.set_source_text(key, source.text.clone()));
-    }
-
-    let analyses = file_ids
-        .iter()
-        .map(|file_id| project.database().analyze(*file_id))
-        .collect::<Vec<_>>();
+        .collect();
 
     let annotated_program_count = count_openot_programs(sources);
     let use_multi_program_defaults = annotated_program_count > 1;
@@ -82,14 +71,29 @@ pub(super) fn collect_authoring_model(sources: &[SourceFile]) -> AuthoringModel 
     let mut all_annotations = Vec::new();
 
     for (idx, source) in sources.iter().enumerate() {
-        let parse = parser::parse(&source.text);
+        let parse = &parses[idx];
+        if !attributed[idx] {
+            files.push(FileAuthoringModel::default());
+            continue;
+        }
+        let syntax = parse.syntax();
+        let analysis = project.database().analyze(file_ids[idx]);
+        for diagnostic in hir_openot::collect_openot_semantic_diagnostics(
+            &syntax,
+            analysis.symbols.as_ref(),
+            analysis.declaration_catalog.as_ref(),
+            file_ids[idx],
+        ) {
+            let label = source
+                .path
+                .as_deref()
+                .map_or_else(|| format!("source {}", idx + 1), ToString::to_string);
+            errors.push(format!("{label}: {}", diagnostic.message));
+        }
         if !parse.ok() {
             files.push(FileAuthoringModel::default());
             continue;
         }
-
-        let syntax = parse.syntax();
-        let analysis = analyses[idx].as_ref();
         let mut programs = Vec::new();
         for program in syntax
             .descendants()
@@ -129,10 +133,19 @@ pub(super) fn collect_authoring_model(sources: &[SourceFile]) -> AuthoringModel 
         files.push(FileAuthoringModel { programs });
     }
 
-    AuthoringModel {
-        files,
-        annotations: all_annotations,
-    }
+    errors.extend(validate_source_ownership(&all_annotations));
+    (
+        AuthoringModel {
+            files,
+            annotations: all_annotations,
+        },
+        errors,
+    )
+}
+
+#[cfg(test)]
+pub(super) fn validate_authoring_sources(sources: &[SourceFile]) -> Vec<String> {
+    prepare_authoring_sources(sources).1
 }
 
 fn count_openot_programs(sources: &[SourceFile]) -> usize {

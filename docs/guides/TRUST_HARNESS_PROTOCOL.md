@@ -42,6 +42,13 @@ Protocol version 2 is the default. Set
 overrides the environment. Any other argument, a missing command-line value,
 or a version other than 1 or 2 fails process startup.
 
+`--project DIR` (or `--project=DIR`) names the project whose sources are loaded:
+loads then use the conversion rules of the project's `trust-lsp.toml`
+`vendor_profile`, as `trust-runtime run` does, unless a `load` names its own
+`vendor_profile`. The sources themselves are still sent with `load`. A missing
+folder, an unreadable manifest or an unknown `vendor_profile` fails process
+startup.
+
 Every line response includes the selected `protocol_version`, including
 errors. Version 2 reports each watched value independently:
 
@@ -99,6 +106,18 @@ Multi-source load:
 
 `load` performs an initial cycle and fails if that first cycle reports runtime
 errors.
+
+`load` accepts an optional `vendor_profile` that selects the conversion rules of the
+loaded program (docs/specs/07-standard-functions.md section 2.10): `"codesys"`,
+`"beckhoff"` or `"twincat"` for the CODESYS rules, or `"iec"`, `"siemens"`,
+`"mitsubishi"` or `"gxworks3"` for the IEC rules. Any other value is an
+`invalid_argument` error. Without the field, a load uses the rules of the project given
+with `--project DIR` at startup, and otherwise the IEC rules. `reload` keeps the rules of
+the loaded program.
+
+```json
+{"cmd":"load","sources":["PROGRAM Main\nEND_PROGRAM\n"],"vendor_profile":"codesys"}
+```
 
 `reload` uses the same `source` / `sources` parameters.
 

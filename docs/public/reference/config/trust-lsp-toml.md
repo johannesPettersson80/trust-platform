@@ -22,6 +22,7 @@ ignored:
 | `C003` | A numeric bound is outside its documented domain, or the throttle tuple is incoherent. | Correct the bound or throttle ordering, or remove the keys to use safe defaults. |
 | `C004` | Workspace visibility is unknown. | Use `public`, `private`, or `hidden`. |
 | `C005` | A severity override has a blank code or unknown severity. | Use a real diagnostic code and a supported severity. |
+| `C006` | The `vendor_profile` is unknown; `trust-runtime`, `trust-dev test` and `trust-harness --project` refuse to run the project with it. | Use a profile listed in [Vendor Profiles](vendor-profiles.md) or `iec`. |
 
 ## Minimal Example
 
@@ -32,7 +33,7 @@ vendor_profile = "siemens"
 stdlib = "iec"
 
 [runtime]
-control_endpoint = "unix:///tmp/trust-runtime.sock"
+control_endpoint = "unix:///path/to/project/.trust-runtime/control.sock"
 ```
 
 ## `[project]`
@@ -180,8 +181,8 @@ Vendor profiles also affect defaults:
 
 | Key | Type | Notes |
 | --- | --- | --- |
-| `control_endpoint` | string | Runtime control endpoint for debug-assisted features. |
-| `control_auth_token` | string | Optional auth token for the control endpoint. |
+| `control_endpoint` | string | Runtime control endpoint for debug-assisted features. Omit it to use the editor's runtime control endpoint setting, when one is set. To name a project's runtime, copy the endpoint that `trust-runtime ctl --project <dir> endpoint --json` reports; the platform default and the endpoint file are described in [runtime.toml](runtime-toml.md#default-control-endpoint-and-the-endpoint-file). |
+| `control_auth_token` | string | Optional auth token for the control endpoint. It is sent only to the `control_endpoint` written next to it, never to an editor endpoint. |
 
 ## `[workspace]`
 

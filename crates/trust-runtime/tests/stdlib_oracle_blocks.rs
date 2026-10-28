@@ -9,13 +9,13 @@
 //! skipped-call rules).
 //!
 //! Expected values come from the audit oracle, not from the implementation. A failing case is
-//! a finding: report it, do not change the expectation. The counter storage cases drive the
-//! builtin execution directly on a `VariableStorage` instance because the typed counter
-//! maxima cannot be preset from Structured Text.
+//! a finding: report it, do not change the expectation. The counter cases at a type maximum write
+//! the instance's CV to that maximum by name before the first call, because Structured Text cannot
+//! preset it.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use trust_runtime::harness::TestHarness;
-use trust_runtime::memory::VariableStorage;
-use trust_runtime::stdlib::fbs::{execute_builtin_in_storage, BuiltinFbKind};
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::RestartMode;
 
@@ -96,27 +96,22 @@ fn oracle_j16_skipped_call_interval_is_included_in_next_executed_call() {
 fn oracle_k4_ctu_at_int_maximum_keeps_value_on_rising_edge() {
     // K4: spec 08 section 4 and IEC Table 45 (PVmax). At the INT maximum a counting edge keeps
     // CV at 32767; Q is TRUE because CV >= PV.
-    let mut storage = VariableStorage::default();
-    let instance = storage.create_instance("CTU");
-    for (name, value) in [
-        ("CU", Value::Bool(true)),
-        ("R", Value::Bool(false)),
-        ("PV", Value::Int(32_767)),
-        ("Q", Value::Bool(false)),
-        ("CV", Value::Int(32_767)),
-    ] {
-        assert!(storage.set_instance_var(instance, name, value));
-    }
-    execute_builtin_in_storage(&mut storage, Duration::ZERO, instance, BuiltinFbKind::Ctu)
-        .expect("CTU at the INT maximum");
-    assert_eq!(
-        storage.get_instance_var(instance, "CV"),
-        Some(&Value::Int(32_767))
+    let mut harness = compile(
+        "PROGRAM Main\n\
+         VAR c : CTU; cu : BOOL := TRUE; r : BOOL := FALSE; pv : INT := INT#32767;\n\
+             q : BOOL; cv : INT; END_VAR\n\
+         c(CU := cu, R := r, PV := pv, Q => q, CV => cv);\n\
+         END_PROGRAM",
     );
-    assert_eq!(
-        storage.get_instance_var(instance, "Q"),
-        Some(&Value::Bool(true))
+    harness.set_input("c.CV", Value::Int(32_767));
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "CTU at the INT maximum: {:?}",
+        cycle.errors
     );
+    harness.assert_eq("cv", Value::Int(32_767));
+    harness.assert_eq("q", Value::Bool(true));
 }
 
 #[test]
@@ -160,61 +155,46 @@ fn oracle_k8_ctd_int_counts_below_zero_to_minus_one() {
 #[test]
 fn oracle_k14_ctu_udint_at_type_maximum_keeps_value_on_rising_edge() {
     // K14: spec 08 section 4. The up counter saturates at the UDINT maximum.
-    let mut storage = VariableStorage::default();
-    let instance = storage.create_instance("CTU");
-    for (name, value) in [
-        ("CU", Value::Bool(true)),
-        ("R", Value::Bool(false)),
-        ("PV", Value::UDInt(u32::MAX)),
-        ("Q", Value::Bool(false)),
-        ("CV", Value::UDInt(u32::MAX)),
-    ] {
-        assert!(storage.set_instance_var(instance, name, value));
-    }
-    execute_builtin_in_storage(&mut storage, Duration::ZERO, instance, BuiltinFbKind::Ctu)
-        .expect("CTU_UDINT at the type maximum");
-    assert_eq!(
-        storage.get_instance_var(instance, "CV"),
-        Some(&Value::UDInt(4_294_967_295))
+    let mut harness = compile(
+        "PROGRAM Main\n\
+         VAR c : CTU_UDINT; cu : BOOL := TRUE; r : BOOL := FALSE;\n\
+             pv : UDINT := UDINT#4294967295; q : BOOL; cv : UDINT; END_VAR\n\
+         c(CU := cu, R := r, PV := pv, Q => q, CV => cv);\n\
+         END_PROGRAM",
     );
-    assert_eq!(
-        storage.get_instance_var(instance, "Q"),
-        Some(&Value::Bool(true))
+    harness.set_input("c.CV", Value::UDInt(u32::MAX));
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "CTU_UDINT at the type maximum: {:?}",
+        cycle.errors
     );
+    harness.assert_eq("cv", Value::UDInt(4_294_967_295));
+    harness.assert_eq("q", Value::Bool(true));
 }
 
 #[test]
 fn oracle_k14_ctud_ulint_up_count_at_type_maximum_saturates() {
     // K14 (CTUD_ULINT): spec 08 section 4. A counting edge at ULINT MAX keeps CV at MAX; QU
     // is TRUE because CV >= PV and QD is FALSE because CV is not zero.
-    let mut storage = VariableStorage::default();
-    let instance = storage.create_instance("CTUD");
-    for (name, value) in [
-        ("CU", Value::Bool(true)),
-        ("CD", Value::Bool(false)),
-        ("R", Value::Bool(false)),
-        ("LD", Value::Bool(false)),
-        ("PV", Value::ULInt(u64::MAX)),
-        ("QU", Value::Bool(false)),
-        ("QD", Value::Bool(false)),
-        ("CV", Value::ULInt(u64::MAX)),
-    ] {
-        assert!(storage.set_instance_var(instance, name, value));
-    }
-    execute_builtin_in_storage(&mut storage, Duration::ZERO, instance, BuiltinFbKind::Ctud)
-        .expect("CTUD_ULINT at the type maximum");
-    assert_eq!(
-        storage.get_instance_var(instance, "CV"),
-        Some(&Value::ULInt(u64::MAX))
+    let mut harness = compile(
+        "PROGRAM Main\n\
+         VAR c : CTUD_ULINT; cu : BOOL := TRUE; cd : BOOL := FALSE; r : BOOL := FALSE;\n\
+             ld : BOOL := FALSE; pv : ULINT := ULINT#18446744073709551615;\n\
+             qu : BOOL; qd : BOOL; cv : ULINT; END_VAR\n\
+         c(CU := cu, CD := cd, R := r, LD := ld, PV := pv, QU => qu, QD => qd, CV => cv);\n\
+         END_PROGRAM",
     );
-    assert_eq!(
-        storage.get_instance_var(instance, "QU"),
-        Some(&Value::Bool(true))
+    harness.set_input("c.CV", Value::ULInt(u64::MAX));
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "CTUD_ULINT at the type maximum: {:?}",
+        cycle.errors
     );
-    assert_eq!(
-        storage.get_instance_var(instance, "QD"),
-        Some(&Value::Bool(false))
-    );
+    harness.assert_eq("cv", Value::ULInt(u64::MAX));
+    harness.assert_eq("qu", Value::Bool(true));
+    harness.assert_eq("qd", Value::Bool(false));
 }
 
 #[test]

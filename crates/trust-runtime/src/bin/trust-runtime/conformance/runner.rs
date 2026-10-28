@@ -1,9 +1,14 @@
-pub fn run_conformance(
-    suite_root: Option<PathBuf>,
-    output: Option<PathBuf>,
-    update_expected: bool,
-    filter: Option<String>,
-) -> anyhow::Result<()> {
+pub fn run_conformance(args: ConformanceArgs) -> anyhow::Result<()> {
+    let ConformanceArgs {
+        suite_root,
+        output,
+        update_expected,
+        filter,
+        device,
+        target,
+    } = args;
+    let mut device = open_device(device, target.as_deref())?;
+    let (runtime_name, actual_dir) = run_names(device.is_some());
     let suite_root = resolve_suite_root(suite_root)?;
     let mut cases = discover_cases(&suite_root)?;
     if let Some(filter) = filter.as_deref() {
@@ -21,13 +26,13 @@ pub fn run_conformance(
     let reports_root = suite_root.join("reports");
     fs::create_dir_all(&reports_root)
         .with_context(|| format!("create reports directory '{}'", reports_root.display()))?;
-    let actual_root = reports_root.join("actual");
+    let actual_root = reports_root.join(actual_dir);
     fs::create_dir_all(&actual_root)
         .with_context(|| format!("create actual report directory '{}'", actual_root.display()))?;
 
     let timestamp = now_utc_parts();
     let output_path = output.unwrap_or_else(|| {
-        reports_root.join(format!("{}_trust-runtime_summary.json", timestamp.compact))
+        reports_root.join(format!("{}_{runtime_name}_summary.json", timestamp.compact))
     });
     if let Some(parent) = output_path.parent() {
         fs::create_dir_all(parent)
@@ -44,7 +49,7 @@ pub fn run_conformance(
         let started = Instant::now();
         let expected_ref = format!("expected/{}/{}.json", case.category, case.id);
         let expected_path = suite_root.join(&expected_ref);
-        let actual_ref = format!("reports/actual/{}.json", case.id);
+        let actual_ref = format!("reports/{actual_dir}/{}.json", case.id);
         let actual_path = suite_root.join(&actual_ref);
 
         let mut summary_result = SummaryCaseResult {
@@ -58,7 +63,7 @@ pub fn run_conformance(
             reason: None,
         };
 
-        match execute_case(case) {
+        match execute_case(case, device.as_mut()) {
             Ok(artifact) => {
                 summary_result.cycles = artifact.cycles;
                 if update_expected {
@@ -139,9 +144,13 @@ pub fn run_conformance(
         generated_at_utc: timestamp.rfc3339,
         ordering: "case_id_asc".to_string(),
         runtime: RuntimeSummaryMeta {
-            name: "trust-runtime".to_string(),
+            name: runtime_name.to_string(),
             version: env!("CARGO_PKG_VERSION").to_string(),
-            target: format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS),
+            // The cases ran on the device when there is one, compiled for its target.
+            target: device.as_ref().map_or_else(
+                || format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS),
+                |device| native::triple(device.target).to_string(),
+            ),
         },
         summary: SummaryTotals {
             total: results.len(),
@@ -181,5 +190,24 @@ fn summary_contract_for_cases(cases: &[CaseDefinition]) -> SummaryContract {
         SummaryContract::v1()
     } else {
         SummaryContract::v2()
+    }
+}
+
+/// The device that runs the runtime cases, compiled for it and stepped over its control link
+/// (specification 44 §14.2), when the run names one.
+fn open_device(port: Option<String>, target: Option<&str>) -> anyhow::Result<Option<DeviceRun>> {
+    let Some(port) = port else {
+        return Ok(None);
+    };
+    DeviceRun::open(&port, target.unwrap_or_default()).map(Some)
+}
+
+/// The runtime's name in the summary and the folder of the actual artifacts: this computer's, or a
+/// device's.
+fn run_names(on_device: bool) -> (&'static str, &'static str) {
+    if on_device {
+        ("trust-runtime-device", "actual-device")
+    } else {
+        ("trust-runtime", "actual")
     }
 }

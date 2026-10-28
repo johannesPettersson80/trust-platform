@@ -61,7 +61,7 @@ source-of-truth inputs such as `docs/guides/**`, `docs/specs/**`,
 
 ## Generated screenshots
 
-- Browser product-surface screenshots come from `scripts/captures/browser/*.spec.mjs`, captured live against a running `trust-runtime`. Operator overview, daily-checks, alarm, and shift-handover visuals come from `scripts/captures/browser/hmi-operator-pages.spec.mjs`.
+- Browser product-surface screenshots come from `scripts/captures/browser/*.spec.mjs`, captured live against a running `trust-runtime`.
 - Terminal captures come from `scripts/captures/terminal/*.tape`.
 - Code-server-based VS Code screenshots come from `scripts/captures/vscode/*.spec.mjs`.
 - Code-server proof captures remain available for pages that need browser-hosted VS Code evidence; the runtime-panel command-palette capture stays disabled until that interaction path is stable under code-server.

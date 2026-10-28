@@ -58,6 +58,11 @@ pub fn start_web_server_with_mode(
     control_state
         .web_listener_bound
         .store(true, Ordering::Relaxed);
+    // Port 0 lets the system choose the port: the server is reached at the one it chose.
+    let listen = match server.server_addr().to_ip() {
+        Some(address) if listen.ends_with(":0") => address.to_string(),
+        _ => listen,
+    };
     let auth = config.auth;
     let web_url = format_web_url(&listen, config.tls);
     let auth_token = control_state.auth_token.clone();
@@ -113,10 +118,37 @@ pub fn start_web_server_with_mode(
     )?));
     let runtime_cloud_ha = Arc::new(Mutex::new(RuntimeCloudHaCoordinator::default()));
     let web_tls_enabled = config.tls;
+    let hmi_sessions = Arc::new(crate::hmi::access::sessions::SessionStore::new(
+        config.hmi.clone(),
+    ));
+    let hmi_access = Arc::new(config.hmi.clone());
+    crate::hmi::remote_operations::configure_owner(
+        &crate::control::hmi_ports::hmi_exchange(&control_state),
+        hmi_sessions.clone(),
+        hmi_access.clone(),
+        control_state.audit_tx.clone(),
+    );
+    let hmi_store = Arc::new(crate::hmi::bundle::store::BundleStore::new(
+        super::default_bundle_root(&bundle_root),
+    ));
+    let hmi_generation = Arc::new(AtomicU64::new(0));
+    // The runtime keeps the active bundle's trended values from the start (§5.9 item 1).
+    super::hmi_display::trends::share_trended_paths(
+        &hmi_store,
+        &crate::control::hmi_ports::hmi_exchange(&control_state),
+    );
+    let hmi_alarms =
+        super::hmi_alarms::AlarmService::start(crate::control::hmi_ports::resource(&control_state));
+    let hmi_commands = Arc::new(super::hmi_command::Commands {
+        registry: Arc::new(crate::hmi::commands::registry::CommandRegistry::default()),
+        access: hmi_access.clone(),
+        control_state: control_state.clone(),
+        store: hmi_store.clone(),
+        alarms: hmi_alarms.clone(),
+    });
     let request_handler: RequestHandler = Arc::new(move |mut request| {
         let method = request.method().clone();
         let url = request.url().to_string();
-        let url_path = url.split('?').next().unwrap_or(url.as_str());
         request = match handle_config_ui_route(
             request,
             &method,
@@ -133,23 +165,80 @@ pub fn start_web_server_with_mode(
             ConfigUiRouteOutcome::Handled => return,
             ConfigUiRouteOutcome::NotHandled(request) => request,
         };
-        request = match handle_ui_route(
+        request = match handle_ui_route(request, &method, url.as_str()) {
+            UiRouteOutcome::Handled => return,
+            UiRouteOutcome::NotHandled(request) => request,
+        };
+        request = match handle_hmi_deploy_route(
             request,
             &method,
             url.as_str(),
-            url_path,
-            UiRouteContext {
+            HmiDeployContext {
+                auth_mode: auth,
+                auth_token: &auth_token,
+                pairing: pairing.as_deref(),
+                sessions: &hmi_sessions,
+                store: &hmi_store,
+                access: &hmi_access,
+                control_state: &control_state,
+                generation: &hmi_generation,
+            },
+        ) {
+            HmiDeployOutcome::Handled => return,
+            HmiDeployOutcome::NotHandled(request) => request,
+        };
+        request = match handle_hmi_operate_route(
+            request,
+            &method,
+            url.as_str(),
+            HmiOperateContext {
+                auth_mode: auth,
+                auth_token: &auth_token,
+                pairing: pairing.as_deref(),
+                sessions: &hmi_sessions,
+                commands: &hmi_commands,
+                secure: web_tls_enabled,
+            },
+        ) {
+            HmiOperateOutcome::Handled => return,
+            HmiOperateOutcome::NotHandled(request) => request,
+        };
+        request = match super::hmi_alarms::handle_hmi_alarm_route(
+            request,
+            &method,
+            url.as_str(),
+            super::hmi_alarms::HmiAlarmContext {
+                auth_mode: auth,
+                auth_token: &auth_token,
+                pairing: pairing.as_deref(),
+                sessions: &hmi_sessions,
+                registry: &hmi_commands.registry,
+                control_state: &control_state,
+                alarms: &hmi_alarms,
+            },
+        ) {
+            super::hmi_alarms::HmiAlarmOutcome::Handled => return,
+            super::hmi_alarms::HmiAlarmOutcome::NotHandled(request) => request,
+        };
+        request = match handle_hmi_route(
+            request,
+            &method,
+            url.as_str(),
+            HmiRouteContext {
                 auth_mode: auth,
                 auth_token: &auth_token,
                 pairing: pairing.as_deref(),
                 control_state: &control_state,
-                hmi_asset_root: bundle_root.clone().or_else(|| {
-                    crate::control::hmi_asset_project_root_port(control_state.as_ref())
-                }),
+                sessions: &hmi_sessions,
+                commands: &hmi_commands.registry,
+                store: &hmi_store,
+                generation: &hmi_generation,
+                alarms: &hmi_alarms,
+                access: &hmi_access,
             },
         ) {
-            UiRouteOutcome::Handled => return,
-            UiRouteOutcome::NotHandled(request) => request,
+            HmiRouteOutcome::Handled => return,
+            HmiRouteOutcome::NotHandled(request) => request,
         };
         request = match handle_aux_route(
             request,
@@ -242,6 +331,9 @@ pub fn start_web_server_with_mode(
                 control_state: &control_state,
                 bundle_root: &bundle_root,
                 web_tls_enabled,
+                hmi_store: &hmi_store,
+                hmi_access: &hmi_access,
+                hmi_generation: &hmi_generation,
             },
         ) {
             OpsRouteOutcome::Handled => return,

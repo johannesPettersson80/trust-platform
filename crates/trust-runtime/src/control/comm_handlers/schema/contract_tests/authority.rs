@@ -69,6 +69,9 @@ pub(super) fn protocol_field_ids(protocol_id: &str) -> &'static [&'static str] {
             "output_start",
             "timeout_ms",
             "on_error",
+            "vendor_name",
+            "product_code",
+            "revision",
         ],
         "mqtt" => &[
             "broker",

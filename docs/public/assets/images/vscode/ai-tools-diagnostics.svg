@@ -22,7 +22,7 @@
   <text class="darkTitle" x="60" y="70">truST workspace</text>
   <text class="muted" x="60" y="120">src/main.st</text>
   <text class="muted" x="60" y="152">src/config.st</text>
-  <text class="muted" x="60" y="184">hmi/pages.toml</text>
+  <text class="muted" x="60" y="184">io.toml</text>
   <text class="muted" x="60" y="216">runtime.toml</text>
 
   <rect class="editor" x="260" y="60" width="470" height="560" rx="10"/>

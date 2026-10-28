@@ -1,12 +1,17 @@
-//! Two-word reset cookie codec, identical to the F401 profile so both boards store one format.
+//! Two-word reset cookie codec, the STM32F4 adapter's, so that every board stores one format.
 
-/// Phase written before the deliberately withheld MWDT0 feed (the F401 value).
+/// Phase written before the deliberately withheld MWDT0 feed (the STM32 firmware's value).
 pub const WATCHDOG_PHASE: u16 = 0x5744;
-/// Phase written when a run starts (the F401 value).
+/// Phase written when a run starts (the STM32 firmware's value).
 pub const RUNNING_PHASE: u16 = 0x5255;
+/// Phase written while the boot loads the installed program (specification 34 TARGET-08): a boot
+/// that finds it knows that a reset ended the last boot's load. Only the firmware writes it.
+#[cfg(any(test, all(target_arch = "riscv32", target_os = "none")))]
+pub const PROGRAM_LOAD_PHASE: u16 = 0x4C44;
 
-/// Two-word cookie for the intentional reset phase only, kept in RTC fast memory.
-/// It is not a retain checkpoint or a promise of power-loss persistence.
+/// Two-word cookie for a phase that a reset must not lose, kept in RTC fast memory: the bring-up's
+/// intentional watchdog phase and a boot's program load. A power-on clears it; it is not a retain
+/// checkpoint or a promise of power-loss persistence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ResetCookie {
     /// Application-owned nonzero phase identifier.
@@ -38,7 +43,14 @@ mod tests {
 
     #[test]
     fn reset_marker_rejects_torn_and_uninitialized_pairs() {
-        for phase in [1, 2, WATCHDOG_PHASE, RUNNING_PHASE, u16::MAX] {
+        for phase in [
+            1,
+            2,
+            WATCHDOG_PHASE,
+            RUNNING_PHASE,
+            PROGRAM_LOAD_PHASE,
+            u16::MAX,
+        ] {
             let cookie = ResetCookie { phase };
             assert_eq!(ResetCookie::decode(cookie.words()), Some(cookie));
             let mut torn = cookie.words();
@@ -56,7 +68,7 @@ mod tests {
     }
 
     #[test]
-    fn f401_phase_values_encode_with_the_shared_magic() {
+    fn the_stm32_phase_values_encode_with_the_shared_magic() {
         assert_eq!(
             ResetCookie {
                 phase: WATCHDOG_PHASE

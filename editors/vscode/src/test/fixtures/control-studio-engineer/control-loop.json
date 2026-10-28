@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 2,
+  "id": "control-studio-engineer",
+  "name": "Engineer proportional first-order fixture",
+  "revision": "sha256:control-studio-engineer-v3",
+  "projectId": "project:control-studio-engineer",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "Main",
+    "type": "EngineerProportional",
+    "design": "project",
+    "revision": "sha256:engineer-proportional-v1",
+    "action": "direct",
+    "taskPeriodMs": 20,
+    "manualOutputSignal": "Main.ManualCommand",
+    "manualOutputAddress": "%ML8",
+    "manualOutputType": "LREAL",
+    "modeSignal": "Main.Manual",
+    "modeWhenTrue": "Manual"
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "Main.SP",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "m",
+      "range": {
+        "minimum": -20,
+        "maximum": 20
+      }
+    },
+    "processVariable": {
+      "symbol": "Main.PV",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "m",
+      "range": {
+        "minimum": -20,
+        "maximum": 20
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "Main.MV",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "V",
+      "range": {
+        "minimum": -20,
+        "maximum": 20
+      }
+    }
+  },
+  "limits": {
+    "outputMinimum": -20,
+    "outputMaximum": 20
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 20
+  },
+  "operatingPoint": "Preconfigured non-course engineer fixture",
+  "experiment": {
+    "execution": "control-studio",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 2,
+    "seed": 7
+  },
+  "parameterBinding": {
+    "loop_id": "control-studio-engineer",
+    "task_name": "MainTask",
+    "parameters": [
+      {
+        "symbol": "Main.Kp",
+        "iec_type": "LREAL",
+        "unit": "V/m",
+        "convention": "parallel proportional gain",
+        "minimum": 0,
+        "maximum": 100
+      }
+    ],
+    "mode": {
+      "symbol": "Main.Manual",
+      "manual_value": true
+    }
+  },
+  "analysis": {
+    "plant": {
+      "kind": "transfer-function",
+      "numerator": [
+        1
+      ],
+      "denominator": [
+        1,
+        1
+      ],
+      "delaySeconds": 0,
+      "inputUnit": "V",
+      "outputUnit": "m",
+      "revision": "sha256:engineer-first-order-model-v1",
+      "source": "provided",
+      "validation": "unvalidated"
+    },
+    "controller": {
+      "numerator": [
+        {
+          "parameter": "Kp"
+        }
+      ],
+      "denominator": [
+        1
+      ],
+      "parameters": {
+        "Kp": {
+          "value": 1,
+          "minimum": 0,
+          "maximum": 100,
+          "unit": "V/m"
+        }
+      }
+    },
+    "rootLocus": {
+      "parameter": "Kp",
+      "values": [
+        0,
+        1,
+        9
+      ],
+      "selectedValue": 1
+    }
+  },
+  "analysisParameterSymbols": {
+    "Kp": "Main.Kp"
+  }
+}

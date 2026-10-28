@@ -2,8 +2,6 @@
 
 #![allow(missing_docs)]
 
-use smol_str::SmolStr;
-
 use crate::error::RuntimeError;
 use crate::memory::{FrameId, VariableStorage};
 use crate::program_model::{Expr, LValue};
@@ -35,28 +33,9 @@ impl SourceLocation {
     }
 }
 
-/// Hit count conditions for breakpoints.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum HitCondition {
-    /// Break when hit count equals the target.
-    Equal(u64),
-    /// Break when hit count is at least the target.
-    AtLeast(u64),
-    /// Break when hit count is greater than the target.
-    GreaterThan(u64),
-}
-
-impl HitCondition {
-    /// Check whether the hit condition is satisfied.
-    #[must_use]
-    pub fn is_met(self, hits: u64) -> bool {
-        match self {
-            HitCondition::Equal(target) => hits == target,
-            HitCondition::AtLeast(target) => hits >= target,
-            HitCondition::GreaterThan(target) => hits > target,
-        }
-    }
-}
+/// The hit-count condition of a breakpoint: the shared definition, so the rule exists once
+/// (specification 13, "Runtime debug state, mutation, and projection invariants").
+pub use trust_runtime_services::debug::HitCondition;
 
 /// Logpoint message fragments.
 #[derive(Debug, Clone)]
@@ -116,12 +95,14 @@ pub struct DebugLog {
 /// Snapshot of runtime state at a stop.
 #[derive(Debug, Clone)]
 pub struct DebugSnapshot {
-    /// Storage interpretation of the installed artifact that produced this snapshot.
-    pub storage_abi: crate::value::StorageAbi,
     /// Variable storage snapshot.
     pub storage: VariableStorage,
     /// Current runtime time.
     pub now: Duration,
+    /// The state of a compiled program, which a service reads through its symbol table in place
+    /// of `storage`, then empty (specification 44 §8.8, §13.3); none for a program on the bytecode
+    /// engine.
+    pub compiled: Option<std::sync::Arc<crate::CompiledState>>,
 }
 
 impl DebugSnapshot {
@@ -149,13 +130,11 @@ impl DebugSnapshot {
         profile: &DateTimeProfile,
         frame_id: Option<FrameId>,
     ) -> Result<Value, RuntimeError> {
-        let storage_abi = self.storage_abi;
         let eval = |storage: &mut VariableStorage| {
             let instance_id = storage.current_frame().and_then(|frame| frame.instance_id);
-            crate::helper_eval::eval_storage_expr_with_abi(
+            crate::helper_eval::eval_storage_expr_with_stdlib(
                 storage,
                 registry,
-                storage_abi,
                 profile,
                 instance_id,
                 stdlib,
@@ -180,17 +159,9 @@ impl DebugSnapshot {
         profile: &DateTimeProfile,
         frame_id: Option<FrameId>,
     ) -> Result<Value, RuntimeError> {
-        let storage_abi = self.storage_abi;
         let read = |storage: &mut VariableStorage| {
             let instance_id = storage.current_frame().and_then(|frame| frame.instance_id);
-            crate::helper_eval::read_storage_lvalue_with_abi(
-                storage,
-                registry,
-                storage_abi,
-                profile,
-                instance_id,
-                target,
-            )
+            crate::helper_eval::read_storage_lvalue(storage, registry, profile, instance_id, target)
         };
 
         if let Some(frame_id) = frame_id {
@@ -211,13 +182,11 @@ impl DebugSnapshot {
         profile: &DateTimeProfile,
         frame_id: Option<FrameId>,
     ) -> Result<(), RuntimeError> {
-        let storage_abi = self.storage_abi;
         let write = |storage: &mut VariableStorage| {
             let instance_id = storage.current_frame().and_then(|frame| frame.instance_id);
-            crate::helper_eval::write_storage_lvalue_with_abi(
+            crate::helper_eval::write_storage_lvalue(
                 storage,
                 registry,
-                storage_abi,
                 profile,
                 instance_id,
                 target,
@@ -235,126 +204,12 @@ impl DebugSnapshot {
     }
 }
 
-/// Runtime scheduling and diagnostic events.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RuntimeEvent {
-    /// A queued/forced engineering value was rejected by the installed owner.
-    /// Queue acceptance is not evidence that a value reached PLC storage.
-    WriteRejected {
-        /// Requested destination, for operator/debugger reporting.
-        target: SmolStr,
-        /// The checked application error; this is not a PLC execution fault.
-        error: String,
-        /// Cycle-boundary logical time of the attempted application.
-        time: Duration,
-    },
-    /// Cycle start event.
-    CycleStart {
-        /// Cycle counter value.
-        cycle: u64,
-        /// Time at cycle start.
-        time: Duration,
-    },
-    /// Cycle end event.
-    CycleEnd {
-        /// Cycle counter value.
-        cycle: u64,
-        /// Time at cycle end.
-        time: Duration,
-    },
-    /// Task execution start.
-    TaskStart {
-        /// Task name.
-        name: SmolStr,
-        /// Task priority (0 is highest).
-        priority: u32,
-        /// Time at task start.
-        time: Duration,
-    },
-    /// Task execution end.
-    TaskEnd {
-        /// Task name.
-        name: SmolStr,
-        /// Task priority (0 is highest).
-        priority: u32,
-        /// Time at task end.
-        time: Duration,
-    },
-    /// Task missed one or more periodic activations.
-    TaskOverrun {
-        /// Task name.
-        name: SmolStr,
-        /// Missed activation count.
-        missed: u64,
-        /// Time when the overrun was detected.
-        time: Duration,
-    },
-    /// Resource fault event.
-    Fault {
-        /// Fault message.
-        error: String,
-        /// Time when the fault was recorded.
-        time: Duration,
-    },
-    /// Safe-state application failed while handling a resource fault.
-    SafeStateFailed {
-        /// Original fault message.
-        root: String,
-        /// Safe-state failure message.
-        error: String,
-        /// Time when the safe-state failure was recorded.
-        time: Duration,
-    },
-    /// A retained value no longer has a matching retained global and was dropped.
-    RetainOrphanDropped {
-        /// Retained variable name.
-        name: SmolStr,
-        /// Time when the orphan was dropped.
-        time: Duration,
-    },
-    /// A retained value was explicitly migrated to the current declared type.
-    RetainMigrationApplied {
-        /// Retained variable name.
-        name: SmolStr,
-        /// Migration detail.
-        detail: String,
-        /// Time when the migration was applied.
-        time: Duration,
-    },
-    /// A control audit event could not be delivered to the configured audit sink.
-    AuditDropped {
-        /// Control request id associated with the dropped audit event.
-        request_id: u64,
-        /// Control request type associated with the dropped audit event.
-        request_type: SmolStr,
-        /// Send/write failure detail.
-        error: String,
-        /// Time when the audit drop was observed.
-        time: Duration,
-    },
-    /// A request reached a surface that is disabled by feature/configuration.
-    FeatureDisabled {
-        /// Disabled feature name.
-        feature: SmolStr,
-        /// Optional request type that attempted to use the feature.
-        request_type: Option<SmolStr>,
-        /// Time when the disabled feature request was observed.
-        time: Duration,
-    },
-}
+// Runtime events are shared runtime code (spec 34 ARCH-11).
+pub use trust_runtime_services::events::RuntimeEvent;
 
-/// Stop reason for debugger events.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DebugStopReason {
-    /// Paused due to a breakpoint.
-    Breakpoint,
-    /// Paused due to stepping.
-    Step,
-    /// Paused due to a user pause request.
-    Pause,
-    /// Paused due to stopOnEntry.
-    Entry,
-}
+// Stop reasons are shared run control (specification 13, "Stopped Events"): the same four reasons
+// name a stop on every runtime (trust-runtime-services `debug::run`).
+pub use trust_runtime_services::debug::StopReason as DebugStopReason;
 
 /// Notification emitted when execution stops.
 #[derive(Debug, Clone)]

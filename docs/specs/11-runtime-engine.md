@@ -1,6 +1,6 @@
 # Runtime Engine
 
-**Status:** Implemented architecture. Production runtime executes STBC bytecode through the VM only; helper evaluation remains for bounded const/debug/config flows and the old evaluator internals are test-only.
+**Status:** Implemented architecture. Every runtime runs the program compiled into a program image for its CPU (specification 44); the bytecode engine, STBC and its VM, was deleted on 24 October 2026 (specification 44 §15). Helper evaluation remains for bounded const/debug/config flows. Where this document describes the bytecode engine's internals, it records that deleted engine; where it states how a program behaves, the statement holds for compiled programs, and its references to bytecode read as references to the program image (specification 44).
 
 ### 1. Purpose
 
@@ -20,7 +20,7 @@ This document specifies the architecture for a portable Structured Text (ST) run
 
 ```
 ┌──────────────────────────────────────────────────┐
-│               ST Program (Bytecode)              │
+│            ST Program (Program Image)            │
 └──────────────────────┬───────────────────────────┘
                        ▼
 ┌──────────────────────────────────────────────────┐
@@ -163,36 +163,27 @@ boundaries while retaining common IEC semantics and supported hosted behavior.
 
 Board adapters supply time, process-image I/O, persistence, watchdog, and startup
 mechanisms. A bare-metal or RTOS-backed clock is a composition choice; it does not
-change common PLC scheduling. The first reference board is NUCLEO-F401RE; the
-provisional second target is ESP32-C6. Neither is qualified by this specification
-update. Current hosted behavior remains authoritative until the corresponding
+change common PLC scheduling. The STM32 target is the STM32U5A9 (the first reference
+board, NUCLEO-F401RE, was retired 17 October 2026 by the owner, and the STM32F407
+was deleted with the bytecode engine on 24 October 2026); the provisional
+second target is ESP32-C6. Neither is qualified by this specification update. Current hosted behavior remains authoritative until the corresponding
 planned profile is implemented and validated.
 
 ### 6. Runtime Components
 
 #### 6.1 Executor
 
-Executes compiled ST bytecode against runtime variable/instance storage and the
-I/O process image. The current hosted VM has a stack path and an optimized
-register-IR/tier-1 path; both use shared value operations, budgets, and error
-contracts. Current host ownership, allocation, and timing dependencies are not
-proof of portable or allocation-free execution.
+Runs the program compiled into a program image (specification 44). On a
+computer, trust-runtime runs the image's module with the chips' compiled cycle
+(`CompiledCycle` of trust-runtime-services) over the computer's ports, the
+process image, the drivers, the clock, the retain file and the debugger's hold
+(specification 44 §8.8, NX-14). The kernel gives the program its memory areas,
+its statement budget and its faults (specification 44 §7, §8).
 
-The planned portable engine preserves those semantics and supported optimized
-execution while separating immutable prepared metadata from mutable state.
-Allocation-free control paths are an acceptance requirement for the bounded
-profiles in specification 34, including fault/first-use paths. They are not a
-claim about every existing hosted execution path, and all PLC state is not
-required to reside inside the byte-oriented I/O image.
-
-Planned H optimized-tier migration (specification 34 HOST-04/MODEL-02) moves
-lowering and specialized compilation into candidate preparation. Their diagnostic
-attempt/result counts are preparation observations; installed plan hits, opcode
-counts and precomputed fallback reasons remain execution observations. Resetting
-telemetry does not invalidate installed executable plans. Existing hosted tuning
-controls select an explicit prepared policy, without permitting first-use or
-threshold-triggered compilation in bounded RUN. This planned diagnostic migration
-does not change IEC instruction results or assert that H is already verified.
+The bytecode executor that this section described, with its stack path, its
+register-IR and tier-1 paths and the planned H optimized-tier migration
+(specification 34 HOST-04/MODEL-02), was deleted with the bytecode engine
+(specification 44 §15).
 
 #### 6.2 Task Manager (Resource Scheduler)
 
@@ -331,8 +322,8 @@ that baseline to 35 ms and is next due at 45 ms.
 If due task execution returns an error, the tick returns that typed error and
 latches the runtime fault state. A later tick rejects as
 `RuntimeError::ResourceFaulted` until an explicit recovery transition clears or
-replaces that state. This focused contract does not assert rollback of work
-completed before the fault.
+replaces that state. This focused contract does not itself define the state
+after the fault; section 6.6 (state after a faulting scan) does.
 
 For the same source, initial runtime state, manual-clock samples, and input
 transitions, the ordered `RuntimeEvent` vector is reproducible. Event payload
@@ -381,7 +372,7 @@ pub struct IoInterface {
 
 Sizes are derived from compiled program metadata at load time. On embedded targets, static sizing may be used, but the logical model remains the same.
 
-The process image is owned by a single resource thread; no internal locking is required. Cross-resource data sharing is synchronized through the configuration-level shared globals lock (see 6.7). External I/O exchange (Modbus, etc.) reads/writes to this image at cycle boundaries.
+The process image is owned by a single resource thread; no internal locking is required. A runtime runs one resource, and cross-resource data sharing is later work (section 6.10). External I/O exchange (Modbus, etc.) reads/writes to this image at cycle boundaries.
 
 ##### Process-image bounds, reads, snapshots, and metadata application
 
@@ -391,8 +382,8 @@ write whose addressed window exceeds that limit is rejected before allocating
 or mutating the affected area. A failed metadata application is transactional:
 resource selection, task/program references, all three area lengths, and I/O
 bindings are validated before the executable state or process image changes.
-The exact-resource and single-legacy-`RESOURCE` selection rules are defined in
-section 6.7.1.
+The rule that a project's resource is the program's `RESOURCE` is in section
+6.8.1d.
 
 Reading an unallocated byte or the unallocated portion of a multi-byte value
 returns zero bytes without growing the area. An unallocated fixed-width string
@@ -481,6 +472,14 @@ Marker bindings (`%M`) are synchronized with program storage at both cycle bound
 - Start of cycle: `%M` process image -> bound variables (same phase as `%I` input latch).
 - End of cycle: bound variables -> `%M` process image (same phase as `%Q` output commit).
 
+A bound variable starts from its initialized value at a cold restart and from its
+retained value at a warm restart (IEC 61131-3 Ed.3 §6.5.1, §6.5.6.1 and Figure 9):
+after runtime construction and after every restart, before the first cycle, each
+marker binding is committed from its bound variable. The first start-of-cycle latch
+therefore reads the declared or `VAR_CONFIG` initial value instead of a zero or
+pre-restart image. A value written to the memory image after that commit, for
+example by a client before the first cycle, is latched as before.
+
 ```rust
 pub trait IoDriver: Send {
     fn read_inputs(&mut self, inputs: &mut [u8]) -> Result<(), RuntimeError>;
@@ -502,11 +501,11 @@ layout. An unresolved `%I*`, `%Q*`, or `%M*` binding must be resolved by a
 matching-area `VAR_CONFIG` entry before runtime construction and is rejected
 in disallowed declaration sections or on an area mismatch.
 
-The built-in driver registry exposes the stable canonical names `ethercat`,
-`gpio`, `loopback`, `modbus-tcp`, `mqtt`, and `simulated` in sorted unique
-order. Accepted aliases resolve to the canonical name before validation or
-construction; this includes `sim`/`noop`, `modbus_tcp`, `mqtt-tcp`, and
-`ether-cat`/`ecat`. The explicit driver name `none` selects no driver.
+The built-in driver registry exposes the stable canonical names `analog`, `can`,
+`counter`, `ethercat`, `gpio`, `loopback`, `modbus-rtu`, `modbus-tcp`, `mqtt`, `pwm`,
+and `simulated` in sorted unique order. Accepted aliases resolve to the canonical name before
+validation or construction; this includes `sim`/`noop`, `modbus_rtu`,
+`modbus_tcp`, `mqtt-tcp`, and `ether-cat`/`ecat`. The explicit driver name `none` selects no driver.
 Driver lookup trims surrounding whitespace and is ASCII-case-insensitive.
 Unknown and empty names are configuration errors. `none` is reserved and
 cannot be replaced by a registered driver.
@@ -550,8 +549,10 @@ GPIO parameters themselves follow these fail-closed rules:
 - the backend name is ASCII-case-insensitive: absent, `chardev`, and
   `libgpiod` select the character-device backend, while `sysfs` selects the
   compatibility backend; no other name is accepted;
-- every entry has a string `address` and a nonnegative `u32` physical `line`;
-  `pin` is a compatibility alias used only when `line` is absent;
+- every entry has a string `address` and a `line`: a nonnegative `u32` on a computer, while a
+  chip's `io.toml` names a pin of the chip (specification 34 TARGET-01), such as `PD12` or a GPIO
+  number, which a computer refuses when the driver starts because on this computer a line is a
+  number; `pin` is a compatibility alias used only when `line` is absent;
 - `invert` and output `initial` default to false and accept booleans, integer
   zero/nonzero, or strings `true`/`false`/`1`/`0`;
 - input `debounce_ms` defaults to zero and accepts a nonnegative integer or
@@ -581,6 +582,119 @@ being interpreted as energized. Synthetic filesystem tests prove parsing and
 sysfs file semantics only. They do not prove pin ownership, voltage, wiring,
 kernel driver operation, or device-in-the-loop behavior; those claims require
 the separately reviewed real-hardware case and artifact.
+
+##### Analog, PWM, counter and CAN drivers
+
+The drivers `analog`, `pwm`, `counter` and `can` give a project the other I/O
+of a chip with the same keys and meaning on every runtime (specification 34
+TARGET-01; the owner's decision of 16 October 2026 that chips work exactly as
+trust-runtime). A `line` names the runtime's own hardware: on a chip a pin or
+a peripheral that its chip file lists (`GPIO2`, `TWAI0`); on Linux a kernel
+device and channel, as below. A runtime without such hardware, macOS and
+Windows among them, refuses the driver when it starts, with the driver's name
+and the reason (specification 34 ARCH-13). Their parameters are checked
+fail-closed, with the key and the reason: the root is a table, an absent list is
+empty, an unknown key is refused, every address is concrete, flat and of the area
+and size the driver names, a line is used once across the driver's entries, and
+the entries of one list use bytes of their own, so no entry's bytes overlap
+another's (`%IW0` takes bytes 0 and 1, so `%IW1` beside it is refused, and `%IW2`
+is not). Numbers are JSON integers and words are exact, except `on_error`, which
+reads as the Modbus driver's does. Each input is read once at the start of each
+cycle, and each output is written after the tasks ran, as for every driver; an
+output whose value did not change since its last good write is not written
+again. A stop or a fault writes the `[[io.safe_state]]` values as for every
+driver (§6.6), and a chip's terminal fault path, which resets the chip, drives
+each output to its safe value and otherwise to 0 (specification 34 TARGET-08).
+
+`analog`:
+
+- `inputs = [{ address, line }]`: `address` is a `%IW` word, and the input is
+  the voltage at the line in millivolts as an `INT`. A chip converts with its
+  own calibration at the attenuation that measures its whole range
+  (specification 34 Appendix D names each chip's range). On Linux the line is an
+  IIO input channel, `iio:device0/in_voltage1`, and the value is
+  `(raw + offset) × scale` from the channel's `_raw`, `_offset` and `_scale`
+  files, or the device's shared `in_voltage_offset` and `in_voltage_scale`
+  (`_scale` in millivolts per count; an offset absent from both is 0), read once
+  when the driver starts and rounded to the nearest millivolt. A differential
+  channel (`in_voltage0-voltage1`) is refused.
+- `outputs = [{ address, line, initial }]`: `address` is a `%QW` word, the
+  millivolts the line is driven to as an `INT`, from `initial` (default 0)
+  until the program writes it. On Linux the line is an IIO output channel,
+  `iio:device0/out_voltage0`, written as `round(mV / scale) − offset`. A chip
+  without a digital-to-analog converter refuses an output, with the reason.
+- A value outside what the hardware converts is limited to its range; on Linux
+  the range of an output is its channel's `_raw_available`, and without that
+  file a code the converter refuses faults the driver.
+
+`pwm`:
+
+- `outputs = [{ address, line, frequency_hz, initial }]`: `address` is a `%QW`
+  word, the duty cycle in hundredths of a percent as a `UINT` from 0 to 10,000,
+  where a larger value drives 100 %; `frequency_hz` is required, an integer from
+  1 to 1,000,000; `initial` is the duty cycle before the program writes it,
+  default 0. The driver makes the frequency with the finest duty resolution the
+  hardware has at it and refuses a frequency the hardware cannot make, with both
+  numbers. On a chip, outputs of one frequency share a timer, and specification
+  34 Appendix D names how many timers and outputs each chip has. On Linux the line is a sysfs PWM
+  channel, `pwmchip0/pwm1`, which the driver exports and sets through `period`
+  (1,000,000,000 / `frequency_hz` nanoseconds, rounded down), `duty_cycle` and
+  `enable`.
+
+`counter`:
+
+- `inputs = [{ address, line, mode, edge, line_b }]`, with `mode` `pulse` (the
+  default) or `quadrature`.
+- `pulse`: `address` is a `%ID` double word, the number of `edge`s at `line`
+  (`rising`, the default, `falling` or `both`) since the driver started, as a
+  `UDINT` that wraps from 4,294,967,295 to 0. `line_b` is refused.
+- `quadrature`: `line` and `line_b` are an encoder's A and B; the count rises by
+  one at each edge of either line while A leads B and falls by one while B leads
+  A (four counts per cycle of A), as a `DINT` that wraps. `edge` is refused. A
+  chip counts B on a pin of its own and requires `line_b`.
+- A chip counts in hardware with a 16-bit counter and adds the change since its
+  last read at each cycle start, so at most 32,767 counts may arrive between two
+  cycles; specification 34 Appendix D names how many counters each chip has. On Linux the line is a
+  counter device's count, `counter0/count0`, whose `function` the driver sets to
+  `increase` (with the synapse action of `edge`) or `quadrature x4` and whose
+  `count` it reads as the change since its last read, across the wrap at its
+  `ceiling`, for an encoder the shorter way round; `line_b` is refused there, as
+  the device's own signals are the encoder's lines.
+
+`can` (CAN 2.0, ISO 11898-1):
+
+- `line` is the CAN controller: on a chip one of its chip file's controllers,
+  such as `TWAI0`, with `tx` and `rx` naming the pins that go to the
+  transceiver; on Linux a SocketCAN interface such as `can0`, where `tx` and
+  `rx` are refused.
+- `bitrate` is required: 10,000, 20,000, 50,000, 100,000, 125,000, 250,000,
+  500,000, 800,000 or 1,000,000 bit/s, the rates of CiA 301. A chip refuses a
+  rate its clock cannot make. On Linux the interface's rate belongs to the
+  operating system (`ip link`): the driver reads it, refuses another rate with
+  both numbers, and refuses an interface that is down; an interface that has no
+  rate, such as `vcan`, is taken.
+- `receive = [{ id, extended, address, length, timeout_ms }]`: each data frame
+  with `id` (11 bits, or 29 bits with `extended = true`) writes its data bytes to
+  the `length` bytes (0 to 8) of the input image from `address`, a `%IB` byte,
+  and zeros where its data length code does not reach; the newest frame before a
+  cycle start is the one read. With `timeout_ms` (1 to 60,000), no such frame
+  for that long is the error `no frame <id> for <timeout_ms> ms` under
+  `on_error`, as for Modbus: `fault` faults the driver's health and the
+  resource, `warn` and `ignore` degrade the health; the next frame ends it. A
+  receive's error concerns the input path only, so it never leaves a safe-state
+  handoff unconfirmed.
+- `transmit = [{ id, extended, address, length, period_ms }]`: every
+  `period_ms` (1 to 60,000) the driver sends a data frame with `id` and the
+  `length` bytes of the output image from `address`, a `%QB` byte; the safe
+  state's values are sent the same way.
+- `on_error` is `fault` (the default), `warn` or `ignore`, as for Modbus.
+- A controller that goes bus-off makes the driver's health faulted with `bus
+  off` and rejoins after the bus recovery of ISO 11898-1, without a restart. On
+  Linux the interface rejoins by itself only with its `restart-ms` set (`ip link
+  set can0 type can restart-ms 100`); with 0 it stays bus-off, as the driver
+  reports, until the interface is restarted.
+- Two receives, or two transmits, with one `id` and `extended` are refused; a
+  receive and a transmit may share one.
 
 Process-image drivers must keep scan-cycle methods bounded. Drivers with
 blocking wire protocols may own background workers, but the `IoDriver` boundary
@@ -732,7 +846,6 @@ following fail-closed product contract:
 | OPC UA client points | A configured `Float`/`REAL` or `Double`/`LREAL` sample is non-finite | Mark the point faulted and retain the previous PLC value, as specified below. |
 | ADS client/server points | A scalar or array `REAL`/`LREAL` value is non-finite | Reject before cache acceptance, write queuing, or PLC storage mutation, as specified below. |
 | Runtime mesh subscription | Numeric conversion to the configured `REAL`/`LREAL` target is non-finite | Reject before queuing or applying the local update; retain the previous PLC value. |
-| `hmi.write` | Text or numeric input for a declared `REAL`/`LREAL` target is non-finite or overflows the declared width | Return a failed response with `error_code = "runtime_non_finite_value"` before queuing the write or changing PLC storage. |
 | Managed local debug write/force | Input for a declared `REAL`/`LREAL` address is non-finite or overflows the declared width | Return a failed DAP response and preserve both value and force state, as specified in 6.9.1. |
 | Checked embedding engineering writes (`write_global`, `write_instance`, `write_reference`, `write_access`) | A declared `REAL`/`LREAL` value, recursively through arrays/structures, is non-finite | Return `runtime_non_finite_value` before destination or process-image mutation; preserve the installed state. Internal IEC assignments remain governed by their arithmetic contract. |
 | File-backed retain save/load | A scalar, array element, or structure field is non-finite | Reject the complete save or load transaction, as specified in 6.7. |
@@ -755,6 +868,13 @@ in-process IEC arithmetic, `IS_VALID`, subnormal, or signed-zero semantics.
 **Built-in drivers**
 
 1. **Modbus/TCP**
+- `params` keys: `address` (required: an IPv4 `a.b.c.d:port` or an IPv6
+  `[addr]:port` literal, port 1 to 65535; a chip whose network is IPv4 refuses
+  an IPv6 server), `unit_id` (default 1), `input_start` and `output_start`
+  (default 0), `timeout_ms` (default 500, at least 1), `on_error`,
+  `input_function`, `output_function`, `input_points` and `output_points`. An
+  unknown key is refused, as for every driver of §6.5, with the key and the
+  reason (`modbus-tcp: <key>: <reason>`).
 - Default profile uses **input registers** (FC04) for input image.
 - Default profile uses **multiple holding-register writes** (FC16) for output image.
 - Explicit `io.toml` options can select `read_coils` (FC01),
@@ -772,6 +892,25 @@ in-process IEC arithmetic, `IS_VALID`, subnormal, or signed-zero semantics.
   little-endian bytes after scaling so `%IW`/`%ID` bindings read the same value
   that the map produced.
 - Register quantity is derived from the process image size (`ceil(bytes / 2)`).
+- The protocol is one implementation on every runtime, the `trust-modbus` crate
+  (Modbus Application Protocol V1.1b3, Modbus Messaging on TCP/IP V1.0b and
+  Modbus over Serial Line V1.02; checklist S7 and S9). A request keeps the
+  specification's quantity limits: 2,000 bits for FC01 and FC02, 125 registers
+  for FC03 and FC04, 1,968 bits for FC15 and 123 registers for FC16. A process
+  image larger than one request is exchanged in several requests of at most
+  that many, in address order, within the one exchange of a cycle, as a
+  professional client does; a range that reaches past address 65,535 is refused
+  at configuration.
+- Every response is checked before its data is taken: the function is the
+  request's; the byte count is the one the requested quantity makes; a write
+  echoes its address and its value or quantity. A Modbus TCP response has
+  protocol 0, a length from 2 to 254 that its bytes match, and the request's
+  transaction id; a response with another transaction id is discarded and the
+  client reads on until its own or its timeout (V1.0b §4.4.1.3). The unit id of
+  a TCP response is not compared, as V1.0b lets a client ignore it for a server
+  directly on TCP/IP. An exception response is the typed exception error with
+  its code and the specification's name for it. A response that fails a check is
+  a transport error under `on_error`, and no byte of it reaches the image.
 - Runtime exchange is worker-backed: scan-cycle reads/writes use bounded
   snapshot/handoff state while Modbus TCP connect/read/write round trips happen
   on the Modbus worker.
@@ -899,7 +1038,10 @@ product contracts into IEC language decisions or deviations.
   because continuing would reinterpret channel layout. Warn and ignore may
   keep the resource running only when the image shape remains valid, and must
   preserve the failure detail in degraded health.
-- Non-mock adapters are backed by EtherCrab hardware transport on unix targets.
+- Non-mock adapters are backed by EtherCrab hardware transport on unix targets
+  and, with EtherCrab's `no_std` build, on chips with an Ethernet controller
+  (specification 34, ARCH-11; owner, 16 October 2026). EtherCAT takes the
+  Ethernet port it uses; such a board reaches the tools over its other links.
 - Deterministic `adapter = "mock"` mode is available for CI/offline validation.
 - Explicit v1 non-goals: no functional safety/SIL claims and no advanced motion
   profile support.
@@ -1142,8 +1284,10 @@ rules above earn stronger evidence. A CIDR scan broader than `/24` is rejected
 before enumeration. EtherCAT discovery is available only from the runtime host;
 another origin receives an empty candidate set and an explicit runtime-origin
 warning. Runtime-origin mock discovery may project the configured/discovered
-module chain, but it remains mock evidence. OPC UA generic discovery currently
-returns an explicit server-setup warning and no candidates. A registered
+module chain, but it remains mock evidence. Generic OPC UA discovery returns
+the servers that the local discovery servers (FindServers), mDNS
+`_opcua-tcp._tcp.local.` and GetEndpoints find, and lists every endpoint each
+server announces, including the endpoints truST cannot use. A registered
 protocol whose discovery is deferred returns an empty candidate set and a
 stable unavailable warning; an unknown protocol is a request error.
 
@@ -1154,6 +1298,35 @@ limits cannot silently disappear. A requested non-passive scan still performs
 connect/read-only operations and returns the stable warning that active write
 probes are unsupported. Timeout defaults to 150 ms and is clamped to the
 closed 1 through 2,000 ms range; malformed timeout types are request errors.
+For truST runtime discovery (`discovery`), the timeout is the mDNS browse
+window instead: it defaults to 2,000 ms and is clamped to the same range. The
+browse collects every resolved service until the window ends. An interval in
+which nothing arrives does not end it, because a responder may delay a shared
+answer by 20 to 120 ms (RFC 6762 §6) and the querier repeats its first query
+after one second (RFC 6762 §5.2); only the mDNS service stopping the browse
+ends it before the window does.
+
+ADS discovery takes an ordered list of ADS ports in `scope.ads_ports` for
+`comm.discover` and in the `ads_ports` member of a search request. Without it
+the ports are 301, 501, 851, 852, 853, and 854; duplicates are merged and the
+list is sorted in ascending order. A port that is not an integer from 1 through
+65,535 is a request error that names the value; the list never drops a value
+silently. Every ADS find is probed on those ports with the symbol browse that
+`comm.browse_symbols` runs, and the ports of one device are probed one after
+the other, because they share the device's route; different devices are probed
+at the same time. A port answers when its symbol tree is not empty, when its
+route status is `ok`, or when its error code is `symbol_upload_unsupported` or
+`empty_symbol_table`; any other error, or no answer, does not answer. An ADS
+result carries the answering ports in ascending order as `responding_ads_ports`
+and their browse results as `ads_port_browse_results`, each entry naming
+`port`, `tree`, `routeMissing`, and, when present, `routePlan` and `error`. Its
+`ams_port` is its own port when that port answered, otherwise the first
+answering port, otherwise its own port, otherwise 851. A find without an
+answering port is kept with a warning that no ADS port answered, instead of
+being hidden. Probing starts no new port once the search deadline has passed.
+An identified ADS target keeps its OS version and its fingerprint and the port
+that answered, not always 851. The ADS identify round is bounded by the
+requested timeout, and in a search by the search deadline.
 
 Protocol aliases are deterministic: Modbus hyphen/underscore forms select
 `modbus_tcp`; OPC UA server and client aliases remain distinct; MQTT broker
@@ -1205,9 +1378,21 @@ the owning source:
 - A live ADS upload failure classified as a missing return route returns a
   structured `route_missing` error plus the credential-free route plan. It
   must not fabricate a symbol tree or successful import.
+- Any other live ADS browse failure of a valid target answers an empty tree
+  with the classified protocol error (`ads_port_unavailable`,
+  `symbol_upload_unsupported`, `empty_symbol_table` or
+  `symbol_upload_failed`), never a request error. This includes a failure
+  before the device's port answers, when this computer's ADS identity toward
+  the target cannot be derived, and a build without the `ads-wire` feature,
+  whose browse failed upload is `symbol_upload_failed`. A request whose target
+  does not decode stays a request error.
 - OPC UA leaf browsing retains the raw node ID and maps a supported scalar data
   type into the exact apply-facing type name. Browse failure retains the
   classified protocol error instead of returning an empty successful tree.
+- OPC UA browsing follows every `BrowseNext` continuation point until the server
+  has no more references for a node, within the configured depth and node bounds.
+  A depth or node bound that limits the tree adds a warning naming that bound;
+  the tree is never silently truncated.
 
 `comm.browse_symbols` schema version 1 requires a non-empty string protocol.
 Kind defaults to `symbols`; protocol and kind are trimmed, ASCII-case folded,
@@ -1265,6 +1450,658 @@ wire response remains an external oracle. A structural response-shape
 assertion may map to this contract, but an unresolved file or wire observation
 cannot be promoted to proof merely because surrounding assertions are static.
 
+##### One search, device identity, and presence
+
+The owner asked on 16 October 2026 that truST find everything it can talk to,
+and find it better: "we need to support everything and make it better if its
+possible". These rules extend `comm.discover`; each protocol's rules above
+still apply to its part of a search. Searching is runtime logic, written in
+Rust; VS Code and other tools only start a search and show its results.
+
+**Search.** `comm.search.start` begins one search that runs every requested
+source at the same time and returns a search ID. `comm.search.status` returns
+each source's progress and every result found so far, so that a tool shows
+results while the search runs; `comm.search.cancel` ends the search. A search
+ends when every source has finished or when its deadline passes: 10 seconds by
+default, at most 60 seconds. A source still running at the deadline reports
+`timed_out` together with the results it already had. A search runs on the
+tool's own computer (`origin = this_host`) or inside a runtime
+(`origin = runtime`), which reaches the networks and buses of that runtime's
+computer. The command line runs the same search as `trust-runtime discover`,
+printing results as they are found (`--json` prints one JSON object per line),
+and `--only <source>,…` limits it to named sources. With `--project <dir>` the
+command reads `<dir>/.trust-runtime/devices.toml`, the choices that the Discover
+pane remembers (specification 25 §2): without `--only` it runs the sources named in
+the remembered `protocols`, or every source when the file remembers none, and it
+leaves out the devices that the project ignores (`ignored`) unless
+`--show-ignored` is given. A remembered name that is not one of the ten sources is
+left out, because the command line runs no protocol that a runtime advertises; when
+no remembered name is left, the command refuses the search and asks for `--only`.
+
+A listening source (mDNS, Bluetooth, an ADS broadcast) listens until the search
+ends, at its deadline or on cancel, and reports each result as it arrives. The
+150 ms window above applies only to a single `comm.discover` request.
+`comm.search.status`, `comm.search.cancel`, and a `comm.search.start` without a
+confirmed fieldbus scan need the Viewer role; a `comm.search.start` with
+`confirm_fieldbus_scan = true` needs Engineer (§6.9.5).
+
+**Requests.** `comm.search.start` takes an object whose members are all
+optional; an unknown member, at any level, is a request error, as for
+`comm.discover`:
+
+- `origin`: where the search runs. A search started over a runtime's control
+  connection runs inside that runtime, so its origin is `runtime`; another value
+  is a request error. A tool that runs the search itself uses `this_host`.
+- `only`: the IDs of the sources to run (the table below). Without it every
+  source runs. An empty list or an unknown ID is a request error.
+- `targets`: `hosts`, a list of at most 256 known addresses, each a host name or
+  IP address with an optional port and nothing else; and `cidr`, one IPv4
+  subnet of at most `/24`, read by the CIDR rules of `comm.discover`.
+- `deadline_ms`: from 1 to 60,000, and 10,000 when absent; another value is a
+  request error.
+- `confirm_fieldbus_scan`: `true` runs the fieldbus sources; absent or `false`
+  skips them.
+- `fieldbus`: the buses to scan, each `{"bus": "ethercat"}` with an optional
+  `"adapter": "<name>"`. A bus named without an adapter, and a confirmed scan
+  without entries, use the adapter of the project's EtherCAT driver, as
+  `comm.discover` does.
+- `modbus`: `unit_ids`, the Modbus TCP unit IDs to probe, each from 1 to 247
+  and without repeats; without it, unit ID 1. A unit ID outside 1–247 is a
+  request error.
+
+It answers `{"search_id": "s-<n>"}`. `comm.search.status` takes `search_id` and
+an optional `since` cursor. It answers schema version 1 with `search_id`,
+`origin`, `state` (`running`, `done` or `cancelled`), `deadline_ms`,
+`elapsed_ms`, `cursor`, `sources`, `devices`, and `warnings`. Each source
+reports its `id` and `state`: `searching`, `found`, `timed_out`, `cancelled` or
+`skipped`. A source that ran also reports `count`, the results it has, and the
+`warnings` of what it could not search; a skipped source reports `reason`
+instead. A device reports its `id`, `addresses`, `ams_net_ids`, `usb_serials`,
+`runtime_ids`, `last_seen_ms`, and `finds`; each find reports its `protocol`
+(a source ID), `source`, `confidence`, `simulated`, `identity` (its `kind` names
+the protocol), the `params` that `comm.discover` reports for a connection to it,
+its `warnings`, and `last_seen_ms`. Empty `ams_net_ids`, `usb_serials` and
+`runtime_ids` lists, and empty source and find `warnings`, are left out.
+Without `since` every device is listed. With
+`since` only the devices that changed after that cursor are listed, and
+`merged` lists `{"id", "into"}` for each device that joined another after it, so
+a tool that polls with the last `cursor` keeps a complete list.
+`comm.search.cancel` takes `search_id` and answers `{"search_id", "state"}`:
+`cancelled`, or `done` when the search had already ended. A runtime keeps its
+last eight searches, each for five minutes after it ends. A ninth search
+replaces the oldest search that has ended; while eight searches are still
+running, `comm.search.start` answers the error code `search_busy`. A search ID
+that the runtime does not keep answers `search_not_found`.
+
+**Sources.** A search uses every source that its origin can run:
+
+| Source (ID) | Finds | How |
+|---|---|---|
+| truST runtimes (`trust_runtime`) | Runtimes on the local network and in the mesh | mDNS `_trust._plc._tcp.local.` (§6.12), queries to mesh peers, runtime cloud presence |
+| ADS (`ads`) | TwinCAT and ADS devices, their responding ADS ports, and their routes | UDP identify, unicast and broadcast; a probe of the configured ADS ports; the target's route list |
+| Modbus TCP (`modbus_tcp`) | Modbus servers and their unit IDs | A directed host or a subnet of at most `/24`, probed in parallel; FC43/14 identification; unit ID 1, or a requested range within 1–247 |
+| MQTT (`mqtt`) | Brokers | mDNS `_mqtt._tcp.local.` and directed hosts; a TLS handshake on port 8883 |
+| OPC UA (`opcua`) | Servers and their endpoints | Local discovery servers (FindServers), mDNS `_opcua-tcp._tcp.local.`, and GetEndpoints for every server found |
+| EtherCAT (`ethercat`) | SubDevices on a bus adapter of the runtime's computer | A bus scan that reads each SubDevice's identity in PRE-OP with the process data mapped, without bringing the bus to SAFE-OP or OP; without a named adapter it scans the computer's up, non-loopback network adapters |
+| GPIO (`gpio`) | Chips and lines of the runtime's computer | The Linux GPIO character device |
+| Serial (`serial`) | Serial ports, and on request Modbus RTU devices on one port | Port listing; a Modbus RTU scan over requested unit IDs, baud rates, and parity |
+| USB (`usb`) | Supported chips with or without truST, debug probes, and USB-serial adapters | The USB device list; nothing is written or reset |
+| Bluetooth (`bluetooth`) | Bluetooth LE devices, where the origin computer has Bluetooth | A passive advertisement scan |
+
+EtherCAT and GPIO run only at origin `runtime`; USB and serial run at either
+origin and list the devices of the computer where the search runs. A source
+that does not run reports `skipped` with its reason in words, for example that
+its origin cannot
+run it, that its fieldbus scan was not confirmed, that the search names nothing
+it can probe, or that this build of truST does not include it. At origin
+`runtime` the truST runtimes source reads the runtime's own mDNS discovery
+(§6.12), so it is skipped while `[runtime.discovery] enabled = false`.
+
+A protocol that a runtime advertises beyond the ten sources (its `comm.schema`
+lists `discover` for it) is not a source of `comm.search.start`, which names only
+the sources of the table above and refuses any other name. The panel that shows the
+search runs such a protocol through that runtime's `comm.discover` for it, once for
+each target, and merges its finds into the same search by the rule of
+"Devices" below (specification 25 §2). A runtime's own search never runs it.
+
+Inside a runtime, the truST runtimes source also queries the mesh peers (O31:
+the search may scout for mesh peers). The peers are those that the runtime's
+mesh session has seen join; the search starts no scouting of its own. Each peer
+is asked for its identity with a read-only query of its identity queryable, each
+second until the search ends and each within the search's deadline. The answer
+gives the runtime's runtime ID (the one its announcement and `status` give) as
+`stable_runtime_id`, beside the mesh name that keys its identity queryable. An
+answer without it is named by its mesh name. A runtime that sends its name,
+version and platform gives them as optional fields; a runtime that sends none is
+named by its mesh name alone. Each answer is a truST runtime find from the source
+`mesh`, merged by runtime ID with its mDNS find. A mesh find has no control
+endpoint and no network address, so it carries the warning "Runtime found
+through the mesh without a control endpoint; adopt may require manual endpoint
+entry." A peer that does not answer by the deadline is left out, with no error.
+An answer that is not the identity of the peer that was asked is left out, with
+a warning that names the peer. On the tool's own computer there is no mesh
+session, so this part does not run.
+
+Runtime cloud presence. Inside a runtime, the truST runtimes source reports each
+discovered runtime with the runtime cloud's presence, by the rule of the runtime
+cloud state (the presence projection in `runtime_cloud/projection.rs`). A
+runtime has a mesh endpoint when its announcement gives a mesh port and an
+address, and a web endpoint when it gives a web port and an address. It is
+stale when it has no mesh endpoint, or when it was last seen 30 seconds or more
+ago. It is partitioned when it has no mesh endpoint and was last seen 120
+seconds or more ago. When its announcement is at least 30 seconds old, or dated
+after now, and it has a web endpoint, the web endpoint is connected to: a
+connection accepted within 200 milliseconds means the runtime was seen now. The
+find's `last_seen` is that observation time. A stale runtime carries the warning
+`stale`, and a partitioned runtime carries the warnings `stale` and
+`partitioned`. Presence is read at most once a second for each runtime. The
+tool's own computer has no runtime cloud, so its finds carry no presence.
+
+The route list of an ADS target is read by the ADS source of a search (O20). The
+method is the one that the `ads` crate's `adstool route list` runs (`ads` 0.4.4,
+`examples/adstool.rs` lines 378–404; the Beckhoff sources checked on 18 October
+2026 documented no route read). The search connects to the target's system
+service on AMS port 10000 and reads index group 803 (0x323, `ROUTE_LIST`) at
+index offsets 0, 1, 2 and so on, until ADS error 0x716 ends the list. Each entry
+starts with a 44-byte header. Bytes 0–5 are the AMS Net ID. Bytes 8–11 are the
+flags, a little-endian u32 whose bits are 0x01 temporary, 0x80 unidirectional,
+and 0x100 virtual or NAT. Bytes 32–35 are the host length and bytes 36–39 the
+name length, each counting its NUL. The host text starts at byte 44 and ends
+with its NUL; the name text follows it and ends with its NUL. Both texts are
+Windows-1252, the Windows ANSI code page, so each byte of a text is one
+character; a byte that is not valid UTF-8, such as 0xFC for `ü`, is not damage.
+The timeout and the largest fragment (bytes 12–19) are not reported. An entry is
+damaged only when it is shorter than 44 bytes, a length is 0, the two texts need
+more bytes than the entry holds, or a text lacks its NUL at its end or holds one
+before it. The search reports a damaged entry with its index and reads on.
+
+The find of a target carries `route_list` in its params. With status `ok`, it
+gives `routes` (each with `name`, `ams_net_id`, `host`, `temporary`,
+`unidirectional` and `virtual_nat`) and `damaged` (each with `index` and
+`reason`). With status `unavailable`, it gives `reason` and, when the target
+answered with an error, that `error`. A list that ends with 0x716 at its first
+entry is empty and has status `ok`. A read refused with an ADS error, and a read
+that fails after some entries, make the list `unavailable`. So does a search
+deadline that passes before the list ends. The search opens no connection and
+starts no read after its deadline, and it never reports a partial or an empty
+list in these cases.
+
+The read needs a route from the target to this runtime. When the target gives no
+answer to the first read, the list is `unavailable` with a reason that says there
+is no route from the target to this runtime. The search adds no route: its
+Safety rule says that a search only reads and never changes a device's state.
+`comm.discover` reads no route lists. The read is unproven (O20): it stays
+unproven until a real TwinCAT computer confirms it.
+
+A known address is probed at each protocol's own port. An explicit port is used
+by Modbus TCP, MQTT and OPC UA; ADS identifies the host alone. Without a known
+address or subnet, Modbus TCP probes the `/24` of each private IPv4 address
+(RFC 1918) of the origin computer's network interfaces that
+`discovery.interfaces` allows, or of every interface when that list is empty or
+the search runs on the tool's computer. `comm.discover` keeps its rule of the
+first such interface.
+
+MQTT brokers and OPC UA servers are also found through what they announce. A
+search browses `_mqtt._tcp.local.` and `_opcua-tcp._tcp.local.` until it ends,
+and reports an announced service only when the protocol's own probe answers it:
+an MQTT broker at its announced address and port, and an OPC UA server asked
+with GetEndpoints at `opc.tcp://<address>:<port><path>`, where `<path>` is the
+service's `path` TXT entry and `/` when it names none. Such a find's `source` is
+`mdns`; a service that does not answer is a warning that names it, not a device.
+
+An OPC UA search also asks a local discovery server for `FindServers`: this
+computer's own at `opc.tcp://localhost:4840`, and that of each known address at
+port 4840 unless the address names one, and then asks every discovery URL of
+every server that answers with GetEndpoints. Such a find's `source` is `lds`. A
+discovery server that does not answer is passed over in silence for this
+computer's own and is a warning for a known address.
+
+**GPIO.** The GPIO source lists the lines of every GPIO chip of the runtime's
+computer through the Linux GPIO character devices (`/dev/gpiochip*`). Each line
+is reported by its chip, the chip's label, its offset within that chip, its
+name, its consumer, whether it is in use, and its direction. On a kernel
+without GPIO character devices it falls back to the sysfs interface
+(`/sys/bus/gpio/devices`, then `/sys/class/gpio`), which reports the chip, the
+chip's label, the line and its direction where the kernel gives them, and every
+line from that fallback carries a warning that says so.
+
+**USB and serial.** The USB source lists the USB devices from the descriptors
+that the operating system already holds: sysfs on Linux, IOKit on macOS, and on
+Windows the device manager and the hub's cached connection information. It
+never opens, claims, resets or writes a device, and it reads only the strings
+that the operating system keeps, never one that it would have to ask the device
+for (owner, 15 October 2026; specification 34 TARGET-04). It reports the
+devices that it recognizes by their vendor and product ID, and every other
+device that has a serial port; a phone, a keyboard or a storage device without
+one is not reported:
+
+- a supported chip's boot loader, named as such: `0483:DF11` is the
+  `STM32 boot loader (DFU)`, which every STM32 with a USB DFU boot loader
+  shows. The chip has no truST yet;
+- a supported chip's USB controller, named as such: `303A:1001` is the
+  `Espressif USB-Serial/JTAG` controller of the ESP32-C6. It shows the same
+  descriptors with or without truST, in its ROM download mode, and on other
+  Espressif chips, so its result says that neither the chip nor truST is
+  confirmed; connecting confirms them;
+- a debug probe: the ST-LINK/V2, ST-LINK/V2-1 and STLINK-V3;
+- a USB-serial adapter: FTDI, Silicon Labs CP210x, WCH CH34x and Prolific
+  PL2303;
+- a truST runtime: truST's own ID `1209:7472` (requested from pid.codes), and
+  during development the pid.codes test ID `1209:0001` when its maker is
+  `truST` or its product `truST runtime`. Its version is the major and minor
+  version that its `bcdDevice` carries, and its control endpoint is `usb://`
+  followed by its serial number;
+- any other device that has a serial port, as a USB-serial device.
+
+A result names no chip for a boot loader or a USB controller. The supported
+chips that show its IDs are those whose chip files name the IDs as their
+`usb_bootloader` (specification 34, Appendix H.2); several chip files may name
+one ID, and the tools list them all from the chip files. The chip is confirmed
+when connecting and before any installation.
+
+The serial ports behind a USB device are the ports whose USB device has its
+vendor ID, product ID and serial number; for a device without a serial number,
+the ports with its vendor and product ID, when no other listed device without a
+serial number has the same pair. The serial source lists every serial port that
+the operating system reports, with the USB device behind it when there is one,
+and never opens a port. A port whose UART the operating system reports as
+absent (type 0 on Linux) is left out. Where the operating system offers no
+port listing, as on a Linux computer without `/sys/class/tty`, the serial
+source is skipped with that reason. Both sources list once and finish. A
+serial port's `params` are `{"port": "<name>"}`, and those of a USB device that
+runs or may run truST are `{"control_endpoint": "usb://<serial number>"}`.
+
+**Safety.** A search only reads. It never writes a device value, never changes
+a device's state, and never resets a board. EtherCAT identification maps the
+process data in PRE-OP and never brings the bus to SAFE-OP or OP, so no output
+changes, and it refuses an adapter that a running EtherCAT driver of the
+runtime owns: nothing on that adapter is scanned, and the driver's own live view
+of that bus is reported instead. That refusal is complete: when the adapter of a
+running EtherCAT driver cannot be determined, no EtherCAT adapter is scanned and
+a warning says why. A
+Modbus RTU scan refuses a serial port that a configured driver owns. A fieldbus
+scan (EtherCAT, Modbus RTU) runs only when the request sets
+`confirm_fieldbus_scan = true`; tools ask the user first.
+
+**Devices.** Results that belong to the same device are reported as one device
+listing every protocol found on it. Results belong to the same device when they
+share a network address, an AMS Net ID, a USB serial number, or a truST runtime
+ID. A result with none of these forms its own device: an EtherCAT SubDevice by
+its adapter and position, the lines of one GPIO chip together by their chip, a
+serial port by its name, and a USB device without a serial number or a serial
+port by its bus and port. A USB device and the serial ports behind it are one
+device. When a result links two devices, they become one, and the device found
+first keeps its ID. Each device carries its addresses, every protocol result
+with its source and confidence, its identity, and its `last_seen` time.
+
+**Identity.** Each protocol reports the identity it can read:
+
+- truST runtime: name, ID, version, platform (operating system and
+  architecture, or the chip), whether control needs a token, and its control
+  and web addresses;
+- Modbus: vendor name, product code, and revision from the FC43/14 basic
+  objects, when the device answers them;
+- ADS: computer name, AMS Net ID, TwinCAT version, operating system version,
+  and responding ADS ports;
+- OPC UA: application name and URI, product URI, every endpoint with its
+  security policy and mode, including endpoints truST cannot use (marked
+  unsupported), and the SHA-256 fingerprint of the server certificate;
+- EtherCAT: for each SubDevice its position, alias address, vendor ID, product
+  code, revision, and serial number, its name, and the bus's mapped input and
+  output byte counts, and the device of the project's ESI files that matches it,
+  when one does;
+- MQTT: the protocol version accepted, and whether login and TLS are needed;
+- GPIO: chip name and label, the line offset within its chip, the line name,
+  its consumer, whether the line is in use, and its direction;
+- USB: vendor and product ID, maker, product name, serial number, what the
+  device is (a supported chip's boot loader or USB controller, a debug probe, a
+  USB-serial adapter or device, or a truST runtime) and its name, such as
+  `STM32 boot loader (DFU)`, the serial ports behind it, a truST runtime's
+  version, and the control endpoint of a device that runs or may run truST.
+  It names no chip: the chip files say which supported chips show the IDs of a
+  boot loader or a USB controller;
+- serial: the port name, whether it is a USB, PCI, Bluetooth or other port,
+  and, when there is one, the USB device behind it with its vendor and product
+  ID, maker, product name, and serial number;
+- Bluetooth: name, address, and signal strength.
+
+**Confidence.** Every result uses the closed confidence vocabulary of this
+section. A valid protocol exchange is `confirmed`: an ADS identify reply, an
+OPC UA GetEndpoints answer, an EtherCAT identity read, an mDNS answer from a
+truST runtime, or a USB descriptor. A GPIO line or a serial port that the
+operating system lists is `confirmed` too. No other value, such as `observed`, is reported. A simulated
+(mock) result carries `simulated = true` and is never presented as hardware.
+
+**Compare with the project.** `comm.compare` compares a search with the devices
+that the project's configuration names. It lists each configured device that the
+search did not find (`missing`), each found device that the project does not use
+(`unused`), and each found device whose identity differs from the configuration
+(`differs`), for example an EtherCAT SubDevice in another position or a Modbus
+device with another product code. The command line runs it as `trust-runtime
+discover --compare --project <dir>`, and the Discover pane marks each device
+card with the same comparison and, on request, lists it (specification 25 §2). The comparison is a
+function of the search's devices and the project's devices alone: it reads no
+file and opens no connection, and the same inputs give the same lists in the
+same order.
+
+- **Request.** `comm.compare` takes `{"search_id": "s-3"}`, or `{}` for the most
+  recent search that the runtime keeps; another member is a request error. It
+  needs the Viewer role (§6.9.5), because it only reads a search that Viewer may
+  read and the files of the runtime's own project. It answers an error, and
+  changes nothing, with the code:
+  - `search_not_found` for a search ID that the runtime does not keep, and for
+    `{}` when it keeps none;
+  - `search_not_finished` for a search that is still running or was cancelled: a
+    search that stopped before every source finished has not looked everywhere,
+    so a device that it did not find is not a device that is missing;
+  - `compare_no_project` for a runtime that has no project folder;
+  - `compare_project_unreadable` for a project whose files cannot be read or
+    understood, with the file and the reason in the text.
+- **The project's devices** are read from the project folder: `io.toml`, and, for
+  ADS and OPC UA, the files that `runtime.toml` names with `config_path` when it
+  enables them (`[runtime.ads]` and `[runtime.opcua_client]`). A driver with
+  `enabled = false` is not a device. Five protocols name a device:
+
+  | Protocol | Configured in | The device is named by | The project also states |
+  |---|---|---|---|
+  | Modbus TCP | each `modbus-tcp` driver | `address` (IP address and port) and `unit_id` (1 when absent) | the optional `vendor_name`, `product_code` and `revision` that it expects of the device |
+  | EtherCAT | each module of each `ethercat` driver | the driver's `adapter` (`mock` when absent) and the module's `model` | the module's `slot`, its position |
+  | MQTT | each `mqtt` driver | `broker`: host and port | nothing that a search reads |
+  | OPC UA | each connection of the OPC UA client file | `endpoint_url`: host and port (4840 when the URL names none) | `security_policy` and `security_mode` |
+  | ADS | each connection of the ADS file | `target_net_id`, the AMS Net ID | `host` and `ams_port`, which are not compared: a TwinCAT system answers from the address of the adapter that took the request, and a search asks only the ports it is given |
+
+  The `vendor_name`, `product_code` and `revision` of a `modbus-tcp` driver are
+  optional text in the driver's `params` in `io.toml`, the FC43/14 basic objects
+  as the search reports them. The driver ignores them: they only say what the
+  project expects of the device at that address, and a driver that states none,
+  or only blank text, cannot differ. `comm.schema` offers the three in its
+  `modbus_tcp` entry, as optional advanced `string` fields that are empty by
+  default and are labelled `Expected vendor name`, `Expected product code` and
+  `Expected revision`, so that the connection form shows what a connection
+  states and a Save of the form writes it back. `comm.apply` writes blank text as
+  no key and refuses a value that is not text with `Enter text.`. A module's
+  `model` and `slot` are those that the driver itself reads, so a driver without
+  `modules` has the driver's default chain. A driver written under an alias that
+  the driver registry accepts (`modbus_tcp`, `mqtt-tcp`, `ether-cat`, `ecat`)
+  names the devices of its protocol. The other drivers (`gpio`, `simulated`,
+  `loopback`) and the other sources (truST runtimes, GPIO, serial, USB,
+  Bluetooth) name no device that this comparison covers: their results are not
+  compared, carry no mark, and are in no list.
+- **Matching.** A configured device and a result of the search are the same device
+  when:
+  - Modbus TCP: the result's `address` (the IP address and port it was probed at)
+    and unit ID equal the driver's;
+  - MQTT: the result's `broker` equals the driver's host and port;
+  - OPC UA: the device has the configured host among its addresses and one of its
+    OPC UA results has an endpoint URL with the configured port;
+  - ADS: the result's AMS Net ID equals `target_net_id`;
+  - EtherCAT: the SubDevice is on the same adapter (names compare ignoring case)
+    and the pairing below takes the module and the SubDevice together.
+
+  EtherCAT modules and SubDevices are paired one adapter at a time, in three
+  steps. A module and a SubDevice are used at most once, and the modules are taken
+  in the order of their positions. A model compares ignoring case. First, a module
+  and a SubDevice of the same model at the same position. Second, each module still
+  free takes the free SubDevice of the same model that is nearest in position (the
+  lower position when two are as near); the position differs. Third, each module
+  still free takes the free SubDevice at its position, whatever its model; the
+  model differs. A module left over is missing, and a SubDevice left over is
+  unused.
+- **Host names.** A configured MQTT broker or OPC UA server that is named by a host
+  name matches a result found under that name. `localhost` matches the loopback
+  addresses. Any other name is not looked up: a search reports the addresses it
+  probed, and MQTT resolves a name before it probes. A configured device named by a
+  host name that no result carries is listed under `not_compared` with the reason
+  `host_name`, not under `missing`, and while one is listed, a result of that
+  protocol that matches nothing is neither `unused` nor marked, because it may be
+  that device.
+- **Differences.** A matched device differs when:
+  - Modbus TCP: the driver states `vendor_name`, `product_code` or `revision` and
+    the device reports another value, or none, for it; text compares after
+    trimming, and exactly;
+  - EtherCAT: its position is not the module's `slot` (`position`), or its model
+    is not the module's (`model`);
+  - OPC UA: none of the server's endpoints on the configured port announces the
+    connection's security policy together with its security mode (`security`);
+  - MQTT and ADS: never; the project states nothing about them that a search reads
+    reliably.
+- **Not compared.** A configured device that the comparison cannot judge is listed
+  under `not_compared` and in no other list. The reason is `not_searched` when the
+  search did not run the device's source (it was skipped, or the request did not
+  name it), so that a search from a computer, which never runs EtherCAT, does not
+  call every EtherCAT module missing; `host_name` as above; and `unit_id` for a
+  Modbus unit ID outside 1–247, which a search cannot probe. While a configured
+  device of a protocol is listed with `host_name` or `unit_id`, a result of that
+  protocol that matches nothing is neither `unused` nor marked.
+- **Ignored devices.** A found device that the project ignores (`<project>/
+  .trust-runtime/devices.toml`, decision O14, specification 25 §2) is never listed
+  under `unused`. It still matches, so a configured device that an ignored result
+  answers is not missing, and a difference is still listed.
+- **Reply.** Schema version 1: `schema_version`, `search_id`, and four lists. Each
+  entry holds the facts of the devices it names, an object whose members depend on
+  the protocol:
+
+  | Protocol (source ID) | Facts of `configured` | Facts of `found` | Fields that can differ |
+  |---|---|---|---|
+  | `modbus_tcp` | `address`, `unit_id`, and the `vendor_name`, `product_code` and `revision` that the driver states | the same members, `null` for a stated one that the device did not report | `vendor_name`, `product_code`, `revision` |
+  | `ethercat` | `adapter`, `position`, `model` | the same members | `position`, `model` |
+  | `mqtt` | `address` | never listed | none |
+  | `opcua` | `address`, `security` (`<policy> / <mode>`) | `address`, `security` (the pairs of the endpoints on that port, joined by `, `) | `security` |
+  | `ads` | `ams_net_id`, `address` (the configured host) | never listed | none |
+
+  - `missing`: `protocol` and `configured`, for each configured device that was
+    compared and that no result matched. In the order of the source table, then by
+    the configured facts (address and unit, adapter and position, AMS Net ID).
+  - `unused`: `device_id` and `protocols` (the compared protocols found on it, in
+    the order of the source table), for each found device that has a compared
+    result, none of whose compared results matched, and that the project does not
+    ignore. By device ID.
+  - `differs`: `device_id`, `protocol`, `configured`, `found` and `fields` (the
+    names of the facts that differ, in the order of the table), for each matched
+    device that differs. By device ID, then in the order of the source table.
+  - `not_compared`: `protocol`, `reason` and `configured`. In the order of
+    `missing`.
+
+  For example, a Modbus device at 10.0.0.9 that the search did not find, an unknown
+  Modbus device at 10.0.0.12, and an EtherCAT EL2008 that stands at position 3
+  where the project has it at position 2:
+
+  ```json
+  {"schema_version": 1, "search_id": "s-3",
+   "missing": [{"protocol": "modbus_tcp", "configured": {"address": "10.0.0.9:502", "unit_id": 1}}],
+   "unused": [{"device_id": "dev:ip:10.0.0.12", "protocols": ["modbus_tcp"]}],
+   "differs": [{"device_id": "dev:ethercat:eth1:3", "protocol": "ethercat",
+                "configured": {"adapter": "eth1", "position": 2, "model": "EL2008"},
+                "found": {"adapter": "eth1", "position": 3, "model": "EL2008"},
+                "fields": ["position"]}],
+   "not_compared": []}
+  ```
+
+**Identify.** `identify` makes a runtime show where it is: for the time asked it
+blinks the output named in `runtime.toml` `[runtime.identify] output` (an I/O
+address or a GPIO line) and reports `identifying` in its status. The request,
+its timer, the blink and the `identifying` member are one implementation that
+every runtime runs (specification 34, ARCH-11 and SERVICE-07); a platform
+supplies only the way to drive the one output. The program must not use that
+output, so `identify` never changes an output that the program uses. It works in
+every state of the resource, running, paused, stopped or faulted: a stopped box
+is exactly when someone needs to find it.
+
+- **Request.** The parameters are `{"duration_s": n}` and nothing else, where
+  `n` is a whole number of seconds from 1 through 60. The result is
+  `{"identifying": true, "duration_s": n}`. The operation needs the Operator
+  role (§6.9.5). Missing parameters, another member, a value that is not a whole
+  number (a string, a fraction, a negative number) and a value of 0 or of more
+  than 60 are refused with the error
+  `invalid params: duration_s must be a whole number of seconds from 1 to 60`,
+  and change nothing. The state of the resource decides nothing: the request is
+  accepted while the resource is `running`, `paused`, `stopped` or `faulted`, and
+  also while it is `ready` (it has not started its loop yet), where it blinks from
+  the first pass of the loop.
+- **Other refusals,** checked after the parameters, in this order:
+  - Without `[runtime.identify] output` the request answers the error code
+    `identify_not_configured`, with the text `identify is not configured: set
+    [runtime.identify] output in runtime.toml`. A runtime on a chip answers it
+    too, whatever its project sets, until the chip's firmware drives an output
+    for `identify` (specification 34, SERVICE-07).
+  - An output that cannot be made ready (a GPIO line that another process holds,
+    or a computer without GPIO character devices) answers the error code
+    `identify_output_unavailable` with the text
+    `identify output unavailable: <reason>`, and starts nothing.
+- **The output.** `[runtime.identify] output` is a string in one of two forms,
+  and the spaces around the whole value do not matter. Another form, an empty
+  string and an unknown key in the section are configuration errors, and a
+  section without `output` means the runtime has no identify output.
+  - An I/O address, written exactly `%QX<byte>.<bit>` in decimal without leading
+    zeros, for example `output = "%QX0.7"`: one bit of the output process image.
+    A wildcard, an input or marker address, a byte, word or larger address, a
+    hierarchical address and a shorthand without the bit (`%QX5`) are refused.
+    The runtime sets the bit in a copy of the output image that it hands to the
+    I/O drivers, after the program's outputs are written; the program's own image,
+    Live Values and `io.list` never show it. An I/O driver of `io.toml` must carry
+    that bit to the real output, for example a `gpio` output entry with
+    `address = "%QX0.7"`.
+  - A GPIO line, written `gpio:<line>` (`gpio:` in any letter case), for example
+    `output = "gpio:17"`: a line number in decimal, as the `line` of a `gpio`
+    driver is on a computer, so a pin name such as `PD12` is refused. It is a line
+    of the chip that the project's first enabled `gpio` driver names (its `chip`
+    and `backend`, §6.5), or of `/dev/gpiochip0` on the character-device backend
+    when the project has none. The runtime requests the line as an output, low,
+    when `identify` first runs, and drives it directly, whether or not `io.toml`
+    mentions any GPIO.
+- **The blink** is 2 Hz with 50 % on: the output is on for 250 ms and then off for
+  250 ms, and so on. The runtime sets the output at every point where it can
+  change an output:
+  - where it hands the outputs to its drivers at the end of each scan cycle;
+  - in every pass of the wait of a resource that scans nothing: a `paused`,
+    `stopped` or `faulted` resource. On a computer the stopped and the faulted
+    wait poll every 10 ms, and the paused wait every cycle interval, or every
+    10 ms while `identify` runs when the interval is longer; on a chip the pass
+    of the runner's loop does it, whether or not a scan is due (specification 34,
+    SERVICE-07).
+
+  The first of those points after the request turns the output on and starts the
+  count of 250 ms; each later point changes the output when a 250 ms edge has
+  passed, and at most once. With a cycle interval of 250 ms or less every edge
+  therefore falls less than one cycle interval after its 250 ms mark, with a
+  longer interval the output changes at every cycle, and while no scan runs every
+  edge falls about one poll (10 ms) after its mark. Without a scan an image
+  output is handed to the drivers as the committed output image (the image the
+  drivers got last, after the safe state of a stop or a fault) with the bit set,
+  and only when the bit changes, not at every pass. A failure to drive the output
+  ends `identify`, is logged, and never changes the state of the resource.
+- **Ending.** `identifying` is `true` from the accepted request until the duration
+  has passed, and the output is off from the first of those points at or after
+  that moment. A repeated request while `identify` runs replaces it: the end is
+  the new duration after the repeat, and the blink starts again with the output
+  on. A pause, a stop, a fault and a restart of the program in place do not end
+  `identify`; it goes on in every state, and the program's outputs are as the state
+  says (a pause keeps their committed values; a stop or a fault applies the output
+  policy first, specification 34, STATE-02 and STATE-04, handing the drivers the
+  safe image without the identify bit, after which the blink goes on). An output
+  that `[[io.safe_state]]` names (the same bit, or a byte, word, double word, long
+  word or window of bytes that includes it) keeps its safe value while the safe
+  state of a stop or a fault is in force, from the stop or the fault until the
+  program scans again: `identify` does not blink it then, its time keeps running,
+  and the blink is back with the first scan. A GPIO line is not in the image, so
+  no `[[io.safe_state]]` entry holds it and it blinks in every state. A debugger
+  hold keeps the scan inside its cycle; trust-runtime on a computer ticks nothing
+  then, so the output keeps its level (specification 34, STATE-07), the time keeps
+  running, and the blink goes on when the scan goes on. The end of the process (a termination signal, the
+  explicit exit) ends `identify` and drives the output off. A `restart` that finds
+  the resource Stopped and loads the program again reads `[runtime.identify]` anew
+  (see Load): a run in progress ends with the program it was started on, its output
+  is driven off, and the setting of the project now (or none) is in force.
+- **Load.** A project whose program uses the output is refused when
+  `trust-runtime run` or `play` loads it, before anything runs, with an error that
+  names the output. `trust-runtime validate` and `check` and `trust-runtime ide serve`
+  make the same check, so a project they accept is a project `run` accepts:
+  `validate` on the program of the bundle, `check` and `ide serve` on the program
+  that the project's sources compile to (they need no `program.stbc`; a project whose
+  sources do not compile, or whose `io.toml` cannot be read, has nothing to check,
+  `check` reports those errors itself, and `ide serve` still serves it so that it can
+  be fixed). A `restart`
+  that finds the resource Stopped and loads the program again makes the check as a
+  launch does, with the `[runtime.identify]` of the project as it is then; a project
+  that now fails it leaves the resource Faulted with the error, and the next
+  `restart` loads it again (specification 34, STATE-08). The errors:
+  - `identify output %QX0.7 is used by the program: it binds %QW0` when a `%Q`
+    binding of the program (a bit, byte, word, double word, long word or window)
+    covers the bit; the text names that binding;
+  - `identify output gpio:17 is used by the project: io.toml maps GPIO line 17`
+    when an enabled `gpio` driver of `io.toml` maps the line as an input or an
+    output;
+  - `identify output %QX2.0 is outside the output process image of 1 byte` when
+    the byte lies beyond the output image that the program's `%Q` bindings make,
+    so the drivers always get an image of that length (`bytes` for a length other
+    than 1).
+- **Online change.** A program installed while the runtime runs (`bytecode.reload`,
+  online change) is checked against an I/O-address output in the same way, with its
+  own bindings and output image, and is refused with the same errors for the
+  address; the running program stays. (A GPIO line is mapped only by `io.toml`,
+  which an online change does not change.)
+- **Status.** `status` reports `identifying` (§6.8.1, the status projection).
+- **Command line.** `trust-runtime identify --endpoint <endpoint> [--token <token>]
+  --duration-s <n>` sends the request to the runtime at that control endpoint, with
+  `--token` or else `TRUST_CTL_TOKEN` as its control token; `--project <dir>` reads
+  the endpoint and the token of that project's `runtime.toml` (an `--endpoint` or a
+  `--token` replaces what the project gives). It prints the result as one JSON line.
+  A refused request is a command failure that prints the runtime's error text and its
+  error code.
+
+**Presence.** A found device keeps its `last_seen` time. A result seen again in
+the same search is not listed twice: it moves its `last_seen` time forward and
+keeps the stronger of its two confidences. A configured device that a running
+runtime stops seeing for longer than its protocol's freshness window reports
+connector state `stale`, with the time it was last seen.
+
+**Command line.** `trust-runtime discover` runs the search on this computer, or
+inside the runtime named by `--endpoint`, with `--token` or else
+`TRUST_CTL_TOKEN` as its control token. `--only` (comma-separated),
+`--host` (repeatable, `targets.hosts`), `--cidr` (`targets.cidr`), and
+`--deadline-ms` fill the request; `--confirm-fieldbus ethercat[:<adapter>]`
+(repeatable) sets `confirm_fieldbus_scan` and adds the bus to `fieldbus`. The
+command prints each source's progress and each device when it is found or
+changes, and it ends when the search ends. With `--json` each line is one JSON
+object whose `event` member names it: `source` (a source's progress), `device`
+(the device), `merged` (`id` and `into`), and last `end` (`search_id`, `origin`,
+`state`, `elapsed_ms`, the number of `devices`, and `warnings`). A refused
+request is a command failure.
+
+`--compare` needs `--project <dir>` and runs the search on this computer, so it
+cannot be combined with `--endpoint`. It compares the search with that project
+(see "Compare with the project") instead of printing the devices. The search runs
+the sources that the other options and the project's remembered choices select,
+and it is directed at the project's devices, so that a device that is not found is
+a device that was asked for and did not answer: the `address` of each Modbus TCP
+driver, the `broker` of each MQTT driver, the host and port of each OPC UA
+connection and the `host` of each ADS connection join the known addresses
+(`--host`), and the unit IDs from 1 to 247 of the Modbus TCP drivers become
+`modbus.unit_ids`. When the search has ended, the command prints the source
+lines, then four sections, then the `end` line. A section is its heading, `Missing`,
+`Not in the project`, `Differs from the project` or `Not compared`, a colon and its
+number of entries (`Missing: 1`), and one indented line for each entry. A fact reads
+as its name and its value, the facts in the alphabetical order of their names and
+separated by `, `, and a `null` reads `none`:
+
+- `Missing`: the protocol's name and the configured facts, as
+  `Modbus TCP: address 10.0.0.9:502, unit_id 1`;
+- `Not in the project`: the device ID and the protocols, as
+  `dev:ip:10.0.0.12: Modbus TCP`;
+- `Differs from the project`: the device ID, the protocol's name, and for each
+  differing fact its name, the project's value and the device's, as
+  `dev:ethercat:eth1:3: EtherCAT: position project 2, found 3`, the facts
+  separated by `; `;
+- `Not compared`: the protocol's name, the configured facts and the reason in words
+  (`its source did not run in this search`, `its host name is not looked up`,
+  `a search cannot probe this unit ID`).
+
+With `--json` the command prints the `source` lines, then one `compare` line, then
+`end`. The `compare` line holds `event`, `project` (the folder) and every member that
+`comm.compare` replies. The exit status is 0 whenever the comparison ran, whatever it
+found; a project that cannot be read, or a search that cannot start, is a command
+failure.
+
 ##### EtherCAT unavailable-resource contract
 
 Creating an EtherCAT driver with a non-mock adapter does not require the
@@ -1280,9 +2117,44 @@ for that driver instance: later reads and writes return the visible
 `ethercat hardware unavailable until driver rebuild` error without another
 allocation attempt or retry window. Recovery requires constructing a new
 driver instance. This terminal rule prevents an unavailable adapter from
-causing unbounded allocation, retry, or scan-cycle delay. `adapter = "mock"`
+causing unbounded allocation, retry, or scan-cycle delay. An identification
+opens at most one process-data storage per adapter for the whole process and
+reuses it for every later scan of that adapter, so repeated searches allocate no
+further storage. Every one of those scans re-enumerates the bus on that
+adapter's main device, so a device added after an earlier scan is found by the
+next. `adapter = "mock"`
 proves deterministic software behavior only and is not evidence that physical
 EtherCAT hardware is available or production-ready.
+
+6. **Modbus/RTU**
+- Driver name: `modbus-rtu`, on every target (owner, 16 October 2026): a serial
+  port of the operating system on Linux, macOS and Windows, for example
+  `/dev/ttyUSB0` or `COM3`, and a UART of the chip on a board, for example
+  `USART2` on the STM32U5A9 (specification 34, TARGET-01).
+- truST is the Modbus client on an RS-485 or RS-232 line; `unit_id` names the
+  server.
+- Functions, default profile, `input_points`/`output_points`, payload order,
+  scaling, `byte_order`/`word_order`, floating-point finiteness and the
+  `on_error` policy are those of Modbus/TCP above. One implementation of the
+  Modbus application layer serves both drivers; only the framing and the link
+  differ.
+- Serial parameters: `port`, `baud`, `parity` (`even` by default, `odd` or
+  `none`), `stop_bits` (1, or 2, which `parity = "none"` requires), eight data
+  bits, and `timeout_ms` for the response. A combination that the Modbus serial
+  line specification forbids is rejected before the worker starts.
+- RTU framing: each frame ends with the Modbus CRC-16; frames are separated by
+  at least 3.5 character times and characters within a frame by at most 1.5
+  character times, with the fixed 1.750 ms and 750 µs above 19,200 baud. A frame
+  with a CRC mismatch or an interrupted character stream is discarded and
+  counts as a transport failure under `on_error`.
+- RS-485 direction: on a chip, an optional `direction_pin` drives the
+  transceiver's driver-enable line while a request is sent; on a computer, the
+  serial adapter controls the direction.
+- Exchange is worker-backed as for Modbus/TCP: a serial round trip never runs
+  inside the scan. On a chip without threads the runtime serves it between
+  cycles.
+- Reference: Modbus over Serial Line Specification and Implementation Guide
+  V1.02.
 
 #### 6.6 Fault, Overrun, and Watchdog Handling
 
@@ -1360,11 +2232,47 @@ execution model, not an IEC deviation.
   recovery request: `restart` (warm or cold) runs the configured initialization
   and retain policy and then resumes cyclic execution (specification 34
   STATE-06); an online change prepares and commits as in section 6.7.1 and then
-  resumes; `stop` ends the resource. A failed recovery leaves the resource in
-  FAULT with the new error. `pause` and `resume` are rejected while faulted.
-- The runtime process ends only on a stop request or a termination signal. It
-  exits with status 0 when the resource ends Stopped and with status 1 when it
-  ends Faulted, so a service manager can tell a clean stop from a failure.
+  resumes; `shutdown` stops it as it stops a running resource (specification 34
+  STATE-08): the safe state is applied again, the retained values the variables
+  hold are saved, with the stores of the faulted scan's statements that ran (the
+  values a warm `restart` from the fault keeps, below "State after a faulting
+  scan"), and the resource is Stopped, or stays Faulted with that error when the
+  safe state is unconfirmed or the save fails; a termination signal or the
+  explicit exit (section 6.9) stops it in the same way and ends the process. A
+  failed recovery leaves the resource in FAULT with the new error. `pause` and
+  `resume` are rejected while faulted.
+- The root fault stays in `last_error`, and `status` reports it, until the next
+  start: a stop of the faulted resource keeps it, and a `restart` that starts the
+  program clears it.
+- The runtime process ends only on a termination signal, on the explicit exit,
+  `shutdown` with `{"exit": true}` (specification 34 STATE-08), or on the hang
+  action `abort` below. A plain `shutdown` leaves the process running. The
+  process exits with status 0 when the resource ends Stopped and with status 1
+  when it ends Faulted or Stopped with the fault of the program it stopped, so a
+  service manager can tell a clean stop from a failure.
+
+**State after a faulting scan (hosted runtime):**
+- A scan that faults while its programs execute is not undone. The variables keep
+  every store that the scan completed: the queued writes and forces it applied
+  and the inputs it sampled at its boundary (specification 10 §4.7, step 2), and
+  the statements that ran before the failing one. The failing statement stores
+  nothing. Rollback exists only inside a single transaction (the start-of-cycle
+  input synchronization of section 6.4, the output copy-back of a call, the flat
+  output image of a failed output commit in specification 10 §4.7); none of them
+  reverts a statement that completed. IEC 61131-3 Ed.3 leaves the effect of an
+  error during execution to the implementer (§5.1 e and its note; §6.6.1.5,
+  rules 3 and 4), so this is a truST runtime contract, not an IEC deviation.
+- Such a scan reaches no output phase: the process image and the drivers keep the
+  values of the last completed scan unless the fault policy applies configured
+  safe values (above), the retain checkpoint of the scan is not saved, and the
+  cycle number does not advance.
+- The writes the scan applied were one-shot and are consumed. The fault is a
+  clearing boundary (section 6.9.2), so the forces that were active are removed;
+  removing a force writes no replacement value, so a forced variable keeps the
+  last value the scan applied to it.
+- A later scan request is refused with `ResourceFaulted` before it applies any
+  queued write or force (specification 10 §4.7, step 1). Section 6.9.2 states what
+  the faulted resource does with new writes and forces.
 
 **Hosted hang supervision (specification 34 TIME-03):**
 - The checks above run on the scan thread, so none of them can act while that
@@ -1399,6 +2307,14 @@ execution model, not an IEC deviation.
   completion of the missed control deadline.
 - With the watchdog disabled there is no supervisor and a hang is not detected;
   the configuration documentation states this.
+- A device without an operating system has no supervisor thread: its hardware
+  watchdog resets it when a pass of its loop does not return, whether or not the
+  watchdog is enabled (specification 34 TIME-04). The boot that follows starts the
+  program and applies `hang_action` before the first scan: with `fault` the
+  resource is Faulted with `WatchdogTimeout` until a `restart`, and with `abort`
+  the program runs, as a service manager starts a computer's process again. After
+  a panic, which resets such a device, the resource is Faulted with
+  `ResourcePanic` and the panic's location (specification 34 TARGET-08).
 
 **Per-cycle deadline lifecycle:**
 - Before executing a cycle with an enabled watchdog, the scheduler arms both
@@ -1522,8 +2438,8 @@ Retain storage is provided via a pluggable backend:
 
 ```rust
 pub trait RetainStore: Send {
-    fn load(&self) -> Result<RetainImage, RuntimeError>;
-    fn store(&self, image: &RetainImage) -> Result<(), RuntimeError>;
+    fn load(&self) -> Result<RetainSnapshot, RuntimeError>;
+    fn store(&self, snapshot: &RetainSnapshot) -> Result<(), RuntimeError>;
 }
 ```
 
@@ -1546,6 +2462,49 @@ file and resolve ASCII-case-insensitively on load. Snapshot creation visits
 programs in runtime registration order and variables in declaration order.
 Program-variable entries participate in the same full-snapshot validation,
 migration, orphan reporting, and atomic apply boundary as retained globals.
+
+The variables of function block and class instances are retentive as IEC
+61131-3 §6.5.6.1 and §6.5.6.2 say, with the reading of `docs/IEC_DECISIONS.md`
+(2026-10-23) for the unqualified variables of a nested instance. An instance
+declared `RETAIN` or `PERSISTENT` (a global or a program's variable, alone, as
+an element of an array of instances or as a member of a structure) is kept as a
+whole: it keeps all its variables, those its base declares included, except
+those its type declares `NON_RETAIN`. A variable that is itself an instance, or
+holds instances, is kept as a whole when it is declared `RETAIN` or
+`PERSISTENT`, or when it is not qualified and its enclosing instance is kept as
+a whole; declared `NON_RETAIN`, it is not. In every instance a variable its type
+declares `RETAIN` or `PERSISTENT`, whether a local, an input or an output, is
+kept, and one it declares `NON_RETAIN` starts over, also in an instance kept as
+a whole. A configured program instance's qualifier (`PROGRAM RETAIN P : T`)
+qualifies the program's other unqualified variables but keeps no instance it
+holds as a whole. A retained variable of an instance is written under the key
+`@global-instance/<holder>/<member path>` for an instance a global holds and
+`@program-instance/<program-identity>/<holder>/<member path>` for one a
+program's variable holds. `<holder>` is the identity of the holding variable
+followed by each field on the way to the instance, written `.` and its
+identity, and by each array element, written as its indexes in brackets
+separated by commas (`Pumps[2]`, `Grid[1,0]`); `<member path>` names the
+retained variable inside the instance, through each nested instance by its
+identity, the indexes of its element and a `.` (`Inner.Total`,
+`Cells[1].Inner.Total`). A variable that an instance inherits from its base
+stands at the derived instance's level and adds no segment for the base (IEC
+61131-3 §6.6.5.3 forbids redeclaring an inherited name, so the paths stay
+unique): `@program-instance/Main/Line/Pumps[2].Hours`,
+`@global-instance/Fleet[1,3]/Count`. These entries follow the retained globals and the programs' own retained
+variables, in one depth-first walk: the globals in declaration order, then the
+programs in registration order, each one's variables in declaration order; an
+instance's inputs, outputs and in-outs in declaration order, then its other
+variables in declaration order, then the variables of its base the same way;
+an array's elements in index order, the last index changing fastest; a
+structure's fields in declaration order. The walk follows the instances a
+variable holds, not those a reference or an interface names, and it reaches a
+retained variable by the same path at every capture. The variables of a standard
+function block are its inputs and outputs; its own state, which no declaration
+names (a timer's start), starts again at every restart. A key that names a
+variable of an instance declared without retention leaves it alone and is not
+reported, as for a program's variable. These entries take part in the same
+validation, migration, orphan reporting and atomic application as the others,
+and a warm restart in the running process keeps them as it keeps the others.
 
 Insertion stores the complete runtime `Value` without changing its concrete
 variant or nested contents. This is a deterministic snapshot-construction
@@ -1614,7 +2573,16 @@ substituting an empty snapshot.
 
 The current checksum-protected format is version 3. Version-1 and version-2
 `STRN` snapshots remain readable for the value tags supported by those formats;
-a decoded value materializes with the same logical name and runtime value.
+a decoded value materializes with the same logical name and runtime value. The
+version-3 payload codec is shared by computers and chips: a chip's checkpoint
+records carry exactly these payload bytes (specification 34 §10.1), so both
+write and read the same snapshot with one codec.
+The payload bytes of a retained value do not depend on where the runtime keeps the value. A value held in
+the bounded cell store (specification 34 §6.2) is encoded from its cells, its text buffers and its compound
+members, without first building a `Value`, and the bytes are those of the same value held as a `Value`: a
+structure with its type name and its member names, an array with its bounds, an enumeration with its type
+and variant names, a `WSTRING` as its UTF-8 text, and an empty cell range as the null value. A reference, an
+instance and a non-finite `REAL` or `LREAL` are refused with the same error whichever way the value is held.
 Those formats store structures as logical type/field values only. When an old
 snapshot is migrated to a declaration with relative physical storage, the
 runtime rebuilds backing from the admitted declaration and logical fields,
@@ -1654,8 +2622,10 @@ and stages all compatible migrations:
 
 - a safe declared numeric widening such as `INT` to `DINT` preserves the
   mathematical value;
-- a retained `STRING` longer than its current declared bound is canonicalized
-  to that bound using the ordinary scalar-preserving string rule;
+- a retained `STRING` or `WSTRING` longer than its current declared capacity is
+  cut to that capacity by the ordinary store rule of specification 10 §2.3.1
+  (UTF-8 bytes or UTF-16 code units, never splitting a character; 80 without a
+  declared length);
 - compatible enumeration values are rebuilt with the current declared enum
   type and variant identity, including the reviewed case-canonical spelling;
 - compatible structures recursively rebuild the current declared structure
@@ -1694,6 +2664,74 @@ executable, storage values, queued debug force, and cycle counter. This direct
 restart boundary does not independently specify task schedules, logical time,
 I/O bindings, process-image state, or a stable diagnostic string.
 
+##### Directly represented variables at restart
+
+A variable that is declared with a direct address at an input or an output
+(`AT %I` or `AT %Q` and an address) is initialized by a restart under the rule
+of its declaration, like every other variable (IEC 61131-3 Ed.3 §6.5.6.1, Figure 9,
+with the policy at the head of this section): a warm restart gives a `RETAIN` or
+`PERSISTENT` variable its retained value and every other variable its declared
+initial value, and a cold restart gives every variable its declared initial
+value (§6.5.1.3 and §6.5.6.2, whose example declares
+`VALVE_POS AT %QW28 : INT := 100` in a `NON_RETAIN` section). For these
+variables the initial value belongs to the variable: its initializer writes no
+byte of the process image, at a restart or at any other time.
+
+The process images are carried across the restart (specification 34 §10) and
+meet the variables again at the next scan:
+- a variable located at `%Q` shows its initial or retained value in the output
+  image when the first scan after the restart completes (end-of-cycle output
+  synchronization, section 6.4). Until then the image, and the outputs that the
+  drivers hold, keep the values of the last completed scan, as after a fault;
+- a variable located at `%I` takes the sampled input image at the start of every
+  scan (section 6.4), so its initial value is visible only until the first scan
+  starts. IEC 61131-3 Ed.3 §6.5.6.2 and the note to §6.5.5.3 leave the
+  initialization of system inputs to the implementer; truST lets the input image
+  win.
+
+The only initializers that write a process image are the ordered configuration
+actions whose target is a direct address, such as process-image contents seeded
+through the hosted builder (specification 34 §10). They run after the
+carry-over, at every restart and every online change, and set exactly their
+selected bytes, bits and hierarchical keys.
+
+A variable located at `%M` (`AT %M` and an address) is initialized under the
+same rule of its declaration, but it is bound in both directions: the scan loads
+the marker image into it when the scan starts and publishes it into the image
+when the scan completes (section 6.4). A marker image that still held zero, or
+the carried-over image, at the first scan would therefore replace the variable's
+initial or retained value before the program ran. IEC 61131-3 Ed.3 exempts only
+the system inputs from initialization (§6.5.6.2 and the note to §6.5.5.3), so the
+value reaches the image first:
+- construction, every cold or warm restart and every online change publish the
+  value of every variable located at `%M` into the marker image once the
+  variable holds its initial or retained value, and before the first scan. The
+  value is the declared initial value at the first start, for a `NON_RETAIN` or
+  unqualified variable in a warm restart and for every variable in a cold
+  restart, and the retained value for a `RETAIN` or `PERSISTENT` variable in a
+  warm restart and a warm restart from the store. At an online change it is the
+  value the variable carried from the running program, whatever its qualifier,
+  or its initial value when it carried none (section 6.7.1). A restored or
+  carried value is published after it has been restored, so it, not the
+  carried-over image, decides the image;
+- the publication writes exactly the bits and bytes that the variables are bound
+  to. Every other bit and byte of the marker image keeps its carried-over value,
+  and `%I` and `%Q` are not touched (above);
+- it runs after the ordered configuration actions, so the bits and bytes that a
+  located variable covers hold the variable's value even where an action had
+  written them. A seeded image records an action for the last byte of each of its
+  non-empty areas, and that action writes zero when nothing was seeded there; it
+  must not clear the high byte of an initialized marker word. Bits and bytes that
+  no variable covers keep what the actions set;
+- it belongs to the initialization. A binding that cannot encode its variable's
+  value fails the construction, the restart or the online change like any other
+  initializer failure, and the publication changes no image when it fails;
+- a binding-only update, which resets no PLC value, also publishes: in the commit
+  that installs the bindings and the image sizes it publishes the current value of
+  each marker binding that it adds or changes, and of no other, so that a marker
+  byte that a driver wrote since the last scan survives, and a refused update
+  leaves the old bindings and images.
+
 ##### 6.7.1 Online-change transaction
 
 Online change is a truST runtime extension; IEC 61131-3 does not define its
@@ -1701,24 +2739,14 @@ transport or transaction boundary. A reload request is applied only
 at a completed scan boundary. The runtime must prepare every fallible input
 needed by the change before replacing live execution state:
 
-- decode and validate the complete bytecode container and materialize its VM
-  module;
+- admit the new program image (specification 44 §10.2) and load its module;
 - validate the selected resource, tasks, and process-image sizes; and
-- read, decode, canonicalize, and validate the retained snapshot required by
-  the warm-reload policy; and
-- construct the complete warm-restart variable and instance image in staged
-  storage, including retained program variables and all fallible function-block,
-  class, and program instance initialization.
+- construct the candidate's variables and instances in staged storage, with all
+  fallible function-block, class, and program instance initialization, and
+  carry the running program's values into them (below).
 
-When a caller names a bytecode resource, selection is case-insensitive but
-must resolve that exact resource; an unknown name is an error and must not
-silently select the primary resource. For compatibility with bytecode emitted
-before resource identities were preserved, a module containing exactly one
-resource named by the synthetic legacy placeholder `RESOURCE` may satisfy a
-named selection. After that compatibility load, the requested name becomes the
-runtime's active resource identity so subsequent bytecode encoding cannot
-propagate the placeholder. The exception does not apply to multi-resource
-modules.
+An image holds one resource (specification 44 NX-03), so a change names none;
+the runtime keeps its resource identity.
 
 A reload request waits up to five seconds for the resource to take it. If the
 resource has not started applying the request by then, the request is withdrawn
@@ -1729,23 +2757,81 @@ reload therefore never commits after its caller was told it timed out.
 If preparation fails, the request returns an error and leaves the prior
 executable module, task schedule, variable storage, process image and bindings,
 debug mutations, logical time, cycle counter, and runtime fault/status state
-unchanged. The old program remains executable on the next scan.
-For the reviewed retained `INT(0..10)` value `100`, this rejection retains the
-cause-identifying diagnostic text `outside declared subrange 0..10`.
-The typed retain-subrange rejection carries the destination and value/bounds,
-with stable code `runtime_subrange_violation`; retain context must not erase the
-cause into a generic type mismatch or migration string.
-The reviewed malformed byte sequence `[00, 01, 02, 03]` fails preparation as
-the typed `RuntimeError::Bytecode`; no stable message text is implied.
+unchanged. The old program remains executable on the next scan. A value never
+fails the preparation (below).
+A byte sequence that is no program image, such as `[00, 01, 02, 03]`, fails
+preparation as `RuntimeError::InvalidBundle` with the admission's reason
+(specification 44 §10.2); no stable message text is implied.
 
-After successful preparation, the commit replaces the executable and resource
-metadata as one cycle-boundary operation, restarts at the program entry point,
-applies the prepared retained snapshot, rebinds I/O, and returns the new runtime
-metadata. Retained variables follow section 6.7; non-retained variables and
-function-block instances follow warm-restart initialization. Logical time is
-preserved, the scan counter restarts, and queued writes and forces are cleared
-under section 6.9.2. A request must never report `reloaded` unless this complete
-commit succeeds.
+After successful preparation, the commit replaces the program as one
+cycle-boundary operation, restarts at the program entry point, and rebinds I/O.
+The candidate's variables keep the values the running program holds (below).
+Logical time is preserved, and the candidate's tasks continue the running
+program's schedule (specification 34 §11.3, decision OC-2): a task takes the
+last activation, the level of its event input and the overruns of the running
+program's task of the same name, compared without regard to case, so the first
+scan after the commit runs the tasks that are due; a task that the running
+program does not have counts its first activation from the program's logical
+time at the commit, which is the time of the last cycle that started before it,
+since the program's time advances when a cycle starts: it first runs in the
+first cycle that starts one interval or more after that time (a 1 s task added
+by a change committed 135 ms after the last cycle's start first runs about 0.9 s
+after the commit). The scan counter restarts, and queued writes and forces are
+cleared under section 6.9.2. A request must never report `reloaded` unless this
+complete commit succeeds.
+
+The replacement installs the next generation of the running program's lineage, so
+a reference or an instance identity taken before it is refused as stale after it
+(specification 34 §11.3, UPDATE-04), and it carries the process images and the
+logical time.
+
+The candidate's variables take the values that the running program holds in
+memory at the boundary, on every runtime, retained or not, as CODESYS and
+TwinCAT keep them (specification 34 §11.3; decision OC-1, 19 October 2026, and
+"keep what fits", 20 October 2026):
+
+- a variable of the candidate that the running program declares at the same
+  place and by the same name, names compared without regard to case, takes the
+  running value: a global, a function static, a variable of a program instance
+  (the program instances matched by their names), and the members of every
+  function-block or class instance they hold, recursively, edge memories and
+  the internal state of a standard function block such as a timer included (the
+  internal state only into an instance of the same function block);
+- a variable whose declaration changed keeps what fits: an elementary value is
+  converted to its new type when that type holds it, which is when the value
+  converted to the new type and back comes out unchanged (`INT` 5 to `DINT`,
+  `DINT` 5 to `INT`, a `STRING[10]` "abc" to `STRING[5]`, a value inside a new
+  subrange, an enumeration value by its variant's name); a structure keeps its
+  fields by name, an array the elements at the indices both arrays have, an
+  instance its members by name; anything else, a value the new type does not
+  hold (a `DINT` 70,000 in an `INT`, a running value `100` in an `INT(0..10)`, a
+  text longer than the new length) and a structure with a physical layout whose
+  declaration changed, keeps its declared initial value;
+- a reference or interface value names the same variable or instance in the
+  candidate when the candidate has it with the type the reference names, and is
+  NULL otherwise;
+- a variable that the running program does not declare starts with its declared
+  initial value; constants keep the candidate's values, in-out members are bound
+  again by every call, and a static or an internal state that the running
+  program has not set yet is not carried.
+
+Nothing is applied over these values: the change reads no retain store, because
+the retain file or checkpoint holds older values, saved at the configured
+interval and when the program stops, and stays the source of a warm restart
+after a stop or a power loss (section 6.7). A retain store whose read would fail
+therefore cannot refuse a change. No value fails the change. A change that
+recovers a faulted resource keeps the value that caused the fault, so the
+candidate's code must handle it.
+
+Each variable of the candidate that does not go on with the running value as it
+was (a new variable, a converted value, a value that does not fit, a reference
+set to NULL) is recorded at the commit as an `online_change_value` event with
+the variable's path as `name` (`total`, `Plant.motor.speed`, `Plant.table[3]`)
+and what happened as `detail`, at most 32 events per change and then one event
+whose `name` is null and whose `detail` gives the number of further variables.
+The events follow the order of the candidate's symbol table, which sorts the
+names in capitals (specification 44 §5.7), so a change gives the same list on
+every runtime.
 
 ##### 6.7.2 Runtime agent command conformance
 
@@ -1771,7 +2857,13 @@ Agent API method contract and do not widen its public method set.
 Production runtimes are started via the CLI (`trust-runtime run`) using a **project folder**
 (runtime bundle format) directory. The launcher is responsible for:
 
-- Loading the bytecode program (`program.stbc`).
+- Loading the program image (`program.tpi`) that `trust-runtime build` wrote and admitting it on
+  this computer, with the statement budget of `[resource] max_statements_per_scan` and the trusted
+  keys of the computer's `device.toml` (specification 44 §8.8, §10.2, §5.11). A project without
+  `program.tpi` is refused with "missing program.tpi at <path> (run `trust-runtime build` to build
+  the project)", and one that holds only the bytecode engine's `program.stbc` with "the project
+  holds program.stbc of the bytecode engine, which this runtime does not run: rebuild the project
+  with `trust-runtime build --project <dir>`".
 - Loading runtime configuration (`runtime.toml`).
 - Initializing I/O drivers (`io.toml` or system IO config).
 - Initializing retain storage (if configured).
@@ -1807,16 +2899,18 @@ silently changing source roots.
 The reviewed local dependency graph resolves direct and transitive
 `trust-lsp.toml` path dependencies, includes the root and dependency source
 files in compilation and inspection, reports the reviewed `LibA`, `LibB`
-dependency identities, and produces `program.stbc` after successful build.
+dependency identities, and produces `program.tpi` after successful build.
 For one unchanged reviewed local dependency graph, two consecutive builds
-resolve the same dependency and source order and emit byte-identical
-`program.stbc` content. This bounded repeatability contract does not establish
-determinism for arbitrary registries, symlink graphs, concurrent filesystem
-mutation, or cross-platform path representations.
+resolve the same dependency and source order and emit the same image bytes,
+apart from the build time in the header and the signature (specification 44
+NX-07). This bounded repeatability contract does not establish determinism for
+arbitrary registries, symlink graphs, concurrent filesystem mutation, or
+cross-platform path representations.
 
-`check_program_stbc` performs the same source discovery, dependency resolution,
-compilation, and bytecode sizing as build, reports the reviewed root source and
-dependency identity, and does not create or replace `program.stbc`.
+`check_program` performs the same source discovery and dependency resolution as
+build and runs the build's front end and generator for this computer's CPU
+without the toolchain, reports the reviewed root source and dependency
+identity, and does not create or replace `program.tpi`.
 
 Dependency resolution rejects a missing declared path, a cycle in the local
 dependency graph, and a requested package version that disagrees with the
@@ -1882,10 +2976,6 @@ successful parse, use of either `--bundle <path>` or `--bundle=<path>` emits one
 deprecation warning before dispatch. It does not change project creation or
 validation semantics.
 
-`run` and `play` accept `vm` as the sole production
-`--execution-backend` value. The retired `interpreter` value is rejected during
-argument parsing, before handler dispatch, project access, or runtime mutation.
-
 Ordinary handler failures exit with status 1. When a parsed command enables
 `--ci`, the entrypoint uses the documented CI error classification, including
 command-aware fallback codes. Known configuration and permission failures may
@@ -1945,7 +3035,22 @@ The runner supports three closed case kinds:
 
 Cases execute in ascending case-ID order. Runtime artifacts contain the
 declared observations for every cycle; connector artifacts contain every
-projected step. `--update-expected` writes canonical pretty JSON to the
+projected step. Each runtime case runs compiled for this computer (specification
+44 §14.2): it is built into an image and run cycle by cycle by the kernel; with
+`--device <port> --target <target>`,
+the port a serial port or `tcp://<host>:<port>` of a bridge to one on another
+computer, it runs each on the device instead: the case is compiled for the target, as
+`trust-runtime build --target` names it, installed over the device's control
+link, and stepped cycle by cycle with `cycle.step`, the first step restarting it
+cold, which loads it, and each later step taking the restarts that the manifest
+names before its cycle as one, cold when one of them is. A device takes its debug
+surface from the record of the program it has loaded, so the run first installs,
+starts and stops an idle program whose record turns the debug surface on; every
+case's record turns it on too. A `REAL` the device
+writes through its double is compared as this computer writes the `REAL`. The
+summary names the runtime `trust-runtime-device` and the actual artifacts go to
+`reports/actual-device`; on this computer they are `trust-runtime` and
+`reports/actual`. `--update-expected` writes canonical pretty JSON to the
 category's expected-artifact path. Verify mode distinguishes a missing or
 unreadable expectation from a readable value mismatch, writes actual mismatch
 artifacts, and emits stable reason codes. Suites containing only the six legacy
@@ -1959,7 +3064,7 @@ are neither an IEC decision nor an IEC deviation.
 
 `trust-runtime play --project <path>` is the product convenience entry point.
 It creates or completes the selected project when the folder is missing or
-lacks `runtime.toml` or `program.stbc`; project I/O may instead come from the
+lacks `runtime.toml` or `program.tpi`; project I/O may instead come from the
 system configuration. An existing non-directory project path is rejected
 without mutation.
 
@@ -1977,26 +3082,31 @@ project mutation. A rejected option therefore leaves a previously missing
 project path missing. `trust-runtime run` consumes an existing project and does
 not provide this creation behavior.
 
-Project-mode startup recursively compiles the `.st` and `.pou` sources beneath
-the project's selected source root, case-insensitively by extension, together
-with sources from resolved local project dependencies. Legacy `--config`
-startup recursively compiles those source types beneath its literal runtime
-root. Source discovery must not interpret project or directory names as glob
-syntax, must use deterministic path ordering, and must propagate directory and
-file-read failures. An empty or invalid source set is a startup error. Startup
-without a project or legacy configuration is the IDE-shell mode: it compiles
-one synthetic empty `Main` program rooted at `__ide_bootstrap__.st`, exposes no
-bundle, and marks the loaded runtime as an IDE shell instead of claiming that a
-project was loaded.
+Project-mode startup runs the project's `program.tpi` and compiles nothing; it
+reads the `.st` and `.pou` sources beneath the project's selected source root,
+case-insensitively by extension, together with sources from resolved local
+project dependencies, for the source views. Legacy `--config` startup
+recursively compiles those source types beneath its literal runtime root into a
+debug image for this computer, in a temporary folder, with the toolchain of
+specification 44 §4.6, installed on the first build that needs it. Source
+discovery must not interpret project or directory names as glob syntax, must use
+deterministic path ordering, and must propagate directory and file-read
+failures. An empty or invalid source set is a startup error. Startup without a
+project or legacy configuration is the IDE-shell mode: it compiles one synthetic
+empty `Main` program rooted at `__ide_bootstrap__.st` as legacy `--config`
+startup compiles its sources, exposes no bundle, and marks the loaded runtime as
+an IDE shell instead of claiming that a project was loaded.
 
 Before the first PLC scan, the launcher must successfully complete all startup
-preparation: bundle-version validation; source and bytecode validation; runtime,
-watchdog, fault, safe-state, telemetry, I/O-driver, and retain configuration;
-configured ADS and OPC UA client startup; execution-backend selection; control
-endpoint and TLS validation; and enabled control, protocol, discovery, mesh,
+preparation: bundle-version validation; source and program-image validation;
+runtime, watchdog, fault, safe-state, telemetry, I/O-driver, and retain
+configuration; configured ADS and OPC UA client startup; control endpoint and
+TLS validation; and enabled control, protocol, discovery, mesh,
 historian, persistence, and web-service initialization. Failure in any of these
 steps aborts startup; the scan start gate is not opened and the launcher must
-not report the PLC as running. Warm startup loads and validates the configured
+not report the PLC as running. Writing the endpoint file and the per-user token
+file is not part of this preparation: a runtime that cannot write them starts
+and reports a warning (6.8.0a). Warm startup loads and validates the configured
 retain snapshot before execution. Cold startup does not read retained values.
 Bundle-version compatibility is checked before watchdog, fault, or other
 runtime policy is mutated; an unsupported version leaves the prior runtime
@@ -2010,18 +3120,16 @@ enables simulation without discarding the project's simulation model; a CLI
 time scale greater than one enables simulation and overrides the project time
 scale. Otherwise the loaded project simulation configuration remains
 authoritative. The settings exposed to control and status surfaces must reflect
-the effective runtime configuration and this effective simulation/backend
-selection, rather than an independent set of launcher defaults.
+the effective runtime configuration and this effective simulation selection,
+rather than an independent set of launcher defaults.
 A simulated launch exposes a warning that names simulation mode, the effective
 time scale, and that the mode is not for live hardware. Production mode emits
 no simulation warning.
 
 `trust-runtime validate --ci` validates the same bundle version, TLS, control
-authentication, enabled I/O-driver configurations, bytecode container, module,
-and selected-resource requirements used by startup. The configured resource name
-resolves exactly as at launch (§6.7.1 named selection): a name the bytecode does
-not declare fails validation with the launch error, and validation never falls
-back to the primary resource. Its versioned JSON success
+authentication and enabled I/O-driver configurations as startup, and admits the
+program image as the computer admits it at its start (specification 44 §10.2).
+Its versioned JSON success
 payload reports only enabled I/O drivers in `io_driver` and `io_drivers`, in
 configuration order; disabled configuration entries are not reported as active
 runtime drivers.
@@ -2033,7 +3141,8 @@ object containing a Unix-epoch millisecond timestamp, canonical level, event
 name, and event data; events below the configured verbosity are omitted.
 SIGINT and SIGTERM request the ordinary bounded runtime stop path so shutdown
 and safe-state behavior completes before the launcher emits `runtime_exit` and
-returns success.
+returns success. They end the process whether the resource runs or is Stopped
+(specification 34 STATE-08).
 
 Operator-facing I/O provenance labels preserve the selected driver direction.
 For Modbus, an input address uses the configured input-register base and an
@@ -2056,20 +3165,167 @@ child terminates from signal `n`, the alias exits with the conventional shell
 status `128 + n` instead of flattening the failure to generic status 1. Spawn
 failures remain normal CLI errors with installation guidance.
 
+##### 6.8.0a Default control endpoint and the endpoint file
+
+`[runtime.control] endpoint` is optional. When it is omitted the runtime listens on a default that
+works on its platform and never collides with another project:
+
+- On Unix-like systems: the project-local socket `<project>/.trust-runtime/control.sock`, in a
+  `.trust-runtime` directory with mode 0700 and the socket with mode 0600. The runtime binds the
+  fallback socket `<runtime dir>/trust-<h>.sock` instead when the project-local path exceeds the
+  platform's socket path limit (108 bytes on Linux, 104 on macOS), or when it cannot create the
+  `.trust-runtime` directory or restrict it to its owner, for example in a read-only or foreign
+  project folder.
+- `<h>` is the first 16 hexadecimal digits of the SHA-256 of the canonical project path, taken over
+  the path's bytes (its UTF-8 text on Windows).
+- The runtime directory is a per-user directory: `$XDG_RUNTIME_DIR` when it is set and not empty,
+  else `trust-runtime-<uid>` in the system temporary directory, where `<uid>` is the effective user
+  ID. A missing runtime directory is created with mode 0700. It must be a directory and not a
+  symbolic link, belong to the user, and have no group or other permission bit set; otherwise, or
+  when the fallback path also exceeds the socket path limit, the default cannot be used and an
+  explicit `endpoint` is needed.
+- On Windows: `tcp://127.0.0.1:0`, a free loopback port chosen by the operating system. When
+  `auth_token` is omitted too, the runtime generates a token for each start, 32 bytes from the
+  operating-system secure random source encoded as unpadded base64url; it never falls back to a
+  predictable value.
+
+After it binds the control endpoint, the runtime writes `<project>/.trust-runtime/control.json`:
+`{"schema_version":1,"endpoint":"<bound endpoint>","pid":<process id>}`. On Unix-like systems a token
+that the runtime generated is added as `"auth_token"`, and the file has mode 0600. On Windows a
+generated token is never written into the project folder, because a project folder can be readable
+by other local users: it goes into the per-user token file
+`%LOCALAPPDATA%\trust\runtimes\<h>.json`, `{"schema_version":1,"endpoint":"<bound endpoint>",
+"pid":<process id>,"auth_token":"<token>"}`, in the local application data folder that Windows keeps
+private to its user, and `control.json` carries the endpoint without the token. The token file is
+written before `control.json`. Every file is written to a temporary name and renamed, so a reader
+never sees half of it. The runtime removes its files when its process ends cleanly: after SIGINT
+or SIGTERM on Unix-like systems, after Ctrl+C on Windows, and after `shutdown` with `exit`
+(`ctl shutdown --exit`). A plain `shutdown` stops the program and keeps the process, its control
+endpoint and so its files (specification 34, STATE-08). A process that stops a runtime without a
+clean stop, such as the config UI when it stops or restarts its child, removes the endpoint file
+and the token file that name the stopped process.
+
+The runtime always starts when only its endpoint file or token file cannot be written. A tooling
+file never stops a PLC program (specification 34, ARCH-07: the controller operates independently of
+the development computer). The runtime then keeps running and:
+
+- logs the warning `control_endpoint_file_unavailable` with the bound endpoint and the reason;
+- records the runtime event `control_endpoint_file_unavailable` (`events.tail`) with `endpoint`,
+  `error` and `time_ns`;
+- reports `endpoint_file` in `status` as `{"state":"unavailable","error":"<reason>"}`. The state is
+  `published` when the file was written and `not_used` when the runtime runs without a project
+  folder, with `error` null.
+
+Clients then find the runtime through its configured endpoint, through the fallback socket on
+Unix-like systems (see the client default below), or through the endpoint that the warning names.
+
+A client (`ctl`, `ui`, the debug adapter's attach, `trust-dev`, the VS Code extension and Control
+Studio's command line `trust-control-studio`) resolves a project's endpoint in this order:
+
+1. an explicit endpoint;
+2. the endpoint file;
+3. the configured `[runtime.control] endpoint`;
+4. the platform default.
+
+An endpoint file that exists but cannot be read, for example because it belongs to another user, is
+skipped with its reason, and resolution continues with the configured endpoint and then the
+platform default. A file that does not parse, has another `schema_version`, or names an endpoint
+that does not parse is an error and is not skipped. Without an endpoint file, a client on a
+Unix-like system uses the project-local socket, or the fallback socket when only the fallback
+socket exists. The Windows default has a port only while the runtime runs, so without the endpoint
+file the client reports that the runtime is not running, or that the endpoint file cannot be read
+when one exists.
+
+A client that connects to the endpoint from the endpoint file, or to the platform default, and finds
+nothing listening there reports that the runtime is not running and does not fall back to another
+endpoint. Nothing listening means that the connection is refused or times out, or that the socket
+does not exist; these endpoints are loopback ports and local sockets, where a listening runtime
+answers at once. Any other connection failure, such as a socket that belongs to another user, is
+reported as it is. A failure message names a skipped endpoint file and its reason.
+
+Credentials keep the precedence of 6.8.1, with the endpoint file's token between
+`TRUST_CTL_TOKEN` and the configured `auth_token`. On Windows the endpoint file's token is the
+per-user token file's token, taken only when that file names the same process and endpoint as
+`control.json`. The `ui` console resolves its target again before every reconnection, so it
+follows a runtime that restarted on another port or with another token.
+
+The VS Code extension, and Control Studio's command line when `--endpoint` is not given
+(specification 35, §0.1b), ask `trust-runtime` for the resolved endpoint and do not read the files
+themselves. The extension asks at each connection attempt to the workspace's runtime: attach, the
+online runtime target, Start in online mode, Live Values status and Devices & Connections. An
+endpoint named in its
+`runtime.controlEndpoint` setting is used as it is. `trust-runtime ctl --project <dir> endpoint
+--json` prints `{"endpoint":"<endpoint>","auth_token":<token or null>,"source":
+"endpoint_file"|"configured"|"default","endpoint_file_skipped":<reason or null>}`. It reports
+every failure as `{"error":{"code":"<code>","message":"<text>"}}` with a non-zero exit, and the
+extension shows the message. The codes are stable:
+
+| Code | Meaning |
+| --- | --- |
+| `no_project` | `--project` is missing, or the project folder does not exist |
+| `invalid_argument` | `--endpoint` was given; the command reports the project's own endpoint |
+| `invalid_config` | the project's `runtime.toml` cannot be loaded, or its endpoint does not parse |
+| `endpoint_file_invalid` | the endpoint file does not parse, has another schema version, or names an endpoint that does not parse |
+| `endpoint_file_unreadable` | the endpoint file cannot be read and nothing else names an endpoint (the Windows default) |
+| `not_running` | the Windows default has no endpoint file |
+| `default_unavailable` | the platform default cannot be used: the runtime directory is not private, or the fallback socket path does not fit |
+
+Debug output never shows a token: the types that carry one print `<redacted>` in its place.
+
+The project templates (`trust-runtime new`, `trust-runtime setup` and the web setup) and the
+shipped examples omit `endpoint` and `auth_token`, so every platform uses its default and no example
+commits a token. An example keeps an explicit Unix socket only where its own instructions name that
+socket (its `trust-lsp.toml` inline values, its README or its start script); such an example runs on
+Unix-like systems only. Managed-fleet scaffolding keeps its explicit loopback TCP endpoints (section
+6.8.3). The web IDE settings panel offers no endpoint by default: an empty Control Endpoint means
+the platform default, and emptying the field or Reset removes `[runtime.control] endpoint`, edited by
+the runtime, instead of writing a socket path. An empty control or mesh token field, or Reset,
+likewise removes `[runtime.control] auth_token` or `[runtime.mesh] auth_token`, because the runtime
+refuses an empty token.
+
+Every command that creates a project lists `/.trust-runtime/` in the project's `.gitignore`,
+because the endpoint file can hold a token. The commands are `trust-runtime new`, `trust-runtime
+setup` and its wizard, the web setup, a config UI workspace runtime and a web IDE project. A missing
+`.gitignore` is written. An existing `.gitignore` is kept, also under `new --force`, and gains the
+line when no line ignores the folder yet.
+
+When `config.set` replaces or clears `control.auth_token` while the runtime runs, the runtime
+withdraws the token it published, so no client is offered a token that no longer works. On
+Unix-like systems it rewrites the endpoint file without `auth_token`; on Windows it removes the
+per-user token file. Only files that name the runtime's own process are touched. A file that is
+missing, cannot be read or parsed, or names another process is left alone and is no error. A
+request that is refused after the token was withdrawn, for example by a full scheduler queue,
+puts the token back.
+
 ##### 6.8.1 Scriptable control client
 
 `trust-runtime ctl` exchanges one newline-delimited JSON request and response
 with the selected runtime control endpoint. `--endpoint` overrides the endpoint
 from the project runtime configuration. Credential resolution is independent
 of endpoint resolution and uses this precedence: explicit `--token`, then
-`TRUST_CTL_TOKEN`, then `runtime.control.auth_token` from `--project`. The
+`TRUST_CTL_TOKEN`, then the token in the project's endpoint file (6.8.0a), then
+`runtime.control.auth_token` from `--project`. The
 project token remains eligible when `--endpoint` overrides only the endpoint;
 an explicit or environment token does not require loading the project merely
-to resolve credentials.
+to resolve credentials. A `serial://` endpoint and a `tcp://` endpoint on another
+host (below) reach a chip or another computer, not the project's runtime on this
+computer, so the project's endpoint file, which names that runtime and the token
+it generated, is not read for them: their token is the explicit `--token`, then
+`TRUST_CTL_TOKEN`, then `runtime.control.auth_token` from `--project`. A
+project's own endpoint, from its endpoint file, its `runtime.toml` or the
+platform default (6.8.0a), is a runtime's socket on this computer.
 
 Each CLI action maps to one control request with numeric `id = 1`, its
 registered control operation name in `type`, the resolved token in `auth`, and
-only the parameters declared by that action. The client accepts exactly one
+only the parameters declared by that action. Before it, `ctl` reads the
+runtime's truST version with `status` as request `id = 0`, with the same `auth`
+(specification 34 TARGET-05): to a runtime's socket on this computer over a
+connection of its own, and over a serial endpoint or a `tcp://` endpoint on
+another host over the connection that the action's request then takes, where a
+reply to it that the runtime holds whole is read with `transfer.get` requests of
+`id = 0` as well. When the versions differ, `ctl` writes the update that
+TARGET-05 names to its error output; whatever the answer, it then sends the
+action's request. The client accepts exactly one
 JSON response line. An empty or malformed response is a transport/protocol
 failure. The response must end with a newline and contain the same non-negative
 integer `id` as its request; a missing, noninteger, or mismatched response ID is
@@ -2079,6 +3335,67 @@ printed as a successful scripted result. A TCP connection attempt is bounded to
 500 milliseconds;
 after a TCP or Unix connection is established, reads and writes are bounded to
 750 milliseconds, and a response line may not exceed 1 MiB.
+
+`--endpoint` takes `tcp://host:port`, `unix:///absolute/path` or `serial://<port>`. A `tcp://`
+endpoint on another host, such as a chip's control connection over its network (specification 34
+ARCH-12), `tcp://192.168.1.50:9901`, is reached through the shared control client as a serial
+endpoint is, with the serial endpoint's frame, long replies and waits below, and a connection
+attempt of at most 5 seconds; a loopback `tcp://` endpoint and `unix://` are a runtime's sockets on
+this computer, with the waits above. The
+last reaches a chip over its USB serial port: `serial:///dev/ttyACM0` on Linux,
+`serial:///dev/cu.usbmodem1101` on macOS and `serial://COM5` on Windows. The text after
+`serial://`, trimmed, is the port name; it is not empty, and on Linux and macOS it is an
+absolute path. `ctl`, `ads server status`, `ads server symbols`, `ads server doctor` and
+`discover` take all three forms. Over a serial endpoint the same requests and responses
+travel as over a socket (specification 34, PORT-05, which also states the client's rules),
+with these differences. The command opens the port without resetting the chip. It refuses a
+request longer than the link's frame of 8,192 bytes before it sends it, with `invalid
+request: request longer than 8192 bytes`. A response longer than the frame comes as a reply
+head, and the command reads it whole with `transfer.get`, so the response that `ctl` prints
+is the one a computer's runtime writes; the 1 MiB limit of a response line applies to it. It
+waits at most 5 seconds for a response, where a socket gets 750 milliseconds. A port that
+went away, because the chip reset, lost power or was unplugged, ends the command with a
+message that says so. `ctl` also takes `--project`, `--endpoint` and `--token` after the
+action, so `ctl install --endpoint serial:///dev/ttyACM0 program.trsta` and `ctl --endpoint
+serial:///dev/ttyACM0 install program.trsta` are the same command.
+
+`ctl install <container> [--restart cold|warm]` installs a program on a chip and on a
+computer alike (specification 34, §11.2 and PORT-05). `<container>` is a file that holds a
+`TRSTA002` container. The command sends `transfer.begin {bytes, sha256}` with the file's
+length and SHA-256; one `transfer.part {transfer, offset, data, crc32}` for each part of the
+`part_bytes` that begin's reply names (4,096 bytes, and the last part is the rest), in order,
+with the part as standard base64 and its CRC-32 as 8 hexadecimal digits, each checked against
+the `next_offset` of its reply; and `program.install {transfer}`. A part whose reply does not
+arrive in time is sent again, at most twice: the runtime acknowledges the repeat of a part it
+has received (specification 34, PORT-05). The reply to `program.install` is awaited at most
+120 seconds on every endpoint, because the runtime writes the program before it replies (a
+chip one erase unit per loop pass, specification 34 §5.1); the other replies are awaited as
+above. The command prints the identity that the reply gives, on one line: `installed
+sequence=<n> program_sha256=<64 hex digits> bytes=<n>`. When a step after `transfer.begin`
+fails, the command sends `transfer.abort {transfer}` so that no upload stays open on the
+runtime, ignores a failure of that abort, and exits non-zero with the text of the first
+failure: the runtime's own text for a refusal, such as `resource_not_running` from
+`program.install` while the program runs (the program is stopped first with `ctl shutdown`,
+specification 34 STATE-08). With `--restart` the command then sends `restart {mode}` and
+`status` until `state` is `running`, for at most 10 seconds, and prints `restarted
+mode=<mode> state=running`; a `faulted` state ends the wait at once and fails with the
+fault. Without `--restart` the installed program does not start.
+
+`ctl firmware <image> [--wait <seconds>]` updates a chip's truST firmware (specification 34
+TARGET-04; the firmware update contract above). It sends `capabilities` and `status` first and
+fails, before anything is uploaded, with `this runtime keeps no firmware slots: truST on a computer
+is updated by installing truST on that computer` when `firmware` is null, and with `the runtime's
+program is <state>: stop it first (trust-runtime ctl shutdown), then update its firmware` unless the
+state is `stopped`. It uploads the image as `ctl install` uploads a container, with `"for":
+"firmware"`, and sends `firmware.install`, whose reply it awaits at most 60 seconds, and prints
+`installed version=<v> slot=<s>; the runtime restarts into it (it ran <v> from slot <s>)`. It then
+connects again every second, at most `--wait` seconds (60 by default), until `capabilities`
+answers: when the chip runs the installed version from the installed slot and `confirmed` is true
+it prints `running version=<v> slot=<s> confirmed`; when `rolled_back` names the installed version it
+fails with `the runtime rolled the update back: truST <v> did not finish its boot, and the runtime
+runs truST <v> from slot <s> again`. `trust-runtime firmware install --chip <chip> [--port <port>]
+<folder>` installs truST on a chip that does not run it yet, through the chip's own boot loader
+(specification 34 TARGET-04).
 
 `config.set` values trim surrounding whitespace and decode case-insensitive
 `null`, `true`, and `false`, followed by an in-range signed 64-bit decimal
@@ -2099,16 +3416,120 @@ invented value.
 so the operation's default of 50 applies. Both print the raw response line, so a
 rejected write's `write_rejected` event is visible from the command line.
 
+`ctl shutdown` sends `shutdown` without parameters: it stops the program and
+leaves the runtime running in the Stopped state, and `ctl restart cold` starts
+the program again (specification 34 STATE-08). `ctl shutdown --exit` sends
+`shutdown` with `{"exit": true}` and so also ends the runtime's process.
+
+A chip answers `program.install` after its whole commit and answers no other
+request meanwhile (specification 34 PORT-05 and §11.2), so a reply that takes
+longer than 750 milliseconds is late, not lost. A client that sends
+`program.install` reads its reply for up to T seconds, for a container of L
+bytes:
+
+```text
+T = 4 + 0.4 × ⌈L / 4096⌉ + 0.01 × ⌈L / 256⌉
+```
+
+The first term is the longest the pass that reads the request may take: the
+chip's watchdog interval of 4,000 milliseconds (specification 34 Appendix D.2),
+which the container's checks must finish within. The second is the erase of
+each 4 KiB unit the container takes, at the up to 0.4 seconds of Appendix D.2.
+The third is the programming and the read-back of each 256-byte step of the
+commit, two steps at the few milliseconds that specification 34 §11.2 gives,
+counted as 5 milliseconds each. A container of 100 KiB (102,400 bytes) gives
+4 + 10 + 4 = 18 seconds, and one that fills a whole 2,060 KiB slot of the
+ESP32-C6 (2,109,440 bytes: 515 units and 8,240 steps) gives 4 + 206 + 82.4,
+about 292 seconds. The bound is the same on
+every runtime, because a client sends the same request to each: a computer
+commits with no erase or program step and replies sooner, and the bound is then
+only a limit. A chip whose resource is Stopped writes an upload into its program store as its
+parts arrive (specification 34 §5.1), so it answers `transfer.begin` after one erase and each
+`transfer.part` after the erase, the program and the read-back of the part. A client reads those
+two replies for up to 5 seconds on every runtime: the pass that reads the request (4 seconds),
+one erase (0.4 seconds) and the sixteen program and sixteen read-back steps of a 4,096-byte part
+(0.16 seconds). Every other request keeps the 750 millisecond read bound,
+the other transfer operations included, with one exception: a chip answers a `restart` that makes it
+load a newer container (specification 34 STATE-08) with `restart queued` at once, and then serves no
+request until the load ends, because it reads, checks, prepares and constructs the container in one
+step of its control loop. The first request after such a `restart` waits for the whole load, which the
+bench has not measured yet; a client that must not time out reads that reply with the bound T of
+the `program.install` of the same container, which covers the load: the load does the checks of
+that install once, where the install did them twice, and writes nothing.
+
+###### Stepped scans (`cycle.step`)
+
+`cycle.step` runs one scan of the stopped program on request: at a logical time the client gives,
+with the values the client gives written before it, and the values the client names read after it.
+Every runtime answers it alike, a computer and a chip (specification 34 STATE-08: no request of one
+platform alone). It is how the conformance corpus runs on a device (specification 44 §14.2), and a
+test or a simulator may use it too (owner, 23 October 2026).
+
+- It runs only while the resource is Stopped. Any other state refuses it as `program.install` is
+  refused (`resource_not_running`, with the state), and a device without an installed program
+  refuses it with the reason. The step starts no task: the resource is Stopped after it.
+- It needs the role that writes values (`Engineer`) and the debug surface
+  (`runtime.control.debug_enabled`), as `set` does; without the debug surface it is refused as every
+  debug request is.
+- `time_ns` (required): the logical time of the scan, a whole number of nanoseconds. The stepped
+  scans have a logical time of their own, which goes on across their restarts, as the conformance
+  runner's time does: no step's time is before the previous step's (`time before the last step`).
+- `restart` (optional): `"cold"` or `"warm"`, a restart of the program before the scan, at the time
+  of the previous step, without starting its tasks. A cold restart starts the installed program
+  cold: a program installed since the program was loaded (`program.install` while Stopped) is first
+  loaded in its place, as `restart` loads it (specification 34 STATE-08), and the stepped time then
+  starts at zero. A warm restart restarts the program in place from the values it holds, as an
+  automatic restart after a fault restarts it: the retained values keep what the scans left them,
+  and no checkpoint is read. The first step after the resource stopped must restart the program;
+  one without `restart` is refused with `restart required`.
+- `inputs` (optional): an object of a name and a typed value text each (`"BOOL:true"`, `"INT:7"`, as
+  the conformance manifests write them), written before the scan, in the order of the names, into
+  the variable the name names: a global by its name, a qualified path by its full name, and a
+  program variable by its name alone when exactly one program declares it.
+- `direct_inputs` (optional): an object of a process-image address and a typed value text each,
+  written into the process image before the scan, in the order of the addresses.
+- `watch` (optional): the names read after the scan; `watch_direct` (optional): the process-image
+  addresses read after the scan.
+- `run` (optional): the name of a program instance whose body runs once in place of the scheduler's
+  cycle, outside the task schedule, as specification 22 runs a test program: the inputs are not
+  sampled and the outputs not published. A name that names no program instance refuses the step
+  before its scan, with the name. Its restart, inputs, watches, error and time are those of any
+  step; this is how a project's tests run on a device (specification 44 §14.2).
+
+The scan is one cycle of the scheduler at `time_ns` (specification 10 §4.3): the tasks due then run
+in priority order, then the programs without a task. The drivers are neither sampled nor driven and
+the outputs are published to the output image only; no retained value is captured or saved, no
+forced value or queued write applies, and no metric, event or task statistic counts the scan. The
+watchdog bounds the scan as it bounds every scan. The result is
+`{"time_ns": t, "values": {...}, "direct": {...}, "errors": [...]}`: each value as a conformance
+artifact writes it (`{"type": "INT", "value": 7}`, a duration in `nanos`, a date in `ticks`), and in
+`errors` the text of the error the scan ended with, none for a scan that completed. A fault of a
+stepped scan is reported and not latched: no safe state is applied, the resource stays Stopped, and
+the next step runs the next scan, as the conformance runner's kernel continues. A name that names no
+variable, or that names one of several programs, refuses the step before its scan, with the name (a
+step that loads a program finds its names in the loaded program); a value that its variable or
+address does not take ends the step before the scan, and the values written before it stay written.
+
 ###### Runtime control request, job, and state-surface contract
 
-Each newline-delimited control request is decoded exactly once. Malformed JSON
-returns a negative response without dispatch or mutation. A request type absent
-from the registered operation set returns the stable error
+Each newline-delimited control request is read into one request and dispatched
+once. A line is read as a JSON value and the value as the request envelope: a
+line that is not JSON gets `invalid request: <error>` with id 0, no audit
+record, no dispatch and no mutation, and JSON that is not a request gets
+`invalid request: <error>` with id 0 and an audit record of type `invalid`, each
+error being the one of that reading. Every runtime first reads a line straight
+into the envelope's members, without building a JSON value of the whole line,
+and reads a line that this first reading does not take as above, so that every
+line gets the same result; the first reading takes an object with each of the
+envelope's members at most once and reads every other member as a JSON value
+that it drops (on the ESP32-C6 the first reading takes 0.24 to 0.33 ms of a
+request where building the value took 0.31 to 0.39 ms, 23 October 2026). A
+request type absent from the registered operation set returns the stable error
 `unsupported request`; every registered type routes to its owning handler.
 Missing or malformed required parameters return a parameter error rather than
 `unsupported request`. A routing behavior lock proves only that the registered
-handler boundary was reached; it is not evidence that every operation
-succeeded or returned its complete semantic payload.
+handler boundary was reached; it is not evidence that every operation succeeded
+or returned its complete semantic payload.
 
 Asynchronous operations return a nonempty job ID. Job status is `running`,
 `complete`, or `failed`; an unknown ID returns a stable machine-readable
@@ -2123,11 +3544,59 @@ The status and configuration surfaces project one effective runtime state:
 
 - `status.execution_backend`, `status.execution_backend_source`,
   `status.metrics.execution_backend`, and the corresponding `config.get`
-  values agree. Omission selects backend `vm` with source `default`.
+  values agree. The backend is `native` on every runtime; the source is
+  `config` when `runtime.execution_backend` names one and `default` otherwise.
 - Status preserves resource identity, control and simulation mode, cycle and
   profiling metrics, realtime requested and observed state, warnings, errors,
   and every I/O-driver health entry. The default realtime projection is
   disabled with scheduler `other` in both status and `config.get`.
+- Status reports in `metrics.scan_allocations` the allocator operations of the
+  thread that runs the scans since the program started, each allocation,
+  reallocation and free once (specification 34, "The allocation count"):
+  `engine`, those the engine made running the program, and `services`, those
+  the services made in the calls the scan makes into them and in the runtime's
+  cycle work around the scan. The engine makes none (specification 34,
+  ARCH-05). A runtime that does not count them reports `null`, never zero.
+- Status reports in `metrics.program_memory` the memory figure of the program
+  that runs (specification 34 MEM-12), in bytes: `bytes`, the whole, which
+  admission compares with the memory the device has for programs, and its
+  parts `program`, `persistent_block`, `activation_stack`, `operand_stack`,
+  `engine` and `retain_capture`. The capture of the retained values is 0 when
+  the runtime keeps none, and `bytes` is the sum of the parts. The figure is
+  the image's memory figure (specification 44 §10.4): its areas as
+  `persistent_block`, its stack bound as `activation_stack` and the kernel's
+  bookkeeping as `engine`, with `program` and `operand_stack` 0, since a
+  compiled program has no prepared program and no operand stack; it follows the
+  program through a restart, a load in place and an online change. A runtime
+  without a program reports `null`.
+- Status reports the truST version in `version`, the platform the runtime runs
+  on in `platform` as `<os>-<arch>` on a computer, for example `linux-x86_64`
+  or `windows-x86_64`, and as the board name on a device, for example
+  `stm32u5a9` or `esp32c6`, and its program-control posture in
+  `program_control`: `keeps_control` when the runtime still answers after
+  `shutdown` and can be started again with `restart` (specification 34,
+  STATE-08), which a chip does and trust-runtime on a computer does, and
+  `process` when `shutdown` ends the runtime's process, as an earlier
+  trust-runtime did. It reports the
+  runtime's stable runtime ID in `runtime_id`: the same value the runtime
+  announces by mDNS and keeps across restarts, generated once with a random
+  part and kept in the project's `.trust-runtime/runtime_id` (the runtime
+  discovery rules below, and decision O36). A state without an installed
+  project (the VS Code simulator, `trust-runtime ide serve` without a project)
+  reports its resource name and writes no file. A device without an operating
+  system reports its chip name and USB serial number, for example
+  `esp32c6-20:6E:F1:17:04:C0`: it needs no stored file, stays the same across
+  resets and differs between two chips of one model.
+- Status reports in `signature` how the runtime admits program images by their
+  signature (specification 44 §5.11): `none` while its list of trusted keys is
+  empty, so that it checks no signature and admits signed and unsigned images
+  alike, and `trusted` while it admits only images a key of its list signed. A computer
+  whose `device.toml` cannot be read admits no image and reports `trusted`.
+- Status reports `identifying`, a Boolean member of the result next to
+  `program_control`, on every runtime: `true` from an accepted `identify` request
+  until its duration has passed or it ends, and `false` otherwise, also on a
+  runtime that has no identify output (see Identify in "One search, device
+  identity, and presence").
 - Aggregate health is false when any I/O driver is faulted and retains the
   faulted driver's stable error detail; runtime readiness alone cannot hide
   that fault.
@@ -2142,11 +3611,11 @@ The status and configuration surfaces project one effective runtime state:
 
 Status, health, and task-stat projection is fail-closed and deterministic.
 `status` returns an error when runtime settings, control mode, I/O health,
-metrics, or realtime-status state is unavailable; it must not substitute
-production mode, VM defaults, an empty driver list, zero metrics, or a default
-realtime posture for an internal read failure. `tasks.stats` likewise returns
-an error when metrics are unavailable. `health` returns an error when I/O
-health or realtime status is unavailable.
+metrics, realtime-status state, or the event store's capacity is unavailable; it
+must not substitute production mode, a default backend, an empty driver list, zero
+metrics, or a default realtime posture for an internal read failure.
+`tasks.stats` likewise returns an error when metrics are unavailable. `health`
+returns an error when I/O health or realtime status is unavailable.
 
 The aggregate `health.ok` value is true only when the resource is running,
 ready, or paused, has no resource fault, has no faulted I/O driver, and has no
@@ -2167,14 +3636,33 @@ store is unavailable. `events.tail` applies the limit to all events. `faults`
 first selects only `RuntimeEvent::Fault` entries and then applies the limit, so
 intervening non-fault events cannot reduce the requested number of faults.
 `SafeStateFailed` remains its own event type and is not silently relabeled as
-the originating resource fault.
+the originating resource fault. On a link that bounds its frames, such as a
+chip's USB link, a reply longer than the frame is answered as specification 34
+PORT-05 says; a reply that fits is the same bytes as on any other link.
 
-The event store keeps the newest 1,000 events, the largest limit either
-operation accepts; a newer event displaces the oldest. A debug control with no
-event sender attached buffers events for callers that drain them directly, such
-as embedders and the debugger. That buffer keeps the newest 1,024 events, drops
-the oldest beyond that bound and counts every dropped event, so the caller can
-tell that it missed events (specification 34 §11.1).
+The event store keeps the newest `runtime.events.capacity` events, 1,000 when
+the project sets none on a computer; a device without an operating system takes
+its default and its maximum from the device's chip file (specification 34,
+TARGET-03 and Appendix H), and admission refuses a project that sets more than
+the maximum. The setting is an integer from 1 through 1,000,000 inclusive;
+another value or type is a configuration error, as for every other
+`runtime.toml` setting. A newer event displaces the oldest, and `events.tail`
+and `faults` answer at most what
+the store holds within their own request limits above. `status` reports the
+store's capacity as `event_capacity`. The store keeps every runtime event but
+the four that every scan makes, `cycle_start`, `cycle_end`, `task_start` and
+`task_end`: at a scan every few milliseconds they would displace every other
+event within a few scans, and a scan's and a task's timing is in `tasks.stats`
+and the `status` metrics, as an industrial controller keeps its cycle times in
+statistics and its diagnostic buffer for the events that matter (the owner, 22
+October 2026: "I trust you, do what's most professional for a plc runtime").
+Overruns, faults, refused writes, online-change and retained-value events and
+the control events stay in the store. A debug control delivers the four, with
+every other event, to the callers that drain it or listen to it. A debug control with no event sender
+attached buffers events for callers that drain them directly, such as embedders
+and the debugger. That buffer keeps the newest 1,024 events, drops the oldest
+beyond that bound and counts every dropped event, so the caller can tell that it
+missed events (specification 34 §11.1).
 
 Historian query parameters are strict objects. `historian.query` permits only
 `variable`, `since_ms`, and `limit`; `historian.alerts` permits only `limit`.
@@ -2247,28 +3735,64 @@ Derived startup/backend-source, simulation, observability, and credential
 presence fields are read-only observations rather than implicit authorization
 for `config.set`.
 
-###### Runtime execution-backend selection and construction contract
+`log.level` takes the level names of the configuration, `error`, `warn` or
+`warning`, `info`, `debug` and `trace`, trimmed and in any ASCII case, and
+another name rejects with `invalid config value for 'log.level': must be error,
+warn, warning, info, debug or trace`; `config.get` reports the level in its
+canonical spelling. A computer writes its log lines by the new level at once.
 
-The host-runtime execution-backend selector trims surrounding whitespace and
-matches ASCII case-insensitively. The only accepted value is `vm`, which selects
-`BytecodeVm`. Empty or unknown values reject with an invalid-configuration
-error that names `runtime.execution_backend` and preserves the rejected text.
-The retired `interpreter` value rejects with the distinct migration guidance
-that it is no longer supported for production runtimes and that `vm` must be
-used.
+A device without an operating system answers both requests from the deployment
+record of its installed program (specification 34 §5.1.1, section 7), as
+`config.set` changed it, with the keys every runtime has: `log.level`, the
+`watchdog.*` keys, `resource.cycle_interval_ms`, `runtime.execution_backend`
+and its source, `fault.policy`, `retain.mode`, `retain.save_interval_ms` and the
+`control.*` keys, in the spellings and with the values above (specification 34
+TARGET-07). It runs none of a computer's own services, so it has none of their
+keys (`web.*`, `discovery.*`, `mesh.*`, `runtime_cloud.*`, `realtime.*`,
+`opcua.*`, `simulation.*`, `observability.*` and `hmi.*`), and `config.set`
+rejects one as an unknown key. It has no log output beside its event store,
+which keeps every event whatever the level, as a computer's store does. It
+commits a request that passes every check before it writes the reply, and the
+program takes the watchdog, the fault policy and the retain save interval at
+its next boundary, where a computer's scan thread takes them, also while it is
+paused or faulted. A program that has ended takes none of them, so a request
+that changes one is rejected with the stable refusal that names the resource
+state, as a computer's closed scheduler rejects it. Its hardware watchdog's
+interval follows `watchdog.timeout_ms` (specification 34 TIME-04), so a
+timeout whose interval that watchdog does not take is rejected with `invalid
+config value for 'watchdog.timeout_ms': the device's hardware watchdog does not
+take the interval this timeout needs`. A control token that `config.set` gives
+it is kept in memory, as a computer keeps one, and required from then on, until
+the next reset, when the device settings' token (`[control] token`, specification
+34 TARGET-02) holds again. A device that serves its control connection over a
+network requires a token, as a computer's TCP endpoint does, so `config.set`
+rejects a null `control.auth_token` there with `auth token required for tcp
+endpoints`. A device without an installed program rejects both requests with
+`no installed program: <reason>`, as it rejects `restart`.
 
-A freshly constructed `Runtime` selects `BytecodeVm`, has zero elapsed logical
-time and zero completed cycles, and exposes the default date/time profile with
-epoch tick zero and one-millisecond resolution. Selecting `BytecodeVm` is valid
-before a bytecode module has been loaded. For a runtime built from accepted
-source, the first VM cycle may materialize the module lazily; that cycle must
-complete successfully and expose the source program's resulting state.
-When a metrics sink is attached, the snapshot after the reviewed VM cycle
-reports `BytecodeVm` as the effective execution backend.
+###### Runtime execution-backend report contract
 
-This contract does not authorize another production backend, cross-version
-bytecode compatibility, arbitrary source semantics, optimized-backend parity,
-or a general performance claim.
+Every runtime runs the program compiled into a program image (specification 44
+§8.8), so `runtime.execution_backend` selects nothing. The configuration parser
+trims surrounding whitespace and matches ASCII case-insensitively: `vm` and
+`native` load, as a project written before may name them, and make the
+reported source `config`; an absent key makes it `default`. An empty value
+rejects with `runtime.execution_backend must not be empty`, and any other value
+with an invalid-configuration error that names `runtime.execution_backend` and
+preserves the rejected text. The retired `interpreter` value rejects with
+`runtime.execution_backend='interpreter' is no longer supported; remove the key,
+every runtime runs the compiled program`.
+
+`status.execution_backend`, `status.metrics.execution_backend`, `config.get`'s
+`runtime.execution_backend`, the startup log event `execution_backend_selected`
+and the Prometheus metric `trust_runtime_execution_backend_info` report
+`native`.
+
+A freshly loaded compiled runtime has zero elapsed logical time and zero
+completed cycles.
+
+This contract does not authorize another production backend, arbitrary source
+semantics, or a general performance claim.
 
 ###### Runtime historian recording and export contract
 
@@ -2309,9 +3833,11 @@ Hosted program-call instrumentation records each invoked program under its
 canonical configured instance name, including multiple programs in one task and
 unscheduled background programs. A program invocation that returns an execution
 fault is still recorded; later programs in the failed cycle are not invoked or
-counted. Observation does not change the original execution error. The shared
-engine supplies paired, read-only program observations to the hosted adapter;
-ordinary MCU execution does not acquire a hosted metrics clock or sink.
+counted. Observation does not change the original execution error. The kernel
+reports the start and the end of each program body as paired, read-only
+observations (specification 44 §8.7), and every runtime, a chip as a computer,
+times them on its monotonic clock; a function block instance that a task runs on
+its own is recorded under the program instance that holds it.
 
 Disabling profiling clears accumulated call entries and top contributors and
 ignores calls recorded while disabled. Re-enabling profiling starts a clean
@@ -2329,13 +3855,17 @@ for every duration field and zero samples/calls. Recording a zero duration is a
 real sample, not an absent value.
 
 Cycle percentile reporting uses a rolling window of the most recent 512 cycle
-durations. The 513th sample evicts only the oldest sample. Snapshots sort a copy
-of the retained values and do not mutate collection order or future rollover.
-For a sorted population of `n`, p50, p95, and p99 use index
-`round((n - 1) * q)` for quantile `q`; quantiles below zero clamp to zero and
-above one clamp to one. An empty window reports zero percentiles, zero maximum,
-and zero samples. Every non-empty snapshot reports the exact retained sample
-count, p50 <= p95 <= p99 <= maximum, and finite values.
+durations. The 513th sample evicts only the oldest sample. Snapshots read the
+percentiles from a copy of the retained values held on the stack, reordered by
+selection rather than a sort of the whole copy, with no allocation, and do not
+mutate collection order or future rollover; on the ESP32-C6 this part of a
+snapshot takes 0.5 to 0.8 ms, as the sort did (23 October 2026). With the `n`
+values in ascending order, p50, p95, and p99 are the values at index `round((n -
+1) * q)` for quantile `q`, rounded half away from zero; quantiles below zero
+clamp to zero and above one clamp to one. An empty window reports zero
+percentiles, zero maximum, and zero samples. Every non-empty snapshot reports
+the exact retained sample count, p50 <= p95 <= p99 <= maximum, and finite
+values.
 
 Task identities are exact and independent. A recorded task duration creates or
 updates only that task. A positive missed-activation count increments both the
@@ -2369,13 +3899,133 @@ overrun metrics are independent of the profiling toggle.
 A metrics snapshot is observational: it does not reset counters, consume
 samples, reorder retained window state, or alter profiling enablement.
 Successive snapshots without new records preserve all metric values except
-that monotonic uptime may increase. The default and explicitly selected
-execution backend are reported exactly.
+that monotonic uptime may increase. The status's `metrics.execution_backend`
+reports `native`.
 
 These rules establish the in-memory accounting and snapshot contract. They do
 not claim wall-clock accuracy, lock-free concurrent collection,
 instrumentation completeness, a stable observer-overhead budget, or a general
 execution-time guarantee.
+
+###### Runtime clock contract
+
+`clock.set` sets the wall clock of a device without a battery-held clock from the computer at the
+other end of its control connection (specification 34, TARGET-06). Its one parameter, `utc_ms`, is
+the computer's time in whole milliseconds since 1970-01-01T00:00:00Z; a request without it, with
+another parameter or with a value that is no whole number of milliseconds is refused with
+`invalid params: <reason>`. A device sets its clock to it and answers `{"utc_ms": <its clock after
+the set>, "was_utc_ms": <its clock before the set, null while it was not set>}`, so that a tool can
+tell a device that kept its time, and by how much it drifted, from one that lost it; from then on
+`CURRENT_DT` reads that clock, and replies and events carry the time (TARGET-06). A computer's operating system holds its clock: trust-runtime on Linux, macOS and
+Windows refuses the request with the code `clock_not_settable` and the message `the operating
+system holds this runtime's clock`, and changes nothing. The minimum role is Engineer, and the
+request carries one audit record without operation details.
+
+The tools that open a device's control link (specification 34, PORT-05: `trust-runtime
+conformance --device`, `trust-dev test --device`, and every tool that reaches a device over that
+link) send `clock.set` with their computer's clock right after opening it. So a device that lost
+power has the time again as soon as a computer talks to it, and one that kept it takes the
+computer's time, which corrects what its crystal drifted. A refusal, or the `unsupported request`
+of a firmware that has no clock, changes nothing and does not stop the tool.
+
+###### Runtime device capabilities contract
+
+`capabilities` reports the device descriptor that admission reads (specification 34, COMPAT-02 and
+§5.1.1) and, on a device without an operating system, the reset its boot read. It takes no
+parameters and changes nothing; its minimum role is Viewer. Like every control operation it
+carries one audit record and, being a read of the device's own descriptor, no operation details.
+`trust-runtime ctl capabilities` prints its result as indented JSON. Its result is the same shape
+on every runtime, a computer or a device without an operating system:
+
+| Result field | Type | Value |
+|---|---|---|
+| `program_versions` | array of strings | The program formats the device runs, each `<major>.<minor>`: 44.1 where it runs compiled program images (specification 44 §10.1, §10.2), and none on a computer whose CPU runs no image |
+| `scheduling_profiles` | array of strings | The scheduling/I/O profiles the device runs (specification 34 §4.4) |
+| `numeric_contracts` | array of strings | The numeric contracts the device implements (specification 34 §12.1) |
+| `timing_evidence` | string | `unqualified`, `measured-qualified` or `analytically supported` (specification 34 §4.4) |
+| `capabilities` | array of strings | The platform capabilities the device supplies, by name: bit 0, the platform wall clock (specification 34 §5.2), is `wall_clock`; any other set bit `n` that the specification does not name is `capability_bit_<n>` |
+| `maxima` | object | The largest request the device admits for each preparation limit, under that `PreparationLimits` field's name (for example `validation.max_scratch_bytes`): an integer where the device bounds the limit, and `null` (no maximum) where it bounds nothing. A limit at or above `usize::MAX`, the largest value the platform holds, is no maximum: a chip writes it as `u64::MAX`, a computer as `usize::MAX`. |
+| `event_store_default` | integer | The newest events the device's event store keeps when a project sets none |
+| `event_store_max` | integer | The most a project may set for the device's event store |
+| `application_slot_bytes` | integer or null | The bytes of the device's application slot, or null when it has none |
+| `program_memory_bytes` | integer or null | The bytes of memory the device has for a program, which admission compares a program's memory figure with (specification 34 MEM-12, §5.1.1): a chip's measurement at boot, or null where there is no maximum, as on a computer |
+| `last_reset` | object or null | The reset the device's boot read (below), or null |
+| `firmware` | object or null | A chip's firmware slots (specification 34 TARGET-04; the firmware update contract below), or null on a runtime that keeps none, a computer among them |
+| `network` | object or null | A chip's network as it stands (specification 34 ARCH-12; below), or null on a runtime that reports none, a computer among them, and on a chip whose device settings name no network |
+| `heap` | object or null | A chip's heap as it stands (specification 34 MEM-12): `capacity_bytes`, the bytes its allocator was given at boot; `used_bytes`, the bytes in use now; and `peak_bytes`, the most in use at once since the boot; null on a computer. It shows what a program, its drivers and the services took, which `program_memory_bytes`, measured before any program, cannot |
+
+| `firmware` field | Type | Value |
+|---|---|---|
+| `slot` | string | The slot the firmware runs from: `a` or `b` |
+| `version` | string | The running firmware's truST version |
+| `confirmed` | boolean | False while the firmware runs on trial after an update, until its boot is done; true otherwise |
+| `rolled_back` | string or null | The version of a newer firmware in the other slot that the boot loader stopped booting because it did not confirm itself, or null |
+
+| `network` field | Type | Value |
+|---|---|---|
+| `interface` | string | `wifi` or `ethernet` |
+| `link` | string | `up` while the chip has joined its Wi-Fi network or its cable is plugged in, `down` otherwise |
+| `address` | string or null | The interface's IPv4 address with its prefix length, `192.168.1.50/24`, while it has one |
+| `control_port` | integer or null | The TCP port of the control connection over the network, or null while the chip serves none (its device settings set no control token) |
+| `error` | string or null | Why the interface did not start, for example `the Wi-Fi radio did not start: ...`, or, until the chip joins its network, why its last attempt to join failed, for example `joining the Wi-Fi network failed: ...` or `the Wi-Fi network did not answer within 20 seconds`; null otherwise |
+| `driver_memory` | object or null | The memory the network's driver has of its own, where it has some (the ESP32-C6's radio arena, specification 34 D.2): `bytes`, `peak_bytes`, the most it has held at once since boot, and `failures`, the allocations it refused since boot; null otherwise |
+| `time` | object or null | The time server of the device settings (specification 34 TARGET-06): `server`, `offset_ms`, how far behind the server the clock was when the last request set it (negative when ahead), null before a request set it, and `error`, why the last request took no time, null otherwise; null without a time server |
+
+###### Device settings contract
+
+A chip keeps its own settings, `device.toml` (specification 34 TARGET-02, which defines the keys and
+their checks). `device.get` (Engineer) answers `{"settings": <object>, "sequence": <n>}`, the settings
+as `device.toml`'s sections with `network.wifi.password` replaced by `password_set` (true when a
+password is set) and `control.token` by `token_set`, or `{"settings": null, "sequence": null}` when
+none are stored. `device.set
+{settings}` (Admin) refuses, in this order: missing params; `invalid params: settings must be an
+object`; a settings object that does not read as `device.toml` (an unknown section or key, a value
+of the wrong type), as `invalid params: <reason>`; a hung resource; a resource that is not Stopped, as
+`resource_not_running`; a setting the chip cannot take, with the key and the reason, for example
+`network.ethernet: the ESP32-C6 has no Ethernet`; and a flash failure. It answers `{"status":
+"stored", "sequence": <n>, "applies": "boot"}`. `device.reset` (Admin) refuses a hung resource and
+one that is not Stopped, and answers `{"status": "resetting"}`; the chip answers no further request
+and resets once the reply is sent and 100 ms have passed. A runtime that keeps no device settings, a
+computer among them, answers all three with `unsupported request`. `ctl device-get` prints the
+settings as `device.toml` text after the line `# device settings, sequence <n>`, or `no device
+settings are stored`; `ctl device-set <file>` reads the `device.toml` file and sends its tables as
+`settings`, and prints `stored sequence=<n>; the settings apply at the device's next boot
+(trust-runtime ctl device-reset)`; `ctl device-reset` prints `resetting`.
+
+###### Firmware update contract
+
+A chip is updated over its control connection (specification 34 TARGET-04). While the resource is
+Stopped, `transfer.begin` with `"for": "firmware"` opens an upload of the chip's firmware image that
+the chip writes into the firmware slot it does not run from; `for` is `program` (the default) or
+`firmware`, and any other value is refused with `invalid params: for must be "program" or
+"firmware"`. On a resource that is not Stopped it is refused as `resource_not_running`, and on a
+runtime without firmware slots, a computer among them, with `unsupported request`. `firmware.install
+{transfer}` (Admin) refuses, in this order: missing params and a malformed `transfer`; a hung
+resource; a resource that is not Stopped, as `resource_not_running`; a runtime without firmware
+slots, with `unsupported request`; a transfer that is not an open firmware upload, with `the
+transfer is not a firmware upload: begin it with "for": "firmware"` (an unknown or unfinished one
+with the session's own text); the chip's check of the image, with its text, for example `the
+firmware image's SHA-256 is wrong`. The transfer is taken only after the checks before the image's
+own, so those refusals leave it open, and `program.install` of a firmware upload is refused with
+`the transfer is a firmware upload, which firmware.install installs` and leaves it open too. The
+reply waits for the commit (the image's first bytes, their read-back and the slot's selection) and
+is `{"status": "installed", "version": "<version>", "slot": "a"|"b", "restarting": true}`. The chip
+then answers no further request and resets into the new firmware once the reply is sent.
+
+A computer reports `last_reset` as null: it starts as a new process. A device without an operating
+system reports the reset its boot read once: the record the previous boot left (specification 34,
+the fixed-size reset record) or, when it left none, the boot's hardware reset reason. A hardware
+watchdog reset runs no code and so leaves no record; its reason (0x07 on the C6, specification 34)
+reports `watchdog` with empty text. A reset the chip makes itself once it has sent the reply to
+`device.reset` or `firmware.install` leaves a record with the cause `requested` and empty text. Any
+other boot with no record, a power-on, a host (USB) reset or a reason the hardware cannot name,
+reports `power_on`:
+
+| `last_reset` field | Type | Value |
+|---|---|---|
+| `cause` | string | The record's cause: `panic`, `watchdog` or `requested`; without a record, `watchdog` for a watchdog reset reason and `power_on` for any other |
+| `text` | string | The record's text, for example a panic location, empty when the boot read no record |
+| `boot_count` | integer | The boot counter the chip keeps, counted for this boot, for every reset whether or not a record exists |
 
 ###### Runtime terminal console contract
 
@@ -2477,54 +4127,12 @@ or a live runtime control connection.
 The role and transport rules in section 6.9.4 govern these handlers. A pairing
 token retains its stored role; an unauthenticated network connection receives
 Viewer authority; and a local mode-0600 Unix socket without configured
-authentication may receive Admin authority. Sufficient role permits a request
-to reach its handler but does not override a configured HMI read-only posture.
+authentication may receive Admin authority.
 
-###### Runtime HMI descriptor, live-state, and control contract
+###### Runtime HMI
 
-The runtime HMI schema is the authority for every exposed widget and process
-binding. A schema row has a stable widget ID and path, declared type, current
-quality, writable flag, and any configured display, unit, range, alarm, or
-layout metadata. Descriptor overrides may change presentation without changing
-the stable identity of an unchanged binding. Unknown paths, unknown widgets,
-type mismatches, and invalid limits are reported as binding errors; they are not
-silently dropped or coerced.
-
-HMI values are read directly from the runtime snapshot and preserve the
-declared runtime type, timestamp, and quality. The in-process read and write
-ports use the same typed contract as the JSON control surface but do not
-serialize and parse an intermediate JSON request. A write is admitted only
-when all of the following are true:
-
-- HMI writes are enabled and the runtime is not in HMI read-only mode;
-- the target resolves by stable widget ID, canonical path, or configured alias;
-- the resolved target is in the explicit write allowlist and the schema marks
-  it writable; and
-- the value passes the same declared-type, subrange, bounded-string, and finite
-  floating-point checks as other runtime writes.
-
-An admitted write is queued for the cycle boundary and audited through the HMI
-policy path. A rejected write queues nothing and leaves runtime storage
-unchanged. The queue-processing work remains bounded by the configured cycle
-budget.
-
-Descriptor updates are atomic at the schema boundary. A valid descriptor or
-scaffold reset increments the schema revision and becomes visible without a
-runtime restart. Rapid successive file changes must not deadlock the watcher.
-An unreadable or invalid descriptor retains the last good schema and exposes
-the validation failure instead of publishing a partial schema. When descriptor
-files are absent, the runtime may publish the deterministic inferred layout.
-
-The live event stream emits changed values only, includes stable widget IDs and
-the active schema revision, and deduplicates identical alarm payloads. Trend
-downsampling preserves the requested time window and its first, last, minimum,
-and maximum bounds. Alarm state uses the configured alarm label and follows the
-ordered lifecycle raise, acknowledge, clear, and history retention. A configured
-deadband requires the value to re-enter the clear window before the alarm
-clears. When HMI persistence is configured, restart restores only the bounded
-trend window and alarm history owned by that configuration; it does not expand
-the configured per-series limit. HMI control failures use a structured error
-payload with a stable code; clients do not need to parse diagnostic prose.
+Runtime HMI pages, values, commands, and alarms are specified in
+`docs/specs/39-hmi-builder.md`.
 
 ###### Runtime control audit and debug projection
 
@@ -2540,6 +4148,11 @@ not internal instance IDs. A stale frame, unknown variable reference, unknown
 evaluation name, or unavailable/poisoned I/O snapshot fails closed with a
 negative response. These failures do not return an empty successful projection
 or mutate debug or runtime state.
+
+`eval`, `debug.stack` and `debug.variables` answer from the published debug state described in section
+6.13.1: the storage as it stood at the end of the last completed scan, one consistent state and never
+half a scan, and never a copy the runtime makes per statement. While a debugger holds the scan they
+answer the halted state.
 
 ###### Runtime control I/O and variable mutation contract
 
@@ -2570,8 +4183,49 @@ not collapse an internal failure into a pre-scan state. A returned snapshot is
 one coherent cached scan, including only the force marks captured with that
 scan.
 
-The attach-mode scalar text grammar is deliberately small. After trimming,
-`TRUE` and `FALSE` match ASCII-case-insensitively and produce Boolean values.
+**Typed values** (the owner, 26 October 2026: "did you run a program, simulate and force values
+etc? did you test all workflows?"). Where the destination's declared type is known when the request
+arrives, a variable target that the installed program resolves (`set`, `var.force`, `debug.set` of
+section 6.13.4) or a process-image address that a variable is bound to (`io.write`, `io.force`), the
+value text, trimmed, is an IEC 61131-3 literal of that type, read as the language reads it:
+
+- a Boolean: `TRUE` or `FALSE` in any case, or `0` and `1` (IEC 61131-3 Ed.3 §6.3.2, Table 5
+  features 7 and 8);
+- an integer or a bit string: a decimal number with an optional sign, or a number in base 2, 8 or 16
+  without one (`2#1010`, `8#17`, `16#FF`), single underscores between digits not significant
+  (Table 5 features 1, 4 to 6); an integer is admitted to a `REAL` or an `LREAL` that holds it
+  exactly;
+- a real number with a decimal point and an optional exponent (`3.5`, `-1.34E-12`, `1.0e+6`, Table
+  5 features 2 and 3), read once as the binary floating-point number of the destination's type nearest
+  to its text;
+- a typed literal `TYPE#literal` of an elementary type (`INT#-123`, `INT#16#7FFF`, `REAL#3.5`,
+  `BOOL#1`, `CHAR#16#41`, Table 5 feature 9), which a destination of that type or of a wider type of
+  the same kind takes;
+- a duration `T#`, `TIME#`, `LT#` or `LTIME#` (`T#5s`, `t#1h_30m`, `T#-14ms`, `LTIME#5m_30s_500ms`,
+  §6.3.4, Table 8) in whole nanoseconds; an `LTIME` takes a `TIME` literal and a `TIME` no `LTIME`
+  one;
+- a date, a time of day or a date and time, `D#`/`DATE#`, `LD#`/`LDATE#`, `TOD#`/`TIME_OF_DAY#`,
+  `LTOD#`/`LTIME_OF_DAY#`, `DT#`/`DATE_AND_TIME#` and `LDT#`/`LDATE_AND_TIME#` (§6.3.5, Table 9),
+  a date that exists and a time of day within the day; a `DATE`, a `TIME_OF_DAY` and a
+  `DATE_AND_TIME` hold milliseconds, so a finer time is refused for them;
+- a character string in single quotes for a `STRING` and in double quotes for a `WSTRING`, with the
+  `$` combinations of Table 7 and `$hh` and `$hhhh` codes (§6.3.3, Table 6), typed `STRING#'OK'`,
+  `WSTRING#"OK"` and `WSTRING#'OK'`; a `CHAR` takes one character in single quotes and a `WCHAR` one
+  in double quotes;
+- an enumeration's value, bare (`Red`) or typed (`Color#Red`, §6.4.4.2, Table 11).
+
+A literal of another type, outside the range of the destination's type or subrange, longer than the
+text the destination holds, or no value of its enumeration, is refused with a plain reason before
+anything is queued, and nothing is cut or rounded to fit; so is a text that is no literal. A text of
+the untyped grammar below that the declared type refuses (`40000` for an `INT`, `TRUE` for an `INT`)
+keeps that grammar, so that it is queued and refused at the boundary as before. At an address a
+variable is bound to, the admitted value is written as the image holds that variable: its bytes, or
+for a `TIME` bound in whole milliseconds those milliseconds. The parser is the shared one of every
+runtime (specification 34), so a board takes a text exactly as trust-runtime does.
+
+**The untyped grammar.** Where the destination's type is not known (an address no variable is bound
+to, a target the installed program does not resolve, a runtime without its program at hand), after
+trimming, `TRUE` and `FALSE` match ASCII-case-insensitively and produce Boolean values.
 A base-ten signed integer accepted exactly by the `i64` domain produces a
 `LINT`; optional leading sign and leading zeroes are accepted, while an empty
 string, separators, base prefixes, decimal points, exponent notation, quoted
@@ -2610,7 +4264,9 @@ refused by the bound.
 
 The bounded `eval` operation trims `expr`, rejects an empty name, and performs
 an exact snapshot lookup: global storage first, then retained storage. It is a
-name read, not general expression execution. An absent snapshot returns
+name read, not general expression execution, and it keeps its text `expr`
+field; `debug.evaluate` and the other expression surfaces use the compiled form
+of section 6.13.2. An absent snapshot returns
 `no snapshot available`; an unknown name returns `unknown identifier`.
 Successful values use the stable runtime debug representation.
 
@@ -2643,9 +4299,15 @@ failed candidate must not replace the installed controller or its published stat
 
 
 Variable mutation targets use exact lowercase prefixes. `set` admits
-`global:<name>` and `retain:<name>` only. Force and release additionally admit
+`global:<path>` and `retain:<name>` only. Force and release additionally admit
 `instance:<id>:<name>`, where `id` consists only of ASCII decimal digits in
-the inclusive `u32` range. Surrounding whitespace on the complete target is
+the inclusive `u32` range. A `global:` target is a variable path: a global or a
+qualified variable by its name (`Main.Speed`), and also a member of an instance
+at any depth, a field of a structure and an element of an array with constant
+indices (`Main.Pumps[2].Speed`, `GVL.Table[1, 3]`), the names compared without
+case, resolved through the installed program's tables at each boundary
+(specification 44 §13.3). A constant, a member or an element of one, and an
+instance, which holds no value of its own, are refused with a plain reason. Surrounding whitespace on the complete target is
 not ignored because it changes the prefix; whitespace around the name after
 the delimiter is trimmed. Every name must remain non-empty. Instance names
 retain all text after the second delimiter, after surrounding whitespace is
@@ -2670,8 +4332,13 @@ and emits that operation's JSON result:
 - `topology` reads the selected project and reports its offline fleet topology;
 - `apply` requires `--params` to decode as a JSON object, forwards the selected
   protocol and action, and includes `instance_id` only when one was supplied;
+- `test` requires `--params` to decode as a JSON object and runs the `comm.test`
+  request's code for the selected protocol against the selected project, printing
+  that request's answer;
 - `discover` forwards the selected protocol, origin, passive flag, and only the
-  optional scope fields that were supplied by the caller;
+  optional scope fields that were supplied by the caller; each `--ads-port`
+  given is forwarded, in the order given, as `scope.ads_ports`, which the
+  request merges and sorts;
 - `browse-symbols` accepts an optional JSON-object target, optional cached JSON
   snapshot, instance, and connection name, and selects project-aware browsing
   only when a project was supplied;
@@ -2733,6 +4400,107 @@ and a default within that range. Endpoint validation is either `host_port` or
 `socket_addr`. A visibility predicate references another field in the same
 protocol and its comparison value is valid for that controlling field.
 
+The schema also carries the words of the add picker and of the setup forms
+(specification 25 §5.4 and §5.9), so that the tools show the words the catalog
+gives instead of keeping a copy of them. These keys are an additive part of
+version 4: a client ignores a key it does not know, and a runtime that
+predates them omits them. `picker_groups` lists the picker's groups in their
+canonical order; each group has a stable `id`, its `label`, whether it is
+`advanced`, and the `protocols` it holds, in their order:
+
+| `id` | `label` | `advanced` | `protocols` |
+|---|---|---|---|
+| `devices_io` | `Devices and I/O` | false | `modbus_tcp`, `ethercat`, `gpio`, `simulated`, `loopback` |
+| `read_tags` | `Read tags from another PLC or server` | false | `opcua_client`, `ads` |
+| `share_values` | `Share truST values` | false | `opcua`, `ads_server` |
+| `messages` | `Send and receive messages` | false | `mqtt` |
+| `advanced` | `Advanced integrations` | true | `mesh`, `openot`, `realtime_t0`, `runtime_cloud` |
+
+Every protocol of a group carries `picker`, its entry in the picker, with a
+`title`, a `badge`, and a `purpose`. These are the picker's words; the
+protocol's own `title` and `purpose` remain the words of its form.
+
+| Protocol | `title` | `badge` | `purpose` |
+|---|---|---|---|
+| `modbus_tcp` | `Modbus` | `MB` | `Connect PLCs, drives, meters, and remote I/O.` |
+| `ethercat` | `EtherCAT` | `EC` | `Connect EtherCAT drives, terminals, or remote I/O.` |
+| `gpio` | `GPIO` | `IO` | `Use Raspberry Pi or Linux controller pins.` |
+| `simulated` | `Simulated I/O` | `SIM` | `Practice and test without hardware.` |
+| `loopback` | `Loopback I/O` | `LOOP` | `Echo outputs back into inputs for quick checks.` |
+| `opcua_client` | `OPC UA client` | `UA IN` | `Read selected tags from another OPC UA server.` |
+| `ads` | `ADS client` | `ADS IN` | `Read tags from a TwinCAT or ADS PLC.` |
+| `opcua` | `OPC UA server` | `UA OUT` | `Share truST values with SCADA, HMI, or historians.` |
+| `ads_server` | `ADS server` | `ADS OUT` | `Share truST values with TwinCAT or ADS clients.` |
+| `mqtt` | `MQTT broker` | `MQTT` | `Send and receive process values through MQTT topics.` |
+| `mesh` | `Mesh / Zenoh` | `MESH` | `Configure a peer network; no live link is active until a runtime reports one.` |
+| `openot` | `OpenOT` | `OT` | `Configure OpenOT evidence output; no evidence is published until a runtime reports one.` |
+| `realtime_t0` | `Realtime T0` | `RT` | `Configure deterministic same-host exchange; no live exchange runs until a runtime reports one.` |
+| `runtime_cloud` | `Runtime cloud` | `CLOUD` | `Configure federation policy; no live link is active until a runtime reports one.` |
+
+`discovery` belongs to no group and carries no `picker`: the runtime discovery
+settings are edited from the runtime's `Runtime discovery` connection, not
+added as a protocol card (specification 25 §5.9 and §5.13).
+
+Every `enum` field carries `option_labels`, an object that gives each of its
+options the label that a form shows. The options of `on_error` read
+`Stop with fault` (`fault`), `Warn and continue` (`warn`), and `Ignore`
+(`ignore`); `scheduler` reads `FIFO` (`fifo`), `Round robin` (`rr`), and
+`Default` (`other`); `source` reads `Heartbeat` (`heartbeat`) and `ST producer`
+(`st-fb`); `fence_mode` reads `Fenced` (`fenced`) and `Unfenced` (`unfenced`);
+and `profile` reads `Development` (`dev`), `Plant` (`plant`), and `WAN`
+(`wan`). Every other option is labelled with its value.
+
+Every `json_array` field carries `list`, the words and the seed of its list
+editor: the `item_noun` that names one item, the `empty_text` shown while the
+list is empty, and the `item_template` that adding an item appends when the
+list holds no item to copy. The nouns of `connect`, `producer_instances`,
+`wan_allow_write`, `link_transports`, `cpu_affinity`, `expose`, `modules`,
+`mock_inputs`, and `selected_channels` are `peer address`,
+`ST producer block`, `WAN write rule`, `link transport`, `CPU index`,
+`global`, `module`, `mock frame`, and `channel`. Any other noun is the field's
+label in the singular, with its acronyms kept in capitals and its other words
+in lower case, such as `allowed client` for `Allowed clients` and `TLS ALPN`
+for `TLS ALPN`. The `connections` lists of `opcua_client` and `ads` read
+`No connections yet. Use Discover or Browse to add one instead of typing JSON.`,
+`expose` reads
+`No globals selected yet. Use Choose globals to pick project variables, or add a pattern manually.`,
+and every other list reads `No <label> yet. Add an item below.`, with the
+label's first letter in lower case unless its first word is an acronym. A list
+whose items the catalog describes (below) starts a new item from that
+description. Any other list's template is the first item of the field's
+default, an empty string when that default is empty, and null for the
+`connections` lists, whose items come only from Discover or Browse.
+
+The items of four lists are described, so that adding an item gives one that
+the runtime's configuration accepts once it is filled in. A list of numbers
+carries `item_type` `unsigned`: each item is a whole number of 0 or more, and a
+new item is an empty string, which is not a number yet. A list of objects
+carries `item_fields`, the properties of an item in their order, each with its
+`id`, `label`, `type` (`string` or `enum`), whether it is `required`, and the
+`options` of an `enum`; none of them has a default, so a new item holds each
+property as an empty string. `item_one_of` names the groups of properties of
+which an item sets exactly one, each with its `fields`, of which a new item
+holds only the first, and `unless`, the protocol's boolean field that, while
+on, lets an item set none of them. The descriptions follow the runtime's
+configuration parser:
+
+- `realtime_t0` `cpu_affinity` (`runtime.realtime.cpu_affinity`): `item_type`
+  `unsigned`; the parser reads a list of unsigned integers whose entries are
+  unique.
+- `ads_server` `clients` (`[[runtime.ads_server.clients]]`): `ams_net_id`
+  (`AMS Net ID`, required), `source_ip` (`Source IP`), and `source_cidr`
+  (`Source CIDR`), with the group `source_ip`, `source_cidr` unless
+  `allow_unpinned_clients`; the parser requires one of the two, refuses both,
+  and accepts neither only with `allow_unpinned_clients = true`.
+- `runtime_cloud` `wan_allow_write` (`runtime.cloud.wan.allow_write`):
+  `action` (`Action`) and `target` (`Target`), both required; the parser
+  refuses an empty one.
+- `runtime_cloud` `link_transports` (`runtime.cloud.links.transports`):
+  `source` (`Source`) and `target` (`Target`), both required, and `transport`
+  (`Transport`), a required `enum` of `realtime`, `zenoh`, `mesh`, `mqtt`,
+  `modbus-tcp`, `opcua`, `discovery`, and `web`, the transports the parser
+  accepts.
+
 Schema defaults and apply validation are one contract, not separate sources of
 truth. Every directly applicable default set is accepted by its owning
 validator. Every advertised integer bound, enum option set, endpoint shape,
@@ -2755,6 +4523,17 @@ communication protocols. Build availability, platform availability,
 configuration state, and operational evidence are distinct. Every protocol
 shown by default on the current platform must have a built backend; an unknown
 platform marker fails closed instead of silently removing that requirement.
+
+Two capability entries carry live health beside their version-4 shape, and no
+other entry does. The `discovery` entry reports `enabled`, whether runtime
+discovery is enabled, `announcing`, whether it announces itself, and
+`visible_runtimes`, how many other runtimes it currently sees. The
+`mesh` entry reports `peers`, one object for each configured peer in
+configuration order, with `peer`, the configured target, `connected`, whether
+the mesh's liveliness reports that peer now, and `last_seen_ms`, the
+millisecond timestamp when the mesh last heard from it, `null` while it never
+did. A runtime without mesh evidence reports every peer as not connected and
+without a last-seen timestamp.
 
 A communication Test request may succeed at the control-envelope level while
 returning `result.ok = false` for a completed negative protocol test.
@@ -2928,6 +4707,12 @@ sections, comments, and ADS-server clients not supplied by an update remain
 intact. No failure response, audit entry, temporary-file name, or persisted
 document includes a secret value.
 
+A successful `io.toml` authoring reply for `add`, `upsert`, and `edit` reports
+`instance_id` as the project-local identifier of the connection it wrote,
+`{protocol}:{index}`, where `protocol` is the canonical protocol ID and `index`
+is that driver's zero-based position in the written `io.toml`. Validate, a dry
+run, and a refused request do not recompute the identifier and answer as before.
+
 ###### Offline communication operation and fleet-topology truth
 
 Offline schema, apply, and topology require no live runtime and must not invent
@@ -2978,8 +4763,11 @@ characters. Short, non-hexadecimal, and empty components do not become
 container IDs.
 
 Configured host IP projection parses valid listen values as hosts, removes
-unspecified wildcard addresses, sorts and deduplicates the result, and falls
-back to `127.0.0.1` only when no concrete host remains. Bracketed IPv6 is
+unspecified wildcard addresses, sorts and deduplicates the result. When no
+concrete host remains but a listen value was an unspecified wildcard address,
+the projection reports the computer's real non-loopback interface addresses in
+their place, sorted and deduplicated. It falls back to `127.0.0.1` only when
+neither a concrete host nor an interface address remains. Bracketed IPv6 is
 unbracketed in the host inventory. Whenever an IP address is combined with a
 port for an endpoint, IPv6 is bracketed so the result is an unambiguous socket
 authority; IPv4 and hostnames use `host:port`.
@@ -3146,6 +4934,12 @@ requires a snapshot and fails visibly for missing symbols, type mismatches, or
 generated-source drift. Live validation rejects cached snapshots and obtains
 fresh symbols from every configured connection before applying the same
 compatibility check.
+
+`ads remove-symbols` removes selected imported tag points from a project's
+`ads.toml` and regenerates the generated ST from the rewritten configuration and
+every cached snapshot, running the same function as the `ads.import_symbols.remove`
+request. It writes nothing when no point matched, and its answer reports the number
+of points removed, the files written, and whether anything matched.
 
 The ADS parser preserves every selected live-client action and its explicit
 target, target Net ID, connection, configuration, guarded-write, and JSON
@@ -3430,6 +5224,20 @@ explicit expiry and `doctor_timestamp_ms + stale_after_ms`; arithmetic overflow
 must not extend evidence lifetime. Only evidence with none of those conditions
 is `ready`.
 
+###### ADS status summary
+
+`ads.status` answers the runtime's ADS status report (its role, overall state,
+summary and connections) with `view`, the summary that the tools show of it:
+`text` is `ADS: 1 device · <m> degraded` for a report with one connection and
+`ADS: <n> devices · <m> degraded` for more, where a connection is degraded
+when it has a degraded point or is neither connected nor disabled; for a
+report without connections it is the report's own summary, else
+`ADS is not configured.`. `overall` is the report's overall
+state word, `device_count` counts the connections and `degraded_count` the
+degraded ones (0 without connections). The extension computes no summary of
+its own and reads this one (26 October 2026, when the summary moved out of the
+extension).
+
 ###### ADS onboarding identity authority
 
 ADS onboarding identity is a truST product contract outside IEC 61131-3. The
@@ -3497,7 +5305,10 @@ IEC 61131-3. Configuration parsing must fail closed before worker creation or
 any ADS wire activity unless all connection names are unique; every connection
 name and host is nonblank; every target AMS Net ID and explicit local AMS Net
 ID contains exactly six canonical decimal octets; every target AMS port is
-non-zero; and every connection declares at least one point. Plain transport
+non-zero; and every connection declares at least one point. A configuration with
+no connections is valid and starts with no ADS bindings: removing a project's
+last imported tag leaves a rewritten file the runtime still starts, not an empty
+connection entry that fails closed. Plain transport
 requires explicit insecure-transport acknowledgement, and that acknowledgement
 is invalid for any non-plain transport.
 
@@ -3874,6 +5685,30 @@ selected capability. Malformed current configuration, missing selection,
 unacknowledged writes, invalid descriptor metadata, or generation mismatch
 fails before an artifact is returned.
 
+A successful apply then enables the ADS client in the selected project's
+`runtime.toml`: it sets `[runtime.ads]` `enabled = true`, `config_path =
+"ads.toml"`, and `worker_tick_interval_ms = 20` only when that key is absent,
+adds the section at the end when it is missing, and preserves every other line,
+comment, and section. The offline `ads import-symbols` command does the same
+after it writes its artifacts. Both answers report whether `runtime.toml`
+changed. A missing `runtime.toml` leaves the artifacts in place and reports that
+ADS could not be enabled automatically.
+
+The `ads.import_symbols.remove` request removes selected imported points from the
+project's `ads.toml` and regenerates the generated ST from the rewritten
+configuration and every canonical cached snapshot. Its parameters name the device
+`host`, `target_net_id`, and `ams_port`, and the `paths` to remove. In every
+connection whose host, target AMS Net ID, and AMS port equal the device's it
+removes the points whose `symbol` is one of `paths`; a connection left without
+points is removed, and every other line, blank line, and comment is kept. When
+that leaves no connection at all, the rewritten file stays valid and the runtime
+starts with no ADS bindings. It
+answers schema version 1 with `applied`, `matched`, `removed_count`,
+`restart_required`, `files_written`, and `message`, writing nothing when no point
+matched and refusing without writing when no cached snapshot can regenerate the
+interface. It is always write-enabled and therefore always requires Engineer,
+like `ads.import_symbols.apply`.
+
 The generated ADS interface is one deterministic Structured Text source for
 all configured connections. It declares the shared `ADS_QUALITY` enum exactly
 once, then each configured point and its `<name>_quality` companion in stable
@@ -3892,9 +5727,8 @@ not prove compilation, runtime binding, or live PLC communication.
 
 Once that generated source is compiled into a runtime, its point and quality
 declarations are ordinary first-class globals. Their declared type and enum
-variant remain available through HMI schema/values, the HMI binding catalog,
-control evaluation, debugger globals, historian capture, and the supported
-OPC UA scalar/enum projection. This cross-surface rule requires runtime metadata
+variant remain available through control evaluation, debugger globals,
+historian capture, and the supported OPC UA scalar/enum projection. This cross-surface rule requires runtime metadata
 and snapshot evidence; source-text presence alone is not proof.
 
 ##### 6.8.1b Runtime benchmark measurement and output contract
@@ -3921,8 +5755,8 @@ for reproducible workload selection.
 
 JSON output serializes the benchmark kind and its typed report; table output
 renders the same contract fields. Project reports separate measured cycles,
-configured cycle budget and overruns, throughput, requested watched globals,
-and optional VM/Tier-1 profile data. A missing watched global is explicit JSON
+configured cycle budget and overruns, throughput, and requested watched
+globals. A missing watched global is explicit JSON
 `null`, not an omitted or fabricated value.
 
 Every benchmark subcommand defaults to table output when `--output` is omitted;
@@ -3943,25 +5777,26 @@ and choices without performing import or export work.
 
 ##### 6.8.1c Runtime project-check contract
 
-`trust-runtime check` validates a project without writing `program.stbc` or
-another compiled bytecode artifact. An explicit `--project` selects the
+`trust-runtime check` validates a project without writing `program.tpi` or any
+other build output. An explicit `--project` selects the
 project root; otherwise the command uses bundle auto-detection and falls back
 to the current directory. A relative `--sources` override is resolved from the
 project root, while the default source root is `<project>/src`.
 
 The command validates required `runtime.toml` and `io.toml` files plus optional
 `ads.toml` and `opcua_client.toml` files, inspects the complete source and local
-dependency layout, and compiles valid layouts in memory. Independent
-configuration and compile findings are accumulated in one response. A
-configuration failure does not suppress an otherwise possible in-memory
-compile, and a compile failure does not discard the source and dependency
+dependency layout, and checks valid layouts with the build's front end and its
+generator for this computer's CPU, without the toolchain (specification 44
+§4.1). Independent configuration and compile findings are accumulated in one
+response. A configuration failure does not suppress an otherwise possible
+check, and a compile failure does not discard the source and dependency
 identity already obtained from successful layout inspection.
 
 `--json` and `--ci` emit response version 1. The response identifies the
 command and project; exposes `ok`/`status`, error and warning counts, stable
 issue codes and optional file locations; and reports the exact source count,
-source paths, dependency roots, resolved dependency names, and optional
-in-memory bytecode size. `source_count` equals the number of reported source
+source paths, dependency roots, and resolved dependency names. `source_count`
+equals the number of reported source
 paths. `ok` is true exactly when the error count is zero. Human output is
 derived from the same response and reports either the successful source list
 or every accumulated issue.
@@ -3969,30 +5804,52 @@ or every accumulated issue.
 Success exits 0. Any configuration or source-layout error exits with the
 invalid-configuration class 10, including a response that also contains a
 compile error. A compile-only failure exits with the build-failure class 11.
-Both successful and failed checks leave an existing `program.stbc` untouched
+Both successful and failed checks leave an existing `program.tpi` untouched
 and never create one.
 
 ##### 6.8.1d Runtime build and CI failure contract
 
-`trust-runtime build` compiles the selected project and writes
-`<project>/program.stbc`. An explicit `--project` selects the project root;
-otherwise ordinary bundle discovery is used and the current directory is the
-final fallback. The default source root is `<project>/src`. A relative
-`--sources` override is resolved from the project root, including when the
-command is launched from another working directory. Local package dependencies
-are resolved and compiled with the selected project sources.
+`trust-runtime build` compiles the selected project into the program image of
+this computer's CPU and writes it as `<project>/program.tpi`, with its
+deployment record `<project>/deployment-record.bin` (specification 44 §4.1,
+NX-15); with `--target <device or CPU>` it writes that target's image into the
+project's build folder as `build/program.<triple>.tpi`, with
+`build/deployment-record.<triple>.bin`. An explicit `--project` selects the
+project root; otherwise ordinary bundle discovery is used and the current
+directory is the final fallback. The default source root is `<project>/src`. A
+relative `--sources` override is resolved from the project root, including when
+the command is launched from another working directory. Local package
+dependencies are resolved and compiled with the selected project sources. The
+build installs the toolchain on the first build that needs it (specification 44
+§4.6). The project's `[build] debug` chooses a debug or a release image
+(specification 44 §13.2), and the image is signed with the project's key or the
+user's own before its record names its bytes (specification 44 §5.11, §10.1).
+`--emit-source` keeps the generated Rust crate in the build folder. A source set
+that declares OpenOT data also gets its `openot-definition.json`.
 
-Compilation completes before `program.stbc` is opened for writing. A source,
-dependency, or compile failure therefore neither creates the artifact nor
-replaces bytes from an earlier successful build. A successful build writes the
-new bytecode and reports the exact collected source paths, including dependency
-sources.
+Compilation completes before the image is opened for writing. A source,
+dependency, or compile failure therefore neither creates the image nor replaces
+bytes from an earlier successful build.
 
-`--ci` emits response version 1 with command `build`, status `ok`, the selected
-project and output paths, `source_count`, the complete source list, dependency
-roots, and resolved dependency names. `source_count` equals the number of
-reported source paths. Human mode reports the written path and source count,
-shows at most the first five collected paths, and reports the number omitted.
+Every build writes `build/build.json`: version 1, command `build`, status `ok`,
+the selected `project`, `source_count`, the complete `sources` list with the
+dependency sources, the `dependency_roots` and the `resolved_dependencies`
+names, the `target` triple, `debug`, the `image` path and `image_bytes`, the
+`signer` key, the `record` path, the `memory_figure` (`areas`, `stack`,
+`bookkeeping`, `retain_capture`, `total`, `call_level`) and the `flash` parts
+(`code`, `rodata`, `init`) of specification 44 §10.4; `source_count` equals the
+number of reported source paths, and `--ci` prints the same object. Human mode
+reports the written image, whether it is a debug or a release image, its bytes
+with its code, read-only data and starting memory, the memory figure with its
+parts, the public key that signed it, and the source count with at most the
+first five collected paths and the number omitted.
+
+An image runs the one resource it was built from (specification 44 NX-03), so
+a build refuses a project whose `runtime.toml` `[resource] name` is not the
+`RESOURCE` its `CONFIGURATION` declares, compared without regard to case:
+`resource '<name>' of runtime.toml is not the RESOURCE the program declares
+('<declared>')`. A program without a `CONFIGURATION` runs under the name the
+project gives it.
 
 CI failures use stable process classes: invalid project or configuration input
 is 10, build or compile failure is 11, test assertion or runtime-test failure is
@@ -4004,6 +5861,13 @@ unclassified message uses the parsed command as a fallback: `build` and `check`
 map to 11, `test` to 12, `validate` to 10, and other or absent commands to 20.
 This CLI and process-exit policy is a truST product contract rather than IEC
 61131-3 language behavior.
+
+A failing command writes `Error: <message>` to stderr. For a person at the
+command line, a recognised failure adds a `Tip:` naming the command that
+resolves it, such as `trust-runtime wizard --path <project-folder>` for an
+invalid project folder. A command run with `--json` is read by a program, which
+words its own guidance (the VS Code extension names its own commands), so its
+error carries no tip; the exit code is the same as without `--json`.
 
 ##### 6.8.1e Standalone Web IDE contract
 
@@ -4251,17 +6115,43 @@ copied bundle before changing deployment pointers. A custom deployment label
 must be one non-empty filesystem component: absolute paths, `.`/`..`, path
 separators, and platform prefixes are rejected. Automatically generated labels
 must be unique across consecutive deployments from one process, including
-deployments started within the same second.
+deployments started within the same second. A label that `current` or `previous`
+names is refused with `deployment already exists`. A `bundles/<label>` that
+neither pointer names is the leftover of an interrupted or refused stage: it
+blocks nothing, and it is removed before a deployment under that label is
+staged (specification 34 §11.2).
 
 When deployment signature policy is enabled, validation occurs before any
 bundle file or deployment pointer is changed. A payload signed by a currently
 trusted, unexpired key is accepted. A tampered payload, unknown key, expired
 key, malformed signature, or policy mismatch rejects the deployment without a
-partial install. Failure output may identify the key ID and failure class but
+partial install. The policy in force is the one in the project's installed
+`runtime.toml` (`[runtime.deploy] require_signed` and `keyring_path`), never the
+configuration the deployment carries: a deployment that changes the policy is
+checked against the policy it replaces, so it can neither turn the requirement
+off nor name a keyring of its own. Only a project with no installed
+`runtime.toml` takes the policy from the deployment's own configuration. Failure output may identify the key ID and failure class but
 must never echo key material or another configured secret. Source paths with an
 optional leading `src/` normalize to the same contained bundle destination;
 normalization never permits an absolute path, parent traversal, or platform
 prefix.
+
+A deployment through the web interface (`POST /api/deploy`, Admin) carries any of
+`runtime_toml`, `io_toml`, the program image `program_tpi_b64` (base64 of
+`program.tpi`, specification 44 §8.8) and `sources`; a request that carries the
+bytecode engine's `program_stbc_b64` is refused (specification 44 §15). It installs into
+the running runtime's project folder, so it follows the rule of `program.install`
+(specification 34 §11.2): it is accepted only while the resource is Stopped.
+Otherwise its reply is `{"ok": false, "error": <message>, "error_code":
+"resource_not_running"}`, with the message and the code that `program.install`
+gives for the same state, and a hung scan thread is refused as `program.install`
+refuses it. A refused deployment writes nothing, and the refusal comes after the
+authorization and before the deployment's signature or any file is read. A
+deployment that asks for a `restart` has that restart sent once the deployment
+is installed, which starts the new program (specification 34 STATE-08). A
+rollback through the web interface (`POST /api/rollback`, Admin) changes which
+program the runtime starts next, so it follows the same rule with the same
+refusal, and a refused rollback changes no link.
 
 The deployment root contains `bundles/`, `current`, and optionally `previous`.
 The pointer targets are resolved relative to the link location when an older
@@ -4343,6 +6233,14 @@ response ID, or missing Boolean `ok` is a command error and must not be
 flattened to `stopped`. Failure to read or parse the managed project's control
 credential is likewise an error. The PID file is advisory process metadata.
 
+`fleet runtime stop` ends the managed process, so it sends `shutdown` with
+`{"exit": true}`; a plain `shutdown` would leave the process running with its
+program Stopped (specification 34 STATE-08). `fleet runtime start` of a runtime
+whose control endpoint answers `status` with the state `stopped` starts its
+program with `restart` `cold`, the mode of a new process, and reports the
+runtime started once its state is `running`; it does not report that runtime as
+already running.
+
 A successful `shutdown` request prepares and writes its complete correlated
 control response before it signals the resource stop. The stop signal remains
 part of the accepted request and is applied immediately after the response
@@ -4409,6 +6307,22 @@ when enabled:
   error that names the resource state, and they change nothing: a faulted
   resource resumes only through `restart`, which runs the configured warm or
   cold initialization first (specification 34 STATE-06).
+- `restart` takes the mode `cold` or `warm`. A new trust-runtime process starts
+  `cold` unless it is launched with `--restart warm` (`trust-runtime run` and
+  `trust-runtime play`), so a tool that starts a stopped program with `restart`
+  sends `cold`, the mode of a new process; Devices & Connections does so for a
+  runtime that keeps control after `shutdown` (specification 25 §5.1).
+- `shutdown` stops the program by the ordinary stop path below and leaves the
+  runtime running in the Stopped state on every runtime: the control server, the
+  web UI and the other services stay up, `status` reports the state `stopped`,
+  and `restart` starts the installed program again (specification 34 STATE-08).
+  `shutdown` with `{"exit": true}`, the explicit exit, also ends the process once
+  its reply is written. `params` may be absent or an object whose only member is
+  `exit`, a Boolean: another shape is refused with `invalid params: parameters
+  must be an object`, `invalid params: unknown parameter field`, `invalid params:
+  parameter fields must not be null` or `invalid params: exit must be a boolean`,
+  and stops nothing. A `shutdown` of a resource that is already stopped, or that a
+  fault has stopped, stops nothing more and replies `stopping`.
 - Restart requests that arrive before the resource has taken the previous one
   coalesce into a single restart, and a cold request takes precedence over a
   warm one: a pending cold restart is never downgraded by a later warm request,
@@ -4417,6 +6331,62 @@ when enabled:
 - The resource command queue holds at most 1,024 commands. A request that finds
   it full is rejected with the stable code `resource_busy` and is not queued, so
   a burst of requests cannot grow the runtime's memory without bound.
+
+**Operations while the debugger holds the scan:**
+- A debugger hold (a breakpoint, a debug-mode `pause` or a completed step) takes
+  effect at the next statement boundary. A scan that starts while a hold is
+  already requested first runs the boundary of specification 10 §4.7, step 2: it
+  applies its queued writes and forces and samples its inputs. It then waits
+  before the first statement of its first program. While it waits, no program
+  runs, no output is committed, no retain checkpoint is saved and the cycle number
+  does not advance; a debugger that inspects the waiting scan sees the boundary
+  writes already applied. Releasing the hold continues that same scan, which is
+  neither restarted nor repeated.
+- A hold is debugger state, not resource state, and it changes no value. Checked
+  writes, queued writes, forces, releases and retain saves between scans are
+  accepted and behave as without a hold (section 6.9.2; specification 34
+  HOST-09). A write or a force queued while a scan waits in the hold is applied
+  when the hold ends, before the held statement runs, as at a scan's start
+  (specification 44 §13.2), so a value changed at a breakpoint is the one the
+  continued scan reads.
+- A restart or an online change that commits between scans (called by the
+  embedding host, or taken by the scan loop between cycles) is a clearing boundary
+  as always (section 6.9.2) and leaves the hold in place: a paused session stays
+  paused after a reload (specification 13), so the next scan waits again at its
+  first statement. One whose preparation fails changes neither the controller nor
+  the hold (section 6.7.1).
+- The scan thread applies resource commands and takes restart requests only
+  between scans, so while it waits inside a hold they wait with it. A restart
+  request is accepted (`restart queued`) and taken after the hold is released and
+  the held scan has completed; it is never applied to the suspended scan. A reload
+  that the resource has not started to apply within five seconds is withdrawn
+  (section 6.7.1). `resume` releases the hold (above).
+- A stop request is independent of the hold (specification 13, "Pause"). The
+  control `shutdown`, SIGINT and SIGTERM all request the scheduler's stop, and a
+  stop ends the hold and keeps the debugger from holding the scan again until the
+  program starts again, so a pause, a step or a breakpoint cannot delay the stop
+  and no `resume` is needed first. The scan that the hold suspended runs to its end, as
+  any scan does that a stop request finds under way, with no further pause, step
+  or breakpoint. The resource then takes its ordinary stop path (section 6.6 and
+  the retain-store rules of section 6.7): the configured stop outputs are applied,
+  the retained values are saved, and the resource ends `Stopped` (`Faulted` when
+  the stop outputs are unconfirmed or the save fails). `shutdown` then leaves the
+  runtime running in that state, and SIGINT, SIGTERM and the explicit exit also
+  end the process. A program that starts later on the same debugger, after a
+  `restart` or in a new process, can be held again.
+
+**Hold duration (owner, 18 October 2026).** A debugger hold lasts until a continue or a stop, on every
+runtime, trust-runtime and a chip alike, however long the operator waits. While it lasts, the held
+scan runs no program and the rules above apply unchanged. Neither a detach, an attach, a configuration
+change, a command waiting in the queue, a task deadline that passes, an elapsed timeout nor a lost
+connection releases it, and the cycle watchdog is suspended with the hold as section 6.6 states.
+`resume` is the one release a debugger asks for, and the explicit `stop` above is the one end that is
+not a continue, so a breakpoint, pause or step never delays a stop. On a chip the hold loop serves the
+control connection and feeds the hardware watchdog in every pass, so a long hold neither resets the
+device nor loses a queued request (specification 34 STATE-07, TIME-04).
+
+These hold rules are a truST host/debugger contract outside the IEC language
+execution model, not an IEC deviation.
 
 ##### 6.9.1 Managed debug floating-point ingress
 
@@ -4433,9 +6403,27 @@ the separate runtime control endpoint contract.
 
 Debug writes are one-shot requests. An accepted write is applied at the next
 scan boundary and is then consumed. A force is applied at scan boundaries
-until the matching release request or a clearing lifecycle boundary. Release
+until the matching release request or a clearing lifecycle boundary: at the
+start of the scan, after its writes and inputs, and again after the scan's last
+task, before the outputs are sampled (specification 10 §4.7, steps 2 and 6). A
+forced variable therefore reads its forced value between scans, and a forced
+variable that lies at an output address reaches the output, whatever the
+program wrote to it during the scan. Release
 removes the force without writing a replacement value; normal program and I/O
 evaluation determine the value at the next scan.
+
+A write to a variable that reaches the queue while another write to the same
+target is still queued replaces it in place: the earlier value is never applied,
+even when the later one is refused at the boundary, and the target keeps its
+place in arrival order (section 6.8.1). Replacing a queued write is never refused
+by the queue bound. Variable writes to different targets apply in arrival order
+at the boundary and before the forces of that boundary (specification 10 §4.7,
+step 2), so a force on the same target wins. A write is checked when the
+boundary applies it, not when the queue accepts it (specification 34 HOST-09): a
+value its target cannot take, for example one outside a subrange, is dropped
+alone with a `write_rejected` event, leaves the target unchanged and does not
+fault the PLC. This replacement rule is for variable targets; each `io.write` to
+an address stays a separate ordered request (section 6.8.1).
 
 Pause and resume preserve queued writes and active forces because neither
 operation creates a new runtime lifecycle. A non-terminating debugger detach or
@@ -4453,6 +6441,36 @@ replayed into the next runtime lifecycle. A restart or online change whose
 preparation fails never reaches its commit, so it is not a clearing boundary:
 queued writes and forces stay as they were (specification 10 §4.8 and the
 online-change preparation rule in section 6.7.1).
+
+A write or force that names an instance by its identity, such as an HMI write to a
+program member or a debugger write to a function-block field, keeps the
+installation generation in which that identity was resolved (specification 34
+§11.3). An identity given as a number in a control request, as in
+`instance:<id>:<name>`, belongs to the generation installed when the request is
+accepted. A request accepted after a clearing boundary can still carry an
+identity resolved before it, for example from the observation of the previous
+lifecycle. Its boundary then rejects it as `ReferenceLifetime`
+(`runtime_reference_lifetime`) with a `write_rejected` event, does not fault the
+PLC, and leaves the instance that now has that identity unchanged; a rejected
+force is also removed. A request that names its target by name, such as
+`global:<name>`, is bound to that name at its boundary.
+
+While the resource is faulted no scan boundary occurs, so nothing applies a
+queued write or a force, and a scan request is refused before it touches either
+(specification 10 §4.7, step 1). The requests of this section are still accepted
+and recorded as at any other time, because a fault does not make an engineering
+request invalid: writes and forces queue, and a release removes its force. What
+was recorded while the resource was faulted is cleared by the commit of the
+recovery (a restart or an online change, section 6.6), so it is never replayed
+into the recovered lifecycle; a recovery that fails commits nothing and leaves it
+pending (section 6.7.1). The tooling reset `clear_fault` clears only the fault
+state and is not a clearing boundary, so what was recorded while faulted is still
+pending when a scan follows it. A checked write by the embedding host
+(specification 34 HOST-09) is an operation between scans that does not depend on
+the resource state: while the resource is faulted it is accepted or refused by its
+ordinary rules, changes only its destination, and neither clears the fault nor
+resumes execution. Writes that reach the scan loop as resource commands (mesh
+updates) are discarded while the resource is faulted.
 
 ##### 6.9.3 Simulation coupling thresholds
 
@@ -4550,7 +6568,7 @@ plant fidelity.
 
 Runtime control uses the ordered role hierarchy `viewer < operator < engineer <
 admin`; a higher role includes lower-role permissions. Authorization is checked
-before dispatch, so a denied request must not change runtime, debug, I/O, HMI,
+before dispatch, so a denied request must not change runtime, debug, I/O,
 configuration, pairing, or connector state.
 
 A role denial returns the stable wire error code `insufficient_role` together
@@ -4591,7 +6609,7 @@ reject. Other operations receive no injected field.
 
 Successful status responses whose result is an object include access
 capabilities for the authenticated role. Viewer and Operator cannot write,
-force, release, or write HMI values; Engineer and Admin can. A denied role
+force, or release values; Engineer and Admin can. A denied role
 includes a stable human-facing reason beginning with the capitalized role,
 while Engineer and Admin use JSON `null`. Non-object or absent results are not
 rewritten.
@@ -4612,10 +6630,10 @@ The explicit operation matrix is:
 
 | Minimum role | Operations |
 |---|---|
-| Viewer | `status`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `fleet.topology`, `io.list`, `io.read`, HMI schema/value/trend/alarm/descriptor reads, historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced` |
-| Operator | `pause`, `resume`, `restart`, `hmi.alarm.ack`, `pair.claim` |
-| Engineer | step operations, breakpoint mutation, `eval`, `set`, variable and I/O write/force/release, `debug.evaluate`, HMI write/descriptor/scaffold mutation, communication apply/test, ADS server doctor actions |
-| Admin | `shutdown`, `bytecode.reload`, ADS route add/remove, pairing start/list/revoke, and security/exposure configuration listed below |
+| Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `comm.compare`, `fleet.topology`, `io.list`, `io.read`, `hmi.read` (specification 39, §11), historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced`, `program.active` |
+| Operator | `pause`, `resume`, `restart`, `identify`, `pair.claim` |
+| Engineer | `device.get` (specification 34 TARGET-02), step operations, `cycle.step`, breakpoint mutation, `eval`, `set`, `debug.set` (section 6.13.4), variable and I/O write/force/release, `clock.set`, `debug.evaluate`, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
+| Admin | `shutdown`, `bytecode.reload`, `program.install` (specification 34 §11.2, refused unless the resource is Stopped), `firmware.install` (specification 34 TARGET-04, refused unless the resource is Stopped), `device.set` and `device.reset` (specification 34 TARGET-02, refused unless the resource is Stopped), the transfer operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (specification 34, PORT-05), ADS route add/remove, pairing start/list/revoke, and security/exposure configuration listed below |
 
 Parameter-sensitive operations retain these boundaries:
 
@@ -4625,7 +6643,12 @@ Parameter-sensitive operations retain these boundaries:
   request validation may still reject that ambiguous combination.
   `ads.import_symbols.apply` is always write-enabled and therefore always
   requires Engineer, including when its source symbols came from a cached
-  snapshot.
+  snapshot. `ads.import_symbols.remove` writes the project's `ads.toml` and
+  generated ST and therefore always requires Engineer too.
+- `comm.search.start` requires Engineer when its parameters set
+  `confirm_fieldbus_scan` to the JSON value `true`, and Viewer otherwise. A
+  request whose value is not a Boolean is refused by request validation and
+  runs no source.
 - `config.set` requires Admin if any request key is `control.auth_token`,
   `control.mode`, `control.debug_enabled`, `web.auth`, `mesh.auth_token`,
   `mesh.role`, `mesh.zenohd_version`, `mesh.plugin_versions`,
@@ -4677,16 +6700,21 @@ A pairing session owns at most one pending code. Starting again replaces the
 previous pending code. A code is exactly six ASCII decimal digits, expires
 300 seconds after creation, and remains valid at its exact `expires_at`
 second. Claim input trims surrounding whitespace. A wrong code does not
-consume the pending session; an expired or successful claim does. A successful
-claim returns one URL-safe, unpadded 32-byte random token, stores it enabled,
-and assigns a unique stable ID even when multiple claims occur in one clock
-second.
+consume the pending session; an expired or successful claim does, and so does a
+claim with the right code that is then refused. A claim without a pending code,
+with a wrong code or with an expired one is refused with `invalid or expired
+code`. A successful claim returns one URL-safe, unpadded 32-byte random token,
+stores it enabled, and assigns a unique stable ID even when multiple claims
+occur in one clock second. Codes and tokens come from a cryptographically
+secure random source; a runtime whose source gives none refuses `pair.start`
+and the claim with the source's error rather than use predictable numbers.
 
 The default pairing role is Operator. Viewer, Operator, and Engineer requests
 retain their requested role; an Admin request is reduced to Engineer so the
 pairing flow cannot mint an Admin credential. At most 256 enabled pairing
 tokens may exist. Reaching that bound rejects the claim without creating a
-token, and a later claim is possible after a token is revoked. Tokens expire
+token, with `at most 256 pairing tokens may be enabled; revoke one first`, and
+a later claim is possible after a token is revoked. Tokens expire
 30 days after creation and remain valid through their exact `expires_at`
 second. Validation accepts only an enabled, unexpired, byte-exact token and
 returns its stored role.
@@ -4699,14 +6727,43 @@ tokens remain visible until expiry but never validate and are not counted
 toward the enabled-token limit.
 
 The pairing file is a JSON object with a `tokens` array. An absent file loads
-an empty store. Unreadable or malformed content grants no token authority.
+an empty store. Unreadable or malformed content grants no token authority and
+is never replaced: each later claim, and each revocation that would change a
+token, is refused with the read error (`read pairing file …` or `parse pairing
+file …`) until the file is repaired or removed and the runtime starts again.
 Legacy rows with `expires_at = 0` derive
 `created_at + 30 days` with saturating arithmetic; already expired legacy rows
 are pruned rather than temporarily revived. Expired rows are removed on load
 and before every pairing, claim, validation, list, or revoke operation.
 Successful token creation and revocation become externally successful only
-after the resulting file is durably written. On Unix the credential file mode
-is `0600`; replacement must not expose a partial JSON credential set.
+after the resulting file is durably written; a write that fails is refused
+with its error and leaves every token as it was. On Unix the credential file
+mode is `0600`; replacement must not expose a partial JSON credential set: the
+runtime writes a new file beside it and renames it over the old one. A runtime
+that holds no pairings answers the `pair.*` requests with `pairing
+unavailable`.
+
+A chip pairs by the same rules and the same requests, `pair.start`,
+`pair.claim`, `pair.list` and `pair.revoke`, with the same replies
+(specification 34 S5; the shared rules are one implementation that both
+runtimes call). It keeps the same JSON object, without spaces, in a record of
+two flash sectors, its chip file's `pairing_a` and `pairing_b`, written as its
+device settings are (specification 34 TARGET-02), so that a power cut during a
+write keeps the previous tokens. The ESP32-C6's sectors are 4,096 bytes, of
+which the record's header takes 20 (specification 34 Appendix D.2): room for
+24 tokens of 169 bytes each. A claim that the record cannot take first removes
+disabled tokens, the oldest first, since they grant nothing; a claim that the
+record cannot take even then is refused with `the device has no room for
+another pairing`, and a revoked or expired token makes room. The times are the
+chip's wall clock: a chip whose clock is not set refuses `pair.start` and
+`pair.claim` with `pairing needs the device's clock: set it with a time server
+or clock.set`, and takes no pairing token until its clock is set, so a token
+can never outlive its 30 days; `pair.list` and `pair.revoke` still answer, and
+no token expires before the clock is set. A chip
+draws its codes and tokens from its hardware random number generator, which
+is random only while the radio runs, so it pairs only while it serves a
+network and refuses `pair.start` otherwise with `pairing is for clients on
+the network, and the device serves none`.
 
 TLS material loading is inert when TLS mode is disabled: paths may be absent
 and no file is read. Every enabled mode requires certificate and private-key
@@ -4847,14 +6904,17 @@ Shared web helper grammar is deterministic:
 
 IEC configurations model one or more resources (IEC 61131-3 Ed.3, §6.8.1;
 Table 62). The runtime scheduler supports several independently constructed
-resources, each scheduled in its own OS thread. The current
-`CompileSession::build_runtime` source profile constructs exactly one resource:
-it accepts zero or one explicit `RESOURCE` and rejects a multi-resource source
-configuration instead of flattening it. Multi-resource orchestration therefore
-uses separately constructed runtimes; one source build does not yet project an
-IEC multi-resource configuration into several runtime objects.
+resources, each scheduled in its own OS thread. A build compiles exactly one
+resource into one program image (specification 44 NX-03): it accepts zero or one
+explicit `RESOURCE` and rejects a multi-resource source configuration instead of
+flattening it. Multi-resource orchestration therefore uses separately built
+runtimes; one source build does not yet project an IEC multi-resource
+configuration into several runtime objects.
 
-Cross-resource data exchange is limited to explicitly declared globals (e.g., `VAR_GLOBAL` in configuration scope). (IEC 61131-3 Ed.3, §6.8.1; Table 62) Shared globals are synchronized under a single configuration lock: each resource cycle copies shared values in, executes ready tasks, then writes back updates before releasing the lock. This preserves deterministic ordering while serializing shared-global access.
+Cross-resource data exchange through shared globals (IEC 61131-3 Ed.3, §6.8.1;
+Table 62) is later work, with several resources per image (specification 44
+§16): the bytecode engine's shared-global exchange between resources was deleted
+with it (specification 44 §15), and a runtime runs one resource.
 
 ##### Runtime configuration loading and validation contract
 
@@ -4891,7 +6951,9 @@ normative for parsing and activation:
   sections must satisfy their documented credential, endpoint, allowlist,
   capacity, and explicit insecure-transport acknowledgement rules.
 - Bundle loading requires a project directory, `runtime.toml`, validated
-  project or system I/O configuration, and `program.stbc`. ADS and OPC UA
+  project or system I/O configuration, and the program image `program.tpi`; a
+  project that holds only the bytecode engine's `program.stbc` is refused with
+  the advice to rebuild it (section 6.8). ADS and OPC UA
   client sidecars are loaded only when enabled; relative sidecar paths resolve
   against the bundle root, enabled missing sidecars fail visibly, and the
   retained evidence hash covers the exact bytes that were parsed.
@@ -4926,9 +6988,11 @@ The web setup surface uses the explicitly selected bundle root, otherwise the
 current directory. A derived default resource name is the final path component
 with every non-ASCII-alphanumeric character replaced by `_`; a missing
 component uses `trust-plc`. Existing valid `runtime.toml` and project
-`io.toml` values take precedence over platform defaults. Setup need remains
-true while runtime configuration is absent or neither project nor system I/O
-configuration exists.
+`io.toml` values take precedence over platform defaults. Where setup chooses
+the I/O driver itself, the platform default is `gpio` on a Raspberry Pi and on
+the supported chips (specification 34, TARGET-01), and `loopback` on every other
+computer (owner decision O26). Setup need remains true while runtime
+configuration is absent or neither project nor system I/O configuration exists.
 
 I/O mutation accepts either a nonempty ordered `drivers` list or the legacy
 single `driver`, with the list taking precedence when present. Driver names are
@@ -4953,20 +7017,17 @@ selected, and invokes system setup only when explicitly requested.
 
 Source listing inspects the direct `src/` directory, includes regular `.st`
 files case-insensitively, and sorts names. Source reads canonicalize both the
-`src/` root and requested path and reject traversal or symbolic escape. HMI
-asset reads apply the same containment rule under `hmi/` and admit only a
-regular file with lowercase `.svg`; another extension, directory, traversal,
-or symbolic escape rejects.
+`src/` root and requested path and reject traversal or symbolic escape.
 
-#### 6.11 Bytecode Format (Overview)
+#### 6.11 Program Image (Overview)
 
-The executor consumes a stable bytecode container format emitted by the compiler. See the "ST Bytecode Format Specification" section in this document for details.
-- Instruction encoding and versioning
-- Program/function/function-block layouts
-- Constant pools and type descriptors
-- Resource, task, and POU metadata required by the runtime (process image sizing, task associations)
-
-The runtime rejects unsupported major bytecode versions before configuring resources.
+The runtime runs the program image that the build writes (specification 44 §5):
+its code, its constants, its starting memory, the sizes of its memory areas,
+its tasks, its I/O bindings, its symbol and type tables, its statement table,
+its retain map and its signature. The runtime admits an image before it
+configures the resource and refuses one of another format version, CPU, kernel
+interface or program library with its reason (specification 44 §10.2). The
+STBC bytecode format of specification 12 is superseded.
 
 #### 6.12 Browser UI, Discovery, and Mesh (Operational UX)
 
@@ -5015,9 +7076,48 @@ Rules:
 - The advertised and browsed service type is
   `_trust._plc._tcp.local.`. Service construction enables automatic interface
   addresses. The TXT projection preserves stable runtime `id` and `name`,
-  web port and TLS flag, optional mesh port, control endpoint, and a trimmed
-  nonempty host group; a missing or malformed optional value is absent rather
-  than fabricated.
+  web port and TLS flag, optional mesh port, optional control endpoint, and a
+  trimmed nonempty host group; a missing or malformed optional value is absent
+  rather than fabricated.
+- The TXT record also carries `version` (the truST version), `platform` (the
+  operating system and architecture, for example `linux-aarch64`, or the chip,
+  for example `stm32u5a9`), and `auth` (`token` when the control endpoint needs
+  a token, otherwise `none`). The `id` is the runtime's stable runtime ID: it is
+  generated once with a random part on first start and kept in the project's
+  `.trust-runtime/runtime_id`, read back on every start, so it stays the same
+  across restarts and differs between two runtimes on one host, and it is never
+  built from a process ID. A file that cannot be read or holds an invalid ID is
+  an error, never silently replaced with a fresh ID. A project folder that
+  cannot hold the file, because the file or its folder cannot be created or
+  written there (a read-only or foreign project folder), has the ID kept for the
+  user in `runtimes/<h>.id` of truST's folder in the user's state folder, where
+  `<h>` is the project-path hash of section 6.8.0a: `$XDG_STATE_HOME/trust` (an
+  absolute value only), else `$HOME/.local/state/trust`, on Linux and the other
+  Unix systems, `$HOME/Library/Application Support/trust` on macOS and
+  `%LOCALAPPDATA%\trust` on Windows. While the project holds no file, the runtime
+  reads the ID kept for the user on every start, under the same rule, so the ID
+  stays the same, and the log names where it is kept
+  (`runtime_id_kept_for_user`). When neither place can hold it, the runtime
+  still starts, with an ID for its process only, and logs the warning
+  `runtime_id_not_kept` with the reason (specification 34, ARCH-07: a tooling
+  file never stops a PLC program). The host name is the operating system's host
+  name. Web port and TLS flag are announced only while
+  the web server is enabled.
+- `control` names only a control endpoint that another computer can use: a
+  `tcp://` or `tls://` endpoint on an address that is neither loopback nor
+  unspecified. A Unix socket path or a loopback endpoint is of no use to a
+  peer, and a socket path would reveal user and project names on the network,
+  so neither is advertised (section 6.8.0a).
+- `interfaces` limits announcing and browsing to the named network interfaces;
+  an empty list uses every non-loopback interface.
+- `trust-runtime ide serve` and setup mode announce and browse in the same way
+  as a running runtime. `trust-runtime ide serve` without a project browses
+  only, because it has no runtime to announce.
+- `/api/discovery` and `/api/probe` require the same web authentication as the
+  other routes. `/api/probe` accepts exactly `POST /api/probe`, whose JSON body
+  carries `url`, `username` and `password`; credentials never travel in the URL,
+  and every other request on that path, a GET or any request that carries a
+  query string, is refused with `405`.
 - A resolved service replaces the entry with the same runtime ID and receives a
   fresh observation timestamp. A removal event matches the exact entry ID or
   runtime name, or an mDNS instance name whose final `-<runtime-name>` suffix
@@ -5402,18 +7502,6 @@ recovery, the same request ID and sequence may be resumed once for
 reconciliation and then becomes subject to the ordinary completed-result
 deduplication rule.
 
-HMI customization (implementer-specific):
-- `hmi.schema.get` returns `theme`, `pages`, and widget-level layout metadata (`page`, `group`, `order`, `unit`, bounds) in addition to stable widget IDs.
-- Project-level `hmi.toml` supports:
-  - `[theme]` (`style`, optional `accent`)
-  - `[write]` (`enabled`, `allow`) for explicit writable-target allowlists.
-  - `[[pages]]` (`id`, `title`, `order`)
-  - `[widgets.\"<path>\"]` overrides for label/unit/bounds/widget/page/group/order.
-- ST-level `@hmi(...)` annotations on variable declarations support `label`, `unit`, `min`, `max`, `widget`, `page`, `group`, and `order`.
-- Merge precedence is deterministic: defaults < ST annotations < `hmi.toml` overrides.
-- Theme fallback is deterministic: unknown/missing theme values fall back to built-in `classic`.
-- `hmi.write` remains disabled unless `[write].enabled = true`, and writes are accepted only for explicit allowlist matches (`id` or `path`) with control authz enforcement.
-
 Operational UX and pairing flow are documented internally.
 
 #### 6.13 Debugging and Diagnostics
@@ -5425,6 +7513,290 @@ The runtime emits structured events for debugging and testing:
 - Fault and overrun notifications
 
 These events are consumed by the debugger (`trust-debug`) and test harnesses to validate behavior deterministically.
+
+##### 6.13.1 Debug value freshness (owner, 18 October 2026)
+
+`eval`, `debug.stack` and `debug.variables` answer on every runtime with the values as of the last
+scan that ended, from one published debug state, and no runtime keeps a copy of PLC storage per
+statement. This is a truST runtime contract; IEC 61131-3 defines no debugger and no variable
+snapshot.
+
+- The published state is the PLC storage as it stood at the end of the last scan that ended, with no
+  call stack: a completed scan's, or a faulted scan's under the bullet below. It is one consistent
+  state, never half a scan. A read never waits for, pauses, slows or repeats a scan, and a scan in
+  progress is not visible in an answer: a variable it has already written, or a frame it has entered
+  or left, does not appear until that scan ends and becomes the last scan that ended. Answers
+  therefore come from the scan end, not from the latest statement that ran.
+- A runtime that serves requests between scans (a chip's runner) answers from its storage, which is
+  that state. trust-runtime answers from one copy it publishes at each scan end: the running scan
+  writes the live storage the scan itself uses, and the published copy changes only at the boundary
+  between two scans. That is one copy per scan, and it replaces the per-statement copy the runtime
+  kept before.
+- A faulted scan publishes the state it left (owner decision O2, 18 October 2026). A scan faults when
+  its execution returns an error, including a deadline or output-commit failure inside the scan, or
+  when its thread panics. Its state replaces the last completed scan's. On trust-runtime it is one
+  copy of the storage as the fault left it, made before the fault's safe-state action, together with
+  the fault's position. A failing statement stores nothing, and the stores the scan completed remain
+  (section 6.6). The call stack at the fault is part of that state: every frame the fault unwound,
+  with its local variables as the fault left them, as CODESYS and TwinCAT keep the call stack and its
+  values in their exception dumps (owner, 18 October 2026, O2). The position is the innermost
+  statement whose code span contains the failing instruction, as the installed module's LINE_TABLE
+  names it (specification 12 section 6.13): the statement's file label, and its 1-based line and byte
+  column. A fault that raised no instruction, an instruction that no statement contains, and a module
+  without a LINE_TABLE name no position. On a chip the reads come from the live storage, which already
+  holds the values the fault left, so no copy is made. A fault after a scan has ended, such as a
+  watchdog overrun or a failed publication of shared variables, does not replace that scan's state.
+  The faulted state stays published until the next scan ends, which replaces it, or a restart or an
+  online change clears it. A reset of the fault latch (section 6.6) leaves it published.
+- While a debugger holds the scan (a breakpoint, a debug-mode `pause` or a completed step, section
+  6.9), the published state is the halted state: the storage exactly as the statements that already
+  ran in the suspended scan left it, and the call stack at the halt. Every stopped answer is
+  unchanged, including the boundary writes a waiting scan already shows (section 6.9). When the hold
+  ends, by a continue, a step or a stop, the published state is again the state of the last scan that
+  ended, and the scan that resumes stays invisible until it ends. A halted state names no fault
+  position.
+- Before the first scan ends there is no published state. Each read answers its existing error
+  (`no snapshot available`) rather than an invented empty projection.
+- A read changes nothing: it applies no store, releases no force, and changes no value, breakpoint,
+  hold or step, and it is subject to the requester's existing role (section 6.9.5).
+
+##### 6.13.2 Portable debug expressions (owner, 18 October 2026)
+
+Every runtime evaluates debugger expressions in one portable compiled form. The tool compiles and
+the runtime evaluates: a runtime parses no ST text for a watch, a breakpoint condition, a logpoint
+fragment or `debug.evaluate`, and needs neither the parser, the HIR nor the authoring part of the
+type registry (specification 34 ARCH-02 and the HOST-09 row "Debug expression parsing").
+The same compiled form serves all four surfaces, so they cannot drift apart, and trust-runtime and a
+chip evaluate a given expression with the same code. The expression semantics are those of IEC
+61131-3 Ed.3 §7.3.2; the compiled form reproduces them, it does not define others.
+
+A control request that carries an expression carries these two fields instead of ST text:
+
+- `expr_version` — the version of the compiled form the bytes are encoded in, an integer. The tool
+  chooses it when it compiles, so a tool may address an older runtime with an older form.
+- `expr` — the compiled form itself, base64 of the byte string (RFC 4648 §4 alphabet, padded).
+
+The instruction encoding of that form, its operands, its type rules and its fixed size and work
+limits are defined by the slice that builds it (S3c, portable debug expression compilation); this
+section fixes only the protocol boundary that every runtime implements. The original text may travel
+beside the compiled form for display only, and no runtime reads it. The boundary applies from the
+release that implements it: a runtime that does not implement a version rejects it with
+`expr_version_unsupported` and decodes nothing.
+
+**Version 1 (S3c, 24 October 2026).** `expr_version` 1 is one expression in prefix order: each node
+is a tag byte followed by its operands, every integer is little-endian, and every text is a 2-byte
+length and that many bytes of UTF-8.
+
+| Tag | Node | Operands |
+| --- | --- | --- |
+| 1 | Literal | a value: its type code (1 byte) and its bytes, below |
+| 2 | Name | a text, the name as written |
+| 3 | Unary | the operator (1 byte: 1 `-`, 2 `+`, 3 `NOT`), then the operand |
+| 4 | Binary | the operator (1 byte: 1 `+`, 2 `-`, 3 `*`, 4 `/`, 5 `MOD`, 6 `**`, 7 `AND`, 8 `OR`, 9 `AND_THEN`, 10 `OR_ELSE`, 11 `XOR`, 12 `=`, 13 `<>`, 14 `<`, 15 `<=`, 16 `>`, 17 `>=`), then the left and the right operand |
+| 5 | Index | the number of indices (1 byte, 1 to 8), then the array and each index |
+| 6 | Field | a text, the member's name, then the structure or the instance |
+
+A literal's type codes are 1 `BOOL` (1 byte, 0 or 1), 2 `SINT`, 3 `INT`, 4 `DINT`, 5 `LINT`,
+6 `USINT`, 7 `UINT`, 8 `UDINT`, 9 `ULINT`, 10 `BYTE`, 11 `WORD`, 12 `DWORD` and 13 `LWORD` (each in its
+width), 14 `REAL` (4) and 15 `LREAL` (8, IEEE 754), 16 `TIME` and 17 `LTIME` (8, signed
+nanoseconds), 18 `STRING` (a text), 19 `WSTRING` (a 2-byte count and that many UTF-16 units),
+20 `CHAR` (1), 21 `WCHAR` (2) and 22 an enumeration's value by name, `Mode#Run` (its type's name
+and its value's name, each a text). The runtime takes the value's number from the program it runs,
+so that a project edited since its deployment cannot make an expression compare another value.
+
+The runtime resolves a name where it evaluates, without regard to case: in a held scan's frame
+first, among the frame's own variables (a function's or a method's inputs, locals and result) and
+then the variables of the frame's instance; then among the globals; then as `Instance.Variable`, a
+variable of a program instance. A member chain over a name, `Ctr.Count`, resolves its first name so
+and each further name as a member of the instance before it; a member of a structure is taken from
+the structure's value. The tool compiles with the types of the project's declarations, and the
+attached debugger reads them from the project folder it is given. Evaluation computes as the runtime's statements compute
+(specification 07, IEC 61131-3 §7.3.2): `AND_THEN` and `OR_ELSE` evaluate their right operand only
+when the left does not decide, the tool inserts no conversion, and an operation that the runtime's
+arithmetic refuses for its operands fails the evaluation. An encoding that is truncated or longer
+than its expression, longer than 4,096 bytes or nested deeper than 32 nodes, a tag, an operator or a
+type code outside these tables, a text that is not UTF-8, a name that resolves to no variable, an
+enumeration or a value of it that the program does not declare and a result that is no value (an
+instance) are `expr_invalid`; an index outside its bounds, a division by
+zero, an overflow and more than 1,024 nodes evaluated are `expr_evaluation_failed`. The tool
+compiles from the project's sources what this version can say, names, literals, the operators,
+indexing and member access, and refuses an expression with any other part (a call, a reference,
+`THIS`, `SUPER`, an initializer) before it sends a request. A compiled program evaluates version 1
+on every device; the bytecode engine's text form was deleted with it (specification 44 §15).
+
+A runtime answers with a value, in the stable debug representation and with the public type name,
+exactly as `debug.variables` reports a variable of that type. Evaluation reads the published state
+(section 6.13.1) and is side-effect free: it stores nothing, calls nothing with a side effect, and
+cannot fault the PLC, block the scan, apply a force or change a breakpoint, a hold or a step. It
+rejects with these stable codes:
+
+| Code | Meaning |
+| --- | --- |
+| `expr_version_unsupported` | This runtime does not implement `expr_version`; it decodes nothing. |
+| `expr_invalid` | The bytes do not decode to a complete expression this runtime accepts: truncation, an unknown instruction, an unknown name or reference, an instruction that would store or call something impure, or a result that is not a value. It is rejected before evaluation. |
+| `expr_evaluation_failed` | The expression decoded and is supported but evaluation failed, for example a divide by zero, an invalid reference or an index outside its bounds. The detail text is non-normative and the PLC is unaffected. |
+
+A watch, a breakpoint condition and a logpoint consume those answers as specification 13 already
+defines: an invalid or failed expression makes a watch report failure, makes a breakpoint condition
+false (no stop), and renders a logpoint fragment as `<error: ...>`. A client's `debug.evaluate`
+receives the rejection itself — a failed response carrying the code and its detail, and no value.
+`eval` keeps its own contract (section 6.8.1): it is a bounded exact name read, not an expression,
+and it carries text.
+
+**Breakpoint conditions, hit conditions and logpoints (S3c, 24 October 2026).** A
+`breakpoints.set` may carry `options`, an array as long as `lines` whose entry *i*, `null` or an
+object, belongs to the breakpoint of `lines[i]`:
+
+- `condition`: `{"expr_version", "expr"}`, a compiled expression; the breakpoint stops only where it
+  gives `TRUE`.
+- `hit_condition`: `{"op", "count"}`, `op` one of `=`, `>=` and `>`, and `count` an unsigned 64-bit
+  number from 1, applied to the breakpoint's hit count after the hit is counted.
+- `log_message`: an array of parts, each a text or a compiled expression `{"expr_version", "expr"}`;
+  the breakpoint is a logpoint.
+
+At a statement start the runtime keeps the order of specification 13 ("Breakpoint evaluation,
+source resolution, and hook contract"): it counts the hit, applies the hit condition to the count,
+then evaluates the condition in the frame that runs the statement, its names resolved as above; a
+logpoint then records its message and never stops, and a breakpoint stops. A logpoint's message is
+its parts in order, each expression replaced by its value as specification 13 formats a logpoint
+value, or by `<error: detail>`, and cut to 1,024 bytes at a character boundary. `debug.stops`
+answers the messages recorded since its last call beside the stops, as `logs` when there are
+any, oldest first, each
+`{"text", "file_id", "path", "line", "column", "thread"}` with the file's path as a stop names it
+and the zero-based start of the logpoint's statement; their buffer is bounded as the stops' buffer is (section 6.13.3), and a message beyond the
+bound replaces the oldest. A runtime refuses whole, and changes nothing, a `breakpoints.set` whose
+`options` are not as long as `lines`, carry an `op` outside the three or a `count` of 0, or carry an
+expression of a version it does not implement (below). A runtime that runs a compiled program
+implements version 1 for all of them.
+
+**Before a runtime implements a version (owner, 18 October 2026).** A runtime that implements no
+`expr_version` yet, a chip until the tool compile exists, refuses every request that would evaluate
+an expression and decodes nothing: `debug.evaluate`; `eval`, which such a runtime does not answer as a
+name read; and a `breakpoints.set` whose parameters carry a `condition` or a `log_message` other than
+`null`, at the top or in `options`, which it refuses whole, so that a breakpoint is never stored
+without the condition the client asked for. The refusal is a failed response with the stable code `expr_version_unsupported` and the
+message `this runtime evaluates no debug expressions yet: the compiled expression form is not
+implemented`. A refusal changes nothing.
+
+##### 6.13.3 Debug requests without source text (owner, 18 October 2026)
+
+A runtime that holds no ST source text, a chip, answers the debug operations of the role table
+(section 6.9.5) from the program's `LINE_TABLE` (specification 12 §6.13) and the file labels of its
+`DEBUG_STRING_TABLE`. The shared dispatcher routes `debug.state`, `debug.stops`, `debug.stack`,
+`debug.scopes`, `debug.variables`, `debug.breakpoint_locations`, `breakpoints.set`, `breakpoints.clear`,
+`breakpoints.list`, `breakpoints.clear_all`, `breakpoints.clear_id`, `step_in`, `step_over`,
+`step_out` and `debug.set` (section 6.13.4) to one request module, with the role the table gives
+each, and a read answers from the published debug state of section 6.13.1. Each reply is trust-runtime's reply for the same stop, field
+for field: the frame and variable identifiers, the names, the stop reason labels, the error texts and
+the error codes. Line and column numbers in a request and in a reply are zero-based, as trust-runtime
+carries them; the table holds them one-based, and the conversion happens once, at the request. The
+differences that follow from the missing text are these, with the handle bound below, and no others:
+
+- **File identity.** A reply names a file by its label: the `path` of a source, and the last `/`
+  component of the label as its `name`. A file's identifier in a reply is the index of its entry in the
+  table. A request names a file by a path: the file is the one whose label equals the path or is the
+  longest tail of it after a `/`, a `\` counting as `/`, because a client holds a path and a label is
+  relative to the project root. A path that ends with no label is refused with `unknown source path`.
+- **Shared reply shapes.** `breakpoints.list` gives one entry shape on every runtime: `file_id`,
+  `line`, `column`, `end_line` and `end_column`, zero-based, in registration order, built by the one
+  shared reply builder. A runtime that holds the text adds the statement's byte offsets `start` and
+  `end`, which a runtime without the text cannot count. The `Instances` scope lists its instances in
+  ascending instance identifier on every runtime, whatever order the storage's map iterates in.
+- **The buffer of stops.** `debug.stops` returns the stops since its last call, oldest first, and
+  empties the buffer. The buffer is bounded, and a stop beyond the bound replaces the oldest. The bound
+  is the capacity of the event store (`runtime.events.capacity` of the project, or the device
+  descriptor's default; section 6.8.1), because a stop is a smaller record than an event. A runtime that
+  enables debugging takes the whole buffer at start, as it takes the event store, so that no scan
+  allocates for it; a runtime that does not enable debugging takes none. `debug.state` reports the
+  latest stop whatever the buffer holds.
+- **Threads.** Each task is one debugger thread. The threads are numbered 1, 2, ... in the order the
+  resource declares its tasks, a task name that a later task repeats keeps the number of its first, and
+  the programs that run outside every task are one more thread, numbered after the last task. The
+  runtime sets the thread when a task starts, so a stop in a task reports that task's thread.
+- **Variable handles.** The identifiers of a variable list restart at `1` with every `debug.scopes`
+  and are valid until the next one (specification 13, "Runtime debug state, mutation, and projection
+  invariants"), except the handles of an array's pages that a bounded table releases (below).
+- **Handle bound.** A runtime without the text holds at most 256 live variable handles, a handle
+  taken out for a listing counted. A listing that would take the table past that bound is refused
+  whole, with the stable code `variable_handles_full` and the message `the variable handle table is
+  full: request the scopes again`, and the table stays as it was. The bound counts the handles of one
+  page (see "Variable pages" below): when a page of an array finds the table short of the room that
+  its handles need, the table first releases the handles of the oldest earlier pages of arrays, a
+  whole page at a time and only as many pages as the room needs. It releases none when all the earlier
+  pages together would not make the room, and the page is then refused as above. So the 300 elements
+  of an array of structures list as three pages of 100 on a chip, each page taking its own handles. A
+  released handle answers `unknown variables reference`, as a handle that was never issued does, and
+  the client lists its page again to get new handles. A computer keeps its handles unbounded, as it
+  always has, and releases none; the refusal is the same wherever a bound applies.
+- **No line table.** A program without a `LINE_TABLE` has no statement start to hold at or to name, so
+  it cannot be debugged on a runtime that holds no text. Every debug operation above is refused with the
+  stable code `no_line_table` and the message `the program has no line table, so it cannot be debugged:
+  rebuild the project`, and a debug-mode `pause` is refused the same way before the debugger is asked
+  to hold anything. `resume` is unaffected.
+
+**Variable pages (every runtime).** `debug.variables` lists the children of a handle in pages, as the
+Debug Adapter Protocol's `variables` request does (specification 13, "Variables / Evaluate"), so that
+the listing of a large array needs no more handles than one page, and an engineer can inspect every
+element of a large array on a chip as on a computer. This is not one of the differences above: a
+computer and a chip answer a given page with the same entries, because the same shared code cuts it.
+The parameters are `variables_reference` and three optional ones, `filter` (`indexed` or `named`),
+`start` and `count`. `start` and `count` are integers from 0 to 4,294,967,295; any other value of
+the three is refused with an `invalid params` error, and the request changes nothing.
+
+- **Children.** The children of an array are its elements, which are *indexed*. The children of
+  anything else are *named*: the members of a structure, the variables of a scope or of an instance,
+  the target of a reference, and the areas and rows of the I/O scope.
+- **The page.** `filter` keeps the children of the kind it names and lists none of the other kind.
+  `start` is the zero-based index of the first child to list among the children that `filter` keeps,
+  `0` when absent, and `count` is the most children to list. A page lists the children from `start`,
+  in their order, at most `count`, and fewer at the end of the list; a `start` at or past the last
+  child lists none. A name keeps the index it has in the whole list: on the page that starts at 100,
+  the first element is named `[100]`.
+- **Without `count`.** A `count` that is absent or `0` lists a page of 100 elements of an array, the
+  chunk in which VS Code pages. A request that names neither `start` nor `count` therefore answers an
+  array's first page, and an old client still gets an answer that fits. The named children from
+  `start` are all listed without a `count`, because VS Code requests the named children of a variable
+  whole and would never see a member that a page cut off.
+- **Counts.** An entry whose value is an array reports `indexedVariables`, the number of its
+  elements, and an entry whose value is a structure reports `namedVariables`, the number of its
+  members. Both are the size of the whole container, not of a page, so that a client can ask for each
+  chunk. No other entry reports a count: a scalar entry has neither field.
+- **Handles.** Only the children that a page lists take handles, so a page of an array takes at most
+  `count` handles, and at most 100 without a `count`, however large the array is.
+
+##### 6.13.4 Debugger writes (`debug.set`; the owner, 26 October 2026)
+
+The owner, 26 October 2026: "did you run a program, simulate and force values etc? did you test all
+workflows?". `debug.set` is a debugger's write of a variable, an Engineer operation of the debug
+surface (section 6.9.5), which a chip and a computer answer alike through the shared request module
+(specification 44 §13.2; specification 13, "setVariable and setExpression"). Its parameters are the
+variable, either as a listing showed it, `variables_reference` and `name` (the handle of a
+`debug.variables` or `debug.scopes` listing and the name it showed), or by a `path` (section 6.8.1,
+"Runtime control I/O and variable mutation contract") with an optional `frame_id`, whose first name
+is looked up among the variables of that frame of the held call stack before the program's names;
+an optional `value`, the text of a literal of the variable's declared type; and `force`, `true` when
+the client forces the variable. Any other parameter, or neither or both forms of the variable, is
+refused.
+
+- **At a hold** the value is written into the held scan at once, converted as a Live Values write is
+  converted, and the answer reports the value the variable holds after it, with `written: true`.
+  The reads after it, of `debug.variables` and `debug.evaluate`, show it, and the held statement and
+  the statements after it see it.
+- **Between scans**, while the debugger holds no scan, nothing is written: the answer reports the
+  admitted value with `written: false`, and the client queues it with `set` or forces it with
+  `var.force` by the answer's `path`, for the next cycle start.
+- **Without a value** the variable is only read: the answer reports its value and its path, by
+  which a client releases its force with `var.unforce`.
+- **The answer** is `{"path", "type", "value", "written"}`: the variable's path, by which Live
+  Values queue and force it, `null` for a variable of a frame, which exists only while the debugger
+  holds the scan; its type's name; and its value in the stable debug representation. A row of the
+  I/O scope is answered with `{"address", "path": null, "written": false}`: it is written, forced
+  and released at its address with `io.write`, `io.force` and `io.unforce`.
+- **Refusals**, each with a plain reason, change nothing: a handle the table does not hold, a name
+  the listing does not show, a child of an evaluated value, which is a copy and not a variable, a
+  path the program does not hold, a constant, a member or an element of one, an instance, which
+  holds no value of its own, a value its type refuses (the typed values above), `force` for a
+  variable of a frame, which no force can name, and a write the held scan refuses.
 
 ##### Hosted embedding mutation lifecycle (planned H migration)
 

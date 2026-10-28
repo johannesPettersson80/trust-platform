@@ -6,121 +6,55 @@ use indexmap::IndexMap;
 use smol_str::SmolStr;
 
 use crate::debug::SourceLocation;
-use crate::memory::{AccessMap, FrameId, LocalFrame, VariableStorage};
+use crate::memory::{FrameId, LocalFrame, VariableStorage};
 use crate::program_model::{ClassDef, FunctionBlockDef, FunctionDef, InterfaceDef};
 use crate::stdlib::StandardLibrary;
 use crate::task::{ProgramDef, TaskConfig};
 use crate::value::DateTimeProfile;
 use trust_hir::types::TypeRegistry;
 
-mod prepared;
-
-mod retained;
-use retained::{RetainedBinding, RetainedLabel};
-
-#[derive(Debug, Clone)]
-pub(crate) struct GlobalDeclarationInfo {
-    pub(crate) type_id: trust_hir::TypeId,
-    pub(crate) retain: crate::RetainPolicy,
-}
-
-/// Snapshot of runtime metadata needed by external tooling.
-#[derive(Debug, Clone)]
+/// The metadata of a project's declarations that the tools read: its types, POUs, program instances,
+/// tasks and source positions (specification 44 §6.7).
+#[derive(Debug, Clone, Default)]
 pub struct RuntimeMetadata {
-    pub(super) storage_abi: crate::value::StorageAbi,
     pub(super) profile: DateTimeProfile,
     pub(super) registry: TypeRegistry,
-    pub(crate) artifact_types: Vec<Option<trust_hir::TypeId>>,
-    pub(crate) io_display_names: Vec<Option<SmolStr>>,
-    pub(super) retained_bindings: IndexMap<RetainedLabel, RetainedBinding>,
-    pub(super) global_declarations: IndexMap<SmolStr, GlobalDeclarationInfo>,
     pub(super) stdlib: StandardLibrary,
-    pub(super) access: AccessMap,
     pub(super) functions: IndexMap<SmolStr, FunctionDef>,
     pub(super) function_blocks: IndexMap<SmolStr, FunctionBlockDef>,
     pub(super) classes: IndexMap<SmolStr, ClassDef>,
     pub(super) interfaces: IndexMap<SmolStr, InterfaceDef>,
     pub(super) programs: IndexMap<SmolStr, ProgramDef>,
+    pub(super) constant_globals: indexmap::IndexSet<SmolStr>,
+    /// The program type of each program instance a configuration names, by the instance's
+    /// name in upper case (`PROGRAM Tank WITH Fast : TankLevelControl`).
+    pub(super) program_types: IndexMap<SmolStr, SmolStr>,
     pub(super) program_templates: IndexMap<SmolStr, ProgramDef>,
     pub(super) tasks: Vec<TaskConfig>,
     pub(super) task_thread_ids: IndexMap<SmolStr, u32>,
     pub(super) background_thread_id: Option<u32>,
     pub(super) statement_index: IndexMap<u32, Vec<SourceLocation>>,
-    pub(super) source_text_index: IndexMap<u32, String>,
-    pub(super) source_label_index: std::collections::HashMap<SmolStr, u32>,
 }
 
 impl RuntimeMetadata {
-    /// Storage widths certified by the installed artifact, independent of source defaults.
-    pub fn storage_abi(&self) -> crate::value::StorageAbi {
-        self.storage_abi
+    /// The program type of a program instance a configuration names, ignoring case.
+    #[must_use]
+    pub fn program_type(&self, instance: &str) -> Option<&SmolStr> {
+        self.program_types
+            .get(instance.to_ascii_uppercase().as_str())
+    }
+
+    /// Whether a global is declared `VAR_GLOBAL CONSTANT`; names compare without regard to case.
+    pub fn global_is_constant(&self, name: &str) -> bool {
+        self.constant_globals
+            .iter()
+            .any(|constant| constant.eq_ignore_ascii_case(name))
     }
 
     /// Access the type registry snapshot.
     #[must_use]
     pub fn registry(&self) -> &TypeRegistry {
         &self.registry
-    }
-
-    /// Resolve an artifact type to its distinct, immutable tooling identity.
-    /// TYPE_TABLE indexes are never cast to HIR type ids.
-    #[must_use]
-    pub fn artifact_type(&self, index: u32) -> Option<trust_hir::TypeId> {
-        self.artifact_types.get(index as usize).copied().flatten()
-    }
-
-    /// Keep verified declarations and USING context while refusing uncertified
-    /// source locations, breakpoint attachment and source-aware artifact export.
-    pub(crate) fn clear_source_association(&mut self) {
-        self.statement_index.clear();
-        self.source_text_index.clear();
-        self.source_label_index.clear();
-    }
-
-    /// Associate path-only artifact relabels after the authoring boundary proved
-    /// identical semantic tables, instruction bytes and indexed source positions.
-    pub(crate) fn associate_artifact_source_paths(
-        &mut self,
-        expected: &crate::bytecode::BytecodeModule,
-        supplied: &crate::bytecode::BytecodeModule,
-    ) -> Result<(), crate::error::RuntimeError> {
-        use crate::bytecode::{SectionData, SectionId};
-        let (Some(SectionData::DebugStringTable(a)), Some(SectionData::DebugStringTable(b))) = (
-            expected.section(SectionId::DebugStringTable),
-            supplied.section(SectionId::DebugStringTable),
-        ) else {
-            return Ok(());
-        };
-        // Resolve every source identity before replacing aliases. A bundle may
-        // legitimately permute unique path labels; old aliases must not make
-        // an otherwise identical indexed source map appear ambiguous.
-        let mut installed_labels = std::collections::HashMap::new();
-        for (original, installed) in a.entries.iter().zip(&b.entries) {
-            let id = self
-                .source_file_id(original)
-                .ok_or(crate::error::RuntimeError::InvalidExecutionState)?;
-            if installed_labels
-                .insert(installed.clone(), id)
-                .is_some_and(|prior| prior != id)
-            {
-                return Err(crate::error::RuntimeError::InvalidConfig(
-                    "ambiguous artifact source labels".into(),
-                ));
-            }
-        }
-        self.source_label_index.extend(installed_labels);
-        Ok(())
-    }
-
-    pub(crate) fn source_file_id(&self, label: &str) -> Option<u32> {
-        self.source_label_index
-            .get(label)
-            .copied()
-            .or_else(|| label.strip_prefix("file_")?.parse().ok())
-    }
-
-    pub(crate) fn source_text(&self, file_id: u32) -> Option<&str> {
-        self.source_text_index.get(&file_id).map(String::as_str)
     }
 
     /// Access the standard library snapshot.
@@ -135,12 +69,6 @@ impl RuntimeMetadata {
         &self.interfaces
     }
 
-    /// Access the VAR_ACCESS binding map snapshot.
-    #[must_use]
-    pub fn access_map(&self) -> &AccessMap {
-        &self.access
-    }
-
     /// Access configured tasks.
     #[must_use]
     pub fn tasks(&self) -> &[TaskConfig] {
@@ -151,6 +79,13 @@ impl RuntimeMetadata {
     #[must_use]
     pub fn programs(&self) -> &IndexMap<SmolStr, ProgramDef> {
         &self.programs
+    }
+
+    /// Program definitions by program type name (`TankLevelControl`), where [`Self::programs`]
+    /// holds the configured program instances by instance name.
+    #[must_use]
+    pub fn program_templates(&self) -> &IndexMap<SmolStr, ProgramDef> {
+        &self.program_templates
     }
 
     /// Resolve a stable thread id for a task name.
@@ -206,13 +141,24 @@ impl RuntimeMetadata {
         .map(|using| using.to_vec())
     }
 
-    /// Return statement locations for a file id, if known.
+    /// The statement list the source text provides for a file id: the statement index that the
+    /// source-based resolver answered from before a LINE_TABLE did (specification 13, "Breakpoint
+    /// evaluation, source resolution, and hook contract"). The reference a line table is compared
+    /// with; the installation's own answers read the table once one is bound.
+    #[must_use]
+    pub fn source_statement_locations(&self, file_id: u32) -> Option<&[SourceLocation]> {
+        self.statement_index.get(&file_id).map(Vec::as_slice)
+    }
+
+    /// Return statement locations for a file id, if known (specification 13, "Breakpoint
+    /// Locations").
     #[must_use]
     pub fn statement_locations(&self, file_id: u32) -> Option<&[SourceLocation]> {
         self.statement_index.get(&file_id).map(Vec::as_slice)
     }
 
-    /// Resolve a line/column breakpoint to the nearest statement boundary.
+    /// Resolve a line/column breakpoint to the nearest statement boundary. `line` and `column` are
+    /// 0-based, as the control layer sends them.
     #[must_use]
     pub fn resolve_breakpoint_location(
         &self,
@@ -225,29 +171,7 @@ impl RuntimeMetadata {
         crate::debug::resolve_breakpoint_location(source, file_id, locations, line, column)
     }
 
-    /// Resolve an artifact source position against this installation's immutable source snapshot.
-    #[must_use]
-    pub(crate) fn resolve_vm_debug_location(
-        &self,
-        file_label: &str,
-        line_1based: u32,
-        column_1based: u32,
-    ) -> Option<SourceLocation> {
-        let file_id = self
-            .source_label_index
-            .get(file_label)
-            .copied()
-            .or_else(|| file_label.strip_prefix("file_")?.parse::<u32>().ok())?;
-        let source = self.source_text_index.get(&file_id)?;
-        self.resolve_breakpoint_location(
-            source,
-            file_id,
-            line_1based.saturating_sub(1),
-            column_1based.saturating_sub(1),
-        )
-    }
-
-    /// Resolve a breakpoint to a statement boundary and return adjusted line/column.
+    /// Resolve a breakpoint to a statement boundary and return its 0-based line and column.
     #[must_use]
     pub fn resolve_breakpoint_position(
         &self,
@@ -348,13 +272,23 @@ pub(super) fn resolve_using_for_frame<'a>(
 mod tests {
     use super::*;
 
-    use crate::runtime::LegacyRuntimeFixture as Runtime;
+    use crate::RuntimeBuilder;
     use trust_hir::TypeId;
+
+    fn program(name: &str, using: &[&str]) -> ProgramDef {
+        ProgramDef {
+            name: name.into(),
+            vars: Vec::new(),
+            temps: Vec::new(),
+            using: using.iter().map(|name| SmolStr::new(*name)).collect(),
+            body: Vec::new(),
+        }
+    }
 
     #[test]
     fn metadata_using_resolution_is_case_insensitive_for_functions_and_programs() {
-        let mut runtime = Runtime::new();
-        runtime.register_function(FunctionDef {
+        let mut builder = RuntimeBuilder::new();
+        builder.register_function(FunctionDef {
             name: "Compute".into(),
             return_type: TypeId::DINT,
             params: Vec::new(),
@@ -363,52 +297,51 @@ mod tests {
             using: vec!["FunctionLib".into()],
             body: Vec::new(),
         });
-        runtime
-            .register_program(ProgramDef {
-                name: "Main".into(),
-                vars: Vec::new(),
-                temps: Vec::new(),
-                using: vec!["ProgramLib".into()],
-                body: Vec::new(),
-            })
+        let main = program("Main", &["ProgramLib"]);
+        builder.register_program(main.clone());
+        let metadata = builder
+            .metadata_for_configuration(
+                IndexMap::new(),
+                IndexMap::from([("Main".into(), main)]),
+                Vec::new(),
+            )
             .unwrap();
 
-        let function_frame = runtime.storage_mut().push_frame("cOmPuTe");
+        let mut storage = VariableStorage::default();
+        let function_frame = storage.push_frame("cOmPuTe");
         assert_eq!(
-            runtime.using_for_frame(function_frame),
+            metadata.using_for_frame(&storage, function_frame),
             Some(vec![SmolStr::new("FunctionLib")])
         );
-        runtime.storage_mut().pop_frame();
+        storage.pop_frame();
 
-        let program_frame = runtime.storage_mut().push_frame("mAiN");
+        let program_frame = storage.push_frame("mAiN");
         assert_eq!(
-            runtime.using_for_frame(program_frame),
+            metadata.using_for_frame(&storage, program_frame),
             Some(vec![SmolStr::new("ProgramLib")])
         );
     }
 
     #[test]
     fn metadata_background_classification_is_case_insensitive() {
-        let mut runtime = Runtime::new();
-        runtime
-            .register_program(ProgramDef {
-                name: "Main".into(),
-                vars: Vec::new(),
-                temps: Vec::new(),
-                using: Vec::new(),
-                body: Vec::new(),
-            })
+        let mut builder = RuntimeBuilder::new();
+        let main = program("Main", &[]);
+        builder.register_program(main.clone());
+        let metadata = builder
+            .metadata_for_configuration(
+                IndexMap::new(),
+                IndexMap::from([("Main".into(), main)]),
+                vec![TaskConfig {
+                    name: "Fast".into(),
+                    interval: crate::value::Duration::from_millis(10),
+                    single: None,
+                    priority: 1,
+                    programs: vec!["mAiN".into()],
+                    fb_instances: Vec::new(),
+                }],
+            )
             .unwrap();
-        runtime.register_task(TaskConfig {
-            name: "Fast".into(),
-            interval: crate::value::Duration::from_millis(10),
-            single: None,
-            priority: 1,
-            programs: vec!["mAiN".into()],
-            fb_instances: Vec::new(),
-        });
 
-        let snapshot = runtime.metadata_snapshot();
-        assert!(!snapshot.has_background_programs());
+        assert!(!metadata.has_background_programs());
     }
 }

@@ -99,10 +99,9 @@ trust-runtime run --project examples/tutorials/12_hmi_pid_process_dashboard
 
 Open:
 - `http://127.0.0.1:18082`
-- `http://127.0.0.1:18082/hmi`
 
 Expected result:
-- runtime status and HMI pages are available independent of editor choice
+- the runtime web UI is available independent of editor choice
 
 ## Step 7: Use official smoke gate
 
@@ -135,5 +134,5 @@ Use this loop daily:
 - [ ] Neovim and/or Zed connected to `trust-lsp`
 - [ ] core LSP features verified
 - [ ] terminal build/validate/test loop verified
-- [ ] runtime web/HMI verification completed
+- [ ] runtime web UI verification completed
 - [ ] editor smoke gate executed

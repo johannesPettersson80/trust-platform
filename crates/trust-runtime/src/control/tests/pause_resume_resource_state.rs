@@ -25,7 +25,7 @@ fn resource_state_fixture(
     ControlState,
     std::sync::mpsc::Receiver<crate::scheduler::ResourceCommand>,
 ) {
-    let mut state = hmi_test_state(RESOURCE_STATE_SOURCE);
+    let mut state = control_test_state(RESOURCE_STATE_SOURCE);
     *state.control_mode.lock().expect("control mode lock") = mode;
     let error = (resource == crate::scheduler::ResourceState::Faulted)
         .then_some(crate::error::RuntimeError::ResourceFaulted);
@@ -41,7 +41,6 @@ fn resource_state_fixture(
 #[test]
 fn faulted_or_stopped_resource_refuses_pause_and_resume_and_changes_nothing() {
     use crate::config::ControlMode;
-    use crate::debug::ControlAction;
     use crate::scheduler::ResourceState;
     for mode in [ControlMode::Production, ControlMode::Debug] {
         for (resource, reason) in [
@@ -54,7 +53,7 @@ fn faulted_or_stopped_resource_refuses_pause_and_resume_and_changes_nothing() {
             let label = format!("{mode:?} {resource:?}");
             let (state, cmd_rx) = resource_state_fixture(mode, resource);
             // A debugger hold that a refused resume must leave in place.
-            let _ = state.debug.apply_action(ControlAction::Pause(None));
+            debugger_pause(&state.debug);
 
             for (id, kind) in [(1, "pause"), (2, "resume")] {
                 let response = handle_request_value(json!({"id": id, "type": kind}), &state, None);
@@ -71,7 +70,7 @@ fn faulted_or_stopped_resource_refuses_pause_and_resume_and_changes_nothing() {
                 );
             }
             assert!(
-                state.debug.is_paused(),
+                debugger_holds(&state.debug),
                 "{label}: a refused resume releases no debugger hold"
             );
             assert!(
@@ -85,7 +84,7 @@ fn faulted_or_stopped_resource_refuses_pause_and_resume_and_changes_nothing() {
                 "{label}: status should succeed: {:?}",
                 status.error
             );
-            let status = status.result.expect("status result");
+            let status = status.result_value().expect("status result");
             let expected = format!("{resource:?}").to_ascii_lowercase();
             assert_eq!(
                 status.pointer("/state").and_then(serde_json::Value::as_str),
@@ -99,7 +98,6 @@ fn faulted_or_stopped_resource_refuses_pause_and_resume_and_changes_nothing() {
 #[test]
 fn scheduler_that_no_longer_accepts_commands_refuses_without_reporting_success() {
     use crate::config::ControlMode;
-    use crate::debug::ControlAction;
     use crate::scheduler::ResourceState;
     // The resource reports running, but its command receiver is gone: the runner thread
     // has exited without updating the state.
@@ -117,7 +115,7 @@ fn scheduler_that_no_longer_accepts_commands_refuses_without_reporting_success()
         Some("resource is running and its scheduler does not accept commands")
     );
 
-    let _ = state.debug.apply_action(ControlAction::Pause(None));
+    debugger_pause(&state.debug);
     let resumed = handle_request_value(json!({"id": 2, "type": "resume"}), &state, None);
     assert!(
         !resumed.ok,
@@ -125,7 +123,7 @@ fn scheduler_that_no_longer_accepts_commands_refuses_without_reporting_success()
     );
     assert_eq!(resumed.error_code.as_deref(), Some("resource_not_running"));
     assert!(
-        state.debug.is_paused(),
+        debugger_holds(&state.debug),
         "a resume the scheduler cannot take releases no debugger hold"
     );
 }
@@ -151,7 +149,7 @@ fn healthy_resource_keeps_today_replies_and_scheduler_commands_in_both_modes() {
             "{label}: pause reply"
         );
         assert_eq!(
-            state.debug.is_paused(),
+            debugger_holds(&state.debug),
             !production,
             "{label}: only debug mode holds the scan on pause"
         );
@@ -167,7 +165,10 @@ fn healthy_resource_keeps_today_replies_and_scheduler_commands_in_both_modes() {
             Some(json!({"status": "running"})),
             "{label}: resume reply"
         );
-        assert!(!state.debug.is_paused(), "{label}: resume releases a hold");
+        assert!(
+            !debugger_holds(&state.debug),
+            "{label}: resume releases a hold"
+        );
 
         let sent: Vec<&str> = cmd_rx
             .try_iter()
@@ -189,9 +190,12 @@ fn healthy_resource_keeps_today_replies_and_scheduler_commands_in_both_modes() {
 #[test]
 fn restart_and_reload_follow_the_scan_thread_state() {
     // Spec 11 section 6.6: a faulted resource takes a restart request, because its scan thread is
-    // alive in the faulted wait. A stopped resource has no thread, and a hung one has a scan thread
-    // inside a call that did not return. Both refuse restart and bytecode reload with the stable
-    // code. A refused reload sends no command, so it does not wait for a reply.
+    // alive in the faulted wait. Decision Q11 on computers (18 October 2026), specification 34
+    // STATE-08: so does a stopped one, because `shutdown` stops the program and the scan thread
+    // waits in the stopped wait; it refused the restart while `shutdown` ended the process. A
+    // stopped resource still refuses bytecode reload, and a hung one, whose scan thread is inside a
+    // call that did not return, refuses restart and reload, with the stable code. A refused reload
+    // sends no command, so it does not wait for a reply.
     use crate::config::ControlMode;
     use crate::scheduler::{ResourceControl, ResourceState, StdClock};
     use crate::RestartMode;
@@ -215,13 +219,16 @@ fn restart_and_reload_follow_the_scan_thread_state() {
 
     let (stopped, stopped_rx) =
         resource_state_fixture(ControlMode::Production, ResourceState::Stopped);
-    let refused = handle_request_value(restart_request.clone(), &stopped, None);
-    assert!(!refused.ok);
-    assert_eq!(refused.error_code.as_deref(), Some("resource_not_running"));
+    let started = handle_request_value(restart_request.clone(), &stopped, None);
+    assert!(
+        started.ok,
+        "a stopped restart is accepted: {:?}",
+        started.error
+    );
     assert_eq!(
         stopped.pending_restart.lock().ok().and_then(|guard| *guard),
-        None,
-        "a refused restart leaves no pending request"
+        Some(RestartMode::Warm),
+        "the scan thread in the stopped wait takes the request"
     );
     let refused_reload = handle_request_value(reload_request.clone(), &stopped, None);
     assert!(!refused_reload.ok);

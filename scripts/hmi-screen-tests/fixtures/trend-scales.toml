@@ -1,0 +1,15 @@
+format = 1
+title = "Independent pen scales"
+hidden = true
+
+[[object]]
+id = "scales"
+type = "trend"
+at = [40, 40]
+size = [1400, 800]
+label = "Same process, separate scales"
+span = 300
+
+[object.bind]
+Level = { path = "Tank.Level", unit = "m", range = [0, 3] }
+Setpoint = { path = "Tank.Setpoint", unit = "m", range = [0, 100] }

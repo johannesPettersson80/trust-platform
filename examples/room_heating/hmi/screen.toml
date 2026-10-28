@@ -1,0 +1,15 @@
+format = 1
+size = [1688, 1024]
+theme = "dark"
+symbols = "flat"
+languages = ["en", "de", "sv"]
+
+[top_bar]
+title = "Room heating"
+clock = true
+alarms = true
+user = true
+page_title = true
+
+[navigation]
+style = "side"

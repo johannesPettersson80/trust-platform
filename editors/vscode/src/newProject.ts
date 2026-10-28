@@ -1,4 +1,12 @@
+import { execFile } from "child_process";
+import * as path from "path";
 import * as vscode from "vscode";
+
+import { getBinaryPath } from "./binary";
+import { prepareStarterProjectHandoff } from "./projectLanding";
+import { openPendingProjectLanding } from "./projectLandingActivation";
+import { openCreatedProjectFolder } from "./projectOpening";
+export { FOCUS_MAIN_KEY, prepareStarterProjectHandoff } from "./projectLanding";
 
 type SimulatedCancelAt = "folder" | "name" | "overwrite";
 
@@ -11,129 +19,23 @@ type NewProjectArgs = {
   simulateCancelAt?: SimulatedCancelAt;
 };
 
+// The parent folder and the name that `trust-runtime new --parent <folder> --name <name>` takes.
+type ProjectTarget = {
+  readonly parent: string;
+  readonly name: string;
+};
+
+// The answer of `trust-runtime new --json` (spec 25 §3.2): the project folder and the file to focus, or
+// an error code and message. The command reports an error with a non-zero exit, so stdout is read either way.
+type CreateAnswer =
+  | { readonly ok: true; readonly project: string; readonly focus: string }
+  | { readonly ok: false; readonly code: string; readonly message: string };
+
 export const NEW_PROJECT_COMMAND = "trust-lsp.newProject";
 
-// After scaffolding + opening the folder (which reloads the window), this globalState key tells the next
-// activation which Main.st to focus (§0.5.15 "open + focus src/Main.st").
-export const FOCUS_MAIN_KEY = "trust.newProject.focusMain";
-
-const MAIN_ST_SOURCE = `PROGRAM Main
-END_PROGRAM
-`;
-
-// A CONFIGURATION instantiates the program (RESOURCE + TASK + PROGRAM WITH) so the project actually
-// runs AND so a brand-new project is clean — without an instance, the "unused program" lint (W009)
-// flags Main on first open (F-02). The instance name must differ from the Main POU name because both
-// declarations are imported into the project symbol table. INTERVAL matches runtime.toml.
-const CONFIG_ST_SOURCE = `CONFIGURATION Config
-RESOURCE MainRes ON PLC
-    TASK MainTask (INTERVAL := T#10ms, PRIORITY := 1);
-    PROGRAM MainInstance WITH MainTask : Main;
-END_RESOURCE
-END_CONFIGURATION
-`;
-
-const PROJECT_TOML_SOURCE = `include_paths = ["src"]
-`;
-
-const LAUNCH_JSON_SOURCE = `{
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "type": "structured-text",
-      "request": "launch",
-      "name": "truST Simulator",
-      "program": "\${workspaceFolder}/src/config.st",
-      "stopOnEntry": false
-    }
-  ]
-}
-`;
-
-const VSCODE_SETTINGS_SOURCE = `{
-  "debug.showInStatusBar": "never"
-}
-`;
-
-// §0.5.15: a runnable simulator project = src/Main.st + trust-lsp.toml + runtime.toml + io.toml. The
-// simulator (trust-debug) runs from trust-lsp.toml; runtime.toml + io.toml let Devices & Connections load
-// the OFFLINE topology immediately (read by the bundled trust-runtime — phase 0 packaging) with simulated
-// I/O, so the user never hand-edits TOML to get a running, configurable project.
-const RUNTIME_CONTROL_ENDPOINT =
-  process.platform === "win32"
-    ? "tcp://127.0.0.1:9902"
-    : "unix:///tmp/trust-runtime.sock";
-
-// Full section set required by the runtime config parser (crates/trust-runtime/src/config/parser.rs) —
-// retain/watchdog/fault are NOT optional. Mirrors the proven examples/network_canvas_demo/runtime.toml
-// so the project loads offline (Devices & Connections topology) and `trust-runtime comm topology` passes.
-const RUNTIME_TOML_SOURCE = `[bundle]
-version = 1
-
-[resource]
-name = "Simulator"
-cycle_interval_ms = 10
-
-[runtime.control]
-endpoint = "${RUNTIME_CONTROL_ENDPOINT}"
-mode = "production"
-debug_enabled = false
-
-[runtime.web]
-enabled = false
-listen = "127.0.0.1:8080"
-auth = "local"
-tls = false
-
-[runtime.tls]
-mode = "disabled"
-require_remote = false
-
-[runtime.discovery]
-enabled = false
-service_name = "truST"
-advertise = false
-interfaces = []
-
-[runtime.mesh]
-enabled = false
-listen = "0.0.0.0:5200"
-tls = false
-auth_token = ""
-publish = []
-
-[runtime.observability]
-enabled = false
-sample_interval_ms = 1000
-mode = "all"
-include = []
-history_path = "history/historian.jsonl"
-max_entries = 20000
-prometheus_enabled = true
-prometheus_path = "/metrics"
-
-[runtime.log]
-level = "info"
-
-[runtime.retain]
-mode = "none"
-save_interval_ms = 1000
-
-[runtime.watchdog]
-enabled = false
-timeout_ms = 1000
-action = "halt"
-
-[runtime.fault]
-policy = "halt"
-`;
-
-const IO_TOML_SOURCE = `# Simulated I/O so the project runs with no hardware or brokers, on any machine. Devices & Connections
-# ("Set up runtime…" → add a device) writes real drivers here when you wire one up.
-[io]
-driver = "simulated"
-params = {}
-`;
+// The Rust CLI owns the project: `trust-runtime new` writes every file, checks the name and reports an
+// existing folder that is not empty, a target that is not a directory, or an I/O failure (spec 11 §6.8.0a,
+// spec 25 §3.2). This module only prompts, runs the command, asks before it overwrites and opens the result.
 
 function asUri(value?: vscode.Uri | string): vscode.Uri | undefined {
   if (!value) {
@@ -152,38 +54,6 @@ function asUri(value?: vscode.Uri | string): vscode.Uri | undefined {
   }
 }
 
-async function pathExists(uri: vscode.Uri): Promise<boolean> {
-  try {
-    await vscode.workspace.fs.stat(uri);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function isDirectory(uri: vscode.Uri): Promise<boolean> {
-  try {
-    const stat = await vscode.workspace.fs.stat(uri);
-    return (stat.type & vscode.FileType.Directory) !== 0;
-  } catch {
-    return false;
-  }
-}
-
-function validateProjectName(value: string): string | undefined {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return "Project name is required.";
-  }
-  if (trimmed.includes("/") || trimmed.includes("\\")) {
-    return "Project name must not contain path separators.";
-  }
-  if (trimmed === "." || trimmed === "..") {
-    return "Project name is invalid.";
-  }
-  return undefined;
-}
-
 async function promptForBaseFolder(): Promise<vscode.Uri | undefined> {
   const selected = await vscode.window.showOpenDialog({
     canSelectFiles: false,
@@ -195,90 +65,124 @@ async function promptForBaseFolder(): Promise<vscode.Uri | undefined> {
 }
 
 async function promptForProjectName(): Promise<string | undefined> {
+  // The box opens with a selected suggestion, which the first key replaces (acceptance finding F10). The name
+  // is passed on as typed: `trust-runtime new` checks it and its refusal is shown.
   return vscode.window.showInputBox({
     prompt: "Enter a name for the new Structured Text project",
     placeHolder: "my-st-project",
-    validateInput: validateProjectName,
+    value: "my-st-project",
+    valueSelection: [0, "my-st-project".length],
   });
 }
 
-async function confirmOverwrite(targetUri: vscode.Uri): Promise<boolean> {
+async function confirmOverwrite(projectPath: string): Promise<boolean> {
   const selection = await vscode.window.showWarningMessage(
-    `The target path already exists: ${targetUri.fsPath}\nContinue and overwrite project scaffold files if present?`,
+    `This folder is not empty: ${projectPath}\nReplace a new project's files in it? Your other files stay.`,
     { modal: true },
-    "Continue",
+    "Replace",
     "Cancel"
   );
-  return selection === "Continue";
+  return selection === "Replace";
 }
 
-async function writeScaffold(targetUri: vscode.Uri): Promise<void> {
-  const srcUri = vscode.Uri.joinPath(targetUri, "src");
-  const vscodeUri = vscode.Uri.joinPath(targetUri, ".vscode");
-  await vscode.workspace.fs.createDirectory(srcUri);
-  await vscode.workspace.fs.createDirectory(vscodeUri);
-  const mainBuffer = Buffer.from(MAIN_ST_SOURCE);
-  await vscode.workspace.fs.writeFile(
-    vscode.Uri.joinPath(srcUri, "Main.st"),
-    mainBuffer
-  );
-  await vscode.workspace.fs.writeFile(
-    vscode.Uri.joinPath(srcUri, "config.st"),
-    Buffer.from(CONFIG_ST_SOURCE)
-  );
-  await vscode.workspace.fs.writeFile(
-    vscode.Uri.joinPath(targetUri, "trust-lsp.toml"),
-    Buffer.from(PROJECT_TOML_SOURCE)
-  );
-  await vscode.workspace.fs.writeFile(
-    vscode.Uri.joinPath(targetUri, "runtime.toml"),
-    Buffer.from(RUNTIME_TOML_SOURCE)
-  );
-  await vscode.workspace.fs.writeFile(
-    vscode.Uri.joinPath(targetUri, "io.toml"),
-    Buffer.from(IO_TOML_SOURCE)
-  );
-  await vscode.workspace.fs.writeFile(
-    vscode.Uri.joinPath(vscodeUri, "launch.json"),
-    Buffer.from(LAUNCH_JSON_SOURCE)
-  );
-  await vscode.workspace.fs.writeFile(
-    vscode.Uri.joinPath(vscodeUri, "settings.json"),
-    Buffer.from(VSCODE_SETTINGS_SOURCE)
-  );
+function createArgs(target: ProjectTarget, force: boolean): string[] {
+  return [
+    "new",
+    `--parent=${target.parent}`,
+    `--name=${target.name}`,
+    ...(force ? ["--force"] : []),
+    "--json",
+  ];
 }
 
-// Focus the freshly-scaffolded Main.st. Called both inline (no reload) and on the next activation (after
+// Runs `trust-runtime new` and reads the answer it prints. When stdout holds no answer, the command could
+// not be started or failed before it reported, and its output is shown instead.
+function runCreate(bin: string, args: string[]): Promise<CreateAnswer> {
+  return new Promise((resolve) => {
+    execFile(
+      bin,
+      args,
+      { timeout: 60_000, maxBuffer: 4 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        const answer = parseCreateAnswer(String(stdout));
+        if (answer) {
+          resolve(answer);
+          return;
+        }
+        const detail =
+          String(stderr).trim() ||
+          String(stdout).trim() ||
+          error?.message ||
+          "no answer from trust-runtime";
+        resolve({
+          ok: false,
+          code: "unknown",
+          message: `The project could not be created: ${detail}`,
+        });
+      }
+    );
+  });
+}
+
+// Undefined when stdout holds no answer of the documented shape.
+function parseCreateAnswer(stdout: string): CreateAnswer | undefined {
+  const parsed = parseJsonObject(stdout);
+  if (!parsed) {
+    return undefined;
+  }
+  if (isRecord(parsed.error)) {
+    return {
+      ok: false,
+      code: stringField(parsed.error.code) ?? "unknown",
+      message:
+        stringField(parsed.error.message) ??
+        "The project could not be created.",
+    };
+  }
+  const project = stringField(parsed.project);
+  const focus = stringField(parsed.focus);
+  if (project === undefined || focus === undefined) {
+    return undefined;
+  }
+  return { ok: true, project, focus };
+}
+
+function parseJsonObject(text: string): Record<string, unknown> | undefined {
+  try {
+    const value: unknown = JSON.parse(text);
+    return isRecord(value) ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function stringField(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+// Focus the freshly-created src/Main.st. Called both inline (no reload) and on the next activation (after
 // vscode.openFolder reloads the window). No-op when the pending file isn't in the current workspace.
 export async function focusPendingMain(
   context: vscode.ExtensionContext
 ): Promise<void> {
-  const pending = context.globalState.get<string>(FOCUS_MAIN_KEY);
-  if (!pending) {
-    return;
-  }
-  const uri = vscode.Uri.file(pending);
-  try {
-    await vscode.workspace.fs.stat(uri);
-  } catch {
-    await context.globalState.update(FOCUS_MAIN_KEY, undefined);
-    return;
-  }
-  // Only focus if the file belongs to the open workspace (the project that just opened).
-  if (!vscode.workspace.getWorkspaceFolder(uri)) {
-    return;
-  }
-  await context.globalState.update(FOCUS_MAIN_KEY, undefined);
-  const doc = await vscode.workspace.openTextDocument(uri);
-  await vscode.window.showTextDocument(doc, { preview: false });
+  await openPendingProjectLanding(context);
 }
 
-async function resolveTargetUri(
+// A targetUri is split into its parent folder and its name. The name typed at the prompt is passed on as
+// it was typed: the command checks it, so the extension neither trims nor validates it.
+async function resolveTarget(
   args?: NewProjectArgs
-): Promise<vscode.Uri | undefined> {
+): Promise<ProjectTarget | undefined> {
   const directTarget = asUri(args?.targetUri);
   if (directTarget) {
-    return directTarget;
+    return {
+      parent: path.dirname(directTarget.fsPath),
+      name: path.basename(directTarget.fsPath),
+    };
   }
 
   if (args?.simulateCancelAt === "folder") {
@@ -292,17 +196,11 @@ async function resolveTargetUri(
   if (args?.simulateCancelAt === "name") {
     return undefined;
   }
-  const rawName = args?.projectName ?? (await promptForProjectName());
-  if (!rawName) {
+  const name = args?.projectName ?? (await promptForProjectName());
+  if (name === undefined) {
     return undefined;
   }
-  const trimmedName = rawName.trim();
-  const validation = validateProjectName(trimmedName);
-  if (validation) {
-    vscode.window.showErrorMessage(validation);
-    return undefined;
-  }
-  return vscode.Uri.joinPath(baseUri, trimmedName);
+  return { parent: baseUri.fsPath, name };
 }
 
 export function registerNewProjectCommand(
@@ -312,43 +210,40 @@ export function registerNewProjectCommand(
     vscode.commands.registerCommand(
       NEW_PROJECT_COMMAND,
       async (args?: NewProjectArgs) => {
-        const targetUri = await resolveTargetUri(args);
-        if (!targetUri) {
+        const target = await resolveTarget(args);
+        if (!target) {
           return false;
         }
 
-        const exists = await pathExists(targetUri);
-        if (exists) {
-          if (!(await isDirectory(targetUri))) {
-            vscode.window.showErrorMessage(
-              `Target path exists and is not a directory: ${targetUri.fsPath}`
-            );
-            return false;
-          }
+        const bin = getBinaryPath(context, "trust-runtime", "runtime.cli.path");
+        let answer = await runCreate(bin, createArgs(target, false));
+        if (!answer.ok && answer.code === "exists") {
           if (args?.simulateCancelAt === "overwrite") {
             return false;
           }
-          const overwrite = args?.overwrite ?? (await confirmOverwrite(targetUri));
+          const overwrite =
+            args?.overwrite ??
+            (await confirmOverwrite(path.join(target.parent, target.name)));
           if (!overwrite) {
             return false;
           }
+          answer = await runCreate(bin, createArgs(target, true));
+        }
+        if (!answer.ok) {
+          vscode.window.showErrorMessage(answer.message);
+          return false;
         }
 
-        await writeScaffold(targetUri);
-
-        const mainUri = vscode.Uri.joinPath(targetUri, "src", "Main.st");
-        await context.globalState.update(FOCUS_MAIN_KEY, mainUri.fsPath);
+        const projectDir = path.resolve(target.parent, answer.project);
+        const focusPath = path.resolve(projectDir, answer.focus);
+        await prepareStarterProjectHandoff(context, focusPath);
 
         const openWorkspace = args?.openWorkspace ?? true;
         if (openWorkspace) {
-          // Opening the folder reloads the window; focusPendingMain (next activation) focuses Main.st.
-          await vscode.commands.executeCommand(
-            "vscode.openFolder",
-            targetUri,
-            false
-          );
+          // Opening the folder reloads the window; focusPendingMain (next activation) focuses src/Main.st.
+          if (!(await openCreatedProjectFolder(vscode.Uri.file(projectDir)))) return false;
         } else {
-          // No reload — focus Main.st right now.
+          // No reload: focus src/Main.st right now.
           await focusPendingMain(context);
         }
 

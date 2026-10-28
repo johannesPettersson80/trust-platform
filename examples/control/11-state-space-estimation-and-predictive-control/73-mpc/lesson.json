@@ -1,0 +1,383 @@
+{
+  "schemaVersion": 4,
+  "id": "control-mpc",
+  "title": "Model predictive control",
+  "level": "Modern",
+  "sequence": 82,
+  "equipment": "Two water heaters of Lesson 4 sharing one 100-point supply; heater 2 can lose 30 kW more",
+  "physicalPurpose": "Share a limited supply between two heaters by planning both commands ahead within the limits.",
+  "principalTechnique": "Finite-grid model predictive control: 231 command pairs, three-second move-blocked prediction, first move applied, replanned every second",
+  "objective": "Plan both heater commands three seconds ahead over the 231 pairs within the shared supply, reject plans outside the temperature limits, apply the first move of the cheapest plan every second, and show how the plan shares the supply when both targets cannot be met.",
+  "prerequisites": [
+    "control-lqg"
+  ],
+  "nextLesson": "control-lyapunov-stability",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Heater 1 temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Heater 1 command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Heater 1 setpoint",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "state",
+      "name": "Heater 2 temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Heater 2 setpoint",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Heater 2 command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL16"
+    },
+    {
+      "role": "state",
+      "name": "Supply used",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "Predicted heater 1 after 3 s",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%ML24"
+    },
+    {
+      "role": "state",
+      "name": "Predicted heater 2 after 3 s",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%ML32"
+    },
+    {
+      "role": "state",
+      "name": "Rejected plans",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 231,
+      "resolution": 1,
+      "binding": "%ML48"
+    },
+    {
+      "role": "state",
+      "name": "Plan cost",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1000,
+      "resolution": 1e-06,
+      "binding": "%ML40"
+    },
+    {
+      "role": "state",
+      "name": "Heater 2 extra load",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL24"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX56.0"
+    },
+    {
+      "role": "state",
+      "name": "Planning failed",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX56.1"
+    },
+    {
+      "role": "state",
+      "name": "Fault latched",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX56.2"
+    },
+    {
+      "role": "state",
+      "name": "Clock valid",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX56.3"
+    }
+  ],
+  "plant": {
+    "modelId": "two-water-heaters",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "thermal_capacity",
+        "value": 50,
+        "unit": "kJ/degC"
+      },
+      {
+        "name": "loss",
+        "value": 10,
+        "unit": "kW/degC"
+      },
+      {
+        "name": "heater_power_per_point",
+        "value": 2,
+        "unit": "kW"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      },
+      {
+        "name": "supply",
+        "value": 100,
+        "unit": "%"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "heater1Temperature": 28.0,
+      "heater2Temperature": 28.0
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Heater 1 command": 40,
+      "Heater 1 temperature": 28,
+      "Heater 2 temperature": 28
+    },
+    "validityRange": [
+      {
+        "signal": "Heater 1 temperature",
+        "minimum": 26,
+        "maximum": 33,
+        "unit": "degC"
+      },
+      {
+        "signal": "Heater 2 temperature",
+        "minimum": 26,
+        "maximum": 33,
+        "unit": "degC"
+      }
+    ],
+    "simplifications": [
+      "50·dT/dt = 2·u(t − 1 s) − 10·(T − 20) − D for each heater; the heaters share only the supply.",
+      "The plan predicts with one-second Euler steps and a pair held for three seconds (move blocking)."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "control": "independent requests per heater"
+    },
+    "limitation": "Two independent controllers can together request more than the 100-point supply, for example 110 points when heater 2 loses 30 kW more."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "plans": "231 pairs on a 5-point grid with u1 + u2 ≤ 100, three-second move-blocked prediction, temperature limits 26–33 °C, move weight 0.002",
+      "experiment": "heater 1's setpoint 28 → 31 °C; from 60 s, 30 kW more from heater 2",
+      "durationSeconds": 124
+    },
+    "decision": "Accepted for the two heaters: the finite-grid MPC (231 pairs within the 100-point supply, three-second move-blocked prediction, temperature limits 26–33 °C, move weight 0.002) met 31 and 28 °C within 8 s of the setpoint change, first borrowing supply from heater 2 (70/30), and held them with 55/40. With 30 kW more taken from heater 2 the targets needed 110 points; the plans used the whole supply, 50/50, and both heaters settled 1 °C low, as the equal weights specify. The supply never exceeded 100 points and planning never failed. Finite search on a local model; simulation evidence."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 124,
+    "settlingSeconds": 60,
+    "disturbances": [
+      "Heater 1 setpoint 31 °C from the start",
+      "Heater 2 loses 30 kW more from 60 s"
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "maximum",
+      "signal": "Supply used",
+      "window": "whole experiment",
+      "comparator": "<=",
+      "limit": 100,
+      "unit": "%",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_absolute_deviation",
+      "signal": "Heater 1 temperature",
+      "window": "30–59 s after the start, against 31 °C",
+      "comparator": "<=",
+      "limit": 0.2,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_absolute_deviation",
+      "signal": "Heater 2 temperature",
+      "window": "30–59 s after the start, against 28 °C",
+      "comparator": "<=",
+      "limit": 0.2,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "planning_failures",
+      "signal": "Planning failed",
+      "window": "whole experiment",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Heater 1 command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "Heater 2 command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "Supply used",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "A temperature outside 0–100 °C or an update interval outside 1 ± 0.05 s latches zero output on both heaters",
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 0,
+    "restorationMode": "When the experiment ends both setpoints return to 28 °C and the load is removed; a latched fault holds zero output until a restart.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical heater changes",
+      "The plan is a finite search over a grid with a three-second horizon, not an unrestricted optimum",
+      "The prediction uses the local model; plant mismatch shows only in the recorded temperatures"
+    ]
+  },
+  "workflowStages": [
+    "Identify"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/67-75-state-estimation-and-optimal-control.md#75-model-predictive-control",
+    "nativeTest": "lesson75",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_73_75 lesson75",
+    "projectPath": "examples/control/11-state-space-estimation-and-predictive-control/73-mpc",
+    "runArtifactFields": [
+      "temperatures",
+      "setpoints",
+      "commands",
+      "supplyUsed",
+      "predictedTemperatures",
+      "rejectedPlans",
+      "planCost",
+      "planningFailures",
+      "extraLoad",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-mpc"
+  },
+  "video": {
+    "viewerOutcome": "See the controller plan both heaters three seconds ahead, borrow supply from heater 2 to heat heater 1, and share the shortfall equally when the extra load makes the targets infeasible.",
+    "requiredVisibleEvidence": [
+      "both temperatures and setpoints",
+      "both commands and the supply never above 100 points",
+      "the predicted temperatures of the chosen plan",
+      "rejected plans and plan cost",
+      "the extra load on heater 2",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 81's LQG controller kept the tanks within 2 mm 50–60 s after the slug, but it applied one gain at every level and let the pump limit clip the result. It never planned around a limit, and it had only one actuator. Many plants have several actuators drawing on one shared budget, where two separate controllers could together ask for more than there is.\n\nThat needs a shared limit, so we leave the tanks for two electric water heaters of the familiar kind, drawing on one supply of 100 points. We will choose both commands together, by predicting what each pair would do and rejecting every pair that breaks a limit.",
+    "reason": "We need to:\n\n1. predict both temperatures for any pair of commands, a few seconds ahead;\n2. reject every pair that breaks a limit, including the shared supply; and\n3. rank the remaining pairs, so the best one is applied, also when both targets cannot be met.",
+    "theory": [
+      "**Model predictive control**, MPC, predicts the future for several possible plans, picks the best plan that respects every limit, applies only its first step, and plans again at the next update. For the two heaters, the supply limit is part of every plan instead of a clip applied afterwards.\n\n**In words.** The controllers so far calculated a command from the present error and let a limit clip it afterwards. MPC decides by looking ahead: it tries the possible commands on the model, sees where each would lead, and keeps the best one that breaks no limit. It works like a navigation system: it plans the whole route within the road rules, you drive only to the next junction, and there it plans again from where you actually are. Every update has four parts:\n\n1. **Predict.** For each possible plan, the model predicts both temperatures a few seconds ahead.\n2. **Check the limits.** A plan that breaks any limit, a command range, the shared supply or a temperature range, is rejected before it is ever applied.\n3. **Score.** Each remaining plan gets a cost: how far the predicted temperatures are from their setpoints, plus a small charge for moving the commands.\n4. **Apply the first step, then plan again.** Only the first step of the cheapest plan is applied; next second, with new measurements, the planning starts over.\n\nFor the two heaters this means that the commands are chosen together, so they never ask for more than the 100 points of supply, and when both setpoints cannot be met, the cost decides how the shortfall is shared.\n\n**The formula.** Each heater stores heat in 50 kJ per °C, loses 10 kW per °C above its 20 °C surroundings and receives 2 kW per command point, delivered one second late. One second ahead:\n\n$$\nT_{next} = T + \\frac{2u_{previous} - 10(T - 20) - D}{50} .\n$$\n\n- $T$ is a heater's temperature, in °C;\n- $u_{previous}$ is the command delivered during that second, in points: the command chosen one second earlier;\n- $D$ is an extra heat extraction, in kW; and\n- 50 kJ per °C divides the net power into a temperature change per second.\n\nA plan here is one pair of commands $(u_1, u_2)$, held for three seconds; the first predicted second still uses the commands being delivered. The plans are the pairs on a 5-point grid within the limits\n\n$$\n0 \\le u_i \\le 100 \\ \\ (i = 1, 2), \\qquad u_1 + u_2 \\le 100,\n$$\n\n231 pairs. A plan whose predicted temperatures leave 26–33 °C is rejected; the others are scored by\n\n$$\nJ = \\sum_{k=1}^{3}\\left[(T_{1,k} - r_1)^2 + (T_{2,k} - r_2)^2\\right] + 0.002\\left[(\\Delta u_1)^2 + (\\Delta u_2)^2\\right].\n$$\n\n- $k$ counts the predicted seconds, 1 to 3, and $T_{1,k}$, $T_{2,k}$ are the predicted temperatures, in °C;\n- $r_1$ and $r_2$ are the setpoints, in °C;\n- $\\Delta u_1$ and $\\Delta u_2$ are the changes from the present commands, in points; and\n- 0.002 is the charge per squared point of change, a teaching choice that makes large moves slightly more expensive.\n\n**Example: the first decision.** Both heaters are at 28 °C with 40 points, and heater 1's setpoint rises to 31 °C while heater 2's stays at 28 °C.\n\n1. Holding 40/40 keeps both at 28 °C for all three seconds: $J = 3 \\cdot (28 - 31)^2 = 27$. Heater 1 is 3 °C short every second.\n2. 50/40: heater 1 predicts 28 °C (the first second still gets 40 points), then $28 + (100 - 80)/50 = 28.4$ and $28.4 + (100 - 84)/50 = 28.72$ °C. So $J = 9 + 6.76 + 5.20 + 0.002 \\cdot 10^2 = 21.16$: cheaper than holding, because heater 1 approaches its setpoint.\n3. 70/40 asks for 110 points and is never considered. 10/90 would cool heater 1 to $26.8 + (20 - 68)/50 = 25.84$ °C in the third second and is rejected.\n4. The program scores all 231 pairs this way, applies the first second of the cheapest feasible pair, and repeats the whole search a second later with the new temperatures.\n\nThe steady state shows when the setpoints themselves cannot be met. At steady state $2u = 10(T - 20) + D$: 31 °C needs 55 points and 28 °C needs 40, 95 together, within the supply. With 30 kW more taken from heater 2, it needs 15 points more: 110 together, more than the supply. Then no plan reaches both setpoints, and the cost decides how the shortfall is shared.\n\n**The limitation.** The controller searches a finite grid three seconds ahead, so it finds the best of those plans, not an unrestricted optimum, and its predictions are only as good as the model. It also costs computing: 231 plans scored every second."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. What are $J$ for 55/40 and 60/40, and why are 60/50 and 100/0 never applied?\n2. After heater 1's setpoint rises to 31 °C, what does the first plan do with heater 2's command?\n3. From when are both heaters within 0.2 °C of their setpoints?\n4. With 30 kW more taken from heater 2, where do the two temperatures settle?\n\n| Steady need | Heater 1 at 31 °C | Heater 2 at 28 °C | Total |\n| --- | ---: | ---: | ---: |\n| Normal load | 55 points | 40 points | 95 points |\n| 30 kW more from heater 2 | 55 points | 55 points | 110 points |",
+    "practicalPreparation": [
+      "1. Open this lesson's project and start **Simulator**. Both heaters rest at 28 °C with 40 points. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Project experiment** from **Method**. **Signals** shows `P1.Heater1C · Process value (°C)` and `P1.Command1Pct · Applied output (%)`; add `P1.Setpoint1C · state (°C)`, `P1.Heater2C · state (°C)`, `P1.Setpoint2C · state (°C)`, `P1.Command2Pct · state (%)` and `P1.SupplyPct · state (%)`.\n3. Answer the predictions, select **Review project test** and check the declared **124 s**; select **Confirm and start**. The setpoint rises at the program's next one-second update, about 2 s later; times below count from it.\n4. After the run, hover 0 s, 5 s, 8 s, 65 s and 110 s after the rise. Show `P1.RejectedPlans · state (1)` and `P1.PlanCost · state (1)`, and hover 0 s and 110 s.\n5. At completion Control Studio shows **Project test completed. Outputs restored.**\n\nSelect **Abort test** to stop early; to repeat, restart **Simulator** so both heaters start at 28 °C."
+    ],
+    "baseline": "Independent controllers can together request more than the shared supply.",
+    "change": "Plan both commands three seconds ahead over the 231 pairs within the supply, apply the first move of the cheapest feasible plan every second, and add 30 kW of load to heater 2 to make the targets infeasible.",
+    "comparison": "![The plan shares one supply: first heater 1 gets more, later the shortfall is split equally](figures/mpc-shared-supply.svg)\n\nThe numbered marks answer predictions 2–4. Prediction 1 is answered by calculation, which the program's tests check: $J = 18.90$ for 55/40 and 17.07 for 60/40; 60/50 asks for 110 points, and 100/0 would cool heater 2 to 25.12 °C. From Control Studio's recording, times after the setpoint rise:\n\n| Time | Heater 1 | Heater 2 | Commands | Supply | Rejected plans | Plan cost |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n| 0 s | 28.00 °C | 28.00 °C | 70/30 | 100 | 111 | 15.62 |\n| 5 s | 30.52 °C | 27.68 °C | 60/40 | 100 | 61 | 0.23 |\n| 30 s | 31.00 °C | 28.00 °C | 55/40 | 95 | 61 | 0.00 |\n| 65 s | 30.45 °C | 27.20 °C | 50/50 | 100 | 126 | 3.77 |\n| 110 s | 30.00 °C | 27.00 °C | 50/50 | 100 | 140 | 6.00 |\n\n2. The first plan was 70/30: it used the whole supply and took 10 points from heater 2, because heater 2's small error cost less than heater 1's large one. Heater 2 dipped to 27.52 °C.\n3. Heater 1 was within 0.2 °C of 31 °C from 7 s and heater 2 of 28 °C from 8 s; then 55/40 held both with 95 points.\n4. The 30 kW load made the targets infeasible. The plans moved to 50/50, the whole supply, and both heaters settled 1 °C low, at 30.00 and 27.00 °C, where the cost is $3(1^2 + 1^2) = 6$: with equal weights, sharing the shortfall equally costs least.\n\nThe benefit: the supply never exceeded 100 points and planning never failed, while two independent controllers could have asked for 110. The cost is computing: 231 plans every second, of which the limits rejected 61 to 140. The controller is accepted for these heaters; a different split of a shortfall needs different weights. These are simulation results.",
+    "validation": "![The plan shares one supply: first heater 1 gets more, later the shortfall is split equally](figures/mpc-shared-supply.svg)\n\nThe numbered marks answer predictions 2–4. Prediction 1 is answered by calculation, which the program's tests check: $J = 18.90$ for 55/40 and 17.07 for 60/40; 60/50 asks for 110 points, and 100/0 would cool heater 2 to 25.12 °C. From Control Studio's recording, times after the setpoint rise:\n\n| Time | Heater 1 | Heater 2 | Commands | Supply | Rejected plans | Plan cost |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n| 0 s | 28.00 °C | 28.00 °C | 70/30 | 100 | 111 | 15.62 |\n| 5 s | 30.52 °C | 27.68 °C | 60/40 | 100 | 61 | 0.23 |\n| 30 s | 31.00 °C | 28.00 °C | 55/40 | 95 | 61 | 0.00 |\n| 65 s | 30.45 °C | 27.20 °C | 50/50 | 100 | 126 | 3.77 |\n| 110 s | 30.00 °C | 27.00 °C | 50/50 | 100 | 140 | 6.00 |\n\n2. The first plan was 70/30: it used the whole supply and took 10 points from heater 2, because heater 2's small error cost less than heater 1's large one. Heater 2 dipped to 27.52 °C.\n3. Heater 1 was within 0.2 °C of 31 °C from 7 s and heater 2 of 28 °C from 8 s; then 55/40 held both with 95 points.\n4. The 30 kW load made the targets infeasible. The plans moved to 50/50, the whole supply, and both heaters settled 1 °C low, at 30.00 and 27.00 °C, where the cost is $3(1^2 + 1^2) = 6$: with equal weights, sharing the shortfall equally costs least.\n\nThe benefit: the supply never exceeded 100 points and planning never failed, while two independent controllers could have asked for 110. The cost is computing: 231 plans every second, of which the limits rejected 61 to 140. The controller is accepted for these heaters; a different split of a shortfall needs different weights. These are simulation results.",
+    "explanation": "MPC decides by predicting: it compares the consequences of the plans within all limits, applies only the first move and plans again with every measurement, so a shared limit is part of every decision.\n\nFor the two heaters, both targets were met within 8 s on 95 points, and when they needed more than the supply, the cost shared the shortfall equally.",
+    "transfer": "The plans stayed within their limits in these runs, but feasible plans and simulations do not prove that a controller is stable over a whole operating range, especially for a plant that is not linear.\n\n[Lyapunov stability](../../12-nonlinear-adaptive-and-robust-control/74-lyapunov-stability/README.md) shows how stability can be established with an energy-like quantity."
+  }
+}

@@ -819,19 +819,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_00E10DBC8C835E56291A12E1"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "heading"
-visible_text_sha256 = "0023bf23842c051f108780b15d095fe607692cb75bfff797763a82bdccd8343c"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_00E4E717555DA806304CEF53"
 document_id = "SPEC_DOC_B52A3E48FF17E85913DD096A"
 path = "docs/specs/20-agent-api-v1.md"
@@ -1270,19 +1257,6 @@ disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_015D5B9CB2D6C5BA7DC04A26"
-document_id = "SPEC_DOC_9E510287AC376393A5AABC0F"
-path = "docs/public/examples/hmi.md"
-block_kind = "table_row"
-visible_text_sha256 = "cd4234c4daf15329cf0c251ee49641e04a7fff45c7d2b336dbd48e3fd3f46ec9"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -2158,19 +2132,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_02A912C41F03270B3C96E5C6"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "table_row"
-visible_text_sha256 = "1fb7dd3ce884e2a53e8ba06e890c354c594894e4acb8f826c8459d8e61ccabbc"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_02A9B3860FDB74DA653D1369"
 document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
 path = "docs/specs/11-runtime-engine.md"
@@ -2449,19 +2410,6 @@ document_id = "SPEC_DOC_0C9B70F6AEB43AD984A9D774"
 path = "docs/public/develop/visual-editors/ladder.md"
 block_kind = "heading"
 visible_text_sha256 = "67c63dde86938f6b0a00ffc79138ec2eef678dc42bd06d02c809ca81f556e926"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_0338FA9ACFE5E18336202A98"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "heading"
-visible_text_sha256 = "0f271b6e9848f8e0b9bd567fe7e434343a47d873252e58c7cd124a4f5b06e666"
 disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
@@ -2990,19 +2938,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_041112705709CCE03843B9A8"
-document_id = "SPEC_DOC_5FFB773BD0C445E8A22F7FF9"
-path = "docs/public/develop/hmi-authoring.md"
-block_kind = "list_item"
-visible_text_sha256 = "c35516a12530ca91c3841563d7c70ec4ee37a9c80d2de6f8456ed708f9311e0a"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_04119F11A34362D5EFF0E21C"
 document_id = "SPEC_DOC_B287C9359DEBCEA2C0E89D6B"
 path = "docs/public/reference/cli/trust-runtime.md"
@@ -3224,19 +3159,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_04692F02AA7472F443C87063"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "174940301214615442f781fd91a248e89fdbaddcf8e5dab2560f48e378a8a575"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_046AB11BA074DEE2AEC699F9"
 document_id = "SPEC_DOC_6B3AB9A975720F47678D93D5"
 path = "docs/specs/18-configurations-resources-tasks.md"
@@ -3255,19 +3177,6 @@ document_id = "SPEC_DOC_83A8C6295DB1535258374F36"
 path = "docs/public/reference/config/trust-lsp-toml.md"
 block_kind = "table_row"
 visible_text_sha256 = "45f7f6605ce1eda01c7b42127a110c14353cf76d166d9e33a83bcdf1727ded1e"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_046C89CC8218B0E97257C3E7"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "paragraph"
-visible_text_sha256 = "9d0887dbb65fb7c8e3f99808f7eb9fa9a270d0239d4f93071e1a7565a55f9d12"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -3372,19 +3281,6 @@ document_id = "SPEC_DOC_E6D947C01828B0580A613536"
 path = "docs/specs/15-ladder-diagram.md"
 block_kind = "heading"
 visible_text_sha256 = "0a9bd1c37acda17bb6d9af790c126a4d72051d9b127ec43a4552535d0cfca3b0"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_049D06A54508784B29CF0215"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "heading"
-visible_text_sha256 = "af7ad529e413c18ca088c94698c9a13efa4e155cedb4b7a12dd84e7dbb3f782a"
 disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
@@ -3541,19 +3437,6 @@ document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
 path = "docs/specs/11-runtime-engine.md"
 block_kind = "paragraph"
 visible_text_sha256 = "5ca7d625a9d74995d2e65612b98fa3019be4976cb7edfa8f52cf2fd0e9c37f67"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_04D92D17F723246D30CF55B5"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "table_row"
-visible_text_sha256 = "bfb9f12c6a038a06c4b712e365bee97e3605c32ff2e171504e0e1b78491fc233"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -4009,19 +3892,6 @@ document_id = "SPEC_DOC_CF704DD32BA39D0FDF08D46D"
 path = "docs/public/migrate/mitsubishi.md"
 block_kind = "paragraph"
 visible_text_sha256 = "4cdc943f6431ece66b89185d61c316c61b87c43591cd71d6abe2862a4186694c"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_0561875AE25E2750B363EBEB"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "paragraph"
-visible_text_sha256 = "6296a33203c72a987538499f881e5387ef00263b7f1a6f06f35cb21a3037df20"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -5642,19 +5512,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_07A575F3FA21DF6FE643F0FF"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "paragraph"
-visible_text_sha256 = "3dc778401eccd5a08cfa2c3eeabd6cefd8a21109207afc12448e50b2b3c8481f"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_07A6F38E0F806BE57145558D"
 document_id = "SPEC_DOC_7EB3B86ED2268B11D8EF7175"
 path = "docs/public/reference/hardware-compatibility.md"
@@ -6162,19 +6019,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_0855181D5EC308EA2D88C5FC"
-document_id = "SPEC_DOC_9E510287AC376393A5AABC0F"
-path = "docs/public/examples/hmi.md"
-block_kind = "heading"
-visible_text_sha256 = "0eb95fb6244c03f1ccca696718a06766485c231347bf382424fb273145472355"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_08572612A0FDCDC13D643408"
 document_id = "SPEC_DOC_322E6995718EBA5AE8EC796B"
 path = "docs/public/examples/learning-paths.md"
@@ -6392,19 +6236,6 @@ disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_08A85B99D7A0EE7BBFCB8CE8"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "list_item"
-visible_text_sha256 = "36bf7d938207938d48678ff91a4a3bb8c032901461058d64a57df9271c12da29"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -6817,19 +6648,6 @@ document_id = "SPEC_DOC_AA58E92E526BCF0E08FBE760"
 path = "docs/specs/16-ladder-profile-trust.md"
 block_kind = "list_item"
 visible_text_sha256 = "94fa09ecedeecbfa0430131297d56c7cf1ef11e947bea67067af1f9da4d69a91"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_09236A10681C08232A85EC78"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "paragraph"
-visible_text_sha256 = "4250bfb7f9209e40616bc13999a2826b4ba1245876b9c39815d51f6217301214"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -7735,19 +7553,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_0A93C4EC09265A1D8EF38971"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "table_row"
-visible_text_sha256 = "97ef620c479b50b5730240088f9fac98e8e6cd4b672fb067d8716e220bff72cb"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_0A9EE9910D5E1D0E116AB285"
 document_id = "SPEC_DOC_7A28925C089FEF2EEADA7A9C"
 path = "docs/public/connect/runtime-to-runtime/realtime-t0.md"
@@ -8342,19 +8147,6 @@ disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_0B557E734F317D94C3E5C3F8"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "heading"
-visible_text_sha256 = "8ac779987de4e887b499d37af83057a198e776b946856e8356b08de50354d1b8"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -9945,19 +9737,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_0D844FC2C6E008135F691003"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "heading"
-visible_text_sha256 = "1f3dc4a9c31aba41724ee573215224a534973c45d558a196fbd7284c41576062"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_0D8BBDC046EB51052A3AF2BA"
 document_id = "SPEC_DOC_7D6196145AC6FD66301F5BFE"
 path = "docs/guides/SIEMENS_SCL_COMPATIBILITY.md"
@@ -10097,19 +9876,6 @@ disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_0DBFF283D791EDB1D57355E1"
-document_id = "SPEC_DOC_9E510287AC376393A5AABC0F"
-path = "docs/public/examples/hmi.md"
-block_kind = "heading"
-visible_text_sha256 = "9abae780fb7f94101e9f1d65df660477ec6f504c136420c8c63ce75b79aab1e9"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -13152,19 +12918,6 @@ disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_11D5454A02FAFF752B5C29BA"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "table_row"
-visible_text_sha256 = "18d9c54cf1b169fd6f595ce2b3b67d6c34493cc800fdd18801293b51d84cd773"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -19331,19 +19084,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_19FC85E97BE0694119A2C099"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "paragraph"
-visible_text_sha256 = "e3f6ab8c51312d2922f8604db7837480417afbb08ea4b181b2a9b5bab6bf5566"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_19FE6E751746649818BF0FDF"
 document_id = "SPEC_DOC_8F2BAA1F2992C9157060ADE3"
 path = "docs/specs/04-pou-declarations.md"
@@ -19804,19 +19544,6 @@ document_id = "SPEC_DOC_5C650CE0342937C28B5303C8"
 path = "docs/specs/14-lsp.md"
 block_kind = "list_item"
 visible_text_sha256 = "d4b1ea5708dd532930a85188b45aff6f0a3ed458500c7577e0127a538eb0d100"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_1A9BC66C6F22409D3052500B"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "d65125e6b003384da14fd73d38edd830606c2752bf115d7d3daf2946207b25d2"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -20441,19 +20168,6 @@ document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
 path = "docs/specs/11-runtime-engine.md"
 block_kind = "list_item"
 visible_text_sha256 = "0f889496b0de2631b1261cdfdca9f70873ddc93d6bc3df7c9a76ac03a541c9db"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_1B82C0D8E5BC9CD1EA32D131"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "paragraph"
-visible_text_sha256 = "6f15e393e5bb344eb3d7d6a8a644e9fb8b905712f41c4aae04533690e22d9061"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -23075,19 +22789,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_1EBDDAA139FFD69D11B2CB15"
-document_id = "SPEC_DOC_5FFB773BD0C445E8A22F7FF9"
-path = "docs/public/develop/hmi-authoring.md"
-block_kind = "paragraph"
-visible_text_sha256 = "ba161435b844916d81624f433efc69925ac2524dca03a98d861e607fcafc42f4"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_1EBF40684D1F3F013E728821"
 document_id = "SPEC_DOC_870EBC7A001E0CA6844DF6E1"
 path = "docs/specs/12-bytecode.md"
@@ -23699,19 +23400,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_1F96F7C6F85FCC5363A1053B"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "511ea64b6374f2d3237e04b222186acb6558a040f3c1eabf7f26adcdec41507a"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_1F97980968C8755D82C6D057"
 document_id = "SPEC_DOC_870EBC7A001E0CA6844DF6E1"
 path = "docs/specs/12-bytecode.md"
@@ -23955,19 +23643,6 @@ disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_1FEA8C8F3F2396835CF0F332"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "1a7266a619c311d6ebd22f0fa3f4e82fb9e37d84868a0c508a7a77662d04bee6"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -24306,19 +23981,6 @@ disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_208385184862CDB1DDA431A2"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "e69f63283e25125c2e2400d8f134857b52b5233807a71ff3d7979df7aa67e447"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -25433,19 +25095,6 @@ document_id = "SPEC_DOC_006026B189AEA45624151808"
 path = "docs/specs/07-standard-functions.md"
 block_kind = "table_row"
 visible_text_sha256 = "c5412d6f305cd5dad26b95cadbaa9e64e0e23e7ded3b59297ce57263178ed2aa"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_221B7FBD86EAFB616A77151F"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "table_row"
-visible_text_sha256 = "977b8af7b1aaa0c7754148f521bf7da4c2a478d96f2c2d851381de8be63cf0bd"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -27040,19 +26689,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_2479822DAA265BE2528D7FD0"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "paragraph"
-visible_text_sha256 = "94ccaaad9ee1e22cf193e7d5ba04f654d3c82a938d92f03e311fa2c9e9173105"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_247D11F936890E17262EB93C"
 document_id = "SPEC_DOC_5C650CE0342937C28B5303C8"
 path = "docs/specs/14-lsp.md"
@@ -28626,19 +28262,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_267E4DCD1C6714F33557EDC6"
-document_id = "SPEC_DOC_9E510287AC376393A5AABC0F"
-path = "docs/public/examples/hmi.md"
-block_kind = "heading"
-visible_text_sha256 = "b28262dce12525a4629dc2d40c847b999892da6efe833d98a4699435ee88d181"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_26800F76E8BD3A467A905F95"
 document_id = "SPEC_DOC_4C2AEDC804BBC251AE1C96B2"
 path = "docs/public/connect/runtime-to-runtime/mesh-zenoh.md"
@@ -29094,19 +28717,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_2732A8E3F23DF44724CD1A82"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "paragraph"
-visible_text_sha256 = "e97bac456affb676167db357c066e748aabb52beaa8f378c44cbccea002c8859"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_273602A43BB855A35BBF9F3B"
 document_id = "SPEC_DOC_94D692438D8B32594F80BC16"
 path = "examples/communication/opcua/README.md"
@@ -29142,19 +28752,6 @@ disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_2739B90D7E1B57A1B6851B61"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "table_row"
-visible_text_sha256 = "34e9daa7a696a8c6146d48307f705fa26ac804d0627700a9582592076f077291"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -29510,19 +29107,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_27E0853FEE14EF6AFABDB34A"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "paragraph"
-visible_text_sha256 = "114e9a0d103e4f0156dd7869d4b6be4dd2fa738ce518f62399a72acd1c36af36"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_27E0F546D7B5DC0A6060D56A"
 document_id = "SPEC_DOC_9B956239112553C1EA35CB8A"
 path = "docs/specs/05-expressions.md"
@@ -29649,19 +29233,6 @@ disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_280613AFC17B9F6D42BB17D2"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "1fb74c8f670b56d474ca90a4f2ff8ab7a7d3bc2c24b23f53b73bc870b9edf3df"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -30750,19 +30321,6 @@ document_id = "SPEC_DOC_2EDAF8F6B319000AD4186F54"
 path = "docs/public/concepts/one-project.md"
 block_kind = "list_item"
 visible_text_sha256 = "a3aabf9b4ba6841b1c71f47d09f67184253adf5caa800ad9807fec14214dd1c3"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_2969575555DF9EA3C194DBF5"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "paragraph"
-visible_text_sha256 = "f9cff8dea8309ff7ed2d371db74f454ebf5a6a4cba49a5883c13c8faeffe34d6"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -33371,19 +32929,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_2D1DA50288EC2D69B019D4D7"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "ea67b837219685f2c36ca5f39a8d31f32ce9495b571dbdd617bdfd9fa86a2326"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_2D1DEBF6BDDF78551BF8B319"
 document_id = "SPEC_DOC_870EBC7A001E0CA6844DF6E1"
 path = "docs/specs/12-bytecode.md"
@@ -33584,19 +33129,6 @@ document_id = "SPEC_DOC_870EBC7A001E0CA6844DF6E1"
 path = "docs/specs/12-bytecode.md"
 block_kind = "list_item"
 visible_text_sha256 = "bb6f6bd8a65104199e50645537e3c6ad64cb87d30383e462c47b34855f58b7d9"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_2D4E9D748567B2676F0C126E"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "5a55c06be476831cf6edc0c2ca229d6a6d0bc30f11dd5be0790e1fc4ad595d83"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -35841,19 +35373,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_2FD771E9553044DEB7D05631"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "paragraph"
-visible_text_sha256 = "21a80cc16a7a0042831dee7a2f9724564318a1b9899ca8869867182ddf30ec20"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_2FDFF49D3ABCEE46F236A333"
 document_id = "SPEC_DOC_8132CB6B9F7D57E49FDD9A01"
 path = "docs/public/operate/fleet-rollout-and-templating.md"
@@ -37154,19 +36673,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_3170F7FE0DD22540BF493279"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "table_row"
-visible_text_sha256 = "34d38d5593d0d66d436e5ddfd2ebe8569db72d37d61638ca0ee7fd574c219f24"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_3177A23075BF5C64CCD2B003"
 document_id = "SPEC_DOC_5C650CE0342937C28B5303C8"
 path = "docs/specs/14-lsp.md"
@@ -37570,19 +37076,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_32164FB2C0BA4D947E74FFD3"
-document_id = "SPEC_DOC_5FFB773BD0C445E8A22F7FF9"
-path = "docs/public/develop/hmi-authoring.md"
-block_kind = "list_item"
-visible_text_sha256 = "0ae2299d0d13efda9a9d5369a9ec02621008f5a66af443449fe20fe34ae6a8f3"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_3217CA336AE3BC87CD56A357"
 document_id = "SPEC_DOC_65BAAB48015E7DB01C2FF501"
 path = "docs/specs/03-variables.md"
@@ -37618,19 +37111,6 @@ disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_322D2B1A914DA0F0676B9435"
-document_id = "SPEC_DOC_5FFB773BD0C445E8A22F7FF9"
-path = "docs/public/develop/hmi-authoring.md"
-block_kind = "heading"
-visible_text_sha256 = "4694a8f9975f2afaf89a672b3faf701747e2a2b988ccd7ed9c25ff705b7db041"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -39832,19 +39312,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_351C544860AE7C5B1074C6AF"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "47a2a0c0266638d3a1fee3f6962ce5cf4587abe2e5f400770f57d46b357f7504"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_351EF519E179F668952A63C4"
 document_id = "SPEC_DOC_0031E8FB1C89399C34BF6D2A"
 path = "docs/public/connect/index.md"
@@ -41392,19 +40859,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_3752D990AA493497E9D7E09A"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "list_item"
-visible_text_sha256 = "3e6612808de9c93717ec23f696255061835de0f70a3d5ff834941709906305b0"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_37578B5CB8592448B9F22E70"
 document_id = "SPEC_DOC_A1000CB8933A97FB33D53283"
 path = "examples/tutorials/15_multi_plc_discovery_mesh/README.md"
@@ -41774,19 +41228,6 @@ document_id = "SPEC_DOC_900151E2F6C30270D08AA2FB"
 path = "docs/public/operate/preempt-rt.md"
 block_kind = "paragraph"
 visible_text_sha256 = "048e68be08034369caa6273639982886d262621197da2a33fdeee025e6e1824f"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_37CBD10A65ECFE1D09CCF07A"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "list_item"
-visible_text_sha256 = "2551c3e690b12857bf3cd12ccd49a41057781cd0ab748acf7233c736544abcc3"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -42181,19 +41622,6 @@ disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_383E52A29CC4D9DC8EEBE7F7"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "heading"
-visible_text_sha256 = "0a29f1faaee02df52823dbee1a562250288442dff0d459bf17238aa17ca91d56"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -43602,19 +43030,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_3A34BC91B4176C354D894FEB"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "paragraph"
-visible_text_sha256 = "391efded10579c1ad19f64784de3fcec00526cbffb51a2d54289677f8278c348"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_3A39BAED15301E5F85961F2E"
 document_id = "SPEC_DOC_5C650CE0342937C28B5303C8"
 path = "docs/specs/14-lsp.md"
@@ -44161,19 +43576,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_3B78F12E24556B4FBCF5CF49"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "20ee60b7e4da6f69fdf4e2609c972d7400bf0f1018ad760345975aec4304de54"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_3B79DAFA4A314B8475FEBCBB"
 document_id = "SPEC_DOC_006026B189AEA45624151808"
 path = "docs/specs/07-standard-functions.md"
@@ -44404,19 +43806,6 @@ disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_3BE316AA8EF55FD900C9D7A1"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "9a51b5a4fa0a7f13179a69c6ac0cb25ad981d8d21acb1b5f632db505c995b04b"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -44989,19 +44378,6 @@ disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_3CE737FBC6EE54F31F2E066F"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "a24f2f04ebeeb6ab2a83fc0ffc34ced45714f0702789c16bd96530f7c7c2f6d4"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -45730,19 +45106,6 @@ disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_3DC3888D238EE7931638A526"
-document_id = "SPEC_DOC_9E510287AC376393A5AABC0F"
-path = "docs/public/examples/hmi.md"
-block_kind = "heading"
-visible_text_sha256 = "45ca56d179d4788c55ba9f7653b376d62e7faa738e92259e3d4f6f5c1b554f28"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -46597,19 +45960,6 @@ document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
 visible_text_sha256 = "0cbe52c9c331677f298ba7d2a39e71d787a99a985c65738782c9660eb4e1d516"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_3EF6523785556AE697780A88"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "table_row"
-visible_text_sha256 = "bfb9f12c6a038a06c4b712e365bee97e3605c32ff2e171504e0e1b78491fc233"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -51818,19 +51168,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_4629B19DB2E7E8E1CD651513"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "ff876324c35d420f5eb33d7ed09ff0d62f0d775b791a149669ccd6a68edc795a"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_462AED7C542C49CBA549458C"
 document_id = "SPEC_DOC_8CFB80F13C76908DDE75FEAC"
 path = "docs/guides/WEB_IDE_FULL_BROWSER_GUIDE.md"
@@ -52143,37 +51480,11 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_469ECBBDC841AECC3C24B0E8"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "list_item"
-visible_text_sha256 = "286192ff97278036cac6d262478bfe003fe9b74b00a5c6404757dd523a520729"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_46A77B50383CD0066BD6B9C2"
 document_id = "SPEC_DOC_73633C3DCA6F1EADE89CEB38"
 path = "docs/guides/OSCAT_OOP_LIBRARY_GUIDE.md"
 block_kind = "paragraph"
 visible_text_sha256 = "188f4c5a4526c69876eb13b0c199b57917741247e7131b024856d2351fee8516"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_46B7BB5D25529AF3240D9026"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "paragraph"
-visible_text_sha256 = "d1dda976875fda702d3f87122292d4df3165d9f73afd0bb6e5610c024fea6cd8"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -52855,19 +52166,6 @@ invariant_ids = []
 oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
 rationale_code = "explicit_invariant_or_oracle_binding"
 last_reviewed = "2026-07-22"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_4799C9FDF1F5116E4E7771CF"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "11b8f7ae1fc7ecd8a7f944ca1822d51727cd407baab58cf3c1ff08d2cb749426"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -54258,19 +53556,6 @@ disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_497339803F4E7BF9D74654B9"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "paragraph"
-visible_text_sha256 = "f3a799eadda5854ed73c69436625fb7914e2e62a56f798c707ee2c51f6f0fec7"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -55848,19 +55133,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_4BBC4D01863241F379264FD6"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "paragraph"
-visible_text_sha256 = "a912f6f460254ac4c9ab40272ab5292ef439eaca55c740c8ca181f30441e542b"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_4BCA1C5BBAA55B4733E53F01"
 document_id = "SPEC_DOC_FBD2638C28582E56E8886614"
 path = "docs/guides/PLCOPEN_MOTION_LIBRARY_GUIDE.md"
@@ -55879,19 +55151,6 @@ document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
 visible_text_sha256 = "6544a42a95752d7a326f64bb2f0c126123ca6a8904483ecd436aec34dffc33c8"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_4BCF1EE0448B8BCE32F7D46C"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "list_item"
-visible_text_sha256 = "94234259b84cc4b82c84375430b8ab89579c12832fd8626ad25f4ab6169ec3ca"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -57291,19 +56550,6 @@ last_reviewed = "2026-07-22"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_4D932D46E6D897CEEFA0531D"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "table_row"
-visible_text_sha256 = "f02339deff49c54abe362ecceb07793b848e7e3463efeb3048373d8ab0c1e569"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_4DA6D3ED82E1CE9B169BDCD0"
 document_id = "SPEC_DOC_6B6496803A7EE1602623F706"
 path = "docs/guides/OSCAT_LIBRARY_GUIDE.md"
@@ -58279,19 +57525,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_4F1C6A2B251C4487C8F9AF4D"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "paragraph"
-visible_text_sha256 = "28283ab96885fb0344480873566e8e281c60cd961a1056c0f19692e5a6f4955a"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_4F1EE1E82B3545288E3CA76A"
 document_id = "SPEC_DOC_900151E2F6C30270D08AA2FB"
 path = "docs/public/operate/preempt-rt.md"
@@ -58812,19 +58045,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_4FDC257D109C27DCD4B7708C"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "table_row"
-visible_text_sha256 = "9fddd854f1da5de7cfde5c094b623de7bddd7d696d90dbaf03cc5d33a3b03a73"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_4FE2A3B921758996BC7C95A3"
 document_id = "SPEC_DOC_4266BCA32F2E784DDB19ADFC"
 path = "docs/specs/01-lexical-elements.md"
@@ -58843,19 +58063,6 @@ document_id = "SPEC_DOC_4266BCA32F2E784DDB19ADFC"
 path = "docs/specs/01-lexical-elements.md"
 block_kind = "table_row"
 visible_text_sha256 = "3af96921caaf19346dbad1eea618c623c8f318014e3e75f891a83102fd07ff95"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_4FE797AE553DE0CC729A1392"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "list_item"
-visible_text_sha256 = "fa8eae227fed6a2c4b98020670931def791d9b771bfe5984389b45c88ba3cbad"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -58947,19 +58154,6 @@ document_id = "SPEC_DOC_9D127CDD1F52E8D3DB61DDC8"
 path = "docs/specs/02-data-types.md"
 block_kind = "table_row"
 visible_text_sha256 = "ff0230a4ab9d43df109e01b9c98e1bdcb54af0fdc5ba854b84620bf582cd38e7"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_501867FA172A4EB34AC28D86"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "list_item"
-visible_text_sha256 = "105c6d0d2d28a62cc35f15efc919295e4efc6af1e6ec355aee920e1301ce7a81"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -59280,19 +58474,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_50958BB806DB33F94EE86985"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "6b8784b6ea906e7d67b7b6a886a0506b3b4b6c0e0f024535c73fcb63939ddb60"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_509625F5AD23C5C147928DB5"
 document_id = "SPEC_DOC_A0F2A12F7C380A8AB065003E"
 path = "docs/specs/10-runtime-semantics.md"
@@ -59302,19 +58483,6 @@ disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_509827F275159B38860213AC"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "heading"
-visible_text_sha256 = "fcf7f8c8b15ff97fcd784f1b13ff90a656220810f19f9880d0b58cf813a7fa7c"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -60203,19 +59371,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_5193D32AEA62655E31080519"
-document_id = "SPEC_DOC_9E510287AC376393A5AABC0F"
-path = "docs/public/examples/hmi.md"
-block_kind = "paragraph"
-visible_text_sha256 = "11840615f64ba1dde2c3d4fddb9b91a4c53b6053cefa227aaed87db70f09caf1"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_5196B0B4BB207FF87AD5CE32"
 document_id = "SPEC_DOC_006026B189AEA45624151808"
 path = "docs/specs/07-standard-functions.md"
@@ -60277,19 +59432,6 @@ disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_51AFE4CBA23C310E60B3B0D6"
-document_id = "SPEC_DOC_9E510287AC376393A5AABC0F"
-path = "docs/public/examples/hmi.md"
-block_kind = "list_item"
-visible_text_sha256 = "cdd3b9e0af97966c4999bf978268db424382e161fe1ba7f9a0546657f35afb0d"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -60403,19 +59545,6 @@ document_id = "SPEC_DOC_253212CF4F030CAB8E56F52D"
 path = "docs/guides/PLCOPEN_MOTION_OOP_LIBRARY_GUIDE.md"
 block_kind = "paragraph"
 visible_text_sha256 = "edce080fb8717a1ceeb217fd53bba0e509a1f0234325fdee7d15d614a03befb3"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_51D750CF74A835B23154E639"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "table_row"
-visible_text_sha256 = "5e24795ca57a2ec30b54f01bad93361192dbe0dc387e0e630145849bfb794be1"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -61174,19 +60303,6 @@ disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_52BB701DBCB6D436922B44F6"
-document_id = "SPEC_DOC_5FFB773BD0C445E8A22F7FF9"
-path = "docs/public/develop/hmi-authoring.md"
-block_kind = "list_item"
-visible_text_sha256 = "286192ff97278036cac6d262478bfe003fe9b74b00a5c6404757dd523a520729"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -61997,19 +61113,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_53F83F4C3AB53D407B384450"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "heading"
-visible_text_sha256 = "36dda46f47f3337ace1dcfba1b42cdaa52215ac6ee0321e6cc16c2dd909a5ef1"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_53F8C2F211F1A5B5AAB54568"
 document_id = "SPEC_DOC_138F3378032C664A617B699F"
 path = "docs/guides/VENDOR_LIBRARY_COMPATIBILITY.md"
@@ -62275,19 +61378,6 @@ document_id = "SPEC_DOC_5C650CE0342937C28B5303C8"
 path = "docs/specs/14-lsp.md"
 block_kind = "list_item"
 visible_text_sha256 = "27a248911e268ac5bc2f07334f7cde0aab352c178e457d721651e999d0e01e43"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_543EB455942FB09705DD66AB"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "list_item"
-visible_text_sha256 = "7fbfb83d20ebff4bd6dde63378fa4676c677a0d0056f5c8fe0cdb5b61623851d"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -64857,19 +63947,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_578CDD8EF40A81ADD6C6F2D4"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "heading"
-visible_text_sha256 = "ab14b57add6e803f738b2e9cd2fb7a995c6c000f595525498e109b5364e4144e"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_578D490A437A01DC1D84C8FE"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
@@ -65477,19 +64554,6 @@ disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_5844F10550662437C1525305"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "heading"
-visible_text_sha256 = "e6827135f119f24f733b7f3c7df9fe153c04d2e91db55f100fa3f8dcb61f1563"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -67384,19 +66448,6 @@ document_id = "SPEC_DOC_9D127CDD1F52E8D3DB61DDC8"
 path = "docs/specs/02-data-types.md"
 block_kind = "list_item"
 visible_text_sha256 = "5840a45565488189fee13b6007ac79acf1e2bfda53df5c4ac739de49afc9ea7f"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_5B29EB31786ACF50B2457C27"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "0f5c5e53b6f4144219a3e0207f65f48ca9fa4e284a9c738583aac08d384e5cfa"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -70330,19 +69381,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_5F093603C4E2D224C98D22F3"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "ea2a19308d19327c898d548b8de425958df37ae731bbf99d20d555f2da221242"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_5F128B31304F256E204AC3B6"
 document_id = "SPEC_DOC_DA80D50842EAB8798A2494DE"
 path = "examples/tutorials/16_secure_remote_access/README.md"
@@ -70678,19 +69716,6 @@ invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-22"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_5FA02751AF7A9B763D200B96"
-document_id = "SPEC_DOC_9E510287AC376393A5AABC0F"
-path = "docs/public/examples/hmi.md"
-block_kind = "list_item"
-visible_text_sha256 = "e3b69b3f769ad5fcf44725426b47a656799fd2d9d1afb7b708407359ebd79a30"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
@@ -71284,19 +70309,6 @@ document_id = "SPEC_DOC_3CB0A263798CC82602164D0E"
 path = "docs/specs/09-semantic-rules.md"
 block_kind = "table_row"
 visible_text_sha256 = "0e2f1ebfee1fcc6adcc04d664849f07ddd3d992ef0504094b838988c715ba6ee"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_60B23B14458CB94D72AEAA0E"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "paragraph"
-visible_text_sha256 = "a33bd90ed15cb855517c7acc1f77750680dbbbf01276c0eef303b0a59b09fb58"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -72345,19 +71357,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_621F1C4E6724F051CD87472E"
-document_id = "SPEC_DOC_5FFB773BD0C445E8A22F7FF9"
-path = "docs/public/develop/hmi-authoring.md"
-block_kind = "paragraph"
-visible_text_sha256 = "bd3ac33468fa74672e078b70c83786b48359ff90ae2c4c07510f45e97f0f33e5"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_6220ADC42D86D2C9A183549E"
 document_id = "SPEC_DOC_2DEA225545A0726D9445C64D"
 path = "docs/public/connect/devices-and-fieldbus/multi-driver.md"
@@ -72982,19 +71981,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_62F2C86F075235E5D32ADB78"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "e41af4b4f447734999a625be80b7a565e67ac06608e99329c5ea69c51e56fd2f"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_62F543ECA0831ED02FEB7610"
 document_id = "SPEC_DOC_9D127CDD1F52E8D3DB61DDC8"
 path = "docs/specs/02-data-types.md"
@@ -73026,19 +72012,6 @@ document_id = "SPEC_DOC_6B6496803A7EE1602623F706"
 path = "docs/guides/OSCAT_LIBRARY_GUIDE.md"
 block_kind = "table_row"
 visible_text_sha256 = "478b4e3355f9b84afd922881c08924435e5b3c1dd498a687ccc06359aa0ec828"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_630556018805B5A790D506D7"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "paragraph"
-visible_text_sha256 = "726c28a724a2b6750f05c6f5e0721c613d578f490494a0727ec38a7ae042590c"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -77649,19 +76622,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_68D02AD53B5638395549C793"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "paragraph"
-visible_text_sha256 = "4624d73684c78f1c1781201a04da4f5fc255562a0b37533bc74179895088622f"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_68D0FEF17D5ECFB163EF595E"
 document_id = "SPEC_DOC_FBD2638C28582E56E8886614"
 path = "docs/guides/PLCOPEN_MOTION_LIBRARY_GUIDE.md"
@@ -77797,19 +76757,6 @@ document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
 path = "docs/specs/11-runtime-engine.md"
 block_kind = "list_item"
 visible_text_sha256 = "13bddf8d0d8723ba8a850198a866c3e425b6b09bca29dceb84a8f2dc0a22b429"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_690FB79B511D52B398ED64D8"
-document_id = "SPEC_DOC_9E510287AC376393A5AABC0F"
-path = "docs/public/examples/hmi.md"
-block_kind = "list_item"
-visible_text_sha256 = "02690a8d83ca3fa477387abbcd1e06bcb1ee17291bbb3607660023a0f0683a75"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -78798,19 +77745,6 @@ document_id = "SPEC_DOC_2FC29DFF5E6BD035690C3F89"
 path = "docs/public/operate/operator-alarm-handbook.md"
 block_kind = "list_item"
 visible_text_sha256 = "7fd2c258811fda2bb2554d8b2744b849799ce4885dbecd0fc37fc7edf5143d5a"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_6A6C1EEF6D00F60D63F1715B"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "108760b3431d2b8656919450073a25296065275c916915c14452d20ad8d477d4"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -79985,19 +78919,6 @@ disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_6C05157CCDD881A67AA7D86E"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "paragraph"
-visible_text_sha256 = "309f8262b4be6f41181661fd67f6c5235882d4bef54ffe5a3f693e91825bb9b4"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -82433,19 +81354,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_6F53D5A73E1429170A086233"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "list_item"
-visible_text_sha256 = "21b5f1125074f4aa67e6b28e1d4d36d353519000fcf9de9f6a20f259cd79f1b1"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_6F5CA2D315A51658021F099A"
 document_id = "SPEC_DOC_870EBC7A001E0CA6844DF6E1"
 path = "docs/specs/12-bytecode.md"
@@ -84448,19 +83356,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_7218FD5ACB22375A0A842BD6"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "paragraph"
-visible_text_sha256 = "bb336742d5d8667d775a1daa812aedf79f3e4c3e914d6760fe8ea939c4253087"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_72235540F2C20CB1EF06D8BF"
 document_id = "SPEC_DOC_8F2BAA1F2992C9157060ADE3"
 path = "docs/specs/04-pou-declarations.md"
@@ -86372,19 +85267,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_748834A49ADD28D1C2568077"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "table_row"
-visible_text_sha256 = "49bd2e4b045a84f107bf85c9a3a23f7cb290eb001c657d152c37c87e52debd0a"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_748B8AF5AB541FADB1876603"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
@@ -86823,19 +85705,6 @@ disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_75330D1F3FC277CCDA343BE5"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "heading"
-visible_text_sha256 = "540a5dc2618d4ce31102c6bd42101a1906ce2f99aa425d6338f60fc49a47a43b"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -89570,19 +88439,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_78CEFC1EF055C6A2FA17530D"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "a479be912e5ecda237e3e50c41d276e4afbab9b84b3bff831ea9913381670565"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_78D34624B5EF10FFB219CE7E"
 document_id = "SPEC_DOC_CA955B8888EAE32E21AE53DA"
 path = "docs/public/reference/config/ads-toml.md"
@@ -91559,19 +90415,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_7B69D168EB226023F70F3181"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "heading"
-visible_text_sha256 = "c4fe7142e6326d0def146a52149fbe5bf86de25d504a66d9ec13442697d7fd5b"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_7B6BDA8B9FB8E0B00B9ACFA2"
 document_id = "SPEC_DOC_6B6496803A7EE1602623F706"
 path = "docs/guides/OSCAT_LIBRARY_GUIDE.md"
@@ -91637,19 +90480,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_7B814CD067CD491DA460A71B"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "list_item"
-visible_text_sha256 = "bd6888e8b730c75cd487e27b5aefae362194e57fdbf5b419eeb11887d4d96696"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_7B84868908CA8E004A2B5744"
 document_id = "SPEC_DOC_A0F2A12F7C380A8AB065003E"
 path = "docs/specs/10-runtime-semantics.md"
@@ -91698,19 +90528,6 @@ disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_7B952DEBBE71C8C15DBB50F2"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "heading"
-visible_text_sha256 = "45ca56d179d4788c55ba9f7653b376d62e7faa738e92259e3d4f6f5c1b554f28"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -92201,19 +91018,6 @@ document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
 visible_text_sha256 = "b9076820a20a4e5e8865b94a913d80fb6cb667339c7d69d6a6ee5c26ca5e6b42"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_7C3F33B8996F191EF953F791"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "3aeb3e8b3a7c1d1ac10ce0a7187613f637ad4b1c9ecdcf5e6e13f3b37dfaaf78"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -93730,19 +92534,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_7E8D4BA14D8091A21EABFCB2"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "paragraph"
-visible_text_sha256 = "775a98906d3c2dd0dd56f79b3148f2d66038890ed360b85ab1074a5754faa4ee"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_7E96B709D2371187843032AF"
 document_id = "SPEC_DOC_FBD2638C28582E56E8886614"
 path = "docs/guides/PLCOPEN_MOTION_LIBRARY_GUIDE.md"
@@ -94887,19 +93678,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_80765023D4E868619CEDEACE"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "paragraph"
-visible_text_sha256 = "e2de0397c2368ed4e1b13024384c05db964defcc8c49e190e728fd5b658672ec"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_807D0A05D8E67027B671949A"
 document_id = "SPEC_DOC_A0F2A12F7C380A8AB065003E"
 path = "docs/specs/10-runtime-semantics.md"
@@ -95875,19 +94653,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_81B4BB30B54CB800BF404E84"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "594515acd06928ba09550a5e0c539af93f823710a8aa52d2e91d3bb68a8a4899"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_81B691462D408E21AA71B37A"
 document_id = "SPEC_DOC_5C650CE0342937C28B5303C8"
 path = "docs/specs/14-lsp.md"
@@ -96421,19 +95186,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_82A7E9735906C1412330F761"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "paragraph"
-visible_text_sha256 = "7a9b15f3062c85391ec7a5c2fa67387dcbd502d211056cfb9134da7c315071a0"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_82AD166014175C6F9C86E826"
 document_id = "SPEC_DOC_0AA1FB385AB91798F11995DC"
 path = "docs/public/migrate/vendor-libraries.md"
@@ -96478,19 +95230,6 @@ document_id = "SPEC_DOC_94850102FFCC4953B8B275B0"
 path = "docs/public/reference/config/runtime-toml.md"
 block_kind = "paragraph"
 visible_text_sha256 = "4865fbc7de09d4bb6984ad3e3791b9bbe75a132c8174984200b4fb0c02ec32a6"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_82BEF71C8E58A02E9FAB56F0"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "paragraph"
-visible_text_sha256 = "ad85687283023a67d333bfa934d4cb2d13f054614dae8915809edc127c388ed7"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -98410,19 +97149,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_85C740E78AE0E6CD74095F6D"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "8e1a620893f19144e5ca8f7eb368b85ffe44e978d39d51adc481efa3c776360f"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_85C7BF8866DC7D6A3EC2513F"
 document_id = "SPEC_DOC_0D324A15A4E49B803D236133"
 path = "examples/tutorials/README.md"
@@ -98649,19 +97375,6 @@ document_id = "SPEC_DOC_FAB1E0308C15C7636371D814"
 path = "docs/public/operate/field-fault-procedures.md"
 block_kind = "paragraph"
 visible_text_sha256 = "673b198d0dc324e414fcc3398000bc69cd40735466bbc0ca04eacd3900d66fb2"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_8607ABCAF58F1DB0E25B5D70"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "df49c4db273759d72edaca0ae5a444488694dd08d9f2a3e3c2bfe0281f6f78de"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -102570,19 +101283,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_8B89703C59645AABD31664E8"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "heading"
-visible_text_sha256 = "2ebd653ce8c9dfd71a997e0685b032a26d666586a3ed317a448dcba1bba27142"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_8B8CA301E031062A731E04EB"
 document_id = "SPEC_DOC_3CB0A263798CC82602164D0E"
 path = "docs/specs/09-semantic-rules.md"
@@ -103844,19 +102544,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_8D5B8471B7F5D1983C78EF66"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "paragraph"
-visible_text_sha256 = "e330384da04e9f536037e7fcf26e56e3185ea898adf8b9a8125735572bae0fa2"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_8D5CC8B8F4B8804EF68FDCFE"
 document_id = "SPEC_DOC_847D83FB5370298277BA6CE9"
 path = "docs/guides/PLC_SIMULATION_WORKFLOW.md"
@@ -104083,19 +102770,6 @@ document_id = "SPEC_DOC_A0F2A12F7C380A8AB065003E"
 path = "docs/specs/10-runtime-semantics.md"
 block_kind = "table_row"
 visible_text_sha256 = "32e64dc0a1a901a1212bfa18bf232521b3a4e091da7f6d31d9e0096f0475b652"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_8D96E588202496055C51D816"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "paragraph"
-visible_text_sha256 = "3c8938774eb83dc59565ff99813e315ec0edc180781597fa7f287d4ebedf33fe"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -106007,19 +104681,6 @@ document_id = "SPEC_DOC_006026B189AEA45624151808"
 path = "docs/specs/07-standard-functions.md"
 block_kind = "table_row"
 visible_text_sha256 = "8e2a3bf7854558c28ad19caba5f885b30894df1fea9e1296751a0d5ea01ea36b"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_906DE09355701127E7AD2632"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "list_item"
-visible_text_sha256 = "fcf7f8c8b15ff97fcd784f1b13ff90a656220810f19f9880d0b58cf813a7fa7c"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -108069,19 +106730,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_92DDE4F64B12AD9E826A8FFE"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "245dcd2d95adb4d80966ad0f0d9eb9aef64ec543c6d15fe90226b80c85702aad"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_92E08874D0165DFA52D80D92"
 document_id = "SPEC_DOC_FDB57CF984C06920DB0BDCA9"
 path = "docs/public/concepts/index.md"
@@ -108966,19 +107614,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_946FB94FC313ECDBF2DCFFA2"
-document_id = "SPEC_DOC_9E510287AC376393A5AABC0F"
-path = "docs/public/examples/hmi.md"
-block_kind = "list_item"
-visible_text_sha256 = "f2530158c80e1bd9eb235a4eac6aac3a212f0ba4ff7b377dfe346e36af1e4b25"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_9471C34DE597073E06F628FC"
 document_id = "SPEC_DOC_E5F57A4E50026A764C8C31D6"
 path = "docs/guides/RUNTIME_CLOUD_FEDERATION_GUIDE.md"
@@ -109404,19 +108039,6 @@ disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_94EAFDB46F5B6CCBA85389E0"
-document_id = "SPEC_DOC_9E510287AC376393A5AABC0F"
-path = "docs/public/examples/hmi.md"
-block_kind = "heading"
-visible_text_sha256 = "db7c9144b67844b9c047759b1ea926c0451880321311b90b89ce5173bf240a0a"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -110656,19 +109278,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_96A898DCE6C735DFE01F46E8"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "paragraph"
-visible_text_sha256 = "59163f0292eda92138d4f3a2e3a1514e06099573aa6df75d333541579c9e50e1"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_96A8C94337B0B7EDFBAEE530"
 document_id = "SPEC_DOC_CD4AE0D9E2666E9AA497F2E2"
 path = "docs/public/reference/index.md"
@@ -111540,19 +110149,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_979C8CC070293417C2424625"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "3d46cdec52406a7124764dc34a81c5853a0a4fbe023ca2bf989790c7fcdaf07c"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_979D5DF3A612AEF6637A55F9"
 document_id = "SPEC_DOC_5C650CE0342937C28B5303C8"
 path = "docs/specs/14-lsp.md"
@@ -111913,19 +110509,6 @@ disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_980A254D87C1DD6CB618A4FE"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "heading"
-visible_text_sha256 = "fed3283483fcbd422a49c26685f8abe835fa240607fbf96f03a3609a7760bc47"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -112784,19 +111367,6 @@ disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_9925A4BDE9E71ECCA3B534D8"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "heading"
-visible_text_sha256 = "50560fb0c4d4a422e7da76930f29b54fccce96ecd9ea9445a61aca89feff0637"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -114530,19 +113100,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_9B9BF530C9EF15FC6DACF120"
-document_id = "SPEC_DOC_9E510287AC376393A5AABC0F"
-path = "docs/public/examples/hmi.md"
-block_kind = "list_item"
-visible_text_sha256 = "8a92679944a26509d5601eeaf7db70098986d9b307f8e611f52d77f2bb0a980d"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_9BA57BEFA867A45FF866E6A8"
 document_id = "SPEC_DOC_0031E8FB1C89399C34BF6D2A"
 path = "docs/public/connect/index.md"
@@ -114795,19 +113352,6 @@ document_id = "SPEC_DOC_5C650CE0342937C28B5303C8"
 path = "docs/specs/14-lsp.md"
 block_kind = "table_row"
 visible_text_sha256 = "b2169072a60994707ee63dd405e9d07c28194c33725acc66fd9c3c60242c0b40"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_9BE64537B8C15855EB1ECC7D"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "list_item"
-visible_text_sha256 = "105c6d0d2d28a62cc35f15efc919295e4efc6af1e6ec355aee920e1301ce7a81"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -115111,19 +113655,6 @@ disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_9C41B3D1177496CAC6B492EA"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "heading"
-visible_text_sha256 = "45ca56d179d4788c55ba9f7653b376d62e7faa738e92259e3d4f6f5c1b554f28"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -116376,19 +114907,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_9E034EABC558137D7AD243F2"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "7801e3c44b7f3ec23625c21ad1c8e04fd8e1b9de39d7c2fe5d9b2d31b642fc13"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_9E0D54E0BE865771E975D614"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
@@ -117416,19 +115934,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_9F6F0BD02F7F34165F37E3F9"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "table_row"
-visible_text_sha256 = "80129811b8764540baa3b8f0f1436786e40e553eb7ed1fc4370b6e9fc3fd83ba"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_9F707C975C6B1AF5F3CC8D6C"
 document_id = "SPEC_DOC_897D8C7FC8578E5DB83239B0"
 path = "docs/specs/README.md"
@@ -117763,19 +116268,6 @@ disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_9FBFFCC02E879212D3A3B5D7"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "63a94a6d418f29d7d07a17ca5a24c888f9a40cac31f362cc2a413a44d556d52c"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -118942,19 +117434,6 @@ document_id = "SPEC_DOC_30AAEE0A8AEFD912865F4FF9"
 path = "docs/specs/08-standard-function-blocks.md"
 block_kind = "list_item"
 visible_text_sha256 = "a00d7ec29bedf7fb06ca835732959321aac708d42d467852a22331d35ab65866"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_A1509EDD70CFD1197E8F850E"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "532a537404d73d1451face557db77619068faf0a207d7757f8d9e62b8fc2c62b"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -120614,19 +119093,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_A38E4DF8D06E2A3A01C094D3"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "heading"
-visible_text_sha256 = "4adbf175e6ead4ba1220c29e656693b948e7ffe830b5ab47815c512cdcac9120"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_A390E5E566D42A273307151B"
 document_id = "SPEC_DOC_9B956239112553C1EA35CB8A"
 path = "docs/specs/05-expressions.md"
@@ -120671,19 +119137,6 @@ document_id = "SPEC_DOC_6B542C6376AFCBBA18B00F00"
 path = "docs/guides/PLC_DEVELOPER_GUIDE.md"
 block_kind = "paragraph"
 visible_text_sha256 = "2f397188afa2080f0406603d12881a3c43de9b417d0b2cd30434f7e934e12f1d"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_A3A7881B3451506917029463"
-document_id = "SPEC_DOC_9E510287AC376393A5AABC0F"
-path = "docs/public/examples/hmi.md"
-block_kind = "table_row"
-visible_text_sha256 = "454a0d37946a912bf3837ed4dfe0d09e363d735beb4632fafdc9d0aedff3fccc"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -121927,19 +120380,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_A5515A06EAF063AF3025C5A7"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "c44b9bf5b18df1d7922273fc4fa27fa2f1566bb9d7626bf0ee8f479a9c16ef5f"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_A561174AFE41D0A39806157E"
 document_id = "SPEC_DOC_EE83AAA592C2239A2D0C00B1"
 path = "docs/public/reference/diagnostics.md"
@@ -122400,19 +120840,6 @@ document_id = "SPEC_DOC_2BE38E572841D8CCFDA05873"
 path = "docs/guides/PLC_CI_CD.md"
 block_kind = "paragraph"
 visible_text_sha256 = "683d646bbe18234d7317cd4403ab47537bbd58bb4f327b2113049e5b8dfef177"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_A608672E16F2D939CA54559C"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "4223b658b15a5461ba81962cf0919070a9306b6ba7cf5432378a4ac0fbf2766c"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -123188,19 +121615,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_A7646D2E54D33CD35F87DD83"
-document_id = "SPEC_DOC_9E510287AC376393A5AABC0F"
-path = "docs/public/examples/hmi.md"
-block_kind = "list_item"
-visible_text_sha256 = "59fb487edf76284a3ab02c07fafac1a3b7bb96a3844824ecca6e19851fbd0733"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_A76677D8066CF605C34BAE72"
 document_id = "SPEC_DOC_4266BCA32F2E784DDB19ADFC"
 path = "docs/specs/01-lexical-elements.md"
@@ -123370,19 +121784,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_A79D4A6B0C570B1F7C975681"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "f2834338c78f9a4842ac128df464e899a9aa5045d55e0a28411a99aacfe96ba6"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_A79F264C418CF38A7AB20555"
 document_id = "SPEC_DOC_83A8C6295DB1535258374F36"
 path = "docs/public/reference/config/trust-lsp-toml.md"
@@ -123453,19 +121854,6 @@ document_id = "SPEC_DOC_A0F2A12F7C380A8AB065003E"
 path = "docs/specs/10-runtime-semantics.md"
 block_kind = "list_item"
 visible_text_sha256 = "c59050298371e6a37c9610300e58be5b28686109b59e8e6edb8e8c34a012be93"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_A7B285F3AADE344F7FB78EC4"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "list_item"
-visible_text_sha256 = "9ee294660e00ae3fb1245f37aa25f7dd0b39b51d785c756e31141deba9406143"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -125008,19 +123396,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_A9C4AD5044A95794D48B443B"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "e13cc1b2222715879bee7364200328c18547a19abf87f83826363597d79df082"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_A9C54815AC5C4596D9F74B00"
 document_id = "SPEC_DOC_BBD5EBBB3DB0BBA0FA670CA7"
 path = "examples/memory_marker_counter/README.md"
@@ -125138,19 +123513,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_A9F03F1EAD7402101451BE8E"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "92b0ce91c4086b9cc94d3fc7100ea63149541079a3fddf393ea464728f2c8e61"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_A9F071A1A0E5885CDD9FDC53"
 document_id = "SPEC_DOC_8F2BAA1F2992C9157060ADE3"
 path = "docs/specs/04-pou-declarations.md"
@@ -125195,19 +123557,6 @@ document_id = "SPEC_DOC_6B6496803A7EE1602623F706"
 path = "docs/guides/OSCAT_LIBRARY_GUIDE.md"
 block_kind = "table_row"
 visible_text_sha256 = "7f4c9e0c96bb5bcb27e58a17a32837f5a2513ac7646c903aa6aff75ec0d5711e"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_AA02732C63AD890E9FEF93DD"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "622accb3063a206b9d158eda730c7d3329ebed44cfa76d3c2bc0826b9bc783f4"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -127587,19 +125936,6 @@ document_id = "SPEC_DOC_6B6496803A7EE1602623F706"
 path = "docs/guides/OSCAT_LIBRARY_GUIDE.md"
 block_kind = "table_row"
 visible_text_sha256 = "37b55b26840f4cbf3f11013c4c76af719de64569dbc8df90dc402df88a80fdd5"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_AD6D38F3A0C903F0B9169766"
-document_id = "SPEC_DOC_9E510287AC376393A5AABC0F"
-path = "docs/public/examples/hmi.md"
-block_kind = "list_item"
-visible_text_sha256 = "d7ee402d1de2097905d0f8d3be88e804f48b2f0d0863e7f7452ec722bbd315ec"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -130013,19 +128349,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_B1263FE339CE5AF903DFF435"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "paragraph"
-visible_text_sha256 = "de33d1c9ae05de04dc34cc2e9696ccbeeb53a881f1c6c05729f95e55b42d3941"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_B1265C891B414B50822F710F"
 document_id = "SPEC_DOC_CF5B6FAFF7739BD02D62DCC3"
 path = "docs/specs/06-statements.md"
@@ -130057,19 +128380,6 @@ document_id = "SPEC_DOC_9B956239112553C1EA35CB8A"
 path = "docs/specs/05-expressions.md"
 block_kind = "table_row"
 visible_text_sha256 = "ad3a86829622134b946d92ec393506f24fe71c62572573da07ccd011450b40aa"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_B1324EC001539CCFFF6B94A5"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "paragraph"
-visible_text_sha256 = "b298bf1186e8cafd5b05b24f6f9d231aac011b7f080baa3b554400eb83e985ad"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -131859,19 +130169,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_B3BCC72F20840FF92D463BFB"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "paragraph"
-visible_text_sha256 = "f257e96567bc06548f8a978bdc80759ee89e0a670c47b749350b9a59d77639c3"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_B3BCFE8648574E692089AB23"
 document_id = "SPEC_DOC_EE83AAA592C2239A2D0C00B1"
 path = "docs/public/reference/diagnostics.md"
@@ -132891,19 +131188,6 @@ document_id = "SPEC_DOC_0958AB5899FBEC12ADB3047F"
 path = "docs/guides/PLC_IO_BINDING_GUIDE.md"
 block_kind = "paragraph"
 visible_text_sha256 = "d0c6973e31d943be82351a56e8d0f2774e59ef4c6109bd406b26596c6c62bd06"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_B4C4E567898B0D4F355B5D77"
-document_id = "SPEC_DOC_5FFB773BD0C445E8A22F7FF9"
-path = "docs/public/develop/hmi-authoring.md"
-block_kind = "paragraph"
-visible_text_sha256 = "4d38b239e6790550937d06cc159bbb504a62297f732ef6696ab3245722e9c750"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -134927,19 +133211,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_B759842FD60747BE3CE08997"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "heading"
-visible_text_sha256 = "832821aaf95282e037c848c197c44092f70c09d00a5eff5dc71af2a38186da50"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_B75C2B50539E36EAE19A2ED1"
 document_id = "SPEC_DOC_0D324A15A4E49B803D236133"
 path = "examples/tutorials/README.md"
@@ -135642,19 +133913,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_B84160DC4D6244F8DAC906EB"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "list_item"
-visible_text_sha256 = "c35516a12530ca91c3841563d7c70ec4ee37a9c80d2de6f8456ed708f9311e0a"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_B84642327A3FF47270DA6668"
 document_id = "SPEC_DOC_034D288532BAD69B141A3939"
 path = "docs/public/reference/agent-api/overview.md"
@@ -135764,19 +134022,6 @@ document_id = "SPEC_DOC_934D73C260EF6A3B7DF01078"
 path = "examples/communication/README.md"
 block_kind = "list_item"
 visible_text_sha256 = "f4e21ff6a49dd7d0ea1e1e9e26b8fc1526cf23b12a6d1efe0b146bef29cda13e"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_B869771E8BEB1467EEBC963B"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "8b330078fd44b68f96cf3f5bd64bb6fddde950a3f22a73f584cc0283c31d5728"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -136669,19 +134914,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_B97133354FDABEC6131D188C"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "ca843f32797fd1125d7fc0d5a4f9ce2f3b52b62c1582edb71bb1af0c830ad9ad"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_B973A2D7D2B7557A7A55661C"
 document_id = "SPEC_DOC_3D1209CE47CB0F8E42901668"
 path = "docs/public/operate/install-on-target.md"
@@ -137285,19 +135517,6 @@ document_id = "SPEC_DOC_5C650CE0342937C28B5303C8"
 path = "docs/specs/14-lsp.md"
 block_kind = "list_item"
 visible_text_sha256 = "194603fadebd729e270db35ac55d6e2f1715a7a30c354b73323c0237523f093b"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_BA520E62E4B0794AE4834261"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "table_row"
-visible_text_sha256 = "8d5fc9135948a044d463483c570f9854adfff50bb265f3edda19395ceadcee46"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -137943,19 +136162,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_BB2816ECCF255E2EC1333206"
-document_id = "SPEC_DOC_9E510287AC376393A5AABC0F"
-path = "docs/public/examples/hmi.md"
-block_kind = "list_item"
-visible_text_sha256 = "b98abb05b49d9bba4d66294985c42e90f412a28e47deb1f57b679e24574cc192"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_BB28404F04ADDC5E86CC354C"
 document_id = "SPEC_DOC_0D324A15A4E49B803D236133"
 path = "examples/tutorials/README.md"
@@ -137974,19 +136180,6 @@ document_id = "SPEC_DOC_EE83AAA592C2239A2D0C00B1"
 path = "docs/public/reference/diagnostics.md"
 block_kind = "table_row"
 visible_text_sha256 = "997ce113bb8e5ef322e8cafef80f433b19e404c0a296da4525ab97b278c685b1"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_BB2DFC7E23A041ECE9EB7CF0"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "paragraph"
-visible_text_sha256 = "05f0e24ce1b71f5d44a86e00c23b065988aeaf07b2a7b499a2a766a1635d8bb2"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -139880,19 +138073,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_BDCBBE991669046DDB4FF355"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "heading"
-visible_text_sha256 = "f2669ffebc994648b916ee447d262642029ff8e784925f52dde5b92385efac54"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_BDD4F01248B6179C1C394D3C"
 document_id = "SPEC_DOC_ED1E59F55D1F841AA6DEA84F"
 path = "docs/public/operate/runtime-ui-and-control.md"
@@ -141661,19 +139841,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_C053A308CAF4447D9FEC5BC1"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "paragraph"
-visible_text_sha256 = "c473b9f103be05dce64e14e8b36acedcc9a16dad4178701db8b7082d9bb26a2b"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_C059DDAE4BB746234F8F77A0"
 document_id = "SPEC_DOC_C5605344AEE811468A1106C9"
 path = "docs/public/operate/offline-install.md"
@@ -141986,19 +140153,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_C0C34E0D89AA9AF98FA8562F"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "paragraph"
-visible_text_sha256 = "49b59773c49b35515923267c79b094ee9ccc807d85a46cd8e9bfb9fcf1eb0f4b"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_C0C4529A7235883E2AA719F7"
 document_id = "SPEC_DOC_A0F2A12F7C380A8AB065003E"
 path = "docs/specs/10-runtime-semantics.md"
@@ -142043,19 +140197,6 @@ document_id = "SPEC_DOC_A0F2A12F7C380A8AB065003E"
 path = "docs/specs/10-runtime-semantics.md"
 block_kind = "table_row"
 visible_text_sha256 = "a6df4a08b56059ed568fa9a1592aa074228e7d60532d8d83ac5b3b9db1621c26"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_C0C776B985C0AD4ABC32E5CD"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "list_item"
-visible_text_sha256 = "16f63b499d32003d4c9863175b3888258d23f3d24ea3b18a12dad9da71e2bcb2"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -142134,19 +140275,6 @@ document_id = "SPEC_DOC_006026B189AEA45624151808"
 path = "docs/specs/07-standard-functions.md"
 block_kind = "table_row"
 visible_text_sha256 = "027eec52c13e5c37c5942ee0d865d153ee0d2bbabefaee2d1ea15eae47ed0a5c"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_C0D7C5A2BFEBB11F252555A5"
-document_id = "SPEC_DOC_5FFB773BD0C445E8A22F7FF9"
-path = "docs/public/develop/hmi-authoring.md"
-block_kind = "list_item"
-visible_text_sha256 = "0fc4f0a5182d6c4c217f17b4cc787d393047759c0180f3f4d21583977f3370b7"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -142290,19 +140418,6 @@ document_id = "SPEC_DOC_9B956239112553C1EA35CB8A"
 path = "docs/specs/05-expressions.md"
 block_kind = "paragraph"
 visible_text_sha256 = "09e09762d2d1e809d52aa2d5556e5ca727966b86b2b6fceabeafeca50ac54522"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_C117C7F741B7956E1183A095"
-document_id = "SPEC_DOC_5FFB773BD0C445E8A22F7FF9"
-path = "docs/public/develop/hmi-authoring.md"
-block_kind = "list_item"
-visible_text_sha256 = "9cb5246e354a6312bc7baa51733e0c3da89095afb05cc2afea1f41a107b38b37"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -143065,19 +141180,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_C2125D70752095EB67525E8C"
-document_id = "SPEC_DOC_5FFB773BD0C445E8A22F7FF9"
-path = "docs/public/develop/hmi-authoring.md"
-block_kind = "paragraph"
-visible_text_sha256 = "10c558b4003f91577982bd8e30142ccc40d07cbee6681fea5aca2e472c49275f"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_C213C620BDDD0A4D2286D8FB"
 document_id = "SPEC_DOC_6B6496803A7EE1602623F706"
 path = "docs/guides/OSCAT_LIBRARY_GUIDE.md"
@@ -143741,19 +141843,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_C2D14308AF1EEC6A7DBD85DB"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "heading"
-visible_text_sha256 = "1ff57a29d7c9d11bdf61c1b80f2b289b44c1ea844824d4b94a0d52b6ba5fc858"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_C2D34E9F82D82454636DFB27"
 document_id = "SPEC_DOC_5C650CE0342937C28B5303C8"
 path = "docs/specs/14-lsp.md"
@@ -143919,19 +142008,6 @@ disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_C316B6D1BAD55A98C6F4E607"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "table_row"
-visible_text_sha256 = "1e33d45890b74d449027987703512160aa4df16745be971798bce4d5d62ead2e"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -144188,19 +142264,6 @@ document_id = "SPEC_DOC_94850102FFCC4953B8B275B0"
 path = "docs/public/reference/config/runtime-toml.md"
 block_kind = "table_row"
 visible_text_sha256 = "702d0bd16a1016e63ef83e491eb41c3ed5f7d45545b86ba8df3e85f712ce70e6"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_C3833019B842164C2A13DD17"
-document_id = "SPEC_DOC_5FFB773BD0C445E8A22F7FF9"
-path = "docs/public/develop/hmi-authoring.md"
-block_kind = "list_item"
-visible_text_sha256 = "4f71cf28e87df8bb78f20fd58150578d2e37cac77552cc2569cdb9620258264d"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -145860,19 +143923,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_C5C91813D2A6981236DFF738"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "heading"
-visible_text_sha256 = "83d125bbd5586a647cc38787d2bb8c2f67f4a69290a62b417cae3bc2d83acb11"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_C5CB9071E694090B253BC9FE"
 document_id = "SPEC_DOC_FBD2638C28582E56E8886614"
 path = "docs/guides/PLCOPEN_MOTION_LIBRARY_GUIDE.md"
@@ -146601,19 +144651,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_C6ABE7C3D25A4710BDCB5C50"
-document_id = "SPEC_DOC_5FFB773BD0C445E8A22F7FF9"
-path = "docs/public/develop/hmi-authoring.md"
-block_kind = "list_item"
-visible_text_sha256 = "be386792057803ad3720823b9f1a7b532ed1951057c2e4d7aa98c7d14fff1486"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_C6B32F2101E479913BD4F1A2"
 document_id = "SPEC_DOC_83A8C6295DB1535258374F36"
 path = "docs/public/reference/config/trust-lsp-toml.md"
@@ -147238,19 +145275,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_C75D605A8EF435231A9DB848"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "2cd51b3e96a1fe9cf938aab9fcb82ce523fbbdf7f02c5a09d15b026561c73250"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_C75EACB5E63EDF45184BFC78"
 document_id = "SPEC_DOC_138F3378032C664A617B699F"
 path = "docs/guides/VENDOR_LIBRARY_COMPATIBILITY.md"
@@ -147368,19 +145392,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_C77D9279EC9AA1A169234D59"
-document_id = "SPEC_DOC_5FFB773BD0C445E8A22F7FF9"
-path = "docs/public/develop/hmi-authoring.md"
-block_kind = "heading"
-visible_text_sha256 = "105c6d0d2d28a62cc35f15efc919295e4efc6af1e6ec355aee920e1301ce7a81"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_C781F7F7E4082399CB7B3ACF"
 document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
 path = "docs/specs/11-runtime-engine.md"
@@ -147455,19 +145466,6 @@ disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_C793E3C8BEB406D38AB31A10"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "heading"
-visible_text_sha256 = "41928a58cfa7cbf08565d0c2992f652bc984acda5723bed3eb41d2113aa746c3"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -148556,19 +146554,6 @@ document_id = "SPEC_DOC_A79101F7E58DE36F1DF14AB7"
 path = "docs/public/connect/external-systems/mqtt.md"
 block_kind = "list_item"
 visible_text_sha256 = "cd5b0da369c3a9e9e865870449f33ab4ce24151b7e35072ad806bc2733c5d129"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_C902D1E874266F5F2F63098B"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "paragraph"
-visible_text_sha256 = "4d38b239e6790550937d06cc159bbb504a62297f732ef6696ab3245722e9c750"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -150150,19 +148135,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_CAF72FD4D5BF5BB1149F2F72"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "ac275e89f19b478a9ab379ed3f542378767255ade5cfa27649a64f0b70a06a07"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_CAFADA285EA7AB18EE198761"
 document_id = "SPEC_DOC_C7D7E64D97EC0211A5BC82D9"
 path = "docs/public/concepts/project-model.md"
@@ -150389,19 +148361,6 @@ document_id = "SPEC_DOC_6B6496803A7EE1602623F706"
 path = "docs/guides/OSCAT_LIBRARY_GUIDE.md"
 block_kind = "list_item"
 visible_text_sha256 = "cfde95fd52f9337d4e5470081a602f3ac140546fda322d54f68720e78e07165a"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_CB4035F0FB1CE941353D68A5"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "paragraph"
-visible_text_sha256 = "db0f93e4dea36cfad465a44d10d404045095dc57a89f6ec38e410d5558a214eb"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -150974,19 +148933,6 @@ document_id = "SPEC_DOC_5F17F10E6D4D2468EA713CCE"
 path = "docs/public/reference/specifications/index.md"
 block_kind = "list_item"
 visible_text_sha256 = "cccab7245e48a2d90b6cb2cd0c4170616feb05568863e9c2ad9227ce75e05919"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_CC2B3147696AFAAD37116C72"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "paragraph"
-visible_text_sha256 = "bf63a0dd6f910d7d7299e72db174421a5c41de0f7e4a1c410f05d791f24dbe00"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -152048,19 +149994,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_CDC6875015862F92D205CDD8"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "heading"
-visible_text_sha256 = "e649d20cbe5634ca4ec63a76c26b78ae69c13df9e17f9b6778553370ce639844"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_CDC6AEBD8799075C95FCAC12"
 document_id = "SPEC_DOC_A02088379A554A8A7334C397"
 path = "docs/specs/13-debug-adapter.md"
@@ -152261,19 +150194,6 @@ document_id = "SPEC_DOC_FBD2638C28582E56E8886614"
 path = "docs/guides/PLCOPEN_MOTION_LIBRARY_GUIDE.md"
 block_kind = "list_item"
 visible_text_sha256 = "065edc4c275aa47c6e9c65f9b8122018b3c30cebc700c2c6e611fd8541ec3f8e"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_CE39D5E050415CDA69AB84BF"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "paragraph"
-visible_text_sha256 = "e07c0adfbf904868635fb4b7e33d698fa59dbdd92f4fbaa4a08aeb3d316d5adc"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -153907,19 +151827,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_D06BEC7C1D08FD7B2E0CA246"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "paragraph"
-visible_text_sha256 = "2d9d8d7ad85da4010ddfcc231c8e341f434e1c5f2bedf803e65d8f7f09853030"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_D06BF016AE70C01CC477BC0E"
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
@@ -154042,19 +151949,6 @@ document_id = "SPEC_DOC_99864A15E635B0B040482E2D"
 path = "docs/public/start/installation.md"
 block_kind = "list_item"
 visible_text_sha256 = "19036f9cd0cb83142fa6eeca8086d5b792ab0a9c151da17399de676caff9d4b8"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_D099C54E302DE605B7373FBD"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "8a92679944a26509d5601eeaf7db70098986d9b307f8e611f52d77f2bb0a980d"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -155225,19 +153119,6 @@ document_id = "SPEC_DOC_7D6196145AC6FD66301F5BFE"
 path = "docs/guides/SIEMENS_SCL_COMPATIBILITY.md"
 block_kind = "list_item"
 visible_text_sha256 = "d21ebe3f83f2849aa5316109d00f3a8abe1a8ef81134a6aea0dcfbba6d450f8f"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_D2428297CA0C26F01DD7864B"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "table_row"
-visible_text_sha256 = "7780e4d2dd6b23da60b7086b52f6e5e8fd5fe8b47f5ce51350c4aa17a6a0efb1"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -156520,19 +154401,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_D3EDC957D93C6589554C2179"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "7cfb019446a529695003afda923a7b68120f0359a423d9e1be7a5d93e9beb5d5"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_D3F6111DB57A3A77A147FAF6"
 document_id = "SPEC_DOC_0C8377C47FE8064E8A6DDE8C"
 path = "docs/guides/AGENT_CONTRACT_V1.md"
@@ -157764,19 +155632,6 @@ disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_D57B57F34626622D544D069A"
-document_id = "SPEC_DOC_5FFB773BD0C445E8A22F7FF9"
-path = "docs/public/develop/hmi-authoring.md"
-block_kind = "heading"
-visible_text_sha256 = "45ca56d179d4788c55ba9f7653b376d62e7faa738e92259e3d4f6f5c1b554f28"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -161031,19 +158886,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_D9A995CDA410D82BB0B0AA3A"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "paragraph"
-visible_text_sha256 = "4c1f26e57af2577843dcb2b5b9d9c7cb04b24a037edbb28f26eaad7b3dfd800d"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_D9AA93F3CA2D4B1602E44E77"
 document_id = "SPEC_DOC_FBD2638C28582E56E8886614"
 path = "docs/guides/PLCOPEN_MOTION_LIBRARY_GUIDE.md"
@@ -161521,19 +159363,6 @@ disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_DA2F8E746C01445AF1E458B6"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "3622b0956004ac551855a5d4c98605df78e30fb8783ec528bc62b70fc318b887"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -162154,19 +159983,6 @@ document_id = "SPEC_DOC_2EDAF8F6B319000AD4186F54"
 path = "docs/public/concepts/one-project.md"
 block_kind = "list_item"
 visible_text_sha256 = "67755f04f5b4e8caf0791c38c30ad2a7e1710231a568f2a20dbb5e853aeefafc"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_DAE64D412A3B2138A3AAFA68"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "2798441cef320aa226cf121a1e90f9f2790ca3bbd33c25faa4f291bd4c1083f4"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -162851,19 +160667,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_DBC84EE6C8321662AF05EC18"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "7270200d05abce0faeb5d79713863136fdfebfc2fc671d34d800a22a4e5665b6"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_DBCCA12F565AFE3B055466B0"
 document_id = "SPEC_DOC_30AAEE0A8AEFD912865F4FF9"
 path = "docs/specs/08-standard-function-blocks.md"
@@ -163055,19 +160858,6 @@ disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_DC1B288F8F8F67ACDA85BE69"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "heading"
-visible_text_sha256 = "726c28a724a2b6750f05c6f5e0721c613d578f490494a0727ec38a7ae042590c"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -164840,19 +162630,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_DEB6A82C2B334F701EA9D892"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "list_item"
-visible_text_sha256 = "d7fcf7e674b7923e2e185cd594b750b2e1e3c5ee50b9e72700d2ff6ab5d908a9"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_DEBB1E3ACED31B6474CAC41A"
 document_id = "SPEC_DOC_9ECA6EF804507DEF384D07BA"
 path = "docs/public/examples/libraries-and-motion.md"
@@ -165568,19 +163345,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_DFE6E0231F676ECAE958DE34"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "paragraph"
-visible_text_sha256 = "1a7c868359afb43ea7f611393c61c80774c4ad7d918a9a84344f61724410e7ac"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_DFE9DF63ABE68A067DE4F206"
 document_id = "SPEC_DOC_6B6496803A7EE1602623F706"
 path = "docs/guides/OSCAT_LIBRARY_GUIDE.md"
@@ -165841,19 +163605,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_E04AA05B3E97B5B8ABE1DC04"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "6f85208de2e357ad9712b6ae63d0c836aa7d884b4590e80e05c27af48d329d4d"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_E05317DA3A1D19657A3F20E3"
 document_id = "SPEC_DOC_5C650CE0342937C28B5303C8"
 path = "docs/specs/14-lsp.md"
@@ -166015,19 +163766,6 @@ document_id = "SPEC_DOC_0C0658F01AAE51CF0E683B7F"
 path = "docs/public/start/editors.md"
 block_kind = "list_item"
 visible_text_sha256 = "8fa78148b702fb4492246c6ccdf5b194f1a4de68b791cae14800c730456f9e67"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_E09A68CDEBDD4A77C3819816"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "paragraph"
-visible_text_sha256 = "cbefe844d9a8a734e020c9d844934e739af31ae241c4c079edb7a074612c9bd4"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -166509,19 +164247,6 @@ document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
 block_kind = "list_item"
 visible_text_sha256 = "85454162be7651c2d060b4a5ccf510c4ba8e76ca1cf84f714094cac1f4bb7091"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_E12989DC47782FCE98FB18F3"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "8eb3232d095e9d5a0f31784fa6d7fb74894cb72fb19e37aedb5a2bed181b8bea"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -167016,19 +164741,6 @@ document_id = "SPEC_DOC_E6D947C01828B0580A613536"
 path = "docs/specs/15-ladder-diagram.md"
 block_kind = "paragraph"
 visible_text_sha256 = "b184fe152ac3cbdf1d6033b18b537046d0c221aaa57a992b77833350722f4507"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_E1F0339FD1D006AC1E9FEE3E"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "table_row"
-visible_text_sha256 = "fa9938d4d498317a7fb66668dbb02e3dd942221ec974b111ed35a58f2e9c1c28"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -167978,19 +165690,6 @@ document_id = "SPEC_DOC_6B542C6376AFCBBA18B00F00"
 path = "docs/guides/PLC_DEVELOPER_GUIDE.md"
 block_kind = "paragraph"
 visible_text_sha256 = "778560fd1b8d74d41f292fb6c46813a15e50bd6de8c723c76155dc56543f748d"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_E32AB42B595C84B8549BB90B"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "820b3ebc5fdc798cce5a16e460ed8b33a94240001599a825fae1257f1cc5d9ae"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -171509,19 +169208,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_E7B665CF3D3C6BBBB9D6A8E1"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "table_row"
-visible_text_sha256 = "25a3479652f204286229f2618b40b8abcc693f0c119af92a5690722d5c5fa9d2"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_E7BBA7D6566EF37D33A41C2A"
 document_id = "SPEC_DOC_6B6496803A7EE1602623F706"
 path = "docs/guides/OSCAT_LIBRARY_GUIDE.md"
@@ -171917,19 +169603,6 @@ document_id = "SPEC_DOC_5C650CE0342937C28B5303C8"
 path = "docs/specs/14-lsp.md"
 block_kind = "heading"
 visible_text_sha256 = "8fa0c790a50d115da0951bcd6a0722c80cc8917372380fcf3f86c11023266492"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_E82CCDC42612F0D701FCF930"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "heading"
-visible_text_sha256 = "5f5a9781c240f70134ff4d3854ae96fc9f6ba13c59abe30b387cb3b4cd547970"
 disposition = "structural_nonclaim"
 invariant_ids = []
 oracle_refs = []
@@ -173472,19 +171145,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_EA278AC5062E25E7EC318472"
-document_id = "SPEC_DOC_5FFB773BD0C445E8A22F7FF9"
-path = "docs/public/develop/hmi-authoring.md"
-block_kind = "heading"
-visible_text_sha256 = "3fb4bda7683633b7ffdd36a8937c6780185f4efe94a753b2ee2029c537a93a8e"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_EA2827ED5DE38EAAFF8B0B6E"
 document_id = "SPEC_DOC_870EBC7A001E0CA6844DF6E1"
 path = "docs/specs/12-bytecode.md"
@@ -174226,19 +171886,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_EB6D666612F88CB754F02D09"
-document_id = "SPEC_DOC_6AB450405ED5543847F626B8"
-path = "docs/public/reference/config/hmi-directory.md"
-block_kind = "table_row"
-visible_text_sha256 = "b5249e9ed54d9c5191da72e699deac9b07c526d741b5ad7d88d64a12f53b2624"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_EB752D49E327A57F74220BDC"
 document_id = "SPEC_DOC_13BFC8FEEC836F5C7C0C035B"
 path = "docs/public/reference/cli/trust-dev.md"
@@ -174716,19 +172363,6 @@ disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_EC3BF1ED2B4BC8CC9ADE06ED"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "heading"
-visible_text_sha256 = "1526c79468041f02246492bc55a3ed53c93d82d8b199b2592386dc1b4e3abb05"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -177762,19 +175396,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_F079C0EBFBB88E4BFE58294A"
-document_id = "SPEC_DOC_9E510287AC376393A5AABC0F"
-path = "docs/public/examples/hmi.md"
-block_kind = "list_item"
-visible_text_sha256 = "3c80eae37bc1f8aba5c4eb126477fd314e935a30074677bbf5fab6c46894e7d5"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_F07C482E6C8B8F62A2E51B91"
 document_id = "SPEC_DOC_A3793F766DF852CFED5F3EEF"
 path = "docs/public/start/program-in-vscode.md"
@@ -178802,19 +176423,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_F1E0D781CC804B9BBB7594D4"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "56f654a9c054c240463a0a945433d9e3001ef3b77bdab46b44651d0c2a012088"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_F1E161AE73B4CC36AA44F298"
 document_id = "SPEC_DOC_3CB0A263798CC82602164D0E"
 path = "docs/specs/09-semantic-rules.md"
@@ -178958,19 +176566,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_F2165E7835BE0C63F6264009"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "list_item"
-visible_text_sha256 = "c2c9234964198b7d00916f4a50b8f081ac452689bf405a96c70597b99de5595b"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_F219144A5C8C11E3C8ACF6FD"
 document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
 path = "docs/specs/11-runtime-engine.md"
@@ -179015,19 +176610,6 @@ document_id = "SPEC_DOC_934D73C260EF6A3B7DF01078"
 path = "examples/communication/README.md"
 block_kind = "paragraph"
 visible_text_sha256 = "9662fe6ba164d867fe2a4631a7a6309a0c24506a8970c767b2c3a17161dee199"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_F22240BF5A8F7B0D71BCE592"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "list_item"
-visible_text_sha256 = "7cf4e7cb762d6151c7670b755e8fb60e2b55292599f08b81fbed0617baa2a1e4"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -179331,19 +176913,6 @@ disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_F2930E73E391AC1E0CDB29BD"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "heading"
-visible_text_sha256 = "e24cf63c9cb7633a572741e01951760845c8b269614e68cacc90c44b4c98c828"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -179756,19 +177325,6 @@ document_id = "SPEC_DOC_A02088379A554A8A7334C397"
 path = "docs/specs/13-debug-adapter.md"
 block_kind = "list_item"
 visible_text_sha256 = "33f662b70a0a2af04dd1ade6b934e5ce0bf8a2cc929a3b4b8797c81c7ed1fa58"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_F349A0C48D6D05DBD4DE6D23"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "list_item"
-visible_text_sha256 = "31771fb427a9cb01e448483426c29555d9da5898941686b39c5f53c224df6528"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
@@ -180687,19 +178243,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_F4CBA3AC0C72AF73630FBD87"
-document_id = "SPEC_DOC_DBC887400DE23DFEEE76A102"
-path = "docs/guides/HMI_DIRECTORY_WORKFLOW.md"
-block_kind = "list_item"
-visible_text_sha256 = "b95e72cd0445cc5664367a73de99747d8a36b8d7417ada041ab3e92552d2406c"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_F4D5D26540A35355863547D0"
 document_id = "SPEC_DOC_1F7546365990CE8CA45F760E"
 path = "examples/runbooks/site-runbook-template/README.md"
@@ -181177,19 +178720,6 @@ disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []
 rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_F536D1798D55B5B11A07E58E"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "heading"
-visible_text_sha256 = "af06c3cc14d4e4201be956f73e4c8da09b983377f5008cc9ead7e80f697481d7"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
 last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
@@ -185601,19 +183131,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_FB17ADEF14A07793AFB45065"
-document_id = "SPEC_DOC_9E510287AC376393A5AABC0F"
-path = "docs/public/examples/hmi.md"
-block_kind = "list_item"
-visible_text_sha256 = "2c9c28a07070dad174fc281a85062ad54e7da2a70679a39d75e06ff61968c9a9"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_FB210C3550031E8613C9125D"
 document_id = "SPEC_DOC_456E5F51CA244A089A263490"
 path = "docs/guides/TRUST_HARNESS_PROTOCOL.md"
@@ -187655,19 +185172,6 @@ last_reviewed = "2026-07-19"
 
 [[public_block_reviews]]
 schema_version = 1
-block_id = "PUBLIC_BLOCK_FE5007D82255694272EB7784"
-document_id = "SPEC_DOC_CAD4B5BD558BCC7D6C511547"
-path = "docs/public/start/operate-in-browser.md"
-block_kind = "heading"
-visible_text_sha256 = "0eb95fb6244c03f1ccca696718a06766485c231347bf382424fb273145472355"
-disposition = "structural_nonclaim"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "document_structure"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
 block_id = "PUBLIC_BLOCK_FE5033E55538C09C9293E18A"
 document_id = "SPEC_DOC_2EDAF8F6B319000AD4186F54"
 path = "docs/public/concepts/one-project.md"
@@ -187699,19 +185203,6 @@ document_id = "SPEC_DOC_BF509AF72417978C06821397"
 path = "examples/communication/modbus_tcp/README.md"
 block_kind = "paragraph"
 visible_text_sha256 = "46457e9be3c41dff2c0e09ca1b4f41cd2dc6c0218bb0c8f8d0962511d5e285b6"
-disposition = "claim_without_invariant_or_oracle"
-invariant_ids = []
-oracle_refs = []
-rationale_code = "conservative_unbound_public_prose"
-last_reviewed = "2026-07-19"
-
-[[public_block_reviews]]
-schema_version = 1
-block_id = "PUBLIC_BLOCK_FE56C302E15288DC0F5F98DE"
-document_id = "SPEC_DOC_DDB6754EA326A5BF97633BB1"
-path = "docs/public/operate/hmi-and-web-ui.md"
-block_kind = "paragraph"
-visible_text_sha256 = "7efd9866164d8929ed10941d83e8d9aae623554c38094668dabcc323256feeff"
 disposition = "claim_without_invariant_or_oracle"
 invariant_ids = []
 oracle_refs = []

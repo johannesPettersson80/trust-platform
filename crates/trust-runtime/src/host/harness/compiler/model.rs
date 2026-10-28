@@ -15,7 +15,6 @@ use super::super::types::CompileError;
 
 #[derive(Clone, Default)]
 pub(crate) struct CompileTimeConsts {
-    pub(super) storage_abi: crate::value::StorageAbi,
     global_values: IndexMap<SmolStr, Value>,
     global_reserved: indexmap::IndexSet<SmolStr>,
     local_values: IndexMap<SmolStr, Value>,
@@ -23,13 +22,6 @@ pub(crate) struct CompileTimeConsts {
 }
 
 impl CompileTimeConsts {
-    pub(crate) fn with_storage_abi(storage_abi: crate::value::StorageAbi) -> Self {
-        Self {
-            storage_abi,
-            ..Default::default()
-        }
-    }
-
     fn key(name: &str) -> SmolStr {
         SmolStr::new(name.to_ascii_uppercase())
     }
@@ -70,20 +62,17 @@ impl CompileTimeConsts {
 
 pub(crate) struct LoweredProgram {
     pub(crate) program: ProgramDef,
-    pub(crate) external_names: Vec<SmolStr>,
     pub(crate) globals: Vec<GlobalInit>,
     pub(crate) access: Vec<AccessDecl>,
 }
 
 pub(crate) struct ProgramVars {
     pub(crate) globals: Vec<GlobalInit>,
-    pub(crate) external_names: Vec<SmolStr>,
     pub(crate) vars: Vec<VarDef>,
     pub(crate) temps: Vec<VarDef>,
 }
 
 pub(crate) struct ConfigModel {
-    pub(crate) configuration_name: Option<SmolStr>,
     pub(crate) resource_name: Option<SmolStr>,
     pub(crate) globals: Vec<GlobalInit>,
     pub(crate) tasks: Vec<crate::task::TaskConfig>,
@@ -99,6 +88,33 @@ pub(crate) struct ProgramInstanceConfig {
     pub(crate) task: Option<SmolStr>,
     pub(crate) retain: Option<crate::RetainPolicy>,
     pub(crate) fb_tasks: Vec<FbTaskBinding>,
+    /// The connections of the instance's inputs and outputs (IEC 61131-3 §6.8.2, Table 62 8a, 8b,
+    /// 9a, 9b).
+    pub(crate) connections: Vec<ProgramConnection>,
+}
+
+/// A connection of a program instance's input or output in its configuration (IEC 61131-3 §6.8.2,
+/// Table 62 8a, 8b, 9a, 9b): `x1 := %IX1.1`, `x2 := w`, `out1 => w`.
+#[derive(Debug, Clone)]
+pub(crate) struct ProgramConnection {
+    /// The program's input, connected with `:=`, or output, connected with `=>`.
+    pub(crate) parameter: SmolStr,
+    /// Whether the connection is of an output.
+    pub(crate) output: bool,
+    /// What the input reads or the output writes.
+    pub(crate) end: ConnectionEnd,
+}
+
+/// The other end of a program connection.
+#[derive(Debug, Clone)]
+pub(crate) enum ConnectionEnd {
+    /// A directly represented variable, with its text as written.
+    Address { address: IoAddress, text: SmolStr },
+    /// A global variable or an element of one, by its name, its members and constant indices; a
+    /// name alone may also be a value of the parameter's enumeration.
+    Global(Vec<AccessPart>),
+    /// A constant.
+    Constant(Expr),
 }
 
 #[derive(Debug, Clone)]
@@ -130,7 +146,6 @@ pub(crate) struct AccessDecl {
 #[derive(Debug, Clone)]
 pub(crate) struct ConfigInit {
     /// Original declaration/binding label for hosted I/O presentation only.
-    pub(crate) display_name: Option<SmolStr>,
     pub(crate) path: AccessPath,
     pub(crate) address: Option<IoAddress>,
     pub(crate) type_id: TypeId,
@@ -143,17 +158,36 @@ pub(crate) enum ResolvedAccess {
     Variable {
         reference: crate::value::ValueRef,
         partial: Option<crate::value::PartialAccess>,
+        /// The same place by the names of the program's symbols, as a compiled program reaches it.
+        symbol: AccessSymbol,
     },
+}
+
+/// A place of the program by the names of its symbols (specification 44 §5.7): the variable the
+/// path's names reach, and the path into that variable's value; `None` for a place within a
+/// function block instance that an array or a structure holds, which no symbol names.
+pub(crate) type AccessSymbol = Option<(SmolStr, Vec<crate::value::RefSegment>)>;
+
+/// A `VAR_ACCESS` declaration as the test harness reads and writes it (specification 10 §4.1.2):
+/// its name, the place it names by the program's symbols, its partial selection and whether it
+/// takes writes.
+#[derive(Debug, Clone)]
+pub(crate) struct NamedAccess {
+    pub(crate) name: SmolStr,
+    pub(crate) symbol: AccessSymbol,
+    pub(crate) partial: Option<crate::value::PartialAccess>,
+    pub(crate) writable: bool,
 }
 
 #[derive(Clone)]
 pub(crate) struct GlobalInit {
-    pub(crate) constant: bool,
     pub(crate) name: SmolStr,
     pub(crate) type_id: TypeId,
     pub(crate) initializer: Option<Expr>,
     pub(crate) retain: crate::RetainPolicy,
     pub(crate) address: Option<SmolStr>,
+    /// Declared in a `VAR_GLOBAL CONSTANT` block.
+    pub(crate) constant: bool,
 }
 
 #[derive(Clone)]
@@ -172,6 +206,9 @@ pub(crate) struct LoweringContext<'a> {
     pub(crate) semantic_file_id: Option<FileId>,
     pub(crate) statement_locations: &'a mut Vec<SourceLocation>,
     pub(crate) compile_time_consts: CompileTimeConsts,
+    /// Whether the POUs' statements are lowered. The compiled-program build reads only the
+    /// declarations and generates the statements from the syntax tree (specification 44 §3).
+    pub(crate) lower_bodies: bool,
 }
 
 pub(crate) struct LoweringInputs<'a> {
@@ -181,6 +218,7 @@ pub(crate) struct LoweringInputs<'a> {
     pub(crate) semantic_file_id: Option<FileId>,
     pub(crate) statement_locations: &'a mut Vec<SourceLocation>,
     pub(crate) compile_time_consts: CompileTimeConsts,
+    pub(crate) lower_bodies: bool,
 }
 
 impl<'a> LoweringInputs<'a> {
@@ -199,6 +237,7 @@ impl<'a> LoweringInputs<'a> {
             semantic_file_id,
             statement_locations,
             compile_time_consts,
+            lower_bodies: true,
         }
     }
 
@@ -216,6 +255,7 @@ impl<'a> LoweringInputs<'a> {
             semantic_file_id: self.semantic_file_id,
             statement_locations: &mut *self.statement_locations,
             compile_time_consts: self.compile_time_consts.clone(),
+            lower_bodies: self.lower_bodies,
         }
     }
 }
@@ -246,11 +286,10 @@ impl LoweringContext<'_> {
     }
 
     pub(crate) fn eval_compile_time_const_expr(&self, expr: &Expr) -> Result<Value, CompileError> {
-        crate::helper_eval::eval_const_expr_with_abi(
+        crate::helper_eval::eval_const_expr_with_resolver_and_registry(
             expr,
             &self.profile,
             self.registry,
-            self.compile_time_consts.storage_abi,
             &|name| self.lookup_compile_time_value(name),
         )
         .map_err(|err| CompileError::new(err.to_string()))

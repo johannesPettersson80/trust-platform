@@ -1,0 +1,282 @@
+{
+  "schemaVersion": 4,
+  "id": "control-controllability",
+  "title": "Controllability",
+  "level": "Modern",
+  "sequence": 75,
+  "equipment": "A two-tank gravity cascade with one inlet pump",
+  "physicalPurpose": "Move both tank levels with the one pump that fills only the upstream tank.",
+  "principalTechnique": "Controllability matrix [B, AB] and a model-designed steering pulse pair",
+  "objective": "Decide from [B, AB] whether one pump can move both levels, steer the cascade to tank 1 at rest with tank 2 raised, and show that no flow can hold that state.",
+  "prerequisites": [
+    "control-lesson-20",
+    "control-relative-gain-array"
+  ],
+  "nextLesson": "control-observability",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Tank 2 level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 0.5,
+      "resolution": 1e-06,
+      "binding": "%IL8"
+    },
+    {
+      "role": "MV",
+      "name": "Pump flow",
+      "unit": "m3/s",
+      "minimum": 0,
+      "maximum": 0.02,
+      "resolution": 1e-06,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Tank 1 level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 0.5,
+      "resolution": 1e-06,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Model tank 1 level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 0.5,
+      "resolution": 1e-06,
+      "binding": "%ML0"
+    },
+    {
+      "role": "state",
+      "name": "Model tank 2 level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 0.5,
+      "resolution": 1e-06,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX16.0"
+    },
+    {
+      "role": "state",
+      "name": "Clock valid",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX16.1"
+    },
+    {
+      "role": "state",
+      "name": "Fault latched",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX16.2"
+    }
+  ],
+  "plant": {
+    "modelId": "two-tank-cascade",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "area_m2",
+        "value": 0.5,
+        "unit": "m2"
+      },
+      {
+        "name": "outflow_coefficient_m2_sqrt_m_per_s",
+        "value": 0.02,
+        "unit": "m^(5/2)/s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "tank1Level": 0.25,
+      "tank2Level": 0.25
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Pump flow": 0.01,
+      "Tank 1 level": 0.25,
+      "Tank 2 level": 0.25
+    },
+    "validityRange": [
+      {
+        "signal": "Tank 1 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      },
+      {
+        "signal": "Tank 2 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      }
+    ],
+    "simplifications": [
+      "0.5·dh1/dt = q − 0.020·√h1 and 0.5·dh2/dt = 0.020·√h1 − 0.020·√h2; tank 1 discharges freely into tank 2, without backpressure.",
+      "Levels are measured exactly; the ST model is Lesson 74's local model advanced by one explicit one-second step."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "pump": "0.010 m3/s, both tanks at rest at 0.25 m"
+    },
+    "limitation": "The pump fills only tank 1: it is not obvious that one pump can set both levels, and no constant flow holds unequal levels."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "pump": "0.011 m3/s for 20 s, 0.009 m3/s for 11 s, then 0.010 m3/s",
+      "durationSeconds": 121
+    },
+    "decision": "Controllable: Control Studio reports rank 2 of 2 with [B, AB] = [2, −0.08; 0, 0.08]. The model-designed pulse pair brought tank 1 back within 0.13 mm of rest with tank 2 10.3 mm above it at 31 s; tank 2 then drained to 3.3 mm at 60 s and 0.3 mm at 120 s with tank 1 at rest, so the state was reached but not held. The rank supports transient steering of the local model within the pump's range only."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 123,
+    "settlingSeconds": 90,
+    "disturbances": [
+      "Pump 0.010 → 0.011 m3/s for 20 s, then 0.009 m3/s for 11 s, then 0.010 m3/s for 90 s"
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "steered_tank1_deviation",
+      "signal": "Tank 1 level",
+      "window": "31 s after the start",
+      "comparator": "<=",
+      "limit": 0.0005,
+      "unit": "m",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "steered_tank2_rise",
+      "signal": "Tank 2 level",
+      "window": "31 s after the start",
+      "comparator": ">=",
+      "limit": 0.009,
+      "unit": "m",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_absolute_model_error",
+      "signal": "Tank 2 level",
+      "window": "whole experiment, model level against measured level",
+      "comparator": "<=",
+      "limit": 0.001,
+      "unit": "m",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Pump flow",
+        "minimum": 0,
+        "maximum": 0.02,
+        "unit": "m3/s"
+      },
+      {
+        "signal": "Tank 1 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      },
+      {
+        "signal": "Tank 2 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      }
+    ],
+    "abortPredicates": [
+      "A level outside 0.05–0.45 m or a clock interval outside 1 ± 0.05 s latches zero flow",
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 0,
+    "restorationMode": "When the experiment ends, the pump returns to 0.010 m3/s; a latched fault holds zero flow until a restart from the rest state.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical pump changes",
+      "Physical use requires independent level-limit, interlock and approval review"
+    ]
+  },
+  "workflowStages": [
+    "Identify",
+    "Tune"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/67-75-state-estimation-and-optimal-control.md#68-controllability",
+    "nativeTest": "lesson68",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_67_69 lesson68",
+    "projectPath": "examples/control/11-state-space-estimation-and-predictive-control/66-controllability",
+    "runArtifactFields": [
+      "controllabilityRank",
+      "controllabilityMatrix",
+      "tankLevels",
+      "modelLevels",
+      "pumpFlow",
+      "clockAndFaultFlags",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-controllability"
+  },
+  "video": {
+    "viewerOutcome": "See [B, AB] give rank 2, then watch one pump bring tank 1 back to rest while tank 2 stays raised, and tank 2 drain because no flow can hold it there.",
+    "requiredVisibleEvidence": [
+      "the supplied A, B, C and D",
+      "controllability rank 2 of 2 with [B, AB]",
+      "the pulse pair on the pump",
+      "tank 1 at rest with tank 2 raised at 31 s",
+      "tank 2 draining afterwards",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 74's model followed both tank levels within 0.57 mm. It also showed that the one pump reaches tank 2 only through tank 1: after 20 s of raised flow, tank 2 kept rising for 17 s after the pump returned. Can that one pump still set both levels as we choose, for example bring tank 1 back to rest while tank 2 stays raised?\n\nWe will test the model for that ability and then steer the tanks with two pump pulses.",
+    "reason": "We need to:\n\n1. tell from the model whether one input can move both levels;\n2. find a pump sequence that does it; and\n3. tell reaching a state apart from holding it.",
+    "theory": [
+      "A system is **controllable** when its inputs can move every store to any value over time. One pump can steer both tanks, because the first tank feeds the second.\n\n**In words.** Controllable does not mean that an input reaches every store directly. The pump puts water only into tank 1, yet it acts in two ways:\n\n1. **Directly.** Raising the pump fills tank 1; tank 2 does not change at that moment.\n2. **Through the process.** The extra water in tank 1 then flows on into tank 2: tank 1 loses what tank 2 gains.\n\nThe two effects move the levels in different directions: the first raises tank 1 alone, the second shifts water from tank 1 to tank 2. Mixing them over time, raising the pump at some moments and lowering it at others, moves the two levels to any nearby pair, even one that no constant pump flow gives, such as tank 1 at rest with tank 2 raised. It is like parking a car: the car cannot move sideways, yet forward and backward moves with the wheels turned bring it sideways into the space. If both effects moved the levels the same way, for example if tank 1 drained to the floor instead of into tank 2, no pump sequence could ever change tank 2.\n\nControllability is about moving the states, not holding them: a pair of levels the pump can reach for a moment need not be one the tanks can stay at.\n\n**The formula.** For a model $\\dot x = Ax + Bu$ with $n$ states, put the input's direct effect and the effects the process passes on side by side:\n\n$$\n\\mathcal C = [B,\\ AB,\\ \\ldots,\\ A^{n-1}B].\n$$\n\nThe model is controllable when $\\mathcal C$ has rank $n$.\n\n- $n$ is the number of states;\n- $B$ is the input's direct effect: the rate each state gets from one unit of input;\n- $AB$ is the effect passed on: the rates the process itself produces once the input has pushed the states along $B$; $A^2B$ passes it on once more, and so on up to $A^{n-1}B$;\n- $\\mathcal C$ is the **controllability matrix**, with these $n$ columns for each input;\n- the **rank** of a matrix is the number of its columns that are **independent**: not obtainable by multiplying the other columns by numbers and adding them. For a square matrix, rank $n$ is the same as a determinant that is not zero (lesson 70).\n\n**Example: the two tanks.** Lesson 74's model has $n = 2$, $A = \\begin{bmatrix}-0.04&0\\\\0.04&-0.04\\end{bmatrix}$ and $B = \\begin{bmatrix}2\\\\0\\end{bmatrix}$; $x_1$ and $x_2$ are the levels' deviations from 0.25 m, in metres, and $v$ is the pump's deviation from 0.010 m³/s, in cubic metres per second.\n\nFollow the test:\n\n1. Direct effect: $B = [2, 0]^T$. Raising the pump by 0.001 m³/s gives the rates $0.001\\,B = [0.002, 0]^T$ m/s: tank 1 rises 2 mm per second, tank 2 not at all.\n2. Passed on: $AB = \\begin{bmatrix}-0.04&0\\\\0.04&-0.04\\end{bmatrix}\\begin{bmatrix}2\\\\0\\end{bmatrix} = \\begin{bmatrix}-0.08\\\\0.08\\end{bmatrix}$. After one second of that raised flow tank 1 holds 2 mm extra, $x = [0.002, 0]^T$, and the process produces the rates $Ax = [-0.00008, +0.00008]^T$ m/s: tank 1 loses 0.08 mm per second and tank 2 gains it. Water moves from tank 1 to tank 2.\n3. Side by side: $\\mathcal C = [B,\\ AB] = \\begin{bmatrix}2&-0.08\\\\0&0.08\\end{bmatrix}$. Neither column is a multiple of the other, and the determinant is $2 \\cdot 0.08 - (-0.08) \\cdot 0 = 0.16$, not zero: the rank is 2, the number of states. The model is controllable.\n\nThe rank says that some pump sequence exists; the model also finds one. To bring tank 1 back to rest with tank 2 raised, raise the pump by $a$ for a time $t_1$, then lower it by $a$ for a time $t_2$ that empties tank 1 again. Let:\n\n- $a$ be the pulse size, in cubic metres per second; and\n- $t_1$ and $t_2$ be the times of raised and lowered flow, in seconds.\n\nEach pump setting drives tank 1 towards its own steady level, $2a/0.04 = 50a$ above or below rest, with the time constant $1/0.04 = 25$ s. Follow a short plan:\n\n4. Raised flow: $x_1 = 50a\\,(1 - e^{-0.04t})$. With $a = 0.001$ m³/s and $t_1 = 10$ s, $x_1 = 0.05\\,(1 - e^{-0.4}) = 0.05 \\cdot 0.330 = 0.0165$ m: tank 1 stands 16.5 mm high.\n5. Lowered flow: tank 1 now heads for $-50a = -0.05$ m, starting from 0.0165 m, so, with $t$ counted from the start of the lowered flow, $x_1 = -0.05 + (0.0165 + 0.05)\\,e^{-0.04t}$. It reaches zero when $e^{-0.04t_2} = 0.05/0.0665$, that is $t_2 = 25 \\ln(0.0665/0.05) = 25 \\cdot 0.285 = 7.1$ s.\n6. Meanwhile tank 2 received the water that tank 1 passed on: the model puts it 4.2 mm above rest at that moment (calculated). Tank 1 is at rest and tank 2 is raised: one pump has moved the two levels apart.\n\n**The limitation.** The pair is reached, not held. Tank 2 is steady only when $\\dot x_2 = 0.04\\,(x_1 - x_2) = 0$, that is when $x_1 = x_2$, whatever the pump does: every constant pump flow settles both tanks at the same level. Once the pump returns to 0.010 m³/s, tank 1 stays at rest and tank 2 drains, $\\dot x_2 = -0.04\\,x_2$. The rank also concerns only the local model: it does not lift the pump's 0–0.020 m³/s range, and a faster move needs larger flows. The ±0.001 m³/s pulses are a teaching choice that keeps the levels near 0.25 m, where the model holds."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. The experiment raises the pump by 0.001 m³/s for 20 s. How high is tank 1 when the lowered flow starts?\n2. How long must the lowered flow last to bring tank 1 back to rest, and where is tank 2 then: above, at or below rest?\n3. What does tank 2 do after the pump returns to 0.010 m³/s, and how high is it 60 s and 120 s after the step?\n\n| From the model | Value |\n| --- | ---: |\n| Tank 1 after 20 s of raised flow | 27.5 mm above rest |\n| Lowered flow | 10.97 s, so 11 updates |\n| Tank 2 at 31 s | 10.3 mm above rest |\n| Tank 2 at 60 s and 120 s | 3.2 mm and 0.3 mm |",
+    "practicalPreparation": [
+      "1. Open this lesson's project and start **Simulator**. Both tanks rest at 0.25 m with 0.010 m³/s. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Supplied plant model** from **Method** and open `provided-model.json`.\n3. On **Tune**, choose **Controllability and observability** and press **Calculate state structure**. Read the rank line, then open **Calculation details**: each matrix lists its rows in the declared order, tank 1 first.\n4. On **Identify**, choose **Project experiment**. **Signals** shows `P1.Tank2M · Process value (m)` and `P1.PumpM3PerS · Applied output (m3/s)`; add `P1.Tank1M · state (m)`, `P1.Model1M · state (m)` and `P1.Model2M · state (m)`.\n5. Answer the predictions, select **Review project test** and check the declared **123 s**.\n6. Select **Confirm and start**. The pump steps at the program's next one-second update, about 2 s later; times below count from that step.\n7. After the run, hover 20 s, 31 s, 60 s and 120 s after the step.\n8. At completion Control Studio shows **Project test completed. Outputs restored.**\n\nSelect **Abort test** to stop early; to repeat, restart **Simulator** so both tanks start at rest."
+    ],
+    "baseline": "The one pump fills only tank 1; tank 2 is reached only through tank 1, and no constant flow holds unequal levels.",
+    "change": "Form [B, AB] and its rank in Control Studio, design a pulse pair from the model that returns tank 1 to rest with tank 2 raised, and run it to see the state reached and then lost.",
+    "comparison": "![Two pulses bring tank 1 back to rest with tank 2 raised; then tank 2 drains](figures/steering-two-levels.svg)\n\nThe numbered marks answer predictions 2 and 3; the table answers prediction 1. **Controllability and observability** confirms the rank test of The new idea: **Controllability rank 2 of 2**, with **Controllability [B, AB, …]** = [2, −0.08]; [0, 0.08]. The tool also reports the observability rank, which the next lesson explains.\n\nFrom Control Studio's recording, times after the pump step:\n\n| After the step | Pump | Tank 1 | Tank 2 | Model tank 1 / tank 2 |\n| --- | ---: | ---: | ---: | ---: |\n| 20 s | 0.011 → 0.009 m³/s | 0.2777 m | 0.2594 m | 0.2779 / 0.2595 m |\n| 31 s | 0.009 → 0.010 m³/s | 0.2501 m | 0.2603 m | 0.2497 / 0.2608 m |\n| 60 s | 0.010 m³/s | 0.2500 m | 0.2533 m | 0.2499 / 0.2532 m |\n| 120 s | 0.010 m³/s | 0.2500 m | 0.2503 m | 0.2500 / 0.2503 m |\n\n1. At 20 s tank 1 stood 27.7 mm above rest: 27.5 mm by the formula, 27.9 mm in the program's one-second model.\n2. The 11 s counter-pulse brought tank 1 back within 0.13 mm of rest while tank 2 stood 10.3 mm above it: one pump moved the two levels apart. Tank 2 peaked at 0.2614 m at 26 s, when tank 1 had fallen to its level.\n3. From 31 s tank 2 drained, 3.3 mm at 60 s and 0.3 mm at 120 s, while tank 1 stayed at rest: the state was reached, not held. `CascadeModel` followed both levels within 0.47 mm.\n\nThe rank cost one small calculation and told in advance that the steering could work; the model then timed it. The steering had a price: the counter-pulse was timed from tank 1's level, so it needed the whole state. Controllability is accepted for transient steering of this cascade around 0.25 m within the pump's range; it says nothing about holding unequal levels. These are simulation results.",
+    "validation": "![Two pulses bring tank 1 back to rest with tank 2 raised; then tank 2 drains](figures/steering-two-levels.svg)\n\nThe numbered marks answer predictions 2 and 3; the table answers prediction 1. **Controllability and observability** confirms the rank test of The new idea: **Controllability rank 2 of 2**, with **Controllability [B, AB, …]** = [2, −0.08]; [0, 0.08]. The tool also reports the observability rank, which the next lesson explains.\n\nFrom Control Studio's recording, times after the pump step:\n\n| After the step | Pump | Tank 1 | Tank 2 | Model tank 1 / tank 2 |\n| --- | ---: | ---: | ---: | ---: |\n| 20 s | 0.011 → 0.009 m³/s | 0.2777 m | 0.2594 m | 0.2779 / 0.2595 m |\n| 31 s | 0.009 → 0.010 m³/s | 0.2501 m | 0.2603 m | 0.2497 / 0.2608 m |\n| 60 s | 0.010 m³/s | 0.2500 m | 0.2533 m | 0.2499 / 0.2532 m |\n| 120 s | 0.010 m³/s | 0.2500 m | 0.2503 m | 0.2500 / 0.2503 m |\n\n1. At 20 s tank 1 stood 27.7 mm above rest: 27.5 mm by the formula, 27.9 mm in the program's one-second model.\n2. The 11 s counter-pulse brought tank 1 back within 0.13 mm of rest while tank 2 stood 10.3 mm above it: one pump moved the two levels apart. Tank 2 peaked at 0.2614 m at 26 s, when tank 1 had fallen to its level.\n3. From 31 s tank 2 drained, 3.3 mm at 60 s and 0.3 mm at 120 s, while tank 1 stayed at rest: the state was reached, not held. `CascadeModel` followed both levels within 0.47 mm.\n\nThe rank cost one small calculation and told in advance that the steering could work; the model then timed it. The steering had a price: the counter-pulse was timed from tank 1's level, so it needed the whole state. Controllability is accepted for transient steering of this cascade around 0.25 m within the pump's range; it says nothing about holding unequal levels. These are simulation results.",
+    "explanation": "One input can move every state when its direct effect $B$ and the effects the dynamics pass on, $AB$ and beyond, point in independent directions: the controllability matrix has full rank.\n\nHere one pump reached unequal levels that no constant flow can hold: controllability concerns moving the state, not holding it.",
+    "transfer": "The counter-pulse was timed from tank 1's level, which this rig measures; the real installation measures only tank 2. Being able to steer the states does not mean the sensor tells us what they are.\n\n[Observability](../67-observability/README.md) asks whether tank 2's readings reveal tank 1's level."
+  }
+}

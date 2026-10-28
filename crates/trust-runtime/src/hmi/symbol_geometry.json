@@ -1,0 +1,145 @@
+{
+  "format": 1,
+  "labelHeight": 44,
+  "shapes": {
+    "cooler": { "size": [64, 64], "ports": [
+      { "name": "inlet", "at": [0, 18], "direction": "left" },
+      { "name": "outlet", "at": [64, 18], "direction": "right" }
+    ] },
+    "coupled-vessels": { "size": [96, 64], "ports": [
+      { "name": "inlet-1", "at": [20, 0], "direction": "up" },
+      { "name": "outlet-1", "at": [20, 64], "direction": "down" },
+      { "name": "inlet-2", "at": [76, 0], "direction": "up" },
+      { "name": "outlet-2", "at": [76, 64], "direction": "down" }
+    ] },
+    "cyclone": { "size": [64, 64], "ports": [
+      { "name": "inlet", "at": [0, 14], "direction": "left" },
+      { "name": "gas-outlet", "at": [32, 0], "direction": "up" },
+      { "name": "solids-outlet", "at": [32, 64], "direction": "down" }
+    ] },
+    "dosing-pump": { "size": [64, 64], "ports": [
+      { "name": "inlet", "at": [14, 64], "direction": "down" },
+      { "name": "outlet", "at": [14, 0], "direction": "up" }
+    ] },
+    "equipment": { "size": [64, 64], "ports": [] },
+    "gravity-tank": { "size": [64, 64], "ports": [
+      { "name": "inlet", "at": [20, 0], "direction": "up" },
+      { "name": "outlet", "at": [32, 64], "direction": "down" }
+    ] },
+    "heat-exchanger": { "size": [64, 64], "ports": [
+      { "name": "inlet", "at": [0, 32], "direction": "left" },
+      { "name": "outlet", "at": [64, 32], "direction": "right" },
+      { "name": "medium-inlet", "at": [32, 0], "direction": "up" },
+      { "name": "medium-outlet", "at": [32, 64], "direction": "down" }
+    ] },
+    "heater": { "size": [64, 64], "ports": [
+      { "name": "inlet", "at": [20, 0], "direction": "up" },
+      { "name": "outlet", "at": [64, 16], "direction": "right" }
+    ] },
+    "instrument": { "size": [48, 48], "label": "beside", "ports": [] },
+    "jacketed-vessel": { "size": [64, 64], "ports": [
+      { "name": "inlet", "at": [32, 0], "direction": "up" },
+      { "name": "outlet", "at": [32, 64], "direction": "down" },
+      { "name": "jacket-inlet", "at": [0, 52], "direction": "left" },
+      { "name": "jacket-outlet", "at": [64, 26], "direction": "right" }
+    ] },
+    "large-equipment": { "size": [96, 64], "ports": [] },
+    "mixer": { "size": [64, 64], "ports": [
+      { "name": "inlet", "at": [0, 32], "direction": "left" },
+      { "name": "inlet-2", "at": [24, 64], "direction": "down" },
+      { "name": "outlet", "at": [64, 32], "direction": "right" }
+    ] },
+    "piped": { "size": [64, 64], "ports": [
+      { "name": "inlet", "at": [0, 32], "direction": "left" },
+      { "name": "outlet", "at": [64, 32], "direction": "right" }
+    ] },
+    "pump": { "size": [64, 64], "ports": [
+      { "name": "inlet", "at": [0, 36], "direction": "left" },
+      { "name": "outlet", "at": [64, 20], "direction": "right" }
+    ] },
+    "screen": { "size": [64, 64], "ports": [
+      { "name": "inlet", "at": [8, 0], "direction": "up" },
+      { "name": "oversize", "at": [64, 44], "direction": "right" },
+      { "name": "undersize", "at": [32, 64], "direction": "down" }
+    ] },
+    "sensor-pair": { "size": [112, 48], "label": "beside", "ports": [] },
+    "supply": { "size": [64, 64], "ports": [
+      { "name": "outlet", "at": [64, 32], "direction": "right" }
+    ] },
+    "tank": { "size": [64, 64], "ports": [
+      { "name": "inlet", "at": [20, 0], "direction": "up" },
+      { "name": "outlet", "at": [64, 46], "direction": "right" }
+    ] },
+    "tank-cascade": { "size": [96, 72], "ports": [
+      { "name": "inlet", "at": [14, 0], "direction": "up" },
+      { "name": "outlet", "at": [96, 60], "direction": "right" }
+    ] },
+    "valve": { "size": [64, 64], "ports": [
+      { "name": "inlet", "at": [0, 44], "direction": "left" },
+      { "name": "outlet", "at": [64, 44], "direction": "right" }
+    ] },
+    "vessel": { "size": [64, 64], "ports": [
+      { "name": "inlet", "at": [32, 0], "direction": "up" },
+      { "name": "outlet", "at": [32, 64], "direction": "down" }
+    ] },
+    "wide-equipment": { "size": [96, 40], "ports": [] }
+  },
+  "symbols": {
+    "agitator": "equipment",
+    "analyzer": "instrument",
+    "axis-indicator": "equipment",
+    "blower": "piped",
+    "breaker": "equipment",
+    "cold-room": "large-equipment",
+    "contactor": "equipment",
+    "control-valve": "valve",
+    "controller": "instrument",
+    "conveyor": "wide-equipment",
+    "cooler": "cooler",
+    "coupled-vessels": "coupled-vessels",
+    "coupling": "large-equipment",
+    "crusher": "vessel",
+    "cyclone": "cyclone",
+    "cylinder": "wide-equipment",
+    "damper": "piped",
+    "device": "equipment",
+    "digital-switch": "instrument",
+    "dosing-pump": "dosing-pump",
+    "drive": "equipment",
+    "drum": "equipment",
+    "encoder": "equipment",
+    "fan": "equipment",
+    "filter": "piped",
+    "flow-sensor": "instrument",
+    "gravity-tank": "gravity-tank",
+    "heat-draw-off": "valve",
+    "heat-exchanger": "heat-exchanger",
+    "heater": "heater",
+    "jacketed-vessel": "jacketed-vessel",
+    "level-sensor": "instrument",
+    "level-switch": "instrument",
+    "mixer": "mixer",
+    "motor": "equipment",
+    "motor-valve": "valve",
+    "network-link": "equipment",
+    "position-sensor": "instrument",
+    "pressure-sensor": "instrument",
+    "pressure-switch": "instrument",
+    "pump": "pump",
+    "refrigeration-unit": "large-equipment",
+    "rotary-arm": "equipment",
+    "screen": "screen",
+    "sensor-pair": "sensor-pair",
+    "servo-motor": "large-equipment",
+    "shaft": "equipment",
+    "speed-sensor": "instrument",
+    "supply": "supply",
+    "tank": "tank",
+    "tank-cascade": "tank-cascade",
+    "temperature-sensor": "instrument",
+    "valve": "valve",
+    "vessel": "vessel",
+    "vfd": "equipment",
+    "weigh-scale": "equipment"
+  }
+}

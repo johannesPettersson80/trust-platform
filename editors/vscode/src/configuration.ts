@@ -26,7 +26,6 @@ const CANONICAL_KEYS: Record<string, string> = {
   "visual.openStCompanionOnCreate":
     "visual.openStructuredTextCompanionOnCreate",
   "visual.autoOpenCustomEditors": "visual.openVisualEditorsAutomatically",
-  "hmi.pollIntervalMs": "hmi.refreshIntervalMs",
 };
 
 interface ConfigurationInspect<T> {

@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 
 import { getTrustConfiguration } from "../configuration";
 import { setControlAuthToken } from "../runtimeAuth";
+import { presentCanvasReply, requestCanvasAct } from "./canvasCommands";
 import { offlineFleetRuntimeAdd } from "./offlineComm";
 
 export interface FleetActionDependencies {
@@ -14,41 +15,47 @@ export interface FleetActionDependencies {
 export class NetworkCanvasFleetActions {
   constructor(private readonly dependencies: FleetActionDependencies) {}
 
+  /**
+   * `Add runtime` of `Connect existing runtime`: `trust-lsp.devicesCanvasAct` normalizes the typed
+   * address and answers the fleet's endpoints with it (specification 25 §5.2); this stores the
+   * typed token and label for the endpoint, focuses the runtime the answer names, and writes the
+   * fleet setting.
+   */
   async addHost(message: Record<string, unknown>): Promise<void> {
-    const endpoint = normalizeFleetControlEndpoint(
-      typeof message.endpoint === "string" ? message.endpoint : ""
-    );
-    if (!endpoint) {
-      return;
-    }
     const authToken =
       typeof message.authToken === "string" ? message.authToken.trim() : "";
     const label =
       typeof message.label === "string" ? message.label.trim() : "";
-    if (authToken) {
-      await setControlAuthToken(endpoint, authToken);
-    }
-    if (label) {
-      this.dependencies.endpointLabels.set(endpoint, label);
-    }
-    if (!authToken) {
-      this.dependencies.focusEndpoint(`fleet:${endpoint}:runtime`);
-    }
     const config = trustConfig();
-    const current = config.get<string[]>("runtime.fleetEndpoints", []) ?? [];
-    if (current.includes(endpoint)) {
-      await vscode.window.showInformationMessage(
-        `${endpoint} is already in the fleet.`
-      );
-      await this.dependencies.refresh();
-      return;
+    const reply = await requestCanvasAct("add_host", {
+      endpoint: typeof message.endpoint === "string" ? message.endpoint : "",
+      fleet_endpoints: config.get<string[]>("runtime.fleetEndpoints", []) ?? [],
+      token: authToken.length > 0,
+    });
+    const added = isRecord(reply.result) ? reply.result : undefined;
+    const endpoint = typeof added?.endpoint === "string" ? added.endpoint : undefined;
+    if (endpoint) {
+      if (authToken) {
+        await setControlAuthToken(endpoint, authToken);
+      }
+      if (label) {
+        this.dependencies.endpointLabels.set(endpoint, label);
+      }
+      if (typeof added?.focus === "string") {
+        this.dependencies.focusEndpoint(added.focus);
+      }
+      if (added?.already !== true && Array.isArray(added?.fleet_endpoints)) {
+        await config.update(
+          "runtime.fleetEndpoints",
+          added.fleet_endpoints,
+          configurationTarget()
+        );
+      }
     }
-    await config.update(
-      "runtime.fleetEndpoints",
-      [...current, endpoint],
-      configurationTarget()
-    );
-    await this.dependencies.refresh();
+    await presentCanvasReply(reply);
+    if (reply.refresh) {
+      await this.dependencies.refresh();
+    }
   }
 
   async addRuntime(message: Record<string, unknown>): Promise<void> {
@@ -93,21 +100,6 @@ export class NetworkCanvasFleetActions {
   }
 }
 
-export function normalizeFleetControlEndpoint(endpoint: string): string {
-  const trimmed = endpoint.trim();
-  if (
-    trimmed.startsWith("tcp://") ||
-    trimmed.startsWith("unix://") ||
-    trimmed.length === 0
-  ) {
-    return trimmed;
-  }
-  if (/^[^/\s:]+:\d+$/.test(trimmed) || /^\[[^\]]+\]:\d+$/.test(trimmed)) {
-    return `tcp://${trimmed}`;
-  }
-  return trimmed;
-}
-
 function trustConfig(): vscode.WorkspaceConfiguration {
   return getTrustConfiguration(vscode.workspace.workspaceFolders?.[0]?.uri);
 }
@@ -116,4 +108,8 @@ function configurationTarget(): vscode.ConfigurationTarget {
   return vscode.workspace.workspaceFolders?.length
     ? vscode.ConfigurationTarget.Workspace
     : vscode.ConfigurationTarget.Global;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

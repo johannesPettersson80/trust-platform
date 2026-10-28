@@ -155,7 +155,12 @@ suite("ADS tag rendered selection", () => {
             message: "Added.",
           },
         ],
+        summary: "Added 1 tag from ADS port 301.",
       });
+      assert.ok(
+        container.textContent?.includes("Added 1 tag from ADS port 301."),
+        "the browser shows the summary the server answered with the batch",
+      );
 
       assert.strictEqual(
         checkbox.checked,
@@ -200,6 +205,7 @@ suite("ADS tag rendered selection", () => {
             message: "Could not save removal.",
           },
         ],
+        summary: "No ADS tags were removed.",
       });
       assert.strictEqual(
         checkbox.checked,
@@ -227,6 +233,7 @@ suite("ADS tag rendered selection", () => {
             message: "Removed.",
           },
         ],
+        summary: "Removed 1 tag from ADS port 301.",
       });
       assert.strictEqual(checkbox.checked, false, "a successful removal stays unchecked");
       assert.strictEqual(

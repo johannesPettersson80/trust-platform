@@ -1211,19 +1211,6 @@ limitations = ["Native assertions passed A1 run 3; see docs/notes/runtime-portab
 last_reviewed = "2026-10-09"
 
 [[mappings]]
-id = "ANOM_MAP_SLOW_DEVICE_REVIEW_DCF6125A"
-class_id = "slow_device"
-discovery_id = "DISC_50F0CBE7F09ADCF6125A"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_04.rs"
-name = "hmi_websocket_slow_consumers_do_not_block_control_plane"
-association_kind = "direct"
-injection_mechanism = "external_harness"
-assertion_summary = "The reviewed test delays a consumer or device response and asserts that the scan-facing control or worker path remains bounded."
-limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
-last_reviewed = "2026-07-18"
-
-[[mappings]]
 id = "ANOM_MAP_SLOW_DEVICE_REVIEW_9CFB4226"
 class_id = "slow_device"
 discovery_id = "DISC_22FFF435A5C79CFB4226"
@@ -1256,19 +1243,6 @@ discovery_id = "DISC_75F421CF89F3935418D6"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/device_in_the_loop.rs"
 name = "mqtt_lab_broker_records_auth_tls_reconnect_and_disconnect"
-association_kind = "direct"
-injection_mechanism = "external_harness"
-assertion_summary = "The reviewed test forces connection loss, connection failure, or reconnection and asserts recovery or status policy."
-limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
-last_reviewed = "2026-07-18"
-
-[[mappings]]
-id = "ANOM_MAP_DISCONNECT_REVIEW_60892A74"
-class_id = "disconnect"
-discovery_id = "DISC_1F69D92EC8C260892A74"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_04.rs"
-name = "hmi_websocket_reconnect_churn_remains_stable"
 association_kind = "direct"
 injection_mechanism = "external_harness"
 assertion_summary = "The reviewed test forces connection loss, connection failure, or reconnection and asserts recovery or status policy."
@@ -1360,19 +1334,6 @@ discovery_id = "DISC_7ABC26CF210FA536482F"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/connectors_status.rs"
 name = "stale_connector_state_and_stale_point_quality_are_distinct_fields"
-association_kind = "direct"
-injection_mechanism = "test_harness"
-assertion_summary = "The reviewed test supplies or projects an old or missing update and asserts stale state or quality."
-limitations = ["The association is limited to the named stimulus and assertion path; it does not establish class-wide adequacy."]
-last_reviewed = "2026-07-18"
-
-[[mappings]]
-id = "ANOM_MAP_STALE_DATA_REVIEW_168A2FE0"
-class_id = "stale_data"
-discovery_id = "DISC_0CB6E85705D0168A2FE0"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/hmi_readonly_integration/hmi_readonly_integration_part_07.rs"
-name = "hmi_widget_renderers_handle_null_stale_and_good_values"
 association_kind = "direct"
 injection_mechanism = "test_harness"
 assertion_summary = "The reviewed test supplies or projects an old or missing update and asserts stale state or quality."

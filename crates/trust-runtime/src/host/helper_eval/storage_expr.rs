@@ -15,7 +15,7 @@ use crate::program_model::{
 use crate::stdlib::{conversions, StandardLibrary, StdParams};
 use crate::value::{
     checked_array_offset_i64, parse_partial_access, read_partial_access, read_string_element,
-    ref_indices_from_iter, size_of_type_with_abi, ArrayValue, DateTimeProfile, PartialAccessError,
+    ref_indices_from_iter, size_of_type, ArrayValue, DateTimeProfile, PartialAccessError,
     RefSegment, SizeOfError, StructValue, Value, ValueRef,
 };
 
@@ -53,10 +53,9 @@ pub(super) fn eval_storage_expr_with_types(
             .ok_or(RuntimeError::TypeMismatch),
         Expr::Super => {
             let current = current_instance.ok_or(RuntimeError::TypeMismatch)?;
-            let instance = storage
+            storage
                 .get_instance(current)
-                .ok_or(RuntimeError::NullReference)?;
-            instance
+                .ok_or(RuntimeError::NullReference)?
                 .parent
                 .map(Value::Instance)
                 .ok_or(RuntimeError::TypeMismatch)
@@ -203,7 +202,7 @@ pub(super) fn eval_storage_expr_with_types(
             )?;
             match value {
                 Value::Reference(Some(reference)) => storage
-                    .materialize_by_ref(reference)
+                    .materialize_by_ref_ref(&reference)
                     .ok_or(RuntimeError::NullReference),
                 Value::Reference(None) => Err(RuntimeError::NullReference),
                 _ => Err(RuntimeError::TypeMismatch),
@@ -443,7 +442,7 @@ fn eval_array_initializer_element(
     Ok(())
 }
 
-fn array_repeat_group(expr: &Expr) -> Result<Option<(usize, &[CallArg])>, RuntimeError> {
+pub(crate) fn array_repeat_group(expr: &Expr) -> Result<Option<(usize, &[CallArg])>, RuntimeError> {
     let Expr::Call { target, args } = expr else {
         return Ok(None);
     };
@@ -784,8 +783,9 @@ fn eval_size_of(
     target: &SizeOfTarget,
 ) -> Result<Value, RuntimeError> {
     let size = match target {
-        SizeOfTarget::Type(type_id) => size_of_type_with_abi(*type_id, registry, registry.abi)
-            .map_err(size_error_to_runtime)?,
+        SizeOfTarget::Type(type_id) => {
+            size_of_type(*type_id, registry).map_err(size_error_to_runtime)?
+        }
     };
     let size = i32::try_from(size).map_err(|_| RuntimeError::Overflow)?;
     Ok(Value::DInt(size))
@@ -800,9 +800,9 @@ fn read_name(
         return Ok(value.clone());
     }
     if let Some(instance_id) = current_instance
-        && let Some(value) = storage.get_instance_var_recursive(instance_id, name.as_ref())
+        && let Some(value) = read_instance_field(storage, instance_id, name.as_ref())
     {
-        return Ok(value.clone());
+        return Ok(value);
     }
     if let Some(value) = storage.get_global(name.as_ref()) {
         return Ok(value.clone());
@@ -811,6 +811,16 @@ fn read_name(
         return Ok(value.clone());
     }
     Err(RuntimeError::UndefinedVariable(name.clone()))
+}
+
+/// The member `name` of instance `instance` or of one of its parents.
+fn read_instance_field(
+    storage: &VariableStorage,
+    instance: InstanceId,
+    name: &str,
+) -> Option<Value> {
+    let reference = storage.ref_for_instance_recursive(instance, name)?;
+    storage.materialize_by_ref_ref(&reference)
 }
 
 fn read_field(
@@ -826,9 +836,7 @@ fn read_field(
             .field(field.as_str())
             .cloned()
             .ok_or_else(|| RuntimeError::UndefinedField(field.clone())),
-        Value::Instance(id) => storage
-            .get_instance_var_recursive(id, field.as_ref())
-            .cloned()
+        Value::Instance(id) => read_instance_field(storage, id, field.as_ref())
             .ok_or_else(|| RuntimeError::UndefinedField(field.clone())),
         _ => Err(RuntimeError::TypeMismatch),
     }

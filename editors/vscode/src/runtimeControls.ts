@@ -1,4 +1,3 @@
-import { getTrustConfiguration } from "./configuration";
 import * as vscode from "vscode";
 
 import {
@@ -11,13 +10,28 @@ import {
   onDidChangeSelectedRuntime,
 } from "./selectedRuntime";
 import {
-  remoteLabelFromEndpoint,
-  selectedRuntime,
-  type RemoteRuntime,
+  resolveRunTargets,
+  SIMULATOR_RUNTIME_ID,
   type RuntimeModelSnapshot,
   type SelectedRuntime,
 } from "./trustHomeModel";
 import { workspaceHasReadableTrustProject } from "./workspaceProject";
+import {
+  announceSimulationSpeedRead,
+  isRunningSimulator,
+  latestSimulatorSpeedRead,
+  onDidChangeSimulationSpeed,
+  readSelectedSimulatorSpeed,
+  SPEED_REFRESH_INTERVAL_MS,
+  type SimulatorStatusRead,
+} from "./simulationSpeed";
+
+/** What the status bar shows: its text, whether a simulator runs under the selected target, and whether its speed is behind. */
+export interface StatusBarView {
+  readonly text: string;
+  readonly simulatorRunning: boolean;
+  readonly speedBehind: boolean;
+}
 
 // §UX (reset 2026-06-22) — the status bar is PASSIVE. It shows the ACTIVE runtime's honest state and,
 // on click, reveals the truST sidebar. It contributes NO Start/Stop command: there is exactly ONE
@@ -28,16 +42,53 @@ export function registerRuntimeControls(context: vscode.ExtensionContext): void 
     vscode.StatusBarAlignment.Left,
     100
   );
-  // Click only reveals the truST sidebar — it is not a run control.
+  // Click reveals the truST sidebar, whose Run section shows the speed and Change…. It is never a run control.
   item.command = "trust.home.focus";
   item.tooltip = "Open the truST sidebar";
   context.subscriptions.push(item);
 
+  let speedTimer: NodeJS.Timeout | undefined;
+  let refreshing = false;
+
   async function refresh(): Promise<void> {
-    const snapshot = await runtimeLifecycleService.snapshot();
-    item.text = await statusText(context, snapshot);
-    item.show();
+    refreshing = true;
+    try {
+      const snapshot = await runtimeLifecycleService.snapshot();
+      const view = await statusText(context, snapshot);
+      item.text = view.text;
+      item.command = "trust.home.focus";
+      item.tooltip = view.simulatorRunning ? "Open the truST sidebar to see or change the simulation speed" : "Open the truST sidebar";
+      item.backgroundColor = view.speedBehind
+        ? new vscode.ThemeColor("statusBarItem.warningBackground")
+        : undefined;
+      item.show();
+      followSpeed(view.simulatorRunning);
+    } finally {
+      refreshing = false;
+    }
   }
+
+  // While a simulator runs, its achieved speed is read at the existing 1.5 s canvas cadence; the timer stops with the run.
+  function followSpeed(running: boolean): void {
+    if (running && speedTimer === undefined) {
+      speedTimer = setInterval(() => {
+        if (!refreshing) void refresh();
+      }, SPEED_REFRESH_INTERVAL_MS);
+    } else if (!running && speedTimer !== undefined) {
+      clearInterval(speedTimer);
+      speedTimer = undefined;
+    }
+  }
+  context.subscriptions.push({
+    dispose: () => {
+      if (speedTimer !== undefined) clearInterval(speedTimer);
+    },
+  });
+  context.subscriptions.push(
+    onDidChangeSimulationSpeed(() => {
+      void refresh();
+    })
+  );
 
   context.subscriptions.push(
     runtimeLifecycleService.onDidChange(() => {
@@ -78,39 +129,71 @@ export function registerRuntimeControls(context: vscode.ExtensionContext): void 
   void refresh();
 }
 
-async function statusText(
+/** What the status bar shows for a lifecycle snapshot and the shared target selection. */
+export async function statusText(
   context: vscode.ExtensionContext,
   snapshot: RuntimeLifecycleSnapshot
-): Promise<string> {
+): Promise<StatusBarView> {
   if (!(await workspaceHasReadableTrustProject())) {
-    return "$(circle-outline) truST: No project";
+    return { text: "$(circle-outline) truST: No project", simulatorRunning: false, speedBehind: false };
   }
-  if (snapshot.status.runtimeState === "connected") {
-    const label =
-      snapshot.status.targetLabel?.trim() ||
-      connectedEndpointLabel(snapshot.status.endpoint);
-    return `$(plug) truST: ${label} connected`;
-  }
-  const remotes = readRemotes();
   const managed = await listManagedRuntimes(context);
-  const selected = selectedRuntime({
+  const targets = await resolveRunTargets({
     snapshot: toModelSnapshot(snapshot),
-    remotes,
     managed,
     selectedId: getSelectedRuntimeId(),
   });
-  return selectedStatusText(selected);
+  // The language server names the runtime the extension is connected to, when it is connected to one.
+  if (targets.connectedLabel) {
+    const label = snapshot.status.targetLabel?.trim() || targets.connectedLabel;
+    // A runtime that answered Connect but keeps debugging disabled is the target without a session: the bar says so,
+    // as Live Values does (specification 25, section 4.4).
+    const failure = snapshot.failure;
+    const debugDisabled =
+      snapshot.status.runtimeState !== "connected" &&
+      failure?.kind === "debug_disabled" &&
+      failure.endpoint === snapshot.status.endpoint.trim();
+    if (debugDisabled) {
+      return {
+        text: `$(plug) truST: ${label} · debugging disabled`,
+        simulatorRunning: false,
+        speedBehind: false,
+      };
+    }
+    return {
+      text: `$(plug) truST: ${label} connected`,
+      simulatorRunning: false,
+      speedBehind: false,
+    };
+  }
+  const selected = targets.selected;
+  const speed = isRunningSimulator(selected) ? await readSelectedSimulatorSpeed(snapshot) : undefined;
+  // Each read that gets a status announces it. This read is the only source of the speed event: no timer of its own.
+  if (speed) announceSimulationSpeedRead({ runtimeId: selected.id, ...speed });
+  else if (selected.id === SIMULATOR_RUNTIME_ID && !isRunningSimulator(selected) && latestSimulatorSpeedRead()?.configured !== 1) {
+    // A stopped simulator runs at no speed: its labels drop the speed and keep "Simulation" (specification 35, B9.2).
+    announceSimulationSpeedRead({ runtimeId: selected.id, simulated: true, configured: 1, speedText: "", speedBehind: false });
+  }
+  return selectedStatusView(selected, speed);
 }
 
-function connectedEndpointLabel(endpoint: string): string {
-  const trimmed = endpoint.trim();
-  if (!trimmed) {
-    return "runtime";
+/** The selected target's status, with the simulator's speed while it runs (specification 35, B9.2: "Simulator ×10"). The words,
+ * the behind flag and the paused state are the runtime's: a scan held at a breakpoint is "paused", not behind. */
+export function selectedStatusView(
+  selected: SelectedRuntime,
+  speed?: Pick<SimulatorStatusRead, "speedText" | "speedBehind" | "paused">
+): StatusBarView {
+  const running = isRunningSimulator(selected);
+  if (!running || speed === undefined) {
+    return { text: selectedStatusText(selected), simulatorRunning: running, speedBehind: false };
   }
-  if (/^unix:\/\//i.test(trimmed)) {
-    return "runtime";
-  }
-  return remoteLabelFromEndpoint(trimmed);
+  const text = speed.speedText;
+  const [icon, state] = speed.paused ? ["$(debug-pause)", "paused"] : ["$(circle-filled)", "running"];
+  return {
+    text: `${icon} truST: ${statusTargetLabel(selected)}${text ? ` ${text}` : ""} ${state}`,
+    simulatorRunning: true,
+    speedBehind: !speed.paused && speed.speedBehind,
+  };
 }
 
 function selectedStatusText(selected: SelectedRuntime): string {
@@ -132,32 +215,9 @@ function selectedStatusText(selected: SelectedRuntime): string {
   return `$(circle-outline) truST: ${statusTargetLabel(selected)} stopped`;
 }
 
+/** The selected target's name in the status bar: a managed runtime by its name, any other by its label. */
 function statusTargetLabel(selected: SelectedRuntime): string {
-  switch (selected.kind) {
-    case "remote":
-      return remoteLabelFromEndpoint(selected.id);
-    case "local":
-      return selected.id;
-    case "simulator":
-    default:
-      return "Simulator";
-  }
-}
-
-function readRemotes(): RemoteRuntime[] {
-  const endpoints =
-    getTrustConfiguration().get<string[]>("runtime.fleetEndpoints", []) ?? [];
-  const seen = new Set<string>();
-  const remotes: RemoteRuntime[] = [];
-  for (const raw of endpoints) {
-    const endpoint = (raw ?? "").trim();
-    if (!endpoint || seen.has(endpoint)) {
-      continue;
-    }
-    seen.add(endpoint);
-    remotes.push({ id: endpoint, label: remoteLabelFromEndpoint(endpoint) });
-  }
-  return remotes;
+  return selected.kind === "local" ? selected.id : selected.label;
 }
 
 function toModelSnapshot(snapshot: RuntimeLifecycleSnapshot): RuntimeModelSnapshot {

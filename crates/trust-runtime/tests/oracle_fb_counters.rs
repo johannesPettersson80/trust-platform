@@ -8,22 +8,23 @@
 //! updated on every executed call, including a call whose reset or load dominates the count.
 //!
 //! The reference model below is written from those clauses and shares no code with the runtime.
-//! Two paths are compared. The generic and typed forms run as Structured Text through TestHarness
-//! with random inputs. The storage path (`execute_builtin_in_storage`) starts CV close to the
-//! limit, so saturation is reached in a few calls for every declared type. A sequence stops at its
-//! first mismatch; every mismatch of every sequence is collected and reported together.
+//! The generic and typed forms run as Structured Text through TestHarness with random inputs, from
+//! a fresh instance, and the typed forms also from a CV written close to the limit, so saturation
+//! is reached in a few calls for every declared type. A sequence stops at its first mismatch; every
+//! mismatch of every sequence is collected and reported together.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use std::collections::BTreeMap;
 
 use trust_runtime::harness::TestHarness;
-use trust_runtime::memory::VariableStorage;
-use trust_runtime::stdlib::fbs::{execute_builtin_in_storage, BuiltinFbKind};
-use trust_runtime::value::{Duration, Value};
+use trust_runtime::value::Value;
+use trust_runtime::RestartMode;
 
 const STEPS_PER_SEQUENCE: usize = 400;
 const SEQUENCES_PER_LANE: u64 = 6;
-const STORAGE_SEQUENCES: u64 = 4;
-const STORAGE_STEPS: usize = 300;
+const PRESET_SEQUENCES: u64 = 4;
+const PRESET_STEPS: usize = 300;
 const MIN_RULE_HITS: u64 = 5;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -521,101 +522,61 @@ fn run_st_lane(lane: Lane, coverage: &mut Coverage, ledger: &mut Vec<String>) ->
     executed
 }
 
-/// The inputs of a block as named variables of a native instance.
-fn storage_inputs(block: Block, ty: Ty, signals: Signals) -> Vec<(&'static str, Value)> {
-    let pv = ("PV", ty.value(signals.pv));
-    match block {
-        Block::Ctu => vec![
-            ("CU", Value::Bool(signals.cu)),
-            ("R", Value::Bool(signals.r)),
-            pv,
-        ],
-        Block::Ctd => vec![
-            ("CD", Value::Bool(signals.cd)),
-            ("LD", Value::Bool(signals.ld)),
-            pv,
-        ],
-        Block::Ctud => vec![
-            ("CU", Value::Bool(signals.cu)),
-            ("CD", Value::Bool(signals.cd)),
-            ("R", Value::Bool(signals.r)),
-            ("LD", Value::Bool(signals.ld)),
-            pv,
-        ],
-    }
-}
-
-/// Runs the native counter from a CV near the limit it counts toward, so saturation is reached
-/// quickly for every declared type. CTD and every second CTUD sequence count down. Mismatches are
-/// appended to `ledger`.
-fn run_storage_lane(
+/// Runs the typed counter from a CV written near the limit it counts toward, so saturation is
+/// reached quickly for every declared type. CTD and every second CTUD sequence count down. A cold
+/// restart gives each sequence a fresh instance before its CV is written. Mismatches are appended
+/// to `ledger`.
+fn run_preset_lane(
     block: Block,
     ty: Ty,
     coverage: &mut Coverage,
     ledger: &mut Vec<String>,
 ) -> usize {
     let (min, max) = ty.limits();
-    let kind = match block {
-        Block::Ctu => BuiltinFbKind::Ctu,
-        Block::Ctd => BuiltinFbKind::Ctd,
-        Block::Ctud => BuiltinFbKind::Ctud,
+    let lane = Lane {
+        block,
+        ty,
+        typed: true,
+    };
+    let name = block_name(lane);
+    let mut harness = match TestHarness::from_source(&program(lane)) {
+        Ok(harness) => harness,
+        Err(error) => {
+            ledger.push(format!("{name} does not compile: {error}"));
+            return 0;
+        }
     };
     let mut executed = 0;
-    for sequence in 0..STORAGE_SEQUENCES {
+    for sequence in 0..PRESET_SEQUENCES {
         let counting_down = block == Block::Ctd || (block == Block::Ctud && sequence % 2 == 1);
         let preset = if counting_down { min + 2 } else { max - 2 };
-        let label = format!(
-            "{} native {} sequence {sequence} from CV {preset}",
-            block_base(block),
-            ty.st_name()
-        );
-        let mut rng = Rng(0x5704_0000_0000
-            + Lane {
-                block,
-                ty,
-                typed: true,
-            }
-            .index()
-                * 100
-            + sequence);
+        let label = format!("{name} sequence {sequence} from CV {preset}");
+        if let Err(error) = harness.restart(RestartMode::Cold) {
+            ledger.push(format!("{label}: the cold restart failed: {error:?}"));
+            break;
+        }
+        if let Err(error) = harness.try_set_input("ctr.CV", ty.value(preset)) {
+            ledger.push(format!("{label}: CV cannot be written: {error}"));
+            break;
+        }
+        let mut rng = Rng(0x5704_0000_0000 + lane.index() * 100 + sequence);
         let mut driver = Driver::new(&mut rng, ty);
         let mut model = Model::with_cv(block, ty, preset);
-        let mut storage = VariableStorage::default();
-        let instance = storage.create_instance(block_base(block));
-        assert!(storage.set_instance_var(instance, "CV", ty.value(preset)));
-        for step in 0..STORAGE_STEPS {
+        for step in 0..PRESET_STEPS {
             let signals = driver.next(&mut rng, ty);
-            for (name, value) in storage_inputs(block, ty, signals) {
-                assert!(storage.set_instance_var(instance, name, value));
-            }
-            if let Err(error) =
-                execute_builtin_in_storage(&mut storage, Duration::ZERO, instance, kind)
-            {
+            set_st_inputs(&mut harness, lane, signals);
+            let result = harness.cycle();
+            if !result.errors.is_empty() {
                 ledger.push(format!(
-                    "{label} step {step} with inputs {signals:?}: execution failed: {error:?}"
+                    "{label} step {step} with inputs {signals:?}: cycle errors {:?}",
+                    result.errors
                 ));
                 break;
             }
             let expected = model.step(signals, coverage);
-            let cv_ok = storage.get_instance_var(instance, "CV") == Some(&ty.value(expected.cv));
-            let flags_ok = match block {
-                Block::Ctu | Block::Ctd => {
-                    storage.get_instance_var(instance, "Q") == Some(&Value::Bool(expected.q))
-                }
-                Block::Ctud => {
-                    storage.get_instance_var(instance, "QU") == Some(&Value::Bool(expected.qu))
-                        && storage.get_instance_var(instance, "QD")
-                            == Some(&Value::Bool(expected.qd))
-                }
-            };
-            if !cv_ok || !flags_ok {
+            if let Err(message) = st_outputs_match(&harness, lane, expected) {
                 ledger.push(format!(
-                    "{label} step {step} with inputs {signals:?}: expected {expected:?}; \
-                     runtime CV={:?}, Q={:?}, QU={:?}, QD={:?}",
-                    storage.get_instance_var(instance, "CV"),
-                    storage.get_instance_var(instance, "Q"),
-                    storage.get_instance_var(instance, "QU"),
-                    storage.get_instance_var(instance, "QD"),
+                    "{label} step {step} with inputs {signals:?}: {message}"
                 ));
                 break;
             }
@@ -625,7 +586,8 @@ fn run_storage_lane(
     executed
 }
 
-/// Runs every typed variant and the generic form of one block, through both paths.
+/// Runs every typed variant, from a fresh instance and from a CV near its limit, and the generic
+/// form of one block.
 fn run_block(block: Block) {
     let mut coverage = Coverage::default();
     let mut ledger = Vec::new();
@@ -640,7 +602,7 @@ fn run_block(block: Block) {
             &mut coverage,
             &mut ledger,
         );
-        executed += run_storage_lane(block, ty, &mut coverage, &mut ledger);
+        executed += run_preset_lane(block, ty, &mut coverage, &mut ledger);
     }
     executed += run_st_lane(
         Lane {

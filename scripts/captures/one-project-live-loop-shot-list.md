@@ -27,11 +27,10 @@ Show one shipped project moving through the integrated loop:
 
 1. VS Code opens the project with ST and runtime panel visible.
 2. AI/tooling reads diagnostics or project context.
-3. A small ST or HMI descriptor edit is applied.
+3. A small ST edit is applied.
 4. Diagnostics/build state turns clean.
 5. Runtime reload or debug action runs.
 6. Runtime panel shows live I/O/state.
-7. Browser HMI reflects the same project.
 
 ## Capture Sequence
 
@@ -39,10 +38,9 @@ Show one shipped project moving through the integrated loop:
 | --- | --- | --- |
 | 0-4s | VS Code project open | ST file, runtime panel, and project tree visible |
 | 4-8s | AI/tooling context | diagnostics/tool result or command output showing project-aware context |
-| 8-13s | Apply small edit | source or `hmi/` descriptor changes in-place |
+| 8-13s | Apply small edit | source changes in-place |
 | 13-18s | Validate/reload | build/diagnostics status changes to clean, reload/debug action requested |
 | 18-25s | Live runtime | runtime panel shows live value/state |
-| 25-32s | Browser HMI | `/hmi` shows the same project state from the operator surface |
 
 ## Preferred Capture Path
 
@@ -86,7 +84,7 @@ Adjust capture geometry for the actual desktop layout before recording.
 ## Acceptance Checklist
 
 - The clip shows one project, not unrelated windows.
-- ST/runtime/HMI surfaces are visibly connected.
+- ST and runtime surfaces are visibly connected.
 - AI/tooling appears as typed/tool-backed assistance, not free-form magic.
 - No secrets, tokens, private file paths, or personal browser tabs are visible.
 - Text remains readable at README scale.

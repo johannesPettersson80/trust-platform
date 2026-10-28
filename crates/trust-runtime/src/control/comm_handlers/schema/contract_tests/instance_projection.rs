@@ -53,6 +53,7 @@ params = { input_count = 8, output_count = 8, scan_period_ms = 10, mode = "mirro
 
 [[io.drivers]]
 name = "modbus-tcp"
+enabled = false
 params = { address = "127.0.0.1:2502", unit_id = 2, input_start = 0, output_start = 0, timeout_ms = 500, on_error = "fault" }
 "#,
     )
@@ -70,6 +71,8 @@ params = { address = "127.0.0.1:2502", unit_id = 2, input_start = 0, output_star
     assert_eq!(instances[0]["display_name"], "Modbus TCP 127.0.0.1:1502");
     assert_eq!(instances[1]["id"], "modbus_tcp:2");
     assert_eq!(instances[1]["display_name"], "Modbus TCP 127.0.0.1:2502");
+    assert_eq!(instances[0]["enabled"], true);
+    assert_eq!(instances[1]["enabled"], false);
     assert!(instances
         .iter()
         .all(|instance| instance["driver"] == "modbus-tcp"));

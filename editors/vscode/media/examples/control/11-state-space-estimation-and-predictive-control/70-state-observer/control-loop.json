@@ -1,0 +1,276 @@
+{
+  "schemaVersion": 2,
+  "topology": "open-loop",
+  "id": "control-state-observer",
+  "name": "Two-tank state observers",
+  "projectId": "project:control-state-observer",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Main",
+    "design": "project",
+    "revision": "sha256:a68b9afebc313a377735a39ed3d710e23bb3b7e63364df8a7588d26d8a248397",
+    "action": "direct",
+    "taskPeriodMs": 1000
+  },
+  "signals": {
+    "processVariable": {
+      "symbol": "P1.Tank2M",
+      "address": "%IL8",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "m",
+      "range": {
+        "minimum": 0,
+        "maximum": 0.5
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.PumpM3PerS",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "m3/s",
+      "range": {
+        "minimum": 0,
+        "maximum": 0.02
+      }
+    },
+    "additional": [
+      {
+        "id": "tank-1",
+        "channel": "tank-1",
+        "role": "state",
+        "symbol": "P1.Tank1M",
+        "address": "%IL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "clean-estimate",
+        "channel": "clean-estimate",
+        "role": "state",
+        "symbol": "P1.CleanEstimate1M",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "noisy-reading",
+        "channel": "noisy-reading",
+        "role": "state",
+        "symbol": "P1.NoisyReadingM",
+        "address": "%ML0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "clean-tank-2-estimate",
+        "channel": "clean-tank-2-estimate",
+        "role": "state",
+        "symbol": "P1.CleanEstimate2M",
+        "address": "%ML72",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "noisy-estimate",
+        "channel": "noisy-estimate",
+        "role": "state",
+        "symbol": "P1.NoisyEstimate1M",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "clean-fast-estimate",
+        "channel": "clean-fast-estimate",
+        "role": "state",
+        "symbol": "P1.CleanFastEstimate1M",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "clean-innovation",
+        "channel": "clean-innovation",
+        "role": "state",
+        "symbol": "P1.CleanInnovationM",
+        "address": "%ML80",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": -0.05,
+          "maximum": 0.05
+        }
+      },
+      {
+        "id": "clean-rms",
+        "channel": "clean-rms",
+        "role": "state",
+        "symbol": "P1.CleanRmsM",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "noisy-fast-estimate",
+        "channel": "noisy-fast-estimate",
+        "role": "state",
+        "symbol": "P1.NoisyFastEstimate1M",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "clean-fast-rms",
+        "channel": "clean-fast-rms",
+        "role": "state",
+        "symbol": "P1.CleanFastRmsM",
+        "address": "%ML48",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "noisy-rms",
+        "channel": "noisy-rms",
+        "role": "state",
+        "symbol": "P1.NoisyRmsM",
+        "address": "%ML56",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "noisy-fast-rms",
+        "channel": "noisy-fast-rms",
+        "role": "state",
+        "symbol": "P1.NoisyFastRmsM",
+        "address": "%ML64",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "m",
+        "range": {
+          "minimum": 0,
+          "maximum": 0.5
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX88.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "clock-valid",
+        "channel": "clock-valid",
+        "role": "state",
+        "symbol": "P1.ClockValid",
+        "address": "%MX88.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "fault-latched",
+        "channel": "fault-latched",
+        "role": "state",
+        "symbol": "P1.FaultLatched",
+        "address": "%MX88.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 0.02
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 1000
+  },
+  "plantId": "cascade",
+  "operatingPoint": "The cascade at 0.25 m with the pump at 0.010 m3/s",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 123,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX88.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
+    "baselineSeconds": 2
+  },
+  "revision": "sha256:f110a5d92c1010665c8f1096d95a3e06fd9622a7e2848ea42f04e87681d221e6"
+}

@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
-import { CHECK_PROGRAM_COMMAND } from "../../checkProgram";
+import { CHECK_PROGRAM_COMMAND, __testClearCompileDiagnostics } from "../../checkProgram";
 import { getTrustConfiguration } from "../../configuration";
 
 function delay(ms: number): Promise<void> {
@@ -97,6 +97,10 @@ suite("Compile diagnostics integration (VS Code)", function () {
   });
 
   suiteTeardown(async () => {
+    // The invalid runtime.toml's errors would stay in Problems after the project is gone, and shut
+    // the Start and Debug gates of every later suite (specification 25 §6.6).
+    __testClearCompileDiagnostics();
+    await vscode.commands.executeCommand("workbench.action.closeAllEditors");
     try {
       await vscode.workspace.fs.delete(projectRoot, {
         recursive: true,

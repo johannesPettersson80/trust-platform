@@ -226,6 +226,8 @@ fn ads_status_report_projects_role_endpoint_and_point_counts() {
         connections: vec![AdsConnectionStatus {
             name: "line1".to_string(),
             target: Some(TargetIdentity {
+                os_version: None,
+                fingerprint: None,
                 name: Some("TwinCAT".to_string()),
                 ip: "192.168.77.20".to_string(),
                 ams_net_id: "5.23.91.12.1.1".to_string(),
@@ -388,6 +390,8 @@ fn ads_status_report_projects_reconnect_stale_fault_and_failure_details() {
             connections: vec![AdsConnectionStatus {
                 name: name.to_string(),
                 target: Some(TargetIdentity {
+                    os_version: None,
+                    fingerprint: None,
                     name: Some("TwinCAT".to_string()),
                     ip: "192.168.77.20".to_string(),
                     ams_net_id: format!("5.23.91.12.{}.1", name.len()),
@@ -458,6 +462,8 @@ fn active_ads_device_snapshot_projects_point_rows_and_counts() {
     let snapshot = ActiveAdsDeviceSnapshot {
         connection_name: "line1".to_string(),
         target: TargetIdentity {
+            os_version: None,
+            fingerprint: None,
             name: Some("TwinCAT".to_string()),
             ip: "192.168.77.20".to_string(),
             ams_net_id: "5.23.91.12.1.1".to_string(),

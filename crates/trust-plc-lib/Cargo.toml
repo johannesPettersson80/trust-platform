@@ -1,0 +1,26 @@
+[package]
+name = "trust-plc-lib"
+description = "The program library of truST's compiled PLC programs: standard functions and function blocks (specification 44 §6.8, §6.9)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+# Compiled into every program module for every target of specification 44 §4.4, so only crates
+# that build without std and without a heap and that cannot panic. `libm` is the pure-Rust
+# mathematics every target shares, and `ryu` spells reals as the runtime does (specification 44 §9).
+[dependencies]
+trust-plc-abi = { workspace = true }
+libm.workspace = true
+ryu.workspace = true
+
+# Deliberately not `[lints] workspace = true`: the library has no `unsafe` code of its own, so it
+# denies it, but its function block types are declared with `trust_plc_abi::plain_struct!`, whose
+# one registered `unsafe impl` the workspace's `forbid` would not let the macro allow.
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"

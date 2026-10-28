@@ -6,6 +6,7 @@
 mod builtins;
 mod defs;
 mod helpers;
+mod strings;
 mod table;
 
 pub use defs::*;

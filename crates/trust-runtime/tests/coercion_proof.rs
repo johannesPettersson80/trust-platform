@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
+
 use trust_runtime::harness::{CompileSession, TestHarness};
 use trust_runtime::value::Value;
 
@@ -124,7 +126,7 @@ END_PROGRAM
 "#;
 
     let err = CompileSession::from_source(source)
-        .build_runtime()
+        .declarations()
         .expect_err("INT VAR_IN_OUT passed to DINT must not compile silently");
     assert!(
         err.to_string().contains("error[E205]:"),
@@ -144,7 +146,7 @@ END_PROGRAM
 "#;
 
     let err = CompileSession::from_source(source)
-        .build_runtime()
+        .declarations()
         .expect_err("narrowing assignment must not compile silently");
     assert!(
         err.to_string().contains("error[E203]:"),

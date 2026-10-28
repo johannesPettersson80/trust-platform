@@ -33,6 +33,15 @@ Execution board for the full-map doctor command: `architecture-doctor-full-map-e
 - [x] `AUTO-DOC-006` Check forbidden silent-drop patterns such as `_initializer` discards and `default_initializer: None` in import/collector paths.
 - [x] `AUTO-DOC-007` Check agreed file/function size caps for initializer/runtime orchestration modules.
 - [x] `AUTO-DOC-008` Fail with exact file:line evidence and a short remediation hint.
+- [ ] `AUTO-DOC-009` `FULLMAP-UNBUILT` (owner, 16 October 2026, after the same-computer ADS identity
+  check left the build in `dd476a78f` without any failure): every Rust file of every package in the
+  repository is reached from a build target through rustc's module rules (`mod`, `#[path]`, inline
+  modules, `include!`); `third_party/` is skipped. Accepted exceptions live in
+  `xtask/config/full_map_policy.json` `unbuilt_source_allowlist` with an owner and a reason, and an
+  entry fails once its file is built again or deleted. Code: `xtask/src/full_map/unbuilt_sources.rs`;
+  known-bad fixtures in `unbuilt_sources/tests.rs`. A throwaway prototype over the tree at
+  `a3b47bd47` found 2 of 2,479 files outside every build, both the identity files (listed). Open
+  until the builder batch runs `cargo test -p xtask` and the full map.
 
 ## Phase 3 - Diagram Automation
 

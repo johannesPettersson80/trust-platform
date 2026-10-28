@@ -3,8 +3,8 @@ fn build_simulation_plan(
     simulation: bool,
     time_scale: u32,
 ) -> anyhow::Result<SimulationPlan> {
-    if time_scale == 0 {
-        anyhow::bail!("--time-scale must be >= 1");
+    if let Err(message) = trust_runtime::scheduler::validate_time_scale(i64::from(time_scale)) {
+        anyhow::bail!("--time-scale {}", message);
     }
 
     let mut simulation_config = bundle
@@ -16,14 +16,37 @@ fn build_simulation_plan(
     if time_scale > 1 {
         simulation_config.time_scale = time_scale;
     }
-    if simulation_config.time_scale == 0 {
-        anyhow::bail!("simulation.time_scale must be >= 1");
+    if let Err(message) =
+        trust_runtime::scheduler::validate_time_scale(i64::from(simulation_config.time_scale))
+    {
+        anyhow::bail!("simulation.time_scale {}", message);
     }
 
     let enabled = simulation_config.enabled;
-    let time_scale = simulation_config.time_scale.max(1);
+    // The speed applies only in simulation (specification 46, §6.1 item 2): a disabled simulation reports 1.
+    let time_scale = if enabled { simulation_config.time_scale.max(1) } else { 1 };
+    if enabled
+        && let Some(driver) = bundle
+            .into_iter()
+            .flat_map(|bundle| &bundle.io.drivers)
+            .find(|driver| driver.enabled && !trust_runtime::io::is_nonphysical_driver(driver.name.as_str()))
+        {
+            anyhow::bail!(
+                "simulation mode rejects enabled physical I/O driver '{}'; disable physical I/O before starting simulation",
+                driver.name
+            );
+        }
     let warning = simulation_warning_message(enabled, time_scale).unwrap_or_default();
-    let controller = enabled.then(|| trust_runtime::simulation::SimulationController::new(simulation_config));
+    let active_revision = bundle
+        .map(|bundle| trust_runtime::simulation::file_content_revision(bundle.root.join("simulation.toml")))
+        .transpose()?;
+    let controller = enabled.then(|| {
+        let controller = trust_runtime::simulation::SimulationController::new(simulation_config);
+        match active_revision {
+            Some(revision) => controller.with_active_configuration_revision(revision),
+            None => controller,
+        }
+    });
 
     Ok(SimulationPlan {
         enabled,

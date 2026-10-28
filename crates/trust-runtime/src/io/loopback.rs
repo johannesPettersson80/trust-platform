@@ -9,6 +9,9 @@ pub struct LoopbackIoDriver {
 }
 
 impl IoDriver for LoopbackIoDriver {
+    fn is_simulated(&self) -> bool {
+        true
+    }
     fn read_inputs(&mut self, inputs: &mut [u8]) -> Result<(), RuntimeError> {
         let len = inputs.len().min(self.last_outputs.len());
         inputs[..len].copy_from_slice(&self.last_outputs[..len]);

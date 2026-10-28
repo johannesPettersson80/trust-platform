@@ -1,0 +1,21 @@
+{
+  "id": "stateMachine",
+  "initial": "Initial",
+  "states": {
+    "Initial": {
+      "on": {
+        "START": {
+          "target": "Running"
+        }
+      }
+    },
+    "Running": {
+      "on": {
+        "STOP": {
+          "target": "Initial"
+        }
+      }
+    }
+  },
+  "actionMappings": {}
+}

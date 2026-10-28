@@ -9,10 +9,8 @@ use verification_cases::{
 };
 
 use super::*;
-use trust_runtime_core::vm::{
-    CycleAccess, CycleHooks, CyclePhase, LogicalExecutionServices, OwnedRuntimeState,
-    PreparationLimits, PreparedModule,
-};
+use crate::runtime::NamedGlobals;
+use trust_runtime_core::native::variables::CompiledVariables;
 
 const TEST_ID: &str = "TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001";
 const CASE_FILE: &str = "verification/cases/protocols/PROTO_OPCUA_001.toml";
@@ -89,75 +87,28 @@ fn run_lifecycle_case(
 }
 
 struct LifecycleFixture {
-    runtime: OwnedRuntimeState<LogicalExecutionServices>,
+    /// The program's one global, `line1_value : REAL`, which the protocol adapter reaches by name
+    /// at the boundaries of a scan, as a compiled program's variables are reached (specification
+    /// 44 §13.3).
+    globals: NamedGlobals,
     point: OpcUaClientPointConfig,
     bridge: OpcUaClientBridge,
     worker: OpcUaClientWorker<LifecycleTransport>,
 }
 
-/// Borrow the actual protocol adapter at its original input/output boundary.
-struct LifecycleCycle<'a> {
-    bridge: &'a mut OpcUaClientBridge,
-    phase: CyclePhase,
-    now_ms: u64,
-}
-
-impl CycleHooks for LifecycleCycle<'_> {
-    fn on_phase(
-        &mut self,
-        phase: CyclePhase,
-        access: &mut CycleAccess<'_, '_>,
-    ) -> Result<(), crate::error::RuntimeError> {
-        if phase != self.phase {
-            return Ok(());
-        }
-        let result = match phase {
-            CyclePhase::AfterInputSample => {
-                self.bridge.apply_inputs_with_cycle(access, self.now_ms)
-            }
-            CyclePhase::AfterOutputSample => {
-                self.bridge.capture_outputs_with_cycle(access, self.now_ms)
-            }
-            _ => return Err(crate::error::RuntimeError::InvalidExecutionState),
-        };
-        result.map_err(|error| {
-            error.execution_cause().cloned().unwrap_or_else(|| {
-                crate::error::RuntimeError::IoTransport(error.to_string().into())
-            })
-        })
-    }
-}
-
 impl LifecycleFixture {
     fn new(scenario: &str) -> Result<Self, String> {
-        // Lifecycle evidence uses the canonical admitted execution owner;
-        // bridge-only copyback tests use separate non-executable storage.
-        let module = crate::harness::CompileSession::from_source(
-            "VAR_GLOBAL line1_value : REAL := 0.0; END_VAR PROGRAM Main END_PROGRAM",
-        )
-        .build_bytecode_module()
-        .map_err(|error| error.to_string())?;
-        let prepared = PreparedModule::from_bytes(
-            &module.encode().map_err(|error| error.to_string())?,
-            PreparationLimits::default(),
-        )
-        .map_err(|error| error.to_string())?;
-        let runtime = std::sync::Arc::new(prepared)
-            .instantiate_owned(0)
-            .map_err(|error| error.to_string())?;
+        // The program declares `line1_value : REAL := 0.0`.
+        let globals = NamedGlobals(BTreeMap::from([("line1_value", Value::Real(0.0))]));
         let point = OpcUaClientPointConfig {
             var: SmolStr::new("line1_value"),
             node_id: "ns=2;i=2".to_string(),
             data_type: OpcUaDataType::Float,
             access: OpcUaClientPointAccess::ReadWrite,
         };
-        let reference = runtime
-            .storage()
-            .ref_for_global("line1_value")
-            .ok_or_else(|| "line1_value global reference is missing".to_string())?;
         let binding = OpcUaClientBinding {
             point: point.clone(),
-            reference,
+            target: crate::runtime::BoundGlobal(point.var.clone()),
         };
         let transport = LifecycleTransport {
             recover_succeeds: scenario == "SUBSCRIPTION_TRANSFER_RECOVERY",
@@ -186,7 +137,7 @@ impl LifecycleFixture {
             OpcUaClientBridge::with_transport(connection, transport, vec![binding])
                 .map_err(|error| error.to_string())?;
         Ok(Self {
-            runtime,
+            globals,
             point,
             bridge,
             worker,
@@ -211,19 +162,10 @@ impl LifecycleFixture {
                 self.worker
                     .tick(now_ms)
                     .map_err(|error| error.to_string())?;
+                // The next scan applies the sample at its protocol-input boundary.
                 let sampled_at = now_ms.saturating_add(1);
-                self.runtime
-                    .execute_cycle_with_hooks(
-                        crate::value::Duration::from_millis(
-                            i64::try_from(sampled_at)
-                                .map_err(|_| "sample time exceeds the runtime clock range")?,
-                        ),
-                        &mut LifecycleCycle {
-                            bridge: &mut self.bridge,
-                            phase: CyclePhase::AfterInputSample,
-                            now_ms: sampled_at,
-                        },
-                    )
+                self.bridge
+                    .apply_inputs_compiled(&mut self.globals, sampled_at)
                     .map_err(|error| error.to_string())?;
             }
             "disconnect" => {
@@ -238,29 +180,12 @@ impl LifecycleFixture {
             }
             "write" => {
                 let value_milli = trace_i64(&step.stimulus, "value_milli")?;
-                let reference = self
-                    .runtime
-                    .storage()
-                    .ref_for_global("line1_value")
-                    .ok_or_else(|| "line1_value global reference is missing".to_string())?;
-                self.runtime
-                    .write_reference(
-                        reference.as_view(),
-                        Value::Real(value_milli as f32 / 1_000.0),
-                    )
+                // The program writes the value, and its scan captures it at the output boundary.
+                self.globals
+                    .write_named("line1_value", &Value::Real(value_milli as f32 / 1_000.0))
                     .map_err(|error| format!("line1_value write failed: {error}"))?;
-                self.runtime
-                    .execute_cycle_with_hooks(
-                        crate::value::Duration::from_millis(
-                            i64::try_from(now_ms)
-                                .map_err(|_| "write time exceeds the runtime clock range")?,
-                        ),
-                        &mut LifecycleCycle {
-                            bridge: &mut self.bridge,
-                            phase: CyclePhase::AfterOutputSample,
-                            now_ms,
-                        },
-                    )
+                self.bridge
+                    .capture_outputs_compiled(&mut self.globals, now_ms)
                     .map_err(|error| error.to_string())?;
                 self.worker
                     .tick(now_ms)
@@ -273,7 +198,7 @@ impl LifecycleFixture {
 
     fn observed(&self) -> serde_json::Value {
         let snapshot = self.bridge.snapshot();
-        let storage_milli = match self.runtime.storage().get_global("line1_value") {
+        let storage_milli = match self.globals.0.get("line1_value") {
             Some(Value::Real(value)) => Some((*value * 1_000.0).round() as i64),
             _ => None,
         };

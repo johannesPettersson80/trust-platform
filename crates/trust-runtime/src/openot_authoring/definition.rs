@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 use trust_hir::openot_authoring::OotKind;
 
 use super::types::*;
-use super::validation::{collect_authoring_model, validate_authoring_sources};
+use super::validation::prepare_authoring_sources;
 use super::ST_PRODUCER_MAX_RECORD_SIZE;
 
 /// Generate a deterministic definition-file JSON document from OpenOT
@@ -16,12 +16,12 @@ use super::ST_PRODUCER_MAX_RECORD_SIZE;
 /// The `contentHash` field is SHA-256 over the generated JSON with an empty
 /// `contentHash`, encoded as lowercase hex.
 pub fn definition_json_from_sources(sources: &[SourceFile]) -> Result<Value, String> {
-    let validation_errors = validate_authoring_sources(sources);
+    let (model, validation_errors) = prepare_authoring_sources(sources);
     if !validation_errors.is_empty() {
         return Err(validation_errors.join("; "));
     }
 
-    let annotations = collect_authoring_model(sources).annotations;
+    let annotations = model.annotations;
     if annotations.is_empty() {
         return Err("no OpenOT declaration attributes found".to_string());
     }

@@ -8,7 +8,7 @@ END_VAR
 output_bit := FALSE;
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     state.auth_token = Arc::new(Mutex::new(Some(SmolStr::new("admin-token"))));
     state.control_requires_auth = true;
     state.debug_enabled.store(false, Ordering::Relaxed);
@@ -79,7 +79,10 @@ END_PROGRAM
         &state,
         None,
     );
-    assert!(admin_enable.ok, "Admin should activate debug: {admin_enable:?}");
+    assert!(
+        admin_enable.ok,
+        "Admin should activate debug: {admin_enable:?}"
+    );
     assert!(state.debug_enabled.load(Ordering::Relaxed));
 
     let engineer_force = handle_request_value(

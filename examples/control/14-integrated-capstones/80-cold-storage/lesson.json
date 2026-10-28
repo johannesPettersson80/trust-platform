@@ -1,0 +1,398 @@
+{
+  "schemaVersion": 4,
+  "id": "control-capstone-cold-storage",
+  "title": "Cold-room commissioning",
+  "level": "Modern",
+  "sequence": 4,
+  "equipment": "Walk-in food cold-storage room",
+  "principalTechnique": "Cold-storage capstone",
+  "prerequisites": [
+    "control-lesson-03"
+  ],
+  "objective": "Commission ON/OFF control with hysteresis and minimum state times.",
+  "nextLesson": "control-lesson-04",
+  "physicalPurpose": "Protect stored product and compressor cycling through an explainable thermostat, equipment-owned restart permission, and tested abnormal behavior.",
+  "signals": [
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX16.6"
+    },
+    {
+      "role": "state",
+      "name": "Safety abort",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX16.7"
+    },
+    {
+      "role": "quality",
+      "name": "Experiment inputs valid",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX17.0"
+    },
+    {
+      "role": "SP",
+      "name": "Cold-room temperature setpoint",
+      "unit": "degC",
+      "minimum": 1,
+      "maximum": 3,
+      "resolution": 0.01,
+      "binding": "%ML0"
+    },
+    {
+      "role": "PV",
+      "name": "Cold-room air temperature",
+      "unit": "degC",
+      "minimum": -30,
+      "maximum": 20,
+      "resolution": 0.01,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Requested compressor demand",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 100,
+      "binding": "%QL0"
+    },
+    {
+      "role": "MV",
+      "name": "Applied compressor-running feedback",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 100,
+      "binding": "%IL8"
+    },
+    {
+      "role": "quality",
+      "name": "Temperature quality good",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX16.1"
+    },
+    {
+      "role": "state",
+      "name": "Starter ready",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX16.2"
+    },
+    {
+      "role": "state",
+      "name": "Dwell elapsed",
+      "unit": "s",
+      "minimum": 0,
+      "maximum": 300,
+      "resolution": 0.1,
+      "binding": "%ML40"
+    },
+    {
+      "role": "state",
+      "name": "Applied-state transition count",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 10000,
+      "resolution": 1,
+      "binding": "%MD48"
+    }
+  ],
+  "plant": {
+    "modelId": "cold_storage_room_with_running_feedback",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "thermal_gain",
+        "value": -0.05,
+        "unit": "degC/%"
+      },
+      {
+        "name": "thermal_time_constant",
+        "value": 20,
+        "unit": "s"
+      },
+      {
+        "name": "closed_door_equilibrium",
+        "value": 4,
+        "unit": "degC"
+      },
+      {
+        "name": "open_door_equilibrium",
+        "value": 6,
+        "unit": "degC"
+      },
+      {
+        "name": "temperature_noise_standard_deviation",
+        "value": 0.03,
+        "unit": "degC"
+      },
+      {
+        "name": "controller_interval",
+        "value": 100,
+        "unit": "ms"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "temperatureC": 4,
+      "compressorOn": 0,
+      "initialOffTimeS": 8
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Cold-room temperature setpoint": 2,
+      "Cold-room air temperature": 2,
+      "Requested compressor demand": 0,
+      "Applied compressor-running feedback": 0,
+      "Temperature quality good": 1,
+      "Starter ready": 1
+    },
+    "validityRange": [
+      {
+        "signal": "Cold-room air temperature",
+        "minimum": -30,
+        "maximum": 20,
+        "unit": "degC"
+      },
+      {
+        "signal": "Requested compressor demand",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "Applied compressor-running feedback",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "Same room and deterministic door load as Lessons 1–3.",
+      "Noise, starter faults and measurement recovery are not silently inserted into the core assessment.",
+      "The initial OFF interval is explicitly qualified; subsequent actual state intervals require 8 s."
+    ]
+  },
+  "baseline": {
+    "executableId": "ColdStorageThermostat.SingleThreshold",
+    "settings": {
+      "setpointC": 2,
+      "onThresholdC": 2.5,
+      "offThresholdC": 1.5,
+      "minimumOnS": 8,
+      "minimumOffS": 8,
+      "initialTemperatureC": 4,
+      "DoorCloseScan": 900,
+      "EnableLifecycleChecks": false
+    },
+    "limitation": "A single switching threshold reacts repeatedly to qualified measurement noise near the boundary."
+  },
+  "change": {
+    "executableId": "ColdStorageThermostat.ConfiguredDiscreteCandidates",
+    "settings": {
+      "DoorCloseScan": 1050,
+      "minimumOnS": 8,
+      "minimumOffS": 8,
+      "EnableLifecycleChecks": false
+    },
+    "decision": "Assess the same 1–3 °C product band and 8 s normal dwell after changing only the declared door duration."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 120.1,
+    "settlingSeconds": 20,
+    "disturbances": [
+      "Apply the same seeded 0.03 degC measurement-noise record to all candidates.",
+      "Raise the no-cooling equilibrium from 4 to 6 degC from 60 through 90 seconds to represent an open door.",
+      "Restart the controller at 100 seconds with starter readiness false for 5 seconds.",
+      "Invalidate temperature quality from 110 through 112 seconds, acknowledge in manual, recover automatic operation, and test manual mode from 120 through 123 seconds."
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "door_event_maximum_temperature",
+      "signal": "Cold-room air temperature",
+      "window": "60 through 90 seconds with eligible quality",
+      "comparator": "<=",
+      "limit": 3,
+      "unit": "degC",
+      "tolerance": 0.02,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "minimum_completed_on_duration",
+      "signal": "Applied compressor-running feedback",
+      "window": "normal automatic completed intervals before controller restart",
+      "comparator": ">=",
+      "limit": 5,
+      "unit": "s",
+      "tolerance": 0.1,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "minimum_completed_off_duration",
+      "signal": "Applied compressor-running feedback",
+      "window": "normal automatic completed intervals before controller restart",
+      "comparator": ">=",
+      "limit": 5,
+      "unit": "s",
+      "tolerance": 0.1,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "ineligible_command_count",
+      "signal": "Requested compressor demand",
+      "window": "starter-not-ready, bad-quality and manual windows",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "invalid_discrete_command_count",
+      "signal": "Requested compressor demand",
+      "window": "complete 140 second run",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Cold-room air temperature",
+        "minimum": -30,
+        "maximum": 20,
+        "unit": "degC"
+      },
+      {
+        "signal": "Requested compressor demand",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "Applied compressor-running feedback",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Temperature, timing, threshold, or dwell input is nonfinite or outside its declared range.",
+      "The applied command is neither 0 nor 100 percent.",
+      "The selected candidate violates a completed 5 second minimum interval outside a declared safety or manual interruption.",
+      "A nonzero command occurs with invalid temperature quality, starter not ready, or manual mode.",
+      "Simulation evidence is presented as food-safety, compressor-endurance, electrical, refrigeration, or physical commissioning evidence."
+    ],
+    "safeMv": 0,
+    "restorationMode": "Command 0%, establish valid temperature quality, acknowledge in manual, wait for equipment-owned starter readiness, then explicitly re-enter automatic mode.",
+    "physicalApprovalRole": "authorised refrigeration controls engineer with food-safety, electrical, mechanical, operations and equipment owners",
+    "simulationOnlyRestrictions": [
+      "Do not start or stop a physical compressor from this capstone.",
+      "The simplified room-air response is not stored-product core-temperature evidence.",
+      "Physical commissioning requires reviewed refrigeration capacity, defrost, pressure, starter, electrical, alarm, food-safety, rollback, and approval evidence."
+    ]
+  },
+  "workflowStages": [
+    "Monitor",
+    "Test"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/01-11-foundations-and-pi.md",
+    "nativeTest": "cold_room_core_assessment_uses_eight_second_dwell_and_only_the_declared_door_load",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_cold_commissioning cold_room_core_assessment_uses_eight_second_dwell_and_only_the_declared_door_load",
+    "projectPath": "examples/control/14-integrated-capstones/80-cold-storage",
+    "runArtifactFields": [
+      "projectIdentity",
+      "plantIdentity",
+      "controllerRevision",
+      "evidenceClass",
+      "seed",
+      "sampleTime",
+      "SP",
+      "PV",
+      "MVRequested",
+      "MVApplied",
+      "quality",
+      "starterReady",
+      "autoMode",
+      "thresholds",
+      "dwellSettings",
+      "dwellElapsed",
+      "inhibit",
+      "transitionCount",
+      "doorEvent",
+      "restartEvent",
+      "manualEvent",
+      "metrics",
+      "candidateEligibility",
+      "selectedCandidate",
+      "limitations"
+    ],
+    "renderedJourneyId": "control-capstone-cold-storage"
+  },
+  "video": {
+    "viewerOutcome": "Commission and defend a complete cold-storage thermostat without being told the winning settings in advance.",
+    "requiredVisibleEvidence": [
+      "requirements",
+      "room and compressor signal path",
+      "candidate settings",
+      "single-threshold noise switching",
+      "hysteresis thresholds",
+      "dwell state",
+      "door event",
+      "restart and starter readiness",
+      "quality latch and manual recovery",
+      "eligible comparison",
+      "selected design",
+      "Simulation boundary"
+    ],
+    "durationClass": "extended",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 1 identified the cold-room process, temperature measurement, refrigeration command, and door disturbance. Lesson 2 showed that one switching temperature chatters: 760 command changes in 120 s. Lesson 3 separated ON and OFF thresholds and required a minimum state time, which cut that to 12 changes with every state lasting at least 8 s. Each rule was tested on its own.\n\nWe will combine those ideas in one controller you write, and decide from two recorded runs whether it meets the room's requirements.",
+    "reason": "We need to establish whether the complete controller keeps the room within\nits temperature band while respecting compressor switching times, including\nwhen the heat load changes. Testing each rule separately does not establish\nthat the combined controller meets those requirements.",
+    "theory": [
+      "**Commissioning** means checking that the finished controller does its job against requirements stated before the test, and deciding pass or fail from the recording. Here the simulator tests the complete controller under a changing heat load.\n\n**In words.** Commissioning has three parts:\n\n1. **Requirements first.** Before the test, write down what the controller must achieve, each as a number you can check in the recording: a temperature band, a minimum ON and OFF time, the allowed command values.\n2. **A test that challenges them.** Run the controller under the conditions it must handle: a normal run and a run with a changed load.\n3. **A decision from the recording.** Check every sample against every requirement. A single failure fails the controller. You then explain the failure from the trace, never by changing a requirement after seeing the result.\n\nIn PLC terms, it is a site acceptance test: the test protocol is agreed before the test, and the signature depends only on what the recording shows.\n\n**The formula.** Each requirement is a condition that must hold for every sample:\n\n$$\nL \\le PV(t) \\le U \\text{ for every } t_1 \\le t \\le t_2, \\qquad \\Delta t_k \\ge T_{dwell} \\text{ for every period } k, \\qquad u(t) \\in \\{0, 100\\}.\n$$\n\n- $PV(t)$ is the measured temperature at sample time $t$, in °C;\n- $L$ and $U$ are the lower and upper limits of the product band, in °C;\n- $t_1$ and $t_2$ are the start and end of the time window in which the band applies, in seconds;\n- $\\Delta t_k$ is the length of the $k$-th completed normal ON or OFF period, and $T_{dwell}$ the dwell time, in seconds;\n- $u(t)$ is the applied command, in percent.\n\nThe controller passes only if all three conditions hold.\n\n**This lesson's requirements.** The controller uses Lesson 3's rules: hysteresis requests ON at 2.5 °C and OFF at 1.5 °C and keeps its previous request in between; an 8 s dwell, 80 updates of 0.1 s, decides when a changed request may be applied. These are design choices for this simulation.\n\nThe exercise uses one continuous experiment clock whose time zero is **Confirm and start**. The baseline run lasts 120.1 s, and the door opens from 60 s through 90 s: long enough to show the initial cooldown, the closed-door cycle and the changed heat load. Times in your records must be measured from that single start, not from simulator startup or from a later screen action.\n\nDeclare before running: after the initial cooldown, from 40 s to the end of the run, PV must remain in the product band 1–3 °C, so $L = 1$ °C, $U = 3$ °C, $t_1 = 40$ s and $t_2 = 120.1$ s. Every normal completed ON and OFF period must last at least $T_{dwell} = 8$ s, and every applied command must be exactly 0 or 100. The band is a teaching requirement, not a claim about a real cold room.\n\n**Example.** An invented record shows the arithmetic:\n\n1. At 45.0 s the reading is 1.62 °C: $1 \\le 1.62 \\le 3$, so this sample passes.\n2. At 20.0 s the reading is 3.40 °C: that is before $t_1 = 40$ s, so the band does not apply yet; the room may start warm.\n3. An OFF period lasts 7.6 s: $7.6 < 8$, so the controller fails, whatever the temperatures did. Do not hide such a period behind a tolerance; sample resolution may be reported separately from the requirement.\n4. A command of 50 % would fail the third condition: this compressor is either OFF or ON.\n\n**The changed load.** For the second run, choose and declare one different door-open duration, such as 60–105 s, or a supplied additional heat-load event. Keep SP, thresholds, dwell, initial state, clock and product band unchanged. Your experiment design must explain why the changed load tests the same controller requirement without changing the requirement to make a result pass."
+    ],
+    "workedPrediction": "Before running, answer:\n\n1. At PV = 4 °C, what request should the controller make?\n2. After the initial cooldown, how low will the temperature go: will it stay above 1 °C? Hysteresis requests OFF at 1.5 °C, but dwell can keep refrigeration ON a little longer.\n3. How high will it go with the door open until 90 s, and until 105 s: will it stay below 3 °C?\n4. Will every ON and OFF period last at least 8 s?\n5. Will the two runs switch equally often?\n6. What evidence would make you reject the controller rather than quietly change thresholds or dwell?\n\nA command that is exactly OFF or ON says nothing about whether the product stays inside its band.",
+    "practicalPreparation": [
+      "1. Stop and restart Simulator. Confirm SP=2 °C, PV=4 °C, requested and applied compressor OFF, initial OFF-time qualified, state timer at the declared reset value, door closed, and all prior forces released. Do not rely on an initial history left by a previous run.\n2. In the **truST** side bar, select **Control Studio**. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.Setpoint · Setpoint (°C)`, `P1.ProcessValue · Process value (°C)` and `P1.CompressorCommand · Applied output (%)`, the compressor command; add `P1.CompressorRunning · MV (%)`, the compressor's reported state, `P1.DwellElapsed · state (s)`, the time in the current state, and `P1.SwitchCount · state (1)`. The thresholds and the requested state are variables in your program; the door is visible in the temperature trace.\n3. Write down the fixed product band 1–3 °C, 8 s normal dwell requirement, and command-state rule before starting. Select **Review project test** and check the declared 120.1 s duration.\n4. Select **Confirm and start**. Treat that action as clock time zero. Observe the initial cooldown and the door opening at 60–90 s. Do not change SP, thresholds, dwell, or command manually during the automatic run.\n5. Record every normal applied-state change and its interval. Count the normal state changes over the same 120 s enabled window in both runs and compare the counts; no additional switching-count limit is imposed. Check that a request between thresholds retains its previous value and that a requested reversal waits for 8 s.\n6. At completion, Control Studio shows **Project test completed. Outputs restored.** Confirm automatic control is disabled, applied command is OFF and door is closed; right-click the plot and choose **Save recording…** to keep the run. For a changed-load run, restart from the exact initial state, choose and declare your alternate door duration or heat-load event, and repeat the same 120.1 s clock.\n7. Select Abort test if PV leaves −10 to 10 °C, a command is not 0 or 100, a signal stops updating, or you cannot supervise the run. Abort forces OFF immediately. If Simulator is unresponsive, use the debug toolbar Stop and confirm OFF before restarting."
+    ],
+    "baseline": "Run zero hysteresis and zero dwell against the fixed noise record and retain its measured applied-state transitions.",
+    "change": "Run hysteresis-only and hysteresis-plus-dwell candidates with all other conditions identical, then select the simplest eligible design.",
+    "comparison": "![Both runs stay inside 1–3 °C from 40 s and every ON and OFF period lasts at least 8 s](figures/cold-room-commissioning.svg)\n\nThe figure shows the reference solution's baseline run and its changed-load run with the door open until 105 s. The numbered marks answer the predictions with the same numbers.\n\n| Run | Temperature from 40 s | Shortest ON / OFF | State changes |\n| --- | ---: | ---: | ---: |\n| Baseline, door 60–90 s | 1.35–2.84 °C | 8.0 s / 8.0 s | 12 |\n| Door open until 105 s | 1.35–2.98 °C | 8.0 s / 8.0 s | 11 |\n\nAt 4 °C the controller requested ON at once. The lowest temperature, 1.35 °C at 51.6 s, is below the 1.5 °C OFF threshold because the 8 s dwell kept refrigeration ON a little longer, yet it stays above 1 °C. The highest temperature was 2.84 °C in the baseline and 2.98 °C with the longer door opening, both at 91.5 s: the longer load used up almost all of the 3 °C margin. Every completed period lasted at least 8.0 s, and every command was exactly 0 or 100. The longer run switched once less, because the open door kept the room warmer and refrigeration ran longer.\n\nThe controller passes the core assessment only when:\n\n- the baseline record has one continuous Confirm-and-start clock and the declared 60–90 s door event;\n- PV remains in 1–3 °C from 40 s through completion;\n- every normal completed ON and OFF interval is at least 8 s;\n- every applied command is exactly OFF/0 or ON/100;\n- the changed-load run uses a learner-declared different door duration or supplied heat event while retaining the same initial state and requirements; and\n- the learner explains any failure from the trace rather than changing requirements afterward.\n\nThe reference solution meets every requirement in both runs, so it is accepted for this simulated room. Your own controller passes when your record shows the same: compare your temperatures, periods and switch counts with the table, and explain any difference from your traces rather than by changing a requirement. Separate forced shutdown intervals from normal dwell intervals: a stop or abort demonstrates recovery to OFF; it does not prove a normal dwell interval. The product band is an exercise acceptance rule, not a real refrigeration safety limit.",
+    "validation": "![Both runs stay inside 1–3 °C from 40 s and every ON and OFF period lasts at least 8 s](figures/cold-room-commissioning.svg)\n\nThe figure shows the reference solution's baseline run and its changed-load run with the door open until 105 s. The numbered marks answer the predictions with the same numbers.\n\n| Run | Temperature from 40 s | Shortest ON / OFF | State changes |\n| --- | ---: | ---: | ---: |\n| Baseline, door 60–90 s | 1.35–2.84 °C | 8.0 s / 8.0 s | 12 |\n| Door open until 105 s | 1.35–2.98 °C | 8.0 s / 8.0 s | 11 |\n\nAt 4 °C the controller requested ON at once. The lowest temperature, 1.35 °C at 51.6 s, is below the 1.5 °C OFF threshold because the 8 s dwell kept refrigeration ON a little longer, yet it stays above 1 °C. The highest temperature was 2.84 °C in the baseline and 2.98 °C with the longer door opening, both at 91.5 s: the longer load used up almost all of the 3 °C margin. Every completed period lasted at least 8.0 s, and every command was exactly 0 or 100. The longer run switched once less, because the open door kept the room warmer and refrigeration ran longer.\n\nThe controller passes the core assessment only when:\n\n- the baseline record has one continuous Confirm-and-start clock and the declared 60–90 s door event;\n- PV remains in 1–3 °C from 40 s through completion;\n- every normal completed ON and OFF interval is at least 8 s;\n- every applied command is exactly OFF/0 or ON/100;\n- the changed-load run uses a learner-declared different door duration or supplied heat event while retaining the same initial state and requirements; and\n- the learner explains any failure from the trace rather than changing requirements afterward.\n\nThe reference solution meets every requirement in both runs, so it is accepted for this simulated room. Your own controller passes when your record shows the same: compare your temperatures, periods and switch counts with the table, and explain any difference from your traces rather than by changing a requirement. Separate forced shutdown intervals from normal dwell intervals: a stop or abort demonstrates recovery to OFF; it does not prove a normal dwell interval. The product band is an exercise acceptance rule, not a real refrigeration safety limit.",
+    "explanation": "A complete cold-room controller uses hysteresis to prevent chatter and dwell to protect normal compressor timing. The learner writes the state logic, runs a fixed baseline, chooses a changed-load test, and decides from explicit temperature, timing, and command evidence.",
+    "transfer": "The cold-room controller uses the refrigeration equipment’s two available states. It regulates temperature within a band by switching between them. The next application is an electric water heater whose power can be adjusted continuously; we need a rule for how much heating to request, not only whether it is ON or OFF.\n\n[Proportional control](../../01-feedback-foundations-and-temperature-control/04-water-heater-p/README.md) calculates that variable command from temperature error."
+  }
+}

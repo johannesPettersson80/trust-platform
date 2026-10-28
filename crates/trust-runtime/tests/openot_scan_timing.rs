@@ -1,4 +1,7 @@
 #![cfg(unix)]
+//! The OpenOT persistence worker beside a scanning program: it does not materially slow the scan.
+//!
+//! The test needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 // The shared source corpus also contains fixtures used by the functional suites.
 #[allow(dead_code)]
@@ -13,7 +16,7 @@ use trust_runtime::config::{
 use trust_runtime::harness::SourceFile;
 use trust_runtime::openot_authoring;
 use trust_runtime::openot_persistence::{OpenOtPersistenceService, OpenOtPersistenceState};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
 #[test]
 fn openot_persistence_service_does_not_materially_regress_plc_scan_timing() {
@@ -26,7 +29,7 @@ Trigger := NOT Trigger;
 END_PROGRAM
 "#;
 
-    fn runtime_with_ring(path: PathBuf) -> Runtime {
+    fn runtime_with_ring(path: PathBuf) -> CompiledRuntime {
         let mut runtime = build_st_runtime(PROGRAM);
         runtime
             .configure_openot_telemetry(

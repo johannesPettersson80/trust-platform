@@ -21,28 +21,26 @@ from .test_catalog_validation import check_supported_schema_keywords
 FUZZ_PROGRAM_PATH = "verification/fuzz-program.toml"
 FUZZ_PROGRAM_SCHEMA_PATH = "verification/schemas/fuzz-program.schema.json"
 FUZZ_PROGRAM_SCHEMA_SEMANTIC_DIGEST = (
-    "e8f59c8b516759e4c50960e95a662fd950561fe9e6d70945ee3b1c07692887f3"
+    "9e22ab6f38881b7db594ecacf2414477c2158bfce2e654ad05a128407b335172"
 )
 REVIEWED_PROGRAM_TITLE = "PLC fuzz and malformed-input program inventory"
 REQUIRED_SURFACE_IDS = (
     "st_lexer_parser",
     "hir_lowering_input",
     "plcopen_xml",
-    "bytecode_container_instructions",
+    "program_images",
     "protocol_payloads",
     "config_files",
     "lsp_incremental_edits",
-    "hmi_schema_payloads",
 )
 SURFACE_AREAS = {
     "st_lexer_parser": "compiler_iec",
     "hir_lowering_input": "compiler_iec",
     "plcopen_xml": "plcopen_devtools",
-    "bytecode_container_instructions": "bytecode_vm",
+    "program_images": "runtime_safety",
     "protocol_payloads": "protocols",
     "config_files": "runtime_safety",
     "lsp_incremental_edits": "editor_safety",
-    "hmi_schema_payloads": "hmi_ui",
 }
 REVIEWED_SURFACE_ROWS = (
     (
@@ -64,10 +62,10 @@ REVIEWED_SURFACE_ROWS = (
         "Malformed and vendor-shaped XML needs a dedicated import/export target; deterministic negative tests alone are not a fuzz target.",
     ),
     (
-        "bytecode_container_instructions",
-        "Bytecode container and instruction streams",
-        "bytecode_vm",
-        "Container structure and instruction streams need generated malformed-input pressure at the validator boundary.",
+        "program_images",
+        "Program images",
+        "runtime_safety",
+        "Image headers, section tables, signatures, tables, I/O bindings, and memory figures need generated malformed-input pressure at the admission boundary.",
     ),
     (
         "protocol_payloads",
@@ -87,12 +85,6 @@ REVIEWED_SURFACE_ROWS = (
         "editor_safety",
         "Protocol-level edit sequences need generated range, encoding, and lifecycle variation beyond lower-level HIR edit cycles.",
     ),
-    (
-        "hmi_schema_payloads",
-        "HMI schema payloads",
-        "hmi_ui",
-        "HMI schema and value payloads need generated malformed shapes without implying browser or authorization behavior.",
-    ),
 )
 TIER_IDS = ("pr_smoke", "nightly", "manual_extended")
 TARGET_KINDS = ("cargo_fuzz", "bounded_rust_smoke")
@@ -105,7 +97,6 @@ AREA_IDS = (
     "protocols",
     "runtime_safety",
     "editor_safety",
-    "hmi_ui",
 )
 ROOT_CONSTS = {
     "schema_version": 1,
@@ -139,16 +130,12 @@ TARGET_ID_ORDER = (
     "FUZZ_TARGET_HIR_SEMANTIC",
     "FUZZ_TARGET_HIR_LOWERING",
     "FUZZ_TARGET_PLCOPEN_XML",
-    "FUZZ_TARGET_BYTECODE_CONTAINER",
-    "FUZZ_TARGET_BYTECODE_ADMISSION",
-    "FUZZ_TARGET_BYTECODE_REPREPARE",
+    "FUZZ_TARGET_IMAGE_ADMISSION",
     "FUZZ_TARGET_RUNTIME_CONFIG",
     "FUZZ_TARGET_LSP_INCREMENTAL",
-    "FUZZ_TARGET_HMI_PAYLOADS",
     "FUZZ_TARGET_ADS_AMS_FRAME",
     "FUZZ_TARGET_ADS_BOUNDARY_NOOP",
     "FUZZ_TARGET_ADS_COMMAND_DISPATCH",
-    "FUZZ_SMOKE_VM_MALFORMED_BYTECODE",
     "FUZZ_SMOKE_MESH_PAYLOAD",
     "FUZZ_SMOKE_SHM_HEADER",
     "FUZZ_SMOKE_RUNTIME_CLOUD_API",
@@ -253,23 +240,14 @@ REVIEWED_TARGET_CONTRACTS = {
     "FUZZ_TARGET_PLCOPEN_XML": _target_contract(
         "cargo_fuzz", "manual_extended", (), "manual_only", (), (("plcopen_xml", "direct"),)
     ),
-    "FUZZ_TARGET_BYTECODE_CONTAINER": _target_contract(
-        "cargo_fuzz", "manual_extended", (), "manual_only", (), (("bytecode_container_instructions", "direct"),)
-    ),
-    "FUZZ_TARGET_BYTECODE_ADMISSION": _target_contract(
-        "cargo_fuzz", "manual_extended", (), "manual_only", (), (("bytecode_container_instructions", "direct"),)
-    ),
-    "FUZZ_TARGET_BYTECODE_REPREPARE": _target_contract(
-        "cargo_fuzz", "manual_extended", (), "manual_only", (), (("bytecode_container_instructions", "direct"),)
+    "FUZZ_TARGET_IMAGE_ADMISSION": _target_contract(
+        "cargo_fuzz", "manual_extended", (), "manual_only", (), (("program_images", "direct"),)
     ),
     "FUZZ_TARGET_RUNTIME_CONFIG": _target_contract(
         "cargo_fuzz", "manual_extended", (), "manual_only", (), (("config_files", "direct"),)
     ),
     "FUZZ_TARGET_LSP_INCREMENTAL": _target_contract(
         "cargo_fuzz", "manual_extended", (), "manual_only", (), (("lsp_incremental_edits", "direct"),)
-    ),
-    "FUZZ_TARGET_HMI_PAYLOADS": _target_contract(
-        "cargo_fuzz", "manual_extended", (), "manual_only", (), (("hmi_schema_payloads", "direct"),)
     ),
     "FUZZ_TARGET_ADS_AMS_FRAME": _target_contract(
         "cargo_fuzz", "manual_extended", (), "manual_only", (), (("protocol_payloads", "direct"),)
@@ -279,14 +257,6 @@ REVIEWED_TARGET_CONTRACTS = {
     ),
     "FUZZ_TARGET_ADS_COMMAND_DISPATCH": _target_contract(
         "cargo_fuzz", "manual_extended", (), "manual_only", (), (("protocol_payloads", "direct"),)
-    ),
-    "FUZZ_SMOKE_VM_MALFORMED_BYTECODE": _target_contract(
-        "bounded_rust_smoke",
-        "nightly",
-        (),
-        "planned",
-        ("GATE_SCRIPT_RUNTIME_VM_MALFORMED_BYTECODE_FUZZ",),
-        (("bytecode_container_instructions", "direct"),),
     ),
     "FUZZ_SMOKE_MESH_PAYLOAD": _target_contract(
         "bounded_rust_smoke",
@@ -378,41 +348,17 @@ REVIEWED_TARGET_IDENTITIES = {
         "artifact_storage": "machine_local_ignored",
         "last_reviewed": "2026-07-17",
     },
-    "FUZZ_TARGET_BYTECODE_CONTAINER": {
-        "name": "bytecode_container",
-        "path": "fuzz/fuzz_targets/bytecode_container.rs",
+    "FUZZ_TARGET_IMAGE_ADMISSION": {
+        "name": "image_admission",
+        "path": "fuzz/fuzz_targets/image_admission.rs",
         "manifest_path": "fuzz/Cargo.toml",
-        "command": "cd fuzz && cargo fuzz run bytecode_container",
-        "owner": "trust-runtime",
-        "corpus_path": "fuzz/corpus/bytecode_container",
-        "artifact_path": "fuzz/artifacts/bytecode_container",
+        "command": "cd fuzz && cargo fuzz run image_admission",
+        "owner": "trust-runtime-core",
+        "corpus_path": "fuzz/corpus/image_admission",
+        "artifact_path": "fuzz/artifacts/image_admission",
         "corpus_storage": "machine_local_ignored",
         "artifact_storage": "machine_local_ignored",
-        "last_reviewed": "2026-07-17",
-    },
-    "FUZZ_TARGET_BYTECODE_ADMISSION": {
-        "name": "bytecode_admission",
-        "path": "fuzz/fuzz_targets/bytecode_admission.rs",
-        "manifest_path": "fuzz/Cargo.toml",
-        "command": "cd fuzz && cargo fuzz run bytecode_admission",
-        "owner": "trust-runtime",
-        "corpus_path": "fuzz/corpus/bytecode_admission",
-        "artifact_path": "fuzz/artifacts/bytecode_admission",
-        "corpus_storage": "machine_local_ignored",
-        "artifact_storage": "machine_local_ignored",
-        "last_reviewed": "2026-10-15",
-    },
-    "FUZZ_TARGET_BYTECODE_REPREPARE": {
-        "name": "bytecode_reprepare",
-        "path": "fuzz/fuzz_targets/bytecode_reprepare.rs",
-        "manifest_path": "fuzz/Cargo.toml",
-        "command": "cd fuzz && cargo fuzz run bytecode_reprepare",
-        "owner": "trust-runtime",
-        "corpus_path": "fuzz/corpus/bytecode_reprepare",
-        "artifact_path": "fuzz/artifacts/bytecode_reprepare",
-        "corpus_storage": "machine_local_ignored",
-        "artifact_storage": "machine_local_ignored",
-        "last_reviewed": "2026-10-15",
+        "last_reviewed": "2026-10-25",
     },
     "FUZZ_TARGET_RUNTIME_CONFIG": {
         "name": "runtime_config",
@@ -434,18 +380,6 @@ REVIEWED_TARGET_IDENTITIES = {
         "owner": "trust-lsp",
         "corpus_path": "fuzz/corpus/lsp_incremental",
         "artifact_path": "fuzz/artifacts/lsp_incremental",
-        "corpus_storage": "machine_local_ignored",
-        "artifact_storage": "machine_local_ignored",
-        "last_reviewed": "2026-07-17",
-    },
-    "FUZZ_TARGET_HMI_PAYLOADS": {
-        "name": "hmi_payloads",
-        "path": "fuzz/fuzz_targets/hmi_payloads.rs",
-        "manifest_path": "fuzz/Cargo.toml",
-        "command": "cd fuzz && cargo fuzz run hmi_payloads",
-        "owner": "trust-runtime",
-        "corpus_path": "fuzz/corpus/hmi_payloads",
-        "artifact_path": "fuzz/artifacts/hmi_payloads",
         "corpus_storage": "machine_local_ignored",
         "artifact_storage": "machine_local_ignored",
         "last_reviewed": "2026-07-17",
@@ -484,15 +418,6 @@ REVIEWED_TARGET_IDENTITIES = {
         "artifact_path": "crates/trust-ads-server/fuzz/artifacts/command_dispatch",
         "corpus_storage": "machine_local_ignored",
         "artifact_storage": "machine_local_ignored",
-        "last_reviewed": "2026-07-11",
-    },
-    "FUZZ_SMOKE_VM_MALFORMED_BYTECODE": {
-        "name": "vm_malformed_bytecode_fuzz_smoke_budget",
-        "path": "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs",
-        "discovery_id": "DISC_FB4371C17A9F9FB83CA9",
-        "discovery_source_kind": "rust_integration_test",
-        "command": "cargo test -p trust-runtime --test bytecode_vm_core vm_malformed_bytecode_fuzz_smoke_budget",
-        "owner": "trust-runtime",
         "last_reviewed": "2026-07-11",
     },
     "FUZZ_SMOKE_MESH_PAYLOAD": {
@@ -547,16 +472,12 @@ REVIEWED_ASSOCIATION_RATIONALES = {
     ("FUZZ_TARGET_HIR_SEMANTIC", "lsp_incremental_edits"): "The target exercises lower-level database edits and re-queries, not LSP ranges, position encoding, or protocol lifecycle.",
     ("FUZZ_TARGET_HIR_LOWERING", "hir_lowering_input"): "The target sends generated Structured Text through the production source-to-bytecode lowering harness.",
     ("FUZZ_TARGET_PLCOPEN_XML", "plcopen_xml"): "The target sends bounded arbitrary XML bytes through the production PLCopen import path in an isolated temporary project.",
-    ("FUZZ_TARGET_BYTECODE_CONTAINER", "bytecode_container_instructions"): "The target sends bounded arbitrary bytes through the production bytecode container decoder and validator.",
-    ("FUZZ_TARGET_BYTECODE_ADMISSION", "bytecode_container_instructions"): "The target repairs the CRC32 so mutated containers reach the full validator, preparation under explicit limits and instantiation, and requires the register and stack executors to agree for three cycles.",
-    ("FUZZ_TARGET_BYTECODE_REPREPARE", "bytecode_container_instructions"): "The target requires repeated preparation of the same bytes to agree, and an admitted module to round-trip through decode and encode to identical bytes.",
+    ("FUZZ_TARGET_IMAGE_ADMISSION", "program_images"): "The target repairs the declared length, kernel interface version, program library hash, and header CRC of a mutated image, so the mutation reaches the section table, signature, table, I/O binding, memory, and stack checks of admission (specification 44 section 10.2, steps 2 to 6) on a device of the image's CPU; the image's machine code is never run.",
     ("FUZZ_TARGET_RUNTIME_CONFIG", "config_files"): "The target sends bounded valid UTF-8 documents through the production runtime configuration parser.",
     ("FUZZ_TARGET_LSP_INCREMENTAL", "lsp_incremental_edits"): "The target sends generated UTF-16 positions and replacement text through the production LSP document-edit implementation.",
-    ("FUZZ_TARGET_HMI_PAYLOADS", "hmi_schema_payloads"): "The target sends generated JSON values through the production HMI schema, values, and alarms event-state parsers.",
     ("FUZZ_TARGET_ADS_AMS_FRAME", "protocol_payloads"): "The target feeds arbitrary byte slices into AMS frame decoding.",
     ("FUZZ_TARGET_ADS_BOUNDARY_NOOP", "protocol_payloads"): "The target exercises ADS Net ID text/binary conversion and notification payload construction with generated bytes.",
     ("FUZZ_TARGET_ADS_COMMAND_DISPATCH", "protocol_payloads"): "The target sends generated ADS command frames through command dispatch.",
-    ("FUZZ_SMOKE_VM_MALFORMED_BYTECODE", "bytecode_container_instructions"): "The bounded mutation table exercises container metadata, opcode, operand, jump, reference, and encoding rejection paths.",
     ("FUZZ_SMOKE_MESH_PAYLOAD", "protocol_payloads"): "The bounded generator round-trips valid mesh payloads and feeds generated malformed byte buffers to the decoder.",
     ("FUZZ_SMOKE_SHM_HEADER", "protocol_payloads"): "The bounded generator mutates shared-memory transport headers and requires corruption rejection.",
     ("FUZZ_SMOKE_RUNTIME_CLOUD_API", "protocol_payloads"): "The bounded generator varies runtime-cloud request envelopes, actions, targets, and JSON payload shapes at the API boundary.",
@@ -644,15 +565,15 @@ def validate_fuzz_program_schema_contract(schema: object) -> list[str]:
         if root_properties.get("surfaces") != {
             "type": "array",
             "items": {"$ref": "#/$defs/surface"},
-            "minItems": 8,
-            "maxItems": 8,
+            "minItems": 7,
+            "maxItems": 7,
         }:
             failures.append("fuzz-program schema surfaces array contract drifted")
         if root_properties.get("targets") != {
             "type": "array",
             "items": {"$ref": "#/$defs/target"},
-            "minItems": 19,
-            "maxItems": 19,
+            "minItems": 15,
+            "maxItems": 15,
         }:
             failures.append("fuzz-program schema targets array contract drifted")
     definitions = schema.get("$defs")

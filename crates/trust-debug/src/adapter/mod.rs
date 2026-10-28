@@ -1,8 +1,12 @@
-//! Debug adapter module map.
+//! Debug adapter module map. The adapter debugs a runtime over its control protocol: the program a
+//! launch compiles and starts in this process (specification 44 NX-16), or one an attach connects
+//! to.
 //! - core: main loop, dispatch, protocol events
 //! - handlers: DAP request handlers by area
-//! - variables: variable/evaluate/set logic
+//! - variables: variable/evaluate/set requests
 //! - io: IO state/write handling
+//! - remote, stop_remote: the control protocol client and its stop polling
+//! - simulator, control_bridge: the launch's program and its control server
 //! - protocol_io: message framing + logging
 //! - launch: launch argument helpers
 //! - util: small shared helpers
@@ -12,19 +16,28 @@ mod control_bridge;
 mod core;
 mod handlers;
 mod io;
+mod io_poller;
+// The I/O state as Live Values shows it (specification 25 §4.3).
+mod io_values;
 mod launch;
-mod paused;
 mod protocol_io;
 mod remote;
-mod stop;
+mod simulator;
 mod stop_remote;
 mod util;
 mod variables;
 
 #[cfg(test)]
-mod mqtt_install_enum_value_type_tests;
+mod compiled_evaluate_tests;
+#[cfg(test)]
+mod remote_attach_tests;
 #[cfg(test)]
 mod remote_value_type_tests;
+// The simulator's control server listens on a Unix socket in this test.
+#[cfg(all(test, unix))]
+mod simulator_tests;
+#[cfg(test)]
+pub(crate) mod test_simulator;
 #[cfg(test)]
 mod tests;
 
@@ -37,40 +50,14 @@ use std::time::Instant;
 
 use serde_json::Value;
 
-use trust_runtime::eval::expr::Expr;
-use trust_runtime::memory::{FrameId, InstanceId};
-use trust_runtime::value::{ArrayValue, StructValue, ValueRef};
-
-use crate::protocol::{AttachArguments, IoStateEventBody, LaunchArguments, Request};
+use crate::protocol::{
+    AttachArguments, IoStateEventBody, LaunchArguments, Request, SetBreakpointsArguments,
+};
 use crate::runtime::DebugRuntime;
 
-use self::control_bridge::DebugControlServer;
-use self::core::DebugRunner;
-use self::paused::PausedStateView;
 use self::remote::RemoteSession;
 use self::stop_remote::RemoteStopPoller;
-
-#[derive(Debug, Clone)]
-enum VariableHandle {
-    Locals(FrameId),
-    Globals,
-    Retain,
-    Instances,
-    Instance(InstanceId),
-    Struct(StructValue),
-    Array(ArrayValue),
-    Reference(ValueRef),
-    IoRoot,
-    IoInputs,
-    IoOutputs,
-    IoMemory,
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-struct LaunchActions {
-    pause_after_launch: bool,
-    start_runner_after_launch: bool,
-}
+use self::variables::ExpressionTypes;
 
 #[derive(Debug)]
 struct PendingLaunch {
@@ -92,11 +79,18 @@ enum PendingStart {
     Attach(PendingAttach),
 }
 
+/// The breakpoints a client set for one source while an attach was pending, with the ids their
+/// pending answer gave them, in the request's order (specification 13, session lifecycle).
+#[derive(Debug)]
+struct AttachBreakpoints {
+    args: SetBreakpointsArguments,
+    ids: Vec<u32>,
+}
+
 #[derive(Debug)]
 enum LaunchState {
     AwaitingConfig { pending: Option<PendingStart> },
     Configured,
-    PostLaunch { actions: LaunchActions },
 }
 
 impl Default for LaunchState {
@@ -107,18 +101,20 @@ impl Default for LaunchState {
 
 impl LaunchState {
     fn is_configured(&self) -> bool {
-        matches!(self, Self::Configured | Self::PostLaunch { .. })
+        matches!(self, Self::Configured)
     }
 
     fn has_pending_launch(&self) -> bool {
         matches!(self, Self::AwaitingConfig { pending: Some(_) })
     }
 
-    fn pending_actions(&self) -> LaunchActions {
-        match self {
-            Self::PostLaunch { actions } => *actions,
-            _ => LaunchActions::default(),
-        }
+    fn has_pending_attach(&self) -> bool {
+        matches!(
+            self,
+            Self::AwaitingConfig {
+                pending: Some(PendingStart::Attach(_))
+            }
+        )
     }
 
     fn pending_since(&self) -> Option<Instant> {
@@ -148,21 +144,6 @@ impl LaunchState {
 
     fn set_configured(&mut self) {
         *self = Self::Configured;
-    }
-
-    fn set_post_launch(&mut self, actions: LaunchActions) {
-        *self = Self::PostLaunch { actions };
-    }
-
-    fn take_actions(&mut self) -> LaunchActions {
-        match self {
-            Self::PostLaunch { actions } => {
-                let taken = *actions;
-                *self = Self::Configured;
-                taken
-            }
-            _ => LaunchActions::default(),
-        }
     }
 }
 
@@ -203,14 +184,6 @@ impl CoordinateConverter {
     fn to_runtime_column(self, column: u32) -> Option<u32> {
         column.checked_sub(self.column_offset)
     }
-
-    fn default_line(&self) -> u32 {
-        self.line_offset
-    }
-
-    fn default_column(&self) -> u32 {
-        self.column_offset
-    }
 }
 
 /// Minimal debug adapter wrapper around a debug session.
@@ -218,18 +191,24 @@ pub struct DebugAdapter {
     session: Box<dyn DebugRuntime>,
     remote_session: Option<RemoteSession>,
     remote_stop_poller: Option<RemoteStopPoller>,
+    remote_io_poller: Option<io_poller::RemoteIoPoller>,
     remote_breakpoints: Arc<Mutex<HashMap<u32, u64>>>,
     next_seq: Arc<AtomicU32>,
     coordinate: CoordinateConverter,
-    variable_handles: HashMap<u32, VariableHandle>,
-    next_variable_ref: u32,
-    watch_cache: HashMap<String, Expr>,
-    runner: Option<DebugRunner>,
-    control_server: Option<DebugControlServer>,
+    /// The project's types with which debug expressions are compiled for a runtime that runs a
+    /// compiled program, and when they were loaded.
+    expression_types: Option<ExpressionTypes>,
+    /// The launch's program compiled for this computer, which the adapter debugs through
+    /// `remote_session` (specification 44 NX-16).
+    simulator: Option<simulator::Simulator>,
     last_io_state: Arc<Mutex<Option<IoStateEventBody>>>,
     forced_io_addresses: Arc<Mutex<HashSet<String>>>,
     initialized: bool,
     launch_state: LaunchState,
+    /// The breakpoints set while an attach was pending, which the attach sends once it connects.
+    attach_breakpoints: Vec<AttachBreakpoints>,
+    /// The id of the next breakpoint the adapter answers before the runtime knows it.
+    next_breakpoint_id: u32,
     pause_expected: Arc<AtomicBool>,
     stop_gate: StopGate,
     dap_writer: Option<Arc<Mutex<BufWriter<std::io::Stdout>>>>,

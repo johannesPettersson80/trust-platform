@@ -2,11 +2,10 @@
 version = 1
 
 [resource]
-name = "Simulator"
+name = "MainRes"
 cycle_interval_ms = 10
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime.sock"
 mode = "production"
 debug_enabled = false
 
@@ -30,7 +29,7 @@ interfaces = []
 enabled = false
 listen = "0.0.0.0:5200"
 tls = false
-auth_token = ""
+auth_token = "trust-example-token"
 publish = []
 
 [runtime.observability]

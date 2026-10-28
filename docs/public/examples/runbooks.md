@@ -19,6 +19,5 @@ Pair it with [Operator Daily Checks](../operate/operator-daily-checks.md) and
 
 ## Related
 
-- [Operate In Browser HMI](../start/operate-in-browser.md)
 - [Operator Guide](../operate/operator-guide.md)
 - [Technician I/O Diagnosis](../operate/technician-io-diagnosis.md)

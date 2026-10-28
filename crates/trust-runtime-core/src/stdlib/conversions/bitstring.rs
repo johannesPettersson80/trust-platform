@@ -7,7 +7,9 @@ use super::numeric::{signed_int_from_i64, unsigned_int_from_u64};
 pub(super) fn convert_to_bit_string(
     value: &Value,
     dst: ConversionType,
+    profile: super::ConversionProfile,
 ) -> Result<Value, RuntimeError> {
+    let iec = profile == super::ConversionProfile::Iec;
     match value {
         Value::Byte(v) => bit_string_from_u64(*v as u64, dst),
         Value::Word(v) => bit_string_from_u64(*v as u64, dst),
@@ -23,8 +25,28 @@ pub(super) fn convert_to_bit_string(
         Value::UInt(v) => unsigned_to_bit_string(*v as u64, dst),
         Value::UDInt(v) => unsigned_to_bit_string(*v as u64, dst),
         Value::ULInt(v) => unsigned_to_bit_string(*v, dst),
-        Value::Real(v) if dst == ConversionType::DWord => Ok(Value::DWord(v.to_bits())),
-        Value::LReal(v) if dst == ConversionType::LWord => Ok(Value::LWord(v.to_bits())),
+        // IEC Table 25 binary transfers; the CODESYS profile converts the number
+        // (docs/specs/07-standard-functions.md 2.10)
+        Value::Real(v) if iec && dst == ConversionType::DWord => Ok(Value::DWord(v.to_bits())),
+        Value::LReal(v) if iec && dst == ConversionType::LWord => Ok(Value::LWord(v.to_bits())),
+        // vendor extension (docs/specs/07-standard-functions.md 2.9): other widths convert
+        // the number, like REAL_TO_<unsigned> of the target width
+        Value::Real(_) | Value::LReal(_) => {
+            let unsigned = match dst {
+                ConversionType::Byte => ConversionType::USInt,
+                ConversionType::Word => ConversionType::UInt,
+                ConversionType::DWord => ConversionType::UDInt,
+                ConversionType::LWord => ConversionType::ULInt,
+                _ => return Err(RuntimeError::TypeMismatch),
+            };
+            let int = super::numeric::convert_to_int(
+                value,
+                unsigned,
+                super::ConversionMode::Round,
+                profile,
+            )?;
+            convert_to_bit_string(&int, dst, profile)
+        }
         Value::Time(duration) if dst == ConversionType::DWord => {
             // Spec 07 section 2.8: a negative value is rejected. The sign is tested on the
             // nanoseconds, since `as_millis` truncates toward zero and maps T#-1ns to 0 ms.

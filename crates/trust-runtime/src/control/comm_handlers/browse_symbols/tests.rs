@@ -150,6 +150,33 @@ fn ads_browse_errors_distinguish_port_and_symbol_upload_failures() {
     assert_eq!(classify_ads_browse_error(&other), "symbol_upload_failed");
 }
 
+#[cfg(feature = "ads-wire")]
+#[test]
+fn ads_live_failure_before_the_port_answers_is_a_classified_empty_tree() {
+    // Specification 11, "Communication discovery scope and symbol browsing": a live ADS browse of
+    // a valid target that fails before the port answers (here: this computer's route toward the
+    // target) is the classified protocol error of an empty tree, never a request error, so the
+    // panel offers the port recovery. A wrong implementation returns `Err` (the command line
+    // fails and the panel shows a generic failure) or classifies the refused connection as an
+    // upload failure.
+    let unreachable = live_ads_failure(
+        "resolve local ADS source IP: connect: Connection refused (os error 111)".to_string(),
+    )
+    .expect("a structured answer");
+    assert_eq!(unreachable["protocol"], "ads");
+    assert_eq!(unreachable["kind"], "symbols");
+    assert_eq!(unreachable["tree"], json!([]));
+    assert_eq!(unreachable["error"]["code"], "ads_port_unavailable");
+    assert_eq!(
+        unreachable["error"]["message"],
+        "resolve local ADS source IP: connect: Connection refused (os error 111)"
+    );
+
+    let other = live_ads_failure("enumerate local interfaces: permission denied".to_string())
+        .expect("a structured answer");
+    assert_eq!(other["error"]["code"], "symbol_upload_failed");
+}
+
 #[test]
 fn opcua_client_browse_leaf_exposes_raw_node_id_and_apply_data_type() {
     let symbol = opcua_node_to_symbol(crate::opcua::OpcUaBrowseNode {
@@ -213,6 +240,8 @@ fn ads_symbol_upload_timeout_returns_route_missing_response() {
         role: crate::ads::onboarding::RoutePlanRole::Client,
         route_name: "line1".to_string(),
         target: TargetIdentity {
+            os_version: None,
+            fingerprint: None,
             name: Some("TwinCAT".to_string()),
             ip: "192.168.77.11".to_string(),
             ams_net_id: "100.67.6.217.1.1".to_string(),

@@ -9,7 +9,7 @@ pub struct EthercatIoDriver {
 impl EthercatIoDriver {
     pub fn from_params(value: &toml::Value) -> Result<Self, RuntimeError> {
         let config = EthercatConfig::from_params(value)?;
-        let bus = build_bus(&config)?;
+        let bus = open_bus(&config, EthercatBusState::Op)?;
         Ok(Self {
             config,
             bus,
@@ -38,9 +38,9 @@ impl EthercatIoDriver {
             RuntimeError::IoTransport(message)
         })?;
         let module_summary = discovery
-            .modules
+            .subdevices
             .iter()
-            .map(|module| format!("{}@{}", module.model, module.slot))
+            .map(|subdevice| format!("{}@{}", subdevice.name, subdevice.slot))
             .collect::<Vec<_>>()
             .join(", ");
         self.discovery_message = SmolStr::new(format!(
@@ -169,13 +169,25 @@ impl IoDriver for EthercatIoDriver {
     fn health(&self) -> IoDriverHealth {
         self.health.clone()
     }
+
+    fn input_bytes(&self) -> Vec<std::ops::Range<usize>> {
+        // The modules' input image, from the image's start.
+        if self.config.expected_input_bytes == 0 {
+            Vec::new()
+        } else {
+            std::iter::once(0..self.config.expected_input_bytes).collect()
+        }
+    }
+
+    fn detail(&self) -> Option<SmolStr> {
+        match (&self.health, self.discovered) {
+            (IoDriverHealth::Faulted { error }, false) => Some(error.clone()),
+            _ => Some(self.discovery_message.clone()),
+        }
+    }
 }
 
 fn build_bus(config: &EthercatConfig) -> Result<Box<dyn EthercatBus>, RuntimeError> {
-    if config.adapter.eq_ignore_ascii_case("mock") {
-        return Ok(Box::new(MockEthercatBus::new(config)));
-    }
-
     #[cfg(all(feature = "ethercat-wire", unix))]
     {
         match EthercrabBus::new(config) {

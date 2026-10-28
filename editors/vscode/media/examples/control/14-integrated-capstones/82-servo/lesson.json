@@ -1,0 +1,325 @@
+{
+  "schemaVersion": 4,
+  "id": "control-capstone-servo",
+  "title": "Servo commissioning",
+  "level": "Modern",
+  "sequence": 41,
+  "equipment": "The Lesson 37 drum axis with its encoder interface, under Control.PID",
+  "physicalPurpose": "Position the drum axis and hold its load reliably through startup, transfer, parameter updates and encoder faults, and state what the evidence does not support.",
+  "principalTechnique": "Servo commissioning: integration order, declared requirements and one trial per requirement",
+  "objective": "Integrate encoder validity, parameter updates, one torque writer, initialization, bumpless transfer and the filtered PID on the drum axis; assess positioning, load rejection, torque limits, startup, transfer and a measurement fault with declared requirements in Control Studio; apply the candidate and state the limits of the evidence.",
+  "prerequisites": [
+    "control-capstone-water-heater",
+    "control-pid-forms",
+    "control-own-pid-law"
+  ],
+  "nextLesson": "control-controller-families",
+  "signals": [
+    {
+      "role": "SP",
+      "name": "Target angle",
+      "unit": "rad",
+      "minimum": -2,
+      "maximum": 2,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "PV",
+      "name": "Shaft angle",
+      "unit": "rad",
+      "minimum": -2,
+      "maximum": 2,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Motor torque",
+      "unit": "N·m",
+      "minimum": -20,
+      "maximum": 20,
+      "resolution": 0.001,
+      "binding": "%QL0"
+    },
+    {
+      "role": "disturbance",
+      "name": "Drum load torque",
+      "unit": "N·m",
+      "minimum": 0,
+      "maximum": 5,
+      "resolution": 0.001,
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "Shaft velocity",
+      "unit": "rad/s",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Safety abort",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX24.0"
+    },
+    {
+      "role": "state",
+      "name": "RequestedTorqueNm",
+      "unit": "N·m",
+      "minimum": -100,
+      "maximum": 100,
+      "resolution": 0.0001,
+      "binding": "%ML32"
+    },
+    {
+      "role": "state",
+      "name": "MeasurementFault",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX24.1"
+    }
+  ],
+  "plant": {
+    "modelId": "drum-axis-lesson-35",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "inertia",
+        "value": 1,
+        "unit": "kg·m²"
+      },
+      {
+        "name": "viscous_friction",
+        "value": 1,
+        "unit": "N·m·s/rad"
+      },
+      {
+        "name": "torque_limit",
+        "value": 20,
+        "unit": "N·m"
+      },
+      {
+        "name": "drum_load",
+        "value": 1.962,
+        "unit": "N·m"
+      },
+      {
+        "name": "angle_noise_bound",
+        "value": 0.001,
+        "unit": "rad"
+      }
+    ],
+    "sampleTimeSeconds": 0.02,
+    "initialState": {
+      "angleRad": 0,
+      "velocityRadS": 0
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Shaft angle": 0,
+      "Motor torque": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Shaft angle",
+        "minimum": -2,
+        "maximum": 2,
+        "unit": "rad"
+      },
+      {
+        "signal": "Motor torque",
+        "minimum": -20,
+        "maximum": 20,
+        "unit": "N·m"
+      }
+    ],
+    "simplifications": [
+      "Constant load torque m·g·r from a weight on a drum; rigid shaft with viscous friction.",
+      "Uniform angle measurement noise of at most ±0.001 rad; simulation only."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "installed": "Kp 16, Ki 4, Kd 7, β 1, Tf 0.1 s (Lesson 39)"
+    },
+    "limitation": "Lessons 26–29 and 34–39 tested each mechanism alone; the complete servo was not assessed against declared requirements."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "candidate": "Kp 16, Ki 12, Kd 7, β 0.3, γ 0, Tf 0.1 s (Lesson 37)",
+      "maximumAgeS": 0.04,
+      "freshSamplesRequired": 3,
+      "trials": "positioning, load rejection, torque limits, startup, manual transfer, measurement fault; Apply",
+      "durationSeconds": 8
+    },
+    "decision": "Every declared trial passes and Control Studio applies the candidate; the ±20 N·m limit is not reached (8.12 N·m at most), and a fault drops the unbraked load 0.155 rad, so no holding claim is made for faults."
+  },
+  "experiment": {
+    "kind": "mv_pulse",
+    "signal": "Motor torque",
+    "baseline": 0,
+    "amplitude": 0.25,
+    "durationSeconds": 8,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Drum load 1.962 N·m coupled at 0 s in the load, limits, transfer and fault trials",
+      "Encoder frozen from 3.0 s to 3.1 s in the fault trial",
+      "Uniform angle noise bounded by ±0.001 rad"
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "positioning_overshoot",
+      "signal": "Shaft angle",
+      "window": "positioning 0–8 s",
+      "comparator": "<=",
+      "limit": 0.1,
+      "unit": "rad",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "load_late_error",
+      "signal": "Shaft angle",
+      "window": "load rejection 4–8 s",
+      "comparator": "<=",
+      "limit": 0.02,
+      "unit": "rad",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "limits_requested_torque",
+      "signal": "RequestedTorqueNm",
+      "window": "torque limits 0–8 s",
+      "comparator": "<=",
+      "limit": 20,
+      "unit": "N·m",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "transfer_torque",
+      "signal": "Motor torque",
+      "window": "manual transfer 1.9–2.2 s",
+      "comparator": "<=",
+      "limit": 0.2,
+      "unit": "N·m",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "fault_torque",
+      "signal": "Motor torque",
+      "window": "measurement fault 3.08–3.18 s",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "N·m",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "fault_recovered_error",
+      "signal": "Shaft angle",
+      "window": "measurement fault 6–8 s",
+      "comparator": "<=",
+      "limit": 0.02,
+      "unit": "rad",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Shaft angle",
+        "minimum": -2,
+        "maximum": 2,
+        "unit": "rad"
+      },
+      {
+        "signal": "Motor torque",
+        "minimum": -20,
+        "maximum": 20,
+        "unit": "N·m"
+      }
+    ],
+    "abortPredicates": [
+      "The angle leaves ±2 rad or the velocity ±10 rad/s: SafetyAbort holds zero torque until a restart",
+      "An unusable encoder reading latches MeasurementFault: zero torque until acknowledgement, three fresh readings and a new Auto request",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Control Studio restores the rest state (0 rad, zero torque) after each trial.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical excitation or gain application",
+      "Physical use requires independent topology, model, hazard, operating-window, interlock, personnel, abort, rollback, and immediate approval review"
+    ]
+  },
+  "workflowStages": [
+    "Identify",
+    "Tune",
+    "Validate"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-teaching-specification.md",
+    "nativeTest": "lesson39",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_37_39 lesson39",
+    "projectPath": "examples/control/14-integrated-capstones/82-servo",
+    "runArtifactFields": [
+      "angle",
+      "torque",
+      "requestedTorque",
+      "measurementFault",
+      "load",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-capstone-servo"
+  },
+  "learning": {
+    "context": "Lessons 34–40 each added one piece to the shaft: P, D, the integral against the drum load, the derivative filter, the discrete update, its incremental form, and tuning by Control Studio. In Lesson 40, Control Studio designed $K_p$ 18.77, $K_i$ 17.46 and $K_d$ 7.27 for the program's own law, which settled within 0.02 rad from 3 s and held the 1.962 N·m weight. The heater lessons on initialization, bumpless transfer, parameter updates and measurement validity added the operating mechanisms.\n\nBut the servo controller has not been assessed as a whole: working pieces do not show that the complete servo positions, holds the load, stays within the drive's torque and handles startup, mode changes and a measurement fault without conflicting decisions. We will assess all of these on one program, against requirements written down first.",
+    "reason": "We need to:\n\n1. know what the load does when the drive gives no torque;\n2. run every mechanism in one program, in a fixed order, with one owner of the torque; and\n3. test each requirement with its own trial and decide from the recording.",
+    "theory": [
+      "**Servo commissioning** checks the finished position controller on the same shaft: moving to targets, holding a load, staying within torque limits, starting, mode changes and faults.\n\n**In words.** Commissioning is the servo's acceptance test, like the site acceptance test of a machine: the requirements are written down before any trial, each requirement gets its own trial, and each trial ends in a pass or a fail decided from the recording. Four things make it more than a repeat of Lessons 34–40:\n\n1. **The load decides what a failure costs.** The weight pulls whether the drive works or not. Whenever the drive gives no torque, during a measurement fault for example, the shaft falls: slowly at first, then faster and faster. Every moment without torque costs position.\n2. **One program, one order, one owner of the torque.** All mechanisms run in one program, in a fixed order, and each stage decides what the later ones may do:\n   1. **Encoder validity:** a reading older than two updates (0.04 s), outside −π to π rad or of bad quality latches a fault. The fault gives zero torque, freezes the controller and clears the Auto request; recovery needs an acknowledgement, three fresh readings and a new Auto request.\n   2. **Parameters:** a changed set is adopted with its filter time, only as a whole and only if valid.\n   3. **One torque writer:** the fault and the safety stop give 0 N·m; otherwise Manual commands the torque until automatic control is active.\n   4. **Initialization:** every kept value is set from the actual condition at startup, on request and after a recovery.\n   5. **Filter and PID:** the angle filter, then `Control.PID` with its setpoint weight and anti-windup. In Manual and at the switch to Auto, the kept values follow the applied torque.\n3. **Mechanisms that are right alone can conflict.** Lesson 37's program restarted its filter at the switch to Auto, which is harmless at rest. Here, after a measurement fault, the load is falling when Auto resumes. At the switch, bumpless transfer sets the integral so that the torque continues smoothly, counting on D braking the fall at its full speed. A restarted filter suddenly reports only a sixth of that speed, D's braking collapses, and the torque turns negative: the controller pushes the falling load down. The bumpless-transfer rule makes the restart unnecessary, so here the filter runs in every mode.\n4. **The claim stops where the evidence stops.** A trial shows only what it exercises. A limit that no trial reaches is not tested, however well the mechanism worked in its own lesson.\n\nFor this lesson's shaft, the 2 kg weight hangs on the drum in the loaded trials, and the simulated drive has no brake: only torque holds the load.\n\n**The formula.** Without torque, Lesson 34's shaft equation with the load becomes\n\n$$\nJ\\dot\\omega = -\\tau_L - B\\omega .\n$$\n\nFrom rest, the speed approaches $-\\tau_L/B$ as an exponential, the same shape as the heater's approach to a new temperature:\n\n$$\n\\omega(t) = -\\frac{\\tau_L}{B}\\left(1 - e^{-Bt/J}\\right).\n$$\n\nAdding up the speed over time gives how far the shaft turns. That sum is Lesson 6's integral, the area under the speed curve, written $\\int_0^t \\ldots\\,ds$ for the area from time 0 to $t$. Here $\\int_0^t (1 - e^{-Bs/J})\\,ds = t - \\frac{J}{B}(1 - e^{-Bt/J})$; differentiating the right-hand side gives back $1 - e^{-Bt/J}$, which confirms it. So the angle is\n\n$$\n\\theta(t) = -\\frac{\\tau_L}{B}\\left(t - \\frac{J}{B}\\left(1 - e^{-Bt/J}\\right)\\right).\n$$\n\n- $t$ is the time since the torque was lost, in seconds;\n- $\\omega(t)$ is the shaft's speed, in radians per second, and $\\theta(t)$ how far the shaft has turned since the torque was lost, in radians; negative is downwards, the way the weight pulls;\n- $\\tau_L$ is the load torque, in newton-metres; and\n- $J$ is the inertia, in kg·m², and $B$ the friction, in N·m·s/rad.\n\nAt first, while friction is still small, the drop grows with the square of the time, like free fall: $\\theta \\approx -\\tau_L t^2/(2J)$.\n\n**Example: the drum load when the torque is lost.** The 2 kg weight on the 0.1 m drum gives $\\tau_L = 2 \\times 9.81 \\times 0.1 = 1.962$ N·m, and the shaft has $J = 1$ kg·m² and $B = 1$ N·m·s/rad. Follow the numbers:\n\n1. **Where the fall is heading.** $-\\tau_L/B = -1.962/1 = -1.962$ rad/s: with the torque off for good, the shaft would end up turning backwards at almost 2 rad/s.\n2. **A 0.1 s dropout.** $1 - e^{-0.1} = 0.0952$, so the speed is $-1.962 \\times 0.0952 = -0.187$ rad/s and the drop $-1.962 \\times (0.1 - 0.0952) = -0.0095$ rad.\n3. **A 0.5 s dropout.** $1 - e^{-0.5} = 0.3935$, so the speed is $-0.772$ rad/s and the drop $-1.962 \\times (0.5 - 0.3935) = -0.209$ rad: five times the time, twenty-two times the drop.\n4. **The filter conflict.** After a 0.76 s fall, the speed is $-1.962 \\times (1 - e^{-0.76}) = -1.04$ rad/s. At the switch to Auto, D brakes that full speed with about $7 \\times 1.04 = 7.3$ N·m, and bumpless transfer sets the integral so that P, I and D together continue the applied 0 N·m. A restarted filter reports a sixth of the speed at the next update, so D drops to about $7.3/6 = 1.2$ N·m and the torque falls by about 6 N·m. With the candidate's gains, the calculated first Auto torque is −5.9 N·m: the controller pushes the falling load down.\n5. **The first torque of a move.** The setpoint weight, Lesson 23's idea used on the shaft since Lesson 36, decides how hard a move starts. For a 0.5 rad target change, the installed set ($K_p = 16$, $K_i = 4$, $\\beta = 1$) first requests $16 \\times 1 \\times 0.5 + 4 \\times 0.5 \\times 0.02 = 8.04$ N·m. The candidate ($K_p = 16$, $K_i = 12$, $\\beta = 0.3$) requests $16 \\times 0.3 \\times 0.5 + 12 \\times 0.5 \\times 0.02 = 2.52$ N·m.\n\n**The limitation.** No controller holds the load while the drive gives no torque: step 3 shows how fast the position is lost. A physical hoist needs a brake that engages when the torque is removed, and this assessment makes no holding claim during faults. The trials show only what they exercise, and they are simulation results, not a physical qualification. The requirement limits in the commissioning record are teaching choices for this simulated axis."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. How far does the load drop in the 0.16 s without torque during the measurement fault?\n2. Does the load stop falling as soon as the torque returns?\n3. Will the shaft be back within 0.02 rad of its target by 6 s?\n4. With $\\beta = 0.3$, can the largest move reach the drive's ±20 N·m limit?\n\n| | Value |\n| --- | ---: |\n| Drop after 0.16 s without torque, from rest | 0.024 rad |\n| Drop after 0.76 s without torque, from rest | 0.45 rad |\n| First torque for a 1 rad target change, installed set ($\\beta = 1$) | 16.08 N·m |\n| First torque for a 1 rad target change, candidate ($\\beta = 0.3$) | 5.04 N·m |",
+    "practicalPreparation": [
+      "The commissioning record, written before any result:\n\n| Requirement | Trial | Limits |\n| --- | --- | --- |\n| Positioning | 0 → 1 rad, no load | peak ≤ 1.1 rad; settled within 0.02 rad by 4 s; activity ≤ 50 N·m |\n| Load rejection | 1.962 N·m coupled at 0 s | error within ±0.02 rad from 4 s; activity ≤ 50 N·m |\n| Torque limits | 0 → 1.5 rad with the load | requested and applied torque within ±20 N·m; peak ≤ 1.65 rad |\n| Startup | initialized start at rest | torque within ±0.5 N·m; angle within ±0.01 rad |\n| Manual transfer | Manual holds 1.962 N·m, Auto at 2 s | torque 1.76–2.16 N·m from 1.9 to 2.2 s; angle within ±0.01 rad |\n| Measurement fault | encoder frozen 3.0–3.1 s; acknowledged at 3.1 s; Auto at 3.2 s | zero torque from 3.08 to 3.18 s; within ±2 rad; error within ±0.02 rad from 6 s |\n| Parameter update | **Apply** | the complete set adopted at one boundary |\n\n1. Open this lesson's project and start **Simulator**; the shaft rests at 0 rad in Manual on the installed controller. In the **truST** side bar, select **Control Studio**. On **Identify**, set **Method** to **Supplied plant model**, select **Open model…** and choose `shaft-model.json`.\n2. On **Tune**, choose **Controller** `P1.Controller · PID` with **Manual**: 16 in **Proportional gain (Kp)**, 12 in **Integral gain (Ki)**, 7 in **Derivative gain (Kd)**, 0.3 in **Setpoint weight (β)**, 0 in **Derivative setpoint weight (γ)** and 0.1 in **Measurement filter time (Tf)**. Select **Requirements…**, enter **Setpoint change (rad)** 1, **Maximum steady-state error (rad)** 0.02, **Maximum settling time (s)** 4, **Settling band (±rad)** 0.01 and **Validation duration (s)** 8, select **Done**, then **Tune controller**.\n3. On **Validate**, select **Validate controller**. Control Studio runs every trial of the record on the actual ST; decide each row.\n4. When every row passes, select **Apply**: the parameter update. Control Studio reports **Applied**.\n\nTo repeat, select **Restore previous settings**, then start again from step 2."
+    ],
+    "baseline": "Bypass filtering, retain raw and controller-facing PV plus applied torque, and calculate late torque-increment RMS and early positive lag area.",
+    "change": "Run the first-order filter at 0.02, 0.05 and 0.10 s while changing only its time constant. Then compare first- and second-order filtering at the selected 0.05 s time constant.",
+    "comparison": "![The fault drops the loaded shaft; the largest move stays far from the torque limit](figures/servo-commissioning.svg)\n\nThe numbered marks answer the predictions with the same numbers. From the validation runs:\n\n| Requirement | Measured | Decision |\n| --- | --- | --- |\n| Positioning | overshoot 0.007 rad; settled at 2.42 s; activity 28.7 N·m | Pass |\n| Load rejection | error 0.0014 rad from 4 s; torque 0 to 2.68 N·m; activity 19.8 N·m | Pass |\n| Torque limits | requested = applied, 0 to 8.12 N·m; overshoot 0.009 rad | Pass, limit not reached |\n| Startup | torque −0.09 to 0.09 N·m; angle within ±0.0014 rad | Pass |\n| Manual transfer | torque 1.92 to 2.06 N·m; angle −0.0012 to 0.0028 rad | Pass |\n| Measurement fault | zero torque from 3.04 to 3.20 s; lowest −0.155 rad; error 0.0155 rad from 6 s | Pass, drop observed |\n| Parameter update | the complete set adopted at one boundary | Pass: **Applied** |\n\n1. The drive gave no torque from 3.04 to 3.20 s, and the shaft dropped 0.020 rad, close to the predicted 0.024 rad.\n2. No: after the restart the controller built its torque up from zero, as initialization sets it, and the load kept falling until the torque exceeded 1.962 N·m, to −0.155 rad at 3.72 s.\n3. The shaft was back within 0.0155 rad from 6 s, inside the 0.02 rad requirement.\n4. No: with $\\beta = 0.3$ the largest move requested at most 8.12 N·m, so this commissioning does not exercise the anti-windup at ±20 N·m.\n\nEvery declared requirement passed and the candidate was applied, but the evidence bounds the claim. The fault is handled correctly for the drive, not for the load: a physical hoist must hold its load with a brake that engages when the torque is removed, and this assessment makes no holding claim during faults. These are simulation results, not a physical qualification.",
+    "validation": "![The fault drops the loaded shaft; the largest move stays far from the torque limit](figures/servo-commissioning.svg)\n\nThe numbered marks answer the predictions with the same numbers. From the validation runs:\n\n| Requirement | Measured | Decision |\n| --- | --- | --- |\n| Positioning | overshoot 0.007 rad; settled at 2.42 s; activity 28.7 N·m | Pass |\n| Load rejection | error 0.0014 rad from 4 s; torque 0 to 2.68 N·m; activity 19.8 N·m | Pass |\n| Torque limits | requested = applied, 0 to 8.12 N·m; overshoot 0.009 rad | Pass, limit not reached |\n| Startup | torque −0.09 to 0.09 N·m; angle within ±0.0014 rad | Pass |\n| Manual transfer | torque 1.92 to 2.06 N·m; angle −0.0012 to 0.0028 rad | Pass |\n| Measurement fault | zero torque from 3.04 to 3.20 s; lowest −0.155 rad; error 0.0155 rad from 6 s | Pass, drop observed |\n| Parameter update | the complete set adopted at one boundary | Pass: **Applied** |\n\n1. The drive gave no torque from 3.04 to 3.20 s, and the shaft dropped 0.020 rad, close to the predicted 0.024 rad.\n2. No: after the restart the controller built its torque up from zero, as initialization sets it, and the load kept falling until the torque exceeded 1.962 N·m, to −0.155 rad at 3.72 s.\n3. The shaft was back within 0.0155 rad from 6 s, inside the 0.02 rad requirement.\n4. No: with $\\beta = 0.3$ the largest move requested at most 8.12 N·m, so this commissioning does not exercise the anti-windup at ±20 N·m.\n\nEvery declared requirement passed and the candidate was applied, but the evidence bounds the claim. The fault is handled correctly for the drive, not for the load: a physical hoist must hold its load with a brake that engages when the torque is removed, and this assessment makes no holding claim during faults. These are simulation results, not a physical qualification.",
+    "explanation": "Commissioning qualifies the complete servo, not its parts: the load physics first, requirements declared in advance, and one trial and decision for each requirement, including startup, mode changes, updates and faults. Mechanisms that are correct alone can conflict, as the filter restart did.\n\nFor this shaft, the candidate passed all seven requirements and was applied; the trials never reached the torque limit, and without a brake no controller holds the load while the drive has no torque.",
+    "transfer": "The heater got PI and the shaft PID, each by the lessons that introduced them, not by a reasoned choice. A new process needs its controller family chosen from its model and its requirements.\n\n[Controller families](../../04-controller-selection-and-plant-models/27-controller-selection/README.md) compares P, PI, PD and PID on the heater and the shaft against the same requirements."
+  },
+  "video": {
+    "viewerOutcome": "Commission the complete servo: declare every requirement, run one trial for each in Control Studio, apply, and state what the evidence does not cover.",
+    "requiredVisibleEvidence": [
+      "the commissioning record",
+      "every trial row decided on Validate",
+      "the measurement-fault trial with zero torque",
+      "Applied",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

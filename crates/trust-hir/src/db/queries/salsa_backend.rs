@@ -7,6 +7,8 @@ use super::diagnostics::{
     check_using_directives, collect_used_symbols, expression_by_id, expression_context,
     resolve_pending_types_with_table, type_check_file, ExpressionIndex,
 };
+use super::project_configuration::project_config_roots;
+use super::project_constants::project_constant_expressions;
 use super::project_types::{
     build_project_type_catalog, collect_file_type_prelude, find_project_type_declaration,
 };
@@ -206,7 +208,6 @@ pub(super) fn project_inputs(state: &SalsaState) -> ProjectInputs {
 pub(super) struct SourceInput {
     #[returns(ref)]
     pub(super) text: String,
-    pub(super) temporal_storage: TemporalStorage,
 }
 
 #[salsa::input]
@@ -230,7 +231,7 @@ pub(super) fn expression_index_query(
     Arc::new(ExpressionIndex::from_root(&root))
 }
 
-#[salsa::tracked]
+#[salsa::tracked(returns(copy))]
 pub(super) fn project_has_task_configs_query(
     db: &dyn salsa::Database,
     project: ProjectInputs,
@@ -294,9 +295,7 @@ pub(super) fn file_symbols_query(
         project_files: files.as_ref(),
         catalog: catalog.as_ref(),
     };
-    let (symbols, _) = SymbolCollector::with_project_types(&provider)
-        .with_temporal_storage(*input.temporal_storage(db))
-        .collect(&root);
+    let (symbols, _) = SymbolCollector::with_project_types(&provider).collect(&root);
     Arc::new(symbols)
 }
 
@@ -306,23 +305,20 @@ pub(super) fn project_symbol_tables_query(
     project: ProjectInputs,
 ) -> Arc<FxHashMap<FileId, Arc<SymbolTable>>> {
     let files = project.files(db);
+    let _trace = crate::timing::CompilerStage::new("hir.project_symbols", files.len());
     let catalog = project_type_catalog_query(db, project);
     let provider = SalsaProjectTypeProvider {
         db,
         project_files: files.as_ref(),
         catalog: catalog.as_ref(),
     };
-    let const_roots: Vec<SyntaxNode> = files
-        .iter()
-        .map(|(_, input)| SyntaxNode::new_root(parse_green(db, *input).clone()))
-        .collect();
+    let constants = project_constant_expressions(db, files);
     let mut project_tables: FxHashMap<FileId, Arc<SymbolTable>> = FxHashMap::default();
     for (file_id, input) in files.iter().copied() {
         cancellation_checkpoint(db);
         let root = SyntaxNode::new_root(parse_green(db, input).clone());
         let (symbols, _) = SymbolCollector::with_project_types(&provider)
-            .with_temporal_storage(*input.temporal_storage(db))
-            .collect_with_project_const_roots(&root, &const_roots);
+            .collect_with_project_constants(&root, &constants);
         project_tables.insert(file_id, Arc::new(symbols));
     }
     Arc::new(project_tables)
@@ -377,6 +373,8 @@ pub(super) fn analyze_query(
     project: ProjectInputs,
     file_id: FileId,
 ) -> Arc<FileAnalysis> {
+    let _trace = crate::timing::CompilerStage::new("hir.analyze_file", 1);
+    crate::timing::event("file_id", file_id.0 as usize);
     cancellation_checkpoint(db);
     let Some(ProjectState {
         target_input,
@@ -395,21 +393,30 @@ pub(super) fn analyze_query(
         project_files: project_files.as_ref(),
         catalog: catalog.as_ref(),
     };
-    let const_roots: Vec<SyntaxNode> = project_roots_from_inputs(db, &project_source_inputs)
-        .into_iter()
-        .map(|(_, project_root)| project_root)
-        .collect();
-    let (mut symbols, mut diagnostics, pending_types) =
+    let config_roots = project_config_roots(db, project_files);
+    let constants = project_constant_expressions(db, project_files);
+    let (mut symbols, mut diagnostics, pending_types, deferred_initializers) =
         SymbolCollector::with_project_types(&provider)
-            .with_temporal_storage(*target_input.temporal_storage(db))
-            .collect_for_project_with_const_roots(&root, &const_roots);
-    merge_project_symbols(file_id, &mut symbols, project_tables.as_ref());
+            .collect_for_project_with_constants(&root, &constants);
+    // The merge is a deterministic function of the local table and the other files'
+    // tables. When this file's table equals the one merged_project_symbols_query started
+    // from (the usual case: the two collection paths agree), its result is this merge's
+    // result too, and it has been computed already for project_used_symbols_query.
+    if project_tables
+        .get(&file_id)
+        .is_some_and(|table| **table == symbols)
+    {
+        symbols = (**merged_project_symbols_query(db, project, file_id)).clone();
+    } else {
+        merge_project_symbols(file_id, &mut symbols, project_tables.as_ref());
+    }
+    let config_inits = super::collector::config_inits_of(&config_roots);
     let (checked_symbols, access_config_diagnostics) =
         SymbolCollector::validate_project_after_merge(
             symbols,
             &root,
-            &const_roots,
-            *target_input.temporal_storage(db),
+            &config_inits,
+            deferred_initializers,
         );
     symbols = checked_symbols;
     diagnostics.extend(access_config_diagnostics);
@@ -449,15 +456,17 @@ pub(super) fn analyze_query(
     check_global_external_links_with_project(&mut symbols, &root, &mut builder, file_id);
     diagnostics.extend(builder.finish());
     diagnostics.extend(crate::openot_authoring::collect_openot_attribute_diagnostics(&root));
-    let openot_declaration_catalog = symbols.declaration_catalog(file_id);
-    diagnostics.extend(
-        crate::openot_authoring::collect_openot_semantic_diagnostics(
-            &root,
-            &symbols,
-            &openot_declaration_catalog,
-            file_id,
-        ),
-    );
+    if crate::openot_authoring::parse_attribute_map_from_node(&root).contains_oot() {
+        let openot_declaration_catalog = symbols.declaration_catalog(file_id);
+        diagnostics.extend(
+            crate::openot_authoring::collect_openot_semantic_diagnostics(
+                &root,
+                &symbols,
+                &openot_declaration_catalog,
+                file_id,
+            ),
+        );
+    }
 
     let mut builder = DiagnosticBuilder::new();
     check_class_semantics(&symbols, &root, &mut builder);
@@ -481,7 +490,8 @@ pub(super) fn analyze_query(
     check_unreachable_statements(&root, &mut builder);
     check_cyclomatic_complexity(&root, &mut builder);
     check_nondeterminism(&symbols, &mut builder);
-    if has_global_variables(&symbols) && *project_has_task_configs_query(db, project) {
+    if has_owned_global_variables(&symbols, file_id) && project_has_task_configs_query(db, project)
+    {
         let project_roots = project_roots_from_inputs(db, &project_source_inputs);
         check_shared_global_task_hazards(&symbols, &project_roots, file_id, &mut builder);
     }
@@ -492,7 +502,8 @@ pub(super) fn analyze_query(
     Arc::new(FileAnalysis {
         symbols: Arc::new(symbols),
         diagnostics: Arc::new(diagnostics),
-        expression_types: Arc::new(expression_types),
+        expression_types: Arc::new(expression_types.types),
+        resolved_symbols: Arc::new(expression_types.symbols),
         declaration_catalog: Arc::new(declaration_catalog),
     })
 }
@@ -506,7 +517,7 @@ pub(super) fn diagnostics_query(
     analyze_query(db, project, file_id).diagnostics.clone()
 }
 
-#[salsa::tracked]
+#[salsa::tracked(returns(copy))]
 pub(super) fn type_of_query(
     db: &dyn salsa::Database,
     project: ProjectInputs,
@@ -549,6 +560,7 @@ fn empty_analysis() -> Arc<FileAnalysis> {
         symbols: Arc::new(SymbolTable::default()),
         diagnostics: Arc::new(Vec::new()),
         expression_types: Arc::new(FxHashMap::default()),
+        resolved_symbols: Arc::new(FxHashMap::default()),
         declaration_catalog: Arc::new(DeclarationCatalog::default()),
     })
 }
@@ -585,7 +597,7 @@ impl ProjectTypeProvider for SalsaProjectTypeProvider<'_> {
             .iter()
             .find_map(|(file_id, input)| (*file_id == entry.file_id).then_some(*input))?;
         let root = SyntaxNode::new_root(parse_green(self.db, input).clone());
-        find_project_type_declaration(&root, qualified_name, entry.kind)
+        find_project_type_declaration(&root, qualified_name, entry.kind, entry.range)
     }
 }
 
@@ -613,14 +625,17 @@ fn collect_project_state(
     })
 }
 
-fn has_global_variables(symbols: &SymbolTable) -> bool {
+// This warning is emitted only at the declaring global's origin. Imported-only
+// files cannot report it, so do not repeat whole-project task/access discovery there.
+fn has_owned_global_variables(symbols: &SymbolTable, file_id: FileId) -> bool {
     symbols.iter().any(|symbol| {
-        matches!(
-            symbol.kind,
-            SymbolKind::Variable {
-                qualifier: VarQualifier::Global
-            }
-        )
+        symbol.origin.is_none_or(|origin| origin.file_id == file_id)
+            && matches!(
+                symbol.kind,
+                SymbolKind::Variable {
+                    qualifier: VarQualifier::Global
+                }
+            )
     })
 }
 
@@ -657,6 +672,7 @@ fn merge_project_symbols(
     symbols: &mut SymbolTable,
     tables: &FxHashMap<FileId, Arc<SymbolTable>>,
 ) {
+    let _trace = crate::timing::CompilerStage::new("hir.merge_project_symbols", tables.len());
     let ordered_tables = ordered_table_entries(tables);
     let mut importer = SymbolImporter::new(symbols, tables);
     for (other_id, table) in ordered_tables.iter().copied() {

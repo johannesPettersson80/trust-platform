@@ -1,0 +1,14 @@
+[simulation]
+enabled = true
+plant_step_ms = 10
+
+[[plants]]
+id = "custom-omitted"
+name = "Custom omitted state"
+description = "Saved model with runtime-defaulted initial state"
+model = "first_order"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+
+[plants.parameters]
+time_constant_s = 7.0

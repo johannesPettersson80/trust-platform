@@ -437,6 +437,9 @@ END_CONFIGURATION
         .collect::<Vec<_>>();
 
     assert_eq!(owner_hazards.len(), 1);
+    assert!(diagnostics_for(&sources, 2)
+        .iter()
+        .all(|diagnostic| diagnostic.code != DiagnosticCode::SharedGlobalTaskHazard));
     assert!(diagnostics_for(&sources, 1)
         .iter()
         .all(|diagnostic| diagnostic.code != DiagnosticCode::SharedGlobalTaskHazard));

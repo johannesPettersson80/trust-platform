@@ -18,6 +18,28 @@ fn scaled_sleep_interval(interval: Duration, scale: u32) -> Duration {
     Duration::from_nanos(scaled)
 }
 
+/// Start of the current cycle on the fixed cycle grid: the scheduled instant while the cycle starts within one interval
+/// of it, so a late wake-up does not delay every later cycle; otherwise `now`, so a stall or a paused debugger moves the
+/// grid instead of replaying the missed cycles in a burst.
+fn grid_cycle_start(scheduled: Option<i64>, now: i64, interval: i64) -> i64 {
+    match scheduled {
+        Some(due) if now <= due.saturating_add(interval) => due,
+        _ => now,
+    }
+}
+
+/// The nominal start of a cycle on the wall clock's fixed grid (specification 10 §4.3): the
+/// boundary `boundary` it was due at, or, for a cycle that starts a whole `interval` or more after
+/// it, the last boundary of the grid at or before `now`. A delayed wake or a cycle that overran
+/// thus skips the boundaries it missed, and the grid stays on the tasks' deadlines.
+fn wall_grid_start(boundary: i64, now: i64, interval: i64) -> i64 {
+    let late = now.saturating_sub(boundary);
+    if interval <= 0 || late < interval {
+        return boundary;
+    }
+    boundary.saturating_add((late / interval).saturating_mul(interval))
+}
+
 fn cycle_deadline_from(start: std::time::Instant, timeout: Duration) -> Option<std::time::Instant> {
     if timeout.as_nanos() <= 0 {
         return Some(start);
@@ -33,7 +55,7 @@ struct CycleDeadlineSnapshot {
 }
 
 fn arm_cycle_deadlines(
-    runtime: &mut Runtime,
+    runtime: &mut CompiledRuntime,
     watchdog: crate::watchdog::WatchdogPolicy,
     wall_start: std::time::Instant,
 ) -> CycleDeadlineSnapshot {
@@ -49,14 +71,10 @@ fn arm_cycle_deadlines(
     snapshot
 }
 
-fn restore_cycle_deadlines(runtime: &mut Runtime, snapshot: CycleDeadlineSnapshot) {
+fn restore_cycle_deadlines(runtime: &mut CompiledRuntime, snapshot: CycleDeadlineSnapshot) {
     runtime.set_execution_deadline(snapshot.execution_deadline);
     runtime.set_output_commit_deadline(snapshot.output_deadline);
 }
-
-const AUTOMATIC_RESTART_MAX_ATTEMPTS: u32 = 3;
-const AUTOMATIC_RESTART_BACKOFF_FLOOR_NANOS: i64 = 1_000_000;
-const AUTOMATIC_RESTART_BACKOFF_CAP_NANOS: i64 = 1_000_000_000;
 
 fn run_resource_loop<C: Clock + Clone>(
     runner: ResourceRunner<C>,
@@ -70,27 +88,11 @@ fn run_resource_loop<C: Clock + Clone>(
     });
 }
 
-fn run_resource_loop_with_shared<C: Clock + Clone>(
-    runner: ResourceRunner<C>,
-    stop: Arc<AtomicBool>,
-    state: Arc<Mutex<ResourceState>>,
-    last_error: Arc<Mutex<Option<RuntimeError>>>,
-    supervision: Arc<supervisor::ScanSupervision>,
-    shared: SharedGlobals,
-) {
-    run_resource_loop_core(
-        runner,
-        stop,
-        state,
-        last_error,
-        supervision,
-        move |runtime| shared.execute_cycle(runtime),
-    );
-}
-
 /// Runs the scan loop until a stop request ends it. A halting fault does not end the loop: the
 /// resource stays `Faulted` in the faulted wait (specification 11 section 6.6) and resumes only
-/// after a successful restart or online change.
+/// after a successful restart or online change. A program stop, the control `shutdown`, does not
+/// end the loop either: the resource waits `Stopped` until a `restart` starts the program again
+/// (specification 34, STATE-08).
 fn run_resource_loop_core<C, F>(
     mut runner: ResourceRunner<C>,
     stop: Arc<AtomicBool>,
@@ -100,7 +102,7 @@ fn run_resource_loop_core<C, F>(
     mut execute_cycle: F,
 ) where
     C: Clock + Clone,
-    F: FnMut(&mut Runtime) -> Result<(), RuntimeError>,
+    F: FnMut(&mut CompiledRuntime) -> Result<(), RuntimeError>,
 {
     let shared = LoopShared {
         stop: &stop,
@@ -111,6 +113,11 @@ fn run_resource_loop_core<C, F>(
     let mut paused = false;
     let mut restarts = AutomaticRestartLimiter::default();
     let mut hang_supervisor: Option<supervisor::HangSupervisor> = None;
+    // The nominal start of the next cycle on the cycle grid. The grid begins where the tasks'
+    // timing begins, at the program's start and at each restart, a recovery from a fault and a
+    // start after a stop included (specification 10 §4.3), so that its boundaries are the tasks'
+    // deadlines; a pause keeps it, as the tasks keep their deadlines through it.
+    let mut boundary: Option<Duration> = None;
     if let Some(gate) = runner.start_gate.as_ref() {
         set_resource_state(&state, ResourceState::Ready);
         if !gate.wait_open(&stop) {
@@ -131,14 +138,23 @@ fn run_resource_loop_core<C, F>(
         }
 
         if stop.load(Ordering::SeqCst) {
-            stop_resource(&mut runner, &shared);
+            stopping::stop_resource(&mut runner, &shared);
             break;
+        }
+
+        if supervision.take_program_stop() {
+            if stopping::stop_program(&mut runner, &shared, &mut restarts) == Next::Exit {
+                return;
+            }
+            paused = false;
+            continue;
         }
 
         drain_commands(&mut runner, &state, &mut paused);
 
         if let Some(mode) = faulted::take_pending_restart(&runner) {
-            match runner.restart_with_retain_store(mode) {
+            // The restart restarts the task timing now, and the grid with it (`take_grid_origin`).
+            match runner.restart_or_reload(mode) {
                 Ok(()) => {
                     restarts.reset();
                     faulted::clear_recovered_fault(&supervision, &last_error);
@@ -154,12 +170,36 @@ fn run_resource_loop_core<C, F>(
         }
 
         if paused {
-            sleep_one_interval(&runner, runner.clock.now());
+            // A paused resource scans nothing, so identify blinks from here (specification 11,
+            // "Identify"). The program's outputs keep their committed values.
+            runner.runtime.drive_identify_while_idle();
+            sleep_while_paused(&runner);
             continue;
         }
 
         let now_raw = runner.clock.now();
-        let now = scaled_time(now_raw, runner.time_scale);
+        if let Some(origin) = runner.take_grid_origin() {
+            boundary = Some(origin);
+        }
+        // The cycle's nominal start on the grid (specification 10 §4.3): the boundary it was due
+        // at, or the last boundary at or before its start when it starts a whole interval or more
+        // after it, as after a wake the operating system delayed that long or a cycle that
+        // overran, so that the grid keeps the tasks' deadlines and no cycle finds them not yet due.
+        let pace = scaled_sleep_interval(runner.cycle_interval, runner.timing.scale()).as_nanos();
+        let due = boundary.take().map_or(now_raw, |boundary| {
+            Duration::from_nanos(wall_grid_start(
+                boundary.as_nanos(),
+                now_raw.as_nanos(),
+                pace,
+            ))
+        });
+        // The cycle's process time counts from the program's start (specification 34, STATE-08):
+        // the wall clock, or simulation time, one cycle interval for each executed cycle
+        // (specification 46, §6.1 item 1).
+        let slot = runner
+            .timing
+            .begin_cycle(runner.program_time(now_raw), runner.cycle_interval);
+        let now = slot.process_time;
         runner.runtime.set_current_time(now);
         let wall_start = std::time::Instant::now();
         let watchdog = runner.runtime.watchdog_policy();
@@ -197,7 +237,7 @@ fn run_resource_loop_core<C, F>(
             continue;
         }
         restarts.reset();
-        sleep_one_interval(&runner, now_raw);
+        boundary = sleep_until_next_boundary(&mut runner, due, slot);
     }
 }
 
@@ -214,7 +254,7 @@ struct LoopShared<'a> {
 enum Next {
     /// A recovery succeeded, so the loop continues with the next pass.
     Continue,
-    /// A stop request ended the faulted wait, so the thread ends.
+    /// An exit request ended the wait, after the stop it asks for, so the thread ends.
     Exit,
 }
 
@@ -234,7 +274,7 @@ fn halt<C: Clock + Clone>(
         restarts,
         fault,
     );
-    next_after(wait)
+    stopping::follow_faulted_wait(wait, runner, shared, restarts)
 }
 
 /// Tries an automatic warm restart; when the retry budget is spent or the restart fails, the
@@ -263,18 +303,12 @@ fn retry_or_wait<C: Clock + Clone>(
         shared.supervision,
         restarts,
     );
-    next_after(wait)
+    stopping::follow_faulted_wait(wait, runner, shared, restarts)
 }
 
-fn next_after(wait: faulted::FaultedWait) -> Next {
-    match wait {
-        faulted::FaultedWait::Resumed => Next::Continue,
-        faulted::FaultedWait::Stopped => Next::Exit,
-    }
-}
-
-/// Follows the watchdog action for a timeout or limit error, the fault policy's automatic restart
-/// for other errors (never for a contained panic), and otherwise halts.
+/// Follows the shared decision for a cycle error: the watchdog action for a timeout or limit
+/// error, the fault policy's automatic restart for other errors (never for a contained panic),
+/// and otherwise a halt.
 fn handle_cycle_error<C: Clock + Clone>(
     runner: &mut ResourceRunner<C>,
     shared: &LoopShared<'_>,
@@ -282,32 +316,14 @@ fn handle_cycle_error<C: Clock + Clone>(
     watchdog: crate::watchdog::WatchdogPolicy,
     err: RuntimeError,
 ) -> Next {
-    if watchdog.enabled
-        && matches!(
-            err,
-            RuntimeError::WatchdogTimeout
-                | RuntimeError::ExecutionTimeout
-                | RuntimeError::ExecutionLimit { .. }
-        )
-    {
-        let watchdog_err = match err {
-            RuntimeError::ExecutionLimit { .. } => err,
-            _ => RuntimeError::WatchdogTimeout,
-        };
-        if matches!(watchdog.action, crate::watchdog::WatchdogAction::Restart) {
-            return retry_or_wait(runner, shared, restarts, &watchdog_err);
+    match cycle_error_action(watchdog, runner.runtime.fault_policy(), err) {
+        CycleErrorAction::Restart(reason) => retry_or_wait(runner, shared, restarts, &reason),
+        CycleErrorAction::WatchdogHalt(watchdog_err) => {
+            let err = runner.runtime.watchdog_fault(watchdog_err);
+            halt(runner, shared, restarts, err)
         }
-        let err = runner.runtime.watchdog_fault(watchdog_err);
-        return halt(runner, shared, restarts, err);
+        CycleErrorAction::Halt(err) => halt(runner, shared, restarts, err),
     }
-    if matches!(
-        runner.runtime.fault_policy(),
-        crate::watchdog::FaultPolicy::Restart
-    ) && !matches!(err, RuntimeError::ResourcePanic(_))
-    {
-        return retry_or_wait(runner, shared, restarts, &err);
-    }
-    halt(runner, shared, restarts, err)
 }
 
 /// Applies the watchdog action when a cycle that returned still overran its active-execution
@@ -319,47 +335,22 @@ fn handle_watchdog_overrun<C: Clock + Clone>(
     watchdog: crate::watchdog::WatchdogPolicy,
     active_elapsed: std::time::Duration,
 ) -> Option<Next> {
-    if !watchdog.enabled {
-        return None;
-    }
-    let elapsed = i64::try_from(active_elapsed.as_nanos()).unwrap_or(i64::MAX);
-    if elapsed <= watchdog.timeout.as_nanos() {
-        return None;
-    }
-    if matches!(watchdog.action, crate::watchdog::WatchdogAction::Restart) {
-        return Some(retry_or_wait(
+    match watchdog_overrun_action(watchdog, active_elapsed)? {
+        OverrunAction::Restart => Some(retry_or_wait(
             runner,
             shared,
             restarts,
             &RuntimeError::WatchdogTimeout,
-        ));
-    }
-    let err = runner.runtime.watchdog_timeout();
-    Some(halt(runner, shared, restarts, err))
-}
-
-/// Applies the safe state and saves the retain store for a stop request. A stop request ends the
-/// thread at once, so a stop-time failure is recorded without entering the faulted wait.
-fn stop_resource<C: Clock + Clone>(runner: &mut ResourceRunner<C>, shared: &LoopShared<'_>) {
-    let mut stop_error = None;
-    if let Err(err) = runner.runtime.apply_io_safe_state() {
-        stop_error = Some(err);
-    }
-    if let Err(err) = runner.runtime.save_retain_store()
-        && stop_error.is_none()
-    {
-        stop_error = Some(err);
-    }
-    if let Some(err) = stop_error {
-        set_last_error(shared.last_error, err);
-        set_resource_state(shared.state, ResourceState::Faulted);
-    } else {
-        set_resource_state(shared.state, ResourceState::Stopped);
+        )),
+        OverrunAction::Halt => {
+            let err = runner.runtime.watchdog_timeout();
+            Some(halt(runner, shared, restarts, err))
+        }
     }
 }
 
 /// Serves every queued command: pause and resume change the loop's state, the others act on the
-/// runtime.
+/// runtime (the shared running-command rules).
 fn drain_commands<C: Clock + Clone>(
     runner: &mut ResourceRunner<C>,
     state: &Arc<Mutex<ResourceState>>,
@@ -369,18 +360,93 @@ fn drain_commands<C: Clock + Clone>(
         return;
     };
     while let Ok(command) = commands.try_recv() {
-        match command {
-            ResourceCommand::Pause => {
+        match running_command_effect(command_class(&command)) {
+            // A pause and a resume restart the simulation schedule (specification 46, §6.1 item 4).
+            RunningCommandEffect::Pause => {
                 *paused = true;
                 set_resource_state(state, ResourceState::Paused);
+                runner.timing.restart_schedule();
             }
-            ResourceCommand::Resume => {
+            RunningCommandEffect::Resume => {
                 *paused = false;
                 set_resource_state(state, ResourceState::Running);
+                runner.timing.restart_schedule();
             }
-            other => apply_resource_command(&mut runner.runtime, other),
+            // The scan loop owns the simulation, so it serves the simulation's commands itself.
+            RunningCommandEffect::Apply => match command {
+                ResourceCommand::SimulationSnapshot { respond_to } => {
+                    let _ = respond_to.send(runner.simulation_snapshot());
+                }
+                ResourceCommand::SimulationTraceClear {
+                    plant_id,
+                    active_configuration_revision,
+                    respond_to,
+                } => {
+                    let result = runner
+                        .simulation
+                        .as_mut()
+                        .ok_or(crate::simulation::PlantTraceClearError::StatusUnavailable)
+                        .and_then(|simulation| {
+                            simulation.clear_plant_trace(&plant_id, &active_configuration_revision)
+                        });
+                    let _ = respond_to.send(result);
+                }
+                other => {
+                    apply_runner_command(&mut runner.runtime, runner.refuse_mesh_catalogue, other)
+                }
+            },
         }
     }
+}
+
+/// Sleeps until the next cycle is due. On the wall clock it returns the nominal start of the next
+/// cycle: the boundary one cycle interval after `due`, the nominal start of the cycle that ended,
+/// so that the cycles keep a fixed grid and the time a wake takes is never added to the next
+/// interval (specification 10 §4.3; specification 34 CYCLE-03). When that boundary has passed,
+/// after a cycle longer than its interval, it is returned all the same: the next cycle starts at
+/// once, on the last boundary of the grid at or before its start (`wall_grid_start`), without a
+/// burst of cycles to catch up, and the tasks count the activations that passed as missed. In
+/// simulation the next cycle is due one paced interval, the cycle interval divided by
+/// the speed, after the cycle `slot`; a cycle that starts within one paced interval of its due time
+/// keeps that schedule, and a later one restarts it from its own start (specification 46, §6.1
+/// item 2). Returns `None` in simulation, and yields and returns `None` when the interval is not
+/// positive.
+fn sleep_until_next_boundary<C: Clock + Clone>(
+    runner: &mut ResourceRunner<C>,
+    due: Duration,
+    slot: cycle_timing::CycleSlot,
+) -> Option<Duration> {
+    if runner.cycle_interval.as_nanos() <= 0 {
+        thread::yield_now();
+        return None;
+    }
+    if runner.timing.simulation_speed().is_some() {
+        let deadline = runner.timing.finish_cycle(slot);
+        runner.clock.sleep_until(runner.clock_time(deadline));
+        return None;
+    }
+    let sleep_interval = scaled_sleep_interval(runner.cycle_interval, runner.timing.scale());
+    let next = Duration::from_nanos(due.as_nanos().saturating_add(sleep_interval.as_nanos()));
+    if next <= runner.clock.now() {
+        return Some(next);
+    }
+    runner.clock.sleep_until(next);
+    Some(next)
+}
+
+/// The pause between two passes of the paused wait: one cycle interval, or at most the poll period
+/// of the stopped and faulted waits while `identify` runs, so that a long cycle interval does not
+/// make the 250 ms edges of its blink late by up to one interval.
+fn sleep_while_paused<C: Clock + Clone>(runner: &ResourceRunner<C>) {
+    let from = runner.clock.now();
+    if runner.cycle_interval.as_nanos() > 0 && runner.runtime.identify_is_running() {
+        let pass = scaled_sleep_interval(runner.cycle_interval, runner.timing.scale()).as_nanos();
+        let poll = i64::try_from(faulted::FAULTED_WAIT_POLL.as_nanos()).unwrap_or(i64::MAX);
+        let deadline = Duration::from_nanos(from.as_nanos().saturating_add(pass.min(poll)));
+        runner.clock.sleep_until(deadline);
+        return;
+    }
+    sleep_one_interval(runner, from);
 }
 
 /// Sleeps until one cycle interval after `from`, or yields when the interval is not positive.
@@ -390,31 +456,9 @@ fn sleep_one_interval<C: Clock + Clone>(runner: &ResourceRunner<C>, from: Durati
         thread::yield_now();
         return;
     }
-    let sleep_interval = scaled_sleep_interval(runner.cycle_interval, runner.time_scale);
+    let sleep_interval = scaled_sleep_interval(runner.cycle_interval, runner.timing.scale());
     let deadline = Duration::from_nanos(from.as_nanos().saturating_add(sleep_interval.as_nanos()));
     runner.clock.sleep_until(deadline);
-}
-
-#[derive(Debug, Default)]
-struct AutomaticRestartLimiter {
-    attempts: u32,
-}
-
-impl AutomaticRestartLimiter {
-    fn reset(&mut self) {
-        self.attempts = 0;
-    }
-
-    fn next_attempt(&mut self, reason: &RuntimeError) -> Result<u32, RuntimeError> {
-        if self.attempts >= AUTOMATIC_RESTART_MAX_ATTEMPTS {
-            return Err(RuntimeError::RestartLimitExceeded {
-                attempts: self.attempts,
-                reason: SmolStr::new(reason.to_string()),
-            });
-        }
-        self.attempts += 1;
-        Ok(self.attempts)
-    }
 }
 
 fn try_automatic_restart<C: Clock + Clone>(
@@ -461,18 +505,6 @@ fn apply_automatic_restart_backoff<C: Clock + Clone>(runner: &ResourceRunner<C>,
     runner.clock.sleep_until(deadline);
 }
 
-fn automatic_restart_backoff(cycle_interval: Duration, attempt: u32) -> Duration {
-    let base = cycle_interval.as_nanos().clamp(
-        AUTOMATIC_RESTART_BACKOFF_FLOOR_NANOS,
-        AUTOMATIC_RESTART_BACKOFF_CAP_NANOS,
-    );
-    let multiplier = 1_i64 << attempt.saturating_sub(1).min(8);
-    Duration::from_nanos(
-        base.saturating_mul(multiplier)
-            .min(AUTOMATIC_RESTART_BACKOFF_CAP_NANOS),
-    )
-}
-
 #[derive(Debug)]
 struct CyclePanicSentinel {
     entered: bool,
@@ -503,7 +535,7 @@ fn execute_protected_cycle<C, F>(
 ) -> Result<(), RuntimeError>
 where
     C: Clock + Clone,
-    F: FnMut(&mut Runtime) -> Result<(), RuntimeError>,
+    F: FnMut(&mut CompiledRuntime) -> Result<(), RuntimeError>,
 {
     let mut sentinel = CyclePanicSentinel::entered();
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -562,14 +594,22 @@ fn set_last_error(last_error: &Arc<Mutex<Option<RuntimeError>>>, err: RuntimeErr
 mod restart_storage_trace_cases;
 
 #[cfg(test)]
-#[path = "runner_loop/restart_generation_backoff_tests.rs"]
-mod restart_generation_backoff_tests;
+#[path = "runner_loop/pacing_tests.rs"]
+mod pacing_tests;
 
 #[cfg(test)]
 mod runner_loop_poison_tests {
     use super::*;
     use crate::harness::TestHarness;
     use crate::value::Value;
+
+    /// An empty compiled program, which the scheduler runs; the build needs the toolchain of
+    /// specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+    fn empty_program() -> CompiledRuntime {
+        TestHarness::from_source("PROGRAM Main\nEND_PROGRAM\n")
+            .expect("build the runner fixture")
+            .into_runtime()
+    }
 
     #[derive(Clone, Debug)]
     struct TestClock;
@@ -585,10 +625,12 @@ mod runner_loop_poison_tests {
     }
 
     /// Stops the loop once the injected fault has been recorded, so the faulted wait can end.
+    /// Asks for the exit once the resource reads `Faulted`, or after 5 s; the thread returns whether
+    /// it saw the resource faulted.
     fn stop_once_faulted(
         state: Arc<Mutex<ResourceState>>,
         stop: Arc<AtomicBool>,
-    ) -> std::thread::JoinHandle<()> {
+    ) -> std::thread::JoinHandle<bool> {
         std::thread::spawn(move || {
             let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
             while *recover_mutex_lock(state.lock()) != ResourceState::Faulted
@@ -596,7 +638,9 @@ mod runner_loop_poison_tests {
             {
                 std::thread::sleep(std::time::Duration::from_millis(1));
             }
+            let faulted = *recover_mutex_lock(state.lock()) == ResourceState::Faulted;
             stop.store(true, Ordering::SeqCst);
+            faulted
         })
     }
 
@@ -630,11 +674,70 @@ mod runner_loop_poison_tests {
         );
     }
 
+    /// A clock whose every wake-up returns 0.5 ms after the instant it was asked to wake.
+    #[derive(Clone, Debug)]
+    struct LateWakeClock {
+        now: Arc<Mutex<Duration>>,
+    }
+
+    impl Clock for LateWakeClock {
+        fn now(&self) -> Duration {
+            *self.now.lock().expect("late clock lock")
+        }
+
+        fn sleep_until(&self, deadline: Duration) {
+            let mut now = self.now.lock().expect("late clock lock");
+            *now = Duration::from_nanos(deadline.as_nanos().max(now.as_nanos()) + 500_000);
+        }
+
+        fn wake(&self) {}
+    }
+
+    #[test]
+    fn late_wake_ups_do_not_shift_the_cycle_grid() {
+        let clock = LateWakeClock {
+            now: Arc::new(Mutex::new(Duration::ZERO)),
+        };
+        let runner = ResourceRunner::new(empty_program(), clock, Duration::from_millis(10));
+        let stop = Arc::new(AtomicBool::new(false));
+        let state = Arc::new(Mutex::new(ResourceState::Boot));
+        let last_error = Arc::new(Mutex::new(None));
+        let supervision = Arc::new(supervisor::ScanSupervision::new(
+            Arc::clone(&state),
+            Arc::clone(&last_error),
+        ));
+        let stopper = stop_once_faulted(Arc::clone(&state), Arc::clone(&stop));
+        let starts = Arc::new(Mutex::new(Vec::new()));
+        let recorded = Arc::clone(&starts);
+        run_resource_loop_core(
+            runner,
+            stop,
+            state,
+            last_error,
+            supervision,
+            move |runtime| {
+                let mut starts = recorded.lock().expect("cycle starts lock");
+                starts.push(runtime.current_time().as_nanos());
+                if starts.len() == 101 {
+                    return Err(RuntimeError::SimulationFault(
+                        "stop after 101 cycles".into(),
+                    ));
+                }
+                Ok(())
+            },
+        );
+        stopper.join().expect("stop helper");
+        let starts = starts.lock().expect("cycle starts lock");
+        assert_eq!(starts.len(), 101);
+        assert_eq!(
+            starts[100], 1_000_500_000,
+            "100 cycles of 10 ms keep the 1 s grid; one late wake-up is not added per cycle"
+        );
+    }
+
     #[test]
     fn scheduler_arms_execution_deadline_during_cycle() {
-        let mut runtime = crate::RuntimeBuilder::new()
-            .build()
-            .expect("admit runner fixture");
+        let mut runtime = empty_program();
         runtime.set_watchdog_policy(crate::watchdog::WatchdogPolicy {
             enabled: true,
             timeout: Duration::from_millis(10),
@@ -673,7 +776,7 @@ mod runner_loop_poison_tests {
                 .expect("observed deadline lock")
                 .expect("cycle should run")
                 .is_some(),
-            "scheduler must arm Runtime::execution_deadline before cycle execution"
+            "scheduler must arm the execution deadline before cycle execution"
         );
     }
 
@@ -691,9 +794,7 @@ mod runner_loop_poison_tests {
 
     #[test]
     fn cycle_deadline_guard_restores_previous_deadlines_after_success() {
-        let mut runtime = crate::RuntimeBuilder::new()
-            .build()
-            .expect("admit runner fixture");
+        let mut runtime = empty_program();
         let previous = std::time::Instant::now() + std::time::Duration::from_secs(30);
         runtime.set_execution_deadline(Some(previous));
         runtime.set_output_commit_deadline(Some(previous));
@@ -722,9 +823,7 @@ mod runner_loop_poison_tests {
     #[test]
     fn cycle_deadline_guard_restores_after_runtime_error_and_contained_panic() {
         for outcome in ["runtime-error", "panic"] {
-            let mut runtime = crate::RuntimeBuilder::new()
-                .build()
-                .expect("admit runner fixture");
+            let mut runtime = empty_program();
             let snapshot = arm_cycle_deadlines(
                 &mut runtime,
                 crate::watchdog::WatchdogPolicy {
@@ -765,9 +864,7 @@ mod runner_loop_poison_tests {
 
     #[test]
     fn disabled_watchdog_does_not_arm_cycle_deadlines() {
-        let mut runtime = crate::RuntimeBuilder::new()
-            .build()
-            .expect("admit runner fixture");
+        let mut runtime = empty_program();
         let snapshot = arm_cycle_deadlines(
             &mut runtime,
             crate::watchdog::WatchdogPolicy {
@@ -787,9 +884,7 @@ mod runner_loop_poison_tests {
 
     #[test]
     fn cycle_execution_panic_faults_resource_visibly() {
-        let runtime = crate::RuntimeBuilder::new()
-            .build()
-            .expect("admit runner fixture");
+        let runtime = empty_program();
         let runner = ResourceRunner::new(runtime, TestClock, Duration::from_millis(1));
         let stop = Arc::new(AtomicBool::new(false));
         let state = Arc::new(Mutex::new(ResourceState::Boot));
@@ -810,9 +905,14 @@ mod runner_loop_poison_tests {
                 panic!("intentional VM/program execution panic");
             },
         );
-        stopper.join().expect("stop helper");
+        assert!(
+            stopper.join().expect("stop helper"),
+            "the cycle panic faults the resource"
+        );
 
-        assert_eq!(*recover_mutex_lock(state.lock()), ResourceState::Faulted);
+        // The exit request then stops the faulted resource as a running one is stopped, and the
+        // root fault stays reported (specification 34 STATE-08; specification 11 section 6.6).
+        assert_eq!(*recover_mutex_lock(state.lock()), ResourceState::Stopped);
         let error = recover_mutex_lock(last_error.lock())
             .clone()
             .expect("panic must set last_error");
@@ -864,16 +964,16 @@ END_PROGRAM
             &supervision,
         ));
         assert_eq!(
-            runner.runtime().storage().get_global("retained_value"),
-            Some(&Value::DInt(42)),
+            runner.program().read_variable("retained_value"),
+            Ok(Value::DInt(42)),
         );
         assert_eq!(
-            runner.runtime().storage().get_global("transient_value"),
-            Some(&Value::DInt(2)),
+            runner.program().read_variable("transient_value"),
+            Ok(Value::DInt(2)),
         );
         assert_eq!(
-            runner.runtime().storage().get_global("ordinary_value"),
-            Some(&Value::DInt(3)),
+            runner.program().read_variable("ordinary_value"),
+            Ok(Value::DInt(3)),
         );
         assert_eq!(*recover_mutex_lock(state.lock()), ResourceState::Running);
         assert!(recover_mutex_lock(last_error.lock()).is_none());
@@ -881,9 +981,7 @@ END_PROGRAM
 
     #[test]
     fn update_watchdog_zero_timeout_is_normalized_before_use() {
-        let mut runtime = crate::RuntimeBuilder::new()
-            .build()
-            .expect("admit runner fixture");
+        let mut runtime = empty_program();
 
         let fault_policy = runtime.fault_policy();
         apply_resource_command(
@@ -906,38 +1004,25 @@ END_PROGRAM
             "enabled watchdog timeout must not remain zero"
         );
     }
+}
 
-    #[test]
-    fn automatic_restart_limiter_escalates_after_retry_budget() {
-        let mut limiter = AutomaticRestartLimiter::default();
-        let reason = RuntimeError::IoTransport("persistent failure".into());
-
-        assert_eq!(limiter.next_attempt(&reason).unwrap(), 1);
-        assert_eq!(limiter.next_attempt(&reason).unwrap(), 2);
-        assert_eq!(limiter.next_attempt(&reason).unwrap(), 3);
-        let err = limiter
-            .next_attempt(&reason)
-            .expect_err("fourth persistent failure should escalate");
-
-        assert!(matches!(
-            err,
-            RuntimeError::RestartLimitExceeded { attempts: 3, .. }
-        ));
-    }
-
-    #[test]
-    fn automatic_restart_backoff_is_bounded_and_monotonic() {
-        let first = automatic_restart_backoff(Duration::from_millis(1), 1);
-        let second = automatic_restart_backoff(Duration::from_millis(1), 2);
-        let capped = automatic_restart_backoff(Duration::from_secs(60), 10);
-
-        assert!(first.as_nanos() > 0);
-        assert!(second >= first);
-        assert_eq!(capped.as_nanos(), AUTOMATIC_RESTART_BACKOFF_CAP_NANOS);
+/// Applies a service or report command as [`apply_resource_command`] does, except that a runner
+/// that refuses the mesh catalogue (`refuse_mesh_catalogue`, set by
+/// [`ResourceRunner::refusing_mesh_catalogue`]) answers a `MeshCatalogue` request with its refusal.
+fn apply_runner_command(
+    runtime: &mut CompiledRuntime,
+    refuse_mesh_catalogue: bool,
+    command: ResourceCommand,
+) {
+    match command {
+        ResourceCommand::MeshCatalogue { respond_to, .. } if refuse_mesh_catalogue => {
+            let _ = respond_to.send(Err("mesh catalogue unavailable in debug control".to_string()));
+        }
+        other => apply_resource_command(runtime, other),
     }
 }
 
-fn apply_resource_command(runtime: &mut Runtime, command: ResourceCommand) {
+fn apply_resource_command(runtime: &mut CompiledRuntime, command: ResourceCommand) {
     match command {
         ResourceCommand::Pause | ResourceCommand::Resume => {}
         // One command boundary applies the whole set: no cycle runs between the three updates.
@@ -954,26 +1039,46 @@ fn apply_resource_command(runtime: &mut Runtime, command: ResourceCommand) {
         } => {
             // A withdrawn reload is skipped: its caller has stopped waiting for it.
             if claim.take() {
-                let result = runtime.apply_online_change_bytes(&bytes, None);
+                let result = runtime.apply_online_change_bytes(&bytes);
                 let _ = respond_to.send(result);
             }
         }
         ResourceCommand::MeshSnapshot { names, respond_to } => {
+            // A published name may be a nested program or equipment path (`Main.P101.Running`,
+            // `Main.Levels[2]`), kept as it was written (specification 39 §7 item 9).
             let snapshot = runtime.snapshot_globals(&names);
             let _ = respond_to.send(snapshot);
+        }
+        ResourceCommand::MeshCatalogue { names, respond_to } => {
+            // The typed publish catalogue (specification 39 §7 item 9), read from the program as the
+            // last scan left it, through the image's symbol and type tables (specification 44 §8.8).
+            let result = runtime.with_program_view(|program| {
+                crate::hmi::variable_tree::published_variables(program, &names)
+            });
+            let _ = respond_to.send(result);
         }
         ResourceCommand::MeshApply {
             updates,
             source: _,
             sequence: _,
         } => runtime.apply_mesh_updates(&updates),
+        // A program's variables are read from its state through its symbol table (specification
+        // 44 §8.8, §13.3).
         ResourceCommand::Snapshot { respond_to } => {
-            let snapshot = crate::debug::DebugSnapshot {
-                storage_abi: runtime.prepared().storage_abi(),
-                storage: runtime.storage().clone(),
+            let _ = respond_to.send(crate::debug::DebugSnapshot {
+                storage: crate::memory::VariableStorage::new(),
                 now: runtime.current_time(),
-            };
-            let _ = respond_to.send(snapshot);
+                compiled: runtime.snapshot().ok().map(std::sync::Arc::new),
+            });
+        }
+        // Served by the scan loop, which owns the simulation; nothing answers them outside it.
+        ResourceCommand::SimulationSnapshot { respond_to } => {
+            let _ = respond_to.send(None);
+        }
+        ResourceCommand::SimulationTraceClear { respond_to, .. } => {
+            let _ = respond_to.send(Err(
+                crate::simulation::PlantTraceClearError::StatusUnavailable,
+            ));
         }
         ResourceCommand::AdsStatus { respond_to } => {
             let _ = respond_to.send(runtime.ads_status_report());
@@ -986,8 +1091,14 @@ fn apply_resource_command(runtime: &mut Runtime, command: ResourceCommand) {
             local,
             respond_to,
         } => {
-            let snapshot = runtime.active_ads_device_snapshot(&target, local.as_ref());
-            let _ = respond_to.send(snapshot);
+            let _ = respond_to.send(runtime.active_ads_device_snapshot(&target, local.as_ref()));
+        }
+        // Only a stopped resource takes an install; the stopped wait notes it.
+        ResourceCommand::ProgramInstalled => {}
+        // Only the stopped wait runs a step; the control plane refuses one before it is queued
+        // unless the program started meanwhile.
+        ResourceCommand::StepCycle { respond_to, .. } => {
+            let _ = respond_to.send(Err(StepRefusal::NotStopped(ResourceState::Running)));
         }
     }
 }

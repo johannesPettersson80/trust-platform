@@ -5,20 +5,29 @@
 mod ads_handlers;
 mod audit;
 mod auth;
-mod breakpoint_handlers;
 mod comm_handlers;
 mod config_handlers;
 mod connectors_handlers;
-mod debug_handlers;
-mod fleet_handlers;
+mod controller_handlers;
+pub mod endpoint;
+mod experiment_handlers;
+pub(crate) mod fleet_handlers;
 mod handlers;
 mod hmi_handlers;
-mod io_handlers;
-mod operation_registry;
+pub(crate) mod hmi_ports;
+mod host_ports;
+mod parameter_handlers;
+mod plant_handlers;
+mod plant_service;
 mod policy;
 mod program_handlers;
+mod recording_handlers;
+mod relay_state;
 mod resource_queue;
+pub mod search;
+mod signal_handlers;
 mod status_handlers;
+mod transfer_handlers;
 mod transport;
 mod types;
 mod variable_handlers;
@@ -26,46 +35,41 @@ mod variable_handlers;
 use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::mpsc::{RecvTimeoutError, Sender};
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::sync::atomic::{AtomicBool, AtomicU64};
+use std::sync::mpsc::Sender;
+use std::sync::{Arc, Mutex, PoisonError, RwLock};
 
 use crate::config::ControlMode;
-use crate::debug::{DebugControl, DebugVariableHandles};
+use crate::debug::DebugControl;
 use crate::discovery::DiscoveryState;
 use crate::error::RuntimeError;
-use crate::io::{IoDriverStatus, IoSnapshot};
+use crate::io::{IdentifyHandle, IoDriverStatus, IoSnapshot};
 use crate::linux_rt::LinuxRtRuntimeStatus;
 use crate::mesh::MeshTopologyEvidence;
 use crate::metrics::RuntimeMetrics;
-use crate::runtime::RuntimeMetadata;
 use crate::scheduler::ResourceControl;
-use crate::security::{pairing::PairingStore, AccessRole};
+use crate::security::pairing::PairingStore;
 use crate::settings::RuntimeSettings;
 use crate::value::Value;
 use crate::RestartMode;
-use notify::{Event, RecursiveMode, Watcher};
+use serde::Deserialize;
 use serde_json::json;
 use smol_str::SmolStr;
-use tracing::warn;
 
 pub use self::ads_handlers::AdsDoctorJobStore;
-use self::audit::{record_audit, ControlAuditRecord};
-use self::auth::resolve_request_role;
-use self::policy::{is_debug_request, required_role_for_control_request};
+pub use self::controller_handlers::ControllerParameterService;
+pub use self::experiment_handlers::ControlExperimentService;
+pub use self::plant_service::PlantControlService;
+use self::policy::required_role_for_control_request;
 pub(crate) use self::types::ControlResponse;
 use self::types::*;
+use trust_runtime_services::dispatch::{dispatch_value, invalid_line};
+use trust_runtime_services::live_values::value_grammar;
+use trust_runtime_services::transfer::TransferSession;
 
-const HMI_DESCRIPTOR_WATCH_DEBOUNCE: Duration = Duration::from_millis(250);
-
-fn hmi_descriptor_watch_startup_timeout() -> Duration {
-    if cfg!(test) {
-        Duration::from_secs(10)
-    } else {
-        Duration::from_secs(1)
-    }
-}
+// The in-crate control tests reach these through `use super::*`.
+#[cfg(test)]
+use std::sync::atomic::Ordering;
 
 fn control_event_time_now() -> crate::value::Duration {
     let timestamp_ms = std::time::SystemTime::now()
@@ -74,6 +78,89 @@ fn control_event_time_now() -> crate::value::Duration {
         .as_millis()
         .min(i64::MAX as u128) as i64;
     crate::value::Duration::from_millis(timestamp_ms)
+}
+
+/// One stopped-project plant command producer with a session-scoped replay cache.
+#[derive(Debug)]
+pub struct OfflinePlantSession {
+    project_root: PathBuf,
+    plant_service: PlantControlService,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OfflinePlantRequest {
+    id: u64,
+    #[serde(rename = "type")]
+    operation: String,
+    params: Option<serde_json::Value>,
+}
+
+impl OfflinePlantSession {
+    pub fn new(project_root: PathBuf) -> Self {
+        Self {
+            project_root,
+            plant_service: PlantControlService::default(),
+        }
+    }
+
+    pub fn request_json(&self, request: serde_json::Value) -> serde_json::Value {
+        let request = match serde_json::from_value::<OfflinePlantRequest>(request) {
+            Ok(request) => request,
+            Err(error) => {
+                return serde_json::to_value(ControlResponse::error_with_code(
+                    0,
+                    format!("invalid offline plant request: {error}"),
+                    "malformed_request",
+                ))
+                .expect("control response is serializable");
+            }
+        };
+        let context = plant_handlers::PlantHandlerContext::offline(
+            self.project_root.as_path(),
+            &self.plant_service,
+        );
+        let mut response = plant_handlers::dispatch(
+            request.id,
+            request.operation.as_str(),
+            request.params,
+            &context,
+        )
+        .unwrap_or_else(|| {
+            ControlResponse::error_with_code(
+                request.id,
+                "unsupported plant operation".to_string(),
+                "unsupported_operation",
+            )
+        });
+        if !response.ok && response.result.is_none() {
+            response.result = plant_handlers::error_envelope(
+                request.operation.as_str(),
+                Some(self.project_root.as_path()),
+            );
+        }
+        serde_json::to_value(response).expect("control response is serializable")
+    }
+}
+
+/// The largest reply a computer holds and the largest upload it takes: 64 MiB, the largest program
+/// container a computer admits (specification 34 §5.1, PORT-05).
+const MAX_TRANSFER_BYTES: usize = 64 * 1024 * 1024;
+
+/// The transfers of this process (specification 34, PORT-05). Its boot number is the process start
+/// in seconds since the epoch, so a transfer id does not repeat after a restart.
+#[must_use]
+pub fn new_transfer_session() -> Arc<Mutex<TransferSession>> {
+    let boot = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| {
+            u32::try_from(elapsed.as_secs()).unwrap_or(u32::MAX)
+        });
+    Arc::new(Mutex::new(TransferSession::new(
+        boot,
+        MAX_TRANSFER_BYTES,
+        MAX_TRANSFER_BYTES,
+    )))
 }
 
 /// Build the communication setup schema without connecting to a running runtime.
@@ -89,6 +176,49 @@ pub fn offline_comm_apply_json(
     params: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     comm_handlers::apply_project_value(project_root, params)
+}
+
+/// Enable the ADS client in a project's `runtime.toml` after an ADS tag import.
+///
+/// Returns whether `runtime.toml` changed. A missing `runtime.toml` is refused with
+/// the message the VS Code port used (spec 25 §5.8; design §4.3 B7).
+pub fn offline_ads_ensure_runtime_enabled(
+    project_root: &Path,
+    config_path: &str,
+) -> Result<bool, String> {
+    comm_handlers::ensure_ads_runtime_enabled(project_root, config_path)
+}
+
+/// Remove imported ADS tag points from a project's `ads.toml` and regenerate its ST.
+///
+/// The same function backs the `ads.import_symbols.remove` control request and
+/// `trust-runtime ads remove-symbols` (design §4.3 B7).
+pub fn offline_ads_remove_symbols_json(
+    project_root: &Path,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    ads_handlers::remove_symbols_from_project(project_root, params)
+}
+
+/// Import ADS tag points into a project's files offline, as the `ads.import_symbols.apply` control
+/// request and `trust-runtime ads import-symbols` do (design §4.3 B7; specification 25 §5.4).
+pub fn offline_ads_import_symbols_json(
+    project_root: &Path,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    ads_handlers::import_symbols_from_params(project_root, params)
+}
+
+/// Run a communication `comm.test` request from this host without a running runtime.
+///
+/// `project_root` is accepted so the command has the same shape as the runtime request;
+/// `comm.test` probes its explicit parameters and reads no project file.
+pub fn offline_comm_test_json(
+    _project_root: &Path,
+    protocol: &str,
+    params: serde_json::Value,
+) -> serde_json::Value {
+    comm_handlers::comm_test_probe_value(protocol, params)
 }
 
 /// Discover communication targets from the current host without a running runtime.
@@ -159,8 +289,11 @@ impl ControlEndpoint {
 #[derive(Debug, Clone)]
 pub struct ControlState {
     pub debug: DebugControl,
+    /// The identify state of the runtime (specification 11, "Identify"), shared with the runtime
+    /// whose scan and waits drive its output. Empty while the project has no
+    /// `[runtime.identify] output`.
+    pub identify: IdentifyHandle,
     pub resource: ResourceControl<crate::scheduler::StdClock>,
-    pub metadata: Arc<Mutex<RuntimeMetadata>>,
     pub sources: SourceRegistry,
     pub io_snapshot: Arc<Mutex<Option<IoSnapshot>>>,
     pub io_snapshot_seen_ms: Arc<AtomicU64>,
@@ -178,23 +311,52 @@ pub struct ControlState {
     pub web_listener_bound: Arc<AtomicBool>,
     pub opcua_server_bound: Arc<AtomicBool>,
     pub project_root: Option<PathBuf>,
+    pub plant_service: Arc<PlantControlService>,
+    pub experiments: ControlExperimentService,
+    pub controllers: ControllerParameterService,
+    pub searches: search::SearchService,
     pub resource_name: SmolStr,
+    pub runtime_id: SmolStr,
     pub io_health: Arc<Mutex<Vec<IoDriverStatus>>>,
     pub debug_enabled: Arc<AtomicBool>,
-    pub debug_variables: Arc<Mutex<DebugVariableHandles>>,
-    pub hmi_live: Arc<Mutex<crate::hmi::HmiLiveState>>,
-    pub hmi_persistence: Option<Arc<crate::hmi::HmiPersistenceService>>,
-    pub hmi_descriptor: Arc<Mutex<HmiRuntimeDescriptor>>,
     pub historian: Option<Arc<crate::historian::HistorianService>>,
     pub openot_persistence_status:
         Option<Arc<Mutex<crate::openot_persistence::OpenOtPersistenceStatus>>>,
     pub pairing: Option<Arc<PairingStore>>,
     pub ads_doctor_jobs: Arc<Mutex<AdsDoctorJobStore>>,
+    /// The searches that `comm.search.*` started in this runtime.
+    pub search: Arc<crate::search::SearchRegistry>,
     pub ads_client_config: Arc<Mutex<Option<crate::ads::AdsClientConfig>>>,
     pub opcua_client_config: Arc<Mutex<Option<crate::opcua::OpcUaClientConfig>>>,
     pub ads_server_config: Arc<Mutex<Option<crate::ads::server::AdsServerRuntimeConfig>>>,
     #[cfg(feature = "ads-server")]
     pub ads_server_runtime: Arc<Mutex<Option<crate::ads::server::AdsServerRuntime>>>,
+    /// The transfers of this process (specification 34, PORT-05); see [`new_transfer_session`].
+    pub transfers: Arc<Mutex<TransferSession>>,
+}
+
+impl ControlState {
+    /// Connects the experiments to this state's debug control, so that every published scan advances the active experiment
+    /// (Specification 35, A3.5). The debug handle must be the runtime's own.
+    pub fn connect_experiments(&self) {
+        self.debug
+            .set_scan_observer(self.experiments.scan_observer());
+    }
+
+    /// The image of the program the resource runs, whatever the debugging switch: the type and
+    /// symbol tables a web route checks a request against (specification 44 §8.8). None before a
+    /// program is set.
+    pub(crate) fn program_image(
+        &self,
+    ) -> Option<Arc<trust_runtime_core::native::program::AdmittedImage>> {
+        self.debug.program_image()
+    }
+
+    /// The source files of the program the resource runs, as a reload last replaced them
+    /// (specification 39, §16.4).
+    pub(crate) fn source_files(&self) -> Arc<Vec<SourceFile>> {
+        self.sources.files()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -211,9 +373,12 @@ pub struct ControlAuditEvent {
     pub details: Option<serde_json::Value>,
 }
 
+/// The sources of the program that runs, which the debug, breakpoint, isolated-run and search handlers read. A program reload replaces
+/// them in place ([`SourceRegistry::replace`]): every clone of the registry shares them, so a handler always reads the sources of the
+/// program that runs now, never those of the program the state was built with.
 #[derive(Debug, Clone, Default)]
 pub struct SourceRegistry {
-    files: Vec<SourceFile>,
+    files: Arc<RwLock<Arc<Vec<SourceFile>>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -225,15 +390,23 @@ pub struct SourceFile {
 
 impl SourceRegistry {
     pub fn new(files: Vec<SourceFile>) -> Self {
-        Self { files }
+        Self {
+            files: Arc::new(RwLock::new(Arc::new(files))),
+        }
     }
 
-    pub fn files(&self) -> &[SourceFile] {
-        &self.files
+    /// Replaces the sources with those of the program a reload loaded.
+    pub fn replace(&self, files: Vec<SourceFile>) {
+        *self.files.write().unwrap_or_else(PoisonError::into_inner) = Arc::new(files);
+    }
+
+    /// The sources as they are now.
+    pub fn files(&self) -> Arc<Vec<SourceFile>> {
+        Arc::clone(&self.files.read().unwrap_or_else(PoisonError::into_inner))
     }
 
     pub fn file_id_for_path(&self, path: &Path) -> Option<u32> {
-        self.file_for_path(path, None).map(|file| file.id)
+        file_for_path(&self.files(), path, None).map(|file| file.id)
     }
 
     pub fn file_id_for_path_in_project(
@@ -241,87 +414,72 @@ impl SourceRegistry {
         path: &Path,
         project_root: Option<&Path>,
     ) -> Option<u32> {
-        self.file_for_path(path, project_root).map(|file| file.id)
+        file_for_path(&self.files(), path, project_root).map(|file| file.id)
     }
 
-    pub fn source_text(&self, file_id: u32) -> Option<&str> {
-        self.files
+    pub fn source_text(&self, file_id: u32) -> Option<String> {
+        self.files()
             .iter()
             .find(|file| file.id == file_id)
-            .map(|file| file.text.as_str())
+            .map(|file| file.text.clone())
     }
 
     pub fn is_empty(&self) -> bool {
-        self.files.is_empty()
+        self.files().is_empty()
+    }
+}
+
+fn file_for_path<'a>(
+    files: &'a [SourceFile],
+    path: &Path,
+    project_root: Option<&Path>,
+) -> Option<&'a SourceFile> {
+    if let Some(file) = files.iter().find(|file| file.path == path) {
+        return Some(file);
     }
 
-    fn file_for_path(&self, path: &Path, project_root: Option<&Path>) -> Option<&SourceFile> {
-        if let Some(file) = self.files.iter().find(|file| file.path == path) {
+    let mut candidates = Vec::new();
+    candidates.push(path.to_path_buf());
+    if let Some(root) = project_root
+        && path.is_relative()
+    {
+        candidates.push(root.join(path));
+        if path.components().count() == 1 {
+            candidates.push(root.join("src").join(path));
+        }
+    }
+
+    for candidate in &candidates {
+        if let Some(file) = files.iter().find(|file| file.path == *candidate) {
             return Some(file);
         }
-
-        let mut candidates = Vec::new();
-        candidates.push(path.to_path_buf());
-        if let Some(root) = project_root
-            && path.is_relative()
+        if let Ok(canonical) = std::fs::canonicalize(candidate)
+            && let Some(file) = files
+                .iter()
+                .find(|file| canonical_path_eq(&file.path, &canonical))
         {
-            candidates.push(root.join(path));
-            if path.components().count() == 1 {
-                candidates.push(root.join("src").join(path));
-            }
+            return Some(file);
         }
-
-        for candidate in &candidates {
-            if let Some(file) = self.files.iter().find(|file| file.path == *candidate) {
-                return Some(file);
-            }
-            if let Ok(canonical) = std::fs::canonicalize(candidate)
-                && let Some(file) = self
-                    .files
-                    .iter()
-                    .find(|file| canonical_path_eq(&file.path, &canonical))
-            {
-                return Some(file);
-            }
-        }
-
-        if path.is_relative() {
-            return self.unique_suffix_match(path);
-        }
-
-        None
     }
 
-    fn unique_suffix_match(&self, suffix: &Path) -> Option<&SourceFile> {
-        let mut matches = self.files.iter().filter(|file| file.path.ends_with(suffix));
-        let first = matches.next()?;
-        if matches.next().is_some() {
-            return None;
-        }
-        Some(first)
+    if path.is_relative() {
+        return unique_suffix_match(files, path);
     }
+
+    None
+}
+
+fn unique_suffix_match<'a>(files: &'a [SourceFile], suffix: &Path) -> Option<&'a SourceFile> {
+    let mut matches = files.iter().filter(|file| file.path.ends_with(suffix));
+    let first = matches.next()?;
+    if matches.next().is_some() {
+        return None;
+    }
+    Some(first)
 }
 
 fn canonical_path_eq(left: &Path, right: &Path) -> bool {
     std::fs::canonicalize(left).is_ok_and(|canonical| canonical == right)
-}
-
-#[derive(Debug, Clone)]
-pub struct HmiRuntimeDescriptor {
-    pub customization: crate::hmi::HmiCustomization,
-    pub schema_revision: u64,
-    pub last_error: Option<String>,
-}
-
-impl HmiRuntimeDescriptor {
-    #[must_use]
-    pub fn from_sources(project_root: Option<&Path>, sources: &SourceRegistry) -> Self {
-        Self {
-            customization: hmi_handlers::load_hmi_customization_from_sources(project_root, sources),
-            schema_revision: 0,
-            last_error: None,
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -331,14 +489,20 @@ pub struct ControlServer {
 }
 
 impl ControlServer {
+    /// Binds `endpoint` and starts serving it. The server then reports the endpoint that is
+    /// bound, so a TCP port of 0 is replaced by the port the operating system chose.
     pub fn start(
         endpoint: ControlEndpoint,
         state: Arc<ControlState>,
     ) -> Result<Self, RuntimeError> {
-        transport::spawn_control_server(&endpoint, state.clone())?;
-        Ok(Self { endpoint, state })
+        let bound = transport::spawn_control_server(&endpoint, state.clone())?;
+        Ok(Self {
+            endpoint: bound,
+            state,
+        })
     }
 
+    /// The endpoint that the server listens on, with the port that was bound.
     #[must_use]
     pub fn endpoint(&self) -> &ControlEndpoint {
         &self.endpoint
@@ -348,116 +512,6 @@ impl ControlServer {
     pub fn state(&self) -> Arc<ControlState> {
         self.state.clone()
     }
-}
-
-pub fn spawn_hmi_descriptor_watcher(state: Arc<ControlState>) {
-    let Some(project_root) = state.project_root.clone() else {
-        return;
-    };
-    let project_root_for_thread = project_root.clone();
-    let state_for_thread = state.clone();
-    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<(), String>>();
-    std::thread::spawn(move || {
-        let (tx, rx) = std::sync::mpsc::channel::<notify::Result<Event>>();
-        let mut watcher = match notify::recommended_watcher(move |result| {
-            if tx.send(result).is_err() {
-                warn!("hmi watcher event channel closed");
-            }
-        }) {
-            Ok(watcher) => watcher,
-            Err(err) => {
-                if ready_tx.send(Err(err.to_string())).is_err() {
-                    warn!("hmi watcher ready channel closed after init failure");
-                }
-                warn!("hmi watcher init failed: {err}");
-                return;
-            }
-        };
-
-        if let Err(err) = watcher.watch(project_root_for_thread.as_path(), RecursiveMode::Recursive)
-        {
-            if ready_tx.send(Err(err.to_string())).is_err() {
-                warn!("hmi watcher ready channel closed after watch failure");
-            }
-            warn!(
-                "hmi watcher failed to watch '{}': {err}",
-                project_root_for_thread.display()
-            );
-            return;
-        }
-        if ready_tx.send(Ok(())).is_err() {
-            warn!("hmi watcher ready channel closed after startup");
-        }
-
-        loop {
-            let mut should_reload = match rx.recv() {
-                Ok(Ok(event)) => hmi_handlers::hmi_event_matches_descriptor(
-                    &event,
-                    project_root_for_thread.as_path(),
-                ),
-                Ok(Err(err)) => {
-                    warn!("hmi watcher event error: {err}");
-                    false
-                }
-                Err(_) => break,
-            };
-            if !should_reload {
-                continue;
-            }
-
-            let mut deadline = Instant::now() + HMI_DESCRIPTOR_WATCH_DEBOUNCE;
-            loop {
-                let now = Instant::now();
-                let Some(timeout) = deadline.checked_duration_since(now) else {
-                    break;
-                };
-                match rx.recv_timeout(timeout) {
-                    Ok(Ok(event)) => {
-                        if hmi_handlers::hmi_event_matches_descriptor(
-                            &event,
-                            project_root_for_thread.as_path(),
-                        ) {
-                            should_reload = true;
-                            deadline = Instant::now() + HMI_DESCRIPTOR_WATCH_DEBOUNCE;
-                        }
-                    }
-                    Ok(Err(err)) => {
-                        warn!("hmi watcher event error: {err}");
-                    }
-                    Err(RecvTimeoutError::Timeout) => break,
-                    Err(RecvTimeoutError::Disconnected) => return,
-                }
-            }
-
-            if !should_reload {
-                continue;
-            }
-
-            if let Err(err) = hmi_handlers::reload_hmi_descriptor_state(&state_for_thread) {
-                warn!("hmi descriptor reload failed: {err}");
-            }
-        }
-    });
-    match ready_rx.recv_timeout(hmi_descriptor_watch_startup_timeout()) {
-        Ok(Ok(())) => {}
-        Ok(Err(err)) => warn!("hmi watcher startup failed: {err}"),
-        Err(RecvTimeoutError::Timeout) => {
-            warn!(
-                "hmi watcher startup timed out for '{}'",
-                project_root.display()
-            );
-        }
-        Err(RecvTimeoutError::Disconnected) => {
-            warn!(
-                "hmi watcher startup channel disconnected for '{}'",
-                project_root.display()
-            );
-        }
-    }
-}
-
-pub(crate) fn hmi_asset_project_root_port(state: &ControlState) -> Option<PathBuf> {
-    state.project_root.clone()
 }
 
 pub(crate) fn runtime_resource_name_port(state: &ControlState) -> SmolStr {
@@ -544,17 +598,29 @@ pub(crate) fn prepare_request_line(
     state: &ControlState,
     client: Option<&str>,
 ) -> Option<PreparedControlLine> {
-    let response = match serde_json::from_str::<serde_json::Value>(line) {
-        Ok(value) => prepare_request_value(value, state, client),
-        Err(err) => ControlResponse::error(0, format!("invalid request: {err}")),
+    // The request pipeline is shared runtime code (spec 34 ARCH-11); `ControlState` supplies its
+    // ports (`control/host_ports.rs`). The host reads the line as a JSON value, as the shared
+    // pipeline reads a line that it cannot read straight into a request, and answers it as it
+    // answers a request of the web, so that it completes the reply (`HostCompletion`). A line that
+    // is not JSON gets the shared reply: `invalid request` with id 0 and no audit record.
+    let value = match serde_json::from_str::<serde_json::Value>(line) {
+        Ok(value) => value,
+        Err(error) => {
+            let invalid = invalid_line(&error.to_string());
+            return Some(PreparedControlLine {
+                response: invalid.response,
+                after_response: invalid.after_response,
+            });
+        }
     };
-    let mut response = response;
+    let mut response = prepare_request_value(value, state, client);
     let after_response = response.after_response.take();
-    let response = serde_json::to_string(&response).unwrap_or_else(|err| {
+    // A response that cannot be serialized is answered as the shared pipeline answers it.
+    let response = serde_json::to_string(&response).unwrap_or_else(|error| {
         json!({
             "id": 0_u64,
             "ok": false,
-            "error": format!("response serialization failed: {err}"),
+            "error": format!("response serialization failed: {error}"),
         })
         .to_string()
     });
@@ -581,217 +647,84 @@ fn prepare_request_value(
     state: &ControlState,
     client: Option<&str>,
 ) -> ControlResponse {
-    let mut request: ControlRequest = match serde_json::from_value(value) {
-        Ok(req) => req,
-        Err(err) => {
-            let response = ControlResponse::error(0, format!("invalid request: {err}"));
-            let audit_id = record_audit(
-                state,
-                ControlAuditRecord {
-                    request_id: 0,
-                    request_type: SmolStr::new("invalid"),
-                    correlation_id: None,
-                    ok: false,
-                    error: Some(SmolStr::new(format!("invalid request: {err}"))),
-                    auth_present: false,
-                    client,
-                    details: None,
-                },
-            );
-            return response.with_audit_id(audit_id);
-        }
-    };
-    stamp_comm_credential_channel(&mut request, client);
-    let audit_details = || {
-        comm_handlers::audit_details_for_comm_request(
-            request.r#type.as_str(),
-            request.params.as_ref(),
-        )
-    };
-    let request_role = match resolve_request_role(&request, state, client) {
-        Ok(role) => role,
-        Err(error) => {
-            let response = ControlResponse::error_with_code(
-                request.id,
-                error.message().to_string(),
-                error.code(),
-            );
-            let audit_id = record_audit(
-                state,
-                ControlAuditRecord {
-                    request_id: request.id,
-                    request_type: SmolStr::new(request.r#type.as_str()),
-                    correlation_id: request.request_id.as_deref(),
-                    ok: false,
-                    error: Some(SmolStr::new(error.message())),
-                    auth_present: request.auth.is_some(),
-                    client,
-                    details: audit_details(),
-                },
-            );
-            return response.with_audit_id(audit_id);
-        }
-    };
-    let required_role =
-        required_role_for_control_request(request.r#type.as_str(), request.params.as_ref());
-    if !request_role.allows(required_role) {
-        let error = format!("forbidden: requires role {}", required_role.as_str());
-        let response =
-            ControlResponse::error_with_code(request.id, error.clone(), "insufficient_role");
-        let audit_id = record_audit(
-            state,
-            ControlAuditRecord {
-                request_id: request.id,
-                request_type: SmolStr::new(request.r#type.as_str()),
-                correlation_id: request.request_id.as_deref(),
-                ok: false,
-                error: Some(SmolStr::new(error)),
-                auth_present: request.auth.is_some(),
-                client,
-                details: audit_details(),
-            },
-        );
-        return response.with_audit_id(audit_id);
+    // The operation is read before the shared pipeline takes the request, so that the host can
+    // complete the reply (`HostCompletion`).
+    let completion = HostCompletion::of(&value);
+    let mut response = dispatch_value(value, state, client);
+    if let Some(completion) = completion {
+        completion.apply(&mut response, state);
     }
-    if !state.debug_enabled.load(Ordering::Relaxed) && is_debug_request(request.r#type.as_str()) {
-        if let Ok(mut events) = state.events.lock() {
-            events.push_back(crate::debug::RuntimeEvent::FeatureDisabled {
-                feature: SmolStr::new("debug"),
-                request_type: Some(SmolStr::new(request.r#type.as_str())),
-                time: control_event_time_now(),
-            });
-        }
-        let response = ControlResponse::error_with_code(
-            request.id,
-            "debug disabled".into(),
-            "feature_disabled",
-        );
-        let audit_id = record_audit(
-            state,
-            ControlAuditRecord {
-                request_id: request.id,
-                request_type: SmolStr::new(request.r#type.as_str()),
-                correlation_id: request.request_id.as_deref(),
-                ok: false,
-                error: Some(SmolStr::new("debug disabled")),
-                auth_present: request.auth.is_some(),
-                client,
-                details: audit_details(),
-            },
-        );
-        return response.with_audit_id(audit_id);
-    }
-    let mut response = handlers::dispatch(&request, state)
-        .unwrap_or_else(|| ControlResponse::error(request.id, "unsupported request".into()));
-    if request.r#type == "status" && response.ok {
-        attach_access_capabilities(&mut response, request_role);
-    }
-    let audit_id = record_audit(
-        state,
-        ControlAuditRecord {
-            request_id: request.id,
-            request_type: SmolStr::new(request.r#type.as_str()),
-            correlation_id: request.request_id.as_deref(),
-            ok: response.ok,
-            error: response.error.as_ref().map(SmolStr::new),
-            auth_present: request.auth.is_some(),
-            client,
-            details: audit_details(),
-        },
-    );
-    response = response.with_audit_id(audit_id);
     response
 }
 
+// The shared pipeline answers `status` and refuses a request before the host's handlers see it, so
+// the host completes those replies after the pipeline, for the control connection and the web alike
+// (`prepare_request_line`, `prepare_request_value`): the runtime facts that Control Studio reads, and
+// the plant contract's error envelope. A `status` whose facts cannot be read (a poisoned lock) is
+// answered `<value> unavailable` under the audit record of the successful shared `status`. Moving
+// the facts into the shared reply through a `StatusPort` method, so that a chip reports them too, is
+// on the chips' parity list (specification 34; the runtime portability checklist).
+/// What the host adds to the reply of an operation that only it completes, read from the request
+/// before the shared pipeline answers it.
+enum HostCompletion {
+    /// `status` carries the runtime facts that Control Studio reads
+    /// (control-studio-runtime-protocol E1.3).
+    Status,
+    /// A failed `plant.*` reply carries the plant contract's error envelope, a refusal of the
+    /// shared pipeline included (specification 47 §20.1).
+    Plant(String),
+}
+
+impl HostCompletion {
+    /// The completion of the request `value`: none for any other operation, nor for a plant request
+    /// that is not a request at all, which is answered `invalid request` as any other.
+    fn of(value: &serde_json::Value) -> Option<Self> {
+        let kind = value.get("type")?.as_str()?;
+        if kind == "status" {
+            return Some(Self::Status);
+        }
+        (kind.starts_with("plant.") && ControlRequest::deserialize(value).is_ok())
+            .then(|| Self::Plant(kind.to_string()))
+    }
+
+    fn apply(self, response: &mut ControlResponse, state: &ControlState) {
+        match self {
+            Self::Status => status_handlers::attach_runtime_facts(response, state),
+            Self::Plant(operation) => attach_plant_error_contract(response, &operation, state),
+        }
+    }
+}
+
+/// A failed `plant.*` reply without a result carries the plant contract's error envelope: the
+/// contract, its schema version, the operation and the project's identity (specification 47
+/// §20.1).
+fn attach_plant_error_contract(
+    response: &mut ControlResponse,
+    operation: &str,
+    state: &ControlState,
+) {
+    if response.ok || response.result.is_some() {
+        return;
+    }
+    response.result = plant_handlers::error_envelope(operation, state.project_root.as_deref());
+}
+
+/// Runs the work a reply left for after it was written. `shutdown` stops the program and leaves the
+/// runtime running in the Stopped state, and the explicit exit also ends the process (specification
+/// 34, STATE-08).
 fn apply_after_response(action: Option<ControlAfterResponse>, state: &ControlState) {
-    if matches!(action, Some(ControlAfterResponse::StopResource)) {
-        state.resource.stop();
+    match action {
+        Some(ControlAfterResponse::StopResource) => state.resource.stop_program(),
+        Some(ControlAfterResponse::ExitRuntime) => state.resource.stop(),
+        None => {}
     }
 }
 
-fn attach_access_capabilities(response: &mut ControlResponse, role: AccessRole) {
-    let Some(result) = response.result.as_mut() else {
-        return;
-    };
-    let Some(object) = result.as_object_mut() else {
-        return;
-    };
-    object.insert("access".to_string(), access_capabilities_json(role));
-}
-
-fn access_capabilities_json(role: AccessRole) -> serde_json::Value {
-    let engineer = role.allows(AccessRole::Engineer);
-    let denied_reason = (!engineer).then(|| {
-        format!(
-            "{} role — connect with an engineer token to write or force.",
-            capitalize_role(role.as_str())
-        )
-    });
-    json!({
-        "role": role.as_str(),
-        "io": {
-            "write": engineer,
-            "force": engineer,
-            "release": engineer,
-        },
-        "hmi": {
-            "write": engineer,
-        },
-        "reason": denied_reason,
-    })
-}
-
-fn capitalize_role(role: &str) -> String {
-    let mut chars = role.chars();
-    match chars.next() {
-        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-        None => String::new(),
-    }
-}
-
-fn stamp_comm_credential_channel(request: &mut ControlRequest, client: Option<&str>) {
-    if !matches!(
-        request.r#type.as_str(),
-        "comm.apply" | "comm.test" | "comm.browse_symbols" | "ads.import_symbols.apply"
-    ) {
-        return;
-    }
-    let channel = classify_comm_credential_channel(client);
-    let params = request.params.get_or_insert_with(|| json!({}));
-    if let Some(object) = params.as_object_mut() {
-        object.insert("credential_channel".to_string(), json!(channel));
-    }
-}
-
-fn classify_comm_credential_channel(client: Option<&str>) -> &'static str {
-    let Some(client) = client else {
-        return "trusted_same_host";
-    };
-    if client == "unix" || client == "loopback" {
-        return "trusted_same_host";
-    }
-    if let Ok(addr) = client.parse::<SocketAddr>()
-        && addr.ip().is_loopback()
-    {
-        return "trusted_same_host";
-    }
-    "untrusted_remote_plain_tcp"
-}
-
+/// An experiment value given as text: a boolean or a signed 64-bit integer, read by the Live
+/// Values grammar that every control value shares (specification 11, "Live Values"; specification
+/// 34 §4.3.1).
 fn parse_value(text: &str) -> Result<Value, RuntimeError> {
-    let upper = text.trim().to_ascii_uppercase();
-    if upper == "TRUE" {
-        return Ok(Value::Bool(true));
-    }
-    if upper == "FALSE" {
-        return Ok(Value::Bool(false));
-    }
-    if let Ok(int_val) = upper.parse::<i64>() {
-        return Ok(Value::LInt(int_val));
-    }
-    Err(RuntimeError::ControlError(
-        format!("unsupported value '{text}'").into(),
-    ))
+    value_grammar::parse_value(text).map_err(|error| RuntimeError::ControlError(error.into()))
 }
 
 #[cfg(test)]

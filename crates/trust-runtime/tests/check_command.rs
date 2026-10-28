@@ -32,8 +32,8 @@ fn make_runtime_toml_portable(runtime_toml: String) -> String {
     #[cfg(windows)]
     {
         return runtime_toml.replacen(
-            "endpoint = \"unix:///tmp/trust-runtime.sock\"",
-            "endpoint = \"tcp://127.0.0.1:0\"\nauth_token = \"trust-ci-token\"",
+            "[runtime.control]\n",
+            "[runtime.control]\nendpoint = \"tcp://127.0.0.1:0\"\nauth_token = \"trust-ci-token\"\n",
             1,
         );
     }
@@ -83,7 +83,7 @@ fn reported_path_ends_with(path: &str, suffix: &str) -> bool {
 }
 
 #[test]
-fn check_accepts_project_without_writing_program_stbc() {
+fn check_accepts_project_without_writing_program_image() {
     let project = unique_temp_dir("check-ok");
     write_project_fixture(
         &project,
@@ -97,8 +97,8 @@ END_PROGRAM
 "#,
     );
 
-    let bytecode_path = project.join("program.stbc");
-    std::fs::write(&bytecode_path, b"existing-bytecode").expect("write existing bytecode");
+    let program_path = project.join("program.tpi");
+    std::fs::write(&program_path, b"existing-image").expect("write existing program image");
 
     let output = run_check(&project);
     assert!(
@@ -119,11 +119,14 @@ END_PROGRAM
             .as_array()
             .map(|sources| sources.len() as u64)
     );
-    assert!(payload["bytecode_size"].as_u64().unwrap_or_default() > 0);
+    assert!(
+        payload.get("bytecode_size").is_none(),
+        "the check reports no bytecode size"
+    );
     assert_eq!(
-        std::fs::read(&bytecode_path).expect("read existing bytecode"),
-        b"existing-bytecode",
-        "check must not replace program.stbc"
+        std::fs::read(&program_path).expect("read existing program image"),
+        b"existing-image",
+        "check must not replace program.tpi"
     );
     let _ = std::fs::remove_dir_all(project);
 }
@@ -154,10 +157,13 @@ END_PROGRAM
         .unwrap_or_default()
         .contains("program compile failed"));
     assert!(payload["source_count"].as_u64().unwrap_or_default() >= 1);
-    assert_eq!(payload["bytecode_size"], JsonValue::Null);
     assert!(
-        !project.join("program.stbc").exists(),
-        "failed check must not write program.stbc"
+        payload.get("bytecode_size").is_none(),
+        "the check reports no bytecode size"
+    );
+    assert!(
+        !project.join("program.tpi").exists(),
+        "failed check must not write program.tpi"
     );
     let _ = std::fs::remove_dir_all(project);
 }
@@ -194,6 +200,59 @@ END_PROGRAM
 }
 
 #[test]
+fn check_reports_a_runtime_resource_the_configuration_lacks() {
+    // The runtime runs the configuration's resource that runtime.toml names, so a name the
+    // program lacks stopped it at start while the check said ok; now the check reports it.
+    let project = unique_temp_dir("check-resource-mismatch");
+    write_project_fixture(
+        &project,
+        r#"
+PROGRAM Main
+END_PROGRAM
+
+CONFIGURATION Config
+RESOURCE MainRes ON PLC
+    TASK MainTask (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH MainTask : Main;
+END_RESOURCE
+END_CONFIGURATION
+"#,
+    );
+    let output = run_check(&project);
+    assert!(
+        !output.status.success(),
+        "a resource the program lacks fails the check"
+    );
+    let payload = json_stdout(&output);
+    let issue = payload["issues"]
+        .as_array()
+        .expect("issues")
+        .iter()
+        .find(|issue| issue["code"] == "config.resource")
+        .cloned()
+        .unwrap_or_else(|| panic!("a resource issue in {payload}"));
+    assert_eq!(
+        issue["message"],
+        "runtime.toml names resource 'main', but the program's configuration declares resource 'MainRes'; use the same name in both"
+    );
+    let runtime_path = project.join("runtime.toml");
+    let text = std::fs::read_to_string(&runtime_path).expect("read runtime.toml");
+    assert!(text.contains("name = \"main\""), "{text}");
+    std::fs::write(
+        &runtime_path,
+        text.replacen("name = \"main\"", "name = \"MainRes\"", 1),
+    )
+    .expect("write runtime.toml");
+    let output = run_check(&project);
+    assert!(
+        output.status.success(),
+        "matching names pass: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
 fn check_aggregates_required_and_optional_config_errors_with_stable_exit_code() {
     let project = unique_temp_dir("check-config-aggregate");
     write_project_fixture(
@@ -219,8 +278,11 @@ END_PROGRAM
         );
     }
     assert_eq!(payload["errors"].as_u64(), Some(3));
-    assert!(payload["bytecode_size"].as_u64().unwrap_or_default() > 0);
-    assert!(!project.join("program.stbc").exists());
+    assert!(
+        payload.get("bytecode_size").is_none(),
+        "the check reports no bytecode size"
+    );
+    assert!(!project.join("program.tpi").exists());
 
     let _ = std::fs::remove_dir_all(project);
 }
@@ -244,13 +306,16 @@ END_PROGRAM
     assert_eq!(payload["status"], "failed");
     assert_eq!(payload["source_count"], 0);
     assert_eq!(payload["sources"], serde_json::json!([]));
-    assert_eq!(payload["bytecode_size"], JsonValue::Null);
+    assert!(
+        payload.get("bytecode_size").is_none(),
+        "the check reports no bytecode size"
+    );
     assert!(payload["issues"]
         .as_array()
         .expect("issues")
         .iter()
         .any(|issue| issue["code"] == "sources"));
-    assert!(!project.join("program.stbc").exists());
+    assert!(!project.join("program.tpi").exists());
 
     let _ = std::fs::remove_dir_all(project);
 }
@@ -314,7 +379,7 @@ END_FUNCTION
     assert!(sources.iter().any(|path| path
         .as_str()
         .is_some_and(|path| reported_path_ends_with(path, "deps/lib-a/src/lib.st"))));
-    assert!(!project.join("program.stbc").exists());
+    assert!(!project.join("program.tpi").exists());
 
     let _ = std::fs::remove_dir_all(project);
 }
@@ -340,8 +405,11 @@ END_PROGRAM
     assert!(issues.iter().any(|issue| issue["code"] == "compile"));
     assert_eq!(payload["errors"], 2);
     assert!(payload["source_count"].as_u64().unwrap_or_default() >= 1);
-    assert_eq!(payload["bytecode_size"], JsonValue::Null);
-    assert!(!project.join("program.stbc").exists());
+    assert!(
+        payload.get("bytecode_size").is_none(),
+        "the check reports no bytecode size"
+    );
+    assert!(!project.join("program.tpi").exists());
 
     let _ = std::fs::remove_dir_all(project);
 }
@@ -379,4 +447,44 @@ END_PROGRAM
 
     let _ = std::fs::remove_dir_all(valid_project);
     let _ = std::fs::remove_dir_all(invalid_project);
+}
+
+// docs/specs/07-standard-functions.md 2.10: the project's vendor_profile selects its
+// conversion rules, so a name that is not a vendor profile fails the check instead of
+// running the project under other rules than intended.
+#[test]
+fn check_reports_an_unknown_vendor_profile() {
+    let project = unique_temp_dir("check-vendor-profile");
+    write_project_fixture(&project, "PROGRAM Main\nEND_PROGRAM\n");
+    std::fs::write(
+        project.join("trust-lsp.toml"),
+        "[project]\nvendor_profile = \"codesys\"\n",
+    )
+    .expect("write trust-lsp.toml");
+    let output = run_check(&project);
+    assert!(
+        output.status.success(),
+        "codesys is a vendor profile: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+
+    std::fs::write(
+        project.join("trust-lsp.toml"),
+        "[project]\nvendor_profile = \"codesis\"\n",
+    )
+    .expect("write trust-lsp.toml");
+    let output = run_check(&project);
+    assert_eq!(output.status.code(), Some(11));
+    let payload = json_stdout(&output);
+    assert_eq!(payload["ok"], false);
+    assert_eq!(payload["issues"][0]["code"], "compile");
+    let message = payload["issues"][0]["message"].as_str().unwrap_or_default();
+    assert!(
+        message.contains("unknown vendor_profile 'codesis'")
+            && message.contains(
+                "supported: beckhoff, codesys, gxworks3, iec, mitsubishi, siemens, twincat"
+            ),
+        "{message}"
+    );
+    let _ = std::fs::remove_dir_all(project);
 }

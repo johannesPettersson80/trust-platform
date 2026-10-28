@@ -47,7 +47,7 @@ Expected result:
 
 ## Step 3: Run config + bundle validation gate
 
-Why: valid bytecode is not enough if runtime/config contracts are broken.
+Why: a program that compiles is not enough if runtime/config contracts are broken.
 
 ```bash
 trust-runtime validate --project examples/tutorials/11_unit_testing_102 --ci

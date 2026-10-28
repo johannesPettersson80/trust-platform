@@ -1,7 +1,8 @@
 use super::*;
 use crate::debug::DebugSnapshot;
 use crate::memory::VariableStorage;
-use crate::value::{Duration as PlcDuration, Value};
+use crate::value::{ArrayValue, Duration as PlcDuration, StructValue, Value};
+use crate::CompiledVariable;
 
 fn temp_path(name: &str) -> PathBuf {
     let stamp = std::time::SystemTime::now()
@@ -18,9 +19,9 @@ fn snapshot_with_values(counter: i16, temp: f64, active: bool) -> DebugSnapshot 
     storage.set_global("Active", Value::Bool(active));
     storage.set_global("Label", Value::String(SmolStr::new("Pump-A")));
     DebugSnapshot {
-        storage_abi: Default::default(),
         storage,
         now: PlcDuration::from_millis(1_000),
+        compiled: None,
     }
 }
 
@@ -147,9 +148,9 @@ fn allowlist_mode_records_matching_paths_only() {
     storage.set_global("Temp", Value::LReal(5.0));
     storage.set_retain("Persist", Value::Bool(true));
     let snapshot = DebugSnapshot {
-        storage_abi: Default::default(),
         storage,
         now: PlcDuration::from_millis(500),
+        compiled: None,
     };
     service
         .capture_snapshot_at(&snapshot, 3_000)
@@ -182,4 +183,154 @@ fn prometheus_render_includes_runtime_and_historian_metrics() {
     assert!(body.contains("trust_runtime_faults_total 1"));
     assert!(body.contains("trust_runtime_historian_samples_total 10"));
     assert!(body.contains("trust_runtime_historian_alerts_total 4"));
+}
+
+/// A variable of the stand-in compiled program: a variable of the program instance its qualified
+/// `name` names, else a global.
+fn compiled_variable(symbol: u32, name: &str, type_name: &str) -> CompiledVariable {
+    let (program, member) = match name.split_once('.') {
+        Some((program, member)) => (Some(SmolStr::new(program)), member),
+        None => (None, name),
+    };
+    CompiledVariable {
+        symbol,
+        name: SmolStr::new(name),
+        program,
+        member: SmolStr::new(member),
+        type_name: SmolStr::new(type_name),
+        retained: false,
+        constant: false,
+        instance: false,
+    }
+}
+
+/// `PROGRAM Vat` with `RegState : INT := 1;`, `Count : DINT := 7;` (RETAIN),
+/// `Recipe : RECIPE := (Temp := 72.5, Steps := [3, 4]);` and `Timer : TON;` whose `Q` is TRUE, and
+/// the globals `Speed : INT := 5;` and `Persist : BOOL := TRUE;` (RETAIN), in the order of
+/// `CompiledState::variables`: the program instance's own variables, then the globals.
+fn compiled_vat() -> Vec<CompiledVariable> {
+    vec![
+        compiled_variable(0, "Vat.RegState", "INT"),
+        CompiledVariable {
+            retained: true,
+            ..compiled_variable(1, "Vat.Count", "DINT")
+        },
+        compiled_variable(2, "Vat.Recipe", "RECIPE"),
+        CompiledVariable {
+            instance: true,
+            ..compiled_variable(3, "Vat.Timer", "TON")
+        },
+        compiled_variable(4, "Speed", "INT"),
+        CompiledVariable {
+            retained: true,
+            ..compiled_variable(5, "Persist", "BOOL")
+        },
+    ]
+}
+
+/// The values of the stand-in state by symbol. It answers for the instance too, so that only its
+/// flag leaves it out.
+fn compiled_vat_value(symbol: u32) -> Option<Value> {
+    match symbol {
+        0 => Some(Value::Int(1)),
+        1 => Some(Value::DInt(7)),
+        2 => {
+            // TYPE RECIPE : STRUCT Temp : LREAL; Steps : ARRAY [1..2] OF INT; END_STRUCT END_TYPE
+            let steps = Value::Array(Box::new(ArrayValue::from_canonical_parts(
+                vec![Value::Int(3), Value::Int(4)],
+                vec![(1, 2)],
+            )));
+            let fields = [
+                (SmolStr::new("Temp"), Value::LReal(72.5)),
+                (SmolStr::new("Steps"), steps),
+            ];
+            Some(Value::Struct(Arc::new(StructValue::from_untyped_parts(
+                SmolStr::new("RECIPE"),
+                fields.into_iter().collect(),
+            ))))
+        }
+        3 => Some(Value::Bool(true)),
+        4 => Some(Value::Int(5)),
+        5 => Some(Value::Bool(true)),
+        6 => Some(Value::Bool(true)),
+        _ => None,
+    }
+}
+
+/// The members of the stand-in state's instances by symbol: the timer's `Q`.
+fn compiled_vat_members(symbol: u32) -> Vec<CompiledVariable> {
+    match symbol {
+        3 => vec![CompiledVariable {
+            program: None,
+            member: SmolStr::new("Q"),
+            ..compiled_variable(6, "Vat.Timer.Q", "BOOL")
+        }],
+        _ => Vec::new(),
+    }
+}
+
+/// A compiled program's storage is empty, so its samples come from its variables, under the paths
+/// an interpreted program's samples take: the program instance's variables and the globals by
+/// their declared full names, a structure's members and an array's elements (`.Temp`, `[0]` for
+/// the first element), an instance by its members (`Vat.Timer.Q`), and retained variables by their
+/// names only, as an interpreted program has no retain bank either; every sample is stamped with
+/// the scan's logical time. Catches a compiled program that records nothing, an instance recorded
+/// by a value or not at all, a `retain.` copy an interpreted program does not record, and a sample
+/// stamped with another time.
+#[test]
+fn a_compiled_program_records_the_samples_of_an_interpreted_one() {
+    let samples = compiled_samples(
+        &compiled_vat(),
+        &compiled_vat_value,
+        &compiled_vat_members,
+        PlcDuration::from_millis(250),
+        &basic_config(PathBuf::new()),
+        &[],
+        4_000,
+    );
+    let recorded: Vec<_> = samples
+        .iter()
+        .map(|sample| (sample.variable.as_str(), sample.value.clone()))
+        .collect();
+    assert_eq!(
+        recorded,
+        vec![
+            ("Vat.RegState", HistorianValue::Integer(1)),
+            ("Vat.Count", HistorianValue::Integer(7)),
+            ("Vat.Recipe.Temp", HistorianValue::Float(72.5)),
+            ("Vat.Recipe.Steps[0]", HistorianValue::Integer(3)),
+            ("Vat.Recipe.Steps[1]", HistorianValue::Integer(4)),
+            ("Vat.Timer.Q", HistorianValue::Bool(true)),
+            ("Speed", HistorianValue::Integer(5)),
+            ("Persist", HistorianValue::Bool(true)),
+        ]
+    );
+    assert!(samples
+        .iter()
+        .all(|sample| sample.timestamp_ms == 4_000 && sample.source_time_ns == 250_000_000));
+}
+
+/// In allowlist mode a compiled program records the paths the configured names match, as an
+/// interpreted program does, and nothing else: `Speed` and `Vat.Timer.*` give `Speed` and
+/// `Vat.Timer.Q`. Catches an allowlist that a compiled program ignores.
+#[test]
+fn allowlist_mode_records_matching_paths_of_a_compiled_program_only() {
+    let mut config = basic_config(PathBuf::new());
+    config.mode = RecordingMode::Allowlist;
+    config.include = vec![SmolStr::new("Speed"), SmolStr::new("Vat.Timer.*")];
+    let patterns = compile_patterns(&config.include).expect("patterns");
+    let samples = compiled_samples(
+        &compiled_vat(),
+        &compiled_vat_value,
+        &compiled_vat_members,
+        PlcDuration::from_millis(250),
+        &config,
+        &patterns,
+        4_000,
+    );
+    let recorded: Vec<_> = samples
+        .iter()
+        .map(|sample| sample.variable.as_str())
+        .collect();
+    assert_eq!(recorded, vec!["Vat.Timer.Q", "Speed"]);
 }

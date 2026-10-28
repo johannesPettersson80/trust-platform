@@ -5,12 +5,12 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use indexmap::IndexMap;
 use serde_json::json;
 
-use crate::debug::{DebugVariableHandles, PendingVarTarget};
+use crate::debug::PendingVarTarget;
 use crate::error::RuntimeError;
 use crate::harness::TestHarness;
 use crate::historian::{AlertRule, HistorianConfig, HistorianService, RecordingMode};
@@ -39,6 +39,39 @@ fn temp_dir(name: &str) -> PathBuf {
     let path = std::env::temp_dir().join(format!("trust-control-{name}-{stamp}"));
     fs::create_dir_all(&path).expect("create temp dir");
     path
+}
+
+/// The program image of `source` for this computer, as the harness builds it: what a client sends
+/// with `bytecode.reload` to change the running program online (specification 44 §12). The build
+/// needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+fn program_image(source: &str) -> Vec<u8> {
+    built_program_image(crate::harness::SourceFile::new(source))
+}
+
+/// The program image of `source` labelled `path`, the file's path relative to the project root,
+/// as `trust-runtime build` labels a project's file (specification 44 §5.3, with the label rule of
+/// specification 12 §7.5.1.4).
+fn labelled_program_image(path: &str, source: &str) -> Vec<u8> {
+    built_program_image(crate::harness::SourceFile::with_path(path, source))
+}
+
+/// The program image of `file` for this computer, with statement hooks.
+fn built_program_image(file: crate::harness::SourceFile) -> Vec<u8> {
+    let toolchain = crate::native::Toolchain::find().expect("the toolchain");
+    let target = crate::native::Target::this_cpu().expect("this computer's CPU");
+    let work = temp_dir("program-image");
+    let built = crate::native::build(
+        &[file],
+        &crate::native::Options {
+            target,
+            hooks: true,
+        },
+        &toolchain,
+        &work,
+    )
+    .expect("build the program image");
+    let _ = fs::remove_dir_all(work);
+    built.image
 }
 
 fn write_file(path: &Path, content: &str) {
@@ -92,42 +125,42 @@ fn runtime_settings() -> RuntimeSettings {
     )
 }
 
-pub(super) fn hmi_test_state(source: &str) -> ControlState {
-    hmi_test_state_with_ads_status(source, disabled_ads_status())
+pub(super) fn control_test_state(source: &str) -> ControlState {
+    control_test_state_with_ads_status(source, disabled_ads_status())
 }
 
-fn hmi_test_state_with_ads_status(
+fn control_test_state_with_ads_status(
     source: &str,
     ads_status: crate::ads::diagnostics::AdsStatusReport,
 ) -> ControlState {
-    hmi_test_state_with_status_reports(source, ads_status, disabled_opcua_client_status())
+    control_test_state_with_status_reports(source, ads_status, disabled_opcua_client_status())
 }
 
-fn hmi_test_state_with_opcua_client_status(
+fn control_test_state_with_opcua_client_status(
     source: &str,
     opcua_status: crate::opcua::OpcUaClientStatusReport,
 ) -> ControlState {
-    hmi_test_state_with_status_reports(source, disabled_ads_status(), opcua_status)
+    control_test_state_with_status_reports(source, disabled_ads_status(), opcua_status)
 }
 
-fn hmi_test_state_with_status_reports(
+fn control_test_state_with_status_reports(
     source: &str,
     ads_status: crate::ads::diagnostics::AdsStatusReport,
     opcua_status: crate::opcua::OpcUaClientStatusReport,
 ) -> ControlState {
+    // The program and its control are wired as trust-runtime wires a compiled program
+    // (specification 44 §8.8): the snapshot carries the program's state, and the metadata is empty.
     let mut harness = TestHarness::from_source(source).expect("build harness");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = crate::debug::DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
     harness.cycle();
     let snapshot = crate::debug::DebugSnapshot {
-        storage_abi: Default::default(),
-        storage: harness.runtime().storage().clone(),
+        storage: crate::memory::VariableStorage::new(),
         now: harness.runtime().current_time(),
+        compiled: Some(Arc::new(
+            harness.runtime().snapshot().expect("the program's state"),
+        )),
     };
-    debug.refresh_snapshot_from_storage_with_abi(
-        &snapshot.storage,
-        snapshot.now,
-        snapshot.storage_abi,
-    );
 
     let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
     std::thread::spawn(move || {
@@ -140,8 +173,19 @@ fn hmi_test_state_with_status_reports(
                 ResourceCommand::MeshSnapshot { respond_to, .. } => {
                     let _ = respond_to.send(IndexMap::new());
                 }
+                ResourceCommand::MeshCatalogue { respond_to, .. } => {
+                    let _ = respond_to.send(Err("unsupported in this control fixture".to_string()));
+                }
                 ResourceCommand::Snapshot { respond_to } => {
                     let _ = respond_to.send(snapshot.clone());
+                }
+                ResourceCommand::SimulationSnapshot { respond_to } => {
+                    let _ = respond_to.send(None);
+                }
+                ResourceCommand::SimulationTraceClear { respond_to, .. } => {
+                    let _ = respond_to.send(Err(
+                        crate::simulation::PlantTraceClearError::StatusUnavailable,
+                    ));
                 }
                 ResourceCommand::AdsStatus { respond_to } => {
                     let _ = respond_to.send(ads_status.clone());
@@ -152,7 +196,13 @@ fn hmi_test_state_with_status_reports(
                 ResourceCommand::ActiveAdsDevice { respond_to, .. } => {
                     let _ = respond_to.send(None);
                 }
+                ResourceCommand::StepCycle { respond_to, .. } => {
+                    let _ = respond_to.send(Err(
+                        trust_runtime_services::cycle_step::StepRefusal::Unsupported,
+                    ));
+                }
                 ResourceCommand::MeshApply { .. }
+                | ResourceCommand::ProgramInstalled
                 | ResourceCommand::Pause
                 | ResourceCommand::Resume
                 | ResourceCommand::UpdateSchedulerPolicies(_)
@@ -165,13 +215,11 @@ fn hmi_test_state_with_status_reports(
         path: std::path::PathBuf::from("main.st"),
         text: source.to_string(),
     }]);
-    let hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
-        None, &sources,
-    )));
     ControlState {
+        transfers: crate::control::new_transfer_session(),
         debug,
+        identify: crate::io::IdentifyHandle::default(),
         resource,
-        metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),
         sources,
         io_snapshot: Arc::new(Mutex::new(None)),
         io_snapshot_seen_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
@@ -191,16 +239,18 @@ fn hmi_test_state_with_status_reports(
         web_listener_bound: Arc::new(AtomicBool::new(false)),
         opcua_server_bound: Arc::new(AtomicBool::new(false)),
         project_root: None,
+        plant_service: Arc::new(PlantControlService::default()),
+        experiments: ControlExperimentService::default(),
+        controllers: ControllerParameterService::default(),
+        searches: super::search::SearchService::default(),
         resource_name: SmolStr::new("RESOURCE"),
+        runtime_id: SmolStr::new("test-runtime-id"),
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
-        debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
-        hmi_live: Arc::new(Mutex::new(crate::hmi::HmiLiveState::default())),
-        hmi_persistence: None,
-        hmi_descriptor,
         historian: None,
         openot_persistence_status: None,
         pairing: None,
+        search: Default::default(),
         ads_doctor_jobs: Arc::new(Mutex::new(AdsDoctorJobStore::default())),
         ads_client_config: Arc::new(Mutex::new(None)),
         opcua_client_config: Arc::new(Mutex::new(None)),
@@ -208,6 +258,34 @@ fn hmi_test_state_with_status_reports(
         #[cfg(feature = "ads-server")]
         ads_server_runtime: Arc::new(Mutex::new(None)),
     }
+}
+
+/// Holds the scan as an attached debugger's `pause` does (specification 13, "Pause").
+fn debugger_pause(debug: &crate::debug::DebugControl) {
+    debug.compiled().expect("the program's debugger").pause();
+}
+
+/// Releases the scan as an attached debugger's `continue` does (specification 13, "Continue").
+fn debugger_continue(debug: &crate::debug::DebugControl) {
+    debug.compiled().expect("the program's debugger").resume();
+}
+
+/// Whether the debugger holds the scan, which status reports as its hold.
+fn debugger_holds(debug: &crate::debug::DebugControl) -> bool {
+    debug.hold_label().is_some()
+}
+
+/// The handle that the program's debugger hands out for `handle`, among the handles that
+/// `debug.variables` lists from (specification 44 §13.2; specification 11 §6.13.3, "Variable
+/// handles").
+fn debugger_handle(
+    debug: &crate::debug::DebugControl,
+    handle: crate::debug::dap::VariableHandle,
+) -> u32 {
+    debug
+        .compiled()
+        .expect("the program's debugger")
+        .alloc_handle(handle)
 }
 
 fn disabled_ads_status() -> crate::ads::diagnostics::AdsStatusReport {
@@ -230,96 +308,8 @@ fn disabled_opcua_client_status() -> crate::opcua::OpcUaClientStatusReport {
     }
 }
 
-fn set_hmi_project_root(state: &mut ControlState, root: &Path) {
+fn set_project_root(state: &mut ControlState, root: &Path) {
     state.project_root = Some(root.to_path_buf());
-    state.hmi_descriptor = Arc::new(Mutex::new(HmiRuntimeDescriptor::from_sources(
-        state.project_root.as_deref(),
-        &state.sources,
-    )));
-}
-
-fn hmi_schema_result(state: &ControlState) -> serde_json::Value {
-    let response = handle_request_value(json!({"id": 999, "type": "hmi.schema.get"}), state, None);
-    assert!(response.ok, "schema response failed: {:?}", response.error);
-    response.result.expect("schema result")
-}
-
-fn hmi_schema_revision_and_speed_label(state: &ControlState) -> (u64, String) {
-    let result = hmi_schema_result(state);
-    let revision = result
-        .get("schema_revision")
-        .and_then(serde_json::Value::as_u64)
-        .expect("schema revision");
-    let label = result
-        .get("widgets")
-        .and_then(serde_json::Value::as_array)
-        .and_then(|widgets| {
-            widgets.iter().find_map(|widget| {
-                if widget.get("path").and_then(serde_json::Value::as_str) == Some("Main.speed") {
-                    widget
-                        .get("label")
-                        .and_then(serde_json::Value::as_str)
-                        .map(ToOwned::to_owned)
-                } else {
-                    None
-                }
-            })
-        })
-        .expect("speed label");
-    (revision, label)
-}
-
-fn wait_for_schema_revision(
-    state: &ControlState,
-    min_revision: u64,
-    timeout: Duration,
-) -> (u64, String) {
-    let deadline = Instant::now() + timeout;
-    loop {
-        let current = hmi_schema_revision_and_speed_label(state);
-        if current.0 >= min_revision {
-            return current;
-        }
-        if Instant::now() >= deadline {
-            panic!(
-                "schema revision did not reach {min_revision}; last seen {:?}",
-                current
-            );
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    }
-}
-
-fn wait_for_descriptor_error(state: &ControlState, timeout: Duration) -> serde_json::Value {
-    let deadline = Instant::now() + timeout;
-    loop {
-        let schema = hmi_schema_result(state);
-        if schema
-            .get("descriptor_error")
-            .and_then(serde_json::Value::as_str)
-            .is_some()
-        {
-            return schema;
-        }
-        if Instant::now() >= deadline {
-            panic!("descriptor_error was not present before timeout");
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    }
-}
-
-fn wait_for_descriptor_error_clear(state: &ControlState, timeout: Duration) -> serde_json::Value {
-    let deadline = Instant::now() + timeout;
-    loop {
-        let schema = hmi_schema_result(state);
-        if schema.get("descriptor_error").is_none() {
-            return schema;
-        }
-        if Instant::now() >= deadline {
-            panic!("descriptor_error was not cleared before timeout");
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    }
 }
 
 fn pairing_file(name: &str) -> PathBuf {

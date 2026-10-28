@@ -7,6 +7,7 @@ mod builtins;
 mod compat;
 mod defs;
 mod registry;
+mod strings;
 
 #[cfg(test)]
 #[path = "types/contract_tests.rs"]
@@ -18,6 +19,9 @@ pub use defs::{
     TypeId, UnionVariant,
 };
 pub use registry::TypeRegistry;
+pub use strings::{
+    checked_string_length, StringLengthError, DEFAULT_STRING_LENGTH, MAX_STRING_LENGTH,
+};
 
 /// User-visible `SIZEOF` result for `POINTER TO` / `REF_TO` storage operands.
 ///

@@ -4,6 +4,8 @@ use alloc::borrow::Cow;
 pub(crate) mod assertions;
 pub(crate) mod bit;
 pub(crate) mod comparison;
+/// Versioned execution contracts of the built-in imports, checked at admission.
+pub mod contracts;
 /// Typed conversion recognition and execution.
 pub mod conversions;
 /// Portable standard function blocks with caller-owned time and storage.
@@ -79,6 +81,7 @@ pub struct StdFunctionRef<'a> {
 pub struct StandardLibrary {
     functions: IndexMap<SmolStr, StdFunction>,
     defaults: bool,
+    conversion_profile: conversions::ConversionProfile,
 }
 
 impl StandardLibrary {
@@ -88,14 +91,23 @@ impl StandardLibrary {
         Self {
             functions: IndexMap::default(),
             defaults: true,
+            conversion_profile: conversions::ConversionProfile::default(),
         }
     }
 
-    /// Shared descriptors require no per-module heap allocation or registry construction.
-    pub(crate) fn preparation_demand() -> (usize, usize) {
-        (0, 1)
+    /// The same library with the given conversion rules (docs/specs/07-standard-functions.md
+    /// 2.10).
+    #[must_use]
+    pub fn with_conversion_profile(mut self, profile: conversions::ConversionProfile) -> Self {
+        self.conversion_profile = profile;
+        self
     }
 
+    /// The rules the conversion functions follow.
+    #[must_use]
+    pub fn conversion_profile(&self) -> conversions::ConversionProfile {
+        self.conversion_profile
+    }
     fn register_descriptors(
         &mut self,
         descriptors: &'static [(&'static str, StdFunctionRef<'static>)],
@@ -201,7 +213,8 @@ impl StandardLibrary {
             return (entry.func)(args);
         }
         let key = SmolStr::new(name.to_ascii_uppercase());
-        if let Some(result) = conversions::call_conversion(&key, args) {
+        if let Some(result) = conversions::call_conversion_with(&key, args, self.conversion_profile)
+        {
             return result;
         }
         Err(RuntimeError::UndefinedFunction(name.into()))

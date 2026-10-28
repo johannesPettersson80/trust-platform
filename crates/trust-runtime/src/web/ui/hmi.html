@@ -1,62 +1,18 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#0f1115" />
-  <title>truST HMI</title>
-  <link rel="stylesheet" href="/hmi/styles.css" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HMI</title>
+<link rel="icon" href="/hmi/assets/logo.svg" type="image/svg+xml">
+<style>
+  html, body { margin: 0; height: 100%; background: #06080c; }
+  #hmi { width: 100%; height: 100%; }
+</style>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <svg class="brand-logo" viewBox="0 0 160 80">
-        <text x="20" y="50" class="logo-text">tru<tspan class="logo-accent">ST</tspan></text>
-        <text x="20" y="70" class="logo-tagline">open source plc toolchain</text>
-      </svg>
-    </div>
-    <div class="status">
-      <div class="alarm-banner" id="alarmBanner">
-        <span class="alarm-banner-dot" id="alarmBannerDot"></span>
-        <span class="alarm-banner-text" id="alarmBannerText">No alarms</span>
-      </div>
-      <div class="pill status-chip" id="connectionState">Disconnected</div>
-      <div class="pill status-chip" id="freshnessState">freshness: n/a</div>
-      <div class="pill status-chip connector-chip" id="connectorSummaryState">Connections: n/a</div>
-      <div class="pill status-chip mode" id="modeLabel">read-only</div>
-      <div class="pill status-chip hidden" id="diagnosticState">diag: n/a</div>
-    </div>
-    <div class="actions">
-      <button id="backButton" class="action-link hmi-action hidden" type="button">Back</button>
-      <button id="themeLabel" class="action-link hmi-action" type="button">Dark mode</button>
-      <button id="modeToggle" class="action-link hmi-action" type="button">Engineering Mode</button>
-      <button id="layoutToggle" class="action-link hmi-action hidden" type="button">Edit Layout</button>
-      <button id="addSignalButton" class="action-link hmi-action hidden" type="button">Add Signal</button>
-      <button id="resetLayoutButton" class="action-link hmi-action hidden" type="button">Reset Defaults</button>
-      <a id="exportLink" class="action-link hmi-action" href="/hmi/export.json" download>Export Standalone</a>
-    </div>
-  </header>
-
-  <main class="hmi-shell" id="hmiShell">
-    <aside class="sidebar" id="pageSidebar"></aside>
-    <section class="content" id="pageContent">
-      <section class="groups hidden" id="hmiGroups"></section>
-      <section class="panel trend-panel hidden" id="trendPanel"></section>
-      <section class="panel alarm-panel hidden" id="alarmPanel"></section>
-      <section class="panel empty" id="emptyState">Waiting for HMI schema...</section>
-    </section>
-  </main>
-
-  <script src="/hmi/modules/hmi-model-descriptor.js" defer></script>
-  <script src="/hmi/modules/hmi-model-layout.js" defer></script>
-  <script src="/hmi/modules/hmi-model-navigation.js" defer></script>
-  <script src="/hmi/modules/hmi-model.js" defer></script>
-  <script src="/hmi/modules/hmi-renderers.js" defer></script>
-  <script src="/hmi/modules/hmi-widgets.js" defer></script>
-  <script src="/hmi/modules/hmi-trends-alarms.js" defer></script>
-  <script src="/hmi/modules/hmi-process-view.js" defer></script>
-  <script src="/hmi/modules/hmi-transport.js" defer></script>
-  <script src="/hmi/modules/hmi-pages.js" defer></script>
-  <script src="/hmi/app.js" defer></script>
+<div id="hmi"></div>
+<script src="/hmi/modules/hmi-drawing.js"></script>
+<script src="/hmi/modules/hmi-display.js"></script>
 </body>
 </html>

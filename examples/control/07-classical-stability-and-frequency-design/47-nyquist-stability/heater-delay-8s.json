@@ -1,0 +1,46 @@
+{
+  "kind": "transfer-function",
+  "revision": "water-heater-delay-8s",
+  "source": "provided",
+  "validation": "validated",
+  "evidence": [
+    "Energy balance of Lesson 13 with an 8 s delivery path: 50·dT/dt = 2·u(t − 8) − 10·(T − 20), so 5·dx/dt + x = 0.2·v(t − 8) about 35 °C and 75 %.",
+    "Same water, heater and losses as the 1 s heater; only the delivery delay differs."
+  ],
+  "delaySeconds": 8,
+  "inputs": [
+    {
+      "id": "P1.LongDelayPct",
+      "unit": "%",
+      "operatingRange": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "id": "P1.LongDelayC",
+      "unit": "degC",
+      "operatingRange": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    }
+  ],
+  "numerator": [
+    0.2
+  ],
+  "denominator": [
+    5,
+    1
+  ],
+  "operatingPoint": {
+    "inputs": [
+      75
+    ],
+    "outputs": [
+      35
+    ]
+  }
+}

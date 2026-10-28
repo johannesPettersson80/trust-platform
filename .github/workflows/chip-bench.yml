@@ -1,0 +1,63 @@
+name: Chip Bench
+
+# The chips on the bench run the firmware of each change on main (runtime portability checklist
+# D2): CI builds every chip's firmware (ci.yml, job `firmware`); this workflow installs the C6's on
+# the real chip of the bench runner and checks that it boots and reports itself. The bench runner is
+# a self-hosted runner on the bench machine, named by the repository variable
+# TRUST_CHIP_BENCH_RUNNER, with the chip's USB port in TRUST_CHIP_BENCH_PORT and, when its device
+# settings hold one, the control token in the secret TRUST_CHIP_BENCH_TOKEN. Without them the run
+# says that no bench is configured and passes.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "The CI run whose firmware to install"
+        required: true
+      require_hardware:
+        description: "Fail when no chip bench is configured"
+        required: false
+        default: "false"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: chip-bench
+  cancel-in-progress: false
+
+jobs:
+  esp32c6:
+    name: ESP32-C6 on the bench
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ${{ vars.TRUST_CHIP_BENCH_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - name: Download the firmware CI built
+        uses: actions/download-artifact@v7
+        with:
+          name: firmware-esp32c6
+          path: firmware-build
+          run-id: ${{ github.event.inputs.run_id || github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Install it on the chip and check its boot
+        env:
+          TRUST_CHIP_BENCH_PORT: ${{ vars.TRUST_CHIP_BENCH_PORT }}
+          TRUST_CHIP_BENCH_TOKEN: ${{ secrets.TRUST_CHIP_BENCH_TOKEN }}
+          TRUST_CHIP_BENCH_REQUIRE: ${{ github.event.inputs.require_hardware || 'false' }}
+        run: python3 scripts/chip_bench.py esp32c6 --firmware-dir firmware-build --out artifacts/chip-bench
+      - name: Upload the bench evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: chip-bench-esp32c6
+          path: artifacts/chip-bench/
+          if-no-files-found: ignore

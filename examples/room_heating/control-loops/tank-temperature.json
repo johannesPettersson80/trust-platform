@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 2,
+  "id": "loop:tank-temperature",
+  "name": "Tank temperature",
+  "projectId": "project:0a0a854e0eede4658a5b363fe86c90fbc31a760ee5adf35167cab33b35ca5009",
+  "runtimeId": "unix:///tmp/trust-runtime.sock",
+  "revision": "sha256:e2fb058ad3fdbb0abd5798ca1b397e18aca6b9f73fe9e82a1e1e6c6cddd7bcc5",
+  "topology": "closed-loop",
+  "controller": {
+    "instance": "Main.TIC101",
+    "type": "Control.PID",
+    "design": "pid",
+    "revision": "sha256:unverified",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "Main.TIC101_Manual",
+    "modeWhenTrue": "Manual",
+    "manualOutputSignal": "Main.TIC101_ManualOutput",
+    "manualOutputType": "LREAL",
+    "manualOutputFollowsOutput": true,
+    "law": {
+      "kind": "pid",
+      "parameterRecordSymbol": "Main.TIC101_Parameters",
+      "proportionalGainSymbol": "Main.TIC101_Parameters.ProportionalGain",
+      "integralGainSymbol": "Main.TIC101_Parameters.IntegralGain",
+      "derivativeGainSymbol": "Main.TIC101_Parameters.DerivativeGain"
+    },
+    "pidInitialization": {
+      "kind": "control-pid-v1",
+      "maximumSnapshotAgeMs": 500,
+      "applicationStates": [
+        {
+          "symbol": "Main.TIC101_Initialized",
+          "iec_type": "BOOL",
+          "unit": "1",
+          "minimum": 0,
+          "maximum": 1,
+          "initial": 1,
+          "postScan": "unchanged"
+        }
+      ],
+      "states": [
+        {
+          "symbol": "Main.TIC101.StateValue.Setpoint",
+          "iec_type": "LREAL",
+          "unit": "°C",
+          "minimum": 0,
+          "maximum": 100,
+          "initial": {
+            "source": "model-output",
+            "index": 0
+          },
+          "postScan": "bounded"
+        },
+        {
+          "symbol": "Main.TIC101.StateValue.SetpointRate",
+          "iec_type": "LREAL",
+          "unit": "°C/s",
+          "minimum": -100000,
+          "maximum": 100000,
+          "initial": 0,
+          "postScan": "bounded"
+        },
+        {
+          "symbol": "Main.TIC101.StateValue.ProcessValue",
+          "iec_type": "LREAL",
+          "unit": "°C",
+          "minimum": 0,
+          "maximum": 100,
+          "initial": {
+            "source": "model-output",
+            "index": 0
+          },
+          "postScan": "bounded"
+        },
+        {
+          "symbol": "Main.TIC101.StateValue.ProcessValueRate",
+          "iec_type": "LREAL",
+          "unit": "°C/s",
+          "minimum": -100000,
+          "maximum": 100000,
+          "initial": 0,
+          "postScan": "bounded"
+        },
+        {
+          "symbol": "Main.TIC101.StateValue.FeedForward",
+          "iec_type": "LREAL",
+          "unit": "%",
+          "minimum": -100,
+          "maximum": 100,
+          "initial": 0,
+          "postScan": "bounded"
+        },
+        {
+          "symbol": "Main.TIC101.StateValue.NominalOutput",
+          "iec_type": "LREAL",
+          "unit": "%",
+          "minimum": -1000,
+          "maximum": 1100,
+          "initial": {
+            "source": "model-input",
+            "index": 0
+          },
+          "postScan": "bounded"
+        },
+        {
+          "symbol": "Main.TIC101.StateValue.SaturatedOutput",
+          "iec_type": "LREAL",
+          "unit": "%",
+          "minimum": 0,
+          "maximum": 100,
+          "initial": {
+            "source": "model-input",
+            "index": 0
+          },
+          "postScan": "bounded"
+        }
+      ]
+    }
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "Main.TIC101_Setpoint",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "°C",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "processVariable": {
+      "symbol": "Main.TIC101.StateValue.ProcessValue",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "°C",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "Main.TIC101_Output",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    }
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "experiment": {
+    "execution": "control-studio",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 1800,
+    "seed": 1
+  },
+  "parameterBinding": {
+    "loop_id": "loop:tank-temperature",
+    "task_name": "MainTask",
+    "mode": {
+      "symbol": "Main.TIC101_Manual",
+      "manual_value": true
+    },
+    "parameters": [
+      {
+        "symbol": "Main.TIC101_Parameters.ProportionalGain",
+        "iec_type": "LREAL",
+        "unit": "%/°C",
+        "convention": "Control.PID ProportionalGain",
+        "minimum": 0,
+        "maximum": 1000000
+      },
+      {
+        "symbol": "Main.TIC101_Parameters.IntegralGain",
+        "iec_type": "LREAL",
+        "unit": "%/(°C*s)",
+        "convention": "Control.PID IntegralGain",
+        "minimum": 0,
+        "maximum": 1000000
+      },
+      {
+        "symbol": "Main.TIC101_Parameters.DerivativeGain",
+        "iec_type": "LREAL",
+        "unit": "%*s/°C",
+        "convention": "Control.PID DerivativeGain",
+        "minimum": 0,
+        "maximum": 1000000
+      },
+      {
+        "symbol": "Main.TIC101_Parameters.ProportionalSetpointWeight",
+        "iec_type": "LREAL",
+        "unit": "1",
+        "convention": "Control.PID ProportionalSetpointWeight",
+        "minimum": 0,
+        "maximum": 1
+      },
+      {
+        "symbol": "Main.TIC101_Parameters.DerivativeSetpointWeight",
+        "iec_type": "LREAL",
+        "unit": "1",
+        "convention": "Control.PID DerivativeSetpointWeight",
+        "minimum": 0,
+        "maximum": 1
+      },
+      {
+        "symbol": "Main.TIC101_Parameters.Bias",
+        "iec_type": "LREAL",
+        "unit": "%",
+        "convention": "Control.PID Bias",
+        "minimum": -100,
+        "maximum": 100
+      },
+      {
+        "symbol": "Main.TIC101_Parameters.OutputMinimum",
+        "iec_type": "LREAL",
+        "unit": "%",
+        "convention": "Control.PID OutputMinimum",
+        "minimum": 0,
+        "maximum": 100
+      },
+      {
+        "symbol": "Main.TIC101_Parameters.OutputMaximum",
+        "iec_type": "LREAL",
+        "unit": "%",
+        "convention": "Control.PID OutputMaximum",
+        "minimum": 0,
+        "maximum": 100
+      },
+      {
+        "symbol": "Main.TIC101_Parameters.RateMinimum",
+        "iec_type": "LREAL",
+        "unit": "%/s",
+        "convention": "Control.PID RateMinimum",
+        "minimum": -1000000000,
+        "maximum": 0
+      },
+      {
+        "symbol": "Main.TIC101_Parameters.RateMaximum",
+        "iec_type": "LREAL",
+        "unit": "%/s",
+        "convention": "Control.PID RateMaximum",
+        "minimum": 0,
+        "maximum": 1000000000
+      },
+      {
+        "symbol": "Main.TIC101_Parameters.TrackingTime",
+        "iec_type": "LREAL",
+        "unit": "s",
+        "convention": "Control.PID TrackingTime",
+        "minimum": 0.001,
+        "maximum": 10000
+      }
+    ]
+  }
+}

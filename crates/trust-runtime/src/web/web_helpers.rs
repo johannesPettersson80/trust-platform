@@ -60,6 +60,21 @@ pub(super) fn query_value(url: &str, key: &str) -> Option<String> {
     None
 }
 
+/// Every value of a query parameter that may repeat, decoded, in order.
+pub(super) fn query_values(url: &str, key: &str) -> Vec<String> {
+    let Some(query) = url.split('?').nth(1) else {
+        return Vec::new();
+    };
+    query
+        .split('&')
+        .filter_map(|pair| {
+            let mut parts = pair.splitn(2, '=');
+            (parts.next() == Some(key))
+                .then(|| decode_url_component(parts.next().unwrap_or_default()))
+        })
+        .collect()
+}
+
 pub(super) fn parse_runtime_cloud_rollout_action(url: &str) -> Option<(String, String)> {
     let prefix = "/api/runtime-cloud/rollouts/";
     let rest = url.strip_prefix(prefix)?;

@@ -26,8 +26,9 @@
         {
           "id": "act_task_a",
           "name": "ExecuteTaskA",
-          "qualifier": "N",
-          "body": "task_a_running := TRUE;\nlog('Task A executing');"
+          "qualifier": "L",
+          "time": "T#1s",
+          "body": "task_a_running := ExecuteTaskA.Q;"
         }
       ]
     },
@@ -41,8 +42,9 @@
         {
           "id": "act_task_b",
           "name": "ExecuteTaskB",
-          "qualifier": "N",
-          "body": "task_b_running := TRUE;\nlog('Task B executing');"
+          "qualifier": "L",
+          "time": "T#2s",
+          "body": "task_b_running := ExecuteTaskB.Q;"
         }
       ]
     },
@@ -57,7 +59,7 @@
           "id": "act_end",
           "name": "EndProcess",
           "qualifier": "N",
-          "body": "done := TRUE;\nlog('Both tasks completed');"
+          "body": "done := TRUE;"
         }
       ]
     }
@@ -90,7 +92,7 @@
     {
       "id": "trans_a_join",
       "name": "T_TaskADone",
-      "condition": "T#1s",
+      "condition": "NOT ExecuteTaskA.Q",
       "sourceStepId": "step_task_a",
       "targetStepId": "join_1",
       "priority": 1
@@ -98,7 +100,7 @@
     {
       "id": "trans_b_join",
       "name": "T_TaskBDone",
-      "condition": "T#2s",
+      "condition": "NOT ExecuteTaskB.Q",
       "sourceStepId": "step_task_b",
       "targetStepId": "join_1",
       "priority": 1

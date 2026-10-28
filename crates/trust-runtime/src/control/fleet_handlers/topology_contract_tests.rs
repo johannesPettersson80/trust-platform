@@ -87,7 +87,7 @@ fn discovery_entry(
 
 #[test]
 fn fleet_topology_contract_schema_version_is_four_and_empty_discovered_is_omitted() {
-    let response = FleetTopologyResponse {
+    let response = FleetTopology {
         schema_version: FLEET_TOPOLOGY_SCHEMA_VERSION,
         hosts: Vec::new(),
         links: Vec::new(),
@@ -109,7 +109,7 @@ fn fleet_topology_contract_schema_version_is_four_and_empty_discovered_is_omitte
 
 #[test]
 fn fleet_topology_contract_nonempty_discovered_is_serialized() {
-    let response = FleetTopologyResponse {
+    let response = FleetTopology {
         schema_version: 4,
         hosts: Vec::new(),
         links: Vec::new(),

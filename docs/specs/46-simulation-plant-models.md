@@ -1,0 +1,1621 @@
+# Simulation plant models
+
+Shared purpose and completion claims: [Control Platform Purpose and Acceptance Contract](control-platform-purpose.md).
+This document retains its detailed technical or teaching authority.
+
+This specification defines the truST fake-plant system: deterministic dynamic
+process models connected to a running PLC through the normal process image.
+The system is intended for controller development, regression testing,
+commissioning rehearsal, and fault-response exercises before physical hardware
+is available or safe to operate.
+
+The term *plant* means the process controlled by the PLC. A simulated plant is
+not claimed to be a perfect digital twin. Its purpose is to expose controller
+behavior against declared dynamics, limits, delay, uncertainty, noise, and
+faults. A successful simulation does not replace validation on the real plant.
+
+This is a truST product contract. IEC 61131-3 does not define plant simulation,
+so this specification creates neither an IEC requirement nor an IEC deviation.
+It extends the simulation behavior owned by `simulation.toml` and Section 6.9.4
+of `11-runtime-engine.md`.
+
+Normative words `shall`, `shall not`, `should`, and `may` have their usual
+requirements meanings. Examples are explanatory unless a conformance oracle
+explicitly assigns them expected results.
+
+## 1. Purpose and scope
+
+The fake-plant system shall provide:
+
+- closed-loop execution of real PLC code against simulated process dynamics;
+- repeatable nominal and adverse scenarios;
+- deliberately imperfect actuators, processes, and sensors;
+- deterministic pseudo-random uncertainty when an effective seed is known;
+- an explicitly nonrepeatable launch option that reports the chosen seed;
+- fixed-step model execution independent of PLC scan jitter;
+- multiple independent or connected plant instances;
+- observable model state and simulation health; and
+- native executable conformance tests at the runtime/process-image boundary.
+
+The first implementation shall support the built-in models and effects defined
+by this specification. It shall not execute arbitrary native code supplied by a
+project and shall not load an unversioned model plug-in.
+
+The system does not claim:
+
+- physical fidelity beyond the configured equations;
+- real hardware timing, safety, reliability, or certification;
+- automatic identification of an unknown process;
+- automatic controller tuning;
+- finite-element, computational-fluid-dynamics, or multiphysics analysis;
+- a substitute for hardware-in-the-loop or site acceptance testing; or
+- stability of a controller merely because a simulation completed.
+
+## 2. Relationship to existing simulation behavior
+
+Plant models are an additional simulation producer alongside existing
+couplings, scripted disturbances, and physics joints. Existing behavior remains
+unchanged unless a project declares at least one `[[plants]]` entry.
+
+`simulation.toml` continues to own all simulation configuration. A nonempty
+plant list infers simulation activation when `[simulation].enabled` is omitted.
+An explicit `enabled = false` disables plants together with couplings,
+disturbances, and physics.
+
+Plant feedback uses the same scan-boundary rule as existing simulation effects:
+
+1. due plant feedback is written to the input image before a PLC cycle;
+2. the PLC cycle reads those inputs and commits its outputs;
+3. plant models read committed PLC outputs and memory commands after the cycle;
+4. the models advance through elapsed simulation time; and
+5. newly calculated feedback is queued for a later pre-cycle boundary.
+
+A plant shall never mutate PLC input storage during post-cycle execution.
+Zero model latency therefore still produces feedback no earlier than the next
+pre-cycle boundary.
+
+## 3. Public configuration surface
+
+### 3.1 Simulation settings
+
+The existing `[simulation]` section gains these optional fields:
+
+| Field | Type | Default | Purpose |
+|---|---|---:|---|
+| `seed` | unsigned 64-bit integer or `"random"` | `0` | Selects the master stochastic seed. |
+| `plant_step_ms` | positive integer | `10` | Default fixed integration step for plants. |
+| `max_plant_substeps_per_cycle` | positive integer | `10000` | Bounds catch-up work after a delayed PLC cycle. |
+| `plant_trace_capacity` | nonnegative integer | `0` | Retains this many completed substep rows per plant; zero disables collection. |
+
+An integer seed selects a reproducible run. `seed = "random"` selects a fresh
+effective unsigned 64-bit seed at activation. Before the first PLC cycle, the
+runtime shall expose and log that effective seed. Trace export shall store the
+effective integer, never the word `random`, so the run can be replayed.
+The fresh seed shall come from the host operating system's randomness source.
+If that source is unavailable, activation shall fail rather than substituting a
+timestamp, process identifier, or fixed seed.
+
+`plant_step_ms` and `max_plant_substeps_per_cycle` shall be greater than zero
+and fit their runtime duration and count representations. Invalid values reject
+the complete simulation configuration before activation.
+`plant_trace_capacity` shall not exceed `100000`. The bound is per enabled
+plant and its storage shall be allocated when the controller is created.
+
+### 3.2 Plant instance
+
+Each `[[plants]]` entry declares one state-owning model. A plant is used to turn
+one or more PLC output or memory commands into one or more PLC input measurements.
+
+Every plant defines:
+
+| Field | Type | Required | Purpose |
+|---|---|---:|---|
+| `id` | string | yes | Stable, case-sensitive identity within the project. |
+| `name` | string | no | Human-readable display name; defaults to `id` when omitted. |
+| `description` | string | no | Optional project documentation for the simulated process. |
+| `model` | closed string enum | yes | Selects a built-in model from Section 7. |
+| `command_sources` | array of addresses or symbols | yes | Ordered numeric PLC output or memory signals, or unaddressed program variables (Section 13.1). |
+| `feedback_targets` | array of addresses or symbols | yes | Ordered numeric PLC input signals, unaddressed program variables, or `pid:` and a `Control.PID` instance's path (Section 13.2). |
+| `actuator_feedback_targets` | array of records | no | Optional applied-actuator PLC input address for each ordered command channel; see Section 3.2.1. |
+| `step_ms` | positive integer | no | Overrides the default fixed integration step. |
+| `initial_state` | array of finite numbers | model-dependent | Sets dynamic state at activation. |
+| `initial_input` | array of finite numbers | no | Supplies engineering-unit input before the first committed PLC command. |
+| `input_scale` | array of finite numbers | no | Scales commands into engineering units. |
+| `input_offset` | array of finite numbers | no | Offsets commands into engineering units. |
+| `output_scale` | array of finite numbers | no | Scales model outputs toward PLC representation. |
+| `output_offset` | array of finite numbers | no | Offsets model outputs toward PLC representation. |
+| `enabled` | Boolean | no | Enables this instance; default is `true`. |
+
+The scaling equations are, in declared channel order:
+
+```text
+model_input[i] = input_scale[i] * plc_command[i] + input_offset[i]
+plc_feedback[j] = output_scale[j] * measured_output[j] + output_offset[j]
+```
+
+Missing scale arrays mean all factors are one. Missing offset arrays mean all
+offsets are zero. A supplied array length shall equal its associated channel
+count. A missing `initial_input` means a zero vector; a supplied vector length
+shall equal the command count. Plant identifiers shall match
+`[A-Za-z][A-Za-z0-9_-]*` and be unique.
+
+When present, `name` shall contain non-whitespace text. `description` may be
+empty and has no execution semantics. Neither field participates in plant
+identity, execution order, deterministic random streams, or I/O ownership.
+
+### 3.2.1 Applied actuator feedback through ordinary I/O
+
+An optional `actuator_feedback_targets` array has exactly one record per
+`command_sources` channel. Each record is either `{ address = "%IL8" }` or
+`{}` to omit that channel. Omitting the complete array publishes no actuator
+feedback and preserves existing plant behavior. A present address shall be a
+numeric PLC input binding. Its entire byte/bit range shall have one owner:
+it shall not overlap this or another plant's process/actuator feedback, a
+signal-coupling target, or an enabled physics feedback target.
+
+The existing actuator owns the value. Feedback converts its applied process
+input back to the corresponding PLC command coordinate:
+
+```text
+plc_applied[i] = (actuator_applied[i] - input_offset[i]) / input_scale[i]
+```
+
+An observed channel therefore requires a nonzero input scale. Negative scales
+remain valid; process-output scale/offset settings do not apply to this
+feedback. The observed value is after the actuator's limits, movement effects
+and installed characteristic, but before process-input uncertainty and
+transport delay. It is not commanded output, actuator position in all models,
+or measured heat delivered after transport.
+
+Initial publication uses the configured actuator initial state. A reset
+restores that state before the next substep processes the held command;
+feedback then reports the completed substep's result. The ordinary pre-cycle
+publication in Section 6 publishes actuator and process feedback as one atomic
+batch. Failure to convert or write any value leaves every input in that batch
+unchanged and reports a plant feedback-publication fault. The queued result
+remains pending for retry. This field reuses existing actuator, lifecycle,
+numeric-conversion and process-image owners; it introduces no separate model.
+
+A disabled plant owns no input target, reads no command, advances no state,
+consumes no random samples, and publishes no feedback. Enabling or disabling a
+plant while the runtime is active is outside the first version of this
+contract.
+
+### 3.3 Model parameters
+
+Each plant has one `[plants.parameters]` table. The permitted fields depend on
+the selected model. Unknown fields and fields belonging only to another model
+shall reject configuration rather than being ignored.
+
+Every numeric parameter shall be finite. Positivity, dimensions, and ordering
+requirements are specified with each model in Section 7.
+
+### 3.4 Actuator
+
+An optional `[plants.actuator]` table describes the nonideal device between the
+PLC command and the process. It is used to model valves, drives, heaters, and
+other final control elements without changing the controller program.
+
+| Field | Type | Default | Purpose |
+|---|---|---:|---|
+| `minimum` | finite number | unbounded | Lower applied-command limit. |
+| `maximum` | finite number | unbounded | Upper applied-command limit. |
+| `rate_down_per_s` | nonnegative number | unbounded | Maximum falling slew rate. |
+| `rate_up_per_s` | nonnegative number | unbounded | Maximum rising slew rate. |
+| `deadband` | nonnegative number | `0` | Command movement ignored around the last accepted command. |
+| `stiction_band` | nonnegative number | `0` | Command-to-position difference required for friction breakaway. |
+| `slip_jump` | nonnegative number not greater than `stiction_band` | `0` | First applied movement when breakaway occurs. |
+| `characteristic_exponent` | positive finite number | `1` | Power-law installed characteristic from actuator position to applied process input. |
+| `lag_s` | nonnegative number | `0` | First-order actuator lag time constant. |
+| `initial_applied` | finite number | plant `initial_input[0]` | Initial actuator output. |
+
+The first version supports this actuator only for scalar-input models. Minimum
+shall not exceed maximum. A zero rate means no movement in that direction; an
+omitted rate is unbounded. A zero lag means no lag.
+Supplying an actuator table for a model with more than one command source shall
+reject configuration.
+
+`deadband` and stiction are distinct. Deadband ignores a small change relative
+to the last accepted command. Stiction accepts the command but holds physical
+position until the difference from applied position exceeds `stiction_band`.
+At breakaway the position first advances by `slip_jump` toward the accepted
+command, bounded so it cannot pass that command. Subsequent substeps use the
+normal rate and lag path until the accepted position is reached; the actuator
+then sticks again. A zero stiction band disables this behavior. Scheduled
+`stick_actuator` remains an independent hard fault and always has priority.
+
+`characteristic_exponent` requires finite `minimum` and `maximum` with
+`minimum < maximum`. After position dynamics, normalized position is mapped to
+the process input by:
+
+```text
+z = (position - minimum) / (maximum - minimum)
+applied = minimum + (maximum - minimum) * z^characteristic_exponent
+```
+
+Exponent one is linear, values above one represent a valve that delivers less
+flow at low travel, and values below one represent quick opening. The map is a
+declared installed-characteristic approximation; it does not imply a valve
+sizing calculation.
+
+### 3.5 Uncertainty effect
+
+Each `[[plants.uncertainties]]` entry declares one deliberate deviation from the
+nominal model. An uncertainty effect is used to make tests realistic without
+making them irreproducible or unobservable.
+
+Every uncertainty defines:
+
+| Field | Type | Required | Purpose |
+|---|---|---:|---|
+| `id` | string | yes | Stable identity within the plant. |
+| `target` | closed string enum | yes | Location changed by the effect. |
+| `mode` | closed string enum | yes | How the generated value is applied. |
+| `generator` | closed string enum | yes | Value-generation rule from Section 10. |
+| `channel` | nonnegative integer | where applicable | Zero-based input, state, output, or measurement channel. |
+| `parameter` | string | for parameter targets | Named model parameter to vary. |
+| `start_s` | nonnegative number | no | First active simulation time; default `0`. |
+| `end_s` | nonnegative number | no | First inactive time; default is no end. |
+
+Uncertainty IDs shall match `[A-Za-z][A-Za-z0-9_-]*` and be unique within their
+plant. `end_s` shall not precede `start_s`. An inactive uncertainty produces no
+value and consumes no random sample.
+
+`channel` is required for `command`, `process_input`, `state`,
+`process_output`, and `measurement`, even when the selected vector has only one
+element. It shall be in range. `parameter` is required only for a parameter
+target; `channel` shall then be absent.
+
+The supported targets are:
+
+| Target | Meaning |
+|---|---|
+| `command` | Transformed PLC command before actuator imperfections. |
+| `process_input` | Applied actuator signal before the process equation. |
+| `state` | Selected dynamic state after nominal integration. |
+| `process_output` | Selected ideal model output. |
+| `measurement` | Selected sensor value before PLC output scaling. |
+| `parameter` | Selected model parameter for the current substep. |
+
+The supported modes are:
+
+| Mode | Result for nominal value `v` and generated value `g` |
+|---|---|
+| `add` | `v + g` |
+| `multiply` | `v * g` |
+| `replace` | `g` |
+| `hold` | Last value accepted before the effect became active. |
+
+`hold` does not use a generated numeric value and is valid only for
+`process_input`, `process_output`, or `measurement`. Effects at the same target
+and channel execute in declaration order. Each effect receives the result of
+the preceding effect.
+
+### 3.6 Scheduled plant event
+
+Each `[[plant_events]]` entry performs an explicit scenario action at a stated
+simulation time. Plant events complement stochastic uncertainty and existing
+I/O disturbances.
+
+| Field | Type | Required | Purpose |
+|---|---|---:|---|
+| `at_ms` | nonnegative integer | yes | Due simulation time. |
+| `plant` | string | yes | Target plant identity. |
+| `kind` | closed string enum | yes | Event action. |
+| `channel` | nonnegative integer | kind-dependent | Target channel or state. |
+| `parameter` | string | kind-dependent | Target parameter. |
+| `value` | finite number | kind-dependent | New value or impulse magnitude. |
+
+The supported kinds are:
+
+- `set_state`;
+- `add_state`;
+- `set_parameter`;
+- `set_sensor_bias`;
+- `stick_actuator`;
+- `release_actuator`; and
+- `reset_plant`.
+
+`set_state` and `add_state` require an in-range state `channel` and `value`.
+`set_parameter` requires `parameter` and `value`. `set_sensor_bias` requires an
+in-range output `channel` and `value`. `stick_actuator`, `release_actuator`, and
+`reset_plant` accept none of those three fields. An unknown field or a field not
+owned by the selected kind rejects configuration. An event targeting a disabled
+plant also rejects configuration.
+
+Events are stably sorted by `(at_ms, declaration_order)`. All events due at an
+internal step boundary execute in that order before uncertainty generation and
+nominal integration for that step. `reset_plant` restores configured initial
+state, actuator state, sensor state, delay buffers, uncertainty generator state,
+and random-stream state for that plant. It does not rewind global simulation
+time, analytic generator phase, active-time windows, processed events, or
+another plant.
+
+### 3.7 Model-validity boundary
+
+An optional `[plants.validity]` table declares the engineering region in which
+the configured model may be used. It is evidence metadata enforced by the
+simulator; it is not a physical interlock and shall never be presented as
+physical safety evidence.
+
+| Field | Type | Required | Purpose |
+|---|---|---:|---|
+| `input_minimum`, `input_maximum` | finite number arrays | paired | Inclusive bounds for applied process inputs. |
+| `state_minimum`, `state_maximum` | finite number arrays | paired | Inclusive bounds for model states after integration and state effects. |
+| `output_minimum`, `output_maximum` | finite number arrays | paired | Inclusive bounds for ideal process outputs after process-output effects and before sensor effects. |
+| `out_of_range` | `"fault"` | no | Deterministic action; the only first-version value is `fault`. |
+
+Each declared minimum/maximum pair shall contain exactly one value per owned
+channel, and every minimum shall be less than or equal to its maximum. Omitting
+a pair leaves that vector unbounded. Bounds use model engineering units: input
+bounds apply after command scaling, actuator behavior, and process-input
+effects; state bounds apply after nominal integration and state effects; output
+bounds apply after process-output effects but before sensor bias, noise,
+quantisation, dropout, and process-image output scaling.
+
+The configured initial input and initial state shall be inside their declared
+bounds. During execution, the first out-of-range value shall raise a
+plant-qualified simulation fault naming the validity vector, channel, value,
+and inclusive range. The complete substep shall roll back atomically and shall
+not publish partial feedback. The simulator shall not clamp an invalid model
+region into an apparently valid result.
+
+## 4. Complete configuration example
+
+This example connects the paper's first-order-plus-dead-time process to an
+`LREAL` PLC output and input, adds actuator limits, plant-gain mismatch,
+measurement noise, slow sensor-bias drift, quantisation, and a scheduled load
+disturbance.
+
+```toml
+[simulation]
+enabled = true
+seed = 42
+time_scale = 8
+plant_step_ms = 10
+max_plant_substeps_per_cycle = 10000
+
+[[plants]]
+id = "reference-fopdt"
+model = "first_order_dead_time"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+step_ms = 10
+initial_state = [0.0]
+
+[plants.parameters]
+gain = 1.0
+time_constant_s = 1.0
+dead_time_s = 0.5
+input_bias = 0.0
+output_bias = 0.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+rate_down_per_s = 10.0
+rate_up_per_s = 10.0
+deadband = 0.001
+lag_s = 0.05
+initial_applied = 0.0
+
+[[plants.uncertainties]]
+id = "gain-mismatch"
+target = "parameter"
+parameter = "gain"
+mode = "multiply"
+generator = "constant"
+value = 1.10
+
+[[plants.uncertainties]]
+id = "sensor-white-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "normal_approx_white"
+standard_deviation = 0.01
+
+[[plants.uncertainties]]
+id = "sensor-bias-drift"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "random_walk"
+diffusion_per_sqrt_s = 0.001
+minimum = -0.05
+maximum = 0.05
+
+[[plants.uncertainties]]
+id = "sensor-quantisation"
+target = "measurement"
+channel = 0
+mode = "replace"
+generator = "quantise"
+quantum = 0.001
+
+[[plant_events]]
+at_ms = 10000
+plant = "reference-fopdt"
+kind = "add_state"
+channel = 0
+value = -0.2
+```
+
+## 5. Activation and state lifecycle
+
+### 5.1 Validation before activation
+
+The runtime shall parse and validate the complete simulation configuration
+before creating any plant or changing any runtime I/O. Failure in one plant,
+uncertainty, event, address, or cross-reference rejects the complete model.
+Partial activation is forbidden.
+
+Validation shall resolve:
+
+- unique identities and references;
+- model-specific dimensions;
+- numeric finiteness and ranges;
+- source and target process-image metadata;
+- state, matrix, scale, and offset lengths;
+- actuator and uncertainty compatibility;
+- event targets and parameter names;
+- feedback-target ownership conflicts; and
+- internal-step duration and catch-up bounds.
+
+### 5.1.1 Transport-history allocation budget
+
+Each plant may reserve at most `100000` live transport-history sample slots
+across all its input channels. A stored channel requires
+`ceil(delay_nanoseconds / plant_step_nanoseconds) + 3` slots, including its
+held-value anchor and step margin. A scalar delayed model has one stored
+channel. Continuous state space with any positive delay stores all its input
+channels, including the three-slot margin for a zero-delay channel; all-zero
+state-space delays require no history storage.
+
+The runtime shall check this aggregate using checked arithmetic after resolving
+the plant's own step override and before allocating history buffers. A finite
+delay is not sufficient when its delay/step combination exceeds this budget.
+Excess capacity shall reject configuration with a clear `InvalidConfig` error
+naming transport history and the `100000` entry limit. Validation and allocation
+shall use the same capacity calculation. The transactional checkpoint reserves
+one mirror subject to the same bound, so live history and its checkpoint use at
+most `200000` sample slots together. This limit is independent of trace capacity.
+
+Native boundary tests shall inspect oversized configuration rejection without
+constructing its controller, and shall construct accepted configurations at the
+budget boundary. Existing scalar and all-zero-delay behavior remains unchanged
+within the supported capacity range.
+
+### 5.2 Initial state
+
+Each model defines the required state-vector length. When `initial_state` is
+omitted, every dynamic state is zero except where a model explicitly defines a
+different default. Initial actuator, delay, sensor, and uncertainty states are
+derived from their configuration.
+
+At activation, the plant shall calculate an initial ideal output and initial
+measurement from configured state and `initial_input`. It shall queue that
+initial feedback for the first pre-cycle boundary without first reading an
+uncommitted PLC output.
+Deterministic measurement effects such as constant bias, clipping, and
+quantisation apply to this initial measurement. Stochastic generators use their
+declared initial state and consume no sample before the first completed plant
+substep. A dropout is initially inactive.
+
+### 5.3 Restart
+
+A cold runtime start and a cold restart recreate every plant from configuration
+and reset all plant-local random streams. Given the same effective seed and
+input history, both produce the same trace.
+
+A warm PLC restart also resets simulated plants in the first version. Plant
+state is not retained through the PLC retain store. Runtime status shall expose
+that policy so a warm restart cannot be mistaken for continuity of a physical
+process.
+
+Hot reload of plant configuration while a resource is running is outside the
+first version. A changed plant configuration requires a controlled runtime
+restart.
+
+## 6. Time and scan semantics
+
+### 6.1 Simulation time
+
+Simulation time is the runtime's process time while simulation is enabled. It
+is the time that every task, timer, plant, coupling, plant event, recording and
+experiment uses (specification 35, A3.1). Wall-clock time and CPU execution
+duration do not enter plant equations.
+
+1. **Exact steps.** Simulation time advances by exactly one resource cycle
+   interval for each executed cycle. It is never read from the wall clock. A
+   cycle that starts late therefore does not lengthen the interval that the
+   next cycle sees, and no cycle is skipped. A free-running resource (cycle
+   interval 0) has no step to take: its process time is the wall clock times
+   the speed.
+2. **Speed.** The scheduler paces cycles against the wall clock at the
+   configured speed `time_scale`, a whole number from 1 to 100. At speed `s`
+   a cycle is due every cycle interval ÷ `s` of wall time. A cycle that starts
+   within one paced interval of its due time keeps the schedule. A cycle that
+   starts later restarts the schedule from its own start. The scheduler never
+   runs extra cycles to recover lost wall time.
+3. **A host that cannot keep the pace** runs the simulation more slowly than
+   configured, with unchanged results. The runtime measures the **achieved
+   speed**: the simulation time advanced divided by the wall time elapsed, over
+   the last 5 s of wall time, or since the last pause, restart or speed change
+   if that is shorter. With several resources, the achieved speed is the lowest
+   of theirs. Late cycles are not overruns in simulation; the achieved speed
+   reports them.
+4. **Pause and restart.** While the resource is paused, simulation time does not
+   advance. A warm or cold restart continues simulation time from its last
+   value. After a pause, a restart or a speed change the schedule restarts at
+   the next cycle.
+5. **Changing the speed while running.** `config.set` with the key
+   `simulation.time_scale` changes the speed of a running simulation. The new
+   speed applies from the next cycle and never moves simulation time. The change
+   lasts until the runtime stops. The project keeps its speed in
+   `simulation.toml` (`[simulation] time_scale`); `--time-scale` with a value
+   above 1 overrides it at launch and enables simulation. The VS Code simulator
+   reads the project's speed again when its program is reloaded; every VS Code
+   control that changes the speed also saves it there. Without simulation the
+   speed is 1, and the runtime refuses the key. An I/O driver named `simulated`,
+   `sim`, `noop`, `loopback` or `none` touches no real I/O; any other enabled
+   driver makes the target physical.
+6. **Reporting.** The control endpoint's `status` operation reports `simulation_time_scale`, the
+   configured speed, and `simulation_achieved_time_scale`, the achieved speed of
+   item 3, or `null` before the first second of wall time has been measured. It also
+   reports the target's kind, `simulated` (specification 35, A2.4), and the speed words
+   `simulation_speed_text` and `simulation_speed_behind` (specification 35, B9.2), which
+   the runtime computes once; every surface shows those words as given, and the runtime's
+   HMI display translates the phrase for its page language.
+7. **Speed does not change results.** Everything scheduled in simulation time
+   produces the same values at equal simulation timestamps at any speed and
+   under any host load. A write that arrives from outside the runtime, such as
+   an operator command or a debugger write, takes effect at the first cycle
+   after it arrives, so its simulation time depends on the speed.
+
+Without simulation, process time follows the wall clock, and a cycle that
+starts late counts as an overrun.
+
+### 6.2 Fixed internal step
+
+Every plant advances on its configured positive fixed step `h`. PLC scan time
+may be shorter, equal to, or longer than `h`.
+
+Each plant owns an elapsed-time accumulator. After a PLC cycle, elapsed
+simulation time is added to the accumulator. While the accumulator is at least
+`h`, the plant executes one complete substep and subtracts `h`. A remainder
+smaller than `h` is retained for the next PLC cycle. The plant output is held
+between completed substeps.
+
+Completed process and optional actuator feedback are published together before
+the next PLC cycle. Advancing the plant after a cycle does not write its new
+inputs early. A PLC program therefore reads feedback from the preceding
+completed actuator/plant step while producing the next command; diagnostics
+that compare request and applied feedback shall preserve that sample pairing.
+
+PLC commands use zero-order hold. All substeps triggered after one PLC cycle use
+the command committed by that cycle unless an internal delayed-command boundary
+selects an older held command. Each substep samples that raw held command anew;
+command uncertainty and actuator effects are evaluated from that raw sample and
+must not feed back into the held command used by the next substep.
+
+This rule makes results independent of how the same elapsed simulation interval
+is partitioned among PLC scans, provided the command history at plant step
+boundaries is identical.
+
+### 6.3 Catch-up limit
+
+The number of plant substeps executed after one PLC cycle shall not exceed
+`max_plant_substeps_per_cycle`. Requiring more substeps is a simulation fault.
+The runtime shall not silently discard elapsed time, enlarge the fixed step, or
+publish a partially advanced plant.
+
+### 6.4 Substep order
+
+For each plant substep at time `t`, observable processing order is:
+
+1. apply plant events due at `t`;
+2. sample the held PLC commands;
+3. apply command uncertainty effects;
+4. apply actuator deadband, limits, slew limits, lag, and stuck state;
+5. apply process-input uncertainty effects;
+6. evaluate parameter uncertainty for this substep;
+7. advance the nominal dynamic model by exactly `h`;
+8. apply state uncertainty effects;
+9. calculate the nominal output;
+10. apply process-output uncertainty effects;
+11. apply measurement uncertainty and sensor effects;
+12. scale the measurement toward the PLC representation; and
+13. replace the plant's queued feedback with the completed substep result.
+
+No partial result from a failed substep may become visible.
+
+`set_state` and `add_state` change the selected state before integration.
+`set_parameter` establishes a persistent plant-local parameter override to
+which later uncertainty effects apply. `set_sensor_bias` establishes a
+persistent additive bias for the selected measurement channel before declared
+measurement uncertainties. `stick_actuator` captures the current applied value;
+`release_actuator` resumes normal actuator processing from that value. Processed
+events are not replayed by `reset_plant`.
+
+## 7. Built-in nominal plant models
+
+All built-in dynamics use `LREAL`-equivalent binary64 arithmetic internally.
+Inputs, states, parameters, and outputs shall remain finite. `h` is the fixed
+step in seconds.
+
+### 7.1 `static_gain`
+
+`static_gain` represents an instantaneous proportional process or scaling
+stage. It has one input, one output, and no dynamic state.
+
+Parameters are finite `gain`, `input_bias`, and `output_bias`, with
+zero defaults for both biases and a default gain of one.
+
+```text
+y = output_bias + gain * (u - input_bias)
+```
+
+`initial_state` shall be absent or empty.
+
+### 7.2 `first_order`
+
+`first_order` represents a stable scalar first-order process. It has one input,
+one output, and one state equal to ideal process output.
+
+Parameters are:
+
+| Parameter | Requirement | Default |
+|---|---|---:|
+| `gain` | finite | `1` |
+| `time_constant_s` | finite and greater than zero | required |
+| `input_bias` | finite | `0` |
+| `output_bias` | finite | `0` |
+
+For a held input over one substep, the exact zero-order-hold update is:
+
+```text
+target = output_bias + gain * (u - input_bias)
+a = exp(-h / time_constant_s)
+x_next = target + (x - target) * a
+y = x_next
+```
+
+### 7.3 `first_order_dead_time`
+
+`first_order_dead_time` adds command transport delay to the `first_order`
+model. It has one input, one output, and one process state.
+
+It accepts all `first_order` parameters plus nonnegative finite
+`dead_time_s`. Delayed input uses the most recent command sample whose timestamp
+is less than or equal to `t - dead_time_s`. Before such a sample exists, the
+configured `initial_delayed_input`, defaulting to `input_bias`, is used.
+
+Delay is applied to the process input after actuator behavior and process-input
+uncertainty. It is represented by timestamped held samples and shall not be rounded to an
+integer number of plant steps. Samples no longer needed to interpolate the
+zero-order-held delayed value may be discarded.
+
+The delayed command replaces `u` in the `first_order` equation. When a delayed
+command transition falls strictly inside one fixed plant substep, that substep
+is divided at the transition timestamp and the exact first-order update is
+applied to each segment in chronological order. This preserves fractional dead
+time without changing the configured outer plant step.
+
+### 7.4 `integrator`
+
+`integrator` represents inventory, accumulated position, or another scalar
+integrating process. It has one input, one output, and one state.
+
+Parameters are finite `gain`, `input_bias`, and `output_bias`, with defaults
+one, zero, and zero respectively.
+
+```text
+x_next = x + h * gain * (u - input_bias)
+y = output_bias + x_next
+```
+
+Optional finite `state_minimum` and `state_maximum` clamp the completed state;
+the minimum shall not exceed the maximum. Omitted bounds are unbounded.
+
+### 7.4.1 `integrator_dead_time`
+
+A scalar integrator with command transport delay. It has one input, one output
+and one state. `gain`, `input_bias` and `output_bias` use the integrator defaults.
+`dead_time_s` is required, finite and nonnegative; `initial_delayed_input` is
+required and finite.
+
+```text
+dx/dt = gain * (u(t - dead_time_s) - input_bias)
+y = output_bias + x
+```
+
+Before recorded command history exists, the delayed input is
+`initial_delayed_input`. The runtime splits each integration step at delayed
+held-input transitions and sums the exact input areas. A delay need not be an
+integer number of task or plant steps. History uses the existing bounded
+transport-delay storage; reset clears it and restores the declared state and
+history value. Existing simulation IO offsets remain separate from these model
+biases. A selected transfer model `b/(a1*s) * exp(-L*s)` therefore maps to
+`gain=b/a1` and `dead_time_s=L`, without approximating the delay.
+
+Native acceptance covers delayed onset/area, bias, initial history, reset,
+bounded history and rejected invalid history parameters. Isolated actual-ST
+verification must also consume this exact model through the selected-model
+override and retain identical conditions for baseline/candidate runs.
+
+### 7.5 `second_order`
+
+`second_order` represents an underdamped, critically damped, or overdamped
+scalar process. It has one input, one output, and two states: output displacement
+`x1` and output velocity `x2`.
+
+Parameters are:
+
+| Parameter | Requirement | Default |
+|---|---|---:|
+| `gain` | finite | `1` |
+| `natural_frequency_rad_s` | finite and greater than zero | required |
+| `damping_ratio` | finite and nonnegative | required |
+| `input_bias` | finite | `0` |
+| `output_bias` | finite | `0` |
+
+The continuous equation is:
+
+```text
+dx1/dt = x2
+dx2/dt = gain * wn^2 * (u - input_bias)
+         - 2 * damping_ratio * wn * x2
+         - wn^2 * x1
+y = output_bias + x1
+```
+
+The state advances by classical fourth-order Runge-Kutta using held input and
+parameters. The four derivative evaluations and weighted sum shall follow the
+standard RK4 order without adaptive step changes.
+
+### 7.6 `state_space`
+
+`state_space` represents a finite-dimensional continuous linear time-invariant
+model and is the general model for multi-input, multi-output linear plants.
+
+Configuration supplies matrices `a`, `b`, `c`, and `d` as row-major nested
+arrays and an `initial_state` vector. If there are `n` states, `m` inputs, and
+`p` outputs, dimensions shall be:
+
+```text
+A: n by n
+B: n by m
+C: p by n
+D: p by m
+initial_state: n
+command_sources: m
+feedback_targets: p
+```
+
+All matrix entries shall be finite, and `n`, `m`, and `p` shall be greater than
+zero. The equations are:
+
+```text
+dx/dt = A*x + B*u
+y = C*x + D*u
+```
+
+State advances by classical fourth-order Runge-Kutta using held input and
+parameters. Output is evaluated from the completed state and current held
+input. Matrix-vector products iterate rows and columns in increasing index
+order so arithmetic ordering is stable.
+
+#### 7.6.1 Independent continuous input delays
+
+Continuous `state_space` may declare `parameters.input_delays_s`, an ordered
+vector of transport delays in seconds. It shall contain one nonnegative finite
+value per B column/command channel; values must be representable in the native
+signed 64-bit nanosecond time base. Omission means zero for every input. The
+field does not belong to other model kinds, including `discrete_state_space`.
+
+For each input channel j, the equations use its independently delayed held
+process input in both B and D:
+
+```text
+v[j](t) = u[j](t - input_delays_s[j])
+dx/dt = A*x + B*v
+y = C*x + D*v
+```
+
+History records the existing process input after command scaling/offset,
+actuator behavior and process-input uncertainty. Before recorded history is
+available, `initial_input[j]` supplies the past value. As in Section 5.2,
+`initial_input` is already in model engineering units and shall not be scaled
+or offset again. Its omitted value remains zero. Output scaling/offset remains
+the existing separate publication boundary.
+
+Use the existing RK4 state-space integrator, splitting a plant step at every
+channel's delayed held-input transition. Delays are rounded to the native
+nanosecond time base, never to a whole plant step. A transition exactly at the
+step end contributes no integration time in that step but is the input used
+by D when its completed output is evaluated. All-zero delays retain the
+existing zero-delay arithmetic, timing and publication behavior.
+
+The existing delay-history owner shall retain only each channel's delay
+window, preceding held-value anchor and step margin. Total retained sample
+count is the sum over channels and is reported as `delay_buffer_depth`.
+Transactional rollback restores every channel's history together with the
+plant state; reset clears all recorded histories and restores configured
+initial-input prehistory without restarting absolute simulation time.
+
+The heater is one state-space plant with A=[[-0.2]], B=[[0.04,-0.02]], C=[[1]],
+D=[[0,0]], input delays [1,0] s, zero initial state/input and output_offset=[20].
+It preserves heater gain0.2 degrees/command point, load gain-0.1 degrees/kW,
+time constant5 s, and a heater-only1 s delivery delay. A simultaneous heater
+and extraction step must cool the measured water immediately through the load
+path while the new heating waits for its own delay. No ST composition or
+synthetic process-value feedback is required by this model.
+
+Native acceptance shall exercise process-image publication, aligned and
+fractional delay boundaries, D feedthrough, nonzero initial-input history,
+scaling/actuator ordering, omitted/zero-delay behavior, independent history
+bounds, reset and failed-substep rollback. Invalid vector dimensions,
+negative/nonfinite/unrepresentable delays, and use on a noncontinuous model
+shall reject configuration before activation.
+
+### 7.7 `piecewise_linear`
+
+`piecewise_linear` represents a memoryless nonlinear characteristic such as a
+valve curve or static sensor map. It has one input, one output, and no state.
+
+Configuration supplies equal-length arrays `input_points` and `output_points`
+with at least two finite entries. Input points shall be strictly increasing.
+Inside the table, output uses linear interpolation between adjacent points.
+Below or above the table, output holds the nearest endpoint; extrapolation is
+not performed.
+
+`initial_state` shall be absent or empty.
+
+### 7.8 `gravity_tank`
+
+`gravity_tank` represents a vented liquid tank whose outlet flow increases with
+the square root of liquid level. It is used where a single linear model would
+hide the operating-point dependence of level dynamics. It has one inlet-flow
+command, one level output, and one state `h` in metres.
+
+Parameters are positive finite tank cross-sectional area `area_m2` and
+nonnegative finite discharge coefficient `outflow_coefficient_m2_sqrt_m_per_s`.
+With inlet flow `q_in` in cubic metres per second, the model is:
+
+```text
+q_out = outflow_coefficient_m2_sqrt_m_per_s * sqrt(max(h, 0))
+dh/dt = (q_in - q_out) / area_m2
+y = h
+```
+
+State advances by classical fourth-order Runge-Kutta with a held inlet flow.
+Every derivative evaluation uses `max(h, 0)` inside the square root. The
+completed state is clamped to zero, so an empty tank cannot acquire a negative
+level. Negative inlet flow is permitted to represent a separately reviewed
+net withdrawal, but it cannot drive the retained level below zero. The model
+requires one finite initial state and one command and feedback channel.
+
+### 7.9 `robot_joint`
+
+`robot_joint` represents one rigid gravity-loaded rotary joint driven by motor
+torque. It exists for nonlinear-control experiments where a linear
+state-space approximation would erase configuration-dependent gravity and
+Coulomb friction. It has torque input `tau` in newton metres, angle and angular
+rate outputs, and state `[theta, omega]` in radians and radians per second.
+
+Parameters are positive finite inertia `inertia_kg_m2`, nonnegative finite
+gravity-torque coefficient `gravity_torque_nm`, viscous coefficient
+`viscous_friction_nm_s_per_rad`, Coulomb friction `coulomb_friction_nm`, and
+positive smoothing speed `friction_smoothing_rad_s`. The equations are:
+
+```text
+dtheta/dt = omega
+friction = viscous_friction_nm_s_per_rad * omega
+           + coulomb_friction_nm * tanh(omega / friction_smoothing_rad_s)
+domega/dt = (tau - gravity_torque_nm * sin(theta) - friction)
+            / inertia_kg_m2
+y = [theta, omega]
+```
+
+The smooth Coulomb term makes the deterministic fixed-step equation defined at
+zero velocity; it is a declared approximation, not a contact solver. State
+advances by classical fourth-order Runge-Kutta with held torque and parameters.
+The model requires one command, two feedback targets, and two finite initial
+states. Torque saturation belongs to the ordinary actuator configuration, not
+to a second controller-facing path.
+
+### 7.10 `gravity_tank_cascade`
+
+This model represents two equal-area freely discharging tanks in cascade,
+with no downstream backpressure on the upstream outlet. It has one pump-flow
+input in m3/s and two level outputs/states `[h1, h2]` in metres. Parameters
+`area_m2` (positive) and `outflow_coefficient_m2_sqrt_m_per_s` (nonnegative)
+apply to both tanks and must be finite. A supplied initial state must contain
+two finite levels; omission uses [0,0], matching the standard model default contract.
+
+```text
+q12 = c * sqrt(max(h1, 0))
+qout = c * sqrt(max(h2, 0))
+h1' = (q_in - q12) / area_m2
+h2' = (q12 - qout) / area_m2
+```
+
+Both derivatives use the same intermediate state during every RK4 substage.
+The internal transfer cancels in the total-volume balance; it is not delayed
+by an ST scan or separately sampled between tank models. Completed states
+have the same physical empty-tank floor as `gravity_tank`. This floor is not
+an operating-range acceptance clamp: lesson bounds must abort before leaving
+the declared operating range. The original single-tank model is unchanged.
+
+At area .5 m2, c .020, input .010 and initial levels [.25,.25], both levels
+remain .25. From [.27,.25], the initial derivatives are approximately
+[-.0007846097,+.0007846097] m/s. These are nonlinear physical truth, distinct
+from the local A=[[-.04,0],[.04,-.04]], B=[2,0] approximation.
+
+## 8. Actuator behavior
+
+The actuator operates once per plant substep. It owns the last accepted command
+and last applied value.
+
+For scalar command `u`, the order is:
+
+1. If stuck, retain the applied value captured by `stick_actuator`.
+2. Otherwise, compare `u` with the last accepted command. If the absolute
+   difference is less than or equal to `deadband`, retain the last accepted
+   command; otherwise accept `u`.
+3. Clamp the accepted command to `[minimum, maximum]` when bounds exist.
+4. If stiction is enabled and the actuator is not already sliding, hold applied
+   position while target displacement is at most `stiction_band`. When the
+   displacement exceeds the band, apply the bounded `slip_jump` and enter the
+   sliding state.
+5. Limit movement from the previous applied value to
+   `[-rate_down_per_s*h, rate_up_per_s*h]` when rates exist.
+6. If `lag_s` is zero, use the slew-limited position. Otherwise apply the exact
+   first-order update with coefficient `exp(-h/lag_s)`.
+7. Map completed actuator position through the installed characteristic to
+   obtain the process input.
+
+The actuator's physical position, applied process input, saturation state,
+slew-limited state, deadband state, stiction-hold state, and externally stuck
+state shall be observable in simulation status.
+
+## 9. Sensor behavior
+
+Measurement uncertainty effects execute in declaration order. The following
+generators provide common sensor imperfections without requiring a perfect
+physical sensor model:
+
+- additive white or colored noise;
+- calibration bias;
+- slow random drift;
+- quantisation;
+- clipping;
+- intermittent dropout;
+- frozen/held measurement; and
+- a scheduled replacement or spike.
+
+Quantisation rounds to the nearest integer multiple of positive finite
+`quantum`; exact half values round to the nearest even multiple. Clipping clamps
+to configured finite bounds. A dropout shall declare one of these policies:
+
+| Policy | Published measurement |
+|---|---|
+| `hold_last` | Last successfully published measurement. |
+| `replace` | Configured finite replacement value. |
+| `fault` | No value; the runtime enters simulation fault. |
+
+Dropout state and the last valid measurement are plant-local. A dropout shall
+never manufacture a zero unless zero is the configured replacement.
+
+## 10. Uncertainty generators
+
+### 10.1 General rules
+
+Generators execute once per completed plant substep while active. Configuration
+shall use engineering units after input scaling and before output scaling.
+Generated values and completed results shall be finite.
+`start_s`, `end_s`, and analytic generator time `t` use absolute monotonic
+simulation time; a plant reset does not restart those clocks.
+
+The first version supports these generators:
+
+| Generator | Required parameters | Generated value |
+|---|---|---|
+| `constant` | `value` | Constant `value`. |
+| `pulse` | `value`, positive `duration_s` | Constant for its duration, otherwise inactive. |
+| `sine` | `amplitude`, nonnegative `frequency_hz`, `phase_rad`, optional `bias` | `bias + amplitude*sin(2*pi*frequency_hz*t + phase_rad)`. |
+| `uniform_white` | `minimum`, `maximum` | Independent uniform sample in `[minimum, maximum)`. |
+| `normal_approx_white` | nonnegative `standard_deviation`, optional `mean` | Approximate-normal sample with requested mean and deviation. |
+| `colored_noise` | nonnegative `standard_deviation`, positive `correlation_time_s` | First-order correlated approximate-normal noise. |
+| `random_walk` | nonnegative `diffusion_per_sqrt_s`, optional bounds | Accumulated approximate-normal drift. |
+| `quantise` | positive `quantum` | Quantised incoming value; valid only with `replace`. |
+| `clip` | `minimum`, `maximum` | Clipped incoming value; valid only with `replace`. |
+| `backlash` | positive `width` | Rate-independent kinematic play applied to the incoming process output; valid only for `process_output` with `replace`. |
+| `dropout` | nonnegative `rate_per_s`, duration fields, `dropout_policy`, and policy-dependent `replacement_value` | Stochastic sensor dropout. |
+
+For `quantise`, `clip`, and `backlash`, the generator consumes the incoming
+value instead of producing an independent value. For all other generators,
+`mode` combines the generated value with the incoming value.
+
+`backlash` is valid only for a `process_output` target with mode `replace`.
+Its positive `width` is the total input reversal needed to move from one
+engaged flank to the other. If the incoming ideal position is `x`, the
+published load-side position is `y`, and half the configured width is `b`, the
+deterministic play operator is:
+
+```text
+b = width / 2
+y[0] = x[0]
+y[k] = clamp(y[k-1], x[k] - b, x[k] + b)
+```
+
+The output therefore remains still after a reversal until the ideal position
+crosses the available clearance. While the effect is inactive, its retained
+position follows the incoming value so activation does not replay stale
+travel. Plant reset initializes it from the current initial process output.
+This is a reduced-order kinematic backlash model for diagnosis and controller
+experiments. It does not model tooth impact, compliance, motor/load inertias,
+contact force, wear, or lubrication, and evidence produced by it shall not be
+presented as a mechanical life or gearbox-design calculation.
+
+`dropout` is valid only for a `measurement` target and requires mode `replace`;
+its policy determines whether replacement, holding, or faulting occurs.
+`dropout_policy` is one of `hold_last`, `replace`, or `fault`. Policy `replace`
+requires finite `replacement_value`; the other policies forbid it. A fixed
+duration uses positive `duration_s`. A ranged duration omits `duration_s` and
+uses positive `duration_min_s` and `duration_max_s`.
+
+### 10.2 White noise
+
+`uniform_white` maps one uniform random sample to the configured interval.
+Minimum shall be strictly less than maximum.
+
+`normal_approx_white` uses the deterministic approximate-normal value `z` from
+Section 11.4:
+
+```text
+g = mean + standard_deviation * z
+```
+
+A zero standard deviation is valid and produces the mean without consuming a
+random value.
+
+### 10.3 Colored noise
+
+Colored noise owns one state `q`, initially zero. With
+`tau = correlation_time_s`:
+
+```text
+a = exp(-h / tau)
+q_next = a*q + standard_deviation*sqrt(1 - a*a)*z
+g = q_next
+```
+
+This gives an explicitly band-limited stochastic disturbance rather than
+assuming every real sensor has independent sample-to-sample noise.
+
+### 10.4 Random walk
+
+Random walk owns one state `q`, initially zero:
+
+```text
+q_next = q + diffusion_per_sqrt_s * sqrt(h) * z
+```
+
+Optional minimum and maximum bounds clamp `q_next`. Random walk is suitable for
+slow calibration drift and model-parameter drift; it is not stationary noise.
+
+### 10.5 Dropout
+
+At each substep outside an active dropout, a new dropout begins when:
+
+```text
+uniform_0_1 < 1 - exp(-rate_per_s * h)
+```
+
+Duration is either fixed positive `duration_s` or uniformly selected between
+positive `duration_min_s` and `duration_max_s`. Minimum shall not exceed maximum.
+While dropout is active, no new start sample is consumed.
+
+For a ranged duration and uniform value `u`, duration is
+`duration_min_s + (duration_max_s - duration_min_s) * u`.
+
+This rate-based rule keeps dropout probability approximately independent of the
+chosen plant step.
+
+## 11. Randomness and replay
+
+### 11.1 Reproducibility contract
+
+Given identical validated configuration, effective seed, initial state, event
+history, command history at plant-step boundaries, and runtime version, plant
+state and published feedback shall be identical.
+
+Randomness shall never depend on wall-clock timing, thread scheduling, hash-map
+iteration, memory address, or another plant's execution order.
+
+### 11.2 Independent streams
+
+Every stochastic uncertainty owns an independent random stream derived from:
+
+```text
+effective master seed
+plant id
+uncertainty id
+random algorithm version
+```
+
+Adding, removing, disabling, or reordering an unrelated plant or uncertainty
+shall not change the samples produced by an existing unchanged uncertainty.
+
+### 11.3 `splitmix64-v1`
+
+The first random algorithm is named `splitmix64-v1`. All operations below use
+wrapping unsigned 64-bit arithmetic:
+
+```text
+state = state + 0x9E3779B97F4A7C15
+z = state
+z = (z XOR (z >> 30)) * 0xBF58476D1CE4E5B9
+z = (z XOR (z >> 27)) * 0x94D049BB133111EB
+sample_u64 = z XOR (z >> 31)
+```
+
+Plant and uncertainty identity bytes are incorporated through a separately
+versioned stable seed-derivation function named `fnv1a64-v1`. Its input bytes
+are UTF-8 plant ID, one zero byte, UTF-8 uncertainty ID, one zero byte, and the
+ASCII bytes `splitmix64-v1`. Starting from FNV offset basis
+`0xCBF29CE484222325`, each byte updates the hash by XOR followed by wrapping
+multiplication by `0x00000100000001B3`. The initial SplitMix64 state is the hash
+XOR the effective master seed. The random algorithm and seed-derivation version
+shall be exposed in status and trace metadata. Changing either is a simulation
+compatibility change.
+
+### 11.4 Uniform and approximate-normal values
+
+A uniform binary64 value in `[0,1)` is:
+
+```text
+uniform_0_1 = (sample_u64 >> 11) * 2^-53
+```
+
+The deterministic approximate-normal value is the ordered sum of twelve
+independent uniform values minus six:
+
+```text
+z = (u1 + u2 + ... + u12) - 6
+```
+
+This bounded approximation is intentional. It avoids claiming exact Gaussian
+tails and avoids platform-dependent transcendental transformations. The runtime
+shall describe it as `normal_approx`, not an exact normal distribution.
+
+## 12. Parameter uncertainty and model mismatch
+
+A realistic controller test should not use only the exact nominal parameters
+used for tuning. The system therefore supports declared parameter mismatch and
+drift.
+
+Parameter effects apply to a temporary parameter value for the current substep;
+they do not rewrite configuration. Multiple effects use declaration order.
+After applying effects, the parameter shall still satisfy its model-specific
+domain. A time constant made zero or negative, a negative damping ratio, or any
+nonfinite effective parameter is a simulation fault.
+
+Scalar parameter names use their configuration spelling. State-space matrix
+elements use `a[row,column]`, `b[row,column]`, `c[row,column]`, or
+`d[row,column]`, with zero-based decimal indices and no whitespace. A parameter
+effect or event shall name exactly one existing scalar or matrix element.
+
+Recommended verification scenarios include, without making their values
+mandatory for every project:
+
+- process gain above and below nominal;
+- time constant above and below nominal;
+- more dead time than assumed by the controller;
+- actuator gain, deadband, lag, and saturation;
+- measurement bias, noise, quantisation, and dropout;
+- load disturbances and state impulses;
+- bounded sampling jitter; and
+- simultaneous but independently seeded imperfections.
+
+Each project test shall state its chosen uncertainty envelope and acceptance
+metrics. The simulator shall not infer that envelope or declare a controller
+stable.
+
+## 13. Process-image binding and conversion
+
+### 13.1 Command sources
+
+Each command source shall be a concrete `%Q` output or `%M` memory address
+backed by compiled scalar numeric process-image metadata. A memory command
+source gives a plant a program variable as its input, for example the setpoint
+that an outer controller passes to an inner loop, so that a model of the inner
+loop closed around its process can be driven by the outer controller. It is
+read at the same post-cycle boundary as an output. A command source may instead
+name a compiled scalar numeric program variable that has no address, by its
+symbolic path (an address always starts with `%`), for example a controller
+output that the program maps to its physical output through further logic; it is
+read from program storage at the same boundary. `BOOL`, character, string, aggregate, reference,
+and untyped byte-sequence commands are invalid. Integer, bit-string, `REAL`, and
+`LREAL` values are converted to binary64 exactly where representable and by the
+runtime's checked numeric-conversion rules otherwise.
+
+### 13.2 Feedback targets
+
+Each feedback target shall be a concrete `%I` address backed by compiled scalar
+numeric process-image metadata, or the symbolic path of a compiled scalar
+numeric program variable that has no address. The completed scaled feedback is
+converted to the declared target type using the runtime's checked conversion
+rules. A symbolic target is written into program storage at the same boundary as
+an input, before the program runs. The program must only read it: a value the
+program assigns itself replaces the feedback during the scan, so a client that
+knows the program's assignments (Control Studio) refuses such a target.
+
+A feedback target may instead be written `pid:` followed by the path of an
+instance of the Control library's `PID` (`pid:Main.TIC101`): the measurement
+that controller receives. It is for a model of the loop seen from the
+controller (Control Studio's model checks), where the program computes the
+controller's measurement itself, through a transmitter block's scaling, a
+filter or a fault hold, so no program variable or input carries it unchanged.
+Each time the plant publishes, the value is held for that instance; whenever the
+program calls that instance's `Update`, the `Input` it passes reaches the
+controller with `ProcessValue` replaced by the held value. Nothing else changes:
+the program's own variables keep what the program wrote, other fields of
+`Input` and other instances are untouched, and the controller's
+`StateValue.ProcessValue` afterwards shows the value it used. Reading the target
+back gives the held value. The target is valid only as a feedback target; a
+command source written `pid:` rejects configuration. A path that names no
+`Control.PID` instance faults the plant at its first publish, naming the target.
+A held value is removed when the runtime restarts or loads another program; the
+plant then gives it again at its next publish.
+
+The `PID` holds the value in two internal members, the Control library's
+simulation extension: `HeldMeasurement : LREAL` and `MeasurementHeld : BOOL`,
+declared `VAR NON_RETAIN`. The plant writes both between scans, before the
+program runs, through the runtime's checked writes (specification 44 §13.3): the
+value, then `MeasurementHeld := TRUE`. `Update` works on a local copy of its
+`Input` whose `ProcessValue` is `HeldMeasurement` while `MeasurementHeld` is
+TRUE; while it is FALSE the copy is `Input` unchanged, so a controller without a
+plant computes exactly as before. A restart gives both members their initial
+values, FALSE and 0.0, also in an instance declared `RETAIN` (IEC 61131-3 Ed.3
+§6.5.6.2; specification 10 §4.8). An online change carries an instance's members
+by name (specification 44 §12.2), so before the plants first publish into a
+newly loaded program each plant sets `MeasurementHeld := FALSE` in the instances
+its `pid:` targets name there. An instance of a `PID` without the two members,
+from a Control library older than the extension, faults the plant at its first
+publish, naming the target.
+
+In an isolated run (Specification 35) the copy of the program starts with the
+running PLC's bound process-image inputs, and the run's plant writes only its
+own feedback targets: every other input keeps the value the running PLC had.
+
+Conversion shall reject nonfinite values and numeric overflow. Integer targets
+round to nearest with ties to even before range checking. No conversion may
+wrap, truncate modulo the target width, or reinterpret floating-point bits as
+an integer.
+
+For controller verification, `LREAL` command and feedback bindings should be
+used to avoid unrelated quantisation unless quantisation is part of the stated
+scenario.
+
+### 13.3 Target ownership
+
+An enabled plant feedback target, address, symbol or `pid:` instance (compared
+without regard to case), shall be unique across:
+
+- all enabled plants;
+- existing simulation couplings; and
+- existing physics feedback targets.
+
+A conflict rejects configuration before activation. Multiple plants may read
+the same command source. A command source may also be observed by an existing
+coupling.
+
+## 14. Multiple plants and plant networks
+
+Plant instances execute in ascending bytewise order of plant ID. Execution
+order shall not change random streams.
+
+The first version connects plants through PLC process-image signals. Direct
+plant-to-plant links are not part of this contract. A project may connect a
+plant output to another plant by routing it through the PLC program, making the
+dependency and scan delay explicit.
+
+Each plant owns its state, accumulator, actuator, delay buffers, sensor state,
+events, uncertainty generators, and random streams. No mutable state is shared
+between plant instances.
+
+## 15. Fault and safety behavior
+
+The fake-plant system is development and verification infrastructure. It shall
+be visibly identified as simulation in CLI, TUI, web, status, and exported
+trace surfaces already governed by the runtime simulation contract.
+
+Simulation mode shall not silently activate a physical output driver. If a
+project configuration would write both simulated and physical outputs without
+an explicitly reviewed mixed-mode policy, activation shall fail closed.
+The first version defines no mixed-mode policy. While simulation is enabled,
+the runtime shall therefore reject every enabled I/O driver except the
+nonphysical `simulated` (`sim`, `noop`) and `loopback` drivers before any driver
+is constructed or the PLC is started. Disabled drivers do not participate in
+this decision.
+
+These conditions are simulation faults:
+
+- a required process-image source cannot be read;
+- feedback cannot be converted or written;
+- a calculation produces NaN or infinity;
+- an effective parameter leaves its valid domain;
+- a model exceeds the configured catch-up limit;
+- an event references unavailable state or a parameter;
+- a stochastic generator produces an invalid state; or
+- an internal model dimension changes after activation.
+
+A simulation fault shall identify plant ID, model kind, simulation timestamp,
+substep, and failing operation. The runtime shall retain the last completely
+published feedback and shall not publish partial values from the failed step.
+It shall not substitute zero, clamp an otherwise invalid value, skip the step,
+or continue with a reset plant unless the specification explicitly defines that
+operation.
+
+## 16. Observability and trace export
+
+`SimulationController::status()` shall return a `SimulationStatus` snapshot.
+`SimulationController::trace_snapshot()` shall return a
+`SimulationTraceSnapshot`, and `SimulationController::clear_trace()` shall
+discard retained rows and reset the dropped-row count without changing plant or
+random-generator state. These calls are observations; calling or not calling
+them shall not change subsequent model results.
+
+Runtime simulation status shall expose at least:
+
+- simulation active state and time scale;
+- effective seed and random algorithm version;
+- each plant ID, model, enabled state, step, and simulated timestamp;
+- state vector and latest ideal output;
+- transformed command and applied actuator output;
+- latest measured and published feedback;
+- actuator saturation, slew, deadband, and stuck indicators;
+- active uncertainty and dropout identifiers;
+- pending plant events and delay-buffer depth;
+- accumulated remainder time and last substep count; and
+- last plant fault, if any.
+
+Trace export shall use simulation timestamps and preserve enough data to
+reproduce and diagnose a run:
+
+- validated configuration digest;
+- runtime version;
+- effective seed and algorithm versions;
+- plant commands at substep boundaries;
+- fired events;
+- generated uncertainty samples or the information required to regenerate them;
+- state, ideal output, measurement, and published feedback; and
+- faults and limit-state transitions.
+
+Trace collection shall be optional and bounded. Disabling trace collection
+shall not change model calculations or random consumption.
+Each completed substep contributes one `SimulationTraceRow` when
+`plant_trace_capacity` is nonzero. Once a plant's capacity is full, the oldest
+row is replaced and the trace snapshot's `dropped_rows` count increases. A
+snapshot orders retained rows by simulation timestamp and then bytewise plant
+ID. It exposes the configured per-plant capacity and the total dropped count.
+
+## 17. Runtime and performance requirements
+
+After successful activation, advancing built-in plants shall not allocate heap
+memory per substep. Delay buffers and trace buffers may use bounded storage
+allocated or reserved during activation.
+
+Configuration shall declare or permit calculation of finite bounds for delay
+history, pending events, stochastic state, and trace storage. Exceeding a bound
+shall produce a visible simulation fault or a documented bounded trace-drop
+indicator; it shall not grow memory without limit.
+
+Plant execution duration is not physical time. Time-scale acceleration may be
+limited by available CPU. Failure to keep pace with requested wall-clock
+acceleration shall be reported as simulation lag, while model time and fixed
+steps remain correct.
+
+Performance benchmarks shall report plant count, model mix, step, PLC cycle,
+substeps, trace mode, runtime version, CPU, and effective seed. Builder
+benchmarks detect regressions but do not prove deployment-target timing.
+
+## 18. Conformance oracles
+
+Conformance requires native executable tests against public configuration,
+runtime scheduling, process-image binding, and status behavior. Testing a model
+helper alone is insufficient for a complete plant-system claim.
+
+Numeric equality uses absolute tolerance
+`1e-12 * MAX(1, ABS(Expected))` for binary64 model values unless an oracle states
+an exact integer or bit result.
+
+### 18.1 First-order exact update
+
+Configure `first_order` with gain `2`, time constant `1`, zero biases, initial
+state `0`, step `0.1`, and held command `3`. After one plant substep, state and
+ideal output shall equal:
+
+```text
+6 * (1 - exp(-0.1))
+```
+
+After ten substeps they shall equal:
+
+```text
+6 * (1 - exp(-1.0))
+```
+
+The second assertion shall be unchanged when elapsed time arrives as ten equal
+PLC cycles or one catch-up cycle.
+
+### 18.2 Fractional dead time
+
+Configure `first_order_dead_time` with gain and time constant `1`, dead time
+`0.15`, step `0.1`, zero initial state and delayed input, and command changing
+from `0` to `1` at time zero. Feedback at `0.1` shall remain zero. The substep
+from `0.1` through `0.2` shall use zero for its first `0.05` seconds and one for
+its final `0.05` seconds, producing feedback at `0.2` equal to
+`1 - exp(-0.05)`. The test shall prove the delay was not rounded to `0.1` or
+`0.2` seconds.
+
+### 18.3 Integrator
+
+Configure `integrator` with gain `2`, input bias `1`, output bias `3`, initial
+state `4`, step `0.25`, and held command `5`. One substep shall publish `9`:
+
+```text
+x_next = 4 + 0.25 * 2 * (5 - 1) = 6
+y = 3 + 6 = 9
+```
+
+### 18.4 Second-order RK4
+
+Configure a second-order plant with gain `1`, natural frequency `2`, damping
+ratio `0.5`, state `[0, 0]`, command `1`, and step `0.1`. A native test shall
+compare the completed state and output with an independent direct evaluation of
+the four specified RK4 stages, not with values generated by calling the model
+implementation twice.
+
+### 18.5 State-space dimensions and execution
+
+A two-state, one-input, one-output state-space model shall reproduce the same
+state trace as the equivalent `second_order` model. Malformed A, B, C, or D
+dimensions shall reject the entire configuration before I/O mutation.
+
+### 18.6 Scan boundary
+
+A PLC program shall write a command during cycle `n`. The plant shall observe it
+only after that cycle, and feedback calculated from it shall become readable by
+the PLC no earlier than pre-cycle `n+1`. The native test shall assert the values
+on both sides of each boundary.
+
+### 18.7 Actuator ordering
+
+A scalar actuator test shall simultaneously exercise deadband, saturation,
+asymmetric slew, and lag. Intermediate status values shall prove the ordering
+in Section 8 rather than checking only the final measurement.
+
+### 18.8 Seeded uncertainty
+
+Two runs with the same effective seed and configuration shall produce identical
+uncertainty, state, and feedback traces. Runs with different seeds shall use
+different stochastic samples. Adding an unrelated stochastic effect to another
+plant shall not change the original trace.
+
+The `splitmix64-v1` integer sequence and `[0,1)` conversion shall have exact
+known-answer tests. Approximate-normal tests shall assert the ordered sum of the
+twelve known uniform samples.
+
+### 18.9 Imperfect sensor
+
+A native closed-loop test shall combine seeded colored noise, bounded random
+walk, quantisation, and a `hold_last` dropout. It shall prove each declared
+imperfection is visible, the dropout does not invent zero, and replay is exact.
+
+### 18.10 Model mismatch
+
+A nominal first-order plant and an otherwise identical plant with a declared
+gain multiplier shall receive the same command. Their outputs shall match their
+respective equations and differ after the first active step. Disabling the
+effect shall recover the nominal trace without consuming hidden random samples.
+
+### 18.11 Fault atomicity
+
+Force one plant calculation or feedback conversion to become nonfinite or
+out-of-range. The runtime shall report the required plant-qualified fault and
+retain the complete feedback from the preceding step. No target from the failed
+multi-output publication may be partially updated.
+
+### 18.12 Restart and random seed
+
+A cold start and warm restart with a fixed seed shall reproduce the same initial
+plant trace. A launch with `seed = "random"` shall expose a concrete seed; a
+second launch using that integer shall reproduce the recorded trace.
+
+### 18.13 Closed-loop PID baseline
+
+A native integration test shall connect `Control.PID` to the
+`first_order_dead_time` model using the process from Section 6 of *A Practical
+Guide to PID Controller Implementation*:
+
+```text
+P(s) = exp(-0.5*s) / (1 + s)
+Kp = 0.667
+Ki = 0.667
+plant step = 0.1 s
+controller cycle = 0.1 s
+```
+
+Initialize the plant state, delayed input, controller histories, and controller
+output to zero. Use Auto mode, proportional setpoint weight one, derivative
+weight zero, zero derivative gain, no feedforward, and nonbinding output and
+rate limits. Apply setpoint one from the PLC cycle at simulation time zero and
+hold it through 20 seconds. The cycle at time `t` reads feedback published for
+`t`, calculates its command, and the following post-cycle plant substep advances
+the interval `[t, t + 0.1]`.
+
+The published process trace shall contain these values:
+
+| Simulation time | Process value |
+|---:|---:|
+| `1.0` | `0.3464035355654934` |
+| `2.0` | `0.8142074414846863` |
+| `3.0` | `0.9490966777492305` |
+| `5.0` | `0.9924202641525338` |
+| `10.0` | `0.9998681292138564` |
+
+Over `[0, 20]`, the process value shall remain in `[0, 1.000000000001]`, enter
+and remain within two percent of the setpoint no later than simulation time
+`3.9`, end within `1e-7` of the setpoint, and have rectangular-rule integral
+absolute error no greater than `1.400`. That integral is the right-endpoint sum
+`0.1 * SUM(ABS(1 - y[k]))` for the 200 published samples at `0.1` through
+`20.0` seconds. These limits belong to this exact
+baseline scenario and do not claim unconditional PID stability. Merely
+completing the run or matching a plot by inspection is not a passing oracle.
+
+### 18.14 Resource bounds
+
+A stress test shall run a declared mix of plant models for a declared number of
+substeps and prove bounded process memory after activation. A catch-up request
+one step above `max_plant_substeps_per_cycle` shall fail visibly without
+advancing or partially publishing the plant.
+
+## 19. Separation of verification claims
+
+The following claims are distinct and shall be reported separately:
+
+- equation conformance of a built-in model;
+- deterministic replay;
+- controller closed-loop performance for a declared plant and scenario;
+- robustness across a declared uncertainty envelope;
+- runtime computational performance;
+- hardware-in-the-loop behavior; and
+- fidelity to a particular physical plant.
+
+Passing one claim does not establish another. In particular, a stable result
+for one simulated plant does not prove unconditional controller stability, and
+a fast accelerated simulation does not prove real-time execution on deployment
+hardware.
+
+## 20. First-version boundary
+
+The first version deliberately excludes:
+
+- arbitrary native model plug-ins;
+- adaptive-step solvers;
+- algebraic-loop solving between plants;
+- direct plant-to-plant links;
+- hot model replacement;
+- retained plant state across warm restart;
+- distributed co-simulation across network hosts;
+- automatic parameter identification;
+- automatic PID tuning;
+- fidelity certification; and
+- a claim that pseudo-random noise is cryptographically random.
+
+Any later addition requires its own written specification and native executable
+test before production implementation.

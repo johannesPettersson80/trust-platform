@@ -1,0 +1,62 @@
+format = 1
+title = "Motor"
+block = "Plant.FB_Motor"
+faceplate = "plant-run"
+symbol = "motor"
+
+[bind]
+running = "Running"
+fault = "Fault"
+manual = "Manual"
+"out-of-service" = "OutOfService"
+
+[[settings]]
+member = "HasFeedback"
+title = "Has running feedback"
+key = true
+
+[[settings]]
+member = "StartTimeout"
+title = "Start timeout"
+unit = "s"
+min = 1
+max = 600
+key = true
+help = "Running feedback must arrive within this time."
+
+[[settings]]
+member = "StopTimeout"
+title = "Stop timeout"
+unit = "s"
+min = 1
+max = 600
+key = true
+help = "Running feedback must drop within this time."
+
+[[settings]]
+member = "ServiceInterval"
+title = "Service interval"
+unit = "h"
+min = 0
+max = 100000
+help = "Running hours between services; 0 for none."
+
+[[io]]
+member = "RunCommand"
+title = "Run command"
+direction = "output"
+
+[[io]]
+member = "RunningFeedback"
+title = "Running feedback"
+direction = "input"
+required_when = "HasFeedback"
+
+[[io]]
+member = "Trip"
+title = "Protection trip"
+direction = "input"
+required = false
+
+[program]
+position = "actuators"

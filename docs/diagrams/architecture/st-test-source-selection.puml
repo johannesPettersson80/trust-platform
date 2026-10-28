@@ -1,0 +1,29 @@
+@startuml
+title ST source selection for Simulator and tests
+skinparam componentStyle rectangle
+component "Delivered ST project" as project
+component "Simulator source selection\ntrust_runtime::runtime_sources" as simulator
+component "Debug adapter\nlaunch / reload" as adapter
+component "Language server\ntrust-lsp.runEntry check" as entry
+component "Test discovery\ntrust_runtime::test_discovery" as discovery
+component "trust-dev test" as devtest
+component "VS Code Testing view\ntrust-lsp.testDiscovery" as testing
+component "Native runtime compilation" as compiler
+component "Selected test cases" as selected
+component "Cold restart and invoke\nper-case execution deadline" as execution
+project --> simulator : ordinary sources\nignore test-only header
+simulator --> adapter : the program's sources
+simulator --> entry : the same sources
+adapter --> compiler : PLC bindings
+project --> discovery : retain test declarations
+discovery --> devtest : namespace-qualified tests
+discovery --> testing : the same tests and lines
+devtest --> compiler : register all test programs\nincluding filtered-out siblings
+devtest --> selected : optional name filter
+compiler --> execution : complete compiled runtime
+selected --> execution : invoke only matching cases
+note bottom of execution
+Human and structured JSON results report only executed cases.
+Test headers preserve source assertions and test discovery.
+end note
+@enduml

@@ -13,21 +13,35 @@ members = [
     "crates/trust-ads-server",
     "crates/verification-cases",
     "crates/trust-runtime-core",
-    "crates/trust-platform-stm32f4",
+    "crates/trust-plc-abi",
+    "crates/trust-plc-lib",
+    "crates/trust-plc-mem",
+    "crates/trust-runtime-services",
+    "crates/trust-platform-stm32",
+    "crates/trust-platform-stm32u5",
     "crates/trust-platform-esp32",
-    "crates/trust-board-fixture",
+    "crates/trust-platform-memory",
+    "crates/trust-platform-net",
+    "crates/trust-modbus",
+    "crates/trust-chips",
     "crates/trust-runtime",
+    "crates/trust-control-math",
+    "crates/trust-control",
+    "crates/trust-runtime-client",
+    "crates/trust-control-studio",
+    "crates/trust-devices",
     "crates/trust-tcads-native",
     "crates/trust-wasm-analysis",
+    "crates/trust-visual",
 ]
 exclude = [
     "third_party/tiverse-mmap",
-    "firmware/trust-nucleo-f401re",
-    "firmware/trust-esp32c6-reference",
+    "firmware/trust-esp32c6",
+    "firmware/trust-stm32u5a9",
 ]
 
 [workspace.package]
-version = "0.24.75"
+version = "0.25.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/johannesPettersson80/trust-platform"
@@ -56,6 +70,8 @@ tokio = { version = "1.53.2", features = ["full"] }
 # Serialization
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.152"
+schemars = "1.2.1"
+num-bigint = "0.4.6"
 toml = "1.1.8"
 toml_edit = { version = "0.25.17", features = ["serde"] }
 sha2 = "0.11.0"
@@ -67,6 +83,9 @@ urlencoding = "2.1.3"
 percent-encoding = "2.3.2"
 roxmltree = "0.21.1"
 wasm-bindgen = "0.2.129"
+
+# Control-system mathematics (crates/trust-control-math)
+nalgebra = "0.34.2"
 
 # Error handling
 thiserror = { version = "2.0.21", default-features = false }
@@ -102,6 +121,13 @@ rumqttc = { version = "0.25.1", default-features = false, features = ["use-nativ
 native-tls = { version = "0.2.18", features = ["alpn", "vendored"] }
 time = "0.3.55"
 rapier3d = { version = "0.36.1", default-features = false, features = ["dim3", "f32", "enhanced-determinism"] }
+# The USB and serial listings of the one search (specification 11): they read what the operating
+# system lists and never open a device. No libudev: Linux reads sysfs.
+nusb = "0.2.8"
+serialport = { version = "4.10.1", default-features = false }
+# The first install of truST on an ESP32 chip, through its ROM boot loader (specification 34
+# TARGET-04): the library of espflash, without its command line.
+espflash = { version = "4.6.0", default-features = false, features = ["serialport"] }
 
 # Internal crates
 trust-syntax = { path = "crates/trust-syntax" }
@@ -113,9 +139,23 @@ trust-ads-core = { path = "crates/trust-ads-core" }
 trust-ads-server = { path = "crates/trust-ads-server" }
 verification-cases = { path = "crates/verification-cases" }
 trust-runtime-core = { path = "crates/trust-runtime-core", default-features = false }
+trust-plc-abi = { path = "crates/trust-plc-abi" }
+trust-plc-lib = { path = "crates/trust-plc-lib" }
+trust-runtime-services = { path = "crates/trust-runtime-services" }
+trust-platform-memory = { path = "crates/trust-platform-memory" }
+trust-platform-net = { path = "crates/trust-platform-net" }
+trust-modbus = { path = "crates/trust-modbus" }
+trust-platform-stm32 = { path = "crates/trust-platform-stm32" }
+trust-chips = { path = "crates/trust-chips" }
 trust-runtime = { path = "crates/trust-runtime" }
+trust-control-math = { path = "crates/trust-control-math" }
+trust-control = { path = "crates/trust-control" }
+trust-runtime-client = { path = "crates/trust-runtime-client" }
+trust-control-studio = { path = "crates/trust-control-studio" }
+trust-devices = { path = "crates/trust-devices" }
 trust-tcads-native = { path = "crates/trust-tcads-native" }
 trust-wasm-analysis = { path = "crates/trust-wasm-analysis" }
+trust-visual = { path = "crates/trust-visual" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

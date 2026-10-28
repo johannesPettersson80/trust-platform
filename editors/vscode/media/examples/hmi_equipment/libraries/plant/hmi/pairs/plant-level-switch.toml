@@ -1,0 +1,51 @@
+format = 1
+title = "Level switch"
+block = "Plant.FB_LevelSwitch"
+faceplate = "plant-digital"
+symbol = "level-switch"
+
+[bind]
+state = "Value"
+
+[quality]
+state = "Quality"
+
+[[settings]]
+member = "Invert"
+title = "Invert the signal"
+
+[[settings]]
+member = "Debounce"
+title = "Debounce"
+unit = "s"
+min = 0
+max = 60
+key = true
+
+[[settings]]
+member = "AlarmEnabled"
+title = "Switch alarm"
+key = true
+
+[[settings]]
+member = "AlarmWhen"
+title = "Alarm when"
+choices = [{ value = true, title = "On" }, { value = false, title = "Off" }]
+
+[[settings]]
+member = "AlarmText"
+title = "Alarm text"
+
+[[io]]
+member = "Input"
+title = "Signal"
+direction = "input"
+
+[[io]]
+member = "SignalFault"
+title = "Signal fault"
+direction = "input"
+required = false
+
+[program]
+position = "measurements"

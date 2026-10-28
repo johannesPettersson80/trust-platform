@@ -18,6 +18,9 @@ VAR
     swap_a : DINT := 10;
     swap_b : DINT := 20;
     ok : BOOL := FALSE;
+    accs : ARRAY[0..1] OF DemoLib.FB_Accumulator;
+    timers : ARRAY[1..2] OF TON := [2(PT := T#50ms)];
+    i : DINT;
 END_VAR
 
 ok := motor.Start(100);
@@ -49,6 +52,14 @@ IF ok THEN
     color := Color#Green;
 END_IF;
 
+FOR i := 0 TO 1 DO
+    accs[i](In := values[i]);
+    total := total + accs[i].Sum;
+END_FOR;
+accs[1].In := values[3];
+accs[1]();
+timers[1](IN := ok);
+ok := timers[1].Q OR timers[2].Q;
 temporalPackets[0].elapsed := T#5s;
 temporalPackets[0].stamp := DT#2026-10-12-12:34:56;
 temporalPackets[0].calendarDay := D#2026-10-12;

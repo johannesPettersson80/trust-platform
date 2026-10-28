@@ -388,30 +388,6 @@ last_reviewed = "2026-07-13"
 
 [[tests]]
 schema_version = 2
-id = "TEST_VM_SUBRANGE_HMI_WRITE_REJECTION_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_1257BED418738BD81458"
-discovery_source_kind = "rust_unit_test"
-test_class = "unit"
-area = "bytecode_vm"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_write_rejects_out_of_range_subrange_value"
-command = "cargo test -p trust-runtime --lib control::tests::hmi_write_rejects_out_of_range_subrange_value -- --exact"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["VM_SEAM_SUBRANGE_001"]
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#subrange-runtime-writes"
-expected_result = "An HMI write of INT#100 to INT(0..10) is rejected before queueing, reports runtime_subrange_violation, and leaves the observable target at its prior INT#0 value."
-expected_failure_mode = "The HMI write succeeds, queues a debug write, changes the observable subrange target, omits error_code, or reports a code other than runtime_subrange_violation."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_VM_SUBRANGE_HMI_WRITE_REJECTION_001.json"
-last_reviewed = "2026-07-13"
-
-[[tests]]
-schema_version = 2
 id = "TEST_VM_SUBRANGE_RETAIN_RELOAD_REJECTION_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_093B7EAE0DCB979D4540"
@@ -2712,54 +2688,6 @@ last_reviewed = "2026-07-16"
 
 [[tests]]
 schema_version = 2
-id = "TEST_VM_HMI_TYPE_ERROR_CODE_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_509AD0A5B81568F80699"
-discovery_source_kind = "rust_unit_test"
-test_class = "unit"
-area = "bytecode_vm"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_write_rejects_type_mismatch"
-command = "cargo test -p trust-runtime --lib control::tests::hmi_write_rejects_type_mismatch -- --exact"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["VM_SEAM_DECLARED_TYPE_001"]
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#stable-machine-error-identifiers"
-expected_result = "An HMI value with the wrong declared type is rejected before queueing and reports runtime_type_mismatch while leaving the target unchanged."
-expected_failure_mode = "The mismatched value is queued, mutates the target, omits error_code, or reports a code other than runtime_type_mismatch."
-evidence_destination = "target/gate-artifacts/cases/TEST_VM_HMI_TYPE_ERROR_CODE_001.json"
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-last_reviewed = "2026-07-16"
-
-[[tests]]
-schema_version = 2
-id = "TEST_VM_HMI_STRING_CAPACITY_ERROR_CODE_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_F99DDE5C72C87AAEC469"
-discovery_source_kind = "rust_unit_test"
-test_class = "unit"
-area = "bytecode_vm"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_write_rejects_overlong_bounded_string"
-command = "cargo test -p trust-runtime --lib control::tests::hmi_write_rejects_overlong_bounded_string -- --exact"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["VM_SEAM_STRING_BOUND_001"]
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#stable-machine-error-identifiers"
-expected_result = "An over-capacity HMI STRING write is rejected before queueing and reports runtime_string_capacity_exceeded while leaving the target unchanged."
-expected_failure_mode = "The over-capacity value is queued, mutates the target, omits error_code, or reports a code other than runtime_string_capacity_exceeded."
-evidence_destination = "target/gate-artifacts/cases/TEST_VM_HMI_STRING_CAPACITY_ERROR_CODE_001.json"
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-last_reviewed = "2026-07-16"
-
-[[tests]]
-schema_version = 2
 id = "TEST_IEC_IMPLICIT_CONVERSION_MATRIX_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_05908CB5750AA05E1CDC"
@@ -4471,17 +4399,17 @@ owner = "trust-runtime"
 status = "mapped"
 invariants = ["RT_RELOAD_001"]
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#online-change-transaction"
-expected_result = "A retain-store load failure rejects online change before replacing the live bytecode, scan counter, PLC storage, or active debug mutation state."
-expected_failure_mode = "The runtime reports reload failure only after installing the new executable or resetting live state, or the runner fails to emit the same-run case artifact."
+expected_result = "An online change reads no retain store: with a store whose load fails it commits, keeps the retained value the running program holds and restarts the scan counter (specification 34 section 11.3, decision OC-1)."
+expected_failure_mode = "The online change reads the retain store, so the failing load refuses it, or it replaces the retained value the running program holds, or the runner fails to emit the same-run case artifact."
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_RELOAD_TRANSACTION_001.json"
 suite_tiers = ["pr"]
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/runtime_safety/RT_RELOAD_001.toml"
-case_file_digest = "sha256:b09bbf3b482c1ca78865496ac9683c914caaf7550e8fead1f26223f218c3b79c"
+case_file_digest = "sha256:ec25c44f510526d8d69a7c9f24d3a980fa30684366c47b258696f9da4efffdb6"
 mapping_behavior_refs = ["RT_RELOAD_001#behavior:0"]
-last_reviewed = "2026-07-14"
+last_reviewed = "2026-10-20"
 
 [[tests]]
 schema_version = 2
@@ -4966,30 +4894,6 @@ oracle_ref = "SPEC_RUNTIME_ENGINE_001#floating-point-boundary-admission-policy"
 expected_result = "Mapped MQTT F32 process-image reads reject infinity before publishing an output point."
 expected_failure_mode = "A non-finite process-image F32 value is formatted or published as a valid MQTT point payload."
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MQTT_NONFINITE_PROCESS_IMAGE_READ_001.json"
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-last_reviewed = "2026-07-14"
-
-[[tests]]
-schema_version = 2
-id = "TEST_RUNTIME_HMI_NONFINITE_WRITE_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_A66997F12A4CE2CE2018"
-discovery_source_kind = "rust_unit_test"
-test_class = "failing_regression"
-area = "runtime_safety"
-path = "crates/trust-runtime/src/control/tests/hmi_values_write.rs"
-name = "hmi_write_rejects_non_finite_real_text"
-command = "cargo test -p trust-runtime --lib control::tests::hmi_write_rejects_non_finite_real_text -- --exact"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_SAFE_NAN_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#floating-point-boundary-admission-policy"
-expected_result = "HMI writes reject REAL and LREAL NaN and infinities plus finite REAL values that overflow basic-single width before queueing any debug write, reporting runtime_non_finite_value for every rejection."
-expected_failure_mode = "The HMI queues a non-finite or width-overflowing floating-point write, changes the target, omits error_code, or reports a code other than runtime_non_finite_value."
-evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_HMI_NONFINITE_WRITE_001.json"
 suite_tiers = ["pr"]
 requires_hardware = false
 requires_network = false
@@ -8836,27 +8740,27 @@ mapping_behavior_refs = ["VM_SEAM_ENC_001#behavior:3"]
 
 [[tests]]
 schema_version = 2
-id = "TEST_AUTO_1A54FB3BD7AFBA32F5B0"
+id = "TEST_AUTO_A0DC7334328B65BCFDBA"
 subject_kind = "generated_test"
-discovery_id = "DISC_1A54FB3BD7AFBA32F5B0"
+discovery_id = "DISC_A0DC7334328B65BCFDBA"
 discovery_source_kind = "rust_integration_test"
 test_class = "behavior_lock"
 area = "runtime_safety"
 path = "crates/trust-runtime/tests/hot_reload.rs"
-name = "hot_reload_retain_migration_failure_preserves_live_runtime"
-command = "cargo nextest run -p trust-runtime --test hot_reload --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::hot_reload) & test(=hot_reload_retain_migration_failure_preserves_live_runtime)'"
+name = "hot_reload_retained_value_that_does_not_fit_takes_its_initial_value"
+command = "cargo nextest run -p trust-runtime --test hot_reload --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::hot_reload) & test(=hot_reload_retained_value_that_does_not_fit_takes_its_initial_value)'"
 owner = "trust-runtime"
 status = "mapped"
 invariants = ["RT_RELOAD_001"]
 oracle_ref = "SPEC_RUNTIME_ENGINE_001"
 oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
-expected_result = "The reviewed out-of-range retained INT rejects with its cause-identifying subrange text while the old executable and scan counter remain live for the next cycle."
+expected_result = "A retained INT 100 that the new declaration INT(0..10) does not hold takes its initial value 0 with an online_change_value event, the change commits and the new body runs from the kept program value (owner, 20 October 2026, keep what fits)."
 expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
 suite_tiers = ["pr"]
 requires_hardware = false
 requires_network = false
 duration_class = "very_fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1A54FB3BD7AFBA32F5B0.json"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A0DC7334328B65BCFDBA.json"
 last_reviewed = "2026-07-28"
 mapping_behavior_refs = ["RT_RELOAD_001#behavior:5"]
 
@@ -8940,27 +8844,27 @@ mapping_behavior_refs = ["RT_RELOAD_001#behavior:1"]
 
 [[tests]]
 schema_version = 2
-id = "TEST_AUTO_6D63E21F9D9B39D9AF6D"
+id = "TEST_AUTO_F48BA48F6FB8942539AE"
 subject_kind = "generated_test"
-discovery_id = "DISC_6D63E21F9D9B39D9AF6D"
+discovery_id = "DISC_F48BA48F6FB8942539AE"
 discovery_source_kind = "rust_integration_test"
 test_class = "behavior_lock"
 area = "runtime_safety"
 path = "crates/trust-runtime/tests/hot_reload.rs"
-name = "hot_reload_migrates_retain_and_resets_nonretain_and_instances"
-command = "cargo nextest run -p trust-runtime --test hot_reload --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::hot_reload) & test(=hot_reload_migrates_retain_and_resets_nonretain_and_instances)'"
+name = "hot_reload_keeps_retained_and_other_values_and_instances"
+command = "cargo nextest run -p trust-runtime --test hot_reload --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::hot_reload) & test(=hot_reload_keeps_retained_and_other_values_and_instances)'"
 owner = "trust-runtime"
 status = "mapped"
 invariants = ["RT_RELOAD_001"]
 oracle_ref = "SPEC_RUNTIME_ENGINE_001"
 oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
-expected_result = "Successful identical-schema warm reload preserves the reviewed retained globals and program values while resetting non-retained storage and the reviewed function-block instance."
+expected_result = "An online change keeps the reviewed retained and non-retained globals, program values and the function-block instance's member (decision OC-1)."
 expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
 suite_tiers = ["pr"]
 requires_hardware = false
 requires_network = false
 duration_class = "very_fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6D63E21F9D9B39D9AF6D.json"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F48BA48F6FB8942539AE.json"
 last_reviewed = "2026-07-28"
 mapping_behavior_refs = ["RT_RELOAD_001#behavior:2"]
 
@@ -8980,7 +8884,7 @@ status = "mapped"
 invariants = ["RT_RELOAD_001"]
 oracle_ref = "SPEC_RUNTIME_ENGINE_001"
 oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
-expected_result = "Successful reload resets the reviewed non-retained value and scan counter to zero, then executes the changed body from its entry point on the following cycle."
+expected_result = "A successful reload keeps the reviewed non-retained value, restarts the scan counter at zero, and executes the changed body from its entry point on the following cycle."
 expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
 suite_tiers = ["pr"]
 requires_hardware = false

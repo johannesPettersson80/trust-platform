@@ -1,0 +1,28 @@
+[simulation]
+enabled = true
+seed = 20260930
+time_scale = 1
+plant_step_ms = 100
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2000
+
+# First order with dead time: 0.2 °C per % heater, time constant 5 s, dead time 1 s; at rest at 35 °C with 75 %.
+[[plants]]
+id = "water-heater"
+model = "first_order_dead_time"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [15.0]
+initial_input = [75.0]
+input_offset = [0.0]
+output_offset = [20.0]
+
+[plants.parameters]
+gain = 0.2
+time_constant_s = 5.0
+dead_time_s = 1.0
+initial_delayed_input = 75.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0

@@ -3,8 +3,6 @@ fn print_trust_banner(
     web_url: Option<&str>,
     simulation_enabled: bool,
     simulation_time_scale: u32,
-    scaffold: Option<&trust_runtime::hmi::HmiScaffoldSummary>,
-    execution_backend: trust_runtime::execution_backend::ExecutionBackend,
     execution_backend_source: trust_runtime::execution_backend::ExecutionBackendSource,
 ) {
     crate::style::print_logo();
@@ -17,7 +15,7 @@ fn print_trust_banner(
         println!("Project: {}", bundle.root.display());
         println!(
             "Execution backend: {} ({})",
-            execution_backend.as_str(),
+            trust_runtime::execution_backend::EXECUTION_BACKEND,
             execution_backend_source.as_str()
         );
         println!(
@@ -36,75 +34,15 @@ fn print_trust_banner(
     }
     if let Some(web_url) = web_url {
         println!("Open: {web_url}");
-        let page_count = scaffold
-            .map(|summary| {
-                summary
-                    .files
-                    .iter()
-                    .filter(|entry| entry.path.ends_with(".toml") && entry.path != "_config.toml")
-                    .count()
-            })
-            .unwrap_or(0);
-        if page_count > 0 {
-            println!(
-                "HMI ready: {web_url}/hmi ({page_count} pages scaffolded, edit mode available)"
-            );
-        } else {
-            println!("HMI ready: {web_url}/hmi");
-        }
     } else {
         println!(
             "Execution backend: {} ({})",
-            execution_backend.as_str(),
+            trust_runtime::execution_backend::EXECUTION_BACKEND,
             execution_backend_source.as_str()
         );
         println!("Web UI: disabled");
     }
     println!("Press Ctrl+C to stop.");
-}
-
-fn auto_scaffold_hmi_update(
-    bundle: &RuntimeBundle,
-    runtime: &Runtime,
-    sources: &SourceRegistry,
-) -> Option<trust_runtime::hmi::HmiScaffoldSummary> {
-    let source_refs = sources
-        .files()
-        .iter()
-        .map(|file| HmiSourceRef {
-            path: file.path.as_path(),
-            text: file.text.as_str(),
-        })
-        .collect::<Vec<_>>();
-    if source_refs.is_empty() {
-        return None;
-    }
-    let metadata = runtime.metadata_snapshot();
-    let snapshot = trust_runtime::debug::DebugSnapshot {
-        storage_abi: runtime.prepared().storage_abi(),
-        storage: runtime.storage().clone(),
-        now: runtime.current_time(),
-    };
-    match trust_runtime::hmi::scaffold_hmi_dir_with_sources_mode(
-        bundle.root.as_path(),
-        &metadata,
-        Some(&snapshot),
-        &source_refs,
-        "industrial",
-        HmiScaffoldMode::Update,
-        false,
-    ) {
-        Ok(summary) => Some(summary),
-        Err(err) => {
-            eprintln!(
-                "{}",
-                style::warning(format!(
-                    "Warning: failed to update HMI scaffold automatically: {err}"
-                ))
-            );
-            None
-        }
-    }
 }
 
 fn format_endpoint(endpoint: &ControlEndpoint) -> String {
@@ -126,12 +64,8 @@ fn print_startup_summary(
     opcua_endpoint: Option<&str>,
     simulation_enabled: bool,
     simulation_time_scale: u32,
-    execution_backend_selection: (
-        trust_runtime::execution_backend::ExecutionBackend,
-        trust_runtime::execution_backend::ExecutionBackendSource,
-    ),
+    execution_backend_source: trust_runtime::execution_backend::ExecutionBackendSource,
 ) {
-    let (execution_backend, execution_backend_source) = execution_backend_selection;
     println!("project folder: {}", bundle.root.display());
     println!("PLC name: {}", bundle.runtime.resource_name);
     println!("restart: {restart:?}");
@@ -150,7 +84,7 @@ fn print_startup_summary(
     );
     println!(
         "execution backend: {} ({})",
-        execution_backend.as_str(),
+        trust_runtime::execution_backend::EXECUTION_BACKEND,
         execution_backend_source.as_str()
     );
     println!("io drivers: {}", enabled_io_driver_names(bundle).join(", "));

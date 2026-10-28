@@ -1,3 +1,8 @@
+//! The test harness drives a compiled program: by name, by process-image address, and cycle by
+//! cycle (specification 44 §14.2).
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
+
 use trust_runtime::harness::TestHarness;
 use trust_runtime::value::{Duration, Value};
 
@@ -75,12 +80,8 @@ fn run_controls() {
     harness.run_cycles(3);
     harness.assert_eq("count", 3i32);
 
-    let results = harness.run_until(|runtime| {
-        let Some(Value::Instance(id)) = runtime.storage().get_global("Counter") else {
-            return false;
-        };
-        runtime.storage().get_instance_var(*id, "count") == Some(&Value::DInt(5))
-    });
+    let results =
+        harness.run_until(|runtime| runtime.read_variable("Counter.count") == Ok(Value::DInt(5)));
     assert_eq!(results.len(), 2);
     assert_eq!(harness.current_time(), Duration::ZERO);
     assert_eq!(harness.cycle_count(), 5);

@@ -5,6 +5,8 @@
 //!
 //! The control command channel is not declared bounded by the specification, so for it these tests
 //! check only that every command gets exactly one reply.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
 mod concurrency_support;
 
@@ -13,14 +15,14 @@ use std::thread;
 
 use smol_str::SmolStr;
 use trust_runtime::debug::{DebugControl, ForcedVarTarget, RequestQueueFull, RuntimeEvent};
+use trust_runtime::harness::TestHarness;
 use trust_runtime::io::IoAddress;
 use trust_runtime::scheduler::{
     ResourceCommand, ResourceHandle, ResourceRunner, ResourceState, StdClock,
 };
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::RuntimeBuilder;
 
-use concurrency_support::{stop_and_join, wait_until, WAIT};
+use concurrency_support::{dint, int, snapshot, stop_and_join, wait_until, WAIT};
 
 const PRODUCERS: usize = 8;
 /// Events per producer for the event flood: 2,400 in all, more than the buffer keeps.
@@ -30,12 +32,25 @@ const REQUESTS: usize = 200;
 /// The bound of the runtime event buffer and of each request queue (specification 11).
 const CAPACITY: usize = 1_024;
 
-/// Spawns an empty resource with debugging enabled and returns its debug handle.
+/// A memory word that only I/O writes change, and a scan counter.
+const IDLE_SOURCE: &str = r#"
+VAR_GLOBAL
+    marker AT %MW0 : INT;
+    scans : DINT;
+END_VAR
+
+PROGRAM Main
+    scans := scans + DINT#1;
+END_PROGRAM
+"#;
+
+/// Spawns the resource of `IDLE_SOURCE` with debugging enabled and returns its debug handle.
 fn spawn_idle(name: &str) -> (ResourceHandle<StdClock>, DebugControl) {
-    let mut runtime = RuntimeBuilder::new()
-        .build()
-        .expect("install declared test runtime");
-    let debug = runtime.enable_debug();
+    let mut runtime = TestHarness::from_source(IDLE_SOURCE)
+        .expect("the idle program compiles")
+        .into_runtime();
+    let debug = DebugControl::new();
+    runtime.set_debug_control(debug.clone());
     let handle = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1))
         .spawn(name)
         .expect("spawn resource");
@@ -198,10 +213,26 @@ fn request_queues_accept_exactly_1024_entries_under_concurrent_producers() {
         PRODUCERS * REQUESTS - CAPACITY,
         "every I/O write past the bound is refused"
     );
-    assert_eq!(
-        debug.drain_io_writes().len(),
-        CAPACITY,
-        "a refused I/O write queues nothing"
+    // A refused I/O write queues nothing. A scan applies the queued writes in arrival order, so
+    // the word ends at the last accepted value; a refused write that had been queued would leave
+    // the value of the last attempt, which the full queue refused.
+    let accepted_values: Vec<i16> = accepted
+        .iter()
+        .map(|(producer, request)| (producer * REQUESTS + request) as i16)
+        .collect();
+    let before = dint(&snapshot(&control), "scans");
+    control.resume().expect("resume is queued");
+    wait_until("a scan applies the queued writes", || {
+        dint(&snapshot(&control), "scans") > before
+    });
+    control.pause().expect("pause is queued");
+    wait_until("the scan pauses again", || {
+        control.state() == ResourceState::Paused
+    });
+    let word = int(&snapshot(&control), "marker");
+    assert!(
+        accepted_values.contains(&word),
+        "a refused I/O write queues nothing, found {word}"
     );
 
     // Forces: a new target past the bound is refused, and a forced target is replaced in place.

@@ -1,0 +1,282 @@
+{
+  "schemaVersion": 4,
+  "id": "control-capstone-independent",
+  "title": "Independent design",
+  "level": "Modern",
+  "sequence": 89,
+  "equipment": "The production line's electric water heater, 10 kW/°C with 1 s delivery delay and a measured draw-off, with heaters of 8 and 12 kW/°C as Control Studio scenarios",
+  "physicalPurpose": "Choose and defend the heater's controller for a production line that tolerates 0.3 °C during measured draw-offs, across the heat-loss range.",
+  "principalTechnique": "Requirements declared in advance, feasibility check, Control Studio design of PI and PI with feedforward validated across an uncertainty range, and a fixed decision rule",
+  "objective": "Declare the requirements, check their feasibility, take PI and PI with feedforward of the measured draw-off through Control Studio's Identify, Tune and Validate at heat losses of 8, 10 and 12 kW/°C, and apply the simplest candidate that meets every requirement.",
+  "prerequisites": [
+    "control-capstone-reactor",
+    "control-fault-aware-control"
+  ],
+  "nextLesson": null,
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Water temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Heater command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL0"
+    },
+    {
+      "role": "SP",
+      "name": "Setpoint",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "disturbance",
+      "name": "Measured draw-off",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 50,
+      "resolution": 0.001,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Feedforward command",
+      "unit": "%",
+      "minimum": -100,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%ML24"
+    },
+    {
+      "role": "state",
+      "name": "Manual command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%ML16"
+    }
+  ],
+  "plant": {
+    "modelId": "line-heater",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "thermal_capacity",
+        "value": 50,
+        "unit": "kJ/degC"
+      },
+      {
+        "name": "heat_loss_nominal",
+        "value": 10,
+        "unit": "kW/degC"
+      },
+      {
+        "name": "heat_loss_minimum",
+        "value": 8,
+        "unit": "kW/degC"
+      },
+      {
+        "name": "heat_loss_maximum",
+        "value": 12,
+        "unit": "kW/degC"
+      },
+      {
+        "name": "heater_power_per_point",
+        "value": 2,
+        "unit": "kW"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1.0,
+        "unit": "s"
+      },
+      {
+        "name": "draw_off",
+        "value": 10,
+        "unit": "kW"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "waterTemperatureC": 35,
+      "heaterCommandPct": 75,
+      "drawOffKw": 0
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Water temperature": 35,
+      "Heater command": 75
+    },
+    "validityRange": [
+      {
+        "signal": "Water temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Heater command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "The project runs the 10 kW/°C heater; Control Studio's validation runs the 8 and 12 kW/°C heaters as declared discrete models with the 1 s delay as ten 0.1 s steps.",
+      "The draw-off measurement is exact and acts on the water at once.",
+      "Simulation only."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "candidateA": "Control.PID as PI, Kp = 2.5 %/°C, Ki = 0.5 %/(°C·s), feedforward gain 0, robustly stable over 8–12 kW/°C (lesson 86)"
+    },
+    "limitation": "PI must wait for the draw-off to lower the temperature; with these gains the fall exceeds 0.5 °C."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "candidateB": "the same PI with feedforward of the measured draw-off, 0.5 %/kW with equal lead and lag: 5 points for 10 kW (lesson 62)",
+      "requirements": "step 35 → 36 °C: peak ≤ 37 °C, within 0.2 °C from 30 s; measured 10 kW draw-off: within 0.3 °C from 0 to 60 s, within 0.2 °C from 30 s; at H = 8, 10 and 12 kW/°C",
+      "rule": "the simplest candidate that passes every case; neither: redesign"
+    },
+    "decision": "Candidate B, PI with feedforward of the measured draw-off, is applied: Control Studio validated it on every case (draw-off deviations 0.1848, 0.1813 and 0.1778 °C), while candidate A failed the draw-off limit at 8, 10 and 12 kW/°C (0.5926, 0.5355 and 0.4881 °C)."
+  },
+  "experiment": {
+    "kind": "setpoint_step",
+    "signal": "Setpoint",
+    "baseline": 35,
+    "amplitude": 1,
+    "durationSeconds": 60,
+    "settlingSeconds": 30,
+    "disturbances": [
+      "Measured 10 kW draw-off in the draw-off scenarios"
+    ],
+    "seed": 20260829,
+    "restorationValue": 35
+  },
+  "acceptance": [
+    {
+      "metric": "maximum",
+      "signal": "Water temperature",
+      "window": "setpoint-step scenarios 0–60 s",
+      "comparator": "<=",
+      "limit": 37,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_absolute_error",
+      "signal": "Water temperature",
+      "window": "candidate B draw-off scenarios 0–60 s",
+      "comparator": "<=",
+      "limit": 0.3,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_absolute_error",
+      "signal": "Water temperature",
+      "window": "every scenario 30–60 s",
+      "comparator": "<=",
+      "limit": 0.2,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Water temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Heater command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Temperature leaves 0–80 °C: SafetyAbort removes heat and the draw-off",
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Control Studio's validation runs in an isolated simulation; Apply writes the validated settings, and Restore previous settings returns the earlier ones. An abort holds zero heat until a restart.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical heater changes",
+      "Untested: delay variation, draw-off measurement error, sensor faults, remote operation and the physical equipment"
+    ]
+  },
+  "workflowStages": [
+    "Identify",
+    "Tune",
+    "Validate"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/76-82-nonlinear-and-recovery.md#82-independent-design",
+    "nativeTest": "lesson82",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lesson82 lesson82",
+    "projectPath": "examples/control/14-integrated-capstones/84-independent",
+    "runArtifactFields": [
+      "suppliedModel",
+      "designedSettings",
+      "scenarioResults",
+      "appliedSettings",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-capstone-independent"
+  },
+  "video": {
+    "viewerOutcome": "See two candidates validated in Control Studio across the heat-loss range, the draw-off limit separate them, and the candidate the declared rule recommends applied.",
+    "requiredVisibleEvidence": [
+      "the scenario rows on Validate for both candidates",
+      "the draw-off responses and commands",
+      "Applied",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 88's heater trusted a reading only on evidence: a sustained disagreement removed heat at 5.2 s, and a change of sensor moved the command by at most 0.032 points. Each lesson so far added one mechanism against one problem. A real installation brings competing requirements, uncertainty and disturbances together, and the course's methods have not yet been combined by you alone.\n\nA production line draws hot water from the heater at 35 °C, and the setpoint is sometimes raised by 1 °C. The line switches on draw-offs of 10 kW without warning, but a flow meter measures each one. The heat loss lies between 8 and 12 kW/°C, the range of lesson 86, and the line tolerates at most 0.3 °C of deviation during a draw-off. We will state the requirements first, check that they are feasible, validate two candidates alike in Control Studio, and apply and defend the one its evidence supports.",
+    "reason": "We need to:\n\n1. state the requirements before any test and check that the heater can meet them;\n2. choose two candidates worth comparing and build both in ST;\n3. validate both alike across the heat-loss range; and\n4. decide by a rule fixed in advance, and say what the evidence covers.",
+    "theory": [
+      "**Independent design** means stating the requirements yourself, choosing two suitable designs, calculating whether they can work, building both in ST, and defending your choice with measured evidence. For the heater, the hard requirement is the 0.3 °C limit during a draw-off, so the candidates differ in how they answer a draw-off.\n\n**In words.** Until now each lesson brought its problem and its method together. Here you choose. Independent design is a fixed order of steps for using the course's methods, so that the choice rests on evidence and not on a favourite controller. It works like a factory acceptance test: the test cases and the pass criteria are agreed before the test, and the equipment passes or fails against them. The parts:\n\n1. **Requirements first.** Write down what must hold, in numbers, for which cases and over which range of the process, before any test.\n2. **Feasibility.** Calculate whether the plant can meet them at all, at the worst end of the range. If it cannot, no controller will.\n3. **Two candidates.** Take the simplest design that might pass, and a second one that answers the requirement that is hardest to meet.\n4. **The same tests for both.** Build both in ST and validate them on the same cases across the whole range.\n5. **A rule fixed in advance.** Decide, before seeing results, how the evidence will choose, and afterwards state what the evidence covers and what it does not.\n\nFor the heater this means: the draw-off limit is the hard requirement, so one candidate is a plain PI and the other adds a feedforward of the measured draw-off.\n\n**The formula.** Holding a temperature $T$ against a draw-off $D$ needs the command\n\n$$\nu_{hold} = \\frac{H(T - T_a) + D}{a} \\le 100\\ \\% ,\n$$\n\nand a feedforward of the measured draw-off supplies its heat directly:\n\n$$\nu_{ff} = \\frac{D}{a} .\n$$\n\n- $H$ is the heat loss, in kW/°C, between 8 and 12 kW/°C;\n- $T_a = 20$ °C is the surroundings' temperature, and $T$ the water's, in °C;\n- $D$ is the draw-off, in kW, measured by the flow meter; and\n- $a = 2$ kW per point is the heater power per command point.\n\nThe feedforward's heat arrives only after the 1 s delivery delay. During that second the water, with 50 kJ/°C of heat stored, follows $50\\dot x = -Hx - D$ for its deviation $x$, a first-order response with time constant $50/H$, so it falls by\n\n$$\n\\Delta T = \\frac{D}{H}\\left(1 - e^{-H/50}\\right)\n$$\n\nbefore the extra heat arrives. No feedback can prevent that fall either: during the delay nothing the controller does reaches the water.\n\n**Example: the heater's design.** The requirements, declared now:\n\n| Case | Requirement |\n| --- | --- |\n| Setpoint 35 → 36 °C | peak at most 37 °C; within 0.2 °C of 36 °C from 30 s to 60 s |\n| Measured 10 kW draw-off at 35 °C | within 0.3 °C of 35 °C from 0 s to 60 s; within 0.2 °C from 30 s to 60 s |\n\nEach case must pass at 8, 10 and 12 kW/°C, from rest at 35 °C, with the command limited to 0–100 % and updated every 0.1 s.\n\n1. Feasibility at the worst end, $H = 12$: 36 °C needs $12 \\cdot 16/2 = 96$ %, and 35 °C against 10 kW needs $(12 \\cdot 15 + 10)/2 = 95$ %. The requirements ask nothing the heater cannot deliver.\n2. Candidate A is lesson 86's candidate A, the PI with $K_p = 2.5$ %/°C and $K_i = 0.5$ %/(°C·s), proven stable for every heat loss in the range. It must wait for a draw-off to lower the temperature before it reacts.\n3. Candidate B is the same PI with lesson 62's feedforward, $u_{ff} = D/2$. It depends only on the 2 kW per point, not on the uncertain $H$.\n4. B through a smaller draw-off, 5 kW at the nominal 10 kW/°C: the feedforward adds $5/2 = 2.5$ points at once, and before that heat arrives the water falls by $(5/10)(1 - e^{-0.2}) = 0.5 \\cdot 0.181 = 0.091$ °C (calculated).\n5. The decision rule, fixed now: recommend the simplest candidate that passes every case at every heat loss. A is simpler, with no flow meter and no feedforward path; if neither passes, redesign.\n\n**The limitation.** The validation keeps some things fixed: a 1 s delay, an exact draw-off measurement, healthy sensors (lesson 88) and local control (lesson 87). A flow meter that reads 10 % low would leave 1 kW of a 10 kW draw-off, 0.5 points, uncompensated (calculated), and only the integral term would remove it."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. What is each candidate's first command when a draw-off starts at 8 kW/°C?\n2. Which requirement do you expect to decide the comparison, and at which heat loss is A worst?\n3. Does the heat-loss range change B's fall?\n4. Which candidate will the rule recommend? The run may prove you wrong.\n\n| B's fall during the delay | 8 kW/°C | 10 kW/°C | 12 kW/°C |\n| --- | ---: | ---: | ---: |\n| $(D/H)(1 - e^{-H/50})$ | 0.185 °C | 0.181 °C | 0.178 °C |",
+    "practicalPreparation": [
+      "1. Open this lesson's project and start **Simulator**. The heater rests at 35 °C with 75 % and no draw-off. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Supplied plant model** from **Method** and open `provided-model.json`. Control Studio shows a **Discrete state-space model · 2 inputs, 1 output**: heater command and draw-off to water temperature.\n3. Answer the predictions.\n4. On **Tune**, choose **P1.Controller · Feedforward** in **Controller** and **Manual** in **Tuning method**, and enter candidate A: **Proportional gain (Kp)** 2.5, **Integral gain (Ki)** 0.5, **Control.PID DerivativeGain** 0, **Feedforward gain** 0, **Lead time** 1 and **Lag time** 1. Select **Requirements…**, enter **Setpoint change (°C)** 1, **Maximum steady-state error (°C)** 0.2, **Maximum settling time (s)** 30, **Settling band (±°C)** 0.1 and **Validation duration (s)** 60, and select **Done**. Select **Tune controller**.\n5. On **Validate**, select **Validate controller**. Control Studio runs the actual ST for 60 s on the project's heater and on every declared scenario.\n6. On **Tune**, enter **Feedforward gain** 0.5 for candidate B, select **Tune controller**, validate again, and select **Apply**. Control Studio shows **Applied** and offers **Restore previous settings**.\n\nSelect **Abort** to stop validation early. To repeat, stop and restart **Simulator**."
+    ],
+    "baseline": "Run qualified feedback PI on one reference plant under the common demand record.",
+    "change": "Add qualified measured-demand feedforward through the same PID, actuator, anti-windup and tracking boundary on an equivalent plant.",
+    "comparison": "![In Control Studio's validation, feedforward holds every draw-off within 0.185 °C; PI alone falls up to 0.593 °C](figures/design-validation.svg)\n\nThe numbered marks answer the predictions with the same numbers. Control Studio's validation; it lists each error limit as **Maximum steady-state error**:\n\n| Case | A, feedforward gain 0 | B, feedforward gain 0.5 |\n| --- | ---: | ---: |\n| Setpoint step, 10 kW/°C: settling, late error | 15.5 s, 0.0396 °C | 15.5 s, 0.0396 °C |\n| Setpoint step, 8 kW/°C: late error, range | 0.0044 °C, 35–36 °C | 0.0044 °C, 35–36 °C |\n| Setpoint step, 12 kW/°C: late error, range | 0.0807 °C, 35–35.99 °C | 0.0807 °C, 35–35.99 °C |\n| Draw-off, 8 kW/°C: deviation, late error | 0.5926 °C Fail, 0.0559 °C | 0.1848 °C, 0.0098 °C |\n| Draw-off, 10 kW/°C: deviation, late error | 0.5355 °C Fail, 0.0836 °C | 0.1813 °C, 0.0092 °C |\n| Draw-off, 12 kW/°C: deviation, late error | 0.4881 °C Fail, 0.1016 °C | 0.1778 °C, 0.0085 °C |\n\n1. B's first command after the draw-off was 65 %, A's 60 %: the feedforward acts at once, the PI only once an error appears.\n2. The draw-off limit decided: the setpoint steps were identical, because without a draw-off B's feedforward is zero, while A fell 0.5926 °C at 8 kW/°C, its worst, and 0.4881 °C at 12 kW/°C.\n3. B fell 0.1848, 0.1813 and 0.1778 °C, the predicted delay dips: the range hardly changed them.\n4. The rule recommends B: Control Studio showed **Verification failed: Observed measurement exceeds the declared limit. Next: Tune again.** for A and kept **Apply** unavailable; B passed every case and was applied.\n\nIn the first second both fell alike, because B's extra heat was still on its way; at 6 s A's command had risen only to 62.62 %, while B was back at 34.97 °C. B's cost is a flow meter and a feedforward path; its benefit is every draw-off within 0.185 °C. The evidence covers heat losses of 8–12 kW/°C, a 1 s delay, an exact draw-off measurement, healthy sensors and local control. These are simulation results, not a test of the physical heater.",
+    "validation": "![In Control Studio's validation, feedforward holds every draw-off within 0.185 °C; PI alone falls up to 0.593 °C](figures/design-validation.svg)\n\nThe numbered marks answer the predictions with the same numbers. Control Studio's validation; it lists each error limit as **Maximum steady-state error**:\n\n| Case | A, feedforward gain 0 | B, feedforward gain 0.5 |\n| --- | ---: | ---: |\n| Setpoint step, 10 kW/°C: settling, late error | 15.5 s, 0.0396 °C | 15.5 s, 0.0396 °C |\n| Setpoint step, 8 kW/°C: late error, range | 0.0044 °C, 35–36 °C | 0.0044 °C, 35–36 °C |\n| Setpoint step, 12 kW/°C: late error, range | 0.0807 °C, 35–35.99 °C | 0.0807 °C, 35–35.99 °C |\n| Draw-off, 8 kW/°C: deviation, late error | 0.5926 °C Fail, 0.0559 °C | 0.1848 °C, 0.0098 °C |\n| Draw-off, 10 kW/°C: deviation, late error | 0.5355 °C Fail, 0.0836 °C | 0.1813 °C, 0.0092 °C |\n| Draw-off, 12 kW/°C: deviation, late error | 0.4881 °C Fail, 0.1016 °C | 0.1778 °C, 0.0085 °C |\n\n1. B's first command after the draw-off was 65 %, A's 60 %: the feedforward acts at once, the PI only once an error appears.\n2. The draw-off limit decided: the setpoint steps were identical, because without a draw-off B's feedforward is zero, while A fell 0.5926 °C at 8 kW/°C, its worst, and 0.4881 °C at 12 kW/°C.\n3. B fell 0.1848, 0.1813 and 0.1778 °C, the predicted delay dips: the range hardly changed them.\n4. The rule recommends B: Control Studio showed **Verification failed: Observed measurement exceeds the declared limit. Next: Tune again.** for A and kept **Apply** unavailable; B passed every case and was applied.\n\nIn the first second both fell alike, because B's extra heat was still on its way; at 6 s A's command had risen only to 62.62 %, while B was back at 34.97 °C. B's cost is a flow meter and a feedforward path; its benefit is every draw-off within 0.185 °C. The evidence covers heat losses of 8–12 kW/°C, a 1 s delay, an exact draw-off measurement, healthy sensors and local control. These are simulation results, not a test of the physical heater.",
+    "explanation": "A defensible design starts from requirements and a feasibility check, not from a favourite controller: the candidates answer the requirement that is hard to meet, are validated alike across the stated uncertainty and are judged by a rule written before the results.\n\nFor the heater, Control Studio validated both candidates from 8 to 12 kW/°C; only PI with feedforward kept every draw-off within 0.3 °C, so the rule recommended it and it was applied.",
+    "transfer": "The course ends here. What remains is physical commissioning on real equipment: verifying the implementation on the real heater and testing what the simulation kept fixed, the real delay, the flow meter's error, sensor faults and the network."
+  }
+}

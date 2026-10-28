@@ -1,6 +1,8 @@
 //! The documented `ctl` sequences, run as written against the example each document names. Only
 //! the project path and the generic `<project-folder>` placeholder are substituted. The runtime is
 //! built and started as the tutorials start it, from a private copy of the example.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 #[path = "support/runtime_process.rs"]
 mod runtime_process;
@@ -8,7 +10,6 @@ mod runtime_process;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use runtime_process::{
     repo_root, stderr_text, trust_runtime_command, ExampleRuntime, Runtime, WAIT,
@@ -137,15 +138,18 @@ fn plcopen_motion_demo_readme_status_inspects_the_runtime() {
 #[test]
 fn plc_quick_start_shutdown_stops_the_plc() {
     // docs/guides/PLC_QUICK_START.md section 3: `trust-runtime ctl --project . shutdown`. The copy
-    // stands in for `.`.
+    // stands in for `.`. Decision Q11 on computers (18 October 2026), specification 34 STATE-08:
+    // `shutdown` stops the PLC and keeps trust-runtime running in Stopped; it did end the process.
     let mut runtime = ExampleRuntime::new("memory_marker_counter").start();
     runtime.wait_for_snapshot(WAIT, "a running scan", |_| true);
 
     runtime.ctl_ok(&["shutdown"]);
-    let exit = runtime.wait_for_exit(Duration::from_secs(10));
+    runtime.wait_until(WAIT, "the PLC to report stopped", || {
+        runtime.status().state == "stopped"
+    });
     assert!(
-        exit.success(),
-        "the PLC must exit successfully after shutdown: {exit}\n{}",
+        runtime.is_running(),
+        "the runtime stays up after the PLC stopped\n{}",
         runtime.diagnostics()
     );
 }
@@ -155,7 +159,8 @@ fn plc_operator_guide_status_io_read_restart_and_shutdown() {
     // docs/guides/PLC_OPERATOR_GUIDE.md on examples/memory_marker_counter: `status` (the summary
     // line), `io-read`, `stats` (for cycle timing per task), `restart cold` and `shutdown`. The
     // restart and the shutdown both run even if the restart is refused, and the refusal is reported
-    // after the shutdown has been attempted.
+    // after the shutdown has been attempted. Decision Q11 on computers (18 October 2026),
+    // specification 34 STATE-08: the shutdown stops the PLC and the runtime stays up in Stopped.
     let mut runtime = ExampleRuntime::new("memory_marker_counter").start();
     runtime.wait_until(WAIT, "status to report running", || {
         runtime.status().state == "running"
@@ -172,7 +177,9 @@ fn plc_operator_guide_status_io_read_restart_and_shutdown() {
 
     let restart = runtime.ctl(&["restart", "cold"]);
     let shutdown = runtime.ctl(&["shutdown"]);
-    let exit = runtime.wait_for_exit(Duration::from_secs(10));
+    runtime.wait_until(WAIT, "the PLC to report stopped", || {
+        runtime.status().state == "stopped"
+    });
 
     assert!(
         restart.status.success(),
@@ -185,8 +192,8 @@ fn plc_operator_guide_status_io_read_restart_and_shutdown() {
         stderr_text(&shutdown)
     );
     assert!(
-        exit.success(),
-        "the PLC must exit successfully after shutdown: {exit}\n{}",
+        runtime.is_running(),
+        "the runtime stays up after the PLC stopped\n{}",
         runtime.diagnostics()
     );
 }
@@ -207,13 +214,13 @@ fn plc_io_binding_guide_io_read_and_output_write_are_accepted() {
 #[test]
 fn runtime_cloud_troubleshooting_checks_run_as_written() {
     // docs/guides/RUNTIME_CLOUD_TROUBLESHOOTING.md section 1: `ctl --project <project> status`,
-    // then `ctl --project <project> config-get`. The config must report the vm execution backend.
+    // then `ctl --project <project> config-get`. The config must report the native execution backend.
     let runtime = ExampleRuntime::new("memory_marker_counter").start();
     runtime.wait_until(WAIT, "status to report running", || {
         runtime.status().state == "running"
     });
     assert_eq!(runtime.status().fault, "none", "{}", runtime.diagnostics());
-    assert_reports_vm_backend(&runtime, "docs/guides/RUNTIME_CLOUD_TROUBLESHOOTING.md");
+    assert_reports_native_backend(&runtime, "docs/guides/RUNTIME_CLOUD_TROUBLESHOOTING.md");
 }
 
 #[test]
@@ -221,16 +228,17 @@ fn runtime_cloud_profile_cookbook_config_get_runs_as_written() {
     // docs/guides/RUNTIME_CLOUD_PROFILE_COOKBOOK.md section 7: `ctl --project <project>
     // config-get`. The cookbook shows no status command.
     let runtime = ExampleRuntime::new("memory_marker_counter").start();
-    assert_reports_vm_backend(&runtime, "docs/guides/RUNTIME_CLOUD_PROFILE_COOKBOOK.md");
+    assert_reports_native_backend(&runtime, "docs/guides/RUNTIME_CLOUD_PROFILE_COOKBOOK.md");
 }
 
-/// A document's `ctl --project <project> config-get`: the result must report the vm execution
-/// backend (config_handlers_get.rs, `runtime.execution_backend`).
-fn assert_reports_vm_backend(runtime: &Runtime, document: &str) {
+/// A document's `ctl --project <project> config-get`: the result must report the native execution
+/// backend that every runtime runs (specification 44 §15; config_handlers_get.rs,
+/// `runtime.execution_backend`).
+fn assert_reports_native_backend(runtime: &Runtime, document: &str) {
     let config = runtime.ctl_result(&["config-get"]);
     assert_eq!(
-        config["runtime.execution_backend"], "vm",
-        "{document} must report the vm backend: {config}"
+        config["runtime.execution_backend"], "native",
+        "{document} must report the native backend: {config}"
     );
 }
 

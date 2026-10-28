@@ -44,6 +44,7 @@ handlers::tests::core::core_part_03::lsp_config_diagnostics_report_dependency_cy
 handlers::tests::core::core_part_03::lsp_config_diagnostics_report_invalid_normalized_values: test
 handlers::tests::core::core_part_03::lsp_config_diagnostics_report_library_dependency_issues: test
 handlers::tests::core::core_part_03::lsp_config_diagnostics_report_malformed_configuration: test
+handlers::tests::core::core_part_03::lsp_config_diagnostics_report_unknown_vendor_profile: test
 handlers::tests::core::core_part_03::lsp_config_diagnostics_report_upper_eviction_bound_normalization: test
 handlers::tests::core::core_part_03::lsp_learner_diagnostics_include_syntax_habit_hints: test
 handlers::tests::core::core_part_03::lsp_learner_diagnostics_no_hint_noise_on_valid_code: test
@@ -53,8 +54,7 @@ handlers::tests::core::core_part_04::lsp_external_diagnostics_provide_quick_fixe
 handlers::tests::core::core_part_04::lsp_workspace_symbols_include_dependency_sources: test
 handlers::tests::core::core_part_05::lsp_did_close_unsaved_dependency_reverts_cross_file_semantics_to_disk: test
 handlers::tests::core::core_part_05::lsp_document_symbols_include_members: test
-handlers::tests::core::core_part_05::lsp_hmi_toml_diagnostics_use_open_source_buffers: test
-handlers::tests::core::core_part_05::lsp_hmi_toml_local_property_diagnostics_do_not_require_runtime_compile: test
+handlers::tests::core::core_part_05::lsp_hmi_folder_toml_files_get_no_legacy_hmi_diagnostics: test
 handlers::tests::core::core_part_05::lsp_memory_budget_eviction_keeps_closed_dependency_semantically_indexed: test
 handlers::tests::core::core_part_05::lsp_oop_access_diagnostics_include_explainer_and_hint: test
 handlers::tests::core::core_part_05::lsp_push_sync_refreshes_dependent_open_document_diagnostics: test
@@ -85,6 +85,7 @@ handlers::tests::core::core_part_09::lsp_tutorial_examples_no_unexpected_diagnos
 handlers::tests::core::core_part_10::lsp_siemens_hash_prefixed_example_has_no_unexpected_diagnostics: test
 handlers::tests::core::core_part_11::lsp_mitsubishi_gxworks3_example_has_no_unexpected_diagnostics: test
 handlers::tests::core::core_part_12::lsp_completion_constant_parameter_uses_constant_kind: test
+handlers::tests::core::core_part_12::lsp_completion_namespace_uses_module_kind: test
 handlers::tests::core::core_part_12::lsp_diagnostics_report_fb_instance_in_constant_sections: test
 handlers::tests::core::core_part_12::lsp_hover_constant_parameter_mentions_constant_and_array_star: test
 handlers::tests::core::core_part_12::lsp_openot_completion_returns_documented_values_and_keys: test
@@ -112,6 +113,12 @@ handlers::tests::formatting_and_navigation::lsp_range_formatting_formats_selecti
 handlers::tests::formatting_and_navigation::lsp_range_formatting_uses_shared_bare_cr_line_model: test
 handlers::tests::formatting_and_navigation::lsp_signature_help_snapshot: test
 handlers::tests::formatting_and_navigation::lsp_type_hierarchy_super_and_subtypes: test
+handlers::tests::hmi_pair_diagnostics::a_block_without_a_member_its_pair_needs_shows_the_problem_at_its_name: test
+handlers::tests::hmi_pair_diagnostics::a_member_a_block_inherits_satisfies_its_pair: test
+handlers::tests::hmi_pair_diagnostics::a_member_of_a_kind_its_field_does_not_take_shows_the_problem_at_the_blocks_name: test
+handlers::tests::hmi_rename_handlers::find_all_references_of_a_bound_member_includes_the_binding: test
+handlers::tests::hmi_rename_handlers::renaming_a_bound_member_also_edits_the_binding: test
+handlers::tests::hmi_rename_handlers::renaming_a_bound_variable_of_a_project_with_dependencies_also_edits_the_binding: test
 handlers::tests::lsp_trace_cases::lsp_delivery_trace_cases: test
 handlers::tests::lsp_trace_cases::lsp_diagnostic_cancellation_trace_cases: test
 handlers::tests::lsp_trace_cases::lsp_document_close_trace_cases: test

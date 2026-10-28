@@ -1,0 +1,35 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 3000
+plant_step_ms = 100
+
+# The Lesson 43 buffer tank with pumps: A·dh/dt = q_in − q_out, A = 0.5 m², each pump 0.04 m³/s at 100 %,
+# so the level moves 0.0008 m/s per % of pump difference. Inputs: the inlet pump (%QL0), whose flow arrives 2 s
+# after its command, and the outlet pump (%QL8); output: the level (%IL0), in m.
+[[plants]]
+id = "buffer-tank"
+model = "state_space"
+command_sources = ["%QL0", "%QL8"]
+feedback_targets = ["%IL0"]
+initial_state = [1.0]
+initial_input = [30.0, 30.0]
+
+[plants.parameters]
+a = [[0.0]]
+b = [[0.0008, -0.0008]]
+c = [[1.0]]
+d = [[0.0, 0.0]]
+input_delays_s = [2.0, 0.0]
+
+# The level sensor reads within ±0.0005 m.
+[[plants.uncertainties]]
+id = "level-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "uniform_white"
+minimum = -0.0005
+maximum = 0.0005

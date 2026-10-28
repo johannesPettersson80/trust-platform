@@ -1,0 +1,69 @@
+@startuml examples-project-landing
+!theme plain
+skinparam componentStyle uml2
+title truST Example Projects: Landing And Retained Reopening
+component "Create project command" as create
+component "Example copy workflow" as copy
+component "trust-lsp.copyExample (language server)\nfolder name rule of trust-runtime new\ncatalog-resolved named / numbered lesson links\nauthored labels and current lesson numbers\nexternal / unresolved links remain unchanged" as copied_readme
+component "trust-lsp.examplesCatalog (language server)\nmanifest and lesson contracts\navailability / copyable / retained progress" as catalog
+component "examples.ts\nmessage adapter / selected lesson payload" as gallery
+component "galleryWebview.ts\nshared-theme gallery rendering" as view
+component "controlLesson.ts\ncanonical lesson detail projection" as detail
+component "lessonMarkup.ts / lessonMarkupView.ts\nauthored Markdown / MathML presentation" as markup
+component "bundledFilePreview.ts\nscoped immutable text snapshots" as preview
+component "Native read-only source editor" as source
+component "projectLocations.ts\nretained lesson ID / project path registry" as locations
+component "projectReopening.ts\nselect retained path / classify existence" as reopening
+component "projectOpening.ts\nshared openProjectFolder retry loop\ncreated / existing recovery wording" as opening
+component "projectLanding.ts\nstructured intent producers / scoped dispatcher" as landing
+database "VS Code global state\ncurrent landing intent + retained lesson locations" as state
+component "Destination workspace activation" as activation
+component "projectLandingActivation.ts\nrecovery notification / explicit Retry" as recovery
+component "Open source document" as main
+component "Open Markdown lesson preview" as readme
+create --> landing : starter Main path
+copy --> locations : await lesson ID / destination path persist
+copy --> copied_readme : check folder name /\nadapt destination README only
+copied_readme --> readme : gallery continuation guidance\nno assumed sibling project folders
+locations --> state : immutable retained records\nexact duplicates stored once
+copy --> landing : await copied project / file / example intent
+landing --> state : one current intent\nmatching legacy migration
+gallery --> catalog : load entries / stored progress
+catalog --> gallery : entries with availability
+gallery --> view : render shell
+gallery --> detail : full selected lesson metadata
+detail --> gallery : lesson name / context / complete teaching text
+gallery --> markup : selected lesson formatting only
+markup --> view : inert markup / allowed file references
+view --> gallery : explicit referenced-file action
+gallery --> preview : current lesson / allowed target / generation
+preview --> source : project-contained UTF-8 snapshot\nread-only virtual document
+source --> view : close source / retained lesson tab
+note right of view
+Lesson actions precede expandable technical metadata.
+The complete expected observation remains available.
+Only identical repeated presentation is omitted.
+The same Create/Open commands own project adoption.
+end note
+gallery --> copy : explicit Create project
+gallery --> reopening : explicit Open existing project
+reopening --> locations : filter lesson / select persisted path\nclassify present or missing
+reopening --> opening : present existing destination
+create --> opening : only after landing state update
+copy --> opening : only after location + landing state updates
+opening --> activation : successful folder switch
+opening --> opening : explicit Retry only\nnever recopy or scaffold again
+activation --> recovery : single activation entrypoint
+recovery --> landing : consume / explicit retry
+landing --> main : starter, scoped destination only
+landing --> readme : lesson, scoped destination only
+landing --> recovery : opened / waiting / recovery result
+note bottom of activation
+An unrelated workspace must not consume the pending destination.
+Concurrent consumption is deduplicated in the extension host.
+An older completion must not clear a newer intent.
+Failed opens retain the intent for explicit retry.
+Created and existing destinations share one retry mechanism but keep truthful wording.
+A missing retained lesson path is reported without recreating or copying the project.
+end note
+@enduml

@@ -1,84 +1,66 @@
+//! The smallest uses of the runtime's API: a program compiled for this computer loads, runs its
+//! scans and reports them to its metrics (specification 44 §8.8).
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::sync::{Arc, Mutex};
-use trust_runtime::execution_backend::ExecutionBackend;
-use trust_runtime::harness::CompileSession;
+use trust_runtime::harness::TestHarness;
 use trust_runtime::metrics::RuntimeMetrics;
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::RuntimeBuilder;
+
+const COUNTER: &str = r#"
+    PROGRAM Main
+    VAR
+        count : DINT := DINT#0;
+    END_VAR
+    count := count + DINT#1;
+    END_PROGRAM
+"#;
 
 #[test]
 fn loads_runtime() {
-    let runtime = RuntimeBuilder::new()
-        .build()
-        .expect("admit empty application");
-    let profile = runtime.profile();
-    assert_eq!(runtime.execution_backend(), ExecutionBackend::BytecodeVm);
+    // A loaded program has run no scan: its logical time is zero and it counted no cycle. Catches a
+    // load that starts the program's time or runs a first scan.
+    let harness =
+        TestHarness::from_source("PROGRAM Main\nEND_PROGRAM\n").expect("build the empty program");
+    let runtime = harness.runtime();
     assert_eq!(runtime.current_time(), Duration::ZERO);
     assert_eq!(runtime.cycle_counter(), 0);
-    assert_eq!(profile.epoch.ticks(), 0);
-    assert_eq!(profile.resolution.as_millis(), 1);
-}
-
-#[test]
-fn runtime_execution_backend_uses_the_already_prepared_shared_module() {
-    let mut runtime = RuntimeBuilder::new()
-        .build()
-        .expect("admit empty application");
-    assert_eq!(runtime.execution_backend(), ExecutionBackend::BytecodeVm);
-    runtime
-        .set_execution_backend(ExecutionBackend::BytecodeVm)
-        .expect("vm backend selection accepts the admitted empty application");
-
-    let source = r#"
-        PROGRAM Main
-        VAR
-            count : DINT := DINT#0;
-        END_VAR
-        count := count + DINT#1;
-        END_PROGRAM
-    "#;
-    let mut runtime = CompileSession::from_source(source)
-        .build_runtime()
-        .expect("build runtime");
-    runtime
-        .set_execution_backend(ExecutionBackend::BytecodeVm)
-        .expect("select vm backend");
-    runtime
-        .execute_cycle()
-        .expect("vm backend executes the already prepared shared module");
-    let main_id = match runtime.storage().get_global("Main") {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected Main instance global, got {other:?}"),
-    };
     assert_eq!(
-        runtime.storage().get_instance_var(main_id, "count"),
-        Some(&Value::DInt(1))
+        trust_runtime::execution_backend::EXECUTION_BACKEND,
+        "native"
     );
 }
 
 #[test]
-fn runtime_metrics_snapshot_tracks_vm_backend_selection() {
-    let source = r#"
-        PROGRAM Main
-        VAR
-            count : DINT := DINT#0;
-        END_VAR
-        count := count + DINT#1;
-        END_PROGRAM
-    "#;
-    let session = CompileSession::from_source(source);
-    let mut runtime = session.build_runtime().expect("build runtime");
-    let bytes = session.build_bytecode_bytes().expect("build bytecode");
-    runtime
-        .apply_bytecode_bytes(&bytes, None)
-        .expect("apply bytecode");
+fn a_scan_runs_the_compiled_program() {
+    // One scan adds 1 to `count`, which starts at 0. Catches a scan that does not run the program's
+    // body, and a cycle that is not counted.
+    let mut harness = TestHarness::from_source(COUNTER).expect("build the program");
+    let result = harness.cycle();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    assert_eq!(harness.get_output("Main.count"), Some(Value::DInt(1)));
+    assert_eq!(harness.runtime().cycle_counter(), 1);
+}
 
+#[test]
+fn runtime_metrics_record_the_scans_and_the_program_memory() {
+    // Two scans are two recorded cycles, and the metrics hold the program's memory figure from the
+    // moment the sink is set (specification 34 MEM-12). Catches a sink that records no scan, and a
+    // figure that only a later status sees.
+    let mut harness = TestHarness::from_source(COUNTER).expect("build the program");
     let metrics = Arc::new(Mutex::new(RuntimeMetrics::default()));
-    runtime.set_metrics_sink(metrics.clone());
-    runtime
-        .set_execution_backend(ExecutionBackend::BytecodeVm)
-        .expect("select vm backend");
-    runtime.execute_cycle().expect("execute cycle");
+    harness.runtime_mut().set_metrics_sink(metrics.clone());
+    assert!(metrics
+        .lock()
+        .expect("metrics lock")
+        .snapshot()
+        .program_memory
+        .is_some());
+    harness.runtime_mut().execute_cycle().expect("first scan");
+    harness.runtime_mut().execute_cycle().expect("second scan");
 
     let snapshot = metrics.lock().expect("metrics lock").snapshot();
-    assert_eq!(snapshot.execution_backend, ExecutionBackend::BytecodeVm);
+    assert_eq!(snapshot.cycle.samples(), 2);
+    assert_eq!(harness.get_output("Main.count"), Some(Value::DInt(2)));
 }

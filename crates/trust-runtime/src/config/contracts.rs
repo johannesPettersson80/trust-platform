@@ -3,13 +3,27 @@ pub struct RuntimeConfig {
     pub bundle_version: u32,
     pub resource_name: SmolStr,
     pub cycle_interval: Duration,
-    pub execution_backend: ExecutionBackend,
+    /// `resource.max_statements_per_scan`: the statements and loop passes one task activation of a
+    /// compiled program runs at most (specification 44 NX-10); 1,000,000 when the project sets
+    /// none.
+    pub max_statements_per_scan: u32,
+    /// Whether `runtime.execution_backend` came from the project; every value it may take runs the
+    /// compiled program (specification 44 §15).
     pub execution_backend_source: ExecutionBackendSource,
-    pub control_endpoint: SmolStr,
+    /// The configured `[runtime.control] endpoint`; `None` when it is omitted, so the platform
+    /// default applies (spec 11, section 6.8.0a).
+    pub control_endpoint: Option<SmolStr>,
     pub control_auth_token: Option<SmolStr>,
     pub control_debug_enabled: bool,
     pub control_mode: ControlMode,
     pub log_level: SmolStr,
+    /// `runtime.events.capacity`: the newest events the event store keeps. `None` uses the
+    /// device's default (1,000 on a computer), so a deployment record can tell that the project
+    /// set none (specification 11, the event store).
+    pub event_capacity: Option<usize>,
+    /// `runtime.identify.output`: the output that `identify` blinks (specification 11,
+    /// "Identify"). `None` means the runtime has no identify output.
+    pub identify_output: Option<IdentifyOutputConfig>,
     pub retain_mode: RetainMode,
     pub retain_path: Option<PathBuf>,
     pub retain_save_interval: Duration,
@@ -28,7 +42,6 @@ pub struct RuntimeConfig {
     pub realtime: LinuxRtConfig,
     pub openot: OpenOtTelemetryConfig,
     pub observability: HistorianConfig,
-    pub hmi_persistence: HmiPersistenceConfig,
     pub ads: AdsRuntimeConfig,
     pub ads_server: AdsServerRuntimeConfig,
     pub opcua_client: OpcUaClientRuntimeConfig,
@@ -60,6 +73,8 @@ pub struct WebConfig {
     pub listen: SmolStr,
     pub auth: WebAuthMode,
     pub tls: bool,
+    /// HMI users, session times and write policy (`[runtime.web.hmi]`, specification 39, §12.8).
+    pub hmi: crate::hmi::access::config::HmiAccessConfig,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -529,7 +544,9 @@ pub struct RuntimeBundle {
     pub opcua_client: Option<crate::opcua::OpcUaClientConfig>,
     pub opcua_client_config_hash: Option<String>,
     pub simulation: Option<SimulationConfig>,
-    pub bytecode: Vec<u8>,
+    /// The project's program image, `program.tpi`, which the computer runs (specification 44 §8.8,
+    /// NX-15).
+    pub image: Vec<u8>,
 }
 
 #[derive(Debug, Clone)]
@@ -539,6 +556,16 @@ pub struct TaskOverride {
     pub priority: u8,
     pub programs: Vec<SmolStr>,
     pub single: Option<SmolStr>,
+}
+
+impl RuntimeConfig {
+    /// The newest events the runtime's event store keeps: `runtime.events.capacity`, or the
+    /// computer's default of 1,000 when the project sets none (specification 11, the event store).
+    #[must_use]
+    pub fn event_store_capacity(&self) -> usize {
+        self.event_capacity
+            .unwrap_or(trust_runtime_services::events::EVENT_STORE_CAPACITY)
+    }
 }
 
 #[cfg(test)]

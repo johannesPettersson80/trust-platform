@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -20,7 +22,7 @@ END_PROGRAM
 static NEXT_HISTORY_PATH_ID: AtomicU64 = AtomicU64::new(0);
 
 fn state() -> ControlState {
-    crate::control::tests::hmi_test_state(SOURCE)
+    crate::control::tests::control_test_state(SOURCE)
 }
 
 fn temp_history_path(name: &str) -> PathBuf {

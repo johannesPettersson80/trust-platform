@@ -12,26 +12,44 @@ use zenoh::{Config as ZenohConfig, Wait};
 
 use crate::config::{MeshConfig, MeshRole};
 use crate::error::RuntimeError;
-use crate::runtime_cloud::contracts::{CatalogEntry, IdentityPayload, RUNTIME_CLOUD_API_VERSION};
+use crate::runtime_cloud::contracts::{IdentityPayload, RUNTIME_CLOUD_API_VERSION};
 use crate::runtime_cloud::keyspace::{
-    meta_catalog_key, meta_identity_key, meta_shm_channels_key, svc_liveliness_key,
+    meta_identity_key, meta_shm_channels_key, svc_liveliness_key,
 };
+use crate::runtime_id::platform;
 use crate::scheduler::{ResourceCommand, ResourceControl, StdClock};
 
 use super::mapping::{
     build_mesh_payload, decode_mesh_payload, mesh_data_key, mesh_liveliness_expr,
     mesh_qos_profile_for_key, now_ns, parse_subscribe_mapping, snapshot_globals, DEFAULT_SITE,
 };
-use super::models::{MeshPeerRegistry, MeshQosProfile, MeshReadiness, MeshService};
+use super::models::{
+    MeshIdentityReply, MeshPeerRegistry, MeshQosProfile, MeshReadiness, MeshService,
+};
 use super::version::validate_zenoh_version_policy;
 
 const MESH_PUBLISH_INTERVAL: StdDuration = StdDuration::from_millis(1000);
 const LIVELINESS_HISTORY_LIMIT: usize = 128;
 
+/// Starts the runtime's mesh. `name` keys its queryables and its identity answer; `stable_runtime_id`
+/// is the runtime ID that its announcement and `status` give (specification 11, "Sources").
 pub fn start_mesh(
     config: &MeshConfig,
     name: SmolStr,
+    stable_runtime_id: SmolStr,
     resource: ResourceControl<StdClock>,
+) -> Result<Option<MeshService>, RuntimeError> {
+    start_mesh_with_tls(config, name, stable_runtime_id, resource, None)
+}
+
+/// Starts the mesh with the runtime's already-loaded TLS material; `name` and `stable_runtime_id`
+/// are as for [`start_mesh`].
+pub fn start_mesh_with_tls(
+    config: &MeshConfig,
+    name: SmolStr,
+    stable_runtime_id: SmolStr,
+    resource: ResourceControl<StdClock>,
+    tls: Option<&crate::security::TlsMaterials>,
 ) -> Result<Option<MeshService>, RuntimeError> {
     if !config.enabled {
         return Ok(None);
@@ -50,7 +68,11 @@ pub fn start_mesh(
     let mut zenoh_config = build_zenoh_config(config).map_err(|message| {
         RuntimeError::InvalidConfig(format!("runtime.mesh configuration error: {message}").into())
     })?;
-    let session = match zenoh::open(std::mem::take(&mut zenoh_config)).wait() {
+    let authentication = super::security::configure(&mut zenoh_config, config, tls)
+        .map_err(|message| RuntimeError::InvalidConfig(message.into()))?;
+    let opened = zenoh::open(std::mem::take(&mut zenoh_config)).wait();
+    drop(authentication);
+    let session = match opened {
         Ok(session) => session,
         Err(error) => {
             return Ok(Some(MeshService {
@@ -81,13 +103,18 @@ pub fn start_mesh(
     let liveliness_ready = liveliness_token.is_some();
 
     let liveliness_registry = peer_registry.clone();
+    let local_runtime_id = name.clone();
     let liveliness_subscriber_ready = session
         .liveliness()
         .declare_subscriber(mesh_liveliness_expr())
+        .history(true)
         .callback(move |sample| {
             let Some(runtime_id) = liveliness_runtime_id(sample.key_expr().as_str()) else {
                 return;
             };
+            if runtime_id == local_runtime_id.as_str() {
+                return;
+            }
             let joined = sample.kind() == SampleKind::Put;
             if let Ok(mut guard) = liveliness_registry.lock() {
                 guard.record(runtime_id, joined, now_ns());
@@ -98,17 +125,32 @@ pub fn start_mesh(
         .is_ok();
 
     let (identity_queryable_ready, catalog_queryable_ready) =
-        declare_identity_and_catalog_queryables(&session, name.as_str(), config);
+        declare_identity_and_catalog_queryables(
+            &session,
+            name.as_str(),
+            stable_runtime_id.as_str(),
+            config,
+            &resource,
+        );
     let _shm_queryable_ready = declare_meta_shm_queryable(&session, name.as_str());
     let _cfg_queryable_ready = declare_cfg_queryable(&session, name.as_str());
     let _cmd_queryable_ready = declare_cmd_queryable(&session, name.as_str());
     declare_subscribers(&session, &resource, config);
+    super::hmi_reads::declare(&session, name.as_str(), &config.publish, &resource);
+    super::hmi_operations::install(
+        &session,
+        name.as_str(),
+        config,
+        &resource,
+        peer_registry.clone(),
+    );
 
     let publisher_thread = spawn_publish_loop(
         &session,
         name.as_str(),
         resource.clone(),
         config.publish.clone(),
+        peer_registry.clone(),
         stop_flag.clone(),
         sequence.clone(),
     );
@@ -146,7 +188,7 @@ fn build_zenoh_config(config: &MeshConfig) -> Result<ZenohConfig, String> {
         let endpoints = config
             .connect
             .iter()
-            .map(|endpoint| normalize_endpoint(endpoint.as_str()))
+            .map(|endpoint| normalize_endpoint(endpoint.as_str(), config.tls))
             .collect::<Result<Vec<_>, _>>()?;
         zenoh_config
             .insert_json5(
@@ -159,7 +201,7 @@ fn build_zenoh_config(config: &MeshConfig) -> Result<ZenohConfig, String> {
     }
 
     if matches!(config.role, MeshRole::Peer | MeshRole::Router) {
-        let listen = normalize_endpoint(config.listen.as_str())?;
+        let listen = normalize_endpoint(config.listen.as_str(), config.tls)?;
         zenoh_config
             .insert_json5(
                 "listen/endpoints",
@@ -181,15 +223,23 @@ fn mesh_role_text(role: MeshRole) -> &'static str {
     }
 }
 
-fn normalize_endpoint(endpoint: &str) -> Result<String, String> {
+fn normalize_endpoint(endpoint: &str, tls: bool) -> Result<String, String> {
     let endpoint = endpoint.trim();
     let canonical = if endpoint.contains('/') {
         endpoint.to_string()
     } else {
-        format!("tcp/{endpoint}")
+        format!("{}/{endpoint}", if tls { "tls" } else { "tcp" })
     };
     if canonical.is_empty() {
         return Err("empty endpoint".to_string());
+    }
+    if tls {
+        if let Some(address) = canonical.strip_prefix("tcp/") {
+            return Ok(format!("tls/{address}"));
+        }
+        if !canonical.starts_with("tls/") {
+            return Err("mesh TLS requires TLS endpoints".into());
+        }
     }
     Ok(canonical)
 }
@@ -197,20 +247,30 @@ fn normalize_endpoint(endpoint: &str) -> Result<String, String> {
 fn declare_identity_and_catalog_queryables(
     session: &zenoh::Session,
     runtime_id: &str,
+    stable_runtime_id: &str,
     config: &MeshConfig,
+    resource: &ResourceControl<StdClock>,
 ) -> (bool, bool) {
     let identity_key = meta_identity_key(DEFAULT_SITE, runtime_id);
-    let identity_payload = serde_json::to_string(&IdentityPayload {
-        api_version: RUNTIME_CLOUD_API_VERSION.to_string(),
-        runtime_id: runtime_id.to_string(),
-        site: DEFAULT_SITE.to_string(),
-        catalog_epoch: 1,
-        build: "runtime-cloud-mesh".to_string(),
-        capabilities: vec![
-            format!("mesh_role={}", config.role.as_str()),
-            format!("zenoh_baseline={}", crate::mesh::ZENOH_BASELINE_VERSION),
-            format!("zenohd_baseline={}", crate::mesh::ZENOHD_BASELINE_VERSION),
-        ],
+    // The mesh names a runtime by the resource name that keys its queryables, so that name is also
+    // the name in its identity answer (specification 11, "Sources").
+    let identity_payload = serde_json::to_string(&MeshIdentityReply {
+        identity: IdentityPayload {
+            api_version: RUNTIME_CLOUD_API_VERSION.to_string(),
+            runtime_id: runtime_id.to_string(),
+            site: DEFAULT_SITE.to_string(),
+            catalog_epoch: 1,
+            build: "runtime-cloud-mesh".to_string(),
+            capabilities: vec![
+                format!("mesh_role={}", config.role.as_str()),
+                format!("zenoh_baseline={}", crate::mesh::ZENOH_BASELINE_VERSION),
+                format!("zenohd_baseline={}", crate::mesh::ZENOHD_BASELINE_VERSION),
+            ],
+        },
+        name: Some(runtime_id.to_string()),
+        version: Some(env!("CARGO_PKG_VERSION").to_string()),
+        platform: Some(platform().to_string()),
+        stable_runtime_id: Some(stable_runtime_id.to_string()),
     })
     .unwrap_or_else(|_| "{}".to_string());
     let identity_ready = session
@@ -224,32 +284,7 @@ fn declare_identity_and_catalog_queryables(
         .wait()
         .is_ok();
 
-    let catalog_key = meta_catalog_key(DEFAULT_SITE, runtime_id);
-    let catalog_payload = serde_json::to_string(
-        &config
-            .publish
-            .iter()
-            .map(|entry| CatalogEntry {
-                api_version: RUNTIME_CLOUD_API_VERSION.to_string(),
-                schema_id: entry.to_string(),
-                schema_version: 1,
-                schema_hash: "sha256:mesh-placeholder".to_string(),
-                encoding: "json".to_string(),
-                qos: "mesh_t1_fast".to_string(),
-            })
-            .collect::<Vec<_>>(),
-    )
-    .unwrap_or_else(|_| "[]".to_string());
-    let catalog_ready = session
-        .declare_queryable(catalog_key.as_str())
-        .callback(move |query| {
-            let _ = query
-                .reply(query.key_expr().clone(), catalog_payload.clone())
-                .wait();
-        })
-        .background()
-        .wait()
-        .is_ok();
+    let catalog_ready = super::catalogue::declare(session, runtime_id, &config.publish, resource);
 
     (identity_ready, catalog_ready)
 }
@@ -349,16 +384,30 @@ fn spawn_publish_loop(
     runtime_id: &str,
     resource: ResourceControl<StdClock>,
     publish: Vec<SmolStr>,
+    peers: Arc<Mutex<MeshPeerRegistry>>,
     stop_flag: Arc<AtomicBool>,
     sequence: Arc<AtomicU64>,
 ) -> Option<thread::JoinHandle<()>> {
-    if publish.is_empty() {
-        return None;
-    }
     let session = session.clone();
     let runtime_id = runtime_id.to_string();
     Some(thread::spawn(move || {
         while !stop_flag.load(Ordering::Relaxed) {
+            let known = peers
+                .lock()
+                .map(|peers| {
+                    peers
+                        .peers
+                        .iter()
+                        .filter(|peer| peer.as_str() != runtime_id)
+                        .cloned()
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            super::hmi_reads::poll(&session, &resource, &known);
+            if publish.is_empty() {
+                thread::sleep(MESH_PUBLISH_INTERVAL);
+                continue;
+            }
             let snapshot = match snapshot_globals(&resource, &publish) {
                 Ok(snapshot) => snapshot,
                 Err(err) => {

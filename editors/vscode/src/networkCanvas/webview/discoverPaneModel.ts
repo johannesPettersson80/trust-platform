@@ -1,3 +1,4 @@
+import type { DiscoveredAdsFacts } from "../canvasCommands";
 import type { DiscoverCandidate } from "../offlineComm";
 
 export interface DiscoverOrigin {
@@ -52,30 +53,25 @@ export interface DiscoveredRuntimeHost {
   readonly label: string;
 }
 
+// Whether a search can start from a runtime is the language server's (`discovery` of the node).
 export function buildDiscoverOrigins(
   nodes: readonly DiscoverCanvasNode[]
 ): DiscoverOrigin[] {
   const runtimes = nodes
     .filter((node) => node.type === "runtime")
     .map((node): DiscoverOrigin => {
-      const label = String(node.data.label ?? node.id);
-      const health = String(node.data.health ?? "");
-      const runtimeDiscoveryReady =
-        node.data.attached === true ||
-        health === "connected" ||
-        health === "running" ||
-        health === "online";
+      const discovery = node.data.discovery as
+        | { readonly ready: boolean; readonly reason?: string }
+        | undefined;
       return {
         id: node.id,
-        label,
+        label: String(node.data.label ?? node.id),
         controlEndpoint:
           typeof node.data.controlEndpoint === "string"
             ? node.data.controlEndpoint
             : undefined,
-        runtimeDiscoveryReady,
-        runtimeDiscoveryDisabledReason: runtimeDiscoveryReady
-          ? undefined
-          : `Start or connect ${label} before scanning from it.`,
+        runtimeDiscoveryReady: discovery?.ready === true,
+        runtimeDiscoveryDisabledReason: discovery?.ready ? undefined : discovery?.reason,
       };
     });
   return [
@@ -116,18 +112,17 @@ export function shouldShowDiscoveryUnavailable(
   );
 }
 
+// The runtime a found device is added to, and the host of a found runtime, are the language
+// server's (`draft_runtime_id`, `host` of the result's facts).
 export function draftForDiscoveredCandidate(
   candidate: DiscoverCandidate,
+  facts: DiscoveredAdsFacts | undefined,
   nodes: readonly DiscoverCanvasNode[]
 ): DeviceDraft {
-  const runtime = candidate.originRuntimeId
-    ? nodes.find(
-        (node) =>
-          node.type === "runtime" && node.id === candidate.originRuntimeId
-      )
-    : nodes.find((node) => node.type === "runtime");
+  const runtimeId = facts?.draft_runtime_id ?? "";
+  const runtime = nodes.find((node) => node.type === "runtime" && node.id === runtimeId);
   return {
-    runtimeId: runtime?.id ?? "",
+    runtimeId,
     runtimeName: String(runtime?.data.label ?? "runtime"),
     protocol: candidate.protocol,
     prefillParams: candidate.params,
@@ -135,20 +130,7 @@ export function draftForDiscoveredCandidate(
 }
 
 export function hostForDiscoveredRuntime(
-  candidate: DiscoverCandidate
+  facts: DiscoveredAdsFacts | undefined
 ): DiscoveredRuntimeHost | undefined {
-  const endpoint =
-    typeof candidate.params.control_endpoint === "string"
-      ? candidate.params.control_endpoint
-      : "";
-  if (!endpoint) {
-    return undefined;
-  }
-  const label =
-    typeof candidate.label === "string" && candidate.label.trim().length > 0
-      ? candidate.label.trim()
-      : typeof candidate.params.name === "string"
-        ? candidate.params.name.trim()
-        : "";
-  return { endpoint, label };
+  return facts?.host;
 }

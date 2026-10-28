@@ -34,12 +34,12 @@ fn lower_global_var_block(
             VarBlockKind::Global => {
                 for name in parts.names {
                     globals.push(GlobalInit {
-                        constant: qualifiers.constant,
                         name: namespace_qualified_name(var_block, name.as_str()),
                         type_id,
                         initializer: init_expr.clone(),
                         retain: qualifiers.retain,
                         address: parts.address.clone(),
+                        constant: qualifiers.constant,
                     });
                 }
             }
@@ -106,12 +106,12 @@ pub(super) fn lower_var_access_block(
         match &path {
             AccessPath::Direct { text, .. } => {
                 result.globals.push(GlobalInit {
-                    constant: false,
                     name: namespace_qualified_name(var_block, name.as_str()),
                     type_id,
                     initializer: None,
                     retain: crate::RetainPolicy::Unspecified,
                     address: Some(text.clone()),
+                    constant: false,
                 });
             }
             AccessPath::Parts(_) => {
@@ -152,7 +152,6 @@ fn lower_var_config_block(
             .transpose()?;
         let address = config_init_address(&config_init)?;
         inits.push(ConfigInit {
-            display_name: Some(super::super::config::access_path_display(&path)),
             path,
             address,
             type_id,

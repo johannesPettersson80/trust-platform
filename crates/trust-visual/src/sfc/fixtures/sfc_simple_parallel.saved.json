@@ -1,0 +1,172 @@
+{
+  "name": "SFC_Program",
+  "steps": [
+    {
+      "id": "step_start",
+      "name": "Start",
+      "initial": true,
+      "x": 300,
+      "y": 50,
+      "actions": [
+        {
+          "id": "act_start",
+          "name": "StartProcess",
+          "qualifier": "N",
+          "body": "ready := TRUE;"
+        }
+      ]
+    },
+    {
+      "id": "step_task_a",
+      "name": "TaskA",
+      "initial": false,
+      "x": 200,
+      "y": 250,
+      "actions": [
+        {
+          "id": "act_task_a",
+          "name": "ExecuteTaskA",
+          "qualifier": "L",
+          "time": "T#1s",
+          "body": "task_a_running := ExecuteTaskA.Q;"
+        }
+      ]
+    },
+    {
+      "id": "step_task_b",
+      "name": "TaskB",
+      "initial": false,
+      "x": 400,
+      "y": 250,
+      "actions": [
+        {
+          "id": "act_task_b",
+          "name": "ExecuteTaskB",
+          "qualifier": "L",
+          "time": "T#2s",
+          "body": "task_b_running := ExecuteTaskB.Q;"
+        }
+      ]
+    },
+    {
+      "id": "step_end",
+      "name": "End",
+      "initial": false,
+      "x": 300,
+      "y": 450,
+      "actions": [
+        {
+          "id": "act_end",
+          "name": "EndProcess",
+          "qualifier": "N",
+          "body": "done := TRUE;"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "trans_start_split",
+      "name": "T_ToSplit",
+      "condition": "ready",
+      "sourceStepId": "step_start",
+      "targetStepId": "split_1",
+      "priority": 1
+    },
+    {
+      "id": "trans_split_a",
+      "name": "T_ToTaskA",
+      "condition": "TRUE",
+      "sourceStepId": "split_1",
+      "targetStepId": "step_task_a",
+      "priority": 1
+    },
+    {
+      "id": "trans_split_b",
+      "name": "T_ToTaskB",
+      "condition": "TRUE",
+      "sourceStepId": "split_1",
+      "targetStepId": "step_task_b",
+      "priority": 2
+    },
+    {
+      "id": "trans_a_join",
+      "name": "T_TaskADone",
+      "condition": "NOT ExecuteTaskA.Q",
+      "sourceStepId": "step_task_a",
+      "targetStepId": "join_1",
+      "priority": 1
+    },
+    {
+      "id": "trans_b_join",
+      "name": "T_TaskBDone",
+      "condition": "NOT ExecuteTaskB.Q",
+      "sourceStepId": "step_task_b",
+      "targetStepId": "join_1",
+      "priority": 1
+    },
+    {
+      "id": "trans_join_end",
+      "name": "T_ToEnd",
+      "condition": "TRUE",
+      "sourceStepId": "join_1",
+      "targetStepId": "step_end",
+      "priority": 1
+    }
+  ],
+  "parallelSplits": [
+    {
+      "id": "split_1",
+      "name": "Split",
+      "x": 300,
+      "y": 150,
+      "branchIds": [
+        "step_task_a",
+        "step_task_b"
+      ]
+    }
+  ],
+  "parallelJoins": [
+    {
+      "id": "join_1",
+      "name": "Join",
+      "x": 300,
+      "y": 350,
+      "branchIds": [
+        "step_task_a",
+        "step_task_b"
+      ],
+      "nextStepId": "step_end"
+    }
+  ],
+  "variables": [
+    {
+      "name": "ready",
+      "type": "BOOL",
+      "initialValue": "FALSE",
+      "comment": "Start signal"
+    },
+    {
+      "name": "task_a_running",
+      "type": "BOOL",
+      "initialValue": "FALSE",
+      "comment": "Task A status"
+    },
+    {
+      "name": "task_b_running",
+      "type": "BOOL",
+      "initialValue": "FALSE",
+      "comment": "Task B status"
+    },
+    {
+      "name": "done",
+      "type": "BOOL",
+      "initialValue": "FALSE",
+      "comment": "Completion flag"
+    }
+  ],
+  "metadata": {
+    "modified": "2026-10-26T12:00:00.000Z",
+    "version": "1.0"
+  }
+}

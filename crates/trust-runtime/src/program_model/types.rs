@@ -27,6 +27,10 @@ pub struct Param {
     pub direction: ParamDirection,
     pub address: Option<IoAddress>,
     pub default: Option<expr::Expr>,
+    /// The retention of a function block's or a program's input or output: the `RETAIN` or
+    /// `NON_RETAIN` of its section (IEC 61131-3 Ed.3 §6.5.6.1, §6.5.6.2); unspecified for an
+    /// in-out and for a function's or a method's parameters, which a call owns.
+    pub retain: crate::RetainPolicy,
 }
 
 /// Variable declaration with optional initializer.

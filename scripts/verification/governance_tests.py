@@ -157,7 +157,7 @@ class GovernanceTests(unittest.TestCase):
                 for path in specs.glob("[0-9][0-9]-*.md")
             ),
             key=lambda name: int(name.split("-", 1)[0]),
-        ) + ["sfc-profile.md"]
+        ) + ["trust-plant-library.md", "hmi-component-catalogue.md", "sfc-profile.md"]
         readme = (specs / "README.md").read_text(encoding="utf-8")
         indexed = re.findall(r"^\| \[([^]]+\.md)\]\([^)]*\) \|", readme, re.MULTILINE)
 

@@ -1,5 +1,5 @@
 site_name: truST Documentation
-site_description: Free, open-source IEC 61131-3 Structured Text IDE and runtime. VS Code extension, browser HMI, JSON-RPC API. Runs on Linux, including PREEMPT_RT soft-real-time deployments, macOS, Windows, and Raspberry Pi.
+site_description: Free, open-source IEC 61131-3 Structured Text IDE and runtime. VS Code extension, browser IDE, JSON-RPC API. Runs on Linux, including PREEMPT_RT soft-real-time deployments, macOS, Windows, and Raspberry Pi.
 site_url: https://johannespettersson80.github.io/trust-platform/
 repo_url: https://github.com/johannesPettersson80/trust-platform
 repo_name: trust-platform
@@ -113,7 +113,11 @@ nav:
           - Live Values: operate/live-values.md
           - Run & Check: operate/debugging-and-runtime-panel.md
           - Simulation: operate/simulation.md
+          - Control Studio: operate/control-studio.md
+          - Control System Engineering: develop/control-system-engineering.md
           - Test And Debug Examples: examples/test-and-debug.md
+      - Operator Screens:
+          - HMI Builder: develop/hmi-builder.md
       - Visual Programming:
           - Overview: develop/visual-editors/index.md
           - Ladder: develop/visual-editors/ladder.md
@@ -122,14 +126,11 @@ nav:
           - Statechart: develop/visual-editors/statechart.md
           - Companion ST: develop/visual-editors/companion-st.md
           - Visual Editor Examples: examples/visual-editors.md
-      - HMI Programming:
-          - HMI Authoring: develop/hmi-authoring.md
-          - HMI Examples: examples/hmi.md
-          - Browser HMI Preview: start/operate-in-browser.md
       - I/O And Hardware While Programming:
           - Driver Matrix: connect/devices-and-fieldbus/driver-matrix.md
           - I/O Binding: connect/devices-and-fieldbus/io-binding.md
           - GPIO: connect/devices-and-fieldbus/gpio.md
+          - Analog, PWM, Counters And CAN: connect/devices-and-fieldbus/analog-pwm-counter-can.md
           - EtherCAT: connect/devices-and-fieldbus/ethercat.md
           - Simulated And Loopback I/O: connect/devices-and-fieldbus/simulated-and-loopback.md
           - Multi Driver: connect/devices-and-fieldbus/multi-driver.md
@@ -164,6 +165,11 @@ nav:
           - OSCAT OOP: develop/libraries/oscat-oop.md
           - PLCopen Motion: develop/libraries/plcopen-motion.md
           - PLCopen Motion OOP: develop/libraries/plcopen-motion-oop.md
+          - Control: develop/libraries/control.md
+          - Alarm: develop/libraries/alarm.md
+          - HMI: develop/libraries/hmi.md
+          - Comm: develop/libraries/comm.md
+          - Plant: develop/libraries/plant.md
           - Libraries And Motion Examples: examples/libraries-and-motion.md
       - Migration While Programming:
           - Migration Overview: migrate/index.md
@@ -182,11 +188,11 @@ nav:
   - Run:
       - Overview: operate/index.md
       - Runtime UI And Control: operate/runtime-ui-and-control.md
+      - Control Studio: operate/control-studio.md
       - Install On Target: operate/install-on-target.md
       - Supervision: operate/supervision.md
       - PREEMPT_RT: operate/preempt-rt.md
       - Deploy And Rollback: operate/deploy-rollback.md
-      - HMI (Preview & Browser): operate/hmi-and-web-ui.md
       - Errors And Recovery: operate/errors-and-recovery.md
       - Operator Guide: operate/operator-guide.md
       - Daily Checks: operate/operator-daily-checks.md
@@ -219,6 +225,10 @@ nav:
       - Runbooks: examples/runbooks.md
   - Hardware:
       - Overview: hardware/index.md
+      - ESP32-C6 Getting Started: hardware/esp32c6-getting-started.md
+      - Install And Update truST On A Chip: hardware/chip-install-and-update.md
+      - device.toml: hardware/device-toml.md
+      - Supported Chips: hardware/supported-chips.md
       - Supported Platforms And Compatibility: reference/hardware-compatibility.md
       - Raspberry Pi / Target Install Notes: operate/install-on-target.md
       - Linux / PREEMPT_RT: operate/preempt-rt.md
@@ -235,10 +245,10 @@ nav:
           - Overview: reference/config/index.md
           - runtime.toml: reference/config/runtime-toml.md
           - io.toml: reference/config/io-toml.md
+          - device.toml: hardware/device-toml.md
           - ads.toml: reference/config/ads-toml.md
           - simulation.toml: reference/config/simulation-toml.md
           - trust-lsp.toml: reference/config/trust-lsp-toml.md
-          - hmi/: reference/config/hmi-directory.md
           - Runtime Cloud Profiles: reference/config/runtime-cloud.md
           - Vendor Profiles: reference/config/vendor-profiles.md
       - Agent API:
@@ -259,7 +269,7 @@ nav:
           - 09 Semantic Rules: reference/specifications/09-semantic-rules.md
           - 10 Runtime Semantics: reference/specifications/10-runtime-semantics.md
           - 11 Runtime Engine: reference/specifications/11-runtime-engine.md
-          - 12 Bytecode: reference/specifications/12-bytecode.md
+          - 12 Bytecode (superseded): reference/specifications/12-bytecode.md
           - 13 Debug Adapter: reference/specifications/13-debug-adapter.md
           - 14 LSP: reference/specifications/14-lsp.md
           - 15 Ladder Diagram: reference/specifications/15-ladder-diagram.md
@@ -274,6 +284,7 @@ nav:
           - 24 Release Evidence: reference/specifications/24-release-evidence.md
           - 32 MQTT I/O: reference/specifications/32-mqtt-io.md
           - 34 Runtime Portability: reference/specifications/34-runtime-portability.md
+          - 44 Native Execution: reference/specifications/44-native-execution.md
           - SFC Profile: reference/specifications/sfc-profile.md
       - Hardware Compatibility: reference/hardware-compatibility.md
       - API Lifecycle And Deprecation: reference/api-lifecycle-and-deprecation.md

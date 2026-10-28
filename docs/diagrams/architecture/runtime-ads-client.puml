@@ -61,7 +61,7 @@ package "trust-runtime::host::ads" as hostAds #LightCyan {
 
 package "Compiled Runtime Model" as runtimeModel #LightGreen {
     component "HIR/type checker\nnormal ST compile path" as hir
-    component "Runtime globals metadata\nHMI / debug / historian / OPC UA visible" as globals
+    component "Runtime globals metadata\ndebug / historian / OPC UA visible" as globals
     component "VariableStorage\nwrite_by_ref / read_by_ref" as storage
     component "AdsSubsystem\nowned by Runtime" as adsSubsystem
     component "Scan cycle\ninput phase + output phase" as scan
@@ -70,7 +70,7 @@ package "Compiled Runtime Model" as runtimeModel #LightGreen {
 
 cloud "Beckhoff TwinCAT PLC\nADS server" as twincat #LightGray
 component "OPC UA Gateway" as opcua #Wheat
-component "HMI + Control/Debug + Historian" as surfaces #Wheat
+component "Control/Debug + Historian" as surfaces #Wheat
 
 runtimePane --> runtimeTarget : owns runtime selection
 vscodeAdsPanel --> runtimeTarget : reads selected runtime\n(no second chooser)

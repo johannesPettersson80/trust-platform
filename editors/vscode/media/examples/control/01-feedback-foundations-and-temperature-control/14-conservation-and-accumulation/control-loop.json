@@ -1,0 +1,136 @@
+{
+    "schemaVersion": 2,
+    "topology": "open-loop",
+    "id": "control-lesson-14",
+    "name": "Volume balance",
+    "projectId": "project:control-lesson-14",
+    "runtimeId": "simulator",
+    "controller": {
+        "instance": "P1",
+        "type": "Main",
+        "design": "project",
+        "revision": "sha256:bb3394df432e3e9684b0a0e9a6a99e7a2c9ae9f71775d90eab08c6afff9b9ffd",
+        "action": "direct",
+        "taskPeriodMs": 1000
+    },
+    "signals": {
+        "processVariable": {
+            "symbol": "P1.LevelM",
+            "address": "%IL0",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "m",
+            "range": {
+                "minimum": 0,
+                "maximum": 1
+            }
+        },
+        "manipulatedVariable": {
+            "symbol": "P1.InletFlowM3S",
+            "address": "%QL0",
+            "iecType": "LREAL",
+            "direction": "read",
+            "unit": "m³/s",
+            "range": {
+                "minimum": 0,
+                "maximum": 0.02
+            }
+        },
+        "additional": [
+            {
+                "id": "model-level",
+                "channel": "model-level",
+                "role": "state",
+                "symbol": "P1.ModelLevelM",
+                "address": "%ML0",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "m",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            },
+            {
+                "id": "outlet-flow",
+                "channel": "outlet-flow",
+                "role": "disturbance",
+                "symbol": "P1.OutletFlowM3S",
+                "address": "%QL8",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "m³/s",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 0.02
+                }
+            },
+            {
+                "id": "model-level-rate",
+                "channel": "model-level-rate",
+                "role": "state",
+                "symbol": "P1.ModelLevelRateMS",
+                "address": "%ML8",
+                "iecType": "LREAL",
+                "direction": "read",
+                "unit": "m/s",
+                "range": {
+                    "minimum": -0.04,
+                    "maximum": 0.04
+                }
+            },
+            {
+                "id": "experiment-authority",
+                "channel": "experiment-authority",
+                "role": "state",
+                "symbol": "P1.ExperimentEnabled",
+                "address": "%MX16.0",
+                "iecType": "BOOL",
+                "direction": "read",
+                "unit": "1",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            },
+            {
+                "id": "active",
+                "channel": "active",
+                "role": "state",
+                "symbol": "P1.Active",
+                "address": "%MX16.1",
+                "iecType": "BOOL",
+                "direction": "read",
+                "unit": "1",
+                "range": {
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            }
+        ]
+    },
+    "limits": {
+        "outputMinimum": 0,
+        "outputMaximum": 0.02
+    },
+    "observedSampleTiming": {
+        "nominalPeriodMs": 1000
+    },
+    "plantId": "volume-balance-tank",
+    "experiment": {
+        "execution": "project-scripted",
+        "kind": "observation",
+        "amplitude": 0,
+        "durationSeconds": 22.1,
+        "seed": 20260829,
+        "activation": {
+            "symbol": "P1.ExperimentEnabled",
+            "address": "%MX16.0",
+            "iecType": "BOOL",
+            "direction": "write"
+        },
+        "baselineSeconds": 2
+    },
+    "operatingPoint": "0.25 m level with equal 0.010 m³/s inlet and outlet flows",
+    "revision": "sha256:eeb2ee113d5300b393b1d3059101c438568f1617caa3c266e24aec5b2eb9038f"
+}

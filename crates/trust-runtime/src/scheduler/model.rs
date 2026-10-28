@@ -1,12 +1,6 @@
-/// The scheduler's copies of the watchdog, fault and retain-save policies, which `config.set`
-/// changes. They travel in one command, so a full queue refuses the whole set and the scan thread
-/// applies the whole set as one step (specification 11 section 6.8.1).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SchedulerPolicies {
-    pub watchdog: crate::watchdog::WatchdogPolicy,
-    pub fault_policy: crate::watchdog::FaultPolicy,
-    pub retain_save_interval: Option<Duration>,
-}
+// The scheduler's policy set, which `config.set` changes as one command, is shared runtime code
+// (spec 34 ARCH-11; specification 11 section 6.8.1).
+pub use trust_runtime_services::resource::commands::SchedulerPolicies;
 
 /// Commands applied to a running resource.
 #[derive(Debug, Clone)]
@@ -19,11 +13,16 @@ pub enum ResourceCommand {
         bytes: Vec<u8>,
         /// Shared with the waiting request, which withdraws the reload if it times out first.
         claim: ReloadClaim,
-        respond_to: std::sync::mpsc::Sender<Result<RuntimeMetadata, RuntimeError>>,
+        respond_to: std::sync::mpsc::Sender<Result<(), RuntimeError>>,
     },
     MeshSnapshot {
         names: Vec<SmolStr>,
         respond_to: std::sync::mpsc::Sender<IndexMap<SmolStr, Value>>,
+    },
+    MeshCatalogue {
+        names: Vec<String>,
+        respond_to:
+            std::sync::mpsc::Sender<Result<Vec<crate::hmi::variable_tree::VariableNode>, String>>,
     },
     MeshApply {
         updates: IndexMap<SmolStr, Value>,
@@ -32,6 +31,19 @@ pub enum ResourceCommand {
     },
     Snapshot {
         respond_to: std::sync::mpsc::Sender<crate::debug::DebugSnapshot>,
+    },
+    SimulationSnapshot {
+        respond_to: std::sync::mpsc::Sender<Option<crate::simulation::SimulationRuntimeSnapshot>>,
+    },
+    SimulationTraceClear {
+        plant_id: String,
+        active_configuration_revision: String,
+        respond_to: std::sync::mpsc::Sender<
+            Result<
+                crate::simulation::PlantTraceClearResult,
+                crate::simulation::PlantTraceClearError,
+            >,
+        >,
     },
     AdsStatus {
         respond_to: std::sync::mpsc::Sender<crate::ads::diagnostics::AdsStatusReport>,
@@ -45,6 +57,63 @@ pub enum ResourceCommand {
         respond_to:
             std::sync::mpsc::Sender<Option<crate::ads::onboarding::ActiveAdsDeviceSnapshot>>,
     },
+    /// `program.install` installed a program while the resource is stopped (specification 34
+    /// section 11.2): the next stepped cold restart loads it.
+    ProgramInstalled,
+    /// One stepped scan of the stopped program (`cycle.step`, specification 11 section 6.8.1),
+    /// which only the stopped wait runs.
+    StepCycle {
+        request: Box<StepRequest>,
+        respond_to: std::sync::mpsc::Sender<Result<StepOutcome, StepRefusal>>,
+    },
+}
+
+/// What a program start leaves to the scan thread: the scheduling settings of the program's own
+/// configuration, which the thread takes over (specification 34, STATE-08).
+pub struct StartedProgram {
+    /// The cycle interval of the program's configuration.
+    pub cycle_interval: Duration,
+    /// The simulation time scale of the program's configuration, at least 1.
+    pub time_scale: u32,
+    /// The simulation of the program's configuration, when it has one.
+    pub simulation: Option<crate::simulation::SimulationController>,
+    /// What hosted hang supervision does after it records a hung scan thread.
+    pub hang_action: crate::watchdog::HangAction,
+}
+
+/// Loads the installed program into the runtime slot and starts it in the given mode, as a new
+/// process loads and starts its program (specification 34, STATE-08).
+///
+/// The loader reads the program first and changes the slot only once that has succeeded. It drops
+/// the program that stopped, with its I/O drivers, before it builds the drivers of the new one.
+/// When it fails the slot holds either the program that stopped or a new program that did not
+/// start, so the next `restart` loads the program again.
+pub type ProgramLoader = Box<
+    dyn FnMut(&mut CompiledRuntime, crate::RestartMode) -> Result<StartedProgram, RuntimeError>
+        + Send,
+>;
+
+/// The kind of work `command` asks for; the shared supervisor rules decide what each kind does
+/// while running and while faulted.
+fn command_class(command: &ResourceCommand) -> CommandClass {
+    match command {
+        ResourceCommand::Pause => CommandClass::Pause,
+        ResourceCommand::Resume => CommandClass::Resume,
+        ResourceCommand::ReloadBytecode { .. } => CommandClass::Reload,
+        ResourceCommand::MeshApply { .. } => CommandClass::VariableWrite,
+        ResourceCommand::UpdateSchedulerPolicies(_)
+        | ResourceCommand::UpdateIoSafeState(_)
+        | ResourceCommand::MeshSnapshot { .. }
+        | ResourceCommand::Snapshot { .. }
+        | ResourceCommand::AdsStatus { .. }
+        | ResourceCommand::OpcUaClientStatus { .. }
+        | ResourceCommand::ActiveAdsDevice { .. }
+        | ResourceCommand::ProgramInstalled
+        | ResourceCommand::StepCycle { .. }
+        | ResourceCommand::MeshCatalogue { .. }
+        | ResourceCommand::SimulationSnapshot { .. }
+        | ResourceCommand::SimulationTraceClear { .. } => CommandClass::Service,
+    }
 }
 
 /// Gate that blocks resource execution until opened.

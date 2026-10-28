@@ -1,0 +1,494 @@
+{
+  "schemaVersion": 4,
+  "id": "control-fault-aware-control",
+  "title": "Fault-aware control",
+  "level": "Modern",
+  "sequence": 88,
+  "equipment": "Six of Lesson 13's heaters (10 kW/°C, 1 s delivery delay), each measured by two temperature sensors",
+  "physicalPurpose": "Keep the heater under control on a trustworthy measurement, and remove heat when the two sensors cannot establish one.",
+  "principalTechnique": "Sensor classification by range and age, timed disagreement detection, fault latching with zero heat, bumpless sensor transfer, and qualified recovery",
+  "objective": "Control on the healthy sensor when the other is out of range or stale, latch zero heat when two fresh readings disagree for 0.2 s or no reading is valid, and restart only after three fresh agreeing readings and a new Auto request.",
+  "prerequisites": [
+    "control-networked-control"
+  ],
+  "nextLesson": "control-capstone-independent",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Restored heater temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL40"
+    },
+    {
+      "role": "MV",
+      "name": "Restored heater command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL40"
+    },
+    {
+      "role": "state",
+      "name": "Setpoint",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "state",
+      "name": "Stale-sensor heater temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Range-fault heater temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Disagreement heater temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL16"
+    },
+    {
+      "role": "state",
+      "name": "Short-disagreement heater temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL24"
+    },
+    {
+      "role": "state",
+      "name": "Both-invalid heater temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL32"
+    },
+    {
+      "role": "state",
+      "name": "Stale case selected reading",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML56"
+    },
+    {
+      "role": "state",
+      "name": "Stale case sensor",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 2,
+      "resolution": 1,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Range case sensor",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 2,
+      "resolution": 1,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "Both-invalid case sensor",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 2,
+      "resolution": 1,
+      "binding": "%ML24"
+    },
+    {
+      "role": "state",
+      "name": "Disagreement timer",
+      "unit": "s",
+      "minimum": 0,
+      "maximum": 60,
+      "resolution": 0.001,
+      "binding": "%ML32"
+    },
+    {
+      "role": "state",
+      "name": "Short-disagreement timer",
+      "unit": "s",
+      "minimum": 0,
+      "maximum": 60,
+      "resolution": 0.001,
+      "binding": "%ML40"
+    },
+    {
+      "role": "state",
+      "name": "Disagreement fault",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX96.3"
+    },
+    {
+      "role": "state",
+      "name": "Both-invalid fault",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX96.4"
+    },
+    {
+      "role": "state",
+      "name": "Restored case fault",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX96.5"
+    },
+    {
+      "role": "state",
+      "name": "Restored case qualified",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX96.6"
+    },
+    {
+      "role": "state",
+      "name": "Restored case agreeing readings",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 10,
+      "resolution": 1,
+      "binding": "%ML48"
+    },
+    {
+      "role": "state",
+      "name": "Stale-sensor heater command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Disagreement heater command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL16"
+    },
+    {
+      "role": "state",
+      "name": "Both-invalid heater command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL32"
+    },
+    {
+      "role": "state",
+      "name": "Largest command change at a change of sensor",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%ML64"
+    },
+    {
+      "role": "state",
+      "name": "Cases passed",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 6,
+      "resolution": 1,
+      "binding": "%ML72"
+    },
+    {
+      "role": "state",
+      "name": "Highest peak",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML80"
+    },
+    {
+      "role": "state",
+      "name": "Largest error from 30 s",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 5,
+      "resolution": 0.001,
+      "binding": "%ML88"
+    },
+    {
+      "role": "state",
+      "name": "Started at rest",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX96.1"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX96.0"
+    },
+    {
+      "role": "state",
+      "name": "Clock fault",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX96.2"
+    }
+  ],
+  "plant": {
+    "modelId": "heater-sensor-cases",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "thermal_capacity",
+        "value": 50,
+        "unit": "kJ/degC"
+      },
+      {
+        "name": "heat_loss",
+        "value": 10,
+        "unit": "kW/degC"
+      },
+      {
+        "name": "heater_power_per_point",
+        "value": 2,
+        "unit": "kW"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1.0,
+        "unit": "s"
+      },
+      {
+        "name": "sensor_period",
+        "value": 0.1,
+        "unit": "s"
+      },
+      {
+        "name": "age_limit",
+        "value": 0.5,
+        "unit": "s"
+      },
+      {
+        "name": "disagreement_limit",
+        "value": 0.4,
+        "unit": "degC"
+      },
+      {
+        "name": "disagreement_duration",
+        "value": 0.2,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "allHeaters": 35.0
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Restored heater command": 75,
+      "Restored heater temperature": 35
+    },
+    "validityRange": [
+      {
+        "signal": "Restored heater temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      }
+    ],
+    "simplifications": [
+      "50·dT/dt = 2·u(t − 1) − 10·(T − 20) for each heater.",
+      "Both sensors read the heater's temperature exactly every 0.1 s; the program adds each case's fault after 5 s."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "measurement": "One sensor used without range, age or disagreement checks"
+    },
+    "limitation": "A stale or out-of-range reading keeps driving the PI, and a disagreement between two plausible readings goes unnoticed."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "validity": "0–80 °C and at most 0.5 s old, never from the future",
+      "selection": "A when valid, otherwise B; Control.PID re-initialized at each change",
+      "latch": "disagreement above 0.4 °C for 0.2 s, or no valid sensor: zero heat",
+      "recovery": "three fresh agreeing acquisitions, then a new Auto request",
+      "durationSeconds": 64
+    },
+    "decision": "The fault-aware selection is kept: a stale or out-of-range sensor was replaced by the other without a command jump (at most 0.032 points), a sustained disagreement and the loss of both sensors latched zero heat, two short disagreements did not, and the restored heater restarted only after three agreeing readings and a new Auto request, from zero with the integral step alone. The three heaters that kept a valid measurement met the step requirement."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 64,
+    "settlingSeconds": 30,
+    "disturbances": [
+      "Setpoint 35 → 36 °C on all six heaters",
+      "Stale, out-of-range and disagreeing sensor readings after 5 s"
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "count",
+      "signal": "Cases passed",
+      "window": "60 s record",
+      "comparator": "==",
+      "limit": 3,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum",
+      "signal": "Highest peak",
+      "window": "0–60 s",
+      "comparator": "<=",
+      "limit": 37,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_absolute_deviation",
+      "signal": "Largest error from 30 s",
+      "window": "30–60 s",
+      "comparator": "<=",
+      "limit": 0.2,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum",
+      "signal": "Largest command change at a change of sensor",
+      "window": "0–60 s",
+      "comparator": "<=",
+      "limit": 0.1,
+      "unit": "%",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Restored heater command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "An update interval outside 100 ms ± 10 ms latches zero heat on every heater",
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 0,
+    "restorationMode": "After the experiment every heater receives 75 % and returns to 35 °C; a latched sensor fault holds zero heat until qualified readings and an Auto request.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical heater changes",
+      "Two sensors can prove a disagreement but not which sensor is wrong; resolving it needs an independent reference"
+    ]
+  },
+  "workflowStages": [
+    "Identify"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/76-82-nonlinear-and-recovery.md#81-fault-aware-control",
+    "nativeTest": "lesson81",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_79_81 lesson81",
+    "projectPath": "examples/control/13-networked-fault-aware-and-diagnostic-control/79-fault-aware-control",
+    "runArtifactFields": [
+      "temperatures",
+      "commands",
+      "sources",
+      "timers",
+      "faults",
+      "agreeingReadings",
+      "casesPassed",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-fault-aware-control"
+  },
+  "video": {
+    "viewerOutcome": "See a stale or out-of-range sensor replaced without a bump, a sustained disagreement remove heat, and control return only after qualified readings and a new Auto request.",
+    "requiredVisibleEvidence": [
+      "the six temperatures",
+      "selected sensors",
+      "disagreement timers",
+      "faults and qualification",
+      "commands",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 87's heater rejected every faulty packet with one of three checks, and its outage handed control to the local PI with 0.026 points of change. Both controllers, however, trusted the heater's temperature reading. A sensor can fail in a way that is easy to see: it reads 85 °C, or it stops delivering new readings. It can also fail quietly, its readings arriving correctly, fresh and plausible but wrong, and a PI that follows a wrong reading heats in the wrong direction.\n\nThe heater now has two sensors, A and B. We will check each reading for range and age, compare the two, switch to the healthy sensor or remove heat when the readings cannot be trusted, and restart only on evidence and a decision.",
+    "reason": "We need to:\n\n1. recognise a reading that is out of range or too old;\n2. decide what to do when two fresh readings disagree; and\n3. restart only when the readings are trustworthy again and someone asks for it.",
+    "theory": [
+      "**Fault-aware control** checks whether its measurements still make sense, by range, by age and by comparing two sensors, and switches to a backup or a safe action when they do not. For the heater, a reading outside 0–80 °C or older than 0.5 s is invalid, and two valid readings must agree.\n\n**In words.** A controller believes its measurement completely: if the reading is wrong, the PI heats in the wrong direction. Some sensor faults are easy to see, such as a reading of 85 °C or a reading that has stopped changing because the sensor no longer delivers. Others are quiet: the readings arrive fresh and plausible, but wrong. Only a second sensor can reveal those. It works like the discrepancy monitoring of a two-channel emergency stop: both channels must agree within a discrepancy time, or the safety relay trips. The parts:\n\n1. **Range.** A reading outside what the water can be, 0–80 °C, is invalid at once.\n2. **Age.** A reading older than 0.5 s, or stamped with a time after now, is invalid: a sensor that stops delivering leaves its last value behind, which looks fine but no longer follows the water.\n3. **Comparison.** Two valid readings must agree within a stated limit. A disagreement that lasts proves a fault, but not which sensor has it.\n4. **Action.** If one sensor is invalid, control continues on the other. If the two valid readings disagree, or no sensor is valid, the heater latches a fault and removes heat: zero heat is the only command that does not depend on the measurement.\n5. **Recovery.** The fault clears only on evidence, readings that agree again, followed by a decision: a new Auto request.\n\nFor the heater this means a sensor that fails visibly is replaced by the other one, and a quiet fault stops the heating instead of letting a guess decide it.\n\n**The formula.** For each sensor, with its reading $T$ in °C, its acquisition time $t_{acq}$ and the present time $t_{now}$, in seconds:\n\n$$\n\\text{valid} = (0 \\le T \\le 80) \\ \\text{and} \\ (t_{acq} \\le t_{now}) \\ \\text{and} \\ (t_{now} - t_{acq} \\le 0.5\\ \\text{s}) .\n$$\n\nFor two valid readings $T_A$ and $T_B$, the disagreement is\n\n$$\nd = |T_A - T_B| ,\n$$\n\nin °C. Two valid readings disagree when $d$ exceeds 0.4 °C for 0.2 s:\n\n- with 0.1 s updates, the disagreement timer counts the time since $d$ was first seen above 0.4 °C;\n- the timer restarts whenever $d$ is back within 0.4 °C or a sensor becomes invalid; and\n- the fault clears only after three acquisitions in which both sensors are valid and agree, each new acquisition counted once, followed by a new Auto request.\n\nWhen control moves from A to B, or restarts, `Control.PID` is re-initialised with the applied command and the new reading, so the command does not jump.\n\n**Example: the heater's two sensors.**\n\n1. Range: A reads 85 °C. It is invalid at once; control continues on B, and the PI starts from the applied command, so the command does not jump.\n2. Age: a reading acquired at 7.0 s is $7.3 - 7.0 = 0.3$ s old at 7.3 s, still valid.\n3. Agreement: A at 35.40 °C and B at 35.65 °C give $d = 0.25$ °C, within the limit. If each sensor is accurate to ±0.1 °C, their errors alone can make $d = 0.2$ °C, so the 0.4 °C limit leaves a margin.\n4. Disagreement: A at 35.40 °C and B at 36.00 °C give $d = 0.60$ °C, more than 0.4 °C.\n5. Timing: suppose B reads 0.6 °C high at 20.0 and 20.1 s, agrees at 20.2 s, and reads high again from 20.3 s. The timer shows 0.1 s at 20.1 s, restarts at 20.2 s, shows 0.1 s at 20.4 s and reaches 0.2 s at 20.5 s: only then does the fault latch.\n6. Which sensor? B 0.6 °C high and A 0.6 °C low give the same $d$. A third, independent measurement could decide; two cannot, so the heater removes heat.\n\n**The limitation.** A quiet fault smaller than the limit is not detected at all: if A, the sensor in use, reads 0.3 °C high, the PI holds the water 0.3 °C below its setpoint, and $d = 0.3$ °C raises no alarm (calculated). And when a fault is detected, two sensors cannot say where it is, so the heater must stop heating. The 0.4 °C, 0.2 s and 0.5 s limits are a teaching choice."
+    ],
+    "workedPrediction": "The heater has 10 kW/°C and a 1 s delivery delay, rests at 35 °C with 75 % and steps to 36 °C at the start, with $K_p = 2.5$ %/°C and $K_i = 0.5$ %/(°C·s). Six copies each see one sensor fault after 5 s:\n\n| Case | What the sensors do |\n| --- | --- |\n| Stale | A stops acquiring at 5.0 s |\n| Range | A reads 85 °C from 5.0 s |\n| Disagreement | B reads 0.6 °C high from 5.0 s |\n| Short disagreements | B reads 0.6 °C high at 5.0, 5.1, 5.3 and 5.4 s only |\n| Both invalid | A reads 85 °C from 5.0 s, and B stops acquiring at 5.0 s |\n| Restored | B reads 0.6 °C high from 5.0 to 9.9 s; Auto is requested at 8.0 s and again at 12.0 s |\n\nBefore running, answer these questions:\n\n1. When does the stale case stop using A: at 5.5 s or at 5.6 s?\n2. When does the disagreement latch, and why do the short disagreements not latch?\n3. What happens to the temperature when heat is removed?\n4. When does the restored heater get heat again: at 8.0 s, 10.2 s or 12.0 s?",
+    "practicalPreparation": [
+      "1. Open this lesson's project and start **Simulator**. The six heaters rest at 35 °C. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Project experiment** from **Method**. Under **Declared experiment settings**, **Auto Request Time** shows 12 (s, 0–60). Press **Inspect experiment parameters**, keep 12, press **Review parameter values** and then **Apply reviewed values**.\n3. **Signals** shows `P1.RestoredC · Process value (°C)`, `P1.SetpointC · state (°C)` and the other five heaters, from `P1.StaleC · state (°C)` to `P1.BothC · state (°C)`. Add `P1.StaleSource · state (1)`, `P1.BothSource · state (1)`, `P1.DisagreementTimerS · state (s)`, `P1.ShortTimerS · state (s)`, `P1.RestoredQualified · state (1)` and `P1.RestoredPct · Applied output (%)`.\n4. Answer the predictions, select **Review project test** and check the declared **64 s**: the start and 60 s after it. Select **Confirm and start**; the experiment starts about 2 s later, and times below count from that start.\n5. After the run, hover the sources at 5.0 s, 5.5 s and 5.6 s, the timers at 5.1 s, 5.2 s and 5.4 s, the temperatures at 12 s and 60 s, and the restored heater's command at 8.0 s and 12.0 s.\n6. At completion Control Studio shows **Project test completed. Outputs restored.**\n\nSelect **Abort test** to stop early; to repeat, restart **Simulator** so the six heaters start at rest."
+    ],
+    "baseline": "Run the naive controller from pressure transmitter A without redundancy or actuator supervision.",
+    "change": "Run the fault-aware controller from the qualified selected pressure with multirate supervision, degradation, safe modes and supervised recovery.",
+    "comparison": "![Invalid or stale readings are replaced by the other sensor; a sustained disagreement removes heat; the restored heater restarts only at the second request](figures/sensor-faults.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio's recording, times after the start:\n\n| Case | What the heater did after 5 s |\n| --- | --- |\n| Stale | kept using A's last reading, 35.36 °C, while the water rose to 35.40 °C; switched to B at 5.6 s |\n| Range | switched to B at 5.0 s |\n| Disagreement | timed 0.1 and 0.2 s at 5.1 and 5.2 s, latched at 5.2 s and removed heat |\n| Short disagreements | timed 0.1 s at 5.1 s, restarted at 5.2 s, timed 0.1 s again at 5.4 s; no fault |\n| Both invalid | switched to B at 5.0 s; latched at 5.6 s, when B's reading was 0.6 s old, and removed heat |\n| Restored | latched at 5.2 s; refused the Auto request at 8.0 s; qualified at 10.2 s; restarted at 12.0 s |\n\n1. The stale case stopped using A at 5.6 s, when A's last reading was 0.6 s old.\n2. The disagreement latched at 5.2 s; the short disagreements restarted the timer at 5.2 s and never reached 0.2 s.\n3. The latched heaters were at 24.8 and 25.3 °C at 12 s and at 20 °C at 60 s: without heat the water cooled toward 20 °C.\n4. The restored heater got heat again at 12.0 s, not at 8.0 s, when the readings still disagreed, and not at 10.2 s, when it qualified after agreeing readings at 10.0, 10.1 and 10.2 s. It restarted with 0.558 %, only its integral step; the command rose to 47 % at 20 s, and the water was back at 35.81 °C at 60 s.\n\nThe changes of sensor moved the command by at most 0.032 points, and the stale, range and short-disagreement heaters peaked at 35.999 °C and stayed within 0.039 °C of 36 °C from 30 s. The cost of refusing to guess is a cold heater; the benefit is that no wrong reading decides the heat. The rules are kept. These are simulation results with exact sensors apart from the injected faults.",
+    "validation": "![Invalid or stale readings are replaced by the other sensor; a sustained disagreement removes heat; the restored heater restarts only at the second request](figures/sensor-faults.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio's recording, times after the start:\n\n| Case | What the heater did after 5 s |\n| --- | --- |\n| Stale | kept using A's last reading, 35.36 °C, while the water rose to 35.40 °C; switched to B at 5.6 s |\n| Range | switched to B at 5.0 s |\n| Disagreement | timed 0.1 and 0.2 s at 5.1 and 5.2 s, latched at 5.2 s and removed heat |\n| Short disagreements | timed 0.1 s at 5.1 s, restarted at 5.2 s, timed 0.1 s again at 5.4 s; no fault |\n| Both invalid | switched to B at 5.0 s; latched at 5.6 s, when B's reading was 0.6 s old, and removed heat |\n| Restored | latched at 5.2 s; refused the Auto request at 8.0 s; qualified at 10.2 s; restarted at 12.0 s |\n\n1. The stale case stopped using A at 5.6 s, when A's last reading was 0.6 s old.\n2. The disagreement latched at 5.2 s; the short disagreements restarted the timer at 5.2 s and never reached 0.2 s.\n3. The latched heaters were at 24.8 and 25.3 °C at 12 s and at 20 °C at 60 s: without heat the water cooled toward 20 °C.\n4. The restored heater got heat again at 12.0 s, not at 8.0 s, when the readings still disagreed, and not at 10.2 s, when it qualified after agreeing readings at 10.0, 10.1 and 10.2 s. It restarted with 0.558 %, only its integral step; the command rose to 47 % at 20 s, and the water was back at 35.81 °C at 60 s.\n\nThe changes of sensor moved the command by at most 0.032 points, and the stale, range and short-disagreement heaters peaked at 35.999 °C and stayed within 0.039 °C of 36 °C from 30 s. The cost of refusing to guess is a cold heater; the benefit is that no wrong reading decides the heat. The rules are kept. These are simulation results with exact sensors apart from the injected faults.",
+    "explanation": "A fault that one sensor shows by itself, out of range or too old, is handled by the other sensor with the controller realigned; a disagreement between two fresh readings proves a fault but not where, so the heater removes heat instead of guessing.\n\nFor the heater, the healthy sensor took over with at most 0.032 points of change, the disagreements latched at 0.2 s, and the restored heater restarted only on qualified readings and the second request.",
+    "transfer": "Each mechanism worked on its own problem: tuning, bounds, packet checks and sensor checks. A complete application with competing requirements has not yet been designed independently.\n\n[Independent design](../../14-integrated-capstones/84-independent/README.md) states the requirements, compares two designs and defends the choice with measured evidence."
+  }
+}

@@ -1,0 +1,346 @@
+{
+  "schemaVersion": 4,
+  "id": "control-kalman-filter",
+  "title": "Kalman filtering",
+  "level": "Modern",
+  "sequence": 79,
+  "equipment": "A two-tank gravity cascade with an inlet pump; tank 2 read with 5 mm of noise",
+  "physicalPurpose": "Estimate the unmeasured upstream level with a correction set by the model's and the reading's uncertainty.",
+  "principalTechnique": "Two-state discrete Kalman filter with Joseph-form covariance update",
+  "objective": "Predict and correct tank 1's level from tank 2's noisy readings with a Kalman filter, and compare the correct assumed reading uncertainty with one 20 times too small and one 20 times too large.",
+  "prerequisites": [
+    "control-state-observer"
+  ],
+  "nextLesson": "control-lqr",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Tank 2 level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 0.5,
+      "resolution": 1e-06,
+      "binding": "%IL8"
+    },
+    {
+      "role": "MV",
+      "name": "Pump flow",
+      "unit": "m3/s",
+      "minimum": 0,
+      "maximum": 0.02,
+      "resolution": 1e-06,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Tank 1 level",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 0.5,
+      "resolution": 1e-06,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Corrected tank 1",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 0.5,
+      "resolution": 1e-06,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "Tank 2 reading",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 0.5,
+      "resolution": 1e-06,
+      "binding": "%ML0"
+    },
+    {
+      "role": "state",
+      "name": "Kalman gain on tank 1",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 25,
+      "resolution": 1e-06,
+      "binding": "%ML56"
+    },
+    {
+      "role": "state",
+      "name": "Predicted tank 1",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 0.5,
+      "resolution": 1e-06,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Filter standard deviation of tank 1",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 0.05,
+      "resolution": 1e-06,
+      "binding": "%ML32"
+    },
+    {
+      "role": "state",
+      "name": "Innovation",
+      "unit": "m",
+      "minimum": -0.05,
+      "maximum": 0.05,
+      "resolution": 1e-06,
+      "binding": "%ML64"
+    },
+    {
+      "role": "state",
+      "name": "Corrected tank 2",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 0.5,
+      "resolution": 1e-06,
+      "binding": "%ML24"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX72.0"
+    },
+    {
+      "role": "state",
+      "name": "RMS error",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 0.05,
+      "resolution": 1e-06,
+      "binding": "%ML40"
+    },
+    {
+      "role": "state",
+      "name": "Claimed RMS error",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 0.05,
+      "resolution": 1e-06,
+      "binding": "%ML80"
+    },
+    {
+      "role": "state",
+      "name": "Peak error",
+      "unit": "m",
+      "minimum": 0,
+      "maximum": 0.05,
+      "resolution": 1e-06,
+      "binding": "%ML48"
+    },
+    {
+      "role": "state",
+      "name": "Clock valid",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX72.1"
+    },
+    {
+      "role": "state",
+      "name": "Fault latched",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX72.2"
+    }
+  ],
+  "plant": {
+    "modelId": "two-tank-cascade",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "area_m2",
+        "value": 0.5,
+        "unit": "m2"
+      },
+      {
+        "name": "outflow_coefficient_m2_sqrt_m_per_s",
+        "value": 0.02,
+        "unit": "m^(5/2)/s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "tank1Level": 0.25,
+      "tank2Level": 0.25
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Pump flow": 0.01,
+      "Tank 1 level": 0.25,
+      "Tank 2 level": 0.25
+    },
+    "validityRange": [
+      {
+        "signal": "Tank 1 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      },
+      {
+        "signal": "Tank 2 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      }
+    ],
+    "simplifications": [
+      "0.5·dh1/dt = q − 0.020·√h1 and 0.5·dh2/dt = 0.020·√h1 − 0.020·√h2; tank 1 discharges freely into tank 2, without backpressure.",
+      "The filter uses the local linear model advanced once per second; the reading noise is a fixed pseudo-random sequence with a 5 mm standard deviation, added in the program and restarted with each experiment."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "estimate": "Lesson 78's observer with a gain chosen for speed"
+    },
+    "limitation": "A gain chosen for a speed ignores how uncertain the model and the reading are: the faster observer of Lesson 78 carried 9 mm of noise."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "filter": "Kalman filter, Q = diag(1e-8, 1e-8) m², P0 = diag(4e-4, 2.5e-5) m²",
+      "assumedReadingSd": "0.005, 0.00025 and 0.1 m in three runs",
+      "durationSeconds": 123
+    },
+    "decision": "Accepted for the cascade with 5 mm reading noise: the Kalman filter assuming the true σ = 5 mm estimated tank 1 within 2 mm from 25 s after the unseen slug, with an RMS error of 0.23 mm from 31 s against a claimed 0.54 mm. Rejected: σ assumed 0.25 mm (gain on tank 1 up to 19.5, within 2 mm only from 39 s, RMS 1.01 mm while claiming 0.34 mm) and σ assumed 100 mm (gain below 0.01, within 2 mm only from 53 s, RMS 1.87 mm). Local model, uniform noise, simulation evidence; the true level only scored the estimates."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 123,
+    "settlingSeconds": 90,
+    "disturbances": [
+      "Pump 0.020 m3/s for 1 s: 0.01 m3 into tank 1 before the filter starts",
+      "Tank 2 read with pseudo-random noise of 5 mm standard deviation, restarted with each experiment"
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "rms_estimation_error",
+      "signal": "RMS error",
+      "window": "31–121 s after the start, corrected tank 1 against the true level, with the correct assumed σ",
+      "comparator": "<=",
+      "limit": 0.0005,
+      "unit": "m",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "rms_estimation_error",
+      "signal": "RMS error",
+      "window": "31–121 s after the start with σ assumed 20 times too small or too large; reported against the correct run",
+      "comparator": ">",
+      "limit": 0.0,
+      "unit": "m",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Pump flow",
+        "minimum": 0,
+        "maximum": 0.02,
+        "unit": "m3/s"
+      },
+      {
+        "signal": "Tank 1 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      },
+      {
+        "signal": "Tank 2 level",
+        "minimum": 0.05,
+        "maximum": 0.45,
+        "unit": "m"
+      }
+    ],
+    "abortPredicates": [
+      "A level outside 0.05–0.45 m or a clock interval outside 1 ± 0.05 s latches zero flow and freezes the filter",
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 0,
+    "restorationMode": "When the experiment ends, the pump returns to 0.010 m3/s; a latched fault holds zero flow until a restart from the rest state.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical pump changes",
+      "The true tank 1 level is a simulation scoring input only, never a filter input",
+      "The covariance is the filter's belief, not a measured error"
+    ]
+  },
+  "workflowStages": [
+    "Identify"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/67-75-state-estimation-and-optimal-control.md#72-kalman-filtering",
+    "nativeTest": "lesson72",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_70_72 lesson72",
+    "projectPath": "examples/control/11-state-space-estimation-and-predictive-control/71-kalman-filter",
+    "runArtifactFields": [
+      "assumedReadingSd",
+      "predictedAndCorrectedEstimates",
+      "gain",
+      "innovation",
+      "filterStandardDeviation",
+      "errorStatistics",
+      "claimedRms",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-kalman-filter"
+  },
+  "video": {
+    "viewerOutcome": "See the Kalman filter predict and correct tank 1 after an unseen slug, then watch a wrong assumed reading uncertainty make the estimate noisy and overconfident or smooth and late.",
+    "requiredVisibleEvidence": [
+      "predicted and corrected tank 1 against the true level",
+      "the assumed reading uncertainty setting",
+      "the gain on tank 1 and the filter's standard deviation",
+      "the claimed RMS error against the RMS error",
+      "three runs: correct, too small, too large",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 78's observer with $L = [0.48, 0.28]^T$ estimated tank 1 within 2 mm from 30 s with noisy readings, while the faster gain never settled within 2 mm. The gain was chosen for a speed, and only the noisy run showed which choice was better: nothing in the choice weighed the model against the sensor. Yet the size of each error is roughly known: the model drifts a little each second, and tank 2's reading is off by about 5 mm.\n\nWe will let those two uncertainties set the correction every second, and test what happens when the assumed reading uncertainty is right and when it is wrong.",
+    "reason": "We need to:\n\n1. weigh the model's prediction against the reading by how uncertain each is;\n2. recalculate that weighting every second as the estimate improves; and\n3. check the estimate, and the accuracy the filter claims, against the true level.",
+    "theory": [
+      "A **Kalman filter** blends the model's prediction with the measurement, trusting each in proportion to how certain it is: the noisier the sensor, the less the estimate follows it. For the tanks it is an observer whose gain is calculated, every second, from how uncertain the model and tank 2's reading are.\n\n**In words.** Lesson 78's observer nudged its copy of the tanks with a fixed gain that we chose for speed. A Kalman filter calculates the nudge at every update from two uncertainties: how far the copy's prediction is probably off, and how far the reading is probably off. It is like combining two redundant transmitters on one level: you give the more reliable one more weight. Here the two sources are the model's prediction and the sensor. The parts:\n\n1. **Predict.** The copy moves on with the model, as in lesson 78. Its uncertainty grows a little every second, because the model is not perfect.\n2. **Weigh.** The weight of the reading follows from the two uncertainties: a certain prediction and a noisy reading give a small weight; an uncertain prediction and a good reading give a large one.\n3. **Correct.** The estimate moves by the weight times the disagreement, and its uncertainty shrinks: the blend is more certain than either source alone.\n\nThe filter also keeps track of how the errors of the two levels go together. Tank 2 is fed by tank 1, so when the copy's tank 1 is too low, its tank 2 soon comes out too low as well; that link lets a reading of tank 2 correct tank 1. For the tanks this means: tell the filter how much the model drifts each second and how noisy tank 2's reading is, and it calculates the best correction every second, together with how sure it is of its estimate.\n\n> **Math you need: variance and covariance.** The **variance** of an error is the mean of its square: errors of +2, −2, +2 and −2 mm have variance 4 mm², and its square root, 2 mm, is the **standard deviation**. The **covariance** of two errors is the mean of their product: positive when they tend to have the same sign. For a vector of errors the variances and covariances form a matrix.\n\n**The formula.** For one measured quantity, let:\n\n- $\\hat x^-$ be the prediction before the reading, with error variance $P^-$;\n- $z$ be the reading, with error variance $R$;\n- $K$ be the weight given to the disagreement $z - \\hat x^-$; and\n- $\\hat x^+$ be the corrected estimate.\n\nThe corrected estimate and the best weight are\n\n$$\n\\hat x^+ = \\hat x^- + K(z - \\hat x^-), \\qquad K = \\frac{P^-}{P^- + R}.\n$$\n\nWhy this $K$: the corrected error is $(1 - K)$ times the prediction error plus $K$ times the reading error, so for independent errors its variance is $(1 - K)^2P^- + K^2R$. Setting its derivative $-2(1 - K)P^- + 2KR$ to zero gives that $K$, and the corrected variance is then $P^+ = (1 - K)P^-$. Worked number: the model predicts a level of 10 cm with a standard deviation of 2 cm, $P^- = 4$ cm², and the sensor reads 12 cm with a standard deviation of 1 cm, $R = 1$ cm². Then $K = 4/5 = 0.8$ and $\\hat x^+ = 10 + 0.8 \\cdot 2 = 11.6$ cm: the estimate moves most of the way towards the better source. Its variance is $0.2^2 \\cdot 4 + 0.8^2 \\cdot 1 = 0.8$ cm², smaller than either source's.\n\nFor the two tanks the same idea runs once per second, with matrices:\n\n1. **Predict:** $\\hat x^- = A_d\\hat x^+ + B_dv$ and $P^- = A_dP^+A_d^T + Q$.\n2. **Correct:** $K = P^-C^T(CP^-C^T + R)^{-1}$, $\\hat x^+ = \\hat x^- + K(y - C\\hat x^-)$ and $P^+ = (I - KC)P^-$.\n\n- $A_d = \\begin{bmatrix}0.96&0\\\\0.04&0.96\\end{bmatrix}$ and $B_d = [2, 0]^T$ are lesson 74's one-second model;\n- $P$ is the error covariance matrix, in m²: the two levels' error variances on the diagonal and their covariance off it;\n- $Q$ is the model's own new error per second, in m²;\n- $C = [0, 1]$, $y$ is tank 2's reading, and $R = \\sigma^2$ is its error variance for an assumed standard deviation $\\sigma$, in m²;\n- $K = [K_1, K_2]^T$ holds the weights for tank 1 and tank 2, in metres of correction per metre of disagreement at tank 2;\n- $I$ is the identity matrix.\n\nWith $C = [0, 1]$, $CP^-C^T$ is just $P^-_{22}$, so $K_2 = P^-_{22}/(P^-_{22} + R)$ is the one-quantity weight, and $K_1 = P^-_{12}/(P^-_{22} + R)$ uses the covariance.\n\n**Example: the filter's first second.** The program uses $Q = \\mathrm{diag}(10^{-8}, 10^{-8})$ m², about 0.1 mm of model error per second, and starts with tank 1 unknown within about 2 cm: $P = \\mathrm{diag}((20\\ \\text{mm})^2, (5\\ \\text{mm})^2)$, that is 400 and 25 mm². With the true reading noise, $R = (5\\ \\text{mm})^2 = 25$ mm². In mm²:\n\n1. Predict: $P^-_{11} = 0.96^2 \\cdot 400 + 0.01 = 368.7$, $P^-_{12} = 0.96 \\cdot 0.04 \\cdot 400 = 15.4$ and $P^-_{22} = 0.04^2 \\cdot 400 + 0.96^2 \\cdot 25 + 0.01 = 23.7$. Tank 1 is uncertain by $\\sqrt{368.7} = 19.2$ mm and tank 2 by 4.9 mm; the covariance is positive because tank 1's error has started to flow into tank 2.\n2. Weigh: $K_2 = 23.7/(23.7 + 25) = 0.487$ and $K_1 = 15.4/48.7 = 0.316$.\n3. Correct: if tank 2 reads 1 mm above its prediction, tank 2's estimate moves up 0.49 mm and tank 1's 0.32 mm, although tank 1 is not measured.\n4. Uncertainty after: $P^+_{22} = (1 - 0.487) \\cdot 23.7 = 12.2$ mm², so tank 2 is now uncertain by 3.5 mm; $P^+_{11} = 368.7 - 0.316 \\cdot 15.4 = 363.8$ mm², so tank 1 only by 19.1 instead of 19.2 mm. One reading of tank 2 says little about tank 1 yet; as tank 1's water shows up at tank 2 over the next seconds, the covariance, and with it tank 1's weight, grows.\n\n**The limitation.** $P$ is what the filter believes about its error, calculated from $A_d$, $Q$ and $R$ without a single reading: after the first second it claims tank 1 within 19.1 mm whatever the readings said. If $R$ is wrong, the weights and the claimed accuracy are both wrong. The three values of $\\sigma$ below, the true 5 mm, 0.25 mm and 100 mm, are a teaching choice that shows both mistakes."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. Which assumed $\\sigma$ gives tank 1's estimate the largest weight in the first seconds, and which the smallest?\n2. With the true $\\sigma = 5$ mm, from when is the estimate within 2 mm of tank 1?\n3. Assuming $\\sigma = 0.25$ mm, trusting the reading too much, what happens to the estimate and to the claimed accuracy?\n4. Assuming $\\sigma = 100$ mm, trusting the model too much, what happens?\n\n| Assumed $\\sigma$ | $R$ against the truth | Weight on tank 1 | Expected behaviour |\n| --- | ---: | --- | --- |\n| 5 mm | right | between the others | settles near 25 s, honest claim |\n| 0.25 mm | 400 times too small | largest | follows the noise, claims too much |\n| 100 mm | 400 times too large | smallest | smooth but late |",
+    "practicalPreparation": [
+      "1. Open this lesson's project and start **Simulator**. The tanks rest at 0.25 m with 0.010 m³/s. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Project experiment** from **Method**. Under **Declared experiment settings**, **Assumed Reading Sd M** shows 0.005 (m, 0.0001–0.2). Press **Inspect experiment parameters**, keep 0.005, press **Review parameter values** and then **Apply reviewed values**; Studio confirms the applied values.\n3. **Signals** shows `P1.Tank2M · Process value (m)` and `P1.PumpM3PerS · Applied output (m3/s)`; add `P1.Tank1M · state (m)`, `P1.CorrectedTank1M · state (m)` and `P1.PredictedTank1M · state (m)`.\n4. Answer the predictions, select **Review project test** and check the declared **123 s**; select **Confirm and start**. The slug comes at the program's next one-second update, about 2 s later; times below count from it.\n5. After the run, hover 11 s, 25 s and 31 s after the slug. Show `P1.GainTank1 · state (1)` and hover 3 s after the slug. Show `P1.RmsM`, `P1.ClaimedRmsM` and `P1.PeakM`, and hover the end.\n6. Restart **Simulator** and repeat with **Assumed Reading Sd M** 0.00025 and then 0.1: edit the value, review and apply it before each run.\n7. At the end of each run Control Studio shows **Project test completed. Outputs restored.**\n\nSelect **Abort test** to stop early."
+    ],
+    "baseline": "Lesson 78 chose the observer gain for a speed; the faster gain carried 9 mm of reading noise.",
+    "change": "Let a Kalman filter set the gain from the model's and the reading's uncertainty, and compare the correct assumed reading uncertainty with one 20 times too small and one 20 times too large.",
+    "comparison": "![With the true reading uncertainty the estimate settles in 25 s; too small follows the noise, too large is late](figures/kalman-assumptions.svg)\n\nThe numbered marks answer predictions 2–4, and the table's gain column answers prediction 1: the smaller the assumed reading uncertainty, the larger the weight on tank 1, from 0.0028 to 19.5. The slug put tank 1 19.6 mm above rest, and every filter started 19.6 mm low. From Control Studio's three recordings:\n\n| Assumed $\\sigma$ | Gain on tank 1 at 3 s | Error at 11 s | Within 2 mm from | RMS error from 31 s | Claimed RMS error |\n| --- | ---: | ---: | ---: | ---: | ---: |\n| 5 mm, true | 0.57 | +0.2 mm | 25 s | 0.23 mm | 0.54 mm |\n| 0.25 mm | 19.5 | −3.2 mm | 39 s | 1.01 mm | 0.34 mm |\n| 100 mm | 0.0028 | −12.8 mm | 53 s | 1.87 mm | 2.08 mm |\n\n2. With the true $\\sigma$ the estimate was within 2 mm from 25 s, against 30 s for Lesson 78's observer with noisy readings, and its RMS error of 0.23 mm stayed within the 0.54 mm it claimed.\n3. Assuming 0.25 mm made $R$ 400 times too small. The gain on tank 1 reached 19.5, so each millimetre of disagreement at tank 2 moved tank 1's estimate by 19.5 mm, and the noise threw it 15.6 cm low at 4 s. It settled only from 39 s, with an RMS error of 1.01 mm while it claimed 0.34 mm: three times worse than it believed.\n4. Assuming 100 mm, the filter hardly used the readings; its estimate approached the true level only as tank 1 drained by itself, still 5.1 mm low at 31 s. It was the smoothest and the least accurate, and it claimed 2.08 mm: knowing it was uncertain did not make it better.\n\nThe benefit of the filter is a gain that follows from the uncertainties instead of a guess; its cost is that it needs those uncertainties right. The filter with the reading's true standard deviation is accepted; both wrong assumptions are rejected. The model is local and the noise uniform, not Gaussian; these are simulation results, and the true level was used only for scoring.",
+    "validation": "![With the true reading uncertainty the estimate settles in 25 s; too small follows the noise, too large is late](figures/kalman-assumptions.svg)\n\nThe numbered marks answer predictions 2–4, and the table's gain column answers prediction 1: the smaller the assumed reading uncertainty, the larger the weight on tank 1, from 0.0028 to 19.5. The slug put tank 1 19.6 mm above rest, and every filter started 19.6 mm low. From Control Studio's three recordings:\n\n| Assumed $\\sigma$ | Gain on tank 1 at 3 s | Error at 11 s | Within 2 mm from | RMS error from 31 s | Claimed RMS error |\n| --- | ---: | ---: | ---: | ---: | ---: |\n| 5 mm, true | 0.57 | +0.2 mm | 25 s | 0.23 mm | 0.54 mm |\n| 0.25 mm | 19.5 | −3.2 mm | 39 s | 1.01 mm | 0.34 mm |\n| 100 mm | 0.0028 | −12.8 mm | 53 s | 1.87 mm | 2.08 mm |\n\n2. With the true $\\sigma$ the estimate was within 2 mm from 25 s, against 30 s for Lesson 78's observer with noisy readings, and its RMS error of 0.23 mm stayed within the 0.54 mm it claimed.\n3. Assuming 0.25 mm made $R$ 400 times too small. The gain on tank 1 reached 19.5, so each millimetre of disagreement at tank 2 moved tank 1's estimate by 19.5 mm, and the noise threw it 15.6 cm low at 4 s. It settled only from 39 s, with an RMS error of 1.01 mm while it claimed 0.34 mm: three times worse than it believed.\n4. Assuming 100 mm, the filter hardly used the readings; its estimate approached the true level only as tank 1 drained by itself, still 5.1 mm low at 31 s. It was the smoothest and the least accurate, and it claimed 2.08 mm: knowing it was uncertain did not make it better.\n\nThe benefit of the filter is a gain that follows from the uncertainties instead of a guess; its cost is that it needs those uncertainties right. The filter with the reading's true standard deviation is accepted; both wrong assumptions are rejected. The model is local and the noise uniform, not Gaussian; these are simulation results, and the true level was used only for scoring.",
+    "explanation": "A Kalman filter sets the observer gain from the uncertainty of the model and of the measurement, and recalculates it every second.\n\nIt is only as good as those uncertainties: too small a reading uncertainty makes the estimate follow the noise while the filter claims an accuracy it does not have; too large makes it smooth, late and poor.",
+    "transfer": "The filter weighed the model against the reading. But estimation does not decide how much pump effort is worth spending to correct the levels.\n\n[LQR control](../69-lqr/README.md) chooses the feedback gains by weighing level deviations against pump effort."
+  }
+}

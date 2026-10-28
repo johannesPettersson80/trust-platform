@@ -31,7 +31,7 @@
 #### 1.1 Purpose
 
 truST LSP is a Language Server Protocol implementation for IEC 61131-3 Structured Text (ST). It provides IDE features including diagnostics, completion, navigation, and refactoring for ST source code. The workspace also contains the
-ST runtime, bytecode format, and debug adapter used for execution and testing.
+ST runtime, the build of programs into program images (specification 44), and the debug adapter used for execution and testing.
 
 #### 1.2 Scope
 
@@ -41,7 +41,7 @@ This specification covers:
 - Semantic analysis including type checking
 - IDE feature implementations
 - LSP protocol integration
-- Runtime execution and bytecode decoding
+- Runtime execution of compiled program images
 - Debug adapter behavior and control protocols
 
 #### 1.3 Target Standard
@@ -73,7 +73,7 @@ trust-platform (workspace)
 ├── trust-hir         # High-level IR and semantic analysis
 ├── trust-ide         # IDE feature implementations
 ├── trust-lsp         # LSP protocol layer
-├── trust-runtime     # Runtime execution engine + bytecode
+├── trust-runtime     # Runtime execution engine + program build
 └── trust-debug       # Debug adapter (DAP)
 ```
 
@@ -256,7 +256,11 @@ Recommended warning groups:
 - `W005` implicit conversion
 - `W008` cyclomatic complexity quality lint
 - `W009` unused POU quality lint
-- `W010`/`W011` non-deterministic time/date and direct-I/O usage
+- `W010`/`W011` non-deterministic time/date and direct-I/O usage; `W011` concerns a direct
+  `%I`/`%Q` address declared in reusable code (a function block, function, method or class),
+  where it ties every use to one channel and to the I/O image's timing. A program's or
+  configuration's I/O list is the normal place for addresses and does not warn (refined on
+  7 October 2026, when every entry of a plant's I/O list was warned of).
 - `W012` shared global access across scheduled tasks
 - `W013`/`W014` numeric hazard lints
 
@@ -386,16 +390,13 @@ change IEC 61131-3 program semantics.
   Runtime settings accept the documented nested and top-level forms without
   merging unrelated keys.
 
-##### 6.6.2 HMI command and descriptor diagnostics
+##### 6.6.2 Binding catalogue command
 
-- HMI commands reject malformed argument shapes and invalid styles before
-  filesystem mutation. Valid initialization and binding requests return the
-  deterministic scaffold and external binding catalogue.
-- HMI TOML diagnostics use open-buffer content, accept valid pages, and report
-  invalid widget, type, property, and binding data without requiring a
-  successful runtime compile.
-- Near-match suggestions rank the closest valid binding first and suppress
-  low-confidence noise.
+- `trust-lsp.hmiBindings` rejects malformed argument shapes. A valid request
+  returns the deterministic external binding catalogue of process-image and
+  control symbols. Its `processImage` lists the numeric plant candidates as `commands`, `feedbacks` and `memory`, and every addressed
+  BOOL variable as `booleans`, so that a declared state can name a bit.
+- HMI page validation is specified in `docs/specs/39-hmi-builder.md`.
 
 ##### 6.6.3 URI and virtual-document handling
 
@@ -541,7 +542,7 @@ the native Rust facades; they do not by themselves prove a `wasm32`,
 | Range/On-Type Formatting | `textDocument/rangeFormatting`, `textDocument/onTypeFormatting` | ✅ | Line-based formatting using document formatter |
 | Configuration | `workspace/didChangeConfiguration` | ✅ | Settings stored (formatting/indexing); project config file is separate |
 | Code Actions | `textDocument/codeAction` | ✅ | Quick fixes for unused symbols, missing END_* / RETURN, call style conversion, namespace disambiguation, implicit conversion, etc. |
-| Execute Command | `workspace/executeCommand` | ✅ | `trust-lsp.moveNamespace` for namespace relocation across files (IEC 61131-3 Ed.3, 6.6.4; Tables 64-66); `trust-lsp.projectInfo` surfaces build flags, targets, and library dependency graph |
+| Execute Command | `workspace/executeCommand` | ✅ | `trust-lsp.moveNamespace` for namespace relocation across files (IEC 61131-3 Ed.3, 6.6.4; Tables 64-66); `trust-lsp.projectInfo` surfaces build flags, targets, and library dependency graph; the five Devices & Connections commands `trust-lsp.devicesView`, `trust-lsp.devicesAct`, `trust-lsp.devicesBrowse`, `trust-lsp.devicesSearch` and `trust-lsp.devicesClose` reach the panel engine (specification 25 §5.15) |
 
 ##### 7.1.1 Position Encoding and Line Boundaries
 
@@ -772,7 +773,8 @@ The stable resolver codes are:
 - Library/dependency graphs report missing references (L001), version mismatches (L002), conflicting declarations (L003), and dependency cycles (L004).
 - `[[libraries]]` can declare `docs` (array of markdown files) to attach vendor library documentation to hover/completion. Each file uses `# SymbolName` headings followed by doc text.
 - `[workspace]` controls multi-root federation: `priority` orders root results for workspace symbol search, and `visibility` (`public`, `private`, `hidden`) filters which roots participate when querying (private roots only appear for non-empty queries) (tooling behavior, non-IEC).
-- `[build]` exposes project compile flags (`flags`), `defines`, and optional `target`/`profile` defaults.
+- `[build]` exposes project compile flags (`flags`), `defines`, and optional `target`/`profile` defaults. `debug` (a Boolean, `true` when absent) chooses the native program image that `trust-runtime build --target` compiles: `false` builds a release image without debug hooks (specification 44 §13.2); `profile` does not choose the image. The language server reads no other meaning into `debug`.
+- `[signing]` `key` names the file of the Ed25519 key, in PKCS#8 PEM and relative to the project folder, that the tools sign the project's program images with; the file must exist. Without it they sign with the user's own key in truST's configuration folder (specification 44 §5.11). The language server reads no meaning into `[signing]`.
 - `[[targets]]` describes target profiles (`name`, `profile`, `flags`, `defines`) surfaced to LSP clients for toolchain selection.
 - `[indexing]` budgets (`max_files`, `max_ms`) bound large workspace indexing.
 - `[indexing]` cache options: `cache` (default true) enables persistent index caching across sessions; `cache_dir` overrides the cache location. Cache reuse checks file metadata and stored content hashes.
@@ -797,8 +799,13 @@ Configuration diagnostics use a stable `C` namespace:
 - `C003`: a configured numeric bound was outside its documented domain, or
   the throttle tuple was incoherent, and normalization fell back to a safe
   documented value or tuple;
-- `C004`: an unknown workspace visibility fell back to `public`; and
-- `C005`: a diagnostic severity override has a blank code or unknown severity and was ignored.
+- `C004`: an unknown workspace visibility fell back to `public`;
+- `C005`: a diagnostic severity override has a blank code or unknown severity and was ignored; and
+- `C006`: the `vendor_profile` is not one of `beckhoff`, `codesys`, `gxworks3`, `iec`,
+  `mitsubishi`, `siemens` or `twincat`. The server keeps its defaults for it, while the
+  tools that run the project (`trust-runtime`, `trust-dev test`, debug sessions,
+  `trust-harness --project`) refuse it because it selects the conversion rules
+  (docs/specs/07-standard-functions.md section 2.10).
 
 Configuration filename precedence is `trust-lsp.toml`, then
 `.trust-lsp.toml`, then `trustlsp.toml`. An absent file produces the documented
@@ -1061,6 +1068,41 @@ truST tooling behavior and do not alter IEC 61131-3 language semantics.
 
 ---
 
+#### 7.7 Command-line check (`trust-lsp check`)
+
+`trust-lsp check [--project DIR] [--format text|json] [--file PATH]... [--deny-warnings]`
+runs without an LSP client. It loads `DIR` as a workspace folder exactly as
+`initialize`/`initialized` do (`ProjectConfig::load`, `index_workspace`) and reports, per
+indexed file, the result of the same `collect_diagnostics_with_ticket` path that answers
+`textDocument/diagnostic`, so CI output and editor diagnostics agree. Text output is
+`path:line:column: severity[code]: message` (one-based; columns in UTF-16 code units as in
+LSP), sorted by path and position, with a summary on stderr. `path` is relative to `DIR`
+and written as the platform writes paths (`src\Main.st` on Windows). JSON output is one
+object: `version`, `project`, `files`, `errors`, `warnings`, `diagnostics[]` (`path`,
+`line`, `column`, `endLine`, `endColumn`, `severity`, `code`, `message`). A `--file` that
+is not one of the project's indexed source files, or a project without source files, is a
+usage error: nothing is checked and the command names the file or directory. Exit status
+`0` without errors, `1` with errors (or warnings under `--deny-warnings`), `2` on usage or
+I/O errors.
+
+#### 7.8 Command-line project command (`trust-lsp command`)
+
+`trust-lsp command <command> [--project DIR]` runs one project command without an LSP
+client, for a tool that needs the same project knowledge or makes the same project edit as
+the editor does (Control Studio's loop setup and Keep in project, Specification 35 §0.1a,
+B1 and B6.5). It reads the command's one
+argument as a JSON object from standard input, loads `DIR` (default: the current folder)
+exactly as `trust-lsp check` does (7.7), answers the argument through the same handler that
+answers `workspace/executeCommand`, and writes that handler's JSON answer to standard
+output as one line. The project is read from disk: the argument's `open` texts are refused,
+because no editor is attached. The answer is the editor's own: edits are returned, never
+applied, so the caller writes them. The commands it runs are those that only read the
+project and answer facts or an edit: `trust-lsp.hmiBindings` (the compiled project's
+control catalog and process image), `trust-lsp.controlKeepParameters` and
+`trust-lsp.hmiEquipment`; another command is a usage error. Exit status `0` when the handler answered (an answer
+with `ok: false` included), `2` on a usage error, an unreadable argument or an I/O error,
+with the reason on standard error.
+
 ### 8. Runtime & Debugger
 
 The workspace includes a runtime and debug adapter used for executing and testing ST programs.
@@ -1073,8 +1115,8 @@ The authoritative specifications for these components are:
 - Runtime execution is defined by the ST runtime specification, including task scheduling,
   process image semantics, retain behavior, and fault handling.
 - Production runtimes are started via the CLI using the project folder (runtime bundle format)
-  format (`trust-runtime` or `trust-runtime run --project`). Project folders can be generated by
-  `trust-runtime build` (preferred) or CI tooling that emits STBC.
+  format (`trust-runtime` or `trust-runtime run --project`). `trust-runtime build` writes the
+  project's program image `program.tpi` (specification 44).
 
 #### 8.2 Debugger
 

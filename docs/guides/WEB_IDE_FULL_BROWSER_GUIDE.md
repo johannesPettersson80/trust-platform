@@ -60,6 +60,13 @@ Documents/language:
 - `POST /api/ide/format`
 - `GET /api/ide/symbols`
 
+Settings:
+
+- `POST /api/ide/runtime-toml/remove-key` returns a `runtime.toml` text without one key and
+  writes nothing. The settings panel uses it when an optional setting is emptied or reset: an
+  empty Control Endpoint leaves the platform default, and an empty control or mesh token is
+  removed instead of written as an empty string, which the runtime refuses.
+
 Build/test/validation:
 
 - `POST /api/ide/build`

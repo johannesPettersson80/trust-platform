@@ -8,12 +8,14 @@ pub fn render_prometheus(
     body.push_str("# TYPE trust_runtime_uptime_ms gauge\n");
     let _ = writeln!(body, "trust_runtime_uptime_ms {}", runtime.uptime_ms);
 
-    body.push_str("# HELP trust_runtime_execution_backend_info Active runtime execution backend label.\n");
+    body.push_str(
+        "# HELP trust_runtime_execution_backend_info Active runtime execution backend label.\n",
+    );
     body.push_str("# TYPE trust_runtime_execution_backend_info gauge\n");
     let _ = writeln!(
         body,
         "trust_runtime_execution_backend_info{{backend=\"{}\"}} 1",
-        escape_label(runtime.execution_backend.as_str())
+        crate::execution_backend::EXECUTION_BACKEND
     );
 
     body.push_str("# HELP trust_runtime_faults_total Runtime fault count.\n");
@@ -40,9 +42,7 @@ pub fn render_prometheus(
         runtime.cycle.avg_ms
     );
 
-    body.push_str(
-        "# HELP trust_runtime_cycle_p50_ms Recent cycle duration p50 in milliseconds.\n",
-    );
+    body.push_str("# HELP trust_runtime_cycle_p50_ms Recent cycle duration p50 in milliseconds.\n");
     body.push_str("# TYPE trust_runtime_cycle_p50_ms gauge\n");
     let _ = writeln!(
         body,
@@ -50,9 +50,7 @@ pub fn render_prometheus(
         runtime.cycle_percentiles.p50_ms
     );
 
-    body.push_str(
-        "# HELP trust_runtime_cycle_p95_ms Recent cycle duration p95 in milliseconds.\n",
-    );
+    body.push_str("# HELP trust_runtime_cycle_p95_ms Recent cycle duration p95 in milliseconds.\n");
     body.push_str("# TYPE trust_runtime_cycle_p95_ms gauge\n");
     let _ = writeln!(
         body,
@@ -60,9 +58,7 @@ pub fn render_prometheus(
         runtime.cycle_percentiles.p95_ms
     );
 
-    body.push_str(
-        "# HELP trust_runtime_cycle_p99_ms Recent cycle duration p99 in milliseconds.\n",
-    );
+    body.push_str("# HELP trust_runtime_cycle_p99_ms Recent cycle duration p99 in milliseconds.\n");
     body.push_str("# TYPE trust_runtime_cycle_p99_ms gauge\n");
     let _ = writeln!(
         body,
@@ -70,9 +66,7 @@ pub fn render_prometheus(
         runtime.cycle_percentiles.p99_ms
     );
 
-    body.push_str(
-        "# HELP trust_runtime_cycle_window_samples Recent cycle sample window size.\n",
-    );
+    body.push_str("# HELP trust_runtime_cycle_window_samples Recent cycle sample window size.\n");
     body.push_str("# TYPE trust_runtime_cycle_window_samples gauge\n");
     let _ = writeln!(
         body,

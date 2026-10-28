@@ -1,0 +1,77 @@
+[bundle]
+version = 1
+
+[resource]
+name = "Cpu"
+cycle_interval_ms = 100
+
+[runtime.control]
+mode = "production"
+debug_enabled = false
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 5000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"
+
+[runtime.web]
+enabled = true
+listen = "127.0.0.1:8080"
+auth = "local"
+tls = false
+
+# The runtime display's users and what they may change (specification 39, §12). The demo
+# passwords equal the names; replace them with `trust-runtime hmi-password` before real use.
+[runtime.web.hmi]
+idle_minutes = 15
+
+[[runtime.web.hmi.user]]
+name = "operator"
+role = "operator"
+password = "pbkdf2-sha256:600000:QgeWroJZc4eXPGieE11_Fg:fjSiBIgRzdEWr3YB5pbTv8eXM361rQjUw-x68QhZf_g"
+
+[[runtime.web.hmi.user]]
+name = "engineer"
+role = "engineer"
+password = "pbkdf2-sha256:600000:873e36ejrtKwjB9IofRyiA:sdVsEMdpyBQ00M52cd2-jB-EXWTIVyw4kz7-XU5YSxQ"
+
+[[runtime.web.hmi.write]]
+path = "Tank.Setpoint"
+role = "operator"
+min = 0.2
+max = 2.6
+
+[[runtime.web.hmi.write]]
+path = "Tank.Mode"
+role = "operator"
+
+[[runtime.web.hmi.write]]
+path = "Tank.ManualOpening"
+role = "operator"
+min = 0.0
+max = 100.0
+
+[[runtime.web.hmi.write]]
+path = "Tank.PumpRun"
+role = "operator"
+
+[[runtime.web.hmi.write]]
+path = "Tank.TripReset"
+role = "operator"
+
+[[runtime.web.hmi.write]]
+path = "Tank.OverloadTest"
+role = "engineer"
+
+[runtime.tls]
+mode = "disabled"

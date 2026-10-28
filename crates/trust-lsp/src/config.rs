@@ -635,6 +635,22 @@ impl From<IndexingSection> for IndexingConfig {
     }
 }
 
+/// The `[dependencies]` a manifest's text declares and its `[package] version`, read by the
+/// language server's own rules: an entry they refuse (a blank name, both or neither of `path` and
+/// `git`, two pin selectors) is left out, as its configuration diagnostic reports. Paths are
+/// resolved against `root`. `None` when the text is not a manifest.
+pub(crate) fn manifest_dependencies(
+    root: &Path,
+    contents: &str,
+) -> Option<(Vec<ProjectDependency>, Option<String>)> {
+    let manifest: DependencyManifestFile = toml::from_str(contents).ok()?;
+    let (dependencies, _) = parse_project_dependencies(root, &manifest.dependencies);
+    Some((
+        dependencies,
+        normalize_optional_string(manifest.package.version),
+    ))
+}
+
 pub(crate) fn find_config_file(root: &Path) -> Option<PathBuf> {
     CONFIG_FILES
         .iter()

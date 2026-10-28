@@ -1,11 +1,18 @@
+//! The retain failure transaction cases of `RT_SAFE_RETAIN_001`: a checkpoint with a late value
+//! its variable's type refuses is refused as a whole by the warm restart that restores it.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::collections::BTreeMap;
 use std::env;
 use std::path::{Path, PathBuf};
 
 use serde_json::json;
+use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
+use trust_runtime::retain::RetainStore;
 use trust_runtime::value::Value;
-use trust_runtime::RetainSnapshot;
+use trust_runtime::{RestartMode, RetainSnapshot};
 use verification_cases::{
     check_case_expectation, check_trace_fields, run_case_file, CaseExecution, CaseRecord,
     CaseResult, ObservedOperation, RunConfig, StateProbe, StateSnapshot, TraceStep,
@@ -33,6 +40,21 @@ END_VAR
 PROGRAM Main
 END_PROGRAM
 "#;
+
+/// A retain file that holds `snapshot`.
+struct SnapshotStore {
+    snapshot: RetainSnapshot,
+}
+
+impl RetainStore for SnapshotStore {
+    fn load(&self) -> Result<RetainSnapshot, RuntimeError> {
+        Ok(self.snapshot.clone())
+    }
+
+    fn store(&self, _snapshot: &RetainSnapshot) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+}
 
 #[test]
 fn retain_failure_trace_cases() {
@@ -154,7 +176,12 @@ fn execute_step(harness: &mut TestHarness, step: &TraceStep) -> Result<Observati
             let mut snapshot = RetainSnapshot::default();
             snapshot.insert("accepted_first", Value::DInt(requested_first));
             snapshot.insert("rejected_later", Value::Int(requested_later));
-            match harness.runtime_mut().apply_retain_snapshot(&snapshot) {
+            // The checkpoint is applied by a warm restart from the retain file that holds it.
+            harness
+                .runtime_mut()
+                .set_retain_store(Some(Box::new(SnapshotStore { snapshot })), None)
+                .map_err(|error| format!("set the retain file: {error}"))?;
+            match harness.restart_with_retain(RestartMode::Warm) {
                 Ok(()) => ("accepted", None),
                 Err(error) => ("rejected", Some(error.to_string())),
             }

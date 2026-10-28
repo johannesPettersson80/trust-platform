@@ -1,0 +1,182 @@
+format = 1
+title = "Weigh scale"
+size = [608, 644]
+pinnable = true
+settings = true
+
+[fields.Value]
+accepts = ["number"]
+
+[fields.Quality]
+accepts = ["enumeration"]
+
+[fields.Fault]
+accepts = ["boolean"]
+
+[fields.Percent]
+accepts = ["number"]
+
+[fields.HighHigh]
+accepts = ["boolean"]
+
+[fields.High]
+accepts = ["boolean"]
+
+[fields.Low]
+accepts = ["boolean"]
+
+[fields.LowLow]
+accepts = ["boolean"]
+
+[fields.Net]
+accepts = ["number"]
+
+[fields.TareWeight]
+accepts = ["number"]
+
+[fields.Stable]
+accepts = ["boolean"]
+
+[[object]]
+id = "measurement"
+type = "value"
+label = "Measurement"
+at = [24, 24]
+size = [363, 88]
+
+[object.bind]
+value = { path = "$Value", quality = "$Quality" }
+
+[[object]]
+id = "percent"
+type = "value"
+label = "Of range"
+unit = "%"
+decimals = 0
+at = [403, 24]
+size = [181, 88]
+
+[object.bind]
+value = "$Percent"
+
+[[object]]
+id = "high-high"
+type = "status"
+label = "High-high"
+variant = "alarm"
+at = [24, 128]
+size = [128, 40]
+
+[object.bind]
+state = "$HighHigh"
+
+[[object]]
+id = "high"
+type = "status"
+label = "High"
+variant = "alarm"
+at = [168, 128]
+size = [128, 40]
+
+[object.bind]
+state = "$High"
+
+[[object]]
+id = "low"
+type = "status"
+label = "Low"
+variant = "alarm"
+at = [312, 128]
+size = [128, 40]
+
+[object.bind]
+state = "$Low"
+
+[[object]]
+id = "low-low"
+type = "status"
+label = "Low-low"
+variant = "alarm"
+at = [456, 128]
+size = [128, 40]
+
+[object.bind]
+state = "$LowLow"
+
+[[object]]
+id = "fault"
+type = "status"
+label = "Signal fault"
+variant = "alarm"
+at = [24, 184]
+size = [560, 40]
+
+[object.bind]
+state = "$Fault"
+
+[[object]]
+id = "net"
+type = "value"
+label = "Net"
+at = [24, 240]
+size = [272, 80]
+
+[object.bind]
+value = { path = "$Net", quality = "$Quality" }
+
+[[object]]
+id = "tare-weight"
+type = "value"
+label = "Tare"
+at = [312, 240]
+size = [272, 80]
+
+[object.bind]
+value = "$TareWeight"
+
+[[object]]
+id = "stable"
+type = "status"
+label = "Stable"
+at = [24, 336]
+size = [176, 48]
+
+[object.bind]
+state = "$Stable"
+
+[[object]]
+id = "tare"
+type = "button"
+text = "Tare"
+at = [216, 336]
+size = [176, 48]
+
+[object.bind]
+interlock = "$Stable"
+
+[object.command]
+interface = "Plant.ITare"
+method = "Tare"
+instance = "$instance"
+
+[[object]]
+id = "clear-tare"
+type = "button"
+text = "Clear tare"
+at = [408, 336]
+size = [176, 48]
+
+[object.command]
+interface = "Plant.ITare"
+method = "ClearTare"
+instance = "$instance"
+
+[[object]]
+id = "history"
+type = "trend"
+label = "History"
+at = [24, 400]
+size = [560, 220]
+
+[object.bind]
+measurement = { path = "$Value", quality = "$Quality" }

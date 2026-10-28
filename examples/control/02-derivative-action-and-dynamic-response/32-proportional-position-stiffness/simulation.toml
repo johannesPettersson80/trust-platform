@@ -1,0 +1,25 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2500
+plant_step_ms = 20
+
+# A rigid rotary axis without load: inertia J = 1 kg·m², viscous friction B = 1 N·m·s/rad.
+# The drive limits the motor torque to ±20 N·m; the axis reports angle and velocity.
+[[plants]]
+id = "rotary-axis"
+model = "robot_joint"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0", "%IL8"]
+initial_state = [0.0, 0.0]
+[plants.parameters]
+inertia_kg_m2 = 1.0
+gravity_torque_nm = 0.0
+viscous_friction_nm_s_per_rad = 1.0
+coulomb_friction_nm = 0.0
+friction_smoothing_rad_s = 0.01
+[plants.actuator]
+minimum = -20.0
+maximum = 20.0

@@ -1,3 +1,8 @@
+//! Bounded STRING and WSTRING bindings: copy-back into the receiving capacity, and the in-out and
+//! literal bindings the front refuses.
+//!
+//! The tests that run a program need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use trust_runtime::harness::{CompileSession, TestHarness};
 use trust_runtime::value::Value;
 
@@ -170,7 +175,7 @@ END_PROGRAM
 "#;
 
     let error = CompileSession::from_source(source)
-        .build_runtime()
+        .declarations()
         .expect_err("STRING[20] must not bind implicitly to STRING[5] VAR_IN_OUT");
     assert!(
         error.to_string().contains("error[E205]:"),
@@ -230,7 +235,7 @@ END_PROGRAM
 "#;
 
     let error = CompileSession::from_source(source)
-        .build_runtime()
+        .declarations()
         .expect_err("WSTRING[6] must not bind implicitly to WSTRING[3] VAR_IN_OUT");
     assert!(
         error.to_string().contains("error[E205]:"),
@@ -239,36 +244,56 @@ END_PROGRAM
 }
 
 #[test]
-fn bounded_string_initializers_count_unicode_scalar_values() {
+fn bounded_string_initializers_count_utf8_bytes_and_utf16_code_units() {
+    // docs/IEC_DECISIONS.md 2026-10-17: "Å" is two bytes of UTF-8 and one UTF-16 code unit.
     let source = r#"
 PROGRAM Main
 VAR
-    narrow : STRING[1] := 'Å';
+    narrow : STRING[2] := 'Å';
     wide : WSTRING[1] := "Å";
 END_VAR
 END_PROGRAM
 "#;
 
     let harness = TestHarness::from_source(source)
-        .expect("one Unicode scalar must fit STRING[1] and WSTRING[1]");
+        .expect("two bytes fit STRING[2] and one code unit fits WSTRING[1]");
     assert_eq!(
         harness.get_output("narrow"),
         Some(Value::String("Å".into()))
     );
     assert_eq!(harness.get_output("wide"), Some(Value::WString("Å".into())));
+
+    let error = CompileSession::from_source(
+        "PROGRAM Main\nVAR\n    narrow : STRING[1] := 'Å';\nEND_VAR\nEND_PROGRAM\n",
+    )
+    .declarations()
+    .expect_err("two bytes do not fit STRING[1]");
+    let rendered = error.to_string();
+    assert!(
+        rendered.contains("error[E304]:")
+            && rendered.contains("STRING literal length 2 exceeds STRING[1] capacity"),
+        "{rendered}"
+    );
 }
 
 #[test]
-fn bounded_string_assignment_truncates_at_unicode_scalar_boundary() {
+fn bounded_string_assignment_truncates_at_a_character_boundary() {
+    // STRING[n] keeps the longest prefix of whole characters within n bytes of UTF-8 and
+    // WSTRING[n] within n UTF-16 code units; "Å" is two bytes and one code unit.
     let source = r#"
 PROGRAM Main
 VAR
-    source : STRING[3] := 'ÅBC';
+    source : STRING[4] := 'ÅBC';
+    pair : STRING[3] := 'AÅ';
     wide_source : WSTRING[3] := "ÅBC";
     narrow : STRING[2];
+    three : STRING[3];
+    split : STRING[2];
     wide_narrow : WSTRING[2];
 END_VAR
 narrow := source;
+three := source;
+split := pair;
 wide_narrow := wide_source;
 END_PROGRAM
 "#;
@@ -282,7 +307,16 @@ END_PROGRAM
     );
     assert_eq!(
         harness.get_output("narrow"),
+        Some(Value::String("Å".into()))
+    );
+    assert_eq!(
+        harness.get_output("three"),
         Some(Value::String("ÅB".into()))
+    );
+    assert_eq!(
+        harness.get_output("split"),
+        Some(Value::String("A".into())),
+        "the cut must not split the two bytes of Å"
     );
     assert_eq!(
         harness.get_output("wide_narrow"),
@@ -422,7 +456,7 @@ END_PROGRAM
 "#;
 
     let error = CompileSession::from_source(source)
-        .build_runtime()
+        .declarations()
         .expect_err("STRING[20] must not bind implicitly to function STRING[5] VAR_IN_OUT");
     assert!(
         error.to_string().contains("error[E205]:"),

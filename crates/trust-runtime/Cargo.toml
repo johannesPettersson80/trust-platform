@@ -18,6 +18,14 @@ trust-ads-core = { workspace = true, optional = true }
 trust-tcads-native = { workspace = true, optional = true }
 trust-ads-server = { workspace = true, optional = true }
 trust-runtime-core = { workspace = true, default-features = false, features = ["std"] }
+trust-runtime-services = { workspace = true, optional = true }
+# Compiled programs (specification 44): the module interface and the program library whose layouts
+# the generator lays out against, and the reader of the modules the pinned compiler links.
+trust-plc-abi = { workspace = true, optional = true, features = ["host"] }
+trust-plc-lib = { workspace = true, optional = true }
+object = { version = "0.37.3", default-features = false, features = ["read_core", "elf", "std"], optional = true }
+# The one control client of the command line's runtime requests (`trust-runtime discover`).
+trust-runtime-client = { workspace = true, optional = true }
 trust-wasm-analysis = { workspace = true, optional = true }
 smol_str = { workspace = true, features = ["std"] , optional = true }
 rustc-hash = { workspace = true, features = ["std"] , optional = true }
@@ -45,18 +53,33 @@ rumqttc = { workspace = true, optional = true }
 native-tls = { workspace = true, optional = true }
 time = { workspace = true, optional = true }
 rapier3d = { workspace = true, optional = true }
+# The USB and serial sources of the one search list devices without opening them.
+nusb = { workspace = true, optional = true }
+serialport = { workspace = true, optional = true }
+# The first install of truST on a chip through its own boot loader (specification 34 TARGET-04),
+# with the chip file that places each part of the firmware.
+espflash = { workspace = true, optional = true }
+trust-chips = { workspace = true, optional = true }
 notify = { version = "8.2.0", optional = true }
 tiny_http = { version = "0.12.0", features = ["ssl-rustls"] , optional = true }
 tungstenite = { version = "0.30.0", optional = true }
 mdns-sd = { version = "0.21.5", optional = true }
 if-addrs = { version = "0.15.0", optional = true }
 # The mesh client/router/plugin family is a qualified deployment contract.
-zenoh = { version = "=1.7.2", default-features = false, features = ["transport_tcp"] , optional = true }
+zenoh = { version = "=1.7.2", default-features = false, features = ["transport_tcp", "transport_tls", "auth_usrpwd"] , optional = true }
 base64 = { version = "0.23.1", optional = true }
+png = { version = "0.17.16", optional = true }
 rand = { version = "0.10.3", optional = true }
+getrandom = { version = "0.4.2", optional = true }
 ureq = { version = "3.4.2", optional = true }
 sha2 = { workspace = true, optional = true }
 hex = { workspace = true, optional = true }
+hmac = { version = "0.13.0", optional = true }
+# The toolchain bundle, a gzip-compressed tar archive (specification 44 §4.6).
+flate2 = { version = "1.1.10", optional = true }
+tar = { version = "0.4.44", default-features = false, optional = true }
+# Signing program images with the project's Ed25519 key, kept in PKCS#8 PEM (specification 44 §5.11).
+ed25519-dalek = { version = "3.0.0", default-features = false, features = ["digest", "pkcs8", "pem", "zeroize"], optional = true }
 signal-hook = { version = "0.4.5", optional = true }
 rustls = { version = "0.23.45", optional = true }
 tiverse-mmap = { version = "1.0.0", optional = true }
@@ -70,24 +93,36 @@ open-ot-document = { git = "https://github.com/johannesPettersson80/open-ot-expe
 open-ot-carriage = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" , optional = true }
 opcua = { version = "0.12.0", default-features = false, features = ["server", "client", "vendored-openssl"], optional = true }
 ads = { version = "=0.4.4", optional = true }
+encoding_rs = { version = "0.8.42", optional = true }
 crossbeam-channel = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 tokio-util = { version = "0.7.20", features = ["compat"], optional = true }
 tiberius = { version = "0.13.0", default-features = false, features = ["tds73", "native-tls"], optional = true }
 [target.'cfg(unix)'.dependencies]
-
+nix = { version = "=0.27.1", default-features = false, features = ["resource"], optional = true }
 ethercrab = { version = "0.7.1", optional = true }
+pnet_datalink = { version = "0.35.0", optional = true }
 # OpenOT Rust crates are pinned so fresh source builds do not need a sibling
 # checkout. scripts/checkout_openot_ref.sh is still used for OpenOT IEC example
 # sources and conformance fixtures that are not Cargo crates.
 open-ot-shm = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" , optional = true }
-# Linux RT (mm, thread) and the control socket's bind-restrict-listen sequence (fs, net). The
-# socket sequence is needed on every Unix target, so rustix is not Linux-only.
-rustix = { version = "1.1.5", features = ["fs", "mm", "net", "thread"], optional = true }
+# Linux RT (mm, thread), the control socket's bind-restrict-listen sequence (fs, net) and the
+# owner check of the per-user runtime directory that holds a fallback control socket (process).
+# The socket sequence is needed on every Unix target, so rustix is not Linux-only.
+rustix = { version = "1.1.5", features = ["fs", "mm", "net", "process", "thread"], optional = true }
 [dev-dependencies]
 proptest.workspace = true
 verification-cases.workspace = true
 trust-runtime-core = { workspace = true, default-features = false, features = ["test-support"] }
+# The Devices & Connections engine integration test drives the panel engine, which depends on this
+# runtime, against a real `trust-runtime`: a dev edge only, so no firmware build resolves it.
+trust-devices.workspace = true
+
+# A managed runtime that `fleet runtime start` begins holds no handle of the command's caller: the
+# command clears the inherit flag of its standard handles first (Windows hands a started process
+# every inheritable handle).
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation"] }
 
 [target.'cfg(unix)'.dev-dependencies]
 open-ot-conformance = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
@@ -95,6 +130,9 @@ open-ot-conformance = { git = "https://github.com/johannesPettersson80/open-ot-e
 [target.'cfg(target_os = "linux")'.dependencies]
 
 gpio-cdev = { version = "0.6.0", optional = true }
+# The `can` driver's SocketCAN raw socket, and its interface's bit rate over netlink (`netlink`),
+# so that this crate keeps `forbid(unsafe_code)`. The crate builds on Linux only.
+socketcan = { version = "4.0.0", default-features = false, features = ["netlink"], optional = true }
 
 [[bin]]
 name = "trust-runtime"
@@ -111,21 +149,6 @@ name = "trust-bundle-gen"
 path = "src/bin/trust-bundle-gen.rs"
 required-features = ["full"]
 
-[[example]]
-name = "portability_fixture"
-path = "examples/portability_fixture.rs"
-required-features = ["full"]
-
-[[example]]
-name = "portability_gpio_fixture"
-path = "examples/portability_gpio_fixture.rs"
-required-features = ["full"]
-
-[[example]]
-name = "portability_temporal_fixture"
-path = "examples/portability_temporal_fixture.rs"
-required-features = ["full"]
-
 [features]
 default = [
     "development",
@@ -136,14 +159,8 @@ default = [
     "opcua-wire",
     "openot-database-all",
 ]
-# Runtime-only owns the std shared engine and host clocks; no product services.
-runtime-only = []
-# Optimization selection does not change the supported IEC function set.
-register-ir = ["trust-runtime-core/register-ir"]
 # Current full-controller tooling metadata uses HIR. It is not compiler-free.
 full = [
-    "runtime-only",
-    "register-ir",
     "trust-runtime-core/hir",
     "dep:trust-syntax",
     "dep:trust-hir",
@@ -151,6 +168,12 @@ full = [
     "dep:trust-plcopen",
     "dep:trust-ads-core",
     "dep:trust-tcads-native",
+    # A computer runs compiled programs with the chips' compiled cycle (specification 44 §8.8).
+    "dep:trust-runtime-services",
+    "dep:trust-plc-abi",
+    "dep:trust-plc-lib",
+    "dep:object",
+    "dep:trust-runtime-client",
     "dep:trust-wasm-analysis",
     "dep:smol_str",
     "dep:rustc-hash",
@@ -178,6 +201,10 @@ full = [
     "dep:native-tls",
     "dep:time",
     "dep:rapier3d",
+    "dep:nusb",
+    "dep:serialport",
+    "dep:espflash",
+    "dep:trust-chips",
     "dep:notify",
     "dep:tiny_http",
     "dep:tungstenite",
@@ -185,10 +212,16 @@ full = [
     "dep:if-addrs",
     "dep:zenoh",
     "dep:base64",
+    "dep:png",
     "dep:rand",
+    "dep:getrandom",
     "dep:ureq",
     "dep:sha2",
     "dep:hex",
+    "dep:hmac",
+    "dep:ed25519-dalek",
+    "dep:flate2",
+    "dep:tar",
     "dep:signal-hook",
     "dep:rustls",
     "dep:tiverse-mmap",
@@ -199,13 +232,15 @@ full = [
     "dep:crossbeam-channel",
     "dep:open-ot-shm",
     "dep:gpio-cdev",
+    "dep:socketcan",
     "dep:rustix",
+    "dep:nix",
 ]
-development = ["full", "debug", "register-ir"]
+development = ["full", "debug"]
 debug = ["full"]
 opcua-wire = ["full", "dep:opcua"]
-ethercat-wire = ["full", "dep:ethercrab", "dep:tokio"]
-ads-wire = ["full", "dep:ads"]
+ethercat-wire = ["full", "dep:ethercrab", "dep:tokio", "dep:pnet_datalink"]
+ads-wire = ["full", "dep:ads", "dep:encoding_rs"]
 ads-server = ["full", "dep:trust-ads-server"]
 openot-real-database-tests = ["full"]
 openot-database-all = [

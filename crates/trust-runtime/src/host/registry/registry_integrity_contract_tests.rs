@@ -68,8 +68,11 @@ value = "FALSE"
 "#,
     )
     .expect("write I/O configuration");
-    fs::write(root.join("program.stbc"), b"registry-contract-bytecode")
-        .expect("write bytecode payload");
+    fs::write(
+        root.join(crate::native::PROGRAM_IMAGE_FILE),
+        b"registry-contract-image",
+    )
+    .expect("write program image payload");
     fs::write(root.join("src/main.st"), b"PROGRAM Main\nEND_PROGRAM\n")
         .expect("write source payload");
 }
@@ -461,7 +464,7 @@ fn registry_duplicate_identity_is_immutable() {
         registry_contract_publish(&registry, &first_bundle, "cell", "1.0.0").expect("publish");
     let index_before = registry_contract_read(&registry_index_path(&registry));
     let metadata_before = registry_contract_read(&first.metadata_path);
-    let payload_before = registry_contract_read(&first.package_root.join("bundle/program.stbc"));
+    let payload_before = registry_contract_read(&first.package_root.join("bundle/program.tpi"));
 
     registry_contract_publish(&registry, &second_bundle, "cell", "1.0.0")
         .expect_err("duplicate identity must fail");
@@ -475,7 +478,7 @@ fn registry_duplicate_identity_is_immutable() {
         metadata_before
     );
     assert_eq!(
-        registry_contract_read(&first.package_root.join("bundle/program.stbc")),
+        registry_contract_read(&first.package_root.join("bundle/program.tpi")),
         payload_before
     );
     registry_contract_remove(root);
@@ -575,14 +578,12 @@ fn registry_verify_rejects_payload_add_remove_resize_and_digest_changes() {
         let stored_bundle = report.package_root.join("bundle");
         match mutation {
             "add" => fs::write(stored_bundle.join("extra.bin"), b"extra").expect("add payload"),
-            "remove" => {
-                fs::remove_file(stored_bundle.join("program.stbc")).expect("remove payload")
-            }
-            "resize" => {
-                fs::write(stored_bundle.join("program.stbc"), b"x").expect("resize payload")
-            }
+            "remove" => fs::remove_file(stored_bundle.join(crate::native::PROGRAM_IMAGE_FILE))
+                .expect("remove payload"),
+            "resize" => fs::write(stored_bundle.join(crate::native::PROGRAM_IMAGE_FILE), b"x")
+                .expect("resize payload"),
             "digest" => {
-                let path = stored_bundle.join("program.stbc");
+                let path = stored_bundle.join(crate::native::PROGRAM_IMAGE_FILE);
                 let mut bytes = registry_contract_read(&path);
                 bytes[0] ^= 0x01;
                 fs::write(path, bytes).expect("mutate payload");
@@ -669,8 +670,7 @@ fn registry_download_verification_failure_leaves_empty_destination_empty() {
     registry_contract_bundle(&bundle, "Cell");
     registry_contract_init(&registry);
     let report = registry_contract_publish(&registry, &bundle, "cell", "1.0.0").expect("publish");
-    fs::write(report.package_root.join("bundle/program.stbc"), b"tampered")
-        .expect("tamper payload");
+    fs::write(report.package_root.join("bundle/program.tpi"), b"tampered").expect("tamper payload");
     fs::create_dir(&output).expect("create empty output");
 
     download_package(DownloadRequest {

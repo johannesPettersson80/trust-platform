@@ -4,7 +4,7 @@ fn connectors_status_reports_process_image_drivers_without_mutating_legacy_statu
 PROGRAM Main
 END_PROGRAM
 "#;
-    let state = hmi_test_state(source);
+    let state = control_test_state(source);
     state.io_health.lock().expect("io health").extend([
         crate::io::IoDriverStatus {
             name: SmolStr::new("modbus-tcp"),
@@ -102,7 +102,9 @@ END_PROGRAM
         "legacy status failed: {:?}",
         legacy_status.error
     );
-    let legacy_result = legacy_status.result.expect("legacy status result");
+    let legacy_result = legacy_status
+        .result_value()
+        .expect("legacy status result");
     assert!(legacy_result.get("connectors").is_none());
     assert_eq!(
         legacy_result.get("io_drivers"),
@@ -126,7 +128,7 @@ fn connectors_status_reports_ads_client_and_server_roles() {
 PROGRAM Main
 END_PROGRAM
 "#;
-    let state = hmi_test_state_with_ads_status(source, connected_ads_status());
+    let state = control_test_state_with_ads_status(source, connected_ads_status());
 
     let response = handle_request_value(
         json!({"id": 9103, "type": "connectors.status"}),
@@ -210,7 +212,7 @@ fn connectors_status_ads_projection_matches_legacy_ads_status() {
 PROGRAM Main
 END_PROGRAM
 "#;
-    let state = hmi_test_state_with_ads_status(source, connected_ads_status());
+    let state = control_test_state_with_ads_status(source, connected_ads_status());
 
     let legacy = handle_request_value(json!({"id": 9104, "type": "ads.status"}), &state, None);
     assert!(legacy.ok, "ads.status failed: {:?}", legacy.error);
@@ -274,7 +276,7 @@ fn connectors_status_reports_opcua_client_points_with_quality() {
 PROGRAM Main
 END_PROGRAM
 "#;
-    let state = hmi_test_state_with_opcua_client_status(
+    let state = control_test_state_with_opcua_client_status(
         source,
         crate::opcua::OpcUaClientStatusReport {
             enabled: true,
@@ -393,7 +395,7 @@ fn connectors_status_authz_requires_viewer_and_preserves_local_unix_read() {
 PROGRAM Main
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
 
     let local = handle_request_value(
         json!({"id": 9110, "type": "connectors.status"}),

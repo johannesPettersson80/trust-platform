@@ -1,0 +1,526 @@
+import * as assert from "assert";
+import { DEFAULT_STRUCTURES, ENGINE_FORM_FIELDS, open } from "./control-studio-loop-setup-form-harness";
+
+const singleSignals = ["P1.AppliedPowerPct", "P1.ManualOutput", "P1.SetpointC", "P1.TemperatureC"];
+const singlePrefill = { instance: "P1.Controller", parameterRecord: "P1.Parameters", manipulatedVariable: "P1.AppliedPowerPct",
+  setpoint: "P1.SetpointC", manualOutput: "P1.ManualOutput" };
+const singleModel = {
+  structure: "pid", addressedReal: singleSignals, booleans: ["P1.AutoMode"], measurements: singleSignals, signals: singleSignals, modes: ["P1.AutoMode"],
+  records: ["P1.Parameters"], writes: [], initializes: [], pids: [{ instance: "P1.Controller", task: { name: "MainTask", intervalMs: 100 } }],
+  instances: ["P1"], reals: ["P1.AppliedPowerPct", "P1.ManualOutput", "P1.SetpointC", "P1.TemperatureC"],
+  prefill: singlePrefill, prefills: [singlePrefill], loopNames: [{ instance: "P1.Controller", name: "Controller" }],
+};
+
+/** A program that switches a compressor; the switching logic is its own code, so nothing is prefilled. */
+const onOffSignals = ["P1.CompressorPct", "P1.ManualPct", "P1.RoomC", "P1.SetpointC"];
+const onOffModel = { ...singleModel, structure: "identify", pids: [], prefill: undefined, prefills: [], loopNames: [], records: [], instances: ["P1"],
+  addressedReal: onOffSignals, measurements: onOffSignals, signals: onOffSignals, booleans: ["P1.AutoMode", "P1.CoolingOn"], modes: ["P1.AutoMode", "P1.CoolingOn"],
+  reals: ["P1.CompressorPct", "P1.DwellS", "P1.HysteresisC", "P1.ManualPct", "P1.MinimumOffS", "P1.MinimumOnS", "P1.RoomC", "P1.SetpointC"] };
+const onOffFill: [string, string][] = [["structure", "onoff"], ["name", "Cold room"], ["action", "reverse"], ["onoff.instance", "P1"],
+  ["onoff.processVariable", "P1.RoomC"], ["onoff.processVariable.unit", "degC"], ["onoff.processVariable.minimum", "-10"], ["onoff.processVariable.maximum", "20"],
+  ["onoff.setpoint", "P1.SetpointC"], ["onoff.manipulatedVariable", "P1.CompressorPct"], ["onoff.manipulatedVariable.unit", "%"],
+  ["onoff.manipulatedVariable.minimum", "0"], ["onoff.manipulatedVariable.maximum", "100"], ["onoff.mode", "P1.AutoMode"],
+  ["onoff.manualOutput", "P1.ManualPct"], ["onoff.hysteresis", "P1.HysteresisC"], ["onoff.bandConvention", "half-band"],
+  ["onoff.minimumOn", "P1.MinimumOnS"], ["onoff.minimumOff", "P1.MinimumOffS"], ["onoff.latch", "P1.CoolingOn"], ["onoff.dwellTimer", "P1.DwellS"]];
+// Every number is posted as the text typed, and a blank one as blank text: the engine reads them (B1.3).
+const onOffDraft = { structure: "onoff", name: "Cold room", action: "reverse", instance: "P1",
+  processVariable: { symbol: "P1.RoomC", unit: "degC", minimum: "-10", maximum: "20" }, setpoint: { symbol: "P1.SetpointC" },
+  manipulatedVariable: { symbol: "P1.CompressorPct", unit: "%", minimum: "0", maximum: "100" },
+  mode: { symbol: "P1.AutoMode", whenTrue: "Auto" }, manualOutput: "P1.ManualPct", hysteresis: "P1.HysteresisC", bandConvention: "half-band",
+  minimumOn: "P1.MinimumOnS", minimumOff: "P1.MinimumOffS", latch: "P1.CoolingOn", dwellTimer: "P1.DwellS",
+  thresholdEquality: "at-or-beyond", equipmentMinimumOnSeconds: "", equipmentMinimumOffSeconds: "", lowOutput: "", highOutput: "" };
+
+/** Two tanks in series whose program feeds both levels back to the pump. */
+const feedbackSignals = ["P1.ManualM3PerS", "P1.PumpM3PerS", "P1.Tank1M", "P1.Tank2M", "P1.Tank2SetpointM"];
+const feedbackModel = { ...onOffModel, addressedReal: feedbackSignals, measurements: feedbackSignals, signals: feedbackSignals,
+  booleans: ["P1.FeedbackEnabled"], modes: ["P1.FeedbackEnabled"], reals: ["P1.K1", "P1.K2", "P1.ManualM3PerS", "P1.N", "P1.PumpM3PerS", "P1.Tank1M", "P1.Tank2M", "P1.Tank2SetpointM"] };
+const feedbackFill: [string, string][] = [["structure", "state-feedback"], ["name", "Tank 2 level"], ["feedback.family", "LQR"], ["feedback.instance", "P1"],
+  ["feedback.manipulatedVariable", "P1.PumpM3PerS"], ["feedback.manipulatedVariable.unit", "m3/s"], ["feedback.manipulatedVariable.minimum", "0"],
+  ["feedback.manipulatedVariable.maximum", "0.02"], ["feedback.processVariable", "P1.Tank2M"], ["feedback.processVariable.unit", "m"],
+  ["feedback.processVariable.minimum", "0"], ["feedback.processVariable.maximum", "0.5"], ["feedback.setpoint", "P1.Tank2SetpointM"],
+  ["feedback.gain", "P1.K2"], ["feedback.referenceGain", "P1.N"],
+  ["feedback.state.0", "P1.Tank1M"], ["feedback.state.0.unit", "m"], ["feedback.state.0.minimum", "0"], ["feedback.state.0.maximum", "0.5"],
+  ["feedback.state.0.gain", "P1.K1"], ["feedback.mode", "P1.FeedbackEnabled"], ["feedback.manualOutput", "P1.ManualM3PerS"]];
+/** A further-output row and an estimate row the template draws and the engineer left blank: posted as blank text, which the engine skips. */
+const blankFurtherOutput = { signal: { symbol: "", unit: "", minimum: "", maximum: "" }, gain: "" };
+const blankEstimate = { estimate: "", gain: "", observerGain: "", processNoise: "" };
+/** The engine's limits draw three further-output rows and three estimate rows; the draft carries every one of them and the estimator for
+ * every design, and the engine takes what the design uses (B1.3, C4). */
+const feedbackDraft = { structure: "state-feedback", name: "Tank 2 level", action: "direct", family: "LQR", instance: "P1",
+  manipulatedVariable: { symbol: "P1.PumpM3PerS", unit: "m3/s", minimum: "0", maximum: "0.02" },
+  processVariable: { symbol: "P1.Tank2M", unit: "m", minimum: "0", maximum: "0.5" }, setpoint: { symbol: "P1.Tank2SetpointM" },
+  gain: "P1.K2", referenceGain: "P1.N",
+  states: [{ signal: { symbol: "P1.Tank1M", unit: "m", minimum: "0", maximum: "0.5" }, gain: "P1.K1" }, blankFurtherOutput, blankFurtherOutput],
+  estimator: { modelFile: "", measurementNoise: "", states: [blankEstimate, blankEstimate, blankEstimate] },
+  mode: { symbol: "P1.FeedbackEnabled", whenTrue: "Auto" }, manualOutput: "P1.ManualM3PerS" };
+
+/** The structures the engine offers a program with several library PIDs (C7). */
+const GROUP_STRUCTURES = ["pid", "cascade", "feedforward", "smith", "schedule", "group", "onoff", "state-feedback", "own-law",
+  "trajectory-feedforward", "search", "identify"];
+
+suite("Control Studio loop setup form", () => {
+  test("names the controller action by the direction the output moves, not by Direct or Reverse", () => {
+    const view = open(singleModel);
+    try {
+      const options = Array.from(view.root.querySelectorAll<HTMLOptionElement>("[data-setup-field=\"action\"] option"))
+        .map(option => [option.value, option.textContent]);
+      // Instrument practice names these the other way round (a heater's controller is "reverse acting"), so the words would mislead.
+      assert.deepStrictEqual(options, [["direct", "Increase the output while the measurement is below the setpoint"],
+        ["reverse", "Increase the output while the measurement is above the setpoint"]]);
+    } finally { view.close(); }
+  });
+
+  test("never blocks Save: the loop is posted as typed, and the engine answers what it lacks (B1.3)", () => {
+    const view = open(singleModel);
+    try {
+      const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
+      assert.strictEqual(view.root.querySelector<HTMLFormElement>("[data-loop-setup]")!.dataset.ready, "true",
+        "automation waits for the live form, so the defaults never overwrite values entered before it started");
+      assert.strictEqual(view.root.querySelector<HTMLSelectElement>("[data-setup-field=\"instance\"]")!.value, "P1.Controller");
+      assert.strictEqual(view.root.querySelector<HTMLSelectElement>("[data-setup-field=\"manipulatedVariable\"]")!.value, "P1.AppliedPowerPct");
+      assert.strictEqual(save.disabled, false, "the form has no check of its own; the engine refuses an incomplete loop");
+      // B1.3: the loop name is prefilled from the controller.
+      assert.strictEqual(view.root.querySelector<HTMLInputElement>("[data-setup-field=\"name\"]")!.value, "Controller", "the loop name follows the controller");
+      save.click();
+      assert.deepStrictEqual(view.posts[0].draft.processVariable, { symbol: "", unit: "", minimum: "", maximum: "" },
+        "the measurement the code does not state is posted blank, its numbers as the blank text typed");
+      view.set("name", "Heater temperature");
+      view.set("processVariable", "P1.TemperatureC");
+      view.set("processVariable.unit", "degC"); view.set("processVariable.minimum", "0"); view.set("processVariable.maximum", "80");
+      view.set("manipulatedVariable.unit", "%"); view.set("manipulatedVariable.minimum", "0"); view.set("manipulatedVariable.maximum", "100");
+      view.set("mode", "P1.AutoMode"); view.set("modeWhenTrue", "Auto");
+      assert.strictEqual(view.root.querySelector("[data-setup-field=\"experimentStep\"]"), null, "Identify chooses the identification step, so setup never asks for it");
+      save.click();
+      assert.deepStrictEqual(view.posts[1], { kind: "control-studio.setup.save", draft: {
+        structure: "pid", name: "Heater temperature", instance: "P1.Controller", action: "direct", parameterRecord: "P1.Parameters",
+        processVariable: { symbol: "P1.TemperatureC", unit: "degC", minimum: "0", maximum: "80" },
+        manipulatedVariable: { symbol: "P1.AppliedPowerPct", unit: "%", minimum: "0", maximum: "100" },
+        setpoint: { symbol: "P1.SetpointC" }, mode: { symbol: "P1.AutoMode", whenTrue: "Auto" }, manualOutput: "P1.ManualOutput",
+      } });
+    } finally { view.close(); }
+  });
+
+  test("posts the recording duration as typed, for the engine to read (B1.3, C12)", () => {
+    const view = open(onOffModel);
+    try {
+      const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
+      for (const [field, value] of [["structure", "identify"], ["name", "Cold room"], ["identify.manipulatedVariable", "P1.CompressorPct"],
+        ["identify.manipulatedVariable.unit", "%"], ["identify.manipulatedVariable.minimum", "0"], ["identify.manipulatedVariable.maximum", "100"],
+        ["identify.processVariable", "P1.RoomC"], ["identify.processVariable.unit", "degC"], ["identify.processVariable.minimum", "-10"],
+        ["identify.processVariable.maximum", "20"]] as const) view.set(field, value);
+      save.click();
+      assert.strictEqual(view.posts[0].draft.experimentDurationSeconds, null, "a blank duration is posted as null, and the engine names what it lacks");
+      view.set("identify.durationSeconds", "15 min");
+      save.click();
+      assert.deepStrictEqual(view.posts[1], { kind: "control-studio.setup.save", draft: { structure: "identify", name: "Cold room",
+        manipulatedVariable: { symbol: "P1.CompressorPct", unit: "%", minimum: "0", maximum: "100" },
+        processVariable: { symbol: "P1.RoomC", unit: "degC", minimum: "-10", maximum: "20" }, experimentDurationSeconds: "15 min" } });
+    } finally { view.close(); }
+  });
+
+  test("shows the engine's Auto/Manual refusal, which says why no signal is offered when every BOOL has an I/O address", () => {
+    const view = open({ ...singleModel, modes: [] });
+    try {
+      view.showError("Choose the Auto/Manual signal. It must be a BOOL without an I/O address, because Apply switches it directly; declare one without AT.", "mode");
+      // The Auto/Manual selector sits in its closed Change panel, so the engine's sentence shows in the message area.
+      assert.match(view.root.querySelector<HTMLElement>("[data-setup-message]")!.textContent ?? "", /Auto\/Manual signal.*without an I\/O address/);
+    } finally { view.close(); }
+  });
+
+  test("shows the startup section where the engine asks for the flag, and posts the flag once chosen", () => {
+    const view = open({ ...singleModel, booleans: ["P1.AutoMode", "P1.Initialized"], modes: ["P1.AutoMode", "P1.Initialized"], startupFlagInstances: ["P1.Controller"] });
+    try {
+      view.set("name", "Heater"); view.set("processVariable", "P1.TemperatureC");
+      view.set("processVariable.unit", "degC"); view.set("processVariable.minimum", "0"); view.set("processVariable.maximum", "80");
+      view.set("manipulatedVariable.unit", "%"); view.set("manipulatedVariable.minimum", "0"); view.set("manipulatedVariable.maximum", "100");
+      view.set("mode", "P1.AutoMode");
+      assert.strictEqual(view.root.querySelector<HTMLElement>("[data-setup-startup]")!.hidden, false, "the engine asks for the flag of this controller");
+      view.set("startupFlag", "P1.Initialized");
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.strictEqual(view.posts[0].draft.startupFlag, "P1.Initialized");
+    } finally { view.close(); }
+  });
+
+  test("keeps the startup section hidden where the engine asks for no flag, and posts none", () => {
+    const view = open({ ...singleModel, booleans: ["P1.AutoMode", "P1.Initialized"], modes: ["P1.AutoMode", "P1.Initialized"], startupFlagInstances: [] });
+    try {
+      view.set("name", "Heater"); view.set("processVariable", "P1.TemperatureC");
+      view.set("processVariable.unit", "degC"); view.set("processVariable.minimum", "0"); view.set("processVariable.maximum", "80");
+      view.set("manipulatedVariable.unit", "%"); view.set("manipulatedVariable.minimum", "0"); view.set("manipulatedVariable.maximum", "100");
+      view.set("mode", "P1.AutoMode");
+      const startup = view.root.querySelector<HTMLElement>("[data-setup-startup]");
+      assert.ok(startup, "the startup-done flag has its own section, shown only when the engine asks for it");
+      assert.strictEqual(startup!.hidden, true, "the engine names no controller that needs the flag");
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.ok(!("startupFlag" in view.posts[0].draft), "no flag is posted when none is chosen");
+    } finally { view.close(); }
+  });
+
+  test("asks a cascade for the startup flag when the engine says its inner controller needs one", () => {
+    const signals = ["P1.HeaterPct", "P1.InnerManual", "P1.JacketC", "P1.OuterManual", "P1.VesselC", "P1.VesselSetpointC"];
+    const view = open({ ...singleModel, structure: "cascade", cascade: { outer: "P1.Outer", inner: "P1.Inner" }, prefill: undefined, prefills: [],
+      pids: [{ instance: "P1.Inner" }, { instance: "P1.Outer" }], records: ["P1.InnerParameters", "P1.OuterParameters"],
+      addressedReal: signals, measurements: signals, signals, booleans: ["P1.Initialized", "P1.InnerAuto", "P1.OuterAuto"],
+      modes: ["P1.Initialized", "P1.InnerAuto", "P1.OuterAuto"], loopNames: [{ instance: "P1.Inner", name: "Inner" }, { instance: "P1.Outer", name: "Outer" }],
+      startupFlagInstances: ["P1.Inner"] });
+    try {
+      const fill: [string, string][] = [["name", "Vessel"], ["outer.parameterRecord", "P1.OuterParameters"], ["outer.mode", "P1.OuterAuto"],
+        ["outer.processVariable", "P1.VesselC"], ["outer.processVariable.unit", "degC"],
+        ["outer.processVariable.minimum", "20"], ["outer.processVariable.maximum", "60"], ["outer.setpoint", "P1.VesselSetpointC"],
+        ["inner.parameterRecord", "P1.InnerParameters"], ["inner.mode", "P1.InnerAuto"], ["inner.manualOutput", "P1.InnerManual"],
+        ["inner.processVariable", "P1.JacketC"], ["inner.processVariable.unit", "degC"], ["inner.processVariable.minimum", "20"],
+        ["inner.processVariable.maximum", "80"], ["inner.manipulatedVariable", "P1.HeaterPct"], ["inner.manipulatedVariable.unit", "%"],
+        ["inner.manipulatedVariable.minimum", "0"], ["inner.manipulatedVariable.maximum", "100"], ];
+      for (const [field, value] of fill) view.set(field, value);
+      const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
+      assert.strictEqual(view.root.querySelector<HTMLElement>("[data-setup-startup]")!.hidden, false, "the engine asks for the flag of the inner controller");
+      view.set("startupFlag", "P1.Initialized");
+      save.click();
+      // The whole cascade draft as the engine reads it (C6): both controllers as typed, and no manual output for the outer one.
+      assert.deepStrictEqual(view.posts[0].draft, {
+        structure: "cascade", name: "Vessel", action: "direct", startupFlag: "P1.Initialized",
+        outer: { instance: "P1.Outer", parameterRecord: "P1.OuterParameters", mode: { symbol: "P1.OuterAuto", whenTrue: "Auto" },
+          processVariable: { symbol: "P1.VesselC", unit: "degC", minimum: "20", maximum: "60" }, setpoint: { symbol: "P1.VesselSetpointC" } },
+        inner: { instance: "P1.Inner", parameterRecord: "P1.InnerParameters", mode: { symbol: "P1.InnerAuto", whenTrue: "Auto" }, manualOutput: "P1.InnerManual",
+          processVariable: { symbol: "P1.JacketC", unit: "degC", minimum: "20", maximum: "80" },
+          manipulatedVariable: { symbol: "P1.HeaterPct", unit: "%", minimum: "0", maximum: "100" } },
+      });
+      // Identify chooses the identification step and duration within the limits, so the cascade draft carries neither (Specification 35 B1.3).
+      assert.ok(!("experimentStep" in view.posts[0].draft) && !("experimentDurationSeconds" in view.posts[0].draft));
+    } finally { view.close(); }
+  });
+
+  test("fills in the chosen controller's own signals when the program has several PIDs, keeping what the user changed", () => {
+    const left = { instance: "P1.Left", parameterRecord: "P1.LeftParameters", manipulatedVariable: "P1.LeftHeater", setpoint: "P1.LeftSetpoint", manualOutput: "P1.LeftManual" };
+    const right = { instance: "P1.Right", parameterRecord: "P1.RightParameters", manipulatedVariable: "P1.RightHeater", setpoint: "P1.RightSetpoint", manualOutput: "P1.RightManual" };
+    const signals = ["P1.LeftHeater", "P1.LeftManual", "P1.LeftSetpoint", "P1.RightHeater", "P1.RightManual", "P1.RightSetpoint"];
+    // Several PIDs make the engine offer the group, so the fixture names it among the structures the program offers.
+    const view = open({ ...singleModel, structure: "group", structures: ["group", ...DEFAULT_STRUCTURES], prefill: undefined, prefills: [left, right],
+      pids: [{ instance: "P1.Left" }, { instance: "P1.Right" }], records: ["P1.LeftParameters", "P1.RightParameters"],
+      addressedReal: signals, measurements: signals, signals,
+      loopNames: [{ instance: "P1.Left", name: "Left" }, { instance: "P1.Right", name: "Right" }] });
+    try {
+      const field = (name: string) => view.root.querySelector<HTMLSelectElement>(`[data-setup-field="${name}"]`)!.value;
+      assert.strictEqual(field("structure"), "group", "the engine preselects the structure the program shows: several PIDs are a group");
+      view.set("instance", "P1.Right");
+      assert.deepStrictEqual(["parameterRecord", "manipulatedVariable", "setpoint", "manualOutput"].map(field),
+        ["P1.RightParameters", "P1.RightHeater", "P1.RightSetpoint", "P1.RightManual"]);
+      view.set("manualOutput", "P1.LeftManual");
+      view.set("instance", "P1.Left");
+      assert.deepStrictEqual(["parameterRecord", "manipulatedVariable", "setpoint", "manualOutput"].map(field),
+        ["P1.LeftParameters", "P1.LeftHeater", "P1.LeftSetpoint", "P1.LeftManual"], "a changed controller brings its own signals");
+      view.set("manualOutput", "P1.RightManual");
+      view.set("instance", "P1.Right");
+      assert.strictEqual(field("manualOutput"), "P1.RightManual", "a field the user chose is kept");
+    } finally { view.close(); }
+  });
+
+  test("fills in both controllers of a recognised cascade from their own calls", () => {
+    const signals = ["P1.HeaterPct", "P1.InnerManual", "P1.JacketC", "P1.JacketSetpointC", "P1.OuterManual", "P1.VesselC", "P1.VesselSetpointC"];
+    const view = open({ ...singleModel, structure: "cascade", cascade: { outer: "P1.Outer", inner: "P1.Inner" }, prefill: undefined,
+      pids: [{ instance: "P1.Inner" }, { instance: "P1.Outer" }], records: ["P1.InnerParameters", "P1.OuterParameters"],
+      addressedReal: signals, measurements: signals, signals,
+      loopNames: [{ instance: "P1.Inner", name: "Inner" }, { instance: "P1.Outer", name: "Outer" }],
+      prefills: [
+        { instance: "P1.Inner", parameterRecord: "P1.InnerParameters", manipulatedVariable: "P1.HeaterPct", setpoint: "P1.JacketSetpointC", processValue: "P1.JacketC", manualOutput: "P1.InnerManual" },
+        { instance: "P1.Outer", parameterRecord: "P1.OuterParameters", manipulatedVariable: "P1.JacketSetpointC", setpoint: "P1.VesselSetpointC", processValue: "P1.VesselC", manualOutput: "P1.OuterManual" }] });
+    try {
+      const field = (name: string) => view.root.querySelector<HTMLSelectElement>(`[data-setup-field="${name}"]`)!.value;
+      // The outer controller has no manual output (C6), so the form has no field for it.
+      assert.deepStrictEqual(["outer.parameterRecord", "outer.processVariable", "outer.setpoint",
+        "inner.parameterRecord", "inner.manualOutput", "inner.processVariable", "inner.manipulatedVariable"].map(field),
+      ["P1.OuterParameters", "P1.VesselC", "P1.VesselSetpointC", "P1.InnerParameters", "P1.InnerManual", "P1.JacketC", "P1.HeaterPct"]);
+      assert.strictEqual(view.root.querySelector('[data-setup-field="outer.manualOutput"]'), null);
+    } finally { view.close(); }
+  });
+
+  test("shows the engine's measurement hint under the measurement field, where the program computes the controller's measurement", () => {
+    const view = open({ ...singleModel, prefill: { ...singleModel.prefill, computed: { processValue: "P1.SafeProcessValueC" } },
+      prefills: [{ ...singleModel.prefill, computed: { processValue: "P1.SafeProcessValueC" } }] });
+    try {
+      view.showError("Choose the measurement. The controller reads P1.SafeProcessValueC, which the program computes, so a simulated measurement would be overwritten every scan; choose the measurement it is computed from.", "processVariable");
+      // The measurement's selector sits in its closed Change panel, so the sentence shows in the message area.
+      assert.match(view.root.querySelector("[data-setup-message]")!.textContent ?? "",
+        /Choose the measurement\. The controller reads P1\.SafeProcessValueC, which the program computes.*overwritten every scan; choose the measurement it is computed from/,
+        "the engine's sentence names the program's own variable and why it cannot serve");
+    } finally { view.close(); }
+  });
+
+  test("offers a controller output, setpoint and manual output that have no I/O address (Specification 35 §17.1)", () => {
+    const view = open({ ...singleModel, signals: [...singleModel.addressedReal, "P1.ControllerPct", "P1.OperatorSetpointC"].sort(),
+      measurements: ["P1.TemperatureC"] });
+    try {
+      const options = (field: string) => Array.from(view.root.querySelectorAll<HTMLOptionElement>(`[data-setup-field="${field}"] option`)).map(option => option.value);
+      assert.ok(options("manipulatedVariable").includes("P1.ControllerPct"), `${options("manipulatedVariable")}`);
+      assert.ok(options("setpoint").includes("P1.OperatorSetpointC"));
+      assert.deepStrictEqual(options("processVariable").filter(Boolean), ["P1.TemperatureC"]);
+      assert.ok(options("manualOutput").includes("P1.ControllerPct"), "Studio steps a manual output by name, so it needs no I/O address");
+    } finally { view.close(); }
+  });
+
+  test("sets up interacting PIDs as one group that shares the Auto/Manual signal", () => {
+    const prefill = (n: number) => ({ instance: `P1.Zone${n}`, parameterRecord: `P1.Zone${n}Parameters`, manipulatedVariable: `P1.Heater${n}Pct`,
+      setpoint: `P1.Zone${n}SetpointC`, processValue: `P1.Zone${n}C`, manualOutput: `P1.Zone${n}ManualPct` });
+    const zones = [1, 2].flatMap(n => [`P1.Heater${n}Pct`, `P1.Zone${n}C`, `P1.Zone${n}ManualPct`, `P1.Zone${n}SetpointC`]).sort();
+    const view = open({ ...singleModel, structure: "group", prefill: undefined, prefills: [prefill(1), prefill(2)],
+      pids: [{ instance: "P1.Zone1" }, { instance: "P1.Zone2" }], records: ["P1.Zone1Parameters", "P1.Zone2Parameters"], booleans: ["P1.ZonesAuto"],
+      modes: ["P1.ZonesAuto"], structures: GROUP_STRUCTURES, addressedReal: zones, measurements: zones, signals: zones,
+      loopNames: [{ instance: "P1.Zone1", name: "Zone1" }, { instance: "P1.Zone2", name: "Zone2" }] });
+    try {
+      const structures = Array.from(view.root.querySelectorAll<HTMLOptionElement>('[data-setup-field="structure"] option')).map(option => option.value);
+      assert.ok(structures.includes("group"), `a program with several PIDs offers the group structure: ${structures}`);
+      view.set("structure", "group");
+      view.set("name", "Zone temperatures");
+      const include = (n: number) => { const box = view.root.querySelector<HTMLInputElement>(`[data-setup-field="group.${n}.include"]`)!;
+        box.checked = true; box.dispatchEvent(new view.dom.window.Event("change", { bubbles: true })); };
+      include(0); include(1);
+      const field = (name: string) => view.root.querySelector<HTMLSelectElement>(`[data-setup-field="${name}"]`)!.value;
+      assert.deepStrictEqual(["group.1.parameterRecord", "group.1.processVariable", "group.1.manipulatedVariable", "group.1.setpoint", "group.1.manualOutput"].map(field),
+        ["P1.Zone2Parameters", "P1.Zone2C", "P1.Heater2Pct", "P1.Zone2SetpointC", "P1.Zone2ManualPct"], "each member is filled in from its own calls");
+      for (const n of [0, 1]) {
+        view.set(`group.${n}.processVariable.unit`, "degC"); view.set(`group.${n}.processVariable.minimum`, "20"); view.set(`group.${n}.processVariable.maximum`, "60");
+        view.set(`group.${n}.manipulatedVariable.unit`, "%"); view.set(`group.${n}.manipulatedVariable.minimum`, "0"); view.set(`group.${n}.manipulatedVariable.maximum`, "100");
+      }
+      assert.strictEqual(view.root.querySelector('[data-setup-field="group.experimentStep"]'), null, "no member asks for an identification step");
+      assert.strictEqual(view.root.querySelector('[data-setup-field="group.experimentDuration"]'), null, "the group asks for no identification duration");
+      const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
+      view.set("group.mode", "P1.ZonesAuto");
+      save.click();
+      const draft = view.posts[0].draft;
+      assert.deepStrictEqual([draft.structure, draft.mode, draft.members.map((entry: any) => entry.instance)],
+        ["group", { symbol: "P1.ZonesAuto", whenTrue: "Auto" }, ["P1.Zone1", "P1.Zone2"]]);
+      assert.deepStrictEqual(draft.members[1], { instance: "P1.Zone2", parameterRecord: "P1.Zone2Parameters",
+        processVariable: { symbol: "P1.Zone2C", unit: "degC", minimum: "20", maximum: "60" }, manipulatedVariable: { symbol: "P1.Heater2Pct", unit: "%", minimum: "0", maximum: "100" },
+        setpoint: { symbol: "P1.Zone2SetpointC" }, manualOutput: "P1.Zone2ManualPct" });
+      assert.ok(!("experimentStep" in draft.members[0]) && !("experimentStep" in draft), "no identification step in the group draft");
+    } finally { view.close(); }
+  });
+
+  test("sets up an existing switching controller with its band, dwell times and retained switching state", () => {
+    const view = open(onOffModel);
+    try {
+      const structures = Array.from(view.root.querySelectorAll<HTMLOptionElement>('[data-setup-field="structure"] option')).map(option => option.value);
+      assert.ok(structures.includes("onoff"), `a switching controller has its own structure: ${structures}`);
+      assert.doesNotMatch(view.root.querySelector("[data-setup-step-by-step]")!.textContent ?? "", /ON\/OFF/,
+        "the secondary setup no longer offers what this form sets up");
+      for (const [field, value] of onOffFill) view.set(field, value);
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.deepStrictEqual(view.posts[0].draft, onOffDraft);
+    } finally { view.close(); }
+  });
+
+  test("posts the switched equipment's minimum ON and OFF times as typed: zero when it has no limit, and a blank time is never zero", () => {
+    const view = open(onOffModel);
+    try {
+      for (const [field, value] of [...onOffFill, ["onoff.equipmentMinimumOn", "0"]]) view.set(field, value);
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.deepStrictEqual(view.posts[0].draft, { ...onOffDraft, equipmentMinimumOnSeconds: "0" });
+      view.set("onoff.equipmentMinimumOn", "20"); view.set("onoff.equipmentMinimumOff", "30");
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.deepStrictEqual(view.posts[1].draft, { ...onOffDraft, equipmentMinimumOnSeconds: "20", equipmentMinimumOffSeconds: "30" });
+    } finally { view.close(); }
+  });
+
+  test("posts the output levels and the threshold-equality policy as typed; a blank level is the output's limit", () => {
+    const view = open(onOffModel);
+    try {
+      for (const [field, value] of [...onOffFill, ["onoff.lowOutput", "5"], ["onoff.thresholdEquality", "beyond"]]) view.set(field, value);
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.deepStrictEqual(view.posts[0].draft, { ...onOffDraft, lowOutput: "5", thresholdEquality: "beyond" });
+    } finally { view.close(); }
+  });
+
+  test("shows the startup section where the engine asks for the flag of a switching controller, and posts the flag", () => {
+    const view = open({ ...onOffModel, booleans: [...onOffModel.booleans, "P1.Initialized"], modes: [...onOffModel.modes, "P1.Initialized"], startupFlagInstances: ["P1"] });
+    try {
+      for (const [field, value] of onOffFill) view.set(field, value);
+      assert.strictEqual(view.root.querySelector<HTMLElement>("[data-setup-startup]")!.hidden, false,
+        "the engine asks for the flag that marks the startup of this switching controller as done");
+      view.set("startupFlag", "P1.Initialized");
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.deepStrictEqual(view.posts[0].draft, { ...onOffDraft, startupFlag: "P1.Initialized" });
+    } finally { view.close(); }
+  });
+
+  test("sets up an existing state-feedback law with one gain per measured output", () => {
+    const view = open(feedbackModel);
+    try {
+      const structures = Array.from(view.root.querySelectorAll<HTMLOptionElement>('[data-setup-field="structure"] option')).map(option => option.value);
+      assert.ok(structures.includes("state-feedback"), `state feedback has its own structure: ${structures}`);
+      for (const [field, value] of feedbackFill) view.set(field, value);
+      assert.strictEqual(view.root.querySelector('[data-setup-field="feedback.experimentStep"]'), null, "setup asks for no identification step");
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.deepStrictEqual(view.posts[0].draft, feedbackDraft);
+    } finally { view.close(); }
+  });
+
+  test("incomplete state-feedback laws are posted as typed, so the engine says what they lack", () => {
+    const view = open(feedbackModel);
+    try {
+      for (const [field, value] of feedbackFill.slice(0, 15)) view.set(field, value);
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      // No further output, mode or manual output is chosen yet: the form does not refuse the law; the engine does (C4, B1.3).
+      assert.deepStrictEqual(view.posts[0].draft, { ...feedbackDraft, states: [blankFurtherOutput, blankFurtherOutput, blankFurtherOutput],
+        mode: { symbol: "", whenTrue: "Auto" }, manualOutput: "" });
+    } finally { view.close(); }
+  });
+
+  test("shows the engine's refusal under the field it names, and in the message when it names none", () => {
+    const view = open(feedbackModel);
+    try {
+      for (const [field, value] of feedbackFill) view.set(field, value);
+      view.showError("The gain must be a variable of the program.", "feedback.gain");
+      const label = view.root.querySelector<HTMLElement>('[data-setup-field="feedback.gain"]')!.closest("label")!;
+      assert.strictEqual(label.nextElementSibling?.textContent, "The gain must be a variable of the program.", "the sentence sits under its field");
+      assert.strictEqual(view.root.querySelector("[data-setup-message]")!.textContent, "");
+      view.showError("The loop name is already taken.");
+      assert.strictEqual(view.root.querySelector("[data-setup-message]")!.textContent, "The loop name is already taken.");
+      assert.strictEqual(view.root.querySelector('[role="alert"]'), null, "a refusal that names no field replaces the one under a field");
+    } finally { view.close(); }
+  });
+
+  test("shows the startup section where the engine asks for the flag of a state-feedback law, and posts the flag once chosen", () => {
+    const view = open({ ...feedbackModel, booleans: [...feedbackModel.booleans, "P1.Initialized"], modes: [...feedbackModel.modes, "P1.Initialized"], startupFlagInstances: ["P1"] });
+    try {
+      for (const [field, value] of feedbackFill) view.set(field, value);
+      assert.strictEqual(view.root.querySelector<HTMLElement>("[data-setup-startup]")!.hidden, false,
+        "the engine asks for the flag that marks the startup of this law as done");
+      view.set("startupFlag", "P1.Initialized");
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.deepStrictEqual(view.posts[0].draft, { ...feedbackDraft, startupFlag: "P1.Initialized" });
+    } finally { view.close(); }
+  });
+
+  test("posts an empty or reversed range as typed, and shows the engine's refusal of it", () => {
+    const view = open(singleModel);
+    try {
+      view.set("name", "Heater"); view.set("processVariable", "P1.TemperatureC");
+      view.set("processVariable.unit", "degC"); view.set("processVariable.minimum", "80"); view.set("processVariable.maximum", "80");
+      view.set("manipulatedVariable.unit", "%"); view.set("manipulatedVariable.minimum", "0"); view.set("manipulatedVariable.maximum", "100");
+      view.set("mode", "P1.AutoMode");
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.deepStrictEqual(view.posts[0].draft.processVariable, { symbol: "P1.TemperatureC", unit: "degC", minimum: "80", maximum: "80" },
+        "the range is posted as typed; the engine refuses a maximum that is not above its minimum");
+      view.showError("The measurement maximum must be above its minimum.", "processVariable.maximum");
+      assert.match(view.root.querySelector("[data-setup-message]")!.textContent ?? "", /maximum.*above.*minimum/i);
+    } finally { view.close(); }
+  });
+
+  test("shows the recognised cascade with its outer and inner controllers", () => {
+    const view = open({ ...singleModel, structure: "cascade", cascade: { outer: "P1.Outer", inner: "P1.Inner" },
+      pids: [{ instance: "P1.Inner" }, { instance: "P1.Outer" }], prefill: undefined, prefills: [], records: ["P1.InnerParameters", "P1.OuterParameters"],
+      loopNames: [{ instance: "P1.Inner", name: "Inner" }, { instance: "P1.Outer", name: "Outer" }] });
+    try {
+      assert.strictEqual(view.root.querySelector<HTMLSelectElement>("[data-setup-field=\"structure\"]")!.value, "cascade");
+      assert.strictEqual(view.root.querySelector<HTMLSelectElement>("[data-setup-field=\"outer.instance\"]")!.value, "P1.Outer");
+      assert.strictEqual(view.root.querySelector<HTMLSelectElement>("[data-setup-field=\"inner.instance\"]")!.value, "P1.Inner");
+      assert.strictEqual(view.root.querySelector<HTMLElement>("[data-setup-section=\"pid\"]")!.hidden, true, "only the chosen structure's fields are shown");
+      assert.strictEqual(view.root.querySelector<HTMLElement>("[data-setup-section=\"cascade\"]")!.hidden, false);
+    } finally { view.close(); }
+  });
+
+  test("preselects the choices the engine answers, and posts them when the engineer keeps them (B1.3)", () => {
+    const view = open({ ...singleModel, defaults: { action: "reverse", modeWhenTrue: "Manual", searchFamily: "ratio", searchKeptStart: "output" } });
+    try {
+      const field = (name: string) => view.root.querySelector<HTMLSelectElement>(`[data-setup-field="${name}"]`)!.value;
+      assert.deepStrictEqual([field("action"), field("modeWhenTrue"), field("search.family"), field("search.state.0.start")],
+        ["reverse", "Manual", "ratio", "output"], "the page shows the engine's preselection, not a default of its own");
+      view.set("name", "Heater temperature"); view.set("processVariable", "P1.TemperatureC");
+      view.set("processVariable.unit", "degC"); view.set("processVariable.minimum", "0"); view.set("processVariable.maximum", "80");
+      view.set("manipulatedVariable.unit", "%"); view.set("manipulatedVariable.minimum", "0"); view.set("manipulatedVariable.maximum", "100");
+      view.set("mode", "P1.AutoMode");
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.deepStrictEqual([view.posts[0].draft.action, view.posts[0].draft.mode], ["reverse", { symbol: "P1.AutoMode", whenTrue: "Manual" }],
+        "the draft carries the engine's preselected action and TRUE value");
+    } finally { view.close(); }
+  });
+
+  test("draws the rows the engine's limits set, and no more (B1.3)", () => {
+    const limits = { ...ENGINE_FORM_FIELDS.limits, furtherOutputs: 1, estimatorStates: 2, searchCoefficients: 2, searchKeptValues: 1 };
+    const schedulePoints = [{ required: true }, { required: true }, { required: false }];
+    const view = open({ ...singleModel, limits, schedulePoints });
+    try {
+      const count = (selector: string) => view.root.querySelectorAll(selector).length;
+      assert.deepStrictEqual([count("[data-feedback-state]"), count("[data-estimate-state]"), count("[data-search-coefficient]"),
+        count("[data-search-state]"), count("[data-schedule-point]")], [1, 2, 2, 1, 3]);
+    } finally { view.close(); }
+  });
+
+  test("marks as optional the operating points the engine does not require, whatever their number (C10)", () => {
+    const view = open({ ...singleModel, schedulePoints: [{ required: true }, { required: false }, { required: true }, { required: false }, { required: false }] });
+    try {
+      assert.deepStrictEqual(Array.from(view.root.querySelectorAll<HTMLElement>("[data-schedule-point]"), row => row.hasAttribute("data-schedule-optional")),
+        [false, true, false, true, true], "the page keeps no minimum of its own: each row follows the engine's flag");
+    } finally { view.close(); }
+  });
+
+  test("shows the words the engine answers for a mode and for a missing value (B1.3)", () => {
+    const wording = { trueMeans: "Signal TRUE means", notFound: "Nothing in the code", notStated: "No task in the code" };
+    const view = open({ ...singleModel, wording, pids: [{ instance: "P1.Controller" }] });
+    try {
+      const found = (field: string) => view.root.querySelector<HTMLElement>(`[data-setup-found-value="${field}"]`)!.textContent;
+      assert.strictEqual(found("mode"), "Nothing in the code", "no Auto/Manual signal is chosen yet");
+      assert.strictEqual(found("task"), "No task in the code", "the program states no task for this controller");
+      view.set("mode", "P1.AutoMode");
+      assert.strictEqual(found("mode"), "P1.AutoMode · Signal TRUE means Auto");
+      assert.strictEqual(view.root.querySelector<HTMLElement>('[data-setup-field="modeWhenTrue"]')!.closest("label")!.firstChild!.textContent,
+        "Signal TRUE means", "the TRUE value is labelled with the engine's words");
+    } finally { view.close(); }
+  });
+
+  test("starts the loop name from the engine's name for the chosen controller (B1.3)", () => {
+    const view = open({ ...singleModel, loopNames: [{ instance: "P1.Controller", name: "Heater" }] });
+    try {
+      assert.strictEqual(view.root.querySelector<HTMLInputElement>('[data-setup-field="name"]')!.value, "Heater");
+    } finally { view.close(); }
+  });
+
+  test("preselects the group for several PIDs, with one decoupler entry per controller rather than a fixed four (C7)", () => {
+    const pids = [1, 2, 3, 4, 5].map(n => ({ instance: `P1.Zone${n}` }));
+    const view = open({ ...singleModel, structure: "group", pids, prefill: undefined, prefills: [], loopNames: [], structures: GROUP_STRUCTURES });
+    try {
+      assert.strictEqual(view.root.querySelector<HTMLSelectElement>('[data-setup-field="structure"]')!.value, "group");
+      assert.strictEqual(view.root.querySelectorAll("[data-decoupler-entry]").length, 25, "five controllers have a five-by-five decoupler");
+    } finally { view.close(); }
+  });
+
+  test("posts every number as the text typed, one no number reads included, for the engine to read and refuse (B1.3)", () => {
+    const view = open(singleModel);
+    try {
+      view.set("processVariable", "P1.TemperatureC"); view.set("processVariable.unit", "degC");
+      view.set("processVariable.minimum", "1,5"); view.set("processVariable.maximum", " 80 ");
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      // The page reads no number: "1,5" is not turned into null or 1.5, and the engine refuses it under its field.
+      assert.deepStrictEqual(view.posts[0].draft.processVariable, { symbol: "P1.TemperatureC", unit: "degC", minimum: "1,5", maximum: "80" });
+      view.showError("Enter the measurement minimum and maximum.", "processVariable.minimum");
+      assert.match(view.root.querySelector("[data-setup-message]")!.textContent ?? "", /Enter the measurement minimum and maximum/,
+        "the range is hidden once its three fields are typed, so the engine's sentence shows in the message area");
+    } finally { view.close(); }
+  });
+
+  test("shows each choice in the engine's words, and a value the engine names without words as itself (B1.3)", () => {
+    const labels = { ...ENGINE_FORM_FIELDS.labels, stateFamilies: { ...ENGINE_FORM_FIELDS.labels.stateFamilies, LQR: "LQR in the engine's words" },
+      structures: { ...ENGINE_FORM_FIELDS.labels.structures, pid: "One PID loop, as the engine says" } };
+    const choices = { ...ENGINE_FORM_FIELDS.choices, ownLaws: [...ENGINE_FORM_FIELDS.choices.ownLaws, "PD"] };
+    const view = open({ ...singleModel, labels, choices });
+    try {
+      const options = (field: string) => Array.from(view.root.querySelectorAll<HTMLOptionElement>(`[data-setup-field="${field}"] option`))
+        .map(option => [option.value, option.textContent]);
+      assert.deepStrictEqual(options("feedback.family")[0], ["LQR", "LQR in the engine's words"], "the design shows the engine's words");
+      assert.deepStrictEqual(options("structure")[0], ["pid", "One PID loop, as the engine says"], "the structure shows the engine's words");
+      assert.deepStrictEqual(options("own.law").slice(-1), [["PD", "PD"]], "a law without words is offered as itself, never left out");
+      assert.deepStrictEqual(options("own.derivativeOn"), [["", "Choose…"], ["error", "The error"], ["measurement", "The measurement"]],
+        "where the derivative is taken from is the engine's list, in its words");
+    } finally { view.close(); }
+  });
+
+  test("draws the decoupler matrix with the rows and columns the engine names, not the number of controllers (C7)", () => {
+    const pids = [1, 2].map(n => ({ instance: `P1.Zone${n}` }));
+    const view = open({ ...singleModel, structure: "group", pids, prefill: undefined, prefills: [], loopNames: [], structures: GROUP_STRUCTURES,
+      decoupler: { rows: 2, columns: 3 } });
+    try {
+      const entries = Array.from(view.root.querySelectorAll<HTMLElement>("[data-decoupler-entry]"), entry => entry.dataset.decouplerEntry);
+      assert.deepStrictEqual(entries, ["0.0", "0.1", "0.2", "1.0", "1.1", "1.2"], "one entry for each cell of the engine's matrix");
+    } finally { view.close(); }
+  });
+});

@@ -201,7 +201,7 @@ IF E AND NOT edge THEN
 END_IF;
 edge := E;
 IF run THEN
-    ElapsedMs := DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(ta);
+    ElapsedMs := T_PLC_ELAPSED(NOW := tx, LAST := ta);
     CASE state OF
         1:
             IF ElapsedMs >= DWORD_TO_UDINT(tb) THEN
@@ -212,7 +212,7 @@ IF run THEN
                 temp := value_1;
                 state := 2;
             ELSIF DWORD_TO_UDINT(tb) > UDINT#0 THEN
-                temp := ((vb - va) * UDINT_TO_REAL(ElapsedMs) / DWORD_TO_REAL(tb) + va);
+                temp := ((vb - va) * UDINT_TO_REAL(ElapsedMs) / UDINT_TO_REAL(DWORD_TO_UDINT(tb)) + va);
             ELSE
                 temp := vb;
             END_IF;
@@ -225,7 +225,7 @@ IF run THEN
                 temp := value_2;
                 state := 3;
             ELSIF DWORD_TO_UDINT(tb) > UDINT#0 THEN
-                temp := ((vb - va) * UDINT_TO_REAL(ElapsedMs) / DWORD_TO_REAL(tb) + va);
+                temp := ((vb - va) * UDINT_TO_REAL(ElapsedMs) / UDINT_TO_REAL(DWORD_TO_UDINT(tb)) + va);
             ELSE
                 temp := vb;
             END_IF;
@@ -238,7 +238,7 @@ IF run THEN
                 temp := value_3;
                 state := 4;
             ELSIF DWORD_TO_UDINT(tb) > UDINT#0 THEN
-                temp := ((vb - va) * UDINT_TO_REAL(ElapsedMs) / DWORD_TO_REAL(tb) + va);
+                temp := ((vb - va) * UDINT_TO_REAL(ElapsedMs) / UDINT_TO_REAL(DWORD_TO_UDINT(tb)) + va);
             ELSE
                 temp := vb;
             END_IF;
@@ -255,7 +255,7 @@ IF run THEN
                     state := 6;
                 END_IF;
             ELSIF DWORD_TO_UDINT(tb) > UDINT#0 THEN
-                temp := ((vb - va) * UDINT_TO_REAL(ElapsedMs) / DWORD_TO_REAL(tb) + va);
+                temp := ((vb - va) * UDINT_TO_REAL(ElapsedMs) / UDINT_TO_REAL(DWORD_TO_UDINT(tb)) + va);
             ELSE
                 temp := vb;
             END_IF;
@@ -274,7 +274,7 @@ IF run THEN
                 temp := value_11;
                 state := 7;
             ELSIF DWORD_TO_UDINT(tb) > UDINT#0 THEN
-                temp := ((vb - va) * UDINT_TO_REAL(ElapsedMs) / DWORD_TO_REAL(tb) + va);
+                temp := ((vb - va) * UDINT_TO_REAL(ElapsedMs) / UDINT_TO_REAL(DWORD_TO_UDINT(tb)) + va);
             ELSE
                 temp := vb;
             END_IF;
@@ -287,7 +287,7 @@ IF run THEN
                 temp := value_12;
                 state := 8;
             ELSIF DWORD_TO_UDINT(tb) > UDINT#0 THEN
-                temp := ((vb - va) * UDINT_TO_REAL(ElapsedMs) / DWORD_TO_REAL(tb) + va);
+                temp := ((vb - va) * UDINT_TO_REAL(ElapsedMs) / UDINT_TO_REAL(DWORD_TO_UDINT(tb)) + va);
             ELSE
                 temp := vb;
             END_IF;
@@ -296,13 +296,13 @@ IF run THEN
                 temp := value_13;
                 run := FALSE;
             ELSIF DWORD_TO_UDINT(tb) > UDINT#0 THEN
-                temp := ((vb - va) * UDINT_TO_REAL(ElapsedMs) / DWORD_TO_REAL(tb) + va);
+                temp := ((vb - va) * UDINT_TO_REAL(ElapsedMs) / UDINT_TO_REAL(DWORD_TO_UDINT(tb)) + va);
             ELSE
                 temp := vb;
             END_IF;
     END_CASE;
     Y := temp * K + O;
-    ET := DWORD_TO_TIME(UDINT_TO_DWORD(DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(t0)));
+    ET := DWORD_TO_TIME(UDINT_TO_DWORD(T_PLC_ELAPSED(NOW := tx, LAST := t0)));
 END_IF;
 END_FUNCTION_BLOCK
 
@@ -642,7 +642,7 @@ IF (A0 <> LastA0) OR (A1 <> LastA1) THEN
         P4 := X[SetIndex,4];
     END_IF;
 ELSIF start THEN
-    ElapsedMs := DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(last);
+    ElapsedMs := T_PLC_ELAPSED(NOW := tx, LAST := last);
     IF ElapsedMs < DurationMs THEN
         RemainingMs := DurationMs - ElapsedMs;
         P1 := X[SetIndex,1] - S1 * UDINT_TO_REAL(RemainingMs);
@@ -863,12 +863,12 @@ ELSIF state > 0 THEN
     ELSE
         in := sd;
     END_IF;
-    ElapsedMs := DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(start);
+    ElapsedMs := T_PLC_ELAPSED(NOW := tx, LAST := start);
     IF NOT in AND ElapsedMs <= T1Ms THEN
         Y := Y_start + STEP_DELTA;
         state := 0;
     ELSIF in AND ElapsedMs >= T2Ms THEN
-        Y := Y_start2 + UDINT_TO_REAL(DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(start2)) * s2 / speed;
+        Y := Y_start2 + UDINT_TO_REAL(T_PLC_ELAPSED(NOW := tx, LAST := start2)) * s2 / speed;
     ELSIF in AND ElapsedMs >= T1Ms THEN
         Y := Y_start + UDINT_TO_REAL(ElapsedMs - T1Ms) * S1 / speed;
         start2 := tx;
@@ -944,7 +944,7 @@ ELSIF state > 0 THEN
         4 :
             in := fd;
     END_CASE;
-    ElapsedMs := DWORD_TO_UDINT(tx) - DWORD_TO_UDINT(start);
+    ElapsedMs := T_PLC_ELAPSED(NOW := tx, LAST := start);
     IF NOT in AND ElapsedMs <= TRMs THEN
         Y := Y_start + STEP_DELTA;
         state := 0;

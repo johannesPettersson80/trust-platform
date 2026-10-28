@@ -105,8 +105,13 @@ def remote_validation_commands(
         "CARGO_INCREMENTAL=0 RUSTC_WRAPPER=/usr/bin/env "
         "CARGO_BUILD_RUSTC_WRAPPER=/usr/bin/env"
     )
+    # The toolchain for compiled programs (specification 44 §4.6), built from the candidate as CI
+    # builds it: its program library's hash names the candidate's version, so the tests that
+    # build and run programs need this one and no other.
+    toolchain = str(PurePosixPath(target) / "trust-toolchain")
     target_env = (
         f"{cargo_env} CC=cc CXX=c++ TMPDIR={shlex.quote(target_tmp)} "
+        f"TRUST_TOOLCHAIN={shlex.quote(toolchain)} "
         f"PATH={shlex.quote(target_bin)}:$PATH"
     )
     cross_target_env = (
@@ -126,6 +131,11 @@ def remote_validation_commands(
             "bash scripts/with_cargo_target_lease.sh "
             f"{shlex.quote(target)} bash {shell_mode} {shlex.quote(command)}"
         )
+
+    toolchain_build = leased(
+        f"{target_env} bash scripts/native/build_toolchain_libraries.sh "
+        f"{shlex.quote(toolchain)}"
+    )
 
     disk_probe = (
         "set -euo pipefail; "
@@ -150,6 +160,9 @@ def remote_validation_commands(
         + "else "
         + f"bash scripts/remove_cargo_target_if_idle.sh {shlex.quote(target)} || exit $?; "
         + f"({prepare_target}) || exit $?; "
+        # The toolchain for compiled programs lives in the target, so a reclaim builds it again
+        # (guard prepare 12 on 27 October 2026 ran test-all without it).
+        + f"({toolchain_build}) || exit $?; "
         + disk_probe
         + disk_floor_check
         + "; fi"
@@ -158,6 +171,7 @@ def remote_validation_commands(
         ("remote_exact_head", ""),
         ("remote_disk_preflight", disk_preflight),
         ("remote_prepare_target", prepare_target),
+        ("remote_toolchain", toolchain_build),
     ]
     if vscode_changed:
         commands.append(
@@ -199,6 +213,15 @@ def remote_validation_commands(
                 "remote_clippy",
                 leased(
                     f"{target_env} cargo clippy --all-targets --all-features -- -D warnings"
+                ),
+            ),
+            (
+                # The same documentation build as CI's Documentation job, so a doc error cannot
+                # pass the guard and then fail CI (16 October 2026, PR #137).
+                "remote_docs",
+                leased(
+                    f"{target_env} RUSTDOCFLAGS='-D warnings' "
+                    "cargo doc --no-deps --all-features"
                 ),
             ),
             (

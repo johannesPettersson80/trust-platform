@@ -12,9 +12,18 @@ fn load_runtime(
         } else {
             SourceRegistry::new(Vec::new())
         };
-        let module = BytecodeModule::decode(&bundle.bytecode)?;
-        let runtime = compile_session_from_sources(&sources)
-            .build_runtime_from_bytecode(&module, Some(&bundle.runtime.resource_name))?;
+        // The project runs with the conversion rules of its `vendor_profile`, which its image was
+        // built with and records (docs/specs/07-standard-functions.md 2.10; specification 44
+        // §5.2); an unknown profile refuses it.
+        trust_runtime::native::conversion_profile(bundle.root.as_path())?;
+        // A project runs the program image it was built into for this computer (specification 44
+        // §8.8, NX-15).
+        let runtime = trust_runtime::CompiledRuntime::load_deployed(
+            bundle.image.clone(),
+            bundle.runtime.resource_name.clone(),
+            bundle.runtime.max_statements_per_scan,
+        )?;
+        refuse_program_use_of_identify_output(&bundle, &runtime)?;
         return Ok(LoadedRuntime {
             bundle: Some(bundle),
             runtime,
@@ -31,7 +40,8 @@ fn load_runtime(
                 .unwrap_or_else(|| PathBuf::from("."))
         });
         let sources = load_sources(&runtime_root)?;
-        let runtime = compile_runtime_from_sources(&sources)?;
+        let profile = trust_runtime::native::conversion_profile(&runtime_root)?;
+        let runtime = build_sources(&sources, profile)?;
         return Ok(LoadedRuntime {
             bundle: None,
             runtime,
@@ -49,7 +59,7 @@ fn load_runtime(
         text: "PROGRAM Main\nEND_PROGRAM\n".to_string(),
     };
     let sources = SourceRegistry::new(vec![bootstrap_source]);
-    let runtime = compile_runtime_from_sources(&sources)?;
+    let runtime = build_sources(&sources, ConversionProfile::Iec)?;
 
     Ok(LoadedRuntime {
         bundle: None,
@@ -59,25 +69,73 @@ fn load_runtime(
     })
 }
 
-fn compile_session_from_sources(sources: &SourceRegistry) -> CompileSession {
-    CompileSession::from_sources(
-        sources
-            .files()
-            .iter()
-            .map(|file| {
-                trust_runtime::harness::SourceFile::with_path(
-                    file.path.to_string_lossy().as_ref(),
-                    file.text.clone(),
-                )
-            })
-            .collect(),
-    )
+/// Refuses a project whose program uses the output that `[runtime.identify] output` names, or
+/// whose output lies beyond the output image, before anything runs (specification 11, "Identify",
+/// load). `run`, `play` and every restart that reloads the program make this check, and so do
+/// `validate`, `check` and `ide serve`.
+fn refuse_program_use_of_identify_output(
+    bundle: &RuntimeBundle,
+    runtime: &trust_runtime::CompiledRuntime,
+) -> anyhow::Result<()> {
+    let Some(output) = &bundle.runtime.identify_output else {
+        return Ok(());
+    };
+    trust_runtime::io::check_runtime_identify_output(output, runtime, &bundle.io)?;
+    Ok(())
 }
 
-fn compile_runtime_from_sources(sources: &SourceRegistry) -> anyhow::Result<Runtime> {
-    compile_session_from_sources(sources)
-        .build_runtime()
-        .map_err(anyhow::Error::from)
+/// The identify load check of a loaded project bundle without starting it, for `validate`: the
+/// program is loaded only when the bundle has an identify output to check.
+fn check_bundle_identify_output(bundle: &RuntimeBundle) -> anyhow::Result<()> {
+    if bundle.runtime.identify_output.is_none() {
+        return Ok(());
+    }
+    let runtime = trust_runtime::CompiledRuntime::load_deployed(
+        bundle.image.clone(),
+        bundle.runtime.resource_name.clone(),
+        bundle.runtime.max_statements_per_scan,
+    )?;
+    refuse_program_use_of_identify_output(bundle, &runtime)
+}
+
+/// The program of `sources`, built for this computer with the toolchain, installed on the first
+/// build that needs it (specification 44 §8.8, §4.6), with the conversion rules `profile` of the
+/// project's `vendor_profile` (docs/specs/07-standard-functions.md 2.10): a launch without a
+/// project builds the sources it is given, in a temporary folder.
+fn build_sources(
+    sources: &SourceRegistry,
+    profile: ConversionProfile,
+) -> anyhow::Result<trust_runtime::CompiledRuntime> {
+    let toolchain = crate::toolchain::build_toolchain()?;
+    let target = trust_runtime::native::Target::this_cpu()
+        .ok_or_else(|| anyhow::anyhow!("this computer's CPU runs no program image"))?;
+    let files = sources
+        .files()
+        .iter()
+        .map(|file| {
+            trust_runtime::harness::SourceFile::with_path(
+                file.path.to_string_lossy().as_ref(),
+                file.text.clone(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let work = std::env::temp_dir().join(format!("trust-runtime-sources-{}", std::process::id()));
+    let built = trust_runtime::native::build_with_conversions(
+        &files,
+        &[],
+        &trust_runtime::native::Options {
+            target,
+            hooks: true,
+        },
+        profile,
+        &toolchain,
+        &work,
+    );
+    let _ = std::fs::remove_dir_all(&work);
+    Ok(trust_runtime::CompiledRuntime::load(
+        built?.image,
+        "RESOURCE",
+    )?)
 }
 
 fn load_project_bundle_sources(bundle_root: &Path) -> anyhow::Result<SourceRegistry> {

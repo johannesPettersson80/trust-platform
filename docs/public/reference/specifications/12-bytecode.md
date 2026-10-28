@@ -1,7 +1,7 @@
-# Bytecode Format
+# Bytecode Format (superseded)
 
-Bytecode lookup for the truST container format, versioning, sections, flags,
-validation, binary layout, opcode contracts, and version gates.
+Superseded by native execution (specification 44): truST no longer writes, reads or runs this
+format. The page keeps the STBC container the bytecode engine ran, as history.
 
 Related: [Runtime Engine](11-runtime-engine.md), [Debug Adapter](13-debug-adapter.md)
 

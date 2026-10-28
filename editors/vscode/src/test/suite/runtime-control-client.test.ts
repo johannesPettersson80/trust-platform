@@ -1,147 +1,78 @@
 import * as assert from "assert";
-import { EventEmitter } from "events";
 
 import {
-  isRuntimeControlAuthError,
   probeRuntimeControlEndpoint,
   RuntimeControlError,
-  runtimeControlAuthErrorKind,
-  type RuntimeControlSocket,
+  RuntimeTransportError,
   sendRuntimeControlRequest,
 } from "../../runtimeControlClient";
+import { closedEndpoint, fakeRuntime, runtimeCommandsReady, type FakeRuntime } from "./fakeControlRuntime";
 
-type RuntimeRequest = {
-  id: number;
-  type: string;
-  auth?: string;
-  params?: unknown;
-};
-
-class FakeRuntimeControlSocket
-  extends EventEmitter
-  implements RuntimeControlSocket
-{
-  public destroyed = false;
-  public writes: string[] = [];
-  private timeoutHandle: NodeJS.Timeout | undefined;
-
-  constructor(
-    private readonly responder?: (request: RuntimeRequest) => unknown
-  ) {
-    super();
-    setImmediate(() => this.emit("connect"));
-  }
-
-  setTimeout(timeout: number, callback?: () => void): this {
-    if (callback) {
-      this.timeoutHandle = setTimeout(callback, timeout);
-    }
-    return this;
-  }
-
-  write(data: string, callback?: (error?: Error | null) => void): boolean {
-    this.writes.push(data);
-    callback?.(null);
-    if (this.responder) {
-      const request = JSON.parse(data) as RuntimeRequest;
-      const response = this.responder(request);
-      if (response !== undefined) {
-        setImmediate(() => {
-          this.emit("data", Buffer.from(`${JSON.stringify(response)}\n`));
-        });
-      }
-    }
-    return true;
-  }
-
-  destroy(): void {
-    this.destroyed = true;
-    if (this.timeoutHandle) {
-      clearTimeout(this.timeoutHandle);
-      this.timeoutHandle = undefined;
-    }
-  }
-}
+// The language server sends, reads and decodes every control request of the extension (`trust-lsp.runtimeRequest`,
+// runtime protocol annex E0.1); its Rust tests prove the decoding. These tests prove the wiring to a runtime on a
+// loopback port: what the extension asks reaches the runtime, and the runtime's answer comes back as a result or an
+// error.
 
 suite("Runtime control client", function () {
-  test("sends one JSON-line request and resolves successful responses", async () => {
-    const socket = new FakeRuntimeControlSocket((request) => ({
-      id: request.id,
-      ok: true,
-      result: { state: "running" },
-    }));
+  this.timeout(60000);
+  let runtime: FakeRuntime | undefined;
 
-    const result = await sendRuntimeControlRequest(
-      "tcp://127.0.0.1:9901",
-      "auth-token",
-      "status",
-      { verbose: true },
-      { socketFactory: () => socket, timeoutMs: 100 }
-    );
+  suiteSetup(runtimeCommandsReady);
 
+  teardown(async () => {
+    await runtime?.close();
+    runtime = undefined;
+  });
+
+  // Catches a request that does not reach the runtime, or reaches it without its token or its parameters.
+  test("a request reaches the runtime with its type, token and parameters, and its result comes back", async () => {
+    runtime = await fakeRuntime(() => ({ ok: true, result: { state: "running" } }));
+    const result = await sendRuntimeControlRequest(runtime.endpoint, "auth-token", "status", { verbose: true });
     assert.deepStrictEqual(result, { state: "running" });
-    assert.strictEqual(socket.destroyed, true);
-    assert.strictEqual(socket.writes.length, 1);
-    const request = JSON.parse(socket.writes[0]) as RuntimeRequest;
-    assert.strictEqual(request.type, "status");
-    assert.strictEqual(request.auth, "auth-token");
-    assert.deepStrictEqual(request.params, { verbose: true });
-  });
-
-  test("classifies auth failures from control responses", async () => {
-    const socket = new FakeRuntimeControlSocket((request) => ({
-      id: request.id,
-      ok: false,
-      error_code: "invalid_auth_token",
-      error: "invalid auth token",
-    }));
-
-    await assert.rejects(
-      sendRuntimeControlRequest("tcp://127.0.0.1:9901", undefined, "status", undefined, {
-        socketFactory: () => socket,
-        timeoutMs: 100,
-      }),
-      (error) => {
-        assert.ok(error instanceof RuntimeControlError);
-        assert.strictEqual(isRuntimeControlAuthError(error), true);
-        assert.strictEqual(runtimeControlAuthErrorKind(error), "rejected");
-        return true;
-      }
+    assert.deepStrictEqual(
+      runtime.received.map(({ type, auth, params }) => ({ type, auth, params })),
+      [{ type: "status", auth: "auth-token", params: { verbose: true } }]
     );
   });
 
-  test("distinguishes missing auth token responses", async () => {
-    const socket = new FakeRuntimeControlSocket((request) => ({
-      id: request.id,
-      ok: false,
-      error_code: "missing_auth_token",
-      error: "missing auth token",
-    }));
-
-    await assert.rejects(
-      sendRuntimeControlRequest("tcp://127.0.0.1:9901", undefined, "status", undefined, {
-        socketFactory: () => socket,
-        timeoutMs: 100,
-      }),
-      (error) => {
-        assert.ok(error instanceof RuntimeControlError);
-        assert.strictEqual(isRuntimeControlAuthError(error), true);
-        assert.strictEqual(runtimeControlAuthErrorKind(error), "missing");
-        return true;
-      }
+  // Catches a refusal that comes back as a result, or loses its code, the result it carries or the credential failure
+  // its code names.
+  test("a refusal comes back as an error with its code, its result and its credential failure", async () => {
+    const recovery = { contract: "trust.plant", configuration_revision: "sha256:current" };
+    runtime = await fakeRuntime((request) =>
+      request.type === "plant.save"
+        ? { ok: false, error: "saved configuration changed", error_code: "revision_conflict", result: recovery }
+        : { ok: false, error: "invalid auth token", error_code: "invalid_auth_token" }
     );
-  });
-
-  test("probes endpoint reachability without sending a request", async () => {
-    const socket = new FakeRuntimeControlSocket();
-
-    const reachable = await probeRuntimeControlEndpoint("tcp://127.0.0.1:9901", {
-      socketFactory: () => socket,
-      timeoutMs: 100,
+    await assert.rejects(sendRuntimeControlRequest(runtime.endpoint, "token", "plant.save", {}), (error) => {
+      assert.ok(error instanceof RuntimeControlError);
+      assert.strictEqual(error.message, "revision_conflict: saved configuration changed");
+      assert.strictEqual(error.code, "revision_conflict");
+      assert.deepStrictEqual(error.result, recovery);
+      assert.strictEqual(error.authFailure, undefined);
+      return true;
     });
+    await assert.rejects(sendRuntimeControlRequest(runtime.endpoint, "stale", "status"), (error) => {
+      assert.ok(error instanceof RuntimeControlError);
+      assert.strictEqual(error.code, "invalid_auth_token");
+      assert.strictEqual(error.authFailure, "rejected");
+      return true;
+    });
+  });
 
-    assert.strictEqual(reachable, true);
-    assert.strictEqual(socket.destroyed, true);
-    assert.deepStrictEqual(socket.writes, []);
+  // Catches a runtime that does not answer reported as a refusal or as an empty result.
+  test("a runtime that does not answer is a transport error", async () => {
+    await assert.rejects(
+      sendRuntimeControlRequest(await closedEndpoint(), undefined, "status"),
+      (error) => error instanceof RuntimeTransportError
+    );
+  });
+
+  // Catches a probe that sends a request, and a closed endpoint reported reachable.
+  test("a probe connects without sending a request", async () => {
+    runtime = await fakeRuntime(() => ({ ok: true, result: null }));
+    assert.strictEqual(await probeRuntimeControlEndpoint(runtime.endpoint), true);
+    assert.deepStrictEqual(runtime.received, []);
+    assert.strictEqual(await probeRuntimeControlEndpoint(await closedEndpoint()), false);
   });
 });

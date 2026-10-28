@@ -55,11 +55,7 @@ impl Database {
         }
 
         let text = self.sources.get(&file_id)?;
-        let source = salsa_backend::SourceInput::new(
-            &state.db,
-            text.as_ref().clone(),
-            self.temporal_storage,
-        );
+        let source = salsa_backend::SourceInput::new(&state.db, text.as_ref().clone());
         state.sources.insert(file_id, source);
         salsa_backend::sync_project_inputs(state);
         Some(source)
@@ -164,6 +160,7 @@ impl Database {
                 symbols: Arc::new(SymbolTable::default()),
                 diagnostics: Arc::new(Vec::new()),
                 expression_types: Arc::new(FxHashMap::default()),
+                resolved_symbols: Arc::new(FxHashMap::default()),
                 declaration_catalog: Arc::new(DeclarationCatalog::default()),
             });
         };
@@ -174,6 +171,7 @@ impl Database {
                     symbols: Arc::new(SymbolTable::default()),
                     diagnostics: Arc::new(Vec::new()),
                     expression_types: Arc::new(FxHashMap::default()),
+                    resolved_symbols: Arc::new(FxHashMap::default()),
                     declaration_catalog: Arc::new(DeclarationCatalog::default()),
                 })
             })
@@ -203,7 +201,7 @@ impl Database {
             return LEGACY_UNKNOWN_TYPE_ID;
         };
 
-        salsa::Cancelled::catch(|| *salsa_backend::type_of_query(&db, project, file_id, expr_id))
+        salsa::Cancelled::catch(|| salsa_backend::type_of_query(&db, project, file_id, expr_id))
             .unwrap_or(LEGACY_UNKNOWN_TYPE_ID)
     }
 
@@ -225,11 +223,7 @@ impl Database {
                 }
                 continue;
             }
-            let source = salsa_backend::SourceInput::new(
-                &state.db,
-                text.as_ref().clone(),
-                self.temporal_storage,
-            );
+            let source = salsa_backend::SourceInput::new(&state.db, text.as_ref().clone());
             state.sources.insert(known_file_id, source);
             project_changed = true;
         }

@@ -1,6 +1,13 @@
 #[derive(Debug, Subcommand)]
 #[command(infer_subcommands = true)]
 pub enum ControlAction {
+    /// Print the project's control endpoint and the token a client uses with it. No request is
+    /// sent, so this works while the runtime is stopped.
+    Endpoint {
+        /// Print one JSON object: endpoint, auth_token and source.
+        #[arg(long)]
+        json: bool,
+    },
     Status,
     Health,
     Stats,
@@ -39,8 +46,48 @@ pub enum ControlAction {
     Restart {
         mode: String,
     },
-    Shutdown,
+    /// Upload a program container and install it on a stopped runtime (specification 34,
+    /// section 11.2), on a chip and on a computer alike.
+    Install {
+        /// The file of the `TRSTA002` program container.
+        container: PathBuf,
+        /// Start the installed program afterwards, cold or warm, and wait until it runs.
+        #[arg(long, value_parser = ["cold", "warm"])]
+        restart: Option<String>,
+    },
+    /// Read a chip's device settings, `device.toml`, without its Wi-Fi password (specification 34
+    /// TARGET-02).
+    DeviceGet,
+    /// Store a chip's device settings from a `device.toml` file while its program is stopped; they
+    /// apply at the chip's next boot (`device-reset`).
+    DeviceSet {
+        /// The `device.toml` file.
+        file: PathBuf,
+    },
+    /// Reset a chip while its program is stopped; it boots with its stored device settings.
+    DeviceReset,
+    /// Update a chip's truST firmware over the control connection (specification 34 TARGET-04): the
+    /// runtime must be stopped; the image is written into the firmware slot that does not run, the
+    /// chip restarts into it, and the command waits until it runs the new firmware.
+    Firmware {
+        /// The firmware image: the chip's application image, as the release carries it.
+        image: PathBuf,
+        /// How long to wait for the chip to run the new firmware, in seconds.
+        #[arg(long, default_value_t = 60)]
+        wait: u64,
+    },
+    /// Stop the program. The runtime keeps running in the Stopped state and `restart` starts the
+    /// program again.
+    Shutdown {
+        /// Also end the runtime's process (the explicit exit).
+        #[arg(long)]
+        exit: bool,
+    },
     ConfigGet,
+    /// Print what the runtime reports of its device (specification 11, the runtime device
+    /// capabilities contract): a chip's network and address, its firmware slots, its memory for
+    /// programs and its last reset.
+    Capabilities,
     ConfigSet {
         key: String,
         value: String,

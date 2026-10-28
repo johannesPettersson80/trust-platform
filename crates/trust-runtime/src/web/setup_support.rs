@@ -1,4 +1,4 @@
-//! Setup, IO configuration, and source/hmi asset helper functions.
+//! Setup, IO configuration, and source file helper functions.
 
 #![allow(missing_docs)]
 
@@ -139,7 +139,7 @@ pub(super) fn io_config_to_response(
         .outputs
         .iter()
         .map(|(address, value)| IoSafeStateEntry {
-            address: format_io_address(address),
+            address: address.to_string(),
             value: format_io_safe_state_value(value),
         })
         .collect::<Vec<_>>();
@@ -386,30 +386,6 @@ pub(super) fn driver_configs_from_payload(
     }])
 }
 
-fn format_io_address(address: &IoAddress) -> String {
-    let area = match address.area {
-        IoArea::Input => "I",
-        IoArea::Output => "Q",
-        IoArea::Memory => "M",
-    };
-    let size = match address.size {
-        IoSize::Bit => "X",
-        IoSize::Byte => "B",
-        IoSize::Word => "W",
-        IoSize::DWord => "D",
-        IoSize::LWord => "L",
-        IoSize::Bytes(_) => "B",
-    };
-    if address.wildcard {
-        return format!("%{}*", area);
-    }
-    if matches!(address.size, IoSize::Bit) {
-        format!("%{}{}{}.{}", area, size, address.byte, address.bit)
-    } else {
-        format!("%{}{}{}", area, size, address.byte)
-    }
-}
-
 fn format_io_safe_state_value(value: &crate::value::Value) -> String {
     match value {
         crate::value::Value::Bool(value) => {
@@ -475,28 +451,6 @@ pub(super) fn read_source_file(bundle_root: &Path, name: &str) -> Result<String,
         .map_err(|err| RuntimeError::InvalidConfig(format!("failed to read source: {err}").into()))
 }
 
-pub(super) fn read_hmi_asset_file(project_root: &Path, name: &str) -> Result<String, RuntimeError> {
-    if Path::new(name).extension().and_then(|value| value.to_str()) != Some("svg") {
-        return Err(RuntimeError::InvalidConfig(
-            "unsupported hmi asset type (only .svg is allowed)".into(),
-        ));
-    }
-    let hmi_dir = project_root.join("hmi");
-    let requested = hmi_dir.join(name);
-    let hmi_dir = hmi_dir
-        .canonicalize()
-        .map_err(|err| RuntimeError::InvalidConfig(format!("hmi dir unavailable: {err}").into()))?;
-    let requested = requested
-        .canonicalize()
-        .map_err(|err| RuntimeError::InvalidConfig(format!("hmi asset not found: {err}").into()))?;
-    if !requested.starts_with(&hmi_dir) || io_secrets::is_io_config(&requested) {
-        return Err(RuntimeError::InvalidConfig("invalid hmi asset path".into()));
-    }
-    std::fs::read_to_string(&requested).map_err(|err| {
-        RuntimeError::InvalidConfig(format!("failed to read hmi asset '{}': {err}", name).into())
-    })
-}
-
 pub(super) fn apply_setup(
     bundle_root: &Option<PathBuf>,
     payload: SetupApplyRequest,
@@ -534,6 +488,15 @@ pub(super) fn apply_setup(
     crate::config::validate_runtime_toml_text(&runtime_text)?;
     std::fs::write(&runtime_path, runtime_text).map_err(|err| {
         RuntimeError::InvalidConfig(format!("failed to write runtime.toml: {err}").into())
+    })?;
+    // The runtime's endpoint file can hold a token, so the project ignores its folder (spec 11,
+    // section 6.8.0a). An existing .gitignore is kept and only gains that line.
+    crate::control::endpoint::ensure_endpoint_dir_ignored(
+        &bundle_root,
+        crate::control::endpoint::ENDPOINT_DIR_GITIGNORE,
+    )
+    .map_err(|err| {
+        RuntimeError::InvalidConfig(format!("failed to write .gitignore: {err}").into())
     })?;
 
     let io_path = bundle_root.join("io.toml");

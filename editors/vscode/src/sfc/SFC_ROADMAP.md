@@ -1,5 +1,11 @@
 # SFC Editor - Roadmap de Mejoras
 
+> **Estado al 26 de octubre de 2026.** Esta hoja es historia de marzo de 2026. El simulador del
+> editor, la depuración paso a paso y el panel de runtime (simulación y hardware) se eliminaron:
+> un SFC se ejecuta como su Structured Text compañero (`docs/specs/sfc-profile.md`), que sigue
+> IEC 61131-3 §6.7 con divergencias y convergencias paralelas y todos los qualifiers de la
+> Tabla 59, incluidos P1 y P0. Sus valores se ven en Live Values.
+
 **Fecha**: Marzo 2026  
 **Estado Actual**: Editor funcional con características básicas implementadas
 

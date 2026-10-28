@@ -1,0 +1,93 @@
+@startuml control-pid-library
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle uml2
+skinparam linetype ortho
+skinparam nodesep 45
+skinparam ranksep 35
+
+title truST Control PID Library: Public Surface And Conformance Flow
+
+package "Normative Inputs" {
+  artifact "Control PID Specification\ndocs/specs/45-control-pid.md" as spec
+  artifact "Paper Listings 3-5\nand released examples" as paper
+}
+
+package "Reusable Control Package\nlibraries/control" {
+  component "Control.PID\ncombined positional/incremental state" as pid
+  component "Control.LowPass\nindependent one/two-stage state" as filter
+  component "Parameter, input, and\ninitial-state records" as records
+  component "Mode, anti-windup, and\nfilter-order enums" as enums
+}
+
+package "Native ST Conformance Fixture" {
+  component "Equation oracles\nSections 7.1-7.12" as equations
+  component "Seven released scenarios\nSection 7.13" as scenarios
+  component "trust-dev ST test runner" as runner
+}
+
+package "Actual PID applications" {
+  component "Primary commissioning example\ncomplete parameter record + startup state\nManual / Auto + fixed 100 ms simulation" as commissioning
+  component "Heater P / PI lessons\nwindup and response trials\nactivation and input checks" as lessons
+  component "Manual PI tuning lesson\nreview one bounded record leaf\nreapply after explicit trial reset" as manual_tuning
+  component "Heater diagnosis lesson\nmeasured / unbiased reference inputs\npaired request and applied feedback" as diagnosis
+  component "Read-only GetState snapshot\ncopy of seven retained histories\npost anti-windup nominal output" as observation
+  component "Ordinary PLC output / input\nactuator -> process -> sensor" as plant_io
+}
+
+spec --> pid
+spec --> filter
+paper --> spec : baseline source
+records --> pid : complete samples and state
+records --> filter : filter parameters
+enums --> pid : mode and anti-windup selection
+enums --> filter : order selection
+equations --> pid
+equations --> filter
+scenarios --> pid
+scenarios --> filter
+runner --> equations : compiles and executes
+runner --> scenarios : compiles and executes
+commissioning --> pid : Configure / Initialize / Update
+lessons --> pid : existing controller owns output
+manual_tuning --> records : task-boundary parameter apply / rollback
+manual_tuning --> pid : retain full accepted record and state
+diagnosis --> pid : same Configure / Initialize / Update
+pid --> plant_io : limited output
+plant_io --> commissioning : measured PV
+plant_io --> lessons : measured PV
+plant_io --> manual_tuning : measured PV / applied heater input
+plant_io --> diagnosis : native measured/reference channels + applied input
+pid --> observation : value copy; no update
+observation --> lessons : truthful state diagnostics
+observation --> diagnosis : unlimited request; no parallel controller
+
+note left of plant_io
+The setpoint/load heater trials reuse one
+native state-space plant: delayed heating,
+immediate extraction, one measured PV.
+ST does not sum separate plant responses.
+Diagnosis publishes an unbiased reference from
+the same native state; a channel-0 sensor-bias
+event affects only the measured input.
+end note
+
+note right of pid
+One state owner implements the paper's
+exact IntegralGain = 0 form switch.
+There are no duplicate P, PI, PD,
+or PID state machines.
+end note
+
+note right of filter
+Filtering remains caller-owned and
+uses a separate instance per signal.
+The controller has no hidden filter.
+end note
+
+note bottom of scenarios
+Python and MATLAB are reference sources only.
+Native conformance executes Structured Text.
+end note
+
+@enduml

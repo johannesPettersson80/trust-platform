@@ -48,14 +48,20 @@ mod partial_access_rejection;
 mod phase18_behavior_closure;
 #[path = "semantic_type_checking/pointer_param_write_through.rs"]
 mod pointer_param_write_through;
+#[path = "semantic_type_checking/project_diagnostics_stability.rs"]
+mod project_diagnostics_stability;
 #[path = "semantic_type_checking/reference_contract_acceptance.rs"]
 mod reference_contract_acceptance;
 #[path = "semantic_type_checking/reference_contract_rejection.rs"]
 mod reference_contract_rejection;
 #[path = "semantic_type_checking/sizeof_semantics.rs"]
 mod sizeof_semantics;
+#[path = "semantic_type_checking/standard_block_collisions.rs"]
+mod standard_block_collisions;
 #[path = "semantic_type_checking/string_index_contract.rs"]
 mod string_index_contract;
+#[path = "semantic_type_checking/string_length_contract.rs"]
+mod string_length_contract;
 #[path = "semantic_type_checking/struct_initializers.rs"]
 mod struct_initializers;
 #[path = "semantic_type_checking/types_and_references.rs"]

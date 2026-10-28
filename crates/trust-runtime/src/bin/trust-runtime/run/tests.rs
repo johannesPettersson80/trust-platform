@@ -1,34 +1,43 @@
+//! The launcher's tests. The tests that build a program need the toolchain of specification 44
+//! §4.6 at `TRUST_TOOLCHAIN`.
+
 use super::simulation_warning_message;
-#[cfg(unix)]
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+
+use smol_str::SmolStr;
 use trust_ads_core::{
     AdsDataTypeDescriptor, IecDataType, PointQuality, SymbolDescriptor, SymbolFlag,
 };
-use trust_runtime::harness::{CompileSession, SourceFile, TestHarness};
+use trust_runtime::error::RuntimeError;
+use trust_runtime::harness::{SourceFile, TestHarness};
+use trust_runtime::io::IoDriver;
 use trust_runtime::value::{Duration, Value};
 
+#[path = "tests/console_stop.rs"]
+mod console_stop;
 #[path = "tests/mqtt_install_tag_mapping.rs"]
 mod mqtt_install_tag_mapping;
 #[path = "tests/mqtt_tag_mapping.rs"]
 mod mqtt_tag_mapping;
 
-fn bundle_with_backend(
-    backend: trust_runtime::execution_backend::ExecutionBackend,
-) -> trust_runtime::config::RuntimeBundle {
+fn test_bundle() -> trust_runtime::config::RuntimeBundle {
     trust_runtime::config::RuntimeBundle {
         root: std::path::PathBuf::from("."),
         runtime: trust_runtime::config::RuntimeConfig {
             bundle_version: 1,
             resource_name: smol_str::SmolStr::new("RESOURCE"),
             cycle_interval: trust_runtime::value::Duration::from_millis(10),
-            execution_backend: backend,
+            max_statements_per_scan: 1_000_000,
             execution_backend_source:
                 trust_runtime::execution_backend::ExecutionBackendSource::Config,
-            control_endpoint: smol_str::SmolStr::new("tcp://127.0.0.1:9000"),
+            control_endpoint: Some(smol_str::SmolStr::new("tcp://127.0.0.1:9000")),
             control_auth_token: Some(smol_str::SmolStr::new("secret")),
             control_debug_enabled: true,
             control_mode: trust_runtime::config::ControlMode::Debug,
             log_level: smol_str::SmolStr::new("info"),
+            event_capacity: None,
+            identify_output: None,
             retain_mode: trust_runtime::watchdog::RetainMode::None,
             retain_path: None,
             retain_save_interval: trust_runtime::value::Duration::from_millis(1000),
@@ -40,6 +49,7 @@ fn bundle_with_backend(
                 listen: smol_str::SmolStr::new("127.0.0.1:8080"),
                 auth: trust_runtime::config::WebAuthMode::Local,
                 tls: false,
+                hmi: trust_runtime::hmi::access::config::HmiAccessConfig::default(),
             },
             tls: trust_runtime::config::TlsConfig {
                 mode: trust_runtime::config::TlsMode::Disabled,
@@ -77,7 +87,6 @@ fn bundle_with_backend(
             realtime: trust_runtime::linux_rt::LinuxRtConfig::default(),
             openot: trust_runtime::config::OpenOtTelemetryConfig::default(),
             observability: trust_runtime::historian::HistorianConfig::default(),
-            hmi_persistence: trust_runtime::hmi::HmiPersistenceConfig::default(),
             ads: trust_runtime::config::AdsRuntimeConfig::default(),
             ads_server: trust_runtime::ads::server::AdsServerRuntimeConfig::default(),
             opcua_client: trust_runtime::config::OpcUaClientRuntimeConfig::default(),
@@ -93,8 +102,98 @@ fn bundle_with_backend(
         opcua_client: None,
         opcua_client_config_hash: None,
         simulation: None,
-        bytecode: Vec::new(),
+        image: Vec::new(),
     }
+}
+
+/// The compiled program of `source`, as the harness builds it for this computer.
+fn compiled_program(source: &str) -> trust_runtime::CompiledRuntime {
+    TestHarness::from_source(source)
+        .expect("build the program")
+        .into_runtime()
+}
+
+/// The program image of `source` for this computer, built as `trust-runtime build` builds a
+/// project's program.
+fn program_image(source: &str) -> Vec<u8> {
+    let toolchain = trust_runtime::native::Toolchain::find().expect("the toolchain");
+    let target = trust_runtime::native::Target::this_cpu().expect("this computer's CPU");
+    let work = unique_temp_dir("run-image");
+    let built = trust_runtime::native::build(
+        &[SourceFile::with_path("src/main.st", source)],
+        &trust_runtime::native::Options {
+            target,
+            hooks: true,
+        },
+        &toolchain,
+        &work,
+    )
+    .expect("build the program image");
+    let _ = std::fs::remove_dir_all(work);
+    built.image
+}
+
+/// A driver that drives the bytes of `inputs` into the start of the input image the scan gives it,
+/// and keeps the input and output images it saw: the program's own image with the bytes of the MQTT
+/// tags after it (specification 44 §13.3).
+#[derive(Clone, Default)]
+struct ImageProbe {
+    inputs: Arc<Mutex<Vec<u8>>>,
+    seen_inputs: Arc<Mutex<Vec<u8>>>,
+    outputs: Arc<Mutex<Vec<u8>>>,
+}
+
+impl ImageProbe {
+    fn driving(inputs: &[u8]) -> Self {
+        let probe = Self::default();
+        *probe.inputs.lock().unwrap() = inputs.to_vec();
+        probe
+    }
+
+    fn seen_inputs(&self) -> Vec<u8> {
+        self.seen_inputs.lock().unwrap().clone()
+    }
+
+    fn outputs(&self) -> Vec<u8> {
+        self.outputs.lock().unwrap().clone()
+    }
+}
+
+impl IoDriver for ImageProbe {
+    fn read_inputs(&mut self, inputs: &mut [u8]) -> Result<(), RuntimeError> {
+        let driven = self.inputs.lock().unwrap();
+        inputs[..driven.len()].copy_from_slice(&driven);
+        *self.seen_inputs.lock().unwrap() = inputs.to_vec();
+        Ok(())
+    }
+
+    fn write_outputs(&mut self, outputs: &[u8]) -> Result<(), RuntimeError> {
+        *self.outputs.lock().unwrap() = outputs.to_vec();
+        Ok(())
+    }
+}
+
+/// The enumeration value of `value`: its type, member and numeric value.
+fn enum_parts(value: &Value) -> (String, String, i64) {
+    let Value::Enum(value) = value else {
+        panic!("expected an enumeration value, got {value:?}");
+    };
+    (
+        value.type_name().to_string(),
+        value.variant_name().to_string(),
+        value.numeric_value(),
+    )
+}
+
+/// Binds the MQTT tag mappings of `params` to `program`'s variables, as `io.toml` binds them before
+/// the driver starts (specification 32 §5), and returns the driver's lowered parameters.
+fn install_tag_mappings(
+    program: &mut trust_runtime::CompiledRuntime,
+    params: &toml::Value,
+) -> Result<toml::Value, RuntimeError> {
+    let (lowered, links) = trust_runtime::io::resolve_compiled_mqtt_tag_mappings(program, params)?;
+    program.link_mqtt_tags(&links)?;
+    Ok(lowered)
 }
 
 #[test]
@@ -107,8 +206,7 @@ fn simulation_warning_includes_mode_and_safety_note() {
 
 #[test]
 fn disabled_openot_persistence_creates_no_runtime_service() {
-    let bundle =
-        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    let bundle = test_bundle();
     let service = super::start_openot_persistence_service(&bundle)
         .expect("disabled persistence must not fail startup");
     assert!(service.is_none());
@@ -120,6 +218,51 @@ fn simulation_warning_omitted_in_production_mode() {
 }
 
 #[test]
+fn simulation_rejects_an_enabled_physical_io_driver_before_runtime_start() {
+    let mut bundle = test_bundle();
+    bundle.simulation = Some(trust_runtime::simulation::SimulationConfig {
+        enabled: true,
+        ..Default::default()
+    });
+    bundle
+        .io
+        .drivers
+        .push(trust_runtime::config::IoDriverConfig {
+            name: smol_str::SmolStr::new("gpio"),
+            params: toml::Value::Table(toml::map::Map::new()),
+            enabled: true,
+        });
+
+    let error = match super::build_simulation_plan(Some(&bundle), false, 1) {
+        Ok(_) => panic!("simulation and a physical output driver must fail closed"),
+        Err(error) => error,
+    };
+    assert!(error.to_string().contains("gpio"));
+    assert!(error.to_string().contains("simulation"));
+}
+
+#[test]
+fn simulation_allows_only_nonphysical_and_disabled_io_drivers() {
+    let mut bundle = test_bundle();
+    bundle.simulation = Some(trust_runtime::simulation::SimulationConfig {
+        enabled: true,
+        ..Default::default()
+    });
+    for (name, enabled) in [("sim", true), ("loopback", true), ("ethercat", false)] {
+        bundle
+            .io
+            .drivers
+            .push(trust_runtime::config::IoDriverConfig {
+                name: smol_str::SmolStr::new(name),
+                params: toml::Value::Table(toml::map::Map::new()),
+                enabled,
+            });
+    }
+
+    assert!(super::build_simulation_plan(Some(&bundle), false, 1).is_ok());
+}
+
+#[test]
 fn runtime_logger_threshold_uses_canonical_severity_order() {
     let logger = super::RuntimeLogger::new(super::LogLevel::Warn);
 
@@ -128,36 +271,91 @@ fn runtime_logger_threshold_uses_canonical_severity_order() {
     assert!(!logger.enabled(super::LogLevel::Info));
     assert!(!logger.enabled(super::LogLevel::Debug));
     assert!(!logger.enabled(super::LogLevel::Trace));
-    assert_eq!(super::LogLevel::parse(" WARNING "), super::LogLevel::Warn);
+    assert_eq!(
+        super::LogLevel::parse(" WARNING "),
+        Some(super::LogLevel::Warn)
+    );
     assert_eq!(super::LogLevel::Warn.as_str(), "warn");
 }
 
+/// `config.set` changes `log.level` while the runtime runs (specification 11, the runtime
+/// configuration contract: a live update), so a logger that follows the settings writes by their
+/// level, not the level it started with: `warn` at the start, then `debug` and `error` as the
+/// settings say. Catches a logger that keeps its starting level, as trust-runtime's did.
 #[test]
-fn execution_backend_selection_defaults_to_vm() {
-    let (backend, source) =
-        super::resolve_execution_backend_selection(None, None).expect("resolve backend");
-    assert_eq!(
-        backend,
-        trust_runtime::execution_backend::ExecutionBackend::BytecodeVm
+fn runtime_logger_follows_a_live_log_level_change() {
+    let logger = super::RuntimeLogger::new(super::LogLevel::Warn);
+    let clone = logger.clone();
+    let mut settings = trust_runtime::settings::RuntimeSettings::new(
+        trust_runtime::value::Duration::from_millis(10),
+        trust_runtime::settings::BaseSettings {
+            log_level: SmolStr::new_static("warn"),
+            watchdog: trust_runtime::watchdog::WatchdogPolicy::default(),
+            fault_policy: trust_runtime::watchdog::FaultPolicy::Halt,
+            retain_mode: trust_runtime::watchdog::RetainMode::None,
+            retain_save_interval: None,
+        },
+        trust_runtime::settings::WebSettings {
+            enabled: false,
+            listen: SmolStr::new_static("127.0.0.1:0"),
+            auth: SmolStr::new_static("local"),
+            tls: false,
+        },
+        trust_runtime::settings::DiscoverySettings {
+            enabled: false,
+            service_name: SmolStr::new_static("truST"),
+            advertise: false,
+            interfaces: Vec::new(),
+            host_group: None,
+        },
+        trust_runtime::settings::MeshSettings {
+            enabled: false,
+            role: trust_runtime::config::MeshRole::Peer,
+            listen: SmolStr::new_static("127.0.0.1:0"),
+            connect: Vec::new(),
+            tls: false,
+            auth_token: None,
+            publish: Vec::new(),
+            subscribe: indexmap::IndexMap::new(),
+            zenohd_version: SmolStr::new_static("1.7.2"),
+            plugin_versions: indexmap::IndexMap::new(),
+        },
+        trust_runtime::settings::SimulationSettings {
+            enabled: false,
+            time_scale: 1,
+            mode_label: SmolStr::new_static("production"),
+            warning: SmolStr::new_static(""),
+        },
     );
-    assert_eq!(
-        source,
-        trust_runtime::execution_backend::ExecutionBackendSource::Default
-    );
+    settings.log_level = SmolStr::new_static("debug");
+    let shared = std::sync::Arc::new(std::sync::Mutex::new(settings));
+    logger.follow(shared.clone());
+    assert!(clone.enabled(super::LogLevel::Debug), "a clone follows too");
+    assert!(!clone.enabled(super::LogLevel::Trace));
+    shared.lock().expect("settings").log_level = SmolStr::new_static("error");
+    assert!(!logger.enabled(super::LogLevel::Warn));
+    assert!(logger.enabled(super::LogLevel::Error));
 }
 
 #[test]
-fn execution_backend_selection_prefers_cli_override() {
-    let (backend, source) =
-        super::resolve_execution_backend_selection(None, Some(crate::cli::ExecutionBackendArg::Vm))
-            .expect("resolve backend");
+fn status_reports_where_the_execution_backend_came_from() {
+    // Specification 44 §15: no backend is selected, but `status` reports whether the project names
+    // `runtime.execution_backend`. Catches a launch that reports the project's key for a launch
+    // without a project, or drops it for a project that names it.
     assert_eq!(
-        backend,
-        trust_runtime::execution_backend::ExecutionBackend::BytecodeVm
+        super::execution_backend_source(None),
+        trust_runtime::execution_backend::ExecutionBackendSource::Default
     );
+    let mut bundle = test_bundle();
     assert_eq!(
-        source,
-        trust_runtime::execution_backend::ExecutionBackendSource::Flag
+        super::execution_backend_source(Some(&bundle)),
+        trust_runtime::execution_backend::ExecutionBackendSource::Config
+    );
+    bundle.runtime.execution_backend_source =
+        trust_runtime::execution_backend::ExecutionBackendSource::Default;
+    assert_eq!(
+        super::execution_backend_source(Some(&bundle)),
+        trust_runtime::execution_backend::ExecutionBackendSource::Default
     );
 }
 
@@ -214,42 +412,6 @@ fn mqtt_io_source_label_uses_directional_topic() {
     );
 }
 
-#[test]
-fn execution_backend_selection_uses_bundle_when_cli_absent() {
-    let bundle =
-        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
-
-    let (backend, source) =
-        super::resolve_execution_backend_selection(Some(&bundle), None).expect("resolve backend");
-    assert_eq!(
-        backend,
-        trust_runtime::execution_backend::ExecutionBackend::BytecodeVm
-    );
-    assert_eq!(
-        source,
-        trust_runtime::execution_backend::ExecutionBackendSource::Config
-    );
-}
-
-#[test]
-fn execution_backend_selection_cli_overrides_bundle() {
-    let bundle =
-        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
-    let (backend, source) = super::resolve_execution_backend_selection(
-        Some(&bundle),
-        Some(crate::cli::ExecutionBackendArg::Vm),
-    )
-    .expect("resolve backend");
-    assert_eq!(
-        backend,
-        trust_runtime::execution_backend::ExecutionBackend::BytecodeVm
-    );
-    assert_eq!(
-        source,
-        trust_runtime::execution_backend::ExecutionBackendSource::Flag
-    );
-}
-
 #[cfg(unix)]
 #[derive(Debug)]
 struct FakeSignalSource {
@@ -265,13 +427,11 @@ impl super::RuntimeSignalSource for FakeSignalSource {
     }
 }
 
-#[cfg(unix)]
 #[derive(Debug, Default)]
 struct RecordingShutdownTarget {
     called: AtomicBool,
 }
 
-#[cfg(unix)]
 impl super::RuntimeShutdownTarget for RecordingShutdownTarget {
     fn request_shutdown(&self) {
         self.called.store(true, Ordering::SeqCst);
@@ -327,6 +487,9 @@ fn unix_signal_mapping_rejects_unreviewed_shutdown_signals() {
 
 #[test]
 fn startup_retain_load_respects_restart_mode() {
+    // Specification 44 §11: a program starts cold with its starting memory and warm with the
+    // values of its retain file. Catches a launch that loads the retain file on a cold start, or
+    // ignores it on a warm one.
     let source = r#"
 VAR_GLOBAL RETAIN
     r : INT := 1;
@@ -341,54 +504,47 @@ END_PROGRAM
         std::process::id()
     ));
     let _ = std::fs::remove_file(&path);
+    let retain_file = || -> Option<Box<dyn trust_runtime::retain::RetainStore>> {
+        Some(Box::new(trust_runtime::retain::FileRetainStore::new(&path)))
+    };
 
-    let mut saver = TestHarness::from_source(source).expect("build saver runtime");
-    saver.runtime_mut().set_retain_store(
-        Some(Box::new(trust_runtime::retain::FileRetainStore::new(&path))),
-        Some(Duration::from_millis(1)),
-    );
-    saver.set_input("r", Value::Int(42));
-    saver.runtime_mut().mark_retain_dirty();
+    let mut saver = compiled_program(source);
     saver
-        .runtime_mut()
-        .save_retain_store()
-        .expect("save retain");
+        .set_retain_store(retain_file(), Some(Duration::from_millis(1)))
+        .expect("set the saver's retain file");
+    saver
+        .write_variable("r", &Value::Int(42))
+        .expect("write the retained global");
+    saver.save_retain_store().expect("save retain");
 
-    let mut cold = TestHarness::from_source(source)
-        .expect("build cold runtime")
-        .into_runtime();
-    cold.set_retain_store(
-        Some(Box::new(trust_runtime::retain::FileRetainStore::new(&path))),
-        Some(Duration::from_millis(1)),
-    );
-    cold.restart(trust_runtime::RestartMode::Cold)
-        .expect("cold restart");
-    super::load_startup_retain(&mut cold, trust_runtime::RestartMode::Cold)
-        .expect("cold startup retain");
-    assert_eq!(cold.storage().get_global("r"), Some(&Value::Int(1)));
+    let wiring = || super::ProgramWiring {
+        debug: trust_runtime::debug::DebugControl::new(),
+        metrics: Arc::new(Mutex::new(trust_runtime::metrics::RuntimeMetrics::new())),
+        io_health: Arc::new(Mutex::new(Vec::new())),
+        identify: trust_runtime::io::IdentifyHandle::new(),
+    };
+    let mut cold = compiled_program(source);
+    cold.set_retain_store(retain_file(), Some(Duration::from_millis(1)))
+        .expect("set the cold program's retain file");
+    super::start_program(&mut cold, None, &wiring(), trust_runtime::RestartMode::Cold)
+        .expect("cold start");
+    assert_eq!(cold.read_variable("r"), Ok(Value::Int(1)));
 
-    let mut warm = TestHarness::from_source(source)
-        .expect("build warm runtime")
-        .into_runtime();
-    warm.set_retain_store(
-        Some(Box::new(trust_runtime::retain::FileRetainStore::new(&path))),
-        Some(Duration::from_millis(1)),
-    );
-    warm.restart(trust_runtime::RestartMode::Warm)
-        .expect("warm restart");
-    super::load_startup_retain(&mut warm, trust_runtime::RestartMode::Warm)
-        .expect("warm startup retain");
-    assert_eq!(warm.storage().get_global("r"), Some(&Value::Int(42)));
+    let mut warm = compiled_program(source);
+    warm.set_retain_store(retain_file(), Some(Duration::from_millis(1)))
+        .expect("set the warm program's retain file");
+    super::start_program(&mut warm, None, &wiring(), trust_runtime::RestartMode::Warm)
+        .expect("warm start");
+    assert_eq!(warm.read_variable("r"), Ok(Value::Int(42)));
 
     let _ = std::fs::remove_file(path);
 }
 
 #[test]
 fn bundle_version_is_rejected_before_runtime_policy_mutation() {
-    let mut runtime = trust_runtime::RuntimeBuilder::new().build().unwrap();
+    let mut runtime = compiled_program("PROGRAM Main\nEND_PROGRAM\n");
     let original_watchdog = runtime.watchdog_policy();
-    let mut bundle =
-        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    let mut bundle = test_bundle();
     bundle.runtime.bundle_version = 2;
     bundle.runtime.watchdog = trust_runtime::watchdog::WatchdogPolicy {
         enabled: true,
@@ -396,16 +552,15 @@ fn bundle_version_is_rejected_before_runtime_policy_mutation() {
         action: trust_runtime::watchdog::WatchdogAction::SafeHalt,
     };
 
-    let error = super::apply_bundle_runtime_services(&mut runtime, &bundle)
+    let error = super::apply_bundle_services(&mut runtime, &bundle)
         .expect_err("unsupported bundle version must fail");
     assert!(error.to_string().contains("unsupported bundle version 2"));
     assert_eq!(runtime.watchdog_policy(), original_watchdog);
 }
 
 #[test]
-fn accepted_bundle_overrides_apply_runtime_policies_and_valid_bytecode() {
-    let session = CompileSession::from_sources(vec![SourceFile::with_path(
-        "src/main.st",
+fn accepted_bundle_applies_runtime_policies_to_the_program() {
+    let mut runtime = compiled_program(
         r#"
 VAR_GLOBAL
     marker : INT := 7;
@@ -415,16 +570,8 @@ PROGRAM Main
 marker := marker + 1;
 END_PROGRAM
 "#,
-    )]);
-    let mut bundle =
-        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
-    bundle.bytecode = session.build_bytecode_bytes().expect("build bytecode");
-    let mut runtime = session
-        .build_runtime_from_bytecode(
-            &trust_runtime::bytecode::BytecodeModule::decode(&bundle.bytecode).unwrap(),
-            Some(&bundle.runtime.resource_name),
-        )
-        .expect("install supplied bundle bytecode before service policy");
+    );
+    let mut bundle = test_bundle();
     bundle.runtime.watchdog = trust_runtime::watchdog::WatchdogPolicy {
         enabled: true,
         timeout: Duration::from_millis(250),
@@ -432,20 +579,18 @@ END_PROGRAM
     };
     bundle.runtime.fault_policy = trust_runtime::watchdog::FaultPolicy::Restart;
 
-    super::apply_bundle_runtime_services(&mut runtime, &bundle)
-        .expect("accepted bundle must apply");
+    super::apply_bundle_services(&mut runtime, &bundle).expect("accepted bundle must apply");
 
     assert_eq!(runtime.watchdog_policy(), bundle.runtime.watchdog);
     assert_eq!(runtime.fault_policy(), bundle.runtime.fault_policy);
-    runtime.execute_cycle().expect("execute applied bytecode");
-    assert_eq!(runtime.storage().get_global("marker"), Some(&Value::Int(8)));
+    runtime.execute_cycle().expect("execute the program");
+    assert_eq!(runtime.read_variable("marker"), Ok(Value::Int(8)));
 }
 
 #[test]
 fn ads_runtime_start_is_disabled_noop_and_missing_config_is_fail_closed() {
-    let mut runtime = trust_runtime::RuntimeBuilder::new().build().unwrap();
-    let mut bundle =
-        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    let mut runtime = compiled_program("PROGRAM Main\nEND_PROGRAM\n");
+    let mut bundle = test_bundle();
     let mut factory_calls = 0;
 
     super::start_ads_runtime_with_factory(&mut runtime, &bundle, |_connection| {
@@ -477,7 +622,8 @@ fn play_explicit_project_shape_classification_is_fail_closed() {
     std::fs::create_dir_all(&incomplete).expect("create incomplete project");
     std::fs::create_dir_all(&complete).expect("create complete project");
     std::fs::write(complete.join("runtime.toml"), "").expect("write runtime.toml");
-    std::fs::write(complete.join("program.stbc"), []).expect("write program.stbc");
+    std::fs::write(complete.join(trust_runtime::native::PROGRAM_IMAGE_FILE), [])
+        .expect("write program.tpi");
     std::fs::create_dir_all(&root).expect("create project-shape root");
     std::fs::write(&file, "not a project directory").expect("write project file");
 
@@ -500,7 +646,8 @@ fn play_project_resolution_distinguishes_absence_from_detection_failure() {
     std::fs::create_dir_all(&incomplete).expect("create incomplete project");
     std::fs::create_dir_all(&complete).expect("create complete project");
     std::fs::write(complete.join("runtime.toml"), "").expect("write runtime.toml");
-    std::fs::write(complete.join("program.stbc"), []).expect("write program.stbc");
+    std::fs::write(complete.join(trust_runtime::native::PROGRAM_IMAGE_FILE), [])
+        .expect("write program.tpi");
 
     assert_eq!(
         super::plan_play_project(None, || Ok(complete.clone())).expect("detected complete project"),
@@ -548,17 +695,8 @@ END_VAR
 PROGRAM Main
 END_PROGRAM
 "#;
-    let session = CompileSession::from_sources(vec![SourceFile::with_path(
-        "src/generated/ads_generated.st",
-        source,
-    )]);
-    let mut runtime = session.build_runtime().expect("build runtime");
-    let bytecode = session.build_bytecode_bytes().expect("build bytecode");
-    runtime
-        .apply_bytecode_bytes(&bytecode, Some(&smol_str::SmolStr::new("RESOURCE")))
-        .expect("apply bytecode");
-    let mut bundle =
-        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    let mut runtime = compiled_program(source);
+    let mut bundle = test_bundle();
     bundle.runtime.ads.enabled = true;
     bundle.runtime.ads.worker_tick_interval = trust_runtime::value::Duration::from_millis(1);
     bundle.ads_config_hash = Some("sha256:test-ads-config".to_string());
@@ -597,23 +735,19 @@ type = "REAL"
     })
     .expect("start ADS runtime");
 
-    assert_eq!(runtime.ads_connection_count(), 1);
+    assert_eq!(runtime.ads_status_report().connections.len(), 1);
     for _ in 0..50 {
         std::thread::sleep(std::time::Duration::from_millis(2));
         runtime.execute_cycle().expect("execute cycle");
-        if runtime.storage().get_global("line1_temp") == Some(&Value::Real(42.5)) {
+        if runtime.read_variable("line1_temp") == Ok(Value::Real(42.5)) {
             break;
         }
     }
 
-    assert_eq!(
-        runtime.storage().get_global("line1_temp"),
-        Some(&Value::Real(42.5))
-    );
+    assert_eq!(runtime.read_variable("line1_temp"), Ok(Value::Real(42.5)));
     assert_enum_variant(
-        runtime
-            .storage()
-            .get_global("line1_temp_quality")
+        &runtime
+            .read_variable("line1_temp_quality")
             .expect("quality global"),
         "Good",
     );
@@ -633,7 +767,6 @@ type = "REAL"
         status.connections[0].state,
         trust_runtime::ads::diagnostics::AdsConnectionStatusState::Connected
     );
-    runtime.shutdown_ads().expect("shutdown ADS worker");
 }
 
 #[cfg(feature = "opcua-wire")]
@@ -688,15 +821,9 @@ END_VAR
 PROGRAM Main
 END_PROGRAM
 "#;
-    let session = CompileSession::from_sources(vec![SourceFile::with_path("src/main.st", source)]);
-    let mut runtime = session.build_runtime().expect("build runtime");
-    let bytecode = session.build_bytecode_bytes().expect("build bytecode");
-    runtime
-        .apply_bytecode_bytes(&bytecode, Some(&smol_str::SmolStr::new("RESOURCE")))
-        .expect("apply bytecode");
+    let mut runtime = compiled_program(source);
 
-    let mut bundle =
-        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    let mut bundle = test_bundle();
     bundle.runtime.opcua_client.enabled = true;
     bundle.runtime.opcua_client.poll_interval = Duration::from_millis(10);
     bundle.opcua_client_config_hash = Some("sha256:test-opcua-config".to_string());
@@ -726,7 +853,7 @@ access = "read"
     })
     .expect("start OPC UA client runtime");
 
-    assert_eq!(runtime.opcua_client_connection_count(), 1);
+    assert_eq!(runtime.opcua_client_status_report().connections.len(), 1);
     assert_eq!(
         runtime
             .opcua_client_status_report()
@@ -742,9 +869,8 @@ access = "read"
 #[cfg(feature = "opcua-wire")]
 #[test]
 fn opcua_runtime_start_is_disabled_noop_and_missing_config_is_fail_closed() {
-    let mut runtime = trust_runtime::RuntimeBuilder::new().build().unwrap();
-    let mut bundle =
-        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    let mut runtime = compiled_program("PROGRAM Main\nEND_PROGRAM\n");
+    let mut bundle = test_bundle();
     let mut factory_calls = 0;
 
     super::start_opcua_client_runtime_with_factory(&mut runtime, &bundle, |_connection| {
@@ -811,12 +937,12 @@ END_PROGRAM
 "#,
     )
     .expect("write project source");
-    let bytecode_sources =
-        trust_runtime::bundle_builder::collect_project_source_files(&project, None).unwrap();
-    let bytes = CompileSession::from_sources(bytecode_sources)
-        .build_bytecode_bytes()
-        .unwrap();
-    std::fs::write(project.join("program.stbc"), bytes).expect("write admitted project bytecode");
+    let toolchain = trust_runtime::native::Toolchain::find().expect("the toolchain");
+    let target = trust_runtime::native::Target::this_cpu().expect("this computer's CPU");
+    trust_runtime::bundle_builder::build_program_image(
+        &project, None, target, &toolchain, false, true,
+    )
+    .expect("build the project with its dependency");
     std::fs::write(
         project.join("io.toml"),
         r#"[io]
@@ -833,9 +959,6 @@ version = 1
 [resource]
 name = "DependencyRun"
 cycle_interval_ms = 100
-
-[runtime]
-execution_backend = "vm"
 
 [runtime.control]
 endpoint = "tcp://127.0.0.1:0"
@@ -950,9 +1073,30 @@ fn simulation_plan_rejects_zero_cli_scale() {
 }
 
 #[test]
+fn launch_time_scale_accepts_one_to_one_hundred_and_names_the_range_otherwise() {
+    assert!(super::validate_runtime_launch_options("cold", 1).is_ok());
+    assert!(super::validate_runtime_launch_options("cold", 100).is_ok());
+    for scale in [0_u32, 101] {
+        let error = super::validate_runtime_launch_options("cold", scale)
+            .expect_err("an out-of-range --time-scale must fail the launch");
+        assert!(
+            error
+                .to_string()
+                .contains("--time-scale must be >= 1 and <= 100"),
+            "{error}"
+        );
+    }
+    let error = super::build_simulation_plan(None, false, 101)
+        .err()
+        .expect("an out-of-range --time-scale must fail the simulation plan");
+    assert!(error
+        .to_string()
+        .contains("--time-scale must be >= 1 and <= 100"));
+}
+
+#[test]
 fn simulation_plan_preserves_project_model_when_cli_enables_it() {
-    let mut bundle =
-        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    let mut bundle = test_bundle();
     let config = trust_runtime::simulation::SimulationConfig {
         time_scale: 7,
         enabled: false,
@@ -969,8 +1113,7 @@ fn simulation_plan_preserves_project_model_when_cli_enables_it() {
 
 #[test]
 fn runtime_settings_project_effective_bundle_and_cli_selection() {
-    let mut bundle =
-        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    let mut bundle = test_bundle();
     bundle.runtime.log_level = smol_str::SmolStr::new("trace");
     bundle.runtime.web.enabled = true;
     bundle.runtime.discovery.enabled = true;
@@ -990,8 +1133,7 @@ fn runtime_settings_project_effective_bundle_and_cli_selection() {
         trust_runtime::watchdog::WatchdogPolicy::default(),
         trust_runtime::watchdog::FaultPolicy::Halt,
         &simulation,
-        trust_runtime::execution_backend::ExecutionBackend::BytecodeVm,
-        trust_runtime::execution_backend::ExecutionBackendSource::Flag,
+        trust_runtime::execution_backend::ExecutionBackendSource::Config,
     );
 
     assert_eq!(settings.log_level, "trace");
@@ -1005,14 +1147,18 @@ fn runtime_settings_project_effective_bundle_and_cli_selection() {
     assert_eq!(settings.simulation.warning, "simulation warning");
     assert_eq!(
         settings.execution_backend_source,
-        trust_runtime::execution_backend::ExecutionBackendSource::Flag
+        trust_runtime::execution_backend::ExecutionBackendSource::Config
     );
 }
 
+/// A folder of its own for each call: the clock alone is not enough, as macOS counts it in whole
+/// microseconds, and two tests that built at once in one folder removed it under each other.
 fn unique_temp_dir(name: &str) -> std::path::PathBuf {
+    static CALLS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let call = CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let mut path = std::env::temp_dir();
     path.push(format!(
-        "trust_runtime_{name}_{}_{}",
+        "trust_runtime_{name}_{}_{call}_{}",
         std::process::id(),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -1029,54 +1175,35 @@ fn assert_enum_variant(value: &Value, expected: &str) {
     assert_eq!(value.variant_name().as_str(), expected);
 }
 
+/// Specification 39, §12.7: every HMI command is logged, whatever the log level.
 #[test]
-fn project_loader_uses_supplied_legacy_and_source_free_instructions() {
-    use trust_runtime::bytecode::BytecodeVersion;
-    let source =
-        "VAR_GLOBAL marker : INT := 7; END_VAR PROGRAM Main marker := marker + 1; END_PROGRAM";
-    for version in [
-        BytecodeVersion::LEGACY,
-        BytecodeVersion::SOURCE_FREE_V2,
-        BytecodeVersion::SOURCE_FREE,
-    ] {
-        let root = unique_temp_dir("supplied-artifact");
-        std::fs::create_dir_all(root.join("src")).unwrap();
-        std::fs::write(root.join("src/main.st"), source).unwrap();
-        std::fs::write(
-            root.join("runtime.toml"),
-            trust_runtime::bundle_template::render_runtime_toml(&"RESOURCE".into(), 10),
-        )
-        .unwrap();
-        std::fs::write(
-            root.join("io.toml"),
-            "[io]\ndriver = \"simulated\"\nparams = {}\n",
-        )
-        .unwrap();
-        let supplied = CompileSession::from_source(source.replace("marker + 1", "marker + 2"))
-            .build_bytecode_module_for_version(version)
-            .unwrap();
-        std::fs::write(root.join("program.stbc"), supplied.encode().unwrap()).unwrap();
-        let mut loaded = super::load_runtime(Some(root.clone()), None, None).unwrap();
-        assert_eq!(
-            loaded.runtime.storage().get_global("marker"),
-            Some(&Value::Int(7))
-        );
-        super::apply_bundle_runtime_services(&mut loaded.runtime, loaded.bundle.as_ref().unwrap())
-            .unwrap();
-        loaded.runtime.execute_cycle().unwrap();
-        assert_eq!(
-            loaded.runtime.storage().get_global("marker"),
-            Some(&Value::Int(9))
-        );
-        std::fs::remove_dir_all(root).unwrap();
-    }
+fn hmi_command_audit_records_are_logged_at_info() {
+    let event = |kind: &str| trust_runtime::control::ControlAuditEvent {
+        event_id: smol_str::SmolStr::new("e"),
+        timestamp_ms: 0,
+        request_id: 1,
+        request_type: smol_str::SmolStr::new(kind),
+        correlation_id: None,
+        ok: true,
+        error: None,
+        auth_present: true,
+        client: None,
+        details: None,
+    };
+    assert_eq!(
+        super::audit_log_level(&event("hmi.command")),
+        super::LogLevel::Info
+    );
+    assert_eq!(
+        super::audit_log_level(&event("status")),
+        super::LogLevel::Debug
+    );
 }
 
-#[test]
-fn project_loader_rejects_missing_legacy_context_but_loads_a_source_free_bundle() {
-    use trust_runtime::bytecode::BytecodeVersion;
-    let root = unique_temp_dir("source-free-bundle");
-    std::fs::create_dir_all(&root).unwrap();
+/// A project folder with `runtime.toml`, a simulated `io.toml` and `source` in `src/main.st`.
+fn write_project(root: &std::path::Path, source: &str) {
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::write(root.join("src/main.st"), source).unwrap();
     std::fs::write(
         root.join("runtime.toml"),
         trust_runtime::bundle_template::render_runtime_toml(&"RESOURCE".into(), 10),
@@ -1087,42 +1214,56 @@ fn project_loader_rejects_missing_legacy_context_but_loads_a_source_free_bundle(
         "[io]\ndriver = \"simulated\"\nparams = {}\n",
     )
     .unwrap();
-    let session = CompileSession::from_source("PROGRAM Main END_PROGRAM");
-    let legacy = session
-        .build_bytecode_module_for_version(BytecodeVersion::LEGACY)
+}
+
+#[test]
+fn project_loader_runs_the_program_image_not_the_sources() {
+    // Specification 44 §8.8, NX-15: a computer runs the project's program image, `program.tpi`;
+    // the sources in `src` are for the tools. The image adds 2 where the sources add 1, so the
+    // first scan takes `marker` from 7 to 9. Catches a loader that compiles the sources instead.
+    let source =
+        "VAR_GLOBAL marker : INT := 7; END_VAR PROGRAM Main marker := marker + 1; END_PROGRAM";
+    let root = unique_temp_dir("supplied-image");
+    write_project(&root, source);
+    std::fs::write(
+        root.join(trust_runtime::native::PROGRAM_IMAGE_FILE),
+        program_image(&source.replace("marker + 1", "marker + 2")),
+    )
+    .unwrap();
+
+    let mut loaded = super::load_runtime(Some(root.clone()), None, None).unwrap();
+    super::apply_bundle_services(&mut loaded.runtime, loaded.bundle.as_ref().unwrap()).unwrap();
+    loaded
+        .runtime
+        .restart(trust_runtime::RestartMode::Cold)
         .unwrap();
-    std::fs::write(root.join("program.stbc"), legacy.encode().unwrap()).unwrap();
+    assert_eq!(loaded.runtime.read_variable("marker"), Ok(Value::Int(7)));
+    loaded.runtime.execute_cycle().unwrap();
+    assert_eq!(loaded.runtime.read_variable("marker"), Ok(Value::Int(9)));
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn project_loader_refuses_a_bytecode_program_and_loads_a_project_without_sources() {
+    // Specification 44 §8.8, NX-15: a project that holds only the bytecode engine's
+    // `program.stbc` is built again, and a project of only its program image loads with no
+    // sources. Catches a loader that runs nothing or reads `src` as the program.
+    let root = unique_temp_dir("image-only-project");
+    write_project(&root, "PROGRAM Main END_PROGRAM");
+    std::fs::remove_dir_all(root.join("src")).unwrap();
+    std::fs::write(root.join("program.stbc"), b"STBC").unwrap();
     let error = match super::load_runtime(Some(root.clone()), None, None) {
-        Ok(_) => panic!("missing context accepted"),
+        Ok(_) => panic!("a bytecode program was accepted"),
         Err(error) => error,
     };
-    assert!(error.to_string().contains("construction context"));
+    assert!(error.to_string().contains("rebuild the project"), "{error}");
+
     std::fs::write(
-        root.join("program.stbc"),
-        session.build_bytecode_bytes().unwrap(),
+        root.join(trust_runtime::native::PROGRAM_IMAGE_FILE),
+        program_image("PROGRAM Main END_PROGRAM"),
     )
     .unwrap();
     let loaded = super::load_runtime(Some(root.clone()), None, None).unwrap();
     assert!(loaded.sources.files().is_empty());
     std::fs::remove_dir_all(root).unwrap();
-}
-
-fn write_rejected_event(index: usize) -> trust_runtime::debug::RuntimeEvent {
-    trust_runtime::debug::RuntimeEvent::WriteRejected {
-        target: format!("target{index}").into(),
-        error: "out of range".into(),
-        time: Duration::ZERO,
-    }
-}
-
-#[test]
-fn event_store_keeps_the_newest_1000_events_in_order() {
-    let mut store = std::collections::VecDeque::new();
-    for index in 0..=super::EVENT_STORE_CAPACITY {
-        super::store_event(&mut store, write_rejected_event(index));
-    }
-    let expected: Vec<_> = (1..=super::EVENT_STORE_CAPACITY)
-        .map(write_rejected_event)
-        .collect();
-    assert_eq!(Vec::from(store), expected);
 }

@@ -13,7 +13,8 @@ deployment pointer back to the previous version.
 Each successful deploy writes its change summary to
 `deployments/<label>.txt` and copies that summary to `deployments/last.txt`.
 The summary names the newly deployed bundle and the prior bundle and reports
-changes to runtime configuration, I/O configuration, bytecode, and sources.
+changes to runtime configuration, I/O configuration, the program image
+(`program.tpi`), and sources.
 `last.txt` records the last deploy operation; it is not the active pointer and
 is not rewritten by rollback. Inspect the `current` symlink to identify the
 active bundle.
@@ -43,7 +44,7 @@ you operate so you know which flag set the runtime expects.
 
 ## Good rollback scenarios
 
-- bad bytecode bundle
+- bad program image
 - correct logic but wrong runtime config
 - rollout succeeded technically but operator behavior regressed
 

@@ -2,28 +2,22 @@ import * as assert from "assert";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import * as vscode from "vscode";
 
+import type { FleetTopologyResponse } from "../../networkCanvas/fleetTopology";
 import {
-  buildNetworkCanvasModel,
-  type BuildNetworkCanvasModelInput,
-} from "../../networkCanvas/model";
-import {
-  mergeFleetTopologies,
-  offlineTopologyForTarget,
-  type FleetTopologyResponse,
-} from "../../networkCanvas/fleetTopology";
-import { ensureAdsRuntimeEnabled } from "../../networkCanvas/offlineComm";
-import { mergeConnectorStatusIntoTopology } from "../../networkCanvas/connectorsStatus";
-import { buildCanvasGraph } from "../../networkCanvas/graphData";
+  DEVICES_TOPOLOGY_COMMAND,
+  requestCanvasTopology,
+  type CanvasRuntimeReport,
+  type CanvasTopologyAnswer,
+  type CanvasTopologyRequest,
+} from "../../networkCanvas/canvasCommands";
+import { canvasGraph } from "../../networkCanvas/graphData";
 import { buildGraph } from "../../networkCanvas/webview/layout";
-import type { EndpointNodeData } from "../../networkCanvas/webview/types";
-import type { RuntimeTarget } from "../../runtimeTarget";
+import type { EndpointNodeData, NCGraph } from "../../networkCanvas/webview/types";
 import { classifyRuntimeStartFailure } from "../../networkCanvas/runtimeFailures";
-import { runtimeNodeControls } from "../../networkCanvas/webview/runtimeNodeControls";
 import { ADD_PICKER_GROUPS, groupForAddPicker } from "../../networkCanvas/webview/grouping";
 import { applyFilter, filterReport } from "../../networkCanvas/webview/filter";
-import { buildExposeApplyParams } from "../../networkCanvas/exposeConfig";
-import { commTestMessage } from "../../communication/runtimeComm";
 import {
   connectorConnectionLabel,
   connectorHealthLabel,
@@ -32,7 +26,6 @@ import {
   discoverySourceLabel,
 } from "../../networkCanvas/webview/connectorPresentation";
 import {
-  validateSchemaValues,
   visibleSchemaFields,
   type CommProtocolSchema,
 } from "../../communication/schemaForm";
@@ -44,13 +37,93 @@ import {
 } from "../../networkCanvas/webview/serverEndpointSummary";
 import { visibleFaultsForValidationState } from "../../networkCanvas/webview/faults";
 
-const RUNNING = {
-  running: true,
-  runtimeState: "running" as const,
-  runtimeMode: "simulate" as const,
-};
+/** The extension's lifecycle while the simulator runs. */
+const RUNNING = { running: true, runtime_state: "running", starting: false, io_values: false };
+
+/** The endpoint the canvas reached the runtime of these tests at. */
+const LINE_ENDPOINT = "tcp://192.168.77.10:5680";
+/** The control endpoint of the extension's own simulator in these tests. */
+const SIMULATOR_ENDPOINT = "unix:///tmp/trust-local-sim.sock";
+
+/** Waits until the language client has registered the server's devices commands. */
+async function languageServerReady(): Promise<void> {
+  const deadline = Date.now() + 30000;
+  while (!(await vscode.commands.getCommands(true)).includes(DEVICES_TOPOLOGY_COMMAND)) {
+    if (Date.now() > deadline) assert.fail("the language server's devices commands are not available");
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+}
+
+/**
+ * One drawing of the canvas as the panel runs it: `topology` is what the runtime at `LINE_ENDPOINT`
+ * (or, with `simulator`, the extension's own simulator) answered, the language server merges it with
+ * the extension's own facts `facts` (`trust-lsp.devicesTopology`), and the canvas maps the answer into
+ * its graph. The merge's rules are the Rust tests' (crates/trust-devices/src/canvas); these tests
+ * prove the wiring and what is drawn.
+ */
+async function served(
+  topology: FleetTopologyResponse | undefined,
+  options: {
+    readonly connectors?: unknown;
+    readonly searchQuery?: string;
+    readonly peers?: readonly CanvasRuntimeReport[];
+    readonly project?: FleetTopologyResponse;
+    readonly simulator?: boolean;
+    readonly runMode?: string;
+    readonly endpoint?: string;
+    readonly facts?: Partial<CanvasTopologyRequest>;
+  } = {}
+): Promise<{
+  answer: CanvasTopologyAnswer;
+  graph: NCGraph;
+}> {
+  const endpoint = options.endpoint ?? (options.simulator ? SIMULATOR_ENDPOINT : LINE_ENDPOINT);
+  const answer = await requestCanvasTopology({
+    primary: topology
+      ? {
+          endpoint,
+          label: "Line",
+          reach: "reachable",
+          topology: { ok: topology },
+          connectors: { ok: options.connectors ?? { connectors: [] } },
+        }
+      : undefined,
+    peers: options.peers ?? [],
+    project: options.project,
+    simulator_endpoint: options.simulator ? SIMULATOR_ENDPOINT : undefined,
+    run_mode: options.runMode ?? (options.simulator ? "simulate" : "online"),
+    search_query: options.searchQuery ?? "",
+    discovered: [],
+    ...options.facts,
+  });
+  const graph = canvasGraph(answer.fleet, {
+    searchQuery: options.searchQuery,
+    topologyError: answer.topology_error,
+  });
+  return { answer, graph };
+}
+
+/** The graph's runtimes, on every host and in every container. */
+function graphRuntimes(graph: NCGraph) {
+  return graph.hosts.flatMap((host) => [
+    ...host.runtimes,
+    ...host.containers.flatMap((container) => container.runtimes),
+  ]);
+}
+
+/** The graph's connection named `name`. */
+function graphEndpoint(graph: NCGraph, name: string) {
+  const endpoint = graphRuntimes(graph)
+    .flatMap((runtime) => runtime.endpoints)
+    .find((candidate) => candidate.name === name);
+  assert.ok(endpoint, `the graph draws the connection ${name}`);
+  return endpoint;
+}
 
 suite("Network Canvas", function () {
+  this.timeout(60000);
+  suiteSetup(languageServerReady);
+
   test("package contributes the Network Canvas command", () => {
     const pkg = JSON.parse(
       fs.readFileSync(path.join(__dirname, "../../../package.json"), "utf8")
@@ -64,149 +137,97 @@ suite("Network Canvas", function () {
   });
 
   // --- Honesty invariant: status only from real evidence --------------------
-  test("stage progression alone never fabricates a running runtime or connected device", () => {
+  // The rules are the Rust tests `the_drawn_simulator_shows_its_lifecycle_in_its_node_banner_and_summary`,
+  // `the_first_device_waits_for_io_values_before_it_is_connected` and
+  // `the_simulator_holds_the_catalogs_local_connections_connected_only_with_evidence`
+  // (crates/trust-devices/src/canvas/local_tests.rs); these tests prove that the canvas draws them.
+  test("no step of the add flow draws a running simulator or a connected device without evidence", async () => {
     for (const stage of ["runtime_live", "intent", "add_device", "connected"] as const) {
-      const model = buildNetworkCanvasModel(stage);
-      assert.notStrictEqual(model.runtime.state, "running", `${stage} faked running`);
-      assert.notStrictEqual(model.device?.status, "connected", `${stage} faked connected`);
+      const { graph } = await served(undefined, {
+        runMode: "simulate",
+        facts: { setup: { stage, active_protocol: "simulated", device_requested: true } },
+      });
+      const simulator = graph.hosts[0]?.runtimes[0];
+      assert.notStrictEqual(simulator?.health, "connected", `${stage} faked running`);
+      assert.ok(
+        simulator?.endpoints.every((endpoint) => endpoint.health !== "connected"),
+        `${stage} faked a connected device`
+      );
     }
   });
 
-  test("runtime goes green only from runtime lifecycle evidence", () => {
-    assert.notStrictEqual(
-      buildNetworkCanvasModel("runtime_live").runtime.state,
-      "running",
-      "no evidence must never be running"
-    );
-    assert.strictEqual(
-      buildNetworkCanvasModel({ stage: "runtime_live", runtime: RUNNING }).runtime.state,
-      "running"
-    );
+  test("the simulator goes green only from lifecycle evidence, and its first device only with I/O values", async () => {
+    const stopped = (await served(undefined, { runMode: "simulate" })).graph;
+    assert.notStrictEqual(stopped.hosts[0]?.runtimes[0]?.health, "connected");
+    const asked = { setup: { stage: "connected", active_protocol: "simulated", device_requested: true } };
+    const running = (await served(undefined, { runMode: "simulate", facts: { simulator: RUNNING, ...asked } })).graph;
+    const simulator = running.hosts[0]?.runtimes[0];
+    assert.strictEqual(simulator?.health, "connected");
+    assert.strictEqual(simulator?.endpoints[0]?.health, "pending", "no I/O values yet");
+    const live = (
+      await served(undefined, {
+        runMode: "simulate",
+        facts: { simulator: { ...RUNNING, io_values: true }, ...asked },
+      })
+    ).graph;
+    assert.strictEqual(live.hosts[0]?.runtimes[0]?.endpoints[0]?.health, "connected");
   });
 
-  test("device goes connected only after real I/O values are reported", () => {
-    const base: BuildNetworkCanvasModelInput = {
-      stage: "connected",
-      deviceRequested: true,
-      runtime: RUNNING,
-    };
-    assert.strictEqual(buildNetworkCanvasModel(base).device?.status, "pending");
-    const connected = buildNetworkCanvasModel({
-      ...base,
-      ioState: {
-        inputs: [{ address: "%IX0.0", name: "Drive A ready", value: "TRUE" }],
-        outputs: [{ address: "%QW0", name: "Command", value: "12" }],
-        memory: [],
-      },
-    });
-    assert.strictEqual(connected.device?.status, "connected");
-    assert.deepStrictEqual(
-      connected.device?.liveValues.map((v) => v.value),
-      ["TRUE", "12"]
-    );
-  });
-
-  test("runtime rolls health up from raw endpoint evidence; host stays reachability", () => {
-    const model = buildNetworkCanvasModel({
-      stage: "runtime_live",
-      runtime: RUNNING,
-      topology: fleetTopology(),
-    });
-    assert.ok(model.fleet, "expected a fleet view");
+  test("runtime rolls health up from raw endpoint evidence; host stays reachability", async () => {
+    const { answer, graph } = await served(fleetTopology());
+    assert.ok(answer.fleet, "expected the server's fleet view");
     // Host status is MACHINE reachability, not a health rollup: a host we reached (arch/os/ips present)
     // is "connected" even with a degraded endpoint inside — the degradation surfaces on the RUNTIME.
-    assert.strictEqual(model.fleet?.hosts[0]?.health, "connected");
-    assert.strictEqual(model.fleet?.hosts[0]?.runtimes[0]?.health, "degraded");
+    assert.strictEqual(graph.hosts[0]?.health, "connected");
+    assert.strictEqual(graph.hosts[0]?.runtimes[0]?.health, "degraded");
   });
 
-  test("fleet host headlines are user-facing, not raw lab machine names", () => {
+  test("fleet host headlines are user-facing, not raw lab machine names", async () => {
+    // The project's configuration is read on this computer, so the host it names is "This computer"
+    // (specification 25 §5.5); the raw hostname stays as supporting detail.
     const local = fleetTopology();
-    const localHostname = os.hostname();
-    local.hosts[0].hostname = localHostname;
-    local.hosts[0].ips = ["127.0.0.1"];
-    local.hosts[0].runtimes[0].control_endpoint = "tcp://127.0.0.1:39855";
-    const localModel = buildNetworkCanvasModel({
-      stage: "runtime_live",
-      runtime: RUNNING,
-      topology: local,
-    });
-    assert.strictEqual(localModel.fleet?.hosts[0]?.hostname, "This computer");
+    const { graph: localGraph } = await served(local, { project: local });
+    assert.strictEqual(localGraph.hosts[0]?.hostname, "This computer");
     assert.ok(
-      localHostname.length === 0 || localModel.fleet?.hosts[0]?.label.includes(localHostname),
+      localGraph.hosts[0]?.label.includes("trust-pi"),
       "the raw local hostname stays available as supporting detail"
     );
 
     const remote = fleetTopology();
     remote.hosts[0].hostname = "remote-plc-host";
     remote.hosts[0].ips = ["192.168.77.10"];
-    remote.hosts[0].runtimes[0].control_endpoint = "tcp://192.168.77.10:5680";
-    const remoteModel = buildNetworkCanvasModel({
-      stage: "runtime_live",
-      runtime: RUNNING,
-      topology: remote,
-    });
-    assert.strictEqual(remoteModel.fleet?.hosts[0]?.hostname, "Computer 192.168.77.10");
+    const { graph: remoteGraph } = await served(remote);
+    assert.strictEqual(remoteGraph.hosts[0]?.hostname, "Computer 192.168.77.10");
     assert.ok(
-      remoteModel.fleet?.hosts[0]?.label.includes("remote-plc-host"),
+      remoteGraph.hosts[0]?.label.includes("remote-plc-host"),
       "the raw hostname remains available as supporting detail"
     );
   });
 
-  test("unreachable configured peers keep their configured label, not 'This computer'", () => {
-    const topology: FleetTopologyResponse = {
-      schema_version: 3,
-      hosts: [
-        {
-          host_id: "fleet:tcp://127.0.0.1:5510",
-          hostname: "discoveredcell",
-          arch: "",
-          os: "",
-          ips: [],
-          containers: [],
-          runtimes: [
-            {
-              runtime_id: "fleet:tcp://127.0.0.1:5510:runtime",
-              name: "discoveredcell",
-              control_endpoint: "tcp://127.0.0.1:5510",
-              mode: "error",
-              cycle_ms: 0,
-              health: "error",
-              detail: "Authentication failed — check the runtime's auth token.",
-              endpoints: [],
-            },
-          ],
-        },
-      ],
-      links: [],
-      shared: [],
-      external: [],
-    };
-    const model = buildNetworkCanvasModel({
-      stage: "runtime_live",
-      runtime: RUNNING,
-      topology,
+  test("unreachable configured peers keep their configured label, not 'This computer'", async () => {
+    const { graph } = await served(undefined, {
+      peers: [{ endpoint: "tcp://127.0.0.1:5510", label: "discoveredcell", reach: "auth_rejected" }],
     });
-    assert.strictEqual(model.fleet?.hosts[0]?.hostname, "discoveredcell");
+    assert.deepStrictEqual(
+      graph.hosts.map((host) => host.hostname),
+      ["This computer", "discoveredcell"]
+    );
   });
 
-  test("fleet search never hides degraded endpoints from the runtime rollup", () => {
-    const model = buildNetworkCanvasModel({
-      stage: "runtime_live",
-      runtime: RUNNING,
-      topology: fleetTopology(),
-      searchQuery: "modbus", // does NOT match the degraded mqtt endpoint
-    });
-    assert.strictEqual(model.fleet?.hosts[0]?.health, "connected"); // reachability, unaffected by search
-    assert.strictEqual(model.fleet?.hosts[0]?.runtimes[0]?.health, "degraded");
-    const mqtt = model.fleet?.hosts[0]?.runtimes[0]?.endpoints.find(
+  test("fleet search never hides degraded endpoints from the runtime rollup", async () => {
+    // "modbus" does NOT match the degraded mqtt endpoint.
+    const { graph } = await served(fleetTopology(), { searchQuery: "modbus" });
+    assert.strictEqual(graph.hosts[0]?.health, "connected"); // reachability, unaffected by search
+    assert.strictEqual(graph.hosts[0]?.runtimes[0]?.health, "degraded");
+    const mqtt = graph.hosts[0]?.runtimes[0]?.endpoints.find(
       (e) => e.protocol === "mqtt"
     );
     assert.strictEqual(mqtt?.health, "degraded", "raw health preserved");
     assert.strictEqual(mqtt?.dimmed, true, "non-match dimmed for display only");
   });
 
-  test("connector status surface flows into endpoint graph metadata", () => {
-    const topology = mergeConnectorStatusIntoTopology(fleetTopology(), {
+  test("connector status surface flows into endpoint graph metadata", async () => {
+    const { graph } = await served(fleetTopology(), { connectors: {
       schema_version: 1,
       connectors: [
         {
@@ -228,17 +249,10 @@ suite("Network Canvas", function () {
           point_counts: { total: 3, good: 1, degraded: 1, unavailable: 1 },
         },
       ],
-    });
-    assert.ok(topology, "topology should remain present after connector merge");
-    const model = buildNetworkCanvasModel({
-      stage: "runtime_live",
-      runtime: RUNNING,
-      topology,
-    });
-    const graph = buildCanvasGraph(model, topology);
+    } });
     const rendered = buildGraph(graph, undefined, false);
-    const modbus = rendered.nodes.find((node) => node.id === "endpoint:runtime-a:modbus_tcp");
-    const mqtt = rendered.nodes.find((node) => node.id === "endpoint:runtime-a:mqtt");
+    const modbus = rendered.nodes.find((node) => node.id === graphEndpoint(graph, "Modbus meter").id);
+    const mqtt = rendered.nodes.find((node) => node.id === graphEndpoint(graph, "MQTT broker").id);
     const modbusData = modbus?.data as EndpointNodeData | undefined;
     const mqttData = mqtt?.data as EndpointNodeData | undefined;
     assert.strictEqual(modbusData?.connector?.state, "ready");
@@ -261,37 +275,6 @@ suite("Network Canvas", function () {
     });
   });
 
-  test("ADS tag import enables the runtime ADS subsystem", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "trust-ads-runtime-"));
-    try {
-      fs.writeFileSync(
-        path.join(dir, "runtime.toml"),
-        [
-          "[bundle]",
-          "version = 1",
-          "",
-          "[resource]",
-          'name = "Simulator"',
-          "cycle_interval_ms = 50",
-          "",
-          "[runtime.ads]",
-          "enabled = false",
-          'config_path = "old-ads.toml"',
-          "",
-        ].join("\n")
-      );
-      const result = ensureAdsRuntimeEnabled(dir);
-      assert.deepStrictEqual(result.ok, true);
-      const runtimeToml = fs.readFileSync(path.join(dir, "runtime.toml"), "utf8");
-      assert.match(runtimeToml, /\[runtime\.ads\]/);
-      assert.match(runtimeToml, /^enabled = true$/m);
-      assert.match(runtimeToml, /^config_path = "ads\.toml"$/m);
-      assert.match(runtimeToml, /^worker_tick_interval_ms = 20$/m);
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
   test("connector status presentation uses first-user vocabulary", () => {
     assert.strictEqual(connectorConnectionLabel("ready"), "Ready");
     assert.strictEqual(connectorConnectionLabel("not_ready"), "Needs attention");
@@ -308,19 +291,12 @@ suite("Network Canvas", function () {
     assert.ok(!discoverySourceLabel("tcp_connect").includes("tcp_connect"));
   });
 
-  test("fleet search dims external counterparts and wires without hiding warnings", () => {
-    const topology = fleetTopology();
-    const model = buildNetworkCanvasModel({
-      stage: "runtime_live",
-      runtime: RUNNING,
-      topology,
-      searchQuery: "modbus",
-    });
-    const graph = buildCanvasGraph(model, topology);
+  test("fleet search dims external counterparts and wires without hiding warnings", async () => {
+    const { graph } = await served(fleetTopology(), { searchQuery: "modbus" });
     const rendered = buildGraph(graph, undefined, false);
-    const mqttEndpoint = rendered.nodes.find((node) => node.id === "endpoint:runtime-a:mqtt");
+    const mqttEndpoint = rendered.nodes.find((node) => node.id === graphEndpoint(graph, "MQTT broker").id);
     const mqttBroker = rendered.nodes.find((node) => node.id === "shared:mqtt:broker");
-    const mqttLink = rendered.edges.find((edge) => edge.id === "link:mqtt:broker");
+    const mqttLink = rendered.edges.find((edge) => edge.target === "shared:mqtt:broker");
     const warning = graph.faults.find((fault) => /mqtt/i.test(fault.label));
 
     assert.strictEqual(mqttEndpoint?.data.dimmed, true, "nonmatching endpoint is dimmed");
@@ -330,12 +306,15 @@ suite("Network Canvas", function () {
   });
 
   test("editing a rejected add form hides stale apply faults without hiding real faults", () => {
+    // Which fault is the form's is the server's (`form`; the Rust test
+    // `the_add_form_draws_its_draft_and_its_refused_result_is_the_forms_own_fault`).
     const faults = [
       {
         id: "apply:modbus_tcp",
         label: "Configuration was not applied. Fix the highlighted fields and try again.",
         targetNodeId: "draft:modbus_tcp",
         severity: "error" as const,
+        form: true,
       },
       {
         id: "device:modbus",
@@ -350,33 +329,28 @@ suite("Network Canvas", function () {
   });
 
   // --- Graph mapping (the React Flow canvas data) ---------------------------
-  test("buildCanvasGraph maps a real fleet to host/runtime/endpoint nodes + links", () => {
-    const topology = fleetTopology();
-    const model = buildNetworkCanvasModel({
-      stage: "runtime_live",
-      runtime: RUNNING,
-      topology,
-    });
-    const graph = buildCanvasGraph(model, topology);
+  test("the canvas maps a real fleet to host/runtime/endpoint nodes + links", async () => {
+    const { graph } = await served(fleetTopology());
     assert.strictEqual(graph.kind, "graph");
     assert.strictEqual(graph.hosts.length, 1);
     const runtime = graph.hosts[0].runtimes[0];
-    assert.strictEqual(runtime.id, "runtime-a");
-    assert.ok(runtime.endpoints.some((e) => e.id === "endpoint:runtime-a:mqtt"));
+    assert.strictEqual(runtime.name, "Line runtime");
+    const mqtt = graphEndpoint(graph, "MQTT broker");
+    assert.ok(runtime.endpoints.some((e) => e.id === mqtt.id));
     assert.ok(graph.links.some((l) => l.protocol === "mesh"));
-    assert.ok(graph.external.some((x) => x.id === "external:runtime-a:mesh:0"));
+    assert.ok(graph.external.some((x) => x.name === "tcp/192.168.77.11:7447"));
     assert.ok(
       graph.external.some((x) => x.id === "shared:mqtt:broker"),
       "shared MQTT broker nodes must render so publish/subscribe links are not dangling"
     );
     assert.ok(graph.links.some((l) => l.to === "shared:mqtt:broker"));
     assert.ok(
-      graph.faults.some((f) => f.targetNodeId === "endpoint:runtime-a:mqtt"),
+      graph.faults.some((f) => f.targetNodeId === mqtt.id),
       "degraded endpoint surfaces as a fault"
     );
   });
 
-  test("degraded and error fleet-link status and detail survive full canvas projection", () => {
+  test("degraded and error fleet-link status and detail survive full canvas projection", async () => {
     const topology = fleetTopology();
     const degradedSource = topology.links.find((link) => link.status === "degraded");
     assert.ok(degradedSource, "expected a degraded fleet link fixture");
@@ -395,9 +369,10 @@ suite("Network Canvas", function () {
       detail: "Peer certificate was rejected.",
     });
 
-    const canvas = buildCanvasGraph(buildNetworkCanvasModel({ topology }), topology);
-    const degraded = canvas.links.find((link) => link.id === degradedSource.id);
-    const error = canvas.links.find((link) => link.id === "link:mesh:error");
+    const { graph: canvas } = await served(topology);
+    const degraded = canvas.links.find((link) => link.detail === "Peer handshake is retrying.");
+    const error = canvas.links.find((link) => link.detail === "Peer certificate was rejected.");
+    assert.ok(degraded && error, "both links survive the merge");
     assert.strictEqual(
       (degraded as unknown as { detail?: string })?.detail,
       "Peer handshake is retrying."
@@ -408,8 +383,8 @@ suite("Network Canvas", function () {
     );
 
     const rendered = buildGraph(canvas);
-    const degradedEdge = rendered.edges.find((edge) => edge.id === degradedSource.id);
-    const errorEdge = rendered.edges.find((edge) => edge.id === "link:mesh:error");
+    const degradedEdge = rendered.edges.find((edge) => edge.id === degraded?.id);
+    const errorEdge = rendered.edges.find((edge) => edge.id === error?.id);
     assert.deepStrictEqual(
       {
         status: degradedEdge?.data?.status,
@@ -423,7 +398,7 @@ suite("Network Canvas", function () {
     );
   });
 
-  test("buildCanvasGraph does not duplicate a runtime as an external system", () => {
+  test("the canvas does not duplicate a runtime as an external system", async () => {
     const topology = fleetTopology();
     topology.external.push({
       id: "external:self",
@@ -432,12 +407,7 @@ suite("Network Canvas", function () {
       via_protocol: ["discovery"],
       direction: "outbound",
     });
-    const model = buildNetworkCanvasModel({
-      stage: "runtime_live",
-      runtime: RUNNING,
-      topology,
-    });
-    const graph = buildCanvasGraph(model, topology);
+    const { graph } = await served(topology);
     assert.ok(
       graph.hosts[0].runtimes.some((runtime) => runtime.name === "Line runtime"),
       "the runtime itself stays visible"
@@ -447,19 +417,13 @@ suite("Network Canvas", function () {
       "the same runtime must not also appear as an external system"
     );
     assert.ok(
-      graph.external.some((external) => external.id === "external:runtime-a:mesh:0"),
+      graph.external.some((external) => external.name === "tcp/192.168.77.11:7447"),
       "unrelated external systems stay visible"
     );
   });
 
-  test("buildCanvasGraph never emits an edge to a node that does not exist", () => {
-    const topology = fleetTopology();
-    const model = buildNetworkCanvasModel({
-      stage: "runtime_live",
-      runtime: RUNNING,
-      topology,
-    });
-    const graph = buildCanvasGraph(model, topology);
+  test("the canvas never emits an edge to a node that does not exist", async () => {
+    const { graph } = await served(fleetTopology());
     const ids = new Set<string>();
     for (const host of graph.hosts) {
       ids.add(host.id);
@@ -754,10 +718,10 @@ suite("Network Canvas", function () {
     assert.strictEqual(meshBus?.data?.draft, false);
   });
 
-  test("production-shaped mesh links retain each configured peer status and detail on the shared fabric", () => {
-    const canvas = buildCanvasGraph(buildNetworkCanvasModel({ topology: fleetTopology() }), fleetTopology());
+  test("production-shaped mesh links retain each configured peer status and detail on the shared fabric", async () => {
+    const { graph: canvas } = await served(fleetTopology());
     const rendered = buildGraph(canvas);
-    const peer = rendered.edges.find((edge) => edge.id === "link:mesh:peer");
+    const peer = rendered.edges.find((edge) => edge.data?.detail === "tcp/192.168.77.11:7447");
 
     assert.ok(peer, "the runtime's configured mesh target must remain wired to the shared fabric");
     assert.deepStrictEqual(
@@ -1050,7 +1014,7 @@ suite("Network Canvas", function () {
     );
   });
 
-  test("ADS server live client count survives topology to endpoint node data", () => {
+  test("ADS server live client count survives topology to endpoint node data", async () => {
     const topology: FleetTopologyResponse = {
       schema_version: 3,
       hosts: [
@@ -1108,8 +1072,7 @@ suite("Network Canvas", function () {
       external: [],
     };
 
-    const model = buildNetworkCanvasModel({ topology });
-    const canvas = buildCanvasGraph(model, topology);
+    const { graph: canvas } = await served(topology);
     const endpoint = canvas.hosts[0]?.runtimes[0]?.endpoints[0];
     assert.deepStrictEqual(endpoint?.live?.value, {
       connected_clients: 3,
@@ -1120,7 +1083,7 @@ suite("Network Canvas", function () {
     });
 
     const graph = buildGraph(canvas);
-    const node = graph.nodes.find((item) => item.id === "endpoint:ads-server");
+    const node = graph.nodes.find((item) => item.id === endpoint?.id);
     assert.deepStrictEqual(node?.data.live, {
       value: {
         connected_clients: 3,
@@ -1188,16 +1151,8 @@ suite("Network Canvas", function () {
     assert.notStrictEqual(external?.data.sub, "ADS client server");
   });
 
-  test("protocol filtering reports hidden degraded/faulted endpoints instead of silently losing them", () => {
-    const topology = fleetTopology();
-    const graph = buildCanvasGraph(
-      buildNetworkCanvasModel({
-        stage: "runtime_live",
-        runtime: RUNNING,
-        topology,
-      }),
-      topology
-    );
+  test("protocol filtering reports hidden degraded/faulted endpoints instead of silently losing them", async () => {
+    const { graph } = await served(fleetTopology());
     const hidden = new Set(["mqtt"]);
     const filtered = applyFilter(graph, hidden);
     const report = filterReport(graph, hidden);
@@ -1222,140 +1177,11 @@ suite("Network Canvas", function () {
   });
 
   // --- Multi-runtime merge (§10/§12.10) ------------------------------------
-  test("mergeFleetTopologies aggregates multiple runtimes: a host appears once with unioned runtimes", () => {
-    const rt = (id: string) => ({
-      runtime_id: id,
-      name: id,
-      mode: "online",
-      cycle_ms: 10,
-      health: "connected",
-      detail: "",
-      endpoints: [
-        {
-          id: `endpoint:${id}:service`,
-          kind: "service",
-          protocol: "opcua_client",
-          name: `${id} service`,
-          health: "connected",
-          detail: "Ready.",
-          owned: true,
-          supports_test: false,
-        },
-      ],
-    });
-    const host = (id: string, runtimes: ReturnType<typeof rt>[], containers: unknown[] = []) => ({
-      host_id: id,
-      hostname: id,
-      arch: "x",
-      os: "linux",
-      ips: [],
-      containers: containers as never[],
-      runtimes,
-    });
-    const link = (id: string, runtimeId: string, externalId: string) => ({
-      id,
-      from: `endpoint:${runtimeId}:service`,
-      to: externalId,
-      protocol: "opcua_client",
-      role: "client",
-      direction: "out",
-      same_host: false,
-      status: "ok",
-      secure: true,
-    });
-    const a: FleetTopologyResponse = {
-      schema_version: 3,
-      hosts: [host("H", [rt("A")])],
-      links: [link("L1", "A", "E1")],
-      shared: [{ id: "S1", kind: "broker", name: "b", address: "x", used_by: ["A"] }],
-      external: [{ id: "E1", name: "e1", kind: "peer", via_protocol: ["mesh"], direction: "out" }],
-    };
-    const b: FleetTopologyResponse = {
-      schema_version: 2,
-      hosts: [host("H", [rt("B")]), host("H2", [rt("C")])],
-      links: [link("L2", "B", "E2")],
-      shared: [{ id: "S1", kind: "broker", name: "b", address: "x", used_by: ["B"] }],
-      external: [
-        { id: "E1", name: "e1", kind: "peer", via_protocol: ["mesh"], direction: "out" },
-        { id: "E2", name: "e2", kind: "peer", via_protocol: ["mesh"], direction: "out" },
-      ],
-    };
-
-    const merged = mergeFleetTopologies([a, undefined, b]);
-    assert.strictEqual(merged.schema_version, 3, "schema_version is the max");
-    assert.strictEqual(merged.hosts.length, 2, "host H appears once + H2");
-    const h = merged.hosts.find((host) => host.host_id === "H");
-    assert.strictEqual(h?.runtimes.length, 2, "H unions runtimes A + B");
-    assert.strictEqual(merged.links.length, 2, "both uniquely owned links are kept");
-    assert.strictEqual(merged.external.length, 2, "E1 deduped, E1 + E2 kept");
-    assert.deepStrictEqual(
-      new Set(merged.shared.find((s) => s.id === "S1")?.used_by ?? []),
-      new Set(h?.runtimes.map((runtime) => runtime.runtime_id) ?? []),
-      "shared.used_by is rewritten to and unioned by normalized runtime identity"
-    );
-  });
-
-  test("mergeFleetTopologies keeps configured endpoints on the same live runtime", () => {
-    const runtime = (endpoints: FleetTopologyResponse["hosts"][number]["runtimes"][number]["endpoints"]): FleetTopologyResponse["hosts"][number]["runtimes"][number] => ({
-      runtime_id: "RESOURCE",
-      name: "Simulator",
-      mode: "online",
-      cycle_ms: 50,
-      health: "connected",
-      detail: "Running.",
-      endpoints,
-    });
-    const host = (endpoints: FleetTopologyResponse["hosts"][number]["runtimes"][number]["endpoints"]): FleetTopologyResponse["hosts"][number] => ({
-      host_id: "host:local",
-      hostname: "This computer",
-      arch: "aarch64",
-      os: "linux",
-      ips: ["127.0.0.1"],
-      containers: [],
-      runtimes: [runtime(endpoints)],
-    });
-    const simulated = {
-      id: "endpoint:RESOURCE:simulated",
-      kind: "field",
-      protocol: "simulated",
-      name: "Simulated I/O",
-      role: "owned_driver",
-      health: "connected",
-      detail: "Running.",
-      owned: true,
-      supports_test: true,
-    };
-    const ads = {
-      id: "endpoint:RESOURCE:ads",
-      kind: "service",
-      protocol: "ads",
-      name: "ADS client",
-      role: "supervisory_client",
-      health: "configured_policy",
-      detail: "Configured in ads.toml. Restart the runtime to load it.",
-      owned: true,
-      supports_test: true,
-    };
-    const merged = mergeFleetTopologies([
-      { schema_version: 4, hosts: [host([simulated])], links: [], shared: [], external: [] },
-      { schema_version: 4, hosts: [host([ads])], links: [], shared: [], external: [] },
-    ]);
-
-    const endpoints = merged.hosts[0]?.runtimes[0]?.endpoints ?? [];
-    assert.deepStrictEqual(
-      endpoints.map((endpoint) => endpoint.protocol).sort(),
-      ["ads", "simulated"],
-      "same-runtime live topology keeps configured endpoints waiting for restart"
-    );
-    assert.strictEqual(
-      new Set(endpoints.map((endpoint) => endpoint.id)).size,
-      2,
-      "the retained live and configured endpoints keep distinct display identities"
-    );
-  });
-
-  test("configured ADS overlay on a live simulator says restart required, not stopped", () => {
-    const topology: FleetTopologyResponse = {
+  // The merge's rules (one host per identity, unioned runtimes, configured endpoints staying on
+  // their live runtime) are the Rust tests `merge_unions_hosts_and_keeps_the_first_host_facts` and
+  // `configured_endpoints_stay_on_the_live_runtime` (crates/trust-devices/src/topology/tests).
+  test("configured ADS overlay on a live simulator says restart required, not stopped", async () => {
+    const live: FleetTopologyResponse = {
       schema_version: 4,
       hosts: [
         {
@@ -1367,25 +1193,14 @@ suite("Network Canvas", function () {
           containers: [],
           runtimes: [
             {
-              runtime_id: "ADS live TwinCAT",
-              name: "ADS live TwinCAT",
+              runtime_id: "RESOURCE",
+              name: "RESOURCE",
               mode: "simulate",
               cycle_ms: 50,
               health: "simulate",
               detail: "Runtime answered fleet.topology from its control channel.",
-              endpoints: [
-                {
-                  id: "endpoint:ADS live TwinCAT:ads",
-                  kind: "service",
-                  protocol: "ads",
-                  name: "ADS client",
-                  role: "client",
-                  health: "configured_policy",
-                  detail: "Configured in ADS project config; runtime is not running.",
-                  owned: true,
-                  supports_test: true,
-                },
-              ],
+              source: "self",
+              endpoints: [],
             },
           ],
         },
@@ -1394,13 +1209,33 @@ suite("Network Canvas", function () {
       shared: [],
       external: [],
     };
+    const configured: FleetTopologyResponse = JSON.parse(JSON.stringify(live));
+    configured.hosts[0].runtimes[0] = {
+      runtime_id: "ADS live TwinCAT",
+      name: "ADS live TwinCAT",
+      mode: "stopped",
+      cycle_ms: 50,
+      health: "configured_policy",
+      detail: "Configured in project files; runtime is not running.",
+      source: "config",
+      endpoints: [
+        {
+          id: "endpoint:ADS live TwinCAT:ads",
+          kind: "service",
+          protocol: "ads",
+          name: "ADS client",
+          role: "client",
+          health: "configured_policy",
+          detail: "Configured in ADS project config; runtime is not running.",
+          owned: true,
+          supports_test: true,
+          source: "config",
+        },
+      ],
+    };
 
-    const model = buildNetworkCanvasModel({
-      stage: "runtime_live",
-      runtime: RUNNING,
-      topology,
-    });
-    const runtime = model.fleet?.hosts[0]?.runtimes[0];
+    const { graph } = await served(live, { simulator: true, project: configured });
+    const runtime = graph.hosts[0]?.runtimes[0];
     assert.strictEqual(
       runtime?.health,
       "simulate",
@@ -1413,129 +1248,84 @@ suite("Network Canvas", function () {
     );
   });
 
-  test("a configured-but-unreachable fleet peer synthesizes an UNKNOWN node (not 'stopped'), never green", () => {
-    const base: RuntimeTarget = {
-      mode: "online",
-      endpoint: "10.0.0.9:5510",
-      endpointEnabled: true,
-      reachable: false,
-      status: "online_unreachable",
-      label: "cell1",
-      credentialChannel: "untrusted_remote_plain_tcp",
-    };
-    const topo = offlineTopologyForTarget(base);
-    assert.ok(topo, "an unreachable configured peer should still appear (synthesized)");
-    if (topo) {
-      const runtime = topo.hosts[0].runtimes[0];
-      // We don't know if it's stopped or just unreachable → "unknown" (grey/ghosted), never green.
-      assert.strictEqual(runtime.health, "unknown", "unknown/grey, never connected/green");
-      assert.strictEqual(runtime.mode, "unknown");
-      assert.strictEqual(runtime.endpoints.length, 0);
-      assert.strictEqual(topo.hosts[0].hostname, "cell1");
-    }
+  test("a configured-but-unreachable fleet peer synthesizes an UNKNOWN node (not 'stopped'), never green", async () => {
+    const peer = (
+      reach: CanvasRuntimeReport["reach"],
+      endpoint = "tcp://10.0.0.9:5510"
+    ): CanvasRuntimeReport => ({ endpoint, label: "cell1", reach });
+    // With nothing that reports the project's runtime the simulator stands for it first on this
+    // computer (specification 25 §5.6); the peer's computer follows.
+    const peerHost = (graph: NCGraph) => graph.hosts[graph.hosts.length - 1];
+    const unreachable = (await served(undefined, { peers: [peer("unreachable")] })).graph;
+    const runtime = peerHost(unreachable).runtimes[0];
+    // We don't know if it's stopped or just unreachable → "unknown" (grey/ghosted), never green.
+    assert.strictEqual(runtime.health, "unknown", "unknown/grey, never connected/green");
+    assert.strictEqual(runtime.mode, "unknown");
+    assert.strictEqual(runtime.endpoints.length, 0);
+    assert.strictEqual(peerHost(unreachable).hostname, "cell1");
+    const missing = (await served(undefined, { peers: [peer("auth_missing")] })).graph;
+    assert.strictEqual(peerHost(missing).runtimes[0].health, "error", "auth failure is a real error");
     assert.strictEqual(
-      offlineTopologyForTarget({ ...base, status: "auth_failed" })?.hosts[0].runtimes[0].health,
-      "error",
-      "auth failure is a real error"
-    );
-    assert.strictEqual(
-      offlineTopologyForTarget({
-        ...base,
-        status: "auth_failed",
-        authFailureKind: "missing",
-      })?.hosts[0].runtimes[0].detail,
+      peerHost(missing).runtimes[0].detail,
       "No auth token provided — this runtime requires one."
     );
+    const rejected = (await served(undefined, { peers: [peer("auth_rejected")] })).graph;
     assert.strictEqual(
-      offlineTopologyForTarget({
-        ...base,
-        status: "auth_failed",
-        authFailureKind: "rejected",
-      })?.hosts[0].runtimes[0].detail,
+      peerHost(rejected).runtimes[0].detail,
       "Auth token rejected — check it and try again."
     );
+    const reachable = (
+      await served(undefined, {
+        peers: [
+          {
+            ...peer("reachable"),
+            topology: { ok: fleetTopology() },
+            connectors: { ok: { connectors: [] } },
+          },
+        ],
+      })
+    ).graph;
     assert.strictEqual(
-      offlineTopologyForTarget({ ...base, status: "online_reachable" }),
-      undefined,
+      peerHost(reachable).runtimes[0].name,
+      "Line runtime",
       "a reachable peer uses its real fleet.topology, not a synthetic node"
     );
-    assert.strictEqual(
-      offlineTopologyForTarget({ ...base, endpoint: undefined }),
-      undefined,
-      "no endpoint → nothing to show"
+    const endpointless = await served(undefined, { peers: [peer("unreachable", "")] });
+    assert.ok(
+      endpointless.graph.hosts.every((host) => host.hostname !== "cell1"),
+      "no endpoint → no node for the peer"
     );
   });
 
-  test("buildCanvasGraph shows added fleet peers even on the stopped local-simulator view", () => {
-    const peerTopology: FleetTopologyResponse = {
-      schema_version: 3,
-      hosts: [
+  test("peer topology failures show in the banner without hiding the local view", async () => {
+    const { graph } = await served(undefined, {
+      runMode: "simulate",
+      peers: [
         {
-          host_id: "fleet:10.0.0.9:5510",
-          hostname: "10.0.0.9:5510",
-          arch: "",
-          os: "",
-          ips: [],
-          containers: [],
-          runtimes: [
-            {
-              runtime_id: "fleet:10.0.0.9:5510:runtime",
-              name: "cell1",
-              mode: "stopped",
-              cycle_ms: 0,
-              health: "stopped",
-              detail: "not reachable",
-              endpoints: [],
-            },
-          ],
+          endpoint: "tcp://10.0.0.9:5510",
+          label: "peer-a",
+          reach: "reachable",
+          topology: { error: "unknown connector confidence" },
+          connectors: { ok: { connectors: [] } },
         },
       ],
-      links: [],
-      shared: [],
-      external: [],
-    };
-    // Local sim stopped (no fleet) → localRuntimeGraph; the added peer must STILL appear beside it.
-    const graph = buildCanvasGraph(buildNetworkCanvasModel("runtime_live"), undefined, peerTopology);
-    const hostIds = graph.hosts.map((h) => h.id);
-    assert.ok(hostIds.includes("host:this-computer"), "local simulator node is preserved");
-    assert.ok(hostIds.includes("fleet:10.0.0.9:5510"), "added peer appears alongside it");
-    const peer = graph.hosts.find((h) => h.id === "fleet:10.0.0.9:5510");
-    assert.strictEqual(peer?.runtimes[0].health, "stopped", "peer stays stopped/grey, never green");
-  });
-
-  test("buildCanvasGraph renders peer topology failures without hiding the local view", () => {
-    const model = buildNetworkCanvasModel({
-      stage: "runtime_live",
-      topologyError:
-        "Peer topology degraded: peer-a connector status: unknown connector confidence",
     });
-    const graph = buildCanvasGraph(model, undefined);
-
     assert.ok(
       graph.hosts.some((host) => host.id === "host:this-computer"),
       "the local runtime remains visible"
     );
-    assert.deepStrictEqual(graph.banner, {
-      kind: "error",
-      text: "Peer topology degraded: peer-a connector status: unknown connector confidence",
-      actions: [],
-    });
+    assert.strictEqual(graph.banner?.kind, "error");
+    assert.match(graph.banner?.text ?? "", /^Peer topology degraded: .*unknown connector confidence/);
   });
 
-  test("auth-failed synthetic runtime nodes keep control endpoint for inspector actions", () => {
+  test("auth-failed synthetic runtime nodes keep control endpoint for inspector actions", async () => {
     const endpoint = "tcp://127.0.0.1:33101";
-    const topo = offlineTopologyForTarget({
-      mode: "online",
-      endpoint,
-      endpointEnabled: true,
-      reachable: true,
-      status: "auth_failed",
-      label: "discoveredcell",
-      credentialChannel: "trusted_same_host",
+    const { graph } = await served(undefined, {
+      peers: [{ endpoint, label: "discoveredcell", reach: "auth_rejected" }],
     });
-    assert.ok(topo, "auth-failed configured runtime should still synthesize a node");
-    const graph = buildCanvasGraph(buildNetworkCanvasModel("runtime_live"), undefined, topo);
-    const rendered = buildGraph(graph).nodes.find((node) => node.type === "runtime" && node.id.includes(endpoint));
+    const rendered = buildGraph(graph).nodes.find(
+      (node) => node.type === "runtime" && node.data.label === "discoveredcell"
+    );
     assert.ok(rendered, "synthetic auth-failed runtime node should render");
     assert.strictEqual(
       rendered?.data.controlEndpoint,
@@ -1544,8 +1334,8 @@ suite("Network Canvas", function () {
     );
   });
 
-  test("a new project with no configured runtime shows the local simulator node, not an empty screen", () => {
-    const graph = buildCanvasGraph(buildNetworkCanvasModel("runtime_live"), undefined);
+  test("a new project with no configured runtime shows the local simulator node, not an empty screen", async () => {
+    const { graph } = await served(undefined, { runMode: "simulate" });
     assert.strictEqual(graph.kind, "graph");
     assert.strictEqual(graph.hosts.length, 1);
     const runtime = graph.hosts[0].runtimes[0];
@@ -1553,17 +1343,16 @@ suite("Network Canvas", function () {
     assert.notStrictEqual(runtime.health, "connected", "honest: not green until proven");
   });
 
-  test("a stopped local control socket renders neutral stopped state, not an alarm fault", () => {
-    const graph = buildCanvasGraph(
-      buildNetworkCanvasModel({
-        stage: "runtime_live",
+  test("a stopped local control socket renders neutral stopped state, not an alarm fault", async () => {
+    const { graph } = await served(undefined, {
+      runMode: "simulate",
+      facts: {
         failure: {
           kind: "stale_runtime",
           message: "Runtime not reachable: unix:///tmp/trust-runtime-line-123.sock",
         },
-      }),
-      undefined
-    );
+      },
+    });
     const runtime = graph.hosts[0].runtimes[0];
     assert.strictEqual(runtime.health, "stopped", "stopped local runtime is neutral, not red");
     assert.deepStrictEqual(graph.faults, [], "stopped local runtime must not spend the red issue channel");
@@ -1574,15 +1363,12 @@ suite("Network Canvas", function () {
     );
   });
 
-  test("a running local simulator renders as a connected runtime node", () => {
-    const graph = buildCanvasGraph(
-      buildNetworkCanvasModel({ stage: "runtime_live", runtime: RUNNING }),
-      undefined
-    );
+  test("a running local simulator renders as a connected runtime node", async () => {
+    const { graph } = await served(undefined, { runMode: "simulate", facts: { simulator: RUNNING } });
     assert.strictEqual(graph.hosts[0].runtimes[0].health, "connected");
   });
 
-  test("a live local simulator topology replaces the stopped project overlay instead of twinning", () => {
+  test("a live local simulator topology replaces the stopped project overlay instead of twinning", async () => {
     const liveTopology: FleetTopologyResponse = {
       schema_version: 3,
       hosts: [
@@ -1678,23 +1464,19 @@ suite("Network Canvas", function () {
       shared: [],
       external: [],
     };
-    const merged = mergeFleetTopologies([liveTopology, offlineProjectTopology]);
-
-    const graph = buildCanvasGraph(
-      buildNetworkCanvasModel({
-        stage: "runtime_live",
-        runtime: RUNNING,
-        topology: merged,
-      }),
-      merged
-    );
+    const { graph } = await served(liveTopology, {
+      simulator: true,
+      project: offlineProjectTopology,
+    });
 
     assert.strictEqual(graph.hosts.length, 1, "local simulator stays on one host");
     assert.strictEqual(graph.summary, "1 host · 1 runtime · 2 endpoints");
     const runtimes = graph.hosts[0].runtimes;
     assert.strictEqual(runtimes.length, 1, "one local simulator runtime, not RESOURCE + configured project twin");
     assert.strictEqual(runtimes[0].name, "Simulator", "ST resource names must not replace the run target");
-    assert.strictEqual(runtimes[0].health, "connected");
+    // The runtime's own state names its health (specification 25 §5.5): it simulates, drawn
+    // "Running" in green, as a connected runtime is.
+    assert.strictEqual(runtimes[0].health, "simulate");
     assert.strictEqual(
       runtimes[0].endpoints.filter((endpoint) => endpoint.protocol === "simulated").length,
       1,
@@ -1711,7 +1493,7 @@ suite("Network Canvas", function () {
     );
   });
 
-  test("a live local simulator topology hides raw ST resource names even when mode is missing", () => {
+  test("a live local simulator topology hides raw ST resource names even when mode is missing", async () => {
     const liveTopology: FleetTopologyResponse = {
       schema_version: 3,
       hosts: [
@@ -1741,29 +1523,21 @@ suite("Network Canvas", function () {
       external: [],
     };
 
-    const graph = buildCanvasGraph(
-      buildNetworkCanvasModel({
-        stage: "runtime_live",
-        runtime: RUNNING,
-        topology: liveTopology,
-      }),
-      liveTopology
-    );
+    const { graph } = await served(liveTopology, { simulator: true });
 
     assert.strictEqual(graph.hosts[0].runtimes[0].name, "Simulator");
   });
 
-  test("managed local runtimes are injected under the existing This computer host", () => {
-    const graph = buildCanvasGraph(
-      buildNetworkCanvasModel("runtime_live"),
-      undefined,
-      undefined,
-      undefined,
-      [
-        { name: "cell1", controlEndpoint: "tcp://127.0.0.1:9902", state: "stopped" },
-        { name: "cell2", controlEndpoint: "tcp://127.0.0.1:9903", state: "running" },
-      ]
-    );
+  test("managed local runtimes are injected under the existing This computer host", async () => {
+    const { graph } = await served(undefined, {
+      runMode: "simulate",
+      facts: {
+        managed: [
+          { name: "cell1", control_endpoint: "tcp://127.0.0.1:9902", state: "stopped" },
+          { name: "cell2", control_endpoint: "tcp://127.0.0.1:9903", state: "running" },
+        ],
+      },
+    });
     assert.strictEqual(
       graph.hosts.filter((host) => host.hostname === "This computer").length,
       1,
@@ -1779,14 +1553,11 @@ suite("Network Canvas", function () {
     assert.strictEqual(cell2?.health, "connected", "running managed runtime is green");
   });
 
-  test("managed starting runtime is pending with an Updating control", () => {
-    const graph = buildCanvasGraph(
-      buildNetworkCanvasModel("runtime_live"),
-      undefined,
-      undefined,
-      undefined,
-      [{ name: "cell1", controlEndpoint: "tcp://127.0.0.1:9902", state: "starting" }]
-    );
+  test("managed starting runtime is pending with an Updating control", async () => {
+    const { graph } = await served(undefined, {
+      runMode: "simulate",
+      facts: { managed: [{ name: "cell1", control_endpoint: "tcp://127.0.0.1:9902", state: "starting" }] },
+    });
     const runtime = graph.hosts
       .flatMap((host) => host.runtimes)
       .find((candidate) => candidate.managedName === "cell1");
@@ -1794,25 +1565,17 @@ suite("Network Canvas", function () {
     assert.strictEqual(runtime?.lifecycleState, "starting");
     assert.strictEqual(runtime?.detail, "Starting managed local runtime…");
 
-    const controls = runtimeNodeControls({
-      isLocal: false,
-      managed: runtime?.managed === true,
-      health: String(runtime?.health ?? ""),
-      attached: false,
-    });
+    const controls = runtime?.controls ?? [];
     assert.strictEqual(controls[0].action, "none");
     assert.strictEqual(controls[0].label, "Updating…");
     assert.strictEqual(controls[0].enabled, false);
   });
 
-  test("managed stopping runtime is pending with an Updating control", () => {
-    const graph = buildCanvasGraph(
-      buildNetworkCanvasModel("runtime_live"),
-      undefined,
-      undefined,
-      undefined,
-      [{ name: "cell1", controlEndpoint: "tcp://127.0.0.1:9902", state: "stopping" }]
-    );
+  test("managed stopping runtime is pending with an Updating control", async () => {
+    const { graph } = await served(undefined, {
+      runMode: "simulate",
+      facts: { managed: [{ name: "cell1", control_endpoint: "tcp://127.0.0.1:9902", state: "stopping" }] },
+    });
     const runtime = graph.hosts
       .flatMap((host) => host.runtimes)
       .find((candidate) => candidate.managedName === "cell1");
@@ -1820,25 +1583,17 @@ suite("Network Canvas", function () {
     assert.strictEqual(runtime?.lifecycleState, "stopping");
     assert.strictEqual(runtime?.detail, "Stopping managed local runtime…");
 
-    const controls = runtimeNodeControls({
-      isLocal: false,
-      managed: runtime?.managed === true,
-      health: String(runtime?.health ?? ""),
-      attached: false,
-    });
+    const controls = runtime?.controls ?? [];
     assert.strictEqual(controls[0].action, "none");
     assert.strictEqual(controls[0].label, "Updating…");
     assert.strictEqual(controls[0].enabled, false);
   });
 
-  test("managed unavailable runtime fails closed with Start disabled", () => {
-    const graph = buildCanvasGraph(
-      buildNetworkCanvasModel("runtime_live"),
-      undefined,
-      undefined,
-      undefined,
-      [{ name: "cell1", controlEndpoint: "tcp://127.0.0.1:9902", state: "unavailable" }]
-    );
+  test("managed unavailable runtime fails closed with Start disabled", async () => {
+    const { graph } = await served(undefined, {
+      runMode: "simulate",
+      facts: { managed: [{ name: "cell1", control_endpoint: "tcp://127.0.0.1:9902", state: "unavailable" }] },
+    });
     const runtime = graph.hosts
       .flatMap((host) => host.runtimes)
       .find((candidate) => candidate.managedName === "cell1");
@@ -1846,29 +1601,23 @@ suite("Network Canvas", function () {
     assert.strictEqual(runtime?.lifecycleState, "unavailable");
     assert.strictEqual(runtime?.detail, "Status unavailable — refresh before starting.");
 
-    const controls = runtimeNodeControls({
-      isLocal: false,
-      managed: runtime?.managed === true,
-      health: String(runtime?.health ?? ""),
-      attached: false,
-    });
+    const controls = runtime?.controls ?? [];
     assert.strictEqual(controls[0].action, "managedStart");
     assert.strictEqual(controls[0].label, "Start");
     assert.strictEqual(controls[0].enabled, false);
   });
 
-  test("selected run target is projected onto the graph node and rendered node data", () => {
-    const graph = buildCanvasGraph(
-      buildNetworkCanvasModel("runtime_live"),
-      undefined,
-      undefined,
-      undefined,
-      [
-        { name: "cell1", controlEndpoint: "tcp://127.0.0.1:9902", state: "stopped" },
-        { name: "cell2", controlEndpoint: "tcp://127.0.0.1:9903", state: "running" },
-      ],
-      "cell1"
-    );
+  test("selected run target is projected onto the graph node and rendered node data", async () => {
+    const { graph } = await served(undefined, {
+      runMode: "simulate",
+      facts: {
+        managed: [
+          { name: "cell1", control_endpoint: "tcp://127.0.0.1:9902", state: "stopped" },
+          { name: "cell2", control_endpoint: "tcp://127.0.0.1:9903", state: "running" },
+        ],
+        session: { run_target: "cell1" },
+      },
+    });
     const cell1 = graph.hosts[0].runtimes.find((runtime) => runtime.managedName === "cell1");
     const cell2 = graph.hosts[0].runtimes.find((runtime) => runtime.managedName === "cell2");
     const simulator = graph.hosts[0].runtimes.find((runtime) => runtime.id === "runtime:local");
@@ -1881,7 +1630,7 @@ suite("Network Canvas", function () {
     assert.strictEqual(rendered?.data.runTarget, true, "React Flow runtime node data carries the flag");
   });
 
-  test("a managed runtime already shown via fleet.topology is NOT doubled, and the surviving node stays OWNED (managed)", () => {
+  test("a managed runtime already shown via fleet.topology is NOT doubled, and the surviving node stays OWNED (managed)", async () => {
     const peerTopology = {
       schema_version: 3 as const,
       hosts: [
@@ -1910,13 +1659,18 @@ suite("Network Canvas", function () {
       shared: [],
       external: [],
     };
-    const graph = buildCanvasGraph(
-      buildNetworkCanvasModel("runtime_live"),
-      undefined,
-      peerTopology,
-      undefined,
-      [{ name: "cell1", controlEndpoint: "tcp://127.0.0.1:9902", state: "running" }]
-    );
+    const { graph } = await served(undefined, {
+      peers: [
+        {
+          endpoint: "tcp://127.0.0.1:9902",
+          label: "peer",
+          reach: "reachable",
+          topology: { ok: peerTopology },
+          connectors: { ok: { connectors: [] } },
+        },
+      ],
+      facts: { managed: [{ name: "cell1", control_endpoint: "tcp://127.0.0.1:9902", state: "running" }] },
+    });
     // The endpoint is already shown via the peer topology → no separate managed host injected …
     assert.ok(
       !graph.hosts.some((h) => h.id === "host:managed-local"),
@@ -1930,19 +1684,12 @@ suite("Network Canvas", function () {
     assert.strictEqual(surviving?.managed, true, "surviving node is marked managed (owned lifecycle)");
     assert.strictEqual(surviving?.managedName, "cell1", "carries the managed runtime name");
     // It must therefore render managed Start/Stop (running → Stop), not remote Connect/Disconnect.
-    const controls = runtimeNodeControls({
-      isLocal: false,
-      managed: surviving?.managed === true,
-      health: String(surviving?.health ?? ""),
-      attached: false,
-      controlEndpoint: surviving?.controlEndpoint,
-      logsAvailable: true,
-    });
+    const controls = surviving?.controls ?? [];
     assert.strictEqual(controls[0].action, "managedStop");
     assert.ok(controls.some((c) => c.action === "openRuntimeLogs"), "owned node offers Logs");
   });
 
-  test("managed status overrides stale health on an existing fleet topology node", () => {
+  test("managed status overrides stale health on an existing fleet topology node", async () => {
     const expected = [
       ["running", "connected", "Running (managed local runtime).", "managedStop", true],
       ["stopped", "stopped", "Stopped — Start it from this node.", "managedStart", true],
@@ -1986,29 +1733,29 @@ suite("Network Canvas", function () {
         shared: [],
         external: [],
       };
-      const graph = buildCanvasGraph(
-        buildNetworkCanvasModel("runtime_live"),
-        undefined,
-        topology,
-        undefined,
-        [{ name: "cell1", controlEndpoint: "tcp://127.0.0.1:9902", state }]
-      );
+      const { graph } = await served(undefined, {
+        peers: [
+          {
+            endpoint: "tcp://127.0.0.1:9902",
+            label: "peer",
+            reach: "reachable",
+            topology: { ok: topology },
+            connectors: { ok: { connectors: [] } },
+          },
+        ],
+        facts: { managed: [{ name: "cell1", control_endpoint: "tcp://127.0.0.1:9902", state }] },
+      });
       const runtime = graph.hosts.flatMap((host) => host.runtimes).find((item) => item.name === "cell1");
       assert.strictEqual(runtime?.health, health, `${state} health must come from managed status`);
       assert.strictEqual(runtime?.lifecycleState, state, `${state} lifecycle label must remain authoritative`);
       assert.strictEqual(runtime?.detail, detail, `${state} detail must come from managed status`);
-      const controls = runtimeNodeControls({
-        isLocal: false,
-        managed: runtime?.managed === true,
-        health: String(runtime?.health ?? ""),
-        attached: false,
-      });
+      const controls = runtime?.controls ?? [];
       assert.strictEqual(controls[0].action, action, `${state} must expose the correct primary action`);
       assert.strictEqual(controls[0].enabled, enabled, `${state} must use authoritative action availability`);
     }
   });
 
-  test("live managed topology preserves the stopped project runtime instead of morphing the canvas", () => {
+  test("live managed topology preserves the stopped project runtime instead of morphing the canvas", async () => {
     const liveTopology: FleetTopologyResponse = {
       schema_version: 3,
       hosts: [
@@ -2089,18 +1836,12 @@ suite("Network Canvas", function () {
       external: [],
     };
 
-    const merged = mergeFleetTopologies([liveTopology, offlineProjectTopology]);
-    const graph = buildCanvasGraph(
-      buildNetworkCanvasModel({
-        stage: "runtime_live",
-        runtime: RUNNING,
-        topology: merged,
-      }),
-      merged,
-      undefined,
-      undefined,
-      [{ name: "cell1", controlEndpoint: "tcp://127.0.0.1:9902", state: "running" }]
-    );
+    const { graph } = await served(liveTopology, {
+      endpoint: "tcp://127.0.0.1:9902",
+      project: offlineProjectTopology,
+      runMode: "simulate",
+      facts: { managed: [{ name: "cell1", control_endpoint: "tcp://127.0.0.1:9902", state: "running" }] },
+    });
 
     assert.strictEqual(graph.hosts.length, 1, "same computer stays one host");
     assert.strictEqual(graph.summary, "1 host · 2 runtimes · 2 endpoints");
@@ -2121,42 +1862,29 @@ suite("Network Canvas", function () {
     );
   });
 
-  test("a runtime start failure renders an error node + retry banner, not a failure screen", () => {
-    const graph = buildCanvasGraph(
-      buildNetworkCanvasModel({
-        stage: "runtime_live",
-        failure: { kind: "port_conflict", message: "The runtime port is already in use." },
-      }),
-      undefined
-    );
+  test("a runtime start failure renders an error node + retry banner, not a failure screen", async () => {
+    const { graph } = await served(undefined, {
+      runMode: "simulate",
+      facts: { failure: { kind: "port_conflict", message: "The runtime port is already in use." } },
+    });
     assert.strictEqual(graph.hosts[0].runtimes[0].health, "error");
     assert.ok(graph.banner, "failure surfaces an inline banner");
     assert.ok(graph.banner?.actions.some((a) => a.action === "startLocalSimulator"));
   });
 
   // --- Failure classification ----------------------------------------------
-  test("classifyRuntimeStartFailure maps real error strings to actionable kinds", () => {
-    assert.strictEqual(classifyRuntimeStartFailure(new Error("spawn trust-runtime ENOENT")).kind, "missing_binary");
-    assert.strictEqual(classifyRuntimeStartFailure("EADDRINUSE: address already in use").kind, "port_conflict");
-    assert.strictEqual(classifyRuntimeStartFailure("EACCES: permission denied").kind, "workspace_permission");
-    assert.strictEqual(classifyRuntimeStartFailure("debug session timed out").kind, "stale_runtime");
-    assert.strictEqual(classifyRuntimeStartFailure("something else broke").kind, "failed_spawn");
+  // The kinds are the language server's (`trust-lsp.runTargets`, action `failure`), proven by
+  // crates/trust-lsp/src/handlers/commands/run_targets/connect_tests.rs. Catches a failure that does not reach the server,
+  // or comes back without its text.
+  test("classifyRuntimeStartFailure takes the failure's kind from the language server", async () => {
+    const failure = await classifyRuntimeStartFailure(new Error("spawn trust-runtime ENOENT"));
+    assert.strictEqual(failure.kind, "missing_binary");
+    assert.strictEqual(failure.message, "Required runtime/debug binary was not found.");
+    assert.strictEqual(failure.detail, "spawn trust-runtime ENOENT");
   });
 
-  test("OPC UA client test failures render user-facing recovery text, not raw backend tokens", () => {
-    const message = commTestMessage("opcua_client", {
-      protocol: "opcua_client",
-      supported: true,
-      ok: false,
-      detail: "OPC UA endpoint handshake failed: OPC UA status: BadNotConnected",
-      error: {
-        code: "endpoint_unreachable",
-        message: "OPC UA endpoint handshake failed: OPC UA status: BadNotConnected",
-      },
-    });
-    assert.ok(message.includes("OPC UA server is not reachable"));
-    assert.ok(!message.includes("BadNotConnected"), "raw OPC UA status must not leak into the user-facing result");
-  });
+  // OPC UA client test failures render user-facing recovery text, not raw backend tokens: the Rust
+  // test `opcua_test_failures_have_recovery_text` (crates/trust-devices/src/actions/tests/config.rs).
 
   // P2 regression guard (UX overhaul §9): the Network Canvas is the comms front door — it must own
   // communication setup in-canvas and never send the user (by command, panel import, OR copy) back to
@@ -2180,7 +1908,7 @@ suite("Network Canvas", function () {
     }
   });
 
-  test("conditional schema fields render and validate only for the selected backend", () => {
+  test("conditional schema fields render only for the selected backend", () => {
     const gpioSchema: CommProtocolSchema = {
       id: "gpio",
       driver: "Gpio",
@@ -2235,27 +1963,12 @@ suite("Network Canvas", function () {
       visibleSchemaFields(gpioSchema, { backend: "sysfs" }).map((field) => field.id),
       ["backend", "sysfs_base"]
     );
-    assert.deepStrictEqual(
-      validateSchemaValues(gpioSchema, { backend: "libgpiod", chip: "/dev/gpiochip0" }),
-      [],
-      "hidden sysfs_base must not block libgpiod validation"
-    );
-    assert.deepStrictEqual(
-      validateSchemaValues(gpioSchema, { backend: "sysfs", sysfs_base: "/sys/class/gpio" }),
-      [],
-      "hidden chip must not block sysfs validation"
-    );
-    const schemaFieldsSource = fs.readFileSync(
-      path.join(__dirname, "..", "..", "..", "src", "networkCanvas", "webview", "SchemaFields.tsx"),
-      "utf8"
-    );
+    // On submit the server evaluates the predicates again and saves only the shown fields: the Rust
+    // tests `a_saved_form_writes_only_the_fields_its_backend_shows` (crates/trust-devices/src/canvas)
+    // and `hidden_conditional_fields_are_not_submitted`.
     const inspectorSource = fs.readFileSync(
       path.join(__dirname, "..", "..", "..", "src", "networkCanvas", "webview", "NodeInspector.tsx"),
       "utf8"
-    );
-    assert.ok(
-      schemaFieldsSource.includes("visibleSchemaFields(protocol, values)"),
-      "endpoint edits must omit hidden conditional fields when building params"
     );
     assert.ok(
       inspectorSource.includes("visibleSchemaFields(protoSchema, values)") &&
@@ -2265,9 +1978,11 @@ suite("Network Canvas", function () {
   });
 });
 
+// A runtime's `fleet.topology` answer of schema version 3 (links with IDs and roles); the server
+// reads versions 2 to 4 (specification 25 §5.6).
 function fleetTopology(): FleetTopologyResponse {
   return {
-    schema_version: 1,
+    schema_version: 3,
     hosts: [
       {
         host_id: "host:trust-pi",
@@ -2372,6 +2087,44 @@ function fleetTopology(): FleetTopologyResponse {
 
 // F-043/S-09: the Add picker presents backend protocols as first-user choices, not raw
 // Field/Supervisory/Peer schema categories.
+suite("Network Canvas — the endpoint a live runtime answered at", function () {
+  // Specification 25, section 5.1. A runtime's own topology names no control endpoint (it does not know the address it
+  // was reached at), so its node had Connect disabled and "Set as run target" selected the Simulator (found while fixing
+  // acceptance finding F20). The language server gives the answering runtime its endpoint; these tests prove that the
+  // canvas draws it.
+  this.timeout(60000);
+  suiteSetup(languageServerReady);
+
+  const runtime = (runtime_id: string, source: string, control_endpoint?: string) => ({
+    runtime_id, name: runtime_id, mode: "online", cycle_ms: 100, health: "connected", detail: "", endpoints: [], source,
+    ...(control_endpoint ? { control_endpoint } : {}),
+  });
+  const topology: FleetTopologyResponse = {
+    schema_version: 4,
+    hosts: [{
+      host_id: "host:cell", hostname: "cell", arch: "x86_64", os: "linux", ips: [],
+      runtimes: [runtime("runtime:self", "self"), runtime("runtime:peer", "mesh", "tcp://10.0.0.9:9100")],
+      containers: [],
+    }],
+    links: [], shared: [], external: [],
+  };
+
+  test("the runtime that answered gets the endpoint it answered at; a peer keeps its own", async () => {
+    const { graph } = await served(topology, { endpoint: "tcp://127.0.0.1:9100" });
+    const byName = new Map(graphRuntimes(graph).map((item) => [item.name, item]));
+    assert.strictEqual(byName.get("runtime:self")?.controlEndpoint, "tcp://127.0.0.1:9100");
+    assert.strictEqual(byName.get("runtime:peer")?.controlEndpoint, "tcp://10.0.0.9:9100", "a mesh peer names its own");
+    assert.strictEqual(topology.hosts[0].runtimes[0].control_endpoint, undefined, "the answer itself is not changed");
+  });
+
+  test("the extension's own simulator gets no endpoint, so its node stays the Simulator with Start and Stop", async () => {
+    const { graph } = await served(topology, { simulator: true });
+    const simulator = graphRuntimes(graph).find((item) => item.name === "Simulator");
+    assert.ok(simulator, "the simulator's node is named Simulator");
+    assert.strictEqual(simulator?.controlEndpoint, undefined);
+  });
+});
+
 suite("Network Canvas — add picker taxonomy", function () {
   type P = { id: string; title: string; purpose?: string; category?: string };
   const p = (id: string, category?: string): P => ({ id, title: id, purpose: `${id} purpose`, category });
@@ -2473,6 +2226,7 @@ suite("Network Canvas — add picker taxonomy", function () {
 
   test("ADD_PICKER_GROUPS is the canonical S-09 group order", () => {
     assert.deepStrictEqual(ADD_PICKER_GROUPS.map((c) => c.key), [
+      "simulation",
       "devices_io",
       "read_tags",
       "share_values",
@@ -2482,30 +2236,6 @@ suite("Network Canvas — add picker taxonomy", function () {
   });
 });
 
-suite("Network Canvas — expose globals apply params", function () {
-  test("drops topology-only evidence fields before re-applying ADS/OPC UA server config", () => {
-    const { names, params } = buildExposeApplyParams(
-      {
-        enabled: true,
-        listen: "0.0.0.0",
-        ams_net_id: "127.0.0.1.1.1",
-        port: 48898,
-        expose: ["TankLevel"],
-        writable: [],
-        clients: [],
-        clients_count: 0,
-        clients_summary: ["127.0.0.1.1.100 (from 127.0.0.1)"],
-        username_set: true,
-      },
-      ["global.Setpoint"],
-      true
-    );
-
-    assert.deepStrictEqual(names, ["Setpoint"]);
-    assert.deepStrictEqual(params.expose, ["TankLevel", "Setpoint"]);
-    assert.deepStrictEqual(params.writable, ["Setpoint"]);
-    assert.strictEqual(params.clients_count, undefined);
-    assert.strictEqual(params.clients_summary, undefined);
-    assert.strictEqual(params.username_set, undefined);
-  });
-});
+// The expose plan's rules (topology-only evidence dropped, exposure merged, reviewed writable names
+// added) are the Rust test `expose_merges_into_the_owning_server_and_keeps_clients`
+// (crates/trust-devices/src/actions/tests/plans.rs).

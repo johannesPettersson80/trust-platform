@@ -9,7 +9,6 @@ cycle_interval_ms = 100
 endpoint = "unix:///tmp/trust-runtime-ads-server-basic.sock"
 mode = "production"
 debug_enabled = true
-auth_token = "ads-server-smoke-token"
 
 [runtime.web]
 enabled = false

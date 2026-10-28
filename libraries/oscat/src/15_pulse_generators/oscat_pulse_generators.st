@@ -49,7 +49,12 @@ VAR
 END_VAR
 
 Q := IN <> LastIn;
-X := UDINT_TO_DWORD(IN := DWORD_TO_UDINT(IN) - DWORD_TO_UDINT(LastIn));
+(* The difference modulo 2^32, as upstream's DWORD subtraction gives it. *)
+IF IN >= LastIn THEN
+    X := UDINT_TO_DWORD(DWORD_TO_UDINT(IN) - DWORD_TO_UDINT(LastIn));
+ELSE
+    X := UDINT_TO_DWORD(DWORD_TO_UDINT(IN) + (UDINT#4294967295 - DWORD_TO_UDINT(LastIn)) + UDINT#1);
+END_IF;
 LastIn := IN;
 END_FUNCTION_BLOCK
 
@@ -206,14 +211,10 @@ VAR
     Tn : DWORD;
     Init : BOOL;
     Armed : BOOL;
-    TxValue : UDINT;
-    TnValue : UDINT;
     PeriodValue : UDINT;
 END_VAR
 
 Tx := T_PLC_MS();
-TxValue := DWORD_TO_UDINT(Tx);
-TnValue := DWORD_TO_UDINT(Tn);
 PeriodValue := DWORD_TO_UDINT(TIME_TO_DWORD(PT));
 Q := FALSE;
 RUN := CNT < N;
@@ -224,14 +225,15 @@ IF NOT Init OR RST THEN
     Tn := Tx;
     RUN := FALSE;
     Armed := TRUE;
-ELSIF (CNT < N OR N = INT#0) AND (Armed OR TxValue - TnValue >= PeriodValue) THEN
+ELSIF (CNT < N OR N = INT#0) AND (Armed OR T_PLC_ELAPSED(NOW := Tx, LAST := Tn) >= PeriodValue) THEN
     CNT := CNT + INT#1;
     Q := TRUE;
     IF Armed THEN
         Tn := Tx;
         Armed := FALSE;
     ELSE
-        Tn := UDINT_TO_DWORD(TnValue + PeriodValue);
+        (* The next period's start, modulo 2^32 as the timer wraps. *)
+        Tn := ULINT_TO_DWORD((DWORD_TO_ULINT(Tn) + UDINT_TO_ULINT(PeriodValue)) MOD ULINT#4294967296);
     END_IF;
 END_IF;
 END_FUNCTION_BLOCK
@@ -255,8 +257,6 @@ VAR
     Last : DWORD;
     Init : BOOL;
     StartEdge : BOOL;
-    TxValue : UDINT;
-    LastValue : UDINT;
     T0Value : UDINT;
     T1Value : UDINT;
     T2Value : UDINT;
@@ -264,8 +264,6 @@ VAR
 END_VAR
 
 Tx := T_PLC_MS();
-TxValue := DWORD_TO_UDINT(Tx);
-LastValue := DWORD_TO_UDINT(Last);
 T0Value := DWORD_TO_UDINT(TIME_TO_DWORD(T0));
 T1Value := DWORD_TO_UDINT(TIME_TO_DWORD(T1));
 T2Value := DWORD_TO_UDINT(TIME_TO_DWORD(T2));
@@ -289,22 +287,22 @@ IF E THEN
     ELSE
         CASE STATE OF
             INT#0:
-                IF TxValue - LastValue >= T0Value THEN
+                IF T_PLC_ELAPSED(NOW := Tx, LAST := Last) >= T0Value THEN
                     STATE := INT#1;
                     Last := Tx;
                 END_IF;
             INT#1:
-                IF TxValue - LastValue >= T1Value THEN
+                IF T_PLC_ELAPSED(NOW := Tx, LAST := Last) >= T1Value THEN
                     STATE := INT#2;
                     Last := Tx;
                 END_IF;
             INT#2:
-                IF TxValue - LastValue >= T2Value THEN
+                IF T_PLC_ELAPSED(NOW := Tx, LAST := Last) >= T2Value THEN
                     STATE := INT#3;
                     Last := Tx;
                 END_IF;
             INT#3:
-                IF TxValue - LastValue >= T3Value THEN
+                IF T_PLC_ELAPSED(NOW := Tx, LAST := Last) >= T3Value THEN
                     IF S0 THEN
                         STATE := INT#0;
                     END_IF;
@@ -406,23 +404,20 @@ VAR
     Tn : DWORD;
     Tx : DWORD;
     Init : BOOL;
-    TxValue : UDINT;
-    TnValue : UDINT;
     HalfPeriod : UDINT;
 END_VAR
 
 Tx := T_PLC_MS();
-TxValue := DWORD_TO_UDINT(Tx);
-TnValue := DWORD_TO_UDINT(Tn);
 HalfPeriod := DWORD_TO_UDINT(SHR(TIME_TO_DWORD(PT), INT#1));
 
 IF NOT Init THEN
     Init := TRUE;
     Tn := Tx;
     Q := TRUE;
-ELSIF TxValue - TnValue >= HalfPeriod THEN
+ELSIF T_PLC_ELAPSED(NOW := Tx, LAST := Tn) >= HalfPeriod THEN
     Q := NOT Q;
-    Tn := UDINT_TO_DWORD(TnValue + HalfPeriod);
+    (* The next half period's start, modulo 2^32 as the timer wraps. *)
+    Tn := ULINT_TO_DWORD((DWORD_TO_ULINT(Tn) + UDINT_TO_ULINT(HalfPeriod)) MOD ULINT#4294967296);
 END_IF;
 END_FUNCTION_BLOCK
 
@@ -455,11 +450,9 @@ VAR
     Armed1 : BOOL;
     Armed2 : BOOL;
     Armed3 : BOOL;
-    TxValue : UDINT;
 END_VAR
 
 Tx := T_PLC_MS();
-TxValue := DWORD_TO_UDINT(Tx);
 
 IF NOT Init THEN
     Init := TRUE;
@@ -480,28 +473,28 @@ Q3 := FALSE;
 
 CASE C OF
     INT#0:
-        IF Armed0 OR TxValue - DWORD_TO_UDINT(S0) >= DWORD_TO_UDINT(TIME_TO_DWORD(T0)) THEN
+        IF Armed0 OR T_PLC_ELAPSED(NOW := Tx, LAST := S0) >= DWORD_TO_UDINT(TIME_TO_DWORD(T0)) THEN
             Q0 := E0;
             S0 := Tx;
             Armed0 := FALSE;
         END_IF;
         C := INT#1;
     INT#1:
-        IF Armed1 OR TxValue - DWORD_TO_UDINT(S1) >= DWORD_TO_UDINT(TIME_TO_DWORD(T1)) THEN
+        IF Armed1 OR T_PLC_ELAPSED(NOW := Tx, LAST := S1) >= DWORD_TO_UDINT(TIME_TO_DWORD(T1)) THEN
             Q1 := E1;
             S1 := Tx;
             Armed1 := FALSE;
         END_IF;
         C := INT#2;
     INT#2:
-        IF Armed2 OR TxValue - DWORD_TO_UDINT(S2) >= DWORD_TO_UDINT(TIME_TO_DWORD(T2)) THEN
+        IF Armed2 OR T_PLC_ELAPSED(NOW := Tx, LAST := S2) >= DWORD_TO_UDINT(TIME_TO_DWORD(T2)) THEN
             Q2 := E2;
             S2 := Tx;
             Armed2 := FALSE;
         END_IF;
         C := INT#3;
     ELSE
-        IF Armed3 OR TxValue - DWORD_TO_UDINT(S3) >= DWORD_TO_UDINT(TIME_TO_DWORD(T3)) THEN
+        IF Armed3 OR T_PLC_ELAPSED(NOW := Tx, LAST := S3) >= DWORD_TO_UDINT(TIME_TO_DWORD(T3)) THEN
             Q3 := E3;
             S3 := Tx;
             Armed3 := FALSE;
@@ -575,11 +568,9 @@ VAR
     Edge : BOOL;
     Tx : DWORD;
     Init : BOOL;
-    TxValue : UDINT;
 END_VAR
 
 Tx := T_PLC_MS();
-TxValue := DWORD_TO_UDINT(Tx);
 
 IF NOT Init THEN
     Last := Tx;
@@ -609,58 +600,58 @@ Edge := START;
 
 IF NOT (STATUS > BYTE#0 AND STATUS < BYTE#100 AND STOP_ON_ERROR) THEN
     IF RUN AND STATE = INT#0 THEN
-        IF NOT Q0 AND IN0 AND TxValue - DWORD_TO_UDINT(Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT0)) THEN
+        IF NOT Q0 AND IN0 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT0)) THEN
             Q0 := TRUE;
             Last := Tx;
-        ELSIF NOT Q0 AND TxValue - DWORD_TO_UDINT(Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT0)) THEN
+        ELSIF NOT Q0 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT0)) THEN
             STATUS := BYTE#1;
             RUN := FALSE;
-        ELSIF Q0 AND TxValue - DWORD_TO_UDINT(Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY0)) THEN
+        ELSIF Q0 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY0)) THEN
             STATE := INT#1;
             Last := Tx;
         END_IF;
     END_IF;
 
     IF RUN AND STATE = INT#1 THEN
-        IF NOT Q1 AND IN1 AND TxValue - DWORD_TO_UDINT(Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT1)) THEN
+        IF NOT Q1 AND IN1 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT1)) THEN
             Q0 := FALSE;
             Q1 := TRUE;
             Last := Tx;
-        ELSIF NOT Q1 AND TxValue - DWORD_TO_UDINT(Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT1)) THEN
+        ELSIF NOT Q1 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT1)) THEN
             STATUS := BYTE#2;
             Q0 := FALSE;
             RUN := FALSE;
-        ELSIF Q1 AND TxValue - DWORD_TO_UDINT(Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY1)) THEN
+        ELSIF Q1 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY1)) THEN
             STATE := INT#2;
             Last := Tx;
         END_IF;
     END_IF;
 
     IF RUN AND STATE = INT#2 THEN
-        IF NOT Q2 AND IN2 AND TxValue - DWORD_TO_UDINT(Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT2)) THEN
+        IF NOT Q2 AND IN2 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT2)) THEN
             Q1 := FALSE;
             Q2 := TRUE;
             Last := Tx;
-        ELSIF NOT Q2 AND TxValue - DWORD_TO_UDINT(Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT2)) THEN
+        ELSIF NOT Q2 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT2)) THEN
             STATUS := BYTE#3;
             Q1 := FALSE;
             RUN := FALSE;
-        ELSIF Q2 AND TxValue - DWORD_TO_UDINT(Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY2)) THEN
+        ELSIF Q2 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY2)) THEN
             STATE := INT#3;
             Last := Tx;
         END_IF;
     END_IF;
 
     IF RUN AND STATE = INT#3 THEN
-        IF NOT Q3 AND IN3 AND TxValue - DWORD_TO_UDINT(Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT3)) THEN
+        IF NOT Q3 AND IN3 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT3)) THEN
             Q2 := FALSE;
             Q3 := TRUE;
             Last := Tx;
-        ELSIF NOT Q3 AND TxValue - DWORD_TO_UDINT(Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT3)) THEN
+        ELSIF NOT Q3 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT3)) THEN
             STATUS := BYTE#4;
             Q2 := FALSE;
             RUN := FALSE;
-        ELSIF Q3 AND TxValue - DWORD_TO_UDINT(Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY3)) THEN
+        ELSIF Q3 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY3)) THEN
             STATE := INT#-1;
             Q3 := FALSE;
             RUN := FALSE;
@@ -721,11 +712,9 @@ VAR
     Edge : BOOL;
     Tx : DWORD;
     Init : BOOL;
-    TxValue : UDINT;
 END_VAR
 
 Tx := T_PLC_MS();
-TxValue := DWORD_TO_UDINT(Tx);
 
 IF NOT Init THEN
     Last := Tx;
@@ -763,118 +752,118 @@ Edge := START;
 
 IF NOT (STATUS > BYTE#0 AND STATUS < BYTE#100 AND STOP_ON_ERROR) THEN
     IF RUN AND STATE = INT#0 THEN
-        IF NOT Q0 AND IN0 AND TxValue - DWORD_TO_UDINT(Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT0)) THEN
+        IF NOT Q0 AND IN0 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT0)) THEN
             Q0 := TRUE;
             Last := Tx;
-        ELSIF NOT Q0 AND TxValue - DWORD_TO_UDINT(Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT0)) THEN
+        ELSIF NOT Q0 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT0)) THEN
             STATUS := BYTE#1;
             RUN := FALSE;
-        ELSIF Q0 AND TxValue - DWORD_TO_UDINT(Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY0)) THEN
+        ELSIF Q0 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY0)) THEN
             STATE := INT#1;
             Last := Tx;
         END_IF;
     END_IF;
 
     IF RUN AND STATE = INT#1 THEN
-        IF NOT Q1 AND IN1 AND TxValue - DWORD_TO_UDINT(Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT1)) THEN
+        IF NOT Q1 AND IN1 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT1)) THEN
             Q0 := FALSE;
             Q1 := TRUE;
             Last := Tx;
-        ELSIF NOT Q1 AND TxValue - DWORD_TO_UDINT(Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT1)) THEN
+        ELSIF NOT Q1 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT1)) THEN
             STATUS := BYTE#2;
             Q0 := FALSE;
             RUN := FALSE;
-        ELSIF Q1 AND TxValue - DWORD_TO_UDINT(Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY1)) THEN
+        ELSIF Q1 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY1)) THEN
             STATE := INT#2;
             Last := Tx;
         END_IF;
     END_IF;
 
     IF RUN AND STATE = INT#2 THEN
-        IF NOT Q2 AND IN2 AND TxValue - DWORD_TO_UDINT(Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT2)) THEN
+        IF NOT Q2 AND IN2 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT2)) THEN
             Q1 := FALSE;
             Q2 := TRUE;
             Last := Tx;
-        ELSIF NOT Q2 AND TxValue - DWORD_TO_UDINT(Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT2)) THEN
+        ELSIF NOT Q2 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT2)) THEN
             STATUS := BYTE#3;
             Q1 := FALSE;
             RUN := FALSE;
-        ELSIF Q2 AND TxValue - DWORD_TO_UDINT(Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY2)) THEN
+        ELSIF Q2 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY2)) THEN
             STATE := INT#3;
             Last := Tx;
         END_IF;
     END_IF;
 
     IF RUN AND STATE = INT#3 THEN
-        IF NOT Q3 AND IN3 AND TxValue - DWORD_TO_UDINT(Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT3)) THEN
+        IF NOT Q3 AND IN3 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT3)) THEN
             Q2 := FALSE;
             Q3 := TRUE;
             Last := Tx;
-        ELSIF NOT Q3 AND TxValue - DWORD_TO_UDINT(Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT3)) THEN
+        ELSIF NOT Q3 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT3)) THEN
             STATUS := BYTE#4;
             Q2 := FALSE;
             RUN := FALSE;
-        ELSIF Q3 AND TxValue - DWORD_TO_UDINT(Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY3)) THEN
+        ELSIF Q3 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY3)) THEN
             STATE := INT#4;
             Last := Tx;
         END_IF;
     END_IF;
 
     IF RUN AND STATE = INT#4 THEN
-        IF NOT Q4 AND IN4 AND TxValue - DWORD_TO_UDINT(Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT4)) THEN
+        IF NOT Q4 AND IN4 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT4)) THEN
             Q3 := FALSE;
             Q4 := TRUE;
             Last := Tx;
-        ELSIF NOT Q4 AND TxValue - DWORD_TO_UDINT(Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT4)) THEN
+        ELSIF NOT Q4 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT4)) THEN
             STATUS := BYTE#5;
             Q3 := FALSE;
             RUN := FALSE;
-        ELSIF Q4 AND TxValue - DWORD_TO_UDINT(Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY4)) THEN
+        ELSIF Q4 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY4)) THEN
             STATE := INT#5;
             Last := Tx;
         END_IF;
     END_IF;
 
     IF RUN AND STATE = INT#5 THEN
-        IF NOT Q5 AND IN5 AND TxValue - DWORD_TO_UDINT(Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT5)) THEN
+        IF NOT Q5 AND IN5 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT5)) THEN
             Q4 := FALSE;
             Q5 := TRUE;
             Last := Tx;
-        ELSIF NOT Q5 AND TxValue - DWORD_TO_UDINT(Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT5)) THEN
+        ELSIF NOT Q5 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT5)) THEN
             STATUS := BYTE#6;
             Q4 := FALSE;
             RUN := FALSE;
-        ELSIF Q5 AND TxValue - DWORD_TO_UDINT(Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY5)) THEN
+        ELSIF Q5 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY5)) THEN
             STATE := INT#6;
             Last := Tx;
         END_IF;
     END_IF;
 
     IF RUN AND STATE = INT#6 THEN
-        IF NOT Q6 AND IN6 AND TxValue - DWORD_TO_UDINT(Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT6)) THEN
+        IF NOT Q6 AND IN6 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT6)) THEN
             Q5 := FALSE;
             Q6 := TRUE;
             Last := Tx;
-        ELSIF NOT Q6 AND TxValue - DWORD_TO_UDINT(Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT6)) THEN
+        ELSIF NOT Q6 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT6)) THEN
             STATUS := BYTE#7;
             Q5 := FALSE;
             RUN := FALSE;
-        ELSIF Q6 AND TxValue - DWORD_TO_UDINT(Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY6)) THEN
+        ELSIF Q6 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY6)) THEN
             STATE := INT#7;
             Last := Tx;
         END_IF;
     END_IF;
 
     IF RUN AND STATE = INT#7 THEN
-        IF NOT Q7 AND IN7 AND TxValue - DWORD_TO_UDINT(Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT7)) THEN
+        IF NOT Q7 AND IN7 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) <= DWORD_TO_UDINT(TIME_TO_DWORD(WAIT7)) THEN
             Q6 := FALSE;
             Q7 := TRUE;
             Last := Tx;
-        ELSIF NOT Q7 AND TxValue - DWORD_TO_UDINT(Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT7)) THEN
+        ELSIF NOT Q7 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) > DWORD_TO_UDINT(TIME_TO_DWORD(WAIT7)) THEN
             STATUS := BYTE#8;
             Q6 := FALSE;
             RUN := FALSE;
-        ELSIF Q7 AND TxValue - DWORD_TO_UDINT(Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY7)) THEN
+        ELSIF Q7 AND T_PLC_ELAPSED(NOW := Tx, LAST := Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(DELAY7)) THEN
             STATE := INT#-1;
             Q7 := FALSE;
             RUN := FALSE;
@@ -925,14 +914,11 @@ VAR
     Edge : BOOL;
     Start : DWORD;
     Tx : DWORD;
-    TxValue : UDINT;
-    StartValue : UDINT;
+    Elapsed : UDINT;
     PeriodValue : UDINT;
 END_VAR
 
 Tx := T_PLC_MS();
-TxValue := DWORD_TO_UDINT(Tx);
-StartValue := DWORD_TO_UDINT(Start);
 PeriodValue := DWORD_TO_UDINT(TIME_TO_DWORD(PT));
 
 IF IN AND NOT Edge THEN
@@ -940,8 +926,9 @@ IF IN AND NOT Edge THEN
     ET := T#0ms;
     Q := PT > T#0ms;
 ELSIF Q THEN
-    ET := DWORD_TO_TIME(UDINT_TO_DWORD(TxValue - StartValue));
-    IF TxValue - StartValue >= PeriodValue THEN
+    Elapsed := T_PLC_ELAPSED(NOW := Tx, LAST := Start);
+    ET := DWORD_TO_TIME(UDINT_TO_DWORD(Elapsed));
+    IF Elapsed >= PeriodValue THEN
         Q := FALSE;
         ET := T#0ms;
     END_IF;
@@ -959,20 +946,21 @@ VAR_OUTPUT
 END_VAR
 VAR
     Init : BOOL;
-    LastMs : DINT;
-    TxMs : DINT;
+    Last : DWORD;
+    Tx : DWORD;
 END_VAR
 
-TxMs := DWORD_TO_DINT(T_PLC_MS());
+Tx := T_PLC_MS();
 
+(* The first call is a pulse, as one period had passed before it. *)
 IF NOT Init THEN
     Init := TRUE;
-    LastMs := TxMs - DWORD_TO_DINT(TIME_TO_DWORD(PT));
+    Q := TRUE;
+ELSE
+    Q := T_PLC_ELAPSED(NOW := Tx, LAST := Last) >= DWORD_TO_UDINT(TIME_TO_DWORD(PT));
 END_IF;
-
-Q := TxMs - LastMs >= DWORD_TO_DINT(TIME_TO_DWORD(PT));
 IF Q THEN
-    LastMs := TxMs;
+    Last := Tx;
 END_IF;
 END_FUNCTION_BLOCK
 
@@ -988,27 +976,27 @@ VAR_OUTPUT
     W : BOOL;
 END_VAR
 VAR
-    TxMs : DINT;
-    StartMs : DINT;
+    Tx : DWORD;
+    Start : DWORD;
     Edge : BOOL;
 END_VAR
 
-TxMs := DWORD_TO_DINT(T_PLC_MS());
+Tx := T_PLC_MS();
 
 IF RST THEN
     Q := FALSE;
     W := FALSE;
 ELSIF W THEN
-    IF TxMs - StartMs >= DWORD_TO_DINT(TIME_TO_DWORD(PTD)) THEN
+    IF T_PLC_ELAPSED(NOW := Tx, LAST := Start) >= DWORD_TO_UDINT(TIME_TO_DWORD(PTD)) THEN
         W := FALSE;
     END_IF;
 ELSIF IN AND NOT Edge THEN
     Q := TRUE;
-    StartMs := TxMs;
-ELSIF Q AND TxMs - StartMs >= DWORD_TO_DINT(TIME_TO_DWORD(PT1)) THEN
+    Start := Tx;
+ELSIF Q AND T_PLC_ELAPSED(NOW := Tx, LAST := Start) >= DWORD_TO_UDINT(TIME_TO_DWORD(PT1)) THEN
     Q := FALSE;
     W := TRUE;
-    StartMs := TxMs;
+    Start := Tx;
 END_IF;
 
 Edge := IN;

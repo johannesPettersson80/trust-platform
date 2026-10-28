@@ -1,8 +1,7 @@
 use std::collections::VecDeque;
 use std::fs;
 use std::fs::OpenOptions;
-use std::io::{BufRead, BufReader, Read, Write};
-use std::net::TcpStream;
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::thread;
@@ -10,29 +9,12 @@ use std::time::Duration;
 
 use anyhow::Context;
 use serde::Serialize;
-use toml_edit::{DocumentMut, Item};
-use trust_runtime::bundle_builder::build_program_stbc;
-use trust_runtime::control::ControlEndpoint;
-
-use super::{
-    load_manifest, FleetManifestRuntime, FLEET_MANIFEST_FILE, FLEET_MANIFEST_SCHEMA_VERSION,
+use trust_runtime::config::fleet_manifest::{
+    interrupted_stop_probe, lifecycle_paths, load_manifest, managed_status,
+    read_control_auth_token, request_control_with_params, runtime_project_path,
+    FleetManifestRuntime, FleetRuntimeLifecycleResponse, FLEET_MANIFEST_FILE,
+    FLEET_MANIFEST_SCHEMA_VERSION,
 };
-
-const MAX_CONTROL_RESPONSE_BYTES: usize = 1024 * 1024;
-
-#[derive(Debug, Serialize)]
-pub(super) struct FleetRuntimeLifecycleResponse {
-    pub(super) schema_version: u32,
-    pub(super) name: String,
-    pub(super) path: String,
-    pub(super) control_endpoint: String,
-    pub(super) status: String,
-    pub(super) pid: Option<u32>,
-    pub(super) log_path: String,
-    pub(super) message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(super) control_status: Option<serde_json::Value>,
-}
 
 #[derive(Debug, Serialize)]
 pub(super) struct FleetRuntimeLogsResponse {
@@ -47,15 +29,19 @@ pub(super) fn start_runtime(
     name: &str,
 ) -> anyhow::Result<FleetRuntimeLifecycleResponse> {
     let (runtime, project_path) = resolve_manifest_runtime(fleet_root, name)?;
-    let current = status_runtime_entry(fleet_root, &runtime, &project_path)?;
+    let current = managed_status(fleet_root, &runtime)?;
     if current.status == "running" {
+        if program_state(&current) == Some("stopped") {
+            return start_stopped_program(fleet_root, &runtime, &project_path, current);
+        }
         return Ok(FleetRuntimeLifecycleResponse {
             message: "Runtime is already running.".to_string(),
             ..current
         });
     }
 
-    build_program_stbc(&project_path, None)
+    // The runtime runs what `trust-runtime build` builds (specification 44 NX-15).
+    crate::build::build_project_program(&project_path)
         .with_context(|| format!("failed to build {}", project_path.display()))?;
 
     let paths = lifecycle_paths(fleet_root, runtime.name.as_str());
@@ -69,6 +55,8 @@ pub(super) fn start_runtime(
     let stdout = log
         .try_clone()
         .with_context(|| format!("failed to clone {}", paths.log.display()))?;
+    #[cfg(windows)]
+    keep_standard_handles_from_children();
     let mut child =
         Command::new(std::env::current_exe().context("failed to locate trust-runtime")?)
             .arg("run")
@@ -101,7 +89,7 @@ pub(super) fn start_runtime(
                 runtime.name
             );
         }
-        last = match status_runtime_entry(fleet_root, &runtime, &project_path) {
+        last = match managed_status(fleet_root, &runtime) {
             Ok(status) => status,
             Err(error) => {
                 terminate_started_child(&mut child, &paths.pid);
@@ -126,6 +114,87 @@ pub(super) fn start_runtime(
     })
 }
 
+/// The state of the program that a managed runtime's `status` answer reports, when it reports one.
+fn program_state(response: &FleetRuntimeLifecycleResponse) -> Option<&str> {
+    response.control_status.as_ref()?.get("state")?.as_str()
+}
+
+/// Starts the program of a managed runtime whose process answers while its program is stopped
+/// (specification 11 section 6.8.3; specification 34 STATE-08): `restart` with the mode `cold`, the
+/// mode of a new process, and then the wait for the state `running`. A program that faults on
+/// its start is an error naming the fault.
+fn start_stopped_program(
+    fleet_root: &Path,
+    runtime: &FleetManifestRuntime,
+    project_path: &Path,
+    current: FleetRuntimeLifecycleResponse,
+) -> anyhow::Result<FleetRuntimeLifecycleResponse> {
+    let auth = read_control_auth_token(project_path)?;
+    request_control_with_params(
+        runtime.control_endpoint.as_str(),
+        auth.as_deref(),
+        "restart",
+        Some(serde_json::json!({ "mode": "cold" })),
+    )
+    .with_context(|| format!("failed to start the program of runtime '{}'", runtime.name))?;
+
+    let mut last = current;
+    for attempt in 0..=30 {
+        last = managed_status(fleet_root, runtime)?;
+        let state = program_state(&last).map(str::to_owned);
+        match state.as_deref() {
+            Some("running") => {
+                return Ok(FleetRuntimeLifecycleResponse {
+                    message: "Runtime program started.".to_string(),
+                    ..last
+                });
+            }
+            Some("faulted") => {
+                let fault = last
+                    .control_status
+                    .as_ref()
+                    .and_then(|status| status.get("fault"))
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("unknown fault");
+                anyhow::bail!(
+                    "runtime '{}' did not start its program: {fault}",
+                    runtime.name
+                );
+            }
+            _ => {}
+        }
+        if attempt < 30 {
+            thread::sleep(Duration::from_millis(200));
+        }
+    }
+    Ok(FleetRuntimeLifecycleResponse {
+        status: "starting".to_string(),
+        message: "Restart was accepted, but the program is not running yet.".to_string(),
+        ..last
+    })
+}
+
+/// Keeps this process's standard handles out of the processes it starts, on Windows, which hands a
+/// started process every handle that may be inherited, not only the ones named for it: the runtime
+/// started in the background would hold the pipes of the caller that reads this command's answer,
+/// and the caller would wait for them to close for as long as the runtime runs.
+#[cfg(windows)]
+fn keep_standard_handles_from_children() {
+    use std::os::windows::io::AsRawHandle;
+
+    use windows_sys::Win32::Foundation::{SetHandleInformation, HANDLE_FLAG_INHERIT};
+
+    for handle in [
+        std::io::stdin().as_raw_handle(),
+        std::io::stdout().as_raw_handle(),
+        std::io::stderr().as_raw_handle(),
+    ] {
+        // SAFETY: the process's own standard handles, open while it runs; the call only clears
+        // their inherit flag, and Windows refuses a null or closed handle without effect.
+        let _ = unsafe { SetHandleInformation(handle, HANDLE_FLAG_INHERIT, 0) };
+    }
+}
+
 fn terminate_started_child(child: &mut Child, pid_path: &Path) {
     let _ = child.kill();
     let _ = child.wait();
@@ -137,7 +206,7 @@ pub(super) fn stop_runtime(
     name: &str,
 ) -> anyhow::Result<FleetRuntimeLifecycleResponse> {
     let (runtime, project_path) = resolve_manifest_runtime(fleet_root, name)?;
-    let current = status_runtime_entry(fleet_root, &runtime, &project_path)?;
+    let current = managed_status(fleet_root, &runtime)?;
     if current.status != "running" {
         remove_pid_file(fleet_root, runtime.name.as_str());
         return Ok(FleetRuntimeLifecycleResponse {
@@ -148,16 +217,19 @@ pub(super) fn stop_runtime(
     }
 
     let auth = read_control_auth_token(&project_path)?;
-    request_control(
+    // This command ends the managed process, so it sends the explicit exit. A plain `shutdown`
+    // would leave the process running with its program stopped (specification 34 STATE-08).
+    request_control_with_params(
         runtime.control_endpoint.as_str(),
         auth.as_deref(),
         "shutdown",
+        Some(serde_json::json!({ "exit": true })),
     )
     .with_context(|| format!("failed to stop runtime '{}'", runtime.name))?;
 
     let mut last = current;
     for attempt in 0..=30 {
-        match status_runtime_entry(fleet_root, &runtime, &project_path) {
+        match managed_status(fleet_root, &runtime) {
             Ok(status) => last = status,
             Err(error) if interrupted_stop_probe(&error) => {}
             Err(error) => return Err(error),
@@ -182,50 +254,12 @@ pub(super) fn stop_runtime(
     })
 }
 
-// A typed boundary prevents configuration I/O errors from becoming retryable probes.
-#[derive(Debug)]
-struct InterruptedControlTransport(std::io::Error);
-
-impl std::fmt::Display for InterruptedControlTransport {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.0, formatter)
-    }
-}
-
-impl std::error::Error for InterruptedControlTransport {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&self.0)
-    }
-}
-
-fn control_transport_error(error: std::io::Error) -> anyhow::Error {
-    if matches!(
-        error.kind(),
-        std::io::ErrorKind::ConnectionReset
-            | std::io::ErrorKind::ConnectionAborted
-            | std::io::ErrorKind::BrokenPipe
-            | std::io::ErrorKind::UnexpectedEof
-            | std::io::ErrorKind::TimedOut
-            | std::io::ErrorKind::WouldBlock
-    ) {
-        InterruptedControlTransport(error).into()
-    } else {
-        error.into()
-    }
-}
-
-fn interrupted_stop_probe(error: &anyhow::Error) -> bool {
-    error
-        .downcast_ref::<InterruptedControlTransport>()
-        .is_some()
-}
-
 pub(super) fn status_runtime(
     fleet_root: &Path,
     name: &str,
 ) -> anyhow::Result<FleetRuntimeLifecycleResponse> {
-    let (runtime, project_path) = resolve_manifest_runtime(fleet_root, name)?;
-    status_runtime_entry(fleet_root, &runtime, &project_path)
+    let (runtime, _project_path) = resolve_manifest_runtime(fleet_root, name)?;
+    managed_status(fleet_root, &runtime)
 }
 
 pub(super) fn runtime_logs(
@@ -268,21 +302,6 @@ pub(super) fn runtime_logs(
     })
 }
 
-struct RuntimeLifecyclePaths {
-    dir: PathBuf,
-    pid: PathBuf,
-    log: PathBuf,
-}
-
-fn lifecycle_paths(fleet_root: &Path, name: &str) -> RuntimeLifecyclePaths {
-    let dir = fleet_root.join(".trust-runtime");
-    RuntimeLifecyclePaths {
-        dir: dir.clone(),
-        pid: dir.join(format!("{name}.pid")),
-        log: dir.join(format!("{name}.log")),
-    }
-}
-
 fn resolve_manifest_runtime(
     fleet_root: &Path,
     name: &str,
@@ -297,220 +316,17 @@ fn resolve_manifest_runtime(
     Ok((runtime, path))
 }
 
-fn runtime_project_path(fleet_root: &Path, path: &str) -> PathBuf {
-    let path = PathBuf::from(path);
-    if path.is_absolute() {
-        path
-    } else {
-        fleet_root.join(path)
-    }
-}
-
-fn status_runtime_entry(
-    fleet_root: &Path,
-    runtime: &FleetManifestRuntime,
-    project_path: &Path,
-) -> anyhow::Result<FleetRuntimeLifecycleResponse> {
-    let paths = lifecycle_paths(fleet_root, runtime.name.as_str());
-    let pid = read_pid(&paths.pid).ok();
-    let log_path = paths.log.display().to_string();
-    let auth = read_control_auth_token(project_path)?;
-    match exchange_control(runtime.control_endpoint.as_str(), auth.as_deref(), "status")? {
-        ControlExchange::Response(result) => Ok(FleetRuntimeLifecycleResponse {
-            schema_version: FLEET_MANIFEST_SCHEMA_VERSION,
-            name: runtime.name.clone(),
-            path: project_path.display().to_string(),
-            control_endpoint: runtime.control_endpoint.clone(),
-            status: "running".to_string(),
-            pid,
-            log_path,
-            message: "Runtime is reachable.".to_string(),
-            control_status: Some(result),
-        }),
-        ControlExchange::Unreachable(error) => Ok(FleetRuntimeLifecycleResponse {
-            schema_version: FLEET_MANIFEST_SCHEMA_VERSION,
-            name: runtime.name.clone(),
-            path: project_path.display().to_string(),
-            control_endpoint: runtime.control_endpoint.clone(),
-            status: "stopped".to_string(),
-            pid,
-            log_path,
-            message: format!("Runtime is not reachable: {error}"),
-            control_status: None,
-        }),
-    }
-}
-
-fn read_pid(path: &Path) -> anyhow::Result<u32> {
-    let text = fs::read_to_string(path)?;
-    text.trim()
-        .parse::<u32>()
-        .with_context(|| format!("failed to parse {}", path.display()))
-}
-
 fn remove_pid_file(fleet_root: &Path, name: &str) {
     let paths = lifecycle_paths(fleet_root, name);
     let _ = fs::remove_file(paths.pid);
 }
 
-fn read_control_auth_token(project_path: &Path) -> anyhow::Result<Option<String>> {
-    let runtime_toml = project_path.join("runtime.toml");
-    let text = fs::read_to_string(&runtime_toml)
-        .with_context(|| format!("failed to read {}", runtime_toml.display()))?;
-    let doc = text
-        .parse::<DocumentMut>()
-        .with_context(|| format!("failed to parse {}", runtime_toml.display()))?;
-    let token = doc
-        .get("runtime")
-        .and_then(Item::as_table)
-        .and_then(|runtime| runtime.get("control"))
-        .and_then(Item::as_table)
-        .and_then(|control| control.get("auth_token"))
-        .and_then(Item::as_value);
-    let token = match token {
-        Some(value) => value
-            .as_str()
-            .map(|token| Some(token.to_owned()))
-            .with_context(|| {
-                format!(
-                    "runtime.control.auth_token must be a string in {}",
-                    runtime_toml.display()
-                )
-            }),
-        None => Ok(None),
-    }?;
-    trust_runtime::config::validate_runtime_toml_text(text.as_str())
-        .map_err(anyhow::Error::msg)
-        .with_context(|| {
-            format!(
-                "invalid runtime configuration in {}",
-                runtime_toml.display()
-            )
-        })?;
-    Ok(token.map(|token| token.trim().to_owned()))
-}
-
-enum ControlExchange {
-    Response(serde_json::Value),
-    Unreachable(String),
-}
-
-fn request_control(
-    endpoint: &str,
-    auth_token: Option<&str>,
-    request_type: &str,
-) -> anyhow::Result<serde_json::Value> {
-    match exchange_control(endpoint, auth_token, request_type)? {
-        ControlExchange::Response(response) => Ok(response),
-        ControlExchange::Unreachable(error) => anyhow::bail!("{error}"),
-    }
-}
-
-fn exchange_control(
-    endpoint: &str,
-    auth_token: Option<&str>,
-    request_type: &str,
-) -> anyhow::Result<ControlExchange> {
-    let endpoint = ControlEndpoint::parse(endpoint).map_err(anyhow::Error::msg)?;
-    let payload = serde_json::json!({
-        "id": 1,
-        "type": request_type,
-        "auth": auth_token,
-    });
-    let response = match endpoint {
-        ControlEndpoint::Tcp(addr) => {
-            let mut stream = match TcpStream::connect_timeout(&addr, Duration::from_millis(500)) {
-                Ok(stream) => stream,
-                Err(error) => {
-                    return Ok(ControlExchange::Unreachable(format!(
-                        "failed to connect to tcp://{addr}: {error}"
-                    )))
-                }
-            };
-            stream
-                .set_read_timeout(Some(Duration::from_millis(750)))
-                .ok();
-            stream
-                .set_write_timeout(Some(Duration::from_millis(750)))
-                .ok();
-            writeln!(stream, "{payload}")
-                .map_err(control_transport_error)
-                .context("failed to send control request")?;
-            let mut reader = BufReader::new(stream);
-            read_control_response(&mut reader)?
-        }
-        #[cfg(unix)]
-        ControlEndpoint::Unix(path) => {
-            let mut stream = match std::os::unix::net::UnixStream::connect(&path) {
-                Ok(stream) => stream,
-                Err(error) => {
-                    return Ok(ControlExchange::Unreachable(format!(
-                        "failed to connect to unix://{}: {error}",
-                        path.display()
-                    )))
-                }
-            };
-            stream
-                .set_read_timeout(Some(Duration::from_millis(750)))
-                .ok();
-            stream
-                .set_write_timeout(Some(Duration::from_millis(750)))
-                .ok();
-            writeln!(stream, "{payload}")
-                .map_err(control_transport_error)
-                .context("failed to send control request")?;
-            let mut reader = BufReader::new(stream);
-            read_control_response(&mut reader)?
-        }
-    };
-    let response: serde_json::Value =
-        serde_json::from_str(response.trim()).context("control response was not JSON")?;
-    if response.get("id").and_then(serde_json::Value::as_u64) != Some(1) {
-        anyhow::bail!("control response id is missing or does not match request id 1");
-    }
-    if response
-        .get("ok")
-        .and_then(serde_json::Value::as_bool)
-        .unwrap_or(false)
-    {
-        return Ok(ControlExchange::Response(
-            response
-                .get("result")
-                .cloned()
-                .unwrap_or_else(|| serde_json::json!({})),
-        ));
-    }
-    let message = response
-        .get("error")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("control request failed");
-    anyhow::bail!("{message}");
-}
-
-fn read_control_response(reader: &mut impl BufRead) -> anyhow::Result<String> {
-    let mut line = String::new();
-    let bytes = reader
-        .take((MAX_CONTROL_RESPONSE_BYTES + 1) as u64)
-        .read_line(&mut line)
-        .map_err(control_transport_error)
-        .context("failed to read control response")?;
-    if bytes == 0 {
-        return Err(control_transport_error(std::io::Error::new(
-            std::io::ErrorKind::UnexpectedEof,
-            "control response was empty",
-        )));
-    }
-    if bytes > MAX_CONTROL_RESPONSE_BYTES {
-        anyhow::bail!(
-            "control response exceeded {MAX_CONTROL_RESPONSE_BYTES} bytes without a complete line"
-        );
-    }
-    Ok(line)
-}
-
 #[cfg(test)]
 mod tests {
+    use std::io::Write;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    use toml_edit::DocumentMut;
 
     use crate::cli::FleetRuntimeTemplateArg;
 
@@ -693,63 +509,6 @@ mod tests {
     }
 
     #[test]
-    fn control_request_rejects_a_mismatched_response_id() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind control listener");
-        let address = listener.local_addr().expect("control listener address");
-        let server = std::thread::spawn(move || {
-            let (mut stream, _) = listener.accept().expect("accept control request");
-            let mut request = String::new();
-            BufReader::new(stream.try_clone().expect("clone fake stream"))
-                .read_line(&mut request)
-                .expect("read control request");
-            writeln!(
-                stream,
-                "{}",
-                serde_json::json!({"id": 99, "ok": true, "result": {}})
-            )
-            .expect("write mismatched response");
-        });
-
-        let error = request_control(format!("tcp://{address}").as_str(), Some("token"), "status")
-            .expect_err("mismatched response id must fail");
-        server.join().expect("join fake control server");
-
-        assert!(
-            error.to_string().contains("response id"),
-            "unexpected error: {error:#}"
-        );
-    }
-
-    #[test]
-    fn control_request_rejects_malformed_or_ambiguous_response_envelopes() {
-        for response in [
-            "not-json",
-            r#"{"id":1}"#,
-            r#"{"id":1,"ok":"true","result":{}}"#,
-        ] {
-            let error = control_error_for_response(response);
-            assert!(
-                error.contains("not JSON") || error.contains("control request failed"),
-                "unexpected error for {response:?}: {error}"
-            );
-        }
-    }
-
-    #[test]
-    fn control_response_reader_rejects_an_oversized_line() {
-        let bytes = vec![b'x'; MAX_CONTROL_RESPONSE_BYTES + 1];
-        let mut reader = std::io::Cursor::new(bytes);
-
-        let error = read_control_response(&mut reader)
-            .expect_err("oversized control response must be rejected");
-
-        assert!(
-            error.to_string().contains("exceeded"),
-            "unexpected error: {error:#}"
-        );
-    }
-
-    #[test]
     fn fleet_runtime_logs_return_requested_tail() {
         let root = temp_dir("fleet-runtime-logs");
         add_runtime(
@@ -815,25 +574,6 @@ mod tests {
         assert_eq!(status.pid, Some(4242));
         assert!(status.control_status.is_none());
         fs::remove_dir_all(root).ok();
-    }
-
-    #[test]
-    fn managed_runtime_project_paths_resolve_relative_and_preserve_absolute_paths() {
-        let root = Path::new("fleet-root");
-        assert_eq!(
-            runtime_project_path(root, "cell"),
-            root.join("cell"),
-            "relative manifest paths resolve beneath the fleet root"
-        );
-
-        let absolute = std::env::current_dir()
-            .expect("current directory")
-            .join("external-managed-runtime");
-        assert_eq!(
-            runtime_project_path(root, absolute.to_string_lossy().as_ref()),
-            absolute,
-            "absolute hand-edited manifest paths remain absolute"
-        );
     }
 
     #[test]
@@ -916,26 +656,6 @@ mod tests {
         );
         assert!(!pid_path.exists(), "cleanup must remove advisory PID state");
         fs::remove_dir_all(root).ok();
-    }
-
-    fn control_error_for_response(response: &str) -> String {
-        let listener =
-            std::net::TcpListener::bind("127.0.0.1:0").expect("bind fake control listener");
-        let address = listener.local_addr().expect("read fake control address");
-        let response = response.to_owned();
-        let server = std::thread::spawn(move || {
-            let (mut stream, _) = listener.accept().expect("accept control request");
-            let mut request = String::new();
-            BufReader::new(stream.try_clone().expect("clone fake stream"))
-                .read_line(&mut request)
-                .expect("read control request");
-            writeln!(stream, "{response}").expect("write fake response");
-        });
-
-        let error = request_control(format!("tcp://{address}").as_str(), Some("token"), "status")
-            .expect_err("invalid response must fail");
-        server.join().expect("join fake control server");
-        format!("{error:#}")
     }
 
     fn free_loopback_port() -> u16 {

@@ -2,6 +2,7 @@ use serde_json::{json, Value as JsonValue};
 use smol_str::SmolStr;
 
 use super::*;
+use crate::io::IoAddress;
 
 fn params(source: &str) -> toml::Value {
     toml::from_str(source).expect("valid test TOML")
@@ -691,40 +692,29 @@ fn fleet_io_contract_snapshot_sample_is_capped_at_eight_in_direction_order() {
     assert_eq!(sample[7]["name"], "Q2");
 }
 
+/// The fleet reply names each sampled address as the parser reads it (specification 10 §9.2): an
+/// unresolved wildcard as `%I*` and a hierarchical address with its whole location path. Catches the
+/// sized wildcard `%IX*`, which the parser refuses, and the flat text `%QW3` for `%QW3.4.5`.
 #[test]
-fn fleet_io_contract_formats_all_fixed_io_address_sizes() {
-    let cases = [
-        ("%IX1.2", "%IX1.2"),
-        ("%IB2", "%IB2"),
-        ("%QW4", "%QW4"),
-        ("%MD8", "%MD8"),
-        ("%IL16", "%IL16"),
-    ];
-    for (source, expected) in cases {
-        assert_eq!(
-            format_io_address(&IoAddress::parse(source).expect("valid address")),
-            expected
-        );
-    }
-}
-
-#[test]
-fn fleet_io_contract_formats_fixed_byte_array_as_byte_address() {
-    let address = IoAddress {
-        area: IoArea::Output,
-        size: crate::io::IoSize::Bytes(16),
-        byte: 24,
-        bit: 0,
-        path: vec![24],
-        wildcard: false,
+fn fleet_io_contract_names_each_address_as_the_parser_reads_it() {
+    let snapshot = IoSnapshot {
+        scan: None,
+        forced: Vec::new(),
+        inputs: vec![snapshot_entry(
+            None,
+            "%I*",
+            crate::io::IoSnapshotValue::Unresolved,
+        )],
+        outputs: vec![snapshot_entry(
+            Some("Q"),
+            "%QW3.4.5",
+            crate::io::IoSnapshotValue::Unresolved,
+        )],
+        memory: Vec::new(),
     };
-    assert_eq!(format_io_address(&address), "%QB24");
-}
-
-#[test]
-fn fleet_io_contract_formats_wildcard_with_explicit_bit_size() {
-    let address = IoAddress::parse("%I*").expect("wildcard address");
-    assert_eq!(format_io_address(&address), "%IX*");
+    let sample = io_snapshot_sample(&snapshot);
+    assert_eq!(sample[0]["address"], "%I*");
+    assert_eq!(sample[1]["address"], "%QW3.4.5");
 }
 
 #[test]

@@ -52,10 +52,10 @@ impl<'a> TypeChecker<'a> {
         self.is_contextual_int_value(expected, expr, false, false)
     }
 
-    /// Whether an untyped integer literal takes the integer type `expected`. With `exact` set, the
-    /// literal's own value counts, up to the full u64 range. Other expressions are evaluated as
-    /// 64-bit constants. A subrange takes its base type; with `check_bounds`, the value must also
-    /// lie within the subrange's bounds.
+    /// Whether an untyped integer literal takes the integer, bit-string or `BOOL` type `expected`.
+    /// With `exact` set, the literal's own value counts, up to the full u64 range. Other
+    /// expressions are evaluated as 64-bit constants. A subrange takes its base type; with
+    /// `check_bounds`, the value must also lie within the subrange's bounds.
     fn is_contextual_int_value(
         &self,
         expected: TypeId,
@@ -79,7 +79,17 @@ impl<'a> TypeChecker<'a> {
         let Some(value) = exact_value.or_else(fallback) else {
             return false;
         };
-        if !integer_type_range_fits(self.normalize_subrange(ty), value) {
+        let fits = match self.normalize_subrange(ty) {
+            Type::Byte => u8::try_from(value).is_ok(),
+            Type::Word => u16::try_from(value).is_ok(),
+            Type::DWord => u32::try_from(value).is_ok(),
+            Type::LWord => u64::try_from(value).is_ok(),
+            // IEC 61131-3 Ed.3 6.3.2 and Table 5 feature 7: Boolean data is represented by
+            // the integer literals 0 and 1 (a literal, not an expression of literals).
+            Type::Bool => expr.kind() == SyntaxKind::Literal && matches!(value, 0 | 1),
+            integer => integer_type_range_fits(integer, value),
+        };
+        if !fits {
             return false;
         }
         if check_bounds && let Some((_, lower, upper)) = self.subrange_bounds(expected) {
@@ -114,7 +124,7 @@ impl<'a> TypeChecker<'a> {
         let Some(literal) = string_literal_info(expr) else {
             return false;
         };
-        if literal.len != 1 {
+        if literal.chars != 1 {
             return false;
         }
         let expected = self.resolve_alias_type(expected);
@@ -142,6 +152,11 @@ impl<'a> TypeChecker<'a> {
         if self.is_generic_type(target) || self.is_generic_type(source) {
             return;
         }
+        // An instance passed to an interface it implements, or a reference to a compatible one,
+        // is passed as it is (IEC 61131-3 §6.6.6): no elementary conversion (§6.4.2) takes place.
+        if self.passes_reference(target) || self.passes_reference(source) {
+            return;
+        }
 
         self.diagnostics.warning(
             DiagnosticCode::ImplicitConversion,
@@ -152,6 +167,22 @@ impl<'a> TypeChecker<'a> {
                 self.type_name(target)
             ),
         );
+    }
+
+    /// Whether a value of this type is an instance, an interface or a reference, which an
+    /// assignment passes rather than converts.
+    fn passes_reference(&self, type_id: TypeId) -> bool {
+        matches!(
+            self.symbols.type_by_id(type_id),
+            Some(
+                Type::Interface { .. }
+                    | Type::Class { .. }
+                    | Type::FunctionBlock { .. }
+                    | Type::Reference { .. }
+                    | Type::Pointer { .. }
+                    | Type::Null
+            )
+        )
     }
 
     fn is_string_family_implicit_ok(&self, target: TypeId, source: TypeId) -> bool {
@@ -181,7 +212,7 @@ impl<'a> TypeChecker<'a> {
         if literal.is_wide != target_is_wide {
             return;
         }
-        if literal.len > max_len {
+        if literal.units > max_len {
             let target_name = self.type_name(target_type);
             let value_name = self.type_name(value_type);
             self.diagnostics.error(
@@ -189,7 +220,7 @@ impl<'a> TypeChecker<'a> {
                 value.text_range(),
                 format!(
                     "{} literal length {} exceeds {} capacity",
-                    value_name, literal.len, target_name
+                    value_name, literal.units, target_name
                 ),
             );
         }

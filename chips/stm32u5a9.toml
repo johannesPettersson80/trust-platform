@@ -1,0 +1,173 @@
+# The STM32U5A9, the STM32 chip of truST's board-runtime track from 17 October 2026 (specification
+# 34, TARGET-03; the format is Appendix H). Values from the chip table
+# crates/trust-platform-stm32u5/src/chip.rs, the clock of crates/trust-platform-stm32u5/src/clock.rs
+# and specification 34, Appendix D.5. The host test crates/trust-platform-stm32u5/tests/chip_file.rs
+# compares them with chip.rs.
+
+[identity]
+name = "stm32u5a9"
+model = "STM32U5A9"
+family = "stm32u5"
+# DEV_ID, bits 11:0 of DBGMCU_IDCODE (RM0456, debug MCU); shared by the U5 family, so the firmware
+# also checks that the flash size register reads memory.flash.kib. Unverified until the M0 record.
+device_id = 0x481
+# The system boot loader's USB DFU device (AN2606, AN3156), reached by the PH3-BOOT0 pin at reset.
+usb_bootloader = { vid = 0x0483, pid = 0xDF11 }
+
+[processor]
+core = "Cortex-M33"
+isa = "ARMv8-M Mainline"
+rust_target = "thumbv8m.main-none-eabihf"
+fpu = "single"
+
+[clock]
+max_hz = 160_000_000
+# SYSCLK and HCLK from PLL1 at voltage range 1 and four flash wait states (D.5).
+firmware_hz = 160_000_000
+# DS13543 §5.3.8 (Table 70, p. 245) and the HSE crystal paragraph of p. 247: a 4 to 50 MHz
+# external clock and a 4 to 48 MHz crystal.
+crystal_min_hz = 4_000_000
+crystal_max_hz = 48_000_000
+
+# The 4 MiB of the STM32U5A9 in two banks of 256 pages, 8 KiB each (DS13543 §3.4, p. 25).
+[memory.flash]
+start = 0x0800_0000
+kib = 4096
+sectors = [{ count = 512, kib = 8 }]
+
+# SRAM1, SRAM2, SRAM3 and SRAM5 are one contiguous block at 0x2000_0000 (DS13543 §3.5).
+[[memory.ram]]
+name = "SRAM1"
+start = 0x2000_0000
+kib = 768
+dma = true
+
+[[memory.ram]]
+name = "SRAM2"
+start = 0x200C_0000
+kib = 64
+dma = true
+
+[[memory.ram]]
+name = "SRAM3"
+start = 0x200D_0000
+kib = 832
+dma = true
+
+[[memory.ram]]
+name = "SRAM5"
+start = 0x201A_0000
+kib = 832
+dma = true
+
+# The SRD-domain SRAM, reached by the LPDMA1 in Stop modes (DS13543 §3.9.3).
+[[memory.ram]]
+name = "SRAM4"
+start = 0x2800_0000
+kib = 16
+dma = true
+
+# The backup SRAM in the VBAT domain: reached by no DMA (DS13543 §3.5).
+[[memory.ram]]
+name = "BKPSRAM"
+start = 0x4201_6400
+kib = 2
+dma = false
+
+# The event store the chip's heap allows: the newest events the store keeps when the project sets
+# none, and the most a project may set (specification 34, Appendix H.2 and H.4; specification 11,
+# the event store). A truST choice, not a design value: the design's RAM estimate for the store is
+# 1,001 events in about 70 KiB, inside heap region A, and the owner's rule for computers is 1,000.
+[events]
+default_capacity = 1000
+max_capacity = 1000
+
+# Vectors, the installed application, the two checkpoint slots and the firmware, page by page.
+[layout]
+vectors = { start = 0x0800_0000, kib = 8 }
+firmware = { start = 0x0800_2000, kib = 2040 }
+application = { start = 0x0820_0000, kib = 2016 }
+checkpoint_a = { start = 0x083F_8000, kib = 16 }
+checkpoint_b = { start = 0x083F_C000, kib = 16 }
+
+[interfaces]
+# The one USB controller, high speed with an on-chip PHY (DS13543 §3.55).
+usb = ["OTG_HS"]
+# No Ethernet controller, no radio (DS13543 Table 2).
+ethernet = []
+wifi = []
+bluetooth = []
+# Six USARTs (the datasheet's USARTx, x = 1 to 6) and the low-power UART.
+uart = ["USART1", "USART2", "USART3", "USART4", "USART5", "USART6", "LPUART1"]
+can = ["FDCAN1"]
+spi = ["SPI1", "SPI2", "SPI3"]
+i2c = ["I2C1", "I2C2", "I2C3", "I2C4", "I2C5", "I2C6"]
+adc = ["ADC1", "ADC2", "ADC4"]
+dac = ["DAC1"]
+timers = [
+    "TIM1", "TIM2", "TIM3", "TIM4", "TIM5", "TIM6", "TIM7", "TIM8",
+    "TIM15", "TIM16", "TIM17",
+    "LPTIM1", "LPTIM2", "LPTIM3", "LPTIM4",
+]
+pwm = ["TIM1", "TIM2", "TIM3", "TIM4", "TIM5", "TIM8", "TIM15", "TIM16", "TIM17"]
+
+# Ports A to I with 16 pins and port J with PJ0 to PJ11 (DS13543 block diagram, p. 22).
+[gpio]
+ports = [
+    { port = "A", pins = 16 },
+    { port = "B", pins = 16 },
+    { port = "C", pins = 16 },
+    { port = "D", pins = 16 },
+    { port = "E", pins = 16 },
+    { port = "F", pins = 16 },
+    { port = "G", pins = 16 },
+    { port = "H", pins = 16 },
+    { port = "I", pins = 16 },
+    { port = "J", pins = 12 },
+]
+reserved = [
+    { pin = "PA11", reason = "usb" },
+    { pin = "PA12", reason = "usb" },
+    { pin = "PA13", reason = "debug" },
+    { pin = "PA14", reason = "debug" },
+    { pin = "PH0", reason = "oscillator" },
+]
+
+[firmware]
+crate = "firmware/trust-stm32u5a9"
+bin = "trust-stm32u5a9"
+components = ["engine"]
+
+[sources]
+# No value has been read on a U5A9 yet, so nothing is measured: `measured_on` is absent (H.5 rule 10).
+measured = []
+documents = [
+    "RM0456 reference manual (STM32U5 series)",
+    "DS13543 data sheet (STM32U5Axxx, Rev 3, May 2025)",
+    "AN5347 Introduction to Arm TrustZone features on STM32L5/STM32U5 and STM32U3 MCUs",
+    "AN2606 system memory boot mode",
+    "AN3156 USB DFU protocol in the STM32 bootloader",
+    "Riverdi RVT50HQSNWC00-B datasheet Rev 1.1",
+]
+unchecked = [
+    "identity.device_id",
+    "identity.usb_bootloader",
+    "processor.isa",
+    "clock.crystal_min_hz",
+    "clock.crystal_max_hz",
+    "memory.ram.name",
+    "memory.ram.dma",
+    "interfaces.usb",
+    "interfaces.ethernet",
+    "interfaces.wifi",
+    "interfaces.bluetooth",
+    "interfaces.uart",
+    "interfaces.can",
+    "interfaces.spi",
+    "interfaces.i2c",
+    "interfaces.adc",
+    "interfaces.dac",
+    "interfaces.timers",
+    "interfaces.pwm",
+    "gpio.ports",
+]

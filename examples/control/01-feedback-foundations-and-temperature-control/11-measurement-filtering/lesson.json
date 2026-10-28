@@ -1,0 +1,322 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-11",
+  "title": "Measurement filtering",
+  "level": "Foundation",
+  "sequence": 24,
+  "equipment": "Electric water heater",
+  "physicalPurpose": "Reduce valve-request movement caused by rapid sensor variation while retaining slower process information.",
+  "principalTechnique": "First-order low-pass measurement filtering",
+  "objective": "Filter the measured temperature with a first-order low-pass filter, measure the noise-driven command activity with and without it, and choose the filter time that meets the setpoint and load requirements despite the added delay.",
+  "prerequisites": [
+    "control-lesson-10"
+  ],
+  "nextLesson": "control-lesson-12",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Measured temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "MV",
+      "name": "Applied heating command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "disturbance",
+      "name": "DisturbanceKw",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 30,
+      "resolution": 0.001,
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "WaterTemperatureC",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML48"
+    },
+    {
+      "role": "state",
+      "name": "IntegralPct",
+      "unit": "%",
+      "minimum": -200,
+      "maximum": 200,
+      "resolution": 0.001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "CommandActivityPoints",
+      "unit": "percentage-point",
+      "minimum": 0,
+      "maximum": 100000,
+      "resolution": 0.001,
+      "binding": "%ML64"
+    },
+    {
+      "role": "state",
+      "name": "ManualOutput",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%ML72"
+    },
+    {
+      "role": "SP",
+      "name": "Heater setpoint",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "state",
+      "name": "FilteredC",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "P1.FilteredC"
+    }
+  ],
+  "plant": {
+    "modelId": "heater-lesson-23",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "process_gain",
+        "value": 0.2,
+        "unit": "degC/percentage-point"
+      },
+      {
+        "name": "time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      },
+      {
+        "name": "measurement_noise_bound",
+        "value": 0.02,
+        "unit": "degC"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "waterTemperatureC": 35,
+      "delayedCommandPct": 75
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Measured temperature": 35,
+      "Applied heating command": 75
+    },
+    "validityRange": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "simplifications": [
+      "The Lesson 20 heater: local single-state water energy balance with one-second delivered-power delay.",
+      "Known 75% holding command at 35 °C; uniform bounded ±.02 °C measurement noise.",
+      "Simulation only; every filter time is validated in Control Studio before any Apply."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "temperatureC": 35,
+      "setpointC": 35,
+      "integralPct": 75,
+      "appliedPowerPct": 75,
+      "disturbanceKw": 0
+    },
+    "limitation": "Sensor noise enters the proportional term with the full gain and moves the heater command about 8·Kp points per minute."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "proportionalGainPctPerC": 13,
+      "integralGainPctPerCs": 3.5,
+      "setpointWeight": 0.3,
+      "filterTimesSeconds": [
+        0,
+        1,
+        2
+      ],
+      "alphaAtOneSecond": "0.1/(1 + 0.1) = 1/11",
+      "durationSeconds": 60
+    },
+    "decision": "Apply the filter time with the lowest noise activity that still meets every setpoint and load requirement."
+  },
+  "experiment": {
+    "kind": "mv_step",
+    "signal": "Applied heating command",
+    "baseline": 75,
+    "amplitude": 20,
+    "durationSeconds": 60,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Uniform repeatable measurement noise bounded by ±.02 °C",
+      "Separate load trial: 30 kW extraction at the 35 °C setpoint"
+    ],
+    "seed": 20260829,
+    "restorationValue": 75
+  },
+  "acceptance": [
+    {
+      "metric": "peak_temperature",
+      "signal": "Measured temperature",
+      "window": "setpoint trial 0–60 s",
+      "comparator": "<=",
+      "limit": 39,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "minimum_temperature",
+      "signal": "Measured temperature",
+      "window": "load trial 0–60 s",
+      "comparator": ">=",
+      "limit": 33,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_absolute_error",
+      "signal": "Measured temperature",
+      "window": "each trial 30–60 s",
+      "comparator": "<=",
+      "limit": 0.2,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "settling_time_0_1_degC",
+      "signal": "Measured temperature",
+      "window": "each trial 0–60 s",
+      "comparator": "<=",
+      "limit": 30,
+      "unit": "s",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Required measurements or timestamps are invalid, stale or nonfinite",
+      "Temperature leaves 0–80 °C or applied command leaves 0–100%",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Control Studio restores the 35 °C/75% hot reset after each trial. Abort sets SafetyAbort and commands zero heating and zero load. Keep stopped until valid measurements and the full 35 °C/75% hot reset are restored.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical excitation or gain application",
+      "Physical use requires independent topology, model, hazard, operating-window, interlock, personnel, abort, rollback, and immediate approval review"
+    ]
+  },
+  "workflowStages": [
+    "Identify",
+    "Tune",
+    "Validate"
+  ],
+  "proof": {
+    "specification": "docs/specs/38-control-engineering-curriculum.md#71-feedback-and-practical-temperature-control",
+    "nativeTest": "lesson23",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_22_24 lesson23",
+    "projectPath": "examples/control/01-feedback-foundations-and-temperature-control/11-measurement-filtering",
+    "runArtifactFields": [
+      "appliedCommand",
+      "temperature",
+      "filteredTemperature",
+      "sampleTime",
+      "initialState",
+      "filterTime",
+      "settlingTime",
+      "commandActivity",
+      "stopReason",
+      "restoration",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-lesson-11"
+  },
+  "learning": {
+    "context": "Lesson 23 applied set B with a setpoint weight of 0.8. The heater command still moved 62.3 points in the 60 s setpoint trial, about three times the 20 points of its rise and return, and 53.6 points in the load trial. The cause is the sensor. Its reading wanders by up to ±0.02 °C around the true water temperature, and every new reading enters P with the full gain: a 0.02 °C change moves the command by $5.79 \\times 0.02 = 0.12$ point, ten times a second. The heater works all the time for nothing.\n\nWe will smooth the reading before the controller uses it, and measure the cost.",
+    "reason": "We need to:\n\n1. reduce the fast, random part of the measurement that the controller reacts to;\n2. keep the slow, real changes of the water temperature in the reading; and\n3. find how much smoothing the loop can take before it misses its requirements.",
+    "change": "Smooth measurement changes before calculating the valve request.",
+    "transfer": "The filter and the integral both assume that a new reading arrives every 0.1 s, and both use that time step in their arithmetic. A filter cannot bring back changes that happened between two readings, and if readings arrive late, or the program uses the wrong time step, every update is wrong.\n\n[Sampling and timing](../12-elapsed-time-and-sampling/README.md) shows what sampling can and cannot see, and why every update must use the time that really passed.",
+    "theory": [
+      "A **measurement filter** smooths a noisy reading by following it only part of the way at each update. It calms the command, but it also notices real changes later. For this heater, the controller then acts on a calm temperature instead of one that jumps by up to 0.02 °C ten times a second.\n\n**In words.** Each reading has two parts: the true water temperature, which changes slowly, over seconds, and the sensor's noise, a small random error that is different in every reading. One reading cannot show which part is which. The filter separates them by how they behave over time.\n\nThe filter keeps a value of its own, as a PLC program keeps a variable from one scan to the next. At every update it compares the new reading with that value and moves its value a fixed part of the way towards the reading:\n\n1. **Noise** pushes the value up at some updates and down at others. Each push moves it only a little, and the pushes mostly cancel, so the filtered value hardly moves.\n2. **A real change** pushes in the same direction at every update, so the filtered value follows it, step by step, until it has caught up.\n\nHow large that part is depends on the **filter time constant**: the larger it is, the smaller the part, the calmer the filtered value and the later it catches up with a real change. The filter behaves like a second, small thermometer that warms slowly: it cannot follow fast wiggles, and it needs time to follow the water. Many PLC libraries offer this filter as a PT1 block.\n\nFor this heater, the command stops twitching with the noise, but the controller sees the water warm, or cool under a load, later than it really does. That lateness is the price.\n\n**The formula.** The filtered value moves towards the raw reading at a speed proportional to the gap between them:\n\n$$\nT_f\\,\\frac{dy_f}{dt} + y_f = y_r, \\qquad\\text{that is,}\\qquad \\frac{dy_f}{dt} = \\frac{y_r - y_f}{T_f} .\n$$\n\nAt each update the program replaces the derivative by the change over one interval, $(y_{f,new} - y_{f,old})/\\Delta t$. Multiplying by $\\Delta t$ and collecting $y_{f,new}$ gives $(T_f + \\Delta t)\\,y_{f,new} = T_f\\,y_{f,old} + \\Delta t\\,y_r$, which is the same as\n\n$$\ny_{f,new} = y_{f,old} + \\alpha\\,(y_r - y_{f,old}), \\qquad \\alpha = \\frac{\\Delta t}{T_f + \\Delta t}.\n$$\n\n- $y_r$ is the raw reading, in degrees Celsius;\n- $y_f$ is the filtered value, in degrees Celsius: $y_{f,old}$ before the update and $y_{f,new}$ after it;\n- $T_f$ is the filter time constant, in seconds;\n- $\\Delta t$ is the 0.1 s between updates; and\n- $\\alpha$ is the part of the gap covered at each update, a number between 0 and 1 without unit.\n\nWith $T_f = 0$, $\\alpha = 1$: the filtered value jumps to each reading, and the filter is bypassed. After $T_f$ seconds, the filtered value has covered about 63 % of a lasting step, $1 - e^{-1} = 0.63$.\n\n**Example: the heater's reading with $T_f = 1$ s.** Then $\\alpha = 0.1/(1 + 0.1) = 1/11$: each update covers about a tenth of the gap. Follow the numbers:\n\n1. Noise: the filtered value is 35.000 °C and one reading comes 0.02 °C high. The filtered value moves by $0.02/11 = 0.0018$ °C, so P moves by $5.79 \\times 0.0018 = 0.011$ point instead of $5.79 \\times 0.02 = 0.12$ point. The next reading is as likely to be low as high and pulls the value back.\n2. A real change: suppose the water really steps from 35 to 36 °C. After the first update the filtered value shows $35 + 1/11 = 35.091$ °C. Each update leaves $10/11$ of the remaining gap, so after 10 updates, 1 s, the gap is $(10/11)^{10} = 0.39$ of the step: the filter shows 35.61 °C, 61 % of the change, close to the 63 % of the equation. After 2 s it shows 35.85 °C.\n3. For those 2 s the controller believes the water is colder than it is, and acts on that belief.\n\n**The limitation.** The filter cannot tell noise from a real change, so it delays both. For slow changes, a filter with time constant $T_f$ acts almost like an extra delay of $T_f$ seconds, added to the heater's 1 s delivery delay: with $T_f = 1$ s, the controller sees the effect of its own command about 2 s after giving it instead of 1 s. A little extra delay is harmless; too much makes the response swing past its target. The filter times 1 s and 2 s compared below are teaching choices that show both sides."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. What are $\\alpha$ and the first filtered value after a 35 → 36 °C raw step, for $T_f = 1$ s and 2 s?\n2. How much will the filter reduce the command's wandering when nothing else changes?\n3. Will the setpoint response overshoot 38 °C with $T_f = 2$ s?\n4. How will the lowest temperature in the load trial change with $T_f$?\n\n| $T_f$ | $\\alpha$ | First filtered value after 35 → 36 °C |\n| ---: | ---: | ---: |\n| 0 | 1 | 36 °C |\n| 1 s | 1/11 | 35.091 °C |\n| 2 s | 1/21 | 35.048 °C |",
+    "practicalPreparation": [
+      "The project validates three trials: the **setpoint trial** and the **load trial** of Lesson 23, and a **noise trial**, 60 s at 35 °C with no disturbance, where only the sensor noise moves the command.\n\n1. Open this lesson's project and start **Simulator**. The heater holds 35 °C with 75 % in Manual. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, keep **Method** at **Automatic** and select **Identify plant**; the model is G(s) = (0.2) / (5.1s +1) · e^(−1s).\n3. On **Tune**, choose **P1.Controller · PI** and **Manual**. Enter **Proportional gain (Kp)** 5.79, **Integral gain (Ki)** 1.14, **Setpoint weight (β)** 0.8 and **Measurement filter time (Tf)** 0.\n4. Select **Requirements…** and enter set B's requirements: **Setpoint change (°C)** 3, **Maximum steady-state error (°C)** 0.2, **Maximum settling time (s)** 15, **Settling band (±°C)** 0.1 and **Validation duration (s)** 60. Select **Done**, then **Tune controller**.\n5. On **Validate**, select **Validate controller** and record every row, especially the three **Command activity** rows.\n6. Repeat steps 3 to 5 with **Measurement filter time (Tf)** 2, then 1. Each change needs **Tune controller** before **Validate controller**.\n7. Validate your chosen filter time last and select **Apply**. Control Studio shows **Applied**."
+    ],
+    "baseline": "Rapid sensor variation becomes rapid valve-request variation.",
+    "comparison": "![A 1 s filter calms the command; a 2 s filter calms it more but makes the water overshoot](figures/measurement-filter-comparison.svg)\n\nThe numbered marks answer predictions 2 and 3; the table answers 1 and 4. From the three validations:\n\n| Result | $T_f$ = 0 | $T_f$ = 1 s | $T_f$ = 2 s |\n| --- | ---: | ---: | ---: |\n| Command activity, noise trial | 48.4 points | 3.35 points | 1.75 points |\n| Command wandering at 90 % | ±0.12 point | ±0.04 point | ±0.02 point |\n| Setpoint settling, limit 15 s | 13.3 s | 8.5 s | 13.5 s |\n| Rise above 38 °C | 0.02 °C | 0.02 °C | 0.30 °C |\n| Load trial: lowest temperature | 33.81 °C | 33.61 °C | 33.47 °C |\n| Load trial: settling, limit 30 s | 22.4 s | 18.9 s | 14.9 s |\n| Command activity, setpoint / load trial | 66.2 / 57.3 points | 28.0 / 18.2 points | 31.8 / 20.1 points |\n\n1. $\\alpha$ is 1/11 and 1/21, so the first filtered values after a 35 → 36 °C step are 35.091 °C and 35.048 °C; the tests confirm the 1 s case.\n2. With $T_f = 1$ s the command moved 3.35 points in the noise trial instead of 48.4: 93 % less. Around 90 % it wandered by ±0.04 point instead of ±0.12.\n3. With $T_f = 2$ s the water overshot to 38.30 °C; with 0 and 1 s it rose only 0.02 °C above 38 °C.\n4. The lowest temperature under the 30 kW load fell from 33.81 °C to 33.61 °C with 1 s and to 33.47 °C with 2 s: the controller sees the cooling later.\n\nThe setpoint response even settled sooner with the 1 s filter, 8.5 s instead of 13.3 s. The filtered reading lags the warming water, so P falls more slowly and the heater stays a little higher during the approach, up to 95.1 % instead of 92.7 %. With 2 s the same lag lasts so long that the heater keeps heating past 38 °C. All three filter times meet every requirement, but 2 s leaves the least margin: 0.47 °C above the 33 °C limit in the load trial.\n\nWe apply $T_f = 1$ s: a fifteenth of the noise-driven movement, no overshoot, and a load dip only 0.2 °C deeper. Control Studio reports **Applied**. These are simulation results for this heater.",
+    "validation": "![A 1 s filter calms the command; a 2 s filter calms it more but makes the water overshoot](figures/measurement-filter-comparison.svg)\n\nThe numbered marks answer predictions 2 and 3; the table answers 1 and 4. From the three validations:\n\n| Result | $T_f$ = 0 | $T_f$ = 1 s | $T_f$ = 2 s |\n| --- | ---: | ---: | ---: |\n| Command activity, noise trial | 48.4 points | 3.35 points | 1.75 points |\n| Command wandering at 90 % | ±0.12 point | ±0.04 point | ±0.02 point |\n| Setpoint settling, limit 15 s | 13.3 s | 8.5 s | 13.5 s |\n| Rise above 38 °C | 0.02 °C | 0.02 °C | 0.30 °C |\n| Load trial: lowest temperature | 33.81 °C | 33.61 °C | 33.47 °C |\n| Load trial: settling, limit 30 s | 22.4 s | 18.9 s | 14.9 s |\n| Command activity, setpoint / load trial | 66.2 / 57.3 points | 28.0 / 18.2 points | 31.8 / 20.1 points |\n\n1. $\\alpha$ is 1/11 and 1/21, so the first filtered values after a 35 → 36 °C step are 35.091 °C and 35.048 °C; the tests confirm the 1 s case.\n2. With $T_f = 1$ s the command moved 3.35 points in the noise trial instead of 48.4: 93 % less. Around 90 % it wandered by ±0.04 point instead of ±0.12.\n3. With $T_f = 2$ s the water overshot to 38.30 °C; with 0 and 1 s it rose only 0.02 °C above 38 °C.\n4. The lowest temperature under the 30 kW load fell from 33.81 °C to 33.61 °C with 1 s and to 33.47 °C with 2 s: the controller sees the cooling later.\n\nThe setpoint response even settled sooner with the 1 s filter, 8.5 s instead of 13.3 s. The filtered reading lags the warming water, so P falls more slowly and the heater stays a little higher during the approach, up to 95.1 % instead of 92.7 %. With 2 s the same lag lasts so long that the heater keeps heating past 38 °C. All three filter times meet every requirement, but 2 s leaves the least margin: 0.47 °C above the 33 °C limit in the load trial.\n\nWe apply $T_f = 1$ s: a fifteenth of the noise-driven movement, no overshoot, and a load dip only 0.2 °C deeper. Control Studio reports **Applied**. These are simulation results for this heater.",
+    "explanation": "A first-order measurement filter trades noise for delay. It strongly reduces the command movement that sensor noise causes, but it shows the controller every real change later, and beyond some filter time the response swings past its target.\n\nFor this heater, a 1 s filter removed 93 % of the noise-driven movement while every requirement was still met with margin; a 2 s filter calmed the command a little more but made the water overshoot."
+  },
+  "video": {
+    "viewerOutcome": "Reduce noise-driven heater movement with a measurement filter and find the filter time at which the delay breaks the requirements.",
+    "requiredVisibleEvidence": [
+      "one native heater at 35 °C/75%",
+      "Measurement filter time (Tf) entered in Tune (Manual)",
+      "noise-trial activity for Tf 0, 1 and 2 s",
+      "setpoint and load results with the added delay",
+      "the chosen filter time applied",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

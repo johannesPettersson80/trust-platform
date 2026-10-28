@@ -1,4 +1,4 @@
-import { affectsTrustConfiguration, getTrustConfiguration } from "./configuration";
+import { affectsTrustConfiguration } from "./configuration";
 import * as vscode from "vscode";
 
 import {
@@ -7,26 +7,24 @@ import {
   type RuntimeLifecycleSnapshot,
 } from "./runtimeLifecycle";
 import {
-  remoteLabelFromEndpoint,
-  runtimeOptions,
-  selectedRuntime,
+  resolveRunTargets,
   SIMULATOR_RUNTIME_ID,
   withPrimaryActionGate,
-  type RemoteRuntime,
+  type RunTargets,
   type RuntimeModelSnapshot,
   type SelectedRuntime,
 } from "./trustHomeModel";
 import {
   getSelectedRuntimeId,
   onDidChangeSelectedRuntime,
-  setSelectedRuntimeId,
 } from "./selectedRuntime";
+import { selectRunTarget } from "./runTargetSelection";
 import { CHECK_PROGRAM_COMMAND, onDidCheckProgram } from "./checkProgram";
 import { onDidDebugReload } from "./debug";
 import {
-  compileGateReason,
-  isConfigDiagnosticPath,
-  validityLine,
+  compileGate,
+  type CompileGate,
+  type CompileGateState,
   type ValidityLine,
 } from "./compileGate";
 import {
@@ -43,7 +41,7 @@ import {
   attachManagedRuntimeAfterStart,
   disconnectManagedRuntimeAfterStop,
 } from "./managedRuntimeSession";
-import type { ManagedRuntime } from "./localRuntimeModel";
+import { onDidChangeSimulationSpeed, shownSimulatorSpeed } from "./simulationSpeed";
 import { getWorkspaceProjectState } from "./workspaceProject";
 
 // The ONE truST sidebar (WebviewView `trust.home`). It keeps one fixed layout:
@@ -57,13 +55,7 @@ type CompileState =
   | { readonly kind: "unknown" }
   | { readonly kind: "dirty" }
   | { readonly kind: "clean"; readonly summary: string }
-  | {
-      readonly kind: "failed";
-      readonly summary: string;
-      readonly errors: number;
-      readonly sourceErrors: number;
-      readonly configErrors: number;
-    };
+  | { readonly kind: "failed"; readonly summary: string; readonly report: CheckProgramResponse };
 
 type ButtonTone = "neutral" | "primary" | "success" | "warning" | "danger" | "disabled";
 type ButtonVariant = "outline" | "filled";
@@ -98,13 +90,13 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       })
     );
     this.context.subscriptions.push(
-      onDidDebugReload((result) => {
+      onDidDebugReload(async (result) => {
         if (result.ok) {
           this.sourceChanged = false;
           this.applyMessage = "Running simulation updated.";
           this.applyMessageKind = "success";
         } else if (this.sourceChanged) {
-          this.applyMessage = `Update failed: ${reloadFailureMessage(result, validityLine())}`;
+          this.applyMessage = `Update failed: ${reloadFailureMessage(result, (await compileGate()).validity)}`;
           this.applyMessageKind = "error";
         }
         void this.render();
@@ -144,45 +136,13 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     void this.render();
   }
 
-  private readRemotes(): RemoteRuntime[] {
-    const endpoints =
-      getTrustConfiguration().get<string[]>("runtime.fleetEndpoints", []) ?? [];
-    const seen = new Set<string>();
-    const remotes: RemoteRuntime[] = [];
-    for (const raw of endpoints) {
-      const endpoint = (raw ?? "").trim();
-      if (!endpoint || seen.has(endpoint)) {
-        continue;
-      }
-      seen.add(endpoint);
-      remotes.push({ id: endpoint, label: remoteLabelFromEndpoint(endpoint) });
-    }
-    return remotes;
-  }
-
-  private storedSelectedId(
-    remotes: RemoteRuntime[],
-    managed: ManagedRuntime[]
-  ): string {
-    // Read the ONE shared store (§0.5.11) — written by this dropdown AND by graph nodes (Connect / Set
-    // as run target). Fall back to the simulator if the stored target is no longer in the inventory.
-    const stored = getSelectedRuntimeId();
-    const valid = runtimeOptions(remotes, managed).some(
-      (option) => option.id === stored
-    );
-    return valid ? stored : SIMULATOR_RUNTIME_ID;
-  }
-
-  private resolveSelected(
-    snapshot: RuntimeLifecycleSnapshot,
-    remotes: RemoteRuntime[],
-    managed: ManagedRuntime[]
-  ): SelectedRuntime {
-    return selectedRuntime({
+  /** The run targets and the selected one, as the language server answers them for the one shared selection (§0.5.11),
+   * written by this sidebar and by the Devices & Connections nodes. */
+  private async runTargets(snapshot: RuntimeLifecycleSnapshot): Promise<RunTargets> {
+    return await resolveRunTargets({
       snapshot: toModelSnapshot(snapshot),
-      remotes,
-      managed,
-      selectedId: this.storedSelectedId(remotes, managed),
+      managed: await listManagedRuntimes(this.context),
+      selectedId: getSelectedRuntimeId(),
     });
   }
 
@@ -193,32 +153,21 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     const workspaceState = await getWorkspaceProjectState();
     const projectOpen = workspaceState.kind === "trust";
     const snapshot = await runtimeLifecycleService.snapshot();
-    const remotes = this.readRemotes();
-    const managed = await listManagedRuntimes(this.context);
-    const options = runtimeOptions(remotes, managed);
-    const selectedRaw = this.resolveSelected(snapshot, remotes, managed);
-    const diagnostics = validityLine();
-    const primaryGate = primaryActionGateReason(
-      selectedRaw,
-      this.compileState,
-      diagnostics
-    );
-    const selected = withPrimaryActionGate(
-      selectedRaw,
-      primaryGate ? { reason: primaryGate } : undefined
-    );
-    const hmiLabel = (await hasHmiDescriptor()) ? "HMI" : "Create HMI";
+    const { options, selected: selectedRaw } = await this.runTargets(snapshot);
+    const gate = await compileGate(this.gateState(), selectedRaw.status);
+    // The compile gate blocks the action the language server names gateable, an enabled Start (specification 25 §6.6).
+    const selected = withPrimaryActionGate(selectedRaw, { reason: gate.reasons.start ?? "" });
     // Update running simulation is SIMULATOR-ONLY and only when the running sim's source changed.
     // Remote apply/restart/deploy lives on the runtime node, never here.
     const canApply =
       selected.kind === "simulator" &&
       selected.status === "running" &&
       this.sourceChanged;
-    const updateGate = canApply
-      ? compileGateReason(this.compileState, diagnostics, "update")
-      : undefined;
+    const updateGate = canApply ? gate.reasons.update ?? undefined : undefined;
+    // A connected runtime that keeps debugging disabled is not a failed simulator Start.
     const lifecycleFailureMessage =
       snapshot.failure &&
+      snapshot.failure.kind !== "debug_disabled" &&
       selected.kind === "simulator" &&
       selected.status === "stopped"
         ? actionFailureMessage(selected, { ok: false, failure: snapshot.failure })
@@ -237,19 +186,22 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       (selected.kind === "simulator" && selected.status === "running")
         ? applyMessage
         : "";
-    const compile = compileButtonState(this.compileState, diagnostics);
+    const compile = compileButtonState(this.compileState, gate);
     const buttons = {
       compile,
       action: runtimeActionButtonState(selected),
-      debug: debugButtonState(
-        selected,
-        compileGateReason(this.compileState, diagnostics, "debug")
-      ),
+      debug: debugButtonState(gate),
       deploy: deployButtonState(selected, this.compileState),
     };
     const actionHint = !buttons.action.enabled ? buttons.action.title : selected.primary.hint ?? "";
+    // "Speed ×N" beside the Simulator target (specification 35, B9.2): the running speed's words from the runtime, or the saved speed
+    // that the next start uses.
+    const speedLine = selected.kind === "simulator"
+      ? `Speed ${(await shownSimulatorSpeed(snapshot, selected)).text || "×1"}`
+      : "";
     void this.view.webview.postMessage({
       type: "state",
+      speed: speedLine,
       projectOpen,
       workspaceKind: workspaceState.kind,
       workspaceName: displayProjectName(workspaceState.folder?.name ?? ""),
@@ -264,7 +216,6 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       applyTitle: updateGate || "Update running simulation",
       applyMessage: visibleApplyMessage,
       applyMessageKind,
-      hmiLabel,
     });
   }
 
@@ -278,6 +229,9 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
         return;
       case "select":
         await this.onSelect(String(message.id ?? ""));
+        return;
+      case "changeSpeed":
+        await vscode.commands.executeCommand("trust-lsp.simulation.speed");
         return;
       case "chooseTarget":
         await this.chooseTarget();
@@ -312,15 +266,17 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       case "navDevices":
         await vscode.commands.executeCommand("trust-lsp.networkCanvas.open");
         return;
+      case "navHmiBuilder":
+        await vscode.commands.executeCommand("trust-lsp.hmiBuilder.open");
+        return;
+      case "navControlStudio":
+        await vscode.commands.executeCommand("trust-lsp.controlStudio.open");
+        return;
       case "navLibraries":
         await vscode.commands.executeCommand("trust-lsp.libraries.open");
         return;
       case "navLiveValues":
         await vscode.commands.executeCommand("trust-lsp.debug.openIoPanel");
-        return;
-      case "navHmi":
-        await openOrCreateHmi();
-        await this.render();
         return;
       default:
         return;
@@ -342,7 +298,9 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 
   private async onSelect(id: string): Promise<void> {
     if (id) {
-      await setSelectedRuntimeId(id);
+      // The language server names the endpoint that selecting the target points the runtime settings at.
+      const { options } = await this.runTargets(await runtimeLifecycleService.snapshot());
+      await selectRunTarget(id, options.find((option) => option.id === id)?.runEndpoint);
     }
     this.applyMessage = "";
     this.applyMessageKind = "";
@@ -350,15 +308,14 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
   }
 
   private async chooseTarget(): Promise<void> {
-    const remotes = this.readRemotes();
-    const managed = await listManagedRuntimes(this.context);
-    const options = runtimeOptions(remotes, managed);
+    const { options } = await this.runTargets(await runtimeLifecycleService.snapshot());
     const currentId = getSelectedRuntimeId() || SIMULATOR_RUNTIME_ID;
     const items: Array<vscode.QuickPickItem & { id?: string }> = [];
     for (const group of [
       { label: "Simulator", kind: "simulator" },
       { label: "Managed on this computer", kind: "local" },
-      { label: "Runtime on another computer", kind: "remote" },
+      // A runtime we connect to may run on this computer too (started outside VS Code).
+      { label: "Runtime you connect to", kind: "remote" },
     ] as const) {
       const groupOptions = options.filter((option) => option.kind === group.kind);
       if (!groupOptions.length) {
@@ -393,16 +350,16 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
   }
 
   private setCompileState(result: CheckProgramResponse): void {
-    const issueCounts = classifyCompileIssues(result);
     this.compileState = result.ok
       ? { kind: "clean", summary: compileSummary(result) }
-      : {
-          kind: "failed",
-          summary: compileSummary(result),
-          errors: result.errors ?? result.issues?.length ?? 1,
-          sourceErrors: issueCounts.sourceErrors,
-          configErrors: issueCounts.configErrors,
-        };
+      : { kind: "failed", summary: compileSummary(result), report: result };
+  }
+
+  /** The last Compile as the gates read it (`trust-lsp.compileGate`). */
+  private gateState(): CompileGateState {
+    return this.compileState.kind === "failed"
+      ? { kind: "failed", report: this.compileState.report }
+      : { kind: this.compileState.kind };
   }
 
   private async showWarning(
@@ -420,19 +377,9 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
   }
 
   private async runAction(): Promise<void> {
-    const snapshot = await runtimeLifecycleService.snapshot();
-    const remotes = this.readRemotes();
-    const managed = await listManagedRuntimes(this.context);
-    const selectedRaw = this.resolveSelected(snapshot, remotes, managed);
-    const gateReason = primaryActionGateReason(
-      selectedRaw,
-      this.compileState,
-      validityLine()
-    );
-    const selected = withPrimaryActionGate(
-      selectedRaw,
-      gateReason ? { reason: gateReason } : undefined
-    );
+    const { selected: selectedRaw } = await this.runTargets(await runtimeLifecycleService.snapshot());
+    const gate = await compileGate(this.gateState(), selectedRaw.status);
+    const selected = withPrimaryActionGate(selectedRaw, { reason: gate.reasons.start ?? "" });
     if (!selected.primary.enabled && selected.primary.hint) {
       this.applyMessage = selected.primary.hint;
       this.applyMessageKind = "error";
@@ -535,7 +482,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 
   private async applyChanges(): Promise<void> {
     // Sim-only update (§0.6.6). The button is only shown when canApply, but guard anyway.
-    const gateReason = compileGateReason(this.compileState, validityLine(), "update");
+    const gateReason = (await compileGate(this.gateState())).reasons.update;
     if (gateReason) {
       this.applyMessage = gateReason;
       this.applyMessageKind = "error";
@@ -548,7 +495,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       this.applyMessage = "Running simulation updated.";
       this.applyMessageKind = "success";
     } else {
-      const reason = reloadFailureMessage(result, validityLine());
+      const reason = reloadFailureMessage(result, (await compileGate()).validity);
       this.sourceChanged = true;
       this.applyMessage = `Update failed: ${reason}`;
       this.applyMessageKind = "error";
@@ -701,6 +648,27 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       min-height: 30px;
       padding: 6px 8px;
       width: 100%;
+    }
+    .speed-line {
+      align-items: center;
+      display: flex;
+      font-size: 12px;
+      gap: 6px;
+      opacity: 0.85;
+    }
+    .speed-line[hidden] {
+      display: none;
+    }
+    .speed-change {
+      background: none;
+      border: none;
+      color: var(--vscode-textLink-foreground);
+      cursor: pointer;
+      font: inherit;
+      padding: 0;
+    }
+    .speed-change:hover {
+      text-decoration: underline;
     }
     .target-button .value {
       overflow: hidden;
@@ -861,11 +829,13 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       <nav class="nav" aria-label="truST destinations disabled until a project is open">
         <button class="nav-button" disabled><span class="nav-icon">▤</span><span>Devices &amp; Connections</span></button>
         <div class="disabled-reason">Open a project to use this.</div>
-        <button class="nav-button" disabled><span class="nav-icon">▦</span><span>Libraries</span></button>
+        <button class="nav-button" disabled><span class="nav-icon codicon codicon-device-desktop" aria-hidden="true"></span><span>HMI</span></button>
+        <div class="disabled-reason">Open a project to use this.</div>
+        <button class="nav-button" disabled><span class="nav-icon codicon codicon-graph-line" aria-hidden="true"></span><span>Control Studio</span></button>
         <div class="disabled-reason">Open a project to use this.</div>
         <button class="nav-button" disabled><span class="nav-icon">◉</span><span>Live Values</span></button>
         <div class="disabled-reason">Start a project to watch values.</div>
-        <button class="nav-button" disabled><span class="nav-icon">▭</span><span>Create HMI</span></button>
+        <button class="nav-button" disabled><span class="nav-icon">▦</span><span>Libraries</span></button>
         <div class="disabled-reason">Open a project to use this.</div>
       </nav>
 	  </section>
@@ -882,6 +852,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
           <span class="value" id="targetValue">Simulator</span>
           <span aria-hidden="true">▾</span>
         </button>
+        <div class="speed-line" id="speedLine" hidden><span id="speedText"></span><button id="speedChange" class="speed-change" type="button">Change…</button></div>
         <div class="action-row" aria-label="Run controls">
           <button id="compile" class="action-button" type="button" title="Compile project">
             <span class="icon codicon codicon-tools" id="compileIcon" aria-hidden="true"></span><span class="label" id="compileLabel">Compile</span>
@@ -903,9 +874,10 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 
       <nav class="nav" aria-label="truST destinations">
         <button class="nav-button" id="navDevices"><span class="nav-icon">▤</span><span>Devices &amp; Connections</span></button>
-        <button class="nav-button" id="navLibraries"><span class="nav-icon">▦</span><span>Libraries</span></button>
+        <button class="nav-button" id="navHmiBuilder" title="Open the project's screens in the HMI Builder"><span class="nav-icon codicon codicon-device-desktop" aria-hidden="true"></span><span>HMI</span></button>
+        <button class="nav-button" id="navControlStudio"><span class="nav-icon codicon codicon-graph-line" aria-hidden="true"></span><span>Control Studio</span></button>
         <button class="nav-button" id="navLiveValues"><span class="nav-icon">◉</span><span>Live Values</span></button>
-        <button class="nav-button" id="navHmi"><span class="nav-icon">▭</span><span id="navHmiLabel">HMI</span></button>
+        <button class="nav-button" id="navLibraries"><span class="nav-icon">▦</span><span>Libraries</span></button>
       </nav>
 	  </section>
 	<script nonce="${nonce}">
@@ -918,6 +890,9 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     const projectNameEl = document.getElementById("projectName");
     const targetButton = document.getElementById("targetButton");
     const targetValue = document.getElementById("targetValue");
+    const speedLine = document.getElementById("speedLine");
+    const speedText = document.getElementById("speedText");
+    const speedChange = document.getElementById("speedChange");
     const compileEl = document.getElementById("compile");
     const compileIcon = document.getElementById("compileIcon");
     const compileLabel = document.getElementById("compileLabel");
@@ -933,7 +908,6 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 	  const applyEl = document.getElementById("apply");
 	  const applyMessageEl = document.getElementById("applyMessage");
 	  const hintEl = document.getElementById("hint");
-	  const navHmiLabel = document.getElementById("navHmiLabel");
 
 	  function post(type) { return () => vscode.postMessage({ type }); }
     function setButton(button, icon, label, view) {
@@ -989,6 +963,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     }
     window.addEventListener("resize", fitActionLabels);
     targetButton.addEventListener("click", post("chooseTarget"));
+    speedChange.addEventListener("click", post("changeSpeed"));
     compileEl.addEventListener("click", post("compile"));
 	  actionEl.addEventListener("click", () => { if (!actionEl.disabled) { vscode.postMessage({ type: "action" }); } });
       debugEl.addEventListener("click", post("debug"));
@@ -998,9 +973,10 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 	  document.getElementById("openProject").addEventListener("click", post("openProject"));
 	  document.getElementById("startExample").addEventListener("click", post("startExample"));
 	  document.getElementById("navDevices").addEventListener("click", post("navDevices"));
+	  document.getElementById("navHmiBuilder").addEventListener("click", post("navHmiBuilder"));
+	  document.getElementById("navControlStudio").addEventListener("click", post("navControlStudio"));
 	  document.getElementById("navLibraries").addEventListener("click", post("navLibraries"));
 	  document.getElementById("navLiveValues").addEventListener("click", post("navLiveValues"));
-	  document.getElementById("navHmi").addEventListener("click", post("navHmi"));
 
   window.addEventListener("message", (event) => {
     const msg = event.data;
@@ -1029,6 +1005,8 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       projectNameEl.textContent = msg.workspaceName || "truST project";
       projectNameEl.title = msg.workspaceName || "truST project";
       targetValue.textContent = msg.selected.label;
+      speedLine.hidden = !msg.speed;
+      speedText.textContent = msg.speed || "";
       targetButton.title = "Target: " + msg.selected.label + " — " + msg.selected.statusLabel;
       setButton(compileEl, compileIcon, compileLabel, msg.buttons.compile);
       setButton(actionEl, actionIcon, actionLabel, msg.buttons.action);
@@ -1045,7 +1023,6 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 	    const hint = msg.actionHint || msg.selected.primary.hint || "";
 	    hintEl.textContent = hint ? "⚠ " + hint : "";
 	    hintEl.style.display = hint ? "block" : "none";
-	    navHmiLabel.textContent = msg.hmiLabel || "HMI";
 	  });
 
   vscode.postMessage({ type: "ready" });
@@ -1088,6 +1065,10 @@ export function registerTrustHome(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     onDidChangeManagedRuntimes(() => provider.refresh())
   );
+  // A speed change (Simulation Speed… or Change…) updates the Run section's speed line.
+  context.subscriptions.push(
+    onDidChangeSimulationSpeed(() => provider.refresh())
+  );
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (affectsTrustConfiguration(event, "runtime.fleetEndpoints")) {
@@ -1104,10 +1085,6 @@ export function registerTrustHome(context: vscode.ExtensionContext): void {
   projectWatcher.onDidCreate(() => provider.refresh());
   projectWatcher.onDidDelete(() => provider.refresh());
   context.subscriptions.push(projectWatcher);
-  const hmiWatcher = vscode.workspace.createFileSystemWatcher("**/hmi/*.toml");
-  hmiWatcher.onDidCreate(() => provider.refresh());
-  hmiWatcher.onDidDelete(() => provider.refresh());
-  context.subscriptions.push(hmiWatcher);
   context.subscriptions.push(
     vscode.languages.onDidChangeDiagnostics(() => provider.refresh())
   );
@@ -1139,19 +1116,11 @@ function displayProjectName(name: string): string {
     .join(" ");
 }
 
-async function hasHmiDescriptor(): Promise<boolean> {
-  const found = await vscode.workspace.findFiles(
-    "**/hmi/*.toml",
-    "**/node_modules/**",
-    1
-  );
-  return found.length > 0;
-}
-
 function compileButtonState(
   state: CompileState,
-  diagnostics: ValidityLine
+  gate: CompileGate
 ): SidebarButtonState {
+  const diagnostics = gate.validity;
   if (!diagnostics.ok) {
     return {
       state: "diagnostics-failed",
@@ -1177,7 +1146,7 @@ function compileButtonState(
     case "failed":
       return {
         state: "failed",
-        label: `Compile ${state.errors}`,
+        label: `Compile ${gate.compile?.errors ?? 1}`,
         title: state.summary,
         icon: "codicon-error",
         tone: "danger",
@@ -1267,56 +1236,17 @@ function runtimeActionButtonState(selected: SelectedRuntime): SidebarButtonState
   }
 }
 
-function debugButtonState(
-  selected: SelectedRuntime,
-  launchGateReason?: string
-): SidebarButtonState {
-  const disabled =
-    selected.status === "unreachable" ||
-    selected.status === "starting" ||
-    Boolean(launchGateReason);
+function debugButtonState(gate: CompileGate): SidebarButtonState {
+  const enabled = gate.debug.enabled;
   return {
-    state: disabled ? "disabled" : "ready",
+    state: enabled ? "ready" : "disabled",
     label: "Debug",
-    title: launchGateReason ||
-      (disabled ? "Debug is unavailable until the target is reachable." : "Start debugging"),
+    title: gate.debug.title,
     icon: "codicon-debug-alt",
-    tone: disabled ? "disabled" : "neutral",
+    tone: enabled ? "neutral" : "disabled",
     variant: "outline",
-    enabled: !disabled,
+    enabled,
   };
-}
-
-function primaryActionGateReason(
-  selected: SelectedRuntime,
-  compileState: CompileState,
-  diagnostics: ValidityLine
-): string | undefined {
-  if (selected.primary.action !== "start") {
-    return undefined;
-  }
-  return compileGateReason(compileState, diagnostics, "start");
-}
-
-function classifyCompileIssues(response: CheckProgramResponse): {
-  sourceErrors: number;
-  configErrors: number;
-} {
-  let sourceErrors = 0;
-  let configErrors = 0;
-  for (const issue of response.issues ?? []) {
-    if ((issue.severity ?? "").toLowerCase() !== "error") {
-      continue;
-    }
-    const file = issue.file ?? "";
-    const code = issue.code ?? "";
-    if (isConfigDiagnosticPath(file) || /config/i.test(code)) {
-      configErrors += 1;
-    } else {
-      sourceErrors += 1;
-    }
-  }
-  return { sourceErrors, configErrors };
 }
 
 function deployButtonState(
@@ -1336,17 +1266,6 @@ function deployButtonState(
 
 function compileSummary(response: CheckProgramResponse): string {
   return summarizeCheck(response);
-}
-
-// HMI is adaptive (§0.5.13): open when a descriptor exists, otherwise scaffold then open. Never a dead
-// disabled button.
-async function openOrCreateHmi(): Promise<void> {
-  if (await hasHmiDescriptor()) {
-    await vscode.commands.executeCommand("trust-lsp.hmi.openPreview");
-    return;
-  }
-  await vscode.commands.executeCommand("trust-lsp.hmi.init");
-  await vscode.commands.executeCommand("trust-lsp.hmi.openPreview");
 }
 
 async function newDiagramMenu(): Promise<void> {

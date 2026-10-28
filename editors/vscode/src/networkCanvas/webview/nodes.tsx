@@ -13,6 +13,7 @@ import { healthStatusLabel } from "./statusPresentation";
 import { t, tint } from "./theme";
 import {
   LOCAL_RUNTIME_NODE_ID,
+  runtimeEmptyMessage,
   type ContainerNodeData,
   type EndpointNodeData,
   type ExternalNodeData,
@@ -64,6 +65,7 @@ const ICONS = {
 export function healthColor(health: string): string {
   switch (health) {
     case "connected":
+    case "simulate": // a runtime that answers while it simulates is live (it reports its mode apart)
       return t.ok;
     case "degraded":
       return t.warn;
@@ -71,7 +73,7 @@ export function healthColor(health: string): string {
     case "runtime_unreachable":
       return t.danger;
     default:
-      return t.idle; // not_configured / configured_policy / pending / simulate / unknown
+      return t.idle; // not_configured / configured_policy / pending / unknown
   }
 }
 
@@ -236,6 +238,11 @@ export const HostNode = memo(({ data }: NodeProps) => {
   const [hover, setHover] = useState(false);
   return (
     <div
+      aria-label={
+        d.kind === "plant"
+          ? `${d.name}, simulated plant, ${String(d.state ?? d.health)}`
+          : undefined
+      }
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={cardStyle(d.health, {
@@ -306,9 +313,18 @@ export const RuntimeNode = memo(({ id, data }: NodeProps) => {
   const showEmpty =
     !editMode &&
     d.endpointCount === 0 &&
+    d.plantCount === 0 &&
     (id === LOCAL_RUNTIME_NODE_ID || d.health === "connected");
+  const dropTone =
+    d.plantDropState === "current"
+      ? t.accent
+      : d.plantDropState === "eligible"
+        ? t.accent
+        : t.border;
   return (
     <div
+      data-plant-drop-state={d.plantDropState}
+      data-plant-drop-label={d.plantDropLabel}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
@@ -318,6 +334,12 @@ export const RuntimeNode = memo(({ id, data }: NodeProps) => {
         }),
         display: "flex",
         flexDirection: "column",
+        ...(d.plantDropState
+          ? {
+              outline: `${d.plantDropState === "current" ? 2 : 1}px ${d.plantDropState === "ineligible" ? "solid" : "dashed"} ${dropTone}`,
+              outlineOffset: 2,
+            }
+          : {}),
       }}
     >
       <NodeToolbar isVisible={hover} position={Position.Top}>
@@ -380,11 +402,35 @@ export const RuntimeNode = memo(({ id, data }: NodeProps) => {
               Run target
             </span>
           )}
+          {d.plantDropLabel && (
+            <span
+              data-plant-drop-cue
+              aria-live="polite"
+              title={d.plantDropLabel}
+              style={{
+                display: "inline-flex",
+                minWidth: 0,
+                maxWidth: "100%",
+                border: `1px ${d.plantDropState === "ineligible" ? "solid" : "dashed"} ${dropTone}`,
+                borderRadius: t.pill,
+                padding: "3px 7px",
+                color: d.plantDropState === "ineligible" ? t.textMuted : t.text,
+                fontSize: 10.5,
+                fontWeight: d.plantDropState === "current" ? 650 : 500,
+                lineHeight: 1,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {d.plantDropLabel}
+            </span>
+          )}
         </div>
       </div>
       {showEmpty && (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5, padding: "4px 16px 14px", textAlign: "center" }}>
-          <div style={{ fontSize: 11.5, fontWeight: 600, color: t.textMuted }}>No devices yet</div>
+          <div style={{ fontSize: 11.5, fontWeight: 600, color: t.textMuted }}>{runtimeEmptyMessage()}</div>
           <div style={{ fontSize: 10.5, color: t.textSubtle, lineHeight: 1.5 }}>
             Use <span style={{ color: t.textMuted, fontWeight: 600 }}>+ Add</span> to add one, or <span style={{ color: t.textMuted, fontWeight: 600 }}>Discover</span> to scan the network.
           </div>
@@ -415,7 +461,7 @@ export const EndpointNode = memo(({ data }: NodeProps) => {
   const statusTone = draftLike ? t.protocolMuted : healthColor(d.health);
   const [hover, setHover] = useState(false);
   // §0.2: everything networked gets a wire/port; only local I/O does not.
-  const isComm = !["gpio", "simulated", "loopback"].includes(d.protocol);
+  const isComm = d.kind !== "plant" && !["gpio", "simulated", "loopback"].includes(d.protocol);
   // §10.2: EtherCAT segment slaves render as compact child rows inside the node (containment, no wires).
   const slaves = d.protocol === "ethercat" ? d.children ?? [] : [];
   const hasSlaves = slaves.length > 0;
@@ -453,8 +499,26 @@ export const EndpointNode = memo(({ data }: NodeProps) => {
       </NodeToolbar>
       {isComm && <Handle type="source" position={Position.Bottom} style={PORT_STYLE} />}
       <div style={{ position: "relative", flex: hasSlaves ? "0 0 30px" : 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, padding: "3px 7px" }}>
-        <strong style={{ fontSize: 11, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {protocolName(d.protocol)}
+        {/* Up to two lines, so a name such as "Simulated I/O" is not cut to "Simulated …"; the hover text keeps a longer one. */}
+        <strong
+          title={d.kind === "plant" ? d.name : protocolName(d.protocol)}
+          style={{
+            boxSizing: "border-box",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            width: "100%",
+            minWidth: 0,
+            padding: "0 8px",
+            textAlign: "center",
+            fontSize: 11,
+            fontWeight: 700,
+            lineHeight: 1.2,
+            color: t.text,
+            overflow: "hidden",
+          }}
+        >
+          {d.kind === "plant" ? d.name : protocolName(d.protocol)}
         </strong>
         {(d.health === "disabled" || draftLike) && (
           <StatusPill health={d.health} label={draftLike ? "DRAFT" : undefined} tone={draftLike ? t.protocolMuted : undefined} />

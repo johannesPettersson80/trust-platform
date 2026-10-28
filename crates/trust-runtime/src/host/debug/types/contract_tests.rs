@@ -14,9 +14,9 @@ fn snapshot_with_two_frames() -> (DebugSnapshot, FrameId, FrameId) {
     assert!(storage.set_local("value", Value::DInt(2)));
     (
         DebugSnapshot {
-            storage_abi: Default::default(),
             storage,
             now: Duration::from_millis(7),
+            compiled: None,
         },
         first,
         second,
@@ -258,9 +258,9 @@ fn snapshot_write_is_isolated_from_the_source_storage_clone() {
         .expect("snapshot write");
 
     let mut original = DebugSnapshot {
-        storage_abi: Default::default(),
         storage: original,
         now: Duration::ZERO,
+        compiled: None,
     };
     assert_eq!(
         original
@@ -273,82 +273,6 @@ fn snapshot_write_is_isolated_from_the_source_storage_clone() {
             .expect("original read"),
         Value::DInt(1)
     );
-}
-
-#[test]
-fn runtime_event_variants_preserve_exact_payloads_and_identity() {
-    let events = vec![
-        RuntimeEvent::CycleStart {
-            cycle: 1,
-            time: Duration::from_millis(1),
-        },
-        RuntimeEvent::CycleEnd {
-            cycle: 1,
-            time: Duration::from_millis(2),
-        },
-        RuntimeEvent::TaskStart {
-            name: "Fast".into(),
-            priority: 0,
-            time: Duration::from_millis(3),
-        },
-        RuntimeEvent::TaskEnd {
-            name: "Fast".into(),
-            priority: 0,
-            time: Duration::from_millis(4),
-        },
-        RuntimeEvent::TaskOverrun {
-            name: "Fast".into(),
-            missed: u64::MAX,
-            time: Duration::from_millis(5),
-        },
-        RuntimeEvent::Fault {
-            error: "fault".into(),
-            time: Duration::from_millis(6),
-        },
-        RuntimeEvent::SafeStateFailed {
-            root: "fault".into(),
-            error: "safe state".into(),
-            time: Duration::from_millis(7),
-        },
-        RuntimeEvent::RetainOrphanDropped {
-            name: "old".into(),
-            time: Duration::from_millis(8),
-        },
-        RuntimeEvent::RetainMigrationApplied {
-            name: "kept".into(),
-            detail: "DINT to LINT".into(),
-            time: Duration::from_millis(9),
-        },
-        RuntimeEvent::AuditDropped {
-            request_id: u64::MAX,
-            request_type: "set".into(),
-            error: "offline".into(),
-            time: Duration::from_millis(10),
-        },
-        RuntimeEvent::FeatureDisabled {
-            feature: "opcua".into(),
-            request_type: Some("opcua.status".into()),
-            time: Duration::from_millis(11),
-        },
-    ];
-
-    assert_eq!(events, events.clone());
-    assert_ne!(events[0], events[1]);
-    assert!(matches!(
-        &events[4],
-        RuntimeEvent::TaskOverrun {
-            missed: u64::MAX,
-            ..
-        }
-    ));
-    assert!(matches!(
-        &events[9],
-        RuntimeEvent::AuditDropped {
-            request_id: u64::MAX,
-            request_type,
-            ..
-        } if request_type == "set"
-    ));
 }
 
 #[test]

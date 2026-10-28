@@ -2,6 +2,7 @@ mod discover;
 mod doctor;
 mod identity;
 mod import_symbols;
+mod remove_symbols;
 mod route;
 mod server;
 mod status;
@@ -10,7 +11,10 @@ pub(super) use discover::handle_ads_discover;
 pub use doctor::AdsDoctorJobStore;
 pub(super) use doctor::{handle_ads_doctor, handle_ads_doctor_start, handle_ads_doctor_status};
 pub(super) use identity::handle_ads_identity;
+pub(crate) use import_symbols::import_symbols_from_params;
 pub(super) use import_symbols::{handle_ads_import_symbols, handle_ads_import_symbols_apply};
+pub(super) use remove_symbols::handle_ads_import_symbols_remove;
+pub(crate) use remove_symbols::remove_symbols_from_project;
 pub(super) use route::{handle_ads_route_add, handle_ads_route_plan, handle_ads_route_remove};
 pub(super) use server::{
     ads_server_connector_endpoint_from_state, ads_server_status_report_from_state,

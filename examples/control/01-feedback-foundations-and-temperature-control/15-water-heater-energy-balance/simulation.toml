@@ -1,0 +1,26 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2400
+plant_step_ms = 100
+
+[[plants]]
+id = "heater-energy-balance"
+model = "first_order_dead_time"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [35.0]
+
+[plants.parameters]
+gain = 0.2
+time_constant_s = 5.0
+dead_time_s = 1.0
+initial_delayed_input = 75.0
+output_bias = 20.0
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+initial_applied = 75.0

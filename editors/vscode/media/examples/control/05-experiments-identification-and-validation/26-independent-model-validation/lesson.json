@@ -1,0 +1,239 @@
+{
+  "schemaVersion": 4,
+  "id": "control-lesson-26",
+  "title": "Model validation",
+  "level": "Identification",
+  "sequence": 18,
+  "equipment": "Water heater",
+  "physicalPurpose": "Assess timing, response shape and final value on independent command and disturbance records. Decide whether the model supports the intended design decision.",
+  "principalTechnique": "Model validation",
+  "objective": "Assess timing, response shape and final value on independent command and disturbance records. Decide whether the model supports the intended design decision.",
+  "prerequisites": [
+    "control-lesson-25"
+  ],
+  "nextLesson": "control-model-based-tuning",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Measured temperature",
+      "unit": "degC",
+      "minimum": 31,
+      "maximum": 39,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "MV",
+      "name": "Applied heating command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.01,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Experiment authority",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX64.0"
+    },
+    {
+      "role": "disturbance",
+      "name": "DisturbanceKw",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 30,
+      "resolution": 0.001,
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "WaterTemperatureC",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    }
+  ],
+  "plant": {
+    "modelId": "heater-lesson-18",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "process_gain",
+        "value": 0.2,
+        "unit": "degC/percentage-point"
+      },
+      {
+        "name": "time_constant",
+        "value": 5,
+        "unit": "s"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      },
+      {
+        "name": "probe_time_constant",
+        "value": 2,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "temperatureC": 35
+    },
+    "seed": 20260829,
+    "simplifications": [
+      "Local heater model with initial temperature35 °C and command75%.",
+      "Nominal coefficients are supplied simulation values, not accepted learner estimates.",
+      "Simulation-only process I/O;100ms samples.",
+      "The native simulator supplies water at %IL0 and measured probe temperature at %IL8; ST commands the heater/load paths and does not calculate validation predictions."
+    ],
+    "operatingPoint": {
+      "Measured temperature": 35,
+      "Applied heating command": 75,
+      "Experiment authority": 0
+    },
+    "validityRange": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 31,
+        "maximum": 39,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "appliedPowerPct": 75,
+      "temperatureC": 35
+    },
+    "limitation": "An unexcited record does not reveal the complete heater dynamics."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "appliedPowerPct": 90,
+      "durationSeconds": 40,
+      "trialKinds": "0:90% heating;1:65% heating;2:30kW extraction at75% heating"
+    },
+    "decision": "Use the qualified Control Studio record to answer the lesson question; do not accept supplied nominal parameters as measured results."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Experiment authority",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 40.1,
+    "settlingSeconds": 0,
+    "disturbances": [],
+    "seed": 20260829,
+    "restorationValue": 0,
+    "activationSignal": "P1.ExperimentEnabled"
+  },
+  "acceptance": [
+    {
+      "metric": "temperature_operating_range",
+      "signal": "Measured temperature",
+      "window": "complete recorded experiment",
+      "comparator": "<=",
+      "limit": 80,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "workflowStages": [
+    "Monitor",
+    "Test",
+    "Identify"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/12-21-models-and-tuning.md",
+    "nativeTest": "lesson18",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_heater_design lesson18",
+    "projectPath": "examples/control/05-experiments-identification-and-validation/26-independent-model-validation",
+    "runArtifactFields": [
+      "appliedCommand",
+      "temperature",
+      "sampleTime",
+      "initialState",
+      "experimentConditions",
+      "modelProvenance",
+      "stopReason",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-lesson-26"
+  },
+  "learning": {
+    "context": "Lesson 17 showed what the experiments can tell apart: early samples fix only the ratio of gain to time constant, and a water reference showed that the 5 s lag belongs to the water and the shorter one, about 2 s, to the probe. But every check so far used the record the model was fitted to. A model can fit its own record and still fail on a different command or a disturbance.\n\nWe will freeze the model and test it on new records, with requirements set before we look.",
+    "reason": "We need to:\n\n1. keep the model unchanged while it is tested;\n2. measure how far its predictions are from new records; and\n3. decide, against limits set in advance, whether it is good enough for designing the controller.",
+    "change": "1. In **Identify → Import recording**, open the Lesson 15 estimation export. Restore its original settings, fit that estimation record, and retain its coefficients and uncertainty before viewing holdouts.\n2. Set `TrialKind` in the project to **0** (90% heating), **1** (65% heating) or **2** (30 kW extraction). Restart from the 35 °C / 75% hot state for each trial.\n3. Choose **Identify → Record validation**, then **Test → Review test → Confirm and start**. Each run records a **5 s baseline and 40 s response**.\n4. For command steps, save the result in **Validate**, then use **Identify → Check recording → Fit validation run** to check the unused record against the frozen estimation. Inspect **Fit**, **Residuals**, parameter uncertainty and validation RMSE.\n5. Retain the load record and compare its histories with the frozen disturbance model. The held-step fitter requires a command change; unsupported metrics remain **Indeterminate**. Record Pass, Fail or Indeterminate against every declared criterion without refitting.",
+    "transfer": "The validated model predicts the heater's temperature for new commands and disturbances, but it does not tell us which PI gains to use.\n\n[Model-based PI tuning](../../06-pid-tuning-methods/30-model-based-pi-tuning/README.md) calculates the gains from the model and the response speed we want.",
+    "theory": [
+      "**Model validation** tests the unchanged model on a new recording it has never seen. If it predicts that recording well enough for our purpose, we can design with it. Here the model is the one fitted to the 12-point step: gain 0.1999 °C per %, delay 1 s, time constant 5 s.\n\n**In words.** A model can fit its own record and still fail on a different command or a disturbance, just as a program can pass the test values used while writing it and still fail on site. In PLC terms, validation is the site acceptance test with new test cases. It has four parts:\n\n1. **Freeze the model.** Changing it after seeing the new records would turn validation back into fitting.\n2. **Use new records that test different parts of the model.** Here three records start from the same hot state, 35 °C with 75%: a step up to 90%, a step down to 65%, and an extra 30 kW heat loss at 75%. The steps test the heater's path, including its 1 s delay. The heat loss takes heat from the water directly, so it acts at once, without the heater's delay.\n3. **Score the misses.** At every sample, compare the measurement with the prediction. Two numbers summarize the misses: how large they typically are, and whether they lean to one side. Measurement noise is as often positive as negative and averages out; an error in the model itself does not.\n4. **Decide against limits set in advance.** \"Good enough for our purpose\" means limits taken from what the design needs, written down before anyone looks at the records.\n\n**The formula.** The **residual** of one sample is the measured temperature minus the predicted one:\n\n$$\nr_i = T_{measured,i} - T_{predicted,i}.\n$$\n\n> **Math you need: mean and root mean square.** The **mean** of $N$ numbers is their sum divided by $N$. The **root mean square** squares each number, takes the mean of the squares, then the square root. For residuals +0.1 and −0.1 °C, the mean is 0, but the root mean square is $\\sqrt{(0.01 + 0.01)/2} = 0.1$ °C: squaring stops positive and negative errors from cancelling.\n\nLet $N$ be the number of samples scored. Then\n\n$$\n\\bar r = \\frac{1}{N}\\sum_{i=1}^{N} r_i, \\qquad \\mathrm{RMSE} = \\sqrt{\\frac{1}{N}\\sum_{i=1}^{N} r_i^2}.\n$$\n\n- $r_i$ is the residual of sample $i$, in °C, and $\\sum_{i=1}^{N}$ means: add up the terms for $i = 1, 2, \\dots, N$;\n- $\\bar r$ is the mean residual, in °C: it shows whether the errors lean to one side;\n- the **RMSE**, root-mean-square error, in °C, measures the size of the errors.\n\nThe frozen model predicts a command step $\\Delta u$ from the hot state, and an extra loss $D$, as\n\n$$\nT(t) = 35 + K\\,\\Delta u\\left(1 - e^{-(t - L)/\\tau}\\right) \\ \\text{for } t \\ge L, \\qquad T(t) = 35 - K\\,\\frac{D}{a}\\left(1 - e^{-t/\\tau}\\right).\n$$\n\n- $K$ = 0.1999 °C per %, $L$ = 1 s and $\\tau$ = 5 s are the frozen model's numbers;\n- $\\Delta u$ is the command step, in percentage points, and $t$ the time since the change, in seconds;\n- $D$ is the extra loss, in kW, and $a$ = 2 kW per % the heater's power per percentage point: a loss of $D$ kW counts like $D/a$ percentage points less heating, but without the delay.\n\n**Example: scoring by hand.** Calculated, with invented measurements:\n\n1. For an extra loss of 10 kW, not one of this lesson's records, the predicted final change is $-0.1999 \\times 10/2 = -1.00$ °C, and 5 s after the loss starts the model predicts $35 - 1.00 \\times (1 - e^{-1}) = 34.37$ °C.\n2. Suppose the record read 34.42 °C at that moment. The residual is $34.42 - 34.37 = +0.05$ °C: the water is 0.05 °C warmer than predicted.\n3. Suppose four samples give residuals of +0.05, +0.02, −0.01 and +0.06 °C. The mean is $(0.05 + 0.02 - 0.01 + 0.06)/4 = 0.03$ °C. The squares add up to $0.0025 + 0.0004 + 0.0001 + 0.0036 = 0.0066$, so the RMSE is $\\sqrt{0.0066/4} = 0.041$ °C.\n4. Against the limits below, these samples pass: the largest residual, 0.06 °C, is inside ±0.2 °C, and the RMSE is below 0.1 °C. Three of the four residuals are positive, and the mean is three-quarters of the RMSE: the misses lean to one side.\n\n**Teaching choice.** The requirements, set before looking: every residual within ±0.2 °C, and an RMSE of at most 0.1 °C, on each record. They are teaching limits chosen from what a controller design for this heater needs.\n\n**The limitation.** Passing shows that the model is good enough for conditions like these, not that it is exact or right everywhere. The limits themselves leave room: a model whose gain is 5% too high predicts a 10-point step's 2 °C rise 0.10 °C too high. Every residual stays inside ±0.2 °C, and over a 40 s record the RMSE is 0.089 °C (calculated), so that model passes too."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. What final temperatures does the frozen model predict for the three records?\n2. Will every residual stay within ±0.2 °C, and the RMSE below 0.1 °C, for the two steps?\n3. Control Studio compares a model with a recorded command step. Can it score the heat-loss record?\n4. If the residuals of a record keep one sign, what does that suggest?\n\n| Record | Predicted final temperature |\n| --- | ---: |\n| Step to 90% | 38.00 °C |\n| Step to 65% | 33.00 °C |\n| 30 kW extra loss | 32.00 °C |",
+    "practicalPreparation": [
+      "1. Save the study from the previous step identification: in its project, right-click the plot and choose **Save recording…**.\n2. Open this lesson's project with `TrialKind := 0;` and start **Simulator**. In the **truST** side bar, select **Control Studio**. On **Identify**, choose **Recorded-data fit**, check **Use held-step measurement and search**, set **Model family** to **First order with dead time**, select **Open recording…** and open the saved study. Select **Check recording**, then **Fit plant model**: this restores the frozen model, gain 0.1999, delay 1 s, time constant 5 s.\n3. Choose **Project experiment** from **Method**. **Signals** shows `P1.TemperatureC · Process value (°C)` and `P1.AppliedPowerPct · Applied output (%)`; add `P1.WaterTemperatureC · state (°C)` and `P1.DisturbanceKw · disturbance (kW)`. Answer the predictions, then select **Review project test**, check the **45.1 s** plan (5 s steady start and 40 s record) and select **Confirm and start**.\n4. After the run, choose **Recorded-data fit** again, select **Check recording**, then **Compare with model**. Read **Prediction RMSE** and **Maximum absolute residual** under **Validation step measurements**. The model is not refitted.\n5. Stop the simulator, set `TrialKind := 1;`, restart, and repeat steps 2–4.\n6. Repeat with `TrialKind := 2;`. After **Check recording**, Control Studio reports **Step-response identification requires one nonzero input step.**: the heat-loss record has no command step to compare. Hover the record and compare it with the predicted curve by hand, using the formula above.\n7. At the end of each project test, Control Studio shows **Project test completed. Outputs restored.**\n\nSelect **Abort test** to stop early."
+    ],
+    "baseline": "Use the declared35 °C and75% initial state; retain the actual baseline record.",
+    "comparison": "![The frozen model predicts three new records within a few thousandths of a degree](figures/validation-records.svg)\n\nThe numbered marks answer the predictions with the same numbers.\n\n| Record | Final temperature | RMSE | Largest residual | Result |\n| --- | ---: | ---: | ---: | --- |\n| Step to 90% (Control Studio) | 38.00 °C | 0.0019 °C | 0.0021 °C | passes |\n| Step to 65% (Control Studio) | 33.00 °C | 0.0013 °C | 0.0014 °C | passes |\n| 30 kW extra loss (by hand) | 32.00 °C | 0.0014 °C | 0.0015 °C | passes |\n\n1. The three records ended at the predicted 38.00, 33.00 and 32.00 °C.\n2. Both steps stayed far inside the limits: the largest residual was 0.0021 °C against 0.2 °C, and the RMSE 0.0019 °C against 0.1 °C.\n3. No. Control Studio refused the heat-loss record because it has no command step. Scored by hand over the 40 s after the loss started, its mean residual was −0.0013 °C and its RMSE 0.0014 °C.\n4. Each record's residuals kept one sign: on the heat-loss record they were all slightly negative, because the fitted gain, 0.1999, is 0.05% below the heater's 0.2, so the model predicts a slightly smaller drop. The error is real but tiny.\n\nThe model is accepted for designing the controller near this operating point. The errors are this small because this simulated heater follows the same energy balance as the model; on real equipment, noise and model error make them larger. These are simulation results.",
+    "validation": "![The frozen model predicts three new records within a few thousandths of a degree](figures/validation-records.svg)\n\nThe numbered marks answer the predictions with the same numbers.\n\n| Record | Final temperature | RMSE | Largest residual | Result |\n| --- | ---: | ---: | ---: | --- |\n| Step to 90% (Control Studio) | 38.00 °C | 0.0019 °C | 0.0021 °C | passes |\n| Step to 65% (Control Studio) | 33.00 °C | 0.0013 °C | 0.0014 °C | passes |\n| 30 kW extra loss (by hand) | 32.00 °C | 0.0014 °C | 0.0015 °C | passes |\n\n1. The three records ended at the predicted 38.00, 33.00 and 32.00 °C.\n2. Both steps stayed far inside the limits: the largest residual was 0.0021 °C against 0.2 °C, and the RMSE 0.0019 °C against 0.1 °C.\n3. No. Control Studio refused the heat-loss record because it has no command step. Scored by hand over the 40 s after the loss started, its mean residual was −0.0013 °C and its RMSE 0.0014 °C.\n4. Each record's residuals kept one sign: on the heat-loss record they were all slightly negative, because the fitted gain, 0.1999, is 0.05% below the heater's 0.2, so the model predicts a slightly smaller drop. The error is real but tiny.\n\nThe model is accepted for designing the controller near this operating point. The errors are this small because this simulated heater follows the same energy balance as the model; on real equipment, noise and model error make them larger. These are simulation results.",
+    "explanation": "Model validation keeps the model unchanged and scores it on new records with requirements set in advance. The RMSE measures the size of the errors, the mean residual shows whether they lean to one side, and records with different commands and disturbances test different parts of the model.\n\nFor this heater, the model frozen from one step predicted two new steps and an extra heat loss to within 0.002 °C, so it can be used for design."
+  },
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Measured temperature",
+        "minimum": 31,
+        "maximum": 39,
+        "unit": "degC"
+      },
+      {
+        "signal": "Applied heating command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Required measurements or timestamps are invalid, stale or nonfinite",
+      "Temperature leaves0–80 °C or applied command leaves0–100%"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Normal completion disables the experiment and restores 75% heating with zero extraction. Abort sets SafetyAbort and commands zero heating/extraction. Keep stopped until valid measurements and the full35°C/75% hot reset are restored.",
+    "physicalApprovalRole": "authorised controls engineer",
+    "simulationOnlyRestrictions": [
+      "The result is simulation evidence for this lesson model."
+    ]
+  },
+  "video": {
+    "viewerOutcome": "Assess timing, response shape and final value on independent command and disturbance records. Decide whether the model supports the intended design decision.",
+    "requiredVisibleEvidence": [
+      "Heater model and initial state",
+      "Applied command and temperature record",
+      "Required Control Studio analysis",
+      "Declared uncertainty and decision",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

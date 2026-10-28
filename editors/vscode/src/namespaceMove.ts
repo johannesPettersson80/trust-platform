@@ -5,6 +5,13 @@ import {
   LanguageClient,
 } from "vscode-languageclient/node";
 
+import { projectRequest } from "./projectRequest";
+
+// Move Structured Text Namespace (specification 25 §1.1). The language server decides whether a line is a namespace
+// line, which name the move starts from, whether a new namespace path can be taken and which file it moves to by
+// default (`trust-lsp.namespaceTarget`), offers the quick fix, and computes the move (`trust-lsp.moveNamespace`). This
+// module prompts, creates and cleans up the target file, applies the server's edit and keeps the menu's context key.
+
 type PositionLike = vscode.Position | { line: number; character: number };
 
 type MoveNamespaceArgs = {
@@ -47,9 +54,17 @@ type LspWorkspaceEdit = {
   document_changes?: Array<LspTextDocumentEdit | LspResourceOperation>;
 };
 
+/** What `trust-lsp.namespaceTarget` answers for the cursor's line. */
+type NamespaceContext = { onNamespaceLine: boolean; namePosition?: LspPosition | null };
+/** What `trust-lsp.namespaceTarget` answers for a new namespace path. */
+type NamespacePath = { problem?: string | null; path?: string | null; target?: string | null };
+
 const NAMESPACE_CONTEXT_KEY = "trust-lsp.namespaceContext";
 const MOVE_NAMESPACE_UI_COMMAND = "trust-lsp.moveNamespace.ui";
+const NAMESPACE_TARGET_COMMAND = "trust-lsp.namespaceTarget";
 const LAST_TARGET_KEY = "trust-lsp.lastNamespaceMoveTarget";
+/** The context key follows the cursor after it rests this long, so a fast selection asks the server once. */
+const CONTEXT_DELAY_MS = 75;
 
 function asUri(value?: vscode.Uri | string): vscode.Uri | undefined {
   if (!value) {
@@ -90,107 +105,65 @@ function isStructuredTextEditor(editor?: vscode.TextEditor): editor is vscode.Te
   return !!editor && editor.document.languageId === "structured-text";
 }
 
-function isNamespaceOrUsingLine(lineText: string): boolean {
-  const trimmed = lineText.trimStart();
-  if (!trimmed) {
-    return false;
-  }
-  const upper = trimmed.toUpperCase();
-  return (
-    upper === "NAMESPACE" ||
-    upper.startsWith("NAMESPACE ") ||
-    upper === "USING" ||
-    upper.startsWith("USING ")
+/** The server's answer for the line at `position` of `uri`; a server that is not running says it is no namespace line. */
+async function namespaceContext(
+  uri: vscode.Uri,
+  position: vscode.Position,
+  wait: boolean
+): Promise<NamespaceContext> {
+  const answer = await projectRequest<NamespaceContext>(
+    NAMESPACE_TARGET_COMMAND,
+    {
+      action: "context",
+      textDocument: { uri: uri.toString() },
+      position: { line: position.line, character: position.character },
+    },
+    { wait }
   );
+  return answer.ok ? answer : { onNamespaceLine: false };
 }
 
-function namespaceTargetFromLine(
-  lineText: string,
-  cursorChar: number
-): number | undefined {
-  const trimmed = lineText.trimStart();
-  if (!trimmed) {
-    return undefined;
-  }
-  const upper = trimmed.toUpperCase();
-  let keyword: string | undefined;
-  if (upper.startsWith("NAMESPACE")) {
-    keyword = "NAMESPACE";
-  } else if (upper.startsWith("USING")) {
-    keyword = "USING";
-  }
-  if (!keyword) {
-    return undefined;
-  }
-  const indent = lineText.length - trimmed.length;
-  let offset = indent + keyword.length;
-  let rest = trimmed.slice(keyword.length);
-  const wsMatch = rest.match(/^\s+/);
-  if (!wsMatch) {
-    return undefined;
-  }
-  offset += wsMatch[0].length;
-  rest = rest.slice(wsMatch[0].length);
+let contextTimer: ReturnType<typeof setTimeout> | undefined;
+let contextGeneration = 0;
 
-  const nameRegex =
-    /[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*/g;
-  let fallback: number | undefined;
-  let match: RegExpExecArray | null;
-  while ((match = nameRegex.exec(rest))) {
-    const start = offset + match.index;
-    const end = start + match[0].length;
-    if (fallback === undefined) {
-      fallback = start;
-    }
-    if (cursorChar >= start && cursorChar <= end) {
-      return start;
-    }
+async function updateNamespaceContext(editor: vscode.TextEditor | undefined): Promise<void> {
+  const generation = ++contextGeneration;
+  const onNamespaceLine = isStructuredTextEditor(editor)
+    ? (await namespaceContext(editor.document.uri, editor.selection.active, false)).onNamespaceLine
+    : false;
+  if (generation === contextGeneration) {
+    await vscode.commands.executeCommand("setContext", NAMESPACE_CONTEXT_KEY, onNamespaceLine);
   }
-  return fallback;
 }
 
-async function updateNamespaceContext(
-  editor: vscode.TextEditor | undefined
-): Promise<void> {
-  if (!isStructuredTextEditor(editor)) {
-    await vscode.commands.executeCommand("setContext", NAMESPACE_CONTEXT_KEY, false);
-    return;
+function scheduleNamespaceContext(editor: vscode.TextEditor | undefined): void {
+  if (contextTimer) {
+    clearTimeout(contextTimer);
   }
-  const lineText = editor.document.lineAt(editor.selection.active.line).text;
-  const isMatch = isNamespaceOrUsingLine(lineText);
-  await vscode.commands.executeCommand("setContext", NAMESPACE_CONTEXT_KEY, isMatch);
+  contextTimer = setTimeout(() => {
+    contextTimer = undefined;
+    void updateNamespaceContext(editor);
+  }, CONTEXT_DELAY_MS);
 }
 
-function defaultTargetUri(newPath: string): vscode.Uri | undefined {
-  const root = vscode.workspace.workspaceFolders?.[0];
-  if (!root) {
-    return undefined;
-  }
-  const parts = newPath.split(".").filter((part) => part.length > 0);
-  if (parts.length === 0) {
-    return undefined;
-  }
-  let uri = root.uri;
-  for (let idx = 0; idx < parts.length - 1; idx += 1) {
-    uri = vscode.Uri.joinPath(uri, parts[idx]);
-  }
-  const fileName = `${parts[parts.length - 1]}.st`;
-  return vscode.Uri.joinPath(uri, fileName);
+/** The server's check of a new namespace path, and the file it moves to by default. */
+async function checkNamespacePath(
+  newPath: string
+): Promise<{ ok: true; answer: NamespacePath } | { ok: false; error: string }> {
+  const answer = await projectRequest<NamespacePath>(NAMESPACE_TARGET_COMMAND, {
+    action: "path",
+    newPath,
+  });
+  return answer.ok ? { ok: true, answer } : { ok: false, error: answer.error };
 }
 
 async function promptForNewPath(): Promise<string | undefined> {
   return vscode.window.showInputBox({
     prompt: "Enter the new namespace path",
     placeHolder: "Company.Library.Namespace",
-    validateInput(value) {
-      const trimmed = value.trim();
-      if (!trimmed) {
-        return "Namespace path is required.";
-      }
-      if (trimmed.startsWith(".") || trimmed.endsWith(".") || trimmed.includes("..")) {
-        return "Namespace path must use dot-separated identifiers.";
-      }
-      return undefined;
+    async validateInput(value) {
+      const checked = await checkNamespacePath(value);
+      return checked.ok ? checked.answer.problem ?? undefined : checked.error;
     },
   });
 }
@@ -201,10 +174,9 @@ type TargetChoice = vscode.QuickPickItem & {
 };
 
 async function promptForTarget(
-  newPath: string,
+  suggested: vscode.Uri | undefined,
   lastTarget?: vscode.Uri
 ): Promise<vscode.Uri | undefined> {
-  const suggested = defaultTargetUri(newPath);
   const choices: TargetChoice[] = [
     {
       label: "Use default mapping",
@@ -383,29 +355,45 @@ export function registerNamespaceMoveCommand(
           return false;
         }
 
-        const position =
-          asPosition(args?.position) ?? editor?.selection.active;
+        // A position the caller names is taken as it is; the cursor starts the move from the name the server finds
+        // on its namespace line, else from where it stands.
+        let position = asPosition(args?.position);
         if (!position) {
+          const cursor = editor?.selection.active;
+          if (!cursor) {
+            vscode.window.showErrorMessage(
+              "Move namespace requires a cursor position in a namespace."
+            );
+            return false;
+          }
+          const found = (await namespaceContext(uri, cursor, true)).namePosition;
+          position = found ? new vscode.Position(found.line, found.character) : cursor;
+        }
+
+        const requestedPath = args?.newPath ?? args?.new_path ?? (await promptForNewPath());
+        if (!requestedPath) {
+          return false;
+        }
+        const checked = await checkNamespacePath(requestedPath);
+        if (!checked.ok) {
+          vscode.window.showErrorMessage(checked.error);
+          return false;
+        }
+        if (checked.answer.problem || !checked.answer.path) {
           vscode.window.showErrorMessage(
-            "Move namespace requires a cursor position in a namespace."
+            checked.answer.problem ?? "Namespace path must use dot-separated identifiers."
           );
           return false;
         }
-
-        let newPath = args?.newPath ?? args?.new_path;
-        if (!newPath) {
-          newPath = await promptForNewPath();
-        }
-        if (!newPath) {
-          return false;
-        }
+        const newPath = checked.answer.path;
 
         let targetUri =
           asUri(args?.targetUri) ?? asUri(args?.target_uri ?? undefined);
         if (!args?.targetUri && !args?.target_uri) {
           const lastTarget = context.globalState.get<string>(LAST_TARGET_KEY);
           const lastTargetUri = lastTarget ? asUri(lastTarget) : undefined;
-          const target = await promptForTarget(newPath, lastTargetUri);
+          const suggested = checked.answer.target ? asUri(checked.answer.target) : undefined;
+          const target = await promptForTarget(suggested, lastTargetUri);
           if (!target) {
             return false;
           }
@@ -462,67 +450,23 @@ export function registerNamespaceMoveCommand(
   );
 }
 
+/** Keeps the editor menu's `trust-lsp.namespaceContext` key on the server's answer for the cursor's line. */
 export function registerNamespaceMoveContext(
   context: vscode.ExtensionContext
 ): void {
-  const updateForEditor = (editor: vscode.TextEditor | undefined) => {
-    void updateNamespaceContext(editor);
-  };
   context.subscriptions.push(
-    vscode.window.onDidChangeActiveTextEditor(updateForEditor),
+    vscode.window.onDidChangeActiveTextEditor(scheduleNamespaceContext),
     vscode.window.onDidChangeTextEditorSelection((event) =>
-      updateForEditor(event.textEditor)
-    )
+      scheduleNamespaceContext(event.textEditor)
+    ),
+    {
+      dispose: () => {
+        if (contextTimer) {
+          clearTimeout(contextTimer);
+          contextTimer = undefined;
+        }
+      },
+    }
   );
-  updateForEditor(vscode.window.activeTextEditor);
-}
-
-export function registerNamespaceMoveCodeActions(
-  context: vscode.ExtensionContext
-): void {
-  const provider: vscode.CodeActionProvider = {
-    provideCodeActions(document, range) {
-      if (document.languageId !== "structured-text") {
-        return undefined;
-      }
-      const line = document.lineAt(range.start.line);
-      if (!isNamespaceOrUsingLine(line.text)) {
-        return undefined;
-      }
-      const targetChar = namespaceTargetFromLine(
-        line.text,
-        range.start.character
-      );
-      if (targetChar === undefined) {
-        return undefined;
-      }
-      const action = new vscode.CodeAction(
-        "Move Structured Text Namespace",
-        vscode.CodeActionKind.QuickFix
-      );
-      action.command = {
-        command: MOVE_NAMESPACE_UI_COMMAND,
-        title: "Move Structured Text Namespace",
-        arguments: [
-          {
-            uri: document.uri,
-            position: {
-              line: range.start.line,
-              character: targetChar,
-            },
-          },
-        ],
-      };
-      return [action];
-    },
-  };
-  const selector: vscode.DocumentSelector = {
-    language: "structured-text",
-    scheme: "file",
-  };
-  context.subscriptions.push(
-    vscode.languages.registerCodeActionsProvider(selector, provider, {
-      providedCodeActionKinds: [vscode.CodeActionKind.QuickFix],
-    })
-  );
+  scheduleNamespaceContext(vscode.window.activeTextEditor);
 }

@@ -317,7 +317,7 @@ export const BlocklyEditor: React.FC = () => {
     }
     const json = Blockly.serialization.workspaces.save(blocklyWorkspace);
     saveWorkspace({
-      blocks: json as any,
+      blocks: json.blocks || {},
       variables: blocklyWorkspace.getAllVariables().map((variable) => ({
         id: variable.getId(),
         name: variable.name,

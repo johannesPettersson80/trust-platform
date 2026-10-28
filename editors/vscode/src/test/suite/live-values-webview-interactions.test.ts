@@ -31,6 +31,52 @@ function extensionRoot(): string {
   return path.resolve(__dirname, "..", "..", "..");
 }
 
+/** One row state's operations as the language server answers them (run_targets/live_values.rs, `rows`). */
+function operations(
+  write: boolean,
+  force: boolean,
+  release: boolean,
+  reasons: { write?: string; force?: string; release?: string } = {},
+): Record<string, unknown> {
+  return {
+    write,
+    force,
+    release,
+    writeReason: write ? null : (reasons.write ?? null),
+    forceReason: force ? null : (reasons.force ?? null),
+    releaseReason: release ? null : (reasons.release ?? null),
+  };
+}
+
+/** The Simulator's status as the language server answers it: its session may do everything, an input is written,
+ * forced and released, an output and a memory location are forced but never written (specification 25 §4.1, §4.2). */
+function simulatorSection(writable: boolean): Record<string, unknown> {
+  const sectionReason = writable ? undefined : "Program-driven — use Force to override";
+  const readOnly = "Read-only ADS tag. Enable writes when adding the tag, then restart the runtime.";
+  return {
+    live: operations(writable, true, false, { write: sectionReason }),
+    forced: operations(false, false, true, {
+      write: "Release force before writing this value.",
+      force: "Force is not available for this value.",
+    }),
+    readOnly: operations(false, false, false, { write: sectionReason ?? readOnly, force: readOnly }),
+  };
+}
+
+const SIMULATOR_STATUS = {
+  running: true,
+  runtimeMode: "simulate",
+  runtimeState: "running",
+  access: { role: "admin", allowWrite: true, allowForce: true, allowRelease: true, reason: null },
+  rows: {
+    inputs: simulatorSection(true),
+    outputs: simulatorSection(false),
+    memory: simulatorSection(false),
+    ads: simulatorSection(true),
+  },
+  forceRequiresArm: false,
+};
+
 function createHarness(): LiveValuesHarness {
   const dom = new JSDOM(
     `<!doctype html><html><body>
@@ -51,6 +97,10 @@ function createHarness(): LiveValuesHarness {
     "utf8",
   );
   dom.window.eval(source);
+  // The panel's first status, as the extension sends it when the panel opens.
+  dom.window.dispatchEvent(
+    new dom.window.MessageEvent("message", { data: { type: "runtimeStatus", payload: SIMULATOR_STATUS } }),
+  );
 
   return {
     window: dom.window,
@@ -232,6 +282,46 @@ suite("Live Values rendered interactions", function () {
       const rendered = harness.document.querySelector("button.bool-toggle");
       assert.strictEqual(rendered?.textContent, "TRUE");
       assert.strictEqual(rendered?.getAttribute("aria-pressed"), "true");
+    } finally {
+      harness.close();
+    }
+  });
+
+  test("a numeric row's write box starts empty, with no cut-off hint", () => {
+    // Acceptance finding F6: a REAL filled the 46-pixel write box with "1.5116941978474925", cut off, and in the re-run its
+    // dim hint was cut off the same way. As the prepared value of a CODESYS or TwinCAT watch list, the box starts empty;
+    // the current value stays in the Value column (specification 25, section 4.3).
+    const harness = createHarness();
+    try {
+      harness.window.dispatchEvent(
+        new harness.window.MessageEvent("message", {
+          data: {
+            type: "ioState",
+            payload: {
+              scan: 1,
+              inputs: [{ name: "Tank.Level", address: "%IL0", value: "LREAL(1.5116941978474925)", writable: true }],
+              outputs: [],
+              memory: [],
+              ads: [],
+            },
+          },
+        }),
+      );
+      const box = harness.document.querySelector("input.value-input");
+      assert.ok(box, "the row has a write box");
+      assert.strictEqual(box.value, "");
+      assert.strictEqual(box.placeholder, "", "the value is not repeated, cut off, inside the box");
+      assert.strictEqual(harness.document.querySelector(".row .value")?.textContent, "1.5116941978474925");
+      actionButton(harness.document, "Write").click();
+      assert.ok(!harness.posted.some((message) => message.type === "writeInput"), "an empty box writes nothing");
+      box.value = "2.5";
+      box.dispatchEvent(new harness.window.Event("input", { bubbles: true }));
+      actionButton(harness.document, "Write").click();
+      // The webview's objects come from its own window, so they are compared by value.
+      assert.deepStrictEqual(
+        JSON.parse(JSON.stringify(harness.posted.filter((message) => message.type === "writeInput"))),
+        [{ type: "writeInput", address: "%IL0", value: "2.5" }],
+      );
     } finally {
       harness.close();
     }

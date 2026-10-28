@@ -1,0 +1,21 @@
+format = 1
+title = "Turning parts on a placed panel"
+hidden = true
+
+[[object]]
+id = "heading"
+type = "text"
+variant = "heading"
+at = [64, 48]
+size = [900, 48]
+text = "Turning parts on a placed panel"
+
+# The panel's 320 × 200 plus its 44 px header, at twice its size (§8.9).
+[[object]]
+id = "pump-panel"
+tag = "P-101"
+type = "faceplate"
+faceplate = "turning-panel"
+instance = "Main.P101"
+at = [64, 128]
+size = [640, 488]

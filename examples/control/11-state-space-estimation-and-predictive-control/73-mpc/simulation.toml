@@ -1,0 +1,44 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2400
+plant_step_ms = 100
+
+# Two of Lesson 13's heaters, 50·dT/dt = 2·u(t − 1 s) − 10·(T − 20) − D, T in °C, u the command in points delivered
+# one second late, D an extra extraction in kW. Both rest at 28 °C with 40 points. They share one supply: the program
+# keeps u1 + u2 ≤ 100 points.
+[[plants]]
+id = "heater-1"
+model = "state_space"
+command_sources = ["%QL0", "%QL8"]
+feedback_targets = ["%IL0"]
+initial_state = [8.0]
+initial_input = [40.0, 0.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 40.0 }, {}]
+
+[plants.parameters]
+a = [[-0.2]]
+b = [[0.04, -0.02]]
+c = [[1.0]]
+d = [[0.0, 0.0]]
+input_delays_s = [1.0, 0.0]
+
+[[plants]]
+id = "heater-2"
+model = "state_space"
+command_sources = ["%QL16", "%QL24"]
+feedback_targets = ["%IL8"]
+initial_state = [8.0]
+initial_input = [40.0, 0.0]
+output_offset = [20.0]
+actuators = [{ minimum = 0.0, maximum = 100.0, initial_applied = 40.0 }, {}]
+
+[plants.parameters]
+a = [[-0.2]]
+b = [[0.04, -0.02]]
+c = [[1.0]]
+d = [[0.0, 0.0]]
+input_delays_s = [1.0, 0.0]

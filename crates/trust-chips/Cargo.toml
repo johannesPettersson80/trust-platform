@@ -1,0 +1,18 @@
+[package]
+name = "trust-chips"
+description = "The chip description files of truST: their format, their checks and the catalog of supported chips"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+# A host crate for the tools (trust-runtime, xtask). The platform adapters take it as a
+# dev-dependency only, so no firmware build ever resolves it.
+[dependencies]
+serde.workspace = true
+thiserror = { workspace = true, features = ["std"] }
+toml.workspace = true
+
+[lints]
+workspace = true

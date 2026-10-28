@@ -1,0 +1,57 @@
+[simulation]
+enabled = true
+seed = 20260829
+time_scale = 1
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 3000
+plant_step_ms = 20
+
+# The heater of Lessons 18–22: water balance with a one-second delivered-power delay.
+[[plants]]
+id = "heater"
+model = "state_space"
+command_sources = ["%QL0", "%QL8"]
+feedback_targets = ["%IL0", "%IL8"]
+initial_state = [0.0]
+initial_input = [0.0, 0.0]
+input_offset = [-75.0, 0.0]
+output_offset = [35.0, 35.0]
+
+[plants.parameters]
+a = [[-0.2]]
+b = [[0.04, -0.02]]
+c = [[1.0], [1.0]]
+d = [[0.0, 0.0], [0.0, 0.0]]
+input_delays_s = [1.0, 0.0]
+
+[[plants.uncertainties]]
+id = "temperature-noise"
+target = "measurement"
+channel = 1
+mode = "add"
+generator = "uniform_white"
+minimum = -0.02
+maximum = 0.02
+
+# The drum axis of Lessons 34–37: J·dω/dt = u − τL − B·ω, dθ/dt = ω with J = 1 kg·m² and B = 1 N·m·s/rad.
+[[plants]]
+id = "drum-axis"
+model = "state_space"
+command_sources = ["%QL16", "%QL24"]
+feedback_targets = ["%IL16", "%IL24"]
+initial_state = [0.0, 0.0]
+
+[plants.parameters]
+a = [[0.0, 1.0], [0.0, -1.0]]
+b = [[0.0, 0.0], [1.0, -1.0]]
+c = [[1.0, 0.0], [0.0, 1.0]]
+d = [[0.0, 0.0], [0.0, 0.0]]
+
+[[plants.uncertainties]]
+id = "angle-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "uniform_white"
+minimum = -0.001
+maximum = 0.001

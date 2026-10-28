@@ -1,3 +1,5 @@
+use trust_runtime::stdlib::conversions::{ConversionProfile, VENDOR_PROFILES};
+
 use super::{ConfigFile, IndexingConfig, StdlibSelection};
 
 pub(crate) struct ConfigurationIssue {
@@ -19,6 +21,21 @@ pub(crate) fn configuration_issues(contents: &str) -> Vec<ConfigurationIssue> {
     };
 
     let mut issues = Vec::new();
+    if let Some(profile) = parsed.project.vendor_profile.as_deref() {
+        // The runtime, the ST test runner and trust-harness select the conversion rules from
+        // it and refuse a name they do not know (docs/specs/07-standard-functions.md 2.10).
+        if !profile.trim().is_empty() && ConversionProfile::from_vendor_profile(profile).is_none() {
+            issues.push(issue(
+                "C006",
+                profile,
+                format!(
+                    "unknown vendor_profile '{profile}' (supported: {}); trust-runtime, trust-dev \
+                     and trust-harness refuse to run the project with it",
+                    VENDOR_PROFILES.join(", ")
+                ),
+            ));
+        }
+    }
     if let StdlibSelection::Profile(profile) = &parsed.project.stdlib {
         let normalized = profile.trim().to_ascii_lowercase();
         if !matches!(normalized.as_str(), "full" | "iec" | "none") {

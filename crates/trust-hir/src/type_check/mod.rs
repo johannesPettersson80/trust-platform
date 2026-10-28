@@ -9,8 +9,8 @@ use text_size::TextRange;
 use crate::diagnostics::{DiagnosticBuilder, DiagnosticCode};
 use crate::semantic::{SemanticOutcome, LEGACY_UNKNOWN_TYPE_ID};
 use crate::symbols::{
-    EnumValueResolution, ParamDirection, ScopeId, ScopeKind, SymbolId, SymbolKind, SymbolTable,
-    UsingResolution, VarQualifier, Visibility,
+    ParamDirection, ScopeId, ScopeKind, SymbolId, SymbolKind, SymbolTable, UsingResolution,
+    VarQualifier, Visibility,
 };
 use crate::types::{Type, TypeId};
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
@@ -68,6 +68,7 @@ pub struct TypeChecker<'a> {
     loop_stack: Vec<LoopContext>,
     label_scopes: Vec<LabelScope>,
     expression_types: FxHashMap<(u32, u32), TypeId>,
+    resolved_symbols: FxHashMap<(u32, u32), SymbolId>,
 }
 
 pub(crate) struct ExprChecker<'a, 'b> {
@@ -136,6 +137,19 @@ impl<'a> TypeChecker<'a> {
 
     pub(crate) fn take_expression_types(&mut self) -> FxHashMap<(u32, u32), TypeId> {
         std::mem::take(&mut self.expression_types)
+    }
+
+    pub(crate) fn take_resolved_symbols(&mut self) -> FxHashMap<(u32, u32), SymbolId> {
+        std::mem::take(&mut self.resolved_symbols)
+    }
+
+    /// Records the symbol `node` resolved to: a name, a member, a call's callee or, for a call
+    /// node, the POU whose parameters the call binds. The compiled-program generator reads these
+    /// instead of resolving names again (specification 44 §3).
+    fn record_resolved_symbol(&mut self, node: &SyntaxNode, symbol: SymbolId) {
+        let range = node.text_range();
+        self.resolved_symbols
+            .insert((u32::from(range.start()), u32::from(range.end())), symbol);
     }
 
     fn record_expression_type(&mut self, node: &SyntaxNode, type_id: TypeId) -> TypeId {

@@ -2,9 +2,12 @@
 //!
 //! This is the main entry point for the ST language server.
 
+mod check;
+mod command_line;
 mod config;
 mod external_diagnostics;
 mod handlers;
+mod hmi_agent_mcp;
 mod index_cache;
 mod library_docs;
 mod library_graph;
@@ -27,9 +30,11 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 use tracing::info;
 
-use crate::handlers::{
-    HMI_BINDINGS_COMMAND, HMI_INIT_COMMAND, MOVE_NAMESPACE_COMMAND, PROJECT_INFO_COMMAND,
-};
+use crate::handlers::HMI_BUILDER_COMMANDS;
+use crate::handlers::PROJECT_COMMANDS;
+use crate::handlers::RUN_TARGET_COMMANDS;
+use crate::handlers::VISUAL_COMMANDS;
+use crate::handlers::{DEVICES_COMMANDS, EXECUTE_COMMANDS};
 use crate::state::ServerState;
 use crate::telemetry::TelemetryEvent;
 
@@ -133,12 +138,16 @@ impl LanguageServer for StLanguageServer {
                 }),
 
                 execute_command_provider: Some(ExecuteCommandOptions {
-                    commands: vec![
-                        MOVE_NAMESPACE_COMMAND.to_string(),
-                        PROJECT_INFO_COMMAND.to_string(),
-                        HMI_INIT_COMMAND.to_string(),
-                        HMI_BINDINGS_COMMAND.to_string(),
-                    ],
+                    commands: EXECUTE_COMMANDS
+                        .iter()
+                        .copied()
+                        .chain(DEVICES_COMMANDS)
+                        .chain(VISUAL_COMMANDS)
+                        .chain(PROJECT_COMMANDS)
+                        .chain(RUN_TARGET_COMMANDS)
+                        .chain(HMI_BUILDER_COMMANDS)
+                        .map(str::to_owned)
+                        .collect(),
                     ..Default::default()
                 }),
 
@@ -615,7 +624,27 @@ impl LanguageServer for StLanguageServer {
     }
 
     async fn execute_command(&self, params: ExecuteCommandParams) -> Result<Option<Value>> {
-        Ok(handlers::execute_command(&self.client, &self.state, params).await)
+        // The namespace move applies its edit through the client, and the Devices & Connections
+        // commands hand their work to their own blocking thread (design §1.5).
+        if params.command == "trust-lsp.moveNamespace"
+            || DEVICES_COMMANDS.contains(&params.command.as_str())
+        {
+            return Ok(handlers::execute_command(&self.client, &self.state, params).await);
+        }
+        let state = Arc::clone(&self.state);
+        tokio::task::spawn_blocking(move || {
+            let _trace = trust_hir::timing::CompilerStage::new("lsp.command", 1);
+            if trust_hir::timing::enabled() {
+                tracing::info!(target: "trust::compiler_timing", event = "request", command = %params.command);
+            }
+            handlers::execute_read_command(&state, params)
+        })
+            .await
+            .map_err(|error| tower_lsp::jsonrpc::Error {
+                code: tower_lsp::jsonrpc::ErrorCode::InternalError,
+                message: format!("Command worker failed: {error}").into(),
+                data: None,
+            })
     }
 
     async fn code_lens(&self, params: CodeLensParams) -> Result<Option<Vec<CodeLens>>> {
@@ -796,14 +825,38 @@ impl LanguageServer for StLanguageServer {
 
 #[tokio::main]
 async fn main() {
-    // Initialize logging
+    let args: Vec<String> = std::env::args().collect();
+    let command_line_check = args.get(1).map(String::as_str) == Some("check");
+    let command_line_command = args.get(1).map(String::as_str) == Some("command");
+    let command_line_run = command_line_check || command_line_command;
+    // Initialize logging (command-line runs only report problems)
+    let level = if command_line_run {
+        tracing::Level::WARN
+    } else {
+        tracing::Level::INFO
+    };
+    let mut filter = tracing_subscriber::EnvFilter::from_default_env().add_directive(level.into());
+    if command_line_run {
+        // a command-line run's client has no peer: its log/progress notifications are dropped on purpose
+        if let Ok(directive) = "tower_lsp::service::client=off".parse() {
+            filter = filter.add_directive(directive);
+        }
+    }
     tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(tracing::Level::INFO.into()),
-        )
+        .with_env_filter(filter)
         .with_writer(std::io::stderr)
         .init();
+
+    if command_line_check {
+        std::process::exit(check::run(&args[2..]).await);
+    }
+    if command_line_command {
+        std::process::exit(command_line::run(&args[2..]).await);
+    }
+    // The HMI authoring tools, served to an agent over MCP (specification 43, §3.1).
+    if args.get(1).map(String::as_str) == Some("hmi-agent") {
+        std::process::exit(hmi_agent_mcp::run(&args[2..]));
+    }
 
     info!("Starting ST Language Server");
 

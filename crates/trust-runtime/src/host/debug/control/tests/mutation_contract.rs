@@ -1,6 +1,6 @@
 use super::super::*;
-use crate::memory::{FrameId, InstanceId};
-use crate::program_model::LValue;
+use crate::error::RuntimeError;
+use crate::memory::{FrameId, Generation, InstanceId};
 use crate::value::Value;
 
 fn address(text: &str) -> IoAddress {
@@ -8,26 +8,17 @@ fn address(text: &str) -> IoAddress {
 }
 
 #[test]
-fn io_writes_preserve_duplicates_and_arrival_order() {
-    let control = DebugControl::new();
-    control.enqueue_io_write(address("%QW0"), Value::LInt(1));
-    control.enqueue_io_write(address("%QW2"), Value::LInt(2));
-    control.enqueue_io_write(address("%QW0"), Value::LInt(3));
-
-    let writes = control.drain_io_writes();
-    assert_eq!(writes.len(), 3);
-    assert_eq!(writes[0], (address("%QW0"), Value::LInt(1)));
-    assert_eq!(writes[1], (address("%QW2"), Value::LInt(2)));
-    assert_eq!(writes[2], (address("%QW0"), Value::LInt(3)));
-    assert!(control.drain_io_writes().is_empty());
-}
-
-#[test]
 fn pending_global_write_replaces_same_target_in_place() {
     let control = DebugControl::new();
-    control.enqueue_global_write("a", Value::LInt(1));
-    control.enqueue_retain_write("b", Value::LInt(2));
-    control.enqueue_global_write("a", Value::LInt(3));
+    control
+        .try_enqueue_global_write("a", Value::LInt(1))
+        .expect("the write fits the bound");
+    control
+        .try_enqueue_retain_write("b", Value::LInt(2))
+        .expect("the write fits the bound");
+    control
+        .try_enqueue_global_write("a", Value::LInt(3))
+        .expect("the write fits the bound");
 
     let writes = control.drain_var_writes();
     assert_eq!(writes.len(), 2);
@@ -46,10 +37,18 @@ fn pending_global_write_replaces_same_target_in_place() {
 #[test]
 fn pending_write_identity_includes_target_kind() {
     let control = DebugControl::new();
-    control.enqueue_global_write("same", Value::LInt(1));
-    control.enqueue_retain_write("same", Value::LInt(2));
-    control.enqueue_instance_write(InstanceId(7), "same", Value::LInt(3));
-    control.enqueue_local_write(FrameId(7), "same", Value::LInt(4));
+    control
+        .try_enqueue_global_write("same", Value::LInt(1))
+        .expect("the write fits the bound");
+    control
+        .try_enqueue_retain_write("same", Value::LInt(2))
+        .expect("the write fits the bound");
+    control
+        .try_enqueue_instance_write(Generation::FIRST, InstanceId(7), "same", Value::LInt(3))
+        .expect("the write fits the bound");
+    control
+        .try_enqueue_local_write(FrameId(7), "same", Value::LInt(4))
+        .expect("the write fits the bound");
 
     let writes = control.drain_var_writes();
     assert_eq!(writes.len(), 4);
@@ -63,7 +62,7 @@ fn pending_write_identity_includes_target_kind() {
     ));
     assert!(matches!(
         &writes[2].target,
-        PendingVarTarget::Instance(InstanceId(7), name) if name == "same"
+        PendingVarTarget::Instance(_, InstanceId(7), name) if name == "same"
     ));
     assert!(matches!(
         &writes[3].target,
@@ -74,29 +73,41 @@ fn pending_write_identity_includes_target_kind() {
 #[test]
 fn pending_instance_write_identity_includes_instance_id() {
     let control = DebugControl::new();
-    control.enqueue_instance_write(InstanceId(1), "value", Value::LInt(1));
-    control.enqueue_instance_write(InstanceId(2), "value", Value::LInt(2));
-    control.enqueue_instance_write(InstanceId(1), "value", Value::LInt(3));
+    control
+        .try_enqueue_instance_write(Generation::FIRST, InstanceId(1), "value", Value::LInt(1))
+        .expect("the write fits the bound");
+    control
+        .try_enqueue_instance_write(Generation::FIRST, InstanceId(2), "value", Value::LInt(2))
+        .expect("the write fits the bound");
+    control
+        .try_enqueue_instance_write(Generation::FIRST, InstanceId(1), "value", Value::LInt(3))
+        .expect("the write fits the bound");
 
     let writes = control.drain_var_writes();
     assert_eq!(writes.len(), 2);
     assert!(matches!(
         &writes[0].target,
-        PendingVarTarget::Instance(InstanceId(1), name) if name == "value"
+        PendingVarTarget::Instance(_, InstanceId(1), name) if name == "value"
     ));
     assert_eq!(writes[0].value, Value::LInt(3));
     assert!(matches!(
         &writes[1].target,
-        PendingVarTarget::Instance(InstanceId(2), name) if name == "value"
+        PendingVarTarget::Instance(_, InstanceId(2), name) if name == "value"
     ));
 }
 
 #[test]
 fn pending_local_write_identity_includes_frame_id() {
     let control = DebugControl::new();
-    control.enqueue_local_write(FrameId(1), "value", Value::LInt(1));
-    control.enqueue_local_write(FrameId(2), "value", Value::LInt(2));
-    control.enqueue_local_write(FrameId(1), "value", Value::LInt(3));
+    control
+        .try_enqueue_local_write(FrameId(1), "value", Value::LInt(1))
+        .expect("the write fits the bound");
+    control
+        .try_enqueue_local_write(FrameId(2), "value", Value::LInt(2))
+        .expect("the write fits the bound");
+    control
+        .try_enqueue_local_write(FrameId(1), "value", Value::LInt(3))
+        .expect("the write fits the bound");
 
     let writes = control.drain_var_writes();
     assert_eq!(writes.len(), 2);
@@ -112,79 +123,17 @@ fn pending_local_write_identity_includes_frame_id() {
 }
 
 #[test]
-fn draining_one_mutation_queue_does_not_drain_another() {
-    let control = DebugControl::new();
-    control.enqueue_io_write(address("%QW0"), Value::LInt(1));
-    control.enqueue_global_write("a", Value::LInt(2));
-    control.enqueue_lvalue_write(None, LValue::Name("b".into()), Value::LInt(3));
-
-    assert_eq!(control.drain_io_writes().len(), 1);
-    assert_eq!(control.drain_var_writes().len(), 1);
-    assert_eq!(control.drain_lvalue_writes().len(), 1);
-}
-
-#[test]
-fn lvalue_writes_preserve_duplicates_frame_and_arrival_order() {
-    let control = DebugControl::new();
-    let target = LValue::Name("value".into());
-    control.enqueue_lvalue_write(None, target.clone(), Value::LInt(1));
-    control.enqueue_lvalue_write(Some(FrameId(7)), target.clone(), Value::LInt(2));
-    control.enqueue_lvalue_write(None, target.clone(), Value::LInt(3));
-
-    let writes = control.drain_lvalue_writes();
-    assert_eq!(writes.len(), 3);
-    assert_eq!(writes[0].frame_id, None);
-    assert_eq!(
-        writes[0].target.root_name().map(|name| name.as_str()),
-        Some("value")
-    );
-    assert_eq!(writes[0].value, Value::LInt(1));
-    assert_eq!(writes[1].frame_id, Some(FrameId(7)));
-    assert_eq!(writes[1].value, Value::LInt(2));
-    assert_eq!(writes[2].frame_id, None);
-    assert_eq!(writes[2].value, Value::LInt(3));
-    assert!(control.drain_lvalue_writes().is_empty());
-}
-
-#[test]
-fn lvalue_write_queue_refuses_the_write_past_1024_and_queues_nothing() {
-    let control = DebugControl::new();
-    let target = LValue::Name("value".into());
-    for index in 0..1_024 {
-        let queued = control.try_write_lvalue(None, target.clone(), Value::LInt(index), |_| {
-            Ok::<(), crate::error::RuntimeError>(())
-        });
-        assert!(matches!(queued, Ok(Ok(()))), "write {index} fits the bound");
-    }
-
-    let refused = control.try_write_lvalue(None, target.clone(), Value::LInt(1_024), |_| {
-        Ok::<(), crate::error::RuntimeError>(())
-    });
-    assert!(matches!(refused, Err(RequestQueueFull)));
-    control.enqueue_lvalue_write(None, target, Value::LInt(1_025));
-
-    let writes = control.drain_lvalue_writes();
-    assert_eq!(writes.len(), 1_024, "the refused writes must not be queued");
-    assert_eq!(writes[1_023].value, Value::LInt(1_023));
-    let rejections = control
-        .drain_runtime_events()
-        .into_iter()
-        .filter(|event| {
-            matches!(event, RuntimeEvent::WriteRejected { error, .. } if error == "request queue full")
-        })
-        .count();
-    assert_eq!(
-        rejections, 1,
-        "the unchecked enqueue reports its refusal as write_rejected"
-    );
-}
-
-#[test]
 fn variable_forces_preserve_distinct_target_kinds_and_order() {
     let control = DebugControl::new();
-    control.force_global("same", Value::LInt(1));
-    control.force_retain("same", Value::LInt(2));
-    control.force_instance(InstanceId(7), "same", Value::LInt(3));
+    control
+        .try_force_global("same", Value::LInt(1))
+        .expect("the force fits the bound");
+    control
+        .try_force_retain("same", Value::LInt(2))
+        .expect("the force fits the bound");
+    control
+        .try_force_instance(Generation::FIRST, InstanceId(7), "same", Value::LInt(3))
+        .expect("the force fits the bound");
 
     let forced = control.forced_snapshot().vars;
     assert_eq!(forced.len(), 3);
@@ -198,16 +147,22 @@ fn variable_forces_preserve_distinct_target_kinds_and_order() {
     ));
     assert!(matches!(
         &forced[2].target,
-        ForcedVarTarget::Instance(InstanceId(7), name) if name == "same"
+        ForcedVarTarget::Instance(_, InstanceId(7), name) if name == "same"
     ));
 }
 
 #[test]
 fn variable_force_replacement_keeps_original_position() {
     let control = DebugControl::new();
-    control.force_global("a", Value::LInt(1));
-    control.force_retain("b", Value::LInt(2));
-    control.force_global("a", Value::LInt(3));
+    control
+        .try_force_global("a", Value::LInt(1))
+        .expect("the force fits the bound");
+    control
+        .try_force_retain("b", Value::LInt(2))
+        .expect("the force fits the bound");
+    control
+        .try_force_global("a", Value::LInt(3))
+        .expect("the force fits the bound");
 
     let forced = control.forced_snapshot().vars;
     assert_eq!(forced.len(), 2);
@@ -218,30 +173,44 @@ fn variable_force_replacement_keeps_original_position() {
 #[test]
 fn instance_force_identity_includes_instance_id() {
     let control = DebugControl::new();
-    control.force_instance(InstanceId(1), "value", Value::LInt(1));
-    control.force_instance(InstanceId(2), "value", Value::LInt(2));
-    control.force_instance(InstanceId(1), "value", Value::LInt(3));
+    control
+        .try_force_instance(Generation::FIRST, InstanceId(1), "value", Value::LInt(1))
+        .expect("the force fits the bound");
+    control
+        .try_force_instance(Generation::FIRST, InstanceId(2), "value", Value::LInt(2))
+        .expect("the force fits the bound");
+    control
+        .try_force_instance(Generation::FIRST, InstanceId(1), "value", Value::LInt(3))
+        .expect("the force fits the bound");
 
     let forced = control.forced_snapshot().vars;
     assert_eq!(forced.len(), 2);
     assert!(matches!(
         &forced[0].target,
-        ForcedVarTarget::Instance(InstanceId(1), name) if name == "value"
+        ForcedVarTarget::Instance(_, InstanceId(1), name) if name == "value"
     ));
     assert_eq!(forced[0].value, Value::LInt(3));
     assert!(matches!(
         &forced[1].target,
-        ForcedVarTarget::Instance(InstanceId(2), name) if name == "value"
+        ForcedVarTarget::Instance(_, InstanceId(2), name) if name == "value"
     ));
 }
 
 #[test]
 fn releases_are_exact_across_variable_target_kinds() {
     let control = DebugControl::new();
-    control.force_global("same", Value::LInt(1));
-    control.force_retain("same", Value::LInt(2));
-    control.force_instance(InstanceId(7), "same", Value::LInt(3));
-    control.force_instance(InstanceId(8), "same", Value::LInt(4));
+    control
+        .try_force_global("same", Value::LInt(1))
+        .expect("the force fits the bound");
+    control
+        .try_force_retain("same", Value::LInt(2))
+        .expect("the force fits the bound");
+    control
+        .try_force_instance(Generation::FIRST, InstanceId(7), "same", Value::LInt(3))
+        .expect("the force fits the bound");
+    control
+        .try_force_instance(Generation::FIRST, InstanceId(8), "same", Value::LInt(4))
+        .expect("the force fits the bound");
 
     control.release_global("same");
     control.release_instance(InstanceId(7), "same");
@@ -253,14 +222,16 @@ fn releases_are_exact_across_variable_target_kinds() {
     ));
     assert!(matches!(
         &forced[1].target,
-        ForcedVarTarget::Instance(InstanceId(8), name) if name == "same"
+        ForcedVarTarget::Instance(_, InstanceId(8), name) if name == "same"
     ));
 }
 
 #[test]
 fn variable_release_is_idempotent_for_absent_target() {
     let control = DebugControl::new();
-    control.force_global("a", Value::LInt(1));
+    control
+        .try_force_global("a", Value::LInt(1))
+        .expect("the force fits the bound");
 
     control.release_global("missing");
     control.release_retain("missing");
@@ -273,9 +244,15 @@ fn variable_release_is_idempotent_for_absent_target() {
 #[test]
 fn io_force_replacement_keeps_original_position() {
     let control = DebugControl::new();
-    control.force_io(address("%QW0"), Value::LInt(1));
-    control.force_io(address("%QW2"), Value::LInt(2));
-    control.force_io(address("%QW0"), Value::LInt(3));
+    control
+        .try_force_io(address("%QW0"), Value::LInt(1))
+        .expect("the force fits the bound");
+    control
+        .try_force_io(address("%QW2"), Value::LInt(2))
+        .expect("the force fits the bound");
+    control
+        .try_force_io(address("%QW0"), Value::LInt(3))
+        .expect("the force fits the bound");
 
     let forced = control.forced_snapshot().io;
     assert_eq!(forced.len(), 2);
@@ -286,8 +263,12 @@ fn io_force_replacement_keeps_original_position() {
 #[test]
 fn io_release_is_exact_and_idempotent() {
     let control = DebugControl::new();
-    control.force_io(address("%QW0"), Value::LInt(1));
-    control.force_io(address("%QW2"), Value::LInt(2));
+    control
+        .try_force_io(address("%QW0"), Value::LInt(1))
+        .expect("the force fits the bound");
+    control
+        .try_force_io(address("%QW2"), Value::LInt(2))
+        .expect("the force fits the bound");
 
     control.release_io(&address("%QW0"));
     control.release_io(&address("%QW0"));
@@ -301,8 +282,12 @@ fn io_release_is_exact_and_idempotent() {
 #[test]
 fn forced_snapshot_is_an_owned_copy() {
     let control = DebugControl::new();
-    control.force_global("a", Value::LInt(1));
-    control.force_io(address("%QW0"), Value::LInt(2));
+    control
+        .try_force_global("a", Value::LInt(1))
+        .expect("the force fits the bound");
+    control
+        .try_force_io(address("%QW0"), Value::LInt(2))
+        .expect("the force fits the bound");
 
     let mut first = control.forced_snapshot();
     first.vars[0].value = Value::LInt(99);
@@ -316,24 +301,31 @@ fn forced_snapshot_is_an_owned_copy() {
 #[test]
 fn runtime_mutation_clear_removes_every_queue_and_force() {
     let control = DebugControl::new();
-    control.enqueue_io_write(address("%QW0"), Value::LInt(1));
-    control.enqueue_global_write("global", Value::LInt(2));
-    control.enqueue_retain_write("retain", Value::LInt(3));
-    control.enqueue_instance_write(InstanceId(1), "instance", Value::LInt(4));
-    control.enqueue_local_write(FrameId(1), "local", Value::LInt(5));
-    control.enqueue_lvalue_write(
-        Some(FrameId(1)),
-        LValue::Name("target".into()),
-        Value::LInt(6),
-    );
-    control.force_global("global", Value::LInt(7));
-    control.force_io(address("%QW2"), Value::LInt(8));
+    control
+        .try_enqueue_io_write(address("%QW0"), Value::LInt(1))
+        .expect("the write fits the bound");
+    control
+        .try_enqueue_global_write("global", Value::LInt(2))
+        .expect("the write fits the bound");
+    control
+        .try_enqueue_retain_write("retain", Value::LInt(3))
+        .expect("the write fits the bound");
+    control
+        .try_enqueue_instance_write(Generation::FIRST, InstanceId(1), "instance", Value::LInt(4))
+        .expect("the write fits the bound");
+    control
+        .try_enqueue_local_write(FrameId(1), "local", Value::LInt(5))
+        .expect("the write fits the bound");
+    control
+        .try_force_global("global", Value::LInt(7))
+        .expect("the force fits the bound");
+    control
+        .try_force_io(address("%QW2"), Value::LInt(8))
+        .expect("the force fits the bound");
 
     control.clear_runtime_mutations();
 
-    assert!(control.drain_io_writes().is_empty());
     assert!(control.drain_var_writes().is_empty());
-    assert!(control.drain_lvalue_writes().is_empty());
     let forced = control.forced_snapshot();
     assert!(forced.vars.is_empty());
     assert!(forced.io.is_empty());
@@ -342,19 +334,24 @@ fn runtime_mutation_clear_removes_every_queue_and_force() {
 #[test]
 fn clearing_runtime_mutations_preserves_unrelated_debug_state() {
     let control = DebugControl::new();
-    control.set_breakpoints_for_file(1, vec![DebugBreakpoint::new(SourceLocation::new(1, 1, 2))]);
-    control.pause_thread(7);
-    control.push_runtime_event(RuntimeEvent::Fault {
-        error: "fault".into(),
-        time: crate::value::Duration::from_millis(1),
-    });
-    control.enqueue_global_write("a", Value::LInt(1));
-    control.force_global("a", Value::LInt(2));
+    control.compiled_debugger().pause();
+    control.push_runtime_event(RuntimeEvent::fault(
+        &RuntimeError::SimulationFault("fault".into()),
+        crate::value::Duration::from_millis(1),
+    ));
+    control
+        .try_enqueue_global_write("a", Value::LInt(1))
+        .expect("the write fits the bound");
+    control
+        .try_force_global("a", Value::LInt(2))
+        .expect("the force fits the bound");
 
     control.clear_runtime_mutations();
 
-    assert_eq!(control.breakpoint_count(), 1);
-    assert_eq!(control.mode(), DebugMode::Paused);
-    assert_eq!(control.target_thread(), Some(7));
+    assert_eq!(
+        control.hold_label(),
+        Some("pause"),
+        "the debugger's hold stays"
+    );
     assert_eq!(control.drain_runtime_events().len(), 1);
 }

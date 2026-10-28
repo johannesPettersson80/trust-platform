@@ -79,6 +79,206 @@ mod tests {
     }
 
     #[test]
+    fn same_type_operands_keep_checked_results_errors_and_float_comparisons() {
+        use BinaryOp::*;
+        use RuntimeError::{DivisionByZero, ModuloByZero, Overflow, TypeMismatch};
+        let profile = DateTimeProfile::default();
+        let nan = f64::NAN;
+        let cases = [
+            (Add, Value::Int(32767), Value::Int(1), Err(Overflow)),
+            (Sub, Value::Int(-32768), Value::Int(1), Err(Overflow)),
+            (Mul, Value::Int(200), Value::Int(200), Err(Overflow)),
+            (Div, Value::Int(-32768), Value::Int(-1), Err(Overflow)),
+            (Div, Value::Int(7), Value::Int(0), Err(DivisionByZero)),
+            (Mod, Value::Int(7), Value::Int(0), Err(ModuloByZero)),
+            (Mod, Value::Int(-32768), Value::Int(-1), Ok(Value::Int(0))),
+            (Div, Value::Int(-7), Value::Int(2), Ok(Value::Int(-3))),
+            (Mod, Value::Int(-7), Value::Int(2), Ok(Value::Int(-1))),
+            (Mod, Value::Int(7), Value::Int(-2), Ok(Value::Int(1))),
+            (Sub, Value::Int(5), Value::Int(9), Ok(Value::Int(-4))),
+            (Pow, Value::Int(2), Value::Int(10), Ok(Value::Int(1024))),
+            (And, Value::Int(1), Value::Int(1), Err(TypeMismatch)),
+            (Lt, Value::Int(-1), Value::Int(0), Ok(Value::Bool(true))),
+            (Ge, Value::Int(3), Value::Int(3), Ok(Value::Bool(true))),
+            (Ne, Value::Int(3), Value::Int(4), Ok(Value::Bool(true))),
+            (Add, Value::DInt(i32::MAX), Value::DInt(1), Err(Overflow)),
+            (Div, Value::DInt(i32::MIN), Value::DInt(-1), Err(Overflow)),
+            (
+                Mod,
+                Value::DInt(i32::MIN),
+                Value::DInt(-1),
+                Ok(Value::DInt(0)),
+            ),
+            (Mul, Value::DInt(46341), Value::DInt(46341), Err(Overflow)),
+            (
+                Mul,
+                Value::DInt(-46340),
+                Value::DInt(46340),
+                Ok(Value::DInt(-2_147_395_600)),
+            ),
+            (Eq, Value::DInt(5), Value::DInt(5), Ok(Value::Bool(true))),
+            (Add, Value::LInt(i64::MAX), Value::LInt(1), Err(Overflow)),
+            (Div, Value::LInt(i64::MIN), Value::LInt(-1), Err(Overflow)),
+            (
+                Mod,
+                Value::LInt(i64::MIN),
+                Value::LInt(-1),
+                Ok(Value::LInt(0)),
+            ),
+            (
+                Gt,
+                Value::LInt(i64::MIN),
+                Value::LInt(i64::MAX),
+                Ok(Value::Bool(false)),
+            ),
+            (
+                Div,
+                Value::LReal(1.0),
+                Value::LReal(0.0),
+                Err(DivisionByZero),
+            ),
+            (
+                Div,
+                Value::LReal(1.0),
+                Value::LReal(-0.0),
+                Err(DivisionByZero),
+            ),
+            (
+                Mul,
+                Value::LReal(f64::MAX),
+                Value::LReal(2.0),
+                Err(Overflow),
+            ),
+            (Add, Value::LReal(nan), Value::LReal(1.0), Err(Overflow)),
+            (Div, Value::LReal(0.0), Value::LReal(nan), Err(Overflow)),
+            (
+                Add,
+                Value::LReal(0.1),
+                Value::LReal(0.2),
+                Ok(Value::LReal(0.1 + 0.2)),
+            ),
+            (
+                Div,
+                Value::LReal(-1.0),
+                Value::LReal(4.0),
+                Ok(Value::LReal(-0.25)),
+            ),
+            (
+                Pow,
+                Value::LReal(2.0),
+                Value::LReal(0.5),
+                Ok(Value::LReal(2f64.powf(0.5))),
+            ),
+            (Mod, Value::LReal(5.0), Value::LReal(2.0), Err(TypeMismatch)),
+            (
+                Eq,
+                Value::LReal(nan),
+                Value::LReal(nan),
+                Ok(Value::Bool(false)),
+            ),
+            (
+                Ne,
+                Value::LReal(nan),
+                Value::LReal(nan),
+                Ok(Value::Bool(true)),
+            ),
+            (
+                Lt,
+                Value::LReal(nan),
+                Value::LReal(1.0),
+                Ok(Value::Bool(false)),
+            ),
+            (
+                Ge,
+                Value::LReal(nan),
+                Value::LReal(nan),
+                Ok(Value::Bool(false)),
+            ),
+            (
+                Eq,
+                Value::LReal(0.0),
+                Value::LReal(-0.0),
+                Ok(Value::Bool(true)),
+            ),
+            (Mul, Value::Real(3.0e38), Value::Real(10.0), Err(Overflow)),
+            (
+                Add,
+                Value::Real(0.1),
+                Value::Real(0.2),
+                Ok(Value::Real((f64::from(0.1f32) + f64::from(0.2f32)) as f32)),
+            ),
+            (Div, Value::Real(1.0), Value::Real(0.0), Err(DivisionByZero)),
+            (Mod, Value::Real(5.0), Value::Real(2.0), Err(TypeMismatch)),
+            (
+                Lt,
+                Value::Real(1.0),
+                Value::Real(2.0),
+                Ok(Value::Bool(true)),
+            ),
+            (
+                Eq,
+                Value::Real(f32::NAN),
+                Value::Real(f32::NAN),
+                Ok(Value::Bool(false)),
+            ),
+            (
+                And,
+                Value::Bool(true),
+                Value::Bool(false),
+                Ok(Value::Bool(false)),
+            ),
+            (
+                AndThen,
+                Value::Bool(true),
+                Value::Bool(true),
+                Ok(Value::Bool(true)),
+            ),
+            (
+                Or,
+                Value::Bool(false),
+                Value::Bool(false),
+                Ok(Value::Bool(false)),
+            ),
+            (
+                OrElse,
+                Value::Bool(false),
+                Value::Bool(true),
+                Ok(Value::Bool(true)),
+            ),
+            (
+                Xor,
+                Value::Bool(true),
+                Value::Bool(true),
+                Ok(Value::Bool(false)),
+            ),
+            (
+                Eq,
+                Value::Bool(true),
+                Value::Bool(true),
+                Ok(Value::Bool(true)),
+            ),
+            (
+                Ne,
+                Value::Bool(true),
+                Value::Bool(false),
+                Ok(Value::Bool(true)),
+            ),
+            (
+                Lt,
+                Value::Bool(false),
+                Value::Bool(true),
+                Ok(Value::Bool(true)),
+            ),
+            (Add, Value::Bool(true), Value::Bool(true), Err(TypeMismatch)),
+        ];
+
+        for (op, left, right, expected) in cases {
+            let case = format!("{op:?} {left:?} {right:?}");
+            assert_eq!(apply_binary(op, left, right, &profile), expected, "{case}");
+        }
+    }
+
+    #[test]
     fn mixed_numeric_operands_require_accuracy_preserving_common_type() {
         let profile = DateTimeProfile::default();
 

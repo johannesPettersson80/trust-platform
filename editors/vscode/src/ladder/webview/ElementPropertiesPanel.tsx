@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type {
   Coil as CoilType,
   CompareNode,
@@ -7,30 +7,77 @@ import type {
   LadderElement,
   MathNode,
   Timer as TimerType,
-} from "../ladderEngine.types";
+} from "../ladderProgram.types";
 
 interface SelectedElementRef {
   rungIndex: number;
   elementIndex: number;
 }
 
+/** The number fields of the panel, by the program member each one stores. */
+export type LadderNumberField = "presetMs" | "preset" | "x" | "y";
+
+/** Why the language server did not store the text typed into a number field. */
+export interface NumberFieldError {
+  field: LadderNumberField;
+  message: string;
+}
+
 interface ElementPropertiesPanelProps {
   selectedElement: SelectedElementRef | null;
   selectedElementData: LadderElement | null;
-  gridSize: number;
+  /** Sends the text typed into a number field to the language server (`setNumber`). */
+  onSetNumber: (field: LadderNumberField, text: string) => void;
+  numberFieldError: NumberFieldError | null;
   onUpdateSelectedElement: (
     updater: (element: LadderElement) => LadderElement
   ) => void;
   onRemoveSelectedElement: () => void;
 }
 
+/**
+ * A number field: it shows the stored number, and the text as typed while it is being typed. The
+ * language server reads each text and stores its number, or answers why not (`error`).
+ */
+function NumberTextInput({
+  id,
+  stored,
+  error,
+  onText,
+}: {
+  id: string;
+  stored: number;
+  error?: string;
+  onText: (text: string) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <>
+      <input
+        id={id}
+        type="number"
+        value={draft ?? String(stored)}
+        onChange={(event) => {
+          setDraft(event.target.value);
+          onText(event.target.value);
+        }}
+        onBlur={() => setDraft(null)}
+      />
+      {error && <p className="property-warning">{error}</p>}
+    </>
+  );
+}
+
 export function ElementPropertiesPanel({
   selectedElement,
   selectedElementData,
-  gridSize,
+  onSetNumber,
+  numberFieldError,
   onUpdateSelectedElement,
   onRemoveSelectedElement,
 }: ElementPropertiesPanelProps) {
+  const errorOf = (field: LadderNumberField): string | undefined =>
+    numberFieldError?.field === field ? numberFieldError.message : undefined;
   const variableInputRef = useRef<HTMLInputElement | null>(null);
   const shouldFocusVariable =
     selectedElementData?.type === "contact" &&
@@ -199,20 +246,12 @@ export function ElementPropertiesPanel({
                 </div>
                 <div className="property-row">
                   <label htmlFor="ladder-timer-pt">Preset (ms)</label>
-                  <input
+                  <NumberTextInput
+                    key={`${selectedElementData.id}:presetMs`}
                     id="ladder-timer-pt"
-                    type="number"
-                    value={selectedElementData.presetMs}
-                    onChange={(event) => {
-                      const next = Number(event.target.value);
-                      if (!Number.isFinite(next)) {
-                        return;
-                      }
-                      onUpdateSelectedElement((element) => ({
-                        ...(element as TimerType),
-                        presetMs: Math.max(0, Math.round(next)),
-                      }));
-                    }}
+                    stored={selectedElementData.presetMs}
+                    error={errorOf("presetMs")}
+                    onText={(text) => onSetNumber("presetMs", text)}
                   />
                 </div>
               </>
@@ -300,20 +339,12 @@ export function ElementPropertiesPanel({
                 </div>
                 <div className="property-row">
                   <label htmlFor="ladder-counter-preset">Preset</label>
-                  <input
+                  <NumberTextInput
+                    key={`${selectedElementData.id}:preset`}
                     id="ladder-counter-preset"
-                    type="number"
-                    value={selectedElementData.preset}
-                    onChange={(event) => {
-                      const next = Number(event.target.value);
-                      if (!Number.isFinite(next)) {
-                        return;
-                      }
-                      onUpdateSelectedElement((element) => ({
-                        ...(element as CounterType),
-                        preset: Math.round(next),
-                      }));
-                    }}
+                    stored={selectedElementData.preset}
+                    error={errorOf("preset")}
+                    onText={(text) => onSetNumber("preset", text)}
                   />
                 </div>
               </>
@@ -443,45 +474,23 @@ export function ElementPropertiesPanel({
 
             <div className="property-row">
               <label htmlFor="ladder-pos-x">Position X</label>
-              <input
+              <NumberTextInput
+                key={`${selectedElementData.id}:x`}
                 id="ladder-pos-x"
-                type="number"
-                value={selectedElementData.position.x}
-                onChange={(event) => {
-                  const x = Number(event.target.value);
-                  if (!Number.isFinite(x)) {
-                    return;
-                  }
-                  onUpdateSelectedElement((element) => ({
-                    ...element,
-                    position: {
-                      ...element.position,
-                      x: Math.round(x / gridSize) * gridSize,
-                    },
-                  }));
-                }}
+                stored={selectedElementData.position.x}
+                error={errorOf("x")}
+                onText={(text) => onSetNumber("x", text)}
               />
             </div>
 
             <div className="property-row">
               <label htmlFor="ladder-pos-y">Position Y</label>
-              <input
+              <NumberTextInput
+                key={`${selectedElementData.id}:y`}
                 id="ladder-pos-y"
-                type="number"
-                value={selectedElementData.position.y}
-                onChange={(event) => {
-                  const y = Number(event.target.value);
-                  if (!Number.isFinite(y)) {
-                    return;
-                  }
-                  onUpdateSelectedElement((element) => ({
-                    ...element,
-                    position: {
-                      ...element.position,
-                      y: Math.round(y / gridSize) * gridSize,
-                    },
-                  }));
-                }}
+                stored={selectedElementData.position.y}
+                error={errorOf("y")}
+                onText={(text) => onSetNumber("y", text)}
               />
             </div>
 

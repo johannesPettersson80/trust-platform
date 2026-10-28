@@ -1,0 +1,287 @@
+{
+  "schemaVersion": 4,
+  "id": "control-own-pid-law",
+  "title": "Your own PID law",
+  "level": "Practitioner",
+  "sequence": 40,
+  "equipment": "The drum axis holding a 2 kg weight under the program's own PositionalPid",
+  "physicalPurpose": "Set up the program's own positional PID in Control Studio from its gain variables, integral term and previous measurement. Design its gains to the requirements, verify the actual ST on the model and apply them with the integral term starting from the present output.",
+  "principalTechnique": "Declaring a program-computed PID law to Control Studio: gain variables, integral term and previous measurement",
+  "objective": "Declare the own PositionalPid's gains, integral term and previous measurement in Control Studio's loop setup, design its gains to the servo requirements on the supplied model, validate the actual ST and apply them while the axis holds the weight, with the torque continuing from 1.962 N·m.",
+  "prerequisites": [
+    "control-pid-forms"
+  ],
+  "nextLesson": "control-capstone-servo",
+  "signals": [
+    {
+      "role": "SP",
+      "name": "Target angle",
+      "unit": "rad",
+      "minimum": -2,
+      "maximum": 2,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "PV",
+      "name": "Shaft angle",
+      "unit": "rad",
+      "minimum": -2,
+      "maximum": 2,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Motor torque",
+      "unit": "N·m",
+      "minimum": -20,
+      "maximum": 20,
+      "resolution": 0.001,
+      "binding": "%QL0"
+    },
+    {
+      "role": "disturbance",
+      "name": "Drum load torque",
+      "unit": "N·m",
+      "minimum": 0,
+      "maximum": 5,
+      "resolution": 0.001,
+      "binding": "%QL8"
+    },
+    {
+      "role": "state",
+      "name": "Shaft velocity",
+      "unit": "rad/s",
+      "minimum": -10,
+      "maximum": 10,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Safety abort",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX24.0"
+    },
+    {
+      "role": "state",
+      "name": "IntegralNm",
+      "unit": "N·m",
+      "minimum": -100,
+      "maximum": 100,
+      "resolution": 0.0001,
+      "binding": "%ML80"
+    }
+  ],
+  "plant": {
+    "modelId": "drum-axis",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "inertia",
+        "value": 1,
+        "unit": "kg·m²"
+      },
+      {
+        "name": "viscous_friction",
+        "value": 1,
+        "unit": "N·m·s/rad"
+      },
+      {
+        "name": "torque_limit",
+        "value": 20,
+        "unit": "N·m"
+      },
+      {
+        "name": "drum_load",
+        "value": 1.962,
+        "unit": "N·m"
+      },
+      {
+        "name": "angle_noise_bound",
+        "value": 0.001,
+        "unit": "rad"
+      }
+    ],
+    "sampleTimeSeconds": 0.02,
+    "initialState": {
+      "angleRad": 0,
+      "velocityRadS": 0
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Shaft angle": 0,
+      "Motor torque": 1.962
+    },
+    "validityRange": [
+      {
+        "signal": "Shaft angle",
+        "minimum": -2,
+        "maximum": 2,
+        "unit": "rad"
+      },
+      {
+        "signal": "Motor torque",
+        "minimum": -20,
+        "maximum": 20,
+        "unit": "N·m"
+      }
+    ],
+    "simplifications": [
+      "Constant load torque m·g·r from a 2 kg weight on a 0.1 m drum; a brake carries it after an abort; rigid shaft with viscous friction.",
+      "Uniform angle measurement noise of at most ±0.001 rad; simulation only."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "angleRad": 0,
+      "torqueNm": 1.962,
+      "controller": "Own PositionalPid, Kp 16, Ki 4, Kd 7, Tf 0.1 s, Tt 1 s, Manual"
+    },
+    "limitation": "Control Studio tunes Control.PID; it does not know which variables hold the gains and kept values of a law the program computes itself."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "setup": "Own P, PI or PID: PID, gains P1.OwnParameters.*, integral term P1.Own.IntegralNm, previous measurement P1.Own.PreviousAngleRad, startup flag P1.Initialized",
+      "model": "shaft-model.json at the 1.962 N·m holding point",
+      "requirements": "1 rad step, ±0.01 rad band by 4 s, error ≤ 0.02 rad to 8 s",
+      "durationSeconds": 8
+    },
+    "decision": "Control Studio designs, validates and applies the own law's gains; every start of the actual ST sets I to the present torque and the previous measurement to the present angle."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Target angle",
+    "baseline": 0,
+    "amplitude": 1,
+    "durationSeconds": 8,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "The 1.962 N·m weight hangs on the drum throughout",
+      "Uniform angle noise bounded by ±0.001 rad"
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "settling_time_0_01_rad",
+      "signal": "Shaft angle",
+      "window": "setpoint trial 0–8 s",
+      "comparator": "<=",
+      "limit": 4,
+      "unit": "s",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_absolute_error",
+      "signal": "Shaft angle",
+      "window": "setpoint trial 4–8 s",
+      "comparator": "<=",
+      "limit": 0.02,
+      "unit": "rad",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "auto_start_torque_change",
+      "signal": "Motor torque",
+      "window": "first Auto updates at the holding point",
+      "comparator": "<=",
+      "limit": 1.47,
+      "unit": "N·m",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Shaft angle",
+        "minimum": -2,
+        "maximum": 2,
+        "unit": "rad"
+      },
+      {
+        "signal": "Motor torque",
+        "minimum": -20,
+        "maximum": 20,
+        "unit": "N·m"
+      }
+    ],
+    "abortPredicates": [
+      "The angle leaves ±2 rad or the velocity ±10 rad/s: SafetyAbort holds zero torque with the brake engaged until a restart",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 0,
+    "restorationMode": "Control Studio restores the holding state (0 rad, 1.962 N·m in Manual) after each trial.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical excitation or gain application",
+      "Physical use requires independent topology, model, hazard, operating-window, interlock, personnel, abort, rollback, and immediate approval review"
+    ]
+  },
+  "workflowStages": [
+    "Identify",
+    "Tune",
+    "Validate"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/33-43-motion-and-tanks.md",
+    "nativeTest": "own_pid_law",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_own_pid_law own_pid_law",
+    "projectPath": "examples/control/03-production-quality-digital-pid/86-own-pid-law",
+    "runArtifactFields": [
+      "setupForm",
+      "generatedLoop",
+      "suppliedModel",
+      "requirements",
+      "designedGains",
+      "validation",
+      "appliedValues",
+      "restoredValues",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-own-pid-law"
+  },
+  "learning": {
+    "context": "Lesson 39 showed that the positional PID written in ST, `PositionalPid`, is the same controller as `Control.PID` once it keeps the right values: over 302 updates their torques differed by less than $10^{-14}$ N·m. Control Studio tunes `Control.PID` because it knows its parameter record and the values it keeps between updates.\n\nThe program's own law is ordinary ST. Control Studio does not know which variables hold its gains, nor which values it remembers. We will tell it, and let it design the gains.",
+    "reason": "We need to:\n\n1. name the law's gains, so Control Studio can design and apply them;\n2. name the values the law remembers between updates; and\n3. make every start of the law in Auto begin from the torque that already holds the weight.",
+    "theory": [
+      "An **own control law** is a controller your program computes itself, such as this lesson's PID written in ST. Control Studio can tune it once you tell it which variables are the gains and which values the law remembers between updates.\n\n**In words.** Control Studio already knows `Control.PID`: where its gains are, which values it keeps between updates, and how to start it without a bump. A law written in ST is just code to Control Studio until you describe it. The description has three parts:\n\n1. **The gains.** The variables that hold the proportional, integral and derivative gains. Control Studio designs values for them and, on **Apply**, writes them.\n2. **The remembered values.** The values the law carries from one update to the next, here the integral term and the previous measurement. They are the law's memory, the static variables of its function block.\n3. **The start.** Control Studio validates the actual ST by starting it in Auto at the operating point, and **Apply** switches to Auto there too. At that moment the target equals the measured angle, so the error is zero and P gives nothing. The first torque then comes only from the remembered values, so they must belong to the present state, or the start gives the shaft a jolt.\n\nIt is like connecting a faceplate to a function block written in-house: the faceplate works only once you have mapped which tags are its settings and which hold its state. In Manual, the law keeps its integral term in step with the manual torque itself, Lesson 27's bumpless transfer. A start by Control Studio has no Manual updates before it, so Control Studio sets the remembered values itself, from the present torque and angle.\n\nFor this lesson's shaft, the weight hangs on the drum the whole time. A wrong remembered value at the start does not just cause a bump: the weight starts to fall.\n\n**The formula.** The law computes, at every update $k$,\n\n$$\nu_k = K_p e_k + I_k + D_k, \\qquad D_k = -K_d\\,\\omega_k, \\qquad \\omega_k = \\frac{\\theta_k - \\theta_{k-1}}{\\Delta t} ,\n$$\n\nwith the integral term growing by $K_i e_k \\Delta t$ at each Auto update and Lesson 8's tracking at the limit. At the start the error is zero, so the first torque is\n\n$$\nu_{first} = I_{start} - K_d\\,\\frac{\\theta - \\theta_{k-1}}{\\Delta t} ,\n$$\n\nand it equals the torque already applied only if Control Studio sets $I_{start}$ to that torque and $\\theta_{k-1}$ to the present angle $\\theta$.\n\n- $u_k$ is the torque, in newton-metres;\n- $e_k$ is the error, in radians;\n- $I_k$ is the **integral term**, the torque the integral supplies, in newton-metres, and $I_{start}$ its value at the start;\n- $D_k$ is the derivative torque, in newton-metres;\n- $\\theta_k$ is the measured angle and $\\theta_{k-1}$ the **previous measurement**, from which D calculates the speed, in radians;\n- $\\omega_k$ is the speed D sees, in radians per second;\n- $K_p$, $K_i$ and $K_d$ are the gains, and $\\Delta t = 0.02$ s the update interval.\n\n**Example: Control Studio starts the law on the shaft.** In Manual the drive holds the 2 kg weight at rest at 0 rad. The law still has Lesson 38's gains, $K_p = 16$, $K_i = 4$ and $K_d = 7$. Control Studio starts it in Auto with the target at the present angle. Follow the numbers:\n\n1. **P gives nothing.** $e = 0 - 0 = 0$, so $P = 16 \\times 0 = 0$ N·m. The first torque must come from $I$ and D.\n2. **A wrong integral term.** Suppose $I = 1.0$ N·m was left over from an earlier run, with the previous measurement correct, so D is zero. The first torque is 1.0 N·m, 0.962 N·m short of the weight's 1.962 N·m, and the shaft starts to sink with $\\dot\\omega = (1.0 - 1.962)/1 = -0.96$ rad/s².\n3. **A stale previous measurement.** Suppose instead that $I$ is right but $\\theta_{k-1}$ is still $-0.05$ rad from the last time the law ran. D sees $\\omega = (0 - (-0.05))/0.02 = 2.5$ rad/s, a speed that does not exist, and adds $D = -7 \\times 2.5 = -17.5$ N·m. The first torque is $1.962 - 17.5 = -15.5$ N·m: it drives the shaft hard the wrong way, down with the weight.\n4. **Both values set.** Control Studio sets $I$ to the present torque and $\\theta_{k-1}$ to the present angle. Then P and D are both zero, and the first torque is exactly the torque that already holds the weight.\n\nThat is why the loop setup names the integral term and the previous measurement, together with the three gains. Control Studio then designs the gains on the model as it does for `Control.PID`.\n\n**The limitation.** Control Studio sets only the values the setup names, and it designs for the law that the setup declares, **PID: u = Kp·e + I + D**. A law that computed something else, for example with a setpoint weight, would get gains designed for a different controller. The law also remembers its previous error and speed for Lesson 28's gain-change rule; at rest on target both are zero, so the rule adds $(K_{p,old} - K_{p,new}) \\times 0 = 0$ N·m at the start. The starting gains are teaching values for this simulated axis."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. When Control Studio starts the law with $I = 1.962$ N·m, what is the first torque?\n2. Will the automatically designed PID overshoot the 1 rad step? The law has no setpoint weight, and the requirements set no overshoot limit.\n3. Will the shaft stay within 0.02 rad of the target by 4 s?\n4. What will the integral term hold at the end of the step?\n\n| Start of the law at rest | First torque |\n| --- | ---: |\n| $I = 0$ | 0 N·m: the weight falls |\n| $\\theta_{k-1}$ stale by 0.5 rad | −175 N·m, clipped to −20 N·m |\n| $I = 1.962$ N·m, $\\theta_{k-1} = \\theta$ | 1.962 N·m: the weight is held |",
+    "practicalPreparation": [
+      "1. Open this lesson's project and start **Simulator**; the shaft holds the weight at 0 rad in Manual with 1.962 N·m.\n2. Open the setup form with **Configure control loop**: run **truST: Configure control loop** from the Command Palette. In **Set up control loop**, enter **Loop name** `Axis`, choose **Structure** **Own P, PI or PID: the program computes the output from its gain variables**, then fill in:\n\n   | Field | Choice |\n   | --- | --- |\n   | **Instance that computes the law** | `P1.Own` |\n   | **Law** | **PID: u = Kp·e + I + D** |\n   | **Measurement** | `P1.AngleRad`, **Unit** rad, **Minimum** −2, **Maximum** 2 |\n   | **Setpoint** | `P1.SetpointRad` |\n   | **Output** | `P1.TorqueNm`, **Unit** N·m, **Minimum** −20, **Maximum** 20 |\n   | **Auto/Manual signal**, **TRUE means** | `P1.AutoMode`, **Auto** |\n   | **Manual output** | `P1.ManualTorqueNm` |\n   | **Proportional gain Kp** | `P1.OwnParameters.ProportionalGain`, 0 to 100 |\n   | **Integral gain Ki** | `P1.OwnParameters.IntegralGain`, 0 to 100 |\n   | **Integral term I, in the output's unit** | `P1.Own.IntegralNm` |\n   | **Derivative gain Kd** | `P1.OwnParameters.DerivativeGain`, 0 to 50 |\n   | **Previous value the derivative is taken from** | `P1.Own.PreviousAngleRad`; **That previous value is** **The measurement** |\n   | **Identification step**, **Identification duration (s)** | 1, 8 |\n   | **Startup-done flag** | `P1.Initialized` |\n\n   The program sets the target itself at its start, so the form asks for the flag that marks that start as done. Select **Save loop**.\n3. In the **truST** side bar, select **Control Studio**. On **Identify**, set **Method** to **Supplied plant model**, select **Open model…** and choose `shaft-model.json`.\n4. On **Tune**, keep **Tuning method** **Automatic**. Select **Requirements…**, enter **Setpoint change (rad)** 1, **Maximum steady-state error (rad)** 0.02, **Maximum settling time (s)** 4, **Settling band (±rad)** 0.01 and **Validation duration (s)** 8, select **Done**, then **Tune controller**. Tune shows **PID controller · PositionalPid** with the designed gains.\n5. On **Validate**, select **Validate controller**. When every row passes, select **Apply**; Control Studio reports **Applied**.\n\nTo repeat, select **Restore previous settings** on **Validate**, then start again from step 4."
+    ],
+    "baseline": "The drum axis holding the weight at 0 rad in Manual with 1.962 N·m, driven by the program's own PositionalPid.",
+    "change": "Declare the own law in Control Studio's loop setup, then design, validate and apply its gains to the servo requirements.",
+    "comparison": "![Control Studio starts the law at the holding torque and its design settles within 3 s](figures/own-law-validation.svg)\n\nThe numbered marks answer the predictions with the same numbers. From the validation run and the apply step:\n\n| Result | Value |\n| --- | ---: |\n| Automatic PID | $K_p$ 18.77 N·m/rad, $K_i$ 17.46 N·m/(rad·s), $K_d$ 7.27 N·m·s/rad |\n| First torque of the validation | 1.962 N·m, with $I = 1.962$ N·m |\n| Peak | 1.25 rad at 0.9 s |\n| Within 0.02 rad from | 3 s, limit 4 s |\n| Largest error, 4–8 s | 0.0036 rad, limit 0.02 rad |\n| After **Apply** at 1 rad | $I = 1.962$ N·m, torque 2.00 N·m |\n\n1. Control Studio started the law with its integral term at the 1.962 N·m holding torque and its previous angle at the present angle, so the first torque held the weight.\n2. The step overshot to 1.25 rad: with no setpoint weight and no overshoot limit, the design accepts a large peak.\n3. The shaft stayed within 0.02 rad from 3 s, inside the 4 s requirement, and every validation row passed.\n4. At the end the integral term held the weight with 1.962 N·m at 1 rad; after **Apply** the law kept holding it with $I = 1.962$ N·m.\n\nThe gains are exactly those Automatic designed for `Control.PID` in Lesson 36: the same model and requirements give the same design, whichever program computes the law. These are simulation results.",
+    "validation": "![Control Studio starts the law at the holding torque and its design settles within 3 s](figures/own-law-validation.svg)\n\nThe numbered marks answer the predictions with the same numbers. From the validation run and the apply step:\n\n| Result | Value |\n| --- | ---: |\n| Automatic PID | $K_p$ 18.77 N·m/rad, $K_i$ 17.46 N·m/(rad·s), $K_d$ 7.27 N·m·s/rad |\n| First torque of the validation | 1.962 N·m, with $I = 1.962$ N·m |\n| Peak | 1.25 rad at 0.9 s |\n| Within 0.02 rad from | 3 s, limit 4 s |\n| Largest error, 4–8 s | 0.0036 rad, limit 0.02 rad |\n| After **Apply** at 1 rad | $I = 1.962$ N·m, torque 2.00 N·m |\n\n1. Control Studio started the law with its integral term at the 1.962 N·m holding torque and its previous angle at the present angle, so the first torque held the weight.\n2. The step overshot to 1.25 rad: with no setpoint weight and no overshoot limit, the design accepts a large peak.\n3. The shaft stayed within 0.02 rad from 3 s, inside the 4 s requirement, and every validation row passed.\n4. At the end the integral term held the weight with 1.962 N·m at 1 rad; after **Apply** the law kept holding it with $I = 1.962$ N·m.\n\nThe gains are exactly those Automatic designed for `Control.PID` in Lesson 36: the same model and requirements give the same design, whichever program computes the law. These are simulation results.",
+    "explanation": "Control Studio tunes a law it did not write once the setup names its gains and the values it remembers. It sets those values at the operating point for every start of the actual ST, so the validated response and the applied switch both begin from the torque that already holds the weight.\n\nFor this shaft, Control Studio designed, validated and applied the program's own PID, holding the 2 kg weight throughout.",
+    "transfer": "The tuned law moves to a target and holds a weight, but a tuned law is not yet a commissioned servo: its behaviour under load, at the torque limits, at startup, at mode changes and with faults has not been assessed together.\n\n[Servo commissioning](../../14-integrated-capstones/82-servo/README.md) assesses the complete position controller against those requirements."
+  },
+  "video": {
+    "viewerOutcome": "Declare the program's own PID in Control Studio's loop setup, then design, validate and apply its gains while the axis holds the weight.",
+    "requiredVisibleEvidence": [
+      "the loop setup form with the own law's gains, integral term and previous measurement",
+      "the supplied shaft model",
+      "the Automatic PID gains",
+      "the validation rows",
+      "Applied with the torque continuing from 1.962 N·m",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  }
+}

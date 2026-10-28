@@ -1,0 +1,362 @@
+{
+  "schemaVersion": 4,
+  "id": "control-loop-shaping",
+  "title": "Loop shaping",
+  "level": "Advanced",
+  "sequence": 56,
+  "equipment": "Nine copies of the heater of Lessons 12–30 under PI (Kp 5, Ki 1) with the lead element F = (1 + Tz·s)/(1 + 2s): Tz = 2 s (F = 1), 3 s and 10 s, each on a target step, a 30 kW load and 0.05 °C measurement noise",
+  "physicalPurpose": "Shape the heater loop with a lead element and choose the candidate that meets fixed target, load and noise requirements.",
+  "principalTechnique": "Loop shaping with lead compensation F(s) = (1 + Tz·s)/(1 + Tp·s), judged on the complete loop L = C·F·G",
+  "objective": "Derive the lead element's magnitude and phase, recalculate the complete loop for its crossover, phase margin and noise-to-command path, implement the shaped PI with scaled tracking, and compare three candidates on matched target, load and noise trials.",
+  "prerequisites": [
+    "control-sensitivity-functions"
+  ],
+  "nextLesson": "control-nyquist-stability",
+  "signals": [
+    {
+      "role": "SP",
+      "name": "Target setpoint",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "PV",
+      "name": "Water temperature, target trial, F = 1",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Heater command, target trial, F = 1",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Water temperature, target trial, Tz = 3 s",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Water temperature, target trial, Tz = 10 s",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL16"
+    },
+    {
+      "role": "state",
+      "name": "Heater command, target trial, Tz = 3 s",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL16"
+    },
+    {
+      "role": "state",
+      "name": "Heater command, target trial, Tz = 10 s",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL32"
+    },
+    {
+      "role": "disturbance",
+      "name": "Heat load",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 50,
+      "resolution": 0.01,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Water temperature, load trial, F = 1",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL24"
+    },
+    {
+      "role": "state",
+      "name": "Water temperature, load trial, Tz = 3 s",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL32"
+    },
+    {
+      "role": "state",
+      "name": "Water temperature, load trial, Tz = 10 s",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL40"
+    },
+    {
+      "role": "state",
+      "name": "Measurement noise",
+      "unit": "degC",
+      "minimum": -1,
+      "maximum": 1,
+      "resolution": 0.0001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "Heater command, noise trial, F = 1",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL96"
+    },
+    {
+      "role": "state",
+      "name": "Heater command, noise trial, Tz = 3 s",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL112"
+    },
+    {
+      "role": "state",
+      "name": "Heater command, noise trial, Tz = 10 s",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL128"
+    },
+    {
+      "role": "state",
+      "name": "ExperimentEnabled",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX64.0"
+    }
+  ],
+  "plant": {
+    "modelId": "nine-heaters",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "heat_capacity",
+        "value": 50,
+        "unit": "kJ/°C"
+      },
+      {
+        "name": "heater_per_point",
+        "value": 2,
+        "unit": "kW/%"
+      },
+      {
+        "name": "loss_coefficient",
+        "value": 10,
+        "unit": "kW/°C"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      },
+      {
+        "name": "load",
+        "value": 30,
+        "unit": "kW"
+      },
+      {
+        "name": "noise_amplitude",
+        "value": 0.05,
+        "unit": "°C"
+      },
+      {
+        "name": "noise_frequency",
+        "value": 1,
+        "unit": "rad/s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "temperatureC": 35
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Water temperature, target trial, F = 1": 35,
+      "Heater command, target trial, F = 1": 75
+    },
+    "validityRange": [
+      {
+        "signal": "Water temperature, target trial, F = 1",
+        "minimum": 33,
+        "maximum": 40,
+        "unit": "degC"
+      }
+    ],
+    "simplifications": [
+      "Well-mixed water: 50·dT/dt = 2·u(t − 1) − 10·(T − 20) − D.",
+      "The sensor reads the water exactly; the noise trials add the injected sine to the controller's reading."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "controller": "PI, Kp = 5 %/°C, Ki = 1 %/(°C·s), F = 1 (Tz = Tp = 2 s)",
+      "trials": "target 35 → 38 °C; 30 kW load; 0.05·sin(t) °C noise"
+    },
+    "limitation": "The 30 kW load pulls the water to 33.75 °C, below the 33.8 °C requirement."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "ZeroTimeS": "3 s and 10 s",
+      "PoleTimeS": "2 s",
+      "durationSeconds": 60
+    },
+    "decision": "Tz = 3 s is the only candidate meeting every requirement: load minimum 33.87 °C, noise command 0.460 %, no saturation. Tz = 10 s moves the command by 1.406 % under the noise and saturates for 1.6 s on the step."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "ExperimentEnabled",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 62.1,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "Setpoint 35 → 38 °C on the target trials",
+      "30 kW heat extraction on the load trials",
+      "0.05·sin(t) °C added to the noise trials' readings"
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "target_peak",
+      "signal": "Water temperature, target trial, Tz = 3 s",
+      "window": "complete trial",
+      "comparator": "<=",
+      "limit": 39,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "load_minimum",
+      "signal": "Water temperature, load trial, Tz = 3 s",
+      "window": "complete trial",
+      "comparator": ">=",
+      "limit": 33.8,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "noise_command_half_amplitude",
+      "signal": "Heater command, noise trial, Tz = 3 s",
+      "window": "37.70–56.55 s",
+      "comparator": "<=",
+      "limit": 0.5,
+      "unit": "%",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Water temperature, target trial, F = 1",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Heater command, target trial, F = 1",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 75,
+    "restorationMode": "When the experiment ends, the setpoint returns to 35 °C, the load and the noise to zero, and the controllers to 75 % with the lead states reset.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical heating changes",
+      "Physical use requires independent temperature-limit, interlock and approval review"
+    ]
+  },
+  "workflowStages": [
+    "Identify"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/44-54-classical-analysis.md#52-loop-shaping",
+    "nativeTest": "lesson52",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_52_54 lesson52",
+    "projectPath": "examples/control/07-classical-stability-and-frequency-design/49-loop-shaping",
+    "runArtifactFields": [
+      "targetTemperatures",
+      "targetCommands",
+      "loadTemperatures",
+      "noiseCommands",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-loop-shaping"
+  },
+  "video": {
+    "viewerOutcome": "See a lead element trade load rejection against noise in the heater command, and the complete loop decide between three candidates.",
+    "requiredVisibleEvidence": [
+      "the target trial's temperatures and commands",
+      "the load trial's temperatures",
+      "the noise trial's commands",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 55 found how the heater's PI loop, $C = 5 + 1/s$, treats a load and noise at 0.2 rad/s: $|S| = |T| = 0.790$. A 10 kW load moved the water by 0.559 °C, and 0.05 °C of measurement noise moved the heater command by 0.281 %. Now a 30 kW load must not pull the water below 33.8 °C, and this PI lets it fall to 33.75 °C. A larger $K_p$ would react harder to the load, but it raises the controller's gain at every rate, including the rate of the noise.\n\nWe will design an element that changes the loop's frequency behaviour only over a chosen range of rates, calculate its effect on the complete loop, and validate it on matched trials.",
+    "reason": "We need to:\n\n1. raise the controller's gain over a chosen range of rates while keeping its steady behaviour;\n2. calculate what that does to the complete loop, not only to the controller; and\n3. judge the load, the setpoint change and the noise on matched trials against fixed requirements.",
+    "theory": [
+      "**Loop shaping** changes the controller's frequency behaviour on purpose. A **lead** adds phase near the crossover so the loop can be made faster safely; a **lag** adds gain at slow speeds to fight loads.\n\n**In words.** Raising $K_p$ raises the controller's gain at every speed at once: loads are fought harder, but noise moves the command more, and the loop comes closer to swinging. Loop shaping adds an element after the PI that changes the gain and the timing only over a chosen band of speeds:\n\n1. **A lead** gives more gain to fast changes than to slow ones, and makes its answer to them earlier, a positive phase. It acts like a little derivative action that stops growing above a certain speed.\n2. **A lag** does the opposite: more gain for slow changes, like extra integral action that works only on slow ones.\n3. **Neither changes the steady state.** At zero speed the element passes its input unchanged, so the holding power and the integral stay as they were.\n\nMany PLC libraries have such an element as a lead–lag block.\n\nWhere the element acts matters because of the **crossover**: the speed at which a signal comes back once around the loop exactly as large as it went in. If it also came back reversed, at −180°, it would keep itself going and the loop would swing at that speed. The phase left between the loop's angle and −180° at crossover therefore says how far the loop is from swinging. A lead adds phase there; but it also adds gain, which moves the crossover, so it must be judged on the complete loop.\n\nFor the heater, a lead pushes harder on fast changes, such as a sudden load, without changing the holding power.\n\n**The formula.** The element $F$ comes after the PI:\n\n$$\nF(s) = \\frac{1 + T_z s}{1 + T_p s}, \\qquad \\angle F = \\arctan(\\omega T_z) - \\arctan(\\omega T_p), \\qquad |F| = \\frac{\\sqrt{1 + \\omega^2 T_z^2}}{\\sqrt{1 + \\omega^2 T_p^2}} .\n$$\n\nLet:\n\n- $T_z$ and $T_p$ be the element's two time constants, in seconds: $1/T_z$ is its zero and $1/T_p$ its pole, in 1/s;\n- $a = T_z/T_p$ be its gain at high speed: a sudden change passes through $F$ multiplied by $a$;\n- $\\omega_m = 1/\\sqrt{T_z T_p}$ be the speed of its largest phase, in rad/s, where $|F| = \\sqrt{a}$ and $\\angle F = \\arcsin\\frac{a - 1}{a + 1}$; and\n- $\\omega_c$ be the crossover, where the complete loop has $|L| = 1$, in rad/s.\n\nAt $s = 0$, $F = 1$. With $T_z > T_p$, $F$ is **lead compensation**: positive phase, gain rising from 1 to $a$. With $T_z < T_p$ it is **lag compensation**: negative phase, gain falling below 1.\n\n$F$ is judged by the loop it creates, $L = C\\,F\\,G$, with the PI $C = 5 + 1/s$ and the heater $G = 0.2\\,e^{-s}/(5s + 1)$. As in Lesson 55, the PI's zero cancels the heater's lag, so the loop before the element is $L_0 = CG = 0.2\\,e^{-s}/s$, and\n\n$$\n|L| = \\frac{0.2\\,|F|}{\\omega}, \\qquad \\angle L = -90° - \\omega\\,\\frac{180°}{\\pi} + \\angle F, \\qquad \\text{phase left} = 180° + \\angle L(j\\omega_c) .\n$$\n\nNoise $n$ in the reading moves the command by $v/n = -CF/(1 + CFG)$. Where the loop gain is small, this is roughly $CF$: a lead multiplies the command's noise roughly by its own gain $|F|$ at the noise's speed.\n\n**Example 1: designing a lead.** Take $T_z = 10$ s and $T_p = 2$ s:\n\n1. $a = 10/2 = 5$: a sudden change passes five times larger.\n2. $\\omega_m = 1/\\sqrt{10 \\times 2} = 0.224$ rad/s, where $|F| = \\sqrt{5} = 2.236$ and $\\angle F = \\arcsin(4/6) = 41.81°$.\n3. Control Studio's lead/lag design works the other way round: from $\\omega_m$ and the phase it returns the zero $1/T_z$, the pole $1/T_p$, and the gain that puts the crossover at $\\omega_m$. Here $|L_0| = 0.2/0.224 = 0.894$ at $\\omega_m$, so that gain is $1/(0.894 \\times 2.236) = 0.500$: zero 0.1, pole 0.5, gain 0.5. That gain would scale the PI as well.\n\n**Example 2: the complete loop at crossover**, with $F$ at unit gain:\n\n1. **$F = 1$.** $|L_0| = 0.2/\\omega = 1$ at $\\omega_c = 0.200$ rad/s. There the delay lags $0.2$ rad, 11.46°, so $\\angle L = -101.46°$ and the phase left is 78.5°.\n2. **$T_z = 3$ s, $T_p = 2$ s.** Trying speeds, $0.2\\,|F|/\\omega = 1$ at $\\omega_c = 0.219$ rad/s. There $\\angle F = \\arctan(0.657) - \\arctan(0.438) = 9.66°$ and the delay lags 12.56°, so the phase left is $90° - 12.56° + 9.66° = 87.1°$: 8.6° more than without the lead.\n3. **The noise, $F = 1$.** At 1 rad/s, $C = 5 - j$ and $L_0 = -0.168 - 0.108j$, so $|v/n| = 5.10/|0.832 - 0.108j| = 6.08$: 0.05 °C of noise moves the command by 0.304 %.\n\n$T_p = 2$ s and the candidates $T_z = 3$ s and $T_z = 10$ s are teaching choices.\n\n**Requirements**, fixed before choosing, each trial 60 s from 35 °C with 75 %:\n\n- Target 35 → 38 °C: peak at most 39 °C, within 0.2 °C over 30–60 s.\n- Load of 30 kW at 35 °C: water at least 33.8 °C, within 0.2 °C over 30–60 s.\n- Noise of $0.05\\sin t$ °C in the reading: command half-amplitude at most 0.5 % over 37.70–56.55 s.\n\n**The limitation.** A lead buys its push on fast changes with gain at high speed: noise reaches the command roughly $|F|$ times more, and a sudden setpoint change is multiplied by $a$, which can drive the heater into its limit. And because the extra gain moves the crossover, a lead's phase at $\\omega_m$ says little until the complete loop is calculated."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. Which candidates keep the load trial above 33.8 °C?\n2. Which candidate moves the command by more than 0.5 % under the noise?\n3. Which candidate's first request after the 3 °C step exceeds 100 %?\n4. The 10 s lead adds the most phase, and its higher gain moves the crossover to 0.874 rad/s. Does it leave the most phase there?\n5. What zero, pole and gain will Control Studio's lead/lag design return for the 3 s lead?\n\n| Candidate | Phase left at crossover | Noise swing |\n| --- | ---: | ---: |\n| $F = 1$ | 78.5° | 0.304 % |\n| $T_z = 3$ s | 87.1° | 0.447 % |\n| $T_z = 10$ s | 63.2° | 1.332 % |",
+    "practicalPreparation": [
+      "1. Open this lesson's project and start **Simulator**. The nine heaters rest at 35 °C with 75 %. In the **truST** side bar, select **Control Studio**, and answer the predictions.\n2. On **Identify**, choose **Supplied plant model** in **Method**, select **Open model…** and open `pi-loop-model.json`. Control Studio shows **Integrating model with delay**, G(s) = (0.2) / (1s) · e^(−1s).\n3. On **Tune**, choose **Lead/lag design** in **Tuning method**, keep **Lead compensation** in **Compensation**, enter 0.4082 in **Crossover (rad/s)** and 11.54 in **Phase contribution (°)**, and select **Calculate lead/lag design**.\n4. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows the setpoint, `P1.TargetBaselineC · Process value (°C)` and `P1.TargetBaselinePct · Applied output (%)`; add the states `P1.TargetLead3C`, `P1.TargetLead10C`, `P1.TargetLead3Pct` and `P1.TargetLead10Pct`.\n5. Select **Review project test**, check the declared **62.1 s** duration and select **Confirm and start**. The trials start after 2 s at rest; hover the step and the last 30 s.\n6. Show `P1.LoadBaselineC`, `P1.LoadLead3C`, `P1.LoadLead10C` and `P1.DisturbanceKw` and hover the dips; then `P1.NoiseBaselinePct`, `P1.NoiseLead3Pct` and `P1.NoiseLead10Pct` and hover the last periods. Control Studio ends with **Project test completed. Outputs restored.**\n\nSelect **Abort test** to stop early. To repeat, stop and restart **Simulator**."
+    ],
+    "baseline": "With the PI alone, a 30 kW load pulls the water to 33.75 °C, below the 33.8 °C requirement, and more proportional gain would raise the gain at every rate.",
+    "change": "Add a lead element after the PI, recalculate the complete loop for crossover, phase margin and noise path, and compare Tz = 3 s and 10 s with the baseline on matched target, load and noise trials.",
+    "comparison": "![Only the 3 s lead meets every requirement](figures/loop-shaping-trials.svg)\n\nThe numbered marks answer predictions 1–3; Control Studio's lead/lag design answers 5. From the recorded run:\n\n| Requirement | $F = 1$ | $T_z = 3$ s | $T_z = 10$ s |\n| --- | ---: | ---: | ---: |\n| Target: peak at most 39 °C | 38.00 °C | 38.00 °C | 37.99 °C |\n| Target: within 0.2 °C, 30–60 s | 0.002 °C | 0.012 °C | 0.109 °C |\n| Load: at least 33.8 °C | **33.75 °C, fails** | 33.87 °C | 34.24 °C |\n| Load: within 0.2 °C, 30–60 s | 0.028 °C | 0.051 °C | 0.165 °C |\n| Noise: command swing at most 0.5 % | 0.310 % | 0.460 % | **1.406 %, fails** |\n\n1. The 3 s and 10 s leads kept the load above 33.8 °C; the PI alone fell to 33.75 °C.\n2. The 10 s lead swung the command by 1.406 % under 0.05 °C of noise.\n3. The 10 s lead's first request exceeded 100 %, and its command stayed at 100 % for the first 1.6 s.\n4. No: the 10 s lead adds the most phase but leaves the least, 63.2°.\n5. Control Studio returned **Lead compensator: C(s) = 1.67 · (1 + s/0.3333) / (1 + s/0.5).** and 11.54°: $T_z = 3$ s, $T_p = 2$ s and the gain, as calculated.\n\nOnly $T_z = 3$ s meets every requirement, so we choose it, at unit gain: its design gain of 1.67 would raise the noise swing to the calculated 0.842 %. It keeps the water 0.12 °C higher on the load at a noise cost of 0.46 %. These are simulation results.",
+    "validation": "![Only the 3 s lead meets every requirement](figures/loop-shaping-trials.svg)\n\nThe numbered marks answer predictions 1–3; Control Studio's lead/lag design answers 5. From the recorded run:\n\n| Requirement | $F = 1$ | $T_z = 3$ s | $T_z = 10$ s |\n| --- | ---: | ---: | ---: |\n| Target: peak at most 39 °C | 38.00 °C | 38.00 °C | 37.99 °C |\n| Target: within 0.2 °C, 30–60 s | 0.002 °C | 0.012 °C | 0.109 °C |\n| Load: at least 33.8 °C | **33.75 °C, fails** | 33.87 °C | 34.24 °C |\n| Load: within 0.2 °C, 30–60 s | 0.028 °C | 0.051 °C | 0.165 °C |\n| Noise: command swing at most 0.5 % | 0.310 % | 0.460 % | **1.406 %, fails** |\n\n1. The 3 s and 10 s leads kept the load above 33.8 °C; the PI alone fell to 33.75 °C.\n2. The 10 s lead swung the command by 1.406 % under 0.05 °C of noise.\n3. The 10 s lead's first request exceeded 100 %, and its command stayed at 100 % for the first 1.6 s.\n4. No: the 10 s lead adds the most phase but leaves the least, 63.2°.\n5. Control Studio returned **Lead compensator: C(s) = 1.67 · (1 + s/0.3333) / (1 + s/0.5).** and 11.54°: $T_z = 3$ s, $T_p = 2$ s and the gain, as calculated.\n\nOnly $T_z = 3$ s meets every requirement, so we choose it, at unit gain: its design gain of 1.67 would raise the noise swing to the calculated 0.842 %. It keeps the water 0.12 °C higher on the load at a noise cost of 0.46 %. These are simulation results.",
+    "explanation": "A lead keeps the steady gain and raises the high-frequency gain by $T_z/T_p$; Control Studio designs it from the frequency to centre on and the phase to add. It must be judged on the complete loop $L = CFG$: the crossover moves, and the phase left there can fall although $F$ adds phase.\n\nFor the heater, the designed 3 s lead lifted the load minimum from 33.75 to 33.87 °C and kept the noise swing below 0.5 %; the 10 s lead failed on noise.",
+    "transfer": "The phase left at crossover checks the loop at one frequency. The delay keeps adding lag at every frequency, so the loop can come close to −1 elsewhere, and one number at one frequency does not prove that the whole loop is stable.\n\n[Nyquist stability](../47-nyquist-stability/README.md) examines the loop's complete frequency curve, delay included."
+  }
+}

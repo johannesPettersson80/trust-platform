@@ -1,8 +1,4 @@
 import { Node, Edge } from "@xyflow/react";
-import type {
-  RuntimeExtensionToWebviewMessage,
-  RuntimeWebviewToExtensionMessage,
-} from "../../visual/runtime/runtimeMessages";
 
 /**
  * State types for UML StateChart
@@ -19,7 +15,7 @@ export interface StateNodeData extends Record<string, unknown> {
   exit?: string[];
   on?: Record<string, TransitionConfig>;
   description?: string;
-  isActive?: boolean; // For real-time highlighting during execution
+  isActive?: boolean; // Highlights the active state
 }
 
 /**
@@ -54,33 +50,28 @@ export interface StateChartEdge extends Edge {
 }
 
 /**
- * XState-compatible JSON format for state machines
+ * The editor graph the language server reads from a `.statechart.json` file and writes back
+ * (`trust-lsp.visualParse` / `trust-lsp.visualFormat`): states and transitions in file order and
+ * the action mappings as they are. Optional members are present when the file has them.
  */
-export interface XStateConfig {
-  id: string;
-  initial?: string;
-  states: Record<string, XStateStateConfig>;
-  actionMappings?: Record<string, ActionMapping>;
-}
-
-/**
- * XState state configuration
- */
-export interface XStateStateConfig {
-  entry?: string[];
-  exit?: string[];
-  on?: Record<string, XStateTransition | string>;
-  type?: "final" | "compound";
-}
-
-/**
- * XState transition format
- */
-export interface XStateTransition {
-  target: string;
-  guard?: string;
-  actions?: string[];
-  after?: number; // Auto-transition delay in milliseconds
+export interface StatechartGraph {
+  states: Array<{
+    id: string;
+    label: string;
+    type: StateType;
+    entry?: string[];
+    exit?: string[];
+  }>;
+  transitions: Array<{
+    id: string;
+    source: string;
+    target: string;
+    event?: string;
+    guard?: string;
+    actions?: string[];
+    after?: number;
+  }>;
+  actionMappings: Record<string, ActionMapping>;
 }
 
 /**
@@ -93,44 +84,58 @@ export interface VSCodeAPI {
 }
 
 /**
- * Execution mode: Simulation (mock) or Hardware (real I/O)
+ * A value the language server reads from text typed into a panel field (`trust-lsp.visualEdit`):
+ * a transition's auto-transition timer, or an action mapping's value.
  */
-export type ExecutionMode = "simulation" | "hardware";
+export type ValueField = "afterDelay" | "mappingValue";
+
+/**
+ * The language server's answer for typed text: `after` (milliseconds, `null` for none) or `value`,
+ * or why the text is refused.
+ */
+export interface ValueAnswer {
+  ok: boolean;
+  after?: number | null;
+  value?: unknown;
+  errors?: Array<{ message: string }>;
+}
+
+/** Asks the language server for the value of the text typed into `field`. */
+export type ReadValue = (field: ValueField, text: string) => Promise<ValueAnswer>;
 
 /**
  * Messages sent from webview to extension
  */
 export type WebviewToExtensionMessage =
-  | { type: "save"; content: string }
-  | { type: "validate"; content: string }
-  | { type: "generateST"; content: string }
+  | { type: "save"; graph: StatechartGraph }
+  | { type: "validate"; graph: StatechartGraph }
+  | { type: "generateST"; graph: StatechartGraph }
+  | { type: "actionReport"; requestId: number; graph: StatechartGraph }
+  | { type: "readValue"; requestId: number; field: ValueField; text: string }
   | { type: "ready" }
-  | { type: "error"; error: string }
-  | { type: "openAsText" }
-  | { type: "sendEvent"; event: string }
-  | RuntimeWebviewToExtensionMessage;
+  | { type: "openAsText" };
 
 /**
- * Messages sent from extension to webview
+ * Messages sent from extension to webview: the graph of the document, or why it cannot be read.
  */
 export type ExtensionToWebviewMessage =
-  | { type: "update"; content: string }
-  | { type: "init"; content: string }
-  | { type: "executionState"; state: ExecutionState }
-  | { type: "executionStopped" }
-  | RuntimeExtensionToWebviewMessage;
-
-/**
- * Real-time execution state from runtime
- */
-export interface ExecutionState {
-  currentState: string;
-  previousState?: string;
-  availableEvents: string[];
-  context?: Record<string, any>;
-  timestamp?: number;
-  mode?: ExecutionMode; // Current execution mode
-}
+  | {
+      type: "update";
+      graph?: StatechartGraph;
+      error?: string;
+    }
+  | {
+      /** The language server's action report for the graph of request `requestId`. */
+      type: "actionReport";
+      requestId: number;
+      unmapped: string[];
+      unused: string[];
+    }
+  | ({
+      /** The language server's value for the text of request `requestId`. */
+      type: "valueResult";
+      requestId: number;
+    } & ValueAnswer);
 
 /**
  * Action mapping for hardware I/O

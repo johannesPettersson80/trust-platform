@@ -1,0 +1,88 @@
+format = 1
+title = "PID controller"
+size = [608, 432]
+pinnable = true
+settings = true
+
+[fields.Manual]
+accepts = ["boolean"]
+
+[fields.Setpoint]
+accepts = ["number"]
+
+[fields.ManualOutput]
+accepts = ["number"]
+
+[fields.Output]
+accepts = ["number"]
+
+[fields.MeasuredValue]
+accepts = ["number"]
+
+[fields.OutputMin]
+accepts = ["number"]
+
+[fields.OutputMax]
+accepts = ["number"]
+
+[[object]]
+id = "mode"
+type = "switch"
+label = "Mode"
+options = ["Auto", "Manual"]
+role = "operator"
+at = [24, 24]
+size = [560, 48]
+
+[object.bind]
+value = { path = "$Manual", direction = "read-write" }
+
+[[object]]
+id = "measurement"
+type = "value"
+label = "Measurement"
+at = [24, 88]
+size = [176, 80]
+
+[object.bind]
+value = "$MeasuredValue"
+
+[[object]]
+id = "setpoint"
+type = "setpoint"
+label = "Setpoint"
+role = "operator"
+at = [216, 88]
+size = [176, 80]
+
+[object.bind]
+value = { path = "$Setpoint", direction = "read-write" }
+
+[[object]]
+id = "manual-output"
+type = "setpoint"
+label = "Output"
+unit = "%"
+decimals = 1
+role = "operator"
+at = [408, 88]
+size = [176, 80]
+
+[object.bind]
+value = { path = "$ManualOutput", direction = "read-write" }
+"low-limit" = "$OutputMin"
+"high-limit" = "$OutputMax"
+interlock = "$Manual"
+
+[[object]]
+id = "history"
+type = "trend"
+label = "History"
+decimals = 1
+at = [24, 184]
+size = [560, 232]
+
+[object.bind]
+setpoint = "$Setpoint"
+measurement = "$MeasuredValue"
+output = { path = "$Output", unit = "%" }

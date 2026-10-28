@@ -77,7 +77,6 @@ python3 -m venv .venv-pyads
   --notification global.PumpRunning:BOOL \
   --write global.Setpoint:REAL:12.5 \
   --doctor-endpoint unix:///tmp/trust-runtime-ads-server-basic.sock \
-  --doctor-token ads-server-smoke-token \
   --trust-runtime target/debug/trust-runtime
 ```
 
@@ -592,3 +591,7 @@ for a `SUMUP_READWRITE` response-layout proof; it should set
 the truST runtime is running, and the command bit was not left permanently true.
 
 Plain ADS is cleartext and route-based. Keep it on a trusted OT segment.
+
+## Screen
+
+`hmi/pages/overview.toml` shows this example's values. It opens in the HMI Builder in VS Code; press **Live** while the simulator runs to see the values move. To open it in a browser, enable `[runtime.web]` in `runtime.toml`; the runtime then serves it at `/hmi`.

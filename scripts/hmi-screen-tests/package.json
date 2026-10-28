@@ -1,0 +1,14 @@
+{
+  "name": "trust-hmi-screen-tests",
+  "private": true,
+  "type": "module",
+  "description": "Screen tests of the HMI (specification 39, \u00a718 phase 3): an operator journey against the simulator and a screenshot comparison of the drawing.",
+  "scripts": {
+    "test": "playwright test",
+    "install-browser": "playwright install chromium",
+    "update-screens": "playwright test reference-page --update-snapshots"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}

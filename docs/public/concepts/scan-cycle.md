@@ -15,7 +15,7 @@ flowchart LR
     A[Sample Inputs<br/>%I / driver image] --> B[Materialize Mapped Variables<br/>VAR_CONFIG and globals]
     B --> C[Execute Structured Text<br/>programs and function blocks]
     C --> D[Write Outputs and Memory<br/>%Q / %M images]
-    D --> E[Publish Results<br/>HMI, watch, control, traces]
+    D --> E[Publish Results<br/>watch, control, traces]
     E --> A
 ```
 
@@ -27,7 +27,7 @@ flowchart LR
 2. mapped variables are materialized for the running program/task
 3. Structured Text logic executes
 4. updated outputs and memory images are written back
-5. watchers, HMI, and control APIs observe the resulting state
+5. watchers and control APIs observe the resulting state
 
 ## Common Bug Source
 
@@ -69,7 +69,7 @@ execution contract directly.
 - the runtime executes it continuously
 - the deterministic harness lets you step it manually
 - tutorials use it to explain `%M` and I/O behavior
-- HMI, traces, and watch surfaces expose the resulting state after each cycle
+- traces and watch surfaces expose the resulting state after each cycle
 
 ## Related
 

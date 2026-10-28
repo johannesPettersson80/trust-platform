@@ -1,0 +1,342 @@
+{
+  "schemaVersion": 4,
+  "id": "control-adaptive-control",
+  "title": "Adaptive control",
+  "level": "Modern",
+  "sequence": 85,
+  "equipment": "Two of Lesson 13's heaters after their heat loss changed from 10 to 8 kW/°C",
+  "physicalPurpose": "Keep the designed heater response after a change in heat loss by estimating the change from measurements and revising the PI gains.",
+  "principalTechnique": "Least-squares estimation of the heat-loss coefficient, window qualification and λ-rule gain revision",
+  "objective": "Estimate the heater's changed heat loss by least squares, reject a window that cannot separate it from an unknown extraction, revise Ki from the accepted estimate, and compare the old and revised gains on the changed heater.",
+  "prerequisites": [
+    "control-feedback-linearization"
+  ],
+  "nextLesson": "control-robust-control",
+  "signals": [
+    {
+      "role": "PV",
+      "name": "Heater B temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "MV",
+      "name": "Heater B command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL16"
+    },
+    {
+      "role": "state",
+      "name": "Heater A temperature",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "state",
+      "name": "Setpoint",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "state",
+      "name": "Heater A command",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL0"
+    },
+    {
+      "role": "state",
+      "name": "Estimate, window 1",
+      "unit": "kW/degC",
+      "minimum": 0,
+      "maximum": 20,
+      "resolution": 1e-06,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Estimate, window 2",
+      "unit": "kW/degC",
+      "minimum": 0,
+      "maximum": 20,
+      "resolution": 1e-06,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "Heater B integral gain",
+      "unit": "%/(degC*s)",
+      "minimum": 0,
+      "maximum": 2,
+      "resolution": 1e-06,
+      "binding": "%ML40"
+    },
+    {
+      "role": "state",
+      "name": "Span, window 1",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 10,
+      "resolution": 1e-06,
+      "binding": "%ML24"
+    },
+    {
+      "role": "state",
+      "name": "Span, window 2",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 10,
+      "resolution": 1e-06,
+      "binding": "%ML32"
+    },
+    {
+      "role": "state",
+      "name": "Window 1 accepted",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX56.1"
+    },
+    {
+      "role": "state",
+      "name": "Window 2 accepted",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX56.2"
+    },
+    {
+      "role": "state",
+      "name": "Lesson experiment",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX56.0"
+    },
+    {
+      "role": "state",
+      "name": "Fault latched",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX56.3"
+    },
+    {
+      "role": "state",
+      "name": "Clock valid",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX56.4"
+    }
+  ],
+  "plant": {
+    "modelId": "two-water-heaters",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "thermal_capacity",
+        "value": 50,
+        "unit": "kJ/degC"
+      },
+      {
+        "name": "heat_loss",
+        "value": 8,
+        "unit": "kW/degC"
+      },
+      {
+        "name": "heater_power_per_point",
+        "value": 2,
+        "unit": "kW"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "heaterATemperature": 35.0,
+      "heaterBTemperature": 35.0
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Heater B command": 60,
+      "Heater B temperature": 35
+    },
+    "validityRange": [
+      {
+        "signal": "Heater B temperature",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      }
+    ],
+    "simplifications": [
+      "50·dT/dt = 2·u(t − 1 s) − 8·(T − 20) − D for each heater, D = 0 throughout.",
+      "The estimator knows C = 50 kJ/°C and a = 2 kW per point exactly."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "gains": "Kp = 2.5, Ki = 0.5, designed for 10 kW/°C (heater A)"
+    },
+    "limitation": "After the heat loss changed to 8 kW/°C, the old Ki no longer places the PI zero on the heater's pole: the response differs from the design."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "estimation": "least squares over two 30 s windows; accept for Ĥ in 7–13, span ≥ 1 °C, residuals ≤ 5 kW, halves within 0.5",
+      "revision": "Ki = Ĥ/(aλ) with λ = 10 s",
+      "experiment": "60 points 30 s, 70 points 30 s, 60 points 30 s, then Auto with a 35 → 38 °C step",
+      "durationSeconds": 152
+    },
+    "decision": "Accepted: window 2 (70-point step, span 2.47 °C) estimated 8.0 kW/°C and B's Ki became 0.4; B then answered the 3 °C step as designed (63 % at 9.9 s, no overshoot), while A's old gains rose faster (8.7 s) and overshot by 0.013 °C. Window 1 (steady, span 0 °C) was rejected although its number was also 8.0: it could not separate a heat-loss change from an unknown extraction. Simulation evidence with known C and a."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "Lesson experiment",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 152,
+    "settlingSeconds": 60,
+    "disturbances": [
+      "Heater B manual: 60 points, 70 points, 60 points, 30 s each",
+      "Setpoint 35 → 38 °C at 90 s for both heaters"
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "window_decision",
+      "signal": "Window 1 accepted",
+      "window": "steady 60-point window",
+      "comparator": "==",
+      "limit": 0,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "window_decision",
+      "signal": "Window 2 accepted",
+      "window": "70-point step window",
+      "comparator": "==",
+      "limit": 1,
+      "unit": "1",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "maximum_absolute_deviation",
+      "signal": "Heater B temperature",
+      "window": "30–60 s after the setpoint step, against 38 °C",
+      "comparator": "<=",
+      "limit": 0.2,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Heater B command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      },
+      {
+        "signal": "Heater A command",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "A temperature outside 0–80 °C or an update interval outside 100 ms ± 10 ms latches zero output on both heaters",
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 0,
+    "restorationMode": "After the experiment both heaters hold 35 °C in Auto; a latched fault holds zero output until a restart.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical heater changes",
+      "The estimate assumes a known C and a and no unknown extraction; the rules reject some confounded windows but not a constant sensor bias"
+    ]
+  },
+  "workflowStages": [
+    "Identify"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/76-82-nonlinear-and-recovery.md#78-adaptive-control",
+    "nativeTest": "lesson78",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_76_78 lesson78",
+    "projectPath": "examples/control/12-nonlinear-adaptive-and-robust-control/76-adaptive-control",
+    "runArtifactFields": [
+      "windowEstimates",
+      "windowSpans",
+      "windowDecisions",
+      "revisedIntegralGain",
+      "temperatures",
+      "commands",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-adaptive-control"
+  },
+  "video": {
+    "viewerOutcome": "See a steady window rejected despite a plausible estimate, a step window accepted, the integral gain revised, and the revised heater answer a step as designed while the old gains overshoot.",
+    "requiredVisibleEvidence": [
+      "both windows' estimates, spans and decisions",
+      "heater B's revised Ki",
+      "both heaters' step responses",
+      "commands",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 84's compensation held the arm at 0.1 rad with exactly gravity's −0.399 N·m, because its coefficient matched the arm's; 0.5 N·m less left 0.0032 rad, and none left 0.0332 rad. A controller built on a model parameter is only as good as that parameter, and parameters change in operation.\n\nWe study such a change on the water heater, whose heat balance is linear in its one unknown parameter, so a short formula can estimate it. Its heat loss has fallen from 10 to 8 kW/°C, for example after new insulation, while its PI gains were designed for 10 kW/°C. We will estimate the heat loss from the heater's own measurements, accept the estimate only when the data can support it, and recalculate the gains from it.",
+    "reason": "We need to:\n\n1. estimate the heat loss from measured temperatures and commands while the heater runs;\n2. reject data that cannot tell a changed heat loss from an unknown extraction; and\n3. recalculate the PI gains from an accepted estimate and compare them with the old gains.",
+    "theory": [
+      "**Adaptive control** estimates a changing process parameter from operating data and updates the controller with it, but only when the data really contain that information. For the heater, the program estimates the heat loss from its temperatures and commands, and revises the integral gain only when the estimate passes its checks.\n\n**In words.** The PI gains were calculated from a model parameter, the heat loss. When the heat loss changes, the gains no longer give the response they were designed for. An adaptive controller measures the parameter again while the plant runs and recalculates the gains from it. The hard part is knowing when the data can be trusted. It is like a weighing system's automatic tare: it learns a new zero only when the scale is steady and empty, never in the middle of filling. The parts:\n\n1. **Measure the effect.** Every second, the heat balance turns a temperature and a command into one data pair: how far the water is above its surroundings, and how much heat it lost.\n2. **Estimate.** A line through the pairs gives the heat loss: its slope.\n3. **Check the data.** The estimate is accepted only if the data could have shown the heat loss: the temperature moved enough, the line fits, and its two halves agree.\n4. **Update the controller.** Only an accepted estimate recalculates the gain.\n\nFor this heater, the heat loss has fallen from 10 to 8 kW/°C. The program can find that from its own measurements, but only from data in which the temperature moved.\n\n**The formula.** The water stores heat; the heater adds 2 kW per command point, delivered one second late; heat leaves in proportion to the temperature above the 20 °C surroundings. Let:\n\n- $C = 50$ kJ/°C be the thermal capacity and $a = 2$ kW per point the heater power;\n- $H$ be the heat loss, in kW/°C, and $D$ an unknown extra extraction, in kW;\n- $u_{delayed}$ be the command delivered during the second, in points, and $dT/dt$ the temperature's rate of change, in °C/s; and\n- $x = T - 20$ be the temperature above the surroundings, in °C, and $y = a\\,u_{delayed} - C\\,dT/dt$ the heat lost, in kW.\n\nThe balance $C\\,dT/dt = a\\,u_{delayed} - Hx - D$ gives\n\n$$\ny = Hx + D .\n$$\n\nMany seconds give many pairs $(x_i, y_i)$. A least-squares fit, as in lesson 15, picks the $\\hat H$ that makes $\\sum_i (y_i - Hx_i)^2$ smallest; squared misses cannot cancel each other. Its derivative, $-2\\sum_i x_i(y_i - Hx_i)$, is zero at\n\n$$\n\\hat H = \\frac{\\sum_i x_iy_i}{\\sum_i x_i^2} .\n$$\n\nThe program forms one pair per second, from the mean temperature over the second and the command delivered during it. An accepted $\\hat H$ sets the integral gain\n\n$$\nK_i = \\frac{\\hat H}{a\\lambda}, \\qquad K_p = \\frac{C}{a\\lambda},\n$$\n\nwith $\\lambda = 10$ s the desired time constant, $K_i$ in points/(°C·s) and $K_p$ in points/°C. This puts the PI's zero, $K_i/K_p = H/C$, on the heater's pole, so the integral term cancels the heater's own lag and the loop responds with a time constant of about $\\lambda$.\n\n**Example: the heater before the insulation, $H = 10$ kW/°C.**\n\n1. One pair: holding 35 °C took 75 points with the temperature steady, so $x = 15$ °C and $y = 2 \\cdot 75 - 50 \\cdot 0 = 150$ kW. This pair alone says $H = 150/15 = 10$ kW/°C.\n2. Three seconds with small misses, $(14, 141)$, $(15, 149)$ and $(16, 160)$: $\\sum x_iy_i = 1974 + 2235 + 2560 = 6769$ and $\\sum x_i^2 = 196 + 225 + 256 = 677$, so $\\hat H = 6769/677 = 10.0$ kW/°C. The misses of +1, −1 and 0 kW average out.\n3. Why the data must move: with $x = 15$ °C throughout, 150 kW fits $H = 10$ with $D = 0$, and equally $H = 8$ with a 30 kW extraction, $8 \\cdot 15 + 30 = 150$. Only a change in $x$ separates them: at $x = 17$ °C the first gives 170 kW and the second 166 kW.\n4. So the program accepts an estimate only when $x$ spans at least 1 °C, every miss $|y - \\hat Hx|$ is within 5 kW, the two halves of the window agree within 0.5 kW/°C, and $\\hat H$ lies in 7–13 kW/°C. These limits are a teaching choice.\n5. The gains for 10 kW/°C are $K_i = 10/20 = 0.5$ points/(°C·s) and $K_p = 50/20 = 2.5$ points/°C: the gains both heaters start with. The zero, $0.5/2.5 = 0.2$ per second, sits on the pole, $10/50 = 0.2$ per second.\n\n**The limitation.** Adaptation cannot add information that the data lack. A steady window may give the right number by luck or a wrong one with the same confidence, and an accepted estimate holds only while $C$, $a$ and $D$ are as assumed. Only $K_i$ follows the estimate; $K_p = 2.5$ points/°C stays."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. Window 1 holds the changed heater at a steady 35 °C with 60 points. What heat loss does it estimate?\n2. Which window will be accepted: 30 s at a steady 60 points, or 30 s at 70 points?\n3. What integral gain does the accepted estimate give?\n4. After a 3 °C setpoint step, which heater overshoots, and which settles within 0.2 °C sooner?\n5. Which heater reaches 63 % of the step in about $\\lambda = 10$ s?\n\n| Window | Estimate | Span of $x$ | Accepted? | $K_i$ afterwards |\n| --- | ---: | ---: | --- | ---: |\n| 1: steady 60 points | 8 kW/°C | 0 °C | no: span below 1 °C | 0.5 |\n| 2: 70 points | 8 kW/°C | about 2.5 °C | yes | 0.4 |",
+    "practicalPreparation": [
+      "1. Open this lesson's project and start **Simulator**. Both heaters rest at 35 °C with 60 points. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Project experiment** from **Method**. **Signals** shows `P1.AdaptiveC · Process value (°C)`, `P1.FixedC · state (°C)` and `P1.SetpointC · state (°C)`: heater B, heater A and their setpoint. Add `P1.AdaptiveKi · state (%/(°C·s))`, `P1.Estimate2 · state (kW/°C)`, `P1.Span1 · state (°C)` and `P1.Span2 · state (°C)`.\n3. Answer the predictions, select **Review project test** and check the declared **152 s**: two windows, 30 s back at 60 points and 60 s after the setpoint step. Select **Confirm and start**; the experiment starts about 2 s later, and times below count from that start.\n4. After the run, hover B's temperature at 30 s and 60 s, B's integral gain before and after 60 s, and both heaters 10 s, 18 s and 25 s after the step at 90 s.\n5. At completion Control Studio shows **Project test completed. Outputs restored.**\n\nSelect **Abort test** to stop early; to repeat, restart **Simulator** so both heaters start at rest."
+    ],
+    "baseline": "The PI gains were designed for 10 kW/°C; after the change to 8 kW/°C the response no longer matches the design.",
+    "change": "Estimate the heat loss by least squares, reject an uninformative window, revise Ki from the accepted estimate and compare old and revised gains on the changed heater.",
+    "comparison": "![The steady window is rejected and the moving one accepted; the revised gain answers the setpoint step without overshoot](figures/adaptive-heat-loss.svg)\n\nThe numbered marks answer predictions 2–5, and the first table answers prediction 1: the steady window estimated 8.0 kW/°C, the right number. From Control Studio's recording:\n\n| Window | Heater B | Estimate | Span of $x$ | Decision |\n| --- | --- | ---: | ---: | --- |\n| 1: 0–30 s | 60 points, 35.00 °C throughout | 8.0 kW/°C | 0.00 °C | rejected |\n| 2: 30–60 s | 70 points, 35.00 → 37.47 °C | 8.0 kW/°C | 2.47 °C | accepted |\n\n| Heater | 63 % of the step | Peak | Within 0.2 °C from | Largest error from 30 s |\n| --- | ---: | ---: | ---: | ---: |\n| B, revised $K_i = 0.4$ | 9.9 s | 37.996 °C | 25.2 s | 0.117 °C |\n| A, old $K_i = 0.5$ | 8.7 s | 38.013 °C | 18.4 s | 0.013 °C |\n\n2. Window 1 gave the right number and was rejected all the same: with the temperature constant, the same data fitted 10 kW/°C with a 30 kW heat input. Window 2 moved the temperature 2.47 °C, its halves agreed and its misses were small, so it was accepted.\n3. The accepted 8.0 kW/°C set B's integral gain to 0.4 at 60 s.\n4. A, with the old gain, overshot to 38.013 °C and was within 0.2 °C from 18.4 s; B approached without overshoot and was within 0.2 °C from 25.2 s.\n5. B reached 63 % in 9.9 s, as $\\lambda = 10$ s specifies, because its PI zero again sits on the heater's pole; A rose faster, in 8.7 s.\n\nBoth heaters were stable; the old gains simply no longer produced the response they were designed for. The benefit of adapting is the designed response on the changed heater; its cost is two windows of deliberate movement and checks that can refuse an estimate. The accepted estimate and the revised gain are adopted, and the steady window is rejected, however plausible its number. These are simulation results, with $C$ and $a$ known and no unknown extraction.",
+    "validation": "![The steady window is rejected and the moving one accepted; the revised gain answers the setpoint step without overshoot](figures/adaptive-heat-loss.svg)\n\nThe numbered marks answer predictions 2–5, and the first table answers prediction 1: the steady window estimated 8.0 kW/°C, the right number. From Control Studio's recording:\n\n| Window | Heater B | Estimate | Span of $x$ | Decision |\n| --- | --- | ---: | ---: | --- |\n| 1: 0–30 s | 60 points, 35.00 °C throughout | 8.0 kW/°C | 0.00 °C | rejected |\n| 2: 30–60 s | 70 points, 35.00 → 37.47 °C | 8.0 kW/°C | 2.47 °C | accepted |\n\n| Heater | 63 % of the step | Peak | Within 0.2 °C from | Largest error from 30 s |\n| --- | ---: | ---: | ---: | ---: |\n| B, revised $K_i = 0.4$ | 9.9 s | 37.996 °C | 25.2 s | 0.117 °C |\n| A, old $K_i = 0.5$ | 8.7 s | 38.013 °C | 18.4 s | 0.013 °C |\n\n2. Window 1 gave the right number and was rejected all the same: with the temperature constant, the same data fitted 10 kW/°C with a 30 kW heat input. Window 2 moved the temperature 2.47 °C, its halves agreed and its misses were small, so it was accepted.\n3. The accepted 8.0 kW/°C set B's integral gain to 0.4 at 60 s.\n4. A, with the old gain, overshot to 38.013 °C and was within 0.2 °C from 18.4 s; B approached without overshoot and was within 0.2 °C from 25.2 s.\n5. B reached 63 % in 9.9 s, as $\\lambda = 10$ s specifies, because its PI zero again sits on the heater's pole; A rose faster, in 8.7 s.\n\nBoth heaters were stable; the old gains simply no longer produced the response they were designed for. The benefit of adapting is the designed response on the changed heater; its cost is two windows of deliberate movement and checks that can refuse an estimate. The accepted estimate and the revised gain are adopted, and the steady window is rejected, however plausible its number. These are simulation results, with $C$ and $a$ known and no unknown extraction.",
+    "explanation": "Adaptive control is an estimate qualified by its data, followed by one revision of the controller: data in which the temperature does not change cannot separate a changed heat loss from an unknown extraction.\n\nFor the heater, the moving window gave 8.0 kW/°C, and the revised integral gain restored the designed 10 s response without overshoot.",
+    "transfer": "A parameter cannot always be estimated reliably: the data may not move enough, or an unknown disturbance may confuse the estimate, and then adaptation has nothing it can trust.\n\n[Robust control](../77-robust-control/README.md) designs one controller that works for the whole range the parameter can take."
+  }
+}

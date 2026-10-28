@@ -260,6 +260,14 @@ fn code_action_with_ticket(
         actions.push(action);
     }
 
+    if state.semantic_request_cancelled(request_ticket) {
+        return None;
+    }
+    // The library quick fix and the namespace move of specification 25 (§7, §1.1).
+    actions.extend(crate::handlers::commands::project::code_actions(
+        state, &doc, &params,
+    ));
+
     Some(actions)
 }
 
@@ -524,9 +532,23 @@ fn rename_with_ticket(
         return Ok(None);
     }
 
-    let Some(changes) = rename_result_to_changes(state, result) else {
+    let Some(mut changes) = rename_result_to_changes(state, result) else {
         return Ok(None);
     };
+
+    // The bindings of the project's HMI files follow the rename (specification 39, §7.8).
+    let identity = state.with_database(|db| {
+        trust_ide::rename_identity::rename_identity(db, doc.file_id, TextSize::from(offset))
+    });
+    if let Some(identity) = identity {
+        for (file, edits) in crate::handlers::commands::hmi_rename::rename_edits_with_context(
+            state, uri, &identity, new_name,
+        )
+        .map_err(tower_lsp::jsonrpc::Error::invalid_params)?
+        {
+            changes.entry(file).or_default().extend(edits);
+        }
+    }
 
     if state.semantic_request_cancelled(request_ticket) {
         return Ok(None);

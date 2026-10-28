@@ -8,6 +8,23 @@ use trust_syntax::parser;
 
 use super::*;
 
+// Reuse the real producer library used by the OpenOT integration tests.
+#[allow(dead_code)]
+#[path = "../../tests/openot_support/mod.rs"]
+mod openot_fixture;
+
+fn compile_with_openot_producer(mut sources: Vec<SourceFile>) {
+    sources.extend(
+        openot_fixture::ST_LIBRARY_SOURCES
+            .iter()
+            .map(|(path, text)| SourceFile::with_path(*path, *text)),
+    );
+    crate::harness::TestHarness::from_session(crate::harness::CompileSession::from_sources(
+        sources,
+    ))
+    .expect("instrumented source compiles with the real OpenOT producer library");
+}
+
 fn explicit_sourceid_collision_source() -> SourceFile {
     SourceFile::with_path(
             "main.st",
@@ -207,21 +224,20 @@ fn hir_and_runtime_authoring_accept_omitted_sourceids_units_and_payload_widths()
 }
 
 #[test]
-fn compile_session_surfaces_openot_validation_failure_instead_of_building_uninstrumented_bytecode()
+fn compile_session_surfaces_openot_validation_failure_instead_of_declaring_uninstrumented_sources()
 {
     let source = explicit_sourceid_collision_source();
     let instrumented = instrument_source_files(std::slice::from_ref(&source));
-    let bytecode =
-        crate::harness::CompileSession::from_sources(vec![source.clone()]).build_bytecode_bytes();
-    let bytecode_len = bytecode.as_ref().map(Vec::len);
+    let declarations =
+        crate::harness::CompileSession::from_sources(vec![source.clone()]).declarations();
 
     assert!(
-            bytecode.is_err(),
-            "OpenOT validation failure must surface through CompileSession instead of building uninstrumented bytecode; \
-             bytecode_len={bytecode_len:?}; unchanged_source={}; contains_producer={}",
-            instrumented[0].text == source.text,
-            instrumented[0].text.contains(PRODUCER_NAME)
-        );
+        declarations.is_err(),
+        "OpenOT validation failure must surface through CompileSession instead of declaring uninstrumented sources; \
+         unchanged_source={}; contains_producer={}",
+        instrumented[0].text == source.text,
+        instrumented[0].text.contains(PRODUCER_NAME)
+    );
 }
 
 #[test]
@@ -564,4 +580,48 @@ fn unpinned_ids_follow_declaration_order() {
     assert_eq!(first["values"][0]["valueId"], 2001);
     assert_eq!(second["values"][0]["name"], "BatchCount");
     assert_eq!(second["values"][0]["valueId"], 2001);
+}
+
+#[test]
+fn ordinary_sources_are_unchanged_and_st_errors_remain_compiler_errors() {
+    let source = SourceFile::with_path("plain.st",
+        "PROGRAM Main VAR Text : STRING := 'oot'; END_VAR (* {attribute 'oot' := 'value'} *) END_PROGRAM");
+    let result = try_instrument_source_files(std::slice::from_ref(&source)).unwrap();
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].path, source.path);
+    assert_eq!(result[0].text, source.text);
+    let invalid = SourceFile::new("PROGRAM Main MissingName := 1; END_PROGRAM");
+    assert_eq!(
+        try_instrument_source_files(std::slice::from_ref(&invalid)).unwrap()[0].text,
+        invalid.text
+    );
+    assert!(crate::harness::TestHarness::from_session(
+        crate::harness::CompileSession::from_sources(vec![invalid])
+    )
+    .is_err());
+}
+
+#[test]
+fn attributed_program_keeps_unattributed_cross_file_dependencies() {
+    let helper = SourceFile::with_path(
+        "helper.st",
+        "FUNCTION ReadValue : REAL ReadValue := REAL#2.5; END_FUNCTION",
+    );
+    let program = SourceFile::with_path("main.st",
+        "PROGRAM Main VAR Value : REAL {attribute 'oot' := 'value'}; END_VAR Value := ReadValue(); END_PROGRAM");
+    let sources = [helper, program];
+    let result = try_instrument_source_files(&sources).unwrap();
+    assert_eq!(result[0].text, sources[0].text);
+    assert!(result[1].text.contains(GENERATED_PRODUCER_NAME));
+    assert!(definition_json_from_sources(&sources).is_ok());
+    compile_with_openot_producer(sources.to_vec());
+}
+
+#[test]
+fn instrumentation_uses_tokens_not_keyword_text_in_comments_or_strings() {
+    let source = SourceFile::new("PROGRAM Main VAR Label:STRING := 'END_VAR END_PROGRAM'; (* END_VAR END_PROGRAM *) Level:REAL {attribute 'oot' := 'value'}; END_VAR Level := REAL#2.5; END_PROGRAM");
+    let instrumented = try_instrument_source_files(std::slice::from_ref(&source)).unwrap();
+    assert!(instrumented[0].text.contains(GENERATED_PRODUCER_NAME));
+    assert!(instrumented[0].text.contains("'END_VAR END_PROGRAM'"));
+    compile_with_openot_producer(vec![source]);
 }

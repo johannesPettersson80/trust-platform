@@ -22,7 +22,10 @@ surface in truST.
 
 ## Day-to-day workflow
 
-1. Set `vendor_profile` in `trust-lsp.toml`.
+1. Set `vendor_profile` in `trust-lsp.toml`. `codesys`, `twincat` and `beckhoff`
+   also make the conversion functions follow the CODESYS rules when the project runs
+   (for example `REAL_TO_INT(2.5)` is 3); see
+   [Vendor Profiles](../reference/config/vendor-profiles.md).
 2. Keep application code in normal `src/` folders.
 3. Add `[[libraries]]` stub folders for vendor-only symbols you still need for
    completion, hover, and navigation.

@@ -13,3 +13,7 @@ control_endpoint = "unix:///tmp/trust-debug.sock"
 # Optional: Use TCP for remote access
 # control_endpoint = "tcp://127.0.0.1:9000"
 # control_auth_token = "your-secret-token"
+
+# The HMI library, copied unchanged into this example so it stands on its own.
+[dependencies]
+Hmi = { path = "libraries/hmi", version = "0.1.0" }

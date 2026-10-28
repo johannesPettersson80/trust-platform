@@ -55,7 +55,7 @@ pub(super) fn io_snapshot_sample(snapshot: &IoSnapshot) -> Vec<serde_json::Value
             json!({
                 "direction": direction,
                 "name": entry.name.as_ref().map(|name| name.as_str()),
-                "address": format_io_address(&entry.address),
+                "address": entry.address.to_string(),
                 "value": format_io_value(entry),
             })
         })
@@ -67,30 +67,6 @@ pub(super) fn format_io_value(entry: &IoSnapshotEntry) -> serde_json::Value {
         crate::io::IoSnapshotValue::Value(value) => json!(format!("{value:?}")),
         crate::io::IoSnapshotValue::Error(error) => json!({ "error": error }),
         crate::io::IoSnapshotValue::Unresolved => json!("unresolved"),
-    }
-}
-
-pub(super) fn format_io_address(address: &IoAddress) -> String {
-    let area = match address.area {
-        IoArea::Input => "I",
-        IoArea::Output => "Q",
-        IoArea::Memory => "M",
-    };
-    let size = match address.size {
-        crate::io::IoSize::Bit => "X",
-        crate::io::IoSize::Byte => "B",
-        crate::io::IoSize::Word => "W",
-        crate::io::IoSize::DWord => "D",
-        crate::io::IoSize::LWord => "L",
-        crate::io::IoSize::Bytes(_) => "B",
-    };
-    if address.wildcard {
-        return format!("%{area}{size}*");
-    }
-    if address.size == crate::io::IoSize::Bit {
-        format!("%{area}{size}{}.{}", address.byte, address.bit)
-    } else {
-        format!("%{area}{size}{}", address.byte)
     }
 }
 

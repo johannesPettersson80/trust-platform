@@ -1,7 +1,9 @@
-// Executable installation precedes service configuration in load_runtime.
-// This operation never reloads code or executes initialization a second time.
-fn apply_bundle_runtime_services(
-    runtime: &mut Runtime,
+/// Applies the runtime-level services of `bundle` to its program (specification 44 §8.8): the
+/// watchdog and fault policies, the safe outputs, the `io.toml` drivers with their MQTT tag
+/// mappings, the retain file, the ADS and OPC UA clients and the OpenOT telemetry, each reaching the
+/// program's variables by name through its symbol table (§13.3).
+fn apply_bundle_services(
+    program: &mut trust_runtime::CompiledRuntime,
     bundle: &RuntimeBundle,
 ) -> anyhow::Result<()> {
     if bundle.runtime.bundle_version != 1 {
@@ -10,33 +12,13 @@ fn apply_bundle_runtime_services(
             bundle.runtime.bundle_version
         );
     }
+    program.set_watchdog_policy(bundle.runtime.watchdog);
+    program.set_fault_policy(bundle.runtime.fault_policy);
+    program.configure_openot_telemetry(&bundle.runtime.openot, Some(&bundle.root))?;
 
-    runtime.set_watchdog_policy(bundle.runtime.watchdog);
-    runtime.set_fault_policy(bundle.runtime.fault_policy);
-    runtime.set_io_safe_state(bundle.io.safe_state.clone());
-    runtime.configure_openot_telemetry(&bundle.runtime.openot, Some(&bundle.root))?;
-
-    let registry = IoDriverRegistry::default_registry();
-    let mut resolved_drivers = Vec::with_capacity(bundle.io.drivers.len());
-    for driver in &bundle.io.drivers {
-        let mut resolved_driver = driver.clone();
-        if !driver.enabled {
-            resolved_drivers.push(resolved_driver);
-            continue;
-        }
-        if driver.name.eq_ignore_ascii_case("mqtt") || driver.name.eq_ignore_ascii_case("mqtt-tcp")
-        {
-            resolved_driver.params =
-                trust_runtime::io::resolve_mqtt_tag_mappings(runtime, &resolved_driver.params)?;
-        }
-        if let Some(spec) = registry
-            .build(resolved_driver.name.as_str(), &resolved_driver.params)
-            .map_err(anyhow::Error::from)?
-        {
-            runtime.add_io_driver(spec.name, spec.driver);
-        }
-        resolved_drivers.push(resolved_driver);
-    }
+    // The safe outputs, then each enabled driver after the others under its link, an MQTT driver
+    // with its tag mappings bound first (specification 44 §8.8, §13.3; specification 42 §2).
+    program.add_io_config(&bundle.io)?;
 
     match bundle.runtime.retain_mode {
         trust_runtime::watchdog::RetainMode::File => {
@@ -48,17 +30,15 @@ fn apply_bundle_runtime_services(
                 };
                 Box::new(FileRetainStore::new(path)) as _
             });
-            runtime.set_retain_store(store, Some(bundle.runtime.retain_save_interval));
+            program.set_retain_store(store, Some(bundle.runtime.retain_save_interval))?;
         }
         trust_runtime::watchdog::RetainMode::None => {
-            runtime.set_retain_store(None, None);
+            program.set_retain_store(None, None)?;
         }
     }
 
-    runtime.annotate_io_binding_sources(&resolved_drivers);
-    start_ads_runtime(runtime, bundle)?;
-    start_opcua_client_runtime(runtime, bundle)?;
-
+    start_ads_runtime(program, bundle)?;
+    start_opcua_client_runtime(program, bundle)?;
     Ok(())
 }
 
@@ -70,7 +50,10 @@ fn start_openot_persistence_service(
 }
 
 #[cfg(feature = "ads-wire")]
-fn start_ads_runtime(runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::Result<()> {
+fn start_ads_runtime(
+    runtime: &mut trust_runtime::CompiledRuntime,
+    bundle: &RuntimeBundle,
+) -> anyhow::Result<()> {
     start_ads_runtime_with_factory(runtime, bundle, |connection| {
         Ok(trust_runtime::ads::HostAdsClient::new(
             connection.route.clone(),
@@ -79,7 +62,10 @@ fn start_ads_runtime(runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::R
 }
 
 #[cfg(not(feature = "ads-wire"))]
-fn start_ads_runtime(_runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::Result<()> {
+fn start_ads_runtime(
+    _runtime: &mut trust_runtime::CompiledRuntime,
+    bundle: &RuntimeBundle,
+) -> anyhow::Result<()> {
     if bundle.runtime.ads.enabled {
         anyhow::bail!(
             "runtime.ads.enabled=true requires trust-runtime built with feature 'ads-wire'"
@@ -89,7 +75,10 @@ fn start_ads_runtime(_runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::
 }
 
 #[cfg(feature = "opcua-wire")]
-fn start_opcua_client_runtime(runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::Result<()> {
+fn start_opcua_client_runtime(
+    runtime: &mut trust_runtime::CompiledRuntime,
+    bundle: &RuntimeBundle,
+) -> anyhow::Result<()> {
     start_opcua_client_runtime_with_factory(runtime, bundle, |_connection| {
         Ok(trust_runtime::opcua::OpcUaWireClientTransport::new())
     })
@@ -97,7 +86,7 @@ fn start_opcua_client_runtime(runtime: &mut Runtime, bundle: &RuntimeBundle) -> 
 
 #[cfg(feature = "opcua-wire")]
 fn start_opcua_client_runtime_with_factory<T, F>(
-    runtime: &mut Runtime,
+    runtime: &mut trust_runtime::CompiledRuntime,
     bundle: &RuntimeBundle,
     mut transport_factory: F,
 ) -> anyhow::Result<()>
@@ -127,7 +116,7 @@ where
 
 #[cfg(not(feature = "opcua-wire"))]
 fn start_opcua_client_runtime(
-    _runtime: &mut Runtime,
+    _runtime: &mut trust_runtime::CompiledRuntime,
     bundle: &RuntimeBundle,
 ) -> anyhow::Result<()> {
     if bundle.runtime.opcua_client.enabled {
@@ -140,7 +129,7 @@ fn start_opcua_client_runtime(
 
 #[cfg(any(test, feature = "ads-wire"))]
 fn start_ads_runtime_with_factory<T, F>(
-    runtime: &mut Runtime,
+    runtime: &mut trust_runtime::CompiledRuntime,
     bundle: &RuntimeBundle,
     mut transport_factory: F,
 ) -> anyhow::Result<()>
@@ -167,26 +156,32 @@ where
     Ok(())
 }
 
-fn parse_control_endpoint(bundle: Option<&RuntimeBundle>) -> anyhow::Result<ControlEndpoint> {
+/// The endpoint and token that the runtime binds (spec 11, section 6.8.0a). Without a project the
+/// runtime keeps its fallback TCP endpoint, which needs a configured token.
+fn parse_control_binding(bundle: Option<&RuntimeBundle>) -> anyhow::Result<ControlBinding> {
     if let Some(bundle) = bundle {
-        Ok(ControlEndpoint::parse(
-            bundle.runtime.control_endpoint.as_str(),
-        )?)
-    } else {
-        Ok(ControlEndpoint::parse("tcp://127.0.0.1:9000")?)
+        return Ok(control_binding(
+            &bundle.root,
+            bundle.runtime.control_endpoint.as_deref(),
+            bundle.runtime.control_auth_token.as_deref(),
+        )?);
     }
+    Ok(ControlBinding {
+        endpoint: ControlEndpoint::parse("tcp://127.0.0.1:9000")?,
+        auth_token: None,
+        generated_token: false,
+    })
 }
 
 fn ensure_control_auth_requirements(
-    control_endpoint: &ControlEndpoint,
-    bundle: Option<&RuntimeBundle>,
+    binding: &ControlBinding,
     ide_shell_mode: bool,
 ) -> anyhow::Result<()> {
-    if matches!(control_endpoint, ControlEndpoint::Tcp(_)) {
-        let token = bundle.and_then(|bundle| bundle.runtime.control_auth_token.as_ref());
-        if token.is_none() && !ide_shell_mode {
-            anyhow::bail!("tcp control endpoint requires runtime.control.auth_token");
-        }
+    if matches!(binding.endpoint, ControlEndpoint::Tcp(_))
+        && binding.auth_token.is_none()
+        && !ide_shell_mode
+    {
+        anyhow::bail!("tcp control endpoint requires runtime.control.auth_token");
     }
     Ok(())
 }

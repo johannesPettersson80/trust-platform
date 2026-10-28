@@ -43,7 +43,11 @@ function loadDiscoverPane(): React.ComponentType<Record<string, unknown>> {
 }
 
 suite("ADS discovery rendered results", () => {
-  test("an identity without a verified ADS port never renders a fallback card", async () => {
+  test("an identity without a verified ADS port renders the search's text, never a card", async () => {
+    // Specification 25 §2: an ADS find with no responding port is left out of the cards, and the
+    // source row says that TwinCAT identity was found but no configured port answered. The server
+    // leaves the find out and words the text (`an_ads_find_that_no_port_answered_is_left_out_of_the_cards`);
+    // the pane renders what the extension sends.
     const dom = new JSDOM("<!doctype html><body><div id=\"root\"></div></body>", {
       url: "https://ads-discovery.test/",
     });
@@ -67,21 +71,9 @@ suite("ADS discovery rendered results", () => {
             discoverProtocols: new Set(["ads"]),
             scanning: false,
             progress: [{ protocol: "ads", label: "ADS", status: "done", count: 0 }],
-            results: [
-              {
-                id: "ads:100.67.6.217.1.1",
-                label: "TwinCAT 100.67.6.217.1.1",
-                source: "ads_identify",
-                confidence: "observed",
-                protocol: "ads",
-                params: {
-                  host: "127.0.0.1",
-                  ams_net_id: "100.67.6.217.1.1",
-                  ams_port: 851,
-                  responding_ads_ports: [],
-                },
-              },
-            ],
+            results: [],
+            error:
+              "TwinCAT identity was found, but none of the configured ADS ports (301, 851) responded.",
             sessionCurrent: true,
             onScan: () => undefined,
             onAdd: () => undefined,
@@ -93,6 +85,13 @@ suite("ADS discovery rendered results", () => {
         );
       });
 
+      assert.strictEqual(
+        container.textContent?.includes(
+          "TwinCAT identity was found, but none of the configured ADS ports (301, 851) responded.",
+        ),
+        true,
+        "the search's text is shown",
+      );
       assert.strictEqual(
         container.textContent?.includes("TwinCAT 100.67.6.217.1.1"),
         false,

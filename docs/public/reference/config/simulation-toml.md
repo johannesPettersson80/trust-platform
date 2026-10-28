@@ -1,7 +1,9 @@
 # `simulation.toml`
 
-`simulation.toml` lets you script deterministic virtual wiring and timed fault
-injection without touching real hardware.
+`simulation.toml` lets you run deterministic dynamic plants, virtual wiring,
+and timed fault injection without touching real hardware. Plant models are
+deliberately imperfectible: actuator limits, model mismatch, noise, drift,
+quantisation, dropout, and scenario events can be combined with a replay seed.
 
 ## Example
 
@@ -10,6 +12,44 @@ injection without touching real hardware.
 enabled = true
 seed = 42
 time_scale = 8
+plant_step_ms = 100
+max_plant_substeps_per_cycle = 10000
+plant_trace_capacity = 1000
+
+[[plants]]
+id = "reference-fopdt"
+model = "first_order_dead_time"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [0.0]
+
+[plants.parameters]
+gain = 1.0
+time_constant_s = 1.0
+dead_time_s = 0.5
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+rate_up_per_s = 10.0
+rate_down_per_s = 10.0
+
+[plants.validity]
+input_minimum = [0.0]
+input_maximum = [100.0]
+state_minimum = [-10.0]
+state_maximum = [110.0]
+output_minimum = [-10.0]
+output_maximum = [110.0]
+out_of_range = "fault"
+
+[[plants.uncertainties]]
+id = "sensor-noise"
+target = "measurement"
+channel = 0
+mode = "add"
+generator = "normal_approx_white"
+standard_deviation = 0.01
 
 [[couplings]]
 source = "%QX0.0"
@@ -52,8 +92,37 @@ upper_rad = 1.570796
 | Key | Type | Default | Notes |
 | --- | --- | --- | --- |
 | `enabled` | bool | `false` | Enables scripted simulation behavior. |
-| `seed` | integer | `0` | Deterministic seed for repeatable scenarios. |
+| `seed` | integer or `"random"` | `0` | Replay seed. `"random"` resolves to an exposed concrete OS-derived integer. |
 | `time_scale` | integer | `1` | Simulation time acceleration factor. |
+| `plant_step_ms` | integer | `10` | Default fixed plant integration step. |
+| `max_plant_substeps_per_cycle` | integer | `10000` | Catch-up bound before a visible simulation fault. |
+| `plant_trace_capacity` | integer | `0` | Bounded completed-substep rows retained per plant; maximum `100000`. |
+
+Simulation startup rejects enabled physical I/O drivers. The nonphysical
+`simulated` (`sim`, `noop`) and `loopback` drivers remain available; disabled
+drivers do not block startup. The first version has no mixed physical/simulated
+output policy.
+
+### `[[plants]]`
+
+Each enabled plant reads numeric PLC outputs after a scan, advances only on its
+fixed simulation-time step, and queues numeric PLC inputs for the next
+pre-cycle boundary. Supported models are `static_gain`, `first_order`,
+`first_order_dead_time`, `integrator`, `gravity_tank`, `piecewise_linear`,
+`robot_joint`, `second_order`, and `state_space`. Optional
+`[plants.validity]` input, state, and output bounds fault and roll back the
+complete substep when a local model leaves its declared engineering region;
+they are simulation evidence, not a physical safety interlock.
+
+The complete field tables, model equations, actuator ordering, uncertainty
+generators, random algorithm, plant events, validation rules, and numeric
+conformance oracles are normative in
+[Simulation plant models](../../../specs/46-simulation-plant-models.md).
+
+For normal interactive authoring, use **truST: Devices & Connections**, add a
+**Simulated plant** to a runtime, and edit the same fields in Plant Properties.
+See the [simulation-first workflow](../../../guides/PLC_SIMULATION_WORKFLOW.md)
+for the Tank example, model field summary, restart behavior, and safety limits.
 
 ### `[[couplings]]`
 
@@ -123,4 +192,5 @@ physics feedback target. Couplings may still stack on the same target.
 ## Related
 
 - [Simulation Workflow](../../operate/simulation.md)
+- [Simulation plant-model specification](../../../specs/46-simulation-plant-models.md)
 - [Create A New Project](../../start/create-new-project.md)

@@ -3,5 +3,11 @@
   "overall": "disabled",
   "role": "client",
   "schema_version": 2,
-  "summary": "ADS is not configured."
+  "summary": "ADS is not configured.",
+  "view": {
+    "degraded_count": 0,
+    "device_count": 0,
+    "overall": "disabled",
+    "text": "ADS is not configured."
+  }
 }

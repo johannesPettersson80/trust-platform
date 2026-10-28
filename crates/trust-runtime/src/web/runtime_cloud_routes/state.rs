@@ -1,5 +1,9 @@
 use super::*;
 
+use crate::runtime_cloud::projection::{
+    presence_observation_from_discovery, RUNTIME_CLOUD_PRESENCE,
+};
+
 pub(super) fn handle_get_state(request: tiny_http::Request, ctx: &RuntimeCloudRouteContext<'_>) {
     let (web_role, request_token) = match check_auth_with_role(
         &request,
@@ -36,32 +40,17 @@ pub(super) fn handle_get_state(request: tiny_http::Request, ctx: &RuntimeCloudRo
     let site = RUNTIME_CLOUD_DEFAULT_SITE;
     let mut peers_by_runtime = BTreeMap::<String, RuntimePresenceRecord>::new();
     for entry in ctx.discovery.snapshot() {
-        let mesh_reachable = entry.mesh_port.is_some() && !entry.addresses.is_empty();
-        let stale_by_age = entry.last_seen_ns > now_ns
-            || now_ns.saturating_sub(entry.last_seen_ns) >= RUNTIME_CLOUD_STALE_TIMEOUT_NS;
-        let web_reachable = entry.web_port.is_some() && !entry.addresses.is_empty();
-        let peer_live = stale_by_age
-            && web_reachable
-            && runtime_cloud_peer_appears_live(&entry.addresses, entry.web_port);
-        let observation = RuntimePeerObservation {
-            runtime_id: entry.name.to_string(),
-            site: site.to_string(),
-            display_name: entry.name.to_string(),
-            mesh_reachable,
-            last_seen_ns: if peer_live {
-                now_ns
-            } else {
-                entry.last_seen_ns
-            },
-        };
-        let candidate = presence_record_from_observation(
-            &observation,
+        // The state keys a peer by its name; the search keys it by its runtime ID.
+        let observation = presence_observation_from_discovery(
+            site,
+            entry.name.as_str(),
+            entry.name.as_str(),
+            entry.presence_sighting(),
             now_ns,
-            PresenceThresholds {
-                stale_timeout_ns: RUNTIME_CLOUD_STALE_TIMEOUT_NS,
-                partition_timeout_ns: RUNTIME_CLOUD_PARTITION_TIMEOUT_NS,
-            },
+            || runtime_cloud_peer_appears_live(&entry.addresses, entry.web_port),
         );
+        let candidate =
+            presence_record_from_observation(&observation, now_ns, RUNTIME_CLOUD_PRESENCE);
         peers_by_runtime
             .entry(candidate.runtime_id.clone())
             .and_modify(|existing| merge_presence_record(existing, &candidate))

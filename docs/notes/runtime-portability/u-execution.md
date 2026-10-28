@@ -129,7 +129,7 @@ and_then before a write guard is acquired. Source review does not substitute for
 the final native lifecycle/borrow assertions.
 
 The broader plant specification was recovered read-only in
-`trust-platform-control-tutorial/docs/specs/33-simulation-plant-models.md`; it extends
+`trust-platform-control-tutorial/docs/specs/46-simulation-plant-models.md`; it extends
 spec 11's existing physics/coupling producer. U does not import that unmerged
 feature implementation into the portable baseline or claim its course acceptance.
 

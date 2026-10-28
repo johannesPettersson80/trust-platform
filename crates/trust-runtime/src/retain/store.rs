@@ -1,9 +1,3 @@
-impl RetainSnapshot {
-    pub fn from_runtime(runtime: &mut Runtime) -> Result<Self, RuntimeError> {
-        runtime.retain_snapshot()
-    }
-}
-
 static RETAIN_TMP_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 trait RetainTempFile: Write + Send {
@@ -55,15 +49,21 @@ impl RetainFileOps for StdRetainFileOps {
     }
 
     fn sync_parent(&self, path: &Path) -> std::io::Result<()> {
-        #[cfg(unix)]
-        {
-            fs::File::open(path)?.sync_all()
-        }
-        #[cfg(not(unix))]
-        {
-            let _ = path;
-            Ok(())
-        }
+        sync_parent_dir(path)
+    }
+}
+
+/// Syncs the folder `path` after a rename into it, so that the rename survives a power cut. Windows
+/// has no folder sync, so nothing is done there (specification 11 §6.7). The program store reuses it.
+pub(crate) fn sync_parent_dir(path: &Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        fs::File::open(path)?.sync_all()
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        Ok(())
     }
 }
 
@@ -175,6 +175,13 @@ impl RetainStore for FileRetainStore {
 
     fn store(&self, snapshot: &RetainSnapshot) -> Result<(), RuntimeError> {
         let bytes = encode_snapshot(snapshot)?;
+        self.write_bytes(&self.path, &bytes)
+    }
+
+    /// The file holds the payload as the bytecode engine's save writes it, framed without decoding
+    /// it (specification 11 §6.7).
+    fn store_payload(&self, payload: &[u8]) -> Result<(), RuntimeError> {
+        let bytes = trust_runtime_core::retain::codec::frame_payload(payload);
         self.write_bytes(&self.path, &bytes)
     }
 }

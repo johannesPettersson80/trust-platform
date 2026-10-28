@@ -1,0 +1,25 @@
+@startuml
+actor Engineer
+participant "Control Studio" as Studio
+participant "control.parameters handler" as Handler
+participant "Debug parameter registry" as Registry
+participant "Owning runtime task" as Task
+participant "Variable storage" as Storage
+Engineer -> Studio: Review binding and complete candidate
+Studio -> Handler: status(binding)
+Handler -> Registry: Typed symbols and compiled metadata
+Registry --> Studio: Program/binding/value revisions and observed values
+Studio -> Handler: apply(expected revisions/values, candidate, review)
+Handler -> Registry: Validate and queue one transaction
+Registry --> Studio: pending (not applied)
+Task -> Registry: Owning task boundary
+Registry -> Storage: Recheck mode, values, types, ownership, forcing
+Registry -> Registry: Check runtime revision and actual I/O provenance
+Registry -> Storage: Stage all replacements then commit once
+Task -> Storage: Execute controller
+Task -> Registry: Confirm subsequent observed values
+Registry --> Studio: applied or rejected with reason
+Engineer -> Studio: Roll back reviewed change
+Studio -> Handler: rollback(previous revision, same guards)
+Handler -> Registry: Queue retained previous set through same boundary
+@enduml

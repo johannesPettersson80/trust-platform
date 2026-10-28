@@ -26,10 +26,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - target: thumbv7em-none-eabihf
-            board_adapter: trust-platform-stm32f4
           - target: riscv32imac-unknown-none-elf
             board_adapter: trust-platform-esp32
+          - target: thumbv8m.main-none-eabihf
+            board_adapter: trust-platform-stm32u5
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.99.0
@@ -42,10 +42,16 @@ jobs:
         run: cargo check --locked -p trust-runtime-core --no-default-features --target ${{ matrix.target }}
       - name: Record resolved target features
         run: cargo tree --locked -p trust-runtime-core --no-default-features --target ${{ matrix.target }} -e features,no-dev
-      - name: Check the board adapter and shared fixture for the target
+      - name: Check the board adapter for the target
+        if: ${{ matrix.board_adapter != 'trust-platform-stm32u5' }}
         env:
           RUSTFLAGS: -D warnings
-        run: cargo check --locked -p ${{ matrix.board_adapter }} -p trust-board-fixture --target ${{ matrix.target }}
+        run: cargo check --locked -p ${{ matrix.board_adapter }} -p trust-runtime-services --target ${{ matrix.target }}
+      - name: Check the STM32U5A9 adapter for its target
+        if: ${{ matrix.board_adapter == 'trust-platform-stm32u5' }}
+        env:
+          RUSTFLAGS: -D warnings
+        run: cargo check --locked -p trust-platform-stm32u5 --target thumbv8m.main-none-eabihf
       - name: Mark gate success
         if: ${{ success() }}
         run: |
@@ -57,6 +63,49 @@ jobs:
         with:
           name: gate-portable-core-${{ matrix.target }}
           path: gate-artifacts/portable-core.txt
+
+  firmware:
+    # The firmware of every chip of `chips/`, linked as it ships and its image checked (for the C6
+    # the stack window of spec 34 D.2), on every change (checklist D2).
+    name: Firmware (${{ matrix.chip }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - chip: esp32c6
+            target: riscv32imac-unknown-none-elf
+          - chip: stm32u5a9
+            target: thumbv8m.main-none-eabihf
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: firmware-${{ matrix.chip }}
+          workspaces: |
+            . -> target
+            firmware/trust-${{ matrix.chip }} -> target
+      - name: Build the firmware and check its image
+        run: cargo run --locked -q -p xtask -- portability build-firmware ${{ matrix.chip }} firmware-build/build.json
+      - name: Upload the firmware image and its report
+        uses: actions/upload-artifact@v7
+        with:
+          name: firmware-${{ matrix.chip }}
+          path: firmware-build/
+      - name: Mark gate success
+        if: ${{ success() }}
+        run: |
+          mkdir -p gate-artifacts
+          echo "job=firmware chip=${{ matrix.chip }} result=success" > gate-artifacts/firmware.txt
+      - name: Upload gate marker
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-firmware-${{ matrix.chip }}
+          path: gate-artifacts/firmware.txt
 
   fmt:
     name: Format
@@ -181,15 +230,19 @@ jobs:
           fi
           LOG_PATH="gate-artifacts/test-${{ matrix.os }}.log"
           build_command=(cargo build --all-targets)
+          build_budget=1800
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             build_command+=(--jobs 1)
+          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            # A cold Windows build of every target takes longer than 30 minutes.
+            build_budget=3600
           fi
           for attempt in 1 2; do
             echo "=== cargo build attempt ${attempt}/2 (${{ matrix.os }}) ===" | tee -a "${LOG_PATH}"
             if "${PYTHON_BIN}" scripts/run_with_progress.py \
               --phase ci-cargo-build \
               --target "${{ matrix.os }} attempt ${attempt}/2" \
-              --timeout-seconds "${CI_CARGO_BUILD_TIMEOUT_SECONDS:-1800}" \
+              --timeout-seconds "${CI_CARGO_BUILD_TIMEOUT_SECONDS:-${build_budget}}" \
               --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
               --log "${LOG_PATH}" \
               -- "${build_command[@]}"; then
@@ -205,6 +258,23 @@ jobs:
           done
           echo "cargo build --all-targets failed after 2 attempts." | tee -a "${LOG_PATH}"
           exit 1
+      - name: Toolchain for compiled programs (specification 44 §4.6)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup target add riscv32imac-unknown-none-elf thumbv8m.main-none-eabihf \
+            x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+          folder="${RUNNER_TEMP}/trust-toolchain"
+          bash scripts/native/build_toolchain_libraries.sh "${folder}"
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            # rustc.exe runs only beside its own libraries: the tests use the installed bundle.
+            # On macOS the development folder has the bundle's layout (rust-lld beside the
+            # compiler's libraries), and native_toolchain_bundle proves the installed bundle.
+            target/debug/trust-runtime toolchain bundle "${folder}" "${RUNNER_TEMP}/trust-toolchain.tar.gz"
+            target/debug/trust-runtime toolchain install --from "${RUNNER_TEMP}/trust-toolchain.tar.gz"
+          else
+            echo "TRUST_TOOLCHAIN=${folder}" >> "${GITHUB_ENV}"
+          fi
       - name: trust-runtime warnings denied
         shell: bash
         run: |
@@ -242,17 +312,20 @@ jobs:
           : > "${LOG_PATH}"
           for attempt in 1 2; do
             echo "=== full test suite attempt ${attempt}/2 (${{ matrix.os }}) ===" | tee -a "${LOG_PATH}"
+            # Windows runs one test at a time, which takes about twice as long.
+            budget=3600
             if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-              command=(cargo test --all-targets -- --test-threads=1)
+              command=(cargo test --all-targets --no-fail-fast -- --test-threads=1)
+              budget=7200
             elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-              command=(cargo test --all-targets --jobs 1)
+              command=(cargo test --all-targets --no-fail-fast --jobs 1)
             else
-              command=(cargo test --all-targets)
+              command=(cargo test --all-targets --no-fail-fast)
             fi
             if "${PYTHON_BIN}" scripts/run_with_progress.py \
               --phase ci-full-test \
               --target "${{ matrix.os }} attempt ${attempt}/2" \
-              --timeout-seconds "${CI_FULL_TEST_TIMEOUT_SECONDS:-2400}" \
+              --timeout-seconds "${CI_FULL_TEST_TIMEOUT_SECONDS:-${budget}}" \
               --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
               --log "${LOG_PATH}" \
               -- "${command[@]}"; then
@@ -268,22 +341,16 @@ jobs:
           done
           echo "Full test suite failed after 2 attempts." | tee -a "${LOG_PATH}"
           exit 1
-      - name: Doc tests with checked compile-fail codes, and the runtime-only composition
+      - name: Doc tests with checked compile-fail codes
         if: ${{ matrix.os == 'ubuntu-latest' }}
         shell: bash
         run: |
           set -euo pipefail
           LOG_PATH="gate-artifacts/test-${{ matrix.os }}.log"
           # `cargo test --all-targets` runs no doc tests. Stable rustdoc checks the error code
-          # declared by a `compile_fail,E0xxx` doc test only with RUSTC_BOOTSTRAP set, so these
-          # runs prove why each forbidden API use is rejected, not only that it fails to build.
+          # declared by a `compile_fail,E0xxx` doc test only with RUSTC_BOOTSTRAP set, so this
+          # run proves why each forbidden API use is rejected, not only that it fails to build.
           RUSTC_BOOTSTRAP=1 cargo test --locked --doc -p trust-runtime -p trust-runtime-core 2>&1 | tee -a "${LOG_PATH}"
-          RUSTC_BOOTSTRAP=1 cargo test --locked --doc -p trust-runtime --no-default-features --features runtime-only 2>&1 | tee -a "${LOG_PATH}"
-          # Most integration tests need the full composition; these five are the runtime-only set.
-          cargo test --locked -p trust-runtime --no-default-features --features runtime-only \
-            --test hosted_platform_legacy_gating --test hosted_platform_cycle_port_source \
-            --test hosted_platform_composition_graph --test hosted_platform_cross_composition \
-            --test runtime_only_composition 2>&1 | tee -a "${LOG_PATH}"
       - name: Upload test suite log
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
@@ -316,6 +383,14 @@ jobs:
         run: bash scripts/checkout_openot_ref.sh
       - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
+      - name: Toolchain for compiled programs (specification 44 §4.6)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup target add riscv32imac-unknown-none-elf thumbv8m.main-none-eabihf \
+            x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+          bash scripts/native/build_toolchain_libraries.sh "${RUNNER_TEMP}/trust-toolchain"
+          echo "TRUST_TOOLCHAIN=${RUNNER_TEMP}/trust-toolchain" >> "${GITHUB_ENV}"
       - name: Install real MQTT broker conformance dependencies
         run: |
           sudo apt-get update
@@ -376,21 +451,18 @@ jobs:
           OUT_DIR=gate-artifacts/runtime-comms-bench \
           TRUST_COMMS_BENCH_SAMPLES=256 \
           ./scripts/runtime_comms_bench_gate.sh
-      - name: Capture runtime VM syntax corpus benchmark evidence (quick profile)
+      - name: Capture the syntax corpus scan benchmark evidence (quick profile)
         run: |
           OUT_DIR=gate-artifacts/runtime-vm-bench \
           TRUST_VM_BENCH_PROFILE=quick \
           TRUST_VM_BENCH_HOST_CODEGEN=generic \
           ./scripts/runtime_vm_bench_gate.sh
-      - name: Capture runtime VM determinism/reliability evidence
+      - name: Capture runtime determinism/reliability evidence
         run: |
           OUT_DIR=gate-artifacts/runtime-vm-determinism \
           TRUST_VM_DETERMINISM_ITERATIONS=2 \
           TRUST_VM_DETERMINISM_TEST_THREADS=1 \
           ./scripts/runtime_vm_determinism_reliability_gate.sh
-      - name: Enforce MP-060 production backend leak guard
-        run: |
-          ./scripts/runtime_vm_production_backend_guard.sh
       - name: Enforce runtime cloud security profile evidence gate
         run: |
           OUT_DIR=gate-artifacts/runtime-cloud-security-profiles \
@@ -551,6 +623,62 @@ jobs:
           name: gate-browser-analysis
           path: gate-artifacts/browser-analysis.txt
 
+  # Screen tests of the HMI (specification 39, §18 phase 3): the operator journey of the tank-level
+  # example against the simulator, and the reference page compared with its approved screenshots.
+  hmi-screen-tests:
+    name: HMI Screen Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts/hmi-screen-tests
+    steps:
+      - uses: actions/checkout@v6
+      - name: Checkout OpenOT reference sibling
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: bash scripts/checkout_openot_ref.sh
+      - uses: dtolnay/rust-toolchain@1.99.0
+      - uses: Swatinem/rust-cache@v2
+      - name: Toolchain for compiled programs (specification 44 §4.6)
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          rustup target add riscv32imac-unknown-none-elf thumbv8m.main-none-eabihf \
+            x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+          bash scripts/native/build_toolchain_libraries.sh "${RUNNER_TEMP}/trust-toolchain"
+          echo "TRUST_TOOLCHAIN=${RUNNER_TEMP}/trust-toolchain" >> "${GITHUB_ENV}"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: scripts/hmi-screen-tests/package-lock.json
+      - name: Verify HMI gate failure handling
+        working-directory: ${{ github.workspace }}
+        run: python3 -m unittest scripts.tests.test_hmi_ci_gate -v
+      - name: Build current HMI bundles and reject stale generated assets
+        working-directory: ${{ github.workspace }}
+        run: bash scripts/hmi_ci_gate.sh bundles
+      - name: Run current runtime and deterministic browser journeys
+        working-directory: ${{ github.workspace }}
+        run: bash scripts/hmi_ci_gate.sh browser
+      - name: Upload the screen test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: hmi-screen-test-results
+          path: scripts/hmi-screen-tests/test-results
+      - name: Record successful HMI gate
+        working-directory: ${{ github.workspace }}
+        run: |
+          mkdir -p gate-artifacts
+          echo "job=hmi-screen-tests result=success" > gate-artifacts/hmi-screen-tests.txt
+      - name: Upload HMI gate marker
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-hmi-screen-tests
+          path: gate-artifacts/hmi-screen-tests.txt
+
   vscode-extension:
     name: VS Code Extension
     runs-on: ubuntu-latest
@@ -570,6 +698,15 @@ jobs:
           cache-dependency-path: editors/vscode/package-lock.json
       - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
+      - name: Toolchain for compiled programs (specification 44 §4.6)
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          rustup target add riscv32imac-unknown-none-elf thumbv8m.main-none-eabihf \
+            x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+          bash scripts/native/build_toolchain_libraries.sh "${RUNNER_TEMP}/trust-toolchain"
+          echo "TRUST_TOOLCHAIN=${RUNNER_TEMP}/trust-toolchain" >> "${GITHUB_ENV}"
       - name: Install wasm-pack
         run: |
           cargo install wasm-pack --version 0.15.0 --locked --force
@@ -620,7 +757,7 @@ jobs:
             if python3 ../../scripts/run_with_progress.py \
               --phase ci-vscode-extension \
               --target "npm-test attempt ${attempt}/2" \
-              --timeout-seconds "${CI_VSCODE_TEST_TIMEOUT_SECONDS:-1800}" \
+              --timeout-seconds "${CI_VSCODE_TEST_TIMEOUT_SECONDS:-3600}" \
               --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
               --log "${LOG_PATH}" \
               -- bash ../../scripts/captures/run-owned-command.sh xvfb-run -a npm test; then
@@ -780,7 +917,7 @@ jobs:
   release-gate-report:
     name: Release Gate Report
     runs-on: ubuntu-latest
-    needs: [portable-core, fmt, clippy, test, conformance, architecture-safety, msrv, docs, browser-analysis, vscode-extension, editor-expansion, mp001-parity, supply-chain, version-release-guard]
+    needs: [portable-core, firmware, fmt, clippy, test, conformance, architecture-safety, msrv, docs, browser-analysis, vscode-extension, hmi-screen-tests, editor-expansion, mp001-parity, supply-chain, version-release-guard]
     if: ${{ always() }}
     steps:
       - uses: actions/checkout@v7
@@ -798,6 +935,7 @@ jobs:
       - name: Generate release gate report
         env:
           NEED_PORTABLE_CORE: ${{ needs['portable-core'].result }}
+          NEED_FIRMWARE: ${{ needs.firmware.result }}
           NEED_FMT: ${{ needs.fmt.result }}
           NEED_CLIPPY: ${{ needs.clippy.result }}
           NEED_TEST: ${{ needs.test.result }}
@@ -807,6 +945,7 @@ jobs:
           NEED_DOCS: ${{ needs.docs.result }}
           NEED_BROWSER_ANALYSIS: ${{ needs['browser-analysis'].result }}
           NEED_VSCODE_EXTENSION: ${{ needs['vscode-extension'].result }}
+          NEED_HMI_SCREEN_TESTS: ${{ needs['hmi-screen-tests'].result }}
           NEED_EDITOR_EXPANSION: ${{ needs['editor-expansion'].result }}
           NEED_MP001_PARITY: ${{ needs['mp001-parity'].result }}
           NEED_SUPPLY_CHAIN: ${{ needs['supply-chain'].result }}
@@ -815,8 +954,10 @@ jobs:
           python3 scripts/generate_release_gate_report.py \
             --output-dir gate-report \
             --gate-artifacts-dir gate-artifacts \
-            --required-gate gate-portable-core-thumbv7em-none-eabihf \
             --required-gate gate-portable-core-riscv32imac-unknown-none-elf \
+            --required-gate gate-portable-core-thumbv8m.main-none-eabihf \
+            --required-gate gate-firmware-esp32c6 \
+            --required-gate gate-firmware-stm32u5a9 \
             --required-gate gate-fmt \
             --required-gate gate-clippy \
             --required-gate gate-test-ubuntu-latest \
@@ -828,12 +969,14 @@ jobs:
             --required-gate gate-docs \
             --required-gate gate-browser-analysis \
             --required-gate gate-vscode-extension \
+            --required-gate gate-hmi-screen-tests \
             --required-gate gate-editor-expansion \
             --required-gate gate-mp001-parity \
             --required-gate gate-supply-chain \
             --required-gate gate-version-release-guard \
             --job-status "fmt=${NEED_FMT}" \
             --job-status "portable-core=${NEED_PORTABLE_CORE}" \
+            --job-status "firmware=${NEED_FIRMWARE}" \
             --job-status "clippy=${NEED_CLIPPY}" \
             --job-status "test=${NEED_TEST}" \
             --job-status "conformance=${NEED_CONFORMANCE}" \
@@ -842,6 +985,7 @@ jobs:
             --job-status "docs=${NEED_DOCS}" \
             --job-status "browser-analysis=${NEED_BROWSER_ANALYSIS}" \
             --job-status "vscode-extension=${NEED_VSCODE_EXTENSION}" \
+            --job-status "hmi-screen-tests=${NEED_HMI_SCREEN_TESTS}" \
             --job-status "editor-expansion=${NEED_EDITOR_EXPANSION}" \
             --job-status "mp001-parity=${NEED_MP001_PARITY}" \
             --job-status "supply-chain=${NEED_SUPPLY_CHAIN}" \

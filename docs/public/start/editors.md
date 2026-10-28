@@ -8,7 +8,6 @@
 | Neovim | LSP-heavy editing | external agents and shell flows | supported |
 | Zed | lighter GUI editing | external agents and shell flows | supported |
 | Browser IDE | runtime-hosted editing and demos | product/web flows | available |
-| Browser HMI | operator-facing browser use | not an authoring surface | available |
 
 ## VS Code
 
@@ -20,7 +19,6 @@ Use VS Code when you want the full integrated loop in one place:
 - Live Values
 - debugger
 - ST tests
-- HMI preview
 - PLCopen import/export commands
 
 The actions most users start with are:
@@ -30,7 +28,6 @@ The actions most users start with are:
 - open Live Values
 - start debugging with F5
 - run Structured Text tests in VS Code's Testing view
-- open HMI Preview
 - import PLCopen XML
 
 Read these next:
@@ -93,16 +90,6 @@ Use it for:
 Detailed guide:
 
 --8<-- "docs/guides/WEB_IDE_FULL_BROWSER_GUIDE.md:3"
-
-## Browser HMI
-
-Use Browser HMI when you were given a runtime URL and only need the operator
-surface.
-
-Start here:
-
-- [Operate In Browser HMI](operate-in-browser.md)
-- [HMI And Web UI](../operate/hmi-and-web-ui.md)
 
 ## Next
 

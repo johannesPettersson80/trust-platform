@@ -81,56 +81,6 @@ pub(super) fn runtime_cloud_target_web_base_url(
         })
 }
 
-fn select_preferred_peer_address(addresses: &[std::net::IpAddr]) -> Option<std::net::IpAddr> {
-    addresses
-        .iter()
-        .copied()
-        .find(|addr| addr.is_ipv4() && addr.is_loopback())
-        .or_else(|| {
-            addresses.iter().copied().find(|addr| {
-                matches!(
-                    addr,
-                    std::net::IpAddr::V4(v4) if !v4.is_unspecified() && !v4.is_multicast()
-                )
-            })
-        })
-        .or_else(|| {
-            addresses
-                .iter()
-                .copied()
-                .find(|addr| addr.is_ipv6() && addr.is_loopback())
-        })
-        .or_else(|| {
-            addresses.iter().copied().find(|addr| {
-                matches!(
-                    addr,
-                    std::net::IpAddr::V6(v6)
-                        if !v6.is_unspecified() && !v6.is_multicast() && !v6.is_unicast_link_local()
-                )
-            })
-        })
-        .or_else(|| {
-            addresses
-                .iter()
-                .copied()
-                .find(|addr| !addr.is_unspecified())
-        })
-}
-
-pub(super) fn runtime_cloud_peer_appears_live(
-    addresses: &[std::net::IpAddr],
-    web_port: Option<u16>,
-) -> bool {
-    let Some(port) = web_port else {
-        return false;
-    };
-    let Some(address) = select_preferred_peer_address(addresses) else {
-        return false;
-    };
-    let socket = std::net::SocketAddr::new(address, port);
-    std::net::TcpStream::connect_timeout(&socket, std::time::Duration::from_millis(200)).is_ok()
-}
-
 fn runtime_cloud_url_host(address: std::net::IpAddr) -> String {
     match address {
         std::net::IpAddr::V4(v4) => v4.to_string(),

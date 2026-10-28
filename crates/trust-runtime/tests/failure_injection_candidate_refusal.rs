@@ -1,24 +1,20 @@
-//! Failure injection: a candidate refused at each reachable preparation or installation step
-//! leaves the live controller unchanged.
+//! Failure injection: a candidate refused at each reachable installation step leaves the live
+//! controller unchanged.
 //!
-//! Spec 10 section 4.7 and 4.8 and spec 34 UPDATE-01 and LOAD-03/06/09 (section 4.3.1 HOST-09):
-//! a refused candidate keeps the live forces, queued debug writes, published outputs, cycle
-//! counter and prepared module identity, and the live controller still runs afterwards.
+//! Spec 10 section 4.7 and 4.8, spec 34 UPDATE-01 and spec 44 §10.2 and §12: a refused candidate
+//! keeps the live forces, queued debug writes, published outputs, cycle counter and the running
+//! program, and the live controller still runs afterwards.
 //!
-//! Steps with no integration seam (native import resolution, retained migration on a live
-//! store, host binding preparation, construction work limit) are not covered here.
-#[path = "common/bytecode_helpers.rs"]
-mod bytecode_helpers;
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
-use trust_runtime::bytecode::{BytecodeModule, BytecodeVersion};
 use trust_runtime::debug::{DebugControl, ForcedVarTarget};
-use trust_runtime::error::{RuntimeError, StableErrorCode};
-use trust_runtime::execution_backend::ExecutionBackend;
-use trust_runtime::harness::{bytecode_bytes_from_source, CompileSession, TestHarness};
-use trust_runtime::retain::RetainStore;
-use trust_runtime::runtime_core::vm::{PreparationLimits, PreparedModule};
+use trust_runtime::error::RuntimeError;
+use trust_runtime::harness::{SourceFile, TestHarness};
+use trust_runtime::io::IoAddress;
+use trust_runtime::native::{build, Options, Target, Toolchain};
+use trust_runtime::runtime_core::native::image::Image;
 use trust_runtime::value::Value;
-use trust_runtime::{RestartMode, RetainSnapshot, Runtime};
+use trust_runtime::CompiledRuntime;
 
 const LIVE_SOURCE: &str = r#"
 VAR_GLOBAL count : INT := INT#0; hold : INT := INT#0; END_VAR
@@ -38,31 +34,7 @@ published := count;
 END_PROGRAM
 "#;
 
-/// Same as the candidate with extra declarations, so its artifact is strictly larger.
-const LARGER_CANDIDATE_SOURCE: &str = r#"
-VAR_GLOBAL count : INT := INT#0; hold : INT := INT#0; spare : DINT := DINT#5; END_VAR
-PROGRAM Main
-VAR published AT %QW0 : INT; extra : DINT := DINT#9; END_VAR
-count := count + INT#10;
-published := count;
-END_PROGRAM
-"#;
-
-struct FailingLoadStore;
-
-impl RetainStore for FailingLoadStore {
-    fn load(&self) -> Result<RetainSnapshot, RuntimeError> {
-        Err(RuntimeError::RetainStore(
-            "injected retain load failure".into(),
-        ))
-    }
-
-    fn store(&self, _snapshot: &RetainSnapshot) -> Result<(), RuntimeError> {
-        Ok(())
-    }
-}
-
-/// A live VM controller after one cycle, with count forced to 99 and a queued write to hold.
+/// A live controller after one cycle, with count forced to 99 and a queued write to hold.
 struct Live {
     harness: TestHarness,
     debug: DebugControl,
@@ -70,45 +42,35 @@ struct Live {
 
 fn live() -> Live {
     let mut harness = TestHarness::from_source(LIVE_SOURCE).expect("compile live source");
-    let bytes = bytecode_bytes_from_source(LIVE_SOURCE).expect("build live bytecode");
-    harness
-        .runtime_mut()
-        .apply_bytecode_bytes(&bytes, None)
-        .expect("apply live bytecode");
-    harness
-        .runtime_mut()
-        .set_execution_backend(ExecutionBackend::BytecodeVm)
-        .expect("select vm backend");
-    harness
-        .runtime_mut()
-        .restart(RestartMode::Cold)
-        .expect("cold restart live runtime");
     let first = harness.cycle();
     assert!(
         first.errors.is_empty(),
         "live cycle failed: {:?}",
         first.errors
     );
-    let debug = harness.runtime_mut().enable_debug();
-    debug.force_global("count", Value::Int(99));
-    debug.enqueue_global_write("hold", Value::Int(7));
+    let debug = DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
+    debug
+        .try_force_global("count", Value::Int(99))
+        .expect("a new force is inside the bound");
+    debug
+        .try_enqueue_global_write("hold", Value::Int(7))
+        .expect("a new target is inside the bound");
     Live { harness, debug }
 }
 
 /// Everything a refused candidate must leave untouched.
 struct Observed {
     forced_count: Option<Value>,
-    outputs: Vec<u8>,
+    output: Result<Value, RuntimeError>,
     cycle_counter: u64,
-    prepared: *const PreparedModule,
 }
 
-fn observe(runtime: &Runtime, debug: &DebugControl) -> Observed {
+fn observe(runtime: &CompiledRuntime, debug: &DebugControl) -> Observed {
     Observed {
         forced_count: debug.forced_var_value(&ForcedVarTarget::Global("count".into())),
-        outputs: runtime.io().outputs().to_vec(),
+        output: runtime.read_io(&IoAddress::parse("%QW0").expect("output word address")),
         cycle_counter: runtime.cycle_counter(),
-        prepared: runtime.prepared() as *const PreparedModule,
     }
 }
 
@@ -118,25 +80,23 @@ fn assert_unchanged(before: &Observed, after: &Observed, label: &str) {
         "{label}: the active force changed"
     );
     assert_eq!(
-        after.outputs, before.outputs,
+        after.output, before.output,
         "{label}: the published output image changed"
     );
     assert_eq!(
         after.cycle_counter, before.cycle_counter,
         "{label}: the cycle counter changed"
     );
-    assert!(
-        std::ptr::eq(after.prepared, before.prepared),
-        "{label}: the prepared module identity changed"
-    );
 }
 
-/// Run one live cycle after a refusal: the queued write must apply and the force must hold.
+/// Run live cycles after a refusal: the queued write must apply, the force must hold, and once the
+/// force is released each scan adds 1, as the live program does, and not 10, as the candidate
+/// does.
 fn assert_live_runtime_still_runs(live: &mut Live, label: &str) {
     assert_eq!(
-        live.harness.runtime().io().outputs().to_vec(),
-        vec![1u8, 0u8],
-        "{label}: the published image must still be cycle 1"
+        live.harness.runtime().read_variable("Main.published"),
+        Ok(Value::Int(1)),
+        "{label}: the published output must still be cycle 1's"
     );
     let cycle = live.harness.cycle();
     assert!(
@@ -145,8 +105,8 @@ fn assert_live_runtime_still_runs(live: &mut Live, label: &str) {
         cycle.errors
     );
     assert_eq!(
-        live.harness.runtime().storage().get_global("hold"),
-        Some(&Value::Int(7)),
+        live.harness.runtime().read_variable("hold"),
+        Ok(Value::Int(7)),
         "{label}: the queued write must survive the refused candidate"
     );
     assert_eq!(
@@ -155,58 +115,55 @@ fn assert_live_runtime_still_runs(live: &mut Live, label: &str) {
         Some(Value::Int(99)),
         "{label}: the force must survive the refused candidate"
     );
+    live.debug.release_global("count");
+    let mut counts = Vec::new();
+    for _ in 0..2 {
+        let cycle = live.harness.cycle();
+        assert!(
+            cycle.errors.is_empty(),
+            "{label}: the live runtime must run after the release: {:?}",
+            cycle.errors
+        );
+        match live.harness.runtime().read_variable("count") {
+            Ok(Value::Int(count)) => counts.push(count),
+            other => panic!("{label}: count must be an INT, found {other:?}"),
+        }
+    }
+    assert_eq!(
+        counts[1] - counts[0],
+        1,
+        "{label}: a scan of the live program adds 1, the candidate's would add 10"
+    );
 }
 
-fn refused_bytecode(live: &mut Live, bytes: &[u8]) -> RuntimeError {
-    match live.harness.runtime_mut().apply_bytecode_bytes(bytes, None) {
+fn refused_candidate(live: &mut Live, bytes: &[u8]) -> RuntimeError {
+    match live.harness.runtime_mut().apply_online_change_bytes(bytes) {
         Ok(()) => panic!("the candidate must be refused"),
         Err(error) => error,
     }
 }
 
+/// The image of `CANDIDATE_SOURCE` for this computer.
 fn candidate_bytes() -> Vec<u8> {
-    bytecode_bytes_from_source(CANDIDATE_SOURCE).expect("build candidate bytecode")
-}
-
-fn source_free_bytes(source: &str) -> Vec<u8> {
-    CompileSession::from_source(source)
-        .build_bytecode_module_for_version(BytecodeVersion::SOURCE_FREE)
-        .expect("accepted source")
-        .encode()
-        .unwrap()
-}
-
-#[test]
-fn retain_load_refusal_of_an_online_change_keeps_the_live_runtime() {
-    let mut live = live();
-    let before = observe(live.harness.runtime(), &live.debug);
-    assert_eq!(before.outputs, vec![1u8, 0u8]);
-    live.harness
-        .runtime_mut()
-        .set_retain_store(Some(Box::new(FailingLoadStore)), None);
-    let bytes = candidate_bytes();
-    let error = match live
-        .harness
-        .runtime_mut()
-        .apply_online_change_bytes(&bytes, None)
-    {
-        Ok(_) => panic!("a candidate behind a failing retain load must be refused"),
-        Err(error) => error,
-    };
-    assert!(
-        matches!(error, RuntimeError::RetainStore(_)),
-        "the retain load is the first step of an online change: {error:?}"
-    );
-    assert!(
-        error.to_string().contains("injected retain load failure"),
-        "the injected store failure must reach the caller: {error}"
-    );
-    assert_unchanged(
-        &before,
-        &observe(live.harness.runtime(), &live.debug),
-        "retain load refusal",
-    );
-    assert_live_runtime_still_runs(&mut live, "retain load refusal");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let work = std::env::temp_dir().join(format!(
+        "trust-candidate-refusal-{}-{:?}",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    let built = build(
+        &[SourceFile::new(CANDIDATE_SOURCE)],
+        &Options {
+            target: Target::this_cpu().expect("a computer target"),
+            hooks: true,
+        },
+        &toolchain,
+        &work,
+    )
+    .expect("build candidate image");
+    let _ = std::fs::remove_dir_all(&work);
+    built.image
 }
 
 #[test]
@@ -215,8 +172,11 @@ fn bad_magic_candidate_is_refused_at_decode_with_the_live_state_unchanged() {
     let before = observe(live.harness.runtime(), &live.debug);
     let mut bytes = candidate_bytes();
     bytes[0] = 0x00;
-    let error = refused_bytecode(&mut live, &bytes);
-    assert_eq!(error.stable_code(), StableErrorCode::BytecodeInvalidMagic);
+    let error = refused_candidate(&mut live, &bytes);
+    assert!(
+        matches!(&error, RuntimeError::InvalidBundle(text) if text.contains("TRSTI001")),
+        "a candidate without the image magic is refused naming it: {error:?}"
+    );
     assert_unchanged(
         &before,
         &observe(live.harness.runtime(), &live.debug),
@@ -231,14 +191,13 @@ fn truncated_candidate_is_refused_with_exactly_the_decoder_error() {
     let before = observe(live.harness.runtime(), &live.debug);
     let bytes = candidate_bytes();
     let truncated = &bytes[..bytes.len() / 2];
-    let Err(decode_error) = BytecodeModule::decode(truncated) else {
+    let Err(decode_error) = Image::parse(truncated) else {
         panic!("a truncated candidate must not decode");
     };
-    let error = refused_bytecode(&mut live, truncated);
-    assert_eq!(
-        error,
-        RuntimeError::from(decode_error),
-        "a truncated candidate must fail with the decoder's own refusal"
+    let error = refused_candidate(&mut live, truncated);
+    assert!(
+        matches!(&error, RuntimeError::InvalidBundle(text) if text.contains(&decode_error.to_string())),
+        "a truncated candidate must fail with the decoder's own refusal ({decode_error}): {error:?}"
     );
     assert_unchanged(
         &before,
@@ -246,65 +205,4 @@ fn truncated_candidate_is_refused_with_exactly_the_decoder_error() {
         "truncated candidate",
     );
     assert_live_runtime_still_runs(&mut live, "truncated candidate");
-}
-
-#[test]
-fn context_less_1_1_candidate_is_refused_as_a_profile_mismatch() {
-    let mut live = live();
-    let before = observe(live.harness.runtime(), &live.debug);
-    let bytes = bytecode_helpers::base_module()
-        .encode()
-        .expect("encode 1.1 artifact");
-    let error = refused_bytecode(&mut live, &bytes);
-    assert_eq!(
-        error.stable_code(),
-        StableErrorCode::VmBytecodeDecode,
-        "a context-less 1.1 artifact is not executable under the installed profile"
-    );
-    assert_unchanged(
-        &before,
-        &observe(live.harness.runtime(), &live.debug),
-        "profile mismatch",
-    );
-    assert_live_runtime_still_runs(&mut live, "profile mismatch");
-}
-
-#[test]
-fn candidate_over_the_admitted_artifact_limit_is_refused_at_preparation() {
-    let live_bytes = source_free_bytes(LIVE_SOURCE);
-    let candidate = source_free_bytes(LARGER_CANDIDATE_SOURCE);
-    let limits = PreparationLimits {
-        max_artifact_bytes: live_bytes.len() + 1,
-        ..Default::default()
-    };
-    assert!(
-        candidate.len() > limits.max_artifact_bytes,
-        "the candidate must exceed the live admission limit"
-    );
-    let mut runtime = match Runtime::from_bytes(&live_bytes, limits) {
-        Ok(runtime) => runtime,
-        Err(error) => panic!("the live controller must be admitted: {error:?}"),
-    };
-    let debug = runtime.enable_debug();
-    runtime.execute_cycle().expect("live cycle");
-    debug.force_global("count", Value::Int(99));
-    debug.enqueue_global_write("hold", Value::Int(7));
-    let before = observe(&runtime, &debug);
-    let error = match runtime.apply_bytecode_bytes(&candidate, None) {
-        Ok(()) => panic!("an oversized candidate must be refused at preparation"),
-        Err(error) => error,
-    };
-    assert_eq!(error, RuntimeError::PreparationLimit);
-    assert_unchanged(&before, &observe(&runtime, &debug), "admission limit");
-    runtime.execute_cycle().expect("live cycle after refusal");
-    assert_eq!(
-        runtime.storage().get_global("hold"),
-        Some(&Value::Int(7)),
-        "the queued write must survive the refused candidate"
-    );
-    assert_eq!(
-        debug.forced_var_value(&ForcedVarTarget::Global("count".into())),
-        Some(Value::Int(99)),
-        "the force must survive the refused candidate"
-    );
 }

@@ -1,0 +1,286 @@
+{
+  "schemaVersion": 2,
+  "id": "control-override-control",
+  "name": "Override control",
+  "projectId": "project:control-override-control",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Tracked",
+    "type": "OverrideLoop",
+    "design": "project",
+    "revision": "sha256:dcd201e4f15c1cfccd7a5addd63d8c604d46d9914a4bdb22edad7a1557c539e8",
+    "action": "direct",
+    "taskPeriodMs": 100
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.VesselSetpointC",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.TrackedVesselC",
+      "address": "%IL24",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.TrackedHeaterPct",
+      "address": "%QL8",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "tracked-jacket",
+        "channel": "tracked-jacket",
+        "role": "state",
+        "symbol": "P1.TrackedJacketC",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "tracked-vessel-request",
+        "channel": "tracked-vessel-request",
+        "role": "state",
+        "symbol": "P1.TrackedVesselRequestPct",
+        "address": "%ML16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "tracked-jacket-request",
+        "channel": "tracked-jacket-request",
+        "role": "state",
+        "symbol": "P1.TrackedJacketRequestPct",
+        "address": "%ML24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "jacket-limit",
+        "channel": "jacket-limit",
+        "role": "state",
+        "symbol": "P1.JacketLimitSetpointC",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "tracked-jacket-selected",
+        "channel": "tracked-jacket-selected",
+        "role": "state",
+        "symbol": "P1.TrackedJacketSelected",
+        "address": "%MX48.1",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX48.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "untracked-vessel-request",
+        "channel": "untracked-vessel-request",
+        "role": "state",
+        "symbol": "P1.UntrackedVesselRequestPct",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "untracked-jacket-request",
+        "channel": "untracked-jacket-request",
+        "role": "state",
+        "symbol": "P1.UntrackedJacketRequestPct",
+        "address": "%ML40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "untracked-jacket-selected",
+        "channel": "untracked-jacket-selected",
+        "role": "state",
+        "symbol": "P1.UntrackedJacketSelected",
+        "address": "%MX48.2",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      {
+        "id": "alone-heater",
+        "channel": "alone-heater",
+        "role": "state",
+        "symbol": "P1.AloneHeaterPct",
+        "address": "%QL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "untracked-jacket",
+        "channel": "untracked-jacket",
+        "role": "state",
+        "symbol": "P1.UntrackedJacketC",
+        "address": "%IL32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "alone-jacket",
+        "channel": "alone-jacket",
+        "role": "state",
+        "symbol": "P1.AloneJacketC",
+        "address": "%IL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "untracked-heater",
+        "channel": "untracked-heater",
+        "role": "state",
+        "symbol": "P1.UntrackedHeaterPct",
+        "address": "%QL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "untracked-vessel",
+        "channel": "untracked-vessel",
+        "role": "state",
+        "symbol": "P1.UntrackedVesselC",
+        "address": "%IL40",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "alone-vessel",
+        "channel": "alone-vessel",
+        "role": "state",
+        "symbol": "P1.AloneVesselC",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "three-heater-only-jacketed-vessels",
+  "operatingPoint": "Three jacketed vessels at 35 degC with the jacket at 38 degC and 15% heater command",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 62.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX48.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
+    "baselineSeconds": 2
+  },
+  "revision": "sha256:6305dcc0917832c798af84976a2304960b973c9c8b50120d7eff322aad70e1eb"
+}

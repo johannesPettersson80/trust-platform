@@ -1,0 +1,475 @@
+{
+  "schemaVersion": 2,
+  "id": "control-pid-group-commissioning",
+  "name": "Two-member PID group native commissioning",
+  "projectId": "project:control-pid-commissioning",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1.Controller",
+    "type": "Control.PID",
+    "design": "project",
+    "revision": "sha256:8b4e3864d65e40ed3594ac974178e67dc62a6329b31a1a5f36fa9ec4e7284f97",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "modeSignal": "P1.AutoMode",
+    "modeWhenTrue": "Auto",
+    "manualOutputSignal": "P1.ManualOutput",
+    "manualOutputAddress": "%ML16",
+    "manualOutputType": "LREAL",
+    "project": {
+      "family": "paired-PI",
+      "convention": "project-owned-native-controller",
+      "initialization": {
+        "kind": "declared-state-v1",
+        "states": [
+          {
+            "symbol": "P1.Controller.StateValue.Setpoint",
+            "iec_type": "LREAL",
+            "unit": "\u00b0C",
+            "minimum": 0,
+            "maximum": 100,
+            "initial": {
+              "source": "model-output",
+              "index": 0
+            },
+            "postScan": "bounded"
+          },
+          {
+            "symbol": "P1.Controller.StateValue.SetpointRate",
+            "iec_type": "LREAL",
+            "unit": "\u00b0C/s",
+            "minimum": -1000,
+            "maximum": 1000,
+            "initial": 0,
+            "postScan": "bounded"
+          },
+          {
+            "symbol": "P1.Controller.StateValue.ProcessValue",
+            "iec_type": "LREAL",
+            "unit": "\u00b0C",
+            "minimum": 0,
+            "maximum": 100,
+            "initial": {
+              "source": "model-output",
+              "index": 0
+            },
+            "postScan": "bounded"
+          },
+          {
+            "symbol": "P1.Controller.StateValue.ProcessValueRate",
+            "iec_type": "LREAL",
+            "unit": "\u00b0C/s",
+            "minimum": -1000,
+            "maximum": 1000,
+            "initial": 0,
+            "postScan": "bounded"
+          },
+          {
+            "symbol": "P1.Controller.StateValue.FeedForward",
+            "iec_type": "LREAL",
+            "unit": "%",
+            "minimum": -100,
+            "maximum": 100,
+            "initial": 0,
+            "postScan": "bounded"
+          },
+          {
+            "symbol": "P1.Controller.StateValue.NominalOutput",
+            "iec_type": "LREAL",
+            "unit": "%",
+            "minimum": -1000,
+            "maximum": 1000,
+            "initial": {
+              "source": "model-input",
+              "index": 0
+            },
+            "postScan": "bounded"
+          },
+          {
+            "symbol": "P1.Controller.StateValue.SaturatedOutput",
+            "iec_type": "LREAL",
+            "unit": "%",
+            "minimum": 0,
+            "maximum": 100,
+            "initial": {
+              "source": "model-input",
+              "index": 0
+            },
+            "postScan": "bounded"
+          },
+          {
+            "symbol": "P1.Initialized",
+            "iec_type": "BOOL",
+            "unit": "1",
+            "minimum": 0,
+            "maximum": 1,
+            "initial": 1,
+            "postScan": "unchanged"
+          },
+          {
+            "symbol": "P1.Secondary.StateValue.Setpoint",
+            "iec_type": "LREAL",
+            "unit": "\u00b0C",
+            "minimum": 0,
+            "maximum": 100,
+            "initial": {
+              "source": "model-output",
+              "index": 1
+            },
+            "postScan": "bounded"
+          },
+          {
+            "symbol": "P1.Secondary.StateValue.SetpointRate",
+            "iec_type": "LREAL",
+            "unit": "\u00b0C/s",
+            "minimum": -1000,
+            "maximum": 1000,
+            "initial": 0,
+            "postScan": "bounded"
+          },
+          {
+            "symbol": "P1.Secondary.StateValue.ProcessValue",
+            "iec_type": "LREAL",
+            "unit": "\u00b0C",
+            "minimum": 0,
+            "maximum": 100,
+            "initial": {
+              "source": "model-output",
+              "index": 1
+            },
+            "postScan": "bounded"
+          },
+          {
+            "symbol": "P1.Secondary.StateValue.ProcessValueRate",
+            "iec_type": "LREAL",
+            "unit": "\u00b0C/s",
+            "minimum": -1000,
+            "maximum": 1000,
+            "initial": 0,
+            "postScan": "bounded"
+          },
+          {
+            "symbol": "P1.Secondary.StateValue.FeedForward",
+            "iec_type": "LREAL",
+            "unit": "%",
+            "minimum": -100,
+            "maximum": 100,
+            "initial": 0,
+            "postScan": "bounded"
+          },
+          {
+            "symbol": "P1.Secondary.StateValue.NominalOutput",
+            "iec_type": "LREAL",
+            "unit": "%",
+            "minimum": -1000,
+            "maximum": 1000,
+            "initial": {
+              "source": "model-input",
+              "index": 1
+            },
+            "postScan": "bounded"
+          },
+          {
+            "symbol": "P1.Secondary.StateValue.SaturatedOutput",
+            "iec_type": "LREAL",
+            "unit": "%",
+            "minimum": 0,
+            "maximum": 100,
+            "initial": {
+              "source": "model-input",
+              "index": 1
+            },
+            "postScan": "bounded"
+          },
+          {
+            "symbol": "P1.SecondaryInitialized",
+            "iec_type": "BOOL",
+            "unit": "1",
+            "minimum": 0,
+            "maximum": 1,
+            "initial": 1,
+            "postScan": "unchanged"
+          }
+        ]
+      },
+      "axes": [
+        {
+          "symbol": "P1.Parameters.ProportionalGain",
+          "values": [
+            1.5
+          ]
+        },
+        {
+          "symbol": "P1.Parameters.IntegralGain",
+          "values": [
+            0.375
+          ]
+        },
+        {
+          "symbol": "P1.SecondaryParameters.ProportionalGain",
+          "values": [
+            1.5
+          ]
+        },
+        {
+          "symbol": "P1.SecondaryParameters.IntegralGain",
+          "values": [
+            0.375
+          ]
+        }
+      ],
+      "objective": {
+        "requirementId": "y1:target-error",
+        "direction": "minimize"
+      },
+      "maximumCandidates": 1,
+      "maximumCycles": 1000,
+      "wallBudgetMs": 10000
+    },
+    "group": {
+      "members": [
+        {
+          "instance": "P1.Controller",
+          "type": "Control.PID",
+          "inputChannelId": "u1",
+          "outputChannelId": "y1",
+          "modeSymbol": "P1.AutoMode",
+          "parameterSymbols": [
+            "P1.Parameters.ProportionalGain",
+            "P1.Parameters.IntegralGain",
+            "P1.Parameters.DerivativeGain"
+          ],
+          "applicationStateSymbols": [
+            "P1.Controller.StateValue.Setpoint",
+            "P1.Controller.StateValue.SetpointRate",
+            "P1.Controller.StateValue.ProcessValue",
+            "P1.Controller.StateValue.ProcessValueRate",
+            "P1.Controller.StateValue.FeedForward",
+            "P1.Controller.StateValue.NominalOutput",
+            "P1.Controller.StateValue.SaturatedOutput",
+            "P1.Initialized"
+          ]
+        },
+        {
+          "instance": "P1.Secondary",
+          "type": "Control.PID",
+          "inputChannelId": "u2",
+          "outputChannelId": "y2",
+          "modeSymbol": "P1.AutoMode",
+          "parameterSymbols": [
+            "P1.SecondaryParameters.ProportionalGain",
+            "P1.SecondaryParameters.IntegralGain",
+            "P1.SecondaryParameters.DerivativeGain"
+          ],
+          "applicationStateSymbols": [
+            "P1.Secondary.StateValue.Setpoint",
+            "P1.Secondary.StateValue.SetpointRate",
+            "P1.Secondary.StateValue.ProcessValue",
+            "P1.Secondary.StateValue.ProcessValueRate",
+            "P1.Secondary.StateValue.FeedForward",
+            "P1.Secondary.StateValue.NominalOutput",
+            "P1.Secondary.StateValue.SaturatedOutput",
+            "P1.SecondaryInitialized"
+          ]
+        }
+      ]
+    }
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.Setpoint",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "\u00b0C",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.ProcessValue",
+      "address": "%IL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "\u00b0C",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.ManipulatedValue",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "write",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "mv-secondary",
+        "channel": "secondary",
+        "role": "MV",
+        "symbol": "P1.SecondaryManipulatedValue",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "write",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "pv-secondary",
+        "channel": "secondary",
+        "role": "PV",
+        "symbol": "P1.SecondaryProcessValue",
+        "address": "%IL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "\u00b0C",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "sp-secondary",
+        "channel": "secondary",
+        "role": "SP",
+        "symbol": "P1.SecondarySetpoint",
+        "address": "%ML32",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "\u00b0C",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100,
+    "rateUpPerS": 25,
+    "rateDownPerS": 25
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "temperature-process",
+  "experiment": {
+    "execution": "control-studio",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 16,
+    "seed": 20260824
+  },
+  "parameterBinding": {
+    "loop_id": "control-pid-group-commissioning",
+    "task_name": "MainTask",
+    "parameters": [
+      {
+        "symbol": "P1.Parameters.ProportionalGain",
+        "iec_type": "LREAL",
+        "unit": "%/\u00b0C",
+        "convention": "Control.PID ProportionalGain",
+        "minimum": 0,
+        "maximum": 100
+      },
+      {
+        "symbol": "P1.Parameters.IntegralGain",
+        "iec_type": "LREAL",
+        "unit": "%/(\u00b0C*s)",
+        "convention": "Control.PID IntegralGain",
+        "minimum": 0,
+        "maximum": 100
+      },
+      {
+        "symbol": "P1.Parameters.DerivativeGain",
+        "iec_type": "LREAL",
+        "unit": "%*s/\u00b0C",
+        "convention": "Control.PID DerivativeGain",
+        "minimum": 0,
+        "maximum": 100
+      },
+      {
+        "symbol": "P1.SecondaryParameters.ProportionalGain",
+        "iec_type": "LREAL",
+        "unit": "%/\u00b0C",
+        "convention": "Control.PID ProportionalGain",
+        "minimum": 0,
+        "maximum": 100
+      },
+      {
+        "symbol": "P1.SecondaryParameters.IntegralGain",
+        "iec_type": "LREAL",
+        "unit": "%/(\u00b0C*s)",
+        "convention": "Control.PID IntegralGain",
+        "minimum": 0,
+        "maximum": 100
+      },
+      {
+        "symbol": "P1.SecondaryParameters.DerivativeGain",
+        "iec_type": "LREAL",
+        "unit": "%*s/\u00b0C",
+        "convention": "Control.PID DerivativeGain",
+        "minimum": 0,
+        "maximum": 100
+      }
+    ],
+    "mode": {
+      "symbol": "P1.AutoMode",
+      "manual_value": false
+    }
+  },
+  "identificationPolicy": {
+    "openLoopPermitted": true,
+    "sustainedHoldPermitted": true,
+    "information": "basic",
+    "maximumNormalizedError": 0.05
+  },
+  "revision": "sha256:8b3a5e92f69d9e23cdf967a09f8f21859c16a8837c0a0c2d84798758218d831d-group",
+  "channels": {
+    "inputs": [
+      {
+        "modelChannelId": "u1",
+        "signalId": "manipulatedVariable",
+        "actuator": {
+          "kind": "continuous",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "modelChannelId": "u2",
+        "signalId": "mv-secondary",
+        "manualOutputSignal": "P1.SecondaryManualOutput",
+        "manualOutputType": "LREAL",
+        "actuator": {
+          "kind": "continuous",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "modelChannelId": "y1",
+        "signalId": "processVariable",
+        "setpointSignalId": "setpoint"
+      },
+      {
+        "modelChannelId": "y2",
+        "signalId": "pv-secondary",
+        "setpointSignalId": "sp-secondary"
+      }
+    ]
+  }
+}

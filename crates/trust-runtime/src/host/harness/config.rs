@@ -11,7 +11,7 @@ use super::io::{
     collect_program_instance_bindings,
 };
 use super::{
-    AccessDecl, AccessPart, AccessPath, CompileError, ConfigInit, GlobalInit,
+    AccessDecl, AccessPart, AccessPath, CompileError, ConfigInit, GlobalInit, NamedAccess,
     ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,
 };
 

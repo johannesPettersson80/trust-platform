@@ -11,7 +11,7 @@ PROGRAM Main
 counter := counter + 1;
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     state.auth_token = Arc::new(Mutex::new(Some(SmolStr::new("admin-token"))));
     state.control_requires_auth = true;
     // Debug is enabled, so only the caller's role decides this request.

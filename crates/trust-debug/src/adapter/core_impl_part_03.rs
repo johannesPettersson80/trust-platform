@@ -1,11 +1,10 @@
 impl DebugAdapter {
-
     pub(super) fn dispatch_request(&mut self, request: Request<Value>) -> DispatchOutcome {
         if request.message_type != MessageType::Request {
             return DispatchOutcome::default();
         }
 
-        let mut outcome = match request.command.as_str() {
+        match request.command.as_str() {
             "initialize" => self.handle_initialize(request),
             "launch" => self.handle_launch(request),
             "attach" => self.handle_attach(request),
@@ -19,8 +18,6 @@ impl DebugAdapter {
             "stIoWrite" => self.handle_io_write(request),
             "stIoForce" => self.handle_io_force(request),
             "stIoRelease" => self.handle_io_release(request),
-            "stVarState" => self.handle_var_state(request),
-            "stVarWrite" => self.handle_var_write(request),
             "stReload" => self.handle_reload(request),
             "threads" => self.handle_threads(request),
             "stackTrace" => self.handle_stack_trace(request),
@@ -38,63 +35,20 @@ impl DebugAdapter {
                 responses: vec![self.error_response(&request, "unsupported command")],
                 ..DispatchOutcome::default()
             },
-        };
-
-        outcome.events.extend(self.drain_log_events());
-        outcome
-    }
-
-
-    pub(super) fn start_runner(&mut self) {
-        if self.runner.is_some() {
-            return;
-        }
-        let runtime = self.session.runtime_handle();
-        let control = self.session.debug_control();
-        let cycle_time = cycle_time_hint(self.session.metadata());
-        let cycle_interval = wall_interval_for_cycle(cycle_time);
-        let stop = Arc::new(AtomicBool::new(false));
-        let stop_flag = Arc::clone(&stop);
-        let handle = thread::spawn(move || loop {
-            if stop_flag.load(Ordering::Relaxed) {
-                break;
-            }
-            let cycle_start = Instant::now();
-            let mut runtime = match runtime.lock() {
-                Ok(guard) => guard,
-                Err(poisoned) => poisoned.into_inner(),
-            };
-            match runtime.execute_cycle() {
-                Ok(()) => runtime.advance_time(cycle_time),
-                Err(err) => {
-                    if !matches!(err, RuntimeError::InvalidControlFlow) {
-                        eprintln!("runtime cycle error: {err}");
-                    }
-                }
-            }
-            drop(runtime);
-
-            let elapsed = cycle_start.elapsed();
-            if elapsed >= cycle_interval {
-                continue;
-            }
-            let deadline = cycle_start + cycle_interval;
-            sleep_until_or_stopped(&stop_flag, deadline);
-        });
-        self.runner = Some(DebugRunner {
-            stop,
-            handle,
-            control,
-        });
-    }
-
-
-    pub(super) fn stop_runner(&mut self) {
-        if let Some(runner) = self.runner.take() {
-            runner.stop();
         }
     }
 
+    /// Reports the program that a reload changed to the control server (specification 35, A2.3 and A2.4): its tasks,
+    /// which `status` lists, and its sources, which isolated runs and searches compile and breakpoints resolve against,
+    /// as a reload in the runtime replaces the metadata that its `status` lists; and `time_scale`, the speed of the
+    /// project's `simulation.toml`, which the simulator reads again at a reload (specification 46, §6.1 item 5).
+    pub(super) fn sync_control_program(&self, time_scale: u32) {
+        if let Some(simulator) = self.simulator.as_ref() {
+            simulator
+                .control_server()
+                .refresh_program(self.session.as_ref(), time_scale);
+        }
+    }
 
     fn next_seq(&self) -> u32 {
         self.next_seq.fetch_add(1, Ordering::Relaxed)
@@ -120,6 +74,14 @@ impl DebugAdapter {
         serde_json::to_value(response).unwrap_or(Value::Null)
     }
 
+    /// The answer to a request that needs a running program, before a launch or an attach
+    /// connected to one.
+    pub(super) fn not_connected(&self, request: &Request<Value>) -> DispatchOutcome {
+        DispatchOutcome {
+            responses: vec![self.error_response(request, NOT_CONNECTED)],
+            ..DispatchOutcome::default()
+        }
+    }
 
     pub(super) fn error_response(&self, request: &Request<Value>, message: &str) -> Value {
         let response: Response<Value> = Response {
@@ -151,51 +113,10 @@ impl DebugAdapter {
         serde_json::to_value(event).unwrap_or(Value::Null)
     }
 
-
-    fn drain_log_events(&self) -> Vec<Value> {
-        let logs = self.session.debug_control().drain_logs();
-        logs.into_iter().map(|log| self.output_event(log)).collect()
-    }
-
-
-    fn output_event(&self, log: DebugLog) -> Value {
-        let (source, line, column) = log
-            .location
-            .and_then(|location| {
-                let source = self.session.source_for_file_id(location.file_id);
-                let text = self.session.source_text_for_file_id(location.file_id)?;
-                let (line, column) = location_to_line_col(text, &location);
-                Some((
-                    source,
-                    Some(self.to_client_line(line)),
-                    Some(self.to_client_column(column)),
-                ))
-            })
-            .unwrap_or((None, None, None));
-
-        let output = if log.message.ends_with('\n') {
-            log.message
-        } else {
-            format!("{}\n", log.message)
-        };
-
-        let body = OutputEventBody {
-            output,
-            category: Some("console".to_string()),
-            source,
-            line,
-            column,
-        };
-
-        self.event("output", Some(body))
-    }
-
-
     pub(super) fn debug_output_message(&self, message: impl Into<String>) -> Value {
         let body = serde_json::json!({ "message": message.into() });
         self.event("trustDebugInternal", Some(body))
     }
-
 
     pub(super) fn breakpoint_event(&self, reason: &str, breakpoint: Breakpoint) -> Value {
         let body = BreakpointEventBody {
@@ -204,7 +125,6 @@ impl DebugAdapter {
         };
         self.event("breakpoint", Some(body))
     }
-
 
     pub(super) fn start_remote_polling(&mut self) {
         if self.remote_stop_poller.is_some() {
@@ -216,6 +136,17 @@ impl DebugAdapter {
         let Some(writer) = self.dap_writer.clone() else {
             return;
         };
+        // The process image as it changes, on its own connection (specification 25 §4.4).
+        self.remote_io_poller = Some(super::io_poller::RemoteIoPoller::spawn(
+            super::io_poller::RemoteIoPollerConfig {
+                endpoint: remote.endpoint().clone(),
+                token: remote.token().map(|value| value.to_string()),
+                writer: writer.clone(),
+                logger: self.dap_logger.clone(),
+                seq: Arc::clone(&self.next_seq),
+                last_io_state: Arc::clone(&self.last_io_state),
+            },
+        ));
         let poller = super::stop_remote::RemoteStopPoller::spawn(
             super::stop_remote::RemoteStopPollerConfig {
                 endpoint: remote.endpoint().clone(),
@@ -226,18 +157,21 @@ impl DebugAdapter {
                 logger: self.dap_logger.clone(),
                 seq: Arc::clone(&self.next_seq),
                 breakpoints: Arc::clone(&self.remote_breakpoints),
+                coordinate: self.coordinate,
+                label_root: self.label_root(),
             },
         );
         self.remote_stop_poller = Some(poller);
     }
 
-
     pub(super) fn stop_remote_polling(&mut self) {
         if let Some(poller) = self.remote_stop_poller.take() {
             poller.stop();
         }
+        if let Some(poller) = self.remote_io_poller.take() {
+            poller.stop();
+        }
     }
-
 
     pub(super) fn remote_stop_events(&self, stop: RemoteStop) -> Vec<Value> {
         let thread_id = stop.thread_id.or(Some(1));
@@ -258,5 +192,4 @@ impl DebugAdapter {
         );
         vec![output, stopped]
     }
-
 }

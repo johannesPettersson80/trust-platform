@@ -1,0 +1,258 @@
+{
+  "schemaVersion": 2,
+  "id": "control-loop-shapes-cascade",
+  "name": "Vessel temperature cascade",
+  "projectId": "project:control-cascade",
+  "runtimeId": "simulator",
+  "controller": {
+    "instance": "P1",
+    "type": "Main",
+    "design": "project",
+    "revision": "sha256:e2fc5c6df6a2e7212e910e015b80f8f7cb6f71362fe080f2120692a5e02fa295",
+    "action": "direct",
+    "taskPeriodMs": 100,
+    "project": {
+      "family": "PI",
+      "convention": "project-owned-native-controller",
+      "initialization": {
+        "kind": "declared-state-v1",
+        "states": []
+      },
+      "seed": {
+        "kind": "cascade-pid",
+        "family": "PI",
+        "inner": {
+          "instance": "P1.Inner",
+          "proportionalSymbol": "P1.InnerParameters.ProportionalGain",
+          "integralSymbol": "P1.InnerParameters.IntegralGain",
+          "derivativeSymbol": "P1.InnerParameters.DerivativeGain"
+        },
+        "outer": {
+          "instance": "P1.Outer",
+          "proportionalSymbol": "P1.OuterParameters.ProportionalGain",
+          "integralSymbol": "P1.OuterParameters.IntegralGain",
+          "derivativeSymbol": "P1.OuterParameters.DerivativeGain"
+        }
+      },
+      "axes": [],
+      "objective": {
+        "requirementId": "P1.VesselC:target-error",
+        "direction": "minimize"
+      },
+      "maximumCandidates": 1,
+      "maximumCycles": 50000,
+      "wallBudgetMs": 60000
+    }
+  },
+  "signals": {
+    "setpoint": {
+      "symbol": "P1.VesselSetpointC",
+      "address": "%ML0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "processVariable": {
+      "symbol": "P1.VesselC",
+      "address": "%IL8",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "degC",
+      "range": {
+        "minimum": 0,
+        "maximum": 80
+      }
+    },
+    "manipulatedVariable": {
+      "symbol": "P1.HeaterPct",
+      "address": "%QL0",
+      "iecType": "LREAL",
+      "direction": "read",
+      "unit": "%",
+      "range": {
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "additional": [
+      {
+        "id": "single-vessel",
+        "channel": "single-vessel",
+        "role": "state",
+        "symbol": "P1.SingleVesselC",
+        "address": "%IL24",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "jacket",
+        "channel": "jacket",
+        "role": "state",
+        "symbol": "P1.JacketC",
+        "address": "%IL0",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "single-jacket",
+        "channel": "single-jacket",
+        "role": "state",
+        "symbol": "P1.SingleJacketC",
+        "address": "%IL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "single-command",
+        "channel": "single-command",
+        "role": "state",
+        "symbol": "P1.SinglePct",
+        "address": "%QL16",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "%",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "jacket-setpoint",
+        "channel": "jacket-setpoint",
+        "role": "state",
+        "symbol": "P1.JacketSetpointC",
+        "address": "%ML8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "degC",
+        "range": {
+          "minimum": 0,
+          "maximum": 80
+        }
+      },
+      {
+        "id": "load",
+        "channel": "load",
+        "role": "disturbance",
+        "symbol": "P1.JacketLoadKw",
+        "address": "%QL8",
+        "iecType": "LREAL",
+        "direction": "read",
+        "unit": "kW",
+        "range": {
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      {
+        "id": "experiment-authority",
+        "channel": "experiment-authority",
+        "role": "state",
+        "symbol": "P1.ExperimentEnabled",
+        "address": "%MX32.0",
+        "iecType": "BOOL",
+        "direction": "read",
+        "unit": "1",
+        "range": {
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    ]
+  },
+  "limits": {
+    "outputMinimum": 0,
+    "outputMaximum": 100
+  },
+  "observedSampleTiming": {
+    "nominalPeriodMs": 100
+  },
+  "plantId": "two-jacketed-vessels",
+  "operatingPoint": "Two jacketed vessels at 35 degC with the jacket at 38 degC and 15% heater command",
+  "experiment": {
+    "execution": "project-scripted",
+    "kind": "observation",
+    "amplitude": 0,
+    "durationSeconds": 62.1,
+    "seed": 20260829,
+    "activation": {
+      "symbol": "P1.ExperimentEnabled",
+      "address": "%MX32.0",
+      "iecType": "BOOL",
+      "direction": "write"
+    },
+    "baselineSeconds": 2
+  },
+  "revision": "sha256:1cb2778d7624ceb67804dcd390e885276f7ccc05b55735acd553d409308da145",
+  "parameterBinding": {
+    "parameters": [
+      {
+        "symbol": "P1.InnerParameters.ProportionalGain",
+        "iec_type": "LREAL",
+        "unit": "1",
+        "convention": "Control.PID gain",
+        "minimum": -1000000.0,
+        "maximum": 1000000.0
+      },
+      {
+        "symbol": "P1.InnerParameters.IntegralGain",
+        "iec_type": "LREAL",
+        "unit": "1",
+        "convention": "Control.PID gain",
+        "minimum": -1000000.0,
+        "maximum": 1000000.0
+      },
+      {
+        "symbol": "P1.InnerParameters.DerivativeGain",
+        "iec_type": "LREAL",
+        "unit": "1",
+        "convention": "Control.PID gain",
+        "minimum": -1000000.0,
+        "maximum": 1000000.0
+      },
+      {
+        "symbol": "P1.OuterParameters.ProportionalGain",
+        "iec_type": "LREAL",
+        "unit": "1",
+        "convention": "Control.PID gain",
+        "minimum": -1000000.0,
+        "maximum": 1000000.0
+      },
+      {
+        "symbol": "P1.OuterParameters.IntegralGain",
+        "iec_type": "LREAL",
+        "unit": "1",
+        "convention": "Control.PID gain",
+        "minimum": -1000000.0,
+        "maximum": 1000000.0
+      },
+      {
+        "symbol": "P1.OuterParameters.DerivativeGain",
+        "iec_type": "LREAL",
+        "unit": "1",
+        "convention": "Control.PID gain",
+        "minimum": -1000000.0,
+        "maximum": 1000000.0
+      }
+    ]
+  }
+}

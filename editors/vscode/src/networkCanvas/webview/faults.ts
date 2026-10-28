@@ -1,11 +1,13 @@
-import type { NetworkCanvasFault } from "../model";
+import type { NCFault } from "./types";
 
 export function visibleFaultsForValidationState(
-  faults: readonly NetworkCanvasFault[],
+  faults: readonly NCFault[],
   applyResultLocallyStale: boolean
-): readonly NetworkCanvasFault[] {
+): readonly NCFault[] {
   if (!applyResultLocallyStale) {
     return faults;
   }
-  return faults.filter((entry) => !String(entry.id).startsWith("apply:"));
+  // The server marks the fault of the form's refused result (`form`); it is hidden while the form
+  // is edited, and every other fault stays.
+  return faults.filter((entry) => entry.form !== true);
 }

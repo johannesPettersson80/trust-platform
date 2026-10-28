@@ -1,0 +1,321 @@
+{
+  "schemaVersion": 4,
+  "id": "control-feedforward",
+  "title": "Feedforward control",
+  "level": "Advanced",
+  "sequence": 62,
+  "equipment": "Three copies of the heater of Lessons 12–30 under Control.PID PI (Kp 5, Ki 1): PI alone, PI with feedforward from the measured 30 kW extraction, PI with feedforward from a 36 kW estimate",
+  "physicalPurpose": "Replace a measured heat extraction with a calculated command before the temperature falls, and keep PI to correct the estimate.",
+  "principalTechnique": "Feedforward u_ff = D_m/a added to the PI request",
+  "objective": "Derive the ideal and the realizable feedforward from the heater balance, calculate the 15-point command and the unavoidable 0.5438 °C drop, and compare PI alone, PI with feedforward and PI with a wrong estimate on the same extraction.",
+  "prerequisites": [
+    "control-trajectory-feedforward"
+  ],
+  "nextLesson": "control-cascade",
+  "signals": [
+    {
+      "role": "SP",
+      "name": "Temperature setpoint",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.001,
+      "binding": "%ML0"
+    },
+    {
+      "role": "PV",
+      "name": "Water temperature, PI alone",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL0"
+    },
+    {
+      "role": "MV",
+      "name": "Heater command, PI alone",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL0"
+    },
+    {
+      "role": "disturbance",
+      "name": "Heat extraction",
+      "unit": "kW",
+      "minimum": 0,
+      "maximum": 50,
+      "resolution": 0.01,
+      "binding": "%ML8"
+    },
+    {
+      "role": "state",
+      "name": "Water temperature, PI + feedforward",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL8"
+    },
+    {
+      "role": "state",
+      "name": "Heater command, PI + feedforward",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL16"
+    },
+    {
+      "role": "state",
+      "name": "Feedforward",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%ML16"
+    },
+    {
+      "role": "state",
+      "name": "Feedback part, PI + feedforward",
+      "unit": "%",
+      "minimum": -100,
+      "maximum": 200,
+      "resolution": 0.001,
+      "binding": "%ML32"
+    },
+    {
+      "role": "state",
+      "name": "Water temperature, feedforward from 36 kW",
+      "unit": "degC",
+      "minimum": 0,
+      "maximum": 80,
+      "resolution": 0.0001,
+      "binding": "%IL16"
+    },
+    {
+      "role": "state",
+      "name": "Heater command, feedforward from 36 kW",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%QL32"
+    },
+    {
+      "role": "state",
+      "name": "Feedforward from 36 kW",
+      "unit": "%",
+      "minimum": 0,
+      "maximum": 100,
+      "resolution": 0.001,
+      "binding": "%ML24"
+    },
+    {
+      "role": "state",
+      "name": "Feedback part, feedforward from 36 kW",
+      "unit": "%",
+      "minimum": -100,
+      "maximum": 200,
+      "resolution": 0.001,
+      "binding": "%ML40"
+    },
+    {
+      "role": "state",
+      "name": "ExperimentEnabled",
+      "unit": "1",
+      "minimum": 0,
+      "maximum": 1,
+      "resolution": 1,
+      "binding": "%MX48.0"
+    }
+  ],
+  "plant": {
+    "modelId": "three-heaters-feedforward",
+    "executable": "simulation.toml",
+    "parameters": [
+      {
+        "name": "heat_capacity",
+        "value": 50,
+        "unit": "kJ/°C"
+      },
+      {
+        "name": "heater_per_point",
+        "value": 2,
+        "unit": "kW/%"
+      },
+      {
+        "name": "loss_coefficient",
+        "value": 10,
+        "unit": "kW/°C"
+      },
+      {
+        "name": "delivery_delay",
+        "value": 1,
+        "unit": "s"
+      },
+      {
+        "name": "extraction",
+        "value": 30,
+        "unit": "kW"
+      }
+    ],
+    "sampleTimeSeconds": 0.1,
+    "initialState": {
+      "temperatureC": 35
+    },
+    "seed": 20260829,
+    "operatingPoint": {
+      "Water temperature, PI alone": 35,
+      "Heater command, PI alone": 75
+    },
+    "validityRange": [
+      {
+        "signal": "Water temperature, PI alone",
+        "minimum": 33,
+        "maximum": 37,
+        "unit": "degC"
+      }
+    ],
+    "simplifications": [
+      "Well-mixed water: 50·dT/dt = 2·u(t − 1) − 10·(T − 20) − D; the extraction acts at once.",
+      "The sensor reads the water exactly; the load measurement is exact except for the deliberate 36 kW estimate."
+    ]
+  },
+  "baseline": {
+    "executableId": "P1",
+    "settings": {
+      "controller": "PI, Kp = 5 %/°C, Ki = 1 %/(°C·s), no feedforward",
+      "extraction": "30 kW"
+    },
+    "limitation": "PI acts only after the extraction has lowered the temperature: 33.75 °C."
+  },
+  "change": {
+    "executableId": "P1",
+    "settings": {
+      "feedforward": "D_m/2 %, with D_m = 30 kW and 36 kW",
+      "durationSeconds": 60
+    },
+    "decision": "Feedforward limits the dip to the delivery-delay drop 0.5438 °C (34.456 °C at 1.0 s) against 33.75 °C for PI alone; with the 36 kW estimate PI trims its feedback part to 72 % and the command still ends at 90 %."
+  },
+  "experiment": {
+    "kind": "observation",
+    "signal": "ExperimentEnabled",
+    "baseline": 0,
+    "amplitude": 0,
+    "durationSeconds": 62.1,
+    "settlingSeconds": 0,
+    "disturbances": [
+      "30 kW heat extraction on all three heaters"
+    ],
+    "seed": 20260829,
+    "restorationValue": 0
+  },
+  "acceptance": [
+    {
+      "metric": "minimum_temperature",
+      "signal": "Water temperature, PI + feedforward",
+      "window": "complete trial",
+      "comparator": ">=",
+      "limit": 33,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "late_error",
+      "signal": "Water temperature, PI + feedforward",
+      "window": "30–60 s",
+      "comparator": "<=",
+      "limit": 0.2,
+      "unit": "degC",
+      "tolerance": 0,
+      "evidenceClass": "simulation"
+    },
+    {
+      "metric": "delivery_delay_drop",
+      "signal": "Water temperature, PI + feedforward",
+      "window": "first second",
+      "comparator": "==",
+      "limit": 34.4562,
+      "unit": "degC",
+      "tolerance": 0.001,
+      "evidenceClass": "simulation"
+    }
+  ],
+  "safety": {
+    "hardLimits": [
+      {
+        "signal": "Water temperature, PI alone",
+        "minimum": 0,
+        "maximum": 80,
+        "unit": "degC"
+      },
+      {
+        "signal": "Heater command, PI alone",
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "%"
+      }
+    ],
+    "abortPredicates": [
+      "Signals must remain finite and inside the declared ranges",
+      "A physical-plant target is selected"
+    ],
+    "safeMv": 75,
+    "restorationMode": "When the experiment ends, the extraction and the feedforward return to zero.",
+    "physicalApprovalRole": "authorised process controls engineer and responsible plant operator",
+    "simulationOnlyRestrictions": [
+      "This lesson cannot authorise physical heating changes",
+      "A physical load measurement needs its own validity check before its feedforward may act"
+    ]
+  },
+  "workflowStages": [
+    "Identify"
+  ],
+  "proof": {
+    "specification": "docs/specs/control-course-content/55-66-industrial-and-multivariable.md#55-feedforward-control",
+    "nativeTest": "lesson55",
+    "nativeCommand": "cargo test -p trust-runtime --test control_curriculum_lessons_55_57 lesson55",
+    "projectPath": "examples/control/09-industrial-control-structures/51-feedforward",
+    "runArtifactFields": [
+      "temperatures",
+      "commands",
+      "feedforward",
+      "feedbackParts",
+      "evidenceClass"
+    ],
+    "renderedJourneyId": "control-feedforward"
+  },
+  "video": {
+    "viewerOutcome": "See feedforward replace a measured heat extraction at once, leaving only the delivery-delay drop, while PI alone falls more than twice as far.",
+    "requiredVisibleEvidence": [
+      "the three temperatures and commands",
+      "the feedforward and feedback parts",
+      "Simulation label"
+    ],
+    "durationClass": "standard",
+    "scriptPath": "video/script.md",
+    "captionPath": "video/captions.en.vtt",
+    "thumbnailPath": "video/thumbnail.svg",
+    "publicationState": "not_started"
+  },
+  "learning": {
+    "context": "Lesson 61's trajectory feedforward cut the drum axis's following error from 0.0922 to 0.00099 rad, because the plan said in advance which torque each part of the move would need. Many disturbances are not planned. On the water heater, colder inlet water draws heat from the moment it arrives. It can be measured, as the inlet flow and its temperature drop, yet a PI controller acts only after the water has cooled.\n\nWe return to the water heater for this reason: its disturbance is easy to measure, and its heat balance says exactly how much heater power replaces it. We will calculate that power from the measured extraction and give it to the heater at once.",
+    "reason": "We need to:\n\n1. measure the disturbance while it happens;\n2. calculate from the heat balance the heater command that replaces it; and\n3. add that command to the PI's request, with the PI still correcting what the calculation misses.",
+    "theory": [
+      "**Feedforward control** measures a disturbance and acts on it right away, before the temperature has changed, with the command that cancels it. Feedback then corrects whatever the feedforward gets wrong. For the heater, a measured extraction of 30 kW is answered at once with the heater power that replaces it.\n\n**In words.** Feedback waits for an error: the water must first cool before the PI adds heat. Colder inlet water, though, can be measured the moment it arrives, as its flow and its temperature drop, and the heat balance says how much heater power replaces the heat it takes. Feedforward sends that power at once. It is the same idea as a sequence that starts a second pump as soon as a large consumer opens, instead of waiting for the pressure to fall. The heater command then has two parts:\n\n1. **The feedforward part** comes from the measured disturbance: each kilowatt taken adds the command that puts a kilowatt back.\n2. **The feedback part** comes from the PI, as before. It removes whatever the feedforward gets wrong: an error in the measurement, an error in the model, or a disturbance nobody measures.\n\nFeedforward cannot do better than the process allows. The heater's power still takes 1 s to arrive, so for that second the water cools whatever the controller does.\n\n**The formula.** Dividing the measured heat by the heater's power per point gives the command that replaces it, and that command is added to the PI's request:\n\n$$\nu_{ff} = \\frac{D_m}{a}, \\qquad u_r = P + I + u_{ff}.\n$$\n\nLet:\n\n- $D_m$ be the measured extraction, in kW;\n- $a$ be the heater power per command point, 2 kW per percentage point;\n- $u_{ff}$ be the feedforward command, in percentage points;\n- $P$ and $I$ be the PI's proportional and integral parts, in percent; and\n- $u_r$ be the complete request, in percent. The output limits act on the complete request.\n\n**Example: a 30 kW extraction on the water heater.** The water stores 50 kJ per °C, each command point delivers 2 kW one second after it is commanded, and the water loses 10 kW per °C above its 20 °C surroundings. With $T$ the water temperature in °C, $u$ the heater command in % and $D$ the extra extraction in kW, its energy balance is\n\n$$\n50\\dot T = 2u(t - 1) - 10(T - 20) - D .\n$$\n\nAt 35 °C the water loses $10 \\times 15 = 150$ kW, which the heater replaces at 75 %. With 30 kW extracted as well, holding 35 °C needs 180 kW: 90 %. Follow the numbers:\n\n1. The feedforward: $u_{ff} = 30/2 = 15$ points, so the request goes from 75 % to 90 % at the next update, exactly the command that holds 35 °C with the extraction.\n2. Could it cancel the extraction perfectly? Around 35 °C and 75 %, with $x = T - 35$ and $v = u - 75$, dividing the balance by 10 gives $5\\dot x + x = 0.2\\,v(t - 1) - 0.1\\,D(t)$. Perfect cancellation would need $0.2\\,v(t - 1) = 0.1\\,D(t)$ at every instant, so $v(t) = D(t + 1)/2$: the command would have to know the extraction one second before it happens. No controller can do that.\n3. So for 1 s the extra heat is on its way. The water follows $5\\dot x + x = -0.1 \\times 30 = -3$: it heads for 3 °C below 35 °C with a 5 s time constant, and in that one second falls by $3(1 - e^{-1/5}) = 0.544$ °C.\n4. Then the heat arrives and replaces the extraction, and the deviation dies away with the 5 s time constant. The PI corrects the small error that is left.\n\n**The limitation.** Feedforward does not remove the delivery delay: the 0.544 °C dip belongs to the delay, and only a faster heater could make it smaller. And it is only as good as its measurement and model. If the estimate is 36 kW, 20 % too high, the feedforward requests 18 points and, after the delay, supplies 6 kW too much. Only the integral can remove the resulting error: it lowers the feedback part from 75 % to 72 %, so that $72 + 18 = 90$ % again."
+    ],
+    "workedPrediction": "Before running, answer these questions:\n\n1. What command does each heater request at the first update after the extraction starts?\n2. How far does the water fall with exact feedforward, and when?\n3. Does PI alone let the water fall more or less, and why? The exact value needs the run.\n4. With the 36 kW estimate, where do the command and its feedback part end?\n\n| | PI alone | PI + feedforward | PI + feedforward from 36 kW |\n| --- | ---: | ---: | ---: |\n| First command | 75 % | 90 % | 93 % |\n| Dip during the 1 s delay | — | 0.544 °C | 0.544 °C |\n| Final command (feedback part) | 90 % (90 %) | 90 % (75 %) | 90 % (72 %) |",
+    "practicalPreparation": [
+      "1. Open this lesson's project and start **Simulator**. The three heaters rest at 35 °C with 75 %. In the **truST** side bar, select **Control Studio**.\n2. On **Identify**, choose **Project experiment** from **Method**. **Signals** already shows `P1.SetpointC · Setpoint (°C)`, `P1.PiOnlyC · Process value (°C)` and `P1.PiOnlyPct · Applied output (%)`, the PI-alone heater; add `P1.FeedforwardC · state (°C)`, `P1.BiasedC · state (°C)`, `P1.FeedforwardHeaterPct · state (%)` and `P1.BiasedHeaterPct · state (%)`.\n3. Answer the predictions before starting.\n4. Select **Review project test** and check the declared **62.1 s** duration: 2 s at rest, then 60 s with the 30 kW extraction on all three heaters.\n5. Select **Confirm and start**.\n6. After the run, hover the first update after 2 s and each heater's lowest temperature. Then add `P1.FeedbackPct · state (%)` and `P1.BiasedFeedbackPct · state (%)` and hover the end. Control Studio shows **Project test completed. Outputs restored.**\n\nSelect **Abort test** to stop early. To repeat, stop and restart **Simulator** so all three heaters start at 35 °C again."
+    ],
+    "baseline": "PI alone acts only after a 30 kW extraction has cooled the water, which falls to 33.75 °C.",
+    "change": "Add the measured extraction as feedforward D/2 to the same PI, with the exact 30 kW and a 36 kW estimate, and compare the dips and the feedback part.",
+    "comparison": "![Feedforward answers the measured extraction at once; PI alone waits for the water to cool](figures/feedforward-comparison.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio's recording, times from the start of the extraction:\n\n| | PI alone | PI + feedforward | PI + feedforward from 36 kW |\n| --- | ---: | ---: | ---: |\n| First command | 75 % | 90 % | 93 % |\n| Lowest temperature | 33.75 °C at 4.5 s | 34.456 °C at 1.0 s | 34.456 °C at 1.0 s |\n| Highest temperature | 35.00 °C | 35.10 °C at 9.4 s | 35.32 °C at 7.5 s |\n| Largest error, 30–60 s | 0.028 °C | 0.006 °C | 0.013 °C |\n| Command at 60 s (feedback part) | 90 % (90 %) | 90 % (75 %) | 90 % (72 %) |\n\n1. At the first update, PI alone still requested 75 %; the feedforward heaters requested 90 % and 93 %, the calculated 15 and 18 extra points.\n2. Both feedforward heaters fell by exactly the calculated 0.544 °C, to 34.456 °C at 1.0 s, and no further: the dip is the delivery delay and nothing else.\n3. PI alone fell 2.3 times as far, to 33.75 °C, and later, at 4.5 s, because it had to see the error first.\n4. The 36 kW estimate overheated the water to 35.32 °C before the integral trimmed its feedback part to 72 %; its command ended at 90 %, like the others.\n\nThe physics decides the final command; the feedforward decides only how soon it is reached. Every heater was within 0.2 °C of 35 °C from 30 s. The benefit is a dip 2.3 times smaller and over in a second; the cost is a measurement and a model, whose errors the integral must remove. Feedforward is accepted for this heater. These are simulation results.",
+    "validation": "![Feedforward answers the measured extraction at once; PI alone waits for the water to cool](figures/feedforward-comparison.svg)\n\nThe numbered marks answer the predictions with the same numbers. From Control Studio's recording, times from the start of the extraction:\n\n| | PI alone | PI + feedforward | PI + feedforward from 36 kW |\n| --- | ---: | ---: | ---: |\n| First command | 75 % | 90 % | 93 % |\n| Lowest temperature | 33.75 °C at 4.5 s | 34.456 °C at 1.0 s | 34.456 °C at 1.0 s |\n| Highest temperature | 35.00 °C | 35.10 °C at 9.4 s | 35.32 °C at 7.5 s |\n| Largest error, 30–60 s | 0.028 °C | 0.006 °C | 0.013 °C |\n| Command at 60 s (feedback part) | 90 % (90 %) | 90 % (75 %) | 90 % (72 %) |\n\n1. At the first update, PI alone still requested 75 %; the feedforward heaters requested 90 % and 93 %, the calculated 15 and 18 extra points.\n2. Both feedforward heaters fell by exactly the calculated 0.544 °C, to 34.456 °C at 1.0 s, and no further: the dip is the delivery delay and nothing else.\n3. PI alone fell 2.3 times as far, to 33.75 °C, and later, at 4.5 s, because it had to see the error first.\n4. The 36 kW estimate overheated the water to 35.32 °C before the integral trimmed its feedback part to 72 %; its command ended at 90 %, like the others.\n\nThe physics decides the final command; the feedforward decides only how soon it is reached. Every heater was within 0.2 °C of 35 °C from 30 s. The benefit is a dip 2.3 times smaller and over in a second; the cost is a measurement and a model, whose errors the integral must remove. Feedforward is accepted for this heater. These are simulation results.",
+    "explanation": "Feedforward adds $D_m/a$ from a measured disturbance to the feedback request, so the correction starts with the disturbance instead of with the error. It cannot act before the delivery delay, and it is only as good as its measurement and model; the integral removes what it gets wrong.\n\nFor the heater, the measured 30 kW extraction was answered with 15 points at once, the water dipped only the 0.544 °C the delay allows, and a 20 % wrong estimate was corrected by the integral.",
+    "transfer": "Feedforward needs a measurement of the disturbance. A disturbance nobody measures, such as a heat loss through the jacket wall of a jacketed vessel, still reaches the process before feedback reacts.\n\n[Cascade control](../52-cascade/README.md) closes an inner loop around the vessel's jacket temperature, a measurement that shows that disturbance early."
+  }
+}

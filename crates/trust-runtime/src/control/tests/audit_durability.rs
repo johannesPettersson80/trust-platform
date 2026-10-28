@@ -1,6 +1,6 @@
 #[test]
 fn control_audit_send_failure_records_audit_dropped_event() {
-    let mut state = hmi_test_state(
+    let mut state = control_test_state(
         r#"
 PROGRAM Main
 END_PROGRAM
@@ -14,7 +14,10 @@ END_PROGRAM
     assert!(response.ok, "status request should still return");
     let encoded = serde_json::to_value(&response).expect("serialize response");
     assert!(
-        encoded.get("audit_id").and_then(serde_json::Value::as_str).is_some(),
+        encoded
+            .get("audit_id")
+            .and_then(serde_json::Value::as_str)
+            .is_some(),
         "audit id should still be returned even when the audit sink is closed: {encoded}"
     );
 
@@ -29,7 +32,7 @@ END_PROGRAM
 
 #[test]
 fn debug_feature_disabled_returns_structured_feature_disabled_response() {
-    let state = hmi_test_state(
+    let state = control_test_state(
         r#"
 PROGRAM Main
 END_PROGRAM
@@ -44,7 +47,9 @@ END_PROGRAM
 
     let encoded = serde_json::to_value(&response).expect("serialize response");
     assert_eq!(
-        encoded.get("error_code").and_then(serde_json::Value::as_str),
+        encoded
+            .get("error_code")
+            .and_then(serde_json::Value::as_str),
         Some("feature_disabled"),
         "debug-disabled response must expose a structured feature_disabled code: {encoded}"
     );

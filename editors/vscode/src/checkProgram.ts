@@ -1,9 +1,9 @@
 import { execFile } from "child_process";
-import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 
 import { getBinaryPath } from "./binary";
+import { projectRequest } from "./projectRequest";
 import {
   summarizeCheck,
   type CheckProblemCounts,
@@ -40,6 +40,11 @@ let lastCompileStatusMessage: vscode.Disposable | undefined;
 
 export const onDidCheckProgram = didCheckProgramEmitter.event;
 
+/** Test hook: forgets the last Compile's problems, as a suite does when it deletes the project it compiled. */
+export function __testClearCompileDiagnostics(): void {
+  collection?.clear();
+}
+
 export function registerCheckProgram(context: vscode.ExtensionContext): void {
   collection = vscode.languages.createDiagnosticCollection(TRUST_DIAGNOSTIC_SOURCE);
   context.subscriptions.push(collection);
@@ -54,36 +59,17 @@ export function registerCheckProgram(context: vscode.ExtensionContext): void {
   );
 }
 
-function hasProjectMarker(root: string): boolean {
-  return fs.existsSync(path.join(root, "trust-lsp.toml"));
-}
-
-function nearestProjectRoot(fsPath: string): string | undefined {
-  let current = fs.existsSync(fsPath) && fs.statSync(fsPath).isDirectory()
-    ? fsPath
-    : path.dirname(fsPath);
-  while (true) {
-    if (hasProjectMarker(current)) {
-      return current;
-    }
-    const parent = path.dirname(current);
-    if (parent === current) {
-      return undefined;
-    }
-    current = parent;
-  }
-}
-
-function projectRoot(): vscode.Uri | undefined {
+/** The project Compile checks, as the language server chooses it (`trust-lsp.projectRoot`, specification 25 §6.2). */
+async function projectRoot(): Promise<{ root?: vscode.Uri; problem?: string }> {
   const active = vscode.window.activeTextEditor?.document.uri;
-  if (active?.scheme === "file") {
-    const nearest = nearestProjectRoot(active.fsPath);
-    if (nearest) {
-      return vscode.Uri.file(nearest);
-    }
+  const answer = await projectRequest<{ root: string | null }>("trust-lsp.projectRoot", {
+    ...(active?.scheme === "file" ? { path: active.fsPath } : {}),
+    folders: (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri.fsPath),
+  });
+  if (!answer.ok) {
+    return { problem: answer.error };
   }
-  const folder = active ? vscode.workspace.getWorkspaceFolder(active) : undefined;
-  return folder?.uri ?? vscode.workspace.workspaceFolders?.[0]?.uri;
+  return answer.root ? { root: vscode.Uri.file(answer.root) } : {};
 }
 
 function runCheck(
@@ -148,11 +134,11 @@ function launchFailure(
 async function runAndReport(
   context: vscode.ExtensionContext
 ): Promise<CheckProgramResponse | undefined> {
-  const root = projectRoot();
+  const { root, problem } = await projectRoot();
   if (!root) {
     clearCompileStatusMessage();
     void vscode.window.showWarningMessage(
-      "Open a truST project before compiling."
+      problem ?? "Open a truST project before compiling."
     );
     return undefined;
   }

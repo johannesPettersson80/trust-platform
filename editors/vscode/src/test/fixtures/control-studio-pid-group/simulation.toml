@@ -1,0 +1,71 @@
+[simulation]
+enabled = true
+seed = 20260824
+time_scale = 1
+plant_step_ms = 100
+max_plant_substeps_per_cycle = 100
+plant_trace_capacity = 2000
+
+[[plants]]
+id = "temperature-process"
+model = "first_order_dead_time"
+command_sources = ["%QL0"]
+feedback_targets = ["%IL0"]
+initial_state = [0.0]
+initial_input = [0.0]
+input_offset = [0.0]
+output_offset = [20.0]
+
+[plants.parameters]
+gain = 1.5
+time_constant_s = 4.0
+dead_time_s = 0.5
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+rate_up_per_s = 25.0
+rate_down_per_s = 25.0
+
+
+[[plants]]
+id = "temperature-process-2"
+model = "first_order_dead_time"
+command_sources = ["%QL8"]
+feedback_targets = ["%IL8"]
+initial_state = [0.0]
+initial_input = [0.0]
+input_offset = [0.0]
+output_offset = [20.0]
+
+[plants.parameters]
+gain = 1.5
+time_constant_s = 4.0
+dead_time_s = 0.5
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+rate_up_per_s = 25.0
+rate_down_per_s = 25.0
+
+[[plants]]
+id = "temperature-process-3"
+model = "first_order_dead_time"
+command_sources = ["%QL16"]
+feedback_targets = ["%IL16"]
+initial_state = [0.0]
+initial_input = [0.0]
+input_offset = [0.0]
+output_offset = [20.0]
+
+[plants.parameters]
+gain = 1.5
+time_constant_s = 4.0
+dead_time_s = 0.5
+
+[plants.actuator]
+minimum = 0.0
+maximum = 100.0
+rate_up_per_s = 25.0
+rate_down_per_s = 25.0

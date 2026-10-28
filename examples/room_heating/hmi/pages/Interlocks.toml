@@ -1,0 +1,36 @@
+format = 1
+title = "Interlocks"
+order = 3
+icon = "list"
+
+[[object]]
+id = "heater-protection"
+type = "faceplate"
+faceplate = "plant-protection"
+instance = "Main.HeaterProtection"
+at = [40, 30]
+size = [780, 478]
+
+[[object]]
+id = "pump-protection"
+type = "faceplate"
+faceplate = "plant-protection"
+instance = "Main.PumpProtection"
+at = [860, 30]
+size = [780, 478]
+
+[[object]]
+id = "valve-protection"
+type = "faceplate"
+faceplate = "plant-protection"
+instance = "Main.ValveProtection"
+at = [40, 530]
+size = [780, 478]
+
+[[object]]
+id = "fan-protection"
+type = "faceplate"
+faceplate = "plant-protection"
+instance = "Main.FanProtection"
+at = [860, 530]
+size = [780, 478]

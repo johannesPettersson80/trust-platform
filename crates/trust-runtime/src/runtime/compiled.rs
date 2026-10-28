@@ -1,0 +1,1030 @@
+//! A compiled program on a computer (specification 44 §8.8, NX-14): the chips' compiled cycle over
+//! the kernel's program, with the computer's ports, the drivers of `io.toml` ([`HostIo`]), its
+//! monotonic clock and its retain file (the [`RetainManager`] the bytecode engine writes), and what
+//! the scan thread asks of a program between and in its scans: its logical time, its scans and
+//! restarts, its faults and the policies that follow them, its deadlines and safe outputs, its
+//! online changes and stepped scans, and the state the other threads read.
+
+mod clients;
+mod debugger;
+mod identify;
+mod methods;
+mod named;
+mod observer;
+mod process_io;
+mod services;
+mod state;
+mod tags;
+
+use std::sync::{Arc, Mutex};
+use std::time::{Duration as PhysicalDuration, Instant};
+
+use smol_str::SmolStr;
+use trust_runtime_core::io_image::PreparedIoBinding;
+use trust_runtime_core::native::live::io_bindings;
+use trust_runtime_core::native::program::AdmittedImage;
+use trust_runtime_core::native::variables::{CompiledVariables, NameError};
+use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, TimeSpan};
+use trust_runtime_services::cycle_step::{StepOutcome, StepRefusal, StepRequest};
+use trust_runtime_services::runner::{
+    CompiledCycle, CycleSettings, ResourceCycle, RetainSource, TaskDescriptor,
+};
+
+use super::ads_subsystem::AdsSubsystem;
+use super::metrics_subsystem::MetricsSubsystem;
+use super::opcua_client_subsystem::OpcUaClientSubsystem;
+use super::openot_telemetry::OpenOtTelemetrySubsystem;
+use super::watchdog_subsystem::WatchdogSubsystem;
+use crate::debug::{DebugControl, RuntimeEvent};
+use crate::error::RuntimeError;
+use crate::io::{IoAddress, IoDriver, IoDriverStatus, IoSafeState};
+use crate::memory::IoArea;
+use crate::metrics::{HostMonotonicClock, RuntimeMetrics};
+use crate::native::HostCode;
+use crate::retain::{RetainManager, RetainStore};
+use crate::runtime::program_access::{Access, View};
+use crate::value::{Duration, Value};
+use crate::watchdog::{FaultAction, FaultDecision, FaultPolicy, WatchdogPolicy};
+use crate::RestartMode;
+
+pub use debugger::CompiledDebugger;
+use debugger::HostHold;
+pub use named::NamedVariable;
+pub(crate) use process_io::HostIo;
+pub use state::{CompiledState, CompiledVariable};
+
+/// The cycle of a compiled program on a computer.
+pub(crate) type HostCycle =
+    CompiledCycle<'static, HostMonotonicClock, HostIo, HostCode, HostHold, RetainManager>;
+
+/// A compiled program installed on a computer, with the computer's adapters around it.
+pub struct CompiledRuntime {
+    cycle: HostCycle,
+    /// The admitted image the program keeps, which the debugger reads a held scan through.
+    image: Arc<AdmittedImage>,
+    resource_name: SmolStr,
+    /// The program's tasks, in the image's order without the programs that have no task.
+    tasks: Vec<TaskDescriptor>,
+    /// The program instance each entry of the image runs, by which program calls are recorded.
+    programs: Vec<SmolStr>,
+    /// The image's process-image bindings and their declared names, for the I/O snapshot.
+    bindings: Vec<PreparedIoBinding>,
+    binding_names: Vec<Option<SmolStr>>,
+    /// The cycle's clock, on which a deadline is given to it.
+    clock: HostMonotonicClock,
+    metrics: MetricsSubsystem,
+    watchdog: WatchdogSubsystem,
+    fault_policy: FaultPolicy,
+    /// The ADS and OPC UA clients of the configuration, whose points bind the program's globals.
+    ads: AdsSubsystem,
+    opcua_client: OpcUaClientSubsystem,
+    /// The OpenOT telemetry, which publishes after each scan.
+    openot_telemetry: OpenOtTelemetrySubsystem,
+    /// The MQTT tags past the program's own process image, and the bytes they lie in, which the
+    /// process I/O shares.
+    tags: Vec<tags::TagLink>,
+    extra: tags::SharedExtraImages,
+    debug: Option<DebugControl>,
+    /// The debugger of the program, once a debug control is set (specification 44 §13.2, §8.8).
+    debugger: Option<CompiledDebugger>,
+    current_time: Duration,
+    cycle_counter: u64,
+    execution_deadline: Option<Instant>,
+    output_commit_deadline: Option<Instant>,
+    output_commit_pause_baseline: PhysicalDuration,
+    /// The statements and loop passes one task activation runs at most (specification 44 NX-10),
+    /// for this program and every program an online change installs.
+    statement_budget: u32,
+    /// The keys an image of this runtime must be signed by, for this program and every program an
+    /// online change installs (specification 44 §5.11); none trusts every signer.
+    trusted_keys: &'static [[u8; 32]],
+    /// Whether simulation is on for the program (specification 46 §6.1), which, with only simulated
+    /// drivers, makes it a simulated target (specification 35 A2.4).
+    simulation_enabled: bool,
+    /// The HMI exchange and the program's `Hmi.Display` blocks, served at the end of the task whose
+    /// program calls the block (specification 39 §18).
+    hmi: super::hmi_subsystem::HmiSubsystem,
+    /// The program's `Comm.Link` blocks, filled after the inputs (specification 42).
+    links: super::link_subsystem::LinkSubsystem,
+    /// The `io.toml` drivers of the process I/O, which the access point after the inputs reaches
+    /// while the scan holds the cycle.
+    io_drivers: process_io::SharedDrivers,
+    /// The tasks that ran in the last scan, by name, each with the activations it missed before it.
+    last_task_runs: Vec<(SmolStr, u64)>,
+    /// The identify state of the runtime, shared with the control state (specification 11,
+    /// "Identify"): the scan and the waits of the scheduler drive its output.
+    identify: crate::io::IdentifyHandle,
+    /// Whether the safe state of a stop or a fault was handed to the drivers since the last scan.
+    safe_state_delivered: bool,
+}
+
+/// This computer's device for a program whose task activations run at most `budget` statements
+/// and whose images are signed by one of `trusted_keys`, or by any key with none.
+fn computer(
+    budget: u32,
+    trusted_keys: &'static [[u8; 32]],
+) -> Result<crate::native::Device, RuntimeError> {
+    let mut device = crate::native::this_computer().ok_or_else(|| {
+        RuntimeError::InvalidBundle("this computer's CPU runs no program image".into())
+    })?;
+    device.max_statements = budget;
+    device.trusted_keys = trusted_keys;
+    Ok(device)
+}
+
+impl std::fmt::Debug for CompiledRuntime {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("CompiledRuntime")
+            .field("resource_name", &self.resource_name)
+            .field("cycle_counter", &self.cycle_counter)
+            .field("fault", &self.cycle.fault())
+            .finish_non_exhaustive()
+    }
+}
+
+impl CompiledRuntime {
+    /// The compiled program of the image `bytes` on this computer, admitted against the
+    /// computer's device (specification 44 §10.2, NX-15) and at its starting values, as power-on
+    /// starts it, in the first generation (specification 44 §6.7): its first scan runs on them, and
+    /// the scan thread restarts it, cold, or warm from its retain file, once its adapters are set.
+    /// Each task activation runs at most 1,000,000 statements and loop passes, the default of
+    /// NX-10.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::InvalidBundle`] for an image the computer refuses, with the refusal's text,
+    /// and the fault of the program's cold-start initialization.
+    pub fn load(bytes: Vec<u8>, resource_name: impl Into<SmolStr>) -> Result<Self, RuntimeError> {
+        Self::load_with_statement_budget(
+            bytes,
+            resource_name,
+            trust_runtime_core::deployment::HOSTED_MAX_STATEMENTS,
+        )
+    }
+
+    /// [`Self::load`] with the statement budget `budget` of each task activation, the project's
+    /// `[resource] max_statements_per_scan` (specification 44 NX-10).
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::load`].
+    pub fn load_with_statement_budget(
+        bytes: Vec<u8>,
+        resource_name: impl Into<SmolStr>,
+        budget: u32,
+    ) -> Result<Self, RuntimeError> {
+        Self::load_trusting(bytes, resource_name, budget, &[])
+    }
+
+    /// [`Self::load_with_statement_budget`] as trust-runtime loads the program it is given: the
+    /// image and every image an online change installs must be signed by a key of the computer's
+    /// `device.toml`, when it names any (specification 44 §5.11).
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::load`], and [`RuntimeError::InvalidConfig`] when the computer's trusted keys
+    /// cannot be read or the image's program declares a `RESOURCE` other than `resource_name`
+    /// ([`crate::native::check_resource`]).
+    pub fn load_deployed(
+        bytes: Vec<u8>,
+        resource_name: impl Into<SmolStr>,
+        budget: u32,
+    ) -> Result<Self, RuntimeError> {
+        let resource_name = resource_name.into();
+        crate::native::check_resource(&bytes, &resource_name)?;
+        let trusted_keys = crate::native::computer_trusted_keys()
+            .map_err(|error| RuntimeError::InvalidConfig(error.to_string().into()))?;
+        Self::load_trusting(bytes, resource_name, budget, trusted_keys)
+    }
+
+    fn load_trusting(
+        bytes: Vec<u8>,
+        resource_name: impl Into<SmolStr>,
+        budget: u32,
+        trusted_keys: &'static [[u8; 32]],
+    ) -> Result<Self, RuntimeError> {
+        let device = computer(budget, trusted_keys)?;
+        let mut program = crate::native::load_kept(bytes, &device)
+            .map_err(|error| RuntimeError::InvalidBundle(error.to_string().into()))?;
+        // The program runs on its starting values until a restart chooses otherwise, as power-on
+        // starts it; the first generation stays (specification 44 §6.7).
+        program.cold_start(Duration::ZERO)?;
+        let (bindings, binding_names) = io_bindings(&program.image())
+            .map_err(|error| RuntimeError::InvalidBundle(error.to_string().into()))?;
+        let image = program
+            .kept_image()
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        let clock = HostMonotonicClock::default();
+        // A computer supervises a scan that does not return on a thread of its own (specification
+        // 11, hosted hang supervision), so the cycle's hang action is the default it never reads.
+        let settings = CycleSettings {
+            cycle_interval: Duration::ZERO,
+            watchdog: WatchdogPolicy::default(),
+            hang_action: trust_runtime_core::deployment::HangAction::Fault,
+            fault_policy: FaultPolicy::Halt,
+            safe_outputs: Vec::new(),
+        };
+        let io = HostIo::default();
+        let extra = io.extra_images();
+        let io_drivers = io.shared_drivers();
+        let cycle = HostCycle::unstarted(program, io, settings, clock);
+        let tasks = cycle.tasks();
+        let programs = cycle.programs();
+        let runtime = Self {
+            cycle,
+            image,
+            resource_name: resource_name.into(),
+            tasks,
+            programs,
+            bindings,
+            binding_names,
+            clock,
+            metrics: MetricsSubsystem::new(),
+            watchdog: WatchdogSubsystem::default(),
+            fault_policy: FaultPolicy::Halt,
+            ads: AdsSubsystem::new(),
+            opcua_client: OpcUaClientSubsystem::new(),
+            openot_telemetry: OpenOtTelemetrySubsystem::default(),
+            tags: Vec::new(),
+            extra,
+            debug: None,
+            debugger: None,
+            current_time: Duration::ZERO,
+            cycle_counter: 0,
+            execution_deadline: None,
+            output_commit_deadline: None,
+            output_commit_pause_baseline: PhysicalDuration::ZERO,
+            statement_budget: budget,
+            trusted_keys,
+            simulation_enabled: false,
+            hmi: super::hmi_subsystem::HmiSubsystem::default(),
+            links: super::link_subsystem::LinkSubsystem::new(),
+            io_drivers,
+            last_task_runs: Vec::new(),
+            identify: crate::io::IdentifyHandle::default(),
+            safe_state_delivered: false,
+        };
+        runtime.publish_program_memory();
+        Ok(runtime)
+    }
+
+    /// The resource's name.
+    #[must_use]
+    pub fn resource_name(&self) -> &SmolStr {
+        &self.resource_name
+    }
+
+    /// The program's tasks, in the image's order.
+    #[must_use]
+    pub fn tasks(&self) -> &[TaskDescriptor] {
+        &self.tasks
+    }
+
+    /// The program's logical time.
+    #[must_use]
+    pub fn current_time(&self) -> Duration {
+        self.current_time
+    }
+
+    /// Sets the logical time of the next scan.
+    pub fn set_current_time(&mut self, now: Duration) {
+        self.current_time = now;
+    }
+
+    /// Every task counts its next activation from `now`, which becomes the program's time.
+    pub fn reset_task_timing(&mut self, now: Duration) {
+        self.cycle.reset_task_timing(now);
+        self.current_time = now;
+    }
+
+    /// The scans completed since the last restart.
+    #[must_use]
+    pub fn cycle_counter(&self) -> u64 {
+        self.cycle_counter
+    }
+
+    /// Runs one scan at the program's logical time: the compiled cycle with the computer's
+    /// observer, then the OpenOT telemetry and the output commit deadline, the drivers' health, the
+    /// cycle's end event and its metrics. A failed scan latches its fault and applies the fault
+    /// policy's output action (specification 11 §6.6).
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::ResourceFaulted`] while a fault is latched; the scan's error otherwise, after
+    /// the safe outputs a halt drives.
+    pub fn execute_cycle(&mut self) -> Result<(), RuntimeError> {
+        if self.faulted() {
+            return Err(RuntimeError::ResourceFaulted);
+        }
+        // A scan hands out the program's outputs again: the safe state of a stop or a fault is no
+        // longer in force (specification 11, "Identify").
+        self.safe_state_delivered = false;
+        let now = self.current_time;
+        let cycle_timer = self.metrics.start_timer();
+        let deadline = self
+            .execution_deadline
+            .map(|deadline| self.on_clock(deadline));
+        let generation = self.cycle.generation();
+        let output_deadline = self.effective_output_commit_deadline();
+        let held_at_start = self.debug_watchdog_pause_elapsed();
+        let simulation_only_io = self.simulation_only_io();
+        let simulated_target = self.simulated_target();
+        let input_len =
+            self.process_image_bytes(IoArea::Input) + tags::lock(&self.extra).inputs.len();
+        let mut observer = observer::HostedCompiledScan {
+            metrics: &self.metrics,
+            debug: self.debug.clone(),
+            debugger: self.debugger.as_ref(),
+            ads: &mut self.ads,
+            opcua: &mut self.opcua_client,
+            tags: &self.tags,
+            extra: &self.extra,
+            tasks: &self.tasks,
+            programs: &self.programs,
+            cycle: self.cycle_counter,
+            generation,
+            task_timer: None,
+            program_timer: None,
+            output_deadline,
+            held_at_start,
+            task_runs: Vec::new(),
+            missed: vec![0; self.tasks.len()],
+            physical_target: !simulated_target,
+            links: &mut self.links,
+            drivers: &self.io_drivers,
+            input_len,
+        };
+        let mut result = self.cycle.run_scan(now, deadline, &mut observer);
+        let task_runs = std::mem::take(&mut observer.task_runs);
+        // The state the reads between scans answer from (specification 11 §6.13.1): the state the
+        // scan left, a faulted scan's too (decision O2), published before a fault's safe-state
+        // action; a failure after the scan ended does not replace it.
+        if let Some(debugger) = &self.debugger {
+            let program = self.cycle.program();
+            debugger.publish(|| CompiledState::of(program, now).ok());
+        }
+        // Control Studio's view of the scan, once per scan (specification 35 A3.5, A4.1, A6.3):
+        // the scan's I/O snapshot with the program as it left it feeds Live Values, the recordings,
+        // the signal inspection and the experiments, and a transfer the scan confirmed completes;
+        // a failed scan reverts a committed transfer before the fault is applied.
+        if let Some(debug) = self.debug.clone() {
+            match &result {
+                Ok(()) => {
+                    let snapshot = observer::io_snapshot(
+                        &self.bindings,
+                        &self.binding_names,
+                        self.cycle_counter,
+                        self.cycle.images(),
+                        &debug,
+                    );
+                    debug.push_control_snapshot_at(
+                        snapshot,
+                        now.as_nanos(),
+                        &View(self.cycle.program()),
+                        &task_runs,
+                        simulation_only_io,
+                        simulated_target,
+                    );
+                    debug.finish_transfer_cycle();
+                }
+                Err(error) => {
+                    debug.fail_transfer(&error.to_string(), &mut Access(self.cycle.program_mut()));
+                }
+            }
+        }
+        self.last_task_runs = task_runs;
+        // The HMI runs where the program calls it (specification 39 §18 Phase 5 item 4): at the end
+        // of a scan in which `Hmi.Display` was called, after the outputs are published and before the
+        // next scan, the runtime applies the screens' commands, copies the values they show and reads
+        // the alarms; then it calls the methods the commands asked for (§21.2) and publishes the alarm
+        // records (specification 40 §5.2). A faulted scan does no HMI work.
+        if result.is_ok() {
+            let drivers = process_io::lock_drivers(&self.io_drivers);
+            let links: Vec<_> = super::io_subsystem::link_ios(&drivers).collect();
+            let scan = super::hmi_subsystem::HmiScan {
+                cycle: self.cycle_counter,
+                links: &links,
+                bindings: &self.bindings,
+                binding_names: &self.binding_names,
+            };
+            self.hmi
+                .serve_after_scan(&mut Access(self.cycle.program_mut()), now, &scan);
+            drop(links);
+            drop(drivers);
+            if let Some(served) = self.hmi.take_served() {
+                self.publish_alarm_records(&served.alarm_records);
+                // A method that faults has already faulted the resource; the scan reports the fault.
+                result = self.serve_hmi_methods(&served.exchange);
+            }
+        }
+        // The telemetry publishes after the outputs reached the drivers, which the output commit's
+        // deadline allowed (specification 10 §4.7, steps 6 and 7): a late failure latches a fault,
+        // but does not undo the outputs.
+        if result.is_ok() {
+            result = self
+                .openot_telemetry
+                .publish_compiled(self.cycle_counter, self.cycle.program());
+        }
+        self.cycle.process_io_mut().update_health();
+        match result {
+            Ok(()) => {
+                if let Some(debug) = &self.debug {
+                    debug.push_runtime_event(RuntimeEvent::CycleEnd {
+                        cycle: self.cycle_counter,
+                        time: now,
+                    });
+                }
+                if let Some(start) = cycle_timer {
+                    self.metrics.record_cycle(start.elapsed());
+                }
+                self.cycle_counter = self.cycle_counter.saturating_add(1);
+                Ok(())
+            }
+            Err(error) => {
+                Err(self.apply_fault(error, FaultDecision::from_fault_policy(self.fault_policy)))
+            }
+        }
+    }
+
+    /// `deadline` on the cycle's clock; a deadline that has passed is now.
+    fn on_clock(&self, deadline: Instant) -> MonotonicInstant {
+        let from_now = deadline.saturating_duration_since(Instant::now());
+        self.clock.now().saturating_add(TimeSpan::new(from_now))
+    }
+
+    /// One stepped scan (`cycle.step`, specification 11 §6.8.1), as the compiled cycle runs it; the
+    /// watchdog bounds it as it bounds every scan.
+    ///
+    /// # Errors
+    ///
+    /// The [`StepRefusal`] of a request the program does not take.
+    pub fn step(
+        &mut self,
+        request: &StepRequest,
+        restart_at: Duration,
+    ) -> Result<StepOutcome, StepRefusal> {
+        let watchdog = self.watchdog_policy();
+        let deadline = watchdog.enabled.then(|| {
+            let timeout = u64::try_from(watchdog.timeout.as_nanos()).unwrap_or(0);
+            self.clock
+                .now()
+                .saturating_add(TimeSpan::new(PhysicalDuration::from_nanos(timeout)))
+        });
+        let outcome = self.cycle.step(request, restart_at, deadline)?;
+        self.current_time = request.time;
+        Ok(outcome)
+    }
+
+    /// Restarts the program in place: cold with its starting memory, warm with the retained values
+    /// it holds (IEC 61131-3 §6.5.6.1).
+    ///
+    /// # Errors
+    ///
+    /// The fault of the restart; the program is then as it was.
+    pub fn restart(&mut self, mode: RestartMode) -> Result<(), RuntimeError> {
+        self.restart_from(mode, RetainSource::Memory)
+    }
+
+    /// Restarts the program, warm with the values of its retain file, cold with its starting
+    /// memory (specification 44 §11).
+    ///
+    /// # Errors
+    ///
+    /// The fault of the restart or the error of a retain file that does not read; the program is
+    /// then as it was.
+    pub fn restart_with_retain_store(&mut self, mode: RestartMode) -> Result<(), RuntimeError> {
+        self.restart_from(mode, RetainSource::Checkpoint)
+    }
+
+    fn restart_from(
+        &mut self,
+        mode: RestartMode,
+        source: RetainSource,
+    ) -> Result<(), RuntimeError> {
+        let events = self.cycle.restart(mode, source)?;
+        // An in-process restart keeps the logical time and starts the task timing again at it
+        // (specification 11 §6.3; specification 10 §4.8).
+        self.cycle.reset_task_timing(self.current_time);
+        self.cycle_counter = 0;
+        self.openot_telemetry.reset_scan_state();
+        // The HMI finds the restarted program's blocks again and withdraws the method commands
+        // queued for it before the restart (specification 39 §21.2).
+        self.hmi.program_changed();
+        if let Some(debugger) = &self.debugger {
+            debugger.restarted();
+        }
+        if let Some(debug) = &self.debug {
+            debug.begin_lifecycle(self.cycle.generation());
+            for event in events {
+                debug.push_runtime_event(trust_runtime_services::events::retain_apply_event(
+                    event,
+                    self.current_time,
+                ));
+            }
+        }
+        self.publish_program_memory();
+        Ok(())
+    }
+
+    /// Changes the running program online to the program of the image `bytes` (specification 44
+    /// §12): the new program takes the running program's values and task schedule, the drivers and
+    /// the retain file at the commit, and the running program is dropped. A refusal leaves the
+    /// running program as it was.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::InvalidBundle`] for an image the computer refuses, and the error of a change
+    /// that cannot start.
+    pub fn apply_online_change_bytes(&mut self, bytes: &[u8]) -> Result<(), RuntimeError> {
+        let device = computer(self.statement_budget, self.trusted_keys)?;
+        let program = crate::native::load_kept(bytes.to_vec(), &device)
+            .map_err(|error| RuntimeError::InvalidBundle(error.to_string().into()))?;
+        let (bindings, binding_names) = io_bindings(&program.image())
+            .map_err(|error| RuntimeError::InvalidBundle(error.to_string().into()))?;
+        let image = program
+            .kept_image()
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        // A changed program that uses the bit identify drives, or has no such bit in its output
+        // image, is refused as a project that does is refused at load (specification 11,
+        // "Identify").
+        self.refuse_replacement_using_identify_output(
+            &bindings,
+            tags::image_bytes(&image.image(), IoArea::Output),
+        )?;
+        // The MQTT tags lie past the process image at the offsets their drivers were given.
+        if !self.tags.is_empty()
+            && [IoArea::Input, IoArea::Output].into_iter().any(|area| {
+                tags::image_bytes(&image.image(), area) != self.process_image_bytes(area)
+            })
+        {
+            return Err(RuntimeError::InvalidConfig(
+                "the changed program's process image has another size, and MQTT tags lie past it: \
+                 restart the runtime with the changed program"
+                    .into(),
+            ));
+        }
+        let mut candidate = HostCycle::candidate(program, HostIo::default(), &self.cycle);
+        if let Some(debugger) = &self.debugger {
+            candidate.attach_compiled_hold(debugger.hold());
+        }
+        candidate.check_safe_outputs()?;
+        let payload = candidate.program().retain_payload_bound()?;
+        self.cycle.reserve_retain(payload)?;
+        let events = candidate.take_values(&self.cycle)?;
+        self.cycle.hand_over_to(&mut candidate);
+        self.cycle = candidate;
+        self.image = image;
+        if let Some(debugger) = &self.debugger {
+            debugger.set_program(Arc::clone(&self.image));
+        }
+        self.tasks = self.cycle.tasks();
+        self.programs = self.cycle.programs();
+        self.bindings = bindings;
+        self.binding_names = binding_names;
+        // The committed change restarts the scan counter (specification 11 §6.7.1).
+        self.cycle_counter = 0;
+        // The HMI finds the changed program's blocks again; the method commands queued for the old
+        // program are withdrawn, never called on the new one (specification 39 §21.2).
+        self.hmi.program_changed();
+        if let Some(debug) = &self.debug {
+            debug.begin_lifecycle(self.cycle.generation());
+            // Control Studio's experiments, transactions and recordings of the old program end with
+            // it, as `program_reloaded` (specification 35 A6.7).
+            debug.invalidate_control_program();
+            for event in events {
+                debug.push_runtime_event(RuntimeEvent::OnlineChangeValue {
+                    event,
+                    time: self.current_time,
+                });
+            }
+        }
+        self.publish_program_memory();
+        Ok(())
+    }
+
+    /// Whether a fault is latched.
+    #[must_use]
+    pub fn faulted(&self) -> bool {
+        self.cycle.fault().is_some()
+    }
+
+    /// The fault latched since the last restart.
+    #[must_use]
+    pub fn last_fault(&self) -> Option<RuntimeError> {
+        self.cycle.fault().cloned()
+    }
+
+    /// Latches `error`, applies `decision`'s output action and records the fault.
+    fn apply_fault(&mut self, error: RuntimeError, decision: FaultDecision) -> RuntimeError {
+        if let Some(debug) = &self.debug {
+            debug.clear_runtime_mutations();
+        }
+        self.cycle.latch_fault(error.clone());
+        let mut reported = error.clone();
+        if decision.apply_safe_state
+            && let Err(safe_error) = self.apply_io_safe_state()
+        {
+            reported = RuntimeError::SafeStateFailed {
+                root: error.to_string().into(),
+                error: safe_error.to_string().into(),
+            };
+            if let Some(debug) = &self.debug {
+                debug.push_runtime_event(RuntimeEvent::SafeStateFailed {
+                    root: error.to_string(),
+                    error: safe_error.to_string(),
+                    time: self.current_time,
+                });
+            }
+        }
+        self.metrics.record_fault();
+        if let Some(debug) = &self.debug {
+            debug.push_runtime_event(RuntimeEvent::fault(&error, self.current_time));
+        }
+        reported
+    }
+
+    /// Reports a physical watchdog expiration through the common fault path.
+    pub fn watchdog_timeout(&mut self) -> RuntimeError {
+        self.watchdog_fault(RuntimeError::WatchdogTimeout)
+    }
+
+    /// Applies the watchdog's action for `error`.
+    pub(crate) fn watchdog_fault(&mut self, error: RuntimeError) -> RuntimeError {
+        self.apply_fault(error, self.watchdog.decision())
+    }
+
+    /// Reports a panic of the scan thread, halting with the safe outputs.
+    pub fn resource_panic(&mut self, message: impl Into<SmolStr>) -> RuntimeError {
+        self.apply_fault(
+            RuntimeError::ResourcePanic(message.into()),
+            FaultDecision {
+                action: FaultAction::Halt,
+                apply_safe_state: true,
+            },
+        )
+    }
+
+    /// Reports a simulation fault with the fault policy.
+    pub fn simulation_fault(&mut self, message: impl Into<SmolStr>) -> RuntimeError {
+        self.apply_fault(
+            RuntimeError::SimulationFault(message.into()),
+            FaultDecision::from_fault_policy(self.fault_policy),
+        )
+    }
+
+    /// Drives the safe outputs of `[[io.safe_state]]`: each safe value into the output image, and
+    /// every driver from it (specification 34 STATE-02).
+    ///
+    /// # Errors
+    ///
+    /// The first failure among the drivers.
+    pub fn apply_io_safe_state(&mut self) -> Result<(), RuntimeError> {
+        if let Some(debug) = &self.debug {
+            debug.clear_runtime_mutations();
+        }
+        let result = self.cycle.apply_safe_outputs();
+        // The safe image has no identify bit. Identify goes on (specification 11, "Identify"): the
+        // waits of a stopped or faulted resource tick it, and an output with a safe value keeps it.
+        self.note_safe_state_delivered();
+        result
+    }
+
+    /// Takes the safe outputs of `[[io.safe_state]]`.
+    pub fn set_io_safe_state(&mut self, state: IoSafeState) {
+        self.cycle.settings_mut().safe_outputs = state.outputs;
+    }
+
+    /// Saves the retained values into the retain file before the resource reports Stopped.
+    ///
+    /// # Errors
+    ///
+    /// The error of a save that did not complete.
+    pub fn save_retain_store(&mut self) -> Result<(), RuntimeError> {
+        self.cycle.save_retain()
+    }
+
+    /// Keeps the retained values in `store` from now on, saved at most every `interval`.
+    ///
+    /// # Errors
+    ///
+    /// The error of a retain map that does not read.
+    pub fn set_retain_store(
+        &mut self,
+        store: Option<Box<dyn RetainStore>>,
+        interval: Option<Duration>,
+    ) -> Result<(), RuntimeError> {
+        let mut manager = RetainManager::default();
+        manager.configure(store, interval, self.current_time);
+        self.cycle.set_retain_store(manager)?;
+        self.publish_program_memory();
+        Ok(())
+    }
+
+    /// Saves the retained values at most every `interval` from now on.
+    pub fn set_retain_save_interval(&mut self, interval: Option<Duration>) {
+        if let Some(retain) = self.cycle.retain_store_mut() {
+            retain.set_save_interval(interval);
+        }
+    }
+
+    /// The retain file's save interval.
+    #[must_use]
+    pub fn retain_save_interval(&self) -> Option<Duration> {
+        self.cycle
+            .retain_store()
+            .and_then(RetainManager::save_interval)
+    }
+
+    /// The watchdog policy.
+    #[must_use]
+    pub fn watchdog_policy(&self) -> WatchdogPolicy {
+        self.watchdog.policy()
+    }
+
+    /// Takes the watchdog policy of `[runtime.watchdog]`.
+    pub fn set_watchdog_policy(&mut self, policy: WatchdogPolicy) {
+        self.watchdog.set_policy(policy);
+        self.cycle.settings_mut().watchdog = policy;
+    }
+
+    /// The fault policy.
+    #[must_use]
+    pub fn fault_policy(&self) -> FaultPolicy {
+        self.fault_policy
+    }
+
+    /// Takes the fault policy of `[runtime.fault]`.
+    pub fn set_fault_policy(&mut self, policy: FaultPolicy) {
+        self.fault_policy = policy;
+        self.cycle.settings_mut().fault_policy = policy;
+    }
+
+    /// Sets the deadline of the next scan's execution.
+    pub(crate) fn set_execution_deadline(&mut self, deadline: Option<Instant>) {
+        self.execution_deadline = deadline;
+    }
+
+    /// The deadline of the next scan's execution.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn execution_deadline(&self) -> Option<Instant> {
+        self.execution_deadline
+    }
+
+    /// The deadline of the next scan's execution; the debugger's holds move it inside the cycle.
+    #[must_use]
+    pub(crate) fn effective_execution_deadline(&self) -> Option<Instant> {
+        self.execution_deadline
+    }
+
+    /// Sets the deadline of the next scan's outputs.
+    pub(crate) fn set_output_commit_deadline(&mut self, deadline: Option<Instant>) {
+        self.output_commit_deadline = deadline;
+        self.output_commit_pause_baseline = self.debug_watchdog_pause_elapsed();
+    }
+
+    #[cfg(test)]
+    pub(crate) fn output_commit_deadline(&self) -> Option<Instant> {
+        self.output_commit_deadline
+    }
+
+    /// The deadline of the next scan's outputs, moved by the debugger's pauses since it was set.
+    #[must_use]
+    pub(crate) fn effective_output_commit_deadline(&self) -> Option<Instant> {
+        self.output_commit_deadline.map(|deadline| {
+            deadline
+                .checked_add(
+                    self.debug_watchdog_pause_elapsed()
+                        .saturating_sub(self.output_commit_pause_baseline),
+                )
+                .unwrap_or(deadline)
+        })
+    }
+
+    /// The time the debugger held scans in total, which no watchdog counts.
+    #[must_use]
+    pub fn debug_watchdog_pause_elapsed(&self) -> PhysicalDuration {
+        self.debug
+            .as_ref()
+            .map_or(PhysicalDuration::ZERO, DebugControl::watchdog_pause_elapsed)
+    }
+
+    /// Takes the debugger's control, and with it the debugger of compiled programs, which holds
+    /// the program's scans from now on (specification 44 §13.2, §8.8).
+    pub fn set_debug_control(&mut self, debug: DebugControl) {
+        debug.set_generation(self.cycle.generation());
+        let debugger = debug.compiled_debugger();
+        debugger.set_program(Arc::clone(&self.image));
+        self.cycle.attach_compiled_hold(debugger.hold());
+        self.debugger = Some(debugger);
+        self.debug = Some(debug);
+    }
+
+    /// The debugger's control, when one is set.
+    #[must_use]
+    pub fn debug_control(&self) -> Option<DebugControl> {
+        self.debug.clone()
+    }
+
+    /// The status of the configuration's ADS connections.
+    #[must_use]
+    pub fn ads_status_report(&self) -> crate::ads::diagnostics::AdsStatusReport {
+        self.ads.status_report()
+    }
+
+    /// The status of the configuration's OPC UA client connections.
+    #[must_use]
+    pub fn opcua_client_status_report(&self) -> crate::opcua::OpcUaClientStatusReport {
+        self.opcua_client.status_report()
+    }
+
+    /// The live ADS device that overlaps a doctor target.
+    #[must_use]
+    pub fn active_ads_device_snapshot(
+        &self,
+        target: &crate::ads::diagnostics::TargetIdentity,
+        local: Option<&crate::ads::diagnostics::LocalIdentity>,
+    ) -> Option<crate::ads::onboarding::ActiveAdsDeviceSnapshot> {
+        self.ads.active_device_snapshot(target, local)
+    }
+
+    /// Records the metrics into `metrics` from now on.
+    pub fn set_metrics_sink(&mut self, metrics: Arc<Mutex<RuntimeMetrics>>) {
+        self.metrics.set_sink(metrics);
+        self.publish_program_memory();
+    }
+
+    /// Gives the metrics the memory figure of the program, which `status` reports (specification
+    /// 34 MEM-12; specification 44 §10.4).
+    fn publish_program_memory(&self) {
+        if let Some(memory) = self.cycle.program_memory() {
+            self.metrics.set_program_memory(memory);
+        }
+    }
+
+    /// Adds the `io.toml` driver `driver` named `name` after the others.
+    pub fn add_io_driver(&mut self, name: impl Into<SmolStr>, driver: Box<dyn IoDriver>) {
+        self.cycle.process_io_mut().add_driver(name, driver);
+    }
+
+    /// Takes `io`, a project's `io.toml`, as trust-runtime starts a compiled program
+    /// (specification 44 §8.8): its safe outputs, and each enabled driver after the others, an MQTT
+    /// driver with its tag mappings bound to the program's variables first (§13.3).
+    ///
+    /// # Errors
+    ///
+    /// The error of a tag mapping or a driver that does not build.
+    pub fn add_io_config(&mut self, io: &crate::config::IoConfig) -> Result<(), RuntimeError> {
+        self.set_io_safe_state(io.safe_state.clone());
+        let registry = crate::io::IoDriverRegistry::default_registry();
+        for (position, driver) in io.drivers.iter().enumerate() {
+            // Each driver runs the link Devices & Connections names it by (specification 42, §2);
+            // a driver switched off in `io.toml` reads Disabled (§3 item 1).
+            let link = crate::io::io_link_name(driver.name.as_str(), position);
+            if !driver.enabled {
+                if let Some(link) = link {
+                    self.add_disabled_link(link);
+                }
+                continue;
+            }
+            let mut params = driver.params.clone();
+            if driver.name.eq_ignore_ascii_case("mqtt")
+                || driver.name.eq_ignore_ascii_case("mqtt-tcp")
+            {
+                let (lowered, links) =
+                    crate::io::resolve_compiled_mqtt_tag_mappings(self, &driver.params)?;
+                self.link_mqtt_tags(&links)?;
+                params = lowered;
+            }
+            if let Some(spec) = registry.build(driver.name.as_str(), &params)? {
+                match link {
+                    Some(link) => self.add_io_driver_with_link(spec.name, link, spec.driver),
+                    None => self.add_io_driver(spec.name, spec.driver),
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Stops using every driver.
+    pub fn clear_io_drivers(&mut self) {
+        self.cycle.process_io_mut().clear_drivers();
+    }
+
+    /// Publishes the drivers' health into `sink` from now on.
+    pub fn set_io_health_sink(&mut self, sink: Option<Arc<Mutex<Vec<IoDriverStatus>>>>) {
+        self.cycle.process_io_mut().set_health_sink(sink);
+    }
+
+    /// Writes `value` at the process-image `address` between scans, as a simulation writes its
+    /// inputs.
+    ///
+    /// # Errors
+    ///
+    /// The refusal of an address or a value the image does not take.
+    pub fn write_io(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError> {
+        self.cycle.program_mut().write_address(address, value)
+    }
+
+    /// The value at the process-image `address`, as the last scan left it.
+    ///
+    /// # Errors
+    ///
+    /// The refusal of an address the image does not hold.
+    pub fn read_io(&self, address: &IoAddress) -> Result<Value, RuntimeError> {
+        self.cycle.program().read_address(address)
+    }
+
+    /// The symbol of the variable `name` names, as the test harness resolves a name: a global, a
+    /// program's variable `Program.var`, or a program variable by its name alone when exactly one
+    /// program declares it (specification 44 §14.2).
+    ///
+    /// # Errors
+    ///
+    /// The [`NameError`] of a name that names no variable or several.
+    pub fn find_variable(&self, name: &str) -> Result<u32, NameError> {
+        self.image.image().find_variable(name)
+    }
+
+    /// The value of the variable `name` names, resolved as [`Self::find_variable`] resolves it, as
+    /// the last scan left it.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::UndefinedVariable`] for a name that names no single variable.
+    pub fn read_variable(&self, name: &str) -> Result<Value, RuntimeError> {
+        self.cycle.program().read_named(name)
+    }
+
+    /// Writes `value` to the variable `name` names, resolved as [`Self::find_variable`] resolves
+    /// it, between scans; an untyped integer takes the variable's type (specification 44 §13.3).
+    /// An engineering write takes only finite reals: a `REAL` or `LREAL` NaN or infinity, at any
+    /// depth of an array or a structure, is refused before anything changes (specification 34
+    /// §4.3.1).
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::UndefinedVariable`] for a name that names no single variable,
+    /// [`RuntimeError::NonFiniteValue`] for a value that holds a NaN or an infinity, and the
+    /// refusal of a value the variable does not take.
+    pub fn write_variable(&mut self, name: &str, value: &Value) -> Result<(), RuntimeError> {
+        ensure_finite(value)?;
+        self.cycle.program_mut().write_named(name, value)
+    }
+
+    /// The program's state as the last scan left it, for the other threads (specification 44
+    /// §8.8): a copy of its areas with its image.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::InvalidExecutionState`] for a program that does not keep its image.
+    pub fn snapshot(&self) -> Result<CompiledState, RuntimeError> {
+        CompiledState::of(self.cycle.program(), self.current_time)
+    }
+
+    /// The values of the variables `names` names, as the test harness resolves a name: a global, a
+    /// program's variable `Program.var`, or a unique unqualified name; a name that names no single
+    /// variable is left out.
+    #[must_use]
+    pub fn snapshot_globals(&self, names: &[SmolStr]) -> indexmap::IndexMap<SmolStr, Value> {
+        // A published name may be a nested program or equipment path (`Main.P101.Running`),
+        // keyed as it was published (specification 39 §7 item 9).
+        self.with_program_view(|program| crate::mesh::published_values(program, names))
+    }
+
+    /// Writes each of `updates` into the variable its name names, between scans, as a mesh sample
+    /// arrives; a write the program refuses is reported as `write_rejected`.
+    pub fn apply_mesh_updates(&mut self, updates: &indexmap::IndexMap<SmolStr, Value>) {
+        for (name, value) in updates {
+            let program = self.cycle.program_mut();
+            let symbol = program.image().find_variable(name);
+            let result = match symbol {
+                Ok(symbol) => program.write_symbol(symbol, value),
+                Err(_) => Err(RuntimeError::UndefinedVariable(name.clone())),
+            };
+            if let Err(error) = result
+                && let Some(debug) = &self.debug
+            {
+                debug.push_runtime_event(RuntimeEvent::WriteRejected {
+                    target: name.clone(),
+                    error: error.to_string(),
+                    time: self.current_time,
+                });
+            }
+        }
+    }
+}
+
+/// Refuses a value that holds a `REAL` or `LREAL` NaN or infinity, at any depth of an array or a
+/// structure: the finite admission of an engineering write (specification 34 §4.3.1). It does not
+/// change what the program's own arithmetic does with such values.
+fn ensure_finite(value: &Value) -> Result<(), RuntimeError> {
+    match value {
+        Value::Real(real) if !real.is_finite() => Err(RuntimeError::NonFiniteValue),
+        Value::LReal(real) if !real.is_finite() => Err(RuntimeError::NonFiniteValue),
+        Value::Array(array) => array.elements().iter().try_for_each(ensure_finite),
+        Value::Struct(record) => record.fields().values().try_for_each(ensure_finite),
+        _ => Ok(()),
+    }
+}

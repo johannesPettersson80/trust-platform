@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "offline_model",
+  "model": "first_order_dead_time",
+  "inputUnit": "%",
+  "outputUnit": "degC",
+  "operatingPoint": {
+    "input": 0.0,
+    "output": 20.0
+  },
+  "parameters": {
+    "gain": 1.5,
+    "timeConstantSeconds": 4.0,
+    "deadTimeSeconds": 0.5
+  }
+}

@@ -1,12 +1,15 @@
 //! Spec 34 §4.3.1 (existing mesh write timing) with spec 10 §4.7: a mesh update queued during a scan waits for the next command boundary.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 #![cfg(feature = "full")]
 use indexmap::IndexMap;
 use smol_str::SmolStr;
 use std::sync::mpsc;
 use std::time::{Duration as StdDuration, Instant};
 use trust_runtime::{
+    debug::DebugSnapshot,
     error::RuntimeError,
-    harness::CompileSession,
+    harness::TestHarness,
     io::IoDriver,
     scheduler::{ResourceCommand, ResourceRunner, StdClock},
     value::{Duration, Value},
@@ -14,6 +17,14 @@ use trust_runtime::{
 
 const SOURCE: &str = "VAR_GLOBAL shared : INT := INT#0; observed : INT := INT#0; END_VAR \
     PROGRAM Main observed := shared; END_PROGRAM";
+
+/// The value of `name` in the compiled program's state of `snapshot`.
+fn value(snapshot: &DebugSnapshot, name: &str) -> Option<Value> {
+    snapshot
+        .compiled
+        .as_ref()
+        .and_then(|state| state.value(name))
+}
 
 /// Blocks the first input read, so the first scan stays in flight until the test releases it.
 struct GateDriver {
@@ -40,7 +51,7 @@ impl IoDriver for GateDriver {
 // is not exercised; this drives the consumer `ResourceCommand::MeshApply` in process, as that callback does.
 #[test]
 fn mesh_update_queued_during_a_scan_is_applied_at_the_next_command_boundary() {
-    let mut runtime = CompileSession::from_source(SOURCE).build_runtime().unwrap();
+    let mut runtime = TestHarness::from_source(SOURCE).unwrap().into_runtime();
     let (entered_tx, entered_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
     runtime.add_io_driver(
@@ -81,13 +92,13 @@ fn mesh_update_queued_during_a_scan_is_applied_at_the_next_command_boundary() {
         .recv_timeout(StdDuration::from_secs(2))
         .expect("boundary snapshot");
     assert_eq!(
-        boundary.storage.get_global("observed"),
-        Some(&Value::Int(0)),
+        value(&boundary, "observed"),
+        Some(Value::Int(0)),
         "the in-flight scan must not see the mesh update"
     );
     assert_eq!(
-        boundary.storage.get_global("shared"),
-        Some(&Value::Int(7)),
+        value(&boundary, "shared"),
+        Some(Value::Int(7)),
         "the mesh update is applied before the next scan"
     );
 
@@ -100,7 +111,7 @@ fn mesh_update_queued_during_a_scan_is_applied_at_the_next_command_boundary() {
         let later = rx
             .recv_timeout(StdDuration::from_secs(2))
             .expect("later snapshot");
-        if later.storage.get_global("observed") == Some(&Value::Int(7)) {
+        if value(&later, "observed") == Some(Value::Int(7)) {
             break;
         }
         assert!(

@@ -348,9 +348,16 @@ fn harness_coerce_contract_character_arity_is_checked() {
 }
 
 #[test]
-fn harness_coerce_contract_char_rejects_non_ascii_scalar() {
+fn harness_coerce_contract_char_takes_latin_1_and_rejects_above_u00ff() {
+    // Specification 02 §6: a `CHAR` holds U+0000 to U+00FF, so `å` (U+00E5) is the CHAR 229, and
+    // `€` (U+20AC) is out of range. A seven-bit rule would refuse `å`; a rule without a bound would
+    // take `€`.
+    assert_eq!(
+        coerce_value_to_type(Value::String("å".into()), TypeId::CHAR).unwrap(),
+        Value::Char(229)
+    );
     assert_compile_error(
-        coerce_value_to_type(Value::String("å".into()), TypeId::CHAR),
+        coerce_value_to_type(Value::String("€".into()), TypeId::CHAR),
         "char range",
     );
 }
@@ -437,7 +444,9 @@ fn harness_coerce_contract_alias_and_subrange_delegate_to_storage_type() {
 }
 
 #[test]
-fn harness_coerce_contract_bounded_strings_truncate_by_unicode_scalar() {
+fn harness_coerce_contract_bounded_strings_truncate_by_byte_and_code_unit() {
+    // STRING[2] holds two bytes of UTF-8 ("å" is two) and WSTRING[2] two UTF-16 code units
+    // ("😀" is two); a cut never splits a character (docs/IEC_DECISIONS.md 2026-10-17).
     let mut registry = TypeRegistry::new();
     let string = registry.register_string_with_length(2);
     let wstring = registry.register_wstring_with_length(2);
@@ -451,7 +460,7 @@ fn harness_coerce_contract_bounded_strings_truncate_by_unicode_scalar() {
             &profile,
         )
         .unwrap(),
-        Value::String("aå".into())
+        Value::String("a".into())
     );
     assert_eq!(
         coerce_initializer_value_to_type(

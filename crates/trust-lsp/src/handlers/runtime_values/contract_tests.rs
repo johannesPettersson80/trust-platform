@@ -100,51 +100,6 @@ fn fetch(
     (values, requests)
 }
 
-fn tcp_address(endpoint: ControlEndpoint) -> String {
-    match endpoint {
-        ControlEndpoint::Tcp(address) => address,
-        #[cfg(unix)]
-        ControlEndpoint::Unix(_) => panic!("expected TCP endpoint"),
-    }
-}
-
-#[test]
-fn tcp_endpoint_requires_exact_scheme_and_nonempty_address() {
-    assert_eq!(
-        tcp_address(ControlEndpoint::parse("tcp://127.0.0.1:9000").unwrap()),
-        "127.0.0.1:9000"
-    );
-    assert!(ControlEndpoint::parse("TCP://127.0.0.1:9000").is_none());
-    assert!(ControlEndpoint::parse(" tcp://127.0.0.1:9000").is_none());
-    assert!(ControlEndpoint::parse("tcp://").is_none());
-}
-
-#[cfg(unix)]
-#[test]
-fn unix_endpoint_requires_nonempty_absolute_path() {
-    match ControlEndpoint::parse("unix:///tmp/trust-runtime.sock").unwrap() {
-        ControlEndpoint::Unix(path) => {
-            assert_eq!(path, std::path::PathBuf::from("/tmp/trust-runtime.sock"));
-        }
-        ControlEndpoint::Tcp(_) => panic!("expected Unix endpoint"),
-    }
-    assert!(ControlEndpoint::parse("unix://").is_none());
-    assert!(ControlEndpoint::parse("unix://relative.sock").is_none());
-}
-
-#[test]
-fn numeric_socket_addresses_resolve_without_rewriting() {
-    assert_eq!(
-        resolve_socket_addr("127.0.0.1:9000"),
-        Some("127.0.0.1:9000".parse().unwrap())
-    );
-    assert_eq!(
-        resolve_socket_addr("[::1]:9000"),
-        Some("[::1]:9000".parse().unwrap())
-    );
-    assert!(resolve_socket_addr("127.0.0.1").is_none());
-}
-
 #[test]
 fn scopes_request_has_first_id_exact_type_frame_and_auth() {
     let (values, requests) = fetch(vec![scopes(&[])], Some("token"), 42, &[]);

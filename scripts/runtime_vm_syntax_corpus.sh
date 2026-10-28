@@ -38,10 +38,6 @@ DEMO_WATCH=(
   --watch g_motion_demo_power_on
   --watch g_motion_demo_is_homed
 )
-TIER1_FLAG=()
-if [[ "${TRUST_VM_SYNTAX_CORPUS_TIER1:-0}" != "0" ]]; then
-  TIER1_FLAG=(--tier1)
-fi
 
 RUN_LIST=()
 run_default() {
@@ -119,7 +115,7 @@ run_bench() {
     *) echo "[syntax-corpus] unknown watchset: ${watchset}" >&2; exit 1 ;;
   esac
   echo "[syntax-corpus] benchmarking ${name} (${project})"
-  "${BENCH_CMD[@]}" bench project     --project "${project}"     --samples "${SAMPLES}"     --warmup-cycles "${WARMUP_CYCLES}"     "${TIER1_FLAG[@]}"     "${watch_args[@]}"     --output json > "${OUT_DIR}/${name}.json"
+  "${BENCH_CMD[@]}" bench project     --project "${project}"     --samples "${SAMPLES}"     --warmup-cycles "${WARMUP_CYCLES}"     "${watch_args[@]}"     --output json > "${OUT_DIR}/${name}.json"
 }
 for entry in "${RUN_LIST[@]}"; do
   IFS='|' read -r name project watchset <<<"${entry}"
@@ -156,19 +152,6 @@ for name in summary_meta['order']:
     else:
         completed = watched.get('g_motion_bench_completed_sequences')
         last_error = watched.get('g_motion_bench_last_error')
-    vm_profile = report.get('vm_profile') or {}
-    fallbacks = vm_profile.get('register_program_fallbacks', 0)
-    fallback_reasons = vm_profile.get('fallback_reasons') or []
-    tier1 = vm_profile.get('tier1_specialized_executor')
-    if isinstance(tier1, dict):
-        vm_highlight = (
-            f"tier1 exec={tier1.get('block_executions', 0)} "
-            f"cf={tier1.get('compile_failures', 0)}"
-        )
-    elif fallback_reasons:
-        vm_highlight = f"fallback:{fallback_reasons[0].get('reason', 'unknown')}"
-    else:
-        vm_highlight = 'vm-clean'
     rows.append({
         'name': name,
         'project': report['project'],
@@ -179,19 +162,17 @@ for name in summary_meta['order']:
         'overruns': report['budget_overruns'],
         'completed': completed,
         'last_error': last_error,
-        'fallbacks': fallbacks,
-        'vm_highlight': vm_highlight,
         'measured_duration_ms': report.get('measured_duration_ms', 0.0),
     })
-header = '| workload | p50 us | p95 us | p99 us | max us | overruns | completed | last error | fallbacks | vm highlight | measured ms |\n'
-sep = '|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---:|\n'
+header = '| workload | p50 us | p95 us | p99 us | max us | overruns | completed | last error | measured ms |\n'
+sep = '|---|---:|---:|---:|---:|---:|---:|---:|---:|\n'
 body = ''.join(
-    f"| {row['name']} | {row['p50_us']:.3f} | {row['p95_us']:.3f} | {row['p99_us']:.3f} | {row['max_us']:.3f} | {row['overruns']} | {row['completed']} | {row['last_error']} | {row['fallbacks']} | {row['vm_highlight']} | {row['measured_duration_ms']:.3f} |\n"
+    f"| {row['name']} | {row['p50_us']:.3f} | {row['p95_us']:.3f} | {row['p99_us']:.3f} | {row['max_us']:.3f} | {row['overruns']} | {row['completed']} | {row['last_error']} | {row['measured_duration_ms']:.3f} |\n"
     for row in rows
 )
 total_measured = sum(row['measured_duration_ms'] for row in rows)
 summary = (
-    '# Runtime VM Syntax Corpus\n\n'
+    '# Runtime Syntax Corpus\n\n'
     f"- tier: {summary_meta['tier']}\n"
     f"- build mode: {summary_meta.get('build_mode', 'generic')}\n"
     f"- samples: {summary_meta['samples']}\n"

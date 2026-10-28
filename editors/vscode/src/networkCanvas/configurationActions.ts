@@ -1,155 +1,94 @@
 import * as vscode from "vscode";
 
-import {
-  applyCommSetup,
-  testCommSetup,
-} from "../communication/runtimeComm";
 import type {
   CommApplyResponse,
   CommSchemaResponse,
 } from "../communication/schemaForm";
 import { resolveRuntimeTarget } from "../runtimeTarget";
-import type { FleetTopologyResponse } from "./fleetTopology";
 import {
-  offlineCommApply,
-  offlineCommTopology,
-} from "./offlineComm";
+  presentCanvasReply,
+  requestCanvasAct,
+  type CanvasLiveRuntime,
+  type CanvasReply,
+} from "./canvasCommands";
 
 export interface ConfigurationActionDependencies {
-  readonly extensionContext: () => vscode.ExtensionContext | undefined;
   readonly schema: () => CommSchemaResponse | undefined;
   readonly commit: (protocol: string, result: CommApplyResponse) => void;
   readonly refresh: () => Promise<void>;
 }
 
+/**
+ * The setup forms' actions. Each one forwards the form to `trust-lsp.devicesCanvasAct`, which
+ * converts its values by the schema, checks them and applies, tests or saves them
+ * (specification 25 §5.4, §5.9 and §5.10); the form shows the server's result.
+ */
 export class NetworkCanvasConfigurationActions {
   constructor(private readonly dependencies: ConfigurationActionDependencies) {}
 
+  /** `Apply to running runtime`: the form applied at the runtime target. */
   async apply(message: Record<string, unknown>): Promise<void> {
-    const runtime = await resolveRuntimeTarget();
-    const result = await applyCommSetup(
-      runtime,
-      message,
-      this.dependencies.schema()
+    await this.show(
+      await requestCanvasAct("comm_apply", this.form(message), {
+        runtime: await liveRuntime(),
+      })
     );
-    if (result) {
-      this.dependencies.commit(result.protocol, result.applyResult);
-      await this.dependencies.refresh();
-    }
   }
 
+  /** `Save`, `Remove` and `Disable`: the form written into the open project's files. */
   async save(
     message: Record<string, unknown>,
     action: "upsert" | "remove" | "disable"
   ): Promise<void> {
-    const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    const protocol =
-      typeof message.protocol === "string" ? message.protocol : undefined;
-    const context = this.dependencies.extensionContext();
-    if (!context || !projectDir || !protocol) {
+    const project = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!project) {
       return;
     }
-    const params = isRecord(message.params) ? message.params : {};
-    const result = await offlineCommApply(
-      context,
-      projectDir,
-      protocol,
-      params,
-      action
+    await this.show(
+      await requestCanvasAct("comm_save", { ...this.form(message), action }, { project })
     );
-    if (result) {
-      const topology = result.applied
-        ? await offlineCommTopology(context, projectDir)
-        : undefined;
-      this.dependencies.commit(protocol, {
-        ...result,
-        instance_id:
-          result.instance_id ??
-          (topology && action !== "remove"
-            ? findSavedEndpointId(topology, protocol, params)
-            : undefined),
-      });
-    }
-    await this.dependencies.refresh();
   }
 
+  /** `Test`: the form tested at the runtime target. */
   async test(message: Record<string, unknown>): Promise<void> {
-    const runtime = await resolveRuntimeTarget();
-    const result = await testCommSetup(
-      runtime,
-      message,
-      this.dependencies.schema()
+    await this.show(
+      await requestCanvasAct("comm_test", this.form(message), {
+        runtime: await liveRuntime(),
+      })
     );
+  }
+
+  /** The form as the server reads it: the values typed into it, or saved parameters. */
+  private form(message: Record<string, unknown>): Record<string, unknown> {
+    return {
+      protocol: typeof message.protocol === "string" ? message.protocol : "",
+      action: typeof message.action === "string" ? message.action : "",
+      instance_id: typeof message.instanceId === "string" ? message.instanceId : undefined,
+      runtime_id: typeof message.runtimeId === "string" ? message.runtimeId : undefined,
+      values: isRecord(message.values) ? message.values : undefined,
+      params: isRecord(message.params) ? message.params : undefined,
+      schema: this.dependencies.schema(),
+    };
+  }
+
+  private async show(reply: CanvasReply): Promise<void> {
+    const result = isRecord(reply.result) ? (reply.result as unknown as CommApplyResponse) : undefined;
     if (result) {
-      this.dependencies.commit(result.protocol, result.applyResult);
+      this.dependencies.commit(result.protocol, result);
+    }
+    await presentCanvasReply(reply);
+    if (reply.refresh) {
       await this.dependencies.refresh();
     }
   }
 }
 
-function findSavedEndpointId(
-  topology: FleetTopologyResponse,
-  protocol: string,
-  submittedParams: Record<string, unknown>
-): string | undefined {
-  const matches: Array<{
-    id: string;
-    params?: Record<string, unknown>;
-  }> = [];
-  for (const host of topology.hosts ?? []) {
-    const runtimes = [
-      ...(host.runtimes ?? []),
-      ...(host.containers ?? []).flatMap(
-        (container) => container.runtimes ?? []
-      ),
-    ];
-    for (const runtime of runtimes) {
-      for (const endpoint of runtime.endpoints ?? []) {
-        if (endpoint.protocol === protocol) {
-          matches.push({ id: endpoint.id, params: endpoint.params });
-        }
-      }
-    }
-  }
-  const exact = matches.filter((endpoint) =>
-    endpoint.params ? paramsMatch(endpoint.params, submittedParams) : false
-  );
-  return (lastItem(exact) ?? lastItem(matches))?.id;
-}
-
-function paramsMatch(
-  endpointParams: Record<string, unknown>,
-  submittedParams: Record<string, unknown>
-): boolean {
-  return Object.entries(submittedParams).every(([key, value]) => {
-    if (!(key in endpointParams)) {
-      return true;
-    }
-    return stableParamValue(endpointParams[key]) === stableParamValue(value);
-  });
-}
-
-function stableParamValue(value: unknown): string {
-  return JSON.stringify(normalizeParamValue(value)) ?? "undefined";
-}
-
-function normalizeParamValue(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(normalizeParamValue);
-  }
-  if (isRecord(value)) {
-    return Object.keys(value)
-      .sort()
-      .reduce<Record<string, unknown>>((normalized, key) => {
-        normalized[key] = normalizeParamValue(value[key]);
-        return normalized;
-      }, {});
-  }
-  return value;
-}
-
-function lastItem<T>(items: readonly T[]): T | undefined {
-  return items.length > 0 ? items[items.length - 1] : undefined;
+/** The runtime target while it answers: the runtime a form is applied and tested at. */
+async function liveRuntime(): Promise<CanvasLiveRuntime | undefined> {
+  const runtime = await resolveRuntimeTarget();
+  return runtime.status === "online_reachable" && runtime.endpoint
+    ? { endpoint: runtime.endpoint, token: runtime.authToken }
+    : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

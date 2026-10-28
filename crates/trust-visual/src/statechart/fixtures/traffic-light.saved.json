@@ -1,0 +1,115 @@
+{
+  "id": "stateMachine",
+  "initial": "Red",
+  "states": {
+    "Red": {
+      "entry": [
+        "logRedEntry",
+        "turnOnRedLight"
+      ],
+      "exit": [
+        "turnOffRedLight"
+      ],
+      "on": {
+        "TIMER": {
+          "target": "Green",
+          "actions": [
+            "logTransition"
+          ]
+        }
+      }
+    },
+    "Green": {
+      "entry": [
+        "logGreenEntry",
+        "turnOnGreenLight"
+      ],
+      "exit": [
+        "turnOffGreenLight"
+      ],
+      "on": {
+        "TIMER": {
+          "target": "Yellow",
+          "actions": [
+            "logTransition"
+          ]
+        },
+        "NEXT": {
+          "target": "State4"
+        }
+      }
+    },
+    "Yellow": {
+      "entry": [
+        "logYellowEntry",
+        "turnOnYellowLight"
+      ],
+      "exit": [
+        "turnOffYellowLight"
+      ],
+      "on": {
+        "TIMER": {
+          "target": "Red",
+          "actions": [
+            "logTransition"
+          ]
+        }
+      }
+    },
+    "State4": {
+      "on": {
+        "NEXT": {
+          "target": "Yellow"
+        }
+      }
+    }
+  },
+  "actionMappings": {
+    "logRedEntry": {
+      "action": "LOG",
+      "message": "Entering RED state"
+    },
+    "turnOnRedLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.0",
+      "value": true
+    },
+    "turnOffRedLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.0",
+      "value": false
+    },
+    "logGreenEntry": {
+      "action": "LOG",
+      "message": "Entering GREEN state"
+    },
+    "turnOnGreenLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.1",
+      "value": true
+    },
+    "turnOffGreenLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.1",
+      "value": false
+    },
+    "logYellowEntry": {
+      "action": "LOG",
+      "message": "Entering YELLOW state"
+    },
+    "turnOnYellowLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.2",
+      "value": true
+    },
+    "turnOffYellowLight": {
+      "action": "WRITE_OUTPUT",
+      "address": "%QX0.2",
+      "value": false
+    },
+    "logTransition": {
+      "action": "LOG",
+      "message": "Traffic light transition"
+    }
+  }
+}

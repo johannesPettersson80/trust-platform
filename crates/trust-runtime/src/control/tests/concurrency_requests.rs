@@ -42,7 +42,7 @@ fn concurrent_control_state(
     ControlState,
     crate::scheduler::ResourceHandle<crate::scheduler::StdClock>,
 ) {
-    let mut state = hmi_test_state(source);
+    let mut state = control_test_state(source);
     *state.control_mode.lock().expect("control mode lock") = crate::config::ControlMode::Production;
     let mut runner = crate::scheduler::ResourceRunner::new(
         harness.into_runtime(),
@@ -82,8 +82,7 @@ fn concurrent_control_requests_each_get_one_stable_reply_while_the_scan_runs() {
     use base64::Engine as _;
     let harness = crate::harness::TestHarness::from_source(CONCURRENT_CONTROL_SOURCE)
         .expect("compile control fixture");
-    let bytes = crate::harness::bytecode_bytes_from_source(CONCURRENT_CONTROL_SOURCE)
-        .expect("compile replacement bytecode");
+    let bytes = program_image(CONCURRENT_CONTROL_SOURCE);
     let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
     let (state, handle) = concurrent_control_state(CONCURRENT_CONTROL_SOURCE, harness, None);
     concurrent_wait_until("the scan runs", || {
@@ -229,8 +228,11 @@ fn pending_restarts_coalesce_and_a_cold_request_keeps_precedence() {
     // The two accepted restarts coalesce into one cold restart: the later warm request does not
     // downgrade the pending cold one, so the retained value is reset (spec 11 section 6.9).
     assert_eq!(
-        snapshot.storage.get_global("retained"),
-        Some(&crate::value::Value::DInt(0)),
+        snapshot
+            .compiled
+            .as_deref()
+            .and_then(|state| state.value("retained")),
+        Some(crate::value::Value::DInt(0)),
         "an accepted cold restart is not lost behind a later warm restart"
     );
     concurrent_stop_and_join(handle);
@@ -240,7 +242,7 @@ fn pending_restarts_coalesce_and_a_cold_request_keeps_precedence() {
 fn a_later_cold_request_upgrades_a_pending_warm_restart() {
     // Specification 11 section 6.9: a cold request takes precedence over a warm one, in either
     // arrival order. Each accepted request is answered once, with the same queued reply.
-    let state = hmi_test_state(CONCURRENT_CONTROL_SOURCE);
+    let state = control_test_state(CONCURRENT_CONTROL_SOURCE);
     let cases = [
         ("warm", "cold", crate::RestartMode::Cold),
         ("cold", "warm", crate::RestartMode::Cold),

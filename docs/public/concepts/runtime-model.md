@@ -5,14 +5,14 @@ endpoint behavior, hot reload, and web/runtime-cloud surfaces.
 
 | Term | Meaning |
 | --- | --- |
-| `program.stbc` | Compiled bytecode artifact loaded by `trust-runtime`. |
+| `program.tpi` | Program image: the project compiled into native code, loaded by `trust-runtime`. |
 | Control endpoint | Local or configured API used for status, reload, and runtime control. |
-| Hot reload | Guarded bytecode replacement after diagnostics/build checks. |
-| `HMI` | Runtime-hosted browser operator surface. |
+| Hot reload | Guarded online change to a newly built program image after diagnostics/build checks. |
 
 ## Build Artifact
 
-The executable runtime bundle centers on `program.stbc`, which is produced by:
+The executable runtime bundle centers on the program image `program.tpi`, with its deployment
+record `deployment-record.bin`, which are produced by:
 
 ```bash
 trust-runtime build --project ./my-plc --sources src
@@ -22,11 +22,10 @@ trust-runtime build --project ./my-plc --sources src
 
 The runtime combines:
 
-- bytecode from `program.stbc`
+- the compiled program from `program.tpi`
 - runtime config from `runtime.toml`
 - I/O config from `io.toml`
 - optional simulation config from `simulation.toml`
-- optional HMI descriptors from `hmi/`
 
 ## Control Options
 
@@ -39,12 +38,14 @@ The same underlying runtime can be driven through:
 
 ## Reload Path
 
-Hot reload works by rebuilding bytecode and sending `bytecode.reload` to the
-control endpoint. The agent method `runtime.compile_reload` wraps:
+Hot reload works by rebuilding the program image and sending it with
+`bytecode.reload` (the request keeps its name) to the control endpoint. The
+running program changes online and keeps its values. The agent method
+`runtime.compile_reload` wraps:
 
 1. diagnostics
 2. build
-3. bytecode read
+3. image read
 4. runtime reload
 
 into one machine-readable response.
@@ -74,7 +75,7 @@ different products.
 
 The runtime owns:
 
-- loading and executing bytecode
+- loading and running the compiled program image
 - maintaining process image and task scheduling
 - applying runtime and I/O configuration
 - exposing control/status endpoints

@@ -1,7 +1,7 @@
 import * as assert from "assert";
 import { getVsCodeApi } from "../../visual/runtime/webview/vscodeApi";
 
-const CACHE_KEY = "__trust_lsp_vscode_api__";
+const CACHE_KEY = "TrustHmi_lsp_vscode_api__";
 
 suite("Visual webview VS Code API singleton", () => {
   const originalAcquire = (globalThis as any).acquireVsCodeApi;
