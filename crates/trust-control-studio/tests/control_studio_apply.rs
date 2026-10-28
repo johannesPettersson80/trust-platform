@@ -5,8 +5,9 @@
 //! starts in Manual and designs its own gains in its first scan. Its runtime runs at ten times real time (`time_scale = 10` in the copy's
 //! `simulation.toml`), as the validate test does. The journey goes in the engineer's order:
 //! - `identify`, `tune --method simc` and `validate` give the candidate, as `control_studio_validate.rs` does;
-//! - the loop is moved to Auto through the runtime's transfer, with the declared profile of the controller (A6.4), so the mode that Apply
-//!   finds is Auto and Restore must return to it (the V4.6 regression);
+//! - once the water is back at the operating point after the plant steps of Identify and of Validate's model check, as an engineer
+//!   waits before Apply (B6.2), the loop is moved to Auto through the runtime's transfer, with the declared profile of the controller
+//!   (A6.4), so the mode that Apply finds is Auto and Restore must return to it (the V4.6 regression);
 //! - a review written in Auto, then a review made stale by moving the loop to Manual: `apply --review` with the stale identity exits 1,
 //!   says the runtime changed, and writes nothing;
 //! - the text and the JSON review of Apply, which write nothing, then `apply --review <identity>`: exit 0, the record holds the candidate,
@@ -33,7 +34,7 @@
 mod common;
 
 use std::collections::BTreeMap;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 use trust_control::commissioning::adapters::controller_adapter;
@@ -67,6 +68,11 @@ const UNREACHABLE: &str = "tcp://127.0.0.1:1";
 const LIMIT: Duration = Duration::from_secs(300);
 /// The output span of the heater, 0 to 100 %: the change that a transfer may make at its first execution (annex E6.9).
 const OUTPUT_SPAN: f64 = 100.0;
+/// The heater's operating point, where Identify found the plant and Validate checked the candidate: 35 °C at 75 % (B6.2).
+const OPERATING_POINT: f64 = 35.0;
+/// How close to the operating point the water must be before the loop enters Auto: a third of the study's settling band of ± 0.03 °C,
+/// so that the setpoint the entry aligns to the water (annex E6.4) lies well inside the band that Apply waits for (B6.2).
+const RETURNED_WITHIN: f64 = 0.01;
 /// The message of a review that the runtime no longer matches (§0.1b Confirmation).
 const REVIEW_AGAIN: &str = "The runtime changed since the review; review again.";
 
@@ -195,6 +201,40 @@ fn reference(lab: &Lab) -> Option<f64> {
         .and_then(TransferValue::as_number)
 }
 
+/// The loop's measurement as the runtime's transfer status reports it (annex E6.3), or `None` when it cannot be read.
+fn measurement(lab: &Lab) -> Option<f64> {
+    let adapter = controller_adapter(&lab.loop_definition).ok()?;
+    let binding = adapter.transfer_binding().ok()?;
+    let symbol = lab.loop_definition.signals.process_variable.symbol.clone();
+    let mut client = lab.client();
+    let mut session = TransferSession::new(&mut client, binding, lab.program_revision.clone());
+    session
+        .status()
+        .ok()?
+        .values
+        .get(&symbol)
+        .copied()
+        .and_then(TransferValue::as_number)
+}
+
+/// Waits until the water is back at the operating point after the plant steps of Identify and of Validate's model check, as an
+/// engineer waits before Apply (B6.2), and returns the last measurement. An Auto entry aligns the setpoint to the water (annex E6.4),
+/// so an entry while the water still returns holds the loop away from the operating point, where Apply rightly refuses to start. The
+/// water needs about 28 s of process time after the model check's step to come within 0.01 °C; at ten times real time the journey
+/// gives it that before the entry, but a runner that reaches two or three times real time (macOS CI, 28 October 2026) did not.
+fn wait_for_operating_point(lab: &Lab) -> Option<f64> {
+    let deadline = Instant::now() + LIMIT;
+    loop {
+        let value = measurement(lab);
+        if value.is_some_and(|value| (value - OPERATING_POINT).abs() <= RETURNED_WITHIN)
+            || Instant::now() >= deadline
+        {
+            return value;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
 /// The names in the array `field` of `value`, in order; a missing or non-text entry is left out.
 fn names(value: &Value, field: &str) -> Vec<String> {
     value[field]
@@ -295,10 +335,18 @@ fn apply_restore_and_keep_run_through_the_command_line_on_lesson_30() {
         ),
     );
 
-    // The mode: the program starts the loop in Manual; Apply must find it in Auto, and Restore must return it there (A6.2).
+    // The mode: the program starts the loop in Manual; Apply must find it in Auto, and Restore must return it there (A6.2). The loop
+    // enters Auto once the water is back at the operating point, where Apply starts (B6.2).
     findings.check(
         lab.is_auto() == Some(false),
         "the program starts the loop in Manual (P1.AutoMode is FALSE)",
+    );
+    let returned = wait_for_operating_point(&lab);
+    findings.require(
+        returned.is_some_and(|value| (value - OPERATING_POINT).abs() <= RETURNED_WITHIN),
+        format!(
+            "the water returns to the operating point of {OPERATING_POINT} °C after the plant steps (B6.2): {returned:?} °C"
+        ),
     );
     transfer(&lab, false);
     findings.require(
