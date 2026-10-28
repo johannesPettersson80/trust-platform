@@ -11,7 +11,9 @@ REPO_ROOT = Path.cwd()
 DOCS_ROOT = REPO_ROOT / "docs/public"
 MKDOCS_YML = REPO_ROOT / "mkdocs.yml"
 
-LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
+# A link's text holds only balanced brackets, as in CommonMark: a lone bracket such as the
+# shortcut Ctrl+[ starts no link.
+LINK_RE = re.compile(r"(?<!!)\[(?:[^\[\]]|\[[^\[\]]*\])+\]\(([^)]+)\)")
 SNIPPET_RE = re.compile(r'--8<--\s+"([^"]+)"')
 NAV_MD_RE = re.compile(r":\s*([^#\n]+?\.md)\s*$")
 LIST_RE = re.compile(r"^([-*+]|\d+\.)\s+")

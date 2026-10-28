@@ -1,5 +1,12 @@
 use super::*;
 
+fn p95(samples: &[Duration]) -> Duration {
+    let mut sorted = samples.to_vec();
+    sorted.sort_unstable();
+    let idx = ((sorted.len() as f64) * 0.95).ceil() as usize;
+    sorted[idx.saturating_sub(1).min(sorted.len().saturating_sub(1))]
+}
+
 #[test]
 fn web_ide_reference_performance_gates_contract() {
     if std::env::consts::ARCH != "x86_64" {

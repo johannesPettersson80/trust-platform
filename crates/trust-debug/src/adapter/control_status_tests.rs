@@ -5,6 +5,8 @@
 //! are; the tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use std::fs;
+use std::net::SocketAddr;
+use std::time::{Duration as WaitTime, Instant};
 
 use serde_json::{json, Value};
 use trust_runtime::value::Duration;
@@ -57,6 +59,20 @@ END_RESOURCE
 END_CONFIGURATION
 "#;
 
+/// The control server's `status` once it names the launched program. The launch answers when the
+/// simulator starts, and until the simulator has loaded the program `status` lists no tasks and no
+/// program revision; on a busy computer the first request can come before that (CI, 28 October 2026).
+fn program_status(addr: SocketAddr, auth: &str) -> Value {
+    let deadline = Instant::now() + WaitTime::from_secs(10);
+    loop {
+        let status = control_status(addr, auth);
+        if status["program_revision"].is_string() || Instant::now() >= deadline {
+            return status;
+        }
+        std::thread::sleep(WaitTime::from_millis(20));
+    }
+}
+
 /// The `(name, interval_ms)` pairs of the task list in `status`, ordered by name. The names are in lower case, because a task
 /// name matches without regard to case (annex E4.2).
 fn listed_tasks(status: &Value) -> Vec<(String, i64)> {
@@ -97,7 +113,7 @@ fn status_lists_the_task_and_reports_the_cycle_the_runner_takes() {
     let auth = "status-one-task-token";
     let mut adapter = launched(&root, addr, auth);
 
-    let status = control_status(addr, auth);
+    let status = program_status(addr, auth);
     assert_eq!(
         listed_tasks(&status),
         vec![("maintask".to_string(), 100)],
@@ -122,7 +138,7 @@ fn status_lists_every_task_and_reports_the_cycle_of_the_project_runtime_toml() {
     let auth = "status-two-tasks-token";
     let mut adapter = launched(&root, addr, auth);
 
-    let status = control_status(addr, auth);
+    let status = program_status(addr, auth);
     assert_eq!(
         listed_tasks(&status),
         vec![("fasttask".to_string(), 40), ("slowtask".to_string(), 250)],
@@ -142,7 +158,7 @@ fn a_reload_updates_the_tasks_and_keeps_the_cycle_that_status_reports() {
     let addr = reserve_loopback_addr();
     let auth = "status-reload-token";
     let mut adapter = launched(&root, addr, auth);
-    let before = control_status(addr, auth);
+    let before = program_status(addr, auth);
     assert_eq!(
         listed_tasks(&before),
         vec![("maintask".to_string(), 100)],

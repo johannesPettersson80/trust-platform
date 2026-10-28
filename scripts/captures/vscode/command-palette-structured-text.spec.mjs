@@ -45,12 +45,16 @@ test("capture code-server structured text command palette", async ({ page }) => 
   await expect(quickInput).toContainText("truST: Create Project", {
     timeout: 30_000
   });
-  await expect(quickInput).toContainText("truST: Import PLCopen XML", {
-    timeout: 30_000
-  });
-  await expect(quickInput).toContainText("truST: Move Structured Text Namespace", {
-    timeout: 30_000
-  });
 
   await page.screenshot({ path: output });
+
+  // The palette draws only the rows that fit. truST's commands make a longer list than that (42 in
+  // 0.25), so each further command is checked under its own filter.
+  for (const title of ["truST: Import PLCopen XML", "truST: Move Structured Text Namespace"]) {
+    await input.fill(`>${title}`);
+    await expect(input).toHaveValue(`>${title}`);
+    await expect(quickInput).toContainText(title, {
+      timeout: 30_000
+    });
+  }
 });

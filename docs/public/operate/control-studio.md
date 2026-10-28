@@ -310,15 +310,15 @@ topology before commissioning.
 Each example is a small project to open from the examples gallery and set up
 with the form. Its README lists the values measured in Control Studio.
 
-- [PID loop](../../../examples/control-pid-commissioning/README.md): a
+- [PID loop](https://github.com/johannesPettersson80/trust-platform/tree/main/examples/control-pid-commissioning): a
   `Control.PID` on a heater.
-- [Cascade](../../../examples/control-cascade-commissioning/README.md): two
+- [Cascade](https://github.com/johannesPettersson80/trust-platform/tree/main/examples/control-cascade-commissioning): two
   `Control.PID` blocks in cascade on a jacketed vessel.
-- [Interacting loops](../../../examples/control-two-zone-commissioning/README.md):
+- [Interacting loops](https://github.com/johannesPettersson80/trust-platform/tree/main/examples/control-two-zone-commissioning):
   two zones sharing a wall, tuned one after the other or as a PID group.
-- [ON/OFF control](../../../examples/control-onoff-commissioning/README.md): a
+- [ON/OFF control](https://github.com/johannesPettersson80/trust-platform/tree/main/examples/control-onoff-commissioning): a
   cold room held by a switching compressor.
-- [State feedback](../../../examples/control-state-feedback-commissioning/README.md):
+- [State feedback](https://github.com/johannesPettersson80/trust-platform/tree/main/examples/control-state-feedback-commissioning):
   two tanks in series under an LQR law.
 
 ## Related

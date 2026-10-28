@@ -29,7 +29,20 @@ cleanup() {
 
 trap cleanup EXIT
 
-cargo build -p trust-lsp -p trust-runtime -p trust-debug
+cargo build -p trust-lsp -p trust-runtime -p trust-debug -p trust-dev
+
+# The captures that build a program need the toolchain of specification 44 §4.6. The container
+# sees the folder TRUST_TOOLCHAIN names, and the Rust toolchain its compiler and linker link into,
+# at the same paths.
+toolchain_args=()
+if [[ -n "${TRUST_TOOLCHAIN:-}" ]]; then
+  sysroot=$(rustc --print sysroot)
+  toolchain_args=(
+    -e "TRUST_TOOLCHAIN=$TRUST_TOOLCHAIN"
+    -v "$TRUST_TOOLCHAIN:$TRUST_TOOLCHAIN:ro"
+    -v "$sysroot:$sysroot:ro"
+  )
+fi
 
 for tape in "$ROOT_DIR"/scripts/captures/terminal/*.tape; do
   repo_relative_tape="${tape#$ROOT_DIR/}"
@@ -42,6 +55,7 @@ for tape in "$ROOT_DIR"/scripts/captures/terminal/*.tape; do
     -v "$VHS_HOME_HOST:$VHS_HOME_CONTAINER" \
     -v "$ROOT_DIR:/workspaces/trust-platform" \
     -w /workspaces/trust-platform \
+    "${toolchain_args[@]}" \
     "$VHS_IMAGE" \
     "$repo_relative_tape"
 done

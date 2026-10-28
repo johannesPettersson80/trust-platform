@@ -525,3 +525,36 @@ fn an_instance_reference_refuses_another_class() {
         FaultCode::ReferenceLifetime as u32
     );
 }
+
+/// A module whose entry point returns `value`, in this computer's machine code: `mov eax, value`
+/// and `ret` on x86-64.
+#[cfg(all(feature = "host", target_arch = "x86_64"))]
+fn returning(value: u8) -> [u8; 6] {
+    [0xB8, value, 0, 0, 0, 0xC3]
+}
+
+/// A module whose entry point returns `value`, in this computer's machine code: `mov w0, #value`
+/// and `ret` on AArch64.
+#[cfg(all(feature = "host", target_arch = "aarch64"))]
+fn returning(value: u8) -> [u8; 8] {
+    let mut code = [0; 8];
+    code[..4].copy_from_slice(&(0x5280_0000_u32 | (u32::from(value) << 5)).to_le_bytes());
+    code[4..].copy_from_slice(&0xD65F_03C0_u32.to_le_bytes());
+    code
+}
+
+/// Each module is mapped after the one before it was unmapped, mostly at the same address, and must
+/// run its own instructions. Without the instruction cache's invalidation after the copy, an ARM
+/// CPU can run the instructions of the module before it there (specification 44 §10.3).
+#[test]
+#[cfg(all(feature = "host", any(target_arch = "x86_64", target_arch = "aarch64")))]
+fn a_module_mapped_where_another_ran_runs_its_own_instructions() {
+    let mut cx = context();
+    for round in 0..1000_u32 {
+        let value = if round % 2 == 0 { 1 } else { 2 };
+        let code = crate::kernel::Executable::load(&returning(value))
+            .expect("the module is mapped executable");
+        let entry = code.entry(0).expect("the entry lies inside the module");
+        assert_eq!(entry.call(&mut cx), u32::from(value), "round {round}");
+    }
+}

@@ -54,7 +54,7 @@ export async function parameterStatus(loop: SimulatorLoop): Promise<any> {
 export async function processReading(loop: SimulatorLoop): Promise<ProcessReading | undefined> {
   const { processVariable, manipulatedVariable } = loop.signals;
   if (!processVariable.address || !manipulatedVariable.address) throw new Error("The loop declares no addresses for its measurement and output.");
-  const answer = await inspectOrNothing(loop.runtimeId, {
+  const answer = await simulatorRequest(loop.runtimeId, "control.signals.inspect", {
     loop_revision: loop.revision,
     bindings: [
       { id: "pv", address: processVariable.address, iec_type: processVariable.iecType },
@@ -64,14 +64,4 @@ export async function processReading(loop: SimulatorLoop): Promise<ProcessReadin
   if (!answer || answer.available !== true || !Array.isArray(answer.values)) return undefined;
   const [pv, mv] = answer.values;
   return typeof pv === "number" && typeof mv === "number" ? { pv, mv } : undefined;
-}
-
-/** `control.signals.inspect`, or undefined while the runtime holds no scan: just after the simulator starts that is a reading not there yet, not a failure. */
-async function inspectOrNothing(runtimeId: string, params: Record<string, unknown>): Promise<any> {
-  try {
-    return await simulatorRequest(runtimeId, "control.signals.inspect", params);
-  } catch (error) {
-    if (error instanceof Error && /current runtime scan unavailable/i.test(error.message)) return undefined;
-    throw error;
-  }
 }

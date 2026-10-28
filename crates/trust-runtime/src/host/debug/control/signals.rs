@@ -64,6 +64,24 @@ struct Inspect {
     bindings: Vec<SignalBinding>,
     expected_program_revision: Option<String>,
 }
+impl Inspect {
+    /// Refuses a request pinned to a program revision other than `revision` (E3, rule 8).
+    fn check_revision(&self, revision: &str) -> Result<(), String> {
+        if self
+            .expected_program_revision
+            .as_deref()
+            .is_some_and(|expected| expected != revision)
+        {
+            return Err("program revision changed".into());
+        }
+        Ok(())
+    }
+
+    /// The answer that waits for the next coherent scan of the selection (E3).
+    fn waiting(&self, revision: &str) -> JsonValue {
+        json!({"program_revision":revision,"loop_revision":self.loop_revision,"bindings":self.bindings,"available":false,"reason":"Waiting for the next coherent runtime scan."})
+    }
+}
 #[derive(Debug)]
 struct Watch {
     loop_revision: String,
@@ -262,36 +280,33 @@ impl SignalRegistry {
 impl DebugControl {
     /// Selects the signals Control Studio inspects, or answers the latest coherent scan of the
     /// selection already made (protocol annex E3), reading the program as the last scan left it.
+    /// Before the program's first complete scan the answer waits for one.
     pub(crate) fn inspect_control_signals(&self, params: JsonValue) -> Result<JsonValue, String> {
         let request: Inspect = serde_json::from_value(params).map_err(|e| e.to_string())?;
         if request.loop_revision.is_empty() || request.loop_revision.len() > 256 {
             return Err("loop revision required".into());
         }
-        let program = self
-            .published_program()
-            .ok_or("current runtime scan unavailable")?;
+        let Some(program) = self.published_program() else {
+            return self.inspect_before_first_scan(&request);
+        };
         let mut state = self.lock();
         let revision = state.parameters.program_revision(&program.program_image());
-        if request
-            .expected_program_revision
-            .as_ref()
-            .is_some_and(|expected| expected != &revision)
-        {
-            return Err("program revision changed".into());
-        }
+        request.check_revision(&revision)?;
         if let Some(watch) = state.signals.watch.as_ref()
             && watch.loop_revision == request.loop_revision
             && watch.program_revision == revision
             && watch.bindings == request.bindings
         {
-            return Ok(watch.latest.clone().unwrap_or_else(||json!({"program_revision":revision,"loop_revision":request.loop_revision,"bindings":request.bindings,"available":false,"reason":"Waiting for the next coherent runtime scan."})));
+            return Ok(watch
+                .latest
+                .clone()
+                .unwrap_or_else(|| request.waiting(&revision)));
         }
-        let snapshot = state
-            .latest_io_snapshot
-            .as_ref()
-            .ok_or("current runtime scan unavailable")?;
+        let Some(snapshot) = state.latest_io_snapshot.as_ref() else {
+            return Ok(request.waiting(&revision));
+        };
         let targets = resolve_bindings(&request.bindings, snapshot, Some(&*program))?;
-        let result = json!({"program_revision":revision,"loop_revision":request.loop_revision,"bindings":request.bindings,"available":false,"reason":"Waiting for the next coherent runtime scan."});
+        let result = request.waiting(&revision);
         state.signals.watch = Some(Watch {
             loop_revision: request.loop_revision,
             program_revision: revision,
@@ -300,5 +315,18 @@ impl DebugControl {
             latest: None,
         });
         Ok(result)
+    }
+
+    /// The answer while the program set has completed no scan, at start or after a new program
+    /// (annex E3): it waits for one, under the revision of that program. A runtime with debugging
+    /// disabled publishes no scan to wait for, and refuses.
+    fn inspect_before_first_scan(&self, request: &Inspect) -> Result<JsonValue, String> {
+        let image = self
+            .program_image()
+            .filter(|_| self.is_enabled())
+            .ok_or("current runtime scan unavailable")?;
+        let revision = self.lock().parameters.program_revision(&image.image());
+        request.check_revision(&revision)?;
+        Ok(request.waiting(&revision))
     }
 }

@@ -1913,6 +1913,20 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   computer at a high simulation speed, the samples recorded in between could end the step before it
   took effect, and the restoration then replaced the step: Validate refused the recording for want
   of excitation, and Identify's recording held no step or one cut short.
+- On an ARM computer (a Mac with Apple silicon, ARM Linux) the runtime makes a compiled program it
+  loads the instructions the CPU fetches before the program runs (specification 44 §10.3). Before,
+  the CPU could run instructions its instruction cache still held for those addresses.
+- The runtime's operator display at `/hmi` loads its modules again (#134): 0.24.74 served `app.js`
+  but answered 404 for every module, so the page stayed blank on `Disconnected`. The display of 0.25
+  (specification 39) serves every file its page names, and a test requests each one.
+- The documentation site publishes again. Since 0.25.0 its checks had stopped it: the link check
+  read the HMI Builder page's shortcut **Ctrl+[** as the start of a link, the control course's
+  learning path and four other pages linked files outside the site by relative paths (they now
+  link them on GitHub), and the HMI Builder's screenshots were missing from the capture inventory.
+- Control Studio can read a loop's signals while the runtime starts. Before a program's first
+  complete scan the runtime refused `control.signals.inspect` with "current runtime scan
+  unavailable", so a run or recording that began then failed at once. It now answers that the read
+  waits for the scan, as annex E3 of the Control Studio protocol states, and Studio asks again.
 - The cycle grid keeps the tasks' deadlines on computers and chips alike (specification 10 §4.3):
   it begins where the tasks' timing begins, also when the first cycle starts late; a cycle that
   starts a whole cycle interval or more late, because the operating system delayed its wake or the

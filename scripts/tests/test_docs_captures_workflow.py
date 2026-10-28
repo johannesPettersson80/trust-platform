@@ -47,6 +47,26 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
         self.assertIn("Download refreshed captures", refresh_pr_steps)
         self.assertIn("Create capture refresh PR", refresh_pr_steps)
 
+    def test_captures_build_programs_with_the_toolchain_the_job_builds(self) -> None:
+        # The browser IDE and the terminal captures build Structured Text programs. Without a
+        # toolchain a build downloads its version's, which does not exist before that version is
+        # published: the browser IDE's build failed on 0.25.1's pull request (28 October 2026).
+        workflow = yaml.load(WORKFLOW.read_text(), Loader=yaml.BaseLoader)
+        steps = workflow["jobs"]["refresh"]["steps"]
+        names = [step.get("name") for step in steps]
+        toolchain = names.index("Toolchain for compiled programs (specification 44 §4.6)")
+        self.assertLess(toolchain, names.index("Refresh browser captures"))
+        self.assertLess(toolchain, names.index("Refresh terminal captures"))
+        self.assertIn("scripts/native/build_toolchain_libraries.sh", steps[toolchain]["run"])
+        self.assertIn('echo "TRUST_TOOLCHAIN=${folder}" >> "${GITHUB_ENV}"', steps[toolchain]["run"])
+
+        # The terminal captures run in a container, which sees the toolchain only when it is
+        # handed over.
+        runner = (ROOT / "scripts" / "captures" / "run-terminal-captures.sh").read_text()
+        self.assertIn('-e "TRUST_TOOLCHAIN=$TRUST_TOOLCHAIN"', runner)
+        self.assertIn('-v "$TRUST_TOOLCHAIN:$TRUST_TOOLCHAIN:ro"', runner)
+        self.assertIn('"${toolchain_args[@]}"', runner)
+
 
 if __name__ == "__main__":
     unittest.main()

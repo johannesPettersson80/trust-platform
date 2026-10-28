@@ -303,11 +303,19 @@ change. On a macOS runner without a warm cache it took longer than the earlier
 20 minutes (`main`, 28 October 2026). The limit stops a hung check; it is not a
 build-time budget, and a check that exceeds it fails the job.
 
+The full test suite has two hours on macOS and Windows and one hour on Linux, which
+`CI_FULL_TEST_TIMEOUT_SECONDS` may change: Windows runs one test at a time, and a macOS
+runner took longer than an hour (28 October 2026). An attempt that exceeds its limit fails.
+
 Every job that builds Structured Text programs provisions the toolchain of
 specification 44 §4.6 itself and names it in `TRUST_TOOLCHAIN`, the release's
-self-hosted OpenOT database matrix included. A job never relies on a toolchain
-left on its runner, so that a release run shows what a clean runner does;
-v0.25.0's database matrix had none and failed (28 October 2026).
+self-hosted OpenOT database matrix and the documentation captures included; a
+capture that runs in a container is given the same toolchain. A job never
+relies on a toolchain left on its runner, so that a release run shows what a
+clean runner does, nor on downloading one, because a version is not published
+while its pull request is checked. v0.25.0's database matrix had no toolchain
+and failed, and so did the browser IDE's build in 0.25.1's documentation
+captures (28 October 2026).
 
 Shared-builder Cargo targets used by an active gate MUST hold a stable external
 lease for the complete command lifetime. Generated-target cleanup MUST acquire
