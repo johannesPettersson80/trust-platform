@@ -35,6 +35,8 @@ def _artifact_identity(path: Path) -> tuple[str, str]:
         kind = "runtime"
     elif name.startswith("trust-lsp-"):
         kind = "language_server"
+    elif name.startswith("trust-toolchain-"):
+        kind = "toolchain_bundle"
     elif name == "conformance-status.json":
         kind = "conformance_json"
     elif name == "conformance-status.md":
