@@ -23,6 +23,15 @@ jobs:
           environment_file="$RUNNER_TEMP/openot-generated-environment-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           (umask 077; : >"$environment_file")
           GITHUB_ENV="$environment_file" scripts/openot_database_runner_prepare.sh
+      - name: Toolchain for compiled programs (specification 44 §4.6)
+        # The gate builds Structured Text programs for this computer. The job builds the toolchain
+        # itself and never uses one left on the runner (v0.25.0's release run, 28 October 2026).
+        shell: bash
+        run: |
+          set -euo pipefail
+          folder="${RUNNER_TEMP}/trust-toolchain"
+          bash scripts/native/build_toolchain_libraries.sh "${folder}" x86_64-unknown-linux-gnu
+          echo "TRUST_TOOLCHAIN=${folder}" >> "${GITHUB_ENV}"
       - name: Run exact product matrix
         run: cargo run --locked -p xtask -- portability database-gate "$RUNNER_TEMP/openot-generated-environment-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
       - name: Tear down disposable products
