@@ -33,7 +33,8 @@ cargo build -p trust-lsp -p trust-runtime -p trust-debug -p trust-dev
 
 # The captures that build a program need the toolchain of specification 44 §4.6. The container
 # sees the folder TRUST_TOOLCHAIN names, and the Rust toolchain its compiler and linker link into,
-# at the same paths.
+# at the same paths. Without TRUST_TOOLCHAIN the list stays empty, and Bash 3.2 (macOS's /bin/bash)
+# calls an empty array unbound under `set -u`, so the list is expanded only when it has elements.
 toolchain_args=()
 if [[ -n "${TRUST_TOOLCHAIN:-}" ]]; then
   sysroot=$(rustc --print sysroot)
@@ -55,7 +56,7 @@ for tape in "$ROOT_DIR"/scripts/captures/terminal/*.tape; do
     -v "$VHS_HOME_HOST:$VHS_HOME_CONTAINER" \
     -v "$ROOT_DIR:/workspaces/trust-platform" \
     -w /workspaces/trust-platform \
-    "${toolchain_args[@]}" \
+    ${toolchain_args[@]+"${toolchain_args[@]}"} \
     "$VHS_IMAGE" \
     "$repo_relative_tape"
 done
