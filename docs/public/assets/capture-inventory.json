@@ -10,7 +10,7 @@
       "path": "images/install/marketplace-listing.png",
       "class": "browser-install-surface",
       "generator": "playwright",
-      "source": "Visual Studio Marketplace listing for truST LSP"
+      "source": "Visual Studio Marketplace listing for truST"
     },
     {
       "path": "images/install/command-palette-trust.png",

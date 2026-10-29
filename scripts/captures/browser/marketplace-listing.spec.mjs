@@ -14,7 +14,9 @@ test("capture truST marketplace listing", async ({ page }) => {
   );
 
   expect(response?.ok()).toBeTruthy();
-  await expect(page.locator("body")).toContainText("truST LSP", {
+  // The extension's display name. The listing's README text changes between releases: 0.25.1's
+  // no longer says "truST LSP", which this capture waited for until then.
+  await expect(page.locator("body")).toContainText("truST", {
     timeout: 30_000
   });
   await expect(page.locator("body")).toContainText("trust-platform", {
