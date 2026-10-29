@@ -3,6 +3,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -163,6 +164,24 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         )
         self.assertIn("remote_test_all", commands)
         self.assertIn("just test-all", commands["remote_test_all"])
+
+    def test_the_candidate_builds_and_checks_the_documentation_site_as_docs_pages_does(self) -> None:
+        # Path filters see only a pull request's first 300 files: 0.25.0's 10,252 ran no docs
+        # workflow, and the site stopped publishing after the merge. Catches a check that Docs
+        # Pages runs before it deploys and the guard does not, or runs in another order.
+        commands = dict(candidate_prepare.remote_validation_commands(
+            vscode_changed=False, remote_target="/tmp/trust-target",
+        ))
+        self.assertIn("remote_docs_site", guard.BASE_REQUIRED_COMMANDS)
+        docs = commands["remote_docs_site"]
+        self.assertIn("scripts/with_cargo_target_lease.sh", docs)
+        self.assertIn("git archive HEAD", docs)
+        workflow = (Path(__file__).resolve().parents[4] / ".github/workflows/demo-pages.yml").read_text()
+        before_deploy = workflow.split("uses: actions/deploy-pages", 1)[0]
+        docs_pages = re.findall(r"(?m)^ +(python scripts/\S+\.py|mkdocs build --strict)$", before_deploy)
+        self.assertEqual(len(docs_pages), 8)
+        positions = [docs.index(command) for command in docs_pages]
+        self.assertEqual(positions, sorted(positions))
 
     def test_mp001_discovery_parity_is_required_after_native_tests(self) -> None:
         commands = dict(candidate_prepare.remote_validation_commands(
@@ -899,6 +918,45 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         joined = "\n".join(failures)
         self.assertIn("merge state", joined)
         self.assertIn("Windows", joined)
+
+    def test_a_version_bump_merges_after_a_passed_release_rehearsal_on_its_head(self) -> None:
+        passed = {"headSha": self.head, "event": "workflow_dispatch", "status": "completed", "conclusion": "success"}
+        self.assertEqual(guard.validate_release_rehearsal([passed], self.head, "release/next"), [])
+
+    def test_a_failed_rehearsal_or_one_on_another_commit_does_not_count(self) -> None:
+        # Catches a merge on the strength of a rehearsal that failed, or that ran before the last push.
+        failed = {"headSha": self.head, "event": "workflow_dispatch", "status": "completed", "conclusion": "failure"}
+        older = {"headSha": "b" * 40, "event": "workflow_dispatch", "status": "completed", "conclusion": "success"}
+        for runs in ([], [failed], [older]):
+            failures = guard.validate_release_rehearsal(runs, self.head, "release/next")
+            self.assertEqual(
+                failures,
+                [f"a version bump needs a passed Release rehearsal on {self.head}: gh workflow run release.yml --ref release/next"],
+            )
+
+    def test_a_pull_request_above_the_path_filter_limit_needs_each_filtered_workflow_passed(self) -> None:
+        # Catches a merge of 301 files on which GitHub skipped Docs Captures: its path filters saw
+        # only the first 300.
+        passed = {"headSha": self.head, "status": "completed", "conclusion": "success"}
+        runs = {"diagrams.yml": [passed], "docs-captures.yml": []}
+        self.assertEqual(
+            guard.validate_path_filtered_runs(301, runs, self.head, "release/next"),
+            [
+                f"the PR changes 301 files and GitHub matches path filters against the first 300: "
+                f"docs-captures.yml has no passed run on {self.head}: "
+                "gh workflow run docs-captures.yml --ref release/next"
+            ],
+        )
+
+    def test_up_to_the_limit_github_starts_the_path_filtered_workflows_itself(self) -> None:
+        self.assertEqual(guard.validate_path_filtered_runs(300, {"docs-captures.yml": []}, self.head, "b"), [])
+
+    def test_the_path_filtered_workflows_are_found_from_their_pull_request_triggers(self) -> None:
+        # CI, Salsa Hardening and the Verification Gate filter pull requests by branch only.
+        repo = Path(__file__).resolve().parents[4]
+        self.assertEqual(
+            guard.path_filtered_pull_request_workflows(repo), ["diagrams.yml", "docs-captures.yml"]
+        )
 
     def test_release_state_is_not_complete_without_latest_assets_and_marketplace(self) -> None:
         state = {

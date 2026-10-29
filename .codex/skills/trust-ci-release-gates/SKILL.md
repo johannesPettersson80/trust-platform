@@ -120,6 +120,8 @@ These pushes go through the guard in this skill's `scripts/`:
      - the cross-target warnings;
      - `just test-all` on the builder;
      - MP-001 discovery/snapshot parity, reusing the native test binaries;
+     - the documentation site's build and checks, as Docs Pages runs them before it deploys (in a
+       copy of the candidate's tree);
      - the capture lifecycle, when it applies.
    - Planner and catalog records are advisory.
    - Any commit, base movement or dirty checkout invalidates the artifact.
@@ -141,8 +143,18 @@ These pushes go through the guard in this skill's `scripts/`:
      the first failure: retain it, identify its cause and obtain the applicable
      correction/validation authorization before merge.
    - Never push corrections from partial results.
-4. **Merge** only with `release_candidate_guard.py check-merge --pr <number> --execute`.
-5. **Release a version change.**
+4. **Rehearse a version change** while its pull request's CI runs: start the Release workflow on
+   the candidate branch with `gh workflow run release.yml --ref <branch>`. It runs every build, test
+   and Publish script and publishes nothing; it keeps its release text and evidence as the artifact
+   `release-rehearsal-v<version>`. 0.25.0's release jobs failed only after its tag, and each fix
+   then needed a new version.
+5. **Merge** only with `release_candidate_guard.py check-merge --pr <number> --execute`. Besides a
+   clean merge state and green checks on the exact head, it requires:
+   - for a version change, a passed Release rehearsal on that head;
+   - for a pull request of more than 300 files, a passed run on that head of each workflow that
+     filters pull requests by path (GitHub matches the filters against the first 300 files only);
+     start each with `gh workflow run <file> --ref <branch>`.
+6. **Release a version change.**
    - Wait for main CI.
    - Push the annotated tag `v<version>` from the same main SHA.
    - Run
@@ -156,7 +168,7 @@ These pushes go through the guard in this skill's `scripts/`:
    - If the main version guard expired only because the Release run was still going, wait for that
      run, then rerun the failed main jobs on the same SHA only under the current retry
      authorization. Never create another tag.
-6. **Clean up.** `verify-release` then runs `audit-post-merge`.
+7. **Clean up.** `verify-release` then runs `audit-post-merge`.
    - Remove only the exact clean targets it lists.
    - Fetch with prune, and rerun the audit until it reports `clean`.
    - The handoff is incomplete while candidate branches, worktrees or unique commits remain.

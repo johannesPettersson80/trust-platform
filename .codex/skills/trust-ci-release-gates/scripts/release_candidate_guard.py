@@ -21,6 +21,8 @@ SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 ACTION_JOB_RE = re.compile(r"/actions/runs/(\d+)/job/(\d+)")
 PENDING_STATES = {"EXPECTED", "IN_PROGRESS", "PENDING", "QUEUED", "REQUESTED", "WAITING"}
 PASS_STATES = {"SUCCESS", "NEUTRAL", "SKIPPED"}
+# GitHub matches a pull request's path filters against its first 300 changed files only.
+PATH_FILTER_FILE_LIMIT = 300
 FAIL_STATES = {
     "ACTION_REQUIRED",
     "CANCELLED",
@@ -43,6 +45,7 @@ BASE_REQUIRED_COMMANDS = (
     "remote_architecture_safety",
     "remote_clippy",
     "remote_docs",
+    "remote_docs_site",
     "remote_reclaim_before_test_all",
     "remote_test_all",
     "remote_mp001_parity",
@@ -352,6 +355,59 @@ def validate_merge_state(pr: dict[str, Any], expected_head: str) -> list[str]:
     return failures
 
 
+def path_filtered_pull_request_workflows(repo: Path) -> list[str]:
+    """The workflow files that pull requests start only when their paths match."""
+    found: list[str] = []
+    for path in sorted((repo / ".github" / "workflows").glob("*.yml")):
+        text = path.read_text(encoding="utf-8")
+        triggers = text.split("\non:\n", 1)[1].split("\njobs:", 1)[0] if "\non:\n" in text else ""
+        if re.search(r"(?m)^  pull_request:\n(?:    .*\n)*?    paths:", triggers):
+            found.append(path.name)
+    return found
+
+
+def validate_path_filtered_runs(
+    changed_files: int, runs: dict[str, list[dict[str, Any]]], head: str, branch: str
+) -> list[str]:
+    """Above GitHub's limit a path-filtered workflow can skip a pull request: each must have passed.
+
+    0.25.0 changed 10,252 files, no docs workflow ran, and the documentation site broke on main.
+    """
+    if changed_files <= PATH_FILTER_FILE_LIMIT:
+        return []
+    return [
+        f"the PR changes {changed_files} files and GitHub matches path filters against the first "
+        f"{PATH_FILTER_FILE_LIMIT}: {workflow} has no passed run on {head}: "
+        f"gh workflow run {workflow} --ref {branch}"
+        for workflow, workflow_runs in runs.items()
+        if not any(
+            run.get("headSha") == head
+            and run.get("status") == "completed"
+            and run.get("conclusion") == "success"
+            for run in workflow_runs
+        )
+    ]
+
+
+def validate_release_rehearsal(runs: list[dict[str, Any]], head: str, branch: str) -> list[str]:
+    """A version bump merges once the Release workflow has passed as a rehearsal on its exact head.
+
+    0.25.0's release jobs failed only after its tag, and every fix then needed a new version.
+    """
+    if any(
+        run.get("headSha") == head
+        and run.get("event") == "workflow_dispatch"
+        and run.get("status") == "completed"
+        and run.get("conclusion") == "success"
+        for run in runs
+    ):
+        return []
+    return [
+        f"a version bump needs a passed Release rehearsal on {head}: "
+        f"gh workflow run release.yml --ref {branch}"
+    ]
+
+
 def validate_release_state(
     state: dict[str, Any], version: str, marketplace_targets: Sequence[str]
 ) -> list[str]:
@@ -462,7 +518,7 @@ def check_merge(args: argparse.Namespace) -> int:
             "view",
             str(args.pr),
             "--json",
-            "headRefOid,mergeStateStatus,statusCheckRollup,state,url",
+            "headRefName,headRefOid,mergeStateStatus,statusCheckRollup,state,url",
         ],
         cwd=repo,
     )
@@ -471,6 +527,32 @@ def check_merge(args: argparse.Namespace) -> int:
         return 2
     pr = json.loads(result.stdout)
     failures.extend(validate_merge_state(pr, head))
+    if workspace_version_at(repo, head) != workspace_version_at(repo, "origin/main"):
+        rehearsals = run(
+            [
+                "gh", "run", "list", "--workflow", "release.yml", "--commit", head,
+                "--json", "headSha,event,status,conclusion",
+            ],
+            cwd=repo,
+        )
+        runs = json.loads(rehearsals.stdout) if rehearsals.returncode == 0 else []
+        failures.extend(validate_release_rehearsal(runs, head, str(pr.get("headRefName"))))
+    base = git(repo, "merge-base", "origin/main", head).strip()
+    changed_files = len(changed_paths(repo, base, head))
+    if changed_files > PATH_FILTER_FILE_LIMIT:
+        filtered_runs: dict[str, list[dict[str, Any]]] = {}
+        for workflow in path_filtered_pull_request_workflows(repo):
+            listed = run(
+                [
+                    "gh", "run", "list", "--workflow", workflow, "--commit", head,
+                    "--json", "headSha,status,conclusion",
+                ],
+                cwd=repo,
+            )
+            filtered_runs[workflow] = json.loads(listed.stdout) if listed.returncode == 0 else []
+        failures.extend(
+            validate_path_filtered_runs(changed_files, filtered_runs, head, str(pr.get("headRefName")))
+        )
     if failures:
         print("\n".join(f"BLOCKED: {failure}" for failure in failures), file=sys.stderr)
         return 1
