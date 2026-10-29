@@ -546,3 +546,74 @@ fn the_snake_examples_compile_and_wait_for_their_start_button() {
         assert!(run.flag("Init_active"), "{file}");
     }
 }
+
+/// Idle -> Fill on %IX0.0, Fill -> Done on its own elapsed time, Done -> Idle on %IX0.1.
+const STEPS: &str = r#"{
+  "name": "Steps",
+  "steps": [
+    { "id": "idle", "name": "Idle", "initial": true },
+    { "id": "fill", "name": "Fill" },
+    { "id": "done", "name": "Done" }
+  ],
+  "transitions": [
+    { "id": "t1", "condition": "%IX0.0", "sourceStepId": "idle", "targetStepId": "fill" },
+    { "id": "t2", "condition": "Fill.T >= T#100ms", "sourceStepId": "fill", "targetStepId": "done" },
+    { "id": "t3", "condition": "%IX0.1", "sourceStepId": "done", "targetStepId": "idle" }
+  ]
+}"#;
+
+/// Each step's elapsed time `T` in milliseconds and its flag `X`: Idle, Fill, Done.
+fn steps_seen(run: &Run) -> [(i64, bool); 3] {
+    ["Idle", "Fill", "Done"].map(|step| {
+        let elapsed = match run.value(&format!("{step}.T")) {
+            Value::Time(duration) => duration.as_millis(),
+            other => panic!("{step}.T is {other:?}"),
+        };
+        (elapsed, run.flag(&format!("{step}.X")))
+    })
+}
+
+#[test]
+fn a_step_has_its_flag_x_and_its_elapsed_time_t() {
+    // IEC 61131-3 §6.7.2, Table 54 features 3a and 4 (sfc-profile.md, "Steps"): a step's timer is
+    // called at the start of each scan with the step's flag and T is its ET while the step is
+    // active, so by the TON rule above a step entered in scan k reads 20 ms in scan k + 1; a
+    // timer's first call sets its baseline and adds nothing (docs/IEC_DECISIONS.md 2026-07-12), so
+    // the initial step Idle reads 0 in scan 1. T keeps its value while the step is inactive; X is
+    // the step flag after the evolution. Idle reads 0, 20, 40 and is left in scan 3; Fill, entered
+    // in scan 3, reads 20 in scan 4 and 100 ms in scan 8, where its own T clears Fill -> Done;
+    // Done reads 20 in scan 9 and 40 in scan 10, where it is left; Idle, entered again in scan 10,
+    // starts again at 20 ms in scan 11 while Fill and Done keep 100 and 40. Catches a T that does
+    // not start again (Idle would keep 40 or count on from it), one that falls to 0 when its step
+    // is left, a condition on T off by a scan, and an X that lags its step flag.
+    let mut run = Run::new("steps", STEPS);
+    let mut seen = Vec::new();
+    for scan in 1..=11 {
+        match scan {
+            3 => run.input("%IX0.0", true),
+            10 => {
+                run.input("%IX0.0", false);
+                run.input("%IX0.1", true);
+            }
+            _ => {}
+        }
+        run.scan();
+        seen.push(steps_seen(&run));
+    }
+    assert_eq!(
+        seen,
+        [
+            [(0, true), (0, false), (0, false)],
+            [(20, true), (0, false), (0, false)],
+            [(40, false), (0, true), (0, false)],
+            [(40, false), (20, true), (0, false)],
+            [(40, false), (40, true), (0, false)],
+            [(40, false), (60, true), (0, false)],
+            [(40, false), (80, true), (0, false)],
+            [(40, false), (100, false), (0, true)],
+            [(40, false), (100, false), (20, true)],
+            [(40, true), (100, false), (40, false)],
+            [(20, true), (100, false), (40, false)]
+        ]
+    );
+}

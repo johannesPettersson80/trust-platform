@@ -2,25 +2,29 @@
 //! `sfc-profile.md`, "Execution of a visual SFC").
 //!
 //! The companion is one `FUNCTION_BLOCK FB_<base>_SFC` that executes the chart by IEC 61131-3
-//! §6.7 and, when the chart has actions, the type `FB_<base>_SFC_ACTION` of the actions' flag
-//! structures after it. The function block holds:
+//! §6.7, then the type `FB_<base>_SFC_STEP` of the steps' structures (`X`, `T`) and, when the
+//! chart has actions, the type `FB_<base>_SFC_ACTION` of the actions' flag structures. The
+//! function block holds:
 //!
 //! 1. the program's variables in a `VAR` section (when it has any), each with its initial value
 //!    and its comment;
 //! 2. a `VAR` section with one `<step>_active : BOOL` flag per step (`TRUE` for an initial step),
-//!    the flag structure and the control parts of each action, and one `SFC_T<n> : BOOL` per IEC
-//!    transition;
-//! 3. the actions in chart order: each action's control (Figure 23 a), with final scan) and its
+//!    one structure `<step>` per step whose name is an identifier (Table 54: `<step>.X`,
+//!    `<step>.T`) with its timer `SFC_S<n> : TON`, the flag structure and the control parts of
+//!    each action, and one `SFC_T<n> : BOOL` per IEC transition;
+//! 3. the elapsed time `T` of each active step, from its timer;
+//! 4. the actions in chart order: each action's control (Figure 23 a), with final scan) and its
 //!    statements, which run while its `A` is `TRUE`;
-//! 4. the transitions in priority order, each tested against the steps active before the
+//! 5. the transitions in priority order, each tested against the steps active before the
 //!    evolution;
-//! 5. the evolution: the steps before each clearing transition are left, then the steps after it
-//!    entered.
+//! 6. the evolution: the steps before each clearing transition are left, then the steps after it
+//!    entered;
+//! 7. each step's flag `X`, which is its `<step>_active`.
 //!
 //! The companion is made only of a chart that Validate accepts. Every direct address the generated
 //! code names becomes a global of the runtime entry (`crate::direct_io`).
 
-use super::chart::{Action, Chart, Qualifier, TimerDuration, Transition};
+use super::chart::{Action, Chart, Qualifier, Step, TimerDuration, Transition};
 use super::{validate, Workspace};
 use crate::direct_io::with_external_globals;
 use crate::js::{member, string, trim, truthy};
@@ -69,11 +73,13 @@ pub fn generate(program: &Json, base_name: &str) -> Result<Generated, Vec<Proble
         base_name
     };
     let block = fb_name_for_source(source, VisualKind::Sfc.block_suffix());
+    let step_type = format!("{block}_STEP");
     let flag_type = format!("{block}_ACTION");
 
     let mut lines = vec![format!("FUNCTION_BLOCK {block}")];
     variables(program.get("variables"), &mut lines);
-    declarations(&chart, &flag_type, &mut lines);
+    declarations(&chart, &step_type, &flag_type, &mut lines);
+    elapsed_times(&chart, &mut lines);
     if !chart.actions.is_empty() {
         actions(&chart, &mut lines);
     }
@@ -81,7 +87,18 @@ pub fn generate(program: &Json, base_name: &str) -> Result<Generated, Vec<Proble
         transitions(&chart, &mut lines);
         evolution(&chart, &mut lines);
     }
+    step_flags(&chart, &mut lines);
     lines.push("END_FUNCTION_BLOCK".to_owned());
+    lines.extend([
+        String::new(),
+        format!("TYPE {step_type} :"),
+        "STRUCT".to_owned(),
+        "  X : BOOL; // the step flag: TRUE while the step is active".to_owned(),
+        "  T : TIME; // the step elapsed time: since the step was entered, kept while it is inactive"
+            .to_owned(),
+        "END_STRUCT;".to_owned(),
+        "END_TYPE".to_owned(),
+    ]);
     if !chart.actions.is_empty() {
         lines.extend([
             String::new(),
@@ -148,13 +165,30 @@ fn variables(value: Option<&Json>, lines: &mut Vec<String>) {
     lines.push(String::new());
 }
 
-/// The `VAR` section of the step flags, the actions and the transition flags.
-fn declarations(chart: &Chart<'_>, flag_type: &str, lines: &mut Vec<String>) {
+/// The `VAR` section of the step flags, the steps' structures and timers, the actions and the
+/// transition flags.
+fn declarations(chart: &Chart<'_>, step_type: &str, flag_type: &str, lines: &mut Vec<String>) {
     lines.push("VAR".to_owned());
     lines.push("  // Steps: TRUE while the step is active (IEC 61131-3 6.7.2)".to_owned());
     for step in &chart.steps {
         let initial = if step.initial { "TRUE" } else { "FALSE" };
         lines.push(format!("  {} : BOOL := {initial};", step.flag()));
+    }
+    if chart.steps.iter().any(Step::readable) {
+        lines.push(
+            "  // Steps as Table 54 names them: X the step flag, T the elapsed time, from the timer"
+                .to_owned(),
+        );
+    }
+    for (index, step) in chart
+        .steps
+        .iter()
+        .enumerate()
+        .filter(|(_, step)| step.readable())
+    {
+        let initial = if step.initial { " := (X := TRUE)" } else { "" };
+        lines.push(format!("  {} : {step_type}{initial};", step.name));
+        lines.push(format!("  {} : TON;", Chart::step_timer(index)));
     }
     if !chart.actions.is_empty() {
         lines.push("  // Actions: the flags Q and A and the action control (6.7.4.6)".to_owned());
@@ -174,6 +208,56 @@ fn declarations(chart: &Chart<'_>, flag_type: &str, lines: &mut Vec<String>) {
         }
     }
     lines.push("END_VAR".to_owned());
+    lines.push(String::new());
+}
+
+/// The longest elapsed time a step's timer measures: the largest `TIME` of 32-bit milliseconds,
+/// as CODESYS and `TwinCAT` measure a step's time.
+const LONGEST_STEP_TIME: &str = "T#24d20h31m23s647ms";
+
+/// The elapsed time `T` of each step (IEC 61131-3 §6.7.2, Table 54 feature 4): its timer runs
+/// while the step is active at the start of the scan and starts again when the step is entered,
+/// and `T` keeps its value while the step is inactive.
+fn elapsed_times(chart: &Chart<'_>, lines: &mut Vec<String>) {
+    if !chart.steps.iter().any(Step::readable) {
+        return;
+    }
+    lines.push(
+        "// Step elapsed times (IEC 61131-3 6.7.2, Table 54): T counts while the step is active,"
+            .to_owned(),
+    );
+    lines.push(
+        "// starts again from T#0s when the step is entered, and keeps its value while it is inactive."
+            .to_owned(),
+    );
+    for (index, step) in chart
+        .steps
+        .iter()
+        .enumerate()
+        .filter(|(_, step)| step.readable())
+    {
+        let timer = Chart::step_timer(index);
+        let flag = step.flag();
+        lines.push(format!("{timer}(IN := {flag}, PT := {LONGEST_STEP_TIME});"));
+        lines.push(format!(
+            "IF {flag} THEN\n  {}.T := {timer}.ET;\nEND_IF;",
+            step.name
+        ));
+    }
+    lines.push(String::new());
+}
+
+/// Each step's flag `X` (Table 54 feature 3a), which is its `<step>_active` after the evolution.
+fn step_flags(chart: &Chart<'_>, lines: &mut Vec<String>) {
+    if !chart.steps.iter().any(Step::readable) {
+        return;
+    }
+    lines.push(
+        "// Step flags X (Table 54): each step's <step>_active after the evolution.".to_owned(),
+    );
+    for step in chart.steps.iter().filter(|step| step.readable()) {
+        lines.push(format!("{}.X := {};", step.name, step.flag()));
+    }
     lines.push(String::new());
 }
 

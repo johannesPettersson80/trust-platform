@@ -71,6 +71,9 @@ companion. Validate refuses:
   flag `<name>_active` is not an identifier (the name is trimmed; names are
   compared ignoring case, as identifiers are);
 - a transition between nodes that do not exist, or without a condition;
+- a transition `priority` that is present and not a whole number from 0, a
+  text included (Table 61 feature 2b; the editor's Priority field writes a
+  number, and an empty field writes none);
 - a parallel split without at least two branches, exactly one incoming
   transition and one transition to each branch, and a parallel join without at
   least two branches, one transition from each branch and exactly one outgoing
@@ -84,16 +87,33 @@ companion. Validate refuses:
 - one action with two different bodies (statements);
 - two time-related associations of one action in one step: they are always
   active together, which §6.7.4.6 makes an error;
-- a name the function block would declare twice (a variable, a step flag, an
-  action, a part of an action's control, a transition flag), ignoring case.
+- a name the function block would declare twice (a variable, a step flag, a
+  step, a step's timer `SFC_S<n>`, an action, a part of an action's control, a
+  transition flag), ignoring case.
 
 ### Steps (§6.7.2, Table 54)
 
 - Each step is an IEC step. Its activity is the Boolean `<name>_active` of the
-  function block (the step flag of Table 54 feature 3a, under truST's name), so
-  conditions and statements can read it. An initial step's flag starts `TRUE`.
-- Table 54 feature 4, the step elapsed time `***.T`, and the `***.X` spelling
-  are not provided.
+  function block, so conditions and statements can read it. An initial step's
+  flag starts `TRUE`.
+- Each step whose name is an identifier is also a variable `<name>` of the
+  structure type `FB_<base>_SFC_STEP` (written after the function block), with
+  the members of Table 54 as IEC spells them:
+  - `<name>.X` (feature 3a), the step flag: the same value as `<name>_active`,
+    written after the evolution of each scan and `TRUE` from the start for an
+    initial step;
+  - `<name>.T` (feature 4), the step elapsed time (§6.7.2): the elapsed time
+    `ET` of the step's timer `SFC_S<n>` (a `TON`, specification 08; `<n>` the
+    step's position in the chart), which each scan calls first with the step's
+    flag. `T` starts again when the step is entered and keeps its value while
+    the step is inactive; under the TON rule of specification 08 a step
+    entered in one scan reads the task interval in the next. It counts up to
+    `T#24d20h31m23s647ms`, the largest `TIME` of 32-bit milliseconds, as
+    CODESYS and TwinCAT measure a step's time.
+- `<name>_active` stays for the programs that read it; `<name>.X` is the same
+  flag. A step whose name is a keyword (such as `ON` or `STEP`) has only its
+  flag: a keyword is no variable name under the IEC rules, so `<name>.X` would
+  not compile.
 - Errors not detected: writing a step flag (§6.7.2 error 2), and a network
   without an initial step, whose steps never become active.
 

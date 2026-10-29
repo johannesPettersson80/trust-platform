@@ -14,6 +14,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   the runtime when it restarts on another port; when the runtime stops, the entry says it is not running. Before, the
   picker offered only the Simulator, and reaching such a runtime needed its endpoint typed in Devices & Connections
   (specification 25, §5.1).
+- A visual SFC's steps are read as IEC 61131-3 spells them (Table 54): `<step>.X`, the step flag, and `<step>.T`, the
+  time since the step was entered, which keeps its value while the step is inactive, so a transition can wait on
+  `Fill.T >= T#5s`. `<step>_active` stays, and is all a step named with a keyword (`On`) has. The SFC editor's
+  transition properties have a Priority field for a selection's order, the lowest number first (`sfc-profile.md`).
 - `[project] vendor_profile` selects the language rules too, not only formatting, the standard library and the
   conversion rules: `codesys`, `beckhoff` and `twincat` switch on CODESYS's departures from IEC 61131-3 (recorded in
   `IEC_DEVIATIONS.md`, DEV-028 to DEV-032) in the editor, `trust-lsp check`, the debugger, the runtime's web IDE and
@@ -108,6 +112,12 @@ The CODESYS and e!COCKPIT dialect constructs of PR #141:
 - The runtime harness compiler honors the `RETAIN PERSISTENT` variable section combination (persistent storage implies
   retention, either spelling order); duplicates, `NON_RETAIN` combinations and qualifiers beyond that pair stay
   rejected.
+
+### Changed
+
+- The SFC editor's Validate refuses a step named like a variable, an action or a timer the companion declares, and a
+  transition priority that is not a whole number from 0; the first would give a companion that does not compile, the
+  second was silently ignored.
 
 ### Fixed
 

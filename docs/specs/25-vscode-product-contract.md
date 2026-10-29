@@ -2014,7 +2014,10 @@ these commands and show the answers:
   branch's last step is active and its conditions hold; transitions clear
   together, in priority order; actions run with final scan under the
   qualifiers N, R, S, L, D, P, SD, DS, SL, P1 and P0 of Table 59, with their
-  durations.
+  durations; each step is read as `<step>.X` and `<step>.T` (Table 54). A
+  transition's Priority field in the SFC editor's properties sets its
+  `priority` (a whole number from 0, the lowest first; empty for none), which
+  Validate checks.
 - Ladder, Blockly, Statechart, and SFC execution authority is the generated
   Structured Text companion `<base>.st` and runtime entry
   `<base>.visual.runtime.st` (`17-visual-editors-runtime-unification.md` §3).

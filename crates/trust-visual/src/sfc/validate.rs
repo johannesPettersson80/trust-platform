@@ -2,9 +2,10 @@
 //! `sfc-profile.md`, "What Validate refuses").
 //!
 //! An SFC needs an initial step, unique step names, transitions between existing nodes with a
-//! condition, and well-formed parallel branches: a split with at least two branches, one incoming
-//! transition and one transition to each branch; a join with at least two branches, one transition
-//! from each branch and one outgoing transition to its next step. The checks of the chart's step
+//! condition (and a priority, when they have one, that is a whole number from 0), and well-formed
+//! parallel branches: a split with at least two branches, one incoming transition and one
+//! transition to each branch; a join with at least two branches, one transition from each branch
+//! and one outgoing transition to its next step. The checks of the chart's step
 //! names, actions, networks and declared names are in [`super::chart`]. The companion is made only
 //! of a chart these checks accept.
 
@@ -167,7 +168,32 @@ fn check_transitions(workspace: &Workspace<'_>, issues: &mut Vec<Issue>) {
                 id,
             ));
         }
+        if let Some(priority) = transition.get("priority")
+            && !matches!(priority, Json::Null)
+            && !is_priority(priority)
+        {
+            issues.push(Issue::new(
+                format!("priority_{}", string(id)),
+                IssueKind::Transition,
+                format!(
+                    "Transition priority {} is not a whole number from 0; the lowest number is tested first.",
+                    match priority {
+                        Json::String(text) => format!("\"{text}\""),
+                        number => string(Some(number)),
+                    }
+                ),
+                id,
+            ));
+        }
     }
+}
+
+/// Whether `priority` is a transition priority: a whole number from 0, the lowest tested first
+/// (IEC 61131-3 Table 61 feature 2b, `sfc-profile.md`, "Rules of evolution").
+fn is_priority(priority: &Json) -> bool {
+    priority
+        .as_finite()
+        .is_some_and(|number| number >= 0.0 && number.fract() == 0.0)
 }
 
 /// Whether a transition has a condition: a value that is present and, when it is text, not blank.
