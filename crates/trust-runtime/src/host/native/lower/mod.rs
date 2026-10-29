@@ -166,6 +166,10 @@ pub(super) enum Need {
     Function(SmolStr),
     /// A method, by its owner's and its own name.
     Method(SmolStr, SmolStr),
+    /// A method or a textual action of a program type, by the type's index and its own name: a
+    /// function on the variables of the program instance it is called on (specification 04 §4,
+    /// §8).
+    ProgramMethod(usize, SmolStr),
     /// A method, by its name, of an instance of the type or of a type derived from it: a call bound
     /// by the instance's class (IEC §6.6.8; specification 44 §6.4).
     Virtual(Ty, SmolStr),

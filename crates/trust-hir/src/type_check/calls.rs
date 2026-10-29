@@ -159,6 +159,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                 )
                 && let Some(call_target) = self.checker.resolve_ref().resolve_call_target(child_id)
             {
+                self.checker.record_resolved_symbol(callee, child_id);
                 self.check_call_arguments(call_target.param_owner, &call_target.kind, node);
                 return self.checked_call_result_type(node, &call_target);
             }
@@ -178,6 +179,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                 .resolve_program_qualified_member(callee)
                 && let Some(call_target) = self.checker.resolve_ref().resolve_call_target(member_id)
             {
+                self.checker.record_resolved_symbol(callee, member_id);
                 self.check_call_arguments(call_target.param_owner, &call_target.kind, node);
                 return self.checked_call_result_type(node, &call_target);
             }

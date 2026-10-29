@@ -43,12 +43,12 @@ pub use protocol::{
 pub use types::{CompileError, CycleResult, SourceFile};
 
 use compiler::{
-    add_struct_bases, collect_edge_declarations, contains_textual_action, interface_type_name,
-    lower_classes, lower_configuration, lower_function_blocks, lower_functions, lower_interfaces,
-    lower_programs, lower_type_decls, lower_type_ref, predeclare_classes,
-    predeclare_function_blocks, predeclare_interfaces, predeclare_project_types,
-    resolve_program_type_name, resolve_project_declared_sizes, resolve_project_global_constants,
-    resolve_type_name, validate_project_aliases, LoweringContext,
+    add_struct_bases, collect_edge_declarations, interface_type_name, lower_classes,
+    lower_configuration, lower_function_blocks, lower_functions, lower_interfaces, lower_programs,
+    lower_type_decls, lower_type_ref, predeclare_classes, predeclare_function_blocks,
+    predeclare_interfaces, predeclare_project_types, resolve_program_type_name,
+    resolve_project_declared_sizes, resolve_project_global_constants, resolve_type_name,
+    validate_project_aliases, LoweringContext,
 };
 pub(crate) use compiler::{
     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,

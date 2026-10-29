@@ -456,7 +456,14 @@ file grammar accepts `METHOD ... END_METHOD` declarations inside the program
 body — like `ACTION ... END_ACTION`, at any position between the var sections
 and `END_PROGRAM` — with access modifiers, return type, and var sections per
 the §7 method grammar. `PROPERTY` declarations remain rejected in program
-bodies.
+bodies. The runtime build compiles a program's method as a function on the
+variables of the program instance it is called on: a bare-name call in the
+program's body runs it on the instance that runs the body, and
+`ProgramName.method_name(...)` on the program instance of that name, which
+only the CODESYS profile provides (`docs/IEC_DEVIATIONS.md` DEV-030). Its
+`VAR_STAT` variables lie in the program instance, one of each per instance
+and method, as a function-block method's lie in its instance (specification
+01 §3); they are retained as a variable of the program is.
 
 ### Program-singleton access (CODESYS profile)
 
@@ -790,11 +797,12 @@ required by the interface signature.
 
 ## 8. ACTION Declaration (Table 56, Table 72; Section 6.7.4)
 
-truST's current `ACTION` support is a **front-end analysis profile**, not an
-executable textual-SFC profile. The lexer, parser, and semantic layer retain
-textual ST action declarations so source can be inspected and diagnosed, but
-the runtime compiler does not implement IEC step/action association or action
-control. See `sfc-profile.md`.
+truST compiles textual `ACTION ... END_ACTION` declarations as same-instance
+sub-bodies of their owning `PROGRAM` or `FUNCTION_BLOCK` (CODESYS semantics):
+the body runs against the owner's own variables when invoked, with no
+parameters, no return value, and no storage of its own. IEC step/action
+association, action control, and action qualifiers remain outside the
+textual profile; see `sfc-profile.md`.
 
 ### Syntax
 
@@ -824,28 +832,27 @@ END_ACTION
 6. The action body shares the enclosing POU's variable, type, function, and
    function-block visibility. An action in a function block also has the
    enclosing receiver context, including valid `THIS` and `SUPER` access.
-7. Semantic analysis checks every action body even though the current runtime
-   profile cannot execute it. Invalid assignments, unresolved names, invalid
-   calls, invalid loop control, and other statement errors must not be hidden
-   merely because runtime compilation will later reject the unsupported
-   construct.
+7. Semantic analysis checks every action body exactly like the owner body.
+   Invalid assignments, unresolved names, invalid calls, invalid loop
+   control, and other statement errors must not be hidden merely because the
+   body only runs on invocation.
 8. Labels and `JMP` targets form a scope for each action body. A jump cannot
    enter or leave an action body, matching IEC 61131-3 Ed.3 §8.1.6.
 9. A bare `RETURN;` in an action body has the containing program or function
    block as its IEC control context. A return value is invalid because neither
    kind of owner returns a value.
 10. Textual action invocation (CODESYS vendor extension): an action is
-    callable by its bare name inside its owning POU, qualified by the owning
-    program (`POU.action_name()`), or through a function-block instance
-    (`instance.action_name()`). An action call takes no arguments, returns no
-    value, and is invalid in value position. An action name does not
-    participate in ordinary variable resolution: a variable with the same
-    spelling keeps shadowing the action for value and assignment contexts,
-    and the action remains invocable by name in call position. SFC action
-    association and qualifiers remain in the unsupported textual-SFC
-    profile, and the runtime compiler still does not implement action
-    control. Calling another program's action (`Owner.action_name()`) is
-    program-singleton access, which only the CODESYS profile provides.
+    callable by its bare name inside its owning POU's body, or through a
+    function-block instance (`instance.action_name()`). An action call takes
+    no arguments, returns no value, and is invalid in value position. An
+    action name does not participate in ordinary variable resolution: a
+    variable with the same spelling keeps shadowing the action for value and
+    assignment contexts, and the action remains invocable by name in call
+    position. SFC action association and qualifiers remain in the
+    unsupported textual-SFC profile, and the runtime compiler still does not
+    implement action control. Calling a program's action through the
+    program's name (`POU.action_name()`) is program-singleton access, which
+    only the CODESYS profile provides (`docs/IEC_DEVIATIONS.md` DEV-030).
 
 ### Parser acceptance and recovery boundary
 
@@ -868,15 +875,23 @@ they do not create a valid action declaration or authorize execution.
 
 ### Compilation boundary
 
-1. Any source unit containing a textual `ACTION...END_ACTION` declaration must
-   be rejected by runtime/bytecode compilation with a diagnostic that identifies
-   textual ACTION/SFC execution as unsupported.
-2. The compiler must not omit an action body, execute it as part of the owner's
-   ordinary ST body, or emit a runnable program that contains only the owner's
-   non-action statements.
-3. No action-local state, scheduling, qualifier, step association, activation,
-   or scan-cycle semantics are defined by the current profile.
-4. Visual-SFC artifacts remain executable through their generated companion
+1. The runtime build compiles each textual action of a `PROGRAM` or
+   `FUNCTION_BLOCK` as a method of its owner without parameters, result,
+   locals or statics (specification 44 §6.4). It shares the owner's
+   variables, receiver, and visibility: a call by the bare name inside the
+   owner's body runs the action on the instance that runs the body,
+   `instance.action_name()` on that function block instance, and
+   `POU.action_name()` on the program instance of that name (rule 10).
+2. Action bodies must not be appended to, interleaved with, or executed as
+   part of the owner's ordinary statement list: the owner body runs exactly
+   its own statements, those before and after an action declaration in
+   source order, and action statements run only on invocation.
+3. `RETURN` in an action body ends the action; its caller continues after
+   the call.
+4. No action-local state, scheduling, qualifier, step association, activation,
+   or scan-cycle semantics are defined. The runtime implements invocation
+   only; SFC action control remains unsupported in the textual profile.
+5. Visual-SFC artifacts remain executable through their generated companion
    function block and wrapper `PROGRAM` described by
    `17-visual-editors-runtime-unification.md`; they do not gain execution
    semantics by embedding textual action declarations.

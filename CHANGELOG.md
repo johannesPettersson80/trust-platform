@@ -90,7 +90,12 @@ The CODESYS and e!COCKPIT dialect constructs of PR #141:
   the primary list, and array dimension bounds pass through verbatim as constant expressions. The migration report
   counts imported interfaces in `imported_interfaces`.
 - Program-scoped `METHOD ... END_METHOD` declarations (e!COCKPIT dialect) are accepted and callable by bare name from the
-  program body; calling them through the program's name needs a CODESYS `vendor_profile` (DEV-030).
+  program body; calling them through the program's name needs a CODESYS `vendor_profile` (DEV-030). They run on the
+  variables of the program instance they are called on, their `VAR_STAT` variables kept in that instance.
+- Textual `ACTION ... END_ACTION` declarations of programs and function blocks build and run instead of being refused:
+  an action runs on its owner's variables only when it is called, by its bare name in the owner's body or through a
+  function block instance; `RETURN` ends the action. Calling a program's action through the program's name needs a
+  CODESYS `vendor_profile` (DEV-030).
 - Under a CODESYS `vendor_profile`, `ON`, `NULL` and `SET` may name variables, members, parameters and enum values
   (OSCAT `TIMER_EXT.ON`, `FF_DRE.SET`, WAGO `eChar.Null`); `NULL` stays the reference literal in value position and `ON`
   the `RESOURCE ... ON` separator (DEV-034).
@@ -100,6 +105,8 @@ The CODESYS and e!COCKPIT dialect constructs of PR #141:
 
 ### Fixed
 
+- A function block's statements after a `METHOD` or `ACTION` declaration run with the rest of its body; the build
+  compiled only the statements before the first such declaration and left the rest out without a diagnostic.
 - A DUT `EXTENDS` clause whose base names no declared type is diagnosed (`cannot resolve type '<base>'`, `E102`); the
   derived struct was accepted silently and inherited from nothing (PR #140).
 - A project constant whose evaluation fails is reported in the file that owns it: a library or stub file's failed

@@ -9,7 +9,7 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 use super::object::Receiver;
 use super::text::Text;
-use super::{Lowerer, Place};
+use super::{Frame, Lowerer, Need, Place};
 use crate::native::types::{mangle, rust_field, Kind, Ty};
 use crate::native::NativeError;
 use crate::program_model::{FunctionDef, Param};
@@ -35,6 +35,13 @@ enum Callee<'a> {
     /// A program called by its name, as the CODESYS profile allows: its instance's index
     /// (docs/IEC_DEVIATIONS.md DEV-030).
     Program(usize),
+    /// A method or a textual action, by its name, of the program type `program`, on the instance
+    /// whose variables `receiver` passes (specification 04 §4, §8).
+    ProgramMethod {
+        program: usize,
+        receiver: String,
+        name: String,
+    },
     Standard(String),
 }
 
@@ -152,6 +159,11 @@ impl<'a> Lowerer<'_, 'a> {
                 self.program_call(instance, args)?;
                 Ok(Called::Nothing)
             }
+            Callee::ProgramMethod {
+                program,
+                receiver,
+                name,
+            } => self.program_method_call(node, program, receiver, &name, args, want),
             Callee::Standard(name) => self.standard(node, &name, args, want),
         }
     }
@@ -189,8 +201,17 @@ impl<'a> Lowerer<'_, 'a> {
                 {
                     return Ok(Callee::Function(def));
                 }
-                // A method of the instance itself, called without `THIS` (IEC §6.6.5.4).
-                if let Some((_, SymbolKind::Method { .. })) = &resolved {
+                // A method or a textual action of the POU itself, called without `THIS` (IEC
+                // §6.6.5.4; specification 04 §8): in a program's body or method, on the instance
+                // that runs it.
+                if let Some((_, SymbolKind::Method { .. } | SymbolKind::Action)) = &resolved {
+                    if let Frame::Program(program) = self.frame {
+                        return Ok(Callee::ProgramMethod {
+                            program,
+                            receiver: "me, mr".into(),
+                            name,
+                        });
+                    }
                     let this = self.this_place(target)?;
                     return Ok(Callee::Method(
                         Receiver::Instance {
@@ -216,7 +237,7 @@ impl<'a> Lowerer<'_, 'a> {
                                 return Ok(Callee::Function(def));
                             }
                         }
-                        SymbolKind::Method { .. } => {
+                        SymbolKind::Method { .. } | SymbolKind::Action => {
                             let Some(base) = target.children().next() else {
                                 return Err(
                                     self.unsupported(target, "a method without its instance")
@@ -224,6 +245,16 @@ impl<'a> Lowerer<'_, 'a> {
                             };
                             let member =
                                 ident(&target.children().nth(1).unwrap_or_else(|| target.clone()));
+                            // `Program.m()`: the program instance of that name, which only the
+                            // CODESYS profile reaches (docs/IEC_DEVIATIONS.md DEV-030).
+                            if let Some(instance) = self.named_program_instance(&base)? {
+                                let field = rust_field(&self.model.instances[instance].name);
+                                return Ok(Callee::ProgramMethod {
+                                    program: self.model.instances[instance].program,
+                                    receiver: format!("&w.p.{field}, &w.r.{field}"),
+                                    name: member,
+                                });
+                            }
                             let receiver = self.receiver(&base)?;
                             return Ok(Callee::Method(receiver, member));
                         }
@@ -752,6 +783,44 @@ impl<'a> Lowerer<'_, 'a> {
 }
 
 impl Lowerer<'_, '_> {
+    /// The call of the method or the textual action `name` of the program type `program` on the
+    /// instance whose variables `receiver` passes, bound as a method's call (specification 04 §4,
+    /// §8).
+    fn program_method_call(
+        &mut self,
+        node: &SyntaxNode,
+        program: usize,
+        receiver: String,
+        name: &str,
+        args: Vec<Arg>,
+        want: Want,
+    ) -> Result<Called, NativeError> {
+        let def = self.model.program_types[program].def;
+        let Some(method) = def
+            .methods
+            .iter()
+            .find(|method| method.name.eq_ignore_ascii_case(name))
+        else {
+            return Err(self.unsupported(node, format!("the method {}.{name}", def.name)));
+        };
+        self.enabled(node, args, method.return_type, want, |this, args, want| {
+            let bound = this.bind_arguments(node, &method.params, args)?;
+            let (arguments, outputs) = this.inputs(node, &bound)?;
+            Need::ProgramMethod(program, method.name.clone()).add_to(&mut this.needs);
+            let function = this.model.program_types[program].method_function(method);
+            let called = this.emit_call(
+                node,
+                &function,
+                Some(receiver),
+                arguments,
+                method.return_type,
+                &want,
+            )?;
+            this.copy_outputs(outputs)?;
+            Ok(called)
+        })
+    }
+
     /// The call of program instance `instance` by its program's name under the CODESYS profile
     /// (docs/IEC_DEVIATIONS.md DEV-030): its inputs and in-outs bound as a function block's are, by
     /// name or in declaration order, its body run on the instance, and its outputs copied after.
