@@ -55,10 +55,27 @@ export async function resolveRuntimeConnection(
   const configured = getTrustConfiguration(resource)
     .get<string>("runtime.controlEndpoint", "")
     .trim();
-  const folder =
+  return connectionFor(configured, await workspaceProjectDir(workspaceFolderOf(resource)));
+}
+
+/** The control endpoint of the workspace project's own runtime now, whatever endpoint the settings name; none when
+ * trust-runtime reports none (specification 25, section 5.1: the Target picker offers that runtime while it answers). */
+export async function resolveProjectEndpoint(resource?: vscode.Uri): Promise<string | undefined> {
+  const bin = runtimeBinary?.();
+  const projectDir = await workspaceProjectDir(workspaceFolderOf(resource));
+  if (!bin || !projectDir) {
+    return undefined;
+  }
+  const resolved = await resolveProjectControlEndpoint(bin, projectDir);
+  return resolved.ok ? resolved.value.endpoint : undefined;
+}
+
+/** The workspace folder of `resource`, else the first one. */
+function workspaceFolderOf(resource?: vscode.Uri): vscode.WorkspaceFolder | undefined {
+  return (
     (resource ? vscode.workspace.getWorkspaceFolder(resource) : undefined) ??
-    vscode.workspace.workspaceFolders?.[0];
-  return connectionFor(configured, await workspaceProjectDir(folder));
+    vscode.workspace.workspaceFolders?.[0]
+  );
 }
 
 /** The connection for the endpoint named in the settings, if any, else for the project folder,

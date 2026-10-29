@@ -3,15 +3,16 @@ import * as vscode from "vscode";
 
 import { probeRuntimeControlEndpoint } from "../runtimeControlClient";
 import { getControlAuthToken } from "../runtimeAuth";
-import { resolveRuntimeConnection } from "../runtimeConnection";
+import { resolveProjectEndpoint, resolveRuntimeConnection } from "../runtimeConnection";
 import { projectRequest } from "../projectRequest";
 import { summarizeAdsStatus, type AdsStatusReport } from "../adsStatusSummary";
 import type { RuntimeStatusPayload } from "./types";
 
 // What Live Values shows of its runtime is the language server's answer (`trust-lsp.runTargets`, action `liveValues`,
 // specification 25 §4): the runtime's state, its endpoint and whether it answers, whether it is simulated, the operations
-// its session may use and whether a Force must be armed first. This module gathers the settings and the debug session's
-// configuration and forwards them.
+// its session may use and whether a Force must be armed first, and whether the project's own runtime answers, which the
+// Target picker offers (§5.1). This module gathers the settings, the debug session's configuration and the project's
+// endpoint, and forwards them.
 
 /** Polls a control endpoint until it accepts connections or `totalMs` runs out (the language server tries every 250 ms),
  * as right after a managed Start, whose runtime binds its control socket a moment after its process is up (F-11). */
@@ -42,6 +43,8 @@ export async function runtimeStatusPayload(
     endpoint = (config.get<string>("runtime.controlEndpoint") ?? "").trim();
     authToken = await getControlAuthToken(endpoint);
   }
+  // The project's own endpoint is asked of trust-runtime at each refresh too, whatever the mode.
+  const projectEndpoint = (await resolveProjectEndpoint(target)) ?? "";
   const endpointEnabled = config.get<boolean>("runtime.controlEndpointEnabled", true);
   const inlineValuesEnabled = config.get<boolean>("runtime.inlineValuesEnabled", true);
   const configuration = deps.getStructuredTextSession()?.configuration;
@@ -57,7 +60,16 @@ export async function runtimeStatusPayload(
     : null;
   const answer = await projectRequest<{ status: RuntimeStatusPayload; adsReport: AdsStatusReport | null }>(
     "trust-lsp.runTargets",
-    { action: "liveValues", runtimeMode, endpoint, authToken, endpointEnabled, inlineValuesEnabled, session },
+    {
+      action: "liveValues",
+      runtimeMode,
+      endpoint,
+      authToken,
+      endpointEnabled,
+      inlineValuesEnabled,
+      session,
+      projectEndpoint,
+    },
     { wait: false }
   );
   if (!answer.ok) {

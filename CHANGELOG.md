@@ -6,6 +6,15 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+### Added
+
+- VS Code's Target picker offers the workspace project's own runtime as `This project's runtime` while it runs outside
+  VS Code, for example started with `trust-runtime run` in the project folder. Selecting it and pressing Connect
+  connects with the endpoint and token that `trust-runtime ctl --project <dir> endpoint --json` reports, and follows
+  the runtime when it restarts on another port; when the runtime stops, the entry says it is not running. Before, the
+  picker offered only the Simulator, and reaching such a runtime needed its endpoint typed in Devices & Connections
+  (specification 25, §5.1).
+
 ### Fixed
 
 - The runtime's operator display at `/hmi` shows the session, the user and role with Log out or Log

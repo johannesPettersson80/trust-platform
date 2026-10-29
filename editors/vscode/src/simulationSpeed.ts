@@ -11,7 +11,7 @@ import { projectRequest } from "./projectRequest";
 import {
   resolveRunTargets,
   SIMULATOR_RUNTIME_ID,
-  type RuntimeModelSnapshot,
+  toModelSnapshot,
   type SelectedRuntime,
 } from "./trustHomeModel";
 
@@ -280,17 +280,4 @@ export function registerSimulationSpeedCommand(context: vscode.ExtensionContext)
     speedChanged,
     speedRead
   );
-}
-
-// ---- helpers shared with the status bar ----
-
-function toModelSnapshot(snapshot: RuntimeLifecycleSnapshot): RuntimeModelSnapshot {
-  return {
-    runtimeMode: snapshot.status.runtimeMode,
-    runtimeState: snapshot.status.runtimeState,
-    endpoint: snapshot.status.endpoint,
-    endpointConfigured: snapshot.status.endpointConfigured,
-    endpointReachable: snapshot.status.endpointReachable,
-    starting: snapshot.starting,
-  };
 }

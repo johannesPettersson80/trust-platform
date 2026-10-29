@@ -503,7 +503,8 @@ class RuntimeLifecycleService {
   }
 
   // A successful Connect, or selecting a runtime as the run target, points the runtime settings at it: its
-  // endpoint, in use, in online mode. Only values that differ are written.
+  // endpoint, in use, in online mode. An empty endpoint follows the workspace project's own runtime, whose endpoint each
+  // connection asks of trust-runtime (spec 11 §6.8.0a). Only values that differ are written.
   async useOnlineEndpoint(endpoint: string): Promise<void> {
     const target = this.runtimeConfigTarget();
     const config = getTrustConfiguration(target);

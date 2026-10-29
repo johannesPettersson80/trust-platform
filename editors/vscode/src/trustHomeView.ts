@@ -8,10 +8,9 @@ import {
 } from "./runtimeLifecycle";
 import {
   resolveRunTargets,
-  SIMULATOR_RUNTIME_ID,
+  toModelSnapshot,
   withPrimaryActionGate,
   type RunTargets,
-  type RuntimeModelSnapshot,
   type SelectedRuntime,
 } from "./trustHomeModel";
 import {
@@ -308,8 +307,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
   }
 
   private async chooseTarget(): Promise<void> {
-    const { options } = await this.runTargets(await runtimeLifecycleService.snapshot());
-    const currentId = getSelectedRuntimeId() || SIMULATOR_RUNTIME_ID;
+    const { options, selected } = await this.runTargets(await runtimeLifecycleService.snapshot());
     const items: Array<vscode.QuickPickItem & { id?: string }> = [];
     for (const group of [
       { label: "Simulator", kind: "simulator" },
@@ -326,7 +324,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
         items.push({
           id: option.id,
           label: option.label,
-          description: option.id === currentId ? "selected" : undefined,
+          description: option.id === selected.id ? "selected" : undefined,
         });
       }
     }
@@ -1283,16 +1281,6 @@ async function newDiagramMenu(): Promise<void> {
   }
 }
 
-function toModelSnapshot(snapshot: RuntimeLifecycleSnapshot): RuntimeModelSnapshot {
-  return {
-    runtimeMode: snapshot.status.runtimeMode,
-    runtimeState: snapshot.status.runtimeState,
-    endpoint: snapshot.status.endpoint,
-    endpointConfigured: snapshot.status.endpointConfigured,
-    endpointReachable: snapshot.status.endpointReachable,
-    starting: snapshot.starting,
-  };
-}
 
 function actionFailureMessage(
   selected: SelectedRuntime,

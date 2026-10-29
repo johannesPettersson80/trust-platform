@@ -12,7 +12,7 @@ import {
 import {
   resolveRunTargets,
   SIMULATOR_RUNTIME_ID,
-  type RuntimeModelSnapshot,
+  toModelSnapshot,
   type SelectedRuntime,
 } from "./trustHomeModel";
 import { workspaceHasReadableTrustProject } from "./workspaceProject";
@@ -220,13 +220,3 @@ function statusTargetLabel(selected: SelectedRuntime): string {
   return selected.kind === "local" ? selected.id : selected.label;
 }
 
-function toModelSnapshot(snapshot: RuntimeLifecycleSnapshot): RuntimeModelSnapshot {
-  return {
-    runtimeMode: snapshot.status.runtimeMode,
-    runtimeState: snapshot.status.runtimeState,
-    endpoint: snapshot.status.endpoint,
-    endpointConfigured: snapshot.status.endpointConfigured,
-    endpointReachable: snapshot.status.endpointReachable,
-    starting: snapshot.starting,
-  };
-}

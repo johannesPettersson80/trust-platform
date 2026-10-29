@@ -743,6 +743,20 @@ package, or end-to-end evidence.
   `runtime.controlEndpoint` empty, so the next attempt asks again and follows a
   runtime that restarted on another port. A runtime that this command reports as
   not running fails the Connect with the command's message.
+- The Target picker offers the workspace project's own runtime as `This project's
+  runtime` while it runs outside VS Code, for example started from the command
+  line: `trust-runtime ctl --project <dir> endpoint --json` reports its endpoint
+  (specification 11 §6.8.0a), and it answers there. Selecting it puts the runtime
+  settings online with an empty `runtime.controlEndpoint`, so that each connection
+  asks for the endpoint again, as Start in online mode does (above), and follows
+  the runtime when it restarts on another port. It is a runtime the extension
+  connects to: Connect and Disconnect, never Start or Stop. It stays in the list
+  while it is selected; when its runtime does not answer, its status says that it
+  is not running and Connect is disabled with that reason. It is that runtime's
+  only entry: being online with the project's endpoint adds no second one, and a
+  Connect to that endpoint, also from Devices & Connections, selects this entry,
+  so the sidebar Target, its Target picker and the status bar name it `This
+  project's runtime` (the owner, 29 October 2026).
 - After a successful Connect the sidebar Target, its Target picker and the
   status bar name that runtime, also when it is not a configured additional
   endpoint. Its node in the graph offers Disconnect and `Set as run target`

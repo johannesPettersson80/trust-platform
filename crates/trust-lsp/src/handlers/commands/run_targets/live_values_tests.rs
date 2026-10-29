@@ -244,6 +244,66 @@ fn an_online_target_without_a_session() {
     assert!(disabled.asked.borrow().is_empty());
 }
 
+/// The project's own runtime is probed at the endpoint trust-runtime reports for it whatever the
+/// target, so the Target picker offers it while it runs outside VS Code (specification 25 §5.1);
+/// while the online target is that runtime, the target's probe stands for it; without an endpoint
+/// nothing is probed. Catches a picker that never offers the project's runtime while the user
+/// simulates, a second probe of the same endpoint in one refresh, and a probe of no endpoint.
+#[test]
+fn the_project_runtime_is_probed() {
+    let project = "unix:///home/user/tank/.trust-runtime/control.sock";
+    let told = Told {
+        reachable: true,
+        ..Told::default()
+    };
+    let (status, _) = status_of(
+        json!({ "runtimeMode": "simulate", "endpoint": "tcp://10.0.0.2:9901", "projectEndpoint": project }),
+        &told,
+    );
+    assert_eq!(*told.asked.borrow(), [format!("probe {project}")]);
+    assert_eq!(status["projectEndpoint"], project);
+    assert_eq!(status["projectReachable"], true);
+    assert_eq!(status["endpointReachable"], false);
+
+    let told = Told::default();
+    let (status, _) = status_of(
+        json!({ "runtimeMode": "simulate", "projectEndpoint": project }),
+        &told,
+    );
+    assert_eq!(status["projectReachable"], false);
+
+    let told = Told {
+        reachable: true,
+        ..Told::default()
+    };
+    let (status, _) = status_of(
+        json!({ "runtimeMode": "online", "endpoint": project, "projectEndpoint": format!(" {project} ") }),
+        &told,
+    );
+    let probes = told
+        .asked
+        .borrow()
+        .iter()
+        .filter(|asked| asked.starts_with("probe"))
+        .count();
+    assert_eq!(probes, 1);
+    assert_eq!(status["projectEndpoint"], project);
+    assert_eq!(status["projectReachable"], true);
+    assert_eq!(status["endpointReachable"], true);
+
+    let told = Told {
+        reachable: true,
+        ..Told::default()
+    };
+    let (status, _) = status_of(
+        json!({ "runtimeMode": "simulate", "projectEndpoint": " " }),
+        &told,
+    );
+    assert!(told.asked.borrow().is_empty());
+    assert_eq!(status["projectEndpoint"], "");
+    assert_eq!(status["projectReachable"], false);
+}
+
 /// The simulation facts as the runtime states them, with the stricter default where it states
 /// none (specification 35 A2.4 and B9.2): `simulated` only when stated, the time scale only while
 /// simulation is enabled, no speed words at 1×. Catches a target made simulated by its simulation
