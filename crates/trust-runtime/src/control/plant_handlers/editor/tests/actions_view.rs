@@ -856,3 +856,91 @@ fn the_draft_to_be_saved_is_judged_by_the_runtime_too() {
     assert_eq!(result["candidate"]["step_ms"], json!(100));
     std::fs::remove_dir_all(root).unwrap();
 }
+
+fn typed(draft: &Value, key: &str, text: &str) -> Answer {
+    run(
+        draft,
+        Some(json!({"kind": "set_dynamics_text", "key": key, "text": text})),
+    )
+}
+
+// N1 (29 October 2026): the text typed into a Dynamics field is read by `plant.edit`
+// (specification 47 §20.1), not by the extension. Each value is worked out by hand from
+// JavaScript's `Number`, the rule the extension applied before: `0x10` is 16, `1e3` is 1000,
+// surrounding spaces are ignored, and unreadable text holds `null`, which the checks name. Catches
+// a reader that refuses hexadecimal or exponent text, keeps a number for unreadable text, or keeps
+// a value in a field that was emptied.
+#[test]
+fn text_typed_into_a_number_field_is_read_by_the_runtime() {
+    let heater = saved_fopdt();
+    for (text, gain) in [
+        ("0x10", json!(16)),
+        ("1e3", json!(1000)),
+        (" 2.5 ", json!(2.5)),
+    ] {
+        let answer = typed(&heater, "gain", text);
+        assert_eq!(outcome(&answer)["kind"], json!("applied"), "{text}");
+        assert_eq!(answer.draft["parameters"]["gain"], gain, "{text}");
+        assert_eq!(answer.draft["modelValuesTouched"], json!(true), "{text}");
+    }
+    let unreadable = typed(&heater, "gain", "abc");
+    assert_eq!(unreadable.draft["parameters"]["gain"], Value::Null);
+    assert!(
+        super::found(&unreadable.issues).contains(&(
+            "parameters.gain".to_string(),
+            "Gain must contain finite numbers.".to_string()
+        )),
+        "{:?}",
+        unreadable.issues
+    );
+    assert!(!unreadable.can_save());
+    let emptied = typed(&heater, "gain", "  ");
+    assert!(
+        !emptied.draft["parameters"]
+            .as_object()
+            .expect("parameters")
+            .contains_key("gain"),
+        "{:?}",
+        emptied.draft
+    );
+    assert_eq!(emptied.draft["parameters"]["time_constant_s"], json!(10));
+}
+
+// A list or matrix field holds the JSON value of its text, else the text itself, so that the
+// checks can name it; an emptied starting state is an empty list, and a field the model does not
+// have is a malformed request. Catches a reader that drops unreadable text or writes a field of
+// another model.
+#[test]
+fn text_typed_into_a_list_field_is_its_json_value_else_the_text() {
+    let mut model = saved_fopdt();
+    model["model"] = json!("state_space");
+    model["parameters"] =
+        json!({"a": [[0, 1], [-1, 0]], "b": [[0], [1]], "c": [[1, 0]], "d": [[0]]});
+    model["initialState"] = json!([0, 0]);
+
+    assert_eq!(
+        typed(&model, "a", "[[0, 1], [-2, 0]]").draft["parameters"]["a"],
+        json!([[0, 1], [-2, 0]])
+    );
+    assert_eq!(
+        typed(&model, "input_delays_s", " [0.5] ").draft["parameters"]["input_delays_s"],
+        json!([0.5])
+    );
+    assert_eq!(
+        typed(&model, "a", "0 1; -2 0").draft["parameters"]["a"],
+        json!("0 1; -2 0")
+    );
+    assert_eq!(
+        typed(&model, "initial_state", "").draft["initialState"],
+        json!([])
+    );
+    let Err(error) = edit(
+        &model,
+        Some(&json!({"kind": "set_dynamics_text", "key": "gain", "text": "1"})),
+        Some(&signals()),
+        &project(&[]),
+    ) else {
+        panic!("state space has no gain field");
+    };
+    assert!(error.contains("names no field gain"), "{error}");
+}

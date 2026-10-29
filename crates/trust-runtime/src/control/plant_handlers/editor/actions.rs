@@ -1,12 +1,15 @@
 //! The plant editor's rule-bearing edits (specification 47 §7 to §12): each takes the draft and the
 //! user's request and returns the new draft, or asks for confirmation, or refuses with the reason
-//! the editor shows. Plain value entry needs no action: the editor writes the value into the draft.
+//! the editor shows. Plain value entry needs no action: the editor writes the value of a number input
+//! into the draft. Text typed into a Dynamics field is read here (`set_dynamics_text`).
 
 use serde_json::{json, Map, Value};
 
 use super::js;
 use super::signals::Catalog;
-use super::{candidate, effects, events, piecewise, ports, state_space, temperature, vocabulary};
+use super::{
+    candidate, effects, events, piecewise, ports, state_space, tables, temperature, vocabulary,
+};
 
 /// The result of an action.
 #[derive(Clone, Debug, PartialEq)]
@@ -112,6 +115,19 @@ pub(super) fn apply(
                 Ok(value) => applied(temperature::with_value(draft, &field, value)),
                 Err(message) => unchanged(Outcome::Rejected(message)),
             }
+        }
+        "set_dynamics_text" => {
+            let key = name("key")?;
+            let model = js::text(draft, "model");
+            let Some(field) = tables::dynamics_fields(model)
+                .iter()
+                .find(|field| field.key == key)
+            else {
+                return Err(format!(
+                    "plant.edit action set_dynamics_text names no field {key} of model {model}"
+                ));
+            };
+            applied(with_dynamics_text(draft, field, &name("text")?))
         }
         "confirm_temperature_units" => {
             let Some(confirmed) = action.get("confirmed").and_then(Value::as_bool) else {
@@ -491,4 +507,42 @@ fn replace_row(
     let mut next = draft.clone();
     next.insert(key.into(), Value::Array(rows));
     Ok((next, Outcome::Applied { index: Some(row) }))
+}
+
+/// The draft with the value that `text`, typed into the Dynamics field `field`, spells
+/// (specification 47 §20.1): empty text holds no value, and an empty starting state for
+/// `initial_state`; a number field holds the number that JavaScript's `Number` reads, or `null` when
+/// that is not finite; a list or matrix field holds the JSON value of the text, else the text
+/// itself. The checks then say whether the draft is valid.
+fn with_dynamics_text(
+    draft: &Map<String, Value>,
+    field: &tables::DynamicsField,
+    text: &str,
+) -> Map<String, Value> {
+    let value = if text.trim().is_empty() {
+        None
+    } else {
+        Some(match field.value_kind {
+            tables::ValueKind::Number => js::js_number(js::number_from_text(text)),
+            tables::ValueKind::Vector | tables::ValueKind::Matrix => {
+                serde_json::from_str(text).unwrap_or_else(|_| Value::String(text.to_string()))
+            }
+        })
+    };
+    let mut next = draft.clone();
+    if field.key == "initial_state" {
+        next.insert(
+            "initialState".into(),
+            value.unwrap_or_else(|| Value::Array(Vec::new())),
+        );
+    } else {
+        let mut parameters = js::object(draft, "parameters").clone();
+        match value {
+            Some(value) => parameters.insert(field.key.to_string(), value),
+            None => parameters.remove(field.key),
+        };
+        next.insert("parameters".into(), Value::Object(parameters));
+    }
+    next.insert("modelValuesTouched".into(), Value::Bool(true));
+    next
 }

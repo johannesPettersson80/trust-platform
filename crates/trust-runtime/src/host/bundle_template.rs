@@ -156,7 +156,7 @@ pub fn build_io_config_auto(driver: &str) -> anyhow::Result<IoConfigTemplate> {
 #[must_use]
 pub fn render_runtime_toml(resource_name: &SmolStr, cycle_ms: u64) -> String {
     format!(
-        "[bundle]\nversion = 1\n\n[resource]\nname = \"{resource_name}\"\ncycle_interval_ms = {cycle_ms}\n\n[runtime.control]\nmode = \"production\"\ndebug_enabled = false\n\n[runtime.web]\nenabled = true\nlisten = \"0.0.0.0:8080\"\nauth = \"local\"\ntls = false\n\n[runtime.tls]\nmode = \"disabled\"\nrequire_remote = false\n\n[runtime.discovery]\nenabled = true\nservice_name = \"truST\"\nadvertise = true\ninterfaces = [\"eth0\", \"wlan0\"]\n\n[runtime.mesh]\nenabled = false\nrole = \"peer\"\nlisten = \"0.0.0.0:5200\"\nconnect = []\ntls = false\nzenohd_version = \"1.7.2\"\nplugin_versions = {{}}\npublish = []\n\n[runtime.cloud]\nprofile = \"dev\"\n\n[runtime.cloud.wan]\nallow_write = []\n\n[runtime.realtime]\nenabled = false\nrequire_preempt_rt_kernel = false\nlock_memory = false\nscheduler = \"other\"\npriority = 70\ncpu_affinity = []\nstrict = false\n\n[runtime.openot]\nenabled = false\npath = \"openot.shm\"\ncapacity = 4096\nfence_mode = \"fenced\"\nallow_unfenced_for_proof = false\nsource = \"heartbeat\"\n\n[runtime.opcua_client]\nenabled = false\nconfig_path = \"opcua_client.toml\"\npoll_interval_ms = 250\n\n[runtime.opcua]\nenabled = false\nlisten = \"0.0.0.0:4840\"\nendpoint_path = \"/\"\nnamespace_uri = \"urn:trust:runtime\"\npublish_interval_ms = 250\nmax_nodes = 128\nexpose = []\nsecurity_policy = \"basic256sha256\"\nsecurity_mode = \"sign_and_encrypt\"\nallow_anonymous = false\n\n[runtime.observability]\nenabled = false\nsample_interval_ms = 1000\nmode = \"all\"\ninclude = []\nhistory_path = \"history/historian.jsonl\"\nmax_entries = 20000\nprometheus_enabled = true\nprometheus_path = \"/metrics\"\n\n[runtime.log]\nlevel = \"info\"\n\n[runtime.retain]\nmode = \"none\"\nsave_interval_ms = 1000\n\n[runtime.watchdog]\nenabled = false\ntimeout_ms = 5000\naction = \"halt\"\n\n[runtime.fault]\npolicy = \"halt\"\n"
+        "[bundle]\nversion = 1\n\n[resource]\nname = \"{resource_name}\"\ncycle_interval_ms = {cycle_ms}\n\n[runtime.control]\nmode = \"production\"\ndebug_enabled = false\n\n[runtime.web]\nenabled = true\nlisten = \"0.0.0.0:8080\"\nauth = \"local\"\ntls = false\n\n[runtime.tls]\nmode = \"disabled\"\nrequire_remote = false\n\n[runtime.discovery]\nenabled = true\nservice_name = \"truST\"\nadvertise = true\ninterfaces = [\"eth0\", \"wlan0\"]\n\n[runtime.mesh]\nenabled = false\nrole = \"peer\"\nlisten = \"0.0.0.0:5200\"\nconnect = []\ntls = false\nzenohd_version = \"1.7.2\"\nplugin_versions = {{}}\npublish = []\n\n[runtime.cloud]\nprofile = \"dev\"\n\n[runtime.cloud.wan]\nallow_write = []\n\n[runtime.realtime]\nenabled = false\nrequire_preempt_rt_kernel = false\nlock_memory = false\nscheduler = \"other\"\npriority = 70\ncpu_affinity = []\nstrict = false\n\n[runtime.openot]\nenabled = false\npath = \"openot.shm\"\ncapacity = 4096\nfence_mode = \"fenced\"\nallow_unfenced_for_proof = false\nsource = \"heartbeat\"\n\n[runtime.opcua_client]\nenabled = false\nconfig_path = \"opcua_client.toml\"\npoll_interval_ms = 250\n\n[runtime.opcua]\nenabled = false\nlisten = \"0.0.0.0:4840\"\nendpoint_path = \"/\"\nnamespace_uri = \"urn:trust:runtime\"\npublish_interval_ms = 250\nmax_nodes = 128\nexpose = []\nsecurity_policy = \"basic256sha256\"\nsecurity_mode = \"sign_and_encrypt\"\nallow_anonymous = false\n\n[runtime.observability]\nenabled = false\nsample_interval_ms = 1000\nmode = \"all\"\ninclude = []\nhistory_path = \"history/historian.jsonl\"\nmax_entries = 20000\nprometheus_enabled = true\nprometheus_path = \"/metrics\"\n\n[runtime.log]\nlevel = \"info\"\n\n[runtime.retain]\nmode = \"file\"\npath = \"retain.bin\"\nsave_interval_ms = 1000\n\n[runtime.watchdog]\nenabled = false\ntimeout_ms = 5000\naction = \"halt\"\n\n[runtime.fault]\npolicy = \"halt\"\n"
     )
 }
 
@@ -217,6 +217,22 @@ mod tests {
 
         assert!(!control.contains_key("endpoint"), "{text}");
         assert!(!control.contains_key("auth_token"), "{text}");
+        crate::config::validate_runtime_toml_text(&text)
+            .expect("the template is a valid runtime.toml");
+    }
+
+    /// A runtime that setup, the web setup or the wizard creates keeps its RETAIN values in
+    /// `retain.bin`, as a new project does, so that a warm restart and a power cycle give them back
+    /// (IEC 61131-3 Ed.3 §6.5.6.1; specification 11 §6.7). Catches the former `mode = "none"`,
+    /// which started every device cold (K2, 29 October 2026).
+    #[test]
+    fn the_runtime_template_keeps_retain_values_in_a_file() {
+        let text = render_runtime_toml(&SmolStr::new("Line_A"), 20);
+        let value: toml::Value = toml::from_str(&text).expect("the template parses");
+        let retain = &value["runtime"]["retain"];
+
+        assert_eq!(retain["mode"].as_str(), Some("file"), "{text}");
+        assert_eq!(retain["path"].as_str(), Some("retain.bin"), "{text}");
         crate::config::validate_runtime_toml_text(&text)
             .expect("the template is a valid runtime.toml");
     }

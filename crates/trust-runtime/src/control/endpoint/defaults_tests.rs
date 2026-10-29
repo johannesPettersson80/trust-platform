@@ -8,7 +8,7 @@ use std::path::PathBuf;
 #[cfg(unix)]
 use super::defaults::{
     client_unix_default_in, ensure_user_private_directory, fallback_socket, fits_socket_path,
-    project_socket, runtime_directory_path, unix_default_endpoint_in,
+    project_socket, runtime_directory_in, unix_default_endpoint_in,
 };
 use super::defaults::{
     generate_control_token, per_user_token_directory_in, project_path_hash, token_from_rng,
@@ -244,22 +244,79 @@ fn a_client_takes_the_fallback_socket_only_when_the_fallback_socket_alone_exists
 
 // The per-user runtime directory (spec 11, section 6.8.0a).
 
+// Catches a runtime directory other than a private `$XDG_RUNTIME_DIR`, or other than
+// `trust-runtime-<uid>` in the temporary folder when that variable is unset or empty.
 #[cfg(unix)]
 #[test]
-fn the_runtime_directory_is_xdg_runtime_dir_else_a_per_user_folder_in_the_temporary_folder() {
-    let temp = Path::new("/tmp");
+fn the_runtime_directory_is_a_private_xdg_runtime_dir_else_a_per_user_folder_in_the_temporary_folder(
+) {
+    let scratch = Scratch::new("runtime-dir-choice");
+    let uid = rustix::process::geteuid().as_raw();
+    let xdg = scratch.path().join("xdg");
+    std::fs::create_dir(&xdg).expect("create directory");
+    super::test_support::set_mode(&xdg, 0o700);
+    let per_user = scratch.path().join(format!("trust-runtime-{uid}"));
 
     assert_eq!(
-        runtime_directory_path(Some("/run/user/1000".into()), temp, 1000),
-        PathBuf::from("/run/user/1000")
+        runtime_directory_in(Some(xdg.clone().into_os_string()), scratch.path(), uid)
+            .expect("a private XDG_RUNTIME_DIR"),
+        xdg
     );
     assert_eq!(
-        runtime_directory_path(Some("".into()), temp, 1000),
-        PathBuf::from("/tmp/trust-runtime-1000")
+        runtime_directory_in(Some("".into()), scratch.path(), uid).expect("an empty variable"),
+        per_user
     );
     assert_eq!(
-        runtime_directory_path(None, temp, 1000),
-        PathBuf::from("/tmp/trust-runtime-1000")
+        runtime_directory_in(None, scratch.path(), uid).expect("no variable"),
+        per_user
+    );
+}
+
+// F12 (29 October 2026): on the Raspberry Pi, `/run/user/1000` has mode 0770, and a project too
+// long for its own socket could not start. Catches both a refusal and a socket in a folder that
+// the user's group can enter.
+#[cfg(unix)]
+#[test]
+fn an_xdg_runtime_dir_open_to_the_group_is_passed_over_for_a_private_one_in_the_temporary_folder() {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+    let scratch = Scratch::new("runtime-dir-group");
+    let uid = rustix::process::geteuid().as_raw();
+    let xdg = scratch.path().join("xdg");
+    std::fs::create_dir(&xdg).expect("create directory");
+    super::test_support::set_mode(&xdg, 0o770);
+
+    let dir = runtime_directory_in(Some(xdg.into_os_string()), scratch.path(), uid)
+        .expect("a private folder in the temporary folder");
+
+    assert_eq!(dir, scratch.path().join(format!("trust-runtime-{uid}")));
+    let metadata = std::fs::symlink_metadata(&dir).expect("runtime directory");
+    assert!(metadata.is_dir());
+    assert_eq!(metadata.uid(), uid);
+    assert_eq!(metadata.permissions().mode() & 0o077, 0);
+}
+
+// Catches a fallback socket placed in a `trust-runtime-<uid>` folder that other users can enter:
+// with no private folder left, the default cannot be used.
+#[cfg(unix)]
+#[test]
+fn without_a_private_runtime_directory_the_default_cannot_be_used() {
+    let scratch = Scratch::new("runtime-dir-none");
+    let uid = rustix::process::geteuid().as_raw();
+    let xdg = scratch.path().join("xdg");
+    std::fs::create_dir(&xdg).expect("create directory");
+    super::test_support::set_mode(&xdg, 0o770);
+    let per_user = scratch.path().join(format!("trust-runtime-{uid}"));
+    std::fs::create_dir(&per_user).expect("create directory");
+    super::test_support::set_mode(&per_user, 0o755);
+
+    let error = runtime_directory_in(Some(xdg.into_os_string()), scratch.path(), uid)
+        .expect_err("no private runtime directory");
+
+    assert!(error.to_string().contains("other users"), "{error}");
+    assert!(
+        error.to_string().contains(&format!("trust-runtime-{uid}")),
+        "{error}"
     );
 }
 

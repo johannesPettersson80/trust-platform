@@ -115,6 +115,8 @@ The CODESYS and e!COCKPIT dialect constructs of PR #141:
 
 ### Changed
 
+- The plant editor's Dynamics fields send what is typed to the runtime's `plant.edit` (`set_dynamics_text`), which
+  reads it into the draft; the extension no longer reads numbers and lists itself (specification 47 §20.1).
 - The SFC editor's Validate refuses a step named like a variable, an action or a timer the companion declares, and a
   transition priority that is not a whole number from 0; the first would give a companion that does not compile, the
   second was silently ignored.
@@ -129,6 +131,13 @@ The CODESYS and e!COCKPIT dialect constructs of PR #141:
 
 ### Fixed
 
+- A device set up with truST (setup, the web setup or the wizard) and a runtime created in the config UI keep their
+  RETAIN values across a restart and a power cycle: the `runtime.toml` they write stores them in `retain.bin`, as a new
+  project's does. They had `[runtime.retain] mode = "none"`, so every start was cold (IEC 61131-3 §6.5.6.1).
+- A runtime whose project folder is too deep for its own control socket starts when `$XDG_RUNTIME_DIR` is open to the
+  user's group or belongs to another user: its socket goes into a private `trust-runtime-<uid>` folder in the
+  temporary folder. It refused to start without an explicit endpoint (seen on a Raspberry Pi 5, where
+  `/run/user/1000` has mode 0770).
 - A function block's statements after a `METHOD` or `ACTION` declaration run with the rest of its body; the build
   compiled only the statements before the first such declaration and left the rest out without a diagnostic.
 - Compile says that trust-runtime is missing only when the extension cannot start it; trust-runtime's own output with
