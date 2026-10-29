@@ -118,11 +118,23 @@ The CODESYS and e!COCKPIT dialect constructs of PR #141:
 - The SFC editor's Validate refuses a step named like a variable, an action or a timer the companion declares, and a
   transition priority that is not a whole number from 0; the first would give a companion that does not compile, the
   second was silently ignored.
+- The sidebar's notice of a failed Connect offers `Open Devices & Connections` or `Set auth token` by the remedy that
+  the language server names: the first when the runtime accepts no connection or does not answer, the second when it
+  refuses the token by its code (specification 25 §5.1). A failed Update shows the debug adapter's summary of the
+  reload (§6.3), and a malformed PLCopen import shows trust-runtime's message, which now says that the input XML is
+  malformed (§11.3). The extension kept copies of these rules that read the failure's text.
+- Live Values shows the value type that the debug adapter names: the runtime's, else the one the row's direct address
+  names by its size, now also for a bit address without a size prefix such as `%I0.3` (specification 25 §4.3). The
+  panel kept its own copies of the address and truth-value rules.
 
 ### Fixed
 
 - A function block's statements after a `METHOD` or `ACTION` declaration run with the rest of its body; the build
   compiled only the statements before the first such declaration and left the rest out without a diagnostic.
+- Compile says that trust-runtime is missing only when the extension cannot start it; trust-runtime's own output with
+  the words `not found` was reported as a missing trust-runtime.
+- A visual program imported from a folder whose name begins with the workspace folder's name, such as `/ws-other`
+  beside `/ws`, is copied into the workspace; it was opened where it was, as if it were inside the workspace.
 - A DUT `EXTENDS` clause whose base names no declared type is diagnosed (`cannot resolve type '<base>'`, `E102`); the
   derived struct was accepted silently and inherited from nothing (PR #140).
 - A project constant whose evaluation fails is reported in the file that owns it: a library or stub file's failed

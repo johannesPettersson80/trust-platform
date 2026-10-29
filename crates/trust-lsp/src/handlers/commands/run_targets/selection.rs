@@ -23,6 +23,12 @@
 //! session ends first and a failure reported for the previous target is forgotten. `settings` is
 //! `online` at `endpoint` (empty for the project's own runtime, so that each connection asks for
 //! its endpoint again), `simulate`, or `keep`.
+//!
+//! `stop` `{ snapshot }` answers what Stop or Disconnect does while the extension holds no session
+//! (§5.1): `{ ok: true, settings, message }`. A runtime the extension is connected to without a
+//! session is left by turning the control endpoint off (`settings` `disableEndpoint`, `Runtime
+//! endpoint disabled.`); with no runtime connected nothing changes (`keep`, `Runtime already
+//! stopped.`).
 
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -94,6 +100,12 @@ struct SelectArgs {
     id: String,
     #[serde(default)]
     endpoint: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct StopArgs {
+    #[serde(default)]
+    snapshot: Snapshot,
 }
 
 /// Who owns a target's process.
@@ -216,6 +228,18 @@ pub(super) fn select(argument: Value) -> Result<Value, String> {
         "settings": settings,
         "endpoint": named,
     }))
+}
+
+/// What Stop or Disconnect does while the extension holds no session (§5.1): a runtime it is
+/// connected to is left by turning the control endpoint off; with none connected, nothing changes.
+pub(super) fn stop(argument: Value) -> Result<Value, String> {
+    let args: StopArgs = decode(argument)?;
+    let (settings, message) = if args.snapshot.runtime_state == "connected" {
+        ("disableEndpoint", "Runtime endpoint disabled.")
+    } else {
+        ("keep", "Runtime already stopped.")
+    };
+    Ok(json!({ "ok": true, "settings": settings, "message": message }))
 }
 
 /// Whether the extension is connected to a runtime: its session is attached, or it is online with a

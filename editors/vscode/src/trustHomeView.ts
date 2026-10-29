@@ -1293,7 +1293,7 @@ function actionFailureMessage(
     case "stop":
       return `Could not stop: ${reason}`;
     case "connect":
-      if (isRuntimeUnreachableFailure(reason)) {
+      if (result.failure.remedy === "openDevices") {
         return `Could not connect to ${selected.label}. Runtime is not reachable. Open Devices & Connections to start or diagnose this runtime.`;
       }
       return `Could not connect to ${selected.label}: ${reason}`;
@@ -1307,26 +1307,18 @@ function actionFailureMessage(
 const SET_AUTH_TOKEN_ACTION = "Set auth token";
 const OPEN_DEVICES_ACTION = "Open Devices & Connections";
 
+// The language server names a failed Connect's remedy (specification 25 §5.1); the notice offers its action.
 function connectFailureChoices(
   result: RuntimeLifecycleResult & { ok: false }
 ): string[] {
-  const text = `${result.failure.kind} ${result.failure.message} ${result.failure.detail ?? ""}`;
-  if (isRuntimeUnreachableFailure(text)) {
-    return [OPEN_DEVICES_ACTION];
+  switch (result.failure.remedy) {
+    case "openDevices":
+      return [OPEN_DEVICES_ACTION];
+    case "setAuthToken":
+      return [SET_AUTH_TOKEN_ACTION];
+    default:
+      return [];
   }
-  if (isAuthTokenFailure(text)) {
-    return [SET_AUTH_TOKEN_ACTION];
-  }
-  return [];
-}
-
-function isRuntimeUnreachableFailure(text: string): boolean {
-  return /not reachable|unreachable|connection refused|econnrefused|timed out|timeout/i.test(text);
-}
-
-function isAuthTokenFailure(text: string): boolean {
-  return /auth|token|credential|unauthori[sz]ed|permission denied/i.test(text) &&
-    !isRuntimeUnreachableFailure(text);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -1344,27 +1336,11 @@ function reloadFailureMessage(value: unknown, validity: ValidityLine): string {
   if (!validity.ok) {
     return "Fix the errors shown in Problems, then try again.";
   }
+  // The debug adapter answers a failed reload with its summary (specification 25 §6.3).
   if (isRecord(value) && typeof value.message === "string" && value.message.trim()) {
-    return summarizeReloadMessage(value.message);
+    return value.message.trim();
   }
   return "Update did not report success. Keep the simulator running, fix any compile errors, and try again.";
-}
-
-function summarizeReloadMessage(message: string): string {
-  const firstLine = message.trim().split(/\r?\n/).find((line) => line.trim())?.trim() ?? "";
-  if (!firstLine) {
-    return "Update did not report a reason.";
-  }
-  const sourceErrorCount = message
-    .split(/\r?\n/)
-    .filter((line) => /\.(st|pou):/i.test(line)).length;
-  if (sourceErrorCount > 0) {
-    return `Compile failed — ${sourceErrorCount} error${sourceErrorCount === 1 ? "" : "s"}. Open Problems, then try again.`;
-  }
-  if (firstLine.length <= 160) {
-    return firstLine;
-  }
-  return `${firstLine.slice(0, 157).trimEnd()}...`;
 }
 
 function makeNonce(): string {

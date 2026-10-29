@@ -13,6 +13,7 @@ import {
 import { runtimeStatusPayload } from "./io-panel/status";
 import type { IoState, RuntimeStatusPayload } from "./io-panel/types";
 import { projectRequest } from "./projectRequest";
+import { toModelSnapshot } from "./trustHomeModel";
 
 const SESSION_WAIT_TIMEOUT_MS = 8000;
 const SESSION_WAIT_POLL_MS = 100;
@@ -404,8 +405,17 @@ class RuntimeLifecycleService {
       };
     }
 
-    const snapshot = await this.snapshot();
-    if (snapshot.status.runtimeState === "connected") {
+    // What Stop does without a session is the language server's (`trust-lsp.runTargets`, action `stop`, specification
+    // 25 §5.1): a runtime connected without a session is left by turning the control endpoint off; with none, Stop is
+    // a success that changes nothing.
+    const answer = await projectRequest<{ settings: "disableEndpoint" | "keep"; message: string }>(
+      "trust-lsp.runTargets",
+      { action: "stop", snapshot: toModelSnapshot(await this.snapshot()) }
+    );
+    if (!answer.ok) {
+      return { ok: false, failure: { kind: "stale_runtime", message: answer.error } };
+    }
+    if (answer.settings === "disableEndpoint") {
       const target = this.runtimeConfigTarget();
       const config = getTrustConfiguration(target);
       await config.update(
@@ -414,10 +424,9 @@ class RuntimeLifecycleService {
         this.runtimeConfigScope(target)
       );
       this.emitChanged();
-      return { ok: true, message: "Runtime endpoint disabled." };
+      return { ok: true, message: answer.message };
     }
-    // Idempotent: nothing is running, so Stop is a no-op success (no warning).
-    return this.markStopped("Runtime already stopped.");
+    return this.markStopped(answer.message);
   }
 
   // Connect changes nothing until it succeeds (specification 25, section 5.1): the runtime must be

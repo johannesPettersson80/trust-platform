@@ -11,14 +11,6 @@ function isBinaryMissingError(message: string): boolean {
   return lower.includes("enoent") || lower.includes("not found");
 }
 
-function isMalformedImportXml(detail: string): boolean {
-  const lower = detail.toLowerCase();
-  return (
-    lower.includes("failed to parse plcopen xml") ||
-    lower.includes("invalid plcopen xml")
-  );
-}
-
 export function formatPlcopenLaunchError(
   action: PlcopenRuntimeAction,
   message: string
@@ -38,9 +30,6 @@ export function formatPlcopenCommandFailure(
   const normalized = normalizeWhitespace(detail);
   if (!normalized) {
     return `PLCopen ${action} failed (exit ${exitCode}). No diagnostics returned.`;
-  }
-  if (action === "import" && isMalformedImportXml(normalized)) {
-    return `PLCopen import failed because the input XML is malformed. ${normalized}`;
   }
   return `PLCopen ${action} failed (exit ${exitCode}). ${normalized}`;
 }

@@ -937,3 +937,23 @@ fn transaction_contract_successful_import_publishes_coherent_artifact_set() {
     assert_eq!(migration["skipped_pous"], 0);
     let _ = std::fs::remove_dir_all(project);
 }
+
+/// A file that does not read as XML fails the import with what the user acts on (specification 25
+/// §11.3): the file, and that the input XML is malformed, which the extension shows as it is.
+/// Catches the parser's detail as the only message.
+#[test]
+fn transaction_contract_malformed_xml_says_the_input_is_malformed() {
+    let root = temp_dir("plcopen-malformed");
+    let xml = root.join("input.xml");
+    write(&xml, "<project><types></project");
+    let error = import_xml_to_project(&xml, &root.join("project"))
+        .expect_err("malformed XML must fail the import");
+    assert_eq!(
+        error.to_string(),
+        format!(
+            "failed to parse PLCopen XML '{}': the input XML is malformed",
+            xml.display()
+        )
+    );
+    std::fs::remove_dir_all(root).ok();
+}

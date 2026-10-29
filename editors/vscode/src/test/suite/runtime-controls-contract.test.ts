@@ -399,14 +399,18 @@ suite("truST sidebar — control surface contract", () => {
       ),
       "sidebar must not offer Set auth token for every failed Connect"
     );
-    const choicesBody = source.slice(
-      source.indexOf("function connectFailureChoices"),
-      source.indexOf("function isRuntimeUnreachableFailure")
+    const choicesStart = source.indexOf("function connectFailureChoices");
+    const choicesBody = source.slice(choicesStart, source.indexOf("\nfunction ", choicesStart + 1));
+    assert.ok(
+      choicesBody.includes("result.failure.remedy") &&
+        choicesBody.includes('case "openDevices"') &&
+        choicesBody.includes('case "setAuthToken"') &&
+        !/\.test\(|\.includes\(|\.match\(/.test(choicesBody),
+      "the language server's remedy chooses the action (specification 25 §5.1); the failure's text never does"
     );
     assert.ok(
-      choicesBody.includes("isRuntimeUnreachableFailure") &&
-        choicesBody.includes("isAuthTokenFailure"),
-      "unreachable and auth failures must be separate branches"
+      !source.includes("isRuntimeUnreachableFailure") && !source.includes("isAuthTokenFailure"),
+      "no copy of the failure classification may remain in the sidebar"
     );
     assert.ok(
       source.includes(
@@ -691,9 +695,11 @@ suite("truST sidebar — control surface contract", () => {
       source.includes("waitForSessionGone"),
       "stop must verify success by the session actually going away"
     );
+    // Without a session the language server answers what Stop does; stopping an already-stopped runtime is a success
+    // that changes nothing (selection_tests.rs, stop_without_a_session).
     assert.ok(
-      source.includes("Runtime already stopped."),
-      "stopping an already-stopped runtime must be a no-op success"
+      source.includes('action: "stop"') && source.includes("return this.markStopped(answer.message);"),
+      "stopping an already-stopped runtime must be a no-op success, as the language server answers it"
     );
     // The old bug: returning the 'No active Structured Text debug session.' failure from a Stop.
     const stopBody = source.slice(
@@ -761,12 +767,10 @@ suite("truST sidebar — control surface contract", () => {
       "a timed-out Update running simulation must fail with a user-facing recovery message"
     );
     assert.ok(
-      source.includes("function summarizeReloadCommandMessage") &&
-        source.includes("Compile failed — ${sourceErrorCount} error") &&
-        reloadCommand.includes("summarizeReloadCommandMessage(rawMessage)") &&
-        reloadCommand.includes("Update failed: ${message}") &&
-        !reloadCommand.includes("Update failed: ${rawMessage}"),
-      "Update notifications must summarize compile failures instead of leaking raw source paths"
+      reloadCommand.includes("Update failed: ${message}") &&
+        !source.includes("summarizeReloadCommandMessage") &&
+        !source.includes("sourceErrorCount"),
+      "Update notifications show the debug adapter's summary of a failed reload (specification 25 §6.3), with no copy of its rule"
     );
     assert.ok(
       source.includes("onDidDebugReload") &&
@@ -780,7 +784,8 @@ suite("truST sidebar — control surface contract", () => {
         homeSource.includes("Running simulation updated.") &&
         homeSource.includes("Update failed:") &&
         homeSource.includes("value.gated === true") &&
-        homeSource.includes("Open Problems, then try again."),
+        // The debug adapter writes the summary of a failed reload (lifecycle_tests.rs); the sidebar shows it.
+        homeSource.includes("return value.message.trim();"),
       "sidebar must clear or explain pending Update state from the shared reload result"
     );
   });

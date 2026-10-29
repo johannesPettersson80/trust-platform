@@ -611,8 +611,11 @@ package, or end-to-end evidence.
   (`USINT` included), the value type in capitals; an entry without an address
   or a value is left out, and the globals that an ADS tag binds form their own
   group (trust-debug `adapter/io_values.rs`).
-- Every row MUST prefer the backend value type and only then infer from an I/O
-  address. `Type` and `State` are visible columns, state uses badges, and source
+- The value type is the runtime's; when the runtime names none, the debug
+  adapter names the type that the entry's direct address names by its size
+  (IEC 61131-3 §6.5.5, Table 16: `X` or no size prefix `BOOL`, `B` `BYTE`, `W`
+  `WORD`, `D` `DWORD`, `L` `LWORD`). The table shows that type and infers none.
+  `Type` and `State` are visible columns, state uses badges, and source
   provenance is muted context beneath the name rather than another column.
 - BOOL rows use a compact TRUE/FALSE chooser for Write and Force. A forced BOOL
   row shows Release, hides the editable value, and explains that release is
@@ -768,6 +771,13 @@ package, or end-to-end evidence.
   on that node. After a missing or rejected token the node's primary control
   stores a token for that endpoint, and Connect stays available on the node as
   the retry.
+- The language server names a failed Connect's remedy (`trust-lsp.runTargets`,
+  action `connect`): `openDevices` when the runtime accepts no connection or
+  its `status` request gets no answer, `setAuthToken` when the runtime refuses
+  a missing or rejected token by its code, and none for any other failure. The
+  sidebar's notice of the failure offers `Open Devices & Connections` for the
+  first, saying that the runtime is not reachable, and `Set auth token` for the
+  second. The extension never reads the failure's text to choose.
 - A runtime that answers Connect but reports debugging disabled becomes the
   selected target without an attach session. Live Values then says that
   debugging is disabled on that runtime and names `debug_enabled` under
@@ -781,6 +791,12 @@ package, or end-to-end evidence.
   online mode for a target without one (the Simulator, a stopped managed
   runtime). Selecting opens no session. When the previous session does not end,
   the selection stays as it was and a warning says why.
+- Stop or Disconnect while the extension holds no session leaves a runtime it
+  is connected to by turning the control endpoint off
+  (`runtime.controlEndpointEnabled` false, `Runtime endpoint disabled.`); with
+  no runtime connected it changes nothing and succeeds (`Runtime already
+  stopped.`). The language server answers which (`trust-lsp.runTargets`, action
+  `stop`).
 - Managed Start/Stop uses fleet lifecycle. Successful managed Start attaches
   through the shared helper with the reached endpoint and friendly label,
   selects the target, and makes Live Values usable. A static fake local-runtime
@@ -1671,6 +1687,12 @@ test checks each family.
 - Update invokes `trust-lsp.debug.reload`, publishes compact success/failure,
   summarizes Problems-oriented compiler failures rather than raw paths, clears
   pending state only after success, and leaves retry visible after failure.
+- The debug adapter answers a failed `stReload` with that summary, and the
+  extension shows it as it is: `Compile failed — N error(s). Open Problems,
+  then try again.` when N lines of the build's error name a source file
+  (`<name>.st:` or `<name>.pou:`); else the error's first line that is not
+  blank, a line longer than 160 characters cut to its first 157 and `...`;
+  `Update did not report a reason.` for an error without such a line.
 - The language-model reload tool inspects the structured command result and
   reports `Failed to update running simulation:` when `ok=false`; invocation
   alone is not success.

@@ -538,3 +538,29 @@ fn selecting_a_target() {
     }
     assert!(super::select(json!({ "action": "select", "snapshot": {}, "id": " " })).is_err());
 }
+
+/// Stop or Disconnect while the extension holds no session leaves a runtime it is connected to by
+/// turning the control endpoint off, and changes nothing when no runtime is connected (§5.1).
+/// Catches the endpoint turned off for a runtime that is not connected, and a connected runtime
+/// left connected.
+#[test]
+fn stop_without_a_session() {
+    let connected = super::stop(json!({
+        "snapshot": snapshot("online", "connected", "tcp://10.0.0.2:9901"),
+    }))
+    .expect("an answer");
+    assert_eq!(
+        connected,
+        json!({ "ok": true, "settings": "disableEndpoint", "message": "Runtime endpoint disabled." })
+    );
+    for state in ["stopped", "running", "unavailable", ""] {
+        let answer =
+            super::stop(json!({ "snapshot": snapshot("online", state, "tcp://10.0.0.2:9901") }))
+                .expect("an answer");
+        assert_eq!(
+            answer,
+            json!({ "ok": true, "settings": "keep", "message": "Runtime already stopped." }),
+            "{state}"
+        );
+    }
+}

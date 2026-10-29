@@ -12,8 +12,13 @@ pub fn import_xml_to_project_with_options(
 ) -> anyhow::Result<PlcopenImportReport> {
     let xml_text = std::fs::read_to_string(xml_path)
         .with_context(|| format!("failed to read PLCopen XML '{}'", xml_path.display()))?;
-    let document = roxmltree::Document::parse(&xml_text)
-        .with_context(|| format!("failed to parse PLCopen XML '{}'", xml_path.display()))?;
+    // The extension shows this text as it is (specification 25 §11.3).
+    let document = roxmltree::Document::parse(&xml_text).with_context(|| {
+        format!(
+            "failed to parse PLCopen XML '{}': the input XML is malformed",
+            xml_path.display()
+        )
+    })?;
 
     let root = document.root_element();
     if root.tag_name().name() != "project" {

@@ -1241,10 +1241,13 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
   test("Live Values renders visible data-type labels instead of hidden value inference", () => {
     const web = readSrc("ioPanel.webview.js");
     for (const [name, source] of [["ioPanel.webview.js", web]] as const) {
-      assert.ok(source.includes("typeFromAddress"), `${name} must derive BOOL/WORD-style types from I/O addresses`);
+      // The debug adapter names the type, by the address's size when the runtime names none (io_values_tests.rs).
       assert.ok(
-        source.includes("valueType") && source.includes("typeFromAddress(entry"),
-        `${name} must prefer backend-provided I/O value types before address fallback`
+        source.includes("entry.valueType") &&
+          !source.includes("typeFromAddress") &&
+          !source.includes("parseBooleanValue") &&
+          !/%\[IQM\]/.test(source),
+        `${name} must show the debug adapter's value type and keep no copy of the address or boolean rules`
       );
       assert.ok(
         source.includes('source.className = "source-subtitle"') &&
@@ -2468,8 +2471,10 @@ suite("Phase 6 — Update running simulation (simulator-only)", () => {
     );
     assert.ok(
       src.includes("Fix the errors shown in Problems, then try again.") &&
-        src.includes("summarizeReloadMessage"),
-      "Update running simulation must summarize compiler failures for the compact sidebar instead of dumping raw paths"
+        src.includes("return value.message.trim();") &&
+        !src.includes("summarizeReloadMessage") &&
+        !src.includes("sourceErrorCount"),
+      "Update running simulation shows the debug adapter's summary of a failed reload (specification 25 §6.3), with no copy of its rule"
     );
     assert.ok(
       /if \(isReloadSuccess\(result\)\)[\s\S]*this\.sourceChanged = false/.test(src) &&

@@ -1,11 +1,13 @@
 //! The I/O state as Live Values shows it (specification 25 §4.3): the event `stIoState` carries it.
 //! The runtime's `io.read` writes each value in Rust's debug form (`Bool(true)`, `DInt(5)`); here a
 //! truth value becomes `TRUE` or `FALSE` and a number its digits, a value type is written in
-//! capitals, an entry without an address or a value is left out, and the globals that an ADS tag
-//! binds (a `global:` address whose source begins with `ADS`) are listed apart from the process
-//! image's inputs, outputs and memory.
+//! capitals, and an entry whose type the runtime does not name has the type its direct address
+//! names by its size; an entry without an address or a value is left out, and the globals that an
+//! ADS tag binds (a `global:` address whose source begins with `ADS`) are listed apart from the
+//! process image's inputs, outputs and memory.
 
 use serde::Serialize;
+use trust_runtime::io::{IoAddress, IoSize};
 
 use crate::protocol::{IoStateEntry, IoStateEventBody};
 
@@ -61,11 +63,30 @@ fn display_entry(entry: &IoStateEntry) -> Option<IoStateEntry> {
         name: entry.name.clone(),
         address: entry.address.clone(),
         source: entry.source.clone(),
-        value_type: entry.value_type.as_deref().map(str::to_ascii_uppercase),
+        value_type: entry
+            .value_type
+            .as_deref()
+            .map(str::to_ascii_uppercase)
+            .or_else(|| address_type(&entry.address)),
         value: display_value(&entry.value),
         forced: entry.forced,
         writable: entry.writable,
     })
+}
+
+/// The type that a direct address names by its size (IEC 61131-3 §6.5.5, Table 16): `X` or no size
+/// prefix `BOOL`, `B` `BYTE`, `W` `WORD`, `D` `DWORD`, `L` `LWORD`; none for a byte window or a
+/// text that is no direct address, such as `global:Speed`.
+fn address_type(address: &str) -> Option<String> {
+    let name = match IoAddress::parse(address).ok()?.size {
+        IoSize::Bit => "BOOL",
+        IoSize::Byte => "BYTE",
+        IoSize::Word => "WORD",
+        IoSize::DWord => "DWORD",
+        IoSize::LWord => "LWORD",
+        IoSize::Bytes(_) => return None,
+    };
+    Some(name.to_owned())
 }
 
 /// The numeric value kinds whose debug form `Kind(digits)` shows as its digits.

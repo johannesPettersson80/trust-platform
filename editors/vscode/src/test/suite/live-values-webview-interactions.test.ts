@@ -120,7 +120,9 @@ function createHarness(): LiveValuesHarness {
                 {
                   name: "Boolean input",
                   address: "%IX0.0",
-                  value: input.value ?? "BOOL(FALSE)",
+                  // The entry as the debug adapter writes it (specification 25, section 4.3).
+                  valueType: "BOOL",
+                  value: input.value ?? "FALSE",
                   writable: true,
                   forced: input.forced ?? false,
                 },
@@ -204,9 +206,9 @@ function renderedColumnPositions(): Record<string, number[]> {
           type: "ioState",
           payload: {
             scan: 1,
-            inputs: [{ name: "I/O Boolean", address: "%IX0.0", value: "BOOL(FALSE)", writable: true }],
+            inputs: [{ name: "I/O Boolean", address: "%IX0.0", valueType: "BOOL", value: "FALSE", writable: true }],
             outputs: [], memory: [],
-            ads: [{ name: "ADS Long Value", address: "MAIN.RemoteValue", value: "LREAL(123456.789)", writable: true }]
+            ads: [{ name: "ADS Long Value", address: "MAIN.RemoteValue", valueType: "LREAL", value: "123456.789", writable: true }]
           }
         }}));
         const positions = {};
@@ -299,7 +301,7 @@ suite("Live Values rendered interactions", function () {
             type: "ioState",
             payload: {
               scan: 1,
-              inputs: [{ name: "Tank.Level", address: "%IL0", value: "LREAL(1.5116941978474925)", writable: true }],
+              inputs: [{ name: "Tank.Level", address: "%IL0", valueType: "LREAL", value: "1.5116941978474925", writable: true }],
               outputs: [],
               memory: [],
               ads: [],
@@ -364,7 +366,7 @@ suite("Live Values rendered interactions", function () {
       const force = actionButton(harness.document, "Force");
       assert.ok(force, "expected the Force action");
       force.dispatchEvent(pointerEvent(harness.window, "pointerdown"));
-      harness.sendIoState(2, { value: "BOOL(FALSE)" });
+      harness.sendIoState(2, { value: "FALSE" });
       force.dispatchEvent(pointerEvent(harness.window, "pointerup"));
       force.click();
       assert.strictEqual(
@@ -385,14 +387,14 @@ suite("Live Values rendered interactions", function () {
         "the displayed live value must not flash back to the stale scan value",
       );
 
-      harness.sendIoState(3, { value: "BOOL(FALSE)", forced: true });
+      harness.sendIoState(3, { value: "FALSE", forced: true });
       assert.strictEqual(
         harness.document.querySelector(".row .value")?.textContent,
         "TRUE",
         "a forced flag with the previous value is still an unconfirmed scan",
       );
 
-      harness.sendIoState(4, { value: "BOOL(TRUE)", forced: true });
+      harness.sendIoState(4, { value: "TRUE", forced: true });
       assert.strictEqual(
         harness.document.querySelector(".row .value")?.textContent,
         "TRUE",
@@ -400,6 +402,14 @@ suite("Live Values rendered interactions", function () {
       assert.strictEqual(
         harness.document.querySelector(".state-badge")?.textContent,
         "FORCED",
+      );
+
+      // The runtime confirmed the force, so the pending value ends: a later scan shows the runtime's value again.
+      harness.sendIoState(5, { value: "FALSE" });
+      assert.strictEqual(
+        harness.document.querySelector(".row .value")?.textContent,
+        "FALSE",
+        "a confirmed force must not hold its pending value over later scans",
       );
     } finally {
       harness.close();

@@ -1,7 +1,7 @@
 //! Adapter lifecycle and reload handlers.
 //! - handle_disconnect: tear down session
 //! - handle_terminate: stop runtime
-//! - handle_reload: change a launch's program online
+//! - handle_reload: change a launch's program online, a failure answered with its summary
 
 use serde_json::Value;
 
@@ -85,7 +85,7 @@ impl DebugAdapter {
             .unwrap_or_default();
         let response = match self.reload_compiled(args) {
             Ok(()) => self.ok_response::<Value>(&request, None),
-            Err(error) => self.error_response(&request, &error),
+            Err(error) => self.error_response(&request, &reload_failure_summary(&error)),
         };
         DispatchOutcome {
             responses: vec![response],
@@ -93,3 +93,36 @@ impl DebugAdapter {
         }
     }
 }
+
+/// The longest first line a failed reload answers with as it is.
+const SUMMARY_LINE_CHARS: usize = 160;
+
+/// What a failed reload tells the user, which the extension shows as it is (specification 25
+/// §6.3): the number of compiler errors, one for each line of `error` that names a source file
+/// (`<name>.st:` or `<name>.pou:`), with Problems as the place to read them; else the first line
+/// that is not blank, one longer than 160 characters cut to its first 157 and `...`.
+fn reload_failure_summary(error: &str) -> String {
+    let errors = error.lines().filter(|line| names_source_file(line)).count();
+    if errors > 0 {
+        let noun = if errors == 1 { "error" } else { "errors" };
+        return format!("Compile failed — {errors} {noun}. Open Problems, then try again.");
+    }
+    let Some(first) = error.lines().map(str::trim).find(|line| !line.is_empty()) else {
+        return "Update did not report a reason.".to_owned();
+    };
+    if first.chars().count() <= SUMMARY_LINE_CHARS {
+        return first.to_owned();
+    }
+    let cut: String = first.chars().take(SUMMARY_LINE_CHARS - 3).collect();
+    format!("{}...", cut.trim_end())
+}
+
+/// Whether `line` names a Structured Text source file: `.st:` or `.pou:` in any letter case.
+fn names_source_file(line: &str) -> bool {
+    let lower = line.to_ascii_lowercase();
+    lower.contains(".st:") || lower.contains(".pou:")
+}
+
+#[cfg(test)]
+#[path = "lifecycle_tests.rs"]
+mod tests;
