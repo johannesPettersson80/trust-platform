@@ -7,6 +7,8 @@ mod ads_subsystem;
 mod bound_global;
 mod builder;
 mod compiled;
+#[cfg(test)]
+mod critical_section_tests;
 mod hmi_methods;
 pub(crate) mod hmi_stale;
 mod hmi_subsystem;

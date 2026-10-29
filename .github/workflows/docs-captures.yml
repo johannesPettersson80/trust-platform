@@ -12,8 +12,12 @@ on:
       - "manual-tests/trust-lsp-smoke/**"
       - "scripts/build_browser_analysis_wasm_spike.sh"
       - "scripts/captures/**"
+      - "scripts/native/build_toolchain_libraries.sh"
       - "scripts/tests/test_capture_lifecycle.py"
+      - "scripts/tests/test_docs_captures_workflow.py"
+      - "scripts/tests/test_public_docs_ia.py"
       - "scripts/check_public_docs_assets.py"
+      - "scripts/check_public_docs_ia.py"
       - "scripts/generate_public_docs_media.py"
   push:
     branches:
@@ -28,8 +32,12 @@ on:
       - "manual-tests/trust-lsp-smoke/**"
       - "scripts/build_browser_analysis_wasm_spike.sh"
       - "scripts/captures/**"
+      - "scripts/native/build_toolchain_libraries.sh"
       - "scripts/tests/test_capture_lifecycle.py"
+      - "scripts/tests/test_docs_captures_workflow.py"
+      - "scripts/tests/test_public_docs_ia.py"
       - "scripts/check_public_docs_assets.py"
+      - "scripts/check_public_docs_ia.py"
       - "scripts/generate_public_docs_media.py"
   workflow_dispatch:
   schedule:
@@ -81,6 +89,17 @@ jobs:
           npm --prefix scripts/captures ci
           npm --prefix scripts/captures run capture:install
 
+      - name: Toolchain for compiled programs (specification 44 §4.6)
+        # The browser IDE and the terminal captures build Structured Text programs for this
+        # computer. The job builds the toolchain itself: a version that is not yet published has
+        # none to download (0.25.1's pull request, 28 October 2026).
+        shell: bash
+        run: |
+          set -euo pipefail
+          folder="${RUNNER_TEMP}/trust-toolchain"
+          bash scripts/native/build_toolchain_libraries.sh "${folder}" x86_64-unknown-linux-gnu
+          echo "TRUST_TOOLCHAIN=${folder}" >> "${GITHUB_ENV}"
+
       - name: Refresh browser captures
         run: |
           python scripts/generate_public_docs_media.py --regenerate-browser-captures
@@ -101,6 +120,7 @@ jobs:
           python scripts/check_example_catalog_links.py
           python -m pip install --upgrade pip==26.2.1
           python -m pip install -r docs/requirements.txt
+          python -m unittest scripts.tests.test_docs_captures_workflow scripts.tests.test_public_docs_ia -v
           mkdocs build --strict
           python scripts/check_public_docs_assets.py
           python scripts/check_public_docs_search.py

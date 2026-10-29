@@ -153,7 +153,8 @@ fn run_resource_loop_core<C, F>(
         drain_commands(&mut runner, &state, &mut paused);
 
         if let Some(mode) = faulted::take_pending_restart(&runner) {
-            // The restart restarts the task timing now, and the grid with it (`take_grid_origin`).
+            // The tasks' timing, and the grid with it, begin again when the restart's first cycle
+            // starts (`take_grid_origin`).
             match runner.restart_or_reload(mode) {
                 Ok(()) => {
                     restarts.reset();
@@ -178,7 +179,7 @@ fn run_resource_loop_core<C, F>(
         }
 
         let now_raw = runner.clock.now();
-        if let Some(origin) = runner.take_grid_origin() {
+        if let Some(origin) = runner.take_grid_origin(now_raw) {
             boundary = Some(origin);
         }
         // The cycle's nominal start on the grid (specification 10 §4.3): the boundary it was due

@@ -65,7 +65,11 @@ workflow run identifier and URL, timestamp, and an exhaustive list of released
 distributable and result-derived conformance artifact paths, kinds, target
 platforms, and SHA-256 digests. The provenance record does not list itself or
 `SHA256SUMS`, avoiding a self-digest cycle. Both remain required release assets,
-and `SHA256SUMS` covers the provenance record and the listed artifacts.
+and `SHA256SUMS` covers the provenance record and the listed artifacts. The
+released distributables are the VS Code packages, the runtime and language
+server archives, and the toolchain bundles of specification 44 §4.6, one per
+platform; each kind is named in the record, and a release file of no reviewed
+kind fails the provenance step.
 
 The workspace, VS Code package and lockfile versions, annotated tag, successful
 release workflow, published GitHub release, required assets, and GitHub

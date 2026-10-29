@@ -19,6 +19,10 @@ trust-tcads-native = { workspace = true, optional = true }
 trust-ads-server = { workspace = true, optional = true }
 trust-runtime-core = { workspace = true, default-features = false, features = ["std"] }
 trust-runtime-services = { workspace = true, optional = true }
+# The critical section of a computer, which the compiled cycle's measured heap
+# (trust-platform-memory) takes: a library leaves the implementation to the program that links
+# it, and Windows' linker refuses a debug build without one.
+critical-section = { version = "1.2.0", features = ["std"], optional = true }
 # Compiled programs (specification 44): the module interface and the program library whose layouts
 # the generator lays out against, and the reader of the modules the pinned compiler links.
 trust-plc-abi = { workspace = true, optional = true, features = ["host"] }
@@ -170,6 +174,7 @@ full = [
     "dep:trust-tcads-native",
     # A computer runs compiled programs with the chips' compiled cycle (specification 44 §8.8).
     "dep:trust-runtime-services",
+    "dep:critical-section",
     "dep:trust-plc-abi",
     "dep:trust-plc-lib",
     "dep:object",

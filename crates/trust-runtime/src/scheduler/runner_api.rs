@@ -23,6 +23,13 @@ pub struct ResourceRunner<C: Clock + Clone> {
     /// The program time at which the tasks' timing last began: the program's start or its last
     /// restart (specification 10 §4.3).
     task_origin: Duration,
+    /// Whether the tasks' timing begins again when the next cycle starts: a restart begins it at
+    /// its first cycle's start, not when the restart ends (specification 10 §4.3).
+    timing_restarts: bool,
+    /// Whether the program's time begins again at zero when the next cycle starts: a program
+    /// loaded again starts at its first cycle, as a new process starts it (specification 34,
+    /// STATE-08).
+    time_restarts: bool,
     /// Whether the tasks' timing began again since the scan loop last took the grid's origin.
     grid_restarted: bool,
     /// Whether a `MeshCatalogue` request is refused, as a debug session's program publishes no
@@ -49,6 +56,8 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             reload_required: false,
             program_origin: Duration::ZERO,
             task_origin: Duration::ZERO,
+            timing_restarts: false,
+            time_restarts: false,
             grid_restarted: true,
             refuse_mesh_catalogue: false,
         }
@@ -185,25 +194,37 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         }
     }
 
-    /// Continues process time after a restart, from the last simulation time in simulation (specification 46,
-    /// §6.1 item 4) and from the program's time on the scheduler clock otherwise (specification 34, STATE-08),
-    /// and restarts the simulation schedule.
+    /// Restarts the simulation schedule after a restart, and has the tasks' timing begin again when
+    /// the restart's first cycle starts (`take_grid_origin`).
     fn continue_after_restart(&mut self) {
-        let now = self
-            .timing
-            .restart_time(self.program_time(self.clock.now()));
-        self.runtime.reset_task_timing(now);
-        self.task_origin = now;
-        self.grid_restarted = true;
+        self.timing_restarts = true;
         self.timing.restart_schedule();
     }
 
     /// The first boundary of the cycle grid on the scheduler clock when the tasks' timing began
-    /// again since the last call: the moment it began, so that the grid's boundaries are the tasks'
-    /// deadlines and no cycle finds a task of the cycle interval not yet due (specification 10
-    /// §4.3). A first scan that starts later, after the start gate or a slow start, takes the last
-    /// of those boundaries at or before it.
-    fn take_grid_origin(&mut self) -> Option<Duration> {
+    /// again since the last call, for a cycle that starts at the clock reading `cycle_start`: the
+    /// moment the timing began, so that the grid's boundaries are the tasks' deadlines and no
+    /// cycle finds a task of the cycle interval not yet due (specification 10 §4.3).
+    ///
+    /// A restart, a recovery from a fault by a restart and a start after a stop begin the tasks'
+    /// timing here, at `cycle_start`, not when they end: the scan thread can wait between the two,
+    /// for an automatic restart's backoff or while the operating system holds it, and the tasks
+    /// count no deadline in that wait. Process time goes on from the last simulation time in
+    /// simulation (specification 46, §6.1 item 4) and from the program's time on the scheduler
+    /// clock otherwise (specification 34, STATE-08), which a program loaded again begins at zero
+    /// here. The program's start begins the timing at the program's time zero instead, and a first
+    /// scan that starts later, after the start gate or a slow start, takes the last of the grid's
+    /// boundaries at or before it.
+    fn take_grid_origin(&mut self, cycle_start: Duration) -> Option<Duration> {
+        if std::mem::take(&mut self.time_restarts) {
+            self.program_origin = cycle_start;
+        }
+        if std::mem::take(&mut self.timing_restarts) {
+            let now = self.timing.restart_time(self.program_time(cycle_start));
+            self.runtime.reset_task_timing(now);
+            self.task_origin = now;
+            self.grid_restarted = true;
+        }
         std::mem::take(&mut self.grid_restarted).then(|| self.clock_time(self.task_origin))
     }
 
@@ -251,7 +272,8 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         self.timing = self.timing_of_loaded(started.simulation.is_some(), started.time_scale);
         self.simulation = started.simulation;
         self.hang_action = started.hang_action;
-        self.program_origin = self.clock.now();
+        // Its time begins at zero when its first cycle starts (`take_grid_origin`).
+        self.time_restarts = true;
         self.runtime.reset_task_timing(Duration::ZERO);
         self.task_origin = Duration::ZERO;
         self.grid_restarted = true;

@@ -81,6 +81,8 @@ struct Held {
     status: &'static str,
     restoration: &'static str,
     stop_reason: Option<&'static str>,
+    /// The step's value and the process time at which the tank was stepped to it, as `last_applied` reports them (E5.6).
+    applied: Option<(f64, u64)>,
 }
 
 /// The simulated tank (`Plant` of the `TypeScript` test): a first-order response of `change` with a 50 s time constant from
@@ -194,6 +196,7 @@ impl FakeState {
         duration_ms: u64,
         change: f64,
     ) {
+        let value = self.plant.lock().base + change;
         *self.held.lock() = Some(Held {
             id: experiment_id.to_owned(),
             reviewed_scan: 300,
@@ -203,6 +206,7 @@ impl FakeState {
             status: "running",
             restoration: "pending",
             stop_reason: None,
+            applied: Some((value, start_ms)),
         });
         let mut plant = self.plant.lock();
         plant.start_s = seconds(start_ms);
@@ -335,6 +339,7 @@ impl FakeState {
             status: "running",
             restoration: "pending",
             stop_reason: None,
+            applied: None,
         };
         if ended {
             record.ended_ms = Some(now_ms);
@@ -348,6 +353,7 @@ impl FakeState {
             plant.start_s = seconds(now_ms);
             plant.stop_s = f64::INFINITY;
             plant.change = number(plan.to) - from;
+            record.applied = Some((number(plan.to), now_ms));
         }
         *self.held.lock() = Some(record);
     }
@@ -417,15 +423,18 @@ impl FakeState {
 }
 
 /// The status record of an experiment (E5.6), with every key the annex names: a setpoint step of the tank on the background
-/// task, written by symbol, with no trajectory point reported.
+/// task, written by symbol, with its one trajectory point once the tank has been stepped.
 fn status_record(record: &Held, now_ms: u64) -> Value {
+    let last_applied = record.applied.map(|(value, at_ms)| {
+        json!({ "index": 0, "value": value, "time_ms": 0, "scan": at_ms / 100, "process_time_ms": at_ms })
+    });
     json!({
         "experiment_id": record.id, "source": "simulation", "kind": "setpoint_step", "task": "$background",
         "symbol": "Main.TIC101_Setpoint", "status": record.status, "stop_reason": record.stop_reason,
         "restoration": record.restoration, "restoration_reason": null,
         "elapsed_ms": record.ended_ms.unwrap_or(now_ms).saturating_sub(record.start_ms),
         "duration_ms": record.duration_ms, "reviewed_scan": record.reviewed_scan, "started_scan": record.start_ms / 100,
-        "last_applied": null, "relay_feedback": null, "abort_binding": null
+        "last_applied": last_applied, "relay_feedback": null, "abort_binding": null
     })
 }
 
@@ -597,6 +606,10 @@ impl RecordingFollower for FakeRecording {
             self.next_second += 1;
         }
         Ok(page)
+    }
+
+    fn process_seconds(&self, process_time_ms: u64) -> Option<f64> {
+        Some(seconds(process_time_ms))
     }
 }
 

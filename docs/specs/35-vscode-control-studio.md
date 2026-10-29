@@ -1341,7 +1341,15 @@ clears the manual section (B3.7).
 4. **Hold until settled.** The response has settled when, after it has left the
    noise band, it changes by less than the larger of twice the noise and 2 % of
    its change so far across the settle window: the longer of 20 samples and
-   10 % of the hold so far. The hold ends when the response has settled or when
+   10 % of the hold so far.
+   The response starts at the execution at which the runtime reports the step
+   applied (`last_applied`, runtime protocol annex E5.6), and the settle window's
+   hold so far counts from there. The samples recorded before it, while the start
+   was on its way to the runtime, are not part of the response, and the hold
+   never ends early before the runtime has reported the step applied: on a busy
+   computer or at a high simulation speed those samples can fill the settle
+   window, and an output still moving after an earlier step would end the step
+   before it took effect. The hold ends when the response has settled or when
    the maximum duration, minus the restoration allowance of one baseline
    window, is reached. A project-scripted experiment records its declared
    duration, or the recording of its applied hold when its loop declares a hold

@@ -8,14 +8,8 @@ cleanup() {
 trap cleanup EXIT
 
 cp -R examples/memory_marker_counter/. "$tmpdir/"
-python - <<'PY' "$tmpdir/src/Main.st"
-from pathlib import Path
-import sys
-
-path = Path(sys.argv[1])
-text = path.read_text()
-text = text.replace("Counter := Counter + 1;", "Counter := Counter + ;")
-path.write_text(text)
-PY
+# The capture container has no Python: sed breaks the statement, and grep checks that it did.
+sed -i 's/Counter := Counter + 1;/Counter := Counter + ;/' "$tmpdir/src/Main.st"
+grep -q 'Counter := Counter + ;' "$tmpdir/src/Main.st"
 
 ./target/debug/trust-runtime build --project "$tmpdir" --sources src || true

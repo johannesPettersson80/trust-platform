@@ -284,10 +284,12 @@ jobs:
             PYTHON_BIN=python
           fi
           LOG_PATH="gate-artifacts/test-${{ matrix.os }}.log"
+          # The changed RUSTFLAGS check trust-runtime and its dependencies afresh: on the macOS
+          # runner without a warm cache that took longer than 20 minutes (main, 28 October 2026).
           RUSTFLAGS=-Dwarnings "${PYTHON_BIN}" scripts/run_with_progress.py \
             --phase ci-runtime-warnings \
             --target "${{ matrix.os }} trust-runtime" \
-            --timeout-seconds "${CI_RUNTIME_WARNINGS_TIMEOUT_SECONDS:-1200}" \
+            --timeout-seconds "${CI_RUNTIME_WARNINGS_TIMEOUT_SECONDS:-3600}" \
             --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
             --log "${LOG_PATH}" \
             -- cargo check -p trust-runtime --all-targets
@@ -312,7 +314,8 @@ jobs:
           : > "${LOG_PATH}"
           for attempt in 1 2; do
             echo "=== full test suite attempt ${attempt}/2 (${{ matrix.os }}) ===" | tee -a "${LOG_PATH}"
-            # Windows runs one test at a time, which takes about twice as long.
+            # Windows runs one test at a time, which takes about twice as long; a macOS runner took
+            # longer than an hour too (28 October 2026). Specification 22 records the limits.
             budget=3600
             if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
               command=(cargo test --all-targets --no-fail-fast -- --test-threads=1)
@@ -321,6 +324,7 @@ jobs:
               command=(cargo test --all-targets --no-fail-fast --jobs 1)
             else
               command=(cargo test --all-targets --no-fail-fast)
+              budget=7200
             fi
             if "${PYTHON_BIN}" scripts/run_with_progress.py \
               --phase ci-full-test \

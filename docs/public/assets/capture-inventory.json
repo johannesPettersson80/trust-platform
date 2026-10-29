@@ -329,6 +329,54 @@
       "class": "browser-product-surface",
       "generator": "playwright",
       "source": "the operator journey on the tank runtime's /hmi: setpoint, high-level alarm, acknowledgement (27 October 2026)"
+    },
+    {
+      "path": "images/hmi-builder/editor.png",
+      "class": "vscode-desktop-surface",
+      "generator": "vscode-cdp-harness",
+      "source": "desktop VS Code HMI Builder, the HMI Builder: components on the left, the page in the middle, the inspector on the right (HMI rebuild, October 2026)"
+    },
+    {
+      "path": "images/hmi-builder/symbol-editor.png",
+      "class": "vscode-desktop-surface",
+      "generator": "vscode-cdp-harness",
+      "source": "desktop VS Code HMI Builder, editing a symbol's animation rule and trying its preview values (HMI rebuild, October 2026)"
+    },
+    {
+      "path": "images/hmi-builder/binding-picker.png",
+      "class": "vscode-desktop-surface",
+      "generator": "vscode-cdp-harness",
+      "source": "desktop VS Code HMI Builder, a binding's picker with the run target's current values (HMI rebuild, October 2026)"
+    },
+    {
+      "path": "images/hmi-builder/guides.png",
+      "class": "vscode-desktop-surface",
+      "generator": "vscode-cdp-harness",
+      "source": "desktop VS Code HMI Builder, guides while dragging: the tank's centre and its top edge meet the controller's (HMI rebuild, October 2026)"
+    },
+    {
+      "path": "images/hmi-builder/arrange.png",
+      "class": "vscode-desktop-surface",
+      "generator": "vscode-cdp-harness",
+      "source": "desktop VS Code HMI Builder, two objects aligned at the top from the inspector's Arrange (HMI rebuild, October 2026)"
+    },
+    {
+      "path": "images/hmi-builder/layers.png",
+      "class": "vscode-desktop-surface",
+      "generator": "vscode-cdp-harness",
+      "source": "desktop VS Code HMI Builder, the Layers tab: the objects front to back with the eye and the lock (HMI rebuild, October 2026)"
+    },
+    {
+      "path": "images/hmi-builder/context-menu.png",
+      "class": "vscode-desktop-surface",
+      "generator": "vscode-cdp-harness",
+      "source": "desktop VS Code HMI Builder, the right-click menu on a pump (HMI rebuild, October 2026)"
+    },
+    {
+      "path": "images/hmi-builder/tags-values.png",
+      "class": "vscode-desktop-surface",
+      "generator": "vscode-cdp-harness",
+      "source": "desktop VS Code HMI Builder, the Tags panel with the runtime's current values (HMI rebuild, October 2026)"
     }
   ]
 }

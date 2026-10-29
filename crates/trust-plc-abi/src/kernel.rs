@@ -304,6 +304,7 @@ impl Executable {
     pub fn load(module: &[u8]) -> std::io::Result<Self> {
         let mut map = memmap2::MmapMut::map_anon(module.len().max(1))?;
         map[..module.len()].copy_from_slice(module);
+        icache::sync_instruction_cache(&map[..module.len()]);
         Ok(Self {
             map: map.make_exec()?,
         })
@@ -324,6 +325,8 @@ impl Executable {
     }
 }
 
+#[cfg(feature = "host")]
+mod icache;
 mod stops;
 
 pub use stops::{

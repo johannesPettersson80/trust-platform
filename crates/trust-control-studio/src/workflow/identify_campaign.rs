@@ -12,7 +12,9 @@ use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::campaign::baseline::{
     BaselineStep, BaselineSummary, BaselineTracker,
 };
-use trust_control::identification::campaign::hold::{hold_state, HoldState, HoldStep, HoldTracker};
+use trust_control::identification::campaign::hold::{
+    applied_process_ms, hold_state, HoldState, HoldStep, HoldTracker,
+};
 use trust_control::identification::campaign::{
     require_campaign_limits, silence_limit_ms, FollowSample, Silence, Watch, CANCELLED_TEXT,
     POLL_MILLISECONDS,
@@ -72,6 +74,10 @@ pub trait RecordingFollower {
     /// # Errors
     /// The runtime cannot be reached, refuses, or answers out of protocol.
     fn follow(&mut self) -> Result<Vec<FollowSample>, Failure>;
+
+    /// The runtime's process time `process_time_ms` (annex E5.6) in seconds of the recording, as the followed samples count
+    /// their process times (A3.2); `None` until a sample has been followed.
+    fn process_seconds(&self, process_time_ms: u64) -> Option<f64>;
 }
 
 /// The experiment a campaign holds (`ControlExperimentClient`): its status, and the two writes that end a hold early or stop it
@@ -195,7 +201,9 @@ where
     }
 
     /// Holds the step until it has settled, finishes it early when the rules say, and returns the runtime's status once the
-    /// experiment has ended (B3.4 steps 4 to 6). A cancelled hold aborts its experiment first.
+    /// experiment has ended (B3.4 steps 4 to 6). The response starts at the execution at which the runtime reports the step
+    /// applied, not at `step_seconds`, the newest sample when the start was sent (B3.4 step 4). A cancelled hold aborts its
+    /// experiment first.
     ///
     /// # Errors
     /// The status is outside the runtime's vocabulary, the status or finish or abort request fails, the recording cannot be
@@ -218,6 +226,11 @@ where
             let status = self.experiment.status(&plan.id)?;
             let state: HoldState = hold_state(&status)?;
             let page = self.follow(&mut silence)?;
+            if let Some(applied) =
+                applied_process_ms(&status).and_then(|ms| self.recorder.process_seconds(ms))
+            {
+                tracker.step_applied(applied);
+            }
             match tracker.feed(&mut self.watch, state, &page, self.clock.now_ms()) {
                 HoldStep::Ended => return Ok(status),
                 HoldStep::Continue {
@@ -375,31 +388,53 @@ mod tests {
             }
             Ok(page)
         }
+
+        fn process_seconds(&self, process_time_ms: u64) -> Option<f64> {
+            #[allow(clippy::cast_precision_loss)] // A test clock of minutes.
+            Some(process_time_ms as f64 / 1_000.0)
+        }
     }
 
-    /// An experiment that runs for `duration_s` from its start, and ends early when it is finished or aborted.
+    /// An experiment that runs for `duration_s` from its start, and ends early when it is finished or aborted. The runtime
+    /// applies its step at `applied_ms` of process time, and reports it in whole ms once the clock has reached it
+    /// (`last_applied`, E5.6, E0.3).
     struct FakeExperiment<'a> {
         clock: &'a FakeClock,
         duration_s: f64,
+        applied_ms: u64,
         ended: Option<&'static str>,
         calls: Vec<String>,
+        finished_at_ms: Option<f64>,
+    }
+
+    impl FakeExperiment<'_> {
+        /// The trajectory point the runtime has applied (E5.6), or `null` before the clock reaches it.
+        #[allow(clippy::cast_precision_loss)] // A test clock of minutes.
+        fn last_applied(&self) -> Value {
+            if self.clock.now.get() < self.applied_ms as f64 {
+                return Value::Null;
+            }
+            json!({ "index": 0, "value": 47, "time_ms": 0, "scan": self.applied_ms / 100,
+                "process_time_ms": self.applied_ms })
+        }
     }
 
     impl ExperimentClient for FakeExperiment<'_> {
         fn status(&mut self, _experiment_id: &str) -> Result<Value, Failure> {
             let due = self.clock.now.get() / 1_000.0 >= self.duration_s;
+            let last_applied = self.last_applied();
             Ok(match self.ended {
                 Some("finished_early") => {
                     json!({ "experiment_id": "experiment-1", "status": "completed",
-                    "restoration": "restored", "stop_reason": "finished_early" })
+                    "restoration": "restored", "stop_reason": "finished_early", "last_applied": last_applied })
                 }
                 Some(stop) => json!({ "experiment_id": "experiment-1", "status": "aborted",
-                    "restoration": "restored", "stop_reason": stop }),
+                    "restoration": "restored", "stop_reason": stop, "last_applied": last_applied }),
                 None if due => json!({ "experiment_id": "experiment-1", "status": "completed",
-                    "restoration": "restored", "stop_reason": "duration_complete" }),
+                    "restoration": "restored", "stop_reason": "duration_complete", "last_applied": last_applied }),
                 None => {
                     json!({ "experiment_id": "experiment-1", "status": "running", "restoration": "pending",
-                    "stop_reason": null })
+                    "stop_reason": null, "last_applied": last_applied })
                 }
             })
         }
@@ -407,6 +442,7 @@ mod tests {
         fn finish(&mut self, experiment_id: &str) -> Result<(), Failure> {
             self.calls.push(format!("finish {experiment_id}"));
             self.ended = Some("finished_early");
+            self.finished_at_ms = Some(self.clock.now.get());
             Ok(())
         }
 
@@ -511,8 +547,10 @@ mod tests {
         let mut experiment = FakeExperiment {
             clock: &clock,
             duration_s: 0.0,
+            applied_ms: 0,
             ended: None,
             calls: Vec::new(),
+            finished_at_ms: None,
         };
         let report = FakeReport::default();
         let mut campaign = IdentifyCampaign::new(
@@ -552,8 +590,10 @@ mod tests {
         let mut experiment = FakeExperiment {
             clock: &clock,
             duration_s: 0.0,
+            applied_ms: 0,
             ended: None,
             calls: Vec::new(),
+            finished_at_ms: None,
         };
         let report = FakeReport::default();
         let mut campaign = IdentifyCampaign::new(
@@ -595,8 +635,10 @@ mod tests {
         let mut experiment = FakeExperiment {
             clock: &clock,
             duration_s: 0.0,
+            applied_ms: 0,
             ended: None,
             calls: Vec::new(),
+            finished_at_ms: None,
         };
         let report = FakeReport::default();
         let mut campaign = IdentifyCampaign::new(
@@ -637,8 +679,10 @@ mod tests {
         let mut experiment = FakeExperiment {
             clock: &clock,
             duration_s: 0.0,
+            applied_ms: 0,
             ended: None,
             calls: Vec::new(),
+            finished_at_ms: None,
         };
         let report = FakeReport::default();
         let mut campaign = IdentifyCampaign::new(
@@ -679,8 +723,10 @@ mod tests {
         let mut experiment = FakeExperiment {
             clock: &clock,
             duration_s: 0.0,
+            applied_ms: 0,
             ended: None,
             calls: Vec::new(),
+            finished_at_ms: None,
         };
         let report = FakeReport::default();
         report.cancelled.set(true);
@@ -729,8 +775,10 @@ mod tests {
         let mut experiment = FakeExperiment {
             clock: &clock,
             duration_s: 540.0,
+            applied_ms: 0,
             ended: None,
             calls: Vec::new(),
+            finished_at_ms: None,
         };
         let report = FakeReport::default();
         let mut campaign = IdentifyCampaign::new(
@@ -774,8 +822,10 @@ mod tests {
         let mut experiment = FakeExperiment {
             clock: &clock,
             duration_s: 60.0,
+            applied_ms: 0,
             ended: None,
             calls: Vec::new(),
+            finished_at_ms: None,
         };
         let report = FakeReport::default();
         let mut campaign = IdentifyCampaign::new(
@@ -798,6 +848,60 @@ mod tests {
         assert!(
             experiment.calls.is_empty(),
             "a multi-point plan is never finished early"
+        );
+    }
+
+    #[test]
+    fn a_step_the_runtime_applies_late_is_held_from_its_application() {
+        // B3.4 step 4 (the lesson-30 Apply journey on a loaded builder, 28 October 2026): the start reached the runtime late,
+        // so the hold's first page held the samples recorded before the step took effect. The output, still 0.5 degC above
+        // the baseline from an earlier step, had left the noise band and was steady over them, and the hold finished the
+        // step before the runtime applied it.
+        let loop_definition = tank_loop();
+        let clock = FakeClock {
+            now: Cell::new(30_000.0),
+        };
+        let mut recorder = FakeRecorder {
+            clock: &clock,
+            plant: Box::new(|_| 45.5),
+            next: 1.0,
+            through: None,
+            silent: false,
+        };
+        let mut experiment = FakeExperiment {
+            clock: &clock,
+            duration_s: 540.0,
+            applied_ms: 30_100,
+            ended: None,
+            calls: Vec::new(),
+            finished_at_ms: None,
+        };
+        let report = FakeReport::default();
+        let mut campaign = IdentifyCampaign::new(
+            &loop_definition,
+            &clock,
+            &mut recorder,
+            &mut experiment,
+            &report,
+            true,
+            None,
+        );
+        let status = campaign
+            .hold(&setpoint_plan(), &baseline_summary(), 0.0)
+            .expect("the hold ends");
+        assert_eq!(status["stop_reason"], "finished_early");
+        assert_eq!(
+            experiment.calls,
+            vec!["finish experiment-1".to_string()],
+            "finished once"
+        );
+        // The runtime reports the step applied at 30.1 s. Its response is the samples from 31 s on, and the twentieth of them,
+        // which fills the settle window of twenty samples, arrives at 50 s. Judged from the start, the first page (1 s to 30 s)
+        // would have finished the step at 30 s, before the runtime applied it.
+        assert_eq!(
+            experiment.finished_at_ms,
+            Some(50_000.0),
+            "the step is finished once its response from the application has settled"
         );
     }
 }

@@ -1,6 +1,6 @@
 # Control System Engineering with Control.PID
 
-Shared direction and acceptance: [Control Platform Purpose and Acceptance Contract](../specs/control-platform-purpose.md).
+Shared direction and acceptance: [Control Platform Purpose and Acceptance Contract](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/specs/control-platform-purpose.md).
 
 This report records what was learned while implementing and evaluating the
 truST `Control.PID`, explains the engineering decisions behind

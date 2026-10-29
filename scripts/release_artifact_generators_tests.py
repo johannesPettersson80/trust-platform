@@ -18,6 +18,7 @@ class ReleaseArtifactGeneratorTests(unittest.TestCase):
                 "trust-runtime-linux-x64.tar.gz",
                 "trust-lsp-linux-x64.tar.gz",
                 "trust-lsp-0.24.53-linux-x64.vsix",
+                "trust-toolchain-darwin-arm64.tar.gz",
                 "conformance-status.json",
                 "conformance-status.md",
             ):
@@ -32,7 +33,13 @@ class ReleaseArtifactGeneratorTests(unittest.TestCase):
                 workflow_run_url="https://github.com/o/r/actions/runs/123",
                 timestamp="2026-07-17T12:00:00+02:00",
             )
-            self.assertEqual(len(payload["artifacts"]), 5)
+            self.assertEqual(len(payload["artifacts"]), 6)
+            # Specification 24: the toolchain bundles (specification 44 §4.6) are released distributables with their own
+            # kind; v0.25.0's Publish refused 'trust-toolchain-darwin-arm64.tar.gz' as unreviewed (28 October 2026).
+            toolchain = next(
+                row for row in payload["artifacts"] if row["path"] == "trust-toolchain-darwin-arm64.tar.gz"
+            )
+            self.assertEqual((toolchain["kind"], toolchain["platform"]), ("toolchain_bundle", "darwin-arm64"))
             self.assertEqual(
                 [row["path"] for row in payload["artifacts"]],
                 sorted(path.name for path in files),

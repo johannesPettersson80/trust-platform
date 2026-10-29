@@ -6,7 +6,7 @@ on/off controller; interlocks, permissives and protection; duty/standby, lead/la
 groups; sequences; and alarm and sequence managers. Each block comes with its symbol, its panel
 and its settings for the HMI Builder. A PID loop is no block of the library: it is ordinary code
 around the Control library's `Control.PID`, which Create PLC code writes and the library's PID
-panel operates. The specification is [trust-plant-library](../specs/trust-plant-library.md).
+panel operates. The specification is [trust-plant-library](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/specs/trust-plant-library.md).
 
 ## Add the package
 

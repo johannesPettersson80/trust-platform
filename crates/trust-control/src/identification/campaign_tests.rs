@@ -7,7 +7,7 @@
 use serde_json::{json, Value};
 
 use super::baseline::{BaselineStep, BaselineSummary, BaselineTracker};
-use super::hold::{hold_state, HoldState, HoldStep, HoldTracker};
+use super::hold::{applied_process_ms, hold_state, HoldState, HoldStep, HoldTracker};
 use super::journal::{CampaignPhase, IdentificationCampaignJournal, NO_RUNNING_EXPERIMENT_TEXT};
 use super::{
     baseline_budget_ms, campaign_maximum_ms, campaign_recording_ms, campaign_settling_ms,
@@ -686,6 +686,7 @@ fn closed_loop_finish(baseline: &BaselineSummary) -> Option<f64> {
     let output = |seconds: f64| plant(45.0, 0.0, 0.0, 2.0, 0.0, seconds);
     let input = |seconds: f64| 38.0 + 0.5 * (1.0 - (-seconds / 120.0).exp());
     let mut hold = HoldTracker::new(&setpoint_plan(5_400_000.0, 1), baseline, 0.0);
+    hold.step_applied(0.0);
     let mut watch = Watch::new();
     (1..=3_000_u32).map(f64::from).find(|&seconds| {
         let sample = FollowSample {
@@ -730,6 +731,7 @@ fn a_settled_single_step_is_finished_early_once_and_a_ramp_that_never_settles_is
     let baseline = baseline_summary();
     let settles = |seconds: f64| plant(45.0, 0.0, 0.0, 2.0, 0.0, seconds);
     let mut hold = HoldTracker::new(&setpoint_plan(540_000.0, 1), &baseline, 0.0);
+    hold.step_applied(0.0);
     let mut watch = Watch::new();
     let mut finishes = 0;
     for tick in 1..=600_u32 {
@@ -757,6 +759,7 @@ fn a_settled_single_step_is_finished_early_once_and_a_ramp_that_never_settles_is
 
     let ramping = |seconds: f64| plant(45.0, 0.0, 0.01, 2.0, 0.0, seconds);
     let mut never = HoldTracker::new(&setpoint_plan(540_000.0, 1), &baseline, 0.0);
+    never.step_applied(0.0);
     let mut watch = Watch::new();
     let early = (1..=600_u32).any(|tick| {
         let seconds = f64::from(tick);
@@ -784,6 +787,7 @@ fn a_multi_point_plan_is_never_finished_early() {
     let baseline = baseline_summary();
     let settles = |seconds: f64| plant(45.0, 0.0, 0.0, 2.0, 0.0, seconds);
     let mut hold = HoldTracker::new(&setpoint_plan(540_000.0, 2), &baseline, 0.0);
+    hold.step_applied(0.0);
     let mut watch = Watch::new();
     let early = (1..=600_u32).any(|tick| {
         let seconds = f64::from(tick);
@@ -801,6 +805,73 @@ fn a_multi_point_plan_is_never_finished_early() {
         )
     });
     assert!(!early, "only a single-step experiment is finished early");
+}
+
+#[test]
+fn a_single_step_is_judged_from_its_application_and_never_finished_before_it() {
+    // B3.4 step 4 (the lesson-30 Apply journey on a loaded builder, 28 October 2026): the start reached the runtime late, so
+    // the hold's first page held the samples recorded before the step took effect. An output still 0.5 degC above the
+    // baseline mean from an earlier step has left the noise band (3 sigma = 0.09 degC) and is steady over them, so judged from
+    // the start those samples finished the step before the runtime applied it, and the restoration replaced the step's write.
+    let baseline = baseline_summary();
+    let offset = |_: f64| 45.5;
+    let mut hold = HoldTracker::new(&setpoint_plan(540_000.0, 1), &baseline, 0.0);
+    let mut watch = Watch::new();
+    let late_page = hold.feed(
+        &mut watch,
+        HoldState::Holding,
+        &seconds_from(1, 30, offset),
+        30_000.0,
+    );
+    assert!(
+        matches!(
+            late_page,
+            HoldStep::Continue {
+                finish_early: false,
+                ..
+            }
+        ),
+        "a step the runtime has not reported applied is not finished early: {late_page:?}"
+    );
+    // The runtime applied the step at the execution at 30 s, where the response starts. The settle window of twenty samples
+    // (20 s at 1 s spacing, longer than a tenth of the hold) fills with the samples from 30 s to 49 s, so the step is
+    // finished at 49 s; with the samples from before the application it would be finished at once, at 31 s.
+    hold.step_applied(30.0);
+    let finished = (31..=60_u32).find(|&tick| {
+        let seconds = f64::from(tick);
+        matches!(
+            hold.feed(
+                &mut watch,
+                HoldState::Holding,
+                &[sample(seconds, offset(seconds))],
+                seconds * 1_000.0
+            ),
+            HoldStep::Continue {
+                finish_early: true,
+                ..
+            }
+        )
+    });
+    assert_eq!(
+        finished,
+        Some(49),
+        "the response is judged from the step's application on"
+    );
+}
+
+#[test]
+fn the_applied_step_is_read_from_the_experiment_status() {
+    // Annex E5.6: `last_applied` is null until the runtime has applied a trajectory point, then names the process time of the
+    // execution that applied it.
+    assert_eq!(
+        applied_process_ms(&json!({ "status": "running", "last_applied": null })),
+        None
+    );
+    assert_eq!(
+        applied_process_ms(&json!({ "status": "running", "last_applied": {
+            "index": 0, "value": 60, "time_ms": 0, "scan": 721, "process_time_ms": 72_106 } })),
+        Some(72_106)
+    );
 }
 
 #[test]

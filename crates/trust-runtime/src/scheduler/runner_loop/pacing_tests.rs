@@ -300,6 +300,60 @@ fn a_restart_begins_the_cycle_grid_again_at_its_first_cycle() {
 }
 
 #[test]
+fn an_automatic_restart_begins_the_tasks_timing_when_its_first_cycle_starts() {
+    // Specification 10 §4.3: a recovery from a fault by a restart begins the tasks' timing, and the
+    // grid with it, at the moment its first cycle starts. Every sleep wakes 1 ms late. The first
+    // three cycles start at 0, 11 and 21 ms, and the third fails; the fault policy restarts the
+    // program at 21 ms and waits its backoff of one cycle interval (specification 11 §6.6), until
+    // 32 ms. The first cycle after the restart starts at 32 ms, where the timing begins, so the
+    // next nominal starts are 42 and 52 ms, the late wakes start those cycles at 43 and 53 ms, and
+    // a 10 ms task is not yet due in the first cycle and due in the two after it. Catches a restart
+    // that begins the timing when it ends, at 21 ms, before its backoff: the grid of 21 ms puts
+    // those cycles at 42 and 52 ms, and its task runs in the first cycle, 11 ms after the timing
+    // began (the Windows run of `runner_transcript_parity.rs`, 29 October 2026, where the
+    // operating system held the scan thread between a restart's end and its first cycle).
+    let mut runtime = crate::harness::TestHarness::from_source("PROGRAM Main\nEND_PROGRAM\n")
+        .expect("build the runner fixture")
+        .into_runtime();
+    runtime.set_fault_policy(crate::watchdog::FaultPolicy::Restart);
+    let runner = ResourceRunner::new(runtime, LateClock::default(), Duration::from_millis(10));
+    let stop = Arc::new(AtomicBool::new(false));
+    let state = Arc::new(Mutex::new(ResourceState::Boot));
+    let last_error = Arc::new(Mutex::new(None));
+    let supervision = Arc::new(supervisor::ScanSupervision::new(
+        Arc::clone(&state),
+        Arc::clone(&last_error),
+    ));
+    let starts = Arc::new(Mutex::new(Vec::new()));
+    let starts_of_cycles = Arc::clone(&starts);
+    let stop_after = Arc::clone(&stop);
+    run_resource_loop_core(
+        runner,
+        stop,
+        state,
+        last_error,
+        supervision,
+        move |runtime| {
+            let mut starts = recover_mutex_lock(starts_of_cycles.lock());
+            starts.push(runtime.current_time().as_millis());
+            if starts.len() == 6 {
+                stop_after.store(true, Ordering::SeqCst);
+            }
+            if starts.len() == 3 {
+                return Err(RuntimeError::DivisionByZero);
+            }
+            Ok(())
+        },
+    );
+    let starts = recover_mutex_lock(starts.lock()).clone();
+    assert_eq!(starts, [0, 11, 21, 32, 43, 53]);
+    assert_eq!(
+        task_due_in_each_cycle(32, &starts[3..]),
+        (vec![false, true, true], 0)
+    );
+}
+
+#[test]
 fn a_start_after_a_stop_begins_the_cycle_grid_again_at_its_first_cycle() {
     // Specification 10 §4.3 and specification 34 STATE-08: a start of the stopped program begins the
     // grid again at the start of its first cycle. Every sleep wakes 1 ms late, and the stopped wait

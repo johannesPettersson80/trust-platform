@@ -3872,7 +3872,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 323,
+        "line": 324,
         "owner": "native execution (specification 44)",
         "invariant": "A computer kernel's executable mapping holds an admitted module's code copied in before the mapping was made executable and never written after; offset is checked inside the mapping, and the program keeps the mapping alive as long as its entries.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
@@ -4178,6 +4178,13 @@
         "invariant": "The Plain contract of the area types (specification 44 \u00a76.3): the unsafe trait declaration and its implementations for cells of integers, floats and RefValue, arrays of Plain, Str and WStr, and plain_struct!'s implementation for a #[repr(C)] structure whose ZEROED value names each field's <$ty as Plain>::ZEROED, which fails the build for a field that is not Plain. No other unsafe code lives in the file.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 \u00a714.1.",
         "review_date": "2026-10-22"
+      },
+      {
+        "path_prefix": "crates/trust-plc-abi/src/kernel/icache.rs",
+        "owner": "native execution (specification 44)",
+        "invariant": "The instruction cache made coherent with a module the computer's kernel copied into its own mapping, before the code runs (specification 44 \u00a710.3): the declaration of Apple's sys_icache_invalidate (libSystem, compiled only for AArch64 macOS) and its call on the caller's readable and writable mapping, and on AArch64 Linux the reading of CTR_EL0 and the cache maintenance by address (DC CVAU, IC IVAU, DSB, ISB) that EL0 may do, on addresses inside that mapping, which change no memory. No other unsafe code lives in the file.",
+        "test_evidence": "cargo test -p trust-plc-abi --features host (a_module_mapped_where_another_ran_runs_its_own_instructions); every generated module is mapped through this function in the pasteurizer runs of specification 44 \u00a714.1.",
+        "review_date": "2026-10-28"
       },
       {
         "path_prefix": "crates/trust-plc-abi/src/open.rs",

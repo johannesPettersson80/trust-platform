@@ -13,15 +13,9 @@ cleanup() {
 trap cleanup EXIT
 
 cp -R examples/memory_marker_counter/. "$tmpdir/"
-python - <<'PY' "$tmpdir/runtime.toml"
-from pathlib import Path
-import sys
-
-path = Path(sys.argv[1])
-text = path.read_text()
-text = text.replace('mode = "production"', 'mode = "debug"', 1)
-path.write_text(text)
-PY
+# The capture container has no Python: sed switches the control mode, and grep checks that it did.
+sed -i 's/^mode = "production"$/mode = "debug"/' "$tmpdir/runtime.toml"
+grep -q '^mode = "debug"$' "$tmpdir/runtime.toml"
 
 ./target/debug/trust-runtime play --project "$tmpdir" >/tmp/trust-ctl-io-write-demo.log 2>&1 &
 runtime_pid=$!

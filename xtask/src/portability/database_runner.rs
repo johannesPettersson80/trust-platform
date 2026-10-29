@@ -120,6 +120,33 @@ mod tests {
     }
 
     #[test]
+    fn required_workflow_builds_the_program_toolchain_before_the_database_gate() {
+        // Specification 22, CI reliability: the gate builds Structured Text programs, which need the toolchain of
+        // specification 44 §4.6. v0.25.0's release run (28 October 2026) had none, and the gate failed with "the truST
+        // toolchain 0.25.0 is not installed".
+        let workflow = include_str!("../../../.github/workflows/openot-real-databases.yml")
+            .replace("\r\n", "\n");
+        let build = "bash scripts/native/build_toolchain_libraries.sh \"${folder}\" x86_64-unknown-linux-gnu";
+        let toolchain = "echo \"TRUST_TOOLCHAIN=${folder}\" >> \"${GITHUB_ENV}\"";
+        let gate = "cargo run --locked -p xtask -- portability database-gate";
+        let gate_at = workflow
+            .find(gate)
+            .expect("the workflow runs the database gate");
+        assert!(
+            workflow
+                .find(build)
+                .expect("the workflow builds the toolchain")
+                < gate_at
+        );
+        assert!(
+            workflow
+                .find(toolchain)
+                .expect("the workflow names the toolchain")
+                < gate_at
+        );
+    }
+
+    #[test]
     fn generated_settings_remove_every_inherited_database_name() {
         let names: Vec<_> = generated_names()
             .chain(

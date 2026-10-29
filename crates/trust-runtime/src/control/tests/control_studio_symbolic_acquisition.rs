@@ -33,6 +33,81 @@ fn symbolic_inspection_is_pending_until_a_coherent_actual_scan() {
 }
 
 #[test]
+fn an_inspection_before_the_first_scan_waits_for_it() {
+    // Annex E3: before the first complete scan the answer is `available: false`, and Studio asks
+    // again (rule 8). A refusal instead failed a read that Identify needs when the runtime had only
+    // just started. The first answer names the revision that pins the reads after it.
+    let source = "PROGRAM Main VAR PV : LREAL; END_VAR PV := PV + 1.0; END_PROGRAM";
+    let mut state = control_test_state(source);
+    let mut harness = TestHarness::from_source(source).unwrap();
+    state.debug = studio_debug(&mut harness);
+    let bindings = json!([{"id":"pv","symbol":"Main.PV","iec_type":"LREAL"}]);
+    let inspect = |id: u64, pin: serde_json::Value| {
+        handle_request_value(
+            json!({"id":id,"type":"control.signals.inspect","params":{"loop_revision":"loop-start","bindings":bindings,"expected_program_revision":pin}}),
+            &state,
+            None,
+        )
+    };
+    let first = inspect(8740, serde_json::Value::Null);
+    assert!(
+        first.ok,
+        "the read must wait for the first scan, not be refused: {:?}",
+        first.error
+    );
+    let first = first.result.unwrap();
+    assert_eq!(first["available"], false);
+    assert_eq!(first["reason"], "Waiting for the next coherent runtime scan.");
+    assert_eq!(first["loop_revision"], "loop-start");
+    assert_eq!(first["bindings"], bindings);
+    let revision = first["program_revision"].clone();
+    assert!(
+        revision.as_str().is_some_and(|revision| !revision.is_empty()),
+        "{first}"
+    );
+    let other = inspect(8741, json!("another-program"));
+    assert_eq!(other.error.as_deref(), Some("program revision changed"));
+
+    harness.cycle();
+    let second = inspect(8742, revision.clone());
+    assert!(
+        second.ok,
+        "the first answer's revision must pin the reads after the first scan: {:?}",
+        second.error
+    );
+    assert_eq!(second.result.unwrap()["available"], false);
+    harness.advance_time(crate::value::Duration::from_millis(20));
+    assert!(harness.cycle().errors.is_empty());
+    let third = inspect(8743, revision.clone()).result.unwrap();
+    assert_eq!(third["available"], true, "{third}");
+    assert_eq!(third["program_revision"], revision);
+    assert_eq!(third["values"], json!([2.0]));
+}
+
+#[test]
+fn an_inspection_with_debugging_disabled_is_refused_at_once() {
+    // A runtime with debugging disabled publishes no scan, so an answer that waited for one would
+    // wait for ever: the read is refused instead.
+    let source = "PROGRAM Main VAR PV : LREAL; END_VAR PV := PV + 1.0; END_PROGRAM";
+    let mut state = control_test_state(source);
+    let mut harness = TestHarness::from_source(source).unwrap();
+    let debug = crate::debug::DebugControl::new()
+        .with_enabled_flag(Arc::new(AtomicBool::new(false)));
+    harness.runtime_mut().set_debug_control(debug.clone());
+    state.debug = debug;
+    harness.cycle();
+    let response = handle_request_value(
+        json!({"id":8744,"type":"control.signals.inspect","params":{"loop_revision":"loop-disabled","bindings":[{"id":"pv","symbol":"Main.PV","iec_type":"LREAL"}]}}),
+        &state,
+        None,
+    );
+    assert_eq!(
+        response.error.as_deref(),
+        Some("current runtime scan unavailable")
+    );
+}
+
+#[test]
 fn control_recording_empty_result_does_not_claim_actual_cycle_timing() {
     let (_harness, state) = recording_fixture();
     let start = handle_request_value(
