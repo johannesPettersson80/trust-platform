@@ -20,10 +20,6 @@
 //! - The host's paused passes leave no trace, so the device's paused boundaries are run at their
 //!   nominal times, and the resume reaches the device just before the boundary at which the host
 //!   resumed.
-//! - On a restart the host starts its task timing, and its cycle grid with it, at a clock reading
-//!   taken inside the restart, a few microseconds before its scan; the device starts both at that
-//!   scan's time. They report the same activations unless a later host scan comes within those
-//!   microseconds of its boundary.
 //! - Faults, the cycle watchdog, stop outputs and retain saves: the host composition has none.
 //!   The runner's own contract tests cover them.
 //!
@@ -379,7 +375,8 @@ fn restart_in_place(host: &mut HostComposition, device: &mut Device, id: u64, mo
         .expect("the restart pass scanned");
     device.replay(&scans[..restarted]);
     assert_same_reply(&line, &host_reply, &device.request(&line));
-    // The restart begins the device's grid again at the scan that takes it.
+    // Both begin their tasks' timing, and the grid with it, again at the scan that takes the
+    // restart (specification 10 §4.3).
     device.grid_origin = scans[restarted].at;
     device.replay(&scans[restarted..]);
     compare_reads(

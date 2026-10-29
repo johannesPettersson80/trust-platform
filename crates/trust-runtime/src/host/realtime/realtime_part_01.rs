@@ -2,6 +2,8 @@ use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::OnceLock;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 
@@ -202,11 +204,24 @@ impl T0ShmConfig {
 }
 
 impl Default for T0ShmConfig {
+    /// A root that no other transport names, under the system's temporary directory: its name
+    /// holds this process's ID, the time at which this process first named one, and a count. An
+    /// operating system gives a later process the ID of one that ended, so the ID alone would let
+    /// that process open the channels the ended one left (specification 11, "Registration,
+    /// shared-memory handshake, and binding").
     fn default() -> Self {
         static SHM_ROOT_NONCE: AtomicU64 = AtomicU64::new(0);
+        static PROCESS_STAMP: OnceLock<u128> = OnceLock::new();
+        let stamp = PROCESS_STAMP.get_or_init(|| {
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_or(0, |since| since.as_nanos())
+        });
         let nonce = SHM_ROOT_NONCE.fetch_add(1, Ordering::Relaxed);
-        let root_dir =
-            std::env::temp_dir().join(format!("trust-runtime-t0-{}-{nonce}", std::process::id()));
+        let root_dir = std::env::temp_dir().join(format!(
+            "trust-runtime-t0-{}-{stamp}-{nonce}",
+            std::process::id()
+        ));
         Self {
             root_dir,
             pinning_mode: T0PinningMode::Required,

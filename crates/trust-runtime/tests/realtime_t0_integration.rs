@@ -261,5 +261,7 @@ fn realtime_t0_multi_process_shm_exchange_succeeds() {
         String::from_utf8_lossy(&output.stderr)
     );
 
+    // Windows removes no file that is still mapped, so the transport goes first.
+    drop(transport);
     let _ = std::fs::remove_dir_all(root);
 }

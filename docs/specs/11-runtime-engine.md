@@ -2220,6 +2220,9 @@ execution model, not an IEC deviation.
   the configured cycle interval. The base is clamped to the inclusive range
   from one millisecond through one second, later attempts increase
   exponentially, and the resulting delay never exceeds one second.
+- The restarted program's tasks' timing, and the cycle grid with it, begin when
+  its first cycle starts, after the backoff (specification 10 §4.3), so its
+  tasks count no deadline in the backoff.
 
 **Faulted resource lifecycle (hosted runtime):**
 - A fault that halts the resource (policy `Halt` or `SafeHalt`, a watchdog
@@ -7162,6 +7165,13 @@ separate from the generic network mesh described below.
   `T0ErrorCode::TransportFailure`; its diagnostic identifies T0 shared-memory
   directory provisioning with the stable fragment
   `failed to create T0 SHM directory`.
+- A transport made without a configured root (`T0Transport::new`) keeps its
+  channels in a root of its own under the system's temporary directory. The
+  root's name holds the process's ID, the time at which the process first named
+  such a root, and a count, so that no other transport opens it, not even a
+  later process that the operating system gives the ID of one that ended. The
+  transport removes that root, with every channel in it, when it is dropped; a
+  configured root belongs to its caller and stays.
 - When page pinning is configured as required, an unavailable pinning provider
   or failed pinning operation returns `T0ErrorCode::TransportFailure`; the
   diagnostic contains the stable fragment `required page pinning failed`.

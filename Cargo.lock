@@ -7944,6 +7944,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "crc32fast",
+ "critical-section",
  "crossbeam-channel",
  "crossterm",
  "dialoguer",

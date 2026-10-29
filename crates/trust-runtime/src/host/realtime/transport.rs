@@ -105,6 +105,9 @@ impl T0ChannelState {
 #[derive(Debug)]
 pub struct T0Transport {
     config: T0ShmConfig,
+    /// Whether the transport named its shared-memory root itself ([`T0Transport::new`]), so that
+    /// it removes the root when it is dropped; a configured root belongs to its caller.
+    owns_root: bool,
     channels: Vec<T0ChannelState>,
     channel_index: BTreeMap<String, usize>,
     fallback_denied_total: u64,
@@ -112,12 +115,26 @@ pub struct T0Transport {
 
 impl Default for T0Transport {
     fn default() -> Self {
-        Self::with_config(T0ShmConfig::default())
+        let mut transport = Self::with_config(T0ShmConfig::default());
+        transport.owns_root = true;
+        transport
+    }
+}
+
+impl Drop for T0Transport {
+    /// Removes a root the transport named itself, with every channel in it, once the channels are
+    /// unmapped (specification 11, "Registration, shared-memory handshake, and binding").
+    fn drop(&mut self) {
+        if self.owns_root {
+            self.channels.clear();
+            let _ = std::fs::remove_dir_all(&self.config.root_dir);
+        }
     }
 }
 
 impl T0Transport {
-    /// Create an empty T0 transport.
+    /// Create an empty T0 transport whose channels live in a shared-memory root of its own, which
+    /// no other process opens and which is removed with the transport.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
@@ -128,6 +145,7 @@ impl T0Transport {
     pub fn with_config(config: T0ShmConfig) -> Self {
         Self {
             config,
+            owns_root: false,
             channels: Vec::new(),
             channel_index: BTreeMap::new(),
             fallback_denied_total: 0,

@@ -158,6 +158,44 @@ fn t0_shm_header_fuzz_rejects_corruption_budget() {
 }
 
 #[test]
+fn a_transport_of_its_own_removes_its_root_and_a_configured_root_stays() {
+    // Specification 11, "Registration, shared-memory handshake, and binding": a transport made
+    // without a configured root removes its root, with every channel in it, when it is dropped,
+    // and a configured root belongs to its caller. Catches a transport that leaves its root
+    // behind, which a later process given the same process ID opened again and read with the
+    // ended process's sequence (the Windows rerun of `realtime_t0_integration.rs`, 29 October
+    // 2026: sequence 25 for the first payload published), and one that removes a root it was
+    // given.
+    let mut transport = transport_fixture();
+    let publisher = transport
+        .bind_publisher(
+            "line-a",
+            RealtimeRoute::T0HardRt,
+            "sha256:feedface",
+            4,
+            true,
+        )
+        .expect("bind publisher");
+    transport
+        .publish_hardrt(publisher, &[1, 2, 3, 4])
+        .expect("publish");
+    let mapping = PathBuf::from(transport.shm_channel_readiness()[0].mapping_path.clone());
+    let root = mapping.parent().expect("the channel's root").to_path_buf();
+    assert!(mapping.is_file(), "the channel maps {}", mapping.display());
+    drop(transport);
+    assert!(!root.exists(), "{} is removed with its transport", root.display());
+
+    let configured = unique_temp_path("configured-root");
+    let mut transport = T0Transport::with_config(T0ShmConfig::with_root(configured.clone()));
+    transport
+        .register_channel("line-a", "sha256:feedface", T0ChannelPolicy::default())
+        .expect("register channel");
+    drop(transport);
+    assert!(configured.is_dir(), "the configured root stays with its caller");
+    let _ = std::fs::remove_dir_all(configured);
+}
+
+#[test]
 fn t0_shm_readiness_metadata_matches_meta_shm_channels_contract() {
     let transport = transport_fixture();
     let readiness = transport.shm_channel_readiness();

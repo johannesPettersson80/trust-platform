@@ -1927,6 +1927,18 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   complete scan the runtime refused `control.signals.inspect` with "current runtime scan
   unavailable", so a run or recording that began then failed at once. It now answers that the read
   waits for the scan, as annex E3 of the Control Studio protocol states, and Studio asks again.
+- On a computer, a restart begins the tasks' timing, and the cycle grid with it, when its first
+  cycle starts, as a chip does (specification 10 §4.3). It began them when the restart ended, so
+  the time between counted: after an automatic restart's backoff the first cycle ran the tasks,
+  and a longer backoff counted activations as missed.
+- A real-time (T0) shared-memory transport made without a configured root removes that root when
+  it closes, and names it so that no later process opens it. Before, the root stayed in the
+  temporary folder, and a later process that the operating system gave the same process ID opened
+  its channels and went on from their old sequence.
+- On Windows, a debug build of `trust-runtime` links again (`cargo build`, `cargo run -p
+  trust-runtime`): the runtime provides the critical section that the compiled cycle's libraries
+  take. Since 0.25.0 nothing provided one outside a build of the whole workspace's tests, and
+  Windows' linker refused the missing symbol.
 - The cycle grid keeps the tasks' deadlines on computers and chips alike (specification 10 §4.3):
   it begins where the tasks' timing begins, also when the first cycle starts late; a cycle that
   starts a whole cycle interval or more late, because the operating system delayed its wake or the

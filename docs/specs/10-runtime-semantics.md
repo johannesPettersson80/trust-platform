@@ -1323,7 +1323,12 @@ keep their deadlines through it: the first cycle after the resume is on the last
 nominal start at or before it. The grid begins where the tasks' timing begins: at
 the program's start, and again at a restart, a recovery from a fault by a restart
 included, and a start after a stop, which begin the tasks' timing at the moment
-their first cycle starts. The next cycle's nominal start is then one interval
+their first cycle starts. That moment is the first cycle's own start, not the
+end of the restart or of the program's load: a computer's scan thread can wait
+between the two, for an automatic restart's backoff or while the operating
+system holds the thread, and the tasks count no deadline in that wait. A start
+after a stop also begins the program's time there, at zero (specification 34,
+STATE-08). The next cycle's nominal start is then one interval
 later, when the tasks are due, and no cycle between finds them not yet due. A
 first cycle that starts later than the program's time began, after the start
 gate or a slow start, takes the last nominal start at or before it, so the
