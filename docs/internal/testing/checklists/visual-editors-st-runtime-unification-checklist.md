@@ -1,5 +1,11 @@
 # Visual Editors ST Runtime Unification Checklist
 
+Superseded 26 October 2026: the visual editors have no runtime mode of their own any more. A Ladder,
+Blockly or Statechart program runs as its Structured Text companion, like any program
+(`docs/specs/25-vscode-product-contract.md` §11.4.1). Sections 3 and 5 describe the removed editor
+wiring, and the evidence lines below record the code of February 2026: `stRuntimeCommands.ts`,
+`handleRuntimeMessage`, `generateVisualRuntimeEntrySource` and `resolveStartProgramUri` no longer exist.
+
 Repository anchor:
 - `/home/johannes/projects/trust-platform-merge-run`
 
