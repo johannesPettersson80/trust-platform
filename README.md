@@ -43,7 +43,7 @@ you review, version and test like any other code.
 | If you need | truST gives you |
 | --- | --- |
 | A modern editor for Structured Text | a language server in VS Code: diagnostics as you type, completion, hover, go to definition, references, rename across files and formatting |
-| PLC programs on ordinary computers | `trust-runtime`: native code on Linux, macOS and Windows, on x86-64 and AArch64, Raspberry Pi included |
+| PLC programs on ordinary computers | `trust-runtime`: native code on Linux, macOS and Windows, on x86-64 and AArch64 |
 | A small controller | the ESP32-C6 firmware, a complete truST runtime that you install over USB |
 | To see inside a running program | breakpoints, stepping, the call stack and variables on the compiled program, and Live Values to read, write and force I/O |
 | Operator screens | the HMI Builder in VS Code; the runtime serves the screens at `/hmi`, with trends and alarms |
@@ -188,15 +188,19 @@ Every example is a runnable project; [examples/README.md](examples/README.md) li
 
 | Platform | Tools | Runs programs |
 | --- | --- | --- |
-| Linux x86-64 and AArch64, Raspberry Pi with a 64-bit OS included | yes | yes |
+| Linux x86-64 and AArch64 | yes | yes |
 | macOS, Intel and Apple silicon | yes | yes |
 | Windows x86-64 | yes | yes |
 | ESP32-C6 | | yes: truST firmware, installed over USB, with Wi-Fi and firmware updates |
 | STM32U5A9 | | the firmware builds; it has not run on hardware yet |
 
-[Hardware](https://johannespettersson80.github.io/trust-platform/hardware/) ·
-[Supported chips](https://johannespettersson80.github.io/trust-platform/hardware/supported-chips/) ·
-[Linux PREEMPT_RT](https://johannespettersson80.github.io/trust-platform/operate/preempt-rt/)
+Raspberry Pi currently inherits Linux AArch64 artifact support; a named board model is qualified
+only with its own device-in-loop evidence.
+[Linux PREEMPT_RT](https://johannespettersson80.github.io/trust-platform/operate/preempt-rt/) is a
+supported deployment configuration, not a deterministic-latency certification. Hardware behaviour
+is proven on the target where it is tested; see
+[Hardware](https://johannespettersson80.github.io/trust-platform/hardware/) and
+[Supported chips](https://johannespettersson80.github.io/trust-platform/hardware/supported-chips/).
 
 ## Downloads
 
@@ -226,9 +230,12 @@ Every [release](https://github.com/johannesPettersson80/trust-platform/releases/
 
 ## Development
 
-truST is written in Rust; PLC programs and libraries are written in Structured Text. Its behaviour
-is written down in [specifications](docs/specs/README.md) and proven by tests. Interpretations of
-IEC 61131-3 are recorded in [IEC decisions](docs/IEC_DECISIONS.md), and deliberate deviations in
+truST is written in Rust; PLC programs and libraries are written in Structured Text. Runtime and
+debugger behavior claims are locked by their written
+product specifications and direct native executable tests ([specifications](docs/specs/README.md));
+where a claim needs environment-specific evidence, its proof class is stated separately.
+Interpretations of IEC 61131-3 are recorded in [IEC decisions](docs/IEC_DECISIONS.md), and
+deliberate deviations in
 [IEC deviations](docs/IEC_DEVIATIONS.md). A release is tagged only after its exact commit has
 passed formatting, Clippy, the documentation build, the full test suite and the VS Code tests.
 
