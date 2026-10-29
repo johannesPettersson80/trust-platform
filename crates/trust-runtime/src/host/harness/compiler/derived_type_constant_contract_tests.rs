@@ -627,6 +627,39 @@ END_PROGRAM
     assert!(error.to_ascii_lowercase().contains("upper"), "{error}");
 }
 
+// DEV-033 across files, as an e!COCKPIT project keeps its GVL in a file of its own: under the
+// CODESYS profile the DUTs of one file take their sizes from the plain globals of another. Worked
+// by hand: Label holds 8 characters and Samples has the bounds 0..3. Catches the runtime build
+// reading a size only from its own file.
+#[test]
+fn derived_type_constant_accepts_initialized_global_of_another_file() {
+    let runtime = codesys_runtime(&[
+        (
+            "gvl.st",
+            r#"
+VAR_GLOBAL
+    TextSize : INT := INT#8;
+    Upper : INT := INT#3;
+END_VAR
+"#,
+        ),
+        (
+            "types.st",
+            r#"
+TYPE Label : STRING[TextSize];
+END_TYPE
+TYPE Samples : ARRAY[0..Upper] OF INT;
+END_TYPE
+PROGRAM Main
+END_PROGRAM
+"#,
+        ),
+    ]);
+
+    assert_eq!(string_capacity(&runtime, "Label"), 8);
+    assert_eq!(array_dimensions(&runtime, "Samples"), vec![(0, 3)]);
+}
+
 #[test]
 fn derived_type_constant_rejects_mutable_enum_value() {
     let error = compile_error(&[(

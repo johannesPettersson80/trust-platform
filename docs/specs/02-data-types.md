@@ -322,8 +322,8 @@ ARRAY[0..5] OF INT := [2(1, 2, 3)]  // Results in: 1, 2, 3, 1, 2, 3
   §6.6.1.2.4).
 - CODESYS profile (docs/IEC_DEVIATIONS.md DEV-033; specification 14): under a
   CODESYS `vendor_profile` a limit may also name a plain (non-`CONSTANT`)
-  initializer-backed variable, including qualified names and
-  bound expressions (`ARRAY[0..(GVLMqtt.udiLenMsgBuffer - 1)]`); the declared
+  initializer-backed variable of any file of the project, including qualified
+  names and bound expressions (`ARRAY[0..(GVLMqtt.udiLenMsgBuffer - 1)]`); the declared
   initial value fixes the bound at compile time. TEMP and interface-direction
   sections are excluded, and chains through other mutable variables stay
   rejected.
@@ -772,8 +772,8 @@ END_VAR
   when visible; source order does not change the capacity.
 - CODESYS profile (docs/IEC_DEVIATIONS.md DEV-033; specification 14): under a
   CODESYS `vendor_profile` the capacity expression may also name a plain
-  (non-`CONSTANT`) variable whose own initializer is a
-  literal or constant expression, including qualified names
+  (non-`CONSTANT`) variable of any file of the project whose own initializer
+  is a literal or constant expression, including qualified names
   (`STRING(GVLMqtt.uiLenMsgState)`). The declared initial value fixes the
   capacity at compile time; runtime writes never resize anything. TEMP and
   interface-direction sections are excluded, and a chain through another

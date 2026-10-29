@@ -1,4 +1,4 @@
-use super::collector::SymbolCollector;
+use super::collector::{ConstantExpressions, SymbolCollector};
 use super::diagnostics::{
     add_unused_symbol_warnings, check_abstract_instantiations, check_class_semantics,
     check_configuration_semantics, check_cyclomatic_complexity, check_dut_extends_semantics,
@@ -9,7 +9,7 @@ use super::diagnostics::{
     resolve_pending_types_with_table, type_check_file, ExpressionIndex,
 };
 use super::project_configuration::project_config_roots;
-use super::project_constants::project_constant_expressions;
+use super::project_constants::{project_constant_expressions, project_declared_expressions};
 use super::project_types::{
     build_project_type_catalog, collect_file_type_prelude, find_project_type_declaration,
 };
@@ -307,6 +307,20 @@ pub(super) fn file_symbols_query(
     Arc::new(symbols)
 }
 
+/// The plain variables' initializers that a declaration size reads in a project under the CODESYS
+/// profile, in any of its files (docs/IEC_DEVIATIONS.md DEV-033); none under the IEC rules.
+fn declared_size_expressions(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+    files: &[(FileId, SourceInput)],
+) -> ConstantExpressions {
+    if project.dialect(db).is_codesys() {
+        project_declared_expressions(db, files)
+    } else {
+        ConstantExpressions::default()
+    }
+}
+
 #[salsa::tracked(returns(ref))]
 pub(super) fn project_symbol_tables_query(
     db: &dyn salsa::Database,
@@ -321,13 +335,14 @@ pub(super) fn project_symbol_tables_query(
         catalog: catalog.as_ref(),
     };
     let constants = project_constant_expressions(db, files);
+    let declared = declared_size_expressions(db, project, files);
     let mut project_tables: FxHashMap<FileId, Arc<SymbolTable>> = FxHashMap::default();
     for (file_id, input) in files.iter().copied() {
         cancellation_checkpoint(db);
         let root = SyntaxNode::new_root(parse_green(db, input).clone());
         let (symbols, _) = SymbolCollector::with_project_types(&provider)
             .with_dialect(*project.dialect(db))
-            .collect_with_project_constants(&root, &constants);
+            .collect_with_project_constants(&root, &constants, &declared);
         project_tables.insert(file_id, Arc::new(symbols));
     }
     Arc::new(project_tables)
@@ -404,10 +419,11 @@ pub(super) fn analyze_query(
     };
     let config_roots = project_config_roots(db, project_files);
     let constants = project_constant_expressions(db, project_files);
+    let declared = declared_size_expressions(db, project, project_files);
     let (mut symbols, mut diagnostics, pending_types, deferred_initializers) =
         SymbolCollector::with_project_types(&provider)
             .with_dialect(*project.dialect(db))
-            .collect_for_project_with_constants(&root, &constants);
+            .collect_for_project_with_constants(&root, &constants, &declared);
     // The merge is a deterministic function of the local table and the other files'
     // tables. When this file's table equals the one merged_project_symbols_query started
     // from (the usual case: the two collection paths agree), its result is this merge's

@@ -859,6 +859,76 @@ END_FUNCTION_BLOCK
     assert_eq!(*max_len, Some(968));
 }
 
+// DEV-033 across files: an e!COCKPIT project keeps its GVL in a file of its own. Under the CODESYS
+// profile a size names a plain variable of another file of the project, also qualified by its
+// namespace. Worked by hand: STRING(uiLen) holds 240 characters, STRING(GVLMqtt.uiLenMsgState) 64,
+// and ARRAY[0..(GVLMqtt.uiLenMsgState - 1)] has the bounds 0..63. Catches a size read only from
+// the using file (an error and no length under CODESYS) and the CODESYS rule applied to an IEC
+// project (IEC 61131-3 Ed.3 §6.4.2.2, §6.4.4.5.1 need constant sizes).
+#[test]
+fn test_declaration_sizes_from_another_files_variables() {
+    let gvl = r#"
+VAR_GLOBAL
+    uiLen : UINT := 240;
+END_VAR
+NAMESPACE GVLMqtt
+    VAR_GLOBAL
+        uiLenMsgState : UINT := 64;
+    END_VAR
+END_NAMESPACE
+"#;
+    let user = r#"
+FUNCTION_BLOCK fbPayload
+    VAR
+        name : STRING(uiLen);
+        state : STRING(GVLMqtt.uiLenMsgState);
+        buffer : ARRAY[0..(GVLMqtt.uiLenMsgState - 1)] OF BYTE;
+    END_VAR
+END_FUNCTION_BLOCK
+"#;
+    let project = |dialect: Dialect| {
+        let mut db = Database::new();
+        db.set_dialect(dialect);
+        db.set_source_text(FileId(0), gvl.to_string());
+        db.set_source_text(FileId(1), user.to_string());
+        db
+    };
+    let errors = |db: &Database| {
+        db.diagnostics(FileId(1))
+            .iter()
+            .filter(|d| d.severity == DiagnosticSeverity::Error)
+            .map(|d| d.message.clone())
+            .collect::<Vec<_>>()
+    };
+
+    let db = project(Dialect::Codesys);
+    assert_eq!(errors(&db), Vec::<String>::new());
+    let symbols = db.file_symbols_with_project(FileId(1));
+    let declared = |name: &str| {
+        let symbol = symbols.iter().find(|s| s.name == name).unwrap();
+        symbols
+            .type_by_id(symbols.resolve_alias_type(symbol.type_id))
+            .unwrap()
+            .clone()
+    };
+    assert!(
+        matches!(declared("name"), Type::String { max_len: Some(240) }),
+        "{:?}",
+        declared("name")
+    );
+    assert!(
+        matches!(declared("state"), Type::String { max_len: Some(64) }),
+        "{:?}",
+        declared("state")
+    );
+    let Type::Array { dimensions, .. } = declared("buffer") else {
+        panic!("expected an array type");
+    };
+    assert_eq!(dimensions, vec![(0, 63)]);
+
+    assert!(!errors(&project(Dialect::Iec)).is_empty());
+}
+
 #[test]
 fn test_string_length_from_initialized_local_variable() {
     // Under the CODESYS profile (IEC_DEVIATIONS DEV-033).

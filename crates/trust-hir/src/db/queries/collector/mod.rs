@@ -104,16 +104,31 @@ impl<'a> SymbolCollector<'a> {
         (self.table, self.diagnostics.finish())
     }
 
-    pub(super) fn constant_expressions(root: &SyntaxNode) -> ConstantExpressions {
-        let mut collector = Self::build(None);
+    /// The constants of `root`, and the initializers of its plain variables that a declaration
+    /// size may read under the CODESYS profile (docs/IEC_DEVIATIONS.md DEV-033), each by its scope
+    /// and name.
+    pub(super) fn constant_expressions(
+        root: &SyntaxNode,
+    ) -> (ConstantExpressions, ConstantExpressions) {
+        let mut collector = Self::build(None).with_dialect(Dialect::Codesys);
         collector.precollect_constants(root, &[], &[]);
-        collector.const_exprs
+        (collector.const_exprs, collector.declared_exprs)
+    }
+
+    /// Under the CODESYS profile a declaration size reads the initial value of a plain variable of
+    /// any file of the project, `declared` (docs/IEC_DEVIATIONS.md DEV-033); the IEC rules read
+    /// none.
+    fn use_project_declared(&mut self, declared: &ConstantExpressions) {
+        if self.table.dialect().is_codesys() {
+            self.declared_exprs = declared.clone();
+        }
     }
 
     pub(crate) fn collect_for_project_with_constants(
         mut self,
         root: &SyntaxNode,
         constants: &ConstantExpressions,
+        declared: &ConstantExpressions,
     ) -> (
         SymbolTable,
         Vec<Diagnostic>,
@@ -121,6 +136,7 @@ impl<'a> SymbolCollector<'a> {
         Vec<DeferredInitializer>,
     ) {
         self.const_exprs = constants.clone();
+        self.use_project_declared(declared);
         self.own_constants = Some(FxHashMap::default());
         self.phase_precollect(root);
         self.phase_collect_symbols(root);
@@ -139,8 +155,10 @@ impl<'a> SymbolCollector<'a> {
         mut self,
         root: &SyntaxNode,
         constants: &ConstantExpressions,
+        declared: &ConstantExpressions,
     ) -> (SymbolTable, Vec<Diagnostic>) {
         self.const_exprs = constants.clone();
+        self.use_project_declared(declared);
         self.collect(root)
     }
 

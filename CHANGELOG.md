@@ -74,8 +74,8 @@ The CODESYS vendor extensions of PR #140; the ones that change what an IEC progr
 The CODESYS and e!COCKPIT dialect constructs of PR #141:
 
 - Under a CODESYS `vendor_profile`, a `STRING`/`WSTRING` capacity or an array dimension bound may name a plain variable
-  whose initializer is constant, also qualified (`STRING(GVLMqtt.uiLenMsgState)`, `ARRAY[0..(GVLMqtt.udiLenMsgBuffer -
-  1)]`); the declared initial value fixes the size when the program is built. TEMP and interface-direction sections are
+  of any file of the project whose initializer is constant, also qualified (`STRING(GVLMqtt.uiLenMsgState)`,
+  `ARRAY[0..(GVLMqtt.udiLenMsgBuffer - 1)]`); the declared initial value fixes the size when the program is built. TEMP and interface-direction sections are
   excluded, chains through other mutable variables stay rejected, and no other constant-expression context changes
   (DEV-033).
 - `REF=` binds strings of any declared size to each other and a derived `STRUCT` variable behind a base-`STRUCT`

@@ -207,10 +207,11 @@ re-check them against this rule when touched.
   - The default language rules accept only literals and constant expressions
     as declaration sizes; a size that names a plain variable is an error.
   - Under the CODESYS profile a declaration size may name a plain variable
-    whose own initializer is a literal or a constant expression, also
-    qualified (`STRING(GVLMqtt.uiLenMsgState)`) and in bound expressions
-    (`ARRAY[0..(GVLMqtt.udiLenMsgBuffer - 1)]`): the declared initial value
-    fixes the size when the program is built, as CODESYS does.
+    of any file of the project whose own initializer is a literal or a
+    constant expression, also qualified (`STRING(GVLMqtt.uiLenMsgState)`)
+    and in bound expressions (`ARRAY[0..(GVLMqtt.udiLenMsgBuffer - 1)]`): the
+    declared initial value fixes the size when the program is built, as
+    CODESYS does.
   - Taking a size from a variable contradicts the constant sizes required.
 - Impact:
   - The size is fixed from the declared initial value; writes to the variable

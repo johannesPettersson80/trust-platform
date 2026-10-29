@@ -9,20 +9,27 @@ struct ConstantLocation {
     scope: Option<SmolStr>,
     name: SmolStr,
     range: TextRange,
+    /// Whether it is the initializer of a plain variable, which only a declaration size reads, and
+    /// only under the CODESYS profile (docs/IEC_DEVIATIONS.md DEV-033), rather than a constant's.
+    declared: bool,
 }
 
 #[salsa::tracked(returns(ref))]
 fn file_constant_locations(db: &dyn salsa::Database, input: SourceInput) -> Vec<ConstantLocation> {
     let root = SyntaxNode::new_root(parse_green(db, input).clone());
-    let mut entries: Vec<_> = SymbolCollector::constant_expressions(&root)
+    let (constants, declared) = SymbolCollector::constant_expressions(&root);
+    let mut entries: Vec<_> = constants
         .into_iter()
-        .map(|((scope, name), expr)| ConstantLocation {
+        .map(|entry| (entry, false))
+        .chain(declared.into_iter().map(|entry| (entry, true)))
+        .map(|(((scope, name), expr), declared)| ConstantLocation {
             scope,
             name,
             range: expr.text_range(),
+            declared,
         })
         .collect();
-    entries.sort_by(|a, b| (&a.scope, &a.name).cmp(&(&b.scope, &b.name)));
+    entries.sort_by(|a, b| (a.declared, &a.scope, &a.name).cmp(&(b.declared, &b.scope, &b.name)));
     entries
 }
 
@@ -30,11 +37,33 @@ pub(super) fn project_constant_expressions(
     db: &dyn salsa::Database,
     files: &[(FileId, SourceInput)],
 ) -> ConstantExpressions {
+    project_expressions(db, files, false)
+}
+
+/// The initializers of the project's plain variables that a declaration size may read under the
+/// CODESYS profile, in any file of the project (docs/IEC_DEVIATIONS.md DEV-033).
+pub(super) fn project_declared_expressions(
+    db: &dyn salsa::Database,
+    files: &[(FileId, SourceInput)],
+) -> ConstantExpressions {
+    project_expressions(db, files, true)
+}
+
+/// The constants (`declared` false) or the plain variables' initializers (`declared` true) of
+/// `files`, each by its scope and name, the first declaration winning.
+fn project_expressions(
+    db: &dyn salsa::Database,
+    files: &[(FileId, SourceInput)],
+    declared: bool,
+) -> ConstantExpressions {
     let mut expressions = ConstantExpressions::default();
     // Inputs are already in source-ID order, preserving first-declaration wins.
     for (_, input) in files {
         db.unwind_if_revision_cancelled();
-        let entries = file_constant_locations(db, *input);
+        let entries: Vec<&ConstantLocation> = file_constant_locations(db, *input)
+            .iter()
+            .filter(|entry| entry.declared == declared)
+            .collect();
         if entries.is_empty() {
             continue;
         }
@@ -93,9 +122,12 @@ mod tests {
         };
         assert_eq!(
             snapshot(&before),
-            snapshot(&SymbolCollector::constant_expressions(
-                &SyntaxNode::new_root(parse_green(&db, first).clone())
-            ))
+            snapshot(
+                &SymbolCollector::constant_expressions(&SyntaxNode::new_root(
+                    parse_green(&db, first).clone()
+                ))
+                .0
+            )
         );
         assert_eq!(
             snapshot(&project_constant_expressions(&db, &files)),
