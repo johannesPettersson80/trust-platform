@@ -54,7 +54,9 @@ if (process.env.TRUST_PLANT_RENDERED_TEST === "1") {
         await inner("var panel=d.querySelector('aside[aria-label=\"Plant properties\"]');var save=panel&&[...panel.querySelectorAll('button')].find((candidate)=>(candidate.textContent||'').trim()==='Save');if(!save)return 'NO_SAVE';save.click();return 'SAVED';");
         await pollValue("robot editor closes after save", () => inner("return String(Boolean(d.querySelector('aside[aria-label=\"Plant properties\"]')));"), (value) => value === "false", 20_000);
         let simulation = fs.readFileSync(path.join(workspace, "simulation.toml"), "utf8");
-        for (const field of optional) assert.doesNotMatch(simulation, new RegExp(`^${field}\\s*=`, "m"), `${field} omission must persist`);
+        // In any form: a table line or an inline table (the saved plant's parameters can be either), so
+        // that a Save of the value the field held before is caught here and not only after reopening.
+        for (const field of optional) assert.doesNotMatch(simulation, new RegExp(`\\b${field}\\s*=`), `${field} omission must persist`);
         await pollValue("saved robot node", () => inner("var node=[...d.querySelectorAll('.react-flow__node')].find((candidate)=>(candidate.textContent||'').includes('New simulated plant'));if(!node)return 'WAIT';node.dispatchEvent(new node.ownerDocument.defaultView.MouseEvent('click',{bubbles:true}));return 'OPEN';"), (value) => value === "OPEN", 20_000);
         await pollValue("reopened robot editor", () => inner("return String(Boolean(d.querySelector('select[name=plant-model]')));"), (value) => value === "true", 20_000);
         for (const field of optional) {
