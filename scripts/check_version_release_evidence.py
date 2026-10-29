@@ -30,7 +30,9 @@ except ModuleNotFoundError:  # Direct `python scripts/...` execution.
 
 NULL_SHA = "0" * 40
 DEFAULT_RUN_DISCOVERY_TIMEOUT_SECONDS = 3 * 60
-DEFAULT_RUN_COMPLETION_TIMEOUT_SECONDS = 90 * 60
+# The Release of 0.25.1 ran 1 h 54 min (five platform builds and five toolchain bundles), and the
+# wait of 90 minutes failed main's CI while it ran. Three hours leave an hour to spare.
+DEFAULT_RUN_COMPLETION_TIMEOUT_SECONDS = 180 * 60
 REQUIRED_EVIDENCE_ASSETS = {
     "SHA256SUMS",
     "release-provenance.json",

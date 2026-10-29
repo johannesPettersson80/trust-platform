@@ -33,7 +33,22 @@ class VersionReleaseEvidenceParserTests(unittest.TestCase):
     def test_default_completion_wait_covers_slow_release_builds(self) -> None:
         args = guard.build_parser().parse_args(REQUIRED_ARGS)
 
-        self.assertEqual(args.run_completion_timeout_seconds, 90 * 60)
+        # 0.25.1's Release ran 1 h 54 min; a wait of 90 minutes failed main's CI while it ran.
+        self.assertEqual(args.run_completion_timeout_seconds, 180 * 60)
+
+    def test_the_ci_job_outlives_its_wait_for_the_release(self) -> None:
+        # A job that GitHub stops first fails main's CI as the short wait did: the job's limit must
+        # hold the tag discovery (3 minutes) and the release wait (180) with time for its setup.
+        repo = Path(__file__).resolve().parents[1]
+        ci = (repo / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        job = re.search(r"(?ms)^  version-release-guard:\n(.*?)^  \S", ci)
+        self.assertIsNotNone(job)
+        limit = re.search(r"(?m)^    timeout-minutes: (\d+)$", job.group(1))
+        self.assertIsNotNone(limit)
+        waits = (
+            guard.DEFAULT_RUN_DISCOVERY_TIMEOUT_SECONDS + guard.DEFAULT_RUN_COMPLETION_TIMEOUT_SECONDS
+        ) / 60
+        self.assertGreaterEqual(int(limit.group(1)), waits + 15)
 
     def test_completion_wait_can_be_overridden(self) -> None:
         args = guard.build_parser().parse_args(

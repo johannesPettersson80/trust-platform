@@ -887,7 +887,7 @@ jobs:
   version-release-guard:
     name: Version Release Guard
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 200
     permissions:
       contents: read
       actions: read
