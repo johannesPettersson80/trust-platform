@@ -322,3 +322,85 @@ END_CONFIGURATION"#;
     );
     insta::assert_snapshot!(snapshot_parse(source));
 }
+
+#[test]
+// e!COCKPIT dialect: PROGRAM-scoped METHOD (IEC 61131-3 scopes METHODs to
+// classes/FBs; see docs/specs/04-pou-declarations.md §4 "Program methods").
+// The raw imported form nests the METHOD inside the PROGRAM body.
+fn test_program_with_method() {
+    insta::assert_snapshot!(snapshot_parse(
+        r#"PROGRAM MqttSubscribeMulti
+VAR
+    x : BOOL;
+END_VAR
+    x := StateToBool('1');
+METHOD PUBLIC StateToBool : BOOL
+VAR_INPUT
+    sInput : STRING;
+END_VAR
+    StateToBool := sInput = '1';
+END_METHOD
+END_PROGRAM"#
+    ));
+}
+
+#[test]
+// Statements may appear before and after the program-scoped METHOD; the
+// method is a declaration, not part of the statement stream.
+fn test_program_method_between_statements() {
+    let source = r#"PROGRAM Main
+VAR
+    count : INT;
+END_VAR
+    count := 1;
+METHOD PRIVATE Bump : INT
+    Bump := count + 1;
+END_METHOD
+    count := Bump();
+END_PROGRAM"#;
+    let parsed = parse(source);
+    assert!(
+        parsed.ok(),
+        "expected PROGRAM with a mid-body METHOD to parse, got: {:?}",
+        parsed.errors()
+    );
+    let syntax = parsed.syntax();
+    let program = syntax
+        .children()
+        .find(|child| child.kind() == SyntaxKind::Program)
+        .expect("expected program node");
+    let method = program
+        .descendants()
+        .find(|node| node.kind() == SyntaxKind::Method)
+        .expect("expected a Method node inside the program");
+    assert!(method.text().to_string().contains("Bump"));
+}
+
+#[test]
+// A METHOD line inside a PROGRAM body must reach the method parser (which
+// reports its own grammar errors), not fall out of the body loop with
+// "expected END_PROGRAM".
+fn test_program_method_error_is_method_scoped() {
+    let parsed = parse(
+        r#"PROGRAM Test
+METHOD 1Bad
+END_PROGRAM"#,
+    );
+    assert!(!parsed.ok());
+    assert!(
+        parsed
+            .errors()
+            .iter()
+            .any(|error| error.message == "expected method name"),
+        "errors: {:?}",
+        parsed.errors()
+    );
+    assert!(
+        !parsed
+            .errors()
+            .iter()
+            .any(|error| error.message == "expected END_PROGRAM"),
+        "errors: {:?}",
+        parsed.errors()
+    );
+}

@@ -579,3 +579,513 @@ END_PROGRAM
 "#,
     );
 }
+
+#[test]
+fn test_reference_to_spelling_is_ref_to_alias() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR x : INT; r : REFERENCE TO INT; END_VAR
+    r := REF(x);
+    r^ := 5;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_ref_bind_rebinds_to_variable_storage() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR x : INT; y : INT; r1 : REF_TO INT; r2 : REF_TO INT; END_VAR
+    r1 REF= x;
+    r2 REF= r1;
+    r1 REF= NULL;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_ref_bind_rejects_value_target() {
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR x : INT; r : REF_TO INT; END_VAR
+    x REF= r;
+END_PROGRAM
+"#,
+        DiagnosticCode::TypeMismatch,
+    );
+}
+
+#[test]
+fn test_ref_bind_rejects_computed_source() {
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR x : INT; r : REF_TO INT; END_VAR
+    r REF= x + 1;
+END_PROGRAM
+"#,
+        DiagnosticCode::TypeMismatch,
+    );
+}
+
+#[test]
+fn test_ref_bind_rejects_constant_source() {
+    // Spec 06 section 2: the REF= source must not be CONSTANT-qualified.
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR CONSTANT limit : INT := 10; END_VAR
+    VAR x : INT; r : REF_TO INT; END_VAR
+    r REF= limit;
+END_PROGRAM
+"#,
+        DiagnosticCode::ConstantModification,
+    );
+}
+
+/// IEC dereferences a reference explicitly with `^` (IEC 61131-3 Ed.3 §6.4.4.10.3), so member
+/// access through a reference without `^` is an error; the CODESYS profile dereferences it
+/// (IEC_DEVIATIONS DEV-031). Catches the CODESYS rule applied to an IEC project, and the profile
+/// ignored.
+#[test]
+fn test_reference_auto_deref_field_access() {
+    let source = r#"
+TYPE Point : STRUCT x : INT; END_STRUCT END_TYPE
+PROGRAM Test
+    VAR p : Point; r : REFERENCE TO Point; v : INT; END_VAR
+    r REF= p;
+    v := r.x;
+    r.x := 7;
+END_PROGRAM
+"#;
+    assert!(!check_errors(source).is_empty(), "IEC rejects {source}");
+    check_no_errors_in(Dialect::Codesys, source);
+}
+
+#[test]
+fn test_pointer_field_access_still_requires_deref() {
+    check_has_error(
+        r#"
+TYPE Point : STRUCT x : INT; END_STRUCT END_TYPE
+PROGRAM Test
+    VAR p : POINTER TO Point; v : INT; END_VAR
+    v := p.x;
+END_PROGRAM
+"#,
+        DiagnosticCode::TypeMismatch,
+    );
+}
+
+/// IEC dereferences a reference explicitly with `^` (IEC 61131-3 Ed.3 §6.4.4.10.3), so indexing
+/// through a reference without `^` is an error; the CODESYS profile dereferences it (IEC_DEVIATIONS
+/// DEV-031). Catches the CODESYS rule applied to an IEC project, and the profile ignored.
+#[test]
+fn test_reference_auto_deref_array_index() {
+    let source = r#"
+TYPE Data : ARRAY[0..3] OF INT; END_TYPE
+PROGRAM Test
+    VAR a : Data; r : REFERENCE TO Data; v : INT; END_VAR
+    r REF= a;
+    v := r[2];
+END_PROGRAM
+"#;
+    assert!(!check_errors(source).is_empty(), "IEC rejects {source}");
+    check_no_errors_in(Dialect::Codesys, source);
+}
+
+/// IEC dereferences a reference explicitly with `^` (IEC 61131-3 Ed.3 §6.4.4.10.3), so assignment
+/// copying through a reference without `^` is an error; the CODESYS profile dereferences it
+/// (IEC_DEVIATIONS DEV-031). Catches the CODESYS rule applied to an IEC project, and the profile
+/// ignored.
+#[test]
+fn test_reference_copy_through_assignment() {
+    let source = r#"
+PROGRAM Test
+    VAR x : INT; r : REF_TO INT; END_VAR
+    r REF= x;
+    x := r;
+    r := 3;
+END_PROGRAM
+"#;
+    assert!(!check_errors(source).is_empty(), "IEC rejects {source}");
+    check_no_errors_in(Dialect::Codesys, source);
+}
+
+/// IEC dereferences a reference explicitly with `^` (IEC 61131-3 Ed.3 §6.4.4.10.3), so a reference
+/// passed where its value is expected is an error; the CODESYS profile dereferences it
+/// (IEC_DEVIATIONS DEV-031). Catches the CODESYS rule applied to an IEC project, and the profile
+/// ignored.
+#[test]
+fn test_reference_argument_copy_through() {
+    let source = r#"
+FUNCTION Scale : INT
+    VAR_INPUT
+        v : INT;
+    END_VAR
+    Scale := v * 2;
+END_FUNCTION
+PROGRAM Test
+    VAR r : REF_TO INT; out : INT; END_VAR
+    out := Scale(r);
+END_PROGRAM
+"#;
+    assert!(!check_errors(source).is_empty(), "IEC rejects {source}");
+    check_no_errors_in(Dialect::Codesys, source);
+}
+
+/// IEC dereferences a reference explicitly with `^` (IEC 61131-3 Ed.3 §6.4.4.10.3), so a reference
+/// bound to an in-out of its value's type is an error; the CODESYS profile dereferences it
+/// (IEC_DEVIATIONS DEV-031). Catches the CODESYS rule applied to an IEC project, and the profile
+/// ignored.
+#[test]
+fn test_reference_in_out_argument_binding() {
+    let source = r#"
+FUNCTION_BLOCK FBSwap
+    VAR_IN_OUT io : INT; END_VAR
+END_FUNCTION_BLOCK
+PROGRAM Test
+    VAR r : REF_TO INT; fb : FBSwap; END_VAR
+    fb(r);
+END_PROGRAM
+"#;
+    assert!(!check_errors(source).is_empty(), "IEC rejects {source}");
+    check_no_errors_in(Dialect::Codesys, source);
+}
+
+/// IEC dereferences a reference explicitly with `^` (IEC 61131-3 Ed.3 §6.4.4.10.3), so arithmetic
+/// on a reference's value without `^` is an error; the CODESYS profile dereferences it
+/// (IEC_DEVIATIONS DEV-031). Catches the CODESYS rule applied to an IEC project, and the profile
+/// ignored.
+#[test]
+fn test_reference_arithmetic_copy_through() {
+    let source = r#"
+PROGRAM Test
+    VAR x : INT; r : REF_TO INT; END_VAR
+    x := r + 1;
+END_PROGRAM
+"#;
+    assert!(!check_errors(source).is_empty(), "IEC rejects {source}");
+    check_no_errors_in(Dialect::Codesys, source);
+}
+
+/// IEC dereferences a reference explicitly with `^` (IEC 61131-3 Ed.3 §6.4.4.10.3), so arithmetic
+/// between two references' values is an error; the CODESYS profile dereferences it (IEC_DEVIATIONS
+/// DEV-031). Catches the CODESYS rule applied to an IEC project, and the profile ignored.
+#[test]
+fn test_reference_arithmetic_between_references() {
+    let source = r#"
+PROGRAM Test
+    VAR a : REF_TO INT; b : REF_TO INT; x : INT; END_VAR
+    x := a + b;
+END_PROGRAM
+"#;
+    assert!(!check_errors(source).is_empty(), "IEC rejects {source}");
+    check_no_errors_in(Dialect::Codesys, source);
+}
+
+#[test]
+fn test_enum_typed_array_index_is_accepted() {
+    // CODESYS parity (vendor extension): an enum value or enum-typed
+    // variable is accepted as an array subscript.
+    check_no_errors(
+        r#"
+TYPE EAxis : (AxisX, AxisY); END_TYPE
+PROGRAM Test
+    VAR
+        table : ARRAY[0..1] OF INT;
+        axis : EAxis;
+        vx : INT;
+    END_VAR
+    vx := table[AxisX];
+    vx := table[axis];
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_non_integer_array_index_still_rejected() {
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR
+        table : ARRAY[0..1] OF INT;
+        label : STRING;
+        vx : INT;
+    END_VAR
+    vx := table[label];
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArrayIndex,
+    );
+}
+
+// CODESYS vendor parity (docs/IEC_DEVIATIONS.md DEV-033): declaration sizes may
+// name plain initializer-backed variables, not only true constants.
+#[test]
+fn test_string_length_from_initialized_global_variable() {
+    // Under the CODESYS profile (IEC_DEVIATIONS DEV-033).
+    let mut db = Database::new();
+    db.set_dialect(Dialect::Codesys);
+    let file = FileId(0);
+    db.set_source_text(
+        file,
+        r#"
+NAMESPACE GVLMqtt
+    VAR_GLOBAL
+        uiLenMsgState : UINT := 968;
+    END_VAR
+END_NAMESPACE
+FUNCTION_BLOCK fbPayload
+    VAR
+        pTemplate : STRING(GVLMqtt.uiLenMsgState);
+    END_VAR
+END_FUNCTION_BLOCK
+"#
+        .to_string(),
+    );
+
+    let symbols = db.file_symbols(file);
+    let name = symbols.iter().find(|s| s.name == "pTemplate").unwrap();
+    let type_id = symbols.resolve_alias_type(name.type_id);
+    let Type::String { max_len } = symbols.type_by_id(type_id).unwrap() else {
+        panic!("expected string type");
+    };
+    assert_eq!(*max_len, Some(968));
+}
+
+// DEV-033 across files: an e!COCKPIT project keeps its GVL in a file of its own. Under the CODESYS
+// profile a size names a plain variable of another file of the project, also qualified by its
+// namespace. Worked by hand: STRING(uiLen) holds 240 characters, STRING(GVLMqtt.uiLenMsgState) 64,
+// and ARRAY[0..(GVLMqtt.uiLenMsgState - 1)] has the bounds 0..63. Catches a size read only from
+// the using file (an error and no length under CODESYS) and the CODESYS rule applied to an IEC
+// project (IEC 61131-3 Ed.3 §6.4.2.2, §6.4.4.5.1 need constant sizes).
+#[test]
+fn test_declaration_sizes_from_another_files_variables() {
+    let gvl = r#"
+VAR_GLOBAL
+    uiLen : UINT := 240;
+END_VAR
+NAMESPACE GVLMqtt
+    VAR_GLOBAL
+        uiLenMsgState : UINT := 64;
+    END_VAR
+END_NAMESPACE
+"#;
+    let user = r#"
+FUNCTION_BLOCK fbPayload
+    VAR
+        name : STRING(uiLen);
+        state : STRING(GVLMqtt.uiLenMsgState);
+        buffer : ARRAY[0..(GVLMqtt.uiLenMsgState - 1)] OF BYTE;
+    END_VAR
+END_FUNCTION_BLOCK
+"#;
+    let project = |dialect: Dialect| {
+        let mut db = Database::new();
+        db.set_dialect(dialect);
+        db.set_source_text(FileId(0), gvl.to_string());
+        db.set_source_text(FileId(1), user.to_string());
+        db
+    };
+    let errors = |db: &Database| {
+        db.diagnostics(FileId(1))
+            .iter()
+            .filter(|d| d.severity == DiagnosticSeverity::Error)
+            .map(|d| d.message.clone())
+            .collect::<Vec<_>>()
+    };
+
+    let db = project(Dialect::Codesys);
+    assert_eq!(errors(&db), Vec::<String>::new());
+    let symbols = db.file_symbols_with_project(FileId(1));
+    let declared = |name: &str| {
+        let symbol = symbols.iter().find(|s| s.name == name).unwrap();
+        symbols
+            .type_by_id(symbols.resolve_alias_type(symbol.type_id))
+            .unwrap()
+            .clone()
+    };
+    assert!(
+        matches!(declared("name"), Type::String { max_len: Some(240) }),
+        "{:?}",
+        declared("name")
+    );
+    assert!(
+        matches!(declared("state"), Type::String { max_len: Some(64) }),
+        "{:?}",
+        declared("state")
+    );
+    let Type::Array { dimensions, .. } = declared("buffer") else {
+        panic!("expected an array type");
+    };
+    assert_eq!(dimensions, vec![(0, 63)]);
+
+    assert!(!errors(&project(Dialect::Iec)).is_empty());
+}
+
+#[test]
+fn test_string_length_from_initialized_local_variable() {
+    // Under the CODESYS profile (IEC_DEVIATIONS DEV-033).
+    let mut db = Database::new();
+    db.set_dialect(Dialect::Codesys);
+    let file = FileId(0);
+    db.set_source_text(
+        file,
+        r#"
+FUNCTION_BLOCK FB_Test
+    VAR
+        uiLen : UINT := 240;
+        name : STRING(uiLen);
+    END_VAR
+END_FUNCTION_BLOCK
+"#
+        .to_string(),
+    );
+
+    let symbols = db.file_symbols(file);
+    let name = symbols.iter().find(|s| s.name == "name").unwrap();
+    let type_id = symbols.resolve_alias_type(name.type_id);
+    let Type::String { max_len } = symbols.type_by_id(type_id).unwrap() else {
+        panic!("expected string type");
+    };
+    assert_eq!(*max_len, Some(240));
+}
+
+#[test]
+fn test_string_length_unresolvable_variable_chain_still_diagnoses() {
+    // The leniency covers strictly-valued initializers only: a chain
+    // through another mutable variable stays undecidable and keeps the
+    // standing diagnostic.
+    check_has_error(
+        r#"
+FUNCTION_BLOCK FB_Test
+    VAR
+        uiOuter : UINT := 12;
+        uiInner : UINT := uiOuter;
+        name : STRING(uiInner);
+    END_VAR
+END_FUNCTION_BLOCK
+"#,
+        DiagnosticCode::UndefinedVariable,
+    );
+}
+
+#[test]
+fn reference_binds_lvalue_string_of_any_declared_size() {
+    check_no_errors(
+        r#"
+PROGRAM P
+VAR
+    buffer : STRING[255];
+    sizedRef : REFERENCE TO STRING[968];
+    openRef : REFERENCE TO STRING;
+END_VAR
+sizedRef REF= buffer;
+openRef REF= buffer;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn reference_binds_lvalue_derived_struct_behind_base_reference() {
+    check_no_errors(
+        r#"
+TYPE stBase : STRUCT
+    a : INT;
+END_STRUCT
+END_TYPE
+TYPE stDerived EXTENDS stBase : STRUCT
+    b : INT;
+END_STRUCT
+END_TYPE
+PROGRAM P
+VAR
+    d : stDerived;
+    r : REFERENCE TO stBase;
+END_VAR
+r REF= d;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn reference_still_rejects_lvalue_of_unrelated_type() {
+    check_has_error(
+        r#"
+PROGRAM P
+VAR
+    flag : BOOL;
+    r : REFERENCE TO INT;
+END_VAR
+r REF= flag;
+END_PROGRAM
+"#,
+        DiagnosticCode::TypeMismatch,
+    );
+}
+
+#[test]
+fn equality_comparison_auto_dereferences_references() {
+    let source = r#"
+PROGRAM P
+VAR
+    buffer : STRING[255];
+    textRef : REFERENCE TO STRING;
+    value : INT;
+    intRef : REFERENCE TO INT;
+END_VAR
+IF textRef = buffer THEN
+    value := 1;
+END_IF
+IF intRef = value THEN
+    value := 2;
+END_IF
+END_PROGRAM
+"#;
+    // Under the IEC rules a reference compared with a value is a type mismatch (IEC 61131-3 Ed.3
+    // §6.4.4.10.3); under the CODESYS profile it compares the value it names (IEC_DEVIATIONS
+    // DEV-031). Catches the CODESYS comparison accepted in an IEC project.
+    check_has_error(source, DiagnosticCode::TypeMismatch);
+    check_no_errors_in(Dialect::Codesys, source);
+}
+
+#[test]
+fn ordering_comparison_still_requires_explicit_dereference() {
+    check_has_error(
+        r#"
+PROGRAM P
+VAR
+    value : INT;
+    intRef : REFERENCE TO INT;
+END_VAR
+IF intRef < value THEN
+    value := 1;
+END_IF
+END_PROGRAM
+"#,
+        DiagnosticCode::TypeMismatch,
+    );
+}
+
+/// Under the IEC rules a declaration size is a literal or a constant expression (IEC 61131-3 Ed.3
+/// §6.4.4.5.1, §6.4.2.2): a string length or an array bound that names a plain variable is an
+/// error, which only the CODESYS profile lifts (IEC_DEVIATIONS DEV-033). Catches the CODESYS
+/// sizes accepted in an IEC project.
+#[test]
+fn declaration_sizes_from_plain_variables_are_iec_errors() {
+    for source in [
+        "FUNCTION_BLOCK FB_Test\nVAR\n    uiLen : UINT := 240;\n    name : STRING(uiLen);\nEND_VAR\nEND_FUNCTION_BLOCK",
+        "FUNCTION_BLOCK FB_Test\nVAR\n    Low : INT := 1;\n    High : INT := 8;\n    arr : ARRAY[Low..High] OF INT;\nEND_VAR\nEND_FUNCTION_BLOCK",
+    ] {
+        assert!(!check_errors(source).is_empty(), "IEC rejects {source}");
+        check_no_errors_in(Dialect::Codesys, source);
+    }
+}

@@ -377,3 +377,152 @@ END_CLASS
         DiagnosticCode::InvalidOperation,
     );
 }
+
+#[test]
+fn test_dut_extends_inherits_struct_fields() {
+    check_no_errors(
+        r#"
+TYPE BaseEntity : STRUCT
+    sID : STRING;
+    xCover : INT;
+END_STRUCT END_TYPE
+TYPE EntityBinSen EXTENDS BaseEntity : STRUCT
+    bSen : BOOL;
+END_STRUCT END_TYPE
+PROGRAM Test
+    VAR
+        entity : EntityBinSen;
+        name : STRING;
+        count : INT;
+    END_VAR
+    name := entity.sID;
+    count := entity.xCover;
+    entity.bSen := TRUE;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_dut_extends_allows_base_assignment_direction() {
+    check_no_errors(
+        r#"
+TYPE BaseEntity : STRUCT
+    sID : STRING;
+END_STRUCT END_TYPE
+TYPE EntityBinSen EXTENDS BaseEntity : STRUCT
+    bSen : BOOL;
+END_STRUCT END_TYPE
+PROGRAM Test
+    VAR
+        base : BaseEntity;
+        derived : EntityBinSen;
+    END_VAR
+    base := derived;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_dut_extends_rejects_base_to_derived_assignment() {
+    check_has_error(
+        r#"
+TYPE BaseEntity : STRUCT
+    sID : STRING;
+END_STRUCT END_TYPE
+TYPE EntityBinSen EXTENDS BaseEntity : STRUCT
+    bSen : BOOL;
+END_STRUCT END_TYPE
+PROGRAM Test
+    VAR
+        base : BaseEntity;
+        derived : EntityBinSen;
+    END_VAR
+    derived := base;
+END_PROGRAM
+"#,
+        DiagnosticCode::IncompatibleAssignment,
+    );
+}
+
+#[test]
+fn test_dut_extends_across_files() {
+    check_no_errors_multi(&[
+        r#"
+TYPE BaseEntity : STRUCT
+    sID : STRING;
+END_STRUCT END_TYPE
+"#,
+        r#"
+TYPE EntityBinSen EXTENDS BaseEntity : STRUCT
+    bSen : BOOL;
+END_STRUCT END_TYPE
+PROGRAM Test
+    VAR
+        entity : EntityBinSen;
+        name : STRING;
+    END_VAR
+    name := entity.sID;
+END_PROGRAM
+"#,
+    ]);
+}
+
+#[test]
+fn test_dut_extends_rejects_non_struct_base() {
+    check_has_error(
+        r#"
+TYPE Color : (Red, Green);
+TYPE Bad EXTENDS Color : STRUCT
+    x : INT;
+END_STRUCT END_TYPE
+"#,
+        DiagnosticCode::InvalidOperation,
+    );
+}
+
+#[test]
+fn test_dut_extends_reports_unknown_base() {
+    // An EXTENDS base that names no declared type must be diagnosed, not
+    // silently ignored: the derived struct would otherwise inherit from
+    // nothing while looking valid to the author.
+    check_has_error(
+        r#"
+TYPE EntityBinSen EXTENDS MissingBase : STRUCT
+    bSen : BOOL;
+END_STRUCT END_TYPE
+"#,
+        DiagnosticCode::UndefinedType,
+    );
+}
+
+#[test]
+fn test_dut_extends_rejects_field_shadowing() {
+    check_has_error(
+        r#"
+TYPE BaseEntity : STRUCT
+    sID : STRING;
+END_STRUCT END_TYPE
+TYPE EntityBinSen EXTENDS BaseEntity : STRUCT
+    sID : STRING;
+END_STRUCT END_TYPE
+"#,
+        DiagnosticCode::DuplicateDeclaration,
+    );
+}
+
+#[test]
+fn test_dut_extends_rejects_inheritance_cycle() {
+    check_has_error(
+        r#"
+TYPE A EXTENDS B : STRUCT
+    x : INT;
+END_STRUCT END_TYPE
+TYPE B EXTENDS A : STRUCT
+    y : INT;
+END_STRUCT END_TYPE
+"#,
+        DiagnosticCode::CyclicDependency,
+    );
+}

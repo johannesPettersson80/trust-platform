@@ -60,6 +60,20 @@ impl Lowerer<'_, '_> {
             return self.scalar_typed(node, target);
         }
         let ty = self.type_of(node)?;
+        // Under the CODESYS profile a reference where its value is wanted is that value
+        // (docs/IEC_DEVIATIONS.md DEV-031).
+        if let Kind::Ref {
+            target: referenced,
+            pointer: false,
+        } = self.info(ty).kind
+            && !matches!(self.info(target).kind, Kind::Ref { .. })
+            && is_scalar(&self.info(referenced).kind)
+        {
+            let reference = self.reference(node)?;
+            let variable = self.dereference(&reference, referenced);
+            let value = self.load(&variable);
+            return self.convert(node, &value, referenced, target);
+        }
         let value = self.scalar_typed(node, ty)?;
         self.convert(node, &value, ty, target)
     }
@@ -262,7 +276,7 @@ impl Lowerer<'_, '_> {
 
     /// A reference of kind `kind`, `VARIABLE` or `POINTER`, to `variable`, as a reference to
     /// `target` when given (specification 02 §4.2).
-    fn refer(
+    pub(super) fn refer(
         &mut self,
         node: &SyntaxNode,
         variable: &SyntaxNode,
@@ -429,6 +443,20 @@ impl Lowerer<'_, '_> {
     }
 
     /// The common type two operands of a comparison or a selection take: the wider.
+    /// The type of `node`'s value as an operand: the referenced scalar type of a reference that is
+    /// no pointer, which the CODESYS profile reads through (docs/IEC_DEVIATIONS.md DEV-031);
+    /// `node`'s own type otherwise.
+    fn value_type(&mut self, node: &SyntaxNode) -> Result<Ty, NativeError> {
+        let ty = self.type_of(node)?;
+        Ok(match self.info(ty).kind {
+            Kind::Ref {
+                target,
+                pointer: false,
+            } if is_scalar(&self.info(target).kind) => target,
+            _ => ty,
+        })
+    }
+
     pub(super) fn common(&self, node: &SyntaxNode, a: Ty, b: Ty) -> Result<Ty, NativeError> {
         if a == b {
             return Ok(a);
@@ -467,6 +495,22 @@ impl Lowerer<'_, '_> {
                 let sign = if op == K::Eq { "" } else { "!" };
                 Ok(format!("({sign}same_target({a}, {b}))"))
             }
+            K::Eq | K::Neq
+                if (self.is_reference(&left) || self.is_reference(&right))
+                    && !is_null(&left)
+                    && !is_null(&right)
+                    && crate::harness::dialect_of(self.model.conversions).is_codesys() =>
+            {
+                // Under the CODESYS profile a reference compared with a value or another reference
+                // takes part as the value it names (docs/IEC_DEVIATIONS.md DEV-031).
+                let a = self.value_type(&left)?;
+                let b = self.value_type(&right)?;
+                let common = self.common(node, a, b)?;
+                let a = self.scalar_to(&left, common)?;
+                let b = self.scalar_to(&right, common)?;
+                let sign = if op == K::Eq { "==" } else { "!=" };
+                Ok(format!("({a} {sign} {b})"))
+            }
             K::Eq | K::Neq if self.is_reference(&left) || self.is_reference(&right) => {
                 // Two references are equal when they name the same variable, or are both `NULL`,
                 // whatever type each was taken as.
@@ -476,8 +520,8 @@ impl Lowerer<'_, '_> {
                 Ok(format!("({sign}same_target({a}, {b}))"))
             }
             K::Eq | K::Neq | K::Lt | K::LtEq | K::Gt | K::GtEq => {
-                let a = self.type_of(&left)?;
-                let b = self.type_of(&right)?;
+                let a = self.value_type(&left)?;
+                let b = self.value_type(&right)?;
                 if matches!(self.info(a).kind, Kind::Str(_) | Kind::WStr(_))
                     || matches!(self.info(b).kind, Kind::Str(_) | Kind::WStr(_))
                 {
@@ -542,8 +586,8 @@ impl Lowerer<'_, '_> {
                 let Some(elem) = self.info(ty).scalar() else {
                     return Err(self.unsupported(node, "arithmetic on a value that is no scalar"));
                 };
-                let left_ty = self.type_of(&left)?;
-                let right_ty = self.type_of(&right)?;
+                let left_ty = self.value_type(&left)?;
+                let right_ty = self.value_type(&right)?;
                 let (Some(left_elem), Some(right_elem)) =
                     (self.info(left_ty).scalar(), self.info(right_ty).scalar())
                 else {
@@ -803,6 +847,12 @@ impl Lowerer<'_, '_> {
             | SyntaxKind::IndexExpr
             | SyntaxKind::DerefExpr => {
                 let place = self.place(node)?;
+                // A reference where its structure or array is wanted (DEV-031).
+                let place = if place.ty == ty {
+                    place
+                } else {
+                    self.referenced_place(place)
+                };
                 // A structure or an array that lies in an overlap's backing is copied out of it,
                 // into a value of its own type (IEC §6.4.4.7.1; `overlap`).
                 if place.is_overlap_region()

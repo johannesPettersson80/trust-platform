@@ -2,6 +2,7 @@
 //! access path or `THIS` names in the frame of the POU being lowered, as a Rust expression of its
 //! storage with its type.
 
+use trust_hir::SymbolKind;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 use super::super::types::{rust_field, Elem, Kind, Member, Ty};
@@ -112,6 +113,23 @@ impl Lowerer<'_, '_> {
             expr,
             ty: target,
             is_ref: true,
+        }
+    }
+
+    /// The variable that `place`, a reference that is no pointer, names, checked as `^` checks it;
+    /// `place` itself when it is no such reference. Under the CODESYS profile a reference where its
+    /// value is wanted is that value (docs/IEC_DEVIATIONS.md DEV-031); trust-hir accepts such a use
+    /// only under that profile, so no IEC program reaches the dereference.
+    pub(in crate::native) fn referenced_place(&mut self, place: Place) -> Place {
+        match self.info(place.ty).kind {
+            Kind::Ref {
+                target,
+                pointer: false,
+            } if !matches!(self.info(target).kind, Kind::Open { .. }) => {
+                let reference = self.load(&place);
+                self.dereference(&reference, target)
+            }
+            _ => place,
         }
     }
 
@@ -411,7 +429,11 @@ impl Lowerer<'_, '_> {
         if self.namespace_qualified(node) {
             return self.name_place(node, &name);
         }
+        if let Some(instance) = self.named_program_instance(&base)? {
+            return self.program_member_place(node, instance, &name);
+        }
         let base = self.place(&base)?;
+        let base = self.referenced_place(base);
         let info = self.info(base.ty).clone();
         if let Kind::Overlap { members, bits } = &info.kind {
             return self.overlap_member(node, &base, members, bits, &name);
@@ -430,6 +452,68 @@ impl Lowerer<'_, '_> {
         let expr = format!("{}.{}", base.expr, member.field());
         Ok(Place {
             expr,
+            ty: member.ty,
+            is_ref: false,
+        })
+    }
+
+    /// The program instance that `node` names by its program's name under the CODESYS profile
+    /// (docs/IEC_DEVIATIONS.md DEV-030; specification 04): the instance of the same name, which a
+    /// project without a CONFIGURATION has for each of its programs (specification 18 §2.2).
+    /// `None` when `node` names no program; an error when the configuration gives the program no
+    /// instance of its name.
+    pub(super) fn named_program_instance(
+        &self,
+        node: &SyntaxNode,
+    ) -> Result<Option<usize>, NativeError> {
+        if node.kind() != SyntaxKind::NameRef {
+            return Ok(None);
+        }
+        let name = call::ident(node);
+        let symbols = &self.src.analysis.symbols;
+        let symbol = self
+            .src
+            .symbol_of(node)
+            .or_else(|| symbols.lookup(&name))
+            .and_then(|id| symbols.get(id));
+        if !symbol.is_some_and(|symbol| matches!(symbol.kind, SymbolKind::Program)) {
+            return Ok(None);
+        }
+        self.model
+            .instances
+            .iter()
+            .position(|instance| {
+                instance.name.eq_ignore_ascii_case(&name)
+                    && self.model.program_types[instance.program]
+                        .def
+                        .name
+                        .eq_ignore_ascii_case(&name)
+            })
+            .map(Some)
+            .ok_or_else(|| {
+                NativeError::Compile(format!(
+                    "{}: program {name} has no instance named {name}; the CODESYS profile reaches \
+                     a program through its instance of the same name",
+                    self.src.at(node)
+                ))
+            })
+    }
+
+    /// The variable `name` of program instance `instance`, retained or not (DEV-030).
+    pub(super) fn program_member_place(
+        &self,
+        node: &SyntaxNode,
+        instance: usize,
+        name: &str,
+    ) -> Result<Place, NativeError> {
+        let instance = &self.model.instances[instance];
+        let program = &self.model.program_types[instance.program];
+        let Some((member, retained)) = program.member(name) else {
+            return Err(self.unsupported(node, format!("the member {name}")));
+        };
+        let area = if retained { "r" } else { "p" };
+        Ok(Place {
+            expr: format!("w.{area}.{}.{}", rust_field(&instance.name), member.field()),
             ty: member.ty,
             is_ref: false,
         })
@@ -506,6 +590,7 @@ impl Lowerer<'_, '_> {
             return Err(self.unsupported(node, "an index without an array"));
         };
         let array = self.place(&base)?;
+        let array = self.referenced_place(array);
         let indices: Vec<SyntaxNode> = children.collect();
         if matches!(self.info(array.ty).kind, Kind::Open { .. }) {
             return self.open_element(node, &array, &indices);

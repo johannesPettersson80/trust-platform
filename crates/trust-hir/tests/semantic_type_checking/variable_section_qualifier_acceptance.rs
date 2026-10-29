@@ -355,3 +355,21 @@ END_CONFIGURATION
 "#,
     );
 }
+
+#[test]
+fn qualifier_contract_accepts_retain_persistent_combination() {
+    // CODESYS/WAGO parity: PERSISTENT storage implies retention, so the
+    // combination is accepted as a vendor extension (spec 03-variables).
+    check_no_errors(
+        r#"
+PROGRAM Main
+VAR_GLOBAL RETAIN PERSISTENT
+    GVLRetainPersist : INT;
+END_VAR
+VAR RETAIN PERSISTENT
+    InstanceRetainPersist : INT;
+END_VAR
+END_PROGRAM
+"#,
+    );
+}

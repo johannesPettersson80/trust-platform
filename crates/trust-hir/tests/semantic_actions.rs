@@ -401,20 +401,6 @@ END_PROGRAM
 }
 
 #[test]
-fn action_semantics_do_not_make_action_name_callable() {
-    check_has_error(
-        r#"
-PROGRAM Main
-ACTION Reset:
-END_ACTION
-Reset();
-END_PROGRAM
-"#,
-        DiagnosticCode::UndefinedFunction,
-    );
-}
-
-#[test]
 fn action_semantics_do_not_cross_owner_local_scope() {
     check_has_error(
         r#"
@@ -457,5 +443,95 @@ END_ACTION
 END_FUNCTION_BLOCK
 "#,
         DiagnosticCode::CannotResolve,
+    );
+}
+
+// CODESYS textual action invocation (vendor extension; spec 04 section 8).
+
+#[test]
+fn action_name_is_callable_within_its_owner() {
+    check_no_errors(
+        r#"
+PROGRAM Main
+VAR count : INT; END_VAR
+ACTION Reset:
+    count := 0;
+END_ACTION
+Reset();
+END_PROGRAM
+"#,
+    );
+}
+
+/// Under the CODESYS profile another program's action is called through the program's name;
+/// that is program member access, which IEC 61131-3 Ed.3 §6.6.4 does not provide
+/// (IEC_DEVIATIONS DEV-030). Catches the call accepted in an IEC project, and the profile ignored.
+#[test]
+fn action_call_qualified_by_owner_program() {
+    let source = r#"
+PROGRAM Owner
+VAR count : INT; END_VAR
+ACTION Reset:
+    count := 0;
+END_ACTION
+END_PROGRAM
+PROGRAM Main
+    Owner.Reset();
+END_PROGRAM
+"#;
+    assert!(
+        !check_errors(source).is_empty(),
+        "IEC rejects Owner.Reset()"
+    );
+    check_no_errors_in(Dialect::Codesys, source);
+}
+
+#[test]
+fn action_is_callable_via_fb_instance() {
+    check_no_errors(
+        r#"
+FUNCTION_BLOCK FBMachine
+VAR step : INT; END_VAR
+ACTION DoWork:
+    step := step + 1;
+END_ACTION
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR machine : FBMachine; END_VAR
+    machine.DoWork();
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn action_call_rejects_arguments() {
+    check_has_error(
+        r#"
+PROGRAM Main
+VAR count : INT; END_VAR
+ACTION Reset:
+    count := 0;
+END_ACTION
+Reset(1);
+END_PROGRAM
+"#,
+        DiagnosticCode::WrongArgumentCount,
+    );
+}
+
+#[test]
+fn action_call_result_is_not_a_value() {
+    check_has_error(
+        r#"
+PROGRAM Main
+VAR count : INT; x : INT; END_VAR
+ACTION Reset:
+    count := 0;
+END_ACTION
+x := Reset();
+END_PROGRAM
+"#,
+        DiagnosticCode::TypeMismatch,
     );
 }

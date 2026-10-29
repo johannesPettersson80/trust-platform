@@ -21,6 +21,27 @@ impl<'a> TypeChecker<'a> {
             })
     }
 
+    /// Under the CODESYS profile, whether `symbol` is an input of a function block or program that
+    /// its own body may write, as CODESYS lets it (docs/IEC_DEVIATIONS.md DEV-029): a function's or
+    /// method's parameter stays call-local, and a pointer or reference input stays read-only (the
+    /// indirect-write rule of specification 02 §4.4).
+    fn is_codesys_writable_input(&self, symbol: &Symbol) -> bool {
+        if !self.symbols.dialect().is_codesys() {
+            return false;
+        }
+        let owned_by_instance = symbol.parent.is_some_and(|owner| {
+            self.symbols.get(owner).is_some_and(|owner| {
+                matches!(owner.kind, SymbolKind::FunctionBlock | SymbolKind::Program)
+            })
+        });
+        let slot = self.symbols.resolve_alias_type(symbol.type_id);
+        owned_by_instance
+            && !matches!(
+                self.symbols.type_by_id(slot),
+                Some(Type::Pointer { .. } | Type::Reference { .. })
+            )
+    }
+
     fn symbol_is_constant(&self, symbol: &Symbol) -> bool {
         symbol.is_constant
             || matches!(
@@ -187,8 +208,11 @@ impl<'a> TypeChecker<'a> {
                 direction: ParamDirection::In,
             } => {
                 // IEC 61131-3 Ed.3 Figure 13 row 2: outside its instance, a function block's input may be assigned
-                // separately and is used by the next call; inside, the POU does not assign its own input.
-                if self.is_external_function_block_member(node, symbol) {
+                // separately and is used by the next call; inside, the POU does not assign its own input, except
+                // under the CODESYS profile.
+                if self.is_external_function_block_member(node, symbol)
+                    || self.is_codesys_writable_input(symbol)
+                {
                     return true;
                 }
                 self.diagnostics.error(
@@ -242,6 +266,29 @@ impl<'a> TypeChecker<'a> {
                 }
             }
             SyntaxKind::FieldExpr => {
+                // Writes through an input-parameter slot stay rejected
+                // (spec 02 section 4.4 indirect-write policy): with FB
+                // members public, `FbIn.Field := x` must still fail even
+                // though `Field` itself resolves.
+                if self.assignment_walks_through_input_parameter(node) {
+                    self.diagnostics.error(
+                        DiagnosticCode::InvalidAssignmentTarget,
+                        node.text_range(),
+                        "cannot assign through an input parameter",
+                    );
+                    return None;
+                }
+                // CODESYS program-singleton access keeps target resolution
+                // (and with it the assignability checks) working.
+                if let Some(member_id) = self.resolve_ref().resolve_program_qualified_member(node) {
+                    let accessible = self
+                        .resolve()
+                        .check_member_access(member_id, node.text_range());
+                    return Some(ResolvedSymbol {
+                        id: member_id,
+                        accessible,
+                    });
+                }
                 if let Some(symbol_id) = self.resolve_ref().resolve_namespace_qualified_symbol(node)
                 {
                     let accessible = self
@@ -257,6 +304,9 @@ impl<'a> TypeChecker<'a> {
                     return None;
                 }
                 let base_type = self.expr().check_expression(&children[0]);
+                // Reference auto-deref keeps target resolution (and with it
+                // accessibility/constant checks) working through references.
+                let base_type = self.deref_reference_type(base_type);
                 let Some(field_name) = self.resolve_ref().get_name_from_ref(&children[1]) else {
                     return self.resolve().resolve_lvalue_root(node);
                 };
@@ -273,6 +323,47 @@ impl<'a> TypeChecker<'a> {
             SyntaxKind::DerefExpr => None,
             _ => None,
         }
+    }
+
+    /// True when the field-expression chain of an assignment target passes
+    /// through an input-parameter slot (`FbIn.Field` where `FbIn` is
+    /// `VAR_INPUT`).
+    fn assignment_walks_through_input_parameter(&mut self, node: &SyntaxNode) -> bool {
+        let mut current = Some(node.clone());
+        while let Some(expr) = current {
+            if expr.kind() != SyntaxKind::FieldExpr {
+                return false;
+            }
+            let mut children = expr.children();
+            let base = match children.next() {
+                Some(base) => base,
+                None => return false,
+            };
+            if base.kind() == SyntaxKind::FieldExpr {
+                current = Some(base);
+                continue;
+            }
+            // Only a plain dotted path (`FbIn.Field`) counts; deref, index,
+            // and call chains are the documented pointer write-through forms.
+            if base.kind() != SyntaxKind::NameRef {
+                return false;
+            }
+            let Some(name) = self.resolve_ref().get_name_from_ref(&base) else {
+                return false;
+            };
+            return matches!(
+                self.resolve()
+                    .resolve_name_in_context_outcome(&name, base.text_range()),
+                NameResolveOutcome::Resolved(resolved)
+                    if matches!(
+                        self.symbols.get(resolved.id).map(|symbol| &symbol.kind),
+                        Some(SymbolKind::Parameter {
+                            direction: ParamDirection::In
+                        })
+                    )
+            );
+        }
+        false
     }
 
     pub(super) fn type_of_assignment_target(

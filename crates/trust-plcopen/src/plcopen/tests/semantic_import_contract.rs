@@ -751,27 +751,52 @@ fn semantic_codesys_method_without_header_defaults_public_with_diagnostic() {
 }
 
 #[test]
-fn semantic_codesys_method_on_program_is_skipped_with_named_diagnostic() {
+fn semantic_codesys_method_on_program_merges_like_function_block() {
+    // e!COCKPIT lets PROGRAM POUs carry methods (self-called without THIS):
+    // measured on PFC200_2ETH_RS/Application.MqttSubscribeMulti.xml, where
+    // the dropped `StateToBool` method left its call site unresolved.
     let fixture = SemanticImportFixture::new(
-        "method-wrong-owner",
-        r#"<pous><pou name="Main" pouType="program">
-  <body><ST><![CDATA[PROGRAM Main
+        "method-program-owner",
+        r#"<pous><pou name="MqttSubscribeMulti" pouType="program">
+  <body><ST><![CDATA[PROGRAM MqttSubscribeMulti
+  StateToBool(typJson.sValue);
 END_PROGRAM
 ]]></ST></body>
   <addData><data name="plcopenxml/method">
-    <Method name="Reset"><body><ST><![CDATA[]]></ST></body></Method>
+    <Method name="StateToBool">
+      <interface>
+        <inputVars>
+          <variable name="sValue"><type><string /></type></variable>
+        </inputVars>
+      </interface>
+      <body><ST><![CDATA[sValue := '';]]></ST></body>
+    </Method>
   </data></addData>
 </pou></pous>"#,
     );
 
-    let report = fixture.import().expect("import program without method");
-    let source = fixture.source("Main.st");
+    let report = fixture.import().expect("import program with method");
+    let source = fixture.source("MqttSubscribeMulti.st");
 
-    assert!(!source.contains("METHOD"));
-    assert!(report
-        .unsupported_diagnostics
-        .iter()
-        .any(|diagnostic| diagnostic.code == "PLCO213"));
+    assert!(
+        source.contains("METHOD"),
+        "program method must merge into the program source:\n{source}"
+    );
+    assert!(
+        source.contains("sValue := '';"),
+        "method body must be carried into the program source:\n{source}"
+    );
+    assert!(source.contains("END_METHOD"));
+    assert!(source.contains("END_PROGRAM"));
+    assert!(
+        !report
+            .warnings
+            .iter()
+            .any(|warning| warning
+                .contains("only imports vendor method metadata into FUNCTION_BLOCK")),
+        "program methods must not be reported as lost: {:?}",
+        report.warnings
+    );
 }
 
 #[test]

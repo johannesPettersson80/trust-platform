@@ -32,15 +32,17 @@ pub fn compile_debug_expression(
 
 /// The types and the date and time profile of the project of `sources`, from its declarations
 /// alone (no statement is lowered), with which a tool compiles the debug expressions of a runtime
-/// that runs the project compiled.
+/// that runs the project compiled; `conversions` names the project's vendor profile.
 ///
 /// # Errors
 ///
 /// The errors of sources that do not check.
 pub fn project_expression_types(
     sources: &[SourceFile],
+    conversions: crate::stdlib::conversions::ConversionProfile,
 ) -> Result<(TypeRegistry, DateTimeProfile), CompileError> {
-    let (lowered, _) = super::build::lower_application_and_frontend(sources, true, false)?;
+    let (lowered, _) =
+        super::build::lower_application_and_frontend(sources, true, false, conversions)?;
     Ok((
         lowered.builder.registry().clone(),
         lowered.builder.profile(),

@@ -14,9 +14,109 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   the runtime when it restarts on another port; when the runtime stops, the entry says it is not running. Before, the
   picker offered only the Simulator, and reaching such a runtime needed its endpoint typed in Devices & Connections
   (specification 25, §5.1).
+- `[project] vendor_profile` selects the language rules too, not only formatting, the standard library and the
+  conversion rules: `codesys`, `beckhoff` and `twincat` switch on CODESYS's departures from IEC 61131-3 (recorded in
+  `IEC_DEVIATIONS.md`, DEV-028 to DEV-032) in the editor, `trust-lsp check`, the debugger, the runtime's web IDE and
+  the runtime build; every other profile keeps the IEC rules (specification 14).
+- The runtime build compiles the CODESYS constructs of PR #140 and runs them: a program reached by its name
+  (`Program.member`, `Program(...)`, through the program's instance of the same name), references read and written
+  without `^`, `REF=`, `EnumType.Member` in starting values, a structure that `EXTENDS` another (the base's fields
+  first) and its copy to the base, function block members written from outside, and empty named bindings.
+
+The CODESYS vendor extensions of PR #140; the ones that change what an IEC program means apply only under a CODESYS
+`vendor_profile`:
+
+- Resolve textual action call sites in the IDE (CODESYS vendor extension): bare `action_name()` calls and
+  `ProgramName.action_name()` resolve to the action symbol, so go-to-definition, hover, find-references and rename
+  include action call sites instead of silently dropping (or corrupting) them.
+- Tolerate identical duplicate declarations in PLCopen `globalVars` lists (e!COCKPIT MixedAttrsVarList parity):
+  repeats are dropped with a `PLCO605` info instead of skipping the whole list; conflicting redefinitions still reject
+  the list (`PLCO604`).
+- Import CODESYS `pouType="action"` PLCopen POUs: `Parent.Action` names merge into the parent POU as textual `ACTION`
+  blocks (`PLCO219` info); body-less actions skip with `PLCO204`, and actions without parent linkage keep the
+  `PLCO203` fail-closed skip. Textual actions nested under the parent POU in real e!COCKPIT exports
+  (`<pou><actions><action name="Plain">`) merge the same way, where they were dropped silently.
+- Import e!COCKPIT methods attached to PROGRAM POUs (before, only function-block methods were kept): the method body
+  merges into the program mirror, so self-calls like `StateToBool(...)` resolve.
+- Read the canonical e!COCKPIT v3.9.2 array initializer form (`<initialValue><arrayValue><value><simpleValue …/>`) in
+  GVL imports, flattened to the ST bracket list; the boot tables vanished from the mirror before.
+- Namespace-wrap every imported `globalVars` list (not only `qualified_only` ones), so qualified access resolves;
+  unqualified access to a namespaced list needs a `USING` directive (PLCOPEN_DECISIONS).
+- Resolve CODESYS qualified enum member access (`EnumType.Member`, optionally namespace-qualified) in variable
+  initializers, expressions and CASE labels (with the numeric values for the coverage checks), also for enums declared
+  inside namespaces, instead of reporting an undefined identifier or a type used as a value.
+- Under a CODESYS `vendor_profile`, accept an empty right-hand side on named call bindings (`input :=` and `output =>`
+  with no target, at a comma or the closing parenthesis): the parameter is skipped, a dangling output is discarded;
+  `?=` still needs a target (DEV-032).
+- Accept enum-typed array subscripts (enum values and enum-typed variables) as a CODESYS vendor extension, beside the
+  IEC ANY_INT subscripts.
+- Accept `RETAIN PERSISTENT` in state-owning variable sections as a WAGO/CODESYS vendor extension (persistent implies
+  retention); `NON_RETAIN` combinations and duplicate qualifiers remain errors.
+- Make textual actions callable by name (CODESYS vendor extension): bare `action_name()` inside the owning POU and
+  `instance.action_name()`, and under a CODESYS `vendor_profile` `POU.action_name()` (DEV-030); the calls take no
+  arguments and give no value, and a variable of the same name still shadows the action outside call position.
+- Under a CODESYS `vendor_profile`, function-block members default to Public: plain `VAR`, `VAR_STAT`, methods and
+  properties are reachable through the instance name (`fbInst.member`) from other POUs; an explicit access specifier
+  restricts them, and `VAR_IN_OUT`/`VAR_TEMP`/`VAR_EXTERNAL` members stay restricted (DEV-028). Assignment through an
+  input-parameter slot (`fbInput.field := value`) stays rejected.
+- Under a CODESYS `vendor_profile`, a function block's or program's body may assign its own `VAR_INPUT` members between
+  calls. Function and method parameters stay call-local, and pointer or reference input slots keep the read-only-slot
+  policy (DEV-029).
+- Under a CODESYS `vendor_profile`, a program is reached by its name: `Program.member` reads and writes across programs
+  (including function-block instances), `Program.action()` runs its action and `ProgramName();` runs its body; a bare
+  program name in value position remains rejected (DEV-030).
+- Support CODESYS-style DUT inheritance (`TYPE Derived EXTENDS Base` on STRUCT types, vendor extension): inherited
+  field access, derived-to-base assignment compatibility, duplicate-field and cycle diagnostics, and cross-file base
+  resolution.
+- Under a CODESYS `vendor_profile`, references are dereferenced without `^`: member access, indexing, arithmetic and
+  assignment copy through a reference; assignment between two references still rebinds. `POINTER TO` keeps requiring
+  an explicit `^` and stays rejected in arithmetic (DEV-031).
+- Add the CODESYS-style `REF=` reference-rebinding statement as a vendor extension: `ref REF= variable` rebinds to the
+  variable's storage, `ref1 REF= ref2` to a compatible reference target, and `ref REF= NULL` (or `0`) clears the
+  reference; value and pointer targets are rejected.
+- Accept the CODESYS-style `REFERENCE TO T` spelling as an alias of the IEC `REF_TO T` reference type, with the same
+  declaration rules and meaning.
+
+The CODESYS and e!COCKPIT dialect constructs of PR #141:
+
+- Under a CODESYS `vendor_profile`, a `STRING`/`WSTRING` capacity or an array dimension bound may name a plain variable
+  of any file of the project whose initializer is constant, also qualified (`STRING(GVLMqtt.uiLenMsgState)`,
+  `ARRAY[0..(GVLMqtt.udiLenMsgBuffer - 1)]`); the declared initial value fixes the size when the program is built.
+  TEMP and interface-direction sections are excluded, chains through other mutable variables stay rejected, and no
+  other constant-expression context changes (DEV-033).
+- `REF=` binds strings of any declared size to each other and a derived `STRUCT` variable behind a base-`STRUCT`
+  reference; numeric widening still never aliases. Under a CODESYS `vendor_profile`, `=` and `<>` of a reference with a
+  value or another reference compare the values they name; ordering comparisons still need an explicit `^` (DEV-031).
+- PLCopen import carries the CODESYS/e!COCKPIT dialect constructs that vendor projects rely on: `REFERENCE TO`/`POINTER
+  TO` derived names import as native pointer/reference declarations (including sized-string bases such as `REFERENCE TO
+  STRING(GVLMqtt.uiLenMsgState)`), `datatypeinheritance` emits `TYPE x EXTENDS y`, `pouinheritance` puts
+  `EXTENDS`/`IMPLEMENTS` on FUNCTION_BLOCK declarations, project-level `<Interface>` objects import as declaration-only
+  `INTERFACE` blocks, `globalVars` container qualifiers (`retain`/`persistent`/`constant`) survive into the rendered
+  `VAR_GLOBAL` header, e!COCKPIT `MixedAttrsVarList` attribute views and identical whole-list duplicate copies merge into
+  the primary list, and array dimension bounds pass through verbatim as constant expressions. The migration report
+  counts imported interfaces in `imported_interfaces`.
+- Program-scoped `METHOD ... END_METHOD` declarations (e!COCKPIT dialect) are accepted and callable by bare name from the
+  program body; calling them through the program's name needs a CODESYS `vendor_profile` (DEV-030). They run on the
+  variables of the program instance they are called on, their `VAR_STAT` variables kept in that instance.
+- Textual `ACTION ... END_ACTION` declarations of programs and function blocks build and run instead of being refused:
+  an action runs on its owner's variables only when it is called, by its bare name in the owner's body or through a
+  function block instance; `RETURN` ends the action. Calling a program's action through the program's name needs a
+  CODESYS `vendor_profile` (DEV-030).
+- Under a CODESYS `vendor_profile`, `ON`, `NULL` and `SET` may name variables, members, parameters and enum values
+  (OSCAT `TIMER_EXT.ON`, `FF_DRE.SET`, WAGO `eChar.Null`); `NULL` stays the reference literal in value position and `ON`
+  the `RESOURCE ... ON` separator (DEV-034).
+- The runtime harness compiler honors the `RETAIN PERSISTENT` variable section combination (persistent storage implies
+  retention, either spelling order); duplicates, `NON_RETAIN` combinations and qualifiers beyond that pair stay
+  rejected.
 
 ### Fixed
 
+- A function block's statements after a `METHOD` or `ACTION` declaration run with the rest of its body; the build
+  compiled only the statements before the first such declaration and left the rest out without a diagnostic.
+- A DUT `EXTENDS` clause whose base names no declared type is diagnosed (`cannot resolve type '<base>'`, `E102`); the
+  derived struct was accepted silently and inherited from nothing (PR #140).
+- A project constant whose evaluation fails is reported in the file that owns it: a library or stub file's failed
+  constant no longer appears as a diagnostic under every other analyzed file's path (PR #140).
 - The runtime's operator display at `/hmi` shows the session, the user and role with Log out or Log
   in, at the top bar's right end whenever the screen has a top bar. A top bar without `user` left it
   floating over the page's edge (specification 39, §4.8 item 8).

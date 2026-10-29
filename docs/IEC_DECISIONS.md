@@ -79,6 +79,31 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
 - Tests: `crates/trust-runtime/tests/native_objects.rs`
   (`a_base_in_out_takes_a_derived_instance_in_both_engines`).
 
+## 2026-10-18 - Program-scoped METHOD declarations (e!COCKPIT dialect)
+
+- Area: Program organization unit declarations
+- IEC context:
+  - IEC 61131-3 Ed.3 scopes method declarations to classes (6.6.5.4) and
+    function blocks (6.6.7.2); Table 47 (PROGRAM declaration) defines no
+    method member for programs.
+  - e!COCKPIT/CODESYS export programs with attached methods (plcopen
+    `addData` methods under the program POU), and the program body calls
+    them by bare name without a `THIS` qualifier.
+- Decision:
+  - truST accepts `METHOD ... END_METHOD` declarations inside the program
+    body of the textual file grammar and collects them as program-owned
+    methods. Bare-name self-calls resolve in call position after scope
+    variables; qualified `ProgramName.method()` is program-singleton member
+    access, which only the CODESYS profile provides
+    (`docs/IEC_DEVIATIONS.md` DEV-030). `PROPERTY` declarations remain
+    rejected in program bodies.
+  - SFC action control remains out of scope per `sfc-profile.md`.
+- Reason:
+  - The plcopen importer and the ST mirror already carry these constructs
+    faithfully; a front-end/file-grammar rejection diverges from the vendor
+    dialect without adding IEC conformance, because IEC has no competing
+    program-method requirement to conflict with.
+
 ## 2026-10-17 - STRING and WSTRING default length, maximum and capacity unit
 
 - Area: STRING/WSTRING declarations, stores, literals and string functions
@@ -133,6 +158,32 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
     n bytes of memory on every target.
   - 65,535 is the largest capacity the 16-bit `max_length` of an STBC type
     records (specification 12).
+
+## 2026-10-11 - RETAIN PERSISTENT combination (vendor extension)
+
+- Area: Variable-section retention qualifiers
+- IEC context:
+  - IEC 61131-3 Ed.3 Figure 7 and section 6.5.6 define `RETAIN` and
+    `NON_RETAIN` as alternative storage specifiers and do not define a
+    `PERSISTENT` keyword for ST variable sections; IEC warm-restart semantics
+    (6.5.6.2) attach retention, while persistent behavior is a vendor
+    cold-restart concept. IEC therefore specifies no meaning for a combined
+    `RETAIN PERSISTENT` section.
+  - The 2026-07-30 decision below recorded the stricter reading: at most one
+    of `CONSTANT`, `RETAIN`, `NON_RETAIN`, or `PERSISTENT` per section.
+- Decision:
+  - truST accepts `RETAIN PERSISTENT` in state-owning sections as a
+    WAGO/CODESYS vendor extension: persistent storage implies retention, so
+    the combined section is preserved by restart paths that honor either
+    policy.
+  - Duplicates of a qualifier, `NON_RETAIN` combined with `RETAIN` or
+    `PERSISTENT`, and retention on sections that do not own state remain
+    errors per the 2026-07-30 placement rules.
+- Reason:
+  - WAGO PFC projects (e!COCKPIT/CODESYS dialect) legitimately declare
+    `VAR_GLOBAL RETAIN PERSISTENT`; front-end rejection diverges from the
+    dialect without adding IEC conformance, because IEC has no competing
+    normative requirement for the combination.
 
 ## 2026-09-28 - Repeated aggregate element initializers
 

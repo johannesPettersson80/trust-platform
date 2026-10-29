@@ -21,6 +21,8 @@ package "Database Layer" as dbLayer #LightGreen {
         --
         +new() → Database
         +set_source_text(file_id, text)
+        +set_dialect(dialect)
+        +dialect() → Dialect
         +file_symbols(file_id) → Arc<SymbolTable>
         +diagnostics(file_id) → Arc<Vec<Diagnostic>>
         +analyze(file_id) → FileAnalysis
@@ -57,6 +59,12 @@ package "Database Layer" as dbLayer #LightGreen {
         Any source change syncs inputs,
         invalidating affected queries
         through Salsa dependency tracking.
+
+        The project's Dialect (vendor_profile:
+        IEC, or CODESYS's departures DEV-028
+        to DEV-032) is a project input: the
+        collector and the checks read it from
+        the symbol table.
 
         Unused-POU analysis reuses scoped
         POU identity. Native TEST_PROGRAM

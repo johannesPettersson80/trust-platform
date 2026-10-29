@@ -62,6 +62,7 @@ impl SymbolCollector<'_> {
     pub(super) fn visit_node(&mut self, node: &SyntaxNode) {
         match node.kind() {
             SyntaxKind::Program => self.collect_pou(node, SymbolKind::Program, TypeId::VOID),
+            SyntaxKind::Action => self.collect_action(node),
             SyntaxKind::Configuration => self.collect_configuration(node),
             SyntaxKind::Resource => self.collect_resource(node),
             SyntaxKind::TaskConfig => self.collect_task_config(node),
@@ -231,7 +232,10 @@ impl SymbolCollector<'_> {
                     self.table
                         .get(id)
                         .filter(|sym| {
-                            matches!(sym.kind, SymbolKind::Class | SymbolKind::FunctionBlock)
+                            matches!(
+                                sym.kind,
+                                SymbolKind::Class | SymbolKind::FunctionBlock | SymbolKind::Program
+                            )
                         })
                         .map(|_| id)
                 });
@@ -256,6 +260,26 @@ impl SymbolCollector<'_> {
         // Pop scope and parent
         self.parent_stack.pop();
         self.table.pop_scope();
+    }
+
+    /// CODESYS textual action (vendor extension): an invocable child symbol
+    /// of its owning program/function block. Actions live outside the
+    /// owning scope so a variable of the same name keeps shadowing them;
+    /// resolution goes through the POU child scan in call position. The
+    /// body itself is type-checked separately.
+    fn collect_action(&mut self, node: &SyntaxNode) {
+        let Some((name, range)) = name_from_node(node) else {
+            return;
+        };
+        let mut symbol = Symbol::new(
+            SymbolId::UNKNOWN,
+            name,
+            SymbolKind::Action,
+            TypeId::VOID,
+            range,
+        );
+        symbol.parent = self.current_parent();
+        self.table.add_symbol_raw(symbol);
     }
 
     fn collect_configuration(&mut self, node: &SyntaxNode) {
@@ -389,6 +413,10 @@ impl SymbolCollector<'_> {
             return Visibility::Public;
         };
         match parent.kind {
+            // A function block's members are reachable only inside it and the blocks derived from
+            // it unless declared otherwise (IEC 61131-3 Ed.3 §6.6.3.2 item 11, §6.6.5.10); the
+            // CODESYS profile makes them public, as CODESYS does (docs/IEC_DEVIATIONS.md DEV-028).
+            SymbolKind::FunctionBlock if self.table.dialect().is_codesys() => Visibility::Public,
             SymbolKind::Class | SymbolKind::FunctionBlock => Visibility::Protected,
             SymbolKind::Interface => Visibility::Public,
             _ => Visibility::Public,
@@ -509,12 +537,17 @@ impl SymbolCollector<'_> {
         let range = symbol.range;
 
         let upper_name = name.to_ascii_uppercase();
+        // Under the CODESYS profile a variable, parameter or enum value may be named ON, NULL or
+        // SET, as OSCAT (TIMER_EXT.ON, FF_DRE.SET) and WAGO (eChar.Null) name them
+        // (docs/IEC_DEVIATIONS.md DEV-034; spec 01 §3); POU names keep the reserved table.
+        let keyword_name = self.table.dialect().is_codesys() && is_contextual_keyword_name(&name);
         let allow_reserved = (matches!(symbol.kind, SymbolKind::Parameter { .. })
-            && matches!(upper_name.as_str(), "EN" | "ENO"))
+            && (matches!(upper_name.as_str(), "EN" | "ENO") || keyword_name))
             || (matches!(symbol.kind, SymbolKind::Method { .. })
                 && matches!(upper_name.as_str(), "GET" | "SET"))
             || (matches!(symbol.kind, SymbolKind::Variable { .. })
-                && matches!(upper_name.as_str(), "STEP"));
+                && (upper_name == "STEP" || keyword_name))
+            || (matches!(symbol.kind, SymbolKind::EnumValue { .. }) && keyword_name);
         self.validate_identifier(&name, range, allow_reserved);
 
         // Check for duplicate in current scope

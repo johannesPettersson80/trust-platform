@@ -1,14 +1,15 @@
-use super::collector::SymbolCollector;
+use super::collector::{ConstantExpressions, SymbolCollector};
 use super::diagnostics::{
     add_unused_symbol_warnings, check_abstract_instantiations, check_class_semantics,
-    check_configuration_semantics, check_cyclomatic_complexity, check_extends_implements_semantics,
+    check_configuration_semantics, check_cyclomatic_complexity, check_dut_extends_semantics,
+    check_empty_named_actuals, check_extends_implements_semantics,
     check_global_external_links_with_project, check_interface_conformance, check_nondeterminism,
     check_property_accessors, check_shared_global_task_hazards, check_unreachable_statements,
     check_using_directives, collect_used_symbols, expression_by_id, expression_context,
     resolve_pending_types_with_table, type_check_file, ExpressionIndex,
 };
 use super::project_configuration::project_config_roots;
-use super::project_constants::project_constant_expressions;
+use super::project_constants::{project_constant_expressions, project_declared_expressions};
 use super::project_types::{
     build_project_type_catalog, collect_file_type_prelude, find_project_type_declaration,
 };
@@ -71,6 +72,8 @@ pub(super) struct SalsaState {
     pub(super) sources: FxHashMap<FileId, SourceInput>,
     pub(super) project_inputs: Option<ProjectInputs>,
     pub(super) synced_revision: u64,
+    /// The language rules of the project (`Database::set_dialect`).
+    pub(super) dialect: Dialect,
     #[cfg(test)]
     pub(super) project_sync_count: u64,
 }
@@ -83,6 +86,7 @@ impl SalsaState {
             sources: FxHashMap::default(),
             project_inputs: None,
             synced_revision: 0,
+            dialect: Dialect::Iec,
             project_sync_count: 0,
         }
     }
@@ -194,7 +198,7 @@ pub(super) fn sync_project_inputs(state: &mut SalsaState) {
     if let Some(project) = state.project_inputs {
         project.set_files(&mut state.db).to(files);
     } else {
-        state.project_inputs = Some(ProjectInputs::new(&state.db, files));
+        state.project_inputs = Some(ProjectInputs::new(&state.db, files, state.dialect));
     }
 }
 
@@ -214,6 +218,8 @@ pub(super) struct SourceInput {
 pub(super) struct ProjectInputs {
     #[returns(ref)]
     pub(super) files: Vec<(FileId, SourceInput)>,
+    /// The language rules the project is analyzed under.
+    pub(super) dialect: Dialect,
 }
 
 #[salsa::tracked(returns(ref))]
@@ -295,8 +301,24 @@ pub(super) fn file_symbols_query(
         project_files: files.as_ref(),
         catalog: catalog.as_ref(),
     };
-    let (symbols, _) = SymbolCollector::with_project_types(&provider).collect(&root);
+    let (symbols, _) = SymbolCollector::with_project_types(&provider)
+        .with_dialect(*project.dialect(db))
+        .collect(&root);
     Arc::new(symbols)
+}
+
+/// The plain variables' initializers that a declaration size reads in a project under the CODESYS
+/// profile, in any of its files (docs/IEC_DEVIATIONS.md DEV-033); none under the IEC rules.
+fn declared_size_expressions(
+    db: &dyn salsa::Database,
+    project: ProjectInputs,
+    files: &[(FileId, SourceInput)],
+) -> ConstantExpressions {
+    if project.dialect(db).is_codesys() {
+        project_declared_expressions(db, files)
+    } else {
+        ConstantExpressions::default()
+    }
 }
 
 #[salsa::tracked(returns(ref))]
@@ -313,12 +335,14 @@ pub(super) fn project_symbol_tables_query(
         catalog: catalog.as_ref(),
     };
     let constants = project_constant_expressions(db, files);
+    let declared = declared_size_expressions(db, project, files);
     let mut project_tables: FxHashMap<FileId, Arc<SymbolTable>> = FxHashMap::default();
     for (file_id, input) in files.iter().copied() {
         cancellation_checkpoint(db);
         let root = SyntaxNode::new_root(parse_green(db, input).clone());
         let (symbols, _) = SymbolCollector::with_project_types(&provider)
-            .collect_with_project_constants(&root, &constants);
+            .with_dialect(*project.dialect(db))
+            .collect_with_project_constants(&root, &constants, &declared);
         project_tables.insert(file_id, Arc::new(symbols));
     }
     Arc::new(project_tables)
@@ -395,9 +419,11 @@ pub(super) fn analyze_query(
     };
     let config_roots = project_config_roots(db, project_files);
     let constants = project_constant_expressions(db, project_files);
+    let declared = declared_size_expressions(db, project, project_files);
     let (mut symbols, mut diagnostics, pending_types, deferred_initializers) =
         SymbolCollector::with_project_types(&provider)
-            .collect_for_project_with_constants(&root, &constants);
+            .with_dialect(*project.dialect(db))
+            .collect_for_project_with_constants(&root, &constants, &declared);
     // The merge is a deterministic function of the local table and the other files'
     // tables. When this file's table equals the one merged_project_symbols_query started
     // from (the usual case: the two collection paths agree), its result is this merge's
@@ -472,12 +498,14 @@ pub(super) fn analyze_query(
     check_class_semantics(&symbols, &root, &mut builder);
     check_abstract_instantiations(&symbols, &root, &mut builder);
     check_extends_implements_semantics(&symbols, &root, &mut builder);
+    check_dut_extends_semantics(&symbols, &root, &mut builder);
     check_interface_conformance(&symbols, &root, &mut builder);
     check_property_accessors(&symbols, &mut builder);
     diagnostics.extend(builder.finish());
 
     let mut builder = DiagnosticBuilder::new();
     check_using_directives(&symbols, &mut builder);
+    check_empty_named_actuals(&symbols, &root, &mut builder);
     diagnostics.extend(builder.finish());
 
     let mut builder = DiagnosticBuilder::new();

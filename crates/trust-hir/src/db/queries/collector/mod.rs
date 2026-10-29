@@ -42,6 +42,15 @@ pub(super) struct SymbolCollector<'a> {
     parent_stack: Vec<SymbolId>,
     const_exprs: FxHashMap<(Option<SmolStr>, SmolStr), SyntaxNode>,
     const_values: FxHashMap<(Option<SmolStr>, SmolStr), i64>,
+    /// In a project's analysis, the constants this file declares, each with the range of its
+    /// first initializer here: a project constant reports its failure only in the file that
+    /// declares it, never under another file's path. `None` reports every failure.
+    own_constants: Option<FxHashMap<(Option<SmolStr>, SmolStr), TextRange>>,
+    /// Under the CODESYS profile, the initializers of plain (non-constant) variables, keyed like
+    /// `const_exprs`: only a declaration size (a string length, an array bound) reads them
+    /// (docs/IEC_DEVIATIONS.md DEV-033); no other constant context sees them.
+    declared_exprs: FxHashMap<(Option<SmolStr>, SmolStr), SyntaxNode>,
+    declared_values: FxHashMap<(Option<SmolStr>, SmolStr), i64>,
     program_instances: ProgramInstanceMap,
     project_types: Option<&'a dyn ProjectTypeProvider>,
     importing_project_types: FxHashSet<SmolStr>,
@@ -57,6 +66,12 @@ impl<'a> SymbolCollector<'a> {
         Self::build(Some(project_types))
     }
 
+    /// The collector for a project analyzed under `dialect`; its table carries it to the checks.
+    pub(super) fn with_dialect(mut self, dialect: Dialect) -> Self {
+        self.table.set_dialect(dialect);
+        self
+    }
+
     fn build(project_types: Option<&'a dyn ProjectTypeProvider>) -> Self {
         Self {
             table: SymbolTable::new(),
@@ -65,6 +80,9 @@ impl<'a> SymbolCollector<'a> {
             parent_stack: Vec::new(),
             const_exprs: FxHashMap::default(),
             const_values: FxHashMap::default(),
+            own_constants: None,
+            declared_exprs: FxHashMap::default(),
+            declared_values: FxHashMap::default(),
             program_instances: FxHashMap::default(),
             project_types,
             importing_project_types: FxHashSet::default(),
@@ -86,16 +104,31 @@ impl<'a> SymbolCollector<'a> {
         (self.table, self.diagnostics.finish())
     }
 
-    pub(super) fn constant_expressions(root: &SyntaxNode) -> ConstantExpressions {
-        let mut collector = Self::build(None);
+    /// The constants of `root`, and the initializers of its plain variables that a declaration
+    /// size may read under the CODESYS profile (docs/IEC_DEVIATIONS.md DEV-033), each by its scope
+    /// and name.
+    pub(super) fn constant_expressions(
+        root: &SyntaxNode,
+    ) -> (ConstantExpressions, ConstantExpressions) {
+        let mut collector = Self::build(None).with_dialect(Dialect::Codesys);
         collector.precollect_constants(root, &[], &[]);
-        collector.const_exprs
+        (collector.const_exprs, collector.declared_exprs)
+    }
+
+    /// Under the CODESYS profile a declaration size reads the initial value of a plain variable of
+    /// any file of the project, `declared` (docs/IEC_DEVIATIONS.md DEV-033); the IEC rules read
+    /// none.
+    fn use_project_declared(&mut self, declared: &ConstantExpressions) {
+        if self.table.dialect().is_codesys() {
+            self.declared_exprs = declared.clone();
+        }
     }
 
     pub(crate) fn collect_for_project_with_constants(
         mut self,
         root: &SyntaxNode,
         constants: &ConstantExpressions,
+        declared: &ConstantExpressions,
     ) -> (
         SymbolTable,
         Vec<Diagnostic>,
@@ -103,6 +136,8 @@ impl<'a> SymbolCollector<'a> {
         Vec<DeferredInitializer>,
     ) {
         self.const_exprs = constants.clone();
+        self.use_project_declared(declared);
+        self.own_constants = Some(FxHashMap::default());
         self.phase_precollect(root);
         self.phase_collect_symbols(root);
         self.phase_constants();
@@ -120,8 +155,10 @@ impl<'a> SymbolCollector<'a> {
         mut self,
         root: &SyntaxNode,
         constants: &ConstantExpressions,
+        declared: &ConstantExpressions,
     ) -> (SymbolTable, Vec<Diagnostic>) {
         self.const_exprs = constants.clone();
+        self.use_project_declared(declared);
         self.collect(root)
     }
 

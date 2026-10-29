@@ -5,6 +5,7 @@ use smol_str::SmolStr;
 use text_size::TextRange;
 
 use crate::db::FileId;
+use crate::dialect::Dialect;
 use crate::semantic::{
     DeclarationCatalog, DeclarationKind, DeclarationRecord, DeclarationReferenceKind,
     DeclarationReferenceRecord, QualifiedName, SemanticOutcome, SemanticRole, SourceIdentity,
@@ -89,6 +90,8 @@ pub struct SymbolTable {
     next_id: u32,
     /// Next type ID to assign.
     next_type_id: u32,
+    /// The language rules the table's project is analyzed under.
+    dialect: Dialect,
 }
 
 impl Default for SymbolTable {
@@ -120,6 +123,7 @@ impl SymbolTable {
             import_collisions: Vec::new(),
             next_id: 0,
             next_type_id: TypeId::USER_TYPES_START,
+            dialect: Dialect::Iec,
         };
         // Create global scope
         table
@@ -395,6 +399,27 @@ impl SymbolTable {
             current = next?;
         }
         Some(current)
+    }
+
+    /// The language rules the table's project is analyzed under.
+    #[must_use]
+    pub fn dialect(&self) -> Dialect {
+        self.dialect
+    }
+
+    /// Sets the language rules the table's project is analyzed under.
+    pub fn set_dialect(&mut self, dialect: Dialect) {
+        self.dialect = dialect;
+    }
+
+    /// Resolves `name` among the direct children of `owner` (CODESYS
+    /// program-singleton member access and POU-qualified actions).
+    #[must_use]
+    pub fn resolve_child_symbol(&self, owner: SymbolId, name: &str) -> Option<SymbolId> {
+        self.symbols
+            .iter()
+            .find(|sym| sym.parent == Some(owner) && sym.name.eq_ignore_ascii_case(name))
+            .map(|sym| sym.id)
     }
 
     /// Looks up a symbol by name in a specific scope.
@@ -732,6 +757,88 @@ impl SymbolTable {
             parent = owner.parent;
         }
         None
+    }
+
+    /// Resolves `EnumType.Member` (CODESYS qualified access) to the enum's
+    /// type id. The base resolves through the scope chain, then the global
+    /// map, then — for namespace-nested types reached from outside their
+    /// namespace — a unique suffix match on the registered type names
+    /// (`App.eChar` matches bare `eChar`). A variable or non-enum type with
+    /// the same name shadows the member.
+    pub fn qualified_enum_member_type(
+        &self,
+        type_name: &str,
+        member: &str,
+        scope: ScopeId,
+    ) -> Option<TypeId> {
+        let enum_member_type = |type_id: TypeId| -> Option<TypeId> {
+            let resolved = self.resolve_alias_type(type_id);
+            match self.type_by_id(resolved) {
+                Some(Type::Enum { values, .. })
+                    if values
+                        .iter()
+                        .any(|(value_name, _)| value_name.eq_ignore_ascii_case(member)) =>
+                {
+                    Some(resolved)
+                }
+                _ => None,
+            }
+        };
+
+        if let Some(symbol_id) = self
+            .resolve(type_name, scope)
+            .or_else(|| self.resolve_global_or_qualified_name(type_name))
+        {
+            let symbol = self.get(symbol_id)?;
+            if !matches!(symbol.kind, SymbolKind::Type) {
+                // A variable or other value with the same spelling shadows
+                // the qualified member (scope-resolution order).
+                return None;
+            }
+            return enum_member_type(symbol.type_id);
+        }
+
+        let suffix = format!(".{}", normalize_name(type_name));
+        let candidates: Vec<TypeId> = self
+            .type_names
+            .iter()
+            .filter(|(key, _)| key.ends_with(&suffix))
+            .map(|(_, type_id)| *type_id)
+            .collect();
+        if candidates.len() != 1 {
+            return None;
+        }
+        enum_member_type(candidates[0])
+    }
+
+    /// Returns the type symbol when `type_parts` resolve — through the given
+    /// scope chain first, then globally — to an enum type declaring a value
+    /// named `member` (CODESYS `EnumType.Member` qualified access).
+    pub fn enum_type_member_symbol(
+        &self,
+        type_parts: &[SmolStr],
+        member: &str,
+        scope: ScopeId,
+    ) -> Option<SymbolId> {
+        let type_name = type_parts.last()?;
+        let symbol_id = if type_parts.len() == 1 {
+            self.resolve(type_name.as_str(), scope)
+        } else {
+            self.resolve_qualified(type_parts)
+        };
+        let symbol_id = symbol_id.or_else(|| self.lookup(type_name.as_str()))?;
+        let symbol = self.get(symbol_id)?;
+        let resolved = self.resolve_alias_type(symbol.type_id);
+        match self.type_by_id(resolved) {
+            Some(Type::Enum { values, .. })
+                if values
+                    .iter()
+                    .any(|(value_name, _)| value_name.eq_ignore_ascii_case(member)) =>
+            {
+                Some(symbol_id)
+            }
+            _ => None,
+        }
     }
 
     /// Sets the table's constant values.
@@ -1123,6 +1230,7 @@ fn declaration_kind_for_symbol(kind: &SymbolKind) -> DeclarationKind {
         SymbolKind::Type => DeclarationKind::Type,
         SymbolKind::EnumValue { .. } => DeclarationKind::EnumValue,
         SymbolKind::Parameter { .. } => DeclarationKind::Parameter,
+        SymbolKind::Action => DeclarationKind::Action,
     }
 }
 
@@ -1139,6 +1247,7 @@ fn semantic_role_for_symbol(kind: &SymbolKind) -> SemanticRole {
         | SymbolKind::Class
         | SymbolKind::Interface => SemanticRole::Type,
         SymbolKind::Function { .. } | SymbolKind::Method { .. } => SemanticRole::Callable,
+        SymbolKind::Action => SemanticRole::Callable,
         SymbolKind::Namespace => SemanticRole::Namespace,
         SymbolKind::Program
         | SymbolKind::Configuration

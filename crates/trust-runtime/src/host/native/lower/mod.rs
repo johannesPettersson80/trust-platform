@@ -37,7 +37,7 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 use super::front::{Source, StatementIds};
 use super::model::Model;
-use super::types::{rust_field, Elem, Kind, Ty};
+use super::types::{rust_field, Elem, Kind, Member, Ty};
 use super::NativeError;
 
 /// The POU whose body is lowered.
@@ -166,6 +166,10 @@ pub(super) enum Need {
     Function(SmolStr),
     /// A method, by its owner's and its own name.
     Method(SmolStr, SmolStr),
+    /// A method or a textual action of a program type, by the type's index and its own name: a
+    /// function on the variables of the program instance it is called on (specification 04 §4,
+    /// §8).
+    ProgramMethod(usize, SmolStr),
     /// A method, by its name, of an instance of the type or of a type derived from it: a call bound
     /// by the instance's class (IEC §6.6.8; specification 44 §6.4).
     Virtual(Ty, SmolStr),
@@ -424,6 +428,12 @@ impl<'m, 'a> Lowerer<'m, 'a> {
         {
             return self.assignment_attempt(node, &target, &value);
         }
+        if node
+            .children_with_tokens()
+            .any(|element| element.kind() == SyntaxKind::KwRefBind)
+        {
+            return self.reference_binding(&target, &value);
+        }
         if let Some((base, access)) = self.partial_access(&target) {
             return self.partial_write(&target, &base, access, &value);
         }
@@ -433,6 +443,34 @@ impl<'m, 'a> Lowerer<'m, 'a> {
         self.refuse_read_only(&target)?;
         let place = self.place(&target)?;
         self.store(&place, &value)
+    }
+
+    /// `reference REF= source` (a vendor extension every profile accepts; specification 06,
+    /// "Reference Rebinding"): the reference names `source`'s variable, the variable another
+    /// reference names when `source` is one, or nothing for `NULL` or `0`, as `reference :=
+    /// REF(source)` names it.
+    fn reference_binding(
+        &mut self,
+        target: &SyntaxNode,
+        value: &SyntaxNode,
+    ) -> Result<(), NativeError> {
+        let place = self.place(target)?;
+        let Kind::Ref {
+            target: referenced, ..
+        } = self.info(place.ty).kind
+        else {
+            return Err(self.unsupported(target, "REF= to a variable that is no reference"));
+        };
+        let zero = value.kind() == SyntaxKind::Literal && value.text().to_string().trim() == "0";
+        let reference = if zero {
+            "abi::RefValue::NULL_REF".to_string()
+        } else if self.is_reference(value) {
+            self.reference_to(value, Some(referenced))?
+        } else {
+            self.refer(value, value, Some(referenced), "VARIABLE")?
+        };
+        self.line(&format!("{}.set({reference});", place.expr));
+        Ok(())
     }
 
     /// Refuses a write to an element of an open-array input, which is the caller's array: an input
@@ -508,6 +546,34 @@ impl<'m, 'a> Lowerer<'m, 'a> {
         Ok(())
     }
 
+    /// Whether `value` is a structure of a type that extends the structure with `members`: its
+    /// members begin with theirs, as a derived structure lays out its base's fields first
+    /// (`harness::compiler::struct_extends`). trust-hir accepts a copy between two structure types
+    /// only from a derived type to its base.
+    fn derived_structure(&mut self, value: &SyntaxNode, members: &[Member]) -> bool {
+        let Ok(ty) = self.type_of(value) else {
+            return false;
+        };
+        let Kind::Struct { members: derived } = &self.info(ty).kind else {
+            return false;
+        };
+        derived.len() > members.len()
+            && members.iter().zip(derived).all(|(base, derived)| {
+                base.name.eq_ignore_ascii_case(&derived.name) && base.ty == derived.ty
+            })
+    }
+
+    /// Whether `value`, assigned to a reference to `target`, is a value of the referenced type
+    /// rather than a reference, `NULL` or an instance whose reference the assignment takes.
+    fn writes_through_reference(&mut self, value: &SyntaxNode, target: Ty) -> bool {
+        if expr::is_null(value) || self.info(target).kind.is_instance() {
+            return false;
+        }
+        self.type_of(value).map_or(true, |ty| {
+            !matches!(self.info(ty).kind, Kind::Ref { .. } | Kind::Interface)
+        })
+    }
+
     /// Stores the value of `value` into `place`, converted to the place's type as the assignment
     /// converts it.
     pub(super) fn store(&mut self, place: &Place, value: &SyntaxNode) -> Result<(), NativeError> {
@@ -520,6 +586,16 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             Kind::Str(_) | Kind::WStr(_) => self.store_text(place, value),
             Kind::Ref { target, .. } if matches!(self.info(*target).kind, Kind::Open { .. }) => {
                 self.store_open(place, value, *target)
+            }
+            // Under the CODESYS profile a value of the referenced type assigned to a reference
+            // writes the variable the reference names (docs/IEC_DEVIATIONS.md DEV-031).
+            Kind::Ref {
+                target,
+                pointer: false,
+            } if self.writes_through_reference(value, *target) => {
+                let reference = self.load(place);
+                let variable = self.dereference(&reference, *target);
+                self.store(&variable, value)
             }
             Kind::Ref { target, .. } => {
                 let reference = match self.instance_source(*target, value)? {
@@ -546,6 +622,20 @@ impl<'m, 'a> Lowerer<'m, 'a> {
                 value,
                 "an assignment of a value that holds a function block or class instance",
             )),
+            Kind::Struct { members } if self.derived_structure(value, members) => {
+                // A structure of a type that extends the place's (`TYPE Derived EXTENDS Base`,
+                // specification 02 §3.5.1) gives its base part, which lies first in it.
+                let source = self.place(value)?;
+                for member in members {
+                    self.line(&format!(
+                        "Assign::assign(&{}.{field}, &{}.{field});",
+                        place.expr,
+                        source.expr,
+                        field = member.field()
+                    ));
+                }
+                Ok(())
+            }
             Kind::Array { .. }
             | Kind::Struct { .. }
             | Kind::Overlap { .. }

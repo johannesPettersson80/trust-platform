@@ -28,6 +28,7 @@ fn symbols_in_scope(
                 SymbolKind::Namespace => CompletionKind::Namespace,
                 SymbolKind::Program
                 | SymbolKind::ProgramInstance
+                | SymbolKind::Action
                 | SymbolKind::Parameter { .. }
                 | SymbolKind::Configuration
                 | SymbolKind::Resource
@@ -470,6 +471,7 @@ fn using_scope_symbol_completions(
                         SymbolKind::Namespace => CompletionKind::Namespace,
                         SymbolKind::Program
                         | SymbolKind::ProgramInstance
+                        | SymbolKind::Action
                         | SymbolKind::Parameter { .. }
                         | SymbolKind::Configuration
                         | SymbolKind::Resource

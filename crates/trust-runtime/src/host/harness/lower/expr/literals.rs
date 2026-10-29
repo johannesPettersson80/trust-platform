@@ -600,6 +600,38 @@ fn is_long_dt_literal(text: &str) -> bool {
     upper.starts_with("LDT#") || upper.starts_with("LDATE_AND_TIME#")
 }
 
+/// `EnumType.Member` (CODESYS qualified enum member access, a vendor extension every profile accepts;
+/// specification 02): the member's value when `base` names an enumeration type, not a variable,
+/// and the type has the member.
+fn qualified_enum_member(base: &SyntaxNode, member: &str, ctx: &LoweringContext<'_>) -> Option<Value> {
+    if base.kind() != SyntaxKind::NameRef {
+        return None;
+    }
+    let name = node_text(base);
+    if let (Some(semantic_db), Some(semantic_file_id)) = (ctx.semantic_db, ctx.semantic_file_id) {
+        let analysis = semantic_db.analyze(semantic_file_id);
+        let symbols = analysis.symbols.as_ref();
+        let scope = expression_scope_context(symbols, base);
+        if let Some(symbol_id) = resolve_name_symbol_in_scope(
+            symbols,
+            scope.scope_id,
+            scope.current_pou_symbol,
+            scope.this_type,
+            name.as_str(),
+        ) && symbols
+            .get(symbol_id)
+            .is_some_and(|symbol| !matches!(symbol.kind, SymbolKind::Type))
+        {
+            return None;
+        }
+    }
+    let type_id = ctx.registry.lookup(name.as_str())?;
+    if !matches!(ctx.registry.get(type_id)?, Type::Enum { .. }) {
+        return None;
+    }
+    enum_literal_value(member, type_id, ctx.registry)
+}
+
 pub(in crate::harness) fn enum_literal_value(
     name: &str,
     type_id: TypeId,

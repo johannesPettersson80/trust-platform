@@ -70,6 +70,22 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
                 param_owner: symbol_id,
                 kind: symbol_kind,
             }),
+            // Under the CODESYS profile, calling a PROGRAM runs its body; IEC instantiates programs
+            // only in resources (IEC 61131-3 Ed.3 §6.6.4 item 3; docs/IEC_DEVIATIONS.md DEV-030).
+            SymbolKind::Program if self.checker.symbols.dialect().is_codesys() => {
+                Some(CallTargetInfo {
+                    return_type: TypeId::VOID,
+                    param_owner: symbol_id,
+                    kind: symbol_kind,
+                })
+            }
+            // CODESYS textual action invocation (vendor extension): actions
+            // take no arguments and return nothing.
+            SymbolKind::Action => Some(CallTargetInfo {
+                return_type: TypeId::VOID,
+                param_owner: symbol_id,
+                kind: symbol_kind,
+            }),
             SymbolKind::Property { .. } => None,
             _ => self
                 .resolve_function_block_instance(symbol_type)
@@ -126,6 +142,54 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
     ) -> Option<SymbolId> {
         let parts = self.qualified_name_from_field_expr(node)?;
         self.checker.symbols.resolve_qualified(&parts)
+    }
+
+    /// Under the CODESYS profile, `ProgramName.member` resolves the member among the program's
+    /// own children (the program's one instance); IEC reaches a program's variables only through
+    /// its resource (IEC 61131-3 Ed.3 §6.6.4 items 2 and 3; docs/IEC_DEVIATIONS.md DEV-030).
+    pub(in crate::type_check) fn resolve_program_qualified_member(
+        &self,
+        node: &SyntaxNode,
+    ) -> Option<SymbolId> {
+        if !self.checker.symbols.dialect().is_codesys() {
+            return None;
+        }
+        let parts = self.qualified_name_from_field_expr(node)?;
+        if parts.len() != 2 {
+            return None;
+        }
+        let program_id = self.checker.symbols.lookup(parts[0].as_str())?;
+        if !matches!(
+            self.checker.symbols.get(program_id)?.kind,
+            SymbolKind::Program
+        ) {
+            return None;
+        }
+        self.checker
+            .symbols
+            .resolve_child_symbol(program_id, &parts[1])
+    }
+
+    /// CODESYS qualified enum member access (`EnumType.Member`): returns the
+    /// enum's type id when `node` is a two-part field expression whose base
+    /// names an enum type and whose member names one of its values. The base
+    /// resolves through the scope chain, the global map, and a
+    /// namespace-suffix fallback, so namespace-scoped enums
+    /// (e!COCKPIT `NAMESPACE App TYPE eChar ...`) are found even from
+    /// outside their namespace.
+    pub(in crate::type_check) fn resolve_qualified_enum_member(
+        &self,
+        node: &SyntaxNode,
+    ) -> Option<TypeId> {
+        let parts = self.qualified_name_from_field_expr(node)?;
+        if parts.len() != 2 {
+            return None;
+        }
+        self.checker.symbols.qualified_enum_member_type(
+            parts[0].as_str(),
+            parts[1].as_str(),
+            self.checker.current_scope,
+        )
     }
 
     fn resolve_using_in_scope(&self, scope_id: ScopeId, name: &str) -> UsingResolution {
@@ -631,14 +695,52 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
 
     fn resolve_member_in_base_type(&self, base_type: TypeId, field_name: &str) -> Option<TypeId> {
         match self.checker.symbols.type_by_id(base_type)? {
-            Type::Struct { fields, .. } => fields
+            Type::Struct { fields, name } => fields
                 .iter()
                 .find(|field| field.name.eq_ignore_ascii_case(field_name))
-                .map(|field| field.type_id),
+                .map(|field| field.type_id)
+                .or_else(|| {
+                    self.resolve_inherited_struct_member(name, field_name, &mut Vec::new())
+                }),
             Type::Union { variants, .. } => variants
                 .iter()
                 .find(|variant| variant.name.eq_ignore_ascii_case(field_name))
                 .map(|variant| variant.type_id),
+            _ => None,
+        }
+    }
+
+    /// CODESYS DUT inheritance: walk the `TYPE x EXTENDS y` chain for fields
+    /// not declared by the struct itself (cycle-guarded).
+    fn resolve_inherited_struct_member(
+        &self,
+        struct_name: &SmolStr,
+        field_name: &str,
+        visited: &mut Vec<SmolStr>,
+    ) -> Option<TypeId> {
+        if visited
+            .iter()
+            .any(|name| name.eq_ignore_ascii_case(struct_name))
+        {
+            return None;
+        }
+        visited.push(struct_name.clone());
+        let symbol_id = self
+            .checker
+            .symbols
+            .resolve_global_or_qualified_name(struct_name)?;
+        let base_name = self.checker.symbols.extends_name(symbol_id)?.clone();
+        let base_type = self
+            .checker
+            .symbols
+            .lookup_registered_type_name(&base_name)?;
+        let resolved_base = self.checker.resolve_alias_type(base_type);
+        match self.checker.symbols.type_by_id(resolved_base)? {
+            Type::Struct { fields, name } => fields
+                .iter()
+                .find(|field| field.name.eq_ignore_ascii_case(field_name))
+                .map(|field| field.type_id)
+                .or_else(|| self.resolve_inherited_struct_member(name, field_name, visited)),
             _ => None,
         }
     }

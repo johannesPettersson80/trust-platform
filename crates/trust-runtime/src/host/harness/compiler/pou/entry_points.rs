@@ -166,6 +166,8 @@ fn declaration_name_range(node: &SyntaxNode) -> Option<text_size::TextRange> {
                     | SyntaxKind::KwEno
                     | SyntaxKind::KwGet
                     | SyntaxKind::KwSet
+                    | SyntaxKind::KwOn
+                    | SyntaxKind::KwNull
             )
         })
         .map(|token| token.text_range())

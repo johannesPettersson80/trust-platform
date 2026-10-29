@@ -162,3 +162,31 @@ END_VAR
 END_PROGRAM"#
     ));
 }
+
+#[test]
+// CODESYS DUT inheritance (vendor extension)
+fn test_struct_type_with_extends_parses() {
+    let parsed = parse(
+        "TYPE\n    Base : STRUCT a : INT; END_STRUCT;\n    Derived EXTENDS Base : STRUCT b : INT; END_STRUCT;\nEND_TYPE",
+    );
+    assert!(parsed.ok(), "expected parse success: {:?}", parsed.errors());
+}
+
+#[test]
+// CODESYS DUT inheritance (vendor extension); semantic rejection is HIR's job
+fn test_non_struct_extends_still_parses() {
+    let parsed = parse("TYPE\n    X EXTENDS Base : (A, B);\nEND_TYPE");
+    assert!(parsed.ok(), "expected parse success: {:?}", parsed.errors());
+}
+
+#[test]
+// CODESYS DUT inheritance (vendor extension): CST shape
+fn test_struct_type_extends_snapshot() {
+    insta::assert_snapshot!(snapshot_parse(
+        r#"TYPE
+    Derived EXTENDS Base : STRUCT
+        b : INT;
+    END_STRUCT;
+END_TYPE"#
+    ));
+}

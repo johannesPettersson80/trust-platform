@@ -64,6 +64,13 @@ impl ProgramInstance {
 }
 
 impl ProgramType<'_> {
+    /// The Rust function of its method or textual action `method`, `pm_<NAME>__<METHOD>`, beside
+    /// its body `prog_<NAME>` (specification 04 §4, §8).
+    pub(super) fn method_function(&self, method: &crate::program_model::MethodDef) -> String {
+        let name = self.body.strip_prefix("prog_").unwrap_or(&self.body);
+        format!("pm_{name}__{}", mangle(&method.name))
+    }
+
     /// The member named `name`, compared without case, and whether it is retained.
     pub(super) fn member(&self, name: &str) -> Option<(&Member, bool)> {
         self.members
@@ -378,6 +385,26 @@ fn program_type<'a>(
         } else {
             plain.push((var.name.clone(), ty, flags));
             plain.extend(trigger.map(|(name, ty)| (name, ty, 0)));
+        }
+    }
+    // Its methods' `VAR_STAT` variables live in the instance, one of each per instance and method
+    // (specification 01 §3), under their hidden names, retained as a variable of the program is.
+    for method in &def.methods {
+        for local in &method.static_locals {
+            let ty = types.of(local.type_id)?;
+            let mut flags = if local.constant { SYMBOL_CONSTANT } else { 0 };
+            if matches!(types.info(ty).kind, Kind::Fb { .. } | Kind::StdFb(_)) {
+                flags |= SYMBOL_INSTANCE;
+            }
+            let hidden = super::types::method_static_name(&def.name, &method.name, &local.name);
+            let qualified = retain_all
+                && local.retain == RetainPolicy::Unspecified
+                && flags & SYMBOL_INSTANCE == 0;
+            if retained(local.retain) || qualified {
+                kept.push((hidden, ty, flags | SYMBOL_RETAINED));
+            } else {
+                plain.push((hidden, ty, flags));
+            }
         }
     }
     let (members, size, align) = lay_out(plain, types);

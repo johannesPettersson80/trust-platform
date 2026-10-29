@@ -273,7 +273,10 @@ impl DebugRuntime for DebugSession {
         ),
         CompileError,
     > {
-        trust_runtime::harness::project_expression_types(&self.project_files()?)
+        trust_runtime::harness::project_expression_types(
+            &self.project_files()?,
+            self.conversion_profile,
+        )
     }
 
     fn source_file_for_path(&self, path: &str) -> Option<&SourceFile> {
