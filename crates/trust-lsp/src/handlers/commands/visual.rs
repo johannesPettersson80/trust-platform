@@ -545,9 +545,16 @@ fn import_answer(args: &Json) -> Result<Value, String> {
     let kind = kind_arg(args)?;
     let file = text_arg(args, "file")?;
     let text = text_arg(args, "text")?;
+    // The workspace folder, when there is one: a file inside it may be opened where it is.
+    let workspace = args.str_at("workspace").unwrap_or_default();
     Ok(
         match trust_visual::import::import_target(kind, file, text) {
-            Ok(target) => json!({ "ok": true, "kind": kind.name(), "targetFile": target }),
+            Ok(target) => json!({
+                "ok": true,
+                "kind": kind.name(),
+                "targetFile": target,
+                "inWorkspace": trust_visual::import::inside_workspace(file, workspace),
+            }),
             Err(message) => {
                 json!({ "ok": false, "kind": kind.name(), "errors": [{ "message": message }] })
             }

@@ -5,7 +5,8 @@
 //! array, a Blockly workspace a `blocks.blocks` array, a Statechart `id` and `states`, an SFC
 //! `name`, `steps` and `transitions`. The copy keeps the file name and gets the suffix of its kind
 //! when the name lacks it (`.sfc` is an SFC suffix too), so the copy opens in its editor and gets
-//! its companion.
+//! its companion. A file inside the workspace may be opened where it is instead
+//! ([`inside_workspace`]).
 
 use crate::kind::{file_name, VisualKind};
 use crate::Json;
@@ -61,9 +62,37 @@ pub fn import_target(kind: VisualKind, file: &str, text: &str) -> Result<String,
     })
 }
 
+/// Whether the file at `file` lies inside the folder `workspace`, both absolute paths as the editor
+/// names them: compared folder by folder, with either separator, so `/ws-other/a.sfc.json` is not
+/// inside `/ws`. An empty workspace holds nothing.
+#[must_use]
+pub fn inside_workspace(file: &str, workspace: &str) -> bool {
+    let parts = |path: &'_ str| -> Vec<String> {
+        path.split(['/', '\\'])
+            .filter(|part| !part.is_empty())
+            .map(str::to_owned)
+            .collect()
+    };
+    let folder = parts(workspace);
+    !folder.is_empty() && parts(file).starts_with(&folder)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_file_is_inside_the_workspace_by_whole_folder_names() {
+        // Catches the text prefix the extension compared: /ws-other starts with the text /ws but is
+        // no folder in it, so its program was opened in place instead of copied into the workspace.
+        assert!(inside_workspace("/ws/examples/a.sfc.json", "/ws"));
+        assert!(inside_workspace("/ws/a.sfc.json", "/ws/"));
+        assert!(!inside_workspace("/ws-other/a.sfc.json", "/ws"));
+        assert!(!inside_workspace("/elsewhere/a.sfc.json", "/ws"));
+        assert!(inside_workspace("c:\\ws\\a.sfc.json", "c:\\ws"));
+        assert!(!inside_workspace("c:\\ws2\\a.sfc.json", "c:\\ws"));
+        assert!(!inside_workspace("/ws/a.sfc.json", ""));
+    }
 
     #[test]
     fn each_kind_accepts_only_its_own_shape() {
