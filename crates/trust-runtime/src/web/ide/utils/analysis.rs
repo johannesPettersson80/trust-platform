@@ -133,6 +133,7 @@ pub(in crate::web::ide) fn symbol_kind_label(
         SymbolKind::Resource => "resource",
         SymbolKind::Task => "task",
         SymbolKind::ProgramInstance => "program_instance",
+        SymbolKind::Action => "action",
         SymbolKind::Namespace => "namespace",
         SymbolKind::Function { .. } => "function",
         SymbolKind::FunctionBlock => "function_block",

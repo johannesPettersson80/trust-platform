@@ -429,6 +429,9 @@ fn format_symbol(
             }
             result.push_str(&header);
         }
+        SymbolKind::Action => {
+            result.push_str(&format!("ACTION {}{}", header_prefix, symbol.name));
+        }
         SymbolKind::Type => {
             result.push_str(&format_type_definition(symbols, symbol));
         }

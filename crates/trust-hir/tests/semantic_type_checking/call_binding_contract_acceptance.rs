@@ -248,3 +248,11 @@ END_PROGRAM
 "#,
     );
 }
+
+#[test]
+fn call_binding_contract_accepts_dangling_output_arrow() {
+    // CODESYS parity (vendor extension): `copied =>` with no target
+    // explicitly discards the output; the call stays valid and no
+    // missing-binding diagnostic fires.
+    accepted("z := Transfer(first := x, second := y, copied =>, target := x);");
+}

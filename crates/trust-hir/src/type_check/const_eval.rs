@@ -158,6 +158,36 @@ impl<'a> TypeChecker<'a> {
                 guard.remove(&key);
                 result
             }
+            SyntaxKind::FieldExpr => {
+                // CODESYS qualified enum member access (`EnumType.Member`,
+                // optionally namespace-qualified): evaluates to the member's
+                // integer value.
+                let parts = self
+                    .resolve_ref()
+                    .qualified_name_from_field_expr(node)
+                    .ok_or(ConstEvalError::NotConstant)?;
+                if parts.len() < 2 {
+                    return Err(ConstEvalError::NotConstant);
+                }
+                let member = parts.last().unwrap().clone();
+                let type_name = parts[..parts.len() - 1].join(".");
+                let resolved = self
+                    .symbols
+                    .qualified_enum_member_type(
+                        type_name.as_str(),
+                        member.as_str(),
+                        self.current_scope,
+                    )
+                    .ok_or(ConstEvalError::NotConstant)?;
+                let Some(Type::Enum { values, .. }) = self.symbols.type_by_id(resolved) else {
+                    return Err(ConstEvalError::NotConstant);
+                };
+                values
+                    .iter()
+                    .find(|(value_name, _)| value_name.eq_ignore_ascii_case(member.as_str()))
+                    .map(|(_, value)| *value)
+                    .ok_or(ConstEvalError::NotConstant)
+            }
             SyntaxKind::ParenExpr => node
                 .children()
                 .next()

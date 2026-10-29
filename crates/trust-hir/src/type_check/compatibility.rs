@@ -78,6 +78,45 @@ impl<'a> TypeChecker<'a> {
         )
     }
 
+    /// CODESYS-style auto-dereference: a `REFERENCE TO T` in value position
+    /// denotes `T`. Pointers are deliberately excluded.
+    pub(super) fn deref_reference_type(&self, type_id: TypeId) -> TypeId {
+        let resolved = self.resolve_alias_type(type_id);
+        match self.symbols.type_by_id(resolved) {
+            Some(Type::Reference { target }) => *target,
+            _ => type_id,
+        }
+    }
+
+    /// CODESYS DUT inheritance: returns true when `derived` (transitively)
+    /// extends `base`.
+    pub(super) fn struct_inherits_from(&self, derived: &str, base: &str) -> bool {
+        let mut current = SmolStr::new(derived);
+        let mut visited: Vec<SmolStr> = Vec::new();
+        loop {
+            if visited
+                .iter()
+                .any(|name| name.eq_ignore_ascii_case(current.as_str()))
+            {
+                return false;
+            }
+            visited.push(current.clone());
+            let Some(symbol_id) = self
+                .symbols
+                .resolve_global_or_qualified_name(current.as_str())
+            else {
+                return false;
+            };
+            let Some(parent_name) = self.symbols.extends_name(symbol_id) else {
+                return false;
+            };
+            if parent_name.eq_ignore_ascii_case(base) {
+                return true;
+            }
+            current = parent_name.clone();
+        }
+    }
+
     pub(crate) fn is_assignable(&self, target: TypeId, source: TypeId) -> bool {
         let target = self.resolve_alias_type(target);
         let source = self.resolve_alias_type(source);
@@ -175,6 +214,22 @@ impl<'a> TypeChecker<'a> {
             // NULL assignment to references/pointers
             (Type::Pointer { .. } | Type::Reference { .. }, Type::Null) => true,
 
+            // CODESYS reference copy-through: with exactly one reference side,
+            // the reference denotes the referenced value. Reference-to-
+            // reference above rebinds; `REF=` rebinds explicitly.
+            (Type::Reference { target: tt }, source) => {
+                let Some(deref) = self.symbols.type_by_id(self.resolve_alias_type(*tt)) else {
+                    return false;
+                };
+                self.types_compatible(deref, source)
+            }
+            (target, Type::Reference { target: ts }) => {
+                let Some(deref) = self.symbols.type_by_id(self.resolve_alias_type(*ts)) else {
+                    return false;
+                };
+                self.types_compatible(target, deref)
+            }
+
             // Interface assignment compatibility
             (Type::Interface { .. }, Type::Null) => true,
             (
@@ -197,6 +252,17 @@ impl<'a> TypeChecker<'a> {
                 };
                 self.is_interface_assignable(target_id, source_id)
             }
+
+            // CODESYS DUT inheritance: a derived STRUCT is assignable to its
+            // base STRUCT type.
+            (
+                Type::Struct {
+                    name: target_name, ..
+                },
+                Type::Struct {
+                    name: source_name, ..
+                },
+            ) => target_name == source_name || self.struct_inherits_from(source_name, target_name),
 
             // IEC 61131-3 6.6.1.6: implicit conversion preserves value and accuracy.
             (target, source) if is_accuracy_preserving_implicit_conversion(target, source) => true,

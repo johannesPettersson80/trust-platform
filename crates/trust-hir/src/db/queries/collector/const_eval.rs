@@ -8,16 +8,23 @@ impl SymbolCollector<'_> {
         let keys: Vec<_> = self.const_exprs.keys().cloned().collect();
         let mut guard = FxHashSet::default();
         for (scope, name) in keys {
+            let key = const_key(&scope, name.as_str());
             if let Err(err) =
                 self.try_resolve_const_value_for_scope(name.as_str(), &scope, &mut guard)
-                && let Some(expr) = self
-                    .const_exprs
-                    .get(&const_key(&scope, name.as_str()))
-                    .cloned()
+                && let Some(expr) = self.const_exprs.get(&key).cloned()
+                && self.declares_constant(&key, expr.text_range())
             {
                 self.report_const_eval_error(err, expr.text_range());
             }
         }
+    }
+
+    /// Whether this file declares the constant `key` with its initializer at `range`, so that its
+    /// failure is reported here.
+    fn declares_constant(&self, key: &(Option<SmolStr>, SmolStr), range: TextRange) -> bool {
+        self.own_constants
+            .as_ref()
+            .is_none_or(|own| own.get(key) == Some(&range))
     }
 
     pub(super) fn eval_int_expr_in_scope(

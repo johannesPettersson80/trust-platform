@@ -240,6 +240,11 @@ END_TYPE
 - First value is the default initial value (unless explicitly initialized)
 - Different enums may use the same identifiers
 - Qualified access: `TrafficLight#Red` resolves ambiguity
+- Qualified member access (CODESYS parity, vendor extension): `TrafficLight.Red`
+  resolves to the value in initializers, expressions, and CASE labels,
+  optionally namespace-qualified (`Ns.TrafficLight.Red`); an unknown member is
+  rejected. The base name resolves through the enclosing scope chain, so
+  enums declared inside namespaces are reachable by their bare type name
 - Error if enumerated literal cannot be unambiguously determined
 
 ### 3.2 Data Types with Named Values (Section 6.4.4.3)
@@ -391,6 +396,36 @@ END_VAR
   variable or component. Omitted aggregate members continue from the preceding
   applicable default rather than being reset to the elementary default.
 
+### 3.5.1 STRUCT inheritance (`EXTENDS`, vendor extension)
+```
+TYPE
+  BaseEntity : STRUCT
+    sID : STRING;
+  END_STRUCT;
+  EntityBinSen EXTENDS BaseEntity : STRUCT
+    bSen : BOOL;
+  END_STRUCT;
+END_TYPE
+```
+
+CODESYS-style DUT inheritance is accepted as a vendor extension (the e!COCKPIT
+import projects it as addData `datatypeinheritance`). It follows the
+function-block inheritance model restricted to field structure:
+
+**Rules**:
+- `EXTENDS` is only valid on STRUCT-based type declarations; enum, union,
+  array, and alias declarations with `EXTENDS` are rejected.
+- The base must name a `STRUCT` type. Field access on a derived variable
+  resolves against the full base chain; a derived value is assignment-
+  compatible with its base type (`base := derived`), but not the reverse.
+- Redeclaring an inherited field name in a derived struct is a duplicate-
+  declaration diagnostic; an inheritance cycle is a cyclic-dependency
+  diagnostic.
+- Only the field structure is inherited: DUTs have no methods, and method
+  override rules do not apply. EXTENDS on DUTs is not an IEC 61131-3
+  feature; it is documented vendor parity, not a deviation from a cited IEC
+  requirement.
+
 ### 3.6 Structures with Relative Addressing (Section 6.4.4.7)
 
 ```
@@ -516,6 +551,7 @@ END_TYPE
 | 3 | Null check | `ref = NULL` | Check if reference is null |
 | 4 | Assignment | `ref := REF(var)` | Assign reference |
 | 5 | Assignment attempt | `ref ?= other_ref` | Attempt to assign reference; result may be `NULL` |
+| 6 | Rebinding | `ref REF= value` (vendor extension) | Rebind reference to `value`'s storage; see `06-statements.md` |
 
 **Example**:
 ```
@@ -539,6 +575,10 @@ refInt^ := 100;  // myInt is now 100
 - `REF_TO` and `POINTER TO` are distinct type families. `REF(...)` produces
   `REF_TO T`; `ADR(...)` produces `POINTER TO T`. Neither ordinary assignment
   nor assignment attempt implicitly converts one family to the other.
+- The CODESYS-style spelling `REFERENCE TO T` is accepted as a vendor-style
+  alias for `REF_TO T` and denotes the same IEC reference type. A `REFERENCE
+  TO` declaration follows every `REF_TO` rule in this section, including the
+  required target type.
 - Assignment attempt `target ?= source` performs the dynamic interface or
   downcast compatibility check. It overwrites `target` with the compatible
   reference on success and with `NULL` on failure, irrespective of the
@@ -587,7 +627,6 @@ END_IF;
   `03-variables.md`.
 
 ### 4.3 IEC reference operations and lifetime
-
 IEC 61131-3 Ed.3 §6.4.4.10.3 defines `REF(variable-or-instance)` and forbids
 applying `REF(...)` to temporary storage, explicitly including `VAR_TEMP` and
 variables inside functions. It also specifies that a dereferenced reference is

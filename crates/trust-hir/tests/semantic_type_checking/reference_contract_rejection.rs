@@ -170,9 +170,9 @@ fn reference_contract_rejects_reference_var_in_out() {
 }
 
 #[test]
-fn reference_contract_rejects_reference_addition() {
+fn reference_contract_rejects_mixed_reference_pointer_arithmetic() {
     check_has_error(
-        "PROGRAM P\nVAR a : REF_TO INT; b : REF_TO INT; x : INT; END_VAR\nx := a + b;\nEND_PROGRAM",
+        "PROGRAM P\nVAR a : REF_TO INT; b : POINTER TO INT; x : INT; END_VAR\nx := a + b;\nEND_PROGRAM",
         DiagnosticCode::TypeMismatch,
     );
 }

@@ -242,6 +242,29 @@ impl<'a> TypeChecker<'a> {
                 }
             }
             SyntaxKind::FieldExpr => {
+                // Writes through an input-parameter slot stay rejected
+                // (spec 02 section 4.4 indirect-write policy): with FB
+                // members public, `FbIn.Field := x` must still fail even
+                // though `Field` itself resolves.
+                if self.assignment_walks_through_input_parameter(node) {
+                    self.diagnostics.error(
+                        DiagnosticCode::InvalidAssignmentTarget,
+                        node.text_range(),
+                        "cannot assign through an input parameter",
+                    );
+                    return None;
+                }
+                // CODESYS program-singleton access keeps target resolution
+                // (and with it the assignability checks) working.
+                if let Some(member_id) = self.resolve_ref().resolve_program_qualified_member(node) {
+                    let accessible = self
+                        .resolve()
+                        .check_member_access(member_id, node.text_range());
+                    return Some(ResolvedSymbol {
+                        id: member_id,
+                        accessible,
+                    });
+                }
                 if let Some(symbol_id) = self.resolve_ref().resolve_namespace_qualified_symbol(node)
                 {
                     let accessible = self
@@ -257,6 +280,9 @@ impl<'a> TypeChecker<'a> {
                     return None;
                 }
                 let base_type = self.expr().check_expression(&children[0]);
+                // Reference auto-deref keeps target resolution (and with it
+                // accessibility/constant checks) working through references.
+                let base_type = self.deref_reference_type(base_type);
                 let Some(field_name) = self.resolve_ref().get_name_from_ref(&children[1]) else {
                     return self.resolve().resolve_lvalue_root(node);
                 };
@@ -273,6 +299,47 @@ impl<'a> TypeChecker<'a> {
             SyntaxKind::DerefExpr => None,
             _ => None,
         }
+    }
+
+    /// True when the field-expression chain of an assignment target passes
+    /// through an input-parameter slot (`FbIn.Field` where `FbIn` is
+    /// `VAR_INPUT`).
+    fn assignment_walks_through_input_parameter(&mut self, node: &SyntaxNode) -> bool {
+        let mut current = Some(node.clone());
+        while let Some(expr) = current {
+            if expr.kind() != SyntaxKind::FieldExpr {
+                return false;
+            }
+            let mut children = expr.children();
+            let base = match children.next() {
+                Some(base) => base,
+                None => return false,
+            };
+            if base.kind() == SyntaxKind::FieldExpr {
+                current = Some(base);
+                continue;
+            }
+            // Only a plain dotted path (`FbIn.Field`) counts; deref, index,
+            // and call chains are the documented pointer write-through forms.
+            if base.kind() != SyntaxKind::NameRef {
+                return false;
+            }
+            let Some(name) = self.resolve_ref().get_name_from_ref(&base) else {
+                return false;
+            };
+            return matches!(
+                self.resolve()
+                    .resolve_name_in_context_outcome(&name, base.text_range()),
+                NameResolveOutcome::Resolved(resolved)
+                    if matches!(
+                        self.symbols.get(resolved.id).map(|symbol| &symbol.kind),
+                        Some(SymbolKind::Parameter {
+                            direction: ParamDirection::In
+                        })
+                    )
+            );
+        }
+        false
     }
 
     pub(super) fn type_of_assignment_target(

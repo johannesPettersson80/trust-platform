@@ -6,8 +6,67 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+### Added
+
+The CODESYS vendor extensions of PR #140:
+
+- Resolve textual action call sites in the IDE (CODESYS vendor extension): bare `action_name()` calls and
+  `ProgramName.action_name()` resolve to the action symbol, so go-to-definition, hover, find-references and rename
+  include action call sites instead of silently dropping (or corrupting) them.
+- Tolerate identical duplicate declarations in PLCopen `globalVars` lists (e!COCKPIT MixedAttrsVarList parity):
+  repeats are dropped with a `PLCO605` info instead of skipping the whole list; conflicting redefinitions still reject
+  the list (`PLCO604`).
+- Import CODESYS `pouType="action"` PLCopen POUs: `Parent.Action` names merge into the parent POU as textual `ACTION`
+  blocks (`PLCO219` info); body-less actions skip with `PLCO204`, and actions without parent linkage keep the
+  `PLCO203` fail-closed skip. Textual actions nested under the parent POU in real e!COCKPIT exports
+  (`<pou><actions><action name="Plain">`) merge the same way, where they were dropped silently.
+- Import e!COCKPIT methods attached to PROGRAM POUs (before, only function-block methods were kept): the method body
+  merges into the program mirror, so self-calls like `StateToBool(...)` resolve.
+- Read the canonical e!COCKPIT v3.9.2 array initializer form (`<initialValue><arrayValue><value><simpleValue …/>`) in
+  GVL imports, flattened to the ST bracket list; the boot tables vanished from the mirror before.
+- Namespace-wrap every imported `globalVars` list (not only `qualified_only` ones), so qualified access resolves;
+  unqualified access to a namespaced list needs a `USING` directive (PLCOPEN_DECISIONS).
+- Resolve CODESYS qualified enum member access (`EnumType.Member`, optionally namespace-qualified) in variable
+  initializers, expressions and CASE labels (with the numeric values for the coverage checks), also for enums declared
+  inside namespaces, instead of reporting an undefined identifier or a type used as a value.
+- Accept an empty right-hand side on named call bindings (`input :=` and `output =>` with no target, at a comma or the
+  closing parenthesis) as a CODESYS vendor extension: the parameter is skipped, a dangling output is discarded; `?=`
+  still needs a target.
+- Accept enum-typed array subscripts (enum values and enum-typed variables) as a CODESYS vendor extension, beside the
+  IEC ANY_INT subscripts.
+- Accept `RETAIN PERSISTENT` in state-owning variable sections as a WAGO/CODESYS vendor extension (persistent implies
+  retention); `NON_RETAIN` combinations and duplicate qualifiers remain errors.
+- Make textual actions callable by name (CODESYS vendor extension): bare `action_name()` inside the owning POU,
+  `POU.action_name()` and `instance.action_name()`; the calls take no arguments and give no value, and a variable of
+  the same name still shadows the action outside call position.
+- Default function-block members to Public (classic instance access): plain `VAR`, `VAR_STAT`, methods and properties
+  are reachable through the instance name (`fbInst.member`) from other POUs; `VAR_PROTECTED`/`VAR_PRIVATE` restrict
+  them, and `VAR_IN_OUT`/`VAR_TEMP`/`VAR_EXTERNAL` members keep the restricted default. Assignment through an
+  input-parameter slot (`fbInput.field := value`) stays rejected.
+- Make function-block and program `VAR_INPUT` members writable (CODESYS parity): the owning body and other POUs may
+  assign them between calls. Function and method parameters stay call-local, and pointer or reference input slots keep
+  the read-only-slot policy.
+- Support CODESYS program-singleton access (vendor extension): `Program.member` reads and writes across programs
+  (including function-block instances), and `ProgramName();` runs another program's body; a bare program name in value
+  position remains rejected.
+- Support CODESYS-style DUT inheritance (`TYPE Derived EXTENDS Base` on STRUCT types, vendor extension): inherited
+  field access, derived-to-base assignment compatibility, duplicate-field and cycle diagnostics, and cross-file base
+  resolution.
+- Auto-dereference `REFERENCE TO` values (CODESYS parity): member access, indexing, arithmetic and assignment copy
+  through a reference without `^`; assignment between two references still rebinds. `POINTER TO` keeps requiring an
+  explicit `^` and stays rejected in arithmetic.
+- Add the CODESYS-style `REF=` reference-rebinding statement as a vendor extension: `ref REF= variable` rebinds to the
+  variable's storage, `ref1 REF= ref2` to a compatible reference target, and `ref REF= NULL` (or `0`) clears the
+  reference; value and pointer targets are rejected.
+- Accept the CODESYS-style `REFERENCE TO T` spelling as an alias of the IEC `REF_TO T` reference type, with the same
+  declaration rules and meaning.
+
 ### Fixed
 
+- A DUT `EXTENDS` clause whose base names no declared type is diagnosed (`cannot resolve type '<base>'`, `E102`); the
+  derived struct was accepted silently and inherited from nothing (PR #140).
+- A project constant whose evaluation fails is reported in the file that owns it: a library or stub file's failed
+  constant no longer appears as a diagnostic under every other analyzed file's path (PR #140).
 - The runtime's operator display at `/hmi` shows the session, the user and role with Log out or Log
   in, at the top bar's right end whenever the screen has a top bar. A top bar without `user` left it
   floating over the page's edge (specification 39, §4.8 item 8).

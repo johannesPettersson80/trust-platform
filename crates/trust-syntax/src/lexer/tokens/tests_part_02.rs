@@ -128,3 +128,48 @@ fn test_pragma_content_preserved() {
     assert_eq!(pragma_tokens.len(), 1);
     assert_eq!(pragma_tokens[0].1, "{AUTHOR JHC}");
 }
+
+// CODESYS `REF=` rebinding operator (vendor extension): the fused lexeme is
+// one keyword token, matched case-insensitively and by longest match (so
+// `ref=` fuses rather than lexing as `KwRef` + `Eq`); `REF` and `=`
+// separated by trivia stay two tokens.
+#[test]
+fn test_ref_bind_fuses_adjacent_ref_equals() {
+    let tokens = lex("r REF= x ref= x ReF= x");
+    let kinds: Vec<_> = tokens
+        .iter()
+        .filter(|(k, _)| !k.is_trivia())
+        .map(|(kind, _)| *kind)
+        .collect();
+    assert_eq!(
+        kinds,
+        vec![
+            TokenKind::Ident,
+            TokenKind::KwRefBind,
+            TokenKind::Ident,
+            TokenKind::KwRefBind,
+            TokenKind::Ident,
+            TokenKind::KwRefBind,
+            TokenKind::Ident,
+        ]
+    );
+}
+
+#[test]
+fn test_ref_and_eq_with_space_stay_separate_tokens() {
+    let tokens = lex("r REF = x");
+    let kinds: Vec<_> = tokens
+        .iter()
+        .filter(|(k, _)| !k.is_trivia())
+        .map(|(kind, _)| *kind)
+        .collect();
+    assert_eq!(
+        kinds,
+        vec![
+            TokenKind::Ident,
+            TokenKind::KwRef,
+            TokenKind::Eq,
+            TokenKind::Ident,
+        ]
+    );
+}

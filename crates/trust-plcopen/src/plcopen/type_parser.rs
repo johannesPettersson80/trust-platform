@@ -288,11 +288,44 @@ fn parse_subrange_type_expression(subrange_node: roxmltree::Node<'_, '_>) -> Opt
 }
 
 fn parse_initial_value(initial_value: roxmltree::Node<'_, '_>) -> Option<String> {
-    first_child_element_ci(initial_value, "simpleValue")
-        .and_then(|simple| attribute_ci(simple, "value").or_else(|| extract_text_content(simple)))
-        .or_else(|| extract_text_content(initial_value))
+    if let Some(simple) = first_child_element_ci(initial_value, "simpleValue") {
+        return attribute_ci(simple, "value")
+            .or_else(|| extract_text_content(simple))
+            .or_else(|| extract_text_content(initial_value))
+            .map(|raw| raw.trim().to_string())
+            .filter(|raw| !raw.is_empty());
+    }
+    if let Some(array) = first_child_element_ci(initial_value, "arrayValue") {
+        // e!COCKPIT v3.9.2 canonical array initializer:
+        // <initialValue><arrayValue><value><simpleValue value="…"/> — flatten
+        // to the ST bracket list so boot tables survive import.
+        return parse_array_value(array);
+    }
+    extract_text_content(initial_value)
         .map(|raw| raw.trim().to_string())
         .filter(|raw| !raw.is_empty())
+}
+
+fn parse_array_value(array: roxmltree::Node<'_, '_>) -> Option<String> {
+    let mut members = Vec::new();
+    for value in array
+        .children()
+        .filter(|child| is_element_named_ci(*child, "value"))
+    {
+        if let Some(nested) = first_child_element_ci(value, "arrayValue") {
+            members.push(parse_array_value(nested)?);
+            continue;
+        }
+        let member = first_child_element_ci(value, "simpleValue")
+            .and_then(|simple| attribute_ci(simple, "value"))
+            .map(|raw| raw.trim().to_string())
+            .unwrap_or_default();
+        members.push(member);
+    }
+    if members.is_empty() {
+        return None;
+    }
+    Some(format!("[{}]", members.join(", ")))
 }
 
 fn first_child_element_ci<'a, 'input>(

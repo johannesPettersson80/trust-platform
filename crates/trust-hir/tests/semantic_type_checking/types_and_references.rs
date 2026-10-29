@@ -579,3 +579,222 @@ END_PROGRAM
 "#,
     );
 }
+
+#[test]
+fn test_reference_to_spelling_is_ref_to_alias() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR x : INT; r : REFERENCE TO INT; END_VAR
+    r := REF(x);
+    r^ := 5;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_ref_bind_rebinds_to_variable_storage() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR x : INT; y : INT; r1 : REF_TO INT; r2 : REF_TO INT; END_VAR
+    r1 REF= x;
+    r2 REF= r1;
+    r1 REF= NULL;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_ref_bind_rejects_value_target() {
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR x : INT; r : REF_TO INT; END_VAR
+    x REF= r;
+END_PROGRAM
+"#,
+        DiagnosticCode::TypeMismatch,
+    );
+}
+
+#[test]
+fn test_ref_bind_rejects_computed_source() {
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR x : INT; r : REF_TO INT; END_VAR
+    r REF= x + 1;
+END_PROGRAM
+"#,
+        DiagnosticCode::TypeMismatch,
+    );
+}
+
+#[test]
+fn test_ref_bind_rejects_constant_source() {
+    // Spec 06 section 2: the REF= source must not be CONSTANT-qualified.
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR CONSTANT limit : INT := 10; END_VAR
+    VAR x : INT; r : REF_TO INT; END_VAR
+    r REF= limit;
+END_PROGRAM
+"#,
+        DiagnosticCode::ConstantModification,
+    );
+}
+
+#[test]
+fn test_reference_auto_deref_field_access() {
+    check_no_errors(
+        r#"
+TYPE Point : STRUCT x : INT; END_STRUCT END_TYPE
+PROGRAM Test
+    VAR p : Point; r : REFERENCE TO Point; v : INT; END_VAR
+    r REF= p;
+    v := r.x;
+    r.x := 7;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_pointer_field_access_still_requires_deref() {
+    check_has_error(
+        r#"
+TYPE Point : STRUCT x : INT; END_STRUCT END_TYPE
+PROGRAM Test
+    VAR p : POINTER TO Point; v : INT; END_VAR
+    v := p.x;
+END_PROGRAM
+"#,
+        DiagnosticCode::TypeMismatch,
+    );
+}
+
+#[test]
+fn test_reference_auto_deref_array_index() {
+    check_no_errors(
+        r#"
+TYPE Data : ARRAY[0..3] OF INT; END_TYPE
+PROGRAM Test
+    VAR a : Data; r : REFERENCE TO Data; v : INT; END_VAR
+    r REF= a;
+    v := r[2];
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_reference_copy_through_assignment() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR x : INT; r : REF_TO INT; END_VAR
+    r REF= x;
+    x := r;
+    r := 3;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_reference_argument_copy_through() {
+    check_no_errors(
+        r#"
+FUNCTION Scale : INT
+    VAR_INPUT
+        v : INT;
+    END_VAR
+    Scale := v * 2;
+END_FUNCTION
+PROGRAM Test
+    VAR r : REF_TO INT; out : INT; END_VAR
+    out := Scale(r);
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_reference_in_out_argument_binding() {
+    check_no_errors(
+        r#"
+FUNCTION_BLOCK FBSwap
+    VAR_IN_OUT io : INT; END_VAR
+END_FUNCTION_BLOCK
+PROGRAM Test
+    VAR r : REF_TO INT; fb : FBSwap; END_VAR
+    fb(r);
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_reference_arithmetic_copy_through() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR x : INT; r : REF_TO INT; END_VAR
+    x := r + 1;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_reference_arithmetic_between_references() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR a : REF_TO INT; b : REF_TO INT; x : INT; END_VAR
+    x := a + b;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_enum_typed_array_index_is_accepted() {
+    // CODESYS parity (vendor extension): an enum value or enum-typed
+    // variable is accepted as an array subscript.
+    check_no_errors(
+        r#"
+TYPE EAxis : (AxisX, AxisY); END_TYPE
+PROGRAM Test
+    VAR
+        table : ARRAY[0..1] OF INT;
+        axis : EAxis;
+        vx : INT;
+    END_VAR
+    vx := table[AxisX];
+    vx := table[axis];
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_non_integer_array_index_still_rejected() {
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR
+        table : ARRAY[0..1] OF INT;
+        label : STRING;
+        vx : INT;
+    END_VAR
+    vx := table[label];
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArrayIndex,
+    );
+}

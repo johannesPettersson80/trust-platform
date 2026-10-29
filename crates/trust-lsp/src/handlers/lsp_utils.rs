@@ -209,6 +209,7 @@ pub(crate) fn lsp_symbol_kind(symbols: &SymbolTable, symbol: &Symbol) -> SymbolK
         trust_hir::SymbolKind::Variable { .. } => SymbolKind::VARIABLE,
         trust_hir::SymbolKind::Constant => SymbolKind::CONSTANT,
         trust_hir::SymbolKind::Parameter { .. } => SymbolKind::VARIABLE,
+        trust_hir::SymbolKind::Action => SymbolKind::FUNCTION,
     }
 }
 

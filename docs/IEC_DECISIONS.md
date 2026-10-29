@@ -134,6 +134,32 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
   - 65,535 is the largest capacity the 16-bit `max_length` of an STBC type
     records (specification 12).
 
+## 2026-10-11 - RETAIN PERSISTENT combination (vendor extension)
+
+- Area: Variable-section retention qualifiers
+- IEC context:
+  - IEC 61131-3 Ed.3 Figure 7 and section 6.5.6 define `RETAIN` and
+    `NON_RETAIN` as alternative storage specifiers and do not define a
+    `PERSISTENT` keyword for ST variable sections; IEC warm-restart semantics
+    (6.5.6.2) attach retention, while persistent behavior is a vendor
+    cold-restart concept. IEC therefore specifies no meaning for a combined
+    `RETAIN PERSISTENT` section.
+  - The 2026-07-30 decision below recorded the stricter reading: at most one
+    of `CONSTANT`, `RETAIN`, `NON_RETAIN`, or `PERSISTENT` per section.
+- Decision:
+  - truST accepts `RETAIN PERSISTENT` in state-owning sections as a
+    WAGO/CODESYS vendor extension: persistent storage implies retention, so
+    the combined section is preserved by restart paths that honor either
+    policy.
+  - Duplicates of a qualifier, `NON_RETAIN` combined with `RETAIN` or
+    `PERSISTENT`, and retention on sections that do not own state remain
+    errors per the 2026-07-30 placement rules.
+- Reason:
+  - WAGO PFC projects (e!COCKPIT/CODESYS dialect) legitimately declare
+    `VAR_GLOBAL RETAIN PERSISTENT`; front-end rejection diverges from the
+    dialect without adding IEC conformance, because IEC has no competing
+    normative requirement for the combination.
+
 ## 2026-09-28 - Repeated aggregate element initializers
 
 - Area: array initializers, including arrays of function block instances

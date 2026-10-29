@@ -579,10 +579,12 @@ END_VAR
 END_PROGRAM
 "#;
 
+    // Plain VAR members are Public (classic IEC instance access) and legal
+    // in aggregate initialization; the forbidden kinds are the non-initializable
+    // in-out, temp, and external members.
     for message in [
         "VAR_IN_OUT members cannot be initialized through aggregate syntax",
         "temporary and external members cannot be initialized through aggregate syntax",
-        "private members cannot be initialized through aggregate syntax",
     ] {
         assert_error_with_message(source, DiagnosticCode::InvalidOperation, message);
     }

@@ -135,3 +135,165 @@ END_PROGRAM
 "#,
     );
 }
+
+// CODESYS qualified enum member access (`EnumType.Member`, vendor extension):
+// the base names an enum type, not a value.
+#[test]
+fn qualified_enum_member_in_gvl_initializer_resolves() {
+    check_no_errors_multi(&[
+        r#"
+TYPE eModeMaster : (Off := 0, Night := 2, Auto := 3, Hybrid := 2, Disabled := 4);
+END_TYPE
+"#,
+        r#"
+NAMESPACE SomeNs
+VAR_GLOBAL RETAIN PERSISTENT
+    aeMasterManual : ARRAY[0..7] OF eModeMaster := [eModeMaster.Hybrid, eModeMaster.Night, eModeMaster.Disabled];
+END_VAR
+END_NAMESPACE
+"#,
+    ]);
+}
+
+#[test]
+fn qualified_enum_member_in_pou_body_resolves() {
+    check_no_errors(
+        r#"
+TYPE eModeMaster : (Off := 0, Night := 2, Hybrid := 2);
+END_TYPE
+PROGRAM Main
+VAR
+    x : eModeMaster;
+END_VAR
+    x := eModeMaster.Hybrid;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn qualified_enum_member_with_unknown_member_still_rejected() {
+    check_has_error(
+        r#"
+TYPE eModeMaster : (Off := 0, Night := 2);
+END_TYPE
+PROGRAM Main
+VAR
+    x : eModeMaster;
+END_VAR
+    x := eModeMaster.Nope;
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidOperation,
+    );
+}
+
+// s4 T10: a stub file's failed constant must be attributed to its own file,
+// not leak into every other file's diagnostics (agent-serve reported stub
+// spans under workspace src/ paths).
+#[test]
+fn const_eval_error_from_one_file_does_not_leak_into_another() {
+    let mut db = Database::new();
+    db.set_source_text(
+        FileId(0),
+        r#"
+PROGRAM Main
+VAR x : INT; END_VAR
+    x := 1;
+END_PROGRAM
+"#
+        .to_string(),
+    );
+    db.set_source_text(
+        FileId(1),
+        r#"
+VAR_GLOBAL CONSTANT
+    width : INT := MAX_UNDEFINED;
+END_VAR
+"#
+        .to_string(),
+    );
+
+    let file0: Vec<_> = db
+        .diagnostics(FileId(0))
+        .iter()
+        .filter(|d| d.code == DiagnosticCode::UndefinedVariable)
+        .map(|d| d.code)
+        .collect();
+    assert!(
+        file0.is_empty(),
+        "clean file must not inherit another file's constant failure: {file0:?}"
+    );
+    let file1_has_own = db
+        .diagnostics(FileId(1))
+        .iter()
+        .any(|d| d.code == DiagnosticCode::UndefinedVariable);
+    assert!(
+        file1_has_own,
+        "the owning file keeps its own constant failure"
+    );
+}
+
+// Nightly-follow-up: CASE labels and namespace-scoped enums (s4 E202 residual).
+#[test]
+fn qualified_enum_member_as_case_label_resolves() {
+    // s4 shape: `CASE eMode OF eMqttPayloadMode.state:` (fbMqttPayloadCreate).
+    check_no_errors(
+        r#"
+TYPE eMqttPayloadMode : (state := 0, event := 1, autodiscovery := 2);
+END_TYPE
+PROGRAM Main
+VAR
+    eMode : eMqttPayloadMode;
+END_VAR
+    CASE eMode OF
+        eMqttPayloadMode.state:
+            ;
+        eMqttPayloadMode.event:
+            ;
+        eMqttPayloadMode.autodiscovery:
+            ;
+    END_CASE
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn qualified_enum_members_cover_all_values() {
+    check_no_errors(
+        r#"
+TYPE eMqttPayloadMode : (state := 0, event := 1, autodiscovery := 2);
+END_TYPE
+PROGRAM Main
+VAR
+    eMode : eMqttPayloadMode;
+END_VAR
+    CASE eMode OF
+        eMqttPayloadMode.state, eMqttPayloadMode.event, eMqttPayloadMode.autodiscovery:
+            ;
+    END_CASE
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn namespace_scoped_enum_member_in_call_argument_resolves() {
+    check_no_errors(
+        r#"
+NAMESPACE App
+TYPE eChar : (Slash := 47, Comma := 44);
+END_TYPE
+FUNCTION strExtractToken : INT
+VAR_INPUT s : STRING; n : INT; c : eChar; i : INT; END_VAR
+    strExtractToken := 0;
+END_FUNCTION
+PROGRAM Main
+VAR s : STRING; i : INT; END_VAR
+    i := strExtractToken(s, 0, eChar.Slash, i);
+END_PROGRAM
+END_NAMESPACE
+"#,
+    );
+}

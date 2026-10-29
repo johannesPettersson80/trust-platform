@@ -72,6 +72,7 @@ fn non_type_role(kind: &SymbolKind) -> Option<&'static str> {
         SymbolKind::Resource => Some("resource"),
         SymbolKind::Task => Some("task"),
         SymbolKind::ProgramInstance => Some("program instance"),
+        SymbolKind::Action => Some("action"),
         SymbolKind::Type
         | SymbolKind::FunctionBlock
         | SymbolKind::Class
