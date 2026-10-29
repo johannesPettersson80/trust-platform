@@ -43,7 +43,7 @@ export class Operation {
     liveAt: (path: string) => LiveValue | undefined,
     /** After a login or logout: the value stream carries the session it was opened with. */
     sessionChanged: () => void = () => undefined,
-    /** Where the session bar goes, when the screen has a top bar with the user (§4.8). */
+    /** Where the session bar goes: the top bar's slot, when the screen has a top bar (§4.8 item 8). */
     sessionSlot?: HTMLElement,
     /** SVG markup of an alarm priority's mark (§13.6, item 6). */
     alarmMark?: (priority: string) => string,

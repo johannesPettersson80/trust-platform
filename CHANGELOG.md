@@ -8,6 +8,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ### Fixed
 
+- The runtime's operator display at `/hmi` shows the session, the user and role with Log out or Log
+  in, at the top bar's right end whenever the screen has a top bar. A top bar without `user` left it
+  floating over the page's edge (specification 39, §4.8 item 8).
 - Control Studio's Identify returns a loop it found in Auto from the output the loop holds. It wrote the Manual
   command it had found back first, in Manual, which stepped a process that moved during identification to that old
   command before the Auto entry (lesson 30's plant went from 47.55 % to 75 %, while the controller held 67.55 %). The

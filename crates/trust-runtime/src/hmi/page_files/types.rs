@@ -471,7 +471,8 @@ pub struct HmiTopBar {
     /// Shows the alarm counter and the newest alarm.
     #[serde(default)]
     pub alarms: bool,
-    /// Shows the logged-in user.
+    /// Kept as the file says it. It changes nothing on the display: the session sits in every top bar
+    /// (specification 39, §4.8 item 8; the owner, 29 October 2026).
     #[serde(default)]
     pub user: bool,
     /// Shows the current page title.

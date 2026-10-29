@@ -247,7 +247,9 @@ suite("HMI display: browser shell", () => {
     );
   });
 
-  test("with a top bar that does not show the user, the session stands under the top bar and covers nothing in it", async () => {
+  test("with a top bar that does not show the user, the session still sits at the top bar's right end (§4.8 item 8)", async () => {
+    // Catches the session floating over the page's top edge under a top bar without `user`, as it did on the
+    // memory marker counter's /hmi (#134, 29 October 2026).
     const barred: PageData = {
       ...OVERVIEW,
       screen: {
@@ -258,9 +260,11 @@ suite("HMI display: browser shell", () => {
     };
     const element = container();
     await startDisplay(element, new FakeHost("/hmi/overview", { status: 200, body: barred }), drawing);
-    assert.ok(element.classList.contains("hmi-with-top-bar"), element.className);
-    const style = element.querySelector("style")?.textContent ?? "";
-    assert.match(style, /\.hmi-with-top-bar \.hmi-session:not\(\.hmi-session-inline\) \{ top: 68px; \}/);
+    const bar = element.querySelector('header[data-part="top-bar"]');
+    assert.ok(bar, element.innerHTML);
+    const session = element.querySelector('[data-part="session"]');
+    assert.ok(session?.classList.contains("hmi-session-inline"), session?.className);
+    assert.strictEqual(session?.parentElement, bar.lastElementChild, "the session's slot ends the top bar");
   });
 
   test("a screen in one language shows no language button", async () => {

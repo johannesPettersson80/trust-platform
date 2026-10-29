@@ -522,7 +522,6 @@
 @media (max-width: 720px) { .hmi-simulation { gap: 6px; height: 28px; padding: 0 9px; font-size: 11px; } }
 
 .hmi-session.hmi-session.hmi-session-inline { position: static; box-shadow: none; padding: 3px 4px 3px 12px; }
-.hmi-with-top-bar .hmi-session:not(.hmi-session-inline) { top: 68px; }
 .hmi-body { flex: 1; display: flex; min-height: 0; }
 .hmi-side { box-sizing: border-box; width: 232px; flex: none; overflow-y: auto; padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; background: var(--hmi-surface); border-right: 1px solid var(--hmi-border); }
 .hmi-side[data-position="right"] { order: 2; border-right: none; border-left: 1px solid var(--hmi-border); }
@@ -633,12 +632,9 @@
       bar.append(clock);
     }
     if (language2 && layer) bar.append(buildLanguage(document2, language2, layer, signal));
-    let sessionSlot;
-    if (model.user) {
-      sessionSlot = document2.createElement("div");
-      sessionSlot.className = "hmi-session-slot";
-      bar.append(sessionSlot);
-    }
+    const sessionSlot = document2.createElement("div");
+    sessionSlot.className = "hmi-session-slot";
+    bar.append(sessionSlot);
     return { element: bar, clock, sessionSlot, alarms, simulation };
   }
   function buildSimulation(document2) {

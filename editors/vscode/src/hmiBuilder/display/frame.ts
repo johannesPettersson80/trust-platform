@@ -46,7 +46,6 @@ export const FRAME_CSS = `
 @media (max-width: 720px) { .hmi-simulation { gap: 6px; height: 28px; padding: 0 9px; font-size: 11px; } }
 
 .hmi-session.hmi-session.hmi-session-inline { position: static; box-shadow: none; padding: 3px 4px 3px 12px; }
-.hmi-with-top-bar .hmi-session:not(.hmi-session-inline) { top: 68px; }
 .hmi-body { flex: 1; display: flex; min-height: 0; }
 .hmi-side { box-sizing: border-box; width: 232px; flex: none; overflow-y: auto; padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; background: var(--hmi-surface); border-right: 1px solid var(--hmi-border); }
 .hmi-side[data-position="right"] { order: 2; border-right: none; border-left: 1px solid var(--hmi-border); }
@@ -140,7 +139,7 @@ function buildTopBar(
 ): {
   element: HTMLElement;
   clock?: HTMLElement;
-  sessionSlot?: HTMLElement;
+  sessionSlot: HTMLElement;
   alarms?: AlarmArea;
   simulation: HTMLElement;
 } {
@@ -209,12 +208,11 @@ function buildTopBar(
     bar.append(clock);
   }
   if (language && layer) bar.append(buildLanguage(document, language, layer, signal));
-  let sessionSlot: HTMLElement | undefined;
-  if (model.user) {
-    sessionSlot = document.createElement("div");
-    sessionSlot.className = "hmi-session-slot";
-    bar.append(sessionSlot);
-  }
+  // The session sits at the top bar's right end in every top bar, whatever `user` says: it shows on every
+  // page, and the user and role belong in the top bar (§12.4 item 1; the owner, 29 October 2026).
+  const sessionSlot = document.createElement("div");
+  sessionSlot.className = "hmi-session-slot";
+  bar.append(sessionSlot);
   return { element: bar, clock, sessionSlot, alarms, simulation };
 }
 
