@@ -50,6 +50,8 @@ mod partial_access_rejection;
 mod phase18_behavior_closure;
 #[path = "semantic_type_checking/pointer_param_write_through.rs"]
 mod pointer_param_write_through;
+#[path = "semantic_type_checking/pointer_target_lenient_bindings.rs"]
+mod pointer_target_lenient_bindings;
 #[path = "semantic_type_checking/project_diagnostics_stability.rs"]
 mod project_diagnostics_stability;
 #[path = "semantic_type_checking/reference_contract_acceptance.rs"]

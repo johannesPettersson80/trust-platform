@@ -143,6 +143,18 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                     node.text_range(),
                     message,
                 );
+            } else if self
+                .checker
+                .is_pointer_target_lenient_binding(target_type, value_type)
+            {
+                // CODESYS binds vendor-idiom pointer targets (CHAR↔BYTE,
+                // STRING vs ARRAY OF BYTE) with a warning; the signal
+                // stays as a warning (IEC_DEVIATIONS DEV-028).
+                self.checker.diagnostics.warning(
+                    DiagnosticCode::IncompatibleAssignment,
+                    node.text_range(),
+                    message,
+                );
             } else {
                 self.checker.diagnostics.error(
                     DiagnosticCode::IncompatibleAssignment,

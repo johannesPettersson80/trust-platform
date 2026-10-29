@@ -197,6 +197,46 @@ impl<'a> TypeChecker<'a> {
         integer_or_bit_string(target) && integer_or_bit_string(source)
     }
 
+    /// CODESYS pointer-compatibility parity (IEC_DEVIATIONS 2026-10-29 (DEV-039)): the
+    /// vendor toolchain binds pointers whose pointees differ by a 1-byte
+    /// scalar class (`CHAR` ↔ `BYTE`, the vendor `MemCopy` idiom) and
+    /// accepts `ADR(STRING)` against byte-buffer pointers (the vendor
+    /// JSON-parser idiom), diagnosing the implicit conversion with a
+    /// warning. Element/record-boundary mismatches outside these forms
+    /// keep the error.
+    pub(crate) fn is_pointer_target_lenient_binding(&self, target: TypeId, source: TypeId) -> bool {
+        // Only the CODESYS profile lenient-binds these vendor pointer
+        // idioms; other profiles keep the rejection, so this demotion
+        // decision itself is the profile gate.
+        if !self.symbols.dialect().is_codesys() {
+            return false;
+        }
+        let pointee = |type_id: TypeId| {
+            self.symbols
+                .type_by_id(self.resolve_alias_type(type_id))
+                .and_then(|ty| match ty {
+                    Type::Pointer { target } => {
+                        self.symbols.type_by_id(self.resolve_alias_type(*target))
+                    }
+                    _ => None,
+                })
+        };
+        let (Some(formal), Some(actual)) = (pointee(target), pointee(source)) else {
+            return false;
+        };
+        match (formal, actual) {
+            (Type::Char, Type::Byte) | (Type::Byte, Type::Char) => true,
+            (Type::Array { element, .. }, Type::String { .. })
+            | (Type::String { .. }, Type::Array { element, .. }) => {
+                matches!(
+                    self.symbols.type_by_id(self.resolve_alias_type(*element)),
+                    Some(Type::Byte)
+                )
+            }
+            _ => false,
+        }
+    }
+
     pub(super) fn types_compatible(&self, target: &Type, source: &Type) -> bool {
         let target = self.normalize_subrange(target);
         let source = self.normalize_subrange(source);

@@ -6,8 +6,6 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-
-
 ### Fixed
 
 - Call binding: `VAR_IN_OUT` strings bind across declared capacities (same
@@ -16,44 +14,43 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   (`WagoAppString.StrAppend`). The previous capacity-equality rule rejected
   vendor-library calls that compile clean in the vendor toolchain; see
   `IEC_DEVIATIONS.md` (2026-10-28).
-
 - Integer/bit-string narrowing (assignments and call arguments) becomes a
-
+  warning instead of an error under `[project] vendor_profile = "codesys"`,
+  matching the CODESYS compiler warning, and `SIZEOF` yields its natural
+  unsigned magnitude (`UDINT`) there so vendor `udiSize` parameters bind
+  directly. Other profiles keep the error and the signed result;
+  non-integer mismatches keep their errors under every profile; see
+  `IEC_DEVIATIONS.md` (2026-10-28).
 - Comparisons and bit-string arithmetic match CODESYS: under
+  `[project] vendor_profile = "codesys"` signed/unsigned integer pairs,
+  integer/bit-string pairs, and two bit-string operands in `+ - * /` are
+  admitted and evaluate through a common magnitude (the runtime promotes;
+  bit-string results carry the wider width and wrap). MOD on bit-strings,
+  mixed integer/bit-string arithmetic, integer/REAL accuracy-loss
+  combinations, and all of these shapes under other profiles keep the
+  strict IEC rejections (IEC_DEVIATIONS 2026-10-28).
 - Standard conversions: vendor-extension entries match the CODESYS/TwinCAT
+  toolchain — `TO_STRING`/`*_TO_STRING` over enumerated values (variant
+  name), `BOOL` (`'TRUE'`/`'FALSE'`), `TIME`/`LTIME` (`T#`/`LT#` text), and
+  same-family strings (identity); `TIME_TO_<int>`/`LTIME_TO_<int>` and
+  `TOD_TO_DWORD`/`LTOD_TO_DWORD` duration magnitudes. Implemented in the
+  compiler accept table and the runtime conversion dispatch; see
+  `IEC_DEVIATIONS.md` (2026-10-28).
 - Standard conversion extension round: `REAL_TO_TIME`/`UINT_TO_TIME` (the
+  value is the millisecond magnitude of the duration), `DWORD_TO_TOD` (the
+  raw ms-of-day magnitude), and `STRING`/`WSTRING` to bit-string targets
+  parse the text as an unsigned integer literal and yield `0` when it is
+  not one. Other integer-to-`TIME` pairs, string-to-`BOOL`, and
+  REAL-to-bit-string conversions stay rejected; implemented in the compiler
+  accept table and the runtime conversion dispatch; see
+  `IEC_DEVIATIONS.md` (2026-10-28 extension round).
+- Pointer-target lenient bindings match CODESYS: `POINTER TO CHAR` and
+  `POINTER TO BYTE` pointees bind each other with a warning, and
+  `ADR(STRING[n])` binds against a `POINTER TO ARRAY OF BYTE` formal (the
+  vendor MemCopy and JSON-buffer idioms). All other pointee mismatches
+  stay errors; see `IEC_DEVIATIONS.md` (2026-10-29, DEV-039).
 
-### Changed
-
-- Releases follow `main`'s CI instead of a hand-pushed tag. When CI passes on a commit whose version has no complete
-  release yet, the Release workflow builds and tests every target, tags that commit, publishes the GitHub release and
-  the Marketplace packages, and verifies the tag, the release and the Marketplace listing of every target. A pull
-  request that changes the version rehearses the whole release on its head, and CI's version guard no longer waits
-  for a release (specification 24).
-- Pull requests run the documentation, capture and diagram checks whenever the whole change touches their paths, also
-  above the 300 changed files that GitHub's path filters compare, and each such workflow ends with one conclusion
-  that fails when any of its checks failed (specification 22).
-- The documentation is checked against the product: the Structured Text in the README, the docs pages and the examples'
-  READMEs quotes its example's program or parses, the commands and settings the pages name exist in the VS Code
-  extension, no page names a retired command or the Runtime Panel, and every `trust-runtime` command line they show
-  parses. Fixed on the way: an OpenOT example that named a variable with the keyword `ACTION`, four Structured Text
-  examples that did not close their program, function or function block, three command names that had changed,
-  `ctl restart` without its mode, a tutorial's run without its command, and 15 example and docs pages that sent
-  readers to the Runtime Panel or to `Structured Text:` commands: they name Live Values, `truST:` commands and Devices
-  & Connections, where the ADS commands went (specification 22).
-- The README shows what truST does that it left out: code from CODESYS and TwinCAT, Siemens SCL and Mitsubishi GX Works3,
-  process data in seven databases through OpenOT, tasks, RETAIN and the watchdog, the simulator's scenarios and faults,
-  the browser IDE and other editors, the HMI Builder itself, and operating in production (audit log, fleet rollout,
-  backup and offline installation). Its examples table starts with the tutorials and adds debugging, visual programs,
-  tests and CI, and coming from another PLC; it says that Windows runs on x86-64 only, and its platform and
-  specification notes are written for readers rather than auditors. The Marketplace page names the libraries and the
-  vendor profiles.
-- The documentation site shows the newest screenshots rendered on `main` without a commit of the images. Before the
-  site is built, the screenshots of the newest passing Docs Captures run of `main` are laid over the images; only what
-  the captures wrote is taken, never the hand-made pictures. The capture refresh pull request, which had to be merged
-  into each release by hand, is gone (specification 22).
-
-## [0.26.0] - 2026-10-30
+## [0.27.0] - 2026-10-31
 
 ### Changed
 

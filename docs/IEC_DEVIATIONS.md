@@ -748,3 +748,39 @@ re-check them against this rule when touched.
   arithmetic keep their errors; the runtime promotion lives in the
   compare/arithmetic paths, leaving the value-helper rejection pins
   intact.
+
+## 2026-10-29 - Pointer-target lenient bindings
+
+- ID: DEV-039
+- Area: pointer bindings at call arguments and plain assignments
+  (`E205` "pointer target mismatch for parameter ...", `E203` "cannot
+  assign") where the two pointer targets differ by a 1-byte scalar class
+  (`CHAR` ↔ `BYTE`) or by the vendor byte-buffer idiom (`ADR(STRING[n])`
+  against a `POINTER TO ARRAY[i..j] OF BYTE` formal).
+- Normative IEC requirement: IEC 61131-3 Ed.3 defines no implicit
+  conversion between pointer targets; `§6.6.1.6` admits implicit
+  assignments only where value and accuracy are preserved, and strict
+  reading requires identical pointee types. The standard text was
+  unavailable on the authoring machine; the clause mirrors the citation
+  style already used in `docs/specs/09-semantic-rules.md`.
+- truST behavior and conflict: those two binding forms are diagnosed as
+  a **warning** with the same code and message, not an error — matching
+  CODESYS, which compiles them as implicit pointer conversions with a
+  compiler warning. `ADR` keeps its pointee typing (`ADR(str[1])` stays
+  `POINTER TO CHAR`), so the vendor `MemCopy`/`MemCopySecure`
+  `POINTER TO BYTE` formals and the vendor `Fb_JSON_ParseAndModify`
+  `pData : POINTER TO ARRAY[0..65535] OF BYTE` formal bind directly.
+  Every other pointee mismatch stays an error (wider scalar classes,
+  array bound widening, records, other families).
+- Impact: the downstream tree's 3 remaining pointer sites (2×
+  `MemCopy`/`MemCopySecure` string-offset byte-pointer bindings, 1×
+  JSON-parser data binding) pass the compile gate while each binding
+  stays individually visible. No runtime mirror is needed: no
+  conversion dispatch is involved and the pointer value is copied
+  verbatim, so only the compile contract changes.
+- Mitigation: the demotion is form-scoped, not blanket — element/record
+  boundary mismatches keep their errors, and each lenient binding still
+  produces one warning so recurrence is loud. Function/method
+  `VAR_OUT`/`VAR_IN_OUT` pointer arms and variable initializers are not
+  wired (mirroring the narrowing record's scoping (DEV-037)) and keep the error until a
+  downstream need appears.
