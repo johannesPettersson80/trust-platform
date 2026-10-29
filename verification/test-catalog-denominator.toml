@@ -47342,3 +47342,23 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_IEC_STRING_UNICODE_LITERAL_BOUND_001"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_27E1CA9DC90676DDAAF7"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/example_runtime_configs.rs"
+name = "shipped_example_runtime_configs_are_loadable"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-29"
+
+[[reviews]]
+discovery_id = "DISC_7455709CF74B83179423"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/example_runtime_configs.rs"
+name = "reliability_test_project_configs_are_loadable"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-29"

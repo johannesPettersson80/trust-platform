@@ -711,7 +711,9 @@ synthetic state frame is simulator or physical-operation evidence.
 CI command owner: `scripts/hmi_ci_gate.sh` (bundle parity and browser phases). The normal PR
 aggregate requires the HMI job, and candidate preparation records `remote_hmi`. The nightly HMI
 workflow reuses that command and runs a clean-profile installed-VSIX authoring smoke. It never
-uses source-checkout binaries for installed-artifact proof. `scripts/hmi-authoring/installed-vsix-smoke.cjs`
+uses source-checkout binaries for installed-artifact proof. It packages its debug binaries without
+their debug information: vsce's secret scan reads each packaged file into one string, which Node
+caps at 512 MiB, and the debug `trust-runtime` is larger with it (29 October 2026). `scripts/hmi-authoring/installed-vsix-smoke.cjs`
 accepts a produced VSIX and a pinned VS Code executable override; native binaries, drawing assets,
 fonts, tool invocation, PNG output and bridge startup must come from the installed artifact.
 Customer CI template: `.github/workflows/templates/trust-hmi-project-ci.yml`. It requires an

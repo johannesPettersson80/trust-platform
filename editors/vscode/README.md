@@ -1,10 +1,11 @@
 # truST: IEC 61131-3 Structured Text for VS Code
 
-Write, compile and debug IEC 61131-3 Structured Text, commission control loops with Control Studio,
-and design operator screens, all in one extension. Programs compile to native code, and the
-complete compiler toolchain is part of the extension, so there is nothing else to install.
+Write, run and debug IEC 61131-3 Structured Text in VS Code, watch and force its I/O while it runs,
+design operator screens, and commission control loops, all in one extension. Programs compile to
+native code, and the complete compiler toolchain is part of the extension, so there is nothing else
+to install.
 
-![Control Studio identifies a plant, tunes a PI controller, shows its frequency response and validates it](https://raw.githubusercontent.com/johannesPettersson80/trust-platform/main/docs/public/assets/images/readme/control-studio.gif)
+![Structured Text in VS Code: a hover and completion, Start runs the program on the simulator, Live Values forces a level, and the debugger stops at a breakpoint and steps](https://raw.githubusercontent.com/johannesPettersson80/trust-platform/main/docs/public/assets/images/readme/core-loop.gif)
 
 ## Highlights
 
@@ -18,9 +19,6 @@ complete compiler toolchain is part of the extension, so there is nothing else t
 - **Run and debug.** Run on the built-in simulator or on a runtime, with breakpoints, stepping, call
   stack and variables on the compiled program. Live Values reads, writes and forces inputs, outputs
   and memory while the program runs.
-- **Control Studio.** Identify a plant from experiments, tune and validate a controller against the
-  model, apply it to a running loop with a bumpless transfer, and restore the previous settings
-  when needed.
 - **HMI Builder.** Design operator screens with drag and drop, stored as TOML pages that diff and
   review like code. The runtime serves them at `/hmi`, with trends and alarms.
 - **Devices & Connections.** Find and configure Modbus TCP, MQTT with Sparkplug B, OPC UA, Beckhoff
@@ -28,6 +26,9 @@ complete compiler toolchain is part of the extension, so there is nothing else t
 - **Tests and interchange.** Structured Text tests in the Testing view and through CodeLens,
   PLCopen XML import and export, and visual editors for ladder, SFC, Blockly and statecharts that
   keep a Structured Text companion.
+- **Control Studio.** Identify a plant from experiments, tune and validate a controller against the
+  model, apply it to a running loop with a bumpless transfer, and restore the previous settings
+  when needed.
 
 ## Quick start
 
@@ -41,7 +42,7 @@ complete compiler toolchain is part of the extension, so there is nothing else t
 
 ![The debugger stepping through a compiled program, with its locals and call stack](https://raw.githubusercontent.com/johannesPettersson80/trust-platform/main/docs/public/assets/images/readme/debugger.png)
 
-![Operating the tank example at /hmi: a setpoint change, the high-level alarm and its acknowledgement](https://raw.githubusercontent.com/johannesPettersson80/trust-platform/main/docs/public/assets/images/readme/hmi-operation.gif)
+![An operator opens the LIC-101 faceplate of the hmi_equipment example at /hmi and raises its setpoint; the level follows](https://raw.githubusercontent.com/johannesPettersson80/trust-platform/main/docs/public/assets/images/readme/hmi-operation.gif)
 
 ## Commands you will use most
 
