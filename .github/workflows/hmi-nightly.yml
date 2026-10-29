@@ -38,6 +38,10 @@ jobs:
           cargo build -p trust-lsp -p trust-runtime --bin trust-runtime --bin trust-lsp
           mkdir -p editors/vscode/bin
           cp target/debug/trust-lsp target/debug/trust-runtime editors/vscode/bin/
+          # vsce's secret scan reads each packaged file into one string, which Node caps at 512 MiB.
+          # With their debug information the debug binaries exceed that (over 600 MB for the
+          # runtime); without it they are under 300 MB and run the same.
+          strip --strip-debug editors/vscode/bin/trust-lsp editors/vscode/bin/trust-runtime
           cd editors/vscode
           npx --yes @vscode/vsce@3.6.0 package --target linux-x64 --out /tmp/trust-hmi.vsix
       - name: Installed artifact authoring smoke
