@@ -680,7 +680,13 @@ program execution or an IEC 61131-3 deviation.
 #### 7.6 Project Configuration & Workspace Indexing
 
 - Per-root project config file: `trust-lsp.toml`, `.trust-lsp.toml`, or `trustlsp.toml`.
-- `[project]` supports `include_paths`, `library_paths`, `vendor_profile` (dialect + formatting presets), and `stdlib` selection.
+- `[project]` supports `include_paths`, `library_paths`, `vendor_profile` (language rules + formatting presets), and `stdlib` selection.
+- `vendor_profile` selects the language rules of the whole analysis (diagnostics, hover, completion, `trust-lsp check`), and the runtime build, the debugger and the runtime's web IDE take the same rules from the project's `vendor_profile`, with the conversion rules it selects (docs/specs/07-standard-functions.md section 2.10):
+  - `iec`, `siemens`, `mitsubishi`, `gxworks3`, an empty name or none: IEC 61131-3 as truST reads it.
+  - `codesys`, `beckhoff`, `twincat`: the IEC rules with CODESYS's departures, each recorded in `docs/IEC_DEVIATIONS.md`: function block members public by default (DEV-028), a function block's or program's body assigning its own inputs (DEV-029), a program reached by its name (`Program.member`, `Program.action()`, `Program();`, DEV-030), references dereferenced without `^` (DEV-031), and a named actual without a value leaving the input unbound or discarding the output (DEV-032).
+  - A misspelled profile keeps the IEC rules in the editor and reports `C006`.
+  - With several workspace folders the analysis follows the `vendor_profile` of the highest-priority folder's configuration (`[workspace] priority`).
+  - Vendor extensions that change no valid IEC program are accepted under every profile: textual actions called by name, `REF=`, the `REFERENCE TO` spelling, `EnumType.Member`, enum-typed subscripts, `RETAIN PERSISTENT` and `TYPE … EXTENDS` on structures.
 - `stdlib` profiles: `full` (default), `iec` (IEC standard functions/FBs only; Tables 22–36, 43–46), `none` (no standard library completions/hover), or an explicit allow-list array.
 - When `vendor_profile` is set and no explicit stdlib allow-list/profile is provided, the server defaults to the IEC profile for completions/hover.
 - `[[libraries]]` entries include `name`, `path`, and optional `version` for external library indexing.

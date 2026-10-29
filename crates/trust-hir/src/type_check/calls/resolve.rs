@@ -70,13 +70,15 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
                 param_owner: symbol_id,
                 kind: symbol_kind,
             }),
-            // CODESYS cross-program invocation: calling a PROGRAM runs its
-            // body (vendor extension).
-            SymbolKind::Program => Some(CallTargetInfo {
-                return_type: TypeId::VOID,
-                param_owner: symbol_id,
-                kind: symbol_kind,
-            }),
+            // Under the CODESYS profile, calling a PROGRAM runs its body; IEC instantiates programs
+            // only in resources (IEC 61131-3 Ed.3 §6.6.4 item 3; docs/IEC_DEVIATIONS.md DEV-030).
+            SymbolKind::Program if self.checker.symbols.dialect().is_codesys() => {
+                Some(CallTargetInfo {
+                    return_type: TypeId::VOID,
+                    param_owner: symbol_id,
+                    kind: symbol_kind,
+                })
+            }
             // CODESYS textual action invocation (vendor extension): actions
             // take no arguments and return nothing.
             SymbolKind::Action => Some(CallTargetInfo {
@@ -142,12 +144,16 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
         self.checker.symbols.resolve_qualified(&parts)
     }
 
-    /// CODESYS program-singleton access: `ProgramName.member` resolves the
-    /// member among the program's own children (vendor extension).
+    /// Under the CODESYS profile, `ProgramName.member` resolves the member among the program's
+    /// own children (the program's one instance); IEC reaches a program's variables only through
+    /// its resource (IEC 61131-3 Ed.3 §6.6.4 items 2 and 3; docs/IEC_DEVIATIONS.md DEV-030).
     pub(in crate::type_check) fn resolve_program_qualified_member(
         &self,
         node: &SyntaxNode,
     ) -> Option<SymbolId> {
+        if !self.checker.symbols.dialect().is_codesys() {
+            return None;
+        }
         let parts = self.qualified_name_from_field_expr(node)?;
         if parts.len() != 2 {
             return None;

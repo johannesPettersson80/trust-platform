@@ -8,7 +8,17 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ### Added
 
-The CODESYS vendor extensions of PR #140:
+- `[project] vendor_profile` selects the language rules too, not only formatting, the standard library and the
+  conversion rules: `codesys`, `beckhoff` and `twincat` switch on CODESYS's departures from IEC 61131-3 (recorded in
+  `IEC_DEVIATIONS.md`, DEV-028 to DEV-032) in the editor, `trust-lsp check`, the debugger, the runtime's web IDE and
+  the runtime build; every other profile keeps the IEC rules (specification 14).
+- The runtime build compiles the CODESYS constructs of PR #140 and runs them: a program reached by its name
+  (`Program.member`, `Program(...)`, through the program's instance of the same name), references read and written
+  without `^`, `REF=`, `EnumType.Member` in starting values, a structure that `EXTENDS` another (the base's fields
+  first) and its copy to the base, function block members written from outside, and empty named bindings.
+
+The CODESYS vendor extensions of PR #140; the ones that change what an IEC program means apply only under a CODESYS
+`vendor_profile`:
 
 - Resolve textual action call sites in the IDE (CODESYS vendor extension): bare `action_name()` calls and
   `ProgramName.action_name()` resolve to the action symbol, so go-to-definition, hover, find-references and rename
@@ -29,9 +39,9 @@ The CODESYS vendor extensions of PR #140:
 - Resolve CODESYS qualified enum member access (`EnumType.Member`, optionally namespace-qualified) in variable
   initializers, expressions and CASE labels (with the numeric values for the coverage checks), also for enums declared
   inside namespaces, instead of reporting an undefined identifier or a type used as a value.
-- Accept an empty right-hand side on named call bindings (`input :=` and `output =>` with no target, at a comma or the
-  closing parenthesis) as a CODESYS vendor extension: the parameter is skipped, a dangling output is discarded; `?=`
-  still needs a target.
+- Under a CODESYS `vendor_profile`, accept an empty right-hand side on named call bindings (`input :=` and `output =>`
+  with no target, at a comma or the closing parenthesis): the parameter is skipped, a dangling output is discarded;
+  `?=` still needs a target (DEV-032).
 - Accept enum-typed array subscripts (enum values and enum-typed variables) as a CODESYS vendor extension, beside the
   IEC ANY_INT subscripts.
 - Accept `RETAIN PERSISTENT` in state-owning variable sections as a WAGO/CODESYS vendor extension (persistent implies
@@ -39,22 +49,22 @@ The CODESYS vendor extensions of PR #140:
 - Make textual actions callable by name (CODESYS vendor extension): bare `action_name()` inside the owning POU,
   `POU.action_name()` and `instance.action_name()`; the calls take no arguments and give no value, and a variable of
   the same name still shadows the action outside call position.
-- Default function-block members to Public (classic instance access): plain `VAR`, `VAR_STAT`, methods and properties
-  are reachable through the instance name (`fbInst.member`) from other POUs; `VAR_PROTECTED`/`VAR_PRIVATE` restrict
-  them, and `VAR_IN_OUT`/`VAR_TEMP`/`VAR_EXTERNAL` members keep the restricted default. Assignment through an
+- Under a CODESYS `vendor_profile`, function-block members default to Public: plain `VAR`, `VAR_STAT`, methods and
+  properties are reachable through the instance name (`fbInst.member`) from other POUs; an explicit access specifier
+  restricts them, and `VAR_IN_OUT`/`VAR_TEMP`/`VAR_EXTERNAL` members stay restricted (DEV-028). Assignment through an
   input-parameter slot (`fbInput.field := value`) stays rejected.
-- Make function-block and program `VAR_INPUT` members writable (CODESYS parity): the owning body and other POUs may
-  assign them between calls. Function and method parameters stay call-local, and pointer or reference input slots keep
-  the read-only-slot policy.
-- Support CODESYS program-singleton access (vendor extension): `Program.member` reads and writes across programs
-  (including function-block instances), and `ProgramName();` runs another program's body; a bare program name in value
-  position remains rejected.
+- Under a CODESYS `vendor_profile`, a function block's or program's body may assign its own `VAR_INPUT` members between
+  calls. Function and method parameters stay call-local, and pointer or reference input slots keep the read-only-slot
+  policy (DEV-029).
+- Under a CODESYS `vendor_profile`, a program is reached by its name: `Program.member` reads and writes across programs
+  (including function-block instances), `Program.action()` runs its action and `ProgramName();` runs its body; a bare
+  program name in value position remains rejected (DEV-030).
 - Support CODESYS-style DUT inheritance (`TYPE Derived EXTENDS Base` on STRUCT types, vendor extension): inherited
   field access, derived-to-base assignment compatibility, duplicate-field and cycle diagnostics, and cross-file base
   resolution.
-- Auto-dereference `REFERENCE TO` values (CODESYS parity): member access, indexing, arithmetic and assignment copy
-  through a reference without `^`; assignment between two references still rebinds. `POINTER TO` keeps requiring an
-  explicit `^` and stays rejected in arithmetic.
+- Under a CODESYS `vendor_profile`, references are dereferenced without `^`: member access, indexing, arithmetic and
+  assignment copy through a reference; assignment between two references still rebinds. `POINTER TO` keeps requiring
+  an explicit `^` and stays rejected in arithmetic (DEV-031).
 - Add the CODESYS-style `REF=` reference-rebinding statement as a vendor extension: `ref REF= variable` rebinds to the
   variable's storage, `ref1 REF= ref2` to a compatible reference target, and `ref REF= NULL` (or `0`) clears the
   reference; value and pointer targets are rejected.

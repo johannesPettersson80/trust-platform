@@ -25,6 +25,7 @@ mod util;
 pub use crate::boundary::{BoundaryEntry, BoundaryError};
 pub use api::{CompileSession, Declarations};
 pub use bindings::runtime_with_bindings;
+pub(crate) use build::dialect_of;
 #[cfg(test)]
 pub(crate) use build::lower_application;
 pub(crate) use build::lower_application_and_frontend;
@@ -41,16 +42,17 @@ pub use protocol::{
 };
 pub use types::{CompileError, CycleResult, SourceFile};
 
+use compiler::{
+    add_struct_bases, collect_edge_declarations, contains_textual_action, interface_type_name,
+    lower_classes, lower_configuration, lower_function_blocks, lower_functions, lower_interfaces,
+    lower_programs, lower_type_decls, lower_type_ref, predeclare_classes,
+    predeclare_function_blocks, predeclare_interfaces, predeclare_project_types,
+    resolve_program_type_name, resolve_project_global_constants, resolve_type_name,
+    validate_project_aliases, LoweringContext,
+};
 pub(crate) use compiler::{
     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
     ConfigModel, ConnectionEnd, GlobalInit, NamedAccess, ProgramConnection, ProgramInstanceConfig,
     ResolvedAccess, WildcardRequirement,
-};
-use compiler::{
-    collect_edge_declarations, contains_textual_action, interface_type_name, lower_classes,
-    lower_configuration, lower_function_blocks, lower_functions, lower_interfaces, lower_programs,
-    lower_type_decls, lower_type_ref, predeclare_classes, predeclare_function_blocks,
-    predeclare_interfaces, predeclare_project_types, resolve_program_type_name,
-    resolve_project_global_constants, resolve_type_name, validate_project_aliases, LoweringContext,
 };
 use lower::lower_expr;

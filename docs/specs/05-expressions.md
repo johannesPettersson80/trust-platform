@@ -216,12 +216,17 @@ pInt := REF(myInt);    // Get reference
 pInt^ := 100;          // Dereference and assign
 ```
 
-**Reference auto-dereference (vendor extension)**: a `REFERENCE TO T` operand
-in value position denotes the referenced value (CODESYS parity). Member
-access, indexing, arithmetic, and assignment copy through the reference
-without `^`; `^` remains valid on references. `POINTER TO` operands keep
-requiring explicit `^` and never participate in arithmetic. Ordering
-comparisons on references still require an explicit `^` dereference.
+**Reference auto-dereference (CODESYS profile)**: under a CODESYS
+`vendor_profile` (specification 14) a reference operand (`REF_TO T` or its
+spelling `REFERENCE TO T`) in value position denotes the referenced value, as
+CODESYS's `REFERENCE TO` does. Member access, indexing, arithmetic, and
+assignment copy through the reference without `^`; `^` remains valid on
+references. `POINTER TO` operands keep requiring explicit `^` and never
+participate in arithmetic. Ordering comparisons on references still require an
+explicit `^` dereference. Under the IEC rules a reference is dereferenced only
+with `^` (IEC 61131-3 Ed.3 §6.4.4.10.3), and each of these uses is an error
+([`IEC_DEVIATIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md)
+DEV-031).
 
 ## 5. Expression Types
 

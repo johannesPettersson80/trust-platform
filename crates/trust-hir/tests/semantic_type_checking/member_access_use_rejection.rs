@@ -66,10 +66,12 @@ END_PROGRAM
     );
 }
 
+/// A function block's `VAR` member is not reachable from outside it unless declared `PUBLIC`
+/// (IEC 61131-3 Ed.3 §6.6.3.2 item 11); the CODESYS profile makes it public (IEC_DEVIATIONS
+/// DEV-028). Catches the CODESYS default applied to an IEC project, and the profile ignored.
 #[test]
-fn member_access_default_fb_variable_is_externally_accessible() {
-    check_no_errors(
-        r#"
+fn member_access_default_fb_variable_rejects_external_access() {
+    let source = r#"
 FUNCTION_BLOCK Device
 VAR
     Stored : INT;
@@ -81,14 +83,17 @@ VAR
 END_VAR
 DeviceInstance.Stored := INT#1;
 END_PROGRAM
-"#,
-    );
+"#;
+    assert_invalid(source);
+    check_no_errors_in(Dialect::Codesys, source);
 }
 
+/// A function block's method without an access specifier is not callable from outside it (IEC
+/// 61131-3 Ed.3 §6.6.5.9: PROTECTED is the default); the CODESYS profile makes it public
+/// (DEV-028). Catches the CODESYS default applied to an IEC project, and the profile ignored.
 #[test]
-fn member_access_default_fb_method_is_externally_callable() {
-    check_no_errors(
-        r#"
+fn member_access_default_fb_method_rejects_external_call() {
+    let source = r#"
 FUNCTION_BLOCK Device
 METHOD Read : INT
 Read := INT#1;
@@ -101,14 +106,17 @@ VAR
 END_VAR
 ResultValue := DeviceInstance.Read();
 END_PROGRAM
-"#,
-    );
+"#;
+    assert_invalid(source);
+    check_no_errors_in(Dialect::Codesys, source);
 }
 
+/// A function block's property without an access specifier is not writable from outside it (the
+/// default of §6.6.5.9); the CODESYS profile makes it public (DEV-028). Catches the CODESYS
+/// default applied to an IEC project, and the profile ignored.
 #[test]
-fn member_access_default_fb_property_is_externally_writable() {
-    check_no_errors(
-        r#"
+fn member_access_default_fb_property_rejects_external_write() {
+    let source = r#"
 FUNCTION_BLOCK Device
 PROPERTY Value : INT
 SET END_SET
@@ -120,8 +128,9 @@ VAR
 END_VAR
 DeviceInstance.Value := INT#1;
 END_PROGRAM
-"#,
-    );
+"#;
+    assert_invalid(source);
+    check_no_errors_in(Dialect::Codesys, source);
 }
 
 #[test]

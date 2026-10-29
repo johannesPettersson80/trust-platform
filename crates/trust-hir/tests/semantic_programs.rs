@@ -1,12 +1,14 @@
 mod common;
 use common::*;
 
-// CODESYS program-singleton access (vendor extension): a PROGRAM name
-// qualifies its own members from other POUs.
+// Program-singleton access under the CODESYS profile (IEC_DEVIATIONS DEV-030): a PROGRAM name
+// qualifies its own members from other POUs, and calling it runs its body. IEC 61131-3 Ed.3
+// §6.6.4 instantiates programs only in resources, so the IEC profile rejects both.
 
 #[test]
 fn test_program_singleton_member_read() {
-    check_no_errors(
+    check_no_errors_in(
+        Dialect::Codesys,
         r#"
 PROGRAM Producer
     VAR
@@ -25,7 +27,8 @@ END_PROGRAM
 
 #[test]
 fn test_program_singleton_member_write() {
-    check_no_errors(
+    check_no_errors_in(
+        Dialect::Codesys,
         r#"
 PROGRAM Consumer
     VAR
@@ -42,7 +45,8 @@ END_PROGRAM
 
 #[test]
 fn test_program_singleton_member_write_statement() {
-    check_no_errors(
+    check_no_errors_in(
+        Dialect::Codesys,
         r#"
 PROGRAM Consumer
     VAR
@@ -60,7 +64,8 @@ END_PROGRAM
 
 #[test]
 fn test_program_singleton_fb_instance_call() {
-    check_no_errors(
+    check_no_errors_in(
+        Dialect::Codesys,
         r#"
 FUNCTION_BLOCK FBPulse
     VAR_INPUT
@@ -83,7 +88,8 @@ END_PROGRAM
 
 #[test]
 fn test_program_direct_invocation() {
-    check_no_errors(
+    check_no_errors_in(
+        Dialect::Codesys,
         r#"
 PROGRAM I18nConfig
     VAR
@@ -103,7 +109,8 @@ END_PROGRAM
 fn test_program_invocation_with_arguments() {
     // CODESYS calling convention (spec 04 §4): program calls accept and
     // check VAR_INPUT bindings like function-block calls.
-    check_no_errors(
+    check_no_errors_in(
+        Dialect::Codesys,
         r#"
 PROGRAM Configured
     VAR_INPUT level : INT; END_VAR
@@ -118,7 +125,8 @@ END_PROGRAM
 
 #[test]
 fn test_program_invocation_argument_mismatch_is_checked() {
-    check_has_error(
+    check_has_error_in(
+        Dialect::Codesys,
         r#"
 PROGRAM Configured
     VAR_INPUT level : INT; END_VAR
@@ -133,7 +141,8 @@ END_PROGRAM
 
 #[test]
 fn test_program_bare_name_still_not_a_value() {
-    check_has_error(
+    check_has_error_in(
+        Dialect::Codesys,
         r#"
 PROGRAM OtherPrg
     VAR
@@ -153,7 +162,8 @@ END_PROGRAM
 
 #[test]
 fn test_program_missing_member_reports_diagnostic() {
-    check_has_error(
+    check_has_error_in(
+        Dialect::Codesys,
         r#"
 PROGRAM OtherPrg
     VAR
@@ -177,7 +187,8 @@ fn test_program_singleton_fb_member_chain() {
     // program child and then the FB instance's members. External access is
     // exercised on public (VAR_INPUT/VAR_OUTPUT) members; plain VAR members
     // stay PROTECTED and keep rejecting external access.
-    check_no_errors(
+    check_no_errors_in(
+        Dialect::Codesys,
         r#"
 FUNCTION_BLOCK Worker
     VAR_INPUT
@@ -207,7 +218,8 @@ END_PROGRAM
 fn test_program_singleton_fb_plain_var_is_accessible() {
     // Classic IEC: FB members are reachable through the instance name, so
     // the deep singleton chain reads plain VAR members too (s4 T7).
-    check_no_errors(
+    check_no_errors_in(
+        Dialect::Codesys,
         r#"
 FUNCTION_BLOCK Worker
     VAR
@@ -227,4 +239,35 @@ PROGRAM Main
 END_PROGRAM
 "#,
     );
+}
+
+/// Under the IEC profile a program's name neither reads another program's variable nor runs its
+/// body (IEC 61131-3 Ed.3 §6.6.4 items 2 and 3). Catches the CODESYS profile's program access
+/// accepted in an IEC project.
+#[test]
+fn test_program_member_access_and_invocation_are_iec_errors() {
+    let read = r#"
+PROGRAM Producer
+    VAR
+        counter : INT;
+    END_VAR
+END_PROGRAM
+PROGRAM Main
+    VAR
+        seen : INT;
+    END_VAR
+    seen := Producer.counter;
+END_PROGRAM
+"#;
+    let call = r#"
+PROGRAM Worker
+END_PROGRAM
+PROGRAM Main
+    Worker();
+END_PROGRAM
+"#;
+    for source in [read, call] {
+        assert!(!check_errors(source).is_empty(), "IEC rejects {source}");
+        check_no_errors_in(Dialect::Codesys, source);
+    }
 }

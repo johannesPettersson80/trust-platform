@@ -169,6 +169,9 @@ pub(in crate::harness) fn lower_expr_with_context(
                     args: Vec::new(),
                 });
             }
+            if let Some(value) = qualified_enum_member(&exprs[0], &field_name, ctx) {
+                return Ok(Expr::Literal(value));
+            }
             Ok(Expr::Field {
                 target: Box::new(lower_expr(&exprs[0], ctx)?),
                 field: field_name,

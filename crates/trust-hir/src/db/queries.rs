@@ -1,4 +1,5 @@
 use super::*;
+use crate::dialect::Dialect;
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 

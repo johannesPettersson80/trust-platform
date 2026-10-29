@@ -648,10 +648,13 @@ END_PROGRAM
     );
 }
 
+/// IEC dereferences a reference explicitly with `^` (IEC 61131-3 Ed.3 §6.4.4.10.3), so member
+/// access through a reference without `^` is an error; the CODESYS profile dereferences it
+/// (IEC_DEVIATIONS DEV-031). Catches the CODESYS rule applied to an IEC project, and the profile
+/// ignored.
 #[test]
 fn test_reference_auto_deref_field_access() {
-    check_no_errors(
-        r#"
+    let source = r#"
 TYPE Point : STRUCT x : INT; END_STRUCT END_TYPE
 PROGRAM Test
     VAR p : Point; r : REFERENCE TO Point; v : INT; END_VAR
@@ -659,8 +662,9 @@ PROGRAM Test
     v := r.x;
     r.x := 7;
 END_PROGRAM
-"#,
-    );
+"#;
+    assert!(!check_errors(source).is_empty(), "IEC rejects {source}");
+    check_no_errors_in(Dialect::Codesys, source);
 }
 
 #[test]
@@ -677,38 +681,48 @@ END_PROGRAM
     );
 }
 
+/// IEC dereferences a reference explicitly with `^` (IEC 61131-3 Ed.3 §6.4.4.10.3), so indexing
+/// through a reference without `^` is an error; the CODESYS profile dereferences it (IEC_DEVIATIONS
+/// DEV-031). Catches the CODESYS rule applied to an IEC project, and the profile ignored.
 #[test]
 fn test_reference_auto_deref_array_index() {
-    check_no_errors(
-        r#"
+    let source = r#"
 TYPE Data : ARRAY[0..3] OF INT; END_TYPE
 PROGRAM Test
     VAR a : Data; r : REFERENCE TO Data; v : INT; END_VAR
     r REF= a;
     v := r[2];
 END_PROGRAM
-"#,
-    );
+"#;
+    assert!(!check_errors(source).is_empty(), "IEC rejects {source}");
+    check_no_errors_in(Dialect::Codesys, source);
 }
 
+/// IEC dereferences a reference explicitly with `^` (IEC 61131-3 Ed.3 §6.4.4.10.3), so assignment
+/// copying through a reference without `^` is an error; the CODESYS profile dereferences it
+/// (IEC_DEVIATIONS DEV-031). Catches the CODESYS rule applied to an IEC project, and the profile
+/// ignored.
 #[test]
 fn test_reference_copy_through_assignment() {
-    check_no_errors(
-        r#"
+    let source = r#"
 PROGRAM Test
     VAR x : INT; r : REF_TO INT; END_VAR
     r REF= x;
     x := r;
     r := 3;
 END_PROGRAM
-"#,
-    );
+"#;
+    assert!(!check_errors(source).is_empty(), "IEC rejects {source}");
+    check_no_errors_in(Dialect::Codesys, source);
 }
 
+/// IEC dereferences a reference explicitly with `^` (IEC 61131-3 Ed.3 §6.4.4.10.3), so a reference
+/// passed where its value is expected is an error; the CODESYS profile dereferences it
+/// (IEC_DEVIATIONS DEV-031). Catches the CODESYS rule applied to an IEC project, and the profile
+/// ignored.
 #[test]
 fn test_reference_argument_copy_through() {
-    check_no_errors(
-        r#"
+    let source = r#"
 FUNCTION Scale : INT
     VAR_INPUT
         v : INT;
@@ -719,14 +733,18 @@ PROGRAM Test
     VAR r : REF_TO INT; out : INT; END_VAR
     out := Scale(r);
 END_PROGRAM
-"#,
-    );
+"#;
+    assert!(!check_errors(source).is_empty(), "IEC rejects {source}");
+    check_no_errors_in(Dialect::Codesys, source);
 }
 
+/// IEC dereferences a reference explicitly with `^` (IEC 61131-3 Ed.3 §6.4.4.10.3), so a reference
+/// bound to an in-out of its value's type is an error; the CODESYS profile dereferences it
+/// (IEC_DEVIATIONS DEV-031). Catches the CODESYS rule applied to an IEC project, and the profile
+/// ignored.
 #[test]
 fn test_reference_in_out_argument_binding() {
-    check_no_errors(
-        r#"
+    let source = r#"
 FUNCTION_BLOCK FBSwap
     VAR_IN_OUT io : INT; END_VAR
 END_FUNCTION_BLOCK
@@ -734,32 +752,40 @@ PROGRAM Test
     VAR r : REF_TO INT; fb : FBSwap; END_VAR
     fb(r);
 END_PROGRAM
-"#,
-    );
+"#;
+    assert!(!check_errors(source).is_empty(), "IEC rejects {source}");
+    check_no_errors_in(Dialect::Codesys, source);
 }
 
+/// IEC dereferences a reference explicitly with `^` (IEC 61131-3 Ed.3 §6.4.4.10.3), so arithmetic
+/// on a reference's value without `^` is an error; the CODESYS profile dereferences it
+/// (IEC_DEVIATIONS DEV-031). Catches the CODESYS rule applied to an IEC project, and the profile
+/// ignored.
 #[test]
 fn test_reference_arithmetic_copy_through() {
-    check_no_errors(
-        r#"
+    let source = r#"
 PROGRAM Test
     VAR x : INT; r : REF_TO INT; END_VAR
     x := r + 1;
 END_PROGRAM
-"#,
-    );
+"#;
+    assert!(!check_errors(source).is_empty(), "IEC rejects {source}");
+    check_no_errors_in(Dialect::Codesys, source);
 }
 
+/// IEC dereferences a reference explicitly with `^` (IEC 61131-3 Ed.3 §6.4.4.10.3), so arithmetic
+/// between two references' values is an error; the CODESYS profile dereferences it (IEC_DEVIATIONS
+/// DEV-031). Catches the CODESYS rule applied to an IEC project, and the profile ignored.
 #[test]
 fn test_reference_arithmetic_between_references() {
-    check_no_errors(
-        r#"
+    let source = r#"
 PROGRAM Test
     VAR a : REF_TO INT; b : REF_TO INT; x : INT; END_VAR
     x := a + b;
 END_PROGRAM
-"#,
-    );
+"#;
+    assert!(!check_errors(source).is_empty(), "IEC rejects {source}");
+    check_no_errors_in(Dialect::Codesys, source);
 }
 
 #[test]

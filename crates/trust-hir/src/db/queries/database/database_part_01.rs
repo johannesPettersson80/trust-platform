@@ -89,6 +89,28 @@ impl Database {
         tables
     }
 
+    /// The language rules the project is analyzed under; IEC until [`Database::set_dialect`].
+    #[must_use]
+    pub fn dialect(&self) -> Dialect {
+        self.with_salsa_state_read(|state| state.dialect)
+    }
+
+    /// Analyzes the project under `dialect` (the project's `vendor_profile`, specification 14):
+    /// every file is checked again under the new rules.
+    pub fn set_dialect(&mut self, dialect: Dialect) {
+        if self.dialect() == dialect {
+            return;
+        }
+        let new_revision = self.source_revision.fetch_add(1, Ordering::Relaxed) + 1;
+        self.with_salsa_state(|state| {
+            state.dialect = dialect;
+            if let Some(project) = state.project_inputs {
+                project.set_dialect(&mut state.db).to(dialect);
+            }
+            state.synced_revision = new_revision;
+        });
+    }
+
     /// Returns all known file IDs.
     pub fn file_ids(&self) -> Vec<FileId> {
         self.sources.keys().copied().collect()

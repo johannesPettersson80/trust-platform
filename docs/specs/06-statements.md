@@ -169,10 +169,13 @@ Shared rules:
   non-output parameters. `:=` is valid only for `VAR_INPUT`, `VAR_IN_OUT`, and
   `EN`. (IEC 61131-3 Ed.3, 6.6.1.4.2)
 - An empty binding — `output =>` or `input :=` with no target, at the end of
-  the argument list or before a comma — is accepted as a CODESYS vendor
-  extension and skips that parameter: an output stays unconnected and an
-  input keeps its held value; no missing-binding diagnostic fires. `?=`
-  still requires a target — a dangling `?=` remains a parse error.
+  the argument list or before a comma — is an error under the IEC rules
+  ("expected expression" at the delimiter after the operator; IEC 61131-3
+  Ed.3, 6.6.1.4.2). Under a CODESYS `vendor_profile` (specification 14) it
+  skips that parameter: an output stays unconnected and an input keeps its
+  held value; no missing-binding diagnostic fires (`IEC_DEVIATIONS.md`
+  DEV-032). `?=` still requires a target under both — a dangling `?=` remains
+  a parse error.
 - A named parameter may appear at most once and must belong to the selected
   callable.
 - The same caller storage, including overlapping aggregate projections, cannot
@@ -198,10 +201,18 @@ that ordering valid. Named `:=` and `=>` forms preserve their operator and
 target syntax, including selected, indexed, and dereferenced output targets.
 
 The parser rejects a leading comma, a doubled trailing comma, a missing comma
-between actuals, a named input without its expression, an unclosed argument
-list, or a call statement without its required
-terminator. Recovery stops at the bounded call or statement boundary and must
-not reinterpret a malformed actual as a sibling statement.
+between actuals, an unclosed argument list, or a call statement without its
+required terminator. Recovery stops at the bounded call or statement boundary
+and must not reinterpret a malformed actual as a sibling statement.
+
+A named actual without a value (`Value := )`, `Done =>,`) parses, so that a
+CODESYS project reads (IEC 61131-3 Ed.3 §6.6.1.4.2 assigns a value with `:=`
+and a variable with `=>`). Semantic analysis reports it as "expected
+expression" at the delimiter after the operator, unless the project's
+`vendor_profile` selects the CODESYS rules, which leave such an input unbound
+(it takes its initial value) and discard such an output
+([`IEC_DEVIATIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md)
+DEV-032; specification 14). `?=` always needs its target.
 
 ### 3.2 Function Calls
 

@@ -169,6 +169,17 @@ fn reference_contract_rejects_reference_var_in_out() {
     );
 }
 
+// IEC 61131-3 Ed.3 §6.4.4.10.3: adding two references is a type mismatch under the IEC rules (the
+// CODESYS profile adds their values, IEC_DEVIATIONS DEV-031). Catches the CODESYS rule applied
+// to an IEC project.
+#[test]
+fn reference_contract_rejects_reference_addition() {
+    check_has_error(
+        "PROGRAM P\nVAR a : REF_TO INT; b : REF_TO INT; x : INT; END_VAR\nx := a + b;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
+}
+
 #[test]
 fn reference_contract_rejects_mixed_reference_pointer_arithmetic() {
     check_has_error(

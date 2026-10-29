@@ -78,9 +78,13 @@ impl<'a> TypeChecker<'a> {
         )
     }
 
-    /// CODESYS-style auto-dereference: a `REFERENCE TO T` in value position
-    /// denotes `T`. Pointers are deliberately excluded.
+    /// Under the CODESYS profile a reference in value position denotes the value it references
+    /// (`REFERENCE TO T` denotes `T`); pointers are not dereferenced. IEC dereferences explicitly
+    /// with `^` (IEC 61131-3 Ed.3 §6.4.4.10.3; docs/IEC_DEVIATIONS.md DEV-031).
     pub(super) fn deref_reference_type(&self, type_id: TypeId) -> TypeId {
+        if !self.symbols.dialect().is_codesys() {
+            return type_id;
+        }
         let resolved = self.resolve_alias_type(type_id);
         match self.symbols.type_by_id(resolved) {
             Some(Type::Reference { target }) => *target,
@@ -214,16 +218,16 @@ impl<'a> TypeChecker<'a> {
             // NULL assignment to references/pointers
             (Type::Pointer { .. } | Type::Reference { .. }, Type::Null) => true,
 
-            // CODESYS reference copy-through: with exactly one reference side,
-            // the reference denotes the referenced value. Reference-to-
-            // reference above rebinds; `REF=` rebinds explicitly.
-            (Type::Reference { target: tt }, source) => {
+            // Under the CODESYS profile, with exactly one reference side the reference denotes the
+            // referenced value (DEV-031). Reference-to-reference above rebinds; `REF=` rebinds
+            // explicitly.
+            (Type::Reference { target: tt }, source) if self.symbols.dialect().is_codesys() => {
                 let Some(deref) = self.symbols.type_by_id(self.resolve_alias_type(*tt)) else {
                     return false;
                 };
                 self.types_compatible(deref, source)
             }
-            (target, Type::Reference { target: ts }) => {
+            (target, Type::Reference { target: ts }) if self.symbols.dialect().is_codesys() => {
                 let Some(deref) = self.symbols.type_by_id(self.resolve_alias_type(*ts)) else {
                     return false;
                 };

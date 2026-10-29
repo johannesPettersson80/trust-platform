@@ -21,6 +21,27 @@ impl<'a> TypeChecker<'a> {
             })
     }
 
+    /// Under the CODESYS profile, whether `symbol` is an input of a function block or program that
+    /// its own body may write, as CODESYS lets it (docs/IEC_DEVIATIONS.md DEV-029): a function's or
+    /// method's parameter stays call-local, and a pointer or reference input stays read-only (the
+    /// indirect-write rule of specification 02 §4.4).
+    fn is_codesys_writable_input(&self, symbol: &Symbol) -> bool {
+        if !self.symbols.dialect().is_codesys() {
+            return false;
+        }
+        let owned_by_instance = symbol.parent.is_some_and(|owner| {
+            self.symbols.get(owner).is_some_and(|owner| {
+                matches!(owner.kind, SymbolKind::FunctionBlock | SymbolKind::Program)
+            })
+        });
+        let slot = self.symbols.resolve_alias_type(symbol.type_id);
+        owned_by_instance
+            && !matches!(
+                self.symbols.type_by_id(slot),
+                Some(Type::Pointer { .. } | Type::Reference { .. })
+            )
+    }
+
     fn symbol_is_constant(&self, symbol: &Symbol) -> bool {
         symbol.is_constant
             || matches!(
@@ -187,8 +208,11 @@ impl<'a> TypeChecker<'a> {
                 direction: ParamDirection::In,
             } => {
                 // IEC 61131-3 Ed.3 Figure 13 row 2: outside its instance, a function block's input may be assigned
-                // separately and is used by the next call; inside, the POU does not assign its own input.
-                if self.is_external_function_block_member(node, symbol) {
+                // separately and is used by the next call; inside, the POU does not assign its own input, except
+                // under the CODESYS profile.
+                if self.is_external_function_block_member(node, symbol)
+                    || self.is_codesys_writable_input(symbol)
+                {
                     return true;
                 }
                 self.diagnostics.error(

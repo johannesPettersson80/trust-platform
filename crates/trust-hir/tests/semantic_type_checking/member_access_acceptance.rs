@@ -8,7 +8,17 @@ fn assert_ok(source: &str) {
 }
 
 fn symbol_visibility(source: &str, owner_name: &str, member_name: &str) -> Visibility {
+    symbol_visibility_in(Dialect::Iec, source, owner_name, member_name)
+}
+
+fn symbol_visibility_in(
+    dialect: Dialect,
+    source: &str,
+    owner_name: &str,
+    member_name: &str,
+) -> Visibility {
     let mut db = Database::new();
+    db.set_dialect(dialect);
     let file = FileId(0);
     db.set_source_text(file, source.to_string());
     let symbols = db.file_symbols(file);
@@ -79,47 +89,55 @@ END_CLASS
     );
 }
 
+/// A function block's `VAR` member is not reachable from outside the block by default (IEC
+/// 61131-3 Ed.3 §6.6.3.2 item 11; truST keeps it PROTECTED so derived blocks reach it, as
+/// §6.6.5.10 does for classes), and is PUBLIC under the CODESYS profile (IEC_DEVIATIONS DEV-028).
+/// Catches either default applied under the other profile.
 #[test]
-fn member_access_function_block_variable_defaults_to_public() {
-    assert_eq!(
-        symbol_visibility(
-            r#"
+fn member_access_function_block_variable_defaults_to_protected() {
+    let source = r#"
 FUNCTION_BLOCK Device
 VAR
     Value : INT;
 END_VAR
 END_FUNCTION_BLOCK
-"#,
-            "Device",
-            "Value",
-        ),
+"#;
+    assert_eq!(
+        symbol_visibility(source, "Device", "Value"),
+        Visibility::Protected
+    );
+    assert_eq!(
+        symbol_visibility_in(Dialect::Codesys, source, "Device", "Value"),
         Visibility::Public
     );
 }
 
+/// A function block's method defaults to PROTECTED (§6.6.5.9), and to PUBLIC under the CODESYS
+/// profile (DEV-028). Catches either default applied under the other profile.
 #[test]
-fn member_access_function_block_method_defaults_to_public() {
-    assert_eq!(
-        symbol_visibility(
-            r#"
+fn member_access_function_block_method_defaults_to_protected() {
+    let source = r#"
 FUNCTION_BLOCK Device
 METHOD Read : INT
 Read := INT#1;
 END_METHOD
 END_FUNCTION_BLOCK
-"#,
-            "Device",
-            "Read",
-        ),
+"#;
+    assert_eq!(
+        symbol_visibility(source, "Device", "Read"),
+        Visibility::Protected
+    );
+    assert_eq!(
+        symbol_visibility_in(Dialect::Codesys, source, "Device", "Read"),
         Visibility::Public
     );
 }
 
+/// A function block's property defaults to PROTECTED (§6.6.5.9), and to PUBLIC under the CODESYS
+/// profile (DEV-028). Catches either default applied under the other profile.
 #[test]
-fn member_access_function_block_property_defaults_to_public() {
-    assert_eq!(
-        symbol_visibility(
-            r#"
+fn member_access_function_block_property_defaults_to_protected() {
+    let source = r#"
 FUNCTION_BLOCK Device
 PROPERTY Level : INT
 GET
@@ -127,10 +145,13 @@ Level := INT#1;
 END_GET
 END_PROPERTY
 END_FUNCTION_BLOCK
-"#,
-            "Device",
-            "Level",
-        ),
+"#;
+    assert_eq!(
+        symbol_visibility(source, "Device", "Level"),
+        Visibility::Protected
+    );
+    assert_eq!(
+        symbol_visibility_in(Dialect::Codesys, source, "Device", "Level"),
         Visibility::Public
     );
 }
@@ -712,11 +733,13 @@ END_PROGRAM
     );
 }
 
+/// Under the CODESYS profile a function block's `VAR` member is read and written through the
+/// instance name (DEV-028; CODESYS parity measured on s4, MqttSendQueue.st). Catches the CODESYS
+/// profile still rejecting it.
 #[test]
 fn member_access_function_block_variable_is_externally_accessible() {
-    // Classic IEC: FB members are reachable through the instance name
-    // (CODESYS parity measured on s4, MqttSendQueue.st).
-    check_no_errors(
+    check_no_errors_in(
+        Dialect::Codesys,
         r#"
 FUNCTION_BLOCK Device
 VAR

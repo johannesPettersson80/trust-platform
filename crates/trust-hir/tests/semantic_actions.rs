@@ -463,10 +463,12 @@ END_PROGRAM
     );
 }
 
+/// Under the CODESYS profile another program's action is called through the program's name;
+/// that is program member access, which IEC 61131-3 Ed.3 §6.6.4 does not provide
+/// (IEC_DEVIATIONS DEV-030). Catches the call accepted in an IEC project, and the profile ignored.
 #[test]
 fn action_call_qualified_by_owner_program() {
-    check_no_errors(
-        r#"
+    let source = r#"
 PROGRAM Owner
 VAR count : INT; END_VAR
 ACTION Reset:
@@ -476,8 +478,12 @@ END_PROGRAM
 PROGRAM Main
     Owner.Reset();
 END_PROGRAM
-"#,
+"#;
+    assert!(
+        !check_errors(source).is_empty(),
+        "IEC rejects Owner.Reset()"
     );
+    check_no_errors_in(Dialect::Codesys, source);
 }
 
 #[test]

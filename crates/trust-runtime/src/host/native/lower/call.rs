@@ -32,6 +32,9 @@ enum Callee<'a> {
     BaseBody(Place),
     /// A method, by its name, of an instance or through an interface reference.
     Method(Receiver, String),
+    /// A program called by its name, as the CODESYS profile allows: its instance's index
+    /// (docs/IEC_DEVIATIONS.md DEV-030).
+    Program(usize),
     Standard(String),
 }
 
@@ -145,6 +148,10 @@ impl<'a> Lowerer<'_, 'a> {
                 Ok(Called::Nothing)
             }
             Callee::Method(receiver, name) => self.member_call(node, receiver, &name, args, want),
+            Callee::Program(instance) => {
+                self.program_call(instance, args)?;
+                Ok(Called::Nothing)
+            }
             Callee::Standard(name) => self.standard(node, &name, args, want),
         }
     }
@@ -195,6 +202,9 @@ impl<'a> Lowerer<'_, 'a> {
                 }
                 if let Some(def) = self.model.function(&name) {
                     return Ok(Callee::Function(def));
+                }
+                if let Some(instance) = self.named_program_instance(target)? {
+                    return Ok(Callee::Program(instance));
                 }
                 Ok(Callee::Standard(name.to_ascii_uppercase()))
             }
@@ -694,6 +704,12 @@ impl<'a> Lowerer<'_, 'a> {
                     continue;
                 }
                 let variable = self.place(&arg.value)?;
+                // A reference given for an in-out of its value's type (DEV-031).
+                let variable = if matches!(self.info(target).kind, Kind::Ref { .. }) {
+                    variable
+                } else {
+                    self.referenced_place(variable)
+                };
                 let variable = self.as_type(&arg.value, &variable, target)?;
                 self.line(&format!(
                     "{}.set(w.areas.refer(cx, {variable}, abi::RefValue::VARIABLE)?);",
@@ -732,6 +748,77 @@ impl<'a> Lowerer<'_, 'a> {
             self.line("}");
         }
         Ok(())
+    }
+}
+
+impl Lowerer<'_, '_> {
+    /// The call of program instance `instance` by its program's name under the CODESYS profile
+    /// (docs/IEC_DEVIATIONS.md DEV-030): its inputs and in-outs bound as a function block's are, by
+    /// name or in declaration order, its body run on the instance, and its outputs copied after.
+    fn program_call(&mut self, instance: usize, args: Vec<Arg>) -> Result<(), NativeError> {
+        let field = rust_field(&self.model.instances[instance].name);
+        let program = &self.model.program_types[self.model.instances[instance].program];
+        let body = program.body.clone();
+        // The program's inputs, outputs and in-outs in declaration order, as trust-hir declares
+        // them, each with the area that holds it.
+        let symbols = &self.src.analysis.symbols;
+        let owner = symbols.lookup(&program.def.name);
+        let parameters: Vec<(crate::native::types::Member, &'static str, ParamDirection)> = symbols
+            .iter()
+            .filter(|symbol| owner.is_some() && symbol.parent == owner)
+            .filter_map(|symbol| match symbol.kind {
+                SymbolKind::Parameter { direction } => Some((symbol.name.clone(), direction)),
+                _ => None,
+            })
+            .filter_map(|(name, direction)| {
+                program.member(&name).map(|(member, retained)| {
+                    (member.clone(), if retained { "r" } else { "p" }, direction)
+                })
+            })
+            .collect();
+        let mut outputs = Vec::new();
+        for (position, arg) in args.into_iter().enumerate() {
+            let parameter = match &arg.name {
+                Some(name) => parameters
+                    .iter()
+                    .find(|(member, _, _)| member.name.eq_ignore_ascii_case(name)),
+                None => parameters.get(position),
+            };
+            let Some((member, area, direction)) = parameter.cloned() else {
+                return Err(self.unsupported(
+                    &arg.value,
+                    "an argument that names no input or output of the program",
+                ));
+            };
+            let place = Place {
+                expr: format!("w.{area}.{field}.{}", member.field()),
+                ty: member.ty,
+                is_ref: false,
+            };
+            match direction {
+                ParamDirection::InOut => {
+                    let Kind::Ref { target, .. } = self.info(member.ty).kind else {
+                        return Err(self.unsupported(&arg.value, "a VAR_IN_OUT without its type"));
+                    };
+                    let variable = self.place(&arg.value)?;
+                    let variable = if matches!(self.info(target).kind, Kind::Ref { .. }) {
+                        variable
+                    } else {
+                        self.referenced_place(variable)
+                    };
+                    let variable = self.as_type(&arg.value, &variable, target)?;
+                    self.line(&format!(
+                        "{}.set(w.areas.refer(cx, {variable}, abi::RefValue::VARIABLE)?);",
+                        place.expr
+                    ));
+                }
+                ParamDirection::Out => outputs.push((place, arg.value)),
+                ParamDirection::In if arg.output => outputs.push((place, arg.value)),
+                ParamDirection::In => self.store(&place, &arg.value)?,
+            }
+        }
+        self.call_line(&body, &format!("cx, w, &w.p.{field}, &w.r.{field}"));
+        self.copy_outputs(outputs)
     }
 }
 

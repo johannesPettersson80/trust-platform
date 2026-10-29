@@ -579,15 +579,34 @@ END_VAR
 END_PROGRAM
 "#;
 
-    // Plain VAR members are Public (classic IEC instance access) and legal
-    // in aggregate initialization; the forbidden kinds are the non-initializable
-    // in-out, temp, and external members.
     for message in [
         "VAR_IN_OUT members cannot be initialized through aggregate syntax",
         "temporary and external members cannot be initialized through aggregate syntax",
+        "private members cannot be initialized through aggregate syntax",
     ] {
         assert_error_with_message(source, DiagnosticCode::InvalidOperation, message);
     }
+    // Under the CODESYS profile a plain VAR member is public (IEC_DEVIATIONS DEV-028), so an
+    // instance initializer may set it; in-out, temporary and external members stay forbidden.
+    let mut db = Database::new();
+    db.set_dialect(Dialect::Codesys);
+    db.set_source_text(FileId(0), source.to_string());
+    let messages: Vec<_> = db
+        .diagnostics(FileId(0))
+        .iter()
+        .filter(|diagnostic| diagnostic.is_error())
+        .map(|diagnostic| diagnostic.message.to_string())
+        .collect();
+    let has = |message: &str| messages.iter().any(|candidate| candidate == message);
+    assert!(has(
+        "VAR_IN_OUT members cannot be initialized through aggregate syntax"
+    ));
+    assert!(has(
+        "temporary and external members cannot be initialized through aggregate syntax"
+    ));
+    assert!(!has(
+        "private members cannot be initialized through aggregate syntax"
+    ));
 }
 
 #[test]

@@ -249,10 +249,46 @@ END_PROGRAM
     );
 }
 
+/// A formal output assignment names a variable and a formal input assignment a value (IEC 61131-3
+/// Ed.3 §6.6.1.4.2), so `copied =>` or `second :=` with nothing after it is an error at the
+/// delimiter that follows, as the parser reported it before; the CODESYS profile reads an empty
+/// output as discarded and an empty input as left unbound, and the call stays valid
+/// (IEC_DEVIATIONS DEV-032). Catches an empty binding accepted in an IEC project, its error moved
+/// off the delimiter, and the profile ignored.
 #[test]
 fn call_binding_contract_accepts_dangling_output_arrow() {
-    // CODESYS parity (vendor extension): `copied =>` with no target
-    // explicitly discards the output; the call stays valid and no
-    // missing-binding diagnostic fires.
-    accepted("z := Transfer(first := x, second := y, copied =>, target := x);");
+    for (body, binding) in [
+        (
+            "z := Transfer(first := x, second := y, copied =>, target := x);",
+            "copied =>",
+        ),
+        (
+            "z := Transfer(first := x, copied => z, target := x, second := );",
+            "second := ",
+        ),
+    ] {
+        let source = format!(
+            "{FUNCTION_INTERFACE}\nPROGRAM Main\nVAR\nx : DINT; y : DINT; z : DINT;\nEND_VAR\n{body}\nEND_PROGRAM"
+        );
+        let mut db = Database::new();
+        db.set_source_text(FileId(0), source.clone());
+        let errors: Vec<_> = db
+            .diagnostics(FileId(0))
+            .iter()
+            .filter(|diagnostic| diagnostic.is_error())
+            .map(|diagnostic| {
+                (
+                    diagnostic.message.to_string(),
+                    usize::from(diagnostic.range.start()),
+                )
+            })
+            .collect();
+        let delimiter = source.find(binding).expect("the binding") + binding.len();
+        assert_eq!(
+            errors,
+            vec![("expected expression".to_owned(), delimiter)],
+            "{body}"
+        );
+        check_no_errors_in(Dialect::Codesys, &source);
+    }
 }

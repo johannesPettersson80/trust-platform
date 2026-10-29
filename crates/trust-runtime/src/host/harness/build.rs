@@ -8,13 +8,14 @@ use crate::task::ProgramDef;
 use crate::RuntimeBuilder;
 use std::{path::Path, sync::Arc};
 use trust_hir::db::{FileId, SemanticDatabase};
-use trust_hir::{semantic::DeclarationCatalog, Project, SourceKey};
+use trust_hir::{semantic::DeclarationCatalog, Dialect, Project, SourceKey};
 use trust_syntax::{parser, SyntaxNode};
 
 use super::compiler::{lower_root_global_var_blocks, LoweringInputs};
 
 use super::config::attach_programs_to_tasks;
 use super::types::{CompileError, SourceFile};
+use crate::stdlib::conversions::ConversionProfile;
 
 /// Lowered declarations and original initialization expressions, before any storage is constructed.
 /// The program image's build reads them with the sources' syntax trees (specification 44 §3), and the
@@ -36,11 +37,33 @@ pub(crate) struct LoweredSourceMetadata {
     pub(crate) locations: Vec<SourceLocation>,
 }
 
+#[cfg(test)]
 pub(crate) fn lower_application(
     sources: &[SourceFile],
     label_errors: bool,
 ) -> Result<LoweredApplication, CompileError> {
-    lower_application_and_frontend(sources, label_errors, true).map(|(lowered, _)| lowered)
+    lower_application_with(sources, label_errors, ConversionProfile::Iec)
+}
+
+/// [`lower_application`] for a project with the conversion rules `conversions`, checked under the
+/// language rules of the same vendor profile.
+pub(crate) fn lower_application_with(
+    sources: &[SourceFile],
+    label_errors: bool,
+    conversions: ConversionProfile,
+) -> Result<LoweredApplication, CompileError> {
+    lower_application_and_frontend(sources, label_errors, true, conversions)
+        .map(|(lowered, _)| lowered)
+}
+
+/// The language rules of the vendor profile whose conversion rules are `conversions`: the
+/// project's `vendor_profile` selects both (specification 07 §2.10, specification 14), so a
+/// program is never checked under one profile and converted under the other.
+pub(crate) fn dialect_of(conversions: ConversionProfile) -> Dialect {
+    match conversions {
+        ConversionProfile::Iec => Dialect::Iec,
+        ConversionProfile::Codesys => Dialect::Codesys,
+    }
 }
 
 /// The checked semantic model of a project's sources: the project database, each source's file id
@@ -56,6 +79,7 @@ pub(crate) struct AnalyzedSourceFiles {
 fn analyze_source_files(
     sources: &[SourceFile],
     label_errors: bool,
+    dialect: Dialect,
 ) -> Result<AnalyzedSourceFiles, CompileError> {
     let parsing = trust_hir::timing::CompilerStage::new("compiler.parse", sources.len());
     let mut parses = Vec::with_capacity(sources.len());
@@ -91,6 +115,7 @@ fn analyze_source_files(
     let _analysis =
         trust_hir::timing::CompilerStage::new("compiler.semantic_analysis", sources.len());
     let mut project = Project::new();
+    project.database_mut().set_dialect(dialect);
     let mut file_ids = Vec::with_capacity(sources.len());
     for (idx, source) in sources.iter().enumerate() {
         let key = match source.path.as_deref() {
@@ -135,8 +160,9 @@ pub(crate) fn lower_application_and_frontend(
     sources: &[SourceFile],
     label_errors: bool,
     lower_bodies: bool,
+    conversions: ConversionProfile,
 ) -> Result<(LoweredApplication, AnalyzedSourceFiles), CompileError> {
-    let frontend = analyze_source_files(sources, label_errors)?;
+    let frontend = analyze_source_files(sources, label_errors, dialect_of(conversions))?;
 
     let _lowering =
         trust_hir::timing::CompilerStage::new("compiler.lower_and_initialize", sources.len());
@@ -246,6 +272,7 @@ fn lower_project_types(
             preliminary_consts.clone(),
         )?;
     }
+    super::add_struct_bases(&frontend.syntaxes, builder.registry_mut())?;
     super::validate_project_aliases(&type_ids, builder.registry())?;
 
     let mut compile_time_consts = super::resolve_project_global_constants(

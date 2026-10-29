@@ -36,22 +36,17 @@ impl SymbolCollector<'_> {
     pub(super) fn collect_var_block(&mut self, node: &SyntaxNode) {
         let qualifier = var_qualifier_from_block(node);
         let is_constant = var_block_is_constant(node);
-        let parent_kind = self
-            .current_parent()
-            .and_then(|parent_id| self.table.get(parent_id))
-            .map(|parent| parent.kind.clone());
-        // Classic IEC reaches function-block members through the instance
-        // name, so plain and static members default to Public (CODESYS
-        // parity, s4 T7). In-out, temp, and external members keep the
-        // restricted default: they only mean something inside the POU.
-        let visibility = match (&qualifier, parent_kind.as_ref()) {
-            (VarQualifier::Input | VarQualifier::Output, _)
-            | (VarQualifier::Local | VarQualifier::Static, Some(SymbolKind::FunctionBlock)) => {
-                Visibility::Public
-            }
-            (VarQualifier::InOut | VarQualifier::Temp | VarQualifier::External, _)
-                if parent_kind.as_ref() == Some(&SymbolKind::FunctionBlock) =>
-            {
+        // Under the CODESYS profile a function block's members are public by default, but its
+        // in-out, temporary and external members stay restricted: they only mean something inside
+        // the block (docs/IEC_DEVIATIONS.md DEV-028).
+        let codesys_block = self.table.dialect().is_codesys()
+            && self
+                .current_parent()
+                .and_then(|parent_id| self.table.get(parent_id))
+                .is_some_and(|parent| matches!(parent.kind, SymbolKind::FunctionBlock));
+        let visibility = match qualifier {
+            VarQualifier::Input | VarQualifier::Output => Visibility::Public,
+            VarQualifier::InOut | VarQualifier::Temp | VarQualifier::External if codesys_block => {
                 Visibility::Protected
             }
             _ => self.visibility_for_var_block(node),

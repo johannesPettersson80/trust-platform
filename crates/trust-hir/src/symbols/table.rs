@@ -5,6 +5,7 @@ use smol_str::SmolStr;
 use text_size::TextRange;
 
 use crate::db::FileId;
+use crate::dialect::Dialect;
 use crate::semantic::{
     DeclarationCatalog, DeclarationKind, DeclarationRecord, DeclarationReferenceKind,
     DeclarationReferenceRecord, QualifiedName, SemanticOutcome, SemanticRole, SourceIdentity,
@@ -89,6 +90,8 @@ pub struct SymbolTable {
     next_id: u32,
     /// Next type ID to assign.
     next_type_id: u32,
+    /// The language rules the table's project is analyzed under.
+    dialect: Dialect,
 }
 
 impl Default for SymbolTable {
@@ -120,6 +123,7 @@ impl SymbolTable {
             import_collisions: Vec::new(),
             next_id: 0,
             next_type_id: TypeId::USER_TYPES_START,
+            dialect: Dialect::Iec,
         };
         // Create global scope
         table
@@ -395,6 +399,17 @@ impl SymbolTable {
             current = next?;
         }
         Some(current)
+    }
+
+    /// The language rules the table's project is analyzed under.
+    #[must_use]
+    pub fn dialect(&self) -> Dialect {
+        self.dialect
+    }
+
+    /// Sets the language rules the table's project is analyzed under.
+    pub fn set_dialect(&mut self, dialect: Dialect) {
+        self.dialect = dialect;
     }
 
     /// Resolves `name` among the direct children of `owner` (CODESYS

@@ -61,6 +61,12 @@ impl<'a> SymbolCollector<'a> {
         Self::build(Some(project_types))
     }
 
+    /// The collector for a project analyzed under `dialect`; its table carries it to the checks.
+    pub(super) fn with_dialect(mut self, dialect: Dialect) -> Self {
+        self.table.set_dialect(dialect);
+        self
+    }
+
     fn build(project_types: Option<&'a dyn ProjectTypeProvider>) -> Self {
         Self {
             table: SymbolTable::new(),

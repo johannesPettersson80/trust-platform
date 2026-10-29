@@ -315,23 +315,27 @@ END_FUNCTION_BLOCK
    `IMPLEMENTS` with one or more interface names; the parser preserves the
    complete ordered interface list for semantic validation (IEC 61131-3 Ed.3
    §6.6.7.1, Table 52).
-8. **VAR_INPUT members are writable** (CODESYS parity, vendor extension): the
-   owning body and external POUs may assign a function-block or program
-   `VAR_INPUT` member between calls (`fbInst.input := value`), matching the
-   IEC input-transfer model where input values are set by the caller.
-   Function and method parameters remain call-local and read-only, and
-   pointer/reference input slots stay read-only per the truST indirect-write
-   policy (`02-data-types.md` section 4.4). Assignments through an
-   input-parameter slot (`fbInput.field := value` where `fbInput` is a
+8. **Who assigns an input**: the caller assigns a function block's input, in
+   the call or separately before it (`fbInst.input := value`; IEC 61131-3 Ed.3
+   Figure 13 rule 2b). Under the IEC rules the block's own body does not assign
+   its input (rule 2a). Under a CODESYS `vendor_profile` (specification 14) the
+   body of a function block or program may assign its own `VAR_INPUT` members
+   between calls, as CODESYS does ([`IEC_DEVIATIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md) DEV-029).
+   Function and method parameters remain call-local and read-only under both,
+   and pointer/reference input slots stay read-only per the truST
+   indirect-write policy (`02-data-types.md` section 4.4). Assignments through
+   an input-parameter slot (`fbInput.field := value` where `fbInput` is a
    `VAR_INPUT` function-block instance) remain rejected.
-9. **Members default to Public** (classic IEC instance access): plain `VAR`,
-   `VAR_STAT`, methods, and properties of a function block are reachable
-   through the instance name from outside (`fbInst.member`), matching the
-   IEC function-block model where instance state is externally readable and
-   writable. Restriction is opt-in with `VAR_PROTECTED` and `VAR_PRIVATE`;
-   `VAR_IN_OUT`, `VAR_TEMP`, and `VAR_EXTERNAL` members keep the restricted
-   default because they only mean something inside the POU. CLASS members
-   keep the Protected default (IEC 61131-3 Ed.3 object model).
+9. **Default access of a function block's members**: under the IEC rules
+   plain `VAR`, `VAR_STAT`, methods, and properties of a function block without
+   an access specifier are PROTECTED: reachable inside the block and the blocks
+   derived from it, not through an instance from outside (IEC 61131-3 Ed.3
+   §6.6.3.2 item 11 makes them private; §6.6.5.9-6.6.5.10). Under a CODESYS
+   `vendor_profile` they are PUBLIC and reachable through the instance name
+   (`fbInst.member`), as CODESYS does ([`IEC_DEVIATIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md) DEV-028); an explicit access
+   specifier keeps its meaning, and `VAR_IN_OUT`, `VAR_TEMP`, and
+   `VAR_EXTERNAL` members stay restricted because they only mean something
+   inside the POU. CLASS members keep the PROTECTED default under both rules.
 
 Table 40 permits input, output, in-out, external, ordinary, and temporary
 sections. truST also accepts `VAR_STAT` as ordinary persistent instance
@@ -449,7 +453,7 @@ the program body calls them by bare name without a `THIS` qualifier. truST
 imports vendor method metadata attached to program POUs exactly like
 function-block methods and resolves the self-calls against them.
 
-### Program-singleton access (vendor extension)
+### Program-singleton access (CODESYS profile)
 
 ```
 PROGRAM Main
@@ -459,9 +463,11 @@ PROGRAM Main
 END_PROGRAM
 ```
 
-CODESYS treats task programs as implicit singletons. truST accepts the same
-access shape as a vendor extension, parallel to the namespaced-GVL
-vendor-parity extension in `03-variables.md`:
+CODESYS treats task programs as implicit singletons: a program's name is its
+one instance. Under a CODESYS `vendor_profile` truST accepts the same access
+shape. Under the IEC rules both forms are errors: programs are instantiated
+only in resources and their variables are reached through access paths (IEC
+61131-3 Ed.3 §6.6.4 items 2 and 3; [`IEC_DEVIATIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md) DEV-030).
 
 - A program name used as the qualifier of a field expression resolves the
   member (variable, function-block instance, or action) among that program's
@@ -473,6 +479,12 @@ vendor-parity extension in `03-variables.md`:
   function-block input bindings (positional or named), matching the CODESYS
   calling convention; arguments against a program without matching inputs are
   an argument diagnostic.
+- The runtime build reaches the program's instance of the same name: its
+  variables, its function block instances, and its body run on it, with the
+  arguments bound as a function block call binds them. A project without a
+  CONFIGURATION has one instance of each program's name (specification 18
+  §2.2); a project whose CONFIGURATION gives the program no instance of its
+  name is refused with that reason.
 
 ## 5. CLASS Declaration (Table 48, Section 6.6.5)
 
@@ -823,7 +835,8 @@ END_ACTION
     and the action remains invocable by name in call position. SFC action
     association and qualifiers remain in the unsupported textual-SFC
     profile, and the runtime compiler still does not implement action
-    control.
+    control. Calling another program's action (`Owner.action_name()`) is
+    program-singleton access, which only the CODESYS profile provides.
 
 ### Parser acceptance and recovery boundary
 

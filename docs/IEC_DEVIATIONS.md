@@ -15,6 +15,133 @@ this log. IEC-permitted interpretation choices belong in
 `docs/IEC_DECISIONS.md`. Existing entries are not classification precedent;
 re-check them against this rule when touched.
 
+## 2026-10-29 - CODESYS language profile: public function block members
+
+- ID: DEV-028
+- Area: Access to a function block's members under the CODESYS language
+  profile (`vendor_profile` `codesys`, `beckhoff` or `twincat`)
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.3.2 item 11:
+  "Variables of the VAR section (static) may be declared PUBLIC or PRIVATE.
+  The access specifier PRIVATE is default." Section 6.6.5.9 makes PROTECTED
+  the default of a method.
+- truST behavior and conflict:
+  - The default language rules keep a function block's `VAR` and `VAR_STAT`
+    members, methods and properties without an access specifier PROTECTED:
+    reachable inside the block and the blocks derived from it, not through an
+    instance from outside.
+  - Under the CODESYS profile they are PUBLIC: `fbInst.member` reads and
+    writes them from any POU, as CODESYS does. An explicit specifier is kept;
+    `VAR_IN_OUT`, `VAR_TEMP` and `VAR_EXTERNAL` members stay PROTECTED.
+  - Making the default public contradicts the PRIVATE default of item 11.
+- Impact:
+  - A project with the CODESYS profile may reach a block's internal state from
+    outside it; the same source fails on the default rules and on a strictly
+    conforming IEC 61131-3 implementation.
+- Mitigation:
+  - The profile applies only to projects whose `vendor_profile` is `codesys`,
+    `beckhoff` or `twincat` (specification 14); the default rules are unchanged.
+  - Portable source declares the members it shares `PUBLIC`.
+
+## 2026-10-29 - CODESYS language profile: a function block assigns its own inputs
+
+- ID: DEV-029
+- Area: Assignment to `VAR_INPUT` under the CODESYS language profile
+  (`vendor_profile` `codesys`, `beckhoff` or `twincat`)
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.3.4.2, Figure 13
+  rule 2a: an input assignment inside the function block is "Not allowed"
+  (only the caller assigns an input, in the call or separately before it).
+- truST behavior and conflict:
+  - The default language rules reject an assignment to a function block's or
+    program's own input in its body; an assignment from outside the instance
+    (`fbInst.input := value`, rule 2b) is accepted under both rules.
+  - Under the CODESYS profile the body of a function block or program may
+    assign its own inputs between calls, as CODESYS does. A function's or
+    method's parameter stays call-local, and a pointer or reference input stays
+    read-only (specification 02 section 4.4).
+  - Assigning an input inside the block contradicts rule 2a.
+- Impact:
+  - Such a block overwrites what its caller passed until the next call; the
+    same source fails on the default rules.
+- Mitigation:
+  - The profile applies only to CODESYS, Beckhoff and TwinCAT projects
+    (specification 14). Portable source copies the input to a `VAR` member.
+
+## 2026-10-29 - CODESYS language profile: a program reached by its name
+
+- ID: DEV-030
+- Area: Access to a program's variables and actions, and program calls, under
+  the CODESYS language profile (`vendor_profile` `codesys`, `beckhoff` or `twincat`)
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.4 items 2 and 3:
+  "Programs can only be instantiated within resources", and a program's
+  variables are reached from outside through access paths (`VAR_ACCESS`), not
+  by the program's name.
+- truST behavior and conflict:
+  - The default language rules reject `ProgramName.member`,
+    `ProgramName.action()` and `ProgramName();` in another POU.
+  - Under the CODESYS profile a program is one instance named by its type, as
+    in CODESYS: `ProgramName.member` reads and writes its variables (also
+    through its function block instances), `ProgramName.action()` runs its
+    action and `ProgramName();` runs its body. A program name alone in value
+    position stays an error.
+  - Reaching a program by its name and calling it contradicts items 2 and 3.
+- Impact:
+  - The same source fails on the default rules and on a strictly conforming
+    IEC 61131-3 implementation.
+- Mitigation:
+  - The profile applies only to CODESYS, Beckhoff and TwinCAT projects
+    (specification 14). Portable source shares state through global variables
+    or `VAR_ACCESS` paths.
+
+## 2026-10-29 - CODESYS language profile: references dereferenced without `^`
+
+- ID: DEV-031
+- Area: Use of a reference's value under the CODESYS language profile
+  (`vendor_profile` `codesys`, `beckhoff` or `twincat`)
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.4.4.10.3:
+  "Dereferencing shall be done explicitly. A reference can be dereferenced
+  using a succeeding '^' (caret)."
+- truST behavior and conflict:
+  - The default language rules dereference only with `^`: `r.x`, `r[i]`,
+    `v := r`, `r := 3`, `r + 1` and passing `r` where its value is expected are
+    errors for a reference `r`.
+  - Under the CODESYS profile a reference (`REF_TO T` or its spelling
+    `REFERENCE TO T`) in value position denotes the value it references, as
+    CODESYS's `REFERENCE TO` does: member access, indexing, arithmetic,
+    assignment and arguments use the referenced value. Assigning a reference to
+    a reference still rebinds it, `REF=` rebinds explicitly, and a `POINTER TO`
+    still needs `^`.
+  - Implicit dereferencing contradicts the explicit dereferencing required.
+- Impact:
+  - The same source fails on the default rules and on a strictly conforming
+    IEC 61131-3 implementation; `r := 3` writes the referenced variable instead
+    of failing.
+- Mitigation:
+  - The profile applies only to CODESYS, Beckhoff and TwinCAT projects
+    (specification 14). Portable source writes `r^`.
+
+## 2026-10-29 - CODESYS language profile: a named actual without a value
+
+- ID: DEV-032
+- Area: Formal call arguments under the CODESYS language profile (`vendor_profile` `codesys`, `beckhoff` or `twincat`)
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.1.4.2: a formal
+  call assigns "values to input and in-out variables using the ':=' operator"
+  and "the values of output variables to variables using the '=>' operator".
+- truST behavior and conflict:
+  - The default language rules report a named actual without a value
+    (`Value := )`, `Done =>,`) as "expected expression" at the delimiter after
+    the operator.
+  - Under the CODESYS profile such an input is left unbound and takes its
+    initial value, and such an output is discarded, as CODESYS reads it. `?=`
+    still needs its target.
+  - An assignment without a value or variable contradicts the formal call's
+    assignments.
+- Impact:
+  - The same source fails on the default rules and on a strictly conforming
+    IEC 61131-3 implementation.
+- Mitigation:
+  - The profile applies only to CODESYS, Beckhoff and TwinCAT projects
+    (specification 14). Portable source omits the actual.
+
 ## 2026-10-23 - Warm restart of a RETAIN global's instances: instance initializers of reset variables
 
 - ID: DEV-027

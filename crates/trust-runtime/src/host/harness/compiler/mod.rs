@@ -8,6 +8,7 @@ mod dependency_prelude;
 mod edge;
 mod model;
 mod pou;
+mod struct_extends;
 mod types;
 mod vars;
 
@@ -38,6 +39,7 @@ pub(super) use pou::{
     lower_classes, lower_function_blocks, lower_functions, lower_interfaces, lower_programs,
     qualified_pou_name,
 };
+pub(super) use struct_extends::add_struct_bases;
 pub(crate) use types::{class_type_name, function_block_type_name};
 pub(super) use types::{
     interface_type_name, lower_type_decls, lower_type_ref, predeclare_classes,

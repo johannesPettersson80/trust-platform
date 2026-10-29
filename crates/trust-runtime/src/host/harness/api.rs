@@ -178,7 +178,11 @@ impl CompileSession {
         let _trace =
             trust_hir::timing::CompilerStage::new("compiler.declarations", self.sources.len());
         self.ensure_instrumented()?;
-        let mut lowered = build::lower_application(&self.sources, self.label_errors)?;
+        let mut lowered = build::lower_application_with(
+            &self.sources,
+            self.label_errors,
+            self.conversion_profile,
+        )?;
         // The starting values follow the project's conversion rules
         // (docs/specs/07-standard-functions.md 2.10).
         lowered

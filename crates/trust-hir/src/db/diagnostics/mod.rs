@@ -1,3 +1,4 @@
+mod call_bindings;
 mod configuration;
 mod context;
 mod expression;
@@ -13,6 +14,7 @@ mod using;
 #[cfg(test)]
 mod tests;
 
+pub(super) use call_bindings::check_empty_named_actuals;
 pub(super) use complexity::check_cyclomatic_complexity;
 pub(super) use configuration::check_configuration_semantics;
 pub(super) use context::{expression_context, is_pou_kind};

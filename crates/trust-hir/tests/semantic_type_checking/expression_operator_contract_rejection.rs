@@ -141,6 +141,14 @@ fn expression_operator_rejects_string_exponentiation() {
     );
 }
 
+// IEC 61131-3 Ed.3 §6.4.4.10.3: a reference is dereferenced explicitly, so arithmetic on two
+// references is a type mismatch under the IEC rules (the CODESYS profile reads their values,
+// IEC_DEVIATIONS DEV-031). Catches the CODESYS rule applied to an IEC project.
+#[test]
+fn expression_operator_rejects_reference_arithmetic() {
+    check_has_error("PROGRAM P\nVAR x : INT; a : REF_TO INT; r : INT; END_VAR\na := REF(x); r := a + a;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+}
+
 #[test]
 fn expression_operator_rejects_pointer_arithmetic() {
     check_has_error("PROGRAM P\nVAR x : INT; p : POINTER TO INT; r : INT; END_VAR\np := ADR(x); r := p + p;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
