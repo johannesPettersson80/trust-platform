@@ -570,11 +570,11 @@ dependencies = [
 
 [[package]]
 name = "trust-modbus"
-version = "0.25.1"
+version = "0.26.0"
 
 [[package]]
 name = "trust-platform-memory"
-version = "0.25.1"
+version = "0.26.0"
 dependencies = [
  "crc32fast",
  "critical-section",
@@ -583,11 +583,11 @@ dependencies = [
 
 [[package]]
 name = "trust-platform-stm32"
-version = "0.25.1"
+version = "0.26.0"
 
 [[package]]
 name = "trust-platform-stm32u5"
-version = "0.25.1"
+version = "0.26.0"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
@@ -604,11 +604,11 @@ dependencies = [
 
 [[package]]
 name = "trust-plc-abi"
-version = "0.25.1"
+version = "0.26.0"
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.25.1"
+version = "0.26.0"
 dependencies = [
  "ed25519-dalek",
  "indexmap",
@@ -624,7 +624,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-services"
-version = "0.25.1"
+version = "0.26.0"
 dependencies = [
  "base64",
  "indexmap",

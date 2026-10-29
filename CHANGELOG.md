@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-30
+
 ### Added
 
 - VS Code's Target picker offers the workspace project's own runtime as `This project's runtime` while it runs outside
