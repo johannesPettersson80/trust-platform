@@ -10,7 +10,7 @@
       "path": "images/install/marketplace-listing.png",
       "class": "browser-install-surface",
       "generator": "playwright",
-      "source": "Visual Studio Marketplace listing for truST LSP"
+      "source": "Visual Studio Marketplace listing for truST"
     },
     {
       "path": "images/install/command-palette-trust.png",
@@ -304,19 +304,19 @@
       "path": "images/readme/control-studio.gif",
       "class": "vscode-desktop-surface",
       "generator": "vscode-cdp-harness",
-      "source": "Control Studio on the control-pid-commissioning example: Identify, Tune, Bode and Validate (acceptance harness, 27 October 2026)"
+      "source": "Control Studio on the control-pid-commissioning example at 1x: Identify, Tune, the frequency response to 10 rad/s, Validate and Apply (screencast, 28 October 2026)"
     },
     {
       "path": "images/readme/editor.png",
       "class": "vscode-desktop-surface",
       "generator": "vscode-cdp-harness",
-      "source": "the hmi_tank_level example's program with a hover on its Control.PID instance (acceptance harness, 27 October 2026)"
+      "source": "completion while typing in the tank example's Main.st, with the live problem count (screencast, 28 October 2026)"
     },
     {
       "path": "images/readme/debugger.png",
       "class": "vscode-desktop-surface",
       "generator": "vscode-cdp-harness",
-      "source": "the debugger stepping through the compiled hmi_tank_level program (acceptance harness, 27 October 2026)"
+      "source": "the debugger stopped in the compiled tank program after a breakpoint, at 1x (screencast, 28 October 2026)"
     },
     {
       "path": "images/readme/hmi-builder.png",
@@ -328,7 +328,7 @@
       "path": "images/readme/hmi-operation.gif",
       "class": "browser-product-surface",
       "generator": "playwright",
-      "source": "the operator journey on the tank runtime's /hmi: setpoint, high-level alarm, acknowledgement (27 October 2026)"
+      "source": "the operator journey on the hmi_equipment example's /hmi: log in, open LIC-101, raise the setpoint, the level follows (screencast, 28 October 2026)"
     },
     {
       "path": "images/hmi-builder/editor.png",
@@ -377,6 +377,12 @@
       "class": "vscode-desktop-surface",
       "generator": "vscode-cdp-harness",
       "source": "desktop VS Code HMI Builder, the Tags panel with the runtime's current values (HMI rebuild, October 2026)"
+    },
+    {
+      "path": "images/readme/core-loop.gif",
+      "class": "vscode-desktop-surface",
+      "generator": "vscode-cdp-harness",
+      "source": "the tank example in VS Code: hover, completion, Start, Live Values force, breakpoint and steps (screencast, 28 October 2026)"
     }
   ]
 }

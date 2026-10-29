@@ -355,7 +355,11 @@ process reaping can complete before the test runner times out.
 The Docs Captures workflow must run for pull-request and main-push changes to
 the runtime Web UI source tree so browser-visible runtime changes cannot bypass
 their registered Playwright journeys. Its pull-request and push path filters
-must remain identical.
+must remain identical. The Marketplace listing capture waits for the extension's
+display name and publisher, which hold across releases, not for text of the
+listing's README, which each release may change: 0.25.1's listing no longer
+said "truST LSP", and the capture that waited for it failed every run (29 October
+2026).
 
 ### Release-candidate discovery parity
 

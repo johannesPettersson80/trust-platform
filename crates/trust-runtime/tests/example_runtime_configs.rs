@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use trust_runtime::config::RuntimeConfig;
+use trust_runtime::config::{IoConfig, RuntimeConfig};
 
 fn collect_runtime_configs(directory: &Path, configs: &mut Vec<PathBuf>) {
     let entries = std::fs::read_dir(directory)
@@ -40,4 +40,18 @@ fn shipped_example_runtime_configs_are_loadable() {
         "invalid shipped runtime.toml examples:\n{}",
         failures.join("\n")
     );
+}
+
+#[test]
+fn reliability_test_project_configs_are_loadable() {
+    // The nightly load and soak tests (scripts/runtime_load_test.sh, scripts/runtime_soak_test.sh)
+    // run this project. Its runtime.toml kept an empty `runtime.mesh.auth_token`, which the runtime
+    // refuses (specification 11, 6.8.0a), so from 25 August 2026 every nightly run ended before its
+    // first sample. Here every pull request refuses such a project.
+    let project = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/fixtures/runtime_reliability_bundle");
+    RuntimeConfig::load(project.join("runtime.toml"))
+        .unwrap_or_else(|error| panic!("the reliability test project's runtime.toml: {error}"));
+    IoConfig::load(project.join("io.toml"))
+        .unwrap_or_else(|error| panic!("the reliability test project's io.toml: {error}"));
 }
