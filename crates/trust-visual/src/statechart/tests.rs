@@ -349,7 +349,8 @@ fn a_graph_is_written_as_the_editor_wrote_it() {
 fn opening_and_saving_an_example_writes_what_the_editor_wrote() {
     // `fixtures/<name>.saved.json` is what the TypeScript editor wrote when it opened and saved
     // examples/statecharts/<name>.statechart.json (its import and export functions run as they
-    // were). Catches any difference of the moved rules on real charts.
+    // were), for the six example charts. Catches any difference of the moved rules on real
+    // charts, and a fixture whose example is gone.
     let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/src/statechart/fixtures");
     let mut compared = 0;
     for entry in std::fs::read_dir(fixtures).expect("fixtures") {
@@ -367,7 +368,7 @@ fn opening_and_saving_an_example_writes_what_the_editor_wrote() {
         assert_eq!(file(&graph).expect("file").to_pretty(), saved, "{base}");
         compared += 1;
     }
-    assert_eq!(compared, 8);
+    assert_eq!(compared, 6);
 }
 
 #[test]
