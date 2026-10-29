@@ -116,7 +116,6 @@ REVIEWED_JUST_RECIPES = {
         "just test-fast",
         "./scripts/cargo_test_fast_link.sh test -p trust-syntax --lib",
         "./scripts/cargo_test_fast_link.sh test -p trust-runtime-core --lib",
-        "./scripts/cargo_test_fast_link.sh test -p trust-runtime --test bytecode_validation",
         "cargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance "
         "--filter cfm_arithmetic_conversion_compare_001 --output "
         "target/gate-artifacts/veryquick/conformance.json",

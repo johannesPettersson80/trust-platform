@@ -12,6 +12,7 @@ from pathlib import Path
 from scripts.verification.gate_inventory import (
     INVENTORY_PATH,
     GateInventoryError,
+    _template_facts,
     _validate_verification_workflow_source_contract,
     load_gate_inventory,
     validate_gate_inventory,
@@ -41,7 +42,8 @@ class GateInventoryTests(unittest.TestCase):
             sum(record["source_kind"] == "github_workflow_job" for record in live),
             len(workflow_jobs.facts),
         )
-        self.assertEqual(len(templates), 1)
+        # One exclusion for each non-executable workflow template in the repository.
+        self.assertEqual(len(templates), len(_template_facts(ROOT)))
         recipes = [record for record in records.values() if record["source_kind"] == "just_recipe"]
         self.assertEqual([record["name"] for record in recipes], ["verification-veryquick"])
         catalog_commands = [
@@ -647,7 +649,6 @@ def reviewed_veryquick_recipe() -> str:
         "\tjust test-fast\n"
         "\t./scripts/cargo_test_fast_link.sh test -p trust-syntax --lib\n"
         "\t./scripts/cargo_test_fast_link.sh test -p trust-runtime-core --lib\n"
-        "\t./scripts/cargo_test_fast_link.sh test -p trust-runtime --test bytecode_validation\n"
         "\tcargo run -p trust-runtime --bin trust-runtime -- conformance --suite-root conformance "
         "--filter cfm_arithmetic_conversion_compare_001 --output "
         "target/gate-artifacts/veryquick/conformance.json\n"

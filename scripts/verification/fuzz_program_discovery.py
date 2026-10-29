@@ -95,33 +95,6 @@ class ReviewedPropertyTestFile:
 
 
 REVIEWED_PROPERTY_TEST_FILES: dict[str, ReviewedPropertyTestFile] = {
-    "crates/trust-runtime/tests/property_executor_differential.rs": ReviewedPropertyTestFile(
-        classification=(
-            "Property test over valid generated programs; the oracle is agreement between the "
-            "stack, register and Tier-1 executors, not malformed-input fuzzing."
-        ),
-        cfg_gate=None,
-        seed_literal="0x7472_7573_7445_5841",
-        cases_literal="48",
-        proptest_blocks=1,
-        test_names=("executors_agree_on_generated_programs", "generated_programs_compile"),
-    ),
-    "crates/trust-runtime/tests/property_metamorphic.rs": ReviewedPropertyTestFile(
-        classification=(
-            "Property test over valid generated programs; the oracle is equal behaviour under "
-            "semantics-preserving transformations, not malformed-input fuzzing."
-        ),
-        cfg_gate=None,
-        seed_literal="0x7472_7573_744D_4554",
-        cases_literal="48",
-        proptest_blocks=1,
-        test_names=(
-            "artifact_round_trip_preserves_behaviour",
-            "pou_order_preserves_behaviour",
-            "positional_arguments_preserve_behaviour",
-            "repeated_preparation_preserves_behaviour",
-        ),
-    ),
     "crates/trust-runtime/tests/stateful_lifecycle_sequences.rs": ReviewedPropertyTestFile(
         classification=(
             "Property test over generated operation sequences; the oracle is agreement with a "
