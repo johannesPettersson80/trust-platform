@@ -33,15 +33,37 @@ impl Parser<'_, '_> {
             self.parse_pou_var_block();
         }
 
-        // Parse statements and actions in a statement list
+        // Parse statements, actions, and methods in a statement list.
+        // Program-scoped METHOD is an e!COCKPIT dialect extension (no IEC
+        // grammar); like ACTION, the node nests inside the program's StmtList.
         self.start_node(SyntaxKind::StmtList);
         while !self.at(expected_end)
             && !self.at(alternate_end)
             && !self.at_end()
-            && (!self.at_stmt_list_end() || self.at(TokenKind::KwAction))
+            && (!self.at_stmt_list_end()
+                || self.at(TokenKind::KwAction)
+                || self.at(TokenKind::KwMethod)
+                || matches!(
+                    self.current(),
+                    TokenKind::KwPublic
+                        | TokenKind::KwPrivate
+                        | TokenKind::KwProtected
+                        | TokenKind::KwInternal
+                ))
         {
             if self.at(TokenKind::KwAction) {
                 self.parse_action();
+            } else if self.at(TokenKind::KwMethod)
+                || matches!(
+                    self.current(),
+                    TokenKind::KwPublic
+                        | TokenKind::KwPrivate
+                        | TokenKind::KwProtected
+                        | TokenKind::KwInternal
+                )
+            {
+                // parse_method consumes leading access modifiers itself.
+                self.parse_method();
             } else {
                 self.parse_statement();
             }

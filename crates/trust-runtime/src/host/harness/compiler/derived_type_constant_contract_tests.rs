@@ -1,4 +1,6 @@
+use crate::harness::build::lower_application_with;
 use crate::harness::{lower_application, CompileSession, SourceFile};
+use crate::stdlib::conversions::ConversionProfile;
 use crate::RuntimeBuilder;
 use trust_hir::{Type, TypeId};
 
@@ -14,6 +16,26 @@ fn runtime(files: &[(&str, &str)]) -> RuntimeBuilder {
         .and_then(|lowered| lowered.construct(&[]))
         .map(|(builder, _)| builder)
         .unwrap_or_else(|error| panic!("derived-type constant fixture must compile: {error}"))
+}
+
+/// The runtime of `files` built under the CODESYS profile (docs/IEC_DEVIATIONS.md DEV-033).
+fn codesys_runtime(files: &[(&str, &str)]) -> RuntimeBuilder {
+    lower_application_with(
+        &source_files(files),
+        files.len() > 1,
+        ConversionProfile::Codesys,
+    )
+    .and_then(|lowered| lowered.construct(&[]))
+    .map(|(builder, _)| builder)
+    .unwrap_or_else(|error| panic!("the CODESYS profile must build the fixture: {error}"))
+}
+
+/// The error of building `files` under the IEC rules.
+fn iec_build_error(files: &[(&str, &str)]) -> String {
+    match lower_application(&source_files(files), files.len() > 1) {
+        Ok(_) => panic!("the IEC rules must refuse the fixture"),
+        Err(error) => error.to_string(),
+    }
 }
 
 fn compile_error(files: &[(&str, &str)]) -> String {
@@ -493,8 +515,9 @@ fn derived_type_constant_rejects_mutable_array_bound() {
         r#"
 VAR_GLOBAL
     Upper : INT := INT#3;
+    Via : INT := Upper;
 END_VAR
-TYPE Samples : ARRAY[0..Upper] OF INT;
+TYPE Samples : ARRAY[0..Via] OF INT;
 END_TYPE
 PROGRAM Main
 END_PROGRAM
@@ -537,8 +560,9 @@ fn derived_type_constant_rejects_mutable_string_capacity() {
         r#"
 VAR_GLOBAL
     TextSize : INT := INT#8;
+    Via : INT := TextSize;
 END_VAR
-TYPE Label : STRING[TextSize];
+TYPE Label : STRING[Via];
 END_TYPE
 PROGRAM Main
 END_PROGRAM
@@ -550,6 +574,57 @@ END_PROGRAM
             && error.to_ascii_lowercase().contains("textsize"),
         "{error}"
     );
+}
+
+// docs/IEC_DEVIATIONS.md DEV-033: under the CODESYS profile a plain global with a literal
+// initializer is a valid declaration size, so the DUT's STRING capacity is the declared 8. Under
+// the IEC rules a size is a literal or a constant expression (IEC 61131-3 Ed.3 §6.4.2.2), so the
+// build is refused. Catches the CODESYS size lost in the runtime build (no capacity or the default
+// 254) and the CODESYS rule applied to an IEC project.
+#[test]
+fn derived_type_constant_accepts_initialized_global_string_capacity() {
+    let files = [(
+        "sized_string.st",
+        r#"
+VAR_GLOBAL
+    TextSize : INT := INT#8;
+END_VAR
+TYPE Label : STRING[TextSize];
+END_TYPE
+PROGRAM Main
+END_PROGRAM
+"#,
+    )];
+
+    assert_eq!(string_capacity(&codesys_runtime(&files), "Label"), 8);
+    let error = iec_build_error(&files);
+    assert!(error.to_ascii_lowercase().contains("textsize"), "{error}");
+}
+
+// DEV-033 for an array bound: under the CODESYS profile `ARRAY[0..Upper]` with `Upper := 3` has
+// the dimension 0..3; the IEC rules refuse the bound (IEC 61131-3 Ed.3 §6.4.4.5.1). Catches the
+// bound read as 0 or lost, and the CODESYS rule applied to an IEC project.
+#[test]
+fn derived_type_constant_accepts_initialized_global_array_bound() {
+    let files = [(
+        "sized_array.st",
+        r#"
+VAR_GLOBAL
+    Upper : INT := INT#3;
+END_VAR
+TYPE Samples : ARRAY[0..Upper] OF INT;
+END_TYPE
+PROGRAM Main
+END_PROGRAM
+"#,
+    )];
+
+    assert_eq!(
+        array_dimensions(&codesys_runtime(&files), "Samples"),
+        vec![(0, 3)]
+    );
+    let error = iec_build_error(&files);
+    assert!(error.to_ascii_lowercase().contains("upper"), "{error}");
 }
 
 #[test]

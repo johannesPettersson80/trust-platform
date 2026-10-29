@@ -79,6 +79,31 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
 - Tests: `crates/trust-runtime/tests/native_objects.rs`
   (`a_base_in_out_takes_a_derived_instance_in_both_engines`).
 
+## 2026-10-18 - Program-scoped METHOD declarations (e!COCKPIT dialect)
+
+- Area: Program organization unit declarations
+- IEC context:
+  - IEC 61131-3 Ed.3 scopes method declarations to classes (6.6.5.4) and
+    function blocks (6.6.7.2); Table 47 (PROGRAM declaration) defines no
+    method member for programs.
+  - e!COCKPIT/CODESYS export programs with attached methods (plcopen
+    `addData` methods under the program POU), and the program body calls
+    them by bare name without a `THIS` qualifier.
+- Decision:
+  - truST accepts `METHOD ... END_METHOD` declarations inside the program
+    body of the textual file grammar and collects them as program-owned
+    methods. Bare-name self-calls resolve in call position after scope
+    variables; qualified `ProgramName.method()` is program-singleton member
+    access, which only the CODESYS profile provides
+    (`docs/IEC_DEVIATIONS.md` DEV-030). `PROPERTY` declarations remain
+    rejected in program bodies.
+  - SFC action control remains out of scope per `sfc-profile.md`.
+- Reason:
+  - The plcopen importer and the ST mirror already carry these constructs
+    faithfully; a front-end/file-grammar rejection diverges from the vendor
+    dialect without adding IEC conformance, because IEC has no competing
+    program-method requirement to conflict with.
+
 ## 2026-10-17 - STRING and WSTRING default length, maximum and capacity unit
 
 - Area: STRING/WSTRING declarations, stores, literals and string functions

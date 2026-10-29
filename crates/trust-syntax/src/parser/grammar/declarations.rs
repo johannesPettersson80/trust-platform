@@ -39,6 +39,10 @@ impl Parser<'_, '_> {
                 | TokenKind::KwGet
                 | TokenKind::KwSet
                 | TokenKind::KwStep
+                // CODESYS-legit identifier names (OSCAT pins `ON`/`SET`,
+                // enum member `Null`); see spec 01 §3 contextual keywords.
+                | TokenKind::KwOn
+                | TokenKind::KwNull
         )
     }
 
@@ -156,7 +160,7 @@ impl Parser<'_, '_> {
 
         while !self.at(TokenKind::RParen) && !self.at_end() {
             self.start_node(SyntaxKind::EnumValue);
-            if self.at(TokenKind::Ident) {
+            if self.at_name_token() {
                 self.parse_name();
             } else {
                 self.error("expected enumeration value");
@@ -220,7 +224,7 @@ impl Parser<'_, '_> {
 
         while !self.at(TokenKind::RParen) && !self.at_end() {
             self.start_node(SyntaxKind::EnumValue);
-            if self.at(TokenKind::Ident) {
+            if self.at_name_token() {
                 self.parse_name();
             } else {
                 self.error("expected enumeration value");

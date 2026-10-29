@@ -30,6 +30,7 @@ include!("plcopen/pou_externals.rs");
 include!("plcopen/codesys_export_meta.rs");
 include!("plcopen/st_extract.rs");
 include!("plcopen/import_data_globals.rs");
+include!("plcopen/import_interfaces.rs");
 include!("plcopen/import_project_model.rs");
 include!("plcopen/type_parser.rs");
 include!("plcopen/shims_metrics.rs");

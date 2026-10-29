@@ -191,6 +191,15 @@ TEST_FUNCTION_BLOCK, END_TEST_FUNCTION_BLOCK
 recognized only as the `REFERENCE TO` type form; an identifier named
 `reference` keeps parsing everywhere else.
 
+`ON`, `NULL`, and `SET` are contextual identifier names (CODESYS vendor
+dialect): variable, member, parameter, and enum-member declarations may spell
+them (OSCAT pins `TIMER_EXT.ON` / `FF_DRE.SET`, the `eChar.Null` member), and
+`ON` resolves as a value in expression position. Their structural keyword
+positions are unchanged: `NULL` remains the reference literal in value
+position (a bare `null` is never the variable), and `ON` remains the
+`RESOURCE ... ON <name>` separator. POU names, method names, and the other
+reserved words above stay rejected as identifiers.
+
 `VAR_STAT` is a shipped vendor-extension keyword. Runtime semantics are defined
 here and in the runtime specification: function statics persist across calls, method statics persist per
 instance and per method, and `PROGRAM`/`FUNCTION_BLOCK`/`CLASS` `VAR_STAT` behaves as ordinary

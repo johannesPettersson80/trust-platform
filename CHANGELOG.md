@@ -71,6 +71,33 @@ The CODESYS vendor extensions of PR #140; the ones that change what an IEC progr
 - Accept the CODESYS-style `REFERENCE TO T` spelling as an alias of the IEC `REF_TO T` reference type, with the same
   declaration rules and meaning.
 
+The CODESYS and e!COCKPIT dialect constructs of PR #141:
+
+- Under a CODESYS `vendor_profile`, a `STRING`/`WSTRING` capacity or an array dimension bound may name a plain variable
+  whose initializer is constant, also qualified (`STRING(GVLMqtt.uiLenMsgState)`, `ARRAY[0..(GVLMqtt.udiLenMsgBuffer -
+  1)]`); the declared initial value fixes the size when the program is built. TEMP and interface-direction sections are
+  excluded, chains through other mutable variables stay rejected, and no other constant-expression context changes
+  (DEV-033).
+- `REF=` binds strings of any declared size to each other and a derived `STRUCT` variable behind a base-`STRUCT`
+  reference; numeric widening still never aliases. Under a CODESYS `vendor_profile`, `=` and `<>` of a reference with a
+  value or another reference compare the values they name; ordering comparisons still need an explicit `^` (DEV-031).
+- PLCopen import carries the CODESYS/e!COCKPIT dialect constructs that vendor projects rely on: `REFERENCE TO`/`POINTER
+  TO` derived names import as native pointer/reference declarations (including sized-string bases such as `REFERENCE TO
+  STRING(GVLMqtt.uiLenMsgState)`), `datatypeinheritance` emits `TYPE x EXTENDS y`, `pouinheritance` puts
+  `EXTENDS`/`IMPLEMENTS` on FUNCTION_BLOCK declarations, project-level `<Interface>` objects import as declaration-only
+  `INTERFACE` blocks, `globalVars` container qualifiers (`retain`/`persistent`/`constant`) survive into the rendered
+  `VAR_GLOBAL` header, e!COCKPIT `MixedAttrsVarList` attribute views and identical whole-list duplicate copies merge into
+  the primary list, and array dimension bounds pass through verbatim as constant expressions. The migration report
+  counts imported interfaces in `imported_interfaces`.
+- Program-scoped `METHOD ... END_METHOD` declarations (e!COCKPIT dialect) are accepted and callable by bare name from the
+  program body; calling them through the program's name needs a CODESYS `vendor_profile` (DEV-030).
+- Under a CODESYS `vendor_profile`, `ON`, `NULL` and `SET` may name variables, members, parameters and enum values
+  (OSCAT `TIMER_EXT.ON`, `FF_DRE.SET`, WAGO `eChar.Null`); `NULL` stays the reference literal in value position and `ON`
+  the `RESOURCE ... ON` separator (DEV-034).
+- The runtime harness compiler honors the `RETAIN PERSISTENT` variable section combination (persistent storage implies
+  retention, either spelling order); duplicates, `NON_RETAIN` combinations and qualifiers beyond that pair stay
+  rejected.
+
 ### Fixed
 
 - A DUT `EXTENDS` clause whose base names no declared type is diagnosed (`cannot resolve type '<base>'`, `E102`); the

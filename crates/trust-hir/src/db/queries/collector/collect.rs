@@ -232,7 +232,10 @@ impl SymbolCollector<'_> {
                     self.table
                         .get(id)
                         .filter(|sym| {
-                            matches!(sym.kind, SymbolKind::Class | SymbolKind::FunctionBlock)
+                            matches!(
+                                sym.kind,
+                                SymbolKind::Class | SymbolKind::FunctionBlock | SymbolKind::Program
+                            )
                         })
                         .map(|_| id)
                 });
@@ -534,12 +537,17 @@ impl SymbolCollector<'_> {
         let range = symbol.range;
 
         let upper_name = name.to_ascii_uppercase();
+        // Under the CODESYS profile a variable, parameter or enum value may be named ON, NULL or
+        // SET, as OSCAT (TIMER_EXT.ON, FF_DRE.SET) and WAGO (eChar.Null) name them
+        // (docs/IEC_DEVIATIONS.md DEV-034; spec 01 §3); POU names keep the reserved table.
+        let keyword_name = self.table.dialect().is_codesys() && is_contextual_keyword_name(&name);
         let allow_reserved = (matches!(symbol.kind, SymbolKind::Parameter { .. })
-            && matches!(upper_name.as_str(), "EN" | "ENO"))
+            && (matches!(upper_name.as_str(), "EN" | "ENO") || keyword_name))
             || (matches!(symbol.kind, SymbolKind::Method { .. })
                 && matches!(upper_name.as_str(), "GET" | "SET"))
             || (matches!(symbol.kind, SymbolKind::Variable { .. })
-                && matches!(upper_name.as_str(), "STEP"));
+                && (upper_name == "STEP" || keyword_name))
+            || (matches!(symbol.kind, SymbolKind::EnumValue { .. }) && keyword_name);
         self.validate_identifier(&name, range, allow_reserved);
 
         // Check for duplicate in current scope

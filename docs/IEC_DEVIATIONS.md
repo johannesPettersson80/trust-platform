@@ -142,6 +142,30 @@ re-check them against this rule when touched.
   - The profile applies only to CODESYS, Beckhoff and TwinCAT projects
     (specification 14). Portable source omits the actual.
 
+## 2026-10-29 - CODESYS language profile: ON, NULL and SET as names
+
+- ID: DEV-034
+- Area: Identifiers under the CODESYS language profile (`vendor_profile` `codesys`, `beckhoff` or `twincat`)
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.1.3 and Table 1 list
+  `NULL`, `ON` and `SET` as keywords, which "shall not be used for any other
+  purpose, for example, variable names".
+- truST behavior and conflict:
+  - The default language rules reject `ON`, `NULL` and `SET` as names.
+  - Under the CODESYS profile they are accepted as names of variables,
+    structure and union members, parameters and enumeration values, as
+    CODESYS and real libraries use them (OSCAT `TIMER_EXT.ON`,
+    `FF_DRE.SET`, WAGO `eChar.Null`); `ON` in value position is the variable.
+    The keyword positions keep their meaning: `NULL` in value position is the
+    null reference, and `ON` separates `RESOURCE ... ON <name>`.
+  - Using the keywords as names contradicts section 6.1.3.
+- Impact:
+  - The same source fails on the default rules and on a strictly conforming
+    IEC 61131-3 implementation.
+- Mitigation:
+  - The profile applies only to CODESYS, Beckhoff and TwinCAT projects
+    (specification 14). POU and method names and the other keywords stay
+    rejected.
+
 ## 2026-10-23 - Warm restart of a RETAIN global's instances: instance initializers of reset variables
 
 - ID: DEV-027
@@ -169,6 +193,34 @@ re-check them against this rule when touched.
 - Mitigation:
   - Give such a setting its value in the function block type, or declare it
     `RETAIN` so it keeps its value.
+
+## 2026-10-21 - CODESYS language profile: declaration sizes from initialized variables
+
+- ID: DEV-033
+- Area: `STRING`/`WSTRING` declared lengths and array dimension bounds under
+  the CODESYS language profile (`vendor_profile` `codesys`, `beckhoff` or `twincat`)
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.4.4.5.1: "The limits
+  of the index subrange(s) shall be literals or constant expressions"; section
+  6.4.2.2 and the Annex A grammar give a string's maximum length as an unsigned
+  integer. A plain (non-`CONSTANT`) variable is neither.
+- truST behavior and conflict:
+  - The default language rules accept only literals and constant expressions
+    as declaration sizes; a size that names a plain variable is an error.
+  - Under the CODESYS profile a declaration size may name a plain variable
+    whose own initializer is a literal or a constant expression, also
+    qualified (`STRING(GVLMqtt.uiLenMsgState)`) and in bound expressions
+    (`ARRAY[0..(GVLMqtt.udiLenMsgBuffer - 1)]`): the declared initial value
+    fixes the size when the program is built, as CODESYS does.
+  - Taking a size from a variable contradicts the constant sizes required.
+- Impact:
+  - The size is fixed from the declared initial value; writes to the variable
+    while the program runs never resize anything (CODESYS sizes the same way).
+- Mitigation:
+  - The profile applies only to CODESYS, Beckhoff and TwinCAT projects
+    (specification 14), and only to the two declaration-size contexts. `TEMP`
+    and interface-direction sections are excluded, chains through other
+    mutable variables keep the standing diagnostics, and every other
+    constant-expression context keeps the strict rule.
 
 ## 2026-10-15 - MOD by zero faults
 

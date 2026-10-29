@@ -248,6 +248,7 @@
             imported_pous: 0,
             skipped_pous: 0,
             imported_data_types: 0,
+            imported_interfaces: 0,
             discovered_configurations: 0,
             imported_configurations: 0,
             imported_resources: 0,

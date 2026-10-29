@@ -47,8 +47,8 @@ use compiler::{
     lower_classes, lower_configuration, lower_function_blocks, lower_functions, lower_interfaces,
     lower_programs, lower_type_decls, lower_type_ref, predeclare_classes,
     predeclare_function_blocks, predeclare_interfaces, predeclare_project_types,
-    resolve_program_type_name, resolve_project_global_constants, resolve_type_name,
-    validate_project_aliases, LoweringContext,
+    resolve_program_type_name, resolve_project_declared_sizes, resolve_project_global_constants,
+    resolve_type_name, validate_project_aliases, LoweringContext,
 };
 pub(crate) use compiler::{
     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,

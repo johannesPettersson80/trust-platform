@@ -107,7 +107,11 @@ pointed-to value and never performs the `?=` checked-copy fallback.
   to a value or to a `POINTER TO` target is a compile-time error.
 - `ref REF= variable` rebinds `ref` to the storage of `variable`; the source
   must be a valid assignment lvalue and must not be `CONSTANT`-qualified.
-  Pointer notation: `ref := REF(variable)`.
+  The source's type must match the reference target exactly, or bind under
+  the vendor rules: strings of any declared size are mutually bindable, and
+  a derived `STRUCT` variable binds behind a base-`STRUCT` reference.
+  Numeric widening never aliases — a `WORD` variable cannot bind behind an
+  `INT` reference. Pointer notation: `ref := REF(variable)`.
 - `ref1 REF= ref2` rebinds `ref1` to the same storage as `ref2`; the two
   reference target types must be compatible in either direction.
 - `ref REF= NULL` (or the integer literal `0`) clears the reference; the
@@ -276,6 +280,28 @@ Motor1.Start();
 Motor1.SetSpeed(NewSpeed := 1000);
 Status := Motor1.GetStatus();
 ```
+
+A method of the enclosing POU is additionally callable by bare name without a
+receiver (implicit self) — program-scoped methods (e!COCKPIT dialect, spec 04
+§4) and methods of the enclosing function block. From other POUs a
+program-scoped method resolves through the program-singleton member access
+(`ProgramName.method_name(parameters)`, spec 04 §4), which only the CODESYS
+profile provides (`docs/IEC_DEVIATIONS.md` DEV-030). Scope variables keep
+precedence over the enclosing-POU member scan, and arguments and the return
+value follow the shared call rules above.
+
+### 3.5 Textual Action Calls (CODESYS vendor extension; spec 04 §8)
+
+An action declared inside a `FUNCTION_BLOCK` or `PROGRAM` is invoked by its
+bare name inside the owning POU body, qualified by the owning program
+(`ProgramName.action_name()`), or through a function-block instance
+(`instance.action_name()`). An action call takes no arguments, returns no
+value, and is invalid in value position. In call position a scope variable
+with the same spelling shadows the action; otherwise the callee resolves as a
+function first and then as an owner-scoped action or method, and an
+unresolved name keeps the ordinary undefined-function diagnostic. Calling
+another program's action through its name is program-singleton access, which
+only the CODESYS profile provides (DEV-030).
 
 ## 4. RETURN Statement (Section 7.3.3.2.4; truST DEV-022)
 

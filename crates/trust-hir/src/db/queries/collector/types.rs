@@ -404,7 +404,11 @@ impl SymbolCollector<'_> {
                 self.check_required_default_expression(field_type, expr);
             }
             for (field_name, range) in field_names {
-                self.validate_identifier(&field_name, range, false);
+                self.validate_identifier(
+                    &field_name,
+                    range,
+                    self.table.dialect().is_codesys() && is_contextual_keyword_name(&field_name),
+                );
                 let key = field_name.to_ascii_uppercase();
                 if let Some(previous) = seen_fields.insert(key, range) {
                     self.diagnostics.add(
@@ -488,7 +492,11 @@ impl SymbolCollector<'_> {
                 self.check_required_default_expression(field_type, expr);
             }
             for (field_name, range) in field_names {
-                self.validate_identifier(&field_name, range, false);
+                self.validate_identifier(
+                    &field_name,
+                    range,
+                    self.table.dialect().is_codesys() && is_contextual_keyword_name(&field_name),
+                );
                 let key = field_name.to_ascii_uppercase();
                 if let Some(previous) = seen_variants.insert(key, range) {
                     self.diagnostics.add(
@@ -530,7 +538,12 @@ impl SymbolCollector<'_> {
         for child in node.children() {
             if child.kind() == SyntaxKind::EnumValue {
                 if let Some((value_name, range)) = name_from_node(&child) {
-                    self.validate_identifier(&value_name, range, false);
+                    self.validate_identifier(
+                        &value_name,
+                        range,
+                        self.table.dialect().is_codesys()
+                            && is_contextual_keyword_name(&value_name),
+                    );
                     // Check for explicit value assignment
                     let value = self.extract_enum_value(&child).unwrap_or(next_value);
                     values.push((value_name.clone(), value));
@@ -540,7 +553,12 @@ impl SymbolCollector<'_> {
             } else if child.kind() == SyntaxKind::Name {
                 // Simple enum value without EnumValue wrapper
                 if let Some((value_name, range)) = name_from_node(&child) {
-                    self.validate_identifier(&value_name, range, false);
+                    self.validate_identifier(
+                        &value_name,
+                        range,
+                        self.table.dialect().is_codesys()
+                            && is_contextual_keyword_name(&value_name),
+                    );
                     values.push((value_name.clone(), next_value));
                     value_symbols.push((value_name, next_value, range));
                     next_value += 1;
@@ -742,7 +760,9 @@ impl SymbolCollector<'_> {
         let mut values = Vec::new();
         let scopes = scope_chain_for_node(node);
         for child in node.children().filter(|n| is_expression_kind(n.kind())) {
-            let value = self.eval_int_expr_in_scope(&child, &scopes)?;
+            // Declaration-size context: bounds may name plain
+            // initializer-backed variables (docs/IEC_DEVIATIONS.md DEV-033).
+            let value = self.eval_declared_size_expr_in_scope(&child, &scopes)?;
             values.push(value);
         }
         if values.len() >= 2 {
@@ -817,7 +837,9 @@ impl SymbolCollector<'_> {
         // Look for length specification: 1 to 65,535 (IEC 61131-3 Ed.3 §6.4.2.2).
         if let Some(expr) = node.children().find(|n| is_expression_kind(n.kind())) {
             let scopes = scope_chain_for_node(node);
-            match self.try_eval_optional_int_expr_in_scope(&expr, &scopes) {
+            // A declaration size: under the CODESYS profile the length may name a plain variable's
+            // initial value (docs/IEC_DEVIATIONS.md DEV-033).
+            match self.try_eval_declared_size_expr_in_scope(&expr, &scopes) {
                 Ok(Some(value)) => match checked_string_length(value) {
                     Ok(len) => return self.table.register_string_type(is_wstring, len),
                     Err(error) => self.diagnostics.error(

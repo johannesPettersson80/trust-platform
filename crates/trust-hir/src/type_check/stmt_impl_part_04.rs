@@ -255,7 +255,10 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                 }
 
                 let compatible = resolved_value == self.checker.resolve_alias_type(referenced)
-                    || self.checker.reference_types_compatible(referenced, value_type);
+                    || self.checker.reference_types_compatible(referenced, value_type)
+                    || self
+                        .checker
+                        .reference_target_binds_lvalue(referenced, value_type);
                 if !compatible {
                     let target_name = self.checker.type_name(referenced);
                     let value_name = self.checker.type_name(value_type);

@@ -10,6 +10,7 @@ pub struct PlcopenMigrationReport {
     pub imported_pous: usize,
     pub skipped_pous: usize,
     pub imported_data_types: usize,
+    pub imported_interfaces: usize,
     pub discovered_configurations: usize,
     pub imported_configurations: usize,
     pub imported_resources: usize,

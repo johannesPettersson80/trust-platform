@@ -834,15 +834,14 @@ Textual action declarations use the bounded analysis profile defined by
    enclosing `PROGRAM` or `FUNCTION_BLOCK` as its variable and receiver
    context.
 2. An invalid statement in an action produces the same primary diagnostic it
-   would produce in the corresponding owner body. Unsupported runtime execution
-   is a later compilation-boundary error and must not suppress independent
-   semantic errors.
+   would produce in the corresponding owner body.
 3. Every action owns an independent label table. Duplicate labels are checked
    within that table, and unresolved jumps cannot bind to a label in the owner
    body or another action.
-4. Action declarations are not ordinary callable symbols. A same-spelling
-   `BOOL` variable remains an ordinary variable, while a call expression must
-   still resolve to a function, method, or function-block instance.
+4. An action is callable only in call position (vendor extension; spec 04 §8
+   rule 10). A same-spelling `BOOL` variable keeps shadowing the action for
+   value and assignment contexts, and a variable lookup precedes the action
+   scan when a call resolves.
 5. Action declaration names are case-insensitively unique within one owner but
    do not conflict across different owners.
 

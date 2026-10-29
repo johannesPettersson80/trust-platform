@@ -1,0 +1,30 @@
+---
+source: crates/trust-syntax/tests/parser_variables.rs
+expression: "snapshot_parse(r#\"TYPE eChar :\n(\n    Null,\n    Space,\n    On,\n    Set\n);\nEND_TYPE\"#)"
+---
+SourceFile@0..63
+  TypeDecl@0..63
+    KwType@0..4 "TYPE"
+    Name@4..11
+      Ident@5..10 "eChar"
+    Colon@11..12 ":"
+    EnumDef@12..53
+      LParen@13..14 "("
+      EnumValue@14..23
+        Name@14..23
+          KwNull@19..23 "Null"
+      Comma@23..24 ","
+      EnumValue@24..34
+        Name@24..34
+          Ident@29..34 "Space"
+      Comma@34..35 ","
+      EnumValue@35..42
+        Name@35..42
+          KwOn@40..42 "On"
+      Comma@42..43 ","
+      EnumValue@43..52
+        Name@43..52
+          KwSet@48..51 "Set"
+      RParen@52..53 ")"
+    Semicolon@53..54 ";"
+    KwEndType@55..63 "END_TYPE"

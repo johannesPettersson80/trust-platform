@@ -495,6 +495,22 @@ impl Lowerer<'_, '_> {
                 let sign = if op == K::Eq { "" } else { "!" };
                 Ok(format!("({sign}same_target({a}, {b}))"))
             }
+            K::Eq | K::Neq
+                if (self.is_reference(&left) || self.is_reference(&right))
+                    && !is_null(&left)
+                    && !is_null(&right)
+                    && crate::harness::dialect_of(self.model.conversions).is_codesys() =>
+            {
+                // Under the CODESYS profile a reference compared with a value or another reference
+                // takes part as the value it names (docs/IEC_DEVIATIONS.md DEV-031).
+                let a = self.value_type(&left)?;
+                let b = self.value_type(&right)?;
+                let common = self.common(node, a, b)?;
+                let a = self.scalar_to(&left, common)?;
+                let b = self.scalar_to(&right, common)?;
+                let sign = if op == K::Eq { "==" } else { "!=" };
+                Ok(format!("({a} {sign} {b})"))
+            }
             K::Eq | K::Neq if self.is_reference(&left) || self.is_reference(&right) => {
                 // Two references are equal when they name the same variable, or are both `NULL`,
                 // whatever type each was taken as.

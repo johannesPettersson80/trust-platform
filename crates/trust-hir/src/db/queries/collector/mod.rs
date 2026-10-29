@@ -46,6 +46,11 @@ pub(super) struct SymbolCollector<'a> {
     /// first initializer here: a project constant reports its failure only in the file that
     /// declares it, never under another file's path. `None` reports every failure.
     own_constants: Option<FxHashMap<(Option<SmolStr>, SmolStr), TextRange>>,
+    /// Under the CODESYS profile, the initializers of plain (non-constant) variables, keyed like
+    /// `const_exprs`: only a declaration size (a string length, an array bound) reads them
+    /// (docs/IEC_DEVIATIONS.md DEV-033); no other constant context sees them.
+    declared_exprs: FxHashMap<(Option<SmolStr>, SmolStr), SyntaxNode>,
+    declared_values: FxHashMap<(Option<SmolStr>, SmolStr), i64>,
     program_instances: ProgramInstanceMap,
     project_types: Option<&'a dyn ProjectTypeProvider>,
     importing_project_types: FxHashSet<SmolStr>,
@@ -76,6 +81,8 @@ impl<'a> SymbolCollector<'a> {
             const_exprs: FxHashMap::default(),
             const_values: FxHashMap::default(),
             own_constants: None,
+            declared_exprs: FxHashMap::default(),
+            declared_values: FxHashMap::default(),
             program_instances: FxHashMap::default(),
             project_types,
             importing_project_types: FxHashSet::default(),

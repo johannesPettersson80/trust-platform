@@ -90,6 +90,21 @@ pub fn import_xml_to_project_with_options(
         written_sources.push(path);
     }
 
+    let interface_migration_entries = import_interfaces_to_sources(
+        root,
+        &sources_root,
+        &mut seen_files,
+        &mut written_sources,
+        &mut warnings,
+        &mut unsupported_nodes,
+        &mut unsupported_diagnostics,
+        &mut loss_warnings,
+        &project_structure_map,
+        &mut imported_folder_paths,
+    )?;
+    let imported_interfaces = interface_migration_entries.len();
+    migration_entries.extend(interface_migration_entries);
+
     let project_model_stats = import_project_model_to_sources(
         root,
         &sources_root,
@@ -436,7 +451,7 @@ pub fn import_xml_to_project_with_options(
         }
     }
 
-    if discovered_pous == 0 && imported_data_types == 0 {
+    if discovered_pous == 0 && imported_data_types == 0 && imported_interfaces == 0 {
         warnings.push("no <pou> nodes discovered in input XML".to_string());
         unsupported_diagnostics.push(unsupported_diagnostic(
             "PLCO206",
@@ -504,6 +519,7 @@ pub fn import_xml_to_project_with_options(
         imported_pous,
         skipped_pous,
         imported_data_types,
+        imported_interfaces,
         discovered_configurations: project_model_stats.discovered_configurations,
         imported_configurations: project_model_stats.imported_configurations,
         imported_resources: project_model_stats.imported_resources,
@@ -537,6 +553,7 @@ pub fn import_xml_to_project_with_options(
         imported_pous,
         discovered_pous,
         imported_data_types,
+        imported_interfaces,
         discovered_configurations: project_model_stats.discovered_configurations,
         imported_configurations: project_model_stats.imported_configurations,
         imported_resources: project_model_stats.imported_resources,

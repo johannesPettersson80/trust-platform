@@ -50,7 +50,10 @@ fn sanitize_filename(name: &str) -> String {
     sanitized
 }
 
-#[cfg(test)]
+/// Case-sensitive element match. Required when element names differ only by
+/// case and the distinction is semantic: e!COCKPIT's project-level interface
+/// object is `<Interface>`, while `<interface>` is a POU's var-section
+/// container (and `is_element_named_ci` would conflate them).
 fn is_element_named(node: roxmltree::Node<'_, '_>, name: &str) -> bool {
     node.is_element() && node.tag_name().name() == name
 }
