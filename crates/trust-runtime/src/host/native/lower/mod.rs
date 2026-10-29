@@ -17,6 +17,7 @@ mod enable;
 mod expr;
 mod functions;
 mod jumps;
+mod literal;
 mod object;
 mod open;
 mod overlap;
