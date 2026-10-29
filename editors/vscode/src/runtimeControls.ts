@@ -219,4 +219,3 @@ function selectedStatusText(selected: SelectedRuntime): string {
 function statusTargetLabel(selected: SelectedRuntime): string {
   return selected.kind === "local" ? selected.id : selected.label;
 }
-
