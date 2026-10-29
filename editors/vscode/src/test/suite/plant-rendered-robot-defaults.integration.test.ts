@@ -29,6 +29,12 @@ if (process.env.TRUST_PLANT_RENDERED_TEST === "1") {
         await pollSave(inner, false, "bound robot joint");
 
         const optional = ["gravity_torque_nm", "viscous_friction_nm_s_per_rad", "coulomb_friction_nm"];
+        // Typed text reaches the draft when Rust has read it (`set_dynamics_text`, specification 47
+        // §20.1); until then Save waits. React commits the typed text in a microtask and Rust's answer
+        // comes later in a message, so Save is disabled here. Catches a Save that stores the value the
+        // field held before (the guard of 29 October 2026 saw 4 for a blanked gravity torque).
+        const saveWhileRead = await inner("var el=d.querySelector('[data-plant-dynamics-field=\"gravity_torque_nm\"]');if(!el)return 'NO_FIELD';var w=el.ownerDocument.defaultView;Object.getOwnPropertyDescriptor(w.HTMLInputElement.prototype,'value').set.call(el,'');el.dispatchEvent(new w.Event('input',{bubbles:true}));await Promise.resolve();await Promise.resolve();var panel=[...d.querySelectorAll('aside')].find((x)=>/Plant properties/i.test(x.getAttribute('aria-label')||''));var save=panel&&[...panel.querySelectorAll('button')].find((x)=>(x.textContent||'').trim()==='Save');return String(Boolean(save&&save.disabled));");
+        assert.strictEqual(saveWhileRead, "true", "Save waits until Rust has read the typed text");
         for (const field of optional) await setValue(`[data-plant-dynamics-field="${field}"]`, "");
         const state = JSON.parse(await inner("var keys=['gravity_torque_nm','viscous_friction_nm_s_per_rad','coulomb_friction_nm'];return JSON.stringify(keys.map((key)=>{var e=d.querySelector('[data-plant-dynamics-field='+key+']');return {key,value:e?.value??null,placeholder:e?.getAttribute('placeholder'),invalid:e?.getAttribute('aria-invalid')};}));"));
         assert.deepStrictEqual(state, [

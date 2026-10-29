@@ -112,7 +112,7 @@ export function PlantDraftPanel({
   const [rawInputIssues, setRawInputIssues] = useState<Record<string, string>>({});
   const startingPointTrigger = useRef<HTMLElement | null>(null);
   const editor = draft;
-  const { answer, current, failure, run, edit } = usePlantEditor({
+  const { answer, current, busy, failure, run, edit } = usePlantEditor({
     draft,
     post,
     signals: signalCatalog,
@@ -142,7 +142,7 @@ export function PlantDraftPanel({
     validationItems.push({ message, selector: `[data-plant-dynamics-field="${field}"]` });
   }
   for (const issue of issues) validationItems.push(validationItem(issue, view?.startingState.kind));
-  const valid = current && answer?.can_save === true && Object.keys(rawInputIssues).length === 0;
+  const valid = current && !busy && answer?.can_save === true && Object.keys(rawInputIssues).length === 0;
   const canSave = valid && !saving;
   const resetModelState = () => {
     setRawInputIssues({});
