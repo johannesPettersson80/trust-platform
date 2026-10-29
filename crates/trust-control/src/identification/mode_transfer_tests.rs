@@ -396,12 +396,13 @@ fn a_transfer_allows_the_rate_limit_over_one_execution_and_only_a_pid_entry_adds
     );
 }
 
-/// `control-studio-generated-loop.test.ts`, "returns a loop to Auto after identification without writing back the manual output
-/// the code sets" (§17.1, A6.2): a loop found in Auto whose program copies the output into the Manual command gets its setpoint
-/// back only, since writing the copy back would move the output. Without the copy, and for a loop found in Manual, the Manual
-/// command returns too. The guards are the record's parameters and the feedback guard of the tracked output (annex E6.2).
+/// C1, A6.2: a loop found in Auto gets its setpoint back only, whether or not its program copies the output into the Manual
+/// command, since the command written in Manual would move the output to where Identify found it (lesson 30: a bump from 47.55 %
+/// to 75 %). Catches a return that writes the found command before the Auto entry. A loop found in Manual stays there and gets
+/// its Manual command back too. The guards are the record's parameters and the feedback guard of the tracked output (annex
+/// E6.2).
 #[test]
-fn the_command_return_writes_back_the_setpoint_and_a_manual_command_the_program_does_not_set() {
+fn the_command_return_gives_a_manual_command_back_only_to_a_loop_that_stays_in_manual() {
     let mut loop_definition = library_pid_loop();
     loop_definition.controller.manual_output_follows_output = Some(true);
     let binding = mode_binding(&loop_definition).expect("a binding");
@@ -444,10 +445,12 @@ fn the_command_return_writes_back_the_setpoint_and_a_manual_command_the_program_
     loop_definition.controller.manual_output_follows_output = None;
     let without_copy =
         command_return(&loop_definition, &binding, &original(true)).expect("found in Auto");
+    assert_eq!(symbols(&without_copy.binding.states), ["LevelSP"]);
     assert_eq!(
-        symbols(&without_copy.binding.states),
-        ["LevelSP", "Main.ManualCommand"]
+        without_copy.values,
+        BTreeMap::from([("LevelSP".to_owned(), 45.0)])
     );
+    assert_eq!(without_copy.commands, Vec::<WrittenCommand>::new());
 }
 
 /// A6.2, A6.7 and E11.5: the mode returns only to the loop and the program it was changed on; a changed loop or a reloaded program

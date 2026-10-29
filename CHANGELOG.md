@@ -6,6 +6,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+### Fixed
+
+- Control Studio's Identify returns a loop it found in Auto from the output the loop holds. It wrote the Manual
+  command it had found back first, in Manual, which stepped a process that moved during identification to that old
+  command before the Auto entry (lesson 30's plant went from 47.55 % to 75 %, while the controller held 67.55 %). The
+  Auto entry sets the Manual command to the output it holds, as Apply's does (specification 35, C1). A loop found in
+  Manual still gets its Manual command back.
+
 ## [0.25.1] - 2026-10-29
 
 ### Fixed

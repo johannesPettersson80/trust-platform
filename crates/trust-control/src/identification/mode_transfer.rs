@@ -314,16 +314,16 @@ pub struct WrittenCommand {
     pub output: String,
 }
 
-/// The transfer that writes the loop's references and commands back to their values when Identify found the loop, in Manual,
-/// before the loop returns to Auto (`commandBinding` of `restore`, A6.2).
+/// The transfer that writes the loop's references back to their values when Identify found the loop, in Manual, and its Manual
+/// commands when it stays in Manual (`commandBinding` of `restore`, A6.2).
 #[derive(Debug, Clone, PartialEq)]
 pub struct CommandReturn {
     /// The binding: the mode binding on its own transfer loop (`:commands`), with the references and commands as its states.
     pub binding: TransferBinding,
     /// The value of each of those states when Identify found the loop.
     pub values: BTreeMap<String, f64>,
-    /// The Manual commands among those states that are written back, each with the output it holds: the loop's own first, when it
-    /// is written back, then a PID group's other members' (C7).
+    /// The Manual commands among those states, each with the output it holds: the loop's own first, then a PID group's other
+    /// members' (C7). None for a loop that returns to Auto.
     pub commands: Vec<WrittenCommand>,
 }
 
@@ -373,10 +373,12 @@ impl CommandReturn {
 }
 
 /// The references and commands a mode return writes back in Manual (`restore` of `ConnectedIdentificationMode`, A6.2): the
-/// loop's reference, and its Manual command unless the loop returns to Auto and the program copies the output into the Manual
-/// command there (§17.1), since that copy only holds the output of the moment the mode was changed, and writing it back would
-/// move the output. A PID group writes back the setpoint and the Manual command of every other member as well (C7), after the
-/// loop's own, all of them in the group's binding. Their binding is the mode binding on the transfer loop `:commands`, with these
+/// loop's reference, and its Manual command when the loop stays in Manual. A loop that returns to Auto gets no Manual command
+/// back (C1): written in Manual, the command would move the output to where Identify found it, which the moving process no
+/// longer needs (lesson 30: from 47.55 % to 75 %, where the controller held 67.55 %), and the Auto entry sets each Manual
+/// command to the output it holds (runtime protocol annex E6.4), as Apply's entry does. A PID group writes back the setpoint of
+/// every other member as well, and staying in Manual every other member's Manual command (C7), after the loop's own, all of them
+/// in the group's binding. Their binding is the mode binding on the transfer loop `:commands`, with these
 /// states and, as guards, the parameters of the loop's record and the feedback guard of each tracked output, so that the binding
 /// names every guard its tracked outputs need (annex E6.2). The values are those `original` reports, rounded as their members are
 /// typed.
@@ -394,27 +396,24 @@ pub fn command_return(
 ) -> Result<CommandReturn, Failure> {
     let channels = declared_channels(loop_definition)?;
     let further = further_channels(loop_definition)?;
-    let follows = loop_definition.controller.manual_output_follows_output == Some(true);
     let mut states = vec![channels.reference.clone()];
     for channel in &further.references {
         states.push(state_of(binding, &channel.reference_symbol)?);
     }
     let mut written = Vec::new();
-    // The loop declares that its program copies the output into its own Manual command, and no other: a PID group's other
-    // members' commands are always written back.
-    if !(found_in_auto(binding, original) && follows) {
+    if !found_in_auto(binding, original) {
         states.push(channels.command.clone());
         written.push(WrittenCommand {
             command: channels.command.symbol.clone(),
             output: binding.output.symbol.clone(),
         });
-    }
-    for channel in &further.commands {
-        states.push(state_of(binding, &channel.manual_command_symbol)?);
-        written.push(WrittenCommand {
-            command: channel.manual_command_symbol.clone(),
-            output: channel.output_symbol.clone(),
-        });
+        for channel in &further.commands {
+            states.push(state_of(binding, &channel.manual_command_symbol)?);
+            written.push(WrittenCommand {
+                command: channel.manual_command_symbol.clone(),
+                output: channel.output_symbol.clone(),
+            });
+        }
     }
     let parameters: BTreeSet<&str> = loop_definition
         .parameter_binding
