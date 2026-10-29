@@ -511,7 +511,7 @@ jobs:
       - name: Generate release body from changelog
         run: |
           python3 scripts/extract_changelog_section.py \
-            --section Unreleased \
+            --section "${GITHUB_REF_NAME#v}" \
             --title "${{ github.ref_name }}" \
             --output release-notes.md
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract a Keep a Changelog section into a release body file."""
+"""Write a release's text: its title and its version's section of the changelog (Keep a Changelog)."""
 
 from __future__ import annotations
 
@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 HEADER_RE = re.compile(r"^## \[(?P<name>[^\]]+)\]")
+# GitHub keeps this many characters of a release's text and drops the rest without a word.
+RELEASE_TEXT_LIMIT = 125_000
 
 
 def extract_section(text: str, section: str) -> str:
@@ -33,16 +35,26 @@ def extract_section(text: str, section: str) -> str:
     return body
 
 
+def release_text(text: str, section: str, title: str) -> str:
+    release = f"# {title}\n\n{extract_section(text, section)}\n"
+    if len(release) > RELEASE_TEXT_LIMIT:
+        raise ValueError(
+            f"the release text from changelog section [{section}] has {len(release)} characters; "
+            f"GitHub keeps {RELEASE_TEXT_LIMIT}"
+        )
+    return release
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--changelog", default="CHANGELOG.md")
-    parser.add_argument("--section", default="Unreleased")
+    parser.add_argument("--section", required=True)
     parser.add_argument("--title", required=True)
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
 
-    body = extract_section(Path(args.changelog).read_text(encoding="utf-8"), args.section)
-    Path(args.output).write_text(f"# {args.title}\n\n{body}\n", encoding="utf-8")
+    release = release_text(Path(args.changelog).read_text(encoding="utf-8"), args.section, args.title)
+    Path(args.output).write_text(release, encoding="utf-8")
     print(f"wrote {args.output}")
     return 0
 

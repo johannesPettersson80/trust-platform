@@ -251,7 +251,9 @@ guard rejects a candidate whose copies differ.
 
 ## Releases
 
-- A user-visible change gets a `CHANGELOG.md` entry under `## [Unreleased]`.
+- A user-visible change gets a `CHANGELOG.md` entry under `## [Unreleased]`. The version bump renames that section
+  `## [<version>] - <date>` under a new, empty `## [Unreleased]`; the release's text on GitHub is that section,
+  at most 125,000 characters.
 - A release-notable change bumps `[workspace.package].version` in `Cargo.toml`. Keep
   `editors/vscode/package.json` and the root entries of `editors/vscode/package-lock.json` at the same
   version.

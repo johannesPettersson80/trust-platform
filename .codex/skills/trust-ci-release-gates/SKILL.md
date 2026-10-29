@@ -19,6 +19,10 @@ ship.
   `### Added`, `### Changed` or `### Fixed`. User-visible means runtime behaviour, CLI flags and
   output, the standard library, tutorials and docs, and test harness behaviour. Purely internal
   changes need no entry.
+- **Release text**: the version bump renames `## [Unreleased]` to `## [<version>] - <date>` and puts a
+  new, empty `## [Unreleased]` above it. The Release workflow publishes that version's section as the
+  release's text (`scripts/extract_changelog_section.py`), which refuses a missing or empty section
+  and a text over GitHub's 125,000 characters; GitHub would cut it without a word.
 - **Version**: a release-notable change bumps `[workspace.package].version` in `Cargo.toml`, unless
   the user says not to.
 - **VS Code versions**: when the version changes, or when the extension's behaviour changes, set

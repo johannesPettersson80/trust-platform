@@ -137,6 +137,8 @@ jobs:
         run: python3 ./scripts/test_check_version_release_evidence.py
       - name: Guard deterministic diagram workflow
         run: python3 -m unittest scripts.tests.test_diagram_workflow -v
+      - name: Guard the release text from the changelog
+        run: python3 -m unittest scripts.tests.test_extract_changelog_section -v
       - name: Guard workspace integration-test binary paths
         run: python3 ./scripts/runtime_test_binary_path_contract_tests.py
       - run: cargo fmt --all -- --check

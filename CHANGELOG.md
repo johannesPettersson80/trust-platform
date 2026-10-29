@@ -6,6 +6,47 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.25.1] - 2026-10-29
+
+### Fixed
+
+- Control Studio's Identify and Validate judge a step's response from the scan at which the runtime
+  reports the step applied (specification 35, B3.4 step 4). Before, the response counted from the
+  newest sample when the step was sent: when the start reached the runtime late, as on a busy
+  computer at a high simulation speed, the samples recorded in between could end the step before it
+  took effect, and the restoration then replaced the step: Validate refused the recording for want
+  of excitation, and Identify's recording held no step or one cut short.
+- On an ARM computer (a Mac with Apple silicon, ARM Linux) the runtime makes a compiled program it
+  loads the instructions the CPU fetches before the program runs (specification 44 §10.3). Before,
+  the CPU could run instructions its instruction cache still held for those addresses.
+- The runtime's operator display at `/hmi` loads its modules again (#134): 0.24.74 served `app.js`
+  but answered 404 for every module, so the page stayed blank on `Disconnected`. The display of 0.25
+  (specification 39) serves every file its page names, and a test requests each one.
+- The documentation site publishes again. Since 0.25.0 its checks had stopped it: the link check
+  read the HMI Builder page's shortcut **Ctrl+[** as the start of a link, the control course's
+  learning path and four other pages linked files outside the site by relative paths (they now
+  link them on GitHub), and the HMI Builder's screenshots were missing from the capture inventory.
+- Control Studio can read a loop's signals while the runtime starts. Before a program's first
+  complete scan the runtime refused `control.signals.inspect` with "current runtime scan
+  unavailable", so a run or recording that began then failed at once. It now answers that the read
+  waits for the scan, as annex E3 of the Control Studio protocol states, and Studio asks again.
+- On a computer, a restart begins the tasks' timing, and the cycle grid with it, when its first
+  cycle starts, as a chip does (specification 10 §4.3). It began them when the restart ended, so
+  the time between counted: after an automatic restart's backoff the first cycle ran the tasks,
+  and a longer backoff counted activations as missed.
+- A real-time (T0) shared-memory transport made without a configured root removes that root when
+  it closes, and names it so that no later process opens it. Before, the root stayed in the
+  temporary folder, and a later process that the operating system gave the same process ID opened
+  its channels and went on from their old sequence.
+- On Windows, a debug build of `trust-runtime` links again (`cargo build`, `cargo run -p
+  trust-runtime`): the runtime provides the critical section that the compiled cycle's libraries
+  take. Since 0.25.0 nothing provided one outside a build of the whole workspace's tests, and
+  Windows' linker refused the missing symbol.
+
+## [0.25.0] - 2026-10-28
+
+Tagged but not published: its release run stopped before publishing, and 0.25.1 is the first published release of 0.25.
+
 ### Added
 
 - `Control.PID` has two documented extensions (specification 45 §3.1): the simulation members
@@ -1054,6 +1095,365 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Control Studio's Tune predicts the response of a supplied integrating plant, alone or behind a lag, such as a shaft driven by torque (θ/u = 1/(s(Js + B))), using the exact held-input step.
 - Control Studio's Tune offers **Derivative setpoint weight (γ)** for PD and PID when the loop's law declares `derivativeSetpointWeightSymbol`: γ = 0 differentiates the measurement, γ = 1 the error; calculated candidates use γ = 0, and the prediction includes the resulting derivative kick.
 - Instance arrays accept element initializers, `[(PT := T#100ms), (PT := T#300ms)]`, and repetitions written `50((PT := T#100ms))` or `50(PT := T#100ms)`; an array type declared with an initializer gives it to every variable of the type, and a cold restart re-applies it.
+- Control Studio now checks supplied-model validation evidence and bound channel
+  units before controller recommendation, selects PI when P cannot meet the
+  declared gain bounds, rejects initial commands beyond the actuator range, and
+  returns failures through the existing Find model, Tune, controller-choice or
+  requirements controls. It also preserves declared pulse identification and
+  uses a held-out multisine or PRBS frequency fit when requested. Explicit relay selection uses the feedback-relay acquisition route.
+- Control Studio can commission a declared first-order PI controller in Auto
+  through a typed retained-state adapter. It verifies the actual ST baseline,
+  candidate and first-output continuity case, aligns integral and derivative
+  history at the runtime task boundary, observes the applied response, and
+  returns to Manual with the prior parameter record on rollback.
+- Control Studio's automatic recommendation now lets a selected proportional
+  controller continue through its own P tracking and Auto commissioning path
+  when the declared loop has no PID retained-state adapter. PI and PID Auto
+  commissioning still require their declared state-initialization adapter.
+- Control Studio Test now offers automatic bounded excitation, derives a safe
+  reviewed step from the live loop mode and command headroom, and carries
+  independent Test-record identities through model validation. Manual-output
+  tests can write a declared command address/type while retaining the actual
+  MV/PV response for fitting.
+- Control Studio Relay Test now qualifies the runtime's measured feedback
+  cycles, then offers one explicit calculation of an unapplied PI proposal.
+  It never substitutes a timed square wave, accepts gains from the webview, or
+  applies a relay result automatically.
+- Runtime controller transfers apply mode and state coherently at the owning
+  task boundary, track fresh P-controller inputs, and retain observed adoption,
+  cancellation and failure outcomes. Control Studio connects this to reviewed
+  local-simulator Auto commissioning and guarded Manual rollback. Recorded
+  responses, manual transfer tolerance and fresh recovery reviews survive saved
+  studies; completed unconfirmed recovery is retained when its editor closes.
+- Control Studio records declared symbolic controller modes with program identity
+  and per-channel quality, protects active verification from model replacement,
+  and clears incompatible manual gain pins when identification changes the model.
+- Isolated Control Studio verification retains received sample prefixes after
+  cancellation or wall-budget termination, with bounded capture and explicit
+  failure status; cancelled records remain available to inspect, save and reopen.
+- Connected Control Studio P workflows show current model, tuning and verification
+  stage status, clear historical qualification on reopening, and use one Tune action.
+- Control Studio carries declared and measured operating points into selected-model
+  simulation, proportional tuning and matched actual-ST verification without
+  adding controller bias. Automatic simulation identification reads the actual
+  Manual operating command and checks its retained pre-excitation baseline.
+- Control Studio reads a declared symbolic controller mode together with process
+  signals from one runtime scan, and clears unavailable mode values.
+- Opening a saved study during active work is rejected before replacing state;
+  fresh verification resumes live readings and shows the unapplied candidate.
+- Guided setup binds an existing proportional ST controller without invented
+  plant coefficients, for model identification followed by tuning and verification.
+- Control Studio retains completed identification trials when qualification or a
+  later trial fails, and preserves earlier campaign evidence across retries.
+- Failed Control Studio identification studies can be saved and reopened with
+  their raw trial evidence; reopening does not authorize controller application.
+- Control Studio uses the selected compatible supplied model for Routh analysis,
+  and controller comparison prefers simpler sufficient designs over additional performance.
+- Control Studio now retains declared unlimited-request and integral-state signals
+  beside applied output for a completed saturation-return Test. It reports the
+  actual clamp, integral change and release delay, then recommends anti-windup
+  without resetting controller state or claiming additional actuator capacity.
+- After a qualified saturation-return record, Control Studio can review one
+  typed back-calculation candidate for the declared simulation loop, stage its
+  complete parameter record, and restore the exact untracked baseline. Matched
+  tracked-versus-untracked Test comparison remains in progress.
+- Control Studio Routh–Hurwitz analysis displays declared characteristic
+  polynomials, table calculations and analytical intervals for supported
+  first- and second-order models, with explicit special-case limitations.
+- Control Studio configures existing projects from compiled signal and controller
+  metadata, discovers multiple loops, and rejects duplicate loop identities.
+- Project-owned experiments can open every Control Studio workflow stage.
+- Provided transfer-function models support offline named-parameter root-locus
+  calculation, candidate selection and saved-result restoration, with explicit
+  model provenance and approximation labels. New results use schema v4 while
+  legacy v3 records remain readable.
+- Show full objectives, expected observations and lesson-specific previews in
+  the example gallery, and bundle first-action guidance with all six non-control
+  starters. Preserve created projects when VS Code cannot switch folders and
+  offer an explicit retry without copying or generating their files again.
+- Replace the example gallery's filter-chip wall with compact hardware/category
+  selectors and a result count. Isolate damaged lesson metadata and show its
+  reason without offering a misleading Create action.
+- Preserve learner-selected actuator and sensor layouts in the controllability
+  and observability lessons, so their alternate comparison cases can actually
+  run. Keep safe zero-flow restoration independent of those selections.
+- Retain the state-feedback and observer lesson comparison controls instead of
+  forcing the preferred controller path every scan; document separate fair runs
+  and preserve existing safe current/torque restoration.
+- Split optional plant settings into named actuator, signal conversion, realism
+  and scenario tasks, with visible summaries that include disabled configured
+  effects. Opening one task no longer exposes every engineering field at once.
+- Show scenario event times in seconds with exact millisecond persistence;
+  retain invalid edits and block Save instead of rounding or treating blanks
+  as zero. Distinguish runnable simulator defaults from optional physical
+  hardware on the six starter example cards.
+- Return focus to example search after clearing an empty result, so the removed
+  reset button does not leave keyboard focus lost.
+- Reopen saved plant models that omit default starting values. Show their
+  model-sized zero state without substituting a teaching template, and preserve
+  the original omission when only the name changes.
+- Show effective zero defaults for optional robot-joint friction and gravity
+  parameters while preserving omitted values on save.
+- Retain created lesson-project locations and offer Open existing project,
+  without treating project creation as lesson completion.
+- Label editor-polled Control Studio recordings as incomplete, retain observed
+  scan gaps and dropped samples, and block identification from these partial
+  recordings. Do not report editor refresh intervals as actual PLC cycle timing.
+- Add an explicit optional temperature teaching example after selecting the
+  first-order-with-delay plant model, with percent/Celsius assumptions and
+  reversible physical parameter wording. Keep generic imported models generic.
+- Add deterministic simulation plant models for controller verification,
+  including static, first-order, FOPDT, integrator, gravity-tank, robot-joint,
+  second-order, state-space, and piecewise-linear processes; scalar and MIMO
+  typed process-image bindings; enforced local-model validity bounds;
+  actuator nonidealities; seeded uncertainty and dropout faults; scheduled
+  plant events; bounded status/trace capture; atomic feedback publication;
+  failed-substep rollback; physical-I/O activation protection; and a native
+  closed-loop `Control.PID` performance oracle. Saved simulated-plant bricks
+  now use the canvas' standard confirmed Remove interaction and atomically
+  remove only the selected plant and its owned events from `simulation.toml`.
+  The VS Code workflow now has documentation-ready Plant Simulation and
+  Control Studio journeys covering configuration, monitoring, bounded tests,
+  identification, tuning, validation, Automatic Tune, recovery, and explicit
+  physical-plant approval boundaries.
+- Add a runtime-bound heater step-identification lesson that teaches the real
+  Control Studio Monitor, Test, Identify, Tune, and Validate workflow with a
+  bounded manual-output experiment, independent validation data, explicit
+  restoration, and an unapplied controller candidate. Control Studio now keeps
+  signal choices across workflow navigation, shows retained recording events
+  after reopening a result, frames identification fits in engineering units,
+  and opens Bode plots on a useful dynamics and crossover range.
+- Replace the Control Studio plot-tools disclosure with one direct, responsive
+  analysis workspace for time response, identification, Bode, root-locus,
+  Nyquist, Nichols, sensitivity, requirements, and typed MIMO evidence. Add
+  unit-safe signal layouts, linked graphical candidate editing, bounded
+  undo/redo and pinning, and evidence-bound chart-session restoration.
+- Add the reusable `Control` Structured Text library with the specified
+  combined-form `PID` controller, independent first-/second-order `LowPass`
+  filter, normative specification, native equation and seven-scenario
+  conformance tests, and an executed closed-loop performance benchmark for
+  tracking, robustness, sampling, disturbances, limits, noise, and stability
+  margins across nominal, integrating, underdamped, delay-dominant, and
+  nonlinear-actuator processes, plus open-loop instability, scheduled gain
+  variation, severe deterministic scan jitter, and a coupled two-loop process;
+  add a control-system engineering report and staged training curriculum that
+  explains the design choices, results, tuning workflow, limitations, and
+  improvement program.
+- Extend the existing Control Studio workflow with reproducible saved-run
+  revisions whose raw samples distinguish requested from applied manipulated
+  output without inventing unavailable requests, eighty-four executable
+  control-engineering lessons, and production-style lesson source organization
+  in which `Main` owns I/O, safety, and composition while substantial stateful
+  algorithms use dedicated, pedagogically commented function blocks and typed
+  records; independently
+  qualified SIMC and AMIGO PI formulas, bounded P/PI/PD/PID candidate
+  comparison, common performance and actuator metrics, deterministic
+  rejection reasons, and an explicit unapplied recommendation and review flow.
+  Relay experiments now switch from fresh measured process feedback and a
+  retained hysteresis band instead of replaying a timed square wave, while
+  preserving the existing bounded abort and restoration path. SIMC tuning now
+  also handles eligible integrating models with rate-gain equations and ships
+  an executable heater, buffer-tank, and dryer lesson that compares unapplied
+  Fast, Balanced, and Robust candidates under gain and delay variation. The
+  classical-analysis sequence now begins with an executable overhead-crane
+  Routh-Hurwitz lesson that proves `0 < K < 6` and confirms stable, marginal,
+  and unstable cases against three equivalent simulated plants and an
+  independent numerical-root oracle. The following positioning-servo lesson
+  now derives an uncompensated root locus, proves why gain alone misses the
+  motion requirements, and validates a full-transfer-function lead design
+  against an equivalent executable servo without current saturation. The
+  flexible-drive lesson then measures low-, resonant-, and high-frequency
+  response on three equivalent executable plants and compares unshaped and
+  resonance-shaped Bode margins without silently applying either candidate.
+  The delayed-conveyor-oven lesson follows with complete Nyquist contours,
+  qualified encirclement counting, and time-domain confirmation of stable and
+  unstable loops, including a long-delay case that wrapped phase misclassifies.
+  The precision-drive lesson then evaluates loop, sensitivity, complementary-
+  sensitivity, load-disturbance, and control-sensitivity paths on one common
+  grid and confirms the shaped controller's robustness/noise improvements and
+  slower load-recovery cost on equivalent executable motor copies. The sampled
+  positioning lesson then proves the exact hold, sampling-zero, aliasing, and
+  one-cycle-delay model in the z-plane, safely exposes unchanged gains becoming
+  unstable at a coarse interval, and validates a corrected digital design. The
+  following tuning-method lesson separates method eligibility from candidate
+  feasibility and engineering preference by comparing qualified SIMC and AMIGO
+  PI settings on equivalent heater and dryer plants, retaining AMIGO as
+  explicitly unavailable for the integrating tank, and exposing time,
+  actuator, margin, delay-margin, bandwidth, sensitivity, and Pareto evidence
+  without applying or embedding a winner. The next lesson audits the complete
+  exact-Simulation Automatic Tune route on a recirculating water heater,
+  retaining the Test, Identify, Tune, and Validate decisions, failure and
+  recovery boundaries, unchanged running controller, independent validation
+  copy, and explicitly unapplied recommendation. The following conveyor-oven
+  lesson now derives static and dynamic measured-speed feedforward from
+  separate heater and disturbance paths, executes three equivalent ovens,
+  qualifies settled versus not-settled results, and proves model-mismatch and
+  invalid-signal fallback without removing PI trim or actuator constraints.
+  The jacketed-reactor lesson then commissions the valve-facing temperature
+  loop before closing the product-temperature loop, compares direct PI with
+  fast and deliberately slow cascade structures on equivalent plants, and
+  proves time-scale separation, earlier disturbance detection, tracking, and
+  bounded valve authority from executable evidence. The following blending-
+  skid lesson derives a wild-stream ratio station from material flow, compares
+  it with identical composition-feedback trim on separate two-input plants,
+  and proves prompt production-rate compensation, meter-bias recovery, and
+  tracked low-flow or invalid-quality fallback. The split-range reactor lesson
+  then compares explicit dead-zone and overlap failures with a mutually
+  exclusive installed-gain-characterized heating/cooling mapper, including
+  neutral crossover, utility-throughput, and authority-loss evidence. The
+  compressor lesson then compares normal-only, untracked, and externally
+  tracked high-selector override on equivalent plants, proving constraint
+  priority, inactive-integral consequences, hysteretic takeover/release, and
+  explicit invalid-margin fallback without claiming anti-surge protection. The
+  gravity-tank lesson then derives and validates three local nonlinear operating
+  regions, comparing a conservative fixed PI with atomic interpolation and
+  hysteretically selected PIs whose compensated external tracking preserves
+  live setpoint history and bumpless region transfer. The following long-
+  conveyor lesson qualifies an ordinary PI boundary before applying Smith
+  prediction, then proves nominal rise-time benefit, moderate model-mismatch
+  degradation and deterministic measured-feedback fallback under severe
+  mismatch. The following cooling-water flow-bench lesson characterizes a
+  fixed-head equal-percentage valve approximation and then uses requested
+  position, measured stem position, process flow, and repeated reversal
+  evidence to distinguish healthy motion, command deadband, and mechanical
+  stiction before recommending maintenance instead of an unjustified retune.
+  The next binary-distillation lesson replaces a premature centralized-control
+  summary with two independently restored open-loop interaction tests, derives
+  all four signed steady-state gains and the Relative Gain Array from executed
+  evidence, and selects the eligible diagonal pairing while leaving controller
+  and decoupler design to the following lesson. That next lesson runs the same
+  two PI tunings through direct, static-inverse, and proper dynamic cross-filter
+  mappings, compares common servo and feed-disturbance records, and deliberately
+  rejects the nominal dynamic design under declared cross-path mismatch when
+  its small extra cross improvement does not justify its higher error.
+  The following robustness lesson then evaluates nominal and stronger-
+  interaction column models by singular direction and multivariable
+  sensitivity, selects static decoupling over an equivalent centralized
+  coordinator in the feasible envelope, and retains a jointly limited
+  `+2/+2` request as explicitly infeasible instead of presenting reduced error
+  as successful control. The following interconnected-tank lesson checks
+  hardware feasibility before controller design: independently calculated
+  controllability and observability ranks are matched to executed upstream-
+  pump, downstream-bypass, downstream-sensor, and hidden-state records, while
+  simulator truth channels remain explicitly unavailable as installed sensors.
+  The next state-space lesson then combines a magnetic-bearing pole-placement
+  bench with a loaded-conveyor-motor observer: executable evidence distinguishes
+  a nonsettling position-only baseline from measured-state feedback, removes
+  nominal zero-load speed bias, and deliberately shows unmodelled damping being
+  absorbed into an incorrect physical-load estimate despite accurate speed.
+  The weigh-belt lesson that follows implements an uncertainty-weighted scalar
+  Kalman estimator beside a fixed filter, qualifies covariance and innovation
+  calculations against executed noisy feeder records, isolates a paired
+  load-cell-bias fault, and rejects invalid covariance through a finite fallback
+  without exposing Simulation truth to the estimator. The active-suspension
+  lesson then derives four independently qualified LQR designs from explicit
+  state/effort costs, compares them with pole placement on common physical
+  measures, and combines the balanced design with a position-only Kalman
+  estimate. Executed nominal, doubled-noise, and model-mismatch records retain
+  the force-energy, motion, estimator-error, and increased actuator-movement
+  tradeoffs instead of presenting LQG as universally optimal. The two-zone
+  building lesson then executes a three-step, 729-candidate finite-grid MPC on
+  every interval, qualifies its first move and objective against an independent
+  oracle, compares it with bounded PI on a common weather/occupancy/tariff
+  schedule, and distinguishes completed infeasibility, invalid configuration,
+  bounded fallback, and recovery without presenting a precomputed policy as an
+  optimizer. The nonlinear inverted-pendulum lesson that follows replaces its
+  former linear trace with the shipped sine-gravity plant, derives a bounded
+  quadratic Lyapunov sublevel set, verifies eight certified trajectories
+  against an independent Runge–Kutta oracle, and keeps recovered outside and
+  saturated trajectories explicitly separate from certificate evidence. The
+  gravity-loaded robot-joint lesson then compares fixed PID, gain-scheduled PID
+  and feedback linearisation over common nominal and heavy-payload trajectories,
+  qualifies local interpolation and nonlinear cancellation independently,
+  preserves motor-command margin, exposes the predicted model-mismatch offset,
+  and falls back deterministically when the cancellation model is ineligible.
+  The polymer-extruder lesson then compares fixed, recipe-scheduled, and
+  supervised adaptive PI on common drifting-process records, qualifies a
+  bounded two-parameter recursive-least-squares estimator against an
+  independent scan oracle, separates persistent excitation from explicit
+  experiment authorization, freezes unsupported learning, applies scheduled
+  fallback, and proves projection, corrupt-data safe output, and bounded
+  recovery without hiding actuator or nonsettling costs. The flexible-wing
+  ground-test lesson then rejects an unstable aggressive nominal controller
+  and qualifies a sampled filtered-PD candidate over 27 structured uncertainty
+  cases and a declared multiplicative residual envelope, retaining the
+  sensitivity, robustness, actuator-effort, time-response, data-quality, and
+  bounded-claim evidence instead of extrapolating it to flight certification.
+  The remote pumping lesson then calculates delay margin and a conservative
+  latency budget, compares arrival-order command retention with locally timed
+  bounded ownership on paired header plants, and proves stale, reordered,
+  poor-quality, unsynchronized, excessive-uncertainty and future-dated packet
+  rejection with tracked local-PI fallback and explicitly approved recovery.
+  The fault-aware pumping lesson then coordinates two fast pressure
+  transmitters, slow reservoir level and independent drive feedback; qualifies
+  model-assisted sensor isolation, justified single-sensor degradation,
+  critical safe states, actuator mismatch, acknowledgement, healthy-time
+  qualification and rate-limited approved restoration against one deterministic
+  multirate fault record. The blinded steam-distribution casebook that follows
+  keeps diagnosis outside the controller and distinguishes a qualified healthy
+  baseline, poor tuning, valve stiction, transmitter drift, unavailable
+  capacity, upstream disturbance, loop interaction, and model/schedule
+  mismatch from synchronized requested-demand, measured-stem, reference-meter,
+  disturbance, operating-region, and timing evidence before any retuning.
+  The first integrated capstone then asks the learner to commission a walk-in
+  cold room without a prescribed winner, comparing single-threshold,
+  hysteresis-only, and hysteresis-plus-dwell candidates on the same noisy door-
+  load record and validating measured compressor state, equipment-owned
+  restart readiness, invalid-quality latching, manual recovery, and discrete
+  output without hiding a continuous controller. The recirculating-water-heater
+  capstone then joins physical modelling, independent FOPDT identification,
+  minimum controller-structure selection, Robust and Balanced PI comparison,
+  uncertainty and abnormal validation, and rollback planning into one
+  executable commissioning decision while leaving the recommended revision
+  explicitly unapplied. The flexible-indexing-table capstone then combines
+  two-inertia mechanics, P/PD/PID structure selection, derivative filtering,
+  root-locus and Bode/sensitivity qualification, exact sampled execution,
+  encoder noise, torque limits and model variation; it retains the qualified
+  `10 ms` filtered PID while rejecting unchanged delayed `100 ms` execution and
+  leaves revision `78` unapplied. The jacketed-reactor capstone then commissions
+  its utility-facing loop before production, combines cascade, qualified
+  measured-load feedforward, mutually exclusive steam/cooling split range,
+  tracked high-temperature override, modes and deterministic degraded handling,
+  and compares the integrated architecture against an equivalent feedback-only
+  reactor while leaving revision `79` unapplied.
+  The gravity-tank capstone then derives and independently qualifies three local
+  square-root-outflow models, measures the regional limitation of a conservative
+  fixed PI, validates one atomically interpolated retained PI across the full
+  level envelope, and proves schedule boundaries, requested/applied pump flow,
+  tracking, degraded authority and rollback while leaving revision `80`
+  unapplied. The conveyor-oven capstone then combines independently qualified
+  FOPDT, Bode, complete-contour Nyquist and delay-margin evidence with measured-
+  load feedforward, Smith prediction, model-mismatch fallback, modes and heater
+  authority; executable evidence rejects the aggressive ordinary candidate,
+  selects a `6 s` Smith design, and leaves revision `81` unapplied. The binary-
+  distillation capstone then joins restored four-path identification, unused
+  simultaneous validation, RGA pairing, static decoupling, singular-direction
+  robustness, sensitivity, constraint feasibility, invalid-mapping fallback
+  and operating modes into one architecture decision, selecting static
+  decoupling for the normal envelope while leaving revision `82` unapplied. The
+  two-zone building capstone then qualifies an additive thermal-load estimator,
+  rejects cascade without a measured fast inner variable, and compares strong
+  incremental PI with Balanced and actuator-conservative finite-grid MPC under
+  the same forecasts and constraints. Executable evidence retains PI as the
+  application recommendation because both predictive candidates exceed the
+  declared actuator-movement ratio, while revision `83` remains unapplied. The
+  independent capstone then provides an executable compressed-air reference
+  without prescribing its winning family: it derives and validates receiver
+  and compressor dynamics, screens simple and advanced architectures, proves
+  PI stability and robustness, and selects PI plus qualified measured-demand
+  feedforward from common normal, uncertainty, actuator and abnormal evidence
+  while leaving revision `84` unapplied.
+- Add composable Smith prediction, PID gain scheduling, and static two-by-two
+  decoupling to the Control library with native conformance tests and tuned
+  heated-air-duct, gravity-tank, and climate-chamber projects. Organize all 35
+  control projects as a cumulative real-equipment curriculum. The added
+  plant-modelling strand teaches response classification, conservation-law
+  models, bounded identification, model-order selection, excitation and data
+  quality, independent validation and residuals, local linearisation,
+  frequency response, and MIMO gain/RGA analysis before P-to-PI offset removal,
+  feedforward, cascade, bumpless handover, commissioning, ratio, and constraint
+  override, while preserving stable gallery identities.
+- Add the ESP32-C6-DevKitC-1 reference composition (`firmware/trust-esp32c6` on the new `trust-platform-esp32` adapter). It runs the same saved application bundle, oracle and trace grammar as the NUCLEO-F401RE on RISC-V with software floating point, and executes the interpreter's scan path from internal RAM: from flash, one task activation took 11.07 ms against the 10 ms period. On the owned board the bring-up passes the 101-row trace, numeric checks, GPIO safe outputs, depth-four calls and the MWDT0 watchdog reset, with a 1.97 ms slowest main scan and a 10,856-byte stack peak; production qualification remains separate.
 
 ### Changed
 
@@ -1515,26 +1915,6 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   login once and never stores or echoes it, and then Browse retries. The extension host
   no longer edits an ADS file itself: removing a tag runs `trust-runtime ads
   remove-symbols` and shows its report.
-- Share compact, lossless floating-point text codecs across runtime platforms,
-  preserving both conversion directions and existing diagnostic spelling.
-- Count the work limit the way a PLC program sees it: one unit per executed
-  instruction, plus per-element work when arrays, references or text are copied.
-  Lookups, safety checks and other engine bookkeeping no longer count, and
-  passing an array as VAR_IN_OUT copies nothing, as IEC passes it by reference.
-  Each program or task function-block invocation in a scan has its own
-  1,000,000-unit allowance again, so the OpenOT telemetry and database examples,
-  OSCAT OOP and PLCopen Motion libraries run under the default limits. The stack
-  and register executors charge the same total. Program construction and restart
-  get their own allowance from the preparation profile (64 Mi units by default on
-  hosted runtimes).
-- Hosted execution prepares lookup indexes and frame plans once and moves owned
-  call values instead of copying them; lifetime checks, transactional outputs and
-  failure cleanup are unchanged.
-- Calls do less work. Literal and plain scalar defaults are written straight into
-  the new frame, and on hosted runtimes a function, function block or method that
-  calls no other user POU runs directly inside the calling instruction (not while
-  debugging). Results, faults and work-limit charges are unchanged; such calls no
-  longer reserve call-handler memory.
 - The HMI's shipped symbols take their design size, label and ports from one table in the runtime (`symbol_geometry.json`):
   the language server's pipe routes read it, and the editor's drawing reads the module generated from it, so both meet the same
   ports.
@@ -1904,41 +2284,128 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Lesson 82 (independent design) replaces its compressed-air project with a matched comparison on twelve of Lesson 13's heaters: PI against PI with feedforward of a measured 10 kW draw-off, each at heat losses of 8, 10 and 12 kW/°C with a setpoint step and a draw-off, against requirements and a decision rule declared before the test. A feasibility check shows that every requirement needs at most 96 %. Both candidates meet the setpoint requirement; only the feedforward candidate keeps the draw-off within 0.3 °C (about 0.18 °C, the fall during the 1 s delivery delay, at every heat loss), so the declared rule recommends it.
 - While running with debug control attached, the debug snapshot shows the last completed cycle, including its last statement; a pause, step or breakpoint still snapshots the exact storage at the stop.
 - Lesson 14 (identification experiments) uses that recording: its record ends just after the step returns, for any permitted hold. The lesson explains the steady start, step size and hold through the drift, uncertainty and first-order response calculations, with the recorded results.
+- Control Studio's recorded-fit comparison now exposes the existing model-error and uncertainty evidence in collapsed details, retains the recommended structure with one primary action, and restores its model family and measurement settings when the editor reopens. Lessons16–17 use the three-page controls without changing their teaching objectives.
+- Control Studio retains project-experiment recordings and signal selections on
+  reopen, shows selected live setpoints and diagnostics with stable colours, and
+  frames constant measurements without exaggerating numerical roundoff.
+- Keep experiment review text compact and use shared numeric controls for declared
+  settings. Save native recordings through the response context menu or command palette.
+- Allow the identification-experiment lesson's complete 40-second hold after its
+  five-second baseline; retain the actual applied-input record for subsequent identification.
+- Adapt control-course experiment instructions to the existing three-page
+  Control Studio while preserving the taught concepts and declared requirements.
+- Tune automatically fills missing test settings from the selected plant model,
+  recording and operating limits. Keep declared/manual requirements and pinned
+  controller settings; label generated criteria in the optional editor and
+  validation results and retain them across reopening.
+- Control Studio Identify now performs one live experiment and retains its
+  provisional model and measured response. Tune stops with the candidate;
+  explicit Validate acquires independent data, checks the frozen model and
+  executes the controller campaign before enabling Apply.
+- Control Studio Identify records and excites the connected running plant in real time,
+  using native experiment restoration and per-scan recording. Reset and reopening
+  resume live selected signals. Independent live records retain their own provenance.
+- Control Studio: replace the old multi-mode workspace with the agreed Identify,
+  Tune and Validate pages, sharing the existing workflow/runtime services.
+  Keep exact controller bindings, recorded-data identification, manual/pinned
+  settings, channel limits and requirements, and guarded Apply/Restore in that flow.
+  Fit explicitly selected recording channels and retain them after reopening;
+  identify every declared PID-group member and require a supported complete
+  parameter/state transaction before group tuning or application.
+  Restore contextual project experiments, manual recorded-data fitting, supplied
+  model import, analysis tools and scenario editing within those same pages.
+  Retain measured frequency/MIMO results, exact Routh regions, initial-state
+  responses and finite-horizon Riccati stages; preserve declared state and
+  switching-controller pins during retuning.
+- Refine Control Studio into one readable direct analysis surface with
+  coordinated Bode magnitude and phase navigation, exact graphical gain entry
+  and live margins, full-width plots below compact live values, visible wrapped
+  controls at 200 percent zoom, restrained VS Code-themed chart chrome, export
+  of the currently visible plot, and pixel-verified MIMO rendering evidence.
+- Expose Control Studio as a permanent truST sidebar destination immediately
+  below Devices & Connections. The destination is visibly disabled with a
+  reason until a project is open, while configured simulated plants retain
+  their direct context-preserving Control Studio handoff. Runnable projects
+  can provide an explicit `control-loop.json`; the water-heater proportional
+  lesson now uses it so the sidebar opens its live SP, PV, and MV instead of an
+  unbound workspace.
+- Define the Control Studio chart workspace as a large, discoverable
+  engineering surface with visible plot and signal selection, unit-safe
+  multi-channel lanes, explicit advanced-plot prerequisites, MIMO matrix/RGA/
+  singular-value views, professional time/frequency/stability plots, expanded
+  mode, direct graphical controller tuning, linked candidate analysis,
+  graphical requirements, pinned design comparison, evidence-bound session
+  restoration, uncertainty envelopes, undo/redo, and precise responsive and
+  accessibility acceptance criteria.
+- Render lesson equations with VS Code and GitHub's native Markdown math,
+  including conventional fractions, indices, vectors, and matrices, while
+  preserving the curriculum's words-before-symbols and accessible prose rules.
+- Replace the draft control-engineering curriculum specification and its
+  premature implementation checklist with an 84-lesson causal learning program
+  and specification-derived implementation checklist. The program teaches
+  required theory before each real-equipment practical, carries one observed
+  limitation into the next technique, and progresses through production PID,
+  modelling, identification, classical analysis, industrial structures, MIMO,
+  state-space, predictive, nonlinear, adaptive, robust, networked, diagnostic,
+  and capstone work. The reviewed water-heater proportional-control lesson now
+  defines the reusable course-wide conformance pattern: words and physical
+  meaning before notation, executable predictions, actual Structured Text,
+  precisely defined and validity-qualified measures, retained evidence, and a
+  causal handoff from one lesson's observed limitation to the next.
+- Make `examples/` the single maintained source for bundled projects, generate
+  the VS Code example package from its canonical catalog, and replace the flat
+  control list with 84 ordered lessons plus topic links that make the rest of
+  the tutorial and example catalog discoverable. The control examples README
+  now provides the complete linked course map, stating the real equipment,
+  theory, Control Studio stages, and practical skill for every lesson. Every
+  canonical lesson directory now begins with its zero-padded course number and
+  lives in one of 14 consecutive learner modules, so filesystem browsing
+  preserves the same learning order as Control Studio. Separate README indexes
+  let engineers find lessons by technique, plant behavior, and workflow without
+  imposing a second technical taxonomy on the folder tree.
+  Canonical bundled projects now use an explicit non-secret local example token
+  so every shipped `runtime.toml` passes the runtime configuration validator.
+
+### Removed
+
+- Removed: the bytecode engine. Every runtime now runs the project compiled into a program image
+  (specification 44 §15): `trust-runtime build` writes `program.tpi`, and `run`, `play`, `fleet
+  start`, `conformance`, `bench project`, `trust-dev test` and the VS Code simulator run it. The STBC
+  format with its encoder, loaders, validator and virtual machine is deleted, and so are the
+  `--execution-backend` options of `run`, `play`, `build`, `conformance`, `bench` and `trust-dev
+  test` and the debug launch's `executionBackend`, which entries below still name. A project that
+  holds only an old `program.stbc` is refused with "rebuild the project"; `runtime.execution_backend`
+  in `runtime.toml` still loads with `vm` or `native` and selects nothing. Retain files written
+  before restore unchanged. `trust-bundle-gen` writes `program.tpi`, `trust-runtime check` no longer
+  reports a bytecode size, and `cargo xtask portability` loses its STBC actions (`pack`, `verify`,
+  `footprint`, `compare-benchmarks`). The STM32F407 firmware and its adapter are deleted with the
+  engine they ran: the chips are the ESP32-C6 and the STM32U5A9. The engine's error codes, which
+  nothing reports any more, leave the stable vocabulary: `bytecode_*`, every `vm_*` code but
+  `vm_call_stack_overflow`, `runtime_invalid_bytecode`, `runtime_invalid_bytecode_metadata`,
+  `runtime_unsupported_bytecode_version`, `runtime_condition_not_bool`, `runtime_case_selector_type`,
+  `runtime_invalid_control_flow`, `runtime_type_nesting_exceeds`, `runtime_undefined_task`,
+  `runtime_undefined_label`, `runtime_invalid_task_single`, `runtime_constant_write`,
+  `runtime_staging_violation`, `runtime_visibility_violation`, `runtime_program_root_replacement`
+  and `runtime_preparation_limit`.
+- The NUCLEO-F401RE firmware is retired; the STM32 chip is the STM32F407. The STM32F4
+  adapter has no `stm32f401` feature, and `cargo xtask portability` no longer accepts
+  `nucleo-f401re`.
+- HMI Builder: Live mode always shows the real run target; its test values and recordings are
+  removed.
+- HMI: `symbols = "rendered"` in `hmi/screen.toml` is an error; the symbols are two-dimensional.
+- Control Studio no longer contains built-in physical model families: the thermal-balance and gravity-tank models, their identification, the step-by-step setup's unit-based choice of them ("Thermal energy balance" for W and °C, "Gravity-tank volume balance" for m³/s and m) and their native simulation are removed. Models are transfer functions or state-space models; a physical plant is supplied as one, identified from recordings or simulated by the project's plant. Lessons 68 and 69 supply the equivalent linearized two-tank state-space model.
+- The legacy HMI is removed; the HMI Builder (`docs/specs/39-hmi-builder.md`) replaces it. Removed: the `/hmi` page
+  with its assets, export (`/hmi/export.json`) and live socket (`/ws/hmi`); the `hmi.*` control operations; the
+  `trust-runtime hmi` command; the `hmi/` pages that `trust-runtime run` wrote into projects; the language server's
+  `trust-lsp.hmiInit` command and HMI diagnostics; the VS Code HMI preview, its commands, the
+  `trust.hmi.refreshIntervalMs` setting and the HMI language-model tools; and the legacy HMI examples, tutorials and
+  documentation. `trust-lsp.hmiBindings` still returns the process image and control symbols but no longer `programs`
+  and `globals`; `status` no longer reports `hmi_read_only`, `config.get` no longer reports `hmi.read_only`, and the
+  access capabilities no longer include `hmi`. A `runtime.toml` that still contains `[runtime.hmi_persistence]` is now
+  rejected: delete that section. Existing `hmi/` folders are no longer read or changed.
 
 ### Fixed
 
-- Control Studio's Identify and Validate judge a step's response from the scan at which the runtime
-  reports the step applied (specification 35, B3.4 step 4). Before, the response counted from the
-  newest sample when the step was sent: when the start reached the runtime late, as on a busy
-  computer at a high simulation speed, the samples recorded in between could end the step before it
-  took effect, and the restoration then replaced the step: Validate refused the recording for want
-  of excitation, and Identify's recording held no step or one cut short.
-- On an ARM computer (a Mac with Apple silicon, ARM Linux) the runtime makes a compiled program it
-  loads the instructions the CPU fetches before the program runs (specification 44 §10.3). Before,
-  the CPU could run instructions its instruction cache still held for those addresses.
-- The runtime's operator display at `/hmi` loads its modules again (#134): 0.24.74 served `app.js`
-  but answered 404 for every module, so the page stayed blank on `Disconnected`. The display of 0.25
-  (specification 39) serves every file its page names, and a test requests each one.
-- The documentation site publishes again. Since 0.25.0 its checks had stopped it: the link check
-  read the HMI Builder page's shortcut **Ctrl+[** as the start of a link, the control course's
-  learning path and four other pages linked files outside the site by relative paths (they now
-  link them on GitHub), and the HMI Builder's screenshots were missing from the capture inventory.
-- Control Studio can read a loop's signals while the runtime starts. Before a program's first
-  complete scan the runtime refused `control.signals.inspect` with "current runtime scan
-  unavailable", so a run or recording that began then failed at once. It now answers that the read
-  waits for the scan, as annex E3 of the Control Studio protocol states, and Studio asks again.
-- On a computer, a restart begins the tasks' timing, and the cycle grid with it, when its first
-  cycle starts, as a chip does (specification 10 §4.3). It began them when the restart ended, so
-  the time between counted: after an automatic restart's backoff the first cycle ran the tasks,
-  and a longer backoff counted activations as missed.
-- A real-time (T0) shared-memory transport made without a configured root removes that root when
-  it closes, and names it so that no later process opens it. Before, the root stayed in the
-  temporary folder, and a later process that the operating system gave the same process ID opened
-  its channels and went on from their old sequence.
-- On Windows, a debug build of `trust-runtime` links again (`cargo build`, `cargo run -p
-  trust-runtime`): the runtime provides the critical section that the compiled cycle's libraries
-  take. Since 0.25.0 nothing provided one outside a build of the whole workspace's tests, and
-  Windows' linker refused the missing symbol.
 - The cycle grid keeps the tasks' deadlines on computers and chips alike (specification 10 §4.3):
   it begins where the tasks' timing begins, also when the first cycle starts late; a cycle that
   starts a whole cycle interval or more late, because the operating system delayed its wake or the
@@ -2545,142 +3012,27 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Keep chart tick labels distinct when small temperature changes occur around a nonzero operating point.
 - Keep rejected independent model predictions inspectable after save/reopen without allowing acceptance. Preserve the model overlay when restoring hidden experiment signal selections.
 - Keep Lesson18 on the same native heater used for identification, and use the permitted40s estimation hold for its independent validation handoff. Preserve the lesson's fixed error and timing requirements.
-
-### Removed
-
-- Removed: the bytecode engine. Every runtime now runs the project compiled into a program image
-  (specification 44 §15): `trust-runtime build` writes `program.tpi`, and `run`, `play`, `fleet
-  start`, `conformance`, `bench project`, `trust-dev test` and the VS Code simulator run it. The STBC
-  format with its encoder, loaders, validator and virtual machine is deleted, and so are the
-  `--execution-backend` options of `run`, `play`, `build`, `conformance`, `bench` and `trust-dev
-  test` and the debug launch's `executionBackend`, which entries below still name. A project that
-  holds only an old `program.stbc` is refused with "rebuild the project"; `runtime.execution_backend`
-  in `runtime.toml` still loads with `vm` or `native` and selects nothing. Retain files written
-  before restore unchanged. `trust-bundle-gen` writes `program.tpi`, `trust-runtime check` no longer
-  reports a bytecode size, and `cargo xtask portability` loses its STBC actions (`pack`, `verify`,
-  `footprint`, `compare-benchmarks`). The STM32F407 firmware and its adapter are deleted with the
-  engine they ran: the chips are the ESP32-C6 and the STM32U5A9. The engine's error codes, which
-  nothing reports any more, leave the stable vocabulary: `bytecode_*`, every `vm_*` code but
-  `vm_call_stack_overflow`, `runtime_invalid_bytecode`, `runtime_invalid_bytecode_metadata`,
-  `runtime_unsupported_bytecode_version`, `runtime_condition_not_bool`, `runtime_case_selector_type`,
-  `runtime_invalid_control_flow`, `runtime_type_nesting_exceeds`, `runtime_undefined_task`,
-  `runtime_undefined_label`, `runtime_invalid_task_single`, `runtime_constant_write`,
-  `runtime_staging_violation`, `runtime_visibility_violation`, `runtime_program_root_replacement`
-  and `runtime_preparation_limit`.
-- The NUCLEO-F401RE firmware is retired; the STM32 chip is the STM32F407. The STM32F4
-  adapter has no `stm32f401` feature, and `cargo xtask portability` no longer accepts
-  `nucleo-f401re`.
-- HMI Builder: Live mode always shows the real run target; its test values and recordings are
-  removed.
-- HMI: `symbols = "rendered"` in `hmi/screen.toml` is an error; the symbols are two-dimensional.
-- Control Studio no longer contains built-in physical model families: the thermal-balance and gravity-tank models, their identification, the step-by-step setup's unit-based choice of them ("Thermal energy balance" for W and °C, "Gravity-tank volume balance" for m³/s and m) and their native simulation are removed. Models are transfer functions or state-space models; a physical plant is supplied as one, identified from recordings or simulated by the project's plant. Lessons 68 and 69 supply the equivalent linearized two-tank state-space model.
-
-### Security
-
-- Security: tokio 1.54.1 (RUSTSEC-2026-0386), rustls-webpki 0.103.16 (RUSTSEC-2026-0382), webpki-roots 1.0.11
-  (RUSTSEC-2026-0381) and ctutils 0.4.6 (RUSTSEC-2026-0385).
-- Security: the VS Code extension takes undici 7.30.1 through Blockly's jsdom (GHSA-4qv8-2p9j-2685,
-  GHSA-f72v-6w45-q472, GHSA-xjj6-f33q-929c), and its development tools serialize-javascript 7.1.4 and, through an
-  `overrides` entry for the packaging tool's Azure sign-in, `@azure/msal-node` 7.1.1 (GHSA-xcx6-jx8p-x3h5), so
-  that `npm audit` reports no vulnerability.
-- Security: the VS Code extension takes `markdown-it` 15.0.3, which fixes two quadratic-time denial-of-service
-  defects in rendering (GHSA-vfgh-jcmw-g37q, GHSA-gfr2-rv44-r23c).
-- Security: the HMI's file routes (screens, panels, pairs, texts, symbols and images) read only regular
-  files inside the project's `hmi/` folder; a link, a linked folder or an `io.toml` is never read, so no HMI
-  route can disclose the I/O configuration's credentials.
-- Security: a web deployment (`/api/deploy`) is now checked against the signature policy of the
-  project's installed `runtime.toml`. Before, the check read `[runtime.deploy] require_signed` and
-  `keyring_path` from the `runtime.toml` the deployment itself carried, so a deployment could turn
-  the requirement off, or name a keyring of its own, and install an unsigned program.
-- The web IDE's `/api/discovery` and `/api/probe` need the same web login as the other
-  routes, and `/api/probe` takes its target and credentials in a POST body instead of
-  the URL. `config.get` and `config.set` cover `discovery.host_group`;
-  `comm.capabilities` reports discovery and mesh peer health; a runtime listening on a
-  wildcard address reports its real network addresses instead of `127.0.0.1`.
-- Runtime mesh now enforces configured peer tokens and TLS using the runtime's certificate
-  material. A requested TLS connection cannot silently start as plaintext; wrong or missing
-  peer credentials are rejected.
-- Security: dependencies updated for new advisories: rustls 0.23.45 (RUSTSEC-2026-0285), salsa 0.28.5 (RUSTSEC-2026-0308; the compiler's value-returning queries keep returning values), event-listener 5.4.2 (RUSTSEC-2026-0221), ratatui 0.30.2 with lru 0.18 (RUSTSEC-2026-0253), non-yanked spin 0.9.9 and 0.10.1, and the VS Code extension's `brace-expansion` 2.1.7 and 5.0.12 (GHSA-q2hr-2g5m-vwhr, GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p). The seven tracked advisory exceptions were re-reviewed (no upstream fix for opcua 0.12, tiny_http 0.12 or zenoh's `paste`) and renewed until 2026-12-29.
-
-### Removed
-
-- The legacy HMI is removed; the HMI Builder (`docs/specs/39-hmi-builder.md`) replaces it. Removed: the `/hmi` page
-  with its assets, export (`/hmi/export.json`) and live socket (`/ws/hmi`); the `hmi.*` control operations; the
-  `trust-runtime hmi` command; the `hmi/` pages that `trust-runtime run` wrote into projects; the language server's
-  `trust-lsp.hmiInit` command and HMI diagnostics; the VS Code HMI preview, its commands, the
-  `trust.hmi.refreshIntervalMs` setting and the HMI language-model tools; and the legacy HMI examples, tutorials and
-  documentation. `trust-lsp.hmiBindings` still returns the process image and control symbols but no longer `programs`
-  and `globals`; `status` no longer reports `hmi_read_only`, `config.get` no longer reports `hmi.read_only`, and the
-  access capabilities no longer include `hmi`. A `runtime.toml` that still contains `[runtime.hmi_persistence]` is now
-  rejected: delete that section. Existing `hmi/` folders are no longer read or changed.
-
-### Changed
-
-- Control Studio's recorded-fit comparison now exposes the existing model-error and uncertainty evidence in collapsed details, retains the recommended structure with one primary action, and restores its model family and measurement settings when the editor reopens. Lessons16–17 use the three-page controls without changing their teaching objectives.
-- Control Studio retains project-experiment recordings and signal selections on
-  reopen, shows selected live setpoints and diagnostics with stable colours, and
-  frames constant measurements without exaggerating numerical roundoff.
-- Keep experiment review text compact and use shared numeric controls for declared
-  settings. Save native recordings through the response context menu or command palette.
-- Allow the identification-experiment lesson's complete 40-second hold after its
-  five-second baseline; retain the actual applied-input record for subsequent identification.
-- Adapt control-course experiment instructions to the existing three-page
-  Control Studio while preserving the taught concepts and declared requirements.
-- Tune automatically fills missing test settings from the selected plant model,
-  recording and operating limits. Keep declared/manual requirements and pinned
-  controller settings; label generated criteria in the optional editor and
-  validation results and retain them across reopening.
-- Control Studio Identify now performs one live experiment and retains its
-  provisional model and measured response. Tune stops with the candidate;
-  explicit Validate acquires independent data, checks the frozen model and
-  executes the controller campaign before enabling Apply.
-- Control Studio Identify records and excites the connected running plant in real time,
-  using native experiment restoration and per-scan recording. Reset and reopening
-  resume live selected signals. Independent live records retain their own provenance.
-- Control Studio: replace the old multi-mode workspace with the agreed Identify,
-  Tune and Validate pages, sharing the existing workflow/runtime services.
-  Keep exact controller bindings, recorded-data identification, manual/pinned
-  settings, channel limits and requirements, and guarded Apply/Restore in that flow.
-  Fit explicitly selected recording channels and retain them after reopening;
-  identify every declared PID-group member and require a supported complete
-  parameter/state transaction before group tuning or application.
-  Restore contextual project experiments, manual recorded-data fitting, supplied
-  model import, analysis tools and scenario editing within those same pages.
-  Retain measured frequency/MIMO results, exact Routh regions, initial-state
-  responses and finite-horizon Riccati stages; preserve declared state and
-  switching-controller pins during retuning.
-
-### Fixed
-
 - Recognize a rate-limited step's rising increments as part of the same step,
   preserving the existing fitter's estimation of gain, dynamics and delay.
-
 - Identify plant executes a fresh experiment for the chosen method instead of
   silently refitting a previous method's recording. Reset clears the working
   model, chart and dependent results, including the saved draft, while keeping
   configured signals/limits and the running controller unchanged.
-
 - Keep large identified model equations scrollable above the experiment plot;
   explain clipped or rate-limited relay records without reporting missing cycles.
-
 - Show actual identification inputs alongside measured outputs and model
   predictions on aligned time axes. Display returned experiment records before
   fitting completes and retain the matching input trace when reopening results.
-
 - Keep identification on its model and response for review. Identify plant keeps
   its label; Reset chart clears the display without starting identification or
   deleting the model. Use the Tune tab to navigate; ask for missing requirements
   only when tuning is requested.
-
 - Prepare isolated Control Studio bytecode before starting PLC scan deadlines,
   so compilation cannot consume the first scan budget on slower hosts.
-
 - Show selected plant signals and their current readings in Identify before a
   model is acquired. Signal dropdowns apply checkbox choices immediately and
   close on outside click, without Done/Cancel buttons.
-
 - Preserve scenario values when adding or renaming signals.
-
 - Run the model-validation heater/probe through native plant simulation and
   preserve its five-second holdout baseline. Model-based PI tuning now executes
   the library `Control.PID`; source-selected trials run the selected command/load.
@@ -2730,11 +3082,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   so an imported estimation run can use the next native Test for validation.
   Check the selected recording rather than an older Test with the same role.
   Include the five-second baseline in the step-identification lesson's Test.
-
 - Distinguish the last Control Studio Test outcome from the current runtime and
   a newly reviewed plan, while retaining recordings and explicit recovery needs.
   Model and tuning updates preserve the Test-owned status and its accessible label.
-
 - Put the selected course lesson's name and project action before expandable
   technical details. Preserve full teaching text, remove identical repeated
   introductions and retain the PID acronym in module titles.
@@ -2742,54 +3092,43 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   catalogue instead of leaving links to sibling folders that were not copied.
   The step-identification lesson explains EN/ENO without a reference link to
   repository files absent from the copied project.
-
 - Render authored lesson instructions, tables and equations in the example
   gallery. Open referenced bundled files as read-only source previews while
   keeping the selected lesson available in the same editor group.
-
 - Keep native ST assertions out of Simulator source selection in the remaining
   control-course projects while preserving their test bodies and discovery.
   Filtered `trust-dev test` runs now register all test declarations for
   compilation and execute only matching cases, including configured projects.
-
 - Import saved Control Studio recordings for identification while retaining their
   original acquisition identity through Save/Open. Keep source controller and
   design state out of the import, and exclude the step-identification lesson's
   native assertions from Simulator using the existing runtime-ignore marker.
   Show the recording before fitting, keep one primary next action and one
   historical source badge, and return explicit Monitor navigation to live data.
-
 - Accept the documented manual PI Tune-to-Test lesson route when building the
   course catalog, while still rejecting unknown and duplicate stages. Align
   the Routh–Hurwitz lesson title and next-lesson link with the approved course.
-
 - Keep identification experiment settings in Test, lock them during review/run,
   and record the declared baseline before enabling the existing project.
   Preserve newer I/O observations per debug session when delayed events arrive.
-
 - Label paired process signals with their actual names on Control Studio axes,
   including model/measurement and heater/loss comparisons in Energy balance.
   Keep unselected diagnostics in Signals, and allow recorded channel selection
   directly in Validate without leaving the saved or retained response.
-
 - Show applied input and measured output consistently for open-loop experiments,
   without a fictitious setpoint or undeclared controller mode. Validate displays
   the retained native recording before Save/Open while Monitor keeps live data.
   Keep padded temperature-axis endpoints from repeating rounded tick labels.
-
 - Refresh Control Studio observations after a confirmed simulator restart and
   start a fresh live response window while preserving saved recordings. Share
   the coherent signal selection with recording and identification. Reject new
   project-owned Tests while primary signals have forcing or bad quality.
-
 - Keep aborted Test recordings available for save/open/export while identification
   remains disabled for unqualified data. Preserve project-owned activation, stop
   and restoration details, including Boolean applied values, in saved results.
-
 - Give manual controller parameters labelled numeric fields, bounded change
   reviews and observed rollback values. Keep model/search tools and raw JSON
   expandable, and show measured response while tuning without a fitted model.
-
 - Keep recording-only Control Studio validation focused on the measured response,
   save/open/export actions and review readiness. Opening saved revisions replaces
   previous plot evidence and validation status without changing the controller.
@@ -2797,7 +3136,6 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   explanation when a saved controller candidate has no stored comparison.
 - Keep arithmetic roundoff in constant recorded signals from appearing as a
   large oscillation when Control Studio fits its axes; preserve raw samples.
-
 - Run the heater setpoint/load lesson through the existing Control.PID and one
   native temperature sensor, with separate heater/load delays and applied-output
   feedback. Preserve both experiments and their original response requirements.
@@ -2809,20 +3147,16 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   applied-output diagnostics.
 - Omit a repeated controller type from Control Studio setup choices when it
   duplicates the instance label; preserve compiled identities and custom choices.
-
 - Align live Control Studio event markers with actual time and plot boundaries,
   including zoom and resize; show source, time and meaning on hover. Use
   Ready to apply / Ready to restore for the corresponding open change review.
-
 - Add Back and four named phases to native Control Studio setup. Preserve
   compatible answers, revalidate changed choices, and prevent stale asynchronous
   validation from accepting an edited value.
-
 - Hide Control Studio figure tools on Signals and Events. Expose the Response
   sample table with selected channels, engineering units and individual quality.
 - Keep live time-axis labels separated near the latest observation without
   trimming the recorded response.
-
 - Keep the existing Abort test action visible across Control Studio modes,
   Signals and plot expansion until the native experiment stops.
 - Show the active Test recording and progress consistently; prevent manual
@@ -2830,10 +3164,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Simplify lesson-owned Test review to duration and a compact exact plan;
   omit fixed controls, unused excitation seeds and internal Boolean units.
   Remove unsupported Automatic Tune actions and collapse empty header space.
-
 - Keep the Signals list on the opened recording's values, units and quality;
   preserve offline readings and return to current values when live observation resumes.
-
 - Draw selected controller diagnostics in live and reopened Response plots,
   preserve their samples and quality in exports, and separate incompatible
   units into aligned lanes. Restore the visible signal checkboxes with saved
@@ -2842,7 +3174,6 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   review values, and draw theme-derived measurement strokes at full opacity.
 - Label controller-state axes by their actual role and keep diagnostic trace
   colours/styles distinct from primary SP/PV/MV when selecting signals.
-
 - Run the heater P and PI lessons through the actual Control.PID block and keep
   the library quick-start example's history between scans. Add a read-only
   state snapshot for diagnostics without changing the controller equations.
@@ -2863,9 +3194,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Keep independent model-fit evidence attached to its selected model, retain
   completed Tune/Verify results on screen, and use consistent response colors
   and compact parameter comparisons throughout Control Studio.
-
 - Map the actual `Control.PID` seven-state initialization through the shared Control Studio verification and commissioning workflow.
-
 - Show builtin tuning controls only for adapters that use them and keep hidden
   gain fields from blocking project-owned tuning.
 - Disable empty Monitor plot actions until samples arrive while preserving
@@ -2905,25 +3234,17 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Manual/imported PID inputs report validation errors before submission; plot
   exports use the native Save dialog and report the actual saved filename or
   cancellation. Reviewed numerical settings use shared engineering precision.
-
 - Validate the final part of an identified model's independent response as well
   as its average error, preventing an integrating approximation from hiding
   a first-order process's final-response mismatch.
-
 - Reject blank required Control Studio tuning goals and gains, and show manual
   tuning errors instead of leaving the candidate in a generating state.
-
 - Remove duplicate headings and introductory copy from Control Studio; keep manual tools and scenario editing inside Settings.
-
-
-### Fixed
-
 - Classical tuning accepts the exact held-input equivalent of supported scalar
   sampled models while actual-ST verification retains the original discrete plant.
 - Relay qualification excludes recording startup and incomplete initial periods;
   switching between loops keeps each loop's task and draft in its own session.
 - Updated the locked `js-yaml` dependency to 4.3.2 to address its dependency audit finding.
-
 - Control Studio keeps supplied-model imports in the main workflow, shows task
   requirements before tuning, and preserves one primary next action after edits
   and reopen. High-contrast primary buttons retain a visible outline.
@@ -2932,8 +3253,6 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Auto commissioning retains native recordings and completed checkpoints on
   close. Matching saved receipts restore their plots without restoring Apply
   approval; lost acknowledgements reconcile the original parameter operation.
-
-
 - Control Studio shares relay transitions and transfer-function realization
   between existing and new paths, and centralizes P/PID adapter operations.
   Explicit state, ON/OFF and project-owned controller mappings now use shared
@@ -2949,124 +3268,19 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   declared noise, load, interaction, switching and state-recovery scenarios.
   Model-derived settings check coordinate units; verification respects model
   validity ranges as well as equipment limits.
-
-
 - Added exact delayed-integrator simulation for selected-model actual-ST verification, with bounded input history and reset support.
-
-
 - Control Studio connects integrating models to the shared P/PI design paths and considers PD candidates using their calculated steady-error limits.
-
-
 - Control Studio rejects nonrepeatable relay amplitudes and periods before offering tuning settings.
 - Control Studio supports explicitly choosing P on a typed PID controller, zeroing I/D gains through verification and commissioning.
-
-### Added
-
-- Control Studio now checks supplied-model validation evidence and bound channel
-  units before controller recommendation, selects PI when P cannot meet the
-  declared gain bounds, rejects initial commands beyond the actuator range, and
-  returns failures through the existing Find model, Tune, controller-choice or
-  requirements controls. It also preserves declared pulse identification and
-  uses a held-out multisine or PRBS frequency fit when requested. Explicit relay selection uses the feedback-relay acquisition route.
-
-- Control Studio can commission a declared first-order PI controller in Auto
-  through a typed retained-state adapter. It verifies the actual ST baseline,
-  candidate and first-output continuity case, aligns integral and derivative
-  history at the runtime task boundary, observes the applied response, and
-  returns to Manual with the prior parameter record on rollback.
-
-- Control Studio's automatic recommendation now lets a selected proportional
-  controller continue through its own P tracking and Auto commissioning path
-  when the declared loop has no PID retained-state adapter. PI and PID Auto
-  commissioning still require their declared state-initialization adapter.
-
-- Control Studio Test now offers automatic bounded excitation, derives a safe
-  reviewed step from the live loop mode and command headroom, and carries
-  independent Test-record identities through model validation. Manual-output
-  tests can write a declared command address/type while retaining the actual
-  MV/PV response for fitting.
-
-- Control Studio Relay Test now qualifies the runtime's measured feedback
-  cycles, then offers one explicit calculation of an unapplied PI proposal.
-  It never substitutes a timed square wave, accepts gains from the webview, or
-  applies a relay result automatically.
-
-- Runtime controller transfers apply mode and state coherently at the owning
-  task boundary, track fresh P-controller inputs, and retain observed adoption,
-  cancellation and failure outcomes. Control Studio connects this to reviewed
-  local-simulator Auto commissioning and guarded Manual rollback. Recorded
-  responses, manual transfer tolerance and fresh recovery reviews survive saved
-  studies; completed unconfirmed recovery is retained when its editor closes.
-
-- Control Studio records declared symbolic controller modes with program identity
-  and per-channel quality, protects active verification from model replacement,
-  and clears incompatible manual gain pins when identification changes the model.
-
-- Isolated Control Studio verification retains received sample prefixes after
-  cancellation or wall-budget termination, with bounded capture and explicit
-  failure status; cancelled records remain available to inspect, save and reopen.
-
-- Connected Control Studio P workflows show current model, tuning and verification
-  stage status, clear historical qualification on reopening, and use one Tune action.
-
-- Control Studio carries declared and measured operating points into selected-model
-  simulation, proportional tuning and matched actual-ST verification without
-  adding controller bias. Automatic simulation identification reads the actual
-  Manual operating command and checks its retained pre-excitation baseline.
-
-- Control Studio reads a declared symbolic controller mode together with process
-  signals from one runtime scan, and clears unavailable mode values.
-- Opening a saved study during active work is rejected before replacing state;
-  fresh verification resumes live readings and shows the unapplied candidate.
-
-- Guided setup binds an existing proportional ST controller without invented
-  plant coefficients, for model identification followed by tuning and verification.
-
-- Control Studio retains completed identification trials when qualification or a
-  later trial fails, and preserves earlier campaign evidence across retries.
-- Failed Control Studio identification studies can be saved and reopened with
-  their raw trial evidence; reopening does not authorize controller application.
-
-- Control Studio uses the selected compatible supplied model for Routh analysis,
-  and controller comparison prefers simpler sufficient designs over additional performance.
-
-- Control Studio now retains declared unlimited-request and integral-state signals
-  beside applied output for a completed saturation-return Test. It reports the
-  actual clamp, integral change and release delay, then recommends anti-windup
-  without resetting controller state or claiming additional actuator capacity.
-
-- After a qualified saturation-return record, Control Studio can review one
-  typed back-calculation candidate for the declared simulation loop, stage its
-  complete parameter record, and restore the exact untracked baseline. Matched
-  tracked-versus-untracked Test comparison remains in progress.
-
-- Control Studio Routh–Hurwitz analysis displays declared characteristic
-  polynomials, table calculations and analytical intervals for supported
-  first- and second-order models, with explicit special-case limitations.
-
-- Control Studio configures existing projects from compiled signal and controller
-  metadata, discovers multiple loops, and rejects duplicate loop identities.
-- Project-owned experiments can open every Control Studio workflow stage.
-- Provided transfer-function models support offline named-parameter root-locus
-  calculation, candidate selection and saved-result restoration, with explicit
-  model provenance and approximation labels. New results use schema v4 while
-  legacy v3 records remain readable.
-
-### Fixed
-
 - Closing Control Studio during a standard Manual parameter apply or rollback
   now preserves only the native transaction identity and rechecks the matching
   runtime status after reopening. It never replays the write or retains a
   closed review token or client.
-
 - Control Studio manual recording now retains the original recording owner when
   Start acknowledgement is lost, retries Stop on that owner, preserves returned
   runtime samples, and labels unconfirmed captures as unqualified evidence.
-
-
 - Start Lesson 1's door disturbance with its experiment, so reading the
   instructions while the simulator runs no longer consumes the scenario.
-
 - Begin targeted repairs to the 82-lesson control curriculum, preserving the
   P-to-PI progression and separating prose, executable-project and rendered
   workflow verification. Individual lesson acceptance remains in progress.
@@ -3076,353 +3290,6 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Add lesson-specific Control Studio instructions and process-image mapping
   repairs. Their individual execution and rendered acceptance are tracked
   separately; this is not a claim that the entire course is verified.
-
-Target release: `v0.24.65`
-
-### Added
-
-- Show full objectives, expected observations and lesson-specific previews in
-  the example gallery, and bundle first-action guidance with all six non-control
-  starters. Preserve created projects when VS Code cannot switch folders and
-  offer an explicit retry without copying or generating their files again.
-- Replace the example gallery's filter-chip wall with compact hardware/category
-  selectors and a result count. Isolate damaged lesson metadata and show its
-  reason without offering a misleading Create action.
-- Preserve learner-selected actuator and sensor layouts in the controllability
-  and observability lessons, so their alternate comparison cases can actually
-  run. Keep safe zero-flow restoration independent of those selections.
-- Retain the state-feedback and observer lesson comparison controls instead of
-  forcing the preferred controller path every scan; document separate fair runs
-  and preserve existing safe current/torque restoration.
-- Split optional plant settings into named actuator, signal conversion, realism
-  and scenario tasks, with visible summaries that include disabled configured
-  effects. Opening one task no longer exposes every engineering field at once.
-- Show scenario event times in seconds with exact millisecond persistence;
-  retain invalid edits and block Save instead of rounding or treating blanks
-  as zero. Distinguish runnable simulator defaults from optional physical
-  hardware on the six starter example cards.
-- Return focus to example search after clearing an empty result, so the removed
-  reset button does not leave keyboard focus lost.
-- Reopen saved plant models that omit default starting values. Show their
-  model-sized zero state without substituting a teaching template, and preserve
-  the original omission when only the name changes.
-- Show effective zero defaults for optional robot-joint friction and gravity
-  parameters while preserving omitted values on save.
-- Retain created lesson-project locations and offer Open existing project,
-  without treating project creation as lesson completion.
-- Label editor-polled Control Studio recordings as incomplete, retain observed
-  scan gaps and dropped samples, and block identification from these partial
-  recordings. Do not report editor refresh intervals as actual PLC cycle timing.
-
-- Add an explicit optional temperature teaching example after selecting the
-  first-order-with-delay plant model, with percent/Celsius assumptions and
-  reversible physical parameter wording. Keep generic imported models generic.
-
-- Add deterministic simulation plant models for controller verification,
-  including static, first-order, FOPDT, integrator, gravity-tank, robot-joint,
-  second-order, state-space, and piecewise-linear processes; scalar and MIMO
-  typed process-image bindings; enforced local-model validity bounds;
-  actuator nonidealities; seeded uncertainty and dropout faults; scheduled
-  plant events; bounded status/trace capture; atomic feedback publication;
-  failed-substep rollback; physical-I/O activation protection; and a native
-  closed-loop `Control.PID` performance oracle. Saved simulated-plant bricks
-  now use the canvas' standard confirmed Remove interaction and atomically
-  remove only the selected plant and its owned events from `simulation.toml`.
-  The VS Code workflow now has documentation-ready Plant Simulation and
-  Control Studio journeys covering configuration, monitoring, bounded tests,
-  identification, tuning, validation, Automatic Tune, recovery, and explicit
-  physical-plant approval boundaries.
-- Add a runtime-bound heater step-identification lesson that teaches the real
-  Control Studio Monitor, Test, Identify, Tune, and Validate workflow with a
-  bounded manual-output experiment, independent validation data, explicit
-  restoration, and an unapplied controller candidate. Control Studio now keeps
-  signal choices across workflow navigation, shows retained recording events
-  after reopening a result, frames identification fits in engineering units,
-  and opens Bode plots on a useful dynamics and crossover range.
-- Replace the Control Studio plot-tools disclosure with one direct, responsive
-  analysis workspace for time response, identification, Bode, root-locus,
-  Nyquist, Nichols, sensitivity, requirements, and typed MIMO evidence. Add
-  unit-safe signal layouts, linked graphical candidate editing, bounded
-  undo/redo and pinning, and evidence-bound chart-session restoration.
-- Add the reusable `Control` Structured Text library with the specified
-  combined-form `PID` controller, independent first-/second-order `LowPass`
-  filter, normative specification, native equation and seven-scenario
-  conformance tests, and an executed closed-loop performance benchmark for
-  tracking, robustness, sampling, disturbances, limits, noise, and stability
-  margins across nominal, integrating, underdamped, delay-dominant, and
-  nonlinear-actuator processes, plus open-loop instability, scheduled gain
-  variation, severe deterministic scan jitter, and a coupled two-loop process;
-  add a control-system engineering report and staged training curriculum that
-  explains the design choices, results, tuning workflow, limitations, and
-  improvement program.
-- Extend the existing Control Studio workflow with reproducible saved-run
-  revisions whose raw samples distinguish requested from applied manipulated
-  output without inventing unavailable requests, eighty-four executable
-  control-engineering lessons, and production-style lesson source organization
-  in which `Main` owns I/O, safety, and composition while substantial stateful
-  algorithms use dedicated, pedagogically commented function blocks and typed
-  records; independently
-  qualified SIMC and AMIGO PI formulas, bounded P/PI/PD/PID candidate
-  comparison, common performance and actuator metrics, deterministic
-  rejection reasons, and an explicit unapplied recommendation and review flow.
-  Relay experiments now switch from fresh measured process feedback and a
-  retained hysteresis band instead of replaying a timed square wave, while
-  preserving the existing bounded abort and restoration path. SIMC tuning now
-  also handles eligible integrating models with rate-gain equations and ships
-  an executable heater, buffer-tank, and dryer lesson that compares unapplied
-  Fast, Balanced, and Robust candidates under gain and delay variation. The
-  classical-analysis sequence now begins with an executable overhead-crane
-  Routh-Hurwitz lesson that proves `0 < K < 6` and confirms stable, marginal,
-  and unstable cases against three equivalent simulated plants and an
-  independent numerical-root oracle. The following positioning-servo lesson
-  now derives an uncompensated root locus, proves why gain alone misses the
-  motion requirements, and validates a full-transfer-function lead design
-  against an equivalent executable servo without current saturation. The
-  flexible-drive lesson then measures low-, resonant-, and high-frequency
-  response on three equivalent executable plants and compares unshaped and
-  resonance-shaped Bode margins without silently applying either candidate.
-  The delayed-conveyor-oven lesson follows with complete Nyquist contours,
-  qualified encirclement counting, and time-domain confirmation of stable and
-  unstable loops, including a long-delay case that wrapped phase misclassifies.
-  The precision-drive lesson then evaluates loop, sensitivity, complementary-
-  sensitivity, load-disturbance, and control-sensitivity paths on one common
-  grid and confirms the shaped controller's robustness/noise improvements and
-  slower load-recovery cost on equivalent executable motor copies. The sampled
-  positioning lesson then proves the exact hold, sampling-zero, aliasing, and
-  one-cycle-delay model in the z-plane, safely exposes unchanged gains becoming
-  unstable at a coarse interval, and validates a corrected digital design. The
-  following tuning-method lesson separates method eligibility from candidate
-  feasibility and engineering preference by comparing qualified SIMC and AMIGO
-  PI settings on equivalent heater and dryer plants, retaining AMIGO as
-  explicitly unavailable for the integrating tank, and exposing time,
-  actuator, margin, delay-margin, bandwidth, sensitivity, and Pareto evidence
-  without applying or embedding a winner. The next lesson audits the complete
-  exact-Simulation Automatic Tune route on a recirculating water heater,
-  retaining the Test, Identify, Tune, and Validate decisions, failure and
-  recovery boundaries, unchanged running controller, independent validation
-  copy, and explicitly unapplied recommendation. The following conveyor-oven
-  lesson now derives static and dynamic measured-speed feedforward from
-  separate heater and disturbance paths, executes three equivalent ovens,
-  qualifies settled versus not-settled results, and proves model-mismatch and
-  invalid-signal fallback without removing PI trim or actuator constraints.
-  The jacketed-reactor lesson then commissions the valve-facing temperature
-  loop before closing the product-temperature loop, compares direct PI with
-  fast and deliberately slow cascade structures on equivalent plants, and
-  proves time-scale separation, earlier disturbance detection, tracking, and
-  bounded valve authority from executable evidence. The following blending-
-  skid lesson derives a wild-stream ratio station from material flow, compares
-  it with identical composition-feedback trim on separate two-input plants,
-  and proves prompt production-rate compensation, meter-bias recovery, and
-  tracked low-flow or invalid-quality fallback. The split-range reactor lesson
-  then compares explicit dead-zone and overlap failures with a mutually
-  exclusive installed-gain-characterized heating/cooling mapper, including
-  neutral crossover, utility-throughput, and authority-loss evidence. The
-  compressor lesson then compares normal-only, untracked, and externally
-  tracked high-selector override on equivalent plants, proving constraint
-  priority, inactive-integral consequences, hysteretic takeover/release, and
-  explicit invalid-margin fallback without claiming anti-surge protection. The
-  gravity-tank lesson then derives and validates three local nonlinear operating
-  regions, comparing a conservative fixed PI with atomic interpolation and
-  hysteretically selected PIs whose compensated external tracking preserves
-  live setpoint history and bumpless region transfer. The following long-
-  conveyor lesson qualifies an ordinary PI boundary before applying Smith
-  prediction, then proves nominal rise-time benefit, moderate model-mismatch
-  degradation and deterministic measured-feedback fallback under severe
-  mismatch. The following cooling-water flow-bench lesson characterizes a
-  fixed-head equal-percentage valve approximation and then uses requested
-  position, measured stem position, process flow, and repeated reversal
-  evidence to distinguish healthy motion, command deadband, and mechanical
-  stiction before recommending maintenance instead of an unjustified retune.
-  The next binary-distillation lesson replaces a premature centralized-control
-  summary with two independently restored open-loop interaction tests, derives
-  all four signed steady-state gains and the Relative Gain Array from executed
-  evidence, and selects the eligible diagonal pairing while leaving controller
-  and decoupler design to the following lesson. That next lesson runs the same
-  two PI tunings through direct, static-inverse, and proper dynamic cross-filter
-  mappings, compares common servo and feed-disturbance records, and deliberately
-  rejects the nominal dynamic design under declared cross-path mismatch when
-  its small extra cross improvement does not justify its higher error.
-  The following robustness lesson then evaluates nominal and stronger-
-  interaction column models by singular direction and multivariable
-  sensitivity, selects static decoupling over an equivalent centralized
-  coordinator in the feasible envelope, and retains a jointly limited
-  `+2/+2` request as explicitly infeasible instead of presenting reduced error
-  as successful control. The following interconnected-tank lesson checks
-  hardware feasibility before controller design: independently calculated
-  controllability and observability ranks are matched to executed upstream-
-  pump, downstream-bypass, downstream-sensor, and hidden-state records, while
-  simulator truth channels remain explicitly unavailable as installed sensors.
-  The next state-space lesson then combines a magnetic-bearing pole-placement
-  bench with a loaded-conveyor-motor observer: executable evidence distinguishes
-  a nonsettling position-only baseline from measured-state feedback, removes
-  nominal zero-load speed bias, and deliberately shows unmodelled damping being
-  absorbed into an incorrect physical-load estimate despite accurate speed.
-  The weigh-belt lesson that follows implements an uncertainty-weighted scalar
-  Kalman estimator beside a fixed filter, qualifies covariance and innovation
-  calculations against executed noisy feeder records, isolates a paired
-  load-cell-bias fault, and rejects invalid covariance through a finite fallback
-  without exposing Simulation truth to the estimator. The active-suspension
-  lesson then derives four independently qualified LQR designs from explicit
-  state/effort costs, compares them with pole placement on common physical
-  measures, and combines the balanced design with a position-only Kalman
-  estimate. Executed nominal, doubled-noise, and model-mismatch records retain
-  the force-energy, motion, estimator-error, and increased actuator-movement
-  tradeoffs instead of presenting LQG as universally optimal. The two-zone
-  building lesson then executes a three-step, 729-candidate finite-grid MPC on
-  every interval, qualifies its first move and objective against an independent
-  oracle, compares it with bounded PI on a common weather/occupancy/tariff
-  schedule, and distinguishes completed infeasibility, invalid configuration,
-  bounded fallback, and recovery without presenting a precomputed policy as an
-  optimizer. The nonlinear inverted-pendulum lesson that follows replaces its
-  former linear trace with the shipped sine-gravity plant, derives a bounded
-  quadratic Lyapunov sublevel set, verifies eight certified trajectories
-  against an independent Runge–Kutta oracle, and keeps recovered outside and
-  saturated trajectories explicitly separate from certificate evidence. The
-  gravity-loaded robot-joint lesson then compares fixed PID, gain-scheduled PID
-  and feedback linearisation over common nominal and heavy-payload trajectories,
-  qualifies local interpolation and nonlinear cancellation independently,
-  preserves motor-command margin, exposes the predicted model-mismatch offset,
-  and falls back deterministically when the cancellation model is ineligible.
-  The polymer-extruder lesson then compares fixed, recipe-scheduled, and
-  supervised adaptive PI on common drifting-process records, qualifies a
-  bounded two-parameter recursive-least-squares estimator against an
-  independent scan oracle, separates persistent excitation from explicit
-  experiment authorization, freezes unsupported learning, applies scheduled
-  fallback, and proves projection, corrupt-data safe output, and bounded
-  recovery without hiding actuator or nonsettling costs. The flexible-wing
-  ground-test lesson then rejects an unstable aggressive nominal controller
-  and qualifies a sampled filtered-PD candidate over 27 structured uncertainty
-  cases and a declared multiplicative residual envelope, retaining the
-  sensitivity, robustness, actuator-effort, time-response, data-quality, and
-  bounded-claim evidence instead of extrapolating it to flight certification.
-  The remote pumping lesson then calculates delay margin and a conservative
-  latency budget, compares arrival-order command retention with locally timed
-  bounded ownership on paired header plants, and proves stale, reordered,
-  poor-quality, unsynchronized, excessive-uncertainty and future-dated packet
-  rejection with tracked local-PI fallback and explicitly approved recovery.
-  The fault-aware pumping lesson then coordinates two fast pressure
-  transmitters, slow reservoir level and independent drive feedback; qualifies
-  model-assisted sensor isolation, justified single-sensor degradation,
-  critical safe states, actuator mismatch, acknowledgement, healthy-time
-  qualification and rate-limited approved restoration against one deterministic
-  multirate fault record. The blinded steam-distribution casebook that follows
-  keeps diagnosis outside the controller and distinguishes a qualified healthy
-  baseline, poor tuning, valve stiction, transmitter drift, unavailable
-  capacity, upstream disturbance, loop interaction, and model/schedule
-  mismatch from synchronized requested-demand, measured-stem, reference-meter,
-  disturbance, operating-region, and timing evidence before any retuning.
-  The first integrated capstone then asks the learner to commission a walk-in
-  cold room without a prescribed winner, comparing single-threshold,
-  hysteresis-only, and hysteresis-plus-dwell candidates on the same noisy door-
-  load record and validating measured compressor state, equipment-owned
-  restart readiness, invalid-quality latching, manual recovery, and discrete
-  output without hiding a continuous controller. The recirculating-water-heater
-  capstone then joins physical modelling, independent FOPDT identification,
-  minimum controller-structure selection, Robust and Balanced PI comparison,
-  uncertainty and abnormal validation, and rollback planning into one
-  executable commissioning decision while leaving the recommended revision
-  explicitly unapplied. The flexible-indexing-table capstone then combines
-  two-inertia mechanics, P/PD/PID structure selection, derivative filtering,
-  root-locus and Bode/sensitivity qualification, exact sampled execution,
-  encoder noise, torque limits and model variation; it retains the qualified
-  `10 ms` filtered PID while rejecting unchanged delayed `100 ms` execution and
-  leaves revision `78` unapplied. The jacketed-reactor capstone then commissions
-  its utility-facing loop before production, combines cascade, qualified
-  measured-load feedforward, mutually exclusive steam/cooling split range,
-  tracked high-temperature override, modes and deterministic degraded handling,
-  and compares the integrated architecture against an equivalent feedback-only
-  reactor while leaving revision `79` unapplied.
-  The gravity-tank capstone then derives and independently qualifies three local
-  square-root-outflow models, measures the regional limitation of a conservative
-  fixed PI, validates one atomically interpolated retained PI across the full
-  level envelope, and proves schedule boundaries, requested/applied pump flow,
-  tracking, degraded authority and rollback while leaving revision `80`
-  unapplied. The conveyor-oven capstone then combines independently qualified
-  FOPDT, Bode, complete-contour Nyquist and delay-margin evidence with measured-
-  load feedforward, Smith prediction, model-mismatch fallback, modes and heater
-  authority; executable evidence rejects the aggressive ordinary candidate,
-  selects a `6 s` Smith design, and leaves revision `81` unapplied. The binary-
-  distillation capstone then joins restored four-path identification, unused
-  simultaneous validation, RGA pairing, static decoupling, singular-direction
-  robustness, sensitivity, constraint feasibility, invalid-mapping fallback
-  and operating modes into one architecture decision, selecting static
-  decoupling for the normal envelope while leaving revision `82` unapplied. The
-  two-zone building capstone then qualifies an additive thermal-load estimator,
-  rejects cascade without a measured fast inner variable, and compares strong
-  incremental PI with Balanced and actuator-conservative finite-grid MPC under
-  the same forecasts and constraints. Executable evidence retains PI as the
-  application recommendation because both predictive candidates exceed the
-  declared actuator-movement ratio, while revision `83` remains unapplied. The
-  independent capstone then provides an executable compressed-air reference
-  without prescribing its winning family: it derives and validates receiver
-  and compressor dynamics, screens simple and advanced architectures, proves
-  PI stability and robustness, and selects PI plus qualified measured-demand
-  feedforward from common normal, uncertainty, actuator and abnormal evidence
-  while leaving revision `84` unapplied.
-- Add composable Smith prediction, PID gain scheduling, and static two-by-two
-  decoupling to the Control library with native conformance tests and tuned
-  heated-air-duct, gravity-tank, and climate-chamber projects. Organize all 35
-  control projects as a cumulative real-equipment curriculum. The added
-  plant-modelling strand teaches response classification, conservation-law
-  models, bounded identification, model-order selection, excitation and data
-  quality, independent validation and residuals, local linearisation,
-  frequency response, and MIMO gain/RGA analysis before P-to-PI offset removal,
-  feedforward, cascade, bumpless handover, commissioning, ratio, and constraint
-  override, while preserving stable gallery identities.
-
-### Changed
-
-- Refine Control Studio into one readable direct analysis surface with
-  coordinated Bode magnitude and phase navigation, exact graphical gain entry
-  and live margins, full-width plots below compact live values, visible wrapped
-  controls at 200 percent zoom, restrained VS Code-themed chart chrome, export
-  of the currently visible plot, and pixel-verified MIMO rendering evidence.
-- Expose Control Studio as a permanent truST sidebar destination immediately
-  below Devices & Connections. The destination is visibly disabled with a
-  reason until a project is open, while configured simulated plants retain
-  their direct context-preserving Control Studio handoff. Runnable projects
-  can provide an explicit `control-loop.json`; the water-heater proportional
-  lesson now uses it so the sidebar opens its live SP, PV, and MV instead of an
-  unbound workspace.
-- Define the Control Studio chart workspace as a large, discoverable
-  engineering surface with visible plot and signal selection, unit-safe
-  multi-channel lanes, explicit advanced-plot prerequisites, MIMO matrix/RGA/
-  singular-value views, professional time/frequency/stability plots, expanded
-  mode, direct graphical controller tuning, linked candidate analysis,
-  graphical requirements, pinned design comparison, evidence-bound session
-  restoration, uncertainty envelopes, undo/redo, and precise responsive and
-  accessibility acceptance criteria.
-- Render lesson equations with VS Code and GitHub's native Markdown math,
-  including conventional fractions, indices, vectors, and matrices, while
-  preserving the curriculum's words-before-symbols and accessible prose rules.
-- Replace the draft control-engineering curriculum specification and its
-  premature implementation checklist with an 84-lesson causal learning program
-  and specification-derived implementation checklist. The program teaches
-  required theory before each real-equipment practical, carries one observed
-  limitation into the next technique, and progresses through production PID,
-  modelling, identification, classical analysis, industrial structures, MIMO,
-  state-space, predictive, nonlinear, adaptive, robust, networked, diagnostic,
-  and capstone work. The reviewed water-heater proportional-control lesson now
-  defines the reusable course-wide conformance pattern: words and physical
-  meaning before notation, executable predictions, actual Structured Text,
-  precisely defined and validity-qualified measures, retained evidence, and a
-  causal handoff from one lesson's observed limitation to the next.
-- Make `examples/` the single maintained source for bundled projects, generate
-  the VS Code example package from its canonical catalog, and replace the flat
-  control list with 84 ordered lessons plus topic links that make the rest of
-  the tutorial and example catalog discoverable. The control examples README
-  now provides the complete linked course map, stating the real equipment,
-  theory, Control Studio stages, and practical skill for every lesson. Every
-  canonical lesson directory now begins with its zero-padded course number and
-  lives in one of 14 consecutive learner modules, so filesystem browsing
-  preserves the same learning order as Control Studio. Separate README indexes
-  let engineers find lessons by technique, plant behavior, and workflow without
-  imposing a second technical taxonomy on the folder tree.
-  Canonical bundled projects now use an explicit non-secret local example token
-  so every shipped `runtime.toml` passes the runtime configuration validator.
-
-### Fixed
-
 - Replace raw starting-state arrays with labelled controls for first-order,
   integrator, gravity-tank, second-order and robot-joint models, retaining
   invalid-input protection and exact values.
@@ -3435,39 +3302,62 @@ Target release: `v0.24.65`
   value “Unbounded”; distinguish a zero slew rate from no slew limit.
 - Order control lesson modules by their declared lesson sequence and show
   noncontiguous lesson ranges without implying missing lessons are included.
-
 - Default omitted FOPDT delay history to its input operating point as specified,
   preserving explicitly configured zero history and deliberate non-equilibrium starts.
-
 - Preserve simulated-plant validity limits when editing names or other exposed
   settings, carrying unedited configuration through the canvas draft and save
   candidate without resurrecting explicitly cleared editable effects.
-
 - Apply plant command uncertainty independently to the held PLC command on
   every simulation substep, avoiding compounded offsets or gains within one
   PLC scan while preserving raw-command trace identity and deterministic replay.
-
 - Resolve the configured project loop when Open Control Studio is invoked
   without arguments or from the sidebar, offer a labelled choice for multiple
   projects, and provide repair/example actions for invalid or missing loop
   configuration while preserving explicitly scoped plant/loop handoffs.
-
 - Correct rejected Control Studio bindings in 24 control lessons and their
   bundled copies. Project-owned controllers declare their actual design owner;
   open-loop comparisons retain reference signals without inventing a setpoint
   or weakening unit and address validation.
-
 - Keep the real Control Studio response chart visible at a usable height, use
   the declared manipulated-variable engineering range, disable plot and
   workflow actions until their evidence exists, prevent limit labels from
   covering traces, and treat an empty saved-result history as a neutral state.
-
 - Resolve typed enum literals through the active namespace and `USING` scope,
   allowing imported declarations such as `PIDMode#Manual` to type-check across
   files without allowing a same-named variable to hide the literal's type.
+- A `POINTER TO ARRAY[*] OF T` again accepts the address of a concrete
+  `ARRAY[a..b] OF T` of the same rank, so the OSCAT array helpers and `CRC_GEN`
+  run on the shared engine; a different element type or rank is still a type
+  mismatch.
 
+### Security
 
-Target release: `v0.24.75`
+- Security: tokio 1.54.1 (RUSTSEC-2026-0386), rustls-webpki 0.103.16 (RUSTSEC-2026-0382), webpki-roots 1.0.11
+  (RUSTSEC-2026-0381) and ctutils 0.4.6 (RUSTSEC-2026-0385).
+- Security: the VS Code extension takes undici 7.30.1 through Blockly's jsdom (GHSA-4qv8-2p9j-2685,
+  GHSA-f72v-6w45-q472, GHSA-xjj6-f33q-929c), and its development tools serialize-javascript 7.1.4 and, through an
+  `overrides` entry for the packaging tool's Azure sign-in, `@azure/msal-node` 7.1.1 (GHSA-xcx6-jx8p-x3h5), so
+  that `npm audit` reports no vulnerability.
+- Security: the VS Code extension takes `markdown-it` 15.0.3, which fixes two quadratic-time denial-of-service
+  defects in rendering (GHSA-vfgh-jcmw-g37q, GHSA-gfr2-rv44-r23c).
+- Security: the HMI's file routes (screens, panels, pairs, texts, symbols and images) read only regular
+  files inside the project's `hmi/` folder; a link, a linked folder or an `io.toml` is never read, so no HMI
+  route can disclose the I/O configuration's credentials.
+- Security: a web deployment (`/api/deploy`) is now checked against the signature policy of the
+  project's installed `runtime.toml`. Before, the check read `[runtime.deploy] require_signed` and
+  `keyring_path` from the `runtime.toml` the deployment itself carried, so a deployment could turn
+  the requirement off, or name a keyring of its own, and install an unsigned program.
+- The web IDE's `/api/discovery` and `/api/probe` need the same web login as the other
+  routes, and `/api/probe` takes its target and credentials in a POST body instead of
+  the URL. `config.get` and `config.set` cover `discovery.host_group`;
+  `comm.capabilities` reports discovery and mesh peer health; a runtime listening on a
+  wildcard address reports its real network addresses instead of `127.0.0.1`.
+- Runtime mesh now enforces configured peer tokens and TLS using the runtime's certificate
+  material. A requested TLS connection cannot silently start as plaintext; wrong or missing
+  peer credentials are rejected.
+- Security: dependencies updated for new advisories: rustls 0.23.45 (RUSTSEC-2026-0285), salsa 0.28.5 (RUSTSEC-2026-0308; the compiler's value-returning queries keep returning values), event-listener 5.4.2 (RUSTSEC-2026-0221), ratatui 0.30.2 with lru 0.18 (RUSTSEC-2026-0253), non-yanked spin 0.9.9 and 0.10.1, and the VS Code extension's `brace-expansion` 2.1.7 and 5.0.12 (GHSA-q2hr-2g5m-vwhr, GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p). The seven tracked advisory exceptions were re-reviewed (no upstream fix for opcua 0.12, tiny_http 0.12 or zenoh's `paste`) and renewed until 2026-12-29.
+
+## [0.24.75] - 2026-10-16
 
 ### Added
 
@@ -3479,7 +3369,6 @@ Target release: `v0.24.75`
   plane, and `abort` exits the process with status 70 so a service manager can
   restart it. truST cannot drive outputs while the scan thread is blocked, so a
   hang relies on the I/O devices' communication-loss behaviour.
-
 - `trust-runtime ctl events` and `ctl faults` (optional `--limit N`) print recent
   runtime events and faults, so a rejected write's `write_rejected` event is
   visible from the command line.
@@ -3489,13 +3378,11 @@ Target release: `v0.24.75`
   error that rejects each forbidden API use (CI runs them with error-code checking).
 - `DebugRuntimeContext::new` builds a debugger evaluation context over storage the
   caller owns.
-
 - Use the STBC 3.0 storage ABI for new applications: all temporal types occupy
   eight bytes consistently on every platform, preserving signed temporal ranges.
   Existing 1.1/2.0 artifacts keep their original sizes and offsets; explicit legacy
   imports identify their ABI, and unrepresentable physical writes reject atomically.
   The checked DWORD TIME millisecond transport encoding remains unchanged.
-
 - Add an owned shared-core controller facade for hosted compositions alongside
   the borrowed MCU facade. Both use operation-scoped metadata/service borrows,
   checked named value writes and transactional restart with one mutable state.
@@ -3512,10 +3399,6 @@ Target release: `v0.24.75`
   and the shared engine; keep legacy 1.1 production explicitly selected. Installed
   hosted values and image writes use checked owner APIs. Rejected queued writes
   report their application failure without turning an invalid request into a PLC fault.
-
-- Add the NUCLEO-F401RE reference composition for the shared runtime, with bounded memory, separately installed STBC artifacts, and remote GPIO/watchdog evidence tooling. The full-function F401 bring-up passes saved-artifact traces, numeric checks, GPIO safe outputs, depth-four calls and independent-watchdog reset; production qualification remains separate.
-- Add the ESP32-C6-DevKitC-1 reference composition (`firmware/trust-esp32c6` on the new `trust-platform-esp32` adapter). It runs the same saved application bundle, oracle and trace grammar as the NUCLEO-F401RE on RISC-V with software floating point, and executes the interpreter's scan path from internal RAM: from flash, one task activation took 11.07 ms against the 10 ms period. On the owned board the bring-up passes the 101-row trace, numeric checks, GPIO safe outputs, depth-four calls and the MWDT0 watchdog reset, with a 1.97 ms slowest main scan and a 10,856-byte stack peak; production qualification remains separate.
-
 - Add explicit STBC 2.0 authoring and portable byte-level validation for declared
   storage, construction roots, compiled initializer recipes and access bindings.
   Legacy 1.1 remains available as an explicit compatibility producer. The source-free core now prepares and
@@ -3536,26 +3419,28 @@ Target release: `v0.24.75`
   The opt-in 2.0 producer supports staged member overrides on function-static FB
   instances at initial construction and after restart; legacy 1.x acceptance is unchanged.
 
-- Persist canonical OpenOT event, loss, and placeholder documents outside the
-  PLC scan to a TOML-selected SQLite, PostgreSQL, TimescaleDB, MySQL/MariaDB,
-  SQL Server, or InfluxDB 3 backend, with atomic durable checkpoints,
-  idempotent replay, TLS/secret boundaries, InfluxDB outage spooling, runtime
-  status, complete examples, and real-vendor conformance coverage.
-- Expose typed logging objects with descriptive names such as
-  `logged_values`, `alarm_history`, `message_log`, `state_history`, and
-  `audit_log`; normal reports no longer require OpenOT field arrays or JSON
-  paths, while canonical JSON remains internal recovery authority. Every
-  backend and the InfluxDB spool initialize the same first schema generation,
-  1, directly. Because database persistence has not previously shipped,
-  incompatible pre-release development schemas fail closed without migration,
-  backfill, reconstruction, or automatic repair. Runtime status reports this
-  shared contract as `schema_generation`, not a backend-specific version.
-- Support MQTT tag mappings that bind fully qualified scalar program variables
-  directly to broker topics with explicit PLC-relative `read` and `write`
-  directions.
-
 ### Changed
 
+- Share compact, lossless floating-point text codecs across runtime platforms,
+  preserving both conversion directions and existing diagnostic spelling.
+- Count the work limit the way a PLC program sees it: one unit per executed
+  instruction, plus per-element work when arrays, references or text are copied.
+  Lookups, safety checks and other engine bookkeeping no longer count, and
+  passing an array as VAR_IN_OUT copies nothing, as IEC passes it by reference.
+  Each program or task function-block invocation in a scan has its own
+  1,000,000-unit allowance again, so the OpenOT telemetry and database examples,
+  OSCAT OOP and PLCopen Motion libraries run under the default limits. The stack
+  and register executors charge the same total. Program construction and restart
+  get their own allowance from the preparation profile (64 Mi units by default on
+  hosted runtimes).
+- Hosted execution prepares lookup indexes and frame plans once and moves owned
+  call values instead of copying them; lifetime checks, transactional outputs and
+  failure cleanup are unchanged.
+- Calls do less work. Literal and plain scalar defaults are written straight into
+  the new frame, and on hosted runtimes a function, function block or method that
+  calls no other user POU runs directly inside the calling instruction (not while
+  debugging). Results, faults and work-limit charges are unchanged; such calls no
+  longer reserve call-handler memory.
 - Move the M2E runner, trace records, bundle decoding and heap/stack measurement from the F401 firmware into the shared `trust-board-fixture` crate used by both board compositions; F401 code grows by 256 bytes. `xtask portability build-firmware`, `inspect` and `verify` now take the board name (`nucleo-f401re` or `esp32c6-devkitc-1`).
 - `trust-runtime validate` resolves the configured resource exactly as `play`
   does, so a resource name the program does not declare now fails validation
@@ -3618,10 +3503,156 @@ Target release: `v0.24.75`
   when the host raises the preparation work budget, and the decoder names
   "REF_TABLE entries" in its resource-limit error.
 - `DebugRuntimeContext` keeps its PLC storage private.
-
 - Record the shared hosted runtime's accepted Linux call-workload performance
   trade-off: a measured 16.4% median overhead against the modernization baseline,
   with unchanged functions, safety checks and separate hardware timing requirements.
+
+### Removed
+
+- `Runtime::clear_debug_control`. It had no caller, and dropping the debug
+  handle released every active force although it claimed to leave the installed
+  state unchanged; detaching a debugger keeps forces (specification 11 §6.9).
+
+### Fixed
+
+- OPC UA startup now waits until this process's own server has bound its listen address, so another process holding the port can no longer pass for a started server on platforms where the check before startup does not see it (seen on macOS). A bind that fails during startup reports the same "listen address … is unavailable" error as that check.
+- `trust-dev ctl` and `trust-runtime ui` keep the project's control token when
+  `--endpoint` is given, as `trust-runtime ctl` does; they used to drop it.
+- `TP`: on the call where a pulse ends with `IN` FALSE, `ET` is `PT`; the next
+  call with `IN` FALSE resets it to zero. It used to reset on the same call,
+  unlike the timing diagram and `TOF`.
+- `SR` and `RS` accept the IEC 61131-3 long input names (`SET1`/`RESET` and
+  `SET`/`RESET1`, Table 43 rows 1b and 2b). Such calls compiled but faulted at
+  run time.
+- Restart requests that arrive before the resource has taken the previous one
+  coalesce into one restart, and a cold request takes precedence: a later warm
+  request no longer silently replaces a pending cold restart.
+- A bytecode reload that times out before the resource takes it is withdrawn
+  and never applied. Before, it could still commit after its caller had been
+  told it timed out.
+- The resource command queue holds at most 1,024 commands. Further requests,
+  including `pause`, `resume`, `bytecode.reload`, `ads.status` and scheduler
+  changes through `config.set`, are refused with `resource_busy` instead of
+  growing memory without bound, and `config.set` applies its scheduler policy
+  changes as one step, so a refused update changes nothing.
+- A fault that halts the resource no longer ends the runtime process. The
+  resource stays faulted with its safe state applied, `status`, the web UI, HMI
+  and protocol servers keep working, and `restart` (warm or cold) or an online
+  change recovers it after the configured initialization. Before, the resource
+  thread ended, a `restart` request was acknowledged but never applied, and the
+  process exited with status 0. The process now exits with status 1 when it
+  ends with the resource faulted.
+- Control `restart` and online change on a stopped resource, or on one whose
+  scan thread did not return, return `resource_not_running` instead of
+  reporting that a restart was queued.
+- 83 example projects named a resource in `runtime.toml` that their ST did not
+  declare; their RESOURCE declarations now match. For the seven communication
+  examples and `network_canvas_demo` this means `trust-runtime play` starts them
+  again; the other 75 are OSCAT test projects, run with `trust-runtime test`. The
+  ADS server example's resource is `truST_ADS` (a hyphen is not valid in an IEC
+  name) and the EtherCAT example's `EtherCAT_demo`. Five PLCopen motion examples
+  without an `io.toml` got a simulated driver so they validate and run.
+- Hosted instance creation reports `Overflow` instead of panicking when instance
+  identities are exhausted.
+- `CONCAT_TOD`, `CONCAT_LTOD`, `CONCAT_DT` and `CONCAT_LDT` reject a component
+  outside its range instead of carrying it into the next field
+  (`CONCAT_TOD(0, 75, 0, 0)` was 01:15:00).
+- `SHL`, `SHR`, `ROL` and `ROR` handle shift counts over the full 64-bit range:
+  a count of 2^32 or more no longer wraps (`SHL(BYTE#1, LINT#4294967296)` was
+  `BYTE#1`).
+- `MID`, `DELETE` and `REPLACE` with a length past the end clamp to the end
+  instead of overflowing (a panic in debug builds), and string positions above
+  2^32 give the same result on 32-bit targets as on 64-bit ones.
+- `TIME_TO_DWORD` and a `TIME` written to a `DWORD` process-image slot reject a
+  negative duration instead of storing 0.
+- `TON`, `TOF` and `TP` saturate their elapsed time at `PT` across a clock span
+  wider than the `TIME` range; such a span panicked in debug builds and added
+  nothing in release builds.
+- `LTIME`, `LDATE`, `LTOD` and `LDT` variables can be bound to long-word direct
+  addresses (`%IL`, `%QL`, `%ML`) and carry their exact 64-bit value. `DATE`, `TOD`
+  and `DT` are refused at direct addresses with an error that names the long
+  forms; the harness used to size them as `DWORD`.
+- Durations in the runtime configuration, `config.set`, simulation settings,
+  conformance cases and the test-harness protocol that exceed the representable
+  range (about 292 years) are refused; they used to wrap to negative durations
+  in release builds.
+- Control `pause` and `resume` on a faulted or stopped resource return the error
+  code `resource_not_running` and change nothing; they used to reply `paused` or
+  `running` although the resource was not scanning.
+- The OPC UA server refuses to start, with a clear error, when its listen address
+  is already in use. Before, its server thread failed silently while startup
+  reported success, because the readiness check reached whichever process held
+  the port.
+- The release-candidate CI watcher no longer reports a run as complete before
+  GitHub has registered any check for the new head.
+- `ctl io-write` and `io-force` of an integer no longer fault and halt the PLC
+  (issue #135). An integer value takes the declared type of its `INT`, `DINT`,
+  `WORD` or other integer or bit-string destination when it fits; a value that
+  does not fit is rejected with a `write_rejected` event and the PLC keeps running.
+- `ctl step-over`, `step-in` and `step-out` are rejected with a clear error
+  unless the debugger holds the scan (a breakpoint or a debug-mode pause), instead
+  of silently stalling the scan after a production `pause` (issue #136). An
+  attached debugger still steps from a breakpoint. `resume` always releases a
+  debugger hold, and `status` reports the hold instead of `running`.
+- Corrected `trust-runtime ctl` commands in the documentation: the operator guide
+  and the safety commissioning tutorial now use `restart cold` (the CLI has no
+  `--mode` flag), the cloud troubleshooting guide and profile cookbook use
+  `config-get`, the operator guide describes the actual `status` line and points
+  to `stats` for cycle timing, and the memory marker tutorial shows the `Int`
+  values that `io-read` prints. Tests now run these documented commands against
+  a real runtime.
+- Charge standard-library text work. CONCAT, REPLACE, MID and the other text and
+  conversion functions charge 1 work unit per UTF-8 byte of their text arguments
+  before they run, and their text result as a new value. A program that keeps
+  doubling an unbounded `STRING` now stops with the work or allocation limit
+  fault instead of growing until the host runs out of memory.
+- Charge reference growth independently of internal buffer sizes, and stop
+  counting a call's rollback journal against the allocation limit, as the work
+  cost model states.
+- The STBC 3.0 checksum covers the whole file, including the header. A file whose
+  version or flags were changed is rejected instead of being read with other
+  storage widths.
+- A stalled health reader can no longer hold up the control cycle: health
+  publication skips a cycle instead of waiting for the reader.
+- Debugger I/O views keep the declared enumeration type name for unresolved and
+  failed entries, and remote sessions no longer uppercase it.
+- Writing an unknown `VAR_ACCESS` name reports `runtime_undefined_variable`
+  instead of `runtime_invalid_alias`, as specification 10 states. A read-only
+  alias still reports `runtime_invalid_alias`.
+- Preserve contextual legacy imports whose POU index omits unused standard
+  function blocks, and keep absolute structure-field I/O addresses distinct from
+  relative storage offsets during source-free encoding.
+- Use the default compiler outlining pass count for F401 firmware; reject the extra
+  rerun that produced an invalid Thumb return sequence and a startup HardFault.
+- Preserve physical structure backing through constant defaults, initializer
+  coercion and STRN v3 durable RETAIN storage, retaining v1/v2 readers; reject
+  contradictory alias constants before installation. Keep optimized remainder
+  and partial-budget fault behavior aligned
+  with the shared bytecode executor, and reserve reusable register frame payloads.
+- Propagate shared-engine cycle limits through hosted management and I/O snapshots;
+  preserve legacy supplied program instances, installed I/O rebinding and anonymous
+  debugger expression types across the hosted compatibility adapters.
+- Security: update `rustls` to 0.23.46 (RUSTSEC-2026-0346 to 0349: TLS secrets in client session
+  `Debug` output, data sent to the outer server after an ECH rejection, up to 1 GiB allocated for
+  certificate decompression before authentication, and a post-quantum key-exchange downgrade). The
+  `tiny_http` HTTPS server keeps `rustls` 0.20.9 under an owned exception until 18 November 2026:
+  the downgrade concerns TLS clients, and `rustls` 0.20 offers no post-quantum group.
+
+### Security
+
+- The Unix control socket accepts connections only once it is owner-only (0600):
+  it is bound, restricted and only then made to listen, without changing the
+  process umask that every thread shares. It used to listen first and be
+  narrowed afterwards, so another local user connecting in that moment got the
+  token-less Unix Admin role. An existing file at the socket path that is not a
+  socket is refused instead of deleted.
+- trust-lsp inline runtime values send the editor's control token only to the
+  editor's own endpoint; an endpoint configured in the repository's
+  `trust-lsp.toml` receives only the token configured next to it.
+
+## [0.24.74] - 2026-10-11
+
+### Changed
 
 - Modernize the supported build baseline to Rust 1.99 (edition 2024, resolver 3)
   and Node 24.21.0; refresh dependency families while retaining compatible LSP
@@ -3631,17 +3662,34 @@ Target release: `v0.24.75`
   verification, register executor, OPC UA and persistence tests supply values
   directly through their owning configuration boundaries.
 
+### Fixed
+
+- Isolate the real OpenOT PLC scan-overhead regression from concurrent functional
+  tests and compare paired scans with alternating order, preserving the existing
+  threshold and checking that the real persistence worker commits and drains.
+- Route required real-database qualification through the Rust generated-environment decoder and clear inherited database settings before launching the gate, so stale parent values cannot satisfy missing generated inputs.
+- Reject source-freeze manifests inside the source checkout, including symlink aliases, and preserve existing manifests rather than overwriting them. Source identity also checks working-tree file kinds, link targets and Unix executable bits; older byte-only snapshots remain historical evidence.
+- Bound rendered-test browser startup and lifetime with Rust-owned subprocess cleanup and visible browser/version diagnostics; install selected CI tools and locked frontend prerequisites before their gates.
+- Make PostgreSQL and TimescaleDB release-runner TLS mounts accessible to the
+  service UID under restrictive host umasks, while keeping server keys private.
+
+## [0.24.73] - 2026-10-11
+
+### Added
+
+- Add the NUCLEO-F401RE reference composition for the shared runtime, with bounded memory, separately installed STBC artifacts, and remote GPIO/watchdog evidence tooling. The full-function F401 bring-up passes saved-artifact traces, numeric checks, GPIO safe outputs, depth-four calls and independent-watchdog reset; production qualification remains separate.
+
+### Changed
+
 - Use compact live activation storage and portable instance storage without changing
   PLC identities or functions. Portable field lookup reuses existing hash indexes;
   output journals keep ordered destination-only rollback. Charge batch retirement
   while preserving cleanup on exhausted execution budgets. Frame storage includes
   initializer staging in addition to admitted call depth. F401 fixture bring-up is verified; production storage and timing qualification remain separate.
-
 - Reduce shared-runtime code duplication in numeric conversions, assertion comparison,
   bounded sorting and engine identity maps while preserving every PLC function and
   diagnostic. F401 placement uses immutable sector-0 space with separate load-region
   checks and a 16 KiB upper-region margin requirement; F401 fixture measurements meet the flash and stack margins; production qualification remains separate.
-
 - Reduce portable preparation overhead with shared static standard-library metadata,
   indexed preparation tables and shared bounded sorting. Byte-input preparation
   avoids serialization, and embedded CRC uses a compact implementation with identical
@@ -3650,11 +3698,279 @@ Target release: `v0.24.75`
   a borrowed metadata view. F401 code uses the 448 KiB L2 region; two reserved checkpoint sectors do
   not yet provide persistence. All IEC functions and admission checks remain.
 
+### Fixed
+
+- Preserve source-free restart initialization of direct input, output and marker
+  image addresses. Warm and cold restart carry previous images into staging before
+  ordered configuration actions, keeping unconfigured values and transactional
+  failure behavior.
+- Support system Bash 3.2 in the shared dependency-audit wrapper, including empty
+  exception lists, and preserve native path separators in firmware remapping.
+- Execute compiled PLC call chains through explicit shared VM continuations to bound native dispatcher nesting; stop F401 bring-up when measured stack headroom is insufficient.
+- Keep deadline expiry latched through portable execution cleanup and build bulk input rollback snapshots without quadratic insertion work; preserve ordered writes and alias rollback.
+
+## [0.24.72] - 2026-10-10
+
+### Changed
+
 - Share STBC 1.x decoding, validation, metadata extraction and serialization with the portable runtime core, preserving hosted bytecode APIs.
+
+### Fixed
+
+- Preserve function-block instance ownership when a body contains a NULL literal, so instance-field accesses bind to the invoked instance.
+- Bound bytecode validation scratch storage and work across instructions and metadata,
+  retaining stack states only at control-flow block entries. Reject section payloads
+  that overlap container headers/tables, misaligned headers, raw record discriminant
+  mismatches and encoder count/extent overflow before preparing executable state.
+- Reject overflowing byte-reader lengths and section/POU extents and relative jump targets before slicing or advancing the reader.
+
+## [0.24.71] - 2026-10-10
+
+### Changed
+
 - Route core exponentiation, duration truncation and hosted numerical functions
   through libm 0.2.16 while retaining their promotion, narrowing and fault policies.
   Add isolated F401/C6 core build gates and explicit portable ordered-map hashing;
   this establishes library portability, not qualified board support.
+
+### Fixed
+
+- Confirm managed fleet shutdown across control-connection teardown without
+  mistaking interrupted status probes for a failed shutdown or a confirmed stop.
+  Preserve authentication/protocol errors and retain the PID until stop is confirmed.
+- Publish the runtime portability specification in the public reference and preserve
+  warm release-build artifacts when the target filesystem already meets the existing
+  80 GiB capacity requirement.
+- Keep the unsupported Git-marker regression executable with long temporary
+  directory paths on Unix hosts.
+- Preserve numeric operand types when compiling TIME/LTIME scaling, including
+  duration aliases and nested scalar expressions.
+- Preserve nominal periodic-task deadlines when the task interval is not a
+  multiple of the resource cycle. For exact 10 ms samples, a 25 ms task now
+  activates at 30, 50, 80 and 100 ms instead of every 30 ms; missed activations
+  remain dropped and counted. These describe the logical scheduling rule,
+  not measured hosted wake timing.
+
+## [0.24.70] - 2026-10-10
+
+### Changed
+
+- Let release validation honor the builder's configured Cargo job limit instead of forcing a single concurrent build job.
+
+### Fixed
+
+- Bind release validation capacity checks to the selected generated-target filesystem;
+  support the mounted builder volume with the same leases, ownership checks and
+  80 GiB minimum, avoiding root-disk exhaustion during cold workspace tests.
+- Remove deleted project sources from the language server consistently across
+  directory notifications, reindexing and concurrent document close/index operations,
+  preventing stale duplicate declarations when creating a new project. Retain
+  registered file identity after text eviction so deletion and rename also work
+  through filesystem aliases on macOS and Windows.
+- Protect I/O credentials in IDE, configuration-text and remote proxy reads;
+  preserve stored secrets (including a literal `<redacted>`) on unchanged saves,
+  and prevent generic IDE symlink/rename aliases from bypassing redaction.
+  Retained MQTT passwords are bound to their broker and authentication context;
+  changing that context requires explicit replacement credentials.
+- Use the Rust 1.95-compatible atomic update API without deprecated calls on
+  current stable Rust, and update concurrently to remove the shell-quote
+  command-injection advisory.
+- Security: update `rustls` to 0.23.45 (RUSTSEC-2026-0285, TLS 1.3 handshake messages accepted
+  across encryption levels) and `salsa` to 0.28.5 (RUSTSEC-2026-0308, use-after-free in interned
+  values and cached query results). The two queries whose results salsa now returns by reference
+  are read by value, unchanged in behaviour. The VS Code extension's `brace-expansion` (2.1.7,
+  5.0.12) and `js-yaml` (4.3.2) move past two high-severity CPU denial-of-service advisories.
+- Security: `GET /api/io/config` answered without the web authentication in the runtime's own
+  web server, and every I/O configuration read returned driver credentials such as an MQTT
+  password. The read now needs the Viewer role in every server mode, and passwords, tokens,
+  secrets and private keys come back as `<redacted>`; saving a configuration as it was read
+  keeps the stored credential (specification 11, §6.9.7).
+
+## [0.24.69] - 2026-09-04
+
+### Fixed
+
+- Resolve symbolic MQTT tag mappings when a project is launched in the VS Code
+  simulator, so mapped outputs connect and publish instead of leaving the
+  debugger with an empty process image.
+
+## [0.24.68] - 2026-09-02
+
+### Added
+
+- Expose typed logging objects with descriptive names such as
+  `logged_values`, `alarm_history`, `message_log`, `state_history`, and
+  `audit_log`; normal reports no longer require OpenOT field arrays or JSON
+  paths, while canonical JSON remains internal recovery authority. Every
+  backend and the InfluxDB spool initialize the same first schema generation,
+  1, directly. Because database persistence has not previously shipped,
+  incompatible pre-release development schemas fail closed without migration,
+  backfill, reconstruction, or automatic repair. Runtime status reports this
+  shared contract as `schema_generation`, not a backend-specific version.
+
+### Fixed
+
+- Preserve typed database transport failures through OpenOT schema
+  initialization, commit, and maintenance so bounded reconnect still applies,
+  while deterministic projection and storage failures fault immediately
+  instead of repeatedly reopening the selected backend.
+- Freeze bounded OpenOT shutdown drains from a fresh non-consuming producer
+  head so records published after an older buffered poll are still committed,
+  and restrict real-database runner teardown to exact-labelled Docker
+  resources even when a matching temporary-state marker exists.
+- Keep OpenOT source-head and pending-byte status observable while an initial
+  remote database connection is unavailable, and run the same complete
+  Architecture Safety gate before push and in GitHub CI. Protect active
+  shared-builder Cargo targets with stable external leases so concurrent
+  cleanup cannot delete exact-candidate test executables without leaking those
+  leases into helper daemons or detached children, and preserve target
+  compiler discovery instead of injecting host C/C++ compilers into Windows
+  cross-target checks.
+- Keep SQL Server logged-value statements below its 2,100-parameter limit,
+  constrain the MySQL/MariaDB schema marker to its single valid key, replace
+  the yanked MySQL client patch release, and run the same supply-chain policy
+  in exact pre-push validation and GitHub CI.
+- Keep PLC startup independent of remote logging availability, preserve
+  cumulative status across reconnects, drain bounded shutdown work, and report
+  the actual opened backend schema without exposing secrets.
+- Make InfluxDB delivery bounded and continuous under sustained input, retain
+  the complete typed/domain/provenance model, and require authenticated,
+  CA-verified real-product release proof.
+- Publish an InfluxDB spool commit before surfacing later reconciliation
+  failures, preserve detailed reconciliation counters through backend
+  selection, and reject compiled-out TOML backends synchronously at startup.
+- Reject missing or empty selected database environment variables before
+  worker startup, retry only explicitly classified remote-open reachability
+  failures, and fault permanent schema or storage-open errors immediately.
+- Reject missing database CA files before starting the persistence worker,
+  preserve complete loss/unresolved provenance in SQL Server combined commits,
+  and require capture-lifecycle parity for every Docs Captures workflow path.
+- Provision every real logging database from repository-owned, digest-pinned
+  runner scripts with ephemeral credentials, authenticated readiness checks,
+  symlink-safe container/network/anonymous-volume teardown, and retained
+  exact-candidate evidence.
+- Preserve previous-value and audit fields in every relational `logged_values`
+  row, reapply SQLite/Influx spool durability settings on every connection,
+  and reject generation-1 databases whose actual columns, constraints, foreign
+  keys, or indexes differ from the schema created by truST.
+- Keep initial InfluxDB transport outages in the bounded reconnect lifecycle,
+  reclaim exact-labelled real-database runner resources after interrupted jobs
+  even when temporary state was lost, and make exact-candidate Clippy use the
+  same warning-deny command as GitHub CI.
+
+## [0.24.67] - 2026-08-30
+
+### Added
+
+- Persist canonical OpenOT event, loss, and placeholder documents outside the
+  PLC scan to a TOML-selected SQLite, PostgreSQL, TimescaleDB, MySQL/MariaDB,
+  SQL Server, or InfluxDB 3 backend, with atomic durable checkpoints,
+  idempotent replay, TLS/secret boundaries, InfluxDB outage spooling, runtime
+  status, complete examples, and real-vendor conformance coverage.
+
+### Fixed
+
+- Make every OpenOT database example portable to Windows and Linux by using a
+  TCP runtime control endpoint with an explicit local-only example token instead
+  of a Unix-only `/tmp` socket.
+
+## [0.24.65] - 2026-08-29
+
+### Fixed
+
+- Keep real-Mosquitto conformance compatible with broker versions whose help
+  command prints a usable version and then exits nonzero, so optional version
+  reporting cannot override passing protocol assertions.
+- Run exact-candidate VS Code browser and Extension Host checks with a unique,
+  short-lived `/tmp` directory so long validated Cargo target paths cannot
+  break Unix-domain process sockets.
+- Report prunable candidate worktree registrations as cleanup targets instead
+  of misclassifying their missing directories as dirty worktrees.
+- Give capture lifecycle assertions enough time to observe the launcher's
+  bounded TERM-to-KILL cleanup and process reaping path.
+- Keep direction-specific MQTT mappings isolated: write-only drivers no longer
+  clear shared input bytes, and read-only mappings no longer publish the raw
+  output image to the default topic. An explicitly empty `mappings` list also
+  disables both raw directions instead of restoring the default topics.
+- Give MQTT one authoritative communication specification instead of mixing
+  broker and wire behavior into the runtime-engine contract, and make the
+  changed-file verifier reject MQTT production changes without that owning
+  specification and a native executable test.
+- Preserve IEC enum identity across MQTT tag mappings while using declared
+  numeric member values on the wire, including alias and direct-binding cases,
+  reject undeclared inbound values atomically, and retain the declared enum
+  name in control snapshots for resolved, error, and unresolved points.
+- Let `trust-runtime ctl status` render a healthy runtime's JSON-null fault as
+  `none`, matching the live control response contract.
+- Make reused runtime communications conformance output directories inspect
+  only the current case invocation instead of accepting stale passing lines.
+- Require the runtime communications conformance gate to execute the shipped
+  MQTT traffic-light mapping against a real Mosquitto broker and client.
+
+## [0.24.64] - 2026-08-29
+
+### Fixed
+
+- Keep native Unix control-endpoint tests portable under long temporary paths,
+  and make automated docs captures reap their owned process sessions and
+  code-server container after success, failure, or interruption.
+- Keep the Web IDE Hardware tab responsive for ordinary communication graphs
+  by coalescing repeated hydration relayout requests into one bounded
+  animation frame and one post-hydration resize/fit pass.
+- Make post-merge release verification audit the exact candidate branch and
+  validation worktrees, block dirty or divergent state, and report explicit
+  cleanup targets before a release handoff can be completed.
+- Reconcile staged checksum paths with GitHub's flat release-asset namespace
+  while rejecting ambiguous basenames and unsafe manifest paths.
+- Keep exact-candidate remote validation aligned with CI by disabling inherited
+  Rust compiler caches and serializing the cold all-tests build to bound disk
+  use.
+- Fail exact-candidate preparation before creating build artifacts unless the
+  remote builder has at least 80 GiB free, reflecting the measured size of a
+  cold uncached all-tests target.
+- Keep workspace integration-test binary discovery compilable under cold
+  all-target check and clippy runs, and enforce that portability contract in CI.
+
+## [0.24.63] - 2026-08-27
+
+### Added
+
+- Support MQTT tag mappings that bind fully qualified scalar program variables
+  directly to broker topics with explicit PLC-relative `read` and `write`
+  directions.
+
+### Fixed
+
+- Make the runtime communications conformance gate reject zero-test filters
+  and align its development and WAN profile cases with the shipped policy.
+- Make the Neovim and Zed editor smoke gate fail when an exact Rust filter
+  silently selects zero tests.
+- Make tutorial 09 a complete standalone simulation project so Compile and the
+  Runtime Panel resolve its source and configuration instead of falling back to
+  the repository root.
+- Bundle `trust-dev` in every release VSIX beside `trust-runtime` so native ST
+  tests use the matching workbench binary and always return their JSON result.
+- Reject unknown MQTT `io.params` fields instead of silently falling back to
+  default topics, and let write-only tag mappings run without requiring an
+  inbound `trust/io/in` snapshot.
+
+## [0.24.62] - 2026-08-24
+
+### Added
+
+- The VS Code extension test harness now supports opt-in
+  `TRUST_VSCODE_TEST_GREP` filtering and optional per-test JSON output while
+  preserving the unfiltered `npm test` default.
+- verification: added direct cargo-fuzz targets for HIR lowering, PLCopen XML,
+  bytecode containers, runtime configuration, LSP incremental edits, and HMI
+  payloads; added direct runtime-anomaly tests; and resolved six obsolete test
+  skips, including retirement of a capture for a runtime command that is
+  intentionally hidden from the command palette.
+- trust-runtime: added focused automatic-restart storage tests alongside the
+  existing runtime panic-containment and bounded Modbus slow-device tests.
+
+### Changed
+
 - Specify runtime clock dispatch name/error identity and deterministic LSP
   diagnostic-override collision precedence, including canonical-key priority
   and alias-only lexical ordering.
@@ -3696,342 +4012,18 @@ Target release: `v0.24.75`
 - Specify the `trust-st-complete-v1` PLCopen profile, ST/data-type interchange,
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
-
-### Removed
-
-- `Runtime::clear_debug_control`. It had no caller, and dropping the debug
-  handle released every active force although it claimed to leave the installed
-  state unchanged; detaching a debugger keeps forces (specification 11 §6.9).
+- vscode/docs: documented the shipped product contract for the truST sidebar,
+  Live Values, Devices & Connections, examples, libraries, HMI, and visual
+  editors; public guides now use the current Compile, Live Values, and direct
+  `+ Add` workflows instead of retired Runtime Panel, Check, and Edit-mode
+  wording.
+- trust-runtime: documented the stable signed-integer materialization policy:
+  representable `SINT`/`INT`/`DINT`/`LINT` results retain their exact value and
+  destination tag, while range overflow fails before storage instead of
+  wrapping, saturating, truncating, or substituting a value.
 
 ### Fixed
 
-- A `POINTER TO ARRAY[*] OF T` again accepts the address of a concrete
-  `ARRAY[a..b] OF T` of the same rank, so the OSCAT array helpers and `CRC_GEN`
-  run on the shared engine; a different element type or rank is still a type
-  mismatch.
-- OPC UA startup now waits until this process's own server has bound its listen address, so another process holding the port can no longer pass for a started server on platforms where the check before startup does not see it (seen on macOS). A bind that fails during startup reports the same "listen address … is unavailable" error as that check.
-- `trust-dev ctl` and `trust-runtime ui` keep the project's control token when
-  `--endpoint` is given, as `trust-runtime ctl` does; they used to drop it.
-- `TP`: on the call where a pulse ends with `IN` FALSE, `ET` is `PT`; the next
-  call with `IN` FALSE resets it to zero. It used to reset on the same call,
-  unlike the timing diagram and `TOF`.
-- `SR` and `RS` accept the IEC 61131-3 long input names (`SET1`/`RESET` and
-  `SET`/`RESET1`, Table 43 rows 1b and 2b). Such calls compiled but faulted at
-  run time.
-
-- Restart requests that arrive before the resource has taken the previous one
-  coalesce into one restart, and a cold request takes precedence: a later warm
-  request no longer silently replaces a pending cold restart.
-- A bytecode reload that times out before the resource takes it is withdrawn
-  and never applied. Before, it could still commit after its caller had been
-  told it timed out.
-- The resource command queue holds at most 1,024 commands. Further requests,
-  including `pause`, `resume`, `bytecode.reload`, `ads.status` and scheduler
-  changes through `config.set`, are refused with `resource_busy` instead of
-  growing memory without bound, and `config.set` applies its scheduler policy
-  changes as one step, so a refused update changes nothing.
-
-- A fault that halts the resource no longer ends the runtime process. The
-  resource stays faulted with its safe state applied, `status`, the web UI, HMI
-  and protocol servers keep working, and `restart` (warm or cold) or an online
-  change recovers it after the configured initialization. Before, the resource
-  thread ended, a `restart` request was acknowledged but never applied, and the
-  process exited with status 0. The process now exits with status 1 when it
-  ends with the resource faulted.
-- Control `restart` and online change on a stopped resource, or on one whose
-  scan thread did not return, return `resource_not_running` instead of
-  reporting that a restart was queued.
-
-- 83 example projects named a resource in `runtime.toml` that their ST did not
-  declare; their RESOURCE declarations now match. For the seven communication
-  examples and `network_canvas_demo` this means `trust-runtime play` starts them
-  again; the other 75 are OSCAT test projects, run with `trust-runtime test`. The
-  ADS server example's resource is `truST_ADS` (a hyphen is not valid in an IEC
-  name) and the EtherCAT example's `EtherCAT_demo`. Five PLCopen motion examples
-  without an `io.toml` got a simulated driver so they validate and run.
-- Hosted instance creation reports `Overflow` instead of panicking when instance
-  identities are exhausted.
-- `CONCAT_TOD`, `CONCAT_LTOD`, `CONCAT_DT` and `CONCAT_LDT` reject a component
-  outside its range instead of carrying it into the next field
-  (`CONCAT_TOD(0, 75, 0, 0)` was 01:15:00).
-- `SHL`, `SHR`, `ROL` and `ROR` handle shift counts over the full 64-bit range:
-  a count of 2^32 or more no longer wraps (`SHL(BYTE#1, LINT#4294967296)` was
-  `BYTE#1`).
-- `MID`, `DELETE` and `REPLACE` with a length past the end clamp to the end
-  instead of overflowing (a panic in debug builds), and string positions above
-  2^32 give the same result on 32-bit targets as on 64-bit ones.
-- `TIME_TO_DWORD` and a `TIME` written to a `DWORD` process-image slot reject a
-  negative duration instead of storing 0.
-- `TON`, `TOF` and `TP` saturate their elapsed time at `PT` across a clock span
-  wider than the `TIME` range; such a span panicked in debug builds and added
-  nothing in release builds.
-- `LTIME`, `LDATE`, `LTOD` and `LDT` variables can be bound to long-word direct
-  addresses (`%IL`, `%QL`, `%ML`) and carry their exact 64-bit value. `DATE`, `TOD`
-  and `DT` are refused at direct addresses with an error that names the long
-  forms; the harness used to size them as `DWORD`.
-- Durations in the runtime configuration, `config.set`, simulation settings,
-  conformance cases and the test-harness protocol that exceed the representable
-  range (about 292 years) are refused; they used to wrap to negative durations
-  in release builds.
-- Control `pause` and `resume` on a faulted or stopped resource return the error
-  code `resource_not_running` and change nothing; they used to reply `paused` or
-  `running` although the resource was not scanning.
-- The OPC UA server refuses to start, with a clear error, when its listen address
-  is already in use. Before, its server thread failed silently while startup
-  reported success, because the readiness check reached whichever process held
-  the port.
-- The release-candidate CI watcher no longer reports a run as complete before
-  GitHub has registered any check for the new head.
-
-- `ctl io-write` and `io-force` of an integer no longer fault and halt the PLC
-  (issue #135). An integer value takes the declared type of its `INT`, `DINT`,
-  `WORD` or other integer or bit-string destination when it fits; a value that
-  does not fit is rejected with a `write_rejected` event and the PLC keeps running.
-- `ctl step-over`, `step-in` and `step-out` are rejected with a clear error
-  unless the debugger holds the scan (a breakpoint or a debug-mode pause), instead
-  of silently stalling the scan after a production `pause` (issue #136). An
-  attached debugger still steps from a breakpoint. `resume` always releases a
-  debugger hold, and `status` reports the hold instead of `running`.
-- Corrected `trust-runtime ctl` commands in the documentation: the operator guide
-  and the safety commissioning tutorial now use `restart cold` (the CLI has no
-  `--mode` flag), the cloud troubleshooting guide and profile cookbook use
-  `config-get`, the operator guide describes the actual `status` line and points
-  to `stats` for cycle timing, and the memory marker tutorial shows the `Int`
-  values that `io-read` prints. Tests now run these documented commands against
-  a real runtime.
-- Charge standard-library text work. CONCAT, REPLACE, MID and the other text and
-  conversion functions charge 1 work unit per UTF-8 byte of their text arguments
-  before they run, and their text result as a new value. A program that keeps
-  doubling an unbounded `STRING` now stops with the work or allocation limit
-  fault instead of growing until the host runs out of memory.
-- Charge reference growth independently of internal buffer sizes, and stop
-  counting a call's rollback journal against the allocation limit, as the work
-  cost model states.
-- The STBC 3.0 checksum covers the whole file, including the header. A file whose
-  version or flags were changed is rejected instead of being read with other
-  storage widths.
-- A stalled health reader can no longer hold up the control cycle: health
-  publication skips a cycle instead of waiting for the reader.
-- Debugger I/O views keep the declared enumeration type name for unresolved and
-  failed entries, and remote sessions no longer uppercase it.
-- Writing an unknown `VAR_ACCESS` name reports `runtime_undefined_variable`
-  instead of `runtime_invalid_alias`, as specification 10 states. A read-only
-  alias still reports `runtime_invalid_alias`.
-- Isolate the real OpenOT PLC scan-overhead regression from concurrent functional
-  tests and compare paired scans with alternating order, preserving the existing
-  threshold and checking that the real persistence worker commits and drains.
-
-- Route required real-database qualification through the Rust generated-environment decoder and clear inherited database settings before launching the gate, so stale parent values cannot satisfy missing generated inputs.
-
-- Reject source-freeze manifests inside the source checkout, including symlink aliases, and preserve existing manifests rather than overwriting them. Source identity also checks working-tree file kinds, link targets and Unix executable bits; older byte-only snapshots remain historical evidence.
-
-- Bound rendered-test browser startup and lifetime with Rust-owned subprocess cleanup and visible browser/version diagnostics; install selected CI tools and locked frontend prerequisites before their gates.
-
-- Preserve contextual legacy imports whose POU index omits unused standard
-  function blocks, and keep absolute structure-field I/O addresses distinct from
-  relative storage offsets during source-free encoding.
-
-- Use the default compiler outlining pass count for F401 firmware; reject the extra
-  rerun that produced an invalid Thumb return sequence and a startup HardFault.
-
-- Preserve physical structure backing through constant defaults, initializer
-  coercion and STRN v3 durable RETAIN storage, retaining v1/v2 readers; reject
-  contradictory alias constants before installation. Keep optimized remainder
-  and partial-budget fault behavior aligned
-  with the shared bytecode executor, and reserve reusable register frame payloads.
-- Propagate shared-engine cycle limits through hosted management and I/O snapshots;
-  preserve legacy supplied program instances, installed I/O rebinding and anonymous
-  debugger expression types across the hosted compatibility adapters.
-
-- Make PostgreSQL and TimescaleDB release-runner TLS mounts accessible to the
-  service UID under restrictive host umasks, while keeping server keys private.
-- Preserve source-free restart initialization of direct input, output and marker
-  image addresses. Warm and cold restart carry previous images into staging before
-  ordered configuration actions, keeping unconfigured values and transactional
-  failure behavior.
-- Support system Bash 3.2 in the shared dependency-audit wrapper, including empty
-  exception lists, and preserve native path separators in firmware remapping.
-
-- Confirm managed fleet shutdown across control-connection teardown without
-  mistaking interrupted status probes for a failed shutdown or a confirmed stop.
-  Preserve authentication/protocol errors and retain the PID until stop is confirmed.
-
-- Publish the runtime portability specification in the public reference and preserve
-  warm release-build artifacts when the target filesystem already meets the existing
-  80 GiB capacity requirement.
-
-- Keep the unsupported Git-marker regression executable with long temporary
-  directory paths on Unix hosts.
-
-- Bind release validation capacity checks to the selected generated-target filesystem;
-  support the mounted builder volume with the same leases, ownership checks and
-  80 GiB minimum, avoiding root-disk exhaustion during cold workspace tests.
-
-- Remove deleted project sources from the language server consistently across
-  directory notifications, reindexing and concurrent document close/index operations,
-  preventing stale duplicate declarations when creating a new project. Retain
-  registered file identity after text eviction so deletion and rename also work
-  through filesystem aliases on macOS and Windows.
-
-- Protect I/O credentials in IDE, configuration-text and remote proxy reads;
-  preserve stored secrets (including a literal `<redacted>`) on unchanged saves,
-  and prevent generic IDE symlink/rename aliases from bypassing redaction.
-  Retained MQTT passwords are bound to their broker and authentication context;
-  changing that context requires explicit replacement credentials.
-- Use the Rust 1.95-compatible atomic update API without deprecated calls on
-  current stable Rust, and update concurrently to remove the shell-quote
-  command-injection advisory.
-- Preserve numeric operand types when compiling TIME/LTIME scaling, including
-  duration aliases and nested scalar expressions.
-- Execute compiled PLC call chains through explicit shared VM continuations to bound native dispatcher nesting; stop F401 bring-up when measured stack headroom is insufficient.
-
-- Keep deadline expiry latched through portable execution cleanup and build bulk input rollback snapshots without quadratic insertion work; preserve ordered writes and alias rollback.
-
-- Preserve function-block instance ownership when a body contains a NULL literal, so instance-field accesses bind to the invoked instance.
-
-- Bound bytecode validation scratch storage and work across instructions and metadata,
-  retaining stack states only at control-flow block entries. Reject section payloads
-  that overlap container headers/tables, misaligned headers, raw record discriminant
-  mismatches and encoder count/extent overflow before preparing executable state.
-
-- Reject overflowing byte-reader lengths and section/POU extents and relative jump targets before slicing or advancing the reader.
-
-- Preserve nominal periodic-task deadlines when the task interval is not a
-  multiple of the resource cycle. For exact 10 ms samples, a 25 ms task now
-  activates at 30, 50, 80 and 100 ms instead of every 30 ms; missed activations
-  remain dropped and counted. These describe the logical scheduling rule,
-  not measured hosted wake timing.
-
-- Security: update `rustls` to 0.23.46 (RUSTSEC-2026-0346 to 0349: TLS secrets in client session
-  `Debug` output, data sent to the outer server after an ECH rejection, up to 1 GiB allocated for
-  certificate decompression before authentication, and a post-quantum key-exchange downgrade). The
-  `tiny_http` HTTPS server keeps `rustls` 0.20.9 under an owned exception until 18 November 2026:
-  the downgrade concerns TLS clients, and `rustls` 0.20 offers no post-quantum group.
-- Security: update `rustls` to 0.23.45 (RUSTSEC-2026-0285, TLS 1.3 handshake messages accepted
-  across encryption levels) and `salsa` to 0.28.5 (RUSTSEC-2026-0308, use-after-free in interned
-  values and cached query results). The two queries whose results salsa now returns by reference
-  are read by value, unchanged in behaviour. The VS Code extension's `brace-expansion` (2.1.7,
-  5.0.12) and `js-yaml` (4.3.2) move past two high-severity CPU denial-of-service advisories.
-- Security: `GET /api/io/config` answered without the web authentication in the runtime's own
-  web server, and every I/O configuration read returned driver credentials such as an MQTT
-  password. The read now needs the Viewer role in every server mode, and passwords, tokens,
-  secrets and private keys come back as `<redacted>`; saving a configuration as it was read
-  keeps the stored credential (specification 11, §6.9.7).
-- Resolve symbolic MQTT tag mappings when a project is launched in the VS Code
-  simulator, so mapped outputs connect and publish instead of leaving the
-  debugger with an empty process image.
-- Preserve typed database transport failures through OpenOT schema
-  initialization, commit, and maintenance so bounded reconnect still applies,
-  while deterministic projection and storage failures fault immediately
-  instead of repeatedly reopening the selected backend.
-- Freeze bounded OpenOT shutdown drains from a fresh non-consuming producer
-  head so records published after an older buffered poll are still committed,
-  and restrict real-database runner teardown to exact-labelled Docker
-  resources even when a matching temporary-state marker exists.
-- Keep OpenOT source-head and pending-byte status observable while an initial
-  remote database connection is unavailable, and run the same complete
-  Architecture Safety gate before push and in GitHub CI. Protect active
-  shared-builder Cargo targets with stable external leases so concurrent
-  cleanup cannot delete exact-candidate test executables without leaking those
-  leases into helper daemons or detached children, and preserve target
-  compiler discovery instead of injecting host C/C++ compilers into Windows
-  cross-target checks.
-- Keep SQL Server logged-value statements below its 2,100-parameter limit,
-  constrain the MySQL/MariaDB schema marker to its single valid key, replace
-  the yanked MySQL client patch release, and run the same supply-chain policy
-  in exact pre-push validation and GitHub CI.
-- Keep PLC startup independent of remote logging availability, preserve
-  cumulative status across reconnects, drain bounded shutdown work, and report
-  the actual opened backend schema without exposing secrets.
-- Make InfluxDB delivery bounded and continuous under sustained input, retain
-  the complete typed/domain/provenance model, and require authenticated,
-  CA-verified real-product release proof.
-- Publish an InfluxDB spool commit before surfacing later reconciliation
-  failures, preserve detailed reconciliation counters through backend
-  selection, and reject compiled-out TOML backends synchronously at startup.
-- Reject missing or empty selected database environment variables before
-  worker startup, retry only explicitly classified remote-open reachability
-  failures, and fault permanent schema or storage-open errors immediately.
-- Reject missing database CA files before starting the persistence worker,
-  preserve complete loss/unresolved provenance in SQL Server combined commits,
-  and require capture-lifecycle parity for every Docs Captures workflow path.
-- Provision every real logging database from repository-owned, digest-pinned
-  runner scripts with ephemeral credentials, authenticated readiness checks,
-  symlink-safe container/network/anonymous-volume teardown, and retained
-  exact-candidate evidence.
-- Make every OpenOT database example portable to Windows and Linux by using a
-  TCP runtime control endpoint with an explicit local-only example token instead
-  of a Unix-only `/tmp` socket.
-- Preserve previous-value and audit fields in every relational `logged_values`
-  row, reapply SQLite/Influx spool durability settings on every connection,
-  and reject generation-1 databases whose actual columns, constraints, foreign
-  keys, or indexes differ from the schema created by truST.
-- Keep initial InfluxDB transport outages in the bounded reconnect lifecycle,
-  reclaim exact-labelled real-database runner resources after interrupted jobs
-  even when temporary state was lost, and make exact-candidate Clippy use the
-  same warning-deny command as GitHub CI.
-
-- Keep real-Mosquitto conformance compatible with broker versions whose help
-  command prints a usable version and then exits nonzero, so optional version
-  reporting cannot override passing protocol assertions.
-- Run exact-candidate VS Code browser and Extension Host checks with a unique,
-  short-lived `/tmp` directory so long validated Cargo target paths cannot
-  break Unix-domain process sockets.
-- Keep native Unix control-endpoint tests portable under long temporary paths,
-  and make automated docs captures reap their owned process sessions and
-  code-server container after success, failure, or interruption.
-- Keep the Web IDE Hardware tab responsive for ordinary communication graphs
-  by coalescing repeated hydration relayout requests into one bounded
-  animation frame and one post-hydration resize/fit pass.
-- Make post-merge release verification audit the exact candidate branch and
-  validation worktrees, block dirty or divergent state, and report explicit
-  cleanup targets before a release handoff can be completed.
-- Report prunable candidate worktree registrations as cleanup targets instead
-  of misclassifying their missing directories as dirty worktrees.
-- Give capture lifecycle assertions enough time to observe the launcher's
-  bounded TERM-to-KILL cleanup and process reaping path.
-- Reconcile staged checksum paths with GitHub's flat release-asset namespace
-  while rejecting ambiguous basenames and unsafe manifest paths.
-- Keep exact-candidate remote validation aligned with CI by disabling inherited
-  Rust compiler caches and serializing the cold all-tests build to bound disk
-  use.
-- Fail exact-candidate preparation before creating build artifacts unless the
-  remote builder has at least 80 GiB free, reflecting the measured size of a
-  cold uncached all-tests target.
-- Keep workspace integration-test binary discovery compilable under cold
-  all-target check and clippy runs, and enforce that portability contract in CI.
-- Keep direction-specific MQTT mappings isolated: write-only drivers no longer
-  clear shared input bytes, and read-only mappings no longer publish the raw
-  output image to the default topic. An explicitly empty `mappings` list also
-  disables both raw directions instead of restoring the default topics.
-- Give MQTT one authoritative communication specification instead of mixing
-  broker and wire behavior into the runtime-engine contract, and make the
-  changed-file verifier reject MQTT production changes without that owning
-  specification and a native executable test.
-- Preserve IEC enum identity across MQTT tag mappings while using declared
-  numeric member values on the wire, including alias and direct-binding cases,
-  reject undeclared inbound values atomically, and retain the declared enum
-  name in control snapshots for resolved, error, and unresolved points.
-- Let `trust-runtime ctl status` render a healthy runtime's JSON-null fault as
-  `none`, matching the live control response contract.
-- Make reused runtime communications conformance output directories inspect
-  only the current case invocation instead of accepting stale passing lines.
-- Require the runtime communications conformance gate to execute the shipped
-  MQTT traffic-light mapping against a real Mosquitto broker and client.
-- Make the runtime communications conformance gate reject zero-test filters
-  and align its development and WAN profile cases with the shipped policy.
-- Make the Neovim and Zed editor smoke gate fail when an exact Rust filter
-  silently selects zero tests.
-
-- Make tutorial 09 a complete standalone simulation project so Compile and the
-  Runtime Panel resolve its source and configuration instead of falling back to
-  the repository root.
-- Bundle `trust-dev` in every release VSIX beside `trust-runtime` so native ST
-  tests use the matching workbench binary and always return their JSON result.
-
-- Reject unknown MQTT `io.params` fields instead of silently falling back to
-  default topics, and let write-only tag mappings run without requiring an
-  inbound `trust/io/in` snapshot.
 - ci/trust-runtime: The managed-fleet CLI lifecycle integration test now uses
   file-backed child output capture and bounded command execution, preventing a
   background Windows runtime from retaining a capture pipe and deadlocking
@@ -4078,39 +4070,6 @@ Target release: `v0.24.75`
 - Reject ADS client connections that declare no points and make the
   communication authoring schema explain that activation requires at least one
   connection with a selected point.
-- verification: case-table hashing now canonicalizes Windows CRLF checkout
-  line endings, keeping committed case-file digests stable across runners.
-- ci/trust-runtime: the live Modbus+MQTT composition test now retries the
-  transient MQTT snapshot-startup race on non-Linux runners instead of treating
-  the expected freshness delay as a product failure.
-- ci/docs: Browser IDE capture automation now requests the editor session
-  required to switch the active tutorial project, and code-server captures now
-  assert the accepted `truST:` command category, keeping post-merge docs
-  captures aligned with the shipped authorization and command contracts.
-- vscode/trust-runtime: Windows ADS discovery now uses the installed TwinCAT
-  router for same-computer port and symbol operations, and Devices & Connections
-  no longer offers an unverified ADS identity as an actionable fallback device.
-- vscode: Devices & Connections now renders cached project state before runtime
-  enrichment and schedules polling only after each refresh completes, preventing
-  slow Windows requests from starving the canvas; simulator Start now waits for
-  the real Structured Text debug session and bounds I/O probes so a successful
-  launch is not reported as a timeout.
-- ci: the main-branch version release guard now allows 90 minutes for a matching
-  Release workflow to finish, with a larger job budget and a focused regression
-  test, so healthy cold Windows artifact builds do not fail release evidence at
-  the former 30-minute boundary.
-- vscode: fixed stale Devices & Connections refresh and discovery sessions so
-  editor-group resize/remounts cannot publish torn capability state or leave old
-  Discover cards actionable; hidden webviews now pause polling and resynchronize
-  when visible.
-- vscode: kept Browse-tags symbol selection on accessible native checkbox
-  semantics and added a real X11 quick-click/Space regression journey across
-  multiple Network Canvas refreshes.
-- vscode: changed the fail-closed writable ADS import refusal to a complete
-  modal explanation with a **Start runtime** recovery action.
-- docs: Communication overview pages now list Beckhoff ADS alongside Modbus,
-  MQTT, and OPC UA so the public navigation path matches the shipped ADS
-  client/server support.
 - Write the correlated runtime control acknowledgement before applying an
   accepted shutdown stop signal, preventing managed fleet stop from losing its
   response while the runtime process exits under load.
@@ -4465,6 +4424,70 @@ Target release: `v0.24.75`
 - trust-runtime: mistyped top-level commands now receive the correct suggestion
   when `--verbose` precedes the command, and the suggestion vocabulary includes
   the shipped `check` and `agent` command families.
+- trust-runtime-core: integer operand normalization now has an explicit
+  fail-closed contract: every integer runtime tag preserves its mathematical
+  value when representable as `i64`, oversized `ULINT` values return overflow,
+  and non-integer tags return a type mismatch.
+- trust-runtime-core: unsigned integer result materialization now preserves
+  every representable `USINT`, `UINT`, `UDINT`, and `ULINT` value exactly,
+  rejects destination overflow, and rejects non-unsigned destination tags.
+- trust-runtime-core: retained snapshot insertion now has an explicit
+  deterministic contract: new names append, reinserting the same resolved
+  name replaces its value in place, and stored runtime values are preserved
+  exactly until the owning persistence or reload boundary validates them.
+- trust-runtime-core: task readiness now has an explicit deterministic
+  contract for SINGLE edge sampling, periodic suppression, backward and
+  forward logical-clock jumps, missed intervals, and saturating overrun
+  accounting.
+- trust-runtime-core: portable fault-state clearing now has an explicit
+  lifecycle contract: it atomically removes the fault flag and stored error,
+  preserves the configured fault policy, remains idempotent while healthy, and
+  does not itself claim resource recovery or safe-state handling.
+- trust-runtime-core: portable fault-policy decisions now have an explicit
+  projection contract for halt, safe-halt, and restart, including the exact
+  safe-state flag and the boundary between returning a decision and executing
+  recovery actions.
+- trust-runtime-core: fault recording and fault-policy replacement now have an
+  explicit state-preservation contract, including latest-error replacement and
+  changing policy while faulted without erasing the current fault.
+- trust-runtime-core: watchdog policy installation now has an explicit
+  normalization contract: enabled non-positive timeouts floor to one
+  millisecond, valid and disabled timeouts retain their values, and installing
+  policy does not itself execute a watchdog action.
+
+## [0.24.54] - 2026-07-20
+
+### Added
+
+- release: added digest-bound artifact provenance and result-derived
+  conformance status assets, plus release checks binding the workspace version,
+  tag, successful workflow, required assets, and GitHub Latest pointer.
+- trust-runtime: documented the complete STBC validator-before-apply contract,
+  added product-path malformed-bytecode case execution, and promoted the
+  existing owner, reference, call, jump, stack, schema, checksum, and version
+  rejection checks from quarantine into the regular test suite.
+- trust-runtime/vscode: Browser HMI and Devices & Connections now consume the
+  shared connector status and discovery-confidence contract while presenting it
+  with user-facing labels: HMI summarizes connections in one compact header
+  chip, and Network Canvas/Discover use Connection, Health, Verification, and
+  Signals wording instead of backend connector/proof terminology. Devices &
+  Connections now rejects unknown state, health, or confidence values while
+  retaining the affected peer topology and showing the validation error instead
+  of silently dropping all peers.
+
+### Changed
+
+- branding: replaced font-dependent truST wordmarks and product icons with
+  self-contained path-based assets across the public documentation, runtime Web
+  IDE, and packaged VS Code extension.
+
+### Fixed
+
+- verification: case-table hashing now canonicalizes Windows CRLF checkout
+  line endings, keeping committed case-file digests stable across runners.
+- ci/trust-runtime: the live Modbus+MQTT composition test now retries the
+  transient MQTT snapshot-startup race on non-Linux runners instead of treating
+  the expected freshness delay as a product failure.
 - trust-runtime: pending debug writes and active forces are now cleared at
   runtime fault, stop, and restart boundaries so stale debugger mutations
   cannot cross a lifecycle transition.
@@ -4479,7 +4502,6 @@ Target release: `v0.24.75`
 - trust-runtime: OPC UA server variables backed by periodic PLC snapshots now
   advertise read-only access and reject client writes instead of acknowledging
   values that the runtime never applies to PLC storage.
-
 - verification: the runtime communications fuzz gate now selects the live WAN
   allowlist smoke module instead of exiting successfully after running zero
   tests; bounded campaigns also reject any zero-test Cargo filter.
@@ -4570,48 +4592,86 @@ Target release: `v0.24.75`
 - trust-runtime: MQTT typed input-point batches now commit their mapped
   process-image snapshot only after every payload validates, preventing values
   from a rejected non-finite batch from leaking into a later successful scan.
-- trust-runtime-core: integer operand normalization now has an explicit
-  fail-closed contract: every integer runtime tag preserves its mathematical
-  value when representable as `i64`, oversized `ULINT` values return overflow,
-  and non-integer tags return a type mismatch.
-- trust-runtime-core: unsigned integer result materialization now preserves
-  every representable `USINT`, `UINT`, `UDINT`, and `ULINT` value exactly,
-  rejects destination overflow, and rejects non-unsigned destination tags.
-- trust-runtime-core: retained snapshot insertion now has an explicit
-  deterministic contract: new names append, reinserting the same resolved
-  name replaces its value in place, and stored runtime values are preserved
-  exactly until the owning persistence or reload boundary validates them.
-- trust-runtime-core: task readiness now has an explicit deterministic
-  contract for SINGLE edge sampling, periodic suppression, backward and
-  forward logical-clock jumps, missed intervals, and saturating overrun
-  accounting.
-- trust-runtime-core: portable fault-state clearing now has an explicit
-  lifecycle contract: it atomically removes the fault flag and stored error,
-  preserves the configured fault policy, remains idempotent while healthy, and
-  does not itself claim resource recovery or safe-state handling.
-- trust-runtime-core: portable fault-policy decisions now have an explicit
-  projection contract for halt, safe-halt, and restart, including the exact
-  safe-state flag and the boundary between returning a decision and executing
-  recovery actions.
-- trust-runtime-core: fault recording and fault-policy replacement now have an
-  explicit state-preservation contract, including latest-error replacement and
-  changing policy while faulted without erasing the current fault.
-- trust-runtime-core: watchdog policy installation now has an explicit
-  normalization contract: enabled non-positive timeouts floor to one
-  millisecond, valid and disabled timeouts retain their values, and installing
-  policy does not itself execute a watchdog action.
+- trust-runtime: typed process-image `REAL` and `LREAL` output bindings now
+  reject non-finite values transactionally before changing `%Q`/`%M` bytes or
+  committing output to a physical driver.
+- trust-runtime: finite `REAL` `EXP` and `EXPT` calls now fault before
+  assignment when their basic-single result would be NaN or infinity instead
+  of storing a non-finite process value.
+- trust-runtime: finite `REAL` binary arithmetic now faults before assignment
+  when its basic-single result would be NaN or infinity instead of storing a
+  non-finite process value.
+- trust-runtime: `simulation.toml` now rejects NaN and infinite coupling
+  thresholds before activating the configuration instead of silently selecting
+  a coupling branch.
+- trust-debug: managed Live Values writes and forces now parse declared
+  `REAL`/`LREAL` values semantically and reject NaN, infinities, width overflow,
+  and raw non-finite bit encodings before changing process-image or force state.
+- trust-hir: cross-file POU imports now preserve `STRING[n]` and `WSTRING[n]`
+  capacities derived from project constants, so equal-capacity `VAR_IN_OUT`
+  bindings no longer fail as bounded-to-unbounded mismatches.
+- trust-runtime: file-backed retain snapshots now reject non-finite
+  `REAL`/`LREAL` values recursively on save and load, preserving the last good
+  durable image and preventing partial application of an invalid snapshot.
+- trust-runtime: mesh subscriptions now reject integer values outside the
+  subscribed IEC type's range and reject floating-point conversions that would
+  produce a non-finite PLC value instead of silently wrapping or storing
+  infinity.
+- trust-runtime: OPC UA client `Float`/`Double` input samples now reject `NaN`
+  and positive or negative infinity before cache acceptance, mark the affected
+  point faulted, and leave the PLC target unchanged.
+- trust-ads-core/trust-runtime: ADS `REAL`/`LREAL` client reads, notifications,
+  arrays, and server writes now reject `NaN` and both infinities before cache
+  acceptance, server write queuing, or PLC storage mutation.
+- trust-hir/trust-runtime: compile-time bounded `STRING[n]` and `WSTRING[n]`
+  literal checks now count Unicode scalar values; call binding rejects
+  width-changing `VAR_IN_OUT`, and function/function-block output copy-back
+  honors the receiving declaration's capacity. Metadata-free legacy v1.1
+  bytecode now fails closed when a local string output target's declared type
+  cannot be recovered; compiler and runtime must be upgraded together for this
+  boundary.
+- trust-runtime: in-process warm and cold restarts now preserve monotonic
+  runtime time while reinitializing timer and task baselines at the preserved
+  value, preventing restart from rewinding simulation time or charging
+  pre-restart elapsed time to recreated timer instances.
+- trust-runtime: bounded MQTT and Modbus input workers now preserve the typed
+  error from a completed protocol read instead of replacing MQTT connection
+  context and Modbus exception responses with a generic unavailable-snapshot
+  transport error; MQTT reads without a fresh snapshot report `IoFreshness`.
+- trust-runtime: watchdog faults before physical output commit no longer
+  re-send the pending process-image output when no safe-state outputs are
+  configured; the resource faults visibly without issuing a driver write.
+- trust-runtime: TOF and TOF_LTIME now hold `ET = PT` after the off-delay
+  expires while `IN` remains false, matching IEC 61131-3 Ed.3 Figure 15(c),
+  until a later true-input scan rearms the timer.
 
-### Security
+## [0.24.34] - 2026-07-15
 
-- The Unix control socket accepts connections only once it is owner-only (0600):
-  it is bound, restricted and only then made to listen, without changing the
-  process umask that every thread shares. It used to listen first and be
-  narrowed afterwards, so another local user connecting in that moment got the
-  token-less Unix Admin role. An existing file at the socket path that is not a
-  socket is refused instead of deleted.
-- trust-lsp inline runtime values send the editor's control token only to the
-  editor's own endpoint; an endpoint configured in the repository's
-  `trust-lsp.toml` receives only the token configured next to it.
+### Fixed
+
+- ci/docs: Browser IDE capture automation now requests the editor session
+  required to switch the active tutorial project, and code-server captures now
+  assert the accepted `truST:` command category, keeping post-merge docs
+  captures aligned with the shipped authorization and command contracts.
+- vscode/trust-runtime: Windows ADS discovery now uses the installed TwinCAT
+  router for same-computer port and symbol operations, and Devices & Connections
+  no longer offers an unverified ADS identity as an actionable fallback device.
+- vscode: Devices & Connections now renders cached project state before runtime
+  enrichment and schedules polling only after each refresh completes, preventing
+  slow Windows requests from starving the canvas; simulator Start now waits for
+  the real Structured Text debug session and bounds I/O probes so a successful
+  launch is not reported as a timeout.
+
+## [0.24.31] - 2026-07-10
+
+### Fixed
+
+- ci: the main-branch version release guard now allows 90 minutes for a matching
+  Release workflow to finish, with a larger job budget and a focused regression
+  test, so healthy cold Windows artifact builds do not fail release evidence at
+  the former 30-minute boundary.
+
+## [0.24.30] - 2026-07-10
 
 ### Added
 
@@ -4619,36 +4679,30 @@ Target release: `v0.24.75`
   port before browsing symbols, defaults to PLC port `851`, preserves non-851
   ports through browse/import/`ads.toml`, and distinguishes an unavailable ADS
   port, unsupported Symbol Upload, and an empty or incompatible symbol table.
-- The VS Code extension test harness now supports opt-in
-  `TRUST_VSCODE_TEST_GREP` filtering and optional per-test JSON output while
-  preserving the unfiltered `npm test` default.
 
-- verification: added direct cargo-fuzz targets for HIR lowering, PLCopen XML,
-  bytecode containers, runtime configuration, LSP incremental edits, and HMI
-  payloads; added direct runtime-anomaly tests; and resolved six obsolete test
-  skips, including retirement of a capture for a runtime command that is
-  intentionally hidden from the command palette.
-- release: added digest-bound artifact provenance and result-derived
-  conformance status assets, plus release checks binding the workspace version,
-  tag, successful workflow, required assets, and GitHub Latest pointer.
-- trust-runtime: documented the complete STBC validator-before-apply contract,
-  added product-path malformed-bytecode case execution, and promoted the
-  existing owner, reference, call, jump, stack, schema, checksum, and version
-  rejection checks from quarantine into the regular test suite.
-- trust-runtime: added focused automatic-restart storage tests alongside the
-  existing runtime panic-containment and bounded Modbus slow-device tests.
+### Fixed
+
+- vscode: fixed stale Devices & Connections refresh and discovery sessions so
+  editor-group resize/remounts cannot publish torn capability state or leave old
+  Discover cards actionable; hidden webviews now pause polling and resynchronize
+  when visible.
+- vscode: kept Browse-tags symbol selection on accessible native checkbox
+  semantics and added a real X11 quick-click/Space regression journey across
+  multiple Network Canvas refreshes.
+- vscode: changed the fail-closed writable ADS import refusal to a complete
+  modal explanation with a **Start runtime** recovery action.
+- docs: Communication overview pages now list Beckhoff ADS alongside Modbus,
+  MQTT, and OPC UA so the public navigation path matches the shipped ADS
+  client/server support.
+
+## [0.24.29] - 2026-07-08
+
+### Added
+
 - trust-runtime: added a Viewer-gated `connectors.status` control surface that
   projects process-image I/O driver health and ADS client/server status into
   the shared connector status schema without changing the existing
   `status.io_drivers`, `ads.status`, or `ads.server.status` JSON contracts.
-- trust-runtime/vscode: Browser HMI and Devices & Connections now consume the
-  shared connector status and discovery-confidence contract while presenting it
-  with user-facing labels: HMI summarizes connections in one compact header
-  chip, and Network Canvas/Discover use Connection, Health, Verification, and
-  Signals wording instead of backend connector/proof terminology. Devices &
-  Connections now rejects unknown state, health, or confidence values while
-  retaining the affected peer topology and showing the validation error instead
-  of silently dropping all peers.
 - vscode: Generated truST projects and bundled examples now hide VS Code's
   native debug-status selector so the truST sidebar remains the single visible
   run/debug control surface while keeping the native simulator launch
@@ -4800,77 +4854,8 @@ Target release: `v0.24.75`
   offline non-green fleet topology, and scan-cycle read/write polling that only
   reports live status after real OPC UA reads.
 
-- trust-runtime: OpenOT telemetry can now publish real encoded records from a
-  configured ST OpenOT producer FB via `[runtime.openot] source = "st-fb"` and
-  `producer_instance`, while keeping the existing heartbeat publisher as the
-  default.
-- trust-runtime: OpenOT ST-FB telemetry now supports multi-PROGRAM authoring by
-  draining a configured `producer_instances = [...]` list into one shared ring,
-  with deterministic per-program source ids and collision diagnostics.
-- trust-runtime: ST OpenOT producer telemetry now hands off multi-record
-  transition bursts through the producer FB `ScanRecords` descriptor outputs,
-  while fail-closing scans whose published-record delta does not match the
-  descriptor count.
-- trust-runtime: OpenOT declaration attributes (`{attribute 'oot' := ...}`) now
-  lower to the hidden ST-FB producer path for value, state, message, and alarm
-  records, including enum-typed state variables whose HIR enum values populate
-  StateTransition payloads and definition-file enum sets, with a reactor example
-  that emits a UTC-rendered, runtime-clocked typed audit log, definition file,
-  and forced-overflow reconciliation artifact.
-- trust-runtime/trust-lsp: OpenOT authoring now supports the simple
-  operator/regulated edge events `operator-action`, `operator-login`,
-  `operator-logout`, and `security-failure`, including authResult symbol
-  lowering, bounded `contextRef` bindings, runtime ST-FB emission, renderer
-  support, completions, validation, and inlay hints.
-- trust-runtime/trust-lsp: OpenOT audited value declarations now emit
-  `ParameterChange` records via `audit := 'true'`, with compile-time string
-  width and record-size validation, producer baseline rollback on fail-closed
-  drops, resolved audit rendering, completions, diagnostics, and inlay hints.
-- docs: added a public OpenOT attribute-authoring guide covering the truST
-  compiler diagnostics, language-server assistance, generated producer path,
-  definition-file generation, value sampling policies, and `[runtime.openot]`
-  `source = "st-fb"` runtime configuration.
-- examples/docs: added an OpenOT multi-PROGRAM project showing two
-  attribute-generated producers drained through `producer_instances` into one
-  shared ring.
-- Added fail-closed runtime boundary watch envelopes for `trust-harness` protocol
-  v2 and `trust-dev` agent harness snapshots. Unresolved watch paths now carry
-  structured `status: "error"` entries instead of silently becoming `NULL`.
-- Added a runtime boundary fail-closed architecture gate wired into
-  `architecture-doctor --full-map` and CI.
-- Added a `trust-dev` developer/workbench CLI binary. The first migrated
-  command is `trust-dev commit`, and release runtime archives now ship
-  `trust-dev` beside `trust-runtime` and `trust-bundle-gen`.
-- `trust-dev agent serve` now owns the external agent JSON-RPC server. The
-  legacy `trust-runtime agent serve` entrypoint remains as a deprecated
-  forwarding alias during the product/workbench CLI split.
-- `trust-dev docs` now owns ST API documentation generation, and
-  `trust-runtime docs` remains as a deprecated forwarding alias during the
-  product/workbench CLI split.
-- `trust-dev test` now owns ST test discovery/execution, and `trust-runtime
-  test` remains as a deprecated forwarding alias during the product/workbench
-  CLI split.
-
-### Removed
-
-- trust-runtime: removed the abandoned digital-twin/world proof stack, including
-  the Scena/URDF robot-arm dependencies, `RobotP3MinimalArm` built-in function
-  block, world-smoke fixtures, and transform-handoff lint script. The release
-  keeps the normal simulator/runtime surfaces and no longer ships a
-  digital-twin or trust-twin runtime path.
-
 ### Changed
 
-- Let release validation honor the builder's configured Cargo job limit instead of forcing a single concurrent build job.
-
-- vscode/docs: documented the shipped product contract for the truST sidebar,
-  Live Values, Devices & Connections, examples, libraries, HMI, and visual
-  editors; public guides now use the current Compile, Live Values, and direct
-  `+ Add` workflows instead of retired Runtime Panel, Check, and Edit-mode
-  wording.
-- branding: replaced font-dependent truST wordmarks and product icons with
-  self-contained path-based assets across the public documentation, runtime Web
-  IDE, and packaged VS Code extension.
 - vscode: normalized simulator copy across the sidebar, Devices & Connections,
   Live Values, new-project template, and bundled examples so the local runtime
   appears as `Simulator` and its local endpoints appear as `Simulated I/O` /
@@ -4898,120 +4883,25 @@ Target release: `v0.24.75`
   and test wiring from the shipped product surface so the PLC IDE focuses on the
   accepted Run, Devices & Connections, Live Values, HMI, and visual-editor
   workflows.
-- `trust-harness` now defaults to JSON protocol version 2 and accepts
-  `--protocol-version 1` or `TRUST_HARNESS_PROTOCOL_VERSION=1` for the legacy
-  watch-value map shape during migration.
-- `trust-runtime commit` is now a deprecated compatibility alias that forwards
-  to `trust-dev commit`, preserving the existing command while the product
-  runtime CLI is split from workbench/dev commands.
-- Public docs and terminal capture scripts now point agent automation workflows
-  at `trust-dev agent serve`, with `trust-runtime agent serve` documented as a
-  compatibility alias.
-- Public docs, CI templates, flake probes, and terminal capture scripts now
-  point ST test and ST documentation workflows at `trust-dev test` and
-  `trust-dev docs`.
 - `trust-runtime test`, `trust-runtime docs`, `trust-runtime commit`, and
   `trust-runtime agent serve` warnings now include the `trust-dev` canonical
   command and a removal-not-before date of 2026-10-05; actual alias removal
   requires a separate behavior-change release note.
-- Local Rust test recipes now use the `mold` linker on Linux when it is
-  installed, `just test-all` and CI no longer run `complete_program` twice, and
-  `just test-hir-fast` provides a focused HIR refactor loop before the final
-  full workspace gate.
-- VS Code extension tests now build and resolve the required local
-  `trust-debug` adapter and reuse the Linux fast-link Rust wrapper for local
-  Rust build steps.
-- OSCAT OOP now uses the settled `OscatOop` dependency alias,
-  concrete types in simple examples, `PidGains` plus `Configure(...)` for PID
-  setup, clearer PID/calendar/astronomy names, and example coverage for
-  `Snapshot()` and configuration error handling.
-- MQTT I/O now supports explicit TLS/mTLS configuration instead of carrying
-  unused default TLS dependencies: `io.params.tls = true` requires
-  `tls_ca_path`, optional `tls_client_cert_path`/`tls_client_key_path` enable
-  client authentication, `mqtts://` and `ssl://` broker schemes imply TLS,
-  Linux release builds use vendored OpenSSL for the selected native TLS backend,
-  and remote plaintext brokers still require `allow_insecure_remote = true`.
 - GPIO I/O now defaults new configurations to the Linux GPIO character-device
   backend (`libgpiod`/`chardev`) while keeping legacy `sysfs` selectable, and
   setup surfaces expose the GPIO chip path alongside the existing line mapping
   help.
-- The default OSCAT OOP example catalog test now keeps the all-example folder,
-  README, source-layout, and pattern checks in the normal Rust suite while
-  moving the expensive 98-project `trust-runtime test --project` sweep behind
-  an explicit ignored gate with per-project progress, child PID/elapsed
-  reporting, and timeout diagnostics.
-- The runtime VM benchmark gate now records per-fixture metrics, confidence
-  spread, optional baseline compare deltas, and `quick-low-noise` /
-  `full-low-noise` repeated-run profiles in its artifacts.
-- The runtime VM malformed-bytecode fuzz smoke gate now records progress-visible
-  logs and summary artifacts for deterministic bytecode mutation coverage.
-- The runtime VM default-switch readiness ledger now records production-guard,
-  differential, malformed-bytecode fuzz, benchmark, residual-risk, and rollback
-  evidence without pretending blocked performance thresholds are ready.
-- VM function and method local initialization now populates VM frame slots
-  directly for initialized locals, static locals, and function-block local
-  member overrides instead of creating a temporary runtime storage frame on the
-  native-call path.
-- trust-runtime: documented the stable signed-integer materialization policy:
-  representable `SINT`/`INT`/`DINT`/`LINT` results retain their exact value and
-  destination tag, while range overflow fails before storage instead of
-  wrapping, saturating, truncating, or substituting a value.
+
+### Removed
+
+- trust-runtime: removed the abandoned digital-twin/world proof stack, including
+  the Scena/URDF robot-arm dependencies, `RobotP3MinimalArm` built-in function
+  block, world-smoke fixtures, and transform-handoff lint script. The release
+  keeps the normal simulator/runtime surfaces and no longer ships a
+  digital-twin or trust-twin runtime path.
 
 ### Fixed
 
-- trust-runtime: typed process-image `REAL` and `LREAL` output bindings now
-  reject non-finite values transactionally before changing `%Q`/`%M` bytes or
-  committing output to a physical driver.
-- trust-runtime: finite `REAL` `EXP` and `EXPT` calls now fault before
-  assignment when their basic-single result would be NaN or infinity instead
-  of storing a non-finite process value.
-- trust-runtime: finite `REAL` binary arithmetic now faults before assignment
-  when its basic-single result would be NaN or infinity instead of storing a
-  non-finite process value.
-- trust-runtime: `simulation.toml` now rejects NaN and infinite coupling
-  thresholds before activating the configuration instead of silently selecting
-  a coupling branch.
-- trust-debug: managed Live Values writes and forces now parse declared
-  `REAL`/`LREAL` values semantically and reject NaN, infinities, width overflow,
-  and raw non-finite bit encodings before changing process-image or force state.
-- trust-hir: cross-file POU imports now preserve `STRING[n]` and `WSTRING[n]`
-  capacities derived from project constants, so equal-capacity `VAR_IN_OUT`
-  bindings no longer fail as bounded-to-unbounded mismatches.
-- trust-runtime: file-backed retain snapshots now reject non-finite
-  `REAL`/`LREAL` values recursively on save and load, preserving the last good
-  durable image and preventing partial application of an invalid snapshot.
-- trust-runtime: mesh subscriptions now reject integer values outside the
-  subscribed IEC type's range and reject floating-point conversions that would
-  produce a non-finite PLC value instead of silently wrapping or storing
-  infinity.
-- trust-runtime: OPC UA client `Float`/`Double` input samples now reject `NaN`
-  and positive or negative infinity before cache acceptance, mark the affected
-  point faulted, and leave the PLC target unchanged.
-- trust-ads-core/trust-runtime: ADS `REAL`/`LREAL` client reads, notifications,
-  arrays, and server writes now reject `NaN` and both infinities before cache
-  acceptance, server write queuing, or PLC storage mutation.
-- trust-hir/trust-runtime: compile-time bounded `STRING[n]` and `WSTRING[n]`
-  literal checks now count Unicode scalar values; call binding rejects
-  width-changing `VAR_IN_OUT`, and function/function-block output copy-back
-  honors the receiving declaration's capacity. Metadata-free legacy v1.1
-  bytecode now fails closed when a local string output target's declared type
-  cannot be recovered; compiler and runtime must be upgraded together for this
-  boundary.
-
-- trust-runtime: in-process warm and cold restarts now preserve monotonic
-  runtime time while reinitializing timer and task baselines at the preserved
-  value, preventing restart from rewinding simulation time or charging
-  pre-restart elapsed time to recreated timer instances.
-- trust-runtime: bounded MQTT and Modbus input workers now preserve the typed
-  error from a completed protocol read instead of replacing MQTT connection
-  context and Modbus exception responses with a generic unavailable-snapshot
-  transport error; MQTT reads without a fresh snapshot report `IoFreshness`.
-- trust-runtime: watchdog faults before physical output commit no longer
-  re-send the pending process-image output when no safe-state outputs are
-  configured; the resource faults visibly without issuing a driver write.
-- trust-runtime: TOF and TOF_LTIME now hold `ET = PT` after the off-delay
-  expires while `IN` remains false, matching IEC 61131-3 Ed.3 Figure 15(c),
-  until a later true-input scan rearms the timer.
 - ci: release tests now tolerate loaded matrix runners for MQTT/Modbus
   scan-bound timing, runtime fail-closed state propagation, Windows index-cache
   mtime fixture updates, and Windows ADS diagnostics fixture line endings.
@@ -5592,6 +5482,11 @@ Target release: `v0.24.75`
 - trust-runtime: ADS guarded write probes now wait for scan-boundary write
   application before read-back comparison, avoiding false mismatches against
   scan-applied ADS servers.
+
+## [0.24.24] - 2026-06-09
+
+### Fixed
+
 - trust-hir/trust-ide: IEC Table 39 validation functions `IS_VALID` and
   `IS_VALID_BCD` now type-check and surface in editor completion, hover, and
   signature help; `IS_VALID_BCD` accepts `BYTE`/`WORD`/`DWORD`/`LWORD` and
@@ -5599,13 +5494,71 @@ Target release: `v0.24.75`
 - trust-runtime: `IS_VALID_BCD` now rejects `BOOL`, and runtime bytecode now
   supports Table 17 partial read/write through properly mapped structured
   `VAR_IN_OUT` references.
+
+## [0.24.23] - 2026-06-09
+
+### Added
+
+- trust-runtime: OpenOT ST-FB telemetry now supports multi-PROGRAM authoring by
+  draining a configured `producer_instances = [...]` list into one shared ring,
+  with deterministic per-program source ids and collision diagnostics.
+- trust-runtime/trust-lsp: OpenOT authoring now supports the simple
+  operator/regulated edge events `operator-action`, `operator-login`,
+  `operator-logout`, and `security-failure`, including authResult symbol
+  lowering, bounded `contextRef` bindings, runtime ST-FB emission, renderer
+  support, completions, validation, and inlay hints.
+- trust-runtime/trust-lsp: OpenOT audited value declarations now emit
+  `ParameterChange` records via `audit := 'true'`, with compile-time string
+  width and record-size validation, producer baseline rollback on fail-closed
+  drops, resolved audit rendering, completions, diagnostics, and inlay hints.
+- docs: added a public OpenOT attribute-authoring guide covering the truST
+  compiler diagnostics, language-server assistance, generated producer path,
+  definition-file generation, value sampling policies, and `[runtime.openot]`
+  `source = "st-fb"` runtime configuration.
+- examples/docs: added an OpenOT multi-PROGRAM project showing two
+  attribute-generated producers drained through `producer_instances` into one
+  shared ring.
+
+## [0.24.22] - 2026-06-07
+
+### Added
+
+- trust-runtime: OpenOT telemetry can now publish real encoded records from a
+  configured ST OpenOT producer FB via `[runtime.openot] source = "st-fb"` and
+  `producer_instance`, while keeping the existing heartbeat publisher as the
+  default.
+- trust-runtime: ST OpenOT producer telemetry now hands off multi-record
+  transition bursts through the producer FB `ScanRecords` descriptor outputs,
+  while fail-closing scans whose published-record delta does not match the
+  descriptor count.
+- trust-runtime: OpenOT declaration attributes (`{attribute 'oot' := ...}`) now
+  lower to the hidden ST-FB producer path for value, state, message, and alarm
+  records, including enum-typed state variables whose HIR enum values populate
+  StateTransition payloads and definition-file enum sets, with a reactor example
+  that emits a UTC-rendered, runtime-clocked typed audit log, definition file,
+  and forced-overflow reconciliation artifact.
+
+## [0.24.21] - 2026-06-01
+
+### Fixed
+
 - Runtime bytecode execution now supports IEC Table 17 partial
   bit/byte/word/dword access on `BYTE`, `WORD`, `DWORD`, and `LWORD`
   function-block instance fields, matching the existing program-variable
   behavior.
+
+## [0.24.19] - 2026-05-23
+
+### Fixed
+
 - `architecture-doctor --changed` now follows the current
   `crates/trust-runtime/src/host/...` runtime host layout for initializer and
   evaluation checks.
+
+## [0.24.15] - 2026-05-05
+
+### Fixed
+
 - Runtime I/O drivers now fail closed for the covered safety paths: MQTT
   disconnected/stale reads and publish/connect failures return structured
   runtime errors, EtherCAT discovery and image-size mismatches fault under every
@@ -5635,41 +5588,107 @@ Target release: `v0.24.75`
   disabled debug-control requests return structured `feature_disabled`.
 - `FULLMAP-RUNTIMESAFE` now runs as a blocking architecture-doctor/CI gate with
   zero findings and zero allowlist entries.
+
+## [0.24.14] - 2026-05-03
+
+### Added
+
+- Added fail-closed runtime boundary watch envelopes for `trust-harness` protocol
+  v2 and `trust-dev` agent harness snapshots. Unresolved watch paths now carry
+  structured `status: "error"` entries instead of silently becoming `NULL`.
+- Added a runtime boundary fail-closed architecture gate wired into
+  `architecture-doctor --full-map` and CI.
+
+### Changed
+
+- `trust-harness` now defaults to JSON protocol version 2 and accepts
+  `--protocol-version 1` or `TRUST_HARNESS_PROTOCOL_VERSION=1` for the legacy
+  watch-value map shape during migration.
+
+### Fixed
+
 - Harness boundary inputs now fail closed: typoed `set_input` names and
   `bind_direct` targets return structured boundary errors instead of creating
   hidden globals or undeclared I/O bindings.
 - `CONFIGURATION` builds now reject declared top-level `PROGRAM`s that are not
   bound by the configuration, unless a test builder explicitly opts in through
   extra program instances.
-- MQTT `keep_alive_s` is now applied to the `rumqttc` session options instead
-  of being parsed only at validation time.
-- MQTT TLS fixture paths are normalized before being embedded in TOML so the
-  TLS config tests run on Windows paths as well as Unix paths.
-- Dependency hygiene now has explicit `cargo deny`, `cargo audit`, and
-  `cargo machete` policy evidence: unused direct workspace dependencies were
-  removed, the workspace MSRV was raised from Rust `1.85` to Rust `1.95`,
-  `time` was updated to the patched `0.3.47`, `ratatui` was updated to `0.30`,
-  `rumqttc` no longer enables unused default TLS dependencies, `qrcode` no
-  longer pulls its unused image backend, the optional `opcua-wire` advisory paths
-  are documented with owner/rationale/removal metadata, `Cargo.lock` is tracked
-  for reproducible CI dependency resolution, runtime modulo checks now use the
-  Rust `1.95` `is_multiple_of` API so Clippy stays clean on the new MSRV,
-  `third_party/tiverse-mmap` is an intentional workspace exclude, and the
-  full-map doctor reports the dependency hygiene status with failing policy
-  fixtures.
+
+## [0.24.13] - 2026-05-03
+
+### Fixed
+
 - External safety follow-up now prunes the Zenoh default-feature dependency
   surface to remove the transitive `rsa` advisory path, removes direct
   `rustls-pemfile` use from runtime TLS PEM parsing, refreshes owned
   `cargo deny` advisory metadata for the remaining OPC UA, tiny_http TLS, and
   Zenoh `paste` paths, and records the remaining external unsafe-scanner gap in
   the architecture follow-up checklist.
-- Parser recovery for malformed aggregate/positional initializers is now
-  bounded by shared top-level scan helpers, preserves following declarations at
-  declaration boundaries, and is guarded by full-map doctor and focused
-  mutation evidence.
-- HIR validation now rejects non-repeat call expressions used as array defaults
-  and validates direct array repetition defaults against the repeated element
-  type, closing focused mutation-testing gaps in default initializer analysis.
+
+## [0.24.12] - 2026-05-01
+
+### Added
+
+- `trust-dev docs` now owns ST API documentation generation, and
+  `trust-runtime docs` remains as a deprecated forwarding alias during the
+  product/workbench CLI split.
+- `trust-dev test` now owns ST test discovery/execution, and `trust-runtime
+  test` remains as a deprecated forwarding alias during the product/workbench
+  CLI split.
+
+### Changed
+
+- Public docs, CI templates, flake probes, and terminal capture scripts now
+  point ST test and ST documentation workflows at `trust-dev test` and
+  `trust-dev docs`.
+
+## [0.24.11] - 2026-05-01
+
+### Added
+
+- `trust-dev agent serve` now owns the external agent JSON-RPC server. The
+  legacy `trust-runtime agent serve` entrypoint remains as a deprecated
+  forwarding alias during the product/workbench CLI split.
+
+### Changed
+
+- Public docs and terminal capture scripts now point agent automation workflows
+  at `trust-dev agent serve`, with `trust-runtime agent serve` documented as a
+  compatibility alias.
+
+## [0.24.10] - 2026-05-01
+
+### Added
+
+- Added a `trust-dev` developer/workbench CLI binary. The first migrated
+  command is `trust-dev commit`, and release runtime archives now ship
+  `trust-dev` beside `trust-runtime` and `trust-bundle-gen`.
+
+### Changed
+
+- `trust-runtime commit` is now a deprecated compatibility alias that forwards
+  to `trust-dev commit`, preserving the existing command while the product
+  runtime CLI is split from workbench/dev commands.
+
+## [0.24.9] - 2026-05-01
+
+### Changed
+
+- The runtime VM benchmark gate now records per-fixture metrics, confidence
+  spread, optional baseline compare deltas, and `quick-low-noise` /
+  `full-low-noise` repeated-run profiles in its artifacts.
+- The runtime VM malformed-bytecode fuzz smoke gate now records progress-visible
+  logs and summary artifacts for deterministic bytecode mutation coverage.
+- The runtime VM default-switch readiness ledger now records production-guard,
+  differential, malformed-bytecode fuzz, benchmark, residual-risk, and rollback
+  evidence without pretending blocked performance thresholds are ready.
+- VM function and method local initialization now populates VM frame slots
+  directly for initialized locals, static locals, and function-block local
+  member overrides instead of creating a temporary runtime storage frame on the
+  native-call path.
+
+### Fixed
+
 - Runtime and constant-expression array repetition initializers now shape arrays
   from the expanded value count, so declarations such as `[3(1, 2)]` materialize
   as six elements instead of failing type validation as a one-element array.
@@ -5683,6 +5702,26 @@ Target release: `v0.24.75`
   outside that POU's declared local-ref range, so malformed local slots fail
   before VM frame execution, while still accepting owned derived local path
   references such as local array elements and struct fields.
+
+## [0.24.8] - 2026-04-30
+
+### Changed
+
+- Local Rust test recipes now use the `mold` linker on Linux when it is
+  installed, `just test-all` and CI no longer run `complete_program` twice, and
+  `just test-hir-fast` provides a focused HIR refactor loop before the final
+  full workspace gate.
+- VS Code extension tests now build and resolve the required local
+  `trust-debug` adapter and reuse the Linux fast-link Rust wrapper for local
+  Rust build steps.
+- The default OSCAT OOP example catalog test now keeps the all-example folder,
+  README, source-layout, and pattern checks in the normal Rust suite while
+  moving the expensive 98-project `trust-runtime test --project` sweep behind
+  an explicit ignored gate with per-project progress, child PID/elapsed
+  reporting, and timeout diagnostics.
+
+### Fixed
+
 - HIR validation now reports `UndefinedVariable` when a `VAR_ACCESS` access
   path points at a missing target instead of silently accepting the declaration.
 - HIR constant evaluation now reports `CannotResolve` for ambiguous unqualified
@@ -5766,20 +5805,6 @@ Target release: `v0.24.75`
   and classified OOP reference outcomes; runtime POU registration is driven by
   that catalog and reports catalog/lowering mismatches instead of silently
   skipping accepted declarations.
-- VS Code activation no longer writes the default runtime control endpoint into
-  workspace folder settings; runtime panels still use the built-in endpoint
-  fallback when the setting is empty.
-- `Pt1Filter.Reset()` now reinitializes the underlying OSCAT `FT_PT1` state on
-  the next update, and `HysteresisSwitch.Reset()` now resets the actual
-  hysteresis state instead of only clearing cached wrapper fields.
-- `UnitConverter` now delegates Celsius/Kelvin and energy/calorie conversions
-  to classic OSCAT functions/function blocks so the component facade cannot
-  silently diverge from the parity oracle.
-- OSCAT OOP tests now cover reset behavior, multi-scan PT1 parity,
-  invalid limit rejection, FIFO ordering, and the OSCAT version through
-  `OSCAT_VERSION(IN := FALSE)` instead of a hardcoded value.
-- Public docs links for PLCopen/Oscat example READMEs now resolve under MkDocs
-  strict mode.
 - Runtime compilation now registers namespaced `PROGRAM` declarations and
   resolves sibling namespace types for local OOP `IMPLEMENTS` checks, so
   namespaced runtime programs and same-namespace interfaces are handled
@@ -5787,6 +5812,60 @@ Target release: `v0.24.75`
 - Runtime bytecode generation now preserves POU namespace context for sibling
   function calls, keeps method names owner-local inside namespaced class-like
   POUs, and exposes bare return-variable aliases for namespaced functions.
+
+## [0.24.7] - 2026-04-29
+
+### Changed
+
+- MQTT I/O now supports explicit TLS/mTLS configuration instead of carrying
+  unused default TLS dependencies: `io.params.tls = true` requires
+  `tls_ca_path`, optional `tls_client_cert_path`/`tls_client_key_path` enable
+  client authentication, `mqtts://` and `ssl://` broker schemes imply TLS,
+  Linux release builds use vendored OpenSSL for the selected native TLS backend,
+  and remote plaintext brokers still require `allow_insecure_remote = true`.
+
+### Fixed
+
+- MQTT TLS fixture paths are normalized before being embedded in TOML so the
+  TLS config tests run on Windows paths as well as Unix paths.
+
+## [0.24.6] - 2026-04-29
+
+### Fixed
+
+- MQTT `keep_alive_s` is now applied to the `rumqttc` session options instead
+  of being parsed only at validation time.
+- Dependency hygiene now has explicit `cargo deny`, `cargo audit`, and
+  `cargo machete` policy evidence: unused direct workspace dependencies were
+  removed, the workspace MSRV was raised from Rust `1.85` to Rust `1.95`,
+  `time` was updated to the patched `0.3.47`, `ratatui` was updated to `0.30`,
+  `rumqttc` no longer enables unused default TLS dependencies, `qrcode` no
+  longer pulls its unused image backend, the optional `opcua-wire` advisory paths
+  are documented with owner/rationale/removal metadata, `Cargo.lock` is tracked
+  for reproducible CI dependency resolution, runtime modulo checks now use the
+  Rust `1.95` `is_multiple_of` API so Clippy stays clean on the new MSRV,
+  `third_party/tiverse-mmap` is an intentional workspace exclude, and the
+  full-map doctor reports the dependency hygiene status with failing policy
+  fixtures.
+
+## [0.24.3] - 2026-04-29
+
+### Fixed
+
+- Parser recovery for malformed aggregate/positional initializers is now
+  bounded by shared top-level scan helpers, preserves following declarations at
+  declaration boundaries, and is guarded by full-map doctor and focused
+  mutation evidence.
+
+## [0.24.2] - 2026-04-28
+
+### Fixed
+
+- HIR validation now rejects non-repeat call expressions used as array defaults
+  and validates direct array repetition defaults against the repeated element
+  type, closing focused mutation-testing gaps in default initializer analysis.
+
+## [0.24.1] - 2026-04-28
 
 ### Added
 
@@ -5796,15 +5875,17 @@ Target release: `v0.24.75`
   fields with stable diagnostics, allow legal function-block member overrides,
   and expose `trust-runtime bench init` for startup/first-cycle initialization
   benchmark evidence.
-- PLCopen Motion now ships a second, object-oriented package at
-  `libraries/plcopen_motion/oop`, with ST interfaces and concrete objects for
-  `itfAxis`, command objects, and `MC_OopAxis`. The package delegates axis
-  behavior to the classic single-axis PLCopen package, includes deterministic
-  unsupported command-object returns for unimplemented OOP methods, and is
-  covered by Structured Text unit tests plus runtime integration drivers.
-- The public docs now include a PLCopen Motion OOP library guide and five
-  runnable real-world examples: warehouse shuttle, labeling conveyor,
-  pick-and-place lift, indexing table, and feeder axis.
+
+### Fixed
+
+- VS Code activation no longer writes the default runtime control endpoint into
+  workspace folder settings; runtime panels still use the built-in endpoint
+  fallback when the setting is empty.
+
+## [0.24.0] - 2026-04-27
+
+### Added
+
 - OSCAT now ships an object-oriented Components companion package at
   `libraries/oscat/oop`, with narrow interfaces for automation context,
   unit conversion, filtering, PI/PID/PWM control, hysteresis switching, signal
@@ -5827,6 +5908,62 @@ Target release: `v0.24.75`
   traversal, Decorator, Facade, Chain of Responsibility, State,
   Command/Memento, Adapter, Proxy, polymorphism, and composition. Public docs
   include a library guide plus the new truST Structured Text naming standard.
+
+### Changed
+
+- OSCAT OOP now uses the settled `OscatOop` dependency alias,
+  concrete types in simple examples, `PidGains` plus `Configure(...)` for PID
+  setup, clearer PID/calendar/astronomy names, and example coverage for
+  `Snapshot()` and configuration error handling.
+
+### Fixed
+
+- `Pt1Filter.Reset()` now reinitializes the underlying OSCAT `FT_PT1` state on
+  the next update, and `HysteresisSwitch.Reset()` now resets the actual
+  hysteresis state instead of only clearing cached wrapper fields.
+- `UnitConverter` now delegates Celsius/Kelvin and energy/calorie conversions
+  to classic OSCAT functions/function blocks so the component facade cannot
+  silently diverge from the parity oracle.
+- OSCAT OOP tests now cover reset behavior, multi-scan PT1 parity,
+  invalid limit rejection, FIFO ordering, and the OSCAT version through
+  `OSCAT_VERSION(IN := FALSE)` instead of a hardcoded value.
+- Public docs links for PLCopen/Oscat example READMEs now resolve under MkDocs
+  strict mode.
+
+## [0.23.0] - 2026-04-26
+
+### Added
+
+- PLCopen Motion now ships a second, object-oriented package at
+  `libraries/plcopen_motion/oop`, with ST interfaces and concrete objects for
+  `itfAxis`, command objects, and `MC_OopAxis`. The package delegates axis
+  behavior to the classic single-axis PLCopen package, includes deterministic
+  unsupported command-object returns for unimplemented OOP methods, and is
+  covered by Structured Text unit tests plus runtime integration drivers.
+- The public docs now include a PLCopen Motion OOP library guide and five
+  runnable real-world examples: warehouse shuttle, labeling conveyor,
+  pick-and-place lift, indexing table, and feeder axis.
+- `trust-runtime` now lowers ST `PROPERTY` implementations into runtime getter
+  and setter calls, so OOP interface references can dispatch property reads and
+  assignments across source files and package dependencies.
+
+## [0.22.3] - 2026-04-26
+
+### Fixed
+
+- Enum values loaded from `VAR` initializers now compare equal to the same enum
+  variant literal in VM execution, covering unqualified, qualified, and
+  literal-on-left equality checks for init-only state-machine selectors. Runtime
+  enum construction now canonicalizes alias-backed enum values and retained enum
+  state before comparison, preventing stale or case-variant type names from
+  silently turning valid enum equality checks into `FALSE`. Runtime compound
+  values now also validate struct field identity and array shape at construction
+  and retain-apply boundaries, so corrupted retained structs or arrays fail with
+  diagnostics instead of being silently coerced or defaulted.
+
+## [0.22.2] - 2026-04-25
+
+### Added
 
 - The public docs now include a `One Project, Every Surface` concept page that
   positions VS Code, Editor AI tools, Browser IDE, Browser HMI, CLI/CI, Agent
@@ -5854,12 +5991,105 @@ Target release: `v0.24.75`
   removed; and the one-project GIF was regenerated at higher resolution without
   the dark banner overlay.
 
+### Fixed
+
+- Runtime ST test compilation now reuses expression type information from the
+  HIR analysis pass, avoids repeated full-project symbol-table clones during
+  lowering, and skips shared-global task-hazard scans when a project has no
+  configured tasks. This keeps the full OSCAT timeout regression below the
+  test harness 60-second warning while preserving the runtime timeout budget.
+- Public docs IA now removes the duplicate Install/Verify Install route,
+  keeps Reference focused on lookup material by moving specifications higher
+  and hiding contributor-only pages, deletes dead interoperability stubs and
+  orphan/broken image assets, embeds the real one-project surface tour on the
+  docs homepage, and expands the IA checker to block generic filler phrases
+  such as "use this page", "after reading", and "you should be able".
+- Public docs visual chrome now uses a dark/light palette toggle, top-level
+  navigation tabs for the six main doors, a shorter GitHub repo label, a
+  distinct accent color, Inter/JetBrains Mono typography, and image overflow
+  safeguards so screenshots stay inside the content column. The docs homepage
+  also switches to a dark-mode wordmark variant so the brand stays legible on
+  the slate palette.
+- Public docs navigation now exposes the PREEMPT_RT runbook from the Operate
+  sidebar, reuses the interoperability pages under Migrate without moving their
+  canonical URLs, groups Operate by engineering, target-administration,
+  operator/technician, and fleet-delivery personas, surfaces truST Mesh from
+  Connect, links README start paths directly, and avoids confirmed
+  snippet/list-rendering issues in included public documentation. Concept,
+  Reference, Specifications, and Examples indexes now use clearer task and
+  mental-model groupings, the docs maintenance guide codifies nav, snippet,
+  visual, verification, and proof rules, the SFC profile reference now uses a
+  non-numbered slug to avoid a spec-14 collision, visual-editor and operator
+  pages now include public visuals, the Migrate page includes a compatibility
+  matrix, and the example catalog audit understands PyMdown line-range snippet
+  targets used to skip included page titles. A new docs IA lint now enforces
+  section-index/nav coverage, snippet H1 safety, and CommonMark list spacing,
+  and the internal docs checklist records analytics, versioning, success-metric,
+  accessibility, and mobile-review decisions.
+- The automated public-doc capture lanes now produce stable dark-mode browser
+  and code-server screenshots from real app/theme controls, wait for the HMI
+  schema/export surface before capturing `/hmi`, and install/load the truST
+  VS Code extension through one consistent code-server profile so the
+  command-palette capture stops regressing on fresh CI boots.
+
+## [0.22.1] - 2026-04-23
+
+### Fixed
+
+- The shipped `examples/oscat_smoke` consumer now matches the current OSCAT
+  named-parameter surface (`DEG`, `DAYS`, and `DATA`), so the example builds
+  cleanly again instead of failing on stale `D := ...` calls.
+
+## [0.22.0] - 2026-04-22
+
+### Added
+
+- `trust-runtime agent serve` now exposes `lsp.ast_canonicalize` and
+  `lsp.ast_similarity` for the canonical-AST 5-gram normalization path used by
+  benchmark contamination checks, dedup, and self-improvement diversity gates.
+  The existing `lsp.diagnostics` payload now also includes end positions and
+  zero-based UTF-8 byte spans, so benchmark/datagen tooling can consume stable
+  machine-readable diagnostics without brittle text scraping.
+- `trust-runtime agent serve` now also exposes a stateless `harness.execute`
+  fixture wrapper that loads project or inline sources, runs deterministic
+  harness steps, evaluates output/access/direct-I/O assertions, and returns a
+  compact pass/fail report with reduced failure context for benchmark/datagen
+  callers that need one-shot POU or system-fixture execution.
+
+## [0.21.0] - 2026-04-22
+
+### Added
+
 - `trust-runtime plcopen` now imports official TC6 XML multi-worksheet ST
   bodies in execution order, reconstructs all standard POU interface var
   sections (`VAR`, `VAR_TEMP`, `VAR_INPUT`, `VAR_OUTPUT`, `VAR_IN_OUT`,
   `VAR_EXTERNAL`, `VAR_GLOBAL`, `VAR_ACCESS`), and round-trips CODESYS
   `addData/method` metadata for `FUNCTION_BLOCK` methods with deterministic
   method object IDs/project-structure placement.
+
+### Fixed
+
+- `trust-lsp` push-diagnostics mode now refreshes dependent open documents
+  after `didOpen`, `didChange`, and `didSave` events, so cross-file call
+  diagnostics clear and update immediately instead of staying stale until a
+  reopen/save cycle.
+- Method-call completion and signature help now resolve `FUNCTION_BLOCK`
+  methods with `VAR_INPUT` parameters correctly, so formal parameter names are
+  offered for `fb.Method(...)` calls instead of falling back to the owning
+  instance call shape.
+
+## [0.20.1] - 2026-04-21
+
+### Fixed
+
+- Linux `PREEMPT_RT` support no longer breaks non-Linux cargo builds and
+  warning gates: Linux-only helpers/imports in `trust-runtime` are now
+  target-scoped so macOS and Windows builds keep compiling cleanly while the
+  RT posture feature remains Linux-only.
+
+## [0.20.0] - 2026-04-21
+
+### Added
 
 - `trust-runtime` now supports a Linux `runtime.realtime` startup profile for
   `PREEMPT_RT` posture, including config-schema support, bundle-template
@@ -5868,6 +6098,102 @@ Target release: `v0.24.75`
   / `p99` metrics, a dedicated operator deployment guide, a reference
   `systemd` unit template, and a shipped validation script for collecting
   host/kernel/service evidence alongside release-mode benchmark artifacts.
+
+### Fixed
+
+- The Linux cyclic runtime no longer rebuilds ready-task and background-program
+  scratch vectors every scan cycle; those scratch buffers are now runtime-owned
+  and reused so the `PREEMPT_RT` path reduces avoidable hot-path allocation
+  churn while preserving existing Linux behavior.
+- Linux `PREEMPT_RT` posture verification now reads the scheduler thread's
+  user-space realtime priority from `/proc/thread-self/stat` instead of the
+  kernel-internal `/proc/.../sched` priority field, so correctly-configured
+  `SCHED_FIFO` / `SCHED_RR` deployments no longer report false priority
+  mismatches. The shipped validation script now also exposes whether a target
+  threshold was declared, records the approximate soak window, warns when a
+  `PREEMPT_RT` run falls back to the cycle budget, and fails gated RT evidence
+  runs when `cyclictest` or an explicit `TRUST_RT_CYCLE_P95_MAX_US` threshold
+  is missing.
+
+## [0.19.1] - 2026-04-20
+
+### Fixed
+
+- The public docs and repo landing surfaces now lead with the strongest truST
+  story instead of burying it behind browser-first proof shots: the homepage,
+  `Program In VS Code`, `Debugging And Runtime Panel`, and `README.md` now show
+  real desktop VS Code screenshots for the runtime panel, IEC-aware diagnostics,
+  paused debugging, and cross-file rename, while browser IDE/HMI surfaces are
+  clearly presented as supporting views of the same project.
+- The docs site now ships the truST wordmark, a dedicated favicon, and a teal
+  Material theme instead of the default MkDocs branding, and the public pages
+  were rewritten to remove boilerplate "use this page when..." framing and
+  similar filler so the rendered docs read as product documentation instead of
+  internal notes.
+- The public docs landing/start/reference/operator pages now describe truST in
+  direct product language, ship real social metadata for sharing, and replace
+  thin operator checklists with concrete tables, screenshots, and escalation
+  placeholders instead of stub prose.
+- The checked-in Browser IDE and code-server public-doc captures now prove a
+  successful truST state more clearly: `/ide` waits for a real build to finish
+  before capture, and the VS Code-compatible proof opens the Structured Text
+  Runtime panel instead of showing only a generic workspace shell.
+- The docs search regression gate now routes `install mac`, `first project`,
+  `ladder`, and `retain` queries back to the intended public docs pages after
+  the docs IA/spec split, including a restored `Start -> First Project` page
+  and stronger canonical ranking for `runtime.toml` retain/watchdog/fault
+  queries.
+- The docs-capture code-server launcher now keeps mutable user-data and
+  extension state inside container-local writable directories, avoiding the
+  GitHub Actions permission failure that previously blocked the code-server
+  capture lane on repo-mounted `.cache` paths.
+- Unqualified enum variant names now also resolve in three contexts outside
+  `CASE` labels: `VAR` initializers (`state : Phase := IDLE`), the right-hand
+  side of assignments (`state := RUNNING`), and operands of binary
+  comparisons (`IF state = RUNNING THEN ...`). Before this change the first
+  form failed PROGRAM init with `undefined variable 'IDLE'`, and the other
+  two compiled but silently lowered the bare variant name as an unresolved
+  `Expr::Name`, so the target either kept its previous value or the
+  comparison never matched at runtime. The fix introduces a small
+  harness-lowering helper next to the existing `enum_literal_value` used by
+  `CASE` labels and applies it at the VAR-declaration, assignment, and
+  binary-expression call sites, mirroring the pattern introduced by the
+  unqualified-CASE-label fix. HIR type-check was already accepting all
+  three forms, so this is a lowering-layer alignment only; bare names still
+  follow normal symbol resolution, which means local variables/constants
+  continue to shadow same-named enum members, and qualified `Phase#X` forms
+  plus `CASE` labels behave as before.
+
+## [0.19.0] - 2026-04-20
+
+### Added
+
+- Public-doc screenshots now have a first automated browser-capture lane:
+  Playwright regenerates checked-in `/ide` and `/hmi` assets against live
+  truST surfaces, code-server provides a truthful VS Code-compatible proof
+  capture for the public docs, `docs/public/assets/capture-inventory.json`
+  records the checked-in completeness contract, and a dedicated docs-captures
+  workflow can refresh those assets on `main` and nightly without relying on
+  `ydotoold`.
+- Public-doc terminal captures now have a first automated lane as well:
+  VHS tapes regenerate checked-in CLI verification GIFs for installation and
+  build/validate/test docs, and the same docs-captures workflow refreshes
+  those assets alongside the browser/code-server captures.
+
+### Fixed
+
+- The code-server screenshot lane now waits for real editor content instead of
+  only a tab label, dismisses first-run/sign-in chrome, closes the unrelated
+  chat side panel before capture, and renames the Browser IDE screenshot to the
+  truthful "tutorial loaded" state instead of implying a welcome screen that
+  was not what the image actually showed. The installation docs also no longer
+  tell users to run the nonexistent `cargo build -p trust-harness` package
+  command; they now document the real package/build surface.
+
+## [0.18.6] - 2026-04-19
+
+### Added
+
 - The public docs now have a workflow-first entry model instead of a mixed
   "one start flow for everyone" structure. Home and Start now route five real
   user journeys directly: Program in VS Code, Program in Browser IDE, Operate
@@ -5881,6 +6207,20 @@ Target release: `v0.24.75`
   primary entry point, use the truST logo directly, and show real browser
   captures for Browser IDE and Browser HMI instead of forcing readers through
   repo file paths or VS Code-only framing.
+
+### Fixed
+
+- The public docs Pages pipeline no longer hard-fails on runners without
+  `ffmpeg` when all committed screenshot assets are already present, and the
+  cross-platform `trust-runtime agent serve` contract tests now normalize
+  OS-specific path spellings (`/private` aliases, `\\?\\` prefixes, native
+  separators) instead of failing on macOS/Windows-only path formatting
+  differences.
+
+## [0.18.5] - 2026-04-19
+
+### Added
+
 - `trust-runtime agent serve` now provides an initial external agent surface
   over stdio JSON-RPC with `agent.describe`, `workspace.read`,
   `workspace.write`, `workspace.project_info`, `lsp.diagnostics`,
@@ -5898,25 +6238,11 @@ Target release: `v0.24.75`
   machine-readable payload for `diagnose -> build -> reload`, including
   diagnostics counts/issues plus `runtimeStatus` / `runtimeMessage` and the
   optional nested build/reload results needed for iterative repair loops.
-- `trust-runtime agent serve` now exposes `lsp.ast_canonicalize` and
-  `lsp.ast_similarity` for the canonical-AST 5-gram normalization path used by
-  benchmark contamination checks, dedup, and self-improvement diversity gates.
-  The existing `lsp.diagnostics` payload now also includes end positions and
-  zero-based UTF-8 byte spans, so benchmark/datagen tooling can consume stable
-  machine-readable diagnostics without brittle text scraping.
-- `trust-runtime agent serve` now also exposes a stateless `harness.execute`
-  fixture wrapper that loads project or inline sources, runs deterministic
-  harness steps, evaluates output/access/direct-I/O assertions, and returns a
-  compact pass/fail report with reduced failure context for benchmark/datagen
-  callers that need one-shot POU or system-fixture execution.
 - `trust-runtime agent serve workspace.project_info` now returns a stable
   orientation payload for agents, including resolved source roots, source
   files, local dependency roots, runtime/io config presence, parsed runtime
   control/web/mesh/discovery summary fields, and `trust-lsp.toml`
   `vendor_profile` when present.
-- `trust-runtime` now lowers ST `PROPERTY` implementations into runtime getter
-  and setter calls, so OOP interface references can dispatch property reads and
-  assignments across source files and package dependencies.
 - `trust-harness` is now a real programmable deterministic executor instead of
   a minimal `load` / `cycle` helper. It now supports `reload`, `set_input`,
   `get_output`, `set_access`, `get_access`, `bind_direct`,
@@ -5956,17 +6282,6 @@ Target release: `v0.24.75`
   CI, including `scan cycle`, `project layout`, `visual editor`, `vendor
   profile`, `watchdog`, `fault policy`, `agent serve`, `hot reload`, and test
   output format queries, so discoverability regressions are caught earlier.
-- Public-doc screenshots now have a first automated browser-capture lane:
-  Playwright regenerates checked-in `/ide` and `/hmi` assets against live
-  truST surfaces, code-server provides a truthful VS Code-compatible proof
-  capture for the public docs, `docs/public/assets/capture-inventory.json`
-  records the checked-in completeness contract, and a dedicated docs-captures
-  workflow can refresh those assets on `main` and nightly without relying on
-  `ydotoold`.
-- Public-doc terminal captures now have a first automated lane as well:
-  VHS tapes regenerate checked-in CLI verification GIFs for installation and
-  build/validate/test docs, and the same docs-captures workflow refreshes
-  those assets alongside the browser/code-server captures.
 - The public docs now include a dedicated diagnostics reference page covering
   current `E...`, `W...`, and `I...` codes, their default severities, meanings,
   and first-fix guidance, and docs-search regression coverage now includes code
@@ -5974,116 +6289,10 @@ Target release: `v0.24.75`
 
 ### Fixed
 
-- Enum values loaded from `VAR` initializers now compare equal to the same enum
-  variant literal in VM execution, covering unqualified, qualified, and
-  literal-on-left equality checks for init-only state-machine selectors. Runtime
-  enum construction now canonicalizes alias-backed enum values and retained enum
-  state before comparison, preventing stale or case-variant type names from
-  silently turning valid enum equality checks into `FALSE`. Runtime compound
-  values now also validate struct field identity and array shape at construction
-  and retain-apply boundaries, so corrupted retained structs or arrays fail with
-  diagnostics instead of being silently coerced or defaulted.
-- Runtime ST test compilation now reuses expression type information from the
-  HIR analysis pass, avoids repeated full-project symbol-table clones during
-  lowering, and skips shared-global task-hazard scans when a project has no
-  configured tasks. This keeps the full OSCAT timeout regression below the
-  test harness 60-second warning while preserving the runtime timeout budget.
-- Public docs IA now removes the duplicate Install/Verify Install route,
-  keeps Reference focused on lookup material by moving specifications higher
-  and hiding contributor-only pages, deletes dead interoperability stubs and
-  orphan/broken image assets, embeds the real one-project surface tour on the
-  docs homepage, and expands the IA checker to block generic filler phrases
-  such as "use this page", "after reading", and "you should be able".
-- Public docs visual chrome now uses a dark/light palette toggle, top-level
-  navigation tabs for the six main doors, a shorter GitHub repo label, a
-  distinct accent color, Inter/JetBrains Mono typography, and image overflow
-  safeguards so screenshots stay inside the content column. The docs homepage
-  also switches to a dark-mode wordmark variant so the brand stays legible on
-  the slate palette.
-- Public docs navigation now exposes the PREEMPT_RT runbook from the Operate
-  sidebar, reuses the interoperability pages under Migrate without moving their
-  canonical URLs, groups Operate by engineering, target-administration,
-  operator/technician, and fleet-delivery personas, surfaces truST Mesh from
-  Connect, links README start paths directly, and avoids confirmed
-  snippet/list-rendering issues in included public documentation. Concept,
-  Reference, Specifications, and Examples indexes now use clearer task and
-  mental-model groupings, the docs maintenance guide codifies nav, snippet,
-  visual, verification, and proof rules, the SFC profile reference now uses a
-  non-numbered slug to avoid a spec-14 collision, visual-editor and operator
-  pages now include public visuals, the Migrate page includes a compatibility
-  matrix, and the example catalog audit understands PyMdown line-range snippet
-  targets used to skip included page titles. A new docs IA lint now enforces
-  section-index/nav coverage, snippet H1 safety, and CommonMark list spacing,
-  and the internal docs checklist records analytics, versioning, success-metric,
-  accessibility, and mobile-review decisions.
-- The shipped `examples/oscat_smoke` consumer now matches the current OSCAT
-  named-parameter surface (`DEG`, `DAYS`, and `DATA`), so the example builds
-  cleanly again instead of failing on stale `D := ...` calls.
-- `trust-lsp` push-diagnostics mode now refreshes dependent open documents
-  after `didOpen`, `didChange`, and `didSave` events, so cross-file call
-  diagnostics clear and update immediately instead of staying stale until a
-  reopen/save cycle.
-- Method-call completion and signature help now resolve `FUNCTION_BLOCK`
-  methods with `VAR_INPUT` parameters correctly, so formal parameter names are
-  offered for `fb.Method(...)` calls instead of falling back to the owning
-  instance call shape.
-
-- Linux `PREEMPT_RT` support no longer breaks non-Linux cargo builds and
-  warning gates: Linux-only helpers/imports in `trust-runtime` are now
-  target-scoped so macOS and Windows builds keep compiling cleanly while the
-  RT posture feature remains Linux-only.
-- The Linux cyclic runtime no longer rebuilds ready-task and background-program
-  scratch vectors every scan cycle; those scratch buffers are now runtime-owned
-  and reused so the `PREEMPT_RT` path reduces avoidable hot-path allocation
-  churn while preserving existing Linux behavior.
-- Linux `PREEMPT_RT` posture verification now reads the scheduler thread's
-  user-space realtime priority from `/proc/thread-self/stat` instead of the
-  kernel-internal `/proc/.../sched` priority field, so correctly-configured
-  `SCHED_FIFO` / `SCHED_RR` deployments no longer report false priority
-  mismatches. The shipped validation script now also exposes whether a target
-  threshold was declared, records the approximate soak window, warns when a
-  `PREEMPT_RT` run falls back to the cycle budget, and fails gated RT evidence
-  runs when `cyclictest` or an explicit `TRUST_RT_CYCLE_P95_MAX_US` threshold
-  is missing.
-- The public docs and repo landing surfaces now lead with the strongest truST
-  story instead of burying it behind browser-first proof shots: the homepage,
-  `Program In VS Code`, `Debugging And Runtime Panel`, and `README.md` now show
-  real desktop VS Code screenshots for the runtime panel, IEC-aware diagnostics,
-  paused debugging, and cross-file rename, while browser IDE/HMI surfaces are
-  clearly presented as supporting views of the same project.
-- The docs site now ships the truST wordmark, a dedicated favicon, and a teal
-  Material theme instead of the default MkDocs branding, and the public pages
-  were rewritten to remove boilerplate "use this page when..." framing and
-  similar filler so the rendered docs read as product documentation instead of
-  internal notes.
-- The public docs landing/start/reference/operator pages now describe truST in
-  direct product language, ship real social metadata for sharing, and replace
-  thin operator checklists with concrete tables, screenshots, and escalation
-  placeholders instead of stub prose.
-- The checked-in Browser IDE and code-server public-doc captures now prove a
-  successful truST state more clearly: `/ide` waits for a real build to finish
-  before capture, and the VS Code-compatible proof opens the Structured Text
-  Runtime panel instead of showing only a generic workspace shell.
-- The docs search regression gate now routes `install mac`, `first project`,
-  `ladder`, and `retain` queries back to the intended public docs pages after
-  the docs IA/spec split, including a restored `Start -> First Project` page
-  and stronger canonical ranking for `runtime.toml` retain/watchdog/fault
-  queries.
-- The docs-capture code-server launcher now keeps mutable user-data and
-  extension state inside container-local writable directories, avoiding the
-  GitHub Actions permission failure that previously blocked the code-server
-  capture lane on repo-mounted `.cache` paths.
-- The public docs Pages pipeline no longer hard-fails on runners without
-  `ffmpeg` when all committed screenshot assets are already present, and the
-  cross-platform `trust-runtime agent serve` contract tests now normalize
-  OS-specific path spellings (`/private` aliases, `\\?\\` prefixes, native
-  separators) instead of failing on macOS/Windows-only path formatting
-  differences.
 - Warm restart and live `bytecode.reload` now preserve compiled instance-backed
   runtime references across the restart boundary, so instance-backed I/O
   bindings and the new `trust-runtime agent serve` `runtime.reload` flow no
   longer trip `null reference dereference` faults immediately after a reload.
-
 - VS Code language-model tool discovery is now consistent again: the extension
   registers the same linked-editing, on-type-formatting, call-hierarchy, and
   type-hierarchy tool names that `editors/vscode/package.json` declares and
@@ -6092,34 +6301,11 @@ Target release: `v0.24.75`
 - The public docs workflow now rebuilds on guide/spec/conformance/media-source
   edits instead of only direct `docs/public/**` changes, closing the stale-site
   gap for `--8<--`-included content and generated public assets.
-- The code-server screenshot lane now waits for real editor content instead of
-  only a tab label, dismisses first-run/sign-in chrome, closes the unrelated
-  chat side panel before capture, and renames the Browser IDE screenshot to the
-  truthful "tutorial loaded" state instead of implying a welcome screen that
-  was not what the image actually showed. The installation docs also no longer
-  tell users to run the nonexistent `cargo build -p trust-harness` package
-  command; they now document the real package/build surface.
-- The automated public-doc capture lanes now produce stable dark-mode browser
-  and code-server screenshots from real app/theme controls, wait for the HMI
-  schema/export surface before capturing `/hmi`, and install/load the truST
-  VS Code extension through one consistent code-server profile so the
-  command-palette capture stops regressing on fresh CI boots.
-- Unqualified enum variant names now also resolve in three contexts outside
-  `CASE` labels: `VAR` initializers (`state : Phase := IDLE`), the right-hand
-  side of assignments (`state := RUNNING`), and operands of binary
-  comparisons (`IF state = RUNNING THEN ...`). Before this change the first
-  form failed PROGRAM init with `undefined variable 'IDLE'`, and the other
-  two compiled but silently lowered the bare variant name as an unresolved
-  `Expr::Name`, so the target either kept its previous value or the
-  comparison never matched at runtime. The fix introduces a small
-  harness-lowering helper next to the existing `enum_literal_value` used by
-  `CASE` labels and applies it at the VAR-declaration, assignment, and
-  binary-expression call sites, mirroring the pattern introduced by the
-  unqualified-CASE-label fix. HIR type-check was already accepting all
-  three forms, so this is a lowering-layer alignment only; bare names still
-  follow normal symbol resolution, which means local variables/constants
-  continue to shadow same-named enum members, and qualified `Phase#X` forms
-  plus `CASE` labels behave as before.
+
+## [0.18.4] - 2026-04-18
+
+### Fixed
+
 - The ST compiler/runtime build path now closes the remaining open regression
   cases around control-flow and declaration lowering: unqualified enum members
   now work as `CASE` labels in end-to-end runtime/bytecode builds, aggregate
@@ -6129,6 +6315,92 @@ Target release: `v0.24.75`
   implicit function/method result on that path because the HIR checker tracks
   definite assignment and the bytecode VM lowers `RETURN` instead of rejecting
   it as a legacy C5 edge case.
+
+## [0.18.3] - 2026-04-18
+
+### Added
+
+- `libraries/oscat` now ships the full manual-aligned OSCAT chapter set
+  (`03_data_types` through `26_list_processing`) as the primary OSCAT package,
+  including the OSCAT_BUILDING Chapter 23 control/environmental surface, a
+  full ST conformance project under `fixtures/oscat/core` that now passes
+  `126` tests with `0` failures and `0` errors, plus a narrowed
+  `negative_public_surface` sentinel that exists only to pin the deliberate
+  upstream `OVERRIDE` -> truST `OVERRIDE_3` name deviation.
+- The OSCAT user documentation now matches the library’s current shipped
+  surface: `docs/guides/OSCAT_LIBRARY_GUIDE.md`, `libraries/oscat/README.md`,
+  `docs/README.md`, and `examples/oscat_smoke/README.md` now describe the full
+  package layout, validation evidence, public carrier/data-type surface, and
+  the major function-block families instead of the earlier smaller OSCAT BASIC
+  slice.
+- `libraries/oscat` now also ships the full Chapter 6 `Arrays` surface:
+  `_ARRAY_ABS`, `_ARRAY_ADD`, `_ARRAY_INIT`, `_ARRAY_MEDIAN`, `_ARRAY_MUL`,
+  `_ARRAY_SHUFFLE`, `_ARRAY_SORT`, `ARRAY_AVG`, `ARRAY_GAV`, `ARRAY_HAV`,
+  `ARRAY_MAX`, `ARRAY_MIN`, `ARRAY_SDV`, `ARRAY_SPR`, `ARRAY_SUM`,
+  `ARRAY_TREND`, `ARRAY_VAR`, and `IS_SORTED`.
+- `libraries/oscat` now also ships the full Chapter 4 `Other Functions`
+  slice: `STATUS_TO_ESR`, `OSCAT_VERSION`, `ESR_COLLECT`, `ESR_MON_B8`,
+  `ESR_MON_R4`, and `ESR_MON_X8`.
+- `libraries/oscat` now also ships the full Chapter 5 `Mathematics`
+  surface, including the remaining error/distribution helpers (`ERF`, `ERFC`,
+  `GAUSS`, `GAUSSCD`), integer/sequence/fraction helpers (`EXPN`, `FACT`,
+  `FIB`, `GCD`, `REAL_TO_FRAC`), transcendental helpers (`GDF`, `GOLD`,
+  `LAMBERT_W`, `LANGEVIN`, `SIGMOID`, `SINC`, `SQRTN`, `TANC`), rounding and
+  window helpers (`RND`, `ROUND`, `WINDOW`, `WINDOW2`), and the OSCAT random
+  helpers (`RDM`, `RDM2`, `RDMDW`).
+- `libraries/oscat` now also ships the first Chapter 3 data-type slice:
+  `CALENDAR`, `COMPLEX`, `CONSTANTS_LOCATION`, `CONSTANTS_SETUP`, `ESR_DATA`,
+  `FRACTION`, `HOLIDAY_DATA`, `REAL2`, `SDT`, `TIMER_EVENT`, and `VECTOR_3`,
+  plus the preloaded `MATH.FACTS[...]` factorial table used by later OSCAT
+  helpers.
+- `libraries/oscat` now also ships the stateful helper function blocks `DELAY` and `FT_AVG`.
+- `libraries/oscat` now also ships the first linear/polynomial/ramp math helpers: `F_LIN`, `F_LIN2`, `F_POLY`, `F_POWER`, `F_QUAD`, and `FRMP_B`.
+- Added the first shipped `libraries/oscat` package with the initial OSCAT compatibility slice (shared math/physics constants plus core conversion helpers), alongside `examples/oscat_smoke` as the first consumer project wired through `[dependencies]`.
+- Added OSCAT compatibility extensions `TIME_TO_DWORD`, `DWORD_TO_TIME`, `T_PLC_MS`, and `T_PLC_US`, plus restored `DIR_TO_DEG`, `F_TO_PT`, `PT_TO_F`, and the live `LANGUAGE.DIRS[...]` surface in `libraries/oscat`.
+- `libraries/oscat` now also ships a larger date/time slice including `DAY_TO_TIME`, `HOUR_TO_TIME`, `MINUTE_TO_TIME`, `SECOND_TO_TIME`, `DAY_OF_DATE`, `DAYS_DELTA`, `DAYS_IN_MONTH`, `DAYS_IN_YEAR`, `DATE_ADD`, `EASTER`, `WORK_WEEK`, `HOUR_OF_DT`, `MINUTE_OF_DT`, `SECOND_OF_DT`, `MONTH_BEGIN`, `MONTH_END`, `YEAR_BEGIN`, `YEAR_END`, and related leap/year helpers.
+- `libraries/oscat` now also ships the first larger string and logic slices, including `MONTH_TO_STRING`, `WEEKDAY_TO_STRING`, `DT_TO_STRF`, `TO_LOWER`, `TO_UPPER`, `LOWERCASE`, `UPPERCASE`, the `ISC_*` / `IS_*` predicate helpers, the `FIND_CHAR` / `FIND_CTRL` / `FIND_NONUM` / `FIND_NUM` / `FINDB*` / `FINDP` search helpers, plus `CAPITALIZE`, `CLEAN`, `COUNT_CHAR`, `COUNT_SUBSTRING`, `CODE`, `DEL_CHARS`, `TO_UML`, `DEC_TO_BYTE`, `DEC_TO_DWORD`, `DEC_TO_INT`, `BYTE_TO_STRB`, `BYTE_TO_STRH`, `DWORD_TO_STRB`, `DWORD_TO_STRH`, `BIN_TO_BYTE`, `BIN_TO_DWORD`, `HEX_TO_BYTE`, `HEX_TO_DWORD`, `OCT_TO_BYTE`, `OCT_TO_DWORD`, `MIRROR`, `REPLACE_ALL`, `REPLACE_CHARS`, `REPLACE_UML`, `CHARCODE`, `CHARNAME`, `TICKER`, `LTCH`, `LTCH_4`, `STORE_8`, `COUNT_BR`, `COUNT_DR`, `TOGGLE`, `FF_D2E`, `FF_D4E`, and `FF_DRE`.
+- `libraries/oscat` now also ships the rest of the current logic surface: `FF_JKE`, `FF_RSE`, `SELECT_8`, `SHR_4E`, `SHR_4UDE`, `SHR_8PLE`, `SHR_8UDE`, the full current gate-logic helper slice (`DEC_*`, `MUX_*`, `BIT_*`, `BYTE_*`, `WORD_*`, `DWORD_*`, `SHL1`, `SHR1`, `SWAP_*`, `REAL_TO_DW`, `DW_TO_REAL`, `CHK_REAL`, `REFLECT`, `REVERSE`), plus generator trigger FBs `A_TRIG`, `B_TRIG`, and `D_TRIG`.
+- `libraries/oscat` now also ships the full current `/Logic/generators` and `/Logic/memory` slices: `CLICK_CNT`, `CLICK_DEC`, `CLK_DIV`, `CLK_N`, `CLK_PULSE`, `CYCLE_4`, `GEN_BIT`, `GEN_SQ`, `SCHEDULER`, `SCHEDULER_2`, `SEQUENCE_4`, `SEQUENCE_8`, `TONOF`, `TP_X`, `FIFO_16`, `FIFO_32`, `STACK_16`, and `STACK_32`.
+- `libraries/oscat` now also ships the `/Logic/Others`, `/Buffer Management`, `/List Processing`, `/Mathematical/Geometry`, and `/Mathematical/Double Precision` slices: `CRC_GEN`, `MATRIX`, `PIN_CODE`, `_BUFFER_*`, `BUFFER_*`, `LIST_*`, `REAL2`, `R2_*`, `CIRCLE_*`, `CONE_V`, `ELLIPSE_*`, `SPHERE_V`, and `TRIANGLE_A`.
+- Added `docs/guides/OSCAT_LIBRARY_GUIDE.md` plus an expanded `examples/oscat_smoke` walkthrough so the shipped OSCAT package now has a user-facing reference and a concrete consumer guide comparable to the motion-library docs.
+- Fleet topology deterministic ownership slots:
+  - Fleet topology now renders runtime-owned driver nodes (`mqtt`, `modbus`, `ethercat`, `opcua`, `gpio`) between runtimes and endpoints.
+  - Host assignment is enforced for operational endpoints: remote/discovered endpoints attach to deterministic external host containers instead of free-floating.
+  - Topology edit flow now requires host placement for manual devices and blocks host removal that would orphan hosted devices.
+  - Runtime cards now reserve deterministic in-card driver slot zones and driver cards render as compact protocol chips anchored to those fixed slots.
+  - Empty host containers are hidden in normal view when they have no runtime or endpoint children.
+  - Runtime/device cards now render a single border layer (removed Cytoscape outer border) to match card design and avoid double-outline artifacts.
+  - Runtime card subtitle no longer duplicates health state when the status badge already shows it.
+  - Driver slot placeholders now render without static protocol text; labels appear only on occupied slots.
+  - Driver nodes are now non-draggable to preserve deterministic runtime slot placement.
+  - Device edges are normalized to bind via runtime-owned driver nodes (including manual runtime->endpoint edges), and render as direct source-to-target lines from the driver chip.
+  - Runtime cards now render driver summary text in the body while driver chips are laid out as a single deterministic bottom row (no multi-row chip stacks).
+  - Driver chips now include compact protocol context subtitles (for example broker/address/adapter/internal) for faster visual inspection.
+  - Host compound labels are pinned inside host containers for clearer ownership headings.
+  - Carousel priming now guards missing `runtimeCloudState` to prevent early-page-load `ReferenceError` in browser console.
+  - Fleet graph position caches are now layout-versioned and auto-relayout when stale pinned positions overlap runtime cards.
+  - External-only host groups now use deterministic anchor lanes so remote endpoint hosts do not collapse onto `(0,0)` and overlap each other.
+  - Runtime-internal I/O drivers (`simulated`, `loopback`) now render as deterministic runtime-owned driver cards.
+  - Comms add-driver flow now includes `loopback` alongside `simulated` for runtime-internal I/O driver configuration.
+  - Modbus canonical endpoint normalization now handles `address` values that already include `:port` (prevents malformed duplicate-port canonical keys).
+  - Demo topology seed data now keeps manual endpoints hosted (no hostless manual operational devices).
+  - Added config-mode runtime topology writeback endpoints: `POST /api/config-ui/runtime/create` and `POST /api/config-ui/runtime/delete`.
+  - Topology edit UI now supports runtime create/remove actions in edit mode and routes adapter actions through TOML-backed config flows.
+  - Added config-ui live connection manager APIs (`GET/POST /api/config-ui/live/targets`, `POST /api/config-ui/live/targets/remove`, `POST /api/config-ui/live/connect`, `GET /api/config-ui/live/state`) with in-memory target profiles and read-only runtime-cloud polling.
+  - Added config-ui runtime lifecycle provider APIs (`GET/POST /api/config-ui/runtime/lifecycle`) for runtime status/probe plus managed start/stop/restart actions.
+  - Config-mode `/api/runtime-cloud/state` now supports read-only live overlay of node/edge health from connected runtime-cloud snapshots without changing TOML-derived topology ownership/layout.
+- Added config-ui integration tests for runtime create/delete and ST/runtime conflict-safe writeback paths.
+- Removed active topology-devices overlay route dependency; runtime/config topology remains TOML/API-driven.
+
+### Changed
+
+- `trust-runtime test` now prepares one runtime per project and reuses it across discovered cases instead of recompiling the whole ST project for every case, which removes false timeout growth on larger OSCAT fixtures.
+- truST now accepts direct `CHAR_TO_BYTE` / `WCHAR_TO_WORD` conversion-style helpers, and the shipped OSCAT `CODE()` helper now uses that fast path instead of a brute-force byte scan; the OSCAT core fixture is back to passing at the default `--timeout 5`.
+- Structured Text indexing now supports nested `field[index]` / `index.field` chains and character indexing on `STRING` / `WSTRING`, so OSCAT-style `LANGUAGE.DIRS[ly, i]` access and IEC string element forms compile and execute without fallback workarounds.
+- `libraries/oscat/src` and the OSCAT core/negative conformance fixtures now follow the OSCAT manual chapter structure (`03_data_types` through `26_list_processing`) instead of a flat source bucket, so continued porting can proceed chapter-by-chapter with tests in the matching chapter first.
+
+### Fixed
+
 - The OSCAT runtime/compiler path now handles the full shipped OSCAT library
   more reliably: bytecode lowering resolves local instance names before global
   callable symbols, normalizes OSCAT-style identifier lookup consistently
@@ -6176,60 +6448,36 @@ Target release: `v0.24.75`
   forms such as `SIZEOF(call)`, arithmetic expressions, open arrays, unsized strings, and whole
   FB/class/interface instances fail deterministically during build instead of
   lowering to the legacy `SIZEOF_VALUE` path.
+- Runtime and VM execution now handle nested field/index lvalue chains, string and WSTRING dynamic indexing, split-local/initializer parity, and debugger force/release on direct instance fields consistently across harness, VM, helper-eval, and debug-adapter paths.
+- HIR/syntax now parse and type-check `TIME()` as a zero-argument builtin, allow `STRING`/`WSTRING` indexing in expressions, accept string `CASE` labels and fixed-length string comparisons, and document the shipped implementer conversion extensions (`TIME_TO_DWORD`, `DWORD_TO_TIME`, `CHAR_TO_BYTE`, `WCHAR_TO_WORD`).
+- `trust-ide` / `trust-lsp` now surface the shipped pointer/`ARRAY[*]`/IEC `CONSTANT` semantics consistently across completion, hover, semantic tokens, signature help, workspace symbols, inline values, refactor const-analysis, and constant-section diagnostics instead of drifting behind the HIR fixes.
+- Project analysis now honors cross-file `VAR_GLOBAL CONSTANT` integer expressions in type-length contexts such as `STRING[MaxLen]`, and the OSCAT BASIC CRC/buffer helpers now use the shipped `ARRAY[*]` / `POINTER TO ARRAY[*]` compatibility forms without giant caller-side ceremony arrays.
+- IEC `CONSTANT` qualifier handling now preserves parameter/`VAR_TEMP` identity in HIR, rejects writes through the shared `ConstantModification` path, blocks function block instances in `CONSTANT` sections, and keeps parameter/`VAR_TEMP` declarations out of compile-time constant-expression evaluation.
+- Bytecode VM lowering now executes `EXIT` and `CONTINUE` correctly in `FOR`, `WHILE`, and `REPEAT` loops instead of rejecting those statement paths through the generic C5 fallback.
+- HIR comparison rules now treat same-family `STRING` and `WSTRING` values as comparable regardless of declared max length, so fixed-length values such as `STRING[1]` and `WSTRING[1]` compare cleanly against compatible literals and variables.
+- Pointer support docs and regression coverage now explicitly lock the supported string-pointer path (`ADR(str)` with typed dereference/indexing such as `p^[i]`) while keeping raw byte-array reinterpret casts and pointer arithmetic outside the supported runtime model.
+- `CASE` now accepts `STRING` / `WSTRING` selectors and literal labels in runtime/lowering paths, with an explicit `IEC-DEC-024` policy that string subranges remain rejected as an implementer decision for the ambiguous IEC area.
+- FUNCTION_BLOCK omitted `VAR_INPUT` calls now follow the documented runtime semantics: instance creation seeds declared input initializers, first omitted calls observe that seeded value, and later omitted calls reuse the stored instance input instead of reevaluating the declaration on every call.
+- `trust-runtime test` now preloads bytecode before per-case timeout accounting, so filtered project runs do not burn their timeout budget on the first lazy VM-module build.
+- VM execution now initializes declared local storage before user bytecode runs, so local declaration initializers and split-style standard-library writes to function-local outputs behave the same way in runtime and VM paths.
+
+## [0.15.0] - 2026-04-14
+
+### Changed
+
+- `trust-runtime` is now VM-only in production: the `legacy-interpreter` feature, interpreter backend dispatch seam, and interpreter runtime paths are gone; CLI/config startup selection still accepts `vm` and now rejects `interpreter` explicitly.
+- Removed `trust-runtime bench execution-backend` and the interpreter differential gate flow; VM-only syntax-corpus, determinism/reliability, and production-backend guard scripts now carry the runtime evidence path.
+- Hardened `scripts/runtime_vm_syntax_corpus.sh` so the default corpus skips stale missing fixture folders instead of aborting halfway through a benchmark run.
+- Runtime docs/diagrams/specs now describe `program_model` plus bounded `helper_eval` helpers as the surviving support surface around the VM, and executor internals under `src/eval/**` are confined to test-only coverage.
+
+## [0.14.0] - 2026-04-13
 
 ### Added
 
-- `libraries/oscat` now ships the full manual-aligned OSCAT chapter set
-  (`03_data_types` through `26_list_processing`) as the primary OSCAT package,
-  including the OSCAT_BUILDING Chapter 23 control/environmental surface, a
-  full ST conformance project under `fixtures/oscat/core` that now passes
-  `126` tests with `0` failures and `0` errors, plus a narrowed
-  `negative_public_surface` sentinel that exists only to pin the deliberate
-  upstream `OVERRIDE` -> truST `OVERRIDE_3` name deviation.
-- The OSCAT user documentation now matches the library’s current shipped
-  surface: `docs/guides/OSCAT_LIBRARY_GUIDE.md`, `libraries/oscat/README.md`,
-  `docs/README.md`, and `examples/oscat_smoke/README.md` now describe the full
-  package layout, validation evidence, public carrier/data-type surface, and
-  the major function-block families instead of the earlier smaller OSCAT BASIC
-  slice.
-- `libraries/oscat` now also ships the full Chapter 6 `Arrays` surface:
-  `_ARRAY_ABS`, `_ARRAY_ADD`, `_ARRAY_INIT`, `_ARRAY_MEDIAN`, `_ARRAY_MUL`,
-  `_ARRAY_SHUFFLE`, `_ARRAY_SORT`, `ARRAY_AVG`, `ARRAY_GAV`, `ARRAY_HAV`,
-  `ARRAY_MAX`, `ARRAY_MIN`, `ARRAY_SDV`, `ARRAY_SPR`, `ARRAY_SUM`,
-  `ARRAY_TREND`, `ARRAY_VAR`, and `IS_SORTED`.
-- `libraries/oscat` now also ships the full Chapter 4 `Other Functions`
-  slice: `STATUS_TO_ESR`, `OSCAT_VERSION`, `ESR_COLLECT`, `ESR_MON_B8`,
-  `ESR_MON_R4`, and `ESR_MON_X8`.
-- `libraries/oscat` now also ships the full Chapter 5 `Mathematics`
-  surface, including the remaining error/distribution helpers (`ERF`, `ERFC`,
-  `GAUSS`, `GAUSSCD`), integer/sequence/fraction helpers (`EXPN`, `FACT`,
-  `FIB`, `GCD`, `REAL_TO_FRAC`), transcendental helpers (`GDF`, `GOLD`,
-  `LAMBERT_W`, `LANGEVIN`, `SIGMOID`, `SINC`, `SQRTN`, `TANC`), rounding and
-  window helpers (`RND`, `ROUND`, `WINDOW`, `WINDOW2`), and the OSCAT random
-  helpers (`RDM`, `RDM2`, `RDMDW`).
-- `libraries/oscat` now also ships the first Chapter 3 data-type slice:
-  `CALENDAR`, `COMPLEX`, `CONSTANTS_LOCATION`, `CONSTANTS_SETUP`, `ESR_DATA`,
-  `FRACTION`, `HOLIDAY_DATA`, `REAL2`, `SDT`, `TIMER_EVENT`, and `VECTOR_3`,
-  plus the preloaded `MATH.FACTS[...]` factorial table used by later OSCAT
-  helpers.
-- `libraries/oscat` now also ships the stateful helper function blocks `DELAY` and `FT_AVG`.
-- `libraries/oscat` now also ships the first linear/polynomial/ramp math helpers: `F_LIN`, `F_LIN2`, `F_POLY`, `F_POWER`, `F_QUAD`, and `FRMP_B`.
-- Added the first shipped `libraries/oscat` package with the initial OSCAT compatibility slice (shared math/physics constants plus core conversion helpers), alongside `examples/oscat_smoke` as the first consumer project wired through `[dependencies]`.
-- Added OSCAT compatibility extensions `TIME_TO_DWORD`, `DWORD_TO_TIME`, `T_PLC_MS`, and `T_PLC_US`, plus restored `DIR_TO_DEG`, `F_TO_PT`, `PT_TO_F`, and the live `LANGUAGE.DIRS[...]` surface in `libraries/oscat`.
-- `libraries/oscat` now also ships a larger date/time slice including `DAY_TO_TIME`, `HOUR_TO_TIME`, `MINUTE_TO_TIME`, `SECOND_TO_TIME`, `DAY_OF_DATE`, `DAYS_DELTA`, `DAYS_IN_MONTH`, `DAYS_IN_YEAR`, `DATE_ADD`, `EASTER`, `WORK_WEEK`, `HOUR_OF_DT`, `MINUTE_OF_DT`, `SECOND_OF_DT`, `MONTH_BEGIN`, `MONTH_END`, `YEAR_BEGIN`, `YEAR_END`, and related leap/year helpers.
-- `libraries/oscat` now also ships the first larger string and logic slices, including `MONTH_TO_STRING`, `WEEKDAY_TO_STRING`, `DT_TO_STRF`, `TO_LOWER`, `TO_UPPER`, `LOWERCASE`, `UPPERCASE`, the `ISC_*` / `IS_*` predicate helpers, the `FIND_CHAR` / `FIND_CTRL` / `FIND_NONUM` / `FIND_NUM` / `FINDB*` / `FINDP` search helpers, plus `CAPITALIZE`, `CLEAN`, `COUNT_CHAR`, `COUNT_SUBSTRING`, `CODE`, `DEL_CHARS`, `TO_UML`, `DEC_TO_BYTE`, `DEC_TO_DWORD`, `DEC_TO_INT`, `BYTE_TO_STRB`, `BYTE_TO_STRH`, `DWORD_TO_STRB`, `DWORD_TO_STRH`, `BIN_TO_BYTE`, `BIN_TO_DWORD`, `HEX_TO_BYTE`, `HEX_TO_DWORD`, `OCT_TO_BYTE`, `OCT_TO_DWORD`, `MIRROR`, `REPLACE_ALL`, `REPLACE_CHARS`, `REPLACE_UML`, `CHARCODE`, `CHARNAME`, `TICKER`, `LTCH`, `LTCH_4`, `STORE_8`, `COUNT_BR`, `COUNT_DR`, `TOGGLE`, `FF_D2E`, `FF_D4E`, and `FF_DRE`.
-- `libraries/oscat` now also ships the rest of the current logic surface: `FF_JKE`, `FF_RSE`, `SELECT_8`, `SHR_4E`, `SHR_4UDE`, `SHR_8PLE`, `SHR_8UDE`, the full current gate-logic helper slice (`DEC_*`, `MUX_*`, `BIT_*`, `BYTE_*`, `WORD_*`, `DWORD_*`, `SHL1`, `SHR1`, `SWAP_*`, `REAL_TO_DW`, `DW_TO_REAL`, `CHK_REAL`, `REFLECT`, `REVERSE`), plus generator trigger FBs `A_TRIG`, `B_TRIG`, and `D_TRIG`.
-- `libraries/oscat` now also ships the full current `/Logic/generators` and `/Logic/memory` slices: `CLICK_CNT`, `CLICK_DEC`, `CLK_DIV`, `CLK_N`, `CLK_PULSE`, `CYCLE_4`, `GEN_BIT`, `GEN_SQ`, `SCHEDULER`, `SCHEDULER_2`, `SEQUENCE_4`, `SEQUENCE_8`, `TONOF`, `TP_X`, `FIFO_16`, `FIFO_32`, `STACK_16`, and `STACK_32`.
-- `libraries/oscat` now also ships the `/Logic/Others`, `/Buffer Management`, `/List Processing`, `/Mathematical/Geometry`, and `/Mathematical/Double Precision` slices: `CRC_GEN`, `MATRIX`, `PIN_CODE`, `_BUFFER_*`, `BUFFER_*`, `LIST_*`, `REAL2`, `R2_*`, `CIRCLE_*`, `CONE_V`, `ELLIPSE_*`, `SPHERE_V`, and `TRIANGLE_A`.
-- Added `docs/guides/OSCAT_LIBRARY_GUIDE.md` plus an expanded `examples/oscat_smoke` walkthrough so the shipped OSCAT package now has a user-facing reference and a concrete consumer guide comparable to the motion-library docs.
 - Runtime benchmark scripts now share a documented host-codegen policy via `TRUST_RUNTIME_HOST_CODEGEN=auto|generic|native`, defaulting to host-native builds only on Raspberry Pi benchmark hosts while keeping portable/generic builds explicit for shared comparisons and release artifacts.
 - User-facing build docs now also cover the full host-native and PGO runtime build workflow, including the required `llvm-tools-preview` setup, corpus-training commands, and current Raspberry Pi 5 benchmark evidence (`full_demo` about `433.501 us -> 404.353 us` with `native`, then about `292.298 us` with `native+PGO`).
 - Added `docs/diagrams/architecture/runtime-bytecode-vm-execution.puml` and corrected the high-level runtime architecture notes so the official diagrams now distinguish production bytecode-VM execution from residual `EvalContext` / `legacy-interpreter` helper paths.
-- `trust-runtime bench project` now benchmarks a real project folder with watched-global capture, cycle-budget reporting, per-cycle latency summaries, and budget-overrun counts, so reusable Structured Text libraries can be validated through user-facing example projects instead of only synthetic fixtures.
-- Added `examples/plcopen_motion_single_axis_demo` as the reference consumer for `libraries/plcopen_motion/single_axis_core`, plus `scripts/runtime_motion_example_bench_gate.sh` for focused end-to-end semantic + cycle-budget validation of the shipped PLCopen motion surface.
-- Added `examples/plcopen_motion_single_axis_benchmarks` plus `scripts/runtime_motion_benchmark_breakdown.sh` to isolate runtime floor, `MC_Constants()`, status/readback, inactive-command, single-command, and constants-once motion costs on the same release benchmark path.
 - `scripts/runtime_motion_benchmark_breakdown.sh` now forces a fresh `cargo build --release -p trust-runtime --bin trust-runtime` before benchmarking so release measurements cannot accidentally reuse a stale `target/release/trust-runtime` binary.
-- `trust-runtime bench project` now emits VM register-profile details for VM-backed workloads, including hot blocks, fallback reasons, and lowering-cache counters, so project benchmarks can explain where scan time is going instead of only reporting latency totals.
 - `trust-runtime bench project` now emits `vm_profile.ref_ops` and `vm_profile.call_ops` in JSON/table output, and `scripts/runtime_motion_benchmark_breakdown.sh` now summarizes those counters per workload so VM performance investigation runs show ref-path and FB/frame activity directly instead of hiding it in raw runtime state.
 - `trust-runtime bench project` now also emits `vm_profile.value_ops` in JSON/table output, and `scripts/runtime_motion_benchmark_breakdown.sh` now summarizes value-clone/move attribution (const loads, register reads, read-side value clones, binding expr clones, output copy-back clones) so runtime speed work can distinguish read-path churn from register-file churn.
 - `trust-runtime bench project` now also emits `vm_profile.tier1_specialized_executor` in JSON/table output, and the experimental tier-1 compiler now supports `RefField`, `RefIndex`, `LoadDynamic`, and `StoreDynamic` so ref-heavy FUNCTION_BLOCK blocks show up in benchmark compile/deopt/execution evidence instead of staying invisible behind `null` tier-1 stats.
@@ -6249,63 +6497,72 @@ Target release: `v0.24.75`
 
 ### Changed
 
-- `trust-runtime test` now prepares one runtime per project and reuses it across discovered cases instead of recompiling the whole ST project for every case, which removes false timeout growth on larger OSCAT fixtures.
-- truST now accepts direct `CHAR_TO_BYTE` / `WCHAR_TO_WORD` conversion-style helpers, and the shipped OSCAT `CODE()` helper now uses that fast path instead of a brute-force byte scan; the OSCAT core fixture is back to passing at the default `--timeout 5`.
-- `trust-runtime` is now VM-only in production: the `legacy-interpreter` feature, interpreter backend dispatch seam, and interpreter runtime paths are gone; CLI/config startup selection still accepts `vm` and now rejects `interpreter` explicitly.
-- Removed `trust-runtime bench execution-backend` and the interpreter differential gate flow; VM-only syntax-corpus, determinism/reliability, and production-backend guard scripts now carry the runtime evidence path.
-- Hardened `scripts/runtime_vm_syntax_corpus.sh` so the default corpus skips stale missing fixture folders instead of aborting halfway through a benchmark run.
-- Runtime docs/diagrams/specs now describe `program_model` plus bounded `helper_eval` helpers as the surviving support surface around the VM, and executor internals under `src/eval/**` are confined to test-only coverage.
 - Rewrote the user-facing PLCopen motion documentation so the single-axis demo README now explains the example itself and the main library guide now serves as a real reference manual with package wiring, datatype purpose tables, and per-function-block input/output coverage.
 
+## [0.13.0] - 2026-04-12
+
+### Added
+
+- `trust-runtime bench project` now benchmarks a real project folder with watched-global capture, cycle-budget reporting, per-cycle latency summaries, and budget-overrun counts, so reusable Structured Text libraries can be validated through user-facing example projects instead of only synthetic fixtures.
+- Added `examples/plcopen_motion_single_axis_demo` as the reference consumer for `libraries/plcopen_motion/single_axis_core`, plus `scripts/runtime_motion_example_bench_gate.sh` for focused end-to-end semantic + cycle-budget validation of the shipped PLCopen motion surface.
+- Added `examples/plcopen_motion_single_axis_benchmarks` plus `scripts/runtime_motion_benchmark_breakdown.sh` to isolate runtime floor, `MC_Constants()`, status/readback, inactive-command, single-command, and constants-once motion costs on the same release benchmark path.
+- `trust-runtime bench project` now emits VM register-profile details for VM-backed workloads, including hot blocks, fallback reasons, and lowering-cache counters, so project benchmarks can explain where scan time is going instead of only reporting latency totals.
+- Shipped the first PLCopen Motion library profile in Structured Text: Part 1 single-axis classic core, Part 1 synchronization cam/gear subset, Part 4 coordinated-motion core subset, and Part 5 homing core subset, with a compliance matrix, user-facing guide, deferred-surface guards, and deterministic ST conformance fixtures.
+- truST now accepts namespaced vendor-style GVL declarations (`NAMESPACE ... VAR_GLOBAL ... END_NAMESPACE`) and resolves qualified access such as `GVL.shared` in both HIR and runtime execution.
+- truST now records vendor-parity global access explicitly: top-level GVLs, namespaced GVLs, and direct global access without mandatory `VAR_EXTERNAL` are documented and covered by regression tests.
+
+### Changed
+
 - Structured Text `FUNCTION_BLOCK` calls now reuse the previously stored `VAR_INPUT` value when an input argument is omitted, with first-call fallback still using the declared initializer or IEC default; this closes the motion-library command-update semantics gap without inventing separate runtime rules.
-- Structured Text indexing now supports nested `field[index]` / `index.field` chains and character indexing on `STRING` / `WSTRING`, so OSCAT-style `LANGUAGE.DIRS[ly, i]` access and IEC string element forms compile and execute without fallback workarounds.
-- Web IDE build/deploy behavior now matches CLI semantics in unified shell flows: build tasks use project-root `--project` resolution, deploy normalizes `src/`-prefixed source paths to avoid nested `src/src` writes, and online connection defaults now seed same-origin host/port for faster standalone startup.
-- Web IDE header controls now use a compact primary toolbar (`Open`, `Save`, `Build`, `Deploy`) with overflow menu actions for lower visual clutter while preserving the full command set.
-- VS Code HMI widget-navigation source scanning fallback was merged on top of current mainline traversal logic so declaration resolution stays deterministic for `.st`/`.pou` projects after main-branch merge.
-- MP-060 production backend policy now enforces VM-only startup for `trust-runtime run`/`play`: `--execution-backend` accepts `vm` only, `runtime.execution_backend='interpreter'` is rejected by runtime config validation, omitted backend config defaults to `vm`, and run/play startup now fails fast when a legacy interpreter backend is present in runtime bundle settings.
-- MP-060 setup/wizard runtime templates now emit `runtime.execution_backend = "vm"` by default so newly generated `runtime.toml` files validate and start under VM-only production policy.
-- MP-060 no-bundle and source-compiled runtime startup now always applies compiled bytecode before execution backend selection so VM-only startup has loaded bytecode metadata in both project and IDE-shell startup flows.
-- MP-060 interpreter internals are now explicitly feature-gated behind `legacy-interpreter` for parity-only workflows (differential/benchmark/debug parity tests), while default production builds remain VM-only.
-- MP-060 runtime/harness defaults now execute through VM paths with automatic bytecode materialization from runtime metadata when VM bytecode has not been preloaded, preventing implicit interpreter execution in default runtime/test flows.
-- MP-060 CI now enforces a production backend leak guard (`scripts/runtime_vm_production_backend_guard.sh`) to fail if run/config/control/template/runtime-default surfaces regress to interpreter references.
-- MP-060 migration/docs/checklists updated for restart execution: added detailed recovery board `docs/internal/testing/checklists/mp-060-vm-restart-recovery-checklist.md` and updated backend migration/spec/master-plan text to reflect interpreter test-oracle-only policy.
-- MP-060 post-C1 recovery pass implemented for register VM hot path (`P0 -> P2 -> P1`): boxed large runtime value variants (`Array`/`Struct`/`Enum` with unboxed `Reference`), added extended register-op fusion (`BinaryRefToRef`, `BinaryRefConstToRef`, `BinaryConstRefToRef`, `CmpRefConstJumpIf`) with tier-1 specialized-executor support, and added consume-aware per-block register read paths; refreshed locked `mp-060-corpus-v3` 3-run benchmark evidence and comparison artifacts in `target/gate-artifacts/runtime-vm-bench-v3-post-p0-p2-p1-run1/`.
-- MP-060 post-hotpath correction pass: `execution-backend` benchmark corpus upgraded to `mp-060-corpus-v4` with per-cycle loop-state reset in `loop-arith`, VM profile guardrails now assert loop-body execution during measured cycles, benchmark comparison now uses 3-run median-of-runs decision metrics (`scripts/runtime_vm_bench_compare.sh`) with aggregate median derived from per-fixture medians (instead of pooled cross-fixture sample p50), and register-IR `CALL_NATIVE` now reuses a program-level pooled operand stack (removing per-call stack allocation churn) alongside cached per-program read metadata and direct block-id indexing in the register executor.
-- Runtime specs/docs synchronized to VM-default production backend policy: `docs/specs/10-runtime.md` and `docs/specs/README.md` now describe bytecode VM execution as the primary runtime path, with interpreter execution documented as legacy `legacy-interpreter` parity/test-oracle flow only.
 - `trust-runtime plcopen import` now defaults to native CODESYS/TwinCAT-style global-list materialization: file-scope GVLs stay as `VAR_GLOBAL` files, `qualified_only` lists import as namespaced GVLs, and mandatory `VAR_EXTERNAL` injection is no longer the default import shape. A strict adapter mode remains available for wrapper + injected-`VAR_EXTERNAL` reshaping when external consumers need it.
 - The canonical PLCopen motion demo now initializes `MC_Constants()` once during startup instead of republishing its outputs every scan, so the reference benchmark reflects the cheaper steady-state usage pattern already documented by the library guide.
 - Register-IR hotpath coverage now includes `LOAD_SELF (0x23)`, complex local-ref execution, and CASE block-entry stack modeling, project-bench VM hot-block reports resolve readable POU names, and lowering-cache fallbacks now preserve the failing POU name plus the original lowering error message. On the PLCopen motion demo this removes the old `unsupported_opcode_0x23`, `complex_local_ref_path`, and `Main` lowering-error buckets and keeps the release gate comfortably under the 10 ms cycle budget with `0` VM fallbacks.
 
 ### Fixed
 
-- Runtime and VM execution now handle nested field/index lvalue chains, string and WSTRING dynamic indexing, split-local/initializer parity, and debugger force/release on direct instance fields consistently across harness, VM, helper-eval, and debug-adapter paths.
-- HIR/syntax now parse and type-check `TIME()` as a zero-argument builtin, allow `STRING`/`WSTRING` indexing in expressions, accept string `CASE` labels and fixed-length string comparisons, and document the shipped implementer conversion extensions (`TIME_TO_DWORD`, `DWORD_TO_TIME`, `CHAR_TO_BYTE`, `WCHAR_TO_WORD`).
-- `trust-ide` / `trust-lsp` now surface the shipped pointer/`ARRAY[*]`/IEC `CONSTANT` semantics consistently across completion, hover, semantic tokens, signature help, workspace symbols, inline values, refactor const-analysis, and constant-section diagnostics instead of drifting behind the HIR fixes.
-- Project analysis now honors cross-file `VAR_GLOBAL CONSTANT` integer expressions in type-length contexts such as `STRING[MaxLen]`, and the OSCAT BASIC CRC/buffer helpers now use the shipped `ARRAY[*]` / `POINTER TO ARRAY[*]` compatibility forms without giant caller-side ceremony arrays.
-- IEC `CONSTANT` qualifier handling now preserves parameter/`VAR_TEMP` identity in HIR, rejects writes through the shared `ConstantModification` path, blocks function block instances in `CONSTANT` sections, and keeps parameter/`VAR_TEMP` declarations out of compile-time constant-expression evaluation.
-- Bytecode VM lowering now executes `EXIT` and `CONTINUE` correctly in `FOR`, `WHILE`, and `REPEAT` loops instead of rejecting those statement paths through the generic C5 fallback.
-- HIR comparison rules now treat same-family `STRING` and `WSTRING` values as comparable regardless of declared max length, so fixed-length values such as `STRING[1]` and `WSTRING[1]` compare cleanly against compatible literals and variables.
-- Pointer support docs and regression coverage now explicitly lock the supported string-pointer path (`ADR(str)` with typed dereference/indexing such as `p^[i]`) while keeping raw byte-array reinterpret casts and pointer arithmetic outside the supported runtime model.
-- `CASE` now accepts `STRING` / `WSTRING` selectors and literal labels in runtime/lowering paths, with an explicit `IEC-DEC-024` policy that string subranges remain rejected as an implementer decision for the ambiguous IEC area.
-- FUNCTION_BLOCK omitted `VAR_INPUT` calls now follow the documented runtime semantics: instance creation seeds declared input initializers, first omitted calls observe that seeded value, and later omitted calls reuse the stored instance input instead of reevaluating the declaration on every call.
 - `trust-runtime bench project` now applies the project's configured runtime execution backend and the motion example bench gate accepts `TRUST_MOTION_MAX_OVERRUNS` / `TRUST_MOTION_P95_MAX_US` overrides for hardware-specific performance gating.
 - `trust-runtime test` now executes discovered `TEST_PROGRAM`s even when a project includes a `CONFIGURATION`, while normal configured runtime builds continue to register only configured programs.
 - `trust-runtime test --project` now compiles sources from local `[dependencies]` packages in addition to the project's own `src/`, so extracted Structured Text libraries can be consumed from real package roots instead of living inside test fixtures.
-- `trust-runtime test` now preloads bytecode before per-case timeout accounting, so filtered project runs do not burn their timeout budget on the first lazy VM-module build.
 - Multi-file HIR import now preserves configuration/resource global lookup bindings, so vendor-parity bare global access continues to resolve after splitting projects across source files.
-- Runtime assignment writes now preserve declared scalar storage types in both interpreter and VM paths, so loop counters keep their declared `INT`/`UINT`/etc. representation and exact-source conversion calls such as `INT_TO_DINT(...)` no longer fail inside `FOR` and `WHILE` loops.
-- Structured Text infix bitwise operators now accept `BOOL`/`ANY_BIT` operands with the same widening behavior as the standard `AND`/`OR`/`XOR`/`NOT` functions, and `&` now type-checks as the `AND` synonym instead of falling through as `UNKNOWN`.
 - `VAR_STAT` now executes with documented vendor semantics in the runtime: function statics persist across calls, method statics persist per instance/method, and instance-bearing scopes treat `VAR_STAT` as persistent instance storage.
-- VM execution now initializes declared local storage before user bytecode runs, so local declaration initializers and split-style standard-library writes to function-local outputs behave the same way in runtime and VM paths.
+
+## [0.10.0] - 2026-04-11
 
 ### Added
 
-- Shipped the first PLCopen Motion library profile in Structured Text: Part 1 single-axis classic core, Part 1 synchronization cam/gear subset, Part 4 coordinated-motion core subset, and Part 5 homing core subset, with a compliance matrix, user-facing guide, deferred-surface guards, and deterministic ST conformance fixtures.
-- truST now accepts namespaced vendor-style GVL declarations (`NAMESPACE ... VAR_GLOBAL ... END_NAMESPACE`) and resolves qualified access such as `GVL.shared` in both HIR and runtime execution.
-- truST now records vendor-parity global access explicitly: top-level GVLs, namespaced GVLs, and direct global access without mandatory `VAR_EXTERNAL` are documented and covered by regression tests.
 - `trust-harness` now provides a lightweight JSON-line test driver for compiled ST programs, including `cycle.dt_ms` virtual-time advancement and typed `TIME`/`LTIME` watch output for timer-oriented automation.
 - LSP/type-checker numeric hazard warnings now flag floating-point equality/inequality comparisons (`W013`) and `DIV`/`MOD` expressions with literal zero divisors (`W014`), with a dedicated `warn_numeric_hazards` diagnostics toggle for vendor/workspace tuning.
+
+### Fixed
+
+- Structured Text infix bitwise operators now accept `BOOL`/`ANY_BIT` operands with the same widening behavior as the standard `AND`/`OR`/`XOR`/`NOT` functions, and `&` now type-checks as the `AND` synonym instead of falling through as `UNKNOWN`.
+
+## [0.9.29] - 2026-04-11
+
+### Fixed
+
+- Runtime assignment writes now preserve declared scalar storage types in both interpreter and VM paths, so loop counters keep their declared `INT`/`UINT`/etc. representation and exact-source conversion calls such as `INT_TO_DINT(...)` no longer fail inside `FOR` and `WHILE` loops.
+
+## [0.9.28] - 2026-03-07
+
+### Added
+
 - VS Code SFC visual editor integration (IEC 61131-3 style step/transition canvas, runtime panel wiring, and bundled EtherCAT Snake SFC examples) is now included in mainline extension workflows.
+
+### Changed
+
+- Web IDE build/deploy behavior now matches CLI semantics in unified shell flows: build tasks use project-root `--project` resolution, deploy normalizes `src/`-prefixed source paths to avoid nested `src/src` writes, and online connection defaults now seed same-origin host/port for faster standalone startup.
+- Web IDE header controls now use a compact primary toolbar (`Open`, `Save`, `Build`, `Deploy`) with overflow menu actions for lower visual clutter while preserving the full command set.
+- VS Code HMI widget-navigation source scanning fallback was merged on top of current mainline traversal logic so declaration resolution stays deterministic for `.st`/`.pou` projects after main-branch merge.
+
+### Fixed
+
+- VS Code SFC webview TypeScript message/edge typing regressions that previously failed extension compile gates in CI.
+
+## [0.9.27] - 2026-03-06
+
+### Added
+
 - MP-060 Phase A execution-backend controls for `trust-runtime`: new `runtime.execution_backend` config (`interpreter|vm`), new CLI override `--execution-backend=interpreter|vm` for `run`/`play`, startup backend-selection log event, backend mode/source fields in control `status`/`config.get`, and Prometheus backend info metric (`trust_runtime_execution_backend_info`). `vm` selection is intentionally fail-fast until VM execution lands in the next MP-060 phase.
 - MP-060 Phase B VM core for `trust-runtime`: `runtime.execution_backend='vm'` now runs a real bytecode executor with deterministic program-counter dispatch, operand and call/frame stacks, trap/deadline/budget enforcement, stable trap-to-`RuntimeError` mapping, and slot/index-based VM hot-path access with symbol/source mapping tables preserved for external/debug name-based surfaces. Interpreter remains the default backend.
 - MP-060 Phase C1 call-parity rollout for `trust-runtime`: VM codegen/dispatch now emits and executes `CALL_NATIVE` (`kind/symbol/arg_count`) for function/FB/method/stdlib paths, routes builtin FB and stdlib behavior through the same native-call convention, preserves named/default/IN_OUT parity, and replaces C1-required silent NOP call fallthrough with deterministic compile/validate/runtime failures.
@@ -6321,6 +6578,24 @@ Target release: `v0.24.75`
 - MP-060 Phase C hotspot profiling: added runtime-scoped register-VM profile controls/snapshot APIs and extended `trust-runtime bench execution-backend` fixture reports with `vm_profile` details (register execution/fallback counters, fallback reasons, top hot blocks, and profiling-overhead ratio).
 - MP-060 Phase D tier-1 specialized register-executor pilot: added an experimental hot-block specialization tier in the register VM (guarded compile subset for arithmetic/compare/branch, deopt-to-register-interpreter fallback, cache capacity/eviction controls, and bytecode-reload invalidation), plus benchmark artifact fields for tier-1 specialized-executor counters/deopt reasons and focused unit coverage for startup/deopt/cache behavior.
 - MP-060 register executor now caches lowered register IR per `(module,pou)` with runtime-owned invalidation on bytecode reload, eliminating per-cycle relowering and block-map allocation; benchmark reporting now includes lowering-cache hit/miss/eviction stats and uses expanded `mp-060-corpus-v2` fixtures (`call-binding`, `string-stdlib`, `refs-sizeof`, `loop-arith`).
+
+### Changed
+
+- MP-060 production backend policy now enforces VM-only startup for `trust-runtime run`/`play`: `--execution-backend` accepts `vm` only, `runtime.execution_backend='interpreter'` is rejected by runtime config validation, omitted backend config defaults to `vm`, and run/play startup now fails fast when a legacy interpreter backend is present in runtime bundle settings.
+- MP-060 setup/wizard runtime templates now emit `runtime.execution_backend = "vm"` by default so newly generated `runtime.toml` files validate and start under VM-only production policy.
+- MP-060 no-bundle and source-compiled runtime startup now always applies compiled bytecode before execution backend selection so VM-only startup has loaded bytecode metadata in both project and IDE-shell startup flows.
+- MP-060 interpreter internals are now explicitly feature-gated behind `legacy-interpreter` for parity-only workflows (differential/benchmark/debug parity tests), while default production builds remain VM-only.
+- MP-060 runtime/harness defaults now execute through VM paths with automatic bytecode materialization from runtime metadata when VM bytecode has not been preloaded, preventing implicit interpreter execution in default runtime/test flows.
+- MP-060 CI now enforces a production backend leak guard (`scripts/runtime_vm_production_backend_guard.sh`) to fail if run/config/control/template/runtime-default surfaces regress to interpreter references.
+- MP-060 migration/docs/checklists updated for restart execution: added detailed recovery board `docs/internal/testing/checklists/mp-060-vm-restart-recovery-checklist.md` and updated backend migration/spec/master-plan text to reflect interpreter test-oracle-only policy.
+- MP-060 post-C1 recovery pass implemented for register VM hot path (`P0 -> P2 -> P1`): boxed large runtime value variants (`Array`/`Struct`/`Enum` with unboxed `Reference`), added extended register-op fusion (`BinaryRefToRef`, `BinaryRefConstToRef`, `BinaryConstRefToRef`, `CmpRefConstJumpIf`) with tier-1 specialized-executor support, and added consume-aware per-block register read paths; refreshed locked `mp-060-corpus-v3` 3-run benchmark evidence and comparison artifacts in `target/gate-artifacts/runtime-vm-bench-v3-post-p0-p2-p1-run1/`.
+- MP-060 post-hotpath correction pass: `execution-backend` benchmark corpus upgraded to `mp-060-corpus-v4` with per-cycle loop-state reset in `loop-arith`, VM profile guardrails now assert loop-body execution during measured cycles, benchmark comparison now uses 3-run median-of-runs decision metrics (`scripts/runtime_vm_bench_compare.sh`) with aggregate median derived from per-fixture medians (instead of pooled cross-fixture sample p50), and register-IR `CALL_NATIVE` now reuses a program-level pooled operand stack (removing per-call stack allocation churn) alongside cached per-program read metadata and direct block-id indexing in the register executor.
+- Runtime specs/docs synchronized to VM-default production backend policy: `docs/specs/10-runtime.md` and `docs/specs/README.md` now describe bytecode VM execution as the primary runtime path, with interpreter execution documented as legacy `legacy-interpreter` parity/test-oracle flow only.
+
+## [0.9.20] - 2026-02-28
+
+### Added
+
 - IDE settings coverage expanded for standalone/offline authoring: new fields for control endpoint/resource name, runtime cloud profile, extended OPC UA options, and observability options.
 - IDE settings discoverability improvements: `/ide/settings` now opens in an `All Settings` view by default and adds filter-by-name/key search so MQTT/PLC/TLS/realtime/debug configuration is immediately accessible.
 - IDE settings reliability hardening: `/ide/settings` now includes standalone `simulation.toml` controls (`simulation.enabled`, `simulation.seed`, `simulation.time_scale`), shows active filter summary/clear controls to prevent hidden-field confusion, and limits live `config.set` writes to backend-supported keys to avoid false save failures.
@@ -6383,34 +6658,33 @@ Target release: `v0.24.75`
   - Promoted topology to primary workflow with in-canvas plane/keyspace/issue filters, contextual node/edge inspector, and batch action bar for selected runtimes.
   - Moved compact timeline controls into topology map while keeping deep diagnostics under the advanced drawer to reduce default UI clutter.
   - Communication lines now render per-lane overlays (Zenoh + optional Realtime), with left-click showing only critical lane status/settings and right-click lane actions for add/remove realtime communication.
-- Fleet topology deterministic ownership slots:
-  - Fleet topology now renders runtime-owned driver nodes (`mqtt`, `modbus`, `ethercat`, `opcua`, `gpio`) between runtimes and endpoints.
-  - Host assignment is enforced for operational endpoints: remote/discovered endpoints attach to deterministic external host containers instead of free-floating.
-  - Topology edit flow now requires host placement for manual devices and blocks host removal that would orphan hosted devices.
-  - Runtime cards now reserve deterministic in-card driver slot zones and driver cards render as compact protocol chips anchored to those fixed slots.
-  - Empty host containers are hidden in normal view when they have no runtime or endpoint children.
-  - Runtime/device cards now render a single border layer (removed Cytoscape outer border) to match card design and avoid double-outline artifacts.
-  - Runtime card subtitle no longer duplicates health state when the status badge already shows it.
-  - Driver slot placeholders now render without static protocol text; labels appear only on occupied slots.
-  - Driver nodes are now non-draggable to preserve deterministic runtime slot placement.
-  - Device edges are normalized to bind via runtime-owned driver nodes (including manual runtime->endpoint edges), and render as direct source-to-target lines from the driver chip.
-  - Runtime cards now render driver summary text in the body while driver chips are laid out as a single deterministic bottom row (no multi-row chip stacks).
-  - Driver chips now include compact protocol context subtitles (for example broker/address/adapter/internal) for faster visual inspection.
-  - Host compound labels are pinned inside host containers for clearer ownership headings.
-  - Carousel priming now guards missing `runtimeCloudState` to prevent early-page-load `ReferenceError` in browser console.
-  - Fleet graph position caches are now layout-versioned and auto-relayout when stale pinned positions overlap runtime cards.
-  - External-only host groups now use deterministic anchor lanes so remote endpoint hosts do not collapse onto `(0,0)` and overlap each other.
-  - Runtime-internal I/O drivers (`simulated`, `loopback`) now render as deterministic runtime-owned driver cards.
-  - Comms add-driver flow now includes `loopback` alongside `simulated` for runtime-internal I/O driver configuration.
-  - Modbus canonical endpoint normalization now handles `address` values that already include `:port` (prevents malformed duplicate-port canonical keys).
-  - Demo topology seed data now keeps manual endpoints hosted (no hostless manual operational devices).
-  - Added config-mode runtime topology writeback endpoints: `POST /api/config-ui/runtime/create` and `POST /api/config-ui/runtime/delete`.
-  - Topology edit UI now supports runtime create/remove actions in edit mode and routes adapter actions through TOML-backed config flows.
-  - Added config-ui live connection manager APIs (`GET/POST /api/config-ui/live/targets`, `POST /api/config-ui/live/targets/remove`, `POST /api/config-ui/live/connect`, `GET /api/config-ui/live/state`) with in-memory target profiles and read-only runtime-cloud polling.
-  - Added config-ui runtime lifecycle provider APIs (`GET/POST /api/config-ui/runtime/lifecycle`) for runtime status/probe plus managed start/stop/restart actions.
-  - Config-mode `/api/runtime-cloud/state` now supports read-only live overlay of node/edge health from connected runtime-cloud snapshots without changing TOML-derived topology ownership/layout.
-- Added config-ui integration tests for runtime create/delete and ST/runtime conflict-safe writeback paths.
-- Removed active topology-devices overlay route dependency; runtime/config topology remains TOML/API-driven.
+
+### Changed
+
+- Local developer test workflow acceleration:
+  - `just test` now uses `cargo-nextest` for the default local loop (`trust-runtime` library tests), with automatic fallback to `cargo test` if `nextest` is unavailable.
+  - Added split test targets in `justfile`: `test-integration`, `test-e2e`, and `test-all` (full previous gate).
+  - Enabled faster local linking via `mold` (`.cargo/config.toml`) and enabled `sccache` as Cargo `rustc-wrapper`.
+  - Reduced dev/test debug symbol level to `debug = 1` for faster incremental compile/link during local iteration.
+
+### Fixed
+
+- Standalone Web IDE bootstrap now serves fully composed split module assets (`ide-editor-language`, `ide-editor-pane`, `ide-workspace-tree`, `ide-workspace-files`, `ide-observability`, `ide-commands`) so session startup/open-project flows no longer fail with missing runtime symbols (for example `refreshProjectSelection`).
+- Standalone Web IDE bootstrap no longer stalls waiting for WASM analysis readiness when the analysis worker repeatedly restarts; IDE startup now completes and remains usable with analysis disabled.
+- Web IDE UI-mode detection now accepts both wrapped (`{ok,result}`) and direct (`{ok,mode}`) API payloads, restoring correct standalone-mode behavior (for example disabling runtime-only controls in `standalone-ide` mode).
+- Web IDE Hardware tab now rehydrates after IDE session bootstrap events (including deep-link startup on `/ide/hardware`) and performs delayed canvas relayout/fit passes after tab activation so hardware + communication modules from `io.toml`/`runtime.toml` reliably render without clipped/off-screen graphs.
+- Web IDE workspace tabs now publish explicit ARIA tab semantics (`tablist`/`tab`/`tabpanel`, `aria-selected`, and active-tab `tabindex` management) for keyboard/screen-reader correctness.
+- Config-UI Fleet topology projection no longer reports planned runtimes/endpoints as online by default; `/api/runtime-cloud/state` in config mode now renders offline/degraded runtime state and failed links until live runtime connectivity exists.
+- Config-UI now serves read-only `/api/runtime-cloud/config` and `/api/runtime-cloud/rollouts` snapshots in offline mode to prevent Web UI polling 404 noise during TOML/ST-only editing sessions.
+- Runtime cloud 5-host topology demo is now self-contained and deterministic: `start-5.sh` auto-bootstraps missing projects, performs clean restarts, waits for runtime-cloud readiness, and ships explicit mesh/link-transport seed data for mixed `realtime`/`zenoh` topology behavior.
+- Fleet/Comms add-driver deep-link handling now preserves unknown preselected driver types instead of silently falling back to `modbus-tcp`.
+- Fleet/Comms schema-number handling now preserves valid `0` values (for example Modbus `unit_id = 0`) and enforces min/max validation before save.
+- Fleet topology device context menu now resolves touch coordinates reliably (long-press/taphold) and always unregisters its outside-click dismissal listener on close.
+
+## [0.9.15] - 2026-02-18
+
+### Added
+
 - PLCopen CODESYS global/folder parity:
   - `trust-runtime plcopen import` now imports CODESYS `addData/globalVars` into ST `VAR_GLOBAL` sources (plaintext-first with variable-node synthesis fallback).
   - CODESYS `addData/projectstructure` object trees are now used to place imported POUs/GVLs into mirrored `src/` subfolders (for example `src/Application/...`).
@@ -6419,19 +6693,53 @@ Target release: `v0.24.75`
 
 ### Changed
 
-- `libraries/oscat/src` and the OSCAT core/negative conformance fixtures now follow the OSCAT manual chapter structure (`03_data_types` through `26_list_processing`) instead of a flat source bucket, so continued porting can proceed chapter-by-chapter with tests in the matching chapter first.
-- VS Code statechart automated coverage:
-  - Added editor lifecycle test coverage to verify running statechart sessions are cleaned up when a custom editor panel is disposed.
-  - Added state machine engine behavior tests for awaited hardware action ordering and fail-closed guard evaluation paths.
-  - Added runtime client timeout cleanup coverage to ensure request listeners are removed on timeout/error.
-- Web IDE project selection flow:
-  - Added `/api/ide/project` and `/api/ide/project/open` to query/switch active project root at runtime.
-  - Added no-bundle startup support for `trust-runtime run` so `/ide` can start first and open a project folder from the browser.
-  - Added integration coverage for no-bundle project-open flow in `crates/trust-runtime/tests/web_ide_integration.rs`.
-- Web IDE workspace scope hardening:
-  - Changed IDE file/tree scope from fixed `<project>/src` to full active project root with hidden/system path filtering.
-  - Added project-aware command execution guard so build/test/validate require an active project selection.
-  - Added task status timestamps in `/ide` task panel (`started`/`finished`) to satisfy workflow traceability requirements.
+- PLCopen CODESYS import hardening:
+  - `trust-runtime plcopen import` now maps CODESYS `{attribute 'qualified_only'}` global variable lists into a compiler-valid `TYPE + CONFIGURATION/VAR_GLOBAL` wrapper model instead of emitting unsupported top-level `VAR_GLOBAL` files.
+  - Imported POUs that reference qualified lists (for example `GVL.start`) now receive injected `VAR_EXTERNAL` declarations so cross-file global access resolves in trust-lsp/runtime builds.
+  - Imported `FUNCTION` POUs without explicit result assignment now get a deterministic fallback self-assignment (for example `MyFunc := MyFunc;`) to prevent `E206 missing return value` on first import.
+- Demo Pages WASM startup UX now force-updates the `WASM Ready` badge after engine readiness resolves, preventing a stale `Loading WASM...` state when the worker `ready` event arrives before listener registration.
+- Demo WASM analysis clients now send an internal bootstrap `status` request on worker spawn so startup no longer depends on user interaction before `WASM Ready` appears.
+- Demo Pages now publishes a root `favicon.ico` and links it from `docs/demo/index.html`, avoiding browser default `/favicon.ico` 404s.
+
+## [0.9.13] - 2026-02-17
+
+### Fixed
+
+- GitHub Pages demo walkthrough actions are now deterministic and WASM-only for investor flow: steps 1-7 target the correct symbols/files, `Shift+F12` and `F2` are triggered through Monaco actions, cross-file navigation opens in-editor via a registered Monaco editor opener, and bundled Monaco now includes the required references/rename contributions to keep references/rename/go-to-definition working in Pages builds.
+
+## [0.9.12] - 2026-02-17
+
+### Fixed
+
+- GitHub Pages demo strict-WASM LSP cursor anchoring is now delimiter-aware (`.`, `#`, `:` boundaries): completion/definition/references/rename retry nearby identifier edges, context-menu requests set the cursor to the clicked symbol, and rename preflight resolves identifier ranges from the same fallback matrix.
+- Browser analysis worker-recovery checks now also run demo cursor-position fallback regressions (`docs/demo/lsp-position-resolver.test.mjs`) and no longer fail hard when the legacy prototype test fixture path is absent.
+- Added local GitHub Pages replica serving for the demo (`scripts/serve_demo_local_replica.py`, `scripts/run_demo_local_replica.sh`) with `/<repo>/` routing and no-cache headers so local behavior matches deployed Pages URLs.
+
+## [0.9.11] - 2026-02-17
+
+### Fixed
+
+- Browser IDE/WASM LSP navigation for structured type fields is now project-wide: `Go to Definition`, `Go to References`, and rename now resolve `STRUCT`/`UNION` members across files (fixing `No definition/references found` on demo symbols like `Enable`, `ActualSpeed`, and `ramp`).
+- GitHub Pages demo rename wiring now consumes WASM rename edits directly, restoring `F2` rename in Monaco, and walkthrough instructions now match the exact Monaco UI labels/actions (`Ctrl+Left-click`, `Go to References`, `Fn+F2` note for laptops).
+- GitHub Pages demo LSP request handling is now resilient on slower browser hosts: WASM timeouts were raised for diagnostics/navigation/rename/completion, Monaco cursor boundary fallback now retries nearby symbol offsets for strict WASM requests, URI mapping accepts normalized location schemes, and diagnostics walkthrough text now reflects a clean-by-default project (use a temporary typo to demonstrate squiggles).
+- IDE symbol-target resolution now anchors token/scope lookup to the resolved identifier range (not raw punctuation cursor token), fixing `Go to Definition`, references, and rename misses when the cursor lands on adjacent punctuation in demo/editor workflows.
+- GitHub Pages demo release packaging now rebuilds and ships refreshed `docs/demo/wasm/` artifacts from the current `trust-wasm-analysis` engine so deployed Pages behavior matches committed source fixes.
+
+## [0.9.9] - 2026-02-16
+
+### Fixed
+
+- Browser WASM completion ranking now prioritizes typed-prefix matches before result limiting, and completion context recovery now keeps in-scope program variables available during parser recovery edits (fixing missing `Status`/`Pump` suggestions in the demo).
+
+## [0.9.8] - 2026-02-16
+
+### Fixed
+
+- GitHub Pages demo language features are now strict WASM/LSP-only (no local fallback synthesis), completion request flow is hardened via deduplicated document sync and longer WASM request budgets for slower devices, and FB hover signatures now recover declared member type text from source when semantic type IDs are unresolved.
+
+## [0.9.6] - 2026-02-16
+
+### Changed
 
 - Web IDE full implementation closure for `/ide`:
   - Added workspace tree + filesystem mutation endpoints and UI flows (`/api/ide/tree`, `/api/ide/fs/create`, `/api/ide/fs/rename`, `/api/ide/fs/move`, `/api/ide/fs/delete`) with conflict-safe errors.
@@ -6443,9 +6751,79 @@ Target release: `v0.24.75`
   - Added dedicated Web IDE contract/performance/security integration coverage in `crates/trust-runtime/tests/web_ide_integration.rs` and parser/unit coverage in `crates/trust-runtime/src/web.rs` + `crates/trust-runtime/src/web/ide.rs`.
   - Added a standalone static browser demo at `docs/demo/` with all 7 LSP features running fully client-side through WebAssembly, plus GitHub Pages deployment workflow (`.github/workflows/demo-pages.yml`) for client sharing.
   - Added Browser IDE runtime docs for `/ide` in `docs/guides/WEB_IDE_FULL_BROWSER_GUIDE.md` and linked them from `README.md` and `docs/README.md`.
-- EtherCAT bring-up examples:
-  - Added `examples/ethercat_ek1100_elx008_v2/` for EK1100 + EL2008-only hardware chains with a validated 8-output snake pattern.
-  - Added helper run scripts and docs for real-NIC bring-up and deterministic mock-mode fallback.
+
+### Fixed
+
+- Browser analysis worker-recovery CI gate now includes the Node test fixture file (`docs/internal/prototypes/browser_analysis_wasm_spike/web/analysis-client.test.mjs`) in tracked repository contents, fixing missing-file failures on GitHub runners.
+
+## [0.9.5] - 2026-02-16
+
+### Changed
+
+- Web IDE project selection flow:
+  - Added `/api/ide/project` and `/api/ide/project/open` to query/switch active project root at runtime.
+  - Added no-bundle startup support for `trust-runtime run` so `/ide` can start first and open a project folder from the browser.
+  - Added integration coverage for no-bundle project-open flow in `crates/trust-runtime/tests/web_ide_integration.rs`.
+- Web IDE workspace scope hardening:
+  - Changed IDE file/tree scope from fixed `<project>/src` to full active project root with hidden/system path filtering.
+  - Added project-aware command execution guard so build/test/validate require an active project selection.
+  - Added task status timestamps in `/ide` task panel (`started`/`finished`) to satisfy workflow traceability requirements.
+- Web IDE visual styling now aligns with the runtime page sidebar theme treatment (surface, spacing, and footer layout) for a consistent `/` and `/ide` experience.
+- Web IDE authoring gating no longer depends on runtime `control_mode=debug`; editor capability is now enforced via web auth role and IDE session role (viewer/editor) at API boundaries.
+- Web IDE performance gates were tightened to product targets (completion/hover p95 <= 150ms, diagnostics p95 <= 300ms, workspace search p95 <= 400ms) in automated integration checks.
+
+### Fixed
+
+- Web IDE hover behavior now follows VS Code semantics by relying on Monaco hover tooltips; the redundant Output-side Hover panel was removed to prevent duplicate/stale hover text.
+- Web IDE hover provider failures are now logged as `[ide] hover failed:` in browser console output to improve diagnostics when hover requests fail.
+- Web IDE analysis cache refresh now skips unrelated unreadable/oversized `.st` files so hover/completion keep working for the active source, Monaco hover/suggest widgets now use overflow-safe rendering to avoid hidden popups, and `/ide` assets are served with `Cache-Control: no-store` so browser refreshes pick up the latest IDE fixes.
+- Web IDE hover/completion hardening now normalizes Monaco hover content payloads, falls back to local symbol suggestions when completion analysis is unavailable, and debounces hover popup triggering on mouse idle so behavior matches VS Code more closely on Chromium-based runtime kiosks.
+
+## [0.9.3] - 2026-02-15
+
+### Changed
+
+- VS Code statechart automated coverage:
+  - Added editor lifecycle test coverage to verify running statechart sessions are cleaned up when a custom editor panel is disposed.
+  - Added state machine engine behavior tests for awaited hardware action ordering and fail-closed guard evaluation paths.
+  - Added runtime client timeout cleanup coverage to ensure request listeners are removed on timeout/error.
+- VS Code statechart extension quality gates now lint TSX sources and run explicit webview TypeScript typechecking (`tsconfig.webview.json`) during compile.
+- Statechart import command flow now consistently resolves source/target paths and reuses shared URI/path helpers across statechart commands.
+- Statechart hardware helper scripts/docs now use repository-relative paths and group-based socket permissions (`660`) instead of world-writable sockets.
+- Statechart operator/developer guides and helper script output are now standardized to English for consistent repository documentation language.
+
+### Fixed
+
+- VS Code statechart custom editor packaging now loads the webview template from bundled extension code instead of `src/**` runtime paths excluded by `.vscodeignore`.
+- VS Code statechart editor lifecycle now stops active execution sessions when the panel closes, ensuring timers/runtime connections are cleaned up.
+- State machine engine transition execution now awaits exit/transition/entry hardware actions before completing transitions.
+- Hardware-mode guard handling now fails closed on parse/read/runtime errors instead of allowing unsafe transitions.
+- Runtime control client request timeout/error handling now removes per-request listeners reliably to prevent listener leaks.
+- Statechart traffic-light example now starts from a valid non-dead initial state (`Red`).
+
+## [0.9.2] - 2026-02-15
+
+### Fixed
+
+- VS Code extension project workflows now follow `src/`-based projects consistently: ST test run root detection accepts `src`, PLCopen export integration coverage uses `src`, and new-project scaffolding no longer generates legacy `sources/`.
+
+## [0.9.1] - 2026-02-15
+
+### Changed
+
+- Standardized example I/O mapping patterns to use `VAR_CONFIG` bindings (instead of direct `%I/%Q` declarations in `VAR`/`VAR_GLOBAL`) across communication, EtherCAT, Siemens, Mitsubishi, and unit-testing tutorial projects.
+- Updated example documentation snippets to reflect `PROGRAM` variables plus `CONFIGURATION`-level `VAR_CONFIG` wiring as the recommended deterministic pattern.
+- Project source layout is now `src/` only across runtime/CLI flows:
+  - `trust-runtime build`, `test`, `docs`, and `run --project` now require `<project>/src` as the default source root.
+  - Legacy `<project>/sources` fallback resolution was removed from bundle/project source lookup.
+  - Setup/wizard-generated projects and shipped tutorials/examples now use `src/` consistently.
+  - PLCopen import/export project-root resolution now targets `src/` only.
+  - `trust-runtime setup` auto-migrates an existing `<project>/sources` folder to `<project>/src` when preparing a project.
+
+## [0.9.0] - 2026-02-14
+
+### Changed
+
 - HMI Phase 0 scaffold start:
   - Added runtime scaffold engine APIs `scaffold_hmi_dir` and `scaffold_hmi_dir_with_sources` in `crates/trust-runtime/src/hmi.rs` to generate deterministic `hmi/` directory artifacts from source metadata.
   - Added `trust-runtime hmi init` CLI workflow (`crates/trust-runtime/src/bin/trust-runtime/hmi.rs`) with style selection (`industrial|classic|mint`) and deterministic generation summary output.
@@ -6510,16 +6888,6 @@ Target release: `v0.24.75`
   - Added integration tests covering intent generation, candidate-ranking determinism, trace capture, validation artifact emission, snapshot output, API/event journey execution, unauthorized-write safety handling, evidence retention pruning, lock determinism, and cancellation handling for the full Phase 6 toolset.
   - Added runtime hardening regressions for write-cycle budget checks, websocket slow-consumer/backpressure stability, malformed process-SVG resilience, and rapid descriptor file-churn no-deadlock behavior.
   - Added default gitignore rule for `hmi/_evidence/` artifacts.
-- Direct Siemens TIA source handoff via export adapters:
-  - `trust-runtime plcopen export --target siemens` now emits a Siemens SCL sidecar bundle (`<output>.scl/*.scl`) alongside PLCopen XML.
-  - Siemens-target export reports now include `siemens_scl_bundle_dir` and `siemens_scl_files[]` for automation and CI evidence.
-  - Added dedicated Siemens import tutorial with exact TIA path (`External source files` -> `Add new external file` -> `Generate blocks`): `docs/guides/SIEMENS_TIA_SCL_IMPORT_TUTORIAL.md`.
-  - Added runtime + CLI regression coverage for Siemens SCL bundle generation and `PROGRAM` to `ORGANIZATION_BLOCK` conversion.
-- VS Code PLCopen import workflow:
-  - Added command `Structured Text: Import PLCopen XML` (`trust-lsp.plcopen.import`) for CLI-backed PLCopen project import from the editor.
-  - Command flow prompts for input XML + target project folder, validates conflict paths, runs `trust-runtime plcopen import --json`, and offers quick access to the generated migration report.
-  - Added VS Code integration coverage for success/cancel/conflict/invalid-input paths in `editors/vscode/src/test/suite/plcopen-import.test.ts`.
-  - Added explicit import usage docs in `README.md`, `docs/README.md`, `editors/vscode/README.md`, and PLCopen example READMEs.
 - Guided example/tutorial expansion:
   - Added `examples/README.md` as a structured tutorial index with recommended learning order and setup checklist.
   - Added `examples/tutorials/12_hmi_pid_process_dashboard/` as a full process-HMI tutorial with a runnable PLC model, descriptor-driven `hmi/` pages, production-style `kind = "process"` SVG bindings, setpoint/deviation/alarm coverage, and step-by-step build/run/customization guidance (including screenshot/GIF capture workflow).
@@ -6528,6 +6896,44 @@ Target release: `v0.24.75`
   - Added `examples/vendor_library_stubs/` as a tutorial for user-provided vendor library stub indexing (`[[libraries]]`) with Siemens-style sample declarations.
   - Removed `examples/openplc_interop_v1/` (content absorbed into `examples/plcopen_xml_st_complete/`).
   - Removed `examples/browser_analysis_wasm_spike/` (prototype assets moved to `docs/internal/prototypes/browser_analysis_wasm_spike/`).
+- HMI scaffold update behavior now skips regenerating default `process.toml` when curated custom process pages already exist, and skips creating empty `control.toml` when no writable points are discovered.
+- HMI auto-schematic Process scaffold now enforces deterministic grid/anchor rules (shared FIT/PT instrument template geometry, value offset one grid row above sensor centerline, stems snapped to process line, connector-anchored routing) and level-fill bindings now update both `y` and `height` for percent-consistent tank visuals.
+- Tutorial `12_hmi_pid_process_dashboard` now uses grid-aligned P&ID SVG layouts (hidden `pid-layout-guides` layer) with compact overview inventory widgets and cleaned page set (no duplicate scaffold `Process` page / empty `Control` page).
+- Tutorial `12_hmi_pid_process_dashboard` Process/Bypass P&ID pages now use denser operator layout (integrated status rail, calibrated tank scales, stronger typography hierarchy, and ISA-style symbol/line cleanup) with synchronized level-fill scaling.
+- Tutorial `12_hmi_pid_process_dashboard` Process/Bypass P&ID pages now remove duplicated PV summary strip and fix tank header text overlap while keeping tank fill scaling aligned to visible geometry.
+- Tutorial `12_hmi_pid_process_dashboard` Process/Bypass P&ID pages now render pipe runs without the extra lane background panel.
+- Added grouped communication examples under `examples/communication/` for Modbus/TCP, MQTT, OPC UA, EtherCAT, GPIO, and composed multi-driver setups, and documented protocol transport gates (including `ethercat-wire` unix hardware scope and `opcua-wire` requirement) in examples/tutorial indexes and guide docs (`PLC_IO_BINDING_GUIDE.md`, `PLC_NETWORKING.md`, `PLC_DEVELOPER_GUIDE.md`).
+- Restored the field-tested EtherCAT `EK1100 + EL2008` profile as `examples/communication/ethercat_field_validated_es/` (Spanish operator-focused commissioning walkthrough) so communication examples now include two EtherCAT tracks.
+- Added automated runtime CLI regression coverage for grouped communication examples via `crates/trust-runtime/tests/communication_examples_cli.rs`, verifying `build --sources src` and `validate` for `modbus_tcp`, `mqtt`, `opcua`, `ethercat`, `gpio`, and `multi_driver` in CI/test runs.
+- Added advanced operations tutorial `23_observability_historian_prometheus` and expanded `16_secure_remote_access` with explicit TLS commissioning/validation steps so observability and remote-hardening flows are covered end-to-end in the examples track.
+
+## [0.7.16] - 2026-02-14
+
+### Changed
+
+- EtherCAT bring-up examples:
+  - Added `examples/ethercat_ek1100_elx008_v2/` for EK1100 + EL2008-only hardware chains with a validated 8-output snake pattern.
+  - Added helper run scripts and docs for real-NIC bring-up and deterministic mock-mode fallback.
+
+## [0.7.15] - 2026-02-13
+
+### Changed
+
+- Direct Siemens TIA source handoff via export adapters:
+  - `trust-runtime plcopen export --target siemens` now emits a Siemens SCL sidecar bundle (`<output>.scl/*.scl`) alongside PLCopen XML.
+  - Siemens-target export reports now include `siemens_scl_bundle_dir` and `siemens_scl_files[]` for automation and CI evidence.
+  - Added dedicated Siemens import tutorial with exact TIA path (`External source files` -> `Add new external file` -> `Generate blocks`): `docs/guides/SIEMENS_TIA_SCL_IMPORT_TUTORIAL.md`.
+  - Added runtime + CLI regression coverage for Siemens SCL bundle generation and `PROGRAM` to `ORGANIZATION_BLOCK` conversion.
+
+## [0.7.14] - 2026-02-12
+
+### Changed
+
+- VS Code PLCopen import workflow:
+  - Added command `Structured Text: Import PLCopen XML` (`trust-lsp.plcopen.import`) for CLI-backed PLCopen project import from the editor.
+  - Command flow prompts for input XML + target project folder, validates conflict paths, runs `trust-runtime plcopen import --json`, and offers quick access to the generated migration report.
+  - Added VS Code integration coverage for success/cancel/conflict/invalid-input paths in `editors/vscode/src/test/suite/plcopen-import.test.ts`.
+  - Added explicit import usage docs in `README.md`, `docs/README.md`, `editors/vscode/README.md`, and PLCopen example READMEs.
 - OpenPLC Interop v1 deliverable closure:
   - Added dedicated OpenPLC migration guide: `docs/guides/OPENPLC_INTEROP_V1.md`.
   - Added OpenPLC fixture and walkthrough coverage inside the PLCopen ST-complete bundle:
@@ -6547,6 +6953,34 @@ Target release: `v0.24.75`
   - Published scope contract and evidence report:
     - `docs/guides/BROWSER_ANALYSIS_WASM_SPIKE.md`
     - `docs/reports/browser-analysis-wasm-spike-20260212.md`
+- ST unit-testing tutorials:
+  - `examples/tutorials/10_unit_testing_101/`
+  - `examples/tutorials/11_unit_testing_102/`
+- `trust-runtime build --sources <relative-path>` now resolves relative source overrides from `--project`, avoiding path-resolution mismatches from external working directories.
+
+### Fixed
+
+- `trust-runtime validate` no longer reports false `undefined program` errors for valid bundles; it now validates decoded bytecode/module metadata directly and enforces task-program name integrity at bytecode-validation time.
+- Bytecode encoding/validation now handles enum-typed constant payloads correctly during module build/validation.
+
+## [0.7.10] - 2026-02-12
+
+### Changed
+
+- PLCopen ecosystem detection now recognizes OpenPLC markers (`openplc`) for migration reporting/shim selection, with OpenPLC fixture-backed regression coverage.
+- PLCopen vendor-library shim matching now also normalizes keyword-style vendor aliases (for example `R_EDGE`) when used in supported type/call positions.
+
+## [0.7.9] - 2026-02-12
+
+### Fixed
+
+- CI Windows build no longer fails on missing `wpcap.lib` when `ethercat-wire` is enabled by default; EtherCAT wire dependency wiring is now unix-target gated while preserving mock-driver support cross-platform.
+- MP-001 parity baseline updated for newly added Mitsubishi LSP regression tests so discovery parity gate remains deterministic.
+
+## [0.7.8] - 2026-02-12
+
+### Changed
+
 - EtherCAT Backend v1 (Deliverable 9):
   - Added new runtime I/O driver profile: `io.driver = "ethercat"` with EtherCrab-backed hardware transport (`adapter = "<nic>"`) and deterministic mock transport mode (`adapter = "mock"`).
   - Added module-chain process-image mapping contract for Beckhoff-style digital I/O profiles (`EK1100`, `EL1008`, `EL2008`) with size-check diagnostics.
@@ -6556,100 +6990,44 @@ Target release: `v0.24.75`
     - `examples/ethercat_ek1100_elx008_v1/`
   - Published EtherCAT backend guide with scope boundaries and compliance checkpoint:
     - `docs/guides/ETHERCAT_BACKEND_V1.md`
+- Browser/WASM position mapping now uses UTF-16 column semantics for protocol compatibility in `trust-wasm-analysis` range/position conversions.
+
+## [0.7.7] - 2026-02-12
+
+### Changed
+
 - Mitsubishi GX Works3 Compatibility v1 (Deliverable 8):
   - Added Mitsubishi vendor profile support in LSP tooling (`vendor_profile = "mitsubishi"` and alias `gxworks3`) for formatting, stdlib selection defaults, and diagnostics rule-pack aliases.
   - Added native `DIFU`/`DIFD` edge-alias support in semantic/runtime builtins (mapped to IEC `R_TRIG`/`F_TRIG` behavior) for normal ST authoring and execution.
   - Added Mitsubishi GX Works3 example project: `examples/mitsubishi_gxworks3_v1/`.
   - Added compatibility guide with supported subset, incompatibilities, and migration guidance: `docs/guides/MITSUBISHI_GXWORKS3_COMPATIBILITY.md`.
   - Added dedicated regression coverage across HIR semantics, runtime edge behavior, LSP formatting/diagnostics, and example compile tests.
+
+## [0.7.6] - 2026-02-12
+
+### Changed
+
 - Multi-vendor Export Adapters v1 (Deliverable 7):
   - `trust-runtime plcopen export` now supports `--target <generic|ab|siemens|schneider>` for vendor-targeted interchange artifacts.
   - Export JSON contract now includes target adapter evidence fields: `target`, `adapter_report_path`, `adapter_diagnostics`, `adapter_manual_steps`, and `adapter_limitations`.
   - Vendor-target exports now emit deterministic sidecar adapter reports (`<output>.adapter-report.json`) and embedded `trust.exportAdapter` metadata in `addData`.
   - Published target-specific limitations/manual migration steps guide: `docs/guides/PLCOPEN_EXPORT_ADAPTERS_V1.md`.
+
+## [0.7.5] - 2026-02-12
+
+### Changed
+
 - Editor Expansion v1 (Deliverable 6):
   - Official Neovim setup pack published with reference `nvim-lspconfig` profile and workflow keymaps: `editors/neovim/`.
   - Official Zed setup pack published with reference language-server profile: `editors/zed/`.
   - Editor setup/validation guide published: `docs/guides/EDITOR_SETUP_NEOVIM_ZED.md`.
   - New editor smoke gate script `scripts/check_editor_integration_smoke.sh` validates editor config contracts and runs targeted LSP workflow tests for diagnostics/hover/completion/formatting/definition.
-- Vendor Library Compatibility Baseline (Deliverable 4):
-  - `trust-runtime plcopen import` now applies deterministic vendor-library shim mappings for selected Siemens, Rockwell, Schneider/CODESYS, and Mitsubishi aliases.
-  - Import/migration JSON contracts now include `applied_library_shims` with vendor/source/replacement/occurrence metadata.
-  - Vendor-library compatibility matrix and shim catalog published in `docs/guides/VENDOR_LIBRARY_COMPATIBILITY.md`.
-- Siemens SCL Compatibility v1 (Deliverable 3):
-  - Siemens-style `#`-prefixed local references now parse in expression and statement contexts (including `FOR` loop control variables).
-  - Siemens SCL compatibility guide published: `docs/guides/SIEMENS_SCL_COMPATIBILITY.md`.
-  - Siemens SCL example project added: `examples/siemens_scl_v1/`.
-  - Regression coverage added across parser, LSP formatting/diagnostics, and runtime example compile tests.
-- PLCopen Interop Hardening (Deliverable 2):
-  - expanded migration fixture coverage for major ecosystems (`codesys`, `beckhoff-twincat`, `siemens-tia`, `rockwell-studio5000`, `schneider-ecostruxure`)
-  - structured unsupported-node diagnostics in migration reports with code/severity/node/action metadata
-  - explicit compatibility coverage summary in import/migration reports (`supported_items`, `partial_items`, `unsupported_items`, `support_percent`, `verdict`)
-  - dedicated compatibility/limits guide: `docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md`
-- Conformance Suite MVP shipped (Deliverable 1):
-  - deterministic case pack + versioned expected artifacts in `conformance/cases/` and `conformance/expected/`
-  - coverage for timers (TON/TOF/TP), edges, scan-cycle ordering, init/reset, arithmetic corner cases, and mapped memory behavior
-  - negative/error-path coverage for runtime overflow behavior and unresolved wildcard mapping compile errors
-  - external run guide and submission process (`conformance/external-run-guide.md`, `conformance/submissions.md`)
-  - explicit known-gaps register (`conformance/known-gaps.md`)
-- `trust-runtime conformance` CLI runner mode:
-  - deterministic `case_id` ordering
-  - machine-readable JSON summary contract (`trust-conformance-v1`)
-  - stable failure reason taxonomy (`conformance/failure-taxonomy.md`)
-  - `--update-expected` mode for deterministic artifact refresh
-- ST unit-testing tutorials:
-  - `examples/tutorials/10_unit_testing_101/`
-  - `examples/tutorials/11_unit_testing_102/`
-- Salsa hardening gates and overnight validation scripts/reports:
-  - `scripts/salsa_*_gate.sh`
-  - `scripts/salsa_overnight_hardening.sh`
-  - `docs/reports/salsa-overnight-hardening-20260209.md`
-- Runtime/UI multi-driver coverage and integration tests for Modbus + MQTT.
-- New ST assertion functions in runtime/hir:
-  - `ASSERT_NOT_EQUAL`
-  - `ASSERT_GREATER`
-  - `ASSERT_LESS`
-  - `ASSERT_GREATER_OR_EQUAL`
-  - `ASSERT_LESS_OR_EQUAL`
-- `trust-runtime test --list` to discover test names without executing.
-- `trust-runtime test --timeout <seconds>` for per-test execution timeout.
-- CLI/integration tests for list/filter/timeout behavior and JSON duration fields.
+- CI release-gate aggregation now includes a dedicated `Editor Expansion Smoke` gate for Neovim/Zed integration coverage.
+
+## [0.7.4] - 2026-02-12
 
 ### Changed
 
-- Local developer test workflow acceleration:
-  - `just test` now uses `cargo-nextest` for the default local loop (`trust-runtime` library tests), with automatic fallback to `cargo test` if `nextest` is unavailable.
-  - Added split test targets in `justfile`: `test-integration`, `test-e2e`, and `test-all` (full previous gate).
-  - Enabled faster local linking via `mold` (`.cargo/config.toml`) and enabled `sccache` as Cargo `rustc-wrapper`.
-  - Reduced dev/test debug symbol level to `debug = 1` for faster incremental compile/link during local iteration.
-- PLCopen CODESYS import hardening:
-  - `trust-runtime plcopen import` now maps CODESYS `{attribute 'qualified_only'}` global variable lists into a compiler-valid `TYPE + CONFIGURATION/VAR_GLOBAL` wrapper model instead of emitting unsupported top-level `VAR_GLOBAL` files.
-  - Imported POUs that reference qualified lists (for example `GVL.start`) now receive injected `VAR_EXTERNAL` declarations so cross-file global access resolves in trust-lsp/runtime builds.
-  - Imported `FUNCTION` POUs without explicit result assignment now get a deterministic fallback self-assignment (for example `MyFunc := MyFunc;`) to prevent `E206 missing return value` on first import.
-- Demo Pages WASM startup UX now force-updates the `WASM Ready` badge after engine readiness resolves, preventing a stale `Loading WASM...` state when the worker `ready` event arrives before listener registration.
-- Demo WASM analysis clients now send an internal bootstrap `status` request on worker spawn so startup no longer depends on user interaction before `WASM Ready` appears.
-- Demo Pages now publishes a root `favicon.ico` and links it from `docs/demo/index.html`, avoiding browser default `/favicon.ico` 404s.
-- VS Code statechart extension quality gates now lint TSX sources and run explicit webview TypeScript typechecking (`tsconfig.webview.json`) during compile.
-- Statechart import command flow now consistently resolves source/target paths and reuses shared URI/path helpers across statechart commands.
-- Statechart hardware helper scripts/docs now use repository-relative paths and group-based socket permissions (`660`) instead of world-writable sockets.
-- Statechart operator/developer guides and helper script output are now standardized to English for consistent repository documentation language.
-- Web IDE visual styling now aligns with the runtime page sidebar theme treatment (surface, spacing, and footer layout) for a consistent `/` and `/ide` experience.
-- Web IDE authoring gating no longer depends on runtime `control_mode=debug`; editor capability is now enforced via web auth role and IDE session role (viewer/editor) at API boundaries.
-- Web IDE performance gates were tightened to product targets (completion/hover p95 <= 150ms, diagnostics p95 <= 300ms, workspace search p95 <= 400ms) in automated integration checks.
-- Standardized example I/O mapping patterns to use `VAR_CONFIG` bindings (instead of direct `%I/%Q` declarations in `VAR`/`VAR_GLOBAL`) across communication, EtherCAT, Siemens, Mitsubishi, and unit-testing tutorial projects.
-- Updated example documentation snippets to reflect `PROGRAM` variables plus `CONFIGURATION`-level `VAR_CONFIG` wiring as the recommended deterministic pattern.
-- Browser/WASM position mapping now uses UTF-16 column semantics for protocol compatibility in `trust-wasm-analysis` range/position conversions.
-- HMI scaffold update behavior now skips regenerating default `process.toml` when curated custom process pages already exist, and skips creating empty `control.toml` when no writable points are discovered.
-- HMI auto-schematic Process scaffold now enforces deterministic grid/anchor rules (shared FIT/PT instrument template geometry, value offset one grid row above sensor centerline, stems snapped to process line, connector-anchored routing) and level-fill bindings now update both `y` and `height` for percent-consistent tank visuals.
-- Tutorial `12_hmi_pid_process_dashboard` now uses grid-aligned P&ID SVG layouts (hidden `pid-layout-guides` layer) with compact overview inventory widgets and cleaned page set (no duplicate scaffold `Process` page / empty `Control` page).
-- Tutorial `12_hmi_pid_process_dashboard` Process/Bypass P&ID pages now use denser operator layout (integrated status rail, calibrated tank scales, stronger typography hierarchy, and ISA-style symbol/line cleanup) with synchronized level-fill scaling.
-- Tutorial `12_hmi_pid_process_dashboard` Process/Bypass P&ID pages now remove duplicated PV summary strip and fix tank header text overlap while keeping tank fill scaling aligned to visible geometry.
-- Tutorial `12_hmi_pid_process_dashboard` Process/Bypass P&ID pages now render pipe runs without the extra lane background panel.
-- Added grouped communication examples under `examples/communication/` for Modbus/TCP, MQTT, OPC UA, EtherCAT, GPIO, and composed multi-driver setups, and documented protocol transport gates (including `ethercat-wire` unix hardware scope and `opcua-wire` requirement) in examples/tutorial indexes and guide docs (`PLC_IO_BINDING_GUIDE.md`, `PLC_NETWORKING.md`, `PLC_DEVELOPER_GUIDE.md`).
-- Restored the field-tested EtherCAT `EK1100 + EL2008` profile as `examples/communication/ethercat_field_validated_es/` (Spanish operator-focused commissioning walkthrough) so communication examples now include two EtherCAT tracks.
-- Added automated runtime CLI regression coverage for grouped communication examples via `crates/trust-runtime/tests/communication_examples_cli.rs`, verifying `build --sources src` and `validate` for `modbus_tcp`, `mqtt`, `opcua`, `ethercat`, `gpio`, and `multi_driver` in CI/test runs.
-- Added advanced operations tutorial `23_observability_historian_prometheus` and expanded `16_secure_remote_access` with explicit TLS commissioning/validation steps so observability and remote-hardening flows are covered end-to-end in the examples track.
-- CI release-gate aggregation now includes a dedicated `Editor Expansion Smoke` gate for Neovim/Zed integration coverage.
 - PLCopen XML Full ST Project Coverage (Deliverable 5):
   - Profile advanced to `trust-st-complete-v1`.
   - `trust-runtime plcopen import` now supports full ST-project model import for:
@@ -6661,84 +7039,127 @@ Target release: `v0.24.75`
     - `imported_data_types`, `discovered_configurations`, `imported_configurations`, `imported_resources`, `imported_tasks`, `imported_program_instances` (import/migration)
   - Added CODESYS ST-complete fixture packs (`small`/`medium`/`large`) with deterministic expected migration artifacts and CI schema-drift parity gate in `crates/trust-runtime/tests/plcopen_st_complete_parity.rs`.
   - Updated PLCopen compatibility/spec docs and added end-to-end import/export example project in `examples/plcopen_xml_st_complete/`.
-- Project source layout is now `src/` only across runtime/CLI flows:
-  - `trust-runtime build`, `test`, `docs`, and `run --project` now require `<project>/src` as the default source root.
-  - Legacy `<project>/sources` fallback resolution was removed from bundle/project source lookup.
-  - Setup/wizard-generated projects and shipped tutorials/examples now use `src/` consistently.
-  - PLCopen import/export project-root resolution now targets `src/` only.
-  - `trust-runtime setup` auto-migrates an existing `<project>/sources` folder to `<project>/src` when preparing a project.
-- `trust-runtime build --sources <relative-path>` now resolves relative source overrides from `--project`, avoiding path-resolution mismatches from external working directories.
-- `trust-runtime plcopen export` and `trust-runtime plcopen import` now support `--json` for machine-readable report output.
-- `trust-runtime plcopen profile` now publishes a compatibility matrix plus round-trip limits/known-gaps contract fields.
+
+## [0.7.3] - 2026-02-11
+
+### Fixed
+
+- Release workflow hardening:
+  - VS Code Marketplace publish now runs per-VSIX with retry/backoff on transient network timeouts and treats already-published artifacts as idempotent success for reruns.
+
+## [0.7.2] - 2026-02-11
+
+### Fixed
+
+- `version-release-guard` now tolerates short ordering races between `main` and tag pushes by polling for the expected version tag before failing.
+
+## [0.7.1] - 2026-02-11
+
+### Changed
+
+- VS Code extension marketplace metadata now declares dual-license SPDX (`MIT OR Apache-2.0`) and monorepo repository directory (`editors/vscode`).
+
+### Fixed
+
+- GitHub license detection no longer reports an extra `Unknown` license entry after removing the non-standard root `LICENSE` stub (dual-license files remain `LICENSE-MIT` and `LICENSE-APACHE`).
+- VS Code Marketplace screenshots now use absolute image URLs from GitHub raw content so images render reliably in extension listing pages.
+
+## [0.7.0] - 2026-02-11
+
+### Changed
+
+- Vendor Library Compatibility Baseline (Deliverable 4):
+  - `trust-runtime plcopen import` now applies deterministic vendor-library shim mappings for selected Siemens, Rockwell, Schneider/CODESYS, and Mitsubishi aliases.
+  - Import/migration JSON contracts now include `applied_library_shims` with vendor/source/replacement/occurrence metadata.
+  - Vendor-library compatibility matrix and shim catalog published in `docs/guides/VENDOR_LIBRARY_COMPATIBILITY.md`.
+- Siemens SCL Compatibility v1 (Deliverable 3):
+  - Siemens-style `#`-prefixed local references now parse in expression and statement contexts (including `FOR` loop control variables).
+  - Siemens SCL compatibility guide published: `docs/guides/SIEMENS_SCL_COMPATIBILITY.md`.
+  - Siemens SCL example project added: `examples/siemens_scl_v1/`.
+  - Regression coverage added across parser, LSP formatting/diagnostics, and runtime example compile tests.
 - `trust-runtime plcopen import` compatibility scoring now accounts for shimmed vendor-library aliases as partial-coverage items.
 - PLCopen ecosystem detection now recognizes Mitsubishi GX Works markers (`mitsubishi-gxworks3`) for migration reporting/shim selection.
-- PLCopen ecosystem detection now recognizes OpenPLC markers (`openplc`) for migration reporting/shim selection, with OpenPLC fixture-backed regression coverage.
-- PLCopen vendor-library shim matching now also normalizes keyword-style vendor aliases (for example `R_EDGE`) when used in supported type/call positions.
-- Migrated `trust-hir` semantic path to Salsa-only backend and upgraded Salsa to `0.26`.
-- Enabled VS Code extension integration tests in CI under virtual display (`xvfb`).
-- Expanded cancellation checks in workspace-scale LSP operations.
+
+### Fixed
+
+- Parser diagnostics now report a targeted error (`expected identifier after '#'`) for malformed Siemens SCL `#` local-reference syntax instead of generic expression errors.
+- Release packaging metadata:
+  - VS Code extension package versions are now aligned to the workspace release version to avoid duplicate publish artifacts from prior extension versions.
+
+## [0.5.0] - 2026-02-11
+
+### Changed
+
+- PLCopen Interop Hardening (Deliverable 2):
+  - expanded migration fixture coverage for major ecosystems (`codesys`, `beckhoff-twincat`, `siemens-tia`, `rockwell-studio5000`, `schneider-ecostruxure`)
+  - structured unsupported-node diagnostics in migration reports with code/severity/node/action metadata
+  - explicit compatibility coverage summary in import/migration reports (`supported_items`, `partial_items`, `unsupported_items`, `support_percent`, `verdict`)
+  - dedicated compatibility/limits guide: `docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md`
+- `trust-runtime plcopen export` and `trust-runtime plcopen import` now support `--json` for machine-readable report output.
+- `trust-runtime plcopen profile` now publishes a compatibility matrix plus round-trip limits/known-gaps contract fields.
+
+### Fixed
+
+- Schneider EcoStruxure vendor detection is now distinct from generic CODESYS-family heuristics in PLCopen migration reports.
+
+## [0.4.0] - 2026-02-10
+
+### Changed
+
+- Conformance Suite MVP shipped (Deliverable 1):
+  - deterministic case pack + versioned expected artifacts in `conformance/cases/` and `conformance/expected/`
+  - coverage for timers (TON/TOF/TP), edges, scan-cycle ordering, init/reset, arithmetic corner cases, and mapped memory behavior
+  - negative/error-path coverage for runtime overflow behavior and unresolved wildcard mapping compile errors
+  - external run guide and submission process (`conformance/external-run-guide.md`, `conformance/submissions.md`)
+  - explicit known-gaps register (`conformance/known-gaps.md`)
+- `trust-runtime conformance` CLI runner mode:
+  - deterministic `case_id` ordering
+  - machine-readable JSON summary contract (`trust-conformance-v1`)
+  - stable failure reason taxonomy (`conformance/failure-taxonomy.md`)
+  - `--update-expected` mode for deterministic artifact refresh
 - CI now includes a dedicated conformance gate with repeated-run deterministic comparison.
-- VS Code extension marketplace metadata now declares dual-license SPDX (`MIT OR Apache-2.0`) and monorepo repository directory (`editors/vscode`).
-- Documentation organization:
-  - Public durable reports remain in `docs/reports/`.
-  - Working remediation checklists are no longer published in `docs/reports/`.
+
+## [0.3.0] - 2026-02-10
+
+### Changed
+
+- New ST assertion functions in runtime/hir:
+  - `ASSERT_NOT_EQUAL`
+  - `ASSERT_GREATER`
+  - `ASSERT_LESS`
+  - `ASSERT_GREATER_OR_EQUAL`
+  - `ASSERT_LESS_OR_EQUAL`
+- `trust-runtime test --list` to discover test names without executing.
+- `trust-runtime test --timeout <seconds>` for per-test execution timeout.
+- CLI/integration tests for list/filter/timeout behavior and JSON duration fields.
 - `trust-runtime test` output now reports per-test elapsed time and total elapsed time in human output.
 - `trust-runtime test --output json` now includes `duration_ms` per test and in summary.
 - Tutorial 10/11 docs updated for list/timeout usage and expanded assertion coverage.
 
 ### Fixed
 
-- VS Code SFC webview TypeScript message/edge typing regressions that previously failed extension compile gates in CI.
-- Standalone Web IDE bootstrap now serves fully composed split module assets (`ide-editor-language`, `ide-editor-pane`, `ide-workspace-tree`, `ide-workspace-files`, `ide-observability`, `ide-commands`) so session startup/open-project flows no longer fail with missing runtime symbols (for example `refreshProjectSelection`).
-- Standalone Web IDE bootstrap no longer stalls waiting for WASM analysis readiness when the analysis worker repeatedly restarts; IDE startup now completes and remains usable with analysis disabled.
-- Web IDE UI-mode detection now accepts both wrapped (`{ok,result}`) and direct (`{ok,mode}`) API payloads, restoring correct standalone-mode behavior (for example disabling runtime-only controls in `standalone-ide` mode).
-- Web IDE Hardware tab now rehydrates after IDE session bootstrap events (including deep-link startup on `/ide/hardware`) and performs delayed canvas relayout/fit passes after tab activation so hardware + communication modules from `io.toml`/`runtime.toml` reliably render without clipped/off-screen graphs.
-- Web IDE workspace tabs now publish explicit ARIA tab semantics (`tablist`/`tab`/`tabpanel`, `aria-selected`, and active-tab `tabindex` management) for keyboard/screen-reader correctness.
-- Config-UI Fleet topology projection no longer reports planned runtimes/endpoints as online by default; `/api/runtime-cloud/state` in config mode now renders offline/degraded runtime state and failed links until live runtime connectivity exists.
-- Config-UI now serves read-only `/api/runtime-cloud/config` and `/api/runtime-cloud/rollouts` snapshots in offline mode to prevent Web UI polling 404 noise during TOML/ST-only editing sessions.
-- Runtime cloud 5-host topology demo is now self-contained and deterministic: `start-5.sh` auto-bootstraps missing projects, performs clean restarts, waits for runtime-cloud readiness, and ships explicit mesh/link-transport seed data for mixed `realtime`/`zenoh` topology behavior.
-- Fleet/Comms add-driver deep-link handling now preserves unknown preselected driver types instead of silently falling back to `modbus-tcp`.
-- Fleet/Comms schema-number handling now preserves valid `0` values (for example Modbus `unit_id = 0`) and enforces min/max validation before save.
-- Fleet topology device context menu now resolves touch coordinates reliably (long-press/taphold) and always unregisters its outside-click dismissal listener on close.
-- VS Code statechart custom editor packaging now loads the webview template from bundled extension code instead of `src/**` runtime paths excluded by `.vscodeignore`.
-- VS Code statechart editor lifecycle now stops active execution sessions when the panel closes, ensuring timers/runtime connections are cleaned up.
-- State machine engine transition execution now awaits exit/transition/entry hardware actions before completing transitions.
-- Hardware-mode guard handling now fails closed on parse/read/runtime errors instead of allowing unsafe transitions.
-- Runtime control client request timeout/error handling now removes per-request listeners reliably to prevent listener leaks.
-- Statechart traffic-light example now starts from a valid non-dead initial state (`Red`).
-- Web IDE hover behavior now follows VS Code semantics by relying on Monaco hover tooltips; the redundant Output-side Hover panel was removed to prevent duplicate/stale hover text.
-- Web IDE hover provider failures are now logged as `[ide] hover failed:` in browser console output to improve diagnostics when hover requests fail.
-- Web IDE analysis cache refresh now skips unrelated unreadable/oversized `.st` files so hover/completion keep working for the active source, Monaco hover/suggest widgets now use overflow-safe rendering to avoid hidden popups, and `/ide` assets are served with `Cache-Control: no-store` so browser refreshes pick up the latest IDE fixes.
-- Web IDE hover/completion hardening now normalizes Monaco hover content payloads, falls back to local symbol suggestions when completion analysis is unavailable, and debounces hover popup triggering on mouse idle so behavior matches VS Code more closely on Chromium-based runtime kiosks.
-- Browser analysis worker-recovery CI gate now includes the Node test fixture file (`docs/internal/prototypes/browser_analysis_wasm_spike/web/analysis-client.test.mjs`) in tracked repository contents, fixing missing-file failures on GitHub runners.
-- GitHub Pages demo language features are now strict WASM/LSP-only (no local fallback synthesis), completion request flow is hardened via deduplicated document sync and longer WASM request budgets for slower devices, and FB hover signatures now recover declared member type text from source when semantic type IDs are unresolved.
-- Browser WASM completion ranking now prioritizes typed-prefix matches before result limiting, and completion context recovery now keeps in-scope program variables available during parser recovery edits (fixing missing `Status`/`Pump` suggestions in the demo).
-- Browser IDE/WASM LSP navigation for structured type fields is now project-wide: `Go to Definition`, `Go to References`, and rename now resolve `STRUCT`/`UNION` members across files (fixing `No definition/references found` on demo symbols like `Enable`, `ActualSpeed`, and `ramp`).
-- GitHub Pages demo rename wiring now consumes WASM rename edits directly, restoring `F2` rename in Monaco, and walkthrough instructions now match the exact Monaco UI labels/actions (`Ctrl+Left-click`, `Go to References`, `Fn+F2` note for laptops).
-- GitHub Pages demo LSP request handling is now resilient on slower browser hosts: WASM timeouts were raised for diagnostics/navigation/rename/completion, Monaco cursor boundary fallback now retries nearby symbol offsets for strict WASM requests, URI mapping accepts normalized location schemes, and diagnostics walkthrough text now reflects a clean-by-default project (use a temporary typo to demonstrate squiggles).
-- GitHub Pages demo strict-WASM LSP cursor anchoring is now delimiter-aware (`.`, `#`, `:` boundaries): completion/definition/references/rename retry nearby identifier edges, context-menu requests set the cursor to the clicked symbol, and rename preflight resolves identifier ranges from the same fallback matrix.
-- Browser analysis worker-recovery checks now also run demo cursor-position fallback regressions (`docs/demo/lsp-position-resolver.test.mjs`) and no longer fail hard when the legacy prototype test fixture path is absent.
-- GitHub Pages demo walkthrough actions are now deterministic and WASM-only for investor flow: steps 1-7 target the correct symbols/files, `Shift+F12` and `F2` are triggered through Monaco actions, cross-file navigation opens in-editor via a registered Monaco editor opener, and bundled Monaco now includes the required references/rename contributions to keep references/rename/go-to-definition working in Pages builds.
-- Added local GitHub Pages replica serving for the demo (`scripts/serve_demo_local_replica.py`, `scripts/run_demo_local_replica.sh`) with `/<repo>/` routing and no-cache headers so local behavior matches deployed Pages URLs.
-- IDE symbol-target resolution now anchors token/scope lookup to the resolved identifier range (not raw punctuation cursor token), fixing `Go to Definition`, references, and rename misses when the cursor lands on adjacent punctuation in demo/editor workflows.
-- GitHub Pages demo release packaging now rebuilds and ships refreshed `docs/demo/wasm/` artifacts from the current `trust-wasm-analysis` engine so deployed Pages behavior matches committed source fixes.
-- VS Code extension project workflows now follow `src/`-based projects consistently: ST test run root detection accepts `src`, PLCopen export integration coverage uses `src`, and new-project scaffolding no longer generates legacy `sources/`.
-- CI Windows build no longer fails on missing `wpcap.lib` when `ethercat-wire` is enabled by default; EtherCAT wire dependency wiring is now unix-target gated while preserving mock-driver support cross-platform.
-- MP-001 parity baseline updated for newly added Mitsubishi LSP regression tests so discovery parity gate remains deterministic.
-- Parser diagnostics now report a targeted error (`expected identifier after '#'`) for malformed Siemens SCL `#` local-reference syntax instead of generic expression errors.
-- Schneider EcoStruxure vendor detection is now distinct from generic CODESYS-family heuristics in PLCopen migration reports.
-- GitHub license detection no longer reports an extra `Unknown` license entry after removing the non-standard root `LICENSE` stub (dual-license files remain `LICENSE-MIT` and `LICENSE-APACHE`).
-- Release packaging metadata:
-  - VS Code extension package versions are now aligned to the workspace release version to avoid duplicate publish artifacts from prior extension versions.
-- Release workflow hardening:
-  - VS Code Marketplace publish now runs per-VSIX with retry/backoff on transient network timeouts and treats already-published artifacts as idempotent success for reruns.
-- VS Code Marketplace screenshots now use absolute image URLs from GitHub raw content so images render reliably in extension listing pages.
-- `trust-runtime validate` no longer reports false `undefined program` errors for valid bundles; it now validates decoded bytecode/module metadata directly and enforces task-program name integrity at bytecode-validation time.
-- Bytecode encoding/validation now handles enum-typed constant payloads correctly during module build/validation.
+- `Harness::run_until` now has a default cycle guard and explicit `run_until_max` limit to prevent hangs.
+- Filtered test runs now clearly report when zero tests match but tests were discovered.
+
+## [0.2.0] - 2026-02-10
+
+### Changed
+
+- Salsa hardening gates and overnight validation scripts/reports:
+  - `scripts/salsa_*_gate.sh`
+  - `scripts/salsa_overnight_hardening.sh`
+  - `docs/reports/salsa-overnight-hardening-20260209.md`
+- Runtime/UI multi-driver coverage and integration tests for Modbus + MQTT.
+- Migrated `trust-hir` semantic path to Salsa-only backend and upgraded Salsa to `0.26`.
+- Enabled VS Code extension integration tests in CI under virtual display (`xvfb`).
+- Expanded cancellation checks in workspace-scale LSP operations.
+- Documentation organization:
+  - Public durable reports remain in `docs/reports/`.
+  - Working remediation checklists are no longer published in `docs/reports/`.
+
+### Fixed
+
 - `%MW` memory marker force/write synchronization in runtime I/O panel flow.
 - Debug adapter force latch behavior and state-lock interaction.
 - Debug runner now respects configured task interval pacing.
 - Windows CI/test path issues (`PathBuf` import and path hygiene guardrails).
-- `Harness::run_until` now has a default cycle guard and explicit `run_until_max` limit to prevent hangs.
-- Filtered test runs now clearly report when zero tests match but tests were discovered.
-- `version-release-guard` now tolerates short ordering races between `main` and tag pushes by polling for the expected version tag before failing.
