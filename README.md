@@ -225,13 +225,16 @@ Every example is a runnable project; [examples/README.md](examples/README.md) li
 
 ## Platforms
 
-| Platform | Tools | Runs programs |
+You write, build and debug programs on a computer, and a computer or a microcontroller runs them.
+A microcontroller does not run the development tools: you program it from one of the computers.
+
+| Platform | VS Code extension and command line | Runs PLC programs |
 | --- | --- | --- |
 | Linux x86-64 and AArch64 | yes | yes |
 | macOS, Intel and Apple silicon | yes | yes |
 | Windows x86-64 | yes | yes |
-| ESP32-C6 | | yes: truST firmware, installed over USB, with Wi-Fi and firmware updates |
-| STM32U5A9 | | the firmware builds; it has not run on hardware yet |
+| ESP32-C6 | programmed from a computer above | yes: truST firmware, installed over USB, with Wi-Fi and firmware updates |
+| STM32U5A9 | programmed from a computer above | not yet: the firmware builds; it has not run on hardware |
 
 A Raspberry Pi runs the Linux AArch64 build; a board model counts as qualified only after it has
 passed truST's device-in-the-loop tests.
