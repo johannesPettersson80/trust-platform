@@ -102,7 +102,11 @@ Release workflow's plan releases that run's commit when all of these hold: the
 CI run concluded `success` for a push to the `main` of this repository; the
 repository is the official one; and the workspace version at that commit has no
 tag `v<version>`, or that tag is annotated, peels to the same commit, and its
-release is not complete. A version whose tag is on another commit was released
+release is not complete. A release is complete once a Release run of its commit,
+in any attempt, passed the verification below; the GitHub release exists before
+the Marketplace is published, so a release whose publishing or verification
+failed is not complete, and running the workflow again releases it from its
+tag. A version whose tag is on another commit was released
 before, so nothing happens; a lightweight tag on the commit fails the plan, as
 does a failed git or GitHub request. The plan runs the workflow's own commit and
 reads the commit it plans for only as data, so the code of a fork's pull request

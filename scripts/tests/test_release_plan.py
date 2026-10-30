@@ -84,6 +84,33 @@ class ReleasePlanTests(unittest.TestCase):
         self.assertEqual(after_ci(tag_commit=on_this).mode, "release")
         self.assertEqual(after_ci(tag_commit=on_this, release_complete=lambda tag: True).mode, "skip")
 
+    def test_a_release_is_complete_only_once_a_run_of_its_commit_verified_it(self) -> None:
+        # Catches the re-run that skips a release whose Marketplace publishing failed: the GitHub
+        # release and its evidence exist from the step before, but no run passed the verification
+        # (Codex, PR #146). Each answer is what GitHub's Actions API gives for the runs of the commit
+        # and for the jobs of each run's attempts.
+        def job(verify: str) -> dict:
+            return {"name": "Publish", "steps": [{"name": "Create GitHub Release", "conclusion": "success"},
+                                                  {"name": "Verify the release", "conclusion": verify}]}
+
+        def api(runs: dict[int, list[dict]]):
+            def get(path: str, token: str) -> dict:
+                self.assertEqual(token, "token")
+                if "/actions/workflows/release.yml/runs?head_sha=new&" in path:
+                    return {"workflow_runs": [{"id": run} for run in runs]}
+                run = int(path.split("/actions/runs/")[1].split("/")[0])
+                self.assertIn("filter=all", path)
+                return {"jobs": runs[run]}
+            return get
+
+        complete = lambda runs: release_plan.release_complete(OFFICIAL, "new", "token", get=api(runs))
+        self.assertFalse(complete({}), "no Release run of the commit")
+        self.assertFalse(complete({7: [job("failure")]}), "the Marketplace step or its verification failed")
+        self.assertFalse(complete({7: [job("skipped")]}), "a rehearsal of the commit verifies nothing")
+        self.assertFalse(complete({7: [{"name": "Build", "steps": [{"name": "Verify the release", "conclusion": "success"}]}]}))
+        self.assertTrue(complete({7: [job("failure"), job("success")]}), "a later attempt verified it")
+        self.assertTrue(complete({6: [job("skipped")], 7: [job("success")]}), "another run verified it")
+
     def test_a_lightweight_tag_on_the_commit_fails_the_plan(self) -> None:
         with self.assertRaises(ValueError):
             after_ci(tag_commit=lambda tag: ("commit", "new"))

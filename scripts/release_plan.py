@@ -8,7 +8,10 @@ Specification 24, "Release rehearsal on pull requests" and "Release after main C
 - after `main`'s CI succeeded for a push to this repository's `main`, the commit it checked is
   released when its version has no tag yet, or when the tag is on that commit and its release is
   not complete (a re-run resumes); a version already tagged on another commit was released before,
-  so nothing happens.
+  so nothing happens. A release is complete once a Release run of its commit passed its last step,
+  `Verify the release`, which checks the tag, the GitHub release with its evidence and the
+  Marketplace listing of every target. The GitHub release exists before the Marketplace is
+  published, so a release whose publishing or verification failed has one, but no such run.
 
 The plan never publishes; it prints and writes `mode`, `sha`, `version` and `tag` to
 `$GITHUB_OUTPUT`. A failed git or API request fails it instead of choosing a mode.
@@ -22,17 +25,13 @@ import os
 import subprocess
 import sys
 import tomllib
-import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from typing import Callable, Sequence
 
-REQUIRED_RELEASE_ASSETS = (
-    "SHA256SUMS",
-    "release-provenance.json",
-    "conformance-status.json",
-    "conformance-status.md",
-)
+# The Release workflow's job and step that verify a release; `test_release_workflow` holds them to it.
+VERIFY_JOB = "Publish"
+VERIFY_STEP = "Verify the release"
 
 
 @dataclass(frozen=True)
@@ -81,28 +80,44 @@ def tag_commit(tag: str) -> tuple[str, str] | None:
     return parse_tag_listing(git("ls-remote", "--tags", "origin", f"refs/tags/{tag}*"), tag)
 
 
-def release_complete(repository: str, tag: str, token: str) -> bool:
-    """Whether GitHub has a published, final release at `tag` with every required asset."""
+def github_get(path: str, token: str) -> dict:
+    """One GitHub API object; a failed request or another kind of answer fails the plan."""
     request = urllib.request.Request(
-        f"https://api.github.com/repos/{repository}/releases/tags/{tag}",
+        f"https://api.github.com{path}",
         headers={"Accept": "application/vnd.github+json", "Authorization": f"Bearer {token}"},
     )
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            release = json.load(response)
-    except urllib.error.HTTPError as error:
-        if error.code == 404:
-            return False
-        raise
-    if not isinstance(release, dict):
-        raise ValueError(f"GitHub answered a non-object for the release at {tag}")
-    names = {asset.get("name") for asset in release.get("assets") or [] if isinstance(asset, dict)}
-    return (
-        release.get("draft") is False
-        and release.get("prerelease") is False
-        and release.get("published_at") is not None
-        and all(name in names for name in REQUIRED_RELEASE_ASSETS)
+    with urllib.request.urlopen(request, timeout=30) as response:
+        answer = json.load(response)
+    if not isinstance(answer, dict):
+        raise ValueError(f"GitHub answered a non-object for {path}")
+    return answer
+
+
+def verified(jobs: list) -> bool:
+    """Whether these jobs of a Release run include the verification job with its last step passed."""
+    return any(
+        isinstance(job, dict)
+        and job.get("name") == VERIFY_JOB
+        and any(
+            isinstance(step, dict)
+            and step.get("name") == VERIFY_STEP
+            and step.get("conclusion") == "success"
+            for step in job.get("steps") or []
+        )
+        for job in jobs
     )
+
+
+def release_complete(
+    repository: str, sha: str, token: str, get: Callable[[str, str], dict] = github_get
+) -> bool:
+    """Whether a Release run of `sha`, in any of its attempts, passed `Verify the release`."""
+    runs = get(f"/repos/{repository}/actions/workflows/release.yml/runs?head_sha={sha}&per_page=100", token)
+    for run in runs.get("workflow_runs") or []:
+        jobs = get(f"/repos/{repository}/actions/runs/{run['id']}/jobs?filter=all&per_page=100", token)
+        if verified(jobs.get("jobs") or []):
+            return True
+    return False
 
 
 def plan(
@@ -180,7 +195,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         run_sha=args.run_sha,
         run_head_repository=args.run_head_repository,
         dispatch_sha=args.dispatch_sha,
-        release_complete=lambda tag: release_complete(args.repository, tag, token),
+        release_complete=lambda tag: release_complete(args.repository, args.run_sha, token),
     )
     lines = [f"mode={result.mode}", f"sha={result.sha}", f"version={result.version}", f"tag={result.tag}"]
     print(f"release plan: {result.mode} ({result.reason})")

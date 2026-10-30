@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import check_version_release_evidence as verifier  # noqa: E402
+import release_plan  # noqa: E402
 
 RELEASE = ROOT / ".github" / "workflows" / "release.yml"
 CI = ROOT / ".github" / "workflows" / "ci.yml"
@@ -126,6 +127,13 @@ class ReleaseWorkflowTests(unittest.TestCase):
                 continue
             for needle in ("vsce publish", "action-gh-release", "git push", "git tag"):
                 self.assertNotIn(needle, job, job_id)
+
+    def test_the_planner_reads_the_verification_by_the_names_it_runs_under(self) -> None:
+        # Catches a renamed job or step: the plan would then find no verified run and re-run every
+        # release from the start, publishing a complete one again.
+        publish = self.jobs["publish"]
+        self.assertEqual(field(publish, "name", 4), release_plan.VERIFY_JOB)
+        self.assertEqual(list(steps(publish))[-1], release_plan.VERIFY_STEP)
 
     def test_the_release_follows_every_build_and_test(self) -> None:
         # Catches a tag created while a platform's build or a test job still runs or has failed
