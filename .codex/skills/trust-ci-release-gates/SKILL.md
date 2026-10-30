@@ -19,9 +19,16 @@ Run these steps in this order. Each one finds in minutes what a later step finds
 guard stops at its first failing stage and a CI round takes about four hours, so every failure found
 there costs a whole run. Each step names the release that taught it.
 
-1. **Scope and text.** Freeze the scope. Bump the version and move `[Unreleased]` to the version's
-   section; check the text with `scripts/extract_changelog_section.py`. Copy `AGENTS.md` and
-   `.codex/skills/` from the primary checkout.
+1. **Scope, text and docs.** Freeze the scope. Bump the version and move `[Unreleased]` to the
+   version's section; check the text with `scripts/extract_changelog_section.py`. Copy `AGENTS.md` and
+   `.codex/skills/` from the primary checkout. For every changelog entry, update in the same
+   candidate each page that describes that behaviour: the public docs, the README, the example and
+   lesson READMEs, the specification and the screenshots. Search the docs for every command, setting,
+   flag and feature the release renames or removes. Dispatch Docs Captures on the candidate branch and
+   merge its refreshed captures into the candidate; its `automation/docs-captures` branch is not merged
+   by anyone else. (The docs checks test links, assets, navigation and search, not whether a page
+   still describes the product: 0.25.1's terminal GIFs showed errors, and its README linked pages
+   the site did not serve yet.)
 2. **Pre-flight: every cheap check, all failures at once.** Stage the candidate in the guard
    worktree and run there, with the guard's environment, every quick stage, and go on after a
    failure:
