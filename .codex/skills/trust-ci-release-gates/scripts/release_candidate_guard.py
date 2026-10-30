@@ -581,25 +581,33 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--repo", default=".")
     subparsers = result.add_subparsers(dest="command", required=True)
 
+    def candidate_arguments(command: argparse.ArgumentParser) -> None:
+        command.add_argument("--base", default="origin/main")
+        command.add_argument(
+            "--intent", choices=("bugfix", "docs", "feature", "refactor", "test-refactor"), default="bugfix"
+        )
+        command.add_argument(
+            "--canonical-repo",
+            default=os.environ.get("TRUST_CANONICAL_REPO", "/home/johannes/projects/trust-platform"),
+        )
+        command.add_argument("--remote-host", default="trust-builder")
+        command.add_argument("--remote-worktree", required=True)
+        command.add_argument("--remote-tool-path", default=None)
+        command.add_argument("--remote-cargo-home", default=None)
+        command.add_argument(
+            "--remote-target",
+            default="/home/johannes/.cache/codex-targets/trust-platform-gate",
+        )
+        command.add_argument("--fetch", action=argparse.BooleanOptionalAction, default=True)
+
     prepare_parser = subparsers.add_parser("prepare")
-    prepare_parser.add_argument("--base", default="origin/main")
-    prepare_parser.add_argument(
-        "--intent", choices=("bugfix", "docs", "feature", "refactor", "test-refactor"), default="bugfix"
-    )
-    prepare_parser.add_argument(
-        "--canonical-repo",
-        default=os.environ.get("TRUST_CANONICAL_REPO", "/home/johannes/projects/trust-platform"),
-    )
-    prepare_parser.add_argument("--remote-host", default="trust-builder")
-    prepare_parser.add_argument("--remote-worktree", required=True)
-    prepare_parser.add_argument("--remote-tool-path", default=None)
-    prepare_parser.add_argument("--remote-cargo-home", default=None)
-    prepare_parser.add_argument(
-        "--remote-target",
-        default="/home/johannes/.cache/codex-targets/trust-platform-gate",
-    )
-    prepare_parser.add_argument("--fetch", action=argparse.BooleanOptionalAction, default=True)
-    prepare_parser.set_defaults(handler=prepare_command)
+    candidate_arguments(prepare_parser)
+    prepare_parser.set_defaults(handler=prepare_command, preflight=False)
+
+    # The quick stages of `prepare`, every failure reported, no artifact (specification 22).
+    preflight_parser = subparsers.add_parser("preflight")
+    candidate_arguments(preflight_parser)
+    preflight_parser.set_defaults(handler=prepare_command, preflight=True)
 
     push_parser = subparsers.add_parser("check-push")
     push_parser.set_defaults(handler=lambda args: check_push_command(args))

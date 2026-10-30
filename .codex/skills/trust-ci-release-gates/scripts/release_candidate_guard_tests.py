@@ -394,6 +394,72 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             command_ids.index("remote_reclaim_before_test_all"),
         )
 
+    def test_a_failed_stage_does_not_end_the_run_but_a_failed_prerequisite_does(self) -> None:
+        # Specification 22, "Release-candidate failure reporting": 0.26.0 needed six runs because each
+        # stopped at its first failure. Catches a run that stops at a failed check, hiding the next
+        # failures, and one that goes on after a failed prerequisite whose later stages cannot run.
+        ran: list[str] = []
+
+        def run_stage(failing: set[str]):
+            def run(command_id: str, _command: str) -> dict:
+                ran.append(command_id)
+                return {"id": command_id, "exit_status": 1 if command_id in failing else 0}
+            return run
+
+        stages = [(stage, "true") for stage in (
+            "remote_exact_head", "remote_vscode", "remote_fmt", "remote_clippy",
+            "remote_reclaim_before_test_all", "remote_test_all", "remote_mp001_parity",
+        )]
+        records = candidate_prepare.run_remote_stages(
+            stages, run_stage({"remote_vscode", "remote_fmt", "remote_test_all"})
+        )
+        self.assertEqual([row["id"] for row in records], [stage for stage, _ in stages])
+        self.assertEqual(
+            [row["id"] for row in records if row["exit_status"] != 0],
+            ["remote_vscode", "remote_fmt", "remote_test_all"],
+        )
+
+        ran.clear()
+        records = candidate_prepare.run_remote_stages(
+            stages, run_stage({"remote_reclaim_before_test_all"})
+        )
+        self.assertEqual(ran[-1], "remote_reclaim_before_test_all")
+        self.assertNotIn("remote_test_all", ran)
+
+    def test_the_vscode_stage_runs_every_rendered_journey_after_a_failure(self) -> None:
+        # 0.26.0's VS Code stage failed twice in a row on two rendered journeys, one per run.
+        commands = dict(candidate_prepare.remote_validation_commands(
+            vscode_changed=True, remote_target="/tmp/trust-target"
+        ))
+        self.assertIn("TRUST_VSCODE_RENDERED_CONTINUE=1 xvfb-run -a npm test", commands["remote_vscode"])
+
+    def test_preflight_runs_quick_stages_only_and_writes_no_artifact(self) -> None:
+        # Specification 22: `preflight` reports every failure of the quick stages and writes no
+        # artifact, so a push cannot rely on it. Catches a stage name that matches no stage (it would
+        # silently not run), a long stage in the preflight, and a preflight that writes an artifact.
+        stage_ids = {
+            stage for stage, _ in candidate_prepare.remote_validation_commands(
+                vscode_changed=True, remote_target="/tmp/trust-target"
+            )
+        }
+        self.assertTrue(set(candidate_prepare.PREFLIGHT_REMOTE_STAGES) <= stage_ids)
+        for long_stage in ("remote_vscode", "remote_test_all", "remote_mp001_parity"):
+            self.assertNotIn(long_stage, candidate_prepare.PREFLIGHT_REMOTE_STAGES)
+        self.assertTrue(candidate_prepare.PREREQUISITE_REMOTE_STAGES <= stage_ids)
+        with tempfile.TemporaryDirectory() as root:
+            out = io.StringIO()
+            with mock.patch("sys.stdout", out):
+                status = candidate_prepare.report_preflight(
+                    [{"id": "remote_fmt", "exit_status": 0}, {"id": "remote_clippy", "exit_status": 101}],
+                    Path(root),
+                )
+            self.assertEqual(status, 1)
+            self.assertIn("FAILED remote_clippy", out.getvalue())
+            self.assertEqual(list(Path(root).iterdir()), [])
+        parsed = guard.parser().parse_args(["preflight", "--remote-worktree", "/w"])
+        self.assertTrue(parsed.preflight)
+        self.assertFalse(guard.parser().parse_args(["prepare", "--remote-worktree", "/w"]).preflight)
+
     def test_a_command_whose_output_splits_a_character_is_recorded(self) -> None:
         # Two processes writing to one pipe can split a UTF-8 character; the guard crashed reading
         # such output (27 October 2026). The broken sequence is replaced, the rest kept.

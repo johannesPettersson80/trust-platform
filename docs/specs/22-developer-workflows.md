@@ -335,6 +335,40 @@ the cross-target gate. Host-only commands MAY pin the host C/C++ compilers. A
 successful assertion run followed by a missing executable due to concurrent
 target deletion is an infrastructure failure, never a green test result.
 
+### Pull-request checks and change detection
+
+Every workflow that checks pull requests starts on every pull request; none
+filters its trigger by path. Its first job, `changes`, compares the pull
+request's head with its base over the full history (`git diff --name-only
+<base>...<head>`), with no limit on the number of changed files, and names the
+areas the change touches. A job that checks an area runs when that area changed
+and is skipped otherwise. A push to `main` uses the same detection against the
+push's previous commit, with the same list of paths per area. Each such
+workflow ends with a `conclusion` job that runs unless the run was cancelled
+and fails unless every other job of the workflow succeeded or was skipped; a
+failed `changes` job therefore fails the workflow instead of skipping its
+checks. GitHub's own path filters compare only the first 300 changed files, so
+0.25.0's 10,252-file pull request ran no documentation workflow, and the site
+broke on `main` (28 October 2026).
+
+### Release-candidate failure reporting
+
+The exact-SHA `prepare` command runs every stage whose prerequisites passed and
+reports every failure of the run. Its prerequisites are the exact candidate
+head, the disk preflight, the target preparation, the toolchain build and the
+reclaim before `test-all`; a failed prerequisite ends the run, because the
+stages after it cannot run. Any other failed stage is recorded and the run goes
+on, and the VS Code stage runs every rendered journey after a failure. A run
+with a failed stage never yields a passing artifact. 0.26.0 needed six runs,
+each ended by one failure that the next stages would have shown too (29 and
+30 October 2026).
+
+`preflight` runs the quick stages of `prepare` in the same staged worktree,
+with the same environment: formatting, cross-target warnings, the supply chain
+and architecture gates, Clippy, the documentation build and the documentation
+site. It reports every failure and writes no artifact, so a push cannot rely on
+it.
+
 ### Native test and docs-capture lifecycle portability
 
 Native Unix control-endpoint fixtures must derive a collision-resistant socket
@@ -354,8 +388,8 @@ process reaping can complete before the test runner times out.
 
 The Docs Captures workflow must run for pull-request and main-push changes to
 the runtime Web UI source tree so browser-visible runtime changes cannot bypass
-their registered Playwright journeys. Its pull-request and push path filters
-must remain identical. The Marketplace listing capture waits for the extension's
+their registered Playwright journeys. Its change detection uses one list of
+paths for pull requests and pushes to `main`. The Marketplace listing capture waits for the extension's
 display name and publisher, which hold across releases, not for text of the
 listing's README, which each release may change: 0.25.1's listing no longer
 said "truST LSP", and the capture that waited for it failed every run (29 October
