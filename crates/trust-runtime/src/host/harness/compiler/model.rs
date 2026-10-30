@@ -75,7 +75,11 @@ impl CompileTimeConsts {
             return self.local_values.get(&key).cloned();
         }
         if name.contains('.') {
-            return self.global_values.get(&key).cloned();
+            return self
+                .global_values
+                .get(&key)
+                .cloned()
+                .or_else(|| self.lookup_unique_leaf_strict(&key));
         }
         for namespace in using {
             let qualified = Self::key(&format!("{namespace}.{name}"));
@@ -84,6 +88,36 @@ impl CompileTimeConsts {
             }
         }
         self.global_values.get(&key).cloned()
+    }
+
+    /// Unique-leaf tolerance for dotted references in ordinary constant
+    /// evaluation (IEC_DEVIATIONS DEV-030): the same flattened-library
+    /// tolerance as the size view, over the strict constant set itself —
+    /// `LogParameter.MAX_LOG_MSG_LEN` resolves when exactly one registered
+    /// constant carries that leaf. Bare names never fall back, and
+    /// ambiguous leaves stay unresolved.
+    fn lookup_unique_leaf_strict(&self, key: &SmolStr) -> Option<Value> {
+        if !key.contains('.') {
+            return None;
+        }
+        let leaf = match key.rsplit_once('.') {
+            Some((_, leaf)) => leaf,
+            None => key.as_str(),
+        };
+        let mut resolved: Option<&Value> = None;
+        for (registered, value) in &self.global_values {
+            let registered_leaf = match registered.rsplit_once('.') {
+                Some((_, leaf)) => leaf,
+                None => registered.as_str(),
+            };
+            if registered_leaf == leaf {
+                if resolved.is_some() {
+                    return None;
+                }
+                resolved = Some(value);
+            }
+        }
+        resolved.cloned()
     }
 }
 
@@ -292,15 +326,24 @@ impl LoweringContext<'_> {
         self.compile_time_consts.lookup(name, &self.using)
     }
 
-    fn lookup_compile_time_value(&self, name: &str) -> Option<Value> {
+    pub(crate) fn lookup_compile_time_value(&self, name: &str) -> Option<Value> {
         self.lookup_compile_time_const(name).or_else(|| {
-            match self.registry.resolve_enum_value_by_name(name) {
-                trust_hir::symbols::EnumValueResolution::Resolved(value) => {
-                    Some(Value::LInt(value))
+            // A dotted reference resolves as a qualified enum member when
+            // its prefix names exactly one registered enum type
+            // (IEC_DEVIATIONS DEV-030); the bare-member fallback below
+            // covers the unqualified form.
+            let numeric = if name.contains('.') {
+                self.registry
+                    .resolve_qualified_enum_member(name)
+                    .map(|(_, _, value)| value)
+            } else {
+                match self.registry.resolve_enum_value_by_name(name) {
+                    trust_hir::symbols::EnumValueResolution::Resolved(value) => Some(value),
+                    trust_hir::symbols::EnumValueResolution::NotFound
+                    | trust_hir::symbols::EnumValueResolution::Ambiguous => None,
                 }
-                trust_hir::symbols::EnumValueResolution::NotFound
-                | trust_hir::symbols::EnumValueResolution::Ambiguous => None,
-            }
+            };
+            numeric.map(Value::LInt)
         })
     }
 

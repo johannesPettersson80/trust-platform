@@ -3,7 +3,7 @@ use std::fmt;
 use super::storage_context::EvaluationTypes;
 use crate::error::RuntimeError;
 use crate::program_model::ops::{apply_binary, apply_unary};
-use crate::program_model::Expr;
+use crate::program_model::{BinaryOp, Expr};
 use crate::value::{size_of_type, ArrayValue, DateTimeProfile, SizeOfError, Value};
 use trust_hir::types::TypeRegistry;
 

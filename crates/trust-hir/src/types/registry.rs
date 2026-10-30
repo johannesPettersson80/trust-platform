@@ -284,6 +284,43 @@ impl TypeRegistry {
         }
         matched.map_or(EnumValueResolution::NotFound, EnumValueResolution::Resolved)
     }
+
+    /// Resolves a qualified enum member reference — `EnumType.Member` or
+    /// the CODESYS fully qualified `Namespace.EnumType.Member` form — to
+    /// its enum type, stored member name, and numeric value. The enum
+    /// type is matched by exact registered name first, then by a unique
+    /// `.{type_name}` suffix over registered enum names (library stubs
+    /// flatten container levels); ambiguous suffix matches stay
+    /// unresolved (mirrors `SymbolTable::qualified_enum_member_type`).
+    #[must_use]
+    pub fn resolve_qualified_enum_member(&self, name: &str) -> Option<(TypeId, SmolStr, i64)> {
+        let (type_name, member) = name.rsplit_once('.')?;
+        let suffix = format!(".{type_name}");
+        let mut matched: Option<(TypeId, SmolStr, i64)> = None;
+        for (type_id, ty) in &self.types {
+            let Type::Enum { name, values, .. } = ty else {
+                continue;
+            };
+            let type_matches = name.eq_ignore_ascii_case(type_name)
+                || name
+                    .to_ascii_lowercase()
+                    .ends_with(&suffix.to_ascii_lowercase());
+            if !type_matches {
+                continue;
+            }
+            let Some((variant, value)) = values
+                .iter()
+                .find(|(value_name, _)| value_name.eq_ignore_ascii_case(member))
+            else {
+                continue;
+            };
+            if matched.is_some() {
+                return None;
+            }
+            matched = Some((*type_id, variant.clone(), *value));
+        }
+        matched
+    }
 }
 
 fn canonical_type_name(ty: &Type) -> Option<SmolStr> {
