@@ -19,6 +19,14 @@ Run these steps in this order. Each one finds in minutes what a later step finds
 guard stops at its first failing stage and a CI round takes about four hours, so every failure found
 there costs a whole run. Each step names the release that taught it.
 
+0. **Push early, bump the version last.** Develop the next release on a `work/` branch at `main`'s
+   version and push it with a draft pull request from its first commit. Such a push needs no guard,
+   so CI on Linux, macOS and Windows, the path-filtered workflows and the automatic review run on every
+   push while the work goes on; fix what they find as it comes. Only the last commit bumps the
+   version and moves the changelog section, so the guard and the rehearsal run once, on the finished
+   release. (A version bump makes every push of the branch wait for the guard: each fix of 0.25.0,
+   0.25.1 and 0.26.0 then waited about two hours for the guard and four for CI, so a release took
+   days.)
 1. **Scope, text and docs.** Freeze the scope. Bump the version and move `[Unreleased]` to the
    version's section; check the text with `scripts/extract_changelog_section.py`. Copy `AGENTS.md` and
    `.codex/skills/` from the primary checkout. For every changelog entry, update in the same
