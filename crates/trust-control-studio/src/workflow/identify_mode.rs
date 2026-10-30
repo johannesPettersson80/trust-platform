@@ -120,9 +120,9 @@ impl<'a> IdentificationMode<'a> {
     /// done. The loop must still be the one whose mode was changed. A transfer the checkpoint still owns is reconciled by its
     /// identity, cancelled or read to its outcome, and never applied again (E11.4); then the runtime must still run the
     /// checkpoint's program. A loop that is not in Manual returns to Manual through a transfer that holds its output; the loop's
-    /// references and commands are written back in Manual (`command_return`); and a loop found in Auto then enters Auto with the
-    /// controller's states as they are and the allowance of its first output (A6.4), and a reference its program overwrote in
-    /// Manual returns in Auto (`reference_return`, C1). The checkpoint is cleared from the journal once the runtime has confirmed
+    /// references are written back in Manual, and its Manual commands when it stays in Manual (`command_return`); and a loop found
+    /// in Auto then enters Auto from the output it holds, with the controller's states as they are and the allowance of its first
+    /// output (A6.4), and a reference its program overwrote in Manual returns in Auto (`reference_return`, C1). The checkpoint is cleared from the journal once the runtime has confirmed
     /// every transfer.
     ///
     /// # Errors
@@ -162,8 +162,8 @@ impl<'a> IdentificationMode<'a> {
             &self.binding,
             &held.checkpoint.original,
         )?;
-        // A6.2, E6.9: restoring the found Manual commands moves each member's output back by design, so the largest of those
-        // changes is the allowance.
+        // A6.2, E6.9: restoring the found Manual commands of a loop that stays in Manual moves each member's output back by
+        // design, so the largest of those changes is the allowance; a loop that returns to Auto writes none (C1).
         let in_manual = read_status(&mut client, &self.binding)?;
         let base = mode_output_change(self.loop_definition, true, None, self.process_noise);
         let tolerance = commands.allowance(base, &in_manual);

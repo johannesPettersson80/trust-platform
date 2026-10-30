@@ -31,6 +31,7 @@
 
 pub mod db;
 pub mod diagnostics;
+pub mod dialect;
 pub mod ident;
 pub mod openot_authoring;
 /// Project-wide source registry and database helpers.
@@ -43,6 +44,7 @@ pub mod types;
 
 pub use db::{Database, SourceDatabase};
 pub use diagnostics::{Diagnostic, DiagnosticSeverity};
+pub use dialect::Dialect;
 pub use ident::{is_reserved_keyword, is_valid_identifier};
 pub use project::{Project, SourceKey, SourceRegistry};
 pub use symbols::{Symbol, SymbolId, SymbolKind};

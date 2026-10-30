@@ -121,6 +121,26 @@ fn generated_runtime_toml_uses_local_safe_defaults() {
     assert!(text.contains("debug_enabled = false"));
 }
 
+// K2 (29 October 2026): a runtime that the config UI creates keeps its RETAIN values in
+// `retain.bin`, as a new project does (IEC 61131-3 Ed.3 §6.5.6.1; specification 11 §6.7).
+// Catches the former `mode = "none"`, which started the runtime cold after every power cycle.
+#[test]
+fn generated_runtime_toml_keeps_retain_values_in_a_file() {
+    let text = render_new_runtime_toml("line_a", None);
+    let value: toml::Value = toml::from_str(&text).expect("the generated runtime parses");
+
+    assert_eq!(
+        value["runtime"]["retain"]["mode"].as_str(),
+        Some("file"),
+        "{text}"
+    );
+    assert_eq!(
+        value["runtime"]["retain"]["path"].as_str(),
+        Some("retain.bin"),
+        "{text}"
+    );
+}
+
 #[test]
 fn generated_runtime_toml_passes_the_runtime_validator() {
     let text = render_new_runtime_toml("line_a", Some("plant_1"));

@@ -137,6 +137,7 @@ fn symbol_kind_to_token_type(kind: &SymbolKind) -> SemanticTokenType {
         SymbolKind::FunctionBlock => SemanticTokenType::Type,
         SymbolKind::Class => SemanticTokenType::Type,
         SymbolKind::Method { .. } => SemanticTokenType::Method,
+        SymbolKind::Action => SemanticTokenType::Method,
         SymbolKind::Property { .. } => SemanticTokenType::Property,
         SymbolKind::Interface => SemanticTokenType::Type,
         SymbolKind::Variable { .. } => SemanticTokenType::Variable,

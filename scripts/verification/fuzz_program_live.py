@@ -47,7 +47,6 @@ REPORT_CONTRACT_PATHS = {
     "fuzz/.gitignore",
     "scripts/report_fuzz_program_audit.py",
     "scripts/runtime_comms_fuzz_gate.sh",
-    "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh",
     "scripts/salsa_fuzz_gate.sh",
     "scripts/validate_fuzz_program_audit_report.py",
     "verification/README.md",

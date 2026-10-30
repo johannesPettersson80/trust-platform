@@ -310,6 +310,24 @@ fn new_and_import_answer_the_file_name_and_the_name_rule() {
         json!("old.json.ladder.json"),
         "{imported}"
     );
+    // Without a workspace nothing is inside it; /in-other is no folder of /in.
+    assert_eq!(imported["inWorkspace"], json!(false), "{imported}");
+    for (workspace, inside) in [("/in", true), ("/in-other", false)] {
+        let answer = execute(
+            VISUAL_IMPORT_COMMAND,
+            vec![json!({
+                "kind": "ladder",
+                "file": "/in/old.json",
+                "text": "{\"networks\":[]}",
+                "workspace": workspace,
+            })],
+        );
+        assert_eq!(
+            answer["inWorkspace"],
+            json!(inside),
+            "{workspace}: {answer}"
+        );
+    }
     let refused = execute(
         VISUAL_IMPORT_COMMAND,
         vec![json!({ "kind": "ladder", "file": "/in/old.json", "text": "{}" })],

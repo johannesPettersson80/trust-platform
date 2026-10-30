@@ -33,7 +33,8 @@ IEC 61131-3 (the details are in `docs/specs/sfc-profile.md`):
   together once every branch has reached its last step and the join's
   conditions hold.
 - When several transitions leave one step, the one with the lowest `priority`
-  number wins, otherwise the one drawn first.
+  number wins, otherwise the one drawn first. Set a transition's priority in
+  its properties (Priority: a whole number from 0; empty for none).
 - Action qualifiers: `N`, `S` and `R` (set and reset across steps), `L`
   (limited to a duration), `D` (delayed), `P`, `P1` (once when the step
   starts), `P0` (once when it ends), and `SD`, `DS`, `SL`. Type a duration
@@ -42,7 +43,12 @@ IEC 61131-3 (the details are in `docs/specs/sfc-profile.md`):
   can switch its outputs off: `motor := Run.Q;`. Code that must run only while
   the step is active goes inside `IF <action>.Q THEN`. Transition conditions
   may read `<action>.Q`, for example `NOT Heat.Q` after an `L` action.
-- The step flag `<step>_active` is TRUE while the step is active.
+- Each step is read as IEC 61131-3 names it: `<step>.X` is TRUE while the step
+  is active, and `<step>.T` is the time since the step was entered, which keeps
+  its value after the step is left. A transition can wait on it, for example
+  `Fill.T >= T#5s`. The step flag `<step>_active` is the same as `<step>.X`.
+  A step cannot have the name of a variable or an action of the chart; a step
+  named with a keyword, such as `On`, has only `<step>_active`.
 
 ## Best for
 

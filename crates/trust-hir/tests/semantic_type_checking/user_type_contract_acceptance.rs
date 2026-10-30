@@ -25,11 +25,11 @@ fn is_array_cardinality_warning(message: &str) -> bool {
 fn user_type_contract_accepts_qualified_and_unique_enum_literals() {
     check_no_errors(
         r#"
-TYPE Color : (Red, Green, Blue); Mode : (Off, On); END_TYPE
+TYPE Color : (Red, Green, Blue); Mode : (Off, Running); END_TYPE
 PROGRAM Main
 VAR color : Color; mode : Mode; END_VAR
 color := Color#Green;
-mode := On;
+mode := Running;
 END_PROGRAM
 "#,
     );

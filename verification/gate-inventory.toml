@@ -440,28 +440,6 @@ rationale = "CI, nightly reliability, and release select explicit deterministic 
 
 [[surfaces]]
 schema_version = 1
-id = "GATE_SCRIPT_RUNTIME_VM_MALFORMED_BYTECODE_FUZZ"
-discovery_id = "DISC_C6F8EB526D95DA5111CE"
-source_kind = "gate_script"
-path = "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh"
-name = "runtime_vm_malformed_bytecode_fuzz_gate"
-command = "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh"
-variant = "malformed-bytecode fuzz smoke"
-command_role = "entrypoint"
-disposition = "assigned"
-suite_ids = ["nightly"]
-owner = "trust-runtime"
-duration_class = "medium"
-environment = "trust_builder"
-artifact_kind = "machine_local"
-artifact_paths = ["target/gate-artifacts/runtime-vm-malformed-bytecode-fuzz/"]
-artifact_retention = "machine_local"
-enforcement = "planned"
-required_env = []
-rationale = "The existing bounded malformed-bytecode gate is not wired to a workflow and remains planned nightly work."
-
-[[surfaces]]
-schema_version = 1
 id = "GATE_SCRIPT_SALSA_FUZZ"
 discovery_id = "DISC_A6A56A75E4FFA72B3458"
 source_kind = "gate_script"
@@ -1514,3 +1492,178 @@ artifact_retention = "repository_default"
 enforcement = "required"
 required_env = []
 rationale = "Required reusable real-database job in the release workflow."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_JOB_CI_HMI_SCREEN_TESTS"
+discovery_id = "DISC_7B8361303D175690156F"
+source_kind = "github_workflow_job"
+path = ".github/workflows/ci.yml"
+name = "CI / hmi-screen-tests"
+command = "workflow job .github/workflows/ci.yml#hmi-screen-tests"
+variant = "HMI bundle freshness and deterministic browser journeys on the current runtime"
+command_role = "entrypoint"
+disposition = "assigned"
+suite_ids = ["pr"]
+owner = "trust-runtime"
+duration_class = "medium"
+environment = "github_ubuntu"
+artifact_kind = "ci_artifact"
+artifact_paths = ["gate-hmi-screen-tests","hmi-screen-test-results"]
+artifact_retention = "repository_default"
+enforcement = "required"
+required_env = []
+rationale = "Required PR job runs the HMI gate script's bundle and browser modes against a runtime built from the change."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_JOB_CI_FIRMWARE"
+discovery_id = "DISC_F55CCF5DE2B06D290C51"
+source_kind = "github_workflow_job"
+path = ".github/workflows/ci.yml"
+name = "CI / firmware"
+command = "workflow job .github/workflows/ci.yml#firmware"
+variant = "ESP32-C6 and STM32U5A9 firmware images built and checked"
+command_role = "entrypoint"
+disposition = "assigned"
+suite_ids = ["pr"]
+owner = "trust-runtime-core"
+duration_class = "fast"
+environment = "github_ubuntu"
+artifact_kind = "ci_artifact"
+artifact_paths = ["firmware-${{ matrix.chip }}","gate-firmware-${{ matrix.chip }}"]
+artifact_retention = "repository_default"
+enforcement = "required"
+required_env = []
+rationale = "Required PR job builds each chip's firmware from the change and checks its image, so a portable-core change cannot break a board unseen."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_JOB_RELEASE_TOOLCHAIN_BUNDLE"
+discovery_id = "DISC_4B755BB541782AB0627C"
+source_kind = "github_workflow_job"
+path = ".github/workflows/release.yml"
+name = "Release / toolchain-bundle"
+command = "workflow job .github/workflows/release.yml#toolchain-bundle"
+variant = "the toolchain bundle for compiled programs on each release platform"
+command_role = "entrypoint"
+disposition = "assigned"
+suite_ids = ["release"]
+owner = "release"
+duration_class = "long"
+environment = "github_release_matrix"
+artifact_kind = "ci_artifact"
+artifact_paths = ["toolchain-${{ matrix.platform }}"]
+artifact_retention = "repository_default"
+enforcement = "required"
+required_env = []
+rationale = "Every release platform writes the toolchain bundle that building a program needs (specification 44 section 4.6); the release publishes it with the extension."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_JOB_CHIP_BENCH_ESP32C6"
+discovery_id = "DISC_7BE89E90AD38E15A6674"
+source_kind = "github_workflow_job"
+path = ".github/workflows/chip-bench.yml"
+name = "Chip Bench / esp32c6"
+command = "workflow job .github/workflows/chip-bench.yml#esp32c6"
+variant = "the firmware installed on the ESP32-C6 bench and its boot checked"
+command_role = "helper"
+disposition = "assigned"
+suite_ids = ["hardware_lab"]
+owner = "trust-runtime-core"
+duration_class = "lab"
+environment = "github_or_lab_runner"
+artifact_kind = "lab_report"
+artifact_paths = ["chip-bench-esp32c6"]
+artifact_retention = "repository_default"
+enforcement = "conditional"
+required_env = []
+rationale = "Runs after a successful CI run or on dispatch, on the bench runner when one is configured; only a run on the real board is hardware proof."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_JOB_HMI_REAL_AGENT_ACTUAL_CLIENT"
+discovery_id = "DISC_ED442FEE2AF6E144DF22"
+source_kind = "github_workflow_job"
+path = ".github/workflows/hmi-real-agent.yml"
+name = "Controlled HMI Agent Acceptance / actual-client"
+command = "workflow job .github/workflows/hmi-real-agent.yml#actual-client"
+variant = "manual acceptance of a configured IDE client on main"
+command_role = "reference"
+disposition = "excluded"
+suite_ids = []
+owner = "vscode"
+duration_class = "manual"
+environment = "github_self_hosted_linux"
+artifact_kind = "ci_artifact"
+artifact_paths = ["hmi-real-agent-${{ inputs.client }}-${{ github.sha }}"]
+artifact_retention = "repository_default"
+enforcement = "excluded"
+required_env = []
+rationale = "Dispatched by hand on main to a self-hosted agent runner behind a protected environment; it reports what an actual IDE client does and is no gate of any suite."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_JOB_HMI_NIGHTLY_BROWSER_AND_PACKAGE"
+discovery_id = "DISC_FCC4A9286C115A144AED"
+source_kind = "github_workflow_job"
+path = ".github/workflows/hmi-nightly.yml"
+name = "HMI Reliability / browser-and-package"
+command = "workflow job .github/workflows/hmi-nightly.yml#browser-and-package"
+variant = "HMI parity, browser journeys, native package binaries and the installed-artifact smoke"
+command_role = "entrypoint"
+disposition = "assigned"
+suite_ids = ["nightly"]
+owner = "vscode"
+duration_class = "long"
+environment = "github_nightly"
+artifact_kind = "ci_artifact"
+artifact_paths = ["hmi-reliability-${{ github.sha }}"]
+artifact_retention = "repository_default"
+enforcement = "conditional"
+required_env = []
+rationale = "Scheduled or dispatched: runs the whole HMI gate, packages the extension with its native binaries and authors a project with the installed artifact."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_SCRIPT_HMI_CI_GATE"
+discovery_id = "DISC_A1F7B4461F64E5B4D074"
+source_kind = "gate_script"
+path = "scripts/hmi_ci_gate.sh"
+name = "hmi_ci_gate"
+command = "scripts/hmi_ci_gate.sh"
+variant = "HMI bundle freshness and Playwright journeys, all or bundles or browser"
+command_role = "helper"
+disposition = "assigned"
+suite_ids = ["nightly","pr"]
+owner = "trust-runtime"
+duration_class = "medium"
+environment = "github_ubuntu"
+artifact_kind = "none"
+artifact_paths = []
+artifact_retention = "none"
+enforcement = "required"
+required_env = []
+rationale = "The HMI screen-test job and the HMI Reliability job run it; its callers upload the results."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_TEMPLATE_TRUST_HMI_PROJECT_CI"
+source_kind = "workflow_template"
+path = ".github/workflows/templates/trust-hmi-project-ci.yml"
+name = "HMI project checks / hmi"
+command = "non-executable workflow template .github/workflows/templates/trust-hmi-project-ci.yml#hmi"
+variant = "consumer HMI project example"
+command_role = "reference"
+disposition = "excluded"
+suite_ids = []
+owner = "docs"
+duration_class = "manual"
+environment = "consumer_project_ci"
+artifact_kind = "none"
+artifact_paths = []
+artifact_retention = "none"
+enforcement = "non_executable"
+required_env = []
+rationale = "Nested workflow templates are not executed by GitHub Actions in this repository."

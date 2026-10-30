@@ -23,6 +23,20 @@ fn lower_program_node(
         }
     }
     let body = lower_stmt_list(program_node, &mut ctx)?;
+    // A program's METHODs and textual ACTIONs stand in its statement list, which runs only its
+    // statements (specification 04 §4, §8).
+    let mut methods = Vec::new();
+    for member in program_node
+        .children()
+        .filter(|child| child.kind() == SyntaxKind::StmtList)
+        .flat_map(|list| list.children())
+    {
+        match member.kind() {
+            SyntaxKind::Method => methods.push(lower_method_node(&member, &mut ctx)?),
+            SyntaxKind::Action => methods.push(lower_action_node(&member, &mut ctx)?),
+            _ => {}
+        }
+    }
     Ok(LoweredProgram {
         program: ProgramDef {
             name,
@@ -30,6 +44,7 @@ fn lower_program_node(
             temps: vars.temps,
             using: ctx.using.clone(),
             body,
+            methods,
         },
         globals,
         access,
@@ -84,6 +99,12 @@ fn lower_function_block_node(
         .filter(|child| child.kind() == SyntaxKind::Property)
     {
         methods.extend(lower_property_methods(&property_node, ctx)?);
+    }
+    for action_node in node
+        .children()
+        .filter(|child| child.kind() == SyntaxKind::Action)
+    {
+        methods.push(lower_action_node(&action_node, ctx)?);
     }
     let body = lower_stmt_list(node, ctx)?;
     Ok(FunctionBlockDef {
@@ -274,6 +295,29 @@ fn lower_method_node(
         locals,
         static_locals,
         using: method_ctx.using.clone(),
+        body,
+    })
+}
+
+/// A textual ACTION: a method of its owner without parameters, result or variables of its own,
+/// whose body runs on the owner's variables when it is called (specification 04 §8).
+fn lower_action_node(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<MethodDef, CompileError> {
+    let name_node = node
+        .children()
+        .find(|child| child.kind() == SyntaxKind::Name)
+        .ok_or_else(|| CompileError::new("missing action name"))?;
+    let name: SmolStr = node_text(&name_node).into();
+    let body = lower_stmt_list(node, ctx)?;
+    Ok(MethodDef {
+        name,
+        return_type: None,
+        params: Vec::new(),
+        locals: Vec::new(),
+        static_locals: Vec::new(),
+        using: ctx.using.clone(),
         body,
     })
 }

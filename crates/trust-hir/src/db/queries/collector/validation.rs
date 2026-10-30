@@ -271,11 +271,15 @@ impl SymbolCollector<'_> {
             .filter(|v| *v)
             .count();
 
-            if retention_count > 1 {
+            // CODESYS/WAGO parity (vendor extension): PERSISTENT storage
+            // implies retention, so RETAIN PERSISTENT is accepted. NON_RETAIN
+            // excludes both.
+            let has_non_retain = modifiers.non_retain.is_some();
+            if has_non_retain && (modifiers.retain.is_some() || modifiers.persistent.is_some()) {
                 self.diagnostics.error(
                     DiagnosticCode::InvalidOperation,
                     block.text_range(),
-                    "VAR section cannot combine RETAIN, NON_RETAIN, and PERSISTENT",
+                    "VAR section cannot combine NON_RETAIN with RETAIN or PERSISTENT",
                 );
             }
 

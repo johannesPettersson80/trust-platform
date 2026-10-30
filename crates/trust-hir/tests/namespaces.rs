@@ -481,9 +481,9 @@ END_NAMESPACE
 PROGRAM Main
 VAR
     Mode : Control.PIDMode;
-    On : BOOL;
+    Picked : BOOL;
 END_VAR
-On := Control.Pick(Mode);
+Picked := Control.Pick(Mode);
 END_PROGRAM
 "#,
     );

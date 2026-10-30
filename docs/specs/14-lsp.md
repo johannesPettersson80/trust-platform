@@ -680,7 +680,13 @@ program execution or an IEC 61131-3 deviation.
 #### 7.6 Project Configuration & Workspace Indexing
 
 - Per-root project config file: `trust-lsp.toml`, `.trust-lsp.toml`, or `trustlsp.toml`.
-- `[project]` supports `include_paths`, `library_paths`, `vendor_profile` (dialect + formatting presets), and `stdlib` selection.
+- `[project]` supports `include_paths`, `library_paths`, `vendor_profile` (language rules + formatting presets), and `stdlib` selection.
+- `vendor_profile` selects the language rules of the whole analysis (diagnostics, hover, completion, `trust-lsp check`), and the runtime build, the debugger and the runtime's web IDE take the same rules from the project's `vendor_profile`, with the conversion rules it selects (docs/specs/07-standard-functions.md section 2.10):
+  - `iec`, `siemens`, `mitsubishi`, `gxworks3`, an empty name or none: IEC 61131-3 as truST reads it.
+  - `codesys`, `beckhoff`, `twincat`: the IEC rules with CODESYS's departures, each recorded in `docs/IEC_DEVIATIONS.md`: function block members public by default (DEV-028), a function block's or program's body assigning its own inputs (DEV-029), a program reached by its name (`Program.member`, `Program.action()`, `Program();`, DEV-030), references dereferenced without `^` (DEV-031), and a named actual without a value leaving the input unbound or discarding the output (DEV-032).
+  - A misspelled profile keeps the IEC rules in the editor and reports `C006`.
+  - With several workspace folders the analysis follows the `vendor_profile` of the highest-priority folder's configuration (`[workspace] priority`).
+  - Vendor extensions that change no valid IEC program are accepted under every profile: textual actions called by name, `REF=`, the `REFERENCE TO` spelling, `EnumType.Member`, enum-typed subscripts, `RETAIN PERSISTENT` and `TYPE … EXTENDS` on structures.
 - `stdlib` profiles: `full` (default), `iec` (IEC standard functions/FBs only; Tables 22–36, 43–46), `none` (no standard library completions/hover), or an explicit allow-list array.
 - When `vendor_profile` is set and no explicit stdlib allow-list/profile is provided, the server defaults to the IEC profile for completions/hover.
 - `[[libraries]]` entries include `name`, `path`, and optional `version` for external library indexing.
@@ -1382,10 +1388,25 @@ Runtime exposes an ST-complete PLCopen XML profile through `trust-runtime plcope
   - ST POUs (`PROGRAM`, `FUNCTION`, `FUNCTION_BLOCK`)
   - supported `types/dataTypes` subset (`elementary`, `derived`, `array`, `struct`, `enum`, `subrange`) materialized as generated `TYPE` declarations
   - project model declarations in `instances/configurations/resources/tasks/program instances`
+  - CODESYS/e!COCKPIT vendor dialect constructs (import):
+    - derived names with `REFERENCE TO` / `POINTER TO` prefixes project to native
+      pointer/reference declarations (the analyzer owns auto-deref and `REF=` semantics);
+      array dimension bounds pass through verbatim as constant expressions
+    - `datatypeinheritance` addData (`<Extends>Base</Extends>`) emits `TYPE x EXTENDS y`;
+      an unprojectable marker skips the dataType fail-closed (`PLCO404`)
+    - `pouinheritance` addData emits `EXTENDS`/`IMPLEMENTS` on FUNCTION_BLOCK
+      declarations (synthesized headers and raw ST bodies alike)
+    - project-level `<Interface>` objects import as declaration-only `INTERFACE`
+      blocks (METHOD signature stubs, `EXTENDS` honored, properties rendered as METHODs)
+    - `globalVars` container qualifiers (`retain`/`persistent`/`constant`) carry into
+      the rendered `VAR_GLOBAL` header
+    - e!COCKPIT `MixedAttrsVarList` attributes views and identical whole-list
+      duplicate copies are merged into the primary list (`PLCO223`) instead of
+      multiplying into `_N.st` files
 - `trust-runtime plcopen import` emits a migration report at
   `interop/plcopen-migration-report.json` with:
   - discovered/imported/skipped POU counts
-  - imported type/project-model counts (`imported_data_types`, `discovered_configurations`, `imported_configurations`, `imported_resources`, `imported_tasks`, `imported_program_instances`)
+  - imported type/project-model counts (`imported_data_types`, `imported_interfaces`, `discovered_configurations`, `imported_configurations`, `imported_resources`, `imported_tasks`, `imported_program_instances`)
   - source coverage (% imported/discovered)
   - semantic-loss score (weighted from skipped POUs + unsupported nodes/warnings)
   - compatibility coverage summary (`supported_items`, `partial_items`, `unsupported_items`, `support_percent`, `verdict`)

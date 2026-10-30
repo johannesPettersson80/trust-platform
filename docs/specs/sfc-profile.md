@@ -71,6 +71,11 @@ companion. Validate refuses:
   flag `<name>_active` is not an identifier (the name is trimmed; names are
   compared ignoring case, as identifiers are);
 - a transition between nodes that do not exist, or without a condition;
+- a transition `priority` that is present and not a whole number from 0
+  (Table 61 feature 2b), written as a number or as text: the editor's
+  Priority field keeps its text as typed, the engine reads a text such as
+  `"2"` as the number it holds, and `null` or a blank text, which an emptied
+  field leaves, names no priority;
 - a parallel split without at least two branches, exactly one incoming
   transition and one transition to each branch, and a parallel join without at
   least two branches, one transition from each branch and exactly one outgoing
@@ -84,16 +89,36 @@ companion. Validate refuses:
 - one action with two different bodies (statements);
 - two time-related associations of one action in one step: they are always
   active together, which §6.7.4.6 makes an error;
-- a name the function block would declare twice (a variable, a step flag, an
-  action, a part of an action's control, a transition flag), ignoring case.
+- a name the function block would declare twice (a variable, a step flag, a
+  step, a step's timer `SFC_S<n>`, an action, a part of an action's control, a
+  transition flag), ignoring case.
 
 ### Steps (§6.7.2, Table 54)
 
 - Each step is an IEC step. Its activity is the Boolean `<name>_active` of the
-  function block (the step flag of Table 54 feature 3a, under truST's name), so
-  conditions and statements can read it. An initial step's flag starts `TRUE`.
-- Table 54 feature 4, the step elapsed time `***.T`, and the `***.X` spelling
-  are not provided.
+  function block, so conditions and statements can read it. An initial step's
+  flag starts `TRUE`.
+- Each step whose name is an identifier is also a variable `<name>` of the
+  structure type `FB_<base>_SFC_STEP` (written after the function block), with
+  the members of Table 54 as IEC spells them:
+  - `<name>.X` (feature 3a), the step flag: the same value as `<name>_active`,
+    written after the evolution of each scan and `TRUE` from the start for an
+    initial step;
+  - `<name>.T` (feature 4), the step elapsed time (§6.7.2): the elapsed time
+    `ET` of the step's timer `SFC_S<n>` (a `TON`, specification 08; `<n>` the
+    step's position in the chart), which each scan calls first with the step's
+    flag. `T` keeps its value while the step is inactive. In the scan that
+    enters a step, `T` is reset to `T#0s` with `X` after the evolution: "When
+    a step is activated, the value of the step elapsed time shall be reset to
+    t#0s" (§6.7.2), so a step entered again never shows its previous time.
+    Its timer starts in the next scan, which under the TON rule of
+    specification 08 reads the task interval. It counts up to
+    `T#24d20h31m23s647ms`, the largest `TIME` of 32-bit milliseconds, as
+    CODESYS and TwinCAT measure a step's time.
+- `<name>_active` stays for the programs that read it; `<name>.X` is the same
+  flag. A step whose name is a keyword (such as `ON` or `STEP`) has only its
+  flag: a keyword is no variable name under the IEC rules, so `<name>.X` would
+  not compile.
 - Errors not detected: writing a step flag (§6.7.2 error 2), and a network
   without an initial step, whose steps never become active.
 
@@ -133,7 +158,8 @@ Each execution of the function block (one scan of its task):
 3. lets a transition that shares a preceding step with a transition before it
    in priority order clear only when that transition does not clear (a
    selection divergence, Table 61 features 2a and 2b). The priority order is
-   the transitions' `priority` numbers, lowest first (feature 2b), then the
+   the transitions' `priority` numbers, lowest first (feature 2b; a text
+   counts as the number it holds), then the
    transitions without a number in file order, which is the order in which
    they were drawn. An IEC transition made of several parts has the lowest
    number of its parts and the file position of its first part. Every

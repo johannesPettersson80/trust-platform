@@ -226,3 +226,90 @@ END_PROGRAM
     // Should find declaration + usages
     assert!(refs.len() >= 2, "Should find multiple references to x");
 }
+
+// =============================================================================
+// Action Reference Tests (CODESYS textual action vendor extension)
+// =============================================================================
+
+fn action_program_source() -> &'static str {
+    r#"
+PROGRAM Main
+    VAR count : INT; END_VAR
+    ACTION Reset
+        count := 0;
+    END_ACTION
+    Reset();
+    Reset();
+END_PROGRAM
+"#
+}
+
+#[test]
+fn test_references_find_action_call_sites() {
+    let source = action_program_source();
+    let (db, file) = setup(source);
+    let action_decl = source.find("ACTION Reset").unwrap() + "ACTION ".len();
+    let refs = find_references(
+        &db,
+        file,
+        TextSize::from(action_decl as u32),
+        FindReferencesOptions {
+            include_declaration: true,
+        },
+    );
+
+    assert_eq!(
+        refs.len(),
+        3,
+        "declaration + two bare-name call sites should resolve to the action, got {refs:?}"
+    );
+}
+
+#[test]
+fn test_rename_action_updates_call_sites() {
+    let source = action_program_source();
+    let (db, file) = setup(source);
+    let action_decl = source.find("ACTION Reset").unwrap() + "ACTION ".len();
+    let renamed = rename(&db, file, TextSize::from(action_decl as u32), "ResetAll")
+        .expect("rename should resolve for an action declaration");
+
+    let mut edits: Vec<_> = renamed
+        .edits
+        .values()
+        .flat_map(|file_edits| file_edits.iter())
+        .collect();
+    edits.sort_by_key(|edit| (u32::from(edit.range.start()), u32::from(edit.range.end())));
+    assert!(
+        edits.len() >= 3,
+        "declaration and both call sites must be renamed, got {edits:?}"
+    );
+
+    // Apply back-to-front so ranges stay valid.
+    let mut edited = source.to_string();
+    for edit in edits.iter().rev() {
+        let start = u32::from(edit.range.start()) as usize;
+        let end = u32::from(edit.range.end()) as usize;
+        edited.replace_range(start..end, &edit.new_text);
+    }
+    assert!(
+        edited.contains("ResetAll();"),
+        "call sites renamed, got:\n{edited}"
+    );
+    assert!(
+        !edited.contains("Reset();"),
+        "stale call sites remain:\n{edited}"
+    );
+}
+
+#[test]
+fn test_action_call_site_resolves_to_action_symbol() {
+    let source = action_program_source();
+    let (db, file) = setup(source);
+    let call_site = source.find("Reset();").unwrap();
+    let name = trust_ide::symbol_name_at_position(&db, file, TextSize::from(call_site as u32));
+    assert_eq!(
+        name.as_deref(),
+        Some("Reset"),
+        "a bare action call must resolve to the action symbol"
+    );
+}

@@ -46,6 +46,8 @@ pub enum TokenKind {
     Arrow,
     #[token("?=")]
     RefAssign,
+    #[token("REF=", ignore(case))]
+    KwRefBind,
     #[token("=")]
     Eq,
     #[token("<>")]

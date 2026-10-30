@@ -13,7 +13,6 @@ from pathlib import Path
 EXECUTION_SOURCE_PATHS = (
     "scripts/salsa_fuzz_gate.sh",
     "scripts/runtime_comms_fuzz_gate.sh",
-    "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh",
     ".github/workflows/salsa-hardening.yml",
     ".github/workflows/ci.yml",
     "Cargo.toml",
@@ -21,13 +20,11 @@ EXECUTION_SOURCE_PATHS = (
 REVIEWED_EXECUTABLE_MODE = {
     "scripts/salsa_fuzz_gate.sh": "100755",
     "scripts/runtime_comms_fuzz_gate.sh": "100755",
-    "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh": "100755",
 }
 REVIEWED_EXECUTION_FILE_DIGESTS = {
     "scripts/salsa_fuzz_gate.sh": "b9cabd8d43a8ae56182b6820c02126fbf6ac89f3d4270f014b8e2005dd321b29",
     "scripts/runtime_comms_fuzz_gate.sh": "1647add928d5c339c8557a68cd93639278cc246a59f4a9050508f23d3064b40d",
-    "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh": "6c226b829e70d3dc32c4b91a44d8a930b963a50e76bab0515c0284e60deadc4f",
-    ".github/workflows/ci.yml": "0087e26132d11f51478bc26449d611773f2d903ab01cebf5c35487e3dc89c33d",
+    ".github/workflows/ci.yml": "e5eb3ebef9073921ede2f1ee675a9201a68fc4e1ea748f5f30a0d6839db270f4",
     ".github/workflows/salsa-hardening.yml": "68f91bd3c925e1db5ca6cc44d8561aee60234fc7fd38daffe56b1c33460aef1e",
 }
 REVIEWED_WORKFLOW_TRIGGER_DIGESTS = {
@@ -36,10 +33,10 @@ REVIEWED_WORKFLOW_TRIGGER_DIGESTS = {
 }
 REVIEWED_WORKFLOW_JOB_DIGESTS = {
     (".github/workflows/ci.yml", "test"): (
-        "23d3e43a5343b1ee1030a0efcefd32ed3c86eb051ea556b639c5f9375d6a59a7"
+        "a1c73aaf8f2cee0dea0cf310ba9252c7bf5e9a31ff4585e0ed00e43105c15bf4"
     ),
     (".github/workflows/ci.yml", "conformance"): (
-        "e12920b71e974cb31c4595c804624db2e314bdb5129a4414ff5f038f36f96c2a"
+        "c57bacb2e9ef284f6f2aab571a6d65f570a9d2e5c30016a464016b56f0fabe36"
     ),
     (".github/workflows/salsa-hardening.yml", "fuzz-smoke"): (
         "ed33f2219fbd4d04aee04c007e95b23582e3d674a36704d59061d7f81d7fd7da"
@@ -54,9 +51,6 @@ REVIEWED_RUNTIME_COMMS_COMMANDS = {
     'run_observed "runtime-comms-fuzz" "shm-header" "${GATE_TEST_TIMEOUT_SECONDS:-900}" "${OUT_DIR}/shm_header_fuzz.log" env TRUST_COMMS_FUZZ_ITERS="${ITERS}" cargo test -p trust-runtime --lib realtime::tests::t0_shm_header_fuzz_rejects_corruption_budget -- --nocapture',
     'run_observed "runtime-comms-fuzz" "runtime-cloud-api" "${GATE_TEST_TIMEOUT_SECONDS:-900}" "${OUT_DIR}/runtime_cloud_api_fuzz.log" env TRUST_COMMS_FUZZ_ITERS="${ITERS}" cargo test -p trust-runtime --lib runtime_cloud::routing::tests::runtime_cloud_api_payload_fuzz_smoke_budget -- --nocapture',
     'run_observed "runtime-comms-fuzz" "runtime-cloud-acl" "${GATE_TEST_TIMEOUT_SECONDS:-900}" "${OUT_DIR}/runtime_cloud_acl_fuzz.log" env TRUST_COMMS_FUZZ_ITERS="${ITERS}" cargo test -p trust-runtime --lib runtime_cloud::profile_policy::tests::wan_allowlist_parser_fuzz_smoke_budget -- --nocapture',
-}
-REVIEWED_VM_FUZZ_COMMANDS = {
-    'python3 ./scripts/run_with_progress.py --phase runtime-vm-malformed-bytecode-fuzz --target malformed-bytecode-fuzz-smoke --timeout-seconds "${GATE_TEST_TIMEOUT_SECONDS:-900}" --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" --log "${ARTIFACT_DIR}/malformed-bytecode-fuzz-smoke.log" -- env -u OUT_DIR cargo test -p trust-runtime --test bytecode_vm_core vm_malformed_bytecode_fuzz_smoke_budget -- --nocapture'
 }
 
 
@@ -103,18 +97,6 @@ def validate_execution_source_bindings(
         ),
         REVIEWED_RUNTIME_COMMS_COMMANDS,
         "runtime communication fuzz-smoke invocations",
-        failures,
-    )
-    _validate_exact_set(
-        _parse_vm_fuzz_commands(
-            _decode_source(
-                sources.get("scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh", b""),
-                "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh",
-                failures,
-            )
-        ),
-        REVIEWED_VM_FUZZ_COMMANDS,
-        "runtime VM fuzz-smoke invocations",
         failures,
     )
     salsa_text = _active_source_text(
@@ -302,15 +284,6 @@ def _parse_runtime_comms_commands(text: str) -> set[str]:
         command
         for command in _parse_shell_commands(text)
         if command.startswith("run_observed ") and " cargo test " in command
-    }
-
-
-def _parse_vm_fuzz_commands(text: str) -> set[str]:
-    return {
-        command
-        for command in _parse_shell_commands(text)
-        if command.startswith("python3 ./scripts/run_with_progress.py ")
-        and " -- env -u OUT_DIR cargo test " in command
     }
 
 

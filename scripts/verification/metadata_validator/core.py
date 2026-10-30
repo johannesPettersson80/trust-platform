@@ -127,6 +127,9 @@ class Failure:
 class Validator:
     def __init__(self) -> None:
         self.failures: list[Failure] = []
+        # Whether the committed bounded fuzz campaign is checked against the fuzz program; the
+        # campaign generator turns it off for the campaign it replaces.
+        self.bind_fuzz_campaign = True
         self.spec_sources: dict[str, dict[str, Any]] = {}
         self.spec_gaps: dict[str, dict[str, Any]] = {}
         self.evidence: dict[str, dict[str, Any]] = {}
@@ -422,7 +425,9 @@ class Validator:
             self.test_catalog_denominator, schema=denominator_schema
         ):
             self.fail(ROOT / TEST_CATALOG_DENOMINATOR_PATH, failure)
-        for failure in validate_fuzz_program_contract(ROOT, self.fuzz_program):
+        for failure in validate_fuzz_program_contract(
+            ROOT, self.fuzz_program, campaign=self.bind_fuzz_campaign
+        ):
             self.fail(ROOT / FUZZ_PROGRAM_PATH, failure)
         for failure in validate_crash_registry(
             self.fuzz_crash_registry,

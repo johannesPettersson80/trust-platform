@@ -206,7 +206,8 @@ pub fn check_program(
     )?;
     // The `RESOURCE` the program's CONFIGURATION declares, as the build reads it from the lowered
     // configuration; none without a CONFIGURATION (specification 11 §6.8.1d).
-    let (lowered, _) = crate::harness::lower_application_and_frontend(&files, true, false)?;
+    let (lowered, _) =
+        crate::harness::lower_application_and_frontend(&files, true, false, conversions)?;
     let resources = lowered
         .configuration
         .and_then(|configuration| configuration.resource_name)

@@ -16,6 +16,8 @@ export type NetworkCanvasRuntimeFailure = {
   // The control endpoint of the runtime a Connect failure belongs to. Devices & Connections shows the
   // failure on that runtime's node (specification 25, section 5.1).
   readonly endpoint?: string;
+  // What the sidebar offers after a failed Connect, as the language server names it (§5.1).
+  readonly remedy?: "openDevices" | "setAuthToken";
 };
 
 /** The kind of the failure `error` names, with the message the extension shows: the language server reads the failure's

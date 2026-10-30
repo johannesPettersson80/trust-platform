@@ -234,6 +234,21 @@ mod tests {
     }
 
     #[test]
+    fn each_vendor_profile_selects_matching_conversion_and_language_rules() {
+        // Specification 14 and specification 07 §2.10: one `vendor_profile` selects both rule
+        // sets, and the build derives the language rules from the conversion rules it reads.
+        // Catches a profile name that converts as CODESYS and checks as IEC, or the reverse.
+        for name in crate::stdlib::conversions::VENDOR_PROFILES {
+            let conversions = ConversionProfile::from_vendor_profile(name).expect(name);
+            assert_eq!(
+                Some(crate::harness::dialect_of(conversions)),
+                trust_hir::Dialect::from_vendor_profile(name),
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
     fn the_vendor_profile_is_read_under_each_settings_file_name() {
         // Specification 07 §2.10 and specification 14: the settings file is `trust-lsp.toml`,
         // `.trust-lsp.toml` or `trustlsp.toml`, as the language server finds it, and the

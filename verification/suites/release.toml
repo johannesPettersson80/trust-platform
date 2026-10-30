@@ -14,6 +14,7 @@ commands = [
   "workflow job .github/workflows/ci.yml#version-release-guard",
   "workflow job .github/workflows/release.yml#release-preflight",
   "workflow job .github/workflows/release.yml#build",
+  "workflow job .github/workflows/release.yml#toolchain-bundle",
   "workflow job .github/workflows/release.yml#publish",
   "workflow job .github/workflows/release.yml#runtime-vm-validation",
 ]
@@ -23,6 +24,7 @@ command_bindings = [
   "GATE_JOB_CI_VERSION_RELEASE_GUARD",
   "GATE_JOB_RELEASE_PREFLIGHT",
   "GATE_JOB_RELEASE_BUILD",
+  "GATE_JOB_RELEASE_TOOLCHAIN_BUNDLE",
   "GATE_JOB_RELEASE_PUBLISH",
   "GATE_JOB_RELEASE_RUNTIME_VM_VALIDATION",
 ]
@@ -34,6 +36,7 @@ inventory_ids = [
   "GATE_JOB_RELEASE_PREFLIGHT",
   "GATE_JOB_RELEASE_PUBLISH",
   "GATE_JOB_RELEASE_RUNTIME_VM_VALIDATION",
+  "GATE_JOB_RELEASE_TOOLCHAIN_BUNDLE",
   "GATE_SCRIPT_GENERATE_RELEASE_GATE_REPORT",
   "GATE_SCRIPT_OPENOT_REAL_DATABASE",
   "GATE_SCRIPT_RUNTIME_VM_BENCH",

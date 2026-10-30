@@ -151,12 +151,14 @@ fn entering_manual_journals_the_mode_found_and_the_transfers_owner_before_its_ap
     let _ = fs::remove_dir_all(&folder);
 }
 
-/// A6.2, A6.4 and E11.9: the return of a loop found in Auto writes its setpoint and Manual command back in Manual, on the transfer
-/// loop of the commands with the record's gains as guards and no tracking, then enters Auto with the states as they are. With the
-/// baseline's noise n = 0.05 and no error, the first output may move by the PID's response 2·|Kp|·n + |Ki|·Δt·n =
-/// 2·2·0.05 + 0.1·0.1·0.05 = 0.2005. The checkpoint is cleared once the runtime confirmed every transfer.
+/// A6.2, A6.4, C1 and E11.9: the return of a loop found in Auto writes its setpoint back in Manual, on the transfer loop of the
+/// commands with the record's gains as guards and no tracking, and not its Manual command: written in Manual, the found command
+/// (12) would move the held output (30) by 18 before the Auto entry. That write moves no output, so it allows the mode change's
+/// own 1e-6. The loop then enters Auto from the output it holds, with the states as they are. With the baseline's noise
+/// n = 0.05 and no error, the first output may move by the PID's response 2·|Kp|·n + |Ki|·Δt·n = 2·2·0.05 + 0.1·0.1·0.05 =
+/// 0.2005. The checkpoint is cleared once the runtime confirmed every transfer.
 #[test]
-fn the_return_writes_the_commands_back_in_manual_and_enters_auto_with_the_pids_allowance() {
+fn the_return_writes_the_setpoint_back_in_manual_and_enters_auto_from_the_output_it_holds() {
     let folder = folder("mode-return");
     let journal = journal_in(&folder);
     let transfers = TransferFake::start(true);
@@ -171,10 +173,7 @@ fn the_return_writes_the_commands_back_in_manual_and_enters_auto_with_the_pids_a
     assert_eq!(transfers.events(), [ENTER_MANUAL, COMMANDS, ENTER_AUTO]);
     let applies = transfers.applies();
     let commands = binding_of(&applies[1]);
-    assert_eq!(
-        symbols(&commands.states),
-        ["Main.TIC101_Setpoint", "Main.TIC101_ManualOutput"]
-    );
+    assert_eq!(symbols(&commands.states), ["Main.TIC101_Setpoint"]);
     assert_eq!(
         symbols(&commands.guards),
         [
@@ -185,18 +184,14 @@ fn the_return_writes_the_commands_back_in_manual_and_enters_auto_with_the_pids_a
     );
     assert_eq!(
         numbers(&applies[1]["values"]),
-        BTreeMap::from([
-            ("Main.TIC101_Setpoint".to_owned(), 45.0),
-            ("Main.TIC101_ManualOutput".to_owned(), 12.0),
-        ]),
-        "the values the loop was found with"
+        BTreeMap::from([("Main.TIC101_Setpoint".to_owned(), 45.0)]),
+        "the setpoint the loop was found with"
     );
     assert!(
         applies[1].get("tracking").is_none(),
         "the commands carry no tracking"
     );
-    // A6.2, E6.9: writing the found Manual command (12) back moves the held output (30) by 18, which is its allowance.
-    assert_eq!(applies[1]["maximum_output_change"].as_f64(), Some(18.0));
+    assert_eq!(applies[1]["maximum_output_change"].as_f64(), Some(1e-6));
     assert_eq!(applies[2]["manual"].as_bool(), Some(false));
     let allowance = applies[2]["maximum_output_change"]
         .as_f64()

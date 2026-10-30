@@ -7,10 +7,12 @@
 //!   to a runtime, its answer decoded, or whether the runtime's control endpoint accepts a
 //!   connection (runtime protocol annex E0.1).
 //! - `trust-lsp.runTargets` `{ action, … }`: the status of the configured target (§5.1), the
-//!   sidebar's run targets and the selected one's action (§5.1, §6.1), the managed runtimes of a
-//!   fleet root (§6.5), the status that Live Values shows with the operations the session may use
-//!   (§4.1, §4.2), the speed that a simulated runtime reports (specification 35 B9.2), the outcome
-//!   of a Connect (§5.1, §6.4) and the kind of a lifecycle failure (§5.10).
+//!   sidebar's run targets and the selected one's action (§5.1, §6.1), what selecting a target
+//!   does to the runtime settings and what Stop does without a session (§5.1), the managed
+//!   runtimes of a fleet root (§6.5), the status
+//!   that Live Values shows with the operations the session may use (§4.1, §4.2), the speed that a
+//!   simulated runtime reports (specification 35 B9.2), the outcome of a Connect (§5.1, §6.4) and
+//!   the kind of a lifecycle failure (§5.10).
 //!
 //! Each answer is an object with `ok`; a refused request answers `ok: false` and an `error` text.
 
@@ -65,6 +67,8 @@ fn run_targets(argument: Value) -> Result<Value, String> {
     match action.as_str() {
         "target" => target::answer(argument),
         "selection" => selection::answer(argument),
+        "select" => selection::select(argument),
+        "stop" => selection::stop(argument),
         "managed" | "managedOutcome" | "managedLogs" | "managedStopEndsSession" => {
             managed::answer(&action, argument)
         }

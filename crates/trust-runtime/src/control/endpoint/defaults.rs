@@ -194,39 +194,45 @@ fn is_socket(path: &Path) -> bool {
     std::fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_socket())
 }
 
-/// The per-user directory of a fallback socket: `$XDG_RUNTIME_DIR` when it is set and not empty,
-/// else `trust-runtime-<uid>` in the system temporary directory. A missing directory is created
-/// with mode 0700. The directory must not be a symbolic link, must belong to this user and must be
-/// closed to other users, so that no other local user can place a socket where this user's
-/// runtime or clients look for one.
+/// The per-user directory of a fallback socket for this process's `$XDG_RUNTIME_DIR`, system
+/// temporary directory and effective user (see [`runtime_directory_in`]).
 ///
 /// # Errors
 ///
-/// Returns an error when the directory cannot be created or fails one of these checks.
+/// Returns an error when no private runtime directory can be had.
 #[cfg(unix)]
 pub(super) fn runtime_directory() -> Result<PathBuf, RuntimeError> {
-    let uid = rustix::process::geteuid().as_raw();
-    let dir = runtime_directory_path(
+    runtime_directory_in(
         std::env::var_os("XDG_RUNTIME_DIR"),
         &std::env::temp_dir(),
-        uid,
-    );
-    ensure_user_private_directory(&dir, uid)?;
-    Ok(dir)
+        rustix::process::geteuid().as_raw(),
+    )
 }
 
-/// The runtime directory for the value of `$XDG_RUNTIME_DIR`, the system temporary directory and
-/// the user id, before any check.
+/// The per-user directory of a fallback socket: `$XDG_RUNTIME_DIR` when it is set, not empty and
+/// passes the checks of [`ensure_user_private_directory`], else `trust-runtime-<uid>` in the system
+/// temporary directory, which must pass them too. A `$XDG_RUNTIME_DIR` that is open to the user's
+/// group, as some systems leave it against the XDG Base Directory Specification's mode 0700, or
+/// that belongs to another user, as after `su`, is not used, and the runtime does not stop for it.
+///
+/// # Errors
+///
+/// Returns an error when `trust-runtime-<uid>` cannot be created or fails a check.
 #[cfg(unix)]
-pub(super) fn runtime_directory_path(
+pub(super) fn runtime_directory_in(
     xdg_runtime_dir: Option<std::ffi::OsString>,
     temp_dir: &Path,
     uid: u32,
-) -> PathBuf {
-    match xdg_runtime_dir.filter(|value| !value.is_empty()) {
-        Some(dir) => PathBuf::from(dir),
-        None => temp_dir.join(format!("trust-runtime-{uid}")),
+) -> Result<PathBuf, RuntimeError> {
+    if let Some(dir) = xdg_runtime_dir.filter(|value| !value.is_empty()) {
+        let dir = PathBuf::from(dir);
+        if ensure_user_private_directory(&dir, uid).is_ok() {
+            return Ok(dir);
+        }
     }
+    let dir = temp_dir.join(format!("trust-runtime-{uid}"));
+    ensure_user_private_directory(&dir, uid)?;
+    Ok(dir)
 }
 
 /// Creates `dir` with mode 0700 when it is missing, then checks that it is a directory and not a

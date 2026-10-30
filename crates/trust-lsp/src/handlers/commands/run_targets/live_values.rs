@@ -5,11 +5,12 @@
 //! configuration never make a target simulated.
 //!
 //! - `liveValues` `{ runtimeMode, endpoint?, authToken?, endpointEnabled?, inlineValuesEnabled?,
-//!   session? }`, `session` the debug session's configuration (`request`, `endpoint`, `authToken`,
-//!   `controlEndpoint`, `controlAuthToken`, `targetLabel`) or `null`: `{ ok: true, status,
-//!   adsReport }`, `status` the panel's runtime status with what each section's rows may do, and
-//!   `adsReport` the runtime's `ads.status` answer while an online target answers without a
-//!   session.
+//!   session?, projectEndpoint? }`, `session` the debug session's configuration (`request`,
+//!   `endpoint`, `authToken`, `controlEndpoint`, `controlAuthToken`, `targetLabel`) or `null`, and
+//!   `projectEndpoint` the workspace project's own control endpoint: `{ ok: true, status,
+//!   adsReport }`, `status` the panel's runtime status with what each section's rows may do and
+//!   whether the project's own runtime answers, and `adsReport` the runtime's `ads.status` answer
+//!   while an online target answers without a session.
 //! - `speed` `{ endpoint, authToken? }`: `{ ok: true, read }`, the simulation facts and speeds that
 //!   the runtime's `status` reports, `null` when it cannot be read.
 
@@ -41,8 +42,11 @@ const PROBE_TIMEOUT: Duration = Duration::from_millis(400);
 /// lifecycle do not probe each time.
 const PROBE_REUSE: Duration = Duration::from_millis(2000);
 
-/// The last probe: its endpoint, its answer and when it was made.
-static LAST_PROBE: Mutex<Option<(String, bool, Instant)>> = Mutex::new(None);
+/// The probes that stand for their endpoints, the newest last: each endpoint, its answer and when
+/// it was made. A refresh probes the target and the project's own runtime, so each keeps its own.
+static PROBES: Mutex<Vec<(String, bool, Instant)>> = Mutex::new(Vec::new());
+/// How many endpoints' probes are kept.
+const PROBES_KEPT: usize = 8;
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -76,6 +80,10 @@ struct LiveArgs {
     inline_values_enabled: Option<bool>,
     #[serde(default)]
     session: Option<Session>,
+    /// The workspace project's own control endpoint, as `trust-runtime ctl --project <dir> endpoint
+    /// --json` reports it (specification 11 §6.8.0a).
+    #[serde(default)]
+    project_endpoint: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -138,10 +146,10 @@ fn status_report(endpoint: &str, token: Option<&str>) -> Option<Value> {
 
 /// Whether `endpoint` accepts a connection, the last probe of it standing for [`PROBE_REUSE`].
 fn reachable_reused(endpoint: &str) -> bool {
-    if let Ok(last) = LAST_PROBE.lock()
-        && let Some((probed, answer, at)) = last.as_ref()
-        && probed == endpoint
-        && at.elapsed() < PROBE_REUSE
+    if let Ok(probes) = PROBES.lock()
+        && let Some((_, answer, _)) = probes
+            .iter()
+            .find(|(probed, _, at)| probed == endpoint && at.elapsed() < PROBE_REUSE)
     {
         return *answer;
     }
@@ -152,8 +160,12 @@ fn reachable_reused(endpoint: &str) -> bool {
 
 /// Records a probe's answer for `endpoint`, as a fresh probe leaves it.
 pub(super) fn remember_probe(endpoint: &str, answer: bool) {
-    if let Ok(mut last) = LAST_PROBE.lock() {
-        *last = Some((endpoint.to_owned(), answer, Instant::now()));
+    if let Ok(mut probes) = PROBES.lock() {
+        probes.retain(|(probed, _, _)| probed != endpoint);
+        if probes.len() == PROBES_KEPT {
+            probes.remove(0);
+        }
+        probes.push((endpoint.to_owned(), answer, Instant::now()));
     }
 }
 
@@ -201,7 +213,9 @@ fn live_values(args: &LiveArgs, runtimes: &dyn Runtimes) -> (Value, Option<Value
     if session.is_some() && !status_endpoint.is_empty() {
         report = runtimes.status(&status_endpoint, status_token.as_deref());
     }
-    if session.is_none() && mode == "online" && !configured.is_empty() && enabled {
+    // The configured endpoint is probed only online, with no session and the endpoint in use.
+    let probed = session.is_none() && mode == "online" && !configured.is_empty() && enabled;
+    if probed {
         reachable = runtimes.reachable(&configured);
         if reachable {
             report = runtimes.status(&configured, token.as_deref());
@@ -238,7 +252,19 @@ fn live_values(args: &LiveArgs, runtimes: &dyn Runtimes) -> (Value, Option<Value
     status.insert("endpoint".into(), json!(endpoint));
     status.insert("endpointConfigured".into(), json!(!configured.is_empty()));
     status.insert("endpointEnabled".into(), json!(enabled));
+    status.insert("endpointProbed".into(), json!(probed));
     status.insert("endpointReachable".into(), json!(reachable));
+    // The project's own runtime, which the Target picker offers while it answers (specification 25
+    // §5.1); the target's probe stands for it when the target is that runtime.
+    let project = non_blank(args.project_endpoint.as_deref()).unwrap_or_default();
+    let project_reachable = !project.is_empty()
+        && if probed && project == configured {
+            reachable
+        } else {
+            runtimes.reachable(&project)
+        };
+    status.insert("projectEndpoint".into(), json!(project));
+    status.insert("projectReachable".into(), json!(project_reachable));
     status.insert("rows".into(), rows(&access));
     status.insert("access".into(), access);
     // A Force on anything but the Simulator's own session must be armed first (specification 25

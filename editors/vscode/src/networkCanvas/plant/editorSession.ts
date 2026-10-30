@@ -279,10 +279,13 @@ export function usePlantEditor(options: {
 
   // The actions run one after another, each on the draft the one before left, so that two ports
   // bound at once both reach the draft. An action whose draft the user edited while Rust answered
-  // is applied again to the edited draft.
+  // is applied again to the edited draft. While one is on its way, Save waits: the draft does not
+  // yet hold what the user typed.
   const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const [running, setRunning] = useState(0);
   const run = useCallback(
     (action: PlantEditAction): Promise<PlantEditResult> => {
+      setRunning((count) => count + 1);
       const next = queue.current.then(async (): Promise<PlantEditResult> => {
         for (let attempt = 0; attempt < ACTION_ATTEMPTS; attempt += 1) {
           const requested = latest.current;
@@ -303,6 +306,8 @@ export function usePlantEditor(options: {
         return { ok: false, message: "The draft changed while the edit was applied; try again." };
       });
       queue.current = next.catch(() => undefined);
+      const done = () => setRunning((count) => count - 1);
+      void next.then(done, done);
       return next;
     },
     [post, onDraft]
@@ -323,6 +328,8 @@ export function usePlantEditor(options: {
     answer,
     /** Whether `answer` belongs to the draft as it is now: only then are its issues shown. */
     current,
+    /** Whether an action is still on its way to Rust, so that Save would miss its edit. */
+    busy: running > 0,
     failure,
     run,
     /** Sends a field edit made from the draft `base` as the new draft. */

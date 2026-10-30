@@ -246,7 +246,7 @@ pub fn generate_source_with_conversions(
     options: &Options,
     conversions: ConversionProfile,
 ) -> Result<String, NativeError> {
-    let front = front::Front::analyze(sources, &[])?;
+    let front = front::Front::analyze(sources, &[], conversions)?;
     init::check_declared_conversions(&front, conversions)?;
     let ids = front.statement_ids();
     let registry = front.lowered.builder.registry().clone();
@@ -334,7 +334,7 @@ pub fn build_with_conversions(
     // the sources as written.
     let instrumented = crate::openot_authoring::try_instrument_source_files(sources)
         .map_err(|error| NativeError::Compile(format!("OpenOT authoring: {error}")))?;
-    let front = front::Front::analyze(&instrumented, tests)?;
+    let front = front::Front::analyze(&instrumented, tests, conversions)?;
     init::check_declared_conversions(&front, conversions)?;
     let ids = front.statement_ids();
     let registry = front.lowered.builder.registry().clone();

@@ -430,8 +430,8 @@ fn only_the_loops_own_manual_command_is_bounded_when_the_program_copies_the_outp
 }
 
 /// A6.2: a group found in Manual gets every member's setpoint and Manual command back, on a transfer loop of its own that keeps the
-/// group's outputs, with the parameters of the record as its guards; a group found in Auto whose program copies the output into the
-/// loop's Manual command gets that one left alone and the other member's written back.
+/// group's outputs, with the parameters of the record as its guards; a group found in Auto gets its setpoints back only (C1),
+/// since each Manual command written in Manual would move its member's output before the Auto entry.
 #[test]
 fn the_command_return_writes_back_every_members_setpoint_and_manual_command() {
     let mut loop_definition = pid_group_loop();
@@ -489,16 +489,18 @@ fn the_command_return_writes_back_every_members_setpoint_and_manual_command() {
     loop_definition.controller.manual_output_follows_output = Some(true);
     let in_auto = status_of(&binding, true, &holding(&found));
     let kept = command_return(&loop_definition, &binding, &in_auto).expect("found in Auto");
+    assert_eq!(symbols(&kept.binding.states), [SETPOINT, SECOND_SETPOINT]);
     assert_eq!(
-        symbols(&kept.binding.states),
-        [SETPOINT, SECOND_SETPOINT, SECOND_COMMAND]
+        kept.values,
+        BTreeMap::from([
+            (SETPOINT.to_owned(), 45.0),
+            (SECOND_SETPOINT.to_owned(), 40.0)
+        ])
     );
     assert_eq!(
         kept.commands,
-        [WrittenCommand {
-            command: SECOND_COMMAND.to_owned(),
-            output: SECOND_OUTPUT.to_owned()
-        }]
+        Vec::<WrittenCommand>::new(),
+        "no member's Manual command moves its output"
     );
     let found_in_manual = command_return(&loop_definition, &binding, &in_manual)
         .expect("found in Manual, the program's copy is overwritten");

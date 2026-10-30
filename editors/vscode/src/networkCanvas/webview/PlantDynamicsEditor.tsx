@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 
 import type { PlantDraft } from "../plant/addFlow";
-import type { PlantParameterValue } from "../plant/editorModel";
 import {
   numberText,
   type PlantEditAction,
@@ -14,8 +13,8 @@ import { PlantPiecewiseEditor } from "./PlantPiecewiseEditor";
 import { PlantStateSpaceEditor } from "./PlantStateSpaceEditor";
 
 /**
- * The model's dynamics fields as Rust lays them out (specification 47 §9). What the user types goes
- * into the draft as the value it spells; Rust's checks say whether it is valid.
+ * The model's dynamics fields as Rust lays them out (specification 47 §9). What the user types is
+ * read into the draft by Rust (`set_dynamics_text`, §20.1), whose checks say whether it is valid.
  */
 export function PlantDynamicsEditor({
   draft,
@@ -39,37 +38,32 @@ export function PlantDynamicsEditor({
   const { fields, details } = view.dynamics;
   const issueFor = (key: string) =>
     issues.find((issue) => issue.target.kind === "dynamics" && issue.target.key === key)?.message;
-  const valueFor = (key: string): unknown =>
-    key === "initial_state" ? draft.initialState : draft.parameters[key];
-  const write = (key: string, value: unknown) => {
-    if (key === "initial_state") {
-      onChange({ ...draft, initialState: value as number[], modelValuesTouched: true });
-      return;
-    }
-    const parameters = { ...draft.parameters };
-    if (value === undefined) delete parameters[key];
-    else parameters[key] = value as PlantParameterValue;
-    onChange({ ...draft, parameters, modelValuesTouched: true });
-  };
-  // An empty field holds no value (Rust says whether one is needed); a number field holds the
-  // number its text spells, a list or matrix field what its text reads as, or the text itself.
+  const valueFor = (key: string): unknown => valueIn(draft, key);
+  // Rust reads each typed text into the draft. A field keeps its text while it is typed in, and
+  // afterwards while the draft holds the value Rust read from that text; another value, as after an
+  // edit of the temperature example's fields, is shown instead.
+  const textsRef = useRef(texts);
+  textsRef.current = texts;
+  const readValues = useRef<Record<string, string>>({});
+  const [readCount, setReadCount] = useState(0);
   const enter = (field: PlantFieldView, text: string) => {
     setTexts((current) => ({ ...current, [field.key]: text }));
-    write(field.key, spelled(field, text));
+    void onAction({ kind: "set_dynamics_text", key: field.key, text }).then((result) => {
+      if (!result.ok || result.answer.outcome?.kind !== "applied" || textsRef.current[field.key] !== text) return;
+      readValues.current[field.key] = comparable(valueIn(result.answer.draft, field.key));
+      setReadCount((count) => count + 1);
+    });
   };
-  // The field being typed in keeps its text; any other field shows the draft's value once the draft
-  // holds another value than its text spells, as after an edit of the temperature example's fields.
   const [focused, setFocused] = useState<string>();
   useEffect(() => {
     setTexts((current) => {
-      const kept = Object.entries(current).filter(([key, text]) => {
-        const field = [...fields, ...details].find((candidate) => candidate.key === key);
-        const value = key === "initial_state" ? draft.initialState : draft.parameters[key];
-        return key === focused || !field || JSON.stringify(spelled(field, text)) === JSON.stringify(value);
+      const kept = Object.entries(current).filter(([key]) => {
+        const read = readValues.current[key];
+        return key === focused || read === undefined || read === comparable(valueIn(draft, key));
       });
       return kept.length === Object.keys(current).length ? current : Object.fromEntries(kept);
     });
-  }, [draft, fields, details, focused]);
+  }, [draft, focused, readCount]);
   const textFor = (field: PlantFieldView) => {
     const value = valueFor(field.key);
     return texts[field.key] ??
@@ -224,19 +218,14 @@ export function PlantDynamicsEditor({
   );
 }
 
-/** What a list or matrix field's text reads as: its JSON value, or the text itself. */
-/** The value a field's text spells, as it goes into the draft. */
-function spelled(field: PlantFieldView, text: string): unknown {
-  if (!text.trim()) return field.key === "initial_state" ? [] : undefined;
-  return field.valueKind === "number" ? Number(text) : readList(text);
+/** The draft's value of a Dynamics field. */
+function valueIn(draft: PlantDraft, key: string): unknown {
+  return key === "initial_state" ? draft.initialState : draft.parameters[key];
 }
 
-function readList(text: string): unknown {
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return text;
-  }
+/** A draft value as text that two values can be compared by; no value is empty text. */
+function comparable(value: unknown): string {
+  return value === undefined ? "" : JSON.stringify(value);
 }
 
 function count(value: number, label: string): string {

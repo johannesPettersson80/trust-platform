@@ -5,9 +5,11 @@
 //!   endpoint's token; then the extension attaches, or, when the runtime keeps debugging disabled,
 //!   selects it without a session. The answer is `{ ok: true, outcome: "attach", sessionName }`,
 //!   `{ ok: true, outcome: "debugDisabled", failure }` or `{ ok: true, outcome: "failed", failure }`,
-//!   a failure naming its kind, its message and the endpoint it belongs to. `problem` is
-//!   trust-runtime's reason why the workspace's own runtime has no endpoint now (specification 11
-//!   §6.8.0a).
+//!   a failure naming its kind, its message, the endpoint it belongs to and, when the extension
+//!   offers one, its `remedy`: `openDevices` when the runtime accepts no connection or its `status`
+//!   request gets no answer, `setAuthToken` when it refuses a missing or rejected token by its code.
+//!   `problem` is trust-runtime's reason why the workspace's own runtime has no endpoint now
+//!   (specification 11 §6.8.0a).
 //! - `failure` `{ detail }`: the kind of the failure that the text `detail` of a start, a stop or an
 //!   attach names, with the message the extension shows: a missing executable, a port in use, a
 //!   folder that cannot be written, a stale runtime or session, else a failed start.
@@ -26,6 +28,10 @@ use super::{decode, non_blank};
 const STATUS_TIMEOUT: Duration = Duration::from_millis(1000);
 /// The wait of Connect's probe.
 const PROBE_TIMEOUT: Duration = Duration::from_millis(400);
+/// The remedy of a runtime that does not answer: Devices & Connections, to start or diagnose it.
+const OPEN_DEVICES: &str = "openDevices";
+/// The remedy of a runtime that refuses the token: a token stored for its endpoint.
+const SET_AUTH_TOKEN: &str = "setAuthToken";
 /// What Live Values and the graph say of a runtime that keeps debugging disabled.
 pub(super) const DEBUG_DISABLED: &str = "Remote debugging is disabled for this runtime. Set debug_enabled = true under [runtime.control] in its runtime.toml, restart the runtime, then connect again.";
 
@@ -96,15 +102,20 @@ fn connect(args: &ConnectArgs, contact: &dyn Contact) -> Value {
         };
         return json!({ "ok": true, "outcome": "failed", "failure": failure });
     }
-    let failed = |kind: &str, message: String, detail: Option<&str>| {
-        json!({
-            "ok": true,
-            "outcome": "failed",
-            "failure": failure_json(kind, &message, detail, Some(&endpoint)),
-        })
+    let failed = |kind: &str, message: String, detail: Option<&str>, remedy: Option<&str>| {
+        let mut failure = failure_json(kind, &message, detail, Some(&endpoint));
+        if let Some(remedy) = remedy {
+            failure["remedy"] = json!(remedy);
+        }
+        json!({ "ok": true, "outcome": "failed", "failure": failure })
     };
     if !contact.reachable(&endpoint) {
-        return failed("stale_runtime", not_reachable(&endpoint), Some(&endpoint));
+        return failed(
+            "stale_runtime",
+            not_reachable(&endpoint),
+            Some(&endpoint),
+            Some(OPEN_DEVICES),
+        );
     }
     let token = non_blank(args.auth_token.as_deref());
     let status = match contact.status(&endpoint, token.as_deref()) {
@@ -117,7 +128,12 @@ fn connect(args: &ConnectArgs, contact: &dyn Contact) -> Value {
             } else {
                 "Auth token rejected — check it and try again."
             };
-            return failed("workspace_permission", message.to_owned(), None);
+            return failed(
+                "workspace_permission",
+                message.to_owned(),
+                None,
+                Some(SET_AUTH_TOKEN),
+            );
         }
         Outcome::Refused { error, code, .. } => {
             let text = code.map_or(error.clone(), |code| format!("{code}: {error}"));
@@ -125,12 +141,23 @@ fn connect(args: &ConnectArgs, contact: &dyn Contact) -> Value {
                 "stale_runtime",
                 format!("Runtime status check failed: {text}"),
                 None,
+                None,
             );
         }
-        Outcome::Transport(error) | Outcome::Malformed(error) => {
+        // A runtime that does not answer is not reachable; one whose answer does not read did answer.
+        Outcome::Transport(error) => {
             return failed(
                 "stale_runtime",
                 format!("Runtime status check failed: {error}"),
+                None,
+                Some(OPEN_DEVICES),
+            );
+        }
+        Outcome::Malformed(error) => {
+            return failed(
+                "stale_runtime",
+                format!("Runtime status check failed: {error}"),
+                None,
                 None,
             );
         }

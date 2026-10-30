@@ -225,6 +225,31 @@ def remote_validation_commands(
                 ),
             ),
             (
+                # The documentation site's build and checks, as Docs Pages runs them after a merge:
+                # path filters see only a pull request's first 300 files, so 0.25.0's 10,252 ran
+                # none of them and the site stopped publishing. They run in a copy of the
+                # candidate's tree, since the media step copies files into it.
+                "remote_docs_site",
+                leased(
+                    "set -euo pipefail; "
+                    f"venv={shlex.quote(str(PurePosixPath(target) / 'docs-venv'))}; "
+                    '[ -x "$venv/bin/python" ] || python3 -m venv "$venv"; '
+                    '"$venv/bin/python" -m pip install -q -r docs/requirements.txt; '
+                    f"site=$(mktemp -d {shlex.quote(target_tmp)}/docs-site.XXXXXX); "
+                    "trap 'rm -rf -- \"$site\"' EXIT; "
+                    'git archive HEAD | tar -x -C "$site"; cd "$site"; '
+                    'export PATH="$venv/bin:$PATH"; '
+                    "python scripts/generate_public_docs_media.py && "
+                    "python scripts/check_public_docs_ia.py && "
+                    "python scripts/check_public_docs_links.py && "
+                    "python scripts/check_example_catalog_links.py && "
+                    "python scripts/check_openot_database_examples.py && "
+                    "mkdocs build --strict && "
+                    "python scripts/check_public_docs_assets.py && "
+                    "python scripts/check_public_docs_search.py"
+                ),
+            ),
+            (
                 "remote_reclaim_before_test_all",
                 conditional_reclaim,
             ),

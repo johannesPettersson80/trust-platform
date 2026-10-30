@@ -1,12 +1,13 @@
 // The sidebar's run targets and the one action of the selected target are the language server's answer
 // (`trust-lsp.runTargets`, action `selection`, specification 25 §5.1 and §6.1): the Simulator, the managed runtimes, the
-// configured runtimes and the runtime the extension is online with; Start and Stop for the processes the extension owns,
-// Connect and Disconnect for the runtimes whose session it owns, a remote never stopped. The sidebar, the status bar and
-// the speed chooser render this answer.
+// project's own runtime while it runs outside VS Code, the configured runtimes and the runtime the extension is online
+// with; Start and Stop for the processes the extension owns, Connect and Disconnect for the runtimes whose session it
+// owns, a remote never stopped. The sidebar, the status bar and the speed chooser render this answer.
 
 import { getTrustConfiguration } from "./configuration";
 import type { ManagedRuntime } from "./localRuntimeModel";
 import { projectRequest } from "./projectRequest";
+import type { RuntimeLifecycleSnapshot } from "./runtimeLifecycle";
 
 export type RuntimeKind = "simulator" | "local" | "remote";
 
@@ -30,9 +31,11 @@ export interface RuntimeOption {
   readonly id: string;
   readonly label: string;
   readonly kind: RuntimeKind;
-  /** The control endpoint that selecting the target points the runtime settings at; none for the Simulator and a managed
-   * runtime that does not run. */
+  /** The control endpoint that selecting the target points the runtime settings at; none for the Simulator, a managed
+   * runtime that does not run and the project's own runtime. */
   readonly runEndpoint?: string;
+  /** Whether this is the workspace project's own runtime. */
+  readonly project?: boolean;
 }
 
 export interface PrimaryAction {
@@ -70,9 +73,14 @@ export interface RuntimeModelSnapshot {
   readonly runtimeMode: "simulate" | "online";
   readonly runtimeState: "running" | "connected" | "stopped";
   readonly endpoint: string;
-  readonly endpointConfigured: boolean;
+  /** Whether Live Values probed the configured endpoint in this refresh, so that `endpointReachable` is its answer. */
+  readonly endpointProbed: boolean;
   readonly endpointReachable: boolean;
   readonly starting: boolean;
+  /** The workspace project's own control endpoint, as trust-runtime reports it; empty when it reports none. */
+  readonly projectEndpoint: string;
+  /** Whether the project's own runtime answers at that endpoint. */
+  readonly projectReachable: boolean;
 }
 
 export interface RunTargets {
@@ -89,6 +97,20 @@ export interface RunTargetsInput {
   readonly snapshot: RuntimeModelSnapshot;
   readonly managed: ReadonlyArray<ManagedRuntime>;
   readonly selectedId: string;
+}
+
+/** The slice of a lifecycle snapshot that the language server needs. */
+export function toModelSnapshot(snapshot: RuntimeLifecycleSnapshot): RuntimeModelSnapshot {
+  return {
+    runtimeMode: snapshot.status.runtimeMode,
+    runtimeState: snapshot.status.runtimeState,
+    endpoint: snapshot.status.endpoint,
+    endpointProbed: snapshot.status.endpointProbed ?? false,
+    endpointReachable: snapshot.status.endpointReachable,
+    starting: snapshot.starting,
+    projectEndpoint: snapshot.status.projectEndpoint ?? "",
+    projectReachable: snapshot.status.projectReachable ?? false,
+  };
 }
 
 /** The run targets and the selected one, as the language server answers them. Without its answer the Simulator is shown

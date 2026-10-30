@@ -282,6 +282,7 @@ mod tests {
             temps: Vec::new(),
             using: using.iter().map(|name| SmolStr::new(*name)).collect(),
             body: Vec::new(),
+            methods: Vec::new(),
         }
     }
 

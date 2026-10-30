@@ -6,11 +6,13 @@ use super::context::{
 };
 use crate::semantic::SemanticOutcome;
 
+mod dut_extends;
 mod interfaces;
 mod modifiers;
 mod overrides;
 mod shadowing;
 
+pub(in crate::db) use dut_extends::check_dut_extends_semantics;
 pub(in crate::db) use interfaces::check_interface_conformance;
 
 pub(super) fn visibility_label(visibility: Visibility) -> &'static str {

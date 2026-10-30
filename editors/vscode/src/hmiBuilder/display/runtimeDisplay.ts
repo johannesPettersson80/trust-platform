@@ -29,6 +29,7 @@ export interface TopBarModel {
   logo?: string;
   clock?: boolean;
   alarms?: boolean;
+  /** Kept as the file says it; the session sits in every top bar (§4.8 item 8). */
   user?: boolean;
   page_title?: boolean;
 }

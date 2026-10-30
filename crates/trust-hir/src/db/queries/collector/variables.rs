@@ -36,8 +36,19 @@ impl SymbolCollector<'_> {
     pub(super) fn collect_var_block(&mut self, node: &SyntaxNode) {
         let qualifier = var_qualifier_from_block(node);
         let is_constant = var_block_is_constant(node);
+        // Under the CODESYS profile a function block's members are public by default, but its
+        // in-out, temporary and external members stay restricted: they only mean something inside
+        // the block (docs/IEC_DEVIATIONS.md DEV-028).
+        let codesys_block = self.table.dialect().is_codesys()
+            && self
+                .current_parent()
+                .and_then(|parent_id| self.table.get(parent_id))
+                .is_some_and(|parent| matches!(parent.kind, SymbolKind::FunctionBlock));
         let visibility = match qualifier {
             VarQualifier::Input | VarQualifier::Output => Visibility::Public,
+            VarQualifier::InOut | VarQualifier::Temp | VarQualifier::External if codesys_block => {
+                Visibility::Protected
+            }
             _ => self.visibility_for_var_block(node),
         };
         let use_global_scope = qualifier == VarQualifier::Global && self.in_configuration_scope();
@@ -207,7 +218,7 @@ impl SymbolCollector<'_> {
             None => {
                 let scopes = scope_chain_for_node(expr);
                 let mut guard = FxHashSet::default();
-                let Ok(value) = self.try_eval_int_expr(expr, &scopes, &mut guard) else {
+                let Ok(value) = self.try_eval_int_expr(expr, &scopes, &mut guard, false) else {
                     return;
                 };
                 i128::from(value)
@@ -582,7 +593,7 @@ impl SymbolCollector<'_> {
                 }
                 let scopes = scope_chain_for_node(expr);
                 let mut guard = FxHashSet::default();
-                match self.try_eval_int_expr(expr, &scopes, &mut guard) {
+                match self.try_eval_int_expr(expr, &scopes, &mut guard, false) {
                     Ok(value) => {
                         self.check_integer_default_range(type_id, i128::from(value), expr);
                     }

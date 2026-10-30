@@ -1,18 +1,34 @@
 //! The sidebar's run targets and the one action of the selected target (specification 25 §5.1 and
-//! §6.1): the Simulator, then the runtimes this computer manages, then the runtimes added in
-//! `trust.runtime.fleetEndpoints`, then the runtime the extension is online with when no entry names
-//! it. A target is named by its id: `simulator`, a managed runtime's name or a control endpoint.
-//! The extension owns the processes of the Simulator and of a managed runtime, so they Start and
-//! Stop; it owns only the session of any other runtime, so that one Connects and Disconnects and is
-//! never stopped.
+//! §6.1): the Simulator, then the runtimes this computer manages, then the workspace project's own
+//! runtime while it runs outside VS Code, then the runtimes added in
+//! `trust.runtime.fleetEndpoints`, then the runtime the extension is online with when no entry
+//! names it. A target is named by its id: `simulator`, a managed runtime's name, `project`, or a
+//! control endpoint. The extension owns the processes of the Simulator and of a managed runtime, so
+//! they Start and Stop; it owns only the session of any other runtime, so that one Connects and
+//! Disconnects and is never stopped.
 //!
 //! `selection` `{ snapshot, fleetEndpoints?, managed?, selectedId? }` answers `{ ok: true, options,
-//! remotes, selected, selectionValid }`: each option's id, label, kind and the control endpoint that
-//! selecting it points the runtime settings at; the configured runtimes; the selected target (the
-//! Simulator when `selectedId` names none) with its status, its status label and its primary action;
-//! whether `selectedId` names an option; and, while the extension is connected to a runtime (its
-//! session is attached, or it is online with a runtime that answers), the name the status bar gives
-//! that runtime (`connectedLabel`, `null` when it is connected to none).
+//! remotes, selected, selectionValid }`: each option's id, label, kind, the control endpoint that
+//! selecting it points the runtime settings at and whether it is the project's own runtime; the
+//! configured runtimes; the selected target (the Simulator when `selectedId` names none) with its
+//! status, its status label and its primary action; whether `selectedId` names an option; and,
+//! while the extension is connected to a runtime (its session is attached, or it is online with a
+//! runtime that answers), the name the status bar gives that runtime (`connectedLabel`, `null` when
+//! it is connected to none). The project's control endpoint as `selectedId` names the project's
+//! entry.
+//!
+//! `select` `{ snapshot, id, endpoint? }` answers what selecting target `id`, whose control
+//! endpoint is `endpoint`, does (§5.1): `{ ok: true, changesTarget, settings, endpoint }`.
+//! `changesTarget` says that it is another target than the one the runtime settings are on, so a
+//! session ends first and a failure reported for the previous target is forgotten. `settings` is
+//! `online` at `endpoint` (empty for the project's own runtime, so that each connection asks for
+//! its endpoint again), `simulate`, or `keep`.
+//!
+//! `stop` `{ snapshot }` answers what Stop or Disconnect does while the extension holds no session
+//! (§5.1): `{ ok: true, settings, message }`. A runtime the extension is connected to without a
+//! session is left by turning the control endpoint off (`settings` `disableEndpoint`, `Runtime
+//! endpoint disabled.`); with no runtime connected nothing changes (`keep`, `Runtime already
+//! stopped.`).
 
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -23,6 +39,8 @@ use super::{decode, endpoint::remote_label};
 
 /// The id of the Simulator.
 pub(super) const SIMULATOR: &str = "simulator";
+/// The id of the workspace project's own runtime (specification 25 §5.1).
+pub(super) const PROJECT: &str = "project";
 
 /// The lifecycle snapshot of the extension: the runtime settings and the debug session.
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -34,12 +52,21 @@ pub(super) struct Snapshot {
     pub(super) runtime_state: String,
     #[serde(default)]
     pub(super) endpoint: String,
+    /// Whether Live Values probed the configured endpoint in this refresh; `endpoint_reachable` is
+    /// a probe's answer only then.
     #[serde(default)]
-    pub(super) endpoint_configured: bool,
+    pub(super) endpoint_probed: bool,
     #[serde(default)]
     pub(super) endpoint_reachable: bool,
     #[serde(default)]
     pub(super) starting: bool,
+    /// The workspace project's own control endpoint, as `trust-runtime ctl --project <dir>
+    /// endpoint --json` reports it (specification 11 §6.8.0a); empty when it reports none.
+    #[serde(default)]
+    pub(super) project_endpoint: String,
+    /// Whether the project's own runtime answers at that endpoint.
+    #[serde(default)]
+    pub(super) project_reachable: bool,
 }
 
 /// A managed runtime as the extension lists it.
@@ -64,6 +91,23 @@ struct Args {
     managed: Vec<Managed>,
     #[serde(default)]
     selected_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SelectArgs {
+    #[serde(default)]
+    snapshot: Snapshot,
+    #[serde(default)]
+    id: String,
+    #[serde(default)]
+    endpoint: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct StopArgs {
+    #[serde(default)]
+    snapshot: Snapshot,
 }
 
 /// Who owns a target's process.
@@ -93,6 +137,9 @@ struct Target {
     /// The control endpoint that selecting the target points the runtime settings at: none for the
     /// Simulator and for a managed runtime that does not run (specification 25 §5.1).
     run_endpoint: Option<String>,
+    /// Whether this is the workspace project's own runtime, which selecting puts the runtime
+    /// settings online with no endpoint of their own, so that each connection asks for it again.
+    project: bool,
 }
 
 /// The primary action of the selected target.
@@ -108,15 +155,22 @@ struct Primary {
 pub(super) fn answer(argument: Value) -> Result<Value, String> {
     let args: Args = decode(argument)?;
     let remotes = remotes(&args.fleet_endpoints);
-    let options = options(&remotes, &args.managed, &args.snapshot);
     let requested = args.selected_id.as_deref().unwrap_or_default();
-    let valid = options.iter().any(|option| option.id == requested);
+    let options = options(&remotes, &args.managed, &args.snapshot, requested);
+    // A Connect stores the endpoint it connected to; the project's endpoint is its runtime's entry.
     let chosen = options
         .iter()
         .find(|option| option.id == requested)
-        .unwrap_or(&options[0]);
+        .or_else(|| {
+            names_project(&args.snapshot, requested)
+                .then(|| options.iter().find(|option| option.project))
+                .flatten()
+        });
+    let valid = chosen.is_some();
+    let chosen = chosen.unwrap_or(&options[0]);
     let (status, status_label, primary) = match chosen.kind {
-        Kind::Remote => remote(chosen, &args.snapshot),
+        Kind::Remote if chosen.project => project(&args.snapshot),
+        Kind::Remote => remote(&chosen.id, &args.snapshot),
         Kind::Local => managed(chosen, &args.managed),
         Kind::Simulator => simulator(&args.snapshot),
     };
@@ -144,8 +198,50 @@ pub(super) fn answer(argument: Value) -> Result<Value, String> {
             },
         },
         "selectionValid": valid,
-        "connectedLabel": connected(&args.snapshot).then(|| connected_label(&args.snapshot.endpoint)),
+        "connectedLabel": connected(&args.snapshot).then(|| connected_label(&args.snapshot, &options)),
     }))
+}
+
+/// `{ ok: true, changesTarget, settings, endpoint }` for selecting the target in `argument`.
+pub(super) fn select(argument: Value) -> Result<Value, String> {
+    let args: SelectArgs = decode(argument)?;
+    let id = args.id.trim();
+    if id.is_empty() {
+        return Err("Selecting a target needs its id.".to_owned());
+    }
+    let snapshot = &args.snapshot;
+    let online = (snapshot.runtime_mode == "online").then(|| snapshot.endpoint.trim());
+    let endpoint = args.endpoint.as_deref().map(str::trim).unwrap_or_default();
+    // The settings that name the target: the project's runtime is followed with no endpoint of
+    // their own, a runtime with an endpoint is named, and a target without one leaves online mode.
+    let (same, settings, named) = if id == PROJECT {
+        let project = snapshot.project_endpoint.trim();
+        (!project.is_empty() && online == Some(project), "online", "")
+    } else if !endpoint.is_empty() {
+        (online == Some(endpoint), "online", endpoint)
+    } else if online.is_some() {
+        (false, "simulate", "")
+    } else {
+        (id == SIMULATOR, "keep", "")
+    };
+    Ok(json!({
+        "ok": true,
+        "changesTarget": !same,
+        "settings": settings,
+        "endpoint": named,
+    }))
+}
+
+/// What Stop or Disconnect does while the extension holds no session (§5.1): a runtime it is
+/// connected to is left by turning the control endpoint off; with none connected, nothing changes.
+pub(super) fn stop(argument: Value) -> Result<Value, String> {
+    let args: StopArgs = decode(argument)?;
+    let (settings, message) = if args.snapshot.runtime_state == "connected" {
+        ("disableEndpoint", "Runtime endpoint disabled.")
+    } else {
+        ("keep", "Runtime already stopped.")
+    };
+    Ok(json!({ "ok": true, "settings": settings, "message": message }))
 }
 
 /// Whether the extension is connected to a runtime: its session is attached, or it is online with a
@@ -155,10 +251,17 @@ fn connected(snapshot: &Snapshot) -> bool {
         || (snapshot.runtime_mode == "online" && snapshot.endpoint_reachable)
 }
 
-/// The name the status bar gives the runtime the extension is connected to: `runtime` for a local
+/// The name the status bar gives the runtime the extension is connected to: the project's own
+/// runtime by that name when the list holds it and the endpoint is its, `runtime` for another local
 /// control socket or no endpoint, else the endpoint without its scheme.
-fn connected_label(endpoint: &str) -> String {
-    let endpoint = endpoint.trim();
+fn connected_label(snapshot: &Snapshot, options: &[Target]) -> String {
+    let endpoint = snapshot.endpoint.trim();
+    if let Some(project) = options.iter().find(|option| option.project)
+        && !endpoint.is_empty()
+        && endpoint == snapshot.project_endpoint.trim()
+    {
+        return project.label.clone();
+    }
     let socket = endpoint
         .get(..7)
         .is_some_and(|scheme| scheme.eq_ignore_ascii_case("unix://"));
@@ -175,6 +278,7 @@ fn option_json(option: &Target) -> Value {
         "label": option.label,
         "kind": option.kind.name(),
         "runEndpoint": option.run_endpoint,
+        "project": option.project,
     })
 }
 
@@ -192,14 +296,22 @@ fn remotes(endpoints: &[Option<String>]) -> Vec<(String, String)> {
     remotes
 }
 
-/// The target list: the Simulator, the managed runtimes, the configured runtimes, and the runtime
-/// the extension is online with when no entry names it and no managed runtime has its endpoint.
-fn options(remotes: &[(String, String)], managed: &[Managed], snapshot: &Snapshot) -> Vec<Target> {
+/// The target list: the Simulator, the managed runtimes, the project's own runtime while it
+/// answers or while `selected` names it, the configured runtimes, and the runtime the extension is
+/// online with when no entry names it, no managed runtime has its endpoint and it is not the
+/// project's runtime.
+fn options(
+    remotes: &[(String, String)],
+    managed: &[Managed],
+    snapshot: &Snapshot,
+    selected: &str,
+) -> Vec<Target> {
     let mut options = vec![Target {
         id: SIMULATOR.to_owned(),
         label: "Simulator".to_owned(),
         kind: Kind::Simulator,
         run_endpoint: None,
+        project: false,
     }];
     for local in managed {
         let running = state_of(local) == ManagedState::Running;
@@ -209,6 +321,20 @@ fn options(remotes: &[(String, String)], managed: &[Managed], snapshot: &Snapsho
             kind: Kind::Local,
             run_endpoint: (running && !local.control_endpoint.trim().is_empty())
                 .then(|| local.control_endpoint.trim().to_owned()),
+            project: false,
+        });
+    }
+    let project_endpoint = snapshot.project_endpoint.trim();
+    let project_listed = (snapshot.project_reachable && !project_endpoint.is_empty())
+        || selected == PROJECT
+        || names_project(snapshot, selected);
+    if project_listed {
+        options.push(Target {
+            id: PROJECT.to_owned(),
+            label: "This project's runtime".to_owned(),
+            kind: Kind::Remote,
+            run_endpoint: None,
+            project: true,
         });
     }
     for (id, label) in remotes {
@@ -217,6 +343,7 @@ fn options(remotes: &[(String, String)], managed: &[Managed], snapshot: &Snapsho
             label: label.clone(),
             kind: Kind::Remote,
             run_endpoint: Some(id.clone()),
+            project: false,
         });
     }
     let online = if snapshot.runtime_mode == "online" {
@@ -227,12 +354,14 @@ fn options(remotes: &[(String, String)], managed: &[Managed], snapshot: &Snapsho
     if !online.is_empty()
         && !options.iter().any(|option| option.id == online)
         && !managed.iter().any(|local| local.control_endpoint == online)
+        && !(project_listed && online == project_endpoint)
     {
         options.push(Target {
             id: online.to_owned(),
             label: remote_label(online),
             kind: Kind::Remote,
             run_endpoint: Some(online.to_owned()),
+            project: false,
         });
     }
     options
@@ -279,10 +408,45 @@ fn simulator(snapshot: &Snapshot) -> (&'static str, &'static str, Primary) {
     ("stopped", "Stopped", enabled("start", "Start"))
 }
 
-/// Any other runtime: only its session is the extension's, so Connect and Disconnect, and Connect
-/// disabled with its reason while the runtime is known not to answer (specification 25 §5.1).
-fn remote(option: &Target, snapshot: &Snapshot) -> (&'static str, &'static str, Primary) {
-    let active = snapshot.endpoint == option.id;
+/// Whether `id` is the control endpoint of the project's own runtime.
+fn names_project(snapshot: &Snapshot, id: &str) -> bool {
+    let endpoint = snapshot.project_endpoint.trim();
+    !endpoint.is_empty() && id.trim() == endpoint
+}
+
+/// The status and the action of the project's own runtime: not running while it does not answer,
+/// else those of a runtime at its endpoint that answers.
+fn project(snapshot: &Snapshot) -> (&'static str, &'static str, Primary) {
+    let endpoint = snapshot.project_endpoint.trim();
+    let connected = snapshot.runtime_state == "connected" && snapshot.endpoint.trim() == endpoint;
+    if endpoint.is_empty() || !(snapshot.project_reachable || connected) {
+        return (
+            "unreachable",
+            "Not running",
+            Primary {
+                action: "connect",
+                label: "Connect",
+                enabled: false,
+                hint: Some("This project's runtime is not running."),
+            },
+        );
+    }
+    // The project's own probe tells whether it answers: the configured endpoint is not probed while
+    // `runtime.controlEndpointEnabled` is off, even when it is the project's.
+    remote(
+        endpoint,
+        &Snapshot {
+            endpoint_reachable: true,
+            ..snapshot.clone()
+        },
+    )
+}
+
+/// Any other runtime at `endpoint`: only its session is the extension's, so Connect and Disconnect,
+/// and Connect disabled with its reason while the runtime is known not to answer: its probe in this
+/// refresh failed (specification 25 §5.1).
+fn remote(endpoint: &str, snapshot: &Snapshot) -> (&'static str, &'static str, Primary) {
+    let active = snapshot.endpoint.trim() == endpoint;
     if active && snapshot.runtime_mode == "online" && snapshot.runtime_state == "connected" {
         return (
             "connected",
@@ -293,7 +457,7 @@ fn remote(option: &Target, snapshot: &Snapshot) -> (&'static str, &'static str, 
     if active && snapshot.starting {
         return ("starting", "Connecting…", transition("Connecting…"));
     }
-    if active && snapshot.endpoint_configured && !snapshot.endpoint_reachable {
+    if active && snapshot.endpoint_probed && !snapshot.endpoint_reachable {
         return (
             "unreachable",
             "Not reachable",

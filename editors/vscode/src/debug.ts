@@ -124,25 +124,6 @@ function withTimeout<T>(
   });
 }
 
-function summarizeReloadCommandMessage(message: string): string {
-  const trimmed = message.trim();
-  const sourceErrorCount = trimmed
-    .split(/\r?\n/)
-    .filter((line) => /\.(st|pou):/i.test(line)).length;
-  if (sourceErrorCount > 0) {
-    return `Compile failed — ${sourceErrorCount} error${sourceErrorCount === 1 ? "" : "s"}. Open Problems, then try again.`;
-  }
-  const firstLine =
-    trimmed.split(/\r?\n/).find((line) => line.trim())?.trim() ?? "";
-  if (!firstLine) {
-    return "Update did not report a reason.";
-  }
-  if (firstLine.length <= 160) {
-    return firstLine;
-  }
-  return `${firstLine.slice(0, 157).trimEnd()}...`;
-}
-
 // Same, for a DAP message (the launch request carries the config under `arguments`).
 function redactDapMessage(value: unknown): unknown {
   if (!value || typeof value !== "object") {
@@ -995,8 +976,8 @@ export function registerDebugAdapter(
         debugReloadEmitter.fire({ ok: true });
         return { ok: true };
       } catch (err) {
-        const rawMessage = err instanceof Error ? err.message : String(err);
-        const message = summarizeReloadCommandMessage(rawMessage);
+        // The debug adapter answers a failed reload with its summary (specification 25 §6.3).
+        const message = (err instanceof Error ? err.message : String(err)).trim();
         vscode.window.showErrorMessage(`Update failed: ${message}`);
         debugReloadEmitter.fire({ ok: false, message });
         return { ok: false, message };

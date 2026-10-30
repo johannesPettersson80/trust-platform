@@ -173,6 +173,55 @@ fn transitions_need_existing_ends_and_a_condition() {
 }
 
 #[test]
+fn a_transition_priority_is_a_whole_number_from_zero() {
+    // IEC 61131-3 Table 61 feature 2b numbers a selection's transitions, the lowest tested first
+    // (sfc-profile.md, "Rules of evolution"). 0, 2 and the texts "1" and " 3 " (as the editor's
+    // Priority field keeps them) are priorities; null and the blank text of an emptied field are
+    // none; -1, 1.5 and the texts "x" and "1.5" are refused, on the transition, with the value as
+    // written. Catches a negative or fractional number taken as a priority, a typed number refused
+    // as text, and a text that holds no whole number accepted.
+    let text = r#"{
+      "steps": [
+        { "id": "s", "name": "S", "initial": true }, { "id": "a", "name": "A" },
+        { "id": "b", "name": "B" }, { "id": "c", "name": "C" }
+      ],
+      "transitions": [
+        { "id": "t1", "condition": "x", "sourceStepId": "s", "targetStepId": "a", "priority": 0 },
+        { "id": "t2", "condition": "y", "sourceStepId": "s", "targetStepId": "b", "priority": 2 },
+        { "id": "t3", "condition": "z", "sourceStepId": "a", "targetStepId": "s", "priority": null },
+        { "id": "t4", "condition": "w", "sourceStepId": "b", "targetStepId": "s", "priority": -1 },
+        { "id": "t5", "condition": "v", "sourceStepId": "b", "targetStepId": "a", "priority": 1.5 },
+        { "id": "t6", "condition": "u", "sourceStepId": "a", "targetStepId": "b", "priority": "1" },
+        { "id": "t7", "condition": "q", "sourceStepId": "s", "targetStepId": "c", "priority": "" },
+        { "id": "t8", "condition": "r", "sourceStepId": "c", "targetStepId": "a", "priority": " 3 " },
+        { "id": "t9", "condition": "p", "sourceStepId": "c", "targetStepId": "b", "priority": "x" },
+        { "id": "t10", "condition": "o", "sourceStepId": "a", "targetStepId": "c", "priority": "1.5" }
+      ]
+    }"#;
+    let issues = validate(&program(text)).expect("an SFC");
+    assert_eq!(
+        ids(&issues),
+        ["priority_t4", "priority_t5", "priority_t9", "priority_t10"]
+    );
+    assert_eq!(
+        issues
+            .iter()
+            .map(|issue| issue.message.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "Transition priority -1 is not a whole number from 0; the lowest number is tested first.",
+            "Transition priority 1.5 is not a whole number from 0; the lowest number is tested first.",
+            "Transition priority \"x\" is not a whole number from 0; the lowest number is tested first.",
+            "Transition priority \"1.5\" is not a whole number from 0; the lowest number is tested first."
+        ]
+    );
+    assert!(issues
+        .iter()
+        .all(|issue| issue.kind == IssueKind::Transition));
+    assert_eq!(issues[2].element.as_deref(), Some("t9"));
+}
+
+#[test]
 fn a_split_needs_one_incoming_transition_and_only_branch_targets() {
     // Two transitions enter the split, it reaches branch A twice, never reaches B, and also leads
     // to C, which is not a branch. Worked by hand: incoming count, then branch A (twice), branch B

@@ -18,20 +18,6 @@ export type { ControlLessonMetadata } from "./controlLesson";
 
 export type ExampleHardware = "none" | "twincat" | "raspberrypi" | string;
 
-/**
- * Superseded by `controlModulesFromEntries` below (W-04): this hand list of five
- * levels split the fourteen real course modules across unrelated titles and no
- * longer drives the gallery. Left exported, unchanged, only because it is still
- * a load-bearing fixture for other test coverage outside this slice's ownership.
- */
-export const CONTROL_COURSES = [
-  { id: "foundation", title: "Feedback foundations", range: "Lessons 1–9", minutes: 25, summary: "Observe feedback, then progress from on/off and P control to practical PI limits." },
-  { id: "modelling", title: "Modelling and classical analysis", range: "Lessons 10–23", minutes: 35, summary: "Build, identify, validate, and analyse dynamic models before choosing a controller." },
-  { id: "practitioner", title: "Industrial PID and loop engineering", range: "Lessons 24–40", minutes: 35, summary: "Tune, commission, diagnose, and combine industrial control-loop structures." },
-  { id: "advanced", title: "Digital and advanced industrial control", range: "Lessons 41–60", minutes: 40, summary: "Handle sampling, unstable and coupled plants, scheduling, delay, and constraints." },
-  { id: "modern", title: "Modern control", range: "Lessons 61–84", minutes: 45, summary: "Learn multivariable, state-space, estimation, optimal, robust, adaptive, nonlinear, and predictive control." },
-] as const;
-
 export type GalleryView =
   | { readonly kind: "landing" }
   | { readonly kind: "browse" }

@@ -67,8 +67,9 @@ fn a_connect_without_an_endpoint() {
 }
 
 /// A runtime that accepts no connection is stale, its message naming the address, or the stopped
-/// local runtime for a Unix socket; its failure belongs to its endpoint, so that its node shows it.
-/// Catches a raw `unix://` path in the message, and a failure without its endpoint.
+/// local runtime for a Unix socket; its failure belongs to its endpoint, so that its node shows it,
+/// and its remedy is Devices & Connections (specification 25 §5.1). Catches a raw `unix://` path in
+/// the message, a failure without its endpoint, and an unreachable runtime offered no remedy.
 #[test]
 fn a_runtime_that_accepts_no_connection() {
     let runtime = told(false, Outcome::Result(json!({})));
@@ -81,6 +82,7 @@ fn a_runtime_that_accepts_no_connection() {
             "message": "Runtime is not reachable at 10.0.0.2:9901.",
             "detail": "tcp://10.0.0.2:9901",
             "endpoint": "tcp://10.0.0.2:9901",
+            "remedy": "openDevices",
         })
     );
     let local = connect_to(json!({ "endpoint": "unix:///tmp/r.sock" }), &runtime);
@@ -88,12 +90,14 @@ fn a_runtime_that_accepts_no_connection() {
         local["failure"]["message"],
         "Local runtime is stopped. Start it to connect."
     );
+    assert_eq!(local["failure"]["remedy"], "openDevices");
     assert_eq!(runtime.asked.get(), 0);
 }
 
 /// A credential refusal is a permission failure that says what to do: no token sent or a missing
-/// one asks for a token, a rejected one asks to check it (specification 25 §6.4). Catches a
-/// rejected token reported as missing.
+/// one asks for a token, a rejected one asks to check it (specification 25 §6.4), and its remedy is
+/// a token stored for the endpoint, told by the refusal's code (§5.1). Catches a rejected token
+/// reported as missing, and a refused token offered no Set auth token.
 #[test]
 fn credential_refusals() {
     let endpoint = "tcp://10.0.0.2:9901";
@@ -107,6 +111,7 @@ fn credential_refusals() {
         answer["failure"]["message"],
         "No auth token provided — this runtime requires one."
     );
+    assert_eq!(answer["failure"]["remedy"], "setAuthToken");
     let rejected = told(
         true,
         refused(Some(AuthFailure::Rejected), Some("invalid_auth_token")),
@@ -116,16 +121,21 @@ fn credential_refusals() {
         answer["failure"]["message"],
         "Auth token rejected — check it and try again."
     );
+    assert_eq!(answer["failure"]["remedy"], "setAuthToken");
     let tokenless = connect_to(json!({ "endpoint": endpoint }), &rejected);
     assert_eq!(
         tokenless["failure"]["message"],
         "No auth token provided — this runtime requires one."
     );
     assert_eq!(tokenless["failure"]["endpoint"], endpoint);
+    assert_eq!(tokenless["failure"]["remedy"], "setAuthToken");
 }
 
-/// Any other failed `status` is a stale runtime that names the failure. Catches a refusal without
-/// its code in the message.
+/// Any other failed `status` is a stale runtime that names the failure. A runtime that refuses the
+/// request, or whose answer does not read, did answer, so it has no remedy; one that does not answer
+/// is not reachable, so its remedy is Devices & Connections (specification 25 §5.1). Catches a
+/// refusal without its code in the message, a refusal offered Devices & Connections as if the
+/// runtime were not reachable, and a request that timed out offered nothing.
 #[test]
 fn a_failed_status() {
     let endpoint = "tcp://10.0.0.2:9901";
@@ -151,6 +161,19 @@ fn a_failed_status() {
     assert_eq!(
         broken["failure"]["message"],
         "Runtime status check failed: control request timeout"
+    );
+    assert_eq!(broken["failure"]["remedy"], "openDevices");
+    let unreadable = connect_to(
+        json!({ "endpoint": endpoint }),
+        &told(true, Outcome::Malformed("expected value".to_owned())),
+    );
+    assert_eq!(
+        unreadable["failure"],
+        json!({
+            "kind": "stale_runtime",
+            "message": "Runtime status check failed: expected value",
+            "endpoint": endpoint,
+        })
     );
 }
 

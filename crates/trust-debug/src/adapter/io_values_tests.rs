@@ -56,6 +56,48 @@ fn values_are_shown_in_iec_text() {
     assert_eq!(shown.inputs[0].writable, Some(true));
 }
 
+/// The runtime's value type wins, in capitals; without one, the address's size names it, also
+/// without a size prefix (`%I0.3` is a bit); a byte window or a global has none. Catches the type
+/// taken from the address over the runtime's (`%IW0` declared `INT`), a bit address without a size
+/// prefix left without a type, and a global given one.
+#[test]
+fn a_value_type_is_the_runtimes_else_the_one_its_address_names() {
+    let body = IoStateEventBody {
+        scan: None,
+        inputs: vec![
+            entry("%IW0", "Int(-12)", Some("int"), None),
+            entry("%IX0.1", "Bool(true)", None, None),
+            entry("%I0.3", "Bool(false)", None, None),
+            entry("%IB2", "Byte(5)", None, None),
+            entry("%IW4", "Word(7)", None, None),
+            entry("%ID8", "DWord(9)", None, None),
+            entry("%IL16", "LWord(11)", None, None),
+            entry("global:Speed", "Real(1.5)", None, None),
+        ],
+        outputs: Vec::new(),
+        memory: Vec::new(),
+    };
+    let shown = display_io_state(&body);
+    let types: Vec<Option<&str>> = shown
+        .inputs
+        .iter()
+        .map(|entry| entry.value_type.as_deref())
+        .collect();
+    assert_eq!(
+        types,
+        [
+            Some("INT"),
+            Some("BOOL"),
+            Some("BOOL"),
+            Some("BYTE"),
+            Some("WORD"),
+            Some("DWORD"),
+            Some("LWORD"),
+            None,
+        ]
+    );
+}
+
 /// An entry without an address or a value is left out, and the globals an ADS tag binds are listed
 /// apart, in the order inputs, outputs, memory. Catches an ADS tag shown twice, among the outputs
 /// and as an ADS value, and an empty row.

@@ -33,12 +33,13 @@
 //! with the findings so far. Run time: the validation duration of the Apply observation, 24 s at real time, plus the verbs' own work.
 //!
 //! The two other tests are Identify on the same group (specification 35, C7 "Identify", A6.2, A6.3, B3.4; annex E6.4 and E6.9). Their
-//! copy of the program starts in Auto with the members' Manual commands at 5 % and 7 %, so that an open-loop method must move the whole
+//! copy of the program starts in Auto with the members' Manual commands at 30 % and 40 %, so that an open-loop method must move the whole
 //! group to Manual and return it:
 //! - the mode change alone drives `IdentificationMode`, the engine's own, against the runtime: one transfer of the group's binding to
 //!   Manual, whose tracking the runtime accepts only when it names the second member's setpoint, Manual command and output
-//!   (`validate_declared_states`); then the writes back in Manual of both members' setpoints and Manual commands, as the end of a
-//!   campaign does, and the return to Auto. It needs no experiment, so it takes a few seconds at real time;
+//!   (`validate_declared_states`); then the write-back in Manual of both members' setpoints, as the end of a campaign does, and the
+//!   return to Auto from the outputs the group holds, whose entry sets each Manual command to its output (C1). It needs no experiment,
+//!   so it takes a few seconds at real time;
 //! - the campaign runs `controlStudio/identify` on the group, whose inputs declare an identification step of their own (`experimentStep`):
 //!   it steps the two plant inputs in turn in one recording, fits the multivariable model, and returns the group to Auto.
 //!
@@ -98,8 +99,10 @@ const SETPOINTS: [&str; 2] = ["P1.Setpoint", "P1.SecondarySetpoint"];
 const COMMANDS: [&str; 2] = ["P1.ManualOutput", "P1.SecondaryManualOutput"];
 /// The outputs of the members.
 const OUTPUTS: [&str; 2] = ["P1.ManipulatedValue", "P1.SecondaryManipulatedValue"];
-/// The Manual commands that the program of the mode test holds beside Auto, in member order (`prepare_source_in_auto`).
-const FOUND_COMMANDS: [f64; 2] = [5.0, 7.0];
+/// The Manual commands that the program of the mode test holds beside Auto, in member order (`prepare_source_in_auto`). They lie above
+/// every output the group holds in these tests, from 0 % to the campaign's [`IDENTIFY_STEP`], so a Manual command that the Auto entry set
+/// to a held output is never taken for one written back.
+const FOUND_COMMANDS: [f64; 2] = [30.0, 40.0];
 /// The longest that one operation may run; the Apply observation lasts the validation duration of 24 s at real time, and the Identify
 /// campaign of the group steps two plant inputs in turn within `IDENTIFY_SECONDS`.
 const LIMIT: Duration = Duration::from_secs(300);
@@ -285,10 +288,10 @@ fn prepare_source(folder: &Path) {
 }
 
 /// Copies the fixture to `folder` as [`prepare_source`] does, and starts its program `Main` in Auto with both setpoints at the plants'
-/// resting point of 20 degC and its members' Manual commands at 5 % and 7 %. The fixture starts in Manual with the commands at rest at
+/// resting point of 20 degC and its members' Manual commands at 30 % and 40 %. The fixture starts in Manual with the commands at rest at
 /// zero, which leaves a mode change nothing to return. The program sets the located variables in its first scan, as the lessons'
-/// programs do, and never writes a Manual command again, so the values it holds beside Auto are the values Identify finds and must
-/// write back (A6.2).
+/// programs do, and never writes a Manual command again, so the values it holds beside Auto are the values Identify finds. Found in
+/// Auto, they are not written back: the Auto entry sets each to the output its member holds (A6.2, C1).
 fn prepare_source_in_auto(folder: &Path) {
     prepare_source(folder);
     let path = folder.join("src").join("main.st");
@@ -297,12 +300,12 @@ fn prepare_source_in_auto(folder: &Path) {
         .replacen("AutoMode : BOOL := FALSE;", "AutoMode : BOOL := TRUE;", 1)
         .replacen(
             "\n    InitialState.Setpoint := Setpoint;",
-            "\n    Setpoint := LREAL#20.0;\n    ManualOutput := LREAL#5.0;\n    SecondarySetpoint := LREAL#20.0;\n    SecondaryManualOutput := LREAL#7.0;\n    InitialState.Setpoint := Setpoint;",
+            "\n    Setpoint := LREAL#20.0;\n    ManualOutput := LREAL#30.0;\n    SecondarySetpoint := LREAL#20.0;\n    SecondaryManualOutput := LREAL#40.0;\n    InitialState.Setpoint := Setpoint;",
             1,
         );
     assert!(
         started.contains("AutoMode : BOOL := TRUE;")
-            && started.contains("\n    SecondaryManualOutput := LREAL#7.0;"),
+            && started.contains("\n    SecondaryManualOutput := LREAL#40.0;"),
         "the fixture's program declares the variables and the first scan that this test starts from"
     );
     fs::write(&path, started).expect("the copy's program is written");
@@ -363,10 +366,13 @@ fn all_close(actual: &[f64], expected: &[f64]) -> bool {
             .all(|(measured, wanted)| close(*measured, *wanted))
 }
 
-/// What a group returned to the mode it was found in shows (A6.2, C1): it is in Auto, both setpoints are as they were found, and both
-/// outputs stand near the Manual commands that were written back, which `prepare_source_in_auto` made 5 % and 7 %. The Auto entry
-/// continues from those commands, and the loop then answers the error that they made, which takes seconds; without the write-back the
-/// outputs would stay at zero, where the experiments left the commands.
+/// What a group returned to the mode it was found in shows (A6.2, C1): it is in Auto and both setpoints are as they were found. A group
+/// found in Auto enters Auto from the outputs it holds, the entry setting each Manual command to that output, so the Manual commands
+/// `prepare_source_in_auto` made 30 % and 40 % are not written back (specification 35, Identify, Group, 29 October 2026). Every output
+/// the group holds lies between 0 %, the plants' resting input where the mode test leaves them, and the campaign's step of
+/// [`IDENTIFY_STEP`], wherever in its return the entry comes (member 2 held 2.5 % on macOS, 30 October 2026); so both outputs and both
+/// Manual commands stay below half the found commands. Catches the former write-back, which first stepped each output to its stale
+/// Manual command (lesson 30's heater went from 47.55 % to 75 %).
 fn check_returned_to_auto(
     findings: &mut Findings,
     lab: &Lab,
@@ -394,8 +400,16 @@ fn check_returned_to_auto(
         outputs
             .iter()
             .zip(FOUND_COMMANDS)
-            .all(|(output, found_command)| *output > 0.25 * found_command),
-        format!("both members' outputs stand near the Manual commands that were written back (A6.2): {outputs:?}"),
+            .all(|(output, found_command)| *output < 0.5 * found_command),
+        format!("both members' outputs stay where the group held them, not at the found Manual commands (C1): {outputs:?}"),
+    );
+    let commands = numbers(&returned, &COMMANDS);
+    findings.check(
+        commands
+            .iter()
+            .zip(FOUND_COMMANDS)
+            .all(|(command, found_command)| *command < 0.5 * found_command),
+        format!("the Auto entry set both Manual commands to the held outputs, not back to 30 and 40 (C1): {commands:?}"),
     );
 }
 
@@ -797,8 +811,9 @@ fn pid_group_tunes_validates_applies_and_restores_two_members_without_changing_t
 
 /// Identify's mode change on the PID group of the fixture, against the runtime (specification 35, C7 "Identify", A6.2, A6.3; annex E6.4,
 /// E6.9 and E11.9): the group found in Auto moves to Manual through one transfer that the runtime accepts, each member's Manual command
-/// holds the output it drives, and the return writes both members' setpoints and Manual commands back in Manual, enters Auto again,
-/// clears its checkpoint from the journal, and leaves both outputs where the found commands put them.
+/// holds the output it drives, and the return writes both members' setpoints back in Manual, enters Auto again from the outputs the group
+/// holds (the found Manual commands are not written back, C1), clears its checkpoint from the journal, and leaves both outputs where the
+/// group held them.
 #[test]
 fn identify_moves_the_pid_group_to_manual_and_back_to_auto_through_the_runtime() {
     let source = std::env::temp_dir().join(format!(
@@ -822,7 +837,7 @@ fn identify_moves_the_pid_group_to_manual_and_back_to_auto_through_the_runtime()
             .expect("the runtime reports the group's transfer status (E6.3)")
     };
 
-    // The group as Identify finds it: in Auto, with the Manual commands at 5 % and 7 %.
+    // The group as Identify finds it: in Auto, with the Manual commands at 30 % and 40 %.
     let found = status();
     findings.require(
         lab.is_auto() == Some(true),
@@ -830,7 +845,7 @@ fn identify_moves_the_pid_group_to_manual_and_back_to_auto_through_the_runtime()
     );
     findings.check(
         all_close(&numbers(&found, &COMMANDS), &FOUND_COMMANDS),
-        format!("the group is found with its Manual commands at 5 and 7: {found:?}"),
+        format!("the group is found with its Manual commands at 30 and 40: {found:?}"),
     );
 
     let journal = Mutex::new(
@@ -875,7 +890,8 @@ fn identify_moves_the_pid_group_to_manual_and_back_to_auto_through_the_runtime()
         "the mode found is journaled while the group is in Manual (A6.2, A8.6)",
     );
 
-    // The return: both members' commands and setpoints are written back in Manual, the group enters Auto, and the checkpoint is cleared.
+    // The return: both members' setpoints are written back in Manual, the group enters Auto from the outputs it holds, and the
+    // checkpoint is cleared.
     let returned = mode.restore();
     findings.require(
         returned.is_ok(),

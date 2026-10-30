@@ -31,13 +31,16 @@ const DEMO: &str = r#"{
 
 #[test]
 fn a_two_step_chart_runs_its_action_with_final_scan_and_evolves() {
-    // Worked by hand from sfc-profile.md: step flags (TRUE for Init), the flag structure of
-    // SetOutput, one transition flag; SetOutput's control (A is Q of the previous scan OR Q; Q is
+    // Worked by hand from sfc-profile.md: step flags (TRUE for Init), each step's structure (X
+    // TRUE for Init) and timer, the flag structure of SetOutput, one transition flag; each active
+    // step's T from its timer; SetOutput's control (A is Q of the previous scan OR Q; Q is
     // Run's flag, its N input) and statements under A; the transition tested against the step
-    // flags (TRUE adds nothing); the evolution leaves Init and enters Run; the TYPE of the flag
-    // structures after the block; %QX0.0 lowered to a global. Catches the old companion (an IF per
-    // step that ran an action only while its step was active, and moved steps one transition at a
-    // time), a missing final scan, and an address left in the body.
+    // flags (TRUE adds nothing); the evolution leaves Init and enters Run; a step active now whose X
+    // is still FALSE was entered in this scan and gets T#0s (6.7.2), then each step's X is its flag;
+    // the TYPEs of the step and the flag structures after the block; %QX0.0 lowered to a global.
+    // Catches the old companion (an IF per step that ran an action only while its step was active,
+    // and moved steps one transition at a time), a missing final scan, an address left in the
+    // body, and a step entered again that shows its previous T.
     let generated = generate(&program(DEMO), "sfc-demo").expect("companion");
     assert_eq!(
         generated.function_block,
@@ -47,11 +50,22 @@ fn a_two_step_chart_runs_its_action_with_final_scan_and_evolves() {
          \x20 // Steps: TRUE while the step is active (IEC 61131-3 6.7.2)\n\
          \x20 Init_active : BOOL := TRUE;\n\
          \x20 Run_active : BOOL := FALSE;\n\
+         \x20 // Steps as Table 54 names them: X the step flag, T the elapsed time, from the timer\n\
+         \x20 Init : FB_sfc_demo_SFC_STEP := (X := TRUE);\n\
+         \x20 SFC_S1 : TON;\n\
+         \x20 Run : FB_sfc_demo_SFC_STEP;\n\
+         \x20 SFC_S2 : TON;\n\
          \x20 // Actions: the flags Q and A and the action control (6.7.4.6)\n\
          \x20 SetOutput : FB_sfc_demo_SFC_ACTION;\n\
          \x20 // Transitions: TRUE after a scan in which the transition cleared (6.7.5)\n\
          \x20 SFC_T1 : BOOL;\n\
          END_VAR\n\n\
+         // Step elapsed times (IEC 61131-3 6.7.2, Table 54): T counts while the step is active,\n\
+         // starts again from T#0s when the step is entered, and keeps its value while it is inactive.\n\
+         SFC_S1(IN := Init_active, PT := T#24d20h31m23s647ms);\n\
+         IF Init_active THEN\n  Init.T := SFC_S1.ET;\nEND_IF;\n\
+         SFC_S2(IN := Run_active, PT := T#24d20h31m23s647ms);\n\
+         IF Run_active THEN\n  Run.T := SFC_S2.ET;\nEND_IF;\n\n\
          // Actions with final scan (IEC 61131-3 6.7.4.6, Table 60 feature 1): A is TRUE while Q is\n\
          // and in the scan after Q falls, and an action's statements run while its A is TRUE.\n\n\
          // Action SetOutput: N Run\n\
@@ -66,7 +80,19 @@ fn a_two_step_chart_runs_its_action_with_final_scan_and_evolves() {
          // Evolution: the steps before each clearing transition are left, then the steps after it entered.\n\
          Init_active := Init_active AND NOT SFC_T1;\n\
          Run_active := Run_active OR SFC_T1;\n\n\
+         // Step flags X (Table 54): each step's <step>_active after the evolution; a step entered in\n\
+         // this scan starts its elapsed time T again from T#0s (IEC 61131-3 6.7.2).\n\
+         IF Init_active AND NOT Init.X THEN\n  Init.T := T#0s;\nEND_IF;\n\
+         Init.X := Init_active;\n\
+         IF Run_active AND NOT Run.X THEN\n  Run.T := T#0s;\nEND_IF;\n\
+         Run.X := Run_active;\n\n\
          END_FUNCTION_BLOCK\n\n\
+         TYPE FB_sfc_demo_SFC_STEP :\n\
+         STRUCT\n\
+         \x20 X : BOOL; // the step flag: TRUE while the step is active\n\
+         \x20 T : TIME; // the step elapsed time: since the step was entered, kept while it is inactive\n\
+         END_STRUCT;\n\
+         END_TYPE\n\n\
          TYPE FB_sfc_demo_SFC_ACTION :\n\
          STRUCT\n\
          \x20 Q : BOOL; // the action flag\n\
@@ -90,7 +116,7 @@ fn a_two_step_chart_runs_its_action_with_final_scan_and_evolves() {
 fn variables_keep_a_present_initial_value_and_a_safe_comment() {
     // `initialValue` is written when it is present and not empty or zero ("0" is present, the
     // number 0 is not); a comment cannot be broken onto a second line. A chart without actions or
-    // transitions has only its step flags. Catches a generator that drops "0", writes ":= 0" for a
+    // transitions has only its steps: their flags, structures, timers and elapsed times. Catches a generator that drops "0", writes ":= 0" for a
     // numeric zero, or lets a newline end the `//` comment.
     let text = r#"{
       "name": "Vars",
@@ -109,8 +135,25 @@ fn variables_keep_a_present_initial_value_and_a_safe_comment() {
          VAR\n\
          \x20 // Steps: TRUE while the step is active (IEC 61131-3 6.7.2)\n\
          \x20 S_active : BOOL := TRUE;\n\
+         \x20 // Steps as Table 54 names them: X the step flag, T the elapsed time, from the timer\n\
+         \x20 S : FB_vars_SFC_STEP := (X := TRUE);\n\
+         \x20 SFC_S1 : TON;\n\
          END_VAR\n\n\
-         END_FUNCTION_BLOCK"
+         // Step elapsed times (IEC 61131-3 6.7.2, Table 54): T counts while the step is active,\n\
+         // starts again from T#0s when the step is entered, and keeps its value while it is inactive.\n\
+         SFC_S1(IN := S_active, PT := T#24d20h31m23s647ms);\n\
+         IF S_active THEN\n  S.T := SFC_S1.ET;\nEND_IF;\n\n\
+         // Step flags X (Table 54): each step's <step>_active after the evolution; a step entered in\n\
+         // this scan starts its elapsed time T again from T#0s (IEC 61131-3 6.7.2).\n\
+         IF S_active AND NOT S.X THEN\n  S.T := T#0s;\nEND_IF;\n\
+         S.X := S_active;\n\n\
+         END_FUNCTION_BLOCK\n\n\
+         TYPE FB_vars_SFC_STEP :\n\
+         STRUCT\n\
+         \x20 X : BOOL; // the step flag: TRUE while the step is active\n\
+         \x20 T : TIME; // the step elapsed time: since the step was entered, kept while it is inactive\n\
+         END_STRUCT;\n\
+         END_TYPE"
     );
 }
 
@@ -149,8 +192,42 @@ fn a_parallel_split_and_join_activate_and_leave_all_branches_together() {
              A_active := (A_active AND NOT SFC_T2) OR SFC_T1;\n\
              B_active := (B_active AND NOT SFC_T2) OR SFC_T1;\n\
              Done_active := Done_active OR SFC_T2;\n\n\
+             // Step flags X (Table 54): each step's <step>_active after the evolution; a step entered in\n\
+             // this scan starts its elapsed time T again from T#0s (IEC 61131-3 6.7.2).\n\
+             IF Start_active AND NOT Start.X THEN\n  Start.T := T#0s;\nEND_IF;\n\
+             Start.X := Start_active;\n\
+             IF A_active AND NOT A.X THEN\n  A.T := T#0s;\nEND_IF;\n\
+             A.X := A_active;\n\
+             IF B_active AND NOT B.X THEN\n  B.T := T#0s;\nEND_IF;\n\
+             B.X := B_active;\n\
+             IF Done_active AND NOT Done.X THEN\n  Done.T := T#0s;\nEND_IF;\n\
+             Done.X := Done_active;\n\n\
              END_FUNCTION_BLOCK"
         ),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_step_named_with_a_keyword_has_only_its_flag() {
+    // An IEC 61131-3 keyword is no variable name: the step On (ON is the RESOURCE separator) keeps
+    // On_active but is no variable `On`, while Run, the second step, is the variable Run with the
+    // timer SFC_S2 of its position. Catches a companion that declares `On : FB_k_SFC_STEP`, which
+    // the IEC rules refuse to compile, and timers numbered by the readable steps only.
+    let text = r#"{
+      "name": "K",
+      "steps": [ { "id": "on", "name": "On", "initial": true }, { "id": "run", "name": "Run" } ],
+      "transitions": [ { "id": "t1", "condition": "go", "sourceStepId": "on", "targetStepId": "run" } ]
+    }"#;
+    let text = function_block(text, "k");
+    assert!(text.contains("  On_active : BOOL := TRUE;\n"), "{text}");
+    assert!(
+        text.contains("  Run : FB_k_SFC_STEP;\n  SFC_S2 : TON;\n"),
+        "{text}"
+    );
+    assert!(text.contains("Run.X := Run_active;"), "{text}");
+    assert!(
+        !text.contains("On : ") && !text.contains("On.X") && !text.contains("SFC_S1"),
         "{text}"
     );
 }

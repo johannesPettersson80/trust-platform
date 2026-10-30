@@ -215,6 +215,11 @@ impl WebIdeState {
         files.sort();
 
         let mut db = trust_hir::Database::new();
+        // The project's vendor profile selects the language rules, as it does for the build; a
+        // misspelled one, which the build refuses, is shown under the IEC rules.
+        db.set_dialect(crate::harness::dialect_of(
+            crate::native::conversion_profile(&root).unwrap_or_default(),
+        ));
         let mut file_id_by_path = BTreeMap::new();
         let mut path_by_file_id = HashMap::new();
         let mut text_by_file = HashMap::new();

@@ -262,7 +262,8 @@ its answer:
 - adding, duplicating, moving or removing effects and events;
 - changing an effect's preset, target or generator;
 - changing an event's action;
-- entering a temperature-example value; and
+- entering a temperature-example value;
+- typing into a Dynamics field; and
 - confirming the example's units.
 
 Labels, help, defaults and choices come from the editor tables of
@@ -1026,7 +1027,7 @@ candidate:
 - `plant.edit` takes `draft`, the editor's draft object. The optional
   `action` (`{"kind": ...}`) names one rule-bearing edit of Section 6.1:
   `open`, `choose_starting_point`, `apply_starting_point`,
-  `set_temperature_value`, `confirm_temperature_units`, `bind_port`,
+  `set_temperature_value`, `set_dynamics_text`, `confirm_temperature_units`, `bind_port`,
   `resize_state_space`, `paste_matrix`, `append_point`, `move_point`,
   `add_effect`, `apply_effect_preset`, `duplicate_effect`, `move_effect`,
   `remove_effect`, `set_effect_target`, `set_effect_generator`, `add_event`,
@@ -1041,6 +1042,15 @@ candidate:
   - `can_save`, true when there is no issue;
   - `view`, what the editor shows besides the values; and
   - `candidate`, the plant candidate Save sends.
+
+  `set_dynamics_text` with `key` and `text` gives the Dynamics field `key` of
+  the draft's model the value its typed text spells. Empty text holds no
+  value, and `initial_state` an empty list. A number field holds the number
+  that JavaScript's `Number` reads (`0x10` is 16, `1e3` is 1000, surrounding
+  spaces are ignored), or `null` when that is not finite, which the checks
+  report. A list or matrix field holds the JSON value of the text, else the
+  text itself, which the checks report. The draft's `modelValuesTouched`
+  becomes true. A key that the model has no field for is `malformed_request`.
 
   An unknown action or a malformed draft is `malformed_request`.
 - `plant.signals` takes the `compiled` answer of `trust-lsp.hmiBindings`, the

@@ -64,6 +64,7 @@ pub(super) fn body<'a>(
         Work::Program(index) => program_body(context, model, *index),
         Work::FunctionBlock(ty) => block_body(context, model, *ty),
         Work::Method(owner, method, ty) => method_pou_body(context, model, *owner, method, *ty),
+        Work::ProgramMethod(index, method) => program_method_body(context, model, *index, method),
         Work::Function(def) => function_body(context, model, def),
     }
 }
@@ -151,7 +152,9 @@ fn block_body(
             .find(|member| member.via.is_empty() && member.name.eq_ignore_ascii_case(input))
             .map(|member| format!("me.{}", member.field()))
     })?;
-    if let Some(list) = body_of(&node) {
+    // Its statements may stand before and after its methods and actions, each run of them a
+    // statement list of its own, run in source order (specification 04 §8).
+    for list in node.children().filter(|child| child.kind() == K::StmtList) {
         lowerer.body(&list)?;
     }
     lowerer.line("Ok(())");
@@ -172,7 +175,7 @@ fn method_pou_body(
     ty: Ty,
 ) -> Result<GeneratedBody, NativeError> {
     let info = model.types.info(ty).clone();
-    let Some((file, list)) = method_body(context.front, owner, method) else {
+    let Some((file, list)) = method_body(context.front, owner.name(), method) else {
         return Err(NativeError::Compile(format!(
             "method {}.{} has no body",
             owner.name(),
@@ -220,6 +223,73 @@ fn method_pou_body(
     let of = PouOf {
         name: format!("{}.{}", owner.name(), method.name),
         instance: Some(PouInstance::Block(ty)),
+        returns,
+    };
+    Ok(finished(lowerer, &signature, name, of))
+}
+
+/// The body of `method`, a method or a textual action of the program type `index`: a function on
+/// the variables of the program instance it is called on, `me` and `mr` as the program's body has
+/// them (specification 04 §4, §8).
+fn program_method_body(
+    context: &BodyContext<'_>,
+    model: &mut Model<'_>,
+    index: usize,
+    method: &MethodDef,
+) -> Result<GeneratedBody, NativeError> {
+    let (def, rust, rust_retain, name) = {
+        let program = &model.program_types[index];
+        (
+            program.def,
+            program.rust.clone(),
+            program.rust_retain.clone(),
+            program.method_function(method),
+        )
+    };
+    let Some((file, list)) = method_body(context.front, &def.name, method) else {
+        return Err(NativeError::Compile(format!(
+            "method {}.{} has no body",
+            def.name, method.name
+        )));
+    };
+    let mut lowerer = context.lowerer(model, file, Frame::Program(index), &name);
+    let (parameters, returns) = frame(
+        &mut lowerer,
+        &method.name,
+        method.return_type,
+        &method.params,
+        &method.locals,
+    )?;
+    // Its `VAR_STAT` variables are members of the program instance (specification 01 §3).
+    for local in &method.static_locals {
+        let hidden = crate::native::types::method_static_name(&def.name, &method.name, &local.name);
+        let Some((member, retained)) = lowerer.model.program_types[index]
+            .member(&hidden)
+            .map(|(member, retained)| (member.clone(), retained))
+        else {
+            return Err(NativeError::Compile(format!(
+                "VAR_STAT {} of {}.{} is not laid out",
+                local.name, def.name, method.name
+            )));
+        };
+        let owner = if retained { "mr" } else { "me" };
+        lowerer.bind_static(
+            &local.name,
+            format!("{owner}.{}", member.field()),
+            member.ty,
+        );
+    }
+    if let Some(list) = list {
+        lowerer.body(&list)?;
+    }
+    let exit = lowerer.exit.clone();
+    lowerer.line(&exit);
+    let signature = format!(
+        "fn {name}(cx: &mut Cx, w: &World<'_>, me: &{rust}, mr: &{rust_retain}{parameters}) -> R<{returns}> {{\n",
+    );
+    let of = PouOf {
+        name: format!("{}.{}", def.name, method.name),
+        instance: Some(PouInstance::Program(index)),
         returns,
     };
     Ok(finished(lowerer, &signature, name, of))
@@ -303,6 +373,7 @@ pub(super) fn find_pou(
                         ancestor.kind(),
                         trust_syntax::syntax::SyntaxKind::FunctionBlock
                             | trust_syntax::syntax::SyntaxKind::Class
+                            | trust_syntax::syntax::SyntaxKind::Program
                     )
                 });
                 let Some(parent) = parent else {
@@ -330,23 +401,25 @@ fn body_of(node: &trust_syntax::syntax::SyntaxNode) -> Option<trust_syntax::synt
         .find(|child| child.kind() == trust_syntax::syntax::SyntaxKind::StmtList)
 }
 
-/// The file and the statement list of `method` of `owner`: a method's body, or a property's `GET`
-/// or `SET`, which the declarations hold as a method named like the property and one named
-/// `__set_<property>`.
+/// The file and the statement list of `method` of the POU `owner`: a method's body, a textual
+/// action's (specification 04 §8), or a property's `GET` or `SET`, which the declarations hold as a
+/// method named like the property and one named `__set_<property>`.
 fn method_body(
     front: &Front,
-    owner: Owner<'_>,
+    owner: &str,
     method: &MethodDef,
 ) -> Option<(usize, Option<trust_syntax::syntax::SyntaxNode>)> {
     let accessor = |kind: K, name: &str| {
-        let (file, node) = find_pou(front, K::Property, name, Some(owner.name()))?;
+        let (file, node) = find_pou(front, K::Property, name, Some(owner))?;
         let accessor = node.children().find(|child| child.kind() == kind)?;
         Some((file, body_of(&accessor)))
     };
     if let Some(property) = method.name.strip_prefix("__set_") {
         return accessor(K::PropertySet, property);
     }
-    if let Some((file, node)) = find_pou(front, K::Method, &method.name, Some(owner.name())) {
+    if let Some((file, node)) = find_pou(front, K::Method, &method.name, Some(owner))
+        .or_else(|| find_pou(front, K::Action, &method.name, Some(owner)))
+    {
         return Some((file, body_of(&node)));
     }
     accessor(K::PropertyGet, &method.name)

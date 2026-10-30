@@ -395,7 +395,7 @@ export const useStateChart = () => {
 - ✅ `ethercat-snake-simple.statechart.json` - 5 states, learning example
 - ✅ `ethercat-snake-bidirectional.statechart.json` - 15 states, Knight Rider pattern
 - ✅ Each example documented with use cases
-- ✅ Helper scripts: `demo-hardware-mode.sh`, `quick-start-hardware.sh`, `test-hardware-now.sh`
+- Helper scripts for the editor's hardware mode: removed on 29 October 2026, with the mode (26 October)
 
 ---
 

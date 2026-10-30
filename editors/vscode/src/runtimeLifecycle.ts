@@ -4,7 +4,7 @@ import { affectsTrustConfiguration, getTrustConfiguration } from "./configuratio
 import { debugChannel, DEBUG_TYPE } from "./debug/configuration";
 import { runtimeSourceOptionsForTarget } from "./runtimeSourceOptions";
 import { getControlAuthToken } from "./runtimeAuth";
-import { resolveRuntimeConnection } from "./runtimeConnection";
+import { resolveProjectConnection, resolveRuntimeConnection } from "./runtimeConnection";
 import {
   classifyRuntimeStartFailure,
   type NetworkCanvasRuntimeFailure as RuntimeStartFailure,
@@ -13,6 +13,7 @@ import {
 import { runtimeStatusPayload } from "./io-panel/status";
 import type { IoState, RuntimeStatusPayload } from "./io-panel/types";
 import { projectRequest } from "./projectRequest";
+import { toModelSnapshot } from "./trustHomeModel";
 
 const SESSION_WAIT_TIMEOUT_MS = 8000;
 const SESSION_WAIT_POLL_MS = 100;
@@ -21,6 +22,10 @@ const SIMULATOR_LAUNCH_TIMEOUT_MS = 15_000;
 const IO_STATE_REQUEST_TIMEOUT_MS = 5_000;
 const IO_NEXT_SCAN_TIMEOUT_MS = 1200;
 const IO_NEXT_SCAN_POLL_MS = 60;
+// While the runtime settings are online and no session is attached, the status is read again at this interval, so that
+// a runtime started or stopped outside VS Code shows in the side panel and the status bar (specification 25, section
+// 5.1). An attached session reports its own end.
+const ONLINE_WATCH_INTERVAL_MS = 2000;
 
 export type { RuntimeStartFailure, RuntimeStartFailureKind };
 
@@ -150,6 +155,8 @@ class RuntimeLifecycleService {
       })
     );
 
+    this.watchOnline(context);
+
     context.subscriptions.push(
       vscode.workspace.onDidChangeConfiguration((event) => {
         if (
@@ -162,6 +169,33 @@ class RuntimeLifecycleService {
         }
       })
     );
+  }
+
+  // Reads the status again while online without a session and tells the surfaces when what the language server reported
+  // of the runtime changed: its endpoint, whether it answers, and the project's runtime.
+  private watchOnline(context: vscode.ExtensionContext): void {
+    let reported = "";
+    let reading = false;
+    const timer = setInterval(() => {
+      const online = getTrustConfiguration(this.runtimeConfigTarget()).get<string>("runtime.mode", "simulate") === "online";
+      if (!online || this.getStructuredTextSession()) {
+        reported = "";
+        return;
+      }
+      if (reading) return;
+      reading = true;
+      void this.snapshot()
+        .then(({ status }) => {
+          const now = JSON.stringify([status.endpoint, status.endpointReachable, status.projectEndpoint, status.projectReachable]);
+          if (reported && now !== reported) this.emitChanged();
+          reported = now;
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          reading = false;
+        });
+    }, ONLINE_WATCH_INTERVAL_MS);
+    context.subscriptions.push({ dispose: () => clearInterval(timer) });
   }
 
   getStructuredTextSession(): vscode.DebugSession | undefined {
@@ -326,6 +360,22 @@ class RuntimeLifecycleService {
     );
   }
 
+  // Connect to the workspace project's own runtime (specification 25, section 5.1): its endpoint and token are what
+  // trust-runtime reports for the project at this attempt, as Start in online mode asks them, so a runtime that
+  // restarted on another port is found, and a successful Connect leaves `runtime.controlEndpoint` empty.
+  async connectProjectRuntime(targetLabel?: string): Promise<RuntimeLifecycleResult> {
+    const connection = await resolveProjectConnection(this.runtimeConfigTarget());
+    return this.startOnlineRuntime(
+      {
+        endpoint: connection.endpoint ?? "",
+        authToken: connection.authToken,
+        problem: connection.problem?.message,
+        followsProject: true,
+      },
+      targetLabel
+    );
+  }
+
   // The reason an online target has no session, when the lifecycle reported it for `endpoint`: the
   // runtime answered Connect but keeps debugging disabled.
   debugDisabledFailure(endpoint: string): RuntimeStartFailure | undefined {
@@ -404,8 +454,17 @@ class RuntimeLifecycleService {
       };
     }
 
-    const snapshot = await this.snapshot();
-    if (snapshot.status.runtimeState === "connected") {
+    // What Stop does without a session is the language server's (`trust-lsp.runTargets`, action `stop`, specification
+    // 25 §5.1): a runtime connected without a session is left by turning the control endpoint off; with none, Stop is
+    // a success that changes nothing.
+    const answer = await projectRequest<{ settings: "disableEndpoint" | "keep"; message: string }>(
+      "trust-lsp.runTargets",
+      { action: "stop", snapshot: toModelSnapshot(await this.snapshot()) }
+    );
+    if (!answer.ok) {
+      return { ok: false, failure: { kind: "stale_runtime", message: answer.error } };
+    }
+    if (answer.settings === "disableEndpoint") {
       const target = this.runtimeConfigTarget();
       const config = getTrustConfiguration(target);
       await config.update(
@@ -414,10 +473,9 @@ class RuntimeLifecycleService {
         this.runtimeConfigScope(target)
       );
       this.emitChanged();
-      return { ok: true, message: "Runtime endpoint disabled." };
+      return { ok: true, message: answer.message };
     }
-    // Idempotent: nothing is running, so Stop is a no-op success (no warning).
-    return this.markStopped("Runtime already stopped.");
+    return this.markStopped(answer.message);
   }
 
   // Connect changes nothing until it succeeds (specification 25, section 5.1): the runtime must be
@@ -503,7 +561,8 @@ class RuntimeLifecycleService {
   }
 
   // A successful Connect, or selecting a runtime as the run target, points the runtime settings at it: its
-  // endpoint, in use, in online mode. Only values that differ are written.
+  // endpoint, in use, in online mode. An empty endpoint follows the workspace project's own runtime, whose endpoint each
+  // connection asks of trust-runtime (spec 11 §6.8.0a). Only values that differ are written.
   async useOnlineEndpoint(endpoint: string): Promise<void> {
     const target = this.runtimeConfigTarget();
     const config = getTrustConfiguration(target);

@@ -2437,6 +2437,12 @@ startup:
   function statics persist across calls, method statics persist per instance and per method, and
   `PROGRAM`/`FUNCTION_BLOCK`/`CLASS` `VAR_STAT` uses ordinary instance storage.
 
+Every `runtime.toml` that truST writes keeps retained values in `retain.bin` beside it
+(`[runtime.retain] mode = "file"`, `path = "retain.bin"`): a new project, a device's setup (setup,
+the web setup and the wizard) and a runtime created in the config UI. RETAIN variables therefore
+survive a warm restart and a power cycle without further configuration, as on every PLC;
+`mode = "none"`, which makes every start cold, is the user's own choice.
+
 Retain storage is provided via a pluggable backend:
 
 ```rust
@@ -3181,12 +3187,15 @@ works on its platform and never collides with another project:
   project folder.
 - `<h>` is the first 16 hexadecimal digits of the SHA-256 of the canonical project path, taken over
   the path's bytes (its UTF-8 text on Windows).
-- The runtime directory is a per-user directory: `$XDG_RUNTIME_DIR` when it is set and not empty,
-  else `trust-runtime-<uid>` in the system temporary directory, where `<uid>` is the effective user
-  ID. A missing runtime directory is created with mode 0700. It must be a directory and not a
-  symbolic link, belong to the user, and have no group or other permission bit set; otherwise, or
-  when the fallback path also exceeds the socket path limit, the default cannot be used and an
-  explicit `endpoint` is needed.
+- The runtime directory is a per-user directory: `$XDG_RUNTIME_DIR` when it is set, not empty and
+  passes the checks below, else `trust-runtime-<uid>` in the system temporary directory, where
+  `<uid>` is the effective user ID. A missing runtime directory is created with mode 0700. It must
+  be a directory and not a symbolic link, belong to the user, and have no group or other permission
+  bit set. A `$XDG_RUNTIME_DIR` that fails a check is not used and does not stop the runtime: some
+  systems leave it open to the user's group (a Raspberry Pi 5 had `/run/user/1000` with mode 0770,
+  where the XDG Base Directory Specification requires 0700), and a shell started with `su` keeps
+  the other user's. When `trust-runtime-<uid>` fails a check too, or when the fallback path also
+  exceeds the socket path limit, the default cannot be used and an explicit `endpoint` is needed.
 - On Windows: `tcp://127.0.0.1:0`, a free loopback port chosen by the operating system. When
   `auth_token` is omitted too, the runtime generates a token for each start, 32 bytes from the
   operating-system secure random source encoded as unpadded base64url; it never falls back to a
@@ -7063,7 +7072,10 @@ publish = ["Status.RunState", "Metrics.CycleMs", "TempA"]
 ```
 
 Rules:
-- **Local‑only by default**. Remote access must be explicitly enabled.
+- **Local‑only by default**. Remote access must be explicitly enabled. A new project's
+  `runtime.toml` listens on this computer only (`127.0.0.1:8080`, discovery off). The `runtime.toml`
+  that a device's setup writes (setup, the web setup and the wizard) listens on every interface and
+  advertises the runtime, because setting up a device is the explicit choice of remote access.
 - **Request isolation is bounded.** The runtime admits read-only requests on a
   four-worker lane with at most 32 queued requests and body-bearing or mutating
   requests on a separate four-worker lane with at most four admitted requests.

@@ -105,6 +105,13 @@ impl Step<'_> {
     pub(super) fn flag(&self) -> String {
         format!("{}_active", self.name)
     }
+
+    /// Whether the step is also a variable of its name, read as `<name>.X` and `<name>.T` (IEC
+    /// 61131-3 Table 54): its name is an identifier. A keyword (`ON`, `STEP`) is no variable name,
+    /// so such a step has only its flag.
+    pub(super) fn readable(&self) -> bool {
+        is_identifier(&self.name)
+    }
 }
 
 /// One IEC transition: the steps before it, the steps after it and its condition.
@@ -286,6 +293,12 @@ impl<'a> Chart<'a> {
     /// The flag of the transition at `index` in priority order: `SFC_T<index + 1>`.
     pub(super) fn transition_flag(index: usize) -> String {
         format!("SFC_T{}", index + 1)
+    }
+
+    /// The timer of the step at `index` in chart order, whose elapsed time is the step's `T`:
+    /// `SFC_S<index + 1>`.
+    pub(super) fn step_timer(index: usize) -> String {
+        format!("SFC_S{}", index + 1)
     }
 }
 
@@ -568,7 +581,7 @@ impl<'w> Parts<'w> {
             .to_owned();
         let priority = parts
             .iter()
-            .filter_map(|part| part.get("priority").and_then(Json::as_finite))
+            .filter_map(|part| part.get("priority").and_then(priority_number))
             .min_by(f64::total_cmp);
         Transition {
             before,
@@ -578,6 +591,19 @@ impl<'w> Parts<'w> {
             priority,
             first,
         }
+    }
+}
+
+/// The number of a transition's `priority` (`sfc-profile.md`, "Rules of evolution"): a number, or the text that the editor's
+/// Priority field holds as typed, trimmed, read as a number. `None` for a value that holds no finite number, such as a blank
+/// text, which names no priority; the validation refuses any value that is not a whole number from 0.
+pub(super) fn priority_number(value: &Json) -> Option<f64> {
+    match value {
+        Json::String(text) => trim(text)
+            .parse::<f64>()
+            .ok()
+            .filter(|number| number.is_finite()),
+        other => other.as_finite(),
     }
 }
 
@@ -746,8 +772,8 @@ struct Declared<'a> {
     what: String,
     kind: IssueKind,
     element: Option<&'a Json>,
-    /// The step's `name` as the file holds it, for a step flag.
-    step_name: Option<&'a Json>,
+    /// For a name a step declares, the step's index and its `name` as the file holds it.
+    step: Option<(usize, Option<&'a Json>)>,
 }
 
 /// Every name the companion declares is declared once, ignoring case.
@@ -760,16 +786,34 @@ fn check_names(chart: &Chart<'_>, variables: &[Json], issues: &mut Vec<Issue>) {
             name,
             kind: IssueKind::Variable,
             element: None,
-            step_name: None,
+            step: None,
         });
     }
-    for step in &chart.steps {
+    for (index, step) in chart.steps.iter().enumerate() {
         declared.push(Declared {
             name: step.flag(),
             what: format!("the flag of step {}", step.name),
             kind: IssueKind::Step,
             element: step.id,
-            step_name: step.raw_name,
+            step: Some((index, step.raw_name)),
+        });
+        // The step itself, read as `<name>.X` and `<name>.T` (IEC 61131-3 Table 54), and its timer.
+        if !step.readable() {
+            continue;
+        }
+        declared.push(Declared {
+            name: step.name.clone(),
+            what: format!("step {}", step.name),
+            kind: IssueKind::Step,
+            element: step.id,
+            step: Some((index, step.raw_name)),
+        });
+        declared.push(Declared {
+            name: Chart::step_timer(index),
+            what: format!("the timer of step {}", step.name),
+            kind: IssueKind::Step,
+            element: step.id,
+            step: Some((index, step.raw_name)),
         });
     }
     for action in &chart.actions {
@@ -788,7 +832,7 @@ fn check_names(chart: &Chart<'_>, variables: &[Json], issues: &mut Vec<Issue>) {
                 what,
                 kind: IssueKind::Action,
                 element,
-                step_name: None,
+                step: None,
             });
         }
     }
@@ -799,7 +843,7 @@ fn check_names(chart: &Chart<'_>, variables: &[Json], issues: &mut Vec<Issue>) {
             name,
             kind: IssueKind::Transition,
             element: None,
-            step_name: None,
+            step: None,
         });
     }
     for (index, later) in declared.iter().enumerate() {
@@ -810,7 +854,10 @@ fn check_names(chart: &Chart<'_>, variables: &[Json], issues: &mut Vec<Issue>) {
             continue;
         };
         // Two steps of one name are the duplicate step name Validate reports already.
-        if earlier.step_name.is_some() && strict_eq(earlier.step_name, later.step_name) {
+        if let (Some((first, first_name)), Some((second, second_name))) = (earlier.step, later.step)
+            && first != second
+            && strict_eq(first_name, second_name)
+        {
             continue;
         }
         issues.push(Issue::new(

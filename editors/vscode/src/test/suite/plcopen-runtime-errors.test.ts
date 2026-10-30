@@ -17,15 +17,18 @@ suite("PLCopen runtime error formatting", () => {
     assert.ok(message.includes("trust.runtime.executablePath"));
   });
 
-  test("import command failures distinguish malformed XML", () => {
+  test("import command failures show trust-runtime's text as it is", () => {
+    // trust-runtime says that the input XML is malformed (specification 25 §11.3); the extension adds no rule of its own.
     const message = formatPlcopenCommandFailure(
       "import",
       1,
-      "failed to parse PLCopen XML '/tmp/input.xml': expected a quote not '>'"
+      "Error: failed to parse PLCopen XML '/tmp/input.xml': the input XML is malformed\n\nCaused by:\n    unexpected end of stream"
     );
 
-    assert.ok(message.includes("input XML is malformed"));
-    assert.ok(message.includes("failed to parse PLCopen XML"));
+    assert.strictEqual(
+      message,
+      "PLCopen import failed (exit 1). Error: failed to parse PLCopen XML '/tmp/input.xml': the input XML is malformed Caused by: unexpected end of stream"
+    );
   });
 
   test("export command failures remain generic", () => {

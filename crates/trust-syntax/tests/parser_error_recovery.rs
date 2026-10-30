@@ -292,22 +292,19 @@ END_PROGRAM"#;
 }
 
 // docs/specs/06-statements.md 3.1: recovery from a malformed actual stops at the call
-// boundary. Each missing actual is one error at the delimiter after it, and the `,` and
-// `)` stay in the argument list. Catches the delimiters consumed into error nodes, which
+// boundary. A missing positional actual is one error at the delimiter after it, a named actual
+// without a value parses (an IEC project's analysis reports it at the same delimiter), and the
+// `,` and `)` stay in the argument list. Catches the delimiters consumed into error nodes, which
 // broke the call apart and added "expected )" and "expected ';'".
 #[test]
 fn missing_call_arguments_report_one_error_each_and_keep_the_delimiters() {
     let source = "PROGRAM Test\nRun(, Value := );\nEND_PROGRAM";
     let comma = source.find("(,").expect("call") + 1;
-    let close = source.find(");").expect("call end");
 
     let parsed = parse(source);
     assert_eq!(
         error_positions(&parsed),
-        vec![
-            ("expected expression", comma),
-            ("expected expression", close)
-        ]
+        vec![("expected expression", comma)]
     );
 
     let arg_list = parsed

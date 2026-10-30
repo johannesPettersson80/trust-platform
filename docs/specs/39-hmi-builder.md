@@ -319,8 +319,10 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
    navigation.
 8. **Top bar.** It shows what `[top_bar]` turns on: the title and the logo (an image under
    `hmi/assets/`), the clock (local time with seconds), the alarm counter and the newest alarm
-   (§13.6), the logged-in user with Log in or Log out, and the page title. Without a top bar,
-   the session shows at the top right. Refined on 7 October 2026, when a new screen kept its
+   (§13.6), and the page title. The session, the logged-in user and role with Log out or Log in
+   (§12.4), sits at the top bar's right end in every top bar; `user` in `[top_bar]` is kept as
+   the file says it and changes nothing (29 October 2026: a top bar without it left the session
+   floating over the page's edge). Without a top bar, the session shows at the top right. Refined on 7 October 2026, when a new screen kept its
    folder's name: a new screen's title is its project folder's name in words (`room-heating` is
    "Room heating"), and the screen settings edit it.
    While the runtime runs a simulation, a **SIMULATION** badge shows in the top bar, or at the top

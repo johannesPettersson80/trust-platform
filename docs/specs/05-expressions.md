@@ -216,6 +216,22 @@ pInt := REF(myInt);    // Get reference
 pInt^ := 100;          // Dereference and assign
 ```
 
+**Reference auto-dereference (CODESYS profile)**: under a CODESYS
+`vendor_profile` (specification 14) a reference operand (`REF_TO T` or its
+spelling `REFERENCE TO T`) in value position denotes the referenced value, as
+CODESYS's `REFERENCE TO` does. Member access, indexing, arithmetic, and
+assignment copy through the reference without `^`; `^` remains valid on
+references. Equality comparisons (`=`, `<>`) of a reference with a value or
+with another reference compare the denoted values, and with `NULL` they test
+whether the reference names nothing; ordering comparisons (`<`, `<=`, `>`,
+`>=`) still require an explicit `^` dereference. `POINTER TO` operands keep requiring explicit `^` and
+never participate in arithmetic. Under the IEC rules a reference is
+dereferenced only with `^` (IEC 61131-3 Ed.3 §6.4.4.10.3): each of these uses
+is an error, and `=`/`<>` of two references compares whether they name the same
+variable
+([`IEC_DEVIATIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md)
+DEV-031).
+
 ## 5. Expression Types
 
 ### 5.1 Constant Expressions

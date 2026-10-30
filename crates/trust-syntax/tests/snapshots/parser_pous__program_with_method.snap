@@ -1,0 +1,67 @@
+---
+source: crates/trust-syntax/tests/parser_pous.rs
+expression: "snapshot_parse(r#\"PROGRAM MqttSubscribeMulti\nVAR\n    x : BOOL;\nEND_VAR\n    x := StateToBool('1');\nMETHOD PUBLIC StateToBool : BOOL\nVAR_INPUT\n    sInput : STRING;\nEND_VAR\n    StateToBool := sInput = '1';\nEND_METHOD\nEND_PROGRAM\"#)"
+---
+SourceFile@0..207
+  Program@0..207
+    KwProgram@0..7 "PROGRAM"
+    Name@7..27
+      Ident@8..26 "MqttSubscribeMulti"
+    VarBlock@27..57
+      KwVar@27..30 "VAR"
+      VarDecl@30..45
+        Name@30..37
+          Ident@35..36 "x"
+        Colon@37..38 ":"
+        TypeRef@38..43
+          KwBool@39..43 "BOOL"
+        Semicolon@43..44 ";"
+      KwEndVar@45..52 "END_VAR"
+    StmtList@57..196
+      AssignStmt@57..80
+        NameRef@57..59
+          Ident@57..58 "x"
+        Assign@59..61 ":="
+        CallExpr@61..78
+          NameRef@61..73
+            Ident@62..73 "StateToBool"
+          ArgList@73..78
+            LParen@73..74 "("
+            Arg@74..77
+              Literal@74..77
+                StringLiteral@74..77 "'1'"
+            RParen@77..78 ")"
+        Semicolon@78..79 ";"
+      Method@80..196
+        KwMethod@80..86 "METHOD"
+        KwPublic@87..93 "PUBLIC"
+        Name@93..106
+          Ident@94..105 "StateToBool"
+        Colon@106..107 ":"
+        TypeRef@107..113
+          KwBool@108..112 "BOOL"
+        VarBlock@113..156
+          KwVarInput@113..122 "VAR_INPUT"
+          VarDecl@122..144
+            Name@122..134
+              Ident@127..133 "sInput"
+            Colon@134..135 ":"
+            TypeRef@135..142
+              StringType@135..142
+                KwString@136..142 "STRING"
+            Semicolon@142..143 ";"
+          KwEndVar@144..151 "END_VAR"
+        StmtList@156..185
+          AssignStmt@156..185
+            NameRef@156..168
+              Ident@156..167 "StateToBool"
+            Assign@168..170 ":="
+            BinaryExpr@170..183
+              NameRef@170..178
+                Ident@171..177 "sInput"
+              Eq@178..179 "="
+              Literal@179..183
+                StringLiteral@180..183 "'1'"
+            Semicolon@183..184 ";"
+        KwEndMethod@185..195 "END_METHOD"
+    KwEndProgram@196..207 "END_PROGRAM"

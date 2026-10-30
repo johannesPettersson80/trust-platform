@@ -29,6 +29,12 @@ if (process.env.TRUST_PLANT_RENDERED_TEST === "1") {
         await pollSave(inner, false, "bound robot joint");
 
         const optional = ["gravity_torque_nm", "viscous_friction_nm_s_per_rad", "coulomb_friction_nm"];
+        // Typed text reaches the draft when Rust has read it (`set_dynamics_text`, specification 47
+        // §20.1); until then Save waits. React commits the typed text in a microtask and Rust's answer
+        // comes later in a message, so Save is disabled here. Catches a Save that stores the value the
+        // field held before (the guard of 29 October 2026 saw 4 for a blanked gravity torque).
+        const saveWhileRead = await inner("var el=d.querySelector('[data-plant-dynamics-field=\"gravity_torque_nm\"]');if(!el)return 'NO_FIELD';var w=el.ownerDocument.defaultView;Object.getOwnPropertyDescriptor(w.HTMLInputElement.prototype,'value').set.call(el,'');el.dispatchEvent(new w.Event('input',{bubbles:true}));await Promise.resolve();await Promise.resolve();var panel=[...d.querySelectorAll('aside')].find((x)=>/Plant properties/i.test(x.getAttribute('aria-label')||''));var save=panel&&[...panel.querySelectorAll('button')].find((x)=>(x.textContent||'').trim()==='Save');return String(Boolean(save&&save.disabled));");
+        assert.strictEqual(saveWhileRead, "true", "Save waits until Rust has read the typed text");
         for (const field of optional) await setValue(`[data-plant-dynamics-field="${field}"]`, "");
         const state = JSON.parse(await inner("var keys=['gravity_torque_nm','viscous_friction_nm_s_per_rad','coulomb_friction_nm'];return JSON.stringify(keys.map((key)=>{var e=d.querySelector('[data-plant-dynamics-field='+key+']');return {key,value:e?.value??null,placeholder:e?.getAttribute('placeholder'),invalid:e?.getAttribute('aria-invalid')};}));"));
         assert.deepStrictEqual(state, [
@@ -48,7 +54,9 @@ if (process.env.TRUST_PLANT_RENDERED_TEST === "1") {
         await inner("var panel=d.querySelector('aside[aria-label=\"Plant properties\"]');var save=panel&&[...panel.querySelectorAll('button')].find((candidate)=>(candidate.textContent||'').trim()==='Save');if(!save)return 'NO_SAVE';save.click();return 'SAVED';");
         await pollValue("robot editor closes after save", () => inner("return String(Boolean(d.querySelector('aside[aria-label=\"Plant properties\"]')));"), (value) => value === "false", 20_000);
         let simulation = fs.readFileSync(path.join(workspace, "simulation.toml"), "utf8");
-        for (const field of optional) assert.doesNotMatch(simulation, new RegExp(`^${field}\\s*=`, "m"), `${field} omission must persist`);
+        // In any form: a table line or an inline table (the saved plant's parameters can be either), so
+        // that a Save of the value the field held before is caught here and not only after reopening.
+        for (const field of optional) assert.doesNotMatch(simulation, new RegExp(`\\b${field}\\s*=`), `${field} omission must persist`);
         await pollValue("saved robot node", () => inner("var node=[...d.querySelectorAll('.react-flow__node')].find((candidate)=>(candidate.textContent||'').includes('New simulated plant'));if(!node)return 'WAIT';node.dispatchEvent(new node.ownerDocument.defaultView.MouseEvent('click',{bubbles:true}));return 'OPEN';"), (value) => value === "OPEN", 20_000);
         await pollValue("reopened robot editor", () => inner("return String(Boolean(d.querySelector('select[name=plant-model]')));"), (value) => value === "true", 20_000);
         for (const field of optional) {

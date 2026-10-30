@@ -1,4 +1,4 @@
-import { execFile } from "child_process";
+import { execFile, type ExecFileException } from "child_process";
 import * as path from "path";
 import * as vscode from "vscode";
 
@@ -94,7 +94,7 @@ function runCheck(
           }
           resolve({ response });
         } catch {
-          resolve({ failure: launchFailure(error, stderr) });
+          resolve({ failure: launchFailure(error) });
         }
       }
     );
@@ -109,17 +109,10 @@ function versionMismatchFailure(version: number | undefined): CheckLaunchFailure
   };
 }
 
-function launchFailure(
-  error: Error | null,
-  stderr: string
-): CheckLaunchFailure {
-  const detail = `${error?.message ?? ""} ${stderr ?? ""}`.trim();
-  const lower = detail.toLowerCase();
-  if (
-    lower.includes("enoent") ||
-    lower.includes("not found") ||
-    lower.includes("no such file")
-  ) {
+// Node names a binary it cannot start by the code ENOENT. trust-runtime's own words never decide it: a project file
+// it reports as not found is no missing trust-runtime.
+function launchFailure(error: ExecFileException | null): CheckLaunchFailure {
+  if (error?.code === "ENOENT") {
     return {
       kind: "missing_binary",
       message: "Missing trust-runtime. Set Runtime path.",

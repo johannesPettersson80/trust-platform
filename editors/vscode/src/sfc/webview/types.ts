@@ -69,7 +69,8 @@ export interface ParallelNodeData extends Record<string, unknown> {
 export interface TransitionData extends Record<string, unknown> {
   condition: string;
   description?: string;
-  priority?: number;
+  /** A number in an older chart, or the text of the Priority field as typed; Rust reads and checks it (trust-visual). */
+  priority?: number | string;
   label?: string;
 }
 

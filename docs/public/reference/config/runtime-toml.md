@@ -107,10 +107,10 @@ with another project:
 - On Unix-like systems it is `<project>/.trust-runtime/control.sock`. When that path is longer than
   the platform allows (108 bytes on Linux, 104 on macOS), or when the runtime cannot create the
   `.trust-runtime` folder (a read-only or foreign project folder), the socket is
-  `trust-<hash>.sock` in a per-user runtime directory: `$XDG_RUNTIME_DIR`, or
-  `trust-runtime-<uid>` in the system temporary directory when that is unset. That directory must
-  belong to you and be closed to other users (mode 0700). `<hash>` is the first 16 hexadecimal
-  digits of the SHA-256 of the canonical project path.
+  `trust-<hash>.sock` in a per-user runtime directory: `$XDG_RUNTIME_DIR` when it belongs to you
+  and is closed to other users (mode 0700), else `trust-runtime-<uid>` in the system temporary
+  directory, which the runtime creates with mode 0700 and which must pass the same checks. `<hash>`
+  is the first 16 hexadecimal digits of the SHA-256 of the canonical project path.
 - On Windows it is `tcp://127.0.0.1:0`: a free loopback port chosen at each start, with a token
   generated for that start.
 

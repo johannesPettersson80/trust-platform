@@ -20,7 +20,7 @@ use crate::config::ProjectConfig;
 use crate::library_docs::library_doc_map;
 use crate::telemetry::{TelemetryCollector, TelemetryEvent};
 use trust_devices::engine::DevicesEngine;
-use trust_hir::{db::FileId, Database, Project};
+use trust_hir::{db::FileId, Database, Dialect, Project};
 
 const BACKGROUND_REQUEST_LIMIT: usize = 1;
 
@@ -278,10 +278,23 @@ impl ServerState {
             .load(Ordering::Relaxed)
     }
 
-    /// Stores configuration for a workspace root.
+    /// Stores configuration for a workspace root. The project is analyzed under the language rules
+    /// of the highest-priority configuration's `vendor_profile` (specification 14); an unknown
+    /// profile, which the configuration's diagnostics report, keeps the IEC rules.
     pub fn set_workspace_config(&self, root: Url, config: ProjectConfig) {
         self.workspace_configs.write().insert(root.clone(), config);
         self.library_docs.write().remove(&root);
+        let dialect = self
+            .primary_workspace_config()
+            .and_then(|config| config.vendor_profile)
+            .and_then(|name| Dialect::from_vendor_profile(&name))
+            .unwrap_or_default();
+        let mut project = self.project.write();
+        if project.database().dialect() != dialect {
+            project.database_mut().set_dialect(dialect);
+            drop(project);
+            self.bump_document_generation();
+        }
     }
 
     /// Returns all workspace configurations with their roots.

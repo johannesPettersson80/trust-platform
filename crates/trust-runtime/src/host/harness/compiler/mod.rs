@@ -2,30 +2,25 @@
 
 #![allow(missing_docs)]
 
-mod action_profile;
 mod config;
 mod dependency_prelude;
 mod edge;
 mod model;
 mod pou;
+mod struct_extends;
 mod types;
 mod vars;
-
-#[cfg(test)]
-#[path = "action_profile_contract_tests.rs"]
-mod action_profile_contract_tests;
 
 #[cfg(test)]
 #[path = "generic_type_profile_contract_tests.rs"]
 mod generic_type_profile_contract_tests;
 
-pub(super) use action_profile::contains_textual_action;
 pub(super) use config::{
     lower_configuration, lower_root_global_var_blocks, resolve_program_type_name,
 };
 pub(super) use dependency_prelude::{
-    predeclare_project_types, resolve_pou_local_constants, resolve_project_global_constants,
-    validate_project_aliases,
+    predeclare_project_types, resolve_pou_local_constants, resolve_project_declared_sizes,
+    resolve_project_global_constants, validate_project_aliases,
 };
 pub(super) use edge::collect_edge_declarations;
 pub(crate) use model::ConfigModel;
@@ -38,6 +33,7 @@ pub(super) use pou::{
     lower_classes, lower_function_blocks, lower_functions, lower_interfaces, lower_programs,
     qualified_pou_name,
 };
+pub(super) use struct_extends::add_struct_bases;
 pub(crate) use types::{class_type_name, function_block_type_name};
 pub(super) use types::{
     interface_type_name, lower_type_decls, lower_type_ref, predeclare_classes,

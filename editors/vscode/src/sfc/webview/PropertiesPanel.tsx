@@ -437,6 +437,23 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
           <div style={{ marginBottom: "16px" }}>
             <label style={{ display: "block", marginBottom: "4px" }}>
+              Priority:
+            </label>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              style={inputStyle}
+              value={selectedEdge.data?.priority ?? ""}
+              onChange={(e) =>
+                onUpdateEdge(selectedEdge.id, { priority: e.target.value })
+              }
+              placeholder="Lowest first; empty: drawing order"
+            />
+          </div>
+
+          <div style={{ marginBottom: "16px" }}>
+            <label style={{ display: "block", marginBottom: "4px" }}>
               Description:
             </label>
             <textarea

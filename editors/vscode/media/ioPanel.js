@@ -111,9 +111,8 @@ function reconcilePendingBooleanForces(state) {
     if (pending === undefined || !entry.forced) {
       continue;
     }
-    const actual = parseBooleanValue(entry.value);
-    const expected = parseBooleanValue(pending);
-    if (actual === undefined || actual !== expected) {
+    // The debug adapter writes a truth value as TRUE or FALSE (specification 25, section 4.3).
+    if (String(entry.value || "") !== pending) {
       continue;
     }
     pendingBooleanForces.delete(address);
@@ -863,41 +862,6 @@ function applyFilter(entries) {
   });
 }
 
-function parseBooleanValue(value) {
-  const trimmed = String(value || "").trim();
-  if (!trimmed) {
-    return undefined;
-  }
-  const normalized = trimmed.toUpperCase();
-  const maybeWrapped =
-    normalized.startsWith("BOOL(") && normalized.endsWith(")")
-      ? normalized.slice(5, -1).trim()
-      : normalized;
-  if (maybeWrapped === "TRUE" || maybeWrapped === "1") {
-    return true;
-  }
-  if (maybeWrapped === "FALSE" || maybeWrapped === "0") {
-    return false;
-  }
-  return undefined;
-}
-
-function defaultWriteValue(entry, display) {
-  const addressType = typeFromAddress(entry.address);
-  const resolvedType = String(display.type || addressType || "").toUpperCase();
-  const isBool =
-    resolvedType === "BOOL" ||
-    /^%[IQM]X/i.test(String(entry.address || "").trim());
-  if (isBool) {
-    // BOOL: pre-fill with the current TRUE/FALSE so it matches the value badge.
-    const booleanValue = parseBooleanValue(entry.value || display.value);
-    return booleanValue ? "TRUE" : "FALSE";
-  }
-  // Numeric (BYTE/WORD/DWORD/INT/REAL): the box starts empty and the operator types the value, a prepared value as
-  // in CODESYS and TwinCAT watch lists; the current value stays in the Value column (specification 25, section 4.3).
-  return "";
-}
-
 function splitDisplayValue(value) {
   const text = String(value == null ? "" : value);
   const match = text.match(/^([A-Za-z_][A-Za-z0-9_]*)\((.*)\)$/);
@@ -979,32 +943,13 @@ function displayValueForEntry(display, displayType) {
   return formatted || value;
 }
 
-function typeFromAddress(address) {
-  const match = String(address || "").match(/^%[IQM]([XBWDL])/i);
-  if (!match) {
-    return "";
-  }
-  switch (match[1].toUpperCase()) {
-    case "X":
-      return "BOOL";
-    case "B":
-      return "BYTE";
-    case "W":
-      return "WORD";
-    case "D":
-      return "DWORD";
-    case "L":
-      return "LWORD";
-    default:
-      return "";
-  }
-}
-
+// The debug adapter names each entry's type: the runtime's, else the one its address names by its size
+// (specification 25, section 4.3).
 function displayTypeForEntry(entry, display) {
   const explicitType = String(
     (entry && (entry.valueType || entry.value_type || entry.type)) || ""
   ).trim();
-  return explicitType.toUpperCase() || display.type || typeFromAddress(entry && entry.address);
+  return explicitType.toUpperCase() || display.type;
 }
 
 function createNode(title, level, content, open = true) {
@@ -1165,9 +1110,9 @@ function renderRows(entries, options = {}) {
       const canRelease = allowed.release;
 
       const key = [entry.name || "", entry.address || ""].join("|");
-      const defaultValue = editCache.has(key)
-        ? editCache.get(key)
-        : defaultWriteValue(entry, display);
+      // A numeric row's box starts empty and the operator types the value, a prepared value as in CODESYS and
+      // TwinCAT watch lists; a BOOL row's chooser starts at the current value (specification 25, section 4.3).
+      const defaultValue = editCache.has(key) ? editCache.get(key) : "";
       const createTextInput = () => {
         const input = document.createElement("input");
         input.className = "value-input";
@@ -1232,12 +1177,11 @@ function renderRows(entries, options = {}) {
             return;
           }
           if (action === "force" && displayType === "BOOL") {
-            const booleanValue = parseBooleanValue(raw);
-            if (booleanValue !== undefined) {
-              const pendingValue = booleanValue ? "TRUE" : "FALSE";
-              pendingBooleanForces.set(String(entry.address || ""), pendingValue);
-              editCache.set(key, pendingValue);
-              valueCell.textContent = pendingValue;
+            // The chooser holds TRUE or FALSE; the row shows it until the runtime reports the force.
+            if (raw === "TRUE" || raw === "FALSE") {
+              pendingBooleanForces.set(String(entry.address || ""), raw);
+              editCache.set(key, raw);
+              valueCell.textContent = raw;
             }
           } else {
             editCache.delete(key);

@@ -9,7 +9,7 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 use super::object::Receiver;
 use super::text::Text;
-use super::{Lowerer, Place};
+use super::{Frame, Lowerer, Need, Place};
 use crate::native::types::{mangle, rust_field, Kind, Ty};
 use crate::native::NativeError;
 use crate::program_model::{FunctionDef, Param};
@@ -32,6 +32,16 @@ enum Callee<'a> {
     BaseBody(Place),
     /// A method, by its name, of an instance or through an interface reference.
     Method(Receiver, String),
+    /// A program called by its name, as the CODESYS profile allows: its instance's index
+    /// (docs/IEC_DEVIATIONS.md DEV-030).
+    Program(usize),
+    /// A method or a textual action, by its name, of the program type `program`, on the instance
+    /// whose variables `receiver` passes (specification 04 §4, §8).
+    ProgramMethod {
+        program: usize,
+        receiver: String,
+        name: String,
+    },
     Standard(String),
 }
 
@@ -145,6 +155,15 @@ impl<'a> Lowerer<'_, 'a> {
                 Ok(Called::Nothing)
             }
             Callee::Method(receiver, name) => self.member_call(node, receiver, &name, args, want),
+            Callee::Program(instance) => {
+                self.program_call(instance, args)?;
+                Ok(Called::Nothing)
+            }
+            Callee::ProgramMethod {
+                program,
+                receiver,
+                name,
+            } => self.program_method_call(node, program, receiver, &name, args, want),
             Callee::Standard(name) => self.standard(node, &name, args, want),
         }
     }
@@ -182,8 +201,17 @@ impl<'a> Lowerer<'_, 'a> {
                 {
                     return Ok(Callee::Function(def));
                 }
-                // A method of the instance itself, called without `THIS` (IEC §6.6.5.4).
-                if let Some((_, SymbolKind::Method { .. })) = &resolved {
+                // A method or a textual action of the POU itself, called without `THIS` (IEC
+                // §6.6.5.4; specification 04 §8): in a program's body or method, on the instance
+                // that runs it.
+                if let Some((_, SymbolKind::Method { .. } | SymbolKind::Action)) = &resolved {
+                    if let Frame::Program(program) = self.frame {
+                        return Ok(Callee::ProgramMethod {
+                            program,
+                            receiver: "me, mr".into(),
+                            name,
+                        });
+                    }
                     let this = self.this_place(target)?;
                     return Ok(Callee::Method(
                         Receiver::Instance {
@@ -196,6 +224,9 @@ impl<'a> Lowerer<'_, 'a> {
                 if let Some(def) = self.model.function(&name) {
                     return Ok(Callee::Function(def));
                 }
+                if let Some(instance) = self.named_program_instance(target)? {
+                    return Ok(Callee::Program(instance));
+                }
                 Ok(Callee::Standard(name.to_ascii_uppercase()))
             }
             SyntaxKind::FieldExpr => {
@@ -206,7 +237,7 @@ impl<'a> Lowerer<'_, 'a> {
                                 return Ok(Callee::Function(def));
                             }
                         }
-                        SymbolKind::Method { .. } => {
+                        SymbolKind::Method { .. } | SymbolKind::Action => {
                             let Some(base) = target.children().next() else {
                                 return Err(
                                     self.unsupported(target, "a method without its instance")
@@ -214,6 +245,16 @@ impl<'a> Lowerer<'_, 'a> {
                             };
                             let member =
                                 ident(&target.children().nth(1).unwrap_or_else(|| target.clone()));
+                            // `Program.m()`: the program instance of that name, which only the
+                            // CODESYS profile reaches (docs/IEC_DEVIATIONS.md DEV-030).
+                            if let Some(instance) = self.named_program_instance(&base)? {
+                                let field = rust_field(&self.model.instances[instance].name);
+                                return Ok(Callee::ProgramMethod {
+                                    program: self.model.instances[instance].program,
+                                    receiver: format!("&w.p.{field}, &w.r.{field}"),
+                                    name: member,
+                                });
+                            }
                             let receiver = self.receiver(&base)?;
                             return Ok(Callee::Method(receiver, member));
                         }
@@ -694,6 +735,12 @@ impl<'a> Lowerer<'_, 'a> {
                     continue;
                 }
                 let variable = self.place(&arg.value)?;
+                // A reference given for an in-out of its value's type (DEV-031).
+                let variable = if matches!(self.info(target).kind, Kind::Ref { .. }) {
+                    variable
+                } else {
+                    self.referenced_place(variable)
+                };
                 let variable = self.as_type(&arg.value, &variable, target)?;
                 self.line(&format!(
                     "{}.set(w.areas.refer(cx, {variable}, abi::RefValue::VARIABLE)?);",
@@ -732,6 +779,115 @@ impl<'a> Lowerer<'_, 'a> {
             self.line("}");
         }
         Ok(())
+    }
+}
+
+impl Lowerer<'_, '_> {
+    /// The call of the method or the textual action `name` of the program type `program` on the
+    /// instance whose variables `receiver` passes, bound as a method's call (specification 04 §4,
+    /// §8).
+    fn program_method_call(
+        &mut self,
+        node: &SyntaxNode,
+        program: usize,
+        receiver: String,
+        name: &str,
+        args: Vec<Arg>,
+        want: Want,
+    ) -> Result<Called, NativeError> {
+        let def = self.model.program_types[program].def;
+        let Some(method) = def
+            .methods
+            .iter()
+            .find(|method| method.name.eq_ignore_ascii_case(name))
+        else {
+            return Err(self.unsupported(node, format!("the method {}.{name}", def.name)));
+        };
+        self.enabled(node, args, method.return_type, want, |this, args, want| {
+            let bound = this.bind_arguments(node, &method.params, args)?;
+            let (arguments, outputs) = this.inputs(node, &bound)?;
+            Need::ProgramMethod(program, method.name.clone()).add_to(&mut this.needs);
+            let function = this.model.program_types[program].method_function(method);
+            let called = this.emit_call(
+                node,
+                &function,
+                Some(receiver),
+                arguments,
+                method.return_type,
+                &want,
+            )?;
+            this.copy_outputs(outputs)?;
+            Ok(called)
+        })
+    }
+
+    /// The call of program instance `instance` by its program's name under the CODESYS profile
+    /// (docs/IEC_DEVIATIONS.md DEV-030): its inputs and in-outs bound as a function block's are, by
+    /// name or in declaration order, its body run on the instance, and its outputs copied after.
+    fn program_call(&mut self, instance: usize, args: Vec<Arg>) -> Result<(), NativeError> {
+        let field = rust_field(&self.model.instances[instance].name);
+        let program = &self.model.program_types[self.model.instances[instance].program];
+        let body = program.body.clone();
+        // The program's inputs, outputs and in-outs in declaration order, as trust-hir declares
+        // them, each with the area that holds it.
+        let symbols = &self.src.analysis.symbols;
+        let owner = symbols.lookup(&program.def.name);
+        let parameters: Vec<(crate::native::types::Member, &'static str, ParamDirection)> = symbols
+            .iter()
+            .filter(|symbol| owner.is_some() && symbol.parent == owner)
+            .filter_map(|symbol| match symbol.kind {
+                SymbolKind::Parameter { direction } => Some((symbol.name.clone(), direction)),
+                _ => None,
+            })
+            .filter_map(|(name, direction)| {
+                program.member(&name).map(|(member, retained)| {
+                    (member.clone(), if retained { "r" } else { "p" }, direction)
+                })
+            })
+            .collect();
+        let mut outputs = Vec::new();
+        for (position, arg) in args.into_iter().enumerate() {
+            let parameter = match &arg.name {
+                Some(name) => parameters
+                    .iter()
+                    .find(|(member, _, _)| member.name.eq_ignore_ascii_case(name)),
+                None => parameters.get(position),
+            };
+            let Some((member, area, direction)) = parameter.cloned() else {
+                return Err(self.unsupported(
+                    &arg.value,
+                    "an argument that names no input or output of the program",
+                ));
+            };
+            let place = Place {
+                expr: format!("w.{area}.{field}.{}", member.field()),
+                ty: member.ty,
+                is_ref: false,
+            };
+            match direction {
+                ParamDirection::InOut => {
+                    let Kind::Ref { target, .. } = self.info(member.ty).kind else {
+                        return Err(self.unsupported(&arg.value, "a VAR_IN_OUT without its type"));
+                    };
+                    let variable = self.place(&arg.value)?;
+                    let variable = if matches!(self.info(target).kind, Kind::Ref { .. }) {
+                        variable
+                    } else {
+                        self.referenced_place(variable)
+                    };
+                    let variable = self.as_type(&arg.value, &variable, target)?;
+                    self.line(&format!(
+                        "{}.set(w.areas.refer(cx, {variable}, abi::RefValue::VARIABLE)?);",
+                        place.expr
+                    ));
+                }
+                ParamDirection::Out => outputs.push((place, arg.value)),
+                ParamDirection::In if arg.output => outputs.push((place, arg.value)),
+                ParamDirection::In => self.store(&place, &arg.value)?,
+            }
+        }
+        self.call_line(&body, &format!("cx, w, &w.p.{field}, &w.r.{field}"));
+        self.copy_outputs(outputs)
     }
 }
 

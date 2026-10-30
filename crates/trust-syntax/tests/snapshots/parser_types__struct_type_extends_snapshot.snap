@@ -1,0 +1,26 @@
+---
+source: crates/trust-syntax/tests/parser_types.rs
+expression: "snapshot_parse(r#\"TYPE\n    Derived EXTENDS Base : STRUCT\n        b : INT;\n    END_STRUCT;\nEND_TYPE\"#)"
+---
+SourceFile@0..80
+  TypeDecl@0..80
+    KwType@0..4 "TYPE"
+    Name@4..17
+      Ident@9..16 "Derived"
+    ExtendsClause@17..30
+      KwExtends@17..24 "EXTENDS"
+      Name@24..30
+        Ident@25..29 "Base"
+    Colon@30..31 ":"
+    StructDef@31..70
+      KwStruct@32..38 "STRUCT"
+      VarDecl@38..60
+        Name@38..49
+          Ident@47..48 "b"
+        Colon@49..50 ":"
+        TypeRef@50..54
+          KwInt@51..54 "INT"
+        Semicolon@54..55 ";"
+      KwEndStruct@60..70 "END_STRUCT"
+    Semicolon@70..71 ";"
+    KwEndType@72..80 "END_TYPE"

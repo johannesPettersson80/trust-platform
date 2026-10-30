@@ -155,9 +155,10 @@ fn a_join_that_leads_into_a_split_is_one_transition() {
 
 #[test]
 fn numbered_transitions_come_first_then_the_file_order() {
-    // Table 61 2b: the lowest number first (S -> C is 1, S -> B is 2); then the transitions
-    // without a number in file order (S -> A, then A -> S). A number written as text is no
-    // number. Catches the old file-order-only evaluation, which let S -> A win.
+    // Table 61 2b: the lowest number first (S -> C is 1, then A -> S, whose text "1" counts as 1
+    // and comes later in the file; S -> B is 2); then the transition without a number (S -> A).
+    // Catches the old file-order-only evaluation, which let S -> A win, and a number written as
+    // text, which the editor's Priority field keeps as typed, read as no number.
     let file = program(
         r#"{
       "name": "S",
@@ -176,7 +177,7 @@ fn numbered_transitions_come_first_then_the_file_order() {
     let chart = chart_of(&file);
     assert_eq!(
         described(&chart),
-        ["S -> C: c", "S -> B: b", "S -> A: a", "A -> S: back"]
+        ["S -> C: c", "A -> S: back", "S -> B: b", "S -> A: a"]
     );
 }
 
@@ -355,7 +356,8 @@ fn validate_refuses_actions_the_companion_cannot_run() {
 fn a_step_name_gives_an_identifier_flag() {
     // The flag is `<trimmed name>_active`: " Fill " gives Fill_active and is accepted; "Fill Tank"
     // and "1st" do not give identifiers; a step without a name is refused. A keyword name (STEP)
-    // gives STEP_active, an identifier. Catches `Fill Tank_active` in the companion.
+    // gives STEP_active, an identifier, and is accepted: such a step has only its flag
+    // (generate_tests.rs). Catches `Fill Tank_active` in the companion.
     let text = r#"{
       "name": "N",
       "steps": [
@@ -378,6 +380,38 @@ fn a_step_name_gives_an_identifier_flag() {
             "Step Fill Tank: its flag Fill Tank_active is not an identifier; a step name has letters, digits and underscores.",
             "Step 1st: its flag 1st_active is not an identifier; a step name has letters, digits and underscores.",
             "Step s4 has no name."
+        ]
+    );
+}
+
+#[test]
+fn a_step_is_named_like_nothing_else_the_block_declares() {
+    // Each step is also a variable of its name (STEP.X, STEP.T, IEC 61131-3 Table 54) with a timer
+    // SFC_S<n>, n its position: the first step SFC_S1 is named like its own timer, the step Level
+    // like the variable level (ignoring case), and the step Fill like the action Fill of the same
+    // step. Worked in the order the names are declared: the variables, each step's flag, name and
+    // timer, the actions, the transitions. Catches a companion that declares a name twice.
+    let text = r#"{
+      "name": "Names",
+      "steps": [
+        { "id": "s1", "name": "SFC_S1", "initial": true },
+        { "id": "s2", "name": "Fill", "actions": [
+          { "id": "a1", "name": "Fill", "qualifier": "N", "body": "x := 1;" }
+        ] },
+        { "id": "s3", "name": "Level" }
+      ],
+      "transitions": [
+        { "id": "t1", "condition": "TRUE", "sourceStepId": "s1", "targetStepId": "s2" },
+        { "id": "t2", "condition": "TRUE", "sourceStepId": "s2", "targetStepId": "s3" }
+      ],
+      "variables": [ { "name": "level", "type": "INT" } ]
+    }"#;
+    assert_eq!(
+        messages(text),
+        [
+            "The companion would declare SFC_S1 twice: step SFC_S1 and the timer of step SFC_S1; rename one of them.",
+            "The companion would declare Level twice: variable level and step Level; rename one of them.",
+            "The companion would declare Fill twice: step Fill and action Fill; rename one of them."
         ]
     );
 }

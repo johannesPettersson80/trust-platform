@@ -611,8 +611,11 @@ package, or end-to-end evidence.
   (`USINT` included), the value type in capitals; an entry without an address
   or a value is left out, and the globals that an ADS tag binds form their own
   group (trust-debug `adapter/io_values.rs`).
-- Every row MUST prefer the backend value type and only then infer from an I/O
-  address. `Type` and `State` are visible columns, state uses badges, and source
+- The value type is the runtime's; when the runtime names none, the debug
+  adapter names the type that the entry's direct address names by its size
+  (IEC 61131-3 §6.5.5, Table 16: `X` or no size prefix `BOOL`, `B` `BYTE`, `W`
+  `WORD`, `D` `DWORD`, `L` `LWORD`). The table shows that type and infers none.
+  `Type` and `State` are visible columns, state uses badges, and source
   provenance is muted context beneath the name rather than another column.
 - BOOL rows use a compact TRUE/FALSE chooser for Write and Force. A forced BOOL
   row shows Release, hides the editable value, and explains that release is
@@ -699,9 +702,12 @@ package, or end-to-end evidence.
   keeps the rules above: one on another computer is never stopped from the
   panel, because nothing in the panel could start it again, and the Simulator
   and managed-local runtimes use their launchers.
-  Transitional lifecycle state disables the primary action. An unreachable or
+  Transitional lifecycle state disables the primary action. A remote is
+  unreachable only when its probe in that refresh failed; an unreachable or
   endpoint-less remote keeps Connect visible but disabled with a recovery
-  reason. A managed runtime whose status is unavailable keeps Start visible but
+  reason. A remote that no probe asked in that refresh (its endpoint switched
+  off, the simulate mode, or a session running) is `Not connected` with Connect
+  enabled, since Connect probes it first. A managed runtime whose status is unavailable keeps Start visible but
   disabled and MUST NOT be represented as stopped. The project's runtime and a
   managed runtime that have not answered before the panel's gather deadline
   are `Status unavailable` for that round, never unreachable or stopped; another
@@ -743,6 +749,20 @@ package, or end-to-end evidence.
   `runtime.controlEndpoint` empty, so the next attempt asks again and follows a
   runtime that restarted on another port. A runtime that this command reports as
   not running fails the Connect with the command's message.
+- The Target picker offers the workspace project's own runtime as `This project's
+  runtime` while it runs outside VS Code, for example started from the command
+  line: `trust-runtime ctl --project <dir> endpoint --json` reports its endpoint
+  (specification 11 §6.8.0a), and it answers there. Selecting it puts the runtime
+  settings online with an empty `runtime.controlEndpoint`, so that each connection
+  asks for the endpoint again, as Start in online mode does (above), and follows
+  the runtime when it restarts on another port. It is a runtime the extension
+  connects to: Connect and Disconnect, never Start or Stop. It stays in the list
+  while it is selected; when its runtime does not answer, its status says that it
+  is not running and Connect is disabled with that reason. It is that runtime's
+  only entry: being online with the project's endpoint adds no second one, and a
+  Connect to that endpoint, also from Devices & Connections, selects this entry,
+  so the sidebar Target, its Target picker and the status bar name it `This
+  project's runtime` (the owner, 29 October 2026).
 - After a successful Connect the sidebar Target, its Target picker and the
   status bar name that runtime, also when it is not a configured additional
   endpoint. Its node in the graph offers Disconnect and `Set as run target`
@@ -754,6 +774,13 @@ package, or end-to-end evidence.
   on that node. After a missing or rejected token the node's primary control
   stores a token for that endpoint, and Connect stays available on the node as
   the retry.
+- The language server names a failed Connect's remedy (`trust-lsp.runTargets`,
+  action `connect`): `openDevices` when the runtime accepts no connection or
+  its `status` request gets no answer, `setAuthToken` when the runtime refuses
+  a missing or rejected token by its code, and none for any other failure. The
+  sidebar's notice of the failure offers `Open Devices & Connections` for the
+  first, saying that the runtime is not reachable, and `Set auth token` for the
+  second. The extension never reads the failure's text to choose.
 - A runtime that answers Connect but reports debugging disabled becomes the
   selected target without an attach session. Live Values then says that
   debugging is disabled on that runtime and names `debug_enabled` under
@@ -767,6 +794,12 @@ package, or end-to-end evidence.
   online mode for a target without one (the Simulator, a stopped managed
   runtime). Selecting opens no session. When the previous session does not end,
   the selection stays as it was and a warning says why.
+- Stop or Disconnect while the extension holds no session leaves a runtime it
+  is connected to by turning the control endpoint off
+  (`runtime.controlEndpointEnabled` false, `Runtime endpoint disabled.`); with
+  no runtime connected it changes nothing and succeeds (`Runtime already
+  stopped.`). The language server answers which (`trust-lsp.runTargets`, action
+  `stop`).
 - Managed Start/Stop uses fleet lifecycle. Successful managed Start attaches
   through the shared helper with the reached endpoint and friendly label,
   selects the target, and makes Live Values usable. A static fake local-runtime
@@ -1657,6 +1690,12 @@ test checks each family.
 - Update invokes `trust-lsp.debug.reload`, publishes compact success/failure,
   summarizes Problems-oriented compiler failures rather than raw paths, clears
   pending state only after success, and leaves retry visible after failure.
+- The debug adapter answers a failed `stReload` with that summary, and the
+  extension shows it as it is: `Compile failed — N error(s). Open Problems,
+  then try again.` when N lines of the build's error name a source file
+  (`<name>.st:` or `<name>.pou:`); else the error's first line that is not
+  blank, a line longer than 160 characters cut to its first 157 and `...`;
+  `Update did not report a reason.` for an error without such a line.
 - The language-model reload tool inspects the structured command result and
   reports `Failed to update running simulation:` when `ok=false`; invocation
   alone is not success.
@@ -2000,7 +2039,10 @@ these commands and show the answers:
   branch's last step is active and its conditions hold; transitions clear
   together, in priority order; actions run with final scan under the
   qualifiers N, R, S, L, D, P, SD, DS, SL, P1 and P0 of Table 59, with their
-  durations.
+  durations; each step is read as `<step>.X` and `<step>.T` (Table 54). A
+  transition's Priority field in the SFC editor's properties sets its
+  `priority` (a whole number from 0, the lowest first; empty for none), which
+  Validate checks.
 - Ladder, Blockly, Statechart, and SFC execution authority is the generated
   Structured Text companion `<base>.st` and runtime entry
   `<base>.visual.runtime.st` (`17-visual-editors-runtime-unification.md` §3).
@@ -2062,6 +2104,12 @@ these commands and show the answers:
   `id` and `states`, an SFC `name`, `steps` and `transitions`. The copy keeps
   the file name and gets the suffix of its kind when the name lacks it, so it
   opens in its editor and gets its companion.
+- An imported Ladder, Statechart or SFC file that already lies inside the
+  workspace folder opens where it is; a file outside it, and every Blockly
+  workspace, is copied. A file lies inside the folder when the folder's names
+  begin its path, name by name, so `/ws-other/a.sfc.json` is not inside `/ws`.
+  On Windows and macOS, whose file systems ignore case, the names match in any
+  case, as VS Code compares paths there.
 - Creating a Ladder, Blockly, Statechart, or SFC program opens the new file in
   its visual editor, in the active editor group and with focus. With
   `trust.visual.openStructuredTextCompanionOnCreate` on, the generated

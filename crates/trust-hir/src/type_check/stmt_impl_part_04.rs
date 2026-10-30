@@ -164,6 +164,117 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         tracker.ranges.push((lower, upper));
     }
 
+    fn reference_bind_target(&self, type_id: TypeId) -> Option<TypeId> {
+        let resolved = self.checker.resolve_alias_type(type_id);
+        match self.checker.symbols.type_by_id(resolved)? {
+            Type::Reference { target } => Some(*target),
+            _ => None,
+        }
+    }
+
+    fn check_ref_bind_assignment(&mut self, target: &SyntaxNode, value: &SyntaxNode) {
+        let target_type = self.checker.expr().check_expression(target);
+        let value_type = self.checker.expr().check_expression(value);
+
+        if target_type == TypeId::UNKNOWN || value_type == TypeId::UNKNOWN {
+            return;
+        }
+
+        let Some(referenced) = self.reference_bind_target(target_type) else {
+            self.checker.diagnostics.error(
+                DiagnosticCode::TypeMismatch,
+                target.text_range(),
+                "REF= target must be a REFERENCE variable",
+            );
+            return;
+        };
+
+        if value_type == TypeId::NULL {
+            return;
+        }
+
+        // `ref REF= 0` clears the reference (CODESYS parity).
+        if value.kind() == SyntaxKind::Literal && value.text().to_string().trim() == "0" {
+            return;
+        }
+
+        let resolved_value = self.checker.resolve_alias_type(value_type);
+        match self.checker.symbols.type_by_id(resolved_value) {
+            Some(Type::Pointer { .. }) => {
+                self.checker.diagnostics.error(
+                    DiagnosticCode::TypeMismatch,
+                    value.text_range(),
+                    "REF= source must be a REFERENCE or an assignable variable; use REF() for pointers",
+                );
+            }
+            Some(Type::Reference { .. }) => {
+                let Some(source) = self.reference_bind_target(value_type) else {
+                    return;
+                };
+                let compatible = self.checker.reference_types_compatible(referenced, source)
+                    || self.checker.reference_types_compatible(source, referenced);
+                if !compatible {
+                    let target_name = self.checker.type_name(referenced);
+                    let source_name = self.checker.type_name(source);
+                    self.checker.diagnostics.error(
+                        DiagnosticCode::TypeMismatch,
+                        value.text_range(),
+                        format!(
+                            "REF= requires compatible reference types: '{}' vs '{}'",
+                            target_name, source_name
+                        ),
+                    );
+                }
+            }
+            _ => {
+                if !self.checker.is_valid_lvalue(value) {
+                    self.checker.diagnostics.error(
+                        DiagnosticCode::TypeMismatch,
+                        value.text_range(),
+                        "REF= source must be an assignable variable or reference",
+                    );
+                    return;
+                }
+
+                let resolved_source = self.checker.assignment_target_symbol(value);
+                if let Some(resolved) = &resolved_source
+                    && !resolved.accessible
+                {
+                    return;
+                }
+                if self
+                    .checker
+                    .is_constant_target_with_resolved(value, resolved_source.as_ref())
+                {
+                    self.checker.diagnostics.error(
+                        DiagnosticCode::ConstantModification,
+                        value.text_range(),
+                        "cannot bind REF= to a constant",
+                    );
+                    return;
+                }
+
+                let compatible = resolved_value == self.checker.resolve_alias_type(referenced)
+                    || self.checker.reference_types_compatible(referenced, value_type)
+                    || self
+                        .checker
+                        .reference_target_binds_lvalue(referenced, value_type);
+                if !compatible {
+                    let target_name = self.checker.type_name(referenced);
+                    let value_name = self.checker.type_name(value_type);
+                    self.checker.diagnostics.error(
+                        DiagnosticCode::TypeMismatch,
+                        value.text_range(),
+                        format!(
+                            "REF= requires matching types: REFERENCE TO '{}' vs '{}'",
+                            target_name, value_name
+                        ),
+                    );
+                }
+            }
+        }
+    }
+
     fn check_ref_assignment(&mut self, target: &SyntaxNode, value: &SyntaxNode) {
         let target_type = self.checker.expr().check_expression(target);
         let value_type = self.checker.expr().check_expression(value);

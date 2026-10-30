@@ -406,7 +406,7 @@ pub(super) fn emit(
                 graph.dispatcher(&dispatcher, &own_body);
                 let _ = writeln!(out, "        _ => {own_body}(cx, w, me),\n    }}\n}}\n");
             }
-            Need::Function(_) | Need::Method(..) => {}
+            Need::Function(_) | Need::Method(..) | Need::ProgramMethod(..) => {}
         }
     }
     Ok(out)

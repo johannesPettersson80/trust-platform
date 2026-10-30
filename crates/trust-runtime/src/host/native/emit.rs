@@ -63,6 +63,8 @@ enum Work<'a> {
     Program(usize),
     FunctionBlock(Ty),
     Method(Owner<'a>, &'a MethodDef, Ty),
+    /// A method or a textual action of the program type of this index.
+    ProgramMethod(usize, &'a MethodDef),
     Function(&'a FunctionDef),
 }
 
@@ -132,6 +134,7 @@ pub(super) fn generate<'a>(
             Work::Program(program) => Work::Program(*program),
             Work::FunctionBlock(ty) => Work::FunctionBlock(*ty),
             Work::Method(owner, method, ty) => Work::Method(*owner, method, *ty),
+            Work::ProgramMethod(program, method) => Work::ProgramMethod(*program, method),
             Work::Function(def) => Work::Function(def),
         };
         index += 1;
@@ -250,6 +253,20 @@ fn queue<'a>(
                 )));
             };
             work.push(Work::Method(def, found, ty));
+        }
+        Need::ProgramMethod(program, method) => {
+            let def = model.program_types[*program].def;
+            let Some(found) = def
+                .methods
+                .iter()
+                .find(|candidate| candidate.name.eq_ignore_ascii_case(method))
+            else {
+                return Err(NativeError::Compile(format!(
+                    "method {}.{method} is not declared",
+                    def.name
+                )));
+            };
+            work.push(Work::ProgramMethod(*program, found));
         }
         _ => return Ok(false),
     }

@@ -124,12 +124,22 @@ pub(super) fn starting_memory(
     for (name, program) in programs {
         let p_offset = field_offset(&model.area_p, &name)? as usize;
         let r_offset = field_offset(&model.area_r, &name).map_or(0, |offset| offset as usize);
-        let variables: Vec<(SmolStr, TypeId, Option<Expr>)> = model.program_types[program]
-            .def
+        let def = model.program_types[program].def;
+        let variables: Vec<(SmolStr, TypeId, Option<Expr>)> = def
             .vars
             .iter()
             .filter(|var| !var.external)
             .map(|var| (var.name.clone(), var.type_id, var.initializer.clone()))
+            // Its methods' `VAR_STAT` variables, members of hidden names (`model::program_type`).
+            .chain(def.methods.iter().flat_map(|method| {
+                method.static_locals.iter().map(|local| {
+                    (
+                        super::types::method_static_name(&def.name, &method.name, &local.name),
+                        local.type_id,
+                        local.initializer.clone(),
+                    )
+                })
+            }))
             .collect();
         for (variable, type_id, initializer) in variables {
             let Some((member, in_retain)) = model.program_types[program].member(&variable) else {

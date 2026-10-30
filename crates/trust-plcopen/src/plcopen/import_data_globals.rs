@@ -74,7 +74,44 @@ fn import_data_types_to_sources(
             continue;
         };
 
-        declarations.push(format_data_type_declaration(&name, &type_expr));
+        let extends_base = match extract_data_type_extends_base(data_type) {
+            Ok(base) => base,
+            Err(()) => {
+                unsupported_nodes.push(format!("types/dataTypes/{name}/datatypeinheritance"));
+                unsupported_diagnostics.push(unsupported_diagnostic(
+                    "PLCO404",
+                    "warning",
+                    format!("types/dataTypes/{name}/datatypeinheritance"),
+                    format!(
+                        "dataType '{}' carries a CODESYS inheritance marker without a projectable base type",
+                        name
+                    ),
+                    None,
+                    "Provide an <Extends> element naming a STRUCT dataType in the project",
+                ));
+                *loss_warnings += 1;
+                continue;
+            }
+        };
+
+        declarations.push(format_data_type_declaration(
+            &name,
+            extends_base.as_deref(),
+            &type_expr,
+        ));
+        if extends_base.is_some() {
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO220",
+                "info",
+                format!("types/dataTypes/{name}/datatypeinheritance"),
+                format!(
+                    "dataType '{}' imported with CODESYS DUT inheritance (TYPE x EXTENDS y)",
+                    name
+                ),
+                None,
+                "Review inherited STRUCT fields for semantic parity with the source vendor model",
+            ));
+        }
         imported_count += 1;
     }
 
@@ -100,6 +137,48 @@ fn import_data_types_to_sources(
     Ok(Some((path, imported_count)))
 }
 
+/// CODESYS DUT inheritance: e!COCKPIT stores `TYPE x EXTENDS y` as a
+/// `datatypeinheritance` addData block on the dataType. `Ok(None)` means no
+/// marker was present; `Ok(Some(base))` a projectable base; `Err(())` a
+/// marker whose base could not be projected (fail-closed, reported).
+fn extract_data_type_extends_base(data_type: roxmltree::Node<'_, '_>) -> Result<Option<String>, ()> {
+    let mut marker_found = false;
+    for data in data_type
+        .descendants()
+        .filter(|node| is_element_named_ci(*node, "data"))
+    {
+        let Some(name) = attribute_ci(data, "name") else {
+            continue;
+        };
+        if !name.to_ascii_lowercase().contains("datatypeinheritance") {
+            continue;
+        }
+        marker_found = true;
+        for inheritance in data
+            .descendants()
+            .filter(|node| is_element_named_ci(*node, "Inheritance"))
+        {
+            for extends in inheritance
+                .children()
+                .filter(|child| is_element_named_ci(*child, "Extends"))
+            {
+                if let Some(text) = extract_text_content(extends) {
+                    let base = text.trim();
+                    if is_valid_qualified_identifier(base) {
+                        return Ok(Some(base.to_string()));
+                    }
+                    return Err(());
+                }
+            }
+        }
+    }
+    if marker_found {
+        Err(())
+    } else {
+        Ok(None)
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn import_global_var_lists_to_sources(
     root: roxmltree::Node<'_, '_>,
@@ -115,6 +194,7 @@ fn import_global_var_lists_to_sources(
 ) -> anyhow::Result<ImportGlobalVarStats> {
     let mut stats = ImportGlobalVarStats::default();
     let mut used_list_identifiers = HashSet::new();
+    let mut imported_lists_by_name: HashMap<String, Vec<GlobalVarVariableDecl>> = HashMap::new();
 
     for global_vars in root
         .descendants()
@@ -133,6 +213,21 @@ fn import_global_var_lists_to_sources(
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
             .unwrap_or(default_name.clone());
+
+        if global_vars_is_mixed_attrs_view(global_vars) {
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO223",
+                "info",
+                format!("addData/globalVars/{name}"),
+                format!(
+                    "globalVars '{}' skipped as an e!COCKPIT MixedAttrsVarList attributes-view copy",
+                    name
+                ),
+                None,
+                "The vendor attributes view duplicates the primary list; only the primary list is imported",
+            ));
+            continue;
+        }
 
         let global_source = extract_codesys_global_vars_plaintext(global_vars)
             .or_else(|| synthesize_global_vars_source(global_vars, warnings))
@@ -174,6 +269,44 @@ fn import_global_var_lists_to_sources(
             continue;
         }
 
+        // e!COCKPIT MixedAttrsVarList parity: identical duplicate
+        // declarations are dropped; conflicting redefinitions reject the
+        // list fail-closed.
+        let (variables, duplicate_conflicts, dropped_duplicates) =
+            dedupe_global_var_entries(variables);
+        if !duplicate_conflicts.is_empty() {
+            warnings.push(format!(
+                "skipping globalVars '{}': conflicting duplicate declarations for {}",
+                name,
+                duplicate_conflicts.join(", ")
+            ));
+            unsupported_nodes.push(format!("addData/globalVars/{name}"));
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO604",
+                "error",
+                format!("addData/globalVars/{name}"),
+                "globalVars declaration list contains conflicting duplicate declarations",
+                None,
+                "Provide a VAR_GLOBAL declaration list with unique IEC identifiers and matching types",
+            ));
+            *loss_warnings += 1;
+            continue;
+        }
+        if dropped_duplicates > 0 {
+            warnings.push(format!(
+                "dropped {dropped_duplicates} identical duplicate declaration(s) from globalVars '{}'",
+                name
+            ));
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO605",
+                "info",
+                format!("addData/globalVars/{name}"),
+                format!("dropped {dropped_duplicates} identical duplicate declaration(s)"),
+                None,
+                "Identical duplicate declarations are tolerated for e!COCKPIT MixedAttrsVarList parity",
+            ));
+        }
+
         if !global_var_source_is_well_formed(&global_source)
             || !structured_global_var_entries_are_well_formed(global_vars)
         {
@@ -186,11 +319,32 @@ fn import_global_var_lists_to_sources(
                 "PLCO604",
                 "error",
                 format!("addData/globalVars/{name}"),
-                "globalVars declaration list contains malformed, duplicate, or invalid ST identities",
+                "globalVars declaration list contains malformed or invalid ST identities",
                 None,
                 "Provide a complete VAR_GLOBAL declaration list with unique IEC identifiers",
             ));
             *loss_warnings += 1;
+            continue;
+        }
+
+        // e!COCKPIT duplicate whole-list copies (for example a
+        // `constant="true"` mirror of the primary list) must not multiply
+        // into `_N.st` mirror files that redeclare every member.
+        let list_key = name.to_ascii_lowercase();
+        if let Some(existing) = imported_lists_by_name.get(&list_key)
+            && list_is_identical_duplicate(&variables, existing)
+        {
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO223",
+                "info",
+                format!("addData/globalVars/{name}"),
+                format!(
+                    "globalVars '{}' dropped as an identical duplicate of the imported list",
+                    name
+                ),
+                None,
+                "e!COCKPIT duplicate list copies are merged into the primary list",
+            ));
             continue;
         }
 
@@ -203,7 +357,21 @@ fn import_global_var_lists_to_sources(
             ));
         }
 
-        let var_global_header_suffix = extract_var_global_header_suffix(&global_source);
+        let mut var_global_header_suffix = extract_var_global_header_suffix(&global_source);
+        if merge_global_var_container_qualifiers(global_vars, &mut var_global_header_suffix) {
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO224",
+                "info",
+                format!("addData/globalVars/{name}"),
+                format!(
+                    "globalVars '{}' container qualifiers carried into the VAR_GLOBAL declaration header",
+                    name
+                ),
+                None,
+                "Retention/constancy attributes on the vendor container are preserved in the imported declaration",
+            ));
+        }
+        imported_lists_by_name.insert(list_key, variables.clone());
         let global_prefix = extract_leading_global_prefix(&global_source);
         let is_qualified_only = codesys_global_vars_is_qualified_only(global_vars, &global_source);
 
@@ -282,6 +450,13 @@ fn import_global_var_lists_to_sources(
                 (rendered, None)
             }
             (_, false) => {
+                // CODESYS allows qualified access to any GVL list;
+                // qualified_only only restricts the unqualified form. Plain
+                // lists therefore get the namespace wrap too, so qualified
+                // references resolve (s4 ask #11 — the 1 335 false-E101
+                // flood came from qualified refs to bare plain lists).
+                // Caveat: unqualified access to these members now requires a
+                // USING directive, which the importer does not synthesize.
                 let mut rendered = String::new();
                 if !global_prefix.is_empty() {
                     rendered.push_str(&global_prefix);
@@ -289,6 +464,7 @@ fn import_global_var_lists_to_sources(
                         rendered.push('\n');
                     }
                 }
+                rendered.push_str(&format!("NAMESPACE {list_identifier}\n"));
                 rendered.push_str(&render_var_global_header(&var_global_header_suffix));
                 rendered.push('\n');
                 for variable in &variables {
@@ -297,6 +473,12 @@ fn import_global_var_lists_to_sources(
                     rendered.push('\n');
                 }
                 rendered.push_str("END_VAR\n");
+                rendered.push_str("END_NAMESPACE\n");
+
+                warnings.push(format!(
+                    "namespaced globalVars '{}' so qualified access resolves (unqualified access now requires a USING directive)",
+                    name
+                ));
                 (rendered, None)
             }
         };
@@ -489,9 +671,10 @@ fn structured_global_var_entries_are_well_formed(node: roxmltree::Node<'_, '_>) 
         else {
             return false;
         };
-        if !names.insert(name.to_ascii_lowercase()) {
-            return false;
-        }
+        // Duplicate identities are tolerated here and resolved by
+        // `dedupe_global_var_entries` (identical repeats are dropped,
+        // conflicting redefinitions reject the list).
+        names.insert(name.to_ascii_lowercase());
         let Some(type_node) = first_child_element_ci(variable, "type")
             .or_else(|| first_child_element_ci(variable, "baseType"))
         else {
@@ -537,11 +720,131 @@ fn global_var_source_is_well_formed(source: &str) -> bool {
         }
         for raw_name in raw_names.split(',') {
             let name = raw_name.trim();
-            if !is_valid_st_identifier(name) || !names.insert(name.to_ascii_lowercase()) {
+            if !is_valid_st_identifier(name) {
                 return false;
             }
+            // Duplicate identities are tolerated and resolved by
+            // `dedupe_global_var_entries` (identical repeats drop,
+            // conflicting redefinitions reject the list).
+            names.insert(name.to_ascii_lowercase());
             declaration_count += 1;
         }
     }
     !in_block && declaration_count > 0
+}
+
+/// e!COCKPIT MixedAttrsVarList parity: drops identical duplicate
+/// declarations (same name, type, and initializer) and reports conflicting
+/// redefinitions by name. The first occurrence wins.
+fn dedupe_global_var_entries(
+    variables: Vec<GlobalVarVariableDecl>,
+) -> (Vec<GlobalVarVariableDecl>, Vec<String>, usize) {
+    let mut seen: HashMap<String, GlobalVarVariableDecl> = HashMap::new();
+    let mut ordered: Vec<GlobalVarVariableDecl> = Vec::new();
+    let mut conflicts: Vec<String> = Vec::new();
+    let mut dropped = 0usize;
+    for variable in variables {
+        let key = variable.name.to_ascii_lowercase();
+        match seen.get(&key) {
+            None => {
+                seen.insert(key, variable.clone());
+                ordered.push(variable);
+            }
+            Some(existing) => {
+                let same_type = existing
+                    .type_expr
+                    .trim()
+                    .eq_ignore_ascii_case(variable.type_expr.trim());
+                let same_initial = match (&existing.initial_value, &variable.initial_value) {
+                    (Some(existing_value), Some(value)) => {
+                        existing_value.trim().eq_ignore_ascii_case(value.trim())
+                    }
+                    (None, None) => true,
+                    _ => false,
+                };
+                if same_type && same_initial {
+                    dropped += 1;
+                } else {
+                    conflicts.push(variable.name.clone());
+                }
+            }
+        }
+    }
+    (ordered, conflicts, dropped)
+}
+
+/// e!COCKPIT serializes a per-variable attributes view of every GVL as a
+/// `mixedattrsvarlist` addData block holding full copies of the lists. The
+/// copies are view artifacts, not separate declarations: importing them
+/// would emit `_N.st` mirror files that redeclare every member.
+fn global_vars_is_mixed_attrs_view(node: roxmltree::Node<'_, '_>) -> bool {
+    node.ancestors()
+        .filter(|ancestor| is_element_named_ci(*ancestor, "data"))
+        .filter_map(|ancestor| attribute_ci(ancestor, "name"))
+        .any(|name| name.to_ascii_lowercase().contains("mixedattrsvarlist"))
+}
+
+/// True when every declaration in `variables` re-declares an identical entry
+/// (name, type, initializer) already imported under the same list name — the
+/// e!COCKPIT whole-list duplicate shape.
+fn list_is_identical_duplicate(
+    variables: &[GlobalVarVariableDecl],
+    existing: &[GlobalVarVariableDecl],
+) -> bool {
+    !variables.is_empty()
+        && !existing.is_empty()
+        && variables.iter().all(|variable| {
+            existing.iter().any(|candidate| {
+                candidate.name.eq_ignore_ascii_case(&variable.name)
+                    && candidate
+                        .type_expr
+                        .trim()
+                        .eq_ignore_ascii_case(variable.type_expr.trim())
+                    && match (&candidate.initial_value, &variable.initial_value) {
+                        (Some(existing_value), Some(value)) => {
+                            existing_value.trim().eq_ignore_ascii_case(value.trim())
+                        }
+                        (None, None) => true,
+                        _ => false,
+                    }
+            })
+        })
+}
+
+/// e!COCKPIT keeps GVL retention/constancy on the `<globalVars>` container
+/// (`retain="true" persistent="true"`), while the plaintext/synthesized
+/// declaration header frequently drops them. Merge the container modifiers
+/// into the rendered `VAR_GLOBAL` header so the mirror keeps the qualifier.
+/// Returns true when a modifier was added.
+fn merge_global_var_container_qualifiers(
+    node: roxmltree::Node<'_, '_>,
+    header_suffix: &mut String,
+) -> bool {
+    let mut changed = false;
+    for (attribute, modifier) in [
+        ("constant", "CONSTANT"),
+        ("retain", "RETAIN"),
+        ("nonretain", "NON_RETAIN"),
+        ("persistent", "PERSISTENT"),
+        ("nonpersistent", "NON_PERSISTENT"),
+    ] {
+        let enabled = attribute_ci(node, attribute).is_some_and(|value| {
+            matches!(value.trim().to_ascii_lowercase().as_str(), "true" | "1")
+        });
+        if !enabled {
+            continue;
+        }
+        let already_present = header_suffix
+            .split_ascii_whitespace()
+            .any(|token| token.eq_ignore_ascii_case(modifier));
+        if already_present {
+            continue;
+        }
+        if !header_suffix.trim().is_empty() {
+            header_suffix.push(' ');
+        }
+        header_suffix.push_str(modifier);
+        changed = true;
+    }
+    changed
 }

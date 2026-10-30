@@ -491,8 +491,15 @@ def load_fuzz_program(root: Path) -> dict[str, Any]:
     return tomllib.loads(path.read_text())
 
 
-def validate_fuzz_program_contract(root: Path, program: object) -> list[str]:
-    """Validate schema, reviewed semantics, gate bindings, and storage posture."""
+def validate_fuzz_program_contract(
+    root: Path, program: object, *, campaign: bool = True
+) -> list[str]:
+    """Validate schema, reviewed semantics, gate bindings, and storage posture.
+
+    `campaign` binds the committed bounded campaign to the program too. The campaign generator
+    checks the program without it: the campaign it is about to write replaces that one, which
+    cannot match a program whose targets changed.
+    """
 
     root = root.resolve()
     failures: list[str] = []
@@ -515,13 +522,14 @@ def validate_fuzz_program_contract(root: Path, program: object) -> list[str]:
         failures.append("fuzz program corpus policy drifted from the reviewed contract")
     if program.get("crash_regression_handoff") != REVIEWED_CRASH_HANDOFF:
         failures.append("fuzz program crash-regression handoff drifted from the reviewed contract")
-    failures.extend(
-        validate_campaign_binding(
-            root,
-            program.get("crash_regression_handoff"),
-            program=program,
+    if campaign:
+        failures.extend(
+            validate_campaign_binding(
+                root,
+                program.get("crash_regression_handoff"),
+                program=program,
+            )
         )
-    )
     try:
         _validate_surfaces(program.get("surfaces"), failures)
         _validate_targets(program.get("targets"), failures)

@@ -78,6 +78,49 @@ impl<'a> TypeChecker<'a> {
         )
     }
 
+    /// Under the CODESYS profile a reference in value position denotes the value it references
+    /// (`REFERENCE TO T` denotes `T`); pointers are not dereferenced. IEC dereferences explicitly
+    /// with `^` (IEC 61131-3 Ed.3 §6.4.4.10.3; docs/IEC_DEVIATIONS.md DEV-031).
+    pub(super) fn deref_reference_type(&self, type_id: TypeId) -> TypeId {
+        if !self.symbols.dialect().is_codesys() {
+            return type_id;
+        }
+        let resolved = self.resolve_alias_type(type_id);
+        match self.symbols.type_by_id(resolved) {
+            Some(Type::Reference { target }) => *target,
+            _ => type_id,
+        }
+    }
+
+    /// CODESYS DUT inheritance: returns true when `derived` (transitively)
+    /// extends `base`.
+    pub(super) fn struct_inherits_from(&self, derived: &str, base: &str) -> bool {
+        let mut current = SmolStr::new(derived);
+        let mut visited: Vec<SmolStr> = Vec::new();
+        loop {
+            if visited
+                .iter()
+                .any(|name| name.eq_ignore_ascii_case(current.as_str()))
+            {
+                return false;
+            }
+            visited.push(current.clone());
+            let Some(symbol_id) = self
+                .symbols
+                .resolve_global_or_qualified_name(current.as_str())
+            else {
+                return false;
+            };
+            let Some(parent_name) = self.symbols.extends_name(symbol_id) else {
+                return false;
+            };
+            if parent_name.eq_ignore_ascii_case(base) {
+                return true;
+            }
+            current = parent_name.clone();
+        }
+    }
+
     pub(crate) fn is_assignable(&self, target: TypeId, source: TypeId) -> bool {
         let target = self.resolve_alias_type(target);
         let source = self.resolve_alias_type(source);
@@ -175,6 +218,22 @@ impl<'a> TypeChecker<'a> {
             // NULL assignment to references/pointers
             (Type::Pointer { .. } | Type::Reference { .. }, Type::Null) => true,
 
+            // Under the CODESYS profile, with exactly one reference side the reference denotes the
+            // referenced value (DEV-031). Reference-to-reference above rebinds; `REF=` rebinds
+            // explicitly.
+            (Type::Reference { target: tt }, source) if self.symbols.dialect().is_codesys() => {
+                let Some(deref) = self.symbols.type_by_id(self.resolve_alias_type(*tt)) else {
+                    return false;
+                };
+                self.types_compatible(deref, source)
+            }
+            (target, Type::Reference { target: ts }) if self.symbols.dialect().is_codesys() => {
+                let Some(deref) = self.symbols.type_by_id(self.resolve_alias_type(*ts)) else {
+                    return false;
+                };
+                self.types_compatible(target, deref)
+            }
+
             // Interface assignment compatibility
             (Type::Interface { .. }, Type::Null) => true,
             (
@@ -197,6 +256,17 @@ impl<'a> TypeChecker<'a> {
                 };
                 self.is_interface_assignable(target_id, source_id)
             }
+
+            // CODESYS DUT inheritance: a derived STRUCT is assignable to its
+            // base STRUCT type.
+            (
+                Type::Struct {
+                    name: target_name, ..
+                },
+                Type::Struct {
+                    name: source_name, ..
+                },
+            ) => target_name == source_name || self.struct_inherits_from(source_name, target_name),
 
             // IEC 61131-3 6.6.1.6: implicit conversion preserves value and accuracy.
             (target, source) if is_accuracy_preserving_implicit_conversion(target, source) => true,
@@ -245,6 +315,35 @@ impl<'a> TypeChecker<'a> {
         }
         self.resolve_ref()
             .is_same_or_derived(source_symbol, target_symbol)
+    }
+
+    /// REF= lvalue binding parity (vendor extension): CODESYS binds a
+    /// reference to a string variable of any declared size and to a
+    /// derived-STRUCT variable behind a base-STRUCT reference. Deliberately
+    /// narrower than `types_compatible`: numeric widening must not alias —
+    /// a WORD variable behind an INT reference would corrupt stores.
+    pub(super) fn reference_target_binds_lvalue(&self, target: TypeId, value: TypeId) -> bool {
+        let resolved_target = self.resolve_alias_type(target);
+        let resolved_value = self.resolve_alias_type(value);
+        if resolved_target == resolved_value {
+            return true;
+        }
+        match (
+            self.symbols.type_by_id(resolved_target),
+            self.symbols.type_by_id(resolved_value),
+        ) {
+            (Some(Type::String { .. }), Some(Type::String { .. }))
+            | (Some(Type::WString { .. }), Some(Type::WString { .. })) => true,
+            (
+                Some(Type::Struct {
+                    name: target_name, ..
+                }),
+                Some(Type::Struct {
+                    name: source_name, ..
+                }),
+            ) => self.struct_inherits_from(source_name, target_name),
+            _ => false,
+        }
     }
 
     pub(super) fn type_owner_symbol(&self, type_id: TypeId) -> Option<SymbolId> {

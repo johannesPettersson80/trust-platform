@@ -132,7 +132,8 @@ debug_enabled = false
 level = "info"
 
 [runtime.retain]
-mode = "none"
+mode = "file"
+path = "retain.bin"
 save_interval_ms = 1000
 
 [runtime.watchdog]

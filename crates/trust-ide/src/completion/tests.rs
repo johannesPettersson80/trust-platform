@@ -283,6 +283,12 @@ END_PROGRAM
         assert!(items.iter().any(|item| item.label == "Next"));
         assert!(items.iter().any(|item| item.label == "Value"));
         assert!(!items.iter().any(|item| item.label == "x"));
+
+        // Under the CODESYS profile the plain VAR member is public (IEC_DEVIATIONS DEV-028), so
+        // it is offered beside the methods and properties.
+        db.set_dialect(trust_hir::Dialect::Codesys);
+        let items = complete(&db, file_id, TextSize::from(cursor as u32));
+        assert!(items.iter().any(|item| item.label == "x"));
     }
 
     #[test]

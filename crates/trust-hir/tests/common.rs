@@ -4,11 +4,18 @@
 pub use trust_hir::db::{Database, FileId, SemanticDatabase, SourceDatabase};
 pub use trust_hir::diagnostics::{DiagnosticCode, DiagnosticSeverity};
 pub use trust_hir::symbols::{ParamDirection, SymbolKind, Visibility};
+pub use trust_hir::Dialect;
 pub use trust_hir::Type;
 
 /// Helper to check diagnostics for a source file.
 pub fn check_errors(source: &str) -> Vec<DiagnosticCode> {
+    check_errors_in(Dialect::Iec, source)
+}
+
+/// The error codes of `source` analyzed under `dialect`.
+pub fn check_errors_in(dialect: Dialect, source: &str) -> Vec<DiagnosticCode> {
     let mut db = Database::new();
+    db.set_dialect(dialect);
     let file = FileId(0);
     db.set_source_text(file, source.to_string());
     db.diagnostics(file)
@@ -20,7 +27,13 @@ pub fn check_errors(source: &str) -> Vec<DiagnosticCode> {
 
 /// Helper to assert no errors in source.
 pub fn check_no_errors(source: &str) {
+    check_no_errors_in(Dialect::Iec, source);
+}
+
+/// Asserts that `source` has no errors under `dialect`.
+pub fn check_no_errors_in(dialect: Dialect, source: &str) {
     let mut db = Database::new();
+    db.set_dialect(dialect);
     let file = FileId(0);
     db.set_source_text(file, source.to_string());
     let diagnostics = db
@@ -63,7 +76,12 @@ pub fn check_no_errors_multi(sources: &[&str]) {
 
 /// Helper to assert a specific error is present.
 pub fn check_has_error(source: &str, expected: DiagnosticCode) {
-    let errors = check_errors(source);
+    check_has_error_in(Dialect::Iec, source, expected);
+}
+
+/// Asserts that `source` has the error `expected` under `dialect`.
+pub fn check_has_error_in(dialect: Dialect, source: &str, expected: DiagnosticCode) {
+    let errors = check_errors_in(dialect, source);
     assert!(
         errors.contains(&expected),
         "Expected {:?} in {:?}",

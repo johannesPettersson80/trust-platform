@@ -51,10 +51,13 @@ def main(argv: list[str] | None = None) -> int:
     try:
         output = _output_path(root, args.json_out)
         program = load_fuzz_program(root)
-        failures = validate_fuzz_program_contract(root, program)
+        # A new campaign replaces the committed one, so that one is not held to the program.
+        generating = args.validate_existing is None
+        failures = validate_fuzz_program_contract(root, program, campaign=not generating)
         if failures:
             raise ValueError("; ".join(failures))
         validator = Validator()
+        validator.bind_fuzz_campaign = not generating
         validator.load_records()
         validator.validate()
         if validator.failures:

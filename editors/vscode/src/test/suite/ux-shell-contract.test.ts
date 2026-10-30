@@ -966,18 +966,14 @@ suite("Phase 0 — packaged runtime tools (v5 shell)", () => {
 suite("Phase 4 — Live Values (v5 shell)", () => {
   test("the values surface is named 'Live Values' (not 'Structured Text Runtime')", () => {
     const host = readSrc("ioPanel.ts");
-    const legacy = readSrc("io-panel/view.ts");
     const web = readSrc("ioPanel.webview.js");
     assert.ok(
       /createWebviewPanel\(\s*"trust-io-panel",\s*"Live Values"/.test(host),
       "the panel title must be 'Live Values'"
     );
     assert.ok(host.includes("<title>Live Values</title>"), "the HTML title must be 'Live Values'");
-    assert.ok(legacy.includes("<title>Live Values</title>"), "legacy HTML title must also be 'Live Values'");
-    assert.ok(!legacy.includes("Structured Text Runtime"), "legacy HTML must not reintroduce the old Runtime wording");
     for (const [file, text] of [
       ["ioPanel.ts", host],
-      ["io-panel/view.ts", legacy],
       ["ioPanel.webview.js", web],
     ] as const) {
       assert.ok(
@@ -1117,7 +1113,6 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
   test("non-simulator force is explicitly armed before pinning a value", () => {
     const web = readSrc("ioPanel.webview.js");
     const host = readSrc("ioPanel.ts");
-    const legacy = readSrc("io-panel/view.ts");
     // Which targets must arm a Force is the language server's (live_values_tests.rs, forceRequiresArm).
     assert.ok(
       web.includes("function forceRequiresArming") &&
@@ -1156,7 +1151,6 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     );
     for (const [name, source] of [
       ["ioPanel.ts", host],
-      ["io-panel/view.ts", legacy],
     ] as const) {
       assert.ok(source.includes(".mini-btn.armed"), `${name} must style the armed force state`);
       assert.ok(
@@ -1181,7 +1175,6 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     const web = readSrc("ioPanel.webview.js");
     for (const [name, source] of [
       ["ioPanel.ts", readSrc("ioPanel.ts")],
-      ["io-panel/view.ts", readSrc("io-panel/view.ts")],
     ] as const) {
       assert.ok(
         source.includes('id="forcedFilter"') &&
@@ -1248,10 +1241,13 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
   test("Live Values renders visible data-type labels instead of hidden value inference", () => {
     const web = readSrc("ioPanel.webview.js");
     for (const [name, source] of [["ioPanel.webview.js", web]] as const) {
-      assert.ok(source.includes("typeFromAddress"), `${name} must derive BOOL/WORD-style types from I/O addresses`);
+      // The debug adapter names the type, by the address's size when the runtime names none (io_values_tests.rs).
       assert.ok(
-        source.includes("valueType") && source.includes("typeFromAddress(entry"),
-        `${name} must prefer backend-provided I/O value types before address fallback`
+        source.includes("entry.valueType") &&
+          !source.includes("typeFromAddress") &&
+          !source.includes("parseBooleanValue") &&
+          !/%\[IQM\]/.test(source),
+        `${name} must show the debug adapter's value type and keep no copy of the address or boolean rules`
       );
       assert.ok(
         source.includes('source.className = "source-subtitle"') &&
@@ -1306,7 +1302,6 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     }
     for (const [name, source] of [
       ["ioPanel.ts", readSrc("ioPanel.ts")],
-      ["io-panel/view.ts", readSrc("io-panel/view.ts")],
     ] as const) {
       assert.ok(source.includes(".value-input"), `${name} must style the value editor`);
       assert.ok(source.includes("height: 24px"), `${name} must keep row controls aligned`);
@@ -1317,7 +1312,6 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     const web = readSrc("ioPanel.webview.js");
     for (const [name, source] of [
       ["ioPanel.ts", readSrc("ioPanel.ts")],
-      ["io-panel/view.ts", readSrc("io-panel/view.ts")],
     ] as const) {
       assert.ok(
         /<header>[\s\S]*<div class="status" id="status">/.test(source),
@@ -1384,11 +1378,9 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
 
   test("Live Values makes the active target and table columns visible", () => {
     const host = readSrc("ioPanel.ts");
-    const legacy = readSrc("io-panel/view.ts");
     const web = readSrc("ioPanel.webview.js");
     for (const [name, source] of [
       ["ioPanel.ts", host],
-      ["io-panel/view.ts", legacy],
     ] as const) {
       assert.ok(
         source.includes('aria-label="Active Live Values target"') &&
@@ -1466,7 +1458,6 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
   test("Live Values action buttons do not wrap safety verbs", () => {
     for (const [name, source] of [
       ["ioPanel.ts", readSrc("ioPanel.ts")],
-      ["io-panel/view.ts", readSrc("io-panel/view.ts")],
     ] as const) {
       assert.ok(source.includes("white-space: nowrap"), `${name} must keep Write/Force/Release on one line`);
       assert.ok(source.includes(".mini-btn"), `${name} must style action buttons explicitly`);
@@ -1491,10 +1482,8 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
 
   test("Live Values long signal names cannot collapse the table columns", () => {
     const host = readSrc("ioPanel.ts");
-    const legacy = readSrc("io-panel/view.ts");
     for (const [name, source] of [
       ["ioPanel.ts", host],
-      ["io-panel/view.ts", legacy],
     ] as const) {
       assert.ok(
         source.includes("minmax(116px, 1fr)") &&
@@ -1518,7 +1507,6 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     );
     for (const [name, source] of [
       ["ioPanel.ts", host],
-      ["io-panel/view.ts", legacy],
     ] as const) {
       assert.ok(
         source.includes("overflow-wrap: anywhere") && source.includes("white-space: normal"),
@@ -1529,10 +1517,8 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
 
   test("Live Values uses the shared truST product theme tokens", () => {
     const active = readSrc("ioPanel.ts");
-    const legacy = readSrc("io-panel/view.ts");
     for (const [name, source] of [
       ["ioPanel.ts", active],
-      ["io-panel/view.ts", legacy],
     ] as const) {
       assert.ok(
         source.includes("--trust-canvas") &&
@@ -1787,8 +1773,11 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
         managedAttach.includes("runtimeLifecycleService.connectRemote("),
       "managed Start must label Live Values with the same name shown in the sidebar Target"
     );
+    // A remote is reached at its run endpoint and the project's own runtime through trust-runtime (F27); both pass the
+    // label.
     assert.ok(
-      home.includes("runtimeLifecycleService.connectRemote(selected.id, selected.label)"),
+      home.includes("runtimeLifecycleService.connectRemote(selected.runEndpoint, selected.label)") &&
+        home.includes("runtimeLifecycleService.connectProjectRuntime(selected.label)"),
       "sidebar Connect must pass its selected target label into Live Values"
     );
     assert.ok(
@@ -2485,8 +2474,10 @@ suite("Phase 6 — Update running simulation (simulator-only)", () => {
     );
     assert.ok(
       src.includes("Fix the errors shown in Problems, then try again.") &&
-        src.includes("summarizeReloadMessage"),
-      "Update running simulation must summarize compiler failures for the compact sidebar instead of dumping raw paths"
+        src.includes("return value.message.trim();") &&
+        !src.includes("summarizeReloadMessage") &&
+        !src.includes("sourceErrorCount"),
+      "Update running simulation shows the debug adapter's summary of a failed reload (specification 25 §6.3), with no copy of its rule"
     );
     assert.ok(
       /if \(isReloadSuccess\(result\)\)[\s\S]*this\.sourceChanged = false/.test(src) &&

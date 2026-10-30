@@ -103,12 +103,13 @@ This will:
 
 **For Ladder/Blockly/Statechart programs:**
 - Open your `.ladder.json`, `.blockly.json` or `.statechart.json` file in VS Code
-- Choose hardware mode in the editor toolbar and click run
-- The visual editor will connect to the control endpoint and control I/O directly
+- Saving it writes its Structured Text companion, which the runtime builds and runs like any
+  program; the project's I/O configuration drives the outputs it writes. The editors have no
+  hardware mode of their own (`docs/specs/25-vscode-product-contract.md` §11.4.1)
 
 **For ST programs:**
 - Edit `src/Main.st`
-- Runtime will automatically reload on file changes
+- Build and reload: [Compile, Validate, Reload](../../docs/public/operate/compile-validate-reload.md)
 
 ## Directory Structure
 

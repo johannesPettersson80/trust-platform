@@ -73,7 +73,6 @@ EXPECTED_SMOKE_IDS = {
 }
 
 
-PROPERTY_EXECUTOR_FILE = "crates/trust-runtime/tests/property_executor_differential.rs"
 PROPERTY_STATEFUL_FILE = "crates/trust-runtime/tests/stateful_lifecycle_sequences.rs"
 
 
@@ -141,56 +140,54 @@ class FuzzProgramDiscoveryTests(unittest.TestCase):
         )
 
     def test_drifted_reviewed_property_test_file_fails_visibly(self) -> None:
-        executor = (ROOT / PROPERTY_EXECUTOR_FILE).read_text()
         stateful = (ROOT / PROPERTY_STATEFUL_FILE).read_text()
         variants = {
             "seed literal": (
-                PROPERTY_EXECUTOR_FILE,
-                executor,
-                executor.replace(
-                    "const SEED: u64 = 0x7472_7573_7445_5841;",
-                    "const SEED: u64 = 0x7472_7573_7445_5842;",
+                PROPERTY_STATEFUL_FILE,
+                stateful,
+                stateful.replace(
+                    "const SEED: u64 = 0x7472_7573_7453_4551;",
+                    "const SEED: u64 = 0x7472_7573_7453_4552;",
                 ),
             ),
             "case literal": (
-                PROPERTY_EXECUTOR_FILE,
-                executor,
-                executor.replace(
-                    "const DEFAULT_CASES: u32 = 48;",
-                    "const DEFAULT_CASES: u32 = 49;",
+                PROPERTY_STATEFUL_FILE,
+                stateful,
+                stateful.replace(
+                    "const DEFAULT_CASES: u32 = 64;",
+                    "const DEFAULT_CASES: u32 = 65;",
                 ),
             ),
             "renamed test": (
-                PROPERTY_EXECUTOR_FILE,
-                executor,
-                executor.replace(
-                    "fn executors_agree_on_generated_programs(",
-                    "fn executors_agree_on_programs(",
+                PROPERTY_STATEFUL_FILE,
+                stateful,
+                stateful.replace(
+                    "fn sequences_follow_the_lifecycle_model(",
+                    "fn sequences_follow_the_model(",
                 ),
             ),
             "extra test in the proptest block": (
-                PROPERTY_EXECUTOR_FILE,
-                executor,
-                executor.replace(
-                    "fn executors_agree_on_generated_programs(case in program_case()) {",
-                    "fn extra_case(case in program_case()) {}\n\n"
-                    "    #[test]\n"
-                    "    fn executors_agree_on_generated_programs(case in program_case()) {",
+                PROPERTY_STATEFUL_FILE,
+                stateful,
+                stateful.replace(
+                    "    #[test]\n    fn sequences_follow_the_lifecycle_model(",
+                    "    #[test]\n    fn extra_case(ops in vec(op_strategy(), 1..25)) {}\n\n"
+                    "    #[test]\n    fn sequences_follow_the_lifecycle_model(",
                 ),
             ),
             "new proptest block": (
-                PROPERTY_EXECUTOR_FILE,
-                executor,
-                executor
+                PROPERTY_STATEFUL_FILE,
+                stateful,
+                stateful
                 + (
                     "\nproptest! {\n    #[test]\n    fn extra_property(value in 0u8..2) {\n"
                     "        prop_assert!(value < 2);\n    }\n}\n"
                 ),
             ),
             "unlisted framework marker": (
-                PROPERTY_EXECUTOR_FILE,
-                executor,
-                executor
+                PROPERTY_STATEFUL_FILE,
+                stateful,
+                stateful
                 + (
                     "\n#[cfg(any())]\nfn unlisted_marker() {\n"
                     "    let _ = quickcheck::quickcheck as fn(fn(u8) -> bool);\n}\n"

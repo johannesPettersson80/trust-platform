@@ -315,6 +315,27 @@ END_FUNCTION_BLOCK
    `IMPLEMENTS` with one or more interface names; the parser preserves the
    complete ordered interface list for semantic validation (IEC 61131-3 Ed.3
    §6.6.7.1, Table 52).
+8. **Who assigns an input**: the caller assigns a function block's input, in
+   the call or separately before it (`fbInst.input := value`; IEC 61131-3 Ed.3
+   Figure 13 rule 2b). Under the IEC rules the block's own body does not assign
+   its input (rule 2a). Under a CODESYS `vendor_profile` (specification 14) the
+   body of a function block or program may assign its own `VAR_INPUT` members
+   between calls, as CODESYS does ([`IEC_DEVIATIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md) DEV-029).
+   Function and method parameters remain call-local and read-only under both,
+   and pointer/reference input slots stay read-only per the truST
+   indirect-write policy (`02-data-types.md` section 4.4). Assignments through
+   an input-parameter slot (`fbInput.field := value` where `fbInput` is a
+   `VAR_INPUT` function-block instance) remain rejected.
+9. **Default access of a function block's members**: under the IEC rules
+   plain `VAR`, `VAR_STAT`, methods, and properties of a function block without
+   an access specifier are PROTECTED: reachable inside the block and the blocks
+   derived from it, not through an instance from outside (IEC 61131-3 Ed.3
+   §6.6.3.2 item 11 makes them private; §6.6.5.9-6.6.5.10). Under a CODESYS
+   `vendor_profile` they are PUBLIC and reachable through the instance name
+   (`fbInst.member`), as CODESYS does ([`IEC_DEVIATIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md) DEV-028); an explicit access
+   specifier keeps its meaning, and `VAR_IN_OUT`, `VAR_TEMP`, and
+   `VAR_EXTERNAL` members stay restricted because they only mean something
+   inside the POU. CLASS members keep the PROTECTED default under both rules.
 
 Table 40 permits input, output, in-out, external, ordinary, and temporary
 sections. truST also accepts `VAR_STAT` as ordinary persistent instance
@@ -426,6 +447,56 @@ the complete program declaration.
 Table 47 adopts the Table 40 textual edge-input form for programs. A program
 samples each edge-qualified `BOOL` input once per executed program cycle and
 the program body observes only the resulting one-cycle pulse.
+
+**Program methods (e!COCKPIT dialect)**: a program may declare methods, and
+the program body calls them by bare name without a `THIS` qualifier. truST
+imports vendor method metadata attached to program POUs exactly like
+function-block methods and resolves the self-calls against them. The textual
+file grammar accepts `METHOD ... END_METHOD` declarations inside the program
+body — like `ACTION ... END_ACTION`, at any position between the var sections
+and `END_PROGRAM` — with access modifiers, return type, and var sections per
+the §7 method grammar. `PROPERTY` declarations remain rejected in program
+bodies. The runtime build compiles a program's method as a function on the
+variables of the program instance it is called on: a bare-name call in the
+program's body runs it on the instance that runs the body, and
+`ProgramName.method_name(...)` on the program instance of that name, which
+only the CODESYS profile provides (`docs/IEC_DEVIATIONS.md` DEV-030). Its
+`VAR_STAT` variables lie in the program instance, one of each per instance
+and method, as a function-block method's lie in its instance (specification
+01 §3); they are retained as a variable of the program is.
+
+### Program-singleton access (CODESYS profile)
+
+```
+PROGRAM Main
+  seen := Producer.counter;   // read another program's member
+  Consumer.setpoint := 5;     // write another program's member
+  I18nConfig();               // invoke another program body
+END_PROGRAM
+```
+
+CODESYS treats task programs as implicit singletons: a program's name is its
+one instance. Under a CODESYS `vendor_profile` truST accepts the same access
+shape. Under the IEC rules both forms are errors: programs are instantiated
+only in resources and their variables are reached through access paths (IEC
+61131-3 Ed.3 §6.6.4 items 2 and 3; [`IEC_DEVIATIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md) DEV-030).
+
+- A program name used as the qualifier of a field expression resolves the
+  member (variable, function-block instance, or action) among that program's
+  own declarations, including across files. The program name alone in value
+  position remains rejected ("program cannot be used as a value").
+- A program name invoked as a statement (`Name();`) invokes the program body.
+  A program call produces no value; using the call result is rejected like a
+  void call. `VAR_INPUT` arguments are accepted and checked like
+  function-block input bindings (positional or named), matching the CODESYS
+  calling convention; arguments against a program without matching inputs are
+  an argument diagnostic.
+- The runtime build reaches the program's instance of the same name: its
+  variables, its function block instances, and its body run on it, with the
+  arguments bound as a function block call binds them. A project without a
+  CONFIGURATION has one instance of each program's name (specification 18
+  §2.2); a project whose CONFIGURATION gives the program no instance of its
+  name is refused with that reason.
 
 ## 5. CLASS Declaration (Table 48, Section 6.6.5)
 
@@ -622,6 +693,10 @@ Controller.Start();            // Call through interface
 
 ## 7. METHOD Declaration (Sections 6.6.5.4 and 6.6.7.2)
 
+IEC 61131-3 scopes method declarations to classes (6.6.5.4) and function
+blocks (6.6.7.2). truST additionally accepts program-scoped methods as the
+e!COCKPIT dialect extension defined in §4; all §7 rules apply unchanged.
+
 ### Syntax
 
 ```
@@ -722,11 +797,12 @@ required by the interface signature.
 
 ## 8. ACTION Declaration (Table 56, Table 72; Section 6.7.4)
 
-truST's current `ACTION` support is a **front-end analysis profile**, not an
-executable textual-SFC profile. The lexer, parser, and semantic layer retain
-textual ST action declarations so source can be inspected and diagnosed, but
-the runtime compiler does not implement IEC step/action association or action
-control. See `sfc-profile.md`.
+truST compiles textual `ACTION ... END_ACTION` declarations as same-instance
+sub-bodies of their owning `PROGRAM` or `FUNCTION_BLOCK` (CODESYS semantics):
+the body runs against the owner's own variables when invoked, with no
+parameters, no return value, and no storage of its own. IEC step/action
+association, action control, and action qualifiers remain outside the
+textual profile; see `sfc-profile.md`.
 
 ### Syntax
 
@@ -756,19 +832,27 @@ END_ACTION
 6. The action body shares the enclosing POU's variable, type, function, and
    function-block visibility. An action in a function block also has the
    enclosing receiver context, including valid `THIS` and `SUPER` access.
-7. Semantic analysis checks every action body even though the current runtime
-   profile cannot execute it. Invalid assignments, unresolved names, invalid
-   calls, invalid loop control, and other statement errors must not be hidden
-   merely because runtime compilation will later reject the unsupported
-   construct.
+7. Semantic analysis checks every action body exactly like the owner body.
+   Invalid assignments, unresolved names, invalid calls, invalid loop
+   control, and other statement errors must not be hidden merely because the
+   body only runs on invocation.
 8. Labels and `JMP` targets form a scope for each action body. A jump cannot
    enter or leave an action body, matching IEC 61131-3 Ed.3 §8.1.6.
 9. A bare `RETURN;` in an action body has the containing program or function
    block as its IEC control context. A return value is invalid because neither
    kind of owner returns a value.
-10. A textual action name is not a callable ST function, method, or function
-    block instance. `action_name()` does not invoke the action. Action
-    association and qualifiers belong to the unsupported textual-SFC profile.
+10. Textual action invocation (CODESYS vendor extension): an action is
+    callable by its bare name inside its owning POU's body, or through a
+    function-block instance (`instance.action_name()`). An action call takes
+    no arguments, returns no value, and is invalid in value position. An
+    action name does not participate in ordinary variable resolution: a
+    variable with the same spelling keeps shadowing the action for value and
+    assignment contexts, and the action remains invocable by name in call
+    position. SFC action association and qualifiers remain in the
+    unsupported textual-SFC profile, and the runtime compiler still does not
+    implement action control. Calling a program's action through the
+    program's name (`POU.action_name()`) is program-singleton access, which
+    only the CODESYS profile provides (`docs/IEC_DEVIATIONS.md` DEV-030).
 
 ### Parser acceptance and recovery boundary
 
@@ -791,15 +875,23 @@ they do not create a valid action declaration or authorize execution.
 
 ### Compilation boundary
 
-1. Any source unit containing a textual `ACTION...END_ACTION` declaration must
-   be rejected by runtime/bytecode compilation with a diagnostic that identifies
-   textual ACTION/SFC execution as unsupported.
-2. The compiler must not omit an action body, execute it as part of the owner's
-   ordinary ST body, or emit a runnable program that contains only the owner's
-   non-action statements.
-3. No action-local state, scheduling, qualifier, step association, activation,
-   or scan-cycle semantics are defined by the current profile.
-4. Visual-SFC artifacts remain executable through their generated companion
+1. The runtime build compiles each textual action of a `PROGRAM` or
+   `FUNCTION_BLOCK` as a method of its owner without parameters, result,
+   locals or statics (specification 44 §6.4). It shares the owner's
+   variables, receiver, and visibility: a call by the bare name inside the
+   owner's body runs the action on the instance that runs the body,
+   `instance.action_name()` on that function block instance, and
+   `POU.action_name()` on the program instance of that name (rule 10).
+2. Action bodies must not be appended to, interleaved with, or executed as
+   part of the owner's ordinary statement list: the owner body runs exactly
+   its own statements, those before and after an action declaration in
+   source order, and action statements run only on invocation.
+3. `RETURN` in an action body ends the action; its caller continues after
+   the call.
+4. No action-local state, scheduling, qualifier, step association, activation,
+   or scan-cycle semantics are defined. The runtime implements invocation
+   only; SFC action control remains unsupported in the textual profile.
+5. Visual-SFC artifacts remain executable through their generated companion
    function block and wrapper `PROGRAM` described by
    `17-visual-editors-runtime-unification.md`; they do not gain execution
    semantics by embedding textual action declarations.

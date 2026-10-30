@@ -197,6 +197,14 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                     SymbolKind::Constant | SymbolKind::EnumValue { .. }
                 )
             }
+            SyntaxKind::FieldExpr => {
+                // CODESYS qualified enum member access (`EnumType.Member`,
+                // optionally namespace-qualified): a legal constant label.
+                self.checker
+                    .resolve_ref()
+                    .resolve_qualified_enum_member(expr)
+                    .is_some()
+            }
             _ => false,
         }
     }

@@ -1,7 +1,9 @@
 // Specification 25, section 5.1: Connect changes the run target only when it succeeds, a failed Connect stays on the
-// runtime's node with its recovery, and a runtime that answers but keeps debugging disabled is the selected target that
-// Live Values explains. The runtime is a fake control endpoint that answers as trust-runtime does; the lifecycle,
-// Devices & Connections, the side panel, the status bar and Live Values are the extension's own.
+// runtime's node with its recovery, a runtime that answers but keeps debugging disabled is the selected target that
+// Live Values explains, and the Target picker offers the workspace project's own runtime while it answers. The runtime
+// is a fake control endpoint that answers as trust-runtime does, at the endpoint the workspace project's runtime.toml
+// names, so it is the project's own runtime started outside VS Code; the lifecycle, Devices & Connections, the side
+// panel, the status bar and Live Values are the extension's own.
 import * as assert from "assert";
 import * as fs from "fs";
 import * as net from "net";
@@ -34,6 +36,9 @@ const TOKEN = "connect-target-test-token";
 // Connect's text for a runtime that needs a token none was stored for (spec 25 section 5.6: distinct missing-token text).
 const MISSING_TOKEN = "No auth token provided — this runtime requires one.";
 const RUNTIME_SETTINGS = ["runtime.controlEndpoint", "runtime.controlEndpointEnabled", "runtime.mode"] as const;
+// The Target picker's entry for the workspace project's own runtime (specification 25, section 5.1).
+const PROJECT_ID = "project";
+const PROJECT_LABEL = "This project's runtime";
 const STATUS_CONTEXT = {
   subscriptions: [],
   extensionMode: vscode.ExtensionMode.Test,
@@ -354,7 +359,13 @@ async function renderNodeInspector(node: { id: string; type?: string; data: Reco
 
 interface SidebarState {
   readonly selectedId: string;
-  readonly selected: { readonly id: string; readonly label: string };
+  readonly selected: {
+    readonly id: string;
+    readonly label: string;
+    readonly status: string;
+    readonly statusLabel: string;
+    readonly primary: { readonly enabled: boolean };
+  };
   readonly options: ReadonlyArray<{ readonly id: string; readonly label: string; readonly kind: string }>;
 }
 
@@ -363,6 +374,7 @@ function openSidebar(): {
   states(): SidebarState[];
   pickerItems(): Promise<Array<vscode.QuickPickItem & { id?: string }>>;
   select(id: string): Promise<void>;
+  press(): Promise<void>;
   dispose(): void;
 } {
   const { registerTrustHome } = require("../../trustHomeView");
@@ -422,6 +434,8 @@ function openSidebar(): {
     },
     // The Target picker's choice, as the side panel's webview sends it.
     select: async (id: string) => provider.onMessage({ type: "select", id }),
+    // The selected target's one action, as the side panel's button sends it.
+    press: async () => provider.onMessage({ type: "action" }),
     dispose: () => subscriptions.forEach((subscription) => subscription.dispose()),
   };
 }
@@ -516,7 +530,10 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
     // the status bar says "<endpoint> connected" (acceptance finding F20).
     // The runtime needs a token and none is stored for its endpoint, so it refuses Connect.
     const before = await targetState(folder);
-    assert.ok(!before.statusBar.includes(fake.hostPort), `the status bar starts on another target: ${before.statusBar}`);
+    assert.ok(
+      !before.statusBar.includes(fake.hostPort) && !before.statusBar.includes(PROJECT_LABEL),
+      `the status bar starts on another target: ${before.statusBar}`,
+    );
 
     const result = await runtimeLifecycleService.connectRemote(fake.endpoint, "Cpu");
     if (result.ok) {
@@ -577,7 +594,8 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
 
   test("successful connect selects the runtime in the side panel and the status bar", async () => {
     // Catches a Connect after which the side panel's Target still says Simulator and its picker lists only the
-    // Simulator, while the status bar names the runtime (F20).
+    // Simulator, while the status bar names the runtime (F20). The runtime is the project's own, so every surface names
+    // it as that runtime, in one entry (F23).
     // As in the acceptance run: a token is stored for the runtime, which keeps debugging disabled.
     await setControlAuthToken(fake.endpoint, TOKEN);
     const sidebar = openSidebar();
@@ -590,19 +608,127 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
     await waitFor("the runtime selected by Connect", () => getSelectedRuntimeId() === fake.endpoint);
 
     const state = await waitFor("the side panel's Target on the runtime", () =>
-      sidebar.states().reverse().find((candidate) => candidate.selectedId === fake.endpoint));
-    assert.strictEqual(state.selected.label, fake.hostPort, "the side panel's Target names the runtime");
+      sidebar.states().reverse().find((candidate) => candidate.selectedId === PROJECT_ID));
+    assert.strictEqual(state.selected.label, PROJECT_LABEL, "the side panel's Target names the runtime");
     assert.ok(
-      state.options.some((option) => option.id === fake.endpoint && option.kind === "remote"),
+      state.options.some((option) => option.id === PROJECT_ID && option.kind === "remote"),
       "the runtime is one of the side panel's targets",
+    );
+    assert.ok(
+      !state.options.some((option) => option.id === fake.endpoint),
+      `the runtime has one entry: ${JSON.stringify(state.options)}`,
     );
     const items = await sidebar.pickerItems();
     assert.ok(
-      items.some((item) => item.id === fake.endpoint && item.label === fake.hostPort && item.description === "selected"),
+      items.some((item) => item.id === PROJECT_ID && item.label === PROJECT_LABEL && item.description === "selected"),
       `the Target picker lists the runtime as selected: ${JSON.stringify(items)}`,
     );
     const statusBar = (await statusText(STATUS_CONTEXT, await runtimeLifecycleService.snapshot())).text;
-    assert.ok(statusBar.includes(fake.hostPort), `the status bar names the same runtime: ${statusBar}`);
+    assert.ok(statusBar.includes(PROJECT_LABEL), `the status bar names the same runtime: ${statusBar}`);
+  });
+
+  test("the project's own runtime is offered while it answers, and selecting it follows the project", async () => {
+    // Catches a runtime started from the command line that the Target picker never offers (acceptance run of
+    // 29 October: the picker listed only the Simulator), and a selection that writes the runtime's endpoint of today into
+    // the settings, so that a runtime restarted on another port is lost (specification 25, section 5.1).
+    const config = getTrustConfiguration(folder.uri);
+    await config.update("runtime.controlEndpoint", "tcp://127.0.0.1:9", vscode.ConfigurationTarget.WorkspaceFolder);
+    await config.update("runtime.mode", "online", vscode.ConfigurationTarget.WorkspaceFolder);
+    const sidebar = openSidebar();
+    cleanups.push(() => sidebar.dispose());
+    const items = await waitFor("the project's runtime in the Target picker", async () => {
+      const offered = await sidebar.pickerItems();
+      return offered.some((item) => item.id === PROJECT_ID && item.label === PROJECT_LABEL) && offered;
+    });
+    assert.ok(
+      !items.some((item) => item.id === PROJECT_ID && item.description === "selected"),
+      "the project's runtime is offered, not yet selected",
+    );
+
+    await sidebar.select(PROJECT_ID);
+    const state = await targetState(folder);
+    assert.strictEqual(state.selected, PROJECT_ID);
+    assert.strictEqual(state.settings["runtime.mode"], "online", "the runtime settings are online");
+    assert.strictEqual(
+      state.settings["runtime.controlEndpoint"],
+      "",
+      "the settings name no endpoint, so each connection asks trust-runtime for it",
+    );
+    const shown = await waitFor("the side panel's Target on the project's runtime", () =>
+      sidebar.states().reverse().find((candidate) => candidate.selectedId === PROJECT_ID));
+    assert.strictEqual(shown.selected.label, PROJECT_LABEL);
+    assert.ok(
+      !shown.options.some((option) => option.id === fake.endpoint),
+      `the runtime has one entry: ${JSON.stringify(shown.options)}`,
+    );
+  });
+
+  test("Connect on the project's own runtime connects with the endpoint and token trust-runtime reports", async () => {
+    // Catches the side panel's Connect sending the target's id, "project", as the endpoint, so that Connect failed as not
+    // reachable while the project's runtime answered (acceptance run of 30 October on the packaged 0.26.0 candidate;
+    // specification 25, section 5.1). The fake runtime keeps debugging disabled, so a Connect that reaches it is
+    // reported as debugging disabled for its endpoint.
+    const config = getTrustConfiguration(folder.uri);
+    await config.update("runtime.mode", "online", vscode.ConfigurationTarget.WorkspaceFolder);
+    const sidebar = openSidebar();
+    cleanups.push(() => sidebar.dispose());
+    await waitFor("the project's runtime in the Target picker", async () =>
+      (await sidebar.pickerItems()).some((item) => item.id === PROJECT_ID));
+    await sidebar.select(PROJECT_ID);
+    await sidebar.press();
+    const failure = await waitFor("the project's runtime answering Connect", () =>
+      runtimeLifecycleService.debugDisabledFailure(fake.endpoint));
+    assert.strictEqual(failure.kind, "debug_disabled");
+    assert.strictEqual(
+      getTrustConfiguration(folder.uri).get<string>("runtime.controlEndpoint"),
+      "",
+      "the settings still name no endpoint, so the next Connect asks trust-runtime again",
+    );
+  });
+
+  test("a project runtime that stops outside VS Code is not running in the side panel", async () => {
+    // Catches a side panel that keeps a stopped runtime as answering until some other event refreshes it (acceptance run
+    // of 30 October on the packaged 0.26.0 candidate: unchanged 30 s after the runtime stopped; specification 25, section
+    // 5.1). A second fake runtime is the project's for this test and stops while the side panel shows it.
+    const second = await startFakeRuntime();
+    const restore = writeRootProject(folder.uri.fsPath, second.endpoint);
+    cleanups.push(() => restore());
+    cleanups.push(() => second.close().catch(() => undefined));
+    const config = getTrustConfiguration(folder.uri);
+    await config.update("runtime.mode", "online", vscode.ConfigurationTarget.WorkspaceFolder);
+    await config.update("runtime.controlEndpoint", "", vscode.ConfigurationTarget.WorkspaceFolder);
+    await setSelectedRuntimeId(PROJECT_ID);
+    const sidebar = openSidebar();
+    cleanups.push(() => sidebar.dispose());
+    await waitFor("the project's runtime answering in the side panel", () =>
+      sidebar.states().reverse().find((state) => state.selectedId === PROJECT_ID && state.selected.status === "disconnected"));
+
+    await second.close();
+    const stopped = await waitFor("the stopped runtime in the side panel", () =>
+      sidebar.states().reverse().find((state) => state.selectedId === PROJECT_ID && state.selected.statusLabel === "Not running"));
+    assert.strictEqual(stopped.selected.primary.enabled, false, "Connect waits for the runtime to run again");
+  });
+
+  test("a runtime no probe asked is not connected, not unreachable", async () => {
+    // Catches the side panel calling a runtime not reachable, with Connect disabled, when Live Values did not probe it
+    // because its endpoint is switched off, and an extension that does not pass on whether it probed (specification 25,
+    // section 5.1). Nothing listens on port 9, so the probe fails while the endpoint is on.
+    const config = getTrustConfiguration(folder.uri);
+    const silent = "tcp://127.0.0.1:9";
+    await config.update("runtime.controlEndpoint", silent, vscode.ConfigurationTarget.WorkspaceFolder);
+    await config.update("runtime.controlEndpointEnabled", true, vscode.ConfigurationTarget.WorkspaceFolder);
+    await config.update("runtime.mode", "online", vscode.ConfigurationTarget.WorkspaceFolder);
+    await setSelectedRuntimeId(silent);
+    const sidebar = openSidebar();
+    cleanups.push(() => sidebar.dispose());
+    const probed = await waitFor("the failed probe in the side panel", () =>
+      sidebar.states().reverse().find((state) => state.selectedId === silent && state.selected.statusLabel === "Not reachable"));
+    assert.strictEqual(probed.selected.primary.enabled, false, "Connect waits for a runtime that answers");
+
+    await config.update("runtime.controlEndpointEnabled", false, vscode.ConfigurationTarget.WorkspaceFolder);
+    const unprobed = await waitFor("the unprobed runtime in the side panel", () =>
+      sidebar.states().reverse().find((state) => state.selectedId === silent && state.selected.statusLabel === "Not connected"));
+    assert.strictEqual(unprobed.selected.primary.enabled, true, "Connect, which probes first, stays available");
   });
 
   test("selecting the Simulator after Connect puts every surface back on the Simulator", async () => {
@@ -625,7 +751,10 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
     const state = await targetState(folder);
     assert.strictEqual(state.selected, SIMULATOR_RUNTIME_ID);
     assert.strictEqual(state.settings["runtime.mode"], "simulate", "the runtime settings leave online mode");
-    assert.ok(!state.statusBar.includes(fake.hostPort), `the status bar no longer names the runtime: ${state.statusBar}`);
+    assert.ok(
+      !state.statusBar.includes(fake.hostPort) && !state.statusBar.includes(PROJECT_LABEL),
+      `the status bar no longer names the runtime: ${state.statusBar}`,
+    );
     const snapshot = await runtimeLifecycleService.snapshot();
     assert.strictEqual(runTargetOf(snapshot.status), undefined, "HMI Live has no runtime to operate until the Simulator starts");
     assert.strictEqual(snapshot.failure, undefined, "the runtime's disabled debugging is no reason of the Simulator's");

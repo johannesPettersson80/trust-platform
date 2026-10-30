@@ -25,6 +25,8 @@ interface NewAnswer extends VisualAnswer {
 
 interface ImportAnswer extends VisualAnswer {
   targetFile?: string;
+  /** Whether the imported file lies inside the workspace folder, as the language server compares paths. */
+  inWorkspace?: boolean;
 }
 
 /** Why `name` cannot name a new program of `kind`, or `undefined` when it can (for an input box). */
@@ -106,8 +108,9 @@ export async function createVisualProgram(
 /** The file name an import of `source` gets, or why the file cannot be imported as `kind`. */
 export async function importTargetName(
   kind: VisualKindName,
-  source: vscode.Uri
-): Promise<{ fileName: string } | { error: string }> {
+  source: vscode.Uri,
+  workspace?: vscode.Uri
+): Promise<{ fileName: string; inWorkspace: boolean } | { error: string }> {
   let text: string;
   try {
     text = Buffer.from(await vscode.workspace.fs.readFile(source)).toString("utf8");
@@ -118,9 +121,10 @@ export async function importTargetName(
     kind,
     file: source.fsPath,
     text,
+    workspace: workspace?.fsPath ?? "",
   });
   if (answer.ok && typeof answer.targetFile === "string") {
-    return { fileName: answer.targetFile };
+    return { fileName: answer.targetFile, inWorkspace: answer.inWorkspace === true };
   }
   return { error: problemText(answer) };
 }
@@ -184,13 +188,13 @@ export async function importVisualProgram(request: ImportRequest): Promise<vscod
     void vscode.window.showErrorMessage(`Source file not found: ${source.fsPath}`);
     return undefined;
   }
-  const named = await importTargetName(request.kind, source);
+  const named = await importTargetName(request.kind, source, root);
   if ("error" in named) {
     void vscode.window.showErrorMessage(named.error);
     return undefined;
   }
   let target = request.targetFile;
-  if (!target && request.openInPlace && root && source.toString().startsWith(root.toString())) {
+  if (!target && request.openInPlace && named.inWorkspace) {
     target = source;
   }
   if (!target) {

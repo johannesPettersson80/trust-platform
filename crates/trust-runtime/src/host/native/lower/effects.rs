@@ -70,7 +70,7 @@ impl Lowerer<'_, '_> {
                 .next()
                 .is_some_and(|inner| self.pure_operand(&inner)),
             SyntaxKind::UnaryExpr => {
-                super::expr::signed_literal(node)
+                super::literal::signed_literal(node)
                     || (self.real_sign(node)
                         && node
                             .children()

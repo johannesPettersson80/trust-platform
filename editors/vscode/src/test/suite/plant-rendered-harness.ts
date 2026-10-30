@@ -151,9 +151,12 @@ export async function beginPlantDraft(
     (value) => value === "ADD",
     10_000
   );
+  // The option stays disabled until the target runtime's topology says it simulates plants, a few
+  // tens of milliseconds after the pane opens; a click on it before then does nothing (29 October
+  // 2026: CPFIX-006 after CPFIX-003 failed 2 of 3 runs so, the editor never opening).
   const plant = await pollValue(
     "simulated plant picker",
-    async () => session.inner("var button=[...d.querySelectorAll('button,[role=button]')].find((x)=>/simulated plant/i.test(x.textContent||''));if(!button)return 'WAIT';button.click();return 'PLANT';"),
+    async () => session.inner("var button=[...d.querySelectorAll('button,[role=button]')].find((x)=>/simulated plant/i.test(x.textContent||''));if(!button||button.disabled)return 'WAIT';button.click();return 'PLANT';"),
     (value) => value === "PLANT",
     10_000
   );

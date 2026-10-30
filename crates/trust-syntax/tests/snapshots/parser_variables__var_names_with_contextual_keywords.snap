@@ -1,0 +1,75 @@
+---
+source: crates/trust-syntax/tests/parser_variables.rs
+expression: "snapshot_parse(r#\"PROGRAM Test\nVAR_INPUT\n    on : BOOL;\n    set : BOOL;\nEND_VAR\nVAR\n    null : BOOL;\n    timer : TIMER_EXT;\nEND_VAR\n    on := set;\n    timer.on := TRUE;\n    timer.set := FALSE;\nEND_PROGRAM\"#)"
+---
+SourceFile@0..186
+  Program@0..186
+    KwProgram@0..7 "PROGRAM"
+    Name@7..13
+      Ident@8..12 "Test"
+    VarBlock@13..62
+      KwVarInput@13..22 "VAR_INPUT"
+      VarDecl@22..42
+        Name@22..30
+          KwOn@27..29 "on"
+        Colon@30..31 ":"
+        TypeRef@31..36
+          KwBool@32..36 "BOOL"
+        Semicolon@36..37 ";"
+      VarDecl@42..54
+        Name@42..46
+          KwSet@42..45 "set"
+        Colon@46..47 ":"
+        TypeRef@47..52
+          KwBool@48..52 "BOOL"
+        Semicolon@52..53 ";"
+      KwEndVar@54..61 "END_VAR"
+    VarBlock@62..118
+      KwVar@62..65 "VAR"
+      VarDecl@65..87
+        Name@65..75
+          KwNull@70..74 "null"
+        Colon@75..76 ":"
+        TypeRef@76..81
+          KwBool@77..81 "BOOL"
+        Semicolon@81..82 ";"
+      VarDecl@87..106
+        Name@87..93
+          Ident@87..92 "timer"
+        Colon@93..94 ":"
+        TypeRef@94..104
+          Name@94..104
+            Ident@95..104 "TIMER_EXT"
+        Semicolon@104..105 ";"
+      KwEndVar@106..113 "END_VAR"
+    StmtList@118..175
+      AssignStmt@118..133
+        NameRef@118..121
+          KwOn@118..120 "on"
+        Assign@121..123 ":="
+        NameRef@123..127
+          KwSet@124..127 "set"
+        Semicolon@127..128 ";"
+      AssignStmt@133..155
+        FieldExpr@133..142
+          NameRef@133..138
+            Ident@133..138 "timer"
+          Dot@138..139 "."
+          Name@139..142
+            KwOn@139..141 "on"
+        Assign@142..144 ":="
+        Literal@144..149
+          KwTrue@145..149 "TRUE"
+        Semicolon@149..150 ";"
+      AssignStmt@155..175
+        FieldExpr@155..165
+          NameRef@155..160
+            Ident@155..160 "timer"
+          Dot@160..161 "."
+          Name@161..165
+            KwSet@161..164 "set"
+        Assign@165..167 ":="
+        Literal@167..173
+          KwFalse@168..173 "FALSE"
+        Semicolon@173..174 ";"
+    KwEndProgram@175..186 "END_PROGRAM"
