@@ -1,33 +1,10 @@
 name: Docs Pages
 
+# A push to main starts this workflow; its `changes` job decides whether the site must be built and
+# deployed, comparing the whole push (specification 22, "Pull-request checks and change detection").
 on:
   push:
     branches: [main]
-    paths:
-      - "docs/public/**"
-      - "docs/guides/**"
-      - "docs/specs/**"
-      - "conformance/**"
-      - "docs/internal/assets/**"
-      - "mkdocs.yml"
-      - "docs/requirements.txt"
-      - "README.md"
-      - "docs/README.md"
-      - "examples/README.md"
-      - "examples/**/README.md"
-      - "examples/ladder/*.mp4"
-      - "examples/statecharts/*.mp4"
-      - "examples/blockly/*.mp4"
-      - "CHANGELOG.md"
-      - "scripts/check_public_docs_links.py"
-      - "scripts/check_example_catalog_links.py"
-      - "scripts/check_public_docs_assets.py"
-      - "scripts/check_public_docs_search.py"
-      - "scripts/generate_public_docs_media.py"
-      - "scripts/capture-public-docs-visual-editors.sh"
-      - "scripts/verify_public_docs_deploy.py"
-      - "editors/vscode/assets/**"
-      - ".github/workflows/demo-pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -40,8 +17,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      relevant: ${{ steps.changes.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Compare the push with the documentation paths
+        id: changes
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: python3 scripts/ci_changes.py --event "$EVENT" --base "$BASE" --head "$HEAD_SHA" --paths-file .github/paths/docs-pages.txt
+
   build:
     name: Build Pages Artifact
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

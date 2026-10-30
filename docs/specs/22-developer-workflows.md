@@ -343,11 +343,11 @@ request's head with its base over the full history (`git diff --name-only
 <base>...<head>`), with no limit on the number of changed files, and names the
 areas the change touches. A job that checks an area runs when that area changed
 and is skipped otherwise. A push to `main` uses the same detection against the
-push's previous commit, with the same list of paths per area. Each such
-workflow ends with a `conclusion` job that runs unless the run was cancelled
-and fails unless every other job of the workflow succeeded or was skipped; a
-failed `changes` job therefore fails the workflow instead of skipping its
-checks. GitHub's own path filters compare only the first 300 changed files, so
+push's previous commit, with the same list of paths per area, kept in
+`.github/paths/`. A workflow with a `changes` job ends with a `conclusion` job
+that runs unless the run was cancelled, needs every other job, and fails unless
+each succeeded or was skipped; a failed `changes` job therefore fails the
+workflow instead of skipping its checks. GitHub's own path filters compare only the first 300 changed files, so
 0.25.0's 10,252-file pull request ran no documentation workflow, and the site
 broke on `main` (28 October 2026).
 

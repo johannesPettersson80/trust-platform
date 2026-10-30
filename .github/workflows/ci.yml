@@ -137,6 +137,22 @@ jobs:
         run: python3 ./scripts/test_check_version_release_evidence.py
       - name: Guard deterministic diagram workflow
         run: python3 -m unittest scripts.tests.test_diagram_workflow -v
+      - name: Guard workflow change detection
+        run: python3 -m unittest scripts.tests.test_ci_changes scripts.tests.test_workflow_change_detection -v
+      - name: Lint the workflows
+        # actionlint at a pinned version and checksum, with the runner's shellcheck
+        # (specification 22, "Pull-request checks and change detection").
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+          ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+        run: |
+          set -euo pipefail
+          archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL -o "${RUNNER_TEMP}/${archive}" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${archive}"
+          echo "${ACTIONLINT_SHA256}  ${RUNNER_TEMP}/${archive}" | sha256sum -c -
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}" actionlint
+          "${RUNNER_TEMP}/actionlint" -color
       - name: Guard the release text from the changelog
         run: python3 -m unittest scripts.tests.test_extract_changelog_section -v
       - name: Guard the release rehearsal

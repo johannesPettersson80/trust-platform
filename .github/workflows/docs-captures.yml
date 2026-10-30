@@ -1,44 +1,13 @@
 name: Docs Captures
 
+# Every pull request starts this workflow; its `changes` job decides whether the captures must run,
+# with one list of paths for pull requests and pushes to main (specification 22, "Pull-request
+# checks and change detection").
 on:
   pull_request:
-    paths:
-      - ".github/workflows/docs-captures.yml"
-      - "crates/trust-runtime/src/web/ui/**"
-      - "docs/public/assets/capture-inventory.json"
-      - "docs/public/assets/images/**"
-      - "editors/vscode/**"
-      - "examples/tutorials/12_hmi_pid_process_dashboard/**"
-      - "manual-tests/trust-lsp-smoke/**"
-      - "scripts/build_browser_analysis_wasm_spike.sh"
-      - "scripts/captures/**"
-      - "scripts/native/build_toolchain_libraries.sh"
-      - "scripts/tests/test_capture_lifecycle.py"
-      - "scripts/tests/test_docs_captures_workflow.py"
-      - "scripts/tests/test_public_docs_ia.py"
-      - "scripts/check_public_docs_assets.py"
-      - "scripts/check_public_docs_ia.py"
-      - "scripts/generate_public_docs_media.py"
   push:
     branches:
       - main
-    paths:
-      - ".github/workflows/docs-captures.yml"
-      - "crates/trust-runtime/src/web/ui/**"
-      - "docs/public/assets/capture-inventory.json"
-      - "docs/public/assets/images/**"
-      - "editors/vscode/**"
-      - "examples/tutorials/12_hmi_pid_process_dashboard/**"
-      - "manual-tests/trust-lsp-smoke/**"
-      - "scripts/build_browser_analysis_wasm_spike.sh"
-      - "scripts/captures/**"
-      - "scripts/native/build_toolchain_libraries.sh"
-      - "scripts/tests/test_capture_lifecycle.py"
-      - "scripts/tests/test_docs_captures_workflow.py"
-      - "scripts/tests/test_public_docs_ia.py"
-      - "scripts/check_public_docs_assets.py"
-      - "scripts/check_public_docs_ia.py"
-      - "scripts/generate_public_docs_media.py"
   workflow_dispatch:
   schedule:
     - cron: "0 4 * * *"
@@ -51,8 +20,28 @@ env:
   RUSTC_WRAPPER: ""
 
 jobs:
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.changes.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Compare the change with the capture paths
+        id: changes
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python3 scripts/ci_changes.py --event "$EVENT" --base "$BASE" --head "$HEAD_SHA" --paths-file .github/paths/docs-captures.txt
+
   refresh:
     name: Refresh Automated Docs Captures
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -166,3 +155,14 @@ jobs:
           add-paths: |
             docs/public/assets/images/**/*.png
             docs/public/assets/images/**/*.gif
+
+  conclusion:
+    name: Conclusion
+    needs: [changes, refresh]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job succeeded or was skipped
+        env:
+          RESULTS: ${{ toJson(needs) }}
+        run: jq --exit-status 'all(.result == "success" or .result == "skipped")' <<< "$RESULTS"

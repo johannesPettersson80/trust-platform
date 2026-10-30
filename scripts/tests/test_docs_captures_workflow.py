@@ -9,6 +9,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "docs-captures.yml"
+PATHS = ROOT / ".github" / "paths" / "docs-captures.txt"
 
 
 class DocsCapturesWorkflowContractTests(unittest.TestCase):
@@ -16,24 +17,27 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
         workflow = yaml.load(WORKFLOW.read_text(), Loader=yaml.BaseLoader)
 
         triggers = workflow["on"]
-        self.assertIn("pull_request", triggers)
-        self.assertEqual(
-            triggers["pull_request"]["paths"],
-            triggers["push"]["paths"],
-            "PR and main-push capture paths must stay aligned",
-        )
+        # Specification 22: no trigger path filter (GitHub's compares only 300 files); the changes job
+        # compares the whole change, with one list of paths for pull requests and pushes to main.
+        self.assertEqual(triggers["pull_request"], "")
+        self.assertEqual(triggers["push"], {"branches": ["main"]})
         self.assertEqual(workflow["permissions"], {"contents": "read"})
-        self.assertIn(
-            "scripts/tests/test_capture_lifecycle.py",
-            triggers["pull_request"]["paths"],
-        )
+        paths = PATHS.read_text().splitlines()
+        self.assertIn("scripts/tests/test_capture_lifecycle.py", paths)
         self.assertIn(
             "crates/trust-runtime/src/web/ui/**",
-            triggers["pull_request"]["paths"],
+            paths,
             "runtime Web UI changes must execute the rendered capture suite",
+        )
+        changes = workflow["jobs"]["changes"]
+        self.assertIn(
+            "--paths-file .github/paths/docs-captures.txt",
+            " ".join(step.get("run", "") for step in changes["steps"]),
         )
 
         refresh = workflow["jobs"]["refresh"]
+        self.assertEqual(refresh["needs"], "changes")
+        self.assertEqual(refresh["if"], "needs.changes.outputs.relevant == 'true'")
         self.assertEqual(refresh["permissions"], {"contents": "read"})
         refresh_steps = [step.get("name") for step in refresh["steps"]]
         self.assertIn("Verify capture process lifecycle", refresh_steps)
