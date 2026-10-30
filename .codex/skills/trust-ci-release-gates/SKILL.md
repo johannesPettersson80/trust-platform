@@ -13,6 +13,75 @@ TypeScript. Existing TypeScript logic is debt to move into Rust, not to extend.
 Before a push, read the diff for this: a change that adds or grows logic in TypeScript does not
 ship.
 
+## The release flow: one day, one fix round
+
+Run these steps in this order. Each one finds in minutes what a later step finds only in hours. The
+guard stops at its first failing stage and a CI round takes about four hours, so every failure found
+there costs a whole run. Each step names the release that taught it.
+
+0. **Push early, bump the version last.** Develop the next release on a `work/` branch at `main`'s
+   version and push it with a draft pull request from its first commit. Such a push needs no guard,
+   so CI on Linux, macOS and Windows, the path-filtered workflows and the automatic review run on every
+   push while the work goes on; fix what they find as it comes. Only the last commit bumps the
+   version and moves the changelog section, so the guard and the rehearsal run once, on the finished
+   release. (A version bump makes every push of the branch wait for the guard: each fix of 0.25.0,
+   0.25.1 and 0.26.0 then waited about two hours for the guard and four for CI, so a release took
+   days.)
+1. **Scope, text and docs.** Freeze the scope. Bump the version and move `[Unreleased]` to the
+   version's section; check the text with `scripts/extract_changelog_section.py`. Copy `AGENTS.md` and
+   `.codex/skills/` from the primary checkout. For every changelog entry, update in the same
+   candidate each page that describes that behaviour: the public docs, the README, the example and
+   lesson READMEs, the specification and the screenshots. Search the docs for every command, setting,
+   flag and feature the release renames or removes. Dispatch Docs Captures on the candidate branch and
+   merge its refreshed captures into the candidate; its `automation/docs-captures` branch is not merged
+   by anyone else. (The docs checks test links, assets, navigation and search, not whether a page
+   still describes the product: 0.25.1's terminal GIFs showed errors, and its README linked pages
+   the site did not serve yet.)
+2. **Pre-flight: every cheap check, all failures at once.** Stage the candidate in the guard
+   worktree and run there, with the guard's environment, every quick stage, and go on after a
+   failure:
+   - `git diff --check` against the base, and `cargo fmt --check`;
+   - `cargo run -p xtask -- architecture-doctor --full-map` (files over 1,000 lines, unsafe registers);
+   - `bash scripts/supply_chain_gate.sh`;
+   - `cargo clippy --keep-going --workspace --all-targets --all-features -- -D warnings`, and the
+     documentation build;
+   - the docs site build and its checks (`mkdocs build --strict`, the search and link checks);
+   - the MP-001 baselines;
+   - every generator whose output is committed (diagrams, HIR baselines, the runtime's
+     `hmi-drawing.js` and `hmi-display.js`), with the tree unchanged afterwards.
+
+   Fix all of them, then repeat the pre-flight. (0.26.0 needed six guard runs, one for each of these:
+   a blank line, a file over 1,000 lines, a search rank, a stale baseline, a stale bundle, a test.)
+3. **Every test the change reaches.** Run the tests of each changed crate and of the crates and test
+   files that use what changed, not only the new tests. (F2's focused runs missed
+   `control_studio_pid_group`; the guard's `test-all` found it two hours later.)
+4. **Review before the guard.** Review the release diff, new features first, for bugs and for logic
+   in TypeScript, and fix what it finds. (The automatic review found 0.25.1's Bash 3.2 bug and
+   0.26.0's endpoint bug only after the push.)
+5. **The user's journeys on a packaged build.** Build the VSIX as the Release builds it (linux-x64
+   on the builder; linux-arm64 for the Pi with `cross`). Install it in a fresh profile with an empty
+   data folder and no Rust. Run the release's main journeys with the acceptance harness, every step
+   asserted, and review the screenshots. (0.26.0's guard and CI passed while Connect on "This
+   project's runtime" failed for every user: no test pressed that button.)
+6. **Platform probes.** When the change touches timing, sockets, paths, processes, linking or shell
+   scripts, run the affected tests on the macOS and Windows runners from a temporary `probe/<topic>`
+   branch at `main`'s version while the guard runs: twenty minutes instead of a four-hour round.
+   (0.25.1: Windows linking, restart timing and a reused temporary folder; macOS's instruction cache
+   and Bash 3.2.)
+7. **The guard, alone on its volume.** Keep check targets on the system disk and remove idle targets
+   from the build volume first, so the 80 GiB floor holds (30 October's guard failed it on idle
+   targets). Stage the candidate by bundle, then run `prepare`.
+8. **Push, then start everything at once.** Push, request `@codex review`, and dispatch the Release
+   rehearsal and every path-filtered workflow on the head; `check-merge` names them. Wait for all of
+   them with one waiter. (0.25.0's docs workflows never ran on its 10,252-file pull request, and its
+   release jobs failed only after the tag.)
+9. **One fix round.** Collect every failure and every review finding (`collect-failures`), fix the
+   whole set, and run steps 2 to 8 again for the fix, pre-flight first.
+10. **Merge, tag, release, verify, clean up.** Run `check-merge --execute`, push the annotated tag on
+    `main` and let the Release run. Then run `verify-release` with `TMPDIR` on a large disk (the
+    assets are 2.7 GB) and confirm the Marketplace version. Finally, remove the guard's target and
+    worktrees.
+
 ## Changelog and versions
 
 - **Changelog**: user-visible changes get an entry in `CHANGELOG.md` under `## [Unreleased]`, in
