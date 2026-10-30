@@ -581,7 +581,7 @@ impl<'w> Parts<'w> {
             .to_owned();
         let priority = parts
             .iter()
-            .filter_map(|part| part.get("priority").and_then(Json::as_finite))
+            .filter_map(|part| part.get("priority").and_then(priority_number))
             .min_by(f64::total_cmp);
         Transition {
             before,
@@ -591,6 +591,19 @@ impl<'w> Parts<'w> {
             priority,
             first,
         }
+    }
+}
+
+/// The number of a transition's `priority` (`sfc-profile.md`, "Rules of evolution"): a number, or the text that the editor's
+/// Priority field holds as typed, trimmed, read as a number. `None` for a value that holds no finite number, such as a blank
+/// text, which names no priority; the validation refuses any value that is not a whole number from 0.
+pub(super) fn priority_number(value: &Json) -> Option<f64> {
+    match value {
+        Json::String(text) => trim(text)
+            .parse::<f64>()
+            .ok()
+            .filter(|number| number.is_finite()),
+        other => other.as_finite(),
     }
 }
 
