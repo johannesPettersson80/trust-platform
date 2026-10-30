@@ -247,16 +247,28 @@ fn elapsed_times(chart: &Chart<'_>, lines: &mut Vec<String>) {
     lines.push(String::new());
 }
 
-/// Each step's flag `X` (Table 54 feature 3a), which is its `<step>_active` after the evolution.
+/// Each step's flag `X` (Table 54 feature 3a), which is its `<step>_active` after the evolution. A
+/// step the evolution entered, active now but not at the end of the previous scan, gets its
+/// elapsed time `T` reset to `T#0s` with it: "When a step is activated, the value of the step
+/// elapsed time shall be reset to t#0s" (§6.7.2). Its timer starts in the next scan.
 fn step_flags(chart: &Chart<'_>, lines: &mut Vec<String>) {
     if !chart.steps.iter().any(Step::readable) {
         return;
     }
     lines.push(
-        "// Step flags X (Table 54): each step's <step>_active after the evolution.".to_owned(),
+        "// Step flags X (Table 54): each step's <step>_active after the evolution; a step entered in"
+            .to_owned(),
+    );
+    lines.push(
+        "// this scan starts its elapsed time T again from T#0s (IEC 61131-3 6.7.2).".to_owned(),
     );
     for step in chart.steps.iter().filter(|step| step.readable()) {
-        lines.push(format!("{}.X := {};", step.name, step.flag()));
+        let flag = step.flag();
+        lines.push(format!(
+            "IF {flag} AND NOT {name}.X THEN\n  {name}.T := T#0s;\nEND_IF;",
+            name = step.name
+        ));
+        lines.push(format!("{}.X := {flag};", step.name));
     }
     lines.push(String::new());
 }

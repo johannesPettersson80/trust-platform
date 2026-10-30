@@ -663,28 +663,6 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
     );
   });
 
-  test("a runtime no probe asked is not connected, not unreachable", async () => {
-    // Catches the side panel calling a runtime not reachable, with Connect disabled, when Live Values did not probe it
-    // because its endpoint is switched off, and an extension that does not pass on whether it probed (specification 25,
-    // section 5.1). Nothing listens on port 9, so the probe fails while the endpoint is on.
-    const config = getTrustConfiguration(folder.uri);
-    const silent = "tcp://127.0.0.1:9";
-    await config.update("runtime.controlEndpoint", silent, vscode.ConfigurationTarget.WorkspaceFolder);
-    await config.update("runtime.controlEndpointEnabled", true, vscode.ConfigurationTarget.WorkspaceFolder);
-    await config.update("runtime.mode", "online", vscode.ConfigurationTarget.WorkspaceFolder);
-    await setSelectedRuntimeId(silent);
-    const sidebar = openSidebar();
-    cleanups.push(() => sidebar.dispose());
-    const probed = await waitFor("the failed probe in the side panel", () =>
-      sidebar.states().reverse().find((state) => state.selectedId === silent && state.selected.statusLabel === "Not reachable"));
-    assert.strictEqual(probed.selected.primary.enabled, false, "Connect waits for a runtime that answers");
-
-    await config.update("runtime.controlEndpointEnabled", false, vscode.ConfigurationTarget.WorkspaceFolder);
-    const unprobed = await waitFor("the unprobed runtime in the side panel", () =>
-      sidebar.states().reverse().find((state) => state.selectedId === silent && state.selected.statusLabel === "Not connected"));
-    assert.strictEqual(unprobed.selected.primary.enabled, true, "Connect, which probes first, stays available");
-  });
-
   test("Connect on the project's own runtime connects with the endpoint and token trust-runtime reports", async () => {
     // Catches the side panel's Connect sending the target's id, "project", as the endpoint, so that Connect failed as not
     // reachable while the project's runtime answered (acceptance run of 30 October on the packaged 0.26.0 candidate;
@@ -729,6 +707,28 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
     const stopped = await waitFor("the stopped runtime in the side panel", () =>
       sidebar.states().reverse().find((state) => state.selectedId === PROJECT_ID && state.selected.statusLabel === "Not running"));
     assert.strictEqual(stopped.selected.primary.enabled, false, "Connect waits for the runtime to run again");
+  });
+
+  test("a runtime no probe asked is not connected, not unreachable", async () => {
+    // Catches the side panel calling a runtime not reachable, with Connect disabled, when Live Values did not probe it
+    // because its endpoint is switched off, and an extension that does not pass on whether it probed (specification 25,
+    // section 5.1). Nothing listens on port 9, so the probe fails while the endpoint is on.
+    const config = getTrustConfiguration(folder.uri);
+    const silent = "tcp://127.0.0.1:9";
+    await config.update("runtime.controlEndpoint", silent, vscode.ConfigurationTarget.WorkspaceFolder);
+    await config.update("runtime.controlEndpointEnabled", true, vscode.ConfigurationTarget.WorkspaceFolder);
+    await config.update("runtime.mode", "online", vscode.ConfigurationTarget.WorkspaceFolder);
+    await setSelectedRuntimeId(silent);
+    const sidebar = openSidebar();
+    cleanups.push(() => sidebar.dispose());
+    const probed = await waitFor("the failed probe in the side panel", () =>
+      sidebar.states().reverse().find((state) => state.selectedId === silent && state.selected.statusLabel === "Not reachable"));
+    assert.strictEqual(probed.selected.primary.enabled, false, "Connect waits for a runtime that answers");
+
+    await config.update("runtime.controlEndpointEnabled", false, vscode.ConfigurationTarget.WorkspaceFolder);
+    const unprobed = await waitFor("the unprobed runtime in the side panel", () =>
+      sidebar.states().reverse().find((state) => state.selectedId === silent && state.selected.statusLabel === "Not connected"));
+    assert.strictEqual(unprobed.selected.primary.enabled, true, "Connect, which probes first, stays available");
   });
 
   test("selecting the Simulator after Connect puts every surface back on the Simulator", async () => {

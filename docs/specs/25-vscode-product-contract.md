@@ -2104,6 +2104,12 @@ these commands and show the answers:
   `id` and `states`, an SFC `name`, `steps` and `transitions`. The copy keeps
   the file name and gets the suffix of its kind when the name lacks it, so it
   opens in its editor and gets its companion.
+- An imported Ladder, Statechart or SFC file that already lies inside the
+  workspace folder opens where it is; a file outside it, and every Blockly
+  workspace, is copied. A file lies inside the folder when the folder's names
+  begin its path, name by name, so `/ws-other/a.sfc.json` is not inside `/ws`.
+  On Windows and macOS, whose file systems ignore case, the names match in any
+  case, as VS Code compares paths there.
 - Creating a Ladder, Blockly, Statechart, or SFC program opens the new file in
   its visual editor, in the active editor group and with focus. With
   `trust.visual.openStructuredTextCompanionOnCreate` on, the generated

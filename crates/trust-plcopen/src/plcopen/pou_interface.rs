@@ -1105,7 +1105,7 @@ fn merge_pou_source_with_imported_methods(
         return source;
     }
 
-    let Some(insert_at) = source.rfind(pou_type.end_keyword()) else {
+    let Some(insert_at) = pou_type.end_offset(&source) else {
         return source;
     };
 

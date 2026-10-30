@@ -156,6 +156,23 @@ This file tracks implementation decisions made where PLCopen profiles or source 
     actions skipped preserves the fail-closed boundary where no parent can be
     derived.
 
+## 2026-10-30 - Where merged actions and methods go
+
+- Area: PLCopen XML import of textual actions and CODESYS methods
+- Decision:
+  - Merged actions and methods go before the parent POU's end keyword
+    (`END_PROGRAM`, `END_FUNCTION_BLOCK` or `END_FUNCTION`), found as a token
+    of the lexer: in any case, as IEC 61131-3 §6.1.3 reads keywords, and never
+    inside a comment or a string.
+  - When the parent's source has no end keyword, its actions are skipped with
+    `PLCO203` and the reason "parent POU has no end keyword", and count as a
+    loss; they are never reported imported.
+- Reason:
+  - A complete POU declaration in an ST body may close with `end_program`.
+    The uppercase-only text search found no place for the actions, dropped
+    them and still reported them imported, and it took an `END_PROGRAM` inside
+    a comment for the end (Codex's review of 0.26.0).
+
 ## 2026-10-14 - Structural action containers (e!COCKPIT export shape)
 
 - Area: PLCopen XML import of textual actions

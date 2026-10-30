@@ -64,13 +64,26 @@ pub fn import_target(kind: VisualKind, file: &str, text: &str) -> Result<String,
 
 /// Whether the file at `file` lies inside the folder `workspace`, both absolute paths as the editor
 /// names them: compared folder by folder, with either separator, so `/ws-other/a.sfc.json` is not
-/// inside `/ws`. An empty workspace holds nothing.
+/// inside `/ws`. On Windows and macOS, whose file systems ignore case, a folder name matches in any
+/// case, as VS Code compares paths there; on other systems it matches exactly. An empty workspace
+/// holds nothing.
 #[must_use]
 pub fn inside_workspace(file: &str, workspace: &str) -> bool {
+    inside_folder(file, workspace, cfg!(any(windows, target_os = "macos")))
+}
+
+/// [`inside_workspace`] on a file system that ignores case when `ignore_case` is set.
+fn inside_folder(file: &str, workspace: &str, ignore_case: bool) -> bool {
     let parts = |path: &'_ str| -> Vec<String> {
         path.split(['/', '\\'])
             .filter(|part| !part.is_empty())
-            .map(str::to_owned)
+            .map(|part| {
+                if ignore_case {
+                    part.to_lowercase()
+                } else {
+                    part.to_owned()
+                }
+            })
             .collect()
     };
     let folder = parts(workspace);
@@ -92,6 +105,33 @@ mod tests {
         assert!(inside_workspace("c:\\ws\\a.sfc.json", "c:\\ws"));
         assert!(!inside_workspace("c:\\ws2\\a.sfc.json", "c:\\ws"));
         assert!(!inside_workspace("/ws/a.sfc.json", ""));
+    }
+
+    #[test]
+    fn a_folder_name_matches_in_any_case_where_the_file_system_ignores_case() {
+        // Catches the exact comparison on Windows and macOS, where `C:\WS` and `c:\ws` are one
+        // folder: a program inside the workspace was copied instead of opened where it is (Codex's
+        // review of 0.26.0). On Linux they are two folders.
+        assert!(inside_folder(
+            "C:\\WS\\Programs\\a.sfc.json",
+            "c:\\ws",
+            true
+        ));
+        assert!(inside_folder(
+            "/Users/Ann/Plant/a.sfc.json",
+            "/Users/ann/plant",
+            true
+        ));
+        assert!(!inside_folder("C:\\WS2\\a.sfc.json", "c:\\ws", true));
+        assert!(!inside_folder(
+            "/home/ann/Plant/a.sfc.json",
+            "/home/ann/plant",
+            false
+        ));
+        assert_eq!(
+            inside_workspace("/WS/a.sfc.json", "/ws"),
+            cfg!(any(windows, target_os = "macos"))
+        );
     }
 
     #[test]

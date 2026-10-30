@@ -580,13 +580,16 @@ fn a_step_has_its_flag_x_and_its_elapsed_time_t() {
     // called at the start of each scan with the step's flag and T is its ET while the step is
     // active, so by the TON rule above a step entered in scan k reads 0 in scan k + 1 and 20 ms in
     // scan k + 2; the initial step Idle reads 0 in scan 1. T keeps its value while the step is
-    // inactive; X is the step flag after the evolution. Idle reads 0, 20, 40 and is left in scan 3;
-    // Fill, entered in scan 3, reads 0 in scan 4 and 100 ms in scan 9, where its own T clears
-    // Fill -> Done; Done reads 0, 20 and 40 in scans 10 to 12, where it is left; Idle, entered
-    // again in scan 12, starts again at 0 in scan 13 and reads 20 ms in scan 14 while Fill and Done
-    // keep 100 and 40. Catches a T that does not start again (Idle would keep 40 or count on from
-    // it), one that falls to 0 when its step is left, a condition on T off by a scan, and an X
-    // that lags its step flag.
+    // inactive, and a step that is activated reads T#0s with its X TRUE after the scan that enters
+    // it ("When a step is activated, the value of the step elapsed time shall be reset to t#0s");
+    // X is the step flag after the evolution. Idle reads 0, 20, 40 and is left in scan 3; Fill,
+    // entered in scan 3, reads 0 in scans 3 and 4 and 100 ms in scan 9, where its own T clears
+    // Fill -> Done; Done reads 0, 0, 20 and 40 in scans 9 to 12, where it is left; Idle, entered
+    // again in scan 12, reads 0 in scans 12 and 13 and 20 ms in scan 14 while Fill and Done keep
+    // 100 and 40. Catches a T that does not start again (Idle would keep 40 or count on from it), a
+    // step entered again that shows its previous T with X TRUE (Idle's 40 in scan 12, Codex's
+    // review of 0.26.0), one that falls to 0 when its step is left, a condition on T off by a scan,
+    // and an X that lags its step flag.
     let mut run = Run::new("steps", STEPS);
     let mut seen = Vec::new();
     for scan in 1..=14 {
@@ -615,7 +618,7 @@ fn a_step_has_its_flag_x_and_its_elapsed_time_t() {
             [(40, false), (100, false), (0, true)],
             [(40, false), (100, false), (0, true)],
             [(40, false), (100, false), (20, true)],
-            [(40, true), (100, false), (40, false)],
+            [(0, true), (100, false), (40, false)],
             [(0, true), (100, false), (40, false)],
             [(20, true), (100, false), (40, false)]
         ]

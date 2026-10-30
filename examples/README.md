@@ -57,13 +57,13 @@ code /path/to/trust-platform
 | Tutorials | `examples/tutorials/README.md` | language basics, testing, bootstrap, deploy, networking, simulation, safety, CI/CD, observability | 60-360 min |
 | Test and debug | `examples/memory_marker_counter/README.md` | runtime/process-image mental model and debugger confirmation | 20-30 min |
 | HMI | `examples/hmi_tank_level/README.md` | screens built in the HMI Builder: live values, setpoint, trend, alarms, Live mode, deploy and roll back | 30-45 min |
-| HMI | `examples/hmi_equipment/README.md` | the Equipment library's pump, control valve, tank and PID loop, each opening its shipped faceplate | 20-30 min |
+| HMI | `examples/hmi_equipment/README.md` | the Plant library's pump, control valve, tank and PID loop, each opening its shipped faceplate | 20-30 min |
 | HMI | `examples/room_heating/README.md` | a room heating built in the HMI Builder: tank and room PID loops written by Create PLC code and set up in Control Studio, start/stop sequence, protections, alarms, settings and three languages | 45-60 min |
 | Connectivity | `examples/communication/README.md` | Modbus/TCP, MQTT, OPC UA, EtherCAT, GPIO, multi-driver | 120-220 min |
 | Runtime cloud | `examples/runtime_cloud/README.md` | profiles, preflight/dispatch, federation allowlists | 30-60 min |
 | Visual editors | `examples/ladder/README.md`, `examples/statecharts/README.md`, `examples/blockly/README.md` | visual authoring surfaces tied to companion ST | 15-45 min |
 | Vendor profiles | `examples/siemens_scl_v1/README.md`, `examples/mitsubishi_gxworks3_v1/README.md`, `examples/plcopen_xml_st_complete/README.md`, `examples/vendor_library_stubs/README.md` | vendor-oriented authoring and migration | 20-50 min |
-| Libraries and motion | `examples/plcopen_motion_single_axis_demo/README.md`, `examples/plcopen_motion_single_axis_benchmarks/README.md`, `examples/oscat_smoke/README.md` | shipped libraries and performance baselines | 10-40 min |
+| Libraries and motion | `examples/plcopen_motion_single_axis_demo/README.md`, `examples/plcopen_motion_single_axis_benchmarks/README.md`, `examples/oscat_smoke/README.md`, `examples/OSCAT/README.md`, `libraries/plant/README.md` | the shipped libraries (OSCAT, PLCopen Motion, Control, Plant, Alarm, HMI and Comm; the HMI, Control and Alarm examples above use theirs) and performance baselines; each library's manual is under `docs/public/develop/libraries/` | 10-40 min |
 | Capstones | `examples/plant_demo/README.md`, `examples/filling_line/README.md`, `examples/hardware_8do/README.md` | larger multi-file or hardware-leaning projects | 25-55 min |
 | OpenOT telemetry | `examples/openot_multi_program/README.md` | attribute-driven OpenOT logging, generated producers, one shared-memory ring | 20-30 min |
 | OpenOT database persistence | `examples/openot_database/README.md` | one canonical alarms/messages/values/audit workload with TOML overlays for seven real database products | 20-30 min per product |

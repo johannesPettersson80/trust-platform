@@ -34,6 +34,27 @@ impl PlcopenPouType {
         }
     }
 
+    fn end_token(self) -> TokenKind {
+        match self {
+            Self::Program => TokenKind::KwEndProgram,
+            Self::Function => TokenKind::KwEndFunction,
+            Self::FunctionBlock => TokenKind::KwEndFunctionBlock,
+            Self::Action => TokenKind::KwEndAction,
+        }
+    }
+
+    /// The byte offset of the last end keyword of this POU kind in `source`, before which merged
+    /// actions and methods go; `None` when the source has none. The lexer reads the keyword in any
+    /// case, as IEC 61131-3 §6.1.3 does, and never inside a comment or a string.
+    fn end_offset(self, source: &str) -> Option<usize> {
+        let end = self.end_token();
+        lex(source)
+            .iter()
+            .rev()
+            .find(|token| token.kind == end)
+            .map(|token| usize::from(token.range.start()))
+    }
+
     fn from_xml(text: &str) -> Option<Self> {
         let normalized = text
             .chars()

@@ -272,3 +272,82 @@ fn structurally_nested_actions_route_to_their_own_parents() {
         "PouTwo must carry only its own action:\n{two}"
     );
 }
+
+#[test]
+fn actions_merge_before_the_parent_end_keyword_in_any_case() {
+    // IEC 61131-3 §6.1.3: the case of a keyword is not significant, so `end_program` closes the
+    // program, and a keyword in a comment is no keyword. Catches the uppercase-only text search
+    // (Codex's review of 0.26.0): it found no END_PROGRAM but the one in the comment, merged the
+    // action inside the comment, and without the comment dropped the action while reporting it
+    // imported.
+    let fixture = action_fixture(
+        "action-lowercase-end",
+        r#"<pou name="PLC_PRG" pouType="program">
+  <body><ST><![CDATA[program PLC_PRG
+var
+  count : INT;
+  payload : INT;
+end_var
+count := count + 1; (* the actions go before END_PROGRAM *)
+end_program
+]]></ST></body>
+</pou>
+<pou name="PLC_PRG.DayPayload" pouType="action">
+  <body><ST><![CDATA[payload := payload + 1;]]></ST></body>
+</pou>"#,
+    );
+
+    let report = fixture.import().expect("import succeeds");
+    let source = fixture.source("PLC_PRG.st");
+    let action = source
+        .find("ACTION DayPayload:")
+        .unwrap_or_else(|| panic!("the action is merged:\n{source}"));
+    let comment = source
+        .find("(* the actions go before END_PROGRAM *)")
+        .unwrap_or_else(|| panic!("the comment stays whole:\n{source}"));
+    let end = source
+        .to_ascii_lowercase()
+        .rfind("end_program")
+        .expect("the program's end keyword");
+    assert!(
+        comment < action && action < end,
+        "the action goes after the comment and before end_program:\n{source}"
+    );
+    assert!(source.contains("payload := payload + 1;"), "{source}");
+    let entry = migration_entry(&report, "PLC_PRG.DayPayload").expect("action migration entry present");
+    assert_eq!(entry.0, "imported");
+}
+
+#[test]
+fn actions_of_a_parent_without_an_end_keyword_are_skipped() {
+    // With no end keyword there is no place to merge an action: it is skipped with PLCO203 and
+    // counted as a loss. Catches an action reported imported whose body was dropped.
+    let fixture = action_fixture(
+        "action-no-end",
+        r#"<pou name="PLC_PRG" pouType="program">
+  <body><ST><![CDATA[PROGRAM PLC_PRG
+VAR
+  count : INT;
+END_VAR
+count := count + 1;
+]]></ST></body>
+</pou>
+<pou name="PLC_PRG.DayPayload" pouType="action">
+  <body><ST><![CDATA[payload := payload + 1;]]></ST></body>
+</pou>"#,
+    );
+
+    let report = fixture.import().expect("import succeeds");
+    let entry = migration_entry(&report, "PLC_PRG.DayPayload").expect("action migration entry present");
+    assert_eq!(entry.0, "skipped");
+    assert!(
+        report
+            .unsupported_diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "PLCO203"
+                && diagnostic.pou.as_deref() == Some("PLC_PRG.DayPayload")),
+        "{:?}",
+        report.unsupported_diagnostics
+    );
+    assert!(!fixture.source("PLC_PRG.st").contains("ACTION DayPayload:"));
+}
