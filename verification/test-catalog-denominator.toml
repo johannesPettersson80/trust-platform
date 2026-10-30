@@ -47592,4 +47592,55 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-10-30"
->>>>>>> 7bfe46404 (fix(runtime): lower empty named call arguments as omitted (DEV-029))
+=======
+
+[[reviews]]
+discovery_id = "DISC_370CF3CC334A94C2AEB8"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/constant_initializer_contract_tests.rs"
+name = "constant_initializer_contract_qualified_enum_member_initializes_constant"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-30"
+
+[[reviews]]
+discovery_id = "DISC_69A177636C8B02278C3E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/constant_initializer_contract_tests.rs"
+name = "constant_initializer_contract_qualified_enum_member_suffix_form_resolves"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-30"
+
+[[reviews]]
+discovery_id = "DISC_063658A0C729311DB67D"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/constant_initializer_contract_tests.rs"
+name = "constant_initializer_contract_flattened_gvl_leaf_resolves"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-30"
+
+[[reviews]]
+discovery_id = "DISC_8118FE94E6AF8476FDFE"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/constant_initializer_contract_tests.rs"
+name = "constant_initializer_contract_ambiguous_flattened_leaf_stays_rejected"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-30"
+
+[[reviews]]
+discovery_id = "DISC_7D09D4B79035B5CC0D83"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/e2e_full_grammar.rs"
+name = "time_tod_interchange_in_function_and_binary_arithmetic"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-30"
+>>>>>>> 7b42ce58a (fix(runtime): resolve qualified compile-time references and TIME/TOD literal interchange (DEV-030, DEV-031))

@@ -66,6 +66,14 @@ pub(in crate::harness) fn lower_expr_with_context(
         if let Some(value) = ctx.lookup_compile_time_const(&name) {
             return Ok(Expr::Literal(value));
         }
+        // IEC_DEVIATIONS DEV-030: a dotted name that resolves as a
+        // qualified enum member folds to that enum value.
+        if name.contains('.')
+            && let Some((type_id, member, _)) = ctx.registry.resolve_qualified_enum_member(&name)
+            && let Some(value) = enum_literal_value(&member, type_id, ctx.registry)
+        {
+            return Ok(Expr::Literal(value));
+        }
     }
     match node.kind() {
         SyntaxKind::Literal => lower_literal_with_context(node, ctx, expected_type),
