@@ -545,6 +545,39 @@ package, or end-to-end evidence.
   including diagnostic `runner-output` copies, before validating the retained
   evidence tree.
 
+### 3.5 Example READMEs
+
+Every example teaches one thing, step by step (owner, 30 October 2026). The
+`README.md` of an example has these sections, in this order:
+
+1. The title, then one or two sentences: what you do and what it teaches.
+2. `## What you learn`: two to four points.
+3. `## What you need`: truST in VS Code, any hardware, and how long it takes.
+4. `## Step by step`: numbered steps. Each step says what to do, with the exact
+   name of the command, button or field, and what you see, with the values of
+   a real run of the packaged extension.
+5. `## What happened`: the idea behind the result, as a definition, then in
+   words, then its formula with every symbol named where it has one, then
+   worked with the numbers of the run.
+6. `## Try it yourself`: changes to try, each with what to expect.
+7. `## Reference`: the files, the signals and their addresses, and how to adapt
+   the example. A control example also states what the control platform
+   purpose §3 requires: the plant assumptions, the applicability limits and
+   the validation needed before use on another plant.
+
+The control course lessons follow their own template
+(`docs/specs/control-course-lesson-template.md`). A folder README that only
+lists the examples beneath it is an index: its title, one or two sentences,
+and a table of its examples with what each teaches.
+
+A walkthrough's values come from a run of the packaged extension by a journey
+of the acceptance harness, so a README cannot drift from the product. The check
+`scripts/check_example_readmes.py`, which CI runs, requires the sections in
+this order in every README under `examples/` except the catalog
+(`examples/README.md`), the course, the archive and the listed indexes. Its
+pending list names the READMEs not yet converted and may only shrink: a listed
+README that passes fails the check until it is taken off the list.
+
 ## 4. Live Values
 
 ### 4.1 Ownership, placement, and capability
