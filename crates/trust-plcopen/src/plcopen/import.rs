@@ -695,7 +695,8 @@ fn collect_structural_actions(
 }
 
 /// Renders merged textual actions and splices them before the parent POU's
-/// end keyword; actions without a body are skipped fail-closed.
+/// end keyword, read in any case; actions without a body, and the actions of a
+/// parent whose source has no end keyword, are skipped fail-closed.
 fn apply_deferred_actions(
     mut source: String,
     parent_name: &str,
@@ -705,6 +706,13 @@ fn apply_deferred_actions(
     loss_warnings: &mut usize,
     migration_entries: &mut Vec<PlcopenMigrationEntry>,
 ) -> String {
+    let insert_at = [
+        PlcopenPouType::Program,
+        PlcopenPouType::FunctionBlock,
+        PlcopenPouType::Function,
+    ]
+    .into_iter()
+    .find_map(|kind| kind.end_offset(&source));
     let mut blocks: Vec<String> = Vec::new();
     for action in actions {
         let full_name = match &action.parent {
@@ -732,6 +740,30 @@ fn apply_deferred_actions(
             });
             continue;
         };
+
+        if insert_at.is_none() {
+            warnings.push(format!(
+                "skipping action pou '{}': parent POU '{}' has no end keyword to merge it before",
+                full_name, parent_name
+            ));
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO203",
+                "warning",
+                "pouType:action",
+                "action pou skipped because its parent POU's source has no end keyword",
+                Some(full_name.clone()),
+                "Close the parent POU with END_PROGRAM, END_FUNCTION_BLOCK or END_FUNCTION",
+            ));
+            *loss_warnings += 1;
+            migration_entries.push(PlcopenMigrationEntry {
+                name: full_name,
+                pou_type_raw: Some("action".to_string()),
+                resolved_pou_type: Some("action".to_string()),
+                status: "skipped".to_string(),
+                reason: Some("parent POU has no end keyword".to_string()),
+            });
+            continue;
+        }
 
         let mut block = String::new();
         block.push_str(&format!("ACTION {}:", action.name));
@@ -762,14 +794,7 @@ fn apply_deferred_actions(
         });
     }
 
-    if blocks.is_empty() {
-        return source;
-    }
-
-    let Some(insert_at) = source.rfind("END_PROGRAM")
-        .or_else(|| source.rfind("END_FUNCTION_BLOCK"))
-        .or_else(|| source.rfind("END_FUNCTION"))
-    else {
+    let Some(insert_at) = insert_at.filter(|_| !blocks.is_empty()) else {
         return source;
     };
 

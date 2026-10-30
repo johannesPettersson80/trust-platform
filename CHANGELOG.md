@@ -17,7 +17,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   picker offered only the Simulator, and reaching such a runtime needed its endpoint typed in Devices & Connections
   (specification 25, §5.1).
 - A visual SFC's steps are read as IEC 61131-3 spells them (Table 54): `<step>.X`, the step flag, and `<step>.T`, the
-  time since the step was entered, which keeps its value while the step is inactive, so a transition can wait on
+  time since the step was entered, which is `T#0s` in the scan that enters the step and keeps its value while the
+  step is inactive, so a transition can wait on
   `Fill.T >= T#5s`. `<step>_active` stays, and is all a step named with a keyword (`On`) has. The SFC editor's
   transition properties have a Priority field for a selection's order, the lowest number first (`sfc-profile.md`).
 - `[project] vendor_profile` selects the language rules too, not only formatting, the standard library and the
@@ -41,7 +42,9 @@ The CODESYS vendor extensions of PR #140; the ones that change what an IEC progr
 - Import CODESYS `pouType="action"` PLCopen POUs: `Parent.Action` names merge into the parent POU as textual `ACTION`
   blocks (`PLCO219` info); body-less actions skip with `PLCO204`, and actions without parent linkage keep the
   `PLCO203` fail-closed skip. Textual actions nested under the parent POU in real e!COCKPIT exports
-  (`<pou><actions><action name="Plain">`) merge the same way, where they were dropped silently.
+  (`<pou><actions><action name="Plain">`) merge the same way, where they were dropped silently. Actions go before the
+  parent's end keyword written in any case, never into a comment; a parent whose source has no end keyword has its
+  actions skipped with `PLCO203` instead of reported imported.
 - Import e!COCKPIT methods attached to PROGRAM POUs (before, only function-block methods were kept): the method body
   merges into the program mirror, so self-calls like `StateToBool(...)` resolve.
 - Read the canonical e!COCKPIT v3.9.2 array initializer form (`<initialValue><arrayValue><value><simpleValue …/>`) in
@@ -148,7 +151,11 @@ The CODESYS and e!COCKPIT dialect constructs of PR #141:
 - Compile says that trust-runtime is missing only when the extension cannot start it; trust-runtime's own output with
   the words `not found` was reported as a missing trust-runtime.
 - A visual program imported from a folder whose name begins with the workspace folder's name, such as `/ws-other`
-  beside `/ws`, is copied into the workspace; it was opened where it was, as if it were inside the workspace.
+  beside `/ws`, is copied into the workspace; it was opened where it was, as if it were inside the workspace. On
+  Windows and macOS a program inside the workspace folder opens where it is also when its path spells the folder in
+  other letter case, such as `C:\WS` for `c:\ws`, as VS Code compares paths there; it was copied.
+- PLCopen import puts a function block's methods before its end keyword written in any case, as IEC 61131-3 reads
+  keywords (§6.1.3): a function block closed with `end_function_block` lost its imported methods.
 - A DUT `EXTENDS` clause whose base names no declared type is diagnosed (`cannot resolve type '<base>'`, `E102`); the
   derived struct was accepted silently and inherited from nothing (PR #140).
 - A project constant whose evaluation fails is reported in the file that owns it: a library or stub file's failed

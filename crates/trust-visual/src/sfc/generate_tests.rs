@@ -35,11 +35,12 @@ fn a_two_step_chart_runs_its_action_with_final_scan_and_evolves() {
     // TRUE for Init) and timer, the flag structure of SetOutput, one transition flag; each active
     // step's T from its timer; SetOutput's control (A is Q of the previous scan OR Q; Q is
     // Run's flag, its N input) and statements under A; the transition tested against the step
-    // flags (TRUE adds nothing); the evolution leaves Init and enters Run; each step's X is its
-    // flag; the TYPEs of the step and the flag structures after the block; %QX0.0 lowered to a
-    // global. Catches the old companion (an IF per
-    // step that ran an action only while its step was active, and moved steps one transition at a
-    // time), a missing final scan, and an address left in the body.
+    // flags (TRUE adds nothing); the evolution leaves Init and enters Run; a step active now whose X
+    // is still FALSE was entered in this scan and gets T#0s (6.7.2), then each step's X is its flag;
+    // the TYPEs of the step and the flag structures after the block; %QX0.0 lowered to a global.
+    // Catches the old companion (an IF per step that ran an action only while its step was active,
+    // and moved steps one transition at a time), a missing final scan, an address left in the
+    // body, and a step entered again that shows its previous T.
     let generated = generate(&program(DEMO), "sfc-demo").expect("companion");
     assert_eq!(
         generated.function_block,
@@ -79,8 +80,11 @@ fn a_two_step_chart_runs_its_action_with_final_scan_and_evolves() {
          // Evolution: the steps before each clearing transition are left, then the steps after it entered.\n\
          Init_active := Init_active AND NOT SFC_T1;\n\
          Run_active := Run_active OR SFC_T1;\n\n\
-         // Step flags X (Table 54): each step's <step>_active after the evolution.\n\
+         // Step flags X (Table 54): each step's <step>_active after the evolution; a step entered in\n\
+         // this scan starts its elapsed time T again from T#0s (IEC 61131-3 6.7.2).\n\
+         IF Init_active AND NOT Init.X THEN\n  Init.T := T#0s;\nEND_IF;\n\
          Init.X := Init_active;\n\
+         IF Run_active AND NOT Run.X THEN\n  Run.T := T#0s;\nEND_IF;\n\
          Run.X := Run_active;\n\n\
          END_FUNCTION_BLOCK\n\n\
          TYPE FB_sfc_demo_SFC_STEP :\n\
@@ -139,7 +143,9 @@ fn variables_keep_a_present_initial_value_and_a_safe_comment() {
          // starts again from T#0s when the step is entered, and keeps its value while it is inactive.\n\
          SFC_S1(IN := S_active, PT := T#24d20h31m23s647ms);\n\
          IF S_active THEN\n  S.T := SFC_S1.ET;\nEND_IF;\n\n\
-         // Step flags X (Table 54): each step's <step>_active after the evolution.\n\
+         // Step flags X (Table 54): each step's <step>_active after the evolution; a step entered in\n\
+         // this scan starts its elapsed time T again from T#0s (IEC 61131-3 6.7.2).\n\
+         IF S_active AND NOT S.X THEN\n  S.T := T#0s;\nEND_IF;\n\
          S.X := S_active;\n\n\
          END_FUNCTION_BLOCK\n\n\
          TYPE FB_vars_SFC_STEP :\n\
@@ -186,10 +192,15 @@ fn a_parallel_split_and_join_activate_and_leave_all_branches_together() {
              A_active := (A_active AND NOT SFC_T2) OR SFC_T1;\n\
              B_active := (B_active AND NOT SFC_T2) OR SFC_T1;\n\
              Done_active := Done_active OR SFC_T2;\n\n\
-             // Step flags X (Table 54): each step's <step>_active after the evolution.\n\
+             // Step flags X (Table 54): each step's <step>_active after the evolution; a step entered in\n\
+             // this scan starts its elapsed time T again from T#0s (IEC 61131-3 6.7.2).\n\
+             IF Start_active AND NOT Start.X THEN\n  Start.T := T#0s;\nEND_IF;\n\
              Start.X := Start_active;\n\
+             IF A_active AND NOT A.X THEN\n  A.T := T#0s;\nEND_IF;\n\
              A.X := A_active;\n\
+             IF B_active AND NOT B.X THEN\n  B.T := T#0s;\nEND_IF;\n\
              B.X := B_active;\n\
+             IF Done_active AND NOT Done.X THEN\n  Done.T := T#0s;\nEND_IF;\n\
              Done.X := Done_active;\n\n\
              END_FUNCTION_BLOCK"
         ),

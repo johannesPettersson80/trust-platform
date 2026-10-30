@@ -726,6 +726,42 @@ END_IF]]></ST></body>
 }
 
 #[test]
+fn semantic_codesys_method_merges_before_a_lowercase_end_keyword() {
+    // IEC 61131-3 §6.1.3: `end_function_block` closes the function block. Catches the
+    // uppercase-only search (Codex's review of 0.26.0), which found no END_FUNCTION_BLOCK and
+    // dropped the method.
+    let fixture = SemanticImportFixture::new(
+        "method-lowercase-end",
+        r#"<pous><pou name="FB_Counter" pouType="functionBlock">
+  <body><ST><![CDATA[function_block FB_Counter
+end_function_block
+]]></ST></body>
+  <addData><data name="plcopenxml/method">
+    <Method name="Reset">
+      <interface><returnType><bool/></returnType></interface>
+      <body><ST><![CDATA[Reset := TRUE;]]></ST></body>
+    </Method>
+  </data></addData>
+</pou></pous>"#,
+    );
+
+    fixture.import().expect("import CODESYS method");
+    let source = fixture.source("FB_Counter.st");
+    let method = source
+        .find("METHOD PUBLIC Reset : BOOL")
+        .unwrap_or_else(|| panic!("the method is merged:\n{source}"));
+    assert!(source.contains("Reset := TRUE;"), "{source}");
+    assert!(
+        method
+            < source
+                .to_ascii_lowercase()
+                .rfind("end_function_block")
+                .expect("the block's end keyword"),
+        "{source}"
+    );
+}
+
+#[test]
 fn semantic_codesys_method_without_header_defaults_public_with_diagnostic() {
     let fixture = SemanticImportFixture::new(
         "method-default-header",

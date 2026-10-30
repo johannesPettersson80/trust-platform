@@ -107,9 +107,12 @@ companion. Validate refuses:
   - `<name>.T` (feature 4), the step elapsed time (§6.7.2): the elapsed time
     `ET` of the step's timer `SFC_S<n>` (a `TON`, specification 08; `<n>` the
     step's position in the chart), which each scan calls first with the step's
-    flag. `T` starts again when the step is entered and keeps its value while
-    the step is inactive; under the TON rule of specification 08 a step
-    entered in one scan reads the task interval in the next. It counts up to
+    flag. `T` keeps its value while the step is inactive. In the scan that
+    enters a step, `T` is reset to `T#0s` with `X` after the evolution: "When
+    a step is activated, the value of the step elapsed time shall be reset to
+    t#0s" (§6.7.2), so a step entered again never shows its previous time.
+    Its timer starts in the next scan, which under the TON rule of
+    specification 08 reads the task interval. It counts up to
     `T#24d20h31m23s647ms`, the largest `TIME` of 32-bit milliseconds, as
     CODESYS and TwinCAT measure a step's time.
 - `<name>_active` stays for the programs that read it; `<name>.X` is the same
