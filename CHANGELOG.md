@@ -24,8 +24,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `ctl restart` without its mode, a tutorial's run without its command, and 15 example and docs pages that sent
   readers to the Runtime Panel or to `Structured Text:` commands: they name Live Values, `truST:` commands and Devices
   & Connections, where the ADS commands went (specification 22).
-- The README's examples table starts with the tutorials and adds the examples for debugging, visual programs, tests and
-  CI, and coming from another PLC; it says that Windows runs on x86-64 only.
+- The README shows what truST does that it left out: code from CODESYS and TwinCAT, Siemens SCL and Mitsubishi GX Works3,
+  process data in seven databases through OpenOT, tasks, RETAIN and the watchdog, the simulator's scenarios and faults,
+  the browser IDE and other editors, the HMI Builder itself, and operating in production (audit log, fleet rollout,
+  backup and offline installation). Its examples table starts with the tutorials and adds debugging, visual programs,
+  tests and CI, and coming from another PLC; it says that Windows runs on x86-64 only, and its platform and
+  specification notes are written for readers rather than auditors. The Marketplace page names the libraries and the
+  vendor profiles.
 - The documentation site shows the newest screenshots rendered on `main` without a commit of the images. Before the
   site is built, the screenshots of the newest passing Docs Captures run of `main` are laid over the images; only what
   the captures wrote is taken, never the hand-made pictures. The capture refresh pull request, which had to be merged

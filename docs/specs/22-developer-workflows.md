@@ -359,8 +359,9 @@ the README, the pages of `docs/public` and the examples' READMEs quotes the
 sources of its example, or of an example its page links to, each line without
 comments and with its whitespace collapsed (a line or a part of a line written
 as `...` stands for code the quote leaves out), or else parses as Structured
-Text; a fence marked `ignore` is left out. Every command a page names by its
-Command Palette title in bold, or as the title that a palette step
+Text; a fence marked `ignore` is left out. Every command that such a page or
+the Marketplace page (`editors/vscode/README.md`) names by its Command Palette
+title in bold, or as the title that a palette step
 (`Ctrl/Cmd+Shift+P` and an arrow) types, and every setting it names by its key
 in backticks, is one the VS Code extension contributes. No page names a name
 the extension retired: the command category `Structured Text:`, in bold or

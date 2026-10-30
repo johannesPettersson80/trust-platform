@@ -3,10 +3,10 @@
 
 A page names a command by its Command Palette title in bold, `**truST: Create Project**`, or as
 the title a palette step types, `` `Ctrl/Cmd+Shift+P` -> `truST: Compile` ``, and a setting by
-its key in backticks, `` `trust.runtime.mode` ``. Every such name in the README, the pages of
-`docs/public` and the examples' READMEs must be a command title or a setting key that
-`editors/vscode/package.json` contributes, so a renamed command or setting fails here instead of
-leaving the page behind. Other text, such as the status bar's `truST: Simulator running` in
+its key in backticks, `` `trust.runtime.mode` ``. Every such name in the README, the Marketplace
+page (`editors/vscode/README.md`), the pages of `docs/public` and the examples' READMEs must be a
+command title or a setting key that `editors/vscode/package.json` contributes, so a renamed
+command or setting fails here instead of leaving the page behind. Other text, such as the status bar's `truST: Simulator running` in
 backticks, is not a command and is not checked.
 
 Names the extension retired fail wherever a page uses them: the command category `Structured
@@ -51,7 +51,7 @@ def setting_keys(package: dict) -> set[str]:
 
 
 def pages(root: Path) -> list[Path]:
-    found = [root / "README.md"]
+    found = [root / "README.md", root / "editors" / "vscode" / "README.md"]
     found += sorted((root / "docs" / "public").rglob("*.md"))
     found += sorted(
         path

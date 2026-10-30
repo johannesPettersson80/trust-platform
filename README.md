@@ -45,9 +45,11 @@ you review, version and test like any other code.
 | A modern editor for Structured Text | a language server in VS Code: diagnostics as you type, completion, hover, go to definition, references, rename across files and formatting |
 | PLC programs on ordinary computers | `trust-runtime`: native code on Linux and macOS, on x86-64 and AArch64, and on Windows x86-64 |
 | A small controller | the ESP32-C6 firmware, a complete truST runtime that you install over USB |
+| Code from another PLC | vendor profiles for CODESYS and TwinCAT, Siemens SCL and Mitsubishi GX Works3, and PLCopen XML import and export |
 | To see inside a running program | breakpoints, stepping, the call stack and variables on the compiled program, and Live Values to read, write and force I/O |
 | Operator screens | the HMI Builder in VS Code; the runtime serves the screens at `/hmi`, with trends and alarms |
 | Field devices | Modbus TCP, MQTT with Sparkplug B, OPC UA, Beckhoff ADS, EtherCAT and GPIO |
+| Process data in a database | OpenOT records values, alarms and messages in SQLite, PostgreSQL, TimescaleDB, MySQL, MariaDB, SQL Server or InfluxDB 3 |
 | Tuned control loops | `Control.PID`, simulated plants and Control Studio, which identifies, tunes, validates and applies |
 | PLC code in CI | a command line that builds, tests, deploys and rolls back, and Structured Text unit tests with JUnit output |
 
@@ -85,15 +87,27 @@ IEC 61131-3 Structured Text, with classes, interfaces, methods and namespaces. T
 checks the program as you type and knows every symbol of the project and its libraries.
 
 - Completion, hover, go to definition, find references, rename across files and formatting.
-- PLCopen XML import and export, and visual editors for ladder, SFC, Blockly and statecharts that
-  keep a Structured Text companion in the project.
+- Write in VS Code, in the browser IDE that a runtime serves at `/ide`, or in Neovim, Zed and other
+  editors through the language server.
+- Visual editors for Ladder, SFC, Blockly and statecharts keep a Structured Text companion in the
+  project.
 - Libraries: OSCAT, PLCopen Motion, and truST's control, plant, alarm, HMI and communication
-  libraries.
+  libraries; share your own through a package registry.
 
 <img src="docs/public/assets/images/readme/editor.png" alt="Completion while Structured Text is typed in VS Code, with the problem count updated as you type" width="100%">
 
 [Program in VS Code](https://johannespettersson80.github.io/trust-platform/start/program-in-vscode/) ·
+[Editors](https://johannespettersson80.github.io/trust-platform/start/editors/) ·
 [Libraries](https://johannespettersson80.github.io/trust-platform/develop/libraries/)
+
+### Bring existing code
+
+- Vendor profiles read the Structured Text of CODESYS and TwinCAT, Siemens SCL and Mitsubishi GX
+  Works3: their syntax, naming and formatting, with each vendor's known limits written down.
+- PLCopen XML import and export, with a migration report of what was carried over and what was not.
+
+[Migrate](https://johannespettersson80.github.io/trust-platform/migrate/) ·
+[Vendor profiles](https://johannespettersson80.github.io/trust-platform/develop/vendor-profiles/)
 
 ### Run it anywhere
 
@@ -102,12 +116,14 @@ x86-64, AArch64 and RISC-V. Programs are not interpreted.
 
 - The simulator in VS Code, `trust-runtime` on a computer, or a truST runtime on a chip: the same
   program and the same project.
+- IEC configurations, resources and tasks with their intervals and priorities; RETAIN values that
+  survive a restart and a power loss; a watchdog and defined fault handling.
+- The simulator runs the program against simulated I/O, scripted scenarios and injected faults.
 - The compiler toolchain ships inside the VS Code extension and is checked against its manifest;
   you never install Rust yourself.
-- Deploy to a runtime and roll back, and change a running program online.
 
 [Build, validate, test](https://johannespettersson80.github.io/trust-platform/operate/build-validate-test/) ·
-[Deploy and roll back](https://johannespettersson80.github.io/trust-platform/operate/deploy-rollback/) ·
+[Simulation](https://johannespettersson80.github.io/trust-platform/operate/simulation/) ·
 [ESP32-C6 getting started](https://johannespettersson80.github.io/trust-platform/hardware/esp32c6-getting-started/)
 
 ### Debug and watch
@@ -126,7 +142,10 @@ The debugger works on the compiled program, on the simulator and on a runtime.
 
 The HMI Builder designs operator screens in VS Code, stored as TOML pages that diff and review like
 code. The runtime serves them at `/hmi`: process pictures, faceplates, trends, and an alarm library
-after ISA-18.2 and EEMUA 191.
+after ISA-18.2 and EEMUA 191. The Plant library's pumps, valves, instruments, loops and sequences
+come with their operator panels.
+
+<img src="docs/public/assets/images/readme/hmi-builder.png" alt="The HMI Builder in VS Code: components on the left, the tank's level picture with its setpoint and pump on the canvas, and the page's settings on the right, in Live mode on the simulator" width="100%">
 
 <img src="docs/public/assets/images/readme/hmi-operation.gif" alt="The process picture of the hmi_equipment example at /hmi: an operator logs in, opens the LIC-101 faceplate and raises the setpoint, and the level follows in the trend and in the tank" width="100%">
 
@@ -136,14 +155,30 @@ LIC-101's setpoint, and the level follows.</em>
 [HMI Builder](https://johannespettersson80.github.io/trust-platform/develop/hmi-builder/) ·
 [Operator guide](https://johannespettersson80.github.io/trust-platform/operate/operator-guide/)
 
-### Devices and communication
+### Devices, data and fleets
 
 - Modbus TCP, MQTT with Sparkplug B, OPC UA, Beckhoff ADS, EtherCAT and GPIO.
 - Devices & Connections in VS Code finds, configures and wires the devices of a project.
+- OpenOT records values, alarms, messages and the audit trail in SQLite, PostgreSQL, TimescaleDB,
+  MySQL, MariaDB, SQL Server or InfluxDB 3, over CA-verified TLS to a database server.
+- Prometheus metrics and historian files for monitoring.
 - Discovery and pairing between runtimes, data sharing over Zenoh, and fleet federation.
 
 [Protocol matrix](https://johannespettersson80.github.io/trust-platform/connect/protocol-matrix/) ·
-[Add a device](https://johannespettersson80.github.io/trust-platform/connect/add-a-device/)
+[Add a device](https://johannespettersson80.github.io/trust-platform/connect/add-a-device/) ·
+[Databases](https://johannespettersson80.github.io/trust-platform/operate/openot-database-persistence/)
+
+### Operate in production
+
+- Deploy to a runtime and roll back, and change a running program online.
+- Operators log in at `/hmi` with their roles, and an audit log, once switched on, records control
+  actions, operator writes and deployments.
+- Roll a project out to a fleet of runtimes with per-site settings, back up and restore a runtime,
+  and install without a network connection.
+
+[Deploy and roll back](https://johannespettersson80.github.io/trust-platform/operate/deploy-rollback/) ·
+[Audit log](https://johannespettersson80.github.io/trust-platform/operate/audit-log/) ·
+[Fleet rollout](https://johannespettersson80.github.io/trust-platform/operate/fleet-rollout-and-templating/)
 
 ### Control engineering
 
@@ -198,11 +233,11 @@ Every example is a runnable project; [examples/README.md](examples/README.md) li
 | ESP32-C6 | | yes: truST firmware, installed over USB, with Wi-Fi and firmware updates |
 | STM32U5A9 | | the firmware builds; it has not run on hardware yet |
 
-Raspberry Pi currently inherits Linux AArch64 artifact support; a named board model is qualified
-only with its own device-in-loop evidence.
+A Raspberry Pi runs the Linux AArch64 build; a board model counts as qualified only after it has
+passed truST's device-in-the-loop tests.
 [Linux PREEMPT_RT](https://johannespettersson80.github.io/trust-platform/operate/preempt-rt/) is a
-supported deployment configuration, not a deterministic-latency certification. Hardware behaviour
-is proven on the target where it is tested; see
+supported deployment, not a deterministic-latency certification: latency depends on the kernel,
+the hardware and the workload. Hardware behaviour is proven on the target where it is tested; see
 [Hardware](https://johannespettersson80.github.io/trust-platform/hardware/) and
 [Supported chips](https://johannespettersson80.github.io/trust-platform/hardware/supported-chips/).
 
@@ -234,10 +269,10 @@ Every [release](https://github.com/johannesPettersson80/trust-platform/releases/
 
 ## Development
 
-truST is written in Rust; PLC programs and libraries are written in Structured Text. Runtime and
-debugger behavior claims are locked by their written
-product specifications and direct native executable tests ([specifications](docs/specs/README.md));
-where a claim needs environment-specific evidence, its proof class is stated separately.
+truST is written in Rust; PLC programs and libraries are written in Structured Text. Every runtime
+and debugger behaviour is written down in a product specification and checked by native executable
+tests ([specifications](docs/specs/README.md)); a claim that depends on hardware or on the
+environment says what it was proven on.
 Interpretations of IEC 61131-3 are recorded in [IEC decisions](docs/IEC_DECISIONS.md), and
 deliberate deviations in
 [IEC deviations](docs/IEC_DEVIATIONS.md). A release is tagged only after its exact commit has

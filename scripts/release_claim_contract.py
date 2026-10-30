@@ -58,7 +58,7 @@ def audit_platform_matrix() -> dict[str, Any]:
     _require(
         readme,
         [
-            "Raspberry Pi currently inherits Linux AArch64 artifact support",
+            "A Raspberry Pi runs the Linux AArch64 build",
             "not a deterministic-latency certification",
         ],
         "qualified platform claim",
@@ -144,10 +144,10 @@ def audit_behavior_lock(domain: str) -> dict[str, Any]:
     _require(
         _text("README.md"),
         [
-            "behavior claims are locked by their written",
-            "product specifications and direct native executable tests",
-            "proof class",
-            "stated separately",
+            "and debugger behaviour is written down in a product specification",
+            "checked by native executable",
+            "depends on hardware or on the",
+            "says what it was proven on",
         ],
         "qualified behavior-lock claim",
     )
