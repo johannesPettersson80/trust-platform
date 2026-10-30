@@ -4,7 +4,7 @@
 
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
-use super::expr::Literal;
+use super::literal::Literal;
 use super::{Lowerer, Place};
 use crate::native::types::Kind;
 use crate::native::NativeError;

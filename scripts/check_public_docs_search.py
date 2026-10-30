@@ -178,6 +178,12 @@ def score_doc(query_tokens: list[str], query: str, doc: dict[str, str]) -> int:
         token in query_tokens for token in ("ctu", "ctd", "ctud", "ton", "tof", "tp", "timer")
     ):
         score += 30
+    # The migration guide is the page for CODESYS and TwinCAT users; the specification sections of
+    # the CODESYS profile name them too (`vendor_profile`, PRs #140 and #141).
+    if base_location.startswith("migrate/codesys-twincat/") and any(
+        token in query_tokens for token in ("codesys", "twincat")
+    ):
+        score += 30
     if base_location.startswith("start/program-in-vscode/") and (
         "vscode" in query_tokens or ("vs" in query_tokens and "code" in query_tokens)
     ):

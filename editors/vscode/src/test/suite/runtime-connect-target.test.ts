@@ -362,6 +362,7 @@ interface SidebarState {
   readonly selected: {
     readonly id: string;
     readonly label: string;
+    readonly status: string;
     readonly statusLabel: string;
     readonly primary: { readonly enabled: boolean };
   };
@@ -373,6 +374,7 @@ function openSidebar(): {
   states(): SidebarState[];
   pickerItems(): Promise<Array<vscode.QuickPickItem & { id?: string }>>;
   select(id: string): Promise<void>;
+  press(): Promise<void>;
   dispose(): void;
 } {
   const { registerTrustHome } = require("../../trustHomeView");
@@ -432,6 +434,8 @@ function openSidebar(): {
     },
     // The Target picker's choice, as the side panel's webview sends it.
     select: async (id: string) => provider.onMessage({ type: "select", id }),
+    // The selected target's one action, as the side panel's button sends it.
+    press: async () => provider.onMessage({ type: "action" }),
     dispose: () => subscriptions.forEach((subscription) => subscription.dispose()),
   };
 }
@@ -679,6 +683,52 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
     const unprobed = await waitFor("the unprobed runtime in the side panel", () =>
       sidebar.states().reverse().find((state) => state.selectedId === silent && state.selected.statusLabel === "Not connected"));
     assert.strictEqual(unprobed.selected.primary.enabled, true, "Connect, which probes first, stays available");
+  });
+
+  test("Connect on the project's own runtime connects with the endpoint and token trust-runtime reports", async () => {
+    // Catches the side panel's Connect sending the target's id, "project", as the endpoint, so that Connect failed as not
+    // reachable while the project's runtime answered (acceptance run of 30 October on the packaged 0.26.0 candidate;
+    // specification 25, section 5.1). The fake runtime keeps debugging disabled, so a Connect that reaches it is
+    // reported as debugging disabled for its endpoint.
+    const config = getTrustConfiguration(folder.uri);
+    await config.update("runtime.mode", "online", vscode.ConfigurationTarget.WorkspaceFolder);
+    const sidebar = openSidebar();
+    cleanups.push(() => sidebar.dispose());
+    await waitFor("the project's runtime in the Target picker", async () =>
+      (await sidebar.pickerItems()).some((item) => item.id === PROJECT_ID));
+    await sidebar.select(PROJECT_ID);
+    await sidebar.press();
+    const failure = await waitFor("the project's runtime answering Connect", () =>
+      runtimeLifecycleService.debugDisabledFailure(fake.endpoint));
+    assert.strictEqual(failure.kind, "debug_disabled");
+    assert.strictEqual(
+      getTrustConfiguration(folder.uri).get<string>("runtime.controlEndpoint"),
+      "",
+      "the settings still name no endpoint, so the next Connect asks trust-runtime again",
+    );
+  });
+
+  test("a project runtime that stops outside VS Code is not running in the side panel", async () => {
+    // Catches a side panel that keeps a stopped runtime as answering until some other event refreshes it (acceptance run
+    // of 30 October on the packaged 0.26.0 candidate: unchanged 30 s after the runtime stopped; specification 25, section
+    // 5.1). A second fake runtime is the project's for this test and stops while the side panel shows it.
+    const second = await startFakeRuntime();
+    const restore = writeRootProject(folder.uri.fsPath, second.endpoint);
+    cleanups.push(() => restore());
+    cleanups.push(() => second.close().catch(() => undefined));
+    const config = getTrustConfiguration(folder.uri);
+    await config.update("runtime.mode", "online", vscode.ConfigurationTarget.WorkspaceFolder);
+    await config.update("runtime.controlEndpoint", "", vscode.ConfigurationTarget.WorkspaceFolder);
+    await setSelectedRuntimeId(PROJECT_ID);
+    const sidebar = openSidebar();
+    cleanups.push(() => sidebar.dispose());
+    await waitFor("the project's runtime answering in the side panel", () =>
+      sidebar.states().reverse().find((state) => state.selectedId === PROJECT_ID && state.selected.status === "disconnected"));
+
+    await second.close();
+    const stopped = await waitFor("the stopped runtime in the side panel", () =>
+      sidebar.states().reverse().find((state) => state.selectedId === PROJECT_ID && state.selected.statusLabel === "Not running"));
+    assert.strictEqual(stopped.selected.primary.enabled, false, "Connect waits for the runtime to run again");
   });
 
   test("selecting the Simulator after Connect puts every surface back on the Simulator", async () => {

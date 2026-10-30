@@ -196,23 +196,21 @@ export function selectedStatusView(
   };
 }
 
+// The words are the language server's status label (specification 25, section 6.9), so the status bar says what the side
+// panel says; the status picks only the icon.
 function selectedStatusText(selected: SelectedRuntime): string {
-  if (selected.status === "starting") {
-    return `$(sync~spin) truST: ${statusTargetLabel(selected)} starting…`;
-  }
-  if (selected.status === "running") {
-    return `$(circle-filled) truST: ${statusTargetLabel(selected)} running`;
-  }
-  if (selected.status === "connected") {
-    return `$(plug) truST: ${statusTargetLabel(selected)} connected`;
-  }
-  if (selected.status === "unreachable") {
-    return `$(warning) truST: ${statusTargetLabel(selected)} not reachable`;
-  }
-  if (selected.status === "disconnected") {
-    return `$(circle-outline) truST: ${statusTargetLabel(selected)} not connected`;
-  }
-  return `$(circle-outline) truST: ${statusTargetLabel(selected)} stopped`;
+  const icon =
+    selected.status === "starting"
+      ? "$(sync~spin)"
+      : selected.status === "running"
+        ? "$(circle-filled)"
+        : selected.status === "connected"
+          ? "$(plug)"
+          : selected.status === "unreachable"
+            ? "$(warning)"
+            : "$(circle-outline)";
+  const words = selected.statusLabel.charAt(0).toLowerCase() + selected.statusLabel.slice(1);
+  return `${icon} truST: ${statusTargetLabel(selected)} ${words}`;
 }
 
 /** The selected target's name in the status bar: a managed runtime by its name, any other by its label. */

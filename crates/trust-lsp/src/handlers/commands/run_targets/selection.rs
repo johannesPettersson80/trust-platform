@@ -415,7 +415,7 @@ fn names_project(snapshot: &Snapshot, id: &str) -> bool {
 }
 
 /// The status and the action of the project's own runtime: not running while it does not answer,
-/// else those of a runtime at its endpoint.
+/// else those of a runtime at its endpoint that answers.
 fn project(snapshot: &Snapshot) -> (&'static str, &'static str, Primary) {
     let endpoint = snapshot.project_endpoint.trim();
     let connected = snapshot.runtime_state == "connected" && snapshot.endpoint.trim() == endpoint;
@@ -431,7 +431,15 @@ fn project(snapshot: &Snapshot) -> (&'static str, &'static str, Primary) {
             },
         );
     }
-    remote(endpoint, snapshot)
+    // The project's own probe tells whether it answers: the configured endpoint is not probed while
+    // `runtime.controlEndpointEnabled` is off, even when it is the project's.
+    remote(
+        endpoint,
+        &Snapshot {
+            endpoint_reachable: true,
+            ..snapshot.clone()
+        },
+    )
 }
 
 /// Any other runtime at `endpoint`: only its session is the extension's, so Connect and Disconnect,

@@ -37,8 +37,9 @@
 //! group to Manual and return it:
 //! - the mode change alone drives `IdentificationMode`, the engine's own, against the runtime: one transfer of the group's binding to
 //!   Manual, whose tracking the runtime accepts only when it names the second member's setpoint, Manual command and output
-//!   (`validate_declared_states`); then the writes back in Manual of both members' setpoints and Manual commands, as the end of a
-//!   campaign does, and the return to Auto. It needs no experiment, so it takes a few seconds at real time;
+//!   (`validate_declared_states`); then the write-back in Manual of both members' setpoints, as the end of a campaign does, and the
+//!   return to Auto from the outputs the group holds, whose entry sets each Manual command to its output (C1). It needs no experiment,
+//!   so it takes a few seconds at real time;
 //! - the campaign runs `controlStudio/identify` on the group, whose inputs declare an identification step of their own (`experimentStep`):
 //!   it steps the two plant inputs in turn in one recording, fits the multivariable model, and returns the group to Auto.
 //!
@@ -287,8 +288,8 @@ fn prepare_source(folder: &Path) {
 /// Copies the fixture to `folder` as [`prepare_source`] does, and starts its program `Main` in Auto with both setpoints at the plants'
 /// resting point of 20 degC and its members' Manual commands at 5 % and 7 %. The fixture starts in Manual with the commands at rest at
 /// zero, which leaves a mode change nothing to return. The program sets the located variables in its first scan, as the lessons'
-/// programs do, and never writes a Manual command again, so the values it holds beside Auto are the values Identify finds and must
-/// write back (A6.2).
+/// programs do, and never writes a Manual command again, so the values it holds beside Auto are the values Identify finds. Found in
+/// Auto, they are not written back: the Auto entry sets each to the output its member holds (A6.2, C1).
 fn prepare_source_in_auto(folder: &Path) {
     prepare_source(folder);
     let path = folder.join("src").join("main.st");
@@ -363,10 +364,12 @@ fn all_close(actual: &[f64], expected: &[f64]) -> bool {
             .all(|(measured, wanted)| close(*measured, *wanted))
 }
 
-/// What a group returned to the mode it was found in shows (A6.2, C1): it is in Auto, both setpoints are as they were found, and both
-/// outputs stand near the Manual commands that were written back, which `prepare_source_in_auto` made 5 % and 7 %. The Auto entry
-/// continues from those commands, and the loop then answers the error that they made, which takes seconds; without the write-back the
-/// outputs would stay at zero, where the experiments left the commands.
+/// What a group returned to the mode it was found in shows (A6.2, C1): it is in Auto and both setpoints are as they were found. A group
+/// found in Auto enters Auto from the outputs it holds, the entry setting each Manual command to that output, so the Manual commands
+/// `prepare_source_in_auto` made 5 % and 7 % are not written back (specification 35, Identify, Group, 29 October 2026). The group holds
+/// its outputs near 0 % at the return, the plants' resting input, where the mode test leaves them and the campaign's experiments return
+/// them; so both outputs and both Manual commands stay below a quarter of the found commands. Catches the former write-back, which
+/// first stepped each output to its stale Manual command (lesson 30's heater went from 47.55 % to 75 %).
 fn check_returned_to_auto(
     findings: &mut Findings,
     lab: &Lab,
@@ -394,8 +397,16 @@ fn check_returned_to_auto(
         outputs
             .iter()
             .zip(FOUND_COMMANDS)
-            .all(|(output, found_command)| *output > 0.25 * found_command),
-        format!("both members' outputs stand near the Manual commands that were written back (A6.2): {outputs:?}"),
+            .all(|(output, found_command)| *output < 0.25 * found_command),
+        format!("both members' outputs stay where the group held them, not at the found Manual commands (C1): {outputs:?}"),
+    );
+    let commands = numbers(&returned, &COMMANDS);
+    findings.check(
+        commands
+            .iter()
+            .zip(FOUND_COMMANDS)
+            .all(|(command, found_command)| *command < 0.25 * found_command),
+        format!("the Auto entry set both Manual commands to the held outputs, not back to 5 and 7 (C1): {commands:?}"),
     );
 }
 
@@ -797,8 +808,9 @@ fn pid_group_tunes_validates_applies_and_restores_two_members_without_changing_t
 
 /// Identify's mode change on the PID group of the fixture, against the runtime (specification 35, C7 "Identify", A6.2, A6.3; annex E6.4,
 /// E6.9 and E11.9): the group found in Auto moves to Manual through one transfer that the runtime accepts, each member's Manual command
-/// holds the output it drives, and the return writes both members' setpoints and Manual commands back in Manual, enters Auto again,
-/// clears its checkpoint from the journal, and leaves both outputs where the found commands put them.
+/// holds the output it drives, and the return writes both members' setpoints back in Manual, enters Auto again from the outputs the group
+/// holds (the found Manual commands are not written back, C1), clears its checkpoint from the journal, and leaves both outputs where the
+/// group held them.
 #[test]
 fn identify_moves_the_pid_group_to_manual_and_back_to_auto_through_the_runtime() {
     let source = std::env::temp_dir().join(format!(

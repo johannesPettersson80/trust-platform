@@ -4,7 +4,7 @@ import { affectsTrustConfiguration, getTrustConfiguration } from "./configuratio
 import { debugChannel, DEBUG_TYPE } from "./debug/configuration";
 import { runtimeSourceOptionsForTarget } from "./runtimeSourceOptions";
 import { getControlAuthToken } from "./runtimeAuth";
-import { resolveRuntimeConnection } from "./runtimeConnection";
+import { resolveProjectConnection, resolveRuntimeConnection } from "./runtimeConnection";
 import {
   classifyRuntimeStartFailure,
   type NetworkCanvasRuntimeFailure as RuntimeStartFailure,
@@ -22,6 +22,10 @@ const SIMULATOR_LAUNCH_TIMEOUT_MS = 15_000;
 const IO_STATE_REQUEST_TIMEOUT_MS = 5_000;
 const IO_NEXT_SCAN_TIMEOUT_MS = 1200;
 const IO_NEXT_SCAN_POLL_MS = 60;
+// While the runtime settings are online and no session is attached, the status is read again at this interval, so that
+// a runtime started or stopped outside VS Code shows in the side panel and the status bar (specification 25, section
+// 5.1). An attached session reports its own end.
+const ONLINE_WATCH_INTERVAL_MS = 2000;
 
 export type { RuntimeStartFailure, RuntimeStartFailureKind };
 
@@ -151,6 +155,8 @@ class RuntimeLifecycleService {
       })
     );
 
+    this.watchOnline(context);
+
     context.subscriptions.push(
       vscode.workspace.onDidChangeConfiguration((event) => {
         if (
@@ -163,6 +169,33 @@ class RuntimeLifecycleService {
         }
       })
     );
+  }
+
+  // Reads the status again while online without a session and tells the surfaces when what the language server reported
+  // of the runtime changed: its endpoint, whether it answers, and the project's runtime.
+  private watchOnline(context: vscode.ExtensionContext): void {
+    let reported = "";
+    let reading = false;
+    const timer = setInterval(() => {
+      const online = getTrustConfiguration(this.runtimeConfigTarget()).get<string>("runtime.mode", "simulate") === "online";
+      if (!online || this.getStructuredTextSession()) {
+        reported = "";
+        return;
+      }
+      if (reading) return;
+      reading = true;
+      void this.snapshot()
+        .then(({ status }) => {
+          const now = JSON.stringify([status.endpoint, status.endpointReachable, status.projectEndpoint, status.projectReachable]);
+          if (reported && now !== reported) this.emitChanged();
+          reported = now;
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          reading = false;
+        });
+    }, ONLINE_WATCH_INTERVAL_MS);
+    context.subscriptions.push({ dispose: () => clearInterval(timer) });
   }
 
   getStructuredTextSession(): vscode.DebugSession | undefined {
@@ -323,6 +356,22 @@ class RuntimeLifecycleService {
     // is the language server's to refuse.
     return this.startOnlineRuntime(
       { endpoint: trimmed, authToken: await getControlAuthToken(trimmed), followsProject: false },
+      targetLabel
+    );
+  }
+
+  // Connect to the workspace project's own runtime (specification 25, section 5.1): its endpoint and token are what
+  // trust-runtime reports for the project at this attempt, as Start in online mode asks them, so a runtime that
+  // restarted on another port is found, and a successful Connect leaves `runtime.controlEndpoint` empty.
+  async connectProjectRuntime(targetLabel?: string): Promise<RuntimeLifecycleResult> {
+    const connection = await resolveProjectConnection(this.runtimeConfigTarget());
+    return this.startOnlineRuntime(
+      {
+        endpoint: connection.endpoint ?? "",
+        authToken: connection.authToken,
+        problem: connection.problem?.message,
+        followsProject: true,
+      },
       targetLabel
     );
   }
