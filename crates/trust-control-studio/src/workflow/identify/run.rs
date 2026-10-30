@@ -61,6 +61,7 @@ use crate::workflow::identify_campaign::{
     CampaignClock, CampaignReport, ExperimentClient, IdentifyCampaign,
 };
 use crate::workflow::identify_mode::{mode_journaled, IdentificationMode};
+use crate::workflow::identify_rest::RestWait;
 use crate::workflow::reconcile::{read_experiment_identity, release_recording};
 
 /// The ports of one run (`ConnectedIdentification`'s request, ports and options).
@@ -248,9 +249,23 @@ where
         purpose: RunPurpose,
         sample: Option<&ExperimentSample>,
     ) -> Result<(String, IdentifyResult<E>), Failure> {
-        // The loop enters the mode the method needs before anything is recorded (B3.4 step 1).
+        // The loop enters the mode the method needs before anything is recorded (B3.4 step 1). A loop found in Auto that a Manual
+        // method takes to Manual first rests there, so the transfer holds the output at which the controller keeps it.
         if let Some(mode) = self.mode.as_mut() {
-            mode.enter(method.manual)?;
+            if method.manual {
+                let loop_definition = self.request.loop_definition;
+                let mut rest = RestWait::new(
+                    loop_definition,
+                    campaign_maximum_ms(loop_definition)?,
+                    self.request.expected_settling_seconds,
+                    offers_setpoint_step(loop_definition, sample),
+                    self.ports.report,
+                    self.ports.clock,
+                );
+                mode.enter_at_rest(true, &mut rest)?;
+            } else {
+                mode.enter(false)?;
+            }
         }
         self.check_cancelled()?;
         let validation = purpose == RunPurpose::RecordValidation;

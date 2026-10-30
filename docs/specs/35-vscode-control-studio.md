@@ -1307,7 +1307,18 @@ clears the manual section (B3.7).
    next scan, runtime protocol annex E3 rule 8, so another reader's watch never refuses a run); the limits present (otherwise **Limits…** opens at the missing
    field); physical approval on a physical target (A2.5). A Manual method
    switches the loop to Manual through a transfer that holds the present output
-   (A6.3) and returns it to its starting mode afterwards (A6.2). The approval
+   (A6.3) and returns it to its starting mode afterwards (A6.2). A loop found in
+   Auto rests first: before the transfer, Identify reads the loop in process time
+   until its measured output and the plant input that the transfer will hold have
+   both been steady by the rule of step 2 over one baseline window, and shows that
+   wait as it shows the baseline's. The transfer then holds the output at which
+   the controller keeps the loop, so the steady baseline after it lies at the
+   reference and is the operating point Apply returns to (B6.2). Holding an
+   output the controller was still moving would let the plant settle open loop
+   elsewhere, and Apply would then wait for an operating point the controller
+   never holds (lesson 30, 30 October 2026). The wait writes nothing, a cancel
+   ends it with nothing written, and it has the bound of step 2 and ends as step 2
+   does, with the rate still observed, offering to wait or a setpoint step. The approval
    block of the review (B9.3) names what the campaign may do: each signal it
    writes with its limits (the plant input range of B3.4 step 1 for a plant
    input step, the setpoint's and the output's ranges for a setpoint step, the
