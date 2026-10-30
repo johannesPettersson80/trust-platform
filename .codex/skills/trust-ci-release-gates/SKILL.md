@@ -15,14 +15,14 @@ ship.
 
 ## The release flow: one day, one fix round
 
-Run these steps in this order. Each one finds in minutes what a later step finds only in hours. The
-guard stops at its first failing stage and a CI round takes about four hours, so every failure found
-there costs a whole run. Each step names the release that taught it.
+Run these steps in this order. Each one finds in minutes what a later step finds only in hours. A
+guard run takes about two hours and a CI round about four, so every failure found there costs a
+whole run. Each step names the release that taught it.
 
 0. **Push early, bump the version last.** Develop the next release on a `work/` branch at `main`'s
    version and push it with a draft pull request from its first commit. Such a push needs no guard,
-   so CI on Linux, macOS and Windows, the path-filtered workflows and the automatic review run on every
-   push while the work goes on; fix what they find as it comes. Only the last commit bumps the
+   so CI on Linux, macOS and Windows, the documentation workflows and the automatic review run on
+   every push while the work goes on; fix what they find as it comes. Only the last commit bumps the
    version and moves the changelog section, so the guard and the rehearsal run once, on the finished
    release. (A version bump makes every push of the branch wait for the guard: each fix of 0.25.0,
    0.25.1 and 0.26.0 then waited about two hours for the guard and four for CI, so a release took
@@ -38,17 +38,13 @@ there costs a whole run. Each step names the release that taught it.
    still describes the product: 0.25.1's terminal GIFs showed errors, and its README linked pages
    the site did not serve yet.)
 2. **Pre-flight: every cheap check, all failures at once.** Stage the candidate in the guard
-   worktree and run there, with the guard's environment, every quick stage, and go on after a
-   failure:
-   - `git diff --check` against the base, and `cargo fmt --check`;
-   - `cargo run -p xtask -- architecture-doctor --full-map` (files over 1,000 lines, unsafe registers);
-   - `bash scripts/supply_chain_gate.sh`;
-   - `cargo clippy --keep-going --workspace --all-targets --all-features -- -D warnings`, and the
-     documentation build;
-   - the docs site build and its checks (`mkdocs build --strict`, the search and link checks);
-   - the MP-001 baselines;
-   - every generator whose output is committed (diagrams, HIR baselines, the runtime's
-     `hmi-drawing.js` and `hmi-display.js`), with the tree unchanged afterwards.
+   worktree and run `release_candidate_guard.py preflight` with the arguments of `prepare`. It runs the
+   guard's quick stages with the guard's environment, goes on after a failure and reports every
+   failure with its log: formatting, cross-target warnings, the supply chain, the architecture
+   doctor (files over 1,000 lines, unsafe registers), Clippy, the documentation build and the docs
+   site with its checks. Also run the MP-001 baselines and every generator whose output is committed
+   (diagrams, HIR baselines, the runtime's `hmi-drawing.js` and `hmi-display.js`), with the tree
+   unchanged afterwards.
 
    Fix all of them, then repeat the pre-flight. (0.26.0 needed six guard runs, one for each of these:
    a blank line, a file over 1,000 lines, a search rank, a stale baseline, a stale bundle, a test.)
@@ -70,17 +66,20 @@ there costs a whole run. Each step names the release that taught it.
    and Bash 3.2.)
 7. **The guard, alone on its volume.** Keep check targets on the system disk and remove idle targets
    from the build volume first, so the 80 GiB floor holds (30 October's guard failed it on idle
-   targets). Stage the candidate by bundle, then run `prepare`.
-8. **Push, then start everything at once.** Push, request `@codex review`, and dispatch the Release
-   rehearsal and every path-filtered workflow on the head; `check-merge` names them. Wait for all of
-   them with one waiter. (0.25.0's docs workflows never ran on its 10,252-file pull request, and its
-   release jobs failed only after the tag.)
+   targets). Stage the candidate by bundle, then run `prepare`. It goes on after a failing stage and
+   reports every failure of the run.
+8. **Push, then wait once.** Push and request `@codex review`. The pull request starts everything
+   itself: CI, each workflow whose change detection matches the whole diff, and, for a version
+   change, the Release rehearsal on the head. Wait for all of them with one waiter. (0.25.0's docs
+   workflows never ran on its 10,252-file pull request, and its release jobs failed only after the
+   tag.)
 9. **One fix round.** Collect every failure and every review finding (`collect-failures`), fix the
    whole set, and run steps 2 to 8 again for the fix, pre-flight first.
-10. **Merge, tag, release, verify, clean up.** Run `check-merge --execute`, push the annotated tag on
-    `main` and let the Release run. Then run `verify-release` with `TMPDIR` on a large disk (the
-    assets are 2.7 GB) and confirm the Marketplace version. Finally, remove the guard's target and
-    worktrees.
+10. **Merge, release, verify, clean up.** Run `check-merge --execute`. `main`'s CI then runs on the
+    merge commit, and the Release workflow follows it by itself: it tags that commit, publishes the
+    GitHub release and the Marketplace packages and verifies them. Nobody pushes a tag. Watch that
+    run, then run `verify-release` with `TMPDIR` on a large disk (the assets are 2.7 GB). Finally,
+    remove the guard's target and worktrees.
 
 ## Changelog and versions
 
@@ -212,31 +211,32 @@ These pushes go through the guard in this skill's `scripts/`:
      the first failure: retain it, identify its cause and obtain the applicable
      correction/validation authorization before merge.
    - Never push corrections from partial results.
-4. **Rehearse a version change** while its pull request's CI runs: start the Release workflow on
-   the candidate branch with `gh workflow run release.yml --ref <branch>`. It runs every build, test
-   and Publish script and publishes nothing; it keeps its release text and evidence as the artifact
-   `release-rehearsal-v<version>`. 0.25.0's release jobs failed only after its tag, and each fix
-   then needed a new version.
+4. **A version change is rehearsed on its pull request.** The Release workflow's plan rehearses
+   the head of a pull request that changes the workspace version: every build, test and Publish
+   script runs and nothing is published, and the run keeps its release text and evidence as the
+   artifact `release-rehearsal-v<version>`. A fork's pull request is not rehearsed on the project's
+   runners; rehearse its head with `gh workflow run release.yml --ref <branch>`. 0.25.0's release
+   jobs failed only after its tag, and each fix then needed a new version.
 5. **Merge** only with `release_candidate_guard.py check-merge --pr <number> --execute`. Besides a
-   clean merge state and green checks on the exact head, it requires:
-   - for a version change, a passed Release rehearsal on that head;
-   - for a pull request of more than 300 files, a passed run on that head of each workflow that
-     filters pull requests by path (GitHub matches the filters against the first 300 files only);
-     start each with `gh workflow run <file> --ref <branch>`.
-6. **Release a version change.**
-   - Wait for main CI.
-   - Push the annotated tag `v<version>` from the same main SHA.
-   - Run
+   clean merge state and green checks on the exact head, it requires for a version change a passed
+   Release rehearsal on that head that kept `release-rehearsal-v<version>`.
+6. **Release a version change.** The merge releases it: when `main`'s CI passes on the merge
+   commit, the Release workflow tags that commit `v<version>`, creates the GitHub release with the
+   version's changelog section, publishes every target to the Marketplace and verifies the tag, the
+   release, Latest and the Marketplace listing of every target (specification 24, "Release after
+   main CI"). Never push a release tag by hand.
+   - When `main`'s CI fails on the merge commit, nothing is released: find the cause, and when it is
+     a flake that a retry may cover under the current authorization, re-run CI's failed jobs; their
+     success starts the release.
+   - When a release job fails, fix the cause; re-running the failed jobs of that run continues the
+     release on the same commit (a tag on that commit, an existing release and a published target
+     are accepted). A fix that needs a new commit releases from that commit once its CI passes,
+     while the version has no tag yet.
+   - Then run
      `release_candidate_guard.py verify-release --candidate-head <reviewed-head> --branch <candidate-branch>`.
-     It checks:
-     - the tag;
-     - the Release workflow;
-     - GitHub Latest;
-     - the assets and checksums;
-     - the Marketplace version for darwin-arm64, darwin-x64, linux-arm64, linux-x64 and win32-x64.
-   - If the main version guard expired only because the Release run was still going, wait for that
-     run, then rerun the failed main jobs on the same SHA only under the current retry
-     authorization. Never create another tag.
+     It checks that the tag is on `main` and contains the candidate, that the Release run named by
+     the release's provenance passed, GitHub Latest, the assets against their checksums, and the
+     Marketplace version for darwin-arm64, darwin-x64, linux-arm64, linux-x64 and win32-x64.
 7. **Clean up.** `verify-release` then runs `audit-post-merge`.
    - Remove only the exact clean targets it lists.
    - Fetch with prune, and rerun the audit until it reports `clean`.
@@ -265,11 +265,17 @@ that the intended issues are closed after the merge.
   `scripts/supply_chain_gate.sh` and `scripts/architecture_safety_gate.sh`. Do not copy their
   commands into workflows.
 - **New gates**: a new gate also updates `scripts/generate_release_gate_report.py`.
-- **Version guard**: keep the `version-release-guard` job in `.github/workflows/ci.yml` and
-  `scripts/check_version_release_evidence.py` in line with the release workflow's triggers. Give it a
-  time budget above the slowest cold release path.
+- **Release workflow**: `scripts/release_plan.py` decides what a run of `release.yml` does, and every
+  job checks out the plan's commit. `scripts/check_version_release_evidence.py` verifies a release at
+  the end of the run; keep its Marketplace wait inside the publish job's limit. The CI job
+  `version-release-guard` checks only that the versions agree and waits for nothing.
+- **Change detection**: a workflow whose checks matter only for some paths starts on every pull
+  request and asks `scripts/ci_changes.py` in a `changes` job, with its path list in `.github/paths/`;
+  GitHub's own path filters compare only the first 300 changed files. A workflow that checks pull
+  requests this way ends with a `conclusion` job that needs every check, so a skipped check reads as
+  passed and a failed one as failed.
 - **Docs Captures**:
-  - it runs on pull requests with the same path filters as on `main`;
+  - its `changes` job uses the same path list on pull requests and on `main`;
   - its validation job has read-only contents permission;
   - the job that writes the refresh branch never runs for pull requests;
   - a newly linked public specification needs its snippet page, navigation and
