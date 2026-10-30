@@ -204,8 +204,10 @@ fn an_attached_session() {
 
 /// An online target without a session is probed; when it answers, its `status` gives its access
 /// and its `ads.status` comes back, and it stays not connected; when it does not, nothing more is
-/// asked and Live Values says to connect with an engineer's token. Catches requests sent to a
-/// runtime that does not answer, and a reachable runtime without a session shown as running.
+/// asked and Live Values says to connect with an engineer's token. With its endpoint switched off
+/// it is not probed, and the status says so (specification 25 §5.1). Catches requests sent to a
+/// runtime that does not answer, a reachable runtime without a session shown as running, and a
+/// runtime no probe asked reported as if its probe had failed.
 #[test]
 fn an_online_target_without_a_session() {
     let answering = Told {
@@ -217,6 +219,7 @@ fn an_online_target_without_a_session() {
     let arguments =
         json!({ "runtimeMode": "online", "endpoint": " tcp://10.0.0.2:9901 ", "authToken": "t" });
     let (status, ads) = status_of(arguments.clone(), &answering);
+    assert_eq!(status["endpointProbed"], true);
     assert_eq!(status["endpointReachable"], true);
     assert_eq!(status["runtimeState"], "stopped");
     assert_eq!(status["running"], false);
@@ -230,6 +233,7 @@ fn an_online_target_without_a_session() {
         silent.asked.borrow().as_slice(),
         ["probe tcp://10.0.0.2:9901"]
     );
+    assert_eq!(status["endpointProbed"], true);
     assert_eq!(status["endpointReachable"], false);
     assert_eq!(
         status["access"]["reason"],
@@ -237,11 +241,12 @@ fn an_online_target_without_a_session() {
     );
     assert_eq!(ads, None);
     let disabled = Told::default();
-    status_of(
+    let (status, _) = status_of(
         json!({ "runtimeMode": "online", "endpoint": "tcp://10.0.0.2:9901", "endpointEnabled": false }),
         &disabled,
     );
     assert!(disabled.asked.borrow().is_empty());
+    assert_eq!(status["endpointProbed"], false);
 }
 
 /// The project's own runtime is probed at the endpoint trust-runtime reports for it whatever the
@@ -263,6 +268,7 @@ fn the_project_runtime_is_probed() {
     assert_eq!(*told.asked.borrow(), [format!("probe {project}")]);
     assert_eq!(status["projectEndpoint"], project);
     assert_eq!(status["projectReachable"], true);
+    assert_eq!(status["endpointProbed"], false);
     assert_eq!(status["endpointReachable"], false);
 
     let told = Told::default();

@@ -702,9 +702,12 @@ package, or end-to-end evidence.
   keeps the rules above: one on another computer is never stopped from the
   panel, because nothing in the panel could start it again, and the Simulator
   and managed-local runtimes use their launchers.
-  Transitional lifecycle state disables the primary action. An unreachable or
+  Transitional lifecycle state disables the primary action. A remote is
+  unreachable only when its probe in that refresh failed; an unreachable or
   endpoint-less remote keeps Connect visible but disabled with a recovery
-  reason. A managed runtime whose status is unavailable keeps Start visible but
+  reason. A remote that no probe asked in that refresh (its endpoint switched
+  off, the simulate mode, or a session running) is `Not connected` with Connect
+  enabled, since Connect probes it first. A managed runtime whose status is unavailable keeps Start visible but
   disabled and MUST NOT be represented as stopped. The project's runtime and a
   managed runtime that have not answered before the panel's gather deadline
   are `Status unavailable` for that round, never unreachable or stopped; another

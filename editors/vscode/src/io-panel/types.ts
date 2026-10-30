@@ -33,6 +33,8 @@ export type RuntimeStatusPayload = {
   endpoint: string;
   endpointConfigured: boolean;
   endpointEnabled: boolean;
+  /** Whether the language server probed the configured endpoint in this refresh (specification 25 §5.1). */
+  endpointProbed?: boolean;
   endpointReachable: boolean;
   /** The workspace project's own control endpoint, as trust-runtime reports it (specification 25 §5.1). */
   projectEndpoint?: string;

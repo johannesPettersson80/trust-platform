@@ -18,6 +18,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ### Fixed
 
+- The Target picker calls a remote runtime not reachable only when it failed to answer a probe. With the control
+  endpoint switched off, in simulate mode or during a session no probe asks it, so it is Not connected and Connect,
+  which probes first, stays enabled; Connect was disabled until the setting was switched on by hand (specification 25
+  §5.1).
 - `CTU`, `CTD` and `CTUD` are the INT counters of IEC 61131-3 Table 45: `CTU(PV := 10)` compiles, and a plain
   counter given a DINT preset is refused when the program is compiled; it ran with a preset of 0. A DINT counter is
   `CTU_DINT`, `CTD_DINT` or `CTUD_DINT` (specification 08 §4).
