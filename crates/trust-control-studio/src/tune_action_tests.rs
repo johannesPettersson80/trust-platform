@@ -2,9 +2,10 @@
 //! operation starts, how `controlStudio/open` reports the Tune stage, and how the running settings are read for the comparison.
 //! The design is trust-control's (`study::tune`, tested there), and the whole method runs against a real runtime in
 //! `tests/control_studio_tune.rs`. No runtime runs here: a connection in these tests names a port nothing listens on, and no
-//! project below holds an Identify result, so every request is refused before an operation starts. The one run that designs a candidate
-//! here is a program's own PI law (C2), whose project imports a supplied model first (`importModel`): its answer carries
-//! `projectCandidate`, keyed by the seed's symbols, and no Control.PID `candidate`.
+//! project below holds an Identify result, so every request is refused before an operation starts. The runs that design a candidate
+//! here import a supplied model first (`importModel`): a program's own PI law (C2), whose answer carries `projectCandidate`, keyed by the
+//! seed's symbols, and no Control.PID `candidate`; and the example's Control.PID loop, which designs to the requirements typed before
+//! its first Tune (B4.3).
 
 use std::fs;
 use std::path::PathBuf;
@@ -29,6 +30,9 @@ use crate::operation::{Operations, UpdateSink};
 
 /// The example project's loop file.
 const EXAMPLE: &str = include_str!("../../../examples/control-pid-commissioning/control-loop.json");
+/// The example project's plant as its model file writes it: 1.5 °C per % with a 4 s lag and a 0.5 s delay, at 0 % and 20 °C.
+const EXAMPLE_MODEL: &str =
+    include_str!("../../../examples/control-pid-commissioning/fopdt-model.json");
 /// The state-feedback loop of lesson 68 (C4): a state law, whose pins are its design's.
 const STATE_LOOP: &str = include_str!(
     "../../../examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/control-loop.json"
@@ -732,4 +736,63 @@ fn the_tune_answer_names_the_manual_family() {
         (Some(2.0), Some(0.5)),
         "the entered settings are the candidate: {answered}"
     );
+}
+
+/// The requirements an engineer types before the first Tune are the ones Tune designs to (B4.3; checklist F29a). The import's answer
+/// carries Automatic's requirements, every one generated; the engineer changes five of them in the requirements editor, whose change
+/// sends the record with the `automaticCriteria` the page was shown. A value the change gives is the engineer's, so it is no longer
+/// generated, and only the unchanged response stays Automatic. Catches a study that keeps every field generated because it held no
+/// record before the change: Tune then filled Automatic's values again (8 °C, 0.32 °C, 0.16 °C, 24.9 s and 50.8 s for the example on
+/// 0.26.0) while Validate checked the typed ones.
+#[test]
+fn requirements_typed_before_the_first_tune_are_the_ones_tune_designs_to() {
+    let project = Project::new("typed-before-first-tune");
+    let (studio, updates) = engine_with_updates();
+    let imported = studio
+        .execute(IDENTIFY, &[project.import_request(EXAMPLE_MODEL)])
+        .expect("the engine answers its own method");
+    let proposal = imported["result"]["requirements"].clone();
+    let typed = [
+        ("referenceChange", 1.0),
+        ("maximumError", 0.1),
+        ("settlingBand", 0.05),
+        ("settlingTimeSeconds", 12.0),
+        ("durationSeconds", 24.0),
+    ];
+    for (field, value) in typed {
+        assert!(
+            proposal["automaticCriteria"]["fields"]
+                .as_array()
+                .is_some_and(|fields| fields.iter().any(|listed| listed == field))
+                && proposal[field].as_f64() != Some(value),
+            "the import proposes {field} as Automatic's own value, not {value}: {proposal}"
+        );
+    }
+    let mut change = proposal.clone();
+    for (field, value) in typed {
+        change[field] = json!(value);
+    }
+    record_change(&studio, &project, &change);
+    let study: Value = serde_json::from_str(
+        &fs::read_to_string(
+            crate::storage::study_directory(&project.root, &project.loop_definition.id)
+                .join("study.json"),
+        )
+        .expect("the study is written"),
+    )
+    .expect("the study is JSON");
+    assert_eq!(
+        study["sections"]["inputs"]["requirements"]["automaticCriteria"]["fields"],
+        json!(["tuningObjective"]),
+        "only the unchanged response stays Automatic (B4.3)"
+    );
+    let answered = tune_and_wait(&studio, &updates, project.request());
+    for (field, value) in typed {
+        assert_eq!(
+            answered["requirements"][field].as_f64(),
+            Some(value),
+            "Tune designs to the typed {field} (B4.3): {}",
+            answered["requirements"]
+        );
+    }
 }

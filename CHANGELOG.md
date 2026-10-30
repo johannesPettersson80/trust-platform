@@ -23,6 +23,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   cancelled. Before, an Identify started while the controller still moved its output (for example right after Restore) held
   that moving output, the plant settled open loop away from the setpoint, and Apply then waited in vain for that operating
   point while the controller held the setpoint (specification 35, B3.4).
+- Control Studio designs to the requirements you type before the first Tune. Before, the first change after Identify kept
+  every requirement marked Automatic, so Tune replaced the typed values with Automatic's own while Validate checked the
+  typed ones (specification 35, B4.3).
+- Validate on a configured simulated plant starts the controller from its declared states at the operating point, as
+  Apply does, with a startup-done flag such as `Initialized` set. Before, the program's startup code initialized the
+  controller at the new setpoint, so a PID took the setpoint step without its proportional action, answered about 5 s
+  late and failed requirements it meets (specification 35, B5.3).
 
 - `CTU`, `CTD` and `CTUD` are the INT counters of IEC 61131-3 Table 45: `CTU(PV := 10)` compiles, and a plain
   counter given a DINT preset is refused when the program is compiled; it ran with a preset of 0. A DINT counter is

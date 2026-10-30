@@ -21,7 +21,9 @@ use trust_control::tuning::requirements::TuningRequirements;
 use trust_control::tuning::structure::{ParallelGains, Structure};
 use trust_control::validation::model_route::model_route;
 
-use super::{campaign_of, entry_noise, supplied_plants, RunShape, ValidateWork};
+use super::{
+    campaign_of, configured_campaign, entry_noise, supplied_plants, RunShape, ValidateWork,
+};
 use crate::commands::{ControlStudio, METHODS, VALIDATE};
 use crate::operation::UpdateSink;
 use crate::runtime_client::fake_runtime::FakeRuntime;
@@ -31,6 +33,9 @@ use crate::workflow::apply::test_support::model;
 use crate::workflow::validate::Settings;
 
 const EXAMPLE: &str = include_str!("../../../examples/control-pid-commissioning/control-loop.json");
+/// The example's plant as its model file writes it: 1.5 °C per % with a 4 s lag and a 0.5 s delay, at 0 % and 20 °C.
+const EXAMPLE_MODEL: &str =
+    include_str!("../../../examples/control-pid-commissioning/fopdt-model.json");
 
 struct Ignore;
 
@@ -357,4 +362,78 @@ fn only_the_scenarios_that_supply_a_model_have_their_own_plant() {
         supplied["step-h12"].model.identity().revision,
         "line-heater-12-kw-per-c"
     );
+}
+
+/// Every run on the configured plant starts the controller at the model's operating point with its declared states (B5.3, B6.2, C1;
+/// checklist F29b). For the example at 0 % and 20 °C with the README's 1 °C setpoint change: the startup-done flag `P1.Initialized`
+/// starts TRUE (its declared initial value 1), the setpoint and the process value of the PID's history start at the process coordinate
+/// 20 °C, both outputs at the actuator coordinate 0 %, the two rates and the feedforward at 0, and the reference at 21 °C. Catches a
+/// campaign without them: the program's startup code then initializes Control.PID at 21 °C, the velocity form takes the step without
+/// its proportional action, and the example's own gains failed the README's 12 s settling (0.2124 °C after 12 s on 0.26.0).
+#[test]
+fn every_configured_plant_run_starts_the_controller_with_its_declared_states_at_the_operating_point(
+) {
+    let loop_definition = LoopDefinition::decode(EXAMPLE).expect("the example decodes");
+    let mut model_value: Value =
+        serde_json::from_str(EXAMPLE_MODEL).expect("the model file is JSON");
+    // As Identify keeps it: fitted from a recording, which is its evidence.
+    model_value["source"] = json!("fitted");
+    model_value["evidence"] = json!(["sha256:recording"]);
+    let model = decode_general_model(&model_value).expect("the model decodes");
+    let requirements: TuningRequirements = serde_json::from_value(json!({
+        "referenceChange": 1.0,
+        "maximumError": 0.1,
+        "settlingBand": 0.05,
+        "settlingTimeSeconds": 12.0,
+        "durationSeconds": 24.0,
+    }))
+    .expect("the requirements decode");
+    // The record the example's program declares (`src/Main.st`).
+    let observed = BTreeMap::from([
+        ("P1.Parameters.ProportionalGain".to_owned(), 1.0),
+        ("P1.Parameters.IntegralGain".to_owned(), 0.2),
+        ("P1.Parameters.DerivativeGain".to_owned(), 0.0),
+        ("P1.Parameters.ProportionalSetpointWeight".to_owned(), 1.0),
+        ("P1.Parameters.DerivativeSetpointWeight".to_owned(), 0.0),
+        ("P1.Parameters.Bias".to_owned(), 0.0),
+        ("P1.Parameters.OutputMinimum".to_owned(), 0.0),
+        ("P1.Parameters.OutputMaximum".to_owned(), 100.0),
+        ("P1.Parameters.RateMinimum".to_owned(), -25.0),
+        ("P1.Parameters.RateMaximum".to_owned(), 25.0),
+        ("P1.Parameters.TrackingTime".to_owned(), 1.0),
+    ]);
+    let cases = configured_campaign(&loop_definition, &model, &requirements, &observed)
+        .expect("the example's campaign is built");
+    let target = cases
+        .iter()
+        .find(|case| case.id == "target-response")
+        .expect("the campaign has its target-response case");
+    let start = |symbol: &str| target.plan.initial_values.get(symbol).copied();
+    assert_eq!(
+        start("P1.Initialized"),
+        Some(1.0),
+        "the startup-done flag starts TRUE (C1)"
+    );
+    for (state, value) in [
+        ("Setpoint", 20.0),
+        ("ProcessValue", 20.0),
+        ("NominalOutput", 0.0),
+        ("SaturatedOutput", 0.0),
+        ("SetpointRate", 0.0),
+        ("ProcessValueRate", 0.0),
+        ("FeedForward", 0.0),
+    ] {
+        assert_eq!(
+            start(&format!("P1.Controller.StateValue.{state}")),
+            Some(value),
+            "the PID's {state} starts at the operating point (C1): {:?}",
+            target.plan.initial_values
+        );
+    }
+    assert_eq!(
+        start("P1.Setpoint"),
+        Some(21.0),
+        "the reference starts at the target (B5.3)"
+    );
+    assert_eq!(start("P1.AutoMode"), Some(1.0), "the run starts in Auto");
 }

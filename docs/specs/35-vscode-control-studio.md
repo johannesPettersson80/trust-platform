@@ -1573,7 +1573,8 @@ come from the engine's answers: from the record the page holds for the output's 
 engine refuses a change it shows the rows as they were typed, with the refusal under its field.
 
 A change of the requirements keeps Automatic on each generated value that it leaves as it was: a value the engineer changes is no
-longer generated, and the engine decides which values those are. The verification scenarios of the
+longer generated, and the engine decides which values those are. It compares the change with the record the page showed: the one the
+study records, or, before the study records one, the requirements the answers carried for the current model. The verification scenarios of the
 Requirements editor are checked by the engine when they change: a list that no scenario reads is refused under the field
 `scenarios`, and so is a scenario event written after the validation duration, and a timed change whose time is not a whole number of
 the loop's task periods (Validate writes an event at a sample of the task, so the engine refuses the time when the list changes, not when
@@ -1665,7 +1666,11 @@ record (numerical annex):
 
 Validate tests the candidate at the operating point Apply starts from (B6.2):
 the selected model's operating point. An isolated run of the configured plant
-starts from the plant's configured state. When the current settings'
+starts from the plant's configured state. On either plant, each run starts the
+controller at the selected model's operating point with its declared states and
+application states (C1), as Apply starts it: a startup-done flag starts TRUE,
+so the program's startup code does not initialize the controller under test,
+and a setpoint change reaches it as a change. When the current settings'
 target-response run starts with its measured output outside the settling band
 around that operating point, as after an Apply whose target change stays in
 force, the configured plant cannot show the response there: Validate runs every
