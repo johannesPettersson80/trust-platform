@@ -218,6 +218,28 @@ pub struct Lab {
     _remove: RemoveDir,
 }
 
+impl Drop for Lab {
+    /// A failed test names the speed its runtime reached beside the speed it asked for, read before the runtime ends: a runner too
+    /// slow for the requested speed gives the plant less time between the test's steps than the test planned, which is not a failure
+    /// of the product (macOS's runner reached 2.4 times real time where ten were asked for, 30 October 2026).
+    fn drop(&mut self) {
+        if !std::thread::panicking() {
+            return;
+        }
+        match RuntimeClient::connect(&self.connection).and_then(|mut client| client.status()) {
+            Ok(status) => eprintln!(
+                "the runtime asked for {}× real time and reached {}",
+                status.simulation_time_scale,
+                status.simulation_achieved_time_scale.map_or_else(
+                    || "no measured speed".to_owned(),
+                    |achieved| format!("{achieved:.1}×")
+                )
+            ),
+            Err(error) => eprintln!("the runtime's speed could not be read: {}", error.message),
+        }
+    }
+}
+
 impl Lab {
     /// Copies `example` into `folder/project`, sets the simulation's speed to `time_scale`, builds the project, starts its runtime
     /// and waits for the first complete scan, which makes the target a simulated plant (E1.3). `loop_file` is the loop's file,
