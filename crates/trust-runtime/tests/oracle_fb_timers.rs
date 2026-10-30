@@ -7,7 +7,10 @@
 //! docs/IEC_DECISIONS.md (2026-07-12) is applied as written there: an executed call is one scan
 //! step; PT is sampled on every executed call; the first call after creation or restart adds zero
 //! elapsed time; a call adds the runtime clock advance since the previous executed call, together
-//! with the inputs sampled on that call; a stationary or backward clock adds zero.
+//! with the inputs sampled on that call; a stationary or backward clock adds zero. As
+//! docs/IEC_DECISIONS.md (2026-10-30) has it, the call that samples the starting edge (TON and TP
+//! rising, TOF falling) starts timing at ET = 0 instead, as CODESYS and `TwinCAT` time, and an edge
+//! while a TP pulse runs is ignored.
 //!
 //! The reference model below is written from those clauses and shares no code with the runtime.
 //! Input vectors come from a fixed-seed generator. Q and ET are compared with the model after
@@ -270,9 +273,10 @@ impl Model {
         // PT <= T#0s is zero for TP, TON and TOF (spec 08 section 5, IEC_DECISIONS 2026-07-12).
         let pt = pt_raw.max(0);
         let rising = input && !self.prev_in;
+        let falling = !input && self.prev_in;
         match self.kind {
-            Kind::Ton => self.ton(input, pt, elapsed, coverage),
-            Kind::Tof => self.tof(input, pt, elapsed, coverage),
+            Kind::Ton => self.ton(input, rising, pt, elapsed, coverage),
+            Kind::Tof => self.tof(input, falling, pt, elapsed, coverage),
             Kind::Tp => self.tp(input, rising, pt, elapsed, coverage),
         }
         self.prev_in = input;
@@ -289,9 +293,14 @@ impl Model {
         self.et >= pt
     }
 
-    /// TON (Figure 15b): Q follows IN after IN has been high for PT; ET resets when IN is low.
-    fn ton(&mut self, input: bool, pt: i128, elapsed: i128, coverage: &mut Coverage) {
-        if input {
+    /// TON (Figure 15b): Q follows IN after IN has been high for PT; ET resets when IN is low. The
+    /// call that samples the rising edge starts at ET = 0, with Q TRUE only for a zero PT.
+    fn ton(&mut self, input: bool, rising: bool, pt: i128, elapsed: i128, coverage: &mut Coverage) {
+        if input && rising {
+            coverage.hit("ton: rising starts at zero");
+            self.et = 0;
+            self.q = pt == 0;
+        } else if input {
             let was_done = self.q;
             let reached = self.accumulate(elapsed, pt, coverage);
             if was_done && !reached {
@@ -307,9 +316,17 @@ impl Model {
         }
     }
 
-    /// TOF (Figure 15c): a high sample sets Q and resets ET; after a falling sample Q stays TRUE
-    /// while ET runs to PT; at expiry ET holds PT until the next high sample.
-    fn tof(&mut self, input: bool, pt: i128, elapsed: i128, coverage: &mut Coverage) {
+    /// TOF (Figure 15c): a high sample sets Q and resets ET; the falling sample starts the
+    /// off-delay at ET = 0 and Q stays TRUE while ET runs to PT; at expiry ET holds PT until the
+    /// next high sample. A zero PT expires on the falling sample itself.
+    fn tof(
+        &mut self,
+        input: bool,
+        falling: bool,
+        pt: i128,
+        elapsed: i128,
+        coverage: &mut Coverage,
+    ) {
         if input {
             if self.phase != Phase::Idle {
                 coverage.hit("tof: IN high rearms");
@@ -325,7 +342,14 @@ impl Model {
                 self.et = 0;
             }
             Phase::Running => {
-                if self.accumulate(elapsed, pt, coverage) {
+                let expired = if falling {
+                    coverage.hit("tof: falling starts at zero");
+                    self.et = 0;
+                    pt == 0
+                } else {
+                    self.accumulate(elapsed, pt, coverage)
+                };
+                if expired {
                     coverage.hit("tof: expires");
                     self.phase = Phase::Expired;
                     self.q = false;
@@ -342,16 +366,13 @@ impl Model {
         }
     }
 
-    /// TP (Figure 15a): a sampled rising edge starts a pulse of length PT; a falling input does not
-    /// cancel it; a new rising edge restarts it. Once it has expired, Q stays FALSE and ET stays
-    /// at PT. The first later sampled-low call resets ET to zero and rearms the edge (spec 08
-    /// section 5). A pulse that expires on a call where IN is low therefore still shows ET = PT on
-    /// that call; the reset is on a later call.
+    /// TP (Figure 15a): a sampled rising edge starts a pulse of length PT at ET = 0; neither a
+    /// falling input nor a new rising edge while it runs changes it. Once it has expired, Q stays
+    /// FALSE and ET stays at PT. The first later sampled-low call resets ET to zero and rearms the
+    /// edge (spec 08 section 5). A pulse that expires on a call where IN is low therefore still
+    /// shows ET = PT on that call; the reset is on a later call.
     fn tp(&mut self, input: bool, rising: bool, pt: i128, elapsed: i128, coverage: &mut Coverage) {
-        if rising {
-            if self.phase == Phase::Running {
-                coverage.hit("tp: retrigger while pulsing");
-            }
+        if rising && self.phase != Phase::Running {
             self.et = 0;
             if pt == 0 {
                 // A zero preset has no positive-duration pulse, so Q stays FALSE.
@@ -361,9 +382,12 @@ impl Model {
             } else {
                 coverage.hit("tp: rising starts pulse");
                 self.phase = Phase::Running;
-                self.pulse(input, pt, elapsed, coverage);
+                self.q = true;
             }
             return;
+        }
+        if rising {
+            coverage.hit("tp: edge ignored while pulsing");
         }
         match self.phase {
             Phase::Idle => {
@@ -413,7 +437,7 @@ fn required_rules(kind: Kind) -> Vec<&'static str> {
     rules.extend(match kind {
         Kind::Tp => vec![
             "tp: rising starts pulse",
-            "tp: retrigger while pulsing",
+            "tp: edge ignored while pulsing",
             "tp: falling does not cancel",
             "tp: expires while IN high",
             "tp: expires while IN low",
@@ -421,10 +445,12 @@ fn required_rules(kind: Kind) -> Vec<&'static str> {
             "tp: rearm on low",
         ],
         Kind::Ton => vec![
+            "ton: rising starts at zero",
             "ton: IN low resets ET",
             "ton: Q recomputed after PT increase",
         ],
         Kind::Tof => vec![
+            "tof: falling starts at zero",
             "tof: IN high rearms",
             "tof: expires",
             "tof: ET held under PT change",

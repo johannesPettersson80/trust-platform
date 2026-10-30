@@ -1,6 +1,8 @@
 //! The timers `TON`, `TOF` and `TP` (IEC §6.6.3.5.5, Table 46; specification 08 §5), with the
-//! runtime's rules: a timer measures the task time that passed since its previous call, nothing
-//! on its first call; `PT` below zero counts as zero; `ET` stops at `PT`.
+//! runtime's rules: the call that samples the starting edge returns `ET` = 0, as CODESYS and
+//! `TwinCAT` time, and each later call adds the task time since the previous call, nothing on the
+//! first call; `PT` below zero counts as zero; `ET` stops at `PT`; a running `TP` pulse ignores
+//! edges (`docs/IEC_DECISIONS.md`, 2026-10-30).
 
 use core::cell::Cell;
 
@@ -21,6 +23,8 @@ plain_struct! {
         pub LAST: Cell<i64>,
         /// Not 0 once the timer has been called.
         pub CALLED: Cell<u8>,
+        /// `IN` at the previous call.
+        pub PREV_IN: Cell<u8>,
     }
 }
 
@@ -87,14 +91,21 @@ fn accumulate(et: i64, delta: i64, pt: i64) -> i64 {
 pub fn ton(timer: &Ton, now: i64) {
     let delta = elapsed(&timer.LAST, &timer.CALLED, now);
     let pt = timer.PT.get().max(0);
-    if timer.IN.get() == 0 {
-        timer.ET.set(0);
-        timer.Q.set(0);
-    } else {
-        let et = accumulate(timer.ET.get(), delta, pt);
+    let input = timer.IN.get() != 0;
+    if input {
+        // The rising-edge call starts timing at 0; later calls add their task time.
+        let et = if timer.PREV_IN.get() == 0 {
+            0
+        } else {
+            accumulate(timer.ET.get(), delta, pt)
+        };
         timer.ET.set(et);
         timer.Q.set(u8::from(et >= pt));
+    } else {
+        timer.ET.set(0);
+        timer.Q.set(0);
     }
+    timer.PREV_IN.set(u8::from(input));
 }
 
 /// Runs `TOF` at task time `now`.
@@ -107,14 +118,20 @@ pub fn tof(timer: &Tof, now: i64) {
         timer.ET.set(0);
         timer.TIMING.set(0);
     } else {
-        if timer.PREV_IN.get() != 0 {
+        // The falling-edge call starts timing at 0; later calls add their task time.
+        let falling = timer.PREV_IN.get() != 0;
+        if falling {
             timer.TIMING.set(1);
             timer.ET.set(0);
         }
         if timer.TIMING.get() == 0 {
             timer.Q.set(0);
         } else {
-            let et = accumulate(timer.ET.get(), delta, pt);
+            let et = if falling {
+                0
+            } else {
+                accumulate(timer.ET.get(), delta, pt)
+            };
             if et >= pt {
                 timer.Q.set(0);
                 timer.ET.set(pt);
@@ -133,13 +150,19 @@ pub fn tp(timer: &Tp, now: i64) {
     let delta = elapsed(&timer.LAST, &timer.CALLED, now);
     let pt = timer.PT.get().max(0);
     let input = timer.IN.get() != 0;
-    if input && timer.PREV_IN.get() == 0 {
+    // A rising edge starts a pulse at 0 only when none runs: a running pulse ignores edges.
+    let started = input && timer.PREV_IN.get() == 0 && timer.ACTIVE.get() == 0;
+    if started {
         timer.ACTIVE.set(1);
         timer.ET.set(0);
     }
     let mut expired = false;
     if timer.ACTIVE.get() != 0 {
-        let et = accumulate(timer.ET.get(), delta, pt);
+        let et = if started {
+            0
+        } else {
+            accumulate(timer.ET.get(), delta, pt)
+        };
         if et >= pt {
             timer.ACTIVE.set(0);
             timer.ET.set(pt);

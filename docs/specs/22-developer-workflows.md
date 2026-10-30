@@ -84,10 +84,14 @@ bounded fixture set does not certify arbitrary Structured Text programs.
 Three tutorials additionally define executable behavior locks:
 
 - `02_blinker.st` starts with `Lamp = FALSE`. After 250 ms and one cycle it is
-  `TRUE`, remains `TRUE` after another 1 ms and cycle, and returns to `FALSE`
-  after another 250 ms and cycle.
-- `03_traffic_light.st` starts red and advances at each reviewed 500 ms plus
-  transition cycle through red+yellow, green, yellow, and back to red.
+  `TRUE`, remains `TRUE` after another 1 ms and cycle, in which its timer is
+  off, and after another 250 ms and cycle, whose rising edge starts the timer
+  again at `ET` T#0s (specification 08 §5), and returns to `FALSE` after another
+  250 ms and cycle.
+- `03_traffic_light.st` starts red and advances through red+yellow, green,
+  yellow, and back to red, each phase observed after 500 ms and a cycle that
+  moves it on, a 1 ms cycle that shows it while the timer is off, and a 1 ms
+  cycle whose rising edge starts the timer again at `ET` T#0s.
 - `05_motor_starter.st` starts stopped, latches `MotorRun` and
   `SealInContact` after `StartPb`, remains latched when `StartPb` is released,
   unlatches on `StopPb`, can start again, and unlatches on `OverloadTrip`.

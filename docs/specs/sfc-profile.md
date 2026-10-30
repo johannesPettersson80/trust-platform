@@ -106,8 +106,9 @@ companion. Validate refuses:
     `ET` of the step's timer `SFC_S<n>` (a `TON`, specification 08; `<n>` the
     step's position in the chart), which each scan calls first with the step's
     flag. `T` starts again when the step is entered and keeps its value while
-    the step is inactive; under the TON rule of specification 08 a step
-    entered in one scan reads the task interval in the next. It counts up to
+    the step is inactive; under the TON rule of specification 08 §5 a step
+    entered in one scan reads `T#0s` in the next and the task interval in the
+    one after. It counts up to
     `T#24d20h31m23s647ms`, the largest `TIME` of 32-bit milliseconds, as
     CODESYS and TwinCAT measure a step's time.
 - `<name>_active` stays for the programs that read it; `<name>.X` is the same

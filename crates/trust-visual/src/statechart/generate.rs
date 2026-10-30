@@ -247,8 +247,8 @@ fn refuse_bad_address(target: &str, action: &str) -> Result<(), Vec<Problem>> {
 }
 
 impl Context<'_> {
-    /// The body: start in the `initial` state once, reset every timer, run the transitions of the
-    /// active state, then answer the active state.
+    /// The body: start in the `initial` state once, run each timer while its state is active, run
+    /// the transitions of the active state, then answer the active state.
     fn body(
         &self,
         states: &[(&str, &Json)],
@@ -262,9 +262,17 @@ impl Context<'_> {
             "END_IF;".to_owned(),
             String::new(),
         ];
+        // One call per scan: a timer counts while its state is active and starts over when the
+        // state is left (specification 17, "Statechart"). A transition that fires resets the timers
+        // of its source state, so that a self-transition starts them again.
         for timer in &machine.timers {
+            let state = self
+                .index_of
+                .get(timer.state.as_str())
+                .copied()
+                .unwrap_or(0);
             body.push(format!(
-                "{}(IN := FALSE, PT := T#{}ms);",
+                "{}(IN := (_state = {state}), PT := T#{}ms);",
                 timer.name,
                 number_text(timer.after_ms)
             ));
@@ -273,23 +281,26 @@ impl Context<'_> {
             body.push(String::new());
         }
         body.push("CASE _state OF".to_owned());
-        for (index, ((_, value), transitions)) in
+        for (index, ((state, value), transitions)) in
             states.iter().zip(&machine.transitions).enumerate()
         {
             body.push(format!("{INDENT}{index}:"));
-            for transition in transitions {
-                if let Some((name, after_ms)) = &transition.timer
-                    && *after_ms != 0.0
-                {
-                    body.push(format!(
-                        "{INDENT}{INDENT}{name}(IN := TRUE, PT := T#{}ms);",
-                        number_text(*after_ms)
-                    ));
-                }
-            }
+            let resets: Vec<String> = machine
+                .timers
+                .iter()
+                .filter(|timer| timer.state == *state)
+                .map(|timer| {
+                    format!(
+                        "{}{}(IN := FALSE, PT := T#{}ms);",
+                        INDENT.repeat(3),
+                        timer.name,
+                        number_text(timer.after_ms)
+                    )
+                })
+                .collect();
             let exit = action_list(value.get("exit"));
             for (position, transition) in transitions.iter().enumerate() {
-                self.transition(&mut body, position, transition, &exit)?;
+                self.transition(&mut body, position, transition, &exit, &resets)?;
             }
             if !transitions.is_empty() {
                 body.push(format!("{INDENT}{INDENT}END_IF;"));
@@ -316,13 +327,14 @@ impl Context<'_> {
     }
 
     /// The `IF`/`ELSIF` branch of the transition at `position` of its state, whose exit actions
-    /// are `exit`.
+    /// are `exit` and whose timers `resets` start over when the transition fires.
     fn transition(
         &self,
         body: &mut Vec<String>,
         position: usize,
         transition: &Transition,
         exit: &[&str],
+        resets: &[String],
     ) -> Result<(), Vec<Problem>> {
         let trigger = match &transition.timer {
             Some((name, after_ms)) if *after_ms != 0.0 => format!("{name}.Q"),
@@ -341,6 +353,7 @@ impl Context<'_> {
         let keyword = if position == 0 { "IF" } else { "ELSIF" };
         body.push(format!("{INDENT}{INDENT}{keyword} {condition} THEN"));
         self.actions(body, exit)?;
+        body.extend(resets.iter().cloned());
         self.actions(body, &transition.actions)?;
         let target_name = js::string(Some(transition.target));
         let target_state = self.states.get(&target_name);

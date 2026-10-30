@@ -6,6 +6,28 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+### Changed
+
+- `TON`, `TP` and `TOF` start timing on the call that samples the edge, as CODESYS and TwinCAT do: that call returns
+  `ET` T#0s, and each later call adds the task time since the previous one. Before, the edge call already counted the
+  time since the previous call, so a timer finished one task interval early: with a 10 ms task and `PT` T#30ms, a
+  `TON`'s `Q` rose at the second call after the edge instead of the third. Programs see their timers finish one task
+  interval later than in 0.26.0 (specification 08 §5; `docs/IEC_DECISIONS.md`, 2026-10-30).
+- Lesson 58 (valve characterization) holds its last opening until 155.4 s, so its project test runs 155.5 s; its
+  figure and steady values come from a new Control Studio recording.
+
+### Fixed
+
+- A `TP` pulse ignores a rising edge of `IN` while it runs, as IEC 61131-3 Figure 15 a and specification 08 have it; such
+  an edge restarted the pulse and made it longer than `PT`.
+- A statechart transition with `after` fires when its state has been active that long, and a timed self-transition
+  starts its timer again. The generated companion reset every timer before running it in each scan, so such a
+  transition never fired (specification 17 §3.2).
+- A library block inside a `RETAIN` instance keeps its own state over a warm restart and a power loss: a `TOF`'s running
+  off-delay and a `TP`'s running pulse go on, and a counter or an `R_TRIG`/`F_TRIG` whose input is TRUE at the restart
+  counts no new edge. They lost that state, so the delay or pulse ended at once and the counter counted one more
+  (specification 10 §4.8; IEC 61131-3 §6.5.2.2).
+
 ## [0.26.0] - 2026-10-30
 
 ### Added

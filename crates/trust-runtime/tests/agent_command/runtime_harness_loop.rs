@@ -117,7 +117,9 @@ END_PROGRAM
     );
     let run_until = read_response(&mut reader);
     assert_eq!(run_until["result"]["name"], json!("q"));
-    assert_eq!(run_until["result"]["cycles_ran"], json!(3));
+    // PT 30 ms in 10 ms cycles: the edge cycle gives ET 0 and the fourth reaches 30 ms
+    // (specification 08 §5).
+    assert_eq!(run_until["result"]["cycles_ran"], json!(4));
     assert_eq!(
         run_until["result"]["matched_value"],
         json!({"type": "BOOL", "value": true})

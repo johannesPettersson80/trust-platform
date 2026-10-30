@@ -424,12 +424,20 @@ block calls: inputs are sampled, elapsed time is applied, and `Q`/`ET` become
 visible as one scan step. A timer has no background transition between calls,
 and this contract makes no continuous-time claim.
 
+Timing starts at the executed call that samples the starting edge (TON and
+TP: IN FALSE to TRUE; TOF: IN TRUE to FALSE): that call returns ET = T#0s, and
+each later executed call while timing adds the task time since the previous
+executed call, so ET is the task time since the starting call, at most PT. `Q`
+changes on the first executed call whose ET reaches PT; with PT zero, on the
+starting call itself. This is how CODESYS and TwinCAT time (owner, 26 October
+2026); IEC 61131-3 does not say which call of a cyclic program is the instant
+of an edge.
+
 The implementation-owned timer boundaries are reviewed in
-`docs/IEC_DECISIONS.md`. In particular, the current `PT` is sampled on each
-executed call while timing is active, non-positive `PT` is treated as zero,
-and TIME/LTIME variants share the same state transitions. Restart, clock-step,
-conditional-call, and TP retrigger decisions are specified there but are not
-asserted by the first timer trace vertical.
+`docs/IEC_DECISIONS.md` (2026-07-12 and 2026-10-30). In particular, the current
+`PT` is sampled on each executed call while timing is active, non-positive `PT`
+is treated as zero, and TIME/LTIME variants share the same state transitions.
+Restart, clock-step and conditional-call decisions are specified there.
 
 ### TP - Pulse Timer
 
@@ -444,7 +452,9 @@ TIME---|PT ET|---TIME
 **Behavior**: Generates a fixed-duration pulse.
 
 - When IN goes TRUE, Q goes TRUE for duration PT
-- Q stays TRUE for full PT duration regardless of IN changes
+- Q stays TRUE for full PT duration regardless of IN changes: a FALSE-to-TRUE
+  call while the pulse runs neither restarts nor extends it (IEC 61131-3 Ed.3
+  Figure 15 a)
 - ET counts up while Q is TRUE, stops at PT (IEC 61131-3 Ed.3 section 6.6.3.5.5,
   Figure 15(a))
 - The executed call that completes the pulse returns Q FALSE and ET at PT,
@@ -452,7 +462,7 @@ TIME---|PT ET|---TIME
   still samples IN as TRUE, Q remains FALSE and ET remains at PT. The first later
   executed call sampling IN as FALSE resets ET to zero and rearms edge detection.
   A subsequent executed FALSE-to-TRUE call starts a new pulse with Q TRUE and ET
-  advanced by that call's elapsed-time contribution.
+  T#0s.
 
 **Timing Diagram**:
 ```
@@ -477,6 +487,11 @@ TIME---|PT ET|---TIME
 - Q goes TRUE after IN has been TRUE for duration PT
 - If IN goes FALSE before PT, Q stays FALSE and ET resets
 - ET counts while IN is TRUE and Q is FALSE
+- The executed call that samples IN FALSE-to-TRUE returns ET T#0s, and Q TRUE
+  only when PT is zero; each later executed call with IN TRUE adds the task
+  time since the previous call, and the first whose ET reaches PT returns Q
+  TRUE and ET PT. With a 10 ms task and PT T#30ms, the edge call returns ET
+  T#0s and the third call after it returns Q TRUE.
 
 **Timing Diagram**:
 ```
@@ -502,8 +517,9 @@ TIME---|PT ET|---TIME
 
 - An executed call with IN TRUE sets Q TRUE, resets ET to zero, and rearms the
   off-delay.
-- On a sampled TRUE-to-FALSE transition, Q remains TRUE and ET advances toward
-  PT on executed calls.
+- The executed call that samples IN TRUE-to-FALSE keeps Q TRUE and returns ET
+  T#0s; each later executed call with IN FALSE adds the task time since the
+  previous call, so ET advances toward PT.
 - The first executed call whose accumulated elapsed time reaches PT sets Q
   FALSE and ET to PT.
 - Later executed calls with IN still FALSE keep Q FALSE and ET at PT.
@@ -565,9 +581,10 @@ machine above and requires `PT` and `ET` to use its named TIME or LTIME family.
   wraps. If the current `PT` decreases below accumulated `ET`, the same call
   completes at the new `PT`. If active `TON.PT` increases, `Q` is recomputed
   from the increased threshold.
-- A `TP` falling edge does not cancel an active pulse. A later rising edge
-  restarts the interval only after an executed call has sampled the intervening
-  low level.
+- A `TP` falling edge does not cancel an active pulse, and a rising edge while
+  the pulse runs neither restarts nor extends it (IEC 61131-3 Ed.3 Figure 15 a).
+  After the pulse has ended, a rising edge starts a new pulse once an executed
+  call has sampled the intervening low level.
 - Once `TOF` expires, `ET` holds the `PT` sampled at expiry while `IN` remains
   low, even if later low-state calls provide another `PT`. A high-state call
   rearms the instance and resets `ET`.

@@ -21,7 +21,6 @@
 
 use smol_str::SmolStr;
 use trust_plc_abi as abi;
-use trust_runtime_core::native::image::{SYMBOL_INPUT, SYMBOL_OUTPUT};
 
 use super::model::{retained, Model};
 use super::types::{Kind, Ty};
@@ -251,18 +250,15 @@ fn value(model: &mut Model<'_>, map: &mut Vec<Retained>, path: &Path, place: Pla
 fn instance(model: &mut Model<'_>, map: &mut Vec<Retained>, members: &str, place: Place, ty: Ty) {
     match model.types.info(ty).kind.clone() {
         Kind::StdFb(fb) => {
-            // A library block's own state (`__LAST`) is no variable the program declares, but the
-            // hidden trigger of a retained edge-qualified input keeps its memory with the input, so
-            // that a warm restart fabricates no edge (IEC §6.5.2.2).
-            let trigger = members
-                .trim_end_matches(['.', '/'])
-                .rsplit(['.', '/'])
-                .next()
-                .is_some_and(|last| last.starts_with("__TRIG_"));
+            // A library block kept as a whole keeps its own state too: the edge memories (`__M`,
+            // `__PREV_IN`, `__PREV_CU`, `__PREV_CD`) and the running delay or pulse (`__TIMING`,
+            // `__ACTIVE`), so that a warm restart fabricates no edge and a running timer keeps
+            // counting (IEC §6.5.6.2, §6.5.2.2; specification 10 §4.8). Only the time baseline
+            // (`__LAST`, `__CALLED`) starts over, so the first call after the restart counts no
+            // time (`docs/IEC_DECISIONS.md`, 2026-07-12 and 2026-10-30).
             for member in model.types.std_fb_members(fb) {
-                let declared = member.flags & (SYMBOL_INPUT | SYMBOL_OUTPUT) != 0
-                    && !member.name.starts_with("__");
-                if !(declared || trigger) || !place.holder {
+                let baseline = member.name == "__LAST" || member.name == "__CALLED";
+                if baseline || !place.holder {
                     continue;
                 }
                 let key = format!("{members}{}", member.name);
