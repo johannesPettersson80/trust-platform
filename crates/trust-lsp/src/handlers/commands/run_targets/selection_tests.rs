@@ -343,13 +343,23 @@ fn the_project_runtime_is_listed_while_it_answers() {
 /// The project's own runtime Connects and Disconnects and is never started or stopped; while it
 /// does not answer it stays listed when selected, `Not running` with Connect disabled and that
 /// reason (specification 25 §5.1). Catches Start or Stop offered for a runtime started outside VS
-/// Code, a selected entry that disappears when its runtime stops, and a connected session shown as
-/// not running when one probe fails.
+/// Code, a selected entry that disappears when its runtime stops, a connected session shown as
+/// not running when one probe fails, and an answering runtime shown as not reachable because the
+/// configured endpoint, its own, is switched off and so not probed.
 #[test]
 fn the_project_runtime_action() {
     let mut connecting = with_project(snapshot("online", "stopped", PROJECT_ENDPOINT), true);
     connecting["starting"] = json!(true);
+    let mut endpoint_off = with_project(snapshot("online", "stopped", PROJECT_ENDPOINT), true);
+    endpoint_off["endpointReachable"] = json!(false);
     let cases = [
+        (
+            endpoint_off,
+            "disconnected",
+            "Not connected",
+            "connect",
+            true,
+        ),
         (
             with_project(snapshot("simulate", "stopped", ""), true),
             "disconnected",
