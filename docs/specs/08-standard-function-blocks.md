@@ -244,6 +244,14 @@ function-block instance.
 
 ## 4. Counter Function Blocks (Table 45)
 
+`CTU`, `CTD` and `CTUD` are the INT counters `CTU_INT`, `CTD_INT` and `CTUD_INT`
+(IEC 61131-3 Ed.3 Table 45, 1a, 2a and 3a): their PV and CV are INT. An untyped
+integer literal given to PV is an INT when INT can represent it
+(`docs/IEC_DECISIONS.md`, numeric conversions), so `CTU(PV := 10)` is valid. A
+counter of another integer type is its typed variant, such as `CTU_DINT`; a
+DINT value, or a literal beyond INT, given to a plain counter's PV is a type
+error.
+
 ### CTU - Up Counter
 
 ```

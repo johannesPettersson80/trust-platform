@@ -18,6 +18,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ### Fixed
 
+- `CTU`, `CTD` and `CTUD` are the INT counters of IEC 61131-3 Table 45: `CTU(PV := 10)` compiles, and a plain
+  counter given a DINT preset is refused when the program is compiled; it ran with a preset of 0. A DINT counter is
+  `CTU_DINT`, `CTD_DINT` or `CTUD_DINT` (specification 08 §4).
 - A `TP` pulse ignores a rising edge of `IN` while it runs, as IEC 61131-3 Figure 15 a and specification 08 have it; such
   an edge restarted the pulse and made it longer than `PT`.
 - A statechart transition with `after` fires when its state has been active that long, and a timed self-transition

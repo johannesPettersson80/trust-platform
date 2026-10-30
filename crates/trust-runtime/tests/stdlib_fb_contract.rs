@@ -91,6 +91,26 @@ fn registry_counter_signatures_keep_preset_and_current_value_types_equal() {
     }
 }
 
+/// Specification 08 §4 (IEC 61131-3 Table 45, 1a, 2a and 3a): the plain counters are the INT
+/// counters. Catches a plain counter declared `ANY_INT`, whose instance starts as NULL and takes a
+/// DINT preset that the INT counter cannot hold.
+#[test]
+fn registry_plain_counters_are_the_int_counters() {
+    let definitions = standard_function_blocks();
+    for name in ["CTU", "CTD", "CTUD"] {
+        let definition = definitions
+            .iter()
+            .find(|definition| definition.name == name)
+            .expect("a plain counter");
+        let pv = definition
+            .params
+            .iter()
+            .find(|parameter| parameter.name == "PV")
+            .expect("counter must expose PV");
+        assert_eq!(pv.type_id, TypeId::INT, "{name}");
+    }
+}
+
 #[test]
 fn registry_timer_signatures_keep_preset_and_elapsed_types_equal() {
     let definitions = standard_function_blocks();

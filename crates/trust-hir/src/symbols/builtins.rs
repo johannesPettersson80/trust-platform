@@ -141,9 +141,11 @@ impl SymbolTable {
     }
 
     fn register_counter_function_blocks(&mut self) {
-        self.register_counter_up_function_block("CTU", TypeId::ANY_INT);
-        self.register_counter_down_function_block("CTD", TypeId::ANY_INT);
-        self.register_counter_up_down_function_block("CTUD", TypeId::ANY_INT);
+        // IEC 61131-3 Ed.3 Table 45, 1a, 2a and 3a: `CTU` is `CTU_INT`, `CTD` is `CTD_INT` and
+        // `CTUD` is `CTUD_INT`, so PV and CV are INT.
+        self.register_counter_up_function_block("CTU", TypeId::INT);
+        self.register_counter_down_function_block("CTD", TypeId::INT);
+        self.register_counter_up_down_function_block("CTUD", TypeId::INT);
 
         let variants = [
             ("INT", TypeId::INT),
