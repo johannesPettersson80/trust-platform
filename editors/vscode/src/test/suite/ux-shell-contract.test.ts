@@ -1773,8 +1773,11 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
         managedAttach.includes("runtimeLifecycleService.connectRemote("),
       "managed Start must label Live Values with the same name shown in the sidebar Target"
     );
+    // A remote is reached at its run endpoint and the project's own runtime through trust-runtime (F27); both pass the
+    // label.
     assert.ok(
-      home.includes("runtimeLifecycleService.connectRemote(selected.id, selected.label)"),
+      home.includes("runtimeLifecycleService.connectRemote(selected.runEndpoint, selected.label)") &&
+        home.includes("runtimeLifecycleService.connectProjectRuntime(selected.label)"),
       "sidebar Connect must pass its selected target label into Live Values"
     );
     assert.ok(
