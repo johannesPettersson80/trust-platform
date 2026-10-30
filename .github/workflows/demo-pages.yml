@@ -2,13 +2,20 @@ name: Docs Pages
 
 # A push to main starts this workflow; its `changes` job decides whether the site must be built and
 # deployed, comparing the whole push (specification 22, "Pull-request checks and change detection").
+# A Docs Captures run of main that rendered screenshots starts it too: the site is built with the
+# newest screenshots of main, and nothing commits them (specification 22, "Docs Captures").
 on:
   push:
+    branches: [main]
+  workflow_run:
+    workflows: [Docs Captures]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 
@@ -19,23 +26,45 @@ concurrency:
 jobs:
   changes:
     name: Changes
+    # A Docs Captures run counts only when it passed and a push, the schedule or a dispatch started
+    # it; a pull request's run never publishes anything.
+    if: >-
+      github.event_name != 'workflow_run'
+      || (github.event.workflow_run.conclusion == 'success'
+      && contains(fromJSON('["push", "schedule", "workflow_dispatch"]'), github.event.workflow_run.event))
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: read
     outputs:
-      relevant: ${{ steps.changes.outputs.relevant }}
+      relevant: ${{ steps.captures.outputs.relevant || steps.changes.outputs.relevant }}
     steps:
       - uses: actions/checkout@v7
+        if: github.event_name != 'workflow_run'
         with:
           fetch-depth: 0
 
       - name: Compare the push with the documentation paths
+        if: github.event_name != 'workflow_run'
         id: changes
         env:
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
         run: python3 scripts/ci_changes.py --event "$EVENT" --base "$BASE" --head "$HEAD_SHA" --paths-file .github/paths/docs-pages.txt
+
+      - name: Whether the Docs Captures run rendered screenshots
+        # A run whose own change detection skipped the captures uploaded nothing new.
+        if: github.event_name == 'workflow_run'
+        id: captures
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          count=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
+            --jq '[.artifacts[] | select(.name == "docs-captures" and (.expired | not))] | length')
+          echo "the run uploaded ${count} docs-captures artifact(s)"
+          if [ "${count}" -gt 0 ]; then echo "relevant=true"; else echo "relevant=false"; fi >> "${GITHUB_OUTPUT}"
 
   build:
     name: Build Pages Artifact
@@ -51,6 +80,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip==26.2.1
           python -m pip install -r docs/requirements.txt
+      - name: Take the newest screenshots of main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/docs_captures_artifact.py take --repo "${GITHUB_REPOSITORY}" --dest docs/public/assets/images
       - name: Generate docs media
         run: |
           python scripts/generate_public_docs_media.py

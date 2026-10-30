@@ -9,11 +9,12 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "docs-captures.yml"
+PAGES = ROOT / ".github" / "workflows" / "demo-pages.yml"
 PATHS = ROOT / ".github" / "paths" / "docs-captures.txt"
 
 
 class DocsCapturesWorkflowContractTests(unittest.TestCase):
-    def test_pull_requests_run_read_only_captures_without_refresh_pr_writes(self) -> None:
+    def test_captures_run_read_only_and_nothing_commits_them(self) -> None:
         workflow = yaml.load(WORKFLOW.read_text(), Loader=yaml.BaseLoader)
 
         triggers = workflow["on"]
@@ -41,18 +42,70 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
         self.assertEqual(refresh["permissions"], {"contents": "read"})
         refresh_steps = [step.get("name") for step in refresh["steps"]]
         self.assertIn("Verify capture process lifecycle", refresh_steps)
-        self.assertNotIn("Create capture refresh PR", refresh_steps)
 
-        refresh_pr = workflow["jobs"]["create-refresh-pr"]
-        self.assertEqual(refresh_pr["needs"], "refresh")
-        self.assertEqual(refresh_pr["if"], "github.event_name != 'pull_request'")
+        # Catches the old refresh pull request coming back: its branch had to be merged into each
+        # release candidate by hand (specification 22, "Docs Captures"). No job may write.
+        for name, job in workflow["jobs"].items():
+            permissions = job.get("permissions", {})
+            self.assertNotIn("write", permissions.values() if isinstance(permissions, dict) else [permissions], name)
+
+    def test_the_artifact_holds_only_what_the_captures_rendered(self) -> None:
+        # Catches an upload of every image below the images folder: laid over a newer commit, an
+        # older artifact would put back older hand-made images.
+        workflow = yaml.load(WORKFLOW.read_text(), Loader=yaml.BaseLoader)
+        steps = workflow["jobs"]["refresh"]["steps"]
+        names = [step.get("name") for step in steps]
+        mark = names.index("Mark the start of the captures")
+        collect = names.index("Collect the rendered screenshots")
+        upload = names.index("Upload refreshed captures")
+        for capture in ("Refresh browser captures", "Refresh terminal captures", "Refresh code-server captures"):
+            self.assertLess(mark, names.index(capture))
+            self.assertLess(names.index(capture), collect)
+        self.assertLess(collect, upload)
+        self.assertIn('touch "${RUNNER_TEMP}/captures-start"', steps[mark]["run"])
+        self.assertIn("scripts/docs_captures_artifact.py collect", steps[collect]["run"])
+        self.assertIn('--since "${RUNNER_TEMP}/captures-start"', steps[collect]["run"])
+        self.assertIn('--out "${RUNNER_TEMP}/docs-captures"', steps[collect]["run"])
         self.assertEqual(
-            refresh_pr["permissions"],
-            {"contents": "write", "pull-requests": "write"},
+            steps[upload]["with"],
+            {
+                "name": "docs-captures",
+                "retention-days": "30",
+                "if-no-files-found": "error",
+                "path": "${{ runner.temp }}/docs-captures/",
+            },
         )
-        refresh_pr_steps = [step.get("name") for step in refresh_pr["steps"]]
-        self.assertIn("Download refreshed captures", refresh_pr_steps)
-        self.assertIn("Create capture refresh PR", refresh_pr_steps)
+
+    def test_the_site_is_published_with_the_newest_screenshots_of_main(self) -> None:
+        # Catches a deploy that never takes the rendered screenshots, takes them after the site is
+        # built, or publishes after a failed or a pull request's capture run.
+        pages = yaml.load(PAGES.read_text(), Loader=yaml.BaseLoader)
+        self.assertEqual(
+            pages["on"]["workflow_run"],
+            {"workflows": ["Docs Captures"], "types": ["completed"], "branches": ["main"]},
+        )
+        changes = pages["jobs"]["changes"]
+        self.assertIn("github.event.workflow_run.conclusion == 'success'", changes["if"])
+        self.assertIn('fromJSON(\'["push", "schedule", "workflow_dispatch"]\')', changes["if"])
+        self.assertEqual(changes["permissions"], {"contents": "read", "actions": "read"})
+        self.assertEqual(
+            changes["outputs"]["relevant"],
+            "${{ steps.captures.outputs.relevant || steps.changes.outputs.relevant }}",
+        )
+        captures = next(step for step in changes["steps"] if step.get("id") == "captures")
+        self.assertEqual(captures["if"], "github.event_name == 'workflow_run'")
+        self.assertIn('select(.name == "docs-captures"', captures["run"])
+
+        build = pages["jobs"]["build"]
+        self.assertEqual(build["if"], "needs.changes.outputs.relevant == 'true'")
+        names = [step.get("name") for step in build["steps"]]
+        take = names.index("Take the newest screenshots of main")
+        self.assertLess(take, names.index("Generate docs media"))
+        self.assertLess(take, names.index("Build docs site"))
+        self.assertIn(
+            'scripts/docs_captures_artifact.py take --repo "${GITHUB_REPOSITORY}" --dest docs/public/assets/images',
+            build["steps"][take]["run"],
+        )
 
     def test_captures_build_programs_with_the_toolchain_the_job_builds(self) -> None:
         # The browser IDE and the terminal captures build Structured Text programs. Without a

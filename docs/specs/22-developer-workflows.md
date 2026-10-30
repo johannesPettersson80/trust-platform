@@ -405,6 +405,8 @@ prove the captured product surfaces. Lifecycle assertion deadlines must exceed
 the launcher's bounded graceful-termination window so the KILL fallback and
 process reaping can complete before the test runner times out.
 
+### Docs Captures
+
 The Docs Captures workflow must run for pull-request and main-push changes to
 the runtime Web UI source tree so browser-visible runtime changes cannot bypass
 their registered Playwright journeys. Its change detection uses one list of
@@ -413,6 +415,25 @@ display name and publisher, which hold across releases, not for text of the
 listing's README, which each release may change: 0.25.1's listing no longer
 said "truST LSP", and the capture that waited for it failed every run (29 October
 2026).
+
+The documentation site shows the screenshots of `main` without a commit of the
+images. The workflow runs on pull requests, on pushes to `main`, every night and
+by hand, and none of its jobs writes to the repository. It marks the time before
+its captures and uploads only the `.png` and `.gif` files written after that mark,
+as the artifact `docs-captures`, kept for 30 days. A run whose captures write
+nothing fails. Images that nobody renders, such as the brand and the hand-made
+pictures, never enter the artifact, so laying an older artifact over a newer
+commit cannot put back an older one of them.
+
+The Docs Pages deploy starts on a push to `main` that changes the site, and
+after each Docs Captures run of `main` that passed, that a push, the schedule or
+a dispatch started, and that uploaded the artifact. Before it builds the site, it
+lays over `docs/public/assets/images` the artifact of the newest such run. A pull
+request's run never counts, so no pull request changes the published site. When
+no such run exists, the images in git stay. They are the fallback: a change that
+adds a capture commits its first image, and nobody commits refreshed ones. The
+refresh pull request of earlier releases, which had to be merged into each
+release by hand, is gone.
 
 ### Release-candidate discovery parity
 

@@ -990,6 +990,28 @@ rationale = "The always-run aggregator fails closed on missing or unsuccessful r
 
 [[surfaces]]
 schema_version = 1
+id = "GATE_JOB_DOCS_PAGES_CHANGES"
+discovery_id = "DISC_89BE4063E7F22DFB27DB"
+source_kind = "github_workflow_job"
+path = ".github/workflows/demo-pages.yml"
+name = "Docs Pages / changes"
+command = "workflow job .github/workflows/demo-pages.yml#changes"
+variant = "whether a push or new screenshots of main change the published site"
+command_role = "reference"
+disposition = "excluded"
+suite_ids = []
+owner = "docs"
+duration_class = "fast"
+environment = "github_ubuntu"
+artifact_kind = "none"
+artifact_paths = []
+artifact_retention = "none"
+enforcement = "excluded"
+required_env = []
+rationale = "Change detection only decides whether the site is built; it is not verification evidence."
+
+[[surfaces]]
+schema_version = 1
 id = "GATE_JOB_DOCS_PAGES_BUILD"
 discovery_id = "DISC_CCEB4E82D928C12FB0E6"
 source_kind = "github_workflow_job"
@@ -1008,7 +1030,7 @@ artifact_paths = ["github-pages"]
 artifact_retention = "repository_default"
 enforcement = "excluded"
 required_env = []
-rationale = "This path-filtered main deployment build is not a tag-bound or required release gate."
+rationale = "The main deployment build, which a documentation change or new screenshots of main start, is not a tag-bound or required release gate."
 
 [[surfaces]]
 schema_version = 1
@@ -1034,13 +1056,35 @@ rationale = "Deployment is a publishing action, not verification evidence by its
 
 [[surfaces]]
 schema_version = 1
+id = "GATE_JOB_RENDER_DIAGRAMS_CHANGES"
+discovery_id = "DISC_0356506B80A9665B9D92"
+source_kind = "github_workflow_job"
+path = ".github/workflows/diagrams.yml"
+name = "Render Diagrams / changes"
+command = "workflow job .github/workflows/diagrams.yml#changes"
+variant = "whether the change touches the diagram paths"
+command_role = "reference"
+disposition = "excluded"
+suite_ids = []
+owner = "docs"
+duration_class = "fast"
+environment = "github_ubuntu"
+artifact_kind = "none"
+artifact_paths = []
+artifact_retention = "none"
+enforcement = "excluded"
+required_env = []
+rationale = "Change detection only decides whether the diagram check runs; it is not verification evidence."
+
+[[surfaces]]
+schema_version = 1
 id = "GATE_JOB_RENDER_DIAGRAMS"
 discovery_id = "DISC_3D272017765F5D73BCE4"
 source_kind = "github_workflow_job"
 path = ".github/workflows/diagrams.yml"
 name = "Render Diagrams / render"
 command = "workflow job .github/workflows/diagrams.yml#render"
-variant = "render and auto-commit diagrams"
+variant = "render the diagrams and check that the committed renders are current"
 command_role = "reference"
 disposition = "excluded"
 suite_ids = []
@@ -1052,7 +1096,29 @@ artifact_paths = ["docs/diagrams/generated/","docs/diagrams/manifest.json"]
 artifact_retention = "committed"
 enforcement = "excluded"
 required_env = []
-rationale = "Generation and auto-commit automation is not a milestone verification gate."
+rationale = "The diagram check keeps the committed renders current; it is not a milestone verification gate."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_JOB_DOCS_CAPTURES_CHANGES"
+discovery_id = "DISC_026F4E4352F9AE856985"
+source_kind = "github_workflow_job"
+path = ".github/workflows/docs-captures.yml"
+name = "Docs Captures / changes"
+command = "workflow job .github/workflows/docs-captures.yml#changes"
+variant = "whether the change touches the capture paths"
+command_role = "reference"
+disposition = "excluded"
+suite_ids = []
+owner = "docs"
+duration_class = "fast"
+environment = "github_ubuntu"
+artifact_kind = "none"
+artifact_paths = []
+artifact_retention = "none"
+enforcement = "excluded"
+required_env = []
+rationale = "Change detection only decides whether the captures run; it is not verification evidence."
 
 [[surfaces]]
 schema_version = 1
@@ -1062,7 +1128,7 @@ source_kind = "github_workflow_job"
 path = ".github/workflows/docs-captures.yml"
 name = "Docs Captures / refresh"
 command = "workflow job .github/workflows/docs-captures.yml#refresh"
-variant = "scheduled documentation capture refresh"
+variant = "documentation screenshots for pull requests, main and every night"
 command_role = "reference"
 disposition = "excluded"
 suite_ids = []
@@ -1078,13 +1144,13 @@ rationale = "Capture refresh automation does not establish accepted UI journey p
 
 [[surfaces]]
 schema_version = 1
-id = "GATE_JOB_DOCS_CAPTURES_CREATE_REFRESH_PR"
-discovery_id = "DISC_B3662117177505DC5D51"
+id = "GATE_JOB_RENDER_DIAGRAMS_CONCLUSION"
+discovery_id = "DISC_2F4385B8C2F9C461DF5D"
 source_kind = "github_workflow_job"
-path = ".github/workflows/docs-captures.yml"
-name = "Docs Captures / create-refresh-pr"
-command = "workflow job .github/workflows/docs-captures.yml#create-refresh-pr"
-variant = "capture refresh branch and pull-request publication"
+path = ".github/workflows/diagrams.yml"
+name = "Render Diagrams / conclusion"
+command = "workflow job .github/workflows/diagrams.yml#conclusion"
+variant = "one result for the diagram check"
 command_role = "reference"
 disposition = "excluded"
 suite_ids = []
@@ -1096,7 +1162,29 @@ artifact_paths = []
 artifact_retention = "none"
 enforcement = "excluded"
 required_env = []
-rationale = "Opening an automated capture-refresh pull request is a publishing action, not verification evidence."
+rationale = "The conclusion reports the diagram check's jobs as one result; the check itself is not a milestone verification gate."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_JOB_DOCS_CAPTURES_CONCLUSION"
+discovery_id = "DISC_241E21A960F90F86AF81"
+source_kind = "github_workflow_job"
+path = ".github/workflows/docs-captures.yml"
+name = "Docs Captures / conclusion"
+command = "workflow job .github/workflows/docs-captures.yml#conclusion"
+variant = "one result for the documentation captures"
+command_role = "reference"
+disposition = "excluded"
+suite_ids = []
+owner = "docs"
+duration_class = "fast"
+environment = "github_ubuntu"
+artifact_kind = "none"
+artifact_paths = []
+artifact_retention = "none"
+enforcement = "excluded"
+required_env = []
+rationale = "The conclusion reports the capture jobs as one result; captures do not establish accepted UI journey proof."
 
 [[surfaces]]
 schema_version = 1
@@ -1144,6 +1232,28 @@ rationale = "This skip-capable scheduled/manual workflow is an inventoried helpe
 
 [[surfaces]]
 schema_version = 1
+id = "GATE_JOB_RELEASE_PLAN"
+discovery_id = "DISC_2DFD9056CED03F2BDA08"
+source_kind = "github_workflow_job"
+path = ".github/workflows/release.yml"
+name = "Release / plan"
+command = "workflow job .github/workflows/release.yml#plan"
+variant = "rehearse, release or skip, and the commit every job checks out"
+command_role = "helper"
+disposition = "assigned"
+suite_ids = ["release"]
+owner = "release"
+duration_class = "fast"
+environment = "github_release"
+artifact_kind = "ci_job_result"
+artifact_paths = ["Release / plan"]
+artifact_retention = "repository_default"
+enforcement = "required"
+required_env = []
+rationale = "The plan decides whether a run rehearses the release, releases the commit main's CI passed, or does nothing, and names the commit every job builds (specification 24)."
+
+[[surfaces]]
+schema_version = 1
 id = "GATE_JOB_RELEASE_PREFLIGHT"
 discovery_id = "DISC_7ED37B60D2F64C092528"
 source_kind = "github_workflow_job"
@@ -1162,7 +1272,7 @@ artifact_paths = ["Release / release-preflight"]
 artifact_retention = "repository_default"
 enforcement = "required"
 required_env = []
-rationale = "Tag-triggered release preflight validates version alignment and prior CI evidence."
+rationale = "Before anything is built, the preflight checks version alignment and dependency exceptions, and for a release that the tag is free and the Marketplace token is set."
 
 [[surfaces]]
 schema_version = 1
@@ -1206,7 +1316,7 @@ artifact_paths = ["runtime-${{ matrix.platform }}","trust-lsp-${{ matrix.platfor
 artifact_retention = "repository_default"
 enforcement = "required"
 required_env = []
-rationale = "Tag-triggered matrix produces the shipped platform packages."
+rationale = "The matrix builds the shipped platform packages from the commit the plan names."
 
 [[surfaces]]
 schema_version = 1
@@ -1228,7 +1338,29 @@ artifact_paths = ["GitHub Release","SHA256SUMS"]
 artifact_retention = "release_object"
 enforcement = "required"
 required_env = []
-rationale = "Publish binds packaged artifacts and checksums to the GitHub Release; Marketplace publish remains token-conditional."
+rationale = "A release tags the planned commit, publishes the packages and checksums as the GitHub Release and in the Marketplace, and verifies them; a rehearsal runs every publish script and publishes nothing."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_JOB_RELEASE_CONCLUSION"
+discovery_id = "DISC_2792CB76F6106E735750"
+source_kind = "github_workflow_job"
+path = ".github/workflows/release.yml"
+name = "Release / conclusion"
+command = "workflow job .github/workflows/release.yml#conclusion"
+variant = "one result for the whole release run"
+command_role = "entrypoint"
+disposition = "assigned"
+suite_ids = ["release"]
+owner = "release"
+duration_class = "fast"
+environment = "github_release"
+artifact_kind = "ci_job_result"
+artifact_paths = ["Release / conclusion"]
+artifact_retention = "repository_default"
+enforcement = "required"
+required_env = []
+rationale = "The conclusion fails when a release job failed or was cancelled and passes when each passed or the plan skipped it, so one check stands for the whole release run."
 
 [[surfaces]]
 schema_version = 1

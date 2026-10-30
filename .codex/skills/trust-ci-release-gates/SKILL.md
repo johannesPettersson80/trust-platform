@@ -32,11 +32,11 @@ whole run. Each step names the release that taught it.
    `.codex/skills/` from the primary checkout. For every changelog entry, update in the same
    candidate each page that describes that behaviour: the public docs, the README, the example and
    lesson READMEs, the specification and the screenshots. Search the docs for every command, setting,
-   flag and feature the release renames or removes. Dispatch Docs Captures on the candidate branch and
-   merge its refreshed captures into the candidate; its `automation/docs-captures` branch is not merged
-   by anyone else. (The docs checks test links, assets, navigation and search, not whether a page
-   still describes the product: 0.25.1's terminal GIFs showed errors, and its README linked pages
-   the site did not serve yet.)
+   flag and feature the release renames or removes. Screenshots need no commit: the site publishes
+   the newest ones rendered on `main`. Look at the candidate's own: the pull request's Docs Captures
+   run keeps them as the artifact `docs-captures`. (The docs checks test links, assets, navigation and
+   search, not whether a page still describes the product: 0.25.1's terminal GIFs showed errors, and
+   its README linked pages the site did not serve yet.)
 2. **Pre-flight: every cheap check, all failures at once.** Stage the candidate in the guard
    worktree and run `release_candidate_guard.py preflight` with the arguments of `prepare`. It runs the
    guard's quick stages with the guard's environment, goes on after a failure and reports every
@@ -143,8 +143,9 @@ for the exact-SHA artifact. A commit, rebase or source change requires evidence 
    - **Any `trust-runtime` change**:
      `./scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross`.
    - **Docs Captures paths** (`editors/vscode/**`, `scripts/captures/**`, capture assets or the
-     capture workflow): `python3 -m unittest scripts.tests.test_capture_lifecycle -v`. The VS Code
-     `npm test` does not replace it.
+     capture workflow):
+     `python3 -m unittest scripts.tests.test_capture_lifecycle scripts.tests.test_docs_captures_artifact scripts.tests.test_docs_captures_workflow -v`.
+     The VS Code `npm test` does not replace it.
    - **VS Code**: `npm run lint && npm run compile && npm test` in `editors/vscode`.
    - **Module splits, large-file waivers or `xtask/config/full_map_policy.json`**:
      `cargo run -p xtask -- architecture-doctor --full-map`.
@@ -276,8 +277,10 @@ that the intended issues are closed after the merge.
   passed and a failed one as failed.
 - **Docs Captures**:
   - its `changes` job uses the same path list on pull requests and on `main`;
-  - its validation job has read-only contents permission;
-  - the job that writes the refresh branch never runs for pull requests;
+  - no job of it writes to the repository. Its artifact `docs-captures` holds only the screenshots
+    the captures wrote. Before the Docs Pages deploy builds the site, it lays over the images the
+    artifact of the newest passing run of `main` that a push, the schedule or a dispatch started
+    (specification 22, "Docs Captures");
   - a newly linked public specification needs its snippet page, navigation and
     index/search entries. Include the workflow's strict MkDocs build and public
     docs checks in the candidate batch; capture-lifecycle tests do not cover

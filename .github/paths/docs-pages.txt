@@ -21,6 +21,7 @@ scripts/check_example_catalog_links.py
 scripts/check_public_docs_assets.py
 scripts/check_public_docs_search.py
 scripts/generate_public_docs_media.py
+scripts/docs_captures_artifact.py
 scripts/capture-public-docs-visual-editors.sh
 scripts/verify_public_docs_deploy.py
 editors/vscode/assets/**

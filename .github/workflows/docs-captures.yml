@@ -89,6 +89,10 @@ jobs:
           bash scripts/native/build_toolchain_libraries.sh "${folder}" x86_64-unknown-linux-gnu
           echo "TRUST_TOOLCHAIN=${folder}" >> "${GITHUB_ENV}"
 
+      - name: Mark the start of the captures
+        # The artifact holds only the screenshots written after this mark.
+        run: touch "${RUNNER_TEMP}/captures-start"
+
       - name: Refresh browser captures
         run: |
           python scripts/generate_public_docs_media.py --regenerate-browser-captures
@@ -114,47 +118,20 @@ jobs:
           python scripts/check_public_docs_assets.py
           python scripts/check_public_docs_search.py
 
+      - name: Collect the rendered screenshots
+        run: >-
+          python3 scripts/docs_captures_artifact.py collect --images docs/public/assets/images
+          --since "${RUNNER_TEMP}/captures-start" --out "${RUNNER_TEMP}/docs-captures"
+
       - name: Upload refreshed captures
+        # On main the Docs Pages deploy takes the newest of these and publishes the site with them
+        # (specification 22, "Docs Captures"); nothing commits them.
         uses: actions/upload-artifact@v7
         with:
           name: docs-captures
-          path: |
-            docs/public/assets/images/**/*.png
-            docs/public/assets/images/**/*.gif
-
-  create-refresh-pr:
-    name: Create Capture Refresh PR
-    needs: refresh
-    if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Download refreshed captures
-        uses: actions/download-artifact@v8
-        with:
-          name: docs-captures
-          path: docs/public/assets/images
-
-      - name: Create capture refresh PR
-        continue-on-error: true
-        uses: peter-evans/create-pull-request@v8
-        with:
-          branch: automation/docs-captures
-          commit-message: "docs: refresh automated screenshots"
-          title: "docs: refresh automated screenshots"
-          body: |
-            Automated Playwright/code-server screenshot refresh.
-
-            Updated from:
-            - `scripts/captures/browser/*.spec.mjs`
-            - `scripts/captures/vscode/*.spec.mjs`
-          add-paths: |
-            docs/public/assets/images/**/*.png
-            docs/public/assets/images/**/*.gif
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/docs-captures/
 
   conclusion:
     name: Conclusion

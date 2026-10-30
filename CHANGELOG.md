@@ -22,6 +22,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   variable with the keyword `ACTION`, four Structured Text examples that did not close their program, function or
   function block, three command names that had changed, `ctl restart` without its mode, and a tutorial's run without
   its command (specification 22).
+- The documentation site shows the newest screenshots rendered on `main` without a commit of the images. Before the
+  site is built, the screenshots of the newest passing Docs Captures run of `main` are laid over the images; only what
+  the captures wrote is taken, never the hand-made pictures. The capture refresh pull request, which had to be merged
+  into each release by hand, is gone (specification 22).
 
 ## [0.26.0] - 2026-10-30
 

@@ -10,6 +10,7 @@ examples/tutorials/12_hmi_pid_process_dashboard/**
 manual-tests/trust-lsp-smoke/**
 scripts/build_browser_analysis_wasm_spike.sh
 scripts/captures/**
+scripts/docs_captures_artifact.py
 scripts/native/build_toolchain_libraries.sh
 scripts/tests/test_capture_lifecycle.py
 scripts/tests/test_docs_captures_workflow.py
