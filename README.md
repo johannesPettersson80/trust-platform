@@ -179,7 +179,7 @@ control.
 | Tuning a loop | [control-pid-commissioning](examples/control-pid-commissioning/README.md), the [control course](examples/control/README.md) |
 | Field devices | [communication](examples/communication/README.md), [raspberry-pi](examples/raspberry-pi/README.md) |
 | Motion | [plcopen-motion-single-axis](examples/plcopen-motion-single-axis/README.md) |
-| Libraries | [OSCAT](examples/OSCAT/README.md) |
+| Libraries | [OSCAT](examples/OSCAT/README.md), [PLCopen Motion](https://johannespettersson80.github.io/trust-platform/examples/libraries-and-motion/), [Control](examples/control-pid-commissioning/README.md), [Plant](libraries/plant/README.md), [Alarm and HMI](examples/hmi_tank_level/README.md), [Comm](https://johannespettersson80.github.io/trust-platform/develop/libraries/comm/); every library's manual is under [Libraries](https://johannespettersson80.github.io/trust-platform/develop/libraries/) |
 | Runtimes working together | [runtime_cloud](examples/runtime_cloud/README.md) |
 
 Every example is a runnable project; [examples/README.md](examples/README.md) lists them all.
