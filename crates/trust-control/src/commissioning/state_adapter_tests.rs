@@ -13,19 +13,19 @@ use crate::loop_definition::LoopDefinition;
 
 /// Lesson 68's control loop, which declares the state-feedback law `K1, K2, N` (C4).
 const LESSON_68_LOOP: &str = include_str!(
-    "../../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/control-loop.json"
+    "../../../../examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/control-loop.json"
 );
 /// Lesson 68's supplied model: the two-tank cascade with both levels measured, under the outputs its channels name.
 const LESSON_68_MODEL: &str = include_str!(
-    "../../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/provided-model.json"
+    "../../../../examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/provided-model.json"
 );
 /// Lesson 69's control loop: the LQR law on lesson 68's cascade.
 const LESSON_69_LOOP: &str = include_str!(
-    "../../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/69-lqr/control-loop.json"
+    "../../../../examples/control/11-state-space-estimation-and-predictive-control/69-lqr/control-loop.json"
 );
 /// Lesson 72's control loop: the LQG law with its estimator.
 const LESSON_72_LOOP: &str = include_str!(
-    "../../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/72-lqg/control-loop.json"
+    "../../../../examples/control/11-state-space-estimation-and-predictive-control/72-lqg/control-loop.json"
 );
 
 /// A loop file decoded as the engine reads it.
@@ -162,7 +162,7 @@ fn lesson_72_keeps_the_exact_check_because_its_estimate_is_not_a_measured_output
     let loop_definition = loop_of(LESSON_72_LOOP);
     let model = serde_json::from_str::<Value>(
         include_str!(
-            "../../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/72-lqg/lqg-model.json"
+            "../../../../examples/control/11-state-space-estimation-and-predictive-control/72-lqg/lqg-model.json"
         ),
     )
     .expect("the model file is JSON");

@@ -86,10 +86,9 @@ async function main() {
   if (process.env.TRUST_CONTROL_STUDIO_SKIP_COMPILE !== "1") {
     // Deliberately narrower than `npm run compile`: that script also rebuilds the Blockly, ladder,
     // SFC, statechart, network-canvas, and IO-panel webview bundles and the examples gallery media,
-    // none of which this journey touches. Several of those bundles (editors/vscode/media/*.js) are
-    // committed files; rebuilding ones we do not need only risks leaving the worktree dirty for no
-    // reason. Rebuild just the TypeScript extension host (out/) and the Control Studio webview
-    // bundle (media/controlStudioChart.js, media/controlStudioWorkflow.js) this suite depends on.
+    // none of which this journey touches. Rebuild just the TypeScript extension host (out/) and the
+    // Control Studio webview bundle (media/controlStudioChart.js, media/controlStudioWorkflow.js)
+    // this suite depends on.
     // Mirrors the "clean:out" step of npm run compile so a stale out/ from a previous checkout
     // cannot leave a deleted .ts source's compiled .js behind.
     fs.rmSync(path.join(EXTENSION_ROOT, "out"), { recursive: true, force: true });

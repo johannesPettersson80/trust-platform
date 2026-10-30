@@ -147,10 +147,10 @@ fn a_study_that_cannot_be_read_ends_the_validation_instead_of_making_the_entry_c
 
 /// Lesson 84 as its file declares it, and the heater model its Identify step imports (`provided-model.json`).
 const LESSON_84: &str = include_str!(
-    "../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/control-loop.json"
+    "../../../examples/control/14-integrated-capstones/84-independent/control-loop.json"
 );
 const LESSON_84_MODEL: &str = include_str!(
-    "../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/provided-model.json"
+    "../../../examples/control/14-integrated-capstones/84-independent/provided-model.json"
 );
 
 /// Lesson 84's loop, its study model, the task of its campaign, and the settings its controller runs with.

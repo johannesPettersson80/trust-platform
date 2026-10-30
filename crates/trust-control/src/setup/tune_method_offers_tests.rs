@@ -223,7 +223,7 @@ fn the_word_of_each_method_is_the_name_the_method_has_in_its_json() {
 #[test]
 fn a_search_law_is_offered_as_its_declared_family_with_automatic_alone() {
     let lesson_89 = include_str!(
-        "../../../../editors/vscode/media/examples/control/07-classical-stability-and-frequency-design/89-mechanical-resonance/control-loop.json"
+        "../../../../examples/control/07-classical-stability-and-frequency-design/89-mechanical-resonance/control-loop.json"
     );
     let loop_definition = LoopDefinition::decode(lesson_89).expect("lesson 89's loop decodes");
     assert_eq!(
@@ -282,7 +282,7 @@ fn a_proportional_law_offers_simc_amigo_and_manual_with_their_titles() {
 fn a_state_law_offers_the_state_space_design_alone() {
     // C4: a state-feedback law takes the state-space design alone, so the page offers no SIMC, AMIGO or Manual for it.
     let loop_definition = LoopDefinition::decode(include_str!(
-        "../../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/control-loop.json"
+        "../../../../examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/control-loop.json"
     ))
     .expect("lesson 68's loop");
     let answer = adapter_compatibility(&loop_definition);
@@ -336,7 +336,7 @@ fn assert_automatic_alone(loop_definition: &LoopDefinition, families: &[&str]) {
 #[test]
 fn a_feedforward_program_law_is_offered_automatic_alone() {
     let loop_definition = LoopDefinition::decode(include_str!(
-        "../../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/control-loop.json"
+        "../../../../examples/control/14-integrated-capstones/84-independent/control-loop.json"
     ))
     .expect("lesson 84's loop");
     assert_automatic_alone(&loop_definition, &["PI"]);
@@ -377,7 +377,7 @@ fn a_pid_group_is_offered_automatic_alone() {
 #[test]
 fn a_trajectory_program_law_keeps_the_named_methods() {
     let loop_definition = LoopDefinition::decode(include_str!(
-        "../../../../editors/vscode/media/examples/control/09-industrial-control-structures/90-trajectory-feedforward/control-loop.json"
+        "../../../../examples/control/09-industrial-control-structures/90-trajectory-feedforward/control-loop.json"
     ))
     .expect("lesson 90's loop");
     let answer = adapter_compatibility(&loop_definition);

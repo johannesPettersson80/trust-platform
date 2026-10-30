@@ -12,10 +12,10 @@ use crate::tuning::search::{answer_of, SearchBounds, SearchTrial};
 
 /// Lesson 89's loop and its supplied model, the loop the search tunes on the selected model.
 const LESSON_89_LOOP: &str = include_str!(
-    "../../../../../editors/vscode/media/examples/control/07-classical-stability-and-frequency-design/89-mechanical-resonance/control-loop.json"
+    "../../../../../examples/control/07-classical-stability-and-frequency-design/89-mechanical-resonance/control-loop.json"
 );
 const LESSON_89_MODEL: &str = include_str!(
-    "../../../../../editors/vscode/media/examples/control/07-classical-stability-and-frequency-design/89-mechanical-resonance/flexible-axis-model.json"
+    "../../../../../examples/control/07-classical-stability-and-frequency-design/89-mechanical-resonance/flexible-axis-model.json"
 );
 
 fn requirements() -> TuningRequirements {

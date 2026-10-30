@@ -26,13 +26,13 @@ use crate::tuning::state_controller::preferences::{form_fields, FormField, State
 use crate::tuning::state_controller::{state_controller_poles, StateControllerFamily};
 
 /// Lesson 68's control loop and its supplied model: the two-tank cascade with both levels measured.
-const LESSON_68_LOOP: &str = include_str!("../../../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/control-loop.json");
-const LESSON_68_MODEL: &str = include_str!("../../../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/provided-model.json");
+const LESSON_68_LOOP: &str = include_str!("../../../../../examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/control-loop.json");
+const LESSON_68_MODEL: &str = include_str!("../../../../../examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/provided-model.json");
 /// Lesson 69's control loop: the same cascade under the LQR law. Its supplied model is lesson 68's.
-const LESSON_69_LOOP: &str = include_str!("../../../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/69-lqr/control-loop.json");
+const LESSON_69_LOOP: &str = include_str!("../../../../../examples/control/11-state-space-estimation-and-predictive-control/69-lqr/control-loop.json");
 /// Lesson 72's control loop and its one-second model, with only tank 2 measured.
-const LESSON_72_LOOP: &str = include_str!("../../../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/72-lqg/control-loop.json");
-const LESSON_72_MODEL: &str = include_str!("../../../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/72-lqg/lqg-model.json");
+const LESSON_72_LOOP: &str = include_str!("../../../../../examples/control/11-state-space-estimation-and-predictive-control/72-lqg/control-loop.json");
+const LESSON_72_MODEL: &str = include_str!("../../../../../examples/control/11-state-space-estimation-and-predictive-control/72-lqg/lqg-model.json");
 
 #[test]
 fn the_design_form_starts_from_the_declared_matrices_as_json_and_from_nothing_without_a_law() {

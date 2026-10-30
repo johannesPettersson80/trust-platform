@@ -31,15 +31,15 @@ use crate::operation::{Operations, UpdateSink};
 const EXAMPLE: &str = include_str!("../../../examples/control-pid-commissioning/control-loop.json");
 /// The state-feedback loop of lesson 68 (C4): a state law, whose pins are its design's.
 const STATE_LOOP: &str = include_str!(
-    "../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/control-loop.json"
+    "../../../examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/control-loop.json"
 );
 
 /// Lesson 69's LQR project (C4): a state law over a finite horizon, and the supplied model its README imports.
 const LQR_LOOP: &str = include_str!(
-    "../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/69-lqr/control-loop.json"
+    "../../../examples/control/11-state-space-estimation-and-predictive-control/69-lqr/control-loop.json"
 );
 const LQR_MODEL: &str = include_str!(
-    "../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/69-lqr/provided-model.json"
+    "../../../examples/control/11-state-space-estimation-and-predictive-control/69-lqr/provided-model.json"
 );
 
 /// The sink of an engine whose operations nobody follows: no operation starts in these tests.

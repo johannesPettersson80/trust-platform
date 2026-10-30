@@ -12,10 +12,10 @@ use crate::tuning::state_controller::fixtures::transfer_function_model;
 
 /// Lesson 68's control loop and its supplied model: the state-feedback law on the two-tank cascade (C4).
 const LESSON_68_LOOP: &str = include_str!(
-    "../../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/control-loop.json"
+    "../../../../examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/control-loop.json"
 );
 const LESSON_68_MODEL: &str = include_str!(
-    "../../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/provided-model.json"
+    "../../../../examples/control/11-state-space-estimation-and-predictive-control/68-state-feedback/provided-model.json"
 );
 
 fn lesson_68() -> LoopDefinition {

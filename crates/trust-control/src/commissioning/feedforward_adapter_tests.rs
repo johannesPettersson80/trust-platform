@@ -11,7 +11,7 @@ use super::*;
 /// Lesson 84 as the shipped file declares it: the heater whose draw-off is fed forward through a lead and a lag.
 fn lesson_84() -> LoopDefinition {
     LoopDefinition::decode(include_str!(
-        "../../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/control-loop.json"
+        "../../../../examples/control/14-integrated-capstones/84-independent/control-loop.json"
     ))
     .expect("lesson 84 decodes")
 }
@@ -19,7 +19,7 @@ fn lesson_84() -> LoopDefinition {
 /// Lesson 90 as the shipped file declares it: a program's PID with no feedforward variable.
 fn lesson_90() -> LoopDefinition {
     LoopDefinition::decode(include_str!(
-        "../../../../editors/vscode/media/examples/control/09-industrial-control-structures/90-trajectory-feedforward/control-loop.json"
+        "../../../../examples/control/09-industrial-control-structures/90-trajectory-feedforward/control-loop.json"
     ))
     .expect("lesson 90 decodes")
 }

@@ -11,7 +11,7 @@ use crate::tuning::state_controller::fixtures::two_tank_model;
 
 /// Lesson 89's control loop: a program's PID whose notch the finite search tunes over two axes (C5).
 const LESSON_89_LOOP: &str = include_str!(
-    "../../../../editors/vscode/media/examples/control/07-classical-stability-and-frequency-design/89-mechanical-resonance/control-loop.json"
+    "../../../../examples/control/07-classical-stability-and-frequency-design/89-mechanical-resonance/control-loop.json"
 );
 
 /// Lesson 89's loop, decoded as the engine reads it.
