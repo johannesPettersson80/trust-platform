@@ -248,6 +248,15 @@ CONST_VAL := 3.14159 * 2.0;     // Compile-time constant
 ARRAY_SIZE := 10 + 5;            // Used in declarations
 ```
 
+Integer constant arithmetic folds exactly (`IEC_DEVIATIONS.md` DEV-027):
+mixed signed×unsigned pairs and narrow-typed same-sign pairs evaluate in
+exact wide math, so a representable magnitude — including values beyond
+the operands' own width, such as `16 * 8` over narrow-fitting untyped
+literals — does not fault at compile time and materializes as `LINT`
+(negative) or `ULINT` (non-negative) before declaration-type coercion.
+Typed `DINT`/`LINT` operands keep their fault-on-overflow contract, and
+the runtime execution path keeps its stricter per-type semantics.
+
 ### 5.2 Primary Expressions
 
 Basic building blocks:

@@ -740,14 +740,27 @@ re-check them against this rule when touched.
   their diagnostics. The compile-time constant evaluator promotes true
   mixed signed×unsigned pairs the same way (exact i128 math, materialized
   LINT/ULINT) so array bounds and initializers like
-  `ARRAY[0..SIZEOF(x)-1]` keep working with an unsigned SIZEOF; the VM
-  execution path keeps its stricter contract.
+  `ARRAY[0..SIZEOF(x)-1]` keep working with an unsigned SIZEOF; narrow
+  same-sign pairs (`SINT`/`INT`/`USINT`/`UINT` operands) that fault only
+  on the narrow materialization — untyped literals materialize
+  narrowest-fitting, so the vendor syslog idiom `LOG_LOCAL0 := 16 * 8`
+  arrives as an i8 multiply — are retried exactly in i128 and materialize
+  LINT/ULINT as well, while typed `DINT`/`LINT` pairs keep their
+  fault-on-overflow contract; the VM execution path keeps its stricter
+  contract.
 - Mitigation: admission is silent (matches the vendor toolchain and the
   existing logical-operator precedent) but type-class-scoped — BOOL and
   non-scalar pairs, REAL accuracy-loss pairs, and mixed-family
   arithmetic keep their errors; the runtime promotion lives in the
   compare/arithmetic paths, leaving the value-helper rejection pins
   intact.
+- Open note (2026-10-30): the narrow same-sign exact fold was added
+  after the downstream dialect-parity rounds produced the first compile
+  to reach bytecode lowering, unmasking a positionless arithmetic
+  overflow on `WagoTypesLog.eSysLogFacility` members written as `N * 8`
+  (`LOG_LOCAL0..LOG_LOCAL7`). Untyped-literal constant folding is exact;
+  a representable magnitude cannot fail at compile time, and typed
+  `DINT`/`LINT` overflow keeps its fault.
 
 ## 2026-10-29 - Pointer-target lenient bindings
 

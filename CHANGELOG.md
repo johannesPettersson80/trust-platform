@@ -6,29 +6,16 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-### Fixed
 
-- Call binding: `VAR_IN_OUT` strings bind across declared capacities (same
-  string family only), matching CODESYS and the vendor buffer idiom of a
-  `STRING(1)` formal whose real capacity arrives in a separate size argument
-  (`WagoAppString.StrAppend`). The previous capacity-equality rule rejected
-  vendor-library calls that compile clean in the vendor toolchain; see
-  `IEC_DEVIATIONS.md` (2026-10-28).
-- Integer/bit-string narrowing (assignments and call arguments) becomes a
-  warning instead of an error under `[project] vendor_profile = "codesys"`,
-  matching the CODESYS compiler warning, and `SIZEOF` yields its natural
-  unsigned magnitude (`UDINT`) there so vendor `udiSize` parameters bind
-  directly. Other profiles keep the error and the signed result;
-  non-integer mismatches keep their errors under every profile; see
-  `IEC_DEVIATIONS.md` (2026-10-28).
-- Comparisons and bit-string arithmetic match CODESYS: under
-  `[project] vendor_profile = "codesys"` signed/unsigned integer pairs,
-  integer/bit-string pairs, and two bit-string operands in `+ - * /` are
-  admitted and evaluate through a common magnitude (the runtime promotes;
-  bit-string results carry the wider width and wrap). MOD on bit-strings,
-  mixed integer/bit-string arithmetic, integer/REAL accuracy-loss
-  combinations, and all of these shapes under other profiles keep the
-  strict IEC rejections (IEC_DEVIATIONS 2026-10-28).
+- Constant-expression folding is exact for narrow-typed integer operands:
+- Pointer-target lenient bindings match CODESYS: `POINTER TO CHAR` ↔
+  `POINTER TO BYTE` and `ADR(STRING[n])` against `POINTER TO ARRAY OF
+  BYTE` formals bind with a warning (same code and message) instead of
+  an error. All other pointee mismatches stay errors; see
+  `IEC_DEVIATIONS.md` (IEC_DEVIATIONS 2026-10-29).
+  an error. All other pointee mismatches stay errors; see
+  `IEC_DEVIATIONS.md` (2026-10-29, DEV-039).
+>>>>>>> 45c4df0a0 (fix(runtime): fold narrow-typed constant expressions exactly)
 - Standard conversions: vendor-extension entries match the CODESYS/TwinCAT
   toolchain — `TO_STRING`/`*_TO_STRING` over enumerated values (variant
   name), `BOOL` (`'TRUE'`/`'FALSE'`), `TIME`/`LTIME` (`T#`/`LT#` text), and
