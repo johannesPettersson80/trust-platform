@@ -213,7 +213,9 @@ fn live_values(args: &LiveArgs, runtimes: &dyn Runtimes) -> (Value, Option<Value
     if session.is_some() && !status_endpoint.is_empty() {
         report = runtimes.status(&status_endpoint, status_token.as_deref());
     }
-    if session.is_none() && mode == "online" && !configured.is_empty() && enabled {
+    // The configured endpoint is probed only online, with no session and the endpoint in use.
+    let probed = session.is_none() && mode == "online" && !configured.is_empty() && enabled;
+    if probed {
         reachable = runtimes.reachable(&configured);
         if reachable {
             report = runtimes.status(&configured, token.as_deref());
@@ -250,12 +252,13 @@ fn live_values(args: &LiveArgs, runtimes: &dyn Runtimes) -> (Value, Option<Value
     status.insert("endpoint".into(), json!(endpoint));
     status.insert("endpointConfigured".into(), json!(!configured.is_empty()));
     status.insert("endpointEnabled".into(), json!(enabled));
+    status.insert("endpointProbed".into(), json!(probed));
     status.insert("endpointReachable".into(), json!(reachable));
     // The project's own runtime, which the Target picker offers while it answers (specification 25
     // §5.1); the target's probe stands for it when the target is that runtime.
     let project = non_blank(args.project_endpoint.as_deref()).unwrap_or_default();
     let project_reachable = !project.is_empty()
-        && if session.is_none() && mode == "online" && enabled && project == configured {
+        && if probed && project == configured {
             reachable
         } else {
             runtimes.reachable(&project)

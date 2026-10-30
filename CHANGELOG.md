@@ -136,6 +136,10 @@ The CODESYS and e!COCKPIT dialect constructs of PR #141:
 
 ### Fixed
 
+- The Target picker calls a remote runtime not reachable only when it failed to answer a probe. With the control
+  endpoint switched off, in simulate mode or during a session no probe asks it, so it is Not connected and Connect,
+  which probes first, stays enabled; Connect was disabled until the setting was switched on by hand (specification 25
+  §5.1).
 - VS Code's status bar says what the side panel says of the selected runtime, and both notice within seconds when a
   runtime they are online with starts or stops outside VS Code. The status bar had words of its own: a managed
   runtime whose status was unavailable showed as stopped (specification 25, §5.1).

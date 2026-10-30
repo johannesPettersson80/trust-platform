@@ -14,7 +14,7 @@ fn snapshot(mode: &str, state: &str, endpoint: &str) -> Value {
         "runtimeMode": mode,
         "runtimeState": state,
         "endpoint": endpoint,
-        "endpointConfigured": !endpoint.is_empty(),
+        "endpointProbed": !endpoint.is_empty(),
         "endpointReachable": true,
         "starting": false,
     })
@@ -189,9 +189,11 @@ fn a_managed_runtime_action() {
 }
 
 /// Any other runtime Connects and Disconnects and is never stopped: Disconnect while connected,
-/// `Connecting…` while connecting, Connect disabled with its reason while known unreachable, the
-/// reason pointing to Devices & Connections. Catches Stop offered for a runtime the extension does
-/// not own, and a Connect button that can only fail.
+/// `Connecting…` while connecting, Connect disabled with its reason while known unreachable (its
+/// probe in this refresh failed), the reason pointing to Devices & Connections, and Connect enabled
+/// while no probe asked it (specification 25 §5.1). Catches Stop offered for a runtime the
+/// extension does not own, a Connect button that can only fail, and an unprobed runtime called
+/// not reachable with Connect disabled.
 #[test]
 fn a_remote_runtime_action() {
     let endpoint = "tcp://10.0.0.2:9901";
@@ -199,6 +201,9 @@ fn a_remote_runtime_action() {
     connecting["starting"] = json!(true);
     let mut unreachable = snapshot("online", "stopped", endpoint);
     unreachable["endpointReachable"] = json!(false);
+    let mut unprobed = snapshot("online", "stopped", endpoint);
+    unprobed["endpointProbed"] = json!(false);
+    unprobed["endpointReachable"] = json!(false);
     let cases = [
         (
             snapshot("online", "connected", endpoint),
@@ -215,6 +220,7 @@ fn a_remote_runtime_action() {
             "connect",
             false,
         ),
+        (unprobed, "disconnected", "Not connected", "connect", true),
         (
             snapshot("online", "stopped", endpoint),
             "disconnected",

@@ -709,6 +709,28 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
     assert.strictEqual(stopped.selected.primary.enabled, false, "Connect waits for the runtime to run again");
   });
 
+  test("a runtime no probe asked is not connected, not unreachable", async () => {
+    // Catches the side panel calling a runtime not reachable, with Connect disabled, when Live Values did not probe it
+    // because its endpoint is switched off, and an extension that does not pass on whether it probed (specification 25,
+    // section 5.1). Nothing listens on port 9, so the probe fails while the endpoint is on.
+    const config = getTrustConfiguration(folder.uri);
+    const silent = "tcp://127.0.0.1:9";
+    await config.update("runtime.controlEndpoint", silent, vscode.ConfigurationTarget.WorkspaceFolder);
+    await config.update("runtime.controlEndpointEnabled", true, vscode.ConfigurationTarget.WorkspaceFolder);
+    await config.update("runtime.mode", "online", vscode.ConfigurationTarget.WorkspaceFolder);
+    await setSelectedRuntimeId(silent);
+    const sidebar = openSidebar();
+    cleanups.push(() => sidebar.dispose());
+    const probed = await waitFor("the failed probe in the side panel", () =>
+      sidebar.states().reverse().find((state) => state.selectedId === silent && state.selected.statusLabel === "Not reachable"));
+    assert.strictEqual(probed.selected.primary.enabled, false, "Connect waits for a runtime that answers");
+
+    await config.update("runtime.controlEndpointEnabled", false, vscode.ConfigurationTarget.WorkspaceFolder);
+    const unprobed = await waitFor("the unprobed runtime in the side panel", () =>
+      sidebar.states().reverse().find((state) => state.selectedId === silent && state.selected.statusLabel === "Not connected"));
+    assert.strictEqual(unprobed.selected.primary.enabled, true, "Connect, which probes first, stays available");
+  });
+
   test("selecting the Simulator after Connect puts every surface back on the Simulator", async () => {
     // Catches a selection that changes only the side panel: the runtime settings stay online, the status bar keeps
     // naming the runtime and HMI Live keeps operating it while the side panel shows the Simulator (found while fixing

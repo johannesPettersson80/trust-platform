@@ -52,8 +52,10 @@ pub(super) struct Snapshot {
     pub(super) runtime_state: String,
     #[serde(default)]
     pub(super) endpoint: String,
+    /// Whether Live Values probed the configured endpoint in this refresh; `endpoint_reachable` is
+    /// a probe's answer only then.
     #[serde(default)]
-    pub(super) endpoint_configured: bool,
+    pub(super) endpoint_probed: bool,
     #[serde(default)]
     pub(super) endpoint_reachable: bool,
     #[serde(default)]
@@ -441,8 +443,8 @@ fn project(snapshot: &Snapshot) -> (&'static str, &'static str, Primary) {
 }
 
 /// Any other runtime at `endpoint`: only its session is the extension's, so Connect and Disconnect,
-/// and Connect disabled with its reason while the runtime is known not to answer (specification 25
-/// §5.1).
+/// and Connect disabled with its reason while the runtime is known not to answer: its probe in this
+/// refresh failed (specification 25 §5.1).
 fn remote(endpoint: &str, snapshot: &Snapshot) -> (&'static str, &'static str, Primary) {
     let active = snapshot.endpoint.trim() == endpoint;
     if active && snapshot.runtime_mode == "online" && snapshot.runtime_state == "connected" {
@@ -455,7 +457,7 @@ fn remote(endpoint: &str, snapshot: &Snapshot) -> (&'static str, &'static str, P
     if active && snapshot.starting {
         return ("starting", "Connecting…", transition("Connecting…"));
     }
-    if active && snapshot.endpoint_configured && !snapshot.endpoint_reachable {
+    if active && snapshot.endpoint_probed && !snapshot.endpoint_reachable {
         return (
             "unreachable",
             "Not reachable",

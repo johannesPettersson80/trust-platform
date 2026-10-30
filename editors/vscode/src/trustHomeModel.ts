@@ -73,7 +73,8 @@ export interface RuntimeModelSnapshot {
   readonly runtimeMode: "simulate" | "online";
   readonly runtimeState: "running" | "connected" | "stopped";
   readonly endpoint: string;
-  readonly endpointConfigured: boolean;
+  /** Whether Live Values probed the configured endpoint in this refresh, so that `endpointReachable` is its answer. */
+  readonly endpointProbed: boolean;
   readonly endpointReachable: boolean;
   readonly starting: boolean;
   /** The workspace project's own control endpoint, as trust-runtime reports it; empty when it reports none. */
@@ -104,7 +105,7 @@ export function toModelSnapshot(snapshot: RuntimeLifecycleSnapshot): RuntimeMode
     runtimeMode: snapshot.status.runtimeMode,
     runtimeState: snapshot.status.runtimeState,
     endpoint: snapshot.status.endpoint,
-    endpointConfigured: snapshot.status.endpointConfigured,
+    endpointProbed: snapshot.status.endpointProbed ?? false,
     endpointReachable: snapshot.status.endpointReachable,
     starting: snapshot.starting,
     projectEndpoint: snapshot.status.projectEndpoint ?? "",
