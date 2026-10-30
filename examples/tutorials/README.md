@@ -21,11 +21,9 @@ code /path/to/trust-platform
 code --install-extension trust-platform.trust-lsp
 ```
 
-3. Optional confidence check:
-
-```bash
-cargo test -p trust-runtime tutorial_examples_parse_typecheck_and_compile
-```
+For contributors working on truST itself, one test compiles every tutorial:
+`cargo test -p trust-runtime tutorial_examples_parse_typecheck_and_compile`. You do not need Rust to
+follow the tutorials.
 
 ## How To Work Through This Path
 

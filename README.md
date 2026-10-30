@@ -208,7 +208,7 @@ control.
 
 | Task | Examples |
 | --- | --- |
-| A first program | the [tutorials](examples/tutorials/README.md), from the first lines to unit tests; [empty-simulator](examples/empty-simulator/README.md), the smallest project that runs |
+| A first program | [conveyor](examples/conveyor/README.md): press Start and watch it run in Live Values; the [tutorials](examples/tutorials/README.md), from the first lines of Structured Text to unit tests |
 | Seeing inside a running program | [memory_marker_counter](examples/memory_marker_counter/README.md): Live Values, breakpoints and the scan cycle |
 | Operator screens | [hmi_equipment](examples/hmi_equipment/README.md), [hmi_tank_level](examples/hmi_tank_level/README.md) |
 | A complete plant | [room_heating](examples/room_heating/README.md) |
