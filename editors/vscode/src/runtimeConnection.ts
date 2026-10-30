@@ -58,6 +58,12 @@ export async function resolveRuntimeConnection(
   return connectionFor(configured, await workspaceProjectDir(workspaceFolderOf(resource)));
 }
 
+/** The connection of the workspace project's own runtime, whatever endpoint the settings name: its endpoint and token
+ * asked of trust-runtime now (specification 25, section 5.1). */
+export async function resolveProjectConnection(resource?: vscode.Uri): Promise<RuntimeConnection> {
+  return connectionFor("", await workspaceProjectDir(workspaceFolderOf(resource)));
+}
+
 /** The control endpoint of the workspace project's own runtime now, whatever endpoint the settings name; none when
  * trust-runtime reports none (specification 25, section 5.1: the Target picker offers that runtime while it answers). */
 export async function resolveProjectEndpoint(resource?: vscode.Uri): Promise<string | undefined> {

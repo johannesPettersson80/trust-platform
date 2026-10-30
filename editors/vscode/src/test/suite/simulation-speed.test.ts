@@ -96,6 +96,30 @@ suite("Simulation speed", () => {
     assert.strictEqual(stopped.simulatorRunning, false);
   });
 
+  test("the status bar says the language server's status label", () => {
+    // Catches a status bar with its own words for each status: it said "not reachable" for the project's runtime that the
+    // side panel says is not running (acceptance run of 30 October), and "stopped" for a managed runtime whose status is
+    // unavailable, which specification 25 section 5.1 forbids.
+    const project: SelectedRuntime = {
+      id: "project",
+      label: "This project's runtime",
+      kind: "remote",
+      status: "unreachable",
+      statusLabel: "Not running",
+      primary: { action: "connect", label: "Connect", enabled: false, gateable: false },
+    };
+    assert.strictEqual(selectedStatusView(project).text, "$(warning) truST: This project's runtime not running");
+    const managed: SelectedRuntime = {
+      id: "cell1",
+      label: "cell1 (managed)",
+      kind: "local",
+      status: "unavailable",
+      statusLabel: "Status unavailable",
+      primary: { action: "start", label: "Start", enabled: false, gateable: false },
+    };
+    assert.strictEqual(selectedStatusView(managed).text, "$(circle-outline) truST: cell1 status unavailable");
+  });
+
   test("a simulator held at a breakpoint is paused in the status bar, not running", async function () {
     // Acceptance finding F4: the bar said "Simulator ×10 running" while the call stack said "PAUSED ON BREAKPOINT". The
     // runtime's status says `state: "paused"` during a debugger hold (status_handlers.rs); the language server reads it

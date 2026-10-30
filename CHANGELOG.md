@@ -133,6 +133,9 @@ The CODESYS and e!COCKPIT dialect constructs of PR #141:
 
 ### Fixed
 
+- VS Code's status bar says what the side panel says of the selected runtime, and both notice within seconds when a
+  runtime they are online with starts or stops outside VS Code. The status bar had words of its own: a managed
+  runtime whose status was unavailable showed as stopped (specification 25, §5.1).
 - A device set up with truST (setup, the web setup or the wizard) and a runtime created in the config UI keep their
   RETAIN values across a restart and a power cycle: the `runtime.toml` they write stores them in `retain.bin`, as a new
   project's does. They had `[runtime.retain] mode = "none"`, so every start was cold (IEC 61131-3 §6.5.6.1).

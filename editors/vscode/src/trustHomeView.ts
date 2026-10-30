@@ -510,7 +510,11 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
       case "stop":
         return runtimeLifecycleService.stopRuntime();
       case "connect":
-        return runtimeLifecycleService.connectRemote(selected.id, selected.label);
+        // The project's own runtime names no endpoint: its Connect asks trust-runtime for it (specification 25, section
+        // 5.1). Its id is not an endpoint.
+        return selected.runEndpoint
+          ? runtimeLifecycleService.connectRemote(selected.runEndpoint, selected.label)
+          : runtimeLifecycleService.connectProjectRuntime(selected.label);
       case "disconnect":
         // Disconnect ends our attach session — it does NOT kill a remote we don't own.
         return runtimeLifecycleService.stopRuntime();
