@@ -73,6 +73,10 @@ const OPERATING_POINT: f64 = 35.0;
 /// How close to the operating point the water must be before the loop enters Auto: a third of the study's settling band of ± 0.03 °C,
 /// so that the setpoint the entry aligns to the water (annex E6.4) lies well inside the band that Apply waits for (B6.2).
 const RETURNED_WITHIN: f64 = 0.01;
+/// How long the water must stay within [`RETURNED_WITHIN`] of the reference Restore returned before Identify starts again: 30 s of
+/// process time at ten times real time, and still 7 s at the 2.4 times that macOS's runner reaches, longer than the 6 s in which the
+/// lesson's own PI (designed for a 5 s response, with the 1 s delay) settles, so the output the loop holds is its steady one.
+const REST_DWELL: Duration = Duration::from_secs(3);
 /// The message of a review that the runtime no longer matches (§0.1b Confirmation).
 const REVIEW_AGAIN: &str = "The runtime changed since the review; review again.";
 
@@ -223,12 +227,23 @@ fn measurement(lab: &Lab) -> Option<f64> {
 /// water needs about 28 s of process time after the model check's step to come within 0.01 °C; at ten times real time the journey
 /// gives it that before the entry, but a runner that reaches two or three times real time (macOS CI, 28 October 2026) did not.
 fn wait_for_operating_point(lab: &Lab) -> Option<f64> {
+    wait_for_water(lab, OPERATING_POINT, Duration::ZERO)
+}
+
+/// Waits until the water has stayed within [`RETURNED_WITHIN`] of `target` for `dwell` of wall time, or until [`LIMIT`], and returns
+/// the last measurement. A reading outside restarts the dwell.
+fn wait_for_water(lab: &Lab, target: f64, dwell: Duration) -> Option<f64> {
     let deadline = Instant::now() + LIMIT;
+    let mut inside_since: Option<Instant> = None;
     loop {
         let value = measurement(lab);
-        if value.is_some_and(|value| (value - OPERATING_POINT).abs() <= RETURNED_WITHIN)
-            || Instant::now() >= deadline
-        {
+        let now = Instant::now();
+        inside_since = if value.is_some_and(|value| (value - target).abs() <= RETURNED_WITHIN) {
+            inside_since.or(Some(now))
+        } else {
+            None
+        };
+        if inside_since.is_some_and(|since| now - since >= dwell) || now >= deadline {
             return value;
         }
         std::thread::sleep(Duration::from_millis(100));
@@ -673,7 +688,26 @@ fn apply_restore_and_keep_run_through_the_command_line_on_lesson_30() {
     );
 
     // A new candidate at the operating point Restore returned to (the reference Apply found, B6.4): Identify, Tune and Validate again,
-    // since the study's model is the one identified at the changed reference.
+    // since the study's model is the one identified at the changed reference. Restore steps the reference from the target Apply ran
+    // back to that reference, and Identify starts once the loop rests there, as an engineer waits before identifying (B3.4): Identify
+    // holds the output it finds in Auto, so an Identify while the water still rises holds an output above the steady one, the water
+    // settles open loop above the reference, and Apply then waits for that operating point while the controller holds the reference
+    // (B6.2). At ten times real time the journey gives the loop that rest, but macOS's runner reaches about 2.4 times real time: the
+    // second Identify then held 75.25 % about 5 s of process time after Restore, the water settled at 35.05 °C, and the second Apply
+    // waited in vain at 34.99 °C (probe of 30 October 2026).
+    let rested = wait_for_water(
+        &lab,
+        restored_reference.unwrap_or(OPERATING_POINT),
+        REST_DWELL,
+    );
+    findings.require(
+        rested
+            .zip(restored_reference)
+            .is_some_and(|(value, reference)| (value - reference).abs() <= RETURNED_WITHIN),
+        format!(
+            "the water rests at the reference Restore returned before Identify starts again (B3.4, B6.4): {rested:?} °C against {restored_reference:?} °C"
+        ),
+    );
     let (program, status) = lab.run("identify-restored", "identify", &["--json"], true, LIMIT);
     findings.require(
         status.code() == Some(0) && program.answer().get("result").is_some(),

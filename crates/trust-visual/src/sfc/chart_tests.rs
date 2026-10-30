@@ -155,9 +155,10 @@ fn a_join_that_leads_into_a_split_is_one_transition() {
 
 #[test]
 fn numbered_transitions_come_first_then_the_file_order() {
-    // Table 61 2b: the lowest number first (S -> C is 1, S -> B is 2); then the transitions
-    // without a number in file order (S -> A, then A -> S). A number written as text is no
-    // number. Catches the old file-order-only evaluation, which let S -> A win.
+    // Table 61 2b: the lowest number first (S -> C is 1, then A -> S, whose text "1" counts as 1
+    // and comes later in the file; S -> B is 2); then the transition without a number (S -> A).
+    // Catches the old file-order-only evaluation, which let S -> A win, and a number written as
+    // text, which the editor's Priority field keeps as typed, read as no number.
     let file = program(
         r#"{
       "name": "S",
@@ -176,7 +177,7 @@ fn numbered_transitions_come_first_then_the_file_order() {
     let chart = chart_of(&file);
     assert_eq!(
         described(&chart),
-        ["S -> C: c", "S -> B: b", "S -> A: a", "A -> S: back"]
+        ["S -> C: c", "A -> S: back", "S -> B: b", "S -> A: a"]
     );
 }
 

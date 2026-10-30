@@ -20,7 +20,8 @@ function harness() {
   const module = { exports: {} as any };
   vm.runInNewContext(fs.readFileSync(filename, "utf8"), { module, exports: module.exports,
     require: (name: string) => name === "vscode" ? api : nativeRequire(name),
-    __filename: filename, __dirname: path.dirname(filename), process, console, setTimeout, clearTimeout }, { filename });
+    __filename: filename, __dirname: path.dirname(filename), process, console, setTimeout, clearTimeout,
+    setInterval, clearInterval }, { filename });
   const service = module.exports.runtimeLifecycleService;
   const subscriptions: vscode.Disposable[] = [];
   service.register({ subscriptions });

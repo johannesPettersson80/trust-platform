@@ -169,7 +169,7 @@ fn check_transitions(workspace: &Workspace<'_>, issues: &mut Vec<Issue>) {
             ));
         }
         if let Some(priority) = transition.get("priority")
-            && !matches!(priority, Json::Null)
+            && !names_no_priority(priority)
             && !is_priority(priority)
         {
             issues.push(Issue::new(
@@ -188,12 +188,19 @@ fn check_transitions(workspace: &Workspace<'_>, issues: &mut Vec<Issue>) {
     }
 }
 
-/// Whether `priority` is a transition priority: a whole number from 0, the lowest tested first
-/// (IEC 61131-3 Table 61 feature 2b, `sfc-profile.md`, "Rules of evolution").
+/// Whether `priority` is a transition priority: a whole number from 0, as a number or as the text the editor's Priority field
+/// holds, the lowest tested first (IEC 61131-3 Table 61 feature 2b, `sfc-profile.md`, "Rules of evolution").
 fn is_priority(priority: &Json) -> bool {
-    priority
-        .as_finite()
-        .is_some_and(|number| number >= 0.0 && number.fract() == 0.0)
+    chart::priority_number(priority).is_some_and(|number| number >= 0.0 && number.fract() == 0.0)
+}
+
+/// Whether a transition's `priority` names none: `null`, or a blank text, which the editor's emptied Priority field leaves.
+fn names_no_priority(priority: &Json) -> bool {
+    match priority {
+        Json::Null => true,
+        Json::String(text) => trim(text).is_empty(),
+        _ => false,
+    }
 }
 
 /// Whether a transition has a condition: a value that is present and, when it is text, not blank.

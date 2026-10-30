@@ -71,9 +71,11 @@ companion. Validate refuses:
   flag `<name>_active` is not an identifier (the name is trimmed; names are
   compared ignoring case, as identifiers are);
 - a transition between nodes that do not exist, or without a condition;
-- a transition `priority` that is present and not a whole number from 0, a
-  text included (Table 61 feature 2b; the editor's Priority field writes a
-  number, and an empty field writes none);
+- a transition `priority` that is present and not a whole number from 0
+  (Table 61 feature 2b), written as a number or as text: the editor's
+  Priority field keeps its text as typed, the engine reads a text such as
+  `"2"` as the number it holds, and `null` or a blank text, which an emptied
+  field leaves, names no priority;
 - a parallel split without at least two branches, exactly one incoming
   transition and one transition to each branch, and a parallel join without at
   least two branches, one transition from each branch and exactly one outgoing
@@ -154,7 +156,8 @@ Each execution of the function block (one scan of its task):
 3. lets a transition that shares a preceding step with a transition before it
    in priority order clear only when that transition does not clear (a
    selection divergence, Table 61 features 2a and 2b). The priority order is
-   the transitions' `priority` numbers, lowest first (feature 2b), then the
+   the transitions' `priority` numbers, lowest first (feature 2b; a text
+   counts as the number it holds), then the
    transitions without a number in file order, which is the order in which
    they were drawn. An IEC transition made of several parts has the lowest
    number of its parts and the file position of its first part. Every

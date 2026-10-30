@@ -446,10 +446,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               style={inputStyle}
               value={selectedEdge.data?.priority ?? ""}
               onChange={(e) =>
-                onUpdateEdge(selectedEdge.id, {
-                  priority:
-                    e.target.value === "" ? undefined : Number(e.target.value),
-                })
+                onUpdateEdge(selectedEdge.id, { priority: e.target.value })
               }
               placeholder="Lowest first; empty: drawing order"
             />
