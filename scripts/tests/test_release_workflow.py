@@ -81,14 +81,23 @@ class ReleaseWorkflowTests(unittest.TestCase):
             self.assertIn("plan", needs(job), job_id)
             self.assertIn("release-preflight", needs(job), job_id)
 
-    def test_the_plan_runs_the_workflows_own_commit(self) -> None:
+    def test_the_plan_never_runs_a_forks_code(self) -> None:
         # Catches a plan that runs the code of the commit it plans for: after CI of a fork's pull
-        # request that commit is the fork's, and the plan's token and outputs decide a release.
+        # request that commit is the fork's, and the plan's token and outputs decide a release. A
+        # fork's own pull request makes `github.sha` its merge commit, so the plan runs the base then
+        # (Codex's review of #146). The checkout keeps no credentials, and only the run after main's
+        # CI gets the token.
         checkouts = [text for text in step_texts(self.jobs["plan"]) if "uses: actions/checkout@" in text]
         self.assertEqual(len(checkouts), 1)
-        self.assertIn("ref: ${{ github.sha }}", checkouts[0])
+        self.assertIn(
+            "ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name"
+            " != github.repository && github.event.pull_request.base.sha || github.sha }}",
+            checkouts[0],
+        )
+        self.assertIn("persist-credentials: false", checkouts[0])
         self.assertNotIn("head_sha", checkouts[0])
         self.assertNotIn("head.sha", checkouts[0])
+        self.assertIn("GITHUB_TOKEN: ${{ github.event_name == 'workflow_run' && github.token || '' }}", self.jobs["plan"])
 
     def test_every_job_checks_out_the_plans_commit(self) -> None:
         # Catches a job of a release after CI that builds main's newest commit instead of the one

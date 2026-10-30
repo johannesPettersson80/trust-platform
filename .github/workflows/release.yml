@@ -48,18 +48,21 @@ jobs:
       version: ${{ steps.plan.outputs.version }}
       tag: ${{ steps.plan.outputs.tag }}
     steps:
-      # The plan runs the workflow's own commit and reads the commit it plans for as data: after a
-      # fork's pull request, CI's head is the fork's code, which must never run with this
-      # workflow's token.
+      # The plan never runs a fork's code. It runs the workflow's own commit, which after main's CI is
+      # main's and for a pull request from this repository is its merge commit, and reads the commit
+      # it plans for as data. A fork's pull request runs its base, whose planner skips it without
+      # reading it. The checkout keeps no credentials, and only the run after main's CI, which asks
+      # GitHub whether a release is complete, gets the token.
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: ${{ github.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && github.event.pull_request.base.sha || github.sha }}
+          persist-credentials: false
 
       - name: Plan the run
         id: plan
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.event_name == 'workflow_run' && github.token || '' }}
           EVENT: ${{ github.event_name }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}

@@ -88,7 +88,11 @@ A version change merges only with a passed rehearsal on its exact head that kept
 that artifact. A pull request from a fork is not rehearsed on the project's
 runners; a maintainer rehearses its head with a manual run, which rehearses the
 commit it runs on. A new push to a pull request replaces the rehearsal of its
-previous head.
+previous head. The plan never runs a fork's code: for a fork's pull request it
+runs the pull request's base, whose planner skips it without reading it; it
+otherwise runs the workflow's own commit and reads the commit it plans for as
+data. Its checkout keeps no credentials, and only the run after main's CI, which
+asks GitHub whether a release is complete, has the workflow's token.
 
 ### Release after main CI
 

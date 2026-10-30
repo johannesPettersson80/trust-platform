@@ -84,6 +84,25 @@ class ChangeDetectionTests(unittest.TestCase):
             self.assertEqual(ci_changes.decide("push", before, after, ["docs/**"], cwd=repo), (False, []))
             self.assertEqual(ci_changes.decide("push", before, after, ["*.rs"], cwd=repo), (True, ["src.rs"]))
 
+    def test_a_file_moved_out_of_a_watched_tree_still_counts(self) -> None:
+        # Catches rename detection reporting only the new path: moving docs/public/a.md to archive/a.md
+        # matched no docs path, so the site kept the old page (Codex's review of #146).
+        holder, repo = repository()
+        with holder:
+            (repo / "docs" / "public").mkdir(parents=True)
+            (repo / "docs" / "public" / "a.md").write_text("a page that stays the same when moved\n" * 5)
+            git(repo, "add", "-A")
+            git(repo, "commit", "-q", "-m", "page")
+            before = git(repo, "rev-parse", "HEAD")
+            (repo / "archive").mkdir()
+            git(repo, "mv", "docs/public/a.md", "archive/a.md")
+            git(repo, "commit", "-q", "-m", "move")
+            after = git(repo, "rev-parse", "HEAD")
+            self.assertEqual(
+                ci_changes.decide("push", before, after, ["docs/public/**"], cwd=repo),
+                (True, ["docs/public/a.md"]),
+            )
+
     def test_manual_scheduled_and_unknown_previous_runs_check_everything(self) -> None:
         # Catches a dispatched or scheduled run that skips its checks, and a new branch's first push
         # (no previous commit) that checks nothing.

@@ -61,10 +61,12 @@ def read_patterns(text: str) -> list[str]:
 
 
 def changed_files(event: str, base: str, head: str, cwd: Path | None = None) -> list[str]:
-    """The files the change touches: a pull request against its merge base, a push since `base`."""
+    """The files the change touches: a pull request against its merge base, a push since `base`. A
+    moved file counts at both its old and its new path (`--no-renames`), so moving a page out of a
+    watched tree still runs the checks that publish it."""
     revisions = f"{base}...{head}" if event == "pull_request" else f"{base}..{head}"
     result = subprocess.run(
-        ["git", "diff", "--name-only", revisions],
+        ["git", "diff", "--name-only", "--no-renames", revisions],
         cwd=cwd,
         check=True,
         capture_output=True,

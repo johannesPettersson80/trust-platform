@@ -340,8 +340,10 @@ target deletion is an infrastructure failure, never a green test result.
 Every workflow that checks pull requests starts on every pull request; none
 filters its trigger by path. Its first job, `changes`, compares the pull
 request's head with its base over the full history (`git diff --name-only
-<base>...<head>`), with no limit on the number of changed files, and names the
-areas the change touches. A job that checks an area runs when that area changed
+--no-renames <base>...<head>`), with no limit on the number of changed files, and
+names the areas the change touches. A moved file counts at its old and its new
+path, so moving a page out of a watched tree still runs the checks that publish
+it. A job that checks an area runs when that area changed
 and is skipped otherwise. A push to `main` uses the same detection against the
 push's previous commit, with the same list of paths per area, kept in
 `.github/paths/`. A workflow with a `changes` job ends with a `conclusion` job
