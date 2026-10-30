@@ -47452,8 +47452,6 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-10-29"
-<<<<<<< HEAD
-=======
 [[reviews]]
 discovery_id = "DISC_4363A997EE18DECE6629"
 discovery_source_kind = "rust_integration_test"
@@ -47553,4 +47551,45 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-10-30"
->>>>>>> f96b6e939 (fix(runtime): fold narrow-typed constant expressions exactly (DEV-027 extension))
+=======
+
+[[reviews]]
+discovery_id = "DISC_F1A46DC447467C1B1132"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/lower/standard_bistable_argument_tests.rs"
+name = "empty_named_arguments_drop_from_the_lowered_call"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-30"
+
+[[reviews]]
+discovery_id = "DISC_4FAD408A3D06FE74DF00"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/pou_object_contract_tests.rs"
+name = "pou_object_contract_empty_named_fb_input_retains_last_stored_value"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-30"
+
+[[reviews]]
+discovery_id = "DISC_7AB079DC45925E909FD3"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/pou_object_contract_tests.rs"
+name = "pou_object_contract_empty_named_fb_output_compiles_unconnected"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-30"
+
+[[reviews]]
+discovery_id = "DISC_F5FE684D3D4921BC113E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/pou_function_contract_tests.rs"
+name = "pou_function_contract_empty_named_input_uses_initializer"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-30"
+>>>>>>> 7bfe46404 (fix(runtime): lower empty named call arguments as omitted (DEV-029))

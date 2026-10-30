@@ -320,6 +320,13 @@ distinct `Arg` children. Formal `:=` tokens remain argument connections; they
 are not declaration aggregate initializers. Call binding and argument-type
 validation remain semantic checks.
 
+A named binding with an empty right-hand side (`F(A := 1, RST := , Q => )`)
+parses to an `Arg` with a name but no expression operand: the argument is
+omitted (input retains its value or takes the declared default; an
+untargeted output stays unconnected) per `IEC_DEVIATIONS.md` DEV-029. A
+`?=` reference assignment always requires its target, and a positional
+empty slot stays rejected.
+
 The parser recognizes `ADR(...)` and `SIZEOF(...)` as documented truST product
 expression forms. `SIZEOF` has a deliberately wider syntactic operand surface
 than its semantic acceptance surface:

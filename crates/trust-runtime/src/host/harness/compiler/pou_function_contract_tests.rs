@@ -246,6 +246,28 @@ END_PROGRAM
 }
 
 #[test]
+fn pou_function_contract_empty_named_input_uses_initializer() {
+    // IEC_DEVIATIONS DEV-029: `value := ` omits the input; a function
+    // parameter has no instance storage, so the declared initializer
+    // applies (same as the zero-argument call above).
+    let harness = run(r#"
+FUNCTION Defaulted : INT
+VAR_INPUT
+    value : INT := INT#7;
+END_VAR
+Defaulted := value;
+END_FUNCTION
+PROGRAM Main
+VAR
+    result : INT;
+END_VAR
+result := Defaulted(value := );
+END_PROGRAM
+"#);
+    assert_eq!(harness.get_output("result"), Some(Value::Int(7)));
+}
+
+#[test]
 fn pou_function_contract_missing_result_assignment_is_rejected() {
     let error = compile_error(
         r#"

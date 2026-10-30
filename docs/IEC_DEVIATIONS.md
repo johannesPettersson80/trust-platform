@@ -797,3 +797,39 @@ re-check them against this rule when touched.
   `VAR_OUT`/`VAR_IN_OUT` pointer arms and variable initializers are not
   wired (mirroring the narrowing record's scoping (DEV-037)) and keep the error until a
   downstream need appears.
+
+## 2026-10-30 - Empty named call arguments bind nothing
+
+- ID: DEV-040
+- Area: formal call arguments in the bytecode lowerer — a named binding
+  with an empty right-hand side (`RST := ,` for inputs, `Q => ` or
+  `Q => ,` for outputs).
+- Normative IEC requirement: IEC 61131-3 Ed.3 §6.6.1.4.1 and Table 50
+  distinguish complete from incomplete formal calls; an input/output
+  mapping may be absent (the formal keeps its default or, for
+  function-block instances, its stored value), while a VAR_IN_OUT mapping
+  must always be present. The standard text was unavailable on the
+  authoring machine; the clause mirrors the citation style already used
+  in `docs/specs/09-semantic-rules.md`.
+- truST behavior and conflict: the parser already accepted the empty
+  form (CODESYS parity — vendor projects write `RST := , Q => )` to
+  document explicitly-defaulted inputs and unconnected outputs) and the
+  type-checker already dropped expression-less arguments, but the
+  bytecode lowerer required an expression child and rejected the
+  positionless "missing call argument". The lowerer now drops those
+  arguments the same way: an unbound input takes the function-block
+  retained value or the declared default (function parameters use the
+  declared initializer), and an unbound output simply stays unconnected.
+  The downstream s4 tree carries 40 such call sites across five POUs
+  (TOF/RTRIG/DEBOUNCE/dimmer calls written `RST := , Q => )`).
+- Impact: those call sites pass the compile gate and execute with the
+  same not-passed contract positional omission already uses — the VM's
+  binding paths have complete default/retain/Null arms for missing
+  arguments, so no uninitialized storage is reachable.
+- Mitigation: the admission is name-scoped — an empty binding must carry
+  a parameter name to bind nothing (a positional empty slot stays
+  rejected); `?=` reference assignments always require a target;
+  VAR_IN_OUT formals keep their missing-binding diagnostic (analyzer
+  first, runtime trap behind it); struct-initializer
+  `(field := value)` aggregates are a different product form and keep
+  their value requirement.

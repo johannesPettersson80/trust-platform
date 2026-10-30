@@ -864,7 +864,9 @@ fn lower_call_args(
                 .get(index)
                 .and_then(|parameter| parameter.type_id),
         };
-        args.push(lower_call_arg(&arg, ctx, expected_type)?);
+        if let Some(arg) = lower_call_arg(&arg, ctx, expected_type)? {
+            args.push(arg);
+        }
     }
     Ok(args)
 }
@@ -873,11 +875,24 @@ fn lower_call_arg(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
     expected_type: Option<TypeId>,
-) -> Result<CallArg, CompileError> {
+) -> Result<Option<CallArg>, CompileError> {
     let name = node
         .children()
         .find(|child| child.kind() == SyntaxKind::Name)
         .map(|name| node_text(&name).into());
+    let Some(expr_node) = first_expr_child(node) else {
+        // CODESYS parity (IEC_DEVIATIONS DEV-029): a named binding with
+        // an empty right-hand side (`xRst := ,` / `Q =>`) omits the
+        // argument — inputs retain their value or take the declared
+        // default, unconnected outputs stay unbound — exactly what the
+        // analyzer accepts and what positional omission already does at
+        // runtime. A positional empty slot has no name to bind and stays
+        // rejected.
+        if name.is_some() {
+            return Ok(None);
+        }
+        return Err(CompileError::new("missing call argument"));
+    };
 
     let mut has_arrow = false;
     for token in node
@@ -889,8 +904,6 @@ fn lower_call_arg(
         }
     }
 
-    let expr_node =
-        first_expr_child(node).ok_or_else(|| CompileError::new("missing call argument"))?;
     let expected_type = match expected_type {
         Some(expected_type) => Some(expected_type),
         None => lower_expression_type(&expr_node, ctx)?,
@@ -906,5 +919,5 @@ fn lower_call_arg(
         }
     };
 
-    Ok(CallArg { name, value })
+    Ok(Some(CallArg { name, value }))
 }

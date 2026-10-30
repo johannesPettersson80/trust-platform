@@ -7,6 +7,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 ## [Unreleased]
 
 
+
+- Empty named call arguments bind nothing: `RST := ,` omits the input
 - Constant-expression folding is exact for narrow-typed integer operands:
 - Pointer-target lenient bindings match CODESYS: `POINTER TO CHAR` ↔
   `POINTER TO BYTE` and `ADR(STRING[n])` against `POINTER TO ARRAY OF

@@ -59,6 +59,41 @@ END_PROGRAM
 }
 
 #[test]
+fn empty_named_arguments_drop_from_the_lowered_call() {
+    // IEC_DEVIATIONS DEV-029: an empty right-hand side on a named binding
+    // omits the argument — `RESET := ` leaves the input unbound and an
+    // untargeted `Q1 =>` drops the output connection (the s4 project
+    // writes TOF calls exactly this way).
+    let dropped = call_argument_names(
+        r#"
+PROGRAM Main
+VAR
+    latch : SR;
+    set_sig : BOOL;
+    q_out : BOOL;
+END_VAR
+latch(SET1 := set_sig, RESET := , Q1 => );
+END_PROGRAM
+"#,
+    );
+    assert_eq!(dropped, ["S1"]);
+
+    let mixed = call_argument_names(
+        r#"
+PROGRAM Main
+VAR
+    latch : SR;
+    set_sig : BOOL;
+    q_out : BOOL;
+END_VAR
+latch(SET1 := set_sig, RESET := , Q1 => q_out);
+END_PROGRAM
+"#,
+    );
+    assert_eq!(mixed, ["S1", "Q1"]);
+}
+
+#[test]
 fn user_block_inputs_named_like_long_bistable_names_keep_their_names() {
     // Only the standard bistables are normalized: a user block's own SET1 input keeps its name.
     let names = call_argument_names(
