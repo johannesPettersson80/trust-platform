@@ -5,7 +5,7 @@ shows how to exercise couplings, disturbances, and synthetic fault events.
 
 ## Why this tutorial exists
 
-Runtime panel input poking is useful, but repeatable simulation scenarios are
+Writing inputs in Live Values is useful, but repeatable simulation scenarios are
 better for debugging and CI. `simulation.toml` gives deterministic, scripted
 behavior you can re-run exactly.
 

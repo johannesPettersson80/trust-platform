@@ -201,7 +201,7 @@ Open:
 
 - `http://127.0.0.1:18083`
 
-Then use runtime I/O controls (Web UI or VS Code Runtime Panel):
+Then use the runtime's I/O controls (the web UI, or **Live Values** in VS Code):
 
 1. set `%IX0.0 = TRUE`
 2. verify `%QX0.0 = TRUE`

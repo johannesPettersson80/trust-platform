@@ -4,8 +4,8 @@ This project connects a simulated `%IW0` tank-level input to a `%QX0.0` high
 level alarm. It is complete and runnable without external hardware.
 
 Open this folder as the active truST project, or open `src/main.st` from a
-workspace that contains the folder. Then use **Structured Text: Compile** and
-open the Runtime Panel.
+workspace that contains the folder. Then use **truST: Compile** and press **Start**
+in the truST view: the Simulator runs the program and **Live Values** opens.
 
 You can also verify the project from a terminal:
 

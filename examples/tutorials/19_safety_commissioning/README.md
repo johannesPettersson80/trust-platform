@@ -135,7 +135,7 @@ Why: establish baseline before inducing any fault.
 trust-runtime run --project .
 ```
 
-In UI/Runtime Panel:
+In the runtime's web UI or in VS Code's **Live Values**:
 - set `%IX0.0 = TRUE`
 - verify `%QX0.0 = TRUE`
 

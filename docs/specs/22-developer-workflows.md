@@ -360,15 +360,21 @@ sources of its example, or of an example its page links to, each line without
 comments and with its whitespace collapsed (a line or a part of a line written
 as `...` stands for code the quote leaves out), or else parses as Structured
 Text; a fence marked `ignore` is left out. Every command a page names by its
-Command Palette title in bold, and every setting it names by its key in
-backticks, is one the VS Code extension contributes. Every `trust-runtime`
-command line in a fenced block parses with the runtime's command line. A quote
-that its program no longer holds, a renamed command or setting, and a renamed
-flag therefore fail a pull request instead of leaving the page behind
-(30 October 2026: five blocks that no parser accepted, among them an OpenOT
-variable named with the keyword `ACTION`, three command titles that no longer
-existed, and two command lines that the runtime refused: `ctl restart` without
-its mode and a run without its command).
+Command Palette title in bold, or as the title that a palette step
+(`Ctrl/Cmd+Shift+P` and an arrow) types, and every setting it names by its key
+in backticks, is one the VS Code extension contributes. No page names a name
+the extension retired: the command category `Structured Text:`, in bold or
+backticks, and the Runtime Panel or Runtime pane, which Live Values and the
+truST view replaced. Every `trust-runtime` command line in a fenced block
+parses with the runtime's command line. A quote that its program no longer
+holds, a renamed or retired command or setting, and a renamed flag therefore
+fail a pull request instead of leaving the page behind (30 October 2026: five
+blocks that no parser accepted, among them an OpenOT variable named with the
+keyword `ACTION`, three command titles that no longer existed, two command
+lines that the runtime refused, `ctl restart` without its mode and a run
+without its command, and 15 example and docs pages that sent readers to the
+Runtime Panel or to `Structured Text:` commands, such as the six ADS commands
+that Devices & Connections replaced).
 
 ### Release-candidate failure reporting
 

@@ -235,15 +235,15 @@ For each tutorial:
 
 ### VS Code Feature Spotlight
 
-- Runtime Panel first-use walkthrough
+- Live Values first-use walkthrough
 
 ### Guided Steps
 
 1. Open `09_simulation_coupling/src/main.st`.
-2. `Ctrl/Cmd+Shift+P` -> `Structured Text: Open Runtime Panel`.
-3. Start runtime (Local mode).
-4. In I/O panel, write `%IW0` below threshold (for example `Word(300)`) and observe alarm output.
-5. Write `%IW0` above threshold (for example `Word(600)`) and observe alarm change.
+2. In the truST view, press **Start**: the Simulator runs the program and **Live Values** opens.
+3. In Live Values, write `%IW0` under **Inputs** below the threshold (for example `300`) and observe
+   the alarm output.
+4. Write `%IW0` above the threshold (for example `600`) and observe the alarm change.
 
 ### Challenge
 
@@ -252,7 +252,7 @@ For each tutorial:
 ### Common Pitfalls
 
 - Writing wrong address type (`%Q` instead of `%I`).
-- Not starting runtime before writing values.
+- Not pressing **Start** before writing values.
 
 ---
 

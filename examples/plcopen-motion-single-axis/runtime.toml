@@ -5,9 +5,6 @@ version = 1
 name = "PLCopen motion starter"
 cycle_interval_ms = 10
 
-[runtime]
-execution_backend = "vm"
-
 [runtime.control]
 mode = "production"
 debug_enabled = false

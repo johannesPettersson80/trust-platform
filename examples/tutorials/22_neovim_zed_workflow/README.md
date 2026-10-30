@@ -12,7 +12,7 @@ checks.
 ## Scope reminder
 
 Per current platform scope, Neovim/Zed support includes core LSP features
-(diagnostics, hover, completion, formatting, definition). VS Code runtime panel
+(diagnostics, hover, completion, formatting, definition). VS Code's Live Values
 and VS Code debug command UX are out of scope for this track.
 
 ## What you will learn
@@ -126,7 +126,7 @@ Use this loop daily:
 ## Common mistakes
 
 - copying partial config instead of full reference profile
-- expecting VS Code-specific runtime panel/debug UX in non-VS-Code editors
+- expecting VS Code-specific Live Values/debug UX in non-VS-Code editors
 - skipping terminal validation commands because diagnostics look clean
 
 ## Completion checklist

@@ -43,7 +43,7 @@ you review, version and test like any other code.
 | If you need | truST gives you |
 | --- | --- |
 | A modern editor for Structured Text | a language server in VS Code: diagnostics as you type, completion, hover, go to definition, references, rename across files and formatting |
-| PLC programs on ordinary computers | `trust-runtime`: native code on Linux, macOS and Windows, on x86-64 and AArch64 |
+| PLC programs on ordinary computers | `trust-runtime`: native code on Linux and macOS, on x86-64 and AArch64, and on Windows x86-64 |
 | A small controller | the ESP32-C6 firmware, a complete truST runtime that you install over USB |
 | To see inside a running program | breakpoints, stepping, the call stack and variables on the compiled program, and Live Values to read, write and force I/O |
 | Operator screens | the HMI Builder in VS Code; the runtime serves the screens at `/hmi`, with trends and alarms |
@@ -173,12 +173,16 @@ control.
 
 | Task | Examples |
 | --- | --- |
-| A first program | [memory_marker_counter](examples/memory_marker_counter/README.md), [tutorials](examples/tutorials/README.md) |
+| A first program | the [tutorials](examples/tutorials/README.md), from the first lines to unit tests; [empty-simulator](examples/empty-simulator/README.md), the smallest project that runs |
+| Seeing inside a running program | [memory_marker_counter](examples/memory_marker_counter/README.md): Live Values, breakpoints and the scan cycle |
 | Operator screens | [hmi_equipment](examples/hmi_equipment/README.md), [hmi_tank_level](examples/hmi_tank_level/README.md) |
 | A complete plant | [room_heating](examples/room_heating/README.md) |
 | Tuning a loop | [control-pid-commissioning](examples/control-pid-commissioning/README.md), the [control course](examples/control/README.md) |
 | Field devices | [communication](examples/communication/README.md), [raspberry-pi](examples/raspberry-pi/README.md) |
 | Motion | [plcopen-motion-single-axis](examples/plcopen-motion-single-axis/README.md) |
+| Visual programs | [ladder](examples/ladder/README.md), [sfc](examples/sfc/README.md), [statecharts](examples/statecharts/README.md), [blockly](examples/blockly/README.md) |
+| Tests and CI | [unit tests](examples/tutorials/10_unit_testing_101/README.md), [a CI pipeline](examples/tutorials/21_ci_cd_project_pipeline/README.md) |
+| Coming from another PLC | [PLCopen XML](examples/plcopen_xml_st_complete/README.md), [Siemens SCL](examples/siemens_scl_v1/README.md), [Mitsubishi GX Works3](examples/mitsubishi_gxworks3_v1/README.md) |
 | Libraries | [OSCAT](examples/OSCAT/README.md), [PLCopen Motion](https://johannespettersson80.github.io/trust-platform/examples/libraries-and-motion/), [Control](examples/control-pid-commissioning/README.md), [Plant](libraries/plant/README.md), [Alarm and HMI](examples/hmi_tank_level/README.md), [Comm](https://johannespettersson80.github.io/trust-platform/develop/libraries/comm/); every library's manual is under [Libraries](https://johannespettersson80.github.io/trust-platform/develop/libraries/) |
 | Runtimes working together | [runtime_cloud](examples/runtime_cloud/README.md) |
 

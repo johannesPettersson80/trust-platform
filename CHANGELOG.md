@@ -18,10 +18,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   that fails when any of its checks failed (specification 22).
 - The documentation is checked against the product: the Structured Text in the README, the docs pages and the examples'
   READMEs quotes its example's program or parses, the commands and settings the pages name exist in the VS Code
-  extension, and every `trust-runtime` command line they show parses. Fixed on the way: an OpenOT example that named a
-  variable with the keyword `ACTION`, four Structured Text examples that did not close their program, function or
-  function block, three command names that had changed, `ctl restart` without its mode, and a tutorial's run without
-  its command (specification 22).
+  extension, no page names a retired command or the Runtime Panel, and every `trust-runtime` command line they show
+  parses. Fixed on the way: an OpenOT example that named a variable with the keyword `ACTION`, four Structured Text
+  examples that did not close their program, function or function block, three command names that had changed,
+  `ctl restart` without its mode, a tutorial's run without its command, and 15 example and docs pages that sent
+  readers to the Runtime Panel or to `Structured Text:` commands: they name Live Values, `truST:` commands and Devices
+  & Connections, where the ADS commands went (specification 22).
+- The README's examples table starts with the tutorials and adds the examples for debugging, visual programs, tests and
+  CI, and coming from another PLC; it says that Windows runs on x86-64 only.
 - The documentation site shows the newest screenshots rendered on `main` without a commit of the images. Before the
   site is built, the screenshots of the newest passing Docs Captures run of `main` are laid over the images; only what
   the captures wrote is taken, never the hand-made pictures. The capture refresh pull request, which had to be merged

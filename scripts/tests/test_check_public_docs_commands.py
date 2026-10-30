@@ -78,6 +78,50 @@ class DocsCommandNamesTests(unittest.TestCase):
                 ["docs/public/b.md:1: names the setting 'trust.runtime.missing', which the extension does not have"],
             )
 
+    def test_a_palette_step_names_an_existing_command(self) -> None:
+        # Catches a palette step typing a title the extension no longer has, in backticks or as plain
+        # text in a code block: `Structured Text: Open Runtime Panel` sent readers to nothing
+        # (30 October 2026).
+        holder, root = root_with(
+            {
+                "examples/a/README.md": "1. `Ctrl/Cmd+Shift+P` -> `truST: Create Project`.\n"
+                "2. `Ctrl/Cmd+Shift+P` -> `truST: Open Runtime Panel`\n",
+                "examples/b/README.md": "```\nCtrl/Cmd+Shift+P → truST: Open Devices & Connections\n```\n",
+            }
+        )
+        with holder:
+            self.assertEqual(
+                check.findings(root),
+                [
+                    "examples/a/README.md:2: names the command 'truST: Open Runtime Panel', "
+                    "which the extension does not have",
+                    "examples/a/README.md:2: names the Runtime Panel, which the extension retired; "
+                    "it is Live Values and the truST view",
+                ],
+            )
+
+    def test_retired_names_fail_wherever_a_page_uses_them(self) -> None:
+        # Catches the retired command category and the Runtime Panel and pane, in any case; the page
+        # file `debugging-and-runtime-panel.md` keeps its name, so a link to it is no finding.
+        holder, root = root_with(
+            {
+                "docs/public/c.md": "Use `Structured Text: Compile`, then the runtime panel.\n"
+                "See [Run](operate/debugging-and-runtime-panel.md) in the Runtime pane.\n",
+            }
+        )
+        with holder:
+            self.assertEqual(
+                check.findings(root),
+                [
+                    "docs/public/c.md:1: names 'Structured Text: Compile', a command category the extension "
+                    "retired; its commands are 'truST:' ones",
+                    "docs/public/c.md:1: names the runtime panel, which the extension retired; it is Live Values "
+                    "and the truST view",
+                    "docs/public/c.md:2: names the Runtime pane, which the extension retired; it is Live Values "
+                    "and the truST view",
+                ],
+            )
+
     def test_the_repository_names_only_existing_commands_and_settings(self) -> None:
         self.assertEqual(check.findings(ROOT), [])
 

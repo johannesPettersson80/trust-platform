@@ -83,7 +83,7 @@ At runtime with real GPIO, ensure:
 Why: output misconfiguration can energize hardware unexpectedly.
 
 1. Start with disconnected or simulated load on output lines.
-2. Verify `%IX0.0` and `%QX0.0` behavior in runtime panel.
+2. Verify `%IX0.0` and `%QX0.0` behavior in **Live Values**.
 3. Confirm safe-state `%QX0.0 = FALSE` on fault/stop paths.
 
 ## Common mistakes

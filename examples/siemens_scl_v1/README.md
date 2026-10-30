@@ -52,7 +52,7 @@ trust-runtime validate --project examples/siemens_scl_v1
 
 1. Set breakpoint in `FB_EdgeCounter`.
 2. Press `F5`.
-3. Toggle `%IX0.0` (mapped pulse input) in Runtime Panel.
+3. Toggle `%IX0.0` (mapped pulse input) in **Live Values**.
 4. Observe `%QX0.0` transition as count indicator.
 
 ## Step 6: Export Direct Siemens `.scl` Files for TIA

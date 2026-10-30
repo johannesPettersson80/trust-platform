@@ -26,9 +26,10 @@ Choose the direction first:
 This is the ADS client path. truST imports TwinCAT symbols and turns them into
 reviewed ST globals.
 
-1. Select the online runtime in the VS Code Runtime pane.
-2. Open **Structured Text: Add Beckhoff ADS Device** or open the runtime-host
-   setup page at `/setup/ads`.
+1. Open **truST: Open Devices & Connections** and select the runtime that will
+   run the connection.
+2. Click **+ Add** and choose **ADS client** under **Read tags from another PLC
+   or server**, or open the runtime-host setup page at `/setup/ads`.
 3. Discover the TwinCAT target. Broadcast discovery is easiest when UDP 48899 is
    allowed; otherwise enter the TwinCAT IP and AMS Net ID manually.
 4. In **Devices & Connections**, choose the logical **ADS port** before browsing
@@ -37,10 +38,12 @@ reviewed ST globals.
    runtimes. Each port is a separate ADS server with its own symbol namespace;
    this setting does not search all ports.
 5. Add the route on the TwinCAT side so TwinCAT trusts the truST runtime host.
-   The wizard can generate the exact PowerShell, XML, or manual route values.
+   When the route is missing, **Browse tags** offers **Create route** with the
+   exact PowerShell, XML, or manual route values.
 6. Run the ADS Doctor from the runtime host.
-7. Import TwinCAT symbols into `ads.toml`, a cached symbol snapshot, and the
-   single generated ST file `src/generated/ads_generated.st`.
+7. Choose the symbols in **Browse tags** and press **Add tags**: they are
+   imported into `ads.toml`, a cached symbol snapshot, and the single generated
+   ST file `src/generated/ads_generated.st`.
 8. Deploy or reload the project bundle, then verify `ads.status` and generated
    value/`_quality` globals from the runtime.
 
@@ -91,8 +94,8 @@ not the primary onboarding interface.
 
 ## Runtime Context
 
-ADS onboarding is a child of the selected runtime. VS Code renders the wizard
-and reads the Runtime pane context; network operations run on the runtime host
+ADS onboarding is a child of the selected runtime. VS Code renders the forms
+in Devices & Connections for that runtime; network operations run on the runtime host
 through the runtime control/web APIs. This prevents creating a route for the
 developer laptop when the deployed runtime is a Raspberry Pi, IPC, or other
 remote host.
@@ -114,18 +117,19 @@ authoring-only until the runtime-host Doctor passes.
 
 ## VS Code Flow
 
-Use these commands from VS Code:
+Everything happens in **Devices & Connections** (**truST: Open Devices &
+Connections**), on the runtime the connection belongs to:
 
-| Command | Use |
+| Action | Use |
 | --- | --- |
-| `Structured Text: Open ADS Devices` | View ADS connection state for the selected runtime. |
-| `Structured Text: Add Beckhoff ADS Device` | Start the runtime-child onboarding wizard. |
-| `Structured Text: Diagnose ADS Connection` | Run the ADS Doctor from the runtime host. |
-| `Structured Text: Import TwinCAT Symbols` | Preview generated `ads.toml`, snapshot, and ST diffs before writing. |
-| `Structured Text: Add ADS Route` | Open the route-planning path for the selected runtime. |
+| The ADS node | Shows the connection state of that runtime's ADS client or server. |
+| **+ Add** → **ADS client** or **ADS server** | Opens the typed form of the connection. |
+| **Browse tags** on an ADS client | Reads the target's symbol table, one ADS port at a time; **Add tags** imports the chosen symbols. |
+| **Create route** in Browse tags | Plans the missing AMS route for that runtime host. |
 
-The ADS panel has no runtime selector. If no online runtime is selected, it
-opens the Runtime pane instead of silently falling back to the laptop.
+The ADS Doctor runs on the runtime host, from its setup page (see below). An ADS
+connection always belongs to a runtime of the canvas, so nothing falls back to
+the laptop.
 When the selected runtime uses remote plain TCP control, VS Code does not send
 TwinCAT credentials over that channel. It fetches the runtime host identity with
 `ads.identity`, then runs the local `trust-runtime ads add-route --password-stdin`

@@ -254,5 +254,5 @@ El programa funcionará sin acceder a hardware físico.
 - [ ] Correct NIC selected (`adapter`)
 - [ ] Safe-state outputs defined for all critical outputs
 - [ ] Fault policy reviewed (`on_error`)
-- [ ] Runtime panel checks passed in mock mode
-- [ ] Runtime panel checks repeated on real hardware
+- [ ] Live Values checks passed in mock mode
+- [ ] Live Values checks repeated on real hardware

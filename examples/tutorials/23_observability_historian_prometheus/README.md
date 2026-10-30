@@ -86,7 +86,7 @@ Leave this terminal running.
 
 Why: historian and metrics should reflect real signal changes, not idle state.
 
-Use runtime panel/Web UI and toggle mapped inputs (for example `%IX0.0`) for at
+Use Live Values or the web UI and toggle mapped inputs (for example `%IX0.0`) for at
 least a few cycles so `StartCmd`/`RunLamp` values change.
 
 ## Step 6: Verify historian file output
