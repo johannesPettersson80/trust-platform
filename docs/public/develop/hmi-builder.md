@@ -235,8 +235,8 @@ Use your existing VS Code Agent conversation or Codex IDE conversation. truST su
 engineering tools; it does not add a model provider or another chat panel. Ordinary editing
 works without an agent account.
 
-For the VS Code Agent, enable the HMI tools in its tool picker. For Codex, run **truST: Connect
-Agent to HMI Project** in the Command Palette, choose the project when asked, and add the exact
+For the VS Code Agent, enable the HMI tools in its tool picker. For Codex, run **truST: HMI: Connect
+Agent Tools** in the Command Palette, choose the project when asked, and add the exact
 MCP entry shown by that command to your client's settings. Keep that VS Code window open.
 Reconnect after restarting it; never copy the private connection file into the project.
 

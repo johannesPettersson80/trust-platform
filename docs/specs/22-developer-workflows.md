@@ -351,6 +351,25 @@ workflow instead of skipping its checks. GitHub's own path filters compare only 
 0.25.0's 10,252-file pull request ran no documentation workflow, and the site
 broke on `main` (28 October 2026).
 
+### Documentation that follows the product
+
+The documentation is tested against the product, not only for its links,
+assets, navigation and search. Every code block fenced as Structured Text in
+the README, the pages of `docs/public` and the examples' READMEs quotes the
+sources of its example, or of an example its page links to, each line without
+comments and with its whitespace collapsed (a line or a part of a line written
+as `...` stands for code the quote leaves out), or else parses as Structured
+Text; a fence marked `ignore` is left out. Every command a page names by its
+Command Palette title in bold, and every setting it names by its key in
+backticks, is one the VS Code extension contributes. Every `trust-runtime`
+command line in a fenced block parses with the runtime's command line. A quote
+that its program no longer holds, a renamed command or setting, and a renamed
+flag therefore fail a pull request instead of leaving the page behind
+(30 October 2026: five blocks that no parser accepted, among them an OpenOT
+variable named with the keyword `ACTION`, three command titles that no longer
+existed, and two command lines that the runtime refused: `ctl restart` without
+its mode and a run without its command).
+
 ### Release-candidate failure reporting
 
 The exact-SHA `prepare` command runs every stage whose prerequisites passed and

@@ -49,7 +49,7 @@ Use `ctl` when the workflow must be scriptable.
 ```bash
 trust-runtime ctl --project ./my-plc status
 trust-runtime ctl --project ./my-plc io-read
-trust-runtime ctl --project ./my-plc restart
+trust-runtime ctl --project ./my-plc restart warm
 ```
 
 ![`ctl status` against a running runtime](../assets/images/terminal/ctl-status.gif)

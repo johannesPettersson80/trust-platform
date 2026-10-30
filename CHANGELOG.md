@@ -16,6 +16,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Pull requests run the documentation, capture and diagram checks whenever the whole change touches their paths, also
   above the 300 changed files that GitHub's path filters compare, and each such workflow ends with one conclusion
   that fails when any of its checks failed (specification 22).
+- The documentation is checked against the product: the Structured Text in the README, the docs pages and the examples'
+  READMEs quotes its example's program or parses, the commands and settings the pages name exist in the VS Code
+  extension, and every `trust-runtime` command line they show parses. Fixed on the way: an OpenOT example that named a
+  variable with the keyword `ACTION`, four Structured Text examples that did not close their program, function or
+  function block, three command names that had changed, `ctl restart` without its mode, and a tutorial's run without
+  its command (specification 22).
 
 ## [0.26.0] - 2026-10-30
 

@@ -77,7 +77,7 @@ Resolve the authoritative active deployment pointer:
 
 ```bash
 readlink -f /tmp/trust-tutorial-14-deploy/current
-trust-runtime --project "$(readlink -f /tmp/trust-tutorial-14-deploy/current)"
+trust-runtime run --project "$(readlink -f /tmp/trust-tutorial-14-deploy/current)"
 ```
 
 Expected result:

@@ -30,7 +30,7 @@ through `trust-lsp.toml`:
 Alarm = { path = "libraries/alarm", version = "0.1.0" }
 ```
 
-The tank's vessel declares its level alarms (from `src/main.st`):
+The tank's vessel declares its level alarms (from `src/Main.st`):
 
 ```iecst
 FUNCTION_BLOCK TankVessel
