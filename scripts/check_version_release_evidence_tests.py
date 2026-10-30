@@ -1,8 +1,12 @@
+"""The verification of a released version (specification 24, "Release after main CI"): the
+annotated tag on the released commit, the final GitHub release named Latest with its evidence
+assets, and the Marketplace listing the version for every target within the wait. Every expected
+value follows from the state each test gives."""
+
 from __future__ import annotations
 
 import contextlib
 import io
-import json
 import os
 import subprocess
 import sys
@@ -19,10 +23,11 @@ from scripts.release_evidence_contract import (
 
 
 CURRENT_VERSION = "1.2.3"
-CURRENT_SHA = "a" * 40
-PREVIOUS_SHA = "b" * 40
-TAG_SHA = CURRENT_SHA
+RELEASED_SHA = "a" * 40
+OTHER_SHA = "b" * 40
+TAG_OBJECT = "c" * 40
 EXPECTED_TAG = f"v{CURRENT_VERSION}"
+EXTENSION = "publisher.extension"
 
 
 def completed(
@@ -41,95 +46,69 @@ def published_release(*, assets: list[str] | None = None) -> dict[str, Any]:
         "tag_name": EXPECTED_TAG,
         "draft": False,
         "prerelease": False,
-        "published_at": "2026-07-30T12:00:00Z",
+        "published_at": "2026-10-30T12:00:00Z",
         "html_url": f"https://github.example/releases/{EXPECTED_TAG}",
         "assets": [{"name": name} for name in names],
     }
 
 
-def completed_release_run(*, head_sha: str = TAG_SHA) -> dict[str, Any]:
-    return {
-        "id": 77,
-        "event": "push",
-        "head_branch": EXPECTED_TAG,
-        "head_sha": head_sha,
-        "status": "completed",
-        "conclusion": "success",
-        "html_url": "https://github.example/actions/runs/77",
-    }
+def annotated_listing(commit: str = RELEASED_SHA) -> str:
+    return f"{TAG_OBJECT}\trefs/tags/{EXPECTED_TAG}\n{commit}\trefs/tags/{EXPECTED_TAG}^{{}}\n"
+
+
+def every_target(version: str = CURRENT_VERSION) -> dict[str, str]:
+    return {target: version for target in guard.MARKETPLACE_TARGETS}
 
 
 class MainHarness:
+    """Runs the verifier against a given repository, GitHub and Marketplace, on a clock that each
+    pause between Marketplace answers advances by the pause."""
+
     def __init__(
         self,
         *,
-        event_name: str = "push",
-        ref: str = "refs/heads/main",
-        before: str = PREVIOUS_SHA,
-        after: str = CURRENT_SHA,
-        before_version: str | None = "1.2.2",
-        tag_sha: str | None = TAG_SHA,
-        tag_type: str = "tag",
-        merge_base_returncode: int = 0,
+        tag: str = EXPECTED_TAG,
+        version_at_sha: str | None = CURRENT_VERSION,
+        listing: str | None = None,
         api=None,
+        marketplace: list[Any] | None = None,
+        wait_seconds: int = 0,
         env: dict[str, str] | None = None,
-        extra_args: list[str] | None = None,
     ) -> None:
-        self.event_name = event_name
-        self.ref = ref
-        self.before = before
-        self.after = after
-        self.before_version = before_version
-        self.tag_sha = tag_sha
-        self.tag_type = tag_type
-        self.merge_base_returncode = merge_base_returncode
+        self.tag = tag
+        self.version_at_sha = version_at_sha
+        self.listing = annotated_listing() if listing is None else listing
         self.api = api or self.success_api
+        # Each Marketplace query takes the next answer: a mapping of target to version, or an
+        # exception it raises; the last answer repeats.
+        self.marketplace = marketplace if marketplace is not None else [every_target()]
+        self.wait_seconds = wait_seconds
         self.env = env if env is not None else {"GITHUB_TOKEN": "github-token"}
-        self.extra_args = extra_args or [
-            "--run-discovery-timeout-seconds",
-            "0",
-            "--run-completion-timeout-seconds",
-            "0",
-            "--poll-interval-seconds",
-            "0",
-        ]
-        self.git_calls: list[tuple[list[str], bool]] = []
+        self.git_calls: list[list[str]] = []
         self.api_calls: list[tuple[str, str, str, dict[str, str] | None]] = []
+        self.marketplace_calls = 0
+        self.clock = 0.0
 
     def argv(self) -> list[str]:
         return [
             "check_version_release_evidence.py",
-            "--event-name",
-            self.event_name,
-            "--ref",
-            self.ref,
-            "--before",
-            self.before,
-            "--after",
-            self.after,
             "--repo",
             "owner/repo",
-            *self.extra_args,
+            "--tag",
+            self.tag,
+            "--sha",
+            RELEASED_SHA,
+            "--marketplace-wait-seconds",
+            str(self.wait_seconds),
+            "--poll-interval-seconds",
+            "60",
         ]
 
-    def run_git(
-        self, args: list[str], *, check: bool = True
-    ) -> subprocess.CompletedProcess[str]:
-        self.git_calls.append((list(args), check))
-        if args[:1] == ["fetch"]:
-            return completed(args)
-        if args[:1] == ["rev-parse"]:
-            if self.tag_sha is None:
-                return completed(args, returncode=128, stderr="unknown revision")
-            return completed(args, stdout=f"{self.tag_sha}\n")
-        if args[:2] == ["cat-file", "-t"]:
-            return completed(args, stdout=f"{self.tag_type}\n")
+    def run_git(self, args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
+        self.git_calls.append(list(args))
+        if args[:2] == ["ls-remote", "--tags"]:
+            return completed(args, stdout=self.listing)
         raise AssertionError(f"unexpected git call: {args}")
-
-    def subprocess_run(self, args, **_kwargs):
-        if list(args[:3]) == ["git", "merge-base", "--is-ancestor"]:
-            return completed(list(args), returncode=self.merge_base_returncode)
-        raise AssertionError(f"unexpected subprocess call: {args}")
 
     def success_api(
         self,
@@ -138,8 +117,6 @@ class MainHarness:
         token: str,
         query: dict[str, str] | None = None,
     ) -> tuple[int, dict]:
-        if path == "/actions/workflows/release.yml/runs":
-            return 200, {"workflow_runs": [completed_release_run()]}
         if path == f"/releases/tags/{EXPECTED_TAG}":
             return 200, published_release()
         if path == "/releases/latest":
@@ -156,27 +133,38 @@ class MainHarness:
         self.api_calls.append((repo, path, token, query))
         return self.api(repo, path, token, query)
 
+    def marketplace_versions(self, extension: str) -> dict[str, str]:
+        assert extension == EXTENSION, extension
+        answer = self.marketplace[min(self.marketplace_calls, len(self.marketplace) - 1)]
+        self.marketplace_calls += 1
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    def sleep(self, seconds: float) -> None:
+        self.clock += seconds
+
     def run(self) -> tuple[int, str, str]:
         stdout = io.StringIO()
         stderr = io.StringIO()
         with (
             patch.object(sys, "argv", self.argv()),
-            patch.object(guard, "current_workspace_version", return_value=CURRENT_VERSION),
-            patch.object(
-                guard, "workspace_version_at_rev", return_value=self.before_version
-            ),
+            patch.object(guard, "workspace_version_at_rev", return_value=self.version_at_sha),
             patch.object(guard, "run_git", side_effect=self.run_git),
-            patch.object(guard.subprocess, "run", side_effect=self.subprocess_run),
             patch.object(guard, "github_api_get", side_effect=self.api_get),
+            patch.object(guard, "extension_id", return_value=EXTENSION),
+            patch.object(guard, "marketplace_versions", side_effect=self.marketplace_versions),
+            patch.object(guard.time, "monotonic", side_effect=lambda: self.clock),
+            patch.object(guard.time, "sleep", side_effect=self.sleep),
             patch.dict(os.environ, self.env, clear=True),
             contextlib.redirect_stdout(stdout),
             contextlib.redirect_stderr(stderr),
         ):
-            result = guard.main()
+            result = guard.main(self.argv()[1:])
         return result, stdout.getvalue(), stderr.getvalue()
 
 
-class VersionReleaseGuardContractTests(unittest.TestCase):
+class ReleaseVerificationTests(unittest.TestCase):
     def test_workspace_version_parser_reads_exact_workspace_package_value(self) -> None:
         content = """
 [workspace]
@@ -186,29 +174,6 @@ members = []
 version = "0.24.99"
 """
         self.assertEqual(guard.workspace_version_from_toml(content), "0.24.99")
-
-    def test_success_payload_shape_error_is_a_stable_guard_failure(self) -> None:
-        endpoint = "/actions/workflows/release.yml/runs"
-
-        def malformed_api(
-            _repo: str,
-            path: str,
-            _token: str,
-            _query: dict[str, str] | None = None,
-        ) -> tuple[int, dict]:
-            raise ReleaseEvidenceError(
-                f"GitHub API endpoint {path} returned HTTP 200 with malformed JSON"
-            )
-
-        try:
-            code, stdout, stderr = MainHarness(api=malformed_api).run()
-        except Exception as exc:
-            self.fail(f"version release guard leaked its response error: {exc}")
-        self.assertEqual(code, 1)
-        self.assertIn("::error::", stderr)
-        self.assertIn(endpoint, stderr)
-        self.assertIn("HTTP 200", stderr)
-        self.assertNotIn("Traceback", stdout + stderr)
 
     def test_workspace_version_parser_rejects_missing_or_wrong_shaped_value(self) -> None:
         for content in [
@@ -220,63 +185,31 @@ version = "0.24.99"
                 with self.assertRaisesRegex(RuntimeError, "workspace.package"):
                     guard.workspace_version_from_toml(content)
 
-    def test_non_main_push_events_are_the_only_unconditional_skip(self) -> None:
-        for event, ref in [
-            ("pull_request", "refs/heads/main"),
-            ("workflow_dispatch", "refs/heads/main"),
-            ("push", "refs/heads/feature"),
-            ("push", "refs/tags/v1.2.3"),
+    def test_a_tag_of_another_version_fails_before_git_or_api_access(self) -> None:
+        # Catches a verification of the wrong release: the tag is the version at the commit.
+        harness = MainHarness(tag="v9.9.9")
+        code, _stdout, stderr = harness.run()
+        self.assertEqual(code, 1)
+        self.assertIn(f"does not match the workspace version {CURRENT_VERSION}", stderr)
+        self.assertEqual((harness.git_calls, harness.api_calls), ([], []))
+
+    def test_an_unreadable_version_at_the_commit_fails(self) -> None:
+        code, _stdout, stderr = MainHarness(version_at_sha=None).run()
+        self.assertEqual(code, 1)
+        self.assertIn("cannot be read", stderr)
+
+    def test_the_tag_must_exist_be_annotated_and_peel_to_the_released_commit(self) -> None:
+        for listing, message in [
+            ("", "does not exist on origin"),
+            (f"{RELEASED_SHA}\trefs/tags/{EXPECTED_TAG}\n", "must be an annotated tag object"),
+            (annotated_listing(OTHER_SHA), f"points to {OTHER_SHA}, not the released commit"),
         ]:
-            harness = MainHarness(event_name=event, ref=ref)
-            code, stdout, stderr = harness.run()
-            self.assertEqual(code, 0, (event, ref, stderr))
-            self.assertIn("skipped", stdout)
-            self.assertEqual(harness.git_calls, [])
-            self.assertEqual(harness.api_calls, [])
-
-    def test_unchanged_workspace_version_skips_release_evidence(self) -> None:
-        harness = MainHarness(before_version=CURRENT_VERSION)
-        code, stdout, stderr = harness.run()
-        self.assertEqual(code, 0, stderr)
-        self.assertIn("workspace version unchanged", stdout)
-        self.assertEqual(harness.git_calls, [])
-        self.assertEqual(harness.api_calls, [])
-
-    def test_null_before_revision_enforces_instead_of_skipping(self) -> None:
-        harness = MainHarness(before=guard.NULL_SHA, before_version=None)
-        code, stdout, stderr = harness.run()
-        self.assertEqual(code, 0, stderr)
-        self.assertIn("unable to resolve previous workspace version", stdout)
-        self.assertTrue(harness.git_calls)
-        self.assertTrue(harness.api_calls)
-
-    def test_tag_discovery_timeout_is_a_visible_failure(self) -> None:
-        harness = MainHarness(tag_sha=None)
-        code, _stdout, stderr = harness.run()
-        self.assertEqual(code, 1)
-        self.assertIn(f"tag {EXPECTED_TAG} does not exist", stderr)
-
-    def test_release_tag_must_be_an_annotated_tag_object(self) -> None:
-        harness = MainHarness(tag_type="commit")
-        code, _stdout, stderr = harness.run()
-        self.assertEqual(code, 1)
-        self.assertIn("annotated", stderr)
-        self.assertTrue(
-            any(args[:2] == ["cat-file", "-t"] for args, _ in harness.git_calls),
-            harness.git_calls,
-        )
-
-    def test_peeled_tag_must_equal_the_exact_main_push_sha(self) -> None:
-        harness = MainHarness(tag_sha="c" * 40, merge_base_returncode=0)
-        code, _stdout, stderr = harness.run()
-        self.assertEqual(code, 1)
-        self.assertRegex(stderr, r"(exact|does not match)")
-
-    def test_non_ancestor_tag_is_rejected(self) -> None:
-        harness = MainHarness(tag_sha="c" * 40, merge_base_returncode=1)
-        code, _stdout, stderr = harness.run()
-        self.assertEqual(code, 1)
-        self.assertIn("not reachable", stderr)
+            with self.subTest(message=message):
+                harness = MainHarness(listing=listing)
+                code, _stdout, stderr = harness.run()
+                self.assertEqual(code, 1)
+                self.assertIn(message, stderr)
+                self.assertEqual(harness.api_calls, [])
 
     def test_missing_github_token_fails_before_api_access(self) -> None:
         harness = MainHarness(env={})
@@ -286,93 +219,26 @@ version = "0.24.99"
         self.assertEqual(harness.api_calls, [])
 
     def test_github_token_precedes_gh_token_without_leaking_either(self) -> None:
-        harness = MainHarness(
-            env={"GITHUB_TOKEN": "preferred-secret", "GH_TOKEN": "fallback-secret"}
-        )
+        harness = MainHarness(env={"GITHUB_TOKEN": "preferred-secret", "GH_TOKEN": "fallback-secret"})
         code, stdout, stderr = harness.run()
         self.assertEqual(code, 0, stderr)
         self.assertTrue(harness.api_calls)
-        self.assertTrue(
-            all(call[2] == "preferred-secret" for call in harness.api_calls)
-        )
+        self.assertTrue(all(call[2] == "preferred-secret" for call in harness.api_calls))
         self.assertNotIn("preferred-secret", stdout + stderr)
         self.assertNotIn("fallback-secret", stdout + stderr)
 
-    def test_release_run_query_failure_is_visible(self) -> None:
-        def api(_repo, path, _token, _query=None):
-            self.assertEqual(path, "/actions/workflows/release.yml/runs")
-            return 503, {"message": "temporarily unavailable"}
+    def test_success_payload_shape_error_is_a_stable_failure(self) -> None:
+        endpoint = f"/releases/tags/{EXPECTED_TAG}"
 
-        harness = MainHarness(api=api)
-        code, _stdout, stderr = harness.run()
+        def malformed_api(_repo, path, _token, _query=None):
+            raise ReleaseEvidenceError(f"GitHub API endpoint {path} returned HTTP 200 with malformed JSON")
+
+        code, stdout, stderr = MainHarness(api=malformed_api).run()
         self.assertEqual(code, 1)
-        self.assertIn("status 503", stderr)
-        self.assertIn("temporarily unavailable", stderr)
-
-    def test_release_run_discovery_timeout_is_visible(self) -> None:
-        def api(_repo, path, _token, _query=None):
-            self.assertEqual(path, "/actions/workflows/release.yml/runs")
-            return 200, {"workflow_runs": []}
-
-        harness = MainHarness(api=api)
-        code, _stdout, stderr = harness.run()
-        self.assertEqual(code, 1)
-        self.assertIn("no Release workflow run", stderr)
-
-    def test_same_tag_workflow_run_for_another_sha_is_not_accepted(self) -> None:
-        def api(_repo, path, _token, _query=None):
-            if path == "/actions/workflows/release.yml/runs":
-                return 200, {
-                    "workflow_runs": [completed_release_run(head_sha="d" * 40)]
-                }
-            if path == f"/releases/tags/{EXPECTED_TAG}":
-                return 200, published_release()
-            if path == "/releases/latest":
-                return 200, {"tag_name": EXPECTED_TAG}
-            raise AssertionError(path)
-
-        harness = MainHarness(api=api)
-        code, _stdout, stderr = harness.run()
-        self.assertEqual(code, 1)
-        self.assertRegex(stderr, r"(head_sha|exact|no Release workflow run)")
-
-    def test_incomplete_run_without_id_cannot_be_polled(self) -> None:
-        def api(_repo, path, _token, _query=None):
-            self.assertEqual(path, "/actions/workflows/release.yml/runs")
-            run = completed_release_run()
-            run.update({"id": None, "status": "queued", "conclusion": None})
-            return 200, {"workflow_runs": [run]}
-
-        harness = MainHarness(api=api)
-        code, _stdout, stderr = harness.run()
-        self.assertEqual(code, 1)
-        self.assertIn("no run id", stderr)
-
-    def test_run_completion_timeout_is_visible(self) -> None:
-        def api(_repo, path, _token, _query=None):
-            self.assertEqual(path, "/actions/workflows/release.yml/runs")
-            run = completed_release_run()
-            run.update({"status": "in_progress", "conclusion": None})
-            return 200, {"workflow_runs": [run]}
-
-        harness = MainHarness(api=api)
-        code, _stdout, stderr = harness.run()
-        self.assertEqual(code, 1)
-        self.assertIn("did not complete", stderr)
-
-    def test_completed_non_success_conclusions_are_rejected(self) -> None:
-        for conclusion in ["failure", "cancelled", "timed_out", "skipped", None]:
-            def api(_repo, path, _token, _query=None, conclusion=conclusion):
-                self.assertEqual(path, "/actions/workflows/release.yml/runs")
-                run = completed_release_run()
-                run["conclusion"] = conclusion
-                return 200, {"workflow_runs": [run]}
-
-            with self.subTest(conclusion=conclusion):
-                harness = MainHarness(api=api)
-                code, _stdout, stderr = harness.run()
-                self.assertEqual(code, 1)
-                self.assertIn("not successful", stderr)
+        self.assertIn("::error::", stderr)
+        self.assertIn(endpoint, stderr)
+        self.assertIn("HTTP 200", stderr)
+        self.assertNotIn("Traceback", stdout + stderr)
 
     def test_missing_or_unpublished_release_is_rejected(self) -> None:
         for status, release in [
@@ -381,47 +247,47 @@ version = "0.24.99"
             (200, {**published_release(), "draft": True}),
         ]:
             def api(_repo, path, _token, _query=None, status=status, release=release):
-                if path == "/actions/workflows/release.yml/runs":
-                    return 200, {"workflow_runs": [completed_release_run()]}
                 if path == f"/releases/tags/{EXPECTED_TAG}":
                     return status, release
                 raise AssertionError(path)
 
             with self.subTest(status=status, release=release):
-                harness = MainHarness(api=api)
-                code, _stdout, stderr = harness.run()
+                code, _stdout, stderr = MainHarness(api=api).run()
                 self.assertEqual(code, 1)
                 self.assertRegex(stderr, r"(not found|not published)")
 
     def test_latest_release_api_failure_is_visible(self) -> None:
         def api(_repo, path, _token, _query=None):
-            if path == "/actions/workflows/release.yml/runs":
-                return 200, {"workflow_runs": [completed_release_run()]}
             if path == f"/releases/tags/{EXPECTED_TAG}":
                 return 200, published_release()
             if path == "/releases/latest":
                 return 502, {"message": "bad gateway"}
             raise AssertionError(path)
 
-        harness = MainHarness(api=api)
-        code, _stdout, stderr = harness.run()
+        code, _stdout, stderr = MainHarness(api=api).run()
         self.assertEqual(code, 1)
         self.assertIn("status 502", stderr)
 
-    def test_publication_contract_failure_is_returned_by_guard(self) -> None:
-        def api(_repo, path, _token, _query=None):
-            if path == "/actions/workflows/release.yml/runs":
-                return 200, {"workflow_runs": [completed_release_run()]}
-            if path == f"/releases/tags/{EXPECTED_TAG}":
-                return 200, published_release(assets=["SHA256SUMS"])
-            if path == "/releases/latest":
-                return 200, {"tag_name": EXPECTED_TAG}
-            raise AssertionError(path)
+    def test_publication_contract_failures_are_returned(self) -> None:
+        # A prerelease, Latest on another tag, or a missing evidence asset is not a release.
+        for release, latest, message in [
+            ({**published_release(), "prerelease": True}, EXPECTED_TAG, "not a final publication"),
+            (published_release(), "v1.2.2", "GitHub Latest points to 'v1.2.2'"),
+            (published_release(assets=["SHA256SUMS"]), EXPECTED_TAG, "missing required assets"),
+        ]:
+            def api(_repo, path, _token, _query=None, release=release, latest=latest):
+                if path == f"/releases/tags/{EXPECTED_TAG}":
+                    return 200, release
+                if path == "/releases/latest":
+                    return 200, {"tag_name": latest}
+                raise AssertionError(path)
 
-        harness = MainHarness(api=api)
-        code, _stdout, stderr = harness.run()
-        self.assertEqual(code, 1)
-        self.assertIn("missing required assets", stderr)
+            with self.subTest(message=message):
+                harness = MainHarness(api=api)
+                code, _stdout, stderr = harness.run()
+                self.assertEqual(code, 1)
+                self.assertIn(message, stderr)
+                self.assertEqual(harness.marketplace_calls, 0)
 
     def test_duplicate_release_asset_names_are_rejected(self) -> None:
         release = published_release()
@@ -434,13 +300,58 @@ version = "0.24.99"
                 required_assets=guard.REQUIRED_EVIDENCE_ASSETS,
             )
 
+    def test_the_marketplace_must_list_the_version_for_every_target(self) -> None:
+        # Catches a release that one platform's failed upload leaves half published.
+        listed = every_target()
+        listed["win32-x64"] = "1.2.2"
+        code, _stdout, stderr = MainHarness(marketplace=[listed]).run()
+        self.assertEqual(code, 1)
+        self.assertIn("win32-x64 is '1.2.2'", stderr)
+        self.assertNotIn("linux-x64 is", stderr)
+
+    def test_the_wait_polls_until_every_target_is_listed(self) -> None:
+        # The Marketplace lists a published version after a delay: two answers without it, then
+        # the version for every target, within a wait of three minutes polled each minute.
+        partial = {"linux-x64": CURRENT_VERSION}
+        harness = MainHarness(marketplace=[partial, {}, every_target()], wait_seconds=180)
+        code, stdout, stderr = harness.run()
+        self.assertEqual(code, 0, stderr)
+        self.assertEqual(harness.marketplace_calls, 3)
+        self.assertEqual(harness.clock, 120)
+        self.assertIn(f"marketplace={EXTENSION} {CURRENT_VERSION}", stdout)
+
+    def test_the_wait_ends_with_the_targets_still_missing(self) -> None:
+        # One answer at the start and one each minute until the wait of two minutes has passed.
+        harness = MainHarness(marketplace=[{}], wait_seconds=120)
+        code, _stdout, stderr = harness.run()
+        self.assertEqual(code, 1)
+        self.assertEqual(harness.marketplace_calls, 3)
+        self.assertIn("after 120s", stderr)
+        for target in guard.MARKETPLACE_TARGETS:
+            self.assertIn(f"{target} is None", stderr)
+
+    def test_an_unreadable_marketplace_answer_is_never_a_listing(self) -> None:
+        # Polling never turns an unknown answer into success; the last error is named.
+        error = urllib.error.URLError("connection refused")
+        code, _stdout, stderr = MainHarness(marketplace=[error]).run()
+        self.assertEqual(code, 1)
+        self.assertIn("connection refused", stderr)
+        malformed = KeyError("results")
+        harness = MainHarness(marketplace=[malformed, every_target()], wait_seconds=60)
+        code, _stdout, stderr = harness.run()
+        self.assertEqual(code, 0, stderr)
+        self.assertEqual(harness.marketplace_calls, 2)
+
     def test_complete_exact_release_chain_is_accepted(self) -> None:
         harness = MainHarness()
         code, stdout, stderr = harness.run()
         self.assertEqual(code, 0, stderr)
-        self.assertIn(f"release evidence verified for {EXPECTED_TAG}", stdout)
-        self.assertIn("release=", stdout)
-        self.assertIn("workflow=", stdout)
+        self.assertIn(f"release evidence verified for {EXPECTED_TAG} at {RELEASED_SHA}", stdout)
+        self.assertIn("release=https://github.example/releases/", stdout)
+        self.assertEqual(
+            [call[1] for call in harness.api_calls],
+            [f"/releases/tags/{EXPECTED_TAG}", "/releases/latest"],
+        )
 
 
 class GitHubApiBoundaryTests(unittest.TestCase):

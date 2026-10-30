@@ -84,18 +84,27 @@ workflow as a rehearsal on its head: the preflight, every build, every test and
 every Publish script run, no tag is created, nothing is published, and the
 release text and evidence are kept as the artifact `release-rehearsal-v<version>`.
 A pull request that keeps the version skips the jobs after the workflow's plan.
-A version change merges only with a passed rehearsal on its exact head.
+A version change merges only with a passed rehearsal on its exact head that kept
+that artifact. A pull request from a fork is not rehearsed on the project's
+runners; a maintainer rehearses its head with a manual run, which rehearses the
+commit it runs on. A new push to a pull request replaces the rehearsal of its
+previous head.
 
 ### Release after main CI
 
 A version is released after `main`'s CI passed on the commit that brings it, so
 no one pushes the tag. When the CI workflow completes for a push to `main`, the
 Release workflow's plan releases that run's commit when all of these hold: the
-CI run concluded `success`; the repository is the official one; and the
-workspace version at that commit has no tag `v<version>`, or that tag is
-annotated, peels to the same commit, and its release is not complete. A tag on
-another commit fails the plan. Every job of the release checks out that commit,
-never the branch's newest one.
+CI run concluded `success` for a push to the `main` of this repository; the
+repository is the official one; and the workspace version at that commit has no
+tag `v<version>`, or that tag is annotated, peels to the same commit, and its
+release is not complete. A version whose tag is on another commit was released
+before, so nothing happens; a lightweight tag on the commit fails the plan, as
+does a failed git or GitHub request. The plan runs the workflow's own commit and
+reads the commit it plans for only as data, so the code of a fork's pull request
+never runs with the release's token. Every job of the release checks out that
+commit, never the branch's newest one, and releases from `main` run one at a
+time.
 
 The preflight and every build and test of every target run first; a failure
 among them creates no tag and publishes nothing. Then one job creates the
@@ -104,7 +113,9 @@ release with every required asset and the version's changelog section as its
 text, publishes every target's VS Code package to the Marketplace, and verifies
 the release. A missing Marketplace token fails the release. Re-running the
 failed jobs of a release continues where it stopped: a tag on the same commit,
-an existing release and a target already published are accepted.
+an existing release and a target already published are accepted. The
+workflow's conclusion job fails when any job failed or was cancelled, and
+passes when every job passed or the plan skipped it.
 
 The verification requires that the tag is an annotated tag object peeling to
 the released commit; that the release at the tag exists, is published,
@@ -154,15 +165,15 @@ Unreadable, malformed, or wrongly shaped manifests are failures, never an
 implicit version.
 
 For a release, the tag `v<workspace-version>` must not exist, or must be an
-annotated tag object peeling to the checked-out release SHA. The release
-preflight accepts CI evidence only from the `ci.yml` workflow for that exact
-SHA where `event` is `push`, `head_branch` is `main` or `master`, status is
-`completed`, and conclusion is `success`. A successful pull-request,
-workflow-dispatch, branch, tag, or other-SHA run is not final-main CI evidence.
-An API failure, malformed run collection, absent URL, missing credential, or
-absence of an exact qualifying run fails before artifact construction.
-`GITHUB_TOKEN` takes precedence over `GH_TOKEN` and neither may appear in
-output.
+annotated tag object peeling to the checked-out release SHA, and that SHA must be
+reachable from `origin/main`. A release's CI evidence is the run that started
+it: the `ci.yml` run of that exact SHA whose `event` is `push`, whose
+`head_branch` is `main` or `master`, whose repository is this one, and whose
+conclusion is `success`. A successful pull-request, workflow-dispatch, branch,
+tag, other-repository or other-SHA run is not final-main CI evidence and
+releases nothing. A release also requires the Marketplace token before it
+builds. `GITHUB_TOKEN` takes precedence over `GH_TOKEN` and neither may appear
+in output.
 
 ## Hardware And Conformance Claims
 

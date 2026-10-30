@@ -58,6 +58,7 @@ STATIC_INPUTS = {
     "scripts/generate_release_gate_report.py",
     "scripts/generate_release_provenance.py",
     "scripts/release_evidence_contract.py",
+    "scripts/release_plan.py",
     "scripts/report_phase13_release_evidence.py",
     "scripts/validate_phase13_release_evidence_report.py",
     "scripts/verification/phase13_release.py",

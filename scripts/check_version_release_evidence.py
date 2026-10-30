@@ -1,5 +1,20 @@
 #!/usr/bin/env python3
-"""Enforce tag/release evidence for workspace version bumps on main/master pushes."""
+"""Verify a released version: its annotated tag, its GitHub release and its Marketplace listing.
+
+Specification 24, "Release after main CI": the Release workflow runs this as the last step of a
+release, and the release skill's `verify-release` relies on that run. It requires
+- the tag `v<version>` of the workspace version at the released commit to be an annotated tag
+  object on origin that peels to that commit;
+- the release at the tag to exist, be published, non-draft and non-prerelease, GitHub
+  `releases/latest` to name the same tag, and the release's asset names to be nonempty, unique
+  and to include the required evidence assets;
+- the VS Code Marketplace to list the version for every released target within the wait.
+Polling never converts an unknown or incomplete answer into success.
+
+Usage, in a checkout of the released commit:
+
+    python3 scripts/check_version_release_evidence.py --repo OWNER/NAME --tag vX.Y.Z --sha SHA
+"""
 
 from __future__ import annotations
 
@@ -21,24 +36,26 @@ try:
         decode_github_api_object,
         validate_release_publication,
     )
+    from scripts.release_plan import parse_tag_listing
 except ModuleNotFoundError:  # Direct `python scripts/...` execution.
     from release_evidence_contract import (  # type: ignore[no-redef]
         ReleaseEvidenceError,
         decode_github_api_object,
         validate_release_publication,
     )
+    from release_plan import parse_tag_listing  # type: ignore[no-redef]
 
-NULL_SHA = "0" * 40
-DEFAULT_RUN_DISCOVERY_TIMEOUT_SECONDS = 3 * 60
-# The Release of 0.25.1 ran 1 h 54 min (five platform builds and five toolchain bundles), and the
-# wait of 90 minutes failed main's CI while it ran. Three hours leave an hour to spare.
-DEFAULT_RUN_COMPLETION_TIMEOUT_SECONDS = 180 * 60
 REQUIRED_EVIDENCE_ASSETS = {
     "SHA256SUMS",
     "release-provenance.json",
     "conformance-status.json",
     "conformance-status.md",
 }
+# Every platform the Release workflow packages a VS Code extension for.
+MARKETPLACE_TARGETS = ("darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64", "win32-x64")
+# The Marketplace lists a published version after a delay; an hour leaves room for a slow one.
+DEFAULT_MARKETPLACE_WAIT_SECONDS = 60 * 60
+MARKETPLACE_QUERY_URL = "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery"
 
 
 def run_git(args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -70,8 +87,9 @@ def workspace_version_at_rev(rev: str) -> str | None:
     return workspace_version_from_toml(shown.stdout)
 
 
-def current_workspace_version() -> str:
-    return workspace_version_from_toml(Path("Cargo.toml").read_text(encoding="utf-8"))
+def extension_id(package_json: Path) -> str:
+    package = json.loads(package_json.read_text(encoding="utf-8"))
+    return f"{package['publisher']}.{package['name']}"
 
 
 def github_api_get(
@@ -106,222 +124,126 @@ def github_api_get(
         return exc.code, payload
 
 
+def marketplace_versions(extension: str) -> dict[str, str]:
+    """The newest version the Marketplace lists for each target of `extension`."""
+    payload = {
+        "filters": [
+            {
+                "criteria": [{"filterType": 7, "value": extension}],
+                "pageNumber": 1,
+                "pageSize": 1,
+                "sortBy": 0,
+                "sortOrder": 0,
+            }
+        ],
+        "assetTypes": [],
+        "flags": 914,
+    }
+    request = urllib.request.Request(
+        MARKETPLACE_QUERY_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Accept": "application/json;api-version=7.1-preview.1",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        data = json.load(response)
+    found: dict[str, str] = {}
+    for row in data["results"][0]["extensions"][0]["versions"]:
+        target = row.get("targetPlatform")
+        version = row.get("version")
+        if target in MARKETPLACE_TARGETS and target not in found and isinstance(version, str):
+            found[target] = version
+    return found
+
+
 def fail(message: str) -> int:
     print(f"::error::{message}", file=sys.stderr)
     return 1
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Fail CI when a workspace version bump on main/master is missing matching "
-            "vX.Y.Z tag and successful release evidence."
-        )
-    )
-    parser.add_argument("--event-name", required=True)
-    parser.add_argument("--ref", required=True)
-    parser.add_argument("--before", default="")
-    parser.add_argument("--after", required=True)
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--repo", required=True)
+    parser.add_argument("--tag", required=True)
+    parser.add_argument("--sha", required=True, help="The released commit.")
     parser.add_argument(
-        "--run-discovery-timeout-seconds",
-        type=int,
-        default=DEFAULT_RUN_DISCOVERY_TIMEOUT_SECONDS,
-        help="How long to wait for the tag-triggered Release run to appear.",
+        "--package-json",
+        type=Path,
+        default=Path("editors/vscode/package.json"),
+        help="The extension's manifest, which names its Marketplace identity.",
     )
     parser.add_argument(
-        "--run-completion-timeout-seconds",
+        "--marketplace-wait-seconds",
         type=int,
-        default=DEFAULT_RUN_COMPLETION_TIMEOUT_SECONDS,
-        help="How long to wait for the Release run to complete.",
+        default=DEFAULT_MARKETPLACE_WAIT_SECONDS,
+        help="How long to wait for the Marketplace to list the version for every target.",
     )
-    parser.add_argument(
-        "--poll-interval-seconds",
-        type=int,
-        default=15,
-        help="Polling interval used while waiting for Release workflow evidence.",
-    )
+    parser.add_argument("--poll-interval-seconds", type=int, default=60)
     return parser
+
+
+def wait_for_marketplace(
+    extension: str, version: str, wait_seconds: int, interval_seconds: int
+) -> list[str]:
+    """The targets the Marketplace does not list `version` for once the wait ends; empty once all do.
+
+    An unreadable answer counts as no listing and is retried until the wait ends."""
+    deadline = time.monotonic() + max(wait_seconds, 0)
+    while True:
+        try:
+            versions = marketplace_versions(extension)
+            answer = ""
+        except (OSError, ValueError, KeyError, IndexError, TypeError) as error:
+            versions = {}
+            answer = f" (last answer: {error})"
+        missing = [
+            f"{target} is {versions.get(target)!r}"
+            for target in MARKETPLACE_TARGETS
+            if versions.get(target) != version
+        ]
+        if not missing or time.monotonic() >= deadline:
+            return [f"{entry}{answer}" for entry in missing]
+        time.sleep(max(interval_seconds, 1))
 
 
 def _main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
-    if args.event_name != "push" or args.ref not in {"refs/heads/main", "refs/heads/master"}:
-        print("version-release-guard: skipped (not a push to main/master).")
-        return 0
+    version = workspace_version_at_rev(args.sha)
+    if version is None:
+        return fail(f"Cargo.toml at the released commit {args.sha} cannot be read.")
+    if args.tag != f"v{version}":
+        return fail(f"Release tag {args.tag} does not match the workspace version {version} at {args.sha}.")
 
-    current_version = current_workspace_version()
-    before_version: str | None = None
-    if args.before and args.before != NULL_SHA:
-        before_version = workspace_version_at_rev(args.before)
-
-    if before_version == current_version:
-        print(
-            "version-release-guard: workspace version unchanged "
-            f"({current_version}); no tag/release evidence required."
-        )
-        return 0
-
-    expected_tag = f"v{current_version}"
-    if before_version:
-        print(
-            "version-release-guard: detected workspace version bump "
-            f"{before_version} -> {current_version}."
-        )
-    else:
-        print(
-            "version-release-guard: unable to resolve previous workspace version; "
-            f"enforcing release evidence for {current_version}."
-        )
-
-    poll_interval = max(args.poll_interval_seconds, 1)
-    run_discovery_timeout = max(args.run_discovery_timeout_seconds, 0)
-    run_completion_timeout = max(args.run_completion_timeout_seconds, 0)
-
-    # Tag and main pushes can land a few seconds apart; wait briefly instead of failing instantly.
-    tag_commit: str | None = None
-    tag_discovery_deadline = time.monotonic() + run_discovery_timeout
-    while True:
-        run_git(["fetch", "--tags", "--force", "origin"])
-        tag_commit_proc = run_git(["rev-parse", f"refs/tags/{expected_tag}^{{}}"], check=False)
-        if tag_commit_proc.returncode == 0:
-            tag_commit = tag_commit_proc.stdout.strip()
-            break
-        if time.monotonic() >= tag_discovery_deadline:
-            return fail(
-                f"Workspace version bumped to {current_version}, but tag {expected_tag} does not "
-                f"exist on origin after waiting {run_discovery_timeout}s. Create/push the "
-                "annotated tag and rerun CI."
-            )
-        time.sleep(poll_interval)
-
-    tag_type_proc = run_git(
-        ["cat-file", "-t", f"refs/tags/{expected_tag}"], check=False
-    )
-    if tag_type_proc.returncode != 0 or tag_type_proc.stdout.strip() != "tag":
-        return fail(f"Release tag {expected_tag} must be an annotated tag object.")
-
-    ancestor_check = subprocess.run(
-        ["git", "merge-base", "--is-ancestor", tag_commit, args.after],
-        check=False,
-    )
-    if ancestor_check.returncode != 0:
-        return fail(
-            f"Tag {expected_tag} exists but points to {tag_commit}, which is not reachable from "
-            f"{args.after}. Tag must match the released main history for version {current_version}."
-        )
-    if tag_commit != args.after:
-        return fail(
-            f"Tag {expected_tag} points to {tag_commit}, which does not match the exact "
-            f"main push SHA {args.after}."
-        )
+    listing = run_git(["ls-remote", "--tags", "origin", f"refs/tags/{args.tag}*"]).stdout
+    found = parse_tag_listing(listing, args.tag)
+    if found is None:
+        return fail(f"Release tag {args.tag} does not exist on origin.")
+    kind, commit = found
+    if kind != "tag":
+        return fail(f"Release tag {args.tag} must be an annotated tag object.")
+    if commit != args.sha:
+        return fail(f"Release tag {args.tag} points to {commit}, not the released commit {args.sha}.")
 
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or ""
     if not token:
-        return fail("GITHUB_TOKEN is required to verify release workflow/release API evidence.")
+        return fail("GITHUB_TOKEN is required to verify the release through the GitHub API.")
 
-    run_for_tag: dict | None = None
-    discovery_deadline = time.monotonic() + run_discovery_timeout
-    while True:
-        runs_status, runs_payload = github_api_get(
-            args.repo,
-            "/actions/workflows/release.yml/runs",
-            token,
-            query={"event": "push", "per_page": "100"},
-        )
-        if runs_status != 200:
-            return fail(
-                "Could not query release workflow runs from GitHub API "
-                f"(status {runs_status}): {runs_payload.get('message', 'unknown error')}"
-            )
-
-        workflow_runs = runs_payload.get("workflow_runs", [])
-        if not isinstance(workflow_runs, list) or any(
-            not isinstance(run, dict) for run in workflow_runs
-        ):
-            return fail("GitHub returned a malformed Release workflow run collection.")
-        run_for_tag = next(
-            (
-                run
-                for run in workflow_runs
-                if run.get("event") == "push"
-                and run.get("head_branch") == expected_tag
-                and run.get("head_sha") == tag_commit
-            ),
-            None,
-        )
-        if run_for_tag is not None:
-            break
-        if time.monotonic() >= discovery_deadline:
-            return fail(
-                f"Tag {expected_tag} exists, but no Release workflow run was found for that tag "
-                f"within {run_discovery_timeout}s."
-            )
-        time.sleep(poll_interval)
-
-    run_id = run_for_tag.get("id")
-    run_status = run_for_tag.get("status")
-    run_conclusion = run_for_tag.get("conclusion")
-    run_url = run_for_tag.get("html_url")
-    if run_status != "completed":
-        if run_id is None:
-            return fail(
-                f"Release workflow for {expected_tag} has no run id and cannot be polled. "
-                f"Run: {run_url}"
-            )
-        completion_deadline = time.monotonic() + run_completion_timeout
-        while time.monotonic() < completion_deadline:
-            time.sleep(poll_interval)
-            run_status_code, run_payload = github_api_get(
-                args.repo,
-                f"/actions/runs/{run_id}",
-                token,
-            )
-            if run_status_code != 200:
-                return fail(
-                    "Could not query Release run status from GitHub API "
-                    f"(status {run_status_code}): {run_payload.get('message', 'unknown error')}"
-                )
-            run_for_tag = run_payload
-            run_status = run_for_tag.get("status")
-            run_conclusion = run_for_tag.get("conclusion")
-            run_url = run_for_tag.get("html_url")
-            if run_status == "completed":
-                break
-        if run_status != "completed":
-            return fail(
-                f"Release workflow for {expected_tag} did not complete within "
-                f"{run_completion_timeout}s (latest status={run_status}). Run: {run_url}"
-            )
-
-    if run_conclusion != "success":
-        return fail(
-            f"Release workflow for {expected_tag} is not successful "
-            f"(status={run_status}, conclusion={run_conclusion}). Run: {run_url}"
-        )
-
-    release_status, release_payload = github_api_get(
-        args.repo,
-        f"/releases/tags/{expected_tag}",
-        token,
-    )
+    release_status, release_payload = github_api_get(args.repo, f"/releases/tags/{args.tag}", token)
     if release_status != 200:
         return fail(
-            f"Release for tag {expected_tag} not found (status {release_status}): "
+            f"Release for tag {args.tag} not found (status {release_status}): "
             f"{release_payload.get('message', 'unknown error')}"
         )
     if release_payload.get("draft") or release_payload.get("published_at") is None:
         return fail(
-            f"Release for tag {expected_tag} exists but is not published yet. "
+            f"Release for tag {args.tag} exists but is not published yet. "
             f"Release URL: {release_payload.get('html_url', '<missing>')}"
         )
-
-    latest_status, latest_payload = github_api_get(
-        args.repo,
-        "/releases/latest",
-        token,
-    )
+    latest_status, latest_payload = github_api_get(args.repo, "/releases/latest", token)
     if latest_status != 200:
         return fail(
             "Could not query GitHub Latest release "
@@ -329,7 +251,7 @@ def _main(argv: list[str] | None = None) -> int:
         )
     try:
         validate_release_publication(
-            expected_tag=expected_tag,
+            expected_tag=args.tag,
             release=release_payload,
             latest_release=latest_payload,
             required_assets=REQUIRED_EVIDENCE_ASSETS,
@@ -337,10 +259,19 @@ def _main(argv: list[str] | None = None) -> int:
     except ReleaseEvidenceError as exc:
         return fail(str(exc))
 
+    extension = extension_id(args.package_json)
+    missing = wait_for_marketplace(
+        extension, version, args.marketplace_wait_seconds, args.poll_interval_seconds
+    )
+    if missing:
+        return fail(
+            f"The Marketplace does not list {extension} {version} for every target after "
+            f"{args.marketplace_wait_seconds}s: " + "; ".join(missing)
+        )
+
     print(
-        "version-release-guard: release evidence verified for "
-        f"{expected_tag}. release={release_payload.get('html_url')} "
-        f"workflow={run_url}"
+        f"release evidence verified for {args.tag} at {args.sha}: "
+        f"release={release_payload.get('html_url')} marketplace={extension} {version}"
     )
     return 0
 
@@ -348,7 +279,7 @@ def _main(argv: list[str] | None = None) -> int:
 def main(argv: list[str] | None = None) -> int:
     try:
         return _main(argv)
-    except ReleaseEvidenceError as exc:
+    except (ReleaseEvidenceError, RuntimeError) as exc:
         return fail(str(exc))
 
 

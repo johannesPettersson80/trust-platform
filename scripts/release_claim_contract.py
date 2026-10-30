@@ -189,7 +189,7 @@ def audit_vsix() -> dict[str, Any]:
             "trust-debug.exe editors/vscode/bin/",
             "trust-runtime.exe editors/vscode/bin/",
             # Specification 44 §4.6: each platform's extension carries its toolchain bundle.
-            "needs: [release-preflight, toolchain-bundle]",
+            "needs: [plan, release-preflight, toolchain-bundle]",
             "name: toolchain-${{ matrix.platform }}\n          path: editors/vscode/bin",
             'wanted = f"extension/bin/trust-toolchain-{platform}.tar.gz"',
         ],

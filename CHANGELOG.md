@@ -6,6 +6,17 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+### Changed
+
+- Releases follow `main`'s CI instead of a hand-pushed tag. When CI passes on a commit whose version has no complete
+  release yet, the Release workflow builds and tests every target, tags that commit, publishes the GitHub release and
+  the Marketplace packages, and verifies the tag, the release and the Marketplace listing of every target. A pull
+  request that changes the version rehearses the whole release on its head, and CI's version guard no longer waits
+  for a release (specification 24).
+- Pull requests run the documentation, capture and diagram checks whenever the whole change touches their paths, also
+  above the 300 changed files that GitHub's path filters compare, and each such workflow ends with one conclusion
+  that fails when any of its checks failed (specification 22).
+
 ## [0.26.0] - 2026-10-30
 
 ### Added

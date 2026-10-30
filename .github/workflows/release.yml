@@ -1,16 +1,37 @@
 name: Release
+# Specification 24, "Release rehearsal on pull requests" and "Release after main CI". The plan job
+# decides what a run does: a pull request that changes the workspace version rehearses the release
+# on its head, and a manual run rehearses the commit it runs on; both build, test and run every
+# Publish script and publish nothing. After main's CI passed for a push, the commit it checked is
+# released when its version has no complete release yet: the tag, the GitHub release and the
+# Marketplace follow the builds and tests, and nobody pushes a tag. Every job checks out the plan's
+# commit, never the branch's newest one.
+run-name: >-
+  ${{ github.event_name == 'workflow_run'
+  && format('Release after CI of {0}', github.event.workflow_run.head_sha)
+  || (github.event_name == 'pull_request'
+  && format('Release rehearsal of #{0}', github.event.pull_request.number)
+  || format('Release rehearsal of {0}', github.ref_name)) }}
 
 on:
-  push:
-    tags:
-      - 'v*'
-  # A rehearsal of a candidate before its tag (release skill): every build, test and Publish script
-  # runs, and nothing is published. Only a tag ref publishes.
+  pull_request:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   actions: read
+
+# A new push to a pull request replaces its rehearsal; releases from main run one at a time.
+concurrency:
+  group: >-
+    ${{ github.event_name == 'pull_request'
+    && format('release-pr-{0}', github.event.pull_request.number)
+    || (github.event_name == 'workflow_run' && 'release-main' || format('release-dispatch-{0}', github.ref)) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   CARGO_TERM_COLOR: always
@@ -18,14 +39,60 @@ env:
   RUSTC_WRAPPER: ""
 
 jobs:
-  release-preflight:
-    name: Release Preflight
+  plan:
+    name: Plan
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.tag.outputs.tag }}
+      mode: ${{ steps.plan.outputs.mode }}
+      sha: ${{ steps.plan.outputs.sha }}
+      version: ${{ steps.plan.outputs.version }}
+      tag: ${{ steps.plan.outputs.tag }}
+    steps:
+      # The plan runs the workflow's own commit and reads the commit it plans for as data: after a
+      # fork's pull request, CI's head is the fork's code, which must never run with this
+      # workflow's token.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Plan the run
+        id: plan
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_EVENT: ${{ github.event.workflow_run.event }}
+          RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+        run: |
+          python3 scripts/release_plan.py \
+            --event "${EVENT}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --official johannesPettersson80/trust-platform \
+            --pr-base "${PR_BASE}" \
+            --pr-head "${PR_HEAD}" \
+            --pr-head-repository "${PR_HEAD_REPOSITORY}" \
+            --run-conclusion "${RUN_CONCLUSION}" \
+            --run-event "${RUN_EVENT}" \
+            --run-branch "${RUN_BRANCH}" \
+            --run-sha "${RUN_SHA}" \
+            --run-head-repository "${RUN_HEAD_REPOSITORY}" \
+            --dispatch-sha "${GITHUB_SHA}"
+
+  release-preflight:
+    name: Release Preflight
+    needs: plan
+    if: ${{ needs.plan.outputs.mode != 'skip' }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ needs.plan.outputs.sha }}
           fetch-depth: 0
 
       - name: Checkout OpenOT reference sibling
@@ -39,29 +106,32 @@ jobs:
       - name: Validate owned dependency exception lifetimes
         run: python3 scripts/check_dependency_exceptions.py
 
-      - name: Release tag
-        id: tag
-        run: |
-          # A tag publishes as itself; a rehearsal takes the tag its version will get.
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            tag="${GITHUB_REF_NAME}"
-          else
-            tag="v$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["workspace"]["package"]["version"])')"
-          fi
-          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
-
       - name: Validate release tag
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ needs.plan.outputs.mode == 'release' }}
+        env:
+          RELEASE_TAG: ${{ needs.plan.outputs.tag }}
+        run: python3 scripts/check_release_tag_preflight.py --tag "${RELEASE_TAG}"
+
+      - name: Require the Marketplace token
+        # A release publishes every target to the Marketplace; without the token it fails here,
+        # before any tag or release exists.
+        if: ${{ needs.plan.outputs.mode == 'release' }}
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
-          python3 scripts/check_release_tag_preflight.py \
-            --tag "${{ github.ref_name }}"
+          if [ -z "${VSCE_PAT}" ]; then
+            echo "::error::VSCE_PAT is not set, so the release cannot publish to the Marketplace."
+            exit 1
+          fi
 
   runtime-vm-validation:
     name: Runtime Validation
-    needs: release-preflight
+    needs: [plan, release-preflight]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
 
       - name: Checkout OpenOT reference sibling
         shell: bash
@@ -131,15 +201,17 @@ jobs:
 
   openot-real-databases:
     name: OpenOT Real Database Matrix
-    needs: release-preflight
+    needs: [plan, release-preflight]
     uses: ./.github/workflows/openot-real-databases.yml
+    with:
+      ref: ${{ needs.plan.outputs.sha }}
     secrets: inherit
 
   toolchain-bundle:
     # The toolchain bundle of each platform (specification 44 §4.6), written on that platform with
     # its own trust-runtime from rustup's pinned release and the program libraries.
     name: Toolchain bundle (${{ matrix.platform }})
-    needs: release-preflight
+    needs: [plan, release-preflight]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -157,6 +229,8 @@ jobs:
             platform: win32-x64
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
 
       - name: Checkout OpenOT reference sibling
         shell: bash
@@ -199,7 +273,7 @@ jobs:
   build:
     name: Build (${{ matrix.target }})
     # The extension carries its platform's toolchain bundle (specification 44 §4.6).
-    needs: [release-preflight, toolchain-bundle]
+    needs: [plan, release-preflight, toolchain-bundle]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -224,6 +298,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
 
       - name: Checkout OpenOT reference sibling
         shell: bash
@@ -433,13 +509,22 @@ jobs:
 
   publish:
     name: Publish
-    needs: [release-preflight, build, toolchain-bundle, runtime-vm-validation, openot-real-databases]
+    needs: [plan, release-preflight, build, toolchain-bundle, runtime-vm-validation, openot-real-databases]
     runs-on: ubuntu-latest
+    # The Marketplace wait of the verification is at most an hour.
+    timeout-minutes: 120
+    permissions:
+      contents: write
+      actions: read
     env:
       VSCE_PAT: ${{ secrets.VSCE_PAT }}
-      RELEASE_TAG: ${{ needs.release-preflight.outputs.tag }}
+      RELEASE_SHA: ${{ needs.plan.outputs.sha }}
+      RELEASE_TAG: ${{ needs.plan.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          fetch-depth: 0
 
       - name: Download VSIX artifacts
         uses: actions/download-artifact@v8
@@ -483,7 +568,7 @@ jobs:
           python3 scripts/generate_conformance_status.py \
             --summary conformance-artifacts/conformance-pass-1.json \
             --known-gaps conformance/known-gaps.md \
-            --commit "${GITHUB_SHA}" \
+            --commit "${RELEASE_SHA}" \
             --toolchain "$(rustc --version)" \
             --timestamp "$(date --iso-8601=seconds)" \
             --json-out release-evidence/conformance-status.json \
@@ -500,7 +585,7 @@ jobs:
             --artifact-root toolchain-artifacts \
             --artifact-root release-evidence \
             --tag "${RELEASE_TAG}" \
-            --commit "${GITHUB_SHA}" \
+            --commit "${RELEASE_SHA}" \
             --workflow-run-id "${GITHUB_RUN_ID}" \
             --workflow-run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
             --timestamp "$(date --iso-8601=seconds)" \
@@ -533,8 +618,64 @@ jobs:
             --title "${RELEASE_TAG}" \
             --output release-notes.md
 
+      - name: Keep the rehearsal's release files
+        if: ${{ needs.plan.outputs.mode == 'rehearsal' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-rehearsal-${{ env.RELEASE_TAG }}
+          path: |
+            release-notes.md
+            release-evidence/
+
+      - name: Tag the release
+        # An annotated tag on the released commit. A re-run of a release that stopped later finds
+        # its tag on the same commit and continues.
+        if: ${{ needs.plan.outputs.mode == 'release' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          peeled=$(git ls-remote --tags origin "refs/tags/${RELEASE_TAG}^{}" | cut -f1)
+          if [ -n "${peeled}" ]; then
+            if [ "${peeled}" != "${RELEASE_SHA}" ]; then
+              echo "::error::${RELEASE_TAG} is on ${peeled}, not on the released commit ${RELEASE_SHA}."
+              exit 1
+            fi
+            echo "${RELEASE_TAG} is already on ${RELEASE_SHA}"
+            exit 0
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/${RELEASE_TAG}" > /dev/null; then
+            echo "::error::${RELEASE_TAG} exists as a lightweight tag; a release tag is annotated."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${RELEASE_TAG}" -m "truST ${RELEASE_TAG}" "${RELEASE_SHA}"
+          git push origin "refs/tags/${RELEASE_TAG}"
+
+      - name: Create GitHub Release
+        if: ${{ needs.plan.outputs.mode == 'release' }}
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ env.RELEASE_SHA }}
+          name: ${{ env.RELEASE_TAG }}
+          make_latest: 'true'
+          fail_on_unmatched_files: true
+          files: |
+            vsix-artifacts/*.vsix
+            runtime-artifacts/*.tar.gz
+            runtime-artifacts/*.zip
+            trust-lsp-artifacts/*.tar.gz
+            trust-lsp-artifacts/*.zip
+            toolchain-artifacts/*.tar.gz
+            release-evidence/release-provenance.json
+            release-evidence/conformance-status.json
+            release-evidence/conformance-status.md
+            release-evidence/SHA256SUMS
+          body_path: release-notes.md
+
       - name: Publish to VS Code Marketplace
-        if: ${{ env.VSCE_PAT != '' && startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ needs.plan.outputs.mode == 'release' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -582,32 +723,29 @@ jobs:
             done
           done
 
-      - name: Skip Marketplace publish (missing VSCE_PAT)
-        if: ${{ env.VSCE_PAT == '' && startsWith(github.ref, 'refs/tags/v') }}
-        run: echo "VSCE_PAT not set; skipping Marketplace publish"
+      - name: Verify the release
+        # The annotated tag on the commit, the final release named Latest with its evidence, and the
+        # Marketplace listing the version for every target within an hour (specification 24).
+        if: ${{ needs.plan.outputs.mode == 'release' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/check_version_release_evidence.py \
+            --repo "${GITHUB_REPOSITORY}" \
+            --tag "${RELEASE_TAG}" \
+            --sha "${RELEASE_SHA}"
 
-      - name: Keep the rehearsal's release files
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-rehearsal-${{ env.RELEASE_TAG }}
-          path: |
-            release-notes.md
-            release-evidence/
-
-      - name: Create GitHub Release
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        uses: softprops/action-gh-release@v3
-        with:
-          files: |
-            vsix-artifacts/*.vsix
-            runtime-artifacts/*.tar.gz
-            runtime-artifacts/*.zip
-            trust-lsp-artifacts/*.tar.gz
-            trust-lsp-artifacts/*.zip
-            toolchain-artifacts/*.tar.gz
-            release-evidence/release-provenance.json
-            release-evidence/conformance-status.json
-            release-evidence/conformance-status.md
-            release-evidence/SHA256SUMS
-          body_path: release-notes.md
+  conclusion:
+    # One result for the whole run: it fails when a job failed or was cancelled, and passes when
+    # every job passed or the plan skipped it.
+    name: Release Conclusion
+    needs: [plan, release-preflight, runtime-vm-validation, openot-real-databases, toolchain-bundle, build, publish]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job passed or was skipped by the plan
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "${RESULTS}" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "${RESULTS}" | jq -e 'all(.[]; .result == "success" or .result == "skipped")' > /dev/null
