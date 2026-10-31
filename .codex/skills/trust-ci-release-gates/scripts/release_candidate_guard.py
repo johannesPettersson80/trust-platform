@@ -21,8 +21,6 @@ SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 ACTION_JOB_RE = re.compile(r"/actions/runs/(\d+)/job/(\d+)")
 PENDING_STATES = {"EXPECTED", "IN_PROGRESS", "PENDING", "QUEUED", "REQUESTED", "WAITING"}
 PASS_STATES = {"SUCCESS", "NEUTRAL", "SKIPPED"}
-# GitHub matches a pull request's path filters against its first 300 changed files only.
-PATH_FILTER_FILE_LIMIT = 300
 FAIL_STATES = {
     "ACTION_REQUIRED",
     "CANCELLED",
@@ -50,13 +48,6 @@ BASE_REQUIRED_COMMANDS = (
     "remote_test_all",
     "remote_mp001_parity",
     "remote_clean_after",
-)
-MARKETPLACE_TARGETS = (
-    "darwin-arm64",
-    "darwin-x64",
-    "linux-arm64",
-    "linux-x64",
-    "win32-x64",
 )
 
 
@@ -355,56 +346,29 @@ def validate_merge_state(pr: dict[str, Any], expected_head: str) -> list[str]:
     return failures
 
 
-def path_filtered_pull_request_workflows(repo: Path) -> list[str]:
-    """The workflow files that pull requests start only when their paths match."""
-    found: list[str] = []
-    for path in sorted((repo / ".github" / "workflows").glob("*.yml")):
-        text = path.read_text(encoding="utf-8")
-        triggers = text.split("\non:\n", 1)[1].split("\njobs:", 1)[0] if "\non:\n" in text else ""
-        if re.search(r"(?m)^  pull_request:\n(?:    .*\n)*?    paths:", triggers):
-            found.append(path.name)
-    return found
-
-
-def validate_path_filtered_runs(
-    changed_files: int, runs: dict[str, list[dict[str, Any]]], head: str, branch: str
+def validate_release_rehearsal(
+    runs: list[dict[str, Any]], head: str, branch: str, version: str
 ) -> list[str]:
-    """Above GitHub's limit a path-filtered workflow can skip a pull request: each must have passed.
-
-    0.25.0 changed 10,252 files, no docs workflow ran, and the documentation site broke on main.
-    """
-    if changed_files <= PATH_FILTER_FILE_LIMIT:
-        return []
-    return [
-        f"the PR changes {changed_files} files and GitHub matches path filters against the first "
-        f"{PATH_FILTER_FILE_LIMIT}: {workflow} has no passed run on {head}: "
-        f"gh workflow run {workflow} --ref {branch}"
-        for workflow, workflow_runs in runs.items()
-        if not any(
-            run.get("headSha") == head
-            and run.get("status") == "completed"
-            and run.get("conclusion") == "success"
-            for run in workflow_runs
-        )
-    ]
-
-
-def validate_release_rehearsal(runs: list[dict[str, Any]], head: str, branch: str) -> list[str]:
     """A version bump merges once the Release workflow has passed as a rehearsal on its exact head.
 
-    0.25.0's release jobs failed only after its tag, and every fix then needed a new version.
+    The pull request starts the rehearsal itself, and a maintainer dispatches one for a fork's
+    (specification 24, "Release rehearsal on pull requests"). A run counts only when it kept the
+    rehearsal's release files, `release-rehearsal-v<version>`: a run whose plan skipped its jobs
+    passes too. 0.25.0's release jobs failed only after its tag, and every fix then needed a new
+    version.
     """
     if any(
         run.get("headSha") == head
-        and run.get("event") == "workflow_dispatch"
+        and run.get("event") in {"pull_request", "workflow_dispatch"}
         and run.get("status") == "completed"
         and run.get("conclusion") == "success"
+        and f"release-rehearsal-v{version}" in (run.get("artifacts") or [])
         for run in runs
     ):
         return []
     return [
-        f"a version bump needs a passed Release rehearsal on {head}: "
-        f"gh workflow run release.yml --ref {branch}"
+        f"a version bump needs a passed Release rehearsal on {head} that kept release-rehearsal-v{version}: "
+        f"the pull request starts it; for a fork's, gh workflow run release.yml --ref {branch}"
     ]
 
 
@@ -413,8 +377,9 @@ def validate_release_state(
 ) -> list[str]:
     failures: list[str] = []
     requirements = {
-        "main_sha_matches": "release tag does not match the final main SHA",
-        "annotated_tag_matches": "annotated tag does not match the workspace version",
+        "tag_on_main": "release tag is not on main",
+        "candidate_released": "the release does not contain the merged candidate",
+        "annotated_tag_matches": "release tag is not an annotated tag of the workspace version",
         "release_workflow_success": "Release workflow has not succeeded",
         "github_release_published": "GitHub release is not published",
         "github_release_latest": "GitHub release is not marked Latest",
@@ -527,31 +492,28 @@ def check_merge(args: argparse.Namespace) -> int:
         return 2
     pr = json.loads(result.stdout)
     failures.extend(validate_merge_state(pr, head))
-    if workspace_version_at(repo, head) != workspace_version_at(repo, "origin/main"):
+    version = workspace_version_at(repo, head)
+    if version != workspace_version_at(repo, "origin/main"):
         rehearsals = run(
             [
                 "gh", "run", "list", "--workflow", "release.yml", "--commit", head,
-                "--json", "headSha,event,status,conclusion",
+                "--json", "databaseId,headSha,event,status,conclusion",
             ],
             cwd=repo,
         )
         runs = json.loads(rehearsals.stdout) if rehearsals.returncode == 0 else []
-        failures.extend(validate_release_rehearsal(runs, head, str(pr.get("headRefName"))))
-    base = git(repo, "merge-base", "origin/main", head).strip()
-    changed_files = len(changed_paths(repo, base, head))
-    if changed_files > PATH_FILTER_FILE_LIMIT:
-        filtered_runs: dict[str, list[dict[str, Any]]] = {}
-        for workflow in path_filtered_pull_request_workflows(repo):
-            listed = run(
-                [
-                    "gh", "run", "list", "--workflow", workflow, "--commit", head,
-                    "--json", "headSha,status,conclusion",
-                ],
-                cwd=repo,
-            )
-            filtered_runs[workflow] = json.loads(listed.stdout) if listed.returncode == 0 else []
+        for row in runs:
+            if row.get("conclusion") == "success" and row.get("headSha") == head:
+                listed = run(
+                    [
+                        "gh", "api", f"repos/{{owner}}/{{repo}}/actions/runs/{row.get('databaseId')}/artifacts?per_page=100",
+                        "--jq", ".artifacts[].name",
+                    ],
+                    cwd=repo,
+                )
+                row["artifacts"] = listed.stdout.split() if listed.returncode == 0 else []
         failures.extend(
-            validate_path_filtered_runs(changed_files, filtered_runs, head, str(pr.get("headRefName")))
+            validate_release_rehearsal(runs, head, str(pr.get("headRefName")), str(version))
         )
     if failures:
         print("\n".join(f"BLOCKED: {failure}" for failure in failures), file=sys.stderr)
@@ -581,25 +543,33 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--repo", default=".")
     subparsers = result.add_subparsers(dest="command", required=True)
 
+    def candidate_arguments(command: argparse.ArgumentParser) -> None:
+        command.add_argument("--base", default="origin/main")
+        command.add_argument(
+            "--intent", choices=("bugfix", "docs", "feature", "refactor", "test-refactor"), default="bugfix"
+        )
+        command.add_argument(
+            "--canonical-repo",
+            default=os.environ.get("TRUST_CANONICAL_REPO", "/home/johannes/projects/trust-platform"),
+        )
+        command.add_argument("--remote-host", default="trust-builder")
+        command.add_argument("--remote-worktree", required=True)
+        command.add_argument("--remote-tool-path", default=None)
+        command.add_argument("--remote-cargo-home", default=None)
+        command.add_argument(
+            "--remote-target",
+            default="/home/johannes/.cache/codex-targets/trust-platform-gate",
+        )
+        command.add_argument("--fetch", action=argparse.BooleanOptionalAction, default=True)
+
     prepare_parser = subparsers.add_parser("prepare")
-    prepare_parser.add_argument("--base", default="origin/main")
-    prepare_parser.add_argument(
-        "--intent", choices=("bugfix", "docs", "feature", "refactor", "test-refactor"), default="bugfix"
-    )
-    prepare_parser.add_argument(
-        "--canonical-repo",
-        default=os.environ.get("TRUST_CANONICAL_REPO", "/home/johannes/projects/trust-platform"),
-    )
-    prepare_parser.add_argument("--remote-host", default="trust-builder")
-    prepare_parser.add_argument("--remote-worktree", required=True)
-    prepare_parser.add_argument("--remote-tool-path", default=None)
-    prepare_parser.add_argument("--remote-cargo-home", default=None)
-    prepare_parser.add_argument(
-        "--remote-target",
-        default="/home/johannes/.cache/codex-targets/trust-platform-gate",
-    )
-    prepare_parser.add_argument("--fetch", action=argparse.BooleanOptionalAction, default=True)
-    prepare_parser.set_defaults(handler=prepare_command)
+    candidate_arguments(prepare_parser)
+    prepare_parser.set_defaults(handler=prepare_command, preflight=False)
+
+    # The quick stages of `prepare`, every failure reported, no artifact (specification 22).
+    preflight_parser = subparsers.add_parser("preflight")
+    candidate_arguments(preflight_parser)
+    preflight_parser.set_defaults(handler=prepare_command, preflight=True)
 
     push_parser = subparsers.add_parser("check-push")
     push_parser.set_defaults(handler=lambda args: check_push_command(args))

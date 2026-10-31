@@ -11,7 +11,7 @@ Legend: `[ ]` pending, `[x]` complete.
 - [x] VS Code extension integration tests run with `ST_LSP_TEST_SERVER`.
 - [x] Neovim and Zed editor integration smoke gate is enforced (`scripts/check_editor_integration_smoke.sh`).
 - [x] Workspace and VS Code extension release versions are enforced to stay aligned (`Cargo.toml`, `package.json`, `package-lock.json` root fields).
-- [x] Main/master version bumps are blocked unless matching tag + successful release workflow + published GitHub release evidence exist.
+- [x] A pull request that changes the version merges only after the Release workflow rehearsed it on its exact head, and the release follows `main`'s CI: the Release workflow tags the commit whose CI passed, publishes the GitHub release and the Marketplace packages, and verifies the tag, the release and every Marketplace target (specification 24).
 - [x] `version-release-guard` gate evidence is published as `gate-version-release-guard` and required by the aggregated release-gate report.
 
 ## Reliability Gates

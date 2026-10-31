@@ -1,29 +1,40 @@
 name: Render Diagrams
 
+# Every pull request starts this workflow; its `changes` job decides whether the diagrams must be
+# checked (specification 22, "Pull-request checks and change detection").
 on:
   pull_request:
-    paths:
-      - ".github/workflows/diagrams.yml"
-      - "docs/diagrams/**.puml"
-      - "docs/diagrams/**/*.puml"
-      - "scripts/render_diagrams.sh"
-      - "scripts/check_diagram_drift.py"
   push:
     branches:
       - main
-    paths:
-      - ".github/workflows/diagrams.yml"
-      - "docs/diagrams/**.puml"
-      - "docs/diagrams/**/*.puml"
-      - "scripts/render_diagrams.sh"
-      - "scripts/check_diagram_drift.py"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.changes.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Compare the change with the diagram paths
+        id: changes
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python3 scripts/ci_changes.py --event "$EVENT" --base "$BASE" --head "$HEAD_SHA" --paths-file .github/paths/diagrams.txt
+
   render:
+    name: Render
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -42,3 +53,14 @@ jobs:
             git diff -- docs/diagrams/generated docs/diagrams/manifest.json
             exit 1
           fi
+
+  conclusion:
+    name: Conclusion
+    needs: [changes, render]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job succeeded or was skipped
+        env:
+          RESULTS: ${{ toJson(needs) }}
+        run: jq --exit-status 'all(.result == "success" or .result == "skipped")' <<< "$RESULTS"

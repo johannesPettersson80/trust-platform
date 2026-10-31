@@ -1,0 +1,8 @@
+# The paths whose change runs Render Diagrams (specification 22, change detection).
+.github/workflows/diagrams.yml
+.github/paths/diagrams.txt
+scripts/ci_changes.py
+docs/diagrams/**.puml
+docs/diagrams/**/*.puml
+scripts/render_diagrams.sh
+scripts/check_diagram_drift.py

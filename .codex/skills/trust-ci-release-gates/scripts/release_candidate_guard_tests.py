@@ -394,6 +394,72 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             command_ids.index("remote_reclaim_before_test_all"),
         )
 
+    def test_a_failed_stage_does_not_end_the_run_but_a_failed_prerequisite_does(self) -> None:
+        # Specification 22, "Release-candidate failure reporting": 0.26.0 needed six runs because each
+        # stopped at its first failure. Catches a run that stops at a failed check, hiding the next
+        # failures, and one that goes on after a failed prerequisite whose later stages cannot run.
+        ran: list[str] = []
+
+        def run_stage(failing: set[str]):
+            def run(command_id: str, _command: str) -> dict:
+                ran.append(command_id)
+                return {"id": command_id, "exit_status": 1 if command_id in failing else 0}
+            return run
+
+        stages = [(stage, "true") for stage in (
+            "remote_exact_head", "remote_vscode", "remote_fmt", "remote_clippy",
+            "remote_reclaim_before_test_all", "remote_test_all", "remote_mp001_parity",
+        )]
+        records = candidate_prepare.run_remote_stages(
+            stages, run_stage({"remote_vscode", "remote_fmt", "remote_test_all"})
+        )
+        self.assertEqual([row["id"] for row in records], [stage for stage, _ in stages])
+        self.assertEqual(
+            [row["id"] for row in records if row["exit_status"] != 0],
+            ["remote_vscode", "remote_fmt", "remote_test_all"],
+        )
+
+        ran.clear()
+        records = candidate_prepare.run_remote_stages(
+            stages, run_stage({"remote_reclaim_before_test_all"})
+        )
+        self.assertEqual(ran[-1], "remote_reclaim_before_test_all")
+        self.assertNotIn("remote_test_all", ran)
+
+    def test_the_vscode_stage_runs_every_rendered_journey_after_a_failure(self) -> None:
+        # 0.26.0's VS Code stage failed twice in a row on two rendered journeys, one per run.
+        commands = dict(candidate_prepare.remote_validation_commands(
+            vscode_changed=True, remote_target="/tmp/trust-target"
+        ))
+        self.assertIn("TRUST_VSCODE_RENDERED_CONTINUE=1 xvfb-run -a npm test", commands["remote_vscode"])
+
+    def test_preflight_runs_quick_stages_only_and_writes_no_artifact(self) -> None:
+        # Specification 22: `preflight` reports every failure of the quick stages and writes no
+        # artifact, so a push cannot rely on it. Catches a stage name that matches no stage (it would
+        # silently not run), a long stage in the preflight, and a preflight that writes an artifact.
+        stage_ids = {
+            stage for stage, _ in candidate_prepare.remote_validation_commands(
+                vscode_changed=True, remote_target="/tmp/trust-target"
+            )
+        }
+        self.assertTrue(set(candidate_prepare.PREFLIGHT_REMOTE_STAGES) <= stage_ids)
+        for long_stage in ("remote_vscode", "remote_test_all", "remote_mp001_parity"):
+            self.assertNotIn(long_stage, candidate_prepare.PREFLIGHT_REMOTE_STAGES)
+        self.assertTrue(candidate_prepare.PREREQUISITE_REMOTE_STAGES <= stage_ids)
+        with tempfile.TemporaryDirectory() as root:
+            out = io.StringIO()
+            with mock.patch("sys.stdout", out):
+                status = candidate_prepare.report_preflight(
+                    [{"id": "remote_fmt", "exit_status": 0}, {"id": "remote_clippy", "exit_status": 101}],
+                    Path(root),
+                )
+            self.assertEqual(status, 1)
+            self.assertIn("FAILED remote_clippy", out.getvalue())
+            self.assertEqual(list(Path(root).iterdir()), [])
+        parsed = guard.parser().parse_args(["preflight", "--remote-worktree", "/w"])
+        self.assertTrue(parsed.preflight)
+        self.assertFalse(guard.parser().parse_args(["prepare", "--remote-worktree", "/w"]).preflight)
+
     def test_a_command_whose_output_splits_a_character_is_recorded(self) -> None:
         # Two processes writing to one pipe can split a UTF-8 character; the guard crashed reading
         # such output (27 October 2026). The broken sequence is replaced, the rest kept.
@@ -920,47 +986,48 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         self.assertIn("Windows", joined)
 
     def test_a_version_bump_merges_after_a_passed_release_rehearsal_on_its_head(self) -> None:
-        passed = {"headSha": self.head, "event": "workflow_dispatch", "status": "completed", "conclusion": "success"}
-        self.assertEqual(guard.validate_release_rehearsal([passed], self.head, "release/next"), [])
+        # The pull request starts the rehearsal; a maintainer dispatches one for a fork's.
+        kept = ["vsix-linux-x64", "release-rehearsal-v1.2.3"]
+        for event in ("pull_request", "workflow_dispatch"):
+            passed = {
+                "headSha": self.head, "event": event, "status": "completed", "conclusion": "success",
+                "artifacts": kept,
+            }
+            self.assertEqual(guard.validate_release_rehearsal([passed], self.head, "release/next", "1.2.3"), [])
 
-    def test_a_failed_rehearsal_or_one_on_another_commit_does_not_count(self) -> None:
-        # Catches a merge on the strength of a rehearsal that failed, or that ran before the last push.
-        failed = {"headSha": self.head, "event": "workflow_dispatch", "status": "completed", "conclusion": "failure"}
-        older = {"headSha": "b" * 40, "event": "workflow_dispatch", "status": "completed", "conclusion": "success"}
-        for runs in ([], [failed], [older]):
-            failures = guard.validate_release_rehearsal(runs, self.head, "release/next")
+    def test_a_failed_skipped_or_older_rehearsal_does_not_count(self) -> None:
+        # Catches a merge on the strength of a rehearsal that failed, ran before the last push, or
+        # whose plan skipped its jobs (that run passes too, but keeps no release files), and one
+        # that main's CI started.
+        def row(**changes):
+            base = {
+                "headSha": self.head, "event": "pull_request", "status": "completed", "conclusion": "success",
+                "artifacts": ["release-rehearsal-v1.2.3"],
+            }
+            return {**base, **changes}
+
+        for runs in (
+            [],
+            [row(conclusion="failure")],
+            [row(headSha="b" * 40)],
+            [row(artifacts=[])],
+            [row(artifacts=["release-rehearsal-v1.2.2"])],
+            [row(event="workflow_run")],
+        ):
+            failures = guard.validate_release_rehearsal(runs, self.head, "release/next", "1.2.3")
             self.assertEqual(
                 failures,
-                [f"a version bump needs a passed Release rehearsal on {self.head}: gh workflow run release.yml --ref release/next"],
+                [
+                    f"a version bump needs a passed Release rehearsal on {self.head} that kept "
+                    "release-rehearsal-v1.2.3: the pull request starts it; for a fork's, "
+                    "gh workflow run release.yml --ref release/next"
+                ],
             )
-
-    def test_a_pull_request_above_the_path_filter_limit_needs_each_filtered_workflow_passed(self) -> None:
-        # Catches a merge of 301 files on which GitHub skipped Docs Captures: its path filters saw
-        # only the first 300.
-        passed = {"headSha": self.head, "status": "completed", "conclusion": "success"}
-        runs = {"diagrams.yml": [passed], "docs-captures.yml": []}
-        self.assertEqual(
-            guard.validate_path_filtered_runs(301, runs, self.head, "release/next"),
-            [
-                f"the PR changes 301 files and GitHub matches path filters against the first 300: "
-                f"docs-captures.yml has no passed run on {self.head}: "
-                "gh workflow run docs-captures.yml --ref release/next"
-            ],
-        )
-
-    def test_up_to_the_limit_github_starts_the_path_filtered_workflows_itself(self) -> None:
-        self.assertEqual(guard.validate_path_filtered_runs(300, {"docs-captures.yml": []}, self.head, "b"), [])
-
-    def test_the_path_filtered_workflows_are_found_from_their_pull_request_triggers(self) -> None:
-        # CI, Salsa Hardening and the Verification Gate filter pull requests by branch only.
-        repo = Path(__file__).resolve().parents[4]
-        self.assertEqual(
-            guard.path_filtered_pull_request_workflows(repo), ["diagrams.yml", "docs-captures.yml"]
-        )
 
     def test_release_state_is_not_complete_without_latest_assets_and_marketplace(self) -> None:
         state = {
-            "main_sha_matches": True,
+            "tag_on_main": True,
+            "candidate_released": False,
             "annotated_tag_matches": True,
             "release_workflow_success": True,
             "github_release_published": True,
@@ -970,9 +1037,29 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         }
         failures = guard.validate_release_state(state, "1.2.3", ["linux-x64"])
         joined = "\n".join(failures)
+        self.assertIn("merged candidate", joined)
         self.assertIn("Latest", joined)
         self.assertIn("assets", joined)
         self.assertIn("linux-x64", joined)
+
+    def test_the_release_run_is_the_one_its_provenance_names(self) -> None:
+        # The Release runs after main's CI on main's ref, so no tag ref finds it: the release's own
+        # provenance names its run. A provenance without one names no run.
+        calls = []
+
+        def fake_run(command, cwd=None):
+            calls.append(list(command))
+            return subprocess.CompletedProcess(
+                command, 0, stdout='{"status": "completed", "conclusion": "success", "workflowName": "Release"}', stderr=""
+            )
+
+        with mock.patch.object(candidate_release.guard, "run", side_effect=fake_run):
+            self.assertEqual(candidate_release.release_run_of({}, self.repo), {})
+            self.assertEqual(candidate_release.release_run_of({"workflow_run_id": "abc"}, self.repo), {})
+            self.assertEqual(calls, [])
+            found = candidate_release.release_run_of({"workflow_run_id": "4242"}, self.repo)
+        self.assertEqual(found["conclusion"], "success")
+        self.assertEqual(calls[0][:4], ["gh", "run", "view", "4242"])
 
     def test_release_asset_check_recomputes_published_checksum(self) -> None:
         asset_dir = self.repo / "assets"

@@ -578,6 +578,7 @@ CASE step OF
         step := 0;
     END_IF
 END_CASE
+END_PROGRAM
 ```
 
 Online, set `GVL_truST_Test.CmdReadAll := TRUE` for a read pass. Set

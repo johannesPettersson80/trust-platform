@@ -43,7 +43,7 @@ trust-runtime validate --project examples/plant_demo
 1. Open `src/fb_pump.st`.
 2. Set a breakpoint inside `CASE Status.State OF`.
 3. Press `F5` (uses `.vscode/launch.json`).
-4. In Runtime Panel, toggle `%IX0.0` (start signal).
+4. In **Live Values**, toggle `%IX0.0` (start signal).
 5. Step through transitions (`Idle` -> `Starting` -> `Running`).
 6. Inspect Variables panel and inline values for `Status.State` and `Ramp`.
 

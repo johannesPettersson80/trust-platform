@@ -12,7 +12,7 @@ The workflow should make later hardware validation smaller, not optional.
 
 ## VS Code workflow
 
-1. Open **truST: Devices & Connections**.
+1. Run **truST: Open Devices & Connections**.
 2. Open **Add**, then click or drag **Simulated plant** onto an eligible
    runtime brick.
 3. Choose a familiar starting point, such as Tank, Temperature, Motor speed,

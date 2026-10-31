@@ -339,6 +339,68 @@ the cross-target gate. Host-only commands MAY pin the host C/C++ compilers. A
 successful assertion run followed by a missing executable due to concurrent
 target deletion is an infrastructure failure, never a green test result.
 
+### Pull-request checks and change detection
+
+Every workflow that checks pull requests starts on every pull request; none
+filters its trigger by path. Its first job, `changes`, compares the pull
+request's head with its base over the full history (`git diff --name-only
+--no-renames <base>...<head>`), with no limit on the number of changed files, and
+names the areas the change touches. A moved file counts at its old and its new
+path, so moving a page out of a watched tree still runs the checks that publish
+it. A job that checks an area runs when that area changed
+and is skipped otherwise. A push to `main` uses the same detection against the
+push's previous commit, with the same list of paths per area, kept in
+`.github/paths/`. A workflow with a `changes` job ends with a `conclusion` job
+that runs unless the run was cancelled, needs every other job, and fails unless
+each succeeded or was skipped; a failed `changes` job therefore fails the
+workflow instead of skipping its checks. GitHub's own path filters compare only the first 300 changed files, so
+0.25.0's 10,252-file pull request ran no documentation workflow, and the site
+broke on `main` (28 October 2026).
+
+### Documentation that follows the product
+
+The documentation is tested against the product, not only for its links,
+assets, navigation and search. Every code block fenced as Structured Text in
+the README, the pages of `docs/public` and the examples' READMEs quotes the
+sources of its example, or of an example its page links to, each line without
+comments and with its whitespace collapsed (a line or a part of a line written
+as `...` stands for code the quote leaves out), or else parses as Structured
+Text; a fence marked `ignore` is left out. Every command that such a page or
+the Marketplace page (`editors/vscode/README.md`) names by its Command Palette
+title in bold, or as the title that a palette step
+(`Ctrl/Cmd+Shift+P` and an arrow) types, and every setting it names by its key
+in backticks, is one the VS Code extension contributes. No page names a name
+the extension retired: the command category `Structured Text:`, in bold or
+backticks, and the Runtime Panel or Runtime pane, which Live Values and the
+truST view replaced. Every `trust-runtime` command line in a fenced block
+parses with the runtime's command line. A quote that its program no longer
+holds, a renamed or retired command or setting, and a renamed flag therefore
+fail a pull request instead of leaving the page behind (30 October 2026: five
+blocks that no parser accepted, among them an OpenOT variable named with the
+keyword `ACTION`, three command titles that no longer existed, two command
+lines that the runtime refused, `ctl restart` without its mode and a run
+without its command, and 15 example and docs pages that sent readers to the
+Runtime Panel or to `Structured Text:` commands, such as the six ADS commands
+that Devices & Connections replaced).
+
+### Release-candidate failure reporting
+
+The exact-SHA `prepare` command runs every stage whose prerequisites passed and
+reports every failure of the run. Its prerequisites are the exact candidate
+head, the disk preflight, the target preparation, the toolchain build and the
+reclaim before `test-all`; a failed prerequisite ends the run, because the
+stages after it cannot run. Any other failed stage is recorded and the run goes
+on, and the VS Code stage runs every rendered journey after a failure. A run
+with a failed stage never yields a passing artifact. 0.26.0 needed six runs,
+each ended by one failure that the next stages would have shown too (29 and
+30 October 2026).
+
+`preflight` runs the quick stages of `prepare` in the same staged worktree,
+with the same environment: formatting, cross-target warnings, the supply chain
+and architecture gates, Clippy, the documentation build and the documentation
+site. It reports every failure and writes no artifact, so a push cannot rely on
+it.
+
 ### Native test and docs-capture lifecycle portability
 
 Native Unix control-endpoint fixtures must derive a collision-resistant socket
@@ -356,14 +418,35 @@ prove the captured product surfaces. Lifecycle assertion deadlines must exceed
 the launcher's bounded graceful-termination window so the KILL fallback and
 process reaping can complete before the test runner times out.
 
+### Docs Captures
+
 The Docs Captures workflow must run for pull-request and main-push changes to
 the runtime Web UI source tree so browser-visible runtime changes cannot bypass
-their registered Playwright journeys. Its pull-request and push path filters
-must remain identical. The Marketplace listing capture waits for the extension's
+their registered Playwright journeys. Its change detection uses one list of
+paths for pull requests and pushes to `main`. The Marketplace listing capture waits for the extension's
 display name and publisher, which hold across releases, not for text of the
 listing's README, which each release may change: 0.25.1's listing no longer
 said "truST LSP", and the capture that waited for it failed every run (29 October
 2026).
+
+The documentation site shows the screenshots of `main` without a commit of the
+images. The workflow runs on pull requests, on pushes to `main`, every night and
+by hand, and none of its jobs writes to the repository. It marks the time before
+its captures and uploads only the `.png` and `.gif` files written after that mark,
+as the artifact `docs-captures`, kept for 30 days. A run whose captures write
+nothing fails. Images that nobody renders, such as the brand and the hand-made
+pictures, never enter the artifact, so laying an older artifact over a newer
+commit cannot put back an older one of them.
+
+The Docs Pages deploy starts on a push to `main` that changes the site, and
+after each Docs Captures run of `main` that passed, that a push, the schedule or
+a dispatch started, and that uploaded the artifact. Before it builds the site, it
+lays over `docs/public/assets/images` the artifact of the newest such run. A pull
+request's run never counts, so no pull request changes the published site. When
+no such run exists, the images in git stay. They are the fallback: a change that
+adds a capture commits its first image, and nobody commits refreshed ones. The
+refresh pull request of earlier releases, which had to be merged into each
+release by hand, is gone.
 
 ### Release-candidate discovery parity
 

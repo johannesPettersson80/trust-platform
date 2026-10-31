@@ -78,52 +78,96 @@ kind fails the provenance step.
 
 The workspace, VS Code package and lockfile versions, annotated tag, successful
 release workflow, published GitHub release, required assets, and GitHub
-`releases/latest` pointer must agree. A feature branch may validate this
-contract but does not create the tag.
+`releases/latest` pointer must agree. Only the Release workflow creates a
+release tag, after the release's builds and tests passed (Release after main
+CI); a rehearsal creates none.
 
-### Main-push version release guard
+### Release rehearsal on pull requests
 
-The `version-release-guard` is a fail-closed state machine over one GitHub
-event. It skips only when the event is not a push to `main` or `master`, or
-when the previous reachable revision has the same workspace version as the
-current checkout. A null, absent, unreadable, or malformed previous revision
-does not prove that the version is unchanged; the guard enforces release
-evidence for the current version.
+A pull request whose head changes the workspace version runs the Release
+workflow as a rehearsal on its head: the preflight, every build, every test and
+every script that writes the release's files run, no tag is created, nothing is
+published, and the release text and evidence are kept as the artifact
+`release-rehearsal-v<version>`. A rehearsal writes those files in a job of its
+own that holds no token that writes: no Marketplace token and a read-only GitHub
+token; only a release's publishing job gets write access, and only its
+Marketplace step the Marketplace token. The real-database matrix runs on the
+project's own runner, so a pull request's rehearsal skips it; a maintainer's
+manual rehearsal and the release run it, and it is given no secret.
+A pull request that keeps the version skips the jobs after the workflow's plan.
+A version change merges only with a passed rehearsal on its exact head that kept
+that artifact. A pull request from a fork is not rehearsed on the project's
+runners; a maintainer rehearses its head with a manual run, which rehearses the
+commit it runs on. A new push to a pull request replaces the rehearsal of its
+previous head. The plan never runs a fork's code: for a fork's pull request it
+runs the pull request's base, whose planner skips it without reading it; it
+otherwise runs the workflow's own commit and reads the commit it plans for as
+data. Its checkout keeps no credentials, and only the run after main's CI, which
+asks GitHub whether a release is complete, has the workflow's token.
 
-For an enforced version `X.Y.Z`, the guard requires `vX.Y.Z` to be an annotated
-Git tag. Peeling that tag must produce the exact pushed main SHA under review,
-not merely an ancestor of it. A lightweight tag, a tag on another commit, an
-unresolvable tag, and a tag that appears only outside the configured discovery
-window all fail. Fetch, revision, and tag-type inspection failures are visible
-guard failures rather than evidence of absence or success.
+### Release after main CI
 
-The selected Release workflow run must have `event = push`, `head_branch =
-vX.Y.Z`, and `head_sha` equal to the peeled tag/main SHA. A same-name run for
-another SHA is ignored. Discovery and completion use independent nonnegative
-timeouts and a polling interval of at least one second. Missing run identity,
-API failure, timeout, cancellation, and every completed conclusion other than
-`success` fail. Polling never converts an unknown or incomplete response into a
-successful run.
+A version is released after `main`'s CI passed on the commit that brings it, so
+no one pushes the tag. When the CI workflow completes for a push to `main`, the
+Release workflow's plan releases that run's commit when all of these hold: the
+CI run concluded `success` for a push to the `main` of this repository; the
+repository is the official one; and the workspace version at that commit has no
+tag `v<version>`, or that tag is annotated, peels to the same commit, and its
+release is not complete, and no earlier version of that commit's first-parent
+line since its newest tagged version lacks a tag. GitHub keeps one waiting run
+per concurrency group, so a later run can replace the waiting release of an
+earlier version change: the plan then fails, naming that version and its commit,
+instead of releasing past it, and running that commit's Release again releases
+it. A release is complete once a Release run of its commit,
+in any attempt, passed the verification below; the GitHub release exists before
+the Marketplace is published, so a release whose publishing or verification
+failed is not complete, and running the workflow again releases it from its
+tag. A version whose tag is on another commit was released
+before, so nothing happens; a lightweight tag on the commit fails the plan, as
+does a failed git or GitHub request. The plan runs the workflow's own commit and
+reads the commit it plans for only as data, so the code of a fork's pull request
+never runs with the release's token. Every job of the release checks out that
+commit, never the branch's newest one, and releases from `main` run one at a
+time.
+
+The preflight and every build and test of every target run first; a failure
+among them creates no tag and publishes nothing. Then one job creates the
+annotated tag `v<version>` on the commit and pushes it, creates the GitHub
+release with every required asset and the version's changelog section as its
+text, publishes every target's VS Code package to the Marketplace, and verifies
+the release. A missing Marketplace token fails the release. Re-running the
+failed jobs of a release continues where it stopped: a tag on the same commit,
+an existing release and a target already published are accepted. The
+workflow's conclusion job fails when any job failed or was cancelled, and
+passes when every job passed or the plan skipped it.
+
+The verification requires that the tag is an annotated tag object peeling to
+the released commit; that the release at the tag exists, is published,
+non-draft and non-prerelease; that GitHub `releases/latest` names the same tag;
+that the release's asset names are nonempty and unique and include
+`SHA256SUMS`, `release-provenance.json`, `conformance-status.json` and
+`conformance-status.md` (duplicate names do not satisfy a set requirement); and
+that the Marketplace lists the version for every released target within 60
+minutes. Polling never converts an unknown or incomplete response into success.
 
 GitHub API verification requires a nonempty token, preferring `GITHUB_TOKEN`
 over `GH_TOKEN`. Credentials are sent only in the authorization header and are
 never included in diagnostic output. HTTP error bodies are decoded when
 possible; malformed or empty bodies still produce a stable status-bearing
-failure.
+failure. Each nonempty GitHub HTTP 200 response body must decode to a top-level
+JSON object. Malformed JSON or a non-object top level produces one stable
+failure that names the request endpoint and actual HTTP status, emits no
+traceback, and cannot contribute release evidence. An empty HTTP 200 body
+retains empty-object decoding and therefore remains subject to the endpoint's
+required-field checks.
 
-Each nonempty GitHub HTTP 200 response body must decode to a top-level JSON
-object. Malformed JSON or a non-object top level produces one stable failure
-that names the request endpoint and actual HTTP status, emits no traceback, and
-cannot contribute release evidence. An empty HTTP 200 body retains empty-object
-decoding and therefore remains subject to the endpoint's required-field checks.
+### Main-push version alignment
 
-The release at the exact tag must exist, be published, non-draft, and
-non-prerelease. GitHub `releases/latest` must name the same tag. Release asset
-names are nonempty and unique, and must include `SHA256SUMS`,
-`release-provenance.json`, `conformance-status.json`, and
-`conformance-status.md`; duplicate names do not satisfy a set requirement.
-Only after every state is accepted may the guard report success and emit its
-release and workflow URLs.
+On every push to `main`, the CI workflow's `version-release-guard` job requires
+the workspace, VS Code package and lockfile versions to agree. It does not wait
+for the release, which follows CI. Until 0.26.0 it waited for a release started
+by a hand-pushed tag, and 0.25.1's release outlasted its 90 minutes
+(29 October 2026).
 
 ### Exact-SHA candidate execution
 
@@ -135,25 +179,25 @@ when the gate exits, and keeps Cargo build output in the separately validated
 generated target. A caller-supplied target path must not lengthen browser socket
 paths or make an otherwise valid rendered gate fail.
 
-### Tag-triggered preflight and manifest alignment
+### Release preflight and manifest alignment
 
-Before a tag-triggered release builds artifacts, the workspace package version,
+Before a release or a rehearsal builds artifacts, the workspace package version,
 VS Code `package.json` version, and both the top-level and root-package versions
 in `package-lock.json` must be nonempty strings and exactly equal. Every
 mismatch is reported in one invocation so a partial alignment cannot pass.
 Unreadable, malformed, or wrongly shaped manifests are failures, never an
 implicit version.
 
-The supplied release tag must exactly equal `v<workspace-version>`, must be an
-annotated tag object, and must peel to the checked-out release SHA. The
-preflight accepts CI evidence only from the `ci.yml` workflow for that exact
-SHA where `event` is `push`, `head_branch` is `main` or `master`, status is
-`completed`, and conclusion is `success`. A successful pull-request,
-workflow-dispatch, branch, tag, or other-SHA run is not final-main CI evidence.
-An API failure, malformed run collection, absent URL, missing credential, or
-absence of an exact qualifying run fails before artifact construction.
-`GITHUB_TOKEN` takes precedence over `GH_TOKEN` and neither may appear in
-output.
+For a release, the tag `v<workspace-version>` must not exist, or must be an
+annotated tag object peeling to the checked-out release SHA, and that SHA must be
+reachable from `origin/main`. A release's CI evidence is the run that started
+it: the `ci.yml` run of that exact SHA whose `event` is `push`, whose
+`head_branch` is `main` or `master`, whose repository is this one, and whose
+conclusion is `success`. A successful pull-request, workflow-dispatch, branch,
+tag, other-repository or other-SHA run is not final-main CI evidence and
+releases nothing. A release also requires the Marketplace token before it
+builds. `GITHUB_TOKEN` takes precedence over `GH_TOKEN` and neither may appear
+in output.
 
 ## Hardware And Conformance Claims
 

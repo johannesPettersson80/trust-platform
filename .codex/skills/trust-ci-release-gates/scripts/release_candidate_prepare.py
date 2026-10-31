@@ -8,7 +8,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 import release_candidate_guard as guard
 
@@ -187,7 +187,8 @@ def remote_validation_commands(
                     "vscode_tmp=$(mktemp -d /tmp/trust-vscode-candidate.XXXXXX) && "
                     "trap 'rm -rf -- \"$vscode_tmp\"' EXIT && "
                     "cd editors/vscode && npm ci && npm run lint && npm run compile && "
-                    f"{vscode_target_env} xvfb-run -a npm test"
+                    # Every rendered journey runs after a failure, so one run shows them all.
+                    f"{vscode_target_env} TRUST_VSCODE_RENDERED_CONTINUE=1 xvfb-run -a npm test"
                 ),
             )
         )
@@ -311,6 +312,57 @@ def strict_report_command(*, base_sha: str, head: str, intent: str) -> list[str]
     ]
 
 
+# A failed prerequisite ends the run, because the stages after it cannot run (specification 22,
+# "Release-candidate failure reporting"). Any other failed stage is recorded and the run goes on, so
+# one run reports every failure: 0.26.0 needed six runs, each ended by one failure.
+PREREQUISITE_REMOTE_STAGES = frozenset(
+    {
+        "remote_exact_head",
+        "remote_disk_preflight",
+        "remote_prepare_target",
+        "remote_toolchain",
+        "remote_reclaim_before_test_all",
+    }
+)
+
+# The quick stages `preflight` runs: minutes instead of the hours of `prepare`.
+PREFLIGHT_REMOTE_STAGES = (
+    "remote_exact_head",
+    "remote_disk_preflight",
+    "remote_prepare_target",
+    "remote_fmt",
+    "remote_cross_target_warnings",
+    "remote_supply_chain",
+    "remote_architecture_safety",
+    "remote_clippy",
+    "remote_docs",
+    "remote_docs_site",
+)
+
+
+def run_remote_stages(
+    commands: Sequence[tuple[str, str]],
+    run_stage: Callable[[str, str], dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Runs `commands` in order and returns their records; stops only after a failed prerequisite."""
+    records: list[dict[str, Any]] = []
+    for command_id, command in commands:
+        records.append(run_stage(command_id, command))
+        if records[-1]["exit_status"] != 0 and command_id in PREREQUISITE_REMOTE_STAGES:
+            break
+    return records
+
+
+def report_preflight(records: Sequence[dict[str, Any]], log_dir: Path) -> int:
+    """Prints every stage's result; writes no artifact, so no push can rely on a preflight."""
+    failed = [row for row in records if row["exit_status"] != 0]
+    for row in records:
+        verdict = "PASSED" if row["exit_status"] == 0 else "FAILED"
+        print(f"{verdict} {row['id']}: {log_dir / (row['id'] + '.log')}")
+    print(f"preflight: {len(records)} stages, {len(failed)} failed; no artifact written")
+    return 1 if failed else 0
+
+
 def finish_artifact(
     repo: Path,
     *,
@@ -374,8 +426,24 @@ def prepare(args: Any) -> int:
     head = guard.git(repo, "rev-parse", "HEAD").strip()
     base_sha = guard.git(repo, "rev-parse", args.base).strip()
     paths = guard.changed_paths(repo, base_sha, head)
-    log_dir = guard.state_root(repo) / "logs" / head
+    preflight = bool(getattr(args, "preflight", False))
+    # A preflight keeps its logs apart, so it never replaces the evidence of a `prepare` of the same head.
+    log_dir = guard.state_root(repo) / "logs" / head / ("preflight" if preflight else "")
     records: list[dict[str, Any]] = []
+
+    def conclude(vscode_changed: bool) -> int:
+        if preflight:
+            return report_preflight(records, log_dir)
+        return finish_artifact(
+            repo,
+            head=head,
+            base_ref=args.base,
+            base_sha=base_sha,
+            vscode_changed=vscode_changed,
+            records=records,
+            log_dir=log_dir,
+        )
+
 
     bootstrap = bootstrap_failures(repo, canonical_repo)
     records.append(synthetic_record("bootstrap", "compare canonical AGENTS.md and skills", bootstrap))
@@ -414,29 +482,13 @@ def prepare(args: Any) -> int:
     )
     cheap_ids = ("bootstrap", "clean", "base_ancestor", "diff_check", "planner")
     if not stage_passed(records, cheap_ids):
-        return finish_artifact(
-            repo,
-            head=head,
-            base_ref=args.base,
-            base_sha=base_sha,
-            vscode_changed=vscode_changed,
-            records=records,
-            log_dir=log_dir,
-        )
+        return conclude(vscode_changed)
 
     local_commands = local_maintenance_commands()
     for command_id, command in local_commands:
         records.append(command_record(command_id, command, cwd=repo, scope="local", log_dir=log_dir))
     if not stage_passed(records, tuple(command_id for command_id, _ in local_commands)):
-        return finish_artifact(
-            repo,
-            head=head,
-            base_ref=args.base,
-            base_sha=base_sha,
-            vscode_changed=vscode_changed,
-            records=records,
-            log_dir=log_dir,
-        )
+        return conclude(vscode_changed)
 
     strict_command = strict_report_command(
         base_sha=base_sha,
@@ -447,15 +499,7 @@ def prepare(args: Any) -> int:
         command_record("strict_gate", strict_command, cwd=repo, scope="local", log_dir=log_dir)
     )
     if not stage_passed(records, ("strict_gate",)):
-        return finish_artifact(
-            repo,
-            head=head,
-            base_ref=args.base,
-            base_sha=base_sha,
-            vscode_changed=vscode_changed,
-            records=records,
-            log_dir=log_dir,
-        )
+        return conclude(vscode_changed)
 
     remote_head_check = (
         f'test "$(git rev-parse HEAD)" = {shlex.quote(head)} && '
@@ -469,9 +513,12 @@ def prepare(args: Any) -> int:
         ),
     )
     remote_commands[0] = ("remote_exact_head", remote_head_check)
-    for command_id, command in remote_commands:
-        records.append(
-            command_record(
+    if preflight:
+        remote_commands = [row for row in remote_commands if row[0] in PREFLIGHT_REMOTE_STAGES]
+    records.extend(
+        run_remote_stages(
+            remote_commands,
+            lambda command_id, command: command_record(
                 command_id,
                 remote_command(
                     args.remote_host, args.remote_worktree, command,
@@ -481,17 +528,8 @@ def prepare(args: Any) -> int:
                 cwd=repo,
                 scope=args.remote_host,
                 log_dir=log_dir,
-            )
+            ),
         )
-        if records[-1]["exit_status"] != 0:
-            break
-
-    return finish_artifact(
-        repo,
-        head=head,
-        base_ref=args.base,
-        base_sha=base_sha,
-        vscode_changed=vscode_changed,
-        records=records,
-        log_dir=log_dir,
     )
+
+    return conclude(vscode_changed)

@@ -58,8 +58,8 @@ cargo test -p trust-runtime --features openot-real-database-tests \
 ```
 
 The same script is the body of the required weekly/manual
-`OpenOT real databases` workflow and a hard dependency of the tag-triggered
-Release workflow. Its self-hosted runner provisioner must start the pinned real
+`OpenOT real databases` workflow and a hard dependency of the Release
+workflow, for its rehearsals and its releases alike. Its self-hosted runner provisioner must start the pinned real
 products and issue ephemeral secrets/CA material; the workflow always tears
 down that disposable state and retains the redacted evidence artifact for 30
 days. A missing runner, secret, CA file, product, artifact, or teardown is a
