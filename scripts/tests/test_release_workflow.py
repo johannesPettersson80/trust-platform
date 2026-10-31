@@ -4,8 +4,11 @@ parser, so the tests read the workflows' text, which keeps its indentation."""
 
 from __future__ import annotations
 
+import os
 import re
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -43,6 +46,12 @@ def steps(job: str) -> dict[str, str]:
         if name:
             found[name.group(1)] = text
     return found
+
+
+def run_block(step: str) -> str:
+    """A step's `run: |` script, dedented as the runner sees it."""
+    body = step.split("        run: |\n", 1)[1]
+    return "\n".join(line[10:] for line in body.splitlines()) + "\n"
 
 
 def field(text: str, key: str, indent: int = 8) -> str:
@@ -183,6 +192,35 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn('if [ "${peeled}" != "${RELEASE_SHA}" ]', tag)
         self.assertIn('git tag -a "${RELEASE_TAG}"', tag)
         self.assertIn("already published", steps(self.jobs["publish"])["Publish to VS Code Marketplace"])
+
+    def test_a_failed_marketplace_upload_fails_its_step(self) -> None:
+        # Catches the step that ended green after vsce failed: `exit_code=$?` after an `if` whose condition failed
+        # read 0, so the release waited an hour in its verification for a target never uploaded (Codex, PR #146).
+        # The step runs here with a stand-in `vsce` that answers each case as the Marketplace tool does.
+        script = run_block(steps(self.jobs["publish"])["Publish to VS Code Marketplace"])
+        cases = [
+            ("ERROR  The Personal Access Token verification has failed.", 1, 1),
+            ("ERROR  trust-platform.trust-lsp@0.27.0 already exists.", 1, 0),
+            ("DONE  Published trust-platform.trust-lsp v0.27.0.", 0, 0),
+        ]
+        for answer, vsce_status, step_status in cases:
+            with tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                (root / "vsix-artifacts").mkdir()
+                (root / "vsix-artifacts" / "trust-lsp-linux-x64.vsix").write_text("vsix")
+                (root / "bin").mkdir()
+                vsce = root / "bin" / "vsce"
+                vsce.write_text(f"#!/bin/sh\necho '{answer}'\nexit {vsce_status}\n")
+                vsce.chmod(0o755)
+                result = subprocess.run(
+                    ["bash", "-c", script],
+                    cwd=root,
+                    env={**os.environ, "PATH": f"{root / 'bin'}:{os.environ['PATH']}"},
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                self.assertEqual(result.returncode, step_status, f"{answer}: {result.stdout}{result.stderr}")
 
     def test_a_rehearsal_keeps_its_release_text_and_evidence(self) -> None:
         keep = steps(self.jobs["rehearse"])["Keep the rehearsal's release files"]

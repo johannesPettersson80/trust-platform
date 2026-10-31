@@ -648,13 +648,15 @@ jobs:
             while [ "$attempt" -le "$max_attempts" ]; do
               echo "Publishing $vsix (attempt $attempt/$max_attempts)"
               output_file="$(mktemp)"
-              if vsce publish --packagePath "$vsix" >"$output_file" 2>&1; then
+              # The status of vsce itself: after an `if` whose condition failed, `$?` is 0.
+              exit_code=0
+              vsce publish --packagePath "$vsix" >"$output_file" 2>&1 || exit_code=$?
+              if [ "$exit_code" -eq 0 ]; then
                 cat "$output_file"
                 rm -f "$output_file"
                 break
               fi
 
-              exit_code=$?
               output="$(cat "$output_file")"
               cat "$output_file"
               rm -f "$output_file"
