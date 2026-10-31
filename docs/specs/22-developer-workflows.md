@@ -286,10 +286,14 @@ Work reaches `main` in small pull requests, and CI is the only gate:
   version change, the release rehearsal) run in CI on every push;
 - the acceptance journeys of the shipped user paths (the PID walkthrough,
   Identify from Auto, the walkthrough's experiments and F23's runtime
-  connection) run in CI on the packaged extension that the pull request built;
+  connection) run on the packaged extension: in CI on the package that the
+  pull request built, once CI packages every pull request, and until then on
+  the package of a release pull request's rehearsal before it merges;
 - a pull request merges when every required check is green and the review has
   no open finding, through a merge queue that tests it on top of the current
-  `main`, so that `main` is always releasable;
+  `main`, so that `main` is always releasable; until the queue runs every
+  required workflow and is enabled, the pull request merges at its exact head
+  once branch protection finds its required checks green;
 - a release is a pull request that only bumps the version and moves the
   changelog section; it merges like any other, and the release follows
   `main`'s CI (specification 24, "Release after main CI"), publishing the

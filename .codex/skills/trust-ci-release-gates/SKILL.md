@@ -34,6 +34,9 @@ can, so a finding costs a fix in its own pull request, never another release rou
    cause, and say so in the pull request.
 4. **Merge** when every required check is green and Codex has no open finding, through the merge
    queue, which tests the change on top of the current `main`. `main` is always releasable.
+   Until the queue is enabled (checklist W5), merge at the exact head with
+   `gh pr merge <number> --merge --match-head-commit <sha>`; branch protection refuses it while a
+   required check is not green.
 5. **Release** with a pull request that only bumps the version and moves the changelog section
    (Releasing, below). It merges like any other.
 6. **Release blockers** are regressions and severe bugs: safety, data loss, a broken user journey.

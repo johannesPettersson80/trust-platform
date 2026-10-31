@@ -132,7 +132,9 @@ separately.
   - A red check: read its log, fix the cause in the same pull request and push. A failure without
     a code cause is a flake: record it with its log on the checklist and fix it as its own item.
   - A pull request merges when its required checks are green and Codex has no open finding,
-    through the merge queue. `main` is always releasable.
+    through the merge queue. `main` is always releasable. Until the queue is enabled (checklist
+    W5), merge with `gh pr merge <number> --merge --match-head-commit <sha>`; branch protection
+    refuses it while a required check is not green.
 - **Review your diff before each push**: tests, imports, feature gates and the callers and
   lifecycle paths that the change reaches. Review does not prove compilation.
 - **Compile check before reporting** (owner, 17 October 2026: "proposal a approved"). Before an
