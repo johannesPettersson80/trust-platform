@@ -1,10 +1,11 @@
 //! The statechart companion executed (specification 17, "Statechart"): a chart's companion and
 //! runtime entry, as `trust-lsp.visualCompanion` answers them, compiled and scanned on the runtime
 //! at the entry's 20 ms. A transition with `after` fires when its state has been active that long:
-//! its `TON` runs once per scan with `IN` TRUE while the state is active, so the call in the first
-//! scan of the state samples the rising edge at `ET` T#0s and each later scan adds 20 ms
-//! (specification 08 §5; `docs/IEC_DECISIONS.md` 2026-10-30); a transition that fires resets the
-//! timers of its state, so that a self-transition starts them again.
+//! its `TON` starts in the scan that enters the state (the transition that enters it calls it with
+//! `IN` TRUE; the initial state's runs with `IN` TRUE in the first scan), samples the rising edge
+//! there at `ET` T#0s, and each later scan adds 20 ms (specification 08 §5; `docs/IEC_DECISIONS.md`
+//! 2026-10-30); a transition that fires resets the timers of its state, so that a self-transition
+//! starts them again.
 //!
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
@@ -73,14 +74,16 @@ impl Run {
     }
 }
 
-/// Worked by hand, scan n at n × 20 ms: `Off`'s timer starts at `ET` 0 in scan 1 and reaches its
-/// 100 ms in scan 6, which turns `On`. `On`'s `TICK` timer starts in scan 7 and reaches 60 ms in
-/// scan 10, where the self-transition fires and resets it; it starts again in scan 11 and fires in
-/// scan 14. `GO` in scan 15 turns `Off`, whose timer starts again in scan 16 and turns `On` in scan
-/// 21. Catches timers reset before they run in every scan, which never fired (`On` never came), a
-/// self-transition that does not restart its timer (it would fire in every scan after scan 10),
-/// and a timer that counts the scan before its state was entered (the former timer rule: `TICK`
-/// in scan 9, and `On` again in scan 20).
+/// Worked by hand, scan n at n × 20 ms: `Off`, entered in scan 1, has its timer at `ET` 0 there and
+/// at 100 ms in scan 6, which turns `On`. That transition starts `On`'s `TICK` timer at 0 in scan
+/// 6, the scan that enters `On`; it reaches 60 ms in scan 9, where the self-transition resets it and
+/// starts it again, and in scan 12. In scan 15 it reaches 60 ms again, but `GO`, raised for that
+/// scan and first in file order, fires and turns `Off`, whose timer starts at 0 in scan 15 and
+/// turns `On` in scan 20. Catches timers reset before they run in every scan, which never fired
+/// (`On` never came), a self-transition that does not restart its timer (it would fire in every scan
+/// after scan 9), and a timer that starts only in the scan after its state was entered, one task
+/// interval late (`TICK` in scan 10 and `On` again in scan 21; Codex's review of #147, 31 October
+/// 2026).
 #[test]
 fn transitions_with_after_fire_when_their_state_has_been_active_that_long() {
     let mut run = Run::new();
@@ -103,16 +106,17 @@ fn transitions_with_after_fire_when_their_state_has_been_active_that_long() {
     }
     let expected_states: Vec<&str> = (1..=21)
         .map(|scan| match scan {
-            1..=5 | 15..=20 => "Off",
+            1..=5 | 15..=19 => "Off",
             _ => "On",
         })
         .collect();
     assert_eq!(states, expected_states, "the active state after each scan");
-    // The TICK timer at the end of each scan: 0 while Off, then 0, 20, 40 and 0 again where the
-    // self-transition fires (scans 10 and 14), restarting at 0 in the scan after.
+    // The TICK timer at the end of each scan: 0 while Off and in scan 6, which enters On; then 20,
+    // 40 and 0 where the self-transition starts it again (scans 9 and 12) and where GO leaves On
+    // (scan 15); 0 in scan 20, which enters On again, and 20 in scan 21.
     assert_eq!(
         ticks,
-        vec![0, 0, 0, 0, 0, 0, 0, 20, 40, 0, 0, 20, 40, 0, 0, 0, 0, 0, 0, 0, 0],
+        vec![0, 0, 0, 0, 0, 0, 20, 40, 0, 20, 40, 0, 20, 40, 0, 0, 0, 0, 0, 0, 20],
         "the TICK timer's elapsed time after each scan"
     );
 }

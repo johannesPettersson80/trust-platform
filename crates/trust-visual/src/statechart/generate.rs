@@ -95,6 +95,7 @@ pub fn generate(program: &Json, base: &str) -> Result<Generated, Vec<Problem>> {
         index_of: &index_of,
         mappings: program.get("actionMappings"),
         event_inputs: &machine.event_inputs,
+        timers: &machine.timers,
     };
     let body = context.body(&states, &machine, initial)?;
 
@@ -233,6 +234,7 @@ struct Context<'a> {
     index_of: &'a HashMap<&'a str, usize>,
     mappings: Option<&'a Json>,
     event_inputs: &'a [(String, String)],
+    timers: &'a [Timer],
 }
 
 /// Refuses a target written like a direct address that the runtime's address parser refuses
@@ -264,7 +266,8 @@ impl Context<'_> {
         ];
         // One call per scan: a timer counts while its state is active and starts over when the
         // state is left (specification 17, "Statechart"). A transition that fires resets the timers
-        // of its source state, so that a self-transition starts them again.
+        // of its source state and starts those of its target, so that a state's timers start in the
+        // scan that enters it, as the initial state's do, and a self-transition starts them again.
         for timer in &machine.timers {
             let state = self
                 .index_of
@@ -285,19 +288,7 @@ impl Context<'_> {
             states.iter().zip(&machine.transitions).enumerate()
         {
             body.push(format!("{INDENT}{index}:"));
-            let resets: Vec<String> = machine
-                .timers
-                .iter()
-                .filter(|timer| timer.state == *state)
-                .map(|timer| {
-                    format!(
-                        "{}{}(IN := FALSE, PT := T#{}ms);",
-                        INDENT.repeat(3),
-                        timer.name,
-                        number_text(timer.after_ms)
-                    )
-                })
-                .collect();
+            let resets = self.timer_calls(state, false);
             let exit = action_list(value.get("exit"));
             for (position, transition) in transitions.iter().enumerate() {
                 self.transition(&mut body, position, transition, &exit, &resets)?;
@@ -326,8 +317,26 @@ impl Context<'_> {
         Ok(body)
     }
 
+    /// The call of each timer of `state` with `IN` TRUE when `run`, or FALSE, three levels deep.
+    fn timer_calls(&self, state: &str, run: bool) -> Vec<String> {
+        let input = if run { "TRUE" } else { "FALSE" };
+        self.timers
+            .iter()
+            .filter(|timer| timer.state == state)
+            .map(|timer| {
+                format!(
+                    "{}{}(IN := {input}, PT := T#{}ms);",
+                    INDENT.repeat(3),
+                    timer.name,
+                    number_text(timer.after_ms)
+                )
+            })
+            .collect()
+    }
+
     /// The `IF`/`ELSIF` branch of the transition at `position` of its state, whose exit actions
-    /// are `exit` and whose timers `resets` start over when the transition fires.
+    /// are `exit` and whose timers `resets` start over when the transition fires; the timers of
+    /// its target start once the target is active.
     fn transition(
         &self,
         body: &mut Vec<String>,
@@ -365,6 +374,7 @@ impl Context<'_> {
                 _ => 0,
             };
             body.push(format!("{INDENT}{INDENT}{INDENT}_state := {index};"));
+            body.extend(self.timer_calls(&target_name, true));
         } else {
             body.push(comment(&format!(
                 "Invalid transition target: {target_name}"

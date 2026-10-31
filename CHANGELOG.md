@@ -67,9 +67,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `CTU_DINT`, `CTD_DINT` or `CTUD_DINT` (specification 08 §4).
 - A `TP` pulse ignores a rising edge of `IN` while it runs, as IEC 61131-3 Figure 15 a and specification 08 have it; such
   an edge restarted the pulse and made it longer than `PT`.
-- A statechart transition with `after` fires when its state has been active that long, and a timed self-transition
-  starts its timer again. The generated companion reset every timer before running it in each scan, so such a
-  transition never fired (specification 17 §3.2).
+- A statechart transition with `after` fires when its state has been active that long, counted from the scan that
+  enters the state, and a timed self-transition starts its timer again. The generated companion reset every timer
+  before running it in each scan, so such a transition never fired (specification 17 §3.2).
 - A library block inside a `RETAIN` instance keeps its own state over a warm restart and a power loss: a `TOF`'s running
   off-delay and a `TP`'s running pulse go on, and a counter or an `R_TRIG`/`F_TRIG` whose input is TRUE at the restart
   counts no new edge. They lost that state, so the delay or pulse ended at once and the counter counted one more
