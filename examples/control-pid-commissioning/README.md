@@ -117,8 +117,12 @@ they fail.
 - Ask for a settling time of `30 s` with a validation duration of `60 s`. Automatic takes More robust: Kp = 0.4572
   %/°C and Ki = 0.1143 %/(°C·s), gain margin 25.26 dB, delay margin 8.66 s. Validate measures 12.8 s: a slower loop,
   gentler on the heater and more tolerant of a model that is off.
-- In `simulation.toml`, change the plant's `time_constant_s` from `4.0` to `8.0`, press **Start** again and repeat from
-  step 4: Identify finds the new time constant, and since Ti = T, Tune's integral gain falls.
+- In `simulation.toml`, change the plant's `time_constant_s` from `4.0` to `8.0`, press **Start** again and repeat
+  steps 4 to 8. Identify finds the slower heater, G(s) = 1.49975 e^(-0.5s) / (7.99755s + 1). Tune doubles the
+  proportional gain to 1.68 %/°C but keeps the integral gain at 0.2106 %/(°C·s) and the same margins, and Validate
+  again measures 6.6 s. Automatic now takes Faster, whose λ = T/3 = 2.666 s is the λ Balanced had for the 4 s heater.
+  With Ti = T the controller cancels the plant's lag: controller times plant is Kp·K·e^(−θs)/(T·s) =
+  e^(−θs)/((λ + θ)·s), in which T no longer appears. The same λ gives the same loop, whatever the time constant.
 
 ## Reference
 
