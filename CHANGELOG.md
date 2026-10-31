@@ -6,6 +6,29 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+### Fixed
+- Implicit-conversion warning: a derived DUT converted to its own ancestor
+  (directly or transitively) no longer emits `ImplicitConversion` — the
+  conversion is a well-defined base-part-copy upcast that assignment
+  compatibility already accepts. Conversions between DUTs without an
+  ancestor relation keep the warning.
+- Unused-symbol analysis: input parameters of a method that IMPLEMENTS an
+  interface method no longer receive a false `W002` unused-parameter
+  warning — the implementing POU must carry the full interface signature
+  even where its body ignores a pin. Methods outside every implemented
+  interface keep the warning.
+- Unused-symbol analysis: `EXTENDS` and `IMPLEMENTS` targets count as used —
+  a function block referenced only as a base class (or a DUT/interface only
+  inherited) no longer receives a false `W009` unused warning, while the
+  never-instantiated derived declaration still does.
+- Unused-symbol analysis: qualified value access chains (`GVals.Member`,
+  dotted declaration-size references) now mark the TERMINAL symbol used.
+  The parser models these as nested field-access nodes with a plain `Name`
+  terminal, which the unused-symbol collector never resolved — constants
+  referenced only through qualified cross-file uses (expressions,
+  `STRING[GVals.Len]` sizes) were falsely reported as `W001` unused
+  constants. Genuinely unreferenced constants still warn.
+
 ### Changed
 
 - Releases follow `main`'s CI instead of a hand-pushed tag. When CI passes on a commit whose version has no complete
@@ -164,8 +187,6 @@ The CODESYS and e!COCKPIT dialect constructs of PR #141:
   names by its size, now also for a bit address without a size prefix such as `%I0.3` (specification 25 §4.3). The
   panel kept its own copies of the address and truth-value rules.
 
-### Fixed
-
 - The Target picker calls a remote runtime not reachable only when it failed to answer a probe. With the control
   endpoint switched off, in simulate mode or during a session no probe asks it, so it is Not connected and Connect,
   which probes first, stays enabled; Connect was disabled until the setting was switched on by hand (specification 25
@@ -204,8 +225,6 @@ The CODESYS and e!COCKPIT dialect constructs of PR #141:
   Manual still gets its Manual command back.
 
 ## [0.25.1] - 2026-10-29
-
-### Fixed
 
 - Control Studio's Identify and Validate judge a step's response from the scan at which the runtime
   reports the step applied (specification 35, B3.4 step 4). Before, the response counted from the
@@ -2601,8 +2620,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   access capabilities no longer include `hmi`. A `runtime.toml` that still contains `[runtime.hmi_persistence]` is now
   rejected: delete that section. Existing `hmi/` folders are no longer read or changed.
 
-### Fixed
-
 - The cycle grid keeps the tasks' deadlines on computers and chips alike (specification 10 §4.3):
   it begins where the tasks' timing begins, also when the first cycle starts late; a cycle that
   starts a whole cycle interval or more late, because the operating system delayed its wake or the
@@ -3710,8 +3727,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   handle released every active force although it claimed to leave the installed
   state unchanged; detaching a debugger keeps forces (specification 11 §6.9).
 
-### Fixed
-
 - OPC UA startup now waits until this process's own server has bound its listen address, so another process holding the port can no longer pass for a started server on platforms where the check before startup does not see it (seen on macOS). A bind that fails during startup reports the same "listen address … is unavailable" error as that check.
 - `trust-dev ctl` and `trust-runtime ui` keep the project's control token when
   `--endpoint` is given, as `trust-runtime ctl` does; they used to drop it.
@@ -3859,8 +3874,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   verification, register executor, OPC UA and persistence tests supply values
   directly through their owning configuration boundaries.
 
-### Fixed
-
 - Isolate the real OpenOT PLC scan-overhead regression from concurrent functional
   tests and compare paired scans with alternating order, preserving the existing
   threshold and checking that the real persistence worker commits and drains.
@@ -3895,8 +3908,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   a borrowed metadata view. F401 code uses the 448 KiB L2 region; two reserved checkpoint sectors do
   not yet provide persistence. All IEC functions and admission checks remain.
 
-### Fixed
-
 - Preserve source-free restart initialization of direct input, output and marker
   image addresses. Warm and cold restart carry previous images into staging before
   ordered configuration actions, keeping unconfigured values and transactional
@@ -3911,8 +3922,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 ### Changed
 
 - Share STBC 1.x decoding, validation, metadata extraction and serialization with the portable runtime core, preserving hosted bytecode APIs.
-
-### Fixed
 
 - Preserve function-block instance ownership when a body contains a NULL literal, so instance-field accesses bind to the invoked instance.
 - Bound bytecode validation scratch storage and work across instructions and metadata,
@@ -3929,8 +3938,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   through libm 0.2.16 while retaining their promotion, narrowing and fault policies.
   Add isolated F401/C6 core build gates and explicit portable ordered-map hashing;
   this establishes library portability, not qualified board support.
-
-### Fixed
 
 - Confirm managed fleet shutdown across control-connection teardown without
   mistaking interrupted status probes for a failed shutdown or a confirmed stop.
@@ -3953,8 +3960,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 ### Changed
 
 - Let release validation honor the builder's configured Cargo job limit instead of forcing a single concurrent build job.
-
-### Fixed
 
 - Bind release validation capacity checks to the selected generated-target filesystem;
   support the mounted builder volume with the same leases, ownership checks and
@@ -3985,8 +3990,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 
 ## [0.24.69] - 2026-09-04
 
-### Fixed
-
 - Resolve symbolic MQTT tag mappings when a project is launched in the VS Code
   simulator, so mapped outputs connect and publish instead of leaving the
   debugger with an empty process image.
@@ -4004,8 +4007,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   incompatible pre-release development schemas fail closed without migration,
   backfill, reconstruction, or automatic repair. Runtime status reports this
   shared contract as `schema_generation`, not a backend-specific version.
-
-### Fixed
 
 - Preserve typed database transport failures through OpenOT schema
   initialization, commit, and maintenance so bounded reconnect still applies,
@@ -4065,15 +4066,11 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   idempotent replay, TLS/secret boundaries, InfluxDB outage spooling, runtime
   status, complete examples, and real-vendor conformance coverage.
 
-### Fixed
-
 - Make every OpenOT database example portable to Windows and Linux by using a
   TCP runtime control endpoint with an explicit local-only example token instead
   of a Unix-only `/tmp` socket.
 
 ## [0.24.65] - 2026-08-29
-
-### Fixed
 
 - Keep real-Mosquitto conformance compatible with broker versions whose help
   command prints a usable version and then exits nonzero, so optional version
@@ -4106,8 +4103,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 
 ## [0.24.64] - 2026-08-29
 
-### Fixed
-
 - Keep native Unix control-endpoint tests portable under long temporary paths,
   and make automated docs captures reap their owned process sessions and
   code-server container after success, failure, or interruption.
@@ -4135,8 +4130,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 - Support MQTT tag mappings that bind fully qualified scalar program variables
   directly to broker topics with explicit PLC-relative `read` and `write`
   directions.
-
-### Fixed
 
 - Make the runtime communications conformance gate reject zero-test filters
   and align its development and WAN profile cases with the shipped policy.
@@ -4218,8 +4211,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   representable `SINT`/`INT`/`DINT`/`LINT` results retain their exact value and
   destination tag, while range overflow fails before storage instead of
   wrapping, saturating, truncating, or substituting a value.
-
-### Fixed
 
 - ci/trust-runtime: The managed-fleet CLI lifecycle integration test now uses
   file-backed child output capture and bounded command execution, preventing a
@@ -4678,8 +4669,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   self-contained path-based assets across the public documentation, runtime Web
   IDE, and packaged VS Code extension.
 
-### Fixed
-
 - verification: case-table hashing now canonicalizes Windows CRLF checkout
   line endings, keeping committed case-file digests stable across runners.
 - ci/trust-runtime: the live Modbus+MQTT composition test now retries the
@@ -4844,8 +4833,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 
 ## [0.24.34] - 2026-07-15
 
-### Fixed
-
 - ci/docs: Browser IDE capture automation now requests the editor session
   required to switch the active tutorial project, and code-server captures now
   assert the accepted `truST:` command category, keeping post-merge docs
@@ -4861,8 +4848,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 
 ## [0.24.31] - 2026-07-10
 
-### Fixed
-
 - ci: the main-branch version release guard now allows 90 minutes for a matching
   Release workflow to finish, with a larger job budget and a focused regression
   test, so healthy cold Windows artifact builds do not fail release evidence at
@@ -4876,8 +4861,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   port before browsing symbols, defaults to PLC port `851`, preserves non-851
   ports through browse/import/`ads.toml`, and distinguishes an unavailable ADS
   port, unsupported Symbol Upload, and an empty or incompatible symbol table.
-
-### Fixed
 
 - vscode: fixed stale Devices & Connections refresh and discovery sessions so
   editor-group resize/remounts cannot publish torn capability state or leave old
@@ -5096,8 +5079,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   block, world-smoke fixtures, and transform-handoff lint script. The release
   keeps the normal simulator/runtime surfaces and no longer ships a
   digital-twin or trust-twin runtime path.
-
-### Fixed
 
 - ci: release tests now tolerate loaded matrix runners for MQTT/Modbus
   scan-bound timing, runtime fail-closed state propagation, Windows index-cache
@@ -5682,8 +5663,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 
 ## [0.24.24] - 2026-06-09
 
-### Fixed
-
 - trust-hir/trust-ide: IEC Table 39 validation functions `IS_VALID` and
   `IS_VALID_BCD` now type-check and surface in editor completion, hover, and
   signature help; `IS_VALID_BCD` accepts `BYTE`/`WORD`/`DWORD`/`LWORD` and
@@ -5737,8 +5716,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 
 ## [0.24.21] - 2026-06-01
 
-### Fixed
-
 - Runtime bytecode execution now supports IEC Table 17 partial
   bit/byte/word/dword access on `BYTE`, `WORD`, `DWORD`, and `LWORD`
   function-block instance fields, matching the existing program-variable
@@ -5746,15 +5723,11 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 
 ## [0.24.19] - 2026-05-23
 
-### Fixed
-
 - `architecture-doctor --changed` now follows the current
   `crates/trust-runtime/src/host/...` runtime host layout for initializer and
   evaluation checks.
 
 ## [0.24.15] - 2026-05-05
-
-### Fixed
 
 - Runtime I/O drivers now fail closed for the covered safety paths: MQTT
   disconnected/stale reads and publish/connect failures return structured
@@ -5802,8 +5775,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   `--protocol-version 1` or `TRUST_HARNESS_PROTOCOL_VERSION=1` for the legacy
   watch-value map shape during migration.
 
-### Fixed
-
 - Harness boundary inputs now fail closed: typoed `set_input` names and
   `bind_direct` targets return structured boundary errors instead of creating
   hidden globals or undeclared I/O bindings.
@@ -5812,8 +5783,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   extra program instances.
 
 ## [0.24.13] - 2026-05-03
-
-### Fixed
 
 - External safety follow-up now prunes the Zenoh default-feature dependency
   surface to remove the transitive `rsa` advisory path, removes direct
@@ -5884,8 +5853,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   member overrides instead of creating a temporary runtime storage frame on the
   native-call path.
 
-### Fixed
-
 - Runtime and constant-expression array repetition initializers now shape arrays
   from the expanded value count, so declarations such as `[3(1, 2)]` materialize
   as six elements instead of failing type validation as a one-element array.
@@ -5916,8 +5883,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   moving the expensive 98-project `trust-runtime test --project` sweep behind
   an explicit ignored gate with per-project progress, child PID/elapsed
   reporting, and timeout diagnostics.
-
-### Fixed
 
 - HIR validation now reports `UndefinedVariable` when a `VAR_ACCESS` access
   path points at a missing target instead of silently accepting the declaration.
@@ -6021,14 +5986,10 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   Linux release builds use vendored OpenSSL for the selected native TLS backend,
   and remote plaintext brokers still require `allow_insecure_remote = true`.
 
-### Fixed
-
 - MQTT TLS fixture paths are normalized before being embedded in TOML so the
   TLS config tests run on Windows paths as well as Unix paths.
 
 ## [0.24.6] - 2026-04-29
-
-### Fixed
 
 - MQTT `keep_alive_s` is now applied to the `rumqttc` session options instead
   of being parsed only at validation time.
@@ -6047,16 +6008,12 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 
 ## [0.24.3] - 2026-04-29
 
-### Fixed
-
 - Parser recovery for malformed aggregate/positional initializers is now
   bounded by shared top-level scan helpers, preserves following declarations at
   declaration boundaries, and is guarded by full-map doctor and focused
   mutation evidence.
 
 ## [0.24.2] - 2026-04-28
-
-### Fixed
 
 - HIR validation now rejects non-repeat call expressions used as array defaults
   and validates direct array repetition defaults against the repeated element
@@ -6072,8 +6029,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   fields with stable diagnostics, allow legal function-block member overrides,
   and expose `trust-runtime bench init` for startup/first-cycle initialization
   benchmark evidence.
-
-### Fixed
 
 - VS Code activation no longer writes the default runtime control endpoint into
   workspace folder settings; runtime panels still use the built-in endpoint
@@ -6113,8 +6068,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   setup, clearer PID/calendar/astronomy names, and example coverage for
   `Snapshot()` and configuration error handling.
 
-### Fixed
-
 - `Pt1Filter.Reset()` now reinitializes the underlying OSCAT `FT_PT1` state on
   the next update, and `HysteresisSwitch.Reset()` now resets the actual
   hysteresis state instead of only clearing cached wrapper fields.
@@ -6145,8 +6098,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   assignments across source files and package dependencies.
 
 ## [0.22.3] - 2026-04-26
-
-### Fixed
 
 - Enum values loaded from `VAR` initializers now compare equal to the same enum
   variant literal in VM execution, covering unqualified, qualified, and
@@ -6187,8 +6138,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   workflow; dense terms blocks and stock "use this guide when" boilerplate were
   removed; and the one-project GIF was regenerated at higher resolution without
   the dark banner overlay.
-
-### Fixed
 
 - Runtime ST test compilation now reuses expression type information from the
   HIR analysis pass, avoids repeated full-project symbol-table clones during
@@ -6231,8 +6180,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 
 ## [0.22.1] - 2026-04-23
 
-### Fixed
-
 - The shipped `examples/oscat_smoke` consumer now matches the current OSCAT
   named-parameter surface (`DEG`, `DAYS`, and `DATA`), so the example builds
   cleanly again instead of failing on stale `D := ...` calls.
@@ -6264,8 +6211,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   `addData/method` metadata for `FUNCTION_BLOCK` methods with deterministic
   method object IDs/project-structure placement.
 
-### Fixed
-
 - `trust-lsp` push-diagnostics mode now refreshes dependent open documents
   after `didOpen`, `didChange`, and `didSave` events, so cross-file call
   diagnostics clear and update immediately instead of staying stale until a
@@ -6276,8 +6221,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   instance call shape.
 
 ## [0.20.1] - 2026-04-21
-
-### Fixed
 
 - Linux `PREEMPT_RT` support no longer breaks non-Linux cargo builds and
   warning gates: Linux-only helpers/imports in `trust-runtime` are now
@@ -6296,8 +6239,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   `systemd` unit template, and a shipped validation script for collecting
   host/kernel/service evidence alongside release-mode benchmark artifacts.
 
-### Fixed
-
 - The Linux cyclic runtime no longer rebuilds ready-task and background-program
   scratch vectors every scan cycle; those scratch buffers are now runtime-owned
   and reused so the `PREEMPT_RT` path reduces avoidable hot-path allocation
@@ -6313,8 +6254,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   is missing.
 
 ## [0.19.1] - 2026-04-20
-
-### Fixed
 
 - The public docs and repo landing surfaces now lead with the strongest truST
   story instead of burying it behind browser-first proof shots: the homepage,
@@ -6377,8 +6316,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   build/validate/test docs, and the same docs-captures workflow refreshes
   those assets alongside the browser/code-server captures.
 
-### Fixed
-
 - The code-server screenshot lane now waits for real editor content instead of
   only a tab label, dismisses first-run/sign-in chrome, closes the unrelated
   chat side panel before capture, and renames the Browser IDE screenshot to the
@@ -6404,8 +6341,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   primary entry point, use the truST logo directly, and show real browser
   captures for Browser IDE and Browser HMI instead of forcing readers through
   repo file paths or VS Code-only framing.
-
-### Fixed
 
 - The public docs Pages pipeline no longer hard-fails on runners without
   `ffmpeg` when all committed screenshot assets are already present, and the
@@ -6484,8 +6419,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   and first-fix guidance, and docs-search regression coverage now includes code
   queries such as `E001`, `W003`, `implicit conversion`, and `missing else`.
 
-### Fixed
-
 - Warm restart and live `bytecode.reload` now preserve compiled instance-backed
   runtime references across the restart boundary, so instance-backed I/O
   bindings and the new `trust-runtime agent serve` `runtime.reload` flow no
@@ -6500,8 +6433,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   gap for `--8<--`-included content and generated public assets.
 
 ## [0.18.4] - 2026-04-18
-
-### Fixed
 
 - The ST compiler/runtime build path now closes the remaining open regression
   cases around control-flow and declaration lowering: unqualified enum members
@@ -6595,8 +6526,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 - truST now accepts direct `CHAR_TO_BYTE` / `WCHAR_TO_WORD` conversion-style helpers, and the shipped OSCAT `CODE()` helper now uses that fast path instead of a brute-force byte scan; the OSCAT core fixture is back to passing at the default `--timeout 5`.
 - Structured Text indexing now supports nested `field[index]` / `index.field` chains and character indexing on `STRING` / `WSTRING`, so OSCAT-style `LANGUAGE.DIRS[ly, i]` access and IEC string element forms compile and execute without fallback workarounds.
 - `libraries/oscat/src` and the OSCAT core/negative conformance fixtures now follow the OSCAT manual chapter structure (`03_data_types` through `26_list_processing`) instead of a flat source bucket, so continued porting can proceed chapter-by-chapter with tests in the matching chapter first.
-
-### Fixed
 
 - The OSCAT runtime/compiler path now handles the full shipped OSCAT library
   more reliably: bytecode lowering resolves local instance names before global
@@ -6715,8 +6644,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 - The canonical PLCopen motion demo now initializes `MC_Constants()` once during startup instead of republishing its outputs every scan, so the reference benchmark reflects the cheaper steady-state usage pattern already documented by the library guide.
 - Register-IR hotpath coverage now includes `LOAD_SELF (0x23)`, complex local-ref execution, and CASE block-entry stack modeling, project-bench VM hot-block reports resolve readable POU names, and lowering-cache fallbacks now preserve the failing POU name plus the original lowering error message. On the PLCopen motion demo this removes the old `unsupported_opcode_0x23`, `complex_local_ref_path`, and `Main` lowering-error buckets and keeps the release gate comfortably under the 10 ms cycle budget with `0` VM fallbacks.
 
-### Fixed
-
 - `trust-runtime bench project` now applies the project's configured runtime execution backend and the motion example bench gate accepts `TRUST_MOTION_MAX_OVERRUNS` / `TRUST_MOTION_P95_MAX_US` overrides for hardware-specific performance gating.
 - `trust-runtime test` now executes discovered `TEST_PROGRAM`s even when a project includes a `CONFIGURATION`, while normal configured runtime builds continue to register only configured programs.
 - `trust-runtime test --project` now compiles sources from local `[dependencies]` packages in addition to the project's own `src/`, so extracted Structured Text libraries can be consumed from real package roots instead of living inside test fixtures.
@@ -6730,13 +6657,9 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 - `trust-harness` now provides a lightweight JSON-line test driver for compiled ST programs, including `cycle.dt_ms` virtual-time advancement and typed `TIME`/`LTIME` watch output for timer-oriented automation.
 - LSP/type-checker numeric hazard warnings now flag floating-point equality/inequality comparisons (`W013`) and `DIV`/`MOD` expressions with literal zero divisors (`W014`), with a dedicated `warn_numeric_hazards` diagnostics toggle for vendor/workspace tuning.
 
-### Fixed
-
 - Structured Text infix bitwise operators now accept `BOOL`/`ANY_BIT` operands with the same widening behavior as the standard `AND`/`OR`/`XOR`/`NOT` functions, and `&` now type-checks as the `AND` synonym instead of falling through as `UNKNOWN`.
 
 ## [0.9.29] - 2026-04-11
-
-### Fixed
 
 - Runtime assignment writes now preserve declared scalar storage types in both interpreter and VM paths, so loop counters keep their declared `INT`/`UINT`/etc. representation and exact-source conversion calls such as `INT_TO_DINT(...)` no longer fail inside `FOR` and `WHILE` loops.
 
@@ -6751,8 +6674,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 - Web IDE build/deploy behavior now matches CLI semantics in unified shell flows: build tasks use project-root `--project` resolution, deploy normalizes `src/`-prefixed source paths to avoid nested `src/src` writes, and online connection defaults now seed same-origin host/port for faster standalone startup.
 - Web IDE header controls now use a compact primary toolbar (`Open`, `Save`, `Build`, `Deploy`) with overflow menu actions for lower visual clutter while preserving the full command set.
 - VS Code HMI widget-navigation source scanning fallback was merged on top of current mainline traversal logic so declaration resolution stays deterministic for `.st`/`.pou` projects after main-branch merge.
-
-### Fixed
 
 - VS Code SFC webview TypeScript message/edge typing regressions that previously failed extension compile gates in CI.
 
@@ -6864,8 +6785,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   - Enabled faster local linking via `mold` (`.cargo/config.toml`) and enabled `sccache` as Cargo `rustc-wrapper`.
   - Reduced dev/test debug symbol level to `debug = 1` for faster incremental compile/link during local iteration.
 
-### Fixed
-
 - Standalone Web IDE bootstrap now serves fully composed split module assets (`ide-editor-language`, `ide-editor-pane`, `ide-workspace-tree`, `ide-workspace-files`, `ide-observability`, `ide-commands`) so session startup/open-project flows no longer fail with missing runtime symbols (for example `refreshProjectSelection`).
 - Standalone Web IDE bootstrap no longer stalls waiting for WASM analysis readiness when the analysis worker repeatedly restarts; IDE startup now completes and remains usable with analysis disabled.
 - Web IDE UI-mode detection now accepts both wrapped (`{ok,result}`) and direct (`{ok,mode}`) API payloads, restoring correct standalone-mode behavior (for example disabling runtime-only controls in `standalone-ide` mode).
@@ -6900,21 +6819,15 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 
 ## [0.9.13] - 2026-02-17
 
-### Fixed
-
 - GitHub Pages demo walkthrough actions are now deterministic and WASM-only for investor flow: steps 1-7 target the correct symbols/files, `Shift+F12` and `F2` are triggered through Monaco actions, cross-file navigation opens in-editor via a registered Monaco editor opener, and bundled Monaco now includes the required references/rename contributions to keep references/rename/go-to-definition working in Pages builds.
 
 ## [0.9.12] - 2026-02-17
-
-### Fixed
 
 - GitHub Pages demo strict-WASM LSP cursor anchoring is now delimiter-aware (`.`, `#`, `:` boundaries): completion/definition/references/rename retry nearby identifier edges, context-menu requests set the cursor to the clicked symbol, and rename preflight resolves identifier ranges from the same fallback matrix.
 - Browser analysis worker-recovery checks now also run demo cursor-position fallback regressions (`docs/demo/lsp-position-resolver.test.mjs`) and no longer fail hard when the legacy prototype test fixture path is absent.
 - Added local GitHub Pages replica serving for the demo (`scripts/serve_demo_local_replica.py`, `scripts/run_demo_local_replica.sh`) with `/<repo>/` routing and no-cache headers so local behavior matches deployed Pages URLs.
 
 ## [0.9.11] - 2026-02-17
-
-### Fixed
 
 - Browser IDE/WASM LSP navigation for structured type fields is now project-wide: `Go to Definition`, `Go to References`, and rename now resolve `STRUCT`/`UNION` members across files (fixing `No definition/references found` on demo symbols like `Enable`, `ActualSpeed`, and `ramp`).
 - GitHub Pages demo rename wiring now consumes WASM rename edits directly, restoring `F2` rename in Monaco, and walkthrough instructions now match the exact Monaco UI labels/actions (`Ctrl+Left-click`, `Go to References`, `Fn+F2` note for laptops).
@@ -6924,13 +6837,9 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 
 ## [0.9.9] - 2026-02-16
 
-### Fixed
-
 - Browser WASM completion ranking now prioritizes typed-prefix matches before result limiting, and completion context recovery now keeps in-scope program variables available during parser recovery edits (fixing missing `Status`/`Pump` suggestions in the demo).
 
 ## [0.9.8] - 2026-02-16
-
-### Fixed
 
 - GitHub Pages demo language features are now strict WASM/LSP-only (no local fallback synthesis), completion request flow is hardened via deduplicated document sync and longer WASM request budgets for slower devices, and FB hover signatures now recover declared member type text from source when semantic type IDs are unresolved.
 
@@ -6948,8 +6857,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   - Added dedicated Web IDE contract/performance/security integration coverage in `crates/trust-runtime/tests/web_ide_integration.rs` and parser/unit coverage in `crates/trust-runtime/src/web.rs` + `crates/trust-runtime/src/web/ide.rs`.
   - Added a standalone static browser demo at `docs/demo/` with all 7 LSP features running fully client-side through WebAssembly, plus GitHub Pages deployment workflow (`.github/workflows/demo-pages.yml`) for client sharing.
   - Added Browser IDE runtime docs for `/ide` in `docs/guides/WEB_IDE_FULL_BROWSER_GUIDE.md` and linked them from `README.md` and `docs/README.md`.
-
-### Fixed
 
 - Browser analysis worker-recovery CI gate now includes the Node test fixture file (`docs/internal/prototypes/browser_analysis_wasm_spike/web/analysis-client.test.mjs`) in tracked repository contents, fixing missing-file failures on GitHub runners.
 
@@ -6969,8 +6876,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 - Web IDE authoring gating no longer depends on runtime `control_mode=debug`; editor capability is now enforced via web auth role and IDE session role (viewer/editor) at API boundaries.
 - Web IDE performance gates were tightened to product targets (completion/hover p95 <= 150ms, diagnostics p95 <= 300ms, workspace search p95 <= 400ms) in automated integration checks.
 
-### Fixed
-
 - Web IDE hover behavior now follows VS Code semantics by relying on Monaco hover tooltips; the redundant Output-side Hover panel was removed to prevent duplicate/stale hover text.
 - Web IDE hover provider failures are now logged as `[ide] hover failed:` in browser console output to improve diagnostics when hover requests fail.
 - Web IDE analysis cache refresh now skips unrelated unreadable/oversized `.st` files so hover/completion keep working for the active source, Monaco hover/suggest widgets now use overflow-safe rendering to avoid hidden popups, and `/ide` assets are served with `Cache-Control: no-store` so browser refreshes pick up the latest IDE fixes.
@@ -6989,8 +6894,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 - Statechart hardware helper scripts/docs now use repository-relative paths and group-based socket permissions (`660`) instead of world-writable sockets.
 - Statechart operator/developer guides and helper script output are now standardized to English for consistent repository documentation language.
 
-### Fixed
-
 - VS Code statechart custom editor packaging now loads the webview template from bundled extension code instead of `src/**` runtime paths excluded by `.vscodeignore`.
 - VS Code statechart editor lifecycle now stops active execution sessions when the panel closes, ensuring timers/runtime connections are cleaned up.
 - State machine engine transition execution now awaits exit/transition/entry hardware actions before completing transitions.
@@ -6999,8 +6902,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 - Statechart traffic-light example now starts from a valid non-dead initial state (`Red`).
 
 ## [0.9.2] - 2026-02-15
-
-### Fixed
 
 - VS Code extension project workflows now follow `src/`-based projects consistently: ST test run root detection accepts `src`, PLCopen export integration coverage uses `src`, and new-project scaffolding no longer generates legacy `sources/`.
 
@@ -7155,8 +7056,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   - `examples/tutorials/11_unit_testing_102/`
 - `trust-runtime build --sources <relative-path>` now resolves relative source overrides from `--project`, avoiding path-resolution mismatches from external working directories.
 
-### Fixed
-
 - `trust-runtime validate` no longer reports false `undefined program` errors for valid bundles; it now validates decoded bytecode/module metadata directly and enforces task-program name integrity at bytecode-validation time.
 - Bytecode encoding/validation now handles enum-typed constant payloads correctly during module build/validation.
 
@@ -7168,8 +7067,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 - PLCopen vendor-library shim matching now also normalizes keyword-style vendor aliases (for example `R_EDGE`) when used in supported type/call positions.
 
 ## [0.7.9] - 2026-02-12
-
-### Fixed
 
 - CI Windows build no longer fails on missing `wpcap.lib` when `ethercat-wire` is enabled by default; EtherCAT wire dependency wiring is now unix-target gated while preserving mock-driver support cross-platform.
 - MP-001 parity baseline updated for newly added Mitsubishi LSP regression tests so discovery parity gate remains deterministic.
@@ -7239,14 +7136,10 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 
 ## [0.7.3] - 2026-02-11
 
-### Fixed
-
 - Release workflow hardening:
   - VS Code Marketplace publish now runs per-VSIX with retry/backoff on transient network timeouts and treats already-published artifacts as idempotent success for reruns.
 
 ## [0.7.2] - 2026-02-11
-
-### Fixed
 
 - `version-release-guard` now tolerates short ordering races between `main` and tag pushes by polling for the expected version tag before failing.
 
@@ -7255,8 +7148,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 ### Changed
 
 - VS Code extension marketplace metadata now declares dual-license SPDX (`MIT OR Apache-2.0`) and monorepo repository directory (`editors/vscode`).
-
-### Fixed
 
 - GitHub license detection no longer reports an extra `Unknown` license entry after removing the non-standard root `LICENSE` stub (dual-license files remain `LICENSE-MIT` and `LICENSE-APACHE`).
 - VS Code Marketplace screenshots now use absolute image URLs from GitHub raw content so images render reliably in extension listing pages.
@@ -7277,8 +7168,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 - `trust-runtime plcopen import` compatibility scoring now accounts for shimmed vendor-library aliases as partial-coverage items.
 - PLCopen ecosystem detection now recognizes Mitsubishi GX Works markers (`mitsubishi-gxworks3`) for migration reporting/shim selection.
 
-### Fixed
-
 - Parser diagnostics now report a targeted error (`expected identifier after '#'`) for malformed Siemens SCL `#` local-reference syntax instead of generic expression errors.
 - Release packaging metadata:
   - VS Code extension package versions are now aligned to the workspace release version to avoid duplicate publish artifacts from prior extension versions.
@@ -7294,8 +7183,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
   - dedicated compatibility/limits guide: `docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md`
 - `trust-runtime plcopen export` and `trust-runtime plcopen import` now support `--json` for machine-readable report output.
 - `trust-runtime plcopen profile` now publishes a compatibility matrix plus round-trip limits/known-gaps contract fields.
-
-### Fixed
 
 - Schneider EcoStruxure vendor detection is now distinct from generic CODESYS-family heuristics in PLCopen migration reports.
 
@@ -7333,8 +7220,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 - `trust-runtime test --output json` now includes `duration_ms` per test and in summary.
 - Tutorial 10/11 docs updated for list/timeout usage and expanded assertion coverage.
 
-### Fixed
-
 - `Harness::run_until` now has a default cycle guard and explicit `run_until_max` limit to prevent hangs.
 - Filtered test runs now clearly report when zero tests match but tests were discovered.
 
@@ -7353,8 +7238,6 @@ Tagged but not published: its release run stopped before publishing, and 0.25.1 
 - Documentation organization:
   - Public durable reports remain in `docs/reports/`.
   - Working remediation checklists are no longer published in `docs/reports/`.
-
-### Fixed
 
 - `%MW` memory marker force/write synchronization in runtime I/O panel flow.
 - Debug adapter force latch behavior and state-lock interaction.

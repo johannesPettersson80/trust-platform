@@ -135,6 +135,7 @@ fn lower_type_decl_node(
     };
     let mut pending_name: Option<SmolStr> = None;
     let mut last_type_id: Option<TypeId> = None;
+    let extends_base = extends_base_name(node);
     for child in node.children() {
         match child.kind() {
             SyntaxKind::Name => {
@@ -146,7 +147,48 @@ fn lower_type_decl_node(
                     .take()
                     .ok_or_else(|| CompileError::new("missing type name"))?;
                 let type_id = reserved_type_id(ctx.registry, &name)?;
-                let fields = lower_struct_def(&child, &mut ctx, initializer_catalog)?;
+                let mut fields = Vec::new();
+                // CODESYS DUT inheritance: a derived STRUCT EXTENDS a base
+                // STRUCT, and instances carry the base fields FIRST (the
+                // analyzer's types_compatible accepts derived -> base
+                // assignment for exactly this layout). The base must be
+                // declared before the derived type; chains compose because
+                // every level merges the same way.
+                if let Some(base_name) = extends_base.as_ref() {
+                    let base_id = ctx.registry.lookup(base_name.as_str()).ok_or_else(|| {
+                        CompileError::new(format!(
+                            "EXTENDS base type '{base_name}' must be declared before '{name}'"
+                        ))
+                    })?;
+                    match ctx.registry.get(base_id) {
+                        Some(Type::Struct {
+                            fields: base_fields,
+                            ..
+                        }) => {
+                            fields.extend(base_fields.iter().cloned());
+                        }
+                        _ => {
+                            return Err(CompileError::new(format!(
+                                "EXTENDS base '{base_name}' is not a STRUCT"
+                            )))
+                        }
+                    }
+                }
+                let own_fields = lower_struct_def(&child, &mut ctx, initializer_catalog)?;
+                fields.extend(own_fields);
+                let mut seen: Vec<&SmolStr> = Vec::new();
+                for field in &fields {
+                    if seen
+                        .iter()
+                        .any(|existing| existing.eq_ignore_ascii_case(&field.name))
+                    {
+                        return Err(CompileError::new(format!(
+                            "duplicate field '{}' in DUT '{}'",
+                            field.name, name
+                        )));
+                    }
+                    seen.push(&field.name);
+                }
                 ctx.registry
                     .replace(type_id, trust_hir::Type::Struct { name, fields });
                 if child
@@ -237,6 +279,33 @@ fn lower_type_decl_node(
         }
     }
     Ok(())
+}
+
+/// Base name of a DUT inheritance clause (`TYPE x EXTENDS base`), if any.
+fn extends_base_name(node: &SyntaxNode) -> Option<SmolStr> {
+    let clause = node
+        .children()
+        .find(|child| child.kind() == SyntaxKind::ExtendsClause)?;
+    let mut name = String::new();
+    for child in clause.children() {
+        match child.kind() {
+            SyntaxKind::Name => name.push_str(&node_text(&child)),
+            SyntaxKind::QualifiedName => {
+                for part in child.children().filter(|c| c.kind() == SyntaxKind::Name) {
+                    if !name.is_empty() {
+                        name.push('.');
+                    }
+                    name.push_str(&node_text(&part));
+                }
+            }
+            _ => {}
+        }
+    }
+    if name.is_empty() {
+        None
+    } else {
+        Some(SmolStr::from(name))
+    }
 }
 
 fn reserved_type_id(
