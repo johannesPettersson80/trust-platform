@@ -93,7 +93,7 @@ impl<'a> IdentificationMode<'a> {
     }
 
     /// Moves the loop to the mode a method needs, as [`Self::enter`] does; a loop found in Auto that a Manual method takes to
-    /// Manual first rests, read by `rest` until its measured output and the output the transfer holds are both steady (B3.4
+    /// Manual first rests, read by `rest` until its measured outputs and the outputs the transfer holds are all steady (B3.4
     /// step 1). The transfer then holds the output at which the controller keeps the loop, so the baseline after it lies at the
     /// reference. The wait writes nothing.
     ///
@@ -117,9 +117,7 @@ impl<'a> IdentificationMode<'a> {
         // The loop is in Auto: it rests before the transfer holds its output (B3.4 step 1).
         if manual && let Some(rest) = rest {
             let binding = &self.binding;
-            status = rest.wait(&binding.output.symbol, &mut || {
-                read_status(&mut client, binding)
-            })?;
+            status = rest.wait(binding, &mut || read_status(&mut client, binding))?;
         }
         let write = mode_write(
             self.loop_definition,

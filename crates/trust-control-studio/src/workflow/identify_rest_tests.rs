@@ -2,14 +2,17 @@
 //! transfer readings: process time from the runtime's clock, the reading at rest returned, the cancel, a reading without a clock or a
 //! value, a runtime that stops answering, and the progress shown once. The decisions themselves are tested in trust-control
 //! (`campaign/rest_tests.rs`). The loop is the apply tests' PID loop: `Main.PV` in m (0 to 10 m) and `Main.MV` in V; with a 200 s
-//! maximum and readings 0.1 s of process time apart, the baseline window is 10 s.
+//! maximum and readings 0.1 s of process time apart, the baseline window is 10 s. A PID group (C7) is the fixture
+//! `control-studio-pid-group`, whose two members' process values and outputs all run from 0 to 100 on a 100 ms task: the same window.
 
 use std::cell::{Cell, RefCell};
 
 use trust_control::commissioning::commissioning_result::{TransferState, TransferStatus};
 use trust_control::commissioning::transfer::TransferValue;
 use trust_control::failure::Failure;
+use trust_control::identification::mode_transfer::mode_binding;
 use trust_control::limits::CONNECTION_LOSS_TIMEOUT_MS;
+use trust_control::loop_definition::LoopDefinition;
 
 use super::RestWait;
 use crate::workflow::apply::test_support::{pid_loop, Report};
@@ -56,6 +59,30 @@ fn reading(pv: Option<f64>, mv: Option<f64>, runtime_time_ns: Option<u64>) -> Tr
     }
 }
 
+/// The loop file of the two-member PID group: `P1.Controller` on `P1.ProcessValue` and `P1.ManipulatedValue`, `P1.Secondary` on
+/// `P1.SecondaryProcessValue` and `P1.SecondaryManipulatedValue`, sharing the mode `P1.AutoMode`.
+const PID_GROUP: &str = include_str!(
+    "../../../../editors/vscode/src/test/fixtures/control-studio-pid-group/control-loop.json"
+);
+
+/// One transfer reading of the group's process values and outputs, in the order the rest watches them, taken at `runtime_time_ns`.
+fn group_reading(values: [f64; 4], runtime_time_ns: u64) -> TransferStatus {
+    let symbols = [
+        "P1.ProcessValue",
+        "P1.SecondaryProcessValue",
+        "P1.ManipulatedValue",
+        "P1.SecondaryManipulatedValue",
+    ];
+    TransferStatus {
+        values: symbols
+            .into_iter()
+            .zip(values)
+            .map(|(symbol, value)| (symbol.to_owned(), TransferValue::Number(value)))
+            .collect(),
+        ..reading(None, None, Some(runtime_time_ns))
+    }
+}
+
 /// Waits on readings that `script` gives for each read (counted from 0), with a 200 s maximum and no setpoint step offered; returns
 /// the result and the number of readings taken.
 fn wait_on(
@@ -63,10 +90,20 @@ fn wait_on(
     clock: &TestClock,
     script: impl Fn(u64) -> TransferStatus,
 ) -> (Result<TransferStatus, Failure>, u64) {
-    let loop_definition = pid_loop();
-    let mut rest = RestWait::new(&loop_definition, 200_000, None, false, report, clock);
+    wait_on_loop(&pid_loop(), report, clock, script)
+}
+
+/// [`wait_on`] for `loop_definition`, before the transfer of its mode binding.
+fn wait_on_loop(
+    loop_definition: &LoopDefinition,
+    report: &Report,
+    clock: &TestClock,
+    script: impl Fn(u64) -> TransferStatus,
+) -> (Result<TransferStatus, Failure>, u64) {
+    let binding = mode_binding(loop_definition).expect("the loop's mode binding");
+    let mut rest = RestWait::new(loop_definition, 200_000, None, false, report, clock);
     let reads = RefCell::new(0_u64);
-    let result = rest.wait("Main.MV", &mut || {
+    let result = rest.wait(&binding, &mut || {
         let index = *reads.borrow();
         *reads.borrow_mut() += 1;
         Ok(script(index))
@@ -191,4 +228,52 @@ fn a_moving_loop_shows_its_progress_once_until_it_changes() {
         .copied()
         .and_then(TransferValue::as_number);
     assert_eq!(pv, Some(4.3));
+}
+
+#[test]
+fn a_pid_group_rests_only_once_its_second_members_output_rests() {
+    // Codex's review of #147 (31 October 2026): the wait read the loop's own pair alone, while the group's transfer holds both
+    // outputs. The second member's output falls 0.02 % per second until 30 s of process time, 0.2 % across any 10 s window, while
+    // every other signal is flat: the progress names it, and the wait cannot end before 30 s and ends by 40 s, when a whole window
+    // after the stop is flat.
+    let loop_definition = LoopDefinition::decode(PID_GROUP).expect("the group's loop file");
+    let report = Report::default();
+    let clock = clock();
+    let (result, _) = wait_on_loop(&loop_definition, &report, &clock, |index| {
+        #[allow(clippy::cast_precision_loss)] // A few hundred readings.
+        let seconds = index as f64 / 10.0;
+        group_reading(
+            [40.0, 60.0, 30.0, 50.0 - 0.02 * seconds.min(30.0)],
+            runtime_ns(index, 100),
+        )
+    });
+    let rested = result.expect("the group rests once its second output stops");
+    let lines = report.lines();
+    assert!(
+        lines
+            .iter()
+            .any(|line| line.contains("P1.SecondaryManipulatedValue changing 1.2 %/min")),
+        "{lines:?}"
+    );
+    let at = rested.runtime_time_ns.expect("the reading's clock");
+    assert!(
+        at > runtime_ns(300, 100) && at <= runtime_ns(400, 100),
+        "rested at {at} ns"
+    );
+}
+
+#[test]
+fn a_group_reading_without_the_second_members_output_ends_the_wait() {
+    // Catches a wait that reads the loop's own pair alone: the second member's output is one of the values it needs.
+    let loop_definition = LoopDefinition::decode(PID_GROUP).expect("the group's loop file");
+    let mut status = group_reading([40.0, 60.0, 30.0, 50.0], runtime_ns(0, 100));
+    status.values.remove("P1.SecondaryManipulatedValue");
+    let report = Report::default();
+    let clock = clock();
+    let (result, reads) = wait_on_loop(&loop_definition, &report, &clock, |_| status.clone());
+    assert_eq!(
+        result.expect_err("refused").message,
+        "The runtime did not return a finite P1.SecondaryManipulatedValue value."
+    );
+    assert_eq!(reads, 1);
 }

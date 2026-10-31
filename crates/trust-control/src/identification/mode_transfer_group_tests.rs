@@ -186,8 +186,8 @@ fn pid_group_file() -> Value {
     })
 }
 
-/// The loop of the group.
-fn pid_group_loop() -> LoopDefinition {
+/// The loop of the group; the rest's tests (`campaign/rest_tests.rs`) watch it too.
+pub(crate) fn pid_group_loop() -> LoopDefinition {
     LoopDefinition::decode(&pid_group_file().to_string()).expect("the group loop file decodes")
 }
 

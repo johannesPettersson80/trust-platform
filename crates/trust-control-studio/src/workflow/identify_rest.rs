@@ -1,13 +1,13 @@
 //! The rest of a loop that Identify finds in Auto, before a Manual method's mode change (specification 35, B3.4 step 1): the loop
-//! is read again and again until its measured output and the output that the transfer will hold have both been steady over one
-//! baseline window. Each step's decision is trust-control's (`RestTracker`, which refuses a loop still moving after the baseline's
-//! budget); this module reads the runtime, measures process time from the runtime's own clock, shows the progress, stops on a
-//! cancel, and writes nothing.
+//! is read again and again until its measured outputs and the outputs that the transfer will hold have all been steady over one
+//! baseline window (for a PID group, every member's, C7). Each step's decision is trust-control's (`RestTracker`, which chooses the
+//! signals and refuses a loop still moving after the baseline's budget); this module reads the runtime, measures process time from
+//! the runtime's own clock, shows the progress, stops on a cancel, and writes nothing.
 
 use trust_control::commissioning::apply_texts;
 use trust_control::commissioning::commissioning_result::TransferStatus;
 use trust_control::commissioning::texts;
-use trust_control::commissioning::transfer::TransferValue;
+use trust_control::commissioning::transfer::{TransferBinding, TransferValue};
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::campaign::rest::{RestStep, RestTracker};
 use trust_control::identification::campaign::{CANCELLED_TEXT, POLL_MILLISECONDS};
@@ -17,11 +17,13 @@ use trust_control::signals::ReadingClock;
 
 use crate::workflow::identify_campaign::{CampaignClock, CampaignReport};
 
-/// The wait for a loop found in Auto to rest: the tracker that decides, the measured output it reads, and the operation's report
-/// and clock.
+/// The wait for a loop found in Auto to rest: the loop, the limits of its campaign's steady baseline, and the operation's report and
+/// clock.
 pub struct RestWait<'a> {
-    tracker: RestTracker,
-    measured: String,
+    loop_definition: &'a LoopDefinition,
+    maximum_ms: u64,
+    expected_settling_seconds: Option<f64>,
+    offer_setpoint_step: bool,
     report: &'a dyn CampaignReport,
     clock: &'a dyn CampaignClock,
 }
@@ -31,41 +33,42 @@ impl<'a> RestWait<'a> {
     /// study's `expected_settling_seconds`. `offer_setpoint_step` says whether a refusal offers a setpoint step (B3.4 step 2).
     #[must_use]
     pub fn new(
-        loop_definition: &LoopDefinition,
+        loop_definition: &'a LoopDefinition,
         maximum_ms: u64,
         expected_settling_seconds: Option<f64>,
         offer_setpoint_step: bool,
         report: &'a dyn CampaignReport,
         clock: &'a dyn CampaignClock,
     ) -> Self {
-        let signals = &loop_definition.signals;
         Self {
-            tracker: RestTracker::new(
-                &signals.process_variable,
-                &signals.manipulated_variable,
-                maximum_ms,
-                loop_definition.controller.task_period_ms,
-                expected_settling_seconds,
-                offer_setpoint_step,
-            ),
-            measured: signals.process_variable.symbol.clone(),
+            loop_definition,
+            maximum_ms,
+            expected_settling_seconds,
+            offer_setpoint_step,
             report,
             clock,
         }
     }
 
-    /// Reads the loop with `read` until it rests, and returns the reading at rest, which the transfer then holds the output of.
-    /// `held` is the output the transfer holds. Each progress is shown once, when it changes.
+    /// Reads the loop with `read` until it rests before the mode transfer of `binding`, and returns the reading at rest, which the
+    /// transfer then holds the outputs of. Each progress is shown once, when it changes.
     ///
     /// # Errors
-    /// The operation was cancelled (nothing was written); a reading fails, carries no runtime clock or no finite value of the
-    /// measured output or of `held`; the loop still moves after the baseline's budget; or no newer runtime value arrived within
-    /// the connection-loss timeout (A3.4).
+    /// The signals to watch cannot be named (see `RestTracker::for_transfer`); the operation was cancelled (nothing was written); a
+    /// reading fails, carries no runtime clock or no finite value of a watched signal; the loop still moves after the baseline's
+    /// budget; or no newer runtime value arrived within the connection-loss timeout (A3.4).
     pub fn wait(
         &mut self,
-        held: &str,
+        binding: &TransferBinding,
         read: &mut dyn FnMut() -> Result<TransferStatus, Failure>,
     ) -> Result<TransferStatus, Failure> {
+        let mut tracker = RestTracker::for_transfer(
+            self.loop_definition,
+            binding,
+            self.maximum_ms,
+            self.expected_settling_seconds,
+            self.offer_setpoint_step,
+        )?;
         let mut clock = ReadingClock::new(whole_ms(self.clock.now_ms()));
         let mut shown: Option<String> = None;
         loop {
@@ -81,9 +84,11 @@ impl<'a> RestWait<'a> {
                 .runtime_time_ns
                 .ok_or_else(apply_texts::runtime_clock_missing)?;
             let process_ms = clock.observe(runtime_time_ns, whole_ms(self.clock.now_ms()));
-            let measured = value_of(&observed, &self.measured)?;
-            let output = value_of(&observed, held)?;
-            match self.tracker.feed(process_ms / 1_000.0, measured, output)? {
+            let readings = tracker
+                .symbols()
+                .map(|symbol| value_of(&observed, symbol))
+                .collect::<Result<Vec<f64>, Failure>>()?;
+            match tracker.feed(process_ms / 1_000.0, &readings)? {
                 RestStep::Rested => return Ok(observed),
                 RestStep::Waiting { progress } => {
                     if let Some(text) = progress

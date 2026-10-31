@@ -1311,7 +1311,9 @@ clears the manual section (B3.7).
    Auto rests first: before the transfer, Identify reads the loop in process time
    until its measured output and the plant input that the transfer will hold have
    both been steady by the rule of step 2 over one baseline window, and shows that
-   wait as it shows the baseline's. The transfer then holds the output at which
+   wait as it shows the baseline's. A PID group (C7) rests when every member's
+   process value and every output its transfer holds have been steady; the wait
+   names the first that still moves, a process value before an output. The transfer then holds the output at which
    the controller keeps the loop, so the steady baseline after it lies at the
    reference and is the operating point Apply returns to (B6.2). Holding an
    output the controller was still moving would let the plant settle open loop

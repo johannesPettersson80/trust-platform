@@ -51,8 +51,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 ### Fixed
 
 - Identify waits until a loop it finds in Auto has settled before it switches the loop to Manual for a step: the measured value
-  and the controller output must both be steady by the rule of the steady baseline, and the wait shows its progress and can be
-  cancelled. Before, an Identify started while the controller still moved its output (for example right after Restore) held
+  and the controller output must both be steady by the rule of the steady baseline (for a PID group, every member's measured
+  value and output), and the wait shows its progress and can be cancelled. Before, an Identify started while the controller still moved its output (for example right after Restore) held
   that moving output, the plant settled open loop away from the setpoint, and Apply then waited in vain for that operating
   point while the controller held the setpoint (specification 35, B3.4).
 - Control Studio designs to the requirements you type before the first Tune. Before, the first change after Identify kept
