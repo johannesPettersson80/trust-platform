@@ -164,6 +164,13 @@ Implementer extension note:
 - These extensions use milliseconds:
   `TIME_TO_DWORD(T#123ms) = DWORD#123`,
   `DWORD_TO_TIME(DWORD#123) = T#123ms`.
+- truST additionally provides duration-to-integer and time-of-day-to-dword
+  conversions as documented non-IEC helpers (`IEC_DEVIATIONS.md` DEV-025):
+  `TIME_TO_<int>` and `LTIME_TO_<int>` yield the millisecond (respectively
+  nanosecond) magnitude truncated into the destination integer;
+  `TOD_TO_DWORD` and `LTOD_TO_DWORD` yield the ms-of-day magnitude.
+  A negative duration rejects with an overflow fault, matching the
+  `TIME_TO_DWORD` contract.
 
 ### 2.5 Character Type Conversions (Table 27)
 
@@ -215,6 +222,12 @@ representatives:
 | `REAL_TO_STRING(REAL#1.25)` | `STRING#'1.25'` |
 | `DWORD_TO_STRING(DWORD#42)` | `STRING#'42'` |
 | `STRING_TO_DINT(STRING#'42')` | `DINT#42` |
+
+Vendor-extension representatives (`IEC_DEVIATIONS.md` DEV-025): `TO_STRING`
+and the typed `*_TO_STRING` spellings accept a `BOOL` (`'TRUE'`/`'FALSE'`),
+a `TIME`/`LTIME` (the `T#`/`LT#` duration text), and an enumerated value
+(its variant name); `TO_STRING` over a `STRING[n]` value is an identity
+copy. Time-of-day and date string forms are deliberately not provided.
 
 These representatives do not define canonical output spelling for every
 numeric or bit-string value. `STRING_TO_REAL('NaN')` and

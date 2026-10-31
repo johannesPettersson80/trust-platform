@@ -2,7 +2,9 @@
 
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::stdlib::{conversions, time, StandardLibrary};
-use trust_runtime_core::value::{DateTimeValue, Duration, Value};
+use trust_runtime_core::value::{
+    DateTimeValue, Duration, EnumValue, LTimeOfDayValue, TimeOfDayValue, Value,
+};
 
 #[test]
 fn prepared_conversions_preserve_rounding_narrowing_and_source_normalization() {
@@ -163,4 +165,65 @@ fn portable_registry_retains_standard_functions_and_diagnostic_value_formatting(
         trust_runtime_core::value::format_user_value(&Value::String("pump$'a".into())),
         "'pump$$$'a'"
     );
+}
+
+#[test]
+fn vendor_extension_conversions_cover_enum_bool_time_and_tod() {
+    // IEC_DEVIATIONS DEV-025: CODESYS-parity conversion entries shared with
+    // the compiler accept table.
+    let area = Value::Enum(Box::new(EnumValue::from_canonical_parts(
+        "eArea".into(),
+        "areaB".into(),
+        1,
+    )));
+    for (name, input, expected) in [
+        ("TO_STRING", area, Ok(Value::String("areaB".into()))),
+        (
+            "TO_STRING",
+            Value::Bool(true),
+            Ok(Value::String("TRUE".into())),
+        ),
+        (
+            "TO_STRING",
+            Value::Time(Duration::from_millis(1250)),
+            Ok(Value::String("T#1250ms".into())),
+        ),
+        (
+            "TIME_TO_DINT",
+            Value::Time(Duration::from_millis(1500)),
+            Ok(Value::DInt(1500)),
+        ),
+        (
+            "TIME_TO_UDINT",
+            Value::Time(Duration::from_millis(1500)),
+            Ok(Value::UDInt(1500)),
+        ),
+        (
+            "LTIME_TO_LINT",
+            Value::LTime(Duration::from_nanos(9)),
+            Ok(Value::LInt(9)),
+        ),
+        (
+            "TOD_TO_DWORD",
+            Value::Tod(TimeOfDayValue::new(3_600_000)),
+            Ok(Value::DWord(3_600_000)),
+        ),
+        (
+            "LTOD_TO_DWORD",
+            Value::LTod(LTimeOfDayValue::new(3_600_000_000_000)),
+            Ok(Value::DWord(3_600_000)),
+        ),
+        (
+            "TO_STRING",
+            Value::String("identity".into()),
+            Ok(Value::String("identity".into())),
+        ),
+    ] {
+        let spec = conversions::conversion_spec(name).expect("prepared native conversion");
+        assert_eq!(
+            conversions::call_conversion_spec(spec, &[input]),
+            expected,
+            "{name}"
+        );
+    }
 }

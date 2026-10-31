@@ -651,3 +651,35 @@ re-check them against this rule when touched.
   through its formal capacity or size argument; the caller's variable keeps
   its own storage. Cross-family binding and non-string in-out type
   mismatches keep their diagnostics.
+
+## 2026-10-28 - Vendor conversion extensions: enums, BOOL, durations, strings
+
+- ID: DEV-025
+- Area: typed `*_TO_*`/`TO_*` standard conversion functions.
+- Normative IEC requirement: IEC 61131-3 Ed.3 Tables 22-27 enumerate the
+  typed conversions; enumerated source types appear in no conversion table
+  (`§6.4.4.2` treats an enumeration as a distinct type), `BOOL`/`TIME`
+  string forms are not listed, duration-to-narrow-integer forms exceed the
+  listed `TIME`/`DWORD` pair, and `TOD`/`LTOD` to `DWORD` is not listed.
+  The standard text was unavailable on the authoring machine; the clause
+  numbers mirror the citations already used in
+  `docs/specs/07-standard-functions.md`.
+- truST behavior and conflict: truST accepts — matching the CODESYS /
+  TwinCAT vendor toolchain — (a) `TO_STRING`/`*_TO_STRING` over an
+  enumerated value (yields the variant name), over `BOOL`
+  (`'TRUE'`/`'FALSE'`), over `TIME`/`LTIME` (`T#`/`LT#` duration text),
+  and over any same-family string (identity); (b) `TIME_TO_<int>` /
+  `LTIME_TO_<int>` (ms / ns magnitude truncated into the destination,
+  negative durations overflow); (c) `TOD_TO_DWORD` / `LTOD_TO_DWORD`
+  (ms-of-day magnitude). The strict table reading rejects vendor-project
+  call sites that compile clean in the vendor toolchain (the downstream
+  tree carries ~130 such sites: `TO_STRING(eArea)` families, boot-report
+  `TIME_TO_DINT` chains, `TOD_TO_DWORD` day-phase math).
+- Impact: those call sites pass the compile gate; the runtime conversion
+  dispatch (`trust-runtime-core`) implements the same entries so executed
+  conversions produce the documented values.
+- Mitigation: the extension set is deliberately bounded — time-of-day and
+  date string forms, and REAL-to-bitstring conversions (upstream #127
+  territory), stay rejected; integer destinations wrap rather than fault on
+  magnitude overflow, matching the vendor toolchain's silent narrowing
+  documented in DEV-023's neighborhood.

@@ -17,6 +17,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   vendor-library calls that compile clean in the vendor toolchain; see
   `IEC_DEVIATIONS.md` (2026-10-28).
 
+- Standard conversions: vendor-extension entries match the CODESYS/TwinCAT
+- Standard conversion extension round: `REAL_TO_TIME`/`UINT_TO_TIME` (the
+
 ### Changed
 
 - Releases follow `main`'s CI instead of a hand-pushed tag. When CI passes on a commit whose version has no complete

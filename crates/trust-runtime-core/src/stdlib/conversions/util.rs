@@ -52,6 +52,23 @@ pub(super) fn is_conversion_allowed(src: ConversionType, dst: ConversionType) ->
         return true;
     }
 
+    // CODESYS TO_STRING parity: an enumerated value converts to its member
+    // name string (IEC_DEVIATIONS 2026-10-28).
+    if src == ConversionType::Enum
+        && matches!(dst, ConversionType::String | ConversionType::WString)
+    {
+        return true;
+    }
+
+    is_bit_family_conversion(src, dst)
+        || is_temporal_conversion(src, dst)
+        || is_textual_conversion(src, dst)
+        || is_vendor_extension_conversion(src, dst)
+}
+
+/// Bit-string widenings and the vendor mixed numeric/bit-string pairs: the
+/// CODESYS toolchain treats a bit string as its unsigned magnitude.
+fn is_bit_family_conversion(src: ConversionType, dst: ConversionType) -> bool {
     if matches!(
         src,
         ConversionType::Byte | ConversionType::Word | ConversionType::DWord | ConversionType::LWord
@@ -127,10 +144,12 @@ pub(super) fn is_conversion_allowed(src: ConversionType, dst: ConversionType) ->
         return true;
     }
 
-    if is_vendor_extension_conversion(src, dst) {
-        return true;
-    }
+    false
+}
 
+/// Date-and-time widenings and the vendor duration/time-of-day magnitude
+/// conversions (ms-of-day math on `TOD`, durations into any integer).
+fn is_temporal_conversion(src: ConversionType, dst: ConversionType) -> bool {
     if src == ConversionType::LTime && dst == ConversionType::Time {
         return true;
     }
@@ -141,6 +160,14 @@ pub(super) fn is_conversion_allowed(src: ConversionType, dst: ConversionType) ->
         return true;
     }
     if src == ConversionType::DWord && dst == ConversionType::Time {
+        return true;
+    }
+    // CODESYS converts durations to any integer (ms magnitude) and
+    // time-of-day to its ms-of-day magnitude (IEC_DEVIATIONS 2026-10-28).
+    if matches!(src, ConversionType::Time | ConversionType::LTime) && is_integer_type(dst) {
+        return true;
+    }
+    if matches!(src, ConversionType::Tod | ConversionType::LTod) && dst == ConversionType::DWord {
         return true;
     }
     if src == ConversionType::Ldt && dst == ConversionType::Dt {
@@ -174,14 +201,23 @@ pub(super) fn is_conversion_allowed(src: ConversionType, dst: ConversionType) ->
         return true;
     }
 
+    false
+}
+
+/// The vendor string/char text conversions: numeric and bit-string sources
+/// to text, text parsed as numbers, and the string/char family crossings.
+fn is_textual_conversion(src: ConversionType, dst: ConversionType) -> bool {
     if matches!(dst, ConversionType::String | ConversionType::WString)
         && (is_numeric_type(src)
             || matches!(
                 src,
-                ConversionType::Byte
+                ConversionType::Bool
+                    | ConversionType::Byte
                     | ConversionType::Word
                     | ConversionType::DWord
                     | ConversionType::LWord
+                    | ConversionType::Time
+                    | ConversionType::LTime
             ))
     {
         return true;
@@ -296,6 +332,7 @@ pub(super) fn value_type_id(value: &Value) -> Option<ConversionType> {
         Value::WString(_) => Some(ConversionType::WString),
         Value::Char(_) => Some(ConversionType::Char),
         Value::WChar(_) => Some(ConversionType::WChar),
+        Value::Enum(_) => Some(ConversionType::Enum),
         _ => None,
     }
 }

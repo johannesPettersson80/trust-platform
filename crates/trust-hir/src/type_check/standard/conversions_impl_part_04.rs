@@ -98,6 +98,18 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
             return true;
         }
 
+        // CODESYS TO_STRING parity: an enumerated value converts to its
+        // member name string (IEC_DEVIATIONS DEV-025). Base-less enums
+        // included — the runtime enum value carries its variant name.
+        if matches!(self.checker.resolved_type(src), Some(Type::Enum { .. }))
+            && matches!(
+                self.normalize_string_type_id(dst),
+                TypeId::STRING | TypeId::WSTRING
+            )
+        {
+            return true;
+        }
+
         if matches!(
             src,
             TypeId::BYTE | TypeId::WORD | TypeId::DWORD | TypeId::LWORD
@@ -191,6 +203,27 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         if matches!(src, TypeId::DWORD) && dst == TypeId::TIME {
             return true;
         }
+        // CODESYS converts durations to any integer (ms magnitude, wrapping
+        // like the vendor toolchain) and time-of-day to its ms-of-day
+        // magnitude (IEC_DEVIATIONS DEV-025).
+        if matches!(src, TypeId::TIME | TypeId::LTIME)
+            && matches!(
+                dst,
+                TypeId::SINT
+                    | TypeId::INT
+                    | TypeId::DINT
+                    | TypeId::LINT
+                    | TypeId::USINT
+                    | TypeId::UINT
+                    | TypeId::UDINT
+                    | TypeId::ULINT
+            )
+        {
+            return true;
+        }
+        if matches!(src, TypeId::TOD | TypeId::LTOD) && dst == TypeId::DWORD {
+            return true;
+        }
         if matches!(src, TypeId::LDT) && dst == TypeId::DT {
             return true;
         }
@@ -225,11 +258,23 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         let src = self.normalize_string_type_id(src);
         let dst = self.normalize_string_type_id(dst);
 
+        // Capacity-carrying string instances normalize to their family, so
+        // TO_STRING over a STRING[n] alias is an identity copy.
+        if src == dst {
+            return true;
+        }
+
         if matches!(dst, TypeId::STRING | TypeId::WSTRING)
             && (self.is_numeric_type(src)
                 || matches!(
                     src,
-                    TypeId::BYTE | TypeId::WORD | TypeId::DWORD | TypeId::LWORD
+                    TypeId::BOOL
+                        | TypeId::BYTE
+                        | TypeId::WORD
+                        | TypeId::DWORD
+                        | TypeId::LWORD
+                        | TypeId::TIME
+                        | TypeId::LTIME
                 ))
         {
             return true;

@@ -57,6 +57,24 @@ pub(super) fn convert_to_bit_string(
             let millis = u32::try_from(millis).map_err(|_| RuntimeError::Overflow)?;
             Ok(Value::DWord(millis))
         }
+        // CODESYS TOD_TO_DWORD parity: the ms-of-day magnitude
+        // (IEC_DEVIATIONS 2026-10-28).
+        Value::Tod(tod) if dst == ConversionType::DWord => {
+            let millis = tod.ticks();
+            if millis < 0 {
+                return Err(RuntimeError::Overflow);
+            }
+            let millis = u32::try_from(millis).map_err(|_| RuntimeError::Overflow)?;
+            Ok(Value::DWord(millis))
+        }
+        Value::LTod(tod) if dst == ConversionType::DWord => {
+            let millis = tod.nanos() / 1_000_000;
+            if millis < 0 {
+                return Err(RuntimeError::Overflow);
+            }
+            let millis = u32::try_from(millis).map_err(|_| RuntimeError::Overflow)?;
+            Ok(Value::DWord(millis))
+        }
         _ => Err(RuntimeError::TypeMismatch),
     }
 }

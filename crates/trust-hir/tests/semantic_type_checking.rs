@@ -76,5 +76,7 @@ mod variable_initializer_constant_expression;
 mod variable_section_qualifier_acceptance;
 #[path = "semantic_type_checking/variable_section_qualifier_rejection.rs"]
 mod variable_section_qualifier_rejection;
+#[path = "semantic_type_checking/vendor_conversion_extensions.rs"]
+mod vendor_conversion_extensions;
 #[path = "semantic_type_checking/wrong_kind_resolution.rs"]
 mod wrong_kind_resolution;
