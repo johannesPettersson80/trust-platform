@@ -58,12 +58,11 @@ trust-runtime build --project examples/ethercat_ek1100_elx008_v1 --sources src
 trust-runtime validate --project examples/ethercat_ek1100_elx008_v1
 ```
 
-## Step 4: Run + Verify in Runtime Panel
+## Step 4: Run + Verify in Live Values
 
-1. `Ctrl/Cmd+Shift+P` -> `Structured Text: Open Runtime Panel`
-2. Start runtime in Local mode.
-3. Observe `%IX0.0` behavior (driven by `mock_inputs`).
-4. Confirm `%QX0.0` response follows logic in `Main.st`.
+1. In the truST view, press **Start**: the program runs and **Live Values** opens.
+2. Observe `%IX0.0` behavior (driven by `mock_inputs`).
+3. Confirm `%QX0.0` response follows logic in `Main.st`.
 
 If needed, adjust `mock_inputs` and re-run to test edge conditions.
 
@@ -109,5 +108,5 @@ Permission note:
 - [ ] Correct NIC selected (`adapter`)
 - [ ] Safe-state outputs defined for all critical outputs
 - [ ] Fault policy reviewed (`on_error`)
-- [ ] Runtime panel checks passed in mock mode
-- [ ] Runtime panel checks repeated on real hardware
+- [ ] Live Values checks passed in mock mode
+- [ ] Live Values checks repeated on real hardware

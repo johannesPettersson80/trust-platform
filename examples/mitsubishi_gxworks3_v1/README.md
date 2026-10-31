@@ -49,11 +49,11 @@ Open `src/Main.st` and inspect `FB_EdgeBridge`.
 3. Re-open `src/Main.st` and observe unsupported alias behavior.
 4. Revert to `mitsubishi`.
 
-## Step 5: Debug + Runtime Panel
+## Step 5: Debug + Live Values
 
 1. Set breakpoint after `Bridge(Signal := Pulse);`.
 2. Press `F5`.
-3. Toggle `%IX0.0` (pulse input).
+3. Toggle `%IX0.0` (pulse input) in **Live Values**.
 4. Observe `%QX0.0`/`%QX0.1` outputs for rising/falling edge detection.
 
 ## Pitfalls

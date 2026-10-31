@@ -159,6 +159,7 @@ class TagPreflightMainHarness:
         *,
         supplied_tag: str = TAG,
         workspace_version: str = VERSION,
+        tag_exists: bool = False,
         peeled_sha: str = SHA,
         checked_out_sha: str = SHA,
         tag_type: str = "tag",
@@ -167,6 +168,7 @@ class TagPreflightMainHarness:
     ) -> None:
         self.supplied_tag = supplied_tag
         self.workspace = workspace_version
+        self.tag_present = tag_exists
         self.peeled_sha = peeled_sha
         self.checked_out_sha = checked_out_sha
         self.tag_type = tag_type
@@ -187,6 +189,10 @@ class TagPreflightMainHarness:
             return self.tag_type
         raise AssertionError(f"unexpected git args: {args}")
 
+    def tag_exists(self, tag: str) -> bool:
+        self.git_calls.append(["show-ref", f"refs/tags/{tag}"])
+        return self.tag_present
+
     def tag_is_on_main(self, sha: str) -> bool:
         self.main_ancestry_calls.append(sha)
         return self.on_main
@@ -199,6 +205,7 @@ class TagPreflightMainHarness:
             patch.object(sys, "argv", argv),
             patch.object(preflight, "workspace_version", return_value=self.workspace),
             patch.object(preflight, "run_git", side_effect=self.run_git),
+            patch.object(preflight, "tag_exists", side_effect=self.tag_exists),
             patch.object(preflight, "tag_is_on_main", side_effect=self.tag_is_on_main),
             contextlib.redirect_stdout(stdout),
             contextlib.redirect_stderr(stderr),
@@ -208,6 +215,10 @@ class TagPreflightMainHarness:
 
 
 class ReleaseTagPreflightContractTests(unittest.TestCase):
+    """Specification 24, "Release preflight and manifest alignment": before a release builds, its
+    tag does not exist yet, or is an annotated tag on the checked-out commit of a resumed release,
+    and that commit is on main."""
+
     def test_git_wrapper_returns_trimmed_stdout_and_raises_stderr(self) -> None:
         success = subprocess.CompletedProcess(
             ["git", "rev-parse", "HEAD"], 0, stdout=f" {SHA}\n", stderr=""
@@ -222,7 +233,20 @@ class ReleaseTagPreflightContractTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "unknown ref"):
                 preflight.run_git(["rev-parse", "bad"])
 
+    def test_a_failing_tag_lookup_is_an_error_not_an_absent_tag(self) -> None:
+        # Catches a broken repository read as "not tagged yet", which would let a release tag
+        # another commit.
+        for code, expected in ((0, True), (1, False)):
+            answer = subprocess.CompletedProcess(["git"], code, stdout="", stderr="")
+            with patch.object(preflight.subprocess, "run", return_value=answer):
+                self.assertIs(preflight.tag_exists(TAG), expected)
+        broken = subprocess.CompletedProcess(["git"], 128, stdout="", stderr="not a git repository\n")
+        with patch.object(preflight.subprocess, "run", return_value=broken):
+            with self.assertRaisesRegex(RuntimeError, "not a git repository"):
+                preflight.tag_exists(TAG)
+
     def test_tag_preflight_has_no_ci_api_or_token_dependency(self) -> None:
+        # The plan takes the CI evidence from the CI run that started the release.
         source = Path(preflight.__file__).read_text(encoding="utf-8")
         self.assertNotIn("ci_green_for_sha", source)
         self.assertNotIn("github_api_get", source)
@@ -236,15 +260,24 @@ class ReleaseTagPreflightContractTests(unittest.TestCase):
         self.assertEqual(harness.git_calls, [])
         self.assertEqual(harness.main_ancestry_calls, [])
 
-    def test_tag_resolution_error_is_visible_and_stops_main_ancestry_query(self) -> None:
-        harness = TagPreflightMainHarness(git_error="tag cannot be resolved")
+    def test_a_release_whose_tag_does_not_exist_yet_passes_on_main(self) -> None:
+        # Catches a preflight that still needs a hand-pushed tag: the Release workflow tags the
+        # commit after its builds and tests (0.25.1's guard expired waiting for one).
+        harness = TagPreflightMainHarness(tag_exists=False)
+        code, stdout, stderr = harness.run()
+        self.assertEqual(code, 0, stderr)
+        self.assertIn(f"release-tag-preflight: OK ({TAG} not yet tagged, {SHA})", stdout)
+        self.assertEqual(harness.main_ancestry_calls, [SHA])
+
+    def test_git_error_is_visible_and_stops_main_ancestry_query(self) -> None:
+        harness = TagPreflightMainHarness(git_error="HEAD cannot be resolved")
         code, _stdout, stderr = harness.run()
         self.assertEqual(code, 1)
-        self.assertIn("tag cannot be resolved", stderr)
+        self.assertIn("HEAD cannot be resolved", stderr)
         self.assertEqual(harness.main_ancestry_calls, [])
 
-    def test_release_tag_must_be_annotated(self) -> None:
-        harness = TagPreflightMainHarness(tag_type="commit")
+    def test_an_existing_release_tag_must_be_annotated(self) -> None:
+        harness = TagPreflightMainHarness(tag_exists=True, tag_type="commit")
         code, _stdout, stderr = harness.run()
         self.assertEqual(code, 1)
         self.assertIn("annotated", stderr)
@@ -253,25 +286,26 @@ class ReleaseTagPreflightContractTests(unittest.TestCase):
             harness.git_calls,
         )
 
-    def test_tag_must_peel_to_the_checked_out_release_sha(self) -> None:
-        harness = TagPreflightMainHarness(peeled_sha="b" * 40)
+    def test_an_existing_tag_must_peel_to_the_checked_out_release_sha(self) -> None:
+        harness = TagPreflightMainHarness(tag_exists=True, peeled_sha="b" * 40)
         code, _stdout, stderr = harness.run()
         self.assertEqual(code, 1)
         self.assertIn("does not match", stderr)
         self.assertEqual(harness.main_ancestry_calls, [])
 
-    def test_release_tag_must_be_reachable_from_main(self) -> None:
-        harness = TagPreflightMainHarness(on_main=False)
-        code, _stdout, stderr = harness.run()
-        self.assertEqual(code, 1)
-        self.assertIn("not reachable from origin/main", stderr)
-        self.assertEqual(harness.main_ancestry_calls, [SHA])
+    def test_the_release_commit_must_be_reachable_from_main(self) -> None:
+        for present in (False, True):
+            harness = TagPreflightMainHarness(tag_exists=present, on_main=False)
+            code, _stdout, stderr = harness.run()
+            self.assertEqual(code, 1)
+            self.assertIn("not reachable from origin/main", stderr)
+            self.assertEqual(harness.main_ancestry_calls, [SHA])
 
-    def test_exact_annotated_tag_checkout_on_main_passes(self) -> None:
-        harness = TagPreflightMainHarness()
+    def test_a_resumed_release_with_its_annotated_tag_on_the_commit_passes(self) -> None:
+        harness = TagPreflightMainHarness(tag_exists=True)
         code, stdout, stderr = harness.run()
         self.assertEqual(code, 0, stderr)
-        self.assertIn(f"release-tag-preflight: OK ({TAG} -> {SHA})", stdout)
+        self.assertIn(f"release-tag-preflight: OK ({TAG} on {SHA})", stdout)
         self.assertEqual(harness.main_ancestry_calls, [SHA])
 
 

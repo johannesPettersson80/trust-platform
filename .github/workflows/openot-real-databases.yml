@@ -2,6 +2,13 @@ name: OpenOT real databases
 
 on:
   workflow_call:
+    inputs:
+      ref:
+        # The Release workflow passes the commit it releases or rehearses (specification 24).
+        description: The commit to check out; empty checks out the event's own commit.
+        type: string
+        required: false
+        default: ""
   workflow_dispatch:
   schedule:
     - cron: "17 3 * * 0"
@@ -17,6 +24,8 @@ jobs:
       TRUST_OPENOT_EVIDENCE_DIR: ${{ github.workspace }}/openot-real-database-evidence
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
       - name: Provision pinned real products and CA files
         shell: bash
         run: |
@@ -41,7 +50,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: openot-real-databases-${{ github.sha }}
+          name: openot-real-databases-${{ inputs.ref || github.sha }}
           path: openot-real-database-evidence/
           if-no-files-found: error
           retention-days: 30

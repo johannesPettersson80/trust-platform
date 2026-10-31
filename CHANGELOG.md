@@ -6,6 +6,36 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+### Changed
+
+- Releases follow `main`'s CI instead of a hand-pushed tag. When CI passes on a commit whose version has no complete
+  release yet, the Release workflow builds and tests every target, tags that commit, publishes the GitHub release and
+  the Marketplace packages, and verifies the tag, the release and the Marketplace listing of every target. A pull
+  request that changes the version rehearses the whole release on its head, and CI's version guard no longer waits
+  for a release (specification 24).
+- Pull requests run the documentation, capture and diagram checks whenever the whole change touches their paths, also
+  above the 300 changed files that GitHub's path filters compare, and each such workflow ends with one conclusion
+  that fails when any of its checks failed (specification 22).
+- The documentation is checked against the product: the Structured Text in the README, the docs pages and the examples'
+  READMEs quotes its example's program or parses, the commands and settings the pages name exist in the VS Code
+  extension, no page names a retired command or the Runtime Panel, and every `trust-runtime` command line they show
+  parses. Fixed on the way: an OpenOT example that named a variable with the keyword `ACTION`, four Structured Text
+  examples that did not close their program, function or function block, three command names that had changed,
+  `ctl restart` without its mode, a tutorial's run without its command, and 15 example and docs pages that sent
+  readers to the Runtime Panel or to `Structured Text:` commands: they name Live Values, `truST:` commands and Devices
+  & Connections, where the ADS commands went (specification 22).
+- The README shows what truST does that it left out: code from CODESYS and TwinCAT, Siemens SCL and Mitsubishi GX Works3,
+  process data in seven databases through OpenOT, tasks, RETAIN and the watchdog, the simulator's scenarios and faults,
+  the browser IDE and other editors, the HMI Builder itself, and operating in production (audit log, fleet rollout,
+  backup and offline installation). Its examples table starts with the tutorials and adds debugging, visual programs,
+  tests and CI, and coming from another PLC; it says that Windows runs on x86-64 only, and its platform and
+  specification notes are written for readers rather than auditors. The Marketplace page names the libraries and the
+  vendor profiles.
+- The documentation site shows the newest screenshots rendered on `main` without a commit of the images. Before the
+  site is built, the screenshots of the newest passing Docs Captures run of `main` are laid over the images; only what
+  the captures wrote is taken, never the hand-made pictures. The capture refresh pull request, which had to be merged
+  into each release by hand, is gone (specification 22).
+
 ## [0.26.0] - 2026-10-30
 
 ### Added

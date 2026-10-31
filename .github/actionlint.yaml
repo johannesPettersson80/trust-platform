@@ -1,0 +1,7 @@
+# actionlint's configuration (CI's Format job lints every workflow with it).
+self-hosted-runner:
+  # The project's own runners: the HMI agents, the OpenOT database matrix and the HMI project template.
+  labels:
+    - trust-hmi-agents
+    - openot-databases
+    - trust-hmi-project

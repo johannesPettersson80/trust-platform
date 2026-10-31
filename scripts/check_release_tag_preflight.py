@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Validate the tag-local preconditions for a release workflow."""
+"""Validate the tag-local preconditions of a release (specification 24, "Release preflight").
+
+The Release workflow creates the tag `v<version>` after the builds and tests, so before them the
+tag must not exist yet, or must be an annotated tag on the checked-out commit when a release is
+resumed. The checked-out commit must be on `origin/main`.
+"""
 
 from __future__ import annotations
 
@@ -32,9 +37,22 @@ def run_git(args: list[str]) -> str:
     return result.stdout.strip()
 
 
-def tag_is_on_main(tagged_sha: str) -> bool:
+def tag_exists(tag: str) -> bool:
+    """Whether the checkout has the tag; a failing lookup is an error, not an absent tag."""
     result = subprocess.run(
-        ["git", "merge-base", "--is-ancestor", tagged_sha, "origin/main"],
+        ["git", "show-ref", "--verify", "--quiet", f"refs/tags/{tag}"],
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode not in (0, 1):
+        raise RuntimeError(f"git show-ref refs/tags/{tag} failed: {result.stderr.strip()}")
+    return result.returncode == 0
+
+
+def tag_is_on_main(sha: str) -> bool:
+    result = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", sha, "origin/main"],
         check=False,
         text=True,
         capture_output=True,
@@ -44,7 +62,7 @@ def tag_is_on_main(tagged_sha: str) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Fail a tag-triggered release when its tag or version is invalid."
+        description="Fail a release whose tag or version is invalid before it builds anything."
     )
     parser.add_argument("--tag", required=True)
     args = parser.parse_args()
@@ -58,22 +76,27 @@ def main() -> int:
         )
 
     try:
-        tag_type = run_git(["cat-file", "-t", f"refs/tags/{args.tag}"])
-        tagged_sha = run_git(["rev-parse", f"{args.tag}^{{}}"])
         head_sha = run_git(["rev-parse", "HEAD"])
+        if tag_exists(args.tag):
+            tag_type = run_git(["cat-file", "-t", f"refs/tags/{args.tag}"])
+            tagged_sha = run_git(["rev-parse", f"{args.tag}^{{}}"])
+        else:
+            tag_type, tagged_sha = None, None
     except RuntimeError as error:
         return fail(str(error))
 
-    if tag_type != "tag":
-        return fail(f"Release tag {args.tag} must be an annotated tag.")
-    if tagged_sha != head_sha:
-        return fail(
-            f"Release checkout HEAD {head_sha} does not match {args.tag} at {tagged_sha}."
-        )
-    if not tag_is_on_main(tagged_sha):
-        return fail(f"Release tag {args.tag} is not reachable from origin/main.")
+    if tag_type is not None:
+        if tag_type != "tag":
+            return fail(f"Release tag {args.tag} must be an annotated tag.")
+        if tagged_sha != head_sha:
+            return fail(
+                f"Release checkout HEAD {head_sha} does not match {args.tag} at {tagged_sha}."
+            )
+    if not tag_is_on_main(head_sha):
+        return fail(f"Release commit {head_sha} is not reachable from origin/main.")
 
-    print(f"release-tag-preflight: OK ({expected_tag} -> {tagged_sha})")
+    state = f"on {head_sha}" if tag_type is not None else f"not yet tagged, {head_sha}"
+    print(f"release-tag-preflight: OK ({expected_tag} {state})")
     return 0
 
 

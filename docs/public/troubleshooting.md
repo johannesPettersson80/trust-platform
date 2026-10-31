@@ -16,16 +16,16 @@ surfaces that do not match the expected state. For product questions, use
 | --- | --- |
 | runtime-to-runtime communication | [Program / Communication / Runtime To Runtime](connect/runtime-to-runtime/index.md) |
 | hardware or fieldbus issues | [Program / I/O And Hardware](connect/devices-and-fieldbus/index.md) |
-| editor/runtime panel issues | [Program / PLC Programming / Debugging](operate/debugging-and-runtime-panel.md) |
+| editor, Run and Live Values issues | [Program / PLC Programming / Debugging](operate/debugging-and-runtime-panel.md) |
 | runtime-cloud issues | [Run / Runtime Cloud](operate/runtime-cloud.md) |
 
 ## Common symptoms
 
 | Symptom | First check | Then go to |
 | --- | --- | --- |
-| no `Structured Text:` commands in VS Code | extension enabled and command palette opened with `Ctrl/Cmd+Shift+P` | [Installation](start/installation.md) |
+| no `truST:` commands in VS Code | extension enabled and command palette opened with `Ctrl/Cmd+Shift+P` | [Installation](start/installation.md) |
 | build fails before runtime starts | diagnostics and config files | [Build, Validate, Test](operate/build-validate-test.md) |
-| runtime panel cannot connect | control endpoint, local process, and port | [Debugging And Runtime Panel](operate/debugging-and-runtime-panel.md) |
+| Live Values shows no live data, or Connect fails | control endpoint, local process, and port | [Run & Compile](operate/debugging-and-runtime-panel.md) |
 | values stay stale | I/O mapping and driver choice | [I/O Binding](connect/devices-and-fieldbus/io-binding.md) |
 | remote node cannot pair | discovery, pairing, and firewall boundary | [Discovery And Pairing](connect/runtime-to-runtime/discovery-and-pairing.md) |
 

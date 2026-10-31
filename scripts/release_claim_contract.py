@@ -13,9 +13,11 @@ from pathlib import Path
 from typing import Any, Callable
 
 try:
+    from scripts import check_npm_audit
     from scripts.check_dependency_exceptions import validate_file
     from scripts.release_evidence_contract import ReleaseEvidenceError
 except ModuleNotFoundError:  # Direct `python scripts/...` execution.
+    import check_npm_audit  # type: ignore[no-redef]
     from check_dependency_exceptions import validate_file  # type: ignore[no-redef]
     from release_evidence_contract import ReleaseEvidenceError  # type: ignore[no-redef]
 
@@ -40,8 +42,12 @@ def _require(text: str, fragments: list[str], label: str) -> None:
         raise ReleaseEvidenceError(f"{label} missing reviewed fragments: {missing}")
 
 
-def _npm_program() -> str:
-    return "npm.cmd" if sys.platform == "win32" else "npm"
+def _release_steps() -> str:
+    """The Release workflow with the steps of the `release-files` action, through which its Rehearse and Publish
+    jobs write the release's files."""
+    workflow = _text(".github/workflows/release.yml")
+    _require(workflow, ["uses: ./.github/actions/release-files"], "release files wiring")
+    return workflow + _text(".github/actions/release-files/action.yml")
 
 
 def audit_platform_matrix() -> dict[str, Any]:
@@ -58,7 +64,7 @@ def audit_platform_matrix() -> dict[str, Any]:
     _require(
         readme,
         [
-            "Raspberry Pi currently inherits Linux AArch64 artifact support",
+            "A Raspberry Pi runs the Linux AArch64 build",
             "not a deterministic-latency certification",
         ],
         "qualified platform claim",
@@ -111,7 +117,7 @@ def audit_hardware_claims() -> dict[str, Any]:
 
 def audit_conformance_publication() -> dict[str, Any]:
     generator = _text("scripts/generate_conformance_status.py")
-    workflow = _text(".github/workflows/release.yml")
+    workflow = _release_steps()
     _require(
         generator,
         ["commit", "toolchain", "timestamp", "known_gaps", "executed", "passed", "failed"],
@@ -144,10 +150,10 @@ def audit_behavior_lock(domain: str) -> dict[str, Any]:
     _require(
         _text("README.md"),
         [
-            "behavior claims are locked by their written",
-            "product specifications and direct native executable tests",
-            "proof class",
-            "stated separately",
+            "and debugger behaviour is written down in a product specification",
+            "checked by native executable",
+            "depends on hardware or on the",
+            "says what it was proven on",
         ],
         "qualified behavior-lock claim",
     )
@@ -189,7 +195,7 @@ def audit_vsix() -> dict[str, Any]:
             "trust-debug.exe editors/vscode/bin/",
             "trust-runtime.exe editors/vscode/bin/",
             # Specification 44 §4.6: each platform's extension carries its toolchain bundle.
-            "needs: [release-preflight, toolchain-bundle]",
+            "needs: [plan, release-preflight, toolchain-bundle]",
             "name: toolchain-${{ matrix.platform }}\n          path: editors/vscode/bin",
             'wanted = f"extension/bin/trust-toolchain-{platform}.tar.gz"',
         ],
@@ -199,7 +205,7 @@ def audit_vsix() -> dict[str, Any]:
 
 
 def audit_artifact_provenance() -> dict[str, Any]:
-    workflow = _text(".github/workflows/release.yml")
+    workflow = _release_steps()
     generator = _text("scripts/generate_release_provenance.py")
     _require(
         workflow,
@@ -216,31 +222,19 @@ def audit_artifact_provenance() -> dict[str, Any]:
 
 def audit_dependency_policy() -> dict[str, Any]:
     rows = validate_file(ROOT / "deny.toml", today=date_from_environment())
-    _require(
-        _text(".github/workflows/ci.yml") + _text(".github/workflows/release.yml"),
-        ["npm audit --audit-level=low"],
-        "VS Code dependency audit wiring",
+    for workflow in (".github/workflows/ci.yml", ".github/workflows/release.yml"):
+        _require(_text(workflow), ["scripts/check_npm_audit.py"], f"VS Code dependency audit wiring in {workflow}")
+    # The VS Code lockfile follows the same owned-exception policy (specification 24, "Dependency Exceptions").
+    unowned, _stale, owned = check_npm_audit.findings(
+        check_npm_audit.run_audit(ROOT), ROOT, date_from_environment()
     )
-    audit = subprocess.run(
-        [_npm_program(), "audit", "--json", "--audit-level=low"],
-        cwd=ROOT / "editors/vscode",
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    try:
-        payload = json.loads(audit.stdout)
-        vulnerability_count = int(payload["metadata"]["vulnerabilities"]["total"])
-    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
-        raise ReleaseEvidenceError(f"npm audit did not return its closed JSON summary: {exc}")
-    if audit.returncode != 0 or vulnerability_count != 0:
-        raise ReleaseEvidenceError(
-            f"VS Code dependency audit found {vulnerability_count} vulnerabilities"
-        )
+    if unowned:
+        raise ReleaseEvidenceError("VS Code dependency audit: " + "; ".join(unowned))
     return {
         "rust_exceptions": len(rows),
+        "vscode_exceptions": owned,
         "max_days": 90,
-        "vscode_vulnerabilities": vulnerability_count,
+        "vscode_unowned_advisories": 0,
     }
 
 

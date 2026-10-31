@@ -26,6 +26,9 @@ to install.
 - **Tests and interchange.** Structured Text tests in the Testing view and through CodeLens,
   PLCopen XML import and export, and visual editors for ladder, SFC, Blockly and statecharts that
   keep a Structured Text companion.
+- **Libraries and existing code.** OSCAT, PLCopen Motion and truST's control, plant, alarm, HMI and
+  communication libraries from **truST: Open Libraries**, and vendor profiles that read the
+  Structured Text of CODESYS and TwinCAT, Siemens SCL and Mitsubishi GX Works3.
 - **Control Studio.** Identify a plant from experiments, tune and validate a controller against the
   model, apply it to a running loop with a bumpless transfer, and restore the previous settings
   when needed.

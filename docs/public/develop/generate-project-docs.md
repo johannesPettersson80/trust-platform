@@ -28,6 +28,8 @@ VAR_INPUT
     A : DINT;
     B : DINT;
 END_VAR
+Add := A + B;
+END_FUNCTION
 ```
 
 ## Example output shape

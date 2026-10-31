@@ -35,6 +35,6 @@ The editor launches `trust-debug` over stdio and speaks DAP to it.
 
 ## Related
 
-- [Debugging And Runtime Panel](../../operate/debugging-and-runtime-panel.md)
+- [Run & Compile](../../operate/debugging-and-runtime-panel.md)
 - [trust-lsp](trust-lsp.md)
 - [trust-runtime ctl](trust-runtime.md)

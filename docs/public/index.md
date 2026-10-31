@@ -24,7 +24,7 @@ connected through runtime/plant communication surfaces.
 
 | Part | Role |
 | --- | --- |
-| VS Code extension | ST diagnostics, navigation, formatting, visual editors, runtime panel, debugger, AI tools |
+| VS Code extension | ST diagnostics, navigation, formatting, visual editors, Live Values, debugger, AI tools |
 | Browser IDE | runtime-hosted editing surface at `/ide` |
 | `trust-runtime` | execution engine, CLI workflows, runtime control, web UI |
 | Agent API | JSON-RPC automation for scripts, CI, and agent loops |

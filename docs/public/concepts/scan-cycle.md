@@ -31,8 +31,8 @@ flowchart LR
 
 ## Common Bug Source
 
-Many PLC bugs are really scan-order misunderstandings. The docs, runtime panel,
-and deterministic harness all try to make that ordering visible instead of
+Many PLC bugs are really scan-order misunderstandings. The docs, Live Values
+and the deterministic harness all try to make that ordering visible instead of
 hiding it.
 
 ## `%M` / memory-marker behavior

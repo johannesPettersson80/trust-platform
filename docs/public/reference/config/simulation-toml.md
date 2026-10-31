@@ -119,7 +119,7 @@ generators, random algorithm, plant events, validation rules, and numeric
 conformance oracles are normative in
 [Simulation plant models](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/specs/46-simulation-plant-models.md).
 
-For normal interactive authoring, use **truST: Devices & Connections**, add a
+For normal interactive authoring, use **truST: Open Devices & Connections**, add a
 **Simulated plant** to a runtime, and edit the same fields in Plant Properties.
 See the [simulation-first workflow](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/guides/PLC_SIMULATION_WORKFLOW.md)
 for the Tank example, model field summary, restart behavior, and safety limits.

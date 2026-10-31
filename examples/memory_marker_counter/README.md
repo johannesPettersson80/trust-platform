@@ -3,7 +3,7 @@
 Docs category: `docs/public/examples/test-and-debug.md`
 
 This tutorial teaches the scan-cycle memory model and shows how to inspect it in
-both the Runtime Panel and debugger.
+Live Values and the debugger.
 
 ## Learning Goal
 
@@ -30,14 +30,15 @@ trust-runtime build --project examples/memory_marker_counter --sources src
 trust-runtime validate --project examples/memory_marker_counter
 ```
 
-## Step 2: Start Runtime + Panel
+## Step 2: Start the Simulator and open Live Values
 
-1. In VS Code: `Ctrl/Cmd+Shift+P` -> `Structured Text: Open Runtime Panel`
-2. Start runtime (Local mode) or connect to running runtime.
-3. Open the panel sections:
-   - `I/O -> Inputs` for writing `%M` values
-   - `I/O -> Outputs` for reading `%Q` values
-   - cycle/heartbeat area to confirm scans are progressing
+1. In the truST view, press **Start**: the Simulator runs the program and **Live Values** opens.
+   To use a runtime instead, select it in the truST view and press **Connect**; **truST: Open Live
+   Values** opens Live Values at any time.
+2. In Live Values:
+   - **Memory** holds `%MW0`: write `%M` values there
+   - **Outputs** holds `%QW0`: read `%Q` values there
+   - the values change while the scans run
 
 ## Step 3: Core Experiment (Annotated)
 
@@ -87,8 +88,8 @@ Repeat Step 3 and confirm `%MW0` jumps by 5 each cycle.
 
 - Writing `%Q` and expecting it to behave like input memory:
   - fix: write `%MW0`, observe `%QW0` as output evidence.
-- Runtime panel not connected:
-  - fix: start runtime or verify endpoint in `trust-lsp.toml`.
+- Live Values shows no live data:
+  - fix: press **Start** in the truST view, or connect to the runtime there.
 - Values not updating:
   - fix: confirm cycle is running and writes are applied (not staged only).
 

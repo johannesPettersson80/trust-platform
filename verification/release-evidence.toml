@@ -38,7 +38,7 @@ rust_commands = [
   "cargo deny check advisories licenses bans sources",
   "cargo audit --deny warnings <tracked-exceptions>",
 ]
-node_commands = ["npm audit --audit-level=low"]
+node_commands = ["python3 scripts/check_npm_audit.py"]
 
 [latest_public_snapshot]
 status = "published_latest"

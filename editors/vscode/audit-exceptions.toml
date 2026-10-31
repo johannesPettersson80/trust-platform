@@ -1,0 +1,8 @@
+# Owned exceptions of `npm audit` for this lockfile (specification 24, "Dependency Exceptions"): the fields and the
+# 90-day limit of deny.toml, with GitHub advisory ids. `scripts/check_npm_audit.py` fails on any advisory without one,
+# and on a missing, expired or overlong exception.
+[advisories]
+ignore = [
+    { id = "GHSA-g3hv-75wg-m249", reason = "owner=vscode/extension; rationale=minimatch < 11.0.1 amplifies globparts in its first-phase preprocessing, which runs only with optimizationLevel >= 2; the shipped vscode-languageclient 10.1.2 builds Minimatch with { noext: true } or { dot: true, nocase } and never sets optimizationLevel (default 1), and its patterns come from the trust-lsp registrations, so the extension never reaches it; eslint, typescript-eslint, vsce, mocha and glob reach it only as development tools on the repository's own files; minimatch 11 removes makeRe, AST and parseClass, so forcing it on their ^10 ranges breaks them; review=2026-10-31; removal=remove when vscode-languageclient, eslint, @typescript-eslint, @vscode/vsce and mocha depend on minimatch >= 11.0.1 and npm audit no longer reports it; expires=2026-12-30" },
+    { id = "GHSA-3g3m-2fjr-6pw4", reason = "owner=vscode/test-tooling; rationale=glob >= 9.0.0 <= 14.0.1 keeps walking after an AbortSignal aborts it; glob is a development dependency only (mocha 12's test file lookup) and not in the shipped extension (npm audit --omit=dev does not report it), and nothing here passes it an abort signal; glob 14.0.2 needs minimatch 11 and returns arrays where 13 returned sets, a breaking change under mocha 12; review=2026-10-31; removal=remove when mocha and every other development dependency take glob >= 14.0.2 and npm audit no longer reports it; expires=2026-12-30" },
+]

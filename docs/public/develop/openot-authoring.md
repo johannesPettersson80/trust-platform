@@ -27,6 +27,7 @@ VAR
     BatchCount   : DINT {attribute 'oot' := 'value'};
     HighPhAlarm  : BOOL {attribute 'oot' := 'alarm', 'class' := 'alarm', 'severity' := '900'};
 END_VAR
+END_PROGRAM
 ```
 
 There should be no `Op :=`, `Execute :=`, or `OOT_Log*` calls in the user
@@ -104,7 +105,7 @@ Batch/recipe/operator events bind typed fields from normal declarations:
 ```iecst
 ActionId : UDINT := UDINT#6001;
 OperatorName : STRING[32] := 'operator-a';
-Action : BOOL {attribute 'oot' := 'operator-action', 'action' := ActionId, 'actor' := OperatorName, 'auth' := 'Granted'};
+ActionTrigger : BOOL {attribute 'oot' := 'operator-action', 'action' := ActionId, 'actor' := OperatorName, 'auth' := 'Granted'};
 ```
 
 `e-signature` attests a deterministic single-event OpenOT variable in the same
@@ -112,7 +113,7 @@ source. The compiler assigns hidden attestable ids and the producer writes the
 attested event's emitted sequence into `signedEventSeq`:
 
 ```iecst
-SignAction : BOOL {attribute 'oot' := 'e-signature', 'action' := ActionId, 'actor' := OperatorName, 'meaning' := 'Approved', 'attests' := Action};
+SignAction : BOOL {attribute 'oot' := 'e-signature', 'action' := ActionId, 'actor' := OperatorName, 'meaning' := 'Approved', 'attests' := ActionTrigger};
 ```
 
 The signature emits after other generated OpenOT calls in the scan, so it can
