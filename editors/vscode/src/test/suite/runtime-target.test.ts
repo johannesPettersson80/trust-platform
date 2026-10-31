@@ -1,4 +1,5 @@
 import * as assert from "assert";
+import * as vscode from "vscode";
 
 import { resolveRuntimeTargetFromSettings, RUNTIME_PANEL_COMMAND } from "../../runtimeTarget";
 import { fakeRuntime, runtimeCommandsReady, type FakeRuntime } from "./fakeControlRuntime";
@@ -53,6 +54,28 @@ suite("Runtime target", function () {
     assert.strictEqual(target.status, "auth_failed");
     assert.strictEqual(target.authFailureKind, "missing");
     assert.strictEqual(target.reachable, true);
+  });
+
+  // Catches a status that reaches Live Values after it closed: the read ended after the panel was gone, and posting to it
+  // threw an unhandled TypeError, "Cannot read properties of undefined (reading 'webview')" (release guard of 31 October
+  // 2026). The panel opens and closes at once, so each read it starts ends after the panel is gone.
+  test("Live Values closed while its status is read throws nothing", async () => {
+    const rejections: unknown[] = [];
+    const listener = (reason: unknown) => rejections.push(reason);
+    process.on("unhandledRejection", listener);
+    try {
+      for (let round = 0; round < 5; round += 1) {
+        await vscode.commands.executeCommand(RUNTIME_PANEL_COMMAND);
+        await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+      }
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    } finally {
+      process.off("unhandledRejection", listener);
+    }
+    const fromPanel = rejections
+      .map((reason) => (reason instanceof Error ? reason.stack ?? reason.message : String(reason)))
+      .filter((text) => text.includes("sendRuntimeStatus"));
+    assert.deepStrictEqual(fromPanel, []);
   });
 
   test("runtime pane command is the existing runtime panel command", () => {
