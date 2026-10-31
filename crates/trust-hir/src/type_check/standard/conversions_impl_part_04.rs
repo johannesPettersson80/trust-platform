@@ -99,7 +99,7 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         }
 
         // CODESYS TO_STRING parity: an enumerated value converts to its
-        // member name string (IEC_DEVIATIONS DEV-025). Base-less enums
+        // member name string (IEC_DEVIATIONS 2026-10-28). Base-less enums
         // included — the runtime enum value carries its variant name.
         if matches!(self.checker.resolved_type(src), Some(Type::Enum { .. }))
             && matches!(
@@ -205,7 +205,7 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         }
         // CODESYS converts durations to any integer (ms magnitude, wrapping
         // like the vendor toolchain) and time-of-day to its ms-of-day
-        // magnitude (IEC_DEVIATIONS DEV-025).
+        // magnitude (IEC_DEVIATIONS 2026-10-28).
         if matches!(src, TypeId::TIME | TypeId::LTIME)
             && matches!(
                 dst,

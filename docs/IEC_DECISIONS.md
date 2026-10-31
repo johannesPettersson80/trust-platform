@@ -580,7 +580,7 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
 - Decision:
   - Ordinary assignment, `VAR_INPUT` copy-in, function result assignment, and `VAR_OUTPUT` copy-back truncate by Unicode scalar value to the receiving declaration's capacity.
   - ~~`VAR_IN_OUT` requires identical string family and identical effective capacity after alias and constant-expression resolution. Width-changing and bounded-to-unbounded `VAR_IN_OUT` bindings are rejected with diagnostic category `E205` rather than converted.~~
-    SUPERSEDED 2026-10-28 (IEC_DEVIATIONS DEV-024): `VAR_IN_OUT` now requires the same string family only; capacities need not match (CODESYS parity, vendor `STRING(1)`-buffer-plus-size-argument idiom). Cross-family `VAR_IN_OUT` binding is still rejected with `E205`.
+    SUPERSEDED 2026-10-28 (IEC_DEVIATIONS 2026-10-28): `VAR_IN_OUT` now requires the same string family only; capacities need not match (CODESYS parity, vendor `STRING(1)`-buffer-plus-size-argument idiom). Cross-family `VAR_IN_OUT` binding is still rejected with `E205`.
   - A rejected `VAR_IN_OUT` binding cannot mutate caller state.
   - Literal bounds and truncation count Unicode scalar values. The same rules apply to bounded `STRING[n]` and `WSTRING[n]`.
   - `STRING` and `WSTRING` are separate families. Cross-family assignment or

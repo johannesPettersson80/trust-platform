@@ -18,6 +18,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `IEC_DEVIATIONS.md` (2026-10-28).
 
 - Integer/bit-string narrowing (assignments and call arguments) becomes a
+
+- Comparisons and bit-string arithmetic match CODESYS: under
 - Standard conversions: vendor-extension entries match the CODESYS/TwinCAT
 - Standard conversion extension round: `REAL_TO_TIME`/`UINT_TO_TIME` (the
 

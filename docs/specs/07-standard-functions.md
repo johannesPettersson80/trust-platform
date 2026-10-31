@@ -165,7 +165,7 @@ Implementer extension note:
   `TIME_TO_DWORD(T#123ms) = DWORD#123`,
   `DWORD_TO_TIME(DWORD#123) = T#123ms`.
 - truST additionally provides duration-to-integer and time-of-day-to-dword
-  conversions as documented non-IEC helpers (`IEC_DEVIATIONS.md` DEV-025):
+  conversions as documented non-IEC helpers (`IEC_DEVIATIONS.md` 2026-10-28):
   `TIME_TO_<int>` and `LTIME_TO_<int>` yield the millisecond (respectively
   nanosecond) magnitude truncated into the destination integer;
   `TOD_TO_DWORD` and `LTOD_TO_DWORD` yield the ms-of-day magnitude.
@@ -223,7 +223,7 @@ representatives:
 | `DWORD_TO_STRING(DWORD#42)` | `STRING#'42'` |
 | `STRING_TO_DINT(STRING#'42')` | `DINT#42` |
 
-Vendor-extension representatives (`IEC_DEVIATIONS.md` DEV-025): `TO_STRING`
+Vendor-extension representatives (`IEC_DEVIATIONS.md` 2026-10-28): `TO_STRING`
 and the typed `*_TO_STRING` spellings accept a `BOOL` (`'TRUE'`/`'FALSE'`),
 a `TIME`/`LTIME` (the `T#`/`LT#` duration text), and an enumerated value
 (its variant name); `TO_STRING` over a `STRING[n]` value is an identity
@@ -359,8 +359,8 @@ the set of available conversions are unchanged.
 
 The out-of-range results are implementer-specific under IEC 61131-3 Ed.3 6.6.2.5.3 and
 Table 23. Three CODESYS rules conflict with normative IEC requirements and are recorded in
-`docs/IEC_DEVIATIONS.md`: the rounding of ties (DEV-024), the numeric `REAL`/`LREAL` and
-`DWORD`/`LWORD` conversions (DEV-025) and the bit string to `BOOL` test (DEV-026).
+`docs/IEC_DEVIATIONS.md`: the rounding of ties (IEC_DEVIATIONS 2026-10-28), the numeric `REAL`/`LREAL` and
+`DWORD`/`LWORD` conversions (IEC_DEVIATIONS 2026-10-28) and the bit string to `BOOL` test (IEC_DEVIATIONS 2026-10-28).
 
 References: CODESYS Development System,
 [REAL_TO / LREAL_TO](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_operator_real_to.html)

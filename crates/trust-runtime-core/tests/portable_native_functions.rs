@@ -169,7 +169,7 @@ fn portable_registry_retains_standard_functions_and_diagnostic_value_formatting(
 
 #[test]
 fn vendor_extension_conversions_cover_enum_bool_time_and_tod() {
-    // IEC_DEVIATIONS DEV-025: CODESYS-parity conversion entries shared with
+    // IEC_DEVIATIONS IEC_DEVIATIONS 2026-10-28: CODESYS-parity conversion entries shared with
     // the compiler accept table.
     let area = Value::Enum(Box::new(EnumValue::from_canonical_parts(
         "eArea".into(),

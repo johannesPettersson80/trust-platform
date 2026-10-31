@@ -289,7 +289,7 @@
 
     #[test]
     fn analyze_salsa_binds_mismatched_cross_file_constant_string_capacity_on_in_out() {
-        // IEC_DEVIATIONS DEV-024: in-out strings bind across declared
+        // IEC_DEVIATIONS 2026-10-28: in-out strings bind across declared
         // capacities (CODESYS parity); the constant capacity still resolves
         // across files, it just no longer rejects the call.
         let mut db = Database::new();
@@ -321,7 +321,7 @@
                 .filter(|diagnostic| diagnostic.code == DiagnosticCode::InvalidArgumentType)
                 .count(),
             0,
-            "in-out string capacity mismatch binds across files (DEV-024): {:?}",
+            "in-out string capacity mismatch binds across files (IEC_DEVIATIONS 2026-10-28): {:?}",
             analysis.diagnostics
         );
     }

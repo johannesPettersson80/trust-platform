@@ -432,7 +432,7 @@ END_PROGRAM
 
 #[test]
 fn call_binding_contract_rejects_in_out_string_family_mismatch() {
-    // Capacity is length-agnostic (IEC_DEVIATIONS DEV-024), but the STRING
+    // Capacity is length-agnostic (IEC_DEVIATIONS 2026-10-28), but the STRING
     // vs WSTRING families stay distinct at the in-out boundary.
     check_has_error(
         r#"
