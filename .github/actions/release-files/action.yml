@@ -1,0 +1,106 @@
+name: Release files
+description: >-
+  The files a release publishes, from the build and test jobs' artifacts (specification 24): every package, the
+  result-derived conformance status, the provenance of every artifact, their checksums, and the release text from the
+  changelog. The Release workflow's Rehearse job keeps them and its Publish job publishes them.
+inputs:
+  sha:
+    description: The commit the release is built from (the plan's).
+    required: true
+  tag:
+    description: The release tag, v<version> (the plan's).
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Download VSIX artifacts
+      uses: actions/download-artifact@v8
+      with:
+        path: vsix-artifacts
+        pattern: vsix-*
+        merge-multiple: true
+
+    - name: Download runtime artifacts
+      uses: actions/download-artifact@v8
+      with:
+        path: runtime-artifacts
+        pattern: runtime-*
+        merge-multiple: true
+
+    - name: Download trust-lsp artifacts
+      uses: actions/download-artifact@v8
+      with:
+        path: trust-lsp-artifacts
+        pattern: trust-lsp-*
+        merge-multiple: true
+
+    - name: Download toolchain bundles
+      uses: actions/download-artifact@v8
+      with:
+        path: toolchain-artifacts
+        pattern: toolchain-*
+        merge-multiple: true
+
+    - name: Download release conformance artifact
+      uses: actions/download-artifact@v8
+      with:
+        name: release-conformance
+        path: conformance-artifacts
+
+    - name: Generate result-derived conformance status
+      shell: bash
+      env:
+        RELEASE_SHA: ${{ inputs.sha }}
+      run: |
+        set -euo pipefail
+        mkdir -p release-evidence
+        python3 scripts/generate_conformance_status.py \
+          --summary conformance-artifacts/conformance-pass-1.json \
+          --known-gaps conformance/known-gaps.md \
+          --commit "${RELEASE_SHA}" \
+          --toolchain "$(rustc --version)" \
+          --timestamp "$(date --iso-8601=seconds)" \
+          --json-out release-evidence/conformance-status.json \
+          --markdown-out release-evidence/conformance-status.md
+
+    - name: Generate release artifact provenance
+      shell: bash
+      env:
+        RELEASE_SHA: ${{ inputs.sha }}
+        RELEASE_TAG: ${{ inputs.tag }}
+      run: |
+        set -euo pipefail
+        python3 scripts/generate_release_provenance.py \
+          --artifact-root vsix-artifacts \
+          --artifact-root runtime-artifacts \
+          --artifact-root trust-lsp-artifacts \
+          --artifact-root toolchain-artifacts \
+          --artifact-root release-evidence \
+          --tag "${RELEASE_TAG}" \
+          --commit "${RELEASE_SHA}" \
+          --workflow-run-id "${GITHUB_RUN_ID}" \
+          --workflow-run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+          --timestamp "$(date --iso-8601=seconds)" \
+          --output release-evidence/release-provenance.json
+
+    - name: Generate release checksums
+      shell: bash
+      run: |
+        set -euo pipefail
+        find vsix-artifacts runtime-artifacts trust-lsp-artifacts toolchain-artifacts release-evidence -type f \
+          \( -name '*.vsix' -o -name '*.tar.gz' -o -name '*.zip' \
+            -o -name 'release-provenance.json' \
+            -o -name 'conformance-status.json' \
+            -o -name 'conformance-status.md' \) \
+          -print0 | sort -z | xargs -0 sha256sum > release-evidence/SHA256SUMS
+        cat release-evidence/SHA256SUMS
+
+    - name: Generate release body from changelog
+      shell: bash
+      env:
+        RELEASE_TAG: ${{ inputs.tag }}
+      run: |
+        python3 scripts/extract_changelog_section.py \
+          --section "${RELEASE_TAG#v}" \
+          --title "${RELEASE_TAG}" \
+          --output release-notes.md

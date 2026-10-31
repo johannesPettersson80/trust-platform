@@ -16,6 +16,7 @@ import check_version_release_evidence as verifier  # noqa: E402
 import release_plan  # noqa: E402
 
 RELEASE = ROOT / ".github" / "workflows" / "release.yml"
+RELEASE_FILES = ROOT / ".github" / "actions" / "release-files" / "action.yml"
 CI = ROOT / ".github" / "workflows" / "ci.yml"
 RELEASE_ONLY = "${{ needs.plan.outputs.mode == 'release' }}"
 # The steps that make a release public, in the order they run.
@@ -137,9 +138,11 @@ class ReleaseWorkflowTests(unittest.TestCase):
 
     def test_the_release_follows_every_build_and_test(self) -> None:
         # Catches a tag created while a platform's build or a test job still runs or has failed
-        # (0.25.0's release jobs failed after its tag, 25 October 2026).
-        others = set(self.jobs) - {"publish", "conclusion"}
+        # (0.25.0's release jobs failed after its tag, 25 October 2026), and a rehearsal that keeps
+        # files before every build and test passed.
+        others = set(self.jobs) - {"rehearse", "publish", "conclusion"}
         self.assertEqual(needs(self.jobs["publish"]), others)
+        self.assertEqual(needs(self.jobs["rehearse"]), others)
 
     def test_a_missing_marketplace_token_fails_a_release_before_it_builds(self) -> None:
         require = steps(self.jobs["release-preflight"])["Require the Marketplace token"]
@@ -162,7 +165,15 @@ class ReleaseWorkflowTests(unittest.TestCase):
         publish = self.jobs["publish"]
         self.assertIn("      RELEASE_TAG: ${{ needs.plan.outputs.tag }}\n", publish)
         self.assertIn("      RELEASE_SHA: ${{ needs.plan.outputs.sha }}\n", publish)
-        self.assertEqual(publish.count('--commit "${RELEASE_SHA}"'), 2)
+        files = RELEASE_FILES.read_text(encoding="utf-8")
+        self.assertEqual(files.count('--commit "${RELEASE_SHA}"'), 2)
+        for needle in ("github.sha", "GITHUB_SHA", "github.ref_name", "GITHUB_REF_NAME"):
+            self.assertNotIn(needle, files)
+        for job_id in ("rehearse", "publish"):
+            write = steps(self.jobs[job_id])["Write the release files"]
+            self.assertIn("uses: ./.github/actions/release-files", write, job_id)
+            self.assertIn("sha: ${{ needs.plan.outputs.sha }}", write, job_id)
+            self.assertIn("tag: ${{ needs.plan.outputs.tag }}", write, job_id)
         release = steps(publish)["Create GitHub Release"]
         self.assertIn("tag_name: ${{ env.RELEASE_TAG }}", release)
         self.assertIn("target_commitish: ${{ env.RELEASE_SHA }}", release)
@@ -174,10 +185,36 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("already published", steps(self.jobs["publish"])["Publish to VS Code Marketplace"])
 
     def test_a_rehearsal_keeps_its_release_text_and_evidence(self) -> None:
-        keep = steps(self.jobs["publish"])["Keep the rehearsal's release files"]
-        self.assertEqual(field(keep, "if"), "${{ needs.plan.outputs.mode == 'rehearsal' }}")
-        self.assertIn("name: release-rehearsal-${{ env.RELEASE_TAG }}", keep)
+        keep = steps(self.jobs["rehearse"])["Keep the rehearsal's release files"]
+        self.assertIn("name: release-rehearsal-${{ needs.plan.outputs.tag }}", keep)
         self.assertIn("          path: |\n            release-notes.md\n            release-evidence/\n", keep)
+
+    def test_a_rehearsal_holds_no_token_that_writes(self) -> None:
+        # Catches a rehearsal whose candidate code, or what it installs, could read the Marketplace token
+        # or write with the GitHub token (Codex's review of #146): it runs only for a rehearsal, reads, and
+        # keeps no credential in its checkout.
+        rehearse = self.jobs["rehearse"]
+        self.assertIn("needs.plan.outputs.mode == 'rehearsal'", field(rehearse, "if", 4))
+        self.assertIn("    permissions:\n      contents: read\n      actions: read\n", rehearse)
+        self.assertNotIn("secrets.", rehearse)
+        checkout = [text for text in step_texts(rehearse) if "uses: actions/checkout@" in text][0]
+        self.assertIn("persist-credentials: false", checkout)
+        self.assertEqual(field(self.jobs["publish"], "if", 4), RELEASE_ONLY)
+
+    def test_only_the_marketplace_steps_get_the_marketplace_token(self) -> None:
+        # Catches the token in a job's environment, where every step of the candidate reads it.
+        self.assertEqual(self.text.count("secrets.VSCE_PAT"), 2)
+        self.assertIn("secrets.VSCE_PAT", steps(self.jobs["release-preflight"])["Require the Marketplace token"])
+        self.assertIn("secrets.VSCE_PAT", steps(self.jobs["publish"])["Publish to VS Code Marketplace"])
+        self.assertNotIn("secrets.", RELEASE_FILES.read_text(encoding="utf-8"))
+
+    def test_the_project_runner_never_runs_a_pull_request(self) -> None:
+        # Catches a pull request's code on the project's own runner, and secrets handed to a workflow that
+        # needs none (Codex's review of #146).
+        databases = self.jobs["openot-real-databases"]
+        self.assertEqual(field(databases, "if", 4), "${{ github.event_name != 'pull_request' }}")
+        self.assertNotIn("secrets", databases)
+        self.assertNotIn("secrets.", (ROOT / ".github" / "workflows" / "openot-real-databases.yml").read_text())
 
     def test_the_verification_outlives_its_marketplace_wait(self) -> None:
         # A job that GitHub stops first fails the release while the Marketplace still lists it.

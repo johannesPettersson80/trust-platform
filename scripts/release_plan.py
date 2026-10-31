@@ -75,6 +75,36 @@ def parse_tag_listing(listing: str, tag: str) -> tuple[str, str] | None:
     return ("tag", peeled) if peeled else ("commit", rows[f"refs/tags/{tag}"])
 
 
+def version_commits(sha: str) -> list[str]:
+    """The commits on `sha`'s first-parent line, newest first, that changed `Cargo.toml`: those that can
+    bring a version."""
+    return git("rev-list", "--first-parent", sha, "--", "Cargo.toml").split()
+
+
+def unreleased_earlier(
+    sha: str,
+    version: str,
+    *,
+    version_at: Callable[[str], str],
+    tag_commit: Callable[[str], tuple[str, str] | None],
+    version_commits: Callable[[str], list[str]],
+) -> list[tuple[str, str]]:
+    """The versions, with their commits, that `sha`'s line brought after its newest tagged version and
+    before `version`, and that have no tag. GitHub keeps one waiting run per concurrency group, so a
+    release whose run a later one replaced in the queue leaves such a version."""
+    found: list[tuple[str, str]] = []
+    seen = {version}
+    for commit in version_commits(sha):
+        earlier = version_at(commit)
+        if earlier in seen:
+            continue
+        seen.add(earlier)
+        if tag_commit(f"v{earlier}") is not None:
+            break
+        found.append((earlier, commit))
+    return found
+
+
 def tag_commit(tag: str) -> tuple[str, str] | None:
     """The tag's kind and commit on origin; None when origin has no such tag."""
     return parse_tag_listing(git("ls-remote", "--tags", "origin", f"refs/tags/{tag}*"), tag)
@@ -137,6 +167,7 @@ def plan(
     version_at: Callable[[str], str] = version_at,
     tag_commit: Callable[[str], tuple[str, str] | None] = tag_commit,
     release_complete: Callable[[str], bool] = lambda tag: False,
+    version_commits: Callable[[str], list[str]] = version_commits,
 ) -> Plan:
     if event == "pull_request":
         if pr_head_repository != repository:
@@ -161,15 +192,24 @@ def plan(
     version = version_at(run_sha)
     tag = f"v{version}"
     found = tag_commit(tag)
+    if found is not None:
+        kind, commit = found
+        if commit != run_sha:
+            return Plan("skip", run_sha, version, f"{tag} was released from {commit}")
+        if kind != "tag":
+            raise ValueError(f"{tag} on {run_sha} is not an annotated tag")
+        if release_complete(tag):
+            return Plan("skip", run_sha, version, f"{tag} is released and complete")
+    # A version brought before this one and never tagged is released first, by running its commit's
+    # Release again; releasing past it would skip it for good.
+    skipped = unreleased_earlier(
+        run_sha, version, version_at=version_at, tag_commit=tag_commit, version_commits=version_commits
+    )
+    if skipped:
+        listed = ", ".join(f"v{earlier} at {commit[:9]}" for earlier, commit in skipped)
+        raise ValueError(f"{listed} has no tag; run the Release of that commit again before releasing {tag}")
     if found is None:
         return Plan("release", run_sha, version, f"{tag} has no tag yet")
-    kind, commit = found
-    if commit != run_sha:
-        return Plan("skip", run_sha, version, f"{tag} was released from {commit}")
-    if kind != "tag":
-        raise ValueError(f"{tag} on {run_sha} is not an annotated tag")
-    if release_complete(tag):
-        return Plan("skip", run_sha, version, f"{tag} is released and complete")
     return Plan("release", run_sha, version, f"{tag} is on this commit and its release is not complete")
 
 

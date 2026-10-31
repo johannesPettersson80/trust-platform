@@ -23,6 +23,7 @@ def plan(**kwargs):
         version_at=lambda sha: VERSIONS[sha],
         tag_commit=lambda tag: None,
         release_complete=lambda tag: False,
+        version_commits=lambda sha: [],
     )
     defaults.update(kwargs)
     return release_plan.plan(**defaults)
@@ -110,6 +111,30 @@ class ReleasePlanTests(unittest.TestCase):
         self.assertFalse(complete({7: [{"name": "Build", "steps": [{"name": "Verify the release", "conclusion": "success"}]}]}))
         self.assertTrue(complete({7: [job("failure"), job("success")]}), "a later attempt verified it")
         self.assertTrue(complete({6: [job("skipped")], 7: [job("success")]}), "another run verified it")
+
+    def test_a_version_whose_release_the_queue_dropped_stops_the_next_release(self) -> None:
+        # Catches a release that skips a version for good: GitHub keeps one waiting run per concurrency
+        # group, so a later main CI run replaces the waiting release of an earlier version bump (Codex,
+        # PR #146). Main's first-parent line here: "new" brings 0.28.0, "mid" brought 0.27.0 and has no
+        # tag, "released" brought 0.26.0, which is tagged.
+        versions = {"new": "0.28.0", "mid": "0.27.0", "released": "0.26.0"}
+        tags = {"v0.26.0": ("tag", "released")}
+        with self.assertRaisesRegex(ValueError, "v0.27.0 at mid has no tag; run the Release of that commit again"):
+            after_ci(
+                version_at=lambda sha: versions[sha],
+                tag_commit=lambda tag: tags.get(tag),
+                version_commits=lambda sha: ["new", "mid", "released"],
+            )
+
+    def test_commits_that_keep_the_version_do_not_count_as_skipped_releases(self) -> None:
+        # Catches a check that reads every Cargo.toml change as a version: a dependency change keeps it.
+        versions = {"new": "0.27.0", "deps": "0.26.0", "released": "0.26.0"}
+        result = after_ci(
+            version_at=lambda sha: versions[sha],
+            tag_commit=lambda tag: {"v0.26.0": ("tag", "released")}.get(tag),
+            version_commits=lambda sha: ["new", "deps", "released"],
+        )
+        self.assertEqual((result.mode, result.tag), ("release", "v0.27.0"))
 
     def test_a_lightweight_tag_on_the_commit_fails_the_plan(self) -> None:
         with self.assertRaises(ValueError):

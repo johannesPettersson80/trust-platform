@@ -203,12 +203,14 @@ jobs:
             artifacts/release/runtime-vm-determinism/**
 
   openot-real-databases:
+    # It runs on the project's own runner, so never for a pull request: a maintainer's dispatched
+    # rehearsal and the release run it. It needs no secret, so it is given none (Codex's review of #146).
     name: OpenOT Real Database Matrix
     needs: [plan, release-preflight]
+    if: ${{ github.event_name != 'pull_request' }}
     uses: ./.github/workflows/openot-real-databases.yml
     with:
       ref: ${{ needs.plan.outputs.sha }}
-    secrets: inherit
 
   toolchain-bundle:
     # The toolchain bundle of each platform (specification 44 §4.6), written on that platform with
@@ -513,9 +515,43 @@ jobs:
             trust-lsp-${{ matrix.platform }}.tar.gz
             trust-lsp-${{ matrix.platform }}.zip
 
+  rehearse:
+    # A rehearsal writes the release's files from the candidate's artifacts and keeps them. It holds no
+    # token that writes: no Marketplace token and a read-only GitHub token, so the candidate's code and
+    # what it installs cannot reach either (Codex's review of #146).
+    name: Rehearse
+    needs: [plan, release-preflight, build, toolchain-bundle, runtime-vm-validation, openot-real-databases]
+    # The real-database matrix is skipped for a pull request (it runs on the project's own runner).
+    if: ${{ !cancelled() && needs.plan.outputs.mode == 'rehearsal' && !contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
+
+      - name: Write the release files
+        uses: ./.github/actions/release-files
+        with:
+          sha: ${{ needs.plan.outputs.sha }}
+          tag: ${{ needs.plan.outputs.tag }}
+
+      - name: Keep the rehearsal's release files
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-rehearsal-${{ needs.plan.outputs.tag }}
+          path: |
+            release-notes.md
+            release-evidence/
+
   publish:
+    # Only a release gets the write token, and only its Marketplace step the Marketplace token.
     name: Publish
     needs: [plan, release-preflight, build, toolchain-bundle, runtime-vm-validation, openot-real-databases]
+    if: ${{ needs.plan.outputs.mode == 'release' }}
     runs-on: ubuntu-latest
     # The Marketplace wait of the verification is at most an hour.
     timeout-minutes: 120
@@ -523,7 +559,6 @@ jobs:
       contents: write
       actions: read
     env:
-      VSCE_PAT: ${{ secrets.VSCE_PAT }}
       RELEASE_SHA: ${{ needs.plan.outputs.sha }}
       RELEASE_TAG: ${{ needs.plan.outputs.tag }}
     steps:
@@ -532,70 +567,11 @@ jobs:
           ref: ${{ needs.plan.outputs.sha }}
           fetch-depth: 0
 
-      - name: Download VSIX artifacts
-        uses: actions/download-artifact@v8
+      - name: Write the release files
+        uses: ./.github/actions/release-files
         with:
-          path: vsix-artifacts
-          pattern: vsix-*
-          merge-multiple: true
-
-      - name: Download runtime artifacts
-        uses: actions/download-artifact@v8
-        with:
-          path: runtime-artifacts
-          pattern: runtime-*
-          merge-multiple: true
-
-      - name: Download trust-lsp artifacts
-        uses: actions/download-artifact@v8
-        with:
-          path: trust-lsp-artifacts
-          pattern: trust-lsp-*
-          merge-multiple: true
-
-      - name: Download toolchain bundles
-        uses: actions/download-artifact@v8
-        with:
-          path: toolchain-artifacts
-          pattern: toolchain-*
-          merge-multiple: true
-
-      - name: Download release conformance artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: release-conformance
-          path: conformance-artifacts
-
-      - name: Generate result-derived conformance status
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p release-evidence
-          python3 scripts/generate_conformance_status.py \
-            --summary conformance-artifacts/conformance-pass-1.json \
-            --known-gaps conformance/known-gaps.md \
-            --commit "${RELEASE_SHA}" \
-            --toolchain "$(rustc --version)" \
-            --timestamp "$(date --iso-8601=seconds)" \
-            --json-out release-evidence/conformance-status.json \
-            --markdown-out release-evidence/conformance-status.md
-
-      - name: Generate release artifact provenance
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 scripts/generate_release_provenance.py \
-            --artifact-root vsix-artifacts \
-            --artifact-root runtime-artifacts \
-            --artifact-root trust-lsp-artifacts \
-            --artifact-root toolchain-artifacts \
-            --artifact-root release-evidence \
-            --tag "${RELEASE_TAG}" \
-            --commit "${RELEASE_SHA}" \
-            --workflow-run-id "${GITHUB_RUN_ID}" \
-            --workflow-run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
-            --timestamp "$(date --iso-8601=seconds)" \
-            --output release-evidence/release-provenance.json
+          sha: ${{ needs.plan.outputs.sha }}
+          tag: ${{ needs.plan.outputs.tag }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -604,34 +580,6 @@ jobs:
 
       - name: Install vsce
         run: npm install -g @vscode/vsce@4.0.0
-
-      - name: Generate release checksums
-        shell: bash
-        run: |
-          set -euo pipefail
-          find vsix-artifacts runtime-artifacts trust-lsp-artifacts toolchain-artifacts release-evidence -type f \
-            \( -name '*.vsix' -o -name '*.tar.gz' -o -name '*.zip' \
-              -o -name 'release-provenance.json' \
-              -o -name 'conformance-status.json' \
-              -o -name 'conformance-status.md' \) \
-            -print0 | sort -z | xargs -0 sha256sum > release-evidence/SHA256SUMS
-          cat release-evidence/SHA256SUMS
-
-      - name: Generate release body from changelog
-        run: |
-          python3 scripts/extract_changelog_section.py \
-            --section "${RELEASE_TAG#v}" \
-            --title "${RELEASE_TAG}" \
-            --output release-notes.md
-
-      - name: Keep the rehearsal's release files
-        if: ${{ needs.plan.outputs.mode == 'rehearsal' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-rehearsal-${{ env.RELEASE_TAG }}
-          path: |
-            release-notes.md
-            release-evidence/
 
       - name: Tag the release
         # An annotated tag on the released commit. A re-run of a release that stopped later finds
@@ -683,6 +631,8 @@ jobs:
       - name: Publish to VS Code Marketplace
         if: ${{ needs.plan.outputs.mode == 'release' }}
         shell: bash
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -745,7 +695,7 @@ jobs:
     # One result for the whole run: it fails when a job failed or was cancelled, and passes when
     # every job passed or the plan skipped it.
     name: Release Conclusion
-    needs: [plan, release-preflight, runtime-vm-validation, openot-real-databases, toolchain-bundle, build, publish]
+    needs: [plan, release-preflight, runtime-vm-validation, openot-real-databases, toolchain-bundle, build, rehearse, publish]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:

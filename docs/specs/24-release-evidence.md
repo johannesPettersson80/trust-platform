@@ -86,8 +86,14 @@ CI); a rehearsal creates none.
 
 A pull request whose head changes the workspace version runs the Release
 workflow as a rehearsal on its head: the preflight, every build, every test and
-every Publish script run, no tag is created, nothing is published, and the
-release text and evidence are kept as the artifact `release-rehearsal-v<version>`.
+every script that writes the release's files run, no tag is created, nothing is
+published, and the release text and evidence are kept as the artifact
+`release-rehearsal-v<version>`. A rehearsal writes those files in a job of its
+own that holds no token that writes: no Marketplace token and a read-only GitHub
+token; only a release's publishing job gets write access, and only its
+Marketplace step the Marketplace token. The real-database matrix runs on the
+project's own runner, so a pull request's rehearsal skips it; a maintainer's
+manual rehearsal and the release run it, and it is given no secret.
 A pull request that keeps the version skips the jobs after the workflow's plan.
 A version change merges only with a passed rehearsal on its exact head that kept
 that artifact. A pull request from a fork is not rehearsed on the project's
@@ -107,7 +113,12 @@ Release workflow's plan releases that run's commit when all of these hold: the
 CI run concluded `success` for a push to the `main` of this repository; the
 repository is the official one; and the workspace version at that commit has no
 tag `v<version>`, or that tag is annotated, peels to the same commit, and its
-release is not complete. A release is complete once a Release run of its commit,
+release is not complete, and no earlier version of that commit's first-parent
+line since its newest tagged version lacks a tag. GitHub keeps one waiting run
+per concurrency group, so a later run can replace the waiting release of an
+earlier version change: the plan then fails, naming that version and its commit,
+instead of releasing past it, and running that commit's Release again releases
+it. A release is complete once a Release run of its commit,
 in any attempt, passed the verification below; the GitHub release exists before
 the Marketplace is published, so a release whose publishing or verification
 failed is not complete, and running the workflow again releases it from its
