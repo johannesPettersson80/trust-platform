@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-31
+
 ### Changed
 
 - `TON`, `TP` and `TOF` start timing on the call that samples the edge, as CODESYS and TwinCAT do: that call returns
