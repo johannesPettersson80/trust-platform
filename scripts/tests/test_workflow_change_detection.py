@@ -87,6 +87,22 @@ class WorkflowChangeDetectionTests(unittest.TestCase):
             self.assertIn("pull_request", triggers, check)
             self.assertIn("merge_group", triggers, check)
 
+    def test_a_new_push_to_a_pull_request_replaces_only_that_pull_requests_run(self) -> None:
+        # Specification 22, "Pull-request checks and change detection": on 1 November 2026 three pushes to #151 ran three
+        # full CI runs side by side while main's CI, which the release waited for, queued for runners. Catches a workflow
+        # that keeps a superseded pull-request run, and one that cancels a merge group's or main's run.
+        for path in WORKFLOWS:
+            workflow = load(path)
+            triggers = workflow.get("on", {})
+            if not (isinstance(triggers, dict) and "pull_request" in triggers):
+                continue
+            concurrency = workflow.get("concurrency")
+            self.assertIsInstance(concurrency, dict, f"{path.name} has no concurrency group")
+            self.assertIn("github.event.pull_request.number", concurrency["group"], path.name)
+            self.assertEqual(
+                concurrency["cancel-in-progress"], "${{ github.event_name == 'pull_request' }}", path.name
+            )
+
     def test_every_listed_path_file_belongs_to_a_workflow(self) -> None:
         # Catches a path list no workflow reads, or a workflow reading a missing one.
         listed = {path.name for path in (ROOT / ".github" / "paths").glob("*.txt")}

@@ -414,6 +414,13 @@ block every pull request and a shared name cannot satisfy a check for another
 workflow (Render Diagrams and Docs Captures both named their last job
 `Conclusion` until 1 November 2026).
 
+A new push to a pull request cancels the pull request's unfinished run of
+each workflow, so that no runner works on a head that nobody will merge; the
+run of a merge group, of a push to `main` and a scheduled or manual run are
+never cancelled by another (1 November 2026: three pushes to #151 ran three
+full CI runs side by side while `main`'s CI, which the release waits for,
+queued for runners).
+
 ### Documentation that follows the product
 
 The documentation is tested against the product, not only for its links,
