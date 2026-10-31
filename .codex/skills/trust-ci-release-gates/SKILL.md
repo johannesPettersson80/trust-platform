@@ -25,7 +25,7 @@ can, so a finding costs a fix in its own pull request, never another release rou
 2. **Before each push**: the compile check of the changed crates (AGENTS.md) and the focused tests
    of what changed and of the crates and test files that use it, on the builder. Read the diff for
    logic in TypeScript. Nothing else locally: `just test-all`, the VS Code suites, the
-   documentation checks and the release rehearsal run in CI on every push.
+   documentation checks and, for a version change, the release rehearsal run in CI on every push.
 3. **CI is the gate.** A pull request runs CI on Linux, macOS and Windows, every workflow whose
    change detection matches the whole diff, and for a version change the release rehearsal. Wait
    for all of them with one waiter. A red check: read its log, fix the cause in the same pull

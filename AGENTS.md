@@ -127,8 +127,8 @@ separately.
     from the first commit; Codex reviews it when it opens, and its findings are fixed in the same
     pull request.
   - Before each push, run the compile check below and the focused tests of what changed and of
-    what uses it. The full suites (`just test-all`, VS Code, the documentation and the release
-    rehearsal) run in CI on every push; never run them as a local batch.
+    what uses it. The full suites (`just test-all`, VS Code, the documentation and, for a version
+    change, the release rehearsal) run in CI on every push; never run them as a local batch.
   - A red check: read its log, fix the cause in the same pull request and push. A failure without
     a code cause is a flake: record it with its log on the checklist and fix it as its own item.
   - A pull request merges when its required checks are green and Codex has no open finding,
