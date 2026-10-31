@@ -17,6 +17,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   vendor-library calls that compile clean in the vendor toolchain; see
   `IEC_DEVIATIONS.md` (2026-10-28).
 
+- Integer/bit-string narrowing (assignments and call arguments) becomes a
 - Standard conversions: vendor-extension entries match the CODESYS/TwinCAT
 - Standard conversion extension round: `REAL_TO_TIME`/`UINT_TO_TIME` (the
 

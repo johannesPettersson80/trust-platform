@@ -84,4 +84,3 @@ END_PROGRAM
         DiagnosticCode::InvalidArgumentType,
     );
 }
-

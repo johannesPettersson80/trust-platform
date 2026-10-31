@@ -683,3 +683,29 @@ re-check them against this rule when touched.
   territory), stay rejected; integer destinations wrap rather than fault on
   magnitude overflow, matching the vendor toolchain's silent narrowing
   documented in DEV-023's neighborhood.
+
+## 2026-10-28 - Integer/bit-string narrowing bindings as warnings
+
+- ID: DEV-026
+- Area: implicit integer↔bit-string conversions at assignments and call
+  arguments (`E203` "cannot assign", `E205` "expected '<int>' for parameter").
+- Normative IEC requirement: IEC 61131-3 Ed.3 defines implicit assignments
+  only where value and accuracy are preserved (`§6.6.1.6`); a signed to
+  narrower-unsigned store (`SINT` into `BYTE`, `INT` into `BYTE`,
+  `UDINT` into `DWORD`) is not an implicit conversion the standard defines.
+  The standard text was unavailable on the authoring machine; the clause
+  mirrors the citation style already used in `docs/specs/02-data-types.md`.
+- truST behavior and conflict: a binding whose target and source are both
+  integer/bit-string types is diagnosed as a **warning** with the same
+  message and code, not an error — matching CODESYS, which compiles the
+  store silently with a compiler warning. Diagnostics outside that type
+  class (REAL targets, enums, strings, aggregates) stay errors. `SIZEOF`
+  additionally yields its natural unsigned magnitude (`UDINT`) like the
+  vendor toolchain, so vendor `udiSize` parameters bind directly.
+- Impact: vendor-idiom call sites and configuration wiring tables (the
+  downstream tree carries 57 narrowing assignments, 7 port arguments, and
+  ~163 `SIZEOF`-into-`UDINT` sites) pass the compile gate while every
+  narrowed store remains individually visible.
+- Mitigation: the demotion is type-class-scoped, not blanket — mixed
+  (non-integer) mismatches keep their errors, and each narrowed binding
+  still produces one warning so recurrence is loud.

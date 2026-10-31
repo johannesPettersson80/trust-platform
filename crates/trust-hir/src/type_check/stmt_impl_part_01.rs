@@ -130,11 +130,26 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         } else {
             let target_name = self.checker.type_name(target_type);
             let value_name = self.checker.type_name(value_type);
-            self.checker.diagnostics.error(
-                DiagnosticCode::IncompatibleAssignment,
-                node.text_range(),
-                format!("cannot assign '{}' to '{}'", value_name, target_name),
-            );
+            let message = format!("cannot assign '{}' to '{}'", value_name, target_name);
+            if self
+                .checker
+                .is_integer_bit_string_binding(target_type, value_type)
+            {
+                // CODESYS narrows integer/bit-string assignments silently
+                // with a compiler warning; the signal stays as a warning
+                // (IEC_DEVIATIONS 2026-10-28).
+                self.checker.diagnostics.warning(
+                    DiagnosticCode::IncompatibleAssignment,
+                    node.text_range(),
+                    message,
+                );
+            } else {
+                self.checker.diagnostics.error(
+                    DiagnosticCode::IncompatibleAssignment,
+                    node.text_range(),
+                    message,
+                );
+            }
         }
         if self.checker.diagnostics.error_count() == errors_before {
             self.checker
