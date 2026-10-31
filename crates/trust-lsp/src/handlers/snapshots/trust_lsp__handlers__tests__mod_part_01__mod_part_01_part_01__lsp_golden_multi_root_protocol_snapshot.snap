@@ -1,6 +1,5 @@
 ---
 source: crates/trust-lsp/src/handlers/tests/mod_part_01_part_01.rs
-assertion_line: 950
 expression: output
 ---
 {
@@ -541,28 +540,6 @@ expression: output
           }
         },
         "severity": 1,
-        "source": "truST"
-      },
-      {
-        "code": "W009",
-        "data": {
-          "explain": {
-            "iec": "Tooling quality lint (non-IEC)",
-            "spec": "docs/specs/09-semantic-rules.md"
-          }
-        },
-        "message": "unused function 'Foo'",
-        "range": {
-          "end": {
-            "character": 12,
-            "line": 13
-          },
-          "start": {
-            "character": 9,
-            "line": 13
-          }
-        },
-        "severity": 2,
         "source": "truST"
       },
       {
@@ -2093,28 +2070,6 @@ expression: output
               }
             },
             "severity": 1,
-            "source": "truST"
-          },
-          {
-            "code": "W009",
-            "data": {
-              "explain": {
-                "iec": "Tooling quality lint (non-IEC)",
-                "spec": "docs/specs/09-semantic-rules.md"
-              }
-            },
-            "message": "unused function 'Foo'",
-            "range": {
-              "end": {
-                "character": 12,
-                "line": 13
-              },
-              "start": {
-                "character": 9,
-                "line": 13
-              }
-            },
-            "severity": 2,
             "source": "truST"
           },
           {
