@@ -429,3 +429,45 @@ END_PROGRAM
         DiagnosticCode::TypeMismatch,
     );
 }
+
+#[test]
+fn call_binding_contract_rejects_in_out_string_family_mismatch() {
+    // Capacity is length-agnostic (IEC_DEVIATIONS DEV-024), but the STRING
+    // vs WSTRING families stay distinct at the in-out boundary.
+    check_has_error(
+        r#"
+FUNCTION Splice : DINT
+VAR_IN_OUT
+    buffer : STRING(1);
+END_VAR
+Splice := 0;
+END_FUNCTION
+PROGRAM Main
+VAR wide : WSTRING(20); result : DINT; END_VAR
+result := Splice(wide);
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArgumentType,
+    );
+}
+
+#[test]
+fn call_binding_contract_rejects_in_out_non_string_width_mismatch() {
+    // Keep-strict pin: only same-family strings are capacity-agnostic; a
+    // DINT in-out formal still rejects a narrower integer variable.
+    check_has_error(
+        r#"
+FUNCTION Transfer : DINT
+VAR_IN_OUT
+    target : DINT;
+END_VAR
+Transfer := target;
+END_FUNCTION
+PROGRAM Main
+VAR small : BYTE; result : DINT; END_VAR
+result := Transfer(small);
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArgumentType,
+    );
+}

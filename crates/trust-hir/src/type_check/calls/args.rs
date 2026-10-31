@@ -324,11 +324,25 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                             );
                         }
                     } else {
-                        self.checker.diagnostics.error(
-                            DiagnosticCode::InvalidArgumentType,
-                            arg.range,
-                            self.invalid_argument_type_message(param, arg_type),
-                        );
+                        let message = self.invalid_argument_type_message(param, arg_type);
+                        if self
+                            .checker
+                            .is_integer_bit_string_binding(param.type_id, arg_type)
+                        {
+                            // CODESYS narrows integer/bit-string call
+                            // arguments with a warning (IEC_DEVIATIONS 2026-10-28).
+                            self.checker.diagnostics.warning(
+                                DiagnosticCode::InvalidArgumentType,
+                                arg.range,
+                                message,
+                            );
+                        } else {
+                            self.checker.diagnostics.error(
+                                DiagnosticCode::InvalidArgumentType,
+                                arg.range,
+                                message,
+                            );
+                        }
                     }
                     if self.checker.diagnostics.error_count() == errors_before {
                         self.checker
@@ -451,11 +465,25 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                             );
                         }
                     } else {
-                        self.checker.diagnostics.error(
-                            DiagnosticCode::InvalidArgumentType,
-                            arg.range,
-                            self.invalid_argument_type_message(param, arg_type),
-                        );
+                        let message = self.invalid_argument_type_message(param, arg_type);
+                        if self
+                            .checker
+                            .is_integer_bit_string_binding(param.type_id, arg_type)
+                        {
+                            // CODESYS narrows integer/bit-string call
+                            // arguments with a warning (IEC_DEVIATIONS 2026-10-28).
+                            self.checker.diagnostics.warning(
+                                DiagnosticCode::InvalidArgumentType,
+                                arg.range,
+                                message,
+                            );
+                        } else {
+                            self.checker.diagnostics.error(
+                                DiagnosticCode::InvalidArgumentType,
+                                arg.range,
+                                message,
+                            );
+                        }
                     }
                     if self.checker.diagnostics.error_count() == errors_before {
                         self.checker
@@ -525,7 +553,16 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                 Some(Type::WString {
                     max_len: actual_len,
                 }),
-            ) => formal_len == actual_len,
+            ) => {
+                // CODESYS binds in-out strings across declared capacities:
+                // the vendor buffer idiom (a STRING(1) formal whose real
+                // capacity arrives in a separate size argument, e.g.
+                // WagoAppString.StrAppend) only works that way, and
+                // copy-back safety is the callee's contract through that
+                // size argument (IEC_DEVIATIONS 2026-10-28). Other profiles
+                // keep the capacity-equality rule.
+                formal_len == actual_len || self.checker.symbols.dialect().is_codesys()
+            }
             _ => {
                 (self.checker.is_assignable(formal, actual)
                     && self.checker.is_assignable(actual, formal))

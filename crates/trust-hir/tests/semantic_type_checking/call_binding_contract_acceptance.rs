@@ -292,3 +292,54 @@ fn call_binding_contract_accepts_dangling_output_arrow() {
         check_no_errors_in(Dialect::Codesys, &source);
     }
 }
+
+const STRING_SPLICE_INTERFACE: &str = r#"
+FUNCTION Splice : DINT
+VAR_IN_OUT
+    buffer : STRING(1);
+END_VAR
+VAR_INPUT
+    appendee : STRING(80);
+END_VAR
+Splice := 0;
+END_FUNCTION
+"#;
+
+const WSTRING_SPLICE_INTERFACE: &str = r#"
+FUNCTION SpliceWide : DINT
+VAR_IN_OUT
+    buffer : WSTRING(1);
+END_VAR
+VAR_INPUT
+    appendee : WSTRING(40);
+END_VAR
+SpliceWide := 0;
+END_FUNCTION
+"#;
+
+#[test]
+fn call_binding_contract_accepts_in_out_string_across_capacities() {
+    // CODESYS parity (IEC_DEVIATIONS DEV-024): a STRING(1) in-out formal
+    // takes a string variable of any declared capacity — the vendor buffer
+    // idiom (WagoAppString.StrAppend) declares its real capacity in a
+    // separate size argument, so capacity equality cannot be required.
+    check_no_errors_in(Dialect::Codesys, &format!(
+        "{STRING_SPLICE_INTERFACE}\nPROGRAM Main\nVAR\nbig : STRING(255); small : STRING(10); result : DINT; END_VAR\nresult := Splice(big, small);\nEND_PROGRAM"
+    ));
+}
+
+#[test]
+fn call_binding_contract_accepts_in_out_string_capacity_reverse_binding() {
+    // The narrow actual binding into the wide formal is equally legal;
+    // copy-back safety is the callee's contract, not the call checker's.
+    check_no_errors_in(Dialect::Codesys, &format!(
+        "{STRING_SPLICE_INTERFACE}\nPROGRAM Main\nVAR\nbig : STRING(255); small : STRING(10); result : DINT; END_VAR\nresult := Splice(small, big);\nEND_PROGRAM"
+    ));
+}
+
+#[test]
+fn call_binding_contract_accepts_in_out_wstring_across_capacities() {
+    check_no_errors_in(Dialect::Codesys, &format!(
+        "{WSTRING_SPLICE_INTERFACE}\nPROGRAM Main\nVAR\nwide : WSTRING(20); result : DINT; END_VAR\nresult := SpliceWide(wide, wide);\nEND_PROGRAM"
+    ));
+}

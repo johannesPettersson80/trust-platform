@@ -622,3 +622,32 @@ re-check them against this rule when touched.
 - Mitigation:
   - The subset is explicit in tests and the LD profile; a future schema version
     can add dedicated `CU`, `CD`, `R`, and `LD` pins plus `QU`/`QD` outputs.
+
+## 2026-10-28 - In-out string binding across declared capacities
+
+- ID: DEV-024
+- Area: `VAR_IN_OUT` parameter binding for `STRING[n]`/`WSTRING[n]` actuals.
+- Normative IEC requirement: IEC 61131-3 Ed.3 requires the actual parameter
+  of a `VAR_IN_OUT` formal to be a variable of the same data type
+  (§6.6.2.2). String capacity is part of a string type, so binding a
+  `STRING[255]` actual to a `STRING[1]` formal is not a same-type binding
+  and the strict reading rejects it. The standard text was unavailable on
+  the authoring machine; the clause number mirrors the citation style
+  already used in `docs/specs/02-data-types.md`.
+- truST behavior and conflict: truST requires only the same string family
+  (`STRING` vs `WSTRING`) and accepts in-out binding across declared
+  capacities, matching CODESYS. CODESYS accepts the vendor buffer idiom — a
+  `STRING(1)` in-out formal (used by every `WagoAppString` function) whose
+  real capacity arrives in a separate size argument
+  (`StrAppend(sBuffer, SIZEOF(sBuffer), sAppendee)`) — so the
+  capacity-strict reading rejects library calls that compile clean in the
+  vendor toolchain.
+- Impact: vendor-library call sites with in-out string formals (the
+  downstream tree carries several hundred `WagoAppString` in-out and size
+  call arguments) now pass the compile gate; the previous
+  capacity-equality rule rejected the same code.
+- Mitigation: nothing is lost at the boundary — the callee still sees the
+  actual variable through the reference and owns the capacity contract
+  through its formal capacity or size argument; the caller's variable keeps
+  its own storage. Cross-family binding and non-string in-out type
+  mismatches keep their diagnostics.
