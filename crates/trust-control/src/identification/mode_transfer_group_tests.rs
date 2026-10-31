@@ -632,3 +632,24 @@ fn every_setpoint_the_program_overwrote_returns_after_the_auto_entry() {
         None
     );
 }
+
+#[test]
+fn a_group_rests_only_when_every_held_output_has_arrived() {
+    // The group's transfer holds both members' outputs, so a second output still moving keeps the return waiting (B3.4 step 5).
+    let binding = mode_binding(&pid_group_loop()).expect("the group's mode binding");
+    let reading = |second: f64, runtime_ms: u64| {
+        let mut status = status_of(&binding, false, &holding(&[(SECOND_OUTPUT, second)]));
+        status.runtime_time_ns = Some(runtime_ms * 1_000_000);
+        status
+    };
+    assert!(!held_outputs_at_rest(
+        &binding,
+        &reading(14.0, 1_000),
+        &reading(11.5, 1_100)
+    ));
+    assert!(held_outputs_at_rest(
+        &binding,
+        &reading(6.5, 1_400),
+        &reading(6.5, 1_500)
+    ));
+}

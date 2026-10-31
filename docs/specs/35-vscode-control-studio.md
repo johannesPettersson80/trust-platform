@@ -1381,7 +1381,14 @@ clears the manual section (B3.7).
    baseline, so the wait for a steady baseline never shortens the step.
 5. **Restoration.** The runtime restores the plant input or setpoint to its
    value from before the experiment and confirms it (A7). Identify does not wait
-   for the process to return to its starting point.
+   for the process to return to its starting point. A controller output follows
+   its restored Manual command at the loop's rate limits, and the return of the
+   mode (A6.2) compares the outputs it holds exactly (annex E6.4): before it
+   writes anything back, the return reads the loop until two readings of
+   different scans report every held output alike, at most for the time the
+   slower rate limit needs for each output's range plus the three executions
+   that confirm a restoration (A7); after that its transfer judges the outputs
+   as they are.
 6. **Limits check.** The runtime stops an experiment whose written target
    leaves its limits (annex E5.4); it does not watch the measured output.
    Before the fit, every recorded sample of the selected plant inputs and

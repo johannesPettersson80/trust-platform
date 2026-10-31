@@ -7,11 +7,12 @@
 //! sent, so that an interrupted transfer is reconciled by its identity and never applied again (E11.2, E11.4).
 //!
 //! Every rule is in `trust-control` (`identification::mode_transfer`): the binding, the states, the tracking, the allowance, the
-//! references and commands written back, and the checks of the loop and the program. This module reads the runtime, writes the
-//! journal and dispatches the transfers in their order. It connects to the runtime for each entry and each return, as the
-//! campaign's other clients do, so a long campaign holds no connection open.
+//! references and commands written back, the checks of the loop and the program, and when the held outputs have arrived. This
+//! module reads the runtime, writes the journal and dispatches the transfers in their order. It connects to the runtime for each
+//! entry and each return, as the campaign's other clients do, so a long campaign holds no connection open.
 
 use std::collections::BTreeMap;
+use std::fmt;
 
 use parking_lot::Mutex;
 use trust_control::commissioning::application::ApplySource;
@@ -21,10 +22,11 @@ use trust_control::commissioning::transfer::TransferBinding;
 use trust_control::commissioning::transfer_protocol::check_transfer_status;
 use trust_control::commissioning::transfer_tracking::TransferTracking;
 use trust_control::failure::Failure;
+use trust_control::identification::campaign::POLL_MILLISECONDS;
 use trust_control::identification::mode_transfer::{
-    check_mode_loop, check_mode_program, command_return, found_in_auto, in_mode, mode_binding,
-    mode_entry_error_gain, mode_entry_measurement_gain, mode_output_change, mode_states,
-    mode_tracking, reference_return,
+    check_mode_loop, check_mode_program, command_return, found_in_auto, held_outputs_arrival_ms,
+    held_outputs_at_rest, in_mode, mode_binding, mode_entry_error_gain,
+    mode_entry_measurement_gain, mode_output_change, mode_states, mode_tracking, reference_return,
 };
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::runtime::RuntimeConnection;
@@ -32,25 +34,40 @@ use trust_control::runtime::RuntimeConnection;
 use crate::journal::{Journal, JournalEntry};
 use crate::runtime_client::transfers::{TransferOwnerSink, TransferSession, TransferWrite};
 use crate::runtime_client::{new_transaction_id, RuntimeClient};
+use crate::workflow::identify_campaign::CampaignClock;
 use crate::workflow::identify_rest::RestWait;
 
 /// The mode change of one identification (`ConnectedIdentificationMode`): the loop, the runtime it transfers on, the loop's
-/// journal, the mode binding, the mode checkpoint it holds, and the measured noise that a return to Auto allows for.
-#[derive(Debug)]
+/// journal, the clock that paces its waits, the mode binding, the mode checkpoint it holds, and the measured noise that a return
+/// to Auto allows for.
 pub struct IdentificationMode<'a> {
     loop_definition: &'a LoopDefinition,
     connection: RuntimeConnection,
     journal: &'a Mutex<Journal>,
+    clock: &'a dyn CampaignClock,
     binding: TransferBinding,
     held: Option<HeldCheckpoint>,
     process_noise: Option<f64>,
 }
 
+impl fmt::Debug for IdentificationMode<'_> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("IdentificationMode")
+            .field("loop_definition", &self.loop_definition)
+            .field("connection", &self.connection)
+            .field("binding", &self.binding)
+            .field("held", &self.held)
+            .field("process_noise", &self.process_noise)
+            .finish_non_exhaustive()
+    }
+}
+
 impl<'a> IdentificationMode<'a> {
-    /// The mode change of `loop_definition` on the runtime of `connection`, journaled in `journal` (the constructor of
-    /// `ConnectedIdentificationMode`). It holds the mode checkpoint that the journal already holds for the loop, when an earlier
-    /// campaign or a restart of the engine left one (A8.6), and it reads and writes nothing on the runtime until it enters or
-    /// restores a mode.
+    /// The mode change of `loop_definition` on the runtime of `connection`, journaled in `journal`, its waits paced by `clock`
+    /// (the constructor of `ConnectedIdentificationMode`). It holds the mode checkpoint that the journal already holds for the
+    /// loop, when an earlier campaign or a restart of the engine left one (A8.6), and it reads and writes nothing on the runtime
+    /// until it enters or restores a mode.
     ///
     /// # Errors
     /// The loop's controller has no adapter, or the adapter's binding does not fit the loop, so the loop's mode cannot be
@@ -59,6 +76,7 @@ impl<'a> IdentificationMode<'a> {
         loop_definition: &'a LoopDefinition,
         connection: RuntimeConnection,
         journal: &'a Mutex<Journal>,
+        clock: &'a dyn CampaignClock,
     ) -> Result<Self, Failure> {
         let binding = mode_binding(loop_definition)?;
         let held = journaled_checkpoint(&journal.lock());
@@ -66,6 +84,7 @@ impl<'a> IdentificationMode<'a> {
             loop_definition,
             connection,
             journal,
+            clock,
             binding,
             held,
             process_noise: None,
@@ -143,8 +162,9 @@ impl<'a> IdentificationMode<'a> {
     /// Returns the loop to the mode Identify found it in (`restore`; A6.2, A8.6, E11.9). Without a held checkpoint nothing is
     /// done. The loop must still be the one whose mode was changed. A transfer the checkpoint still owns is reconciled by its
     /// identity, cancelled or read to its outcome, and never applied again (E11.4); then the runtime must still run the
-    /// checkpoint's program. A loop that is not in Manual returns to Manual through a transfer that holds its output; the loop's
-    /// references are written back in Manual, and its Manual commands when it stays in Manual (`command_return`); and a loop found
+    /// checkpoint's program. A loop that is not in Manual returns to Manual through a transfer that holds its output; once the held
+    /// outputs have arrived at the commands an experiment restored (B3.4 step 5), the loop's references are written back in Manual,
+    /// and its Manual commands when it stays in Manual (`command_return`); and a loop found
     /// in Auto then enters Auto from the output it holds, with the controller's states as they are and the allowance of its first
     /// output (A6.4), and a reference its program overwrote in Manual returns in Auto (`reference_return`, C1). The checkpoint is cleared from the journal once the runtime has confirmed
     /// every transfer.
@@ -181,6 +201,9 @@ impl<'a> IdentificationMode<'a> {
             )?;
             transfer(&mut client, self.journal, held, &self.binding, &write)?;
         }
+        // A Manual command that an experiment restored still moves its output at the loop's rate limits (B3.4 step 5), and the
+        // transfers below compare the held outputs exactly (annex E6.4): they start once the outputs have arrived.
+        await_held_outputs(&mut client, self.loop_definition, &self.binding, self.clock)?;
         let commands = command_return(
             self.loop_definition,
             &self.binding,
@@ -226,6 +249,32 @@ impl<'a> IdentificationMode<'a> {
         self.journal.lock().clear(&held.operation_id)?;
         self.held = None;
         Ok(())
+    }
+}
+
+/// Reads the loop on `client` until the outputs that `binding` holds have arrived (`held_outputs_at_rest`), each poll paced by
+/// `clock`, for at most the time the loop's rate limits need (`held_outputs_arrival_ms`); after that the transfer judges the
+/// outputs as they are.
+///
+/// # Errors
+/// A reading fails or does not fit the binding (see `check_transfer_status`).
+fn await_held_outputs(
+    client: &mut RuntimeClient,
+    loop_definition: &LoopDefinition,
+    binding: &TransferBinding,
+    clock: &dyn CampaignClock,
+) -> Result<(), Failure> {
+    let bound_ms = held_outputs_arrival_ms(loop_definition, binding);
+    let start_ms = clock.now_ms();
+    let mut earlier = read_status(client, binding)?;
+    loop {
+        clock.wait(POLL_MILLISECONDS);
+        let later = read_status(client, binding)?;
+        if held_outputs_at_rest(binding, &earlier, &later) || clock.now_ms() - start_ms >= bound_ms
+        {
+            return Ok(());
+        }
+        earlier = later;
     }
 }
 

@@ -7,9 +7,11 @@
 //!
 //! The fake applies a transfer as the runtime's declared-state tracking does when it does not align the output: the Manual
 //! command takes the output it holds, a state the tracking initializes keeps its value, and every other state takes the value
-//! the request writes. The transaction is confirmed by the output image at once (E6.7).
+//! the request writes. The transaction is confirmed by the output image at once (E6.7). A test may have a member move over the
+//! next status reads, as an output does on its way to a restored Manual command.
 
-use std::collections::BTreeMap;
+use std::cell::Cell;
+use std::collections::{BTreeMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -40,7 +42,7 @@ use crate::workflow::identify::test_support::{
 use crate::workflow::identify::{
     IdentifyOutcome, IdentifyRequest, IdentifyRuntime, LoopSampler, RecordingRetention, RunPurpose,
 };
-use crate::workflow::identify_campaign::CampaignReport;
+use crate::workflow::identify_campaign::{CampaignClock, CampaignReport};
 
 /// The control token of the fake runtime; it is not a credential.
 const TOKEN: &str = "control-studio-fake-token";
@@ -138,6 +140,8 @@ struct World {
     /// The runtime's clock in ms, which each status moves on by one 100 ms task period, as a runtime scanning in real time between
     /// two reads would report it (annex E6.3).
     runtime_ms: u64,
+    /// The values a member takes at the next status reads, one per read, after which it keeps the last.
+    ramps: BTreeMap<String, VecDeque<f64>>,
 }
 
 impl World {
@@ -168,6 +172,11 @@ impl World {
     /// the last transaction of its loop.
     fn status(&mut self, binding: &TransferBinding) -> Value {
         self.runtime_ms += 100;
+        for (symbol, ramp) in &mut self.ramps {
+            if let Some(value) = ramp.pop_front() {
+                self.values.insert(symbol.clone(), value);
+            }
+        }
         let transaction = self
             .transactions
             .get(&binding.loop_id)
@@ -343,6 +352,7 @@ impl TransferFake {
             log: Vec::new(),
             journal: None,
             runtime_ms: 1_000,
+            ramps: BTreeMap::new(),
         }));
         let served = Arc::clone(&world);
         let endpoint = ControlEndpoint::start(move |request| handle(&served, request));
@@ -368,6 +378,15 @@ impl TransferFake {
     /// The value the runtime holds for `symbol`.
     pub(crate) fn value(&self, symbol: &str) -> f64 {
         self.world.lock().value(symbol)
+    }
+
+    /// From the next status read on, `symbol` takes each of `values` in turn, one per read, and then keeps the last: an output on
+    /// its way to a command, one task period per read.
+    pub(crate) fn ramp(&self, symbol: &str, values: &[f64]) {
+        self.world
+            .lock()
+            .ramps
+            .insert(symbol.to_owned(), values.iter().copied().collect());
     }
 
     /// A reload of the program: from now on the runtime reports the revision `program` (A6.7).
@@ -582,4 +601,22 @@ pub(crate) fn run_with_transfers(
         &request,
         RunPurpose::Identify,
     )
+}
+
+/// A clock for the mode's waits that each pause moves on by the pause, so that no test sleeps.
+#[derive(Default)]
+pub(crate) struct ModeClock {
+    now_ms: Cell<f64>,
+}
+
+impl CampaignClock for ModeClock {
+    fn now_ms(&self) -> f64 {
+        self.now_ms.get()
+    }
+
+    fn wait(&self, milliseconds: u64) {
+        #[allow(clippy::cast_precision_loss)]
+        // A pause is a few task periods; the test clock never nears 2⁵³ ms.
+        self.now_ms.set(self.now_ms.get() + milliseconds as f64);
+    }
 }

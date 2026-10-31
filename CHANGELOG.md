@@ -57,6 +57,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   value and output), and the wait shows its progress and can be cancelled. Before, an Identify started while the controller still moved its output (for example right after Restore) held
   that moving output, the plant settled open loop away from the setpoint, and Apply then waited in vain for that operating
   point while the controller held the setpoint (specification 35, B3.4).
+- Identify returns a loop it switched to Manual for a step test only once the controller output has come back to its
+  restored value. Before, the return could start while the output still moved there at its rate limit; the runtime then
+  refused it ("stale program, binding, or expected values") and the loop stayed in Manual (specification 35, B3.4).
 - Control Studio designs to the requirements you type before the first Tune. Before, the first change after Identify kept
   every requirement marked Automatic, so Tune replaced the typed values with Automatic's own while Validate checked the
   typed ones (specification 35, B4.3).

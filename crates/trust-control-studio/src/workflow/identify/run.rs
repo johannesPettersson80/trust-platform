@@ -207,6 +207,7 @@ where
                 loop_definition,
                 connection,
                 self.ports.journal,
+                self.ports.clock,
             )?);
         }
         self.note_run_plant(sample.as_ref());
