@@ -1322,7 +1322,11 @@ clears the manual section (B3.7).
    ends it with nothing written, also one that arrives during the reading that
    completes the rest: the wait checks for a cancel before each reading and again
    before the transfer. The wait has the bound of step 2 and ends as step 2
-   does, with the rate still observed, offering to wait or a setpoint step. The approval
+   does, with the rate still observed, offering to wait or a setpoint step. It keeps
+   only the readings its window can still judge: those within one baseline window,
+   without its twenty-sample floor, of the newest reading, and the last 200, whose
+   median spacing sets that floor; so a longer wait holds no more (31 October 2026:
+   a 24-hour campaign of a 16-member group kept about 84 MiB). The approval
    block of the review (B9.3) names what the campaign may do: each signal it
    writes with its limits (the plant input range of B3.4 step 1 for a plant
    input step, the setpoint's and the output's ranges for a setpoint step, the

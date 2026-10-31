@@ -8,7 +8,10 @@
 
 use serde_json::json;
 
-use super::{RestStep, RestTracker, Watched};
+use super::{
+    baseline_window_seconds, median_spacing, retained_start, trailing_window, RestStep,
+    RestTracker, TimedValue, Watched, RATE_WINDOW_SAMPLES,
+};
 use crate::failure::{Cause, Failure, NextAction};
 use crate::identification::mode_transfer::group_tests::pid_group_loop;
 use crate::identification::mode_transfer::mode_binding;
@@ -277,4 +280,57 @@ fn a_group_reading_with_a_value_too_few_is_left_out() {
         Ok(RestStep::Waiting { .. })
     ));
     assert!(rest.signals.iter().all(|signal| signal.points.is_empty()));
+}
+
+#[test]
+fn a_long_wait_keeps_only_the_readings_its_window_can_judge() {
+    // Codex's review of #147 (F31): the wait kept every reading until its budget, about 84 MiB on a 24-hour campaign of a
+    // 16-member group. Here the window is 10 s, 101 readings, and the spacing is judged on the last 200, so whatever the wait's
+    // length a signal keeps those 200 and fewer than 200 older ones, at most 399, instead of the 3,000 of the 300 s budget. The
+    // loop still moving is refused at 300 s with the rate of its last window, as before. Catches a history that grows with the
+    // wait.
+    let mut rest = tracker(false);
+    let mut most = 0;
+    for index in 0..3_000 {
+        let seconds = at(index);
+        assert!(rest.feed(seconds, &[34.2 + 0.01 * seconds, 75.25]).is_ok());
+        let kept = rest.signals.iter().map(|signal| signal.points.len());
+        most = most.max(kept.max().unwrap_or(0));
+    }
+    assert!(most <= 399, "a signal kept {most} readings");
+    let refusal = rest
+        .feed(300.0, &[34.2 + 0.01 * 300.0, 75.25])
+        .expect_err("after the budget the moving loop is refused");
+    assert_eq!(
+        whole_text(&refusal),
+        "P1.TemperatureC is still changing by 0.6 degC/min in Auto. Wait for the loop to settle."
+    );
+}
+
+#[test]
+fn the_readings_kept_hold_the_window_when_the_readings_slow_down() {
+    // 300 readings 0.1 s apart, then 300 readings 2 s apart: once most of the last 200 gaps are 2 s, the window is twenty of them,
+    // 40 s, beyond its 10 s cap (a 200 s maximum). After every reading, every reading the window judges is kept. Catches readings
+    // forgotten at the cap, which would judge that wider window on its last 10 s alone.
+    let mut points = Vec::new();
+    let mut seconds = 0.0;
+    let mut window = 0.0;
+    for index in 0..600 {
+        seconds += if index < 300 { 0.1 } else { 2.0 };
+        points.push(TimedValue {
+            seconds,
+            value: 0.0,
+        });
+        let spacing = &points[points.len().saturating_sub(RATE_WINDOW_SAMPLES)..];
+        window = baseline_window_seconds(200.0, median_spacing(spacing, 0.1), None);
+        let judged = trailing_window(&points, window).len();
+        assert!(
+            points.len() - judged >= retained_start(&points, 10.0),
+            "reading {index}: the window of {window} s judges readings that are forgotten"
+        );
+    }
+    assert!(
+        (window - 40.0).abs() < 1e-9,
+        "the window widened to {window} s"
+    );
 }

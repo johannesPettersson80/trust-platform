@@ -16,7 +16,8 @@ use crate::commissioning::declared_initialization::further_channels;
 use crate::commissioning::transfer::{TransferBinding, TransferMember};
 use crate::failure::{Cause, Failure, NextAction};
 use crate::identification::settle::{
-    baseline_window_seconds, is_steady, median_spacing, trailing_window, MINIMUM_WINDOW_SAMPLES,
+    baseline_window_seconds, capped_baseline_window_seconds, is_steady, median_spacing,
+    trailing_window, MINIMUM_WINDOW_SAMPLES,
 };
 use crate::loop_definition::{LoopDefinition, LoopSignal};
 
@@ -74,13 +75,14 @@ impl Watched {
         is_steady(recent, noise_sigma(&values), self.range)
     }
 
-    /// The rate of change over the trailing `window`, as the progress and the refusal name it.
-    fn rate(&self, window: f64) -> String {
+    /// The rate of change over the trailing `window`, as the progress and the refusal name it; over the readings from `kept`
+    /// on (`retained_start`) when the window holds fewer than two.
+    fn rate(&self, window: f64, kept: usize) -> String {
         let recent = trailing_window(&self.points, window);
         let points = if recent.len() >= 2 {
             recent
         } else {
-            &self.points
+            &self.points[kept..]
         };
         format_rate(trend_slope(points), &self.unit)
     }
@@ -92,7 +94,10 @@ impl Watched {
 pub struct RestTracker {
     /// The measured outputs, the loop's own process variable first, then the plant inputs the transfer holds.
     signals: Vec<Watched>,
+    /// The process time of the wait's first reading: the wait's span starts there, whichever readings are kept.
+    first_seconds: Option<f64>,
     maximum_seconds: f64,
+    capped_window_seconds: f64,
     budget_seconds: f64,
     nominal_seconds: f64,
     expected_settling_seconds: Option<f64>,
@@ -161,9 +166,15 @@ impl RestTracker {
         expected_settling_seconds: Option<f64>,
         offer_setpoint_step: bool,
     ) -> Self {
+        let maximum_seconds = ms_as_f64(maximum_ms) / 1_000.0;
         Self {
             signals,
-            maximum_seconds: ms_as_f64(maximum_ms) / 1_000.0,
+            first_seconds: None,
+            maximum_seconds,
+            capped_window_seconds: capped_baseline_window_seconds(
+                maximum_seconds,
+                expected_settling_seconds,
+            ),
             budget_seconds: baseline_budget_ms(maximum_ms, expected_settling_seconds) / 1_000.0,
             nominal_seconds: task_period_ms / 1_000.0,
             expected_settling_seconds,
@@ -175,6 +186,21 @@ impl RestTracker {
     /// The symbols of the signals the tracker watches, in the order [`Self::feed`] takes their readings.
     pub fn symbols(&self) -> impl Iterator<Item = &str> {
         self.signals.iter().map(|signal| signal.symbol.as_str())
+    }
+
+    /// Forgets the readings that no later step can judge (`retained_start`) once at least [`RATE_WINDOW_SAMPLES`] of them
+    /// have gathered, so that each reading is moved a bounded number of times. However long the wait, a signal keeps the
+    /// readings within the capped window or the last [`RATE_WINDOW_SAMPLES`], whichever are more, and fewer than
+    /// [`RATE_WINDOW_SAMPLES`] older ones (Codex's review of #147: a 24-hour campaign of a 16-member group kept 84 MiB).
+    fn forget_old_readings(&mut self) {
+        let start = self.signals.first().map_or(0, |lead| {
+            retained_start(&lead.points, self.capped_window_seconds)
+        });
+        if start >= RATE_WINDOW_SAMPLES {
+            for signal in &mut self.signals {
+                signal.points.drain(..start);
+            }
+        }
     }
 
     /// Feeds one reading at process time `seconds`: `readings` holds the value of each of [`Self::symbols`], in that order. A
@@ -198,6 +224,8 @@ impl RestTracker {
             for (signal, &value) in self.signals.iter_mut().zip(readings) {
                 signal.points.push(TimedValue { seconds, value });
             }
+            self.first_seconds.get_or_insert(seconds);
+            self.forget_old_readings();
         }
         let Some(lead) = self.signals.first() else {
             return Ok(RestStep::Waiting { progress: None });
@@ -210,8 +238,8 @@ impl RestTracker {
             spacing,
             self.expected_settling_seconds,
         );
-        let span = match (points.first(), points.last()) {
-            (Some(first), Some(last)) => last.seconds - first.seconds,
+        let span = match (self.first_seconds, points.last()) {
+            (Some(first), Some(last)) => last.seconds - first,
             _ => 0.0,
         };
         let enough =
@@ -226,7 +254,7 @@ impl RestTracker {
         } else {
             lead
         };
-        let rate = moving.rate(window);
+        let rate = moving.rate(window, retained_start(points, self.capped_window_seconds));
         if span >= self.budget_seconds {
             let (offer, next_action) = if self.offer_setpoint_step {
                 (
@@ -257,6 +285,19 @@ impl RestTracker {
         };
         Ok(RestStep::Waiting { progress })
     }
+}
+
+/// The first of `points` that a later step can still judge: every reading within `capped_window_seconds` of the newest, and
+/// the last [`RATE_WINDOW_SAMPLES`], whose median spacing sets the window. A window longer than its cap holds twenty readings
+/// at that spacing, and they lie among the last [`RATE_WINDOW_SAMPLES`]: at least half of those readings' gaps are as long as
+/// the median, so together they span a hundred such gaps or more.
+fn retained_start(points: &[TimedValue], capped_window_seconds: f64) -> usize {
+    let Some(newest) = points.last() else {
+        return 0;
+    };
+    let within_cap =
+        points.partition_point(|point| point.seconds < newest.seconds - capped_window_seconds);
+    within_cap.min(points.len().saturating_sub(RATE_WINDOW_SAMPLES))
 }
 
 #[cfg(test)]
