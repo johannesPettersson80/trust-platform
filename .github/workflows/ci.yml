@@ -133,6 +133,20 @@ jobs:
           BASE_SHA="${{ github.event.pull_request.base.sha || github.event.before }}"
           HEAD_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
           python3 ./scripts/check_regression_test_first.py --base "${BASE_SHA}" --head "${HEAD_SHA}"
+      - name: Guard whitespace errors and conflict markers
+        # The diff check the release guard ran before each push (specification 22, "Change and release workflow").
+        run: |
+          set -euo pipefail
+          BASE_SHA="${{ github.event.pull_request.base.sha || github.event.before }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          if [ -z "${BASE_SHA}" ] || [ "${BASE_SHA}" = "0000000000000000000000000000000000000000" ]; then
+            echo "No earlier commit to compare with."
+            exit 0
+          fi
+          git diff --check "${BASE_SHA}...${HEAD_SHA}"
+      - name: Guard the release tools
+        working-directory: .codex/skills/trust-ci-release-gates/scripts
+        run: python3 -m unittest release_candidate_guard_tests -v
       - name: Guard deterministic diagram workflow
         run: python3 -m unittest scripts.tests.test_diagram_workflow -v
       - name: Guard workflow change detection

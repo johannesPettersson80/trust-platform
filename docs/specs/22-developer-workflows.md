@@ -302,14 +302,14 @@ Work reaches `main` in small pull requests, and CI is the only gate:
   broken user journey); any other finding goes on the checklist for the next
   release.
 
-The release guard (`release_candidate_guard.py prepare`) and the sections
-below on release candidates (failure reporting, discovery parity, build
-parallelism, target storage and the post-merge audit) apply only until CI runs
-every stage of the guard and the acceptance journeys; until then a push that
-changes the workspace version needs the guard's exact-SHA artifact, and the
-review and the acceptance journeys run before the version bump so that the
-guard runs once. `verify-release` and the post-merge audit stay as tools after
-that.
+The pre-push hook refuses only a direct push to `main` and a pushed release
+tag; every other push goes through. The release guard
+(`release_candidate_guard.py prepare`) is retired from the workflow: CI runs
+every stage it ran, and `git diff --check`; the sections below on release
+candidates (failure reporting, discovery parity, build parallelism and target
+storage) describe the tool until its code is removed. Until the acceptance
+journeys run in CI, they run on a release pull request's rehearsal package
+before it merges. `verify-release` and the post-merge audit stay as tools.
 
 ### CI reliability and release-gate artifact contract
 
