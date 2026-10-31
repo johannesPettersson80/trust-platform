@@ -125,8 +125,8 @@ fn millis(ms: i64) -> Duration {
 }
 
 /// Specification 44 §8.8 with specification 11 §6.7 and §12, worked by hand from the two sources
-/// and the periodic rule of specification 10 §4.3 (a task is due once `INTERVAL` has passed since
-/// its last run, the start counting as one). Scans at 0, 10, 20 and 30 ms run the 10 ms task at 10,
+/// and the periodic rule of specification 10 §4.3 (a task is due at each of its nominal deadlines,
+/// every `INTERVAL` from its start). Scans at 0, 10, 20 and 30 ms run the 10 ms task at 10,
 /// 20 and 30 ms, which leaves `count` 3, `kept` 6 and the lamp on (3 is odd); the retain file, saved
 /// at every changed scan, then holds `kept` 6. A second runtime of the same image, restarted warm
 /// from that file at 0 ms, starts with `kept` 6 and `count` 0. Changed online, it keeps both and

@@ -10,7 +10,7 @@ if [[ "$mode" != browser ]]; then
     npm --prefix editors/vscode run build:hmi-builder
   fi
   npm --prefix editors/vscode run build:hmi-drawing
-  git diff --exit-code -- crates/trust-runtime/src/web/ui/modules/hmi-drawing.js crates/trust-runtime/src/web/ui/modules/hmi-display.js editors/vscode/media/hmiBuilderWebview.js editors/vscode/media/hmiBuilderWebview.css editors/vscode/media/hmiBuilderWebview.js.map editors/vscode/media/hmiBuilderWebview.css.map
+  git diff --exit-code -- crates/trust-runtime/src/web/ui/modules/hmi-drawing.js crates/trust-runtime/src/web/ui/modules/hmi-display.js
 fi
 if [[ "$mode" != bundles ]]; then
   cargo build -p trust-runtime --bin trust-runtime

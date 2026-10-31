@@ -112,7 +112,8 @@ companion. Validate refuses:
     a step is activated, the value of the step elapsed time shall be reset to
     t#0s" (§6.7.2), so a step entered again never shows its previous time.
     Its timer starts in the next scan, which under the TON rule of
-    specification 08 reads the task interval. It counts up to
+    specification 08 §5 reads `T#0s`, and reads the task interval in the one
+    after. It counts up to
     `T#24d20h31m23s647ms`, the largest `TIME` of 32-bit milliseconds, as
     CODESYS and TwinCAT measure a step's time.
 - `<name>_active` stays for the programs that read it; `<name>.X` is the same

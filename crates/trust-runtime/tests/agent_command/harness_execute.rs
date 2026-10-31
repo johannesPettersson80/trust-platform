@@ -125,7 +125,9 @@ END_PROGRAM
     assert_eq!(pou["result"]["assertions"]["total"], json!(2));
     assert_eq!(pou["result"]["assertions"]["passed"], json!(2));
     assert_eq!(pou["result"]["assertions"]["failed"], json!(0));
-    assert_eq!(pou["result"]["watchSnapshot"]["cycleCount"], json!(4));
+    // The load's cycle, then PT 30 ms in 10 ms cycles: the edge cycle gives ET 0 and the fourth
+    // reaches 30 ms (specification 08 §5).
+    assert_eq!(pou["result"]["watchSnapshot"]["cycleCount"], json!(5));
     assert_eq!(
         pou["result"]["watchSnapshot"]["values"]["q"],
         json!({"status": "ok", "value": {"type": "BOOL", "value": true}})

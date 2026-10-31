@@ -157,25 +157,44 @@ fn counter_variants() {
     harness.assert_eq("qd_ud", Value::Bool(true));
 }
 
+/// Specification 08 §4 (IEC 61131-3 Table 45, 1a): a plain `CTU` is `CTU_INT`. A DINT preset is
+/// refused when the program is compiled, and an untyped literal preset is an INT. Worked by hand,
+/// with CU FALSE in scan 1 and toggled after each call: rising edges in scans 2 and 4 count CV to
+/// 1 and 2, and Q rises when CV reaches PV 2 in scan 4. Catches a DINT preset accepted and run as
+/// INT (a preset of 100000 ran as 0), and a literal preset refused.
 #[test]
-fn generic_counter_uses_call_value_type_after_null_default() {
-    let source = r#"
+fn a_plain_counter_is_an_int_counter() {
+    let refused = TestHarness::from_source(
+        r#"
         PROGRAM Test
-        VAR
-            ctu : CTU;
-            cu : BOOL := TRUE;
-            reset : BOOL := FALSE;
-            pv : DINT := DINT#2;
-            q : BOOL;
-            cv : DINT;
-        END_VAR
-        ctu(CU := cu, R := reset, PV := pv, Q => q, CV => cv);
+        VAR ctu : CTU; pv : DINT := DINT#100000; q : BOOL; cv : DINT; END_VAR
+        ctu(CU := TRUE, R := FALSE, PV := pv, Q => q, CV => cv);
         END_PROGRAM
-    "#;
+    "#,
+    );
+    let error = refused
+        .err()
+        .expect("a DINT preset for a plain CTU is refused")
+        .to_string();
+    assert!(
+        error.contains("expected 'INT' for parameter 'PV'"),
+        "{error}"
+    );
 
-    let mut harness = TestHarness::from_source(source).unwrap();
-
-    harness.cycle();
-    harness.assert_eq("cv", Value::DInt(1));
-    harness.assert_eq("q", Value::Bool(false));
+    let mut harness = TestHarness::from_source(
+        r#"
+        PROGRAM Test
+        VAR ctu : CTU; cu : BOOL; q : BOOL; cv : INT; END_VAR
+        ctu(CU := cu, R := FALSE, PV := 2, Q => q, CV => cv);
+        cu := NOT cu;
+        END_PROGRAM
+    "#,
+    )
+    .expect("a literal preset compiles");
+    for (scan, cv, q) in [(1, 0, false), (2, 1, false), (3, 1, false), (4, 2, true)] {
+        harness.cycle();
+        harness.assert_eq("cv", Value::Int(cv));
+        assert_eq!(harness.get_output("q"), Some(Value::Bool(q)), "scan {scan}");
+    }
+    harness.assert_eq("ctu.PV", Value::Int(2));
 }

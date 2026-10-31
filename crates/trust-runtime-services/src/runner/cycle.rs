@@ -96,8 +96,8 @@ pub trait ResourceCycle {
         Vec::new()
     }
 
-    /// The resource's cycle interval: the next scan is due this long after the previous one
-    /// started, as trust-runtime's scheduler paces its cycles.
+    /// The resource's cycle interval: the scans are due on a grid of this interval, as
+    /// trust-runtime's scheduler paces its cycles (specification 10 §4.3).
     fn cycle_interval(&self) -> Duration;
 
     /// The watchdog policy that supervises each scan.

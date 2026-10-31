@@ -15,7 +15,7 @@ use crate::signals::{loop_inspection_bindings, Quality};
 /// Lesson 69's loop (the coupled vessels), as its lesson file declares it.
 fn lesson_61() -> LoopDefinition {
     LoopDefinition::decode(include_str!(
-        "../../../../editors/vscode/media/examples/control/10-multivariable-control/61-mimo-paths/control-loop.json"
+        "../../../../examples/control/10-multivariable-control/61-mimo-paths/control-loop.json"
     ))
     .expect("lesson 61's loop file")
 }
@@ -23,7 +23,7 @@ fn lesson_61() -> LoopDefinition {
 /// Lesson 70's loop, two copies of the coupled vessels; its first pair is lesson 69's.
 fn lesson_62() -> LoopDefinition {
     LoopDefinition::decode(include_str!(
-        "../../../../editors/vscode/media/examples/control/10-multivariable-control/62-relative-gain-array/control-loop.json"
+        "../../../../examples/control/10-multivariable-control/62-relative-gain-array/control-loop.json"
     ))
     .expect("lesson 62's loop file")
 }

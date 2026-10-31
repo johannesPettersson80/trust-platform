@@ -70,129 +70,146 @@ IF NOT _initialized THEN
   _initialized := TRUE;
 END_IF;
 
-sc_timer_S0_AllOff_TIMER_0(IN := FALSE, PT := T#200ms);
-sc_timer_S1_LED0_On_TIMER_0(IN := FALSE, PT := T#1000ms);
-sc_timer_S2_LED0_1_On_TIMER_0(IN := FALSE, PT := T#1000ms);
-sc_timer_S3_LED0_2_On_TIMER_0(IN := FALSE, PT := T#1000ms);
-sc_timer_S4_LED0_3_On_TIMER_0(IN := FALSE, PT := T#200ms);
-sc_timer_S5_LED0_4_On_TIMER_0(IN := FALSE, PT := T#200ms);
-sc_timer_S6_LED0_5_On_TIMER_0(IN := FALSE, PT := T#200ms);
-sc_timer_S7_LED0_6_On_TIMER_0(IN := FALSE, PT := T#200ms);
-sc_timer_S8_AllOn_TIMER_0(IN := FALSE, PT := T#200ms);
-sc_timer_S9_LED7_Off_TIMER_0(IN := FALSE, PT := T#200ms);
-sc_timer_S10_LED6_Off_TIMER_0(IN := FALSE, PT := T#200ms);
-sc_timer_S11_LED5_Off_TIMER_0(IN := FALSE, PT := T#200ms);
-sc_timer_S12_LED4_Off_TIMER_0(IN := FALSE, PT := T#200ms);
-sc_timer_S13_LED3_Off_TIMER_0(IN := FALSE, PT := T#200ms);
-sc_timer_S14_LED2_Off_TIMER_0(IN := FALSE, PT := T#200ms);
-sc_timer_S15_LED1_Off_TIMER_0(IN := FALSE, PT := T#200ms);
-sc_timer_S16_LED0_Off_TIMER_0(IN := FALSE, PT := T#200ms);
+sc_timer_S0_AllOff_TIMER_0(IN := (_state = 0), PT := T#200ms);
+sc_timer_S1_LED0_On_TIMER_0(IN := (_state = 1), PT := T#1000ms);
+sc_timer_S2_LED0_1_On_TIMER_0(IN := (_state = 2), PT := T#1000ms);
+sc_timer_S3_LED0_2_On_TIMER_0(IN := (_state = 3), PT := T#1000ms);
+sc_timer_S4_LED0_3_On_TIMER_0(IN := (_state = 4), PT := T#200ms);
+sc_timer_S5_LED0_4_On_TIMER_0(IN := (_state = 5), PT := T#200ms);
+sc_timer_S6_LED0_5_On_TIMER_0(IN := (_state = 6), PT := T#200ms);
+sc_timer_S7_LED0_6_On_TIMER_0(IN := (_state = 7), PT := T#200ms);
+sc_timer_S8_AllOn_TIMER_0(IN := (_state = 8), PT := T#200ms);
+sc_timer_S9_LED7_Off_TIMER_0(IN := (_state = 9), PT := T#200ms);
+sc_timer_S10_LED6_Off_TIMER_0(IN := (_state = 10), PT := T#200ms);
+sc_timer_S11_LED5_Off_TIMER_0(IN := (_state = 11), PT := T#200ms);
+sc_timer_S12_LED4_Off_TIMER_0(IN := (_state = 12), PT := T#200ms);
+sc_timer_S13_LED3_Off_TIMER_0(IN := (_state = 13), PT := T#200ms);
+sc_timer_S14_LED2_Off_TIMER_0(IN := (_state = 14), PT := T#200ms);
+sc_timer_S15_LED1_Off_TIMER_0(IN := (_state = 15), PT := T#200ms);
+sc_timer_S16_LED0_Off_TIMER_0(IN := (_state = 16), PT := T#200ms);
 
 CASE _state OF
   0:
-    sc_timer_S0_AllOff_TIMER_0(IN := TRUE, PT := T#200ms);
     IF sc_timer_S0_AllOff_TIMER_0.Q THEN
+      sc_timer_S0_AllOff_TIMER_0(IN := FALSE, PT := T#200ms);
       (* LOG: Transitioning to next state *)
       ld_io_QX0_0 := TRUE;
       _state := 1;
+      sc_timer_S1_LED0_On_TIMER_0(IN := TRUE, PT := T#1000ms);
     END_IF;
   1:
-    sc_timer_S1_LED0_On_TIMER_0(IN := TRUE, PT := T#1000ms);
     IF sc_timer_S1_LED0_On_TIMER_0.Q THEN
+      sc_timer_S1_LED0_On_TIMER_0(IN := FALSE, PT := T#1000ms);
       ld_io_QX0_1 := TRUE;
       _state := 2;
+      sc_timer_S2_LED0_1_On_TIMER_0(IN := TRUE, PT := T#1000ms);
     END_IF;
   2:
-    sc_timer_S2_LED0_1_On_TIMER_0(IN := TRUE, PT := T#1000ms);
     IF sc_timer_S2_LED0_1_On_TIMER_0.Q THEN
+      sc_timer_S2_LED0_1_On_TIMER_0(IN := FALSE, PT := T#1000ms);
       ld_io_QX0_2 := TRUE;
       _state := 3;
+      sc_timer_S3_LED0_2_On_TIMER_0(IN := TRUE, PT := T#1000ms);
     END_IF;
   3:
-    sc_timer_S3_LED0_2_On_TIMER_0(IN := TRUE, PT := T#1000ms);
     IF sc_timer_S3_LED0_2_On_TIMER_0.Q THEN
+      sc_timer_S3_LED0_2_On_TIMER_0(IN := FALSE, PT := T#1000ms);
       ld_io_QX0_3 := TRUE;
       _state := 4;
+      sc_timer_S4_LED0_3_On_TIMER_0(IN := TRUE, PT := T#200ms);
     END_IF;
   4:
-    sc_timer_S4_LED0_3_On_TIMER_0(IN := TRUE, PT := T#200ms);
     IF sc_timer_S4_LED0_3_On_TIMER_0.Q THEN
+      sc_timer_S4_LED0_3_On_TIMER_0(IN := FALSE, PT := T#200ms);
       ld_io_QX0_4 := TRUE;
       _state := 5;
+      sc_timer_S5_LED0_4_On_TIMER_0(IN := TRUE, PT := T#200ms);
     END_IF;
   5:
-    sc_timer_S5_LED0_4_On_TIMER_0(IN := TRUE, PT := T#200ms);
     IF sc_timer_S5_LED0_4_On_TIMER_0.Q THEN
+      sc_timer_S5_LED0_4_On_TIMER_0(IN := FALSE, PT := T#200ms);
       ld_io_QX0_5 := TRUE;
       _state := 6;
+      sc_timer_S6_LED0_5_On_TIMER_0(IN := TRUE, PT := T#200ms);
     END_IF;
   6:
-    sc_timer_S6_LED0_5_On_TIMER_0(IN := TRUE, PT := T#200ms);
     IF sc_timer_S6_LED0_5_On_TIMER_0.Q THEN
+      sc_timer_S6_LED0_5_On_TIMER_0(IN := FALSE, PT := T#200ms);
       ld_io_QX0_6 := TRUE;
       _state := 7;
+      sc_timer_S7_LED0_6_On_TIMER_0(IN := TRUE, PT := T#200ms);
     END_IF;
   7:
-    sc_timer_S7_LED0_6_On_TIMER_0(IN := TRUE, PT := T#200ms);
     IF sc_timer_S7_LED0_6_On_TIMER_0.Q THEN
+      sc_timer_S7_LED0_6_On_TIMER_0(IN := FALSE, PT := T#200ms);
       ld_io_QX0_7 := TRUE;
       _state := 8;
+      sc_timer_S8_AllOn_TIMER_0(IN := TRUE, PT := T#200ms);
     END_IF;
   8:
-    sc_timer_S8_AllOn_TIMER_0(IN := TRUE, PT := T#200ms);
     IF sc_timer_S8_AllOn_TIMER_0.Q THEN
+      sc_timer_S8_AllOn_TIMER_0(IN := FALSE, PT := T#200ms);
       (* LOG: Phase change: Starting turn-off sequence *)
       ld_io_QX0_7 := FALSE;
       _state := 9;
+      sc_timer_S9_LED7_Off_TIMER_0(IN := TRUE, PT := T#200ms);
     END_IF;
   9:
-    sc_timer_S9_LED7_Off_TIMER_0(IN := TRUE, PT := T#200ms);
     IF sc_timer_S9_LED7_Off_TIMER_0.Q THEN
+      sc_timer_S9_LED7_Off_TIMER_0(IN := FALSE, PT := T#200ms);
       ld_io_QX0_6 := FALSE;
       _state := 10;
+      sc_timer_S10_LED6_Off_TIMER_0(IN := TRUE, PT := T#200ms);
     END_IF;
   10:
-    sc_timer_S10_LED6_Off_TIMER_0(IN := TRUE, PT := T#200ms);
     IF sc_timer_S10_LED6_Off_TIMER_0.Q THEN
+      sc_timer_S10_LED6_Off_TIMER_0(IN := FALSE, PT := T#200ms);
       ld_io_QX0_5 := FALSE;
       _state := 11;
+      sc_timer_S11_LED5_Off_TIMER_0(IN := TRUE, PT := T#200ms);
     END_IF;
   11:
-    sc_timer_S11_LED5_Off_TIMER_0(IN := TRUE, PT := T#200ms);
     IF sc_timer_S11_LED5_Off_TIMER_0.Q THEN
+      sc_timer_S11_LED5_Off_TIMER_0(IN := FALSE, PT := T#200ms);
       ld_io_QX0_4 := FALSE;
       _state := 12;
+      sc_timer_S12_LED4_Off_TIMER_0(IN := TRUE, PT := T#200ms);
     END_IF;
   12:
-    sc_timer_S12_LED4_Off_TIMER_0(IN := TRUE, PT := T#200ms);
     IF sc_timer_S12_LED4_Off_TIMER_0.Q THEN
+      sc_timer_S12_LED4_Off_TIMER_0(IN := FALSE, PT := T#200ms);
       ld_io_QX0_3 := FALSE;
       _state := 13;
+      sc_timer_S13_LED3_Off_TIMER_0(IN := TRUE, PT := T#200ms);
     END_IF;
   13:
-    sc_timer_S13_LED3_Off_TIMER_0(IN := TRUE, PT := T#200ms);
     IF sc_timer_S13_LED3_Off_TIMER_0.Q THEN
+      sc_timer_S13_LED3_Off_TIMER_0(IN := FALSE, PT := T#200ms);
       ld_io_QX0_2 := FALSE;
       _state := 14;
+      sc_timer_S14_LED2_Off_TIMER_0(IN := TRUE, PT := T#200ms);
     END_IF;
   14:
-    sc_timer_S14_LED2_Off_TIMER_0(IN := TRUE, PT := T#200ms);
     IF sc_timer_S14_LED2_Off_TIMER_0.Q THEN
+      sc_timer_S14_LED2_Off_TIMER_0(IN := FALSE, PT := T#200ms);
       ld_io_QX0_1 := FALSE;
       _state := 15;
+      sc_timer_S15_LED1_Off_TIMER_0(IN := TRUE, PT := T#200ms);
     END_IF;
   15:
-    sc_timer_S15_LED1_Off_TIMER_0(IN := TRUE, PT := T#200ms);
     IF sc_timer_S15_LED1_Off_TIMER_0.Q THEN
+      sc_timer_S15_LED1_Off_TIMER_0(IN := FALSE, PT := T#200ms);
       ld_io_QX0_0 := FALSE;
       _state := 16;
+      sc_timer_S16_LED0_Off_TIMER_0(IN := TRUE, PT := T#200ms);
     END_IF;
   16:
-    sc_timer_S16_LED0_Off_TIMER_0(IN := TRUE, PT := T#200ms);
     IF sc_timer_S16_LED0_Off_TIMER_0.Q THEN
+      sc_timer_S16_LED0_Off_TIMER_0(IN := FALSE, PT := T#200ms);
       (* LOG: Cycle complete, restarting *)
       ld_io_QX0_0 := TRUE;
       _state := 1;
+      sc_timer_S1_LED0_On_TIMER_0(IN := TRUE, PT := T#1000ms);
     END_IF;
 END_CASE;
 

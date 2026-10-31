@@ -91,6 +91,47 @@ pub fn found_in_auto(binding: &TransferBinding, original: &TransferStatus) -> bo
     found_mode_of(mode, binding.mode.manual_value) == Some(FoundMode::Auto)
 }
 
+/// Whether every output that `binding` holds reads the same in `earlier` and `later`, two readings of different scans of the
+/// runtime: the held outputs have arrived (B3.4 step 5). A Manual command that an experiment restored moves its output at the
+/// loop's rate limits, and the return of the mode compares the held outputs exactly (annex E6.4), so it starts once they rest.
+/// Two readings of one scan, or without the runtime's clock, show nothing at rest.
+#[must_use]
+pub fn held_outputs_at_rest(
+    binding: &TransferBinding,
+    earlier: &TransferStatus,
+    later: &TransferStatus,
+) -> bool {
+    let different_scans = match (earlier.runtime_time_ns, later.runtime_time_ns) {
+        (Some(before), Some(after)) => before != after,
+        _ => false,
+    };
+    different_scans
+        && std::iter::once(&binding.output)
+            .chain(&binding.additional_outputs)
+            .all(|output| {
+                let before = earlier.values.get(&output.symbol);
+                before.is_some() && before == later.values.get(&output.symbol)
+            })
+}
+
+/// The longest the outputs that `binding` holds take to reach the Manual commands an experiment restored (B3.4 step 5), in ms:
+/// each output's range at the slower of the loop's rate limits, and the three executions of the loop's task that confirm a
+/// restoration (A7). An output without a rate limit follows its command at once.
+#[must_use]
+pub fn held_outputs_arrival_ms(loop_definition: &LoopDefinition, binding: &TransferBinding) -> f64 {
+    let limits = &loop_definition.limits;
+    let slowest = [limits.rate_up_per_s, limits.rate_down_per_s]
+        .into_iter()
+        .flatten()
+        .filter(|rate| *rate > 0.0)
+        .fold(f64::INFINITY, f64::min);
+    let ramp_seconds = std::iter::once(&binding.output)
+        .chain(&binding.additional_outputs)
+        .map(|output| (output.maximum - output.minimum) / slowest)
+        .fold(0.0, f64::max);
+    ramp_seconds * 1_000.0 + 3.0 * loop_definition.controller.task_period_ms
+}
+
 /// The states a mode transfer writes (`stateValues`): every state of the binding at the value `status` reports, as the runtime
 /// requires the exact state set (annex E6.5). A BOOL reads as 0 or 1, and each value is rounded as its member is typed.
 ///
@@ -557,4 +598,4 @@ mod tests;
 
 #[cfg(test)]
 #[path = "mode_transfer_group_tests.rs"]
-mod group_tests;
+pub(crate) mod group_tests;

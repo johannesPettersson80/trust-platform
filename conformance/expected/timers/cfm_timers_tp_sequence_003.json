@@ -27,7 +27,7 @@
       "errors": [],
       "globals": {
         "et_tp": {
-          "nanos": 5000000,
+          "nanos": 0,
           "type": "TIME"
         },
         "q_tp": {
@@ -43,12 +43,12 @@
       "errors": [],
       "globals": {
         "et_tp": {
-          "nanos": 10000000,
+          "nanos": 5000000,
           "type": "TIME"
         },
         "q_tp": {
           "type": "BOOL",
-          "value": false
+          "value": true
         }
       },
       "runtime_time_nanos": 10000000
@@ -59,7 +59,7 @@
       "errors": [],
       "globals": {
         "et_tp": {
-          "nanos": 0,
+          "nanos": 10000000,
           "type": "TIME"
         },
         "q_tp": {
@@ -75,7 +75,7 @@
       "errors": [],
       "globals": {
         "et_tp": {
-          "nanos": 5000000,
+          "nanos": 0,
           "type": "TIME"
         },
         "q_tp": {

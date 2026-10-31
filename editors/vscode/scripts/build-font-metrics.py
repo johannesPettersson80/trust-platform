@@ -15,7 +15,7 @@ from fontTools.ttLib import TTFont
 from fontTools.varLib import instancer
 
 ROOT = Path(__file__).resolve().parents[1]
-FONT = ROOT / "media" / "fonts" / "InterVariable.woff2"
+FONT = ROOT.parents[1] / "crates" / "trust-runtime" / "src" / "web" / "ui" / "assets" / "fonts" / "InterVariable.woff2"
 OUT = ROOT / "src" / "hmiBuilder" / "drawing" / "fontMetrics.ts"
 WEIGHTS = [400, 500, 550, 600, 650, 700, 800]
 # Latin, Latin-1, Latin Extended-A, Greek, Cyrillic, and the punctuation and signs units use.

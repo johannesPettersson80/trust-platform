@@ -7,6 +7,16 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
+**31 October 2026 (lead): the lines below are merged, and their worktrees are archived.** Native execution
+(specification 44), the chips (C6, STM32U5A9) and S1 to S7 reached `main` with the I-ALL integration and shipped in
+0.25.x and 0.26.0 (30 October); PRs #140 and #141 shipped in 0.26.0. Before the old worktrees were removed (owner's yes,
+31 October), everything uncommitted was archived: on the Pi in `~/projects/.artifacts/archive/2026-10-31-cleanup/`
+(its `checklists/` folder holds the lead's checkpoint notes that never reached this file: 19 to 22 October from the
+board-runtime worktree, and 26 October from the native-execution worktree, the integration plan I1 to I4), and on the
+builder in `/mnt/HC_Volume_107089260/builder-storage/archive/2026-10-31-cleanup/`; each has a README on restoring a
+worktree. Of the 26 October plan, I1 to I3 are done. I4 is open: this checklist continues from `main`, S9 Modbus RTU
+next, after the release-flow lane and 0.27.0 (one lane at a time).
+
 **18 October, night (lead).** All work is local; nothing is pushed. Agents: Claude Haiku, and
 Sonnet where a slice needs design judgment (owner, 18 October: "continue with haiku"). Owner
 decisions of 18 October: Q11, installs only while stopped on every runtime, with `bytecode.reload`

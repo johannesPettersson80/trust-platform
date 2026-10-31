@@ -171,15 +171,7 @@ fn test_programs_live_beside_a_configuration_or_in_the_oscat_test_projects() {
 fn every_example_omits_the_control_endpoint_and_token_or_names_its_socket_in_its_instructions() {
     let repo = repository_root();
     let mut configs = Vec::new();
-    for root in [
-        repo.join("examples"),
-        repo.join("editors")
-            .join("vscode")
-            .join("media")
-            .join("examples"),
-    ] {
-        collect_runtime_configs(&root, &mut configs);
-    }
+    collect_runtime_configs(&repo.join("examples"), &mut configs);
     assert!(
         !configs.is_empty(),
         "no example runtime configuration found"

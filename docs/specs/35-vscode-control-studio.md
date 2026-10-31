@@ -1307,7 +1307,20 @@ clears the manual section (B3.7).
    next scan, runtime protocol annex E3 rule 8, so another reader's watch never refuses a run); the limits present (otherwise **Limits…** opens at the missing
    field); physical approval on a physical target (A2.5). A Manual method
    switches the loop to Manual through a transfer that holds the present output
-   (A6.3) and returns it to its starting mode afterwards (A6.2). The approval
+   (A6.3) and returns it to its starting mode afterwards (A6.2). A loop found in
+   Auto rests first: before the transfer, Identify reads the loop in process time
+   until its measured output and the plant input that the transfer will hold have
+   both been steady by the rule of step 2 over one baseline window, and shows that
+   wait as it shows the baseline's. A PID group (C7) rests when every member's
+   process value and every output its transfer holds have been steady; the wait
+   names the first that still moves, a process value before an output. The transfer then holds the output at which
+   the controller keeps the loop, so the steady baseline after it lies at the
+   reference and is the operating point Apply returns to (B6.2). Holding an
+   output the controller was still moving would let the plant settle open loop
+   elsewhere, and Apply would then wait for an operating point the controller
+   never holds (lesson 30, 30 October 2026). The wait writes nothing, a cancel
+   ends it with nothing written, and it has the bound of step 2 and ends as step 2
+   does, with the rate still observed, offering to wait or a setpoint step. The approval
    block of the review (B9.3) names what the campaign may do: each signal it
    writes with its limits (the plant input range of B3.4 step 1 for a plant
    input step, the setpoint's and the output's ranges for a setpoint step, the
@@ -1368,7 +1381,14 @@ clears the manual section (B3.7).
    baseline, so the wait for a steady baseline never shortens the step.
 5. **Restoration.** The runtime restores the plant input or setpoint to its
    value from before the experiment and confirms it (A7). Identify does not wait
-   for the process to return to its starting point.
+   for the process to return to its starting point. A controller output follows
+   its restored Manual command at the loop's rate limits, and the return of the
+   mode (A6.2) compares the outputs it holds exactly (annex E6.4): before it
+   writes anything back, the return reads the loop until two readings of
+   different scans report every held output alike, at most for the time the
+   slower rate limit needs for each output's range plus the three executions
+   that confirm a restoration (A7); after that its transfer judges the outputs
+   as they are.
 6. **Limits check.** The runtime stops an experiment whose written target
    leaves its limits (annex E5.4); it does not watch the measured output.
    Before the fit, every recorded sample of the selected plant inputs and
@@ -1562,7 +1582,8 @@ come from the engine's answers: from the record the page holds for the output's 
 engine refuses a change it shows the rows as they were typed, with the refusal under its field.
 
 A change of the requirements keeps Automatic on each generated value that it leaves as it was: a value the engineer changes is no
-longer generated, and the engine decides which values those are. The verification scenarios of the
+longer generated, and the engine decides which values those are. It compares the change with the record the page showed: the one the
+study records, or, before the study records one, the requirements the answers carried for the current model. The verification scenarios of the
 Requirements editor are checked by the engine when they change: a list that no scenario reads is refused under the field
 `scenarios`, and so is a scenario event written after the validation duration, and a timed change whose time is not a whole number of
 the loop's task periods (Validate writes an event at a sample of the task, so the engine refuses the time when the list changes, not when
@@ -1654,7 +1675,11 @@ record (numerical annex):
 
 Validate tests the candidate at the operating point Apply starts from (B6.2):
 the selected model's operating point. An isolated run of the configured plant
-starts from the plant's configured state. When the current settings'
+starts from the plant's configured state. On either plant, each run starts the
+controller at the selected model's operating point with its declared states and
+application states (C1), as Apply starts it: a startup-done flag starts TRUE,
+so the program's startup code does not initialize the controller under test,
+and a setpoint change reaches it as a change. When the current settings'
 target-response run starts with its measured output outside the settling band
 around that operating point, as after an Apply whose target change stays in
 force, the configured plant cannot show the response there: Validate runs every

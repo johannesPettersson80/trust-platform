@@ -110,7 +110,7 @@ One stem request drives both supplies, and `SteadyRangeKgS` is the 0.015 kg/s li
 1. Open this lesson's project and start **Simulator**. The valve rests at 75 % with 1.5 kg/s with both supplies. In the **truST** side bar, select **Control Studio**.
 2. On **Identify**, check **Plant inputs** `P1.ValveRequestPct (%)` and **Measured outputs** `P1.FlowRegulatedKgS (kg/s)`, and choose **Project experiment** in **Method**.
 3. In **Signals**, show `P1.FlowRegulatedKgS · Process value (kg/s)`, `P1.StemPositionPct · Applied output (%)`, `P1.ValveRequestPct · Requested output (%)`, `P1.FlowFixedSupplyKgS · state (kg/s)`, `P1.PressureRegulatedKPa · state (kPa)` and `P1.PressureFixedSupplyKPa · state (kPa)`.
-4. Select **Review project test**. The plan shows **Test signal** `P1.ExperimentEnabled · FALSE → TRUE`, **Duration** 155.1 s and the **Stop conditions**. Select **Confirm and start**.
+4. Select **Review project test**. The plan shows **Test signal** `P1.ExperimentEnabled · FALSE → TRUE`, **Duration** 155.5 s and the **Stop conditions**. Select **Confirm and start**.
 5. When Control Studio shows **Project test completed. Outputs restored.**, read the steady values of each hold for both supplies.
 
 ## Evidence and decision
@@ -121,20 +121,20 @@ The numbered marks answer the predictions with the same numbers. Steady points f
 
 | Stem | Regulated flow | Fixed-supply flow | Fixed-supply valve pressure |
 | ---: | ---: | ---: | ---: |
-| 70 % | 1.400 kg/s | 1.421 kg/s | 102.9 kPa |
+| 70 % | 1.399 kg/s | 1.421 kg/s | 102.9 kPa |
 | 75 % | 1.500 kg/s | 1.500 kg/s | 100.0 kPa |
-| 80 % | 1.600 kg/s | 1.577 kg/s | 97.1 kPa |
+| 80 % | 1.601 kg/s | 1.577 kg/s | 97.1 kPa |
 | 85 % | 1.700 kg/s | 1.650 kg/s | 94.1 kPa |
-| 75 % | 1.500 kg/s | 1.501 kg/s | 100.0 kPa |
+| 75 % | 1.500 kg/s | 1.500 kg/s | 100.0 kPa |
 
 Every point qualifies: each stem arrived exactly and each flow varied by at most 0.010 kg/s in its final 3 s.
 
-1. The regulated flow followed $q = 2z$: 1.400, 1.500, 1.600 and 1.700 kg/s.
+1. The regulated flow followed $q = 2z$: 1.399, 1.500, 1.601 and 1.700 kg/s.
 2. The fixed supply gave more flow at 70 %, 1.421 kg/s, because less flow leaves more pressure across the valve, 102.9 kPa; and less at 85 %, 1.650 kg/s with 94.1 kPa left.
-3. The second visit to 75 % gave 1.500 and 1.501 kg/s again: the steady characteristic has no hysteresis.
+3. The second visit to 75 % gave 1.500 and 1.500 kg/s again: the steady characteristic has no hysteresis.
 4. At 85 %, the regulated supply delivers $4 \times 1.700 \times 25 = 170.0$ kW and the fixed supply $4 \times 1.650 \times 25 = 165.0$ kW.
 
-From 75 to 80 %, the slope falls from 0.0200 to 0.0153 kg/s per point, about a quarter less: one point of stem adds 2.0 kW with regulated pressure but only about 1.5 kW with the fixed supply. A controller tuned for 2 kW per point therefore acts about a quarter more weakly above 75 % with the fixed supply. We take the measured installed characteristic, not the valve calibration, as the relation between stem position and heat for this installation. These are simulation results for this valve, not a physical calibration.
+From 75 to 80 %, the slope falls from 0.0202 to 0.0154 kg/s per point, about a quarter less: one point of stem adds 2.0 kW with regulated pressure but only about 1.5 kW with the fixed supply. A controller tuned for 2 kW per point therefore acts about a quarter more weakly above 75 % with the fixed supply. We take the measured installed characteristic, not the valve calibration, as the relation between stem position and heat for this installation. These are simulation results for this valve, not a physical calibration.
 
 ## Conclusion
 

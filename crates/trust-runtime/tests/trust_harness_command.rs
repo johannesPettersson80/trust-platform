@@ -146,12 +146,14 @@ fn trust_harness_cycle_dt_ms_advances_virtual_time() {
         }),
         json!({
             "cmd": "cycle",
-            "count": 10,
+            "count": 11,
             "dt_ms": 10,
             "watch": ["q", "et"],
         }),
     ]);
 
+    // The first cycle samples the rising edge at ET 0 and each later one adds its 10 ms, so the
+    // eleventh reaches PT 100 ms (specification 08 §5).
     assert_eq!(responses.len(), 3, "stderr was:\n{stderr}");
     assert_eq!(responses[0]["ok"], json!(true));
     assert_eq!(responses[0]["protocol_version"], json!(2));
@@ -246,16 +248,30 @@ fn trust_harness_advance_time_then_cycle_exposes_timer_progress() {
             "cmd": "cycle",
             "watch": ["q", "et"],
         }),
+        json!({
+            "cmd": "advance_time",
+            "duration_ms": 25,
+        }),
+        json!({
+            "cmd": "cycle",
+            "watch": ["q", "et"],
+        }),
     ]);
 
-    assert_eq!(responses.len(), 4, "stderr was:\n{stderr}");
+    // The first cycle with IN TRUE samples the rising edge and starts at ET 0; the next adds the
+    // 25 ms that passed (specification 08 §5).
+    assert_eq!(responses.len(), 6, "stderr was:\n{stderr}");
     assert_eq!(responses[2]["data"]["elapsed_ms"], json!(25));
     assert_eq!(
-        responses[3]["data"]["values"]["q"],
+        responses[3]["data"]["values"]["et"],
+        json!({"status": "ok", "value": {"type": "TIME", "nanos": 0}})
+    );
+    assert_eq!(
+        responses[5]["data"]["values"]["q"],
         json!({"status": "ok", "value": {"type": "BOOL", "value": false}})
     );
     assert_eq!(
-        responses[3]["data"]["values"]["et"],
+        responses[5]["data"]["values"]["et"],
         json!({"status": "ok", "value": {"type": "TIME", "nanos": 25_000_000}})
     );
 }
@@ -290,7 +306,8 @@ fn trust_harness_run_until_supports_success_and_bounded_timeout() {
 
     assert_eq!(responses.len(), 4, "stderr was:\n{stderr}");
     assert_eq!(responses[2]["ok"], json!(true));
-    assert_eq!(responses[2]["data"]["cycles_ran"], json!(4));
+    // PT 100 ms with 25 ms cycles: the edge cycle gives ET 0, the fifth cycle 100 ms.
+    assert_eq!(responses[2]["data"]["cycles_ran"], json!(5));
     assert_eq!(
         responses[2]["data"]["matched_value"],
         json!({"type": "BOOL", "value": true})

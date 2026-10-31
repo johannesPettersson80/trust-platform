@@ -543,7 +543,7 @@ fn the_active_gains_carry_the_units_of_their_own_points_gain_variables() {
 #[test]
 fn a_loop_that_is_not_a_schedule_has_no_continuity_rule() {
     let lesson = LoopDefinition::decode(include_str!(
-        "../../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/control-loop.json"
+        "../../../../examples/control/14-integrated-capstones/84-independent/control-loop.json"
     ))
     .expect("lesson 84 decodes");
     let rule = continuity_rule(&lesson, None, 1)
@@ -661,7 +661,7 @@ fn a_schedule_run_whose_cells_do_not_fit_keeps_its_period() {
 #[test]
 fn a_loop_without_a_schedule_keeps_its_period() {
     let lesson = LoopDefinition::decode(include_str!(
-        "../../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/control-loop.json"
+        "../../../../examples/control/14-integrated-capstones/84-independent/control-loop.json"
     ))
     .expect("lesson 84 decodes");
     // Lesson 84 fits the isolated limits at 40 s and 100 ms too, but only a schedule's run records every sample (C10).

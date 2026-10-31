@@ -6,8 +6,17 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-31
+
 ### Changed
 
+- `TON`, `TP` and `TOF` start timing on the call that samples the edge, as CODESYS and TwinCAT do: that call returns
+  `ET` T#0s, and each later call adds the task time since the previous one. Before, the edge call already counted the
+  time since the previous call, so a timer finished one task interval early: with a 10 ms task and `PT` T#30ms, a
+  `TON`'s `Q` rose at the second call after the edge instead of the third. Programs see their timers finish one task
+  interval later than in 0.26.0 (specification 08 §5; `docs/IEC_DECISIONS.md`, 2026-10-30).
+- Lesson 58 (valve characterization) holds its last opening until 155.4 s, so its project test runs 155.5 s; its
+  figure and steady values come from a new Control Studio recording.
 - Releases follow `main`'s CI instead of a hand-pushed tag. When CI passes on a commit whose version has no complete
   release yet, the Release workflow builds and tests every target, tags that commit, publishes the GitHub release and
   the Marketplace packages, and verifies the tag, the release and the Marketplace listing of every target. A pull
@@ -24,6 +33,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `ctl restart` without its mode, a tutorial's run without its command, and 15 example and docs pages that sent
   readers to the Runtime Panel or to `Structured Text:` commands: they name Live Values, `truST:` commands and Devices
   & Connections, where the ADS commands went (specification 22).
+- Example READMEs are step-by-step walkthroughs: what you learn, what you need, numbered steps with the values a real
+  run shows, what happened and why, things to try, and a reference (specification 25 §3.5); CI checks every converted
+  README against that standard. The first is **Control Studio: PID loop**: it identifies the simulated heater, tunes a
+  PI controller for a 12 s settling time, validates it on the program, applies and restores it, and explains the model,
+  the PI law and the SIMC tuning with the numbers of the run. Its gallery description no longer promises the setup form.
 - The README shows what truST does that it left out: code from CODESYS and TwinCAT, Siemens SCL and Mitsubishi GX Works3,
   process data in seven databases through OpenOT, tasks, RETAIN and the watchdog, the simulator's scenarios and faults,
   the browser IDE and other editors, the HMI Builder itself, and operating in production (audit log, fleet rollout,
@@ -35,6 +49,36 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   site is built, the screenshots of the newest passing Docs Captures run of `main` are laid over the images; only what
   the captures wrote is taken, never the hand-made pictures. The capture refresh pull request, which had to be merged
   into each release by hand, is gone (specification 22).
+
+### Fixed
+
+- Identify waits until a loop it finds in Auto has settled before it switches the loop to Manual for a step: the measured value
+  and the controller output must both be steady by the rule of the steady baseline (for a PID group, every member's measured
+  value and output), and the wait shows its progress and can be cancelled. Before, an Identify started while the controller still moved its output (for example right after Restore) held
+  that moving output, the plant settled open loop away from the setpoint, and Apply then waited in vain for that operating
+  point while the controller held the setpoint (specification 35, B3.4).
+- Identify returns a loop it switched to Manual for a step test only once the controller output has come back to its
+  restored value. Before, the return could start while the output still moved there at its rate limit; the runtime then
+  refused it ("stale program, binding, or expected values") and the loop stayed in Manual (specification 35, B3.4).
+- Control Studio designs to the requirements you type before the first Tune. Before, the first change after Identify kept
+  every requirement marked Automatic, so Tune replaced the typed values with Automatic's own while Validate checked the
+  typed ones (specification 35, B4.3).
+- Validate on a configured simulated plant starts the controller from its declared states at the operating point, as
+  Apply does, with a startup-done flag such as `Initialized` set. Before, the program's startup code initialized the
+  controller at the new setpoint, so a PID took the setpoint step without its proportional action, answered about 5 s
+  late and failed requirements it meets (specification 35, B5.3).
+- `CTU`, `CTD` and `CTUD` are the INT counters of IEC 61131-3 Table 45: `CTU(PV := 10)` compiles, and a plain
+  counter given a DINT preset is refused when the program is compiled; it ran with a preset of 0. A DINT counter is
+  `CTU_DINT`, `CTD_DINT` or `CTUD_DINT` (specification 08 §4).
+- A `TP` pulse ignores a rising edge of `IN` while it runs, as IEC 61131-3 Figure 15 a and specification 08 have it; such
+  an edge restarted the pulse and made it longer than `PT`.
+- A statechart transition with `after` fires when its state has been active that long, counted from the scan that
+  enters the state, and a timed self-transition starts its timer again. The generated companion reset every timer
+  before running it in each scan, so such a transition never fired (specification 17 §3.2).
+- A library block inside a `RETAIN` instance keeps its own state over a warm restart and a power loss: a `TOF`'s running
+  off-delay and a `TP`'s running pulse go on, and a counter or an `R_TRIG`/`F_TRIG` whose input is TRUE at the restart
+  counts no new edge. They lost that state, so the delay or pulse ended at once and the counter counted one more
+  (specification 10 §4.8; IEC 61131-3 §6.5.2.2).
 
 ## [0.26.0] - 2026-10-30
 

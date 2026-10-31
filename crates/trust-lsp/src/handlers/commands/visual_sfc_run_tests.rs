@@ -3,10 +3,11 @@
 //! on the runtime at the entry's 20 ms. Every expected value is worked out by hand, scan by scan,
 //! from IEC 61131-3 §6.7 as `sfc-profile.md` states it: in a scan the actions run with the steps
 //! active at its start, then the transitions clear and the steps evolve, so a step entered in one
-//! scan runs its actions in the next. A timer of an action is called in every scan, and a call
-//! with `IN` TRUE adds the time since the previous call (specification 08, TON;
-//! `docs/IEC_DECISIONS.md` 2026-07-12; `crates/trust-runtime/tests/fb_timers_full.rs`): switched
-//! on in scan k, a TON has 20 ms in scan k and reaches a `PT` of n × 20 ms in scan k + n − 1.
+//! scan runs its actions in the next. A timer of an action is called in every scan: the call that
+//! samples `IN` rising gives `ET` T#0s and each later call with `IN` TRUE adds the time since the
+//! previous call (specification 08 §5; `docs/IEC_DECISIONS.md` 2026-10-30;
+//! `crates/trust-runtime/tests/fb_timers_full.rs`): switched on in scan k, a TON has 0 ms in scan
+//! k and reaches a `PT` of n × 20 ms in scan k + n.
 //!
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
@@ -351,8 +352,8 @@ fn timed_flags(run: &Run) -> [u8; 5] {
 #[test]
 fn time_related_qualifiers_limit_and_delay_by_their_duration() {
     // Figure 23 a) with T#100ms (five 20 ms scans). On is entered in scan 1 and active from
-    // scan 2, so its timers start in scan 2 and reach 100 ms in scan 6: L is TRUE in scans 2-5
-    // and FALSE from 6; D, SD and DS become TRUE in scan 6; SL is TRUE in scans 2-5. On is left in
+    // scan 2, so its timers start at 0 in scan 2 and reach 100 ms in scan 7: L is TRUE in scans 2-6
+    // and FALSE from 7; D, SD and DS become TRUE in scan 7; SL is TRUE in scans 2-6. On is left in
     // scan 8: from scan 9 L and D are FALSE, SD and DS stay TRUE (stored), SL stays FALSE. Rst,
     // entered in scan 10, resets SD, DS and SL in scan 11. Catches a delay or limit off by a scan,
     // a stored qualifier that ends with its step, and a reset that does not reach a stored timer.
@@ -376,7 +377,7 @@ fn time_related_qualifiers_limit_and_delay_by_their_duration() {
             [1, 0, 0, 0, 1],
             [1, 0, 0, 0, 1],
             [1, 0, 0, 0, 1],
-            [0, 1, 1, 1, 0],
+            [1, 0, 0, 0, 1],
             [0, 1, 1, 1, 0],
             [0, 1, 1, 1, 0],
             [0, 0, 1, 1, 0],
@@ -390,8 +391,8 @@ fn time_related_qualifiers_limit_and_delay_by_their_duration() {
 fn stored_delays_and_limits_keep_their_duration_after_the_step() {
     // On is active only in scans 2 and 3 (left in scan 3). L and D end with the step (D never
     // reached its delay). SD was stored in scan 2 and its delay of 100 ms still runs: TRUE from
-    // scan 6. DS ended before its delay and is never stored. SL was stored in scan 2 and stays
-    // TRUE until its 100 ms are reached, scans 2-5, after its step ended. Catches the literal T
+    // scan 7. DS ended before its delay and is never stored. SL was stored in scan 2 and stays
+    // TRUE until its 100 ms are reached, scans 2-6, after its step ended. Catches the literal T
     // of §6.7.4.6 (t#0s once no association is active), which would set SD in scan 4 and end SL
     // with its step (sfc-profile.md; docs/IEC_DECISIONS.md 2026-10-26).
     let mut run = Run::new("timed", TIMED);
@@ -412,7 +413,7 @@ fn stored_delays_and_limits_keep_their_duration_after_the_step() {
             [1, 0, 0, 0, 1],
             [0, 0, 0, 0, 1],
             [0, 0, 0, 0, 1],
-            [0, 0, 1, 0, 0],
+            [0, 0, 0, 0, 1],
             [0, 0, 1, 0, 0],
             [0, 0, 1, 0, 0]
         ]
@@ -422,9 +423,9 @@ fn stored_delays_and_limits_keep_their_duration_after_the_step() {
 #[test]
 fn a_timer_takes_the_duration_of_its_active_association() {
     // Lamp is limited to T#40ms in A and to T#100ms in B, with G between them, whose scans reset
-    // the timer. A is active from scan 2: its 40 ms are reached in scan 3, so Lamp is TRUE only in
-    // scan 2. B is active from scan 8: its 100 ms are reached in scan 12, so Lamp is TRUE in scans
-    // 8-11. Catches one duration for every association.
+    // the timer. A is active from scan 2: its 40 ms are reached in scan 4, so Lamp is TRUE in
+    // scans 2-3. B is active from scan 8: its 100 ms are reached in scan 13, so Lamp is TRUE in
+    // scans 8-12. Catches one duration for every association.
     let chart = r#"{
       "name": "Dur",
       "steps": [
@@ -451,7 +452,7 @@ fn a_timer_takes_the_duration_of_its_active_association() {
         run.scan();
         seen.push(u8::from(run.flag("Lamp.Q")));
     }
-    assert_eq!(seen, [0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0]);
+    assert_eq!(seen, [0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0]);
 }
 
 /// The text of the SFC example `file` of `examples/sfc`.
@@ -463,47 +464,47 @@ fn example(file: &str) -> String {
 #[test]
 fn the_simple_parallel_example_runs_both_tasks_and_joins_after_the_longer() {
     // examples/sfc/sfc_simple_parallel.sfc: Start sets `ready` in scan 1 and its transition
-    // enters TaskA and TaskB; from scan 2 ExecuteTaskA is limited to T#1s (reached in scan 51,
-    // its final scan writes `task_a_running` FALSE) and ExecuteTaskB to T#2s (reached in scan
-    // 101); the join waits for both and enters End in scan 101, whose action sets `done` in scan
-    // 102. Catches an example that does not compile (it called `log`, and used `T#1s` as a
-    // condition) or never joins.
+    // enters TaskA and TaskB; from scan 2, where their timers start at 0, ExecuteTaskA is limited
+    // to T#1s (reached in scan 52, its final scan writes `task_a_running` FALSE) and ExecuteTaskB
+    // to T#2s (reached in scan 102); the join waits for both and enters End in scan 102, whose
+    // action sets `done` in scan 103. Catches an example that does not compile (it called `log`,
+    // and used `T#1s` as a condition) or never joins.
     let steps = ["Start", "TaskA", "TaskB", "End"];
     let mut run = Run::new("sfc_simple_parallel", &example("sfc_simple_parallel.sfc"));
     run.scan();
     assert_eq!(run.active(&steps), ["TaskA", "TaskB"], "scan 1");
-    for _ in 2..=50 {
+    for _ in 2..=51 {
         run.scan();
     }
     assert!(
         run.flag("task_a_running") && run.flag("task_b_running"),
-        "scan 50"
+        "scan 51"
     );
     run.scan();
-    assert!(!run.flag("task_a_running"), "TaskA's 1 s ends in scan 51");
+    assert!(!run.flag("task_a_running"), "TaskA's 1 s ends in scan 52");
     assert_eq!(
         run.active(&steps),
         ["TaskA", "TaskB"],
-        "scan 51: the join waits"
+        "scan 52: the join waits"
     );
-    for _ in 52..=100 {
+    for _ in 53..=101 {
         run.scan();
     }
-    assert_eq!(run.active(&steps), ["TaskA", "TaskB"], "scan 100");
+    assert_eq!(run.active(&steps), ["TaskA", "TaskB"], "scan 101");
     run.scan();
-    assert_eq!(run.active(&steps), ["End"], "scan 101");
-    assert!(!run.flag("task_b_running"), "TaskB's 2 s end in scan 101");
-    assert!(!run.flag("done"), "scan 101");
+    assert_eq!(run.active(&steps), ["End"], "scan 102");
+    assert!(!run.flag("task_b_running"), "TaskB's 2 s end in scan 102");
+    assert!(!run.flag("done"), "scan 102");
     run.scan();
-    assert!(run.flag("done"), "scan 102");
+    assert!(run.flag("done"), "scan 103");
 }
 
 #[test]
 fn the_parallel_process_example_finishes_after_its_longest_branch() {
     // examples/sfc/sfc_parallel_branches_example.sfc: Init (scan 1) and Prepare (scan 2) pass at
-    // once; Heat, Mix and Polish are active from scan 3, limited to T#2s, T#3s and T#1500ms, so
-    // Polish ends in scan 77, Heat in 102 and Mix in 152, when the join enters Finish; Finish
-    // sets `process_complete` in scan 153.
+    // once; Heat, Mix and Polish are active from scan 3, where their timers start at 0, limited to
+    // T#2s, T#3s and T#1500ms, so Polish ends in scan 78, Heat in 103 and Mix in 153, when the join
+    // enters Finish; Finish sets `process_complete` in scan 154.
     let steps = ["Init", "Prepare", "Heat", "Mix", "Polish", "Finish"];
     let mut run = Run::new(
         "sfc_parallel_branches_example",
@@ -513,18 +514,18 @@ fn the_parallel_process_example_finishes_after_its_longest_branch() {
     assert_eq!(run.active(&steps), ["Prepare"], "scan 1");
     run.scan();
     assert_eq!(run.active(&steps), ["Heat", "Mix", "Polish"], "scan 2");
-    for scan in 3..=151 {
+    for scan in 3..=152 {
         run.scan();
-        assert_eq!(run.flag("polisher_on"), scan < 77, "scan {scan}");
-        assert_eq!(run.flag("heater_on"), scan < 102, "scan {scan}");
+        assert_eq!(run.flag("polisher_on"), scan < 78, "scan {scan}");
+        assert_eq!(run.flag("heater_on"), scan < 103, "scan {scan}");
         assert!(run.flag("mixer_on"), "scan {scan}");
     }
-    assert_eq!(run.active(&steps), ["Heat", "Mix", "Polish"], "scan 151");
+    assert_eq!(run.active(&steps), ["Heat", "Mix", "Polish"], "scan 152");
     run.scan();
-    assert_eq!(run.active(&steps), ["Finish"], "scan 152");
-    assert!(!run.flag("mixer_on"), "scan 152");
+    assert_eq!(run.active(&steps), ["Finish"], "scan 153");
+    assert!(!run.flag("mixer_on"), "scan 153");
     run.scan();
-    assert!(run.flag("process_complete"), "scan 153");
+    assert!(run.flag("process_complete"), "scan 154");
 }
 
 #[test]
@@ -577,24 +578,24 @@ fn steps_seen(run: &Run) -> [(i64, bool); 3] {
 fn a_step_has_its_flag_x_and_its_elapsed_time_t() {
     // IEC 61131-3 §6.7.2, Table 54 features 3a and 4 (sfc-profile.md, "Steps"): a step's timer is
     // called at the start of each scan with the step's flag and T is its ET while the step is
-    // active, so by the TON rule above a step entered in scan k reads 20 ms in scan k + 1; a
-    // timer's first call sets its baseline and adds nothing (docs/IEC_DECISIONS.md 2026-07-12), so
-    // the initial step Idle reads 0 in scan 1. T keeps its value while the step is inactive, and a
-    // step that is activated reads T#0s with its X TRUE after the scan that enters it ("When a step
-    // is activated, the value of the step elapsed time shall be reset to t#0s"); X is the step flag
-    // after the evolution. Idle reads 0, 20, 40 and is left in scan 3; Fill, entered in scan 3,
-    // reads 20 in scan 4 and 100 ms in scan 8, where its own T clears Fill -> Done; Done reads 20
-    // in scan 9 and 40 in scan 10, where it is left; Idle, entered again in scan 10, reads 0 in
-    // scan 10 and 20 ms in scan 11 while Fill and Done keep 100 and 40. Catches a T that does not
-    // start again (Idle would keep 40 or count on from it), a step entered again that shows its
-    // previous T with X TRUE (Idle's 40 in scan 10, Codex's review of 0.26.0), one that falls to 0
-    // when its step is left, a condition on T off by a scan, and an X that lags its step flag.
+    // active, so by the TON rule above a step entered in scan k reads 0 in scan k + 1 and 20 ms in
+    // scan k + 2; the initial step Idle reads 0 in scan 1. T keeps its value while the step is
+    // inactive, and a step that is activated reads T#0s with its X TRUE after the scan that enters
+    // it ("When a step is activated, the value of the step elapsed time shall be reset to t#0s");
+    // X is the step flag after the evolution. Idle reads 0, 20, 40 and is left in scan 3; Fill,
+    // entered in scan 3, reads 0 in scans 3 and 4 and 100 ms in scan 9, where its own T clears
+    // Fill -> Done; Done reads 0, 0, 20 and 40 in scans 9 to 12, where it is left; Idle, entered
+    // again in scan 12, reads 0 in scans 12 and 13 and 20 ms in scan 14 while Fill and Done keep
+    // 100 and 40. Catches a T that does not start again (Idle would keep 40 or count on from it), a
+    // step entered again that shows its previous T with X TRUE (Idle's 40 in scan 12, Codex's
+    // review of 0.26.0), one that falls to 0 when its step is left, a condition on T off by a scan,
+    // and an X that lags its step flag.
     let mut run = Run::new("steps", STEPS);
     let mut seen = Vec::new();
-    for scan in 1..=11 {
+    for scan in 1..=14 {
         match scan {
             3 => run.input("%IX0.0", true),
-            10 => {
+            12 => {
                 run.input("%IX0.0", false);
                 run.input("%IX0.1", true);
             }
@@ -609,12 +610,15 @@ fn a_step_has_its_flag_x_and_its_elapsed_time_t() {
             [(0, true), (0, false), (0, false)],
             [(20, true), (0, false), (0, false)],
             [(40, false), (0, true), (0, false)],
+            [(40, false), (0, true), (0, false)],
             [(40, false), (20, true), (0, false)],
             [(40, false), (40, true), (0, false)],
             [(40, false), (60, true), (0, false)],
             [(40, false), (80, true), (0, false)],
             [(40, false), (100, false), (0, true)],
+            [(40, false), (100, false), (0, true)],
             [(40, false), (100, false), (20, true)],
+            [(0, true), (100, false), (40, false)],
             [(0, true), (100, false), (40, false)],
             [(20, true), (100, false), (40, false)]
         ]

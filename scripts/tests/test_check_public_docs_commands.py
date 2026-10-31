@@ -58,6 +58,24 @@ class DocsCommandNamesTests(unittest.TestCase):
                 ],
             )
 
+    def test_a_gallery_title_is_a_name_the_reader_picks(self) -> None:
+        # Catches the false finding on the PID walkthrough (31 October 2026): it names the gallery's example
+        # "Control Studio: PID loop" in bold, which no command has; a title the gallery does not show still fails.
+        holder, root = root_with(
+            {
+                "examples/catalog.json": json.dumps([{"id": "studio-pid", "title": "Control Studio: PID loop"}]),
+                "examples/x/README.md": "Pick **Control Studio: PID loop**, then **Control Studio: PID loops**.\n",
+            }
+        )
+        with holder:
+            self.assertEqual(
+                check.findings(root),
+                [
+                    "examples/x/README.md:1: names the command 'Control Studio: PID loops', "
+                    "which the extension does not have"
+                ],
+            )
+
     def test_a_title_broken_over_two_lines_is_one_name(self) -> None:
         holder, root = root_with({"README.md": "run **truST: Open Devices &\nConnections** now\n"})
         with holder:

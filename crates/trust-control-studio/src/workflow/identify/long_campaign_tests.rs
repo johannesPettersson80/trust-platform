@@ -31,7 +31,7 @@ use super::test_support::{
 use super::{IdentifyOutcome, IdentifyRequest, IdentifyResult, RunEvaluator, RunPurpose};
 use crate::journal::JournalEntry;
 use crate::workflow::identify_mode::test_support::{
-    pid_tank_loop, run_with_transfers, TransferFake,
+    pid_tank_loop, run_with_transfers, Cancel, TransferFake,
 };
 
 /// The tank's measured output, by symbol.
@@ -163,7 +163,7 @@ fn an_explicit_plant_input_method_on_a_loop_in_auto_switches_to_manual_and_retur
     let journal = empty_journal(&folder);
     let explicit = pid_tank_loop("rev-1", false);
     // The fit of the campaign's record is the other tests'; the mode returns whatever the campaign gave.
-    let _ = run_with_transfers(&state, &transfers, &journal, &explicit, false);
+    let _ = run_with_transfers(&state, &transfers, &journal, &explicit, Cancel::Never);
     assert_eq!(
         transfers.events(),
         [
