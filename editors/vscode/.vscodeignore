@@ -17,6 +17,7 @@ out/test/**
 
 # NPM metadata not needed at runtime
 package-lock.json
+audit-exceptions.toml
 
 # Marketplace and social-media images: the README links them on GitHub, nothing loads them
 assets/**

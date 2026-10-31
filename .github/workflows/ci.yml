@@ -157,6 +157,8 @@ jobs:
         run: python3 -m unittest scripts.tests.test_release_workflow scripts.tests.test_release_plan -v
       - name: Guard the docs' command and setting names
         run: python3 -m unittest scripts.tests.test_check_public_docs_commands -v
+      - name: Guard the dependency audit policy
+        run: python3 -m unittest scripts.tests.test_check_npm_audit scripts.release_claim_contract_tests -v
       - name: Guard the docs screenshots
         run: python3 -m unittest scripts.tests.test_docs_captures_artifact scripts.tests.test_docs_captures_workflow -v
       - name: Guard workspace integration-test binary paths
@@ -741,7 +743,8 @@ jobs:
           wasm-pack --version
       - run: npm ci
       - name: Audit VS Code dependency lockfile
-        run: npm audit --audit-level=low
+        # Every advisory needs an owned exception in audit-exceptions.toml (specification 24).
+        run: python3 ../../scripts/check_npm_audit.py
       - run: npm run lint
       - run: npm run compile
       - name: Build VS Code integration test binaries

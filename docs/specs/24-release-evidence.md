@@ -39,8 +39,13 @@ Every ignored dependency advisory has a stable identifier, owner, rationale,
 removal condition, review date, and expiry date. Expiry must be no more than 90
 days after review. Missing, expired, or overlong exceptions fail the supply
 chain check. The Rust workspace runs the owned-exception policy with
-`cargo-deny` and `cargo-audit`; the VS Code lockfile must pass `npm audit` at
-the configured release threshold without an unowned exception.
+`cargo-deny` and `cargo-audit`. The VS Code lockfile runs the same policy:
+every advisory `npm audit` reports, at any severity, needs an owned exception
+in `editors/vscode/audit-exceptions.toml`, with the same fields and limit and
+the advisory's GitHub id. `scripts/check_npm_audit.py` checks it in CI, in the
+release build and in the release guard's dependency audit; an advisory without
+an owned exception fails, and an exception whose advisory npm no longer reports
+is named for removal.
 
 ## Vendored Dependency Provenance
 
