@@ -42,6 +42,14 @@ def _require(text: str, fragments: list[str], label: str) -> None:
         raise ReleaseEvidenceError(f"{label} missing reviewed fragments: {missing}")
 
 
+def _release_steps() -> str:
+    """The Release workflow with the steps of the `release-files` action, through which its Rehearse and Publish
+    jobs write the release's files."""
+    workflow = _text(".github/workflows/release.yml")
+    _require(workflow, ["uses: ./.github/actions/release-files"], "release files wiring")
+    return workflow + _text(".github/actions/release-files/action.yml")
+
+
 def audit_platform_matrix() -> dict[str, Any]:
     release = _text(".github/workflows/release.yml")
     ci = _text(".github/workflows/ci.yml")
@@ -109,7 +117,7 @@ def audit_hardware_claims() -> dict[str, Any]:
 
 def audit_conformance_publication() -> dict[str, Any]:
     generator = _text("scripts/generate_conformance_status.py")
-    workflow = _text(".github/workflows/release.yml")
+    workflow = _release_steps()
     _require(
         generator,
         ["commit", "toolchain", "timestamp", "known_gaps", "executed", "passed", "failed"],
@@ -197,7 +205,7 @@ def audit_vsix() -> dict[str, Any]:
 
 
 def audit_artifact_provenance() -> dict[str, Any]:
-    workflow = _text(".github/workflows/release.yml")
+    workflow = _release_steps()
     generator = _text("scripts/generate_release_provenance.py")
     _require(
         workflow,
