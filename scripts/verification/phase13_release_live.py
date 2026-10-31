@@ -176,7 +176,7 @@ def build_live_phase13_state(
                 "cargo audit --deny warnings",
             )
         ),
-        "npm_audit_configured": "npm audit --audit-level=low" in ci_text + release_text,
+        "npm_audit_configured": "scripts/check_npm_audit.py" in ci_text + release_text,
         "rust_commands": list(policy["rust_commands"]),
         "node_commands": list(policy["node_commands"]),
         "gate_execution_claimed": False,

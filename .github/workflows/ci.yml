@@ -141,6 +141,8 @@ jobs:
         run: python3 -m unittest scripts.tests.test_extract_changelog_section -v
       - name: Guard the release rehearsal
         run: python3 -m unittest scripts.tests.test_release_rehearsal -v
+      - name: Guard the dependency audit policy
+        run: python3 -m unittest scripts.tests.test_check_npm_audit scripts.release_claim_contract_tests -v
       - name: Guard workspace integration-test binary paths
         run: python3 ./scripts/runtime_test_binary_path_contract_tests.py
       - run: cargo fmt --all -- --check
@@ -723,7 +725,8 @@ jobs:
           wasm-pack --version
       - run: npm ci
       - name: Audit VS Code dependency lockfile
-        run: npm audit --audit-level=low
+        # Every advisory needs an owned exception in audit-exceptions.toml (specification 24).
+        run: python3 ../../scripts/check_npm_audit.py
       - run: npm run lint
       - run: npm run compile
       - name: Build VS Code integration test binaries

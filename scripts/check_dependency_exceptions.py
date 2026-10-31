@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Validate cargo-deny advisory exceptions against the 90-day policy."""
+"""Validate owned dependency advisory exceptions against the 90-day policy (specification 24, "Dependency
+Exceptions"): cargo-deny's in `deny.toml`, and npm's in `editors/vscode/audit-exceptions.toml`, which keeps the same
+format with GitHub advisory ids."""
 
 from __future__ import annotations
 
@@ -25,9 +27,12 @@ except ModuleNotFoundError:  # Direct `python scripts/...` execution.
 
 
 REASON_FIELDS = ("owner", "rationale", "review", "removal", "expires")
+# The advisory ids each file names: RustSec's in deny.toml, GitHub's in the npm exceptions.
+RUSTSEC_ID = r"RUSTSEC-\d{4}-\d{4}"
+GHSA_ID = r"GHSA(-[23456789cfghjmpqrvwx]{4}){3}"
 
 
-def parse_reason(advisory_id: str, reason: str) -> DependencyException:
+def parse_reason(advisory_id: str, reason: str, id_pattern: str = RUSTSEC_ID) -> DependencyException:
     fields: dict[str, str] = {}
     for part in reason.split(";"):
         key, separator, value = part.strip().partition("=")
@@ -38,7 +43,7 @@ def parse_reason(advisory_id: str, reason: str) -> DependencyException:
         raise ReleaseEvidenceError(
             f"dependency exception {advisory_id} missing fields: {', '.join(missing)}"
         )
-    if not re.fullmatch(r"RUSTSEC-\d{4}-\d{4}", advisory_id):
+    if not re.fullmatch(id_pattern, advisory_id):
         raise ReleaseEvidenceError(f"invalid advisory id {advisory_id!r}")
     try:
         reviewed = date.fromisoformat(fields["review"])
@@ -57,7 +62,7 @@ def parse_reason(advisory_id: str, reason: str) -> DependencyException:
     )
 
 
-def validate_file(path: Path, *, today: date) -> list[DependencyException]:
+def validate_file(path: Path, *, today: date, id_pattern: str = RUSTSEC_ID) -> list[DependencyException]:
     data = tomllib.loads(path.read_text(encoding="utf-8"))
     entries = data.get("advisories", {}).get("ignore", [])
     if not isinstance(entries, list):
@@ -76,7 +81,7 @@ def validate_file(path: Path, *, today: date) -> list[DependencyException]:
         if advisory_id in seen:
             raise ReleaseEvidenceError(f"duplicate dependency exception {advisory_id}")
         seen.add(advisory_id)
-        exception = parse_reason(advisory_id, reason)
+        exception = parse_reason(advisory_id, reason, id_pattern)
         validate_dependency_exception(exception)
         if exception.expires is not None and exception.expires < today:
             raise ReleaseEvidenceError(

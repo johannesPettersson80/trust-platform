@@ -39,7 +39,7 @@
         "exception_expiry_required": { "const": true },
         "maximum_exception_days": { "const": 90 },
         "rust_commands": { "type": "array", "minItems": 3, "maxItems": 3, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
-        "node_commands": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "const": "npm audit --audit-level=low" } }
+        "node_commands": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "const": "python3 scripts/check_npm_audit.py" } }
       }
     },
     "public_snapshot": {

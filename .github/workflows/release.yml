@@ -379,8 +379,11 @@ jobs:
         run: npm ci
 
       - name: Audit VS Code dependency lockfile
+        # Every advisory needs an owned exception in audit-exceptions.toml (specification 24). The audit reads the
+        # lockfile alone, so the Linux builds run it for every target.
+        if: runner.os == 'Linux'
         working-directory: editors/vscode
-        run: npm audit --audit-level=low
+        run: python3 ../../scripts/check_npm_audit.py
 
       - name: Compile extension
         working-directory: editors/vscode

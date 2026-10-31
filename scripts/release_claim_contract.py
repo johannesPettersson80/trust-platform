@@ -13,9 +13,11 @@ from pathlib import Path
 from typing import Any, Callable
 
 try:
+    from scripts import check_npm_audit
     from scripts.check_dependency_exceptions import validate_file
     from scripts.release_evidence_contract import ReleaseEvidenceError
 except ModuleNotFoundError:  # Direct `python scripts/...` execution.
+    import check_npm_audit  # type: ignore[no-redef]
     from check_dependency_exceptions import validate_file  # type: ignore[no-redef]
     from release_evidence_contract import ReleaseEvidenceError  # type: ignore[no-redef]
 
@@ -38,10 +40,6 @@ def _require(text: str, fragments: list[str], label: str) -> None:
     missing = [fragment for fragment in fragments if fragment not in text]
     if missing:
         raise ReleaseEvidenceError(f"{label} missing reviewed fragments: {missing}")
-
-
-def _npm_program() -> str:
-    return "npm.cmd" if sys.platform == "win32" else "npm"
 
 
 def audit_platform_matrix() -> dict[str, Any]:
@@ -216,31 +214,19 @@ def audit_artifact_provenance() -> dict[str, Any]:
 
 def audit_dependency_policy() -> dict[str, Any]:
     rows = validate_file(ROOT / "deny.toml", today=date_from_environment())
-    _require(
-        _text(".github/workflows/ci.yml") + _text(".github/workflows/release.yml"),
-        ["npm audit --audit-level=low"],
-        "VS Code dependency audit wiring",
+    for workflow in (".github/workflows/ci.yml", ".github/workflows/release.yml"):
+        _require(_text(workflow), ["scripts/check_npm_audit.py"], f"VS Code dependency audit wiring in {workflow}")
+    # The VS Code lockfile follows the same owned-exception policy (specification 24, "Dependency Exceptions").
+    unowned, _stale, owned = check_npm_audit.findings(
+        check_npm_audit.run_audit(ROOT), ROOT, date_from_environment()
     )
-    audit = subprocess.run(
-        [_npm_program(), "audit", "--json", "--audit-level=low"],
-        cwd=ROOT / "editors/vscode",
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    try:
-        payload = json.loads(audit.stdout)
-        vulnerability_count = int(payload["metadata"]["vulnerabilities"]["total"])
-    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
-        raise ReleaseEvidenceError(f"npm audit did not return its closed JSON summary: {exc}")
-    if audit.returncode != 0 or vulnerability_count != 0:
-        raise ReleaseEvidenceError(
-            f"VS Code dependency audit found {vulnerability_count} vulnerabilities"
-        )
+    if unowned:
+        raise ReleaseEvidenceError("VS Code dependency audit: " + "; ".join(unowned))
     return {
         "rust_exceptions": len(rows),
+        "vscode_exceptions": owned,
         "max_days": 90,
-        "vscode_vulnerabilities": vulnerability_count,
+        "vscode_unowned_advisories": 0,
     }
 
 
