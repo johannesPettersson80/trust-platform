@@ -6,6 +6,40 @@ Authoritative location:
 
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
+## 2026-10-30 - Standard timers start at the edge call; a running TP pulse ignores edges
+
+- Area: TP, TON, TOF and their TIME and LTIME forms (`crates/trust-plc-lib/src/timers.rs`,
+  `docs/specs/08-standard-function-blocks.md` section 5)
+- IEC context: IEC 61131-3 Ed.3 section 6.6.3.5.5 defines the timers by the continuous-time
+  diagrams of Figure 15: TON's Q rises PT after IN rises, TOF's Q falls PT after IN falls, and
+  TP's Q is TRUE for PT from a rising edge of IN, unaffected by IN changing while the pulse runs
+  (Figure 15 a, IN toggling between t2 and t2+PT). The standard does not say which call of a
+  cyclic program is the instant of the edge.
+- Decision (owner, 26 October 2026: TON, TP and TOF time as CODESYS and TwinCAT do; supersedes
+  the edge-call part of 2026-07-12):
+  - The executed call that samples the starting edge (TON and TP: IN FALSE to TRUE; TOF: IN TRUE
+    to FALSE) starts timing at that call's task time and returns ET = T#0s. Each later executed
+    call while timing adds the task time since the previous executed call, so ET is the task time
+    since the starting call, at most PT.
+  - Q changes on the first executed call whose ET reaches PT. With PT zero or below, that is the
+    starting call: TON's Q is TRUE and TOF's Q FALSE at once, and TP's zero-length pulse leaves Q
+    FALSE.
+  - A TP pulse runs PT from its starting call. A FALSE-to-TRUE call while it runs neither restarts
+    nor extends it; after it ends, the first FALSE-to-TRUE call that follows a call sampling IN
+    FALSE starts the next pulse.
+  - The rest of 2026-07-12 holds: the first call contributes no time, PT is sampled on every call,
+    a skipped call's interval counts at the next executed call, a clock that does not advance or
+    moves back contributes nothing, restarts reinitialize non-retained instances, and TIME and
+    LTIME share one state machine.
+  - A library block kept over a warm restart or a power loss (a `RETAIN` instance's tree,
+    specification 10 §4.8) keeps its edge memory (`__PREV_IN`) with its inputs, and a `TOF`'s
+    running delay and a `TP`'s running pulse; only the time baseline starts over. A retained `TON`
+    with IN held TRUE therefore keeps counting instead of seeing a new edge.
+- Reason:
+  - Measured from the call before its edge, a TON reached PT one call earlier than in CODESYS and
+    TwinCAT, so a program moved from them changed its timing by one task interval.
+  - A restarted TP lengthened a pulse that Figure 15 a and specification 08 keep at PT.
+
 ## 2026-10-26 - Action control of the visual SFC companion
 
 - Area: the Structured Text companion of a visual SFC (`docs/specs/sfc-profile.md`, "Execution
@@ -531,6 +565,9 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
   - If the runtime clock does not advance or moves backward, that call contributes zero elapsed time and establishes the new clock baseline for the next call.
   - Warm and cold restart reinitialize non-retained timer instances, including `Q`, `ET`, edge state, and the elapsed-time baseline. An in-process restart preserves the runtime's current monotonic time and establishes each new timer and task baseline at that value; only construction of a new runtime starts a new zero-based time epoch. The first executed timer call after restart therefore contributes zero elapsed time without rewinding the runtime clock. Retained function-block instance storage is a separate runtime-retention concern and is neither asserted nor changed by this timer vertical.
   - A TP pulse is not cancelled by a sampled falling input. A new sampled FALSE-to-TRUE edge starts a new PT interval; the first timer proof keeps IN high through expiry and makes no retrigger or short-input assertion.
+  - Superseded in part by 2026-10-30: the call that samples the starting edge returns ET = T#0s
+    instead of the time since the previous call, and a FALSE-to-TRUE call while a TP pulse runs
+    does not restart it.
   - TIME and LTIME variants use the same state transitions and clock source; `PT` and `ET` retain the variant's duration type.
 - Reason:
   - Scan-boundary observation makes the IEC timing diagrams deterministic in a cyclic runtime while exposing implementation-owned boundaries explicitly.

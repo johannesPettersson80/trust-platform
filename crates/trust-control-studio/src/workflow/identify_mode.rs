@@ -1,6 +1,7 @@
 //! Identify's mode change (`ConnectedIdentificationMode` of `connectedIdentificationMode.ts`; specification 35, A6.2, A8.5, A8.6
 //! and B3.4 step 1; runtime protocol annex E6, E11.2, E11.4 and E11.9). A method that needs the other controller mode enters it
-//! through a transfer that holds the present output, and the loop returns to the mode it was found in when the campaign ends,
+//! through a transfer that holds the present output, a loop found in Auto once it rests there (`identify_rest`), and the loop
+//! returns to the mode it was found in when the campaign ends,
 //! fails or is cancelled, and after a restart of the engine from the journal. The mode found is journaled as the mode checkpoint
 //! before the first transfer is dispatched, and the owner of each transfer is retained in that checkpoint before its apply is
 //! sent, so that an interrupted transfer is reconciled by its identity and never applied again (E11.2, E11.4).
@@ -31,6 +32,7 @@ use trust_control::runtime::RuntimeConnection;
 use crate::journal::{Journal, JournalEntry};
 use crate::runtime_client::transfers::{TransferOwnerSink, TransferSession, TransferWrite};
 use crate::runtime_client::{new_transaction_id, RuntimeClient};
+use crate::workflow::identify_rest::RestWait;
 
 /// The mode change of one identification (`ConnectedIdentificationMode`): the loop, the runtime it transfers on, the loop's
 /// journal, the mode binding, the mode checkpoint it holds, and the measured noise that a return to Auto allows for.
@@ -87,13 +89,35 @@ impl<'a> IdentificationMode<'a> {
     /// fit its member; the journal cannot be written; or the runtime refuses or does not confirm the transfer. A checkpoint
     /// journaled before the failure stays held and journaled, so that [`Self::restore`] returns the mode.
     pub fn enter(&mut self, manual: bool) -> Result<(), Failure> {
+        self.enter_from(manual, None)
+    }
+
+    /// Moves the loop to the mode a method needs, as [`Self::enter`] does; a loop found in Auto that a Manual method takes to
+    /// Manual first rests, read by `rest` until its measured outputs and the outputs the transfer holds are all steady (B3.4
+    /// step 1). The transfer then holds the output at which the controller keeps the loop, so the baseline after it lies at the
+    /// reference. The wait writes nothing.
+    ///
+    /// # Errors
+    /// As [`Self::enter`], and the wait's: a cancel, a reading without the runtime's clock or a finite value, a loop still moving
+    /// after the baseline's budget, or a runtime that stopped answering.
+    pub fn enter_at_rest(&mut self, manual: bool, rest: &mut RestWait<'_>) -> Result<(), Failure> {
+        self.enter_from(manual, Some(rest))
+    }
+
+    /// The entry of [`Self::enter`] and [`Self::enter_at_rest`].
+    fn enter_from(&mut self, manual: bool, rest: Option<&mut RestWait<'_>>) -> Result<(), Failure> {
         if self.held.is_some() {
             self.restore()?;
         }
         let mut client = RuntimeClient::connect(&self.connection)?;
-        let status = read_status(&mut client, &self.binding)?;
+        let mut status = read_status(&mut client, &self.binding)?;
         if in_mode(&self.binding, &status, manual) {
             return Ok(());
+        }
+        // The loop is in Auto: it rests before the transfer holds its output (B3.4 step 1).
+        if manual && let Some(rest) = rest {
+            let binding = &self.binding;
+            status = rest.wait(binding, &mut || read_status(&mut client, binding))?;
         }
         let write = mode_write(
             self.loop_definition,

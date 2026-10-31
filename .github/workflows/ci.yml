@@ -157,6 +157,9 @@ jobs:
         run: python3 -m unittest scripts.tests.test_release_workflow scripts.tests.test_release_plan -v
       - name: Guard the docs' command and setting names
         run: python3 -m unittest scripts.tests.test_check_public_docs_commands -v
+      - name: Guard the example walkthroughs
+        # Every example README teaches one thing, step by step (specification 25 §3.5).
+        run: python3 -m unittest scripts.tests.test_check_example_readmes -v
       - name: Guard the dependency audit policy
         run: python3 -m unittest scripts.tests.test_check_npm_audit scripts.release_claim_contract_tests -v
       - name: Guard the docs screenshots

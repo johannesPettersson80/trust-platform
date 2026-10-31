@@ -7,7 +7,7 @@ use super::*;
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
 
-struct Gallery(PathBuf);
+pub(super) struct Gallery(pub(super) PathBuf);
 
 impl Gallery {
     fn new(manifest: &str) -> Self {
@@ -36,6 +36,33 @@ impl Gallery {
 impl Drop for Gallery {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+/// The gallery the extension packages: its build copies each entry of `examples/catalog.json` and
+/// writes the catalog as `manifest.json` (`editors/vscode/scripts/build-examples.js`).
+pub(super) fn packaged_gallery() -> Gallery {
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
+    let catalog = std::fs::read_to_string(examples.join("catalog.json")).expect("the catalog");
+    let gallery = Gallery::new(&catalog);
+    let entries: Vec<Value> = serde_json::from_str(&catalog).expect("the catalog's JSON");
+    for entry in &entries {
+        let path = entry["path"].as_str().expect("an entry's path");
+        copy_folder(&examples.join(path), &gallery.0.join(path));
+    }
+    gallery
+}
+
+fn copy_folder(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).expect("a folder");
+    for item in std::fs::read_dir(from).expect("the example's folder") {
+        let item = item.expect("a folder entry");
+        let target = to.join(item.file_name());
+        if item.file_type().expect("its type").is_dir() {
+            copy_folder(&item.path(), &target);
+        } else {
+            std::fs::copy(item.path(), &target).expect("a copy");
+        }
     }
 }
 
@@ -198,8 +225,8 @@ fn progress_keeps_every_listed_lesson_and_drops_ids_the_gallery_no_longer_lists(
 fn every_lesson_of_the_packaged_gallery_can_be_copied() {
     // The VS Code extension's packaged gallery: 101 entries, of which the 89 course lessons hold
     // their complete contracts. Catches: a shipped lesson the gallery would show as unavailable.
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../editors/vscode/media/examples");
-    let answer = catalog_answer(json!({ "root": root })).expect("the gallery loads");
+    let gallery = packaged_gallery();
+    let answer = catalog_answer(json!({ "root": gallery.0 })).expect("the gallery loads");
     let entries = answer["entries"].as_array().expect("entries");
     let lessons: Vec<&Value> = entries
         .iter()

@@ -135,6 +135,9 @@ struct World {
     transactions: BTreeMap<String, Value>,
     log: Vec<String>,
     journal: Option<PathBuf>,
+    /// The runtime's clock in ms, which each status moves on by one 100 ms task period, as a runtime scanning in real time between
+    /// two reads would report it (annex E6.3).
+    runtime_ms: u64,
 }
 
 impl World {
@@ -161,8 +164,10 @@ impl World {
         Value::Object(values)
     }
 
-    /// The answer to `control.transfer.status` (annex E6.3): the values of `binding`, and the last transaction of its loop.
-    fn status(&self, binding: &TransferBinding) -> Value {
+    /// The answer to `control.transfer.status` (annex E6.3): the values of `binding`, the runtime's clock of the reported scan, and
+    /// the last transaction of its loop.
+    fn status(&mut self, binding: &TransferBinding) -> Value {
+        self.runtime_ms += 100;
         let transaction = self
             .transactions
             .get(&binding.loop_id)
@@ -177,6 +182,7 @@ impl World {
             "program_revision": self.program_revision,
             "binding_revision": binding_revision(&binding.loop_id),
             "values": self.values_of(binding),
+            "runtime_time_ns": self.runtime_ms * 1_000_000,
             "status": state,
             "reason": null,
             "transaction": transaction
@@ -336,6 +342,7 @@ impl TransferFake {
             transactions: BTreeMap::new(),
             log: Vec::new(),
             journal: None,
+            runtime_ms: 1_000,
         }));
         let served = Arc::clone(&world);
         let endpoint = ControlEndpoint::start(move |request| handle(&served, request));
@@ -503,26 +510,39 @@ impl RecordingRetention for LoggedStudy<'_> {
     }
 }
 
-/// The operation of a run with transfers: its progress reaches the transfer fake's log, and it is cancelled from the start when
-/// the test says so (the engineer's Cancel).
+/// When the engineer's Cancel comes in a run with transfers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Cancel {
+    /// The run is not cancelled.
+    Never,
+    /// The run is cancelled from the start: while Identify waits for a loop found in Auto to rest, before its mode change
+    /// (B3.4 step 1).
+    FromTheStart,
+    /// The run is cancelled once the loop is in Manual: after Identify's mode change, before anything is recorded.
+    OnceInManual,
+}
+
+/// The operation of a run with transfers: its progress reaches the transfer fake's log, and it is cancelled as `cancel` says
+/// (the engineer's Cancel).
 pub(crate) struct LoggedReport<'f> {
     transfers: &'f TransferFake,
-    cancelled: bool,
+    cancel: Cancel,
 }
 
 impl<'f> LoggedReport<'f> {
-    /// The operation logging into `transfers`, cancelled when `cancelled` says so.
-    pub(crate) fn new(transfers: &'f TransferFake, cancelled: bool) -> Self {
-        Self {
-            transfers,
-            cancelled,
-        }
+    /// The operation logging into `transfers`, cancelled as `cancel` says.
+    pub(crate) fn new(transfers: &'f TransferFake, cancel: Cancel) -> Self {
+        Self { transfers, cancel }
     }
 }
 
 impl CampaignReport for LoggedReport<'_> {
     fn is_cancelled(&self) -> bool {
-        self.cancelled
+        match self.cancel {
+            Cancel::Never => false,
+            Cancel::FromTheStart => true,
+            Cancel::OnceInManual => !self.transfers.auto(),
+        }
     }
 
     fn progress(&self, text: &str) {
@@ -532,17 +552,17 @@ impl CampaignReport for LoggedReport<'_> {
 
 /// Runs one connected identification of `loop_definition` (`ConnectedIdentification.run`) on the experiment fake `state` and
 /// the transfer fake `transfers`, journaled in `journal`, with the loop's sample in the mode the transfer fake holds. The
-/// operation is cancelled from the start when `cancelled` says so.
+/// operation is cancelled as `cancel` says.
 pub(crate) fn run_with_transfers(
     state: &Arc<FakeState>,
     transfers: &TransferFake,
     journal: &Mutex<Journal>,
     loop_definition: &LoopDefinition,
-    cancelled: bool,
+    cancel: Cancel,
 ) -> Result<IdentifyOutcome<Verdict>, Failure> {
     let runtime = ModeRuntime::new(state, transfers);
     let clock = FakeClock::new(state);
-    let report = LoggedReport::new(transfers, cancelled);
+    let report = LoggedReport::new(transfers, cancel);
     let mut sampler = ModeSampler { transfers };
     let mut study = LoggedStudy::new(state, transfers);
     let request = IdentifyRequest {

@@ -17,7 +17,7 @@ use crate::validation::engineer_verification_campaign::engineer_verification_cam
 
 /// Lesson 84 as the shipped file declares it.
 const LESSON_84: &str = include_str!(
-    "../../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/control-loop.json"
+    "../../../../examples/control/14-integrated-capstones/84-independent/control-loop.json"
 );
 
 /// The sentence a refusal shows in full: its detail when it says more than its first sentence.

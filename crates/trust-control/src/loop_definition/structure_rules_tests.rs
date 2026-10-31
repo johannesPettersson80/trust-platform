@@ -8,7 +8,7 @@ use super::*;
 
 /// Lesson 69's LQR loop (C4): a state-feedback law of the project's design over its `P1.K1`, `P1.K2` and `P1.N` record.
 const LESSON_69_LOOP: &str = include_str!(
-    "../../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/69-lqr/control-loop.json"
+    "../../../../examples/control/11-state-space-estimation-and-predictive-control/69-lqr/control-loop.json"
 );
 
 fn refused(value: &Value) -> String {

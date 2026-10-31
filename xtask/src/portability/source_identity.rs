@@ -471,7 +471,7 @@ mod tests {
             "docs/diagrams/manifest.json.backup",
             "docs/specs/34-runtime-portability.md",
             "crates/trust-runtime/src/web/ui/assets/ide-monaco.20260215.js",
-            "editors/vscode/media/stateChartWebview.js",
+            "editors/vscode/src/extension.ts",
             "AGENTS.md",
         ] {
             assert!(!generated(path));

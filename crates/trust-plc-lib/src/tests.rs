@@ -463,8 +463,29 @@ fn ton_delays_the_rise() {
     assert_eq!(step(170, true), (1, 0));
 }
 
-/// `TOF` with `PT` T#30ms: the time from the last call with `IN` TRUE counts, `Q` falls when 30 ms
-/// have passed with `IN` FALSE and `ET` stays at `PT`.
+/// `TON` with `PT` T#30ms on a 10 ms task (specification 08 §5; `docs/IEC_DECISIONS.md`
+/// 2026-10-30): the call that samples the rising edge returns `ET` T#0s and each later call adds
+/// 10 ms, so `Q` rises at 40 ms, the third call after the edge, as in CODESYS and `TwinCAT`. Catches
+/// the former rule, which counted the 10 ms before the edge and raised `Q` at 30 ms.
+#[test]
+fn ton_starts_at_zero_on_the_edge_call() {
+    let timer = Ton::ZEROED;
+    timer.PT.set(30 * MS);
+    let step = |now: i64, input: bool| {
+        timer.IN.set(u8::from(input));
+        ton(&timer, now * MS);
+        (timer.Q.get(), timer.ET.get() / MS)
+    };
+    assert_eq!(step(0, false), (0, 0));
+    assert_eq!(step(10, true), (0, 0), "the edge call starts at 0");
+    assert_eq!(step(20, true), (0, 10));
+    assert_eq!(step(30, true), (0, 20), "not yet: 20 ms since the edge");
+    assert_eq!(step(40, true), (1, 30));
+}
+
+/// `TOF` with `PT` T#30ms: the call that samples `IN` FALSE starts at `ET` T#0s (specification 08
+/// §5), `Q` falls when 30 ms have passed since that call and `ET` stays at `PT`. Catches the former
+/// rule, which counted the 10 ms before the falling-edge call.
 #[test]
 fn tof_delays_the_fall() {
     let timer = Tof::ZEROED;
@@ -475,8 +496,8 @@ fn tof_delays_the_fall() {
         (timer.Q.get(), timer.ET.get() / MS)
     };
     assert_eq!(step(0, true), (1, 0));
-    assert_eq!(step(10, false), (1, 10));
-    assert_eq!(step(20, false), (1, 20));
+    assert_eq!(step(10, false), (1, 0), "the falling-edge call starts at 0");
+    assert_eq!(step(20, false), (1, 10));
     assert_eq!(step(40, false), (0, 30));
     assert_eq!(step(50, false), (0, 30));
     assert_eq!(step(60, true), (1, 0));
@@ -497,6 +518,33 @@ fn tp_makes_a_pulse() {
     assert_eq!(step(10, false), (1, 10));
     assert_eq!(step(40, false), (0, 30));
     assert_eq!(step(50, false), (0, 0));
+}
+
+/// `TP` with `PT` T#30ms (specification 08 §5; IEC 61131-3 Figure 15 a): a rising edge while the
+/// pulse runs neither restarts nor extends it, so the pulse started at 0 ms ends at 30 ms; `ET`
+/// stays at `PT` while `IN` stays TRUE; the next rising edge starts a pulse at `ET` T#0s. Catches a
+/// retriggered pulse, which ran until 50 ms, and an edge call that counted the time before it.
+#[test]
+fn tp_ignores_edges_while_its_pulse_runs() {
+    let timer = Tp::ZEROED;
+    timer.PT.set(30 * MS);
+    let step = |now: i64, input: bool| {
+        timer.IN.set(u8::from(input));
+        tp(&timer, now * MS);
+        (timer.Q.get(), timer.ET.get() / MS)
+    };
+    assert_eq!(step(0, true), (1, 0));
+    assert_eq!(step(10, false), (1, 10));
+    assert_eq!(
+        step(20, true),
+        (1, 20),
+        "an edge during the pulse does not restart it"
+    );
+    assert_eq!(step(30, true), (0, 30), "the pulse ends PT after its start");
+    assert_eq!(step(40, true), (0, 30));
+    assert_eq!(step(50, false), (0, 0));
+    assert_eq!(step(60, true), (1, 0), "the next edge call starts at 0");
+    assert_eq!(step(70, true), (1, 10));
 }
 
 /// `R_TRIG` gives one TRUE on a rising `CLK`; `F_TRIG` gives TRUE at its first call with `CLK`
@@ -542,6 +590,8 @@ fn function_blocks_lie_in_declaration_order() {
     assert_eq!(core::mem::offset_of!(Ton, PT), 8);
     assert_eq!(core::mem::offset_of!(Ton, Q), 16);
     assert_eq!(core::mem::offset_of!(Ton, ET), 24);
+    // The hidden state: LAST at 32, CALLED at 40, PREV_IN at 41 in CALLED's padding.
+    assert_eq!(core::mem::offset_of!(Ton, PREV_IN), 41);
     assert_eq!(core::mem::size_of::<Ton>(), 48);
     assert_eq!(core::mem::size_of::<RTrig>(), 3);
     let trigger = RTrig::ZEROED;

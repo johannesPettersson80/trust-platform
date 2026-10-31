@@ -81,6 +81,29 @@ fn timer_variants() {
     harness.set_input("in_ton_l", true);
     harness.set_input("in_tof_l", true);
     harness.set_input("in_tp_l", true);
+    // t = 5 ms, the rising edge: the edge call starts TON and TP at ET 0 (specification 08 §5).
+    harness.advance_time(Duration::from_millis(5));
+    harness.cycle();
+    harness.assert_eq("q_ton", Value::Bool(false));
+    harness.assert_eq("et_ton", Value::Time(Duration::ZERO));
+    harness.assert_eq("q_tof", Value::Bool(true));
+    harness.assert_eq("et_tof", Value::Time(Duration::ZERO));
+    harness.assert_eq("q_tp", Value::Bool(true));
+    harness.assert_eq("et_tp", Value::Time(Duration::ZERO));
+    harness.assert_eq("q_ton_t", Value::Bool(false));
+    harness.assert_eq("et_ton_t", Value::Time(Duration::ZERO));
+    harness.assert_eq("q_tof_t", Value::Bool(true));
+    harness.assert_eq("et_tof_t", Value::Time(Duration::ZERO));
+    harness.assert_eq("q_tp_t", Value::Bool(true));
+    harness.assert_eq("et_tp_t", Value::Time(Duration::ZERO));
+    harness.assert_eq("q_ton_l", Value::Bool(false));
+    harness.assert_eq("et_ton_l", Value::LTime(Duration::ZERO));
+    harness.assert_eq("q_tof_l", Value::Bool(true));
+    harness.assert_eq("et_tof_l", Value::LTime(Duration::ZERO));
+    harness.assert_eq("q_tp_l", Value::Bool(true));
+    harness.assert_eq("et_tp_l", Value::LTime(Duration::ZERO));
+
+    // t = 10 ms, 5 ms since the edge: TON below PT, the TP pulse runs.
     harness.advance_time(Duration::from_millis(5));
     harness.cycle();
     harness.assert_eq("q_ton", Value::Bool(false));
@@ -102,48 +125,38 @@ fn timer_variants() {
     harness.assert_eq("q_tp_l", Value::Bool(true));
     harness.assert_eq("et_tp_l", Value::LTime(Duration::from_millis(5)));
 
-    harness.advance_time(Duration::from_millis(5));
-    harness.cycle();
-    harness.assert_eq("q_ton", Value::Bool(true));
-    harness.assert_eq("et_ton", Value::Time(Duration::from_millis(10)));
-    harness.assert_eq("q_tof", Value::Bool(true));
-    harness.assert_eq("et_tof", Value::Time(Duration::ZERO));
-    harness.assert_eq("q_tp", Value::Bool(false));
-    harness.assert_eq("et_tp", Value::Time(Duration::from_millis(10)));
-    harness.assert_eq("q_ton_t", Value::Bool(true));
-    harness.assert_eq("et_ton_t", Value::Time(Duration::from_millis(10)));
-    harness.assert_eq("q_tof_t", Value::Bool(true));
-    harness.assert_eq("et_tof_t", Value::Time(Duration::ZERO));
-    harness.assert_eq("q_tp_t", Value::Bool(false));
-    harness.assert_eq("et_tp_t", Value::Time(Duration::from_millis(10)));
-    harness.assert_eq("q_ton_l", Value::Bool(true));
-    harness.assert_eq("et_ton_l", Value::LTime(Duration::from_millis(10)));
-    harness.assert_eq("q_tof_l", Value::Bool(true));
-    harness.assert_eq("et_tof_l", Value::LTime(Duration::ZERO));
-    harness.assert_eq("q_tp_l", Value::Bool(false));
-    harness.assert_eq("et_tp_l", Value::LTime(Duration::from_millis(10)));
-
     harness.set_input("in_ton", false);
     harness.set_input("in_tof", false);
     harness.set_input("in_tp", false);
     harness.set_input("in_ton_l", false);
     harness.set_input("in_tof_l", false);
     harness.set_input("in_tp_l", false);
+    // t = 15 ms, the falling edge: TON resets, the TOF delay starts at ET 0, and the TP pulse ends
+    // on this call, 10 ms after its edge, keeping ET at PT.
     harness.advance_time(Duration::from_millis(5));
     harness.cycle();
     harness.assert_eq("q_ton", Value::Bool(false));
     harness.assert_eq("et_ton", Value::Time(Duration::ZERO));
     harness.assert_eq("q_tof", Value::Bool(true));
-    harness.assert_eq("et_tof", Value::Time(Duration::from_millis(5)));
+    harness.assert_eq("et_tof", Value::Time(Duration::ZERO));
     harness.assert_eq("q_tp", Value::Bool(false));
-    harness.assert_eq("et_tp", Value::Time(Duration::ZERO));
+    harness.assert_eq("et_tp", Value::Time(Duration::from_millis(10)));
     harness.assert_eq("q_ton_l", Value::Bool(false));
     harness.assert_eq("et_ton_l", Value::LTime(Duration::ZERO));
     harness.assert_eq("q_tof_l", Value::Bool(true));
-    harness.assert_eq("et_tof_l", Value::LTime(Duration::from_millis(5)));
+    harness.assert_eq("et_tof_l", Value::LTime(Duration::ZERO));
     harness.assert_eq("q_tp_l", Value::Bool(false));
-    harness.assert_eq("et_tp_l", Value::LTime(Duration::ZERO));
+    harness.assert_eq("et_tp_l", Value::LTime(Duration::from_millis(10)));
 
+    // t = 20 ms, 5 ms into the TOF delay.
+    harness.advance_time(Duration::from_millis(5));
+    harness.cycle();
+    harness.assert_eq("q_tof", Value::Bool(true));
+    harness.assert_eq("et_tof", Value::Time(Duration::from_millis(5)));
+    harness.assert_eq("q_tof_l", Value::Bool(true));
+    harness.assert_eq("et_tof_l", Value::LTime(Duration::from_millis(5)));
+
+    // t = 25 ms, the TOF delay expires with ET at PT.
     harness.advance_time(Duration::from_millis(5));
     harness.cycle();
     harness.assert_eq("q_tof", Value::Bool(false));
@@ -151,19 +164,15 @@ fn timer_variants() {
     harness.assert_eq("q_tof_l", Value::Bool(false));
     harness.assert_eq("et_tof_l", Value::LTime(Duration::from_millis(10)));
 
-    harness.advance_time(Duration::from_millis(5));
-    harness.cycle();
-    harness.assert_eq("q_tof", Value::Bool(false));
-    harness.assert_eq("et_tof", Value::Time(Duration::from_millis(10)));
-    harness.assert_eq("q_tof_l", Value::Bool(false));
-    harness.assert_eq("et_tof_l", Value::LTime(Duration::from_millis(10)));
-
+    // t = 30 ms: the TOF's ET holds at PT, and a new TP edge starts a pulse at ET 0.
     harness.set_input("in_tp", true);
     harness.set_input("in_tp_l", true);
     harness.advance_time(Duration::from_millis(5));
     harness.cycle();
+    harness.assert_eq("q_tof", Value::Bool(false));
+    harness.assert_eq("et_tof", Value::Time(Duration::from_millis(10)));
     harness.assert_eq("q_tp", Value::Bool(true));
-    harness.assert_eq("et_tp", Value::Time(Duration::from_millis(5)));
+    harness.assert_eq("et_tp", Value::Time(Duration::ZERO));
     harness.assert_eq("q_tp_l", Value::Bool(true));
-    harness.assert_eq("et_tp_l", Value::LTime(Duration::from_millis(5)));
+    harness.assert_eq("et_tp_l", Value::LTime(Duration::ZERO));
 }

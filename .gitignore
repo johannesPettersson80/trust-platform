@@ -193,10 +193,11 @@ conformance/reports/*
 # Task-owned raw validation artifacts live outside the source tree.
 /.artifacts/
 
-# The CJK fonts, copied into the extension by editors/vscode/scripts/build-hmi-builder-webview.js
-# from crates/trust-runtime/src/web/ui/assets/fonts (specification 39, §14.5 item 2).
-editors/vscode/media/fonts/NotoSans*-Subset.woff2
-editors/vscode/media/fonts/LICENSE-NOTO-CJK.txt
+# The extension's build output: `npm run compile` (the build:* scripts in editors/vscode/package.json)
+# copies examples/, libraries/ and the runtime's fonts here and bundles the webviews. Every build, test
+# and package run writes it fresh, so git keeps only the sources.
+/editors/vscode/media/*
+!/editors/vscode/media/trust-activity.svg
 
 # Retained values written by a runtime started in an example folder.
 retain.bin

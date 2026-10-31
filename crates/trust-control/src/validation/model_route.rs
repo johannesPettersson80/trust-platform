@@ -442,8 +442,13 @@ fn output_range_missing(model: &GeneralModel) -> Failure {
 }
 
 /// The controller's initial values at the model's operating point (`engineerVerificationPlan`): the parallel PID's history
-/// (`pidOperatingState`), then the declared states of a `control-pid-v1` PID (`initializationValues`), which take their symbol.
-fn controller_initial_values(
+/// (`pidOperatingState`), then the declared states of a `control-pid-v1` PID (`initializationValues`), which take their symbol. Every
+/// run of Validate starts the controller with them, on the configured plant as on the model (B5.3, C1): the declared application states
+/// start as declared, so a startup-done flag starts TRUE and the program's startup code does not initialize the controller under test.
+///
+/// # Errors
+/// The values cannot be computed, or the declared states overlap a parameter, an observed process channel or the mode.
+pub fn controller_initial_values(
     loop_definition: &LoopDefinition,
     model: &GeneralModel,
     values: &BTreeMap<String, f64>,

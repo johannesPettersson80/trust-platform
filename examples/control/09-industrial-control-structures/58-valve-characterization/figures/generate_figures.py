@@ -229,14 +229,14 @@ def response_plot() -> None:
     plot.series(1, times, column(rows, "applied_mv"), "signal-d", "Stem position", step=True)
     plot.series(2, times, column(rows, "pressure-fixed-supply"), "applied")
     plot.hline(2, 100.0, "limit", "Regulated: always 100 kPa", at=6.0, below=False)
-    plot.mark(0, 123.5, final_mean(rows, 125.0, "pv"), 1, "Regulated: 1.400, 1.500, 1.600, 1.700 kg/s", -60, -26)
-    plot.mark(0, 33.5, final_mean(rows, 35.0, "flow-fixed-supply"), 2, "70 %: fixed supply 1.421 kg/s, more than 1.400", 130, 14)
-    plot.mark(0, 153.5, final_mean(rows, 155.1, "flow-fixed-supply"), 3, "Back at 75 %: 1.500 and 1.501 kg/s again", -60, 40)
-    plot.mark(2, 123.5, final_mean(rows, 125.0, "pressure-fixed-supply"), 4, "85 %: 94.1 kPa left, 165.0 kW instead of 170.0 kW", -40, -75)
+    plot.mark(0, 123.5, final_mean(rows, 125.3, "pv"), 1, "Regulated: 1.399, 1.500, 1.601, 1.700 kg/s", -60, -26)
+    plot.mark(0, 33.5, final_mean(rows, 35.0, "flow-fixed-supply"), 2, "70 %: fixed supply 1.421 kg/s, more than 1.399", 130, 14)
+    plot.mark(0, 153.5, final_mean(rows, 155.5, "flow-fixed-supply"), 3, "Back at 75 %: 1.500 and 1.500 kg/s again", -60, 40)
+    plot.mark(2, 123.5, final_mean(rows, 125.3, "pressure-fixed-supply"), 4, "85 %: 94.1 kPa left, 165.0 kW instead of 170.0 kW", -40, -75)
     plot.render(
         "valve-characteristic.svg",
         "Flow at five valve openings, two supplies",
-        "The stem is held at 70, 75, 80, 85 and again 75 percent for 30 seconds each. With 100 kilopascals regulated across the valve the flow is 1.400, 1.500, 1.600 and 1.700 kilograms per second. With the fixed supply the pressure across the valve rises to 102.9 kilopascals at 70 percent and falls to 94.1 kilopascals at 85 percent, so the flow is 1.421 and 1.650 kilograms per second there. The second visit to 75 percent repeats the first.",
+        "The stem is held at 70, 75, 80, 85 and again 75 percent for 30 seconds each. With 100 kilopascals regulated across the valve the flow is 1.399, 1.500, 1.601 and 1.700 kilograms per second. With the fixed supply the pressure across the valve rises to 102.9 kilopascals at 70 percent and falls to 94.1 kilopascals at 85 percent, so the flow is 1.421 and 1.650 kilograms per second there. The second visit to 75 percent repeats the first.",
     )
 
 

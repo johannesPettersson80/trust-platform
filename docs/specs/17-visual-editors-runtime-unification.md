@@ -65,6 +65,27 @@ generated Structured Text:
 The runtime/debug pipeline therefore validates one execution contract even when
 authoring happens in different editors.
 
+### 3.2 Statechart
+
+The companion of a statechart runs one scan of the chart per call: it starts in
+the `initial` state once, runs the transitions of the active state in file
+order, the first that fires taking the exit actions of its state, its own
+actions and the entry actions of its target, and then answers the active state
+(`STATE_INDEX`, `STATE_NAME`). Each event of an untimed transition is a `BOOL`
+input `EV_<EVENT>`.
+
+A transition with `after` (milliseconds, rounded) fires when its state has been
+active that long. A state's `TON` starts in the scan that enters the state: the
+transition that enters a state calls its timers with `IN` TRUE once the state
+has changed, and the initial state's timers run with `IN` TRUE in the first
+scan. Each timer is then called once per scan with `IN` TRUE while its state is
+active and FALSE otherwise, so it reads `ET` T#0s in the scan that entered its
+state and adds the task interval in each later scan (specification 08 §5); with
+a 20 ms task, `after: 100` fires five scans after the scan that entered the
+state, 100 ms later. A transition that fires resets the timers of its state with
+the exit actions, so a self-transition starts them again. The state's
+transitions are checked after its timers run, in the same scan.
+
 ## 4. Command Routing Contract
 
 The visual editors have no runtime actions of their own (§5). A visual program

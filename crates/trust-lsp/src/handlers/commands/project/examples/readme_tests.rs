@@ -111,14 +111,14 @@ fn a_link_that_spans_lines_or_has_no_text_is_no_link() {
 fn the_real_first_lesson_names_lesson_two_and_keeps_its_other_links() {
     // The packaged gallery's first lesson links ON/OFF feedback (`../02-cold-storage-on-off`),
     // sequence 2; its links to its own files stay. The gallery's README is not changed.
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../editors/vscode/media/examples");
+    let gallery = super::super::tests::packaged_gallery();
+    let root = &gallery.0;
     let entry =
         "control/01-feedback-foundations-and-temperature-control/01-cold-storage-loop-anatomy";
     let source = std::fs::read_to_string(root.join(entry).join("README.md")).expect("README");
     let scratch = Scratch::new();
     scratch.write("copy/README.md", &source);
-    assert!(adapt_copied_readme(&root, entry, &scratch.0.join("copy")).expect("adapted"));
+    assert!(adapt_copied_readme(root, entry, &scratch.0.join("copy")).expect("adapted"));
     let copied = scratch.read("copy/README.md");
     assert!(copied.contains(
         "ON/OFF feedback (to open it, use truST > Start from example and select Lesson 2)"

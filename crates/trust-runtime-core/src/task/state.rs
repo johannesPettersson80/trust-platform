@@ -7,7 +7,8 @@ use crate::value::Duration;
 pub struct TaskState {
     /// Whether the event input was high on the previous cycle.
     pub last_single: bool,
-    /// Logical time when the task last ran.
+    /// The latest nominal deadline the task has accounted for: the due time of its last
+    /// periodic run, not the time it ran (specification 11, "Task readiness").
     pub last_run: Duration,
     /// Number of missed periodic intervals.
     pub overrun_count: u64,

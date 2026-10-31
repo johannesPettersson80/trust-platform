@@ -251,6 +251,7 @@ impl StdFb {
                 ("ET", Elem::Time, offset_of!(Ton, ET), output),
                 ("__LAST", Elem::LTime, offset_of!(Ton, LAST), 0),
                 ("__CALLED", Elem::Bool, offset_of!(Ton, CALLED), 0),
+                ("__PREV_IN", Elem::Bool, offset_of!(Ton, PREV_IN), 0),
             ],
             Self::Tof => vec![
                 ("IN", Elem::Bool, offset_of!(Tof, IN), input),

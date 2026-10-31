@@ -43,7 +43,7 @@
       "errors": [],
       "globals": {
         "et_tof": {
-          "nanos": 5000000,
+          "nanos": 0,
           "type": "TIME"
         },
         "q_tof": {
@@ -59,12 +59,12 @@
       "errors": [],
       "globals": {
         "et_tof": {
-          "nanos": 10000000,
+          "nanos": 5000000,
           "type": "TIME"
         },
         "q_tof": {
           "type": "BOOL",
-          "value": false
+          "value": true
         }
       },
       "runtime_time_nanos": 15000000

@@ -1,4 +1,0 @@
-Control library 0.1.0, copied from libraries/control/src in the truST repository.
-These are the unmodified library sources used by this standalone example.
-8b4e3864d65e40ed3594ac974178e67dc62a6329b31a1a5f36fa9ec4e7284f97  control.st
-3f61d71f55150f5f24701ac701388d9567115d0f0db3802fb640e9001677a78b  advanced_control.st

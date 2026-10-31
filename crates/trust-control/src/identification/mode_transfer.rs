@@ -557,4 +557,4 @@ mod tests;
 
 #[cfg(test)]
 #[path = "mode_transfer_group_tests.rs"]
-mod group_tests;
+pub(crate) mod group_tests;

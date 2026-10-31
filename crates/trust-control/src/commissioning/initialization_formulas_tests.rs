@@ -246,7 +246,7 @@ fn a_formula_serializes_with_the_kind_word_of_the_protocol() {
 #[test]
 fn the_feedforward_state_reads_the_measured_disturbance_fresh_as_a_scaled_measurement() {
     let loop_definition = LoopDefinition::decode(include_str!(
-        "../../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/control-loop.json"
+        "../../../../examples/control/14-integrated-capstones/84-independent/control-loop.json"
     ))
     .expect("lesson 84 decodes");
     let model = crate::tuning::structures::fixtures::heater_model();

@@ -1,7 +1,8 @@
 //! The campaign of an identification on a live runtime (`identificationCampaign.ts`; specification 35, A3.2, A3.4, A3.6, A7
 //! and B3.4): the limits it runs within, the sentences it says, the watch that keeps process time, and the supervision of
-//! a silent runtime. The baseline and the hold are the trackers in `baseline` and `hold`; the record it journals before
-//! each dispatch is in `journal`.
+//! a silent runtime. The baseline and the hold are the trackers in `baseline` and `hold`, and the rest of a loop found in
+//! Auto before a Manual method's mode change is the tracker in `rest`; the record it journals before each dispatch is in
+//! `journal`.
 //!
 //! Process time decides every phase; the wall clock only supervises and paces (A3.2). Each function takes the wall time
 //! it needs as a number and reads no clock, so the driver in `trust-lsp` owns the clock and the runtime calls.
@@ -27,6 +28,7 @@ use crate::loop_definition::{LoopDefinition, Range};
 pub mod baseline;
 pub mod hold;
 pub mod journal;
+pub mod rest;
 
 /// The interval between two polls of the runtime, in ms (`POLL_MILLISECONDS`).
 pub const POLL_MILLISECONDS: u64 = 100;

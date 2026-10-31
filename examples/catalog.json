@@ -84,7 +84,7 @@
   {
     "id": "studio-pid",
     "title": "Control Studio: PID loop",
-    "description": "Set up a Control.PID loop with the setup form, then identify, tune, validate and apply it on a simulated heater.",
+    "description": "Step by step: identify a simulated heater, tune a PI controller for it, validate it on the program, apply and restore it.",
     "path": "control-pid-commissioning",
     "hardware": "none",
     "tags": [
