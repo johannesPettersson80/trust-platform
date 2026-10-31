@@ -76,13 +76,13 @@ separately.
   keep it. Never glob-delete that directory.
 - Before broad runs, check the filesystems holding the selected Cargo target, checkout and
   `TMPDIR`, plus concurrent builder workloads. Allow about 25 GB for Clippy, tests or `npm test`,
-  and the guard's 80 GiB floor on the selected target filesystem for cold `just test-all`.
+  and an 80 GiB floor on the selected target filesystem for a cold `just test-all`.
   A free-space snapshot is not a reservation; coordinate large runs sharing that filesystem.
   Use a task-owned `TMPDIR` on suitable disk storage, not the small `/tmp` quota.
   After `No space left on device`:
   1. stop the leftover processes by PID;
   2. clean generated targets;
-  3. rerun only with the user's explicit authorization for another validation run.
+  3. rerun once the cause is fixed.
 - The builder has no GPU and no GitHub push credentials, so use it to fetch and validate only.
 - Never put keys, tokens or other credentials in the repo, and never print them. Filter config,
   auth, service and server-log files before reading them, and keep a needed secret in a file
@@ -120,25 +120,27 @@ separately.
   A native executable test then pins the behaviour. Verification metadata cannot create product
   work or block it; that includes catalogs, planners, proof levels and mutation reports. Details are
   in the `trust-test-authoring` skill.
-- **Prepare validation before finishing implementation.** Read the applicable workflows and gate
-  scripts; record required commands, toolchains, targets/features, evidence and prerequisites in
-  the existing task record. Review the complete diff, including tests, imports, feature gates and
-  affected callers/lifecycle paths, before freezing. Use independent review when the scope requires
-  it. Review does not prove compilation, and planning does not authorize extra runs.
-- **Implementation first; one validation batch.** Finish the entire authorized implementation and
-  necessary test authoring before running checks. Freeze the implementation, then execute one
-  consolidated batch of the required builds, lint, tests, and browser/VS Code or hardware evidence.
-  Deduplicate overlapping suites and build once where practical. Do not run per-edit checks,
-  red/green loops, milestone reruns, or speculative extra checks. This order overrides conflicting
-  cadence instructions in skills, plugins, checklists, and historical notes unless the user
-  explicitly changes it.
+- **The workflow** (owner, 31 October 2026: "i want the most professional best workflow"): work
+  goes to `main` in small pull requests, and CI is the only gate. Details are in the
+  `trust-ci-release-gates` skill.
+  - One lane is one pull request of a few hours' work, never days. Push it with its pull request
+    from the first commit; Codex reviews it when it opens, and its findings are fixed in the same
+    pull request.
+  - Before each push, run the compile check below and the focused tests of what changed and of
+    what uses it. The full suites (`just test-all`, VS Code, the documentation and the release
+    rehearsal) run in CI on every push; never run them as a local batch.
+  - A red check: read its log, fix the cause in the same pull request and push. A failure without
+    a code cause is a flake: record it with its log on the checklist and fix it as its own item.
+  - A pull request merges when its required checks are green and Codex has no open finding,
+    through the merge queue. `main` is always releasable.
+- **Review your diff before each push**: tests, imports, feature gates and the callers and
+  lifecycle paths that the change reaches. Review does not prove compilation.
 - **Compile check before reporting** (owner, 17 October 2026: "proposal a approved"). Before an
   agent reports code as written, it runs a compile check on the crates it changed: format, Clippy
   with `-D warnings` on all targets and features, and rustdoc with warnings denied. The check runs
   on the builder, in the worktree's own check copy and target (`trust-remote-builder` skill), and
   runs no tests. The agent fixes what the check finds in its own files. It reports, and does not
-  fix, errors in files that another agent is writing. The check is not the validation batch; the
-  one consolidated batch still follows.
+  fix, errors in files that another agent is writing. The check does not replace CI.
 - **Implementation agents** (owner, 17 October 2026): implementation work runs through opencode
   subagents on the free model DeepSeek V4.1 Flash, and the lead orchestrates
   (`trust-agent-orchestration` skill). Each brief names:
@@ -151,16 +153,12 @@ separately.
 - **Tests prove the specification, not the code.** Every expected value comes from the
   specification and is worked out by hand. Each test names the wrong behaviour it would catch. A
   test that only repeats what the code returns proves nothing (`trust-test-authoring`).
-- **Failed validation**: retain the complete failure ledger and report failed or unrun checks as
-  unverified. Fixes may be prepared within the authorized scope, but another validation run needs
-  the user's explicit authorization. Do not weaken tests, bypass release guards, or relabel a retry
-  as a new batch. Collect all failures reachable by independent steps in the authorized batch;
-  leave dependent steps unrun when their prerequisite fails. Keep the source frozen until the
-  batch finishes, then fix the complete known set and review the corrections before another run.
-  Honor any explicit authorization already given for further runs; do not ask for it again.
+- **Failed checks**: report a failed or unrun check as unverified, with its log. Do not weaken a
+  test, skip a check or bypass a gate. Fix every failure a run shows before pushing again.
 - **Bug fixes**: identify and fix the owning root cause, including affected callers; do not mask
   failures with weakened assertions, suppressions or unrelated workarounds. Add the native
-  regression assertion alongside the fix and include it in the consolidated batch. Use existing pre-fix evidence when available; never invent a failing run.
+  regression assertion in the same pull request as the fix. Use existing pre-fix evidence when
+  available; never invent a failing run.
   A compile, harness or timeout failure is not evidence of a failed behavior assertion.
 - **Scope**: build the smallest version that ships. Say in one line when a fix needs more scope. Add
   no options, abstractions or settings that nobody asked for.
@@ -186,12 +184,14 @@ separately.
 - **Hardware and protocols**: before pushing, run the specified device-in-the-loop case on the real
   reviewed topology. A simulator or unit test does not replace it.
 - **Real time**: run examples and journeys at 1× unless the user chose another speed.
-- **Reporting**: name the source identity and evidence behind each claim. Scope verification is
-  not release-guard approval; guard approval is not green GitHub CI or merge readiness. Say which
-  stage is active, failed or unrun and what remains. Never weaken a test to make it pass.
+- **Reporting**: name the source identity and evidence behind each claim. A local check is not
+  green CI, and green CI is not a release. Say which checks are green, red or still running and
+  what remains. Never weaken a test to make it pass.
 - **Stop** means stop: launch nothing new, safely stop what you started, and record where you
   stopped.
-- Commit, push, tag, merge or open pull requests only when the user asks.
+- Commit, push and open pull requests as the workflow needs them (owner, 30 October 2026: "you may
+  push, you never need to ask that"); merge through the merge queue when the checks are green. Tags
+  and releases come only from the Release workflow.
 
 ## Working in several checkouts
 
@@ -205,8 +205,8 @@ cp /home/johannes/projects/trust-platform/AGENTS.md /home/johannes/projects/trus
 rsync -a --delete /home/johannes/projects/trust-platform/.codex/skills/ .codex/skills/
 ```
 
-For control work, also copy `docs/specs/control-platform-purpose.md` when it is missing. The release
-guard rejects a candidate whose copies differ.
+For control work, also copy `docs/specs/control-platform-purpose.md` when it is missing. While the
+release guard is in use (Releases), it rejects a candidate whose copies differ.
 
 ## IEC 61131-3
 
@@ -245,8 +245,8 @@ guard rejects a candidate whose copies differ.
   restrictions or VS Code panels. Specification 34 owns behavior;
   `docs/internal/testing/checklists/runtime-portability-implementation-checklist.md` owns the
   current scope, remaining work, and evidence. Read its current checkpoint on every resume and
-  update it before handoff. A1–A4 are separate scopes with one final validation batch each;
-  this does not authorize implementation, extra test runs, or reopening the closed extraction board.
+  update it before handoff. A1–A4 are separate scopes, each shipped as its own pull requests; this
+  does not authorize reopening the closed extraction board.
 - **PLC verification program**: `docs/internal/testing/checklists/plc-verification-program/`, with
   the `trust-test-authoring` skill.
 
@@ -258,13 +258,18 @@ guard rejects a candidate whose copies differ.
 - A release-notable change bumps `[workspace.package].version` in `Cargo.toml`. Keep
   `editors/vscode/package.json` and the root entries of `editors/vscode/package-lock.json` at the same
   version.
-- Before pushing, `just fmt`, `just clippy`, `just test-all` and applicable area checks must pass
-  on the builder. For a release-guard candidate, use its prepare run for the commands it covers;
-  do not schedule a duplicate full pre-push batch. Separately authorized scope validation remains
-  scope evidence and does not replace the required exact-SHA release artifact.
-- Integration, release, `main` and version-bump pushes need the exact-SHA artifact from
-  `.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard.py prepare`. The installed
-  pre-push hook enforces this; never bypass it.
+- A release is a pull request that only bumps the version and moves the changelog section. It
+  merges like any other once CI, including the release rehearsal of its packages, is green; the
+  Release workflow then tags the merge commit, publishes the GitHub release and the Marketplace
+  packages, and verifies them. Nobody pushes a tag.
+- Release blockers are regressions and severe bugs: safety, data loss, a broken user journey. Any
+  other bug found during a release goes on the checklist for the next release (owner, 31 October
+  2026; this replaces "all bugs fixed before push").
+- Until CI runs every stage of the release guard and the acceptance journeys on the built packages
+  (checklist W3 and W4), a version-bump push still needs the exact-SHA artifact of
+  `.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard.py prepare`, which the
+  pre-push hook enforces; never bypass it. Run Codex's review and the acceptance journeys before
+  the bump, so the guard runs once.
 - A version bump is finished only when all of these hold, checked with
   `release_candidate_guard.py verify-release`:
   - the annotated tag `v<version>` is on `main`;
@@ -280,7 +285,7 @@ guard rejects a candidate whose copies differ.
 | --- | --- |
 | `trust-test-authoring` | any behaviour change, bug fix or test work: from specification to native test |
 | `trust-remote-builder` | builder sync, cargo target leases, disk, toolchain parity, reporting proof |
-| `trust-ci-release-gates` | changelog and versions, CI, pre-push, release candidates, tags, releases |
+| `trust-ci-release-gates` | the workflow: pull requests, CI, merge queue, changelog, versions, releases |
 | `trust-lsp-iec` | IEC language behaviour, the standard library, IEC decisions and deviations |
 | `st-lsp-solid` | refactors, module boundaries, runtime/LSP/CLI structure, architecture tooling |
 | `trust-vscode-quality` | VS Code extension work, extension tests, screenshots, UI acceptance |
