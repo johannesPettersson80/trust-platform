@@ -164,7 +164,6 @@
     "examples/communication/opcua/README.md",
     "examples/control-cascade-commissioning/README.md",
     "examples/control-onoff-commissioning/README.md",
-    "examples/control-pid-commissioning/README.md",
     "examples/control-state-feedback-commissioning/README.md",
     "examples/control-two-zone-commissioning/README.md",
     "examples/conveyor/README.md",

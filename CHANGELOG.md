@@ -31,6 +31,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `ctl restart` without its mode, a tutorial's run without its command, and 15 example and docs pages that sent
   readers to the Runtime Panel or to `Structured Text:` commands: they name Live Values, `truST:` commands and Devices
   & Connections, where the ADS commands went (specification 22).
+- Example READMEs are step-by-step walkthroughs: what you learn, what you need, numbered steps with the values a real
+  run shows, what happened and why, things to try, and a reference (specification 25 §3.5); CI checks every converted
+  README against that standard. The first is **Control Studio: PID loop**: it identifies the simulated heater, tunes a
+  PI controller for a 12 s settling time, validates it on the program, applies and restores it, and explains the model,
+  the PI law and the SIMC tuning with the numbers of the run. Its gallery description no longer promises the setup form.
 - The README shows what truST does that it left out: code from CODESYS and TwinCAT, Siemens SCL and Mitsubishi GX Works3,
   process data in seven databases through OpenOT, tasks, RETAIN and the watchdog, the simulator's scenarios and faults,
   the browser IDE and other editors, the HMI Builder itself, and operating in production (audit log, fleet rollout,
