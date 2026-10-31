@@ -4,6 +4,7 @@ name: Render Diagrams
 # checked (specification 22, "Pull-request checks and change detection").
 on:
   pull_request:
+  merge_group:
   push:
     branches:
       - main
@@ -27,7 +28,7 @@ jobs:
         id: changes
         env:
           EVENT: ${{ github.event_name }}
-          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: python3 scripts/ci_changes.py --event "$EVENT" --base "$BASE" --head "$HEAD_SHA" --paths-file .github/paths/diagrams.txt
 
@@ -55,7 +56,7 @@ jobs:
           fi
 
   conclusion:
-    name: Conclusion
+    name: Render Diagrams Conclusion
     needs: [changes, render]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest

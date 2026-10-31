@@ -3,6 +3,7 @@ name: Salsa Hardening
 on:
   pull_request:
     branches: [master, main]
+  merge_group:
   schedule:
     - cron: "0 2 * * *"
   workflow_dispatch:
@@ -15,7 +16,7 @@ jobs:
   memory-regression:
     name: Memory Regression Gate
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}
     steps:
       - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
@@ -32,7 +33,7 @@ jobs:
   fuzz-smoke:
     name: Fuzz Smoke
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}
     steps:
       - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling

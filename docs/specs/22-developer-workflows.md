@@ -397,6 +397,23 @@ workflow instead of skipping its checks. GitHub's own path filters compare only 
 0.25.0's 10,252-file pull request ran no documentation workflow, and the site
 broke on `main` (28 October 2026).
 
+The merge queue tests each pull request again as a merge group: the pull
+request merged onto the current `main`, or onto the groups queued ahead of it.
+Every workflow that checks pull requests runs for a merge group (event
+`merge_group`), and every job and step that runs for a pull request runs for a
+merge group too. The detection compares the group's commit with the commit it
+was built on (`<base>..<head>`), so the queue runs the checks of what the queued
+pull requests change, not those of `main`'s own commits. A merge group neither
+rehearses nor releases: its pull request was rehearsed, and the release follows
+`main`'s CI (specification 24, "Release after main CI"). The project's own
+runner runs neither a pull request nor a merge group, which carries a pull
+request's code. The checks that `main` requires before a merge are listed in
+`.github/required-checks.txt`; each is the name of exactly one job, in a workflow
+that runs on pull requests and in the merge queue, so that a renamed job cannot
+block every pull request and a shared name cannot satisfy a check for another
+workflow (Render Diagrams and Docs Captures both named their last job
+`Conclusion` until 1 November 2026).
+
 ### Documentation that follows the product
 
 The documentation is tested against the product, not only for its links,

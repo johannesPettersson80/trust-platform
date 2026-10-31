@@ -5,6 +5,8 @@ Specification 24, "Release rehearsal on pull requests" and "Release after main C
 - a pull request whose head changes the workspace version is rehearsed on its head; one from a fork
   is not, since the rehearsal uses the project's own runners (a maintainer dispatches it instead);
 - a manual run rehearses the commit it runs on;
+- a merge group releases and rehearses nothing: its pull request was rehearsed, and the release
+  follows `main`'s CI on the commit the queue merged; the run only reports its conclusion;
 - after `main`'s CI succeeded for a push to this repository's `main`, the commit it checked is
   released when its version has no tag yet, or when the tag is on that commit and its release is
   not complete (a re-run resumes); a version already tagged on another commit was released before,
