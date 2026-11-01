@@ -1,4 +1,4 @@
-import { equipmentConnectionSummary, missingSignalHelp } from "../equipmentConnectionsModel";
+import { equipmentConnectionSummary } from "../equipmentConnectionsModel";
 import { useEffect, useRef, useState } from "react";
 import type { EquipmentDetails } from "../../hmiBuilder/editor/equipmentDetails";
 
@@ -102,11 +102,7 @@ export function EquipmentConnections({
                                       ))}
                                   </select>
                                   {terminal.error ? <small role="alert">{terminal.error}</small> : null}
-                                  {!terminal.choices.length ? (
-                                      <small className="trust-help">
-                                          {missingSignalHelp(state.instance, terminal)}
-                                      </small>
-                                  ) : null}
+                                  {terminal.help ? <small className="trust-help">{terminal.help}</small> : null}
                               </label>
                           );
                       })

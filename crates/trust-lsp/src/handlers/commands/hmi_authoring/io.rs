@@ -6,6 +6,9 @@ use super::equipment_settings;
 use super::pairs::{HmiTerminal, HmiTerminalDirection};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
+use trust_runtime::runtime_core::io_address::IoSize;
+use trust_runtime::runtime_core::io_image::expected_size_for_type;
+use trust_runtime::runtime_core::stdlib::conversions::ConversionType;
 use trust_runtime::{io::IoAddress, memory::IoArea};
 use trust_syntax::{parser::parse, SyntaxKind as K};
 
@@ -281,6 +284,9 @@ pub(in crate::handlers::commands) fn describe(
                 })
                 .and_then(|(_, ty)| index.symbols.type_name(ty))
                 .map(|name| name.to_string());
+            let help = choices
+                .is_empty()
+                .then(|| missing_signal_help(instance, terminal, type_name.as_deref()));
             json!({
                 "member": terminal.member,
                 "title": terminal.title,
@@ -290,9 +296,46 @@ pub(in crate::handlers::commands) fn describe(
                 "value": value,
                 "error": error,
                 "choices": choices,
+                "help": help,
             })
         })
         .collect()
+}
+
+/// What a terminal that no declared PLC signal fits tells the user (HMI component catalogue §8.1):
+/// declare one with an address in the program, for example one named after the instance's last
+/// name and the member, in the terminal's direction, at the first address of the size the runtime
+/// binds the type to (IEC 61131-3 §6.5.5; `expected_size_for_type`; a `STRING` is bound as the
+/// byte window at a byte address). A type that the runtime binds at no size gets the advice
+/// without an example; a member whose type is unknown is taken as `BOOL`.
+fn missing_signal_help(instance: &str, terminal: &HmiTerminal, type_name: Option<&str>) -> String {
+    let type_name = type_name.unwrap_or("BOOL");
+    let (direction, area) = match terminal.direction {
+        HmiTerminalDirection::Input => ("input", 'I'),
+        HmiTerminalDirection::Output => ("output", 'Q'),
+    };
+    let advice = format!(
+        "No {direction} of type {type_name} is declared yet. Declare one with an address in your program"
+    );
+    let size = ConversionType::from_builtin_name(type_name).and_then(|ty| match ty {
+        ConversionType::String => Some(IoSize::Byte),
+        ty => expected_size_for_type(ty),
+    });
+    let Some(size) = size else {
+        return format!("{advice}, then press Refresh.");
+    };
+    let location = match size {
+        IoSize::Bit => "X0.0",
+        IoSize::Byte | IoSize::Bytes(_) => "B0",
+        IoSize::Word => "W0",
+        IoSize::DWord => "D0",
+        IoSize::LWord => "L0",
+    };
+    let name = instance.rsplit('.').next().unwrap_or(instance);
+    format!(
+        "{advice}, for example {name}_{} AT %{area}{location} : {type_name};, then press Refresh.",
+        terminal.member
+    )
 }
 
 /// The hardware status shown in the inspector (specification 39, §21.3 item 2; catalogue §8.1):
@@ -345,6 +388,75 @@ mod tests {
         let off = BTreeMap::from([("HasFeedback".to_string(), "FALSE".to_string())]);
         assert!(!required(&feedback, &off));
         assert!(required(&terminal("RunCommand", None), &off));
+    }
+
+    /// A terminal that no signal fits names a declaration the runtime accepts: its address is in
+    /// the terminal's direction at the size the runtime binds the type to (IEC 61131-3 §6.5.5:
+    /// X a bit, B a byte, W a word, D a double word, L a long word; a STRING's byte window at a
+    /// byte address). Catches the long-word address the editor suggested for TIME, WCHAR and
+    /// STRING, which the runtime refuses, and an output declared as an input.
+    #[test]
+    fn a_terminal_no_signal_fits_names_a_declaration_the_runtime_binds() {
+        let raw = terminal("Raw", None);
+        assert_eq!(
+            missing_signal_help("Main.TT101", &raw, Some("LREAL")),
+            "No input of type LREAL is declared yet. Declare one with an address in your program, \
+             for example TT101_Raw AT %IL0 : LREAL;, then press Refresh."
+        );
+        let run = HmiTerminal {
+            direction: HmiTerminalDirection::Output,
+            ..terminal("RunCommand", None)
+        };
+        assert_eq!(
+            missing_signal_help("Main.P101", &run, Some("BOOL")),
+            "No output of type BOOL is declared yet. Declare one with an address in your program, \
+             for example P101_RunCommand AT %QX0.0 : BOOL;, then press Refresh."
+        );
+        for (type_name, address) in [
+            ("BOOL", "%IX0.0"),
+            ("BYTE", "%IB0"),
+            ("SINT", "%IB0"),
+            ("CHAR", "%IB0"),
+            ("STRING", "%IB0"),
+            ("INT", "%IW0"),
+            ("WORD", "%IW0"),
+            ("WCHAR", "%IW0"),
+            ("DINT", "%ID0"),
+            ("REAL", "%ID0"),
+            ("TIME", "%ID0"),
+            ("LINT", "%IL0"),
+            ("LREAL", "%IL0"),
+            ("LTIME", "%IL0"),
+            ("int", "%IW0"),
+        ] {
+            let help = missing_signal_help("Main.FT1", &raw, Some(type_name));
+            assert!(
+                help.contains(&format!("FT1_Raw AT {address} : {type_name};")),
+                "{type_name}: {help}"
+            );
+        }
+    }
+
+    /// A type that the runtime binds at no address size gets the advice without an example, and a
+    /// member whose type is unknown is taken as BOOL. Catches an address invented for a DATE, a
+    /// WSTRING or a structure.
+    #[test]
+    fn a_type_without_an_address_size_gets_no_example() {
+        let raw = terminal("Raw", None);
+        for type_name in ["DATE", "TOD", "WSTRING", "Control.PIDInput"] {
+            assert_eq!(
+                missing_signal_help("Main.FT1", &raw, Some(type_name)),
+                format!(
+                    "No input of type {type_name} is declared yet. Declare one with an address in \
+                     your program, then press Refresh."
+                ),
+                "{type_name}"
+            );
+        }
+        assert!(
+            missing_signal_help("FT1", &raw, None).contains("FT1_Raw AT %IX0.0 : BOOL;"),
+            "an unknown type is taken as BOOL"
+        );
     }
 
     #[test]
