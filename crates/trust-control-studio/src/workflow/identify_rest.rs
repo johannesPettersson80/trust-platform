@@ -73,11 +73,7 @@ impl<'a> RestWait<'a> {
         let mut shown: Option<String> = None;
         loop {
             if self.report.is_cancelled() {
-                return Err(Failure::new(
-                    CANCELLED_TEXT,
-                    Cause::Unclassified,
-                    NextAction::None,
-                ));
+                return Err(cancelled());
             }
             let observed = read()?;
             let runtime_time_ns = observed
@@ -89,6 +85,8 @@ impl<'a> RestWait<'a> {
                 .map(|symbol| value_of(&observed, symbol))
                 .collect::<Result<Vec<f64>, Failure>>()?;
             match tracker.feed(process_ms / 1_000.0, &readings)? {
+                // A Cancel that arrived during the last reading ends the wait before the transfer that the rest would allow.
+                RestStep::Rested if self.report.is_cancelled() => return Err(cancelled()),
                 RestStep::Rested => return Ok(observed),
                 RestStep::Waiting { progress } => {
                     if let Some(text) = progress
@@ -103,6 +101,11 @@ impl<'a> RestWait<'a> {
             self.clock.wait(POLL_MILLISECONDS);
         }
     }
+}
+
+/// The failure of a cancelled wait: nothing was written.
+fn cancelled() -> Failure {
+    Failure::new(CANCELLED_TEXT, Cause::Unclassified, NextAction::None)
 }
 
 /// The finite number that `status` reports for `symbol`.
