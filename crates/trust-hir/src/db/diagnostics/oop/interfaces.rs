@@ -215,7 +215,7 @@ fn check_interface_methods_with_table(
         let Some(actual_sig) = provided.get(key) else {
             if !context.allow_missing {
                 diagnostics.error(
-                    DiagnosticCode::InvalidOperation,
+                    DiagnosticCode::InterfaceConformance,
                     context.interface_range,
                     format!(
                         "type '{}' must implement method '{}' from interface '{}'",
@@ -228,7 +228,7 @@ fn check_interface_methods_with_table(
 
         if !method_signatures_match_with_table(symbols, expected_sig, actual_sig) {
             diagnostics.error(
-                DiagnosticCode::InvalidOperation,
+                DiagnosticCode::InterfaceConformance,
                 actual_sig.range,
                 format!(
                     "method '{}' does not match interface '{}' signature",
@@ -243,7 +243,7 @@ fn check_interface_methods_with_table(
             Visibility::Public | Visibility::Internal
         ) {
             let mut diagnostic = Diagnostic::error(
-                DiagnosticCode::InvalidOperation,
+                DiagnosticCode::InterfaceConformance,
                 actual_sig.range,
                 format!(
                     "method '{}' implementing interface '{}' must be PUBLIC or INTERNAL",
@@ -270,7 +270,7 @@ fn check_interface_properties_with_table(
         let Some(actual_sig) = provided.get(key) else {
             if !context.allow_missing {
                 diagnostics.error(
-                    DiagnosticCode::InvalidOperation,
+                    DiagnosticCode::InterfaceConformance,
                     context.interface_range,
                     format!(
                         "type '{}' must implement property '{}' from interface '{}'",
@@ -283,7 +283,7 @@ fn check_interface_properties_with_table(
 
         if !property_signatures_match_with_table(symbols, expected_sig, actual_sig) {
             diagnostics.error(
-                DiagnosticCode::InvalidOperation,
+                DiagnosticCode::InterfaceConformance,
                 actual_sig.range,
                 format!(
                     "property '{}' does not match interface '{}' signature",
@@ -298,7 +298,7 @@ fn check_interface_properties_with_table(
             Visibility::Public | Visibility::Internal
         ) {
             let mut diagnostic = Diagnostic::error(
-                DiagnosticCode::InvalidOperation,
+                DiagnosticCode::InterfaceConformance,
                 actual_sig.range,
                 format!(
                     "property '{}' implementing interface '{}' must be PUBLIC or INTERNAL",

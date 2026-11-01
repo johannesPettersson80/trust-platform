@@ -93,7 +93,7 @@ pub(in crate::harness) fn const_size_int_from_node(
     match const_int_from_node(node, ctx) {
         Ok(value) => Ok(value),
         Err(strict_error) => {
-            if ctx.compile_time_consts.declared_sizes_is_empty() {
+            if !ctx.compile_time_consts.size_fallback_applicable() {
                 return Err(strict_error);
             }
             let size_view = ctx.compile_time_consts.size_evaluation_view();

@@ -125,6 +125,14 @@ impl SymbolCollector<'_> {
                     {
                         return Err(ConstEvalError::NotConstant);
                     }
+                    if declared
+                        && matches!(resolved, Err(ConstEvalError::UndefinedName(_)))
+                        && !self.reference_root_is_non_namespace_value(parts[0].as_str())
+                        && let Some(value) =
+                            self.resolve_unique_leaf_size_value(name.as_str(), guard)
+                    {
+                        return Ok(value);
+                    }
                     return resolved;
                 }
                 match self.try_resolve_const_value(&name, scopes, guard) {
@@ -474,6 +482,61 @@ impl SymbolCollector<'_> {
             }
         }
         None
+    }
+
+    /// Whether the reference's first segment names a non-namespace value in
+    /// scope (a variable, FB instance, POU…). Such a reference is a member
+    /// access, not a qualified constant, so the unique-leaf size tolerance
+    /// must not rebind it (IEC_DEVIATIONS 2026-10-25).
+    fn reference_root_is_non_namespace_value(&self, root: &str) -> bool {
+        self.table
+            .resolve(root, self.table.current_scope())
+            .is_some_and(|symbol_id| {
+                self.table
+                    .get(symbol_id)
+                    .is_some_and(|symbol| !matches!(symbol.kind, SymbolKind::Namespace))
+            })
+    }
+
+    /// Declaration-size tolerance for flattened library containers
+    /// (IEC_DEVIATIONS 2026-10-25): when strict resolution misses — the
+    /// dotted reference names a GVL level a library stub flattened away
+    /// (`WagoTypesLog.LogParameter.MAX_LOG_MSG_LEN` over namespace-level
+    /// constants) — the reference's last segment may still match exactly
+    /// one constant or declared value table-wide. Multiple matches stay
+    /// unresolved so the strict diagnostic surfaces; callers gate this on
+    /// `declared` (declaration-size contexts only) and on the reference
+    /// root not being a scope-local value, and bare names never take this
+    /// path (an unimported namespace's operand must stay unimported).
+    fn resolve_unique_leaf_size_value(
+        &mut self,
+        leaf: &str,
+        guard: &mut FxHashSet<(Option<SmolStr>, SmolStr)>,
+    ) -> Option<i64> {
+        let mut matched: Option<(Option<SmolStr>, SmolStr)> = None;
+        for key in self.const_exprs.keys() {
+            if key.1.eq_ignore_ascii_case(leaf) {
+                if matched.is_some() {
+                    return None;
+                }
+                matched = Some(key.clone());
+            }
+        }
+        for key in self.declared_exprs.keys() {
+            if key.1.eq_ignore_ascii_case(leaf) {
+                if matched.is_some() {
+                    return None;
+                }
+                matched = Some(key.clone());
+            }
+        }
+        let (scope, name) = matched?;
+        match self.try_resolve_const_value_for_scope(name.as_str(), &scope, guard) {
+            Ok(value) => Some(value),
+            Err(_) => self
+                .try_resolve_declared_value_for_scope(name.as_str(), &scope, guard)
+                .ok(),
+        }
     }
 
     pub(super) fn report_const_eval_error(

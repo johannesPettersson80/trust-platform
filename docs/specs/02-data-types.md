@@ -327,6 +327,13 @@ ARRAY[0..5] OF INT := [2(1, 2, 3)]  // Results in: 1, 2, 3, 1, 2, 3
   initial value fixes the bound at compile time. TEMP and interface-direction
   sections are excluded, and chains through other mutable variables stay
   rejected.
+- Vendor extension (IEC_DEVIATIONS 2026-10-25): a dotted limit reference that
+  fails strict container resolution — a library stub flattened the named GVL
+  level into namespace-level constants — resolves through a unique-leaf match
+  on the reference's last segment when exactly one constant or
+  initializer-backed declared value carries it table-wide. Ambiguous leaves
+  and references rooted at a scope-local value stay rejected; bare
+  (non-dotted) names never take this tolerance.
 - Every dimension uses the same declaration-site constant graph and namespace
   rules as subranges. Multidimensional bounds retain source dimension order,
   and project-source reordering cannot alter any resolved lower or upper bound.
@@ -779,6 +786,14 @@ END_VAR
   interface-direction sections are excluded, and a chain through another
   mutable variable stays undecidable and is rejected as before. The same
   leniency applies to array dimension bounds.
+- Vendor extension (IEC_DEVIATIONS 2026-10-25): a dotted capacity reference
+  that fails strict container resolution — a library stub flattened the
+  named GVL level into namespace-level constants — resolves through a
+  unique-leaf match on the reference's last segment when exactly one
+  constant or initializer-backed declared value carries it table-wide
+  (`STRING(WagoTypesLog.LogParameter.MAX_LOG_MSG_LEN)` over namespace-level
+  stub constants). Ambiguous leaves and references rooted at a scope-local
+  value stay rejected; bare (non-dotted) names never take this tolerance.
 - A zero, negative, non-integer, undefined, mutable, ambiguous, cyclic, or
   overflowing capacity, or one above 65,535, is rejected before the bounded type
   is registered.
