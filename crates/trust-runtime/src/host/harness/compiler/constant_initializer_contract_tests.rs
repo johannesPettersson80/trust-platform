@@ -23,10 +23,14 @@ fn runtime(files: &[(&str, &str)]) -> RuntimeBuilder {
 /// [`runtime`] under the CODESYS profile, whose language rules resolve a dotted size through a
 /// flattened library container (docs/IEC_DEVIATIONS.md 2026-10-25).
 fn codesys_runtime(files: &[(&str, &str)]) -> RuntimeBuilder {
-    lower_application_with(&source_files(files), files.len() > 1, ConversionProfile::Codesys)
-        .and_then(|lowered| lowered.construct(&[]))
-        .map(|(builder, _)| builder)
-        .unwrap_or_else(|error| panic!("constant-initializer fixture must compile: {error}"))
+    lower_application_with(
+        &source_files(files),
+        files.len() > 1,
+        ConversionProfile::Codesys,
+    )
+    .and_then(|lowered| lowered.construct(&[]))
+    .map(|(builder, _)| builder)
+    .unwrap_or_else(|error| panic!("constant-initializer fixture must compile: {error}"))
 }
 
 fn compile_error(files: &[(&str, &str)]) -> String {
