@@ -8,6 +8,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ### Fixed
 
+- When Live Values' I/O state request times out, the panel clears its values and says that it lost the connection to
+  the runtime. Before, the old values stayed under `I/O state request failed: A stale runtime or debug session blocked
+  startup.`, a start's message; other failed requests could be told as a start's failure too, such as a missing runtime
+  binary or a workspace that is not writable. A failed request now names its own reason, and the debug adapter's
+  `no program runs: launch or attach first` asks to Start or Connect like any missing session (specification 25 §4.4).
 - The help under a hardware terminal that no PLC signal fits, in Devices & Connections, suggests an address the runtime
   binds the terminal's type to: `%ID0` for a `TIME`, `%IW0` for a `WCHAR` and the byte address `%IB0` for a `STRING`.
   Before, it suggested a long-word address such as `%IL0`, which the runtime refuses for these types, and it did the

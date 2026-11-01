@@ -7,7 +7,12 @@ export type NetworkCanvasRuntimeFailureKind =
   | "failed_spawn"
   | "stale_runtime"
   // The runtime answered Connect but keeps debugging disabled: it is the target, without Live Values.
-  | "debug_disabled";
+  | "debug_disabled"
+  // A failed I/O state request of Live Values (specification 25 §4.4): no session to ask, a connection lost under the
+  // request, or another failure.
+  | "no_session"
+  | "connection_lost"
+  | "request_failed";
 
 export type NetworkCanvasRuntimeFailure = {
   readonly kind: NetworkCanvasRuntimeFailureKind;
@@ -29,4 +34,17 @@ export async function classifyRuntimeStartFailure(error: unknown): Promise<Netwo
     detail,
   });
   return answer.ok ? answer.failure : { kind: "failed_spawn", message: detail || answer.error, detail };
+}
+
+/** The kind of a failed I/O state request of Live Values, with the message the extension shows: the language server
+ * reads the failure's text (`trust-lsp.runTargets`, action `failure`, `request: "ioState"`, specification 25 §4.4).
+ * Without `error`, there was no session to ask. */
+export async function classifyIoStateFailure(error?: unknown): Promise<NetworkCanvasRuntimeFailure> {
+  const detail = error === undefined ? undefined : error instanceof Error ? error.message : String(error);
+  const answer = await projectRequest<{ failure: NetworkCanvasRuntimeFailure }>("trust-lsp.runTargets", {
+    action: "failure",
+    request: "ioState",
+    ...(detail === undefined ? {} : { detail }),
+  });
+  return answer.ok ? answer.failure : { kind: "request_failed", message: answer.error, detail };
 }

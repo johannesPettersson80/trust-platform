@@ -231,18 +231,8 @@ function showPanel(
 function postPanelStatus(message: string): void {
   panel?.webview.postMessage({
     type: "status",
-    payload: userFacingIoStatus(message),
+    payload: message,
   });
-}
-
-function userFacingIoStatus(message: string): string {
-  if (isNoActiveSessionMessage(message)) {
-    return "Start the runtime to see live values.";
-  }
-  if (isIoStateTransportFailureMessage(message)) {
-    return "Live Values lost connection to the runtime. Restart or reconnect the runtime, then retry.";
-  }
-  return message;
 }
 
 function liveValuesUnavailableMessage(
@@ -257,24 +247,6 @@ function liveValuesUnavailableMessage(
     );
   }
   return "Start the runtime to see live values.";
-}
-
-function isNoActiveSessionMessage(message: string): boolean {
-  return (
-    /No active Structured Text debug session/i.test(message) ||
-    /No debugger available/i.test(message) ||
-    /can\s+not\s+send\s+['"]?stIoState['"]?/i.test(message) ||
-    /I\/O state request failed:\s*Canceled/i.test(message)
-  );
-}
-
-function isIoStateTransportFailureMessage(message: string): boolean {
-  return (
-    /I\/O state request failed:/i.test(message) &&
-    /cancelled|connection|socket|ECONNRESET|ECONNREFUSED|EPIPE|closed|terminated|timed?\s*out|timeout|not connected|disconnected/i.test(
-      message
-    )
-  );
 }
 
 function postEmptyIoState(): void {
@@ -481,10 +453,6 @@ export function __testCollectSettingsSnapshot(): SettingsPayload {
   return collectSettingsSnapshot();
 }
 
-export function __testUserFacingIoStatus(message: string): string {
-  return userFacingIoStatus(message);
-}
-
 function runtimeConfigTarget(): vscode.Uri | undefined {
   return runtimeLifecycleService.runtimeConfigTarget();
 }
@@ -544,21 +512,23 @@ async function currentIoScan(): Promise<number | undefined> {
   return (await runtimeLifecycleService.snapshot()).ioState.scan;
 }
 
+// The language server names the kind of a failed I/O state request (specification 25 §4.4): without a session and with
+// a lost connection the rows are cleared, else the failure is the panel's status.
 async function handleIoStateRequestResult(result: RuntimeLifecycleResult): Promise<void> {
   if (!result.ok) {
-    if (isNoActiveSessionMessage(result.failure.message)) {
+    if (result.failure.kind === "no_session") {
       const status = await runtimeStatusPayload().catch(() => undefined);
       postUnavailableLiveValues(status);
       return;
     }
-    if (isIoStateTransportFailureMessage(result.failure.message)) {
+    if (result.failure.kind === "connection_lost") {
       const status = await runtimeStatusPayload().catch(() => undefined);
-      postUnavailableLiveValues(status, userFacingIoStatus(result.failure.message));
+      postUnavailableLiveValues(status, result.failure.message);
       return;
     }
     panel?.webview.postMessage({
       type: "status",
-      payload: userFacingIoStatus(result.failure.message),
+      payload: result.failure.message,
     });
     return;
   }
@@ -719,7 +689,7 @@ async function stopDebugging(): Promise<void> {
     const message = err instanceof Error ? err.message : String(err);
     panel?.webview.postMessage({
       type: "status",
-      payload: userFacingIoStatus(`Stop debugging failed: ${message}`),
+      payload: `Stop debugging failed: ${message}`,
     });
   }
 }
