@@ -126,6 +126,7 @@ impl SymbolCollector<'_> {
                         return Err(ConstEvalError::NotConstant);
                     }
                     if declared
+                        && self.table.dialect().is_codesys()
                         && matches!(resolved, Err(ConstEvalError::UndefinedName(_)))
                         && !self.reference_root_is_non_namespace_value(parts[0].as_str())
                         && let Some(value) =
@@ -505,9 +506,11 @@ impl SymbolCollector<'_> {
     /// constants) — the reference's last segment may still match exactly
     /// one constant or declared value table-wide. Multiple matches stay
     /// unresolved so the strict diagnostic surfaces; callers gate this on
-    /// `declared` (declaration-size contexts only) and on the reference
-    /// root not being a scope-local value, and bare names never take this
-    /// path (an unimported namespace's operand must stay unimported).
+    /// `declared` (declaration-size contexts only), on the CODESYS language
+    /// profile (under the IEC rules a dotted reference names an existing
+    /// container path) and on the reference root not being a scope-local
+    /// value, and bare names never take this path (an unimported
+    /// namespace's operand must stay unimported).
     fn resolve_unique_leaf_size_value(
         &mut self,
         leaf: &str,

@@ -70,6 +70,36 @@ END_NAMESPACE
     assert_eq!(string_capacity(&db, FileId(0), "sMessage"), 128);
 }
 
+// Under the IEC rules a dotted reference names an existing container path (IEC 61131-3 Ed.3
+// §6.2.2.2), so the flattened-container size is undefined; the tolerance is the CODESYS
+// profile's alone (IEC_DEVIATIONS 2026-10-25). Catches the tolerance leaking into the default
+// dialect.
+#[test]
+fn string_length_from_flattened_library_container_is_undefined_under_the_iec_rules() {
+    let mut db = Database::new();
+    db.set_source_text(
+        FileId(0),
+        r#"
+NAMESPACE WagoTypesLog
+VAR_GLOBAL CONSTANT
+    MAX_LOG_MSG_LEN : USINT := 128;
+END_VAR
+
+INTERFACE I_LogChannel
+METHOD Msg
+VAR_IN_OUT
+    sMessage : STRING(LogParameter.MAX_LOG_MSG_LEN);
+END_VAR
+END_METHOD
+END_INTERFACE
+END_NAMESPACE
+"#
+        .to_string(),
+    );
+
+    assert_eq!(error_codes(&db, FileId(0)), [DiagnosticCode::UndefinedVariable]);
+}
+
 #[test]
 fn string_length_from_dotted_library_path_across_files() {
     let mut db = Database::new();
