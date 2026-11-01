@@ -61,6 +61,22 @@ pub struct WriteRefused {
     pub reason: String,
     /// `runtime_string_capacity_exceeded` for a text longer than the capacity of its point.
     pub error_code: Option<&'static str>,
+    /// The runtime on which a named account must log in before the command is sent: the owner of a
+    /// remote point that holds no session for the operator (specification 39, remote operation).
+    pub login: Option<String>,
+}
+
+impl WriteRefused {
+    /// The owner `runtime` of a remote point holds no session for the operator: the command was not
+    /// sent, and the refusal names the runtime to log in to. Its reason, `owner-login:<runtime>`, is
+    /// what the audit records.
+    pub fn owner_login(runtime: &str) -> Self {
+        Self {
+            reason: format!("owner-login:{runtime}"),
+            error_code: None,
+            login: Some(runtime.to_string()),
+        }
+    }
 }
 
 impl From<String> for WriteRefused {
@@ -68,6 +84,7 @@ impl From<String> for WriteRefused {
         Self {
             reason,
             error_code: None,
+            login: None,
         }
     }
 }
@@ -233,6 +250,7 @@ pub(crate) fn fits_capacity(
     Err(WriteRefused {
         reason: format!("\"{shown}\" holds at most {capacity} {unit}; the text has {length}"),
         error_code: Some(StableErrorCode::RuntimeStringCapacityExceeded.as_str()),
+        login: None,
     })
 }
 

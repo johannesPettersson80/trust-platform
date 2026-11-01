@@ -250,7 +250,12 @@ export class CommandSurface {
     }
     // The control shows the program's value again once the command has its outcome (§5.8).
     this.entered.delete(object.id);
-    const reply = answer.body as { outcome?: CommandState["outcome"]; reason?: string; error?: string } | null;
+    const reply = answer.body as {
+      outcome?: CommandState["outcome"];
+      reason?: string;
+      login?: string;
+      error?: string;
+    } | null;
     if (answer.status === 200 && reply?.outcome) {
       this.setOutcome(object.id, { outcome: reply.outcome, reason: reply.reason });
       // An accepted command makes earlier refusals stale: their notice and their marks go.
@@ -258,17 +263,16 @@ export class CommandSurface {
         this.overlay.clearNotice();
         this.dropRefusals(object.id);
       }
-      if ((reply.outcome === "refused" || reply.outcome === "failed") && reply.reason) {
-        const owner = /^owner-login:([A-Za-z0-9_-]{1,128})$/.exec(reply.reason);
-        if (owner)
-          this.session.showLogin(
-            say("Log in to {runtime} with a named account on that runtime. The command has not been sent.", {
-              runtime: owner[1],
-            }),
-            owner[1],
-          );
-        else this.overlay.notice(commandReason(reply.outcome, reply.reason));
-      }
+      // The runtime names the runtime to log in to (specification 39, remote operation).
+      if (reply.outcome === "refused" && reply.login)
+        this.session.showLogin(
+          say("Log in to {runtime} with a named account on that runtime. The command has not been sent.", {
+            runtime: reply.login,
+          }),
+          reply.login,
+        );
+      else if ((reply.outcome === "refused" || reply.outcome === "failed") && reply.reason)
+        this.overlay.notice(commandReason(reply.outcome, reply.reason));
     } else {
       const reason = reply?.error ?? say("The runtime answered {status}.", { status: answer.status });
       this.setOutcome(object.id, { outcome: "refused", reason });
