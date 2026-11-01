@@ -18,6 +18,18 @@ from scripts.verification.governance import (
 from scripts.verification.metadata_validator.core import Validator
 
 
+# Specification 30, "Owning-spec companion contract": what the gate says when a production change has no written specification.
+SPECIFICATION_REQUIRED = (
+    "behavior-changing production paths require a changed written specification, or a "
+    "`Specification: <specification> <section>` commit trailer naming the section they follow"
+)
+# A production change with its native test: only the written-specification companion is open.
+FIX_WITH_TEST = [
+    "crates/trust-runtime/src/runtime/cycle.rs",
+    "crates/trust-runtime/tests/runtime_cycle.rs",
+]
+
+
 class GovernanceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -68,7 +80,7 @@ class GovernanceTests(unittest.TestCase):
             validate_changed_files(direct_policy, product),
             [
                 "behavior-changing production paths require a changed native executable test",
-                "behavior-changing production paths require a changed written specification",
+                SPECIFICATION_REQUIRED,
             ],
         )
 
@@ -84,7 +96,7 @@ class GovernanceTests(unittest.TestCase):
                 direct_policy,
                 [*product, "crates/trust-runtime/tests/runtime_cycle.rs"],
             ),
-            ["behavior-changing production paths require a changed written specification"],
+            [SPECIFICATION_REQUIRED],
         )
         self.assertEqual(
             validate_changed_files(
@@ -127,7 +139,7 @@ class GovernanceTests(unittest.TestCase):
                     validate_changed_files(self.document, [product_path]),
                     [
                         "behavior-changing production paths require a changed native executable test",
-                        "behavior-changing production paths require a changed written specification",
+                        SPECIFICATION_REQUIRED,
                     ],
                 )
 
@@ -148,6 +160,69 @@ class GovernanceTests(unittest.TestCase):
 
         changed.append("docs/specs/32-mqtt-io.md")
         self.assertEqual(validate_changed_files(self.document, changed), [])
+
+    def test_a_named_specification_section_stands_for_a_changed_specification(self) -> None:
+        # Specification 30 (checklist W10): a fix that follows a section it does not change names it in a commit trailer,
+        # by number or path. Spec 35 holds B3.4, and "7" is the file 07-standard-functions.md. Catches a gate that still
+        # demands a changed specification from a change that names the section it follows.
+        for named in (
+            "35 B3.4",
+            "docs/specs/35-vscode-control-studio.md B3.4",
+            "7 Function Index",
+        ):
+            with self.subTest(named=named):
+                self.assertEqual(validate_changed_files(self.document, FIX_WITH_TEST, [named]), [])
+
+    def test_a_named_specification_must_exist_and_hold_its_section(self) -> None:
+        # Specification 30: every named section must exist in a written specification, and a wrong name fails even when a
+        # specification also changed. There is no specification 99, spec 35 has no section Z9.9, the public conformance
+        # page is not a written specification, and a path may not leave docs/specs. Catches a trailer that names nothing
+        # real satisfying the gate.
+        for named, failure in (
+            ("99 B3.4", "Specification trailer '99 B3.4': docs/specs has no single specification numbered 99"),
+            (
+                "35 Z9.9",
+                "Specification trailer '35 Z9.9': docs/specs/35-vscode-control-studio.md has no section 'Z9.9'",
+            ),
+            ("35", "Specification trailer '35' must name a specification and its section"),
+            (
+                "docs/public/reference/conformance.md Conformance",
+                "Specification trailer 'docs/public/reference/conformance.md Conformance': "
+                "docs/public/reference/conformance.md is not a written specification",
+            ),
+            (
+                "docs/specs/../../README.md truST",
+                "Specification trailer 'docs/specs/../../README.md truST': "
+                "docs/specs/../../README.md is not a written specification",
+            ),
+        ):
+            with self.subTest(named=named):
+                self.assertEqual(
+                    validate_changed_files(self.document, FIX_WITH_TEST, [named]),
+                    [failure, SPECIFICATION_REQUIRED],
+                )
+                self.assertEqual(
+                    validate_changed_files(
+                        self.document, [*FIX_WITH_TEST, "docs/specs/11-runtime-engine.md"], [named]
+                    ),
+                    [failure],
+                )
+
+    def test_an_mqtt_change_may_name_the_mqtt_specification(self) -> None:
+        # Specification 30: the owning specification may be named instead of changed; another specification does not
+        # stand for it. Catches the runtime-engine specification, named, satisfying an MQTT change.
+        changed = [
+            "crates/trust-runtime/src/io/mqtt/config.rs",
+            "crates/trust-runtime/src/io/mqtt/tests/tag_mapping.rs",
+        ]
+        self.assertEqual(
+            validate_changed_files(self.document, changed, ["32 Exchange modes and fallback selection"]),
+            [],
+        )
+        self.assertEqual(
+            validate_changed_files(self.document, changed, ["11 Architecture Overview"]),
+            ["MQTT production paths require the owning specification docs/specs/32-mqtt-io.md"],
+        )
 
     def test_specification_index_is_complete_unique_and_ordered(self) -> None:
         specs = Path("docs/specs")

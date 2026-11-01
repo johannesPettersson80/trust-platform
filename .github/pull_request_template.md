@@ -4,7 +4,7 @@
 
 # Specification
 
-<!-- The sections of docs/specs this follows or changes. A missing or wrong section is fixed in this pull request. -->
+<!-- The sections of docs/specs this follows or changes. A missing or wrong section is fixed in this pull request. A section that it follows without changing it is also named in a commit trailer, such as `Specification: 35 B3.4`, which the Verification Gate checks (specification 30). -->
 
 # Tests
 

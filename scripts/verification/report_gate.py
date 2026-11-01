@@ -107,9 +107,11 @@ def build_report(
     run_planner: bool = True,
     enforcing: bool = False,
     smoke: bool = False,
+    specifications: list[str] | None = None,
 ) -> VerificationReport:
     runner = command_runner or default_runner(root)
     normalized = sorted({normalize_changed_file(path) for path in changed_files if path.strip()})
+    named = [f"--specification={value}" for value in specifications or []]
     if smoke:
         commands = [
             runner(["python3", "-m", "unittest", *SMOKE_TEST_MODULES]),
@@ -120,6 +122,7 @@ def build_report(
                     "scripts.verification.governance",
                     "--direct-change-contract-only",
                     *(f"--changed-file={path}" for path in normalized),
+                    *named,
                 ]
             ),
         ]
@@ -152,6 +155,7 @@ def build_report(
         "--today",
         date.today().isoformat(),
         *(f"--changed-file={path}" for path in normalized),
+        *named,
     ]
     commands.append(runner(governance_command))
     planner_exit_code: int | None = None
@@ -252,6 +256,22 @@ def changed_files_from_git(root: Path, base: str, head: str) -> list[str]:
     if completed.returncode != 0:
         raise RuntimeError(f"git diff failed: {completed.stderr.strip()}")
     return parse_name_status_z(completed.stdout)
+
+
+def specification_trailers_from_git(root: Path, base: str, head: str) -> list[str]:
+    """The values of the `Specification:` trailers of the commits in `head` and not in `base`, the commits of the change
+    (specification 30, "Owning-spec companion contract")."""
+    completed = subprocess.run(
+        ["git", "log", "--format=%(trailers:key=Specification,valueonly)", f"{base}..{head}", "--"],
+        cwd=root,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(f"git log failed: {completed.stderr.strip()}")
+    return [line.strip() for line in completed.stdout.splitlines() if line.strip()]
 
 
 def parse_name_status_z(output: str) -> list[str]:
@@ -427,6 +447,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--base", help="Base revision for PR/diff reports")
     parser.add_argument("--head", default="HEAD", help="Head revision for PR/diff reports")
     parser.add_argument("--changed", nargs="*", help="Explicit changed-file list")
+    parser.add_argument(
+        "--specification",
+        action="append",
+        default=[],
+        help="Explicit `Specification: <specification> <section>` trailer value; with --base, the commits' trailers are added",
+    )
     parser.add_argument("--out-dir", default=str(DEFAULT_OUTPUT_DIR), help="Report output directory")
     parser.add_argument("--strict", action="store_true", help="Return non-zero on reported failures")
     parser.add_argument(
@@ -443,6 +469,9 @@ def main(argv: list[str] | None = None) -> int:
         changed_files = args.changed if args.changed is not None else []
         if not changed_files and args.base:
             changed_files = changed_files_from_git(ROOT, args.base, args.head)
+        specifications = list(args.specification)
+        if args.base:
+            specifications.extend(specification_trailers_from_git(ROOT, args.base, args.head))
         report = build_report(
             root=ROOT,
             changed_files=changed_files,
@@ -450,6 +479,7 @@ def main(argv: list[str] | None = None) -> int:
             baseline=args.base,
             enforcing=args.strict,
             smoke=args.smoke,
+            specifications=specifications,
         )
         write_reports(report, ROOT / args.out_dir)
         print(render_markdown(report), end="")
