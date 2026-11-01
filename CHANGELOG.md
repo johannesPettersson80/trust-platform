@@ -32,8 +32,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   mixed integer/bit-string arithmetic, integer/REAL accuracy-loss
   combinations, and all of these shapes under other profiles keep the
   strict IEC rejections (IEC_DEVIATIONS 2026-10-28).
-- Standard conversions: vendor-extension entries match the CODESYS/TwinCAT
-  toolchain — `TO_STRING`/`*_TO_STRING` over enumerated values (variant
+- Standard conversions, under a CODESYS `vendor_profile`: vendor-extension
+  entries match the CODESYS/TwinCAT toolchain (the IEC dialect keeps
+  rejecting them) — `TO_STRING`/`*_TO_STRING` over enumerated values (variant
   name), `BOOL` (`'TRUE'`/`'FALSE'`), `TIME`/`LTIME` (`T#`/`LT#` text), and
   same-family strings (identity); `TIME_TO_<int>`/`LTIME_TO_<int>` and
   `TOD_TO_DWORD`/`LTOD_TO_DWORD` duration magnitudes. Implemented in the

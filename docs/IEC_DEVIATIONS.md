@@ -664,11 +664,11 @@ re-check them against this rule when touched.
   The standard text was unavailable on the authoring machine; the clause
   numbers mirror the citations already used in
   `docs/specs/07-standard-functions.md`.
-- truST behavior and conflict: truST accepts — matching the CODESYS /
-  TwinCAT vendor toolchain — (a) `TO_STRING`/`*_TO_STRING` over an
-  enumerated value (yields the variant name), over `BOOL`
-  (`'TRUE'`/`'FALSE'`), over `TIME`/`LTIME` (`T#`/`LT#` duration text),
-  and over any same-family string (identity); (b) `TIME_TO_<int>` /
+- truST behavior and conflict: under a CODESYS `vendor_profile`
+  (specification 14), truST accepts — matching the CODESYS / TwinCAT vendor
+  toolchain — (a) `TO_STRING`/`*_TO_STRING` over an enumerated value
+  (yields the variant name), over `BOOL` (`'TRUE'`/`'FALSE'`) and over
+  `TIME`/`LTIME` (`T#`/`LT#` duration text); (b) `TIME_TO_<int>` /
   `LTIME_TO_<int>` (ms / ns magnitude truncated into the destination,
   negative durations overflow); (c) `TOD_TO_DWORD` / `LTOD_TO_DWORD`
   (ms-of-day magnitude). The strict table reading rejects vendor-project
@@ -678,9 +678,12 @@ re-check them against this rule when touched.
 - Impact: those call sites pass the compile gate; the runtime conversion
   dispatch (`trust-runtime-core`) implements the same entries so executed
   conversions produce the documented values.
-- Mitigation: the extension set is deliberately bounded — time-of-day and
-  date string forms, and REAL-to-bitstring conversions (upstream #127
-  territory), stay rejected; integer destinations wrap rather than fault on
+- Mitigation: the IEC dialect keeps the tables' reading and rejects all
+  of (a) to (c); `TO_STRING` over a `STRING[n]` value is an identity copy
+  in every dialect, since a `STRING[n]` is a `STRING`. The extension set is
+  deliberately bounded — time-of-day and date string forms, and
+  REAL-to-bitstring conversions (upstream #127 territory), stay rejected
+  under every profile; integer destinations wrap rather than fault on
   magnitude overflow, matching the vendor toolchain's silent narrowing
   documented in DEV-023's neighborhood.
 
