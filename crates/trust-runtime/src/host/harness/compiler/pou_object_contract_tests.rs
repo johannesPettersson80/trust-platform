@@ -2,17 +2,21 @@
 
 use crate::harness::build::lower_application_with;
 use crate::harness::{CompileSession, SourceFile, TestHarness};
-use crate::stdlib::conversions::ConversionProfile;
 use crate::program_model::{property_setter_method_name, FunctionBlockBase};
+use crate::stdlib::conversions::ConversionProfile;
 use crate::value::Value;
 use crate::RuntimeBuilder;
 use trust_hir::symbols::ParamDirection;
 
 fn runtime(source: &str) -> RuntimeBuilder {
-    lower_application_with(&[SourceFile::new(source)], false, ConversionProfile::Codesys)
-        .and_then(|lowered| lowered.construct(&[]))
-        .map(|(builder, _)| builder)
-        .unwrap_or_else(|error| panic!("POU fixture must compile: {error}"))
+    lower_application_with(
+        &[SourceFile::new(source)],
+        false,
+        ConversionProfile::Codesys,
+    )
+    .and_then(|lowered| lowered.construct(&[]))
+    .map(|(builder, _)| builder)
+    .unwrap_or_else(|error| panic!("POU fixture must compile: {error}"))
 }
 
 fn run(source: &str) -> TestHarness {

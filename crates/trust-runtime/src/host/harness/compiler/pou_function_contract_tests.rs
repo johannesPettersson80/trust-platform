@@ -8,10 +8,14 @@ use crate::RuntimeBuilder;
 use trust_hir::symbols::ParamDirection;
 
 fn runtime(source: &str) -> RuntimeBuilder {
-    lower_application_with(&[SourceFile::new(source)], false, ConversionProfile::Codesys)
-        .and_then(|lowered| lowered.construct(&[]))
-        .map(|(builder, _)| builder)
-        .unwrap_or_else(|error| panic!("POU fixture must compile: {error}"))
+    lower_application_with(
+        &[SourceFile::new(source)],
+        false,
+        ConversionProfile::Codesys,
+    )
+    .and_then(|lowered| lowered.construct(&[]))
+    .map(|(builder, _)| builder)
+    .unwrap_or_else(|error| panic!("POU fixture must compile: {error}"))
 }
 
 fn run(source: &str) -> TestHarness {

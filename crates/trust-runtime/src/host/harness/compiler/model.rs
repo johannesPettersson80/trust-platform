@@ -108,7 +108,10 @@ impl CompileTimeConsts {
     fn lookup_unique_leaf(&self, key: &SmolStr) -> Option<Value> {
         let (_, leaf) = key.rsplit_once('.')?;
         let mut matches = self.global_values.iter().filter(|(registered, _)| {
-            registered.rsplit_once('.').map_or(registered.as_str(), |(_, own)| own) == leaf
+            registered
+                .rsplit_once('.')
+                .map_or(registered.as_str(), |(_, own)| own)
+                == leaf
         });
         let (_, value) = matches.next()?;
         matches.next().is_none().then(|| value.clone())

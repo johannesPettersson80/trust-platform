@@ -1,14 +1,18 @@
 use crate::harness::build::lower_application_with;
 use crate::harness::SourceFile;
-use crate::stdlib::conversions::ConversionProfile;
 use crate::program_model::{Expr, Stmt};
+use crate::stdlib::conversions::ConversionProfile;
 
 /// Compiles `source` and returns the argument names of the call that is the first statement of
 /// `Main`. An unnamed argument is reported as `<positional>`.
 fn call_argument_names(source: &str) -> Vec<String> {
-    let (runtime, _) = lower_application_with(&[SourceFile::new(source)], false, ConversionProfile::Codesys)
-        .and_then(|lowered| lowered.construct(&[]))
-        .unwrap_or_else(|error| panic!("bistable fixture must compile: {error}"));
+    let (runtime, _) = lower_application_with(
+        &[SourceFile::new(source)],
+        false,
+        ConversionProfile::Codesys,
+    )
+    .and_then(|lowered| lowered.construct(&[]))
+    .unwrap_or_else(|error| panic!("bistable fixture must compile: {error}"));
     let program = runtime.programs().values().next().expect("Main program");
     let Stmt::Expr {
         expr: Expr::Call { args, .. },
