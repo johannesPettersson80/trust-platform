@@ -6,8 +6,65 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-01
+
 ### Fixed
 
+- The help under a hardware terminal that no PLC signal fits, in Devices & Connections, suggests an address the runtime
+  binds the terminal's type to: `%ID0` for a `TIME`, `%IW0` for a `WCHAR` and the byte address `%IB0` for a `STRING`.
+  Before, it suggested a long-word address such as `%IL0`, which the runtime refuses for these types, and it did the
+  same for a `DATE` or a structure, which now get the advice without an example (HMI component catalogue §8.1).
+- Cancelling Identify while it waits for a loop in Auto to settle always stops before the loop is switched to Manual.
+  Before, a Cancel that arrived during the wait's last reading could still let the switch happen; the mode was
+  returned afterwards (specification 35, B3.4).
+- Identify's wait for a loop in Auto to settle keeps the readings its window judges and fewer older ones than those, so
+  a long wait no longer grows the engine's memory: a 24-hour campaign of a 16-member PID group held about 84 MiB
+  (specification 35, B3.4).
+- Identify's waits for a steady output and for a loop in Auto to settle say that they are measuring the rate until twenty
+  readings measure it. Before, their first progress said "changing 0 °C/min" while the temperature rose (specification
+  35, B3.4).
+- Implicit-conversion warning: a derived DUT converted to its own ancestor
+  (directly or transitively) no longer emits `ImplicitConversion` — the
+  conversion is a well-defined base-part-copy upcast that assignment
+  compatibility already accepts. Conversions between DUTs without an
+  ancestor relation keep the warning.
+- Unused-symbol analysis: input parameters of a method that IMPLEMENTS an
+  interface method no longer receive a false `W002` unused-parameter
+  warning — the implementing POU must carry the full interface signature
+  even where its body ignores a pin. Methods outside every implemented
+  interface keep the warning.
+- Unused-symbol analysis: `EXTENDS` and `IMPLEMENTS` targets count as used —
+  a function block referenced only as a base class (or a DUT/interface only
+  inherited) no longer receives a false `W009` unused warning, while the
+  never-instantiated derived declaration still does.
+- Unused-symbol analysis: qualified value access chains (`GVals.Member`,
+  dotted declaration-size references) now mark the TERMINAL symbol used.
+  The parser models these as nested field-access nodes with a plain `Name`
+  terminal, which the unused-symbol collector never resolved — constants
+  referenced only through qualified cross-file uses (expressions,
+  `STRING[GVals.Len]` sizes) were falsely reported as `W001` unused
+  constants. Genuinely unreferenced constants still warn.
+- PLCopen GVL import: members that a dropped same-named `constant="true"`
+  mirror list re-declares keep constant-ness — the merged list renders a
+  separate `VAR_GLOBAL CONSTANT` section for them (`PLCO226` info)
+  instead of flattening them to plain variables, so mirror semantics
+  match the vendor project (PLCOPEN_DECISIONS 2026-10-26).
+- Enumerated values convert to their declared integer base in assignments,
+  comparisons, call arguments, and CASE labels — including base-less
+  enums (`INT` base) — and dotted enum member access accepts any namespace
+  depth (`WagoTypesLog.eSysLogPriority.LOG_ERR`), closing the E202
+  "cannot be used as a value" class on real CODESYS projects. Integer
+  assignment into base-less ("closed") enums, cross-enum assignment, and
+  unknown members stay rejected (IEC_DEVIATIONS 2026-10-26).
+- Qualified type references resolve case-insensitively through the
+  cross-file project type catalog: a consumer spelling a namespace-
+  qualified function-block type with different casing than the declaring
+  file (`WagoAppJSON.FB_JSON_Writer_02` over a stub declaring
+  `Fb_JSON_Writer_02`) now resolves the type and can invoke the instance
+  (`fbInst(...)`), instead of silently failing the type lookup and
+  reporting "not callable" at the call site. ST identifiers are
+  case-insensitive; the catalog now keys and matches like the symbol
+  table.
 - Call binding: `VAR_IN_OUT` strings bind across declared capacities (same
   string family only), matching CODESYS and the vendor buffer idiom of a
   `STRING(1)` formal whose real capacity arrives in a separate size argument
@@ -29,8 +86,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   mixed integer/bit-string arithmetic, integer/REAL accuracy-loss
   combinations, and all of these shapes under other profiles keep the
   strict IEC rejections (IEC_DEVIATIONS 2026-10-28).
-- Standard conversions: vendor-extension entries match the CODESYS/TwinCAT
-  toolchain — `TO_STRING`/`*_TO_STRING` over enumerated values (variant
+- Standard conversions, under a CODESYS `vendor_profile`: vendor-extension
+  entries match the CODESYS/TwinCAT toolchain (the IEC dialect keeps
+  rejecting them) — `TO_STRING`/`*_TO_STRING` over enumerated values (variant
   name), `BOOL` (`'TRUE'`/`'FALSE'`), `TIME`/`LTIME` (`T#`/`LT#` text), and
   same-family strings (identity); `TIME_TO_<int>`/`LTIME_TO_<int>` and
   `TOD_TO_DWORD`/`LTOD_TO_DWORD` duration magnitudes. Implemented in the

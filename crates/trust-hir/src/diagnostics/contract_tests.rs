@@ -27,6 +27,7 @@ fn registered_codes() -> Vec<(DiagnosticCode, &'static str, DiagnosticSeverity)>
         (InvalidArgumentType, "E205", Error),
         (MissingReturn, "E206", Error),
         (InvalidReturnType, "E207", Error),
+        (InterfaceConformance, "E208", Error),
         (InvalidAssignmentTarget, "E301", Error),
         (ConstantModification, "E302", Error),
         (InvalidArrayIndex, "E303", Error),

@@ -51,8 +51,13 @@ impl CompileTimeConsts {
         self.declared_sizes.insert(Self::key(name), value);
     }
 
-    pub(crate) fn declared_sizes_is_empty(&self) -> bool {
-        self.declared_sizes.is_empty()
+    /// Whether the size-evaluation view can resolve anything the strict set
+    /// cannot: it adds the declared initial values of plain variables
+    /// (DEV-033), so a project without them keeps the strict error without
+    /// building a view. Dotted references take the same unique-leaf
+    /// tolerance in both.
+    pub(crate) fn size_fallback_applicable(&self) -> bool {
+        !self.declared_sizes.is_empty()
     }
 
     pub(crate) fn absorb_declared_sizes(&mut self, declared: Self) {
@@ -62,7 +67,7 @@ impl CompileTimeConsts {
     }
 
     /// The view declaration-size lowering evaluates against: true constants
-    /// plus the declared initial values of plain variables.
+    /// plus the declared initial values of plain variables (DEV-033).
     pub(crate) fn size_evaluation_view(&self) -> Self {
         let mut view = self.clone();
         view.global_values.extend(self.declared_sizes.clone());
@@ -79,7 +84,7 @@ impl CompileTimeConsts {
                 .global_values
                 .get(&key)
                 .cloned()
-                .or_else(|| self.lookup_unique_leaf_strict(&key));
+                .or_else(|| self.lookup_unique_leaf(&key));
         }
         for namespace in using {
             let qualified = Self::key(&format!("{namespace}.{name}"));
@@ -90,34 +95,23 @@ impl CompileTimeConsts {
         self.global_values.get(&key).cloned()
     }
 
-    /// Unique-leaf tolerance for dotted references in ordinary constant
-    /// evaluation (IEC_DEVIATIONS DEV-030): the same flattened-library
-    /// tolerance as the size view, over the strict constant set itself —
-    /// `LogParameter.MAX_LOG_MSG_LEN` resolves when exactly one registered
-    /// constant carries that leaf. Bare names never fall back, and
-    /// ambiguous leaves stay unresolved.
-    fn lookup_unique_leaf_strict(&self, key: &SmolStr) -> Option<Value> {
-        if !key.contains('.') {
-            return None;
-        }
-        let leaf = match key.rsplit_once('.') {
-            Some((_, leaf)) => leaf,
-            None => key.as_str(),
-        };
-        let mut resolved: Option<&Value> = None;
-        for (registered, value) in &self.global_values {
-            let registered_leaf = match registered.rsplit_once('.') {
-                Some((_, leaf)) => leaf,
-                None => registered.as_str(),
-            };
-            if registered_leaf == leaf {
-                if resolved.is_some() {
-                    return None;
-                }
-                resolved = Some(value);
-            }
-        }
-        resolved.cloned()
+    /// The unique-leaf tolerance for dotted references (IEC_DEVIATIONS
+    /// DEV-041 and 2026-10-25), one rule for ordinary constant evaluation and
+    /// the size view: a reference naming a container level that a library
+    /// stub flattened away (`LogParameter.MAX_LOG_MSG_LEN` over
+    /// namespace-level constants, or the fully qualified
+    /// `WagoTypesLog.LogParameter.MAX_LOG_MSG_LEN`) resolves when exactly one
+    /// entry carries its last segment: a registered constant, and in the size
+    /// view also a declared size. Bare names never fall back, so an
+    /// unimported namespace's operand stays unimported, and an ambiguous leaf
+    /// stays unresolved.
+    fn lookup_unique_leaf(&self, key: &SmolStr) -> Option<Value> {
+        let (_, leaf) = key.rsplit_once('.')?;
+        let mut matches = self.global_values.iter().filter(|(registered, _)| {
+            registered.rsplit_once('.').map_or(registered.as_str(), |(_, own)| own) == leaf
+        });
+        let (_, value) = matches.next()?;
+        matches.next().is_none().then(|| value.clone())
     }
 }
 

@@ -1,5 +1,6 @@
-//! `add_host`: a runtime address typed into `Connect existing runtime` added to the fleet
-//! (specification 25 §5.2): `host:port` becomes `tcp://host:port`, a `tcp://` or `unix://`
+//! `add_host`: a runtime address typed into `Connect existing runtime`, or the control endpoint of a
+//! runtime the canvas created, added to the fleet (specification 25 §5.2): `host:port` becomes
+//! `tcp://host:port`, a `tcp://` or `unix://`
 //! endpoint is kept, and any other text is refused with the address help. An endpoint already in
 //! the fleet is not added twice. Without a token the canvas focuses the runtime drawn for the new
 //! endpoint, which says what it needs. The canvas stores the token and the label and writes the

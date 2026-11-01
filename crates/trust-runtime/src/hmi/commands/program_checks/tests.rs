@@ -594,6 +594,7 @@ fn a_text_longer_than_its_input_holds_is_refused_never_cut() {
         Err(WriteRefused {
             reason: "\"Name\" holds at most 8 bytes of UTF-8; the text has 9".into(),
             error_code: Some("runtime_string_capacity_exceeded"),
+            login: None,
         })
     );
     assert_eq!(
@@ -601,6 +602,7 @@ fn a_text_longer_than_its_input_holds_is_refused_never_cut() {
         Err(WriteRefused {
             reason: "\"Wide\" holds at most 4 UTF-16 code units; the text has 5".into(),
             error_code: Some("runtime_string_capacity_exceeded"),
+            login: None,
         })
     );
 }

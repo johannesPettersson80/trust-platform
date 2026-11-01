@@ -84,12 +84,19 @@ export class NetworkCanvasFleetActions {
       );
       return;
     }
+    // The new runtime joins the fleet by the rule of `add_host` (specification 25 §5.2): Rust gives
+    // the fleet's endpoints with it, and an endpoint already there is not added twice.
     const config = trustConfig();
-    const current = config.get<string[]>("runtime.fleetEndpoints", []) ?? [];
-    if (!current.includes(result.control_endpoint)) {
+    const reply = await requestCanvasAct("add_host", {
+      endpoint: result.control_endpoint,
+      fleet_endpoints: config.get<string[]>("runtime.fleetEndpoints", []) ?? [],
+      token: false,
+    });
+    const added = isRecord(reply.result) ? reply.result : undefined;
+    if (added?.already !== true && Array.isArray(added?.fleet_endpoints)) {
       await config.update(
         "runtime.fleetEndpoints",
-        [...current, result.control_endpoint],
+        added.fleet_endpoints,
         configurationTarget()
       );
     }

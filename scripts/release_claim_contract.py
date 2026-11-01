@@ -13,11 +13,12 @@ from pathlib import Path
 from typing import Any, Callable
 
 try:
-    from scripts import check_npm_audit
+    from scripts import check_npm_audit, release_plan
     from scripts.check_dependency_exceptions import validate_file
     from scripts.release_evidence_contract import ReleaseEvidenceError
 except ModuleNotFoundError:  # Direct `python scripts/...` execution.
     import check_npm_audit  # type: ignore[no-redef]
+    import release_plan  # type: ignore[no-redef]
     from check_dependency_exceptions import validate_file  # type: ignore[no-redef]
     from release_evidence_contract import ReleaseEvidenceError  # type: ignore[no-redef]
 
@@ -53,8 +54,21 @@ def _release_steps() -> str:
 def audit_platform_matrix() -> dict[str, Any]:
     release = _text(".github/workflows/release.yml")
     ci = _text(".github/workflows/ci.yml")
-    for platform in PLATFORMS:
-        _require(release, [f"platform: {platform}"], "release platform matrix")
+    # The release's toolchain-bundle and build jobs take their matrices from the plan, whose release builds every
+    # platform of its targets (specification 24).
+    _require(
+        release,
+        [
+            "include: ${{ fromJSON(needs.plan.outputs.toolchain_targets) }}",
+            "include: ${{ fromJSON(needs.plan.outputs.build_targets) }}",
+        ],
+        "release platform matrix",
+    )
+    released = release_plan.Plan("release", "", "", "", release_plan.ALL_PLATFORMS).matrices()
+    for name, matrix in released.items():
+        built = tuple(entry["platform"] for entry in matrix)
+        if built != PLATFORMS:
+            raise ReleaseEvidenceError(f"release platform matrix: a release's {name} build {list(built)}, not {list(PLATFORMS)}")
     _require(
         ci,
         ["os: [ubuntu-latest, macos-latest, windows-latest]"],

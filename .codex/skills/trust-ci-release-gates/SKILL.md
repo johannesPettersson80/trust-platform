@@ -1,6 +1,6 @@
 ---
 name: trust-ci-release-gates
-description: Ships truST changes the professional way - small pull requests to main, CI as the only gate, Codex review, the merge queue, changelog and versions, version-bump releases and release verification (the exact-SHA guard only until CI covers it). Use for commits, pushes, pull requests, CI workflow or gate-script changes, version bumps, merges, GitHub releases and VS Code Marketplace checks.
+description: Ships truST changes the professional way - small pull requests to main, CI as the only gate, Codex review, the merge queue, changelog and versions, version-bump releases and release verification. Use for commits, pushes, pull requests, CI workflow or gate-script changes, version bumps, merges, GitHub releases and VS Code Marketplace checks.
 ---
 
 # Changes, CI and releases
@@ -51,35 +51,18 @@ can, so a finding costs a fix in its own pull request, never another release rou
    scripts, its pull request's CI on macOS and Windows is the probe; read those logs, not only the
    Linux ones.
 
-### Until the guard is retired (checklist W3 and W4)
+### The acceptance journeys
 
-CI does not yet run every stage of the release guard (`scripts/release_candidate_guard.py`), nor the
-acceptance journeys on the built packages. Until it does:
-
-- a push of a version change still needs the guard's exact-SHA artifact (`prepare`, Release
-  candidates below); the pre-push hook enforces it, and it is never bypassed;
-- before the bump, get Codex's review on the finished pull request and run the acceptance journeys
-  (the walkthrough, Identify from Auto, Try-it, F23) on the package of a dispatched rehearsal
-  (`gh workflow run release.yml --ref <branch>`), so the guard runs once;
-- remove the guard's target before a guard on a new version: a version bump rebuilds every workspace
-  crate beside the old ones, and a warm target filled the volume on 15 and 31 October.
-
-## Changelog and versions
-
-- **Changelog**: user-visible changes get an entry in `CHANGELOG.md` under `## [Unreleased]`, in
-  `### Added`, `### Changed` or `### Fixed`. User-visible means runtime behaviour, CLI flags and
-  output, the standard library, tutorials and docs, and test harness behaviour. Purely internal
-  changes need no entry.
-- **Release text**: the version bump renames `## [Unreleased]` to `## [<version>] - <date>` and puts a
-  new, empty `## [Unreleased]` above it. The Release workflow publishes that version's section as the
-  release's text (`scripts/extract_changelog_section.py`), which refuses a missing or empty section
-  and a text over GitHub's 125,000 characters; GitHub would cut it without a word.
-- **Version**: a release-notable change bumps `[workspace.package].version` in `Cargo.toml`, unless
-  the user says not to.
-- **VS Code versions**: when the version changes, or when the extension's behaviour changes, set
-  `editors/vscode/package.json` and the root version entries of `editors/vscode/package-lock.json`
-  to the same version.
-- **Docs**: keep tutorials, examples, specifications and coverage documents in line with what ships.
+The Release workflow's `acceptance` job runs the journeys (the walkthrough, its Try-it experiments,
+Identify from Auto, F23 on the default and a TCP endpoint) on the linux-x64 package it built: for a
+pull request that changes what the packages hold (`.github/paths/package.txt`), and for every
+rehearsal and release before its files are kept or published. A pull request that changes the release
+workflow or a script it runs (`.github/paths/release.txt`) is rehearsed with every target. When a
+journey fails, read the `acceptance-journeys` artifact (each step's journal entry and screenshot),
+then run it on the builder: `xvfb-run -a -s "-screen 0 1920x1080x24" npm run acceptance -- --vsix
+<file> --out <folder> --journey <session>` in `editors/vscode` after `npm ci` and `npx tsc -p ./`.
+The pre-push hook refuses only a direct push to `main` and a pushed release tag; every other push
+goes through.
 
 ## The area gates CI runs
 
@@ -121,9 +104,10 @@ Check it once, before the first push:
    run keeps its release text and evidence as the artifact `release-rehearsal-v<version>`. A fork's
    pull request is not rehearsed on the project's runners; rehearse its head with
    `gh workflow run release.yml --ref <branch>`.
-3. **Merge** it when CI, the rehearsal and Codex are green (while the guard is in use:
-   `release_candidate_guard.py check-merge --pr <number> --execute`, which also requires the
-   rehearsal that kept `release-rehearsal-v<version>`).
+3. **Merge** it when CI, the rehearsal and Codex are green. Until the merge queue is on (checklist
+   W5), merge with `release_candidate_guard.py check-merge --pr <number> --execute`: it requires a
+   clean merge state, green checks on the exact head and, for a version change, the passed rehearsal
+   that kept `release-rehearsal-v<version>`.
 4. **The release follows `main`'s CI.** When `main`'s CI passes on the merge commit, the Release
    workflow tags that commit `v<version>`, creates the GitHub release with the version's changelog
    section, publishes every target to the Marketplace and verifies the tag, the release, Latest and
@@ -149,17 +133,11 @@ later one.
 In PR text, `Closes`, `Fixes` and `Resolves` close an issue on merge; `Addresses` does not. Check
 that the intended issues are closed after the merge.
 
-### Release candidates (while the guard is in use)
+### The release guard (retired)
 
-`release_candidate_guard.py prepare --remote-worktree '<clean exact-SHA trust-builder worktree>'`
-records the guard's stages for one clean commit: rule-file parity with the primary checkout, a clean
-candidate and base, the supply chain and architecture safety gates, the cross-target warnings, the
-VS Code suites, `just test-all`, MP-001 parity, the documentation site and, when it applies, the
-capture lifecycle. Planner and catalog records are advisory. Any commit, base movement or dirty
-checkout invalidates the artifact. It needs 80 GiB free on the selected target filesystem; stage the
-candidate by bundle in the guard worktree, and remove the guard's target after every guard.
-`preflight` runs the quick stages and reports every failure at once. `collect-failures --pr
-<number> --wait` gathers every failed job log of a pull request.
+`release_candidate_guard.py prepare` and `preflight` are no longer part of the workflow: CI runs every
+stage they ran, and `git diff --check`. They stay until checklist W8 removes them. `collect-failures
+--pr <number> --wait` still gathers every failed job log of a pull request.
 
 ## Changing CI or gate scripts
 
@@ -211,8 +189,8 @@ candidate by bundle in the guard worktree, and remove the guard's target after e
 - **Script style**: gate scripts fail fast and pass shellcheck (`set -euo pipefail`). With `set -u`,
   do not expand arrays that may be empty.
 - **Regression tests for gate tooling**: name the focused test so that
-  `scripts/check_regression_test_first.py` finds it (`test_*.py`, `tests.py`, or a `test` or `tests`
-  directory). When it proves an existing failing command, add a `Regression-test-first:` line to the
+  `scripts/check_regression_test_first.py` finds it (`*_tests.py`, `test_*.py`, `*_tests.rs`, `*_test.rs`,
+  `tests.rs`, `tests.py`, or a `test` or `tests` directory). When it proves an existing failing command, add a `Regression-test-first:` line to the
   commit or PR.
 - **Verification report**: pull requests and candidates run
   `scripts/verification_report_gate.py --strict --smoke`. The exhaustive verification tooling runs

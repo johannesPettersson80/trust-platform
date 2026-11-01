@@ -203,6 +203,8 @@ def is_test_file(path: str) -> bool:
         or name == "test.tsx"
         or name.startswith("test_")
         or name.endswith("_test.rs")
+        or name.endswith("_tests.rs")
+        or name.endswith("_tests.py")
         or name.endswith(".test.ts")
         or name.endswith(".test.tsx")
         or name.endswith(".spec.ts")
@@ -310,6 +312,30 @@ def run_self_test() -> int:
             "text": "fix: parser recovery regression",
             "inline": True,
             "want_findings": False,
+        },
+        {
+            "name": "bug fix changing a Rust tests module passes",
+            "changed": ["crates/trust-debug/src/adapter/control_status_tests.rs"],
+            "text": "fix: wait for the reloaded program before reading its tasks",
+            "inline": False,
+            "want_findings": False,
+        },
+        {
+            "name": "bug fix changing a Python tests module passes",
+            "changed": [
+                "scripts/verification/governance.py",
+                "scripts/verification/governance_tests.py",
+            ],
+            "text": "fix: accept a named specification section",
+            "inline": False,
+            "want_findings": False,
+        },
+        {
+            "name": "bug fix changing only the module beside its tests fails",
+            "changed": ["scripts/verification/governance.py"],
+            "text": "fix: accept a named specification section",
+            "inline": False,
+            "want_findings": True,
         },
         {
             "name": "non-bug behavior change passes",

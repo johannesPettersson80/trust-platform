@@ -1,0 +1,14 @@
+# What the packages hold and what their acceptance journeys run: a pull request that keeps the version but changes one
+# builds the linux-x64 package and runs the journeys on it (specification 22, "Acceptance journeys on the packaged
+# extension"; specification 24, "Release rehearsal on pull requests").
+.github/paths/package.txt
+editors/vscode/**
+crates/**
+examples/**
+libraries/**
+Cargo.toml
+Cargo.lock
+rust-toolchain.toml
+# The deployment notes and unit file the runtime archives carry.
+docs/deploy/**
+.cargo/**

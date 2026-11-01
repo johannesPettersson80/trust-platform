@@ -34,6 +34,8 @@ export interface TerminalState {
   value?: string | null;
   error?: string | null;
   choices: Array<{ path: string; address?: string; type?: string; direction?: string }>;
+  /** What to declare when no PLC signal fits, as the language server words it; absent while one fits. */
+  help?: string | null;
 }
 
 /** The inspector's hardware summary (§21.3 item 2). */

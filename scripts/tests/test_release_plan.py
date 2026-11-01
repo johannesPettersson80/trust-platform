@@ -24,6 +24,7 @@ def plan(**kwargs):
         tag_commit=lambda tag: None,
         release_complete=lambda tag: False,
         version_commits=lambda sha: [],
+        changes=lambda base, head, paths: False,
     )
     defaults.update(kwargs)
     return release_plan.plan(**defaults)
@@ -51,12 +52,79 @@ class ReleasePlanTests(unittest.TestCase):
         bumped = plan(event="pull_request", pr_base="base", pr_head="bumped", pr_head_repository=OFFICIAL)
         self.assertEqual((bumped.mode, bumped.sha, bumped.tag), ("rehearsal", "bumped", "v0.27.0"))
 
+    def test_a_pull_request_that_keeps_the_version_builds_the_linux_package_only_when_it_changes_one(self) -> None:
+        # Specification 24: a pull request that changes what the packages hold builds the linux-x64 package for its
+        # acceptance journeys. Catches every pull request building all five targets (hours of runners), a change to the
+        # packages merged without its journeys, and a documentation change that builds packages.
+        package = lambda base, head, paths: paths.name == "package.txt"
+        packaged = plan(event="pull_request", pr_base="base", pr_head="same", pr_head_repository=OFFICIAL, changes=package)
+        self.assertEqual((packaged.mode, packaged.sha, packaged.platforms), ("package", "same", ("linux-x64",)))
+        self.assertEqual(packaged.matrices(), {
+            "toolchain_targets": [{"os": "ubuntu-latest", "platform": "linux-x64"}],
+            "build_targets": [{"os": "ubuntu-latest", "target": "x86_64-unknown-linux-gnu", "platform": "linux-x64"}],
+        })
+        documents = plan(event="pull_request", pr_base="base", pr_head="same", pr_head_repository=OFFICIAL)
+        self.assertEqual(documents.mode, "skip")
+
+    def test_a_pull_request_that_changes_the_release_workflow_is_rehearsed_with_every_target(self) -> None:
+        # Catches a change to the release machinery that merges without its rehearsal: until 1 November a pull request
+        # that kept the version ran no release job, so the merge queue's changes to release.yml were untested.
+        release = lambda base, head, paths: paths.name == "release.txt"
+        rehearsed = plan(event="pull_request", pr_base="base", pr_head="same", pr_head_repository=OFFICIAL, changes=release)
+        self.assertEqual((rehearsed.mode, rehearsed.platforms), ("rehearsal", release_plan.ALL_PLATFORMS))
+
+    def test_a_rehearsal_and_a_release_build_every_platform(self) -> None:
+        # Specification 24: the five platforms of the packages, each on its runner; only linux-arm64 cross-compiles.
+        # Catches a release or a rehearsal that loses a platform, or a native build marked as cross.
+        for result in (plan(event="pull_request", pr_base="base", pr_head="bumped", pr_head_repository=OFFICIAL), after_ci()):
+            matrices = result.matrices()
+            self.assertEqual(
+                [entry["platform"] for entry in matrices["build_targets"]],
+                ["linux-x64", "linux-arm64", "darwin-x64", "darwin-arm64", "win32-x64"],
+                result.mode,
+            )
+            self.assertEqual([entry["platform"] for entry in matrices["build_targets"] if entry.get("cross")], ["linux-arm64"])
+            self.assertEqual(
+                [entry["os"] for entry in matrices["toolchain_targets"]],
+                ["ubuntu-latest", "ubuntu-24.04-arm", "macos-15-intel", "macos-latest", "windows-latest"],
+            )
+
+    def test_a_run_that_builds_nothing_still_names_a_target(self) -> None:
+        # GitHub refuses a matrix with nothing in it; the jobs of a skipped run are skipped whatever their matrix names.
+        skipped = plan(event="merge_group")
+        self.assertEqual(skipped.mode, "skip")
+        self.assertTrue(all(skipped.matrices().values()))
+
+    def test_the_lists_name_what_the_packages_hold_and_not_the_documentation(self) -> None:
+        # Specification 24: the extension, the crates, the examples and the libraries are in the packages; pages,
+        # specifications and agent rules are not. Catches a list that misses part of a package, or that builds packages
+        # for a documentation change.
+        import ci_changes
+
+        def listed(name: str, path: str) -> bool:
+            patterns = ci_changes.read_patterns((ROOT / ".github" / "paths" / name).read_text())
+            return any(ci_changes.pattern_regex(pattern).match(path) for pattern in patterns)
+
+        for path in ("editors/vscode/src/extension.ts", "crates/trust-runtime/src/lib.rs", "examples/hmi_tank_level/runtime.toml",
+                     "libraries/oscat/README.md", "Cargo.lock", "rust-toolchain.toml"):
+            self.assertTrue(listed("package.txt", path), path)
+        for path in ("docs/public/index.md", "docs/specs/24-release-evidence.md", "AGENTS.md", ".codex/skills/x/SKILL.md", "README.md"):
+            self.assertFalse(listed("package.txt", path), path)
+            self.assertFalse(listed("release.txt", path), path)
+
     def test_a_forks_pull_request_does_not_run_on_the_projects_runners(self) -> None:
         fork = plan(event="pull_request", pr_base="base", pr_head="bumped", pr_head_repository="someone/fork")
         self.assertEqual(fork.mode, "skip")
 
     def test_a_manual_run_rehearses_and_never_releases(self) -> None:
         self.assertEqual(plan(event="workflow_dispatch", dispatch_sha="bumped").mode, "rehearsal")
+
+    def test_a_merge_group_neither_rehearses_nor_releases(self) -> None:
+        # Specification 22, "Change and release workflow": the pull request was rehearsed, and the
+        # release follows main's CI on the commit the queue merged. Catches a merge group that
+        # rehearses again (hours in the queue) or releases before main's CI passed.
+        result = plan(event="merge_group", version_at=lambda sha: self.fail("a merge group reads no version"))
+        self.assertEqual((result.mode, result.sha, result.tag), ("skip", "", ""))
 
     def test_main_ci_releases_a_version_without_a_tag(self) -> None:
         # Catches a release that waits for a hand-pushed tag (0.25.1's guard expired waiting).

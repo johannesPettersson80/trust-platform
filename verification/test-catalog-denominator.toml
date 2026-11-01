@@ -2284,16 +2284,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
-discovery_id = "DISC_0DB24707B959212676E4"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_contract_tests.rs"
-name = "derived_type_constant_rejects_integer_overflow_before_shape_validation"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-08-01"
-
-[[reviews]]
 discovery_id = "DISC_0DBCBBECD21BEB2BB0F4"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/security/contract_tests.rs"
@@ -3864,16 +3854,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
-discovery_id = "DISC_15ADD95D094FCEF1D490"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_contract_tests.rs"
-name = "derived_type_constant_rejects_undefined_operand_with_source_label"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-08-01"
-
-[[reviews]]
 discovery_id = "DISC_15DA035E3B2F0DF055AB"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/core/accessor_contract_tests.rs"
@@ -3938,16 +3918,6 @@ discovery_id = "DISC_15F404C46C19738EE9C0"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-debug/src/adapter/lifecycle_contract_tests.rs"
 name = "initialize_records_zero_based_coordinate_conventions"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-08-01"
-
-[[reviews]]
-discovery_id = "DISC_1613893817C06D4644EF"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_contract_tests.rs"
-name = "derived_type_constant_rejects_mutable_enum_value"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
@@ -6354,16 +6324,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
-discovery_id = "DISC_21A0D69565A89ADE8229"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_contract_tests.rs"
-name = "derived_type_constant_rejects_mutable_string_capacity"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-08-01"
-
-[[reviews]]
 discovery_id = "DISC_21AF6CE1E5B4CD1954E4"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/runtime/core/accessor_contract_tests.rs"
@@ -7428,16 +7388,6 @@ discovery_id = "DISC_270078355748F5DCAAEC"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/harness/config_access_contract_tests.rs"
 name = "configuration_contract_runtime_wildcard_guard_sorts_and_deduplicates_names"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-08-01"
-
-[[reviews]]
-discovery_id = "DISC_270232CADFC1DC3149E1"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_contract_tests.rs"
-name = "derived_type_constant_rejects_reversed_array_dimension"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
@@ -12278,16 +12228,6 @@ discovery_id = "DISC_42AF37E700666475B6F7"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/helper_eval/storage_lvalue/contract_tests.rs"
 name = "lvalue_read_uses_expression_name_precedence_including_retain"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-08-01"
-
-[[reviews]]
-discovery_id = "DISC_42B65692E1FED305CF55"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_contract_tests.rs"
-name = "derived_type_constant_rejects_divide_by_zero_before_shape_validation"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
@@ -18164,16 +18104,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
-discovery_id = "DISC_62D360CC55AC08743B24"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_contract_tests.rs"
-name = "derived_type_constant_rejects_non_integer_shape_operand"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-08-01"
-
-[[reviews]]
 discovery_id = "DISC_62D6345FA19CD1F37DB7"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/value/reference/contract_tests.rs"
@@ -19332,16 +19262,6 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
-
-[[reviews]]
-discovery_id = "DISC_68E909EC2F7E99EB4DAB"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_contract_tests.rs"
-name = "derived_type_constant_rejects_ambiguous_using_operand"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-08-01"
 
 [[reviews]]
 discovery_id = "DISC_6913232A3DD94C801F32"
@@ -25004,16 +24924,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
-discovery_id = "DISC_87DDE98772C3FEFA07A4"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_contract_tests.rs"
-name = "derived_type_constant_rejects_enum_implicit_successor_overflow"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-08-01"
-
-[[reviews]]
 discovery_id = "DISC_87E8AB58610E9934BD82"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/io/interface_contract_tests.rs"
@@ -26274,16 +26184,6 @@ catalog_test_id = "TEST_AUTO_8ECA38A3365D2E70B739"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
-discovery_id = "DISC_8ECB90863C1E410FFF39"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_contract_tests.rs"
-name = "derived_type_constant_rejects_cyclic_operand_graph"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-08-01"
-
-[[reviews]]
 discovery_id = "DISC_8ED41668F4877B6F41A7"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-hir/src/db/diagnostics/unreachable/contract_tests.rs"
@@ -26788,16 +26688,6 @@ discovery_id = "DISC_9170C097CB71F3F396F7"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/harness/compiler/project_assembly_contract_tests.rs"
 name = "project_assembly_contract_rejects_function_duplicate_across_files"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-08-01"
-
-[[reviews]]
-discovery_id = "DISC_91772C494F61F098129D"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_contract_tests.rs"
-name = "derived_type_constant_rejects_reversed_subrange"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
@@ -29614,16 +29504,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
-discovery_id = "DISC_A06B8D82F930711D9DC6"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_contract_tests.rs"
-name = "derived_type_constant_does_not_leak_unimported_namespace_operand"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-08-01"
-
-[[reviews]]
 discovery_id = "DISC_A07350E36CE1DACA0ED0"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-hir/src/types/contract_tests.rs"
@@ -29758,16 +29638,6 @@ discovery_id = "DISC_A123F02A2B717CBE645C"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/control/comm_handlers/probe/contract_tests.rs"
 name = "opcua_target_requires_endpoint_or_host_string"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-08-01"
-
-[[reviews]]
-discovery_id = "DISC_A12AACAA5B9A2DBD91CE"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_contract_tests.rs"
-name = "derived_type_constant_rejects_mutable_array_bound"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
@@ -44654,16 +44524,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
-discovery_id = "DISC_F2AAE8D9EA0F695BA7BB"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_contract_tests.rs"
-name = "derived_type_constant_rejects_mutable_subrange_bound"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-08-01"
-
-[[reviews]]
 discovery_id = "DISC_F2B7C248CFA3D6534CCA"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/io/gpio_contract_tests.rs"
@@ -45252,6 +45112,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-10-17"
+
+[[reviews]]
+discovery_id = "DISC_B15DB8F8B6FAAE7131B1"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-hir/src/db/diagnostics/unused/contract_tests.rs"
+name = "implementing_method_interface_pins_do_not_warn_but_extra_methods_do"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-27"
 
 [[reviews]]
 discovery_id = "DISC_F606E55679E4C3E88ECC"
@@ -46794,16 +46664,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
-discovery_id = "DISC_FD2C944695AAD0794C3E"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_contract_tests.rs"
-name = "derived_type_constant_rejects_enum_explicit_value_outside_base"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-08-01"
-
-[[reviews]]
 discovery_id = "DISC_FD2DA89D2FD348EA5808"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/web/auth_helpers/contract_tests.rs"
@@ -47361,6 +47221,8 @@ name = "reliability_test_project_configs_are_loadable"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-29"
+
 [[reviews]]
 discovery_id = "DISC_7ED08FC2C6176CF9E691"
 discovery_source_kind = "rust_unit_test"
@@ -47372,7 +47234,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-10-28"
 
 [[reviews]]
-[[reviews]]
 discovery_id = "DISC_03EB4242243E5ECC1513"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/method_in_out_parameter_writes.rs"
@@ -47382,7 +47243,6 @@ disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-10-28"
 
-[[reviews]]
 [[reviews]]
 discovery_id = "DISC_BC68D035F131290A5EFE"
 discovery_source_kind = "rust_integration_test"
@@ -47452,6 +47312,257 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-10-29"
+
+[[reviews]]
+discovery_id = "DISC_A87344A21EA489B37B2A"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-hir/tests/semantic_type_definitions.rs"
+name = "test_dut_upcast_assignment_does_not_warn_implicit_conversion"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-28"
+
+[[reviews]]
+discovery_id = "DISC_0E3EBCD2BD3BAC6ADD56"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-hir/tests/semantic_type_definitions.rs"
+name = "test_dut_upcast_call_argument_does_not_warn_implicit_conversion"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-28"
+
+[[reviews]]
+discovery_id = "DISC_F5C8383AA7B6736644A4"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/user_type_runtime_contract.rs"
+name = "derived_dut_into_base_input_copies_base_fields"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-28"
+
+[[reviews]]
+discovery_id = "DISC_216D741D6F26DA6A5D96"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_rejects_integer_overflow_before_shape_validation"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_7A69201001D173C8874D"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_rejects_undefined_operand_with_source_label"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_AB8FC8C27C890D9A888A"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_rejects_mutable_enum_value"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_181C49BC2B52DF0502B6"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_rejects_mutable_string_capacity"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_BFB54371BE76A8C81A47"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_rejects_reversed_array_dimension"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_C5D3A174E7846B16F95B"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_rejects_divide_by_zero_before_shape_validation"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_89FE59912F1AF6195EC6"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_rejects_non_integer_shape_operand"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_2EC8425FCBA348F916A3"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_rejects_ambiguous_using_operand"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_5998EAF940F9A4D87A74"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_rejects_enum_implicit_successor_overflow"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_E9D836B84942924E81FC"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_rejects_cyclic_operand_graph"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_D1D21A23AA0C7DB7FFF8"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_rejects_reversed_subrange"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_D5A7121120A713408F4C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_does_not_leak_unimported_namespace_operand"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_9BABEDA245B6937AC5EB"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_rejects_mutable_array_bound"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_D74DB08390BC0EC3230F"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_rejects_mutable_subrange_bound"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_4F03849F5341FC87A0FE"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_rejects_enum_explicit_value_outside_base"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_7A770F2105DBC03ACAF8"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_accepts_initialized_global_array_bound"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-11-01"
+
+[[reviews]]
+discovery_id = "DISC_2546E3A4706A67FA4D94"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_accepts_initialized_global_of_another_file"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-11-01"
+
+[[reviews]]
+discovery_id = "DISC_831F2003B3CD5A111C55"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_accepts_initialized_global_string_capacity"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-11-01"
+
+[[reviews]]
+discovery_id = "DISC_0EF40F82412C59C6B60A"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_flattened_library_container_sizes_fold_exactly"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-11-01"
+
+[[reviews]]
+discovery_id = "DISC_60F3611E568245268A10"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_gvl_qualified_declared_size_folds_exactly"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-11-01"
+
+[[reviews]]
+discovery_id = "DISC_D0B31CE0907B641BE96F"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_rejects_ambiguous_leaf_container_reference"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-11-01"
+
+[[reviews]]
+discovery_id = "DISC_D7BC57D2BF9BC3FDB734"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/harness/compiler/derived_type_constant_declared_size_contract_tests.rs"
+name = "derived_type_constant_rejects_flattened_container_in_plain_initializer"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-11-01"
+
 [[reviews]]
 discovery_id = "DISC_4363A997EE18DECE6629"
 discovery_source_kind = "rust_integration_test"
@@ -47551,7 +47662,6 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-10-30"
-=======
 
 [[reviews]]
 discovery_id = "DISC_F1A46DC447467C1B1132"
@@ -47592,7 +47702,6 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-10-30"
-=======
 
 [[reviews]]
 discovery_id = "DISC_370CF3CC334A94C2AEB8"
@@ -47643,4 +47752,3 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-10-30"
->>>>>>> 7b42ce58a (fix(runtime): resolve qualified compile-time references and TIME/TOD literal interchange (DEV-030, DEV-031))

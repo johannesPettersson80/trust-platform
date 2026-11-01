@@ -236,7 +236,7 @@ export function httpJson(port: number, requestPath: string): Promise<any> {
   });
 }
 
-export function connectCdp(url: string): Promise<CdpConnection> {
+export function connectCdp(url: string, requestTimeoutMs = 8_000): Promise<CdpConnection> {
   const WebSocket = require("ws") as any;
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(url);
@@ -259,7 +259,7 @@ export function connectCdp(url: string): Promise<CdpConnection> {
           const timer = setTimeout(() => {
             pending.delete(id);
             rejectSend(new Error(`CDP timeout: ${method}`));
-          }, 8_000);
+          }, requestTimeoutMs);
           pending.set(id, { resolve: resolveSend, reject: rejectSend, timer });
           socket.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
         });

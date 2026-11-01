@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Whether a pull request or a push to `main` changes a path of a workflow's list.
+"""Whether a pull request, a merge group or a push to `main` changes a path of a workflow's list.
 
 Specification 22, "Pull-request checks and change detection": a workflow starts on every pull
 request, and its first job asks this script whether the change touches the workflow's paths. It
@@ -11,6 +11,7 @@ Usage, in a job whose checkout has the full history (`fetch-depth: 0`):
     python3 scripts/ci_changes.py --event "$EVENT" --base "$BASE" --head "$HEAD" --paths-file paths.txt
 
 Prints the matched files and writes `relevant=true` or `relevant=false` to `$GITHUB_OUTPUT`.
+A merge group compares its commit with the `main` it was built on, as a push to `main` does.
 A manual or scheduled run, and a push whose previous commit is unknown, is always relevant. A
 failing `git diff` fails the script, and so the workflow, instead of skipping its checks.
 """
@@ -26,6 +27,8 @@ from pathlib import Path
 from typing import Sequence
 
 NULL_SHA = "0" * 40
+# The events whose checks follow the changed files; every other event checks everything.
+CHANGE_EVENTS = {"pull_request", "merge_group", "push"}
 
 
 def pattern_regex(pattern: str) -> re.Pattern[str]:
@@ -61,9 +64,9 @@ def read_patterns(text: str) -> list[str]:
 
 
 def changed_files(event: str, base: str, head: str, cwd: Path | None = None) -> list[str]:
-    """The files the change touches: a pull request against its merge base, a push since `base`. A
-    moved file counts at both its old and its new path (`--no-renames`), so moving a page out of a
-    watched tree still runs the checks that publish it."""
+    """The files the change touches: a pull request against its merge base, a push or a merge group
+    since `base`. A moved file counts at both its old and its new path (`--no-renames`), so moving a
+    page out of a watched tree still runs the checks that publish it."""
     revisions = f"{base}...{head}" if event == "pull_request" else f"{base}..{head}"
     result = subprocess.run(
         ["git", "diff", "--name-only", "--no-renames", revisions],
@@ -79,7 +82,7 @@ def decide(
     event: str, base: str, head: str, patterns: Sequence[str], cwd: Path | None = None
 ) -> tuple[bool, list[str]]:
     """Whether the workflow's checks must run, and the changed files that made them run."""
-    if event not in {"pull_request", "push"}:
+    if event not in CHANGE_EVENTS:
         return True, []
     if not base or base == NULL_SHA:
         return True, []
@@ -105,7 +108,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("ci_changes: the path list is empty", file=sys.stderr)
         return 2
     relevant, matched = decide(args.event, args.base.strip(), args.head.strip(), patterns)
-    if args.event not in {"pull_request", "push"}:
+    if args.event not in CHANGE_EVENTS:
         print(f"ci_changes: a {args.event} run checks everything")
     elif not args.base.strip() or args.base.strip() == NULL_SHA:
         print("ci_changes: the previous commit is unknown, so everything is checked")

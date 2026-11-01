@@ -22,7 +22,9 @@ export type CanvasAnswer = { readonly ok: unknown } | { readonly error: string }
 export interface CanvasRuntimeReport {
   readonly endpoint: string;
   readonly label: string;
-  readonly reach: "reachable" | "unreachable" | "auth_missing" | "auth_rejected" | "missing_endpoint";
+  /** The target's probe result as `trust-lsp.runTargets` reported it; Rust reads it (specification 25, 5.1). */
+  readonly status: string;
+  readonly auth_failure_kind?: string;
   readonly topology?: CanvasAnswer;
   readonly connectors?: CanvasAnswer;
 }

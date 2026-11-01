@@ -861,7 +861,9 @@ README that passes fails the check until it is taken off the list.
   `unix://` endpoint is kept as typed. Any other text is no control endpoint:
   it is refused with the address help and is not added to the fleet
   (26 October 2026; the canvas used to add such text as an endpoint). An
-  endpoint already in the fleet is not added twice.
+  endpoint already in the fleet is not added twice. A runtime that the canvas
+  creates joins the fleet by the same rule: Rust's `add_host` answers the
+  fleet's endpoints with the new runtime's control endpoint.
 - Connect tokens go to SecretStorage; probes read them from there; settings
   resolve against the active workspace. Legacy plaintext writes and
   result-obscuring global success toasts are forbidden.
@@ -1557,7 +1559,9 @@ notices:
 - `trust-lsp.devicesTopology` takes one round of answers: the open project's
   configuration (`trust-runtime comm topology`), the runtime that serves the
   canvas's live data with its `fleet.topology` and `connectors.status` answers,
-  every other configured runtime with its probe result and answers, the
+  every other configured runtime with its probe result as
+  `trust-lsp.runTargets` reports it (`status` and `auth_failure_kind`, which
+  Rust reads as the probe of §5.1) and its answers, the
   endpoint of the extension's own simulator while it serves the live data, the
   run mode, the search, and the candidates of the last search; and the
   extension's own facts: the simulator's lifecycle (running, starting, whether
@@ -1852,9 +1856,10 @@ the runtime lifecycle show of a runtime; the extension shows its answers.
   (`selection`); the Live Values status with the row operations of §4.1 and
   whether a Force must be armed (`liveValues`); the simulator's speed and its
   words (`speed`); the Connect check of §5.1 (`connect`); the kind of a
-  failure from its text (`failure`); and the managed runtimes with their
-  states, the outcome of a managed Start or Stop and the managed logs
-  (`managed`, `managedOutcome`, `managedLogs`).
+  failure from its text (`failure`); the run target that the HMI Builder's
+  Live mode and Deploy talk to (`hmiTarget`, specification 39 §11 item 6); and
+  the managed runtimes with their states, the outcome of a managed Start or Stop
+  and the managed logs (`managed`, `managedOutcome`, `managedLogs`).
 - The status bar names a runtime connected while a debug session is attached
   to it, or while the extension is online with a runtime that answers, such as
   one started outside the extension.

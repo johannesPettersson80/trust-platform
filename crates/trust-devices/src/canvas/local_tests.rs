@@ -359,7 +359,7 @@ fn identify_is_offered_on_a_runtime_that_answered_this_round() {
         "peers": [
             answered("tcp://10.0.0.9:5510", "cell",
                 report("host:cell", "10.0.0.9", "cell", "connected", &[])),
-            { "endpoint": "tcp://10.0.0.8:5510", "label": "silent", "reach": "unreachable" },
+            { "endpoint": "tcp://10.0.0.8:5510", "label": "silent", "status": "online_unreachable" },
         ],
         "run_mode": "online",
     }));

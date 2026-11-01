@@ -242,9 +242,16 @@ END_TYPE
 - Qualified access: `TrafficLight#Red` resolves ambiguity
 - Qualified member access (CODESYS parity, vendor extension): `TrafficLight.Red`
   resolves to the value in initializers, expressions, and CASE labels,
-  optionally namespace-qualified (`Ns.TrafficLight.Red`); an unknown member is
-  rejected. The base name resolves through the enclosing scope chain, so
-  enums declared inside namespaces are reachable by their bare type name
+  optionally namespace-qualified to any depth (`Ns.TrafficLight.Red`); an
+  unknown member is rejected. The base name resolves through the enclosing
+  scope chain, so enums declared inside namespaces are reachable by their
+  bare type name
+- Value position (CODESYS parity, vendor extension, IEC_DEVIATIONS
+  2026-10-26): an enumerated value converts to its declared integer base in
+  assignments, comparisons, and call arguments — including base-less
+  enums, whose base is `INT`. Integer assignment INTO an enum stays
+  rejected for base-less ("closed") enums; explicit-base named-value types
+  follow §3.2. Cross-enum assignment stays rejected
 - Error if enumerated literal cannot be unambiguously determined
 
 ### 3.2 Data Types with Named Values (Section 6.4.4.3)
@@ -327,6 +334,13 @@ ARRAY[0..5] OF INT := [2(1, 2, 3)]  // Results in: 1, 2, 3, 1, 2, 3
   initial value fixes the bound at compile time. TEMP and interface-direction
   sections are excluded, and chains through other mutable variables stay
   rejected.
+- Vendor extension (IEC_DEVIATIONS 2026-10-25): a dotted limit reference that
+  fails strict container resolution — a library stub flattened the named GVL
+  level into namespace-level constants — resolves through a unique-leaf match
+  on the reference's last segment when exactly one constant or
+  initializer-backed declared value carries it table-wide. Ambiguous leaves
+  and references rooted at a scope-local value stay rejected; bare
+  (non-dotted) names never take this tolerance.
 - Every dimension uses the same declaration-site constant graph and namespace
   rules as subranges. Multidimensional bounds retain source dimension order,
   and project-source reordering cannot alter any resolved lower or upper bound.
@@ -779,6 +793,14 @@ END_VAR
   interface-direction sections are excluded, and a chain through another
   mutable variable stays undecidable and is rejected as before. The same
   leniency applies to array dimension bounds.
+- Vendor extension (IEC_DEVIATIONS 2026-10-25): a dotted capacity reference
+  that fails strict container resolution — a library stub flattened the
+  named GVL level into namespace-level constants — resolves through a
+  unique-leaf match on the reference's last segment when exactly one
+  constant or initializer-backed declared value carries it table-wide
+  (`STRING(WagoTypesLog.LogParameter.MAX_LOG_MSG_LEN)` over namespace-level
+  stub constants). Ambiguous leaves and references rooted at a scope-local
+  value stay rejected; bare (non-dotted) names never take this tolerance.
 - A zero, negative, non-integer, undefined, mutable, ambiguous, cyclic, or
   overflowing capacity, or one above 65,535, is rejected before the bounded type
   is registered.

@@ -1336,11 +1336,16 @@ declaration's real values.
    - no command is resent after reconnection.
 6. Decided on 2 October 2026 while the user was away, approved by the user on 3 October 2026:
    - **Source:** the run target the extension has selected, the simulator or a runtime, reached
-     through its control endpoint. Live mode reads the page's bound paths with the control request
-     `hmi.read` (`{ "paths": […] }`, Viewer role, at most 1 000 paths) every 250 ms; the answer has
-     the stream's cycle count, values and missing paths (§11.1), with `period_ms` (250) and
-     `stale_ms` (750), and values turn stale as there (refined 26 October 2026, when the stale rule
-     moved into the runtime).
+     through its control endpoint: the simulator or runtime whose debug session the extension
+     holds, launched or attached, or the configured online runtime while it answers without one.
+     Without a control endpoint there is none. It is named by its session's target name, else
+     `Simulator` for the simulator and its endpoint for a runtime. The language server decides it
+     (`trust-lsp.runTargets`, action `hmiTarget`, specification 25 §6.9), and Deploy (§16.2
+     item 8) sends to the same target. Live mode reads the page's bound paths with the control
+     request `hmi.read` (`{ "paths": […] }`, Viewer role, at most 1 000 paths) every 250 ms; the
+     answer has the stream's cycle count, values and missing paths (§11.1), with `period_ms` (250)
+     and `stale_ms` (750), and values turn stale as there (refined 26 October 2026, when the stale
+     rule moved into the runtime).
    - **Commands (phase 1):** Live mode observes. Controls show their values but send nothing, and
      the editor says to operate in the runtime display. Item 4 needs the HMI session of a named
      user (§12.8, item 2), which the control endpoint does not carry; it applies once the editor
@@ -1767,8 +1772,11 @@ on a trip, equipment alarms, and own detection by extending the base.
    inspector's Colours section, shown when no object is selected, lists the tokens of the
    screen's theme in groups (surfaces, text, data, states, alarms), each with its colour. Choosing
    a colour writes it to `[colors.<theme>]` of `hmi/screen.toml`; Reset removes the project's
-   colour, so the default applies again. The section shows the colour warnings of item 4 beside
-   their tokens.
+   colour, so the default applies again, and a theme table left empty is not written. The
+   language server writes the change (`trust-lsp.hmiScreenColour`) with the runtime's own
+   writing of the screen, which must load again: an unknown token or a value that is not a hex
+   colour is refused, and the file stays as it was. The section shows the colour warnings of
+   item 4 beside their tokens.
 3. **Modern look:** a dark-first design with a near-black page, a step-lighter surface for
    cards and rounded shapes, and a clean light theme. Live values are drawn in one vivid accent
    (gradients and a soft glow allowed); "on" states light up. Warnings, stale or unknown data and
@@ -2674,7 +2682,9 @@ freshness bounds are stale after 3 seconds and unknown after 10 seconds; unavail
 metadata cannot establish a valid deployment. These are product limits, not timing qualification.
 
 A local named login never authorizes a write on another runtime by itself. A control whose owner
-has no session asks explicitly for a named login on that runtime. Credentials cross only an
+has no session asks explicitly for a named login on that runtime: the refused command's answer
+names that runtime in its own `login` field, from which the display asks for the login, and its
+reason, `owner-login:<runtime>`, is what the audit records. Credentials cross only an
 existing mesh configured with both authentication and TLS. The serving runtime stores the owner
 token privately, scoped to the local session and peer; no token is returned to the browser or
 written to artifacts. The owner uses its normal SessionStore and its own write policy, typed

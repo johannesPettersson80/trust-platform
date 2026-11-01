@@ -1791,17 +1791,15 @@
           this.overlay.clearNotice();
           this.dropRefusals(object.id);
         }
-        if ((reply.outcome === "refused" || reply.outcome === "failed") && reply.reason) {
-          const owner = /^owner-login:([A-Za-z0-9_-]{1,128})$/.exec(reply.reason);
-          if (owner)
-            this.session.showLogin(
-              say("Log in to {runtime} with a named account on that runtime. The command has not been sent.", {
-                runtime: owner[1]
-              }),
-              owner[1]
-            );
-          else this.overlay.notice(commandReason(reply.outcome, reply.reason));
-        }
+        if (reply.outcome === "refused" && reply.login)
+          this.session.showLogin(
+            say("Log in to {runtime} with a named account on that runtime. The command has not been sent.", {
+              runtime: reply.login
+            }),
+            reply.login
+          );
+        else if ((reply.outcome === "refused" || reply.outcome === "failed") && reply.reason)
+          this.overlay.notice(commandReason(reply.outcome, reply.reason));
       } else {
         const reason = reply?.error ?? say("The runtime answered {status}.", { status: answer.status });
         this.setOutcome(object.id, { outcome: "refused", reason });

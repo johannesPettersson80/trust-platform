@@ -14,7 +14,7 @@ import { createRoot, type Root } from "react-dom/client";
 import * as vscode from "vscode";
 
 import { getTrustConfiguration } from "../../configuration";
-import { runTargetOf } from "../../hmiBuilder/editor/runTarget";
+import { resolveHmiRunTarget } from "../../hmiBuilder/editor/runTarget";
 import { buildGraph } from "../../networkCanvas/webview/layout";
 import type { NCGraph, NCRuntime } from "../../networkCanvas/webview/types";
 import { getControlAuthToken, setControlAuthToken } from "../../runtimeAuth";
@@ -742,8 +742,11 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
     assert.ok(connected.ok, "the runtime answers Connect");
     // As the node's Connect does after a successful Connect.
     await setSelectedRuntimeId(fake.endpoint);
-    assert.ok(
-      runTargetOf((await runtimeLifecycleService.snapshot()).status),
+    // The fake keeps debugging disabled, so Connect holds no session: the runtime answers online and is named by its
+    // endpoint (specification 39, section 11 item 6).
+    assert.deepStrictEqual(
+      await resolveHmiRunTarget(await runtimeLifecycleService.snapshot()),
+      { endpoint: fake.endpoint, label: fake.endpoint, simulator: false },
       "after Connect HMI Live operates the runtime",
     );
 
@@ -756,7 +759,11 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
       `the status bar no longer names the runtime: ${state.statusBar}`,
     );
     const snapshot = await runtimeLifecycleService.snapshot();
-    assert.strictEqual(runTargetOf(snapshot.status), undefined, "HMI Live has no runtime to operate until the Simulator starts");
+    assert.strictEqual(
+      await resolveHmiRunTarget(snapshot),
+      undefined,
+      "HMI Live has no runtime to operate until the Simulator starts",
+    );
     assert.strictEqual(snapshot.failure, undefined, "the runtime's disabled debugging is no reason of the Simulator's");
   });
 

@@ -3,9 +3,16 @@ name: Verification Gate
 on:
   pull_request:
     branches: [master, main]
+  merge_group:
   schedule:
     - cron: "17 3 * * 2"
   workflow_dispatch:
+
+# A new push to a pull request replaces the pull request's unfinished run; a merge group, a push to
+# main and a scheduled or manual run always finish (specification 22).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -19,12 +26,12 @@ jobs:
         with:
           fetch-depth: 0
       - name: Run PR verification report smoke
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
         shell: bash
         run: |
           set -euo pipefail
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          BASE_SHA="${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}"
           python3 scripts/verification_report_gate.py \
             --base "${BASE_SHA}" \
             --head "${HEAD_SHA}" \
@@ -33,7 +40,7 @@ jobs:
             --smoke \
             --out-dir target/gate-artifacts/verification
       - name: Run scheduled exhaustive verification-tooling report
-        if: ${{ github.event_name != 'pull_request' }}
+        if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' }}
         shell: bash
         run: |
           set -euo pipefail

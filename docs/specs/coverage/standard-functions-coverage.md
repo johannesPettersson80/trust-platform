@@ -164,6 +164,9 @@ parameters and hidden state. No row below changes.
 - [x] REAL_TO_BYTE, REAL_TO_WORD, REAL_TO_LWORD, LREAL_TO_BYTE, LREAL_TO_WORD, LREAL_TO_DWORD
 - [x] <ANY_INT>_TO_BOOL, <ANY_REAL>_TO_BOOL, TO_BOOL of a number
 - [x] BOOL_TO_REAL, BOOL_TO_LREAL
+- [x] Under a CODESYS `vendor_profile` only (`docs/IEC_DEVIATIONS.md` 2026-10-28): TO_STRING and the
+  typed *_TO_STRING of an enumerated value, BOOL, TIME and LTIME; TIME_TO_<int> and LTIME_TO_<int>;
+  TOD_TO_DWORD and LTOD_TO_DWORD
 
 ## Table 26 - Data Type Conversion of Date and Time Types
 - [x] LTIME_TO_TIME

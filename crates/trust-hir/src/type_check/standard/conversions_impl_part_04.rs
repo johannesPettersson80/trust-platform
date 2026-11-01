@@ -100,8 +100,11 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
 
         // CODESYS TO_STRING parity: an enumerated value converts to its
         // member name string (IEC_DEVIATIONS 2026-10-28). Base-less enums
-        // included — the runtime enum value carries its variant name.
-        if matches!(self.checker.resolved_type(src), Some(Type::Enum { .. }))
+        // included — the runtime enum value carries its variant name. Under
+        // the CODESYS profile only; the IEC dialect keeps the tables.
+        let codesys = self.checker.symbols.dialect().is_codesys();
+        if codesys
+            && matches!(self.checker.resolved_type(src), Some(Type::Enum { .. }))
             && matches!(
                 self.normalize_string_type_id(dst),
                 TypeId::STRING | TypeId::WSTRING
@@ -205,8 +208,9 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         }
         // CODESYS converts durations to any integer (ms magnitude, wrapping
         // like the vendor toolchain) and time-of-day to its ms-of-day
-        // magnitude (IEC_DEVIATIONS 2026-10-28).
-        if matches!(src, TypeId::TIME | TypeId::LTIME)
+        // magnitude (IEC_DEVIATIONS 2026-10-28), under the CODESYS profile.
+        if codesys
+            && matches!(src, TypeId::TIME | TypeId::LTIME)
             && matches!(
                 dst,
                 TypeId::SINT
@@ -221,7 +225,7 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         {
             return true;
         }
-        if matches!(src, TypeId::TOD | TypeId::LTOD) && dst == TypeId::DWORD {
+        if codesys && matches!(src, TypeId::TOD | TypeId::LTOD) && dst == TypeId::DWORD {
             return true;
         }
         if matches!(src, TypeId::LDT) && dst == TypeId::DT {
@@ -268,14 +272,11 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
             && (self.is_numeric_type(src)
                 || matches!(
                     src,
-                    TypeId::BOOL
-                        | TypeId::BYTE
-                        | TypeId::WORD
-                        | TypeId::DWORD
-                        | TypeId::LWORD
-                        | TypeId::TIME
-                        | TypeId::LTIME
-                ))
+                    TypeId::BYTE | TypeId::WORD | TypeId::DWORD | TypeId::LWORD
+                )
+                // CODESYS TO_STRING parity for BOOL and durations
+                // (IEC_DEVIATIONS 2026-10-28), under the CODESYS profile.
+                || (codesys && matches!(src, TypeId::BOOL | TypeId::TIME | TypeId::LTIME)))
         {
             return true;
         }

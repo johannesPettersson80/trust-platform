@@ -116,3 +116,39 @@ fn probe_classifies_every_target_status() {
     assert!(missing_token.answered());
     assert!(seen[0].get("auth").is_none(), "no token, no auth field");
 }
+
+#[test]
+fn a_run_target_names_its_probe_by_status() {
+    // Specification 25, 5.1: the words `trust-lsp.runTargets` reports for each probe outcome read
+    // back as that outcome, so a surface sends a run target's words instead of its own. Catches a
+    // refused token read as a missing one, a missing endpoint read as unreachable, and an unknown
+    // status read as reachable.
+    assert_eq!(
+        TargetProbe::from_run_target("online_reachable", None),
+        TargetProbe::Reachable(json!({}))
+    );
+    assert_eq!(
+        TargetProbe::from_run_target("auth_failed", Some("missing")),
+        TargetProbe::AuthFailed(AuthFailure::Missing)
+    );
+    assert_eq!(
+        TargetProbe::from_run_target("auth_failed", Some("rejected")),
+        TargetProbe::AuthFailed(AuthFailure::Rejected)
+    );
+    assert_eq!(
+        TargetProbe::from_run_target("auth_failed", None),
+        TargetProbe::AuthFailed(AuthFailure::Rejected)
+    );
+    assert_eq!(
+        TargetProbe::from_run_target("missing_endpoint", None),
+        TargetProbe::MissingEndpoint
+    );
+    assert_eq!(
+        TargetProbe::from_run_target("online_unreachable", None),
+        TargetProbe::Unreachable
+    );
+    assert_eq!(
+        TargetProbe::from_run_target("online_reachable_soon", None),
+        TargetProbe::Unreachable
+    );
+}

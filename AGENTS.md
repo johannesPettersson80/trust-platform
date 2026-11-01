@@ -116,7 +116,9 @@ separately.
   not just change the complete plan and spec".)
 - **Specification first.** `docs/specs` defines product behaviour. If the behaviour you need is
   missing, ambiguous or contradictory in the written specification, update it (or ask) before
-  writing code.
+  writing code. A change that follows a section without changing it names that section in a commit
+  trailer, `Specification: <number or path> <section>` (for example `Specification: 35 B3.4`); the
+  Verification Gate accepts it in place of a changed specification (specification 30).
   A native executable test then pins the behaviour. Verification metadata cannot create product
   work or block it; that includes catalogs, planners, proof levels and mutation reports. Details are
   in the `trust-test-authoring` skill.
@@ -207,8 +209,7 @@ cp /home/johannes/projects/trust-platform/AGENTS.md /home/johannes/projects/trus
 rsync -a --delete /home/johannes/projects/trust-platform/.codex/skills/ .codex/skills/
 ```
 
-For control work, also copy `docs/specs/control-platform-purpose.md` when it is missing. While the
-release guard is in use (Releases), it rejects a candidate whose copies differ.
+For control work, also copy `docs/specs/control-platform-purpose.md` when it is missing.
 
 ## IEC 61131-3
 
@@ -267,11 +268,12 @@ release guard is in use (Releases), it rejects a candidate whose copies differ.
 - Release blockers are regressions and severe bugs: safety, data loss, a broken user journey. Any
   other bug found during a release goes on the checklist for the next release (owner, 31 October
   2026; this replaces "all bugs fixed before push").
-- Until CI runs every stage of the release guard and the acceptance journeys on the built packages
-  (checklist W3 and W4), a version-bump push still needs the exact-SHA artifact of
-  `.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard.py prepare`, which the
-  pre-push hook enforces; never bypass it. Run Codex's review and the acceptance journeys before
-  the bump, so the guard runs once.
+- The pre-push hook (`release_candidate_guard.py check-push`) refuses only a direct push to `main`
+  and a pushed release tag; every other push goes through, and CI is the gate. The acceptance
+  journeys run in CI on the linux-x64 package (`editors/vscode/src/acceptance`, specification 22):
+  for a pull request that changes what the packages hold, and for every rehearsal and release
+  before anything is published. Run them yourself with `npm run acceptance -- --vsix <file> --out
+  <folder>` under a display when a journey fails or you change one.
 - A version bump is finished only when all of these hold, checked with
   `release_candidate_guard.py verify-release`:
   - the annotated tag `v<version>` is on `main`;

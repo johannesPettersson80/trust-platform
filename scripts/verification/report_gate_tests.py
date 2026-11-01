@@ -20,6 +20,8 @@ from scripts.verification.report_gate import (
     parse_name_status_z,
     report_exit_code,
     render_markdown,
+    specification_trailers_from_git,
+    workspace_version_moves,
 )
 
 
@@ -110,6 +112,144 @@ class VerificationReportGateTests(unittest.TestCase):
             changed = changed_files_from_git(repo, base_tip, feature_head)
 
         self.assertEqual(changed, ["feature.txt"])
+
+    def test_specification_trailers_come_from_the_commits_of_the_change(self) -> None:
+        # Specification 30: the gate reads the `Specification:` trailers of the commits in the head and not in the base,
+        # newest first. A trailer of the base's history (before the branch point, or added to main after it) and a trailer
+        # of another key are not the change's. Catches trailers taken from the base or from another key.
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            run_git(repo, "init")
+            run_git(repo, "config", "user.email", "verification@example.invalid")
+            run_git(repo, "config", "user.name", "Verification Test")
+            (repo / "shared.txt").write_text("base\n")
+            run_git(repo, "add", ".")
+            run_git(repo, "commit", "-m", "base\n\nSpecification: 1 before the branch")
+
+            run_git(repo, "checkout", "-b", "feature")
+            (repo / "feature.txt").write_text("one\n")
+            run_git(repo, "add", ".")
+            run_git(repo, "commit", "-m", "first fix\n\nSpecification: 35 B3.4")
+            (repo / "feature.txt").write_text("two\n")
+            run_git(repo, "add", ".")
+            run_git(
+                repo,
+                "commit",
+                "-m",
+                "second fix\n\nReviewed-by: Verification Test <verification@example.invalid>\n"
+                "Specification: 22 Change and release workflow",
+            )
+            feature_head = run_git(repo, "rev-parse", "HEAD").stdout.strip()
+
+            run_git(repo, "checkout", "master")
+            (repo / "shared.txt").write_text("main\n")
+            run_git(repo, "add", ".")
+            run_git(repo, "commit", "-m", "main change\n\nSpecification: 2 on main")
+            base_tip = run_git(repo, "rev-parse", "HEAD").stdout.strip()
+
+            trailers = specification_trailers_from_git(repo, base_tip, feature_head)
+
+        self.assertEqual(trailers, ["22 Change and release workflow", "35 B3.4"])
+
+    def test_named_specifications_reach_the_direct_change_commands(self) -> None:
+        # Specification 30: the smoke's direct-change command and the full report's governance command both get each
+        # trailer value. Catches a report that reads the trailers and drops them before the contract.
+        for smoke, contract in ((True, "--direct-change-contract-only"), (False, "--today")):
+            commands: list[list[str]] = []
+
+            def fake_runner(command: list[str]) -> CommandResult:
+                commands.append(command)
+                return CommandResult("verification_report_smoke", command, 0, "ok", "")
+
+            with self.subTest(smoke=smoke), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                (root / "verification").mkdir()
+                (root / "verification/test-catalog.toml").write_text("")
+                build_report(
+                    root=root,
+                    changed_files=["crates/trust-runtime/src/runtime/cycle.rs"],
+                    intent="bugfix",
+                    baseline=None,
+                    command_runner=fake_runner,
+                    run_planner=False,
+                    smoke=smoke,
+                    specifications=["35 B3.4", "22 Change and release workflow"],
+                )
+                governance = [
+                    command for command in commands if command[:3] == ["python3", "-m", "scripts.verification.governance"]
+                ]
+                self.assertEqual(len(governance), 1)
+                self.assertIn(contract, governance[0])
+                self.assertEqual(
+                    governance[0][-3:],
+                    [
+                        "--changed-file=crates/trust-runtime/src/runtime/cycle.rs",
+                        "--specification=35 B3.4",
+                        "--specification=22 Change and release workflow",
+                    ],
+                )
+
+    def test_a_version_bump_is_the_workspace_version_moving(self) -> None:
+        # Specification 30: the gate reads `[workspace.package].version` of `Cargo.toml` at the change's base and head.
+        # Catches a dependency's version taken for the workspace's, a change that keeps the version read as a bump, and
+        # a revision without a manifest read as one.
+        def manifest(version: str, serde: str) -> str:
+            return (
+                f'[workspace.package]\nversion = "{version}"\n\n'
+                f'[workspace.dependencies]\nserde = {{ version = "{serde}" }}\n'
+            )
+
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            run_git(repo, "init")
+            run_git(repo, "config", "user.email", "verification@example.invalid")
+            run_git(repo, "config", "user.name", "Verification Test")
+            revisions = []
+            for message, version, serde in (
+                ("base", "0.27.0", "1.0.0"),
+                ("dependency", "0.27.0", "1.0.1"),
+                ("bump", "0.28.0", "1.0.1"),
+            ):
+                (repo / "Cargo.toml").write_text(manifest(version, serde))
+                run_git(repo, "add", ".")
+                run_git(repo, "commit", "-m", message)
+                revisions.append(run_git(repo, "rev-parse", "HEAD").stdout.strip())
+            base, dependency, bump = revisions
+
+            self.assertFalse(workspace_version_moves(repo, base, dependency))
+            self.assertTrue(workspace_version_moves(repo, dependency, bump))
+            self.assertTrue(workspace_version_moves(repo, base, bump))
+            self.assertFalse(workspace_version_moves(repo, "no-such-revision", bump))
+
+    def test_a_version_bump_reaches_the_direct_change_commands(self) -> None:
+        # Specification 30: the smoke's direct-change command and the full report's governance command both learn that
+        # the change is a version bump. Catches a report that detects the bump and drops it before the contract.
+        for smoke in (True, False):
+            commands: list[list[str]] = []
+
+            def fake_runner(command: list[str]) -> CommandResult:
+                commands.append(command)
+                return CommandResult("verification_report_smoke", command, 0, "ok", "")
+
+            with self.subTest(smoke=smoke), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                (root / "verification").mkdir()
+                (root / "verification/test-catalog.toml").write_text("")
+                build_report(
+                    root=root,
+                    changed_files=["Cargo.toml"],
+                    intent="bugfix",
+                    baseline=None,
+                    command_runner=fake_runner,
+                    run_planner=False,
+                    smoke=smoke,
+                    version_bump=True,
+                )
+                governance = [
+                    command for command in commands if command[:3] == ["python3", "-m", "scripts.verification.governance"]
+                ]
+                self.assertEqual(len(governance), 1)
+                self.assertIn("--version-bump", governance[0])
 
     def test_changed_files_from_git_includes_deleted_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

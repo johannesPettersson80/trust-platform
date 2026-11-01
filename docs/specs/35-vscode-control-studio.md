@@ -1318,9 +1318,18 @@ clears the manual section (B3.7).
    reference and is the operating point Apply returns to (B6.2). Holding an
    output the controller was still moving would let the plant settle open loop
    elsewhere, and Apply would then wait for an operating point the controller
-   never holds (lesson 30, 30 October 2026). The wait writes nothing, a cancel
-   ends it with nothing written, and it has the bound of step 2 and ends as step 2
-   does, with the rate still observed, offering to wait or a setpoint step. The approval
+   never holds (lesson 30, 30 October 2026). The wait writes nothing. A cancel
+   ends it with nothing written, also one that arrives during the reading that
+   completes the rest: the wait checks for a cancel before each reading and again
+   before the transfer. The wait has the bound of step 2 and ends as step 2
+   does, with the rate still observed, offering to wait or a setpoint step. It keeps
+   the readings its window can still judge: those within one baseline window,
+   without its twenty-sample floor, of the newest reading, and the last 200, whose
+   median spacing sets that floor. It forgets the older readings once they are as
+   many as those it keeps, so however long it waits it holds fewer than twice the
+   readings it keeps, and it moves each reading at most once on average (31 October
+   2026: a 24-hour campaign of a 16-member group kept about 84 MiB; Codex's review
+   of #154: forgetting 200 at a time moved the whole window every 200 readings). The approval
    block of the review (B9.3) names what the campaign may do: each signal it
    writes with its limits (the plant input range of B3.4 step 1 for a plant
    input step, the setpoint's and the output's ranges for a setpoint step, the
@@ -1344,7 +1353,11 @@ clears the manual section (B3.7).
    one whole window. A window here takes the maximum duration and the expected settling time, but not the twenty-sample
    floor, which the recording holds within the wait at the record period of A4.2 while one task execution is at most a
    twentieth of the wait. It then stops with the rate still observed, offering to wait or, for a loop in Auto, a
-   setpoint step. A project-scripted experiment that declares a baseline waits for none of this (C12): the project owns its
+   setpoint step. While it waits, it shows the rate at which the output still changes, measured over the window's
+   readings once they number twenty, the samples its trend is judged on; with fewer it says that it is measuring the
+   rate, since one reading has no slope and a few read noise (1 November 2026: the first progress said "changing
+   0 °C/min" while the output rose 1.5 °C in 2.4 s). A project-scripted experiment that declares a baseline waits for
+   none of this (C12): the project owns its
    scenario and qualifies its own measurements before it actuates, so Identify starts the recording and the plan together, and
    the baseline that the project declares is the one its plan records. A project-scripted experiment that declares no baseline
    waits for the steady baseline as above, so that its fit has the samples before the first input change that it takes its

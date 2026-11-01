@@ -3,7 +3,7 @@
   "displayName": "truST",
   "description": "truST \u2014 IEC 61131-3 Structured Text language support",
   "icon": "icon.png",
-  "version": "0.27.0",
+  "version": "0.28.0",
   "publisher": "trust-platform",
   "license": "MIT OR Apache-2.0",
   "engines": {
@@ -5163,7 +5163,8 @@
     "lint": "eslint src --ext ts,tsx",
     "format:hmi": "prettier --write \"src/hmiBuilder/**/*.{ts,tsx,css}\" \"src/networkCanvas/equipment*.ts\" \"src/networkCanvas/webview/EquipmentConnections.tsx\" \"src/test/suite/hmi*.ts\"",
     "format:hmi:check": "prettier --check \"src/hmiBuilder/**/*.{ts,tsx,css}\" \"src/networkCanvas/equipment*.ts\" \"src/networkCanvas/webview/EquipmentConnections.tsx\" \"src/test/suite/hmi*.ts\"",
-    "test": "npm run compile && npm run check:canvas-geometry && node ./out/test/runTest.js"
+    "test": "npm run compile && npm run check:canvas-geometry && node ./out/test/runTest.js",
+    "acceptance": "node ./out/acceptance/runAcceptance.js"
   },
   "dependencies": {
     "@vscode/codicons": "0.0.45",

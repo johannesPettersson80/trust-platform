@@ -75,7 +75,7 @@ suite("Network Canvas — language server commands", function () {
 
   test("a topology request reaches the server and its fleet view comes back", async () => {
     const answer = await requestCanvasTopology({
-      peers: [{ endpoint: "tcp://10.0.0.9:5510", label: "cell1", reach: "unreachable" }],
+      peers: [{ endpoint: "tcp://10.0.0.9:5510", label: "cell1", status: "online_unreachable" }],
       run_mode: "online",
       search_query: "",
       discovered: [],

@@ -6,6 +6,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 
 import { EquipmentEditorBridge } from "../../hmiBuilder/editor/equipmentDetails";
+import type { HostToWebview } from "../../hmiBuilder/editor/messages";
 import { renameEquipment } from "../../hmiBuilder/editor/renameEquipment";
 import { languageServerReady, until } from "./hmiBuilderHost";
 
@@ -366,6 +367,37 @@ suite("HMI Builder editor: create PLC code", function () {
       unsaved.map((document) => path.relative(root, document.uri.fsPath)),
       [],
       "nothing is left unsaved",
+    );
+    bridge.dispose();
+  });
+
+  test("a terminal that no PLC signal fits carries the language server's help", async () => {
+    // Catches the help left out of the details the bridge posts: the canvas shows it under the terminal (HMI component
+    // catalogue, section 8.1). The program declares its pump signal without an address, so no signal fits.
+    const { root, page, source } = project();
+    fs.writeFileSync(source, OWN_PUMP_SOURCE.replace("PumpRun AT %QX0.0 : BOOL;", "PumpRun : BOOL;"));
+    fs.writeFileSync(path.join(root, "hmi", "pairs", "pump.toml"), OWN_PUMP_PAIR);
+    fs.writeFileSync(
+      page,
+      PAGE.replace(
+        'tag = "P-101"\ntype = "pump"',
+        'type = "pump"\nblock = "Pump"\ninstance = "Main.P101"\nfaceplate = "pump"',
+      ),
+    );
+    const document = await vscode.workspace.openTextDocument(page);
+    const posted: HostToWebview[] = [];
+    const bridge = new EquipmentEditorBridge(vscode.Uri.file(root), document, (message) => posted.push(message));
+    await bridge.inspect("Main.P101");
+    const details = await until("the pump's details", () => {
+      for (const message of posted) if (message.type === "equipmentDetails" && message.details) return message.details;
+      return undefined;
+    });
+    const run = details.terminals.find((terminal) => terminal.member === "RunCommand");
+    assert.deepStrictEqual(run?.choices, [], "no signal fits");
+    assert.strictEqual(
+      run?.help,
+      "No output of type BOOL is declared yet. Declare one with an address in your program, for example " +
+        "P101_RunCommand AT %QX0.0 : BOOL;, then press Refresh.",
     );
     bridge.dispose();
   });

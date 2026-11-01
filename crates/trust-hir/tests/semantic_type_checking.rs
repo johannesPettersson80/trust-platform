@@ -66,6 +66,8 @@ mod standard_block_collisions;
 mod string_index_contract;
 #[path = "semantic_type_checking/string_length_contract.rs"]
 mod string_length_contract;
+#[path = "semantic_type_checking/string_size_qualified_references.rs"]
+mod string_size_qualified_references;
 #[path = "semantic_type_checking/struct_initializers.rs"]
 mod struct_initializers;
 #[path = "semantic_type_checking/types_and_references.rs"]

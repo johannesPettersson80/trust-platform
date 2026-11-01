@@ -623,6 +623,72 @@ re-check them against this rule when touched.
   - The subset is explicit in tests and the LD profile; a future schema version
     can add dedicated `CU`, `CD`, `R`, and `LD` pins plus `QU`/`QD` outputs.
 
+
+## 2026-10-25 - Dotted declaration sizes over flattened library containers
+- Area: `STRING`/`WSTRING` declared lengths and array dimension bounds whose
+  size expression is a dotted constant reference.
+- Normative IEC requirement: IEC 61131-3 Ed.3 resolves qualified symbolic
+  variables through their declared namespace/containers (§6.2.2.2); a dotted
+  reference must name an existing container path. The standard text was
+  unavailable on the authoring machine; the clause numbers mirror the
+  citations already used in `docs/specs/02-data-types.md`.
+- truST behavior and conflict:
+  - Library documentation routinely qualifies constants through a GVL level
+    (`WagoTypesLog.LogParameter.MAX_LOG_MSG_LEN`) while vendor stubs flatten
+    that level into namespace-level constants. In the two declaration-size
+    contexts only, a dotted reference that fails strict container resolution
+    falls back to a unique-leaf match: the reference's last segment must
+    match exactly one constant or initializer-backed declared value
+    table-wide. More than one match keeps the strict diagnostic; none keeps
+    `undefined constant`.
+  - Bare (non-dotted) names never take this tolerance: a constant visible
+    only inside a namespace stays unimported for callers without `USING`
+    (matching the unimported-namespace no-leak rule).
+- Impact: documentation-faithful sizes (128/20/40-class stub constants)
+  compile at their declared values instead of failing or being rewritten to
+  a numeric fallback downstream.
+- Mitigation: the tolerance is confined to the two declaration-size contexts
+  (string capacities, array bounds); ordinary initializers and other
+  constant-expression contexts keep the strict rule, references whose root
+  names a scope-local value (FB instance member access) are excluded, and
+  ambiguity is rejected rather than silently bound.
+
+
+- PLCopen import/export (trust-plcopen): `<string length>` /
+  `<wstring maxLength>` attributes and `STRING[…]` export expressions pass
+  symbolic lengths through verbatim, mirroring the array-dimension
+  lower/upper pass-through; the analyzer owns resolution and validation, so
+  numeric-only length filtering no longer fails POUs closed at import.
+
+## 2026-10-26 - Enum values as their base integer, and fully qualified member access
+
+- Area: enumerated values in assignments, comparisons, call arguments, and
+  CASE labels; dotted `Namespace.EnumType.Member` references of any depth.
+- Normative IEC requirement: IEC 61131-3 Ed.3 treats an enumeration as a
+  distinct type whose members are not integer literals (§6.4.4.2); assigning
+  an enumerated value to an integer variable of the underlying base type is
+  not an implicit conversion the standard defines. Qualified member access
+  is spelled `EnumType#Value` (§6.4.4.2); the standard text was unavailable
+  on the authoring machine and the clause numbers mirror the citations
+  already used in `docs/specs/02-data-types.md`.
+- truST behavior and conflict:
+  - CODESYS treats an enum as its base type freely: an enumerated value
+    converts to its declared integer base in assignments, comparisons, and
+    call arguments, and members are reachable through fully qualified dotted
+    paths (`WagoTypesLog.eSysLogPriority.LOG_ERR`). truST now follows: any
+    enum source converts to its base (base-less enums are `INT`-based), and
+    dotted member access accepts any namespace depth. Integer assignment
+    INTO a base-less ("closed") enum and cross-enum assignment stay
+    rejected, preserving the existing user-type contract.
+- Impact: real CODESYS projects (the downstream tree carries ~154 such
+  sites: `eSysLogPriority`, `eLedID`, `eArea` classes) stop reporting E202
+  "cannot be used as a value" and IncompatibleAssignment for enum-to-base
+  flows; the strict reading rejects the same code.
+- Mitigation: the leniency is one-directional (enum → base only); integer
+  into closed enums, cross-enum assignment, and unknown member references
+  keep their diagnostics; generic `ANY` matching still does not treat an
+  enum as an integer actual beyond this base conversion.
+
 ## 2026-10-28 - In-out string binding across declared capacities
 
 - ID: DEV-035
@@ -664,11 +730,11 @@ re-check them against this rule when touched.
   The standard text was unavailable on the authoring machine; the clause
   numbers mirror the citations already used in
   `docs/specs/07-standard-functions.md`.
-- truST behavior and conflict: truST accepts — matching the CODESYS /
-  TwinCAT vendor toolchain — (a) `TO_STRING`/`*_TO_STRING` over an
-  enumerated value (yields the variant name), over `BOOL`
-  (`'TRUE'`/`'FALSE'`), over `TIME`/`LTIME` (`T#`/`LT#` duration text),
-  and over any same-family string (identity); (b) `TIME_TO_<int>` /
+- truST behavior and conflict: under a CODESYS `vendor_profile`
+  (specification 14), truST accepts — matching the CODESYS / TwinCAT vendor
+  toolchain — (a) `TO_STRING`/`*_TO_STRING` over an enumerated value
+  (yields the variant name), over `BOOL` (`'TRUE'`/`'FALSE'`) and over
+  `TIME`/`LTIME` (`T#`/`LT#` duration text); (b) `TIME_TO_<int>` /
   `LTIME_TO_<int>` (ms / ns magnitude truncated into the destination,
   negative durations overflow); (c) `TOD_TO_DWORD` / `LTOD_TO_DWORD`
   (ms-of-day magnitude). The strict table reading rejects vendor-project
@@ -678,9 +744,12 @@ re-check them against this rule when touched.
 - Impact: those call sites pass the compile gate; the runtime conversion
   dispatch (`trust-runtime-core`) implements the same entries so executed
   conversions produce the documented values.
-- Mitigation: the extension set is deliberately bounded — time-of-day and
-  date string forms, and REAL-to-bitstring conversions (upstream #127
-  territory), stay rejected; integer destinations wrap rather than fault on
+- Mitigation: the IEC dialect keeps the tables' reading and rejects all
+  of (a) to (c); `TO_STRING` over a `STRING[n]` value is an identity copy
+  in every dialect, since a `STRING[n]` is a `STRING`. The extension set is
+  deliberately bounded — time-of-day and date string forms, and
+  REAL-to-bitstring conversions (upstream #127 territory), stay rejected
+  under every profile; integer destinations wrap rather than fault on
   magnitude overflow, matching the vendor toolchain's silent narrowing
   documented in DEV-023's neighborhood.
 

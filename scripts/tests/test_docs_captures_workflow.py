@@ -11,6 +11,8 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "docs-captures.yml"
 PAGES = ROOT / ".github" / "workflows" / "demo-pages.yml"
 PATHS = ROOT / ".github" / "paths" / "docs-captures.txt"
+# The condition of the steps and jobs that publish the site: neither a pull request nor a merge group does.
+PUBLISHING = "github.event_name != 'pull_request' && github.event_name != 'merge_group'"
 
 
 class DocsCapturesWorkflowContractTests(unittest.TestCase):
@@ -106,6 +108,89 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
             'scripts/docs_captures_artifact.py take --repo "${GITHUB_REPOSITORY}" --dest docs/public/assets/images',
             build["steps"][take]["run"],
         )
+
+    def test_a_pull_request_builds_and_checks_the_site_and_publishes_nothing(self) -> None:
+        # Specification 22, "Docs Captures": a pull request or a merge group that changes the site runs the
+        # deploy's own checks and publishes nothing. Catches the site checks running only after the merge (the retired
+        # release guard ran them before each push; Codex's review of #153), a pull request's run that
+        # deploys, and one that cancels a deploy of main.
+        pages = yaml.load(PAGES.read_text(), Loader=yaml.BaseLoader)
+        self.assertEqual(pages["on"]["pull_request"], "")
+        self.assertEqual(pages["on"]["merge_group"], "")
+        self.assertIn("github.event.pull_request.number", pages["concurrency"]["group"])
+        self.assertIn("format('docs-pages-queue-{0}', github.run_id)", pages["concurrency"]["group"])
+        self.assertIn("|| 'docs-pages' }}", pages["concurrency"]["group"])
+
+        compare = next(step for step in pages["jobs"]["changes"]["steps"] if step.get("id") == "changes")
+        self.assertEqual(
+            compare["env"]["BASE"],
+            "${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}",
+        )
+        self.assertEqual(compare["env"]["HEAD_SHA"], "${{ github.event.pull_request.head.sha || github.sha }}")
+
+        steps = pages["jobs"]["build"]["steps"]
+        upload = next(step for step in steps if step.get("uses", "").startswith("actions/upload-pages-artifact"))
+        self.assertEqual(upload["if"], PUBLISHING)
+        for name in ("Take the newest screenshots of main", "Generate docs media", "Check docs links", "Build docs site"):
+            step = next(step for step in steps if step.get("name") == name)
+            self.assertNotIn("if", step, name)
+        self.assertEqual(pages["jobs"]["deploy"]["if"], PUBLISHING)
+        self.assertEqual(pages["jobs"]["conclusion"]["name"], "Docs Pages Conclusion")
+
+    def test_only_the_deploy_writes_to_pages_or_requests_an_oidc_token(self) -> None:
+        # A pull request's run executes the pull request's own scripts, so its token must not publish the site or request an
+        # OIDC token (Codex's review of #153). Catches write access granted to the whole workflow or to a job that a pull
+        # request runs.
+        pages = yaml.load(PAGES.read_text(), Loader=yaml.BaseLoader)
+        self.assertEqual(pages["permissions"], {"contents": "read", "actions": "read"})
+        for job_id, job in pages["jobs"].items():
+            granted = job.get("permissions", {})
+            writes = {name for name, level in granted.items() if level == "write"}
+            if job_id == "deploy":
+                self.assertEqual(writes, {"pages", "id-token"})
+                self.assertEqual(job["if"], PUBLISHING)
+            else:
+                self.assertEqual(writes, set(), job_id)
+        deploy_steps = [step.get("uses", "") for step in pages["jobs"]["deploy"]["steps"]]
+        self.assertLess(
+            deploy_steps.index("actions/configure-pages@v6"), deploy_steps.index("actions/deploy-pages@v5")
+        )
+
+    def test_every_check_of_the_site_build_runs_when_it_or_what_it_reads_changes(self) -> None:
+        # The Docs Pages build is the only run of its checks, so a pull request that changes a checker or what it reads
+        # must run it. Catches a checker missing from the path list, and the inputs of the media step and of the
+        # database-example checker (Codex's review of #153: docs/media/hero-runtime.png,
+        # examples/openot_database/sqlite/runtime.toml or the runner script merged unchecked).
+        import sys
+
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import ci_changes
+
+        patterns = ci_changes.read_patterns((ROOT / ".github" / "paths" / "docs-pages.txt").read_text())
+        regexes = [ci_changes.pattern_regex(pattern) for pattern in patterns]
+        listed = lambda path: any(regex.match(path) for regex in regexes)
+        build = yaml.load(PAGES.read_text(), Loader=yaml.BaseLoader)["jobs"]["build"]
+        scripts = sorted({
+            word for step in build["steps"] for word in step.get("run", "").split()
+            if word.startswith("scripts/") and word.endswith(".py")
+        })
+        self.assertGreaterEqual(len(scripts), 8, scripts)
+        for script in scripts:
+            self.assertTrue(listed(script), f"{script} runs in the site build but its change does not run it")
+        import generate_public_docs_media
+
+        for source, _ in generate_public_docs_media.COPY_MAP:
+            copied = source.relative_to(ROOT).as_posix()
+            self.assertTrue(listed(copied), f"generate_public_docs_media.py copies {copied}, whose change does not run it")
+        for read in (
+            "examples/openot_database/sqlite/runtime.toml",
+            "examples/openot_database/workload/Main.st",
+            "examples/openot_multi_program/runtime.toml",
+            "scripts/openot_database_runner_prepare.sh",
+            "scripts/openot_real_database_gate.sh",
+            "crates/trust-runtime/src/host/openot_persistence/mod.rs",
+        ):
+            self.assertTrue(listed(read), f"check_openot_database_examples.py reads {read}, whose change does not run it")
 
     def test_captures_build_programs_with_the_toolchain_the_job_builds(self) -> None:
         # The browser IDE and the terminal captures build Structured Text programs. Without a
