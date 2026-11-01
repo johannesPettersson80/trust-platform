@@ -2273,7 +2273,7 @@ fn call_function(
 - **Stateful**: Internal VAR persists across calls
 - **Instances**: Each instance has independent state
 - **Call syntax**: `instance(inputs)` then access outputs via `instance.output`
-- **Omitted `VAR_INPUT` arguments**: When a FUNCTION_BLOCK call leaves an input open, runtime reuses the instance's previously stored input value; on the first call it falls back to the parameter initializer or the IEC type default if no initializer exists.
+- **Omitted `VAR_INPUT` arguments**: When a FUNCTION_BLOCK call leaves an input open, runtime reuses the instance's previously stored input value; on the first call it falls back to the parameter initializer or the IEC type default if no initializer exists. The explicit empty named binding (`input := ,`, `output => ` without a target) is the same omission (`IEC_DEVIATIONS.md` DEV-029) — the argument is dropped at lowering, so an unbound output simply stays unconnected. The same empty-binding equivalence applies to FUNCTION calls (declared initializer or type default applies).
 
 ```rust
 fn call_fb(

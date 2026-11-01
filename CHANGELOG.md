@@ -6,6 +6,50 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+### Fixed
+
+- Call binding: `VAR_IN_OUT` strings bind across declared capacities (same
+  string family only), matching CODESYS and the vendor buffer idiom of a
+  `STRING(1)` formal whose real capacity arrives in a separate size argument
+  (`WagoAppString.StrAppend`). The previous capacity-equality rule rejected
+  vendor-library calls that compile clean in the vendor toolchain; see
+  `IEC_DEVIATIONS.md` (2026-10-28).
+- Integer/bit-string narrowing (assignments and call arguments) becomes a
+  warning instead of an error under `[project] vendor_profile = "codesys"`,
+  matching the CODESYS compiler warning, and `SIZEOF` yields its natural
+  unsigned magnitude (`UDINT`) there so vendor `udiSize` parameters bind
+  directly. Other profiles keep the error and the signed result;
+  non-integer mismatches keep their errors under every profile; see
+  `IEC_DEVIATIONS.md` (2026-10-28).
+- Comparisons and bit-string arithmetic match CODESYS: under
+  `[project] vendor_profile = "codesys"` signed/unsigned integer pairs,
+  integer/bit-string pairs, and two bit-string operands in `+ - * /` are
+  admitted and evaluate through a common magnitude (the runtime promotes;
+  bit-string results carry the wider width and wrap). MOD on bit-strings,
+  mixed integer/bit-string arithmetic, integer/REAL accuracy-loss
+  combinations, and all of these shapes under other profiles keep the
+  strict IEC rejections (IEC_DEVIATIONS 2026-10-28).
+- Standard conversions: vendor-extension entries match the CODESYS/TwinCAT
+  toolchain — `TO_STRING`/`*_TO_STRING` over enumerated values (variant
+  name), `BOOL` (`'TRUE'`/`'FALSE'`), `TIME`/`LTIME` (`T#`/`LT#` text), and
+  same-family strings (identity); `TIME_TO_<int>`/`LTIME_TO_<int>` and
+  `TOD_TO_DWORD`/`LTOD_TO_DWORD` duration magnitudes. Implemented in the
+  compiler accept table and the runtime conversion dispatch; see
+  `IEC_DEVIATIONS.md` (2026-10-28).
+- Standard conversion extension round: `REAL_TO_TIME`/`UINT_TO_TIME` (the
+  value is the millisecond magnitude of the duration), `DWORD_TO_TOD` (the
+  raw ms-of-day magnitude), and `STRING`/`WSTRING` to bit-string targets
+  parse the text as an unsigned integer literal and yield `0` when it is
+  not one. Other integer-to-`TIME` pairs, string-to-`BOOL`, and
+  REAL-to-bit-string conversions stay rejected; implemented in the compiler
+  accept table and the runtime conversion dispatch; see
+  `IEC_DEVIATIONS.md` (2026-10-28 extension round).
+- Pointer-target lenient bindings match CODESYS: `POINTER TO CHAR` and
+  `POINTER TO BYTE` pointees bind each other with a warning, and
+  `ADR(STRING[n])` binds against a `POINTER TO ARRAY OF BYTE` formal (the
+  vendor MemCopy and JSON-buffer idioms). All other pointee mismatches
+  stay errors; see `IEC_DEVIATIONS.md` (2026-10-29, DEV-039).
+
 ## [0.27.0] - 2026-10-31
 
 ### Changed

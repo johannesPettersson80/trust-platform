@@ -173,6 +173,14 @@ resolution. Output and in-out destinations are resolved once, validated as a
 complete transfer set, and committed only after normal return. These semantic
 requirements apply uniformly to functions, function blocks, and methods.
 
+An incomplete formal call stays admitted for input and output formals: a named
+binding with an empty right-hand side (`RST := ,`, `Q => ` without a target)
+omits that argument — inputs take the retained/default contract and unbound
+outputs stay unconnected (`IEC_DEVIATIONS.md` DEV-029). The VAR_IN_OUT
+missing-binding rule above keeps applying to in-out formals, a positional
+empty slot stays rejected (it has no name to bind), and `?=` reference
+assignments always require their target.
+
 ### 3.5 Aggregate Initializer Errors
 
 Named aggregate initializers are validated at HIR collection/type-check time.
@@ -402,6 +410,17 @@ The semantic reference boundary also enforces:
 - assignment attempt requires a reference-like destination and an eligible
   same-family source or `NULL`; and
 - reference arithmetic and reference ordering comparisons are invalid.
+
+Pointer-target vendor leniency (IEC_DEVIATIONS DEV-028): the family rule
+above has one CODESYS-parity carve-out for pointer bindings — a call
+argument or assignment binding between `POINTER TO CHAR` and
+`POINTER TO BYTE`, and between `POINTER TO STRING[n]` and
+`POINTER TO ARRAY[i..j] OF BYTE`, is diagnosed as a warning carrying the
+ordinary mismatch code (`E205`/`E203`), not an error; the vendor
+`MemCopy` byte-pointer formals and the vendor JSON parser's data-buffer
+formal bind without source contortions. Every other pointee mismatch
+(wider scalar classes, array bound widening, records, other families)
+stays an error.
 
 At runtime, a failed dynamic OOP assignment attempt stores `NULL`; it is not a
 runtime fault. Dereferencing that result without the required null check is a

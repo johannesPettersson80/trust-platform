@@ -179,6 +179,63 @@ END_PROGRAM
 }
 
 #[test]
+fn pou_object_contract_empty_named_fb_input_retains_last_stored_value() {
+    // IEC_DEVIATIONS DEV-029: `value := ` omits the input; the FB retains
+    // the last stored value (7), it does NOT re-apply the declared
+    // default (2) — same contract as positional omission.
+    let harness = run(r#"
+FUNCTION_BLOCK Echo
+VAR_INPUT
+    value : INT := INT#2;
+END_VAR
+VAR_OUTPUT
+    outputValue : INT;
+END_VAR
+outputValue := value;
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR
+    echo : Echo;
+    first : INT;
+    second : INT;
+END_VAR
+echo(value := INT#7);
+first := echo.outputValue;
+echo(value := );
+second := echo.outputValue;
+END_PROGRAM
+"#);
+    assert_eq!(harness.get_output("first"), Some(Value::Int(7)));
+    assert_eq!(harness.get_output("second"), Some(Value::Int(7)));
+}
+
+#[test]
+fn pou_object_contract_empty_named_fb_output_compiles_unconnected() {
+    // The s4 form `Q => )`: an output named without a target compiles and
+    // the value stays reachable through the instance member.
+    let harness = run(r#"
+FUNCTION_BLOCK Echo
+VAR_INPUT
+    value : INT := INT#4;
+END_VAR
+VAR_OUTPUT
+    outputValue : INT;
+END_VAR
+outputValue := value;
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR
+    echo : Echo;
+    result : INT;
+END_VAR
+echo(outputValue => );
+result := echo.outputValue;
+END_PROGRAM
+"#);
+    assert_eq!(harness.get_output("result"), Some(Value::Int(4)));
+}
+
+#[test]
 fn pou_object_contract_first_omitted_fb_input_uses_declared_default() {
     let harness = run(r#"
 FUNCTION_BLOCK Echo

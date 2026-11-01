@@ -73,3 +73,41 @@ fn var_and_stmt_coverage() {
     assert_eq!(array.elements()[3], Value::DInt(4));
     assert_eq!(array.elements()[4], Value::DInt(5));
 }
+
+#[test]
+fn time_tod_interchange_in_function_and_binary_arithmetic() {
+    // IEC_DEVIATIONS DEV-031: a TIME literal binds to a TIME formal, and
+    // `TOD + TIME` arithmetic (the vendor clock-adjust idiom
+    // `sunset + T#1h`) keeps the mixed pair to the runtime, which
+    // promotes natively — the TIME literal is not converted to TOD.
+    let source = r#"
+        FUNCTION Adjust : TOD
+        VAR_INPUT
+            base : TOD;
+            offset : TIME;
+        END_VAR
+            Adjust := base + offset + T#1H;
+        END_FUNCTION
+        PROGRAM Main
+        VAR
+            result : TOD;
+        END_VAR
+        result := Adjust(base := TOD#12:00:00, offset := T#30M);
+        END_PROGRAM
+    "#;
+
+    let mut harness = TestHarness::from_source(source).unwrap();
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "unexpected runtime errors: {:?}",
+        cycle.errors
+    );
+
+    let result = harness.get_output("result").expect("missing result");
+    let Value::Tod(tod) = result else {
+        panic!("expected TOD value, got {result:?}");
+    };
+    // 12:00:00 + 30M + 1H = 13:30:00 => 48_600_000 ms-of-day ticks.
+    assert_eq!(tod.ticks(), 48_600_000);
+}

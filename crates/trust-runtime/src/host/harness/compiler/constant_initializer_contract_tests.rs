@@ -622,3 +622,119 @@ END_PROGRAM
 
     assert!(error.to_ascii_lowercase().contains("overflow"), "{error}");
 }
+
+#[test]
+fn constant_initializer_contract_qualified_enum_member_initializes_global() {
+    // IEC_DEVIATIONS DEV-030: a dotted reference whose prefix names one
+    // registered enum type resolves — the CODESYS fully qualified
+    // `Namespace.EnumType.Member` form over a library-namespace enum, in
+    // a namespace-level global initializer (the analyzer accepts the
+    // form; the harness must lower it too).
+    runtime(&[(
+        "main.st",
+        r#"
+NAMESPACE WagoTypesLog
+TYPE eSysLogPriority : (LOG_DEBUG := INT#0, LOG_INFO := INT#6);
+END_TYPE
+END_NAMESPACE
+NAMESPACE GVLLogging
+VAR_GLOBAL
+    eLevelLight : WagoTypesLog.eSysLogPriority := WagoTypesLog.eSysLogPriority.LOG_INFO;
+END_VAR
+END_NAMESPACE
+PROGRAM Main
+END_PROGRAM
+"#,
+    )]);
+}
+
+#[test]
+fn constant_initializer_contract_qualified_enum_member_suffix_form_initializes_global() {
+    // The 2-part form `EnumType.Member` resolves through the unique
+    // suffix over registered enum names.
+    runtime(&[(
+        "main.st",
+        r#"
+NAMESPACE WagoTypesLog
+TYPE eSysLogPriority : (LOG_DEBUG := INT#0, LOG_NOTICE := INT#5);
+END_TYPE
+END_NAMESPACE
+NAMESPACE GVLLogging
+VAR_GLOBAL
+    eLevelSys : WagoTypesLog.eSysLogPriority := eSysLogPriority.LOG_NOTICE;
+END_VAR
+END_NAMESPACE
+PROGRAM Main
+END_PROGRAM
+"#,
+    )]);
+}
+
+#[test]
+fn constant_initializer_contract_flattened_gvl_leaf_resolves_in_capacity() {
+    // IEC_DEVIATIONS DEV-030: a dotted reference naming a container level
+    // the library stub flattened away (`LogParameter.MAX_LOG_MSG_LEN`
+    // over namespace-level constants) resolves in declaration-capacity
+    // lowering when exactly one registered constant carries the leaf.
+    runtime(&[(
+        "main.st",
+        r#"
+NAMESPACE WagoTypesLog
+VAR_GLOBAL CONSTANT
+    MAX_LOG_MSG_LEN : INT := INT#128;
+END_VAR
+INTERFACE I_LogChannel
+    METHOD LogMsg
+    VAR_IN_OUT
+        sMessage : STRING(LogParameter.MAX_LOG_MSG_LEN);
+    END_VAR
+    END_METHOD
+END_INTERFACE
+END_NAMESPACE
+PROGRAM Main
+END_PROGRAM
+"#,
+    )]);
+}
+
+#[test]
+fn constant_initializer_contract_ambiguous_flattened_leaf_stays_rejected() {
+    let error = compile_error(&[
+        (
+            "first.st",
+            r#"
+NAMESPACE First
+VAR_GLOBAL CONSTANT
+    MAX_LEN : INT := INT#1;
+END_VAR
+END_NAMESPACE
+"#,
+        ),
+        (
+            "second.st",
+            r#"
+NAMESPACE Second
+VAR_GLOBAL CONSTANT
+    MAX_LEN : INT := INT#2;
+END_VAR
+END_NAMESPACE
+"#,
+        ),
+        (
+            "main.st",
+            r#"
+VAR_GLOBAL CONSTANT
+    Limit : INT := Container.MAX_LEN;
+END_VAR
+PROGRAM Main
+END_PROGRAM
+"#,
+        ),
+    ]);
+
+    assert!(
+        error.to_ascii_lowercase().contains("compile-time constant")
+            || error.to_ascii_lowercase().contains("undefined constant"),
+        "{error}"
+    );
+}

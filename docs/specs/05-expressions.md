@@ -128,10 +128,15 @@ IntVar := REAL_TO_INT(RealVar);
 
 Typed operands do not promote by a total “widest type” ordering. They must be
 identical or have one accuracy-preserving widening direction defined by the
-matrix in `docs/IEC_DECISIONS.md`. Signed/unsigned cross-family arithmetic and
-integer/real combinations that can lose accuracy require explicit conversion.
-Representable untyped numeric literals are contextualized to the other typed
-operand.
+matrix in `docs/IEC_DECISIONS.md`. Arithmetic and comparisons add two
+CODESYS-parity exceptions (`docs/IEC_DEVIATIONS.md` 2026-10-28): signed/unsigned
+integer pairs and integer/bit-string pairs compare through a common
+magnitude, and two bit-string operands participate in `+ - * /` as unsigned
+magnitudes whose result carries the wider operand's width (wrapping like the
+vendor toolchain). Integer/real combinations that can lose accuracy, mixed
+integer/bit-string *arithmetic* (`INT + UINT`, `WORD + INT`), and MOD on
+bit-strings still require explicit conversion. Representable untyped numeric
+literals are contextualized to the other typed operand.
 
 ## 4. Operator Categories
 
@@ -243,6 +248,15 @@ CONST_VAL := 3.14159 * 2.0;     // Compile-time constant
 ARRAY_SIZE := 10 + 5;            // Used in declarations
 ```
 
+Integer constant arithmetic folds exactly (`IEC_DEVIATIONS.md` DEV-027):
+mixed signed×unsigned pairs and narrow-typed same-sign pairs evaluate in
+exact wide math, so a representable magnitude — including values beyond
+the operands' own width, such as `16 * 8` over narrow-fitting untyped
+literals — does not fault at compile time and materializes as `LINT`
+(negative) or `ULINT` (non-negative) before declaration-type coercion.
+Typed `DINT`/`LINT` operands keep their fault-on-overflow contract, and
+the runtime execution path keeps its stricter per-type semantics.
+
 ### 5.2 Primary Expressions
 
 Basic building blocks:
@@ -305,6 +319,13 @@ An ordinary positional call such as `F(1, 2)` and a formal call such as
 distinct `Arg` children. Formal `:=` tokens remain argument connections; they
 are not declaration aggregate initializers. Call binding and argument-type
 validation remain semantic checks.
+
+A named binding with an empty right-hand side (`F(A := 1, RST := , Q => )`)
+parses to an `Arg` with a name but no expression operand: the argument is
+omitted (input retains its value or takes the declared default; an
+untargeted output stays unconnected) per `IEC_DEVIATIONS.md` DEV-029. A
+`?=` reference assignment always requires its target, and a positional
+empty slot stays rejected.
 
 The parser recognizes `ADR(...)` and `SIZEOF(...)` as documented truST product
 expression forms. `SIZEOF` has a deliberately wider syntactic operand surface

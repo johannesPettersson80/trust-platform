@@ -133,6 +133,7 @@ fn lower_literal_with_context(
         value = coerce_value_to_type(value, type_id)?;
     } else if let Some(type_id) = expected_type
         && value != Value::Null
+        && !time_tod_interchange(&value, type_id)
     {
         // A text literal keeps its whole text and takes only the destination's string family.
         // The analysis refuses a literal longer than a declared destination and every store
@@ -177,6 +178,21 @@ fn string_family(registry: &TypeRegistry, type_id: TypeId) -> Option<TypeId> {
         }
     }
     None
+}
+
+/// CODESYS TIME/TOD interchange (IEC_DEVIATIONS 2026-10-30, DEV-042): a
+/// TIME literal expected as TOD (and the reverse) keeps its tag — the
+/// runtime arithmetic handles the mixed pair natively (`TOD + TIME`, the
+/// vendor clock-adjust idiom `sunset + T#1h`), so an eager tag conversion
+/// would defeat it.
+fn time_tod_interchange(value: &Value, type_id: TypeId) -> bool {
+    matches!(
+        (value, type_id),
+        (Value::Time(_), TypeId::TOD)
+            | (Value::Tod(_), TypeId::TIME)
+            | (Value::LTime(_), TypeId::LTOD)
+            | (Value::LTod(_), TypeId::LTIME)
+    )
 }
 
 fn parse_real_literal(text: &str) -> Result<f64, CompileError> {
