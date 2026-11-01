@@ -19,7 +19,11 @@ following references count:
 - a resolved type reference;
 - a qualified value access chain (`GVals.Member`, dotted declaration sizes):
   the chain resolves to its terminal member and marks that member used —
-  the leftmost segment alone never marks anything used;
+  the leftmost segment alone never marks anything used. The chain head
+  resolves in the referencing expression's scope first, with the project-wide
+  lookup as the fallback: a local declaration named like the head shadows the
+  global, and the chain can never mark a global member used through that
+  local's spelling;
 - an `EXTENDS` or `IMPLEMENTS` target of a POU, class, or DUT declaration:
   inheritance is a use of the base.
 
