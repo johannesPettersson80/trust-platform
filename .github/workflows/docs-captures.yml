@@ -13,10 +13,11 @@ on:
   schedule:
     - cron: "0 4 * * *"
 
-# A new push to a pull request replaces the pull request's unfinished run; a merge group, a push to
-# main and a scheduled or manual run always finish (specification 22).
+# A new push to a pull request replaces the pull request's unfinished run; the pushes to main run one at
+# a time, a newer push replacing a run that still waits; a merge group and a scheduled or manual run
+# always finish (specification 22).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.event_name == 'push' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:

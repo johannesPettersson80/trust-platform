@@ -454,12 +454,18 @@ workflow (Render Diagrams and Docs Captures both named their last job
 
 A new push to a pull request cancels the pull request's unfinished run of
 each workflow, so that no runner works on a head that nobody will merge; the
-run of a merge group, of a push to `main` and a scheduled or manual run are
-never cancelled by another (1 November 2026: three pushes to #151 ran three
-full CI runs side by side while `main`'s CI, which the release waits for,
-queued for runners). Docs Pages' deploys of `main` share one group: the running
-deploy finishes, and a newer deploy replaces one that still waits, so the site
-skips the commits between (GitHub's Pages workflows do the same).
+run of a merge group and a scheduled or manual run are never cancelled by
+another (1 November 2026: three pushes to #151 ran three full CI runs side by
+side while `main`'s CI, which the release waits for, queued for runners). CI,
+Render Diagrams and Docs Captures run the pushes to `main` one at a time: the
+running run finishes, and a newer push replaces a run that still waits, so a
+series of merges is checked twice, not once per merge (1 November 2026: six
+merges in two hours queued about 120 CI jobs ahead of the release pull
+request). The newest run checks the code of the merges it replaced, and the
+release follows the passed run of any commit whose version has no release yet
+(specification 24, "Release after main CI"). Docs Pages' deploys of `main`
+share one group the same way, so the site skips the commits between (GitHub's
+Pages workflows do the same).
 
 ### Documentation that follows the product
 

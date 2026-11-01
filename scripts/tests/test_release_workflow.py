@@ -346,5 +346,20 @@ class MainPushAlignmentTests(unittest.TestCase):
         self.assertLessEqual(int(field(guard, "timeout-minutes", 4)), 15)
 
 
+
+class MainPushConcurrencyTests(unittest.TestCase):
+    def test_the_pushes_to_main_run_one_at_a_time(self) -> None:
+        """Specification 22: CI, Render Diagrams and Docs Captures run the pushes to `main` one at a
+        time, a newer push replacing a run that still waits, and cancel only a pull request's
+        unfinished run. Catches a full run queued per merge ahead of the release pull request (six
+        merges queued about 120 CI jobs on 1 November 2026), and a running check of `main` cancelled,
+        whose commit the release would then never follow."""
+        for name in ("ci.yml", "diagrams.yml", "docs-captures.yml"):
+            text = (ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8")
+            block = text.split("\nconcurrency:\n", 1)[1].split("\n\n", 1)[0]
+            self.assertIn("github.event_name == 'push' && github.ref", block, name)
+            self.assertIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", block, name)
+
+
 if __name__ == "__main__":
     unittest.main()
