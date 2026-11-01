@@ -84,7 +84,9 @@ fn changed_program_status(addr: SocketAddr, auth: &str, before: &Value) -> Value
     loop {
         let status = control_status(addr, auth);
         let revision = &status["program_revision"];
-        if (revision.is_string() && revision != &before["program_revision"]) || Instant::now() >= deadline {
+        if (revision.is_string() && revision != &before["program_revision"])
+            || Instant::now() >= deadline
+        {
             return status;
         }
         std::thread::sleep(WaitTime::from_millis(20));
