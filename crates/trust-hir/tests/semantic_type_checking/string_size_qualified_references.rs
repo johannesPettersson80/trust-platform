@@ -97,7 +97,10 @@ END_NAMESPACE
         .to_string(),
     );
 
-    assert_eq!(error_codes(&db, FileId(0)), [DiagnosticCode::UndefinedVariable]);
+    assert_eq!(
+        error_codes(&db, FileId(0)),
+        [DiagnosticCode::UndefinedVariable]
+    );
 }
 
 #[test]

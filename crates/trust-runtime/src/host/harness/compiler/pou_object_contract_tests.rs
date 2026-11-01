@@ -202,7 +202,8 @@ fn pou_object_contract_empty_named_fb_input_retains_last_stored_value() {
     // the input; the FB retains the last stored value (7), it does NOT
     // re-apply the declared default (2) — same contract as positional
     // omission.
-    let harness = codesys_run(r#"
+    let harness = codesys_run(
+        r#"
 FUNCTION_BLOCK Echo
 VAR_INPUT
     value : INT := INT#2;
@@ -223,7 +224,8 @@ first := echo.outputValue;
 echo(value := );
 second := echo.outputValue;
 END_PROGRAM
-"#);
+"#,
+    );
     assert_eq!(harness.get_output("first"), Some(Value::Int(7)));
     assert_eq!(harness.get_output("second"), Some(Value::Int(7)));
 }
@@ -233,7 +235,8 @@ fn pou_object_contract_empty_named_fb_output_compiles_unconnected() {
     // The s4 form `Q => )` under the CODESYS profile (DEV-040): an output
     // named without a target compiles and the value stays reachable through
     // the instance member.
-    let harness = codesys_run(r#"
+    let harness = codesys_run(
+        r#"
 FUNCTION_BLOCK Echo
 VAR_INPUT
     value : INT := INT#4;
@@ -251,7 +254,8 @@ END_VAR
 echo(outputValue => );
 result := echo.outputValue;
 END_PROGRAM
-"#);
+"#,
+    );
     assert_eq!(harness.get_output("result"), Some(Value::Int(4)));
 }
 

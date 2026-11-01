@@ -1,6 +1,8 @@
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
+use crate::harness::build::lower_application_with;
 use crate::harness::{lower_application, CompileSession, SourceFile, TestHarness};
+use crate::stdlib::conversions::ConversionProfile;
 use crate::value::Value;
 use crate::RuntimeBuilder;
 
@@ -13,6 +15,15 @@ fn source_files(files: &[(&str, &str)]) -> Vec<SourceFile> {
 
 fn runtime(files: &[(&str, &str)]) -> RuntimeBuilder {
     lower_application(&source_files(files), files.len() > 1)
+        .and_then(|lowered| lowered.construct(&[]))
+        .map(|(builder, _)| builder)
+        .unwrap_or_else(|error| panic!("constant-initializer fixture must compile: {error}"))
+}
+
+/// [`runtime`] under the CODESYS profile, whose language rules resolve a dotted size through a
+/// flattened library container (docs/IEC_DEVIATIONS.md 2026-10-25).
+fn codesys_runtime(files: &[(&str, &str)]) -> RuntimeBuilder {
+    lower_application_with(&source_files(files), files.len() > 1, ConversionProfile::Codesys)
         .and_then(|lowered| lowered.construct(&[]))
         .map(|(builder, _)| builder)
         .unwrap_or_else(|error| panic!("constant-initializer fixture must compile: {error}"))
@@ -672,11 +683,13 @@ END_PROGRAM
 
 #[test]
 fn constant_initializer_contract_flattened_gvl_leaf_resolves_in_capacity() {
-    // IEC_DEVIATIONS DEV-041: a dotted reference naming a container level
-    // the library stub flattened away (`LogParameter.MAX_LOG_MSG_LEN`
-    // over namespace-level constants) resolves in declaration-capacity
-    // lowering when exactly one registered constant carries the leaf.
-    runtime(&[(
+    // IEC_DEVIATIONS DEV-041: under the CODESYS profile a dotted reference
+    // naming a container level the library stub flattened away
+    // (`LogParameter.MAX_LOG_MSG_LEN` over namespace-level constants)
+    // resolves in declaration-capacity lowering when exactly one registered
+    // constant carries the leaf; the IEC rules refuse it (trust-hir
+    // `string_length_from_flattened_library_container_is_undefined_under_the_iec_rules`).
+    codesys_runtime(&[(
         "main.st",
         r#"
 NAMESPACE WagoTypesLog
