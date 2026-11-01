@@ -151,8 +151,9 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
 
     def test_every_check_of_the_site_build_runs_when_it_or_what_it_reads_changes(self) -> None:
         # The Docs Pages build is the only run of its checks, so a pull request that changes a checker or what it reads
-        # must run it. Catches a checker missing from the path list, and the inputs of the database-example checker
-        # (Codex's review of #153: examples/openot_database/sqlite/runtime.toml or the runner script merged unchecked).
+        # must run it. Catches a checker missing from the path list, and the inputs of the media step and of the
+        # database-example checker (Codex's review of #153: docs/media/hero-runtime.png,
+        # examples/openot_database/sqlite/runtime.toml or the runner script merged unchecked).
         import sys
 
         sys.path.insert(0, str(ROOT / "scripts"))
@@ -169,6 +170,11 @@ class DocsCapturesWorkflowContractTests(unittest.TestCase):
         self.assertGreaterEqual(len(scripts), 8, scripts)
         for script in scripts:
             self.assertTrue(listed(script), f"{script} runs in the site build but its change does not run it")
+        import generate_public_docs_media
+
+        for source, _ in generate_public_docs_media.COPY_MAP:
+            copied = source.relative_to(ROOT).as_posix()
+            self.assertTrue(listed(copied), f"generate_public_docs_media.py copies {copied}, whose change does not run it")
         for read in (
             "examples/openot_database/sqlite/runtime.toml",
             "examples/openot_database/workload/Main.st",
