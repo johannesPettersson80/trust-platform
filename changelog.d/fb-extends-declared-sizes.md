@@ -9,8 +9,8 @@
 
 ### Fixed
 
-- Declaration sizes over flattened library containers: a dotted size
-  reference (`STRING(LogParameter.MAX_LOG_MSG_LEN)`,
+- Declaration sizes over flattened library containers: under the CODESYS
+  profile, a dotted size reference (`STRING(LogParameter.MAX_LOG_MSG_LEN)`,
   `STRING(WagoTypesLog.LogParameter.MAX_LOG_MSG_LEN)`) resolves when the
   named GVL level was flattened into namespace-level constants — the
   reference's last segment must match exactly one constant or
