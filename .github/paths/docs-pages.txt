@@ -3,6 +3,8 @@
 .github/paths/docs-pages.txt
 scripts/ci_changes.py
 docs/public/**
+# What scripts/generate_public_docs_media.py copies into the site besides the extension's assets.
+docs/media/**
 docs/guides/**
 docs/specs/**
 conformance/**

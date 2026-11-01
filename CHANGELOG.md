@@ -6,6 +6,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+### Fixed
+
+- Cancelling Identify while it waits for a loop in Auto to settle always stops before the loop is switched to Manual.
+  Before, a Cancel that arrived during the wait's last reading could still let the switch happen; the mode was
+  returned afterwards (specification 35, B3.4).
+
 ## [0.27.0] - 2026-10-31
 
 ### Changed
