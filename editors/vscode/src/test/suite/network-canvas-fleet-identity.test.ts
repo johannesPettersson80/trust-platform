@@ -150,7 +150,7 @@ async function drawn(snapshots: readonly FleetTopologyResponse[]) {
   const peers: CanvasRuntimeReport[] = snapshots.map((snapshot, index) => ({
     endpoint: `tcp://10.0.0.${index + 1}:5680`,
     label: `runtime ${index + 1}`,
-    reach: "reachable",
+    status: "online_reachable",
     topology: { ok: snapshot },
     connectors: { ok: { connectors: [] } },
   }));

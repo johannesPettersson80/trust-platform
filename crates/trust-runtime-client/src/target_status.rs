@@ -46,6 +46,25 @@ impl TargetProbe {
     pub fn answered(&self) -> bool {
         matches!(self, Self::Reachable(_) | Self::AuthFailed(_))
     }
+
+    /// The probe that a run target names by its `status` and `authFailureKind`, the words
+    /// `trust-lsp.runTargets` reports (specification 25, 5.1): `online_reachable` answered,
+    /// `auth_failed` refused the token (`missing` when the request carried none, else a rejected
+    /// token), `missing_endpoint` has no endpoint to contact, and every other status found nothing
+    /// that answers. A run target does not carry the runtime's `status` result, so a reachable
+    /// target's result is empty.
+    #[must_use]
+    pub fn from_run_target(status: &str, auth_failure_kind: Option<&str>) -> Self {
+        match status {
+            "online_reachable" => Self::Reachable(Value::Object(serde_json::Map::new())),
+            "auth_failed" if auth_failure_kind == Some("missing") => {
+                Self::AuthFailed(AuthFailure::Missing)
+            }
+            "auth_failed" => Self::AuthFailed(AuthFailure::Rejected),
+            "missing_endpoint" => Self::MissingEndpoint,
+            _ => Self::Unreachable,
+        }
+    }
 }
 
 /// Probes the target configured with `endpoint`: connects, sends `status` with `token`, and
