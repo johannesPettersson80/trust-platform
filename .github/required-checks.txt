@@ -1,5 +1,5 @@
-# The checks that main's branch protection requires before a pull request merges, and that the merge
-# queue runs again on the merged result (specification 22, "Change and release workflow"). Each is the
+# The checks that main's branch protection requires before a pull request merges, and that a merge
+# queue would run again on the merged result (specification 22, "Change and release workflow"). Each is the
 # name of one job of a workflow that runs on pull requests and in the merge queue;
 # scripts/tests/test_workflow_change_detection.py checks that.
 Release Gate Report

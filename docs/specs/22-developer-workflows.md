@@ -289,11 +289,12 @@ Work reaches `main` in small pull requests, and CI is the only gate:
   connection) run on the packaged extension: in CI on the package that the
   pull request built, once CI packages every pull request, and until then on
   the package of a release pull request's rehearsal before it merges;
-- a pull request merges when every required check is green and the review has
-  no open finding, through a merge queue that tests it on top of the current
-  `main`, so that `main` is always releasable; until the queue runs every
-  required workflow and is enabled, the pull request merges at its exact head
-  once branch protection finds its required checks green;
+- a pull request merges at its exact head when every required check is green
+  and the review has no open finding. There is no merge queue (owner, 1 November
+  2026: the repository stays under the personal account, and GitHub gives the
+  queue only to organizations), and the pull request need not hold the newest
+  `main`: `main`'s CI checks every merge, a red `main` is fixed before any other
+  merge, and the release follows only a `main` commit whose CI passed;
 - a release is a pull request that only bumps the version and moves the
   changelog section; it merges like any other, and the release follows
   `main`'s CI (specification 24, "Release after main CI"), publishing the
@@ -397,8 +398,10 @@ workflow instead of skipping its checks. GitHub's own path filters compare only 
 0.25.0's 10,252-file pull request ran no documentation workflow, and the site
 broke on `main` (28 October 2026).
 
-The merge queue tests each pull request again as a merge group: the pull
-request merged onto the current `main`, or onto the groups queued ahead of it.
+The merge queue is not enabled (above), but the workflows are ready for it, so
+that it can be turned on if the repository moves to an organization. The queue
+tests each pull request again as a merge group: the pull request merged onto
+the current `main`, or onto the groups queued ahead of it.
 Every workflow that checks pull requests runs for a merge group (event
 `merge_group`), and every job and step that runs for a pull request runs for a
 merge group too. The detection compares the group's commit with the commit it
