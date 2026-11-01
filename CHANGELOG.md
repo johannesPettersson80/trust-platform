@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-01
+
 ### Fixed
 
 - Passing a fixed-size array to an `ARRAY[*]` parameter no longer reports an implicit conversion, in every parameter
