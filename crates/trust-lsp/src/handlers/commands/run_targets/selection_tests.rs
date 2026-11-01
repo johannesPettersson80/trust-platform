@@ -277,6 +277,67 @@ fn the_connected_label() {
     }
 }
 
+/// The status bar and the side panel's Target name a connected runtime by the name the extension
+/// gave it: the debug session's target name, else the name a Connect was given to a runtime that
+/// keeps debugging disabled, which the answer also flags; the project's own runtime keeps its name.
+/// Without a name, or with a debugging-disabled failure of another endpoint, the endpoint names
+/// it. Catches the name Connect was given lost without a session (the status bar showed
+/// `127.0.0.1:<port>` where Connect said `Cpu`), the project's runtime renamed, another runtime's
+/// failure applied, and an attached session told that debugging is disabled.
+#[test]
+fn the_connected_label_is_the_name_the_extension_gave() {
+    let endpoint = "tcp://127.0.0.1:18093";
+    let mut session = snapshot("online", "connected", endpoint);
+    session["targetLabel"] = json!("Line 1");
+    let answer = select(json!({ "action": "selection", "snapshot": session }));
+    assert_eq!(answer["connectedLabel"], "Line 1");
+    assert_eq!(answer["connectedDebuggingDisabled"], false);
+
+    let mut disabled = snapshot("online", "stopped", endpoint);
+    disabled["failure"] = json!({
+        "kind": "debug_disabled",
+        "message": "Remote debugging is disabled for this runtime.",
+        "endpoint": endpoint,
+        "label": "Cpu",
+    });
+    let answer = select(json!({
+        "action": "selection",
+        "snapshot": disabled.clone(),
+        "selectedId": endpoint,
+    }));
+    assert_eq!(answer["connectedLabel"], "Cpu");
+    assert_eq!(answer["connectedDebuggingDisabled"], true);
+    assert_eq!(
+        answer["selected"]["label"], "Cpu",
+        "the side panel's Target agrees"
+    );
+
+    // The project's own runtime keeps that name on every surface, whatever Connect called it.
+    let mut own = with_project(disabled.clone(), true);
+    own["projectEndpoint"] = json!(endpoint);
+    let answer = select(json!({ "action": "selection", "snapshot": own }));
+    assert_eq!(answer["connectedLabel"], "This project's runtime");
+    assert_eq!(answer["connectedDebuggingDisabled"], true);
+
+    let mut unnamed = disabled.clone();
+    unnamed["failure"]["label"] = json!("  ");
+    let answer = select(json!({ "action": "selection", "snapshot": unnamed }));
+    assert_eq!(answer["connectedLabel"], "127.0.0.1:18093");
+    assert_eq!(answer["connectedDebuggingDisabled"], true);
+
+    let mut elsewhere = disabled.clone();
+    elsewhere["failure"]["endpoint"] = json!("tcp://10.0.0.2:9901");
+    let answer = select(json!({ "action": "selection", "snapshot": elsewhere }));
+    assert_eq!(answer["connectedLabel"], "127.0.0.1:18093");
+    assert_eq!(answer["connectedDebuggingDisabled"], false);
+
+    let mut attached = disabled;
+    attached["runtimeState"] = json!("connected");
+    let answer = select(json!({ "action": "selection", "snapshot": attached }));
+    assert_eq!(answer["connectedLabel"], "127.0.0.1:18093");
+    assert_eq!(answer["connectedDebuggingDisabled"], false);
+}
+
 /// The extension is connected while its session is attached or while it is online with a runtime
 /// that answers, such as one started outside the extension; else the status bar names no
 /// connected runtime. Catches a reachable runtime started outside the extension shown as

@@ -8,14 +8,16 @@
 //! Disconnects and is never stopped.
 //!
 //! `selection` `{ snapshot, fleetEndpoints?, managed?, selectedId? }` answers `{ ok: true, options,
-//! remotes, selected, selectionValid }`: each option's id, label, kind, the control endpoint that
-//! selecting it points the runtime settings at and whether it is the project's own runtime; the
+//! remotes, selected, selectionValid }`: each option's id, label (the runtime the extension is
+//! connected to by the name the extension gave it), kind, the control endpoint that selecting it
+//! points the runtime settings at and whether it is the project's own runtime; the
 //! configured runtimes; the selected target (the Simulator when `selectedId` names none) with its
 //! status, its status label and its primary action; whether `selectedId` names an option; and,
 //! while the extension is connected to a runtime (its session is attached, or it is online with a
 //! runtime that answers), the name the status bar gives that runtime (`connectedLabel`, `null` when
-//! it is connected to none). The project's control endpoint as `selectedId` names the project's
-//! entry.
+//! it is connected to none, see [`runtime_name`]) and whether that runtime answered Connect but
+//! keeps debugging disabled (`connectedDebuggingDisabled`). The project's control endpoint as
+//! `selectedId` names the project's entry.
 //!
 //! `select` `{ snapshot, id, endpoint? }` answers what selecting target `id`, whose control
 //! endpoint is `endpoint`, does (§5.1): `{ ok: true, changesTarget, settings, endpoint }`.
@@ -35,12 +37,14 @@ use serde_json::{json, Value};
 use trust_devices::actions::managed_label;
 use trust_devices::topology::ManagedState;
 
-use super::{decode, endpoint::remote_label};
+use super::{decode, endpoint::remote_label, non_blank};
 
 /// The id of the Simulator.
 pub(super) const SIMULATOR: &str = "simulator";
 /// The id of the workspace project's own runtime (specification 25 §5.1).
 pub(super) const PROJECT: &str = "project";
+/// The name of the workspace project's own runtime.
+const PROJECT_LABEL: &str = "This project's runtime";
 
 /// The lifecycle snapshot of the extension: the runtime settings and the debug session.
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -67,6 +71,24 @@ pub(super) struct Snapshot {
     /// Whether the project's own runtime answers at that endpoint.
     #[serde(default)]
     pub(super) project_reachable: bool,
+    /// The target name of the debug session, as the Simulator's launch or a Connect gave it.
+    #[serde(default)]
+    pub(super) target_label: Option<String>,
+    /// The lifecycle's failure: for a runtime that answered Connect but keeps debugging disabled,
+    /// its endpoint and the name that Connect was given.
+    #[serde(default)]
+    pub(super) failure: Option<Failure>,
+}
+
+/// The facts of a lifecycle failure that name a runtime.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub(super) struct Failure {
+    #[serde(default)]
+    kind: String,
+    #[serde(default)]
+    endpoint: Option<String>,
+    #[serde(default)]
+    label: Option<String>,
 }
 
 /// A managed runtime as the extension lists it.
@@ -198,7 +220,10 @@ pub(super) fn answer(argument: Value) -> Result<Value, String> {
             },
         },
         "selectionValid": valid,
-        "connectedLabel": connected(&args.snapshot).then(|| connected_label(&args.snapshot, &options)),
+        "connectedLabel": connected(&args.snapshot).then(|| {
+            runtime_name(&args.snapshot, options.iter().any(|option| option.project))
+        }),
+        "connectedDebuggingDisabled": connected(&args.snapshot) && debugging_disabled(&args.snapshot),
     }))
 }
 
@@ -251,16 +276,18 @@ fn connected(snapshot: &Snapshot) -> bool {
         || (snapshot.runtime_mode == "online" && snapshot.endpoint_reachable)
 }
 
-/// The name the status bar gives the runtime the extension is connected to: the project's own
-/// runtime by that name when the list holds it and the endpoint is its, `runtime` for another local
-/// control socket or no endpoint, else the endpoint without its scheme.
-fn connected_label(snapshot: &Snapshot, options: &[Target]) -> String {
+/// The name of the runtime the extension is connected to, as the side panel's list, the status
+/// bar and the HMI Builder give it (specification 25 §6.9): the project's own runtime by that name
+/// when `project_listed` and the endpoint is its, else the name the extension gave it
+/// ([`given_name`]), else `runtime` for another local control socket or no endpoint, else the
+/// endpoint without its scheme.
+pub(super) fn runtime_name(snapshot: &Snapshot, project_listed: bool) -> String {
     let endpoint = snapshot.endpoint.trim();
-    if let Some(project) = options.iter().find(|option| option.project)
-        && !endpoint.is_empty()
-        && endpoint == snapshot.project_endpoint.trim()
-    {
-        return project.label.clone();
+    if project_listed && !endpoint.is_empty() && endpoint == snapshot.project_endpoint.trim() {
+        return PROJECT_LABEL.to_owned();
+    }
+    if let Some(name) = given_name(snapshot) {
+        return name;
     }
     let socket = endpoint
         .get(..7)
@@ -270,6 +297,31 @@ fn connected_label(snapshot: &Snapshot, options: &[Target]) -> String {
     } else {
         remote_label(endpoint)
     }
+}
+
+/// The name the extension gave the runtime it is connected to: the debug session's target name,
+/// else the name a Connect was given for a runtime that keeps debugging disabled.
+pub(super) fn given_name(snapshot: &Snapshot) -> Option<String> {
+    non_blank(snapshot.target_label.as_deref()).or_else(|| {
+        debugging_disabled(snapshot)
+            .then(|| {
+                snapshot
+                    .failure
+                    .as_ref()
+                    .and_then(|failure| non_blank(failure.label.as_deref()))
+            })
+            .flatten()
+    })
+}
+
+/// Whether the runtime at the snapshot's endpoint answered Connect but keeps debugging disabled:
+/// no session is attached, and the lifecycle's failure says so for that endpoint (§4.4).
+fn debugging_disabled(snapshot: &Snapshot) -> bool {
+    snapshot.runtime_state != "connected"
+        && snapshot.failure.as_ref().is_some_and(|failure| {
+            failure.kind == "debug_disabled"
+                && failure.endpoint.as_deref().map(str::trim) == Some(snapshot.endpoint.trim())
+        })
 }
 
 fn option_json(option: &Target) -> Value {
@@ -331,16 +383,24 @@ fn options(
     if project_listed {
         options.push(Target {
             id: PROJECT.to_owned(),
-            label: "This project's runtime".to_owned(),
+            label: PROJECT_LABEL.to_owned(),
             kind: Kind::Remote,
             run_endpoint: None,
             project: true,
         });
     }
+    // The runtime the extension is connected to has the name the extension gave it (§6.9).
+    let named = |id: &str, label: String| {
+        if id == snapshot.endpoint.trim() {
+            given_name(snapshot).unwrap_or(label)
+        } else {
+            label
+        }
+    };
     for (id, label) in remotes {
         options.push(Target {
             id: id.clone(),
-            label: label.clone(),
+            label: named(id, label.clone()),
             kind: Kind::Remote,
             run_endpoint: Some(id.clone()),
             project: false,
@@ -358,7 +418,7 @@ fn options(
     {
         options.push(Target {
             id: online.to_owned(),
-            label: remote_label(online),
+            label: named(online, remote_label(online)),
             kind: Kind::Remote,
             run_endpoint: Some(online.to_owned()),
             project: false,

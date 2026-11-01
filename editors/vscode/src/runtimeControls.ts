@@ -143,17 +143,11 @@ export async function statusText(
     managed,
     selectedId: getSelectedRuntimeId(),
   });
-  // The language server names the runtime the extension is connected to, when it is connected to one.
+  // The language server names the runtime the extension is connected to, when it is connected to one, and says whether it
+  // answered Connect but keeps debugging disabled: then the bar says so, as Live Values does (specification 25, §4.4).
   if (targets.connectedLabel) {
-    const label = snapshot.status.targetLabel?.trim() || targets.connectedLabel;
-    // A runtime that answered Connect but keeps debugging disabled is the target without a session: the bar says so,
-    // as Live Values does (specification 25, section 4.4).
-    const failure = snapshot.failure;
-    const debugDisabled =
-      snapshot.status.runtimeState !== "connected" &&
-      failure?.kind === "debug_disabled" &&
-      failure.endpoint === snapshot.status.endpoint.trim();
-    if (debugDisabled) {
+    const label = targets.connectedLabel;
+    if (targets.connectedDebuggingDisabled) {
       return {
         text: `$(plug) truST: ${label} · debugging disabled`,
         simulatorRunning: false,

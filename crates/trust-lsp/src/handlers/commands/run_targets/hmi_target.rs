@@ -3,22 +3,21 @@
 //! attached, or the configured online runtime while it answers without one. Without a control
 //! endpoint there is none.
 //!
-//! `hmiTarget` `{ snapshot, targetLabel? }` answers `{ ok: true, target: { endpoint, label,
-//! simulator } }`, or `target: null` when nothing runs or answers. The target is named by its
-//! session's `targetLabel`, else `Simulator` in simulate mode, else its endpoint.
+//! `hmiTarget` `{ snapshot }` answers `{ ok: true, target: { endpoint, label, simulator } }`, or
+//! `target: null` when nothing runs or answers. The target has the name the status bar gives it
+//! (specification 25 §6.9): the name the extension gave it, else `Simulator` in simulate mode, else
+//! the status bar's name for the runtime.
 
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::{decode, non_blank, selection::Snapshot};
+use super::decode;
+use super::selection::{given_name, runtime_name, Snapshot};
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct Args {
     #[serde(default)]
     snapshot: Snapshot,
-    #[serde(default)]
-    target_label: Option<String>,
 }
 
 /// `{ ok: true, target }` for the lifecycle snapshot in `argument`.
@@ -34,13 +33,12 @@ pub(super) fn answer(argument: Value) -> Result<Value, String> {
         return Ok(json!({ "ok": true, "target": null }));
     }
     let simulator = snapshot.runtime_mode == "simulate";
-    let label = non_blank(args.target_label.as_deref()).unwrap_or_else(|| {
-        if simulator {
-            "Simulator".to_owned()
-        } else {
-            endpoint.to_owned()
-        }
-    });
+    // The project's own runtime has that name while it answers, as its entry in the target list.
+    let label = if simulator && given_name(snapshot).is_none() {
+        "Simulator".to_owned()
+    } else {
+        runtime_name(snapshot, snapshot.project_reachable)
+    };
     Ok(json!({
         "ok": true,
         "target": { "endpoint": endpoint, "label": label, "simulator": simulator },

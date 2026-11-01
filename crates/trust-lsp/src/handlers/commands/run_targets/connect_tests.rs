@@ -178,9 +178,10 @@ fn a_failed_status() {
 }
 
 /// A runtime that answers but keeps debugging disabled, at the top of its status or in its
-/// `control_status`, is the target without a session; one that allows debugging is attached under
-/// the target's label, else its address. Catches a debug-disabled runtime reported as a failed
-/// Connect, which leaves the previous target selected.
+/// `control_status`, is the target without a session, with the name Connect was given; one that
+/// allows debugging is attached under the target's label, else its address. Catches a
+/// debug-disabled runtime reported as a failed Connect, which leaves the previous target selected,
+/// and the name Connect was given lost without a session.
 #[test]
 fn debugging_disabled_and_attach() {
     let endpoint = "tcp://10.0.0.2:9901";
@@ -198,6 +199,20 @@ fn debugging_disabled_and_attach() {
             json!({ "kind": "debug_disabled", "message": DEBUG_DISABLED, "endpoint": endpoint })
         );
     }
+    // The name Connect was given stays with the runtime that has no session (§6.9).
+    let named = connect_to(
+        json!({ "endpoint": endpoint, "targetLabel": " Cpu " }),
+        &told(true, Outcome::Result(json!({ "debug_enabled": false }))),
+    );
+    assert_eq!(
+        named["failure"],
+        json!({
+            "kind": "debug_disabled",
+            "message": DEBUG_DISABLED,
+            "endpoint": endpoint,
+            "label": "Cpu",
+        })
+    );
     let attach = connect_to(
         json!({ "endpoint": endpoint, "targetLabel": "Line 1" }),
         &told(true, Outcome::Result(json!({ "debug_enabled": true }))),

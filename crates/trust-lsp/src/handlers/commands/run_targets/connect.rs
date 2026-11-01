@@ -8,6 +8,8 @@
 //!   a failure naming its kind, its message, the endpoint it belongs to and, when the extension
 //!   offers one, its `remedy`: `openDevices` when the runtime accepts no connection or its `status`
 //!   request gets no answer, `setAuthToken` when it refuses a missing or rejected token by its code.
+//!   The failure of a runtime that keeps debugging disabled also carries the name Connect was given
+//!   (`label`), which names that runtime while it has no session (§6.9).
 //!   `problem` is trust-runtime's reason why the workspace's own runtime has no endpoint now
 //!   (specification 11 §6.8.0a).
 //! - `failure` `{ detail }`: the kind of the failure that the text `detail` of a start, a stop or an
@@ -162,16 +164,17 @@ fn connect(args: &ConnectArgs, contact: &dyn Contact) -> Value {
             );
         }
     };
+    let target_label = non_blank(args.target_label.as_deref());
     if debug_disabled(&status) {
-        // The runtime answered, so it is the target; Live Values says why it has no session.
-        return json!({
-            "ok": true,
-            "outcome": "debugDisabled",
-            "failure": failure_json("debug_disabled", DEBUG_DISABLED, None, Some(&endpoint)),
-        });
+        // The runtime answered, so it is the target; Live Values says why it has no session. The
+        // name Connect was given names it while it has no session (§6.9).
+        let mut failure = failure_json("debug_disabled", DEBUG_DISABLED, None, Some(&endpoint));
+        if let Some(label) = &target_label {
+            failure["label"] = json!(label);
+        }
+        return json!({ "ok": true, "outcome": "debugDisabled", "failure": failure });
     }
-    let label =
-        non_blank(args.target_label.as_deref()).unwrap_or_else(|| sentence_label(&endpoint));
+    let label = target_label.unwrap_or_else(|| sentence_label(&endpoint));
     json!({
         "ok": true,
         "outcome": "attach",
