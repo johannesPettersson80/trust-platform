@@ -302,14 +302,14 @@ Work reaches `main` in small pull requests, and CI is the only gate:
   broken user journey); any other finding goes on the checklist for the next
   release.
 
-The release guard (`release_candidate_guard.py prepare`) and the sections
-below on release candidates (failure reporting, discovery parity, build
-parallelism, target storage and the post-merge audit) apply only until CI runs
-every stage of the guard and the acceptance journeys; until then a push that
-changes the workspace version needs the guard's exact-SHA artifact, and the
-review and the acceptance journeys run before the version bump so that the
-guard runs once. `verify-release` and the post-merge audit stay as tools after
-that.
+The pre-push hook refuses only a direct push to `main` and a pushed release
+tag; every other push goes through. The release guard
+(`release_candidate_guard.py prepare`) is retired from the workflow: CI runs
+every stage it ran, and `git diff --check`; the sections below on release
+candidates (failure reporting, discovery parity, build parallelism and target
+storage) describe the tool until its code is removed. Until the acceptance
+journeys run in CI, they run on a release pull request's rehearsal package
+before it merges. `verify-release` and the post-merge audit stay as tools.
 
 ### CI reliability and release-gate artifact contract
 
@@ -487,6 +487,17 @@ no such run exists, the images in git stay. They are the fallback: a change that
 adds a capture commits its first image, and nobody commits refreshed ones. The
 refresh pull request of earlier releases, which had to be merged into each
 release by hand, is gone.
+
+A pull request that changes the site's paths runs the Docs Pages build too, with
+the newest screenshots of `main`: the media, the link, catalogue and database
+example checks, `mkdocs build --strict`, and the asset and search checks. It
+publishes nothing, and its run never cancels a deploy of `main`. Every job but
+the deploy runs with a read-only token, since a pull request's run executes the
+pull request's own scripts; only the deploy may write to Pages and request an
+OIDC token. Its conclusion,
+Docs Pages Conclusion, fails when a check failed, so a broken page fails the pull
+request instead of the deploy after the merge (the retired release guard ran
+these checks before each push; Codex's review of #153, 1 November 2026).
 
 ### Release-candidate discovery parity
 
