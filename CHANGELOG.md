@@ -6,13 +6,16 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-## [0.28.0] - 2026-11-01
-
 ### Fixed
 
 - Passing a fixed-size array to an `ARRAY[*]` parameter no longer reports an implicit conversion, in every parameter
   direction: the binding aliases the argument's storage for the call (varying arrays) and converts nothing. Element
   mismatches and concrete bound mismatches keep their errors (specification 28 §2, IEC deviations DEV-040).
+
+## [0.28.0] - 2026-11-01
+
+### Fixed
+
 - The help under a hardware terminal that no PLC signal fits, in Devices & Connections, suggests an address the runtime
   binds the terminal's type to: `%ID0` for a `TIME`, `%IW0` for a `WCHAR` and the byte address `%IB0` for a `STRING`.
   Before, it suggested a long-word address such as `%IL0`, which the runtime refuses for these types, and it did the
