@@ -108,10 +108,13 @@ def build_report(
     enforcing: bool = False,
     smoke: bool = False,
     specifications: list[str] | None = None,
+    version_bump: bool = False,
 ) -> VerificationReport:
     runner = command_runner or default_runner(root)
     normalized = sorted({normalize_changed_file(path) for path in changed_files if path.strip()})
     named = [f"--specification={value}" for value in specifications or []]
+    if version_bump:
+        named.append("--version-bump")
     if smoke:
         commands = [
             runner(["python3", "-m", "unittest", *SMOKE_TEST_MODULES]),
@@ -272,6 +275,32 @@ def specification_trailers_from_git(root: Path, base: str, head: str) -> list[st
     if completed.returncode != 0:
         raise RuntimeError(f"git log failed: {completed.stderr.strip()}")
     return [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+
+
+def workspace_version_moves(root: Path, base: str, head: str) -> bool:
+    """Whether `[workspace.package].version` of `Cargo.toml` differs between `base` and `head`: the change is a version
+    bump (specification 30, "Owning-spec companion contract"). A revision whose manifest cannot be read has no version."""
+
+    def version(revision: str) -> str | None:
+        completed = subprocess.run(
+            ["git", "show", f"{revision}:Cargo.toml"],
+            cwd=root,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if completed.returncode != 0:
+            return None
+        try:
+            workspace = tomllib.loads(completed.stdout).get("workspace", {})
+        except tomllib.TOMLDecodeError:
+            return None
+        found = workspace.get("package", {}).get("version")
+        return found if isinstance(found, str) else None
+
+    before, after = version(base), version(head)
+    return before is not None and after is not None and before != after
 
 
 def parse_name_status_z(output: str) -> list[str]:
@@ -480,6 +509,7 @@ def main(argv: list[str] | None = None) -> int:
             enforcing=args.strict,
             smoke=args.smoke,
             specifications=specifications,
+            version_bump=bool(args.base) and workspace_version_moves(ROOT, args.base, args.head),
         )
         write_reports(report, ROOT / args.out_dir)
         print(render_markdown(report), end="")
