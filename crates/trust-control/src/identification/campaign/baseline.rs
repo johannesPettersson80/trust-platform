@@ -196,12 +196,18 @@ impl BaselineTracker {
                 next_action,
             ));
         }
+        // A rate from fewer readings than the window's floor reads a moving output as still (B3.4 step 2).
+        let measured = recent.len() >= MINIMUM_WINDOW_SAMPLES;
         let progress = if progress_due(watch.newest_seconds(), self.reported_seconds) {
             self.reported_seconds = watch.newest_seconds();
-            Some(format!(
-                "Waiting for {} to settle (changing {rate})…",
-                self.symbol
-            ))
+            Some(if measured {
+                format!("Waiting for {} to settle (changing {rate})…", self.symbol)
+            } else {
+                format!(
+                    "Waiting for {} to settle (measuring its rate)…",
+                    self.symbol
+                )
+            })
         } else {
             None
         };

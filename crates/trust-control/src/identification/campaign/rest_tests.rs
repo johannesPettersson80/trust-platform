@@ -8,7 +8,10 @@
 
 use serde_json::json;
 
-use super::{RestStep, RestTracker, Watched};
+use super::{
+    baseline_window_seconds, median_spacing, retained_start, trailing_window, RestStep,
+    RestTracker, TimedValue, Watched, RATE_WINDOW_SAMPLES,
+};
 use crate::failure::{Cause, Failure, NextAction};
 use crate::identification::mode_transfer::group_tests::pid_group_loop;
 use crate::identification::mode_transfer::mode_binding;
@@ -117,6 +120,29 @@ fn a_controller_output_still_moving_holds_the_wait_while_the_measurement_is_flat
     assert_eq!(
         progress_texts(&steps).last().map(String::as_str),
         Some("Waiting for the loop to settle in Auto (P1.AppliedPowerPct changing 1.2 %/min)…")
+    );
+}
+
+#[test]
+fn the_progress_names_no_rate_until_twenty_readings_measure_it() {
+    // B3.4 step 2 (checklist G25, 1 November 2026): the wait's first progress, on its first reading, said "changing 0 degC/min"
+    // while the water rose. One reading has no slope, so the first text says the rate is being measured; the next one is due
+    // 10 s later, when the window holds 101 readings, and names the rise of 0.01 degC/s, 0.6 degC/min. Catches a rate read
+    // from fewer readings than the window's floor of twenty.
+    let mut rest = tracker(false);
+    let steps = feed(
+        &mut rest,
+        0,
+        100,
+        |seconds| 34.2 + 0.01 * seconds,
+        |_| 75.25,
+    );
+    assert_eq!(
+        progress_texts(&steps),
+        [
+            "Waiting for the loop to settle in Auto (measuring the rate of P1.TemperatureC)…",
+            "Waiting for the loop to settle in Auto (P1.TemperatureC changing 0.6 degC/min)…",
+        ]
     );
 }
 
@@ -277,4 +303,90 @@ fn a_group_reading_with_a_value_too_few_is_left_out() {
         Ok(RestStep::Waiting { .. })
     ));
     assert!(rest.signals.iter().all(|signal| signal.points.is_empty()));
+}
+
+#[test]
+fn a_long_wait_keeps_only_the_readings_its_window_can_judge() {
+    // Codex's review of #147 (F31): the wait kept every reading until its budget, about 84 MiB on a 24-hour campaign of a
+    // 16-member group. Here the window is 10 s, 101 readings, and the spacing is judged on the last 200, so whatever the wait's
+    // length a signal keeps those 200 and fewer than 200 older ones, at most 399, instead of the 3,000 of the 300 s budget. The
+    // loop still moving is refused at 300 s with the rate of its last window, as before. Catches a history that grows with the
+    // wait.
+    let mut rest = tracker(false);
+    let mut most = 0;
+    for index in 0..3_000 {
+        let seconds = at(index);
+        assert!(rest.feed(seconds, &[34.2 + 0.01 * seconds, 75.25]).is_ok());
+        let kept = rest.signals.iter().map(|signal| signal.points.len());
+        most = most.max(kept.max().unwrap_or(0));
+    }
+    assert!(most <= 399, "a signal kept {most} readings");
+    let refusal = rest
+        .feed(300.0, &[34.2 + 0.01 * 300.0, 75.25])
+        .expect_err("after the budget the moving loop is refused");
+    assert_eq!(
+        whole_text(&refusal),
+        "P1.TemperatureC is still changing by 0.6 degC/min in Auto. Wait for the loop to settle."
+    );
+}
+
+#[test]
+fn forgetting_moves_each_reading_at_most_once_on_average() {
+    // Codex's review of #154: forgetting 200 readings at a time moved the whole window each time. Here a 2,000 s maximum caps
+    // the window at 100 s, 1,001 readings 0.1 s apart, and the loop keeps moving through the 400 s budget (a fifth of the
+    // maximum): 4,000 readings, none refused. Each time old readings are forgotten, the kept ones move forward; those moves
+    // add up to no more than the 4,000 readings fed, and no signal holds 2,002 readings, twice those it keeps. Forgetting
+    // 200 at a time would move about 1,001 readings fourteen times, about 14,000.
+    let mut rest = RestTracker::new(
+        vec![Watched::of_signal(&water()), Watched::of_signal(&heater())],
+        2_000_000,
+        100.0,
+        None,
+        false,
+    );
+    let mut moved = 0;
+    let mut most = 0;
+    for index in 0..4_000 {
+        let seconds = at(index);
+        let before = rest.signals[0].points.len();
+        assert!(
+            rest.feed(seconds, &[34.2 + 0.01 * seconds, 75.25]).is_ok(),
+            "reading {index} is refused before the 400 s budget"
+        );
+        let after = rest.signals[0].points.len();
+        if after <= before {
+            moved += after;
+        }
+        most = most.max(after);
+    }
+    assert!(moved <= 4_000, "forgetting moved {moved} readings");
+    assert!(most < 2_002, "a signal kept {most} readings");
+}
+
+#[test]
+fn the_readings_kept_hold_the_window_when_the_readings_slow_down() {
+    // 300 readings 0.1 s apart, then 300 readings 2 s apart: once most of the last 200 gaps are 2 s, the window is twenty of them,
+    // 40 s, beyond its 10 s cap (a 200 s maximum). After every reading, every reading the window judges is kept. Catches readings
+    // forgotten at the cap, which would judge that wider window on its last 10 s alone.
+    let mut points = Vec::new();
+    let mut seconds = 0.0;
+    let mut window = 0.0;
+    for index in 0..600 {
+        seconds += if index < 300 { 0.1 } else { 2.0 };
+        points.push(TimedValue {
+            seconds,
+            value: 0.0,
+        });
+        let spacing = &points[points.len().saturating_sub(RATE_WINDOW_SAMPLES)..];
+        window = baseline_window_seconds(200.0, median_spacing(spacing, 0.1), None);
+        let judged = trailing_window(&points, window).len();
+        assert!(
+            points.len() - judged >= retained_start(&points, 10.0),
+            "reading {index}: the window of {window} s judges readings that are forgotten"
+        );
+    }
+    assert!(
+        (window - 40.0).abs() < 1e-9,
+        "the window widened to {window} s"
+    );
 }

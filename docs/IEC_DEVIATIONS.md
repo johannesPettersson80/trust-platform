@@ -659,3 +659,197 @@ re-check them against this rule when touched.
   symbolic lengths through verbatim, mirroring the array-dimension
   lower/upper pass-through; the analyzer owns resolution and validation, so
   numeric-only length filtering no longer fails POUs closed at import.
+
+## 2026-10-26 - Enum values as their base integer, and fully qualified member access
+
+- Area: enumerated values in assignments, comparisons, call arguments, and
+  CASE labels; dotted `Namespace.EnumType.Member` references of any depth.
+- Normative IEC requirement: IEC 61131-3 Ed.3 treats an enumeration as a
+  distinct type whose members are not integer literals (§6.4.4.2); assigning
+  an enumerated value to an integer variable of the underlying base type is
+  not an implicit conversion the standard defines. Qualified member access
+  is spelled `EnumType#Value` (§6.4.4.2); the standard text was unavailable
+  on the authoring machine and the clause numbers mirror the citations
+  already used in `docs/specs/02-data-types.md`.
+- truST behavior and conflict:
+  - CODESYS treats an enum as its base type freely: an enumerated value
+    converts to its declared integer base in assignments, comparisons, and
+    call arguments, and members are reachable through fully qualified dotted
+    paths (`WagoTypesLog.eSysLogPriority.LOG_ERR`). truST now follows: any
+    enum source converts to its base (base-less enums are `INT`-based), and
+    dotted member access accepts any namespace depth. Integer assignment
+    INTO a base-less ("closed") enum and cross-enum assignment stay
+    rejected, preserving the existing user-type contract.
+- Impact: real CODESYS projects (the downstream tree carries ~154 such
+  sites: `eSysLogPriority`, `eLedID`, `eArea` classes) stop reporting E202
+  "cannot be used as a value" and IncompatibleAssignment for enum-to-base
+  flows; the strict reading rejects the same code.
+- Mitigation: the leniency is one-directional (enum → base only); integer
+  into closed enums, cross-enum assignment, and unknown member references
+  keep their diagnostics; generic `ANY` matching still does not treat an
+  enum as an integer actual beyond this base conversion.
+
+## 2026-10-28 - In-out string binding across declared capacities
+
+- ID: DEV-035
+- Area: `VAR_IN_OUT` parameter binding for `STRING[n]`/`WSTRING[n]` actuals.
+- Normative IEC requirement: IEC 61131-3 Ed.3 requires the actual parameter
+  of a `VAR_IN_OUT` formal to be a variable of the same data type
+  (§6.6.2.2). String capacity is part of a string type, so binding a
+  `STRING[255]` actual to a `STRING[1]` formal is not a same-type binding
+  and the strict reading rejects it. The standard text was unavailable on
+  the authoring machine; the clause number mirrors the citation style
+  already used in `docs/specs/02-data-types.md`.
+- truST behavior and conflict: truST requires only the same string family
+  (`STRING` vs `WSTRING`) and accepts in-out binding across declared
+  capacities, matching CODESYS. CODESYS accepts the vendor buffer idiom — a
+  `STRING(1)` in-out formal (used by every `WagoAppString` function) whose
+  real capacity arrives in a separate size argument
+  (`StrAppend(sBuffer, SIZEOF(sBuffer), sAppendee)`) — so the
+  capacity-strict reading rejects library calls that compile clean in the
+  vendor toolchain.
+- Impact: vendor-library call sites with in-out string formals (the
+  downstream tree carries several hundred `WagoAppString` in-out and size
+  call arguments) now pass the compile gate; the previous
+  capacity-equality rule rejected the same code.
+- Mitigation: nothing is lost at the boundary — the callee still sees the
+  actual variable through the reference and owns the capacity contract
+  through its formal capacity or size argument; the caller's variable keeps
+  its own storage. Cross-family binding and non-string in-out type
+  mismatches keep their diagnostics.
+
+## 2026-10-28 - Vendor conversion extensions: enums, BOOL, durations, strings
+
+- ID: DEV-036
+- Area: typed `*_TO_*`/`TO_*` standard conversion functions.
+- Normative IEC requirement: IEC 61131-3 Ed.3 Tables 22-27 enumerate the
+  typed conversions; enumerated source types appear in no conversion table
+  (`§6.4.4.2` treats an enumeration as a distinct type), `BOOL`/`TIME`
+  string forms are not listed, duration-to-narrow-integer forms exceed the
+  listed `TIME`/`DWORD` pair, and `TOD`/`LTOD` to `DWORD` is not listed.
+  The standard text was unavailable on the authoring machine; the clause
+  numbers mirror the citations already used in
+  `docs/specs/07-standard-functions.md`.
+- truST behavior and conflict: under a CODESYS `vendor_profile`
+  (specification 14), truST accepts — matching the CODESYS / TwinCAT vendor
+  toolchain — (a) `TO_STRING`/`*_TO_STRING` over an enumerated value
+  (yields the variant name), over `BOOL` (`'TRUE'`/`'FALSE'`) and over
+  `TIME`/`LTIME` (`T#`/`LT#` duration text); (b) `TIME_TO_<int>` /
+  `LTIME_TO_<int>` (ms / ns magnitude truncated into the destination,
+  negative durations overflow); (c) `TOD_TO_DWORD` / `LTOD_TO_DWORD`
+  (ms-of-day magnitude). The strict table reading rejects vendor-project
+  call sites that compile clean in the vendor toolchain (the downstream
+  tree carries ~130 such sites: `TO_STRING(eArea)` families, boot-report
+  `TIME_TO_DINT` chains, `TOD_TO_DWORD` day-phase math).
+- Impact: those call sites pass the compile gate; the runtime conversion
+  dispatch (`trust-runtime-core`) implements the same entries so executed
+  conversions produce the documented values.
+- Mitigation: the IEC dialect keeps the tables' reading and rejects all
+  of (a) to (c); `TO_STRING` over a `STRING[n]` value is an identity copy
+  in every dialect, since a `STRING[n]` is a `STRING`. The extension set is
+  deliberately bounded — time-of-day and date string forms, and
+  REAL-to-bitstring conversions (upstream #127 territory), stay rejected
+  under every profile; integer destinations wrap rather than fault on
+  magnitude overflow, matching the vendor toolchain's silent narrowing
+  documented in DEV-023's neighborhood.
+
+## 2026-10-28 - Integer/bit-string narrowing bindings as warnings
+
+- ID: DEV-037
+- Area: implicit integer↔bit-string conversions at assignments and call
+  arguments (`E203` "cannot assign", `E205` "expected '<int>' for parameter").
+- Normative IEC requirement: IEC 61131-3 Ed.3 defines implicit assignments
+  only where value and accuracy are preserved (`§6.6.1.6`); a signed to
+  narrower-unsigned store (`SINT` into `BYTE`, `INT` into `BYTE`,
+  `UDINT` into `DWORD`) is not an implicit conversion the standard defines.
+  The standard text was unavailable on the authoring machine; the clause
+  mirrors the citation style already used in `docs/specs/02-data-types.md`.
+- truST behavior and conflict: a binding whose target and source are both
+  integer/bit-string types is diagnosed as a **warning** with the same
+  message and code, not an error — matching CODESYS, which compiles the
+  store silently with a compiler warning. Diagnostics outside that type
+  class (REAL targets, enums, strings, aggregates) stay errors. `SIZEOF`
+  additionally yields its natural unsigned magnitude (`UDINT`) like the
+  vendor toolchain, so vendor `udiSize` parameters bind directly.
+- Impact: vendor-idiom call sites and configuration wiring tables (the
+  downstream tree carries 57 narrowing assignments, 7 port arguments, and
+  ~163 `SIZEOF`-into-`UDINT` sites) pass the compile gate while every
+  narrowed store remains individually visible.
+- Mitigation: the demotion is type-class-scoped, not blanket — mixed
+  (non-integer) mismatches keep their errors, and each narrowed binding
+  still produces one warning so recurrence is loud.
+
+## 2026-10-28 - Mixed-family comparisons and bit-string arithmetic
+
+- ID: DEV-038
+- Area: comparison operators (`= <> < <= > >=`) over mixed integer
+  families, and `+ - * /` over bit-string operands.
+- Normative IEC requirement: IEC 61131-3 Ed.3 `§6.6.1.6` admits implicit
+  operations only where value and accuracy are preserved; signed/unsigned
+  pairs have no accuracy-preserving common type in the reviewed matrix,
+  and bit-strings (`ANY_BIT` minus `BOOL`) are not `ANY_NUM` operands at
+  all, so `DWORD - DWORD` and `INT < UINT` are not defined operations.
+  The standard text was unavailable on the authoring machine; the clause
+  mirrors the citation style already used in `docs/specs/05-expressions.md`.
+- truST behavior and conflict: comparisons over any mix of
+  signed/unsigned/bit-string integer operands are admitted and evaluate
+  through one mathematical magnitude (i128 promotion at runtime); two
+  bit-string operands participate in `+ - * /` as unsigned magnitudes
+  whose result carries the wider operand's width and wraps like the
+  vendor toolchain (`Div`/`Mod` keep the unsigned zero-divisor faults;
+  `Pow` stays rejected). This matches CODESYS, which compiles the
+  downstream tree's `UINT` vs division-result comparisons and
+  `DWORD - DWORD` energy-meter arithmetic silently. The strict reading
+  rejects both families (62 downstream sites).
+- Impact: mixed-sign comparisons, integer/bit-string comparisons, and
+  bit-string arithmetic pass the compile gate and execute correctly in
+  the runtime (the VM promotes instead of faulting); MOD keeps its
+  integer-only gate, mixed integer/bit-string *arithmetic* (`INT +
+  UINT`, `WORD + INT`), and integer/REAL accuracy-loss combinations keep
+  their diagnostics. The compile-time constant evaluator promotes true
+  mixed signed×unsigned pairs the same way (exact i128 math, materialized
+  LINT/ULINT) so array bounds and initializers like
+  `ARRAY[0..SIZEOF(x)-1]` keep working with an unsigned SIZEOF; the VM
+  execution path keeps its stricter contract.
+- Mitigation: admission is silent (matches the vendor toolchain and the
+  existing logical-operator precedent) but type-class-scoped — BOOL and
+  non-scalar pairs, REAL accuracy-loss pairs, and mixed-family
+  arithmetic keep their errors; the runtime promotion lives in the
+  compare/arithmetic paths, leaving the value-helper rejection pins
+  intact.
+
+## 2026-10-29 - Pointer-target lenient bindings
+
+- ID: DEV-039
+- Area: pointer bindings at call arguments and plain assignments
+  (`E205` "pointer target mismatch for parameter ...", `E203` "cannot
+  assign") where the two pointer targets differ by a 1-byte scalar class
+  (`CHAR` ↔ `BYTE`) or by the vendor byte-buffer idiom (`ADR(STRING[n])`
+  against a `POINTER TO ARRAY[i..j] OF BYTE` formal).
+- Normative IEC requirement: IEC 61131-3 Ed.3 defines no implicit
+  conversion between pointer targets; `§6.6.1.6` admits implicit
+  assignments only where value and accuracy are preserved, and strict
+  reading requires identical pointee types. The standard text was
+  unavailable on the authoring machine; the clause mirrors the citation
+  style already used in `docs/specs/09-semantic-rules.md`.
+- truST behavior and conflict: those two binding forms are diagnosed as
+  a **warning** with the same code and message, not an error — matching
+  CODESYS, which compiles them as implicit pointer conversions with a
+  compiler warning. `ADR` keeps its pointee typing (`ADR(str[1])` stays
+  `POINTER TO CHAR`), so the vendor `MemCopy`/`MemCopySecure`
+  `POINTER TO BYTE` formals and the vendor `Fb_JSON_ParseAndModify`
+  `pData : POINTER TO ARRAY[0..65535] OF BYTE` formal bind directly.
+  Every other pointee mismatch stays an error (wider scalar classes,
+  array bound widening, records, other families).
+- Impact: the downstream tree's 3 remaining pointer sites (2×
+  `MemCopy`/`MemCopySecure` string-offset byte-pointer bindings, 1×
+  JSON-parser data binding) pass the compile gate while each binding
+  stays individually visible. No runtime mirror is needed: no
+  conversion dispatch is involved and the pointer value is copied
+  verbatim, so only the compile contract changes.
+- Mitigation: the demotion is form-scoped, not blanket — element/record
+  boundary mismatches keep their errors, and each lenient binding still
+  produces one warning so recurrence is loud. Function/method
+  `VAR_OUT`/`VAR_IN_OUT` pointer arms and variable initializers are not
+  wired (mirroring the narrowing record's scoping (DEV-037)) and keep the error until a
+  downstream need appears.
