@@ -122,6 +122,35 @@ class GovernanceTests(unittest.TestCase):
             ["written_specification", "native_executable_test"],
         )
 
+    def test_a_version_bump_needs_no_companion(self) -> None:
+        # Specification 30: a change that moves the workspace version and changes only what the bump changes (the
+        # manifests, the lockfiles, the VS Code package and the changelog) changes no behaviour. Catches a release pull
+        # request refused for want of a test it cannot have (#176 on 1 November 2026), a dependency update of a lockfile
+        # let through as a bump, and a bump that carries code.
+        native_test_required = "behavior-changing production paths require a changed native executable test"
+        bump = [
+            "CHANGELOG.md",
+            "Cargo.lock",
+            "Cargo.toml",
+            "changelog.d/live-values-timeout.md",
+            "editors/vscode/package-lock.json",
+            "editors/vscode/package.json",
+            "firmware/trust-esp32c6/Cargo.lock",
+            "firmware/trust-esp32c6/Cargo.toml",
+            "firmware/trust-stm32u5a9/Cargo.lock",
+        ]
+        self.assertEqual(validate_changed_files(self.document, bump, version_bump=True), [])
+        self.assertEqual(
+            validate_changed_files(self.document, ["Cargo.lock"]),
+            [native_test_required, SPECIFICATION_REQUIRED],
+        )
+        self.assertEqual(
+            validate_changed_files(
+                self.document, [*bump, "crates/trust-runtime/src/runtime/cycle.rs"], version_bump=True
+            ),
+            [native_test_required, SPECIFICATION_REQUIRED],
+        )
+
     def test_direct_change_contract_covers_every_executable_code_area(self) -> None:
         production_paths = [
             ".github/workflows/ci.yml",
