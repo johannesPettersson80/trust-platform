@@ -86,10 +86,15 @@ pub(in crate::db) fn collect_used_symbols(
         let resolved = symbols.resolve_qualified(&segments).or_else(|| {
             // non-namespace chains: Enum.Member, Struct.Field - resolve the
             // head through the remaining segments, then the terminal as its
-            // direct child
+            // direct child. The single-segment head resolves in the
+            // expression's scope first: a local shadowing a global list must
+            // not mark the global list's member used (it can only ever hide
+            // that member's unused warning).
             let (terminal, head) = segments.split_last()?;
             let owner = if head.len() == 1 {
-                symbols.lookup(&head[0])
+                symbols
+                    .resolve(&head[0], context.scope_id)
+                    .or_else(|| symbols.lookup(&head[0]))
             } else {
                 symbols.resolve_qualified(head)
             }?;

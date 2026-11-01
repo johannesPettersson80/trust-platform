@@ -491,6 +491,33 @@ END_PROGRAM
 }
 
 #[test]
+fn test_dut_conversion_without_ancestor_relation_is_rejected_incompatible_assignment() {
+    // IEC 61131-3 §6.4.4.6.1: two structured variables are assignment
+    // compatible only when they share one data type, so two DUTs with no
+    // ancestor relation do not assign at all: the assignment is rejected
+    // with IncompatibleAssignment, stricter than an implicit-conversion
+    // warning (ruling on the upcast carve-out, upstream PR review).
+    check_has_error(
+        r#"
+TYPE Entity : STRUCT
+    sID : STRING;
+END_STRUCT END_TYPE
+TYPE Reading : STRUCT
+    rValue : REAL;
+END_STRUCT END_TYPE
+PROGRAM Test
+    VAR
+        entity : Entity;
+        reading : Reading;
+    END_VAR
+    entity := reading;
+END_PROGRAM
+"#,
+        DiagnosticCode::IncompatibleAssignment,
+    );
+}
+
+#[test]
 fn test_dut_extends_rejects_base_to_derived_assignment() {
     check_has_error(
         r#"
