@@ -12,8 +12,9 @@ scripts/**
 *.map
 tsconfig.json
 
-# Tests
+# Tests, and the acceptance journeys that run against the packaged extension
 out/test/**
+out/acceptance/**
 
 # NPM metadata not needed at runtime
 package-lock.json
