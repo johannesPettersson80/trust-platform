@@ -17,6 +17,27 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Identify's waits for a steady output and for a loop in Auto to settle say that they are measuring the rate until twenty
   readings measure it. Before, their first progress said "changing 0 °C/min" while the temperature rose (specification
   35, B3.4).
+- Implicit-conversion warning: a derived DUT converted to its own ancestor
+  (directly or transitively) no longer emits `ImplicitConversion` — the
+  conversion is a well-defined base-part-copy upcast that assignment
+  compatibility already accepts. Conversions between DUTs without an
+  ancestor relation keep the warning.
+- Unused-symbol analysis: input parameters of a method that IMPLEMENTS an
+  interface method no longer receive a false `W002` unused-parameter
+  warning — the implementing POU must carry the full interface signature
+  even where its body ignores a pin. Methods outside every implemented
+  interface keep the warning.
+- Unused-symbol analysis: `EXTENDS` and `IMPLEMENTS` targets count as used —
+  a function block referenced only as a base class (or a DUT/interface only
+  inherited) no longer receives a false `W009` unused warning, while the
+  never-instantiated derived declaration still does.
+- Unused-symbol analysis: qualified value access chains (`GVals.Member`,
+  dotted declaration-size references) now mark the TERMINAL symbol used.
+  The parser models these as nested field-access nodes with a plain `Name`
+  terminal, which the unused-symbol collector never resolved — constants
+  referenced only through qualified cross-file uses (expressions,
+  `STRING[GVals.Len]` sizes) were falsely reported as `W001` unused
+  constants. Genuinely unreferenced constants still warn.
 
 ## [0.27.0] - 2026-10-31
 
