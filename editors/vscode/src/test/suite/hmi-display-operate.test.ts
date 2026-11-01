@@ -79,7 +79,11 @@ async function opened(host = new Host()): Promise<{ host: Host; root: HTMLElemen
 suite("HMI display: operating", () => {
   test("owner login identifies its runtime, preserves the local user and never resends a refused command", async () => {
     const host = new Host();
-    host.replies["/api/hmi/command"] = [{ status: 200, body: { outcome: "refused", reason: "owner-login:Owner" } }];
+    // The runtime names the runtime to log in to as `login` (specification 39, remote operation;
+    // trust-runtime `a_refusal_for_an_owner_login_names_the_runtime_in_its_own_field`).
+    host.replies["/api/hmi/command"] = [
+      { status: 200, body: { outcome: "refused", reason: "owner-login:Owner", login: "Owner" } },
+    ];
     host.replies["/api/hmi/login"] = [
       { status: 200, body: { ok: true, user: "owner-user", role: "engineer", runtime: "Owner" } },
     ];
@@ -99,6 +103,18 @@ suite("HMI display: operating", () => {
       root.querySelector('[data-part="session"]')?.textContent?.includes("anna"),
       "local session identity stays unchanged",
     );
+  });
+  // The display asks for a login only when the runtime names the runtime to log in to; it reads no
+  // runtime out of a reason. Catches a display that still parses `owner-login:` from the reason.
+  test("a refusal without a login field shows its reason and asks for no login", async () => {
+    const host = new Host();
+    host.replies["/api/hmi/command"] = [{ status: 200, body: { outcome: "refused", reason: "owner-login:Owner" } }];
+    const { root, window } = await opened(host);
+    click(window, object(root, "start"));
+    await settle(host);
+    const form = root.querySelector('[data-part="login"]') as HTMLFormElement | null;
+    assert.ok(!form || form.hidden || !form.textContent?.includes("Owner"), "no login is asked for");
+    assert.strictEqual(commands(host).length, 1);
   });
   // The runtime reads the entry and checks the authored limits (specification 39 §12.8;
   // web_hmi_commands.rs, a_denied_write_is_refused_with_its_reason); the display shows them and

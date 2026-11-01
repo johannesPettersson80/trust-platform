@@ -50,6 +50,10 @@ jobs:
       sha: ${{ steps.plan.outputs.sha }}
       version: ${{ steps.plan.outputs.version }}
       tag: ${{ steps.plan.outputs.tag }}
+      # The matrices of the toolchain-bundle and build jobs: every platform for a rehearsal or a release, linux-x64 for
+      # a pull request's package (specification 24); release_plan.TARGETS holds the platforms.
+      toolchain_targets: ${{ steps.plan.outputs.toolchain_targets }}
+      build_targets: ${{ steps.plan.outputs.build_targets }}
     steps:
       # The plan never runs a fork's code. It runs the workflow's own commit, which after main's CI is
       # main's and for a pull request from this repository is its merge commit, and reads the commit
@@ -88,7 +92,9 @@ jobs:
             --run-branch "${RUN_BRANCH}" \
             --run-sha "${RUN_SHA}" \
             --run-head-repository "${RUN_HEAD_REPOSITORY}" \
-            --dispatch-sha "${GITHUB_SHA}"
+            --dispatch-sha "${GITHUB_SHA}" \
+            --release-paths .github/paths/release.txt \
+            --package-paths .github/paths/package.txt
 
   release-preflight:
     name: Release Preflight
@@ -133,6 +139,8 @@ jobs:
   runtime-vm-validation:
     name: Runtime Validation
     needs: [plan, release-preflight]
+    # A pull request's package check builds the package for its acceptance journeys; CI tests the runtime.
+    if: ${{ needs.plan.outputs.mode != 'package' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -225,17 +233,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            platform: linux-x64
-          - os: ubuntu-24.04-arm
-            platform: linux-arm64
-          - os: macos-15-intel
-            platform: darwin-x64
-          - os: macos-latest
-            platform: darwin-arm64
-          - os: windows-latest
-            platform: win32-x64
+        include: ${{ fromJSON(needs.plan.outputs.toolchain_targets) }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -287,24 +285,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            platform: linux-x64
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            platform: linux-arm64
-            cross: true
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            platform: darwin-x64
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            platform: darwin-arm64
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            platform: win32-x64
-
+        include: ${{ fromJSON(needs.plan.outputs.build_targets) }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -519,12 +500,67 @@ jobs:
             trust-lsp-${{ matrix.platform }}.tar.gz
             trust-lsp-${{ matrix.platform }}.zip
 
+  acceptance:
+    # The shipped user paths on the linux-x64 package this run built, before anything is rehearsed or published
+    # (specification 22, "Acceptance journeys on the packaged extension"): a fresh VS Code, an empty truST data folder, no
+    # Rust toolchain, each journey at 1x. The journal and screenshots of every step are kept, also when a journey fails.
+    name: Acceptance journeys (linux-x64)
+    needs: [plan, release-preflight, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24.21.0"
+          cache: 'npm'
+          cache-dependency-path: editors/vscode/package-lock.json
+
+      - name: Take the linux-x64 package
+        uses: actions/download-artifact@v8
+        with:
+          name: vsix-linux-x64
+          path: ${{ runner.temp }}/vsix
+
+      - name: Build the journeys
+        working-directory: editors/vscode
+        run: |
+          npm ci --no-audit --no-fund
+          npx tsc -p ./
+
+      - name: Install a virtual display
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+
+      - name: Run the acceptance journeys
+        working-directory: editors/vscode
+        run: |
+          set -euo pipefail
+          vsix=$(ls "${RUNNER_TEMP}"/vsix/*.vsix)
+          xvfb-run -a -s "-screen 0 1920x1080x24" \
+            npm run acceptance -- --vsix "${vsix}" --out "${RUNNER_TEMP}/acceptance"
+
+      - name: Keep the journals and screenshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: acceptance-journeys
+          path: ${{ runner.temp }}/acceptance
+          retention-days: 30
+          if-no-files-found: warn
+
   rehearse:
     # A rehearsal writes the release's files from the candidate's artifacts and keeps them. It holds no
     # token that writes: no Marketplace token and a read-only GitHub token, so the candidate's code and
     # what it installs cannot reach either (Codex's review of #146).
     name: Rehearse
-    needs: [plan, release-preflight, build, toolchain-bundle, runtime-vm-validation, openot-real-databases]
+    needs: [plan, release-preflight, build, toolchain-bundle, runtime-vm-validation, openot-real-databases, acceptance]
     # The real-database matrix is skipped for a pull request (it runs on the project's own runner).
     if: ${{ !cancelled() && needs.plan.outputs.mode == 'rehearsal' && !contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
@@ -554,7 +590,7 @@ jobs:
   publish:
     # Only a release gets the write token, and only its Marketplace step the Marketplace token.
     name: Publish
-    needs: [plan, release-preflight, build, toolchain-bundle, runtime-vm-validation, openot-real-databases]
+    needs: [plan, release-preflight, build, toolchain-bundle, runtime-vm-validation, openot-real-databases, acceptance]
     if: ${{ needs.plan.outputs.mode == 'release' }}
     runs-on: ubuntu-latest
     # The Marketplace wait of the verification is at most an hour.
@@ -701,7 +737,7 @@ jobs:
     # One result for the whole run: it fails when a job failed or was cancelled, and passes when
     # every job passed or the plan skipped it.
     name: Release Conclusion
-    needs: [plan, release-preflight, runtime-vm-validation, openot-real-databases, toolchain-bundle, build, rehearse, publish]
+    needs: [plan, release-preflight, runtime-vm-validation, openot-real-databases, toolchain-bundle, build, acceptance, rehearse, publish]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:

@@ -1,0 +1,22 @@
+# The release workflow and the scripts it runs: a pull request that changes one is rehearsed with every target, as a
+# version change is (specification 24, "Release rehearsal on pull requests"). scripts/tests/test_release_workflow.py
+# keeps every script that release.yml and its actions run in this list.
+.github/paths/release.txt
+.github/workflows/release.yml
+.github/actions/release-files/**
+scripts/release_plan.py
+scripts/ci_changes.py
+scripts/check_dependency_exceptions.py
+scripts/check_npm_audit.py
+scripts/checkout_openot_ref.sh
+scripts/check_release_tag_preflight.py
+scripts/check_release_version_alignment.py
+scripts/check_version_release_evidence.py
+scripts/extract_changelog_section.py
+scripts/generate_conformance_status.py
+scripts/generate_release_provenance.py
+scripts/native/build_toolchain_libraries.sh
+scripts/render_conformance_summary.py
+scripts/runtime_vm_bench_gate.sh
+scripts/runtime_vm_determinism_reliability_gate.sh
+scripts/validate_conformance_summary_schema.py

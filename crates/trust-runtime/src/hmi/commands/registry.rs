@@ -52,6 +52,10 @@ pub struct CommandAnswer {
     /// longer than its point holds (specification 39, §12.8 item 5).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error_code: Option<String>,
+    /// The runtime on which a named account must log in before the command is sent; the display
+    /// asks for that login (specification 39, remote operation).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub login: Option<String>,
     /// For a pulse: it has ended.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub ended: bool,
@@ -66,6 +70,7 @@ impl CommandAnswer {
             readback: None,
             reason: None,
             error_code: None,
+            login: None,
             ended: false,
         }
     }
@@ -83,6 +88,7 @@ impl CommandAnswer {
     pub fn write_refused(id: &str, refused: super::write::WriteRefused) -> Self {
         Self {
             error_code: refused.error_code.map(str::to_string),
+            login: refused.login,
             ..Self::refused(id, refused.reason)
         }
     }
@@ -232,6 +238,32 @@ mod tests {
             registry.begin("c1"),
             Begin::New,
             "forgotten after ten minutes"
+        );
+    }
+
+    #[test]
+    fn a_refusal_for_an_owner_login_names_the_runtime_in_its_own_field() {
+        // Specification 39, remote operation: a control whose owner has no session asks for a named
+        // login on that runtime. The answer names the runtime as `login`, so no display parses it out
+        // of the reason, and the audit's reason keeps `owner-login:<runtime>`. Catches a refusal that
+        // carries the runtime only inside its reason, and a `login` on an ordinary refusal.
+        let answer = CommandAnswer::write_refused(
+            "c1",
+            super::super::write::WriteRefused::owner_login("Owner"),
+        );
+        assert_eq!(
+            serde_json::to_value(&answer).expect("an answer serializes"),
+            serde_json::json!({
+                "id": "c1",
+                "outcome": "refused",
+                "reason": "owner-login:Owner",
+                "login": "Owner",
+            })
+        );
+        let ordinary = CommandAnswer::write_refused("c2", "out of range".into());
+        assert_eq!(
+            serde_json::to_value(&ordinary).expect("an answer serializes"),
+            serde_json::json!({ "id": "c2", "outcome": "refused", "reason": "out of range" })
         );
     }
 

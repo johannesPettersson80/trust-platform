@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use trust_runtime_client::{AuthFailure, ControlError, TargetProbe};
+use trust_runtime_client::{ControlError, TargetProbe};
 
 use super::ads_tags::{self, PortSelection};
 use super::fleet::{self, CanvasFleet};
@@ -69,30 +69,18 @@ pub struct CanvasRuntime {
     /// The target's label; empty when it has none.
     #[serde(default)]
     pub label: String,
-    /// How the target answered its probe.
-    pub reach: CanvasReach,
+    /// The target's probe result as `trust-lsp.runTargets` reports it: `online_reachable`,
+    /// `auth_failed`, `missing_endpoint` or `online_unreachable` (specification 25, 5.1).
+    pub status: String,
+    /// Why the runtime refused the token, as `runTargets` reports it: `missing` or `rejected`.
+    #[serde(default)]
+    pub auth_failure_kind: Option<String>,
     /// The `fleet.topology` answer; absent when it was not requested.
     #[serde(default)]
     pub topology: Option<Answer>,
     /// The `connectors.status` answer; absent when it was not requested.
     #[serde(default)]
     pub connectors: Option<Answer>,
-}
-
-/// How a target answered its probe.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CanvasReach {
-    /// A runtime answered `status` and accepted the token.
-    Reachable,
-    /// Nothing answered.
-    Unreachable,
-    /// A runtime answered and asked for a token the request did not carry.
-    AuthMissing,
-    /// A runtime answered and refused the token.
-    AuthRejected,
-    /// No endpoint is configured.
-    MissingEndpoint,
 }
 
 /// One request's answer: its result, or why it failed.
@@ -356,13 +344,10 @@ fn report(runtime: &CanvasRuntime) -> RuntimeReport {
     RuntimeReport {
         endpoint: runtime.endpoint.trim().to_owned(),
         label: runtime.label.trim().to_owned(),
-        probe: match runtime.reach {
-            CanvasReach::Reachable => TargetProbe::Reachable(Value::Object(serde_json::Map::new())),
-            CanvasReach::Unreachable => TargetProbe::Unreachable,
-            CanvasReach::AuthMissing => TargetProbe::AuthFailed(AuthFailure::Missing),
-            CanvasReach::AuthRejected => TargetProbe::AuthFailed(AuthFailure::Rejected),
-            CanvasReach::MissingEndpoint => TargetProbe::MissingEndpoint,
-        },
+        probe: TargetProbe::from_run_target(
+            runtime.status.trim(),
+            runtime.auth_failure_kind.as_deref().map(str::trim),
+        ),
         topology: runtime.topology.as_ref().map(answer),
         connectors: runtime.connectors.as_ref().map(answer),
         stable_id: None,

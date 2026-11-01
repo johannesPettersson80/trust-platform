@@ -154,6 +154,58 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertEqual(needs(self.jobs["publish"]), others)
         self.assertEqual(needs(self.jobs["rehearse"]), others)
 
+    def test_the_acceptance_journeys_run_on_the_linux_package_this_run_built(self) -> None:
+        # Specification 22, "Acceptance journeys on the packaged extension": the journeys run on the package that the
+        # build job made for linux-x64, under a virtual display, and their journals and screenshots are kept also when a
+        # journey fails. Catches journeys run on another package or none, and a failure without its evidence.
+        acceptance = self.jobs["acceptance"]
+        self.assertEqual(needs(acceptance), {"plan", "release-preflight", "build"})
+        named = steps(acceptance)
+        self.assertIn("name: vsix-linux-x64", named["Take the linux-x64 package"])
+        self.assertIn("npx tsc -p ./", run_block(named["Build the journeys"]))
+        script = run_block(named["Run the acceptance journeys"])
+        self.assertIn('xvfb-run -a -s "-screen 0 1920x1080x24"', script)
+        self.assertIn('npm run acceptance -- --vsix "${vsix}" --out "${RUNNER_TEMP}/acceptance"', script)
+        kept = named["Keep the journals and screenshots"]
+        self.assertEqual(field(kept, "if"), "${{ always() }}")
+        self.assertIn("path: ${{ runner.temp }}/acceptance", kept)
+
+    def test_the_plan_chooses_the_platforms_that_are_built(self) -> None:
+        # Specification 24: the toolchain-bundle and build jobs build the platforms the plan names, every one for a
+        # rehearsal or a release and linux-x64 for a pull request's package. Catches a matrix that ignores the plan, and
+        # a package check that also runs the runtime validation, which CI's tests already hold.
+        plan = self.jobs["plan"]
+        for name in ("toolchain_targets", "build_targets"):
+            self.assertIn(f"{name}: ${{{{ steps.plan.outputs.{name} }}}}", plan)
+        self.assertIn("include: ${{ fromJSON(needs.plan.outputs.toolchain_targets) }}", self.jobs["toolchain-bundle"])
+        self.assertIn("include: ${{ fromJSON(needs.plan.outputs.build_targets) }}", self.jobs["build"])
+        self.assertIn("--release-paths .github/paths/release.txt", plan)
+        self.assertIn("--package-paths .github/paths/package.txt", plan)
+        self.assertEqual(field(self.jobs["runtime-vm-validation"], "if", 4), "${{ needs.plan.outputs.mode != 'package' }}")
+
+    def test_every_file_the_build_copies_into_a_package_is_in_the_package_list(self) -> None:
+        # Specification 24: a pull request that changes what a package holds builds it. Catches a repository file copied into
+        # the runtime archives whose change builds no package (Codex's review of #157: docs/deploy/INSTALL.md and the
+        # systemd unit).
+        import ci_changes
+
+        patterns = ci_changes.read_patterns((ROOT / ".github" / "paths" / "package.txt").read_text())
+        copied = sorted(set(re.findall(r"(?m)^\s*(?:cp|Copy-Item) ([A-Za-z][^\s$]*) dist/", self.jobs["build"])))
+        self.assertGreaterEqual(len(copied), 2, copied)
+        for path in copied:
+            self.assertTrue(any(ci_changes.pattern_regex(pattern).match(path) for pattern in patterns), path)
+
+    def test_every_script_the_release_runs_is_in_the_release_list(self) -> None:
+        # Specification 24: a pull request that changes a script the release runs is rehearsed. Catches a script added to
+        # the release, or to its release-files action, whose changes would merge without a rehearsal.
+        import ci_changes
+
+        patterns = ci_changes.read_patterns((ROOT / ".github" / "paths" / "release.txt").read_text())
+        run = sorted(set(re.findall(r"scripts/[A-Za-z0-9_./-]+\.(?:py|sh)", self.text + RELEASE_FILES.read_text())))
+        self.assertGreaterEqual(len(run), 10, run)
+        for script in run:
+            self.assertTrue(any(ci_changes.pattern_regex(pattern).match(script) for pattern in patterns), script)
+
     def test_a_missing_marketplace_token_fails_a_release_before_it_builds(self) -> None:
         require = steps(self.jobs["release-preflight"])["Require the Marketplace token"]
         self.assertEqual(field(require, "if"), RELEASE_ONLY)

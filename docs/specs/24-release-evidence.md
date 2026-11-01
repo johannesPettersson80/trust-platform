@@ -84,8 +84,10 @@ CI); a rehearsal creates none.
 
 ### Release rehearsal on pull requests
 
-A pull request whose head changes the workspace version runs the Release
-workflow as a rehearsal on its head: the preflight, every build, every test and
+A pull request whose head changes the workspace version, or changes the
+Release workflow, its `release-files` action or a script either runs (listed in
+`.github/paths/release.txt`), runs the Release workflow as a rehearsal on its
+head: the preflight, every build, every test and
 every script that writes the release's files run, no tag is created, nothing is
 published, and the release text and evidence are kept as the artifact
 `release-rehearsal-v<version>`. A rehearsal writes those files in a job of its
@@ -94,9 +96,19 @@ token; only a release's publishing job gets write access, and only its
 Marketplace step the Marketplace token. The real-database matrix runs on the
 project's own runner, so a pull request's rehearsal skips it; a maintainer's
 manual rehearsal and the release run it, and it is given no secret.
-A pull request that keeps the version skips the jobs after the workflow's plan.
-A version change merges only with a passed rehearsal on its exact head that kept
-that artifact. A pull request from a fork is not rehearsed on the project's
+A pull request that keeps the version but changes what the packages hold (the
+extension, the crates, the examples, the libraries, the Cargo manifests and
+toolchain; `.github/paths/package.txt`) builds only the linux-x64 toolchain
+bundle and package, the platform of the hosted runners, and runs the
+acceptance journeys on that package (specification 22, "Acceptance journeys on
+the packaged extension"); it skips the runtime validation, which CI's tests
+hold. Any other pull request skips the jobs after the workflow's plan. The plan
+names the platforms that the toolchain-bundle and build jobs build: the five of
+the platform support matrix for a rehearsal or a release, linux-x64 for a
+package. A rehearsal and a release run the acceptance journeys on their
+linux-x64 package too, and the rehearsal's files and the release's publishing
+wait for them. A version change merges only with a passed rehearsal on its
+exact head that kept that artifact. A pull request from a fork is not rehearsed on the project's
 runners; a maintainer rehearses its head with a manual run, which rehearses the
 commit it runs on. A new push to a pull request replaces the rehearsal of its
 previous head. The plan never runs a fork's code: for a fork's pull request it

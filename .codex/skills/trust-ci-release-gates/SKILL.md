@@ -53,11 +53,18 @@ can, so a finding costs a fix in its own pull request, never another release rou
    scripts, its pull request's CI on macOS and Windows is the probe; read those logs, not only the
    Linux ones.
 
-### Until the acceptance journeys run in CI (checklist W4)
+### The acceptance journeys
 
-Run the acceptance journeys (the walkthrough, Identify from Auto, Try-it, F23) on the package of a
-release pull request's rehearsal before it merges. The pre-push hook refuses only a direct push to
-`main` and a pushed release tag; every other push goes through.
+The Release workflow's `acceptance` job runs the journeys (the walkthrough, its Try-it experiments,
+Identify from Auto, F23 on the default and a TCP endpoint) on the linux-x64 package it built: for a
+pull request that changes what the packages hold (`.github/paths/package.txt`), and for every
+rehearsal and release before its files are kept or published. A pull request that changes the release
+workflow or a script it runs (`.github/paths/release.txt`) is rehearsed with every target. When a
+journey fails, read the `acceptance-journeys` artifact (each step's journal entry and screenshot),
+then run it on the builder: `xvfb-run -a -s "-screen 0 1920x1080x24" npm run acceptance -- --vsix
+<file> --out <folder> --journey <session>` in `editors/vscode` after `npm ci` and `npx tsc -p ./`.
+The pre-push hook refuses only a direct push to `main` and a pushed release tag; every other push
+goes through.
 
 ## The area gates CI runs
 

@@ -2674,7 +2674,9 @@ freshness bounds are stale after 3 seconds and unknown after 10 seconds; unavail
 metadata cannot establish a valid deployment. These are product limits, not timing qualification.
 
 A local named login never authorizes a write on another runtime by itself. A control whose owner
-has no session asks explicitly for a named login on that runtime. Credentials cross only an
+has no session asks explicitly for a named login on that runtime: the refused command's answer
+names that runtime in its own `login` field, from which the display asks for the login, and its
+reason, `owner-login:<runtime>`, is what the audit records. Credentials cross only an
 existing mesh configured with both authentication and TLS. The serving runtime stores the owner
 token privately, scoped to the local session and peer; no token is returned to the browser or
 written to artifacts. The owner uses its normal SessionStore and its own write policy, typed

@@ -37,8 +37,7 @@ pub use local::{
     CanvasSimulator,
 };
 pub use topology::{
-    topology, Answer, CanvasReach, CanvasRuntime, CanvasTopology, CanvasTopologyRequest,
-    DiscoveredAds,
+    topology, Answer, CanvasRuntime, CanvasTopology, CanvasTopologyRequest, DiscoveredAds,
 };
 pub use views::{AdsClientSummaryView, AdsDeviceView, AdsPortView, BrowseErrorView};
 

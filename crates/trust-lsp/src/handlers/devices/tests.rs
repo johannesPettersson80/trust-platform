@@ -167,7 +167,7 @@ async fn the_canvas_commands_answer_with_the_canvas_rules() {
             DEVICES_TOPOLOGY_COMMAND,
             json!({
                 "peers": [{ "endpoint": "tcp://10.0.0.9:5510", "label": "cell1",
-                            "reach": "unreachable" }],
+                            "status": "online_unreachable" }],
                 "run_mode": "online",
             }),
         ),

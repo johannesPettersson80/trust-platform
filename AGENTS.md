@@ -270,9 +270,11 @@ For control work, also copy `docs/specs/control-platform-purpose.md` when it is 
   other bug found during a release goes on the checklist for the next release (owner, 31 October
   2026; this replaces "all bugs fixed before push").
 - The pre-push hook (`release_candidate_guard.py check-push`) refuses only a direct push to `main`
-  and a pushed release tag; every other push goes through, and CI is the gate. Until the acceptance
-  journeys run in CI on the built packages (checklist W4), run them on a release pull request's
-  rehearsal package before it merges.
+  and a pushed release tag; every other push goes through, and CI is the gate. The acceptance
+  journeys run in CI on the linux-x64 package (`editors/vscode/src/acceptance`, specification 22):
+  for a pull request that changes what the packages hold, and for every rehearsal and release
+  before anything is published. Run them yourself with `npm run acceptance -- --vsix <file> --out
+  <folder>` under a display when a journey fails or you change one.
 - A version bump is finished only when all of these hold, checked with
   `release_candidate_guard.py verify-release`:
   - the annotated tag `v<version>` is on `main`;
