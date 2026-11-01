@@ -174,6 +174,11 @@ jobs:
           "${RUNNER_TEMP}/actionlint" -color
       - name: Guard the release text from the changelog
         run: python3 -m unittest scripts.tests.test_extract_changelog_section -v
+      - name: Guard the changelog fragments
+        # A user-visible change adds a fragment under changelog.d/; `## [Unreleased]` stays empty (specification 22).
+        run: |
+          python3 -m unittest scripts.tests.test_changelog_fragments -v
+          python3 scripts/changelog_fragments.py check
       - name: Guard the release workflow
         run: python3 -m unittest scripts.tests.test_release_workflow scripts.tests.test_release_plan -v
       - name: Guard the docs' command and setting names

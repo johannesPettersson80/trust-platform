@@ -96,9 +96,10 @@ Check it once, before the first push:
 
 ## Releasing
 
-1. **The release pull request** bumps `[workspace.package].version` and the VS Code versions, and
-   moves `[Unreleased]` to the version's section; check the text with
-   `scripts/extract_changelog_section.py`. It carries nothing else.
+1. **The release pull request** is made by `scripts/bump_version.py OLD NEW DATE` at the root of a
+   branch from `main`: it bumps `[workspace.package].version`, the firmware and the VS Code versions
+   and the lockfiles, and gathers the changelog fragments of `changelog.d/` into the version's
+   section; check the text with `scripts/extract_changelog_section.py`. It carries nothing else.
 2. **Its rehearsal.** The Release workflow rehearses the head of a pull request that changes the
    workspace version: every build, test and Publish script runs and nothing is published, and the
    run keeps its release text and evidence as the artifact `release-rehearsal-v<version>`. A fork's
