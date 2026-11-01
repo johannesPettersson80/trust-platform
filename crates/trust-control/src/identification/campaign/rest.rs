@@ -188,15 +188,17 @@ impl RestTracker {
         self.signals.iter().map(|signal| signal.symbol.as_str())
     }
 
-    /// Forgets the readings that no later step can judge (`retained_start`) once at least [`RATE_WINDOW_SAMPLES`] of them
-    /// have gathered, so that each reading is moved a bounded number of times. However long the wait, a signal keeps the
-    /// readings within the capped window or the last [`RATE_WINDOW_SAMPLES`], whichever are more, and fewer than
-    /// [`RATE_WINDOW_SAMPLES`] older ones (Codex's review of #147: a 24-hour campaign of a 16-member group kept 84 MiB).
+    /// Forgets the readings that no later step can judge (`retained_start`) once they are as many as the readings kept, so
+    /// that forgetting moves each reading at most once on average: forgetting a fixed number at a time moved the whole window
+    /// each time, the 18,000 readings of a 30-minute window every 200 readings (Codex's review of #154). However long the
+    /// wait, a signal keeps the readings within the capped window or the last [`RATE_WINDOW_SAMPLES`], whichever are more, and
+    /// fewer older ones than those (Codex's review of #147: a 24-hour campaign of a 16-member group kept 84 MiB).
     fn forget_old_readings(&mut self) {
-        let start = self.signals.first().map_or(0, |lead| {
-            retained_start(&lead.points, self.capped_window_seconds)
-        });
-        if start >= RATE_WINDOW_SAMPLES {
+        let Some(lead) = self.signals.first() else {
+            return;
+        };
+        let start = retained_start(&lead.points, self.capped_window_seconds);
+        if start > 0 && start >= lead.points.len() - start {
             for signal in &mut self.signals {
                 signal.points.drain(..start);
             }
