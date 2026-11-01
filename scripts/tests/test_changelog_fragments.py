@@ -87,6 +87,26 @@ class FragmentTests(unittest.TestCase):
             self.assertIn("`## [Unreleased]` stays empty", problems[1])
 
 
+    def test_check_names_a_change_to_a_released_section(self) -> None:
+        # Catches a pull request written before a release whose entry, appended to the old `## [Unreleased]`, merged
+        # into the section the bump released (the carries of #166 and #178, 1 November 2026): the GitHub release
+        # would no longer match the changelog. A bump that adds a new section above leaves the released ones alone.
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            write(root, {"CHANGELOG.md": CHANGELOG, "changelog.d/README.md": "How to write a fragment.\n"})
+            self.assertEqual(check(root, CHANGELOG), [])
+            moved_in = CHANGELOG.replace("- A fix in 0.28.0.\n", "- A fix in 0.28.0.\n- Written before 0.28.0.\n")
+            write(root, {"CHANGELOG.md": moved_in})
+            problems = check(root, CHANGELOG)
+            self.assertEqual(len(problems), 1, problems)
+            self.assertIn("the released section [0.28.0] changed", problems[0])
+            bumped = CHANGELOG.replace(
+                "## [Unreleased]\n", "## [Unreleased]\n\n## [0.29.0] - 2026-11-09\n\n### Fixed\n\n- A fix in 0.29.0.\n"
+            )
+            write(root, {"CHANGELOG.md": bumped})
+            self.assertEqual(check(root, CHANGELOG), [])
+
+
 class GatherTests(unittest.TestCase):
     def test_the_release_section_takes_the_fragments_the_newest_first(self) -> None:
         # Catches entries lost, a section out of Keep a Changelog's order, and a filled

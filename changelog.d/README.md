@@ -16,5 +16,6 @@ indented by two spaces:
 ```
 
 `## [Unreleased]` in `CHANGELOG.md` stays empty. The version bump, `scripts/bump_version.py OLD NEW
-DATE`, gathers the fragments into the version's section, the newest first, and removes them. CI
-checks every fragment and the empty `## [Unreleased]` with `scripts/changelog_fragments.py check`.
+DATE`, gathers the fragments into the version's section, the newest first, and removes them. A
+released section never changes: it is the text of its GitHub release. CI checks every fragment, the
+empty `## [Unreleased]` and the released sections with `scripts/changelog_fragments.py check`.

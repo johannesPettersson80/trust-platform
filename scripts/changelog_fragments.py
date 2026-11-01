@@ -7,7 +7,13 @@ one or more entries (`- ...`, continued on lines indented by two spaces). The ve
 (`scripts/bump_version.py`) gathers the fragments into the version's section of `CHANGELOG.md`, the
 newest first, and removes them; `## [Unreleased]` stays empty.
 
-Usage: changelog_fragments.py check   (every fragment reads, and `## [Unreleased]` is empty)"""
+A released section is the text of its GitHub release and never changes: with `--base-changelog`, the check also
+refuses a change to a section that the given earlier `CHANGELOG.md` already released. A pull request written before a
+release that appends to the old `## [Unreleased]` would otherwise merge cleanly into the released section that the
+version bump made of it.
+
+Usage: changelog_fragments.py check [--base-changelog FILE]
+  (every fragment reads, `## [Unreleased]` is empty, and no section that FILE released has changed)"""
 
 from __future__ import annotations
 
@@ -81,8 +87,28 @@ def unreleased(changelog: str) -> tuple[int, int]:
     return start + 1, end
 
 
-def check(root: Path) -> list[str]:
-    """What is wrong with the fragments under `root` and with its `CHANGELOG.md`."""
+def released(changelog: str) -> dict[str, str]:
+    """Each released section of `changelog` by its version: its heading and its body, as written."""
+    lines = changelog.splitlines()
+    starts = [i for i, line in enumerate(lines) if VERSION_RE.match(line) and not line.startswith("## [Unreleased]")]
+    sections = {}
+    for number, start in enumerate(starts):
+        end = starts[number + 1] if number + 1 < len(starts) else len(lines)
+        match = VERSION_RE.match(lines[start])
+        assert match
+        sections[match.group("name")] = "\n".join(lines[start:end]).rstrip()
+    return sections
+
+
+def changed_releases(base: str, head: str) -> list[str]:
+    """The versions whose released section in `base` differs in `head` or is gone from it."""
+    now = released(head)
+    return [name for name, text in released(base).items() if now.get(name) != text]
+
+
+def check(root: Path, base_changelog: str | None = None) -> list[str]:
+    """What is wrong with the fragments under `root` and with its `CHANGELOG.md`; with `base_changelog`, an earlier
+    `CHANGELOG.md`, also each of its released sections that changed."""
     problems = []
     for path in fragment_paths(root):
         try:
@@ -99,6 +125,12 @@ def check(root: Path) -> list[str]:
             f"CHANGELOG.md: `## [Unreleased]` stays empty; put the entries in a fragment under {FRAGMENTS}/ "
             "(see changelog_fragments.py)"
         )
+    if base_changelog is not None:
+        for name in changed_releases(base_changelog, changelog):
+            problems.append(
+                f"CHANGELOG.md: the released section [{name}] changed; a release's text stays as released, so put "
+                f"the entry in a fragment under {FRAGMENTS}/"
+            )
     return problems
 
 
@@ -122,10 +154,14 @@ def gather(changelog: str, fragments: list[dict[str, list[str]]], version: str, 
 
 
 def main(argv: list[str]) -> int:
-    if argv != ["check"]:
+    if argv == ["check"]:
+        base = None
+    elif len(argv) == 3 and argv[:2] == ["check", "--base-changelog"]:
+        base = Path(argv[2]).read_text(encoding="utf-8")
+    else:
         print(__doc__, file=sys.stderr)
         return 2
-    problems = check(Path.cwd())
+    problems = check(Path.cwd(), base)
     for problem in problems:
         print(problem, file=sys.stderr)
     if problems:

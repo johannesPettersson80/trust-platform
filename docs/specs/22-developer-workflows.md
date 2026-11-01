@@ -299,8 +299,11 @@ Work reaches `main` in small pull requests, and CI is the only gate:
 - a user-visible change adds a changelog fragment, `changelog.d/<topic>.md`,
   with Keep a Changelog sections and their entries, and leaves
   `## [Unreleased]` in `CHANGELOG.md` empty, so that open pull requests never
-  conflict over the changelog (`scripts/changelog_fragments.py check` runs in
-  CI);
+  conflict over the changelog. A released section is its GitHub release's
+  text and never changes: an entry written before a release, appended to the
+  old `## [Unreleased]`, would otherwise merge cleanly into the section the
+  release made of it. `scripts/changelog_fragments.py check` runs in CI and
+  compares the released sections with the pull request's base;
 - a release is a pull request that only bumps the version and moves the
   changelog: `scripts/bump_version.py` gathers the fragments into the
   version's section, the newest first; it merges like any other, and the

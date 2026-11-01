@@ -260,7 +260,8 @@ For control work, also copy `docs/specs/control-platform-purpose.md` when it is 
 
 - A user-visible change adds a changelog fragment, `changelog.d/<topic>.md`: Keep a Changelog sections (`### Fixed`
   and the others) with their entries (`changelog.d/README.md`). `## [Unreleased]` in `CHANGELOG.md` stays empty, so
-  that open pull requests never conflict over the changelog; CI checks both (`scripts/changelog_fragments.py check`).
+  that open pull requests never conflict over the changelog. A released section never changes, so an entry written
+  before a release goes into a fragment too. CI checks all three (`scripts/changelog_fragments.py check`).
   The version bump (`scripts/bump_version.py OLD NEW DATE`) gathers the fragments into `## [<version>] - <date>`
   under the empty `## [Unreleased]`, the newest first, and removes them; the release's text on GitHub is that
   section, at most 125,000 characters.
