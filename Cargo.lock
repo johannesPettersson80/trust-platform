@@ -7830,6 +7830,7 @@ dependencies = [
  "trust-runtime-client",
  "trust-syntax",
  "trust-visual",
+ "ureq",
  "verification-cases",
 ]
 

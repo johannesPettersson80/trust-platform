@@ -1,8 +1,9 @@
 //! The web server an HMI deployment goes to (specification 39, §16.2 item 8): the selected
 //! runtime reports its own web server in `fleet.topology`; its address is the listen port on the
 //! host of the runtime's control endpoint, or the listen address itself when that names a host of
-//! its own (not `0.0.0.0` or `::`). The extension asks the runtime, passes its answer here, and
-//! sends the bundle to the address this answers.
+//! its own (not `0.0.0.0` or `::`). Live mode asks the runtime, passes its answer here and talks to
+//! the address this answers (§11); Deploy, which the language server carries out
+//! (`trust-lsp.hmiDeploy`), reads the same rule.
 //!
 //! `{ controlEndpoint, topology }` → `{ url }`, the web server's base URL, or `url: null` when the
 //! runtime reports none.
@@ -24,9 +25,17 @@ struct Args {
 /// The answer of `trust-lsp.hmiDeployTarget`.
 pub(super) fn answer(argument: Value) -> Result<Value, String> {
     let args: Args = decode(argument)?;
-    let url = own_web_server(&args.topology)
-        .and_then(|(listen, tls)| web_address(&args.control_endpoint, &listen, tls));
+    let url = web_server_url(&args.control_endpoint, &args.topology);
     Ok(json!({ "ok": true, "url": url }))
+}
+
+/// The base URL of the web server that the runtime at `control_endpoint` reports for itself in
+/// `topology`, its answer to `fleet.topology`; `None` when it reports none.
+pub(in crate::handlers::commands) fn web_server_url(
+    control_endpoint: &str,
+    topology: &Value,
+) -> Option<String> {
+    own_web_server(topology).and_then(|(listen, tls)| web_address(control_endpoint, &listen, tls))
 }
 
 /// The web server the runtime reports for itself: the first `web` endpoint of source `self`

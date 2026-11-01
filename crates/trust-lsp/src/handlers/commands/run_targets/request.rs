@@ -97,7 +97,7 @@ pub(super) fn answer(argument: Value) -> Result<Value, String> {
 
 /// What one control request came to.
 #[derive(Debug, Clone, PartialEq)]
-pub(super) enum Outcome {
+pub(in crate::handlers::commands) enum Outcome {
     /// The runtime answered with this result.
     Result(Value),
     /// The runtime refused the request.
@@ -120,7 +120,7 @@ pub(super) enum Outcome {
 
 /// Sends the request `kind` with `params` to `endpoint` with the token `auth` (a blank token is
 /// never sent), waiting at most `timeout` for each read and write.
-pub(super) fn send(
+pub(in crate::handlers::commands) fn send(
     endpoint: &str,
     auth: Option<&str>,
     kind: &str,

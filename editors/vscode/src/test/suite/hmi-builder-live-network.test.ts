@@ -1,6 +1,8 @@
 import * as assert from "assert";
 import * as http from "http";
 import { openLiveSocket, requestLive } from "../../hmiBuilder/editor/liveNetwork";
+import { webServerAddress } from "../../hmiBuilder/editor/liveOperatorRuntime";
+import { languageServerReady } from "./hmiBuilderHost";
 
 suite("HMI Builder: Live HTTP transport", () => {
   test("transport access and the named cookie reach only the selected server, and redirects are refused", async () => {
@@ -89,5 +91,23 @@ suite("HMI Builder: Live HTTP transport", () => {
       await new Promise<void>((resolve) => sockets.close(() => resolve()));
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
+  });
+});
+
+// Live mode talks to the web server the selected runtime reports for itself (§11); which address its topology gives is
+// the language server's rule (`trust-lsp.hmiDeployTarget`, tested in Rust).
+suite("HMI Builder: Live mode, the runtime's web server", function () {
+  this.timeout(60000);
+
+  suiteSetup(languageServerReady);
+
+  test("the runtime's topology and control endpoint give the address", async () => {
+    const topology = (endpoints: object[]) => ({
+      schema_version: 1,
+      hosts: [{ host_id: "h", runtimes: [{ runtime_id: "r", endpoints }], containers: [] }],
+    });
+    const web = { protocol: "web", source: "self", params: { listen: "0.0.0.0:8080", tls: false, auth: "token" } };
+    assert.strictEqual(await webServerAddress("tcp://192.168.1.20:9000", topology([web])), "http://192.168.1.20:8080");
+    assert.strictEqual(await webServerAddress("tcp://192.168.1.20:9000", topology([])), undefined);
   });
 });

@@ -12,6 +12,7 @@ use trust_runtime::hmi::binding_checks::{
     check_faceplate, check_pair, without_fields, BindingProblem,
 };
 use trust_runtime::hmi::bundle::checks::{check_bundle_with_remote, Program};
+use trust_runtime::hmi::bundle::HmiBundle;
 use trust_runtime::hmi::catalogue::Catalogue;
 use trust_runtime::hmi::page_files::{problem_line, HmiFaceplate, PLACED_FACEPLATE};
 
@@ -285,19 +286,28 @@ pub(super) fn bundle_value_with_context<C: ServerContext>(context: &C, args: Vec
         Ok(args) => args,
         Err(message) => return refused(message),
     };
+    match checked_bundle(context, args) {
+        Ok((bundle, problems)) => {
+            json!({ "ok": true, "bundle": bundle.to_json(), "version": bundle.version(), "problems": problems })
+        }
+        Err(message) => refused(message),
+    }
+}
+
+/// The project's HMI bundle and its problems with file and line, as `trust-lsp.hmiBundle` answers
+/// them, or why the bundle cannot be built.
+pub(super) fn checked_bundle<C: ServerContext>(
+    context: &C,
+    args: BundleArgs,
+) -> Result<(HmiBundle, Vec<Value>), String> {
     let selection = HmiBindingsCommandArgs {
         open: args.open.clone(),
         root_uri: args.root_uri,
         text_document: args.text_document,
     };
-    let project = match compile_project(context, &selection, HMI_BUNDLE_COMMAND) {
-        Ok(project) => project,
-        Err(message) => return refused(message),
-    };
-    let bundle = match super::hmi_authoring::bundle::read_edited(&project.root, &project.open) {
-        Ok(bundle) => bundle,
-        Err(error) => return refused(format!("the hmi folder cannot be read: {error}")),
-    };
+    let project = compile_project(context, &selection, HMI_BUNDLE_COMMAND)?;
+    let bundle = super::hmi_authoring::bundle::read_edited(&project.root, &project.open)
+        .map_err(|error| format!("the hmi folder cannot be read: {error}"))?;
     let mut problems: Vec<Value> = Vec::new();
     let policy = match hmi_access_from_runtime_toml(
         &std::fs::read_to_string(project.root.join("runtime.toml")).unwrap_or_default(),
@@ -317,12 +327,13 @@ pub(super) fn bundle_value_with_context<C: ServerContext>(context: &C, args: Vec
             .into_iter()
             .map(|problem| json!({ "file": problem.file, "line": problem.line, "message": problem.message })),
     );
-    json!({ "ok": true, "bundle": bundle.to_json(), "version": bundle.version(), "problems": problems })
+    Ok((bundle, problems))
 }
 
+/// The arguments of `trust-lsp.hmiBundle`.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct BundleArgs {
+pub(super) struct BundleArgs {
     #[serde(default)]
     open: std::collections::BTreeMap<String, String>,
     #[serde(default)]

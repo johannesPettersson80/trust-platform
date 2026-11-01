@@ -43,6 +43,8 @@ mod hmi_checks;
 mod hmi_compilation_cache;
 #[path = "commands/hmi_composition.rs"]
 mod hmi_composition;
+// Deploy and Roll back from the HMI Builder (specification 39 §16.2 item 8).
+mod hmi_deploy;
 mod hmi_equipment;
 mod hmi_equipment_io;
 #[path = "commands/hmi_faceplates.rs"]
@@ -88,6 +90,7 @@ pub const HMI_FILE_FORMAT_COMMAND: &str = "trust-lsp.hmiFileFormat";
 pub const HMI_FILE_CHECK_COMMAND: &str = "trust-lsp.hmiFileCheck";
 pub const HMI_CATALOGUE_COMMAND: &str = "trust-lsp.hmiCatalogue";
 pub const HMI_BUNDLE_COMMAND: &str = "trust-lsp.hmiBundle";
+pub const HMI_DEPLOY_COMMAND: &str = "trust-lsp.hmiDeploy";
 pub const HMI_TEXTS_COMMAND: &str = "trust-lsp.hmiTexts";
 pub const HMI_QUALITY_COMMAND: &str = "trust-lsp.hmiQuality";
 pub const HMI_FACEPLATES_COMMAND: &str = "trust-lsp.hmiFaceplates";
@@ -112,6 +115,7 @@ pub const EXECUTE_COMMANDS: &[&str] = &[
     HMI_FILE_CHECK_COMMAND,
     HMI_CATALOGUE_COMMAND,
     HMI_BUNDLE_COMMAND,
+    HMI_DEPLOY_COMMAND,
     HMI_TEXTS_COMMAND,
     HMI_QUALITY_COMMAND,
     HMI_FACEPLATES_COMMAND,
@@ -235,6 +239,7 @@ pub fn execute_read_command(state: &ServerState, params: ExecuteCommandParams) -
             state,
             params.arguments,
         )),
+        HMI_DEPLOY_COMMAND => Some(hmi_deploy::deploy_value(state, params.arguments)),
         HMI_RENAME_INSTANCE_COMMAND => Some(hmi_rename_instance::rename_instance(
             state,
             params.arguments,
