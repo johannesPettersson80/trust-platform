@@ -33,12 +33,45 @@ where
     Ok(result)
 }
 
+/// CODESYS mixed-family integer comparison parity (IEC_DEVIATIONS
+/// 2026-10-28): signed, unsigned, and bit-string integer values promote to
+/// one mathematical magnitude, so any two of them compare correctly.
+/// Floats and non-numerics yield `None` and keep their existing paths.
+fn common_integer_magnitude(left: &Value, right: &Value) -> Option<(i128, i128)> {
+    fn magnitude(value: &Value) -> Option<i128> {
+        match value {
+            Value::SInt(v) => Some(i128::from(*v)),
+            Value::Int(v) => Some(i128::from(*v)),
+            Value::DInt(v) => Some(i128::from(*v)),
+            Value::LInt(v) => Some(i128::from(*v)),
+            Value::USInt(v) => Some(i128::from(*v)),
+            Value::UInt(v) => Some(i128::from(*v)),
+            Value::UDInt(v) => Some(i128::from(*v)),
+            Value::ULInt(v) => Some(i128::from(*v)),
+            Value::Byte(v) => Some(i128::from(*v)),
+            Value::Word(v) => Some(i128::from(*v)),
+            Value::DWord(v) => Some(i128::from(*v)),
+            Value::LWord(v) => Some(i128::from(*v)),
+            _ => None,
+        }
+    }
+    Some((magnitude(left)?, magnitude(right)?))
+}
+
 fn numeric_eq(left: Value, right: Value, is_eq: bool) -> Result<Value, RuntimeError> {
     let left_nullish = matches!(left, Value::Null | Value::Reference(None));
     let right_nullish = matches!(right, Value::Null | Value::Reference(None));
     if left_nullish || right_nullish {
         let matches = left_nullish && right_nullish;
         return Ok(Value::Bool(if is_eq { matches } else { !matches }));
+    }
+
+    if let Some((left_magnitude, right_magnitude)) = common_integer_magnitude(&left, &right) {
+        return Ok(Value::Bool(if is_eq {
+            left_magnitude == right_magnitude
+        } else {
+            left_magnitude != right_magnitude
+        }));
     }
 
     let left_kind = numeric_kind(&left);
@@ -111,6 +144,16 @@ fn ord_cmp<T: Ord>(op: BinaryOp, left: T, right: T) -> Result<Value, RuntimeErro
 }
 
 fn numeric_cmp(op: BinaryOp, left: Value, right: Value) -> Result<Value, RuntimeError> {
+    if let Some((left_magnitude, right_magnitude)) = common_integer_magnitude(&left, &right) {
+        let result = match op {
+            BinaryOp::Lt => left_magnitude < right_magnitude,
+            BinaryOp::Le => left_magnitude <= right_magnitude,
+            BinaryOp::Gt => left_magnitude > right_magnitude,
+            BinaryOp::Ge => left_magnitude >= right_magnitude,
+            _ => return Err(RuntimeError::TypeMismatch),
+        };
+        return Ok(Value::Bool(result));
+    }
     let left_kind = numeric_kind(&left).ok_or(RuntimeError::TypeMismatch)?;
     let right_kind = numeric_kind(&right).ok_or(RuntimeError::TypeMismatch)?;
     let target = wider_numeric(left_kind, right_kind).ok_or(RuntimeError::TypeMismatch)?;
