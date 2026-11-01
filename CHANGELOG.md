@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-01
+
 ### Fixed
 
 - The help under a hardware terminal that no PLC signal fits, in Devices & Connections, suggests an address the runtime
