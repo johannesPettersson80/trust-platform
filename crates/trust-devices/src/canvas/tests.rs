@@ -56,7 +56,7 @@ fn endpoint_with(id: &str, protocol: &str, params: Value) -> Value {
 /// A target that answered with `topology`.
 pub(super) fn answered(endpoint: &str, label: &str, topology: Value) -> Value {
     let mut target = json!({
-        "endpoint": endpoint, "label": label, "reach": "reachable",
+        "endpoint": endpoint, "label": label, "status": "online_reachable",
         "connectors": { "ok": { "connectors": [] } },
     });
     target["topology"]["ok"] = topology;
@@ -227,7 +227,7 @@ fn an_unreachable_peer_is_unknown_under_its_configured_label() {
     // a second computer. A wrong implementation drops the peer, labels it `This computer`, or
     // shows it stopped.
     let fleet = fleet_of(json!({
-        "peers": [{ "endpoint": "tcp://10.0.0.9:9901", "label": "Line 2", "reach": "unreachable" }],
+        "peers": [{ "endpoint": "tcp://10.0.0.9:9901", "label": "Line 2", "status": "online_unreachable" }],
     }));
     assert_eq!(
         fleet
@@ -256,8 +256,8 @@ fn a_peer_that_refused_the_token_is_an_error_naming_the_recovery() {
     // missing token the rejected token's text.
     let fleet = fleet_of(json!({
         "peers": [
-            { "endpoint": "tcp://10.0.0.9:9901", "label": "Missing", "reach": "auth_missing" },
-            { "endpoint": "tcp://10.0.0.8:9901", "label": "Rejected", "reach": "auth_rejected" },
+            { "endpoint": "tcp://10.0.0.9:9901", "label": "Missing", "status": "auth_failed", "auth_failure_kind": "missing" },
+            { "endpoint": "tcp://10.0.0.8:9901", "label": "Rejected", "status": "auth_failed", "auth_failure_kind": "rejected" },
         ],
     }));
     let missing = runtime(&fleet, "Missing");
@@ -277,11 +277,11 @@ fn reports_that_cannot_be_read_are_the_banner_the_projects_own_first() {
     // A wrong implementation hides the local view, or orders or words the banner differently.
     let answer = merged(json!({
         "primary": {
-            "endpoint": "tcp://10.0.0.5:9901", "label": "Line 1", "reach": "reachable",
+            "endpoint": "tcp://10.0.0.5:9901", "label": "Line 1", "status": "online_reachable",
             "topology": { "error": "refused" },
         },
         "peers": [{
-            "endpoint": "tcp://10.0.0.9:9901", "label": "Line 2", "reach": "reachable",
+            "endpoint": "tcp://10.0.0.9:9901", "label": "Line 2", "status": "online_reachable",
             "topology": { "error": "timed out" },
         }],
         "project": report("host:pc", "10.0.0.2", "project", "configured_policy", &[]),

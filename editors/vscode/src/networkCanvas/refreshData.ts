@@ -106,14 +106,16 @@ async function loadLiveData(runtime: RuntimeTarget): Promise<{
   };
 }
 
-/** What one target answered: its probe, and while it answers its topology and connector reports. */
+/** What one target answered: its probe as `runTargets` reported it, and while it answers its topology and connector
+ * reports. */
 async function runtimeReport(target: RuntimeTarget): Promise<CanvasRuntimeReport> {
   const report = {
     endpoint: target.endpoint ?? "",
     label: target.label,
-    reach: reachOf(target),
+    status: target.status,
+    auth_failure_kind: target.authFailureKind,
   };
-  if (report.reach !== "reachable") {
+  if (target.status !== "online_reachable") {
     return report;
   }
   const [topology, connectors] = await Promise.all([
@@ -121,20 +123,6 @@ async function runtimeReport(target: RuntimeTarget): Promise<CanvasRuntimeReport
     answerOf(fetchConnectorStatus(target)),
   ]);
   return { ...report, topology, connectors };
-}
-
-/** The probe result of a target, in the words of `trust-lsp.devicesTopology`. */
-function reachOf(target: RuntimeTarget): CanvasRuntimeReport["reach"] {
-  switch (target.status) {
-    case "online_reachable":
-      return "reachable";
-    case "auth_failed":
-      return target.authFailureKind === "missing" ? "auth_missing" : "auth_rejected";
-    case "missing_endpoint":
-      return "missing_endpoint";
-    default:
-      return "unreachable";
-  }
 }
 
 async function answerOf(request: Promise<unknown>): Promise<CanvasAnswer> {

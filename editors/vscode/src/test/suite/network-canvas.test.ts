@@ -83,7 +83,7 @@ async function served(
       ? {
           endpoint,
           label: "Line",
-          reach: "reachable",
+          status: "online_reachable",
           topology: { ok: topology },
           connectors: { ok: options.connectors ?? { connectors: [] } },
         }
@@ -206,7 +206,7 @@ suite("Network Canvas", function () {
 
   test("unreachable configured peers keep their configured label, not 'This computer'", async () => {
     const { graph } = await served(undefined, {
-      peers: [{ endpoint: "tcp://127.0.0.1:5510", label: "discoveredcell", reach: "auth_rejected" }],
+      peers: [{ endpoint: "tcp://127.0.0.1:5510", label: "discoveredcell", status: "auth_failed", auth_failure_kind: "rejected" }],
     });
     assert.deepStrictEqual(
       graph.hosts.map((host) => host.hostname),
@@ -1249,27 +1249,29 @@ suite("Network Canvas", function () {
   });
 
   test("a configured-but-unreachable fleet peer synthesizes an UNKNOWN node (not 'stopped'), never green", async () => {
+    // The peer's probe as `runTargets` reports it; Rust reads it (specification 25, 5.1).
     const peer = (
-      reach: CanvasRuntimeReport["reach"],
+      status: string,
+      authFailureKind?: string,
       endpoint = "tcp://10.0.0.9:5510"
-    ): CanvasRuntimeReport => ({ endpoint, label: "cell1", reach });
+    ): CanvasRuntimeReport => ({ endpoint, label: "cell1", status, auth_failure_kind: authFailureKind });
     // With nothing that reports the project's runtime the simulator stands for it first on this
     // computer (specification 25 §5.6); the peer's computer follows.
     const peerHost = (graph: NCGraph) => graph.hosts[graph.hosts.length - 1];
-    const unreachable = (await served(undefined, { peers: [peer("unreachable")] })).graph;
+    const unreachable = (await served(undefined, { peers: [peer("online_unreachable")] })).graph;
     const runtime = peerHost(unreachable).runtimes[0];
     // We don't know if it's stopped or just unreachable → "unknown" (grey/ghosted), never green.
     assert.strictEqual(runtime.health, "unknown", "unknown/grey, never connected/green");
     assert.strictEqual(runtime.mode, "unknown");
     assert.strictEqual(runtime.endpoints.length, 0);
     assert.strictEqual(peerHost(unreachable).hostname, "cell1");
-    const missing = (await served(undefined, { peers: [peer("auth_missing")] })).graph;
+    const missing = (await served(undefined, { peers: [peer("auth_failed", "missing")] })).graph;
     assert.strictEqual(peerHost(missing).runtimes[0].health, "error", "auth failure is a real error");
     assert.strictEqual(
       peerHost(missing).runtimes[0].detail,
       "No auth token provided — this runtime requires one."
     );
-    const rejected = (await served(undefined, { peers: [peer("auth_rejected")] })).graph;
+    const rejected = (await served(undefined, { peers: [peer("auth_failed", "rejected")] })).graph;
     assert.strictEqual(
       peerHost(rejected).runtimes[0].detail,
       "Auth token rejected — check it and try again."
@@ -1278,7 +1280,7 @@ suite("Network Canvas", function () {
       await served(undefined, {
         peers: [
           {
-            ...peer("reachable"),
+            ...peer("online_reachable"),
             topology: { ok: fleetTopology() },
             connectors: { ok: { connectors: [] } },
           },
@@ -1290,7 +1292,7 @@ suite("Network Canvas", function () {
       "Line runtime",
       "a reachable peer uses its real fleet.topology, not a synthetic node"
     );
-    const endpointless = await served(undefined, { peers: [peer("unreachable", "")] });
+    const endpointless = await served(undefined, { peers: [peer("online_unreachable", undefined, "")] });
     assert.ok(
       endpointless.graph.hosts.every((host) => host.hostname !== "cell1"),
       "no endpoint → no node for the peer"
@@ -1304,7 +1306,7 @@ suite("Network Canvas", function () {
         {
           endpoint: "tcp://10.0.0.9:5510",
           label: "peer-a",
-          reach: "reachable",
+          status: "online_reachable",
           topology: { error: "unknown connector confidence" },
           connectors: { ok: { connectors: [] } },
         },
@@ -1321,7 +1323,7 @@ suite("Network Canvas", function () {
   test("auth-failed synthetic runtime nodes keep control endpoint for inspector actions", async () => {
     const endpoint = "tcp://127.0.0.1:33101";
     const { graph } = await served(undefined, {
-      peers: [{ endpoint, label: "discoveredcell", reach: "auth_rejected" }],
+      peers: [{ endpoint, label: "discoveredcell", status: "auth_failed", auth_failure_kind: "rejected" }],
     });
     const rendered = buildGraph(graph).nodes.find(
       (node) => node.type === "runtime" && node.data.label === "discoveredcell"
@@ -1664,7 +1666,7 @@ suite("Network Canvas", function () {
         {
           endpoint: "tcp://127.0.0.1:9902",
           label: "peer",
-          reach: "reachable",
+          status: "online_reachable",
           topology: { ok: peerTopology },
           connectors: { ok: { connectors: [] } },
         },
@@ -1738,7 +1740,7 @@ suite("Network Canvas", function () {
           {
             endpoint: "tcp://127.0.0.1:9902",
             label: "peer",
-            reach: "reachable",
+            status: "online_reachable",
             topology: { ok: topology },
             connectors: { ok: { connectors: [] } },
           },
