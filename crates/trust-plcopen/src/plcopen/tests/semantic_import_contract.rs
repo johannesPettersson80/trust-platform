@@ -836,6 +836,65 @@ END_PROGRAM
 }
 
 #[test]
+fn semantic_codesys_method_in_out_vars_import_as_by_reference_parameters() {
+    // WAGO s4 measured (2026-10-19, re-probed 2026-10-28 on the PR #11
+    // line): vendor methods declare by-ref parameters as `<inOutVars>`
+    // sections inside addData `<Method>` blocks, and the mirror must keep
+    // them as `VAR_IN_OUT` — retagging to inputs flips by-ref to by-value
+    // and turns legal in-out writes into invalid-assignment-target errors.
+    let fixture = SemanticImportFixture::new(
+        "method-in-out-vars",
+        r#"<pous><pou name="fbProbeOwner" pouType="functionBlock">
+  <interface>
+    <localVars><variable name="xOwned"><type><bool/></type></variable></localVars>
+  </interface>
+  <addData><data name="http://www.3s-software.com/plcopenxml/method" handleUnknown="implementation">
+    <Method name="mProbe">
+      <interface>
+        <returnType><bool/></returnType>
+        <inputVars><variable name="iTarget"><type><int/></type></variable></inputVars>
+        <inOutVars>
+          <variable name="fbLed"><type><derived name="WagoAppAppLED.FbAppLED"/></type></variable>
+          <variable name="xPresent"><type><bool/></type></variable>
+        </inOutVars>
+      </interface>
+      <body><ST><![CDATA[mProbe := TRUE;]]></ST></body>
+      <addData />
+    </Method>
+  </data></addData>
+</pou></pous>"#,
+    );
+
+    let report = fixture.import().expect("import method with in-out vars");
+    let source = fixture.source("fbProbeOwner.st");
+
+    assert!(source.contains("METHOD PUBLIC mProbe : BOOL"), "{source}");
+    assert!(source.contains("iTarget : INT;"), "{source}");
+    assert!(source.contains("VAR_IN_OUT"), "{source}");
+    assert!(
+        source.contains("fbLed : WagoAppAppLED.FbAppLED;"),
+        "qualified FB-typed in-out parameter must survive verbatim:\n{source}"
+    );
+    assert!(source.contains("xPresent : BOOL;"), "{source}");
+    let input_offset = source.find("VAR_INPUT").expect("input section");
+    let in_out_offset = source.find("VAR_IN_OUT").expect("in-out section");
+    assert!(input_offset < in_out_offset, "{source}");
+    assert!(
+        source.find("METHOD PUBLIC mProbe").expect("method")
+            < source.rfind("END_FUNCTION_BLOCK").expect("fb end"),
+        "method with in-out vars must land inside its owner FB:\n{source}"
+    );
+    assert!(
+        !report
+            .unsupported_diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "PLCO213"),
+        "method with in-out vars must not be reported as skipped: {:?}",
+        report.unsupported_diagnostics
+    );
+}
+
+#[test]
 fn semantic_codesys_method_already_present_is_not_duplicated() {
     let fixture = SemanticImportFixture::new(
         "method-dedup",

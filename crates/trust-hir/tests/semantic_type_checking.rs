@@ -38,6 +38,8 @@ mod member_access_acceptance;
 mod member_access_declaration_rejection;
 #[path = "semantic_type_checking/member_access_use_rejection.rs"]
 mod member_access_use_rejection;
+#[path = "semantic_type_checking/method_in_out_parameter_writes.rs"]
+mod method_in_out_parameter_writes;
 #[path = "semantic_type_checking/parameter_constant_qualifier.rs"]
 mod parameter_constant_qualifier;
 #[path = "semantic_type_checking/partial_access_acceptance.rs"]
@@ -48,6 +50,8 @@ mod partial_access_rejection;
 mod phase18_behavior_closure;
 #[path = "semantic_type_checking/pointer_param_write_through.rs"]
 mod pointer_param_write_through;
+#[path = "semantic_type_checking/pointer_target_lenient_bindings.rs"]
+mod pointer_target_lenient_bindings;
 #[path = "semantic_type_checking/project_diagnostics_stability.rs"]
 mod project_diagnostics_stability;
 #[path = "semantic_type_checking/reference_contract_acceptance.rs"]
@@ -76,5 +80,7 @@ mod variable_initializer_constant_expression;
 mod variable_section_qualifier_acceptance;
 #[path = "semantic_type_checking/variable_section_qualifier_rejection.rs"]
 mod variable_section_qualifier_rejection;
+#[path = "semantic_type_checking/vendor_conversion_extensions.rs"]
+mod vendor_conversion_extensions;
 #[path = "semantic_type_checking/wrong_kind_resolution.rs"]
 mod wrong_kind_resolution;

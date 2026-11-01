@@ -1512,3 +1512,63 @@ END_FUNCTION_BLOCK
     };
     assert_eq!(dimensions, &vec![(0, 31)]);
 }
+
+#[test]
+fn integer_narrowing_assignment_warns_instead_of_erroring() {
+    // CODESYS silent-narrowing parity (IEC_DEVIATIONS 2026-10-28): a
+    // SINT variable stored into a BYTE target is diagnosed as a warning,
+    // not an error — the wiring tables in real vendor projects do this
+    // by the hundred.
+    let mut db = Database::new();
+    db.set_dialect(Dialect::Codesys);
+    let file = FileId(0);
+    db.set_source_text(
+        file,
+        r#"
+PROGRAM Test
+VAR
+    small : SINT;
+    target : BYTE;
+END_VAR
+target := small;
+END_PROGRAM
+"#
+        .to_string(),
+    );
+    let narrowing: Vec<(DiagnosticCode, DiagnosticSeverity)> = {
+        let diagnostics = db.diagnostics(file);
+        diagnostics
+            .iter()
+            .filter(|d| d.code == DiagnosticCode::IncompatibleAssignment)
+            .map(|d| (d.code, d.severity))
+            .collect()
+    };
+    assert_eq!(
+        narrowing.len(),
+        1,
+        "narrowing must stay diagnosed exactly once: {narrowing:?}"
+    );
+    assert_eq!(
+        narrowing[0].1,
+        DiagnosticSeverity::Warning,
+        "integer narrowing is a CODESYS-parity warning: {narrowing:?}"
+    );
+}
+
+#[test]
+fn real_target_integer_source_assignment_keeps_error() {
+    // Keep-strict pin: the narrowing demotion is scoped to
+    // integer/bit-string pairs; a REAL target keeps the error.
+    check_has_error(
+        r#"
+PROGRAM Test
+VAR
+    count : DINT;
+    level : REAL;
+END_VAR
+level := count;
+END_PROGRAM
+"#,
+        DiagnosticCode::IncompatibleAssignment,
+    );
+}

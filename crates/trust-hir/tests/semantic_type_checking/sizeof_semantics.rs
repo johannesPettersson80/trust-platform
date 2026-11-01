@@ -384,3 +384,27 @@ fn test_relative_layout_gives_a_temporal_field_eight_bytes() {
     assert!(overlaps("%B4"));
     assert!(!overlaps("%B8"));
 }
+
+#[test]
+fn test_sizeof_result_binds_unsigned_and_warns_into_narrower_integers() {
+    // CODESYS parity: SIZEOF yields an unsigned magnitude (the vendor
+    // udiSize idiom), and narrower integer destinations take it under the
+    // codesys narrowing warning — never an error. Under the default
+    // profile the DINT-typed pins above keep governing.
+    check_no_errors_in(
+        Dialect::Codesys,
+        r#"
+PROGRAM Test
+VAR
+    x : DINT;
+    unsignedSize : UDINT;
+    signedSize : DINT;
+    byteSize : BYTE;
+END_VAR
+unsignedSize := SIZEOF(x);
+signedSize := SIZEOF(x);
+byteSize := SIZEOF(x);
+END_PROGRAM
+"#,
+    );
+}

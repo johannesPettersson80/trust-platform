@@ -11,8 +11,9 @@
 //!   does to the runtime settings and what Stop does without a session (§5.1), the managed
 //!   runtimes of a fleet root (§6.5), the status
 //!   that Live Values shows with the operations the session may use (§4.1, §4.2), the speed that a
-//!   simulated runtime reports (specification 35 B9.2), the outcome of a Connect (§5.1, §6.4) and
-//!   the kind of a lifecycle failure (§5.10).
+//!   simulated runtime reports (specification 35 B9.2), the outcome of a Connect (§5.1, §6.4),
+//!   the kind of a lifecycle failure (§5.10) and the run target that the HMI Builder's Live mode
+//!   and Deploy talk to (specification 39 §11 item 6).
 //!
 //! Each answer is an object with `ok`; a refused request answers `ok: false` and an `error` text.
 
@@ -21,6 +22,7 @@ use serde_json::{json, Value};
 
 mod connect;
 mod endpoint;
+mod hmi_target;
 mod live_values;
 mod managed;
 mod request;
@@ -69,6 +71,7 @@ fn run_targets(argument: Value) -> Result<Value, String> {
         "selection" => selection::answer(argument),
         "select" => selection::select(argument),
         "stop" => selection::stop(argument),
+        "hmiTarget" => hmi_target::answer(argument),
         "managed" | "managedOutcome" | "managedLogs" | "managedStopEndsSession" => {
             managed::answer(&action, argument)
         }

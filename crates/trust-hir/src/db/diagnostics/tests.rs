@@ -1,5 +1,7 @@
 use super::super::*;
 use crate::diagnostics::DiagnosticCode;
+use crate::dialect::Dialect;
+use crate::DiagnosticSeverity;
 
 #[test]
 fn test_database_basic() {
@@ -74,6 +76,19 @@ fn error_messages(source: &str) -> Vec<String> {
         .collect()
 }
 
+/// Error messages for `source` analyzed under `dialect`.
+fn error_messages_in(dialect: Dialect, source: &str) -> Vec<String> {
+    let mut db = Database::new();
+    db.set_dialect(dialect);
+    let file = FileId(0);
+    db.set_source_text(file, source.to_string());
+    db.diagnostics(file)
+        .iter()
+        .filter(|diagnostic| diagnostic.is_error())
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect()
+}
+
 #[test]
 fn ulint_maximum_literal_assigns_and_initializes_without_errors() {
     let assigned = "PROGRAM Main\nVAR u : ULINT; END_VAR\nu := 18446744073709551615;\nEND_PROGRAM";
@@ -92,10 +107,20 @@ fn lint_minimum_literal_initializes_typed_and_untyped_without_errors() {
 
 #[test]
 fn literal_one_past_an_integer_bound_is_reported_once() {
-    assert_only_error(
-        "PROGRAM Main\nVAR u : ULINT; END_VAR\nu := 18446744073709551616;\nEND_PROGRAM",
+    // IEC_DEVIATIONS 2026-10-28: DINT into ULINT is a narrowing binding (warning); the
+    // out-of-range literal is reported exactly once as OutOfRange, because
+    // the warning no longer suppresses the range check.
+    let source = "PROGRAM Main\nVAR u : ULINT; END_VAR\nu := 18446744073709551616;\nEND_PROGRAM";
+    assert_only_error_in(
+        Dialect::Codesys,
+        source,
+        DiagnosticCode::OutOfRange,
+        "integer literal 18446744073709551616 is outside the range of ULINT",
+    );
+    assert_one_narrowing_warning_in(
+        Dialect::Codesys,
+        source,
         DiagnosticCode::IncompatibleAssignment,
-        "cannot assign 'DINT' to 'ULINT'",
     );
     for (initial, message) in [
         (
@@ -138,19 +163,20 @@ fn integer_subrange_takes_its_base_type_then_checks_its_bounds() {
 
 #[test]
 fn comparison_literal_takes_the_other_operand_type_in_analysis() {
+    // A representable literal contextualizes to UDINT and compares clean.
     let accepted = error_messages(
         "PROGRAM Main\nVAR d : UDINT; r : BOOL; END_VAR\nr := d > 3000000000;\nEND_PROGRAM",
     );
     assert_eq!(accepted, Vec::<String>::new());
-    let rejected = error_messages(
+    // IEC_DEVIATIONS 2026-10-28: a literal beyond the UDINT range keeps its own integer type
+    // and the cross-width comparison admits silently under the CODESYS
+    // profile (the mathematical result is exact; the literal's own range is
+    // its own business). Other profiles keep the strict comparison.
+    let rejected = error_messages_in(
+        Dialect::Codesys,
         "PROGRAM Main\nVAR d : UDINT; r : BOOL; END_VAR\nr := d > 5000000000;\nEND_PROGRAM",
     );
-    assert!(
-        rejected
-            .iter()
-            .any(|message| message == "numeric operands have no accuracy-preserving common type"),
-        "{rejected:?}"
-    );
+    assert_eq!(rejected, Vec::<String>::new());
 }
 
 #[test]
@@ -204,12 +230,49 @@ fn assert_only_error(source: &str, code: DiagnosticCode, message: &str) {
     );
 }
 
+/// Dialect-aware variant of [`assert_only_error`].
+fn assert_only_error_in(dialect: Dialect, source: &str, code: DiagnosticCode, message: &str) {
+    let mut db = Database::new();
+    db.set_dialect(dialect);
+    let file = FileId(0);
+    db.set_source_text(file, source.to_string());
+    let errors: Vec<(DiagnosticCode, String)> = db
+        .diagnostics(file)
+        .iter()
+        .filter(|diagnostic| diagnostic.is_error())
+        .map(|diagnostic| (diagnostic.code, diagnostic.message.clone()))
+        .collect();
+    assert!(
+        errors.len() == 1 && errors[0].0 == code && errors[0].1 == message,
+        "expected exactly one {code:?}: {message}; got {errors:?}"
+    );
+}
+
 /// Asserts that `source` has exactly one error diagnostic, with this code.
 fn assert_only_error_code(source: &str, code: DiagnosticCode) {
     let errors = error_codes_and_messages(source);
     assert!(
         errors.len() == 1 && errors[0].0 == code,
         "expected exactly one {code:?}; got {errors:?}"
+    );
+}
+
+/// Narrowing-warning variant analyzed under `dialect`.
+fn assert_one_narrowing_warning_in(dialect: Dialect, source: &str, code: DiagnosticCode) {
+    let mut db = Database::new();
+    db.set_dialect(dialect);
+    let file = FileId(0);
+    db.set_source_text(file, source.to_string());
+    let narrowing = db
+        .diagnostics(file)
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.code == code && diagnostic.severity == DiagnosticSeverity::Warning
+        })
+        .count();
+    assert_eq!(
+        narrowing, 1,
+        "expected exactly one narrowing warning for {code:?} in {source}"
     );
 }
 
@@ -226,12 +289,22 @@ fn literal_above_lint_maximum_is_rejected_by_assignment_analysis() {
 }
 
 #[test]
-fn narrow_literal_assignment_reports_one_error() {
-    // The assignment check already rejects 128 for SINT, so the range check adds nothing.
-    assert_only_error(
-        "PROGRAM Main\nVAR small : SINT; END_VAR\nsmall := 128;\nEND_PROGRAM",
+fn narrow_literal_assignment_reports_range_once_and_narrowing_warning() {
+    // IEC_DEVIATIONS 2026-10-28: under the CODESYS profile the
+    // assignment-level rejection of 128 into SINT is a narrowing warning,
+    // so the range check still runs and reports the out-of-range literal
+    // exactly once. Other profiles keep both diagnostics as errors.
+    let source = "PROGRAM Main\nVAR small : SINT; END_VAR\nsmall := 128;\nEND_PROGRAM";
+    assert_only_error_in(
+        Dialect::Codesys,
+        source,
+        DiagnosticCode::OutOfRange,
+        "integer literal 128 is outside the range of SINT",
+    );
+    assert_one_narrowing_warning_in(
+        Dialect::Codesys,
+        source,
         DiagnosticCode::IncompatibleAssignment,
-        "cannot assign 'INT' to 'SINT'",
     );
 }
 
@@ -241,8 +314,20 @@ fn udint_call_argument_outside_its_range_is_reported_once() {
     let outside = format!(
         "{function}PROGRAM Main\nVAR r : INT; END_VAR\nr := F(x := 4294967296);\nEND_PROGRAM"
     );
-    // The argument check already rejects the value, so only that diagnostic is reported.
-    assert_only_error_code(&outside, DiagnosticCode::InvalidArgumentType);
+    // IEC_DEVIATIONS 2026-10-28: under the CODESYS profile the narrowed
+    // argument is a warning; the out-of-range literal is the only error,
+    // reported once. Other profiles keep both diagnostics as errors.
+    assert_only_error_in(
+        Dialect::Codesys,
+        &outside,
+        DiagnosticCode::OutOfRange,
+        "integer literal 4294967296 is outside the range of UDINT",
+    );
+    assert_one_narrowing_warning_in(
+        Dialect::Codesys,
+        &outside,
+        DiagnosticCode::InvalidArgumentType,
+    );
     let inside = format!(
         "{function}PROGRAM Main\nVAR r : INT; END_VAR\nr := F(x := 4294967295);\nEND_PROGRAM"
     );

@@ -195,6 +195,12 @@ fn import_global_var_lists_to_sources(
     let mut stats = ImportGlobalVarStats::default();
     let mut used_list_identifiers = HashSet::new();
     let mut imported_lists_by_name: HashMap<String, Vec<GlobalVarVariableDecl>> = HashMap::new();
+    // e!COCKPIT exports container qualifiers per list: a same-named
+    // `constant="true"` mirror re-declares members the primary list
+    // carries as plain variables. When the mirror drops as a duplicate,
+    // its members must still land in the mirror's `VAR_GLOBAL CONSTANT`
+    // section, or they lose constant-ness (PLCOPEN_DECISIONS 2026-10-26).
+    let constant_names_by_list = constant_var_names_by_list(root);
 
     for global_vars in root
         .descendants()
@@ -203,16 +209,7 @@ fn import_global_var_lists_to_sources(
         stats.discovered_global_var_lists += 1;
 
         let default_name = format!("GlobalVars{}", stats.discovered_global_var_lists);
-        let name = attribute_ci(global_vars, "name")
-            .or_else(|| {
-                global_vars
-                    .children()
-                    .find(|child| is_element_named_ci(*child, "name"))
-                    .and_then(extract_text_content)
-            })
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
-            .unwrap_or(default_name.clone());
+        let name = global_vars_list_name(global_vars, &default_name);
 
         if global_vars_is_mixed_attrs_view(global_vars) {
             unsupported_diagnostics.push(unsupported_diagnostic(
@@ -371,14 +368,79 @@ fn import_global_var_lists_to_sources(
                 "Retention/constancy attributes on the vendor container are preserved in the imported declaration",
             ));
         }
+        let self_is_constant = attribute_ci(global_vars, "constant")
+            .is_some_and(|value| value.trim().eq_ignore_ascii_case("true"));
+        let mirrored_constant_names = constant_names_by_list
+            .get(&name.to_ascii_lowercase())
+            .map(|names| {
+                variables
+                    .iter()
+                    .filter(|variable| {
+                        names.contains(&variable.name.to_ascii_lowercase())
+                    })
+                    .map(|variable| variable.name.clone())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        if !self_is_constant
+            && !mirrored_constant_names.is_empty()
+            && mirrored_constant_names.len() < variables.len()
+        {
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO226",
+                "info",
+                format!("addData/globalVars/{name}"),
+                format!(
+                    "globalVars '{}': {} member(s) declared CONSTANT in a same-named vendor mirror list",
+                    name,
+                    mirrored_constant_names.len()
+                ),
+                None,
+                "Members that a dropped constant mirror re-declares keep constant-ness in the imported list",
+            ));
+        }
         imported_lists_by_name.insert(list_key, variables.clone());
         let global_prefix = extract_leading_global_prefix(&global_source);
         let is_qualified_only = codesys_global_vars_is_qualified_only(global_vars, &global_source);
+        let (plain_variables, constant_variables) =
+            split_constant_variables(&variables, &mirrored_constant_names);
+        let constant_header_suffix = if constant_variables.is_empty() {
+            String::new()
+        } else {
+            let mut suffix = var_global_header_suffix.clone();
+            if !suffix
+                .split_whitespace()
+                .any(|flag| flag.eq_ignore_ascii_case("CONSTANT"))
+            {
+                if suffix.trim().is_empty() {
+                    suffix = "CONSTANT".to_string();
+                } else {
+                    suffix.push_str(" CONSTANT");
+                }
+            }
+            suffix
+        };
 
         let (rendered_source, qualified_external) = match (global_var_mode, is_qualified_only) {
             (PlcopenImportGlobalVarMode::StrictIecAdapter, true) => {
                 let type_name = format!("{list_identifier}_TYPE");
                 let configuration_name = format!("{list_identifier}_Globals");
+
+                // The configuration-level instance rides the LAST
+                // non-empty VAR_GLOBAL section (original shape: one block
+                // holding the members plus the list instance).
+                let instance_decl = GlobalVarVariableDecl {
+                    name: list_identifier.clone(),
+                    type_expr: type_name.clone(),
+                    initial_value: None,
+                };
+                let mut plain_variables = plain_variables;
+                let mut constant_variables = constant_variables;
+                if !constant_variables.is_empty() {
+                    constant_variables.push(&instance_decl);
+                } else {
+                    plain_variables.push(&instance_decl);
+                }
 
                 let mut rendered = String::new();
                 rendered.push_str("TYPE\n");
@@ -391,10 +453,12 @@ fn import_global_var_lists_to_sources(
                 rendered.push_str("END_STRUCT\n");
                 rendered.push_str("END_TYPE\n\n");
                 rendered.push_str(&format!("CONFIGURATION {configuration_name}\n"));
-                rendered.push_str(&render_var_global_header(&var_global_header_suffix));
-                rendered.push('\n');
-                rendered.push_str(&format!("    {list_identifier} : {type_name};\n"));
-                rendered.push_str("END_VAR\n");
+                push_global_var_section(&mut rendered, &var_global_header_suffix, &plain_variables);
+                push_global_var_section(
+                    &mut rendered,
+                    &constant_header_suffix,
+                    &constant_variables,
+                );
                 rendered.push_str("END_CONFIGURATION\n");
 
                 warnings.push(format!(
@@ -413,14 +477,12 @@ fn import_global_var_lists_to_sources(
                 let configuration_name = format!("{list_identifier}_Globals");
                 let mut rendered = String::new();
                 rendered.push_str(&format!("CONFIGURATION {configuration_name}\n"));
-                rendered.push_str(&render_var_global_header(&var_global_header_suffix));
-                rendered.push('\n');
-                for variable in &variables {
-                    rendered.push_str("    ");
-                    rendered.push_str(&format_global_var_declaration(variable));
-                    rendered.push('\n');
-                }
-                rendered.push_str("END_VAR\n");
+                push_global_var_section(&mut rendered, &var_global_header_suffix, &plain_variables);
+                push_global_var_section(
+                    &mut rendered,
+                    &constant_header_suffix,
+                    &constant_variables,
+                );
                 rendered.push_str("END_CONFIGURATION\n");
                 (rendered, None)
             }
@@ -433,14 +495,12 @@ fn import_global_var_lists_to_sources(
                     }
                 }
                 rendered.push_str(&format!("NAMESPACE {list_identifier}\n"));
-                rendered.push_str(&render_var_global_header(&var_global_header_suffix));
-                rendered.push('\n');
-                for variable in &variables {
-                    rendered.push_str("    ");
-                    rendered.push_str(&format_global_var_declaration(variable));
-                    rendered.push('\n');
-                }
-                rendered.push_str("END_VAR\n");
+                push_global_var_section(&mut rendered, &var_global_header_suffix, &plain_variables);
+                push_global_var_section(
+                    &mut rendered,
+                    &constant_header_suffix,
+                    &constant_variables,
+                );
                 rendered.push_str("END_NAMESPACE\n");
 
                 warnings.push(format!(
@@ -465,14 +525,12 @@ fn import_global_var_lists_to_sources(
                     }
                 }
                 rendered.push_str(&format!("NAMESPACE {list_identifier}\n"));
-                rendered.push_str(&render_var_global_header(&var_global_header_suffix));
-                rendered.push('\n');
-                for variable in &variables {
-                    rendered.push_str("    ");
-                    rendered.push_str(&format_global_var_declaration(variable));
-                    rendered.push('\n');
-                }
-                rendered.push_str("END_VAR\n");
+                push_global_var_section(&mut rendered, &var_global_header_suffix, &plain_variables);
+                push_global_var_section(
+                    &mut rendered,
+                    &constant_header_suffix,
+                    &constant_variables,
+                );
                 rendered.push_str("END_NAMESPACE\n");
 
                 warnings.push(format!(
@@ -534,6 +592,102 @@ fn render_var_global_header(suffix: &str) -> String {
     } else {
         format!("VAR_GLOBAL {}", suffix.trim())
     }
+}
+
+fn global_vars_list_name(global_vars: roxmltree::Node<'_, '_>, default_name: &str) -> String {
+    attribute_ci(global_vars, "name")
+        .or_else(|| {
+            global_vars
+                .children()
+                .find(|child| is_element_named_ci(*child, "name"))
+                .and_then(extract_text_content)
+        })
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| default_name.to_string())
+}
+
+/// Collects the lowercased member names declared by every
+/// `constant="true"` `globalVars` list, keyed by lowercased list name —
+/// including lists that a later duplicate-drop will remove (their
+/// constant-ness must survive on the primary list).
+fn constant_var_names_by_list(
+    root: roxmltree::Node<'_, '_>,
+) -> HashMap<String, HashSet<String>> {
+    let mut names_by_list: HashMap<String, HashSet<String>> = HashMap::new();
+    for global_vars in root
+        .descendants()
+        .filter(|node| is_element_named_ci(*node, "globalVars"))
+        .filter(|node| {
+            attribute_ci(*node, "constant")
+                .is_some_and(|value| value.trim().eq_ignore_ascii_case("true"))
+        })
+    {
+        let list_key = global_vars_list_name(global_vars, "GlobalVars").to_ascii_lowercase();
+        let names = names_by_list.entry(list_key).or_default();
+        for variable in global_vars
+            .descendants()
+            .filter(|node| is_element_named_ci(*node, "variable"))
+        {
+            if let Some(name) = attribute_ci(variable, "name") {
+                names.insert(name.trim().to_ascii_lowercase());
+                continue;
+            }
+            if let Some(name) = variable
+                .children()
+                .find(|child| is_element_named_ci(*child, "name"))
+                .and_then(extract_text_content)
+            {
+                names.insert(name.trim().to_ascii_lowercase());
+            }
+        }
+    }
+    names_by_list
+}
+
+/// Stable partition of a merged list's declarations into (plain,
+/// constant) by membership in the same-named vendor constant mirror.
+fn split_constant_variables<'a>(
+    variables: &'a [GlobalVarVariableDecl],
+    constant_names: &[String],
+) -> (Vec<&'a GlobalVarVariableDecl>, Vec<&'a GlobalVarVariableDecl>) {
+    if constant_names.is_empty() {
+        return (variables.iter().collect(), Vec::new());
+    }
+    let constant_names: HashSet<String> = constant_names
+        .iter()
+        .map(|name| name.to_ascii_lowercase())
+        .collect();
+    let mut plain = Vec::new();
+    let mut constant = Vec::new();
+    for variable in variables {
+        if constant_names.contains(&variable.name.to_ascii_lowercase()) {
+            constant.push(variable);
+        } else {
+            plain.push(variable);
+        }
+    }
+    (plain, constant)
+}
+
+/// Renders one `VAR_GLOBAL [flags]` section with its declarations.
+/// Empty sections are skipped (an empty block is not importable ST).
+fn push_global_var_section(
+    out: &mut String,
+    header_suffix: &str,
+    variables: &[&GlobalVarVariableDecl],
+) {
+    if variables.is_empty() {
+        return;
+    }
+    out.push_str(&render_var_global_header(header_suffix));
+    out.push('\n');
+    for variable in variables {
+        out.push_str("    ");
+        out.push_str(&format_global_var_declaration(variable));
+        out.push('\n');
+    }
+    out.push_str("END_VAR\n");
 }
 
 fn format_global_var_declaration(variable: &GlobalVarVariableDecl) -> String {

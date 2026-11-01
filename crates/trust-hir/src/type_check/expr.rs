@@ -360,6 +360,28 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
                     );
                 }
             }
+            // CODESYS parity (IEC_DEVIATIONS 2026-10-28): bit-string operands
+            // participate in Add/Sub/Mul/Div as unsigned magnitudes of the
+            // wider operand's width — the same family the logical operators
+            // already admit. MOD keeps its integer-only gate above; other
+            // profiles keep the rejection.
+            if self.checker.symbols.dialect().is_codesys() {
+                let bit_string = |type_id: TypeId| {
+                    matches!(
+                        self.checker.resolved_type(type_id),
+                        Some(Type::Byte | Type::Word | Type::DWord | Type::LWord)
+                    )
+                };
+                if bit_string(lhs_base) && bit_string(rhs_base) {
+                    return self.common_bit_string_type(
+                        lhs_type,
+                        node.text_range(),
+                        rhs_type,
+                        node.text_range(),
+                        node.text_range(),
+                    );
+                }
+            }
             if let (Some(lhs_ty), Some(rhs_ty)) = (
                 self.checker
                     .symbols
@@ -574,6 +596,13 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         ) {
             if l.is_numeric() && r.is_numeric() {
                 if self.checker.wider_numeric(lhs, rhs).is_none() {
+                    // CODESYS parity (IEC_DEVIATIONS 2026-10-28): two integer
+                    // operands always compare — mixed-sign pairs promote
+                    // through a common magnitude instead of faulting. REAL
+                    // pairs keep the accuracy diagnostic.
+                    if self.checker.is_integer_bit_string_binding(lhs, rhs) {
+                        return;
+                    }
                     self.checker.diagnostics.error(
                         DiagnosticCode::TypeMismatch,
                         range,
@@ -605,6 +634,14 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
                 self.check_comparable_with_deref_retry(derefed_lhs, derefed_rhs, op, range, false);
                 return;
             }
+        }
+
+        // CODESYS parity (IEC_DEVIATIONS 2026-10-28): integer and bit-string
+        // operands compare freely across their families (INT vs BYTE,
+        // BYTE vs WORD, DINT vs DWORD) — the runtime promotes both sides
+        // to a common magnitude. BOOL and non-scalar pairs keep the error.
+        if self.checker.is_integer_bit_string_binding(lhs, rhs) {
+            return;
         }
 
         self.checker.diagnostics.error(

@@ -242,9 +242,16 @@ END_TYPE
 - Qualified access: `TrafficLight#Red` resolves ambiguity
 - Qualified member access (CODESYS parity, vendor extension): `TrafficLight.Red`
   resolves to the value in initializers, expressions, and CASE labels,
-  optionally namespace-qualified (`Ns.TrafficLight.Red`); an unknown member is
-  rejected. The base name resolves through the enclosing scope chain, so
-  enums declared inside namespaces are reachable by their bare type name
+  optionally namespace-qualified to any depth (`Ns.TrafficLight.Red`); an
+  unknown member is rejected. The base name resolves through the enclosing
+  scope chain, so enums declared inside namespaces are reachable by their
+  bare type name
+- Value position (CODESYS parity, vendor extension, IEC_DEVIATIONS
+  2026-10-26): an enumerated value converts to its declared integer base in
+  assignments, comparisons, and call arguments — including base-less
+  enums, whose base is `INT`. Integer assignment INTO an enum stays
+  rejected for base-less ("closed") enums; explicit-base named-value types
+  follow §3.2. Cross-enum assignment stays rejected
 - Error if enumerated literal cannot be unambiguously determined
 
 ### 3.2 Data Types with Named Values (Section 6.4.4.3)
@@ -807,17 +814,28 @@ when a source string is longer than its assignment target. Every `STRING[n]` and
   assignment of that result, and function or function-block `VAR_OUTPUT`
   copy-back, truncate to the receiving target's declared capacity.
 - `VAR_IN_OUT` requires the actual and formal to have the same string family
-  and the same effective capacity after alias and constant-expression
-  resolution; `STRING` and `STRING[80]` have the same capacity. A width
+  under every profile. Under the default rules the actual and formal also
+  have the same effective capacity after alias and constant-expression
+  resolution (`STRING` and `STRING[80]` have the same capacity); a width
   mismatch is rejected with invalid-argument diagnostic category `E205`
   instead of performing an implicit truncating copy-in/copy-back conversion.
+  Under `[project] vendor_profile = "codesys"` declared capacities need not
+  match, matching CODESYS and the vendor buffer idiom of a `STRING(1)` formal
+  whose real capacity arrives in a separate size argument (e.g.
+  `WagoAppString.StrAppend(sBuffer, SIZEOF(sBuffer), …)`): capacity is not
+  enforced at the call boundary — the callee bounds its writes through its
+  own formal capacity or size argument, and the caller's variable keeps its
+  own storage (IEC_DEVIATIONS 2026-10-28). Binding across families (`STRING`
+  vs `WSTRING`) is rejected with `E205` under every profile.
 - Literal bounds and truncation count bytes of UTF-8 (`STRING`) or UTF-16 code
   units (`WSTRING`). Truncation keeps the longest prefix of whole characters
   that fits, so it never splits a character.
 
 These rules apply at function and function-block call boundaries. They prevent
-call copy-back from storing a value longer than the receiving declaration and
-prevent a no-op `VAR_IN_OUT` call from silently changing caller state.
+call copy-back from storing a value longer than the receiving declaration on
+the by-value paths and prevent a no-op `VAR_IN_OUT` call from silently
+changing caller state; for `VAR_IN_OUT` strings the callee owns the capacity
+contract through its formal declaration or size argument.
 
 `STRING` and `WSTRING` remain distinct assignment families. Use the explicit
 standard conversion functions when crossing between them.
