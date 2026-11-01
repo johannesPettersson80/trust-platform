@@ -21,6 +21,7 @@ pub(super) use context::{expression_context, is_pou_kind};
 pub(super) use expression::{expression_by_id, is_expression_kind, ExpressionIndex};
 pub(super) use globals::{
     check_global_external_links_with_project, resolve_pending_types_with_table,
+    used_external_globals,
 };
 pub(super) use nondeterminism::check_nondeterminism;
 pub(super) use oop::{

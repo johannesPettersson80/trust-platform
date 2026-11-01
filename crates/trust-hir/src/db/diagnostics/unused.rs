@@ -260,13 +260,9 @@ pub(in crate::db) fn unused_warning_kind(
             Some((DiagnosticCode::UnusedParameter, "parameter"))
         }
         SymbolKind::Parameter { .. } => None,
-        SymbolKind::Constant => {
-            if symbol.parent.is_some() {
-                Some((DiagnosticCode::UnusedVariable, "constant"))
-            } else {
-                None
-            }
-        }
+        // Local to a POU, or global at the top level of a file, in a NAMESPACE, a CONFIGURATION or a
+        // RESOURCE (specification 28 §1, decided by the owner on 1 November 2026).
+        SymbolKind::Constant => Some((DiagnosticCode::UnusedVariable, "constant")),
         _ => None,
     }
 }

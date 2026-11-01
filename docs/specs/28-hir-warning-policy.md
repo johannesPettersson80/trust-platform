@@ -6,8 +6,12 @@ truST product policy for deterministic engineering feedback.
 
 ## 1. Unused declarations
 
-`trust-hir` warns for an unused local or temporary variable, local constant,
-input parameter, PROGRAM, FUNCTION, or FUNCTION_BLOCK.
+`trust-hir` warns for an unused local or temporary variable, local or global
+constant, input parameter, PROGRAM, FUNCTION, or FUNCTION_BLOCK. A global
+constant warns wherever it is declared: at the top level of a file, in a
+NAMESPACE, in a CONFIGURATION or in a RESOURCE. The owner decided this on
+1 November 2026; CODESYS's static analysis (rule SA0033) likewise reports a
+project's unused global variables.
 
 A declaration is used when a resolved semantic reference reaches it. The
 following references count:
@@ -21,12 +25,14 @@ following references count:
   the chain resolves to its terminal member and marks that member used —
   the leftmost segment alone never marks anything used;
 - an `EXTENDS` or `IMPLEMENTS` target of a POU, class, or DUT declaration:
-  inheritance is a use of the base.
+  inheritance is a use of the base;
+- a use of a `VAR_EXTERNAL` declaration: a POU uses a global through it
+  (IEC 61131-3, 6.5.2.1 and Figure 8), so the use reaches the global that
+  the external names. The declaration alone is no use.
 
 Imported declarations, declarations without a source range, members of a
-FUNCTION_BLOCK, CLASS, or INTERFACE, interface-method parameters, non-input
-parameters, and global constants do not receive this warning from the owning
-file. Interface-method parameters cover both the methods declared inside an
+FUNCTION_BLOCK, CLASS, or INTERFACE, interface-method parameters, and non-input
+parameters do not receive this warning from the owning file. Interface-method parameters cover both the methods declared inside an
 INTERFACE POU and the methods of a FUNCTION_BLOCK or CLASS that IMPLEMENTS an
 interface declaring a method of the same name — the implementing POU must
 carry the full interface signature even where its body ignores a pin. A
