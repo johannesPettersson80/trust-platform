@@ -47221,6 +47221,7 @@ name = "reliability_test_project_configs_are_loadable"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-10-29"
 
 [[reviews]]
 discovery_id = "DISC_7ED08FC2C6176CF9E691"
