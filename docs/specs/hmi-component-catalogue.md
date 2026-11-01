@@ -300,6 +300,18 @@ Open the existing Devices & Connections editor, focused on that exact PLC instan
 its declared I/O terminals. For a pump these may be Run command, Running feedback and
 Protection trip. The hardware editor owns device/channel selection, mapping, type/direction
 checks and conflicts. Do not add a second hardware wiring form or address editor to the HMI.
+
+A terminal that no declared PLC signal fits says which declaration would, as an I/O list does:
+`No input of type LREAL is declared yet. Declare one with an address in your program, for
+example TT101_Raw AT %IL0 : LREAL;, then press Refresh.` The example is named after the
+instance's last name and the member. Its address is in the terminal's direction (`%I` for an
+input, `%Q` for an output), at the first address of the size the runtime binds the type to
+(IEC 61131-3 §6.5.5): `X0.0` for `BOOL`; `B0` for a byte type and for a `STRING`, which is bound
+as the byte window at a byte address; `W0` for a word type and `WCHAR`; `D0` for a double word
+type, `REAL` and `TIME`; `L0` for a long word type, `LREAL` and the long time types. A type the
+runtime binds at no size, such as `DATE` or a structure, gets the advice without an example;
+a member whose type is unknown is taken as `BOOL`. The language server words the help with the
+terminal (`trust-lsp.hmiEquipment`, `help`).
 FB settings still decide whether optional feedback is fitted; hardware mapping uses that
 same definition instead of maintaining another list of required signals.
 

@@ -5,7 +5,7 @@ import * as assert from "assert";
 import { Webview, object, CATALOGUE } from "./hmiBuilderWebview";
 import type { EquipmentDetails } from "../../hmiBuilder/editor/equipmentDetails";
 import type { VariableNode } from "../../hmiBuilder/editor/messages";
-import { equipmentConnectionSummary, missingSignalHelp } from "../../networkCanvas/equipmentConnectionsModel";
+import { equipmentConnectionSummary } from "../../networkCanvas/equipmentConnectionsModel";
 
 const details: EquipmentDetails = {
   revision: 7,
@@ -198,18 +198,6 @@ suite("HMI equipment authoring", function () {
       { instance: "Main.P101", name: "FeedPump" },
     );
     assert.strictEqual(view.edits().length, 0, "the language server renames; the page is not edited here");
-  });
-
-  test("a terminal no PLC signal fits says which declaration would", () => {
-    assert.strictEqual(
-      missingSignalHelp("Main.TT101", { member: "Raw", direction: "input", type: "LREAL" }),
-      "No input of type LREAL is declared yet. Declare one with an address in your program, for example TT101_Raw AT %IL0 : LREAL;, then press Refresh.",
-    );
-    assert.match(
-      missingSignalHelp("Main.P101", { member: "RunCommand", direction: "output", type: "BOOL" }),
-      /P101_RunCommand AT %QX0\.0 : BOOL;/,
-    );
-    assert.match(missingSignalHelp("Main.FT1", { member: "Raw", direction: "input", type: "INT" }), /AT %IW0 : INT;/);
   });
 
   test("the hardware summary uses the language server's judgement", () => {
