@@ -81,15 +81,19 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             ],
         }
 
-    def test_release_sensitive_branch_requires_exact_sha_artifact(self) -> None:
-        failures = guard.validate_push_candidate(
-            self.repo,
-            local_ref="refs/heads/integrate/example",
-            local_oid=self.head,
-            remote_ref="refs/heads/integrate/example",
-            artifact=None,
-        )
-        self.assertIn("missing exact-SHA release-candidate artifact", "\n".join(failures))
+    def test_a_push_needs_no_artifact_but_main_and_release_tags_are_refused(self) -> None:
+        # Specification 22, "Change and release workflow" (owner, 31 October 2026): CI is the gate, so a work branch, an
+        # integration branch and a version bump push without any artifact; main changes only through a merged pull
+        # request and a release tag only through the Release workflow, neither pushed nor deleted from here. Catches the
+        # retired guard still blocking a push, and a direct push to main or of a tag going through.
+        for remote_ref in ("refs/heads/work/next", "refs/heads/integrate/example", "refs/heads/release/next"):
+            self.assertEqual(guard.validate_push(remote_ref=remote_ref), [], remote_ref)
+        for remote_ref, words in (
+            ("refs/heads/main", "merged pull request"),
+            ("refs/heads/master", "merged pull request"),
+            ("refs/tags/v1.2.3", "Release workflow"),
+        ):
+            self.assertIn(words, "\n".join(guard.validate_push(remote_ref=remote_ref)), remote_ref)
 
     def test_bootstrap_detects_any_agent_or_skill_mismatch(self) -> None:
         canonical = self.repo / "canonical"
@@ -1104,14 +1108,14 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         assets = [{"name": "trust.vsix"}, {"name": "SHA256SUMS"}]
         self.assertFalse(candidate_release.verify_downloaded_assets(asset_dir, assets))
 
-    @mock.patch.object(guard, "load_artifact", return_value=None)
-    def test_pre_push_input_blocks_release_branch(self, _load: mock.Mock) -> None:
-        line = (
-            f"refs/heads/integrate/example {self.head} "
-            f"refs/heads/integrate/example {'0' * 40}\n"
-        )
-        failures = guard.check_push_lines(self.repo, line.splitlines())
-        self.assertIn("missing exact-SHA", "\n".join(failures))
+    def test_pre_push_input_passes_a_branch_and_blocks_main(self) -> None:
+        # The hook's own input (git's pre-push lines): a branch goes through, a push to main is blocked, and a line that
+        # is not four fields is reported.
+        branch = f"refs/heads/integrate/example {self.head} refs/heads/integrate/example {'0' * 40}"
+        self.assertEqual(guard.check_push_lines([branch]), [])
+        main = f"refs/heads/work/next {self.head} refs/heads/main {'0' * 40}"
+        self.assertIn("merged pull request", "\n".join(guard.check_push_lines([main])))
+        self.assertIn("invalid pre-push input line", "\n".join(guard.check_push_lines(["broken"])))
 
 
 if __name__ == "__main__":
