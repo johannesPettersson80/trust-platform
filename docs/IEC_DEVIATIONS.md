@@ -645,16 +645,24 @@ re-check them against this rule when touched.
   - Bare (non-dotted) names never take this tolerance: a constant visible
     only inside a namespace stays unimported for callers without `USING`
     (matching the unimported-namespace no-leak rule).
+  - The compiler's lowering resolves a dotted reference with one lookup in
+    every constant context, declaration sizes and ordinary constant
+    initializers alike (DEV-041): exactly one registered constant, and in a
+    declaration size also a declared initial value (DEV-033), must carry the
+    reference's last segment. The analyzer admits a flattened container only
+    in the two declaration-size contexts, so an ordinary initializer that
+    names one keeps `undefined constant`.
 - Impact: documentation-faithful sizes (128/20/40-class stub constants)
   compile at their declared values instead of failing or being rewritten to
   a numeric fallback downstream.
 - Mitigation: the tolerance is confined to the CODESYS profile and to the two
   declaration-size contexts (string capacities, array bounds); under the IEC
   rules a dotted size reference must name an existing container path, so a
-  flattened one stays `undefined constant`. Ordinary initializers and other
-  constant-expression contexts keep the strict rule, references whose root
-  names a scope-local value (FB instance member access) are excluded, and
-  ambiguity is rejected rather than silently bound.
+  flattened one stays `undefined constant`. The analyzer keeps the strict
+  rule for ordinary initializers and the other constant-expression contexts,
+  so the lowering's lookup resolves there only what the analyzer admitted;
+  references whose root names a scope-local value (FB instance member
+  access) are excluded, and ambiguity is rejected rather than silently bound.
 
 
 - PLCopen import/export (trust-plcopen): `<string length>` /
