@@ -1336,11 +1336,16 @@ declaration's real values.
    - no command is resent after reconnection.
 6. Decided on 2 October 2026 while the user was away, approved by the user on 3 October 2026:
    - **Source:** the run target the extension has selected, the simulator or a runtime, reached
-     through its control endpoint. Live mode reads the page's bound paths with the control request
-     `hmi.read` (`{ "paths": […] }`, Viewer role, at most 1 000 paths) every 250 ms; the answer has
-     the stream's cycle count, values and missing paths (§11.1), with `period_ms` (250) and
-     `stale_ms` (750), and values turn stale as there (refined 26 October 2026, when the stale rule
-     moved into the runtime).
+     through its control endpoint: the simulator or runtime whose debug session the extension
+     holds, launched or attached, or the configured online runtime while it answers without one.
+     Without a control endpoint there is none. It is named by its session's target name, else
+     `Simulator` for the simulator and its endpoint for a runtime. The language server decides it
+     (`trust-lsp.runTargets`, action `hmiTarget`, specification 25 §6.9), and Deploy (§16.2
+     item 8) sends to the same target. Live mode reads the page's bound paths with the control
+     request `hmi.read` (`{ "paths": […] }`, Viewer role, at most 1 000 paths) every 250 ms; the
+     answer has the stream's cycle count, values and missing paths (§11.1), with `period_ms` (250)
+     and `stale_ms` (750), and values turn stale as there (refined 26 October 2026, when the stale
+     rule moved into the runtime).
    - **Commands (phase 1):** Live mode observes. Controls show their values but send nothing, and
      the editor says to operate in the runtime display. Item 4 needs the HMI session of a named
      user (§12.8, item 2), which the control endpoint does not carry; it applies once the editor
