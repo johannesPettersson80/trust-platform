@@ -1856,9 +1856,10 @@ the runtime lifecycle show of a runtime; the extension shows its answers.
   (`selection`); the Live Values status with the row operations of §4.1 and
   whether a Force must be armed (`liveValues`); the simulator's speed and its
   words (`speed`); the Connect check of §5.1 (`connect`); the kind of a
-  failure from its text (`failure`); and the managed runtimes with their
-  states, the outcome of a managed Start or Stop and the managed logs
-  (`managed`, `managedOutcome`, `managedLogs`).
+  failure from its text (`failure`); the run target that the HMI Builder's
+  Live mode and Deploy talk to (`hmiTarget`, specification 39 §11 item 6); and
+  the managed runtimes with their states, the outcome of a managed Start or Stop
+  and the managed logs (`managed`, `managedOutcome`, `managedLogs`).
 - The status bar names a runtime connected while a debug session is attached
   to it, or while the extension is online with a runtime that answers, such as
   one started outside the extension.
