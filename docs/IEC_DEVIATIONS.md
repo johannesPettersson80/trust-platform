@@ -623,6 +623,35 @@ re-check them against this rule when touched.
   - The subset is explicit in tests and the LD profile; a future schema version
     can add dedicated `CU`, `CD`, `R`, and `LD` pins plus `QU`/`QD` outputs.
 
+## 2026-10-26 - Enum values as their base integer, and fully qualified member access
+
+- Area: enumerated values in assignments, comparisons, call arguments, and
+  CASE labels; dotted `Namespace.EnumType.Member` references of any depth.
+- Normative IEC requirement: IEC 61131-3 Ed.3 treats an enumeration as a
+  distinct type whose members are not integer literals (§6.4.4.2); assigning
+  an enumerated value to an integer variable of the underlying base type is
+  not an implicit conversion the standard defines. Qualified member access
+  is spelled `EnumType#Value` (§6.4.4.2); the standard text was unavailable
+  on the authoring machine and the clause numbers mirror the citations
+  already used in `docs/specs/02-data-types.md`.
+- truST behavior and conflict:
+  - CODESYS treats an enum as its base type freely: an enumerated value
+    converts to its declared integer base in assignments, comparisons, and
+    call arguments, and members are reachable through fully qualified dotted
+    paths (`WagoTypesLog.eSysLogPriority.LOG_ERR`). truST now follows: any
+    enum source converts to its base (base-less enums are `INT`-based), and
+    dotted member access accepts any namespace depth. Integer assignment
+    INTO a base-less ("closed") enum and cross-enum assignment stay
+    rejected, preserving the existing user-type contract.
+- Impact: real CODESYS projects (the downstream tree carries ~154 such
+  sites: `eSysLogPriority`, `eLedID`, `eArea` classes) stop reporting E202
+  "cannot be used as a value" and IncompatibleAssignment for enum-to-base
+  flows; the strict reading rejects the same code.
+- Mitigation: the leniency is one-directional (enum → base only); integer
+  into closed enums, cross-enum assignment, and unknown member references
+  keep their diagnostics; generic `ANY` matching still does not treat an
+  enum as an integer actual beyond this base conversion.
+
 ## 2026-10-28 - In-out string binding across declared capacities
 
 - ID: DEV-035

@@ -11,6 +11,27 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Cancelling Identify while it waits for a loop in Auto to settle always stops before the loop is switched to Manual.
   Before, a Cancel that arrived during the wait's last reading could still let the switch happen; the mode was
   returned afterwards (specification 35, B3.4).
+- PLCopen GVL import: members that a dropped same-named `constant="true"`
+  mirror list re-declares keep constant-ness — the merged list renders a
+  separate `VAR_GLOBAL CONSTANT` section for them (`PLCO226` info)
+  instead of flattening them to plain variables, so mirror semantics
+  match the vendor project (PLCOPEN_DECISIONS 2026-10-26).
+- Enumerated values convert to their declared integer base in assignments,
+  comparisons, call arguments, and CASE labels — including base-less
+  enums (`INT` base) — and dotted enum member access accepts any namespace
+  depth (`WagoTypesLog.eSysLogPriority.LOG_ERR`), closing the E202
+  "cannot be used as a value" class on real CODESYS projects. Integer
+  assignment into base-less ("closed") enums, cross-enum assignment, and
+  unknown members stay rejected (IEC_DEVIATIONS 2026-10-26).
+- Qualified type references resolve case-insensitively through the
+  cross-file project type catalog: a consumer spelling a namespace-
+  qualified function-block type with different casing than the declaring
+  file (`WagoAppJSON.FB_JSON_Writer_02` over a stub declaring
+  `Fb_JSON_Writer_02`) now resolves the type and can invoke the instance
+  (`fbInst(...)`), instead of silently failing the type lookup and
+  reporting "not callable" at the call site. ST identifiers are
+  case-insensitive; the catalog now keys and matches like the symbol
+  table.
 - Call binding: `VAR_IN_OUT` strings bind across declared capacities (same
   string family only), matching CODESYS and the vendor buffer idiom of a
   `STRING(1)` formal whose real capacity arrives in a separate size argument
