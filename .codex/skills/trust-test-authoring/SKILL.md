@@ -42,15 +42,15 @@ assertions directly shows that a specification or test is missing.
    - `missing_test`
    - `behavior_defect`
    - `external_manual`
-4. Write necessary assertions alongside the complete implementation. Before the batch, review
+4. Write necessary assertions alongside the implementation. Before the push, review
    test imports/traits, feature and target gates, fixture registration, and the affected production
    path. For lifecycle changes, trace relevant transitions and alternate callers rather than
    testing only the reported happy path. Include native regressions plus required UI wiring proof.
-5. Freeze implementation and test sources, then execute the deduplicated validation batch under
-   AGENTS.md. Include required compile/lint and behavior checks with the intended toolchains.
-   A source review cannot certify that a new test compiles. Do not run per-edit or red/green loops.
+5. Run the compile check and the new and affected tests on the builder (AGENTS.md), then push:
+   the full suites run in CI on the pull request. A source review cannot certify that a new test
+   compiles.
 6. Preserve existing behavior-lock assertions for refactors. For bug fixes, retain any existing
-   pre-fix failure evidence; do not invent it or launch an extra baseline run without authorization.
+   pre-fix failure evidence; do not invent it.
    Compile, harness, dependency, registration and timeout failures are not failed behavior assertions.
 7. Report:
    - the specification sections;
@@ -60,8 +60,8 @@ assertions directly shows that a specification or test is missing.
 
 ## By scenario
 
-- **bug fix**: clarify the specification if needed, then write the regression assertion, make the
-  fix, and include the regression in the final consolidated batch.
+- **bug fix**: clarify the specification if needed, then write the regression assertion and make
+  the fix, both in the same pull request.
 - **refactor**: use behavior-lock tests. Split large test files by capability and keep test names
   stable where possible.
 - **malformed input**: assert a stable rejection, and assert that nothing was partly applied.
@@ -86,8 +86,8 @@ assertions directly shows that a specification or test is missing.
 - **CI-only regression**: this is a failure seen only in a platform compile or warning lane.
   - Keep the failed CI command and its log as the baseline.
   - Add a focused gate with the same target and flags.
-  - Include that command in the authorized consolidated batch. Retain failures and follow the
-    current retry authorization; do not loop until green. Host-only tests do not close it.
+  - Run that command before the push; the pull request's CI on the platform closes it. Host-only
+    tests do not.
 
 ## PLC verification program
 

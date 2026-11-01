@@ -171,8 +171,10 @@ by a hand-pushed tag, and 0.25.1's release outlasted its 90 minutes
 
 ### Exact-SHA candidate execution
 
-Release-sensitive pushes require a clean exact-SHA candidate artifact whose
-recorded local and remote commands all ran against the candidate revision. The
+Until CI runs every stage of the release guard (specification 22, "Change and
+release workflow"), release-sensitive pushes require a clean exact-SHA
+candidate artifact whose recorded local and remote commands all ran against
+the candidate revision. The
 remote VS Code gate uses a unique, bounded-length temporary directory under
 `/tmp` for browser and Extension Host process sockets, removes that directory
 when the gate exits, and keeps Cargo build output in the separately validated

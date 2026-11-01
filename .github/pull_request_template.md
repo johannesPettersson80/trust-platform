@@ -1,31 +1,26 @@
-# Summary
+# What and why
 
-<!-- Describe what changed and why. -->
+<!-- One lane of work, a few hours: what changes for the user and why. Name the checklist item. -->
 
-# Spec Requirement IDs Satisfied
+# Specification
 
-<!-- Required for spec-driven work. -->
-- `REQ-COMMS-`
+<!-- The sections of docs/specs this follows or changes. A missing or wrong section is fixed in this pull request. -->
 
-# Checklist IDs Completed
+# Tests
 
-<!-- Example: A1.1, A1.2, D5.1 -->
-- 
+<!-- The native tests that prove it, each with the wrong behaviour it catches. -->
 
-# HardRT Review Gate (T0 Paths Only)
+# Definition of done
 
-<!-- Mark all when touching realtime/T0 code paths. -->
-- [ ] No heap allocation in T0 hot path.
-- [ ] No blocking/lock waiting in T0 hot path.
-- [ ] No syscalls in T0 hot path.
-- [ ] No key-string parsing or route decisions in T0 publish/read hot path.
+- [ ] The specification describes the behaviour, and this pull request changed it where it was missing or wrong.
+- [ ] Native tests prove it; every expected value is worked out from the specification.
+- [ ] No logic added or grown in TypeScript.
+- [ ] `CHANGELOG.md` has an entry under `## [Unreleased]` for a user-visible change.
+- [ ] Docs, READMEs and screenshots describe the new behaviour.
+- [ ] The compile check and the focused tests passed before the push; CI runs the full suites.
+- [ ] Codex's findings are fixed or answered in this pull request.
 
-# Test Evidence
+# Real-time paths (T0 only)
 
-<!-- List exact commands executed and pass/fail result. -->
-- 
-
-# Notes / Risks
-
-<!-- Call out known deviations, follow-ups, or risk acceptance. -->
-- 
+- [ ] No heap allocation, blocking, lock waiting or syscalls in a T0 hot path.
+- [ ] No key-string parsing or route decisions in the T0 publish/read hot path.
