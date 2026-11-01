@@ -124,6 +124,29 @@ fn a_controller_output_still_moving_holds_the_wait_while_the_measurement_is_flat
 }
 
 #[test]
+fn the_progress_names_no_rate_until_twenty_readings_measure_it() {
+    // B3.4 step 2 (checklist G25, 1 November 2026): the wait's first progress, on its first reading, said "changing 0 degC/min"
+    // while the water rose. One reading has no slope, so the first text says the rate is being measured; the next one is due
+    // 10 s later, when the window holds 101 readings, and names the rise of 0.01 degC/s, 0.6 degC/min. Catches a rate read
+    // from fewer readings than the window's floor of twenty.
+    let mut rest = tracker(false);
+    let steps = feed(
+        &mut rest,
+        0,
+        100,
+        |seconds| 34.2 + 0.01 * seconds,
+        |_| 75.25,
+    );
+    assert_eq!(
+        progress_texts(&steps),
+        [
+            "Waiting for the loop to settle in Auto (measuring the rate of P1.TemperatureC)…",
+            "Waiting for the loop to settle in Auto (P1.TemperatureC changing 0.6 degC/min)…",
+        ]
+    );
+}
+
+#[test]
 fn a_measurement_still_rising_holds_the_wait_and_is_named() {
     // The water rises 0.01 degC/s, 0.6 degC/min, while the heater is held: catches a rest judged on the output alone.
     let mut rest = tracker(false);
