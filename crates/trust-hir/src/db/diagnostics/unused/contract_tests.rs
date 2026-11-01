@@ -392,3 +392,265 @@ END_PROGRAM
     assert_eq!(u32::from(warning.range.start()), expected);
     assert_eq!(warning.message, "unused variable 'Forgotten'");
 }
+
+#[test]
+fn extends_base_is_used_by_the_inheriting_declaration() {
+    // RED pin 2026-10-27: an EXTENDS/IMPLEMENTS target is an inheritance
+    // reference - the base FB was flagged W009 although the child declares
+    // the only (relationship) use. Measured on s4: fbLight and
+    // fbMqttPayloadBase are pure base classes and were reported unused.
+    let diagnostics = diagnostics_for(
+        &[
+            r#"
+FUNCTION_BLOCK fbBase
+VAR_INPUT
+    iIn : INT;
+END_VAR
+END_FUNCTION_BLOCK
+"#,
+            r#"
+FUNCTION_BLOCK fbChild EXTENDS fbBase
+VAR
+    x : INT;
+END_VAR
+    x := x;
+END_FUNCTION_BLOCK
+"#,
+        ],
+        0,
+    );
+    let base_unused: Vec<String> = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == DiagnosticCode::UnusedPou)
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect();
+
+    assert!(
+        !base_unused.iter().any(|message| message.contains("fbBase")),
+        "EXTENDS target must count as used: {base_unused:?}"
+    );
+
+    // The child itself is never instantiated - it still warns, but in ITS
+    // declaring file.
+    let child_diagnostics = diagnostics_for(
+        &[
+            r#"
+FUNCTION_BLOCK fbBase
+VAR_INPUT
+    iIn : INT;
+END_VAR
+END_FUNCTION_BLOCK
+"#,
+            r#"
+FUNCTION_BLOCK fbChild EXTENDS fbBase
+VAR
+    x : INT;
+END_VAR
+    x := x;
+END_FUNCTION_BLOCK
+"#,
+        ],
+        1,
+    );
+    let child_unused: Vec<String> = child_diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == DiagnosticCode::UnusedPou)
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect();
+    assert!(
+        child_unused
+            .iter()
+            .any(|message| message.contains("fbChild")),
+        "the never-instantiated child still warns in its own file: {child_unused:?}"
+    );
+    assert!(
+        !child_unused
+            .iter()
+            .any(|message| message.contains("fbBase")),
+        "the EXTENDS target must not warn from the child's file either: {child_unused:?}"
+    );
+}
+
+#[test]
+fn implements_interface_is_used_by_the_implementing_class() {
+    let diagnostics = diagnostics_for(
+        &[
+            r#"
+INTERFACE itfThing
+METHOD mDo : INT;
+END_METHOD
+END_INTERFACE
+"#,
+            r#"
+CLASS cThing IMPLEMENTS itfThing
+METHOD mDo : INT
+    mDo := 1;
+END_METHOD
+END_CLASS
+"#,
+        ],
+        0,
+    );
+    let unused: Vec<String> = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == DiagnosticCode::UnusedPou)
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect();
+
+    assert!(
+        !unused.iter().any(|message| message.contains("itfThing")),
+        "IMPLEMENTS target must count as used: {unused:?}"
+    );
+}
+
+#[test]
+fn qualified_cross_file_gvl_member_use_clears_the_unused_constant_warning() {
+    // RED pin 2026-10-27: name_from_node sees only the FIRST segment of a
+    // qualified value reference (GVals.UsedCrossFile -> "GVals"), so the
+    // collector marked the namespace used and left the member terminal
+    // unused - s4's GVLMqtt/GVLEntities constants fired W001 despite
+    // cross-file expression and declaration-size uses.
+    let diagnostics = diagnostics_for(
+        &[
+            r#"
+NAMESPACE GVals
+VAR_GLOBAL CONSTANT
+    UsedCrossFile : INT := 5;
+    NeverReferenced : INT := 6;
+END_VAR
+END_NAMESPACE
+"#,
+            r#"
+PROGRAM Main
+VAR
+    Value : INT;
+END_VAR
+Value := GVals.UsedCrossFile;
+END_PROGRAM
+"#,
+        ],
+        0,
+    );
+    let unused: Vec<String> = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == DiagnosticCode::UnusedVariable)
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect();
+
+    assert!(
+        !unused
+            .iter()
+            .any(|message| message.contains("UsedCrossFile")),
+        "qualified cross-file use must mark the constant used: {unused:?}"
+    );
+    assert!(
+        unused
+            .iter()
+            .any(|message| message.contains("NeverReferenced")),
+        "genuinely unreferenced constant must still warn: {unused:?}"
+    );
+}
+
+#[test]
+fn qualified_declaration_size_use_clears_the_unused_constant_warning() {
+    // The s4 uiLenMsgTopic shape: the only reference is a STRING size in
+    // another file's declaration. (A first cut of this pin used an enum
+    // member comparison as the "use" - but the pinned constant itself was
+    // never referenced there, so the warning was CORRECT; kept the fixture
+    // honest instead.)
+    let diagnostics = diagnostics_for(
+        &[
+            r#"
+NAMESPACE GVals
+VAR_GLOBAL CONSTANT
+    TopicLen : INT := 12;
+    NeverReferenced : INT := 6;
+END_VAR
+END_NAMESPACE
+"#,
+            r#"
+FUNCTION Build : INT
+VAR
+    Topic : STRING[GVals.TopicLen];
+END_VAR
+    Topic := Topic;
+    Build := 1;
+END_FUNCTION
+"#,
+        ],
+        0,
+    );
+    let unused: Vec<String> = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == DiagnosticCode::UnusedVariable)
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect();
+
+    assert!(
+        !unused.iter().any(|message| message.contains("TopicLen")),
+        "qualified declaration-size use must mark the constant used: {unused:?}"
+    );
+    assert!(
+        unused
+            .iter()
+            .any(|message| message.contains("NeverReferenced")),
+        "genuinely unreferenced constant must still warn: {unused:?}"
+    );
+}
+
+#[test]
+fn implementing_method_interface_pins_do_not_warn_but_extra_methods_do() {
+    // RED pin 2026-10-27: parameters of a method that IMPLEMENTS an
+    // interface method are contract-mandated (the implementing FB must
+    // declare the full interface signature even where the body ignores a
+    // pin) - they must not fire W002. The old exclusion covered only
+    // methods declared INSIDE an INTERFACE POU. A method that is NOT part
+    // of any implemented interface keeps the warning.
+    let diagnostics = diagnostics_for(
+        &[
+            r#"
+INTERFACE itfSub
+METHOD mHandle : BOOL
+VAR_INPUT
+    sTopic : STRING[10];
+    sCmd : STRING[10];
+END_VAR
+END_METHOD
+END_INTERFACE
+"#,
+            r#"
+FUNCTION_BLOCK fbSub IMPLEMENTS itfSub
+METHOD mHandle : BOOL
+VAR_INPUT
+    sTopic : STRING[10];
+    sCmd : STRING[10];
+END_VAR
+    sCmd := sCmd;
+    mHandle := TRUE;
+END_METHOD
+METHOD mExtra : BOOL
+VAR_INPUT
+    iDead : INT;
+END_VAR
+    mExtra := TRUE;
+END_METHOD
+END_FUNCTION_BLOCK
+"#,
+        ],
+        1,
+    );
+    let unused: Vec<String> = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == DiagnosticCode::UnusedParameter)
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect();
+
+    assert!(
+        !unused.iter().any(|message| message.contains("sTopic")),
+        "interface-mandated implementing-method pin must not warn: {unused:?}"
+    );
+    assert!(
+        unused.iter().any(|message| message.contains("iDead")),
+        "a pin of a method outside every implemented interface still warns: {unused:?}"
+    );
+}

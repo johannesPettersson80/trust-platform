@@ -8,7 +8,7 @@ import * as vscode from "vscode";
 import { runtimeLifecycleService } from "../../runtimeLifecycle";
 import { sendRuntimeControlRequest } from "../../runtimeControlClient";
 import type { DeployDeps } from "./deploy";
-import { runTargetOf } from "./runTarget";
+import { resolveHmiRunTarget } from "./runTarget";
 
 /** How long the runtime may take to check and activate a bundle. */
 const DEPLOY_TIMEOUT_MS = 30_000;
@@ -27,7 +27,7 @@ export const runtimeDeployDeps: DeployDeps = {
     }
   },
   async target() {
-    const target = runTargetOf((await runtimeLifecycleService.snapshot()).status);
+    const target = await resolveHmiRunTarget(await runtimeLifecycleService.snapshot());
     return target && { ...target, token: await runtimeLifecycleService.controlAuthToken(target.endpoint) };
   },
   control: (endpoint, token, operation, params) =>

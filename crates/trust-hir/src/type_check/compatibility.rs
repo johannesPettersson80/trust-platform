@@ -136,16 +136,21 @@ impl<'a> TypeChecker<'a> {
                 return self.is_assignable(*base, source);
             }
         }
-        if self.symbols.is_named_value_type(source) {
+        // CODESYS treats an enum as its base type freely in value position
+        // (E202 enum-as-value parity): any enum source converts to its base
+        // integer, not only explicit-base "named value" enums. The target
+        // side above keeps closed (base-less) enums rejecting integer
+        // assignment.
+        if let Some(Type::Enum { base, .. }) = self.symbols.type_by_id(source)
+            && (self.symbols.is_named_value_type(source) || self.symbols.dialect().is_codesys())
+        {
             if self.is_generic_type(target) {
                 return matches!(
                     self.symbols.type_by_id(target),
                     Some(Type::Any | Type::AnyDerived)
                 );
             }
-            if let Some(Type::Enum { base, .. }) = self.symbols.type_by_id(source) {
-                return self.is_assignable(target, *base);
-            }
+            return self.is_assignable(target, *base);
         }
 
         if target == TypeId::UNKNOWN || source == TypeId::UNKNOWN {
@@ -157,6 +162,82 @@ impl<'a> TypeChecker<'a> {
 
         match (target_ty, source_ty) {
             (Some(t), Some(s)) => self.types_compatible(t, s),
+            _ => false,
+        }
+    }
+
+    /// CODESYS silent-narrowing parity (IEC_DEVIATIONS 2026-10-28): a binding
+    /// between two integer/bit-string types is value-changing but legal —
+    /// the vendor toolchain compiles it with a warning. Used to demote
+    /// assignment and call-argument mismatch diagnostics from error to
+    /// warning; everything else (REAL, enums, strings, aggregates) keeps
+    /// the error.
+    pub(crate) fn is_integer_bit_string_binding(&self, target: TypeId, source: TypeId) -> bool {
+        // Only the CODESYS profile narrows integer/bit-string values with a
+        // warning; other profiles keep the rejection, so this demotion
+        // decision itself is the profile gate.
+        if !self.symbols.dialect().is_codesys() {
+            return false;
+        }
+        let integer_or_bit_string = |type_id: TypeId| {
+            let resolved = self.resolve_alias_type(type_id);
+            matches!(
+                self.symbols.type_by_id(resolved),
+                Some(
+                    Type::SInt
+                        | Type::Int
+                        | Type::DInt
+                        | Type::LInt
+                        | Type::USInt
+                        | Type::UInt
+                        | Type::UDInt
+                        | Type::ULInt
+                        | Type::Byte
+                        | Type::Word
+                        | Type::DWord
+                        | Type::LWord
+                )
+            )
+        };
+        integer_or_bit_string(target) && integer_or_bit_string(source)
+    }
+
+    /// CODESYS pointer-compatibility parity (IEC_DEVIATIONS 2026-10-29 (DEV-039)): the
+    /// vendor toolchain binds pointers whose pointees differ by a 1-byte
+    /// scalar class (`CHAR` ↔ `BYTE`, the vendor `MemCopy` idiom) and
+    /// accepts `ADR(STRING)` against byte-buffer pointers (the vendor
+    /// JSON-parser idiom), diagnosing the implicit conversion with a
+    /// warning. Element/record-boundary mismatches outside these forms
+    /// keep the error.
+    pub(crate) fn is_pointer_target_lenient_binding(&self, target: TypeId, source: TypeId) -> bool {
+        // Only the CODESYS profile lenient-binds these vendor pointer
+        // idioms; other profiles keep the rejection, so this demotion
+        // decision itself is the profile gate.
+        if !self.symbols.dialect().is_codesys() {
+            return false;
+        }
+        let pointee = |type_id: TypeId| {
+            self.symbols
+                .type_by_id(self.resolve_alias_type(type_id))
+                .and_then(|ty| match ty {
+                    Type::Pointer { target } => {
+                        self.symbols.type_by_id(self.resolve_alias_type(*target))
+                    }
+                    _ => None,
+                })
+        };
+        let (Some(formal), Some(actual)) = (pointee(target), pointee(source)) else {
+            return false;
+        };
+        match (formal, actual) {
+            (Type::Char, Type::Byte) | (Type::Byte, Type::Char) => true,
+            (Type::Array { element, .. }, Type::String { .. })
+            | (Type::String { .. }, Type::Array { element, .. }) => {
+                matches!(
+                    self.symbols.type_by_id(self.resolve_alias_type(*element)),
+                    Some(Type::Byte)
+                )
+            }
             _ => false,
         }
     }

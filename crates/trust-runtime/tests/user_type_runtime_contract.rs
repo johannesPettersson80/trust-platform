@@ -431,3 +431,61 @@ fn user_type_runtime_invalid_excess_initializer_is_not_hidden() {
         "primary missing-name diagnostic must remain visible: {error}"
     );
 }
+
+// Verification attempt for the W005 analyzer round (2026-10-28): a
+// derived DUT passed into a base-typed input should perform a base-part
+// copy. IGNORED, not deleted: the trust-runtime harness does not yet
+// support DUT EXTENDS field inheritance at runtime - `derived.iValue`
+// raised UndefinedField before the harness type-lowering merged inherited
+// fields, and the FB-call argument binding still raises TypeMismatch for
+// the derived argument (the same-type control passes). Enable this test
+// when the harness gains DUT-EXTENDS runtime field inheritance; the
+// analyzer-side behavior is pinned by the semantic_type_definitions
+// dut_upcast_* tests.
+#[test]
+#[ignore = "harness: DUT EXTENDS runtime field inheritance + derived->base argument coercion not yet supported (UndefinedField/TypeMismatch); analyzer behavior is pinned by the dut_upcast_* semantic_type_definitions tests"]
+fn derived_dut_into_base_input_copies_base_fields() {
+    let source = r#"
+TYPE stBase : STRUCT
+    iValue : INT;
+END_STRUCT END_TYPE
+TYPE stDerived EXTENDS stBase : STRUCT
+    iExtra : INT;
+END_STRUCT END_TYPE
+FUNCTION_BLOCK fbConsumer
+VAR_INPUT
+    stIn : stBase;
+END_VAR
+VAR_OUTPUT
+    iOut : INT;
+END_VAR
+    iOut := stIn.iValue;
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR
+    consumer : fbConsumer;
+    derived : stDerived;
+    iOut : INT;
+END_VAR
+    derived.iValue := 42;
+    derived.iExtra := 7;
+    consumer(stIn := derived);
+    iOut := consumer.iOut;
+END_PROGRAM
+"#;
+    let mut harness =
+        TestHarness::from_source(source).unwrap_or_else(|error| panic!("fixture: {error}"));
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
+
+    let out = harness
+        .get_output("iOut")
+        .unwrap_or_else(|| panic!("missing iOut"));
+    let Value::Int(i_out) = out else {
+        panic!("expected INT output, got {out:?}");
+    };
+    assert_eq!(
+        i_out, 42,
+        "base field must carry the derived argument's value"
+    );
+}

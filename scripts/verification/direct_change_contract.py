@@ -47,6 +47,19 @@ TEST_SUFFIXES = (
     ".test.ts",
     ".spec.ts",
 )
+# What a version bump changes (specification 22, "Change and release workflow"; `scripts/bump_version.py`): the
+# workspace manifest, the firmware's, the three lockfiles, the VS Code package and its lockfile, and the changelog.
+VERSION_BUMP_PATHS = {
+    "CHANGELOG.md",
+    "Cargo.lock",
+    "Cargo.toml",
+    "editors/vscode/package-lock.json",
+    "editors/vscode/package.json",
+    "firmware/trust-esp32c6/Cargo.lock",
+    "firmware/trust-esp32c6/Cargo.toml",
+    "firmware/trust-stm32u5a9/Cargo.lock",
+}
+CHANGELOG_FRAGMENTS = "changelog.d/"
 SPEC_PREFIXES = ("docs/specs/",)
 SPEC_PATHS = {
     "conformance/contract.md",
@@ -69,13 +82,18 @@ OWNING_SPEC_ROUTES = (
 
 
 def validate_direct_change_contract(
-    changed_files: Sequence[str], specifications: Sequence[str] = (), root: Path = Path(".")
+    changed_files: Sequence[str],
+    specifications: Sequence[str] = (),
+    root: Path = Path("."),
+    version_bump: bool = False,
 ) -> list[str]:
     """Require direct spec and native-test companions for production changes.
 
     The written specification is changed in the diff, or named by the `Specification: <specification> <section>` trailer of
     one of the change's commits (`specifications`, the trailers' values) when the change follows a section that it does not
-    change. Every named section must exist in its specification under `root`, whatever the diff holds.
+    change. Every named section must exist in its specification under `root`, whatever the diff holds. A version bump
+    (`version_bump`: the workspace version moves) that changes only what the bump changes needs no companion: it changes
+    no behaviour.
     """
     paths = tuple(_normalize(path) for path in changed_files)
     named: set[str] = set()
@@ -87,6 +105,8 @@ def validate_direct_change_contract(
         else:
             named.add(specification)
     if not any(_is_production_source(path) for path in paths):
+        return sorted(failures)
+    if version_bump and all(_is_version_bump_file(path) for path in paths):
         return sorted(failures)
 
     if not named and not any(_is_written_specification(path) for path in paths):
@@ -158,6 +178,10 @@ def _is_production_source(path: str) -> bool:
             and path.endswith(PRODUCTION_SUFFIXES)
         )
     ) and not _is_native_test(path)
+
+
+def _is_version_bump_file(path: str) -> bool:
+    return path in VERSION_BUMP_PATHS or path.startswith(CHANGELOG_FRAGMENTS)
 
 
 def _is_native_test(path: str) -> bool:

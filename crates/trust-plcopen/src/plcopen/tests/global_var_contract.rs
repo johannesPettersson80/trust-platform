@@ -807,3 +807,54 @@ fn plain_gvl_list_is_namespaced_for_qualified_access() {
     );
     assert!(source.contains("Count"));
 }
+
+// e!COCKPIT exports a same-named `constant="true"` mirror re-declaring
+// members the primary list carries as plain variables; when the mirror
+// drops as a duplicate, those members keep constant-ness in a separate
+// `VAR_GLOBAL CONSTANT` section (PLCOPEN_DECISIONS 2026-10-26).
+#[test]
+fn global_vars_constant_mirror_members_keep_constant_section() {
+    let fixture = global_var_fixture(
+        "constant-mirror",
+        r#"<globalVars name="PlantGlobals">
+  <variable name="Enabled"><type><bool/></type><initialValue><simpleValue value="TRUE"/></initialValue></variable>
+  <variable name="Count"><type><dint/></type><initialValue><simpleValue value="4"/></initialValue></variable>
+</globalVars>
+<globalVars name="PlantGlobals" constant="true">
+  <variable name="Count"><type><dint/></type><initialValue><simpleValue value="4"/></initialValue></variable>
+</globalVars>"#,
+        "",
+    );
+
+    let report = fixture.import().expect("import mirrored globals");
+    let source = read_source_named(&fixture.root, "PlantGlobals.st");
+
+    assert_eq!(report.discovered_global_var_lists, 2);
+    assert_eq!(report.imported_global_var_lists, 1);
+    assert_eq!(
+        source,
+        "NAMESPACE PlantGlobals\nVAR_GLOBAL\n    Enabled : BOOL := TRUE;\nEND_VAR\nVAR_GLOBAL CONSTANT\n    Count : DINT := 4;\nEND_VAR\nEND_NAMESPACE\n"
+    );
+}
+
+#[test]
+fn global_vars_without_constant_mirror_stay_single_section() {
+    let fixture = global_var_fixture(
+        "plain-only",
+        r#"<globalVars name="PlantGlobals">
+  <variable name="Enabled"><type><bool/></type></variable>
+  <variable name="Count"><type><dint/></type></variable>
+</globalVars>"#,
+        "",
+    );
+
+    let report = fixture.import().expect("import plain globals");
+    let source = read_source_named(&fixture.root, "PlantGlobals.st");
+
+    assert_eq!(report.imported_global_var_lists, 1);
+    assert_eq!(
+        source,
+        "NAMESPACE PlantGlobals\nVAR_GLOBAL\n    Enabled : BOOL;\n    Count : DINT;\nEND_VAR\nEND_NAMESPACE\n"
+    );
+    assert!(!source.contains("CONSTANT"), "{source}");
+}

@@ -457,3 +457,56 @@ END_PROGRAM
 "#,
     );
 }
+
+// Sibling and self calls from inside a program method (the s4
+// MqttSubscribeMulti shape): the implicit-self scope must reach the
+// owning program's children from a nested method body, not only from
+// the program body itself.
+#[test]
+fn test_program_method_sibling_call_resolves() {
+    check_no_errors(
+        r#"
+PROGRAM Main
+VAR
+    flag : BOOL;
+END_VAR
+METHOD PUBLIC mOuter : BOOL
+VAR_INPUT
+    sInput : STRING;
+END_VAR
+    mOuter := mInner(sInput);
+END_METHOD
+METHOD PUBLIC mInner : BOOL
+VAR_INPUT
+    sInput : STRING;
+END_VAR
+    mInner := sInput = '1';
+END_METHOD
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_program_method_self_call_resolves() {
+    check_no_errors(
+        r#"
+PROGRAM Main
+VAR
+    flag : BOOL;
+    depth : INT;
+END_VAR
+METHOD PUBLIC mStep : BOOL
+VAR_INPUT
+    sInput : STRING;
+END_VAR
+    IF depth < 3 THEN
+        depth := depth + 1;
+        mStep(sInput);
+    END_IF
+    mStep := depth >= 3;
+END_METHOD
+END_PROGRAM
+"#,
+    );
+}

@@ -171,23 +171,31 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
     }
 
     /// CODESYS qualified enum member access (`EnumType.Member`): returns the
-    /// enum's type id when `node` is a two-part field expression whose base
-    /// names an enum type and whose member names one of its values. The base
-    /// resolves through the scope chain, the global map, and a
-    /// namespace-suffix fallback, so namespace-scoped enums
-    /// (e!COCKPIT `NAMESPACE App TYPE eChar ...`) are found even from
-    /// outside their namespace.
+    /// enum's type id when `node` is a dotted field expression whose base
+    /// names an enum type and whose member names one of its values. The
+    /// base keeps every leading segment (CODESYS fully qualified
+    /// `Namespace.EnumType.Member` access), resolves through the scope
+    /// chain, the global map, and a namespace-suffix fallback, so
+    /// namespace-scoped enums (e!COCKPIT `NAMESPACE App TYPE eChar ...`)
+    /// are found even from outside their namespace.
     pub(in crate::type_check) fn resolve_qualified_enum_member(
         &self,
         node: &SyntaxNode,
     ) -> Option<TypeId> {
         let parts = self.qualified_name_from_field_expr(node)?;
-        if parts.len() != 2 {
+        if parts.len() < 2 {
             return None;
         }
+        // Two-part `EnumType.Member` is accepted under every profile; deeper
+        // fully qualified access (`Namespace.EnumType.Member`) is a CODESYS
+        // departure and keeps the IEC rejection elsewhere.
+        if parts.len() > 2 && !self.checker.symbols.dialect().is_codesys() {
+            return None;
+        }
+        let type_name = parts[..parts.len() - 1].join(".");
         self.checker.symbols.qualified_enum_member_type(
-            parts[0].as_str(),
-            parts[1].as_str(),
+            type_name.as_str(),
+            parts[parts.len() - 1].as_str(),
             self.checker.current_scope,
         )
     }

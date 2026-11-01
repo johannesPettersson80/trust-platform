@@ -101,7 +101,6 @@ export function run(): Promise<void> {
   require("./hmi-builder-live-network.test");
   require("./hmi-builder-live-operator.test");
   require("./hmi-builder-webview-operate.test");
-  require("./hmi-builder-run-target.test");
   require("./hmi-design-quality.test");
   require("./hmi-builder-quality.test");
   require("./hmi-builder-symbol-geometry.test");

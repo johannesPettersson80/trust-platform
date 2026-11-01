@@ -403,6 +403,17 @@ The semantic reference boundary also enforces:
   same-family source or `NULL`; and
 - reference arithmetic and reference ordering comparisons are invalid.
 
+Pointer-target vendor leniency (IEC_DEVIATIONS DEV-028): the family rule
+above has one CODESYS-parity carve-out for pointer bindings — a call
+argument or assignment binding between `POINTER TO CHAR` and
+`POINTER TO BYTE`, and between `POINTER TO STRING[n]` and
+`POINTER TO ARRAY[i..j] OF BYTE`, is diagnosed as a warning carrying the
+ordinary mismatch code (`E205`/`E203`), not an error; the vendor
+`MemCopy` byte-pointer formals and the vendor JSON parser's data-buffer
+formal bind without source contortions. Every other pointee mismatch
+(wider scalar classes, array bound widening, records, other families)
+stays an error.
+
 At runtime, a failed dynamic OOP assignment attempt stores `NULL`; it is not a
 runtime fault. Dereferencing that result without the required null check is a
 runtime fault and performs no partial read or write.

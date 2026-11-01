@@ -383,9 +383,10 @@ END_PROGRAM
 }
 
 #[test]
-fn string_in_out_requires_equal_declared_capacity() {
-    let errors = check_errors(
-        r#"
+fn string_in_out_binds_across_declared_capacities() {
+    // Under every profile, the STRING vs WSTRING family boundary still
+    // rejects (pinned in call_binding_contract_rejection); widths differ.
+    let source = r#"
 FUNCTION_BLOCK Bind
 VAR_IN_OUT
     narrow : STRING[5];
@@ -404,15 +405,29 @@ END_VAR
 fb(narrow := text, wide_narrow := wide_text);
 fb(narrow := default_text, wide_narrow := wide_equal);
 END_PROGRAM
-"#,
-    );
+"#;
+    let errors = check_errors(source);
     assert_eq!(
         errors
             .iter()
             .filter(|code| **code == DiagnosticCode::InvalidArgumentType)
             .count(),
         3,
-        "STRING/WSTRING width mismatches, including STRING (STRING[80]) to STRING[5], must be rejected: {errors:?}"
+        "IEC keeps the capacity-equality rule: STRING/WSTRING width mismatches in in-out position must be rejected: {errors:?}"
+    );
+
+    // Under the CODESYS profile in-out strings bind across declared
+    // capacities, including bounded-to-unbounded, in both width directions
+    // (IEC_DEVIATIONS 2026-10-28, superseding the 2026-07-13
+    // capacity-equality decision for that profile).
+    let errors = check_errors_in(Dialect::Codesys, source);
+    assert_eq!(
+        errors
+            .iter()
+            .filter(|code| **code == DiagnosticCode::InvalidArgumentType)
+            .count(),
+        0,
+        "codesys: in-out strings bind across capacities and bounded-to-unbounded: {errors:?}"
     );
 }
 

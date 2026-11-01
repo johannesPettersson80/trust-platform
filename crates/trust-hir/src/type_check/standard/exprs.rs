@@ -53,7 +53,15 @@ impl<'a> TypeChecker<'a> {
                     "unable to resolve SIZEOF type operand",
                 );
             }
-            return TypeId::DINT;
+            // CODESYS SIZEOF yields an unsigned magnitude; UDINT matches the
+            // vendor udiSize idiom (WagoAppString) and narrower destinations
+            // convert under the integer-narrowing warning. Other profiles
+            // keep the signed DINT result.
+            return if self.symbols.dialect().is_codesys() {
+                TypeId::UDINT
+            } else {
+                TypeId::DINT
+            };
         }
 
         if let Some(expr) = node
@@ -83,7 +91,13 @@ impl<'a> TypeChecker<'a> {
             }
         }
 
-        TypeId::DINT
+        // See the type-operand branch above: SIZEOF is unsigned under
+        // codesys, signed elsewhere.
+        if self.symbols.dialect().is_codesys() {
+            TypeId::UDINT
+        } else {
+            TypeId::DINT
+        }
     }
 
     fn resolve_sizeof_expr_target_type(

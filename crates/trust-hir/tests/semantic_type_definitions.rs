@@ -425,6 +425,72 @@ END_PROGRAM
 }
 
 #[test]
+fn test_dut_upcast_assignment_does_not_warn_implicit_conversion() {
+    // RED pin 2026-10-28: a derived -> base STRUCT assignment is a
+    // well-defined inheritance upcast (base-part copy; types_compatible
+    // already accepts it) and must not additionally fire a W005
+    // implicit-conversion warning. Measured on the consumer project:
+    // 23 such sites (uniform-entity interface architecture).
+    let codes = check_warnings(
+        r#"
+TYPE BaseEntity : STRUCT
+    sID : STRING;
+END_STRUCT END_TYPE
+TYPE EntityBinSen EXTENDS BaseEntity : STRUCT
+    bSen : BOOL;
+END_STRUCT END_TYPE
+PROGRAM Test
+    VAR
+        base : BaseEntity;
+        derived : EntityBinSen;
+    END_VAR
+    base := derived;
+END_PROGRAM
+"#,
+    );
+
+    assert!(
+        !codes.contains(&DiagnosticCode::ImplicitConversion),
+        "inheritance upcast must not warn W005: {codes:?}"
+    );
+}
+
+#[test]
+fn test_dut_upcast_call_argument_does_not_warn_implicit_conversion() {
+    let codes = check_warnings(
+        r#"
+TYPE BaseEntity : STRUCT
+    sID : STRING;
+END_STRUCT END_TYPE
+TYPE EntityBinSen EXTENDS BaseEntity : STRUCT
+    bSen : BOOL;
+END_STRUCT END_TYPE
+FUNCTION_BLOCK fbPublisher
+METHOD PUBLIC mPublish
+VAR_INPUT
+    uiIdx : UINT;
+    stEntityIn : BaseEntity;
+END_VAR
+    uiIdx := uiIdx;
+END_METHOD
+END_FUNCTION_BLOCK
+PROGRAM Test
+    VAR
+        pub : fbPublisher;
+        entities : ARRAY[0..1] OF EntityBinSen;
+    END_VAR
+    pub.mPublish(uiIdx := 0, stEntityIn := entities[0]);
+END_PROGRAM
+"#,
+    );
+
+    assert!(
+        !codes.contains(&DiagnosticCode::ImplicitConversion),
+        "derived struct passed to a base-typed call parameter must not warn W005: {codes:?}"
+    );
+}
+
+#[test]
 fn test_dut_extends_rejects_base_to_derived_assignment() {
     check_has_error(
         r#"

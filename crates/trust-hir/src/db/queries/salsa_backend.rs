@@ -612,7 +612,12 @@ struct SalsaProjectTypeProvider<'a> {
 
 impl ProjectTypeProvider for SalsaProjectTypeProvider<'_> {
     fn catalog_entry(&self, qualified_name: &str) -> Option<ProjectTypeCatalogEntry> {
-        self.catalog.entries.get(qualified_name).cloned()
+        // Keys are normalized at catalog build (ASCII uppercase), matching
+        // the symbol table's case-insensitive name handling.
+        self.catalog
+            .entries
+            .get(qualified_name.to_ascii_uppercase().as_str())
+            .cloned()
     }
 
     fn load_type_declaration(

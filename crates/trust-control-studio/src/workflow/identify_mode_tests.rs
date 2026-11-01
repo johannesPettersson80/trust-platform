@@ -501,9 +501,10 @@ fn a_campaign_cancelled_while_the_loop_rests_in_auto_writes_nothing() {
 }
 
 /// B3.4 step 1: Identify reads a loop found in Auto until it rests, and only then enters Manual. The tank at rest (45 degC,
-/// 30 %) is read until one baseline window of the 600 s maximum is full, 30 s of the runtime's process time read every 100 ms;
-/// the wait's progress at 0 s, 10 s and 20 s says the same, so it is shown once, before the mode change. Catches a mode change
-/// before the loop has been read at rest.
+/// 30 %) is read until one baseline window of the 600 s maximum is full, 30 s of the runtime's process time read every 100 ms.
+/// The wait's progress at 0 s, on its first reading, says it is measuring the rate (B3.4 step 2, checklist G25); at 10 s and
+/// 20 s, with the window's readings, the loop at rest changes 0 degC/min, shown once; both come before the mode change.
+/// Catches a mode change before the loop has been read at rest.
 #[test]
 fn a_loop_found_in_auto_is_read_until_it_rests_before_the_mode_change() {
     let state = FakeState::new(StartBehaviour::Acknowledged, 0);
@@ -530,7 +531,10 @@ fn a_loop_found_in_auto_is_read_until_it_rests_before_the_mode_change() {
         .collect();
     assert_eq!(
         waits,
-        ["progress Waiting for the loop to settle in Auto (Main.TT101.Value changing 0 degC/min)…"],
+        [
+            "progress Waiting for the loop to settle in Auto (measuring the rate of Main.TT101.Value)…",
+            "progress Waiting for the loop to settle in Auto (Main.TT101.Value changing 0 degC/min)…",
+        ],
         "the wait shows its progress before the mode change: {log:?}"
     );
     let _ = fs::remove_dir_all(&folder);
