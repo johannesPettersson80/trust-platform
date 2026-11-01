@@ -205,6 +205,16 @@ pub(super) fn handle_hmi_route(
                 let _ = request.respond(auth_error_response(error));
             }
         },
+        "/api/hmi/history/export" => match authorise(&request, &ctx) {
+            Ok(()) => {
+                let (status, data) =
+                    history::export(url, ctx.control_state, super::web_helpers::now_ms());
+                respond_json(request, status, &data)
+            }
+            Err(error) => {
+                let _ = request.respond(auth_error_response(error));
+            }
+        },
         "/ws/hmi" => open_stream(request, url, &ctx),
         "/hmi" | "/hmi/" => shell(
             request,

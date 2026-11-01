@@ -66,6 +66,8 @@ export class Host implements DisplayHost {
   socketUrls: string[] = [];
   /** What `/api/hmi/history` answers: the historian's samples for trends. */
   historyBody: unknown = { enabled: false, samples: {} };
+  /** The runtime's answer to a trend's export (`/api/hmi/history/export`). */
+  exportBody: unknown = { name: "trend.csv", csv: "time\n" };
   /** What `/api/hmi/alarms` answers: the alarm list and the records the runtime keeps. */
   alarmsBody: unknown = { alarms: null, events: [] };
   /** The addresses fetched, in order. */
@@ -99,6 +101,7 @@ export class Host implements DisplayHost {
     this.fetched.push(url);
     if (url.startsWith("/api/hmi/session")) return this.session;
     if (url.startsWith("/api/hmi/alarms")) return { status: 200, body: this.alarmsBody };
+    if (url.startsWith("/api/hmi/history/export")) return { status: 200, body: this.exportBody };
     if (url.startsWith("/api/hmi/history")) return { status: 200, body: this.historyBody };
     if (url.startsWith("/api/hmi/popup")) {
       // A popup by its name, a faceplate by the object that opens it (§8.7).
