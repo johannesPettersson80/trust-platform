@@ -397,6 +397,32 @@ workflow instead of skipping its checks. GitHub's own path filters compare only 
 0.25.0's 10,252-file pull request ran no documentation workflow, and the site
 broke on `main` (28 October 2026).
 
+The merge queue tests each pull request again as a merge group: the pull
+request merged onto the current `main`, or onto the groups queued ahead of it.
+Every workflow that checks pull requests runs for a merge group (event
+`merge_group`), and every job and step that runs for a pull request runs for a
+merge group too. The detection compares the group's commit with the commit it
+was built on (`<base>..<head>`), so the queue runs the checks of what the queued
+pull requests change, not those of `main`'s own commits. A merge group neither
+rehearses nor releases: its pull request was rehearsed, and the release follows
+`main`'s CI (specification 24, "Release after main CI"). The project's own
+runner runs neither a pull request nor a merge group, which carries a pull
+request's code. The checks that `main` requires before a merge are listed in
+`.github/required-checks.txt`; each is the name of exactly one job, in a workflow
+that runs on pull requests and in the merge queue, so that a renamed job cannot
+block every pull request and a shared name cannot satisfy a check for another
+workflow (Render Diagrams and Docs Captures both named their last job
+`Conclusion` until 1 November 2026).
+
+A new push to a pull request cancels the pull request's unfinished run of
+each workflow, so that no runner works on a head that nobody will merge; the
+run of a merge group, of a push to `main` and a scheduled or manual run are
+never cancelled by another (1 November 2026: three pushes to #151 ran three
+full CI runs side by side while `main`'s CI, which the release waits for,
+queued for runners). Docs Pages' deploys of `main` share one group: the running
+deploy finishes, and a newer deploy replaces one that still waits, so the site
+skips the commits between (GitHub's Pages workflows do the same).
+
 ### Documentation that follows the product
 
 The documentation is tested against the product, not only for its links,
@@ -488,16 +514,16 @@ adds a capture commits its first image, and nobody commits refreshed ones. The
 refresh pull request of earlier releases, which had to be merged into each
 release by hand, is gone.
 
-A pull request that changes the site's paths runs the Docs Pages build too, with
-the newest screenshots of `main`: the media, the link, catalogue and database
-example checks, `mkdocs build --strict`, and the asset and search checks. It
-publishes nothing, and its run never cancels a deploy of `main`. Every job but
-the deploy runs with a read-only token, since a pull request's run executes the
-pull request's own scripts; only the deploy may write to Pages and request an
-OIDC token. Its conclusion,
-Docs Pages Conclusion, fails when a check failed, so a broken page fails the pull
-request instead of the deploy after the merge (the retired release guard ran
-these checks before each push; Codex's review of #153, 1 November 2026).
+A pull request or a merge group that changes the site's paths runs the Docs
+Pages build too, with the newest screenshots of `main`: the media, the link,
+catalogue and database example checks, `mkdocs build --strict`, and the asset
+and search checks. It publishes nothing, and its run never cancels a deploy of
+`main`. Every job but the deploy runs with a read-only token, since a pull
+request's run executes the pull request's own scripts; only the deploy may write
+to Pages and request an OIDC token. Its conclusion, Docs Pages Conclusion, fails
+when a check failed, so a broken page fails the pull request instead of the
+deploy after the merge (the retired release guard ran these checks before each
+push; Codex's review of #153, 1 November 2026).
 
 ### Release-candidate discovery parity
 
