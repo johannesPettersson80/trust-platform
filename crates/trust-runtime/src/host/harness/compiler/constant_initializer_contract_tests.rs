@@ -671,7 +671,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "pins the analyzer unique-leaf tolerance, which lands in the declared-size PR; the harness half is in place"]
 fn constant_initializer_contract_flattened_gvl_leaf_resolves_in_capacity() {
     // IEC_DEVIATIONS DEV-041: a dotted reference naming a container level
     // the library stub flattened away (`LogParameter.MAX_LOG_MSG_LEN`
@@ -699,7 +698,6 @@ END_PROGRAM
 }
 
 #[test]
-#[ignore = "same: requires the analyzer unique-leaf tolerance from the declared-size PR"]
 fn constant_initializer_contract_ambiguous_flattened_leaf_stays_rejected() {
     let error = compile_error(&[
         (
