@@ -18,13 +18,16 @@ pub(super) fn workspace_config_match_for_uri(
 ) -> Option<(Url, ProjectConfig)> {
     let configs = state.workspace_configs.read();
     if let Some(path) = uri_to_path(uri) {
-        let path = normalize_match_path(path);
+        // The folder the client names and the file the indexer walked can spell one directory
+        // differently — a symlink on the way (`/var` against `/private/var`) or a short Windows
+        // path — so both sides meet in their canonical form (specification 14 §7.6).
+        let path = normalize_match_path(canonicalize_path(path));
         let mut best: Option<(usize, Url, ProjectConfig)> = None;
         for (root_url, config) in configs.iter() {
             let Some(root_path) = uri_to_path(root_url) else {
                 continue;
             };
-            let root_path = normalize_match_path(root_path);
+            let root_path = normalize_match_path(canonicalize_path(root_path));
             if path.starts_with(&root_path) {
                 let depth = root_path.components().count();
                 update_best_match(&mut best, depth, root_url, config);
@@ -254,51 +257,16 @@ fn normalize_match_path(path: PathBuf) -> PathBuf {
     normalized
 }
 
-#[cfg(windows)]
-fn strip_windows_device_prefix(path: PathBuf) -> PathBuf {
-    let raw = match path.to_str() {
-        Some(raw) => raw,
-        None => return path,
-    };
-
-    if let Some(rest) = raw
-        .strip_prefix("\\\\?\\UNC\\")
-        .or_else(|| raw.strip_prefix("\\?\\UNC\\"))
-        .or_else(|| raw.strip_prefix("\\\\.\\UNC\\"))
-        .or_else(|| raw.strip_prefix("\\??\\UNC\\"))
-    {
-        let mut unc = String::from("\\\\");
-        unc.push_str(rest);
-        return PathBuf::from(unc);
-    }
-
-    if let Some(rest) = raw
-        .strip_prefix("\\\\?\\")
-        .or_else(|| raw.strip_prefix("\\?\\"))
-        .or_else(|| raw.strip_prefix("\\\\.\\"))
-        .or_else(|| raw.strip_prefix("\\??\\"))
-    {
-        return PathBuf::from(rest);
-    }
-
-    path
-}
-
-#[cfg(not(windows))]
-fn strip_windows_device_prefix(path: PathBuf) -> PathBuf {
-    path
-}
-
 pub(super) fn canonicalize_path(path: PathBuf) -> PathBuf {
     if path_debug_enabled() {
         tracing::info!(target: "trust_lsp::path", "canonicalize_path input: {}", path.display());
     }
-    if let Ok(canon) = path.canonicalize() {
-        let canon = strip_windows_device_prefix(canon);
-        if path_debug_enabled() {
-            tracing::info!(target: "trust_lsp::path", "canonicalize_path output: {}", canon.display());
-        }
-        return canon;
+    // One canonical form everywhere: `config` owns the canonicalize-or-self path (with the
+    // Windows device-prefix stripping) that the library-surface matching and the configuration
+    // load share with this module.
+    let canon = crate::config::canonicalize_path(path);
+    if path_debug_enabled() {
+        tracing::info!(target: "trust_lsp::path", "canonicalize_path output: {}", canon.display());
     }
-    path
+    canon
 }

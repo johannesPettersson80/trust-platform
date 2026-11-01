@@ -578,4 +578,119 @@ mod tests {
             Path::new("src").join("Main.st").display().to_string()
         );
     }
+
+    /// A library's declarations, unused by construction: the vendor binary owns the bodies.
+    /// Assigning a function's own name is part of its result semantics, not a use (specification
+    /// 28 §1), so the declarations stay unused.
+    const VENDOR_SOURCE: &str = "FUNCTION VendConcat : STRING\n\
+         VAR_INPUT\n    a : STRING;\n    b : STRING;\nEND_VAR\n\
+         VAR CONSTANT limit : INT := 10;\nEND_VAR\n\
+         VendConcat := '';\nEND_FUNCTION\n";
+
+    /// The project's own file with the same kinds of unused declaration, which do warn.
+    const MAIN_SOURCE: &str = "PROGRAM Main\nEND_PROGRAM\n\n\
+         FUNCTION ProjScale : INT\n\
+         VAR_INPUT\n    value : INT;\nEND_VAR\n\
+         ProjScale := 0;\nEND_FUNCTION\n";
+
+    /// A project with a vendor library folder inside it.
+    struct LibraryProject(PathBuf);
+
+    impl LibraryProject {
+        fn new(name: &str, config: &str) -> Self {
+            let root =
+                std::env::temp_dir().join(format!("trust-lsp-check-{name}-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&root);
+            for (path, text) in [
+                ("trust-lsp.toml", config.to_string()),
+                ("libs/vendor/Vendor.st", VENDOR_SOURCE.to_string()),
+                ("src/Main.st", MAIN_SOURCE.to_string()),
+            ] {
+                let file = root.join(path);
+                std::fs::create_dir_all(file.parent().expect("a folder")).expect("folders");
+                std::fs::write(&file, text).expect("write source");
+            }
+            Self(root)
+        }
+
+        fn root(&self) -> &str {
+            self.0.to_str().expect("utf-8 path")
+        }
+
+        /// The codes of the unused-symbol family that `check` reports for one file, by file name.
+        /// The name, not the whole relative path: a `canonicalize` hiccup under load makes the
+        /// report fall back to absolute paths.
+        fn unused_codes(payload: &serde_json::Value, file_name: &str) -> Vec<String> {
+            payload["diagnostics"]
+                .as_array()
+                .expect("diagnostics")
+                .iter()
+                .filter(|item| {
+                    item["path"]
+                        .as_str()
+                        .is_some_and(|path| path.ends_with(file_name))
+                })
+                .filter_map(|item| item["code"].as_str())
+                .filter(|code| matches!(*code, "W001" | "W002" | "W009"))
+                .map(|code| code.to_string())
+                .collect()
+        }
+    }
+
+    impl Drop for LibraryProject {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[tokio::test]
+    async fn a_library_file_keeps_no_unused_warnings_in_check() {
+        let project = LibraryProject::new(
+            "library",
+            "[project]\ninclude_paths = [\"src\"]\n\n[[libraries]]\nname = \"Vendor\"\npath = \"libs/vendor\"\n",
+        );
+        let (status, out, err) =
+            check_output(&["--project", project.root(), "--format", "json"]).await;
+        assert_eq!(status, 0, "stderr: {err}");
+        let payload: serde_json::Value = serde_json::from_str(&out).expect("one JSON object");
+        assert_eq!(payload["files"], 2);
+        assert_eq!(
+            LibraryProject::unused_codes(&payload, "Vendor.st"),
+            Vec::<String>::new(),
+            "the library's unused surface must not warn: {out}"
+        );
+        let main_codes = LibraryProject::unused_codes(&payload, "Main.st");
+        assert!(
+            main_codes.contains(&"W009".to_string()) && main_codes.contains(&"W002".to_string()),
+            "the project's own unused declarations must warn: {out}"
+        );
+        assert_eq!(err, "");
+    }
+
+    #[tokio::test]
+    async fn a_library_folder_that_is_the_project_root_keeps_every_warning() {
+        let project = LibraryProject::new(
+            "library-root",
+            "[[libraries]]\nname = \"Whole\"\npath = \".\"\n",
+        );
+        let (status, out, err) =
+            check_output(&["--project", project.root(), "--format", "json"]).await;
+        assert_eq!(status, 0, "stderr: {err}");
+        let payload: serde_json::Value = serde_json::from_str(&out).expect("one JSON object");
+        assert_eq!(payload["files"], 2, "{out}");
+        // The refused entry exempts nothing: every file of the project keeps its warnings.
+        let vendor_codes = LibraryProject::unused_codes(&payload, "Vendor.st");
+        assert!(
+            vendor_codes.contains(&"W001".to_string())
+                && vendor_codes.contains(&"W009".to_string())
+                && vendor_codes.contains(&"W002".to_string()),
+            "the library's declarations must warn when the entry is refused: {out}"
+        );
+        let main_codes = LibraryProject::unused_codes(&payload, "Main.st");
+        assert!(
+            main_codes.contains(&"W009".to_string()) && main_codes.contains(&"W002".to_string()),
+            "the project's own declarations must warn: {out}"
+        );
+        assert_eq!(err, "");
+    }
 }
