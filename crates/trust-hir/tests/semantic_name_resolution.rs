@@ -390,3 +390,126 @@ END_PROGRAM
         DiagnosticCode::InvalidIdentifier,
     );
 }
+
+// FB instance invocation where the consumer's spelling of the
+// namespace-qualified FB type differs in case from the declaring file's
+// (vendor stubs spell `Fb_...`, project code writes `FB_...`). The type
+// reference itself resolves case-insensitively; the instance call must
+// too (found via the s4 fbJsonWriter2 E103 class).
+#[test]
+fn fb_instance_call_resolves_with_case_mismatched_qualified_type() {
+    let mut db = Database::new();
+    db.set_source_text(
+        FileId(0),
+        r#"
+NAMESPACE WagoAppJSON
+FUNCTION_BLOCK Fb_JSON_Writer_02
+VAR_INPUT
+    sFrame : STRING[16];
+END_VAR
+VAR_OUTPUT
+    xError : BOOL;
+END_VAR
+END_FUNCTION_BLOCK
+END_NAMESPACE
+"#
+        .to_string(),
+    );
+    db.set_source_text(
+        FileId(1),
+        r#"
+FUNCTION_BLOCK fbHost
+VAR
+    fbWriter : WagoAppJSON.FB_JSON_Writer_02;
+    xErr : BOOL;
+END_VAR
+fbWriter(sFrame := 'x', xError => xErr);
+END_FUNCTION_BLOCK
+"#
+        .to_string(),
+    );
+
+    let errors = db
+        .diagnostics(FileId(1))
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error)
+        .map(|diagnostic| diagnostic.code)
+        .collect::<Vec<_>>();
+    assert!(
+        errors.is_empty(),
+        "case-mismatched qualified FB instance call must resolve, got {errors:?}"
+    );
+}
+
+// CODESYS fully qualified enum member access through a namespace
+// (`Namespace.EnumType.Member`) types as the enum's base in value
+// position and is accepted as a CASE label — the ~154-site downstream
+// class that fell through to "type 'eX' cannot be used as a value"
+// (E202) when the resolver only accepted exactly two dotted parts.
+#[test]
+fn namespace_qualified_enum_member_three_parts_resolves_in_value_position() {
+    check_no_errors_in(
+        Dialect::Codesys,
+        r#"
+NAMESPACE WagoTypesLog
+TYPE eSysLogPriority :
+    (Debug := 0, Info := 1, Error := 2);
+END_TYPE
+END_NAMESPACE
+
+PROGRAM Main
+VAR
+    level : INT;
+END_VAR
+    level := WagoTypesLog.eSysLogPriority.Error;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn namespace_qualified_enum_member_three_parts_case_label_resolves() {
+    check_no_errors_in(
+        Dialect::Codesys,
+        r#"
+NAMESPACE WagoTypesLog
+TYPE eSysLogPriority :
+    (Debug := 0, Info := 1, Error := 2);
+END_TYPE
+END_NAMESPACE
+
+PROGRAM Main
+VAR
+    level : INT;
+    handled : BOOL;
+END_VAR
+    CASE level OF
+        WagoTypesLog.eSysLogPriority.Error: handled := TRUE;
+        ELSE handled := FALSE;
+    END_CASE
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn namespace_qualified_enum_member_unknown_member_still_rejected() {
+    check_has_error_in(
+        Dialect::Codesys,
+        r#"
+NAMESPACE WagoTypesLog
+TYPE eSysLogPriority :
+    (Debug := 0, Info := 1, Error := 2);
+END_TYPE
+END_NAMESPACE
+
+PROGRAM Main
+VAR
+    level : INT;
+END_VAR
+    level := WagoTypesLog.eSysLogPriority.Nope;
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidOperation,
+    );
+}

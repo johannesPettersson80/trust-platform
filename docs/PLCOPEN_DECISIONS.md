@@ -243,3 +243,42 @@ This file tracks implementation decisions made where PLCopen profiles or source 
     false-error flood. Both behaviors are data-loss or noise classes the
     dialect mirror cannot tolerate; the strict-IEC adapter mode keeps the
     unqualified-friendly shape for consumers that need it.
+
+## 2026-10-26 - Same-named constant mirrors keep constant-ness on merged GVL lists
+
+- Context: e!COCKPIT exports a same-named `constant="true"` mirror list
+  re-declaring members the primary list carries as plain variables
+  (measured: `GVLMqtt` carries main + subset copy + constant mirror in one
+  XML). The mirror drops as a subset duplicate (PLCO223-family
+  tolerance), which flattened its members to plain `VAR_GLOBAL` entries —
+  the mirror lost constant-ness relative to the vendor project.
+- Decision: members a dropped constant mirror re-declares render in a
+  separate `VAR_GLOBAL CONSTANT` section of the primary list's mirror
+  file (stable order preserved; `PLCO226` info reports the carry). Lists
+  that are entirely constant keep the whole-list header via PLCO224;
+  non-subset constant lists still import as their own `_N` file with
+  their own header. Per-name granularity is deliberate: a whole-list
+  header would wrongly constant-qualify the primary list's plain members.
+- Reason: assignment-to-constant diagnostics and `is_constant` pools on
+  the mirror must match the vendor project's semantics; silent qualifier
+  loss is a fidelity class the dialect mirror cannot tolerate.
+
+## 2026-10-28 - Method VAR_IN_OUT sections import as by-reference method parameters
+
+- Context: e!COCKPIT/CODESYS exports declare `VAR_IN_OUT` (by-reference)
+  parameters in addData `<Method>` blocks exactly as at FUNCTION and
+  FUNCTION_BLOCK interface level (measured on the s4 WAGO PFC200 project,
+  whose methods take FB-typed in-out device handles). Retagging them to
+  inputs for import misrepresents by-ref parameters as by-value and makes
+  writes through them fire invalid-assignment-target diagnostics.
+- Decision: `<inOutVars>` sections inside addData `<Method>` blocks import
+  natively - the method attaches to its owner FUNCTION_BLOCK/PROGRAM and
+  the section renders as a `VAR_IN_OUT` block in the emitted `.st` method
+  declaration, through the same section renderer as FUNCTION- and
+  FB-level interfaces. The semantic model treats them as in-out
+  parameters, so writes through them are legal (no
+  invalid-assignment-target diagnostic).
+- Reason: keeps the native method model by-ref-faithful; the vendor
+  dialect treats method `VAR_IN_OUT` identically to POU-level
+  `VAR_IN_OUT`. The legacy sibling-POU serialization (`pouType="method"`)
+  remains unsupported and is tracked as a separate import-path item.

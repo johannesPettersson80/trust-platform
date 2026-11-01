@@ -16,12 +16,22 @@ following references count:
 - use of a FUNCTION_BLOCK as a declared type;
 - a program instance selected by a configuration;
 - a `VAR_CONFIG` access path;
-- a resolved type reference.
+- a resolved type reference;
+- a qualified value access chain (`GVals.Member`, dotted declaration sizes):
+  the chain resolves to its terminal member and marks that member used —
+  the leftmost segment alone never marks anything used;
+- an `EXTENDS` or `IMPLEMENTS` target of a POU, class, or DUT declaration:
+  inheritance is a use of the base.
 
 Imported declarations, declarations without a source range, members of a
 FUNCTION_BLOCK, CLASS, or INTERFACE, interface-method parameters, non-input
 parameters, and global constants do not receive this warning from the owning
-file. A used declaration must not retain an unused warning.
+file. Interface-method parameters cover both the methods declared inside an
+INTERFACE POU and the methods of a FUNCTION_BLOCK or CLASS that IMPLEMENTS an
+interface declaring a method of the same name — the implementing POU must
+carry the full interface signature even where its body ignores a pin. A
+method outside every implemented interface keeps the warning for its
+unused input parameters. A used declaration must not retain an unused warning.
 
 Use is project-wide and identity based. A program selected by a configuration,
 a function or function block referenced from another file, and a member
@@ -35,6 +45,12 @@ externally used.
 An accepted implicit conversion may emit `ImplicitConversion` when the source
 and destination declared types differ. The warning does not replace assignment
 compatibility: an incompatible conversion remains an error.
+
+A derived DUT converted to its own ancestor (directly or transitively) does
+not emit this warning: the conversion is a well-defined base-part-copy upcast
+that assignment compatibility already accepts, and vendor toolchains treat it
+as an ordinary inheritance assignment. Conversions between DUTs without an
+ancestor relation keep the warning.
 
 ## 3. Cyclomatic complexity
 
