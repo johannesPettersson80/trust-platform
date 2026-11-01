@@ -5,7 +5,7 @@
 import { runtimeLifecycleService } from "../../runtimeLifecycle";
 import { sendRuntimeControlRequest } from "../../runtimeControlClient";
 import type { HostToWebview, LiveState, LiveUpdate } from "./messages";
-import { runTargetOf } from "./runTarget";
+import { resolveHmiRunTarget } from "./runTarget";
 
 /** How often Live mode reads, as often as the runtime display's stream (§11.1). */
 export const LIVE_PERIOD_MS = 250;
@@ -19,7 +19,8 @@ export interface LiveConnection {
 /** The run target the extension has selected and started: the simulator or a runtime. */
 export const runtimeLiveConnection: LiveConnection = {
   async target() {
-    const target = runTargetOf((await runtimeLifecycleService.snapshot()).status);
+    // Live mode reads every 250 ms, so it does not wait for a language server that is still starting.
+    const target = await resolveHmiRunTarget(await runtimeLifecycleService.snapshot(), { wait: false });
     return target && { ...target, token: await runtimeLifecycleService.controlAuthToken(target.endpoint) };
   },
   request: (endpoint, token, operation, params) =>

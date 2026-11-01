@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-01
+
 ### Fixed
 
 - The help under a hardware terminal that no PLC signal fits, in Devices & Connections, suggests an address the runtime
@@ -15,6 +17,96 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Cancelling Identify while it waits for a loop in Auto to settle always stops before the loop is switched to Manual.
   Before, a Cancel that arrived during the wait's last reading could still let the switch happen; the mode was
   returned afterwards (specification 35, B3.4).
+- Identify's wait for a loop in Auto to settle keeps the readings its window judges and fewer older ones than those, so
+  a long wait no longer grows the engine's memory: a 24-hour campaign of a 16-member PID group held about 84 MiB
+  (specification 35, B3.4).
+- Identify's waits for a steady output and for a loop in Auto to settle say that they are measuring the rate until twenty
+  readings measure it. Before, their first progress said "changing 0 °C/min" while the temperature rose (specification
+  35, B3.4).
+- Implicit-conversion warning: a derived DUT converted to its own ancestor
+  (directly or transitively) no longer emits `ImplicitConversion` — the
+  conversion is a well-defined base-part-copy upcast that assignment
+  compatibility already accepts. Conversions between DUTs without an
+  ancestor relation keep the warning.
+- Unused-symbol analysis: input parameters of a method that IMPLEMENTS an
+  interface method no longer receive a false `W002` unused-parameter
+  warning — the implementing POU must carry the full interface signature
+  even where its body ignores a pin. Methods outside every implemented
+  interface keep the warning.
+- Unused-symbol analysis: `EXTENDS` and `IMPLEMENTS` targets count as used —
+  a function block referenced only as a base class (or a DUT/interface only
+  inherited) no longer receives a false `W009` unused warning, while the
+  never-instantiated derived declaration still does.
+- Unused-symbol analysis: qualified value access chains (`GVals.Member`,
+  dotted declaration-size references) now mark the TERMINAL symbol used.
+  The parser models these as nested field-access nodes with a plain `Name`
+  terminal, which the unused-symbol collector never resolved — constants
+  referenced only through qualified cross-file uses (expressions,
+  `STRING[GVals.Len]` sizes) were falsely reported as `W001` unused
+  constants. Genuinely unreferenced constants still warn.
+- PLCopen GVL import: members that a dropped same-named `constant="true"`
+  mirror list re-declares keep constant-ness — the merged list renders a
+  separate `VAR_GLOBAL CONSTANT` section for them (`PLCO226` info)
+  instead of flattening them to plain variables, so mirror semantics
+  match the vendor project (PLCOPEN_DECISIONS 2026-10-26).
+- Enumerated values convert to their declared integer base in assignments,
+  comparisons, call arguments, and CASE labels — including base-less
+  enums (`INT` base) — and dotted enum member access accepts any namespace
+  depth (`WagoTypesLog.eSysLogPriority.LOG_ERR`), closing the E202
+  "cannot be used as a value" class on real CODESYS projects. Integer
+  assignment into base-less ("closed") enums, cross-enum assignment, and
+  unknown members stay rejected (IEC_DEVIATIONS 2026-10-26).
+- Qualified type references resolve case-insensitively through the
+  cross-file project type catalog: a consumer spelling a namespace-
+  qualified function-block type with different casing than the declaring
+  file (`WagoAppJSON.FB_JSON_Writer_02` over a stub declaring
+  `Fb_JSON_Writer_02`) now resolves the type and can invoke the instance
+  (`fbInst(...)`), instead of silently failing the type lookup and
+  reporting "not callable" at the call site. ST identifiers are
+  case-insensitive; the catalog now keys and matches like the symbol
+  table.
+- Call binding: `VAR_IN_OUT` strings bind across declared capacities (same
+  string family only), matching CODESYS and the vendor buffer idiom of a
+  `STRING(1)` formal whose real capacity arrives in a separate size argument
+  (`WagoAppString.StrAppend`). The previous capacity-equality rule rejected
+  vendor-library calls that compile clean in the vendor toolchain; see
+  `IEC_DEVIATIONS.md` (2026-10-28).
+- Integer/bit-string narrowing (assignments and call arguments) becomes a
+  warning instead of an error under `[project] vendor_profile = "codesys"`,
+  matching the CODESYS compiler warning, and `SIZEOF` yields its natural
+  unsigned magnitude (`UDINT`) there so vendor `udiSize` parameters bind
+  directly. Other profiles keep the error and the signed result;
+  non-integer mismatches keep their errors under every profile; see
+  `IEC_DEVIATIONS.md` (2026-10-28).
+- Comparisons and bit-string arithmetic match CODESYS: under
+  `[project] vendor_profile = "codesys"` signed/unsigned integer pairs,
+  integer/bit-string pairs, and two bit-string operands in `+ - * /` are
+  admitted and evaluate through a common magnitude (the runtime promotes;
+  bit-string results carry the wider width and wrap). MOD on bit-strings,
+  mixed integer/bit-string arithmetic, integer/REAL accuracy-loss
+  combinations, and all of these shapes under other profiles keep the
+  strict IEC rejections (IEC_DEVIATIONS 2026-10-28).
+- Standard conversions, under a CODESYS `vendor_profile`: vendor-extension
+  entries match the CODESYS/TwinCAT toolchain (the IEC dialect keeps
+  rejecting them) — `TO_STRING`/`*_TO_STRING` over enumerated values (variant
+  name), `BOOL` (`'TRUE'`/`'FALSE'`), `TIME`/`LTIME` (`T#`/`LT#` text), and
+  same-family strings (identity); `TIME_TO_<int>`/`LTIME_TO_<int>` and
+  `TOD_TO_DWORD`/`LTOD_TO_DWORD` duration magnitudes. Implemented in the
+  compiler accept table and the runtime conversion dispatch; see
+  `IEC_DEVIATIONS.md` (2026-10-28).
+- Standard conversion extension round: `REAL_TO_TIME`/`UINT_TO_TIME` (the
+  value is the millisecond magnitude of the duration), `DWORD_TO_TOD` (the
+  raw ms-of-day magnitude), and `STRING`/`WSTRING` to bit-string targets
+  parse the text as an unsigned integer literal and yield `0` when it is
+  not one. Other integer-to-`TIME` pairs, string-to-`BOOL`, and
+  REAL-to-bit-string conversions stay rejected; implemented in the compiler
+  accept table and the runtime conversion dispatch; see
+  `IEC_DEVIATIONS.md` (2026-10-28 extension round).
+- Pointer-target lenient bindings match CODESYS: `POINTER TO CHAR` and
+  `POINTER TO BYTE` pointees bind each other with a warning, and
+  `ADR(STRING[n])` binds against a `POINTER TO ARRAY OF BYTE` formal (the
+  vendor MemCopy and JSON-buffer idioms). All other pointee mismatches
+  stay errors; see `IEC_DEVIATIONS.md` (2026-10-29, DEV-039).
 
 ## [0.27.0] - 2026-10-31
 

@@ -1706,7 +1706,7 @@ dependencies = [
 
 [[package]]
 name = "trust-esp32c6"
-version = "0.27.0"
+version = "0.28.0"
 dependencies = [
  "esp-bootloader-esp-idf",
  "esp-hal",
@@ -1719,11 +1719,11 @@ dependencies = [
 
 [[package]]
 name = "trust-modbus"
-version = "0.27.0"
+version = "0.28.0"
 
 [[package]]
 name = "trust-platform-esp32"
-version = "0.27.0"
+version = "0.28.0"
 dependencies = [
  "critical-section",
  "embassy-net-driver",
@@ -1743,7 +1743,7 @@ dependencies = [
 
 [[package]]
 name = "trust-platform-memory"
-version = "0.27.0"
+version = "0.28.0"
 dependencies = [
  "crc32fast",
  "critical-section",
@@ -1752,7 +1752,7 @@ dependencies = [
 
 [[package]]
 name = "trust-platform-net"
-version = "0.27.0"
+version = "0.28.0"
 dependencies = [
  "hmac",
  "serde",
@@ -1765,11 +1765,11 @@ dependencies = [
 
 [[package]]
 name = "trust-plc-abi"
-version = "0.27.0"
+version = "0.28.0"
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.27.0"
+version = "0.28.0"
 dependencies = [
  "ed25519-dalek",
  "indexmap",
@@ -1785,7 +1785,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-services"
-version = "0.27.0"
+version = "0.28.0"
 dependencies = [
  "base64",
  "indexmap",
