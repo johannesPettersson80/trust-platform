@@ -690,12 +690,17 @@ missing.
 Decided on 2 October 2026 while the user was away, approved by the user on 3 October 2026.
 
 Every control sends its commands as §12 describes. The switch, selector, mode selector and
-slider act on the value they show, so while it is unknown or stale they send nothing and say
-that the value is not known.
+slider act on the value they show, and send it with their command (`shown`, `null` while the
+value is unknown or stale). The runtime refuses a command whose control shows no value, with
+"The value of this control is not known, so it sends nothing.", records the refusal like any
+command, and the page shows the reason in its language (decided by the owner on 1 November 2026:
+the rule is the runtime's, and the operator's refusal is audited).
 1. **Setpoint entry and numeric input** ask for a number within their limits.
 2. **Button and pulse button** send their action (§12.8).
-3. **Switch** (`value`, a BOOL) shows On or Off as a sliding knob and the word; a click writes
-   the opposite of the value shown. Its track has a control's usual size: at most 32 px high,
+3. **Switch** (`value`, a BOOL) shows On or Off as a sliding knob and the word; a click sends
+   `toggle` with the value shown, and the runtime writes its opposite (decided by the owner on
+   1 November 2026: the value the operator saw decides, not the runtime's own value, which a stale
+   screen could contradict). Its track has a control's usual size: at most 32 px high,
    centred in the object, and about twice as wide, so a toggle in a tall row stays in proportion
    to its 14 px label; the whole object still takes the click (refined on 7 October 2026, when a
    56 px row drew a 106 px toggle). Its `options` may name its two states' words, off first: a
@@ -1594,7 +1599,8 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
      permissive) and `interlock-reason` (its text). The binding checks check them like every
      other binding.
 5. **Commands:** `POST /api/hmi/command` with
-   `{ "id", "bundle", "page", "object", "action", "value" }`.
+   `{ "id", "bundle", "page", "object", "action", "value"?, "shown"? }`, `shown` being the value
+   the control shows (§5.8); a sender that leaves it out is not checked against it.
    - The runtime finds the target from the active page file, never from the request.
    - It decides refused, applied (with the value read back) or timed out at the program's next
      call of `Hmi.Display` (§18 phase 5) and answers with that outcome; a command the program has
@@ -1603,8 +1609,9 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
      value stream as `{ "command": { "id", "outcome", "readback"?, "reason"?, "error_code"? } }`.
    - A command id is remembered for ten minutes; a repeated id gets the first answer without a
      second write.
-   - `action` is `write` with a `value` (setpoint entry, numeric input, slider, switch), the
-     button's `action` (`set`, `reset` or `toggle`), or `pulse` (pulse button).
+   - `action` is `write` with a `value` (setpoint entry, numeric input, slider, switch), `toggle`
+     with the `shown` value for a switch, the button's `action` (`set`, `reset` or `toggle`), or
+     `pulse` (pulse button).
    - The target is the control's writing binding. A command needs a session, a permission that
      covers it (§12.2), a value within the limits that fits the target's type, and a permissive
      `interlock`. Otherwise it is refused with the reason. A target whose type is an alias of an

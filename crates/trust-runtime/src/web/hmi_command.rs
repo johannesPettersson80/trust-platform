@@ -62,6 +62,16 @@ pub(super) struct CommandRequest {
     action: String,
     #[serde(default)]
     value: Option<Json>,
+    /// The value the control showed when it sent the command (specification 39 §5.8): `null`
+    /// while it showed none; absent when the sender does not say.
+    #[serde(default, deserialize_with = "present")]
+    shown: Option<Json>,
+}
+
+/// A member that is present, `null` included: absent is `None` (the member's default), `null`
+/// is `Some(Json::Null)`.
+fn present<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<Json>, D::Error> {
+    Json::deserialize(deserializer).map(Some)
 }
 
 /// A refused command: its answer, and its plan once it is known (for the audit log).
@@ -204,8 +214,14 @@ impl Commands {
         let Some(component) = Catalogue::shipped().component(&object.kind) else {
             return Err(refuse(None, format!("\"{}\" sends no command", object.id)));
         };
-        let plan = plan(object, component, &request.action, request.value.as_ref())
-            .map_err(|reason| refuse(None, reason))?;
+        let plan = plan(
+            object,
+            component,
+            &request.action,
+            request.value.as_ref(),
+            request.shown.as_ref(),
+        )
+        .map_err(|reason| refuse(None, reason))?;
         let permission = effective_permission(&self.access.write, &plan.path, object)
             .map_err(|reason| refuse(Some(plan.clone()), reason))?;
         authorize(&permission, session.role)

@@ -41,7 +41,9 @@ fn capability_never_falls_back_to_a_scalar_write() {
     );
     let catalogue = crate::hmi::catalogue::Catalogue::shipped();
     let component = catalogue.component("button").unwrap();
-    assert!(crate::hmi::commands::plan::plan(&page.objects[0], component, "set", None).is_err());
+    assert!(
+        crate::hmi::commands::plan::plan(&page.objects[0], component, "set", None, None).is_err()
+    );
 }
 
 #[test]

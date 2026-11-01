@@ -87,8 +87,9 @@ async function opened(values: unknown = VALUES): Promise<{ host: Host; root: HTM
   return view;
 }
 
+/** Each command sent: its control, its action, its value and what the control showed (§5.8). */
 function written(host: Host): unknown[] {
-  return commands(host).map((command) => [command.object, command.action, command.value]);
+  return commands(host).map((command) => [command.object, command.action, command.value, command.shown]);
 }
 
 function pointer(window: any, target: EventTarget, type: string, x: number, y: number): void {
@@ -96,19 +97,30 @@ function pointer(window: any, target: EventTarget, type: string, x: number, y: n
 }
 
 suite("HMI display: switch, selector, mode selector and slider", () => {
-  test("a switch writes the opposite of the value it shows", async () => {
+  // The runtime writes the opposite of the value a switch shows (decided by the owner on 1 November
+  // 2026); the page sends that value with `toggle`. Catches a page that decides the value itself.
+  test("a switch asks the runtime to write the opposite of the value it shows", async () => {
     const { host, root, window } = await opened();
     click(window, object(root, "fan"));
     await settle(host);
-    assert.deepStrictEqual(written(host), [["fan", "write", true]]);
+    assert.deepStrictEqual(written(host), [["fan", "toggle", undefined, false]]);
   });
 
-  test("a switch whose value is unknown or stale sends nothing and says why", async () => {
+  // While a switch shows no value, the runtime refuses, records the refusal and says why; the page
+  // shows the runtime's reason in its language. Catches a page that decides the refusal itself and a
+  // reason that is not shown.
+  test("a switch whose value is unknown or stale sends what it shows and shows the runtime's refusal", async () => {
     const { host, root, window } = await opened({ cycle: 1, values: { "Main.Fan": null } });
+    host.replies["/api/hmi/command"] = [
+      {
+        status: 200,
+        body: { id: "x", outcome: "refused", reason: "The value of this control is not known, so it sends nothing." },
+      },
+    ];
     click(window, object(root, "fan"));
     await settle(host);
-    assert.deepStrictEqual(written(host), []);
-    assert.match(root.querySelector('[data-part="notice"]')?.textContent ?? "", /not known/);
+    assert.deepStrictEqual(written(host), [["fan", "toggle", undefined, null]]);
+    assert.match(root.querySelector('[data-part="notice"]')?.textContent ?? "", /Not accepted: .*not known/);
   });
 
   test("a selector lists its options with the current one marked, and writes the chosen one", async () => {
@@ -128,7 +140,7 @@ suite("HMI display: switch, selector, mode selector and slider", () => {
     );
     click(window, listed[2]);
     await settle(host);
-    assert.deepStrictEqual(written(host), [["speed", "write", "High"]]);
+    assert.deepStrictEqual(written(host), [["speed", "write", "High", "Low"]]);
     assert.strictEqual(root.querySelector('[data-part="choices"]'), null, "the list closes");
   });
 
@@ -139,7 +151,7 @@ suite("HMI display: switch, selector, mode selector and slider", () => {
     assert.deepStrictEqual(written(host), []);
     click(window, object(root, "mode").querySelector('[data-option="Manual"]') as Element);
     await settle(host);
-    assert.deepStrictEqual(written(host), [["mode", "write", "Manual"]]);
+    assert.deepStrictEqual(written(host), [["mode", "write", "Manual", "Auto"]]);
   });
 
   test("a slider shows a draft while it is dragged and writes the value where it is released", async () => {
@@ -154,7 +166,7 @@ suite("HMI display: switch, selector, mode selector and slider", () => {
     assert.deepStrictEqual(written(host), [], "nothing is sent while dragging");
     pointer(window, window.document, "pointerup", 167.6, 322);
     await settle(host);
-    assert.deepStrictEqual(written(host), [["valve", "write", 60]]);
+    assert.deepStrictEqual(written(host), [["valve", "write", 60, 40]]);
     assert.strictEqual(
       object(root, "valve").getAttribute("data-draft"),
       null,

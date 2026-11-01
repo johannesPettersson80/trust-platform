@@ -45,6 +45,12 @@ export function translate(text: string): string {
   return spoken(current.texts[text] ?? text);
 }
 
+/** A text the runtime says, in the language when the text table holds it and as written otherwise,
+ * not lengthened: it goes into a frame that `say` lengthens. */
+export function tabled(text: string): string {
+  return current.texts[text] ?? text;
+}
+
 /** A text as the drawing shows it: lengthened in the "longest" preview. */
 function spoken(text: string): string {
   return heard(current.longest ? lengthen(text) : text);
