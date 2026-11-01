@@ -61,7 +61,7 @@ this skill does not authorize intermediate checks or retries.
     default features, plus the board adapter, `trust-board-fixture` and `trust-runtime-services`.
   - `UPDATE_LOCK=1` lets cargo add new dependencies to `Cargo.lock` and copies the lock back.
   - `TEST="-p <crate> [--test <file>] [<name>]"` runs one `cargo test`, for a bug fix's
-    regression test only. The words are validated, and it is not the validation batch.
+    regression test only. The words are validated; CI still runs the full suites.
   - One check per worktree runs at a time; the others wait up to 30 minutes for the lock.
   - It prints only the diagnostics. Exit 0 means all passed, 1 a check failed, 75 the lock timed out.
 - **Verification evidence batches** (many audit or evidence reports): regenerate them in a clean,
@@ -100,7 +100,8 @@ ssh trust-builder 'df -hT /home/johannes /tmp && du -xhd1 "$HOME/projects" 2>/de
   home filesystem and `/tmp`. Confirm the intended volume is mounted before using it.
 - **Capacity**:
   - allow about 25 GB for Clippy, tests or npm output on the filesystem holding that output;
-  - the release guard requires 80 GiB on the selected target filesystem for cold `just test-all`;
+  - a cold `just test-all` (the release guard, while it is in use) needs 80 GiB on the selected
+    target filesystem, and a guard on a new version needs its old target removed first;
   - inspect active task-owned builds and coordinate overlapping large runs on the same filesystem.
     A target lease protects against deletion, not disk consumption by other targets;
   - record actual free space and known concurrent growth. If headroom is insufficient, postpone the
@@ -118,7 +119,7 @@ ssh trust-builder 'df -hT /home/johannes /tmp && du -xhd1 "$HOME/projects" 2>/de
   1. stop the gate's leftover processes by PID;
   2. rerun the preflight;
   3. clean up;
-  4. retain the failure ledger; run again only within the user's current retry authorization.
+  4. record the failure and its cause; run again once the cause is fixed.
   Report the original failure as infrastructure failure, not a failed behavior assertion.
 
 ## Running tests there
@@ -144,7 +145,7 @@ Source parity is not CI parity. Before you call a result CI-equivalent:
 - **Toolchain**: use the workflow's exact toolchain and command. When CI floats on `stable`, refresh
   it just before the final gate. Record `rustc -Vv` and `cargo -V`.
 - **Clippy**: run the CI shape, `cargo clippy --all-targets --all-features -- -D warnings`.
-- **`trust-runtime` candidates**: also run
+- **`trust-runtime` changes**: also run
   `./scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross`.
 - **Windows**: the builder does not prove Windows console encoding, locale, TCP close or filesystem
   behaviour. For those, the Windows GitHub job is authoritative.

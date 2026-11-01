@@ -271,6 +271,46 @@ These are bounded compatibility fixtures. They do not certify arbitrary
 projects, every JSON field, XML schema conformance, or stable diagnostic prose
 beyond the named failure marker.
 
+### Change and release workflow
+
+Owner decision, 31 October 2026: "i want the most professional best workflow".
+Work reaches `main` in small pull requests, and CI is the only gate:
+
+- one lane of work is one pull request of a few hours, pushed with its pull
+  request from its first commit; the automatic review (Codex) runs when the
+  pull request opens and on request after later pushes, and its findings are
+  fixed in the same pull request;
+- before each push the author runs the compile check of the changed crates and
+  the focused tests of what changed and of what uses it; the full suites
+  (`just test-all`, the VS Code suites, the documentation checks and, for a
+  version change, the release rehearsal) run in CI on every push;
+- the acceptance journeys of the shipped user paths (the PID walkthrough,
+  Identify from Auto, the walkthrough's experiments and F23's runtime
+  connection) run on the packaged extension: in CI on the package that the
+  pull request built, once CI packages every pull request, and until then on
+  the package of a release pull request's rehearsal before it merges;
+- a pull request merges when every required check is green and the review has
+  no open finding, through a merge queue that tests it on top of the current
+  `main`, so that `main` is always releasable; until the queue runs every
+  required workflow and is enabled, the pull request merges at its exact head
+  once branch protection finds its required checks green;
+- a release is a pull request that only bumps the version and moves the
+  changelog section; it merges like any other, and the release follows
+  `main`'s CI (specification 24, "Release after main CI"), publishing the
+  packages built and tested for that commit;
+- release blockers are regressions and severe bugs (safety, data loss, a
+  broken user journey); any other finding goes on the checklist for the next
+  release.
+
+The release guard (`release_candidate_guard.py prepare`) and the sections
+below on release candidates (failure reporting, discovery parity, build
+parallelism, target storage and the post-merge audit) apply only until CI runs
+every stage of the guard and the acceptance journeys; until then a push that
+changes the workspace version needs the guard's exact-SHA artifact, and the
+review and the acceptance journeys run before the version bump so that the
+guard runs once. `verify-release` and the post-merge audit stay as tools after
+that.
+
 ### CI reliability and release-gate artifact contract
 
 The reviewed native CI support surfaces preserve the following executable
