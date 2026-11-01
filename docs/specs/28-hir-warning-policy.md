@@ -52,6 +52,13 @@ that assignment compatibility already accepts, and vendor toolchains treat it
 as an ordinary inheritance assignment. Conversions between DUTs without an
 ancestor relation keep the warning.
 
+A fixed-size array bound to an `ARRAY[*]` parameter, and the reverse arm of
+the same in/out binding, do not emit this warning either: the parameter
+aliases the argument's storage for the call, so no element conversion takes
+place (IEC 61131-3 varying arrays). Compatibility keeps the error channel
+unchanged: element mismatches and concrete bound mismatches keep their
+rejections.
+
 ## 3. Cyclomatic complexity
 
 Cyclomatic complexity is one plus the number of IF, ELSIF, FOR, WHILE, REPEAT,

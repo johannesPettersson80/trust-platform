@@ -816,3 +816,32 @@ re-check them against this rule when touched.
   `VAR_OUT`/`VAR_IN_OUT` pointer arms and variable initializers are not
   wired (mirroring the narrowing record's scoping (DEV-037)) and keep the error until a
   downstream need appears.
+
+- ID: DEV-040
+- Area: call-argument bindings between a concrete array and a
+  bound-agnostic `ARRAY[*]` formal (`W005` `ImplicitConversion`), all
+  parameter directions (input, output, in-out — both arms of an in-out
+  binding pair).
+- Normative IEC requirement: IEC 61131-3 Ed.3 varying arrays — a
+  fixed-length array of the same element type binds to a varying-length
+  formal as a view over the argument's storage; `§6.6.1.6`'s implicit
+  conversions for elementary types do not apply, because no value
+  conversion takes place. The standard text was unavailable on the
+  authoring machine; the clause mirrors the citation style already used
+  in `docs/specs/09-semantic-rules.md`.
+- truST behavior and conflict: the binding itself was accepted
+  (compatibility's wildcard arms) but each binding arm raised the
+  fidelity warning. The warning is now suppressed for the wildcard pair,
+  matching CODESYS, which admits concrete arrays for `ARRAY[*]` formals
+  silently in every parameter direction.
+- Impact: the downstream tree's 9 remaining binding sites (MQTT subscribe
+  payload/parameter buffers and JSON writer parameter arrays binding
+  through `VAR_IN_OUT`/`VAR_OUTPUT` stub formals) lose their per-arm
+  warnings. No runtime mirror is needed: the binding copies no elements —
+  the formal aliases the argument's storage for the call.
+- Mitigation: the suppression is shape-scoped — same element type and at
+  least one wildcard side. Element mismatches keep
+  `InvalidArgumentType` (pinned in
+  `array_wildcard_compatibility.rs`) and concrete-to-concrete bound
+  mismatches keep their rejection (pinned alongside), so the error
+  channel stays exactly as loud as before.
