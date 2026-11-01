@@ -28,7 +28,11 @@ export function plantSaveResultLabel(
     : "Saved";
 }
 
-/** Uses the established project command session for the complete read/validate/save transaction. */
+/**
+ * Saves through the established project command session: `plant.save` validates the candidate and
+ * checks the revision itself (specification 47 §20), so the read only names the project and the
+ * revision.
+ */
 export async function savePlantCandidate(
   client: PlantCommandClient,
   plant: Record<string, unknown>,
@@ -39,21 +43,14 @@ export async function savePlantCandidate(
     contract: "trust.plant",
     schema_version: 1,
   });
-  const common = {
+  const saved = await client.request("plant.save", {
     contract: "trust.plant",
     schema_version: 1,
     project_id: read.project_id,
     plant,
-  };
-  const validation = await client.request("plant.validate", common);
-  if (validation.operation !== "plant.validate" || validation.valid !== true) {
-    throw new Error("The simulated plant configuration is not valid.");
-  }
-  const saved = await client.request("plant.save", {
-    ...common,
     operation_id: operationId,
-    // Validation uses the latest document, but an existing drawer remains
-    // bound to the revision it opened so newer project edits are not lost.
+    // An existing drawer remains bound to the revision it opened, so newer
+    // project edits are not lost; a new plant is saved over the current one.
     expected_revision: expectedRevision ?? read.configuration_revision,
   });
   if (saved.operation !== "plant.save") {
