@@ -626,7 +626,8 @@ re-check them against this rule when touched.
 
 ## 2026-10-25 - Dotted declaration sizes over flattened library containers
 - Area: `STRING`/`WSTRING` declared lengths and array dimension bounds whose
-  size expression is a dotted constant reference.
+  size expression is a dotted constant reference, under the CODESYS language
+  profile (`vendor_profile` `codesys`, `beckhoff` or `twincat`).
 - Normative IEC requirement: IEC 61131-3 Ed.3 resolves qualified symbolic
   variables through their declared namespace/containers (§6.2.2.2); a dotted
   reference must name an existing container path. The standard text was
@@ -647,8 +648,10 @@ re-check them against this rule when touched.
 - Impact: documentation-faithful sizes (128/20/40-class stub constants)
   compile at their declared values instead of failing or being rewritten to
   a numeric fallback downstream.
-- Mitigation: the tolerance is confined to the two declaration-size contexts
-  (string capacities, array bounds); ordinary initializers and other
+- Mitigation: the tolerance is confined to the CODESYS profile and to the two
+  declaration-size contexts (string capacities, array bounds); under the IEC
+  rules a dotted size reference must name an existing container path, so a
+  flattened one stays `undefined constant`. Ordinary initializers and other
   constant-expression contexts keep the strict rule, references whose root
   names a scope-local value (FB instance member access) are excluded, and
   ambiguity is rejected rather than silently bound.
