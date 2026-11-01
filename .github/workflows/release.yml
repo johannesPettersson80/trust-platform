@@ -11,10 +11,13 @@ run-name: >-
   && format('Release after CI of {0}', github.event.workflow_run.head_sha)
   || (github.event_name == 'pull_request'
   && format('Release rehearsal of #{0}', github.event.pull_request.number)
-  || format('Release rehearsal of {0}', github.ref_name)) }}
+  || (github.event_name == 'merge_group'
+  && format('Release plan of the merge queue at {0}', github.event.merge_group.head_sha)
+  || format('Release rehearsal of {0}', github.ref_name))) }}
 
 on:
   pull_request:
+  merge_group:
   workflow_run:
     workflows: [CI]
     types: [completed]
@@ -203,11 +206,12 @@ jobs:
             artifacts/release/runtime-vm-determinism/**
 
   openot-real-databases:
-    # It runs on the project's own runner, so never for a pull request: a maintainer's dispatched
-    # rehearsal and the release run it. It needs no secret, so it is given none (Codex's review of #146).
+    # It runs on the project's own runner, so never for a pull request or a merge group, which carries a
+    # pull request's code: a maintainer's dispatched rehearsal and the release run it. It needs no secret,
+    # so it is given none (Codex's review of #146).
     name: OpenOT Real Database Matrix
     needs: [plan, release-preflight]
-    if: ${{ github.event_name != 'pull_request' }}
+    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' }}
     uses: ./.github/workflows/openot-real-databases.yml
     with:
       ref: ${{ needs.plan.outputs.sha }}

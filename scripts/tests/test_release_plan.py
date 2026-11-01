@@ -58,6 +58,13 @@ class ReleasePlanTests(unittest.TestCase):
     def test_a_manual_run_rehearses_and_never_releases(self) -> None:
         self.assertEqual(plan(event="workflow_dispatch", dispatch_sha="bumped").mode, "rehearsal")
 
+    def test_a_merge_group_neither_rehearses_nor_releases(self) -> None:
+        # Specification 22, "Change and release workflow": the pull request was rehearsed, and the
+        # release follows main's CI on the commit the queue merged. Catches a merge group that
+        # rehearses again (hours in the queue) or releases before main's CI passed.
+        result = plan(event="merge_group", version_at=lambda sha: self.fail("a merge group reads no version"))
+        self.assertEqual((result.mode, result.sha, result.tag), ("skip", "", ""))
+
     def test_main_ci_releases_a_version_without_a_tag(self) -> None:
         # Catches a release that waits for a hand-pushed tag (0.25.1's guard expired waiting).
         result = after_ci()

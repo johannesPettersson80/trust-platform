@@ -1318,8 +1318,10 @@ clears the manual section (B3.7).
    reference and is the operating point Apply returns to (B6.2). Holding an
    output the controller was still moving would let the plant settle open loop
    elsewhere, and Apply would then wait for an operating point the controller
-   never holds (lesson 30, 30 October 2026). The wait writes nothing, a cancel
-   ends it with nothing written, and it has the bound of step 2 and ends as step 2
+   never holds (lesson 30, 30 October 2026). The wait writes nothing. A cancel
+   ends it with nothing written, also one that arrives during the reading that
+   completes the rest: the wait checks for a cancel before each reading and again
+   before the transfer. The wait has the bound of step 2 and ends as step 2
    does, with the rate still observed, offering to wait or a setpoint step. The approval
    block of the review (B9.3) names what the campaign may do: each signal it
    writes with its limits (the plant input range of B3.4 step 1 for a plant

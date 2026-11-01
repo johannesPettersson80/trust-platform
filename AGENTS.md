@@ -207,8 +207,7 @@ cp /home/johannes/projects/trust-platform/AGENTS.md /home/johannes/projects/trus
 rsync -a --delete /home/johannes/projects/trust-platform/.codex/skills/ .codex/skills/
 ```
 
-For control work, also copy `docs/specs/control-platform-purpose.md` when it is missing. While the
-release guard is in use (Releases), it rejects a candidate whose copies differ.
+For control work, also copy `docs/specs/control-platform-purpose.md` when it is missing.
 
 ## IEC 61131-3
 
@@ -267,11 +266,10 @@ release guard is in use (Releases), it rejects a candidate whose copies differ.
 - Release blockers are regressions and severe bugs: safety, data loss, a broken user journey. Any
   other bug found during a release goes on the checklist for the next release (owner, 31 October
   2026; this replaces "all bugs fixed before push").
-- Until CI runs every stage of the release guard and the acceptance journeys on the built packages
-  (checklist W3 and W4), a version-bump push still needs the exact-SHA artifact of
-  `.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard.py prepare`, which the
-  pre-push hook enforces; never bypass it. Run Codex's review and the acceptance journeys before
-  the bump, so the guard runs once.
+- The pre-push hook (`release_candidate_guard.py check-push`) refuses only a direct push to `main`
+  and a pushed release tag; every other push goes through, and CI is the gate. Until the acceptance
+  journeys run in CI on the built packages (checklist W4), run them on a release pull request's
+  rehearsal package before it merges.
 - A version bump is finished only when all of these hold, checked with
   `release_candidate_guard.py verify-release`:
   - the annotated tag `v<version>` is on `main`;

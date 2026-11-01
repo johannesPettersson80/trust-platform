@@ -74,6 +74,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         # rounds (27 to 29 October 2026).
         triggers = self.text.split("\non:\n", 1)[1].split("\n\npermissions:", 1)[0]
         self.assertIn("\n  pull_request:\n", "\n" + triggers)
+        self.assertIn("\n  merge_group:\n", "\n" + triggers)
         self.assertIn(
             "  workflow_run:\n    workflows: [CI]\n    types: [completed]\n    branches: [main]\n", triggers
         )
@@ -247,10 +248,13 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertNotIn("secrets.", RELEASE_FILES.read_text(encoding="utf-8"))
 
     def test_the_project_runner_never_runs_a_pull_request(self) -> None:
-        # Catches a pull request's code on the project's own runner, and secrets handed to a workflow that
-        # needs none (Codex's review of #146).
+        # Catches a pull request's code on the project's own runner, also as a merge group, and secrets
+        # handed to a workflow that needs none (Codex's review of #146).
         databases = self.jobs["openot-real-databases"]
-        self.assertEqual(field(databases, "if", 4), "${{ github.event_name != 'pull_request' }}")
+        self.assertEqual(
+            field(databases, "if", 4),
+            "${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' }}",
+        )
         self.assertNotIn("secrets", databases)
         self.assertNotIn("secrets.", (ROOT / ".github" / "workflows" / "openot-real-databases.yml").read_text())
 

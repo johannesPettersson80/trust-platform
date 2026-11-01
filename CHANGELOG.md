@@ -8,6 +8,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ### Fixed
 
+- Cancelling Identify while it waits for a loop in Auto to settle always stops before the loop is switched to Manual.
+  Before, a Cancel that arrived during the wait's last reading could still let the switch happen; the mode was
+  returned afterwards (specification 35, B3.4).
 - Call binding: `VAR_IN_OUT` strings bind across declared capacities (same
   string family only), matching CODESYS and the vendor buffer idiom of a
   `STRING(1)` formal whose real capacity arrives in a separate size argument
