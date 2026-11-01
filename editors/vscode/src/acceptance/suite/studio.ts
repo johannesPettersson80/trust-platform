@@ -70,14 +70,45 @@ export async function enterRequirements(s: Session, studio: string, values: Reco
   return set;
 }
 
-/** Tunes PI for `values` with the Automatic method and validates the result; gives what Tune and Validate show. Each result
- * must be a new one, not the result of an earlier request. */
-export async function tuneAndValidate(s: Session, studio: string, values: Record<string, string>): Promise<Record<string, string>> {
+/** A row of the Validate table (B9.9): its title without the plant shown under it, and the engine's verdict. */
+export type ValidationRow = { title: string; verdict: string };
+
+/** The rows of the Validate table as it shows them. */
+export async function validationRows(s: Session, studio: string): Promise<ValidationRow[]> {
+  return JSON.parse(await cdp.evalWebview(s.wb, studio,
+    "var t=d.querySelector('[data-studio-validation-result]');if(!t||t.hidden)return '[]';" +
+    "return JSON.stringify([...t.tBodies[0].rows].map(function(r){var v=r.querySelector('[data-verdict]');" +
+    "return {title:(r.cells[0].childNodes[0]||{}).textContent.trim(),verdict:v?v.dataset.verdict:''};}));"));
+}
+
+/** Fails the step unless every row whose title matches `pattern` has the verdict `verdict`, and at least one does. */
+export function expectVerdict(rows: ValidationRow[], pattern: RegExp, verdict: string): void {
+  const matching = rows.filter((row) => pattern.test(row.title));
+  expect(matching.length > 0, `the Validate table has a row ${pattern}: ${JSON.stringify(rows)}`);
+  for (const row of matching) expect(row.verdict === verdict, `${row.title}: ${row.verdict}, expected ${verdict}`);
+}
+
+/** The candidate meets every requirement and every guard (B9.9): its rows, the ranges, states and transfer, and its overall
+ * row pass. */
+export function expectCandidatePasses(rows: ValidationRow[]): void {
+  expectVerdict(rows, /^Candidate/, "pass");
+  expectVerdict(rows, /^Ranges, states and transfer/, "pass");
+}
+
+/** Tunes PI for `values` with the Automatic method and validates the result; gives what Tune and Validate show, with the
+ * Validate rows. Each result must be a new one, not the result of an earlier request, and Tune must find a design that meets
+ * the requirements. */
+export async function tuneAndValidate(
+  s: Session,
+  studio: string,
+  values: Record<string, string>
+): Promise<Record<string, unknown> & { rows: ValidationRow[] }> {
   await enterRequirements(s, studio, values);
   const before = await cdp.evalWebview(s.wb, studio, visible("[data-studio-tuning-result]"));
   await press(s, studio, "[data-engineer-tune]");
   const tuned = await cdp.pollValue("the tuning", () => cdp.evalWebview(s.wb, studio, visible("[data-studio-tuning-result]")),
     (text) => Boolean(text) && text !== before, 300_000);
+  expect(/Meets the requirements/.test(tuned), `Tune finds a design that meets the requirements: ${tuned}`);
   await tab(s, studio, "verify");
   const table = await cdp.evalWebview(s.wb, studio, visible("[data-studio-validation-result]"));
   await press(s, studio, "[data-engineer-verify]");
@@ -88,5 +119,6 @@ export async function tuneAndValidate(s: Session, studio: string, values: Record
     tuneMessage: await cdp.evalWebview(s.wb, studio, message("tune")),
     validated,
     verifyMessage: await cdp.evalWebview(s.wb, studio, message("verify")),
+    rows: await validationRows(s, studio),
   };
 }

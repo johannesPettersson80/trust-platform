@@ -183,6 +183,18 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("--package-paths .github/paths/package.txt", plan)
         self.assertEqual(field(self.jobs["runtime-vm-validation"], "if", 4), "${{ needs.plan.outputs.mode != 'package' }}")
 
+    def test_every_file_the_build_copies_into_a_package_is_in_the_package_list(self) -> None:
+        # Specification 24: a pull request that changes what a package holds builds it. Catches a repository file copied into
+        # the runtime archives whose change builds no package (Codex's review of #157: docs/deploy/INSTALL.md and the
+        # systemd unit).
+        import ci_changes
+
+        patterns = ci_changes.read_patterns((ROOT / ".github" / "paths" / "package.txt").read_text())
+        copied = sorted(set(re.findall(r"(?m)^\s*(?:cp|Copy-Item) ([A-Za-z][^\s$]*) dist/", self.jobs["build"])))
+        self.assertGreaterEqual(len(copied), 2, copied)
+        for path in copied:
+            self.assertTrue(any(ci_changes.pattern_regex(pattern).match(path) for pattern in patterns), path)
+
     def test_every_script_the_release_runs_is_in_the_release_list(self) -> None:
         # Specification 24: a pull request that changes a script the release runs is rehearsed. Catches a script added to
         # the release, or to its release-files action, whose changes would merge without a rehearsal.

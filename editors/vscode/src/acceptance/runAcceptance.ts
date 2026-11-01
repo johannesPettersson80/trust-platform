@@ -165,15 +165,16 @@ function answers(port: number): Promise<boolean> {
   });
 }
 
-/** Builds the project with the installed extension's trust-runtime and starts it as the README says; gives its process once
- * it reports its control endpoint and its web server answers. */
-async function startRuntime(bin: string, project: string, log: string): Promise<child.ChildProcess> {
+/** Builds the project with the installed extension's trust-runtime and starts it as the README says, with the run's own truST
+ * folders in `env`, so that it uses no toolchain or state from outside the run; gives its process once it reports its control
+ * endpoint and its web server answers. */
+async function startRuntime(bin: string, project: string, log: string, env: NodeJS.ProcessEnv): Promise<child.ChildProcess> {
   const runtime = path.join(bin, process.platform === "win32" ? "trust-runtime.exe" : "trust-runtime");
-  const build = child.spawnSync(runtime, ["build", "--project", "."], { cwd: project, encoding: "utf8" });
+  const build = child.spawnSync(runtime, ["build", "--project", "."], { cwd: project, encoding: "utf8", env });
   fs.writeFileSync(`${log}.build`, `${build.stdout ?? ""}${build.stderr ?? ""}`);
   if (build.status !== 0) throw new Error(`trust-runtime build failed (${build.status}); see ${log}.build`);
   const output = fs.openSync(log, "w");
-  const process_ = child.spawn(runtime, ["run", "--project", "."], { cwd: project, stdio: ["ignore", output, output] });
+  const process_ = child.spawn(runtime, ["run", "--project", "."], { cwd: project, stdio: ["ignore", output, output], env });
   await until("the runtime's control endpoint", () => fs.existsSync(path.join(project, ".trust-runtime", "control.json")), 60_000);
   await until("the runtime's web server on port 8080", () => answers(8080), 60_000);
   return process_;
@@ -213,6 +214,8 @@ async function main(): Promise<number> {
     const project = path.join(scratch, session.name);
     const profile = path.join(scratch, `ud-${session.name}`);
     const shots = path.join(out, session.name);
+    // Control Studio journals its operations in $XDG_STATE_HOME/trust (specification 35, A8.3): each session has its own.
+    const state = path.join(scratch, `state-${session.name}`);
     let runtime: child.ChildProcess | undefined;
     console.log(`== ${session.name} (${new Date().toISOString()})`);
     try {
@@ -224,7 +227,8 @@ async function main(): Promise<number> {
       fs.rmSync(shots, { recursive: true, force: true });
       fs.mkdirSync(shots, { recursive: true });
       if (session.runtime) {
-        runtime = await startRuntime(bin, project, path.join(out, `${session.name}-runtime.log`));
+        runtime = await startRuntime(bin, project, path.join(out, `${session.name}-runtime.log`),
+          { ...process.env, XDG_DATA_HOME: data, XDG_STATE_HOME: state });
         console.log(`   runtime on the ${session.runtime}, process ${runtime.pid}`);
       }
       await runTests({
@@ -246,8 +250,7 @@ async function main(): Promise<number> {
           E2E_SHOTS: shots,
           E2E_UD: profile,
           E2E_TIMEOUT_MS: process.env.E2E_TIMEOUT_MS || "1800000",
-          // Control Studio journals its operations in $XDG_STATE_HOME/trust (specification 35, A8.3): each session has its own.
-          XDG_STATE_HOME: path.join(scratch, `state-${session.name}`),
+          XDG_STATE_HOME: state,
           XDG_DATA_HOME: data,
           ...(runtime?.pid ? { E2E_RUNTIME_PID: String(runtime.pid) } : {}),
         },

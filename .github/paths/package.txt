@@ -9,4 +9,6 @@ libraries/**
 Cargo.toml
 Cargo.lock
 rust-toolchain.toml
+# The deployment notes and unit file the runtime archives carry.
+docs/deploy/**
 .cargo/**

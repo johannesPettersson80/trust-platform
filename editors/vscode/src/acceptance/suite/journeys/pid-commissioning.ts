@@ -5,7 +5,9 @@
 // README's walkthrough quotes these results. A step that does not reach its result fails the journey.
 import * as cdp from "../cdp";
 import { assertNoFailedStep, expect, open, Session, step } from "../session";
-import { enterRequirements, identify, message, openStudio, press, requirements, startSimulator, tab, visible } from "../studio";
+import {
+  enterRequirements, expectVerdict, identify, message, openStudio, press, requirements, startSimulator, tab, validationRows, visible,
+} from "../studio";
 
 // The setpoint, the temperature and the output as Live Values shows them: each row's name, its address, then its value.
 const liveSignals = String.raw`var t=d.body.innerText;function v(n){var m=t.match(new RegExp(n.replace(/\./g,'\\.')+'\\s+%[A-Z]+[0-9.]+\\s+([-+0-9.eE]+)'));return m?Number(m[1]):null;}return JSON.stringify({setpoint:v('P1.Setpoint'),temperature:v('P1.ProcessValue'),output:v('P1.ManipulatedValue')});`;
@@ -32,13 +34,17 @@ suite("Commissioning the temperature loop in Control Studio", () => {
     await step(s, "tuned", async () => {
       await press(s, studio, "[data-engineer-tune]");
       const result = await cdp.pollValue("the tuning", () => cdp.evalWebview(s.wb, studio, visible("[data-studio-tuning-result]")), Boolean, 300_000);
+      expect(/Meets the requirements/.test(result), `Tune finds a design that meets the requirements: ${result}`);
       return { result, message: await cdp.evalWebview(s.wb, studio, message("tune")) };
     });
     await step(s, "validated", async () => {
       await tab(s, studio, "verify");
       await press(s, studio, "[data-engineer-verify]");
       const table = await cdp.pollValue("the validation", () => cdp.evalWebview(s.wb, studio, visible("[data-studio-validation-result]")), Boolean, 600_000);
-      return { table, message: await cdp.evalWebview(s.wb, studio, message("verify")), controls: JSON.parse(await cdp.evalWebview(s.wb, studio, controls)) };
+      // The README: the candidate and the current settings (Kp 1, Ki 0.2) both meet these requirements.
+      const rows = await validationRows(s, studio);
+      expectVerdict(rows, /./, "pass");
+      return { table, rows, message: await cdp.evalWebview(s.wb, studio, message("verify")), controls: JSON.parse(await cdp.evalWebview(s.wb, studio, controls)) };
     });
     // A physical target asks for a review and its confirmation before Apply and Restore write anything; the Simulator does
     // not (B6.1). The confirmation is pressed when it appears.
@@ -79,7 +85,9 @@ suite("Commissioning the temperature loop in Control Studio", () => {
       expect(restore === "CLICKED", `Restore previous settings is offered: ${restore} (${button})`);
       const review = await confirmIfAsked("restore");
       const answered = await cdp.pollValue("the Restore result", () => cdp.evalWebview(s.wb, studio, message("verify")),
-        (text) => /restor/i.test(text || ""), 120_000).catch((error: Error) => error.message);
+        (text) => /restor|fail|refus/i.test(text || ""), 120_000);
+      expect(/^Previous values restored and observed after ST execution/.test(answered),
+        `Restore puts the previous settings back and observes them: ${answered}`);
       await cdp.sleep(5_000);
       return { review, answered, live: JSON.parse(await cdp.evalWebview(s.wb, live, liveSignals)),
         controls: JSON.parse(await cdp.evalWebview(s.wb, studio, controls)) };

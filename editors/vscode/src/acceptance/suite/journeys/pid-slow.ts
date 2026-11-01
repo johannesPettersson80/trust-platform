@@ -1,9 +1,9 @@
 // The slower-heater "Try it yourself" experiment of the control-pid-commissioning walkthrough: the runner sets the simulated
 // heater's time_constant_s from 4.0 to 8.0 in its copy; the journey starts it, identifies the plant (Automatic), and tunes and
 // validates PI with the walkthrough's own requirements (12 s, 24 s validation). It records what Identify, Tune and Validate
-// show; the README quotes these results.
+// show; the README quotes these results, in which the candidate meets every requirement.
 import { assertNoFailedStep, open, Session, step } from "../session";
-import { identify, openStudio, requirements, startSimulator, tuneAndValidate } from "../studio";
+import { expectCandidatePasses, identify, openStudio, requirements, startSimulator, tuneAndValidate } from "../studio";
 
 suite("Try it yourself: a slower heater", () => {
   let s: Session;
@@ -16,7 +16,11 @@ suite("Try it yourself: a slower heater", () => {
       studio = await openStudio(s);
       return identify(s, studio);
     });
-    await step(s, "twelve-seconds", () => tuneAndValidate(s, studio, requirements("12 s", "24 s")));
+    await step(s, "twelve-seconds", async () => {
+      const result = await tuneAndValidate(s, studio, requirements("12 s", "24 s"));
+      expectCandidatePasses(result.rows);
+      return result;
+    });
     assertNoFailedStep(s);
   });
 });
